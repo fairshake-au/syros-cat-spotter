@@ -69,6 +69,10 @@ describe('Retake photo on the New spot screen', () => {
   it('the back arrow, which also discards the photo, waits for a save too', () => {
     const back = between('onPress={clearPhoto}', 'name="chevron-left"');
     expect(back).toMatch(/disabled=\{submitting\}/);
+    // SYC-415 review: it discards the extras too, so it is never read as
+    // "Retake photo" (the visible Retake button keeps them).
+    expect(back).toMatch(/accessibilityLabel=\{t\('startAgain'\)\}/);
+    expect(back).not.toMatch(/t\('retakePhoto'\)/);
   });
 
   it('no longer shows the old "Add another photo" link', () => {

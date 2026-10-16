@@ -15,6 +15,7 @@ import {
   loadRecentPhotos,
   photoFingerprint,
   recordRecentPhoto,
+  replaceRecentExtraFingerprint,
   uniqueCaptureTime,
   type RecentPhoto,
   type RecentPhotoStorage,
@@ -295,26 +296,29 @@ describe('the review screen links a matched sighting to its cat (C2)', () => {
 });
 
 describe('SYC-415: already logged covers every photo of a spot', () => {
-  it('a sent spot records its extra photos too', () => {
-    expect(entryForOutcome('sent', SECOND, 'F1', { sightingId: 9, isCatPhoto: true }, ['F2', 'F3'])).toEqual({
+  const F2 = { role: 'face' as const, fingerprint: 'F2' };
+  const F3 = { role: 'body' as const, fingerprint: 'F3' };
+
+  it('a sent spot records its extra photos too, with their roles', () => {
+    expect(entryForOutcome('sent', SECOND, 'F1', { sightingId: 9, isCatPhoto: true }, [F2, F3])).toEqual({
       capturedAtMs: SECOND,
       sightingId: 9,
       fingerprint: 'F1',
-      extraFingerprints: ['F2', 'F3'],
+      extraFingerprints: [F2, F3],
     });
   });
 
   it('a saved-for-later spot records its extra photos too', () => {
-    expect(entryForOutcome('saved', SECOND, 'F1', { localId: 'L1' }, ['F2'])).toEqual({
+    expect(entryForOutcome('saved', SECOND, 'F1', { localId: 'L1' }, [F2])).toEqual({
       capturedAtMs: SECOND,
       fingerprint: 'F1',
       localId: 'L1',
-      extraFingerprints: ['F2'],
+      extraFingerprints: [F2],
     });
   });
 
   it('a spot the server said is not a cat keeps no fingerprints at all (review M5)', () => {
-    expect(entryForOutcome('sent', SECOND, 'F1', { sightingId: 9, isCatPhoto: false }, ['F2', 'F3'])).toEqual({
+    expect(entryForOutcome('sent', SECOND, 'F1', { sightingId: 9, isCatPhoto: false }, [F2, F3])).toEqual({
       capturedAtMs: SECOND,
       sightingId: 9,
     });
@@ -330,7 +334,7 @@ describe('SYC-415: already logged covers every photo of a spot', () => {
 
   it('finds an extra photo picked again later, as a first photo or an extra', async () => {
     const { storage } = memoryStorage();
-    const entry = entryForOutcome('sent', SECOND, 'F1', { sightingId: 9, isCatPhoto: true }, ['F2', 'F3'])!;
+    const entry = entryForOutcome('sent', SECOND, 'F1', { sightingId: 9, isCatPhoto: true }, [F2, F3])!;
     await recordRecentPhoto(storage, entry, NOW);
     const list = await loadRecentPhotos(storage, NOW);
     expect(findAlreadyLogged('F3', list, new Set())).toEqual(entry);
@@ -338,16 +342,58 @@ describe('SYC-415: already logged covers every photo of a spot', () => {
     expect(findAlreadyLogged('F9', list, new Set())).toBeNull();
   });
 
-  it('drops an extraFingerprints that is not a list of strings', async () => {
+  it('drops an extraFingerprints that is not a list of role + fingerprint pairs', async () => {
     const { storage } = memoryStorage({
       [RECENT_PHOTOS_KEY]: JSON.stringify([
         { capturedAtMs: SECOND, sightingId: 1, extraFingerprints: 'F2' },
-        { capturedAtMs: SECOND + 1, sightingId: 2, extraFingerprints: ['F2', 3] },
-        { capturedAtMs: SECOND + 2, sightingId: 3, extraFingerprints: ['F4'] },
+        { capturedAtMs: SECOND + 1, sightingId: 2, extraFingerprints: ['F2'] },
+        { capturedAtMs: SECOND + 2, sightingId: 3, extraFingerprints: [{ role: 'tail', fingerprint: 'F2' }] },
+        { capturedAtMs: SECOND + 3, sightingId: 4, extraFingerprints: [{ role: 'body', fingerprint: 'F4' }] },
       ]),
     });
     const list = await loadRecentPhotos(storage, NOW);
-    expect(list.map((e) => e.extraFingerprints)).toEqual([undefined, undefined, ['F4']]);
+    expect(list.map((e) => e.extraFingerprints)).toEqual([undefined, undefined, undefined, [{ role: 'body', fingerprint: 'F4' }]]);
     expect(findAlreadyLogged('F2', list, new Set())).toBeNull();
+  });
+});
+
+describe('SYC-415 review: fixing a refused extra on a waiting spot updates "already logged"', () => {
+  const F2 = { role: 'face' as const, fingerprint: 'F2' };
+  const F3 = { role: 'body' as const, fingerprint: 'F3' };
+
+  it('removing an extra forgets its fingerprint, so the photo can be used again', async () => {
+    const { storage } = memoryStorage();
+    await recordRecentPhoto(storage, entryForOutcome('saved', SECOND, 'F1', { localId: 'L1' }, [F2, F3])!, NOW);
+    await replaceRecentExtraFingerprint(storage, 'L1', 'face', null, NOW);
+    const list = await loadRecentPhotos(storage, NOW);
+    expect(list[0].extraFingerprints).toEqual([F3]);
+    expect(findAlreadyLogged('F2', list, new Set(['L1']))).toBeNull();
+    expect(findAlreadyLogged('F3', list, new Set(['L1']))).not.toBeNull();
+  });
+
+  it('replacing an extra records the new photo in its place', async () => {
+    const { storage } = memoryStorage();
+    await recordRecentPhoto(storage, entryForOutcome('saved', SECOND, 'F1', { localId: 'L1' }, [F2])!, NOW);
+    await replaceRecentExtraFingerprint(storage, 'L1', 'face', 'F9', NOW);
+    const list = await loadRecentPhotos(storage, NOW);
+    expect(list[0].extraFingerprints).toEqual([{ role: 'face', fingerprint: 'F9' }]);
+    expect(findAlreadyLogged('F2', list, new Set(['L1']))).toBeNull();
+    expect(findAlreadyLogged('F9', list, new Set(['L1']))).not.toBeNull();
+  });
+
+  it('removing the last extra drops the key; other spots are untouched; never throws', async () => {
+    const { storage } = memoryStorage();
+    await recordRecentPhoto(storage, entryForOutcome('saved', SECOND, 'F1', { localId: 'L1' }, [F2])!, NOW);
+    await recordRecentPhoto(storage, entryForOutcome('saved', SECOND + 5, 'G1', { localId: 'L2' }, [{ role: 'face', fingerprint: 'G2' }])!, NOW);
+    await replaceRecentExtraFingerprint(storage, 'L1', 'face', null, NOW);
+    const list = await loadRecentPhotos(storage, NOW);
+    expect('extraFingerprints' in list[0]).toBe(false);
+    expect(list[1].extraFingerprints).toEqual([{ role: 'face', fingerprint: 'G2' }]);
+    const broken = {
+      getItem: async () => { throw new Error('x'); },
+      setItem: async () => { throw new Error('x'); },
+      removeItem: async () => {},
+    };
+    await expect(replaceRecentExtraFingerprint(broken, 'L1', 'face', null, NOW)).resolves.toBeUndefined();
   });
 });

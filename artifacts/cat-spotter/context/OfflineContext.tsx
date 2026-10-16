@@ -85,6 +85,8 @@ export type EnqueueInput = Omit<
  */
 export interface EnqueueResult {
   extraNotKept: boolean;
+  /** The extra photos that WERE kept, so only those count as logged. */
+  keptRoles: ExtraRole[];
 }
 
 export interface ReplacementPhoto {
@@ -717,7 +719,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         for (const ref of extraRefs) deletePendingPhoto(ref.photoUri).catch(() => {});
         throw err;
       }
-      return { extraNotKept };
+      return { extraNotKept, keptRoles: extraRefs.map((r) => r.role) };
     },
     [store],
   );

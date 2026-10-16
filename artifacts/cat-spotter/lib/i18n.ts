@@ -430,6 +430,10 @@ const en: Dict = {
   extraPhotoRejected: 'Your {which} photo couldn’t be used.',
   whichFace: 'face',
   whichBody: 'whole body',
+  startAgain: 'Start again',
+  removeFaceA11y: 'Remove the face photo',
+  removeBodyA11y: 'Remove the whole body photo',
+  extraRemovedDuplicate: 'Your {which} photo was the same photo as your new one, so we took it out.',
   // Data spine PR 7 (SYC-37, SYC-74): the optional questions after the points.
   questionsHeading: 'Tell us a bit more (optional)',
   earTipQuestion: 'One quick thing: is {name}’s ear tip clipped?',
@@ -1096,6 +1100,10 @@ const el: Dict = {
   extraPhotoRejected: 'Η φωτογραφία {which} δεν μπόρεσε να χρησιμοποιηθεί.',
   whichFace: 'του προσώπου',
   whichBody: 'ολόκληρου του σώματος',
+  startAgain: 'Ξεκίνα από την αρχή',
+  removeFaceA11y: 'Αφαίρεσε τη φωτογραφία του προσώπου',
+  removeBodyA11y: 'Αφαίρεσε τη φωτογραφία ολόκληρου του σώματος',
+  extraRemovedDuplicate: 'Η φωτογραφία {which} ήταν ίδια με τη νέα σου φωτογραφία, οπότε την αφαιρέσαμε.',
   // Data spine PR 7 (SYC-37, SYC-74): needs native review (SYC-4).
   questionsHeading: 'Πες μας λίγα ακόμα (προαιρετικά)',
   earTipQuestion: 'Κάτι γρήγορο: είναι κομμένη η άκρη στο αυτί της γάτας {name};',
@@ -1740,6 +1748,10 @@ const fr: Dict = {
   extraPhotoRejected: 'Ta photo {which} n’a pas pu être utilisée.',
   whichFace: 'du visage',
   whichBody: 'du corps entier',
+  startAgain: 'Recommencer',
+  removeFaceA11y: 'Retirer la photo du visage',
+  removeBodyA11y: 'Retirer la photo du corps entier',
+  extraRemovedDuplicate: 'Ta photo {which} était la même que ta nouvelle photo, alors on l’a retirée.',
   // Data spine PR 7 (SYC-37, SYC-74): needs native review (SYC-4).
   questionsHeading: 'Dis-nous-en un peu plus (facultatif)',
   earTipQuestion: 'Une petite chose : le bout de l’oreille de {name} est-il coupé ?',

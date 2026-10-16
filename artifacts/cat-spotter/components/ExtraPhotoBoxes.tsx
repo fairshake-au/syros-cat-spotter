@@ -20,10 +20,10 @@ interface ExtraPhotoBoxesProps {
 
 const COPY: Record<
   ExtraRole,
-  { label: string; emptyA11y: string; addedA11y: string }
+  { label: string; emptyA11y: string; addedA11y: string; removeA11y: string }
 > = {
-  face: { label: 'addFace', emptyA11y: 'addFaceA11y', addedA11y: 'faceAddedA11y' },
-  body: { label: 'addBody', emptyA11y: 'addBodyA11y', addedA11y: 'bodyAddedA11y' },
+  face: { label: 'addFace', emptyA11y: 'addFaceA11y', addedA11y: 'faceAddedA11y', removeA11y: 'removeFaceA11y' },
+  body: { label: 'addBody', emptyA11y: 'addBodyA11y', addedA11y: 'bodyAddedA11y', removeA11y: 'removeBodyA11y' },
 };
 
 /**
@@ -128,7 +128,7 @@ function ExtraBox({
             onPress={disabled ? undefined : () => onRemove(role)}
             disabled={disabled}
             accessibilityRole="button"
-            accessibilityLabel={`${t('removePhoto')}: ${t(copy.label)}`}
+            accessibilityLabel={t(copy.removeA11y)}
             accessibilityState={{ disabled }}
             style={[styles.remove, { backgroundColor: colors.card, borderColor: colors.border }]}
           >

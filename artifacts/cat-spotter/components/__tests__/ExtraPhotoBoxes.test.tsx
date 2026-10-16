@@ -103,6 +103,8 @@ describe('ExtraPhotoBoxes', () => {
     const face = byId(container, 'extra-box-face')!;
     expect(face.getAttribute('aria-label')).toBe('faceAddedA11y');
     expect(face.querySelector('img')?.getAttribute('src')).toBe('blob:face');
+    // Read as "Remove the face photo", never "Remove: Add the face".
+    expect(byId(container, 'extra-face-remove')!.getAttribute('aria-label')).toBe('removeFaceA11y');
     fireEvent.click(byId(container, 'extra-face-remove')!);
     expect(props.onRemove).toHaveBeenCalledWith('face');
     // The other box is still empty.
@@ -148,6 +150,7 @@ describe('ExtraPhotoBoxes', () => {
       'removePhoto', 'extraDifferentVisit', 'extraRemovedAfterRetake', 'extraDuplicate',
       'extraTooLarge', 'extraMissingNote', 'extraNotKeptNote', 'extraPhotoRejected',
       'whichFace', 'whichBody', 'spotTooLarge',
+      'startAgain', 'removeFaceA11y', 'removeBodyA11y', 'extraRemovedDuplicate',
     ];
     for (const lang of ['en', 'el', 'fr'] as const) {
       for (const k of keys) expect((TRANSLATIONS as any)[lang][k], `${lang}.${k}`).toBeTruthy();
@@ -157,6 +160,9 @@ describe('ExtraPhotoBoxes', () => {
       expect((TRANSLATIONS as any)[lang].extraDifferentVisit).toContain('{when}');
       expect((TRANSLATIONS as any)[lang].extraRemovedAfterRetake).toContain('{which}');
       expect((TRANSLATIONS as any)[lang].extraPhotoRejected).toContain('{which}');
+      expect((TRANSLATIONS as any)[lang].extraRemovedDuplicate).toContain('{which}');
+      // The back arrow throws the whole spot away: it must not be read as "Retake photo".
+      expect((TRANSLATIONS as any)[lang].startAgain).not.toBe((TRANSLATIONS as any)[lang].retakePhoto);
     }
   });
 });

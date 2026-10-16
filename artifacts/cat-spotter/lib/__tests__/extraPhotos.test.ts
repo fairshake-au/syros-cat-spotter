@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SAME_VISIT_MS, checkExtraCandidate, coverRole, fitsRequestBudget, recheckAfterRetake, withinSameVisit } from '../extraPhotos';
+import { SAME_VISIT_MS, checkExtraCandidate, coverExtra, coverRole, fitsRequestBudget, photosInUse, recheckAfterRetake, withinSameVisit } from '../extraPhotos';
 
 const p = (fingerprint: string, takenAtMs: number | null, base64 = 'x') => ({ uri: `u-${fingerprint}`, base64, fingerprint, takenAtMs });
 const T = Date.UTC(2026, 9, 15, 10, 0);
@@ -48,8 +48,8 @@ describe('recheckAfterRetake', () => {
     const newFirst = p('n', T + 5 * 3_600_000);
     const r = recheckAfterRetake(newFirst, { face: p('f', T), body: p('b', T + 4.5 * 3_600_000) });
     expect(Object.keys(r.kept)).toEqual(['body']);
-    expect(r.removed).toEqual([{ role: 'face', takenAtMs: T }]);
-    expect(recheckAfterRetake(p('b', T), { body: p('b', T) }).removed).toEqual([{ role: 'body', takenAtMs: T }]);
+    expect(r.removed).toEqual([{ role: 'face', takenAtMs: T, reason: 'differentVisit' }]);
+    expect(recheckAfterRetake(p('b', T), { body: p('b', T) }).removed).toEqual([{ role: 'body', takenAtMs: T, reason: 'duplicate' }]);
   });
 });
 
@@ -58,5 +58,27 @@ describe('fitsRequestBudget', () => {
     const mb = (n: number) => 'a'.repeat(n * 1024 * 1024);
     expect(fitsRequestBudget(mb(15), [mb(1), mb(1)])).toBe(true);
     expect(fitsRequestBudget(mb(15), [mb(2), mb(2)])).toBe(false);
+  });
+});
+
+describe('photosInUse (review: the one place the switch filters what is sent)', () => {
+  const face = p('f', T);
+  const body = p('b', T);
+  it('is every extra, face first, while the switch is on', () => {
+    expect(photosInUse({ body, face }, true)).toEqual([{ role: 'face', photo: face }, { role: 'body', photo: body }]);
+    expect(photosInUse({ body }, true)).toEqual([{ role: 'body', photo: body }]);
+    expect(photosInUse({}, true)).toEqual([]);
+  });
+  it('is nothing while the switch is off, whatever is held', () => {
+    expect(photosInUse({ face, body }, false)).toEqual([]);
+  });
+});
+
+describe('coverExtra', () => {
+  it('is the face photo in use, else null (the first photo is the cover)', () => {
+    const face = p('f', T);
+    expect(coverExtra(photosInUse({ face, body: p('b', T) }, true))).toBe(face);
+    expect(coverExtra(photosInUse({ body: p('b', T) }, true))).toBeNull();
+    expect(coverExtra(photosInUse({ face }, false))).toBeNull();
   });
 });

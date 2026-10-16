@@ -182,7 +182,7 @@ describe('queueing a three-photo spot', () => {
   it('stores every photo outside the list, with refs and no base64 in it', async () => {
     const { ctx } = await mountLoaded();
     await act(async () => {
-      await ctx.current.enqueue(threePhotoSpot('S'));
+      expect(await ctx.current.enqueue(threePhotoSpot('S'))).toEqual({ extraNotKept: false, keptRoles: ['face', 'body'] });
     });
     const [item] = saved();
     expect(item.photoUri).toBe('idb:S');
@@ -207,7 +207,7 @@ describe('queueing a three-photo spot', () => {
     expect(item.photoUri).toBe('idb:S');
     expect(extrasOf(item)).toEqual([{ role: 'body', photoUri: 'idb:S-body' }]);
     expect(item.extraNote).toBe('extraNotKept');
-    expect(result).toEqual({ extraNotKept: true });
+    expect(result).toEqual({ extraNotKept: true, keptRoles: ['body'] });
     expect(storage.get(QUEUE_KEY)).not.toContain(b64('face-S'));
   });
 

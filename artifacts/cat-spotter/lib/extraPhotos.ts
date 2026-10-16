@@ -70,6 +70,13 @@ export function checkExtraCandidate(input: {
   return null;
 }
 
+/** An extra taken out after a retake, and why (each reason has its own message). */
+export interface RemovedExtra {
+  role: ExtraRole;
+  takenAtMs: number | null;
+  reason: 'duplicate' | 'differentVisit';
+}
+
 /**
  * After the first photo is retaken, keep the extras that still fit and remove
  * the ones that are from a different visit or repeat the new first photo
@@ -78,14 +85,16 @@ export function checkExtraCandidate(input: {
 export function recheckAfterRetake(
   first: SpotPhoto,
   extras: Partial<Record<ExtraRole, SpotPhoto>>,
-): { kept: Partial<Record<ExtraRole, SpotPhoto>>; removed: { role: ExtraRole; takenAtMs: number | null }[] } {
+): { kept: Partial<Record<ExtraRole, SpotPhoto>>; removed: RemovedExtra[] } {
   const kept: Partial<Record<ExtraRole, SpotPhoto>> = {};
-  const removed: { role: ExtraRole; takenAtMs: number | null }[] = [];
+  const removed: RemovedExtra[] = [];
   for (const role of ['face', 'body'] as const) {
     const extra = extras[role];
     if (!extra) continue;
-    if (extra.fingerprint === first.fingerprint || !withinSameVisit(first.takenAtMs, extra.takenAtMs)) {
-      removed.push({ role, takenAtMs: extra.takenAtMs });
+    if (extra.fingerprint === first.fingerprint) {
+      removed.push({ role, takenAtMs: extra.takenAtMs, reason: 'duplicate' });
+    } else if (!withinSameVisit(first.takenAtMs, extra.takenAtMs)) {
+      removed.push({ role, takenAtMs: extra.takenAtMs, reason: 'differentVisit' });
     } else {
       kept[role] = extra;
     }
@@ -97,4 +106,32 @@ export function recheckAfterRetake(
 export function fitsRequestBudget(firstBase64: string, extrasBase64: string[]): boolean {
   const total = extrasBase64.reduce((sum, b) => sum + b.length, firstBase64.length);
   return total <= REQUEST_BUDGET_BASE64_CHARS;
+}
+
+/** One extra photo actually in use in the spot. */
+export interface InUseExtra {
+  role: ExtraRole;
+  photo: SpotPhoto;
+}
+
+/**
+ * The extra photos actually in use, face first: every one held while the
+ * switch is on, and none while it is off (the boxes are hidden then, and
+ * nothing hidden is ever sent). The ONLY source for the payload, the queue
+ * item, the cover photo and the remembered fingerprints.
+ */
+export function photosInUse(
+  extras: Partial<Record<ExtraRole, SpotPhoto>>,
+  switchOn: boolean,
+): InUseExtra[] {
+  if (!switchOn) return [];
+  return (['face', 'body'] as const).flatMap((role) => {
+    const photo = extras[role];
+    return photo ? [{ role, photo }] : [];
+  });
+}
+
+/** The face photo in use, which is the cover (spec §5.1); null means the first photo is. */
+export function coverExtra(inUse: InUseExtra[]): SpotPhoto | null {
+  return inUse.find((e) => e.role === 'face')?.photo ?? null;
 }

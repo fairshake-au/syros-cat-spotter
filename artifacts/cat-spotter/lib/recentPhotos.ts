@@ -25,6 +25,17 @@ const RECENT_PHOTOS_MAX_AGE_MS = 30 * 86_400_000;
 /** The first 64 KB of the photo, as base64 characters. */
 const FINGERPRINT_CHARS = Math.ceil((64 * 1024) / 3) * 4;
 
+export interface ExtraFingerprint {
+  role: 'face' | 'body';
+  fingerprint: string;
+}
+
+function isExtraFingerprint(v: unknown): v is ExtraFingerprint {
+  if (!v || typeof v !== 'object') return false;
+  const e = v as Record<string, unknown>;
+  return (e.role === 'face' || e.role === 'body') && typeof e.fingerprint === 'string' && e.fingerprint.length > 0;
+}
+
 export interface RecentPhoto {
   capturedAtMs: number;
   /**
@@ -35,9 +46,11 @@ export interface RecentPhoto {
   fingerprint?: string;
   /**
    * SYC-415: the spot's extra photos (face, body), so any of them picked
-   * again later gets "You've already logged this photo" (spec §4.3).
+   * again later gets "You've already logged this photo" (spec §4.3). Kept
+   * with their role, so fixing a refused extra on a waiting spot can drop or
+   * replace just that one.
    */
-  extraFingerprints?: string[];
+  extraFingerprints?: ExtraFingerprint[];
   /** A saved-for-later card. */
   localId?: string;
   sightingId?: number;
@@ -74,9 +87,12 @@ function clean(value: unknown): RecentPhoto | null {
   if (
     Array.isArray(v.extraFingerprints) &&
     v.extraFingerprints.length > 0 &&
-    v.extraFingerprints.every((f) => typeof f === 'string')
+    v.extraFingerprints.every(isExtraFingerprint)
   ) {
-    out.extraFingerprints = v.extraFingerprints as string[];
+    out.extraFingerprints = (v.extraFingerprints as ExtraFingerprint[]).map((e) => ({
+      role: e.role,
+      fingerprint: e.fingerprint,
+    }));
   }
   if (typeof v.localId === 'string') out.localId = v.localId;
   if (typeof v.sightingId === 'number' && Number.isInteger(v.sightingId)) out.sightingId = v.sightingId;
@@ -150,6 +166,36 @@ export async function linkRecentPhotoToCat(
   if (changed) await save(storage, next);
 }
 
+/**
+ * SYC-415 review: a refused extra photo on a waiting spot was removed (`null`)
+ * or replaced (the new photo's fingerprint). Update that spot's entry, found
+ * by its localId, so a removed photo can be used again and the replacement
+ * counts as logged. Never throws.
+ */
+export async function replaceRecentExtraFingerprint(
+  storage: RecentPhotoStorage,
+  localId: string,
+  role: 'face' | 'body',
+  fingerprint: string | null,
+  now: number,
+): Promise<void> {
+  try {
+    const list = await loadRecentPhotos(storage, now);
+    let changed = false;
+    const next = list.map((e) => {
+      if (e.localId !== localId) return e;
+      changed = true;
+      const others = (e.extraFingerprints ?? []).filter((x) => x.role !== role);
+      const extras = fingerprint ? [...others, { role, fingerprint }] : others;
+      const { extraFingerprints: _old, ...rest } = e;
+      return extras.length > 0 ? { ...rest, extraFingerprints: extras } : rest;
+    });
+    if (changed) await save(storage, next);
+  } catch {
+    // Losing this only loses the same-photo check for that one photo.
+  }
+}
+
 /** Delete my data. */
 export async function clearRecentPhotos(storage: RecentPhotoStorage): Promise<void> {
   await storage.removeItem(RECENT_PHOTOS_KEY);
@@ -178,9 +224,9 @@ export function entryForOutcome(
   capturedAtMs: number,
   fingerprint: string | undefined,
   info: { sightingId?: number; isCatPhoto?: boolean; localId?: string },
-  extraFingerprints: string[] = [],
+  extraFingerprints: ExtraFingerprint[] = [],
 ): RecentPhoto | null {
-  const extras = extraFingerprints.filter((f) => typeof f === 'string' && f.length > 0);
+  const extras = extraFingerprints.filter(isExtraFingerprint);
   if (kind === 'sent') {
     const entry: RecentPhoto = { capturedAtMs };
     if (info.sightingId !== undefined) entry.sightingId = info.sightingId;
@@ -212,7 +258,12 @@ export function findAlreadyLogged(
 ): RecentPhoto | null {
   for (let i = list.length - 1; i >= 0; i--) {
     const e = list[i];
-    if (e.fingerprint !== fingerprint && !e.extraFingerprints?.includes(fingerprint)) continue;
+    if (
+      e.fingerprint !== fingerprint &&
+      !e.extraFingerprints?.some((x) => x.fingerprint === fingerprint)
+    ) {
+      continue;
+    }
     if (e.sightingId !== undefined || e.catId !== undefined) return e;
     if (e.localId !== undefined && pendingLocalIds.has(e.localId)) return e;
   }

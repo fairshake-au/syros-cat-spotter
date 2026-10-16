@@ -97,14 +97,16 @@ import {
   loadRecentPhotos,
   photoFingerprint,
   recordRecentPhoto,
+  replaceRecentExtraFingerprint,
   uniqueCaptureTime,
   type AlreadyLoggedDestination,
 } from '@/lib/recentPhotos';
 import { queuedSighting, sightingRequest } from '@/lib/sightingPayload';
 import {
   checkExtraCandidate,
-  coverRole,
+  coverExtra,
   fitsRequestBudget,
+  photosInUse,
   recheckAfterRetake,
   type ExtraProblem,
   type ExtraRole,
@@ -216,6 +218,12 @@ export default function SpotScreen() {
     },
     [],
   );
+  // SYC-415 review: which on-screen spot this is. Bumped whenever the first
+  // photo is set or cleared, and when a send starts, so a photo still being
+  // picked or prepared for an earlier spot is never attached to this one.
+  const spotGenerationRef = React.useRef(0);
+  // True while an extra photo is being prepared: the boxes are disabled.
+  const [preparingExtra, setPreparingExtra] = useState(false);
   const [photoProblem, setPhotoProblem] = useState<PhotoProblem | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [optimizingUpload, setOptimizingUpload] = useState(false);
@@ -232,6 +240,13 @@ export default function SpotScreen() {
   // Bumped when a submit ends, so a card still being chosen never appears late.
   const waitTokenRef = React.useRef(0);
   const { settings: matchWaitSettings, noteSent } = useAppSettings();
+  // SYC-415 review: with the switch off the boxes are hidden, so no extra
+  // photo is kept at all (nothing hidden can be sent, or come back later).
+  React.useEffect(() => {
+    if (!matchWaitSettings.extraPhotosOn && Object.keys(extrasRef.current).length > 0) {
+      setExtras({});
+    }
+  }, [matchWaitSettings.extraPhotosOn, setExtras]);
   // One submit at a time, checked before any re-render could disable the
   // button: a double tap must not queue a sighting twice.
   const submitOnce = React.useRef(createSingleFlight()).current;
@@ -369,6 +384,7 @@ export default function SpotScreen() {
     fingerprint: string,
     takenAtMs: number | null,
   ) => {
+    spotGenerationRef.current += 1;
     setPhoto(next);
     setPhotoTime(timeInfo);
     photoFingerprintRef.current = fingerprint;
@@ -376,7 +392,10 @@ export default function SpotScreen() {
     // As before: the photo's own time when it has one, otherwise now.
     setCapturedAt(new Date(takenAtMs ?? Date.now()).toISOString());
     const current = extrasRef.current;
-    if (Object.keys(current).length > 0) {
+    if (!matchWaitSettings.extraPhotosOn) {
+      // The boxes are hidden: nothing to re-check, nothing to say.
+      if (Object.keys(current).length > 0) setExtras({});
+    } else if (Object.keys(current).length > 0) {
       const { kept, removed } = recheckAfterRetake(
         { uri: next.uri, base64: next.base64, fingerprint, takenAtMs },
         current,
@@ -384,7 +403,7 @@ export default function SpotScreen() {
       setExtras(kept);
       for (const r of removed) {
         notify(
-          t('extraRemovedAfterRetake').replace(
+          t(r.reason === 'duplicate' ? 'extraRemovedDuplicate' : 'extraRemovedAfterRetake').replace(
             '{which}',
             t(r.role === 'face' ? 'whichFace' : 'whichBody'),
           ),
@@ -399,6 +418,7 @@ export default function SpotScreen() {
    * photos are KEPT, and re-checked when the new first photo arrives.
    */
   const retakeFirstPhoto = () => {
+    spotGenerationRef.current += 1;
     setPhoto(null);
     setCapturedAt(null);
     setPhotoTime(null);
@@ -661,56 +681,78 @@ export default function SpotScreen() {
    */
   const addExtra = async (role: ExtraRole, from: 'camera' | 'library') => {
     if (!photo) return;
+    // The spot this photo is for. If it is retaken, discarded or sent while
+    // the photo is being picked or prepared, the photo is let go, never
+    // attached to whatever spot is on screen by then.
+    const generation = spotGenerationRef.current;
+    const stale = () => spotGenerationRef.current !== generation;
     const picked = await choosePhoto(from === 'camera');
     if (!picked) return;
-    const prepared = await prepareExtraPhoto(picked.photo.uri);
-    if (prepared?.uri !== picked.photo.uri) releasePhotoUri(picked.photo.uri);
-    if (!prepared) {
-      notify(t('extraTooLarge'));
+    if (stale()) {
+      releasePhotoUri(picked.photo.uri);
       return;
     }
-    const { timeInfo } = picked;
-    const candidate: SpotPhoto = {
-      ...prepared,
-      // Always the ORIGINAL photo's fingerprint, never the prepared copy's,
-      // so the same library photo picked again later is recognised.
-      fingerprint: picked.fingerprint,
-      takenAtMs:
-        timeInfo.kind === 'ok' ? timeInfo.instantMs : from === 'camera' ? Date.now() : null,
-    };
-    const refuse = (problem: ExtraProblem) => {
-      releasePhotoUri(candidate.uri);
-      notify(extraProblemMessage(problem));
-    };
-    const logged = findAlreadyLogged(
-      picked.fingerprint,
-      await loadRecentPhotos(AsyncStorage, Date.now()),
-      new Set(pending.map((p) => p.localId)),
-    );
-    const current = extrasRef.current;
-    const otherRole: ExtraRole = role === 'face' ? 'body' : 'face';
-    const problem = checkExtraCandidate({
-      candidate,
-      first: {
-        uri: photo.uri,
-        base64: photo.base64,
-        fingerprint: photoFingerprintRef.current ?? '',
-        takenAtMs: firstTakenAtMs,
-      },
-      otherExtra: current[otherRole],
-      alreadyLogged: logged !== null,
-      tooOld: timeInfo.kind === 'tooOld' ? { instantMs: timeInfo.instantMs } : null,
-    });
-    if (problem) {
-      refuse(problem);
-      return;
+    setPreparingExtra(true);
+    try {
+      const prepared = await prepareExtraPhoto(picked.photo.uri);
+      if (prepared?.uri !== picked.photo.uri) releasePhotoUri(picked.photo.uri);
+      if (stale()) {
+        releasePhotoUri(prepared?.uri);
+        return;
+      }
+      if (!prepared) {
+        notify(t('extraTooLarge'));
+        return;
+      }
+      const { timeInfo } = picked;
+      const candidate: SpotPhoto = {
+        ...prepared,
+        // Always the ORIGINAL photo's fingerprint, never the prepared copy's,
+        // so the same library photo picked again later is recognised.
+        fingerprint: picked.fingerprint,
+        takenAtMs:
+          timeInfo.kind === 'ok' ? timeInfo.instantMs : from === 'camera' ? Date.now() : null,
+      };
+      const refuse = (problem: ExtraProblem) => {
+        releasePhotoUri(candidate.uri);
+        notify(extraProblemMessage(problem));
+      };
+      const logged = findAlreadyLogged(
+        picked.fingerprint,
+        await loadRecentPhotos(AsyncStorage, Date.now()),
+        new Set(pending.map((p) => p.localId)),
+      );
+      if (stale()) {
+        releasePhotoUri(candidate.uri);
+        return;
+      }
+      const current = extrasRef.current;
+      const otherRole: ExtraRole = role === 'face' ? 'body' : 'face';
+      const problem = checkExtraCandidate({
+        candidate,
+        first: {
+          uri: photo.uri,
+          base64: photo.base64,
+          fingerprint: photoFingerprintRef.current ?? '',
+          takenAtMs: firstTakenAtMs,
+        },
+        otherExtra: current[otherRole],
+        alreadyLogged: logged !== null,
+        tooOld: timeInfo.kind === 'tooOld' ? { instantMs: timeInfo.instantMs } : null,
+      });
+      if (problem) {
+        refuse(problem);
+        return;
+      }
+      const others = current[otherRole] ? [current[otherRole]!.base64] : [];
+      if (!fitsRequestBudget(photo.base64, [...others, candidate.base64])) {
+        refuse({ kind: 'tooLarge' });
+        return;
+      }
+      setExtras({ ...extrasRef.current, [role]: candidate });
+    } finally {
+      setPreparingExtra(false);
     }
-    const others = current[otherRole] ? [current[otherRole]!.base64] : [];
-    if (!fitsRequestBudget(photo.base64, [...others, candidate.base64])) {
-      refuse({ kind: 'tooLarge' });
-      return;
-    }
-    setExtras({ ...extrasRef.current, [role]: candidate });
   };
 
   const removeExtra = (role: ExtraRole) => {
@@ -720,7 +762,19 @@ export default function SpotScreen() {
   };
 
   /**
+   * SYC-415: remove the extra photo the server refused (or one of a spot too
+   * large to send) from a waiting spot. Its fingerprint is forgotten, so the
+   * photo can be used again (review item 10).
+   */
+  const removeRejectedExtra = async (localId: string, role: ExtraRole) => {
+    await removeExtraPhoto(localId, role);
+    await replaceRecentExtraFingerprint(AsyncStorage, localId, role, null, Date.now());
+  };
+
+  /**
    * SYC-415: replace the extra photo the server refused on a waiting spot.
+   * This changes the queued spot, not the one on screen: the queue re-reads
+   * the spot and does nothing if it is no longer refused.
    * Prepared like any extra; one that can't be is refused here.
    */
   const replaceRejectedExtra = async (
@@ -741,6 +795,8 @@ export default function SpotScreen() {
         photoBase64: prepared.base64,
         photoUri: prepared.uri,
       });
+      // The new photo counts as logged in the old one's place.
+      await replaceRecentExtraFingerprint(AsyncStorage, localId, role, picked.fingerprint, Date.now());
     } catch (err) {
       reportSaveFailure(await describeSaveFailure(err, durablePhotos));
     } finally {
@@ -791,6 +847,8 @@ export default function SpotScreen() {
       if (!photo || !finalCoords || !deviceId) return;
       // The busy flag covers the offline branch too.
       setSubmitting(true);
+      // A photo still being picked for the boxes must not join this spot.
+      spotGenerationRef.current += 1;
       try {
         // Two different photos from the same second would otherwise be one
         // sighting to the server (SYC-166 Decision 2 B): move this one on by
@@ -808,17 +866,13 @@ export default function SpotScreen() {
         // SYC-415: the face and body photos go only while the boxes are on
         // screen. Turned off meanwhile, the boxes are hidden and nothing
         // hidden is sent.
-        const spotExtras: Partial<Record<ExtraRole, SpotPhoto>> =
-          matchWaitSettings.extraPhotosOn ? extras : {};
-        const extraList = (['face', 'body'] as const).flatMap((role) => {
-          const extra = spotExtras[role];
-          return extra ? [{ role, extra }] : [];
-        });
-        const extraPhotos = extraList.map(({ role, extra }) => ({
+        const inUse = photosInUse(extras, matchWaitSettings.extraPhotosOn);
+        const extraPhotos = inUse.map(({ role, photo: extra }) => ({
           role,
           photoBase64: extra.base64,
         }));
         let extraNotKept = false;
+        let keptRoles: ExtraRole[] = [];
         const outcome = await submitSighting({
           isOnline,
           canSaveForLater: !queueReadOnly,
@@ -850,7 +904,7 @@ export default function SpotScreen() {
                 photo,
                 pin: finalCoords,
                 capturedAt: sightingTime,
-                extras: extraList.map(({ role, extra }) => ({
+                extras: inUse.map(({ role, photo: extra }) => ({
                   role,
                   uri: extra.uri,
                   base64: extra.base64,
@@ -858,6 +912,7 @@ export default function SpotScreen() {
               }),
             ).then((result) => {
               extraNotKept = result.extraNotKept;
+              keptRoles = result.keptRoles;
             }),
           // R5: one bar of signal — the send failed though the phone says
           // it is connected.
@@ -900,11 +955,10 @@ export default function SpotScreen() {
         // Only a send or a save that succeeded is remembered, and a photo
         // the server said is not a cat keeps its time but not its
         // fingerprint, so it can be picked again. SYC-415: the extra photos
-        // too, unless they couldn't be kept with a spot saved for later.
-        const rememberedExtras =
-          outcome.kind === 'saved' && extraNotKept
-            ? []
-            : extraList.map(({ extra }) => extra.fingerprint);
+        // too, except any that couldn't be kept with a spot saved for later.
+        const rememberedExtras = inUse
+          .filter(({ role }) => outcome.kind !== 'saved' || keptRoles.includes(role))
+          .map(({ role, photo: extra }) => ({ role, fingerprint: extra.fingerprint }));
         const remembered = entryForOutcome(
           outcome.kind,
           sightingMs,
@@ -928,8 +982,7 @@ export default function SpotScreen() {
             // a short name — never through the route. If it cannot be kept,
             // the review screen shows a placeholder. SYC-415: it is the spot's
             // cover photo, the face photo when there is one (spec §5.1).
-            const cover =
-              coverRole(spotExtras) === 'face' && spotExtras.face ? spotExtras.face : photo;
+            const cover = coverExtra(inUse) ?? photo;
             const kept = await savePendingPhoto(
               reviewPhotoKey(result.sightingId),
               cover.uri,
@@ -955,7 +1008,7 @@ export default function SpotScreen() {
             clearPhoto();
             notify(
               outcome.reason === 'offline' ? t('queuedOffline') : t('savedForLater'),
-              // SYC-415: the extras couldn't be kept outside the list, so the
+              // SYC-415: the extra photos couldn't be kept outside the list, so the
               // spot waits with its first photo only. Said, not hidden.
               extraNotKept ? t('extraNotKeptNote') : undefined,
             );
@@ -1143,12 +1196,14 @@ export default function SpotScreen() {
                     <Pressable
                       onPress={() =>
                         changeQueue(() =>
-                          removeExtraPhoto(item.localId, item.rejectedRole as ExtraRole),
+                          removeRejectedExtra(item.localId, item.rejectedRole as ExtraRole),
                         )
                       }
                       style={[styles.errorBtn, { backgroundColor: colors.secondary }]}
                       accessibilityRole="button"
-                      accessibilityLabel={t('removePhoto')}
+                      accessibilityLabel={t(
+                        item.rejectedRole === 'face' ? 'removeFaceA11y' : 'removeBodyA11y',
+                      )}
                       testID={`remove-extra-${item.localId}`}
                     >
                       <Feather name="x" size={13} color={colors.secondaryForeground} />
@@ -1172,16 +1227,16 @@ export default function SpotScreen() {
                       <Pressable
                         key={extra.role}
                         onPress={() =>
-                          changeQueue(() => removeExtraPhoto(item.localId, extra.role))
+                          changeQueue(() => removeRejectedExtra(item.localId, extra.role))
                         }
                         style={[styles.errorBtn, { backgroundColor: colors.secondary }]}
                         accessibilityRole="button"
-                        accessibilityLabel={`${t('removePhoto')}: ${t(extra.role === 'face' ? 'addFace' : 'addBody')}`}
+                        accessibilityLabel={t(extra.role === 'face' ? 'removeFaceA11y' : 'removeBodyA11y')}
                         testID={`remove-extra-${extra.role}-${item.localId}`}
                       >
                         <Feather name="x" size={13} color={colors.secondaryForeground} />
                         <Text style={[styles.errorBtnText, { color: colors.secondaryForeground }]}>
-                          {`${t('removePhoto')}: ${t(extra.role === 'face' ? 'whichFace' : 'whichBody')}`}
+                          {t(extra.role === 'face' ? 'removeFaceA11y' : 'removeBodyA11y')}
                         </Text>
                       </Pressable>
                     ))}
@@ -1364,7 +1419,9 @@ export default function SpotScreen() {
               disabled={submitting}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel={t('retakePhoto')}
+              // SYC-415: this throws the whole spot away, extras too, so it
+              // is not "Retake photo" (that button keeps the extras).
+              accessibilityLabel={t('startAgain')}
             >
               <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
             </Pressable>
@@ -1436,7 +1493,7 @@ export default function SpotScreen() {
                 extras={extras}
                 onAdd={(role, from) => void addExtra(role, from)}
                 onRemove={removeExtra}
-                disabled={submitting}
+                disabled={submitting || preparingExtra}
               />
             )}
             {/* SYC-166: only what the photo itself said. Nothing when we did not
