@@ -37,6 +37,17 @@ import { canonicalCats, catTargetWithCanonical } from "../lib/capabilityTargets"
 import { catsInColony } from "../lib/colonyMembership";
 import { guardianCats, guardianCatView } from "../lib/guardianCatView";
 import { publicCatView } from "../lib/publicCat";
+import { z } from "zod";
+import { ObservationRefused } from "../lib/observations";
+import { refuseSignedIn } from "../middlewares/requireTeam";
+import {
+  GUARDIAN_LIFE_STATUSES,
+  guardianPutsBack,
+  guardianSaysLifeStatus,
+  guardianSaysSterilised,
+  myStatementsOnCat,
+} from "../lib/guardianStatements";
+import { myCatPath, renderGuardianProblem } from "../lib/teamPages/guardianPages";
 import { sitesForPerson } from "../lib/teamSites";
 
 // SYC-53 PR 1.3: "My page" and "My colonies" (roles-and-invites.md §2.6, §6.2
@@ -147,13 +158,108 @@ router.get("/team/my/cats/:id", requireTeam(), async (req: Request, res: Respons
     if (!cat) return notFound();
     // The cat's colony's sites: SYC-209's one filter, narrowed to it (SYC-416).
     const sites = await sitesForPerson(person, [target.colonyId]);
-    if (wantsJson(req)) return void res.json({ view: "guardian", cat, sites });
-    return void res.type("html").send(renderGuardianCatPage(person, cat, sites));
+    // Her OWN statements on this cat (PR 2.2): what she may put back, and
+    // where Syros Cats looked again. Nobody else's statements, ever.
+    const mine = await myStatementsOnCat(person.id, canonicalId);
+    if (wantsJson(req)) return void res.json({ view: "guardian", cat, sites, mine });
+    const saved = typeof req.query["saved"] === "string" ? req.query["saved"] : null;
+    return void res
+      .type("html")
+      .send(renderGuardianCatPage(person, cat, sites, undefined, { mine, saved }));
   }
   const cat = await publicCatView(catId);
   if (!cat) return notFound();
   if (wantsJson(req)) return void res.json({ view: "public", cat });
   res.type("html").send(renderPublicCatForGuardian(person, cat));
+});
+
+// ── SYC-53 PR 2.2: what she says about a cat (spec §2.2, §7.2, Q3) ──────────
+//
+// The door is requireTeam with no capability and the dashboard's Origin
+// (formRoute); `set_sterilisation` / `set_life_status` are checked inside,
+// for the cat's colony READ FROM THE RECORD under a lock
+// (lib/guardianStatements.ts). Only the cat's id and her answer are read from
+// the request: a date, role or scope sent along is ignored (Decision G, T23).
+
+const SterilisedBody = z.object({
+  sterilised: z.union([z.enum(["yes", "no"]), z.boolean()]),
+});
+
+const LifeBody = z.union([
+  z.object({
+    putBack: z.union([z.number().int().positive(), z.string().regex(/^\d{1,9}$/)]),
+  }),
+  z.object({
+    status: z.enum(GUARDIAN_LIFE_STATUSES),
+    reason: z.string().trim().min(1).max(200),
+  }),
+]);
+
+/** What a refusal from her statement routes looks like, page or JSON. */
+function refusedStatement(req: Request, res: Response, err: unknown, catId: number): void {
+  if (!(err instanceof ObservationRefused)) throw err;
+  const person = teamPerson(res);
+  req.log.info({ reason: err.code }, "guardian statement refused");
+  if (err.code === "NOT_AUTHORISED") return refuseSignedIn(req, res);
+  if (err.code === "NOT_FOUND") {
+    if (!wantsPage(req)) return void res.status(404).json({ error: "Not found" });
+    return void res.status(404).type("html").send(renderGuardianNotFound(person, "cat"));
+  }
+  const conflict = err.code === "NOT_YOUR_ROW" || err.code === "ALREADY_SUPERSEDED";
+  const status = conflict ? 409 : 400;
+  if (!wantsPage(req)) return void res.status(status).json({ error: conflict ? "not_yours_to_put_back" : "refused" });
+  res
+    .status(status)
+    .type("html")
+    .send(renderGuardianProblem(person, conflict ? "gcat.problem.notYours" : "gcat.problem.choose", catId));
+}
+
+function badBody(req: Request, res: Response, catId: number, key: "gcat.problem.choose" | "gcat.problem.reason"): void {
+  if (!wantsPage(req)) return void res.status(400).json({ error: "Invalid request" });
+  res.status(400).type("html").send(renderGuardianProblem(teamPerson(res), key, catId));
+}
+
+/** POST /api/team/my/cats/:id/sterilisation: "she is sterilised" or "she isn't". */
+router.post("/team/my/cats/:id/sterilisation", ...formRoute(), async (req: Request, res: Response) => {
+  const raw = String(req.params["id"]);
+  if (!ID_RE.test(raw)) return void res.status(404).json({ error: "Not found" });
+  const catId = Number(raw);
+  const parsed = SterilisedBody.safeParse(req.body ?? {});
+  if (!parsed.success) return badBody(req, res, catId, "gcat.problem.choose");
+  const sterilised = parsed.data.sterilised === true || parsed.data.sterilised === "yes";
+  try {
+    const row = await guardianSaysSterilised(teamPerson(res), catId, sterilised);
+    if (!wantsPage(req)) return void res.status(201).json({ statementId: row.id });
+    res.redirect(303, `${myCatPath(catId)}?saved=sterilised`);
+  } catch (err) {
+    refusedStatement(req, res, err, catId);
+  }
+});
+
+/**
+ * POST /api/team/my/cats/:id/life-status: homed, in care or has died, with a
+ * short reason; or `putBack`, the id of her own change to undo (30 days).
+ */
+router.post("/team/my/cats/:id/life-status", ...formRoute(), async (req: Request, res: Response) => {
+  const raw = String(req.params["id"]);
+  if (!ID_RE.test(raw)) return void res.status(404).json({ error: "Not found" });
+  const catId = Number(raw);
+  const parsed = LifeBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    const missingReason = typeof req.body?.status === "string" && !String(req.body?.reason ?? "").trim();
+    return badBody(req, res, catId, missingReason ? "gcat.problem.reason" : "gcat.problem.choose");
+  }
+  try {
+    const person = teamPerson(res);
+    const row =
+      "putBack" in parsed.data
+        ? await guardianPutsBack(person, catId, Number(parsed.data.putBack))
+        : await guardianSaysLifeStatus(person, catId, parsed.data.status, parsed.data.reason);
+    if (!wantsPage(req)) return void res.status(201).json({ statementId: row.id });
+    res.redirect(303, `${myCatPath(catId)}?saved=${"putBack" in parsed.data ? "putBack" : "life"}`);
+  } catch (err) {
+    refusedStatement(req, res, err, catId);
+  }
 });
 
 /** GET /api/team/my/stop-helping: the second page, "are you sure?". Changes nothing. */

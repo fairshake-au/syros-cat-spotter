@@ -13,6 +13,8 @@ import type { GuardianCat } from "../guardianCatView";
 import type { PersonSite } from "../teamSites";
 import type { CatWithStats } from "../catHelpers";
 import type { Confidence } from "../resolve";
+import type { MyStatements } from "../guardianStatements";
+import { GUARDIAN_LIFE_STATUSES, GUARDIAN_UNDO_DAYS } from "../guardianStatements";
 
 // SYC-53 PR 2.1: a cat guardian's colony page and cat page (roles-and-invites
 // .md §2.2). Server-drawn, no scripts, in her language once it is live.
@@ -53,6 +55,14 @@ const CSS = `<style>
 .gfacts{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:12px 0;overflow-wrap:anywhere}
 .notice{background:#fff3cd;border:1px solid #c9a227;border-radius:8px;padding:10px 12px;margin:10px 0}
 .notice p{margin:0}
+.gsay{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:12px 0}
+.gsay h3{font-size:16px;margin:12px 0 6px}
+.gsay form{margin:6px 0 12px}
+.gsay .row{display:flex;flex-wrap:wrap;gap:8px}
+.gsay button{min-height:44px;padding:8px 14px;font-size:16px}
+.gsay label.choice{display:flex;align-items:center;gap:8px;min-height:44px}
+.gsay input.text{width:100%;max-width:420px;min-height:40px;font-size:16px;box-sizing:border-box}
+.saved{background:#e6f2e6;border:1px solid #6a9a6a;border-radius:8px;padding:10px 12px;margin:10px 0}
 </style>`;
 
 type Say = (key: StringKey, vars?: Record<string, string>) => string;
@@ -172,12 +182,78 @@ export function renderGuardianColonyPage(
   return shell(input.who, input.colony.name, body, live);
 }
 
-/** One of her cats, in full (spec §2.2's list, nothing more). */
+const SAVED_KEYS: Record<string, StringKey> = {
+  sterilised: "gcat.saved.sterilised",
+  life: "gcat.saved.life",
+  putBack: "gcat.saved.putBack",
+};
+
+/** "Syros Cats looked again…": the team's answer to one of her statements, never a name. */
+function lookedAgainLine(l: MyStatements["lookedAgain"][number], t: Say): string {
+  if (l.kind === "sterilised") {
+    if (l.now === true) return t("gcat.lookedAgain.sterYes");
+    if (l.now === false) return t("gcat.lookedAgain.sterNo");
+    return "";
+  }
+  if (typeof l.now !== "string") return "";
+  return t("gcat.lookedAgain.life", { status: t(`gcat.life.${l.now}` as StringKey) });
+}
+
+/**
+ * What she can say about this cat (PR 2.2; spec §2.2, §7.2): sterilised or
+ * not, a life status with a reason, and putting back her own last change.
+ * Plain forms, no script; every button at least 44 px high.
+ */
+function sayBlock(cat: GuardianCat, mine: MyStatements, t: Say): string {
+  const base = myCatPath(cat.id);
+  const ster =
+    `<h3>${esc(t("gcat.say.sterTitle"))}</h3>` +
+    `<form method="post" action="${base}/sterilisation"><div class="row">` +
+    `<button type="submit" name="sterilised" value="yes">${esc(t("gcat.say.sterYes"))}</button>` +
+    `<button type="submit" name="sterilised" value="no">${esc(t("gcat.say.sterNo"))}</button>` +
+    "</div></form>";
+  const choices = GUARDIAN_LIFE_STATUSES.map(
+    (st) =>
+      `<label class="choice" for="gl-${st}"><input type="radio" id="gl-${st}" name="status" value="${st}" required> ${esc(t(`gcat.say.life.${st}` as StringKey))}</label>`,
+  ).join("");
+  const life =
+    `<form method="post" action="${base}/life-status">` +
+    `<h3 id="gl-title">${esc(t("gcat.say.lifeTitle"))}</h3>` +
+    `<fieldset aria-labelledby="gl-title">${choices}</fieldset>` +
+    `<label class="label" for="gl-why">${esc(t("gcat.say.reason"))}</label>` +
+    '<input class="text" id="gl-why" name="reason" required maxlength="200" autocomplete="off">' +
+    `<div class="row"><button type="submit">${esc(t("gcat.say.save"))}</button></div></form>`;
+  let back = "";
+  if (mine.putBack) {
+    const pb = mine.putBack;
+    const status = t(`gcat.life.${pb.status}` as StringKey);
+    const previous = t(`gcat.life.${pb.putsBack}` as StringKey);
+    back =
+      `<div class="notice"><p>${esc(
+        t("gcat.say.putBack", { status, previous }),
+      )}</p>` +
+      `<form method="post" action="${base}/life-status">` +
+      `<input type="hidden" name="putBack" value="${pb.statementId}">` +
+      `<div class="row"><button type="submit">${esc(t("gcat.say.putBackButton", { previous }))}</button></div></form></div>`;
+  }
+  return (
+    '<div class="gsay">' +
+    `<h2>${esc(t("gcat.say.heading"))}</h2>` +
+    `<p class="muted">${esc(t("gcat.say.intro", { days: String(GUARDIAN_UNDO_DAYS) }))}</p>` +
+    back +
+    ster +
+    life +
+    "</div>"
+  );
+}
+
+/** One of her cats, in full (spec §2.2's list, nothing more), and what she can say about it. */
 export function renderGuardianCatPage(
   who: GuardianViewer,
   cat: GuardianCat,
   sites: readonly PersonSite[] = [],
   live: readonly Language[] = LIVE_LANGUAGES,
+  opts: { mine?: MyStatements; saved?: string | null } = {},
 ): string {
   const lang = pageLanguage(who.language, live);
   const t: Say = (k, v) => tr(lang, k, v, live);
@@ -193,7 +269,16 @@ export function renderGuardianCatPage(
           .map((u) => `<a href="${esc(u)}"><img src="${esc(u)}" alt="" loading="lazy"></a>`)
           .join("") +
         "</div>";
+  const savedKey = opts.saved ? SAVED_KEYS[opts.saved] : undefined;
+  const notes =
+    (savedKey ? `<div class="saved" role="status"><p>${esc(t(savedKey))}</p></div>` : "") +
+    (opts.mine?.lookedAgain ?? [])
+      .map((l) => lookedAgainLine(l, t))
+      .filter((line) => line !== "")
+      .map((line) => `<div class="notice"><p>${esc(line)}</p></div>`)
+      .join("");
   const body =
+    notes +
     `<p class="muted">${esc(cat.syr)}</p>` +
     main +
     '<div class="gfacts">' +
@@ -207,6 +292,7 @@ export function renderGuardianCatPage(
     appearanceLine(lang, cat) +
     (cat.description ? `<p class="muted">${esc(cat.description)}</p>` : "") +
     "</div>" +
+    (opts.mine ? sayBlock(cat, opts.mine, t) : "") +
     sitesBlock(sites, t) +
     gallery +
     `<p><a class="tap" href="${MY_COLONIES_PATH}">${esc(t("gcat.back"))}</a></p>`;
@@ -256,6 +342,23 @@ export function renderGuardianNotFound(
     who,
     title,
     `<p>${esc(body)}</p><p><a class="tap" href="${MY_COLONIES_PATH}">${esc(t("gcat.back"))}</a></p>`,
+    live,
+  );
+}
+
+/** Something she sent didn't save: what to do, and the way back to the cat. */
+export function renderGuardianProblem(
+  who: GuardianViewer,
+  key: "gcat.problem.choose" | "gcat.problem.reason" | "gcat.problem.notYours",
+  catId: number,
+  live: readonly Language[] = LIVE_LANGUAGES,
+): string {
+  const lang = pageLanguage(who.language, live);
+  const t: Say = (k, v) => tr(lang, k, v, live);
+  return shell(
+    who,
+    t("gcat.problem.title"),
+    `<p>${esc(t(key))}</p><p><a class="tap" href="${myCatPath(catId)}">${esc(t("gcat.problem.backToCat"))}</a></p>`,
     live,
   );
 }

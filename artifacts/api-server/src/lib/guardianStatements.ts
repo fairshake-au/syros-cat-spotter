@@ -166,7 +166,7 @@ export function puttableBack(
   if (now.getTime() - newest.createdAt.getTime() > GUARDIAN_UNDO_DAYS * DAY_MS) return null;
   // What the record says without her statement: the status she replaced.
   const without = observations.filter((o) => o.id !== newest.id);
-  const putsBack = resolveLifeStatus(without, evidenceOfLife, now).value;
+  const putsBack = resolveLifeStatus(without, evidenceOfLife, now).value ?? "street";
   return { statement: newest, putsBack };
 }
 
