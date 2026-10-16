@@ -17,9 +17,9 @@ import { EAR_TIP_FACT, FACT_IDS, MILK_FACT } from './starterFacts';
  * the order reshuffles and never starts with the fact seen last.
  */
 
-/** PR 1 ships the facts only; PR 2 switches the nudge on (plan small call 1:
- * a nudge with nothing on the result screen to count it would repeat). */
-export const NUDGE_ENABLED = false;
+/** On since match-wait PR 2, which brought the result screen that counts the
+ * nudge (plan small call 1: without it, the nudge would repeat every spot). */
+export const NUDGE_ENABLED = true;
 
 /** A fact counts as seen after this long on screen (§3.3). */
 export const SEEN_AFTER_MS = 3000;

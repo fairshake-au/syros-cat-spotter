@@ -38,6 +38,9 @@ import {
 } from "@/lib/catPicker";
 import { photoSource } from "@/lib/urls";
 import { NeedsHelpLink } from "@/components/report/NeedsHelpLink";
+import { FeedNudge } from "@/components/FeedNudge";
+import { useAppSettings } from "@/context/AppSettingsContext";
+import { useResultNudge } from "@/hooks/useResultNudge";
 import { SightingQuestions } from "@/components/SightingQuestions";
 import {
   answersRequest,
@@ -131,6 +134,28 @@ export default function ReviewScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [from?.lat, from?.lng, cats],
   );
+
+  // SYC-36 (match-wait plan PR 2): the feeding nudge, or the visitor's daily
+  // one-liner, on the screen this result OPENED on, below everything the
+  // spotter acts on. Decided once; never for a queued sighting or no cat.
+  const openedOn = !data?.isCatPhoto ? "notCat" : data.candidates.length === 0 ? "naming" : "matches";
+  const { donateHost } = useAppSettings();
+  const resultNudge = useResultNudge({
+    deviceId,
+    sightingId: data?.sightingId ?? null,
+    localId: data?.localId,
+    screen: openedOn,
+  });
+  const feedNudge = resultNudge.show ? (
+    <FeedNudge
+      variant={resultNudge.show.kind === "line" ? "line" : "full"}
+      form={resultNudge.show.kind === "nudge" ? resultNudge.show.form : "link"}
+      t={t}
+      donateHost={donateHost}
+      onHelp={resultNudge.help}
+      onDismiss={resultNudge.dismiss}
+    />
+  ) : null;
 
   if (!data) {
     return (
@@ -658,6 +683,9 @@ export default function ReviewScreen() {
               t("addToCatalogButton")
             )}
           </Button>
+          {/* SYC-36: below the name form, only when naming is where this
+              result opened (no possible matches). */}
+          {openedOn === "naming" ? feedNudge : null}
         </ScrollView>
       </View>
     );
@@ -838,6 +866,10 @@ export default function ReviewScreen() {
             {t("newCatCardSubtitle")}
           </Text>
         </Pressable>
+
+        {/* SYC-36: below the matches, "None of these" and "Find the cat
+            yourself"; above "This cat needs help", which stays last. */}
+        {feedNudge}
 
         {/* SYC-42 (Samuel, 2 Oct 2026): quiet, last on the screen, well apart
             from "Find the cat yourself"; reuses this sighting's photo and place. */}
