@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { catIdentityTable, catsTable, db, markLeft, observationsTable, photosTable, sightingsTable } from "@workspace/db";
+import { catIdentityTable, catsTable, db, feedingSitesTable, markLeft, observationsTable, photosTable, sightingsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import app from "../app";
 import { catTarget } from "../lib/capabilityTargets";
@@ -63,7 +63,7 @@ const HER_FIELDS = [
  * separate block that never passes through guardianCatView, allowed here so
  * SYC-2 PR 5.1 can add it without loosening the field list above.
  */
-const ALLOWED_BLOCKS = ["view", "cat", "healthNotes"];
+const ALLOWED_BLOCKS = ["view", "cat", "sites", "healthNotes"];
 
 const SECRET_NOTE = `vt-gcats team note ${RUN}`;
 const OWNER_NAME = `vt-gcats owner ${RUN}`;
@@ -89,6 +89,9 @@ const OWNER_DEVICE = `vt-gcats-owner-${RUN}`;
 const OWNER_NAME_2 = `vt-gcats owner two ${RUN}`;
 const HOME_NOTE_2 = `vt-gcats home two ${RUN}`;
 const MARKUP = `<img src=x onerror="alert(1)">`;
+const SITE_A = `vt-gcats site A ${RUN}`;
+const SITE_A_WAY = `vt-gcats behind the bakery ${RUN}`;
+const SITE_B = `vt-gcats site B ${RUN}`;
 let publicSightingPublicId: string;
 
 async function sightingWithPhoto(catId: number, at: Date): Promise<{ id: number; publicId: string }> {
@@ -161,6 +164,12 @@ beforeAll(async () => {
     .set({ name: `vt-gcats ${RUN} ${MARKUP}`, description: `<script>alert(2)</script> "quoted"` })
     .where(eq(catsTable.id, marked.id));
   await db.execute(sql`update colonies set name = name || ${" <i>\"x\"</i>"} where id = ${colonyA}`);
+
+  // SYC-416: one feeding site in her colony, one in Maria's.
+  await db.insert(feedingSitesTable).values([
+    { name: SITE_A, lat: 37.44611, lng: 24.94377, colonyId: colonyA, directions: SITE_A_WAY },
+    { name: SITE_B, lat: 37.44922, lng: 24.93844, colonyId: colonyB },
+  ]);
 });
 
 beforeEach(() => {
@@ -248,7 +257,7 @@ describe("T4: inside her colonies, exactly spec §2.2's fields", () => {
 
   it("the same fields on her colony page, for every cat", async () => {
     const res = await asEleni(`/api/team/my/colonies/${colonyA}`);
-    expect(Object.keys(res.body).sort()).toEqual(["cats", "colony"]);
+    expect(Object.keys(res.body).sort()).toEqual(["cats", "colony", "sites"]);
     expect(Object.keys(res.body.colony).sort()).toEqual(["id", "name"]);
     for (const c of res.body.cats) expect(Object.keys(c).sort()).toEqual(HER_FIELDS);
   });
@@ -459,6 +468,40 @@ describe("her pages' words follow the house rules (SYC-283 drafts)", () => {
       expect(CATALOGUE.el[k as keyof typeof CATALOGUE.el], k).toBeTruthy();
       expect(CATALOGUE.fr[k as keyof typeof CATALOGUE.fr], k).toBeTruthy();
     }
+  });
+});
+
+describe("SYC-416: her colony's feeding sites, and the colony page's cat links", () => {
+  it("her cat page and colony page list her colony's sites, never another colony's", async () => {
+    for (const path of [`/api/team/my/cats/${mine.id}`, `/api/team/my/colonies/${colonyA}`]) {
+      const json = await asEleni(path);
+      const names = (json.body.sites as { name: string }[]).map((x) => x.name);
+      expect(names, path).toContain(SITE_A);
+      expect(names, path).not.toContain(SITE_B);
+      const html = await request(app).get(path).set("Cookie", eleni.cookie).set("Sec-Fetch-Mode", "navigate");
+      expect(html.text).toContain(SITE_A);
+      expect(html.text).toContain(SITE_A_WAY);
+      expect(html.text).toContain("37.44611, 24.94377");
+      expect(html.text).not.toContain(SITE_B);
+    }
+  });
+
+  it("an outside cat's public view carries no sites at all", async () => {
+    const res = await asEleni(`/api/team/my/cats/${theirs.id}`);
+    expect(res.body.view).toBe("public");
+    expect(res.body.sites).toBeUndefined();
+    expect(JSON.stringify(res.body)).not.toContain(SITE_B);
+  });
+
+  it("SYC-209's colony page links a guardian's cats to HER cat page, and the team's to the team's", async () => {
+    const hers = await request(app).get(`/api/team/colonies/${colonyA}`).set("Cookie", eleni.cookie).set("Sec-Fetch-Mode", "navigate");
+    expect(hers.status).toBe(200);
+    expect(hers.text).toContain(`href="/api/team/my/cats/${mine.id}"`);
+    expect(hers.text).not.toContain("/api/team/cats/");
+    const teams = await request(app).get(`/api/team/colonies/${colonyA}`).set("Cookie", team.cookie).set("Sec-Fetch-Mode", "navigate");
+    expect(teams.status).toBe(200);
+    expect(teams.text).toContain(`href="/api/team/cats/${mine.id}"`);
+    expect(teams.text).not.toContain("/api/team/my/cats/");
   });
 });
 

@@ -1,4 +1,5 @@
 import type { Capability } from "../capabilities";
+import { myCatPath } from "./guardianPages";
 import type { ColonyHistoryEntry, ColonyRow, ColonyView } from "../teamColonies";
 import { COLONY_NAME_MAX, COLONY_NOTES_MAX, GUARDIAN_NAME_MAX } from "../teamColonies";
 import type { CatToAdd } from "../colonyCats";
@@ -18,8 +19,8 @@ import { wordsIn, type WordKey, type Words } from "./words";
 // in her language, with her own menu. Another colony is never named: a cat
 // that moved away "moved to another colony", and an "Add cats" result in a
 // colony that isn't hers is "In another colony", with no link. Her cats are
-// not linked to the team's cat page (it is island-only; her own cat page is
-// the roles plan's PR 2.1). The actions (create, edit, add a site, add or
+// linked to her own cat page (roles plan PR 2.1, SYC-416), never the team's,
+// which is island-only. The actions (create, edit, add a site, add or
 // take out cats) are the team's until PR 4.2.
 
 /** Who a page is drawn for: the team (English) or a cat guardian. */
@@ -250,8 +251,10 @@ function catList(
           (island
             ? `<li><a class="catrow" href="/api/team/cats/${c.id}">${thumb}` +
               `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span></a>`
-            : `<li><span class="catrow">${thumb}` +
-              `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span></span>`) +
+            : // A cat guardian's own cat page (SYC-53 PR 2.1; SYC-416), built by
+              // guardianCatView only, never the team's (island-only) cat page.
+              `<li><a class="catrow" href="${myCatPath(c.id)}">${thumb}` +
+              `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span></a>`) +
           (mayTakeOut
             ? `<form class="takeout" method="post" action="/api/team/cats/${c.id}/colony">` +
               `<input type="hidden" name="colonyId" value="none">` +

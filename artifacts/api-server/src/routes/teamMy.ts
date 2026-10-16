@@ -37,6 +37,7 @@ import { canonicalCats, catTargetWithCanonical } from "../lib/capabilityTargets"
 import { catsInColony } from "../lib/colonyMembership";
 import { guardianCats, guardianCatView } from "../lib/guardianCatView";
 import { publicCatView } from "../lib/publicCat";
+import { sitesForPerson } from "../lib/teamSites";
 
 // SYC-53 PR 1.3: "My page" and "My colonies" (roles-and-invites.md §2.6, §6.2
 // note 1, §9.1, §9.5, §13.1). Any accepted person, no capability: these are
@@ -115,8 +116,10 @@ router.get("/team/my/colonies/:id", requireTeam(), async (req: Request, res: Res
   const cats = (await guardianCats(ids, new Map(ids.map((id) => [id, colonyId])))).sort(
     (a, b) => a.name.localeCompare(b.name, "el") || a.id - b.id,
   );
-  if (wantsJson(req)) return void res.json({ colony, cats });
-  res.type("html").send(renderGuardianColonyPage({ who: person, colony, cats }));
+  // Her colony's sites: SYC-209's one filter, narrowed to this colony (SYC-416).
+  const sites = await sitesForPerson(person, [colonyId]);
+  if (wantsJson(req)) return void res.json({ colony, cats, sites });
+  res.type("html").send(renderGuardianColonyPage({ who: person, colony, cats, sites }));
 });
 
 /**
@@ -142,8 +145,10 @@ router.get("/team/my/cats/:id", requireTeam(), async (req: Request, res: Respons
   ) {
     const cat = await guardianCatView(canonicalId, target.colonyId);
     if (!cat) return notFound();
-    if (wantsJson(req)) return void res.json({ view: "guardian", cat });
-    return void res.type("html").send(renderGuardianCatPage(person, cat));
+    // The cat's colony's sites: SYC-209's one filter, narrowed to it (SYC-416).
+    const sites = await sitesForPerson(person, [target.colonyId]);
+    if (wantsJson(req)) return void res.json({ view: "guardian", cat, sites });
+    return void res.type("html").send(renderGuardianCatPage(person, cat, sites));
   }
   const cat = await publicCatView(catId);
   if (!cat) return notFound();
