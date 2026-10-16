@@ -17,6 +17,7 @@ import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queu
 import { BANDS } from "../lib/mapTiles/geometry";
 import { guardianOn, newColony, putInColony, seedCat } from "../test/roleKit";
 import { deleteTestSightings } from "../test/sightings";
+import { isOpaqueAddress } from "../test/opaqueAddress";
 
 // SYC-209 PR 3.4: the entry points. "Make a feeding site here" and "Show on
 // our map" on each sighting of the team's cat page, and "Add a feeding site
@@ -115,6 +116,7 @@ function expectNoPositionInAddresses(html: string) {
   const values = [...html.matchAll(ATTR)].map((m) => m[2]!.replace(UUID, "photo"));
   expect(values.length).toBeGreaterThan(0);
   for (const v of values) {
+    if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
     expect(v, v).not.toMatch(/\d+\.\d+/);
     expect(v, v).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, v).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy)=/i);

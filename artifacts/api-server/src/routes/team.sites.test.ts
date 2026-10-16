@@ -19,6 +19,7 @@ import { countLine } from "../lib/teamPages/sitePages";
 import { BANDS, viewAround } from "../lib/mapTiles/geometry";
 import { mintTileToken } from "../lib/mapTiles/tileToken";
 import * as teamSites from "../lib/teamSites";
+import { isOpaqueAddress } from "../test/opaqueAddress";
 
 // The read insert is wrapped so one test can make it fail; every other call is real.
 vi.mock("../lib/teamSites", async (importOriginal) => {
@@ -167,6 +168,7 @@ function expectNoPositionInAddresses(html: string) {
   const values = [...html.matchAll(ATTR)].map((m) => m[2]!);
   expect(values.length).toBeGreaterThan(0);
   for (const v of values) {
+    if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
     expect(v, v).not.toMatch(/\d+\.\d+/);
     expect(v, v).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, v).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy)=/i);

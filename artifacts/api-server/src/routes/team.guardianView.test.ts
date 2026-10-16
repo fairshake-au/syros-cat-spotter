@@ -15,6 +15,7 @@ import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
 import { renderColonyLine, renderNameTaken } from "../lib/teamPages/colonyPages";
 import { colonyLineFor } from "../lib/colonyCats";
 import { removeTestPerson } from "../test/removeTestPerson";
+import { isOpaqueAddress } from "../test/opaqueAddress";
 
 // SYC-209 PR 4.1: what a cat guardian sees (feeding-sites spec §7.3; plan
 // PR 4.1). Spec test 21 (seeing) and test 12 (part: a placed check takes its
@@ -283,8 +284,7 @@ function expectNoPositionInAddresses(where: string, html: string, location?: str
   const values = [...html.matchAll(ATTR)].map((m) => m[2]!);
   if (location) values.push(location);
   for (const v of values) {
-    // A photo's address is its opaque uuid, never a position (its dashes would look like z/x/y).
-    if (/^\/api\/(team\/)?photos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v)) continue;
+    if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
     expect(v, `${where}: ${v}`).not.toMatch(/\d+\.\d+/);
     expect(v, `${where}: ${v}`).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, `${where}: ${v}`).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy)=/i);
