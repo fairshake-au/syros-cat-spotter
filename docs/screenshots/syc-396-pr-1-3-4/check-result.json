@@ -1,0 +1,565 @@
+{
+ "failed": 0,
+ "report": [
+  {
+   "engine": "chromium 1280px",
+   "what": "the page loads, signed in",
+   "ok": true,
+   "detail": {
+    "title": "Cats",
+    "url": "http://localhost:18734/api/team/cats"
+   }
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "our script loaded from /api/team/assets/",
+   "ok": true
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "all 8 cats to start",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "tick then untick fast: still all 8 cats",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "tick then untick fast: the address has no colour",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats"
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "tick then untick fast: the box is unticked",
+   "ok": true
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "tick then untick fast: not left looking busy",
+   "ok": true
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "ticking Ginger narrows the grid to the 2 ginger cats",
+   "ok": true,
+   "detail": "2 cats match Clear filters"
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "the grid shows 2 cards",
+   "ok": true
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "no page load: the same document",
+   "ok": true,
+   "detail": {
+    "loads": 1
+   }
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "it was a fetch of the same page",
+   "ok": true,
+   "detail": [
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"
+   ]
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "the address carries the filter",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent"
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "the chip for Ginger shows",
+   "ok": true
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "the Filters label counts it",
+   "ok": true
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "typing a name narrows it after a pause",
+   "ok": true,
+   "detail": "1 cat matches Clear filters"
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "still the same document after typing",
+   "ok": true,
+   "detail": {
+    "loads": 1
+   }
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "the address carries the typed name",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "reloading the address gives the same view",
+   "ok": true
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "no security-policy violations",
+   "ok": true,
+   "detail": {
+    "violations": [],
+    "cspConsole": []
+   }
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "no console errors",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "the page loads, signed in",
+   "ok": true,
+   "detail": {
+    "title": "Cats",
+    "url": "http://localhost:18734/api/team/cats"
+   }
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "our script loaded from /api/team/assets/",
+   "ok": true
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "all 8 cats to start",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "tick then untick fast: still all 8 cats",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "tick then untick fast: the address has no colour",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats"
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "tick then untick fast: the box is unticked",
+   "ok": true
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "tick then untick fast: not left looking busy",
+   "ok": true
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "ticking Ginger narrows the grid to the 2 ginger cats",
+   "ok": true,
+   "detail": "2 cats match Clear filters"
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "the grid shows 2 cards",
+   "ok": true
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "no page load: the same document",
+   "ok": true,
+   "detail": {
+    "loads": 1
+   }
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "it was a fetch of the same page",
+   "ok": true,
+   "detail": [
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"
+   ]
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "the address carries the filter",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent"
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "the chip for Ginger shows",
+   "ok": true
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "the Filters label counts it",
+   "ok": true
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "typing a name narrows it after a pause",
+   "ok": true,
+   "detail": "1 cat matches Clear filters"
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "still the same document after typing",
+   "ok": true,
+   "detail": {
+    "loads": 1
+   }
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "the address carries the typed name",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "reloading the address gives the same view",
+   "ok": true
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "no security-policy violations",
+   "ok": true,
+   "detail": {
+    "violations": [],
+    "cspConsole": []
+   }
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "no console errors",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "chromium no-JS",
+   "what": "the page loads with JavaScript off",
+   "ok": true
+  },
+  {
+   "engine": "chromium no-JS",
+   "what": "ticking a box alone changes nothing (no script)",
+   "ok": true
+  },
+  {
+   "engine": "chromium no-JS",
+   "what": "Show cats applies the filter by an ordinary page load",
+   "ok": true,
+   "detail": "2 cats match Clear filters"
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "the page loads, signed in",
+   "ok": true,
+   "detail": {
+    "title": "Cats",
+    "url": "http://localhost:18734/api/team/cats"
+   }
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "our script loaded from /api/team/assets/",
+   "ok": true
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "all 8 cats to start",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "tick then untick fast: still all 8 cats",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "tick then untick fast: the address has no colour",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats"
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "tick then untick fast: the box is unticked",
+   "ok": true
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "tick then untick fast: not left looking busy",
+   "ok": true
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "ticking Ginger narrows the grid to the 2 ginger cats",
+   "ok": true,
+   "detail": "2 cats match Clear filters"
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "the grid shows 2 cards",
+   "ok": true
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "no page load: the same document",
+   "ok": true,
+   "detail": {
+    "loads": 1
+   }
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "it was a fetch of the same page",
+   "ok": true,
+   "detail": [
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"
+   ]
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "the address carries the filter",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent"
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "the chip for Ginger shows",
+   "ok": true
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "the Filters label counts it",
+   "ok": true
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "typing a name narrows it after a pause",
+   "ok": true,
+   "detail": "1 cat matches Clear filters"
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "still the same document after typing",
+   "ok": true,
+   "detail": {
+    "loads": 1
+   }
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "the address carries the typed name",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "reloading the address gives the same view",
+   "ok": true
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "no security-policy violations",
+   "ok": true,
+   "detail": {
+    "violations": [],
+    "cspConsole": []
+   }
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "no console errors",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "webkit no-JS",
+   "what": "the page loads with JavaScript off",
+   "ok": true
+  },
+  {
+   "engine": "webkit no-JS",
+   "what": "ticking a box alone changes nothing (no script)",
+   "ok": true
+  },
+  {
+   "engine": "webkit no-JS",
+   "what": "Show cats applies the filter by an ordinary page load",
+   "ok": true,
+   "detail": "2 cats match Clear filters"
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "the page loads, signed in",
+   "ok": true,
+   "detail": {
+    "title": "Cats",
+    "url": "http://localhost:18734/api/team/cats"
+   }
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "our script loaded from /api/team/assets/",
+   "ok": true
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "all 8 cats to start",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "tick then untick fast: still all 8 cats",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "tick then untick fast: the address has no colour",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats"
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "tick then untick fast: the box is unticked",
+   "ok": true
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "tick then untick fast: not left looking busy",
+   "ok": true
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "ticking Ginger narrows the grid to the 2 ginger cats",
+   "ok": true,
+   "detail": "2 cats match Clear filters"
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "the grid shows 2 cards",
+   "ok": true
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "no page load: the same document",
+   "ok": true,
+   "detail": {
+    "loads": 1
+   }
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "it was a fetch of the same page",
+   "ok": true,
+   "detail": [
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?lives=street&lives=homed&lives=in_care&sort=recent",
+    "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"
+   ]
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "the address carries the filter",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent"
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "the chip for Ginger shows",
+   "ok": true
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "the Filters label counts it",
+   "ok": true
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "typing a name narrows it after a pause",
+   "ok": true,
+   "detail": "1 cat matches Clear filters"
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "still the same document after typing",
+   "ok": true,
+   "detail": {
+    "loads": 1
+   }
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "the address carries the typed name",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "reloading the address gives the same view",
+   "ok": true
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "no security-policy violations",
+   "ok": true,
+   "detail": {
+    "violations": [],
+    "cspConsole": []
+   }
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "no console errors",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "firefox no-JS",
+   "what": "the page loads with JavaScript off",
+   "ok": true
+  },
+  {
+   "engine": "firefox no-JS",
+   "what": "ticking a box alone changes nothing (no script)",
+   "ok": true
+  },
+  {
+   "engine": "firefox no-JS",
+   "what": "Show cats applies the filter by an ordinary page load",
+   "ok": true,
+   "detail": "2 cats match Clear filters"
+  }
+ ]
+}

@@ -20,13 +20,32 @@ export const NOT_SIGNED_IN_PAGE =
   `<p>Please sign in again. <a href="${SIGN_IN_PAGE}">Go to the sign-in page</a>.</p>` +
   "</body></html>";
 
-/** Headers for every dashboard response: never cached, never framed. */
-export function setTeamHeaders(res: Response): void {
+/**
+ * The dashboard's security header. TEAM_CSP is every page's: no script at
+ * all. It must stay byte-for-byte as it is (team.headers.test.ts).
+ */
+export const TEAM_CSP =
+  "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+
+/**
+ * The wider header for the few pages that run our own script (SYC-396 plan
+ * Decision 5; spec §14): scripts, fetches and styles from this server only,
+ * and pictures made in the page (blob:). Never 'unsafe-eval', never
+ * 'unsafe-inline' for scripts, never another host. Only the routes named in
+ * WIDE_CSP_ROUTES (team.headers.test.ts) may ask for it, and a source test
+ * (teamAuth/refuse.source.test.ts) fails any other file that does.
+ */
+export const TEAM_CSP_WITH_SCRIPTS =
+  "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+
+/**
+ * Headers for every dashboard response: never cached, never framed.
+ * `scripts: true` is for a page that loads our own script; see
+ * TEAM_CSP_WITH_SCRIPTS for who may pass it.
+ */
+export function setTeamHeaders(res: Response, opts: { scripts?: boolean } = {}): void {
   res.setHeader("Cache-Control", "no-store");
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
-  );
+  res.setHeader("Content-Security-Policy", opts.scripts === true ? TEAM_CSP_WITH_SCRIPTS : TEAM_CSP);
   // SYC-330: not "no-referrer". Under that policy a browser sends
   // `Origin: null` on a form post, even to the same site, and requireOrigin
   // refuses it, so every dashboard button failed. "same-origin" sends the

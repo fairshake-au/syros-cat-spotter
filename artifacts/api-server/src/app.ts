@@ -60,6 +60,13 @@ app.use((req, res, next) => {
     path === "/api/internal" ||
     path.startsWith("/api/internal/")
   ) {
+    // SYC-396 PR 1.3.4 (review 4): every dashboard answer is read only as
+    // the type it says it is, including ones that never reach a route
+    // (an unmatched path's 404, an error before the route). setTeamHeaders
+    // sets it too.
+    if (path === "/api/team" || path.startsWith("/api/team/")) {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+    }
     next();
     return;
   }

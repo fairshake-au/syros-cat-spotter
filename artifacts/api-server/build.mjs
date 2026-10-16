@@ -5,6 +5,7 @@ import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import { buildAssets } from "./scripts/buildAssets.mjs";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -147,6 +148,15 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  // SYC-396 PR 1.3.4: the dashboard's own scripts, under content-hashed
+  // names, with dist/assets/manifest.json (scripts/buildAssets.mjs). The
+  // server reads them from beside dist/index.mjs (src/lib/teamAssets.ts).
+  const manifest = await buildAssets(
+    path.resolve(artifactDir, "assets"),
+    path.resolve(distDir, "assets"),
+  );
+  console.log(`Dashboard assets: ${Object.values(manifest).join(", ")}`);
 }
 
 buildAll().catch((err) => {

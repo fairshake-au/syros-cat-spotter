@@ -558,7 +558,9 @@ describe("the queue row and the tie-mode search", () => {
     expect(fresh.text).toContain(`<input type="hidden" name="tie" value="${r.publicId}">`);
     expect(fresh.text).toContain(`action="/api/team/reports/${r.publicId}/cat"`);
     expect(fresh.text).toContain(`<input type="hidden" name="catId" value="${a}"><input type="hidden" name="expectedCatId" value="">`);
-    expect(fresh.text).not.toContain("<script");
+    // Only our own grid script (SYC-396 PR 1.3.4); the forms work without it.
+    expect(fresh.text.match(/<script\b/g)).toHaveLength(1);
+    expect(fresh.text).toMatch(/<script src="\/api\/team\/assets\/dashboard-grid\.[0-9a-f]{12}\.js" defer><\/script>/);
     // Without a tie, the search is the plain search from PR 3.
     const plain = await request(app).get(`/api/team/cats?q=${encodeURIComponent(`${PREFIX}Gamma`)}`).set("Cookie", cookie);
     expect(plain.text).not.toContain("This is the cat");
