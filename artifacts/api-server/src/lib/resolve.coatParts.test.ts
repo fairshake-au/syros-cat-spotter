@@ -271,6 +271,20 @@ describe("resolveCoatParts: who wins, per part (plan A1.3)", () => {
       });
     }
 
+    it("intended change: an old Black and white answer now agrees with a Black one on black", () => {
+      // Old: black_and_white was one code, so it never agreed with black.
+      const rows = [
+        spotter("a", { colours: ["black_and_white"] }, "2026-01-01T10:00:00Z"),
+        spotter("b", { colours: ["black"] }, "2026-01-02T10:00:00Z"),
+        machine({ colours: ["black"], modelVersion: "vision-1" }, "2026-01-03T09:00:00Z"),
+      ];
+      expect(resolveCoatV1(rows)).toMatchObject({ value: ["black"], confidence: "reported" });
+      expect(coloursWithParity(rows, undefined, { exempt: "black and white is two colours now (§6)" })).toMatchObject({
+        value: ["black"],
+        confidence: "likely",
+      });
+    });
+
     it("the lifted cap shows the third colour the old engine dropped", () => {
       const rows = fixtures.find(([l]) => l.startsWith("three agreed"))![1];
       expect(resolveCoatV1(rows).value).toHaveLength(2);

@@ -44,6 +44,10 @@ export function coloursWithParity(
       if (now!.length > translated.length) {
         const capped = old.value!.length === 2 || translated.length === 2;
         expect(capped, "more colours than the old engine showed, but it wasn't capped").toBe(true);
+      } else {
+        // The same colours must stand on the same evidence (Opus spot
+        // review, finding 4): a confidence change is a divergence too.
+        expect(parts.colours.confidence, `parity: confidence for ${JSON.stringify(old.value)}`).toBe(old.confidence);
       }
     }
   }
