@@ -7,6 +7,9 @@ import router from "./index";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { removeTestPerson } from "../test/removeTestPerson";
+import { expectedCsp } from "../test/wideCsp";
+import { assetUrl } from "../lib/teamAssets";
+import { ASSET_CACHE } from "./teamAssets";
 import { invitePerson } from "@workspace/db";
 import { inviteCookieFor } from "../test/inviteKit";
 import {
@@ -287,6 +290,19 @@ const OWN_CHECKS: Record<string, string> = {
 };
 
 /**
+ * Routes that need no session at all: the same public bytes for everyone
+ * (SYC-396 PR 1.3.4). Each names the one Cache-Control its 200 may carry,
+ * which the walk allows for that route, by name, and for no other.
+ */
+const PUBLIC_BYTES: Record<string, { why: string; path: () => string; mayCache: string }> = {
+  "GET /api/team/assets/:file": {
+    why: "first-party scripts, public bytes: only hashed names from the manifest (team.assets.test.ts)",
+    path: () => assetUrl("dashboard-grid.js") ?? "/api/team/assets/missing",
+    mayCache: ASSET_CACHE,
+  },
+};
+
+/**
  * Routes that check the shape of the body before who is asking
  * (observations.ts does, deliberately: the kind picks the capability). With
  * `{}` they would answer 400 whoever sent it, so the walk sends a
@@ -467,19 +483,19 @@ describe("T1: the route walk", () => {
     expect(routes.length).toBeGreaterThanOrEqual(MINIMUM_ROUTES);
     for (const r of routes) {
       expect(
-        r in TABLE || r in OWN_CHECKS,
+        r in TABLE || r in OWN_CHECKS || r in PUBLIC_BYTES,
         `${r} is not in the route walk's table: say who may use it`,
       ).toBe(true);
     }
     // Every row names a route that exists, so a stale row can't hide.
-    for (const r of [...Object.keys(TABLE), ...Object.keys(OWN_CHECKS)]) {
+    for (const r of [...Object.keys(TABLE), ...Object.keys(OWN_CHECKS), ...Object.keys(PUBLIC_BYTES)]) {
       expect(routes, `the table names ${r}, which isn't registered`).toContain(r);
     }
   });
 
   it("P1-1: every route answers the identical 401 not_signed_in without a session", async () => {
     for (const route of walkedRoutes()) {
-      if (route in OWN_CHECKS) continue;
+      if (route in OWN_CHECKS || route in PUBLIC_BYTES) continue;
       const res = await send(route);
       expect([res.status, res.text], `${route} without a session`).toEqual([
         401,
@@ -534,9 +550,37 @@ describe("T1: the route walk", () => {
         expect(allowed, `${where}: cache-control ${String(json.headers["cache-control"])}`).toContain(
           json.headers["cache-control"],
         );
+        // SYC-396 PR 1.3.4: the strict security header on every answer, but
+        // an exempt route's own page (test/wideCsp.ts WIDE_CSP_ROUTES). A
+        // route that widens it without being named there fails here.
+        expect(json.headers["content-security-policy"], `${where}: security header`).toBe(expectedCsp(route, json));
+        expect(page.headers["content-security-policy"], `${where} (browser): security header`).toBe(
+          expectedCsp(route, page),
+        );
       }
     });
   }
+
+  it("the routes that need no session give everyone the same public bytes, cached only as named, with no cookie", async () => {
+    for (const [route, row] of Object.entries(PUBLIC_BYTES)) {
+      const none = await request(app).get(row.path());
+      expect(none.status, `${route}: ${row.why}`).toBe(200);
+      expect(none.headers["cache-control"], route).toBe(row.mayCache);
+      expect(none.headers["set-cookie"], route).toBeUndefined();
+      for (const kind of KINDS) {
+        const res = await request(app).get(row.path()).set("Cookie", people[kind].cookie);
+        expect([res.status, res.headers["cache-control"], res.text], `${route} as ${kind}`).toEqual([
+          200,
+          row.mayCache,
+          none.text,
+        ]);
+        expect(res.headers["set-cookie"], `${route} as ${kind}`).toBeUndefined();
+      }
+      // Anything not a file it serves is a 404 that is never cached.
+      const missing = await send(route);
+      expect([missing.status, missing.headers["cache-control"]], `${route}, no such file`).toEqual([404, "no-store"]);
+    }
+  });
 
   it("the routes with their own checks give a session no say: every kind gets the same answer as no session", async () => {
     for (const route of Object.keys(OWN_CHECKS)) {
