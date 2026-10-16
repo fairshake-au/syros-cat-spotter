@@ -505,16 +505,21 @@ describe("T-exclude: write leaves out the cats Samuel rejected", () => {
 });
 
 describe("T-precedence: SYC-2's rules decide, through the real resolver (spec test 16, SYC2-D10)", () => {
-  const spotter = (catId: number, device: string, colours: string[], day: string) =>
+  const spotter = (catId: number, device: string, colours: string[], observedAt: Date) =>
     writeObservation(db, {
       catId,
       kind: "coat",
       value: { colours },
       deviceId: `${PREFIX}${device}`,
       roleAtTime: "public",
-      observedAt: new Date(`${day}T10:00:00Z`),
+      observedAt,
     });
-  const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10);
+  // Exact moments in the past, whatever the time of day. (A fixed 10:00 UTC
+  // "today" was still in the future before 10:00 UTC, so writeObservation
+  // refused it and the test failed every morning: SYC-413.) Whole days apart
+  // always fall on different Athens days, which independence needs.
+  const ago = (ms: number) => new Date(Date.now() - ms);
+  const DAY = 86_400_000;
 
   it("a team colour beats a newer machine reading", async () => {
     const c = await cat("prec-team");
@@ -533,15 +538,17 @@ describe("T-precedence: SYC-2's rules decide, through the real resolver (spec te
   it("one spotter doesn't overturn a machine reading", async () => {
     const c = await cat("prec-one");
     await write([c.id]);
-    await spotter(c.id, "dev-1", ["black"], daysAgo(0));
+    // A minute ago: newer than the machine reading (the test clock dates it
+    // about an hour ago), and still in the past.
+    await spotter(c.id, "dev-1", ["black"], ago(60_000));
     expect((await resolvedCoat(c.id)).value).toEqual(["ginger", "tabby"]);
   });
 
   it("two independent spotters do", async () => {
     const c = await cat("prec-two");
     await write([c.id]);
-    await spotter(c.id, "dev-1", ["black"], daysAgo(2));
-    await spotter(c.id, "dev-2", ["black"], daysAgo(1));
+    await spotter(c.id, "dev-1", ["black"], ago(2 * DAY));
+    await spotter(c.id, "dev-2", ["black"], ago(DAY));
     expect((await resolvedCoat(c.id)).value).toEqual(["black"]);
   });
 
