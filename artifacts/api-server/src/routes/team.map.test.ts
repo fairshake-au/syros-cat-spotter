@@ -28,6 +28,7 @@ import {
 } from "../lib/mapTiles/tileCache";
 import { AREAS } from "../lib/mapTiles/areas";
 import { isOpaqueAddress } from "../test/opaqueAddress";
+import { isOpenMapLink } from "../test/openMapLink";
 
 // SYC-209 PR 3.1: the team's map. Spec test 17 (the server half; the
 // layout half runs in a browser, docs/screenshots/syc-209-pr-3-1/), plan K4
@@ -471,6 +472,7 @@ function expectNoPositionInAddresses(html: string, tileNumbers: number[]) {
   expect(values.length).toBeGreaterThan(0);
   for (const v of values) {
     if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
+    if (isOpenMapLink(v)) continue; // D9's outbound Open map link, for the team only (SYC-395)
     expect(v, v).not.toMatch(/\d+\.\d+/);
     expect(v, v).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, v).not.toMatch(/[?&](lat|lng|lon|z|x|y)=/i);
@@ -687,7 +689,8 @@ describe("a tap on the map (test 17)", () => {
     const at = pixelOf(ERMOUPOLI, f);
     const res = await post("/api/team/map/tap", { view: f.view, size: "179", x: String(at.x), y: String(at.y) });
     expect(res.status).toBe(200);
-    expect(res.text).toMatch(/You tapped <strong>37\.4\d{4}, 24\.94\d{3}<\/strong>/);
+    // With the team's Open map link (SYC-395, D9).
+    expect(res.text).toMatch(/You tapped <strong>37\.4\d{4}, 24\.94\d{3} &middot; <a [^>]*>Open map<\/a><\/strong>/);
     expect(res.text).toContain('<span class="pin" style="left:');
     expect(res.text).toContain(`Point ${at.x}, ${at.y} on a 358 px map picture.`);
     expect(viewOf(res.text).z).toBe(17);
