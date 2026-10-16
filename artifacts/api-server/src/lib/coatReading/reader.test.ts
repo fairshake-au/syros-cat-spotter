@@ -7,7 +7,7 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: { chat: { completions: { create } } },
 }));
 
-import { COAT_COLOURS } from "../appearance";
+import { LEGACY_COAT_CODES } from "../appearance";
 import { VISION_MODEL } from "../visionModel";
 import { CONFIDENCE_CUTOFF, MODEL_VERSION, coatPrompt, readCoatFromPhoto } from "./reader";
 
@@ -32,6 +32,8 @@ describe("T-shape: a good answer is a reading", () => {
     expect(r).toEqual({
       kind: "reading",
       colours: ["ginger", "tabby"],
+      // SYC-398: what is written, through the one translation (§6).
+      parts: { colours: ["ginger"], pattern: "stripes", notSure: false },
       raw: { colours: ["ginger", "tabby"], confidence: 0.93, catCount: 1, photoClear: true },
     });
   });
@@ -60,7 +62,11 @@ describe("T-shape: a good answer is a reading", () => {
 
   it("black + white is stored as black_and_white", async () => {
     replies(answer({ colours: ["black", "white"] }));
-    expect(await readCoatFromPhoto(PHOTO)).toMatchObject({ kind: "reading", colours: ["black_and_white"] });
+    expect(await readCoatFromPhoto(PHOTO)).toMatchObject({
+      kind: "reading",
+      colours: ["black_and_white"],
+      parts: { colours: ["black", "white"], pattern: null, notSure: false },
+    });
   });
 
   it("exactly the cut-off is a reading", async () => {
@@ -92,6 +98,7 @@ describe("T-shape: each R5 case is Not sure", () => {
       expect(r.kind).toBe("reading");
       if (r.kind !== "reading") return;
       expect(r.colours).toEqual(["not_sure"]);
+      expect(r.parts).toEqual({ colours: null, pattern: null, notSure: true });
       expect(r.raw.notSureBecause).toBe(because);
     });
   }
@@ -133,8 +140,19 @@ describe("T-prompt: colour only, from the one list", () => {
     }
   });
 
-  it("its colour list is COAT_COLOURS exactly, in order", () => {
+  it("its colour list is the old eight codes (LEGACY_COAT_CODES) exactly, in order, until coat-v2", () => {
     const listed = [...prompt.matchAll(/^ {2}([a-z_]+): /gm)].map((m) => m[1]);
-    expect(listed).toEqual([...COAT_COLOURS]);
+    expect(listed).toEqual([...LEGACY_COAT_CODES]);
+  });
+
+  // SYC-398 A1 (probe 15): the live coat-v1 prompt is unchanged, byte for
+  // byte, until PR C bumps the version. Captured from coatPrompt() on main
+  // at 9313db86, before A1 touched the vocabulary.
+  it("the v1 prompt is unchanged", () => {
+    expect(MODEL_VERSION.endsWith("/coat-v1")).toBe(true);
+    expect(prompt).toBe(V1_PROMPT);
   });
 });
+
+const V1_PROMPT =
+  "This is a photo of a street cat. Say what colour its coat is, and nothing else about the cat.\n\nRespond with ONLY valid JSON, no markdown:\n{\"catCount\": number, \"photoClear\": boolean, \"colours\": string[], \"confidence\": number}\n\n- catCount: how many cats you can see in the photo.\n- photoClear: false if the photo is too dark, blurred or far away to judge the coat's colour.\n- colours: one or two codes from this list:\n  black: solid black, or nearly all black\n  white: solid white, or nearly all white\n  ginger: ginger, orange or cream\n  grey: solid grey (sometimes called blue)\n  tabby: a tabby pattern: stripes, spots or swirls, in any colour\n  tortoiseshell_or_calico: tortoiseshell or calico: patches of black and orange, with or without white\n  black_and_white: black and white (bicolour or tuxedo)\n  not_sure: you can't tell\n  Use two codes only when both describe the coat (a ginger tabby is [\"ginger\", \"tabby\"]). Use [\"not_sure\"] alone if you can't tell.\n- confidence: from 0.0 to 1.0, how sure you are of the colours.";
