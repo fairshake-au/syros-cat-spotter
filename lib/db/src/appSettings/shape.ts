@@ -46,6 +46,9 @@ export const SETTING_KEYS = [
   "feed_nudge_donate_url",
   "starter_facts_hidden",
   "feed_tap_count",
+  // SYC-415: shows the extra-photo boxes on the New spot screen. The server
+  // takes extra photos whatever it says; it only hides the boxes.
+  "extra_photos_on",
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
 
@@ -81,6 +84,7 @@ export function settingShapeProblem(key: SettingKey, value: unknown): string | n
       }
       return null;
     case "feed_tap_count":
+    case "extra_photos_on":
       return typeof value === "boolean" ? null : "must be true or false";
   }
 }

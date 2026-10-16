@@ -17,3 +17,4 @@ export * from "./rateLimits";
 export * from "./mapTiles";
 export * from "./matchWait";
 export * from "./photoVariants";
+export * from "./sightingPhotos";
