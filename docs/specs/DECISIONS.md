@@ -374,6 +374,17 @@ Samuel **approved the spec on 12 October 2026** and **the implementation plan on
 - **No team action to clear a cat's home description.** SYC-130 makes the home note visible only to its owner and the team, and that change must be live before the pre-launch pass comes off (amends D6's conditional action; plan Decision 2, 14 October 2026).
 - **"Delete for good" is for privacy only:** a hidden photo that someone reported as showing a person or a private place, or that the team hid with the "for privacy" tick. Offensive photos stay hidden, not deleted (plan Decision 3, 14 October 2026).
 
+## Part 2r — approval of `photo-tips-and-extra-photos.md` (SYC-415), 15 October 2026
+
+Samuel **approved the spec on 15 October 2026**, with the four cartoons as drawn. Where anything earlier says otherwise, these win.
+
+- **Photo tips show once, then sit behind a "Photo tips" link,** and always appear on the "this doesn't look like a cat" screen. (Decision 1.)
+- **A spot can carry a face photo and a body photo,** offered as two optional boxes and never required. A spot is still one sighting, however many photos it has. (Decision 2.)
+- **Matching looks at all of a spot's photos,** compared against each nearby cat's main photo. Comparing against cats' extra photos is left to SYC-163. (Decision 3.)
+- **A new cat's main photo is the face photo** if there is one, otherwise the first photo. This is measured, and switches to the first photo if face shots match worse. (Decision 4; amends nothing. Later spots still never change a cat's main photo.)
+- **Claude drew the cartoons and Samuel approved them.** A designer may replace them later. (Decision 5.)
+- **No photo is deleted on the matcher's guess.** Only a spot with no cat in any photo is turned away. (From the adversarial review; spec §5.3.)
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
