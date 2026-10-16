@@ -662,14 +662,18 @@ describe("T5-5 [spec 5]: the brake: 5 report-hides a day, Athens time, no resume
   });
 
   it("on the database's own clock (production's path): the 6th report-hide today is braked, and a hide is stamped now (review finding 7)", async () => {
+    // Other files may write report-hides stamped now too (coatReading does),
+    // so this test never depends on today's count being exactly its own.
     _setIssueClockForTests(null);
+    _setBrakeForTests(1_000_000);
     const first = await seedCat(0);
     const res = await send({ catId: first.id, reason: "photo_private", photoPublicId: first.main.publicId });
     expect(res.body.hidden).toBe(true);
     const [event] = await eventsFor(first.main.id);
     expect(Math.abs(event!.at.getTime() - Date.now())).toBeLessThan(60_000);
-    // Four more report-hides today, Athens time (stamped now, which is today).
-    await seedReportHides(REPORT_HIDES_PER_ATHENS_DAY - 1, new Date());
+    // A full day's report-hides, stamped now (today, Athens time), then the real brake.
+    _setBrakeForTests();
+    await seedReportHides(REPORT_HIDES_PER_ATHENS_DAY, new Date());
     const sixth = await seedCat(0);
     const ref = clientRef();
     const res6 = await send({ clientRef: ref, catId: sixth.id, reason: "photo_private", photoPublicId: sixth.main.publicId });
