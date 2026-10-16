@@ -90,12 +90,14 @@ export async function matchCatPhoto(
     mixedCats?: unknown;
     matches?: unknown;
   };
+  // A model sometimes sends a yes/no as the string "true"; reading that as
+  // "no" would call a real cat "not a cat" (review of #212).
+  const yes = (v: unknown) => v === true || v === "true";
   return {
     // The new shape says "anyCat"; an answer in the old shape still works.
-    isCatPhoto:
-      typeof parsed.anyCat === "boolean" ? parsed.anyCat : !!parsed.isCatPhoto,
+    isCatPhoto: yes(parsed.anyCat !== undefined ? parsed.anyCat : parsed.isCatPhoto),
     // One photo can't show two cats, whatever the model says.
-    mixedCats: many && parsed.mixedCats === true,
+    mixedCats: many && yes(parsed.mixedCats),
     matches: Array.isArray(parsed.matches)
       ? (parsed.matches as { catId: unknown; confidence: unknown; reasoning: unknown }[])
           .filter((m): m is { catId: number; confidence: unknown; reasoning: unknown } =>

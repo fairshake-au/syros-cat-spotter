@@ -77,6 +77,32 @@ describe("matchCatPhoto with several photos", () => {
   });
 });
 
+describe("matchCatPhoto tolerates booleans sent as strings", () => {
+  it('"anyCat": "true" is a cat, not "no cat"', async () => {
+    replies({ anyCat: "true", mixedCats: "false", matches: [] });
+    const r = await matchCatPhoto(THREE, CANDIDATES);
+    expect(r.isCatPhoto).toBe(true);
+    expect(r.mixedCats).toBe(false);
+  });
+
+  it('"anyCat": "false" is no cat', async () => {
+    replies({ anyCat: "false", matches: [] });
+    expect((await matchCatPhoto(THREE, CANDIDATES)).isCatPhoto).toBe(false);
+  });
+
+  it('old-shape "isCatPhoto": "true" is a cat', async () => {
+    replies({ isCatPhoto: "true", matches: [] });
+    expect((await matchCatPhoto(THREE, CANDIDATES)).isCatPhoto).toBe(true);
+  });
+
+  it('"mixedCats": "true" counts with several photos, never with one', async () => {
+    replies({ anyCat: true, mixedCats: "true", matches: [] });
+    expect((await matchCatPhoto(THREE, CANDIDATES)).mixedCats).toBe(true);
+    replies({ anyCat: true, mixedCats: "true", matches: [] });
+    expect((await matchCatPhoto("ONLY", CANDIDATES)).mixedCats).toBe(false);
+  });
+});
+
 describe("matchCatPhoto with one photo", () => {
   it("a plain string is one first photo, and 'more than one cat' can't apply", async () => {
     replies({ anyCat: true, mixedCats: true, matches: [] });
