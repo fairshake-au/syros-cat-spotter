@@ -6,7 +6,6 @@ import { catTarget } from "./capabilityTargets";
 import {
   isWithdrawal,
   loadCatRecords,
-  normaliseColours,
   ObservationRefused,
   WITHDRAWN,
   writeObservation,
@@ -16,9 +15,10 @@ import {
 import { clearOwner, newestActiveOwnerHomed } from "./claiming";
 import { commitStatement, inStatementTransaction, type PendingNews } from "./commitStatement";
 import { isOwnerHomed } from "./teamCatView";
+import { orderColours, partsToValue } from "./appearance";
 import {
   appearanceAuthorityLevel,
-  resolveCoat,
+  resolveCoatParts,
   resolveMarkings,
   resolveSterilised,
   standingAboveTeam,
@@ -502,7 +502,7 @@ async function resolvedAppearance(tx: Tx, catId: number, now: Date) {
   const observations = record?.observations ?? [];
   return {
     observations,
-    coat: resolveCoat(observations, appearanceAuthorityLevel),
+    coat: resolveCoatParts(observations, appearanceAuthorityLevel),
     markings: resolveMarkings(observations, now, appearanceAuthorityLevel),
   };
 }
@@ -531,19 +531,29 @@ export type ConfirmOutcome =
 /**
  * **Confirm** (spec §4.4, §5.3): the team agrees with what the cat's colour
  * or markings say now. It writes the resolved value as a team statement,
+ * for a coat only the parts that are known (SYC-398 §4: a part that isn't
+ * known is left not stated, and with neither known there is "nothing"),
  * with `agreesWith` the newest statement it rests on and **no photo** (the
  * PR #99 "Looks right" pattern), and the fixed reason "Looks right". It
  * becomes *Confirmed*. On a cat whose answer is a cat guardian's, it records
  * the team's agreement and changes nothing the public sees.
  *
- * `expected`, when given, is the value the page showed: if the answer has
- * changed since, nothing is written ("changed"), so nobody confirms
- * something they didn't see. The value is always worked out here, never
- * taken from the request.
+ * `expected` (markings), and `expectedColours` and `expectedPattern` (a
+ * coat, each part compared on its own), when given, are what the page
+ * showed: if the answer has changed since, nothing is written ("changed"),
+ * so nobody confirms something they didn't see. The value is always worked
+ * out here, never taken from the request.
  */
 export async function confirmAppearance(
   person: Person,
-  input: { catId: number; kind: AppearanceKind; expected?: readonly string[] },
+  input: {
+    catId: number;
+    kind: AppearanceKind;
+    expected?: readonly string[];
+    expectedColours?: readonly string[];
+    /** null: the page showed the pattern as not known. */
+    expectedPattern?: string | null;
+  },
   now = new Date(),
 ): Promise<ConfirmOutcome> {
   // No target: island-wide holders only. A cat guardian's own routes (SYC-2
@@ -553,15 +563,33 @@ export async function confirmAppearance(
   return db.transaction(async (tx) => {
     await lockCat(tx, input.catId);
     const a = await resolvedAppearance(tx, input.catId, now);
-    const resolved = input.kind === "coat" ? a.coat : a.markings;
-    const value = resolved.value;
-    if (value === null || (input.kind === "coat" && value.length === 0)) {
-      return { kind: "nothing" as const };
+    let stated: Record<string, unknown>;
+    let supportingIds: number[];
+    if (input.kind === "coat") {
+      const colours = a.coat.colours.value;
+      const pattern = a.coat.pattern.value;
+      if ((colours === null || colours.length === 0) && pattern === null) return { kind: "nothing" as const };
+      if (input.expectedColours !== undefined && !sameCodes(input.expectedColours, colours ?? [])) {
+        return { kind: "changed" as const };
+      }
+      if (input.expectedPattern !== undefined && (input.expectedPattern || null) !== pattern) {
+        return { kind: "changed" as const };
+      }
+      stated = partsToValue({ colours, pattern, notSure: false });
+      supportingIds = [
+        ...(colours !== null ? a.coat.colours.supportingObservationIds : []),
+        ...(pattern !== null ? a.coat.pattern.supportingObservationIds : []),
+      ];
+    } else {
+      const value = a.markings.value;
+      if (value === null) return { kind: "nothing" as const };
+      if (input.expected && !sameCodes(input.expected, value)) return { kind: "changed" as const };
+      stated = { marks: [...value] };
+      supportingIds = a.markings.supportingObservationIds;
     }
-    if (input.expected && !sameCodes(input.expected, value)) return { kind: "changed" as const };
 
     const byId = new Map(a.observations.map((o) => [o.id, o]));
-    const newest = resolved.supportingObservationIds
+    const newest = supportingIds
       .map((id) => byId.get(id))
       .filter((o): o is Observation => o !== undefined)
       .reduce<Observation | undefined>(
@@ -579,7 +607,7 @@ export async function confirmAppearance(
         catId: input.catId,
         kind: input.kind,
         value: {
-          ...(input.kind === "coat" ? { colours: [...value] } : { marks: [...value] }),
+          ...stated,
           ...(newest ? { agreesWith: newest.id } : {}),
         },
         reason: CONFIRM_REASON,
@@ -594,7 +622,7 @@ export async function confirmAppearance(
 export interface CorrectInput {
   catId: number;
   kind: AppearanceKind;
-  /** Colour codes (1–2, never Not sure) or the whole list of marks ([] = nothing special). */
+  /** Colour codes (1–5, never Not sure; the pattern comes with SYC-398 PR B) or the whole list of marks ([] = nothing special). */
   codes: readonly string[];
   reason: string;
   /**
@@ -621,8 +649,9 @@ export type CorrectOutcome =
  * {@link supersedeStatement} with the same reason, and then writes the
  * team's value. Either all of it lands or none of it does.
  *
- * Colours go through `normaliseColours` (black + white is black and white).
- * The team never states Not sure on colour: Mark wrong undoes a colour.
+ * A coat Correct states the colours (SYC-398 §6), once each in display
+ * order; the pattern is left not stated until PR B adds it to the form. The
+ * team never states Not sure on colour: Mark wrong undoes a colour.
  */
 export async function correctAppearance(
   person: Person,
@@ -635,7 +664,7 @@ export async function correctAppearance(
 
   const value =
     input.kind === "coat"
-      ? { colours: normaliseColours(input.codes) }
+      ? { colours: orderColours(input.codes) }
       : { marks: [...new Set(input.codes)] };
 
   return db.transaction(async (tx) => {

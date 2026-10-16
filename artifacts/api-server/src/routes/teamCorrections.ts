@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { COAT_COLOURS, MARKS, normaliseColours, ObservationRefused } from "../lib/observations";
+import { COAT_COLOURS, COAT_PATTERNS, MARKS, ObservationRefused } from "../lib/observations";
+import { orderColours, readCoatValue } from "../lib/appearance";
 import {
   agreeWithClip,
   catIdOfStatement,
@@ -820,22 +821,29 @@ const afterAppearance = (back: "cat" | "colour" | undefined, catId: number, done
 /** One value or several: a form sends a lone ticked box as a string. */
 const listOf = (v: unknown) => (v === undefined ? undefined : Array.isArray(v) ? v : [v]);
 
-/** The colours the team may state: never Not sure (Samuel, 14 Oct 2026). */
-const TEAM_COLOURS = COAT_COLOURS.filter((c) => c !== "not_sure") as [string, ...string[]];
+/** The colours the team may state: the five (SYC-398 §2). Never Not sure (Samuel, 14 Oct 2026). */
+const TEAM_COLOURS = [...COAT_COLOURS] as [string, ...string[]];
+
+/** Codes, comma-joined from a form, a list from JSON. */
+const codeList = z.preprocess(
+  (v) => (typeof v === "string" ? (v === "" ? [] : v.split(",")) : v),
+  z.array(z.string().max(40)).max(20).optional(),
+);
 
 const ConfirmForm = z.object({
   kind: z.enum(["coat", "markings"]),
-  /** What the page showed: codes, comma-joined from a form, a list from JSON. */
-  expected: z.preprocess(
-    (v) => (typeof v === "string" ? (v === "" ? [] : v.split(",")) : v),
-    z.array(z.string().max(40)).max(20).optional(),
-  ),
+  /** What the page showed for markings (and, from a page drawn before SYC-398, for a coat). */
+  expected: codeList,
+  /** What the page showed for a coat, each part on its own (SYC-398 §4). */
+  expectedColours: codeList,
+  /** "" when the page showed the pattern as not known. */
+  expectedPattern: z.union([z.literal(""), z.enum(COAT_PATTERNS)]).optional(),
   back: z.enum(["cat", "colour"]).optional(),
 });
 
 const CorrectForm = z.object({
   kind: z.enum(["coat", "markings"]),
-  colours: z.preprocess(listOf, z.array(z.enum(TEAM_COLOURS)).max(7).optional()),
+  colours: z.preprocess(listOf, z.array(z.enum(TEAM_COLOURS)).max(TEAM_COLOURS.length).optional()),
   // The form's hidden empty `marks` says the list was sent: none ticked is
   // "nothing special", a choice, never a missing field.
   marks: z.preprocess(
@@ -869,8 +877,19 @@ router.post(
       return formProblem(req, res, 400, { fields, message: problemFor(fields), back, backLabel: "Back to the cat" });
     }
     const { kind, expected } = parsed.data;
+    let { expectedColours } = parsed.data;
+    let expectedPattern: string | null | undefined =
+      parsed.data.expectedPattern === undefined ? undefined : parsed.data.expectedPattern || null;
+    // A page drawn before SYC-398 sent the coat as old codes: read them
+    // through the one translation, so a stale page still confirms nothing
+    // it didn't show.
+    if (kind === "coat" && expected !== undefined && expectedColours === undefined && expectedPattern === undefined) {
+      const parts = readCoatValue({ colours: expected });
+      expectedColours = parts?.colours ?? [];
+      expectedPattern = parts?.pattern ?? null;
+    }
     try {
-      const out = await confirmAppearance(teamPerson(res), { catId, kind, expected });
+      const out = await confirmAppearance(teamPerson(res), { catId, kind, expected, expectedColours, expectedPattern });
       const done = out.kind === "confirmed" ? "a_confirmed" : out.kind === "nothing" ? "a_nothing" : "a_changed";
       if (isFormPost(req)) return void res.redirect(303, afterAppearance(parsed.data.back, catId, done));
       if (out.kind === "nothing") {
@@ -902,9 +921,9 @@ router.post(
     let codes: string[] = [];
     if (parsed.success) {
       if (parsed.data.kind === "coat") {
-        // Black + white is black and white before it is counted.
-        codes = normaliseColours(parsed.data.colours ?? []);
-        if (codes.length < 1 || codes.length > 2) fields = ["colours"];
+        // Every colour seen, once each, in display order (SYC-398 §2: no limit).
+        codes = orderColours(parsed.data.colours ?? []);
+        if (codes.length < 1) fields = ["colours"];
       } else if (parsed.data.marks === undefined) {
         fields = ["marks"];
       } else {
