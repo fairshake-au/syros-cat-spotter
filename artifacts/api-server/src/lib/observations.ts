@@ -158,11 +158,12 @@ const SYSTEM_AUTHOR_SET: ReadonlySet<string> = new Set(SYSTEM_AUTHORS);
 // The colour and mark vocabularies, and the one normaliser, live in the pure
 // module `./appearance` so the resolver (which must not import the database)
 // can share them. Re-exported here so every writer keeps one import.
-export { COAT_COLOURS, MARKS, normaliseColours } from "./appearance";
-export type { CoatColour, Mark } from "./appearance";
-import { COAT_COLOURS, MARKS } from "./appearance";
+export { COAT_COLOURS, COAT_PATTERNS, MARKS, normaliseColours } from "./appearance";
+export type { CoatColour, CoatPattern, Mark } from "./appearance";
+import { COAT_COLOURS, COAT_PATTERNS, MARKS } from "./appearance";
 
 const COAT_COLOUR_SET: ReadonlySet<string> = new Set(COAT_COLOURS);
+const COAT_PATTERN_SET: ReadonlySet<string> = new Set(COAT_PATTERNS);
 const MARK_SET: ReadonlySet<string> = new Set(MARKS);
 
 /** Raised by `writeObservation` for every refusal, with a stable `code` so
@@ -187,7 +188,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 
 /** Keys that make a coat or markings value a statement rather than a
  * retraction. */
-const STATEMENT_KEYS = ["colours", "marks", "cantTell", "modelVersion"] as const;
+const STATEMENT_KEYS = ["colours", "pattern", "notSure", "marks", "cantTell", "modelVersion"] as const;
 
 /**
  * A retraction is a plain object with `retracted === true` and none of the
@@ -204,7 +205,7 @@ function isRetraction(value: unknown): boolean {
   if (STATEMENT_KEYS.some((k) => k in value)) {
     refuse(
       "MALFORMED_VALUE",
-      "a retraction cannot carry colours, marks, cantTell or modelVersion",
+      "a retraction cannot carry colours, pattern, notSure, marks, cantTell or modelVersion",
     );
   }
   return true;
@@ -354,62 +355,55 @@ function validateValue(
       return;
     }
     case "coat": {
+      // SYC-398 (coat-colours-and-pattern.md §6): any of the five colours
+      // plus one pattern, or a whole Not sure. Old shapes (tabby,
+      // black_and_white, not_sure, ...) are refused from now on; stored ones
+      // are only ever read, through readCoatValue. No key allow-list: the
+      // team keeps `reason` and `agreesWith` in the value.
       if (isRetraction(value)) return;
-      if (!isPlainObject(value) || !Array.isArray(value["colours"])) {
-        refuse(
-          "MALFORMED_VALUE",
-          "coat needs { colours: CoatColour[], modelVersion? } or { retracted: true }",
-        );
+      if (!isPlainObject(value)) {
+        refuse("MALFORMED_VALUE", "coat needs { colours?, pattern? } or { notSure: true }");
       }
-      const colours = value["colours"] as unknown[];
-      if (colours.length < 1 || colours.length > 2) {
-        refuse("MALFORMED_VALUE", "coat.colours must have 1 or 2 entries");
-      }
-      if (!colours.every((c) => COAT_COLOUR_SET.has(c as string))) {
-        refuse(
-          "MALFORMED_VALUE",
-          "coat.colours must be from SYC-119's fixed eight-colour list",
-        );
-      }
-      if (new Set(colours).size !== colours.length) {
-        refuse("MALFORMED_VALUE", "coat.colours must be distinct");
-      }
-      if (colours.includes("not_sure") && colours.length > 1) {
-        refuse(
-          "MALFORMED_VALUE",
-          '"not_sure" cannot be combined with another colour',
-        );
-      }
-      // The team never states Not sure on colour (Samuel, 14 October 2026):
-      // Correct does not offer it, and "Mark wrong" is how the team undoes a
-      // colour. A spotter and the photo reader still may.
-      if (
-        colours.length === 1 &&
-        colours[0] === "not_sure" &&
-        statesAppearanceWithAuthority(ctx.roleAtTime)
-      ) {
-        refuse(
-          "MALFORMED_VALUE",
-          'the team and cat guardians never state "not_sure" on colour; use a retraction ("Mark wrong") to undo a colour',
-        );
-      }
-      if (colours.includes("black") && colours.includes("white")) {
-        refuse(
-          "MALFORMED_VALUE",
-          'black and white together is stored as "black_and_white" (use normaliseColours)',
-        );
-      }
-      // One stored form per set: "black_and_white" already says black and
-      // says white, so neither can be added to it. (A second colour such as
-      // "tabby" can.)
-      if (
-        colours.includes("black_and_white") &&
-        (colours.includes("black") || colours.includes("white"))
-      ) {
-        refuse(
-          "MALFORMED_VALUE",
-          '"black_and_white" already includes black and white',
-        );
+      const colours = value["colours"];
+      const pattern = value["pattern"];
+      if (value["notSure"] !== undefined) {
+        if (value["notSure"] !== true) refuse("MALFORMED_VALUE", "notSure must be true");
+        if (colours !== undefined || pattern !== undefined) {
+          refuse("MALFORMED_VALUE", "notSure is never combined with a colour or pattern");
+        }
+        // The team never states Not sure on colour (Samuel, 14 October 2026):
+        // Correct does not offer it, and "Mark wrong" is how the team undoes
+        // a colour. A spotter and the photo reader still may.
+        if (statesAppearanceWithAuthority(ctx.roleAtTime)) {
+          refuse(
+            "MALFORMED_VALUE",
+            'the team and cat guardians never state "not sure" on colour; use a retraction ("Mark wrong") to undo a colour',
+          );
+        }
+      } else {
+        if (colours !== undefined) {
+          if (!Array.isArray(colours) || colours.length < 1 || colours.length > COAT_COLOURS.length) {
+            refuse("MALFORMED_VALUE", "coat.colours must have 1 to 5 entries");
+          }
+          if (!colours.every((c) => COAT_COLOUR_SET.has(c as string))) {
+            refuse("MALFORMED_VALUE", "coat.colours must be from the five colours");
+          }
+          if (new Set(colours).size !== colours.length) {
+            refuse("MALFORMED_VALUE", "coat.colours must be distinct");
+          }
+        }
+        if (pattern !== undefined && !(typeof pattern === "string" && COAT_PATTERN_SET.has(pattern))) {
+          refuse("MALFORMED_VALUE", "coat.pattern must be plain, stripes or patches");
+        }
+        if (colours === undefined && pattern === undefined) {
+          refuse("MALFORMED_VALUE", "coat states nothing");
+        }
+        // A spotter's answer always names a colour; its pattern may be
+        // "Can't tell" (absent). Only the team and the reader state a
+        // pattern alone.
+        if (ctx.roleAtTime === "public" && colours === undefined) {
+          refuse("MALFORMED_VALUE", "a spotter's coat answer names at least one colour");
+        }
       }
       const modelVersion = value["modelVersion"];
       if (ctx.provenance === "machine") {
