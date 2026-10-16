@@ -33,13 +33,11 @@ router.get(
   requireTeam("view_exact_location"),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
-    const json = wantsJson(req);
-    // Before any await, so an error answer carries them too. The grid page
-    // is the one page that loads our own script (dashboard-grid.js), so it
-    // alone gets the wider header; its JSON answer keeps the strict one.
-    // A refusal from requireTeam has already gone out with the strict one.
-    setTeamHeaders(res, { scripts: !json });
-    if (json) {
+    // The strict header first, before any await, so any answer that isn't
+    // the finished grid page (JSON, a 500 from an error below) carries it.
+    // A refusal from requireTeam went out with the strict one before this.
+    setTeamHeaders(res);
+    if (wantsJson(req)) {
       // Only a single string is a query; ?q=a&q=b or ?q[x]=1 is no query.
       const q = typeof req.query["q"] === "string" ? req.query["q"] : "";
       return void res.json({ query: q, results: await searchTeamCats(q) });
@@ -62,20 +60,21 @@ router.get(
     const { items, total, catCount } = await listTeamCats(forList, now);
     // Spec §9.6: each page records how long it took. Counts only, no names.
     req.log.info({ ms: Date.now() - started, shown: items.length, total }, "team cats list");
-    res
-      .type("html")
-      .send(
-        renderCatGridPage({
-          items,
-          total,
-          catCount,
-          filters,
-          personName: person.name,
-          tie,
-          now,
-          colonies: await allColonyChoices(visibleColonyIds(person)),
-        }),
-      );
+    const html = renderCatGridPage({
+      items,
+      total,
+      catCount,
+      filters,
+      personName: person.name,
+      tie,
+      now,
+      colonies: await allColonyChoices(visibleColonyIds(person)),
+    });
+    // Only now, with the page built and nothing left to fail: the grid page
+    // is the one page that loads our own script (dashboard-grid.js), so it
+    // alone gets the wider header (test/wideCsp.ts WIDE_CSP_ROUTES).
+    setTeamHeaders(res, { scripts: true });
+    res.type("html").send(html);
   },
 );
 
