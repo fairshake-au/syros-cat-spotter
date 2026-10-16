@@ -8,9 +8,10 @@ Branch `claude/syc-415-pr2-server-extra-photos`, off `origin/claude/tester-photo
 
 - **Task 2.2** — OpenAPI: `ExtraPhoto`, `CreateSightingRequest.extraPhotos` (max 2), `CreateSightingError` (400 body with optional `photo`), 413 (reuses `ApiErrorBody`), optional `AppSettings.extraPhotos`; codegen run. `jsonErrorHandler` answers body-parser's `entity.too.large` with 413 + `no-store`. Probe done.
 
+- **Task 2.3** — `artifacts/api-server/src/lib/spotPhotos.ts`: `coverRole`, `spotPhotoList`, `validateSpotPhotos` (sha256 of normalised output to refuse duplicates), `saveSpotWithPhotos` (one transaction). 11 tests. Probes: cover, txn.
+
 ## Next
 
-- Task 2.3 — `spotPhotos.ts` (cover rule, validation, one-transaction save).
 - Task 2.4 — matcher takes all photos.
 - Task 2.5 — upload route.
 - Task 2.6 — `/app-settings` switch.
@@ -23,3 +24,4 @@ Branch `claude/syc-415-pr2-server-extra-photos`, off `origin/claude/tester-photo
 - Duplicate-photo check: run against a local scratch DB only (seeded with a deliberate shared photo and a missing photo to exercise `ON CONFLICT` and the `JOIN`). The Neon development-branch check is for the parent session.
 - Pre-existing flake on the base branch, unrelated: `team.siteWrites.test.ts` "zoom, pan and the area buttons…" fails when a random tile token happens to contain `digit-digits-digit` (seen once on the untouched baseline run).
 - Local `pnpm -w run typecheck`: `artifacts/mockup-sandbox` fails on duplicate `@types/react` versions in this Mac's `node_modules` (files untouched by this branch). Libs, api-server, cat-spotter and scripts typecheck clean.
+- Task 2.3 duplicate test: uses one image as PNG at compression 0 and 9 (lossless, so different base64 but identical pixels) rather than "a JPEG re-encoded by sharp", which isn't guaranteed to give identical pixels. Same intent: the check compares normalised output.
