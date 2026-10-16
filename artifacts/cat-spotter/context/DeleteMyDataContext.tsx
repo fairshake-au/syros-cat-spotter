@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 import { clearWaitingRecords } from '@/lib/waitingCardStore';
+import { clearPhotoTipsSeen } from '@/lib/photoTipsSeen';
 import { APP_SETTINGS_STORAGE_KEY } from '@/lib/appSettings';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
@@ -95,6 +96,8 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
       // SYC-36 / SYC-48: the waiting card's record and this phone's
       // resident signals (match-wait plan PR 1).
       await clearWaitingRecords(AsyncStorage);
+      // SYC-415: deliberately cleared, so a fresh start sees the photo tips again.
+      await clearPhotoTipsSeen(AsyncStorage);
       await AsyncStorage.removeItem(APP_SETTINGS_STORAGE_KEY);
       if ((await AsyncStorage.getItem(DELETE_REPORTS_KEY)) === 'delete') {
         await reportQueueRef.current.wipeReports();

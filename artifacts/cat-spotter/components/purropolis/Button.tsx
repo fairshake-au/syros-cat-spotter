@@ -20,6 +20,7 @@ export interface ButtonProps {
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  testID?: string;
   /**
    * Let a long text label wrap onto more lines instead of being cut short with
    * an ellipsis. Off by default, so every other button looks as it did.
@@ -44,6 +45,7 @@ export function Button({
   onPress,
   style,
   accessibilityLabel,
+  testID,
   wrapLabel = false,
 }: ButtonProps) {
   const colors = useColors();
@@ -69,6 +71,7 @@ export function Button({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      testID={testID}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.base,
