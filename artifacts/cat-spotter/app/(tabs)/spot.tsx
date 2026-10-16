@@ -638,7 +638,7 @@ export default function SpotScreen() {
                 pin: finalCoords,
                 capturedAt: sightingTime,
               }),
-            ),
+            ).then(() => undefined),
           // R5: one bar of signal — the send failed though the phone says
           // it is connected.
           offerSaveForLater: () =>

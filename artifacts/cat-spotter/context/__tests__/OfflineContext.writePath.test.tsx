@@ -220,7 +220,7 @@ describe('load gate (F2)', () => {
     await waitFor(() => expect(writeAsStringAsync).toHaveBeenCalledTimes(1));
     expect(ctx.current.ready).toBe(false);
 
-    let queued!: Promise<void>;
+    let queued!: Promise<unknown>;
     act(() => {
       queued = ctx.current.enqueue(newSighting('C'));
     });
@@ -250,7 +250,7 @@ describe('load gate (F2)', () => {
     const ctx = renderProvider();
     await waitFor(() => expect(readDirectoryAsync).toHaveBeenCalled());
 
-    let queued!: Promise<void>;
+    let queued!: Promise<unknown>;
     act(() => {
       queued = ctx.current.enqueue(newSighting('C'));
     });

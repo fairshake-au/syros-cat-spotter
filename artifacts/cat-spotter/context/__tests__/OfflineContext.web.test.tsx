@@ -294,7 +294,7 @@ describe('moving photos already queued inline (spec §3.3)', () => {
     await waitFor(() => expect(fake.calls.putPhoto).toContain('A'));
     expect(ctx.current.ready).toBe(false);
 
-    let queued!: Promise<void>;
+    let queued!: Promise<unknown>;
     act(() => {
       queued = ctx.current.enqueue(newSighting('C'));
     });
