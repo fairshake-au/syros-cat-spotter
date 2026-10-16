@@ -441,7 +441,9 @@ describe("PR 2.1 review: hidden photos, owners and markup", () => {
 });
 
 describe("her pages' words follow the house rules (SYC-283 drafts)", () => {
-  const mine = (key: string) => /^(gcat\.|gcol\.|coat\.|mark\.|mycol\.seeCats$)/.test(key);
+  // Her pages' own keys. The colour and mark words (coat.*, mark.*) are
+  // SYC-2's shared vocabulary (PR 3.1), checked there.
+  const mine = (key: string) => /^(gcat\.|gcol\.|mycol\.seeCats$)/.test(key);
   it("Greek: no accented capital letters", () => {
     const bad = Object.entries(CATALOGUE.el).filter(([k, v]) => mine(k) && /[ΆΈΉΊΌΎΏ]/.test(v)).map(([k]) => k);
     expect(bad).toEqual([]);
@@ -452,7 +454,7 @@ describe("her pages' words follow the house rules (SYC-283 drafts)", () => {
   });
   it("every new key exists in all three languages", () => {
     const keys = Object.keys(CATALOGUE.en).filter(mine);
-    expect(keys.length).toBeGreaterThan(40);
+    expect(keys.length).toBeGreaterThan(20);
     for (const k of keys) {
       expect(CATALOGUE.el[k as keyof typeof CATALOGUE.el], k).toBeTruthy();
       expect(CATALOGUE.fr[k as keyof typeof CATALOGUE.fr], k).toBeTruthy();
