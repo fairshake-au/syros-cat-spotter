@@ -651,3 +651,84 @@ describe("isIslandWide: the gate for anything only the team may see (SYC-362)", 
     expect(visibleColonyIds({ scopes: [] }).ids).toEqual([]);
   });
 });
+
+// ── SYC-395 PR 0.2: D9's Open map links ────────────────────────────────────
+//
+// "Open map" (an outbound link that carries a position to a map company) is
+// for island-wide team members only (spec D9, §3.2, §10.4). The gate is the
+// VIEWER (isIslandWide), not the page: the same Feeding sites, site, Colonies
+// and colony pages are drawn for the team and for a cat guardian. The pages
+// checked print a position, so a missing link is not just an empty page.
+// Probe (PR body): forcing a shared page's gate to true turns this red.
+describe("SYC-395 (D9): Open map links by viewer", () => {
+  const C1_CENTRE = { lat: 37.44555, lng: 24.94222 };
+  const SIGHT_A = { lat: 37.44701, lng: 24.94321 };
+  const HOME = { lat: 37.44, lng: 24.94 };
+  const at = (p: { lat: number; lng: number }) => `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+  const openMap = (p: { lat: number; lng: number }) =>
+    `https://www.google.com/maps/search/?api=1&amp;query=${encodeURIComponent(`${p.lat.toFixed(5)},${p.lng.toFixed(5)}`)}`;
+  let homeCat: SeededCat;
+
+  beforeAll(async () => {
+    // Colony 1 gets a centre with no history row (a staff row would put
+    // STAFF_NAME on her colony page, which test 21 forbids).
+    await pool.query("update colonies set lat = $1, lng = $2 where id = $3", [C1_CENTRE.lat, C1_CENTRE.lng, c1]);
+    homeCat = await seedCat(null);
+    await pool.query("update cats set home_lat = $1, home_lng = $2 where id = $3", [HOME.lat, HOME.lng, homeCat.id]);
+  });
+
+  /** The pages Eleni reads, and the position each prints (null: none to check). */
+  const hers = (): { label: string; send: () => request.Test; shows: { lat: number; lng: number } | null }[] => [
+    { label: "her site", send: () => get(`/api/team/sites/${s1}`, eleni.cookie), shows: S1_POS },
+    { label: "the site that joined her colony", send: () => get(`/api/team/sites/${sJ}`, eleni.cookie), shows: JOINED_POS },
+    { label: "her colony", send: () => get(`/api/team/colonies/${c1}`, eleni.cookie), shows: C1_CENTRE },
+    {
+      label: "Make a feeding site here, her cat",
+      send: () => post("/api/team/sites/from-sighting", { sightingId: String(sightA) }, eleni.cookie),
+      shows: SIGHT_A,
+    },
+    { label: "Feeding sites", send: () => get("/api/team/sites", eleni.cookie), shows: null },
+    { label: "Colonies", send: () => get("/api/team/colonies", eleni.cookie), shows: null },
+    { label: "her own colony page", send: () => get(`/api/team/my/colonies/${c1}`, eleni.cookie), shows: null },
+    { label: "her own cat page", send: () => get(`/api/team/my/cats/${catA.id}`, eleni.cookie), shows: null },
+  ];
+
+  it("a cat guardian's pages print positions with no map-company address and no Open map", async () => {
+    for (const page of hers()) {
+      const res = await page.send();
+      expect(res.status, `${page.label}: ${res.status}`).toBe(200);
+      if (page.shows) expect(res.text, `${page.label} prints the position`).toContain(at(page.shows));
+      expect(res.text, `${page.label}: a map company`).not.toMatch(MAP_COMPANIES);
+      expect(res.text, `${page.label}: Open map`).not.toContain("Open map");
+    }
+  });
+
+  it("an island-wide team member gets Open map on the same pages, at 5 decimal places", async () => {
+    const team: { label: string; send: () => request.Test; shows: { lat: number; lng: number } }[] = [
+      { label: "the site", send: () => get(`/api/team/sites/${s1}`, staffCookie), shows: S1_POS },
+      { label: "the colony", send: () => get(`/api/team/colonies/${c1}`, staffCookie), shows: C1_CENTRE },
+      { label: "the cat", send: () => get(`/api/team/cats/${catA.id}`, staffCookie), shows: SIGHT_A },
+      {
+        label: "Make a feeding site here",
+        send: () => post("/api/team/sites/from-sighting", { sightingId: String(sightA) }, staffCookie),
+        shows: SIGHT_A,
+      },
+    ];
+    for (const page of team) {
+      const res = await page.send();
+      expect(res.status, `${page.label}: ${res.status}`).toBe(200);
+      expect(res.text, page.label).toContain(
+        `${at(page.shows)} &middot; <a href="${openMap(page.shows)}" rel="noopener noreferrer">Open map</a>`,
+      );
+      // No other map company, ever.
+      expect(res.text).not.toMatch(/maps\.google\.|maps\.apple\.com|goo\.gl\/maps|geo:|waze\.com|openstreetmap\.org\/\?mlat/i);
+    }
+  });
+
+  it("an owner's home position never has a link, even for the team (D5)", async () => {
+    const res = await get(`/api/team/cats/${homeCat.id}`, staffCookie);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain(`<dt>Home pin</dt><dd>${at(HOME)}</dd>`);
+    expect(res.text).not.toContain(encodeURIComponent(`${HOME.lat.toFixed(5)},${HOME.lng.toFixed(5)}`));
+  });
+});
