@@ -1,9 +1,12 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { ObservationRefused } from "../lib/observations";
+import { COAT_COLOURS, MARKS, normaliseColours, ObservationRefused } from "../lib/observations";
 import {
   agreeWithClip,
   catIdOfStatement,
+  confirmAppearance,
+  correctAppearance,
+  isAppearanceKind,
   NAME_MAX,
   recordTeamStatement,
   catOwnerState,
@@ -14,6 +17,7 @@ import {
 } from "../lib/teamCorrections";
 import { placeCats } from "../lib/colonyCats";
 import { listLikelyForReview } from "../lib/likelyReview";
+import { listColourCheck } from "../lib/colourCheck";
 import { syrNumber } from "../lib/teamCatView";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import {
@@ -31,6 +35,7 @@ import { escapeHtml as esc } from "../lib/teamPages/escape";
 import { renderLikelyPage } from "../lib/teamPages/likelyPage";
 import { renderConfirmPage } from "../lib/teamPages/confirm";
 import { LIFE } from "../lib/teamPages/catPages";
+import { renderColourCheckPage } from "../lib/teamPages/appearancePage";
 import { can, type Capability } from "../lib/capabilities";
 
 // The corrections (SYC-43 part 2 plan, PR 4): forms on the team cat page and
@@ -138,6 +143,10 @@ const FIELD_WORDS: Record<string, string> = {
   clinic: "The clinic name is too long",
   choice: "Choose what it should say",
   name: `A name can be up to ${NAME_MAX} characters`,
+  kind: "Choose colour or markings",
+  colours: "Pick one or two colours",
+  marks: "Tick the marks the cat has, or none for “nothing special”",
+  expected: "The page was out of date: open it again",
 };
 
 const problemFor = (fields: string[]) =>
@@ -482,6 +491,9 @@ const CHOICES: Record<string, Record<string, unknown>> = {
   // A colony statement: the server works out the replacement (spec §2.8), so
   // this carries no value. supersedeStatement ignores it for a colony.
   colony_previous: {},
+  // A colour or markings statement (SYC-2 PR 3.1): a retraction, which
+  // supersedeStatement writes for those kinds whatever is sent.
+  retract: { retracted: true },
 };
 
 const WrongForm = z.object({
@@ -555,7 +567,11 @@ router.post(
       if (isFormPost(req)) {
         return void res.redirect(
           303,
-          toLikely ? "/api/team/likely?done=not_clipped" : catPage(row.catId, "wrong", row.id),
+          toLikely
+            ? "/api/team/likely?done=not_clipped"
+            : isAppearanceKind(row.kind)
+              ? appearancePage(row.catId, "a_wrong")
+              : catPage(row.catId, "wrong", row.id),
         );
       }
       res.status(201).json({ id: row.id });
@@ -784,6 +800,150 @@ router.post(
     } catch (err) {
       refusalFor(req, res, err, "/api/team/likely", "likely");
     }
+  },
+);
+
+// ── Colour and markings (SYC-2 PR 3.1; spec §4.4, §5.3) ─────────────────────
+//
+// The dashboard's forms always send what the page showed (`expected` for
+// Confirm, `shownAbove` for Correct), so a stale page writes nothing. A JSON
+// caller that leaves them out skips that check, by design: it has no page.
+
+/** Back to the Appearance section, or to the Colour check list, after a form. */
+const appearancePage = (catId: number, done?: string) =>
+  `/api/team/cats/${catId}${done ? `?done=${encodeURIComponent(done)}` : ""}#appearance`;
+const colourCheckPage = (catId: number, done: string) =>
+  `/api/team/colour-check?done=${encodeURIComponent(done)}#c-${catId}`;
+const afterAppearance = (back: "cat" | "colour" | undefined, catId: number, done: string) =>
+  back === "colour" ? colourCheckPage(catId, done) : appearancePage(catId, done);
+
+/** One value or several: a form sends a lone ticked box as a string. */
+const listOf = (v: unknown) => (v === undefined ? undefined : Array.isArray(v) ? v : [v]);
+
+/** The colours the team may state: never Not sure (Samuel, 14 Oct 2026). */
+const TEAM_COLOURS = COAT_COLOURS.filter((c) => c !== "not_sure") as [string, ...string[]];
+
+const ConfirmForm = z.object({
+  kind: z.enum(["coat", "markings"]),
+  /** What the page showed: codes, comma-joined from a form, a list from JSON. */
+  expected: z.preprocess(
+    (v) => (typeof v === "string" ? (v === "" ? [] : v.split(",")) : v),
+    z.array(z.string().max(40)).max(20).optional(),
+  ),
+  back: z.enum(["cat", "colour"]).optional(),
+});
+
+const CorrectForm = z.object({
+  kind: z.enum(["coat", "markings"]),
+  colours: z.preprocess(listOf, z.array(z.enum(TEAM_COLOURS)).max(7).optional()),
+  // The form's hidden empty `marks` says the list was sent: none ticked is
+  // "nothing special", a choice, never a missing field.
+  marks: z.preprocess(
+    (v) => listOf(v)?.filter((m) => m !== ""),
+    z.array(z.enum(MARKS)).max(MARKS.length).optional(),
+  ),
+  reason: reasonField,
+  /** The cat guardian statements the page showed Correct would overrule: ids, comma-joined from a form. */
+  shownAbove: z.preprocess(
+    (v) => (typeof v === "string" ? (v === "" ? [] : v.split(",")) : v),
+    z.array(z.coerce.number().int().positive()).max(50).optional(),
+  ),
+  back: z.enum(["cat", "colour"]).optional(),
+});
+
+/**
+ * POST /api/team/cats/:id/appearance/confirm. "That's right": the cat's
+ * colour or markings as they resolve now, as a team statement agreeing with
+ * the statement it rests on (lib/teamCorrections.ts confirmAppearance).
+ */
+router.post(
+  "/team/cats/:id/appearance/confirm",
+  ...formRoute("set_appearance"),
+  async (req: Request, res: Response) => {
+    const catId = catIdOf(req);
+    if (catId === null) return notFound(req, res);
+    const back = appearancePage(catId);
+    const parsed = ConfirmForm.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      const fields = fieldsOf(parsed.error);
+      return formProblem(req, res, 400, { fields, message: problemFor(fields), back, backLabel: "Back to the cat" });
+    }
+    const { kind, expected } = parsed.data;
+    try {
+      const out = await confirmAppearance(teamPerson(res), { catId, kind, expected });
+      const done = out.kind === "confirmed" ? "a_confirmed" : out.kind === "nothing" ? "a_nothing" : "a_changed";
+      if (isFormPost(req)) return void res.redirect(303, afterAppearance(parsed.data.back, catId, done));
+      if (out.kind === "nothing") {
+        return void res.status(409).json({ error: "Nothing to confirm", code: "NOTHING_TO_CONFIRM" });
+      }
+      if (out.kind === "changed") return void res.status(409).json({ error: "Changed", code: "CHANGED" });
+      res.status(201).json({ id: out.row.id });
+    } catch (err) {
+      refusalFor(req, res, err, back);
+    }
+  },
+);
+
+/**
+ * POST /api/team/cats/:id/appearance/correct. The team's whole new value,
+ * with a reason. On a cat whose answer is a cat guardian's, it marks every
+ * standing guardian statement of that kind wrong first, in the same
+ * transaction (Decision G; lib/teamCorrections.ts correctAppearance).
+ */
+router.post(
+  "/team/cats/:id/appearance/correct",
+  ...formRoute("set_appearance"),
+  async (req: Request, res: Response) => {
+    const catId = catIdOf(req);
+    if (catId === null) return notFound(req, res);
+    const back = appearancePage(catId);
+    const parsed = CorrectForm.safeParse(req.body ?? {});
+    let fields = parsed.success ? [] : fieldsOf(parsed.error);
+    let codes: string[] = [];
+    if (parsed.success) {
+      if (parsed.data.kind === "coat") {
+        // Black + white is black and white before it is counted.
+        codes = normaliseColours(parsed.data.colours ?? []);
+        if (codes.length < 1 || codes.length > 2) fields = ["colours"];
+      } else if (parsed.data.marks === undefined) {
+        fields = ["marks"];
+      } else {
+        codes = parsed.data.marks;
+      }
+    }
+    if (!parsed.success || fields.length > 0) {
+      return formProblem(req, res, 400, { fields, message: problemFor(fields), back, backLabel: "Back to the cat" });
+    }
+    try {
+      const out = await correctAppearance(teamPerson(res), {
+        catId,
+        kind: parsed.data.kind,
+        codes,
+        reason: parsed.data.reason,
+        shownAbove: parsed.data.shownAbove,
+      });
+      const done =
+        out.kind === "changed" ? "a_changed" : out.retracted.length > 0 ? "a_overruled" : "a_corrected";
+      if (isFormPost(req)) return void res.redirect(303, afterAppearance(parsed.data.back, catId, done));
+      if (out.kind === "changed") return void res.status(409).json({ error: "Changed", code: "CHANGED" });
+      res.status(201).json({ id: out.row.id, retracted: out.retracted.map((r) => r.id) });
+    } catch (err) {
+      refusalFor(req, res, err, back);
+    }
+  },
+);
+
+/** GET /api/team/colour-check: the Colour check list (HTML, or JSON on request). */
+router.get(
+  "/team/colour-check",
+  requireTeam("set_appearance"),
+  async (req: Request, res: Response) => {
+    const person = teamPerson(res);
+    setTeamHeaders(res);
+    const cats = await listColourCheck();
+    if (wantsJson(req)) return void res.json({ cats });
+    const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
+    res.type("html").send(renderColourCheckPage(cats, person.name, done));
   },
 );
 
