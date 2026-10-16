@@ -88,4 +88,17 @@ The rule order matches the plan. `hidden` is read back from the row, and a repea
 
 ## How each finding was handled
 
-_Filled in below once the fixes landed._
+Every finding was checked against the code. None was rejected. Each fix has a test, and each of those tests was proved by a mutation probe (break the line, watch the test go red, put it back).
+
+| # | What was done | Test, and its probe |
+|---|---|---|
+| 1 | **Fixed.** `prepareHide()` runs before the transaction opens. It fixes the moment the hide limits are counted at, and caches the rate-limit salts for that day, the day before and the day after (`limits.warmSalts`). So nothing under the brake lock ever needs a second pool connection. Second line of defence: the brake lock is taken in a savepoint with a 5 s `lock_timeout`; if it isn't had in time, the report is saved with no hide (`brake`). The pool's own connection timeout is filed as **SYC-407** | `issues.pool.test.ts`: 12 hide reports at once, behind a held lock, on a cold salt cache, all answer 201 and hide. Probe R1 (no warming): red |
+| 2 | **Not built: a decision for Samuel.** Building it would change the spec's courtesy rule (§8.1), so it's filed as **SYC-405**, with options and a recommendation | none |
+| 3 | **Fixed** (already found by the builder): `catId` is capped at the largest database integer | T5-11 |
+| 4 | **Fixed for this route:** a NUL in `deviceId`, `clientRef`, `photoPublicId` or `note` is a 400, refused before anything is counted. The app-wide fix is filed as **SYC-406** | "a NUL character anywhere is 400". Probe R4: red |
+| 5 | **Fixed.** On the upgrade path, our key being wrong is 503 `turnstile_not_configured`, and Cloudflare unreachable is 503 `try_again`. Both are retried by the app with no strike. A rejected token still gets the stored answer (the report is saved) | "an upgrade resend when … is 503". Probe R5: red |
+| 6 | **Fixed.** The unchecked fence is now taken last, after the cat and photo checks and just before the insert | "sends that save nothing don't use up the shared unchecked fence". Probe R6: red |
+| 7 | **Fixed.** A brake test on the database's own clock (production's path) | "on the database's own clock …". Probe R7 (hides stamped 30 days back): red |
+| 8 | **Noted** in the race test: with real Cloudflare the slower send usually gets 428 and then the stored answer | none |
+| 9 | **Fixed.** The 5-an-hour hide limit is sliding | "the hourly limit slides". Probe R9 (back to a fixed window): red |
+| 10 | **Already covered:** SYC-229 (Done) checked that every public address sits behind the same 4 proxy hops | none |
