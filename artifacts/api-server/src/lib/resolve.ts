@@ -1320,7 +1320,12 @@ export function resolveCoatParts(
   const pattern: CoatPartResolved<CoatPattern | null> = {
     ...p,
     value: (p.value?.[0] as CoatPattern | undefined) ?? null,
-    checkReasons: p.checkReasons.map((r) => (r === "tied_camps" ? "pattern_tied_camps" : r)),
+    // A pattern nobody has said is never "not yet described" on its own:
+    // "once someone has said a colour, it should stand until corrected"
+    // (Samuel, 16 Oct 2026, on SYC-398 A1). The colours part still raises it.
+    checkReasons: p.checkReasons
+      .filter((r) => !(r === "no_authority" && p.value === null))
+      .map((r) => (r === "tied_camps" ? "pattern_tied_camps" : r)),
   };
   if (colours.value !== null && pattern.value !== null && colours.rule !== pattern.rule) {
     colours.checkReasons = [...colours.checkReasons, "mixed_sources"];

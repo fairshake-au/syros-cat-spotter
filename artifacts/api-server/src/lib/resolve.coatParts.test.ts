@@ -279,6 +279,25 @@ describe("resolveCoatParts: who wins, per part (plan A1.3)", () => {
   });
 });
 
+describe("a pattern nobody has said never lists a cat as not yet described (Samuel, 16 Oct 2026)", () => {
+  it("team colours and no pattern anywhere: no reason on either part", () => {
+    const r = resolveCoatParts([team({ colours: ["black"] }, "2026-01-01")]);
+    expect(r.colours.checkReasons).toEqual([]);
+    expect(r.pattern).toMatchObject({ value: null, rule: 5, checkReasons: [] });
+  });
+
+  it("nothing known at all: the colours part still says not yet described", () => {
+    const r = resolveCoatParts([]);
+    expect(r.colours.checkReasons).toEqual(["no_authority"]);
+    expect(r.pattern.checkReasons).toEqual([]);
+  });
+
+  it("a pattern only the machine read is still not yet described", () => {
+    const r = resolveCoatParts([machine({ colours: ["grey"], pattern: "stripes" }, "2026-01-01")]);
+    expect(r.pattern.checkReasons).toEqual(["no_authority"]);
+  });
+});
+
 describe("the cat snapshot carries the two parts", () => {
   it("coatColours and coatPattern, and no coat", () => {
     const s = resolveCat(

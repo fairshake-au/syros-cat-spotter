@@ -216,7 +216,9 @@ describe("Confirm", () => {
     const reading = await machine(catId, ["ginger", "tabby"]);
     const before = await rowsFor(catId);
 
-    const res = await confirm(catId, "coat", { expected: "ginger,tabby" });
+    // SYC-398: the stored v1 reading Ginger · Tabby is Ginger · Stripes, and
+    // the page sends each part on its own.
+    const res = await confirm(catId, "coat", { expectedColours: "ginger", expectedPattern: "stripes" });
     expect(res.status).toBe(303);
     expect(res.headers["location"]).toBe(`/api/team/cats/${catId}?done=a_confirmed#appearance`);
 
@@ -224,14 +226,43 @@ describe("Confirm", () => {
     expect(added).toHaveLength(1);
     expect(added[0]).toMatchObject({
       kind: "coat",
-      value: { colours: ["ginger", "tabby"], agreesWith: reading.id, reason: "Looks right" },
+      value: { colours: ["ginger"], pattern: "stripes", agreesWith: reading.id, reason: "Looks right" },
       accountId: susanId,
       roleAtTime: "staff",
       photoId: null,
       supersedesId: null,
     });
     const snap = await snapshot(catId);
-    expect(snap.coat).toMatchObject({ value: ["ginger", "tabby"], confidence: "confirmed" });
+    expect(snap.coatColours).toMatchObject({ value: ["ginger"], confidence: "confirmed" });
+    expect(snap.coatPattern).toMatchObject({ value: "stripes", confidence: "confirmed" });
+  });
+
+  it("SYC-398: Confirm states only the parts that are known", async () => {
+    const catId = await newCat();
+    await machine(catId, ["grey"]);
+    const before = await rowsFor(catId);
+    const res = await confirm(catId, "coat", { expectedColours: "grey", expectedPattern: "" });
+    expect(res.status).toBe(303);
+    const [added] = (await rowsFor(catId)).slice(before.length);
+    expect(added!.value).toEqual({ colours: ["grey"], agreesWith: expect.any(Number), reason: "Looks right" });
+    expect(added!.value).not.toHaveProperty("pattern");
+    expect((await snapshot(catId)).coatPattern.value).toBeNull();
+  });
+
+  it("SYC-398: Confirm compares each part with what the page showed", async () => {
+    const catId = await newCat();
+    await machine(catId, ["ginger", "tabby"]);
+    for (const shown of [
+      { expectedColours: "ginger", expectedPattern: "" },
+      { expectedColours: "ginger", expectedPattern: "plain" },
+      { expectedColours: "brown", expectedPattern: "stripes" },
+    ]) {
+      const res = await confirm(catId, "coat", shown);
+      expect(res.headers["location"], JSON.stringify(shown)).toContain("done=a_changed");
+    }
+    // A page drawn before SYC-398 sent the old codes: read through the translation.
+    const stale = await confirm(catId, "coat", { expected: "ginger,tabby" });
+    expect(stale.headers["location"]).toContain("done=a_confirmed");
   });
 
   it("confirms the markings as they resolve, nothing special included", async () => {
@@ -264,10 +295,10 @@ describe("Confirm", () => {
     const catId = await newCat();
     await guardian(catId, "coat", "eleni", { value: { colours: ["grey"] }, daysAgo: 4 });
     await team(catId, "coat", { value: { colours: ["black"] }, daysAgo: 1 });
-    expect((await snapshot(catId)).coat.value).toEqual(["grey"]);
+    expect((await snapshot(catId)).coatColours.value).toEqual(["grey"]);
     const res = await confirm(catId, "coat", { expected: "grey" });
     expect(res.status).toBe(303);
-    expect((await snapshot(catId)).coat).toMatchObject({ value: ["grey"], confidence: "confirmed" });
+    expect((await snapshot(catId)).coatColours).toMatchObject({ value: ["grey"], confidence: "confirmed" });
   });
 
   it("goes back to the Colour check list when sent from it", async () => {
@@ -291,19 +322,27 @@ describe("Correct", () => {
     expect(await rowsFor(catId)).toHaveLength(0);
   });
 
-  it("stores black and white ticked separately as black_and_white", async () => {
+  it("stores black and white as two colours (SYC-398 §6), in display order", async () => {
     const catId = await newCat();
-    const res = await correct(catId, { kind: "coat", colours: ["black", "white"], reason: "Saw her" });
+    const res = await correct(catId, { kind: "coat", colours: ["white", "black"], reason: "Saw her" });
     expect(res.status).toBe(303);
     expect(res.headers["location"]).toBe(`/api/team/cats/${catId}?done=a_corrected#appearance`);
     const [row] = await rowsFor(catId);
-    expect(row!.value).toEqual({ colours: ["black_and_white"], reason: "Saw her" });
-    expect((await snapshot(catId)).coat).toMatchObject({ value: ["black_and_white"], confidence: "confirmed" });
+    expect(row!.value).toEqual({ colours: ["black", "white"], reason: "Saw her" });
+    expect((await snapshot(catId)).coatColours).toMatchObject({ value: ["black", "white"], confidence: "confirmed" });
   });
 
-  it("refuses three colours, none, and Not sure", async () => {
+  it("SYC-398: takes every colour seen, all five if need be, with no limit", async () => {
     const catId = await newCat();
-    for (const colours of [["ginger", "tabby", "grey"], [], ["not_sure"]]) {
+    const res = await correct(catId, { kind: "coat", colours: ["white", "brown", "ginger", "grey", "black"], reason: "x" });
+    expect(res.status).toBe(303);
+    const [row] = await rowsFor(catId);
+    expect(row!.value).toEqual({ colours: ["black", "grey", "brown", "ginger", "white"], reason: "x" });
+  });
+
+  it("refuses an old code, none, and Not sure", async () => {
+    const catId = await newCat();
+    for (const colours of [["ginger", "tabby", "grey"], ["black_and_white"], [], ["not_sure"]]) {
       const res = await correct(catId, { kind: "coat", colours, reason: "x" });
       expect(res.status, JSON.stringify(colours)).toBe(400);
     }
@@ -350,7 +389,7 @@ describe("T-overrule: a team Correct on a cat guardian's cat overrules her", () 
       accountId: susanId,
     });
     expect(added[1]).toMatchObject({ kind: "coat", value: { colours: ["ginger"] }, supersedesId: null });
-    expect((await snapshot(catId)).coat).toMatchObject({ value: ["ginger"], confidence: "confirmed" });
+    expect((await snapshot(catId)).coatColours).toMatchObject({ value: ["ginger"], confidence: "confirmed" });
   });
 
   it("two guardians' standing statements are both marked wrong", async () => {
@@ -366,7 +405,7 @@ describe("T-overrule: a team Correct on a cat guardian's cat overrules her", () 
     const retractions = (await rowsFor(catId)).filter((o) => (o.value as { retracted?: boolean }).retracted);
     expect(retractions.map((o) => o.supersedesId).sort()).toEqual([a.id, b.id].sort());
     expect(res.body.retracted).toHaveLength(2);
-    expect((await snapshot(catId)).coat.value).toEqual(["ginger"]);
+    expect((await snapshot(catId)).coatColours.value).toEqual(["ginger"]);
   });
 
   it("one guardian's Correct and Confirm both standing: both are marked wrong", async () => {
@@ -381,7 +420,7 @@ describe("T-overrule: a team Correct on a cat guardian's cat overrules her", () 
       .filter((o) => (o.value as { retracted?: boolean }).retracted)
       .map((o) => o.supersedesId);
     expect(retracted.sort()).toEqual([first.id, agree.id].sort());
-    expect((await snapshot(catId)).coat.value).toEqual(["black"]);
+    expect((await snapshot(catId)).coatColours.value).toEqual(["black"]);
   });
 
   it("a guardian's markings list is overruled the same way", async () => {
@@ -400,7 +439,7 @@ describe("T-overrule: a team Correct on a cat guardian's cat overrules her", () 
       correctAppearance(person, { catId, kind: "coat", codes: ["not_sure"], reason: "x" }),
     ).rejects.toMatchObject({ code: "MALFORMED_VALUE" });
     expect((await rowsFor(catId)).map((o) => o.id)).toEqual([g.id]);
-    expect((await snapshot(catId)).coat.value).toEqual(["grey"]);
+    expect((await snapshot(catId)).coatColours.value).toEqual(["grey"]);
   });
 
   it("a page out of date overrules nothing: a guardian statement it didn't show stops the Correct (a_changed)", async () => {
@@ -455,7 +494,7 @@ describe("Mark wrong (the existing route, a retraction)", () => {
       supersedeReason: "Wrong cat in the photo",
       roleAtTime: "staff",
     });
-    expect((await snapshot(catId)).coat.value).toBeNull();
+    expect((await snapshot(catId)).coatColours.value).toBeNull();
   });
 
   it("refuses anything but a retraction, on the form and the JSON supersede route (no second way to write a colour)", async () => {
@@ -542,7 +581,7 @@ describe("Mark wrong (the existing route, a retraction)", () => {
     await machine(catId, ["grey"], 9);
     const newest = await machine(catId, ["black"], 2);
     await wrong(newest.id);
-    expect((await snapshot(catId)).coat.value).toBeNull();
+    expect((await snapshot(catId)).coatColours.value).toBeNull();
   });
 });
 
@@ -636,7 +675,12 @@ describe("the Colour check list", () => {
   it("no_authority: a colour only the machine read sits in the collapsed group; Confirm takes it off", async () => {
     const catId = await newCat();
     await machine(catId, ["grey"]);
-    expect(await listed(catId)).toMatchObject({ reasons: ["no_authority"], group: "not_described", coat: ["grey"] });
+    expect(await listed(catId)).toMatchObject({
+      reasons: ["no_authority"],
+      group: "not_described",
+      coatColours: ["grey"],
+      coatPattern: null,
+    });
     await confirm(catId, "coat");
     expect(await listed(catId)).toBeUndefined();
   });
@@ -767,7 +811,7 @@ describe("the hand-pick reason", () => {
     expect((await listed(catId))?.reasons).toEqual(["hand_pick"]);
     await confirm(catId, "coat");
     expect(await listed(catId)).toBeUndefined();
-    expect((await snapshot(catId)).coat.value).toEqual(["black"]);
+    expect((await snapshot(catId)).coatColours.value).toEqual(["black"]);
   });
 
   it("a team statement made after the answer clears it (the team has looked)", async () => {
@@ -810,6 +854,39 @@ describe("the Appearance section on the team cat page", () => {
     const coat = j.body.appearance.coat;
     expect(coat.statements[0]).toMatchObject({ id: reading.id, source: "machine", modelVersion: "gpt-test-1" });
     expect(coat.statements[0].photoUrl).toMatch(/^\/api\/team\/photos\//);
+  });
+
+  it("SYC-398: shows each part in the new words, never an old code or undefined", async () => {
+    const catId = await newCat();
+    // Stored history in the old shapes, as the live cats have it.
+    await machine(catId, ["tabby", "white"], 6);
+    await spotter(catId, "coat", "a", { value: { colours: ["black_and_white"] }, daysAgo: 4 });
+    await team(catId, "coat", { value: { colours: ["brown", "ginger"] }, daysAgo: 1 });
+
+    const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
+    const html = res.text;
+    const section = html.slice(html.indexOf('<h2 id="appearance">'));
+    // The public line: the colours, then the pattern (Plain is never said).
+    expect(section).toContain('<p class="public">Brown · Ginger · Stripes</p>');
+    expect(section).toContain("Colours</dt><dd>Brown · Ginger");
+    expect(section).toContain("Pattern</dt><dd>Stripes");
+    // The old reading and answer, in the new words.
+    expect(section).toContain("Stripes");
+    expect(section).toContain("Black · White");
+    for (const bad of ["Tabby", "tabby", "Tortoiseshell", "calico", "black_and_white", "undefined", "not_sure"]) {
+      expect(section, bad).not.toContain(bad);
+    }
+    // The Correct form offers the five colours, ticked as they stand.
+    expect(section).toContain('name="colours" value="brown" checked');
+    expect(section).toContain('name="colours" value="ginger" checked');
+    expect(section).not.toContain('name="colours" value="tabby"');
+    // Confirm sends each part.
+    expect(section).toContain('name="expectedColours" value="brown,ginger"');
+    expect(section).toContain('name="expectedPattern" value="stripes"');
+    // The history reads every coat through the one translation.
+    expect(html).toContain("Coat: brown and ginger");
+    expect(html).toContain("Coat: stripes");
+    expect(html).toContain("Coat: black and white");
   });
 
   it("shows a guardian–team disagreement, with Correct offered to overrule", async () => {
