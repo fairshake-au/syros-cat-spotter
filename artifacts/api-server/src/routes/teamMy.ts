@@ -1,5 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { eq } from "drizzle-orm";
 import {
+  coloniesTable,
+  db,
   findPersonById,
   LAST_MANAGER,
   myColonies,
@@ -23,6 +26,17 @@ import {
   MY_STOP_PATH,
   type MyPerson,
 } from "../lib/teamPages/myPages";
+import {
+  renderGuardianCatPage,
+  renderGuardianColonyPage,
+  renderGuardianNotFound,
+  renderPublicCatForGuardian,
+} from "../lib/teamPages/guardianPages";
+import { can } from "../lib/capabilities";
+import { canonicalCats, catTargetWithCanonical } from "../lib/capabilityTargets";
+import { catsInColony } from "../lib/colonyMembership";
+import { guardianCats, guardianCatView } from "../lib/guardianCatView";
+import { publicCatView } from "../lib/publicCat";
 
 // SYC-53 PR 1.3: "My page" and "My colonies" (roles-and-invites.md §2.6, §6.2
 // note 1, §9.1, §9.5, §13.1). Any accepted person, no capability: these are
@@ -58,6 +72,83 @@ router.get("/team/my/colonies", requireTeam(undefined, OWN), async (_req: Reques
   setTeamHeaders(res);
   const me = await aboutMe(teamPerson(res));
   res.type("html").send(renderMyColoniesPage({ person: me }));
+});
+
+// ── SYC-53 PR 2.1: her colony and her cats (roles-and-invites.md §2.2, §6.1) ──
+//
+// `view_exact_location`, placed, with the target READ FROM THE RECORD: the
+// colony in the path is only a name for what she asks about, checked against
+// her placements by can(); a cat's colony is its newest standing `colony`
+// statement (lib/capabilityTargets.ts, through any merge). What she gets is
+// built by lib/guardianCatView.ts alone, never the team's cat view. A cat
+// outside her colonies, or in none, is answered with the public view, not a
+// refusal (spec §2.2: she sees "exactly what the public sees"). The door is
+// requireTeam with no capability: anyone who may enter; the check is here.
+
+const ID_RE = /^\d{1,9}$/;
+const wantsJson = (req: Request) => req.accepts(["html", "json"]) === "json";
+
+/** GET /api/team/my/colonies/:id: one of her colonies, every cat in it at its exact first position. */
+router.get("/team/my/colonies/:id", requireTeam(), async (req: Request, res: Response) => {
+  setTeamHeaders(res);
+  const person = teamPerson(res);
+  const raw = String(req.params["id"]);
+  const colonyId = ID_RE.test(raw) ? Number(raw) : null;
+  // Another colony, or none at all, answer the same: not found (nothing
+  // about whether it exists).
+  const notFound = () => {
+    if (wantsJson(req)) return void res.status(404).json({ error: "Not found" });
+    res.status(404).type("html").send(renderGuardianNotFound(person, "colony"));
+  };
+  if (colonyId === null || !can(person, "view_exact_location", { colonyId })) return notFound();
+  const [colony] = await db
+    .select({ id: coloniesTable.id, name: coloniesTable.name })
+    .from(coloniesTable)
+    .where(eq(coloniesTable.id, colonyId));
+  if (!colony) return notFound();
+
+  // The cats in it now (the one membership rule), leaving out any cat merged
+  // into another: that cat now lives on as the one it was merged into.
+  const inColony = await catsInColony(colonyId);
+  const canonical = await canonicalCats(inColony);
+  const ids = inColony.filter((id) => canonical.get(id) === id);
+  const cats = (await guardianCats(ids, new Map(ids.map((id) => [id, colonyId])))).sort(
+    (a, b) => a.name.localeCompare(b.name, "el") || a.id - b.id,
+  );
+  if (wantsJson(req)) return void res.json({ colony, cats });
+  res.type("html").send(renderGuardianColonyPage({ who: person, colony, cats }));
+});
+
+/**
+ * GET /api/team/my/cats/:id: one cat. In one of her colonies: her view, in
+ * full. Anywhere else, or in no colony: the public view, field for field the
+ * `cat` of GET /api/cats/:id. Nothing in the request but the cat's id counts.
+ */
+router.get("/team/my/cats/:id", requireTeam(), async (req: Request, res: Response) => {
+  setTeamHeaders(res);
+  const person = teamPerson(res);
+  const raw = String(req.params["id"]);
+  const notFound = () => {
+    if (wantsJson(req)) return void res.status(404).json({ error: "Not found" });
+    res.status(404).type("html").send(renderGuardianNotFound(person, "cat"));
+  };
+  if (!ID_RE.test(raw)) return notFound();
+  const catId = Number(raw);
+  const { target, canonicalId } = await catTargetWithCanonical(catId);
+  if (
+    canonicalId !== null &&
+    typeof target.colonyId === "number" &&
+    can(person, "view_exact_location", target)
+  ) {
+    const cat = await guardianCatView(canonicalId, target.colonyId);
+    if (!cat) return notFound();
+    if (wantsJson(req)) return void res.json({ view: "guardian", cat });
+    return void res.type("html").send(renderGuardianCatPage(person, cat));
+  }
+  const cat = await publicCatView(catId);
+  if (!cat) return notFound();
+  if (wantsJson(req)) return void res.json({ view: "public", cat });
+  res.type("html").send(renderPublicCatForGuardian(person, cat));
 });
 
 /** GET /api/team/my/stop-helping: the second page, "are you sure?". Changes nothing. */

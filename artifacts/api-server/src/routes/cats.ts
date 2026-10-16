@@ -45,6 +45,7 @@ import {
   type ClaimRefusal,
 } from "../lib/claiming";
 import { logRouteDuration } from "../lib/requestTiming";
+import { catPayload, lookupDiscoverer } from "../lib/publicCat";
 import {
   BLANK_NAME_BODY,
   catNamed,
@@ -70,69 +71,6 @@ router.post("/cats/name-suggestions", aiLimiter, async (req, res) => {
     res.status(502).json({ error: "Name generation failed" });
   }
 });
-
-/**
- * The discoverer's public name, or nothing once they've deleted their data
- * (SYC-63): an unlinked cat has no discoverer to look up.
- */
-async function lookupDiscoverer(
-  discovererDeviceId: string | null,
-): Promise<{ nickname: string | null; username: string | null } | undefined> {
-  if (discovererDeviceId === null) return undefined;
-  const [profile] = await db
-    .select({
-      nickname: profilesTable.nickname,
-      username: profilesTable.username,
-    })
-    .from(profilesTable)
-    .where(eq(profilesTable.deviceId, discovererDeviceId));
-  return profile;
-}
-
-/**
- * A cat for the app, through the one serialiser (catHelpers.serialiseCat,
- * §10.6). `viewer` is public unless the route has proved the caller is this
- * cat's owner.
- */
-async function catPayload(
-  cat: Cat,
-  sightingsCount: number,
-  lastSeenAt: Date | string,
-  viewer: Viewer,
-  derived?: DerivedCatStatus,
-) {
-  const [profile, status] = await Promise.all([
-    lookupDiscoverer(cat.discovererDeviceId),
-    derived
-      ? Promise.resolve(derived)
-      : deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }]).then(
-          (m) => m.get(cat.id)!,
-        ),
-  ]);
-  return serialiseCat(
-    {
-      id: cat.id,
-      name: cat.name,
-      description: cat.description,
-      // The main photo, or the stand-in if the team hid it (PR 6, Decision 4).
-      photoUrl: await catDisplayPhoto(cat),
-      lat: cat.lat,
-      lng: cat.lng,
-      ownerDeviceId: cat.ownerDeviceId,
-      sightingsCount,
-      lastSeenAt,
-      discovererDeviceId: cat.discovererDeviceId,
-      discovererNickname: profile?.nickname ?? null,
-      discovererUsername: profile?.username ?? null,
-      ownerName: cat.ownerName,
-      homeDescription: cat.homeDescription,
-      homeLat: cat.homeLat,
-      homeLng: cat.homeLng,
-      derived: status,
-    },
-    viewer,
-  );
-}
 
 /**
  * §10.6 Option B: the detail page shows an owner their own cat exactly, once

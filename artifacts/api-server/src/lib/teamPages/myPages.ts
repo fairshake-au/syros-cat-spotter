@@ -220,7 +220,8 @@ export interface MyColoniesInput {
 /**
  * "My colonies": a cat guardian's colonies by name, each with the label the
  * team gave it and when it ends (Athens date, her language). The team sees one
- * line and a link to the island-wide pages instead. Cats arrive in PR 2.1;
+ * line and a link to the island-wide pages instead. Each colony links to its
+ * own page with its cats (PR 2.1);
  * SYC-209's `movedAwayNotices(person)` will add its moved-cat lines under the
  * colony names here once it exists (not on main when this was written).
  */
@@ -248,7 +249,9 @@ export function renderMyColoniesPage(input: MyColoniesInput, live: readonly Lang
           const ends = p.expiresAt
             ? `<p>${esc(t("mycol.until", { date: formatDate(person.language, new Date(p.expiresAt.getTime() - 60_000), live) }))}</p>`
             : "";
-          return `<div class="col"><strong>${esc(clip(p.name))}</strong>${label}${ends}</div>`;
+          // Her colony page, with its cats (PR 2.1).
+          const cats = `<p><a class="tap" href="${MY_COLONIES_PATH}/${p.colonyId}">${esc(t("mycol.seeCats"))}</a></p>`;
+          return `<div class="col"><strong>${esc(clip(p.name))}</strong>${label}${ends}${cats}</div>`;
         })
         .join("");
   }
