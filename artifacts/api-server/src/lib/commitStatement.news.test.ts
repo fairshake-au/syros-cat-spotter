@@ -328,10 +328,35 @@ describe("T12a-4 wrong_exposes_earlier", () => {
 
 describe("T12a-5 concurrent", () => {
   it("two confirmations at the same moment make exactly one update", async () => {
-    // Probe: drop the row lock → red. Five cats, two team writers each (the
-    // team's path takes no other lock first, unlike a guardian's): ten at once.
-    const cats = await Promise.all([1, 2, 3, 4, 5].map(() => followedCat()));
-    await Promise.all(cats.flatMap((cat) => [teamSays(team, cat.id, true), teamSays(mgmt, cat.id, true)]));
+    // Probe: drop the row lock → red, every time (review m3). A third
+    // connection holds the cats' rows FOR UPDATE while both writers start.
+    // With commitStatement's lock they queue before reading anything. Without
+    // it, each reads "not yet Confirmed", then waits on the foreign-key check
+    // of its own insert (which needs the row the third connection holds), so
+    // both have read "before" when the hold is released.
+    // Four cats, eight writers: with the holder and the check below, that is
+    // the pool's ten connections.
+    const cats = await Promise.all([1, 2, 3, 4].map(() => followedCat()));
+    const holder = await pool.connect();
+    try {
+      await holder.query("begin");
+      await holder.query("select id from cats where id = any($1::int[]) for update", [cats.map((c) => c.id)]);
+      const writes = Promise.all(cats.flatMap((cat) => [teamSays(team, cat.id, true), teamSays(mgmt, cat.id, true)]));
+      // Wait until all eight writers are queued on a lock, then let them go.
+      await vi.waitFor(
+        async () => {
+          const r = await pool.query<{ n: string }>(
+            "select count(*) as n from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'",
+          );
+          expect(Number(r.rows[0]!.n)).toBeGreaterThanOrEqual(8);
+        },
+        { timeout: 10_000, interval: 50 },
+      );
+      await holder.query("commit");
+      await writes;
+    } finally {
+      holder.release();
+    }
     for (const cat of cats) expect(await updatesOf(cat.id), `cat ${cat.id}`).toHaveLength(1);
     // And a guardian and the team at the same moment.
     const more = await Promise.all([1, 2].map(() => followedCat()));

@@ -269,7 +269,7 @@ export function renderGuardianCatPage(
           .map((u) => `<a href="${esc(u)}"><img src="${esc(u)}" alt="" loading="lazy"></a>`)
           .join("") +
         "</div>";
-  const savedKey = opts.saved ? SAVED_KEYS[opts.saved] : undefined;
+  const savedKey = opts.saved && Object.hasOwn(SAVED_KEYS, opts.saved) ? SAVED_KEYS[opts.saved] : undefined;
   const notes =
     (savedKey ? `<div class="saved" role="status"><p>${esc(t(savedKey))}</p></div>` : "") +
     (opts.mine?.lookedAgain ?? [])

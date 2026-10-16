@@ -886,6 +886,12 @@ export async function writeObservation(
     if (isAppearanceKind && target.catId !== input.catId) {
       refuse(refusalCode, "a coat or markings supersession must stay on the same cat");
     }
+    // Nor for the kinds Decision G ranks (PR 2.2 review, n2): marking another
+    // cat's sterilisation or life status wrong would change that cat's answer
+    // without its lock and without its news.
+    if (RANKED_KINDS.has(input.kind) && target.catId !== input.catId) {
+      refuse(refusalCode, "a supersession of this kind must stay on the same cat");
+    }
     // A retraction cannot retract a retraction.
     if (
       retracting &&

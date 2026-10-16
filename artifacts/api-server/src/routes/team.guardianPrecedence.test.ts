@@ -253,6 +253,38 @@ describe("T12g-6 the contradiction list (listGuardianChanges)", () => {
     expect(statementEntry(list, same)).toMatchObject({ contradictsTeam: false, standing: true });
   });
 
+  it("a team record that was itself marked wrong doesn't count against her (review m5b)", async () => {
+    // Probe: count team rows that were marked wrong → red.
+    const cat = await seedCat(colony);
+    const teamYes = await teamSays(team, cat.id, true);
+    await post(mgmt, `/api/team/observations/${teamYes}/supersede`, {
+      value: { sterilised: false },
+      reason: "Wrong cat",
+    });
+    // The replacement "no" agrees with her; the marked-wrong "yes" no longer stands.
+    const hers = await guardianSays(eleni, cat.id, false);
+    expect(statementEntry(await listGuardianChanges(), hers)).toMatchObject({ contradictsTeam: false });
+  });
+
+  it("under SYC-315 B an older 'no' and a newer 'yes' are no disagreement, whichever is hers, as on the cat page (review m6)", async () => {
+    // The team's "no" first, then her "sterilised": the page shows nothing under "Says otherwise".
+    const a = await seedCat(colony);
+    await teamSays(team, a.id, false);
+    const hersYes = await guardianSays(eleni, a.id, true);
+    expect((await answer(a.id)).value).toBe(true);
+    expect(statementEntry(await listGuardianChanges(), hersYes)).toMatchObject({ contradictsTeam: false });
+    // Her "isn't" first, then a newer team "sterilised": hers is set aside.
+    const b = await seedCat(colony);
+    const hersNo = await guardianSays(eleni, b.id, false);
+    await teamSays(team, b.id, true);
+    expect(statementEntry(await listGuardianChanges(), hersNo)).toMatchObject({ contradictsTeam: false });
+    // A newer team "no" against her older "yes" IS a disagreement the page shows.
+    const c = await seedCat(colony);
+    const hersOlderYes = await guardianSays(eleni, c.id, true);
+    await teamSays(team, c.id, false);
+    expect(statementEntry(await listGuardianChanges(), hersOlderYes)).toMatchObject({ contradictsTeam: true });
+  });
+
   it("the team marking hers wrong appears as an overrule, with the reason, and hers no longer stands", async () => {
     const cat = await seedCat(colony);
     const hers = await guardianSays(eleni, cat.id, true);

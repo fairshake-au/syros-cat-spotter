@@ -323,15 +323,56 @@ describe("T28 and T29c: putting back her own change, the revival, and the 30-day
       const html = (await request(app).get(`/api/team/cats/${cat.id}`).set("Cookie", team.cookie)).text;
       expect(html).toContain(`Recently marked ${status === "homed" ? "homed" : "as no longer with us"} by the cat guardian`);
       const rows = await rowsOf(cat.id);
-      expect(recentGuardianMark(rows, new Date(Date.now() + 29 * DAY))?.id).toBe(hers);
-      expect(recentGuardianMark(rows, new Date(Date.now() + 31 * DAY))).toBeNull();
+      expect(recentGuardianMark(rows, [hers], new Date(Date.now() + 29 * DAY))?.id).toBe(hers);
+      expect(recentGuardianMark(rows, [hers], new Date(Date.now() + 31 * DAY))).toBeNull();
     }
     // In care is not flagged.
     const cat = await seedCat(colonyA);
     await sayLife(eleni, cat.id, { status: "in_care", reason: "Clinic" });
     expect((await get(team, `/api/team/cats/${cat.id}`)).body.recentGuardianMark).toBeNull();
   });
+
+  it("the flag ends once her statement no longer decides: marked wrong, a newer status, or a sighting (review m5a, m7)", async () => {
+    // Marked wrong by the team. Probe: let the flag ignore "marked wrong" → red.
+    const wrong = await seedCat(colonyA);
+    const hers = (await sayLife(eleni, wrong.id, { status: "homed", reason: "Adopted" })).body.statementId;
+    await post(team, `/api/team/observations/${hers}/supersede`, { value: { status: "street" }, reason: "Still outside" });
+    expect((await get(team, `/api/team/cats/${wrong.id}`)).body.recentGuardianMark).toBeNull();
+    // A newer team status, not a correction of hers.
+    const newer = await seedCat(colonyA);
+    await sayLife(eleni, newer.id, { status: "homed", reason: "Adopted" });
+    await post(team, "/api/team/observations", {
+      catId: newer.id,
+      kind: "life_status",
+      value: { status: "in_care" },
+      reason: "Brought to the clinic",
+    });
+    expect((await get(team, `/api/team/cats/${newer.id}`)).body.recentGuardianMark).toBeNull();
+    // A sighting after her "deceased": the flag goes, and so does her put-back.
+    const seen = await seedCat(colonyA);
+    await sayLife(eleni, seen.id, { status: "deceased", reason: "Found her" });
+    await sightedNow(seen.id);
+    expect((await get(team, `/api/team/cats/${seen.id}`)).body.recentGuardianMark).toBeNull();
+    expect((await get(eleni, `/api/team/my/cats/${seen.id}`)).body.mine.putBack).toBeNull();
+  });
 });
+
+/** A resolved sighting of the cat a minute from now (after anything just said). */
+async function sightedNow(catId: number): Promise<void> {
+  const [p] = await db
+    .insert(photosTable)
+    .values({ data: Buffer.from("fake-jpeg").toString("base64"), mime: "image/jpeg" })
+    .returning({ id: photosTable.id });
+  await db.insert(sightingsTable).values({
+    catId,
+    deviceId: `vt-gstat-spotter-${RUN}`,
+    photoId: p!.id,
+    lat: 37.44,
+    lng: 24.94,
+    status: "resolved",
+    createdAt: new Date(Date.now() + 60_000),
+  });
+}
 
 describe("a guardian can't supersede the team's statement or another guardian's", () => {
   it("writeObservation refuses it; her own row she may", async () => {
@@ -399,6 +440,30 @@ describe("a guardian can't supersede the team's statement or another guardian's"
     expect(res.status).toBe(201);
   });
 
+  it("nobody marks another cat's sterilisation or life status wrong (review n2)", async () => {
+    const a = await seedCat(colonyA);
+    const b = await seedCat(colonyA);
+    for (const kind of ["sterilised", "life_status"] as const) {
+      const value = kind === "sterilised" ? { sterilised: true } : { status: "in_care" };
+      const onA = (await post(team, "/api/team/observations", { catId: a.id, kind, value, reason: "Clinic" })).body.id as number;
+      await expect(
+        db.transaction((tx) =>
+          writeObservation(tx, {
+            catId: b.id,
+            kind,
+            value: kind === "sterilised" ? { sterilised: false } : { status: "street" },
+            accountId: team.id,
+            roleAtTime: "staff",
+            observedAt: new Date(),
+            supersedesId: onA,
+            supersedeReason: "wrong cat",
+          }),
+        ),
+        kind,
+      ).rejects.toMatchObject({ code: "INVALID_SUPERSESSION" });
+    }
+  });
+
   it("the team's supersede route refuses her: it is the team's (island-only)", async () => {
     const cat = await seedCat(colonyA);
     const teamRow = (await post(team, "/api/team/observations", {
@@ -458,6 +523,14 @@ describe("her page's `mine` block: her own statements only", () => {
     // Another guardian on the same colony sees her own `mine`, not Eleni's.
     const dimsMine = (await get(dimitra, `/api/team/my/cats/${cat.id}`)).body.mine;
     expect(JSON.stringify(dimsMine)).not.toContain(String(hers));
+  });
+
+  it("an unknown ?saved= word is ignored, never an error (review n1)", async () => {
+    const cat = await seedCat(colonyA);
+    for (const word of ["constructor", "toString", "__proto__", "nonsense"]) {
+      const res = await request(app).get(`/api/team/my/cats/${cat.id}?saved=${word}`).set("Cookie", eleni.cookie);
+      expect(res.status, word).toBe(200);
+    }
   });
 
   it("the public view of a cat outside her colonies has no `mine`", async () => {

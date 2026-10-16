@@ -115,8 +115,13 @@ export function writeObservationUses(file: string, source: string): Use[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(src))) {
     const before = src.slice(Math.max(0, m.index - 200), m.index);
-    // The import line and the definition itself are not uses.
-    if (/import\s*(type\s*)?\{[^}]*$/.test(before)) continue;
+    // The import line and the definition itself are not uses, unless the
+    // import renames it: `writeObservation as w` would hide every call
+    // (review m2), so a renamed import counts as naming it without a call.
+    if (/import\s*(type\s*)?\{[^}]*$/.test(before)) {
+      if (/^\s+as\s+\w/.test(src.slice(m.index + m[0].length))) uses.push({ file, kind: null, call: false });
+      continue;
+    }
     if (/export\s+async\s+function\s+$/.test(before)) continue;
     const after = src.slice(m.index + m[0].length);
     const open = after.search(/\S/);
@@ -177,6 +182,18 @@ describe("commitStatement is the only path for a 'sterilised' statement (B1 sour
     const src = readFileSync(join(SRC, "routes/notifications.ts"), "utf8");
     expect(src).toContain('kind: "sterilised"');
     expect(src).toContain('updateType === "desexed"');
+  });
+
+  it("the scan itself: a renamed import is seen, and so is a call through a namespace (review m2)", () => {
+    expect(
+      writeObservationUses("routes/x.ts", `import { writeObservation as recordIt } from "../lib/observations";\nawait recordIt(tx, { kind: "sterilised" });`),
+    ).toEqual([{ file: "routes/x.ts", kind: null, call: false }]);
+    expect(
+      writeObservationUses("routes/x.ts", `import * as obs from "../lib/observations";\nawait obs.writeObservation(tx, { kind: "sterilised" });`),
+    ).toEqual([{ file: "routes/x.ts", kind: '"sterilised"', call: true }]);
+    expect(
+      writeObservationUses("routes/x.ts", `const { writeObservation: w } = obs;`),
+    ).toEqual([{ file: "routes/x.ts", kind: null, call: false }]);
   });
 
   it("the scan itself: a direct 'sterilised' call is seen, a comment is not", () => {

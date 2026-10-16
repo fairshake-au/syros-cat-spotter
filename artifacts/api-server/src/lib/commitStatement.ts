@@ -8,6 +8,7 @@ import {
   type Observation,
 } from "@workspace/db";
 import { fanOutNotifications, insertCatUpdate } from "./notificationFanout";
+import { logger } from "./logger";
 import {
   loadCatRecords,
   writeObservation,
@@ -115,9 +116,21 @@ export async function commitStatement(
   return row;
 }
 
-/** Sends queued news. Call only after the transaction that wrote it has committed. */
+/**
+ * Sends queued news. Call only after the transaction that wrote it has
+ * committed. The statement is already saved by then, so a failure here is
+ * logged, never thrown: the person who said it is not shown an error for
+ * something that worked. (A failed fan-out is not retried yet: SYC ticket
+ * filed by PR 2.2's review, m4.)
+ */
 export async function sendNews(news: readonly PendingNews[]): Promise<void> {
-  for (const n of news) await fanOutNotifications(n);
+  for (const n of news) {
+    try {
+      await fanOutNotifications(n);
+    } catch (err) {
+      logger.error({ err, catId: n.cat.id, catUpdateId: n.update.id }, "sterilised news: fan-out failed");
+    }
+  }
 }
 
 /**

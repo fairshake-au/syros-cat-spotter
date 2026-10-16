@@ -163,6 +163,11 @@ export function puttableBack(
   const newest = activeLifeStatusRows(observations)[0];
   if (!newest) return null;
   if (newest.accountId !== personId || newest.roleAtTime !== "guardian") return null;
+  // Still the statement that decides it: a later sighting that revived a cat
+  // she marked deceased leaves nothing of hers to put back.
+  if (!resolveLifeStatus(observations, evidenceOfLife, now).supportingObservationIds.includes(newest.id)) {
+    return null;
+  }
   if (now.getTime() - newest.createdAt.getTime() > GUARDIAN_UNDO_DAYS * DAY_MS) return null;
   // What the record says without her statement: the status she replaced.
   const without = observations.filter((o) => o.id !== newest.id);
@@ -289,11 +294,15 @@ export async function myStatementsOnCat(
 
 /**
  * The team's 30-day flag (spec §2.2, §7.2): a cat a guardian marked homed or
- * deceased in the last 30 days, while that statement still stands. Shown on
- * the team's cat page now, and on the round sheet once it exists (PR 4.2).
+ * deceased in the last 30 days, while that statement still DECIDES the cat's
+ * life status (`deciding`: the resolver's supporting ids). A newer status, a
+ * sighting that revived the cat, or the team marking hers wrong all end it.
+ * Shown on the team's cat page now, and on the round sheet once it exists
+ * (PR 4.2).
  */
 export function recentGuardianMark(
   observations: readonly Observation[],
+  deciding: readonly number[],
   now: Date = new Date(),
 ): Observation | null {
   const replaced = new Set(
@@ -302,6 +311,7 @@ export function recentGuardianMark(
   let newest: Observation | null = null;
   for (const o of observations) {
     if (o.kind !== "life_status" || o.roleAtTime !== "guardian" || replaced.has(o.id)) continue;
+    if (!deciding.includes(o.id)) continue;
     const status = (o.value as { status?: unknown } | null)?.status;
     if (status !== "homed" && status !== "deceased") continue;
     if (now.getTime() - o.createdAt.getTime() > GUARDIAN_UNDO_DAYS * DAY_MS) continue;

@@ -141,7 +141,15 @@ export function contradictsTeamRecord(
       isTeamRecord(o) &&
       (() => {
         const theirs = meaningOf(o.kind, o.value);
-        return theirs !== null && theirs !== mine;
+        if (theirs === null || theirs === mine) return false;
+        // SYC-315 B, as the cat page reads it: a "not sterilised" older than
+        // a "sterilised" was true when said and is set aside, so the pair is
+        // no disagreement, whichever of the two is hers (review, m6).
+        if (statement.kind === "sterilised") {
+          const [no, yes] = mine === "false" ? [statement, o] : [o, statement];
+          if (no.observedAt.getTime() < yes.observedAt.getTime()) return false;
+        }
+        return true;
       })(),
   );
 }

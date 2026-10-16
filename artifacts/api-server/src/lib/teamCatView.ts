@@ -928,7 +928,7 @@ export async function teamCatView(
     photos,
     history,
     recentGuardianMark: (() => {
-      const m = recentGuardianMark(observations);
+      const m = recentGuardianMark(observations, life.supportingObservationIds);
       if (!m) return null;
       return {
         statementId: m.id,
