@@ -74,7 +74,7 @@ describe('AppSettingsProvider', () => {
   it('loads the switches and this phone\'s signals at start, and keeps them on the phone', async () => {
     const { result } = renderHook(() => useAppSettings(), { wrapper });
     await waitFor(() => expect(result.current.signals.status).toBe('known'));
-    expect(result.current.settings).toEqual({ loaded: true, linkOn: true, hiddenFacts: ['fact.cost'] });
+    expect(result.current.settings).toEqual({ loaded: true, linkOn: true, hiddenFacts: ['fact.cost'], extraPhotosOn: false });
     expect(result.current.donateHost).toBe('syroscats.com');
     expect(saved().signalsFor).toBe('dev-a');
   });
@@ -82,7 +82,7 @@ describe('AppSettingsProvider', () => {
   it('before anything loads: link off, nothing hidden (Decision 4), signals unknown', () => {
     h.getAppSettings.mockReturnValue(new Promise(() => undefined));
     const { result } = renderHook(() => useAppSettings(), { wrapper });
-    expect(result.current.settings).toEqual({ loaded: false, linkOn: false, hiddenFacts: [] });
+    expect(result.current.settings).toEqual({ loaded: false, linkOn: false, hiddenFacts: [], extraPhotosOn: false });
     expect(result.current.signals).toEqual({ status: 'unknown' });
   });
 

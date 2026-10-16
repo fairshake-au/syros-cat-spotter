@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({
   storage: new Map<string, string>(),
   openURL: vi.fn(async (_url: string) => undefined),
-  settings: { loaded: true, linkOn: true, hiddenFacts: [] as string[] },
+  settings: { loaded: true, linkOn: true, hiddenFacts: [] as string[], extraPhotosOn: false },
   signals: { status: 'known', hasClaimedCat: false, firstSpotDate: null } as unknown,
 }));
 

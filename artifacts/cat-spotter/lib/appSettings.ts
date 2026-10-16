@@ -21,7 +21,7 @@ export interface StoredSettings {
  * plan Decision 4), signals unknown (so no one-liner). */
 export function emptySettingsState(): StoredSettings {
   return {
-    settings: { loaded: false, linkOn: false, hiddenFacts: [] },
+    settings: { loaded: false, linkOn: false, hiddenFacts: [], extraPhotosOn: false },
     donateHost: null,
     signalsFor: null,
     signals: { status: 'unknown' },
@@ -31,12 +31,15 @@ export function emptySettingsState(): StoredSettings {
 export function settingsFromResponse(res: {
   feedNudge: { donateHost: string } | null;
   hiddenFacts: string[];
+  /** SYC-415: optional on the wire; missing means off. */
+  extraPhotos?: boolean;
 }): Pick<StoredSettings, 'settings' | 'donateHost'> {
   return {
     settings: {
       loaded: true,
       linkOn: res.feedNudge !== null,
       hiddenFacts: Array.isArray(res.hiddenFacts) ? res.hiddenFacts.filter((x) => typeof x === 'string') : [],
+      extraPhotosOn: res.extraPhotos === true,
     },
     donateHost: res.feedNudge?.donateHost ?? null,
   };
@@ -70,7 +73,9 @@ export function parseStoredSettings(raw: string | null): StoredSettings | null {
       Array.isArray(v.settings?.hiddenFacts) &&
       (v.signals?.status === 'known' || v.signals?.status === 'unknown')
     ) {
-      return v;
+      // SYC-415: a copy stored before the extra-photos switch existed has no
+      // extraPhotosOn; it reads as off, as does anything that isn't `true`.
+      return { ...v, settings: { ...v.settings, extraPhotosOn: v.settings.extraPhotosOn === true } };
     }
     return null;
   } catch {

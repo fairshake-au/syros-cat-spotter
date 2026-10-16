@@ -25,8 +25,8 @@ function seeded(seed = 1): () => number {
   };
 }
 
-const LOADED: SettingsView = { loaded: true, linkOn: true, hiddenFacts: [] };
-const NEVER_LOADED: SettingsView = { loaded: false, linkOn: false, hiddenFacts: [] };
+const LOADED: SettingsView = { loaded: true, linkOn: true, hiddenFacts: [], extraPhotosOn: false };
+const NEVER_LOADED: SettingsView = { loaded: false, linkOn: false, hiddenFacts: [], extraPhotosOn: false };
 const VISITOR: Signals = { status: 'known', hasClaimedCat: false, firstSpotDate: '2026-07-01' };
 
 const ctx = (over: Partial<ScheduleContext> = {}): ScheduleContext => ({
@@ -156,7 +156,7 @@ describe('starter-facts.md §9.1', () => {
   });
 
   it('6. before the switches have ever loaded, nothing is hidden (Samuel, plan Decision 4)', () => {
-    const notYet: SettingsView = { loaded: false, linkOn: false, hiddenFacts: ['fact.earTip'] };
+    const notYet: SettingsView = { loaded: false, linkOn: false, hiddenFacts: ['fact.earTip'], extraPhotosOn: false };
     expect(chooseForWait(emptyRecord(), notYet, ctx({ nudgeEnabled: false })).choice).toEqual({
       kind: 'fact',
       id: 'fact.earTip',
@@ -293,7 +293,7 @@ describe('feeding-nudge.md §9.1 (the schedule; the screens come in PR 2)', () =
   });
 
   it('16. link off on purpose: the no-link form, counted; never loaded: the same form, not counted', () => {
-    const off: SettingsView = { loaded: true, linkOn: false, hiddenFacts: [] };
+    const off: SettingsView = { loaded: true, linkOn: false, hiddenFacts: [], extraPhotosOn: false };
     expect(chooseForWait(emptyRecord(), off, ctx()).choice).toEqual({ kind: 'nudge', form: 'noLink', countable: true });
     const a = spotAndResult(emptyRecord(), off, ctx(), 1);
     expect(a.show).toEqual({ kind: 'nudge', form: 'noLink' });
