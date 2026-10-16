@@ -6,11 +6,10 @@ import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
 import { allColonyChoices } from "../lib/colonyCats";
-import {
-  renderCatPage,
-  renderCatSearchPage,
-  renderNoSuchCat,
-} from "../lib/teamPages/catPages";
+import { renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
+import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
+import { parseCatFilters } from "../lib/teamCatFilters";
+import { listTeamCats } from "../lib/teamCatList";
 
 // The staff dashboard's "Cats" screens (SYC-43 part 2 plan, PR 3). Read-only;
 // the correction forms on the cat page post to routes/teamCorrections.ts (PR 4).
@@ -24,17 +23,22 @@ const wantsJson = (req: Request) => req.accepts(["html", "json"]) === "json";
 
 const TIE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
-/** GET /api/team/cats?q=: find a cat by name (folded) or SYR number. */
+/**
+ * GET /api/team/cats: every cat as a filterable photo grid (SYC-396 PR 1.3).
+ * `?q=` still finds by name or SYR number, and `?tie=` still chooses a cat for
+ * a welfare report. A caller asking for JSON gets the old search answer.
+ */
 router.get(
   "/team/cats",
   requireTeam("view_exact_location"),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
     setTeamHeaders(res); // before any await, so an error answer carries them too
-    // Only a single string is a query; ?q=a&q=b or ?q[x]=1 is no query.
-    const q = typeof req.query["q"] === "string" ? req.query["q"] : "";
-    const results = await searchTeamCats(q);
-    if (wantsJson(req)) return void res.json({ query: q, results });
+    if (wantsJson(req)) {
+      // Only a single string is a query; ?q=a&q=b or ?q[x]=1 is no query.
+      const q = typeof req.query["q"] === "string" ? req.query["q"] : "";
+      return void res.json({ query: q, results: await searchTeamCats(q) });
+    }
     // ?tie=<publicId>: choosing a cat for that welfare report (PR 5). Only
     // a well-formed id is used; it is escaped wherever it is drawn.
     const tieId = typeof req.query["tie"] === "string" ? req.query["tie"] : "";
@@ -45,7 +49,25 @@ router.get(
           canTie: can(person, "change_report_state"),
         }
       : undefined;
-    res.type("html").send(renderCatSearchPage(q, results, person.name, tie));
+    const filters = withoutDefaultLives(parseCatFilters(req.query));
+    const started = Date.now();
+    const now = new Date();
+    const { items, total } = await listTeamCats(filters, now);
+    // Spec §9.6: each page records how long it took. Counts only, no names.
+    req.log.info({ ms: Date.now() - started, shown: items.length, total }, "team cats list");
+    res
+      .type("html")
+      .send(
+        renderCatGridPage({
+          items,
+          total,
+          filters,
+          personName: person.name,
+          tie,
+          now,
+          colonies: await allColonyChoices(),
+        }),
+      );
   },
 );
 

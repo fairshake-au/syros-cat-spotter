@@ -294,15 +294,16 @@ describe("P3-1: finding a cat", () => {
     expect(results[0]!.syr).toMatch(/^SYR-\d{4,}$/);
   });
 
-  it("draws the search page with links to each cat, and nothing for an empty search", async () => {
+  it("draws the Cats grid with links to each cat, and every cat for an empty search", async () => {
     const res = await request(app).get("/api/team/cats").query({ q: "ΜΙΜΗ" }).set("Cookie", cookie);
     expect(res.status).toBe(200);
     expect(res.type).toBe("text/html");
     expect(res.text).toContain(`href="/api/team/cats/${mimi}"`);
     expect(res.text).toContain('value="ΜΙΜΗ"');
+    // SYC-396 PR 1.3: an empty search is the whole grid, not a prompt.
     const empty = await request(app).get("/api/team/cats").set("Cookie", cookie);
-    expect(empty.text).toContain("Type a name");
-    expect(empty.text).not.toContain('class="catrow"');
+    expect(empty.text).not.toContain("Type a name");
+    expect(empty.text).toContain('class="catgrid"');
   });
 
   it("treats a repeated or bracketed q as no query, and cuts a long one at 100 characters", async () => {
@@ -463,12 +464,14 @@ describe("P3-4: who said it", () => {
 });
 
 describe("design review fixes (PR 3)", () => {
-  it("puts the cursor in an empty search, and helps when nothing matches", async () => {
+  it("says so, and offers Clear filters, when nothing matches (SYC-396 PR 1.3)", async () => {
+    // The grid is the page now, so it no longer grabs the cursor on load.
     const empty = await request(app).get("/api/team/cats").set("Cookie", cookie);
-    expect(empty.text).toMatch(/<input id="q"[^>]* autofocus/);
+    expect(empty.text).not.toMatch(/autofocus/);
     const none = await request(app).get("/api/team/cats").query({ q: "zzzz" }).set("Cookie", cookie);
     expect(none.text).not.toMatch(/autofocus/);
-    expect(none.text).toContain("try the SYR number");
+    expect(none.text).toContain("No cats match these filters");
+    expect(none.text).toContain("Clear filters");
   });
 
   it("puts the SYR number under the name, and the way back above it", async () => {

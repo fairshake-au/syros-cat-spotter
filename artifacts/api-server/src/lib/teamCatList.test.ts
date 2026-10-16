@@ -87,7 +87,7 @@ async function sighted(catId: number, when: Date, lat: number, lng: number) {
   });
 }
 
-const mine = (items: { name: string }[]) => items.filter((i) => i.name.startsWith(PREFIX));
+const mine = <T extends { name: string }>(items: T[]) => items.filter((i) => i.name.startsWith(PREFIX));
 const names = (items: { name: string }[]) => mine(items).map((i) => i.name.slice(PREFIX.length));
 const list = (f: Parameters<typeof listTeamCats>[0] = {}) =>
   listTeamCats({ q: PREFIX, ...f }, NOW);
