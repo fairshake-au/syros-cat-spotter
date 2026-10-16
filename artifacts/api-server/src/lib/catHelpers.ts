@@ -224,6 +224,13 @@ export interface PublicSighting {
   spotterUsername: string | null;
   spotterNickname: string | null;
   photoUrl: string | null;
+  /**
+   * SYC-415 (spec §5.5): the spot's photos other than its cover, in the order
+   * taken; `photoUrl` null when the team hid that photo. LEFT OUT when the
+   * sighting has none, so a payload without extra photos is byte-for-byte what
+   * it was before.
+   */
+  extraPhotos?: { role: "first" | "face" | "body"; photoUrl: string | null }[];
   createdAt: string;
 }
 
@@ -237,6 +244,8 @@ export function serialiseSighting(s: {
   spotterNickname: string | null;
   /** Only lib/photoVisibility.ts makes one: null when hidden (PR 6). */
   photoUrl: PublicPhotoUrl | null;
+  /** Other photos of the same spot, built the same way. Omitted from the output when empty. */
+  extraPhotos?: { role: "first" | "face" | "body"; photoUrl: PublicPhotoUrl | null }[];
 }): PublicSighting {
   return {
     catId: s.catId,
@@ -244,6 +253,7 @@ export function serialiseSighting(s: {
     spotterUsername: s.spotterUsername,
     spotterNickname: s.spotterNickname,
     photoUrl: s.photoUrl,
+    ...(s.extraPhotos?.length ? { extraPhotos: s.extraPhotos } : {}),
     createdAt: toPublicDay(s.createdAt),
   };
 }

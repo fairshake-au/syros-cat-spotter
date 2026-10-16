@@ -418,6 +418,20 @@ export interface CatOwnerUpdate {
   homeDescription?: string;
 }
 
+export type SightingExtraPhotoRole = typeof SightingExtraPhotoRole[keyof typeof SightingExtraPhotoRole];
+
+
+export const SightingExtraPhotoRole = {
+  first: 'first',
+  face: 'face',
+  body: 'body',
+} as const;
+
+export interface SightingExtraPhoto {
+  role: SightingExtraPhotoRole;
+  photoUrl: string | null;
+}
+
 /**
  * A sighting in a cat's public history: photo, spotter and date. No
  * position and no sighting id, which would give away upload order
@@ -430,6 +444,12 @@ export interface Sighting {
   spotterUsername?: string | null;
   spotterNickname?: string | null;
   photoUrl: string | null;
+  /**
+     * SYC-415. The spot's photos other than the one in `photoUrl`, in the
+     * order taken. Left out entirely when a sighting has none. A photo the
+     * team hid has a null `photoUrl`.
+     */
+  extraPhotos?: SightingExtraPhoto[];
   /** A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
   createdAt: string;
 }

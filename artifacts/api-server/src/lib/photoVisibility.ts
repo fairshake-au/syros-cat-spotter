@@ -139,6 +139,8 @@ async function displayPhotoRows(
   }
   if (needStandIn.length === 0) return out;
 
+  // SYC-415 spec §6.3: the stand-in uses cover photos only; an extra photo is
+  // never promoted automatically.
   const candidates = await q
     .select({
       catId: sightingsTable.catId,

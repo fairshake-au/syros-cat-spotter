@@ -142,6 +142,10 @@ export const GetCatResponse = zod.object({
   "spotterUsername": zod.string().nullish(),
   "spotterNickname": zod.string().nullish(),
   "photoUrl": zod.string().nullable(),
+  "extraPhotos": zod.array(zod.object({
+  "role": zod.enum(['first', 'face', 'body']),
+  "photoUrl": zod.string().nullable()
+})).optional().describe('SYC-415. The spot\'s photos other than the one in `photoUrl`, in the\norder taken. Left out entirely when a sighting has none. A photo the\nteam hid has a null `photoUrl`.\n'),
   "createdAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).')
 }).describe('A sighting in a cat\'s public history: photo, spotter and date. No\nposition and no sighting id, which would give away upload order\n(cat-record-data-spine.md §6.4).\n')),
   "fansCount": zod.number().describe('Distinct devices that have spotted this cat'),

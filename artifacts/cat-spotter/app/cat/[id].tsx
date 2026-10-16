@@ -27,6 +27,7 @@ import { OwnershipBanner } from '@/components/OwnershipBanner';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { MoreToAdd } from '@/components/MoreToAdd';
+import { SightingPhotos } from '@/components/SightingPhotos';
 import { photoSource } from '@/lib/urls';
 import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
 import { lifeLine, parseDateOnly, parsePublicDate, sterilisedLineKey } from '@/lib/catStatusLines';
@@ -451,11 +452,7 @@ export default function CatDetailScreen() {
           <View style={styles.sightingGrid}>
             {sightings.map((s, i) => (
               <View key={s.photoUrl ?? `sighting-${i}`} style={styles.sightingItem}>
-                <Image
-                  source={photoSource(s.photoUrl)}
-                  style={[styles.sightingPhoto, { borderColor: colors.border }]}
-                  contentFit="cover"
-                />
+                <SightingPhotos photoUrl={s.photoUrl} extraPhotos={s.extraPhotos} createdAt={s.createdAt} />
                 <Text style={[styles.sightingDate, { color: colors.mutedForeground }]}>
                   {parsePublicDate(s.createdAt).toLocaleDateString()}
                 </Text>
@@ -580,12 +577,6 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontFamily: 'Inter_700Bold' },
   sightingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   sightingItem: { width: '30.5%', gap: 4 },
-  sightingPhoto: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
   sightingDate: { fontSize: 11, fontFamily: 'Inter_400Regular' },
   sightingSpotter: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
 });

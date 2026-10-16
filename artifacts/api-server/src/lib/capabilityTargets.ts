@@ -3,6 +3,7 @@ import {
   db,
   observationsTable,
   photosTable,
+  sightingPhotosTable,
   sightingsTable,
 } from "@workspace/db";
 import { eq, isNotNull, and, sql } from "drizzle-orm";
@@ -17,7 +18,8 @@ import { currentColonyOf } from "./colonyMembership";
 //   ignored; `colonyId: null` means none), through colonyMembership.ts, the
 //   one place that rule lives.
 // - A photo's colony is its cats': every cat it is tied to (as a cat's main
-//   photo, a sighting's photo, or a statement's photo). It may be tied to
+//   photo, a sighting's photo, one of a sighting's extra photos (SYC-415), or a
+//   statement's photo). It may be tied to
 //   more than one, so this returns one target per cat and the check must pass
 //   for EVERY one of them. A photo tied to no cat gets one target with no
 //   colony, which only island holders pass.
@@ -135,7 +137,7 @@ export async function catsOfPhoto(publicId: string): Promise<number[]> {
     .from(photosTable)
     .where(eq(photosTable.publicId, publicId));
   if (!photo) return [];
-  const [asMain, asSighting, asStatement] = await Promise.all([
+  const [asMain, asSighting, asSpotPhoto, asStatement] = await Promise.all([
     db
       .select({ catId: catsTable.id })
       .from(catsTable)
@@ -144,12 +146,20 @@ export async function catsOfPhoto(publicId: string): Promise<number[]> {
       .select({ catId: sightingsTable.catId })
       .from(sightingsTable)
       .where(and(eq(sightingsTable.photoId, photo.id), isNotNull(sightingsTable.catId))),
+    // SYC-415 spec §6.3: a spot's extra photos (face, body) belong to the cat
+    // the spot was resolved to. A cover photo is also found by the query
+    // above; seen twice is harmless, targetsOf() de-duplicates by cat.
+    db
+      .select({ catId: sightingsTable.catId })
+      .from(sightingPhotosTable)
+      .innerJoin(sightingsTable, eq(sightingsTable.id, sightingPhotosTable.sightingId))
+      .where(and(eq(sightingPhotosTable.photoId, photo.id), isNotNull(sightingsTable.catId))),
     db
       .select({ catId: observationsTable.catId })
       .from(observationsTable)
       .where(eq(observationsTable.photoId, photo.id)),
   ]);
-  return [...asMain, ...asSighting, ...asStatement]
+  return [...asMain, ...asSighting, ...asSpotPhoto, ...asStatement]
     .map((r) => r.catId)
     .filter((id): id is number => typeof id === "number");
 }

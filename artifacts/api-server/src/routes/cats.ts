@@ -12,9 +12,10 @@ import {
   profilesTable,
   catUpdatesTable,
   photosTable,
+  sightingPhotosTable,
   type Cat,
 } from "@workspace/db";
-import { and, eq, ne, desc, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, desc, sql } from "drizzle-orm";
 import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
@@ -207,8 +208,40 @@ router.get("/cats/:catId", async (req, res) => {
       ),
     )
     .orderBy(desc(sightingsTable.createdAt));
+  // SYC-415 (spec §5.5, §6.3): each resolved sighting's photos other than its
+  // cover, in the order taken, in ONE query (the N+1 above again). Only the
+  // sightings above are asked about, so a spot nobody has matched yet can't
+  // appear. A sighting with no extras gets no entry.
+  const spotPhotoRows = sightings.length
+    ? await db
+        .select({
+          sightingId: sightingPhotosTable.sightingId,
+          role: sightingPhotosTable.role,
+          photoId: photosTable.id,
+          photoPublicId: photosTable.publicId,
+        })
+        .from(sightingPhotosTable)
+        .innerJoin(photosTable, eq(photosTable.id, sightingPhotosTable.photoId))
+        .where(
+          inArray(
+            sightingPhotosTable.sightingId,
+            sightings.map((r) => r.sighting.id),
+          ),
+        )
+        .orderBy(asc(sightingPhotosTable.sightingId), asc(sightingPhotosTable.position))
+    : [];
+  const coverOf = new Map(sightings.map((r) => [r.sighting.id, r.sighting.photoId]));
+  const extrasBySighting = new Map<number, typeof spotPhotoRows>();
+  for (const row of spotPhotoRows) {
+    if (row.photoId === coverOf.get(row.sightingId)) continue;
+    extrasBySighting.set(row.sightingId, [...(extrasBySighting.get(row.sightingId) ?? []), row]);
+  }
   // A sighting whose photo the team hid stays in the list, with no photo (PR 6).
-  const hidden = await hiddenPhotoIds(sightings.map((r) => r.sighting.photoId));
+  // One batched lookup covers the covers and the extras.
+  const hidden = await hiddenPhotoIds([
+    ...sightings.map((r) => r.sighting.photoId),
+    ...spotPhotoRows.map((r) => r.photoId),
+  ]);
 
   // Care timeline: the cat's own update history, newest first. Sighting-type
   // updates are excluded — the sightings list below already covers those, and
@@ -274,6 +307,10 @@ router.get("/cats/:catId", async (req, res) => {
             photoId != null && photoPublicId != null ? { id: photoId, publicId: photoPublicId } : null,
             hidden,
           ),
+          extraPhotos: (extrasBySighting.get(s.id) ?? []).map((e) => ({
+            role: e.role as "first" | "face" | "body",
+            photoUrl: publicPhotoUrl({ id: e.photoId, publicId: e.photoPublicId }, hidden),
+          })),
         }),
     ),
     canClaim,

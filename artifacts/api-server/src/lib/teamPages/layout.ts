@@ -159,6 +159,8 @@ ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:
 .gallery form{margin:0}
 .gallery button{font:inherit;font-size:15px;width:100%;min-height:44px;padding:8px 10px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
 .gallery button.restore{background:#0b5c6b;color:#fff}
+.gallery .role{margin:0;font-size:14px;font-weight:700;color:#3b3930}
+.mixed{display:inline-block;margin-top:4px;font-size:13px;font-weight:700;border-radius:999px;padding:2px 10px;background:#fff3cd;color:#5c4800}
 .hiddenby{margin:0;font-size:14px;color:#8c1d18;font-weight:700;overflow-wrap:anywhere}
 .hiddenby .why{font-weight:400;color:#3b3930}
 .statement{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #0b5c6b;border-radius:8px;padding:10px 12px;margin:8px 0;overflow-wrap:anywhere}

@@ -7,9 +7,12 @@ import {
   isPersonId,
   peopleTable,
   photosTable,
+  sightingMatchesTable,
+  sightingPhotosTable,
   sightingsTable,
   observationsTable,
   type Observation,
+  type SightingPhotoRole,
 } from "@workspace/db";
 import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
 import { currentColonyOf } from "./colonyMembership";
@@ -344,6 +347,12 @@ export interface TeamPhoto {
   /** What the hide and restore forms name the photo by. */
   publicId: string;
   source: "main" | "sighting" | "statement";
+  /**
+   * SYC-415: which of a spot's photos this is (first, face or body). Absent
+   * for a photo that is in no spot's list: a statement's photo, or the main
+   * photo of a cat from before extra photos existed.
+   */
+  role?: SightingPhotoRole;
   /** Set while the photo is hidden from the public: who hid it and when. */
   hidden: { by: string; at: string; reason: string | null } | null;
 }
@@ -459,8 +468,21 @@ export interface TeamCatView {
     handPick: boolean;
   };
   /** Every resolved sighting, newest first, at its exact position. */
-  sightings: { id: number; lat: number; lng: number; at: string; photoUrl: string | null }[];
-  /** Every photo of the cat, once each: main, then sightings, then statements. */
+  sightings: {
+    id: number;
+    lat: number;
+    lng: number;
+    at: string;
+    photoUrl: string | null;
+    /** SYC-415: the spot's photos other than its cover, in the order taken. */
+    extraPhotos: { role: SightingPhotoRole; photoUrl: string | null }[];
+    /** SYC-415 spec §4.5: the matcher judged the spot's photos may show more than one cat. */
+    mixedCats: boolean;
+  }[];
+  /**
+   * Every photo of the cat, once each: main, then each sighting's photos (its
+   * cover, then its extras in the order taken), then statements.
+   */
   photos: TeamPhoto[];
   /** Every statement, newest first. Replaced ones stay, with what replaced them. */
   history: TeamStatement[];
@@ -677,11 +699,46 @@ export async function teamCatView(
   const observations = rec?.observations ?? [];
   const evidence = rec?.evidenceOfLife ?? null;
 
-  // Every photo of the cat, once each: main, then sightings, then statements.
+  // SYC-415: every photo of these sightings, with its role, and the matcher's
+  // "more than one cat" flag: two queries, however many sightings.
+  const sightingIdList = sightings.map((s) => s.id);
+  const [spotPhotoRows, matchRows] = sightingIdList.length
+    ? await Promise.all([
+        db
+          .select({
+            sightingId: sightingPhotosTable.sightingId,
+            photoId: sightingPhotosTable.photoId,
+            role: sightingPhotosTable.role,
+          })
+          .from(sightingPhotosTable)
+          .where(inArray(sightingPhotosTable.sightingId, sightingIdList))
+          .orderBy(asc(sightingPhotosTable.sightingId), asc(sightingPhotosTable.position)),
+        db
+          .select({ sightingId: sightingMatchesTable.sightingId, mixedCats: sightingMatchesTable.mixedCats })
+          .from(sightingMatchesTable)
+          .where(inArray(sightingMatchesTable.sightingId, sightingIdList)),
+      ])
+    : [[], []];
+  const coverOfSighting = new Map(sightings.map((s) => [s.id, s.photoId]));
+  const extrasOfSighting = new Map<number, { photoId: number; role: SightingPhotoRole }[]>();
+  const roleOfPhoto = new Map<number, SightingPhotoRole>();
+  for (const r of spotPhotoRows) {
+    const role = r.role as SightingPhotoRole;
+    roleOfPhoto.set(r.photoId, role);
+    if (r.photoId === coverOfSighting.get(r.sightingId)) continue;
+    extrasOfSighting.set(r.sightingId, [
+      ...(extrasOfSighting.get(r.sightingId) ?? []),
+      { photoId: r.photoId, role },
+    ]);
+  }
+  const mixedCatsOf = new Set(matchRows.filter((m) => m.mixedCats === true).map((m) => m.sightingId));
+
+  // Every photo of the cat, once each: main, then each sighting's photos (its
+  // cover, then its extras), then statements.
   const galleryIds = [
     ...new Set([
       cat.primaryPhotoId,
-      ...sightings.map((s) => s.photoId),
+      ...sightings.flatMap((s) => [s.photoId, ...(extrasOfSighting.get(s.id) ?? []).map((e) => e.photoId)]),
       // In the history's order: newest recorded first.
       ...[...observations]
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id)
@@ -777,15 +834,18 @@ export async function teamCatView(
     }));
 
   const mainIds = new Set([cat.primaryPhotoId]);
-  const sightingIds = new Set(sightings.map((s) => s.photoId));
+  // Every photo of every sighting counts, the extras too: they are not statement photos.
+  const sightingIds = new Set([...sightings.map((s) => s.photoId), ...roleOfPhoto.keys()]);
   const photos: TeamPhoto[] = [];
   for (const id of galleryIds) {
     const publicId = photoIds.get(id);
     if (!publicId) continue;
+    const role = roleOfPhoto.get(id);
     photos.push({
       url: teamPhotoUrl(publicId),
       publicId,
       source: mainIds.has(id) ? "main" : sightingIds.has(id) ? "sighting" : "statement",
+      ...(role ? { role } : {}),
       hidden: hidden.get(id) ?? null,
     });
   }
@@ -848,6 +908,11 @@ export async function teamCatView(
       lng: s.lng,
       at: s.createdAt.toISOString(),
       photoUrl: urlFor(s.photoId),
+      extraPhotos: (extrasOfSighting.get(s.id) ?? []).map((e) => ({
+        role: e.role,
+        photoUrl: urlFor(e.photoId),
+      })),
+      mixedCats: mixedCatsOf.has(s.id),
     })),
     photos,
     history,
