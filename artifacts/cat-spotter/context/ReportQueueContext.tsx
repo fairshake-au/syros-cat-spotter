@@ -32,6 +32,7 @@ import {
   type ReportLanguage,
   type ReportSeverity,
 } from '@/lib/reportQueue';
+import { createSendGate } from '@/lib/foregroundGate';
 import { getTurnstileToken } from '@/lib/turnstile';
 import { isScriptBlocked } from '@/lib/challengeUnavailable';
 import { ifLockFree, withLock } from '@/lib/webLocks';
@@ -239,32 +240,47 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
       .catch(() => undefined);
   }, [store]);
 
+  // SYC-170 (C9): a send that needs a safety check only starts while the app
+  // is in the foreground. In the background a NetInfo event, the timer or a
+  // mount only marks the queue "due"; it is sent when the app becomes active.
+  const syncNowRef = useRef(syncNow);
+  syncNowRef.current = syncNow;
+  const gateRef = useRef<ReturnType<typeof createSendGate> | null>(null);
+  if (!gateRef.current) {
+    gateRef.current = createSendGate({
+      state: () => AppState.currentState,
+      send: () => void syncNowRef.current(),
+    });
+  }
+  const gate = gateRef.current;
+
   useEffect(() => {
     store.load().then(() => {
       setReady(true);
       void checkReminders();
-      void syncNow();
+      gate.trigger();
     });
-  }, [store, syncNow, checkReminders]);
+  }, [store, gate, checkReminders]);
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
-      if (state.isConnected) void syncNow();
+      if (state.isConnected) gate.trigger();
     });
     const sub = AppState.addEventListener?.('change', (s) => {
       if (s === 'active') {
         void checkReminders();
-        void syncNow();
+        // Whatever came due in the background, plus the usual catch-up.
+        gate.trigger(s);
       }
     });
     // Belt and braces: a weak signal may not flip NetInfo at all.
-    const timer = setInterval(() => void syncNow(), 60_000);
+    const timer = setInterval(() => gate.trigger(), 60_000);
     return () => {
       unsubscribe();
       sub?.remove?.();
       clearInterval(timer);
     };
-  }, [syncNow, checkReminders]);
+  }, [gate, checkReminders]);
 
   const submitReport = useCallback(
     async (input: NewReportInput) => {

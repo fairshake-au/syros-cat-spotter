@@ -228,6 +228,11 @@ describe("the owner's push for a sighting, and the evening round-up", () => {
     // The evening round-up: today's words, byte for byte, for both ages.
     const evening = nextRoundUpMoment(new Date());
     roundUpDate = athensDate(evening);
+    // From 20:00 Athens, "this evening" is today, and an earlier test file in
+    // the same run may already have claimed today's round-up with the real
+    // clock (a drain). Clear any claim for this date first, or the round-up
+    // says already_sent and the test fails every evening until midnight.
+    await db.delete(pushRoundupRunsTable).where(eq(pushRoundupRunsTable.roundUpDate, roundUpDate));
     sendPushNotificationMock.mockClear();
     const result = await sendDailyRoundUp(evening);
     expect(result.status).toBe("sent");

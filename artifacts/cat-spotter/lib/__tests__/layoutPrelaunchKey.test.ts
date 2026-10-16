@@ -74,6 +74,7 @@ vi.mock('@/components/onboarding/OnboardingFlow', () => ({ OnboardingFlow: stubC
 // three banners individually (see components/BannerStack.tsx) — stub the
 // stack itself rather than each banner.
 vi.mock('@/components/BannerStack', () => ({ BannerStack: stubComponent('BannerStack') }));
+vi.mock('@/components/TurnstileHost', () => ({ TurnstileHost: stubComponent('TurnstileHost') }));
 // SYC-3: the keep-safe step and the "moved" screen.
 vi.mock('@/components/keepSafe/KeepSafeScreen', () => ({ KeepSafeScreen: stubComponent('KeepSafeScreen') }));
 vi.mock('@/components/keepSafe/MovedScreen', () => ({ MovedScreen: stubComponent('MovedScreen') }));
