@@ -462,6 +462,7 @@ router.post(
         colonies: await colonyOptions(pageViewer(res).visible),
         checkNote: picked.checkNote,
         carry: AddCarryForm.parse(req.body ?? {}),
+        island: pageViewer(res).island,
       }),
     );
   },
@@ -821,6 +822,7 @@ router.post(
         zoom: picked.zoom,
         checkNote: picked.checkNote,
         reason: MoveCarryForm.parse(body).reason,
+        island: pageViewer(res).island,
       }),
     );
   },

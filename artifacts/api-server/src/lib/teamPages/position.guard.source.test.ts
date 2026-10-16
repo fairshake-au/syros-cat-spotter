@@ -18,6 +18,7 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ALLOWED = new Set<string>([
   join("lib", "teamPages", "catPages.ts"),
   join("lib", "teamPages", "colonyPages.ts"),
+  join("lib", "teamPages", "siteFormPages.ts"),
 ]);
 
 function sources(dir: string): string[] {
