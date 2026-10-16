@@ -37,6 +37,7 @@ export async function buildAssets(srcDir, outDir) {
   await mkdir(outDir, { recursive: true });
   const manifest = {};
   for (const e of entries) {
+    // Deliberately fails the whole build: loud is safer than shipping a file nobody reviewed.
     if (!e.isFile() || !NAME_RE.test(e.name) || !ASSET_EXTENSIONS.includes(path.extname(e.name))) {
       throw new Error(`assets/: ${e.name} is not a .js or .css file with a plain name`);
     }
