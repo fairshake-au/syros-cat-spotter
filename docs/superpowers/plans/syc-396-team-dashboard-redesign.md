@@ -801,6 +801,8 @@ The cat page's small sightings map uses the same composed map picture as today, 
 - Tapping a cat shows its card and "Where else it's been seen".
 - Without the script, the same page shows the button map with the cats as markers.
 
+> **Since phase 0 merged (#219, 16 Oct):** every position a page or route prints must go through `position(lat, lng, { link: isIslandWide(viewer) })` from `lib/teamPages/position.ts`. Each new importer is added to `ALLOWED` in `position.guard.source.test.ts`, and `positions.source.test.ts` fails any other raw coordinate print. The map's card and sheet show place labels; any exact position there uses `position()`. Also check SYC-437 (Replit injects scripts; the CSP must stay `'self'`-only) and SYC-432 (the positions-scan hardening) before starting.
+
 #### Task 1.5.1: Single-square map tokens and the token request
 
 **Files:**
