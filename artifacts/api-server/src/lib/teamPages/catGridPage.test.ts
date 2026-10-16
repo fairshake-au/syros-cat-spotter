@@ -14,6 +14,7 @@ const item = (over: Partial<CatListItem> = {}): CatListItem => ({
   syr: "SYR-0007",
   photoPublicId: "ph7",
   coat: ["ginger", "white"],
+  pattern: null,
   colonyId: null,
   mark: "sterilised",
   lives: "street",
@@ -62,6 +63,15 @@ describe("card contents", () => {
     const html = render();
     expect(html).toContain('alt="Photo of Mimi &lt;b&gt;, Ginger · White"');
     expect(render({ items: [item({ coat: [] })] })).toContain('alt="Photo of Mimi &lt;b&gt;"');
+  });
+
+  it("SYC-398: shows the pattern after the colours, except Plain, never an old word", () => {
+    const striped = render({ items: [item({ coat: ["grey"], pattern: "stripes" })] });
+    expect(striped).toContain('alt="Photo of Mimi &lt;b&gt;, Grey · Stripes"');
+    expect(striped).toContain("Grey · Stripes");
+    expect(render({ items: [item({ coat: ["black"], pattern: "plain" })] })).toContain('alt="Photo of Mimi &lt;b&gt;, Black"');
+    expect(render({ items: [item({ coat: [], pattern: "patches" })] })).toContain('alt="Photo of Mimi &lt;b&gt;, Patches"');
+    expect(striped).not.toMatch(/tabby/i);
   });
 
   it("words last seen by the shared rule, in Athens time", () => {

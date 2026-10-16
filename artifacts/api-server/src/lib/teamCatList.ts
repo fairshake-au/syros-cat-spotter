@@ -3,7 +3,7 @@ import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { currentColonyOf } from "./colonyMembership";
 import { areaFor } from "./areas/namedAreas";
 import { placeLabel } from "./areas/placeLabel";
-import { COAT_COLOURS, type CoatColour } from "./appearance";
+import { COAT_COLOURS, type CoatColour, type CoatPattern } from "./appearance";
 import { loadCatRecords } from "./observations";
 import { resolveCat, type CatSnapshot } from "./resolve";
 import { QUERY_MAX, SYR_RE, syrNumber } from "./teamCatView";
@@ -54,6 +54,8 @@ export interface CatListItem {
   syr: string;
   photoPublicId: string | null;
   coat: CoatColour[];
+  /** The resolved pattern (SYC-398 §2), or null when not known. */
+  pattern: CoatPattern | null;
   colonyId: number | null;
   mark: SterilisedMark;
   lives: Lives;
@@ -152,6 +154,7 @@ export async function listTeamCats(
       photoPublicId: c.photoPublicId,
       // The resolved colours (SYC-398: the coat's colours part).
       coat: snap.coatColours.value ?? [],
+      pattern: snap.coatPattern.value,
       colonyId: colonies.get(c.id) ?? null,
       mark: markOf(snap.sterilised),
       lives: livesOf(snap),
