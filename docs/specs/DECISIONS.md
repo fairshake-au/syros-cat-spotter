@@ -384,6 +384,7 @@ Samuel **approved the spec on 15 October 2026**, with the four cartoons as drawn
 - **A new cat's main photo is the face photo** if there is one, otherwise the first photo. This is measured, and switches to the first photo if face shots match worse. (Decision 4; amends nothing. Later spots still never change a cat's main photo.)
 - **Claude drew the cartoons and Samuel approved them.** A designer may replace them later. (Decision 5.)
 - **No photo is deleted on the matcher's guess.** Only a spot with no cat in any photo is turned away. (From the adversarial review; spec §5.3.)
+- **The implementation plan was approved on 15 October 2026** (`docs/superpowers/plans/syc-415-photo-tips-and-extra-photos.md`). Plan Decision P1 = A: Claude switches `extra_photos_on` on after the live checks pass, with a one-line heads-up to Samuel first. Each extra-photo box offers "Camera" and "Photos" as two buttons, not a pop-up (browsers only open a picker from a direct tap).
 
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 

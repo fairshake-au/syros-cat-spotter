@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Draft for Samuel's approval, 15 October 2026. An independent adversarial review (Sonnet) of the first draft found 3 blockers, 9 major and 3 minor issues. A sweep by Claude found one more major (the "Report an issue" route). All are fixed here. The review and how each finding was handled are in [`syc-415-photo-tips-and-extra-photos-review.md`](./syc-415-photo-tips-and-extra-photos-review.md).
+**Status:** **Approved by Samuel, 15 October 2026, with Decision P1 = A** (Claude switches the extra photos on after the live checks, with a one-line heads-up first) and the camera/library buttons noted. An independent adversarial review (Sonnet) of the first draft found 3 blockers, 9 major and 3 minor issues, and a sweep by Claude found one more major (the "Report an issue" route). All were fixed before approval. The review and how each finding was handled are in [`syc-415-photo-tips-and-extra-photos-review.md`](./syc-415-photo-tips-and-extra-photos-review.md).
 **Ticket:** SYC-415 (Urgent).
 **Spec:** `docs/specs/photo-tips-and-extra-photos.md`, approved by Samuel on 15 October 2026 with the cartoons as drawn (`DECISIONS.md` Part 2r).
 **Checked against:** `origin/main` at `1eda7d2c` (15 Oct 2026). Code is cited by **file and symbol**, not line number, because main moves daily. Every "the code does X" names the file I read it in.
