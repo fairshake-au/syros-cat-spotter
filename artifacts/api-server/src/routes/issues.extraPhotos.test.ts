@@ -111,6 +111,21 @@ describe("Report an issue reaches a spot's extra photos", () => {
     expect([res.status, res.body]).toEqual([422, { error: "photo_not_of_this_cat" }]);
   });
 
+  it("refuses an extra photo of a PENDING sighting even when its cat id is set", async () => {
+    const catA = await seedCat();
+    const spot = await seedSpot({ deviceId: `${PREFIX}spotter`, ...ORIGIN });
+    // Written directly, past the resolve route and the append-only guard (the
+    // owner switches it off for this one statement, as test/sightings.ts does):
+    // a pending row that already names a cat.
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`alter table sightings disable trigger sightings_append_only`);
+      await tx.update(sightingsTable).set({ catId: catA }).where(eq(sightingsTable.id, spot.sightingId));
+      await tx.execute(sql`alter table sightings enable trigger sightings_append_only`);
+    });
+    const res = await report(catA, spot.photos["body"]!.publicId);
+    expect([res.status, res.body]).toEqual([422, { error: "photo_not_of_this_cat" }]);
+  });
+
   it("still accepts the cover photo and the cat's main photo (unchanged)", async () => {
     const catA = await seedCat();
     const spot = await seedSpot({ deviceId: `${PREFIX}spotter`, catId: catA, ...ORIGIN });

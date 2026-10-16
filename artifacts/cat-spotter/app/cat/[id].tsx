@@ -452,7 +452,7 @@ export default function CatDetailScreen() {
           <View style={styles.sightingGrid}>
             {sightings.map((s, i) => (
               <View key={s.photoUrl ?? `sighting-${i}`} style={styles.sightingItem}>
-                <SightingPhotos photoUrl={s.photoUrl} extraPhotos={s.extraPhotos} />
+                <SightingPhotos photoUrl={s.photoUrl} extraPhotos={s.extraPhotos} createdAt={s.createdAt} />
                 <Text style={[styles.sightingDate, { color: colors.mutedForeground }]}>
                   {parsePublicDate(s.createdAt).toLocaleDateString()}
                 </Text>

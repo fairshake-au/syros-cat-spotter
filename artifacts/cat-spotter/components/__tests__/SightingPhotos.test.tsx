@@ -13,13 +13,51 @@ vi.mock('@/context/LanguageContext', () => ({
   useLanguage: () => ({ t: (k: string) => k }),
 }));
 
+// react-native-web only arms its Escape key once a fade-in has played, which
+// jsdom never does, so the Modal is stood in for by a plain one whose "back"
+// button calls the onRequestClose the component passed it (Android back and
+// Escape both end up there).
+vi.mock('react-native', async () => {
+  const rn = await vi.importActual<Record<string, unknown>>('react-native-web');
+  return {
+    ...rn,
+    Modal: ({
+      visible,
+      onRequestClose,
+      children,
+    }: {
+      visible?: boolean;
+      onRequestClose?: () => void;
+      children?: React.ReactNode;
+    }) =>
+      visible ? (
+        <div data-testid="mock-modal">
+          <button data-testid="android-back" onClick={onRequestClose} />
+          {children}
+        </div>
+      ) : null,
+  };
+});
+
 vi.mock('@expo/vector-icons', () => ({
   Feather: () => null,
 }));
 
 vi.mock('expo-image', () => ({
-  Image: ({ source, testID }: { source?: { uri?: string }; testID?: string }) => (
-    <span data-testid={testID ?? 'image'} data-uri={source?.uri ?? ''} />
+  Image: ({
+    source,
+    testID,
+    accessibilityLabel,
+  }: {
+    source?: { uri?: string };
+    testID?: string;
+    accessibilityLabel?: string;
+  }) => (
+    <span
+      data-testid={testID ?? 'image'}
+      data-uri={source?.uri ?? ''}
+      aria-label={accessibilityLabel}
+    />
   ),
 }));
 
@@ -34,10 +72,15 @@ vi.mock('@/hooks/useColors', () => ({
   }),
 }));
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { SightingPhotos } from '../SightingPhotos';
+import { parsePublicDate } from '@/lib/catStatusLines';
 
 afterEach(cleanup);
 
+const DAY = '2026-10-16';
+const WHEN = parsePublicDate(DAY).toLocaleDateString();
 const COVER = '/api/photos/cover-face';
 const FIRST = '/api/photos/extra-first';
 const BODY = '/api/photos/extra-body';
@@ -46,6 +89,7 @@ describe('SightingPhotos', () => {
   it('shows the cover and exactly one thumbnail for the visible extra; nothing for the hidden one', () => {
     const { container, queryAllByTestId } = render(
       <SightingPhotos
+        createdAt={DAY}
         photoUrl={COVER}
         extraPhotos={[
           { role: 'first', photoUrl: null },
@@ -57,7 +101,7 @@ describe('SightingPhotos', () => {
     expect(container.querySelectorAll('[data-testid^="extra-photo-"]')).toHaveLength(1);
     const thumb = container.querySelector('[data-testid="extra-photo-body"]') as HTMLElement;
     expect(thumb).not.toBeNull();
-    expect(thumb.getAttribute('aria-label')).toBe('extraPhotoBodyLabel');
+    expect(thumb.getAttribute('aria-label')).toBe(`extraPhotoBodyLabel, ${WHEN}`);
     expect(container.querySelector('[data-testid="extra-photo-first"]')).toBeNull();
     // Besides the cover, one image: the visible thumbnail.
     expect(queryAllByTestId('image')).toHaveLength(1);
@@ -66,6 +110,7 @@ describe('SightingPhotos', () => {
   it('labels a face photo and a first photo for a screen reader, in their own words', () => {
     const { container } = render(
       <SightingPhotos
+        createdAt={DAY}
         photoUrl={COVER}
         extraPhotos={[
           { role: 'first', photoUrl: FIRST },
@@ -74,28 +119,28 @@ describe('SightingPhotos', () => {
       />,
     );
     expect(container.querySelector('[data-testid="extra-photo-first"]')!.getAttribute('aria-label')).toBe(
-      'extraPhotoFirstLabel',
+      `extraPhotoFirstLabel, ${WHEN}`,
     );
     expect(container.querySelector('[data-testid="extra-photo-body"]')!.getAttribute('aria-label')).toBe(
-      'extraPhotoBodyLabel',
+      `extraPhotoBodyLabel, ${WHEN}`,
     );
     const face = render(
-      <SightingPhotos photoUrl={COVER} extraPhotos={[{ role: 'face', photoUrl: FIRST }]} />,
+      <SightingPhotos createdAt={DAY} photoUrl={COVER} extraPhotos={[{ role: 'face', photoUrl: FIRST }]} />,
     );
     expect(face.container.querySelector('[data-testid="extra-photo-face"]')!.getAttribute('aria-label')).toBe(
-      'extraPhotoFaceLabel',
+      `extraPhotoFaceLabel, ${WHEN}`,
     );
   });
 
   it('a sighting with no extraPhotos key renders the cover only', () => {
-    const { container } = render(<SightingPhotos photoUrl={COVER} />);
+    const { container } = render(<SightingPhotos createdAt={DAY} photoUrl={COVER} />);
     expect(container.querySelector('[data-testid="sighting-cover"]')).not.toBeNull();
     expect(container.querySelectorAll('[data-testid^="extra-photo-"]')).toHaveLength(0);
   });
 
   it('tapping a thumbnail opens that photo full size, and tapping again closes it', () => {
     const { container } = render(
-      <SightingPhotos photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
+      <SightingPhotos createdAt={DAY} photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
     );
     expect(document.querySelector('[data-testid="sighting-photo-viewer"]')).toBeNull();
     fireEvent.click(container.querySelector('[data-testid="extra-photo-body"]')!);
@@ -104,5 +149,37 @@ describe('SightingPhotos', () => {
     expect(viewer!.querySelector('[data-uri$="extra-body"]')).not.toBeNull();
     fireEvent.click(document.querySelector('[data-testid="sighting-photo-viewer-close"]')!);
     expect(document.querySelector('[data-testid="sighting-photo-viewer"]')).toBeNull();
+  });
+
+  it('the full-size photo carries the same label, with the date', () => {
+    const { container } = render(
+      <SightingPhotos createdAt={DAY} photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
+    );
+    fireEvent.click(container.querySelector('[data-testid="extra-photo-body"]')!);
+    const img = document.querySelector('[data-testid="sighting-photo-viewer"] [data-uri$="extra-body"]');
+    expect(img!.getAttribute('aria-label')).toBe(`extraPhotoBodyLabel, ${WHEN}`);
+  });
+
+  it('Android back / Escape closes the full-size photo (the Modal\'s onRequestClose)', async () => {
+    const { container } = render(
+      <SightingPhotos createdAt={DAY} photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
+    );
+    fireEvent.click(container.querySelector('[data-testid="extra-photo-body"]')!);
+    expect(document.querySelector('[data-testid="sighting-photo-viewer"]')).not.toBeNull();
+    fireEvent.click(document.querySelector('[data-testid="android-back"]')!);
+    expect(document.querySelector('[data-testid="sighting-photo-viewer"]')).toBeNull();
+  });
+
+  // Two 48pt thumbnails and a 6pt gap are 102pt: wider than a sighting tile
+  // (about 30.5% of the screen) on a 320 or 360pt phone. They shrink to fit,
+  // and keep a 44pt tap target through hitSlop.
+  it('thumbnails shrink to fit the tile and keep a 44pt tap target', () => {
+    const src = readFileSync(join(__dirname, '..', 'SightingPhotos.tsx'), 'utf8');
+    const thumb = src.slice(src.indexOf('thumb: {'), src.indexOf('backdrop:'));
+    expect(thumb).toMatch(/flex:\s*1/);
+    expect(thumb).toMatch(/maxWidth:\s*48/);
+    expect(thumb).toMatch(/aspectRatio:\s*1/);
+    expect(thumb).not.toMatch(/width:\s*48/);
+    expect(src).toMatch(/hitSlop/);
   });
 });

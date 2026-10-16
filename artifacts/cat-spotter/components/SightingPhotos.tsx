@@ -5,6 +5,7 @@ import type { Sighting } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { registerModalOpen } from '@/lib/modalVisibility';
+import { parsePublicDate } from '@/lib/catStatusLines';
 import { photoSource } from '@/lib/urls';
 import { radii, spacing } from '@/constants/theme';
 
@@ -26,13 +27,17 @@ const LABEL_KEY = {
 export function SightingPhotos({
   photoUrl,
   extraPhotos,
+  createdAt,
 }: {
   photoUrl: string | null;
+  /** The sighting's public day, as the tile shows it: part of each photo's spoken label. */
+  createdAt: string;
   extraPhotos?: ExtraPhoto[];
 }) {
   const colors = useColors();
   const { t } = useLanguage();
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<{ url: string; label: string } | null>(null);
+  const when = parsePublicDate(createdAt).toLocaleDateString();
   const visible = (extraPhotos ?? []).filter(
     (e): e is ExtraPhoto & { photoUrl: string } => !!e.photoUrl,
   );
@@ -47,14 +52,17 @@ export function SightingPhotos({
       />
       {visible.length > 0 ? (
         <View style={styles.thumbs}>
-          {visible.slice(0, 2).map((e) => (
-            // 48pt thumbnail inside a 48pt target, the smallest this app taps.
+          {visible.slice(0, 2).map((e) => {
+            const label = `${t(LABEL_KEY[e.role])}, ${when}`;
+            return (
+            // Up to 48pt, shrinking to fit a narrow tile; hitSlop keeps the tap target at 44pt.
             <Pressable
               key={e.role}
               testID={`extra-photo-${e.role}`}
               accessibilityRole="button"
-              accessibilityLabel={t(LABEL_KEY[e.role])}
-              onPress={() => setOpen(e.photoUrl)}
+              accessibilityLabel={label}
+              hitSlop={8}
+              onPress={() => setOpen({ url: e.photoUrl, label })}
               style={[styles.thumb, { borderColor: colors.border }]}
             >
               <Image
@@ -63,16 +71,17 @@ export function SightingPhotos({
                 contentFit="cover"
               />
             </Pressable>
-          ))}
+            );
+          })}
         </View>
       ) : null}
-      {open !== null ? <FullSize url={open} onClose={() => setOpen(null)} /> : null}
+      {open !== null ? <FullSize url={open.url} label={open.label} onClose={() => setOpen(null)} /> : null}
     </View>
   );
 }
 
 /** One photo full size. A tap anywhere closes it. */
-function FullSize({ url, onClose }: { url: string; onClose: () => void }) {
+function FullSize({ url, label, onClose }: { url: string; label: string; onClose: () => void }) {
   const { t } = useLanguage();
   // Keep the Home Screen nudge from floating over this (SYC-134).
   useEffect(() => registerModalOpen(), []);
@@ -86,7 +95,7 @@ function FullSize({ url, onClose }: { url: string; onClose: () => void }) {
           style={StyleSheet.absoluteFill}
           onPress={onClose}
         />
-        <Image source={photoSource(url)} style={styles.full} contentFit="contain" pointerEvents="none" />
+        <Image source={photoSource(url)} accessibilityLabel={label} style={styles.full} contentFit="contain" pointerEvents="none" />
       </View>
     </Modal>
   );
@@ -102,8 +111,9 @@ const styles = StyleSheet.create({
   },
   thumbs: { flexDirection: 'row', gap: 6 },
   thumb: {
-    width: 48,
-    height: 48,
+    flex: 1,
+    maxWidth: 48,
+    aspectRatio: 1,
     borderRadius: radii.sm,
     borderWidth: 1,
     overflow: 'hidden',

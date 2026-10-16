@@ -16,6 +16,8 @@ Branch `claude/syc-415-pr3-extra-photo-readers`, built on `claude/syc-415-pr2-se
 
 - **Rebased onto PR 2 fix-ups** (`2d6de438`: matcher reads "true" as text, 413 logged, spot-route 413 wording). No conflicts. Re-run: api-server `Test Files  1 failed | 176 passed | 1 skipped (178)`, `Tests  1 failed | 2816 passed | 4 skipped (2821)` (the one failure is the known SYC-334 profiles.usernames leaderboard test); cat-spotter `Test Files  122 passed (122)`, `Tests  1431 passed (1431)`; both typechecks clean.
 
+- **Review fixes (#213)**: (1) thumbnails now `flex: 1, maxWidth: 48, aspectRatio: 1` with `hitSlop={8}` so two always fit a narrow tile (source-reading test; red first). (2) `issues.extraPhotos.test.ts`: a pending sighting with its cat id set (guard switched off for one statement, as `test/sightings.ts` does) is refused 422; probe: dropping `status = resolved` in `photoOfCat` turns it red. (3) viewer test for the Modal's `onRequestClose`; react-native-web only arms Escape after a fade-in that jsdom never plays, so the test stands in a plain Modal with an "android back" button wired to the component's `onRequestClose`; probe: no-op `onRequestClose` turns it red. (4) thumbnail and full-size labels are "<role label>, <date>" using the tile's `toLocaleDateString()` date; `SightingPhotos` takes a new `createdAt` prop; no new i18n strings.
+
 ## Next
 
 - Final full runs, push, draft PR. The browser check at 390px and desktop is the parent's.
