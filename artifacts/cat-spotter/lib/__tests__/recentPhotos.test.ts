@@ -221,7 +221,7 @@ describe('the same photo twice', () => {
     },
   );
 
-  it('a camera photo is recorded by time only', () => {
+  it('a photo with no fingerprint is recorded by time only', () => {
     expect(entryForOutcome('sent', SECOND, undefined, { sightingId: 3, isCatPhoto: true })).toEqual({
       capturedAtMs: SECOND,
       sightingId: 3,
@@ -291,5 +291,63 @@ describe('the review screen links a matched sighting to its cat (C2)', () => {
     expect(src.slice(call, call + 200)).toMatch(
       /sightingId: data\.sightingId, localId: data\.localId[\s\S]*res\.cat\.id/,
     );
+  });
+});
+
+describe('SYC-415: already logged covers every photo of a spot', () => {
+  it('a sent spot records its extra photos too', () => {
+    expect(entryForOutcome('sent', SECOND, 'F1', { sightingId: 9, isCatPhoto: true }, ['F2', 'F3'])).toEqual({
+      capturedAtMs: SECOND,
+      sightingId: 9,
+      fingerprint: 'F1',
+      extraFingerprints: ['F2', 'F3'],
+    });
+  });
+
+  it('a saved-for-later spot records its extra photos too', () => {
+    expect(entryForOutcome('saved', SECOND, 'F1', { localId: 'L1' }, ['F2'])).toEqual({
+      capturedAtMs: SECOND,
+      fingerprint: 'F1',
+      localId: 'L1',
+      extraFingerprints: ['F2'],
+    });
+  });
+
+  it('a spot the server said is not a cat keeps no fingerprints at all (review M5)', () => {
+    expect(entryForOutcome('sent', SECOND, 'F1', { sightingId: 9, isCatPhoto: false }, ['F2', 'F3'])).toEqual({
+      capturedAtMs: SECOND,
+      sightingId: 9,
+    });
+  });
+
+  it('no extras, no extraFingerprints key', () => {
+    expect(entryForOutcome('sent', SECOND, 'F1', { sightingId: 9, isCatPhoto: true }, [])).toEqual({
+      capturedAtMs: SECOND,
+      sightingId: 9,
+      fingerprint: 'F1',
+    });
+  });
+
+  it('finds an extra photo picked again later, as a first photo or an extra', async () => {
+    const { storage } = memoryStorage();
+    const entry = entryForOutcome('sent', SECOND, 'F1', { sightingId: 9, isCatPhoto: true }, ['F2', 'F3'])!;
+    await recordRecentPhoto(storage, entry, NOW);
+    const list = await loadRecentPhotos(storage, NOW);
+    expect(findAlreadyLogged('F3', list, new Set())).toEqual(entry);
+    expect(findAlreadyLogged('F1', list, new Set())).toEqual(entry);
+    expect(findAlreadyLogged('F9', list, new Set())).toBeNull();
+  });
+
+  it('drops an extraFingerprints that is not a list of strings', async () => {
+    const { storage } = memoryStorage({
+      [RECENT_PHOTOS_KEY]: JSON.stringify([
+        { capturedAtMs: SECOND, sightingId: 1, extraFingerprints: 'F2' },
+        { capturedAtMs: SECOND + 1, sightingId: 2, extraFingerprints: ['F2', 3] },
+        { capturedAtMs: SECOND + 2, sightingId: 3, extraFingerprints: ['F4'] },
+      ]),
+    });
+    const list = await loadRecentPhotos(storage, NOW);
+    expect(list.map((e) => e.extraFingerprints)).toEqual([undefined, undefined, ['F4']]);
+    expect(findAlreadyLogged('F2', list, new Set())).toBeNull();
   });
 });

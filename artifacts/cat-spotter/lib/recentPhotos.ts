@@ -27,8 +27,17 @@ const FINGERPRINT_CHARS = Math.ceil((64 * 1024) / 3) * 4;
 
 export interface RecentPhoto {
   capturedAtMs: number;
-  /** Absent for a camera photo, or one the server said is not a cat. */
+  /**
+   * Of the photo as picked or captured. Absent for one the server said is not
+   * a cat, and for camera photos recorded before SYC-415 (camera photos now
+   * carry one too, so an extra photo can't repeat them).
+   */
   fingerprint?: string;
+  /**
+   * SYC-415: the spot's extra photos (face, body), so any of them picked
+   * again later gets "You've already logged this photo" (spec §4.3).
+   */
+  extraFingerprints?: string[];
   /** A saved-for-later card. */
   localId?: string;
   sightingId?: number;
@@ -62,6 +71,13 @@ function clean(value: unknown): RecentPhoto | null {
   if (typeof v.capturedAtMs !== 'number' || !Number.isFinite(v.capturedAtMs)) return null;
   const out: RecentPhoto = { capturedAtMs: v.capturedAtMs };
   if (typeof v.fingerprint === 'string') out.fingerprint = v.fingerprint;
+  if (
+    Array.isArray(v.extraFingerprints) &&
+    v.extraFingerprints.length > 0 &&
+    v.extraFingerprints.every((f) => typeof f === 'string')
+  ) {
+    out.extraFingerprints = v.extraFingerprints as string[];
+  }
   if (typeof v.localId === 'string') out.localId = v.localId;
   if (typeof v.sightingId === 'number' && Number.isInteger(v.sightingId)) out.sightingId = v.sightingId;
   if (typeof v.catId === 'number' && Number.isInteger(v.catId)) out.catId = v.catId;
@@ -154,24 +170,31 @@ export function uniqueCaptureTime(instantMs: number, list: RecentPhoto[]): numbe
 /**
  * What to record after a submit, or nothing. A photo the server said is not a
  * cat keeps its time (the server stored a sighting at it) but not its
- * fingerprint, so the spotter can pick it again (review M5).
+ * fingerprint, so the spotter can pick it again (review M5). The same rule
+ * covers the spot's extra photos (SYC-415).
  */
 export function entryForOutcome(
   kind: 'sent' | 'saved' | 'rejected' | 'send-failed' | 'save-failed' | 'not-saved',
   capturedAtMs: number,
   fingerprint: string | undefined,
   info: { sightingId?: number; isCatPhoto?: boolean; localId?: string },
+  extraFingerprints: string[] = [],
 ): RecentPhoto | null {
+  const extras = extraFingerprints.filter((f) => typeof f === 'string' && f.length > 0);
   if (kind === 'sent') {
     const entry: RecentPhoto = { capturedAtMs };
     if (info.sightingId !== undefined) entry.sightingId = info.sightingId;
-    if (fingerprint && info.isCatPhoto !== false) entry.fingerprint = fingerprint;
+    if (info.isCatPhoto !== false) {
+      if (fingerprint) entry.fingerprint = fingerprint;
+      if (extras.length > 0) entry.extraFingerprints = extras;
+    }
     return entry;
   }
   if (kind === 'saved') {
     const entry: RecentPhoto = { capturedAtMs };
     if (fingerprint) entry.fingerprint = fingerprint;
     if (info.localId !== undefined) entry.localId = info.localId;
+    if (extras.length > 0) entry.extraFingerprints = extras;
     return entry;
   }
   return null;
@@ -189,7 +212,7 @@ export function findAlreadyLogged(
 ): RecentPhoto | null {
   for (let i = list.length - 1; i >= 0; i--) {
     const e = list[i];
-    if (e.fingerprint !== fingerprint) continue;
+    if (e.fingerprint !== fingerprint && !e.extraFingerprints?.includes(fingerprint)) continue;
     if (e.sightingId !== undefined || e.catId !== undefined) return e;
     if (e.localId !== undefined && pendingLocalIds.has(e.localId)) return e;
   }

@@ -9,9 +9,9 @@ Scope: plan Tasks 4.1–4.6 only (not 4.7, not the browser walk-through — pare
 - 4.2 `lib/prepareExtraPhoto.ts` (2048px long side, q0.8, null on failure) + test (5). Note: vitest 4 reports an error thrown by a vi.fn() implementation as a test failure even when the code catches it, so the test uses a plain recorder stub.
 - 4.3 `sightingRequest`/`queuedSighting` carry extras only when non-empty; `PendingSighting.extraPhotos/extraNote/rejectedRole`; `extrasOf` (never throws, first face + first body) and `coverOf` (uri+base64 paired) in `lib/offlineQueue.ts`.
 - 4.4 Offline queue: keep list includes extras; enqueue stores each extra as `<localId>-<role>` (never inline; dropped + `extraNote: 'extraNotKept'` on failure; `enqueue` now returns `{ extraNotKept }`); syncOne reads extras, skips a missing one (`extraNote: 'extraMissing'`), stores `rejectedRole`; `remove` deletes every extra; new `removeExtraPhoto`/`replaceExtraPhoto`; `replacementPhotoKey(localId, ref, role)`; 413 -> `spotTooLarge` (fixable) + `rejectedPhotoRole`; `spotTooLarge` string in en/el/fr. Tests: `context/__tests__/OfflineContext.extraPhotos.test.tsx` (16). Probes all red then restored: sweep keep list (test 1), remove (7), missing extra (3), replacement key (8 + replace test), inline extra (9a, 9b).
+- 4.5 `lib/recentPhotos.ts`: `RecentPhoto.extraFingerprints`, `clean` drops a malformed one, `entryForOutcome(..., extraFingerprints)` (none kept when not a cat), `findAlreadyLogged` matches extras. Probes red then restored: findAlreadyLogged ignoring extras; extras kept for a not-a-cat spot.
 
 ## Next
-- 4.5 recentPhotos extraFingerprints.
 - 4.6 ExtraPhotoBoxes + spot.tsx/review.tsx/submitFlow/appSettings wiring.
 
 ## Deviations / notes
