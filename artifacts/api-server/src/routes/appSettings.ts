@@ -20,6 +20,9 @@ router.get("/app-settings", async (_req, res) => {
   res.json({
     feedNudge: settings.donateUrl ? { donateHost: new URL(settings.donateUrl).host } : null,
     hiddenFacts: settings.hiddenFacts,
+    // SYC-415 spec §6.7: the app shows the extra-photo boxes only once the
+    // server says so, so a new app never sends extras to an old server.
+    extraPhotos: settings.extraPhotosOn,
   });
 });
 

@@ -57,9 +57,10 @@ on:
         description: "For a cat guardian (people-add, people-set-roles): the colony's number"
       setting_key:
         # SYC-36 / SYC-48 (match-wait plan PR 1): the match-wait switches.
-        # A fixed list, checked again by the settings CLI.
+        # A fixed list, checked again by the settings CLI. SYC-415 adds
+        # extra_photos_on (the extra-photo boxes; true or false).
         type: choice
-        options: [feed_nudge_donate_url, starter_facts_hidden, feed_tap_count]
+        options: [feed_nudge_donate_url, starter_facts_hidden, feed_tap_count, extra_photos_on]
         required: false
         description: "For set-setting: which switch"
       setting_value:

@@ -70,6 +70,10 @@ export const sightingMatchesTable = pgTable(
     // until then.
     colourFilterOn: boolean("colour_filter_on"),
     chosenAt: timestamp("chosen_at", { withTimezone: true }),
+    /** SYC-415 §6.2/§8: the matcher said no photo in the spot shows a cat. Null before SYC-415 or when the matcher failed. */
+    noCatInAnyPhoto: boolean("no_cat_in_any_photo"),
+    /** SYC-415 §4.5: the matcher said the spot's photos look like more than one cat. Null before SYC-415 or when the matcher failed. */
+    mixedCats: boolean("mixed_cats"),
   },
   (t) => [
     check(

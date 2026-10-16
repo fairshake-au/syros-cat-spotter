@@ -101,6 +101,31 @@ export function jsonErrorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
+  // SYC-415 spec §6.4: body-parser's own "too large" error. A 500 would make
+  // the phone retry a spot that can never fit; 413 tells it to remove a photo.
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "type" in err &&
+    err.type === "entity.too.large"
+  ) {
+    // Sizes and path only, never any body content.
+    const sizes = err as { limit?: unknown; length?: unknown };
+    req.log?.warn(
+      { limit: sizes.limit, length: sizes.length, path: req.path },
+      "request body too large",
+    );
+    res.setHeader("Cache-Control", "no-store");
+    // Every route's body parser can say "too large"; only a spot gets the
+    // "remove a photo" advice.
+    const isSpot = req.method === "POST" && req.path === "/api/sightings";
+    res.status(413).json({
+      error: isSpot
+        ? "This spot is too large to send. Remove a photo and try again."
+        : "This request is too large.",
+    });
+    return;
+  }
   if (
     typeof err === "object" &&
     err !== null &&

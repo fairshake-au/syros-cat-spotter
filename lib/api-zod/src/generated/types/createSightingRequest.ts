@@ -5,6 +5,7 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { ExtraPhoto } from './extraPhoto';
 
 export interface CreateSightingRequest {
   deviceId: string;
@@ -14,4 +15,9 @@ export interface CreateSightingRequest {
   lng: number;
   /** ISO timestamp of when the photo was taken, for sightings queued offline and synced later. Omit for an immediate submission. The server clamps this (not in the future, at most 30 days old) before storing, since it is client-supplied and feeds streak day buckets. */
   capturedAt?: string | null;
+  /**
+     * Up to two extra photos of the same cat from the same visit (SYC-415). At most one face and one body. The first photo stays in photoBase64.
+     * @maxItems 2
+     */
+  extraPhotos?: ExtraPhoto[];
 }

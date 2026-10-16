@@ -10,11 +10,13 @@ import {
   photosTable,
   sightingsTable,
   sightingMatchesTable,
+  sightingPhotosTable,
   profilesTable,
   observationsTable,
+  type SightingPhotoRole,
   type SuggestedMatch,
 } from "@workspace/db";
-import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
@@ -31,8 +33,8 @@ import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { spottedAgainMessage } from "../lib/sightingMessage";
 import { writeObservation, type DbOrTx } from "../lib/observations";
 import { catSubscriptionsTable } from "@workspace/db";
-import { matchCatPhoto } from "../lib/matching";
-import { validatePhotoBase64 } from "../lib/imageValidation";
+import { matchCatPhoto, type NewPhotoInput } from "../lib/matching";
+import { saveSpotWithPhotos, spotPhotoList, validateSpotPhotos } from "../lib/spotPhotos";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import {
   aiLimiter,
@@ -238,10 +240,14 @@ const ALREADY_RESOLVED = new Error("Sighting already resolved");
 //
 // SYC-151: it also writes the sighting's team-only match record, so resolve
 // can tell a suggestion from a hand pick without taking the phone's word.
+//
+// SYC-415 (spec §5.2): `photos` is every photo of the spot, in position
+// order, and the record also notes "no cat in any photo" and "may be more
+// than one cat".
 async function computeMatchCandidates(
   req: Request,
   sightingId: number,
-  photoBase64: string,
+  photos: NewPhotoInput[],
   lat: number,
   lng: number,
 ): Promise<{ isCatPhoto: boolean; candidates: Candidate[] }> {
@@ -251,6 +257,7 @@ async function computeMatchCandidates(
   const nearest = selectCandidateCats(cats, lat, lng);
 
   let isCatPhoto = true;
+  let mixedCats = false;
   let candidates: Candidate[] = [];
   let matcherFailed = false;
   const candidateInputs: {
@@ -281,8 +288,11 @@ async function computeMatchCandidates(
         });
       }
     }
-    const result = await matchCatPhoto(photoBase64, candidateInputs);
+    const result = await matchCatPhoto(photos, candidateInputs);
     isCatPhoto = result.isCatPhoto;
+    // `=== true`: an answer (or a test mock) in the old shape has no
+    // mixedCats, which means "not mixed", never unknown.
+    mixedCats = result.mixedCats === true;
     const byId = new Map(nearest.map((cat) => [cat.id, cat]));
     // Only a cat the matcher was actually sent can be suggested (review F5):
     // a nearby cat whose photo row is gone was never compared.
@@ -337,6 +347,9 @@ async function computeMatchCandidates(
       score: c.confidence,
     })),
     matcherFailed,
+    // SYC-415 §6.2 point 3 / §8: unknown (null) when the matcher failed.
+    noCatInAnyPhoto: matcherFailed ? null : !isCatPhoto,
+    mixedCats: matcherFailed ? null : mixedCats,
   });
 
   return { isCatPhoto, candidates };
@@ -354,6 +367,8 @@ async function recordMatch(
     comparedCatIds: number[];
     suggested: SuggestedMatch[];
     matcherFailed: boolean;
+    noCatInAnyPhoto: boolean | null;
+    mixedCats: boolean | null;
   },
 ): Promise<void> {
   const values = { ...sets, matchedAt: new Date() };
@@ -534,24 +549,41 @@ router.post("/sightings", aiLimiter, async (req, res) => {
       ),
     );
   if (existing) {
-    const [existingPhoto] = await db
-      .select()
-      .from(photosTable)
-      .where(eq(photosTable.id, existing.photoId));
+    // SYC-415 (spec §6.1): a repeat is matched again against ALL the spot's
+    // photos, in the same order. Nothing is re-validated or saved again.
+    const rows = await db
+      .select({
+        role: sightingPhotosTable.role,
+        data: photosTable.data,
+        mime: photosTable.mime,
+      })
+      .from(sightingPhotosTable)
+      .innerJoin(photosTable, eq(photosTable.id, sightingPhotosTable.photoId))
+      .where(eq(sightingPhotosTable.sightingId, existing.id))
+      .orderBy(asc(sightingPhotosTable.position));
+    let photos: NewPhotoInput[] = rows.map((r) => ({
+      role: r.role as SightingPhotoRole,
+      photoBase64: r.data,
+      mime: r.mime,
+    }));
+    if (photos.length === 0) {
+      // A sighting from before SYC-415, or one an older server made during a
+      // deploy: its one photo is sightings.photo_id.
+      const [only] = await db
+        .select()
+        .from(photosTable)
+        .where(eq(photosTable.id, existing.photoId));
+      if (only) photos = [{ role: "first", photoBase64: only.data, mime: only.mime }];
+    }
     // `sightings.photo_id` has no foreign key, and the approved deletion work
     // (DECISIONS.md F3) will remove photo bytes. A repeat for a sighting whose
     // photo has gone still returns that sighting rather than a 500 — just
     // without fresh matches, since there is nothing left to match against.
-    const { isCatPhoto, candidates } = existingPhoto
-      ? await computeMatchCandidates(
-          req,
-          existing.id,
-          existingPhoto.data,
-          existing.lat,
-          existing.lng,
-        )
-      : { isCatPhoto: true, candidates: [] };
-    if (!existingPhoto) {
+    const { isCatPhoto, candidates } =
+      photos.length > 0
+        ? await computeMatchCandidates(req, existing.id, photos, existing.lat, existing.lng)
+        : { isCatPhoto: true, candidates: [] };
+    if (photos.length === 0) {
       // SYC-151 (review F4): store the empty set the phone is shown now.
       // No photo means nothing was compared, which data spine §10.9 records
       // as matcherFailed, so it isn't read as "no cats nearby".
@@ -559,44 +591,44 @@ router.post("/sightings", aiLimiter, async (req, res) => {
         comparedCatIds: [],
         suggested: [],
         matcherFailed: true,
+        noCatInAnyPhoto: null,
+        mixedCats: null,
       });
     }
     res.status(201).json({ sightingId: existing.id, isCatPhoto, candidates });
     return;
   }
 
-  const validated = await validatePhotoBase64(body.photoBase64);
-  if ("error" in validated) {
-    res.status(400).json({ error: validated.error });
+  // SYC-415 (spec §6.2): every photo is checked first; if any fails, nothing
+  // is saved and the answer says which photo it was. Then the sighting and
+  // all its photos are saved together, and the matcher sees them all.
+  const list = spotPhotoList(body);
+  if (!list.ok) {
+    res.status(400).json({ error: list.error });
     return;
   }
-  const normalizedBase64 = validated.buffer.toString("base64");
-
-  const [photo] = await db
-    .insert(photosTable)
-    .values({ data: normalizedBase64, mime: validated.mime })
-    .returning();
-  const [sighting] = await db
-    .insert(sightingsTable)
-    .values({
-      deviceId: body.deviceId,
-      photoId: photo!.id,
-      lat: body.lat,
-      lng: body.lng,
-      status: "pending",
-      createdAt: capturedAt,
-    })
-    .returning();
+  const validated = await validateSpotPhotos(list.photos);
+  if (!validated.ok) {
+    res.status(400).json({ error: validated.error, photo: validated.photo });
+    return;
+  }
+  const saved = await saveSpotWithPhotos({
+    deviceId: body.deviceId,
+    lat: body.lat,
+    lng: body.lng,
+    capturedAt,
+    photos: validated.photos,
+  });
 
   const { isCatPhoto, candidates } = await computeMatchCandidates(
     req,
-    sighting!.id,
-    normalizedBase64,
+    saved.sightingId,
+    saved.photos.map((p) => ({ role: p.role, photoBase64: p.base64, mime: p.mime })),
     body.lat,
     body.lng,
   );
 
-  res.status(201).json({ sightingId: sighting!.id, isCatPhoto, candidates });
+  res.status(201).json({ sightingId: saved.sightingId, isCatPhoto, candidates });
 });
 
 router.post("/sightings/:sightingId/resolve", async (req, res) => {

@@ -63,6 +63,10 @@ describe("the migration's seed (Samuel's Decision 6)", () => {
   it("switches the donation link on at Syros Cats' page", async () => {
     expect(await value("feed_nudge_donate_url")).toBe("https://syroscats.com/donations");
   });
+
+  it("keeps the extra-photo boxes switched off (SYC-415 plan Decision P1)", async () => {
+    expect(await value("extra_photos_on")).toBe(false);
+  });
 });
 
 describe("db-ops set-setting", () => {
@@ -87,12 +91,19 @@ describe("db-ops set-setting", () => {
     expect(await value("starter_facts_hidden")).toEqual(["fact.earTip", "fact.cost"]);
   });
 
+  it("switches the extra-photo boxes on (SYC-415)", async () => {
+    const r = dev({ COMMAND: "set-setting", SETTING_KEY: "extra_photos_on", SETTING_VALUE: "true" });
+    expect(r.code).toBe(0);
+    expect(await value("extra_photos_on")).toBe(true);
+  });
+
   it.each([
     ["feed_nudge_donate_url", '"http://syroscats.com/donations"'],
     ["feed_nudge_donate_url", "https://syroscats.com/donations"],
     ["starter_facts_hidden", '["fact.earTp"]'],
     ["starter_facts_hidden", '"fact.earTip"'],
     ["feed_tap_count", '"false"'],
+    ["extra_photos_on", '"yes"'],
     ["no_such_key", "true"],
   ])("refuses %s = %s and changes nothing", async (key, raw) => {
     const before = (await c.query(`select key, value from app_settings order by key`)).rows;
@@ -132,6 +143,13 @@ describe("shapes", () => {
   it("nine sign-off facts, all known", () => {
     expect(SIGN_OFF_FACT_IDS).toHaveLength(9);
     for (const id of SIGN_OFF_FACT_IDS) expect(STARTER_FACT_IDS).toContain(id);
+  });
+
+  it("extra_photos_on (SYC-415) takes true or false and nothing else", () => {
+    expect(settingShapeProblem("extra_photos_on", true)).toBeNull();
+    expect(settingShapeProblem("extra_photos_on", false)).toBeNull();
+    expect(settingShapeProblem("extra_photos_on", "yes")).toBe("must be true or false");
+    expect(settingWriteProblem("extra_photos_on", "yes")).toBe("must be true or false");
   });
 
   it("the reader accepts an unknown fact id; db-ops doesn't", () => {

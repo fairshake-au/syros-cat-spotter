@@ -16,12 +16,13 @@ export { SIGN_OFF_FACT_IDS, STARTER_FACT_IDS, settingShapeProblem };
  * Decision 1): rows in `app_settings`, changed with `db-ops set-setting` until
  * the team dashboard has a page for them (SYC-383).
  *
- * Three keys, each with a fixed shape. A missing row, or a value of the wrong
+ * Four keys, each with a fixed shape. A missing row, or a value of the wrong
  * shape, falls back to the key's default; it is logged, never an error to the
  * phone. The defaults are the safe side of each switch:
  *  - no donation link (the nudge's words-only form, `feeding-nudge.md` §5.2);
  *  - the nine facts that need Syros Cats' yes hidden (plan small call 3);
- *  - taps counted.
+ *  - taps counted;
+ *  - the extra-photo boxes hidden (SYC-415 plan Decision P1).
  */
 
 export interface AppSettings {
@@ -31,6 +32,9 @@ export interface AppSettings {
   hiddenFacts: string[];
   /** Whether a tap on "Help feed a cat" is counted. */
   countTaps: boolean;
+  /** SYC-415: whether the app shows the extra-photo boxes. The upload takes
+   * extra photos either way; this only hides the boxes. */
+  extraPhotosOn: boolean;
 }
 
 const KNOWN_FACTS = new Set<string>(STARTER_FACT_IDS);
@@ -68,7 +72,9 @@ export function settingsFromRows(
 
   const countTaps = read<boolean>("feed_tap_count", true, (v) => v as boolean);
 
-  return { donateUrl, hiddenFacts, countTaps };
+  const extraPhotosOn = read<boolean>("extra_photos_on", false, (v) => v as boolean);
+
+  return { donateUrl, hiddenFacts, countTaps, extraPhotosOn };
 }
 
 /** One answer per server for this long. A change reaches every server within

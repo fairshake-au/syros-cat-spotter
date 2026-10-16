@@ -11,4 +11,6 @@ export interface AppSettings {
   /** Null when the donation link and figures are off */
   feedNudge: AppSettingsFeedNudge;
   hiddenFacts: string[];
+  /** SYC-415: show the extra-photo boxes (face and body) on the New spot screen. Optional so older code that builds this object keeps working; missing means off. */
+  extraPhotos?: boolean;
 }
