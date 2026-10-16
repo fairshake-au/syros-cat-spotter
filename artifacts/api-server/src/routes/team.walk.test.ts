@@ -501,6 +501,18 @@ describe("T1: the route walk", () => {
         401,
         '{"error":"not_signed_in"}',
       ]);
+      expect(res.headers["x-content-type-options"], `${route} without a session: nosniff`).toBe("nosniff");
+    }
+  });
+
+  it("review 4: every answer under /api/team is nosniff, even one no route gives", async () => {
+    for (const route of [...walkedRoutes(), "GET /api/team/no-such-page", "POST /api/team/no/such/thing"]) {
+      if (!/ \/api\/team(\/|$)/.test(route)) continue;
+      // Signed in on GETs only: some POSTs change the person they're sent as.
+      for (const cookie of route.startsWith("GET ") ? [undefined, people.team.cookie] : [undefined]) {
+        const res = await send(route, cookie);
+        expect(res.headers["x-content-type-options"], `${route} (${cookie ? "team" : "no session"})`).toBe("nosniff");
+      }
     }
   });
 
@@ -554,6 +566,9 @@ describe("T1: the route walk", () => {
         // an exempt route's own page (test/wideCsp.ts WIDE_CSP_ROUTES). A
         // route that widens it without being named there fails here.
         expect(json.headers["content-security-policy"], `${where}: security header`).toBe(expectedCsp(route, json));
+        // Review 4: never sniffed as another type, refusal or not.
+        expect(json.headers["x-content-type-options"], `${where}: nosniff`).toBe("nosniff");
+        expect(page.headers["x-content-type-options"], `${where} (browser): nosniff`).toBe("nosniff");
         expect(page.headers["content-security-policy"], `${where} (browser): security header`).toBe(
           expectedCsp(route, page),
         );
@@ -575,6 +590,7 @@ describe("T1: the route walk", () => {
           none.text,
         ]);
         expect(res.headers["set-cookie"], `${route} as ${kind}`).toBeUndefined();
+        expect(res.headers["x-content-type-options"], `${route} as ${kind}`).toBe("nosniff");
       }
       // Anything not a file it serves is a 404 that is never cached.
       const missing = await send(route);
