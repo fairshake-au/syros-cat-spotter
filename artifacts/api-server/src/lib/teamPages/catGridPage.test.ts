@@ -106,3 +106,18 @@ describe("tie mode", () => {
     expect(withoutDefaultLives(all, false)).toEqual(all);
   });
 });
+
+describe("a typed search (D11)", () => {
+  it("round-trips into the chip and the Show more link, escaped", () => {
+    const q = `Mimi "<b>" & 37.44471`;
+    const items = Array.from({ length: 48 }, (_, i) => item({ id: i + 1 }));
+    const html = render({ items, total: 120, catCount: 120, filters: { q } });
+    const enc = "q=Mimi+%22%3Cb%3E%22+%26+37.44471";
+    expect(html).toContain(`href="/api/team/cats?${enc}&amp;page=2">Show more`);
+    // The chip's link drops the search; the chip shows the text, escaped.
+    expect(html).toContain("“Mimi &quot;&lt;b&gt;&quot; &amp; 37.44471”");
+    expect(html).not.toContain("<b>");
+    // The box carries it back, escaped.
+    expect(html).toContain('value="Mimi &quot;&lt;b&gt;&quot; &amp; 37.44471"');
+  });
+});

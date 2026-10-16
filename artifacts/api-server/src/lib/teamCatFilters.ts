@@ -9,11 +9,11 @@ import { LAST_SEEN, LIVES, MARKS, SORTS, type CatListFilters } from "./teamCatLi
 // PR 1.3; spec §5.1). **An address only ever carries colour codes, an area's
 // short key, a colony's number, statuses, the name box and a page number.**
 // Never a position, a colony's name or a person's name (plan, global
-// constraints). Anything else in the address is dropped silently.
+// constraints). The one exception is the search box's own text (D11), carried
+// as typed and capped at QUERY_MAX, as the old search did. Anything else in
+// the address is dropped silently.
 
 const MAX_PAGE = 10_000;
-// Three or more decimals in a row is a position, not a cat's name.
-const LOOKS_LIKE_POSITION = /\d+[.,]\d{3,}/;
 
 /** A query value as a list: `?a=1&a=2` is two, `?a=1` is one, anything odd is none. */
 function listOf(v: unknown): string[] {
@@ -92,7 +92,7 @@ export function filtersToQuery(f: CatListFilters): string {
   for (const l of f.lives ?? []) if ((LIVES as readonly string[]).includes(l)) p.append("lives", l);
   if (f.lastSeen !== undefined && (LAST_SEEN as readonly string[]).includes(f.lastSeen)) p.set("lastSeen", f.lastSeen);
   const q = f.q?.slice(0, QUERY_MAX).trim();
-  if (q && !LOOKS_LIKE_POSITION.test(q)) p.set("q", q);
+  if (q) p.set("q", q); // the search box's own text may be in the address (D11)
   if (f.sort !== undefined && (SORTS as readonly string[]).includes(f.sort)) p.set("sort", f.sort);
   if (f.page !== undefined && Number.isInteger(f.page) && f.page >= 2 && f.page <= MAX_PAGE) p.set("page", String(f.page));
   return p.toString();

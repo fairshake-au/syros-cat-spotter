@@ -72,7 +72,12 @@ describe("parseCatFilters and filtersToQuery", () => {
     expect(filtersToQuery({ page: 2 })).toBe("page=2");
   });
 
-  it("never writes a coordinate, however the filters were built (seeded fuzz, 200 objects)", () => {
+  it("carries the search box's text as typed, capped at 100 characters (D11)", () => {
+    expect(parse(filtersToQuery({ q: "37.44471,24.94176" })).q).toBe("37.44471,24.94176");
+    expect(filtersToQuery({ q: "x".repeat(150) })).toBe(`q=${"x".repeat(100)}`);
+  });
+
+  it("never writes a coordinate from any field but the search box (seeded fuzz, 200 objects)", () => {
     let seed = 0x5eed1234;
     const rnd = () => {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -83,7 +88,9 @@ describe("parseCatFilters and filtersToQuery", () => {
     const lat = () => (35 + rnd() * 5).toFixed(2 + Math.floor(rnd() * 6));
     const lng = () => (23 + rnd() * 3).toFixed(2 + Math.floor(rnd() * 6));
     const junk = () => pick([`${lat()},${lng()}`, lat(), `near ${lat()} ${lng()}`, "Eleni", "a name"]);
+    const areaKeys = NAMED_AREAS.map((a) => a.key);
     for (let i = 0; i < 200; i++) {
+      // q is left out: the search box's own text may be anything (D11).
       const f = {
         colours: some(COAT_COLOURS),
         area: rnd() < 0.5 ? pick(NAMED_AREAS).key : junk(),
@@ -91,13 +98,16 @@ describe("parseCatFilters and filtersToQuery", () => {
         sterilised: some(MARKS),
         lives: some(LIVES),
         lastSeen: rnd() < 0.5 ? pick(LAST_SEEN) : junk(),
-        q: rnd() < 0.7 ? junk() : undefined,
         sort: pick(SORTS),
         page: Math.floor(rnd() * 5),
       } as unknown as CatListFilters;
       const out = filtersToQuery(f);
+      const params = new URLSearchParams(out);
       expect(out, JSON.stringify(f)).not.toMatch(/\d+\.\d{3,}/);
       expect(decodeURIComponent(out.replace(/\+/g, " ")), JSON.stringify(f)).not.toMatch(/\d+[.,]\d{3,}/);
+      // The colony is a whole number, the area one of our keys.
+      if (params.has("colony")) expect(params.get("colony"), out).toMatch(/^[1-9]\d*$/);
+      if (params.has("area")) expect(areaKeys, out).toContain(params.get("area"));
       // Whatever is written reads back as the same address.
       expect(filtersToQuery(parse(out)), out).toBe(out);
     }
