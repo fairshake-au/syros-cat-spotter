@@ -203,16 +203,16 @@ So:
 - *Black and white* → Black · White, pattern not known.
 
 **What that does to the 23 machine readings written on 15 October** (GitHub runs 38770213522 and 38771548249):
-- **14 become fully or partly known:**
-  - Ginger · Tabby;
-  - Ginger · White;
-  - Black;
-  - Black and white, with the pattern not known.
+- **12 stay known:**
+  - 3 Ginger · Tabby (#11, #17, #22);
+  - 3 Ginger · White (#12, #18, #21);
+  - 1 Black (#16);
+  - 5 Black and white, with the pattern not known (#2, #4, #7, #23, #24).
 - **5 are plain *Tabby*** (#6, #9, #14, #15, #20) and **2 are *Tabby · White*** (#10, #19). All seven become Stripes, colours not known.
 - **4 are Not sure** (#3, #26, #27, #28).
 - None is tortoiseshell or calico.
 
-No public colour is lost: every cat with a known colour today keeps it. The re-read (§7) fills in what's missing.
+One thing is lost until the re-read: #10 and #19 show "Tabby · White" today, and will show only "Stripes", because their white was said but their main colour never was. That is deliberate: a half-known colour would hide them from people tapping their real colour. The re-read (§7) fills in what's missing. (Counts from the live cat list, about 16:40 UTC on 15 October.)
 
 **No database change.** The value is an existing JSON field.
 
@@ -285,7 +285,7 @@ The guards:
 
 ## 8. What happens to the cats already read
 
-- **Every colour showing today keeps showing.** It is translated through §6.
+- **Every colour showing today keeps showing** through §6's translation, except the White of #10 and #19 (§6).
 - **The 7 cats recorded as *Tabby* or *Tabby · White*** become Stripes, colours not known. Under any colour chip they sit in *Not known*, never hidden, and the re-read gives them colours.
 - **The 5 cats Samuel rejected** on 15 October (#5, #8, #13, #25, #29) were left out of the fill-in on purpose. They are read by the coat-v2 trial, and their rejections are the first test of whether coat-v2 does better.
 - **Samuel's own verdicts** become team statements once the team's Correct is live (SYC-399). They are written exactly as he said them, translated through §6. A team member confirms any part he didn't state.
