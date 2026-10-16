@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Body photo: the whole cat from the side, nose to tail">
+  <rect x="4" y="4" width="112" height="112" rx="16" fill="#e8f4fc" stroke="#1c77c3" stroke-width="3"/>
+  <path d="M22 66 C 8 60, 8 40, 18 34" fill="none" stroke="#e07856" stroke-width="8" stroke-linecap="round"/>
+  <ellipse cx="54" cy="68" rx="34" ry="17" fill="#e07856"/>
+  <path d="M40 54 q4 10 0 22 M54 52 q4 12 0 26 M68 54 q-4 10 0 22" stroke="#b8552f" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <rect x="28" y="74" width="10" height="24" rx="5" fill="#e07856"/>
+  <rect x="42" y="76" width="10" height="22" rx="5" fill="#e07856"/>
+  <rect x="62" y="76" width="10" height="22" rx="5" fill="#e07856"/>
+  <rect x="74" y="74" width="10" height="24" rx="5" fill="#e07856"/>
+  <path d="M82 44 L84 26 L94 38 Z M104 46 L106 28 L96 38 Z" fill="#e07856"/>
+  <circle cx="94" cy="52" r="15" fill="#e07856"/>
+  <circle cx="90" cy="50" r="2.6" fill="#1b2a38"/><circle cx="100" cy="50" r="2.6" fill="#1b2a38"/>
+  <path d="M93 57 h4 l-2 2.5 z" fill="#d64185"/>
+  <path d="M14 104 H106" stroke="#1c77c3" stroke-width="2.5" stroke-dasharray="4 5" stroke-linecap="round"/>
+</svg>
