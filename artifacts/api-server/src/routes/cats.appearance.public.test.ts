@@ -15,7 +15,7 @@ import { like } from "drizzle-orm";
 import { catsTable, db, photosTable, pool } from "@workspace/db";
 import { CatCoatItem, CatMarkingsItem } from "@workspace/api-zod";
 import { writeObservation } from "../lib/observations";
-import { COAT_COLOURS, MARKS } from "../lib/appearance";
+import { LEGACY_COAT_CODES, MARKS } from "../lib/appearance";
 import app from "../app";
 
 const PREFIX = "vitest-syc2-public-";
@@ -61,7 +61,9 @@ beforeAll(async () => {
   cats.undescribed = await seedCat("undescribed");
   const staff = { accountId: "person:vitest-syc2-staff", roleAtTime: "staff", observedAt: new Date("2026-10-01T10:00:00Z") };
   const d = cats.described;
-  await writeObservation(db, { ...staff, catId: d, kind: "coat", value: { colours: ["ginger", "tabby"] } });
+  // SYC-398: written as Ginger · Stripes, sent to older phones as the old
+  // codes ginger · tabby (coat-colours-and-pattern.md §6).
+  await writeObservation(db, { ...staff, catId: d, kind: "coat", value: { colours: ["ginger"], pattern: "stripes" } });
   await writeObservation(db, { ...staff, catId: d, kind: "markings", value: { marks: ["missing_eye", "white_paws"] } });
   await writeObservation(db, {
     ...staff,
@@ -273,8 +275,8 @@ describe("T-rabies: no vaccine is named in any public payload, app string or gen
 });
 
 describe("T-words, server half: the public enums are the vocabulary", () => {
-  it("the Cat schema's coat codes are COAT_COLOURS without not_sure ([] is not known)", () => {
-    expect(Object.values(CatCoatItem)).toEqual(COAT_COLOURS.filter((c) => c !== "not_sure"));
+  it("the Cat schema's coat codes are the seven old public codes, LEGACY_COAT_CODES without not_sure ([] is not known)", () => {
+    expect(Object.values(CatCoatItem)).toEqual(LEGACY_COAT_CODES.filter((c) => c !== "not_sure"));
   });
 
   it("the Cat schema's markings codes are MARKS, in order", () => {
