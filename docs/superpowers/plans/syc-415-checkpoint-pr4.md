@@ -1,6 +1,6 @@
 # SYC-415 PR 4 checkpoint — the extra-photo boxes (app)
 
-Branch: `claude/syc-415-pr4-extra-photo-boxes`, off `origin/claude/syc-415-pr2-server-extra-photos` (#212) with `origin/claude/syc-415-pr1-photo-tips` (#209) merged in. Will need a rebase onto main once #212/#209 merge.
+Branch: `claude/syc-415-pr4-extra-photo-boxes`, rebased 15 Oct onto `origin/main` after #209, #212 and #213 squash-merged: a fresh branch from main with only PR 4's own commits cherry-picked (no conflicts). Suite on the rebased branch: 132 files / 1546 tests green; app typecheck exit 0.
 
 Scope: plan Tasks 4.1–4.6 only (not 4.7, not the browser walk-through — parent does it).
 
