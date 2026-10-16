@@ -19,6 +19,7 @@ const ALLOWED = new Set<string>([
   join("lib", "teamPages", "catPages.ts"),
   join("lib", "teamPages", "colonyPages.ts"),
   join("lib", "teamPages", "siteFormPages.ts"),
+  join("lib", "teamPages", "sitePages.ts"),
 ]);
 
 function sources(dir: string): string[] {
