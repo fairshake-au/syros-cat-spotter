@@ -328,7 +328,7 @@ describe("T12g-6 the contradiction list (listGuardianChanges)", () => {
     const out = await correctAppearance((await findPersonById(team.id))!, {
       catId: cat.id,
       kind: "coat",
-      codes: ["tabby"],
+      codes: ["grey"],
       reason: "Photo shows a tabby",
     });
     expect(out.kind).toBe("corrected");
