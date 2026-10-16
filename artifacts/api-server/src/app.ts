@@ -109,10 +109,21 @@ export function jsonErrorHandler(
     "type" in err &&
     err.type === "entity.too.large"
   ) {
+    // Sizes and path only, never any body content.
+    const sizes = err as { limit?: unknown; length?: unknown };
+    req.log?.warn(
+      { limit: sizes.limit, length: sizes.length, path: req.path },
+      "request body too large",
+    );
     res.setHeader("Cache-Control", "no-store");
-    res
-      .status(413)
-      .json({ error: "This spot is too large to send. Remove a photo and try again." });
+    // Every route's body parser can say "too large"; only a spot gets the
+    // "remove a photo" advice.
+    const isSpot = req.method === "POST" && req.path === "/api/sightings";
+    res.status(413).json({
+      error: isSpot
+        ? "This spot is too large to send. Remove a photo and try again."
+        : "This request is too large.",
+    });
     return;
   }
   if (
