@@ -328,12 +328,15 @@ describe("T12a-4 wrong_exposes_earlier", () => {
 
 describe("T12a-5 concurrent", () => {
   it("two confirmations at the same moment make exactly one update", async () => {
-    // Probe: drop the row lock → red. Five cats, two writers each: ten at once.
+    // Probe: drop the row lock → red. Five cats, two team writers each (the
+    // team's path takes no other lock first, unlike a guardian's): ten at once.
     const cats = await Promise.all([1, 2, 3, 4, 5].map(() => followedCat()));
-    await Promise.all(
-      cats.flatMap((cat) => [guardianSaysSterilised(eleni, cat.id, true), teamSays(team, cat.id, true)]),
-    );
+    await Promise.all(cats.flatMap((cat) => [teamSays(team, cat.id, true), teamSays(mgmt, cat.id, true)]));
     for (const cat of cats) expect(await updatesOf(cat.id), `cat ${cat.id}`).toHaveLength(1);
+    // And a guardian and the team at the same moment.
+    const more = await Promise.all([1, 2].map(() => followedCat()));
+    await Promise.all(more.flatMap((cat) => [guardianSaysSterilised(eleni, cat.id, true), teamSays(team, cat.id, true)]));
+    for (const cat of more) expect(await updatesOf(cat.id), `cat ${cat.id}`).toHaveLength(1);
   });
 });
 
