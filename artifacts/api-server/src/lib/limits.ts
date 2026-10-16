@@ -145,6 +145,19 @@ async function saltFor(day: string): Promise<string> {
   return salt;
 }
 
+/**
+ * Make sure the salts for the day of `now`, the day before and the day after
+ * are cached in this process. A caller that will `consume()` inside a
+ * transaction while holding a lock calls this FIRST, outside the
+ * transaction: a salt cache miss inside it would need a second pool
+ * connection, and if every connection is held by a transaction waiting on
+ * that same lock, nothing can move (SYC-44 PR 5.1 review, finding 1). The
+ * day after is there for a transaction that runs across UTC midnight.
+ */
+export async function warmSalts(now: number = Date.now()): Promise<void> {
+  for (const day of [now - DAY_MS, now, now + DAY_MS]) await saltFor(dayOf(day));
+}
+
 async function hashKey(key: string, windowStart: number): Promise<string> {
   const salt = await saltFor(dayOf(windowStart));
   return createHash("sha256").update(`${salt}|${key}`).digest("hex");

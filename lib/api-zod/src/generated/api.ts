@@ -812,3 +812,54 @@ export const GetSpotterSignalsResponse = zod.object({
 export const GoFeedResponse = zod.unknown()
 
 
+/**
+ * Public, no account. Needs the device secret (trust-on-first-use).
+ * `turnstileToken` is a Cloudflare Turnstile token for the action
+ * `report_issue` with `cdata` = `clientRef`.
+ *
+ * A resend of the same `clientRef` from the same device is one report:
+ * it gets the first answer again (200), with or without a token. A
+ * report saved without a verified token, still undecided and whose
+ * photo was never restored, is upgraded by a resend with a good token.
+ *
+ * For `photo_private` and `photo_inappropriate` the photo may be hidden
+ * from the public in the same moment. `hidden` says whether it is
+ * hidden now because of this report, or was already hidden. It is
+ * false when the token wasn't verified, the photo was restored by the
+ * team before, the day's limit on report-hides was reached, or this
+ * address's hide limit was reached. Choose the words shown from
+ * `hidden`, never from the reason.
+ * @summary Report an issue with a cat or one of its photos (report-an-issue.md §5.1, §8, §9.5)
+ */
+export const ReportIssueHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
+export const reportIssueBodyDeviceIdMax = 128;
+
+export const reportIssueBodyClientRefMin = 8;
+export const reportIssueBodyClientRefMax = 100;
+
+export const reportIssueBodyNoteMax = 1000;
+
+export const reportIssueBodyTurnstileTokenMax = 2048;
+
+
+
+export const ReportIssueBody = zod.object({
+  "deviceId": zod.string().min(1).max(reportIssueBodyDeviceIdMax),
+  "clientRef": zod.string().min(reportIssueBodyClientRefMin).max(reportIssueBodyClientRefMax),
+  "reason": zod.enum(['photo_private', 'photo_inappropriate', 'photo_not_cat', 'wrong_cat', 'wrong_name', 'wrong_info', 'location_revealing', 'cat_died', 'other']),
+  "catId": zod.number(),
+  "photoPublicId": zod.string().optional().describe('Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat; not allowed otherwise.'),
+  "note": zod.string().max(reportIssueBodyNoteMax).optional(),
+  "language": zod.enum(['en', 'el', 'fr']).optional(),
+  "turnstileToken": zod.string().max(reportIssueBodyTurnstileTokenMax).optional()
+}).describe('report-an-issue.md §2, §13. The secret travels in X-Device-Secret.')
+
+export const ReportIssueResponse = zod.object({
+  "publicId": zod.string(),
+  "hidden": zod.boolean()
+})
+
+

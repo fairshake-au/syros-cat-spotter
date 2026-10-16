@@ -43,6 +43,10 @@ const ALLOWLIST: Record<string, string> = {
     "builds the welfare alert only: throws for a row with no position (the outbox checks the kind before calling it)",
   "artifacts/api-server/src/routes/reports.ts":
     "welfare only: both upserts target (reporter_device, kind, client_ref) and write kind = 'welfare'; sentReport and the photo PUT filter kind = 'welfare'",
+  "artifacts/api-server/src/routes/issues.ts":
+    "content only (SYC-44 PR 5.1): inserts kind = 'content' on the (device, kind, clientRef) key; the duplicate, courtesy and upgrade reads all filter kind = 'content'",
+  "artifacts/api-server/src/lib/issues/hide.ts":
+    "content only: writes hidden_by_report / hide_skipped on the one report row it was handed, inside that report's own insert transaction",
   "artifacts/api-server/src/lib/welfare/reporterEmail.ts":
     "welfare only (SYC-42 Slice 3): every read of the table carries kind = 'welfare', so a content row never takes an address, an acknowledgement or an outcome",
   "artifacts/api-server/src/lib/severPerson.ts":

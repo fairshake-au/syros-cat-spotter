@@ -342,6 +342,60 @@ export interface CatClaim {
   homeNote?: string;
 }
 
+export type IssueReportRequestReason = typeof IssueReportRequestReason[keyof typeof IssueReportRequestReason];
+
+
+export const IssueReportRequestReason = {
+  photo_private: 'photo_private',
+  photo_inappropriate: 'photo_inappropriate',
+  photo_not_cat: 'photo_not_cat',
+  wrong_cat: 'wrong_cat',
+  wrong_name: 'wrong_name',
+  wrong_info: 'wrong_info',
+  location_revealing: 'location_revealing',
+  cat_died: 'cat_died',
+  other: 'other',
+} as const;
+
+export type IssueReportRequestLanguage = typeof IssueReportRequestLanguage[keyof typeof IssueReportRequestLanguage];
+
+
+export const IssueReportRequestLanguage = {
+  en: 'en',
+  el: 'el',
+  fr: 'fr',
+} as const;
+
+/**
+ * report-an-issue.md §2, §13. The secret travels in X-Device-Secret.
+ */
+export interface IssueReportRequest {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  deviceId: string;
+  /**
+     * @minLength 8
+     * @maxLength 100
+     */
+  clientRef: string;
+  reason: IssueReportRequestReason;
+  catId: number;
+  /** Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat; not allowed otherwise. */
+  photoPublicId?: string;
+  /** @maxLength 1000 */
+  note?: string;
+  language?: IssueReportRequestLanguage;
+  /** @maxLength 2048 */
+  turnstileToken?: string;
+}
+
+export interface IssueReportReply {
+  publicId: string;
+  hidden: boolean;
+}
+
 /**
  * claiming-a-cat.md §6. Only the device id; the secret travels in X-Device-Secret.
  */
