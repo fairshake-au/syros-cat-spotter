@@ -25,6 +25,14 @@ describe("isOpaqueAddress", () => {
     }
   });
 
+  it("does not set aside a signed token that was changed by one character", () => {
+    const token = mintTileToken({ z: 16, x: 37012, y: 25011, size: 179 });
+    const flipped = token.slice(0, 10) + (token[10] === "A" ? "B" : "A") + token.slice(11);
+    expect(isOpaqueAddress(`/api/team/map-tiles/${token}`)).toBe(true);
+    expect(isOpaqueAddress(`/api/team/map-tiles/${flipped}`)).toBe(false);
+    expect(isOpaqueAddress(`/api/team/map-tiles/${token}?lat=37.4`)).toBe(false);
+  });
+
   it("sets aside a photo's uuid address", () => {
     expect(isOpaqueAddress("/api/team/photos/0b5c3e1a-12ab-4cde-8f90-1234567890ab")).toBe(true);
     expect(isOpaqueAddress("/api/photos/0b5c3e1a-12ab-4cde-8f90-1234567890ab")).toBe(true);
