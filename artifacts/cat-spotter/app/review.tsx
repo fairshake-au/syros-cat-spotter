@@ -53,6 +53,7 @@ import { reviewReportHandoff } from "@/lib/reportHandoff";
 import { deleteReviewPhoto } from "@/lib/pendingPhotos";
 import { parseReviewParams } from "@/lib/reviewParams";
 import { linkRecentPhotoToCat } from "@/lib/recentPhotos";
+import { coverOf } from "@/lib/offlineQueue";
 import {
   Button,
   Badge,
@@ -96,6 +97,9 @@ export default function ReviewScreen() {
   const queuedItem = data?.localId
     ? pending.find((p) => p.localId === data.localId)
     : undefined;
+  // SYC-415: the queued spot's cover photo (the face photo when there is one,
+  // spec §5.1). Its uri and base64 always come from the same photo.
+  const cover = queuedItem ? coverOf(queuedItem) : null;
 
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -284,8 +288,8 @@ export default function ReviewScreen() {
 
   const yourPhoto = (
     <SightingPhoto
-      uri={queuedItem ? queuedItem.photoUri : data.photoRef}
-      base64={queuedItem?.photoBase64}
+      uri={cover ? cover.uri : data.photoRef}
+      base64={cover?.base64}
       style={[styles.pickerPhoto, { borderColor: colors.border }]}
       contentFit="cover"
     />
@@ -740,13 +744,24 @@ export default function ReviewScreen() {
               {t("yourPhoto")}
             </Text>
             <SightingPhoto
-              uri={queuedItem ? queuedItem.photoUri : data.photoRef}
-              base64={queuedItem?.photoBase64}
+              uri={cover ? cover.uri : data.photoRef}
+              base64={cover?.base64}
               style={[styles.photo, { borderColor: colors.border }]}
               contentFit="cover"
             />
           </View>
         </View>
+
+        {/* SYC-415 spec §6.4: an extra photo had gone from the phone, so the
+            spot was sent with the others. */}
+        {queuedItem?.extraNote === "extraMissing" && (
+          <Text
+            style={[styles.subtitle, { color: colors.mutedForeground }]}
+            testID="extra-missing-note"
+          >
+            {t("extraMissingNote")}
+          </Text>
+        )}
 
         <View style={{ gap: 4 }}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
@@ -894,8 +909,8 @@ export default function ReviewScreen() {
         <NeedsHelpLink
           prepare={() =>
             reviewReportHandoff({
-              photoRef: queuedItem ? queuedItem.photoUri : data.photoRef,
-              photoBase64: queuedItem?.photoBase64,
+              photoRef: cover ? cover.uri : data.photoRef,
+              photoBase64: cover?.base64,
               lat: from?.lat,
               lng: from?.lng,
             })
