@@ -69,7 +69,13 @@ export function loadAssets(from: { builtDir: string } | { sourceDir: string }): 
         logger.error({ asset: name }, "dashboard asset: bad manifest entry, not served");
         continue;
       }
-      const bytes = readFileSync(path.join(from.builtDir, hashed));
+      let bytes: Buffer;
+      try {
+        bytes = readFileSync(path.join(from.builtDir, hashed));
+      } catch {
+        logger.error({ asset: name }, "dashboard asset: file named in the manifest is missing, not served");
+        continue;
+      }
       if (hashedName(name, bytes) !== hashed) {
         logger.error({ asset: name }, "dashboard asset: file doesn't match its hash, not served");
         continue;
@@ -90,26 +96,43 @@ export function loadAssets(from: { builtDir: string } | { sourceDir: string }): 
   return { names, files };
 }
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const builtDir = path.join(here, "assets");
+export interface Assets {
+  assetUrl(name: AssetName): string | null;
+  assetFile(hashed: string): AssetFile | undefined;
+}
 
-function loadAtStartup(): LoadedAssets {
+/**
+ * The assets for code running from `codeDir`: dist/assets beside it if its
+ * manifest is there, otherwise the source folder two levels up. Never
+ * throws: anything unreadable is logged, and that file (or every file) is
+ * left out, so its page runs as an ordinary form. Exported for the tests;
+ * the server uses the one made below for this file's own folder.
+ */
+export function createAssets(codeDir: string): Assets {
+  const builtDir = path.join(codeDir, "assets");
+  let loaded: LoadedAssets;
   try {
-    return existsSync(path.join(builtDir, "manifest.json"))
+    loaded = existsSync(path.join(builtDir, "manifest.json"))
       ? loadAssets({ builtDir })
-      : loadAssets({ sourceDir: path.resolve(here, "../../assets") });
+      : loadAssets({ sourceDir: path.resolve(codeDir, "../../assets") });
   } catch (err) {
     // Every page still works without its script; say so loudly.
     logger.error({ err: { type: (err as Error)?.name } }, "dashboard assets could not be read; pages run without scripts");
-    return { names: new Map(), files: new Map() };
+    loaded = { names: new Map(), files: new Map() };
   }
+  for (const name of ASSET_NAMES) {
+    if (!loaded.names.has(name)) logger.error({ asset: name }, "dashboard asset missing; its page runs without it");
+  }
+  return {
+    assetUrl: (name) => {
+      const hashed = loaded.names.get(name);
+      return hashed ? `${ASSET_PATH}/${hashed}` : null;
+    },
+    assetFile: (hashed) => loaded.files.get(hashed),
+  };
 }
 
-const loaded = loadAtStartup();
-
-for (const name of ASSET_NAMES) {
-  if (!loaded.names.has(name)) logger.error({ asset: name }, "dashboard asset missing; its page runs without it");
-}
+const assets = createAssets(path.dirname(fileURLToPath(import.meta.url)));
 
 /**
  * The address of one of our files, e.g. /api/team/assets/dashboard-grid.3f9a1c2b4d5e.js.
@@ -117,11 +140,10 @@ for (const name of ASSET_NAMES) {
  * leaves the script out and works as an ordinary form.
  */
 export function assetUrl(name: AssetName): string | null {
-  const hashed = loaded.names.get(name);
-  return hashed ? `${ASSET_PATH}/${hashed}` : null;
+  return assets.assetUrl(name);
 }
 
 /** The file for exactly this hashed name, or undefined. Never touches the disk. */
 export function assetFile(hashed: string): AssetFile | undefined {
-  return loaded.files.get(hashed);
+  return assets.assetFile(hashed);
 }
