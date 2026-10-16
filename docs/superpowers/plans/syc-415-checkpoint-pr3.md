@@ -14,6 +14,8 @@ Branch `claude/syc-415-pr3-extra-photo-readers`, built on `claude/syc-415-pr2-se
 
 - **Task 3.4** — `components/SightingPhotos.tsx` (cover + up to two 48pt thumbnails with a full-size viewer, hidden photos show nothing) used by `app/cat/[id].tsx`; i18n `extraPhotoFirstLabel`, `extraPhotoFaceLabel`, `extraPhotoBodyLabel` and `extraPhotoClose` in en/el/fr. `components/__tests__/SightingPhotos.test.tsx` (4). Probe: thumbnails rendered for hidden extras -> the hidden test red. Full app suite 122 files / 1431 tests; app typecheck clean.
 
+- **Rebased onto PR 2 fix-ups** (`2d6de438`: matcher reads "true" as text, 413 logged, spot-route 413 wording). No conflicts. Re-run: api-server `Test Files  1 failed | 176 passed | 1 skipped (178)`, `Tests  1 failed | 2816 passed | 4 skipped (2821)` (the one failure is the known SYC-334 profiles.usernames leaderboard test); cat-spotter `Test Files  122 passed (122)`, `Tests  1431 passed (1431)`; both typechecks clean.
+
 ## Next
 
 - Final full runs, push, draft PR. The browser check at 390px and desktop is the parent's.
