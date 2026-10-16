@@ -33,8 +33,13 @@ router.get(
   requireTeam("view_exact_location"),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
-    setTeamHeaders(res); // before any await, so an error answer carries them too
-    if (wantsJson(req)) {
+    const json = wantsJson(req);
+    // Before any await, so an error answer carries them too. The grid page
+    // is the one page that loads our own script (dashboard-grid.js), so it
+    // alone gets the wider header; its JSON answer keeps the strict one.
+    // A refusal from requireTeam has already gone out with the strict one.
+    setTeamHeaders(res, { scripts: !json });
+    if (json) {
       // Only a single string is a query; ?q=a&q=b or ?q[x]=1 is no query.
       const q = typeof req.query["q"] === "string" ? req.query["q"] : "";
       return void res.json({ query: q, results: await searchTeamCats(q) });

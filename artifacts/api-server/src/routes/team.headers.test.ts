@@ -8,10 +8,15 @@ import {
   seedReport,
 } from "../lib/teamAuth/__fixtures__/queueKit";
 import { removeTestPerson } from "../test/removeTestPerson";
+import { newColony, seedCat } from "../test/roleKit";
+import { STRICT_CSP, WIDE_CSP, WIDE_CSP_ROUTES, expectedCsp } from "../test/wideCsp";
 
 // SYC-43 part 2 plan, test P1-5: every dashboard response carries the team
-// headers. The security header now includes `img-src 'self'` and still has no
-// `script-src`. Later PRs add their routes to RESPONSES.
+// headers. The security header includes `img-src 'self'` and has no
+// `script-src`, on every answer except the one page named in
+// WIDE_CSP_ROUTES (SYC-396 PR 1.3.4: the Cats grid, which loads our own
+// script). Later PRs add their routes to RESPONSES. The route walk
+// (team.walk.test.ts) checks the same rule on every registered route.
 
 const EMAIL = "vitest-headers-susan@example.com";
 const TEAM = "https://team.catspotters.com";
@@ -19,9 +24,7 @@ const KEY = "vitest-headers-key-0123456789abcdef-0123456789";
 const handoffKey = makeKey();
 let cookie: string;
 let reportPhotoId: string;
-
-const EXPECTED_CSP =
-  "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+let catId: number;
 
 beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
@@ -33,6 +36,7 @@ beforeAll(async () => {
       photo: { mime: "image/jpeg", bytes: Buffer.from("headers-test") },
     })
   ).photoPublicId!;
+  catId = (await seedCat(await newColony("headers"))).id;
   const p = await addPerson({
     email: EMAIL,
     name: "Susan",
@@ -62,8 +66,13 @@ afterAll(async () => {
   await pool.end();
 });
 
-const RESPONSES: [string, () => request.Test][] = [
-  ["the queue page", () => request(app).get("/api/team").set("Cookie", cookie)],
+/**
+ * [what, how to ask for it, the route that answers it]. The route is named
+ * only where that route's own handler answers (not a refusal before it), so
+ * expectedCsp can tell the one exempt page from everything else.
+ */
+const RESPONSES: [string, () => request.Test, string?][] = [
+  ["the queue page", () => request(app).get("/api/team").set("Cookie", cookie), "GET /api/team"],
   [
     "the queue page, signed out",
     () => request(app).get("/api/team").set("Sec-Fetch-Mode", "navigate"),
@@ -100,6 +109,56 @@ const RESPONSES: [string, () => request.Test][] = [
     "a catalogue photo, signed out",
     () => request(app).get("/api/team/photos/x"),
   ],
+  [
+    "the Cats grid page",
+    () => request(app).get("/api/team/cats").set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/cats",
+  ],
+  [
+    "the Cats grid page, filtered",
+    () =>
+      request(app)
+        .get("/api/team/cats?colours=ginger&lives=street")
+        .set("Cookie", cookie)
+        .set("Accept", "text/html")
+        .set("Sec-Fetch-Mode", "navigate"),
+    "GET /api/team/cats",
+  ],
+  [
+    "the Cats grid as JSON (the old search answer)",
+    () => request(app).get("/api/team/cats?q=x").set("Cookie", cookie).set("Accept", "application/json"),
+    "GET /api/team/cats",
+  ],
+  [
+    "the Cats grid, signed out",
+    () => request(app).get("/api/team/cats").set("Sec-Fetch-Mode", "navigate"),
+  ],
+  [
+    "a cat's page",
+    () => request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/cats/:id",
+  ],
+  [
+    "a cat that doesn't exist",
+    () => request(app).get("/api/team/cats/999999999").set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/cats/:id",
+  ],
+  [
+    "the colonies page",
+    () => request(app).get("/api/team/colonies").set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/colonies",
+  ],
+  [
+    "the Feeding sites page",
+    () => request(app).get("/api/team/sites").set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/sites",
+  ],
+  [
+    "the map page",
+    () => request(app).get("/api/team/map").set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/map",
+  ],
+  ["My page", () => request(app).get("/api/team/my").set("Cookie", cookie), "GET /api/team/my"],
   ["GET /me", () => request(app).get("/api/team/me").set("Cookie", cookie)],
   ["GET /me, signed out", () => request(app).get("/api/team/me")],
   [
@@ -128,16 +187,56 @@ const RESPONSES: [string, () => request.Test][] = [
 ];
 
 describe("P1-5: every dashboard response has the team headers", () => {
-  it.each(RESPONSES)("%s", async (_name, send) => {
+  it.each(RESPONSES)("%s", async (_name, send, route) => {
     const res = await send();
-    expect(res.headers["content-security-policy"]).toBe(EXPECTED_CSP);
+    const want = expectedCsp(route, res);
+    expect(res.headers["content-security-policy"]).toBe(want);
     expect(res.headers["content-security-policy"]).toContain("img-src 'self'");
-    expect(res.headers["content-security-policy"]).not.toMatch(/script-src/);
+    if (want === STRICT_CSP) {
+      expect(res.headers["content-security-policy"]).not.toMatch(/script-src|connect-src|blob:/);
+    }
+    expect(res.headers["content-security-policy"]).not.toMatch(/unsafe-eval|https?:|\*/);
     expect(res.headers["cache-control"]).toBe("no-store");
     // SYC-330: "same-origin", on purpose. "no-referrer" makes a browser send
     // `Origin: null` on form posts, and every dashboard button was refused.
     expect(res.headers["referrer-policy"]).toBe("same-origin");
     expect(res.headers["x-content-type-options"]).toBe("nosniff");
+  });
+});
+
+// SYC-396 PR 1.3.4: the one exemption, pinned exactly.
+describe("the wider header is the Cats grid's alone, and exactly this", () => {
+  it("the exemption names one route", () => {
+    expect([...WIDE_CSP_ROUTES]).toEqual(["GET /api/team/cats"]);
+  });
+
+  it("the Cats grid page carries exactly the wider header", async () => {
+    const res = await request(app).get("/api/team/cats").set("Cookie", cookie).set("Accept", "text/html");
+    expect(res.status).toBe(200);
+    expect(res.headers["content-security-policy"]).toBe(
+      "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+    );
+    expect(res.headers["content-security-policy"]).toBe(WIDE_CSP);
+  });
+
+  it("its script rule is 'self' and nothing else", async () => {
+    const res = await request(app).get("/api/team/cats").set("Cookie", cookie).set("Accept", "text/html");
+    const directive = (name: string) =>
+      String(res.headers["content-security-policy"])
+        .split(";")
+        .map((d) => d.trim())
+        .find((d) => d.startsWith(`${name} `));
+    expect(directive("script-src")).toBe("script-src 'self'");
+    expect(directive("connect-src")).toBe("connect-src 'self'");
+    expect(directive("default-src")).toBe("default-src 'none'");
+    expect(String(res.headers["content-security-policy"])).not.toMatch(/unsafe-eval|strict-dynamic|'nonce-|'sha(256|384|512)-/);
+  });
+
+  it("every other page keeps today's header, byte for byte", async () => {
+    const res = await request(app).get("/api/team").set("Cookie", cookie);
+    expect(res.headers["content-security-policy"]).toBe(
+      "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+    );
   });
 });
 
