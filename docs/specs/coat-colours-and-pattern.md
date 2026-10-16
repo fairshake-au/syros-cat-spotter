@@ -15,7 +15,7 @@
 - "one or two colours";
 - the chip list *All · Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black and white · Not sure* and its *Colour not known* chip;
 - the words *Tabby*, *Tortoiseshell or calico* and *Black and white* wherever the public sees them.
-**Status:** revised draft, waiting for Samuel's approval. Nothing is built before it.
+**Status:** **approved by Samuel, 16 October 2026** ("approved"), with every recommendation taken: 2A, 3A, 4A, 5A and 6A (§11). The implementation plan follows, for his approval before any code.
 
 ---
 
