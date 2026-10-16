@@ -1073,8 +1073,9 @@ function sameColourSet(a: readonly string[], b: readonly string[]): boolean {
  * `no_authority` is set when the part is the machine's alone or not known.
  *
  * `voiceKeys` are the author chains of the cat's whole, untransformed coat
- * history (`appearanceVoiceKeys`), so projecting rows away never splits one
- * author into two voices.
+ * history (`appearanceVoiceKeys`). Defensive: since only a chain's head
+ * stands, keys from the projected rows give the same voices today (Opus spot
+ * review, finding 5), but the whole history is the one source of truth.
  */
 function resolveCodeSet(
   observations: readonly Observation[],

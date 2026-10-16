@@ -317,8 +317,10 @@ export function renderAppearanceSection(
 ): string {
   const a = v.appearance;
   const mayChange = may("set_appearance");
-  // The resolved parts the public payload carries (SYC-398 PR A2); never a
-  // breeder's word (Decision 4A).
+  // The resolved parts the public payload carries from SYC-398 PR A2; never
+  // a breeder's word (Decision 4A). Until A2 is live the app still shows the
+  // old `coat` codes (Ginger · Tabby where this says Ginger · Stripes): a
+  // known, short gap, accepted in A1 (Opus spot review, finding 3).
   const parts = a.coat.parts;
   const line = publicLine(
     lang,

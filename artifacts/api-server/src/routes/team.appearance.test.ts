@@ -260,6 +260,9 @@ describe("Confirm", () => {
       const res = await confirm(catId, "coat", shown);
       expect(res.headers["location"], JSON.stringify(shown)).toContain("done=a_changed");
     }
+    // One part alone never vouches for the other (JSON callers).
+    const half = await json(`/api/team/cats/${catId}/appearance/confirm`).send({ kind: "coat", expectedColours: ["ginger"] });
+    expect([half.status, half.body.code]).toEqual([409, "CHANGED"]);
     // A page drawn before SYC-398 sent the old codes: read through the translation.
     const stale = await confirm(catId, "coat", { expected: "ginger,tabby" });
     expect(stale.headers["location"]).toContain("done=a_confirmed");

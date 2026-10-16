@@ -569,6 +569,11 @@ export async function confirmAppearance(
       const colours = a.coat.colours.value;
       const pattern = a.coat.pattern.value;
       if ((colours === null || colours.length === 0) && pattern === null) return { kind: "nothing" as const };
+      // What the page showed is both parts or neither: one part alone never
+      // vouches for the other (Opus spot review, finding 2).
+      if ((input.expectedColours === undefined) !== (input.expectedPattern === undefined)) {
+        return { kind: "changed" as const };
+      }
       if (input.expectedColours !== undefined && !sameCodes(input.expectedColours, colours ?? [])) {
         return { kind: "changed" as const };
       }
