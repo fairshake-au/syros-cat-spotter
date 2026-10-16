@@ -439,6 +439,17 @@ describe("12a. /api/team/* skips the pass (Decision 1), and its own sign-in refu
       const url = concrete(route.path);
       for (const u of [url, url.toUpperCase()]) {
         const res = await send(route.method, u);
+        // SYC-396 PR 1.3.4: the dashboard's own scripts need no session
+        // (team.walk.test.ts PUBLIC_BYTES). Past the gate, a name that isn't
+        // a file it serves is the route's own plain 404, never the refusal.
+        if (route.path === "/api/team/assets/:file") {
+          expect({ route: `${route.method} ${u}`, status: res.status, text: res.text }).toEqual({
+            route: `${route.method} ${u}`,
+            status: 404,
+            text: "Not found",
+          });
+          continue;
+        }
         expect({ route: `${route.method} ${u}`, status: res.status }).toEqual({
           route: `${route.method} ${u}`,
           status: 401,
