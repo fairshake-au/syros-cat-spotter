@@ -49,6 +49,8 @@ export function useResultNudge(input: {
     // "still mounted" flag: in a development build React mounts twice, and
     // the first run's answer must still be shown (setShow after an unmount is
     // ignored by React).
+    // One decision per mounted screen: a new result is a new /review screen
+    // (expo-router pushes it), so a changed sighting here is never decided.
     if (decided.current || !deviceId || sightingId === null) return;
     decided.current = true;
     const { localId, screen, settings: s, signals: g } = latest.current;

@@ -12,6 +12,16 @@ import { describe, expect, it } from 'vitest';
 const source = readFileSync(path.resolve(__dirname, '../../app/review.tsx'), 'utf8');
 const hook = readFileSync(path.resolve(__dirname, '../../hooks/useResultNudge.ts'), 'utf8');
 
+/** The text between two markers, failing loudly if either is missing (so a
+ * renamed marker can't make a not.toMatch pass on the wrong slice). */
+function between(text: string, start: string, end: string): string {
+  const i = text.indexOf(start);
+  const j = text.indexOf(end, i + 1);
+  expect(i, `${start} not found`).toBeGreaterThan(-1);
+  expect(j, `${end} not found after ${start}`).toBeGreaterThan(i);
+  return text.slice(i, j);
+}
+
 describe('the feeding nudge on the result screens', () => {
   it('is decided before any early return (hooks order) and from the screen it opened on', () => {
     const decide = source.indexOf('useResultNudge({');
@@ -21,7 +31,9 @@ describe('the feeding nudge on the result screens', () => {
   });
 
   it('2. on the match list: after the matches, "Find the cat yourself" and "None of these", before "This cat needs help"', () => {
-    const matchList = source.slice(source.indexOf('// ----- ③ Match — have we met? -----'));
+    const start = source.indexOf('// ----- ③ Match — have we met? -----');
+    expect(start).toBeGreaterThan(-1);
+    const matchList = source.slice(start);
     const findCat = matchList.indexOf('testID="find-the-cat-card"');
     const noneOfThese = matchList.indexOf('t("newCatCardTitle")');
     const nudge = matchList.indexOf('{feedNudge}');
@@ -40,9 +52,9 @@ describe('the feeding nudge on the result screens', () => {
   });
 
   it('3. never on the no-cat screen or the reward screen', () => {
-    const notCat = source.slice(source.indexOf('if (!data.isCatPhoto) {'), source.indexOf('if (showPicker) {'));
+    const notCat = between(source, 'if (!data.isCatPhoto) {', 'if (showPicker) {');
     expect(notCat).not.toMatch(/feedNudge/);
-    const reward = source.slice(source.indexOf('if (result) {'), source.indexOf('if (!data.isCatPhoto) {'));
+    const reward = between(source, 'if (result) {', 'if (!data.isCatPhoto) {');
     expect(reward).not.toMatch(/feedNudge/);
   });
 
@@ -67,7 +79,11 @@ describe('the feeding nudge on the result screens', () => {
     // Weak kind: React in this test setup doesn't double-run effects under
     // StrictMode (checked: one run), so the case can't be rendered here. The
     // fix is that the deciding effect has no clean-up guarding setShow.
-    const effect = hook.slice(hook.indexOf('useEffect(() => {'), hook.indexOf('}, [deviceId, sightingId]);'));
+    // The effect that ends with the [deviceId, sightingId] deps, found from its end.
+    const end = hook.indexOf('}, [deviceId, sightingId]);');
+    expect(end).toBeGreaterThan(-1);
+    const effect = hook.slice(hook.lastIndexOf('useEffect(() => {', end), end);
+    expect(effect).toMatch(/decided\.current = true/);
     expect(effect).toMatch(/setShow\(out\.show\);/);
     expect(effect).not.toMatch(/let alive|isMounted|mountedRef|return \(\) =>/);
   });

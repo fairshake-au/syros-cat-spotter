@@ -57,12 +57,37 @@ describe('useResultNudge', () => {
     expect(result.current.show).toBeNull();
     rerender({ deviceId: 'dev-a' });
     await waitFor(() => expect(result.current.show).toEqual({ kind: 'nudge', form: 'link' }));
-    // A later change of id doesn't decide again.
-    const before = h.storage.get(KEY);
+    // A later change of id doesn't decide again, even with a pending result there.
+    const KEY_B = waitingCardKey('dev-b');
+    const pendingB = JSON.stringify({ ...emptyRecord(), pendingResult: { sightingId: 5, nudge: 'link', countable: true } });
+    h.storage.set(KEY_B, pendingB);
     rerender({ deviceId: 'dev-b' });
     await new Promise((res) => setTimeout(res, 20));
+    expect(h.storage.get(KEY_B)).toBe(pendingB);
+  });
+
+  it('a change of sighting on the same screen doesn\'t decide again', async () => {
+    put({ ...emptyRecord(), pendingResult: { sightingId: 5, nudge: null, countable: false } });
+    const { result, rerender } = renderHook((p: { sightingId: number }) =>
+      useResultNudge({ deviceId: 'dev-a', sightingId: p.sightingId, screen: 'matches' }), { initialProps: { sightingId: 5 } });
+    await waitFor(() => expect(record().pendingResult).toBeNull());
+    put({ ...emptyRecord(), pendingResult: { sightingId: 6, nudge: 'link', countable: true } });
+    const before = h.storage.get(KEY);
+    rerender({ sightingId: 6 });
+    await new Promise((res) => setTimeout(res, 20));
+    expect(result.current.show).toBeNull();
     expect(h.storage.get(KEY)).toBe(before);
-    expect(h.storage.has(waitingCardKey('dev-b'))).toBe(false);
+  });
+
+  it('waits for the sighting id too, then decides', async () => {
+    put({ ...emptyRecord(), pendingResult: { sightingId: 5, nudge: 'link', countable: true } });
+    const { result, rerender } = renderHook((p: { sightingId: number | null }) =>
+      useResultNudge({ deviceId: 'dev-a', sightingId: p.sightingId, screen: 'matches' }), { initialProps: { sightingId: null as number | null } });
+    await new Promise((res) => setTimeout(res, 20));
+    expect(result.current.show).toBeNull();
+    expect(record().pendingResult).not.toBeNull();
+    rerender({ sightingId: 5 });
+    await waitFor(() => expect(result.current.show).toEqual({ kind: 'nudge', form: 'link' }));
   });
 
   it('a visitor on a later day gets the one-liner, and the day is used up', async () => {
