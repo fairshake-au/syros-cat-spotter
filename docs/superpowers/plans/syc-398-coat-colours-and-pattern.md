@@ -23,6 +23,8 @@ No stored record is ever rewritten.
 - vitest in both;
 - `react-native-svg`, which is already installed.
 
+**Status:** **plan approved by Samuel, 16 October 2026** ("approved, start A1 in a new session").
+
 **Spec:** `docs/specs/coat-colours-and-pattern.md` (approved by Samuel, 16 Oct 2026, with 2A, 3A, 4A, 5A and 6A). Read it in full first. Section numbers (§n) refer to it.
 
 ## Global Constraints
