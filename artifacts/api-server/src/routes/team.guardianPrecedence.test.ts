@@ -49,11 +49,21 @@ beforeEach(() => {
   process.env["TEAM_SESSION_KEYS"] = KEY;
 });
 
+/**
+ * People who wrote statements keep them (the record is add-only), so they
+ * can't be removed: their roles are taken away (so no stray manager is left
+ * for the next file's "last manager" tests) and they are marked as left.
+ * Everyone else is removed.
+ */
+async function cleanUp(p: { email: string; id: string } | undefined): Promise<void> {
+  if (!p) return;
+  if (await removeTestPerson(p.email).then(() => true, () => false)) return;
+  await pool.query("delete from person_scopes where person_id = $1", [p.id]);
+  await markLeft(p.email, "cli:vitest");
+}
+
 afterAll(async () => {
-  for (const p of [eleni, dimitra, team, mgmt]) {
-    if (!p) continue;
-    await removeTestPerson(p.email).catch(() => markLeft(p.email, "cli:vitest").catch(() => {}));
-  }
+  for (const p of [eleni, dimitra, team, mgmt]) await cleanUp(p);
 });
 
 const post = (who: Signed, path: string, body: Record<string, unknown>) =>
