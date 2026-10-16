@@ -80,13 +80,13 @@ describe("dashboard-grid.js never shows an answer the form has moved on from", (
     t.toggle("ginger");
     t.toggle("ginger");
     expect(t.held).toHaveLength(1);
-    expect(t.held[0]!.aborted).toBe(true);
-    t.held[0]!.answer(); // arrives anyway, late
+    t.held[0]!.answer(); // the answer lands just as the box is unticked
     await settle();
     expect(t.shown()).toBe("ALL CATS");
     expect(t.w.location.search).toBe("");
     expect(t.w.location.href).not.toContain("colours");
     expect(t.busy()).toBe(false);
+    expect(t.held[0]!.aborted).toBe(true);
   });
 
   it("tick one, then another: only the second answer applies, whatever order they arrive in", async () => {
