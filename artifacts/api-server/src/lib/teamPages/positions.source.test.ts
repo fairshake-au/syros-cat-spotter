@@ -88,9 +88,10 @@ describe("positions print only through position.ts (D9)", () => {
   // A cat guardian's own pages never carry a link, whoever reads them.
   it("guardianPages.ts only ever asks position() for no link", () => {
     const src = read("lib/teamPages/guardianPages.ts");
-    const asks = src.match(/\blink:\s*[^}\s,]+/g) ?? [];
-    expect(asks.length).toBeGreaterThan(0);
-    for (const a of asks) expect(a).toBe("link: false");
+    // Every call to position(), and what it passes as `link`.
+    const calls = [...src.matchAll(/\bposition\(([^;]*?)\)/g)].map((m) => m[1]!);
+    expect(calls.length).toBeGreaterThan(0);
+    for (const args of calls) expect(args, `position(${args})`).toMatch(/,\s*\{\s*link:\s*false\s*\}\s*$/);
   });
 
   // The owner's home position never gets a link (D5).

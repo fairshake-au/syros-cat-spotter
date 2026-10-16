@@ -1,5 +1,6 @@
 import { renderPage, MY_COLONIES_PATH } from "./layout";
 import { escapeHtml as esc } from "./escape";
+import { position } from "./position";
 import { publicLine } from "./appearancePage";
 import {
   LIVE_LANGUAGES,
@@ -25,11 +26,13 @@ import { GUARDIAN_LIFE_STATUSES, GUARDIAN_UNDO_DAYS } from "../guardianStatement
 // that came from a record goes through esc() where it is drawn.
 
 /**
- * A position as text, to 5 decimal places (about 1 m), as the team's pages
- * print it. Never a link: position.ts is the only builder of map links and
- * SYC-362 keeps them off every page a cat guardian reads.
+ * A position as text, to 5 decimal places (about 1 m), printed by position.ts
+ * like every team page (SYC-395). Always link: false: these pages are a cat
+ * guardian's, and D9's Open map is for island-wide viewers only
+ * (positions.source.test.ts pins the literal). The result is digits, a comma
+ * and a space, so the esc() at each call site leaves it as it is.
  */
-const exact = (lat: number, lng: number): string => `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+const exact = (lat: number, lng: number): string => position(lat, lng, { link: false });
 
 export const MY_CAT_PATH = "/api/team/my/cats";
 export const myColonyPath = (id: number) => `${MY_COLONIES_PATH}/${id}`;
