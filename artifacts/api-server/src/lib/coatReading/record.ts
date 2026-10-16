@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { db, observationsTable, type Observation } from "@workspace/db";
-import type { CoatColour } from "../appearance";
+import { partsToValue, readCoatValue, type CoatParts } from "../appearance";
 import { writeObservation } from "../observations";
 import { catsDueForReading } from "./due";
 import { MODEL_VERSION, type RawCoatAnswer } from "./reader";
@@ -18,7 +18,8 @@ import { MODEL_VERSION, type RawCoatAnswer } from "./reader";
  *     the last one read. Colour is not evidence of life, so the date says
  *     nothing about whether the cat is alive.
  * R4. A copy forward makes no model call: a new row with the earlier
- *     reading's colours, `modelVersion` and photo, dated now.
+ *     reading's coat (in the new shape, through the one translation,
+ *     SYC-398 §6), its own `modelVersion` and photo, dated now.
  * R8. Inside one transaction: an advisory lock on the cat, then a fresh check
  *     that the cat is still due for the same photo and the same action, then
  *     the insert. Two servers reading one cat at once can waste a call but
@@ -59,11 +60,12 @@ async function lockAndRecheck(
   return still;
 }
 
-/** Record one model reading of `photoId` for `catId` (R3). */
+/** Record one model reading of `photoId` for `catId` (R3), in the new
+ * shape (SYC-398 §6): `partsToValue` never writes a null part. */
 export async function recordReading(input: {
   catId: number;
   photoId: number;
-  colours: CoatColour[];
+  parts: CoatParts;
   raw: RawCoatAnswer;
   now?: Date;
 }): Promise<RecordOutcome> {
@@ -74,7 +76,7 @@ export async function recordReading(input: {
       {
         catId: input.catId,
         kind: "coat",
-        value: { colours: input.colours, modelVersion: MODEL_VERSION },
+        value: { ...partsToValue(input.parts), modelVersion: MODEL_VERSION },
         accountId: VISION_AUTHOR,
         roleAtTime: "system",
         provenance: "machine",
@@ -105,8 +107,11 @@ export async function copyReadingForward(input: {
       return { kind: "not_due" } as const;
     }
     const [source] = await tx.select().from(observationsTable).where(eq(observationsTable.id, input.copyOf));
-    const value = source?.value as { colours?: CoatColour[]; modelVersion?: string } | undefined;
-    if (!source || source.photoId !== input.photoId || !value?.colours || !value.modelVersion) {
+    // An unreadable value is never copied. A readable one is copied in the
+    // new shape, keeping the source's own model version.
+    const parts = readCoatValue(source?.value);
+    const modelVersion = (source?.value as { modelVersion?: unknown } | undefined)?.modelVersion;
+    if (!source || source.photoId !== input.photoId || !parts || typeof modelVersion !== "string" || !modelVersion) {
       return { kind: "not_due" } as const;
     }
     const row = await writeObservation(
@@ -114,7 +119,7 @@ export async function copyReadingForward(input: {
       {
         catId: input.catId,
         kind: "coat",
-        value: { colours: value.colours, modelVersion: value.modelVersion },
+        value: { ...partsToValue(parts), modelVersion },
         accountId: VISION_AUTHOR,
         roleAtTime: "system",
         provenance: "machine",
