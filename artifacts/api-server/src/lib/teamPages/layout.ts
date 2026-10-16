@@ -256,7 +256,7 @@ ul.sure li{margin:4px 0}
 form.sureform{margin:0 0 4px}
 form.sureform button{font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:10px 18px;border-radius:8px;cursor:pointer}
 /* A link that opens another page of actions looks like the action cards. */
-a.cardlink{text-align:left;display:flex;align-items:center;min-height:46px;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:0 12px;font-weight:700;color:#0b4553;text-decoration:none}
+a.cardlink{display:flex;align-items:center;min-height:46px;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:0 12px;font-weight:700;color:#0b4553;text-decoration:none}
 a.cardlink:hover{border-color:#0b5c6b}
 main.mappage{line-height:22px}
 main.mappage h1{line-height:28px}
@@ -291,11 +291,11 @@ a.fchip{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:4
 .count .meta{font-weight:400}
 .catgrid{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .catcard{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;min-width:0;display:flex;flex-direction:column;gap:6px}
-a.cardlink{display:flex;flex-direction:column;gap:4px;color:inherit;text-decoration:none;padding:0;overflow-wrap:anywhere}
+a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;text-align:left;font-weight:400;color:inherit;text-decoration:none;padding:0;overflow-wrap:anywhere}
 .cardimg{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:6px;background:#ece8dc}
 .cardimg.nothumb{display:flex;align-items:center;justify-content:center}
 .cardname strong{color:#0b5c6b;text-decoration:underline;font-size:16px}
-.cardfact{font-size:14px;color:#3b3930}
+.cardfact{display:block;font-size:14px;font-weight:400;text-align:left;color:#3b3930}
 .catcard .tag{align-self:flex-start;font-size:13px}
 .catcard form{margin:0}
 .catcard .hint{margin:0}

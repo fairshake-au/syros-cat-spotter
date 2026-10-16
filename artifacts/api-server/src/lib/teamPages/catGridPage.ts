@@ -16,6 +16,7 @@ import { QUERY_MAX, teamPhotoUrl } from "../teamCatView";
 import type { TieMode } from "./catPages";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
+import { lastSeenWords } from "./lastSeen";
 import { markBadge, MARK_WORD } from "./marks";
 import { timeAgo } from "./queuePage";
 import { tr, type StringKey } from "./strings";
@@ -56,6 +57,8 @@ const SORT_WORD: Record<(typeof SORTS)[number], string> = {
 export interface CatGridOptions {
   items: CatListItem[];
   total: number;
+  /** Every cat there is, before any filter. */
+  catCount: number;
   filters: CatListFilters;
   personName: string;
   tie?: TieMode;
@@ -66,9 +69,12 @@ export interface CatGridOptions {
 const same = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every((x) => b.includes(x));
 
-/** The filters with "On the street, Has a home, In care" (the default) left out. */
-export function withoutDefaultLives(f: CatListFilters): CatListFilters {
-  if (f.lives && same(f.lives, DEFAULT_LIVES)) {
+/** What "Lives" shows when nothing is chosen. Choosing a cat for a report includes everyone. */
+const defaultLives = (tie: boolean): readonly Lives[] => (tie ? LIVES : DEFAULT_LIVES);
+
+/** The filters with the default "Lives" choice left out. */
+export function withoutDefaultLives(f: CatListFilters, tie = false): CatListFilters {
+  if (f.lives && same(f.lives, defaultLives(tie))) {
     const { lives: _lives, ...rest } = f;
     return rest;
   }
@@ -166,7 +172,7 @@ function filterForm(o: CatGridOptions): string {
     (m) =>
       `<label class="choicechip"><input type="checkbox" name="sterilised" value="${m}"${checked(f.sterilised?.includes(m) ?? false)}> ${esc(MARK_WORD[m])}</label>`,
   ).join("");
-  const livesNow = f.lives?.length ? f.lives : DEFAULT_LIVES;
+  const livesNow = f.lives?.length ? f.lives : defaultLives(Boolean(o.tie));
   const lives = LIVES.map(
     (l) =>
       `<label class="choicechip"><input type="checkbox" name="lives" value="${l}"${checked(livesNow.includes(l))}> ${esc(LIVES_WORD[l])}</label>`,
@@ -212,14 +218,14 @@ function tieAction(c: CatListItem, tie: TieMode & { report: NonNullable<TieMode[
 }
 
 function card(c: CatListItem, o: CatGridOptions): string {
+  const alt = `Photo of ${c.name}${c.coat.length ? `, ${c.coat.map(COLOUR_WORD).join(" · ")}` : ""}`;
   const photo = c.photoPublicId
-    ? `<img class="cardimg" src="${esc(`${teamPhotoUrl(c.photoPublicId)}/small`)}" alt="" loading="lazy" width="180" height="180">`
+    ? `<img class="cardimg" src="${esc(`${teamPhotoUrl(c.photoPublicId)}/small`)}" alt="${esc(alt)}" loading="lazy" width="180" height="180">`
     : '<span class="cardimg nothumb">No photo</span>';
   const colour = c.coat.length ? c.coat.map((x) => esc(COLOUR_WORD(x))).join(" · ") : "Colour not known";
   const colony = c.colonyId === null ? "No colony" : (o.colonies.find((x) => x.id === c.colonyId)?.name ?? "Colony");
-  const seen = c.lastSeenAt
-    ? `Last seen <time datetime="${esc(c.lastSeenAt.toISOString())}">${esc(timeAgo(c.lastSeenAt.toISOString(), o.now))}</time>`
-    : "Never seen since first recorded";
+  const words = esc(lastSeenWords(c.lastSeenAt, o.now));
+  const seen = c.lastSeenAt ? `<time datetime="${esc(c.lastSeenAt.toISOString())}">${words}</time>` : words;
   let tag = "";
   if (c.lives === "homed") tag = "Has a home";
   else if (c.lives === "in_care") tag = "In care";
@@ -227,7 +233,7 @@ function card(c: CatListItem, o: CatGridOptions): string {
   const tie = o.tie && o.tie.report ? tieAction(c, { ...o.tie, report: o.tie.report }) : "";
   return (
     '<li class="catcard">' +
-    `<a class="cardlink" href="${PATH}/${c.id}">${photo}` +
+    `<a class="catcardlink" href="${PATH}/${c.id}">${photo}` +
     `<span class="cardname"><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
     `<span class="cardfact">${colour}</span>` +
     `<span class="cardfact">${esc(colony)}</span>` +
@@ -259,8 +265,13 @@ export function renderCatGridPage(o: CatGridOptions): string {
   const clear = filtered ? ` <a class="tap" href="${esc(address({}, tie))}">Clear filters</a>` : "";
 
   let results: string;
-  if (o.total === 0 && !filtered) {
+  if (o.total === 0 && !filtered && o.catCount === 0) {
     results = '<p class="empty">No cats recorded yet. Cats appear here once spotters send sightings.</p>';
+  } else if (o.total === 0 && !filtered) {
+    // Cats exist, but the usual choice of "Lives" hides every one of them.
+    results =
+      '<p class="notice" role="status">No cats match these filters</p>' +
+      `<p><a class="tap" href="${esc(address({ lives: [...LIVES] }, tie))}">Also show cats who are no longer with us</a></p>`;
   } else if (o.total === 0) {
     results =
       '<p class="notice" role="status">No cats match these filters</p>' +

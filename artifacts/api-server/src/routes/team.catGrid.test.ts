@@ -105,7 +105,7 @@ describe("the Cats grid", () => {
   it("shows the colour, colony, mark, last seen and place on each card", async () => {
     const res = await get(`/api/team/cats?${mineQ}`);
     const card = (id: number) => {
-      const start = res.text.indexOf(`<li class="catcard"><a class="cardlink" href="/api/team/cats/${id}"`);
+      const start = res.text.indexOf(`<li class="catcard"><a class="catcardlink" href="/api/team/cats/${id}"`);
       expect(start).toBeGreaterThan(-1);
       return res.text.slice(start, res.text.indexOf("</li>", start));
     };
@@ -248,6 +248,19 @@ describe("the Cats grid in tie mode (choosing a cat for a welfare report)", () =
     // Without a tie there is no such form.
     const plain = await get(`/api/team/cats?q=${encodeURIComponent(`${PREFIX}Ginger`)}`);
     expect(plain.text).not.toContain("This is the cat");
+  });
+
+  it("shows a cat who is no longer with us, already tied to the report, with its 'already tied' hint", async () => {
+    const gone = await cat("Gone");
+    await say(gone, "life_status", { status: "deceased" });
+    const r = await seedReport({ publicId: `${PREFIX}r2`, note: "thin cat", catId: gone });
+    const q = encodeURIComponent(`${PREFIX}Gone`);
+    const tied = await get(`/api/team/cats?tie=${r.publicId}&q=${q}`);
+    expect(tied.text).toContain(`href="/api/team/cats/${gone}"`);
+    expect(tied.text).toContain("This report is already tied to this cat.");
+    // Outside tie mode the same cat is hidden by default.
+    const plain = await get(`/api/team/cats?q=${q}`);
+    expect(plain.text).not.toContain(`href="/api/team/cats/${gone}"`);
   });
 
   it("ignores a hostile or unknown tie id", async () => {

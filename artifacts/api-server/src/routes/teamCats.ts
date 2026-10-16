@@ -9,7 +9,7 @@ import { allColonyChoices } from "../lib/colonyCats";
 import { renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
 import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
 import { parseCatFilters } from "../lib/teamCatFilters";
-import { listTeamCats } from "../lib/teamCatList";
+import { LIVES, listTeamCats } from "../lib/teamCatList";
 
 // The staff dashboard's "Cats" screens (SYC-43 part 2 plan, PR 3). Read-only;
 // the correction forms on the cat page post to routes/teamCorrections.ts (PR 4).
@@ -49,10 +49,12 @@ router.get(
           canTie: can(person, "change_report_state"),
         }
       : undefined;
-    const filters = withoutDefaultLives(parseCatFilters(req.query));
+    const filters = withoutDefaultLives(parseCatFilters(req.query), Boolean(tie));
+    // Choosing a cat for a report: everyone is in, so a cat already tied always shows.
+    const forList = tie && !filters.lives ? { ...filters, lives: [...LIVES] } : filters;
     const started = Date.now();
     const now = new Date();
-    const { items, total } = await listTeamCats(filters, now);
+    const { items, total, catCount } = await listTeamCats(forList, now);
     // Spec §9.6: each page records how long it took. Counts only, no names.
     req.log.info({ ms: Date.now() - started, shown: items.length, total }, "team cats list");
     res
@@ -61,6 +63,7 @@ router.get(
         renderCatGridPage({
           items,
           total,
+          catCount,
           filters,
           personName: person.name,
           tie,
