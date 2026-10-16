@@ -352,6 +352,13 @@ export const fr: Record<StringKey, string> = {
   "sdone.colonyPrivate": "Colonie modifiée. Le point était public, il est donc de nouveau privé.",
   "sdone.stale":
     "Quelqu’un l’a déjà modifié. Ce que tu vois ci-dessous est son état actuel ; vérifie-le et réessaie si tu le veux toujours.",
+  "sdone.alreadyRetired": "This site is already retired.",
+  // SYC-395 PR 0.1 (D1), English until translated (SYC-291): the "Are you sure?" page before Retire this site.
+  "sure.retire.title": "Retire {name}?",
+  "sure.retire.line1": "It disappears from the map and the list. Its history stays.",
+  "sure.retire.line2": "You can bring it back later with Restore.",
+  "sure.retire.yes": "Yes, retire it",
+  "sure.cancel": "Cancel",
 
   "sproblem.title": "Ça n’a pas marché",
   "sproblem.fields": "Une partie du formulaire n’a pas pu être lue",

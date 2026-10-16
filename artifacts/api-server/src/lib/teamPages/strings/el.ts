@@ -352,6 +352,13 @@ export const el: Record<StringKey, string> = {
   "sdone.colonyPrivate": "Η αποικία άλλαξε. Το σημείο ήταν δημόσιο, οπότε είναι ξανά ιδιωτικό.",
   "sdone.stale":
     "Κάποιος το άλλαξε ήδη. Αυτό που βλέπετε παρακάτω είναι η τωρινή του κατάσταση· ελέγξτε το και δοκιμάστε ξανά αν το θέλετε ακόμα.",
+  "sdone.alreadyRetired": "This site is already retired.",
+  // SYC-395 PR 0.1 (D1), English until translated (SYC-291): the "Are you sure?" page before Retire this site.
+  "sure.retire.title": "Retire {name}?",
+  "sure.retire.line1": "It disappears from the map and the list. Its history stays.",
+  "sure.retire.line2": "You can bring it back later with Restore.",
+  "sure.retire.yes": "Yes, retire it",
+  "sure.cancel": "Cancel",
 
   "sproblem.title": "Αυτό δεν λειτούργησε",
   "sproblem.fields": "Ένα μέρος της φόρμας δεν μπόρεσε να διαβαστεί",

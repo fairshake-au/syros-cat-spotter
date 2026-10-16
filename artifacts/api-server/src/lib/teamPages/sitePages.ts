@@ -209,6 +209,7 @@ const SDONE: Record<string, WordKey> = {
   colony: "sdone.colony",
   colonyPrivate: "sdone.colonyPrivate",
   stale: "sdone.stale",
+  alreadyRetired: "sdone.alreadyRetired",
 };
 
 /** A fixed sentence for `?done=<key>`; any other key shows nothing. */
