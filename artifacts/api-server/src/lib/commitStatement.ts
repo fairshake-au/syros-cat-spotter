@@ -120,8 +120,7 @@ export async function commitStatement(
  * Sends queued news. Call only after the transaction that wrote it has
  * committed. The statement is already saved by then, so a failure here is
  * logged, never thrown: the person who said it is not shown an error for
- * something that worked. (A failed fan-out is not retried yet: SYC ticket
- * filed by PR 2.2's review, m4.)
+ * something that worked. A failed fan-out is not retried yet (SYC-430).
  */
 export async function sendNews(news: readonly PendingNews[]): Promise<void> {
   for (const n of news) {
