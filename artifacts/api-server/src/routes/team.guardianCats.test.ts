@@ -92,6 +92,11 @@ const MARKUP = `<img src=x onerror="alert(1)">`;
 const SITE_A = `vt-gcats site A ${RUN}`;
 const SITE_A_WAY = `vt-gcats behind the bakery ${RUN}`;
 const SITE_B = `vt-gcats site B ${RUN}`;
+const SITE_C = `vt-gcats site C ${RUN}`;
+const SITE_MARKUP_NAME = `vt-gcats ${RUN} <b onmouseover="x()">bowl</b>`;
+const SITE_MARKUP_WAY = `<script>alert(3)</script> "left"`;
+let colonyC: number;
+let dimitra: Signed; // guardian of A and C
 let publicSightingPublicId: string;
 
 async function sightingWithPhoto(catId: number, at: Date): Promise<{ id: number; publicId: string }> {
@@ -169,7 +174,12 @@ beforeAll(async () => {
   await db.insert(feedingSitesTable).values([
     { name: SITE_A, lat: 37.44611, lng: 24.94377, colonyId: colonyA, directions: SITE_A_WAY },
     { name: SITE_B, lat: 37.44922, lng: 24.93844, colonyId: colonyB },
+    { name: SITE_MARKUP_NAME, lat: 37.44633, lng: 24.94355, colonyId: colonyA, directions: SITE_MARKUP_WAY },
   ]);
+  // SYC-416 review, minor 1: a guardian of two colonies, each with its own site.
+  colonyC = await newColony("gcats-C");
+  dimitra = await guardianOn("gcats-dimitra", [colonyA, colonyC]);
+  await db.insert(feedingSitesTable).values({ name: SITE_C, lat: 37.4401, lng: 24.9501, colonyId: colonyC });
 });
 
 beforeEach(() => {
@@ -177,7 +187,7 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
-  for (const p of [eleni, maria]) await removeTestPerson(p.email);
+  for (const p of [eleni, maria, dimitra]) await removeTestPerson(p.email);
   // The team member wrote a statement, so has history: marked as left, as in production.
   await markLeft(team.email, "cli:vitest");
   delete process.env["TEAM_SESSION_KEYS"];
@@ -486,6 +496,27 @@ describe("SYC-416: her colony's feeding sites, and the colony page's cat links",
     }
   });
 
+  it("a guardian of two colonies: each page shows its own colony's sites only", async () => {
+    for (const path of [`/api/team/my/cats/${mine.id}`, `/api/team/my/colonies/${colonyA}`]) {
+      const res = await request(app).get(path).set("Cookie", dimitra.cookie).set(JSON_ACCEPT);
+      const names = (res.body.sites as { name: string }[]).map((x) => x.name);
+      expect(names, path).toContain(SITE_A);
+      expect(names, path).not.toContain(SITE_C);
+    }
+    const c = await request(app).get(`/api/team/my/colonies/${colonyC}`).set("Cookie", dimitra.cookie).set(JSON_ACCEPT);
+    expect((c.body.sites as { name: string }[]).map((x) => x.name)).toEqual([SITE_C]);
+  });
+
+  it("site names and directions are escaped on both pages", async () => {
+    for (const path of [`/api/team/my/cats/${mine.id}`, `/api/team/my/colonies/${colonyA}`]) {
+      const html = await request(app).get(path).set("Cookie", eleni.cookie).set("Sec-Fetch-Mode", "navigate");
+      expect(html.text).not.toContain('<b onmouseover="x()">');
+      expect(html.text).not.toContain("<script>alert(3)");
+      expect(html.text).toContain("&lt;b onmouseover=");
+      expect(html.text).toContain("&lt;script&gt;alert(3)");
+    }
+  });
+
   it("an outside cat's public view carries no sites at all", async () => {
     const res = await asEleni(`/api/team/my/cats/${theirs.id}`);
     expect(res.body.view).toBe("public");
@@ -518,6 +549,12 @@ describe("My colonies links to each of her colony pages", () => {
 
 describe("the guardian's pages never reach the team's cat view (source)", () => {
   const here = dirname(fileURLToPath(import.meta.url));
+  it("her routes read feeding sites only through sitesForPerson (SYC-209's one filter)", () => {
+    const src = readFileSync(join(here, "teamMy.ts"), "utf8");
+    expect(src).not.toMatch(/feedingSitesTable|feeding_sites/);
+    expect(src).toMatch(/sitesForPerson\(/);
+  });
+
   it.each([
     join(here, "teamMy.ts"),
     join(here, "../lib/guardianCatView.ts"),
