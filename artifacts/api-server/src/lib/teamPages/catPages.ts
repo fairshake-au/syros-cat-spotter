@@ -10,6 +10,7 @@ import type { Capability } from "../capabilities";
 import type { QueueReport } from "../welfareQueue";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
+import { position } from "./position";
 import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
 
@@ -55,12 +56,10 @@ const day = (iso: string) =>
 const time = (iso: string, text = when(iso)) =>
   `<time datetime="${esc(iso)}">${esc(text)}</time>`;
 
-// Plain text only, team-only as before. No link to any map company: the cat
-// page is where feeding sites get made, so an exact position must never leave
-// it for one (SYC-245, SYC-209 Decision 2 option B).
-const place = (lat: number, lng: number) =>
-  // Exact: the stored numbers as they are, never rounded.
-  esc(`${lat}, ${lng}`);
+// Positions print through position.ts (SYC-395, D9): 5 decimal places, with
+// an "Open map" link only for an island-wide viewer (`opts.island`). This
+// reverses SYC-245 / SYC-209 Decision 2B for outbound links only. The owner's
+// home pin never gets one (D5): it is printed with link: false.
 
 // Two buttons on each sighting (SYC-209 PR 3.4). Each is a POST form that
 // carries only the sighting's number: the server looks the position up, so no
@@ -390,6 +389,11 @@ export interface CatPageOptions {
   colonies?: { id: number; name: string }[];
   /** ?history=all: show every statement, not just the newest HISTORY_SHOWN. */
   allHistory?: boolean;
+  /**
+   * Can the viewer see the whole island (`isIslandWide`)? Only then do
+   * positions get an "Open map" link (D9). Left out means no link.
+   */
+  island?: boolean;
 }
 
 /**
@@ -549,6 +553,7 @@ export function renderCatPage(
 ): string {
   const { cat, records } = v;
   const may = opts.may ?? (() => false);
+  const island = opts.island === true;
   // The message goes where the page lands: beside the statement after a
   // correction, at the top of "Update this cat" after the other forms.
   // Own keys only: ?done=constructor must not reach Object.prototype.
@@ -631,7 +636,7 @@ export function renderCatPage(
       ? row(
           v.owner.has ? "Where the owner says the cat lives" : "Where the cat lives, from a past owner",
           v.owner.homeDescription ? esc(v.owner.homeDescription) : "No note",
-        ) + (v.owner.homePin ? row("Home pin", place(v.owner.homePin.lat, v.owner.homePin.lng)) : "")
+        ) + (v.owner.homePin ? row("Home pin", position(v.owner.homePin.lat, v.owner.homePin.lng, { link: false })) : "")
       : "") +
     "</dl>" +
     "<h3>Colony</h3><dl>" +
@@ -644,7 +649,7 @@ export function renderCatPage(
     ) +
     "</dl>" +
     "<h2>First recorded</h2><dl>" +
-    row("Where", place(cat.lat, cat.lng)) +
+    row("Where", position(cat.lat, cat.lng, { link: island })) +
     row("When", time(cat.createdAt)) +
     "</dl>";
 
@@ -660,7 +665,7 @@ export function renderCatPage(
               (s.photoUrl
                 ? `<a href="${esc(s.photoUrl)}"><img class="thumb" src="${esc(s.photoUrl)}" alt="${esc(`Photo from the sighting on ${when(s.at)}`)}" loading="lazy"></a>`
                 : '<span class="thumb nothumb">No photo</span>') +
-              `<span>${time(s.at)}<br>${place(s.lat, s.lng)}` +
+              `<span>${time(s.at)}<br>${position(s.lat, s.lng, { link: island })}` +
               // SYC-415 spec §4.5: the matcher thought this spot's photos may be of more than one cat.
               (s.mixedCats ? '<br><span class="mixed">May show more than one cat</span>' : "") +
               `${sightingButtons(s.id, may)}</span></li>`,

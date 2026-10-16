@@ -12,7 +12,12 @@ import { describe, expect, it } from "vitest";
 // Step 5 adds each file it converts to ALLOWED, with the gate in place.
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const ALLOWED = new Set<string>([]);
+// SYC-395 PR 0.2: each file here passes the viewer's isIslandWide() gate (or
+// a literal false) as `link`. routes/team.guardianView.test.ts checks the
+// rendered pages.
+const ALLOWED = new Set<string>([
+  join("lib", "teamPages", "catPages.ts"),
+]);
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
