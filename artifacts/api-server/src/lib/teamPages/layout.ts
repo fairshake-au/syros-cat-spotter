@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { escapeHtml } from "./escape";
 import { tr, pageLanguage, type Language } from "./strings";
+import { MARK_CSS } from "./marks";
 
 // The one page shell for the staff dashboard (SYC-43 part 2 plan, PR 1).
 // Plain server-drawn HTML: no scripts, mobile first, styles in one <style>
@@ -272,6 +273,34 @@ main.mappage .who{line-height:20px}
 li.colourcheck{list-style:none}
 li.colourcheck .catrow{border:0;padding:0;margin:0 0 6px}
 details.notdescribed>summary{cursor:pointer;font-weight:700;padding:10px 0;color:#0b4553}
+/* The Cats grid (SYC-396 PR 1.3). */
+${MARK_CSS}
+.catfilters{margin:8px 0 8px}
+details.filters{margin:8px 0}
+details.filters>summary{cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;border:1px solid #0b5c6b;border-radius:8px;background:#fff;color:#0b4553;font-weight:700;font-size:16px}
+.fpanel{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px 12px;margin-top:8px}
+.fpanel fieldset{border:0;padding:0;margin:8px 0 12px;min-width:0}
+.fpanel legend{font-weight:700;font-size:14px;padding:0 0 4px}
+.choices{display:flex;flex-wrap:wrap;gap:8px}
+.choicechip{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:4px 12px;border:1px solid #8a877e;border-radius:999px;background:#fff;font-size:15px;cursor:pointer}
+.choicechip input{width:20px;height:20px;margin:0}
+.flabel{display:block;font-size:14px;font-weight:700;margin:6px 0 4px}
+.fchips{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+a.fchip{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:4px 12px;border:1px solid #0b5c6b;border-radius:999px;background:#e6f1f3;color:#0b4553;text-decoration:none;font-size:15px}
+.count{margin:8px 0;font-weight:700;display:flex;flex-wrap:wrap;align-items:center;gap:0 12px}
+.count .meta{font-weight:400}
+.catgrid{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.catcard{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;min-width:0;display:flex;flex-direction:column;gap:6px}
+a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;text-align:left;font-weight:400;color:inherit;text-decoration:none;padding:0;overflow-wrap:anywhere}
+.cardimg{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:6px;background:#ece8dc}
+.cardimg.nothumb{display:flex;align-items:center;justify-content:center}
+.cardname strong{color:#0b5c6b;text-decoration:underline;font-size:16px}
+.cardfact{display:block;font-size:14px;font-weight:400;text-align:left;color:#3b3930}
+.catcard .tag{align-self:flex-start;font-size:13px}
+.catcard form{margin:0}
+.catcard .hint{margin:0}
+.catcard .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;width:100%}
+.paging{margin:8px 0}
 @media (min-width:700px){
 .chips{grid-template-columns:1fr 1fr}
 main{padding-top:20px}
@@ -286,6 +315,15 @@ dt{margin-top:0}
 .thumb{width:96px;height:96px}
 .photo.catmain{max-height:320px}
 .gallery{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.catgrid{grid-template-columns:repeat(auto-fill,minmax(176px,1fr))}
+}
+/* A wide screen shows the filters in the open, without the Filters button. */
+@supports selector(::details-content){
+@media (min-width:900px){
+details.filters::details-content{content-visibility:visible;display:block}
+details.filters>summary{display:none}
+.fpanel{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 24px;margin-top:0}
+}
 }
 /* A big screen: a wide page puts the record beside the forms that change it. */
 @media (min-width:1000px){
