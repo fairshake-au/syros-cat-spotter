@@ -10,9 +10,10 @@ Branch `claude/syc-415-pr2-server-extra-photos`, off `origin/claude/tester-photo
 
 - **Task 2.3** — `artifacts/api-server/src/lib/spotPhotos.ts`: `coverRole`, `spotPhotoList`, `validateSpotPhotos` (sha256 of normalised output to refuse duplicates), `saveSpotWithPhotos` (one transaction). 11 tests. Probes: cover, txn.
 
+- **Task 2.4** — `matching.ts`: `matchCatPhoto(NewPhotoInput[] | string, …)`, spot's photos first with roles named, answer `{anyCat, mixedCats, matches}` (old `{isCatPhoto}` still read), `mixedCats` false for one photo. 6 tests. Extra probe: one-photo guard.
+
 ## Next
 
-- Task 2.4 — matcher takes all photos.
 - Task 2.5 — upload route.
 - Task 2.6 — `/app-settings` switch.
 
