@@ -155,24 +155,3 @@ export const MARKS = [
   "odd_eyes",
 ] as const;
 export type Mark = (typeof MARKS)[number];
-
-/**
- * De-duplicates a colour list, and turns the exact set {black, white} (in
- * either order) into `["black_and_white"]`, the only stored form of that
- * pair. Everything else is returned de-duplicated, in its original order.
- *
- * Every writer calls this before `writeObservation`: the answers route
- * (4.1), and the team and guardian statement functions (3.1 and 5.1). The
- * validator's refusal of the raw black + white pair is only the backstop.
- */
-export function normaliseColours(colours: readonly string[]): string[] {
-  const unique = [...new Set(colours)];
-  if (
-    unique.length === 2 &&
-    unique.includes("black") &&
-    unique.includes("white")
-  ) {
-    return ["black_and_white"];
-  }
-  return unique;
-}

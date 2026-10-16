@@ -155,10 +155,10 @@ export type SystemAuthor = (typeof SYSTEM_AUTHORS)[number];
 
 const SYSTEM_AUTHOR_SET: ReadonlySet<string> = new Set(SYSTEM_AUTHORS);
 
-// The colour and mark vocabularies, and the one normaliser, live in the pure
+// The colour, pattern and mark vocabularies live in the pure
 // module `./appearance` so the resolver (which must not import the database)
 // can share them. Re-exported here so every writer keeps one import.
-export { COAT_COLOURS, COAT_PATTERNS, MARKS, normaliseColours } from "./appearance";
+export { COAT_COLOURS, COAT_PATTERNS, MARKS } from "./appearance";
 export type { CoatColour, CoatPattern, Mark } from "./appearance";
 import { COAT_COLOURS, COAT_PATTERNS, MARKS } from "./appearance";
 
