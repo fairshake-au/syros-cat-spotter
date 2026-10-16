@@ -27,6 +27,7 @@ import {
   USER_AGENT,
 } from "../lib/mapTiles/tileCache";
 import { AREAS } from "../lib/mapTiles/areas";
+import { isOpaqueAddress } from "../test/opaqueAddress";
 
 // SYC-209 PR 3.1: the team's map. Spec test 17 (the server half; the
 // layout half runs in a browser, docs/screenshots/syc-209-pr-3-1/), plan K4
@@ -469,6 +470,7 @@ function expectNoPositionInAddresses(html: string, tileNumbers: number[]) {
   const values = [...html.matchAll(ATTR)].map((m) => m[2]!);
   expect(values.length).toBeGreaterThan(0);
   for (const v of values) {
+    if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
     expect(v, v).not.toMatch(/\d+\.\d+/);
     expect(v, v).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, v).not.toMatch(/[?&](lat|lng|lon|z|x|y)=/i);

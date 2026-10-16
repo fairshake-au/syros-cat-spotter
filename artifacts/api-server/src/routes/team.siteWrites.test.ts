@@ -17,6 +17,7 @@ import { BANDS, viewAround, tapToPosition, type Position } from "../lib/mapTiles
 import { mintTileToken, readTileToken } from "../lib/mapTiles/tileToken";
 import { guardianOn, newColony } from "../test/roleKit";
 import { makePrivateIfPublic } from "../lib/teamSiteWrites";
+import { isOpaqueAddress } from "../test/opaqueAddress";
 
 // SYC-209 PR 3.3: adding, moving, retiring and bringing back feeding sites,
 // and changing their colony. Spec tests 7 (never created public), 9 (early
@@ -167,6 +168,7 @@ function expectNoPositionInAddresses(html: string) {
   const values = [...html.matchAll(ATTR)].map((m) => m[2]!);
   expect(values.length).toBeGreaterThan(0);
   for (const v of values) {
+    if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
     expect(v, v).not.toMatch(/\d+\.\d+/);
     expect(v, v).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, v).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy)=/i);
