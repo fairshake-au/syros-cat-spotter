@@ -25,6 +25,8 @@ import {
 import { t, type WordKey } from "../lib/teamPages/words";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { pageViewer, requireSeeing } from "../middlewares/requireSeeing";
+import { covers } from "../lib/guardianView";
 import { formRoute } from "./teamCorrections";
 import { coordinate, fieldsOf, lf, noNul, optionalText } from "../lib/teamForms";
 
@@ -34,13 +36,15 @@ import { coordinate, fieldsOf, lf, noNul, optionalText } from "../lib/teamForms"
 // fields only, never echoing what was typed. Every POST checks Origin, then
 // the session and capability (formRoute), then the body.
 //
-// **Permissions (plan Decision 1A).** Every route here asks requireTeam()/can()
-// with NO colony target. That is deliberate: since the roles plan made can()
-// strict (SYC-53 PR 0.5), "no target" means island-wide holders only, so a
-// guardian gets the 403 on every one of these pages until SYC-209 PR 4.1
-// switches targets and filters on together. These pages show team notes and
-// every colony, so they must fail closed. Creating a colony also insists on
-// an island row (below), since a guardian holds `create_colony`.
+// **Permissions (PR 4.1; spec §7.3).** The reading pages (the list and its
+// search, one colony, and the "Add cats" search) let in anyone who sees some
+// colony (`requireSeeing`), and every query behind them is filtered by
+// `visibleColonyIds` in SQL: a cat guardian sees her own colonies and nothing
+// else; another colony answers exactly what a number that was never a
+// colony answers. Every write still asks its capability with NO colony
+// target, so creating, editing, renaming and adding cats stay the team's
+// until PR 4.2. Creating a colony also insists on an island row (below),
+// since a guardian holds `create_colony`.
 
 const router: IRouter = Router();
 
@@ -98,15 +102,15 @@ const FIELD_WORDS: Record<string, WordKey> = {
   lng: "problem.centre",
 };
 
-const problemFor = (fields: string[], name: unknown) => {
+const problemFor = (fields: string[], name: unknown, lang?: string) => {
   const sentences = new Set(
     fields.map((f) => {
       // A name that was there but too long gets its own sentence.
       if (f === "name" && typeof name === "string" && name.trim().length > COLONY_NAME_MAX) {
-        return t("problem.nameTooLong");
+        return t("problem.nameTooLong", lang);
       }
       const key = Object.hasOwn(FIELD_WORDS, f) ? FIELD_WORDS[f] : undefined;
-      return key ? t(key) : t("problem.fields") + ".";
+      return key ? t(key, lang) : t("problem.fields", lang) + ".";
     }),
   );
   return [...sentences].join(" ");
@@ -123,10 +127,11 @@ function badForm(
     return void res.status(400).json({ error: "Invalid request", fields });
   }
   const typedName = (req.body as Record<string, unknown> | undefined)?.["name"];
+  const v = pageViewer(res);
   res
     .status(400)
     .type("html")
-    .send(renderColonyProblem(teamPerson(res).name, problemFor(fields, typedName), back));
+    .send(renderColonyProblem(v.personName, problemFor(fields, typedName, v.lang), back, v));
 }
 
 // ── Reading ────────────────────────────────────────────────────────────────
@@ -134,9 +139,10 @@ function badForm(
 /** GET /api/team/colonies?q=: every colony, or those that ever had a name like q. */
 router.get(
   "/team/colonies",
-  requireTeam("view_exact_location"),
+  ...requireSeeing(),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
+    const v = pageViewer(res);
     setTeamHeaders(res); // before any await, so an error answer carries them too
     // Only a single string is a query; ?q=a&q=b or ?q[x]=1 is no query.
     const q = typeof req.query["q"] === "string" ? req.query["q"].slice(0, QUERY_MAX) : "";
@@ -144,7 +150,7 @@ router.get(
     // and is never echoed back.
     const unmatchable = q.includes(NUL);
     const shown = unmatchable ? "" : q;
-    const colonies = unmatchable ? [] : await listColonies(q);
+    const colonies = unmatchable ? [] : await listColonies(v.visible, q);
     if (wantsJson(req)) return void res.json({ query: shown, colonies });
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
     res.type("html").send(
@@ -152,7 +158,9 @@ router.get(
         query: shown,
         searched: unmatchable,
         colonies,
-        personName: person.name,
+        personName: v.personName,
+        lang: v.lang,
+        island: v.island,
         done,
         // The same rule as POST /team/colonies: an island row, until PR 1.1.
         canCreate: holdsIslandRow(person) && can(person, "create_colony"),
@@ -164,20 +172,25 @@ router.get(
 /** GET /api/team/colonies/:id: one colony. */
 router.get(
   "/team/colonies/:id",
-  requireTeam("view_exact_location"),
+  ...requireSeeing(),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
+    const v = pageViewer(res);
     setTeamHeaders(res);
     const raw = String(req.params["id"]);
-    const view = ID_RE.test(raw) ? await colonyView(Number(raw)) : null;
-    if (!view) {
-      if (wantsJson(req)) return void res.status(404).json({ error: "Not found" });
-      return void res.status(404).type("html").send(renderNoSuchColony(person.name));
-    }
+    // Filtered in the query: another colony is simply not found.
+    const view = ID_RE.test(raw) ? await colonyView(v.visible, Number(raw)) : null;
+    if (!view) return notFoundPage(req, res);
     if (wantsJson(req)) return void res.json(view);
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
     res.type("html").send(
-      renderColonyPage(view, person.name, { may: (c) => can(person, c), done }),
+      renderColonyPage(view, v.personName, {
+        // With NO target: the writes behind these buttons are the team's until PR 4.2.
+        may: (c) => can(person, c),
+        done,
+        lang: v.lang,
+        island: v.island,
+      }),
     );
   },
 );
@@ -190,17 +203,21 @@ const takenResponse = (
   holder: { id: number; name: string } | null,
   back: { href: string; label: string },
 ) => {
+  // Only a colony this person sees is named or linked; anyone else reads
+  // "That name can't be used." (spec §7.3).
+  const v = pageViewer(res);
+  const shown = holder && covers(v.visible, holder.id) ? holder : null;
   if (!isFormPost(req)) {
     return void res.status(409).json({
       error: "Colony name already taken",
       code: "NAME_TAKEN",
-      ...(holder ? { colony: { id: holder.id, name: holder.name } } : {}),
+      ...(shown ? { colony: { id: shown.id, name: shown.name } } : {}),
     });
   }
   res
     .status(409)
     .type("html")
-    .send(renderNameTaken(teamPerson(res).name, holder, back));
+    .send(renderNameTaken(v.personName, shown, back, v));
 };
 
 /**
@@ -299,23 +316,31 @@ const AddCatsForm = z.object({
   ),
 });
 
-/** The page for finding cats to add (`assign_cat_to_colony`). */
+/**
+ * The page for finding cats to add (`assign_cat_to_colony`, checked against
+ * the colony READ FROM THE RECORD). A cat guardian may search for her own
+ * colony; a cat outside her colonies shows only what the public sees, and
+ * its colony as "In another colony". Adding itself is the team's until PR 4.2.
+ */
 router.get(
   "/team/colonies/:id/cats",
-  requireTeam("assign_cat_to_colony"),
+  ...requireSeeing(),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
+    const v = pageViewer(res);
     setTeamHeaders(res);
     const raw = String(req.params["id"]);
-    const colony = ID_RE.test(raw) ? await colonyRef(Number(raw)) : null;
-    if (!colony) {
-      if (wantsJson(req)) return void res.status(404).json({ error: "Not found" });
-      return void res.status(404).type("html").send(renderNoSuchColony(person.name));
+    // Filtered in the query: another colony is simply not found.
+    const colony = ID_RE.test(raw) ? await colonyRef(v.visible, Number(raw)) : null;
+    if (!colony) return notFoundPage(req, res);
+    if (!can(person, "assign_cat_to_colony", { colonyId: colony.id })) {
+      req.log.info({ reason: "missing_capability" }, "add cats refused");
+      return refuseSignedIn(req, res);
     }
     const q = typeof req.query["q"] === "string" ? req.query["q"].slice(0, QUERY_MAX) : "";
     // A NUL can match nothing (Postgres can't hold one) and is never echoed.
     const unmatchable = q.includes(NUL);
-    const results = unmatchable ? [] : await searchCatsToAdd(q);
+    const results = unmatchable ? [] : await searchCatsToAdd(v.visible, q);
     if (wantsJson(req)) return void res.json({ colony, query: unmatchable ? "" : q, results });
     res
       .type("html")
@@ -324,7 +349,11 @@ router.get(
           colony,
           query: unmatchable ? "" : q,
           results,
-          personName: person.name,
+          personName: v.personName,
+          lang: v.lang,
+          island: v.island,
+          // The POST is the team's until PR 4.2 (no target).
+          mayAdd: can(person, "assign_cat_to_colony"),
         }),
       );
   },
@@ -353,7 +382,7 @@ router.post(
       return void res
         .status(400)
         .type("html")
-        .send(renderColonyProblem(person.name, t("problem.pickCats"), back));
+        .send(renderColonyProblem(person.name, t("problem.pickCats"), back, pageViewer(res)));
     }
     try {
       const out = await placeCats(person, id, parsed.data.catIds.map(Number));
@@ -367,7 +396,7 @@ router.post(
           return void res
             .status(400)
             .type("html")
-            .send(renderColonyProblem(person.name, t("problem.noSuchCat"), back));
+            .send(renderColonyProblem(person.name, t("problem.noSuchCat"), back, pageViewer(res)));
         case "done":
           if (isFormPost(req)) {
             return void res.redirect(
@@ -391,7 +420,18 @@ router.post(
 
 function notFound(req: Request, res: Response) {
   if (!isFormPost(req)) return void res.status(404).json({ error: "Not found" });
-  res.status(404).type("html").send(renderNoSuchColony(teamPerson(res).name));
+  const v = pageViewer(res);
+  res.status(404).type("html").send(renderNoSuchColony(v.personName, v));
+}
+
+/**
+ * "No such colony" for a page: the one answer for a number that was never a
+ * colony AND, for a cat guardian, for another colony (spec §7.3).
+ */
+function notFoundPage(req: Request, res: Response) {
+  if (wantsJson(req)) return void res.status(404).json({ error: "Not found" });
+  const v = pageViewer(res);
+  res.status(404).type("html").send(renderNoSuchColony(v.personName, v));
 }
 
 export default router;

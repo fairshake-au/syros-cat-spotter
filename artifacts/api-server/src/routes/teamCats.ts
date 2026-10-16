@@ -1,3 +1,4 @@
+import { visibleColonyIds } from "../lib/guardianView";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { searchTeamCats, teamCatView } from "../lib/teamCatView";
 import { getQueueReport } from "../lib/welfareQueue";
@@ -79,7 +80,9 @@ router.get(
         done,
         at,
         photo,
-        colonies: can(person, "assign_cat_to_colony") ? await allColonyChoices() : undefined,
+        colonies: can(person, "assign_cat_to_colony")
+          ? await allColonyChoices(visibleColonyIds(person))
+          : undefined,
         allHistory: req.query["history"] === "all",
       }),
     );

@@ -2,6 +2,10 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { pageViewer, requireSeeing, seeingFormRoute } from "../middlewares/requireSeeing";
+import { covers } from "../lib/guardianView";
+import { catTarget } from "../lib/capabilityTargets";
+import type { CapabilityTarget } from "../lib/capabilities";
 import { formRoute } from "./teamCorrections";
 import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
 import {
@@ -25,6 +29,7 @@ import {
   siteView,
 } from "../lib/teamSites";
 import { renderNoSuchSite, renderSitePage, renderSitesPage, SITES_PATH } from "../lib/teamPages/sitePages";
+import type { Visible } from "../lib/guardianView";
 import {
   CONFIRM_ZOOM,
   NEW_PATH,
@@ -55,10 +60,16 @@ import {
 // The team's Feeding sites pages (SYC-209 PR 3.2 reads; PR 3.3 writes; spec
 // §2.1 to §2.5, §8, §11.2; plan K8, K13, Decision 1A).
 //
-// **Permissions (plan Decision 1A).** Every route asks for
-// `view_exact_location` with NO colony target, so a guardian gets the 403
-// until PR 4.1 switches targets and filters on together. The "for any
-// colony?" check is the sign-in door's alone.
+// **Permissions (PR 4.1; spec §7.3).** The pages that only show sites (the
+// list and map, its zoom and pan, one site) let in anyone who sees some
+// colony (`requireSeeing`), and every query behind them is filtered by
+// `visibleColonyIds` in SQL: a cat guardian sees her own colonies' sites and
+// nothing else. Another colony's site answers exactly what a number that was
+// never a site answers. Adding, editing, moving, retiring and changing a
+// site's colony still ask their capability with NO colony target, so they
+// stay the team's until PR 4.2. The two sighting entry points check their
+// capabilities against the sighting's CAT's colony, read from the record.
+// The "for any colony?" check is the sign-in door's alone.
 //
 // **No position in any address (K13).** The map's zoom, pan and area buttons
 // are POST forms with hidden fields; the "Show retired" setting is a fixed
@@ -82,17 +93,20 @@ async function sitesPage(
   note?: string,
   sighting?: Position,
 ): Promise<void> {
+  const v = pageViewer(res);
   const [counts, changes, sites] = await Promise.all([
-    siteCounts(),
-    recentSiteChanges(),
-    listSites({ includeRetired: showRetired }),
+    siteCounts(v.visible),
+    recentSiteChanges(v.visible),
+    listSites(v.visible, { includeRetired: showRetired }),
   ]);
   res
     .status(status)
     .type("html")
     .send(
       renderSitesPage({
-        personName: teamPerson(res).name,
+        personName: v.personName,
+        lang: v.lang,
+        island: v.island,
         counts,
         changes,
         sites,
@@ -107,13 +121,17 @@ async function sitesPage(
 /** GET /api/team/sites?retired=1: the map, the count, the recent changes and the list. */
 router.get(
   "/team/sites",
-  requireTeam("view_exact_location"),
+  ...requireSeeing(),
   async (req: Request, res: Response) => {
     setTeamHeaders(res);
     // Only the single value "1" ticks the box; anything else is unticked.
     const showRetired = req.query["retired"] === "1";
     if (wantsJson(req)) {
-      const [counts, sites] = await Promise.all([siteCounts(), listSites({ includeRetired: showRetired })]);
+      const { visible } = pageViewer(res);
+      const [counts, sites] = await Promise.all([
+        siteCounts(visible),
+        listSites(visible, { includeRetired: showRetired }),
+      ]);
       return void res.json({ counts, sites });
     }
     // The tick box keeps the map where it was: the view comes back as an opaque token.
@@ -133,7 +151,7 @@ router.get(
  */
 router.post(
   "/team/sites/map",
-  ...formRoute("view_exact_location"),
+  ...seeingFormRoute(),
   async (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const showRetired = body["retired"] === "1";
@@ -144,7 +162,8 @@ router.post(
         400,
         viewAround(ISLAND_CENTRE, START_ZOOM),
         showRetired,
-        t("sites.moveNote"),
+        // In her language: a cat guardian reaches this page too (review F2).
+        t("sites.moveNote", pageViewer(res).lang),
       ));
     }
     await sitesPage(res, 200, view, showRetired);
@@ -175,14 +194,14 @@ const FIELD_WORDS: Record<string, WordKey> = {
   colonyId: "sproblem.colony",
 };
 
-const problemFor = (fields: string[], typedName: unknown): string => {
+const problemFor = (fields: string[], typedName: unknown, lang?: string): string => {
   const sentences = new Set(
     fields.map((f) => {
       if (f === "name" && typeof typedName === "string" && typedName.trim().length > SITE_NAME_MAX) {
-        return t("sproblem.nameLong");
+        return t("sproblem.nameLong", lang);
       }
       const key = Object.hasOwn(FIELD_WORDS, f) ? FIELD_WORDS[f] : undefined;
-      return key ? t(key) : t("sproblem.fields") + ".";
+      return key ? t(key, lang) : t("sproblem.fields", lang) + ".";
     }),
   );
   return [...sentences].join(" ");
@@ -200,16 +219,25 @@ function badForm(
     return void res.status(400).json({ error: "Invalid request", fields });
   }
   const typedName = (req.body as Record<string, unknown> | undefined)?.["name"];
+  const v = pageViewer(res);
   res
     .status(400)
     .type("html")
-    .send(renderSiteProblem(teamPerson(res).name, message ?? problemFor(fields, typedName), back));
+    .send(
+      renderSiteProblem(v.personName, message ?? problemFor(fields, typedName, v.lang), back, v),
+    );
 }
 
+/**
+ * "No such feeding site": the one answer for a number that was never a site
+ * AND, for a cat guardian, for another colony's site (spec §7.3), whatever
+ * the method, so the two can't be told apart.
+ */
 function notFound(req: Request, res: Response): void {
   const json = req.method === "GET" || req.method === "HEAD" ? wantsJson(req) : !isFormPost(req);
   if (json) return void res.status(404).json({ error: "Not found" });
-  res.status(404).type("html").send(renderNoSuchSite(teamPerson(res).name));
+  const v = pageViewer(res);
+  res.status(404).type("html").send(renderNoSuchSite(v.personName, v));
 }
 
 /** "Someone already changed this." (spec §11.2): 303 back with the message, or 409. */
@@ -290,10 +318,14 @@ const typedSpot = (body: Record<string, unknown>) => TypedForm.safeParse(body);
  * moves, the tap and the nudge. Never a position. A number that is not a
  * colony is ignored: the add page opens as usual, with no colony chosen.
  */
-async function knownColony(raw: unknown): Promise<{ id: number; name: string } | null> {
+async function knownColony(
+  visible: Visible,
+  raw: unknown,
+): Promise<{ id: number; name: string } | null> {
   if (typeof raw !== "string" || !ID_RE.test(raw)) return null;
   const id = Number(raw);
-  return (await colonyOptions()).find((c) => c.id === id) ?? null;
+  // A colony this person doesn't see is ignored exactly like one that doesn't exist.
+  return (await colonyOptions(visible)).find((c) => c.id === id) ?? null;
 }
 
 function newPickerPage(
@@ -328,7 +360,7 @@ router.get(
   requireTeam("add_feeding_site"),
   async (req: Request, res: Response) => {
     setTeamHeaders(res);
-    const colony = await knownColony(req.query["colony"]);
+    const colony = await knownColony(pageViewer(res).visible, req.query["colony"]);
     newPickerPage(res, 200, viewAround(ISLAND_CENTRE, START_ZOOM), undefined, colony);
   },
 );
@@ -338,7 +370,10 @@ router.post(
   "/team/sites/new/map",
   ...formRoute("add_feeding_site"),
   async (req: Request, res: Response) => {
-    const colony = await knownColony((req.body as Record<string, unknown> | undefined)?.["colonyId"]);
+    const colony = await knownColony(
+      pageViewer(res).visible,
+      (req.body as Record<string, unknown> | undefined)?.["colonyId"],
+    );
     const view = applyMove(req.body);
     if (!view) {
       return void newPickerPage(res, 400, viewAround(ISLAND_CENTRE, START_ZOOM), t("sites.moveNote"), colony);
@@ -409,7 +444,10 @@ router.post(
     const picked = readPick((req.body ?? {}) as Record<string, unknown>);
     if (!picked.ok) {
       if (!isFormPost(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
-      const colony = await knownColony((req.body as Record<string, unknown> | undefined)?.["colonyId"]);
+      const colony = await knownColony(
+        pageViewer(res).visible,
+        (req.body as Record<string, unknown> | undefined)?.["colonyId"],
+      );
       return void newPickerPage(res, picked.status, picked.view, picked.note, colony);
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
@@ -418,7 +456,7 @@ router.post(
         personName: teamPerson(res).name,
         spot: picked.spot,
         zoom: picked.zoom,
-        colonies: await colonyOptions(),
+        colonies: await colonyOptions(pageViewer(res).visible),
         checkNote: picked.checkNote,
         carry: AddCarryForm.parse(req.body ?? {}),
       }),
@@ -434,6 +472,20 @@ router.post(
 // before `/team/sites/:id`, which would otherwise read them as a site number.
 
 const SightingForm = z.object({ sightingId: colonyDigits });
+
+/**
+ * Where the sighting buttons' checks apply (PR 4.1; Linear SYC-333): the
+ * colony of the sighting's CAT, read from the record (`catTarget`). Never
+ * island-wide, never the colony a new site would go into, and never anything
+ * in the form but the sighting's number. An unreadable or unknown sighting
+ * has no colony, so only the team passes, and they then get the usual 400.
+ */
+async function sightingCatTarget(req: Request): Promise<CapabilityTarget> {
+  const parsed = SightingForm.safeParse(req.body ?? {});
+  if (!parsed.success) return { colonyId: null };
+  const found = await sightingSpot(parsed.data.sightingId);
+  return found.kind === "found" ? catTarget(found.catId) : { colonyId: null };
+}
 
 /** Reads the sighting named by the form: its spot, or a 400 that names no position. */
 async function sightingFor(req: Request, res: Response) {
@@ -458,21 +510,25 @@ async function sightingFor(req: Request, res: Response) {
  */
 router.post(
   "/team/sites/from-sighting",
-  ...formRoute("add_feeding_site"),
+  ...formRoute("add_feeding_site", { target: sightingCatTarget }),
   // The answer is the sighting's exact position, so adding sites alone isn't
-  // enough: once roles get colony targets (PR 4.1) the two can differ.
-  requireTeam("view_exact_location"),
+  // enough: seeing it is checked too, against the same record.
+  requireTeam("view_exact_location", { target: sightingCatTarget }),
   async (req: Request, res: Response) => {
     const found = await sightingFor(req, res);
     if (!found) return;
-    const colonyId = (await currentColonyOf([found.catId])).get(found.catId);
+    const v = pageViewer(res);
+    const inNow = (await currentColonyOf([found.catId])).get(found.catId);
+    const colonyId = covers(v.visible, inNow) ? inNow : undefined;
     if (!isFormPost(req)) return void res.json({ ...found.spot, colonyId: colonyId ?? null });
     res.type("html").send(
       renderAddConfirm({
-        personName: teamPerson(res).name,
+        personName: v.personName,
+        lang: v.lang,
+        island: v.island,
         spot: found.spot,
         zoom: CONFIRM_ZOOM,
-        colonies: await colonyOptions(),
+        colonies: await colonyOptions(v.visible),
         carry: { name: "", colonyId: colonyId === undefined ? "" : String(colonyId), directions: "", notes: "" },
       }),
     );
@@ -486,7 +542,7 @@ router.post(
  */
 router.post(
   "/team/sites/map-at-sighting",
-  ...formRoute("view_exact_location"),
+  ...formRoute("view_exact_location", { target: sightingCatTarget }),
   async (req: Request, res: Response) => {
     const found = await sightingFor(req, res);
     if (!found) return;
@@ -663,7 +719,7 @@ router.get(
   async (req: Request, res: Response) => {
     setTeamHeaders(res);
     const id = siteIdOf(req);
-    const site = id === null ? null : await siteForMove(id);
+    const site = id === null ? null : await siteForMove(pageViewer(res).visible, id);
     if (!site) return notFound(req, res);
     movePickerPage(res, 200, site, site.stamp, viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM));
   },
@@ -675,7 +731,7 @@ router.post(
   ...formRoute("edit_feeding_site"),
   async (req: Request, res: Response) => {
     const id = siteIdOf(req);
-    const site = id === null ? null : await siteForMove(id);
+    const site = id === null ? null : await siteForMove(pageViewer(res).visible, id);
     if (id === null || !site) return notFound(req, res);
     const stamp = StampOnly.safeParse(req.body ?? {});
     if (!stamp.success) {
@@ -706,7 +762,7 @@ router.post(
   ...formRoute("edit_feeding_site"),
   async (req: Request, res: Response) => {
     const id = siteIdOf(req);
-    const site = id === null ? null : await siteForMove(id);
+    const site = id === null ? null : await siteForMove(pageViewer(res).visible, id);
     if (id === null || !site) return notFound(req, res);
     const body = (req.body ?? {}) as Record<string, unknown>;
     const stamp = StampOnly.safeParse(body);
@@ -756,16 +812,15 @@ router.post(
 /** GET /api/team/sites/:id: one site. Opening it is recorded (spec §8). */
 router.get(
   "/team/sites/:id",
-  requireTeam("view_exact_location"),
+  ...requireSeeing(),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
+    const v = pageViewer(res);
     setTeamHeaders(res);
     const raw = String(req.params["id"]);
-    const site = ID_RE.test(raw) ? await siteView(Number(raw)) : null;
-    if (!site) {
-      if (wantsJson(req)) return void res.status(404).json({ error: "Not found" });
-      return void res.status(404).type("html").send(renderNoSuchSite(person.name));
-    }
+    // Filtered in the query: another colony's site is simply not found.
+    const site = ID_RE.test(raw) ? await siteView(v.visible, Number(raw)) : null;
+    if (!site) return notFound(req, res);
     // One row: person, site, time. No position. Written before anything is
     // sent, outside any transaction, and FAIL-CLOSED on purpose: if the audit
     // record can't be written the error handler answers 500 and the person
@@ -776,9 +831,11 @@ router.get(
     res.type("html").send(
       renderSitePage({
         site,
-        personName: person.name,
+        personName: v.personName,
+        lang: v.lang,
+        island: v.island,
         view: viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM),
-        colonies: await colonyOptions(),
+        colonies: await colonyOptions(v.visible),
         done: typeof req.query["done"] === "string" ? req.query["done"] : undefined,
       }),
     );

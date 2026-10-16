@@ -640,7 +640,7 @@ describe("the list and a colony's page", () => {
 
     const list = decoded((await get(`/api/team/colonies?q=${encodeURIComponent(`${P}count-a`)}`)).text);
     expect(list).toContain("Cat guardian: Eleni");
-    expect(list).toContain("2 feeding sites · 1 cats");
+    expect(list).toContain("2 feeding sites · 1 cat");
 
     const page = (await get(`/api/team/colonies/${a}`)).text;
     // The cats listed now. (The history, further down, also names cats that

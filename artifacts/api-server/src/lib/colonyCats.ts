@@ -1,9 +1,11 @@
 import { catsTable, coloniesTable, db, foldName, photosTable } from "@workspace/db";
-import { asc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import { actingRole, can } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
 import { currentColonyOf } from "./colonyMembership";
+import { colonyFilter, covers, type Visible } from "./guardianView";
 import { ObservationRefused, writeObservation } from "./observations";
+import { catDisplayPhotos } from "./photoVisibility";
 import { SYR_RE, syrNumber, teamPhotoUrl } from "./teamCatView";
 
 // Putting cats in colonies, moving them and taking them out (SYC-209 PR 2.2;
@@ -110,9 +112,19 @@ export interface CatToAdd {
   id: number;
   syr: string;
   name: string;
+  /**
+   * The team's photo route for a cat this viewer may see in full; for a cat
+   * outside a cat guardian's colonies, only what the public sees (its public
+   * photo, or none if the team has hidden every one).
+   */
   thumbnailUrl: string | null;
-  /** The colony the cat is in now, by name, or null for "no colony". */
+  /** The colony the cat is in now, by name, or null: no colony, or one this viewer doesn't see. */
   colony: { id: number; name: string } | null;
+  /**
+   * True when the cat is in a colony this viewer doesn't see (a cat
+   * guardian's "in another colony": no name, no number, no link; spec §7.3).
+   */
+  elsewhere: boolean;
 }
 
 /**
@@ -121,7 +133,7 @@ export interface CatToAdd {
  * generated column (cats.normalised_name), so no name is folded in
  * JavaScript. Each carries the colony it is in now.
  */
-export async function searchCatsToAdd(rawQuery: string): Promise<CatToAdd[]> {
+export async function searchCatsToAdd(visible: Visible, rawQuery: string): Promise<CatToAdd[]> {
   const q = foldName(rawQuery.slice(0, SEARCH_MAX));
   if (q === "") return [];
   const syr = SYR_RE.exec(q);
@@ -132,6 +144,7 @@ export async function searchCatsToAdd(rawQuery: string): Promise<CatToAdd[]> {
     .select({
       id: catsTable.id,
       name: catsTable.name,
+      primaryPhotoId: catsTable.primaryPhotoId,
       photoPublicId: photosTable.publicId,
     })
     .from(catsTable)
@@ -155,44 +168,75 @@ export async function searchCatsToAdd(rawQuery: string): Promise<CatToAdd[]> {
   if (rows.length === 0) return [];
 
   const inColony = await currentColonyOf(rows.map((r) => r.id));
-  const names = await colonyNames([...new Set(inColony.values())]);
+  const names = await colonyNames(visible, [...new Set(inColony.values())]);
+  // A cat outside this viewer's colonies: only what the public sees.
+  const outside = rows.filter((r) => !covers(visible, inColony.get(r.id)));
+  const publicPhotos = outside.length > 0 ? await catDisplayPhotos(outside) : new Map();
   return rows.map((r) => {
     const cid = inColony.get(r.id);
+    const seen = covers(visible, cid);
     return {
       id: r.id,
       syr: syrNumber(r.id),
       name: r.name,
-      thumbnailUrl: r.photoPublicId ? teamPhotoUrl(r.photoPublicId) : null,
-      colony: cid !== undefined && names.has(cid) ? { id: cid, name: names.get(cid)! } : null,
+      thumbnailUrl: seen
+        ? r.photoPublicId
+          ? teamPhotoUrl(r.photoPublicId)
+          : null
+        : (publicPhotos.get(r.id) ?? null),
+      colony:
+        cid !== undefined && seen && names.has(cid) ? { id: cid, name: names.get(cid)! } : null,
+      elsewhere: cid !== undefined && !seen,
     };
   });
 }
 
-/** One colony's id and name, or null. */
-export async function colonyRef(id: number): Promise<{ id: number; name: string } | null> {
+/** One colony's id and name, or null: no such colony, or one this viewer doesn't see. */
+export async function colonyRef(
+  visible: Visible,
+  id: number,
+): Promise<{ id: number; name: string } | null> {
   const [row] = await db
     .select({ id: coloniesTable.id, name: coloniesTable.name })
     .from(coloniesTable)
-    .where(eq(coloniesTable.id, id));
+    .where(and(eq(coloniesTable.id, id), colonyFilter(coloniesTable.id, visible)));
   return row ?? null;
 }
 
-/** Colony names by id. */
-export async function colonyNames(ids: readonly number[]): Promise<Map<number, string>> {
+/** Colony names by id, for the colonies this viewer sees. */
+async function colonyNames(visible: Visible, ids: readonly number[]): Promise<Map<number, string>> {
   const out = new Map<number, string>();
   if (ids.length === 0) return out;
   const rows = await db
     .select({ id: coloniesTable.id, name: coloniesTable.name })
     .from(coloniesTable)
-    .where(inArray(coloniesTable.id, [...ids]));
+    .where(and(inArray(coloniesTable.id, [...ids]), colonyFilter(coloniesTable.id, visible)));
   for (const r of rows) out.set(r.id, r.name);
   return out;
 }
 
-/** Every colony by name, for the cat page's "Colony" list. */
-export async function allColonyChoices(): Promise<{ id: number; name: string }[]> {
+/** The colonies this viewer sees, by name, for the cat page's "Colony" list. */
+export async function allColonyChoices(visible: Visible): Promise<{ id: number; name: string }[]> {
   return db
     .select({ id: coloniesTable.id, name: coloniesTable.name })
     .from(coloniesTable)
+    .where(colonyFilter(coloniesTable.id, visible))
     .orderBy(asc(coloniesTable.normalisedName), asc(coloniesTable.id));
+}
+
+/**
+ * A cat's colony line as this viewer may read it (spec §7.3, "Cat page
+ * colony line"): the colony's name if she sees it, "another colony" (no
+ * name, no number) if it is one she doesn't, or none. For the roles plan's
+ * guardian cat page (PR 2.1); the team's cat page is island-only.
+ */
+export async function colonyLineFor(
+  visible: Visible,
+  catId: number,
+): Promise<{ kind: "none" } | { kind: "another" } | { kind: "here"; id: number; name: string }> {
+  const cid = (await currentColonyOf([catId])).get(catId);
+  if (cid === undefined) return { kind: "none" };
+  if (!covers(visible, cid)) return { kind: "another" };
+  const name = (await colonyNames(visible, [cid])).get(cid);
+  return name === undefined ? { kind: "another" } : { kind: "here", id: cid, name };
 }

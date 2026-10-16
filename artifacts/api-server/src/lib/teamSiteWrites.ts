@@ -1,5 +1,6 @@
 import { coloniesTable, db, feedingSitesTable } from "@workspace/db";
 import { and, asc, eq, sql, type AnyColumn } from "drizzle-orm";
+import { colonyFilter, type Visible } from "./guardianView";
 import { recordMappingEvent } from "./mappingEvents";
 import { inIsland } from "./mapTiles/geometry";
 
@@ -372,16 +373,20 @@ export async function restoreSite(
 
 // ── For the forms ──────────────────────────────────────────────────────────
 
-/** Every colony by name, for the colony pickers. */
-export async function colonyOptions(): Promise<Array<{ id: number; name: string }>> {
+/**
+ * The colonies this viewer sees, by name, for the colony pickers (spec §7.3:
+ * a cat guardian's lists hold her own colonies only).
+ */
+export async function colonyOptions(visible: Visible): Promise<Array<{ id: number; name: string }>> {
   return db
     .select({ id: coloniesTable.id, name: coloniesTable.name })
     .from(coloniesTable)
+    .where(colonyFilter(coloniesTable.id, visible))
     .orderBy(asc(coloniesTable.name), asc(coloniesTable.id));
 }
 
 /** What the move picker and the confirmation need to know about a site. */
-export async function siteForMove(id: number): Promise<{
+export async function siteForMove(visible: Visible, id: number): Promise<{
   id: number;
   name: string;
   lat: number;
@@ -401,7 +406,7 @@ export async function siteForMove(id: number): Promise<{
       isPublic: feedingSitesTable.isPublic,
     })
     .from(feedingSitesTable)
-    .where(eq(feedingSitesTable.id, id));
+    .where(and(eq(feedingSitesTable.id, id), colonyFilter(feedingSitesTable.colonyId, visible)));
   return row
     ? {
         id: row.id,

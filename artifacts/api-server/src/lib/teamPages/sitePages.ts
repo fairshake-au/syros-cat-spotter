@@ -2,10 +2,10 @@ import type { SiteChange, SiteCounts, SiteHistoryEntry, SiteRow, SiteView } from
 import type { Position, TileSize, View } from "../mapTiles/geometry";
 import { mintTileToken } from "../mapTiles/tileToken";
 import { escapeHtml as esc } from "./escape";
-import { day } from "./colonyPages";
+import { dayIn } from "./colonyPages";
 import { renderPage } from "./layout";
 import { renderMap, type MapMarker } from "./map";
-import { t, type WordKey } from "./words";
+import { wordsIn, type WordKey, type Words } from "./words";
 import {
   SITE_DIRECTIONS_MAX,
   SITE_NAME_MAX,
@@ -18,8 +18,24 @@ import {
 // name, notes, directions, a colony's name, a person's name) goes through
 // escapeHtml. No link to any map company, and no position in any address:
 // the only addresses here are site and colony numbers (K13).
+//
+// **A cat guardian (PR 4.1).** The same pages, drawn from data already
+// filtered to her colonies (lib/teamSites.ts), in her language, with her own
+// menu, and with no actions: adding, editing, moving and retiring are PR
+// 4.2's, and changing a site's colony is the team's alone. The "Ask the team
+// to make this public" button is not drawn until the roles plan's PR 3.4 and
+// SYC-209 PR 6.2 are both live (plan K7).
 
-const w = (key: WordKey) => esc(t(key));
+/** Who a page is drawn for: the team (English, every action) or a cat guardian. */
+export interface SiteViewer {
+  personName: string;
+  /** A cat guardian's own language; omitted (English) for the team. */
+  lang?: string;
+  /** False for a cat guardian: her menu, and none of the team's actions. Default true. */
+  island?: boolean;
+}
+
+const navFor = (v: { island?: boolean }) => (v.island === false ? "guardian" : undefined);
 
 export const SITES_PATH = "/api/team/sites";
 /** Where the Feeding sites page's zoom, pan and area buttons post (K13). */
@@ -34,10 +50,16 @@ export const fmtPos = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.to
 // ── The list page ──────────────────────────────────────────────────────────
 
 /** "31 sites: 2 public, 28 private, 1 retired" (the retired part only when there are any). */
-export function countLine(c: SiteCounts): string {
-  const parts = [`${c.public} public`, `${c.private} private`];
-  if (c.retired > 0) parts.push(`${c.retired} retired`);
-  return `${c.total} ${c.total === 1 ? "site" : "sites"}: ${parts.join(", ")}`;
+export function countLine(c: SiteCounts, lang?: string): string {
+  const { t } = wordsIn(lang);
+  const n = (v: number) => String(v);
+  return (
+    t(c.total === 1 ? "count.site" : "count.sites", {
+      total: n(c.total),
+      public: n(c.public),
+      private: n(c.private),
+    }) + (c.retired > 0 ? t("count.retired", { retired: n(c.retired) }) : "")
+  );
 }
 
 /** What a recent change was, in a few fixed words. */
@@ -60,25 +82,27 @@ const KIND_WORDS: Record<string, WordKey> = {
   restored: "sitehist.restored",
 };
 
-const kindText = (kind: string): string =>
+const kindText = ({ w }: Words, kind: string): string =>
   Object.hasOwn(KIND_WORDS, kind) ? w(KIND_WORDS[kind]!) : esc(kind.replace(/_/g, " "));
 
-function recentStrip(changes: SiteChange[]): string {
+function recentStrip(W: Words, changes: SiteChange[]): string {
+  const { w } = W;
   if (changes.length === 0) return `<p class="empty">${w("sites.noRecent")}</p>`;
   return (
     `<ul class="refs">` +
     changes
       .map(
         (c) =>
-          `<li>${kindText(c.kind)}: <a href="${esc(siteHref(c.siteId))}">${esc(c.siteName)}</a> ` +
-          `<span class="meta">${w("site.by")} ${esc(c.by)} · <time datetime="${esc(c.at)}">${esc(day(c.at))}</time></span></li>`,
+          `<li>${kindText(W, c.kind)}: <a href="${esc(siteHref(c.siteId))}">${esc(c.siteName)}</a> ` +
+          `<span class="meta">${w("site.by")} ${esc(c.by)} · <time datetime="${esc(c.at)}">${esc(dayIn(W.lang, c.at))}</time></span></li>`,
       )
       .join("") +
     `</ul>`
   );
 }
 
-function siteRowHtml(s: SiteRow): string {
+function siteRowHtml(W: Words, s: SiteRow): string {
+  const { w } = W;
   const state = s.retired ? w("sites.retired") : s.isPublic ? w("sites.public") : w("sites.private");
   const colony = s.colony
     ? `<a href="${esc(colonyHref(s.colony.id))}">${esc(s.colony.name)}</a>`
@@ -87,11 +111,12 @@ function siteRowHtml(s: SiteRow): string {
     `<li class="statement${s.retired ? " replaced" : ""}">` +
     `<p><a class="catlink" href="${esc(siteHref(s.id))}">${esc(s.name)}</a></p>` +
     `<p class="meta">${colony} · ${state} · ${w("sites.changed")} ` +
-    `<time datetime="${esc(s.changedAt)}">${esc(day(s.changedAt))}</time></p></li>`
+    `<time datetime="${esc(s.changedAt)}">${esc(dayIn(W.lang, s.changedAt))}</time></p></li>`
   );
 }
 
-export function markerFor(s: SiteRow): MapMarker {
+export function markerFor(s: SiteRow, lang?: string): MapMarker {
+  const { t } = wordsIn(lang);
   return {
     lat: s.lat,
     lng: s.lng,
@@ -101,8 +126,7 @@ export function markerFor(s: SiteRow): MapMarker {
   };
 }
 
-export function renderSitesPage(opts: {
-  personName: string;
+export function renderSitesPage(opts: SiteViewer & {
   counts: SiteCounts;
   changes: SiteChange[];
   sites: SiteRow[];
@@ -111,11 +135,17 @@ export function renderSitesPage(opts: {
   note?: string;
   /** "Show on our map" from a sighting (PR 3.4): an outlined marker where the cat was seen. */
   sighting?: Position;
+  /** Draw "Add a site" (the add routes are the team's until PR 4.2). Default: as `island`. */
+  mayAdd?: boolean;
 }): string {
+  const W = wordsIn(opts.lang);
+  const { t, w } = W;
+  const mayAdd = opts.mayAdd ?? opts.island !== false;
   const map = renderMap({
+    lang: opts.lang,
     view: opts.view,
     markers: [
-      ...opts.sites.map(markerFor),
+      ...opts.sites.map((s) => markerFor(s, opts.lang)),
       ...(opts.sighting
         ? [{ ...opts.sighting, label: t("sites.sightingMarker"), look: "sighting" as const }]
         : []),
@@ -135,10 +165,12 @@ export function renderSitesPage(opts: {
   const list =
     opts.sites.length === 0
       ? `<p class="empty">${w("sites.empty")}</p>`
-      : `<ul class="cats">${opts.sites.map(siteRowHtml).join("")}</ul>`;
+      : `<ul class="cats">${opts.sites.map((s) => siteRowHtml(W, s)).join("")}</ul>`;
   return renderPage({
     title: t("sites.title"),
     active: "sites",
+    nav: navFor(opts),
+    lang: opts.lang,
     personName: opts.personName,
     mainClass: "mappage",
     body:
@@ -146,15 +178,17 @@ export function renderSitesPage(opts: {
       // buttons, then the list. Everything above the map has fixed line
       // heights (see .mappage in layout.ts), so the map still starts on a
       // whole pixel.
-      `<p><strong>${esc(countLine(opts.counts))}</strong></p>` +
+      `<p><strong>${esc(countLine(opts.counts, opts.lang))}</strong></p>` +
       retiredForm +
       `<h2>${w("sites.recentTitle")}</h2>` +
-      recentStrip(opts.changes) +
+      recentStrip(W, opts.changes) +
       (opts.note ? `<p class="warn">${esc(opts.note)}</p>` : "") +
       map +
       `<p class="hint">${w("sites.legend")}</p>` +
       (opts.sighting ? `<p class="hint">${w("sites.sightingLegend")}</p>` : "") +
-      `<form method="get" action="${SITES_PATH}/new" class="addsite"><button type="submit">${w("sites.add")}</button></form>` +
+      (mayAdd
+        ? `<form method="get" action="${SITES_PATH}/new" class="addsite"><button type="submit">${w("sites.add")}</button></form>`
+        : "") +
       `<h2>${w("sites.listTitle")}</h2>` +
       list +
       `<p class="hint">${w("sites.mapHint")}</p>`,
@@ -178,7 +212,7 @@ const SDONE: Record<string, WordKey> = {
 };
 
 /** A fixed sentence for `?done=<key>`; any other key shows nothing. */
-function banner(done: string | undefined): string {
+function banner({ w }: Words, done: string | undefined): string {
   const key = done !== undefined && Object.hasOwn(SDONE, done) ? SDONE[done] : undefined;
   return key ? `<p class="notice" role="status">${w(key)}</p>` : "";
 }
@@ -187,12 +221,12 @@ function banner(done: string | undefined): string {
 export const stampField = (stamp: string) =>
   `<input type="hidden" name="updatedAt" value="${esc(stamp)}">`;
 
-const textBox = (id: string, name: string, label: WordKey, value: string, max: number, hint?: WordKey) =>
+const textBox = ({ w }: Words, id: string, name: string, label: WordKey, value: string, max: number, hint?: WordKey) =>
   `<label class="label" for="${id}">${w(label)}</label>` +
   (hint ? `<p class="hint">${w(hint)}</p>` : "") +
   `<input class="text" id="${id}" name="${name}" type="text" maxlength="${max}" value="${esc(value)}" autocomplete="off">`;
 
-const reasonBox = (id: string) =>
+const reasonBox = ({ w }: Words, id: string) =>
   `<label class="label" for="${id}">${w("act.reason")}</label>` +
   `<input class="text" id="${id}" name="reason" type="text" required maxlength="${SITE_REASON_MAX}" autocomplete="off">`;
 
@@ -201,7 +235,13 @@ const reasonBox = (id: string) =>
  * a form carrying the page's `updated_at` (Move is a plain button: the move
  * pages read the stamp themselves when they open).
  */
-export function renderSiteActions(s: SiteView, colonies: Array<{ id: number; name: string }>): string {
+export function renderSiteActions(
+  s: SiteView,
+  colonies: Array<{ id: number; name: string }>,
+  lang?: string,
+): string {
+  const W = wordsIn(lang);
+  const { w } = W;
   const base = esc(siteHref(s.id));
   const stamp = stampField(s.updatedAt);
   const retired = s.retiredAt !== null;
@@ -209,8 +249,8 @@ export function renderSiteActions(s: SiteView, colonies: Array<{ id: number; nam
     `<div class="fixes"><details><summary>${w("act.edit")}</summary>` +
     `<form method="post" action="${base}">` +
     stamp +
-    textBox("edit-name", "name", "confirm.name", s.name, SITE_NAME_MAX).replace(" maxlength=", " required maxlength=") +
-    textBox("edit-directions", "directions", "site.directions", s.directions ?? "", SITE_DIRECTIONS_MAX, "confirm.directionsHint") +
+    textBox(W, "edit-name", "name", "confirm.name", s.name, SITE_NAME_MAX).replace(" maxlength=", " required maxlength=") +
+    textBox(W, "edit-directions", "directions", "site.directions", s.directions ?? "", SITE_DIRECTIONS_MAX, "confirm.directionsHint") +
     `<label class="label" for="edit-notes">${w("site.notes")}</label>` +
     `<textarea id="edit-notes" name="notes" maxlength="${SITE_NOTES_MAX}">${esc(s.notes ?? "")}</textarea>` +
     `<p class="hint">${w("notes.hint")}</p>` +
@@ -223,7 +263,7 @@ export function renderSiteActions(s: SiteView, colonies: Array<{ id: number; nam
       `<form method="post" action="${base}/restore">` +
       stamp +
       `<p class="hint">${w("act.restoreHint")}</p>` +
-      reasonBox("restore-reason") +
+      reasonBox(W, "restore-reason") +
       `<button type="submit">${w("act.restoreButton")}</button></form></details></div>`
     : `<div class="fixes"><details><summary>${w("act.retire")}</summary>` +
       `<form method="post" action="${base}/retire">` +
@@ -231,7 +271,7 @@ export function renderSiteActions(s: SiteView, colonies: Array<{ id: number; nam
       `<p class="hint">${w("act.retireHint")}</p>` +
       // A public site's printed sticker would lead nowhere useful (spec §4.5).
       (s.isPublic ? `<p class="notice">${w("act.qr")}</p>` : "") +
-      reasonBox("retire-reason") +
+      reasonBox(W, "retire-reason") +
       `<button type="submit" class="risky">${w("act.retireButton")}</button></form></details></div>`;
   const options =
     `<option value=""${s.colony === null ? " selected" : ""}>${w("confirm.noColony")}</option>` +
@@ -265,9 +305,11 @@ function where(o: Record<string, unknown> | null): string | null {
   return lat !== null && lng !== null ? fmtPos(lat, lng) : null;
 }
 
-const quoted = (v: string | null) => (v === null || v === "" ? w("site.none") : `“${esc(v)}”`);
+const quoted = ({ w }: Words, v: string | null) => (v === null || v === "" ? w("site.none") : `“${esc(v)}”`);
 
-function describe(e: SiteHistoryEntry): string {
+function describe(W: Words, e: SiteHistoryEntry): string {
+  const { w } = W;
+  const q = (v: string | null) => quoted(W, v);
   if (e.redacted) return w("history.removed");
   const b = e.before ?? {};
   const a = e.after ?? {};
@@ -278,11 +320,11 @@ function describe(e: SiteHistoryEntry): string {
     case "seeded": {
       const name = str(a["name"]);
       const at = where(e.after);
-      detail = [name ? quoted(name) : "", at ? esc(at) : ""].filter(Boolean).join(" · ");
+      detail = [name ? q(name) : "", at ? esc(at) : ""].filter(Boolean).join(" · ");
       break;
     }
     case "renamed":
-      detail = `${quoted(str(b["name"]))} → ${quoted(str(a["name"]))}`;
+      detail = `${q(str(b["name"]))} → ${q(str(a["name"]))}`;
       break;
     case "moved":
     case "made_private_moved": {
@@ -292,42 +334,48 @@ function describe(e: SiteHistoryEntry): string {
       break;
     }
     case "label_changed":
-      detail = `${quoted(str(b["publicLabel"]))} → ${quoted(str(a["publicLabel"]))}`;
+      detail = `${q(str(b["publicLabel"]))} → ${q(str(a["publicLabel"]))}`;
       break;
     default:
       detail = "";
   }
   const reason = e.note ? ` <span class="meta">${w("sitehist.reason")}: ${esc(e.note)}</span>` : "";
-  return kindText(e.kind) + (detail ? `: ${detail}` : "") + reason;
+  return kindText(W, e.kind) + (detail ? `: ${detail}` : "") + reason;
 }
 
-function historyList(history: SiteHistoryEntry[]): string {
+function historyList(W: Words, history: SiteHistoryEntry[]): string {
+  const { w } = W;
   if (history.length === 0) return `<p class="empty">${w("site.noHistory")}</p>`;
   return (
     `<ol class="history">` +
     history
       .map(
         (e) =>
-          `<li class="statement"><p>${describe(e)}</p>` +
-          `<p class="meta">${w("site.by")} ${esc(e.by)} · <time datetime="${esc(e.at)}">${esc(day(e.at))}</time></p></li>`,
+          `<li class="statement"><p>${describe(W, e)}</p>` +
+          `<p class="meta">${w("site.by")} ${esc(e.by)} · <time datetime="${esc(e.at)}">${esc(dayIn(W.lang, e.at))}</time></p></li>`,
       )
       .join("") +
     `</ol>`
   );
 }
 
-const textOrNone = (v: string | null) =>
+const textOrNone = ({ w }: Words, v: string | null) =>
   v && v.trim() !== "" ? `<p class="note">${esc(v)}</p>` : `<p class="empty">${w("site.none")}</p>`;
 
-export function renderSitePage(opts: {
+export function renderSitePage(opts: SiteViewer & {
   site: SiteView;
-  personName: string;
   view: View;
   colonies: Array<{ id: number; name: string }>;
   done?: string;
+  /** Draw the team's actions (edit, move, retire, change colony). Default: as `island`. */
+  mayAct?: boolean;
 }): string {
+  const W = wordsIn(opts.lang);
+  const { w } = W;
+  const mayAct = opts.mayAct ?? opts.island !== false;
   const s = opts.site;
   const map = renderMap({
+    lang: opts.lang,
     view: opts.view,
     markers: [
       {
@@ -341,12 +389,12 @@ export function renderSitePage(opts: {
     controls: false,
   });
   const visibility = s.isPublic
-    ? `<p>${w("site.publicSince")} ${s.madePublicAt ? esc(day(s.madePublicAt)) : ""}` +
+    ? `<p>${w("site.publicSince")} ${s.madePublicAt ? esc(dayIn(W.lang, s.madePublicAt)) : ""}` +
       (s.madePublicBy ? `, ${w("site.by")} ${esc(s.madePublicBy)}` : "") +
       `</p>`
     : `<p>${w("site.privateSentence")}</p>`;
   const retired = s.retiredAt
-    ? `<p class="notice">${w("site.retiredSince")} ${esc(day(s.retiredAt))}</p>`
+    ? `<p class="notice">${w("site.retiredSince")} ${esc(dayIn(W.lang, s.retiredAt))}</p>`
     : "";
   const colony = s.colony
     ? `<p><a href="${esc(colonyHref(s.colony.id))}">${esc(s.colony.name)}</a></p>`
@@ -354,35 +402,47 @@ export function renderSitePage(opts: {
   return renderPage({
     title: s.name,
     active: "sites",
+    nav: navFor(opts),
+    lang: opts.lang,
     personName: opts.personName,
     mainClass: "mappage",
     beforeTitle: `<p class="back"><a href="${SITES_PATH}">${w("site.back")}</a></p>`,
     body:
       map +
       // Below the map, so nothing of variable height sits above it (see .mappage).
-      banner(opts.done) +
+      banner(W, opts.done) +
       retired +
       visibility +
       `<h2>${w("site.colony")}</h2>` +
       colony +
       `<h2>${w("site.notes")}</h2>` +
-      textOrNone(s.notes) +
+      textOrNone(W, s.notes) +
       `<p class="hint">${w("notes.hint")}</p>` +
       `<h2>${w("site.directions")}</h2>` +
-      textOrNone(s.directions) +
+      textOrNone(W, s.directions) +
       `<h2>${w("site.position")}</h2>` +
       `<p class="syrline">${esc(fmtPos(s.lat, s.lng))}</p>` +
       `<h2>${w("site.historyTitle")}</h2>` +
-      historyList(s.history) +
-      `<h2>${w("act.title")}</h2>` +
-      `<div class="actions" data-actions="site">${renderSiteActions(s, opts.colonies)}</div>`,
+      historyList(W, s.history) +
+      (mayAct
+        ? `<h2>${w("act.title")}</h2>` +
+          `<div class="actions" data-actions="site">${renderSiteActions(s, opts.colonies, opts.lang)}</div>`
+        : ""),
   });
 }
 
-export function renderNoSuchSite(personName: string): string {
+/**
+ * "No such feeding site". A cat guardian gets exactly this, byte for byte,
+ * for another colony's site as for a number that was never a site (spec
+ * §7.3), so ids can't be counted by trying them.
+ */
+export function renderNoSuchSite(personName: string, viewer: Omit<SiteViewer, "personName"> = {}): string {
+  const { t, w } = wordsIn(viewer.lang);
   return renderPage({
     title: t("site.noSuch"),
     active: "sites",
+    nav: navFor(viewer),
+    lang: viewer.lang,
     personName,
     body: `<p>${w("site.noSuchBody")}</p><p><a href="${SITES_PATH}">${w("site.backToSites")}</a></p>`,
   });
