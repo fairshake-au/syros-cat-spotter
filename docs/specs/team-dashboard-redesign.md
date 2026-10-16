@@ -73,6 +73,7 @@ The dashboard stays fast on a phone in a street with weak signal. A few screens 
 | D7 | Find a cat from a photo? | **Yes.** |
 | D9 | Open map links | Samuel, 15 Oct 2026, in the SYC-362 plan: "map links for coordinates are fine for the team. the privacy considerations don't apply to Syros Cats users". On feeding sites: "Everywhere, sites included". These are outbound links only, for island-wide team members only (§3.2, §10.4). |
 | D10 | SYC-362's unfinished work | "Hand all of it to the redesign" (Samuel, 15 Oct 2026). It's tracked as SYC-395 and placed in §15. |
+| D11 | The Cats search text in the web address | **Allowed** (Samuel, 16 Oct 2026). The search box's own text appears in the address like any search, as the old Cats search did. Every other part of the address follows §10.4. Server logs already strip the query. |
 | D8 | A vet visit versus a cat guardian's earlier "not sterilised" | **The visit overrules, visibly.** Logging a visit with Sterilised also marks any standing guardian "not sterilised" on that cat wrong, with the reason "vet visit on [date]". The change appears on the recent guardian changes list. This works the same way as the team's **Correct** on colour. |
 
 ## 3. How the dashboard is laid out
@@ -175,7 +176,7 @@ The Cats screen opens on **every active cat**, most recently seen first. It's a 
 
 **How the filters behave:**
 - With interactivity, the grid updates as filters change. Without it, the filters are an ordinary form with a "Show cats" button, and the results are the same.
-- The page's web address carries the chosen filters, so a filtered view can be bookmarked or shared within the team. It holds only colour names, the area's **short key**, the colony's **number** (never its name), and the statuses. It never holds a position or a person's name.
+- The page's web address carries the chosen filters, so a filtered view can be bookmarked or shared within the team. Apart from the search box's own text (D11), it holds only colour names, the area's **short key**, the colony's **number** (never its name), and the statuses. Nothing the dashboard writes into the address is ever a position or a person's name.
 - A count above the grid reads "38 cats match", with "Clear filters" beside it.
 - The grid shows 48 cats at a time, with "Show more" below.
 
@@ -539,7 +540,7 @@ Changes to named areas and to the standard price are kept in the same add-only h
 ### 10.4 Everyone else
 
 - **The public** sees nothing new. Nothing in this spec changes what the app shows spotters.
-- **No position, and no person's or colony's name, ever appears in one of our own web addresses.** That covers filters, the map, map pictures and shared links. The one exception is D9's outbound **Open map** link. It carries a position to the phone's maps app, only for island-wide team members, and is built only by `position.ts`. Guardian-view tests fail if any map company's address appears on a guardian's page. Cat positions reach the browser only inside a signed-in page, or a signed-in request to our own server.
+- **No position, and no person's or colony's name, is ever written into one of our own web addresses by the dashboard.** The one thing that can appear is what a team member types into the Cats search box (D11). That covers filters, the map, map pictures and shared links. The one exception is D9's outbound **Open map** link. It carries a position to the phone's maps app, only for island-wide team members, and is built only by `position.ts`. Guardian-view tests fail if any map company's address appears on a guardian's page. Cat positions reach the browser only inside a signed-in page, or a signed-in request to our own server.
 - **Downloaded files** contain only what the page shows to that viewer. They never include a feeding site's internal name or a guardian's name unless the team chooses to add them. Only the impact report is meant for outside eyes, and it follows §9.4's limits.
 
 ## 11. Small photo versions
