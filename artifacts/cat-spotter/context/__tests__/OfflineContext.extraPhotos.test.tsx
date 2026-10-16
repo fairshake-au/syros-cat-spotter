@@ -211,6 +211,22 @@ describe('queueing a three-photo spot', () => {
     expect(storage.get(QUEUE_KEY)).not.toContain(b64('face-S'));
   });
 
+  it('a spot that could not be saved leaves no extra photo files behind', async () => {
+    const { ctx } = await mountLoaded();
+    // "Delete my data" pauses syncing: nothing new may join the queue, so the
+    // list write refuses the spot after its photos were stored.
+    await act(async () => {
+      await ctx.current.pauseSync();
+    });
+    const error = await ctx.current.enqueue(threePhotoSpot('S')).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(saved()).toEqual([]);
+    await waitFor(() => {
+      expect(fake.photos.has('S-face')).toBe(false);
+      expect(fake.photos.has('S-body')).toBe(false);
+    });
+  });
+
   it('9b: where no photo can be stored outside the list, only the first photo goes inline', async () => {
     // A browser whose list storage is broken can't keep photos durably (R3);
     // the list itself here is AsyncStorage, which still works.
@@ -283,6 +299,28 @@ describe('sending a queued spot', () => {
     expect(lastSent().extraPhotos).toEqual([{ role: 'body', photoBase64: b64('body-S') }]);
     expect(ctx.current.pending[0]).toMatchObject({ status: 'review', extraNote: 'extraMissing' });
     expect(saved()[0]).toMatchObject({ status: 'review', extraNote: 'extraMissing' });
+  });
+
+  it('3b: an extra that merely could not be read this time is not dropped: the spot waits and retries', async () => {
+    seedQueue([storedSpot('S')]);
+    fake.faults.failGet = (id) => id === 'S-face';
+    const { ctx } = await mountLoaded();
+    await act(async () => {
+      await ctx.current.syncNow();
+    });
+    expect(createSighting).not.toHaveBeenCalled();
+    expect(ctx.current.pending[0].status).toBe('queued');
+    expect(ctx.current.pending[0].extraNote).toBeUndefined();
+
+    fake.faults.failGet = undefined;
+    await act(async () => {
+      await ctx.current.syncNow();
+    });
+    expect(lastSent().extraPhotos).toEqual([
+      { role: 'face', photoBase64: b64('face-S') },
+      { role: 'body', photoBase64: b64('body-S') },
+    ]);
+    expect(ctx.current.pending[0].extraNote).toBeUndefined();
   });
 
   it('4: a missing first photo behaves as it does for any spot', async () => {

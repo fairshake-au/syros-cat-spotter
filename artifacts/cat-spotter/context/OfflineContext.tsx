@@ -411,15 +411,22 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         photoBase64 = read.base64;
       }
 
-      // SYC-415: the extra photos. One that has gone missing (or can't be
-      // read) is skipped and the spot sends with the others: a good first
-      // photo is never lost because of an extra (spec §6.4).
+      // SYC-415: the extra photos. One that has gone missing is skipped and
+      // the spot sends with the others: a good first photo is never lost
+      // because of an extra (spec §6.4). One that merely can't be read this
+      // time keeps the spot queued for the next sync.
       const extraPhotos: { role: ExtraRole; photoBase64: string }[] = [];
       let extraMissing = false;
       for (const extra of extrasOf(item)) {
         const extraRead = extra.photoBase64
           ? { status: 'ok' as const, base64: extra.photoBase64 }
           : await readPendingPhoto(extra.photoUri);
+        if (extraRead.status === 'error') {
+          // Could not read it this time: leave the spot queued for the next
+          // sync, exactly as for the first photo. Only a photo that is gone
+          // ('missing') is ever sent without.
+          return 'done';
+        }
         if (extraRead.status === 'ok') {
           extraPhotos.push({ role: extra.role, photoBase64: extraRead.base64 });
         } else {
