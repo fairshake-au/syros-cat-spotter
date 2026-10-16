@@ -367,6 +367,25 @@ describe("SYC-333: a merged cat is judged as the cat it was merged into", () => 
     expect(await catTarget(back.id)).toEqual({ colonyId: colonyB });
   });
 
+  it("two standing merges for one cat (bad data): the newer row counts", async () => {
+    const twice = await seedCat(colonyB);
+    await db.insert(catIdentityTable).values({ catId: twice.id, canonicalCatId: theirs.id, reason: "vt-gcats old" });
+    await db.insert(catIdentityTable).values({ catId: twice.id, canonicalCatId: mine.id, reason: "vt-gcats new" });
+    expect(await catTarget(twice.id)).toEqual({ colonyId: colonyA });
+  });
+
+  it("a chain of 8 merges resolves; 9 is deeper than any real one, so no colony", async () => {
+    const chain: SeededCat[] = [];
+    for (let i = 0; i < 10; i++) chain.push(await seedCat(i === 8 ? colonyA : colonyB));
+    for (let i = 0; i < 9; i++) {
+      await db.insert(catIdentityTable).values({ catId: chain[i]!.id, canonicalCatId: chain[i + 1]!.id, reason: "vt-gcats chain" });
+    }
+    // chain[1] -> ... -> chain[9]: 8 hops, ends in B.
+    expect(await catTarget(chain[1]!.id)).toEqual({ colonyId: colonyB });
+    // chain[0] -> ... -> chain[9]: 9 hops: too deep.
+    expect(await catTarget(chain[0]!.id)).toEqual({ colonyId: null });
+  });
+
   it("a merge loop resolves to no colony, so only the team passes", async () => {
     const x = await seedCat(colonyA);
     const y = await seedCat(colonyA);
