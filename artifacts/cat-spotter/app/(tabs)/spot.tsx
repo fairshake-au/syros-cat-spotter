@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import {
@@ -28,6 +28,8 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { NewSpotIntro } from '@/components/NewSpotIntro';
+import { PhotoTipsCard } from '@/components/photoTips/PhotoTipsCard';
+import { hasSeenPhotoTips, markPhotoTipsSeen } from '@/lib/photoTipsSeen';
 import { notify, confirmChoice } from '@/lib/notify';
 import {
   createSingleFlight,
@@ -228,6 +230,27 @@ export default function SpotScreen() {
       return () => setCameraActive(false);
     }, []),
   );
+
+  // SYC-415 spec §3.2: the photo tips card shows the first time this phone
+  // reaches the camera. `cameraActive` is the tab-focus flag, so this runs when
+  // the spotter arrives on the camera, not while the tab is in the background.
+  const [tipsOpen, setTipsOpen] = useState(false);
+  React.useEffect(() => {
+    if (photo || !cameraActive) return;
+    let cancelled = false;
+    void hasSeenPhotoTips(AsyncStorage).then((seen) => {
+      if (!cancelled && !seen) setTipsOpen(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [photo, cameraActive]);
+  // "Got it" only closes the card and marks it seen. It must never open the
+  // camera or picker itself: browsers allow that only from a direct tap.
+  const closeTips = () => {
+    setTipsOpen(false);
+    void markPhotoTipsSeen(AsyncStorage);
+  };
 
   // Self-healing: a lookup that succeeds CLEARS the flag. A one-way latch would
   // mean a single transient rejection on resume (module not ready, activity
@@ -1176,7 +1199,7 @@ export default function SpotScreen() {
               />
             )}
             <View style={styles.viewfinderTopRow}>
-              <View style={styles.viewfinderSpacer} />
+              <View style={styles.viewfinderSide} />
               {locationChipText ? (
                 <View style={styles.locationChip}>
                   <Text style={styles.locationChipText}>{locationChipText}</Text>
@@ -1184,7 +1207,22 @@ export default function SpotScreen() {
               ) : (
                 <View style={styles.viewfinderSpacer} />
               )}
-              <View style={styles.viewfinderSpacer} />
+              <View style={[styles.viewfinderSide, styles.viewfinderSideEnd]}>
+                {/* SYC-415 spec §3.2: reopens the tips any time. Top corner, away from the shutter. */}
+                <Pressable
+                  testID="photo-tips-link"
+                  onPress={() => setTipsOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('photoTipsLink')}
+                  hitSlop={6}
+                  style={styles.photoTipsLink}
+                >
+                  <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color="#fff" />
+                  <Text style={styles.photoTipsLinkText} numberOfLines={1}>
+                    {t('photoTipsLink')}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
             {cameraPanel ? (
               // The panel takes the framing rectangle's slot in the column so it
@@ -1264,6 +1302,7 @@ export default function SpotScreen() {
           </Text>
         )}
       </ScrollView>
+      <PhotoTipsCard visible={tipsOpen && !photo} onClose={closeTips} />
     </View>
   );
 }
@@ -1326,6 +1365,20 @@ const styles = StyleSheet.create({
     padding: spacing[3],
   },
   viewfinderSpacer: { width: 38, height: 38 },
+  // The two sides share the row equally so the location chip stays centred.
+  viewfinderSide: { flex: 1, minWidth: 0 },
+  viewfinderSideEnd: { alignItems: 'flex-end' },
+  photoTipsLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1] + 2,
+    minHeight: 44,
+    paddingHorizontal: spacing[3],
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    flexShrink: 0,
+  },
+  photoTipsLinkText: { fontFamily: fonts.displaySemiBold, fontSize: fontSizes.xs, color: '#fff' },
   locationChip: {
     paddingVertical: spacing[1] + 2,
     paddingHorizontal: spacing[3],

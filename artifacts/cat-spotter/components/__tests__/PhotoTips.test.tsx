@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, render } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TRANSLATIONS } from '../../lib/i18n';
 
 vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
@@ -36,6 +36,8 @@ const KEYS = [
 ] as const;
 
 describe('PhotoTips', () => {
+  afterEach(cleanup);
+
   it('has every string in English, Greek and French', () => {
     for (const lang of ['en', 'el', 'fr'] as const) {
       for (const k of KEYS) expect((TRANSLATIONS as any)[lang][k], `${lang}.${k}`).toBeTruthy();

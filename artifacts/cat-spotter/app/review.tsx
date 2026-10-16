@@ -27,6 +27,7 @@ import { useOffline } from "@/context/OfflineContext";
 import { useDevice } from "@/context/DeviceContext";
 import { SightingPhoto } from "@/components/SightingPhoto";
 import { CatPicker } from "@/components/CatPicker";
+import { PhotoTips } from "@/components/photoTips/PhotoTips";
 import { useCatsWithCache } from "@/hooks/useCatsWithCache";
 import {
   classifyResolveError,
@@ -405,12 +406,18 @@ export default function ReviewScreen() {
 
   // ----- Not a cat -----
   if (!data.isCatPhoto) {
+    // SYC-415 spec §3.2: the photo tips always show here, when someone most
+    // needs them. A ScrollView, so the tips fit on a short screen.
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: colors.background, padding: 24, gap: 14 },
-        ]}
+      <ScrollView
+        style={{ backgroundColor: colors.background }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+          gap: 14,
+        }}
       >
         <Feather name="help-circle" size={44} color={colors.mutedForeground} />
         <Text style={[styles.successTitle, { color: colors.foreground }]}>
@@ -424,10 +431,11 @@ export default function ReviewScreen() {
         >
           {t("notACatMsg")}
         </Text>
+        <PhotoTips compact />
         <Button variant="primary" size="lg" onPress={close}>
           {t("tryAgain")}
         </Button>
-      </View>
+      </ScrollView>
     );
   }
 
