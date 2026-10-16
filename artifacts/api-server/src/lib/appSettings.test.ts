@@ -12,11 +12,12 @@ import {
 // SYC-36 / SYC-48, match-wait plan PR 1: the switches, as pure functions.
 
 describe("settingsFromRows", () => {
-  it("with no rows: no donation link, the nine sign-off facts hidden, taps counted", () => {
+  it("with no rows: no donation link, the nine sign-off facts hidden, taps counted, extra photos off", () => {
     expect(settingsFromRows([])).toEqual({
       donateUrl: null,
       hiddenFacts: [...SIGN_OFF_FACT_IDS],
       countTaps: true,
+      extraPhotosOn: false,
     });
   });
 
@@ -66,6 +67,12 @@ describe("settingsFromRows", () => {
   it("feed_tap_count false stops the count; a wrong shape counts", () => {
     expect(settingsFromRows([{ key: "feed_tap_count", value: false }]).countTaps).toBe(false);
     expect(settingsFromRows([{ key: "feed_tap_count", value: "no" }]).countTaps).toBe(true);
+  });
+
+  it("extra_photos_on (SYC-415) true shows the boxes; a wrong shape keeps them off", () => {
+    expect(settingsFromRows([{ key: "extra_photos_on", value: true }]).extraPhotosOn).toBe(true);
+    expect(settingsFromRows([{ key: "extra_photos_on", value: false }]).extraPhotosOn).toBe(false);
+    expect(settingsFromRows([{ key: "extra_photos_on", value: "yes" }]).extraPhotosOn).toBe(false);
   });
 });
 

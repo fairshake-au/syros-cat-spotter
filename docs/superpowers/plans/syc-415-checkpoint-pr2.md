@@ -14,9 +14,11 @@ Branch `claude/syc-415-pr2-server-extra-photos`, off `origin/claude/tester-photo
 
 - **Task 2.5** — `routes/sightings.ts`: POST uses `spotPhotoList` → `validateSpotPhotos` (400 names the photo) → `saveSpotWithPhotos` → matcher with all photos; dedupe hit loads `sighting_photos` in position order, falls back to `sightings.photo_id`; `recordMatch` writes `noCatInAnyPhoto` / `mixedCats` (null when the matcher failed). New `sightings.extraPhotos.test.ts` (12 tests). Named suites (upload, dedupe, matchRecord, aiLimiter, upload.auth, resolve) green, unchanged. Probes: dedupe slice, fallback, mixedCats `=== true`.
 
+- **Task 2.6** — `AppSettings.extraPhotosOn` (default false, wrong shape → false); `GET /app-settings` sends `extraPhotos`. Tests in `routes/appSettings.test.ts` and `lib/appSettings.test.ts`; upload-accepts-extras-with-switch-off is case 10 in `sightings.extraPhotos.test.ts` (green from the start, a guard: the route never read the switch). Extra probe: default flipped to on.
+
 ## Next
 
-- Task 2.6 — `/app-settings` switch.
+- Full api-server suite, lib/db tests, typecheck, migrate:check; push; open draft PR.
 
 ## Deviations from the plan, and notes
 

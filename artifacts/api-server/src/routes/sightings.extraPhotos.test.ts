@@ -9,6 +9,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import request from "supertest";
 import sharp from "sharp";
 import {
+  appSettingsTable,
   db,
   pool,
   photosTable,
@@ -31,6 +32,7 @@ vi.mock("../lib/matching", () => ({ matchCatPhoto }));
 
 import app from "../app";
 import { peek } from "../lib/limits";
+import { _resetAppSettingsCacheForTests } from "../lib/appSettings";
 import { DEVICE_MATCH_WINDOW_MS } from "../middlewares/rateLimit";
 
 const PREFIX = "vitest-extraphotos-";
@@ -344,4 +346,24 @@ describe("POST /api/sightings with extra photos", () => {
       expect(meta.exif).toBeUndefined();
     }
   });
+
+  it("10. takes extra photos whatever the switch says (it only hides the boxes)", async () => {
+    // A phone that queued extras while the switch was on must not lose them
+    // after it goes off (plan Task 2.6).
+    await db
+      .insert(appSettingsTable)
+      .values({ key: "extra_photos_on", value: false })
+      .onConflictDoUpdate({ target: appSettingsTable.key, set: { value: false } });
+    _resetAppSettingsCacheForTests();
+    const device = `${PREFIX}switchoff`;
+    const res = await post(device, {
+      photoBase64: RED,
+      extraPhotos: [{ role: "body", photoBase64: BLUE }],
+      capturedAt: freshCapturedAt(),
+    });
+    expect(res.status).toBe(201);
+    const rows = await rowsOf(res.body.sightingId);
+    expect(rows.map((r) => r.role)).toEqual(["first", "body"]);
+  });
 });
+

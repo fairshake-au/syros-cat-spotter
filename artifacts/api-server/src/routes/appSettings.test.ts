@@ -96,7 +96,11 @@ describe("GET /api/app-settings", () => {
   it("with no rows: no donation link, the nine sign-off facts hidden", async () => {
     const res = await request(app).get("/api/app-settings");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ feedNudge: null, hiddenFacts: [...SIGN_OFF_FACT_IDS] });
+    expect(res.body).toEqual({
+      feedNudge: null,
+      hiddenFacts: [...SIGN_OFF_FACT_IDS],
+      extraPhotos: false,
+    });
     expect(res.headers["cache-control"]).toBe("public, max-age=60");
   });
 
@@ -120,6 +124,19 @@ describe("GET /api/app-settings", () => {
     await db.insert(appSettingsTable).values({ key: "starter_facts_hidden", value: ["fact.nope"] });
     const res = await request(app).get("/api/app-settings");
     expect(res.body.hiddenFacts).toEqual([]);
+  });
+
+  it("extra_photos_on = true shows the extra-photo boxes (SYC-415)", async () => {
+    await db.insert(appSettingsTable).values({ key: "extra_photos_on", value: true });
+    _resetAppSettingsCacheForTests();
+    const res = await request(app).get("/api/app-settings");
+    expect(res.body.extraPhotos).toBe(true);
+  });
+
+  it('extra_photos_on of the wrong shape ("yes") keeps them hidden', async () => {
+    await db.insert(appSettingsTable).values({ key: "extra_photos_on", value: "yes" });
+    const res = await request(app).get("/api/app-settings");
+    expect(res.body.extraPhotos).toBe(false);
   });
 
   it("answers from its cache for a minute, then reads the change", async () => {
