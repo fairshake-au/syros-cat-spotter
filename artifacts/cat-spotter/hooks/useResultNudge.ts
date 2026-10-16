@@ -39,15 +39,19 @@ export function useResultNudge(input: {
   const { settings, signals } = useAppSettings();
   const [show, setShow] = useState<ResultNudge>(null);
   const decided = useRef(false);
-  // The first values only: the decision is made once.
-  const first = useRef({ ...input, settings, signals });
+  // The latest values, read when the decision is made (once).
+  const latest = useRef({ ...input, settings, signals });
+  latest.current = { ...input, settings, signals };
+  const { deviceId, sightingId } = input;
 
   useEffect(() => {
-    if (decided.current) return;
+    // Decide once, as soon as the phone's id and the sighting are known. No
+    // "still mounted" flag: in a development build React mounts twice, and
+    // the first run's answer must still be shown (setShow after an unmount is
+    // ignored by React).
+    if (decided.current || !deviceId || sightingId === null) return;
     decided.current = true;
-    const { deviceId, sightingId, localId, screen, settings: s, signals: g } = first.current;
-    if (!deviceId || sightingId === null) return;
-    let alive = true;
+    const { localId, screen, settings: s, signals: g } = latest.current;
     void (async () => {
       const record = await loadExistingWaitingRecord(AsyncStorage, deviceId);
       if (!record) return;
@@ -59,26 +63,24 @@ export function useResultNudge(input: {
         { sightingId, localId, screen },
       );
       if (out.record && out.record !== record) await saveWaitingRecord(AsyncStorage, deviceId, out.record);
-      if (alive) setShow(out.show);
+      setShow(out.show);
     })().catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, []);
+  }, [deviceId, sightingId]);
 
   const dismiss = useCallback(() => setShow(null), []);
 
   const help = useCallback(() => {
     setShow(null);
-    const deviceId = first.current.deviceId;
-    if (deviceId) {
-      void (async () => {
-        const record = await loadExistingWaitingRecord(AsyncStorage, deviceId);
-        if (record) await saveWaitingRecord(AsyncStorage, deviceId, markTapped(record));
-      })().catch(() => undefined);
-    }
+    const id = latest.current.deviceId;
     // The phone's own browser, never a page inside the app (Apple 3.2.2(iv)).
-    Linking.openURL(feedLinkUrl()).catch(() => undefined);
+    // The tap counts (no more daily reminders) only once the browser opened.
+    Linking.openURL(feedLinkUrl())
+      .then(async () => {
+        if (!id) return;
+        const record = await loadExistingWaitingRecord(AsyncStorage, id);
+        if (record) await saveWaitingRecord(AsyncStorage, id, markTapped(record));
+      })
+      .catch(() => undefined);
   }, []);
 
   return { show, dismiss, help };

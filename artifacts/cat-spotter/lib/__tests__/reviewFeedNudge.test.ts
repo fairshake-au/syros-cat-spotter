@@ -59,7 +59,16 @@ describe('the feeding nudge on the result screens', () => {
   });
 
   it('decides once, from a stored record only (a wiped record is not brought back)', () => {
-    expect(hook).toMatch(/if \(decided\.current\) return;/);
+    expect(hook).toMatch(/if \(decided\.current \|\| !deviceId \|\| sightingId === null\) return;/);
     expect(hook).toMatch(/loadExistingWaitingRecord/);
+  });
+
+  it('the decision is never thrown away by an effect clean-up (development builds mount twice)', () => {
+    // Weak kind: React in this test setup doesn't double-run effects under
+    // StrictMode (checked: one run), so the case can't be rendered here. The
+    // fix is that the deciding effect has no clean-up guarding setShow.
+    const effect = hook.slice(hook.indexOf('useEffect(() => {'), hook.indexOf('}, [deviceId, sightingId]);'));
+    expect(effect).toMatch(/setShow\(out\.show\);/);
+    expect(effect).not.toMatch(/let alive|isMounted|mountedRef|return \(\) =>/);
   });
 });

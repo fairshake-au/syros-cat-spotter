@@ -36,7 +36,8 @@ const put = (r: WaitingRecord) => h.storage.set(KEY, JSON.stringify(r));
 
 beforeEach(() => {
   h.storage.clear();
-  h.openURL.mockClear();
+  h.openURL.mockReset().mockResolvedValue(undefined);
+  h.signals = { status: 'known', hasClaimedCat: false, firstSpotDate: null };
 });
 
 describe('useResultNudge', () => {
@@ -48,13 +49,37 @@ describe('useResultNudge', () => {
     expect(record().pendingResult).toBeNull();
   });
 
-  it('decides once: a re-render with other props changes nothing', async () => {
+  it('decides once, as soon as the phone\'s id is known (it may arrive after the screen opens)', async () => {
     put({ ...emptyRecord(), pendingResult: { sightingId: 5, nudge: 'link', countable: true } });
-    const { result, rerender } = renderHook((p: { screen: 'matches' | 'naming' }) =>
-      useResultNudge({ deviceId: 'dev-a', sightingId: 5, screen: p.screen }), { initialProps: { screen: 'matches' } });
-    await waitFor(() => expect(result.current.show).not.toBeNull());
-    rerender({ screen: 'naming' });
-    expect(result.current.show).toEqual({ kind: 'nudge', form: 'link' });
+    const { result, rerender } = renderHook((p: { deviceId: string | null }) =>
+      useResultNudge({ deviceId: p.deviceId, sightingId: 5, screen: 'matches' }), { initialProps: { deviceId: null as string | null } });
+    await new Promise((res) => setTimeout(res, 20));
+    expect(result.current.show).toBeNull();
+    rerender({ deviceId: 'dev-a' });
+    await waitFor(() => expect(result.current.show).toEqual({ kind: 'nudge', form: 'link' }));
+    // A later change of id doesn't decide again.
+    const before = h.storage.get(KEY);
+    rerender({ deviceId: 'dev-b' });
+    await new Promise((res) => setTimeout(res, 20));
+    expect(h.storage.get(KEY)).toBe(before);
+    expect(h.storage.has(waitingCardKey('dev-b'))).toBe(false);
+  });
+
+  it('a visitor on a later day gets the one-liner, and the day is used up', async () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    put({ ...emptyRecord(), nudgeCounted: true, nudgeCountedDay: '2026-01-01', lastLineDay: yesterday, pendingResult: { sightingId: 6, nudge: null, countable: false } });
+    h.signals = { status: 'known', hasClaimedCat: false, firstSpotDate: null };
+    const { result } = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 6, screen: 'naming' }));
+    await waitFor(() => expect(result.current.show).toEqual({ kind: 'line' }));
+    expect(record().lastLineDay).not.toBe(yesterday);
+  });
+
+  it('the no-cat screen shows nothing and uses up the pending result', async () => {
+    put({ ...emptyRecord(), pendingResult: { sightingId: 5, nudge: 'link', countable: true } });
+    const { result } = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 5, screen: 'notCat' }));
+    await waitFor(() => expect(record().pendingResult).toBeNull());
+    expect(result.current.show).toBeNull();
+    expect(record().nudgeCounted).toBe(false);
   });
 
   it('a queued sighting (localId) shows nothing and leaves the record alone', async () => {
@@ -81,6 +106,16 @@ describe('useResultNudge', () => {
     expect(result.current.show).toBeNull();
     expect(h.openURL).toHaveBeenCalledWith('https://api.example/api/go/feed');
     await waitFor(() => expect(record().tapped).toBe(true));
+  });
+
+  it('a browser that fails to open doesn\'t count as a tap', async () => {
+    put({ ...emptyRecord(), pendingResult: { sightingId: 5, nudge: 'link', countable: true } });
+    h.openURL.mockRejectedValueOnce(new Error('no browser'));
+    const { result } = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 5, screen: 'matches' }));
+    await waitFor(() => expect(result.current.show).not.toBeNull());
+    act(() => result.current.help());
+    await new Promise((res) => setTimeout(res, 20));
+    expect(record().tapped).toBe(false);
   });
 
   it('Got it hides it and marks nothing', async () => {
