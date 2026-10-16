@@ -18,6 +18,7 @@ import { BANDS } from "../lib/mapTiles/geometry";
 import { guardianOn, newColony, putInColony, seedCat } from "../test/roleKit";
 import { deleteTestSightings } from "../test/sightings";
 import { isOpaqueAddress } from "../test/opaqueAddress";
+import { isOpenMapLink } from "../test/openMapLink";
 
 // SYC-209 PR 3.4: the entry points. "Make a feeding site here" and "Show on
 // our map" on each sighting of the team's cat page, and "Add a feeding site
@@ -117,6 +118,7 @@ function expectNoPositionInAddresses(html: string) {
   expect(values.length).toBeGreaterThan(0);
   for (const v of values) {
     if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
+    if (isOpenMapLink(v)) continue; // D9's outbound Open map link, for the team only (SYC-395)
     expect(v, v).not.toMatch(/\d+\.\d+/);
     expect(v, v).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, v).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy)=/i);
@@ -228,15 +230,21 @@ describe("the cat page: two buttons on each sighting", () => {
       );
     }
     // The positions still show as plain text for the team, and nowhere else.
-    expect(res.text).toContain(`${SPOT_A.lat}, ${SPOT_A.lng}`);
+    // Printed to 5 places by position.ts (SYC-395).
+    expect(res.text).toContain(`${SPOT_A.lat.toFixed(5)}, ${SPOT_A.lng.toFixed(5)}`);
     expectNoPositionInAddresses(res.text);
   });
 
-  it("the page has no link to a map company", async () => {
+  // SYC-395 (D9): the team gets Open map links beside the buttons (built by
+  // position.ts only); no other map company, and no other link shape.
+  it("the page's only map-company links are position.ts's Open map links", async () => {
     const res = await get(`/api/team/cats/${catId}`);
-    for (const company of ["google.com/maps", "maps.apple.com", "maps.google.", "goo.gl/maps", "geo:", "waze.com", "openstreetmap.org/?mlat"]) {
+    for (const company of ["maps.apple.com", "maps.google.", "goo.gl/maps", "geo:", "waze.com", "openstreetmap.org/?mlat"]) {
       expect(res.text).not.toContain(company);
     }
+    const google = [...res.text.matchAll(/href="([^"]*google\.com\/maps[^"]*)"/g)].map((m) => m[1]!);
+    expect(google.length).toBeGreaterThan(0);
+    for (const href of google) expect(isOpenMapLink(href), href).toBe(true);
   });
 
   it("a cat's name and a colony's name with markup are escaped on the page", async () => {

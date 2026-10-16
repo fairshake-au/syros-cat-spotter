@@ -5,6 +5,7 @@ import { escapeHtml as esc } from "./escape";
 import { dayIn } from "./colonyPages";
 import { renderPage } from "./layout";
 import { renderMap, type MapMarker } from "./map";
+import { position } from "./position";
 import { wordsIn, type WordKey, type Words } from "./words";
 import {
   SITE_DIRECTIONS_MAX,
@@ -16,8 +17,10 @@ import {
 // The team's Feeding sites pages (SYC-209 PR 3.2; spec §2.1, §2.2, §8).
 // Server-drawn, no scripts, read-only. Every value a person typed (a site's
 // name, notes, directions, a colony's name, a person's name) goes through
-// escapeHtml. No link to any map company, and no position in any address:
-// the only addresses here are site and colony numbers (K13).
+// escapeHtml. No position in any of our own addresses: the only addresses
+// here are site and colony numbers (K13). Positions print through
+// position.ts, which adds D9's outbound "Open map" link only for an
+// island-wide viewer (`island === true`; SYC-395).
 //
 // **A cat guardian (PR 4.1).** The same pages, drawn from data already
 // filtered to her colonies (lib/teamSites.ts), in her language, with her own
@@ -44,8 +47,12 @@ export const SITES_MOVE_PATH = "/api/team/sites/map";
 const siteHref = (id: number) => `${SITES_PATH}/${id}`;
 const colonyHref = (id: number) => `/api/team/colonies/${id}`;
 
-/** A position as the cat page prints it: five decimal places. */
-export const fmtPos = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+/**
+ * Only an island-wide viewer gets "Open map" (D9). Unlike `island` above,
+ * which defaults to the team's view, a viewer not said to be island-wide gets
+ * no link.
+ */
+const mapLinks = (v: { island?: boolean }) => v.island === true;
 
 // ── The list page ──────────────────────────────────────────────────────────
 
@@ -298,17 +305,17 @@ export function renderSiteActions(
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
 
-/** A position as plain text, team-only. */
-function where(o: Record<string, unknown> | null): string | null {
+/** A position from a history row, through position.ts. Trusted HTML. */
+function where(o: Record<string, unknown> | null, link: boolean): string | null {
   const p = o && typeof o["position"] === "object" && o["position"] ? (o["position"] as Record<string, unknown>) : o;
   const lat = num(p?.["lat"]);
   const lng = num(p?.["lng"]);
-  return lat !== null && lng !== null ? fmtPos(lat, lng) : null;
+  return lat !== null && lng !== null ? position(lat, lng, { link }) : null;
 }
 
 const quoted = ({ w }: Words, v: string | null) => (v === null || v === "" ? w("site.none") : `“${esc(v)}”`);
 
-function describe(W: Words, e: SiteHistoryEntry): string {
+function describe(W: Words, e: SiteHistoryEntry, link: boolean): string {
   const { w } = W;
   const q = (v: string | null) => quoted(W, v);
   if (e.redacted) return w("history.removed");
@@ -320,8 +327,8 @@ function describe(W: Words, e: SiteHistoryEntry): string {
     case "created":
     case "seeded": {
       const name = str(a["name"]);
-      const at = where(e.after);
-      detail = [name ? q(name) : "", at ? esc(at) : ""].filter(Boolean).join(" · ");
+      const at = where(e.after, link);
+      detail = [name ? q(name) : "", at ?? ""].filter(Boolean).join(" · ");
       break;
     }
     case "renamed":
@@ -329,9 +336,9 @@ function describe(W: Words, e: SiteHistoryEntry): string {
       break;
     case "moved":
     case "made_private_moved": {
-      const from = where(e.before);
-      const to = where(e.after);
-      detail = from || to ? `${esc(from ?? "")} → ${esc(to ?? "")}` : "";
+      const from = where(e.before, link);
+      const to = where(e.after, link);
+      detail = from || to ? `${from ?? ""} → ${to ?? ""}` : "";
       break;
     }
     case "label_changed":
@@ -344,7 +351,7 @@ function describe(W: Words, e: SiteHistoryEntry): string {
   return kindText(W, e.kind) + (detail ? `: ${detail}` : "") + reason;
 }
 
-function historyList(W: Words, history: SiteHistoryEntry[]): string {
+function historyList(W: Words, history: SiteHistoryEntry[], link: boolean): string {
   const { w } = W;
   if (history.length === 0) return `<p class="empty">${w("site.noHistory")}</p>`;
   return (
@@ -352,7 +359,7 @@ function historyList(W: Words, history: SiteHistoryEntry[]): string {
     history
       .map(
         (e) =>
-          `<li class="statement"><p>${describe(W, e)}</p>` +
+          `<li class="statement"><p>${describe(W, e, link)}</p>` +
           `<p class="meta">${w("site.by")} ${esc(e.by)} · <time datetime="${esc(e.at)}">${esc(dayIn(W.lang, e.at))}</time></p></li>`,
       )
       .join("") +
@@ -422,9 +429,9 @@ export function renderSitePage(opts: SiteViewer & {
       `<h2>${w("site.directions")}</h2>` +
       textOrNone(W, s.directions) +
       `<h2>${w("site.position")}</h2>` +
-      `<p class="syrline">${esc(fmtPos(s.lat, s.lng))}</p>` +
+      `<p class="syrline">${position(s.lat, s.lng, { link: mapLinks(opts) })}</p>` +
       `<h2>${w("site.historyTitle")}</h2>` +
-      historyList(W, s.history) +
+      historyList(W, s.history, mapLinks(opts)) +
       (mayAct
         ? `<h2>${w("act.title")}</h2>` +
           `<div class="actions" data-actions="site">${renderSiteActions(s, opts.colonies, opts.lang)}</div>`

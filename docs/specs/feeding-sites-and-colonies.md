@@ -74,6 +74,12 @@ A team member can start in three places, because people think about feeding spot
 
 - **From the Feeding sites page: "Add a site".** Pick the spot on the map (§3).
 - **From a cat's page: "Make a feeding site here".** The cat's page already shows its sightings with exact positions to the team. A sighting is often the moment someone says "that's where she's fed". The button starts a new site pre-placed at that sighting, and the team member can nudge it before saving. **Precondition: SYC-245 must be done first.** Today the same cat page, the welfare queue and the welfare alert email link the exact sighting position out to Google Maps, so the spot has probably already been sent to Google before anyone makes a site of it. The button does not ship until those links are gone (or, as a fallback, are dropped for any sighting within 50 m of a site).
+  - **Reversed for the team's outbound links (SYC-395, 15 Oct 2026).** Samuel decided that "map links for coordinates are fine for the team. the privacy considerations don't apply to Syros Cats users", with "Everywhere, sites included" (dashboard redesign D9).
+    - Island-wide team members now get an **Open map** link on every position the dashboard prints: cats, sightings, colony centres, feeding sites, the welfare queue, and the add and move pages.
+    - The link is built only by `lib/teamPages/position.ts`, and only when `isIslandWide(person)`.
+    - It never appears for a cat guardian, on an owner's home pin, or in anything public.
+    - The welfare queue's 50 m near-site rule is gone with it. The welfare alert email keeps its own rule (SYC-385).
+    - K13 still holds for our own addresses. The Open map link is the one outbound exception.
 - **From a colony's page: "Add a feeding site to this colony".** The new site arrives already linked.
 
 The form asks for: **a name** (the convention is a place plus the guardian, "Vaporia — Eleni's", the same as colonies), **which colony** (optional for the team; it can be added later; a guardian's is always her own), **how to find it** (optional) and **notes** (optional). It does not ask for anything public. A new site is always private. There is no way to create a site as public. A second way to place a site, for anyone who cannot use a tap (a keyboard or screen-reader user): type coordinates, with a warning "Don't copy these from a map company's site; ask a colleague who has been there" (§3).

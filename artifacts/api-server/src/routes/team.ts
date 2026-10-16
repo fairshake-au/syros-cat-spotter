@@ -29,7 +29,8 @@ import {
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can, capabilitiesOf, mayEnter } from "../lib/capabilities";
 import { renderQueuePage } from "../lib/teamPages/queuePage";
-import { listWelfareQueue, queueNearFeedingSites } from "../lib/welfareQueue";
+import { listWelfareQueue } from "../lib/welfareQueue";
+import { isIslandWide } from "../lib/guardianView";
 
 // The staff dashboard on team.catspotters.com (team-access spec §2.4, §2.6,
 // §8.2; SYC-43 part 1 plan §5, §6). No CORS headers: app.ts skips /api/team/.
@@ -183,7 +184,6 @@ router.get(
     const person = teamPerson(res);
     setTeamHeaders(res); // before any await, so an error answer carries them too
     const queue = await listWelfareQueue();
-    const near = await queueNearFeedingSites(queue);
     // ?changed=<publicId>: the state route's 303 after someone else moved
     // that report first. Only a string is used, and only to pick a card.
     const changed =
@@ -201,7 +201,8 @@ router.get(
       typeof req.query["noted"] === "string" ? req.query["noted"] : undefined;
     res
       .type("html")
-      .send(renderQueuePage(queue, person.name, new Date(), changed, tied, near, noted));
+      // Open map on each position only for an island-wide viewer (D9, SYC-395).
+      .send(renderQueuePage(queue, person.name, new Date(), changed, tied, isIslandWide(person), noted));
   },
 );
 

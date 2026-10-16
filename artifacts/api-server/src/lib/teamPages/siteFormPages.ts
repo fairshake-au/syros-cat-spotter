@@ -1,7 +1,8 @@
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { renderMap, type MapMarker } from "./map";
-import { fmtPos, SITES_PATH, stampField } from "./sitePages";
+import { position } from "./position";
+import { SITES_PATH, stampField } from "./sitePages";
 import { t, wordsIn, type WordKey } from "./words";
 import { viewAround, type Position, type View } from "../mapTiles/geometry";
 import {
@@ -15,7 +16,9 @@ import {
 // §2.4, §3). Server-drawn, no scripts. A picked position travels in hidden
 // fields of POST forms and nowhere else: no href, action or src on any of
 // these pages holds a position (plan K13). Every value a person typed goes
-// through escapeHtml.
+// through escapeHtml. The one outbound exception is D9's "Open map" link
+// (SYC-395), built by position.ts, only when the viewer is island-wide
+// (`island === true`).
 //
 // The picker and the move pages are the team's (English) until PR 4.2. The
 // confirmation page and the problem page can be reached by a cat guardian
@@ -165,7 +168,7 @@ export function renderAddConfirm(o: {
     body:
       smallMap(o.spot, o.zoom, [{ ...o.spot, label: t("confirm.spot"), look: "private" }], PICK_PATH, { ...c0 }, o.lang) +
       `<p class="hint">${w("confirm.nudge")}</p>` +
-      `<p class="tapped">${w("confirm.spot")}: <strong>${esc(fmtPos(o.spot.lat, o.spot.lng))}</strong>. ${w("confirm.legend")}</p>` +
+      `<p class="tapped">${w("confirm.spot")}: <strong>${position(o.spot.lat, o.spot.lng, { link: o.island === true })}</strong>. ${w("confirm.legend")}</p>` +
       checkTapBlock(o.checkNote) +
       `<p class="hint">${w("new.private")}</p>` +
       `<form method="post" action="${esc(SITES_PATH)}">` +
@@ -195,6 +198,8 @@ export function renderMoveConfirm(o: {
   zoom: number;
   checkNote?: string;
   reason?: string;
+  /** Island-wide viewer (`isIslandWide`): only then "Open map" (D9). */
+  island?: boolean;
 }): string {
   const base = `${SITES_PATH}/${o.site.id}`;
   return renderPage({
@@ -210,8 +215,8 @@ export function renderMoveConfirm(o: {
       ], `${base}/move/pick`, { updatedAt: o.site.stamp, reason: o.reason ?? "" }) +
       `<p class="hint">${w("confirm.nudge")}</p>` +
       `<p class="hint">${w("move.legend")}</p>` +
-      `<p class="tapped">${w("move.now")}: ${esc(fmtPos(o.site.lat, o.site.lng))}<br>` +
-      `${w("move.new")}: <strong>${esc(fmtPos(o.spot.lat, o.spot.lng))}</strong></p>` +
+      `<p class="tapped">${w("move.now")}: ${position(o.site.lat, o.site.lng, { link: o.island === true })}<br>` +
+      `${w("move.new")}: <strong>${position(o.spot.lat, o.spot.lng, { link: o.island === true })}</strong></p>` +
       checkTapBlock(o.checkNote) +
       (o.site.isPublic ? `<p class="notice">${w("move.publicWarning")}</p>` : "") +
       `<form method="post" action="${esc(base)}/move">` +

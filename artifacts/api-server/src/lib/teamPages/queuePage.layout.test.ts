@@ -43,7 +43,7 @@ const render = (
   q: WelfareQueue,
   changedId?: string,
   tied?: { id: string; key: string },
-) => renderQueuePage(q, "Maria", NOW, changedId, tied, new Set());
+) => renderQueuePage(q, "Maria", NOW, changedId, tied, true);
 
 /** The article for one report. */
 const article = (html: string, id: string) => {
@@ -182,7 +182,7 @@ describe("queue page closed reports", () => {
 
 describe("after a team note is saved (?noted=)", () => {
   const noted = (q: WelfareQueue, id: string) =>
-    renderQueuePage(q, "Maria", NOW, undefined, undefined, new Set(), id);
+    renderQueuePage(q, "Maria", NOW, undefined, undefined, true, id);
 
   it("says it's saved and keeps a closed report and its note box open", () => {
     const html = noted(queue([report("a")], [report("c", { state: "done", teamNote: "Fed" })]), "c");

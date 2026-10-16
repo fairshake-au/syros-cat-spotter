@@ -340,18 +340,23 @@ describe("P3-2 (team half): the team's cat page shows exact positions", () => {
     ]);
     expect([view.cat.lat, view.cat.lng]).toEqual([37.4451234, 24.9423456]);
     const html = await catHtml();
-    expect(html).toContain("37.4461987, 24.9433456");
-    expect(html).toContain("37.4447123, 24.9418765");
+    // The page prints positions to 5 decimal places, about 1 m (SYC-395, D9).
+    expect(html).toContain("37.44620, 24.94335");
+    expect(html).toContain("37.44471, 24.94188");
+    expect(html).toContain("37.44512, 24.94235");
   });
 
-  it("SYC-245: the positions are plain text, with no link to any map company", async () => {
+  it("SYC-395 (D9, reverses SYC-245 for outbound links): an island-wide team member gets an Open map link on every position, and nothing else leaves the dashboard", async () => {
     const html = await catHtml();
-    expect(html).toContain("37.4461987, 24.9433456");
-    expect(html).not.toContain("Open map");
-    // Any link at all that points off the dashboard is a failure here.
-    const external = [...html.matchAll(/<a\b[^>]*\shref="(https?:[^"]*)"/gi)].map((m) => m[1]);
-    expect(external).toEqual([]);
-    expect(html).not.toMatch(/google\.com\/maps|maps\.apple\.com|maps\.google\.|goo\.gl\/maps|waze\.com|openstreetmap\.org/i);
+    // First recorded, and each of the two sightings.
+    expect(html.split(">Open map</a>")).toHaveLength(4);
+    const external = [...html.matchAll(/<a\b[^>]*\shref="(https?:[^"]*)"/gi)].map((m) => m[1]!.replace(/&amp;/g, "&"));
+    expect(external.sort()).toEqual(
+      ["37.44512,24.94235", "37.44620,24.94335", "37.44471,24.94188"]
+        .map((q) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`)
+        .sort(),
+    );
+    expect(html).not.toMatch(/maps\.apple\.com|maps\.google\.|goo\.gl\/maps|waze\.com|openstreetmap\.org/i);
   });
 
   it("shows the status exactly as the public cat page does, plus the resolver's own answer", async () => {

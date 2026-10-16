@@ -18,6 +18,7 @@ import { mintTileToken, readTileToken } from "../lib/mapTiles/tileToken";
 import { guardianOn, newColony } from "../test/roleKit";
 import { makePrivateIfPublic } from "../lib/teamSiteWrites";
 import { isOpaqueAddress } from "../test/opaqueAddress";
+import { isOpenMapLink } from "../test/openMapLink";
 
 // SYC-209 PR 3.3: adding, moving, retiring and bringing back feeding sites,
 // and changing their colony. Spec tests 7 (never created public), 9 (early
@@ -169,6 +170,7 @@ function expectNoPositionInAddresses(html: string) {
   expect(values.length).toBeGreaterThan(0);
   for (const v of values) {
     if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
+    if (isOpenMapLink(v)) continue; // D9's outbound Open map link, for the team only (SYC-395)
     expect(v, v).not.toMatch(/\d+\.\d+/);
     expect(v, v).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, v).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy)=/i);

@@ -1,4 +1,4 @@
-import { visibleColonyIds } from "../lib/guardianView";
+import { isIslandWide, visibleColonyIds } from "../lib/guardianView";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { searchTeamCats, teamCatView } from "../lib/teamCatView";
 import { getQueueReport } from "../lib/welfareQueue";
@@ -113,6 +113,7 @@ router.get(
           ? await allColonyChoices(visibleColonyIds(person))
           : undefined,
         allHistory: req.query["history"] === "all",
+        island: isIslandWide(person),
       }),
     );
   },

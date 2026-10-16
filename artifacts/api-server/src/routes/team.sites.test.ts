@@ -20,6 +20,7 @@ import { BANDS, viewAround } from "../lib/mapTiles/geometry";
 import { mintTileToken } from "../lib/mapTiles/tileToken";
 import * as teamSites from "../lib/teamSites";
 import { isOpaqueAddress } from "../test/opaqueAddress";
+import { isOpenMapLink } from "../test/openMapLink";
 
 // The read insert is wrapped so one test can make it fail; every other call is real.
 vi.mock("../lib/teamSites", async (importOriginal) => {
@@ -169,6 +170,7 @@ function expectNoPositionInAddresses(html: string) {
   expect(values.length).toBeGreaterThan(0);
   for (const v of values) {
     if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
+    if (isOpenMapLink(v)) continue; // D9's outbound Open map link, for the team only (SYC-395)
     expect(v, v).not.toMatch(/\d+\.\d+/);
     expect(v, v).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, v).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy)=/i);
@@ -478,7 +480,10 @@ describe("one site", () => {
     });
     const html = decoded((await get(`/api/team/sites/${s.id}`)).text);
     expect(html.indexOf("Moved:")).toBeLessThan(html.indexOf("Site created"));
-    expect(html).toContain("Moved: 37.10000, 24.10000 → 37.20000, 24.20000");
+    // Each position carries the team's Open map link (SYC-395, D9).
+    expect(html).toMatch(
+      /Moved: 37\.10000, 24\.10000 &middot; <a [^>]*>Open map<\/a> → 37\.20000, 24\.20000 &middot; <a [^>]*>Open map<\/a>/,
+    );
     expect(html).toContain("Reason: pin was on the wrong side of the road");
   });
 
@@ -658,21 +663,25 @@ describe("the colony page's sites list", () => {
   });
 });
 
-describe("no link out to any map company", () => {
-  it("none of the new pages holds one", async () => {
+// SYC-395 (D9) reverses SYC-245 / Decision 2B for outbound links: an
+// island-wide team member gets Open map on the site's position. Nothing else
+// leaves the site, and no other map company is named. (Cat guardians: see
+// routes/team.guardianView.test.ts.)
+describe("links out to a map company: Open map only", () => {
+  it("the list has none; a site's page links its position once, with Open map", async () => {
     const s = await makeSite({ notes: "x" });
-    const pages = [
-      (await get("/api/team/sites?retired=1")).text,
-      (await get(`/api/team/sites/${s.id}`)).text,
-    ];
-    for (const html of pages) {
-      for (const c of ["google.com/maps", "maps.apple.com", "maps.google.", "goo.gl/maps", "geo:", "waze.com"]) {
+    const list = (await get("/api/team/sites?retired=1")).text;
+    const page = (await get(`/api/team/sites/${s.id}`)).text;
+    for (const html of [list, page]) {
+      for (const c of ["maps.apple.com", "maps.google.", "goo.gl/maps", "geo:", "waze.com"]) {
         expect(html).not.toContain(c);
       }
-      // The only link off our site is the map picture credit.
-      const external = [...html.matchAll(/href="(https?:[^"]*)"/g)].map((m) => m[1]);
-      expect(external).toEqual(["https://www.openstreetmap.org/copyright"]);
     }
+    const external = (html: string) => [...html.matchAll(/href="(https?:[^"]*)"/g)].map((m) => m[1]!);
+    expect(external(list)).toEqual(["https://www.openstreetmap.org/copyright"]);
+    expect(external(page).filter((h) => !isOpenMapLink(h))).toEqual(["https://www.openstreetmap.org/copyright"]);
+    expect(external(page).filter(isOpenMapLink)).toHaveLength(1);
+    expect(page).toContain(`query=${encodeURIComponent(`${s.lat.toFixed(5)},${s.lng.toFixed(5)}`)}`);
   });
 
 });
