@@ -12,9 +12,16 @@ Branch `claude/syc-415-pr3-extra-photo-readers`, built on `claude/syc-415-pr2-se
 
 - **Coordinator note (PR 2 review)** — a sighting's `photo_id` is always the cover, with or without `sighting_photos` rows; extras are rows whose `photo_id` differs from it. Both readers already work that way. Added a test in `cats.extraPhotos.test.ts` and in `team.extraPhotos.test.ts` for a sighting with no `sighting_photos` rows (cover shown once, no extras, `source: "sighting"`).
 
+- **Task 3.4** — `components/SightingPhotos.tsx` (cover + up to two 48pt thumbnails with a full-size viewer, hidden photos show nothing) used by `app/cat/[id].tsx`; i18n `extraPhotoFirstLabel`, `extraPhotoFaceLabel`, `extraPhotoBodyLabel` and `extraPhotoClose` in en/el/fr. `components/__tests__/SightingPhotos.test.tsx` (4). Probe: thumbnails rendered for hidden extras -> the hidden test red. Full app suite 122 files / 1431 tests; app typecheck clean.
+
 ## Next
 
-- Task 3.4 (app thumbnails), then the final runs and the draft PR.
+- Final full runs, push, draft PR. The browser check at 390px and desktop is the parent's.
+
+## Task 3.4 deviations
+
+- The plan says a tap opens "the same full-size viewer the cover uses". There is none: the cover on the cat page isn't tappable and the app has no photo viewer. `SightingPhotos` carries a small full-screen modal (tap anywhere to close, labelled by the new `extraPhotoClose` key, registered with `registerModalOpen` like the other modals). The cover stays as it was (not tappable).
+- Thumbnails sit under the cover, not beside it: a sighting tile is about 109px wide at 390px, which fits two 48pt thumbnails under it but not beside it.
 
 ## Deviations and notes
 
