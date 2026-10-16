@@ -689,6 +689,7 @@ router.post(
     }
     const out = await retireSite(teamPerson(res).id, id, parsed.data.updatedAt, parsed.data.reason);
     if (out.kind === "already_retired") {
+      req.log.info({ reason: "already_retired" }, "feeding site retire: nothing to do");
       if (isFormPost(req)) return void res.redirect(303, sitePath(id, "alreadyRetired"));
       return void res.json({ changed: 0, alreadyRetired: true });
     }
