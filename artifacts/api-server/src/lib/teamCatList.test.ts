@@ -75,14 +75,14 @@ async function say(catId: number, kind: string, value: unknown, observedAt = day
   });
 }
 
-async function sighted(catId: number, when: Date, lat: number, lng: number) {
+async function sighted(catId: number, when: Date, lat: number, lng: number, status = "resolved") {
   await db.insert(sightingsTable).values({
     catId,
     deviceId: DEVICE,
     photoId,
     lat,
     lng,
-    status: "resolved",
+    status,
     createdAt: when,
   });
 }
@@ -123,6 +123,20 @@ beforeAll(async () => {
   // Never seen again; found at Vari. No colour known.
   await cat("Never", { lat: 37.3983488, lng: 24.9467109 });
 
+  // Two resolved sightings (Galissas 10 days ago, Finikas 4 days ago), then a
+  // NEWER pending one (Vari) and a NEWER awaiting_team one (Posidonia).
+  await cat("Mixed");
+  await sighted(ids["Mixed"]!, daysAgo(10), 37.4226, 24.8825);
+  await sighted(ids["Mixed"]!, daysAgo(4), 37.3976, 24.8783);
+  await sighted(ids["Mixed"]!, daysAgo(2.5), 37.3983, 24.9467, "pending");
+  await sighted(ids["Mixed"]!, daysAgo(1), 37.3889, 24.8874, "awaiting_team");
+
+  // Two resolved sightings at exactly the same moment: the later row wins.
+  await cat("Tie");
+  const same = daysAgo(6);
+  await sighted(ids["Tie"]!, same, 37.4436, 24.8889); // Kini, first row
+  await sighted(ids["Tie"]!, same, 37.4447, 24.9417); // Ermoupoli, second row
+
   // No longer with us.
   await cat("Gone");
   await say(ids["Gone"]!, "life_status", { status: "deceased" });
@@ -133,8 +147,8 @@ afterAll(cleanup);
 describe("listTeamCats", () => {
   it("lists cats with no filters, most recently seen first, never-seen last", async () => {
     const r = await list();
-    expect(names(r.items)).toEqual(["Ginger", "Black", "Never"]);
-    expect(r.total).toBe(3);
+    expect(names(r.items)).toEqual(["Ginger", "Mixed", "Tie", "Black", "Never"]);
+    expect(r.total).toBe(5);
   });
 
   it("hides cats who are gone by default, and shows them when asked", async () => {
@@ -148,15 +162,32 @@ describe("listTeamCats", () => {
     expect(r.find((i) => i.name.endsWith("Ginger"))!.colonyId).toBe(colonyA);
   });
 
+  it("last seen comes from the newest RESOLVED sighting, never a newer pending or awaiting one", async () => {
+    const m = mine((await list()).items).find((i) => i.name.endsWith("Mixed"))!;
+    expect(m.lastSeenAt!.getTime()).toBe(daysAgo(4).getTime());
+    expect(m.place).toBe("Finikas");
+    expect(m.lastSeen).toEqual({ lat: 37.3976, lng: 24.8783 });
+  });
+
+  it("two resolved sightings at the same moment: the later row wins", async () => {
+    const t = mine((await list()).items).find((i) => i.name.endsWith("Tie"))!;
+    expect(t.place).toBe("Ermoupoli");
+  });
+
+  it("counts every cat, so the page can tell 'none yet' from 'all hidden'", async () => {
+    const r = await list();
+    expect(r.catCount).toBeGreaterThanOrEqual(6);
+  });
+
   it("filters by colour (any chosen), and by 'not sure' for a cat with no colour known", async () => {
     expect(names((await list({ colours: ["ginger"] })).items)).toEqual(["Ginger"]);
     expect(names((await list({ colours: ["ginger", "black"] })).items)).toEqual(["Ginger", "Black"]);
-    expect(names((await list({ colours: ["not_sure"] })).items)).toEqual(["Never"]);
+    expect(names((await list({ colours: ["not_sure"] })).items)).toEqual(["Mixed", "Tie", "Never"]);
   });
 
   it("filters by area using the last sighting, else where the cat was first found", async () => {
     expect(names((await list({ area: "kini" })).items)).toEqual(["Ginger"]);
-    expect(names((await list({ area: "ermoupoli" })).items)).toEqual(["Black"]);
+    expect(names((await list({ area: "ermoupoli" })).items)).toEqual(["Tie", "Black"]);
     expect(names((await list({ area: "vari" })).items)).toEqual(["Never"]);
   });
 
@@ -170,12 +201,14 @@ describe("listTeamCats", () => {
     expect(markOfName("Black")).toBe("not_sterilised");
     expect(markOfName("Never")).toBe("not_known");
     expect(names((await list({ sterilised: ["not_sterilised"] })).items)).toEqual(["Black"]);
-    expect(names((await list({ sterilised: ["not_known", "not_sterilised"] })).items)).toEqual(["Black", "Never"]);
+    expect(names((await list({ sterilised: ["not_known", "not_sterilised"] })).items)).toEqual(["Mixed", "Tie", "Black", "Never"]);
   });
 
   it("filters by when it was last seen", async () => {
-    expect(names((await list({ lastSeen: "week" })).items)).toEqual(["Ginger"]);
-    expect(names((await list({ lastSeen: "month" })).items)).toEqual(["Black"]);
+    // The bands add up: a cat seen 3 days ago is in both This week and This month.
+    expect(names((await list({ lastSeen: "week" })).items)).toEqual(["Ginger", "Mixed", "Tie"]);
+    expect(names((await list({ lastSeen: "month" })).items)).toEqual(["Ginger", "Mixed", "Tie", "Black"]);
+    expect(names((await list({ lastSeen: "1to3" })).items)).toEqual([]);
     expect(names((await list({ lastSeen: "never" })).items)).toEqual(["Never"]);
     expect(names((await list({ lastSeen: "over3" })).items)).toEqual([]);
   });
@@ -187,8 +220,8 @@ describe("listTeamCats", () => {
   });
 
   it("sorts by name and by newest to the records", async () => {
-    expect(names((await list({ sort: "name" })).items)).toEqual(["Black", "Ginger", "Never"]);
-    expect(names((await list({ sort: "newest" })).items)).toEqual(["Never", "Black", "Ginger"]);
+    expect(names((await list({ sort: "name" })).items)).toEqual(["Black", "Ginger", "Mixed", "Never", "Tie"]);
+    expect(names((await list({ sort: "newest" })).items)).toEqual(["Tie", "Mixed", "Never", "Black", "Ginger"]);
   });
 
   it("names the place in words and keeps the position off the page-facing fields", async () => {

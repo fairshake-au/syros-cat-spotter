@@ -82,19 +82,25 @@ export function livesOf(s: CatSnapshot): Lives {
 
 const DAY = 86_400_000;
 
-function lastSeenBand(at: Date | null, now: Date): (typeof LAST_SEEN)[number] {
-  if (at === null) return "never";
+/**
+ * Does a last-seen time fall in this band? The first two add up: a cat seen 3
+ * days ago is in "This week" and in "This month". "1–3 months" is 31 to 90
+ * days and "Over 3 months" is more than 90.
+ */
+function inLastSeenBand(band: (typeof LAST_SEEN)[number], at: Date | null, now: Date): boolean {
+  if (band === "never") return at === null;
+  if (at === null) return false;
   const days = (now.getTime() - at.getTime()) / DAY;
-  if (days <= 7) return "week";
-  if (days <= 30) return "month";
-  if (days <= 91) return "1to3";
-  return "over3";
+  if (band === "week") return days <= 7;
+  if (band === "month") return days <= 30;
+  if (band === "1to3") return days > 30 && days <= 90;
+  return days > 90;
 }
 
 export async function listTeamCats(
   f: CatListFilters,
   now: Date = new Date(),
-): Promise<{ items: CatListItem[]; total: number }> {
+): Promise<{ items: CatListItem[]; total: number; catCount: number }> {
   const cats = await db
     .select({
       id: catsTable.id,
@@ -116,7 +122,7 @@ export async function listTeamCats(
       select distinct on (cat_id) cat_id, lat, lng, created_at
       from ${sightingsTable}
       where ${and(eq(sightingsTable.status, "resolved"), isNotNull(sightingsTable.catId))}
-      order by cat_id, created_at desc`),
+      order by cat_id, created_at desc, id desc`),
   ]);
   const lastSighting = new Map<number, { lat: number; lng: number; at: Date }>();
   for (const r of seen.rows) {
@@ -180,7 +186,7 @@ export async function listTeamCats(
     }
     if (f.colony !== undefined && i.colonyId !== f.colony) return false;
     if (f.sterilised?.length && !f.sterilised.includes(i.mark)) return false;
-    if (f.lastSeen !== undefined && lastSeenBand(i.lastSeenAt, now) !== f.lastSeen) return false;
+    if (f.lastSeen !== undefined && !inLastSeenBand(f.lastSeen, i.lastSeenAt, now)) return false;
     return true;
   });
 
@@ -197,5 +203,10 @@ export async function listTeamCats(
   }
 
   const page = Math.max(1, Math.floor(f.page ?? 1));
-  return { items: matched.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), total: matched.length };
+  return {
+    items: matched.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    total: matched.length,
+    // Every cat there is, before any filter: "none recorded" is not "all hidden".
+    catCount: all.length,
+  };
 }
