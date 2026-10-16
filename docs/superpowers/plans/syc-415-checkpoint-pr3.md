@@ -6,9 +6,11 @@ Branch `claude/syc-415-pr3-extra-photo-readers`, built on `claude/syc-415-pr2-se
 
 - **Task 3.1** — `catsOfPhoto` has a fourth query (a spot's extra photos, through `sighting_photos`); `photoOfCat` in `routes/issues.ts` accepts any photo of a resolved sighting of the cat. Tests: `lib/capabilityTargets.extraPhotos.test.ts` (5), `routes/issues.extraPhotos.test.ts` (4), shared seeding helper `test/extraPhotoKit.ts`. Probes: dropping the new `catsOfPhoto` query turns (a) and (c) red; dropping the `sightingPhotosTable` condition in `photoOfCat` turns the "accepts body extra" test red. `team.photos`, `issues`, `photoVisibility` suites still green.
 
+- **Task 3.2** — `GET /api/cats/:id`: one query for every resolved sighting's `sighting_photos` (joined to `photos`), the cover dropped, the extras folded into the one batched `hiddenPhotoIds` call; `serialiseSighting` adds `extraPhotos` only when non-empty. OpenAPI `Sighting.extraPhotos` (optional) and `SightingExtraPhoto`; codegen run. `cats.extraPhotos.test.ts` (4). Snapshots (`cats.publicDetail.p3-2.txt`, `publicPayload.p6.txt`) untouched and green. Probes: always emitting the key turns the one-photo test and both byte-exact snapshot tests red; dropping the extras from the hidden lookup turns the hidden test red. api-server typecheck clean.
+
 ## Next
 
-- Task 3.2 (public cat page), 3.3 (team page), 3.4 (app thumbnails), then the final runs and the draft PR.
+- Task 3.3 (team page), 3.4 (app thumbnails), then the final runs and the draft PR.
 
 ## Deviations and notes
 

@@ -5,6 +5,7 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { SightingExtraPhoto } from './sightingExtraPhoto';
 
 /**
  * A sighting in a cat's public history: photo, spotter and date. No
@@ -18,6 +19,12 @@ export interface Sighting {
   spotterUsername?: string | null;
   spotterNickname?: string | null;
   photoUrl: string | null;
+  /**
+     * SYC-415. The spot's photos other than the one in `photoUrl`, in the
+     * order taken. Left out entirely when a sighting has none. A photo the
+     * team hid has a null `photoUrl`.
+     */
+  extraPhotos?: SightingExtraPhoto[];
   /** A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
   createdAt: string;
 }

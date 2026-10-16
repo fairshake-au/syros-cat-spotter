@@ -1177,10 +1177,28 @@ components:
         photoUrl:
           type: string
           nullable: true
+        extraPhotos:
+          type: array
+          description: |
+            SYC-415. The spot's photos other than the one in `photoUrl`, in the
+            order taken. Left out entirely when a sighting has none. A photo the
+            team hid has a null `photoUrl`.
+          items:
+            $ref: "#/components/schemas/SightingExtraPhoto"
         createdAt:
           type: string
           description: A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).
       required: [spotterCode, photoUrl, createdAt]
+    SightingExtraPhoto:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [first, face, body]
+        photoUrl:
+          type: string
+          nullable: true
+      required: [role, photoUrl]
     CareEvent:
       type: object
       properties:

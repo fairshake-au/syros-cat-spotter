@@ -77,6 +77,8 @@ export * from './sightingAnswersRequestEarTip';
 export * from './sightingAnswersRequestFoodAndWater';
 export * from './sightingAnswersResult';
 export * from './sightingAnswersResultRecordedItem';
+export * from './sightingExtraPhoto';
+export * from './sightingExtraPhotoRole';
 export * from './spotterSignals';
 export * from './suggestCatNamesRequest';
 export * from './suggestCatNamesRequestLanguage';
