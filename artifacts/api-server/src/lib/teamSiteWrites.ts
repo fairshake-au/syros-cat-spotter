@@ -319,12 +319,21 @@ export async function retireSite(
   id: number,
   seen: string,
   reason: string,
-): Promise<Failure | { kind: "saved" }> {
+): Promise<Failure | { kind: "saved" } | { kind: "already_retired" }> {
   return db.transaction(async (tx) => {
+    // Already retired (SYC-395 D1): say so, before the stamp is compared. A
+    // second Yes on the "Are you sure?" page carries the stamp from before the
+    // first one retired it, so the freshness check alone would wrongly answer
+    // "someone already changed this".
+    const [held] = await tx
+      .select({ retiredAt: feedingSitesTable.retiredAt })
+      .from(feedingSitesTable)
+      .where(eq(feedingSitesTable.id, id))
+      .for("update");
+    if (!held) return { kind: "missing" as const };
+    if (held.retiredAt !== null) return { kind: "already_retired" as const };
     const gate = await lockFresh(tx, id, seen);
     if (gate.kind !== "ok") return gate;
-    // Already retired: the page offered "Retire" on a state that has moved on.
-    if (gate.site.retiredAt !== null) return { kind: "stale" as const };
     await makePrivateIfPublic(tx, gate.site, "retired", personId);
     await tx
       .update(feedingSitesTable)

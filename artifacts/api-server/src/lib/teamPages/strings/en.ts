@@ -379,6 +379,13 @@ export const en = {
   "sdone.colonyPrivate": "Colony changed. The site was public, so it is private again.",
   "sdone.stale":
     "Someone already changed this. What you see below is how it is now; look it over and try again if you still want to.",
+  "sdone.alreadyRetired": "This site is already retired.",
+  // SYC-395 PR 0.1 (D1): the "Are you sure?" page before Retire this site.
+  "sure.retire.title": "Retire {name}?",
+  "sure.retire.line1": "It disappears from the map and the list. Its history stays.",
+  "sure.retire.line2": "You can bring it back later with Restore.",
+  "sure.retire.yes": "Yes, retire it",
+  "sure.cancel": "Cancel",
 
   "sproblem.title": "That didn't work",
   "sproblem.fields": "Part of the form couldn't be read",

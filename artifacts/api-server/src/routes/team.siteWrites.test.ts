@@ -467,7 +467,7 @@ describe("test 7: a site is never created public", () => {
     expect((await send("", { name: unique("e") })).status).toBe(303);
     expect((await send("/move", { lat: "37.45", lng: "24.95", reason: "r" })).status).toBe(303);
     expect((await send("/colony", { colonyId: String(colonyId) })).status).toBe(303);
-    expect((await send("/retire", { reason: "r" })).status).toBe(303);
+    expect((await send("/retire", { confirm: "1", reason: "r" })).status).toBe(303);
     expect((await send("/restore", { reason: "r" })).status).toBe(303);
     expect(await siteRow(a.id)).toMatchObject({ isPublic: false, publicLabel: null, publicId: null, madePublicBy: null });
   });
@@ -760,10 +760,107 @@ describe("test 9 (early half): moving or re-homing a public site makes it privat
 
 // ── Retire and bring back ──────────────────────────────────────────────────
 
+// ── SYC-395 PR 0.1: "Are you sure?" before Retire this site (D1) ───────────
+
+describe("retire confirm (SYC-395 D1)", () => {
+  it("a browser POST without confirm shows the Are you sure page and retires nothing", async () => {
+    const s = await makeSite({ name: unique("Kini steps") });
+    const stamp = await stampOf(s.id);
+    const res = await post(`/api/team/sites/${s.id}/retire`, { updatedAt: stamp, reason: "Bowls gone" });
+    expect(res.status).toBe(200);
+    expect(res.text).toContain(`Retire ${s.name}?`);
+    expect(res.text).toContain("It disappears from the map and the list. Its history stays.");
+    expect(res.text).toContain("You can bring it back later with Restore.");
+    expect(res.text).toContain(`action="/api/team/sites/${s.id}/retire"`);
+    expect(res.text).toContain('name="confirm" value="1"');
+    expect(res.text).toContain('name="reason" value="Bowls gone"');
+    expect(res.text).toContain(`name="updatedAt" value="${stamp}"`);
+    expect(res.text).toContain("Yes, retire it");
+    expect(res.text).toContain(`href="/api/team/sites/${s.id}">Cancel</a>`);
+    expect((await siteRow(s.id)).retiredAt).toBeNull();
+    expect(await eventsOf(s.id)).toHaveLength(0);
+  });
+
+  it("with confirm=1 it retires the site", async () => {
+    const s = await makeSite();
+    const res = await post(`/api/team/sites/${s.id}/retire`, { confirm: "1", updatedAt: await stampOf(s.id), reason: "Bowls gone" });
+    expect(res.status).toBe(303);
+    expect(res.headers["location"]).toBe(`/api/team/sites/${s.id}?done=retired`);
+    expect((await siteRow(s.id)).retiredAt).not.toBeNull();
+    expect(await kindsOf(s.id)).toEqual(["retired"]);
+  });
+
+  it("a second Yes says the site is already retired, not that someone changed it", async () => {
+    const s = await makeSite();
+    const body = { confirm: "1", updatedAt: await stampOf(s.id), reason: "x" };
+    await post(`/api/team/sites/${s.id}/retire`, body);
+    const again = await post(`/api/team/sites/${s.id}/retire`, body);
+    expect(again.status).toBe(303);
+    expect(again.headers["location"]).toBe(`/api/team/sites/${s.id}?done=alreadyRetired`);
+    const page = (await get(again.headers["location"] as string)).text;
+    expect(page).toContain("This site is already retired.");
+    expect(page).not.toContain("Someone already changed this");
+    expect(await kindsOf(s.id)).toEqual(["retired"]);
+  });
+
+  it("a retired site gets no confirm page: the answer is 'already retired' straight away", async () => {
+    const gone = await makeSite({ retired: true });
+    const res = await post(`/api/team/sites/${gone.id}/retire`, { updatedAt: await stampOf(gone.id), reason: "r" });
+    expect(res.status).toBe(303);
+    expect(res.headers["location"]).toBe(`/api/team/sites/${gone.id}?done=alreadyRetired`);
+    expect(await eventsOf(gone.id)).toHaveLength(0);
+  });
+
+  it("a missing site answers 404 before any confirm page", async () => {
+    const res = await post(`/api/team/sites/${NO_SUCH}/retire`, { updatedAt: "2026-10-01 10:00:00.000000", reason: "x" });
+    expect(res.status).toBe(404);
+    expect(res.text).not.toContain('name="confirm"');
+  });
+
+  it("a bad form is refused before any confirm page", async () => {
+    const s = await makeSite();
+    const res = await post(`/api/team/sites/${s.id}/retire`, { updatedAt: await stampOf(s.id), reason: "  " });
+    expect(res.status).toBe(400);
+    expect(res.text).not.toContain('name="confirm"');
+  });
+
+  it("a JSON caller still acts in one step (the confirm page protects browser slips only)", async () => {
+    const s = await makeSite();
+    const res = await postJson(`/api/team/sites/${s.id}/retire`, { updatedAt: await stampOf(s.id), reason: "r" });
+    expect(res.status).toBe(200);
+    expect((await siteRow(s.id)).retiredAt).not.toBeNull();
+    const again = await postJson(`/api/team/sites/${s.id}/retire`, { updatedAt: await stampOf(s.id), reason: "r" });
+    expect(again.status).toBe(200);
+    expect(again.body).toEqual({ changed: 0, alreadyRetired: true });
+  });
+
+  it("a stale page still gets the confirm page, and Yes then says someone already changed it", async () => {
+    const s = await makeSite();
+    const old = await stampOf(s.id);
+    await post(`/api/team/sites/${s.id}`, { updatedAt: old, name: unique("renamed") });
+    const sure = await post(`/api/team/sites/${s.id}/retire`, { updatedAt: old, reason: "r" });
+    expect(sure.status).toBe(200);
+    const yes = await post(`/api/team/sites/${s.id}/retire`, { confirm: "1", updatedAt: old, reason: "r" });
+    expect(yes.headers["location"]).toBe(`/api/team/sites/${s.id}?done=stale`);
+    expect((await siteRow(s.id)).retiredAt).toBeNull();
+  });
+
+  it("the site's name and the typed reason show as text on the confirm page", async () => {
+    const s = await makeSite({ name: `${unique("name")} <u>${MARKUP}` });
+    const res = await post(`/api/team/sites/${s.id}/retire`, { updatedAt: await stampOf(s.id), reason: `<b>gone</b> ${MARKUP}` });
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain("<img src=x");
+    expect(res.text).not.toContain("<u>");
+    expect(res.text).not.toContain("<b>gone");
+    expect(decoded(res.text)).toContain(`Retire ${s.name}?`);
+    expect(decoded(res.text)).toContain(`value="<b>gone</b> ${MARKUP}"`);
+  });
+});
+
 describe("test 10: retired is never public, and bringing back never makes a site public", () => {
   it("retire sets who and when, takes the site off the default list, and writes one event with the reason", async () => {
     const s = await makeSite();
-    const res = await post(`/api/team/sites/${s.id}/retire`, { updatedAt: await stampOf(s.id), reason: "the gate is locked for good" });
+    const res = await post(`/api/team/sites/${s.id}/retire`, { confirm: "1", updatedAt: await stampOf(s.id), reason: "the gate is locked for good" });
     expect(res.headers["location"]).toBe(`/api/team/sites/${s.id}?done=retired`);
     const row = await siteRow(s.id);
     expect(row.retiredAt).not.toBeNull();
@@ -779,7 +876,7 @@ describe("test 10: retired is never public, and bringing back never makes a site
   it("retiring a public site makes it private first; its code and label are kept; only the retire event is written", async () => {
     const s = await makeSite({ isPublic: true });
     const before = await siteRow(s.id);
-    const res = await post(`/api/team/sites/${s.id}/retire`, { updatedAt: await stampOf(s.id), reason: "closed" });
+    const res = await post(`/api/team/sites/${s.id}/retire`, { confirm: "1", updatedAt: await stampOf(s.id), reason: "closed" });
     expect(res.status).toBe(303);
     const row = await siteRow(s.id);
     expect(row.isPublic).toBe(false);
@@ -791,13 +888,13 @@ describe("test 10: retired is never public, and bringing back never makes a site
     // The one row records that it went private (spec §8).
     expect((await eventsOf(s.id))[0]!.before).toEqual({ isPublic: true, publicId: before.publicId });
     const plain = await makeSite();
-    await post(`/api/team/sites/${plain.id}/retire`, { updatedAt: await stampOf(plain.id), reason: "closed" });
+    await post(`/api/team/sites/${plain.id}/retire`, { confirm: "1", updatedAt: await stampOf(plain.id), reason: "closed" });
     expect((await eventsOf(plain.id))[0]!.before).toBeNull();
   });
 
   it("retire then bring back: private, with retired_at and retired_by cleared; the events carry the reasons", async () => {
     const s = await makeSite({ isPublic: true });
-    await post(`/api/team/sites/${s.id}/retire`, { updatedAt: await stampOf(s.id), reason: "closed" });
+    await post(`/api/team/sites/${s.id}/retire`, { confirm: "1", updatedAt: await stampOf(s.id), reason: "closed" });
     const res = await post(`/api/team/sites/${s.id}/restore`, { updatedAt: await stampOf(s.id), reason: "reopened by the new guardian" });
     expect(res.headers["location"]).toBe(`/api/team/sites/${s.id}?done=restored`);
     const row = await siteRow(s.id);
@@ -823,13 +920,13 @@ describe("test 10: retired is never public, and bringing back never makes a site
     expect(await eventsOf(s.id)).toHaveLength(0);
   });
 
-  it("retiring a retired site, or bringing back a live one, is 'someone already changed this'", async () => {
+  it("bringing back a live site is 'someone already changed this'; retiring a retired one says it already is (SYC-395)", async () => {
     const live = await makeSite();
     const gone = await makeSite({ retired: true });
     const a = await post(`/api/team/sites/${live.id}/restore`, { updatedAt: await stampOf(live.id), reason: "r" });
     expect(a.headers["location"]).toBe(`/api/team/sites/${live.id}?done=stale`);
-    const b = await post(`/api/team/sites/${gone.id}/retire`, { updatedAt: await stampOf(gone.id), reason: "r" });
-    expect(b.headers["location"]).toBe(`/api/team/sites/${gone.id}?done=stale`);
+    const b = await post(`/api/team/sites/${gone.id}/retire`, { confirm: "1", updatedAt: await stampOf(gone.id), reason: "r" });
+    expect(b.headers["location"]).toBe(`/api/team/sites/${gone.id}?done=alreadyRetired`);
     expect(await eventsOf(live.id)).toHaveLength(0);
     expect(await eventsOf(gone.id)).toHaveLength(0);
   });
@@ -950,7 +1047,7 @@ describe("test 11: every write writes exactly one history row per changed thing,
       [s.id, "", async () => ({ updatedAt: await stampOf(s.id), name: unique("never"), notes: "never" })],
       [s.id, "/move", async () => ({ updatedAt: await stampOf(s.id), lat: "37.4501", lng: "24.9502", reason: "never" })],
       [s.id, "/colony", async () => ({ updatedAt: await stampOf(s.id), colonyId: String(colonyId) })],
-      [s.id, "/retire", async () => ({ updatedAt: await stampOf(s.id), reason: "never" })],
+      [s.id, "/retire", async () => ({ confirm: "1", updatedAt: await stampOf(s.id), reason: "never" })],
       [retired.id, "/restore", async () => ({ updatedAt: await stampOf(retired.id), reason: "never" })],
     ];
     for (const [id, path, body] of cases) {
@@ -1000,7 +1097,7 @@ describe("test 11: every write writes exactly one history row per changed thing,
     await step("", { name: unique("n2") }); // one
     await step("/move", { lat: "37.4501", lng: "24.9502", reason: "r" }); // moved + made private (it is public)
     await step("/colony", { colonyId: String(colonyId) }); // one (already private)
-    await step("/retire", { reason: "r" }); // one
+    await step("/retire", { confirm: "1", reason: "r" }); // one
     await step("/restore", { reason: "r" }); // one
     expect(counts).toEqual([3, 1, 2, 1, 1, 1]);
   });
@@ -1227,9 +1324,9 @@ describe("test 13: concurrent writes", () => {
     expect(await kindsOf(s.id)).toEqual(["colony_changed"]);
     const stamp2 = await stampOf(s.id);
     const retires = await withRowLocked(s.id, 2, () =>
-      Promise.all([1, 2].map(() => post(`/api/team/sites/${s.id}/retire`, { updatedAt: stamp2, reason: "race" }))),
+      Promise.all([1, 2].map(() => post(`/api/team/sites/${s.id}/retire`, { confirm: "1", updatedAt: stamp2, reason: "race" }))),
     );
-    expect(retires.map((r) => (r.headers["location"] as string).split("done=")[1]).sort()).toEqual(["retired", "stale"]);
+    expect(retires.map((r) => (r.headers["location"] as string).split("done=")[1]).sort()).toEqual(["alreadyRetired", "retired"]);
     expect(await kindsOf(s.id)).toEqual(["colony_changed", "retired"]);
   });
 });
@@ -1257,7 +1354,7 @@ describe("test 16: names, notes, directions, reasons and colony names with marku
       lng: "24.9502",
       reason: `<script>alert(1)</script> ${MARKUP}`,
     });
-    await post(`/api/team/sites/${id}/retire`, { updatedAt: await stampOf(id), reason: `<b>gone</b> ${MARKUP}` });
+    await post(`/api/team/sites/${id}/retire`, { confirm: "1", updatedAt: await stampOf(id), reason: `<b>gone</b> ${MARKUP}` });
     const pages = [
       (await get(`/api/team/sites/${id}`)).text,
       (await get(`/api/team/sites/${id}?done=saved`)).text,

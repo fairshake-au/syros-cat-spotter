@@ -39,7 +39,8 @@ import {
   renderPicker,
   renderSiteProblem,
 } from "../lib/teamPages/siteFormPages";
-import { t, type WordKey } from "../lib/teamPages/words";
+import { t, wordsIn, type WordKey } from "../lib/teamPages/words";
+import { renderConfirmPage } from "../lib/teamPages/confirm";
 import { coordinate, fieldsOf, lf, noNul, optionalText } from "../lib/teamForms";
 import {
   SITE_DIRECTIONS_MAX,
@@ -289,6 +290,8 @@ const EditForm = z.object({
 });
 const MoveForm = z.object({ updatedAt: stampField, lat: latField, lng: lngField, reason: reasonField });
 const ReasonForm = z.object({ updatedAt: stampField, reason: reasonField });
+/** Retire: Yes on the "Are you sure?" page sends `confirm=1` (SYC-395 D1). */
+const RetireForm = ReasonForm.extend({ confirm: z.literal("1").optional() });
 const ColonyForm = z.object({ updatedAt: stampField, colonyId: requiredColony });
 const StampOnly = z.object({ updatedAt: stampField });
 const TypedForm = z.object({ lat: latField, lng: lngField });
@@ -657,9 +660,38 @@ router.post(
     const id = siteIdOf(req);
     if (id === null) return notFound(req, res);
     const back = { href: sitePath(id), label: t("sproblem.backToSite") };
-    const parsed = ReasonForm.safeParse(req.body ?? {});
+    const parsed = RetireForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, fieldsOf(parsed.error), back);
+    // A browser asks "Are you sure?" first (SYC-395 D1), naming the site. The
+    // read goes through the viewer's colony filter like every site read. A
+    // missing site answers 404 here, and a retired one goes straight on to
+    // "already retired". JSON callers act in one step, as before.
+    if (isFormPost(req) && parsed.data.confirm === undefined) {
+      const v = pageViewer(res);
+      const site = await siteView(v.visible, id);
+      if (site === null) return notFound(req, res);
+      if (site.retiredAt === null) {
+        const { t: say } = wordsIn(v.lang);
+        return void res.status(200).type("html").send(
+          renderConfirmPage({
+            title: say("sure.retire.title", { name: site.name }),
+            lines: [say("sure.retire.line1"), say("sure.retire.line2")],
+            action: `${SITES_PATH}/${id}/retire`,
+            fields: { updatedAt: parsed.data.updatedAt, reason: parsed.data.reason },
+            yes: say("sure.retire.yes"),
+            cancelHref: sitePath(id),
+            cancelLabel: say("sure.cancel"),
+            personName: v.personName,
+            active: "sites",
+          }),
+        );
+      }
+    }
     const out = await retireSite(teamPerson(res).id, id, parsed.data.updatedAt, parsed.data.reason);
+    if (out.kind === "already_retired") {
+      if (isFormPost(req)) return void res.redirect(303, sitePath(id, "alreadyRetired"));
+      return void res.json({ changed: 0, alreadyRetired: true });
+    }
     answer(req, res, id, back, out, { saved: "retired" });
   },
 );
