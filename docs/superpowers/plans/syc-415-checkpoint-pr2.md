@@ -12,9 +12,10 @@ Branch `claude/syc-415-pr2-server-extra-photos`, off `origin/claude/tester-photo
 
 - **Task 2.4** — `matching.ts`: `matchCatPhoto(NewPhotoInput[] | string, …)`, spot's photos first with roles named, answer `{anyCat, mixedCats, matches}` (old `{isCatPhoto}` still read), `mixedCats` false for one photo. 6 tests. Extra probe: one-photo guard.
 
+- **Task 2.5** — `routes/sightings.ts`: POST uses `spotPhotoList` → `validateSpotPhotos` (400 names the photo) → `saveSpotWithPhotos` → matcher with all photos; dedupe hit loads `sighting_photos` in position order, falls back to `sightings.photo_id`; `recordMatch` writes `noCatInAnyPhoto` / `mixedCats` (null when the matcher failed). New `sightings.extraPhotos.test.ts` (12 tests). Named suites (upload, dedupe, matchRecord, aiLimiter, upload.auth, resolve) green, unchanged. Probes: dedupe slice, fallback, mixedCats `=== true`.
+
 ## Next
 
-- Task 2.5 — upload route.
 - Task 2.6 — `/app-settings` switch.
 
 ## Deviations from the plan, and notes
@@ -26,3 +27,4 @@ Branch `claude/syc-415-pr2-server-extra-photos`, off `origin/claude/tester-photo
 - Pre-existing flake on the base branch, unrelated: `team.siteWrites.test.ts` "zoom, pan and the area buttons…" fails when a random tile token happens to contain `digit-digits-digit` (seen once on the untouched baseline run).
 - Local `pnpm -w run typecheck`: `artifacts/mockup-sandbox` fails on duplicate `@types/react` versions in this Mac's `node_modules` (files untouched by this branch). Libs, api-server, cat-spotter and scripts typecheck clean.
 - Task 2.3 duplicate test: uses one image as PNG at compression 0 and 9 (lossless, so different base64 but identical pixels) rather than "a JPEG re-encoded by sharp", which isn't guaranteed to give identical pixels. Same intent: the check compares normalised output.
+- Task 2.5 test 8 reads the device's match count with `peek("device_match", …)` from `lib/limits.ts`; `sightings.aiLimiter.test.ts` (which the plan pointed at) doesn't read a count.
