@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { like } from "drizzle-orm";
-import { catsTable, db, pool, sightingsTable } from "@workspace/db";
+import { catsTable, db, photosTable, pool, sightingsTable } from "@workspace/db";
 import { teamCatView, type TeamCatView } from "../lib/teamCatView";
 import { renderCatPage } from "../lib/teamPages/catPages";
 import { deleteTestSightings } from "../test/sightings";
@@ -82,6 +82,28 @@ describe("teamCatView", () => {
     const single = view.sightings.find((s) => s.photoUrl === teamUrl(plain, "first"))!;
     expect(single.extraPhotos).toEqual([]);
     expect(single.mixedCats).toBe(false);
+  });
+
+  it("a sighting with no sighting_photos rows (an older one) still shows its cover, once, with no extras", async () => {
+    const other = await seedCat(null);
+    const [p] = await db
+      .insert(photosTable)
+      .values({ data: Buffer.from("fake-old").toString("base64"), mime: "image/jpeg" })
+      .returning({ id: photosTable.id, publicId: photosTable.publicId });
+    await db.insert(sightingsTable).values({
+      catId: other.id,
+      deviceId: DEVICE,
+      photoId: p!.id,
+      lat: 37.445,
+      lng: 24.942,
+      status: "resolved",
+    });
+    const v = (await teamCatView(other.id))!;
+    expect(v.photos.map((x) => [x.url, x.source, x.role ?? null])).toEqual([
+      [`/api/team/photos/${other.photoPublicId}`, "main", null],
+      [`/api/team/photos/${p!.publicId}`, "sighting", null],
+    ]);
+    expect(v.sightings[0]).toMatchObject({ photoUrl: `/api/team/photos/${p!.publicId}`, extraPhotos: [], mixedCats: false });
   });
 
   it("a hidden extra stays in the team's list, labelled as hidden", async () => {

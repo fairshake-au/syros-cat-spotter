@@ -10,6 +10,8 @@ Branch `claude/syc-415-pr3-extra-photo-readers`, built on `claude/syc-415-pr2-se
 
 - **Task 3.3** — `teamCatView`: two extra queries (`sighting_photos`, `sighting_matches.mixed_cats`) for all the cat's sightings; gallery order is main, then each sighting's cover and extras, then statements; `sightingIds` covers every spot photo (extras are "sighting", not "statement"); `TeamPhoto.role`; each sighting gets `extraPhotos` and `mixedCats`. `catPages.ts`: "Face photo" / "Whole body photo" caption and "(whole body photo, photo N of M)" for screen readers; "May show more than one cat" chip in the sightings list; two small CSS rules in `layout.ts`. Comment-only notes (spec §6.3) in `photoVisibility.ts` and `coatReading/due.ts`. New `routes/team.extraPhotos.test.ts` (7). Probes: sightingIds narrowed back to covers -> gallery test red; `mixedCats: false` -> flag and chip tests red; caption removed -> caption tests red. All `team*`, `teamPages`, `photoVisibility`, `coatReading` suites green except the known SYC-425 flake.
 
+- **Coordinator note (PR 2 review)** — a sighting's `photo_id` is always the cover, with or without `sighting_photos` rows; extras are rows whose `photo_id` differs from it. Both readers already work that way. Added a test in `cats.extraPhotos.test.ts` and in `team.extraPhotos.test.ts` for a sighting with no `sighting_photos` rows (cover shown once, no extras, `source: "sighting"`).
+
 ## Next
 
 - Task 3.4 (app thumbnails), then the final runs and the draft PR.

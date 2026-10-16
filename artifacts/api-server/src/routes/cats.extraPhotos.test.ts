@@ -91,6 +91,25 @@ describe("GET /api/cats/:id lists a sighting's extra photos", () => {
     expect("extraPhotos" in s!).toBe(false);
   });
 
+  it("a sighting with no sighting_photos rows at all (an older one) shows its cover and no extraPhotos", async () => {
+    const [p] = await db
+      .insert(photosTable)
+      .values({ data: Buffer.from("fake-old").toString("base64"), mime: "image/jpeg" })
+      .returning({ id: photosTable.id, publicId: photosTable.publicId });
+    await db.insert(sightingsTable).values({
+      catId,
+      deviceId: `${PREFIX}spotter`,
+      photoId: p!.id,
+      lat: AT.lat,
+      lng: AT.lng,
+      status: "resolved",
+      createdAt: new Date(Date.now() - 9 * 86_400_000),
+    });
+    const s = (await sightings()).find((x) => x.photoUrl === `/api/photos/${p!.publicId}`);
+    expect(s).toBeDefined();
+    expect("extraPhotos" in s!).toBe(false);
+  });
+
   it("a pending spot's photos appear nowhere public", async () => {
     const ids = Object.values(pending.photos).map((p) => p.publicId);
     const detail = await request(app).get(`/api/cats/${catId}`);
