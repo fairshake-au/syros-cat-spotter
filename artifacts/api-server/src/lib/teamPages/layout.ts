@@ -289,6 +289,7 @@ details.filters>summary{cursor:pointer;display:inline-flex;align-items:center;mi
 a.fchip{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:4px 12px;border:1px solid #0b5c6b;border-radius:999px;background:#e6f1f3;color:#0b4553;text-decoration:none;font-size:15px}
 .count{margin:8px 0;font-weight:700;display:flex;flex-wrap:wrap;align-items:center;gap:0 12px}
 .count .meta{font-weight:400}
+#catresults[aria-busy="true"]{opacity:.6;transition:opacity .2s}
 .catgrid{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .catcard{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;min-width:0;display:flex;flex-direction:column;gap:6px}
 a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;text-align:left;font-weight:400;color:inherit;text-decoration:none;padding:0;overflow-wrap:anywhere}
@@ -373,6 +374,13 @@ export interface PageOptions {
   island?: boolean;
   /** Carry the signed-in person's own links, "My page" (default: whatever requireTeam set; false without it). */
   mine?: boolean;
+  /**
+   * Our own script for this page, from lib/teamAssets.ts assetUrl() only,
+   * never anything a request supplied. The page's route must also send the
+   * wider security header (setTeamHeaders(res, { scripts: true })), or the
+   * browser refuses it; and every page must still work without it.
+   */
+  script?: string | null;
 }
 
 export function renderPage(opts: PageOptions): string {
@@ -425,7 +433,9 @@ export function renderPage(opts: PageOptions): string {
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<meta name="robots" content="noindex">' +
     `<title>${escapeHtml(opts.title)}</title>` +
-    `<style>${STYLES}</style></head><body>` +
+    `<style>${STYLES}</style>` +
+    (opts.script ? `<script src="${escapeHtml(opts.script)}" defer></script>` : "") +
+    "</head><body>" +
     (nav ? `<nav class="bar${opts.mainClass === "wide" ? " wide" : ""}">${nav}</nav>` : "") +
     `<main${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
     (opts.banner ?? "") +

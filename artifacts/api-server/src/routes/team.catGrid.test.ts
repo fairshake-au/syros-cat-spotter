@@ -159,9 +159,10 @@ describe("the Cats grid", () => {
     expect(res.text).not.toMatch(new RegExp(`src="/api/team/photos/${PREFIX}Ginger-photo"`));
   });
 
-  it("has no script tag and no inline handler (the instant filters come in a later change)", async () => {
+  it("has only our own script (PR 1.3.4, team.scriptTags.test.ts) and no inline handler", async () => {
     const res = await get(`/api/team/cats?${mineQ}`);
-    expect(res.text).not.toContain("<script");
+    expect(res.text.match(/<script\b/g)).toHaveLength(1);
+    expect(res.text).toMatch(/<script src="\/api\/team\/assets\/dashboard-grid\.[0-9a-f]{12}\.js" defer><\/script>/);
     expect(res.text.replace(/<style>[\s\S]*?<\/style>/, "")).not.toMatch(/<[a-z][^>]*\son[a-z]+=/i);
   });
 
@@ -244,7 +245,8 @@ describe("the Cats grid in tie mode (choosing a cat for a welfare report)", () =
     expect(res.text).toContain(
       `<input type="hidden" name="catId" value="${ginger}"><input type="hidden" name="expectedCatId" value="">`,
     );
-    expect(res.text).not.toContain("<script");
+    // Only our own grid script (PR 1.3.4); the forms work without it.
+    expect(res.text.match(/<script\b/g)).toHaveLength(1);
     // Links that change the filters carry the tie along.
     expect(res.text).toMatch(new RegExp(`class="fchip" href="[^"]*tie=${r.publicId}`));
     // Without a tie there is no such form.

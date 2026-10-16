@@ -13,6 +13,7 @@ import {
   type Lives,
 } from "../teamCatList";
 import { QUERY_MAX, teamPhotoUrl } from "../teamCatView";
+import { assetUrl } from "../teamAssets";
 import type { TieMode } from "./catPages";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
@@ -187,7 +188,7 @@ function filterForm(o: CatGridOptions): string {
   ).join("");
   const tieField = o.tie ? `<input type="hidden" name="tie" value="${esc(o.tie.publicId)}">` : "";
   return (
-    `<form class="catfilters" method="get" action="${PATH}" role="search">` +
+    `<form class="catfilters" id="catfilters" method="get" action="${PATH}" role="search">` +
     tieField +
     '<label class="label" for="q">Name or SYR number</label>' +
     `<div class="searchrow"><input id="q" name="q" type="search" value="${esc(f.q ?? "")}" maxlength="${QUERY_MAX}" autocomplete="off" autocapitalize="none" spellcheck="false">` +
@@ -290,10 +291,14 @@ export function renderCatGridPage(o: CatGridOptions): string {
       `<ul class="catgrid">${o.items.map((c) => card(c, o)).join("")}</ul>` +
       paging;
   }
-  const body = filterForm(o) + activeChips(o) + results;
+  // #catresults is what dashboard-grid.js swaps when a filter changes: the
+  // chips, the count, the grid and "Show more", and nothing else.
+  const body = filterForm(o) + `<div id="catresults">${activeChips(o)}${results}</div>`;
+  // The one page with our own script (SYC-396 PR 1.3.4). Its route sends the wider header.
+  const script = assetUrl("dashboard-grid.js");
 
   if (!tie) {
-    return renderPage({ title: "Cats", active: "cats", personName: o.personName, body, mainClass: "wide" });
+    return renderPage({ title: "Cats", active: "cats", personName: o.personName, body, mainClass: "wide", script });
   }
   const r = tie.report!;
   const sev = r.severity === "urgent" ? "Urgent" : "Needs attention";
@@ -311,5 +316,6 @@ export function renderCatGridPage(o: CatGridOptions): string {
     beforeTitle: `<p class="back"><a class="tap" href="${esc(`/api/team#r-${encodeURIComponent(tie.publicId)}`)}">Back to the report</a></p>`,
     body: intro + body,
     mainClass: "wide",
+    script,
   });
 }
