@@ -190,7 +190,7 @@ Further rules:
 
 | Old statement | Colours | Pattern |
 |---|---|---|
-| contains `tabby` | the other colours **other than white**, if any; otherwise not known | stripes |
+| contains `tabby` | the other colours, except a bare `white` (the tabby's own colour was never said); `black_and_white` still gives black and white; if nothing remains, not known | stripes |
 | `black_and_white` | black, white | not known |
 | `tortoiseshell_or_calico` | black, ginger | patches |
 | `black`, `white`, `ginger` or `grey` without `tabby` | those colours | not known |
@@ -234,7 +234,7 @@ So a brown tabby is sent as `tabby`, and Brown alone as `[]`. An older phone sho
 
 **The cat snapshot** (`resolve.ts`) has `coatColours` and `coatPattern` in place of `coat`. The not-notifiable guard (`appearance.notNotifiable.test.ts`, `SYC2_FIELDS`) is updated to name exactly those two, so neither can ever be notifiable.
 
-**The cat-alog cache key stays `v2`.** The fields are added, and a cached copy without them reads as Not known.
+**The cat-alog cache key stays `v2`.** The fields are added. For the filter, a cached copy without them reads as Not known. For display, the updated app translates the old `coat` through the same table, so it shows "Stripes" rather than "Tabby", and never shows the old words.
 
 ---
 

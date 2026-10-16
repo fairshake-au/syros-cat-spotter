@@ -9,12 +9,12 @@
 - the team's pages;
 - the AI reader and its one checked re-read;
 - the "Find the cat" filter.
-No existing record is rewritten.
+No stored record is ever rewritten.
 
 **Architecture:**
-- One pure module (`appearance.ts`) owns the vocabulary, the **translation of every stored statement into parts**, and the old-field truth table. Every reader goes through it.
-- The resolver projects each statement onto its colour part and its pattern part, and runs SYC-2's existing rules on each.
-- The wire adds `coatColours` and `coatPattern` beside the old `coat`, which stays for display on older phones.
+- One pure module (`appearance.ts`) owns the vocabulary and the **one translation** of every stored statement into parts (`readCoatValue`). It also owns the reverse (`partsToValue`) and the old-field truth table (`legacyCoatCodes`). Every reader and writer goes through it.
+- The resolver projects the **standing** statements onto a colour part and a pattern part, and runs SYC-2's existing rule engine on each.
+- The wire adds `coatColours` and `coatPattern` beside the old `coat`. The old field stays for older phones, display only.
 
 **Tech stack:**
 - Node/Express API with drizzle and Postgres, in `artifacts/api-server`;
@@ -23,22 +23,24 @@ No existing record is rewritten.
 - vitest in both;
 - `react-native-svg`, which is already installed.
 
-**Spec:** `docs/specs/coat-colours-and-pattern.md` (approved by Samuel, 16 Oct 2026, with 2A, 3A, 4A, 5A and 6A). Read it in full first. Section numbers below (§n) refer to it.
+**Spec:** `docs/specs/coat-colours-and-pattern.md` (approved by Samuel, 16 Oct 2026, with 2A, 3A, 4A, 5A and 6A). Read it in full first. Section numbers (§n) refer to it.
 
 ## Global Constraints
 
 - **Colours:** `black`, `grey`, `brown`, `ginger`, `white`, in that display order, with no limit on how many a coat has. **Patterns:** `plain`, `stripes`, `patches`.
 - **No database migration.** Values live in the existing `observations.value` jsonb.
-- **Never rewrite a stored statement.** Old shapes are read through `readCoatValue` (Task A1.1).
-- **New writes use the new shape only.** Old-shape writes are refused after PR A1.
+- **Never rewrite a stored statement.** Old shapes are read through `readCoatValue` (A1.1).
+- **New coat writes use the new shape.**
+  - Extra keys the team code already adds (`reason`, `agreesWith`) stay allowed.
+  - Old shapes are refused after A1.
 - **The old public `coat` field is display-only.** It is never used to filter.
-- **`CATS_CACHE_KEY` stays `cat-spotter/cats-cache/public/v2`.** Its existing test must stay green unedited.
+- **`CATS_CACHE_KEY` stays `cat-spotter/cats-cache/public/v2`.** Its test stays green unedited.
 - **Colour and pattern are never evidence of life, never notifiable, and never read by the matcher** (SYC2-D8).
 - **The public sees only the resolved parts.** It never sees confidence, author, model version or dates.
 - **Words:**
   - "cat guardian", never "colony carer";
   - "spotter", never "snapper";
-  - the public never sees *tabby*, *tortoiseshell* or *calico* (§2);
+  - the public never sees *tabby*, *tortoiseshell* or *calico* (§2), including from an old cached catalogue;
   - display lines are joined with " · " (Decision E1).
 - **Model:** mock it in every test. No real calls, and no production writes from tests.
 - **Every PR:**
@@ -46,210 +48,216 @@ No existing record is rewritten.
   - has a `CHECKPOINT.md` (untracked);
   - **commits after each item**;
   - has the mutation probes listed for it, run and recorded in the PR;
-  - is reviewed through `/ship`, with an adversarial reviewer in its own worktree.
-- **Never blocks the 31 Oct launch** (Decision 6A). Every PR leaves `main` shippable on its own.
+  - is reviewed through `/ship`, with an adversarial reviewer in its own worktree;
+  - must typecheck and pass the full suite **on its own**.
+- **Never blocks the 31 Oct launch** (Decision 6A).
 
 ---
 
 ## In plain English (for Samuel)
 
-Five PRs, in this order. The first two are the foundation. The next two can run side by side. The last is the screen spotters see.
+Five PRs. A1 and A2 are the foundation. B and C can run side by side. D is the screen spotters see.
 
 | PR | What it does | What people notice |
 |---|---|---|
-| **A1** Server foundation | Teaches the server the new words, how to read every old statement in the new terms, and who wins for colours and pattern separately | Nothing yet |
-| **A2** Public data | Cat pages and cards get the new coat line ("Brown · Ginger · Stripes"); older phones keep working | The new coat line on cat pages |
-| **B** Team pages | The team's Correct becomes a form (colour checkboxes and pattern buttons), Confirm keeps only what's known, and the Colour check list gains its new reasons | The team can set Samuel's verdicts |
+| **A1** Server foundation | The new words; how every old statement is read in the new terms; who wins for colours and pattern separately; everything that reads or writes a coat moved over, team pages included, so it all still works | Team pages show the new words. Two cats (#10, #19) lose "White" from their coat line until the re-read (§6) |
+| **A2** Public data | Cat pages and cards show "Brown · Ginger · Stripes"; older phones keep working | The new coat line on cat pages |
+| **B** Team pages, the rest | Pattern buttons on the team's Correct form and the drawn cat after saving | The team can record pattern, and Samuel's verdicts |
 | **C** The AI reader | The new prompt (coat-v2) and the one-off checked re-read, started by hand | Nothing until the re-read is approved |
-| **D** "Find the cat" chips | Drawn colour and pattern chips, the drawn cat, the two filter rows | Spotters can filter by colour and pattern |
+| **D** "Find the cat" chips | Drawn colour and pattern chips and the drawn cat; the two filter rows | Spotters can filter by colour and pattern |
 
-After each publish there is a short check (§ "Rollout"). Samuel's only steps:
+Samuel's steps:
 - the usual pull in Replit;
-- one contact sheet after PR C (about 5 minutes);
-- the browser check of the drawings in PR D.
+- one contact sheet after C (about 5 minutes);
+- the browser check of the drawings in D.
 
-**Not in this plan:** the spotter's colour question after naming a cat, and the "add details later" card. They belong to SYC-2's PRs 4.1–4.3, which aren't built yet. Those PRs build straight on this vocabulary and reuse PR D's drawn components (see "Coordination").
+**Not in this plan:** the spotter's colour question, the "add details later" card and the cat-alog's filter. They are SYC-2 PRs 4.1–4.3, not built yet, and they build on this vocabulary. A comment on SYC-2, dated 16 Oct, records the contract: the answer body `{colours, pattern?}` or `{notSure:true}`, and reuse of D's components and `placeCat`.
 
 ---
 
 ## File structure
 
 **API server** (`artifacts/api-server/src`):
-- `lib/appearance.ts`: the vocabulary; `readCoatValue` (the one translation, §6); `legacyCoatCodes` (the old-field truth table, §6); `orderColours`. **Pure; no database import.**
-- `lib/observations.ts`: the `case "coat"` validation (the new shape only); `STATEMENT_KEYS` gains `pattern` and `notSure`.
-- `lib/coatResolve.ts` (new): `resolveCoatParts` and the per-part projection. This keeps `resolve.ts` (1,433 lines) from growing. `resolve.ts` re-exports it and uses it in `resolveCat`.
-- `lib/resolve.ts`: `CatSnapshot` gets `coatColours` and `coatPattern` in place of `coat`; `resolveCoat` is removed after its callers move.
-- `lib/catHelpers.ts`: the derived and wire fields.
-- `lib/handPick.ts`, `lib/colourCheck.ts`, `lib/teamCatView.ts`, `lib/teamCorrections.ts`, `lib/teamPages/appearancePage.ts`, `lib/teamPages/strings/{en,el,fr}.ts`, `routes/teamCorrections.ts`.
-- `lib/coatReading/{reader,due,record,sweep}.ts`, `routes/internalCoat.ts`.
+- `lib/appearance.ts`: the vocabulary, `readCoatValue`, `partsToValue`, `legacyCoatCodes` and `orderColours`. **Pure; no database import.** It keeps the old eight codes as `LEGACY_COAT_CODES` for the coat-v1 reader until C.
+- `lib/observations.ts`: the `case "coat"` check; `STATEMENT_KEYS`.
+- `lib/resolve.ts`: the per-part resolver lives **here**, not in a new file, to avoid a `resolve.ts` ↔ `coatResolve.ts` import cycle:
+  - `resolveCodeSet` (generic, extracted from `resolveCoat`);
+  - `resolveCoatParts`;
+  - the projection;
+  - `CatSnapshot.coatColours` and `CatSnapshot.coatPattern`.
+- The readers and writers moved in A1.4:
+  - `lib/catHelpers.ts`, `lib/guardianCatView.ts`, `lib/handPick.ts`, `lib/colourCheck.ts`, `lib/teamCatView.ts`;
+  - `lib/teamCorrections.ts`, `routes/teamCorrections.ts`;
+  - `lib/teamPages/appearancePage.ts`, `lib/teamPages/strings/{en,el,fr}.ts`;
+  - `lib/coatReading/{reader,record,sweep}.ts`.
+- C: `lib/coatReading/{reader,due,record,sweep}.ts`, `routes/internalCoat.ts`, `.github/workflows/coat-readings.yml`.
 
 **Shared:** `lib/api-spec/openapi.yaml`, regenerated into `lib/api-zod` and `lib/api-client-react`.
 
 **App** (`artifacts/cat-spotter`):
-- `lib/coat.ts` (new): pure. The display line; reading the wire with the old-field fallback, for display only; `placeCat` (the filter's three-way placement, §5).
-- `components/coat/` (new): `ColourSwatch.tsx`, `PatternTile.tsx`, `DrawnCat.tsx` and `CoatChips.tsx`, all shared. SYC-2 4.x reuses them.
+- `lib/coat.ts` (new, pure): `coatParts`, which reads the new fields or translates the old `coat` **for display only**; `coatLineKeys`; `placeCat`.
+- `components/coat/` (new, shared): `ColourSwatch`, `PatternTile`, `DrawnCat` and `CoatChips`.
 - `components/CatPicker.tsx`, `lib/appearance.ts`, `lib/i18n.ts`.
 
-**Workflow:** `.github/workflows/coat-readings.yml`.
+**Docs:** the spec amendments listed at the top of the spec, plus a `DECISIONS.md` entry (A1.5).
 
 ---
 
-## PR A1 — Server foundation: vocabulary, translation, validation, who wins
+## PR A1 — Server foundation (it must typecheck and keep every page working on its own)
 
-**Depends on:** nothing. **Safe alone:** yes. The wire is unchanged (`coat` is still worked out, now from the new parts), and the reader keeps working because its writes are translated.
+**Depends on:** nothing.
+**On the wire:** `coat` is the same **set** for every live cat, except #10 and #19 (`[tabby, white]` → `[tabby]`, spec §6). Array order can change. The new fields arrive in A2.
 
-### Task A1.1: The vocabulary and the one translation
+### Task A1.1: The vocabulary, the translation and its reverse
 
-**Files:**
-- Modify: `artifacts/api-server/src/lib/appearance.ts` (currently 65 lines)
-- Test: `artifacts/api-server/src/lib/appearance.coat.test.ts` (new)
+**Files:** modify `lib/appearance.ts`; test `lib/appearance.coat.test.ts` (new).
 
-**Interfaces:**
-- Produces: `COAT_COLOURS`, `CoatColour`, `COAT_PATTERNS`, `CoatPattern`, `LEGACY_COAT_CODES`, `LegacyCoatCode`, `CoatParts`, `readCoatValue`, `orderColours`, `legacyCoatCodes`, `LEGACY_PUBLIC_CODES`, `LegacyPublicCode`.
-- `normaliseColours` is removed in Task A1.4, once nothing imports it.
+**Interfaces (produced):**
+- `COAT_COLOURS`, `CoatColour`, `COAT_PATTERNS`, `CoatPattern`;
+- `LEGACY_COAT_CODES`, `LegacyCoatCode`, `LegacyPublicCode`;
+- `CoatParts { colours: CoatColour[] | null; pattern: CoatPattern | null; notSure: boolean }`;
+- `readCoatValue(value: unknown): CoatParts | null`;
+- `partsToValue(parts: CoatParts): { colours?: CoatColour[]; pattern?: CoatPattern } | { notSure: true }`;
+- `orderColours(xs: Iterable<string>): CoatColour[]`;
+- `legacyCoatCodes(colours: readonly CoatColour[], pattern: CoatPattern | null): LegacyPublicCode[]`.
+
+`normaliseColours` stays until A1.4 removes its last caller.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { legacyCoatCodes, readCoatValue } from "./appearance";
+import { COAT_COLOURS, COAT_PATTERNS, legacyCoatCodes, partsToValue, readCoatValue } from "./appearance";
 
 describe("readCoatValue: the one translation (spec §6)", () => {
   const cases: [string, unknown, ReturnType<typeof readCoatValue>][] = [
-    ["new shape, both parts", { colours: ["brown", "ginger"], pattern: "stripes" }, { colours: ["brown", "ginger"], pattern: "stripes", notSure: false }],
-    ["new shape, colours only", { colours: ["ginger"] }, { colours: ["ginger"], pattern: null, notSure: false }],
-    ["new shape, pattern only", { pattern: "stripes" }, { colours: null, pattern: "stripes", notSure: false }],
+    ["new, both parts", { colours: ["brown", "ginger"], pattern: "stripes" }, { colours: ["brown", "ginger"], pattern: "stripes", notSure: false }],
+    ["new, colours only", { colours: ["ginger"] }, { colours: ["ginger"], pattern: null, notSure: false }],
+    ["new, pattern only", { pattern: "stripes" }, { colours: null, pattern: "stripes", notSure: false }],
+    ["new, with the team's reason and agreesWith", { colours: ["grey"], reason: "x", agreesWith: 4 }, { colours: ["grey"], pattern: null, notSure: false }],
     ["notSure", { notSure: true }, { colours: null, pattern: null, notSure: true }],
     ["old ginger · tabby", { colours: ["ginger", "tabby"] }, { colours: ["ginger"], pattern: "stripes", notSure: false }],
-    ["old tabby alone", { colours: ["tabby"] }, { colours: null, pattern: "stripes", notSure: false }],
-    ["old tabby · white: white never becomes known", { colours: ["tabby", "white"] }, { colours: null, pattern: "stripes", notSure: false }],
+    ["old tabby", { colours: ["tabby"] }, { colours: null, pattern: "stripes", notSure: false }],
+    ["old tabby · white: a bare white never becomes known", { colours: ["tabby", "white"] }, { colours: null, pattern: "stripes", notSure: false }],
+    ["old black_and_white · tabby keeps black and white", { colours: ["black_and_white", "tabby"] }, { colours: ["black", "white"], pattern: "stripes", notSure: false }],
     ["old black_and_white", { colours: ["black_and_white"] }, { colours: ["black", "white"], pattern: null, notSure: false }],
     ["old tortoiseshell_or_calico", { colours: ["tortoiseshell_or_calico"] }, { colours: ["black", "ginger"], pattern: "patches", notSure: false }],
-    ["old grey", { colours: ["grey"] }, { colours: ["grey"], pattern: null, notSure: false }],
     ["old not_sure", { colours: ["not_sure"] }, { colours: null, pattern: null, notSure: true }],
-    ["machine v1 with modelVersion", { colours: ["ginger", "tabby"], modelVersion: "gpt-5.6-terra/coat-v1" }, { colours: ["ginger"], pattern: "stripes", notSure: false }],
-    ["retraction is not a coat", { retracted: true }, null],
+    ["machine v1 row", { colours: ["ginger", "tabby"], modelVersion: "gpt-5.6-terra/coat-v1" }, { colours: ["ginger"], pattern: "stripes", notSure: false }],
+    ["retraction", { retracted: true }, null],
     ["unknown code", { colours: ["purple"] }, null],
-    ["no parts", {}, null],
+    ["nothing stated", {}, null],
   ];
   for (const [label, value, expected] of cases) it(label, () => expect(readCoatValue(value)).toEqual(expected));
 
-  it("orders colours black, grey, brown, ginger, white whatever the stored order", () => {
-    expect(readCoatValue({ colours: ["white", "brown", "black"], pattern: "patches" })?.colours).toEqual(["black", "brown", "white"]);
+  it("orders colours black, grey, brown, ginger, white", () => {
+    expect(readCoatValue({ colours: ["white", "brown", "black"] })?.colours).toEqual(["black", "brown", "white"]);
   });
 });
 
-describe("legacyCoatCodes: the old field for older phones (spec §6 truth table)", () => {
-  const C = ["black", "grey", "brown", "ginger", "white"] as const;
-  const P = ["plain", "stripes", "patches", null] as const;
-  it("every combination gives at most two old codes, and never an invented one", () => {
+describe("partsToValue: never writes nulls", () => {
+  it.each([
+    [{ colours: ["ginger"], pattern: null, notSure: false }, { colours: ["ginger"] }],
+    [{ colours: null, pattern: "stripes", notSure: false }, { pattern: "stripes" }],
+    [{ colours: ["brown"], pattern: "plain", notSure: false }, { colours: ["brown"], pattern: "plain" }],
+    [{ colours: null, pattern: null, notSure: true }, { notSure: true }],
+  ] as const)("%j → %j", (parts, value) => expect(partsToValue(parts as never)).toEqual(value));
+});
+
+/** The spec §6 truth table, written independently of the implementation. */
+function oracle(colours: readonly string[], pattern: string | null): string[] {
+  const s = new Set(colours);
+  const nonBW = colours.filter((c) => c !== "black" && c !== "white");
+  if (s.has("black") && s.has("white") && nonBW.length === 0 && pattern !== "stripes") return ["black_and_white"];
+  if (pattern === "patches" && s.has("black") && s.has("ginger")) return ["tortoiseshell_or_calico"];
+  if (pattern === "stripes") {
+    for (const c of ["ginger", "grey", "black", "white"]) if (s.has(c)) return c === "white" ? ["tabby", "white"] : [c, "tabby"];
+    return ["tabby"];
+  }
+  return ["black", "white", "ginger", "grey"].filter((c) => s.has(c)).slice(0, 2);
+}
+
+describe("legacyCoatCodes: the old field for older phones", () => {
+  it("matches the spec table for all 32 colour sets × 4 pattern states", () => {
     for (let mask = 0; mask < 32; mask++) {
-      const colours = C.filter((_, i) => mask & (1 << i));
-      for (const pattern of P) {
-        const out = legacyCoatCodes(colours, pattern);
-        expect(out.length).toBeLessThanOrEqual(2);
-        for (const code of out) expect(["black", "white", "ginger", "grey", "tabby", "tortoiseshell_or_calico", "black_and_white"]).toContain(code);
+      const colours = COAT_COLOURS.filter((_, i) => mask & (1 << i));
+      for (const pattern of [...COAT_PATTERNS, null]) {
+        expect(legacyCoatCodes(colours, pattern), `${colours}+${pattern}`).toEqual(oracle(colours, pattern));
       }
     }
-  });
-  it.each([
-    [["black", "white"], "plain", ["black_and_white"]],
-    [["black", "white"], "patches", ["black_and_white"]],
-    [["black", "white"], null, ["black_and_white"]],
-    [["black", "ginger", "white"], "patches", ["tortoiseshell_or_calico"]],
-    [["brown"], "stripes", ["tabby"]],
-    [["brown", "ginger"], "stripes", ["ginger", "tabby"]],
-    [["brown", "white"], "stripes", ["tabby", "white"]],
-    [["grey"], "stripes", ["grey", "tabby"]],
-    [["brown"], "plain", []],
-    [["brown"], null, []],
-    [[], "stripes", ["tabby"]],
-    [[], null, []],
-    [["ginger", "white"], "plain", ["white", "ginger"]],
-  ] as const)("%j + %s → %j", (colours, pattern, expected) => {
-    expect(legacyCoatCodes(colours, pattern)).toEqual(expected);
   });
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail.** From `artifacts/api-server`, with the darwin esbuild workaround (memory "Local vitest/esbuild workaround"), run `pnpm exec vitest run src/lib/appearance.coat.test.ts`. Expected: FAIL, because `readCoatValue` is not exported.
+- [ ] **Step 2: Run it and watch it fail.** From `artifacts/api-server`, with the darwin esbuild workaround (memory "Local vitest/esbuild workaround"), run `pnpm exec vitest run src/lib/appearance.coat.test.ts`. Expected: FAIL (not exported).
 
-- [ ] **Step 3: Implement it in `appearance.ts`.** Keep `MARKS` as it is.
+- [ ] **Step 3: Implement** in `appearance.ts`. Keep `MARKS`, and keep `normaliseColours` for now.
 
 ```ts
-/** The five coat colours, in display order (spec §2). Cream is ginger. */
 export const COAT_COLOURS = ["black", "grey", "brown", "ginger", "white"] as const;
 export type CoatColour = (typeof COAT_COLOURS)[number];
-/** The three coat patterns (spec §2). */
 export const COAT_PATTERNS = ["plain", "stripes", "patches"] as const;
 export type CoatPattern = (typeof COAT_PATTERNS)[number];
-
-/** Codes stored before SYC-398. Read only, never written again. */
-export const LEGACY_COAT_CODES = [
-  "black", "white", "ginger", "grey", "tabby", "tortoiseshell_or_calico", "black_and_white", "not_sure",
-] as const;
+/** Codes stored before SYC-398 (and still asked of the coat-v1 reader until PR C). Never written again from A1. */
+export const LEGACY_COAT_CODES = ["black", "white", "ginger", "grey", "tabby", "tortoiseshell_or_calico", "black_and_white", "not_sure"] as const;
 export type LegacyCoatCode = (typeof LEGACY_COAT_CODES)[number];
-/** The old public `coat` codes an older phone knows (never `not_sure`). */
-export const LEGACY_PUBLIC_CODES = LEGACY_COAT_CODES.filter((c) => c !== "not_sure");
 export type LegacyPublicCode = Exclude<LegacyCoatCode, "not_sure">;
 
-/** A coat statement read as parts. `null` part = not stated. */
-export interface CoatParts {
-  colours: CoatColour[] | null;
-  pattern: CoatPattern | null;
-  notSure: boolean;
-}
+export interface CoatParts { colours: CoatColour[] | null; pattern: CoatPattern | null; notSure: boolean }
 
 const COLOUR_SET: ReadonlySet<string> = new Set(COAT_COLOURS);
 const PATTERN_SET: ReadonlySet<string> = new Set(COAT_PATTERNS);
 const LEGACY_ONLY: ReadonlySet<string> = new Set(["tabby", "tortoiseshell_or_calico", "black_and_white", "not_sure"]);
 
-export function orderColours(colours: Iterable<string>): CoatColour[] {
-  const present = new Set(colours);
+export function orderColours(xs: Iterable<string>): CoatColour[] {
+  const present = new Set(xs);
   return COAT_COLOURS.filter((c) => present.has(c));
 }
 
-/**
- * The one translation (spec §6): any stored `coat` value, old or new shape,
- * as parts. Only what the statement said becomes known. `null` for a
- * retraction or a malformed value. Every reader goes through this.
- */
+/** The one translation (§6). Only what a statement said becomes known. Null for a retraction or a malformed value. Ignores other keys (reason, agreesWith, modelVersion). */
 export function readCoatValue(value: unknown): CoatParts | null {
   if (typeof value !== "object" || value === null) return null;
   const v = value as Record<string, unknown>;
   if (v["retracted"] === true) return null;
   if (v["notSure"] === true) return { colours: null, pattern: null, notSure: true };
-  const rawColours = v["colours"];
+  const raw = v["colours"];
   const rawPattern = v["pattern"];
-  if (rawColours !== undefined && !Array.isArray(rawColours)) return null;
+  if (raw !== undefined && !Array.isArray(raw)) return null;
   if (rawPattern !== undefined && !(typeof rawPattern === "string" && PATTERN_SET.has(rawPattern))) return null;
-  const codes = (rawColours as unknown[] | undefined) ?? [];
+  const codes = (raw as unknown[] | undefined) ?? [];
   if (!codes.every((c) => typeof c === "string" && (COLOUR_SET.has(c) || LEGACY_ONLY.has(c)))) return null;
   if (codes.length === 0 && rawPattern === undefined) return null;
-  if (codes.includes("not_sure")) return codes.length === 1 ? { colours: null, pattern: null, notSure: true } : null;
+  if (codes.includes("not_sure")) return codes.length === 1 && rawPattern === undefined ? { colours: null, pattern: null, notSure: true } : null;
 
-  let pattern: CoatPattern | null = (rawPattern as CoatPattern | undefined) ?? null;
+  let pattern = (rawPattern as CoatPattern | undefined) ?? null;
   const colours = new Set<string>();
-  const tabby = codes.includes("tabby");
-  for (const c of codes) {
+  let bareWhite = false;
+  for (const c of codes as string[]) {
     if (c === "tabby") continue;
     if (c === "black_and_white") { colours.add("black"); colours.add("white"); continue; }
     if (c === "tortoiseshell_or_calico") { colours.add("black"); colours.add("ginger"); pattern ??= "patches"; continue; }
+    if (c === "white") bareWhite = true;
     colours.add(c);
   }
-  if (tabby) {
+  if (codes.includes("tabby")) {
     pattern ??= "stripes";
-    colours.delete("white"); // an old Tabby never makes White a known colour (§6)
+    if (bareWhite && !codes.includes("black_and_white")) colours.delete("white"); // §6: the tabby's own colour was never said
   }
   const ordered = orderColours(colours);
   return { colours: ordered.length ? ordered : null, pattern, notSure: false };
 }
 
-/** The old public `coat` for older phones (spec §6 truth table). Display only. */
+/** The reverse, for writers: never emits a null or false part. */
+export function partsToValue(parts: CoatParts): { colours?: CoatColour[]; pattern?: CoatPattern } | { notSure: true } {
+  if (parts.notSure) return { notSure: true };
+  return { ...(parts.colours?.length ? { colours: [...parts.colours] } : {}), ...(parts.pattern ? { pattern: parts.pattern } : {}) };
+}
+
+/** The old public `coat` for older phones (§6 truth table). Display only. */
 export function legacyCoatCodes(colours: readonly CoatColour[], pattern: CoatPattern | null): LegacyPublicCode[] {
   const has = (c: CoatColour) => colours.includes(c);
-  const others = colours.filter((c) => c !== "black" && c !== "white");
-  if (has("black") && has("white") && others.length === 0 && pattern !== "stripes") return ["black_and_white"];
+  const nonBW = colours.filter((c) => c !== "black" && c !== "white");
+  if (has("black") && has("white") && nonBW.length === 0 && pattern !== "stripes") return ["black_and_white"];
   if (pattern === "patches" && has("black") && has("ginger")) return ["tortoiseshell_or_calico"];
   if (pattern === "stripes") {
     const first = (["ginger", "grey", "black", "white"] as const).find(has);
@@ -259,50 +267,58 @@ export function legacyCoatCodes(colours: readonly CoatColour[], pattern: CoatPat
 }
 ```
 
-The order of the stripes case matches the test table: a white-and-stripes coat is sent as `["tabby","white"]`, the order today's app already renders as "Tabby · White".
-
-- [ ] **Step 4: Run the tests and watch them pass.** Run the same command. Expected: PASS.
-
+- [ ] **Step 4: Run the test.** Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
 git add artifacts/api-server/src/lib/appearance.ts artifacts/api-server/src/lib/appearance.coat.test.ts
-git commit -m "SYC-398 A1: the coat vocabulary and the one translation of stored statements"
+git commit -m "SYC-398 A1: the coat vocabulary, the one translation and its reverse"
 ```
 
-### Task A1.2: The check on write (new shape only)
+### Task A1.2: The check on write
 
-**Files:**
-- Modify: `artifacts/api-server/src/lib/observations.ts`: the `case "coat"` block (currently lines 343–415); `STATEMENT_KEYS` (line 176); the `COAT_COLOUR_SET` import (line 152)
-- Test: `artifacts/api-server/src/lib/observations.coat.test.ts` (new). Update the coat cases in `observations.test.ts`: the "1 or 2", "three" and `not_sure` cases move here in their new form.
+**Files:** modify `lib/observations.ts`:
+- the `case "coat"` block (lines 343–415);
+- `STATEMENT_KEYS` (line 176);
+- a `COAT_PATTERN_SET` beside `COAT_COLOUR_SET` (line 152).
 
-**Interfaces:**
-- Consumes: `COAT_COLOURS` and `COAT_PATTERNS` from Task A1.1.
-- Produces: valid values are `{colours?, pattern?, modelVersion?}`, `{notSure: true}` or a retraction. Refusal code `MALFORMED_VALUE`, as now.
+Test: `lib/observations.coat.test.ts` (new). Delete the old coat cases in `observations.test.ts`, including the `normaliseColours` describe at lines 521–530; they move here in their new form.
 
-- [ ] **Step 1: Write the failing tests.** Each goes through `writeObservation(db, …)` on a throwaway cat, as `observations.test.ts` already does:
-  - **accepted:** a spotter `{colours:["brown","ginger"],pattern:"stripes"}`; a spotter `{colours:["black","grey","brown","ginger","white"]}` (all five); a spotter `{notSure:true}`; a team `{pattern:"plain"}`; a team `{colours:["ginger"]}`; a machine `{colours:["grey"],modelVersion:"x/coat-v2"}`; a machine `{pattern:"stripes",modelVersion:"x"}`; a machine `{notSure:true,modelVersion:"x"}`.
-  - **refused (`MALFORMED_VALUE`):** an old shape `{colours:["tabby"]}`, `{colours:["black_and_white"]}` and `{colours:["not_sure"]}`; an unknown colour; a duplicate colour; an unknown pattern; `{}`; a spotter `{pattern:"stripes"}` with no colours; a team `{notSure:true}`; a team `{}`; `notSure` alongside any part; `modelVersion` on a non-machine row; a machine row without `modelVersion`.
-  - **A retraction carrying `pattern` or `notSure` is refused**: `STATEMENT_KEYS` covers the new keys.
+**There is no key allow-list.** The team code stores `reason` (`teamCorrections.ts:215`) and `agreesWith` (`teamCorrections.ts:554`) in the value. The check validates the coat keys and leaves the rest alone, as today.
 
-- [ ] **Step 2: Run and watch them fail.** Run `pnpm exec vitest run src/lib/observations.coat.test.ts`. Expected: several FAIL.
-
-- [ ] **Step 3: Implement.** Replace the body of `case "coat"`:
+- [ ] **Step 1: Failing tests**, each through `writeObservation(db, …)` on a throwaway cat:
+  - **accepted:**
+    - a spotter `{colours:["brown","ginger"],pattern:"stripes"}`;
+    - a spotter with all five colours;
+    - a spotter `{notSure:true}`;
+    - a team `{pattern:"plain",reason:"x"}`;
+    - a team `{colours:["ginger"],reason:"x",agreesWith:12}`;
+    - a machine `{colours:["grey"],modelVersion:"m"}`;
+    - a machine `{pattern:"stripes",modelVersion:"m"}`;
+    - a machine `{notSure:true,modelVersion:"m"}`.
+  - **refused (`MALFORMED_VALUE`):**
+    - the old shapes `{colours:["tabby"]}`, `{colours:["black_and_white"]}` and `{colours:["not_sure"]}`;
+    - an unknown colour; a duplicate colour; an unknown pattern;
+    - `{}`, and `{reason:"x"}` alone;
+    - a spotter `{pattern:"stripes"}` without colours;
+    - a team `{notSure:true}`;
+    - `notSure` together with a part;
+    - `modelVersion` on a non-machine row; a machine row without `modelVersion`.
+  - **A retraction carrying `pattern` or `notSure`** is refused.
+- [ ] **Step 2: Run them and watch them fail.**
+- [ ] **Step 3: Implement**
 
 ```ts
 case "coat": {
   if (isRetraction(value)) return;
   if (!isPlainObject(value)) refuse("MALFORMED_VALUE", "coat needs { colours?, pattern? } or { notSure: true }");
-  const keys = Object.keys(value);
-  const allowed = new Set(["colours", "pattern", "notSure", "modelVersion"]);
-  if (!keys.every((k) => allowed.has(k))) refuse("MALFORMED_VALUE", "coat has an unknown key");
-  const machine = ctx.provenance === "machine";
-  if (value["notSure"] === true) {
-    if (keys.some((k) => k === "colours" || k === "pattern")) refuse("MALFORMED_VALUE", "notSure is never combined with a colour or pattern");
+  const colours = value["colours"];
+  const pattern = value["pattern"];
+  if (value["notSure"] !== undefined) {
+    if (value["notSure"] !== true) refuse("MALFORMED_VALUE", "notSure must be true");
+    if (colours !== undefined || pattern !== undefined) refuse("MALFORMED_VALUE", "notSure is never combined with a colour or pattern");
     if (statesAppearanceWithAuthority(ctx.roleAtTime)) refuse("MALFORMED_VALUE", 'the team and cat guardians never state "not sure"; use Mark wrong');
   } else {
-    const colours = value["colours"];
-    const pattern = value["pattern"];
     if (colours !== undefined) {
       if (!Array.isArray(colours) || colours.length < 1 || colours.length > COAT_COLOURS.length) refuse("MALFORMED_VALUE", "coat.colours must have 1 to 5 entries");
       if (!colours.every((c) => COAT_COLOUR_SET.has(c as string))) refuse("MALFORMED_VALUE", "coat.colours must be from the five colours");
@@ -313,7 +329,7 @@ case "coat": {
     if (ctx.roleAtTime === "public" && colours === undefined) refuse("MALFORMED_VALUE", "a spotter's coat answer names at least one colour");
   }
   const modelVersion = value["modelVersion"];
-  if (machine) {
+  if (ctx.provenance === "machine") {
     if (typeof modelVersion !== "string" || modelVersion.length === 0) refuse("MALFORMED_VALUE", "a machine coat needs a non-empty modelVersion");
   } else if (modelVersion !== undefined) {
     refuse("MALFORMED_VALUE", "modelVersion is only allowed on a machine-provenance coat");
@@ -322,136 +338,160 @@ case "coat": {
 }
 ```
 
-Also:
-- `const COAT_PATTERN_SET = new Set(COAT_PATTERNS)` sits beside `COAT_COLOUR_SET`;
-- `STATEMENT_KEYS` becomes `["colours", "pattern", "notSure", "marks", "cantTell", "modelVersion"]`.
+`STATEMENT_KEYS` becomes `["colours", "pattern", "notSure", "marks", "cantTell", "modelVersion"]`.
 
-- [ ] **Step 4: Run.** Run the new file and `src/lib/observations.test.ts` (with its coat cases updated). Expected: PASS.
-
+- [ ] **Step 4: Run them and watch them pass.**
 - [ ] **Step 5: Commit**
-
-```bash
-git add artifacts/api-server/src/lib/observations.ts artifacts/api-server/src/lib/observations.coat.test.ts artifacts/api-server/src/lib/observations.test.ts
-git commit -m "SYC-398 A1: the coat write check accepts only colours-plus-pattern"
-```
 
 ### Task A1.3: Who wins, per part
 
-**Files:**
-- Create: `artifacts/api-server/src/lib/coatResolve.ts`
-- Modify: `artifacts/api-server/src/lib/resolve.ts`:
-  - make the generic core of `resolveCoat` (lines 1045–1235) `resolveCodeSet(statements, opts)`, parameterised on the code list and `maxShown`;
-  - `AppearanceCheckReason` (line 999) gains `pattern_tied_camps` and `mixed_sources`;
-  - `CatSnapshot.coat` (line 122) becomes `coatColours: AppearanceResolved<CoatColour[]>` and `coatPattern: AppearanceResolved<CoatPattern | null>`;
-  - `resolveCat` (line 1429) changes to match.
-- Test: `artifacts/api-server/src/lib/coatResolve.test.ts` (new). Move the coat cases of `resolve.appearance.test.ts` there, in their new form.
+**Files:** modify `lib/resolve.ts`:
+- extract `resolveCodeSet` from `resolveCoat` (lines 1045–1235);
+- add the projection and `resolveCoatParts`;
+- `AppearanceCheckReason` (line 999) gains `pattern_tied_camps` and `mixed_sources`;
+- `CatSnapshot` (line 122) swaps `coat` for `coatColours: AppearanceResolved<CoatColour[]>` and `coatPattern: AppearanceResolved<CoatPattern | null>`;
+- `resolveCat` (line 1429) changes to match.
 
-**Interfaces:**
-- Consumes: `readCoatValue` and `CoatParts`.
-- Produces:
-  - `resolveCoatParts(observations, ranking = appearanceAuthorityLevel): { colours: AppearanceResolved<CoatColour[]>; pattern: AppearanceResolved<CoatPattern | null> }`;
-  - `CatSnapshot.coatColours` and `CatSnapshot.coatPattern`;
-  - the new reasons `pattern_tied_camps` and `mixed_sources`.
+Test: `lib/resolve.coatParts.test.ts` (new). Move the coat cases of `resolve.appearance.test.ts` there, in their new form, and update `resolve.test.ts:1050`.
 
-**The projection** (this is the subtle part; it implements §4 exactly). For each part, build a list of pseudo-observations, each a shallow copy of a `coat` row with its `value` replaced by `{ colours: string[] }`, so the existing rule engine runs unchanged:
-- **A retraction** (`{retracted:true}`) is kept as it is in both projections, so Mark wrong still retracts both parts.
-- **A `notSure` row** projects to `{colours:["not_sure"]}` in both parts. It is the only withdrawal.
-- **A machine row** (`provenance === "machine"`) is **always kept** in both projections. A part it doesn't state projects to `{colours: []}`, an empty machine reading. That makes "the newest machine row only; an absent part is not known" hold, because the existing code treats an empty machine reading as "no machine reading" and never falls back to an older one.
-- **A non-machine row that doesn't state the part is dropped** from that part's projection. It is neither a statement nor a withdrawal there, so it falls through to the next rule.
-- **Otherwise** colours project to `{colours: parts.colours}`, and pattern projects to `{colours: [parts.pattern]}`.
+**Interfaces (produced):** `resolveCoatParts(observations, ranking = appearanceAuthorityLevel): { colours: AppearanceResolved<CoatColour[]> & { rule: 1|2|3|4|5 }; pattern: AppearanceResolved<CoatPattern | null> & { rule: 1|2|3|4|5 } }`.
 
-Run the core with `maxShown: Infinity` for colours and `maxShown: 1` for pattern. For pattern, a camps result with more than one camp sets the reason `pattern_tied_camps` instead of `tied_camps`.
+**The algorithm** (this is the subtle part; implement it exactly):
+1. **Take only the standing statements first.** Run `standingAppearanceRows(coatRows, "coat", false, ranking)` on the **full, untransformed** coat history. Keep those rows, plus every retraction row and every machine row. So a superseded row never comes back, even when the row that superseded it doesn't state the part being resolved.
+   - A newer statement by the same author replaces the whole earlier one. If it doesn't state the pattern, that author's pattern is "not stated", not the old one.
+2. **Project each kept row for each part.**
+   - A **retraction** stays as it is.
+   - A **`notSure`** row becomes `{colours:["not_sure"]}`. It is the only withdrawal.
+   - A **machine row** is always kept. A part it doesn't state becomes `{colours: []}`, so the newest machine row's missing part is not known and an older machine row never fills it.
+   - A **non-machine row that doesn't state the part** is dropped from that part.
+   - **Otherwise** colours project to `{colours: parts.colours}`, and the pattern projects to `{colours: [parts.pattern]}`.
+3. **Run the engine.** `resolveCodeSet(projected, codes, maxShown)` is today's `resolveCoat` body with:
+   - `COAT_COLOURS` replaced by `codes`;
+   - `normaliseColours` replaced by identity;
+   - `.slice(0, 2)` replaced by `.slice(0, maxShown)`;
+   - the rule number it returned from added to the result.
 
-**Mixed sources.** When both parts are known, and the `confidence` of one is `confirmed` or `likely` while the other is `reported` from a machine row (or the reverse), add `mixed_sources` to both parts' `checkReasons`.
+   Colours run with `maxShown = Infinity`. The pattern runs with `maxShown = 1`, and its `tied_camps` becomes `pattern_tied_camps`.
+4. **Mixed sources:** when both parts are known and their `rule` numbers differ, add `mixed_sources` to both `checkReasons` (spec §4 and Decision 2A).
 
-- [ ] **Step 1: Write the failing tests** (`coatResolve.test.ts`, pure, using the `obs()` helper style of `appearance.notNotifiable.test.ts`):
-  1. A team `{colours:["ginger"]}` with a machine `{colours:["brown"],pattern:"stripes"}`: colours ginger (confirmed); pattern stripes (reported, from the machine); `mixed_sources` on both.
-  2. A team `{pattern:"plain"}` only: pattern plain (confirmed); colours fall through to the machine.
-  3. Two independent spotters `{colours:["brown","ginger"],pattern:"stripes"}`: colours brown and ginger, pattern stripes, both likely.
-  4. All five colours from two voices: all five shown (no cap).
-  5. Pattern camps: two voices for stripes and two for patches, never together: the newer is shown; `pattern_tied_camps`.
-  6. Machine v1 `{colours:["ginger","tabby"]}` dated earlier, then machine v2 `{colours:["ginger"]}` dated later: pattern **not known** (the newest machine row has no pattern; the older never fills it). This is the probe for "an older reading never comes back".
-  7. A spotter's `{pattern:"stripes"}` translated from an old `["tabby"]` row does **not** withdraw that device's earlier colours (only `notSure` withdraws).
-  8. A spotter's `notSure` withdraws its own earlier answer in both parts.
-  9. A mixed history from one device (an old `{colours:["ginger","tabby"]}`, then a new `{colours:["ginger"],pattern:"stripes"}`): one voice.
-  10. A later machine reading never beats a team statement, in either part.
-  11. Mark wrong on a two-part team statement: both parts fall to the next rule.
-  12. **Parity:** for every old-shape fixture in the existing `resolve.appearance.test.ts` coat cases, the colours resolve to the translation of what the old engine resolved, so nothing that resolved before resolves differently now, apart from the cap of two.
-
-- [ ] **Step 2: Run and watch them fail.**
-
-- [ ] **Step 3: Implement.** Extract the body of `resolveCoat` into `resolveCodeSet<C extends string>(observations, codes: readonly C[], maxShown: number, ranking)`:
-  - replace `COAT_COLOURS` with `codes`;
-  - replace `normaliseColours` with identity, because Black + White is two colours now;
-  - replace `.slice(0, 2)` with `.slice(0, maxShown)`.
-
-  The private `coatColours(value)` becomes "read `value.colours`, drop `not_sure`, keep only `codes`". Write `coatResolve.ts` with the projection and `resolveCoatParts`. In `resolveCat`, set `coatColours: parts.colours` and `coatPattern` from `parts.pattern`, mapped as `value: v?.[0] ?? null`.
-
-- [ ] **Step 4: Run** `src/lib/coatResolve.test.ts src/lib/resolve.appearance.test.ts src/lib/resolve.test.ts src/lib/resolve.authority.test.ts`. Expected: PASS.
-
+- [ ] **Step 1: Failing tests** (pure, using the `obs()` helper style of `appearance.notNotifiable.test.ts`):
+  1. A team `{colours:["ginger"]}` and a machine `{colours:["brown"],pattern:"stripes"}`: colours are ginger (rule 1); the pattern is stripes (rule 3); `mixed_sources` on both parts.
+  2. A team `{colours:["ginger"]}` and two independent spotters giving the pattern stripes: `mixed_sources` (rule 1 against rule 2).
+  3. A team `{pattern:"plain"}` alone: the colours fall through to the machine.
+  4. Two independent spotters `{colours:["brown","ginger"],pattern:"stripes"}`: both parts likely, rule 2, with no `mixed_sources`.
+  5. All five colours from two voices: all five are shown.
+  6. Two voices for stripes and two for patches, never together: the newer is shown, with `pattern_tied_camps`.
+  7. A machine v1 `{colours:["ginger"],pattern:"stripes"}` dated earlier, then a machine v2 `{colours:["ginger"]}`: the pattern is **not known**.
+  8. A spotter's old `["tabby"]` row (pattern only) does not withdraw that device's earlier colours.
+  9. A spotter's `notSure` withdraws both of its own parts.
+  10. **Supersession (spotter):** S1 `{colours:["ginger"],pattern:"stripes"}`, then the same device supersedes it with S2 `{colours:["ginger"]}`. S1's stripes don't come back, so the pattern falls to the next rule.
+  11. **Supersession (team):** T1 `{colours:["ginger"]}`, then T2 `{pattern:"plain"}` supersedes T1. T1's colours don't come back.
+  12. One device's old-then-new history counts as one voice.
+  13. A later machine reading never beats a team statement, in either part.
+  14. Mark wrong on a two-part team statement: both parts fall to the next rule.
+  15. **Parity:** for every old-shape fixture in the existing coat tests, the colours resolve to the translation of what the old engine resolved, apart from the cap of two.
+- [ ] **Step 2: Run them and watch them fail.**
+- [ ] **Step 3: Implement the algorithm above.**
+- [ ] **Step 4: Run** `src/lib/resolve.coatParts.test.ts src/lib/resolve*.test.ts`. Expected: PASS.
 - [ ] **Step 5: Commit**
 
-```bash
-git add artifacts/api-server/src/lib/coatResolve.ts artifacts/api-server/src/lib/coatResolve.test.ts artifacts/api-server/src/lib/resolve.ts artifacts/api-server/src/lib/resolve.appearance.test.ts
-git commit -m "SYC-398 A1: who wins, for colours and pattern separately"
-```
+### Task A1.4: Every other reader and writer, so A1 builds and every page works
 
-### Task A1.4: Every reader of the snapshot and of stored coat values
+Each item below is its own commit (**commit after each item**). Each has its tests updated in the same commit.
 
-**Files:**
-- Modify:
-  - `lib/catHelpers.ts`: `DerivedCatStatus.coat` (line 76) stays as the old public codes, now worked out via `legacyCoatCodes`, from `snapshot.coatColours` and `snapshot.coatPattern` in `deriveCatStatuses` (line 349; the legacy branch at line 330 stays `[]`). The wire shape is unchanged in A1.
-  - `lib/handPick.ts`: read the spotter's answer through `readCoatValue`. Flag when it shares no colour with the resolved colours, **or** when both patterns are known and differ.
-  - `lib/colourCheck.ts`: `ColourCheckCat.coat` becomes `coatColours` plus `coatPattern`; `REASON_ORDER` gains `pattern_tied_camps` and `mixed_sources` after `tied_camps`.
-  - `lib/teamCatView.ts`: `codesOf` (line 858) and the history line (lines 214–220) read through `readCoatValue`; the `COAT` map gets the new words.
-  - `lib/teamCorrections.ts`: `resolvedAppearance` (line 472) and `confirmAppearance` (lines 516–563) use `resolveCoatParts`. **The Confirm rules for parts are Task B.1.** Here, Confirm writes `{colours}` when only colours are known, `{pattern}` when only pattern, both when both are, and refuses as "nothing" when neither is.
-  - `lib/coatReading/record.ts`: `recordReading` and `copyReadingForward` write the **translated** shape: `{...readCoatValue(v1Answer) parts, modelVersion}`. A coat-v1 answer `["ginger","tabby"]` is written as `{colours:["ginger"],pattern:"stripes",modelVersion:"…/coat-v1"}`. `copyReadingForward` translates its source the same way.
-  - `lib/appearance.notNotifiable.test.ts`: `SYC2_FIELDS` becomes `["coatColours","coatPattern","markings","vaccinations"]`, and the R7a allow-list reads `snapshot.coatColours.value` and `snapshot.coatPattern.value` inside `deriveCatStatuses`.
-  - Remove `normaliseColours` from `appearance.ts` and its re-export from `observations.ts`.
-- Test: update every coat-touching test listed in the survey:
-  - `catHelpers.derivedStatus.test.ts`;
-  - `routes/team.appearance.test.ts` (the Confirm and Correct value shapes);
-  - `lib/teamPages/catPages.history.test.ts`;
-  - `lib/coatReading/coatReading.test.ts` (rows are now written in the new shape);
-  - `routes/cats.appearance.public.test.ts`: `CatCoatItem` still equals the seven old public codes in A1;
-  - `routes/internalCoat.test.ts`.
+1. **`lib/catHelpers.ts`:**
+   - `PublicCoatColour` (line 64) becomes `LegacyPublicCode` from `appearance.ts`;
+   - `deriveCatStatuses` (line 349) reads `snapshot.coatColours.value` and `snapshot.coatPattern.value` **once each into locals**, then sets `coat: legacyCoatCodes(colours ?? [], pattern)`;
+   - the legacy branch stays `coat: []`.
+2. **`lib/guardianCatView.ts`** (lines 71 and 191): the same `LegacyPublicCode` type. Guardian pages keep the old field and words until SYC-53 Slice 6 is ticketed.
+3. **`lib/handPick.ts`:**
+   - read the spotter's answer through `readCoatValue`;
+   - **flag** when it shares no colour with `resolveCoatParts(...).colours.value`, or when both patterns are known and differ;
+   - the signature takes the parts.
+4. **`lib/colourCheck.ts`:**
+   - `ColourCheckCat.coat` becomes `coatColours` and `coatPattern`;
+   - `REASON_ORDER` gains `pattern_tied_camps` and `mixed_sources` after `tied_camps`;
+   - the reasons are the union of both parts' `checkReasons`.
+5. **`lib/teamCatView.ts`:**
+   - the `COAT` map holds the five colours and three patterns;
+   - the history line (lines 214–220) and `codesOf` (line 858) read through `readCoatValue`, giving for example "brown and ginger, stripes";
+   - `appearanceOf` (line 841) takes the two parts.
+6. **`lib/teamCorrections.ts` and `routes/teamCorrections.ts`:**
+   - `TEAM_COLOURS` (route, line 824) becomes `COAT_COLOURS`;
+   - drop the 1–2 cap (lines 904–907) and `normaliseColours`;
+   - `correctAppearance` writes `{colours}` (the pattern comes in B);
+   - **Confirm per part:** `confirmAppearance` writes `partsToValue` of the known parts plus `agreesWith`, and refuses as "nothing" when neither part is known;
+   - `ConfirmForm.expected` carries `expectedColours` and `expectedPattern`, and `sameCodes` compares each part.
+7. **`lib/teamPages/appearancePage.ts` and `strings/{en,el,fr}.ts`:**
+   - `TEAM_COLOURS` becomes the five;
+   - add `coat.brown` and `pattern.{plain,stripes,patches,none}` (the team's words follow the team-page language rule);
+   - `appearance.pickColours` becomes "Tick every colour you can see";
+   - add `reason.pattern_tied_camps` and `reason.mixed_sources`;
+   - `publicLine` builds from the two parts;
+   - the colour-check cells read `coatColours` and `coatPattern`.
+8. **`lib/coatReading/reader.ts`** (still coat-v1 until C):
+   - `COLOUR_DESCRIPTIONS` becomes `Record<LegacyCoatCode, string>`, and `coatPrompt()` maps `LEGACY_COAT_CODES`, **so the live v1 prompt is unchanged byte for byte**;
+   - `interpretCoatAnswer` validates against `LEGACY_COAT_CODES`, with a local black + white merge;
+   - its result also carries `parts: CoatParts` (via `readCoatValue({colours})`);
+   - `reader.test.ts` gains: **"the v1 prompt is unchanged"** (a snapshot of `coatPrompt()` taken before A1).
+9. **`lib/coatReading/record.ts`:**
+   - `recordReading` writes `{...partsToValue(parts), modelVersion}`;
+   - `copyReadingForward` translates its source with `readCoatValue` and writes `partsToValue` plus the source's own `modelVersion`;
+   - its "no colours" guard (around line 108) becomes "unreadable value".
+10. **`lib/coatReading/sweep.ts`:** `SweepItem.colours` becomes `parts?: CoatParts`. Types only.
+11. **`lib/appearance.notNotifiable.test.ts`:**
+    - `SYC2_FIELDS` becomes `["coatColours","coatPattern","markings","vaccinations"]`;
+    - update the test at line 74 (`after.coat.value`);
+    - the regexes `\.(coat|markings|vaccinations)\b` and the destructuring pattern become `\.(coat(?:Colours|Pattern)?|markings|vaccinations)\b`;
+    - R7a's allow-list reads `snapshot.coatColours.value` and `snapshot.coatPattern.value` in `deriveCatStatuses`, counted with word boundaries;
+    - add a self-test that `snapshot.coatColours.confidence` is flagged.
+12. **Remove `normaliseColours`** from `appearance.ts` and its re-export from `observations.ts`.
+13. **The other tests:**
+    - `routes/team.appearance.test.ts` (value shapes; Confirm per part);
+    - `lib/teamPages/catPages.*.test.ts`;
+    - `lib/coatReading/coatReading.test.ts` (T-row now asserts the new shape);
+    - `routes/cats.appearance.public.test.ts` (`CatCoatItem` still equals the seven old public codes);
+    - `routes/internalCoat.test.ts`;
+    - `lib/catHelpers.derivedStatus.test.ts`.
 
-  Add to `handPick`'s tests: a translated old answer; a shared colour (no flag); a pattern mismatch (flag).
+- [ ] **Run the full api-server suite, the root `pnpm run typecheck`, and the web preview's team Appearance page** for a live-shaped cat. Expected: all green (re-run any SYC-334 flake alone), and no raw code or `undefined` on the page.
 
-- [ ] **Step 1: Make the test updates and the new hand-pick tests.** Run them and watch them fail.
-- [ ] **Step 2: Implement the reader changes above.**
-- [ ] **Step 3: Run the whole api-server suite and the typecheck.** From the repo root, `pnpm run typecheck`, then the full vitest run. Expected: green, except the known flake SYC-334 (re-run that file alone to confirm).
-- [ ] **Step 4: Commit**, one commit per file group as you go (after each item):
+### Task A1.5: The documents
 
-```bash
-git commit -m "SYC-398 A1: every coat reader goes through the translation"
-```
+Amend everything listed at the top of the spec ("Amends" and "Replaces this wording"). Add a `DECISIONS.md` Part 2n entry recording Samuel's 16 October decisions and the pointer to the spec. Commit.
 
 ### A1 mutation probes (break it, see the named test go red, restore it)
 
-1. **`readCoatValue` keeps White on an old `tabby`.** Expect red: Task A1.1 "old tabby · white".
-2. **`readCoatValue` maps `black_and_white` to `plain`.** Expect red: Task A1.1 "old black_and_white".
-3. **The projection drops machine rows that lack the part, instead of projecting them empty.** Expect red: A1.3 test 6.
-4. **The projection treats an empty spotter part as a withdrawal.** Expect red: A1.3 test 7.
-5. **`maxShown` is set back to 2.** Expect red: A1.3 test 4.
-6. **The write check accepts an old-shape value.** Expect red: A1.2 "refused old shape".
-7. **`mixed_sources` is never set.** Expect red: A1.3 test 1.
-8. **`handPick` compares raw `value.colours`.** Expect red: the hand-pick "translated old answer" test.
-9. **`record.ts` writes the untranslated v1 answer.** Expect red: `coatReading.test.ts` T-row, which now asserts the new shape.
+1. **`readCoatValue` keeps a bare White beside `tabby`.** Expect red: A1.1 "old tabby · white".
+2. **It drops White from `black_and_white · tabby`.** Expect red: A1.1 "keeps black and white".
+3. **It maps `black_and_white` to `plain`.** Expect red: A1.1 "old black_and_white".
+4. **`legacyCoatCodes` always returns `["tabby"]` for Stripes.** Expect red: the 128-combination oracle.
+5. **`partsToValue` writes `colours: null`.** Expect red: the A1.1 partsToValue tests.
+6. **The write check refuses `reason` or `agreesWith`.** Expect red: A1.2 team accepted cases.
+7. **The write check accepts an old shape.** Expect red: A1.2 refused cases.
+8. **The resolver skips the standing pre-filter.** Expect red: A1.3 tests 10 and 11.
+9. **Machine rows lacking a part are dropped instead of projected empty.** Expect red: A1.3 test 7.
+10. **An empty spotter part is treated as a withdrawal.** Expect red: A1.3 test 8.
+11. **`maxShown` is set back to 2.** Expect red: A1.3 test 5.
+12. **`mixed_sources` only fires for machine against people.** Expect red: A1.3 test 2.
+13. **`handPick` reads raw `value.colours`.** Expect red: the hand-pick "translated old answer" test.
+14. **`record.ts` writes the untranslated v1 answer.** Expect red: `coatReading.test.ts` T-row.
+15. **The v1 prompt changes.** Expect red: "the v1 prompt is unchanged".
+16. **A notifier reads `snapshot.coatColours.confidence`.** Expect red: the not-notifiable guard.
 
-**A1 review:** Opus spot review of `coatResolve.ts` and `readCoatValue` before the PR opens. Why Opus: the projection's interplay with "newest machine row only" and "only notSure withdraws" is where a green suite hides a wrong answer, as on SYC-161.
+**A1 reviews:**
+- an Opus spot review of `readCoatValue`, the A1.3 algorithm and the A1.4 diff before the PR opens. Why Opus: the projection's interplay with supersession, "newest machine row only" and "only notSure withdraws" is where a green suite hides a wrong answer, and A1.4 is where the first draft of this plan broke the build;
+- then `/ship`.
 
 ---
 
-## PR A2 — Public data: the new fields, older phones safe, cat pages show the new line
+## PR A2 — Public data
 
 **Depends on:** A1 merged.
 
 ### Task A2.1: The wire
 
-**Files:**
-- Modify:
-  - `lib/api-spec/openapi.yaml`, the Cat schema near lines 1033–1054. Add:
+- **`lib/api-spec/openapi.yaml`:** add `coatColours` and `coatPattern` to the Cat schema, next to `coat` (around lines 1033–1054):
 
 ```yaml
         coatColours:
@@ -461,220 +501,230 @@ git commit -m "SYC-398 A1: every coat reader goes through the translation"
         coatPattern:
           type: string
           nullable: true
-          description: The cat's resolved coat pattern (§6), or null when not known. Only the value.
           enum: [plain, stripes, patches]
+          description: The cat's resolved coat pattern (§6), or null when not known. Only the value.
 ```
 
-    Keep `coat` exactly as it is (`maxItems: 2`, the seven old codes). Change its description to "For older app versions, display only: worked out from coatColours and coatPattern (§6). Never filter on it."
-  - Regenerate the types with `pnpm --filter @workspace/api-spec run codegen`.
-  - `lib/catHelpers.ts`: `DerivedCatStatus` gains `coatColours: CoatColour[]` and `coatPattern: CoatPattern | null` (the legacy branch gets `[]` and `null`). `serialiseCat` (line 203) emits both.
-  - **R7a's allow-list** in `appearance.notNotifiable.test.ts` gains the two copies in `serialiseCat`.
-- Test:
-  - `routes/cats.appearance.public.test.ts`: a cat with a team `{colours:["brown","ginger"],pattern:"stripes"}` gives `coatColours: ["brown","ginger"]`, `coatPattern: "stripes"` and `coat: ["ginger","tabby"]`. A brown-only cat gives `coat: []`. No other new key; the `NEVER_PUBLIC` list holds.
-  - Snapshots: regenerate `routes/__snapshots__/publicPayload.p6.txt` and `cats.publicDetail.p3-2.txt` **on purpose**. The only change is `"coatColours":[],"coatPattern":null` beside `"coat":[]`. Record the regeneration in the PR, as the p6 test header requires.
+  Keep `coat` exactly as it is, with its description changed to: "For older app versions, display only, worked out from coatColours and coatPattern (§6). Never filter on it."
+- **Regenerate** with `pnpm --filter @workspace/api-spec run codegen`.
+- **`lib/catHelpers.ts`:**
+  - `DerivedCatStatus` gains `coatColours: CoatColour[]` and `coatPattern: CoatPattern | null`, from the same two locals as A1.4 item 1;
+  - the legacy branch gets `[]` and `null`;
+  - `serialiseCat` emits `coat`, then `coatColours`, then `coatPattern`, **in that order, right after `coat`**;
+  - R7a's allow-list gains the two `cat.derived.coatColours` and `cat.derived.coatPattern` reads in `serialiseCat`, counted with word boundaries.
+- **Tests:**
+  - in `routes/cats.appearance.public.test.ts`:
+    - `PUBLIC_CAT_KEYS` gains `coatColours` and `coatPattern`;
+    - a team `{colours:["brown","ginger"],pattern:"stripes"}` gives `coatColours ["brown","ginger"]`, `coatPattern "stripes"` and `coat ["ginger","tabby"]`;
+    - brown alone gives `coat []`;
+    - the `NEVER_PUBLIC` list holds;
+  - regenerate `routes/__snapshots__/publicPayload.p6.txt` and `cats.publicDetail.p3-2.txt` **on purpose**. The only diff is `,"coatColours":[],"coatPattern":null` right after `"coat":[]`. Record it in the PR, as the p6 header requires.
 
-- [ ] **Step 1: Failing tests** (the public test cases above).
-- [ ] **Step 2: Implement:** openapi, then codegen, then catHelpers.
-- [ ] **Step 3: Regenerate the snapshots, and diff them** to show only the two keys changed.
-- [ ] **Step 4: Run the full suite and the typecheck.**
-- [ ] **Step 5: Commit.**
+### Task A2.2: The app shows the new line, and never the old words
 
-### Task A2.2: The app shows the new line; older data is display-only
-
-**Files:**
-- Create: `artifacts/cat-spotter/lib/coat.ts`, `artifacts/cat-spotter/lib/__tests__/coat.test.ts`
-- Modify: `artifacts/cat-spotter/lib/appearance.ts`. `appearanceLine` (line 74) uses `coatLineKeys` from `coat.ts`, then the marks.
-- Modify: `artifacts/cat-spotter/lib/i18n.ts`. Add `coat_brown`, `pattern_plain`, `pattern_stripes` and `pattern_patches` in en, el and fr (§2 drafts). Keep the old `coat_*` keys for the fallback.
+Create `artifacts/cat-spotter/lib/coat.ts` and its test.
 
 ```ts
-// lib/coat.ts — pure
 import type { Cat } from '@workspace/api-client-react';
 export const COLOURS = ['black', 'grey', 'brown', 'ginger', 'white'] as const;
 export type Colour = (typeof COLOURS)[number];
 export const PATTERNS = ['plain', 'stripes', 'patches'] as const;
 export type Pattern = (typeof PATTERNS)[number];
+type CoatFields = Pick<Cat, 'coat' | 'coatColours' | 'coatPattern'>;
+export type Parts = { colours: Colour[] | null; pattern: Pattern | null };
 
-/** The cat's coat as parts, from the new fields only; null parts = not known. Never reads the old `coat`. */
-export function coatParts(cat: Pick<Cat, 'coatColours' | 'coatPattern'>): { colours: Colour[] | null; pattern: Pattern | null } {
-  const colours = Array.isArray(cat.coatColours) ? COLOURS.filter((c) => cat.coatColours!.includes(c)) : [];
-  const pattern = PATTERNS.find((p) => p === cat.coatPattern) ?? null;
-  return { colours: colours.length ? colours : null, pattern };
+const hasNewFields = (cat: CoatFields) => cat.coatColours !== undefined || cat.coatPattern !== undefined;
+
+/** The cat's coat for the FILTER: the new fields only; a cat without them is not known. */
+export function filterParts(cat: CoatFields): Parts {
+  if (!hasNewFields(cat)) return { colours: null, pattern: null };
+  const colours = COLOURS.filter((c) => (cat.coatColours ?? []).includes(c));
+  return { colours: colours.length ? colours : null, pattern: PATTERNS.find((p) => p === cat.coatPattern) ?? null };
 }
 
-/** i18n keys for the coat part of the display line (§2): colours, then the pattern unless plain. Falls back to the old `coat` for DISPLAY only, when the new fields are absent. */
-export function coatLineKeys(cat: Pick<Cat, 'coat' | 'coatColours' | 'coatPattern'>): string[] {
-  if (cat.coatColours === undefined && cat.coatPattern === undefined) return legacyLineKeys(cat.coat);
-  const { colours, pattern } = coatParts(cat);
+/** The cat's coat for DISPLAY: the new fields, or the old `coat` translated by the same table as the server (§6), so no old word is ever shown. */
+export function displayParts(cat: CoatFields): Parts {
+  if (hasNewFields(cat)) return filterParts(cat);
+  const codes = Array.isArray(cat.coat) ? (cat.coat as string[]) : [];
+  const colours = new Set<string>();
+  let pattern: Pattern | null = null;
+  for (const c of codes) {
+    if (c === 'tabby') pattern = 'stripes';
+    else if (c === 'black_and_white') { colours.add('black'); colours.add('white'); }
+    else if (c === 'tortoiseshell_or_calico') { colours.add('black'); colours.add('ginger'); pattern ??= 'patches'; }
+    else colours.add(c);
+  }
+  if (codes.includes('tabby') && codes.includes('white') && !codes.includes('black_and_white')) colours.delete('white');
+  const ordered = COLOURS.filter((c) => colours.has(c));
+  return { colours: ordered.length ? ordered : null, pattern };
+}
+
+/** i18n keys for the coat part of the display line: colours, then the pattern unless plain. */
+export function coatLineKeys(cat: CoatFields): string[] {
+  const { colours, pattern } = displayParts(cat);
   return [...(colours ?? []).map((c) => `coat_${c}`), ...(pattern && pattern !== 'plain' ? [`pattern_${pattern}`] : [])];
 }
 ```
 
-`legacyLineKeys` is today's `inOrder(cat.coat, COAT_ORDER)` mapped through `COAT_LABEL_KEYS`, moved here.
-
-- [ ] **Step 1: Failing tests:**
-  - new fields `["brown","ginger"]` with stripes give the keys `coat_brown`, `coat_ginger`, `pattern_stripes`;
+- **`lib/appearance.ts`:**
+  - `appearanceLabelKeys` (line 66) **and** `appearanceLine` (line 74) both use `coatLineKeys` for the coat, then the marks, so the label keys, the accessibility label and the line agree;
+  - `COAT_LABEL_KEYS` and the private `inOrder` for coat are removed.
+- **`lib/i18n.ts`:** add `coat_brown` and `pattern_plain|stripes|patches` in en, el and fr (the §2 drafts). Remove the old `coat_tabby`, `coat_tortoiseshell_or_calico` and `coat_black_and_white` keys, which nothing shows any more.
+- **Tests:**
+  - new fields brown and ginger with stripes give `coat_brown`, `coat_ginger`, `pattern_stripes`;
   - plain gives no pattern word;
-  - `[]` with null gives `[]`;
-  - absent new fields with `coat: ["ginger","tabby"]` give the legacy keys;
-  - every new key exists in all three languages.
-- [ ] **Step 2: Implement** the module above and the i18n keys.
-- [ ] **Step 3: Run the app tests** (`artifacts/cat-spotter`: `pnpm exec vitest run lib/__tests__/coat.test.ts lib/__tests__/appearance.test.ts lib/__tests__/catalogue.test.ts`). The catalogue cache-key test must stay green **unedited**.
-- [ ] **Step 4: Browser check.** Run the web preview at about 390 px and at desktop width, in en, el and fr. Check a cat page shows "Brown · Ginger · Stripes", a page from a cached old catalogue shows the old words, and nothing raw is ever shown.
-- [ ] **Step 5: Commit.**
+  - an old cached cat `coat:["ginger","tabby"]` displays `coat_ginger, pattern_stripes`;
+  - an old cached cat `["tabby","white"]` displays only `pattern_stripes`;
+  - `filterParts` of an old cached cat is null and null;
+  - every key exists in all three languages;
+  - `CatPicker.test.tsx:122` (the accessibility label) is updated;
+  - the catalogue cache-key test is green **unedited**.
+- **Browser check:** about 390 px and desktop, in en, el and fr. A cat page shows "Brown · Ginger · Stripes", a cached-old cat shows "Ginger · Stripes", and nothing raw or old is ever shown.
 
 ### A2 mutation probes
 
-1. **`serialiseCat` emits the old `coat` worked out from the wrong part.** Expect red: the public test's `coat: ["ginger","tabby"]`.
-2. **`coatParts` falls back to the old `coat`.** Expect red: a coat.test case asserting "absent new fields: parts are null".
-3. **A confidence leaks onto the wire.** Expect red: the `NEVER_PUBLIC` keys test.
+1. **`serialiseCat` works out the old `coat` from the wrong part.** Expect red: the public test `coat ["ginger","tabby"]`.
+2. **`filterParts` falls back to the old `coat`.** Expect red: "filterParts of an old cached cat is null".
+3. **`displayParts` shows the old codes raw.** Expect red: "old cached displays coat_ginger, pattern_stripes".
+4. **A confidence leaks onto the wire.** Expect red: the `NEVER_PUBLIC` test.
 
 ---
 
-## PR B — The team's pages
+## PR B — The team's Correct gains the pattern, and the drawn cat
 
-**Depends on:** A1 merged. **Coordinate:** the SYC-2 PR 3.1 owner, whose code this is (see "Coordination").
+**Depends on:** A1 merged. **Owner of these files:** this plan (the SYC-2 PR 3.1 session is archived).
 
-### Task B.1: Correct as a form, and Confirm per part
-
-**Files:**
-- Modify:
-  - `routes/teamCorrections.ts`:
-    - `TEAM_COLOURS` (line 824) becomes `COAT_COLOURS`;
-    - `CorrectForm` (lines 832–851) becomes `colours: z.array(z.enum(COAT_COLOURS)).max(5).optional()` and `pattern: z.enum(["plain","stripes","patches","none"]).optional()`;
-    - the Correct route (around lines 895–935) needs at least one part: colours non-empty, or a pattern other than `none`.
-  - `lib/teamCorrections.ts`: `correctAppearance` (lines 599–636) writes `{colours?, pattern?}`; `confirmAppearance` writes only the known parts.
-  - `lib/teamPages/appearancePage.ts`:
-    - `correctForm` (around lines 120–170): five colour checkboxes, each with a CSS swatch;
-    - pattern radio buttons: Plain, Stripes, Patches and *Not stated* (`none`, the default);
-    - after saving, a static inline-SVG drawn cat of the saved coat (server-drawn; **no script**, since `layout.ts` has none);
-    - `publicLine` (line 43) shows the new line.
-  - `lib/teamPages/strings/{en,el,fr}.ts`:
-    - the `coat.*` words for the five colours;
-    - `pattern.*` for the three patterns and `none`;
-    - `appearance.pickColours` changes from "Pick one or two" to "Tick every colour you can see";
-    - `reason.pattern_tied_camps` reads "Spotters disagree on the pattern";
-    - `reason.mixed_sources` reads "Colour and pattern from different sources".
-- Test: `routes/team.appearance.test.ts`:
-  - Correct with colours only; with pattern only; with both;
-  - with neither, refused with the form shown again;
-  - Correct on a guardian's statement retracts both parts;
-  - Confirm on a half-known coat writes only the known part;
-  - Confirm with neither part known isn't offered;
-  - the form has no `<script>`;
-  - every new word exists in all three string files (the `strings.test.ts` parity).
-
-- [ ] **Steps:** failing tests, then implement, then run `routes/team.appearance.test.ts`, `lib/teamPages/*.test.ts` and `routes/team.walk.test.ts`, then commit after each item.
-
-### Task B.2: The Colour check list and the cat's history
-
-- Modify:
-  - `lib/colourCheck.ts`: render both parts in a row;
-  - the `checkRow` reasons (`appearancePage.ts` line 271);
-  - `teamCatView.ts`: the history line shows "Brown · Ginger · Stripes" through `readCoatValue`, for old and new rows alike.
-- Test: a cat with mixed sources is listed with `mixed_sources`; a pattern tie with `pattern_tied_camps`; an old v1 machine row's history reads "Ginger · Stripes".
+- **`routes/teamCorrections.ts`:**
+  - `CorrectForm` gains `pattern: z.enum(["plain","stripes","patches","none"]).default("none")`;
+  - Correct needs at least one part: colours non-empty, or a pattern other than `none`;
+  - it writes `partsToValue`.
+- **`lib/teamPages/appearancePage.ts`:**
+  - pattern radio buttons, with *Not stated* as the default;
+  - after saving, a **static inline-SVG** drawn cat of the saved coat (server-drawn; `layout.ts` has no scripts and must stay that way).
+- **Tests (`routes/team.appearance.test.ts`):**
+  - Correct with colours only, pattern only, and both;
+  - with neither, the form is shown again with an error;
+  - **a colours-only Correct leaves an older team pattern standing** (§4: a part not stated falls through);
+  - Correct on a guardian's statement retracts that statement, both parts (§4, as before);
+  - the page contains no `<script>`;
+  - the string parity across the three string files.
 
 ### B mutation probes
 
-1. **Confirm writes a part that isn't known.** Expect red: B.1 "half-known coat".
-2. **Correct accepts neither part.** Expect red: B.1 "neither, refused".
-3. **A `<script>` tag is added to the form.** Expect red: B.1 "no script".
+1. **Correct accepts neither part.** Expect red: "neither".
+2. **A colours-only Correct writes `pattern: "none"`.** Expect red: "leaves an older team pattern standing".
+3. **A `<script>` is added.** Expect red: "no script".
 
 ### After B is live: Samuel's verdicts (SYC-399)
 
-Samuel gets a one-line heads-up first: it writes on production. Then a team member, or Claude through the team route with a team session if Samuel prefers, records each verdict as §8 of the spec translates it. Each one is checked in the cat's history.
+Samuel gets a one-line heads-up first: this writes on production. A team member (or Claude through the team route, if Samuel prefers) records each verdict as §8 translates it, and checks it in the cat's history.
 
 ---
 
 ## PR C — The reader: coat-v2 and the one checked re-read
 
-**Depends on:** A1 merged. It can run in parallel with B.
+**Depends on:** A1 merged. Runs in parallel with B.
 
 ### Task C.1: The coat-v2 prompt and answer
 
-**Files:**
-- Modify: `lib/coatReading/reader.ts`:
+- **`lib/coatReading/reader.ts`:**
   - `MODEL_VERSION` becomes `…/coat-v2`;
-  - `COLOUR_DESCRIPTIONS` becomes a `Record<CoatColour,string>` for the five colours;
-  - add a `PATTERN_DESCRIPTIONS: Record<CoatPattern,string>`;
-  - rewrite `coatPrompt()` to ask for `{catCount, photoClear, colours: string[], pattern: "plain"|"stripes"|"patches"|"cant_tell", confidence}`, with the plain descriptions of §7 (patchy is Patches and never Stripes; sandy brown is Brown, not Ginger; white counts when it is part of the coat);
-  - `interpretCoatAnswer` returns `CoatParts` (a `notSure` for each Not sure case; pattern `null` for `cant_tell`).
-- Test: rewrite `reader.test.ts`:
-  - the prompt lists exactly the five colours and three patterns, in order;
-  - every Not sure case;
-  - five colours accepted;
-  - `cant_tell` gives a null pattern while the colours stand;
-  - an old code such as `tabby` from the model gives Not sure.
+  - `COLOUR_DESCRIPTIONS: Record<CoatColour,string>` for the five colours, and `PATTERN_DESCRIPTIONS: Record<CoatPattern,string>`;
+  - `coatPrompt()` asks for `{catCount, photoClear, colours: string[], pattern: "plain"|"stripes"|"patches"|"cant_tell", confidence}`, with the §7 plain descriptions;
+  - `interpretCoatAnswer` returns `CoatParts`: `notSure` for each Not sure case; pattern `null` for `cant_tell`; an old code such as `tabby` gives Not sure;
+  - the `LEGACY_COAT_CODES` v1 path is removed.
+- **`reader.test.ts`:**
+  - the prompt lists exactly the five colours and the three patterns, in order;
+  - each Not sure case;
+  - all five colours accepted;
+  - `cant_tell` gives a null pattern while the colours stand.
 
-### Task C.2: The re-read, with its guards (§7)
+### Task C.2: The re-read and its guards (§7)
 
-**Files:**
-- Modify:
-  - `lib/coatReading/due.ts`: `catsDueForReading(limit, q, opts: { catIds?; reread?: boolean })`. With `reread`, a cat is also due (`because: "older_version"`) when its newest machine reading of the shown photo has a `modelVersion` other than `MODEL_VERSION`, **unless**:
-    - (a) any reading of that photo was marked wrong;
-    - (b) both parts of the cat are decided by a team or guardian statement.
-    Without `reread` (automatic runs), the version is never a reason, so an automatic run never lists such a cat.
-  - `lib/coatReading/record.ts`: `lockAndRecheck` passes the run's `reread` to `catsDueForReading`; `recordReading` takes `parts: CoatParts`.
-  - `lib/coatReading/sweep.ts`:
-    - `sweepCoatReadings` gets `reread` and passes it to every `catsDueForReading` call, **including the re-check before a photo is sent**;
-    - **hold back** (status `held_back`, nothing written) any reading that would leave unknown a part that the cat's current machine reading knows, and any whole Not sure, on a re-read;
-    - `SweepItem` gains `current: {colours, pattern} | null` for the contact sheet.
-  - `routes/internalCoat.ts`: the `Body` gains `reread: z.boolean().default(false)`.
-  - `.github/workflows/coat-readings.yml`: a `reread` choice (`false`/`true`, default `false`), passed in the body through `jq`, with the same host check.
-- Test (`coatReading.test.ts`, `internalCoat.test.ts`, `coatReadingsWorkflow.test.ts`):
-  - an automatic run (`reread` false) never lists a cat for an older version;
-  - a manual re-read lists it once, writes it, and then never again under the same version;
-  - a marked-wrong photo is skipped;
-  - a team-decided cat is skipped;
-  - a reading that loses a known pattern is `held_back`;
-  - a whole Not sure is `held_back`;
-  - `exclude` holds;
-  - copy-forward translates and keeps its own `modelVersion`;
-  - the re-check honours `reread` (with a forced interleave like T-race);
-  - the workflow's `reread` reaches the body;
-  - the route rejects a non-boolean `reread`.
+**`lib/coatReading/due.ts`:**
+- the signature becomes `catsDueForReading(limit, q, opts: { catIds?: readonly number[]; reread?: boolean })`;
+- `DueCat.because` gains `"older_version"`.
+
+For each cat, in this exact order:
+1. `shown` = the display photo (unchanged).
+2. `latest` = the newest machine row (unchanged).
+3. The existing R2 reasons, computed as today, set `because`.
+4. **Only if `opts.reread` and `because` is still unset**, and `latest` is of `shown` and `latest.value.modelVersion !== MODEL_VERSION`:
+   - skip if any reading of `shown` was marked wrong;
+   - skip if `resolveCoatParts(observations)` has **both** parts at rule 1 (team or guardian);
+   - otherwise set `because = "older_version"`.
+5. If `because` is unset, `continue`. The existing `latest?.photoId === shown` short-circuit applies **only** to R2 reasons, never to `older_version`.
+6. **The action:**
+   - for `older_version`, always `action: "read"`;
+   - for R2 reasons, `ofPhoto` = machine readings of `shown` **whose `modelVersion === MODEL_VERSION`**. If there are none, the action is `read` under `reread`. Without `reread`, the existing "copy the newest reading of that photo" stands, so automatic runs behave as today.
+
+**`lib/coatReading/record.ts`:**
+- `lockAndRecheck` passes the run's `reread` to `catsDueForReading`;
+- `recordReading` takes `parts: CoatParts`.
+
+**`lib/coatReading/sweep.ts`:**
+- **`reread`** goes to every `catsDueForReading` call, **including the re-check before a photo is sent** (around lines 140–150).
+- **The current coat:** for every read, `current` = `readCoatValue` of the cat's newest machine row **that is not marked wrong** (loaded through `loadCatRecords`, as `due.ts` does). `SweepItem` gains `current: CoatParts | null` for the contact sheet.
+- **Hold back** (status `held_back`, nothing written) on a re-read if:
+  - the new reading is `notSure`; or
+  - it leaves unknown a part that `current` knows.
+
+**`routes/internalCoat.ts`:** `Body` gains `reread: z.boolean().default(false)`.
+
+**`.github/workflows/coat-readings.yml`:** a `reread` choice (`false`/`true`, default `false`), passed in the body through `jq`, behind the same host check.
+
+**Tests:**
+- an automatic run never lists a cat for an older version;
+- **a cat whose shown photo already has a v1 reading is listed with `action: "read"` under `reread`**;
+- after the v2 write it isn't listed again;
+- a v1 copy-forward under an automatic run isn't due again;
+- marked-wrong photos are skipped;
+- team-decided cats are skipped;
+- a reading that loses a known pattern is `held_back`;
+- a whole Not sure is `held_back`;
+- `exclude` holds;
+- the re-check honours `reread` (with a forced interleave, as in T-race);
+- the workflow's `reread` reaches the body;
+- a non-boolean `reread` is refused.
 
 ### C mutation probes
 
-1. **`reread` is ignored in the re-check.** Expect red: every re-read write returns `not_due` (the "writes it" test).
+1. **`reread` is ignored in the re-check.** Expect red: the "listed with action read, then written" test.
 2. **An automatic run lists older-version cats.** Expect red: the "never lists" test.
-3. **The hold-back guard is removed.** Expect red: the "loses a known pattern" test.
-4. **The marked-wrong skip is removed.** Expect red: the "marked-wrong skipped" test.
-5. **The team-decided skip is removed.** Expect red: the "team-decided skipped" test.
+3. **`older_version` goes through the `latest?.photoId === shown` short-circuit.** Expect red: the "listed with action read" test.
+4. **`ofPhoto` isn't filtered by version.** Expect red: "after the v2 write" and copy-forward loop tests.
+5. **The hold-back guard is removed.** Expect red: "loses a known pattern".
+6. **The marked-wrong skip is removed.** Expect red: "marked-wrong skipped".
+7. **The team-decided skip is removed.** Expect red: "team-decided skipped".
 
-**C review:** Opus spot review of the `due.ts` and `sweep.ts` changes. Why Opus: R2 and R4 plus versions is the same subtle ground as SYC-161 PR 1, where the spot review found a real hole.
+**C reviews:** an Opus spot review of `due.ts` and `sweep.ts`, then `/ship`.
 
 ### After C is live: the checked re-read (Samuel gets a one-line heads-up first)
 
 1. **Dry run** with `reread=true`. Expect about 28 cats, less any team-decided ones.
-2. **Trial** with `reread=true`. About 28 calls; nothing written.
-3. **Contact sheet**, built in the browser pane as on 15 October. Each cat's photo, its current coat, and the new reading drawn as the drawn cat; held-back cats marked. Samuel approves.
-4. **Write** with `reread=true` and `exclude` set to the cats he rejects.
-5. **Compare** the write with the trial, cat by cat, and show him any cat that changed.
-6. **Dry run** with `reread=true` again: expect 0 due, apart from the excluded and held-back cats. The public payload shows the new coats. Three cats' `lastSeen` is unchanged.
+2. **Trial** with `reread=true`. About 28 calls; nothing is written.
+3. **Contact sheet**, built in the browser pane as on 15 October. Each cat's photo, its `current` coat and the new reading, shown as drawn cats; held-back cats are marked. Samuel approves.
+4. **Write** with `reread=true` and `exclude`. About 28 calls; the trial and the write together use 56 of the 60-an-hour budget, so a second trial waits an hour.
+5. **Compare** the write with the trial, cat by cat, and show Samuel any changes.
+6. **Dry run** with `reread=true` again. Expect 0 due, apart from the excluded and held-back cats (they stay listed, by design). Then check the public payload, and that `lastSeen` is unchanged for three cats.
 
 ---
 
 ## PR D — "Find the cat": the drawn chips and the filter
 
-**Depends on:** A2 merged (it needs `coatColours` and `coatPattern` on the wire). It replaces SYC-161 PR 3.
+**Depends on:** A2 merged. Replaces SYC-161 PR 3.
 
-### Task D.1: The filter's placement rule (pure)
-
-**Files:** add `placeCat` to `artifacts/cat-spotter/lib/coat.ts`; test in `lib/__tests__/coat.test.ts`.
+### Task D.1: The placement rule (pure, `lib/coat.ts`)
 
 ```ts
 export type Placement = 'match' | 'not_known' | 'hidden';
-/** Spec §5: hidden if any picked row is a known mismatch; else not_known if any picked row is unknown; else match.
- *  Plain and Patches are forgiving for a cat with White. */
-export function placeCat(
-  cat: Pick<Cat, 'coatColours' | 'coatPattern'>,
-  picked: { colours: ReadonlySet<Colour>; patterns: ReadonlySet<Pattern> },
-): Placement {
-  const { colours, pattern } = coatParts(cat);
+/** Spec §5: hidden if any picked row is a known mismatch; else not_known if any picked row is unknown; else match. Plain and Patches are forgiving for a cat with White. Reads the new fields only. */
+export function placeCat(cat: CoatFields, picked: { colours: ReadonlySet<Colour>; patterns: ReadonlySet<Pattern> }): Placement {
+  const { colours, pattern } = filterParts(cat);
   const rows: ('match' | 'mismatch' | 'unknown')[] = [];
   if (picked.colours.size) rows.push(colours === null ? 'unknown' : colours.some((c) => picked.colours.has(c)) ? 'match' : 'mismatch');
   if (picked.patterns.size) {
-    const forgiving = colours?.includes('white') && (pattern === 'plain' || pattern === 'patches');
+    const forgiving = !!colours?.includes('white') && (pattern === 'plain' || pattern === 'patches');
     const ok = pattern !== null && (picked.patterns.has(pattern) || (forgiving && (picked.patterns.has('plain') || picked.patterns.has('patches'))));
     rows.push(pattern === null ? 'unknown' : ok ? 'match' : 'mismatch');
   }
@@ -684,61 +734,54 @@ export function placeCat(
 }
 ```
 
-- [ ] **Tests:**
-  - every combination of (colours known, match or mismatch, unknown) × (pattern known, match or mismatch, unknown) × (which rows are picked);
-  - the forgiveness rule;
-  - a cat object with no new fields (an old cache) is `not_known` under any picked row, and `match` under none;
-  - the counts: matching + not_known + hidden = the search results.
-
-### Task D.2: The drawn components (shared)
-
-**Files** (new, in `artifacts/cat-spotter/components/coat/`):
-- `ColourSwatch.tsx`: a circle in the colour, with the word underneath.
-- `PatternTile.tsx`: a small `react-native-svg` tile for plain, stripes and patches, and "?" for Can't tell.
-- `DrawnCat.tsx`: a sitting-cat silhouette (`react-native-svg` paths) that takes `{colours, pattern}`:
-  - first colour = fill;
-  - other colours = patches;
-  - white = chest and legs;
-  - stripes = a pattern overlay;
-  - patches = larger patches.
-- `CoatChips.tsx`: the two rows. Toggle buttons with `accessibilityState.selected`, *All* in each row, and the word under each picture.
-
 **Tests:**
-- every combination of the five colours × four pattern states renders without throwing, and its accessibility label is the caption;
-- each chip is a toggle with `selected`;
-- every word exists in all three languages.
+- every combination of the colour part (match, mismatch, unknown) × the pattern part (match, mismatch, unknown) × which rows are picked;
+- the forgiveness rule;
+- an old cached cat (no new fields) is `not_known` under any picked row, and `match` under none;
+- the counts: matching + not_known + hidden = the search results.
+
+### Task D.2: The drawn components (shared, `components/coat/`)
+
+- `ColourSwatch`, `PatternTile` (plain, stripes, patches, and "?" for Can't tell), `DrawnCat` (`react-native-svg`) and `CoatChips` (the two rows, toggle buttons with `accessibilityState.selected`, and *All* in each row).
+- **Tests:**
+  - all 32 colour sets × 4 pattern states render, with the right accessibility label;
+  - the chips are toggles;
+  - every word exists in all three languages.
 
 ### Task D.3: The picker
 
-**Files:**
-- Modify `components/CatPicker.tsx`:
-  - the chips under the search box;
-  - the matches, then the *Not known* heading and those cats;
-  - then the hidden-count line, with "Show all", **directly above** "Can't find it? Add it as a new cat";
-  - the "No cats like that called “{text}”." line with "Search all" when the search plus filter finds nothing but the search alone would;
-  - a reset to *All* each time it opens.
-- Remove the "Not in this slice: the colour chips" comment.
-- The match record: when the spotter resolves with either row picked, send `colourFilterOn: true` on the resolve request. Add the optional field to the openapi resolve body, regenerate, and set it in `routes/sightings.ts`, which writes `colour_filter_on` in the `sighting_matches` insert (lines 362 and 819).
-- i18n: the §5 lines and the hidden-count plural forms.
+**`components/CatPicker.tsx`:**
+- the chips under the search box;
+- the matches, then the *Not known* heading and those cats;
+- the hidden-count line with "Show all", **directly above** "Can't find it? Add it as a new cat";
+- the search-empty line, with "Search all";
+- a reset to *All* on open;
+- remove the "Not in this slice" comment.
+
+**The match record:**
+- add an optional `colourFilterOn: boolean` to `ResolveSightingRequest` (`lib/api-spec/openapi.yaml`, around line 1306) and regenerate;
+- `routes/sightings.ts` (where `ResolveSightingBody` is parsed, around line 604) threads it into the `labelChoice` label, so the `sighting_matches` insert (around line 819) writes `colour_filter_on`;
+- the app sends `true` when either row had a chip picked.
 
 **Tests:**
-- the hidden-count line sits above the new-cat link (checked through the order of the rendered tree);
+- the hidden line sits above the new-cat link (checked through the order of the rendered tree);
 - "Show all" resets both rows;
-- the search-empty line, with its clear action;
-- `colour_filter_on` is true when a row was picked and false otherwise;
-- offline, with the network mocked off, over a saved catalogue;
-- the review screen's suggestions are identical whatever the filter (a source check that `review.tsx` doesn't import `placeCat`);
-- the cache key is still v2 (the test unedited).
+- the search-empty line;
+- `colour_filter_on` is true or false as picked (an api-server test on resolve);
+- offline, over a saved catalogue, with the network mocked off;
+- **the review screen's suggestions are identical whatever the filter**: render the review screen with chips picked and unpicked, and compare the suggestion list;
+- the cache key is still v2, with the test unedited.
 
-**Browser check before the PR opens:** about 390 px and desktop, in en, el and fr, on a seeded list of 40 cats with mixed coats, some not known, and some with old-only data. Screenshots go in the PR. **Samuel judges the drawings** (Decision 5A).
+**Browser check before the PR opens:** about 390 px and desktop, in en, el and fr. Use 40 seeded cats with mixed coats, some not known, and some old-only. Screenshots go in the PR. **Samuel judges the drawings** (5A).
 
 ### D mutation probes
 
-1. **`placeCat` puts an unknown part under `hidden`.** Expect red: the D.1 unknown cases.
+1. **An unknown part is treated as `hidden`.** Expect red: the D.1 unknown cases.
 2. **The forgiveness rule is removed.** Expect red: the D.1 forgiveness case.
-3. **`placeCat` reads the old `coat`.** Expect red: the D.1 old-cache case.
+3. **`placeCat` uses `displayParts`, and so the old `coat`.** Expect red: the D.1 old-cache case.
 4. **The hidden line moves below the new-cat link.** Expect red: the D.3 order test.
-5. **`colourFilterOn` is never sent.** Expect red: the D.3 match-record test.
+5. **`colourFilterOn` isn't threaded through.** Expect red: the D.3 match-record test.
+6. **The review screen filters its suggestions by coat.** Expect red: the D.3 review-screen test.
 
 ---
 
@@ -746,36 +789,38 @@ export function placeCat(
 
 | Rule | Must hold at | Held by |
 |---|---|---|
-| One translation of stored values | resolver, hand pick, Colour check, team history, codesOf, copy-forward, wire | `readCoatValue` only; A1 probes 1, 2 and 8 |
-| Only what was said becomes known | every reader | `readCoatValue`; A1.1 cases |
-| New writes in the new shape only | every writer: team Correct and Confirm, the reader, the future SYC-2 4.1 answers route | the `case "coat"` check; A1.2 |
-| Per-part who-wins; only notSure withdraws; newest machine row only | public payload, team pages, Colour check, Confirm | `resolveCoatParts`; A1.3 tests 6–8 |
-| Never hidden for unknown | the picker, and the future cat-alog filter (SYC-2 4.3) | `placeCat` (shared); D.1 |
-| The old field is display-only | the app | `coatParts` never reads `coat`; A2 probe 2, D probe 3 |
-| Never notifiable; never evidence of life; never in the matcher | snapshot, notifiers, matcher | `SYC2_FIELDS` updated (A1.4); the existing guards |
+| One translation of stored values | resolver, hand pick, Colour check, team history, codesOf, Confirm, copy-forward, wire, the app's display of old caches | `readCoatValue` on the server, its app twin `displayParts` (the same table, tested on the same cases); A1 probes 1–3 and 13; A2 probe 3 |
+| Only what was said becomes known | every reader | A1.1 cases |
+| New writes in the new shape | team Correct and Confirm, the reader, copy-forward, the future 4.1 answers route | the `case "coat"` check plus `partsToValue`; A1 probes 5–7 and 14 |
+| A superseded statement never comes back | resolver | the standing pre-filter; A1 probe 8 |
+| Per-part who-wins; only notSure withdraws; newest machine row only | public payload, team pages, Colour check, Confirm | `resolveCoatParts`; A1 probes 9–12 |
+| Never hidden for unknown | the picker, the future cat-alog filter (SYC-2 4.3) | `placeCat` (shared); D probes 1 and 3 |
+| The old field is display-only | the app | `filterParts`; A2 probe 2; D probe 3 |
+| Never notifiable; never evidence of life; never in the matcher | snapshot, notifiers, matcher | `SYC2_FIELDS` and the widened regexes; A1 probe 16; the existing guards |
 | The public sees values only | `GET /cats`, `GET /cats/:id`, the name-taken body | `serialiseCat`; `NEVER_PUBLIC`; snapshots |
-| Re-read guards | the sweep, the re-checks, the route, the workflow | C.2 tests and probes |
+| Re-read guards | sweep, re-checks, route, workflow | C tests; C probes 1–7 |
 | The cache key stays v2 | `catalogue.ts` | the existing test, unedited |
+| The v1 reader's prompt is unchanged until C | the live reader | A1 probe 15 |
 
 ---
 
 ## Coordination
 
-- **SYC-2 (team pages and 4.x):**
-  - PR B changes code that SYC-2 PR 3.1 (#191) built. Its session is archived, so this plan owns those files for PR B.
-  - SYC-2 PRs 4.1–4.3 (the spotter question, the details card, the cat-alog filter) must build on this vocabulary. They take the answer body `{colours, pattern?}` or `{notSure:true}`, and reuse `components/coat/*` and `placeCat`.
-  - A comment on SYC-2 says so before any 4.x build starts.
+- **SYC-2:**
+  - PR B and A1.4 rework PR 3.1's (#191) files. Its session is archived, so this plan owns them.
+  - SYC-2 PRs 4.1–4.3 follow the contract in the SYC-2 comment of 16 Oct.
+  - **Guardian pages** (`guardianCatView.ts`) keep the old `coat` field until the guardian work is next touched. A ticket is filed on approval: "guardian pages show the new coat words".
 - **SYC-161:**
-  - PR 3 (the chips) is replaced by PR D;
-  - PR 2 (automatic reading) must pass `reread: false`, which is the default, and is otherwise unchanged;
+  - PR 3 is replaced by D;
+  - PR 2 (automatic reading) uses `reread: false`, the default;
   - SYC-397 closes when C's trial is approved.
-- **Johnny (SYC-346):** the words are on the ticket for the 22 Oct pack. Any word added later goes in the second pack.
+- **Johnny (SYC-346):** the words are on the ticket for the 22 Oct pack. Anything added later goes in the second pack.
 - **The launch plan (#172):**
-  - A1 and A2 aim for the Wed 21 / Fri 23 Oct publishes;
+  - A1 aims for Wed 21 Oct, A2 for Fri 23 Oct;
   - B and C for Mon 26 Oct;
   - D for Wed 28 Oct.
   - Nothing is on the must-launch list (6A).
-- **Before each merge:** list the live sessions and open PRs, and agree the order (`/ship`). No migrations here.
+- **Before each merge:** list the live sessions and open PRs and agree the order (`/ship`). No migrations here.
 
 ---
 
@@ -785,17 +830,17 @@ This session is on Opus 5.5. The spec and this plan were written here.
 
 | Work package | Model | Why this tier | Assurance |
 |---|---|---|---|
-| A1.1–A1.2 (vocabulary, translation, write check) | Sonnet | Clear spec; code given above | The tests above; A1 probes 1, 2 and 6; adversarial review in `/ship` |
-| A1.3 (per-part resolver and projection) | **Opus** | The projection's interplay with "newest machine row only" and "only notSure withdraws" is subtle; a green suite can hide a wrong answer here | A1.3 tests 1–12 including the parity test; probes 3, 4, 5 and 7; Opus spot review |
-| A1.4 (moving every reader) | Sonnet | Mechanical but wide | Full suite and typecheck; probes 8 and 9; the session reviews the diff |
+| A1.1–A1.2 (vocabulary, translation, write check) | Sonnet | Clear spec; code given above | The tests above, including the 128-case oracle; A1 probes 1–7 |
+| A1.3 (per-part resolver: standing pre-filter, projection) | **Opus** | Supersession, "newest machine row only" and "only notSure withdraws" interact subtly; a green suite can hide a wrong answer | A1.3 tests 1–15 including parity and supersession; A1 probes 8–12; Opus spot review |
+| A1.4 (every other reader and writer) | Sonnet build, **Opus** review of the diff | Wide, and it is where the first draft of this plan broke the build | Full suite, typecheck, the team page rendered in the web preview; A1 probes 13–16; Opus diff review |
+| A1.5 (documents) | Sonnet | Text edits from the spec | The session reads the diff against the spec's "Amends" list |
 | A2 (wire, codegen, app display) | Sonnet | Standard | Tests; snapshot diff limited to the two keys; A2 probes; browser check at 390 px and desktop in 3 languages |
-| B (team form, Confirm, check list) | Sonnet | Standard server HTML | Tests; B probes; `/ship` adversarial review |
-| C (coat-v2, re-read guards) | Sonnet build, **Opus** spot review of `due.ts` and `sweep.ts` | The guards are silent-failure guards, the same ground as SYC-161 PR 1 | C tests; C probes 1–5; Opus spot review; the production dry run showing "0 due" afterwards |
-| D (drawn components, picker) | Sonnet | Standard UI and a pure function | D tests and probes; browser check; Samuel judges the drawings |
-| i18n key plumbing (en, el and fr keys, parity) | Haiku | Mechanical, well specified (the words are in §2 of the spec and on SYC-346) | The i18n parity tests; the session spot-reviews the diff |
-| Adversarial review of this plan | Sonnet, own worktree | Checking claims against files | Every finding checked against the file it names before it's folded in |
-| Each `/ship` review | Sonnet, own worktree | Standard | It re-runs the named tests itself and pastes the runner's "Tests N passed" line |
-| The contact sheet and the go/no-go call | Opus (session) | Judging photos against colours | Samuel approves |
+| B (pattern on the team form, the drawn cat) | Sonnet | Standard server HTML | Tests; B probes; `/ship` adversarial review |
+| C (coat-v2, re-read guards) | Sonnet build, **Opus** spot review of `due.ts` and `sweep.ts` | Silent-failure guards on the same ground as SYC-161 PR 1, where the spot review found a real hole | C tests; C probes 1–7; Opus spot review; the production dry run showing "0 due" |
+| D (drawn components, picker, match record) | Sonnet | Standard UI and a pure function | D tests and probes; browser check; Samuel judges the drawings |
+| i18n key plumbing (en, el, fr; parity) | Haiku | Mechanical, words given in §2 and on SYC-346 | The i18n and team-string parity tests; the session spot-reviews the diff |
+| Adversarial review of this plan, and of each PR in `/ship` | Sonnet, own worktree | Checking claims against files | Every finding checked against the file it names; the reviewer pastes the runner's "Tests N passed" line |
+| The contact sheet and go/no-go | Opus (session) | Judging photos against colours | Samuel approves |
 
 Every build prompt restates: **commit after each item**, keep `CHECKPOINT.md` untracked, and use your own worktree off fresh `origin/main`. No nested background agents.
 
@@ -803,14 +848,31 @@ Every build prompt restates: **commit after each item**, keep `CHECKPOINT.md` un
 
 ## Rollout and checks after each publish
 
-Each publish follows the launch routine: Samuel pulls main in Replit; whoever owns publishing that round publishes; Claude waits until `/api/healthz` shows the commit.
+Samuel pulls main in Replit; whoever owns publishing that round publishes; Claude waits until `/api/healthz` shows the commit.
 
-- **A1:** the public payload is unchanged (`coat` identical for every cat, compared before and after); the team pages render.
-- **A2:** `GET /api/cats` carries `coatColours` and `coatPattern`; `coat` matches the truth table for every live cat; a cat page shows the new line at 390 px.
-- **B:** a team member opens Correct and sees the form. Samuel's verdicts are applied (SYC-399), with a heads-up first.
-- **C:** the checked re-read, steps 1–6 above.
+- **A1:** `coat` on `GET /api/cats`, compared **as sets** before and after for every live cat. It must be identical, except #10 and #19 (`{tabby, white}` → `{tabby}`, spec §6). The team Appearance page renders the new words for three cats.
+- **A2:** `coatColours` and `coatPattern` are present; `coat` matches `legacyCoatCodes` for every cat; a cat page shows the new line at 390 px.
+- **B:** Correct shows the pattern buttons; Samuel's verdicts are applied (SYC-399), with a heads-up first.
+- **C:** the checked re-read, steps 1–6.
 - **D:** the picker on the live site at 390 px and desktop: the chips, *Not known*, and the hidden line above "Add it as a new cat".
 
 ## Rollback
 
-Each PR reverts on its own. New-shape statements written after A1 are read correctly only by A1's code, so **revert A1 last**, after B, C and D. Statements are never deleted. The old `coat` field keeps older phones working throughout.
+Each PR reverts on its own, except that **A1 reverts last**, because new-shape statements are read correctly only by A1's code. Nothing is ever deleted. The old `coat` field keeps older phones working throughout.
+
+---
+
+## Review outcome
+
+An independent adversarial review (Sonnet, its own worktree) of the first draft, `beabc5d3`, ran `readCoatValue` and `legacyCoatCodes` (both correct: 0 mismatches over 128 combinations) and read the rest. It found 2 blockers, 6 majors and the rest minor. All were accepted.
+
+| # | Finding | What changed |
+|---|---|---|
+| 1 (blocker) | The new write check's key allow-list would refuse every team Correct and Confirm (`reason`, `agreesWith`) | No allow-list; tests with `reason` and `agreesWith`; probe A1-6 |
+| 2 (blocker) | A1 wouldn't typecheck: the reader, sweep, team route and page, team strings, guardian view, `appearanceOf` | A1.4 now lists every one. The v1 reader keeps the old codes, with its prompt unchanged byte for byte (probe A1-15) |
+| 3 | The not-notifiable guard went quiet for `coatColours` and `coatPattern` | Widened regexes, word-bounded counts, one read each, probe A1-16 |
+| 4 | The re-read in `due.ts` would skip or loop | The exact branch order; `action: "read"`; version-filtered copies; probes C-3 and C-4 |
+| 5 | The projection could bring back superseded rows | The standing pre-filter runs first; A1.3 tests 10 and 11; probe A1-8 |
+| 6 | `record.ts` would write nulls | `partsToValue`; the copy-forward guard changed; probe A1-5 |
+| 7 | `mixed_sources` was narrower than the spec | Defined by rule number; A1.3 test 2; probe A1-12 |
+| 8–16 | The rollout check, the truth-table test strength, `black_and_white · tabby`, the docs task, A2 and C and B and D details, the import cycle | All fixed in place (A1.1 oracle, A1.5, A2.2 `displayParts`, C.2 `current`, B tests, D threading and review-screen test, the resolver kept in `resolve.ts`) |
