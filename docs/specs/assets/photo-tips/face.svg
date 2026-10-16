@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Face photo: a close-up of the cat's face">
+  <rect x="4" y="4" width="112" height="112" rx="16" fill="#e8f4fc" stroke="#1c77c3" stroke-width="3"/>
+  <path d="M28 50 L32 14 L54 38 Z M92 50 L88 14 L66 38 Z" fill="#e07856"/>
+  <path d="M33 44 L35 24 L47 38 Z M87 44 L85 24 L73 38 Z" fill="#f6a9c8"/>
+  <circle cx="60" cy="68" r="38" fill="#e07856"/>
+  <path d="M60 30 v12 M50 33 l3 10 M70 33 l-3 10" stroke="#b8552f" stroke-width="4.5" stroke-linecap="round"/>
+  <ellipse cx="60" cy="84" rx="19" ry="13" fill="#fefcf7"/>
+  <ellipse cx="46" cy="66" rx="7" ry="8.5" fill="#1b2a38"/>
+  <ellipse cx="74" cy="66" rx="7" ry="8.5" fill="#1b2a38"/>
+  <circle cx="48" cy="63" r="2.2" fill="#fefcf7"/><circle cx="76" cy="63" r="2.2" fill="#fefcf7"/>
+  <path d="M55 78 h10 l-5 6 z" fill="#d64185"/>
+  <path d="M60 84 q-5 6 -10 3 M60 84 q5 6 10 3" stroke="#1b2a38" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>
