@@ -889,6 +889,7 @@ export async function writeObservation(
     // Nor for the kinds Decision G ranks (PR 2.2 review, n2): marking another
     // cat's sterilisation or life status wrong would change that cat's answer
     // without its lock and without its news.
+    // TODO(SYC-59): compare canonical cats through cat_identity once merges exist (a put-back on a merged-in row would be refused here).
     if (RANKED_KINDS.has(input.kind) && target.catId !== input.catId) {
       refuse(refusalCode, "a supersession of this kind must stay on the same cat");
     }

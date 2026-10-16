@@ -278,6 +278,14 @@ describe("T12g-6 the contradiction list (listGuardianChanges)", () => {
     const hersNo = await guardianSays(eleni, b.id, false);
     await teamSays(team, b.id, true);
     expect(statementEntry(await listGuardianChanges(), hersNo)).toMatchObject({ contradictsTeam: false });
+    // A team "no" that a third, newer "sterilised" sets aside is no
+    // disagreement either (review r2-n1): the page shows none.
+    const d = await seedCat(colony);
+    const hersFirst = await guardianSays(eleni, d.id, true);
+    await teamSays(team, d.id, false);
+    await teamSays(mgmt, d.id, true);
+    expect((await answer(d.id)).value).toBe(true);
+    expect(statementEntry(await listGuardianChanges(), hersFirst)).toMatchObject({ contradictsTeam: false });
     // A newer team "no" against her older "yes" IS a disagreement the page shows.
     const c = await seedCat(colony);
     const hersOlderYes = await guardianSays(eleni, c.id, true);

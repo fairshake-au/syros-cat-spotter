@@ -133,6 +133,22 @@ export function contradictsTeamRecord(
 ): boolean {
   const mine = meaningOf(statement.kind, statement.value);
   if (mine === null) return false;
+  // SYC-315 B, as the cat page reads it (review m6, r2-n1): a "not
+  // sterilised" older than ANY standing "sterilised" on the cat is set aside,
+  // whoever said either, so it is no disagreement.
+  const newestYesAt =
+    statement.kind === "sterilised"
+      ? Math.max(
+          ...sameCatSameKind
+            .filter((o) => !replaced.has(o.id) && authorityLevel(o) > 0 && meaningOf(o.kind, o.value) === "true")
+            .map((o) => o.observedAt.getTime()),
+        )
+      : -Infinity;
+  const setAside = (o: Observation) =>
+    statement.kind === "sterilised" &&
+    meaningOf(o.kind, o.value) === "false" &&
+    o.observedAt.getTime() < newestYesAt;
+  if (setAside(statement)) return false;
   return sameCatSameKind.some(
     (o) =>
       o.id !== statement.id &&
@@ -142,14 +158,7 @@ export function contradictsTeamRecord(
       (() => {
         const theirs = meaningOf(o.kind, o.value);
         if (theirs === null || theirs === mine) return false;
-        // SYC-315 B, as the cat page reads it: a "not sterilised" older than
-        // a "sterilised" was true when said and is set aside, so the pair is
-        // no disagreement, whichever of the two is hers (review, m6).
-        if (statement.kind === "sterilised") {
-          const [no, yes] = mine === "false" ? [statement, o] : [o, statement];
-          if (no.observedAt.getTime() < yes.observedAt.getTime()) return false;
-        }
-        return true;
+        return !setAside(o);
       })(),
   );
 }

@@ -17,6 +17,19 @@ import {
 const sendPushNotificationMock = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("./push", () => ({ sendPushNotification: sendPushNotificationMock }));
 
+/** Flip to make the fan-out throw (review r2-m2). The real one runs otherwise. */
+const fanOut = vi.hoisted(() => ({ fail: false }));
+vi.mock("./notificationFanout", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./notificationFanout")>();
+  return {
+    ...real,
+    fanOutNotifications: async (...args: Parameters<typeof real.fanOutNotifications>) => {
+      if (fanOut.fail) throw new Error("vt: fan-out is down");
+      return real.fanOutNotifications(...args);
+    },
+  };
+});
+
 import {
   commitStatement,
   inStatementTransaction,
@@ -328,34 +341,38 @@ describe("T12a-4 wrong_exposes_earlier", () => {
 
 describe("T12a-5 concurrent", () => {
   it("two confirmations at the same moment make exactly one update", async () => {
-    // Probe: drop the row lock → red, every time (review m3). A third
-    // connection holds the cats' rows FOR UPDATE while both writers start.
-    // With commitStatement's lock they queue before reading anything. Without
-    // it, each reads "not yet Confirmed", then waits on the foreign-key check
-    // of its own insert (which needs the row the third connection holds), so
-    // both have read "before" when the hold is released.
-    // Four cats, eight writers: with the holder and the check below, that is
-    // the pool's ten connections.
+    // Probe: drop the row lock → red, every time, on the real check (review
+    // m3, r2-m1). A third connection holds a SHARE lock on cat_updates, which
+    // lets every read through and blocks only the news row's INSERT. With
+    // commitStatement's cat lock, one writer per cat reaches that INSERT and
+    // the other queues on the cat. Without it, both writers of a cat read "not
+    // yet Confirmed" and both queue at the INSERT, so both announce once the
+    // hold ends. Four cats, eight writers: with the holder and the check below,
+    // that is the pool's ten connections.
     const cats = await Promise.all([1, 2, 3, 4].map(() => followedCat()));
     const holder = await pool.connect();
+    let writes: Promise<unknown> | undefined;
     try {
       await holder.query("begin");
-      await holder.query("select id from cats where id = any($1::int[]) for update", [cats.map((c) => c.id)]);
-      const writes = Promise.all(cats.flatMap((cat) => [teamSays(team, cat.id, true), teamSays(mgmt, cat.id, true)]));
-      // Wait until all eight writers are queued on a lock, then let them go.
-      await vi.waitFor(
-        async () => {
-          const r = await pool.query<{ n: string }>(
-            "select count(*) as n from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'",
-          );
-          expect(Number(r.rows[0]!.n)).toBeGreaterThanOrEqual(8);
-        },
-        { timeout: 10_000, interval: 50 },
-      );
+      await holder.query("lock table cat_updates in share mode");
+      writes = Promise.allSettled(cats.flatMap((cat) => [teamSays(team, cat.id, true), teamSays(mgmt, cat.id, true)]));
+      // Let go once all eight are queued on a lock (or after 10 s whatever
+      // happened), then judge by the result, never by this wait.
+      const deadline = Date.now() + 10_000;
+      for (;;) {
+        const r = await pool.query<{ n: string }>(
+          "select count(*) as n from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'",
+        );
+        if (Number(r.rows[0]!.n) >= 8 || Date.now() > deadline) break;
+        await new Promise((res) => setTimeout(res, 50));
+      }
       await holder.query("commit");
-      await writes;
+    } catch (err) {
+      await holder.query("rollback").catch(() => {});
+      throw err;
     } finally {
       holder.release();
+      await writes;
     }
     for (const cat of cats) expect(await updatesOf(cat.id), `cat ${cat.id}`).toHaveLength(1);
     // And a guardian and the team at the same moment.
@@ -393,6 +410,22 @@ describe("T12a-7 rolled_back_sends_nothing", () => {
       }),
     ).rejects.toThrow("something after the news row failed");
     await expectSilent(cat.id);
+  });
+});
+
+describe("a failed fan-out after the save (review m4, r2-m2)", () => {
+  it("is logged, not thrown: her statement is saved and the once-ever update stands", async () => {
+    // Probe: let sendNews rethrow → red.
+    const cat = await followedCat();
+    fanOut.fail = true;
+    try {
+      const row = await guardianSaysSterilised(eleni, cat.id, true);
+      expect(row.kind).toBe("sterilised");
+    } finally {
+      fanOut.fail = false;
+    }
+    expect(await updatesOf(cat.id)).toHaveLength(1);
+    expect(await notificationsOf(cat.id)).toHaveLength(0);
   });
 });
 
