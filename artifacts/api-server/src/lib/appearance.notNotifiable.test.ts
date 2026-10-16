@@ -43,9 +43,9 @@ function obs(o: Partial<Observation> & { kind: string; value: unknown }): Observ
   } as Observation;
 }
 
-/** The SYC-2 fields. Everything else on the snapshot is what a news
- * comparison may look at. */
-const SYC2_FIELDS = ["coat", "markings", "vaccinations"] as const;
+/** The SYC-2 fields (the coat as its two parts since SYC-398). Everything
+ * else on the snapshot is what a news comparison may look at. */
+const SYC2_FIELDS = ["coatColours", "coatPattern", "markings", "vaccinations"] as const;
 
 function withoutSyc2(s: CatSnapshot): Record<string, unknown> {
   const copy: Record<string, unknown> = { ...s };
@@ -71,11 +71,11 @@ describe("not notifiable: a change of colour, markings or vaccination queues not
     ];
     const after = resolveCat(changed, evidence, now);
 
-    expect(after.coat.value).not.toEqual(before.coat.value);
+    expect(after.coatColours.value).not.toEqual(before.coatColours.value);
     expect(after.markings.value).not.toEqual(before.markings.value);
     // Nothing a news comparison can see has moved.
     expect(withoutSyc2(after)).toEqual(withoutSyc2(before));
-    // And the snapshot gained exactly the three SYC-2 fields, so a future
+    // And the snapshot gained exactly the SYC-2 fields, so a future
     // comparison that walks "every field" has to be told about them.
     expect(Object.keys(after).filter((k) => !(k in withoutSyc2(after))).sort()).toEqual(
       [...SYC2_FIELDS].sort(),
@@ -88,14 +88,15 @@ const LIB = __dirname;
 /** Code that would read the new resolver output or the appearance kinds. */
 const READS_APPEARANCE: RegExp[] = [
   /\bresolveCat\b/,
-  /\bresolveCoat\b/,
+  // resolveCoatParts too: `\bresolveCoat\b` alone never matches it.
+  /\bresolveCoat(Parts)?\b/,
   /\bresolveMarkings\b/,
   /\bresolveVaccinated\b/,
   /\bCatSnapshot\b/,
   /\bloadCatRecords\b/,
   /\bcheckReasons\b/,
-  /\.(coat|markings|vaccinations)\b/,
-  /\[\s*["'`](coat|markings|vaccinations)["'`]\s*\]/,
+  /\.(coat(?:Colours|Pattern)?|markings|vaccinations)\b/,
+  /\[\s*["'`](coat(?:Colours|Pattern)?|markings|vaccinations)["'`]\s*\]/,
   /\bkind\b[^\n]{0,40}["'`](coat|markings|vaccinated|team_note)["'`]/,
   /from\s+["']\.{1,2}\/(resolve|appearance)["']/,
 ];
@@ -109,6 +110,9 @@ describe("the patterns catch a reader", () => {
   it("flags each way of reading the new fields", () => {
     for (const sample of [
       "const c = snapshot.coat.value;",
+      "const c = snapshot.coatColours.value;",
+      'const p = s["coatPattern"];',
+      "const parts = resolveCoatParts(rows);",
       'const m = s["markings"];',
       'where(eq(observationsTable.kind, "coat"))',
       'import { resolveCat } from "./resolve";',
@@ -144,9 +148,9 @@ describe("source: appearance never feeds the matcher (SYC2-D8)", () => {
  * the resolver for other reasons. */
 const READS_NEW_FIELDS: RegExp[] = [
   // Destructuring: `const { coat } = snapshot` (review of #159).
-  /\{[^{}=;]*\b(coat|markings|vaccinations|checkReasons)\b[^{}=;]*\}\s*(:[^=;]*)?=/,
-  /\.(coat|markings|vaccinations)\b/,
-  /\[\s*["'`](coat|markings|vaccinations)["'`]\s*\]/,
+  /\{[^{}=;]*\b(coat(?:Colours|Pattern)?|markings|vaccinations|checkReasons)\b[^{}=;]*\}\s*(:[^=;]*)?=/,
+  /\.(coat(?:Colours|Pattern)?|markings|vaccinations)\b/,
+  /\[\s*["'`](coat(?:Colours|Pattern)?|markings|vaccinations)["'`]\s*\]/,
   /\bcheckReasons\b/,
 ];
 
@@ -156,17 +160,23 @@ describe("source: catHelpers, which every notifier's deceased check goes through
   /**
    * SYC-2 PR 2.1 gives the public payload the resolved colour and markings,
    * so catHelpers.ts now reads them in exactly these places: the resolved
-   * VALUE in `deriveCatStatuses`, and the copy of that value in
-   * `serialiseCat`. Each must sit inside its function; anything else that
-   * names the fields (a confidence, check reasons, vaccinations, a second
-   * reader such as `isResolvedDeceased` or a notifier helper) still fails.
+   * VALUES in `deriveCatStatuses` (since SYC-398 the coat's two parts, each
+   * read once into a local), and the copy of the value in `serialiseCat`.
+   * Each must sit inside its function; anything else that names the fields
+   * (a confidence, check reasons, vaccinations, a second reader such as
+   * `isResolvedDeceased` or a notifier helper) still fails. Counted with word
+   * boundaries, so `cat.derived.coat` never counts `cat.derived.coatColours`.
    */
   const ALLOWED_READS: { fn: string; read: string }[] = [
-    { fn: "export async function deriveCatStatuses", read: "snapshot.coat.value" },
+    { fn: "export async function deriveCatStatuses", read: "snapshot.coatColours.value" },
+    { fn: "export async function deriveCatStatuses", read: "snapshot.coatPattern.value" },
     { fn: "export async function deriveCatStatuses", read: "snapshot.markings.value" },
     { fn: "export function serialiseCat", read: "cat.derived.coat" },
     { fn: "export function serialiseCat", read: "cat.derived.markings" },
   ];
+
+  /** `read` as a whole word: not a prefix of a longer name. */
+  const word = (read: string) => new RegExp(`\\b${read.replace(/\./g, "\\.")}\\b`, "g");
 
   function body(fn: string): string {
     const start = src.indexOf(fn);
@@ -178,15 +188,20 @@ describe("source: catHelpers, which every notifier's deceased check goes through
     let rest = src;
     for (const { fn, read } of ALLOWED_READS) {
       // Exactly once in the file, and inside its own function.
-      expect(src.split(read).length - 1, read).toBe(1);
-      expect(body(fn).includes(read), `${read} in ${fn}`).toBe(true);
-      rest = rest.split(read).join("");
+      expect(src.match(word(read))?.length ?? 0, read).toBe(1);
+      expect(word(read).test(body(fn)), `${read} in ${fn}`).toBe(true);
+      rest = rest.replace(word(read), "");
     }
     expect(READS_NEW_FIELDS.filter((re) => re.test(rest)).map(String)).toEqual([]);
   });
 
   it("R7a's allow-list still catches a read beside it", () => {
     for (const extra of [
+      "snapshot.coatColours.confidence",
+      "snapshot.coatPattern.checkReasons",
+      "snapshot.coatColours",
+      "cat.derived.coatColours",
+      "const { coatColours } = snapshot;",
       "snapshot.coat.confidence",
       "snapshot.vaccinations",
       "snapshot.markings.checkReasons",
@@ -195,7 +210,7 @@ describe("source: catHelpers, which every notifier's deceased check goes through
       "const { lifeStatus, vaccinations }: CatSnapshot = resolveCat(o, e, now);",
     ]) {
       let rest = `${src}\n${extra}`;
-      for (const { read } of ALLOWED_READS) rest = rest.split(read).join("");
+      for (const { read } of ALLOWED_READS) rest = rest.replace(word(read), "");
       expect(READS_NEW_FIELDS.some((re) => re.test(rest)), extra).toBe(true);
     }
   });
