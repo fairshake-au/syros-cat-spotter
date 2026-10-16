@@ -14,6 +14,7 @@ import {
   type ObservationKind,
 } from "./observations";
 import { clearOwner, newestActiveOwnerHomed } from "./claiming";
+import { commitStatement, inStatementTransaction, type PendingNews } from "./commitStatement";
 import { isOwnerHomed } from "./teamCatView";
 import {
   appearanceAuthorityLevel,
@@ -189,12 +190,22 @@ export interface TeamStatementInput {
  *
  * Checks, in this order (PR 8's order, kept so the JSON route answers
  * exactly as before): the capability for the kind, then that the cat exists.
+ *
+ * The write goes through commitStatement (SYC-53 PR 2.2), so a team
+ * "sterilised" that makes the cat Confirmed for the first time announces it
+ * once, after the transaction commits.
  */
 export async function recordTeamStatement(
   person: Person,
   input: TeamStatementInput,
   /** Write inside the caller's transaction (Remove owner, SYC-130) instead of a new one. */
   exec?: DbOrTx,
+  /**
+   * With `exec`: where a "sterilised" statement queues its news, for the
+   * caller to send once its own transaction commits. Required for a
+   * `sterilised` statement inside a caller's transaction.
+   */
+  news?: PendingNews[],
 ): Promise<Observation> {
   const capability = capabilityFor(input.kind);
   if (!capability || !can(person, capability)) throw notAuthorised();
@@ -208,16 +219,21 @@ export async function recordTeamStatement(
   // The cat's colony, read from the record (SYC-316): the role written is
   // the one that holds the capability THERE.
   const target = await catTarget(input.catId, exec);
-  const write = (tx: DbOrTx) =>
-    writeObservation(tx, {
+  const write = (tx: DbOrTx, queued: PendingNews[]) =>
+    commitStatement(tx as Tx, {
       catId: input.catId,
       kind: input.kind,
       value: { ...input.value, reason: input.reason },
       accountId: person.id,
       roleAtTime: actingRole(person, capability, target),
       observedAt: input.observedAt ?? new Date(),
-    });
-  return exec ? write(exec) : db.transaction(write);
+    }, queued);
+  if (!exec) return inStatementTransaction(write);
+  if (input.kind === "sterilised" && !news) {
+    // Its news would be written and never sent.
+    throw new Error("recordTeamStatement: a sterilised statement inside a caller's transaction needs a news list");
+  }
+  return write(exec, news ?? []);
 }
 
 // ── Remove owner (claiming-a-cat.md §7, D6) ───────────────────────────────
@@ -376,10 +392,12 @@ export async function supersedeStatement(
   input: SupersedeInput,
   /** Run inside the caller's transaction (a team Correct overruling a cat guardian) instead of a new one. */
   exec?: Tx,
+  /** With `exec`: where marking a "sterilised" wrong queues its news (see recordTeamStatement). */
+  news?: PendingNews[],
 ): Promise<{ row: Observation; original: Observation }> {
   if (!SUPERSEDE_CAPABILITIES.some((c) => can(person, c))) throw notAuthorised();
 
-  const run = async (tx: Tx) => {
+  const run = async (tx: Tx, queued: PendingNews[]) => {
     const [peek] = await tx
       .select({ catId: observationsTable.catId, kind: observationsTable.kind })
       .from(observationsTable)
@@ -389,6 +407,16 @@ export async function supersedeStatement(
       // holds the cat up, even briefly.
       if (!can(person, "set_appearance")) throw notAuthorised();
       await lockCat(tx, peek.catId);
+    }
+    if (peek && peek.kind === "sterilised") {
+      // The same order as commitStatement and every other cat-first path:
+      // the cat, then the statement, so a correction and a fresh statement
+      // about the same cat queue up rather than deadlock.
+      if (!can(person, "set_sterilisation")) throw notAuthorised();
+      await lockCat(tx, peek.catId);
+      if (exec && !news) {
+        throw new Error("supersedeStatement: marking a sterilised wrong inside a caller's transaction needs a news list");
+      }
     }
     const original = await lockActiveObservation(tx, input.id);
     // A withdrawn owner claim can't be marked wrong (see correctionOf in
@@ -431,7 +459,7 @@ export async function supersedeStatement(
         ? RETRACTED
         : input.value;
 
-    const row = await writeObservation(tx, {
+    const row = await commitStatement(tx, {
       catId: original.catId,
       kind: original.kind as ObservationKind,
       value,
@@ -442,10 +470,10 @@ export async function supersedeStatement(
       observedAt: isColony || isAppearance ? new Date() : (input.observedAt ?? new Date()),
       supersedesId: original.id,
       supersedeReason: input.reason,
-    });
+    }, queued);
     return { row, original };
   };
-  return exec ? run(exec) : db.transaction(run);
+  return exec ? run(exec, news ?? []) : inStatementTransaction(run);
 }
 
 // ── Colour and markings: Confirm and Correct (SYC-2 PR 3.1) ───────────────
