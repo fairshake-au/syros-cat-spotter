@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { Button } from '@/components/purropolis/Button';
@@ -21,11 +21,34 @@ interface Props {
 export function PhotoTipsCard({ visible, onClose }: Props) {
   const colors = useColors();
   const { t } = useLanguage();
+
+  // Behaves like a modal while open: Android hardware back and Escape on the
+  // web both close it, the same as "Got it".
+  React.useEffect(() => {
+    if (!visible) return;
+    const back = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    if (typeof document !== 'undefined') document.addEventListener('keydown', onKey);
+    return () => {
+      back?.remove?.();
+      if (typeof document !== 'undefined') document.removeEventListener('keydown', onKey);
+    };
+  }, [visible, onClose]);
+
   if (!visible) return null;
   return (
     <View
       style={styles.overlay}
+      // iOS keeps the screen behind it out of VoiceOver; on the web, role +
+      // aria-modal do the same so a screen reader can't wander to the shutter.
       accessibilityViewIsModal
+      role="dialog"
+      aria-modal
       testID="photo-tips-card"
     >
       <View style={[styles.card, { backgroundColor: colors.card }]}>

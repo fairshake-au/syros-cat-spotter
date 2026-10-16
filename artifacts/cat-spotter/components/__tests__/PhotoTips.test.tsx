@@ -44,6 +44,17 @@ describe('PhotoTips', () => {
     }
   });
 
+  it('speaks to the reader in the informal singular in Greek, like the Spot screen around it', () => {
+    const el = (TRANSLATIONS as any).el;
+    expect(el.photoTipsTitle).toBe('Πώς να τραβήξεις μια υπέροχη φωτογραφία γάτας');
+    expect(el.photoTipGetClose).toBe('Πλησίασε');
+    expect(el.photoTipFace).toBe('Δείξε το πρόσωπο');
+    expect(el.photoTipFaceLine).toBe('Περίμενε να κοιτάξει προς το μέρος σου.');
+    expect(el.photoTipBody).toBe('Δείξε ολόκληρο το σώμα');
+    expect(el.photoTipLight).toBe('Φως ημέρας και μείνε ακίνητος');
+    expect(el.photoTipLightLine).toBe('Μπες στο φως και, αν γίνεται, μην κάνεις ζουμ.');
+  });
+
   it('never says "snapper" or "colony carer" in any language', () => {
     for (const lang of ['en', 'el', 'fr'] as const) {
       for (const k of KEYS) {
