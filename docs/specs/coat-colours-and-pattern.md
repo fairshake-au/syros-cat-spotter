@@ -1,17 +1,21 @@
 # A cat's coat: colours you can see, and one pattern
 
 **Ticket:** SYC-398 (High). This spec replaces the earlier "Brown" draft on the same branch, which was never merged.
-**Decided with Samuel** in a brainstorm on 16 October 2026. His answers are quoted in §11.
+**Decided with Samuel** in a brainstorm on 16 October 2026 (his answers are quoted in §12). Revised after an independent adversarial review (§14).
 **Amends:**
-- `coat-markings-and-health.md`: §3.1 (the colour list), §4.2 (who wins on colour), §4.4 (Correct and Mark wrong for colour), §5.1 to §5.3 (the questions, the page, the team's screen), §8 (the filter), §10 (the data and the wire) and §11 (tests);
+- `coat-markings-and-health.md`: §3.1, §4.2, §4.4, §5.1–§5.3, §7.2, §8, §10 and §11;
 - `choose-a-different-cat.md`: §4.7 (the colour filter);
-- `cat-record-data-spine.md`: §10.2 (its copy of the colour rules);
-- the SYC-2 plan (the colour chips);
-- the SYC-161 plan: rules R4 and R5, the reader, and PR 3's chips;
-- SYC-397 (the reader's prompt), which this absorbs;
+- `cat-record-data-spine.md`: §3.4, §10.1 (the `coat` value), §10.2 (its copy of the colour rules), §10.7 (the wire) and §10.9 (`colour_filter_on`);
+- the SYC-2 plan: PR 3.1's Appearance section and Colour check list, and PRs 4.1–4.3 (the answers endpoint, the details card, the cat-alog filter);
+- the SYC-161 plan: R2, R4, R5, PR 2 and PR 3;
+- SYC-397: the reader's prompt fixes are absorbed into coat-v2 here, and it closes when that is built;
 - `DECISIONS.md` Part 2n: a new entry on approval.
-
-**Status:** draft for an independent review, then Samuel's approval. Nothing is built before it.
+**Replaces this wording in those documents:**
+- the fixed eight-value colour list;
+- "one or two colours";
+- the chip list *All · Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black and white · Not sure* and its *Colour not known* chip;
+- the words *Tabby*, *Tortoiseshell or calico* and *Black and white* wherever the public sees them.
+**Status:** revised draft, waiting for Samuel's approval. Nothing is built before it.
 
 ---
 
@@ -19,35 +23,35 @@
 
 People never have to name a cat's coat. They **point at it**.
 
-- **Colours:** five drawn swatches, *Black · Grey · Brown · Ginger · White*. You tap **every colour you can see**, and any combination is allowed. Cream counts as Ginger.
-- **Pattern:** three small drawings, *Plain · Stripes · Patches*. You tap one.
-- **A drawn cat** above the chips redraws with every tap, so the question becomes "Does it look like this?". The answers are **Looks like this** and **Not sure**.
+- **Colours:** five drawn swatches, *Black · Grey · Brown · Ginger · White*. You tap **every colour you can see**, in any combination. Cream counts as Ginger.
+- **Pattern:** drawn pictures, *Plain · Stripes · Patches*, and *Can't tell*.
+- **A drawn cat** above the chips redraws with every tap, so the question is "Does it look like this?". The answers are **Looks like this** and **Not sure**.
 
 The cat-fancier words (*tabby*, *tortoiseshell*, *calico*) disappear from everything the public sees:
-- a calico is Black · Ginger · White, Patches;
-- a ginger tabby is Ginger, Stripes;
-- a tuxedo is Black · White, Plain.
+- a calico is Black · Ginger · White · Patches;
+- a ginger tabby is Ginger · Stripes;
+- a tuxedo is Black · White · Plain or Patches, whichever it looks like.
 
-"Find the cat" gets **two rows of drawn chips**, colours and patterns. A cat whose coat isn't known is never hidden.
+"Find the cat" gets **two rows of drawn chips**, colours and patterns. A cat is never hidden because its coat isn't known.
 
-The **colour reader** (the AI that reads each cat's photo) answers in the same terms. With Samuel's approval of each change, it re-reads every cat once with its new prompt.
+The **colour reader** (the AI that reads each cat's photo) answers in the same terms. It re-reads every cat once with its new prompt, and Samuel approves every change it makes.
 
 ---
 
 ## 2. The coat
 
-A coat is two parts. Each part can be known or not known on its own.
+A coat has two parts. Each part is known or not known on its own.
 
 | Part | Values | Meaning |
 |---|---|---|
-| **Colours** | any of `black`, `grey`, `brown`, `ginger`, `white`, with no limit | Every colour a person can see in the coat. *Brown* covers warm brown, sandy and golden-brown fur. *Ginger* covers orange and cream. *Grey* covers what breeders call blue |
-| **Pattern** | one of `plain`, `stripes`, `patches` | **Plain:** one colour all over, or a colour with white in large areas (a tuxedo is Black · White, Plain). **Stripes:** stripes, swirls or spots in the coat (what breeders call tabby). **Patches:** a patchwork of colours (what breeders call tortoiseshell or calico) |
+| **Colours** | any of `black`, `grey`, `brown`, `ginger`, `white`, with no limit | Every colour you can see in the coat. *Brown* is warm brown, sandy or golden-brown. *Ginger* is orange or cream. *Grey* is what breeders call blue |
+| **Pattern** | one of `plain`, `stripes`, `patches` | **Plain:** one colour all over, perhaps with a small white bib, socks or face. **Stripes:** stripes, swirls or spots (what breeders call tabby). **Patches:** any patchy look: patchwork of colours, including black-and-white or ginger-and-white in patches (calico, tortoiseshell, cow-patched). A coat that is both striped and patchy is *Patches* |
 
-**Not sure.** A person can answer *Not sure* to the whole question. The AI can be unsure of either part on its own. "Not known" is stored and sent as no answer for that part, never as a value.
+**Plain or Patches is sometimes a judgement call** (Samuel chose "any patchy look", 16 October). A tuxedo can look like either. The filter allows for that (§5), so the call never hides a cat.
 
-**White in the coat or as a marking.** White is a **colour** when it is a large part of the coat (a tuxedo's chest and legs, a calico's white). A white chest or white paws alone stay **markings** (`coat-markings-and-health.md` §3.2), which are unchanged.
+**White in the coat or as a marking.** White is a **colour** when a person can see it as part of the coat. A small white chest or white paws can also be recorded as **markings** (`coat-markings-and-health.md` §3.2), which are unchanged. The two don't conflict.
 
-**The words people see** are short captions under the drawings. The drawings carry the meaning:
+**Words.** The drawings carry the meaning; the words are captions. All are nouns, so there is no grammar to agree (Decision E1). The Greek and French are drafts for Johnny (SYC-283):
 
 | Code | English | Greek (draft) | French (draft) |
 |---|---|---|---|
@@ -56,15 +60,17 @@ A coat is two parts. Each part can be known or not known on its own.
 | `brown` | Brown | Καφέ | Brun |
 | `ginger` | Ginger | Πορτοκαλί | Roux |
 | `white` | White | Λευκό | Blanc |
-| `plain` | Plain | Μονόχρωμη | Unie |
-| `stripes` | Stripes | Ριγέ | Rayée |
-| `patches` | Patches | Με μπαλώματα | Tachetée |
+| `plain` | Plain | Ενιαίο | Uni |
+| `stripes` | Stripes | Ρίγες | Rayures |
+| `patches` | Patches | Μπαλώματα | Plaques |
+| (the pattern chip) | Can't tell | Δεν ξέρω | Je ne sais pas |
 
-Johnny checks every word (SYC-283).
+**On a cat's page and card**, the coat is one line joined with " · " in every language:
+- colours first, in the order of the table;
+- then the pattern, except *Plain*, which the photo shows;
+- then the markings.
 
-On a cat's page and card, the coat reads as the colours in the order above, then the pattern: "Brown · Ginger, stripes" or "Black · White". *Plain* is never written out, because the drawing shows it.
-
-**The team's screen** may also show the breeders' name for a coat ("Red tabby", "Calico"). It is worked out from the two parts and only ever shown to the team. Whether Syros Cats want it is open question 1 (§12).
+For example: "Brown · Ginger · Stripes · White paws".
 
 ---
 
@@ -77,35 +83,57 @@ On a cat's page and card, the coat reads as the colours in the order above, then
 - Stripes lays stripes over the coloured areas;
 - Patches enlarges the patches.
 
-It is a **picture of the answer**, not a photo, and it is the same in all three languages. Samuel judges the drawings in the browser check before the PR opens.
+It is a picture of the answer, the same in all three languages. Samuel judges the drawings in the browser check before the PR opens.
 
-**Where the question appears.** These are the same places as before (`coat-markings-and-health.md` §5):
-- **The spotter's line after naming a cat.** It's pre-filled from the AI's reading: "Krispy looks like this, right?", with the drawn cat, and *Yes* or *Change*.
-- **The "add details later" card.**
-- **The team's and cat guardians' Correct.** It uses the same screen and requires at least one colour and a pattern, because the team never states *Not sure* (as before).
+**One answer, two parts.** A person taps at least one colour, then a pattern or *Can't tell*. *Can't tell* leaves the pattern not said, so a tourist who saw the colours but not the pattern is never pushed into a guess. **Not sure** answers both parts as not known. It withdraws that same device's earlier answer, as a spotter's *Not sure* does today (`coat-markings-and-health.md` §4.2).
 
-**One question, both parts.** A person's answer always carries colours and a pattern together. *Not sure* answers both.
+**Where the question appears.** The same places as before (`coat-markings-and-health.md` §5):
+
+- **The spotter's line after naming a cat.** Pre-filled from the AI's reading: "Krispy looks like this, right?", with the drawn cat.
+  - The buttons stay **Yes · Change · Skip**. *Yes* is recorded as a prompted answer for the parts that were pre-filled, so it never counts as an independent voice (as now).
+  - If the AI knew only the colours, the line asks for the pattern alone.
+  - If the AI knew nothing, the line opens the full question.
+- **The "add details later" card**, with the full question.
+- **The team's and cat guardians' Correct** (`coat-markings-and-health.md` §4.4).
+  - The team's pages are plain server-drawn pages with no scripts. So Correct is a **form**: five colour checkboxes with swatches, and pattern radio buttons, including *Not stated*.
+  - The drawn cat is shown once, after the form is saved.
+  - A team statement states colours, a pattern, or both. A part it leaves blank is *not stated* and falls to the next rule (§4).
+  - The team never states *Not sure*, as now.
+
+**Words on the team's screen.** The team sees the same words and drawings as everyone else. The breeders' names are not shown (Decision 4).
 
 ---
 
 ## 4. Who wins
 
-The rules of `coat-markings-and-health.md` §4.2 are unchanged in who outranks whom. They are applied to **colours** and to **pattern** separately:
+The rules of `coat-markings-and-health.md` §4.2 keep their order. They are applied to **colours** and to **pattern** separately, and every statement says which parts it states.
 
-1. **The team or a cat guardian** decides both parts. A guardian's standing statement outranks the team's, and within one level the newest stands (Decision G). *Confirmed.*
-2. **Two spotters who agree:**
-   - **colours:** each colour counts on its own, and is shown when two voices hold it. There is no limit on how many are shown. The camp rule stays: if two groups of colours are each agreed but nobody named both, the group with the newer support is shown and the cat goes on the team's Colour check list;
-   - **pattern:** shown when two voices name the same pattern;
+1. **The team or a cat guardian.** For each part the statement states, it decides. A guardian's standing statement outranks the team's, and within one level the newest stands (Decision G). A part the statement leaves not stated falls through to the next rules. *Confirmed.*
+2. **Two spotters who agree.**
+   - **Colours:** each colour counts on its own and is shown when two voices hold it. There is no limit. The camp rule stays: if two groups of colours are each agreed but nobody named both, the group with the newer support is shown, and the cat goes on the Colour check list.
+   - **Pattern:** shown when two voices name the same pattern. If two patterns each have two voices, the one with the newer support is shown, and the cat goes on the Colour check list ("spotters disagree on the pattern").
    - *Likely.* "Agree" keeps its meaning: different devices, different photos, different days.
-3. **The AI's newest reading** of that part. *Reported.*
-4. **One spotter** fills a part the AI left unknown, but never overturns a real AI reading. *Reported.*
+3. **The AI's reading** is its **newest row** only. A part that row leaves not known is not known: an older reading never fills it (Samuel, 14 October, `DECISIONS.md` 2n). *Reported.*
+4. **One spotter** fills a part rules 1–3 left not known, but never overturns a real AI reading of that part. *Reported.*
 5. Otherwise that part is **not known**.
 
-So a cat can show the AI's colours with the pattern two spotters agreed on. Both are visible on the photo, so that's harmless.
+**Mixed sources.** A cat can show the AI's colours with the pattern two spotters agreed on. When the two parts come from different rules, the cat goes on the team's Colour check list ("colour and pattern from different sources"), so a coat nobody stated is seen and confirmed (Decision 2).
 
-**Mark wrong** still retracts one statement, and the next rule decides. A retraction covers that statement's colours and its pattern together.
+**What a statement counts as.**
+- A statement with colours and no pattern is a colour statement.
+- A statement with a pattern and no colours is a pattern statement. An old *Tabby* alone is read this way (§6).
+- **Only `{ notSure: true }` withdraws.** An empty part never does.
 
-**Colour is never evidence of life and never notifiable**, and it never feeds the matcher (SYC2-D8), as before.
+**Each part resolves on its own**, with its own confidence, supporting statements and date, and its own Colour check reasons. The team's Appearance section, the Colour check list and Confirm read each part separately.
+
+**Confirm** records the resolved coat as a team statement. It states only the parts that are known; a part that isn't known is left not stated. If neither part is known, Confirm isn't offered (as now).
+
+**Mark wrong** retracts one whole statement, both parts, and the next rule decides each part.
+
+**Unchanged:**
+- colour and pattern are never evidence of life and never notifiable;
+- they never feed the matcher (SYC2-D8);
+- a later AI reading never beats a team or guardian statement.
 
 ---
 
@@ -116,111 +144,158 @@ Two rows of drawn chips sit under the search box:
 - **Colours:** *All · Black · Grey · Brown · Ginger · White*
 - **Pattern:** *All · Plain · Stripes · Patches*
 
-How a cat matches:
-- **Within a row, any chip counts.** Brown and Ginger shows cats with either colour.
-- **Across the rows, both must match.** Ginger and Stripes shows ginger cats with stripes.
-- **Unknown always stays in.** A cat whose colours are not known stays in, under any colour. A cat whose pattern is not known stays in, under any pattern. Both kinds sit in their own section, headed *Not known*, below the cats that match.
-- **Both rows start at All**, and reset each time the picker opens.
-- **The line above "Can't find it? Add it as a new cat"** says how many cats the filter is hiding, with one tap to show them all: *"8 more cats nearby in other colours or patterns. Show all."*
-- **The counts add up.** Every cat the search finds is counted exactly once: matching, *Not known*, or hidden.
+**How each cat is placed**, for each row someone has picked a chip in:
+- **A known match:** the cat has a picked colour (or the picked pattern).
+- **A known mismatch:** the cat's part is known and doesn't match.
+- **Not known:** the cat's part isn't known.
 
-**Offline:** the filter works over the cat-alog saved on the phone. A cat whose coat arrived after the copy was saved is *Not known*, so it is never hidden.
+Then:
+1. **Hidden** if any picked row is a known mismatch.
+2. Otherwise **Not known** if any picked row is not known. The cat is shown in its own section, headed *Not known*, below the matches.
+3. Otherwise **matching**.
+
+Further rules:
+- **Within a row, any chip counts.** Brown and Ginger shows cats with either colour.
+- **Plain and Patches are forgiving.** A cat with White among its colours shows under Plain **and** under Patches, whichever was recorded, because the line between them is a judgement call (§2).
+- **Both rows start at All** and reset each time the picker opens.
+- **The line above "Can't find it? Add it as a new cat"** says how many cats the filter hides, with one tap to show them all: *"8 more cats nearby in other colours or patterns. Show all."*
+- **Every cat the search finds is counted once:** matching, Not known, or hidden.
+
+**The filter reads only the new fields** (§6). A cat the phone has without them, for example from a catalogue saved before the update, is Not known in both rows, so it is never hidden. The old `coat` field is never used to filter.
+
+**Offline:** the filter works over the cat-alog saved on the phone.
+
+**The match record** (`sighting_matches.colour_filter_on`, data spine §10.9) is true when **either** row had a chip picked. The name stays as it is.
 
 ---
 
 ## 6. The data
 
-**A statement** (an observation of kind `coat`) carries:
+**A statement** (an observation of kind `coat`):
 
 ```
 { colours: ["brown", "ginger"], pattern: "stripes" }            // a person
-{ colours: [...], pattern: "...", modelVersion: "..." }         // the AI
+{ colours: ["ginger"] }                                         // pattern not said
+{ pattern: "stripes" }                                          // colours not said (a team statement, or an old "Tabby")
+{ notSure: true }                                               // a person's Not sure
+{ colours: [...], pattern: "...", modelVersion: "..." }         // the AI; either part may be absent
 ```
 
-- `colours`: one to five distinct codes from the five, or absent when not known. The AI may leave it absent; a person can't.
-- `pattern`: one of the three, or absent when not known.
-- A person's *Not sure* is `{ notSure: true }`. It withdraws that same device's earlier answer, as a spotter's *Not sure* does today (§4.2).
+- `colours`: one to five distinct codes, or absent.
+- `pattern`: one code, or absent.
+- A spotter's answer always has `colours`, or is `{ notSure: true }`.
+- A team or guardian statement has at least one part.
 
-**Statements written before this spec** used the old list (`{ colours: ["ginger", "tabby"] }`). They are **never rewritten**. Every reader translates them through one function, the same everywhere:
+**Statements written before this spec** used the old list. They are **never rewritten**. One function, used everywhere, reads them, and **only what an old statement said becomes known**:
 
-| Old code in a statement | Colours | Pattern |
+| Old statement | Colours | Pattern |
 |---|---|---|
-| `black`, `white`, `ginger`, `grey` | that colour | (not said) |
-| `tabby` | (adds nothing) | stripes |
-| `black_and_white` | black, white | plain |
+| contains `tabby` | the other colours **other than white**, if any; otherwise not known | stripes |
+| `black_and_white` | black, white | not known |
 | `tortoiseshell_or_calico` | black, ginger | patches |
-| `not_sure` | not known | not known |
+| `black`, `white`, `ginger` or `grey` without `tabby` | those colours | not known |
+| `not_sure` alone | | Not sure (a withdrawal) |
 
-So *Ginger · Tabby* becomes Ginger, Stripes, and plain *Tabby* becomes no colour, Stripes. On production this covers all 23 machine readings written on 15 October (GitHub runs 38770213522 and 38771548249); none of them is tortoiseshell or calico.
+So:
+- *Ginger · Tabby* → Ginger · Stripes;
+- *Tabby* → Stripes, colours not known;
+- *Tabby · White* → Stripes, colours not known (the tabby's own colour was never said);
+- *Black and white* → Black · White, pattern not known.
+
+**What that does to the 23 machine readings written on 15 October** (GitHub runs 38770213522 and 38771548249):
+- **14 become fully or partly known:**
+  - Ginger · Tabby;
+  - Ginger · White;
+  - Black;
+  - Black and white, with the pattern not known.
+- **5 are plain *Tabby*** (#6, #9, #14, #15, #20) and **2 are *Tabby · White*** (#10, #19). All seven become Stripes, colours not known.
+- **4 are Not sure** (#3, #26, #27, #28).
+- None is tortoiseshell or calico.
+
+No public colour is lost: every cat with a known colour today keeps it. The re-read (§7) fills in what's missing.
 
 **No database change.** The value is an existing JSON field.
 
 **The public wire** (`GET /cats` and `GET /cats/{id}`) carries the resolved coat as two new fields:
-
-- `coatColours`: the codes, in the order of §2, or `[]` when not known.
+- `coatColours`: the codes in the order of §2, or `[]` when not known;
 - `coatPattern`: one code, or `null` when not known.
 
-The old field `coat` keeps being sent, **worked out from the new parts**, for phones that haven't updated. It is limited to the old codes and to two of them. The rule is:
+The old field `coat` stays, for phones that haven't updated. It is **only for display**, never for the filter. It is worked out by a single function with a full truth table, at most two old codes, tested for every combination of the five colours and four pattern states:
 
-1. Black and white together, with a plain pattern: `black_and_white`.
-2. Otherwise patches with black and ginger: `tortoiseshell_or_calico`.
-3. Otherwise stripes: the first of ginger or grey present, if any, plus `tabby`.
-4. Otherwise the first one or two old colours present.
-5. Nothing that fits: `[]`.
+| New coat | Old `coat` sent |
+|---|---|
+| Black + White, any pattern except Stripes, no other colour | `black_and_white` |
+| Patches, with Black and Ginger | `tortoiseshell_or_calico` |
+| Stripes | `tabby`, plus the first of ginger, grey, black, white present (Brown has no old code) |
+| any other coat | the first two old colours present (black, white, ginger, grey) |
+| no old colour and no stripes, or not known | `[]` |
 
-So Brown alone is sent as `[]`, and an older phone shows no colour for it. Nothing about how sure, who said it or when is ever sent, as before.
+So a brown tabby is sent as `tabby`, and Brown alone as `[]`. An older phone shows coarser words, never wrong ones. A Brown · White · Stripes cat is sent as `tabby · white`, never as plain "White".
 
-**The cat-alog cache key stays `v2`.** The new fields are added, and a cached copy without them reads as *Not known*.
+**The cat snapshot** (`resolve.ts`) has `coatColours` and `coatPattern` in place of `coat`. The not-notifiable guard (`appearance.notNotifiable.test.ts`, `SYC2_FIELDS`) is updated to name exactly those two, so neither can ever be notifiable.
+
+**The cat-alog cache key stays `v2`.** The fields are added, and a cached copy without them reads as Not known.
 
 ---
 
 ## 7. The colour reader
 
-**The prompt** becomes version `coat-v2`, with the model name in front as now (`gpt-5.6-terra/coat-v2`). It asks for:
+**The prompt** becomes version `coat-v2` (`gpt-5.6-terra/coat-v2`). It asks for:
 - how many cats it sees, and whether the photo is clear;
 - every colour from the five it can see;
-- the pattern from the three;
+- the pattern from the three, or that it can't tell;
 - one confidence.
 
-It describes each value in plain terms:
-- calico and tortoiseshell are **Patches**, never Stripes;
+It describes each value plainly:
+- any patchy look is **Patches**, never Stripes;
 - a warm sandy brown is **Brown**, not Ginger;
-- white counts as a colour only when it is a large part of the coat.
+- white counts when it is part of the coat.
 
-It folds in SYC-397, which is closed by this spec.
-
-**Not sure.** As now, the whole answer is *Not sure* when:
-- the AI saw anything other than exactly one cat;
+**Not sure.** As now, the whole answer is *Not sure* (`{ colours: ["not_sure"] }` is replaced by `{ notSure: true }` for new rows) when:
+- the AI sees anything other than exactly one cat;
 - the photo isn't clear;
-- the confidence is below the cut-off (0.8);
-- it gave an unknown code.
+- the confidence is below 0.8;
+- it gives an unknown code.
 
-If the AI says it can't tell the pattern but is sure of the colours, the pattern is not known and the colours stand.
+If it can't tell the pattern but is sure of the colours, the pattern is absent and the colours stand.
 
-**Re-reading every cat once** (Samuel, §11). SYC-161's rule R4 ("never send a photo to the AI twice") becomes **never twice with the same reader version**, guarded so that nothing it protected is lost:
+**Re-reading every cat once** (Samuel, §12). SYC-161's rule R4 becomes:
 
-- **Only a manual run re-reads.** The run started from the GitHub workflow has a re-read setting, off by default. The automatic catch-up run, and a newly named cat, never re-read for a version change; they treat any earlier reading as final.
-- **The public can't cause it.** A version changes only through a PR, Samuel's pull in Replit and a publish. Each photo costs at most one call per version.
-- **A photo the team rejected stays rejected.** If any reading of a photo was marked wrong, the re-read skips that photo.
-- **Nothing showing is taken away.** A re-read whose answer is *Not sure* is not written over a known coat.
-- **Samuel approves every change.** The re-read is a trial first. The contact sheet shows each cat's photo, its current coat and the new reading. Only the changes he approves are written (`exclude`, as for the fill-in).
-- **Copying forward** copies only a reading made under the current version. A restored main photo that has only older readings is read again only by a manual re-read; an automatic run keeps its older reading, as now.
-- **The budget:** about 28 calls for the trial and 28 for the write, an hour apart (the allowance is 60 an hour).
+> **At most one written reading per photo per reader version.** Model calls stay bounded by the existing budgets: 3 attempts a day per photo, and 60 calls an hour.
 
-**Statements by the team, guardians and two agreeing spotters always beat any reading**, so the re-read can't overturn them.
+The guards:
+
+- **Only a manual run re-reads.** The workflow's run gains a `reread` setting, off by default. The automatic catch-up run, and a newly named cat, never re-read for a version change.
+- **"Due" depends on the run.** In an automatic run, a cat whose newest reading is from an older version is **not due** for that reason, so it never fills an automatic run's slots. The re-checks inside `record.ts` and before a photo is sent use the same setting as the run.
+- **Copying forward still works.** When a restored main photo was read before, its newest reading is copied forward in the new shape (translated through §6), keeping its own `modelVersion`. A manual re-read later reads it with the current version.
+- **A rejected photo stays rejected.** If any reading of a photo was marked wrong, the re-read skips it.
+- **Cats the team has decided are skipped.** If both parts are stated by the team or a guardian, a reading can't change what's shown, so the re-read doesn't spend a call on that cat.
+- **Nothing showing is lost.** A re-read is **held back**, not written, if it would leave unknown any part that the cat's current machine reading knows. A whole *Not sure* is held back the same way. Held-back cats are listed on the contact sheet.
+- **Samuel approves every change.**
+  - The re-read is a trial first. The contact sheet shows each cat's photo, its current coat and the new reading.
+  - The write run then calls the AI again, so its answer can differ from the trial's.
+  - The write run's results are compared with the trial's, cat by cat. Any that differ are shown to Samuel before the filter's chips go out (as in SYC-161's rollout).
+  - Only cats he approved are written (`exclude`).
+- **The bound if the password leaked.** The re-read is opened by the same mail-drain password as the colour run (SYC-161 Decision D1). If it leaked, someone could start re-reads. That costs at most one written reading per photo per version, inside the budgets above. Each re-read also needs a new version, which takes a PR and a publish.
+- **The budget:** about 28 calls for the trial and 28 for the write. That fits in one hour (56 of 60).
+
+**The team, guardians and two agreeing spotters always outrank any reading**, so the re-read can't overturn them.
 
 ---
 
 ## 8. What happens to the cats already read
 
-- **18 of the 23 readings carry over exactly** through §6's table.
-- **5 cats recorded as plain *Tabby*** (#6, #9, #14, #15 and #20, from the live list at about 16:40 UTC on 15 October) become *no colour, Stripes*. They are never hidden, and the re-read gives them colours.
-- **The 5 cats never written** (#5, #8, #13, #25 and #29) are read for the first time by the same trial.
-- **Samuel's own verdicts from 15 and 16 October** (on SYC-161 and SYC-399) become team statements once the team's Correct is live. They beat any reading:
-  - Taffy and Boudicca: Black · Ginger · White, Patches;
-  - Fila: Ginger · White;
-  - Toula and Say Say: Brown · White, Stripes;
-  - Fofi and Krispy: Brown · Ginger, Stripes.
+- **Every colour showing today keeps showing.** It is translated through §6.
+- **The 7 cats recorded as *Tabby* or *Tabby · White*** become Stripes, colours not known. Under any colour chip they sit in *Not known*, never hidden, and the re-read gives them colours.
+- **The 5 cats Samuel rejected** on 15 October (#5, #8, #13, #25, #29) were left out of the fill-in on purpose. They are read by the coat-v2 trial, and their rejections are the first test of whether coat-v2 does better.
+- **Samuel's own verdicts** become team statements once the team's Correct is live (SYC-399). They are written exactly as he said them, translated through §6. A team member confirms any part he didn't state.
+
+| Cat | Samuel's words (SYC-161 and SYC-399, 15–16 October) | Recorded as |
+|---|---|---|
+| #5 Taffy, #8 Boudicca | "Tortoiseshell or calico" | Black · Ginger · Patches |
+| #25 Fila | "Ginger · White" | Ginger · White, pattern not stated |
+| #9 Toula, #15 Say Say | "Tabby · White" | Stripes, colours not stated |
+| #13 Fofi, #29 Krispy | "a brown and ginger tabby" | Brown · Ginger · Stripes |
 
 ---
 
@@ -228,92 +303,164 @@ If the AI says it can't tell the pattern but is sure of the colours, the pattern
 
 | Place | What changes |
 |---|---|
-| `artifacts/api-server/src/lib/appearance.ts` | The five colours and three patterns; the one function that translates an old statement (§6); `normaliseColours` goes, because Black + White is simply two colours now |
-| `lib/observations.ts` (the check on write) | The new value shape; old-shape writes refused from now on; the same author rules as before |
-| `lib/resolve.ts` (`resolveCoat`) | Colours and pattern resolved separately (§4); no limit on colours; reads old statements through the translation |
-| `lib/catHelpers.ts` (`serialiseCat`) | `coatColours`, `coatPattern`, and the old `coat` worked out for older phones (§6) |
-| `lib/coatReading/` (`reader.ts`, `due.ts`, `record.ts`, `sweep.ts`) | Prompt `coat-v2`; the new answer shape; the version-aware manual re-read and its guards (§7) |
-| `lib/teamCatView.ts` and the team pages (SYC-2 PR 3.1) | The new words; Correct uses the tapping screen; the optional breeders' name (§2) |
-| `lib/api-spec/openapi.yaml` | `coatColours` and `coatPattern` added, `coat` kept; the generated types regenerated |
+| `lib/appearance.ts` | The five colours and three patterns; the translation of old statements (§6); the old-`coat` truth table; `normaliseColours` goes |
+| `lib/observations.ts` | The new value shape; old-shape writes refused from now on; the author rules unchanged |
+| `lib/resolve.ts` | Colours and pattern resolved separately, each with its own confidence and reasons (§4); the snapshot fields `coatColours` and `coatPattern` |
+| `lib/catHelpers.ts` (`serialiseCat`, `deriveCatStatuses`) | The two new wire fields, and the old `coat` worked out for display |
+| `lib/handPick.ts` (`handPickDisagrees`) | The spotter's own answer is read through the translation. A hand pick is flagged when it shares no colour with the cat's resolved colours, or when both patterns are known and differ |
+| `lib/colourCheck.ts` | Reasons per part, including "spotters disagree on the pattern" and "colour and pattern from different sources" |
+| `lib/teamCorrections.ts`, `lib/teamPages/appearancePage.ts`, `lib/teamCatView.ts`, the team strings | Correct as a form (checkboxes and radio buttons); Confirm states only the known parts; the new words; Correct on a guardian's statement retracts both parts |
+| `lib/coatReading/` (`reader.ts`, `due.ts`, `record.ts`, `sweep.ts`) | Prompt coat-v2; the new answer shape; the `reread` setting and its guards; copy-forward in the new shape (§7) |
+| The answers endpoint (`POST /sightings/{id}/answers`, SYC-2 PR 4.1) and `openapi.yaml` | The colour answer's request body is `{ colours, pattern? }` or `{ notSure: true }`; `coatColours` and `coatPattern` on the cat; `coat` kept |
 | `.github/workflows/coat-readings.yml` | A `reread` choice, off by default |
-| `artifacts/cat-spotter` | The drawn swatches and patterns; the drawn cat; the question screen; the two filter rows (SYC-161 PR 3); the words in three languages; reading the new fields, with the old field as fallback |
-| Tests that pin the eight colours, "one or two", or the old shape | Updated to the new shape (§10) |
-| Documents | The specs and plans listed at the top, and a `DECISIONS.md` entry |
-| Johnny's pack (SYC-346, SYC-283) | Brown, Plain, Stripes, Patches; "What does {name} look like?", "Looks like this", "Not known", and the hidden-cats line |
+| `artifacts/cat-spotter` | The drawn swatches, patterns and cat; the question; the two filter rows (SYC-161 PR 3); the cat-alog's filter (SYC-2 PR 4.3); the words; reading the new fields |
+| Tests | The public payload snapshots (`publicPayload.p6.txt`, `cats.publicDetail.p3-2.txt`) gain `coatColours` and `coatPattern`, regenerated on purpose and recorded in the PR; `appearance.notNotifiable.test.ts`'s `SYC2_FIELDS`; every test that pins the eight codes or "one or two" |
+| Documents | Everything listed at the top, and a `DECISIONS.md` entry |
+| Johnny's pack (SYC-346, SYC-283) | Brown, Plain, Stripes, Patches, Can't tell; "What does {name} look like?", "Looks like this", "Not known", the hidden-cats line |
 
 ---
 
 ## 10. Tests
 
-- **The translation:**
-  - every old code maps as in §6's table;
-  - *Ginger · Tabby* becomes Ginger, Stripes;
-  - *Tabby* becomes no colour, Stripes;
-  - *Black and white* becomes Black · White, Plain.
-- **The check on write:**
-  - any combination of the five colours is accepted;
+- **Translation:**
+  - every row of §6's first table, including that *Tabby · White* gives colours not known;
+  - an old statement's unknown parts never count as known.
+- **Old `coat` for older phones:** every combination of the five colours and four pattern states against the truth table, including that Brown alone gives `[]` and Brown · White · Stripes gives `tabby · white`.
+- **Write check:**
+  - any combination of colours is accepted;
   - an unknown code is refused;
   - an old-shape write is refused;
-  - a team statement without a pattern is refused;
+  - a spotter answer without colours is refused unless it is `notSure`;
+  - a team statement with neither part is refused;
   - a team *Not sure* is refused.
 - **Who wins:**
-  - each of the five rules for colours and for pattern, on its own and in conflict;
-  - colours and pattern from different rules on one cat;
-  - no limit on shown colours;
-  - the camp rule on colours;
-  - a later AI reading never beats the team;
-  - old and new statements mixed on one cat resolve as if all were new.
-- **The wire:**
-  - `coatColours` and `coatPattern` match the resolved coat;
-  - the old `coat` follows §6's rule for each case, including Brown alone giving `[]`;
-  - nothing else about the coat is sent;
-  - the cache key is still `v2`.
-- **The filter:**
-  - any chip within a row counts;
-  - both rows must match;
-  - unknown colours or an unknown pattern never hide a cat;
+  - each rule for each part, alone and in conflict;
+  - a team statement of colours only, with the pattern falling through;
+  - a pattern-only statement doesn't withdraw;
+  - only `notSure` withdraws;
+  - the newest AI row with a part absent leaves that part not known, even when an older row had it;
+  - pattern ties go on the check list;
+  - mixed sources go on the check list;
+  - old and new statements from the same device count as one voice;
+  - a later AI reading never beats the team.
+- **Confirm** states only the known parts.
+- **Mark wrong** retracts both parts.
+- **Filter:**
+  - the three-way placement in every combination of the two rows;
+  - the Plain/Patches forgiveness for cats with White;
+  - a cat without the new fields is Not known, never hidden;
   - the counts add up;
-  - it works offline over a saved catalogue that has no new fields.
-- **The reader:**
+  - offline.
+- **Snapshot and not-notifiable:** `coatColours` and `coatPattern` are the only coat fields on the snapshot, and neither is notifiable.
+- **Hand pick:** translated answers; a shared colour means no flag; a pattern mismatch flags.
+- **Reader:**
   - the prompt lists exactly the five colours and three patterns;
   - each *Not sure* case;
   - pattern unknown while the colours stand.
-- **Re-reading:**
-  - the automatic run and a newly named cat never re-read for a version change;
-  - a manual re-read reads each photo once per version;
-  - it skips a photo with a rejected reading;
-  - a *Not sure* never replaces a known coat;
-  - `exclude` holds;
-  - copying forward uses only current-version readings.
-- **The drawn cat:** every combination renders, and the caption matches.
-- **Words:** every new word in all three languages, and no raw code ever shown.
+- **Re-read:**
+  - an automatic run never lists or reads a cat for a version change;
+  - a manual run writes at most once per photo per version;
+  - rejected photos are skipped;
+  - team-decided cats are skipped;
+  - a reading that would lose a known part is held back;
+  - copy-forward translates and keeps its version;
+  - the re-checks honour the setting.
+- **Drawn cat:** every combination renders, and the caption matches.
+- **Words:** every new word in three languages, and no raw code ever shown.
 
-Each test that guards a silent rule gets a mutation probe in its PR: break it, watch the test go red, restore it.
+Each test that guards a silent rule gets a mutation probe in its PR.
 
 ---
 
-## 11. What Samuel decided (brainstorm, 16 October 2026)
+## 11. Decisions for Samuel
 
-- On the words: he wasn't sure of the difference between tortoiseshell, calico and tabby, and wasn't confident users would be: "let's solve this first".
+**Decision 1: the words people tap.** Settled in the brainstorm: drawn swatches and patterns, captions only (§12).
+
+### Decision 2: when colour and pattern come from different sources
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **2A. Each part on its own, and the cat goes on the Colour check list (recommended)** | Each part uses the best evidence it has. The team sees every mixed coat and confirms it once | A coat nobody stated shows until the team looks; harmless, because both parts are visible on the photo |
+| 2B. Both parts from the highest rule that states either | Never mixes sources | A spotter pair's colours would throw away the AI's pattern, leaving the pattern not known more often |
+
+**Recommendation: 2A.**
+
+### Decision 3: "Can't tell" on the pattern
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **3A. A *Can't tell* chip in the pattern row (recommended)** | A tourist who saw the colours but not the pattern answers honestly; two lazy taps of *Plain* can't outvote a real reading | One more chip |
+| 3B. Pattern required | Every answer has a pattern | People guess *Plain*, and guesses outvote the AI |
+
+**Recommendation: 3A.**
+
+### Decision 4: breeders' names on the team's screen
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **4A. No: the team sees the same drawings and words (recommended)** | One vocabulary everywhere, which is why the cat words were dropped | Experienced volunteers lose a term they may use among themselves |
+| 4B. Yes, beside the drawing ("Red tabby", "Calico") | Familiar to experts | Brings back the words Samuel rejected; three more translations if the team pages ever leave English |
+
+**Recommendation: 4A.** Syros Cats can ask for 4B later.
+
+### Decision 5: the drawings
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **5A. Claude draws simple shapes; Samuel judges them in the browser check (recommended)** | No waiting; easy to change | Plain-looking |
+| 5B. Commission an illustrator | Polished | Cost and time; misses the launch |
+
+**Recommendation: 5A**, with 5B later if wanted. Nothing else depends on it.
+
+### Decision 6: timing
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **6A. Words to Johnny by Thu 22 October; build after approval; never blocks the 31 October launch (recommended)** | Johnny's check isn't the bottleneck. If the build isn't ready, "Find the cat" launches without colour chips, and cat pages keep showing today's colours through the translation | The chips may miss the launch |
+| 6B. Hold the launch for it | Chips at launch | Puts the launch date at risk for a filter |
+
+**Recommendation: 6A.**
+
+---
+
+## 12. What Samuel said (brainstorm, 16 October 2026)
+
+- On the words: he wasn't sure of the difference between tortoiseshell, calico and tabby, nor confident users would be. "let's solve this first".
 - On the limit: "why shouldn't a tabby have as many colours as it has, rather than a limit of two?"
 - What felt wrong about naming: "Words are the wrong tool", and "Colour names are fuzzy".
-- How to point: he chose **A, drawn cats**, over real photos and fur swatches. Then: "it needs to allow all colour combos", and he chose **a cat that changes as you tap**.
+- How to point: drawn cats (A), over real photos and fur swatches; "it needs to allow all colour combos"; "a cat that changes as you tap".
+- He asked "is striped how cat experts describe it?". The answer: experts say *tabby*; *Stripes* is the plain-English caption, chosen for visitors.
 - Cream: "don't separate cream from ginger". Tapping several colours: clear enough ("yes"). The filter: "pattern too".
-- Sections 1 to 3 and 5 of the design: approved as presented.
-- Section 4: "Re-read all 28 too".
-
----
-
-## 12. Open questions (not blocking approval)
-
-1. **Do Syros Cats want the breeders' names on the team's screen** ("Red tabby", "Calico")? If yes, it is a small, team-only addition.
-2. **The drawings.** Claude draws the first version as simple shapes, and Samuel judges them in the browser check. Commissioning illustrations later changes nothing else.
-3. **Timing.** The words go into Johnny's pack by Thu 22 October. The build follows the spec, the plan and the PRs, and **never blocks the 31 October launch**. If it isn't ready, "Find the cat" launches without colour chips, and the colours already on cat pages keep showing through the translation.
+- The design's sections 1, 2, 3 and 5: approved as presented. Section 4: "Re-read all 28 too".
+- Plain or Patches: "Patches = any patchy look".
 
 ---
 
 ## 13. Not in this spec
 
-- Breed, eye colour, coat length (*Long fur* stays a marking) and patterns finer than the three.
+- Breed, eye colour, coat length (*Long fur* stays a marking), and patterns finer than the three.
 - Changes to markings.
 - Using colour or pattern in matching.
+
+---
+
+## 14. Review outcome
+
+An independent adversarial review (Sonnet, its own worktree) of the first draft, `299e0b7c`, found no outright blocker, 10 majors and 4 minors. All were accepted.
+
+| # | Finding | What changed |
+|---|---|---|
+| 1 | Translating *Tabby · White* to White · Stripes made two live cats look known and hid them | §6: an old *Tabby* never makes White a known colour; the cat's colours are not known |
+| 2 | *Black and white* → Plain invented a pattern, and Plain and Patches overlapped | §6 maps only what was said. Samuel ruled "any patchy look", and §5 makes the filter forgiving between Plain and Patches |
+| 3 | The filter could fall back to the lossy old field | §5 and §6: the old field is only for display |
+| 4 | The old-field rule was ambiguous and could show a brown tabby as "White" | §6: a full truth table, tested for every combination |
+| 5 | The resolver wasn't defined for half statements, older AI rows, team statements without a pattern, pattern ties, or confidence per part | §4 defines each |
+| 6 | Confirm would break on a half-known coat | §4: Confirm states only the known parts |
+| 7 | Missing places: the hand-pick flag, the Colour check list, the team form (no scripts), `colour_filter_on`, data-spine sections, snapshots, the not-notifiable guard, SYC-2 4.x | All added to §3, §5, §6 and §9 |
+| 8 | Re-read traps: cats due forever, "one call per version" untrue, the trial and write differing, the re-checks, the leaked-password bound | §7 rewritten |
+| 9 | A re-read could quietly drop a known pattern | §7: held back unless every known part stays known |
+| 10 | Spotters were forced to guess a pattern; the button labels clashed | §3 and Decision 3: *Can't tell*; Yes · Change · Skip kept on the pre-filled line |
+| 11 | Samuel's verdicts were partly inferred, not quoted | §8 quotes his words and translates them through §6 |
+| 12 | Greek and French drafts (*Tachetée* means spotted) and the join style | §2: nouns joined with " · " (E1); new drafts for Johnny |
+| 13 | The filter's placement rule was unclear | §5: a three-step rule |
+| 14 | Open questions lacked options, and SYC-397 was closed too early | §11 gives each decision options and a recommendation; SYC-397 closes when built |
