@@ -32,6 +32,8 @@ const BRAKE_LOCK = 44_051;
 let app: Express;
 let instancePool: { end(): Promise<void> };
 let settle: () => Promise<void>;
+let hideMod: typeof import("../lib/issues/hide");
+let instanceDb: typeof db;
 let n = 0;
 
 async function seedCat() {
@@ -86,6 +88,8 @@ beforeAll(async () => {
   instancePool = (await import("@workspace/db")).pool;
   settle = (await import("../lib/mail/outbox")).settleOutbox;
   const hide = await import("../lib/issues/hide");
+  hideMod = hide;
+  instanceDb = (await import("@workspace/db")).db;
   hide._setBrakeForTests(50);
   hide._setIssueClockForTests(DAY);
 });
@@ -155,4 +159,66 @@ describe("review finding 1: hide reports at once, right after a restart, never l
       expect(outcome.results.every((r) => r.hidden)).toBe(true);
     }
   }, 30_000);
+
+  // The second line of defence (re-check finding R1): a brake lock that can't
+  // be had in 5 s means no hide, not a report held open for ever.
+  it("a brake lock held elsewhere for longer than 5 s: the report is saved, not hidden, as 'brake'", async () => {
+    const cat = await seedCat();
+    const holder = await pool.connect();
+    await holder.query("begin");
+    await holder.query(`select pg_advisory_xact_lock(${BRAKE_LOCK})`);
+    const ref = `ref-${RUN}-held`;
+    const t0 = Date.now();
+    let res: request.Response;
+    try {
+      res = await request(app)
+        .post("/api/issues")
+        .set("X-Device-Secret", SECRET)
+        .set("X-Forwarded-For", "2001:db8:7799:f000::1")
+        .send({
+          deviceId: `${PREFIX}dev-held`,
+          clientRef: ref,
+          reason: "photo_private",
+          catId: cat.id,
+          photoPublicId: cat.photo.publicId,
+          language: "en",
+          turnstileToken: `token-for:${ref}`,
+        });
+    } finally {
+      await holder.query("commit");
+      holder.release();
+    }
+    const took = Date.now() - t0;
+    expect(res.status).toBe(201);
+    expect(res.body.hidden).toBe(false);
+    expect(took).toBeGreaterThanOrEqual(4_500);
+    const row = await db.execute(sql`select hide_skipped, hidden_by_report from welfare_reports where client_ref = ${ref}`);
+    expect(row.rows[0]).toMatchObject({ hide_skipped: "brake", hidden_by_report: false });
+  }, 30_000);
+
+  // Re-check finding R2: the brake's lock timeout puts back whatever the
+  // session had, rather than switching any existing timeout off.
+  it("the session's own lock_timeout is the same after the brake as before it", async () => {
+    const cat = await seedCat();
+    hideMod._setBrakeForTests(0); // brakes at once, after taking the lock
+    try {
+      const after = await instanceDb.transaction(async (tx) => {
+        await tx.execute(sql`select set_config('lock_timeout', '42s', true)`);
+        const out = await hideMod.applyHideRules(tx as never, {
+          reportId: -1,
+          reason: "photo_private",
+          photoId: cat.photo.id,
+          tokenOk: true,
+          address: "2001:db8:7799:f100::1",
+          limitsAt: DAY,
+        });
+        expect(out.skipped).toBe("brake");
+        const lt = await tx.execute(sql`select current_setting('lock_timeout') as lt`);
+        return (lt.rows[0] as { lt: string }).lt;
+      });
+      expect(after).toBe("42s");
+    } finally {
+      hideMod._setBrakeForTests(50);
+    }
+  });
 });

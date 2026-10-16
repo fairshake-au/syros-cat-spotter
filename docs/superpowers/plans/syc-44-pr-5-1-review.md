@@ -102,3 +102,24 @@ Every finding was checked against the code. None was rejected. Each fix has a te
 | 8 | **Noted** in the race test: with real Cloudflare the slower send usually gets 428 and then the stored answer | none |
 | 9 | **Fixed.** The 5-an-hour hide limit is sliding | "the hourly limit slides". Probe R9 (back to a fixed window): red |
 | 10 | **Already covered:** SYC-229 (Done) checked that every public address sits behind the same 4 proxy hops | none |
+
+---
+
+## Re-check of the fixes (Opus, head 3255757b)
+
+A second independent Opus reviewer, in its own worktree, re-checked the fixes above. **Verdict: merge.**
+- The blocker is fixed: no path inside a report transaction needs a second pool connection while it holds the brake lock or the photo row lock.
+- No guard got weaker.
+- A hide still needs a passed token in enforce mode. A 6th report-hide in an Athens day is still impossible. The unchecked fence still fails closed, and the island-wide fence is unchanged.
+
+Its probes:
+- With no salt warming, the pool test goes red.
+- With the brake lock held elsewhere for 7 s, a report answers 201 `hidden:false` after about 5 s, saved as `brake`.
+- The pool test passed 5 times in a row.
+
+| # | Severity | Finding | What was done |
+|---|---|---|---|
+| R1 | low | The 5 s lock timeout (the second line of defence) had no test: removing it left all 62 tests green | **Fixed:** `issues.pool.test.ts` holds the brake lock for longer than 5 s and expects 201, not hidden, `brake`. Probe S1 (no timeout): red |
+| R2 | low | Setting the timeout back to `'0'` wiped out any `lock_timeout` the session already had | **Fixed:** the earlier value is read and put back. Test: a session's `42s` is still `42s` afterwards. Probe S2: red |
+| R3 | low | If preparing the salts failed, the whole report became a 500 and was lost | **Fixed:** `prepareHide()` never throws. On failure it logs, and the report is saved without a hide (`address_limit`, failing closed) |
+| R4 | low | A retry of an unchecked report while Cloudflare is still down now gets 503 rather than the stored 200 | **Accepted.** Retries are bounded by the 60-attempts limit, and nothing is written before the 503. The app's PR 6.2 treats a 503 as "retry later" with no strike |

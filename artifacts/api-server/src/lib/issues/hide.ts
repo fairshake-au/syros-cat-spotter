@@ -112,8 +112,11 @@ export type HideInput = {
   tokenOk: boolean;
   /** The sender's address (`req.ip`), grouped before it is hashed. Never stored. */
   address: string;
-  /** From {@link prepareHide}, called before the transaction opened. */
-  limitsAt: number;
+  /**
+   * From {@link prepareHide}, called before the transaction opened. Null when
+   * it couldn't prepare: then no hide (fails closed, as `address_limit`).
+   */
+  limitsAt: number | null;
 };
 
 /**
@@ -124,11 +127,18 @@ export type HideInput = {
  * Without this, a dozen hide reports at once after a restart locked up the
  * whole pool for good (review finding 1).
  */
-export async function prepareHide(): Promise<number> {
+export async function prepareHide(): Promise<number | null> {
   const at = clockOverride ?? Date.now();
-  await warmSalts(at);
-  // The "Photo hidden" alert's own cap counts on the real clock.
-  if (clockOverride !== null) await warmSalts(Date.now());
+  try {
+    await warmSalts(at);
+    // The "Photo hidden" alert's own cap counts on the real clock.
+    if (clockOverride !== null) await warmSalts(Date.now());
+  } catch (err) {
+    // Never lose the report over this (re-check finding R3): it is saved,
+    // and simply can't hide.
+    logger.error({ err: safeError(err) }, "issue hide: limits not prepared; the report is saved, not hidden");
+    return null;
+  }
   return at;
 }
 
@@ -188,9 +198,11 @@ async function decide(tx: Tx, input: HideInput & { photoId: number }): Promise<H
   //    in a savepoint that is released is held to the end of the transaction.
   try {
     await tx.transaction(async (sp) => {
+      // Put back whatever lock_timeout the session had, not '0' (re-check R2).
+      const before = await sp.execute<{ v: string }>(sql`select current_setting('lock_timeout') as v`);
       await sp.execute(sql`select set_config('lock_timeout', ${BRAKE_LOCK_TIMEOUT}, true)`);
       await sp.execute(sql`select pg_advisory_xact_lock(${BRAKE_LOCK})`);
-      await sp.execute(sql`select set_config('lock_timeout', '0', true)`);
+      await sp.execute(sql`select set_config('lock_timeout', ${before.rows[0]?.v ?? "0"}, true)`);
     });
   } catch (err) {
     logger.error({ err: safeError(err) }, "issue brake lock: not had in time; the report is saved, not hidden");
@@ -209,10 +221,11 @@ async function decide(tx: Tx, input: HideInput & { photoId: number }): Promise<H
   // 5. This address's hide limits, counted in this transaction (a savepoint,
   //    so a counter error can't poison the report). A report that rolls back
   //    therefore uses none of them up. Fails CLOSED.
+  if (input.limitsAt === null) return skip("address_limit");
+  const at = input.limitsAt;
   try {
     const allowed = await tx.transaction(async (sp) => {
       const key = addressKey(input.address);
-      const at = input.limitsAt;
       const hour = await consume(HIDE_HOUR_BUCKET, key, ADDRESS_HIDES_PER_HOUR, HOUR_MS, sp, at, {
         sliding: true,
       });
