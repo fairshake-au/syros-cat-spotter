@@ -3,7 +3,7 @@
 **Status:** Draft 2 for Samuel's approval, 15 October 2026. **All eight brainstorm decisions answered by Samuel on 15 October 2026** (§13): 1, 3, 4, 5, 6 and 7 as recommended; **2 changed** to two formats from the start (pairs and line-up); **8 changed** to full offline play, narrowed in §9 for a reason given there and put back to him in §15. An independent adversarial review (Sonnet) of draft 1 found 4 blockers, 9 majors, 8 minors and 2 nits; the review is in [`reviews/matching-game-review.md`](./reviews/matching-game-review.md) and how each finding was handled is in §16. The four blockers changed the design: the photo source rule, the reveal, how a line-up is stored, and the trust rule. **Design only.** Nothing here is built, and the implementation plan comes only after approval.
 **Owner:** Samuel
 **Covers:** SYC-402 (design a game in the app that helps improve cat matching).
-**Related:** SYC-56 (measure matching accuracy) · SYC-57 (visual memory: embeddings, then on-device matching) · SYC-151 (the team-only match record, Done) · SYC-161 (coat colour read from the photo) · SYC-303 and SYC-246 (hidden photos, privacy removal) · SYC-36 and SYC-48 (the match-wait screen, PR #195) · SYC-2 (coat and markings, PR #191) · SYC-53 (roles and invites) · SYC-43 (team dashboard) · SYC-59 (duplicate cats and human-confirmed merge) · SYC-44 (report an issue) · SYC-195 (new-device limit) · SYC-63 (deletion) · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.6 · [`cat-record-data-spine.md`](./cat-record-data-spine.md) §6.2, §6.3, §6.5, §10.3, §10.9 · [`coat-markings-and-health.md`](./coat-markings-and-health.md) §3, §4.2, §8 · [`roles-and-invites.md`](./roles-and-invites.md) §2.2, §6.1, §6.2 · [`report-an-issue.md`](./report-an-issue.md) · [`offline-queue-on-web.md`](./offline-queue-on-web.md) · `docs/superpowers/specs/2026-07-28-engagement-and-donations-design.md` §4.3, §6.7.
+**Related:** SYC-56 (measure matching accuracy) · SYC-57 (visual memory: embeddings, then on-device matching) · SYC-151 (the team-only match record, Done) · SYC-161 (coat colour read from the photo) · SYC-303 and SYC-246 (hidden photos, privacy removal) · SYC-36 and SYC-48 (the match-wait screen, PR #195) · SYC-2 (coat and markings, PR #191) · SYC-53 (roles and invites) · SYC-43 (team dashboard) · SYC-59 (duplicate cats and human-confirmed merge) · SYC-150 (team moves a sighting to another cat) · SYC-44 (report an issue) · SYC-195 (new-device limit) · SYC-63 (deletion) · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.6 · [`cat-record-data-spine.md`](./cat-record-data-spine.md) §6.2, §6.3, §6.5, §10.3, §10.9 · [`coat-markings-and-health.md`](./coat-markings-and-health.md) §3, §4.2, §8 · [`roles-and-invites.md`](./roles-and-invites.md) §2.2, §6.1, §6.2 · [`report-an-issue.md`](./report-an-issue.md) · [`offline-queue-on-web.md`](./offline-queue-on-web.md) · `docs/superpowers/specs/2026-07-28-engagement-and-donations-design.md` §4.3, §6.7.
 **Timing:** **after the MVP.** The launch plan (PR #172) freezes MVP scope for 31 October, and nothing in this spec is on it. The earliest sensible home is the "Phase 4 · Intelligence and income" milestone, next to SYC-57 and SYC-59, because the game's first job is to feed SYC-56's baseline. §12 says what has to exist first.
 
 **What this document owns:** what the game looks like and feels like; which photos it may show and which pairs it builds; when an answer counts; what the answers are used for and who may act on them; what is shown and what is never shown; the rewards; what works without signal.
@@ -231,7 +231,7 @@ A new team page, **Matching to check**, in the style of the existing "Matched by
 | The players say | The records say | The row | Only the team (or the guardian, §6.3) can… |
 |---|---|---|---|
 | Same, on **two or more photo pairs** of the same two cats, or one pair plus the team's own look | Two different cats | *"Players think Mikis and Ermis are one cat."* | Mark **same cat** (a note for SYC-59 until the merge exists; the pair retires), **keep separate** (the pair becomes a check pair if ticked), or **ask for a better photo** |
-| Different, on a sighting photo vs. the cat it's filed under, on **two or more** photo pairs | One cat | *"Players think this sighting isn't Mikis."* | **Re-file** the sighting to another cat or to a new one (a team action that **does not exist today**; §12 lists it), **keep**, or **ask for a better photo** |
+| Different, on a sighting photo vs. the cat it's filed under, on **two or more** photo pairs | One cat | *"Players think this sighting isn't Mikis."* | **Re-file** the sighting to another cat or to a new one (**SYC-150**, a team action that does not exist today; §12 lists it), **keep**, or **ask for a better photo** |
 | 3–2 contested | Anything | *"Players disagree about Mikis and Ermis."* | Decide it; tick "use as a check" if it's clear-cut |
 | Can't tell × 3 | Anything | *"Nobody can tell these apart from these photos."* | Note that a cat needs a clearer main photo (the colony view, SYC-54, is where the team asks a guardian for one) |
 
@@ -340,7 +340,7 @@ Round mix, deck size, daily cap, line-up frequency, the 0.25–0.6 band, the 90-
 2. **Coat colour** on cats (SYC-161, SYC-2) for pools 2 and 4: landing before launch.
 3. **A size parameter on `GET /photos/:id`** built through `photoVisibility.ts`: new, small.
 4. **`app_settings`** (match-wait plan, PR 1, 23 October) for §10.4.
-5. **A team action that re-files a sighting under another cat** (§7.2 row 2): **does not exist today** (data spine §10.9 describes it; no route in `routes/team*.ts`). The queue ships with that button greyed and a note until it does.
+5. **A team action that re-files a sighting under another cat** (§7.2 row 2): **SYC-150** (filed, Backlog); data spine §10.9 describes it; no route in `routes/team*.ts` today. The queue ships with that button greyed and a note until it does.
 6. **The two capability rows** (§10.3) in the roles catalogue, and the guardian page from SYC-53 / SYC-54 for `decide_photo_pair` to live on. Not needed to ship the app side; without it the team decides everything.
 7. **SYC-59's merge** for the "same cat" row to become an action. Out of scope here.
 
@@ -443,7 +443,7 @@ All eight answered by Samuel on 15 October 2026 through question prompts in this
 ## 14. Out of scope, and follow-ups
 
 - **Merging two cats into one**, and splitting one into two: **SYC-59** (filed, Phase 4). The "same cat" row here is one of its three triggers, delivered from the game; SYC-59 owns the merge. No new ticket.
-- **Re-filing a sighting under another cat as a team action**: described by the data spine (§10.9), not built. Needed by §7.2 row 2. *Follow-up ticket.*
+- **Re-filing a sighting under another cat as a team action**: **SYC-150** (filed). Needed by §7.2 row 2. No new ticket.
 - **Tuning the 0.4 threshold** using the test set: SYC-56's job once it has 200 labels (§7.1).
 - **Retiring or widening the 500 m radius**: SYC-80 and SYC-151's distance-miss evidence.
 - **A daily puzzle** or a timed mode: not at launch (D5).
