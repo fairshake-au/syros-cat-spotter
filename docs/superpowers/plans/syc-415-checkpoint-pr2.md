@@ -16,9 +16,11 @@ Branch `claude/syc-415-pr2-server-extra-photos`, off `origin/claude/tester-photo
 
 - **Task 2.6** — `AppSettings.extraPhotosOn` (default false, wrong shape → false); `GET /app-settings` sends `extraPhotos`. Tests in `routes/appSettings.test.ts` and `lib/appSettings.test.ts`; upload-accepts-extras-with-switch-off is case 10 in `sightings.extraPhotos.test.ts` (green from the start, a guard: the route never read the switch). Extra probe: default flipped to on.
 
+- **Final checks** (after merging `origin/main` at `18aec432`): lib/db 33 files / 521 tests passed; `migrate:check` ok (29 migrations); typecheck clean except the local-only mockup-sandbox issue below; api-server 171 passed, 2 failed (both explained below).
+
 ## Next
 
-- Full api-server suite, lib/db tests, typecheck, migrate:check; push; open draft PR.
+- Push, open the draft PR (parent session: adversarial review in its own worktree, Neon duplicate-photo check, merge waits for Samuel).
 
 ## Deviations from the plan, and notes
 
@@ -30,3 +32,5 @@ Branch `claude/syc-415-pr2-server-extra-photos`, off `origin/claude/tester-photo
 - Local `pnpm -w run typecheck`: `artifacts/mockup-sandbox` fails on duplicate `@types/react` versions in this Mac's `node_modules` (files untouched by this branch). Libs, api-server, cat-spotter and scripts typecheck clean.
 - Task 2.3 duplicate test: uses one image as PNG at compression 0 and 9 (lossless, so different base64 but identical pixels) rather than "a JPEG re-encoded by sharp", which isn't guaranteed to give identical pixels. Same intent: the check compares normalised output.
 - Task 2.5 test 8 reads the device's match count with `peek("device_match", …)` from `lib/limits.ts`; `sightings.aiLimiter.test.ts` (which the plan pointed at) doesn't read a count.
+- Full api-server run: `profiles.usernames.test.ts` "still updates profile and leaderboard after an authenticated rename" failed in two full runs after the merge, but passes alone, passes run together with all four new test files, and passes in a full run with the four new files excluded (only the ordering changes). The leaderboard is `ORDER BY points DESC LIMIT 20`; a renamed 0-point profile among many 0-point profiles left by other files is a tie, so whether it is in the 20 depends on row order. Nothing in this branch writes profiles. Not fixed here (out of scope); worth a ticket if CI shows it.
+- Once in the first full run, `lib/mail/issueMail.test.ts` T5-14 (drain batch claimed 501, not 25) failed; it passed alone and in the second full run. Looks like a load/timing flake, unrelated to photos.
