@@ -119,7 +119,7 @@ export const fr: Record<StringKey, string> = {
   "gcat.notFound.title": "Chat introuvable",
   "gcat.notFound.body": "Il n’y a pas de chat avec ce numéro.",
   "gcat.back": "Retour à mes colonies",
-  "gcat.colony": "Colonie : {name}",
+  "gcat.colony": "Colonie : {name}",
   "gcat.position": "Enregistré la première fois à {position}",
   "gcat.lastSeen": "Vu pour la dernière fois le {date}",
   "gcat.neverSeen": "Pas encore d’observation",

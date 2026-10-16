@@ -59,6 +59,26 @@ export async function currentColonyOf(
   return out;
 }
 
+/**
+ * The cats in ONE colony now (SYC-53 PR 2.1), without reading the whole
+ * island: the cats any statement has ever put in this colony are the only
+ * candidates, and the one rule above decides which of them are in it now.
+ */
+export async function catsInColony(colonyId: number): Promise<number[]> {
+  const candidates = await db
+    .selectDistinct({ catId: observationsTable.catId })
+    .from(observationsTable)
+    .where(
+      and(
+        eq(observationsTable.kind, "colony"),
+        sql`${observationsTable.value}->>'colonyId' = ${String(colonyId)}`,
+      ),
+    );
+  if (candidates.length === 0) return [];
+  const now = await currentColonyOf(candidates.map((c) => c.catId));
+  return [...now].filter(([, c]) => c === colonyId).map(([catId]) => catId);
+}
+
 /** The cats in each colony now, by colony id. Colonies with no cats are absent. */
 export async function catsByColony(): Promise<Map<number, number[]>> {
   const out = new Map<number, number[]>();

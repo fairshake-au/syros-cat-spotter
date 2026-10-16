@@ -4,10 +4,11 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { catIdentityTable, catsTable, db, markLeft, observationsTable, photosTable, sightingsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import app from "../app";
 import { catTarget } from "../lib/capabilityTargets";
 import { GUARDIAN_CAT_FIELDS } from "../lib/guardianCatView";
+import { CATALOGUE } from "../lib/teamPages/strings";
 import { removeTestPerson } from "../test/removeTestPerson";
 import {
   guardianOn,
@@ -80,6 +81,14 @@ let theirs: SeededCat; // in B
 let loose: SeededCat; // in no colony
 let movedAway: SeededCat; // was in A, now in B
 let hiddenSightingPublicId: string;
+let hiddenMain: SeededCat; // in A, main photo hidden, one public sighting photo
+let hiddenMainStandIn: string;
+let owned: SeededCat; // in B, with an owner, a home note and pin, and a hidden main photo
+let marked: SeededCat; // in A, with markup in its name and description
+const OWNER_DEVICE = `vt-gcats-owner-${RUN}`;
+const OWNER_NAME_2 = `vt-gcats owner two ${RUN}`;
+const HOME_NOTE_2 = `vt-gcats home two ${RUN}`;
+const MARKUP = `<img src=x onerror="alert(1)">`;
 let publicSightingPublicId: string;
 
 async function sightingWithPhoto(catId: number, at: Date): Promise<{ id: number; publicId: string }> {
@@ -131,6 +140,27 @@ beforeAll(async () => {
   await hidePhoto(hid.id);
   publicSightingPublicId = pub.publicId;
   hiddenSightingPublicId = hid.publicId;
+
+  // Review probe A: her own cat whose main photo the team hid.
+  hiddenMain = await seedCat(colonyA);
+  hiddenMainStandIn = (await sightingWithPhoto(hiddenMain.id, new Date("2026-10-03T09:00:00Z"))).publicId;
+  await hidePhoto(hiddenMain.photoId);
+
+  // Review probe B: an owned cat outside her colonies, main photo hidden.
+  owned = await seedCat(colonyB);
+  await db
+    .update(catsTable)
+    .set({ ownerDeviceId: OWNER_DEVICE, ownerName: OWNER_NAME_2, homeDescription: HOME_NOTE_2, homeLat: 37.41, homeLng: 24.91 })
+    .where(eq(catsTable.id, owned.id));
+  await hidePhoto(owned.photoId);
+
+  // Review probe C: markup in a cat's name and description, and in her colony's name.
+  marked = await seedCat(colonyA);
+  await db
+    .update(catsTable)
+    .set({ name: `vt-gcats ${RUN} ${MARKUP}`, description: `<script>alert(2)</script> "quoted"` })
+    .where(eq(catsTable.id, marked.id));
+  await db.execute(sql`update colonies set name = name || ${" <i>\"x\"</i>"} where id = ${colonyA}`);
 });
 
 beforeEach(() => {
@@ -345,6 +375,69 @@ describe("SYC-333: a merged cat is judged as the cat it was merged into", () => 
       { catId: y.id, canonicalCatId: x.id, reason: "vt-gcats loop" },
     ]);
     expect(await catTarget(x.id)).toEqual({ colonyId: null });
+  });
+});
+
+describe("PR 2.1 review: hidden photos, owners and markup", () => {
+  it("A: a hidden main photo is never on her page; the newest public photo stands in", async () => {
+    const res = await asEleni(`/api/team/my/cats/${hiddenMain.id}`);
+    expect(res.body.view).toBe("guardian");
+    expect(JSON.stringify(res.body)).not.toContain(hiddenMain.photoPublicId);
+    expect(res.body.cat.mainPhotoUrl).toBe(`/api/team/photos/${hiddenMainStandIn}`);
+    expect(res.body.cat.photoUrls).toEqual([`/api/team/photos/${hiddenMainStandIn}`]);
+    const page = await asEleni(`/api/team/my/colonies/${colonyA}`);
+    expect(JSON.stringify(page.body)).not.toContain(hiddenMain.photoPublicId);
+  });
+
+  it("B: an owned cat outside her colonies is the public view, never the owner's, whatever headers she sends", async () => {
+    const res = await request(app)
+      .get(`/api/team/my/cats/${owned.id}`)
+      .set("Cookie", eleni.cookie)
+      .set(JSON_ACCEPT)
+      .set("X-Device-Id", OWNER_DEVICE)
+      .set("X-Device-Secret", "anything");
+    expect(res.body.view).toBe("public");
+    expect(res.body.cat).toEqual(await publicCat(owned.id));
+    expect(res.body.cat.locationPrecision).toBe("approximate");
+    expect(res.body.cat.ownerName).toBeNull();
+    expect(res.body.cat.homeDescription).toBeNull();
+    expect(res.body.cat.homePin).toBeNull();
+    const text = JSON.stringify(res.body);
+    for (const never of [OWNER_NAME_2, HOME_NOTE_2, OWNER_DEVICE, owned.photoPublicId]) expect(text).not.toContain(never);
+  });
+
+  it("C: names and descriptions are escaped on both pages", async () => {
+    for (const path of [`/api/team/my/cats/${marked.id}`, `/api/team/my/colonies/${colonyA}`]) {
+      const res = await request(app).get(path).set("Cookie", eleni.cookie).set("Sec-Fetch-Mode", "navigate");
+      expect(res.status).toBe(200);
+      expect(res.text).not.toContain(MARKUP);
+      expect(res.text).not.toContain("<script>alert(2)");
+      expect(res.text).not.toContain('<i>"x"</i>');
+      expect(res.text).toContain("&lt;img src=x onerror=");
+    }
+    const cat = await request(app).get(`/api/team/my/cats/${marked.id}`).set("Cookie", eleni.cookie).set("Sec-Fetch-Mode", "navigate");
+    expect(cat.text).toContain("&lt;script&gt;alert(2)");
+    expect(cat.text).toContain("&lt;i&gt;");
+  });
+});
+
+describe("her pages' words follow the house rules (SYC-283 drafts)", () => {
+  const mine = (key: string) => /^(gcat\.|gcol\.|coat\.|mark\.|mycol\.seeCats$)/.test(key);
+  it("Greek: no accented capital letters", () => {
+    const bad = Object.entries(CATALOGUE.el).filter(([k, v]) => mine(k) && /[ΆΈΉΊΌΎΏ]/.test(v)).map(([k]) => k);
+    expect(bad).toEqual([]);
+  });
+  it("French: a non-breaking space before a colon, never a plain one", () => {
+    const bad = Object.entries(CATALOGUE.fr).filter(([k, v]) => mine(k) && /( :|[^\u00a0]:)/.test(v)).map(([k]) => k);
+    expect(bad).toEqual([]);
+  });
+  it("every new key exists in all three languages", () => {
+    const keys = Object.keys(CATALOGUE.en).filter(mine);
+    expect(keys.length).toBeGreaterThan(40);
+    for (const k of keys) {
+      expect(CATALOGUE.el[k as keyof typeof CATALOGUE.el], k).toBeTruthy();
+      expect(CATALOGUE.fr[k as keyof typeof CATALOGUE.fr], k).toBeTruthy();
+    }
   });
 });
 

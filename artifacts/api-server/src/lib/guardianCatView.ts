@@ -157,6 +157,10 @@ export async function guardianCats(
     const rec = records.get(id);
     const observations = rec?.observations ?? [];
     const own = sightings.filter((s) => s.catId === id);
+    // The resolver's own answer, not the public line: spec §2.2 gives her
+    // "how sure we are", so she sees *Probably sterilised* even if the
+    // public Likely gate (likelyGate.ts) is ever shut. A choice, written
+    // down (PR 2.1 review, nit 6).
     const sterilised = resolveSterilised(observations, []);
     const life = resolveLifeStatus(observations, rec?.evidenceOfLife ?? null, now);
     const status = statuses.get(id);

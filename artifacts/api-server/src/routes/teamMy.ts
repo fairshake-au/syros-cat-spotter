@@ -33,8 +33,8 @@ import {
   renderPublicCatForGuardian,
 } from "../lib/teamPages/guardianPages";
 import { can } from "../lib/capabilities";
-import { canonicalCats, catTarget } from "../lib/capabilityTargets";
-import { catsByColony } from "../lib/colonyMembership";
+import { canonicalCats, catTargetWithCanonical } from "../lib/capabilityTargets";
+import { catsInColony } from "../lib/colonyMembership";
 import { guardianCats, guardianCatView } from "../lib/guardianCatView";
 import { publicCatView } from "../lib/publicCat";
 
@@ -109,7 +109,7 @@ router.get("/team/my/colonies/:id", requireTeam(), async (req: Request, res: Res
 
   // The cats in it now (the one membership rule), leaving out any cat merged
   // into another: that cat now lives on as the one it was merged into.
-  const inColony = (await catsByColony()).get(colonyId) ?? [];
+  const inColony = await catsInColony(colonyId);
   const canonical = await canonicalCats(inColony);
   const ids = inColony.filter((id) => canonical.get(id) === id);
   const cats = (await guardianCats(ids, new Map(ids.map((id) => [id, colonyId])))).sort(
@@ -134,8 +134,7 @@ router.get("/team/my/cats/:id", requireTeam(), async (req: Request, res: Respons
   };
   if (!ID_RE.test(raw)) return notFound();
   const catId = Number(raw);
-  const target = await catTarget(catId);
-  const canonicalId = (await canonicalCats([catId])).get(catId) ?? null;
+  const { target, canonicalId } = await catTargetWithCanonical(catId);
   if (
     canonicalId !== null &&
     typeof target.colonyId === "number" &&
