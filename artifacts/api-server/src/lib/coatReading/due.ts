@@ -197,6 +197,8 @@ async function publicSightingPhotos(
   q: DbOrTx,
 ): Promise<Set<string>> {
   if (pairs.length === 0) return new Set();
+  // SYC-415 spec §6.3: cover photos only; an extra photo is never promoted
+  // automatically, and colour reading is unchanged (it reads the main photo).
   const rows = await q
     .select({ catId: sightingsTable.catId, photoId: photosTable.id })
     .from(sightingsTable)

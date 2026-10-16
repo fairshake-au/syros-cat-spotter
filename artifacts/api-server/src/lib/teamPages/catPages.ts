@@ -469,12 +469,16 @@ function galleryItem(
 ): string {
   const action = p.hidden ? "restore" : "hide";
   const allowed = may(p.hidden ? "restore_photo" : "hide_photo");
+  // SYC-415: a spot's face or body photo says so, in its caption and for a
+  // screen reader. The first photo and the main photo carry no label.
+  const roleWords = p.role === "face" ? "Face photo" : p.role === "body" ? "Whole body photo" : null;
+  const roleSr = roleWords ? `${roleWords.toLowerCase()}, ` : "";
   const form = allowed
     ? `<form method="post" action="/api/team/photos/${encodeURIComponent(p.publicId)}/${action}">` +
       `<input type="hidden" name="cat" value="${catId}">` +
       `<button type="submit" class="${p.hidden ? "restore" : "hide risky"}">${p.hidden ? "Restore" : "Hide from the public"}` +
       // Which photo, for a screen reader: every button says the same words.
-      `<span class="sr"> (photo ${i + 1} of ${total})</span></button></form>`
+      `<span class="sr"> (${roleSr}photo ${i + 1} of ${total})</span></button></form>`
     : "";
   const label = p.hidden
     ? `<p class="hiddenby">Hidden from the public by ${esc(p.hidden.by)}, ${time(p.hidden.at, day(p.hidden.at))}` +
@@ -484,6 +488,7 @@ function galleryItem(
   return (
     `<figure id="p-${esc(p.publicId)}"${p.hidden ? ' class="ishidden"' : ""}>` +
     `<a href="${esc(p.url)}"><img src="${esc(p.url)}" alt="${esc(`Photo ${i + 1} of ${total}${p.hidden ? ", hidden from the public" : ""}`)}" loading="lazy"></a>` +
+    (roleWords ? `<p class="role">${roleWords}</p>` : "") +
     notice +
     label +
     form +
@@ -716,7 +721,10 @@ export function renderCatPage(
               (s.photoUrl
                 ? `<a href="${esc(s.photoUrl)}"><img class="thumb" src="${esc(s.photoUrl)}" alt="${esc(`Photo from the sighting on ${when(s.at)}`)}" loading="lazy"></a>`
                 : '<span class="thumb nothumb">No photo</span>') +
-              `<span>${time(s.at)}<br>${place(s.lat, s.lng)}${sightingButtons(s.id, may)}</span></li>`,
+              `<span>${time(s.at)}<br>${place(s.lat, s.lng)}` +
+              // SYC-415 spec §4.5: the matcher thought this spot's photos may be of more than one cat.
+              (s.mixedCats ? '<br><span class="mixed">May show more than one cat</span>' : "") +
+              `${sightingButtons(s.id, may)}</span></li>`,
           )
           .join("") +
         "</ul>");
