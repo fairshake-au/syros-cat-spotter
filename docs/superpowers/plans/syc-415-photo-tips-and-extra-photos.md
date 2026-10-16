@@ -987,7 +987,7 @@ Branch `claude/syc-415-pr3-extra-photo-readers` off fresh `origin/main`, after P
       .where(and(eq(sightingPhotosTable.photoId, photo.id), isNotNull(sightingsTable.catId))),
 ```
 
-  Spread it into the returned list. (`catTargets` already removes duplicate cat ids, so a cover photo found twice is harmless.) If main has wrapped `catsOfPhoto`'s result in `canonicalCats` (merged cats) by the time you branch, leave that wrapping as it is and add the query inside it.
+  Spread it into the returned list. A cover photo found twice is harmless: `catTargets` maps each id through `canonicalCats` (merged cats) and its colony lookup removes duplicates (`targetsOf`, `capabilityTargets.ts`). `catsOfPhoto` itself returns raw cat ids; keep it that way, so a photo of a merged cat is judged as its canonical cat exactly as cover photos are.
 
 - [ ] **Step 4: Implement `photoOfCat`.** Replace the single `sightings.photo_id` lookup with one that also accepts a photo listed in `sighting_photos` for a resolved sighting of this cat:
 
