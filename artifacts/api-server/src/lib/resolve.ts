@@ -388,7 +388,9 @@ const EPOCH = new Date(0).toISOString();
  * 2. Authoritative assertions (any `authorityLevel` above 0: vet, owner,
  *    cat guardian with a `colony:<id>` scope, staff/management, or
  *    `provenance: "import"`) — the highest level present decides, and the
- *    newest by `observedAt` within it wins, whatever sign (Decision G).
+ *    newest by `observedAt` within it wins, whatever sign (Decision G),
+ *    after setting aside every `false` that a `true` with standing is dated
+ *    strictly later than (SYC-315 B: a newer "sterilised" always wins).
  * 3. Otherwise, a photo-backed `ear_tip { clipped: true }` reaches *likely*,
  *    unless an authoritative `clipped: false` (§10.2 rule 3: never an
  *    import — see `earTipAuthorityLevel`) beats it: see `clipCountered`.
@@ -445,7 +447,21 @@ export function resolveSterilised(
       observationId: null,
     };
   });
-  const candidates = [...authoritative, ...fromImport];
+  // SYC-315, option B (Samuel, 16 October 2026): a newer "sterilised" beats
+  // any older "not sterilised", whoever said either, because the operation
+  // can't be undone. So a `false` that some `true` with standing is dated
+  // strictly later than is set aside before anything is ranked: it was true
+  // when it was said, and is no longer a disagreement. A newer `false` is
+  // kept and ranked as usual, so it beats an older `true` only from the same
+  // level or higher (a guardian's later "isn't" never undoes a vet's
+  // "sterilised"). Only sterilisation: the ear tip and life status keep the
+  // plain order.
+  const newestYesAt = Math.max(
+    ...[...authoritative, ...fromImport].filter((c) => c.sterilised).map((c) => c.at.getTime()),
+  );
+  const candidates = [...authoritative, ...fromImport].filter(
+    (c) => c.sterilised || !(c.at.getTime() < newestYesAt),
+  );
 
   if (candidates.length > 0) {
     // Decision G (§4.6), through the one ordering (`outranks`): the highest

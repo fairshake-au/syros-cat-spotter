@@ -269,6 +269,8 @@ const TABLE: Record<string, Row> = {
   // between her view and the public one, and another colony is not found.
   "GET /api/team/my/colonies/:id": { why: "her colony page: the door, then view_exact_location for that colony inside", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
   "GET /api/team/my/cats/:id": { why: "one cat: the door, then her view or the public view by the cat's colony from the record", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
+  "POST /api/team/my/cats/:id/sterilisation": { why: "she says sterilised or not (PR 2.2): the door and Origin, then set_sterilisation for the cat's colony from the record, under a lock", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
+  "POST /api/team/my/cats/:id/life-status": { why: "she says homed, in care or died, or puts back her own change (PR 2.2): the door and Origin, then set_life_status for the cat's colony from the record, under a lock", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
   "GET /api/team/my/stop-helping": { why: "the 'are you sure?' page: any accepted person; changes nothing", except: OWN_PAGES },
   "POST /api/team/my/language": { why: "change my language: any accepted person, Origin checked", except: OWN_PAGES },
   "POST /api/team/my/sign-out-everywhere": { why: "sign myself out everywhere: any accepted person, Origin checked", except: OWN_PAGES, fresh: true },
@@ -321,6 +323,8 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
     value: { clipped: false },
     reason: "walk test",
   },
+  "POST /api/team/my/cats/:id/sterilisation": { sterilised: "yes" },
+  "POST /api/team/my/cats/:id/life-status": { status: "in_care", reason: "walk test" },
 };
 
 /**

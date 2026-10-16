@@ -18,6 +18,12 @@ import {
 // highestAuthority) and in the folds that rank statements: sterilisation and
 // the ear tip. Nobody writes level 2, 3 or 4 yet, so every row here is a
 // fixture.
+//
+// SYC-315, option B (Samuel, 16 October 2026): in the STERILISATION fold
+// only, a newer "sterilised" beats any older "not sterilised", whoever said
+// either; the older "no" is set aside, not a disagreement. `outranks` and
+// `highestAuthority` (the function half, shared with the ear tip and
+// appearance) keep plain Decision G, so the edges below pin both.
 
 let nextId = 1000;
 
@@ -155,6 +161,23 @@ describe("the precedence edges, at the function and in the sterilisation fold", 
     }
   }
 
+  /**
+   * SYC-315 (B): `no` outranks `yes` by Decision G at the function, but in
+   * the sterilisation fold the NEWER `yes` wins and the older `no` is set
+   * aside (no conflict). Mutation probe: drop the newer-sterilised rule in
+   * resolveSterilised → red.
+   */
+  function expectNewerYesWins(yes: Observation, no: Observation) {
+    expect(yes.observedAt.getTime()).toBeGreaterThan(no.observedAt.getTime());
+    for (const list of [[yes, no], [no, yes]]) {
+      const r = resolveSterilised(list);
+      expect(r.value).toBe(true);
+      expect(r.confidence).toBe("confirmed");
+      expect(r.supportingObservationIds).toEqual([yes.id]);
+      expect(r.conflicts).toEqual([]);
+    }
+  }
+
   it("vet vs guardian: a guardian's statement newer than a vet's does not win", () => {
     expectWins(sterilised("vet", true, OLDER), sterilised("guardian", false, NEWER));
   });
@@ -170,8 +193,12 @@ describe("the precedence edges, at the function and in the sterilisation fold", 
 
   it("guardian vs team: a team statement newer than a guardian's does not win", () => {
     expectWins(sterilised("guardian", true, OLDER), sterilised("staff", false, NEWER));
-    expectWins(sterilised("guardian", false, OLDER), sterilised("management", true, NEWER));
     expectWins(sterilised("guardian", true, OLDER), sterilised("import", false, NEWER));
+    // SYC-315 (B): a newer team "sterilised" beats a guardian's older "isn't".
+    const g = sterilised("guardian", false, OLDER);
+    const m = sterilised("management", true, NEWER);
+    expect(outranks(g, m)).toBe(true);
+    expectNewerYesWins(m, g);
   });
 
   it("guardian vs team: a guardian's newer statement beats the team's older one too", () => {
@@ -180,8 +207,14 @@ describe("the precedence edges, at the function and in the sterilisation fold", 
 
   it("owner vs team: a team statement newer than an owner's does not win, and the reverse", () => {
     expectWins(sterilised("owner", true, OLDER), sterilised("staff", false, NEWER));
-    expectWins(sterilised("owner", false, OLDER), sterilised("management", true, NEWER));
-    expectWins(sterilised("owner", true, NEWER), sterilised("staff", false, OLDER));
+    expectWins(sterilised("owner", false, NEWER), sterilised("staff", true, OLDER));
+    // SYC-315 (B): a newer team "sterilised" beats an owner's older "isn't",
+    // and an owner's newer "sterilised" sets aside the team's older "isn't".
+    const o = sterilised("owner", false, OLDER);
+    const m = sterilised("management", true, NEWER);
+    expect(outranks(o, m)).toBe(true);
+    expectNewerYesWins(m, o);
+    expectNewerYesWins(sterilised("owner", true, NEWER), sterilised("staff", false, OLDER));
   });
 
   it("owner beats guardian when the owner spoke first (an older owner statement still wins)", () => {
@@ -194,12 +227,18 @@ describe("the precedence edges, at the function and in the sterilisation fold", 
 
   it("same level, newest wins: two guardians, two owners, two team members", () => {
     expectWins(sterilised("guardian", false, NEWER), sterilised("guardian", true, OLDER, { authorityScope: "colony:9" }));
-    expectWins(sterilised("owner", true, NEWER), sterilised("owner", false, OLDER));
+    expectWins(sterilised("owner", false, NEWER), sterilised("owner", true, OLDER));
     expectWins(sterilised("staff", false, NEWER), sterilised("staff", true, OLDER));
     // Management and staff are one level, so the newest of the two wins.
-    expectWins(sterilised("staff", true, NEWER), sterilised("management", false, OLDER));
-    expectWins(sterilised("management", true, NEWER), sterilised("staff", false, OLDER));
-    expectWins(sterilised("import", true, NEWER), sterilised("staff", false, OLDER));
+    expectWins(sterilised("management", false, NEWER), sterilised("staff", true, OLDER));
+    expectWins(sterilised("import", false, NEWER), sterilised("staff", true, OLDER));
+    // A newer "sterilised" at the same level wins too, and (SYC-315 B) the
+    // older "isn't" it answers is set aside rather than shown as a conflict.
+    expectNewerYesWins(sterilised("guardian", true, NEWER), sterilised("guardian", false, OLDER, { authorityScope: "colony:9" }));
+    expectNewerYesWins(sterilised("owner", true, NEWER), sterilised("owner", false, OLDER));
+    expectNewerYesWins(sterilised("staff", true, NEWER), sterilised("management", false, OLDER));
+    expectNewerYesWins(sterilised("management", true, NEWER), sterilised("staff", false, OLDER));
+    expectNewerYesWins(sterilised("import", true, NEWER), sterilised("staff", false, OLDER));
   });
 
   it("same level, same instant: the later row (higher id) wins, whichever order they arrive in", () => {
@@ -216,18 +255,33 @@ describe("the precedence edges, at the function and in the sterilisation fold", 
       sterilised("staff", false, at("2026-09-01T00:00:00Z")),
       sterilised("guardian", true, at("2025-01-01T00:00:00Z")),
       sterilised("guardian", false, at("2025-06-01T00:00:00Z")),
-      sterilised("import", true, at("2026-10-01T00:00:00Z")),
+      sterilised("import", true, at("2025-03-01T00:00:00Z")),
     ];
     const r = resolveSterilised(rows);
     expect(r.value).toBe(false);
     expect(r.supportingObservationIds).toEqual([rows[2]!.id]);
+    // SYC-315 (B): an import "sterilised" dated after every "isn't" sets them
+    // all aside, and then the guardian's "sterilised" (the highest level
+    // left) is the answer.
+    const later = [...rows.slice(0, 3), sterilised("import", true, at("2026-10-01T00:00:00Z"))];
+    const b = resolveSterilised(later);
+    expect(b.value).toBe(true);
+    expect(b.supportingObservationIds).toEqual([later[1]!.id]);
+    expect(b.conflicts).toEqual([]);
   });
 
   it("a not-yet-linked import record ranks with the team: it never beats a guardian", () => {
-    const g = sterilised("guardian", false, OLDER);
-    const r = resolveSterilised([g], [{ id: 1, sterilised: true, observedAt: NEWER.toISOString() }]);
-    expect(r.value).toBe(false);
+    const g = sterilised("guardian", true, OLDER);
+    const r = resolveSterilised([g], [{ id: 1, sterilised: false, observedAt: NEWER.toISOString() }]);
+    expect(r.value).toBe(true);
     expect(r.supportingObservationIds).toEqual([g.id]);
+    // SYC-315 (B): a newer import "sterilised" does beat a guardian's older
+    // "isn't" (it has standing, and the operation can't be undone).
+    const no = sterilised("guardian", false, OLDER);
+    const b = resolveSterilised([no], [{ id: 1, sterilised: true, observedAt: NEWER.toISOString() }]);
+    expect(b.value).toBe(true);
+    expect(b.supportingObservationIds).toEqual([]);
+    expect(b.conflicts).toEqual([]);
   });
 
   it("at the same instant, the cat's own record beats a not-yet-linked import record, either way round", () => {

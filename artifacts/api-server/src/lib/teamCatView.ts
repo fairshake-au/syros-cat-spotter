@@ -34,6 +34,7 @@ import {
   type Confidence,
   type LifeStatusValue,
 } from "./resolve";
+import { recentGuardianMark } from "./guardianStatements";
 import { handPickDisagrees, handPickedAmong } from "./handPick";
 
 // The staff dashboard's view of a cat (SYC-43 part 2 plan, PR 3): finding a
@@ -262,6 +263,8 @@ export interface TeamStatement {
   observedAt: string;
   /** When it was recorded (ISO). */
   createdAt: string;
+  /** Said as a cat guardian (role `guardian`, SYC-53 PR 2.2): "Eleni, cat guardian". */
+  asGuardian: boolean;
   /** The statement this one corrects, if any. */
   replaces: number | null;
   /** Statements that correct this one. Empty while it stands. Includes a
@@ -486,6 +489,13 @@ export interface TeamCatView {
   photos: TeamPhoto[];
   /** Every statement, newest first. Replaced ones stay, with what replaced them. */
   history: TeamStatement[];
+  /**
+   * A cat guardian marked this cat homed or deceased in the last 30 days and
+   * it still stands (SYC-53 PR 2.2; spec §2.2, §7.2): the team sees it
+   * flagged, so a cat can't quietly leave a round. The statement's id is in
+   * `history`.
+   */
+  recentGuardianMark: { statementId: number; status: "homed" | "deceased"; at: string } | null;
 }
 
 async function peopleNames(observations: readonly Observation[]) {
@@ -822,6 +832,7 @@ export async function teamCatView(
       author: authorOf(o, people),
       observedAt: o.observedAt.toISOString(),
       createdAt: o.createdAt.toISOString(),
+      asGuardian: o.roleAtTime === "guardian",
       replaces: o.supersedesId ?? null,
       replacedBy: replacedBy.get(o.id) ?? [],
       movedTo: crossCat.movedTo.get(o.id) ?? null,
@@ -916,6 +927,15 @@ export async function teamCatView(
     })),
     photos,
     history,
+    recentGuardianMark: (() => {
+      const m = recentGuardianMark(observations, life.supportingObservationIds);
+      if (!m) return null;
+      return {
+        statementId: m.id,
+        status: (m.value as { status: "homed" | "deceased" }).status,
+        at: m.createdAt.toISOString(),
+      };
+    })(),
   };
 }
 

@@ -63,7 +63,8 @@ const HER_FIELDS = [
  * separate block that never passes through guardianCatView, allowed here so
  * SYC-2 PR 5.1 can add it without loosening the field list above.
  */
-const ALLOWED_BLOCKS = ["view", "cat", "sites", "healthNotes"];
+// `mine` (PR 2.2): her OWN statements on the cat only, pinned field by field below.
+const ALLOWED_BLOCKS = ["view", "cat", "sites", "mine", "healthNotes"];
 
 const SECRET_NOTE = `vt-gcats team note ${RUN}`;
 const OWNER_NAME = `vt-gcats owner ${RUN}`;

@@ -133,7 +133,7 @@ describe("writeObservation — refusals", () => {
 
   it("refuses an unreachable role", async () => {
     const cat = await insertCat();
-    for (const role of ["vet", "guardian", "volunteer"]) {
+    for (const role of ["vet", "volunteer"]) {
       await expect(
         writeObservation(db, {
           catId: cat.id,
@@ -145,6 +145,18 @@ describe("writeObservation — refusals", () => {
         }),
       ).rejects.toMatchObject({ code: "UNREACHABLE_ROLE" });
     }
+    // A guardian is reachable from SYC-53 PR 2.2, but never without the
+    // colony that gave her the power (Decision B).
+    await expect(
+      writeObservation(db, {
+        catId: cat.id,
+        kind: "life_status",
+        value: { status: "in_care" },
+        accountId: "someone",
+        roleAtTime: "guardian",
+        observedAt: new Date(),
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_AUTHORITY_SCOPE" });
   });
 
   it("refuses a borrowed system: author", async () => {
@@ -1009,7 +1021,7 @@ describe("order of checks (review fix 8)", () => {
       writeAs(cat.id, "vaccinated", { vaccines: ["rabies"] }, "guardian"),
     ).rejects.toMatchObject(refused("ROLE_NOT_ALLOWED_FOR_KIND"));
     await expect(
-      writeAs(cat.id, "sterilised", { sterilised: true }, "guardian"),
+      writeAs(cat.id, "sterilised", { sterilised: true }, "vet"),
     ).rejects.toMatchObject(refused("UNREACHABLE_ROLE"));
   });
 });
@@ -1049,15 +1061,19 @@ describe("the record's vocabulary (SYC-53 PR 0.2)", () => {
     }
   });
 
-  it("guardian and vet stay unreachable (guardian until PR 2.2, vet until SYC-24)", async () => {
+  it("a guardian is reachable from PR 2.2, only with a colony:<id> scope; vet stays unreachable until SYC-24", async () => {
     const cat = await insertCat();
-    for (const role of ["guardian", "vet"]) {
-      await expect(write(cat.id, role)).rejects.toMatchObject(refused("UNREACHABLE_ROLE"));
-    }
-    // Even with the guardian's own scope shape.
+    await expect(write(cat.id, "vet")).rejects.toMatchObject(refused("UNREACHABLE_ROLE"));
+    await expect(write(cat.id, "guardian")).rejects.toMatchObject(refused("INVALID_AUTHORITY_SCOPE"));
     await expect(
-      write(cat.id, "guardian", { authorityScope: "colony:3" }),
-    ).rejects.toMatchObject(refused("UNREACHABLE_ROLE"));
+      write(cat.id, "guardian", { authorityScope: "none" }),
+    ).rejects.toMatchObject(refused("INVALID_AUTHORITY_SCOPE"));
+    await expect(
+      write(cat.id, "guardian", { authorityScope: "colony:03" }),
+    ).rejects.toMatchObject(refused("INVALID_AUTHORITY_SCOPE"));
+    const row = await write(cat.id, "guardian", { authorityScope: "colony:3" });
+    expect(row.roleAtTime).toBe("guardian");
+    expect(row.authorityScope).toBe("colony:3");
   });
 
   it("a management member may retract a colour, like staff", async () => {

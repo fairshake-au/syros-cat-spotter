@@ -22,6 +22,7 @@ const statement = (id: number, over: Partial<TeamStatement> = {}): TeamStatement
   author: { kind: "team", label: "Maria" },
   observedAt: "2026-03-01T10:00:00Z",
   createdAt: "2026-03-01T10:00:00Z",
+  asGuardian: false,
   replaces: null,
   replacedBy: [],
   movedTo: null,
@@ -78,6 +79,7 @@ function ownedCatView(): TeamCatView {
       statement(2, { ownerClaim: true }),
       statement(1, { replacedBy: [3] }),
     ],
+    recentGuardianMark: null,
   };
 }
 

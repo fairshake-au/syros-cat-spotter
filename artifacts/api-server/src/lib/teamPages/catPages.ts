@@ -139,6 +139,9 @@ const statementHref = (id: number, shown: Shown) =>
 const statementLink = (id: number, shown: Shown) =>
   `<a href="${statementHref(id, shown)}">#${id}</a>`;
 
+/** Who said it, as the history shows it: "Eleni, cat guardian" for a guardian's word (PR 2.2). */
+const byWhom = (s: TeamStatement) => (s.asGuardian ? `${s.author.label}, cat guardian` : s.author.label);
+
 /**
  * The statements an answer rests on, in words: what was said, by whom and
  * when, each linking to its place in the history below.
@@ -153,7 +156,7 @@ function statementRefs(ids: number[], byId: Map<number, TeamStatement>, shown: S
         if (!s) return `<li>${statementLink(id, shown)}</li>`;
         return (
           `<li><a href="${statementHref(id, shown)}">${esc(s.said)}</a> ` +
-          `<span class="meta">(${esc(s.author.label)}, ${time(s.createdAt, day(s.createdAt))})</span></li>`
+          `<span class="meta">(${esc(byWhom(s))}, ${time(s.createdAt, day(s.createdAt))})</span></li>`
         );
       })
       .join("") +
@@ -179,6 +182,40 @@ function recordBlock<T>(
       : "") +
     extra +
     "</dl>"
+  );
+}
+
+/**
+ * "Confirmed by Eleni, cat guardian, 14 October" (SYC-53 PR 2.2; spec §7.2):
+ * when a cat guardian's statement decides the sterilisation answer, the team
+ * sees whose word it is, and *This is wrong* (Mark wrong) is on that
+ * statement in the history.
+ */
+function guardianConfirmed(r: TeamResolved<boolean>, byId: Map<number, TeamStatement>, shown: Shown): string {
+  if (r.confidence !== "confirmed") return "";
+  const s = byId.get(r.supportingStatementIds[0] ?? -1);
+  if (!s || !s.asGuardian) return "";
+  return row(
+    "Confirmed by",
+    `${esc(byWhom(s))}, ${time(s.createdAt, day(s.createdAt))} · ` +
+      `<a href="${statementHref(s.id, shown)}">This is wrong?</a>`,
+  );
+}
+
+/**
+ * The 30-day flag (spec §2.2, §7.2): a cat a guardian marked homed or
+ * deceased recently stays visible to the team, so it can't quietly leave a
+ * round.
+ */
+function guardianMarkNotice(v: TeamCatView, byId: Map<number, TeamStatement>, shown: Shown): string {
+  const m = v.recentGuardianMark;
+  if (!m) return "";
+  const s = byId.get(m.statementId);
+  const what = m.status === "homed" ? "homed" : "as no longer with us";
+  return (
+    `<p class="notice" role="note">Recently marked ${what} by the cat guardian` +
+    (s ? `, ${esc(s.author.label)}` : "") +
+    ` (${time(m.at, day(m.at))}). <a href="${statementHref(m.statementId, shown)}">See the statement</a></p>`
   );
 }
 
@@ -274,7 +311,7 @@ function statementItem(
   const said = replaced ? `<del>${esc(s.said)}</del>` : esc(s.said);
   const differs = Math.abs(Date.parse(s.observedAt) - Date.parse(s.createdAt)) > 60_000;
   const meta =
-    `${esc(s.author.label)} · ${time(s.createdAt)}` +
+    `${esc(byWhom(s))} · ${time(s.createdAt)}` +
     (differs ? ` · about ${time(s.observedAt)}` : "");
   const replacements = s.replacedBy
     .map((id) => byId.get(id))
@@ -283,7 +320,7 @@ function statementItem(
       (r) =>
         `<p class="replacement">Replaced by ${statementLink(r.id, shown)}: ${esc(r.said)}` +
         (r.reason ? `. Why: ${esc(r.reason)}` : "") +
-        ` <span class="meta">(${esc(r.author.label)}, ${time(r.createdAt)})</span></p>`,
+        ` <span class="meta">(${esc(byWhom(r))}, ${time(r.createdAt)})</span></p>`,
     )
     .join("");
   const moved = s.movedTo
@@ -548,6 +585,7 @@ export function renderCatPage(
     `<p class="public">${esc(publicStatusText(v.publicStatus))}</p>` +
     "<h2>What we know about this cat</h2>" +
     '<p class="hint">Team only. How we got to what the public sees.</p>' +
+    guardianMarkNotice(v, byId, shown) +
     recordBlock(
       "Life",
       records.lifeStatus,
@@ -568,6 +606,7 @@ export function renderCatPage(
       "Sterilised",
       records.sterilised,
       sterilisedText(records.sterilised),
+      guardianConfirmed(records.sterilised, byId, shown) +
       row(
         "Clipped ear",
         clipped === 0
