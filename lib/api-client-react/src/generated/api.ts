@@ -35,6 +35,7 @@ import type {
   ClaimUsernameRequest,
   ClaimedUsername,
   CreateCatUpdateRequest,
+  CreateSightingError,
   CreateSightingRequest,
   HealthStatus,
   IssueReportReply,
@@ -664,7 +665,7 @@ export const createSighting = async (createSightingRequest: CreateSightingReques
 
 
 
-export const getCreateSightingMutationOptions = <TError = ErrorType<void>,
+export const getCreateSightingMutationOptions = <TError = ErrorType<CreateSightingError | ApiErrorBody>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSighting>>, TError,{data: BodyType<CreateSightingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createSighting>>, TError,{data: BodyType<CreateSightingRequest>}, TContext> => {
 
@@ -693,12 +694,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateSightingMutationResult = NonNullable<Awaited<ReturnType<typeof createSighting>>>
     export type CreateSightingMutationBody = BodyType<CreateSightingRequest>
-    export type CreateSightingMutationError = ErrorType<void>
+    export type CreateSightingMutationError = ErrorType<CreateSightingError | ApiErrorBody>
 
     /**
  * @summary Submit a cat photo and location; returns AI match candidates
  */
-export const useCreateSighting = <TError = ErrorType<void>,
+export const useCreateSighting = <TError = ErrorType<CreateSightingError | ApiErrorBody>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSighting>>, TError,{data: BodyType<CreateSightingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createSighting>>,

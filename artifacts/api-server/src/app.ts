@@ -101,6 +101,20 @@ export function jsonErrorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
+  // SYC-415 spec §6.4: body-parser's own "too large" error. A 500 would make
+  // the phone retry a spot that can never fit; 413 tells it to remove a photo.
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "type" in err &&
+    err.type === "entity.too.large"
+  ) {
+    res.setHeader("Cache-Control", "no-store");
+    res
+      .status(413)
+      .json({ error: "This spot is too large to send. Remove a photo and try again." });
+    return;
+  }
   if (
     typeof err === "object" &&
     err !== null &&

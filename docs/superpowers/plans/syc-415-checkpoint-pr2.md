@@ -6,9 +6,10 @@ Branch `claude/syc-415-pr2-server-extra-photos`, off `origin/claude/tester-photo
 
 - **Task 2.1** — `sighting_photos` table, `sighting_matches.no_cat_in_any_photo` / `mixed_cats`, setting `extra_photos_on` (seeded `false`). Migration `0029_sighting_photos.sql` (renumbered from 0028 on rebase: main took `0028_photo_variants`) with backfill and commented rollback. `migrate:check` ok on a local scratch DB.
 
+- **Task 2.2** — OpenAPI: `ExtraPhoto`, `CreateSightingRequest.extraPhotos` (max 2), `CreateSightingError` (400 body with optional `photo`), 413 (reuses `ApiErrorBody`), optional `AppSettings.extraPhotos`; codegen run. `jsonErrorHandler` answers body-parser's `entity.too.large` with 413 + `no-store`. Probe done.
+
 ## Next
 
-- Task 2.2 — OpenAPI contract + 413 for an oversize body.
 - Task 2.3 — `spotPhotos.ts` (cover rule, validation, one-transaction save).
 - Task 2.4 — matcher takes all photos.
 - Task 2.5 — upload route.
@@ -21,3 +22,4 @@ Branch `claude/syc-415-pr2-server-extra-photos`, off `origin/claude/tester-photo
 - `lib/db/src/switchover/carryBack.test.ts`: its "rows with no home" count for `app_settings` goes from 1 to 2, because 0029 seeds a second row (the same thing 0027 did).
 - Duplicate-photo check: run against a local scratch DB only (seeded with a deliberate shared photo and a missing photo to exercise `ON CONFLICT` and the `JOIN`). The Neon development-branch check is for the parent session.
 - Pre-existing flake on the base branch, unrelated: `team.siteWrites.test.ts` "zoom, pan and the area buttons…" fails when a random tile token happens to contain `digit-digits-digit` (seen once on the untouched baseline run).
+- Local `pnpm -w run typecheck`: `artifacts/mockup-sandbox` fails on duplicate `@types/react` versions in this Mac's `node_modules` (files untouched by this branch). Libs, api-server, cat-spotter and scripts typecheck clean.

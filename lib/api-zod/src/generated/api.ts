@@ -373,12 +373,20 @@ export const CreateCatUpdateResponse = zod.object({
 /**
  * @summary Submit a cat photo and location; returns AI match candidates
  */
+export const createSightingBodyExtraPhotosMax = 2;
+
+
+
 export const CreateSightingBody = zod.object({
   "deviceId": zod.string(),
   "photoBase64": zod.string().describe('JPEG or PNG image as base64 (no data URI prefix), max 5 MB decoded'),
   "lat": zod.number(),
   "lng": zod.number(),
-  "capturedAt": zod.string().nullish().describe('ISO timestamp of when the photo was taken, for sightings queued offline and synced later. Omit for an immediate submission. The server clamps this (not in the future, at most 30 days old) before storing, since it is client-supplied and feeds streak day buckets.')
+  "capturedAt": zod.string().nullish().describe('ISO timestamp of when the photo was taken, for sightings queued offline and synced later. Omit for an immediate submission. The server clamps this (not in the future, at most 30 days old) before storing, since it is client-supplied and feeds streak day buckets.'),
+  "extraPhotos": zod.array(zod.object({
+  "role": zod.enum(['face', 'body']),
+  "photoBase64": zod.string().describe('JPEG or PNG as base64, prepared on the phone to at most 2048px.')
+})).max(createSightingBodyExtraPhotosMax).optional().describe('Up to two extra photos of the same cat from the same visit (SYC-415). At most one face and one body. The first photo stays in photoBase64.')
 })
 
 export const CreateSightingResponse = zod.object({
@@ -785,7 +793,8 @@ export const GetAppSettingsResponse = zod.object({
   "feedNudge": zod.object({
   "donateHost": zod.string()
 }).nullable().describe('Null when the donation link and figures are off'),
-  "hiddenFacts": zod.array(zod.string())
+  "hiddenFacts": zod.array(zod.string()),
+  "extraPhotos": zod.boolean().optional().describe('SYC-415: show the extra-photo boxes (face and body) on the New spot screen. Optional so older code that builds this object keeps working; missing means off.')
 })
 
 

@@ -16,6 +16,8 @@ export interface AppSettings {
   /** Null when the donation link and figures are off */
   feedNudge: AppSettingsFeedNudge;
   hiddenFacts: string[];
+  /** SYC-415: show the extra-photo boxes (face and body) on the New spot screen. Optional so older code that builds this object keeps working; missing means off. */
+  extraPhotos?: boolean;
 }
 
 export interface SpotterSignals {
@@ -512,6 +514,20 @@ export interface Campaign {
   suggestedAmountsCents: number[];
 }
 
+export type ExtraPhotoRole = typeof ExtraPhotoRole[keyof typeof ExtraPhotoRole];
+
+
+export const ExtraPhotoRole = {
+  face: 'face',
+  body: 'body',
+} as const;
+
+export interface ExtraPhoto {
+  role: ExtraPhotoRole;
+  /** JPEG or PNG as base64, prepared on the phone to at most 2048px. */
+  photoBase64: string;
+}
+
 export interface CreateSightingRequest {
   deviceId: string;
   /** JPEG or PNG image as base64 (no data URI prefix), max 5 MB decoded */
@@ -520,6 +536,29 @@ export interface CreateSightingRequest {
   lng: number;
   /** ISO timestamp of when the photo was taken, for sightings queued offline and synced later. Omit for an immediate submission. The server clamps this (not in the future, at most 30 days old) before storing, since it is client-supplied and feeds streak day buckets. */
   capturedAt?: string | null;
+  /**
+     * Up to two extra photos of the same cat from the same visit (SYC-415). At most one face and one body. The first photo stays in photoBase64.
+     * @maxItems 2
+     */
+  extraPhotos?: ExtraPhoto[];
+}
+
+/**
+ * Which of the spot's photos failed, when one did (SYC-415).
+ */
+export type CreateSightingErrorPhoto = typeof CreateSightingErrorPhoto[keyof typeof CreateSightingErrorPhoto];
+
+
+export const CreateSightingErrorPhoto = {
+  first: 'first',
+  face: 'face',
+  body: 'body',
+} as const;
+
+export interface CreateSightingError {
+  error: string;
+  /** Which of the spot's photos failed, when one did (SYC-415). */
+  photo?: CreateSightingErrorPhoto;
 }
 
 export interface MatchCandidate {
