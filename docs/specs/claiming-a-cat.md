@@ -200,6 +200,7 @@ The team corrects a cat's life status from the dashboard (`team-access-and-welfa
 
 So:
 - **The team's cat page shows whether a cat has an owner.** It shows only that it does, never who: no device id and no name.
+- **The home pin is text only, for everyone.** Since SYC-395 (dashboard redesign D9, 15 Oct 2026), island-wide team members get an "Open map" link on the dashboard's positions. The owner's home pin is the exception (D5). It prints as plain text, never with a link, and a test checks this.
 - **"Remove owner"** is an action on a cat that has one. In one transaction it:
   - clears the owner link (all owner abilities stop at once), the home note and the home pin;
   - supersedes the owner's newest active `homed` observation. If there isn't one, for example a claim made before these observations were kept, it records a plain team `street` statement instead;

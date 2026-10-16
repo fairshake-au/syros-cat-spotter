@@ -45,6 +45,13 @@ No rate limiting or authentication guards the two AI-backed write endpoints (`PO
 
 ### Information Disclosure
 
+**Outbound Open map links (D9, 15 Oct 2026; SYC-395).** A position goes to Google only when an island-wide team member taps "Open map" on a dashboard position. This never happens for cat guardians, for owners' homes, or for the public.
+- The link is built only by `lib/teamPages/position.ts`, behind `isIslandWide(person)`.
+- `positions.source.test.ts` fails if any other page or route names a map company or prints a position itself.
+- `position.guard.source.test.ts` limits which files may import the builder.
+- The guardian-view tests fail if a guardian's page carries a map company's address.
+- This reverses SYC-245 / SYC-255 Decision 2B and plan rule K13 for outbound links only. No position ever appears in one of our own addresses.
+
 Photos are stored by sequential integer ID and served without access control; any caller can enumerate all uploaded cat photos via `GET /api/photos/:n`. Notification feeds are readable by anyone who knows a device ID (`GET /api/notifications/:deviceId`). The leaderboard exposes `spotterCode` (a short hash of deviceId) rather than raw deviceIds — appropriate. Raw device IDs are never returned in list responses.
 
 ### Denial of Service
