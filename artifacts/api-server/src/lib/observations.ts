@@ -19,6 +19,7 @@ import {
   type Observation,
 } from "@workspace/db";
 import {
+  authorityLevel,
   COLONY_SCOPE_PATTERN,
   type EvidenceOfLife,
   type EvidenceSource,
@@ -54,9 +55,10 @@ const OBSERVATION_KIND_SET: ReadonlySet<string> = new Set(OBSERVATION_KINDS);
 /**
  * §10.1's `roleAtTime` vocabulary is open (`public | guardian | vet | staff |
  * management | system`; roles spec §10.4 renamed the never-written `admin`
- * to `management` and retired `volunteer`). `guardian` stays unreachable
- * until SYC-53's PR 2.2, and `vet` until vet accounts exist (SYC-24).
- * `writeObservation` refuses them rather than silently accepting a role
+ * to `management` and retired `volunteer`). `guardian` is reachable from
+ * SYC-53's PR 2.2, always with the `colony:<id>` scope the server sets
+ * (Decision B); `vet` stays unreachable until vet accounts exist (SYC-24).
+ * `writeObservation` refuses it rather than silently accepting a role
  * nothing can legitimately produce yet. The team's roles come from the one
  * list (lib/teamRoles.ts), so a team role added there is reachable here.
  *
@@ -70,6 +72,8 @@ const OBSERVATION_KIND_SET: ReadonlySet<string> = new Set(OBSERVATION_KINDS);
 const REACHABLE_ROLES: ReadonlySet<string> = new Set([
   "public",
   "system",
+  // A cat guardian (SYC-53 PR 2.2): only with a `colony:<id>` scope.
+  "guardian",
   // The team's roles, except `vet` (no vet accounts until SYC-24).
   ...[...TEAM_ROLES].filter((role) => role !== "vet"),
 ]);
@@ -91,6 +95,15 @@ const ROLES_REFUSED_FOR_KIND: Readonly<
   vaccinated: ["public", "guardian", "system"],
   team_note: ["public", "system"],
 };
+
+/**
+ * The kinds Decision G ranks (roles spec §7.2; resolve.ts `authorityLevel`).
+ * A supersession of one of these may not reach DOWN to a statement with
+ * standing that isn't the writer's own (SYC-316): superseding is how a lower
+ * level overrules a higher one ("This is wrong"), never the reverse, where a
+ * plain statement already wins.
+ */
+const RANKED_KINDS: ReadonlySet<string> = new Set(["sterilised", "ear_tip", "life_status"]);
 
 /** Only these roles may write a retraction (the team's set_appearance
  * power). */
@@ -637,9 +650,13 @@ async function checkWithdrawalTarget(
  *   `markings`, and for any `coat` that is not `provenance: "machine"`;
  *   `public`, `guardian` and `system` for `vaccinated`; `public` and
  *   `system` for `team_note`;
- * - a `roleAtTime` unreachable in phase 1 (`guardian`, `vet`, the retired
- *   `volunteer` and `admin`, or anything else not in {public, staff,
- *   management, system});
+ * - a `roleAtTime` unreachable in phase 1 (`vet`, the retired `volunteer`
+ *   and `admin`, or anything else not in {public, staff, management,
+ *   guardian, system}), or `guardian` without a `colony:<id>` scope;
+ * - a `guardian` superseding a row that isn't her own, and, for the kinds
+ *   Decision G ranks (`sterilised`, `ear_tip`, `life_status`), anyone
+ *   superseding someone else's row that has standing but ranks below them
+ *   (SYC-316) (`NOT_YOUR_ROW`);
  * - an unknown `authorityScope` or `provenance`, or a `colony:<id>` scope
  *   on any role but `guardian` (roles spec §10.4, Decision B), or an
  *   `owner_of_this_cat` scope on `sterilised` or `ear_tip` (until SYC-130);
@@ -726,8 +743,7 @@ export async function writeObservation(
   // `colony:<id>` (Decision B): exactly that pattern, and only with the role
   // `guardian`. Every other role is refused it here, so the resolver's
   // read-time rule (a colony scope on a non-guardian counts for nothing) is
-  // a backstop, never the only guard. `guardian` itself is still refused as
-  // unreachable above until SYC-53's PR 2.2.
+  // a backstop, never the only guard.
   const colonyScope = COLONY_SCOPE_PATTERN.test(authorityScope);
   if (!AUTHORITY_SCOPES.has(authorityScope) && !colonyScope) {
     refuse("INVALID_AUTHORITY_SCOPE", `Unknown authorityScope: ${authorityScope}`);
@@ -750,6 +766,15 @@ export async function writeObservation(
     refuse(
       "INVALID_AUTHORITY_SCOPE",
       `authorityScope "${authorityScope}" is only for roleAtTime "guardian"`,
+    );
+  }
+  // And the other way round: a guardian's statement always names the colony
+  // that gave her the power (Decision B), so the resolver can rank it. A
+  // guardian row without one would count for nothing and say so nowhere.
+  if (input.roleAtTime === "guardian" && !colonyScope) {
+    refuse(
+      "INVALID_AUTHORITY_SCOPE",
+      'roleAtTime "guardian" needs an authorityScope "colony:<id>"',
     );
   }
 
@@ -875,6 +900,32 @@ export async function writeObservation(
         "INVALID_RETRACTION",
         "a retraction must supersede a row of the same kind (coat or markings)",
       );
+    }
+    // A cat guardian corrects her own statements only (SYC-53 plan, PR 2.2:
+    // "the supersede layer checks the author, not just the capability"):
+    // never the team's, and never another guardian's.
+    const ownRow =
+      (accountId != null && target.accountId === accountId) ||
+      (deviceId != null && target.deviceId === deviceId);
+    if (input.roleAtTime === "guardian" && !ownRow) {
+      refuse("NOT_YOUR_ROW", "a cat guardian can only correct her own statements");
+    }
+    // SYC-316: for the kinds Decision G ranks, a supersession reaches only
+    // the writer's own row, a row at the writer's level or higher, or a row
+    // with no standing at all (a spotter's answer the team marks wrong).
+    if (RANKED_KINDS.has(input.kind) && !ownRow) {
+      const targetLevel = authorityLevel(target);
+      const ownLevel = authorityLevel({
+        roleAtTime: input.roleAtTime,
+        authorityScope,
+        provenance,
+      });
+      if (targetLevel > 0 && targetLevel < ownLevel) {
+        refuse(
+          "NOT_YOUR_ROW",
+          "a statement can't be marked wrong by someone who outranks it; say it instead",
+        );
+      }
     }
     // C2: a device (public) or a system author (machine) only supersedes
     // its own row. Team supersessions are unchanged (they go through
