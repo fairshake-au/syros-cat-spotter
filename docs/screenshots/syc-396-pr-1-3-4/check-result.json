@@ -23,6 +23,28 @@
   },
   {
    "engine": "chromium 1280px",
+   "what": "tick then untick fast: still all 8 cats",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "tick then untick fast: the address has no colour",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats"
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "tick then untick fast: the box is unticked",
+   "ok": true
+  },
+  {
+   "engine": "chromium 1280px",
+   "what": "tick then untick fast: not left looking busy",
+   "ok": true
+  },
+  {
+   "engine": "chromium 1280px",
    "what": "ticking Ginger narrows the grid to the 2 ginger cats",
    "ok": true,
    "detail": "2 cats match Clear filters"
@@ -45,6 +67,7 @@
    "what": "it was a fetch of the same page",
    "ok": true,
    "detail": [
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"
@@ -128,6 +151,28 @@
   },
   {
    "engine": "chromium 390px",
+   "what": "tick then untick fast: still all 8 cats",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "tick then untick fast: the address has no colour",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats"
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "tick then untick fast: the box is unticked",
+   "ok": true
+  },
+  {
+   "engine": "chromium 390px",
+   "what": "tick then untick fast: not left looking busy",
+   "ok": true
+  },
+  {
+   "engine": "chromium 390px",
    "what": "ticking Ginger narrows the grid to the 2 ginger cats",
    "ok": true,
    "detail": "2 cats match Clear filters"
@@ -150,6 +195,7 @@
    "what": "it was a fetch of the same page",
    "ok": true,
    "detail": [
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"
@@ -249,6 +295,28 @@
   },
   {
    "engine": "webkit 1280px",
+   "what": "tick then untick fast: still all 8 cats",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "tick then untick fast: the address has no colour",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats"
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "tick then untick fast: the box is unticked",
+   "ok": true
+  },
+  {
+   "engine": "webkit 1280px",
+   "what": "tick then untick fast: not left looking busy",
+   "ok": true
+  },
+  {
+   "engine": "webkit 1280px",
    "what": "ticking Ginger narrows the grid to the 2 ginger cats",
    "ok": true,
    "detail": "2 cats match Clear filters"
@@ -271,6 +339,7 @@
    "what": "it was a fetch of the same page",
    "ok": true,
    "detail": [
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"
@@ -370,6 +439,28 @@
   },
   {
    "engine": "firefox 1280px",
+   "what": "tick then untick fast: still all 8 cats",
+   "ok": true,
+   "detail": "8 cats match"
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "tick then untick fast: the address has no colour",
+   "ok": true,
+   "detail": "http://localhost:18734/api/team/cats"
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "tick then untick fast: the box is unticked",
+   "ok": true
+  },
+  {
+   "engine": "firefox 1280px",
+   "what": "tick then untick fast: not left looking busy",
+   "ok": true
+  },
+  {
+   "engine": "firefox 1280px",
    "what": "ticking Ginger narrows the grid to the 2 ginger cats",
    "ok": true,
    "detail": "2 cats match Clear filters"
@@ -392,6 +483,7 @@
    "what": "it was a fetch of the same page",
    "ok": true,
    "detail": [
+    "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?colours=ginger&lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?lives=street&lives=homed&lives=in_care&sort=recent",
     "http://localhost:18734/api/team/cats?q=Mavros&lives=street&lives=homed&lives=in_care&sort=recent"

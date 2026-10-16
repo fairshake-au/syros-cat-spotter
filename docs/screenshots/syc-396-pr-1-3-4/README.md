@@ -2,8 +2,9 @@
 
 Run on 15 Oct 2026 against the **built** server (`pnpm --filter @workspace/api-server run build`, then `node artifacts/api-server/dist/index.mjs`, as Replit runs it), on a scratch database seeded by `seed.mts` (eight cats, one colony, one staff member), signed in with a team session cookie for that database only. `NODE_ENV` was left unset because production insists on an SSL Neon address; the bundle and the way it finds `dist/assets/` are the same. Every request leaving the machine was blocked.
 
-- `check.mjs`: Playwright 1.64 in Chromium (1280 px and 390 px phone), WebKit and Firefox (1280 px). Result: `check-result.json`, **73 of 73 checks pass**.
+- `check.mjs`: Playwright 1.64 in Chromium (1280 px and 390 px phone), WebKit and Firefox (1280 px). Result: `check-result.json`, **89 of 89 checks pass** (re-run after the adversarial review fixes, 15 Oct; the first run was 73 of 73).
 - With JavaScript on, in every engine:
+  - a fast tick-then-untick of Ginger, with the server's answer held back 800 ms, leaves all 8 cats, an address with no colour, an unticked box and nothing marked busy (review finding 1);
   - our script loads from `/api/team/assets/dashboard-grid.<hash>.js`;
   - ticking Ginger narrows 8 cats to 2 with no page load (same document, one load event), by a fetch of the same page;
   - the address, the Ginger chip and "Filters (1)" all update;
@@ -13,4 +14,4 @@ Run on 15 Oct 2026 against the **built** server (`pnpm --filter @workspace/api-s
 - With JavaScript off, in every engine: ticking a box changes nothing by itself, and **Show cats** applies the filter by an ordinary page load (2 cats).
 - WebKit won't send a Secure (`__Host-`) cookie to `http://localhost`, so for WebKit the same session was set as a plain cookie for the local address.
 
-Screenshots: `<engine>-1280-1-before.png`, `-2-after-ginger.png`, `-3-typed.png`, `chromium-390-2-after-ginger.png`, and `<engine>-nojs-after-show-cats.png`.
+Screenshots: `<engine>-1280-1-before.png`, `-1b-after-fast-untick.png`, `-2-after-ginger.png`, `-3-typed.png`, `chromium-390-2-after-ginger.png`, and `<engine>-nojs-after-show-cats.png`.

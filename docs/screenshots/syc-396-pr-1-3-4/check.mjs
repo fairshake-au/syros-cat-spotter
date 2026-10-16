@@ -101,7 +101,25 @@ async function runEngine(engine, browser) {
     if (width === 1280) await p.screenshot({ path: `${OUT}/${engine}-${width}-1-before.png`, fullPage: true });
     await p.evaluate(() => (window.__sameDocument = "yes"));
 
+    // Review finding 1: a fast tick-then-untick, with the server's answer
+    // held back 800 ms so it is still on its way, must leave every cat showing.
+    const SLOW = /\/api\/team\/cats\?/;
+    await p.route(SLOW, async (route) => {
+      if (route.request().resourceType() === "fetch") await new Promise((r) => setTimeout(r, 800));
+      await route.continue().catch(() => {});
+    });
     await openFilters(p);
+    await p.click(GINGER);
+    await p.click(GINGER);
+    await p.waitForTimeout(1500);
+    const raced = (await count(p)).trim();
+    check(where, "tick then untick fast: still all 8 cats", raced.startsWith("8 cats match"), raced);
+    check(where, "tick then untick fast: the address has no colour", !new URL(p.url()).searchParams.has("colours"), p.url());
+    check(where, "tick then untick fast: the box is unticked", !(await p.locator('input[name="colours"][value="ginger"]').isChecked()));
+    check(where, "tick then untick fast: not left looking busy", !(await p.locator("#catresults").evaluate((e) => e.hasAttribute("aria-busy"))));
+    await p.unroute(SLOW);
+    if (width === 1280) await p.screenshot({ path: `${OUT}/${engine}-${width}-1b-after-fast-untick.png`, fullPage: true });
+
     await p.click(GINGER);
     await p.waitForFunction(() => /^2 cats match/.test(document.querySelector("#catresults .count")?.textContent ?? ""), null, { timeout: 5000 }).catch(() => {});
     const after = (await count(p)).trim();
