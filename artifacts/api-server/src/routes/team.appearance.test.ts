@@ -899,6 +899,31 @@ describe("the Appearance section on the team cat page", () => {
     expect(res.text).toContain(`name="shownAbove" value="${g.id}"`);
   });
 
+  it("SYC-398: a guardian–team disagreement is per part, never a false alarm", async () => {
+    const coatOf = async (catId: number) =>
+      (await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie).set("Accept", "application/json")).body
+        .appearance.coat;
+
+    // The team says exactly what she said; the machine adds a pattern.
+    const same = await newCat();
+    await guardian(same, "coat", "eleni", { value: { colours: ["grey"] }, daysAgo: 4 });
+    await machine(same, ["grey", "tabby"], 3);
+    await team(same, "coat", { value: { colours: ["grey"] }, daysAgo: 1 });
+    expect(await coatOf(same)).toMatchObject({ guardianDecides: true, guardianDisagrees: false });
+
+    // She states only the pattern, the team only the colours: no overlap.
+    const apart = await newCat();
+    await guardian(apart, "coat", "eleni", { value: { pattern: "stripes" }, daysAgo: 4 });
+    await team(apart, "coat", { value: { colours: ["ginger"] }, daysAgo: 1 });
+    expect(await coatOf(apart)).toMatchObject({ guardianDecides: true, guardianDisagrees: false });
+
+    // A real disagreement on the pattern alone.
+    const pattern = await newCat();
+    await guardian(pattern, "coat", "eleni", { value: { colours: ["grey"], pattern: "stripes" }, daysAgo: 4 });
+    await team(pattern, "coat", { value: { colours: ["grey"], pattern: "plain" }, daysAgo: 1 });
+    expect(await coatOf(pattern)).toMatchObject({ guardianDecides: true, guardianDisagrees: true });
+  });
+
   it("the Colour check list warns before its Correct overrules a cat guardian", async () => {
     const catId = await newCat();
     const g = await guardian(catId, "markings", "eleni", { value: { marks: ["torn_ear"] }, daysAgo: 20 });

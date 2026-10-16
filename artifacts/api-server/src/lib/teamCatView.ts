@@ -1048,15 +1048,38 @@ function appearanceOf(
       };
     });
 
-  const deciders = (parts ? [parts.colours, parts.pattern] : [resolved])
-    .filter((r) => r.confidence === "confirmed")
-    .map((r) => observations.find((o) => o.id === r.supportingObservationIds[0]))
+  const deciderOf = (r: AppearanceResolved<unknown>) =>
+    r.confidence === "confirmed" ? observations.find((o) => o.id === r.supportingObservationIds[0]) : undefined;
+  const byGuardian = (r: AppearanceResolved<unknown>) => {
+    const d = deciderOf(r);
+    return d !== undefined && appearanceAuthorityLevel(d) > 1;
+  };
+  const teamRows = statements
+    .filter((s) => s.source === "team")
+    .map((s) => observations.find((o) => o.id === s.id))
     .filter((o): o is Observation => o !== undefined);
-  const guardianDecides = deciders.some((o) => appearanceAuthorityLevel(o) > 1);
-  const value = resolved.value ?? [];
-  const guardianDisagrees =
-    guardianDecides &&
-    statements.some((s) => s.source === "team" && !sameCodes(s.codes ?? [], value));
+  let guardianDecides: boolean;
+  let guardianDisagrees: boolean;
+  if (parts) {
+    // Per part (SYC-398 §4): a team statement disagrees only on a part a
+    // guardian decides and the team statement itself states differently.
+    // One that states only the colours never disagrees about the pattern.
+    const colourGuardian = byGuardian(parts.colours);
+    const patternGuardian = byGuardian(parts.pattern);
+    guardianDecides = colourGuardian || patternGuardian;
+    guardianDisagrees = teamRows.some((o) => {
+      const said = readCoatValue(o.value);
+      if (!said || said.notSure) return false;
+      const colours =
+        colourGuardian && said.colours !== null && !sameCodes(said.colours, parts.colours.value ?? []);
+      const pattern = patternGuardian && said.pattern !== null && said.pattern !== parts.pattern.value;
+      return colours || pattern;
+    });
+  } else {
+    guardianDecides = byGuardian(resolved);
+    const value = resolved.value ?? [];
+    guardianDisagrees = guardianDecides && statements.some((s) => s.source === "team" && !sameCodes(s.codes ?? [], value));
+  }
 
   return {
     value: resolved.value,
