@@ -211,11 +211,11 @@ function guardianMarkNotice(v: TeamCatView, byId: Map<number, TeamStatement>, sh
   const m = v.recentGuardianMark;
   if (!m) return "";
   const s = byId.get(m.statementId);
-  const who = s ? byWhom(s) : "the cat guardian";
   const what = m.status === "homed" ? "homed" : "as no longer with us";
   return (
-    `<p class="notice" role="note">Recently marked ${what} by the cat guardian (${esc(who)}, ` +
-    `${time(m.at, day(m.at))}). <a href="${statementHref(m.statementId, shown)}">See the statement</a></p>`
+    `<p class="notice" role="note">Recently marked ${what} by the cat guardian` +
+    (s ? `, ${esc(s.author.label)}` : "") +
+    ` (${time(m.at, day(m.at))}). <a href="${statementHref(m.statementId, shown)}">See the statement</a></p>`
   );
 }
 
