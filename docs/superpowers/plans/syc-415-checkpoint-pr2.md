@@ -36,3 +36,10 @@ Branch `claude/syc-415-pr2-server-extra-photos`, off `origin/claude/tester-photo
 - Once in the first full run, `lib/mail/issueMail.test.ts` T5-14 (drain batch claimed 501, not 25) failed; it passed alone and in the second full run. Looks like a load/timing flake, unrelated to photos.
 - **Review minors (after Opus review of #212):** (1) matcher reads `"true"`/`"false"` strings for anyCat/isCatPhoto/mixedCats — done.
   (2) the 413 is logged as a warning (limit, length, path; no body) and (3) only POST /api/sightings gets the "remove a photo" wording; other routes get "This request is too large." — done. Next: run suites, push, report.
+
+## Rebased onto main (d70b392e), 16 Oct
+
+- Fresh branch from `origin/main` (#207 docs merged as d70b392e); PR 2 commits cherry-picked in order, no docs commits, no merge commit. All applied cleanly except Task 2.1 (meta and schema index clashed with `0028_photo_variants`).
+- Migration regenerated on top of main as `0029_sighting_photos.sql`; backfill, seed and rollback byte-identical to the old 0028 draft. `carryBack.test.ts` count stays 2 (0028_photo_variants seeds no app_settings row); its comment now says 0029.
+- Checks at the new head: migrate on a scratch DB ok; migrate:check ok (30 migrations); lib/db 33 files / 521 passed; PR 2 api-server set (new files, sightings*, app.bodyLimit, appSettings) 22 files / 209 passed; codegen re-run with no drift; typecheck clean apart from the local-only mockup-sandbox issue.
+- Next: force-push to `claude/syc-415-pr2-server-extra-photos`.
