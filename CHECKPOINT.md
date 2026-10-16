@@ -22,10 +22,13 @@ Life status, ear tip unchanged.
 - guardianChanges.ts listGuardianChanges(); team cat page: "Confirmed by X, cat guardian", 30-day flag.
 - strings en/el/fr; walk rows.
 
+## Done since
+- Tests written (4 new files); full suite green (174 files / 2824 tests); 22 probes red (T12a-5 3/3).
+- Browser check done; screenshots in docs/screenshots/syc-53-pr-2-2/. Scratch DB dropped, server stopped.
+- PR #217 open (draft), bound. Linear: SYC-53 and SYC-316 commented. Coordinator messaged.
+- Deferred "Since 1 Jan 1970" already ticketed (SYC-270).
+
 ## Next
-1. Tests: T12a (her statements) + T23 + T28/T29c (routes/team.guardianStatements.test.ts);
-   T12g-1..6 (lib/guardianPrecedence.test.ts); T12a-1..9 news (lib/commitStatement.test.ts);
-   source test (lib/commitStatement.source.test.ts); listGuardianChanges tests; "mine" pinned + others' statements absent.
-2. Mutation probes for every named test, recorded in PR body.
-3. Full api-server suite; browser check 390/desktop en+el; screenshots docs/screenshots/syc-53-pr-2-2/.
-4. PR, Opus adversarial review (own worktree), re-review, Linear, messages.
+1. Opus adversarial review running (own worktree); fold findings, re-review.
+2. Update PR body Review section; remove CHECKPOINT.md; mark ready; ask Samuel for review and merge (after #214).
+3. After merge: /ship tail; tell SYC-209 session and Coordinate published sessions.
