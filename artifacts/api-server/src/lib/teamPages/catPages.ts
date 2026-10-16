@@ -14,6 +14,7 @@ import { timeAgo } from "./queuePage";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { t } from "./words";
+import { renderAppearanceSection } from "./appearancePage";
 
 // The team's "Cats" screens (SYC-43 part 2 plan, PR 3): finding a cat, and
 // the team's page for one cat. Read-only. Server-drawn, no scripts. Every
@@ -312,6 +313,9 @@ const lifeChoices = (
 function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
   const c = s.correction;
   if (!c) return "";
+  // Colour and markings are marked wrong in the Appearance section (one form
+  // per statement on the page, SYC-2 PR 3.1).
+  if (c.kind === "appearance") return "";
   const action = `/api/team/statements/${s.id}/wrong`;
   const id = `w${s.id}`;
   if (c.kind === "ear_tip_clipped") {
@@ -760,6 +764,7 @@ export function renderCatPage(
     mainClass: "wide",
     body:
       sideBySide(overview, correctionForms(v, may, formsNotice, opts.colonies)) +
+      renderAppearanceSection(v, may, opts.done) +
       sightings +
       photos +
       history,

@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { TeamCatView, TeamStatement } from "../teamCatView";
 import { renderCatPage } from "./catPages";
 
+const appearanceNone = {
+  value: null,
+  confidence: "unknown" as const,
+  checkReasons: [],
+  statements: [],
+  guardianDecides: false,
+  aboveTeamIds: [],
+  guardianDisagrees: false,
+};
+
 // SYC-362 D3: the old words must not come back on the team cat page.
 
 const statement = (id: number, over: Partial<TeamStatement> = {}): TeamStatement => ({
@@ -54,6 +64,12 @@ function ownedCatView(): TeamCatView {
     records: {
       lifeStatus: { ...resolved([1], [2]), presumedDeceased: false, notSeenSince: null },
       sterilised: { ...resolved([1], [2]), clippedTipSightings: 0 },
+    },
+    // SYC-2 PR 3.1: no colour or markings known.
+    appearance: {
+      coat: appearanceNone,
+      markings: appearanceNone,
+      handPick: false,
     },
     sightings: [],
     photos: [],

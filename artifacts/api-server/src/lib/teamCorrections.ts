@@ -5,6 +5,8 @@ import { actingRole, can, type Capability } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
 import {
   isWithdrawal,
+  loadCatRecords,
+  normaliseColours,
   ObservationRefused,
   WITHDRAWN,
   writeObservation,
@@ -13,7 +15,13 @@ import {
 } from "./observations";
 import { clearOwner, newestActiveOwnerHomed } from "./claiming";
 import { isOwnerHomed } from "./teamCatView";
-import { resolveSterilised } from "./resolve";
+import {
+  appearanceAuthorityLevel,
+  resolveCoat,
+  resolveMarkings,
+  resolveSterilised,
+  standingAboveTeam,
+} from "./resolve";
 import { catNamed, isBlankName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
 import { TEAM_ROLES } from "./teamRoles";
@@ -38,10 +46,11 @@ import { TEAM_ROLES } from "./teamRoles";
 
 type Person = { id: string; scopes: { role: string; colonyId: number | null }[] };
 
-/** The two kinds a direct team statement may set (§4.5, §3.5). A staff
- * ear-tip correction ("that's not a clip") only ever happens through
- * supersede, never through a fresh statement. */
-export const DIRECT_KINDS = ["life_status", "sterilised"] as const;
+/** The kinds a direct team statement may set (§4.5, §3.5; SYC-2 PR 3.1 adds
+ * colour and markings, spec §4.4). A staff ear-tip correction ("that's not a
+ * clip") only ever happens through supersede, never through a fresh
+ * statement. */
+export const DIRECT_KINDS = ["life_status", "sterilised", "coat", "markings"] as const;
 export type DirectKind = (typeof DIRECT_KINDS)[number];
 
 /** Which capability gates writing or superseding a given kind. `ear_tip` has
@@ -53,6 +62,9 @@ export function capabilityFor(kind: string): Capability | null {
   if (kind === "life_status") return "set_life_status";
   if (kind === "sterilised" || kind === "ear_tip") return "set_sterilisation";
   if (kind === "colony") return "assign_cat_to_colony";
+  // SYC-2 PR 3.1 (spec §10.3): a colour or markings statement, including
+  // marking one wrong ({ retracted: true }).
+  if (kind === "coat" || kind === "markings") return "set_appearance";
   return null;
 }
 
@@ -62,6 +74,7 @@ export const SUPERSEDE_CAPABILITIES: readonly Capability[] = [
   "set_life_status",
   "set_sterilisation",
   "assign_cat_to_colony",
+  "set_appearance",
 ];
 
 /**
@@ -348,14 +361,35 @@ export interface SupersedeInput {
  *    already-superseded / the exact capability its kind needs, all inside one
  *    transaction, so a concurrent supersede against the same target can't
  *    race past the already-superseded check ("double-supersede-race").
+ *
+ * A colour or markings statement (SYC-2 PR 3.1, spec §4.4) is marked wrong
+ * by a **retraction**, `{ retracted: true }`, and nothing else: it removes
+ * that one statement from the count and asserts nothing in its place. Any
+ * other value is refused, so nobody expecting a replacement gets a
+ * retraction instead; a new colour or list is Correct. This is the only
+ * "mark wrong" for appearance; there is no second route. The cat is locked
+ * first, in the same order as Correct and Confirm (cat, then statement), so
+ * none of them reads a colour another is halfway through changing.
  */
 export async function supersedeStatement(
   person: Person,
   input: SupersedeInput,
+  /** Run inside the caller's transaction (a team Correct overruling a cat guardian) instead of a new one. */
+  exec?: Tx,
 ): Promise<{ row: Observation; original: Observation }> {
   if (!SUPERSEDE_CAPABILITIES.some((c) => can(person, c))) throw notAuthorised();
 
-  return db.transaction(async (tx) => {
+  const run = async (tx: Tx) => {
+    const [peek] = await tx
+      .select({ catId: observationsTable.catId, kind: observationsTable.kind })
+      .from(observationsTable)
+      .where(eq(observationsTable.id, input.id));
+    if (peek && isAppearanceKind(peek.kind)) {
+      // Who may, before taking any lock: someone without set_appearance never
+      // holds the cat up, even briefly.
+      if (!can(person, "set_appearance")) throw notAuthorised();
+      await lockCat(tx, peek.catId);
+    }
     const original = await lockActiveObservation(tx, input.id);
     // A withdrawn owner claim can't be marked wrong (see correctionOf in
     // teamCatView): refused like any answer that doesn't fit, nothing written.
@@ -372,6 +406,7 @@ export async function supersedeStatement(
 
     const capability = capabilityFor(original.kind);
     if (!capability || !can(person, capability)) throw notAuthorised();
+    const target = await catTarget(original.catId, tx);
 
     // A colony statement is the one kind whose replacement is not the
     // caller's to choose (spec §2.8): the cat goes back to where its other
@@ -381,20 +416,222 @@ export async function supersedeStatement(
     if (isColony) {
       await tx.execute(sql`select id from cats where id = ${original.catId} for update`);
     }
-    const value = isColony ? await colonyAfterMarkingWrong(tx, original) : input.value;
+    // Colour and markings: always a retraction (spec §4.4), never a value
+    // the caller picks. writeObservation refuses a retraction of a retraction.
+    const isAppearance = isAppearanceKind(original.kind);
+    if (isAppearance && !isRetractedValue(input.value)) {
+      throw new ObservationRefused(
+        "MALFORMED_VALUE",
+        "A colour or markings statement is marked wrong with { retracted: true }; use Correct for a new value",
+      );
+    }
+    const value = isColony
+      ? await colonyAfterMarkingWrong(tx, original)
+      : isAppearance
+        ? RETRACTED
+        : input.value;
 
     const row = await writeObservation(tx, {
       catId: original.catId,
       kind: original.kind as ObservationKind,
       value,
       accountId: person.id,
-      roleAtTime: actingRole(person, capability, await catTarget(original.catId, tx)),
-      // Now, not the caller's date: nothing about a colony change is dated by the team.
-      observedAt: isColony ? new Date() : (input.observedAt ?? new Date()),
+      roleAtTime: actingRole(person, capability, target),
+      // Now, not the caller's date: nothing about a colony change, or a
+      // retraction (which asserts nothing), is dated by the team.
+      observedAt: isColony || isAppearance ? new Date() : (input.observedAt ?? new Date()),
       supersedesId: original.id,
       supersedeReason: input.reason,
     });
     return { row, original };
+  };
+  return exec ? run(exec) : db.transaction(run);
+}
+
+// ── Colour and markings: Confirm and Correct (SYC-2 PR 3.1) ───────────────
+
+/** Marking a colour or markings statement wrong (spec §4.4, §10.1). */
+export const RETRACTED = { retracted: true } as const;
+
+export type AppearanceKind = "coat" | "markings";
+
+export function isAppearanceKind(kind: string): kind is AppearanceKind {
+  return kind === "coat" || kind === "markings";
+}
+
+/** Exactly `{ retracted: true }`, nothing more. */
+function isRetractedValue(value: Record<string, unknown>): boolean {
+  const keys = Object.keys(value);
+  return keys.length === 1 && keys[0] === "retracted" && value["retracted"] === true;
+}
+
+/** The reason a Confirm carries: fixed, as "Looks right" on the Likely list. */
+export const CONFIRM_REASON = "Looks right";
+
+/** A cat's colour and markings as the resolver works them out now, read through `tx`. */
+async function resolvedAppearance(tx: Tx, catId: number, now: Date) {
+  const record = (await loadCatRecords([catId], tx)).get(catId);
+  const observations = record?.observations ?? [];
+  return {
+    observations,
+    coat: resolveCoat(observations, appearanceAuthorityLevel),
+    markings: resolveMarkings(observations, now, appearanceAuthorityLevel),
+  };
+}
+
+/** The same value, compared as a set (colours are never an order). */
+function sameCodes(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((c) => b.includes(c));
+}
+
+/** Locks the cat for the rest of the transaction, so two people changing its
+ * colour or markings queue up and each sees what the other wrote. */
+async function lockCat(tx: Tx, catId: number): Promise<void> {
+  const locked = await tx.execute<{ id: number }>(
+    sql`select id from cats where id = ${catId} for update`,
+  );
+  if (locked.rows.length === 0) throw notFound();
+}
+
+export type ConfirmOutcome =
+  | { kind: "confirmed"; row: Observation }
+  /** Nothing is known to confirm (the answer is Not sure / no marks known). */
+  | { kind: "nothing" }
+  /** The answer changed since the page was drawn: nothing written. */
+  | { kind: "changed" };
+
+/**
+ * **Confirm** (spec §4.4, §5.3): the team agrees with what the cat's colour
+ * or markings say now. It writes the resolved value as a team statement,
+ * with `agreesWith` the newest statement it rests on and **no photo** (the
+ * PR #99 "Looks right" pattern), and the fixed reason "Looks right". It
+ * becomes *Confirmed*. On a cat whose answer is a cat guardian's, it records
+ * the team's agreement and changes nothing the public sees.
+ *
+ * `expected`, when given, is the value the page showed: if the answer has
+ * changed since, nothing is written ("changed"), so nobody confirms
+ * something they didn't see. The value is always worked out here, never
+ * taken from the request.
+ */
+export async function confirmAppearance(
+  person: Person,
+  input: { catId: number; kind: AppearanceKind; expected?: readonly string[] },
+  now = new Date(),
+): Promise<ConfirmOutcome> {
+  // No target: island-wide holders only. A cat guardian's own routes (SYC-2
+  // PR 5.1) pass the cat's colony, read from the record.
+  if (!can(person, "set_appearance")) throw notAuthorised();
+
+  return db.transaction(async (tx) => {
+    await lockCat(tx, input.catId);
+    const a = await resolvedAppearance(tx, input.catId, now);
+    const resolved = input.kind === "coat" ? a.coat : a.markings;
+    const value = resolved.value;
+    if (value === null || (input.kind === "coat" && value.length === 0)) {
+      return { kind: "nothing" as const };
+    }
+    if (input.expected && !sameCodes(input.expected, value)) return { kind: "changed" as const };
+
+    const byId = new Map(a.observations.map((o) => [o.id, o]));
+    const newest = resolved.supportingObservationIds
+      .map((id) => byId.get(id))
+      .filter((o): o is Observation => o !== undefined)
+      .reduce<Observation | undefined>(
+        (best, o) =>
+          !best ||
+          o.observedAt.getTime() > best.observedAt.getTime() ||
+          (o.observedAt.getTime() === best.observedAt.getTime() && o.id > best.id)
+            ? o
+            : best,
+        undefined,
+      );
+    const row = await recordTeamStatement(
+      person,
+      {
+        catId: input.catId,
+        kind: input.kind,
+        value: {
+          ...(input.kind === "coat" ? { colours: [...value] } : { marks: [...value] }),
+          ...(newest ? { agreesWith: newest.id } : {}),
+        },
+        reason: CONFIRM_REASON,
+        observedAt: now,
+      },
+      tx,
+    );
+    return { kind: "confirmed" as const, row };
+  });
+}
+
+export interface CorrectInput {
+  catId: number;
+  kind: AppearanceKind;
+  /** Colour codes (1–2, never Not sure) or the whole list of marks ([] = nothing special). */
+  codes: readonly string[];
+  reason: string;
+  /**
+   * The ids of the statements outranking the team that the page showed (the
+   * ones Correct will mark wrong). When given and the set has changed since
+   * (a cat guardian said something new), nothing is written ("changed"), so
+   * nobody overrules a statement they never saw.
+   */
+  shownAbove?: readonly number[];
+}
+
+export type CorrectOutcome =
+  | { kind: "corrected"; row: Observation; retracted: Observation[] }
+  | { kind: "changed" };
+
+/**
+ * **Correct** (spec §4.4; Decision G, Samuel 13 October 2026): the team's
+ * whole new value, with a required reason. It becomes *Confirmed*.
+ *
+ * On a cat where a cat guardian's statement decides, a team statement alone
+ * would be outranked and change nothing on the page. So, in ONE transaction,
+ * Correct first marks wrong **every** standing statement of that kind that
+ * outranks the team (every guardian's, not just the newest), each through
+ * {@link supersedeStatement} with the same reason, and then writes the
+ * team's value. Either all of it lands or none of it does.
+ *
+ * Colours go through `normaliseColours` (black + white is black and white).
+ * The team never states Not sure on colour: Mark wrong undoes a colour.
+ */
+export async function correctAppearance(
+  person: Person,
+  input: CorrectInput,
+  now = new Date(),
+): Promise<CorrectOutcome> {
+  // No target: island-wide holders only. A cat guardian's own routes (SYC-2
+  // PR 5.1) pass the cat's colony, read from the record.
+  if (!can(person, "set_appearance")) throw notAuthorised();
+
+  const value =
+    input.kind === "coat"
+      ? { colours: normaliseColours(input.codes) }
+      : { marks: [...new Set(input.codes)] };
+
+  return db.transaction(async (tx) => {
+    await lockCat(tx, input.catId);
+    const { observations } = await resolvedAppearance(tx, input.catId, now);
+    const above = standingAboveTeam(observations, input.kind);
+    if (input.shownAbove && !sameCodes(input.shownAbove.map(String), above.map((o) => String(o.id)))) {
+      return { kind: "changed" as const };
+    }
+    const retracted: Observation[] = [];
+    for (const statement of above) {
+      const { row } = await supersedeStatement(
+        person,
+        { id: statement.id, value: RETRACTED, reason: input.reason },
+        tx,
+      );
+      retracted.push(row);
+    }
+    const row = await recordTeamStatement(
+      person,
+      { catId: input.catId, kind: input.kind, value, reason: input.reason, observedAt: now },
+      tx,
+    );
+    return { kind: "corrected" as const, row, retracted };
   });
 }
 

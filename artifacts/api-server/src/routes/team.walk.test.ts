@@ -174,6 +174,11 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/cats/:id/name": { why: "rename_cat, island-only" },
   "POST /api/team/cats/:id/remove-owner": { why: "remove_owner, island-only" },
   "POST /api/team/statements/:id/wrong": { why: "the door, then the statement kind's capability inside, island-only" },
+  // SYC-2 PR 3.1: colour and markings. Island-only here; a cat guardian's own
+  // routes, with her cat's colony as the target, are SYC-2 PR 5.1's.
+  "POST /api/team/cats/:id/appearance/confirm": { why: "set_appearance with no target, island-only" },
+  "POST /api/team/cats/:id/appearance/correct": { why: "set_appearance with no target, island-only" },
+  "GET /api/team/colour-check": { why: "the Colour check list: set_appearance with no target, island-only" },
   "GET /api/team/likely": { why: "set_sterilisation with no target" },
   "POST /api/team/likely/:id/looks-right": { why: "set_sterilisation with no target" },
   "POST /api/team/photos/:publicId/hide": { why: "hide_photo, island-only" },
@@ -276,7 +281,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * their own checks. If an Express upgrade changes `router.stack` and the walk
  * finds fewer, the test fails rather than passing on an empty list.
  */
-const MINIMUM_ROUTES = 70;
+const MINIMUM_ROUTES = 73;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
