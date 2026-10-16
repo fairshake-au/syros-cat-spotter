@@ -3,18 +3,16 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// SYC-362 (adversarial review, 15 Oct 2026). position.ts can build a map
-// company link, so noMapLinks.source.test.ts exempts it. Until step 5 adds
-// the island-wide gate and the guardian-view tests, NOTHING may use it to
-// print a link. This reads every source file under src/, so a page cannot
-// import it without this test failing.
-//
-// Step 5 adds each file it converts to ALLOWED, with the gate in place.
+// SYC-362 (adversarial review, 15 Oct 2026), SYC-395 PR 0.2. position.ts
+// builds the team's "Open map" link (D9), so only the files named in ALLOWED
+// may import it. This reads every source file under src/, so a new page
+// cannot start using it without this test failing and someone checking its
+// gate. positions.source.test.ts makes every position print through it.
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-// SYC-395 PR 0.2: each file here passes the viewer's isIslandWide() gate (or
-// a literal false) as `link`. routes/team.guardianView.test.ts checks the
-// rendered pages.
+// Each file here passes the viewer's isIslandWide() gate (or a literal
+// false) as `link`. routes/team.guardianView.test.ts checks the rendered
+// pages.
 const ALLOWED = new Set<string>([
   join("lib", "teamPages", "catPages.ts"),
   join("lib", "teamPages", "colonyPages.ts"),
@@ -38,7 +36,7 @@ const files = sources(SRC)
   .map((path) => ({ rel: relative(SRC, path), text: readFileSync(path, "utf8") }))
   .filter((f) => f.rel !== join("lib", "teamPages", "position.ts"));
 
-describe("nothing prints a map link through position.ts yet", () => {
+describe("only the allowed, gated files use position.ts", () => {
   it("no source file imports position.ts unless it is allowed", () => {
     const importers = files
       // `from "…/position"` (import or export), `import "…/position"`,

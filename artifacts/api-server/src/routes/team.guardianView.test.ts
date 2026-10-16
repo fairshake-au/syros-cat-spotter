@@ -661,6 +661,7 @@ describe("isIslandWide: the gate for anything only the team may see (SYC-362)", 
 // checked print a position, so a missing link is not just an empty page.
 // Probe (PR body): forcing a shared page's gate to true turns this red.
 describe("SYC-395 (D9): Open map links by viewer", () => {
+  const C1_FIRST_CENTRE = { lat: 37.44611, lng: 24.94177 };
   const C1_CENTRE = { lat: 37.44555, lng: 24.94222 };
   const SIGHT_A = { lat: 37.44701, lng: 24.94321 };
   const HOME = { lat: 37.44, lng: 24.94 };
@@ -670,9 +671,14 @@ describe("SYC-395 (D9): Open map links by viewer", () => {
   let homeCat: SeededCat;
 
   beforeAll(async () => {
-    // Colony 1 gets a centre with no history row (a staff row would put
-    // STAFF_NAME on her colony page, which test 21 forbids).
-    await pool.query("update colonies set lat = $1, lng = $2 where id = $3", [C1_CENTRE.lat, C1_CENTRE.lng, c1]);
+    // Colony 1 gets a centre, changed twice by Eleni herself, so her colony
+    // page prints positions in its history too (review finding: a history
+    // row that linked went unnoticed). A staff row would put STAFF_NAME on
+    // her page, which test 21 forbids.
+    for (const centre of [C1_FIRST_CENTRE, C1_CENTRE]) {
+      const out = await updateColony(eleni.id, c1, { centre }, () => true);
+      if (out.kind !== "saved") throw new Error(`seed centre: ${out.kind}`);
+    }
     homeCat = await seedCat(null);
     await pool.query("update cats set home_lat = $1, home_lng = $2 where id = $3", [HOME.lat, HOME.lng, homeCat.id]);
   });
@@ -701,6 +707,18 @@ describe("SYC-395 (D9): Open map links by viewer", () => {
       expect(res.text, `${page.label}: a map company`).not.toMatch(MAP_COMPANIES);
       expect(res.text, `${page.label}: Open map`).not.toContain("Open map");
     }
+  });
+
+  it("her colony's history prints the old and new centres, with no link", async () => {
+    const res = await get(`/api/team/colonies/${c1}`, eleni.cookie);
+    const history = res.text.slice(res.text.indexOf('<ol class="history">'));
+    expect(history).toContain(`${at(C1_FIRST_CENTRE)} → ${at(C1_CENTRE)}`);
+    expect(history).not.toMatch(MAP_COMPANIES);
+    // The team's view of the same rows links each centre.
+    const team = (await get(`/api/team/colonies/${c1}`, staffCookie)).text;
+    const teamHistory = team.slice(team.indexOf('<ol class="history">'));
+    expect(teamHistory).toContain(openMap(C1_FIRST_CENTRE));
+    expect(teamHistory).toContain(openMap(C1_CENTRE));
   });
 
   it("an island-wide team member gets Open map on the same pages, at 5 decimal places", async () => {
