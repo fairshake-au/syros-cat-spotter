@@ -44,13 +44,23 @@
     return params.toString();
   }
 
+  // What the results on screen show, and what was last asked for. They differ
+  // while an answer is on its way.
   var applied = query();
+  var requested = applied;
 
   function apply() {
     window.clearTimeout(timer);
     var qs = query();
-    if (qs === applied) return;
+    if (qs === requested) return; // already showing, or already on its way
+    // Any change overtakes the answer on its way, even one back to what is shown.
     if (controller) controller.abort();
+    controller = null;
+    requested = qs;
+    if (qs === applied) {
+      region.removeAttribute("aria-busy");
+      return;
+    }
     var mine = new AbortController();
     controller = mine;
     var url = qs ? path + "?" + qs : path;
@@ -84,6 +94,8 @@
       })
       .catch(function () {
         // Nothing: the page stays as it was, and "Show cats" still works.
+        // The same choice may be tried again on the next change.
+        if (controller === mine) requested = applied;
       })
       .then(function () {
         if (controller === mine) {
