@@ -1,6 +1,7 @@
 # Coat, markings and health on the cat record
 
 **Status:** **Approved by Samuel, 12 October 2026.** All decisions and questions are recorded in the sections below; the adversarial review and how each finding was handled are linked from this document.
+**Amended 16 October 2026 (SYC-398):** a coat is now any of five colours plus one pattern. [`coat-colours-and-pattern.md`](./coat-colours-and-pattern.md) owns the colour and pattern words and the rules for which statement wins for each. Sections below carry a short pointer where they are amended. Markings, health and vaccination are untouched.
 **Owner:** Samuel
 **Covers:** SYC-2 (coat and markings tags, and health status on cats). Also settles the trust question SYC-2 was parked on: who is allowed to assert a fact about a cat's body, and what the public sees of it.
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §2, §3.4, §4, §10.1, §10.2 · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.7, §8.4 · [`add-details-later.md`](./add-details-later.md) §6, §8 · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §4, §7 · [`roles-and-invites.md`](./roles-and-invites.md) §6.2, §6.7, §7.6 (Decision 13), §17.4 · [`DECISIONS.md`](./DECISIONS.md) Part 2g, 2i, 2k, 3 · tickets SYC-161 (auto coat colour), SYC-5 (vaccination records), SYC-52 (confidence engine), SYC-53 (roles), SYC-42 (welfare reports), SYC-75 (sterilisation status), SYC-43 (staff dashboard).
@@ -53,24 +54,24 @@ Everything a person can say about appearance comes from two fixed lists. A perso
 
 ### 3.1 Coat colour
 
-These are exactly the eight values `choose-a-different-cat.md` §4.7 already fixed for the colour filter. They are **not a second list**. SYC-2 inherits them and adds nothing to them in this spec.
+*Amended by `coat-colours-and-pattern.md` §2 (SYC-398, 16 October 2026).* A coat has two parts. Each part is known or not known on its own.
 
-A cat has **one or two** colours. *Tabby* is a pattern rather than a colour, so a ginger tabby is *Ginger* and *Tabby*. *Not sure* is never combined with another colour.
+- **Colours:** any of **Black, Grey, Brown, Ginger, White**, with no limit. Every colour you can see in the coat counts. Cream counts as Ginger.
+- **Pattern:** one of **Plain, Stripes, Patches**. *Stripes* is stripes, swirls or spots. *Patches* is any patchy look, including black-and-white or ginger-and-white in patches. A coat that is both striped and patchy is *Patches*. *Can't tell* says nothing about the pattern.
 
-**One way to say it.** *Black* plus *White* and *Black and white* mean the same cat, so a pair that is exactly black and white is stored as the single value `black_and_white` before anything is compared (§4.2). Colours are always compared as sets, never as the order or the way someone tapped them.
+People point at drawn swatches and drawn patterns; the words are captions. The cat-fancier words (*tabby*, *tortoiseshell*, *calico*) are not shown to the public, and *Black and white* is no longer a single colour. A calico is Black · Ginger · White · Patches, and a ginger tabby is Ginger · Stripes. Colours are always compared as a set, never as the order or the way someone tapped them. The Greek and French are drafts for Johnny (SYC-283):
 
 | Code | English | Greek (draft) | French (draft) |
 |---|---|---|---|
 | `black` | Black | Μαύρο | Noir |
-| `white` | White | Λευκό | Blanc |
-| `ginger` | Ginger | Πορτοκαλί | Roux |
 | `grey` | Grey | Γκρι | Gris |
-| `tabby` | Tabby | Τιγρέ | Tigré |
-| `tortoiseshell_or_calico` | Tortoiseshell or calico | Χελωνόχρωμο ή τρίχρωμο | Écaille de tortue ou calico |
-| `black_and_white` | Black and white | Ασπρόμαυρο | Noir et blanc |
-| `not_sure` | Not sure | Δεν είμαι σίγουρος/η | Pas sûr |
-
-*Black and white* is the everyday word for the original design's "Tuxedo", and they are the same value.
+| `brown` | Brown | Καφέ | Brun |
+| `ginger` | Ginger | Πορτοκαλί | Roux |
+| `white` | White | Λευκό | Blanc |
+| `plain` | Plain | Ενιαίο | Uni |
+| `stripes` | Stripes | Ρίγες | Rayures |
+| `patches` | Patches | Μπαλώματα | Plaques |
+| (the pattern chip) | Can't tell | Δεν ξέρω | Je ne sais pas |
 
 ### 3.2 Markings
 
@@ -142,17 +143,24 @@ These are the rules the resolver applies. They are written here in plain terms s
 **Before any rule runs, tidy the statements:**
 
 - Throw out any statement that has been replaced or **retracted** (§4.4).
-- Treat *Not sure*, *Can't tell* and any other answer that says nothing as no statement at all, with one exception for colour: **a spotter's newer *Not sure* withdraws that same device's earlier colour** (Samuel, 14 October 2026). Their device then counts towards nothing until it names a real colour again. For markings, *Can't tell* and "nothing special" still withdraw nothing (markings rule 4).
-- **Black plus white means black and white.** A pair that is exactly black and white is stored as `black_and_white`. Colours are then compared one at a time as plain values, never as the order or the way someone tapped them.
+- Treat *Can't tell* and any other answer that says nothing as no statement at all, with one exception: **a spotter's newer *Not sure* (`{ notSure: true }`) withdraws that same device's earlier coat answer, both parts** (Samuel, 14 October 2026). Their device then counts towards nothing until it names a colour again. **Only `{ notSure: true }` withdraws; an empty part never does.** For markings, *Can't tell* and "nothing special" still withdraw nothing (markings rule 4).
+- **Old statements are read through one translation** (`coat-colours-and-pattern.md` §6). They are never rewritten, and only what an old statement said becomes known. Black and White are two colours now, so nothing is merged into `black_and_white` any more.
 - **One voice per device, counted when the answer is worked out.** Whoever is the author of a statement is one *voice*. If several standing statements on one cat come from the same device, only the newest counts. This is checked every time the answer is worked out, so a mistake in any writing route cannot let one device count twice. (It is also enforced at writing time, §10.3.)
 - **A pair of voices only counts as two if they come from different photos and were written on different days** (Syros calendar days). A real user loses nothing by this; the "same photo from two browsers on one afternoon" trick now needs two visits.
 - A team member's or guardian's "yes, that's right" is stored as a team (or guardian) statement that agrees with an earlier one, not as a separate kind of evidence (§4.4). There is no lesser "volunteer confirmation".
 
-**Colour**
+**Colour** *(and pattern)*
+
+*Amended by `coat-colours-and-pattern.md` §4 (SYC-398, 16 October 2026).* The five rules below keep their order. They are applied to **colours** and to **pattern** separately, and every statement says which parts it states. Each part resolves on its own, with its own confidence, supporting statements and date. Three changes of meaning:
+- A team or guardian statement states colours, a pattern or both, and decides each part it states. A part it leaves blank is *not stated* and falls to the next rule.
+- Rule 2 has no limit on colours (below), and pattern is shown when two voices name the same pattern.
+- Rule 3 reads the machine's **newest row only**, part by part: a part that row leaves not known is not known, and an older reading never fills it.
+
+When the two parts come from different rules (for example the machine's colours with a pattern two spotters agreed on), the cat goes onto the Colour check list ("colour and pattern from different sources").
 
 1. **A statement from the team or a cat guardian wins.** A cat guardian's standing statement (for a cat in her own colonies) outranks the team's (staff and management), whichever is newer; within the same level, the newest standing statement is the answer (Decision G, `roles-and-invites.md` plan, applied to colour by Samuel on 13 October 2026). The team overrules a guardian deliberately: **Correct** on a cat whose answer is a guardian's statement marks every guardian statement of colour that stands on that cat wrong and records the team's colour in one step, with a required reason, shown on the recent guardian changes list. Vets, imported records and owners have no standing on appearance (owners until the SYC-130 claim work decides otherwise). This is the *Confirmed* level. A later machine reading is recorded but never overrides it, and a spotter whose answer is later cannot change it.
-2. **Otherwise, two spotters who agree, colour by colour.** A colour is *Likely* when two voices hold it (a colour a voice named as part of a pair counts for that colour). So *Ginger · Tabby* from one spotter and *Ginger* from another agree on *Ginger*; *Tabby* has only one voice and is not shown. At most two colours are shown.
-   - If more than two colours are agreed, the two with the most voices are shown; on a tie, the colours whose newest supporting statement is more recent.
+2. **Otherwise, two spotters who agree, colour by colour.** A colour is *Likely* when two voices hold it. So *Ginger · Stripes* from one spotter and *Ginger* from another agree on *Ginger*; *Stripes* has only one voice and is not shown. **There is no limit on the number of colours shown.**
+   - **Pattern** is shown when two voices name the same pattern. If two patterns each have two voices, the one with the newer supporting statement is shown, and the cat goes onto the Colour check list ("spotters disagree on the pattern").
    - If two colours are agreed but **nobody ever named both** (two separate camps, such as two voices for *ginger* and two for *black*), only the camp with the **newer supporting statement** is shown, and the cat goes onto the team's Colour check list.
    Taps that merely confirmed a pre-filled guess count as **prompted**, not independent, and do not count towards the two (the data spine §10.1 comment on `provenance`; the original July draft §5.2 made the same point).
 3. **Otherwise, the machine's reading** (SYC-161), if it is not *Not sure*. This is *Reported*. Only the machine's **newest** reading counts: if the team has marked it wrong, or it is *Not sure*, the machine has no reading and an older one never comes back (Samuel, 14 October 2026).
@@ -160,6 +168,8 @@ These are the rules the resolver applies. They are written here in plain terms s
 5. **Otherwise, Not sure.**
 
 A person saying *Not sure* or *Can't tell* is never a statement about colour and never beats anything; a spotter's *Not sure* can only withdraw that same device's own earlier colour. If the answer came from spotters (rule 2 or 4) and the machine has a different real reading, the cat goes onto the team's Colour check list (§5.3): the one case the review found a determined pair could use is the case the team is shown.
+
+**What stands (Samuel, 16 October 2026).** "Once someone has said a colour, it should stand until corrected." A colour someone has said keeps showing. A pattern nobody has said never, on its own, puts a cat in the Colour check list's "Not yet described by the team" group (§5.3).
 
 **Markings** (no machine reading in this version, SYC2-D4)
 
@@ -212,6 +222,8 @@ The team and guardians correct from the cat's dashboard page (a guardian from he
 
 The correction route is extended to accept `coat` and `markings` (including the retraction), gated by `set_appearance` (§10.3).
 
+*Amended by `coat-colours-and-pattern.md` §3 and §4 (SYC-398, 16 October 2026).* The team's pages have no scripts, so **Correct** is a form: five colour checkboxes with swatches, and pattern radio buttons including *Not stated*. A statement states colours, a pattern or both. **Confirm** records only the parts that are known, and is not offered when neither part is known. **Mark wrong** retracts one whole statement, both parts, and the next rule decides each part. Correct still never offers *Not sure*. The drawn cat is shown once, after the form is saved.
+
 A wrong colour reported by the public through "Report an issue" (SYC-44, *wrong information about this cat*) reaches the team the same way `choose-a-different-cat.md` §4.7 already describes. Spotters never edit colours or marks directly.
 
 ---
@@ -224,12 +236,12 @@ A wrong colour reported by the public through "Report an issue" (SYC-44, *wrong 
 
 Appearance is asked in two places, both after the points:
 
-1. **On the result screen for a new cat, one optional line below the points.** The person has just been told they found a new cat, is still looking at it, and the model has usually already read its colour. One line, colour only, pre-filled where the colour has been read:
+1. **On the result screen for a new cat, one optional line below the points.** The person has just been told they found a new cat, is still looking at it, and the model has usually already read its colour. One line, colour and pattern, pre-filled where the cat has been read and shown with the drawn cat (`coat-colours-and-pattern.md` §3):
 
-   > *Agatha looks* **Ginger · Tabby** *— right?*
+   > *Agatha looks like this, right?* (with the drawn cat: **Ginger · Stripes**)
    > `Yes` `Change` `Skip`
 
-   *Change* opens the colour chips (pick one or two, or *Not sure*). Skipping costs nothing and the line does not come back on this screen. If the cat has no name yet, the line says "This cat looks…". The answer is written through the same answers endpoint as the details card (§10.3), so it needs signal, which this screen already has because the cat was just named online.
+   *Change* opens the full question: tap every colour you can see, then a pattern or *Can't tell*, or *Not sure* (which answers both parts as not known). If the machine knew only the colours, the line asks for the pattern alone. Skipping costs nothing and the line does not come back on this screen. If the cat has no name yet, the line says "This cat looks…". The answer is written through the same answers endpoint as the details card (§10.3), so it needs signal, which this screen already has because the cat was just named online.
 
 2. **On the "add details later" card** (`add-details-later.md` §8 names this as the next kind of detail). The card exists for **an open sighting of the person's own (the last 30 days)**, and shows **that sighting's own photo** beside the chips, not the cat's main photo. If the match was wrong, the person describes what they saw and the mismatch can be caught. The card asks about colour if the cat's colour is unconfirmed or *Not sure*, and about markings if the cat has none recorded, **at most one appearance question per sighting**, colour first. The question for markings reads "Anything that makes Agatha easy to spot?" (the cat's name, or "this cat" if unnamed; never "her" or "him", because sex is not recorded and Greek and French carry gender through the whole sentence). The card is hidden offline, like the rest of the card.
 
@@ -245,9 +257,9 @@ Taking a pre-filled "Yes" is recorded as a **prompted** confirmation (it agrees 
 
 The page shows what is known, quietly, next to the location label:
 
-> **Ginger · Tabby** · White paws · Kinked tail
+> **Brown · Ginger · Stripes** · White paws · Kinked tail
 
-*(Updated 12 October 2026, plan decision E1: two colours are joined with " · " in every language, so there is no grammar to get wrong.)*
+*(Updated 12 October 2026, plan decision E1, and 16 October 2026, SYC-398: the coat is one line joined with " · " in every language, so there is no grammar to get wrong. Colours come first, in the fixed order Black, Grey, Brown, Ginger, White; then the pattern, except *Plain*, which the photo shows; then the markings.)*
 
 Nothing is shown for a cat whose colour is *Not sure* and has no markings. The page never says how sure the app is, and never shows "suggested by 1 person". Those belong to the team.
 
@@ -266,8 +278,10 @@ A small **"Colour check"** list in the top bar is the team's low-priority list o
 - its colour is the machine's alone, or *Not sure*, and no team or guardian statement stands;
 - its colour **came from spotters and disagrees with the machine's reading** (the case where two people have overturned a real reading);
 - its colour is tied between two groups of spotters (§4.2);
+- spotters disagree on the pattern (two patterns each with two voices);
+- its colour and pattern **come from different sources** (for example the machine's colours with spotters' pattern), so a coat nobody stated is seen and confirmed once;
 - its markings **changed on spotter agreement in the last 30 days**, or moved after a team statement (§4.2, markings rule 2);
-- on a **hand pick** (`choose-a-different-cat.md` §4.3), the cat chosen is recorded as one colour and the spotter's own colour answer for that sighting is another. That flag is team-only and the spotter sees nothing different.
+- on a **hand pick** (`choose-a-different-cat.md` §4.3), the spotter's own answer for that sighting, read through the translation, shares no colour with the cat's resolved colours, or both patterns are known and differ. That flag is team-only and the spotter sees nothing different.
 
 It is low priority by design, a few minutes a week, and it is **not** the roles spec's "Needs an OK" confirmation queue. When cat guardians have accounts, they see the same list for their own colonies.
 
@@ -334,7 +348,7 @@ Why not a structured, team-only condition list now: nobody has told us what Syro
 
 | Fact | Public? | How |
 |---|---|---|
-| Colour | Yes | The resolved value only (one or two colours, or none) |
+| Colour and pattern | Yes | The resolved values only (any of the five colours, one pattern, or none of either) |
 | Markings | Yes | The resolved list only |
 | Sterilised | Yes | Existing four lines (`DECISIONS.md` D4 shows a confirmed negative) |
 | Ear tip | Yes | Existing; not repeated as a marking |
@@ -357,7 +371,7 @@ The photo decides. Colour is never used to pre-filter the matcher's suggestions,
 
 ### 7.2 Finding a cat by hand
 
-- **The colour filter in "Find the cat"** sits on top of the resolved colour: the machine's reading, improved by people's corrections. More cats have a colour, and the wrong ones get fixed. All the filter's protections stay exactly as specified: *All* by default, more than one colour allowed, *Colour not known* cats always stay visible, and the "N more cats in other colours. Show all colours." line sits above "Can't find it? Add it as a new cat".
+- **The colour and pattern filter in "Find the cat"** sits on top of the resolved coat: the machine's reading, improved by people's corrections. More cats have a coat, and the wrong ones get fixed. *Amended by `coat-colours-and-pattern.md` §5 (SYC-398, 16 October 2026):* there are **two rows of drawn chips**, colours (*All · Black · Grey · Brown · Ginger · White*) and patterns (*All · Plain · Stripes · Patches*). Each row starts at *All*. Within a row any chip counts. A cat whose part is not known is never hidden: it sits under *Not known*, below the matches. *Plain* and *Patches* are forgiving, so a cat with White among its colours shows under both. The line "N more cats nearby in other colours or patterns. Show all." sits above "Can't find it? Add it as a new cat". The filter reads only the new fields (`coatColours`, `coatPattern`), never the old `coat`.
 - **Markings show on each card** in the picker as one short line ("White paws · Kinked tail"). This lets a spotter compare in the moment, the way people actually say it: "the one with the missing eye". They are **not a filter**. A cat with no markings recorded is most cats, and a "Kinked tail" filter would hide cats that simply have not been described. If a marking filter is ever added it must keep the colour rule: cats with no marking recorded always stay in the list.
 - **A hand pick that disagrees with the cat's colour** is flagged to the team on the Colour check list and in the "Matched by hand" review. The comparison is between the cat's resolved colour and **the colour the spotter themselves gave for that sighting**, when they gave one ("the cat picked is recorded as black; the spotter called this sighting ginger"). No new model call is made: the matching model reads the cat's main photo once per cat (`choose-a-different-cat.md` §4.7), not each sighting photo, and reading every hand-picked photo would add a model call with its own cost for a cosmetic flag. If a spotter gave no colour, nothing is flagged. The spotter sees nothing different. This extends the review flags in `choose-a-different-cat.md` §4.3 and is team-only.
 
@@ -365,7 +379,7 @@ The photo decides. Colour is never used to pre-filter the matcher's suggestions,
 
 The ticket noted that colour data makes the design's "Needs vet" and "Desexed" filters possible. They are not equally good ideas.
 
-- **Colour** is added to the cat-alog's filters (the same chips, the same "Colour not known" rule).
+- **Colour and pattern** are added to the cat-alog's filters (the same two rows of chips, the same *Not known* rule).
 - **"Needs vet"** is not built, now or later. It would be a public list of cats marked as unwell, which is exactly the health information §6 keeps private, and it would invite people to treat the filter as a substitute for the urgent route. (SYC2-D7)
 - **A sterilised / not-sterilised filter** is deferred. The public "Probably sterilised" line sat behind its own gate (decision Q2 in the data spine plan, the `LIKELY_STERILISED_PUBLIC_LIVE` switch, SYC-198) until SYC-75 opened it in October 2026, so the filter can now be reconsidered on its own merits.
 
@@ -378,7 +392,7 @@ Being precise, because offline support in this app is partial:
 | Thing | Offline? |
 |---|---|
 | Seeing a cat's colour and markings on its page or card, for cats in the last catalogue the phone loaded | **Yes.** They ride in the cached public catalogue (§10.4). A stale cache can show an out-of-date colour; it corrects on the next fetch. A phone that updates the app with no signal keeps its existing catalogue (§10.4): the cache key is not changed |
-| The colour filter in "Find the cat" | **Yes, over the cached catalogue.** The picker is built from the cached cats, so filtering needs no signal. A cat that arrived after the last load will not appear, as for the rest of the picker |
+| The colour and pattern filter in "Find the cat" | **Yes, over the cached catalogue.** A cat saved without the new fields is *Not known* in both rows, never hidden. The picker is built from the cached cats, so filtering needs no signal. A cat that arrived after the last load will not appear, as for the rest of the picker |
 | Saying a cat's colour when a new cat is named | **No.** Naming a new cat happens after matching, which needs signal, and the colour line sits on the result screen after the points, which is already online. A spot saved offline is matched and named when it syncs |
 | Suggesting colour or markings on the "add details later" card | **No.** The card is hidden offline, as it is now. Appearance suggestions are not added to the offline queue (SYC2-D9) |
 | Team and guardian confirm / correct / vaccination / health notes | **No.** The dashboard is online only. A guardian's saved list on a phone (roles spec §12) does not include appearance writes |
@@ -389,7 +403,7 @@ So: appearance **reading** works with the cached catalogue; appearance **writing
 
 ## 9. English, Greek and French
 
-- Every label in §3 exists in all three languages, with the same code underneath, so a Greek spotter's *Τιγρέ* and a French spotter's *Tigré* are the same `tabby`, and one filter chip finds both.
+- Every label in §3 exists in all three languages, with the same code underneath, so a Greek spotter's *Ρίγες* and a French spotter's *Rayures* are the same `stripes`, and one filter chip finds both (`coat-colours-and-pattern.md` §2).
 - **The labels in §3 are drafts: Johnny checks Greek and French (SYC-283) and Syros Cats say in testing if a word is wrong** (§12, question 1). The strings go in the existing translation files (`lib/i18n.ts`), with a test that every key exists in `en`, `el` and `fr`, as `catStatusLines` already has.
 - Chips carry **the word as well as a picture**, so they work for colour-blind people and in bright sun, as `choose-a-different-cat.md` §4.7 requires.
 - Wording for the questions, the "nothing special" and "can't tell" answers, the "Does it look hurt? Tell Syros Cats" line and the team-only Appearance section is written once in plain English and translated in the same change; nothing ships in one language only. **Questions use the cat's name or "this cat", never "her" or "him"** (sex is not recorded, and Greek and French carry gender through the whole sentence).
@@ -405,11 +419,14 @@ Everything above is the product; this is the record underneath. **No database mi
 
 ### 10.1 Observation kinds (proposed amendment to data spine §10.1)
 
+*Amended by `coat-colours-and-pattern.md` §6 (SYC-398, 16 October 2026): the `coat` value below is replaced by the two-part shape in that section. Nothing else in this subsection changes.*
+
 `OBSERVATION_KINDS` gains `markings`, `vaccinated` and `team_note`. `coat` already exists. Values:
 
 ```ts
-//   coat        { colours: CoatColour[] }                        // 1–2 from the eight; ["not_sure"] alone
-//               { colours: CoatColour[], modelVersion: string }  // machine reading (system:vision)
+//   coat        { colours?: CoatColour[], pattern?: CoatPattern } // colours: 1–5 distinct of black, grey, brown, ginger, white; pattern: plain | stripes | patches; a team or guardian statement has at least one part; a spotter's answer always has colours
+//               { notSure: true }                                 // a person's Not sure (withdraws that device's earlier answer)
+//               { colours?, pattern?, modelVersion: string }      // machine reading (system:vision); either part may be absent
 //               { retracted: true }                               // "mark wrong" (set_appearance only)
 //   markings    { marks: Mark[] }                                // from §3.2; [] = "nothing special"; spotter answers hold at most 4, a team or guardian statement holds the whole list
 //               { cantTell: true }                               // recorded, no effect
@@ -453,7 +470,7 @@ Three pure functions are added to `resolve.ts` and included in the cat snapshot:
 
 `GET /cats` and `GET /cats/{id}` gain `coat` (the resolved colours, as a list; `[]` means not known) and `markings` (the resolved list). **Not `vaccinated`**: vaccination is team-only (§6.3). Nothing else about them: not confidence, not author, not counts, not model version, not the date a colour was read.
 
-- **One shape for "not known".** On the wire it is `coat: []`, never the string `not_sure`. `choose-a-different-cat.md` §8.4 and SYC-161 say "at most two values, or 'not sure'"; that becomes this single shape, written once in the data spine's §10.7 and used by every reader.
+- **One shape for "not known".** *Amended by `coat-colours-and-pattern.md` §6 (SYC-398, 16 October 2026):* the public cat carries `coatColours` (the codes in display order, `[]` when not known) and `coatPattern` (one code, or `null` when not known), written once in the data spine's §10.7 and used by every reader. The old `coat` field stays for phones that have not updated: display only, never for the filter, never the string `not_sure`.
 - **Tests.** A test asserts the payload contains none of confidence, author, counts, model version or read date for these fields. The public payload **already** carries `sterilised.confidence` and `clippedTipSightings`, so the test names the new fields specifically and does not assert "no confidence anywhere". A second test asserts the word "rabies" appears in no public payload or public string.
 - **No cache-key bump.** The new fields are additive: an old client ignores them and a new client treats a missing `coat` or `markings` as "not known". The data spine's reason for a bump (§6.5, a *shape* change that could leak or break) does not apply. `cats-cache/public/v2` stays. In `cat-spotter/lib/catalogue.ts`, retired keys are deleted without being read, so bumping the key would empty the offline catalogue for anyone who updates the app with no signal (on a ferry, say), contradicting §8. A test reads a v2 cache written by today's build with the new client. If a bump is ever needed, the new code reads the old key as a fallback until the first successful fetch and only then deletes it. SYC-161 also plans a bump for the same field; it drops it.
 - The OpenAPI spec and generated client change accordingly, and the public-payload snapshot test (`routes/__snapshots__/cats.publicDetail.p3-2.txt`) changes. That is expected.
@@ -463,6 +480,8 @@ Three pure functions are added to `resolve.ts` and included in the cat snapshot:
 No names are added. `roles-and-invites.md` §6.2 already lists `set_appearance`, `set_vaccination`, `view_health_notes` and `add_health_note`, and a test in that spec walks the catalogue so the document and the code cannot disagree. This spec asks only that the catalogue's holders (§4.3) are built as written. Until the roles spec ships, `can()` grants these to staff, exactly as for the existing twelve. `add_health_note` is **not** `add_team_note`: the first writes a note on a cat, the second a note on a welfare report, and they are held differently.
 
 ### 10.6 Tests
+
+*Amended by `coat-colours-and-pattern.md` §10 (SYC-398, 16 October 2026): the colour tests below are replaced by that list (the translation of old statements, the old-`coat` truth table, the write check, who wins for each part, the three-way filter placement, the re-read guards). The "Black plus White equals Black and white" and "Ginger · Tabby and Ginger agree on Ginger" cases go. Markings and health tests are unchanged.*
 
 - **Colour:** each of the five rules in §4.2 in isolation and in conflict; a person's *Not sure* never wins; a prompted confirmation never counts as independent, **including a prompted tap on a spotter-filled value**; **two voices for *ginger* and two for *black* resolve to the camp with the newer support and land on the Colour check list**; *Ginger · Tabby* and *Ginger* agree on *Ginger*; *Black* plus *White* equals *Black and white*; **two single spotters filling a gap with different colours show the newest**; a later machine reading never beats a team or guardian statement; **one device counts once at read time even if two live rows exist**; **two concurrent writes from one device (a double tap) leave one voice**; **a device superseding someone else's row is refused**; **two devices uploading the same photo, or on the same day, count as one**; a deletion between two voices still leaves two; the team correcting after two spotters agree wins; a guardian's statement stands directly, and a team member's confirmation is a team statement.
 - **Markings:** a mark held at one voice, shown at two; omissions never remove a mark; a device's later answer adds and never withdraws; *Can't tell* and "nothing special" withdraw nothing; only a team or guardian statement removes one; an empty team list clears the marks; **marking one of three spotters' marks wrong leaves the other two shown**; **two voices dated after the newest team statement show a mark and put the cat on the Colour check list**; each of the four marks (*short tail*, *missing eye*, *three legs*, *odd eyes*) is accepted from a spotter and follows the same two-voice and add-only rules as the other seven; a team list may hold more than four marks; `cantTell` changes nothing.
@@ -488,6 +507,8 @@ No names are added. `roles-and-invites.md` §6.2 already lists `set_appearance`,
 ## 11. Open decisions
 
 Each has every realistic option, what it buys and what it costs, how it feels to people, and a recommendation. Five of them were changed or tightened by the adversarial review (SYC2-D1, D2, D5, D6, and the new D10); each says so. SYC2-D1, D6 and D10 are the weighty ones; the rest are small and could be taken as a batch.
+
+*Amended 16 October 2026 (SYC-398):* where a decision below uses the eight-value colour list, "one or two colours", or the chip *Colour not known*, read it through `coat-colours-and-pattern.md` (five colours with no limit, one pattern, and *Not known*). The decisions themselves stand.
 
 ### SYC2-D1. Do a spotter's suggestions change what the public sees?
 
@@ -685,7 +706,7 @@ For Samuel to approve (nobody has edited `DECISIONS.md`):
 - **Health and vaccination are never written through the old shared-password care route** (`cat_updates`).
 - **A team-only note on the cat** (`team_note`) is a new observation kind in the data spine, gated by `view_health_notes` and `add_health_note`. Welfare-report notes are unchanged.
 - **The four capability names** (`set_appearance`, `set_vaccination`, `view_health_notes`, `add_health_note`) are the roles spec's. This spec adds none. Volunteers and staff are one role (the Syros Cats team), so there is no `confirm_appearance` and no volunteer rule.
-- **The colour and marking words are the fixed lists in `coat-markings-and-health.md` §3.** No free text.
+- **The colour and marking words are the fixed lists in `coat-markings-and-health.md` §3.** No free text. *(Colours and pattern: the five colours and three patterns of `coat-colours-and-pattern.md` §2, from 16 October 2026.)*
 - **Part 3 ownership row (new):** *Coat and marking vocabulary, what "health" means and what is public* → `coat-markings-and-health.md`. *The observation kinds and the resolver rules for them* stay with `cat-record-data-spine.md`, which gains §10.1 and §10.2 of this spec on approval.
 
 ---
