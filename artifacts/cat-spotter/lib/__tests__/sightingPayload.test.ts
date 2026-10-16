@@ -86,3 +86,31 @@ describe('the Spot screen builds both through these', () => {
     expect(spot.match(/\benqueue\(/g)).toHaveLength(1);
   });
 });
+
+describe('SYC-415: extra photos ride along only when there are some', () => {
+  it('the upload request adds extraPhotos only when non-empty', () => {
+    const none = sightingRequest({ deviceId: 'd', photoBase64: 'A', pin: PIN, capturedAt: CAPTURED, extraPhotos: [] });
+    expect('extraPhotos' in none).toBe(false);
+    const withFace = sightingRequest({
+      deviceId: 'd',
+      photoBase64: 'A',
+      pin: PIN,
+      capturedAt: CAPTURED,
+      extraPhotos: [{ role: 'face', photoBase64: 'F' }],
+    });
+    expect(withFace.extraPhotos).toEqual([{ role: 'face', photoBase64: 'F' }]);
+  });
+
+  it('the saved-for-later item adds extraPhotos only when non-empty', () => {
+    const none = queuedSighting({ localId: 'L', photo: { uri: 'u', base64: 'A' }, pin: PIN, capturedAt: CAPTURED, extras: [] });
+    expect('extraPhotos' in none).toBe(false);
+    const withBody = queuedSighting({
+      localId: 'L',
+      photo: { uri: 'u', base64: 'A' },
+      pin: PIN,
+      capturedAt: CAPTURED,
+      extras: [{ role: 'body', uri: 'b-uri', base64: 'B' }],
+    });
+    expect(withBody.extraPhotos).toEqual([{ role: 'body', photoUri: 'b-uri', photoBase64: 'B' }]);
+  });
+});

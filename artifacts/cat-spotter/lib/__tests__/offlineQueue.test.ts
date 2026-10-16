@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyServerFailure,
   classifySyncFailure,
+  coverOf,
+  extrasOf,
   markStaleItems,
   resetForRetry,
   MAX_QUEUE_AGE_MS,
@@ -251,5 +253,62 @@ describe('full retry cycle', () => {
     // First failure after retry is transient again.
     const decision = classifySyncFailure(apiError(500), items[0].failCount);
     expect(decision).toEqual({ kind: 'server', permanent: false, failCount: 1 });
+  });
+});
+
+describe('SYC-415: extrasOf reads stored extras safely', () => {
+  it('reads a good list', () => {
+    expect(
+      extrasOf({ extraPhotos: [{ role: 'face', photoUri: 'f' }, { role: 'body', photoUri: 'b', photoBase64: 'B' }] }),
+    ).toEqual([{ role: 'face', photoUri: 'f' }, { role: 'body', photoUri: 'b', photoBase64: 'B' }]);
+  });
+
+  it('gives [] for missing, non-array, or malformed values, and never throws', () => {
+    expect(extrasOf({})).toEqual([]);
+    expect(extrasOf({ extraPhotos: undefined })).toEqual([]);
+    expect(extrasOf({ extraPhotos: 'face' })).toEqual([]);
+    expect(extrasOf({ extraPhotos: { role: 'face', photoUri: 'p' } })).toEqual([]);
+    expect(extrasOf({ extraPhotos: [{ role: 'tail', photoUri: 'p' }] })).toEqual([]);
+    expect(extrasOf({ extraPhotos: [{ role: 'face' }] })).toEqual([]);
+    expect(extrasOf({ extraPhotos: [{ role: 'face', photoUri: '' }] })).toEqual([]);
+    expect(extrasOf({ extraPhotos: [null, 3, 'x'] })).toEqual([]);
+    expect(extrasOf({ extraPhotos: [{ role: 'face', photoUri: 'p', photoBase64: 7 }] })).toEqual([
+      { role: 'face', photoUri: 'p' },
+    ]);
+  });
+
+  it('keeps only the first face and the first body', () => {
+    expect(
+      extrasOf({
+        extraPhotos: [
+          { role: 'face', photoUri: 'f1' },
+          { role: 'face', photoUri: 'f2' },
+          { role: 'body', photoUri: 'b1' },
+          { role: 'body', photoUri: 'b2' },
+        ],
+      }),
+    ).toEqual([{ role: 'face', photoUri: 'f1' }, { role: 'body', photoUri: 'b1' }]);
+  });
+});
+
+describe('SYC-415: coverOf keeps the cover uri and base64 paired', () => {
+  it('is the face extra when there is one, with its own base64', () => {
+    const item = makeItem({
+      photoUri: 'first-uri',
+      photoBase64: 'FIRST',
+      extraPhotos: [{ role: 'face', photoUri: 'face-uri', photoBase64: 'FACE' }],
+    });
+    expect(coverOf(item)).toEqual({ uri: 'face-uri', base64: 'FACE' });
+  });
+
+  it('never pairs the face uri with the first photo base64', () => {
+    const item = makeItem({ photoUri: 'first-uri', photoBase64: 'FIRST', extraPhotos: [{ role: 'face', photoUri: 'face-uri' }] });
+    expect(coverOf(item)).toEqual({ uri: 'face-uri', base64: undefined });
+  });
+
+  it('is the first photo with no face extra (a body extra is never the cover)', () => {
+    const item = makeItem({ photoUri: 'first-uri', photoBase64: 'FIRST', extraPhotos: [{ role: 'body', photoUri: 'b' }] });
+    expect(coverOf(item)).toEqual({ uri: 'first-uri', base64: 'FIRST' });
+    expect(coverOf(makeItem({ photoUri: 'x', photoBase64: undefined }))).toEqual({ uri: 'x', base64: undefined });
   });
 });

@@ -7,6 +7,7 @@
  */
 import type { MatchCandidate } from '@workspace/api-client-react';
 import { isDeviceMovedError } from './deviceMoved';
+import type { ExtraRole } from './extraPhotos';
 
 /** Server-error retries before an item is marked failed. */
 export const MAX_SYNC_ATTEMPTS = 3;
@@ -40,10 +41,65 @@ export interface PendingSighting {
   failCount?: number;
   /** Translation key explaining a permanent server rejection. */
   rejectionKey?: string;
+  /**
+   * SYC-415: the optional face and body photos, stored as refs (never inline
+   * base64 once queued). Typed `unknown` on purpose: the stored list is never
+   * validated on load (`parseQueue` passes items through), so ALWAYS read it
+   * through `extrasOf`.
+   */
+  extraPhotos?: unknown;
+  /**
+   * SYC-415: `extraMissing` — an extra's stored file had gone when the spot
+   * sent, so it sent without it. `extraNotKept` — an extra couldn't be stored
+   * outside the list when queued, so the spot was queued with its first photo.
+   */
+  extraNote?: 'extraMissing' | 'extraNotKept';
+  /** SYC-415: which photo the server refused, with `rejectionKey`. */
+  rejectedRole?: 'first' | 'face' | 'body';
   // Populated once synced with the server:
   sightingId?: number;
   isCatPhoto?: boolean;
   candidates?: MatchCandidate[];
+}
+
+/** One stored extra photo of a queued spot (SYC-415). */
+export interface ExtraRef {
+  role: ExtraRole;
+  photoUri: string;
+  photoBase64?: string;
+}
+
+/**
+ * The ONLY way to read a queued item's extra photos. Never throws: anything
+ * malformed is dropped, and at most the first face and the first body are
+ * kept, because the stored shape can't be trusted (`parseQueue` in
+ * `queueStore.ts` passes items through untouched).
+ */
+export function extrasOf(item: { extraPhotos?: unknown }): ExtraRef[] {
+  const raw = item?.extraPhotos;
+  if (!Array.isArray(raw)) return [];
+  const out: ExtraRef[] = [];
+  const seen = new Set<ExtraRole>();
+  for (const e of raw) {
+    if (!e || typeof e !== 'object') continue;
+    const { role, photoUri, photoBase64 } = e as Record<string, unknown>;
+    if (role !== 'face' && role !== 'body') continue;
+    if (typeof photoUri !== 'string' || photoUri.length === 0) continue;
+    if (seen.has(role)) continue;
+    seen.add(role);
+    out.push(typeof photoBase64 === 'string' ? { role, photoUri, photoBase64 } : { role, photoUri });
+  }
+  return out;
+}
+
+/**
+ * The queued spot's cover photo (spec §5.1): the face extra if there is one,
+ * else the first photo. The uri and base64 always come from the SAME photo.
+ */
+export function coverOf(item: PendingSighting): { uri: string; base64?: string } {
+  const face = extrasOf(item).find((e) => e.role === 'face');
+  if (face) return { uri: face.photoUri, base64: face.photoBase64 };
+  return { uri: item.photoUri, base64: item.photoBase64 };
 }
 
 /**
