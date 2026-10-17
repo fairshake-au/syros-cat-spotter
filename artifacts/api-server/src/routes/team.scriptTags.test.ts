@@ -87,3 +87,53 @@ describe("no other team page has any script", () => {
     expect(res.text).not.toMatch(/<script/i);
   });
 });
+
+// SYC-396 PR 1.5: the island Map (the Cats page as a map) has exactly two
+// scripts, Leaflet then ours, and one stylesheet, Leaflet's, all by hashed
+// name from /api/team/assets/. Its no-script move page has none at all.
+describe("the island Map loads Leaflet and our map script, and nothing else", () => {
+  const LEAFLET = /^<script src="\/api\/team\/assets\/leaflet\.[0-9a-f]{12}\.js" defer><\/script>$/;
+  const MAP = /^<script src="\/api\/team\/assets\/dashboard-map\.[0-9a-f]{12}\.js" defer><\/script>$/;
+  const CSS = /^<link rel="stylesheet" href="\/api\/team\/assets\/leaflet\.[0-9a-f]{12}\.css">$/;
+
+  it.each([
+    ["the map", "/api/team/cats?view=map"],
+    ["the map, filtered", "/api/team/cats?view=map&colours=ginger&sterilised=not_known"],
+    ["the map, with a cat in focus", () => `/api/team/cats?view=map&focus=${catId}`],
+  ] as [string, string | (() => string)][])("%s", async (_what, p) => {
+    const res = await page(typeof p === "string" ? p : p(), staff);
+    expect(res.status).toBe(200);
+    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+    expect(tags).toHaveLength(2);
+    expect(tags[0]).toMatch(LEAFLET);
+    expect(tags[1]).toMatch(MAP);
+    expect(res.text.match(/<script\b/gi)).toHaveLength(2);
+    const links = res.text.match(/<link\b[^>]*>/gi) ?? [];
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatch(CSS);
+    const head = res.text.slice(0, res.text.indexOf("</head>"));
+    for (const t of [...tags, ...links]) expect(head).toContain(t);
+    // Every file it names is served.
+    for (const t of [...tags, ...links]) {
+      const src = /(?:src|href)="([^"]+)"/.exec(t)![1]!;
+      expect((await request(app).get(src)).status, src).toBe(200);
+    }
+  });
+
+  it("the button-map move page (no script) has no script and no stylesheet", async () => {
+    const res = await request(app)
+      .post("/api/team/cats/map")
+      .set("Origin", "https://team.catspotters.com")
+      .set("Cookie", staff.cookie)
+      .type("form")
+      .send({ vz: "12", vx: "0", vy: "0", go: "in" });
+    expect(res.status).toBe(200);
+    expect(res.text).not.toMatch(/<script|<link\b/i);
+  });
+
+  it("refused to a cat guardian: no script", async () => {
+    const res = await page("/api/team/cats?view=map", guardian);
+    expect(res.status).toBe(403);
+    expect(res.text).not.toMatch(/<script|<link\b/i);
+  });
+});
