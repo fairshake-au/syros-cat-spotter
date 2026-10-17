@@ -7,6 +7,7 @@ import { RECENT_GUARDIAN_CHANGES, type RecentGuardianChange } from "../recentGua
 import { ADD_SEARCH_LIMIT } from "../colonyCats";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
+import { rowMenu } from "./rowMenu";
 import { position } from "./position";
 import { formatDate, pageLanguage } from "./strings";
 import { wordsIn, type WordKey, type Words } from "./words";
@@ -312,7 +313,7 @@ function historyList(W: Words, history: ColonyHistoryEntry[], island: boolean, l
 }
 
 function catList(
-  { w }: Words,
+  { w, t }: Words,
   cats: ColonyView["cats"],
   colonyId: number,
   mayTakeOut: boolean,
@@ -334,12 +335,15 @@ function catList(
               // guardianCatView only, never the team's (island-only) cat page.
               `<li><a class="catrow" href="${myCatPath(c.id)}">${thumb}` +
               `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span></a>`) +
-          (mayTakeOut
-            ? `<form class="takeout" method="post" action="/api/team/cats/${c.id}/colony">` +
-              `<input type="hidden" name="colonyId" value="none">` +
-              `<input type="hidden" name="from" value="${colonyId}">` +
-              `<button type="submit" class="risky">${w("colony.takeOut")}</button></form>`
-            : "") +
+          // In the cat's "More" menu, not a red button on every row (SYC-396 PR 1.4).
+          rowMenu(t("colony.more"), c.name, [
+            mayTakeOut
+              ? `<form class="takeout" method="post" action="/api/team/cats/${c.id}/colony">` +
+                `<input type="hidden" name="colonyId" value="none">` +
+                `<input type="hidden" name="from" value="${colonyId}">` +
+                `<button type="submit" class="risky">${w("colony.takeOut")}</button></form>`
+              : "",
+          ]) +
           `</li>`
         );
       })

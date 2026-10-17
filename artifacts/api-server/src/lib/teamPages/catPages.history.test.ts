@@ -20,6 +20,7 @@ const statement = (id: number, over: Partial<TeamStatement> = {}): TeamStatement
   ownerClaim: false,
   movedFrom: null,
   photoUrl: null,
+  sightingId: null,
   correction: null,
   ...over,
 });
@@ -80,6 +81,7 @@ function view(
         notSeenSince: null,
       },
       sterilised: { ...resolved(opts.sterilised ?? []), clippedTipSightings: 0 },
+      vaccinations: [],
     },
     appearance: {
       coat: appearanceNone,

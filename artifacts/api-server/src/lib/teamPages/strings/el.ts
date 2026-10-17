@@ -308,6 +308,8 @@ export const el: Record<StringKey, string> = {
   "colony.noPhoto": "Χωρίς φωτογραφία",
   "colony.addCats": "Προσθήκη γατών",
   "colony.takeOut": "Αφαίρεση από αυτή την αποικία",
+  // The menu on each cat in a colony (SYC-396 PR 1.4).
+  "colony.more": "Περισσότερα",
   "colony.takeOutNote": "Η γάτα μένει στα αρχεία· απλώς δεν ανήκει σε καμία αποικία.",
 
   "add.title": "Προσθήκη γατών στην αποικία",

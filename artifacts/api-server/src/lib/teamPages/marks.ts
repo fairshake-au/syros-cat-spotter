@@ -34,13 +34,21 @@ const SHAPE: Record<SterilisedMark, string> = {
     '<path d="M3.8 12.2L12.2 3.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
 };
 
+const icon = (m: SterilisedMark) =>
+  `<svg class="mark-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">${SHAPE[m]}</svg>`;
+
 /** Trusted HTML: a small shape and the word. Built only from the fixed text above. */
 export function markBadge(m: SterilisedMark): string {
-  return (
-    `<span class="mark mark-${m}">` +
-    `<svg class="mark-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">${SHAPE[m]}</svg>` +
-    `<span class="mark-word">${MARK_WORD[m]}</span></span>`
-  );
+  return `<span class="mark mark-${m}">${icon(m)}<span class="mark-word">${MARK_WORD[m]}</span></span>`;
+}
+
+/**
+ * Trusted HTML: the shape beside a sentence that already says the state in
+ * words (the cat page's facts row, SYC-396 PR 1.4). The sentence goes through
+ * escapeHtml before it reaches here.
+ */
+export function markWithWords(m: SterilisedMark, escapedWords: string): string {
+  return `<span class="mark mark-${m}">${icon(m)}<span class="mark-text">${escapedWords}</span></span>`;
 }
 
 /** The marks in the order a legend, or a cluster's ring, lists them. */

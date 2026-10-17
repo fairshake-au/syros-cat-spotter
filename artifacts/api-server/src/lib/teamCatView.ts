@@ -28,12 +28,14 @@ import {
   resolveLifeStatus,
   resolveMarkings,
   resolveSterilised,
+  resolveVaccinated,
   standingAboveTeam,
   standingAppearanceRows,
   type AppearanceCheckReason,
   type AppearanceResolved,
   type Confidence,
   type LifeStatusValue,
+  type VaccinationRecord,
 } from "./resolve";
 import { recentGuardianMark } from "./guardianStatements";
 import { handPickDisagrees, handPickedAmong } from "./handPick";
@@ -295,6 +297,11 @@ export interface TeamStatement {
   movedFrom: { statementId: number; cat: TeamCatRef } | null;
   photoUrl: string | null;
   /**
+   * The sighting it was sent with, or null (SYC-396 PR 1.4): the history
+   * counts a run of routine spotter rows by their sightings.
+   */
+  sightingId: number | null;
+  /**
    * How the team may mark it wrong (PR 4), or null. Only a standing
    * statement of a kind with a team capability: a life status, a
    * sterilisation, or a clipped ear tip ("That's not a clip").
@@ -479,6 +486,8 @@ export interface TeamCatView {
       notSeenSince: string | null;
     };
     sterilised: TeamResolved<boolean> & { clippedTipSightings: number };
+    /** The vaccinations the team recorded, newest first (spec §7.1, team only). Empty: none recorded. */
+    vaccinations: VaccinationRecord[];
   };
   /**
    * Colour and markings, team-only (SYC-2 PR 3.1): what the resolver says,
@@ -858,6 +867,7 @@ export async function teamCatView(
       movedTo: crossCat.movedTo.get(o.id) ?? null,
       movedFrom: crossCat.movedFrom.get(o.id) ?? null,
       photoUrl: urlFor(o.photoId),
+      sightingId: o.sightingId ?? null,
       correction: correctionOf(o, replacedBy.has(o.id)),
       // Only this cat's own claim: Remove owner is scoped to it. A merged-in
       // cat's claim is ended from that cat's page.
@@ -927,6 +937,7 @@ export async function teamCatView(
         conflictingStatementIds: sterilised.conflicts,
         clippedTipSightings: clippedTipCount(observations),
       },
+      vaccinations: resolveVaccinated(observations),
     },
     appearance: {
       coat: appearanceOf(observations, "coat", coat, replacedIds, people, urlFor),

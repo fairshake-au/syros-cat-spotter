@@ -46,13 +46,15 @@ export interface MapMarker extends Position {
   href?: string;
   /**
    * How a marker looks; a fixed set, never free text. A feeding site's
-   * (SYC-209 PR 3.2), a sighting's (PR 3.4), or a cat's on the island map
+   * (SYC-209 PR 3.2), a sighting's (PR 3.4), a cat's on the island map
    * (SYC-396 PR 1.5): one of the four sterilisation marks (spec §12.2), or a
-   * group of nearby cats.
+   * group of nearby cats; or one of a cat's own sightings on its page (PR 1.4).
    */
-  look?: "public" | "private" | "retired" | "sighting" | SterilisedMark | "cluster";
+  look?: "public" | "private" | "retired" | "sighting" | SterilisedMark | "cluster" | "seen";
   /** A cluster only: how many cats, and how many of each mark (its ring). */
   cluster?: { count: number; split: Partial<Record<SterilisedMark, number>> };
+  /** A number drawn on the marker: the cat page's sightings, in time order (SYC-396 PR 1.4). */
+  n?: number;
 }
 
 const LOOKS: Record<NonNullable<MapMarker["look"]>, string> = {
@@ -67,6 +69,9 @@ const LOOKS: Record<NonNullable<MapMarker["look"]>, string> = {
   not_known: " catpin",
   not_sterilised: " catpin",
   cluster: " catpin cluster",
+  // One of a cat's own sightings on its page (SYC-396 PR 1.4): a numbered
+  // dark-ink circle. Circles mean cats; never teal, which means sterilisation.
+  seen: " seen",
 };
 
 const isMark = (look: MapMarker["look"]): look is SterilisedMark =>
@@ -79,6 +84,8 @@ function pinInside(m: MapMarker): string {
     const n = Math.max(0, Math.floor(m.cluster.count));
     return `<span class="catcluster" style="background:${clusterRing(m.cluster.split)}" aria-hidden="true"><span>${n}</span></span>`;
   }
+  // One of a cat's own sightings on its page (SYC-396 PR 1.4): its number.
+  if (m.look === "seen" && Number.isInteger(m.n)) return `<span class="pinnum" aria-hidden="true">${m.n}</span>`;
   return "";
 }
 
@@ -117,6 +124,32 @@ const hiddenFields = (fields: Record<string, string> | undefined) =>
   Object.entries(fields ?? {})
     .map(([k, v]) => hiddenField(k, v))
     .join("");
+
+/**
+ * The closest view (zoom 17 at most) that shows every point, at least a
+ * marker's half-width in from the edge; the whole island when none fits.
+ */
+export function fitView(points: readonly Position[], maxZoom = 17): View {
+  if (points.length === 0) return viewAround(ISLAND_CENTRE, MIN_ZOOM);
+  const lats = points.map((p) => p.lat);
+  const lngs = points.map((p) => p.lng);
+  const centre = {
+    lat: (Math.min(...lats) + Math.max(...lats)) / 2,
+    lng: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+  };
+  // Worked out at the smallest picture, where a marker takes the most room.
+  const size = BANDS[0].size;
+  const margin = 12;
+  for (let z = maxZoom; z > MIN_ZOOM; z--) {
+    const v = viewAround(centre, z);
+    const fits = points.every((p) => {
+      const at = pointOnView(v, size, p);
+      return at !== null && Math.min(at.left, at.top, GRID * size - at.left, GRID * size - at.top) >= margin;
+    });
+    if (fits) return v;
+  }
+  return viewAround(centre, MIN_ZOOM);
+}
 
 /** The view a map option set describes, kept over the island. */
 export function resolveView(opts: Pick<MapOptions, "view" | "centre" | "zoom">): View {
