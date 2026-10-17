@@ -837,7 +837,7 @@ const ConfirmForm = z.object({
   /** What the page showed for a coat, each part on its own (SYC-398 §4). */
   expectedColours: codeList,
   /** "" when the page showed the pattern as not known. */
-  expectedPattern: z.union([z.literal(""), z.enum(COAT_PATTERNS)]).optional(),
+  expectedPattern: z.union([z.literal(""), z.enum(COAT_PATTERNS)]).nullable().optional(),
   back: z.enum(["cat", "colour"]).optional(),
 });
 

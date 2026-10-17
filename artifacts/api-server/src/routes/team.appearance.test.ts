@@ -335,6 +335,28 @@ describe("Correct", () => {
     expect((await snapshot(catId)).coatColours).toMatchObject({ value: ["black", "white"], confidence: "confirmed" });
   });
 
+  it("SYC-398: a colours-only Correct leaves an earlier team pattern standing", async () => {
+    const catId = await newCat();
+    await machine(catId, ["ginger", "tabby"]);
+    // The team confirms Ginger · Stripes, then corrects the colours only.
+    expect((await confirm(catId, "coat", { expectedColours: "ginger", expectedPattern: "stripes" })).status).toBe(303);
+    expect((await correct(catId, { kind: "coat", colours: ["brown", "ginger"], reason: "x" })).status).toBe(303);
+    const snap = await snapshot(catId);
+    expect(snap.coatColours).toMatchObject({ value: ["brown", "ginger"], confidence: "confirmed" });
+    expect(snap.coatPattern).toMatchObject({ value: "stripes", confidence: "confirmed" });
+  });
+
+  it("SYC-398: a JSON Confirm may send expectedPattern null for no pattern shown", async () => {
+    const catId = await newCat();
+    await machine(catId, ["grey"]);
+    const res = await json(`/api/team/cats/${catId}/appearance/confirm`).send({
+      kind: "coat",
+      expectedColours: ["grey"],
+      expectedPattern: null,
+    });
+    expect(res.status).toBe(201);
+  });
+
   it("SYC-398: takes every colour seen, all five if need be, with no limit", async () => {
     const catId = await newCat();
     const res = await correct(catId, { kind: "coat", colours: ["white", "brown", "ginger", "grey", "black"], reason: "x" });
