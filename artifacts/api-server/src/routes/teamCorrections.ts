@@ -678,7 +678,6 @@ router.post(
 
 // ── Colony ─────────────────────────────────────────────────────────────────
 
-/** Digits only, or the word "none" ("take out"); JSON may send a number or null. */
 /**
  * Where putting a cat in a colony, or taking it out, is first checked
  * (SYC-209 PR 4.2; SYC-333): the colony it goes INTO, or for "none" the
@@ -694,6 +693,7 @@ async function colonyChangeTarget(req: Request): Promise<CapabilityTarget> {
   return catTarget(catId);
 }
 
+/** Digits only, or the word "none" ("take out"); JSON may send a number or null. */
 const ColonyForm = z.object({
   colonyId: z.preprocess(
     (v) => (v === null ? "none" : typeof v === "number" ? String(v) : v),
@@ -702,7 +702,9 @@ const ColonyForm = z.object({
   /**
    * Set by "Take out of this colony" on a colony page: the colony the cat is
    * being taken out of. A cat that has been moved since the page was drawn
-   * is left alone.
+   * is left alone. Read ONLY with `colonyId=none` (review of SYC-209 PR 4.2):
+   * with a destination it would let anyone who may add to a colony test
+   * "is cat X in colony N?" by the answer, without writing anything.
    */
   from: z.preprocess((v) => (v === "" ? undefined : v), z.string().regex(CAT_ID_RE).optional()),
 });
@@ -710,8 +712,8 @@ const ColonyForm = z.object({
 /**
  * POST /api/team/cats/:id/colony. Puts the cat in the colony picked
  * (`colonyId`), or takes it out of its colony (`colonyId=none`), by writing
- * one signed `colony` statement. Needs `assign_cat_to_colony`, with no
- * colony target (plan Decision 1A).
+ * one signed `colony` statement. Needs `assign_cat_to_colony` for the
+ * colony it goes into, or for a take-out the one it leaves (SYC-209 PR 4.2).
  */
 router.post(
   "/team/cats/:id/colony",
@@ -731,7 +733,8 @@ router.post(
       });
     }
     const colonyId = parsed.data.colonyId === "none" ? null : Number(parsed.data.colonyId);
-    const from = parsed.data.from === undefined ? undefined : Number(parsed.data.from);
+    // `from` only means something for a take-out; with a destination it is ignored.
+    const from = colonyId !== null || parsed.data.from === undefined ? undefined : Number(parsed.data.from);
     try {
       const out = await placeCats(
         teamPerson(res),

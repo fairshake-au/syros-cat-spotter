@@ -62,6 +62,11 @@ export async function placeCats(
   if (colonyId !== null && !can(person, "assign_cat_to_colony", { colonyId })) {
     throw new ObservationRefused("NOT_AUTHORISED", "Not authorised");
   }
+  // `onlyFrom` guards a take-out only (review of PR 4.2): with a destination it
+  // would turn "skipped or moved" into an answer about where a cat is.
+  if (colonyId !== null && opts.onlyFrom !== undefined) {
+    throw new ObservationRefused("MALFORMED_VALUE", "onlyFrom is for taking a cat out");
+  }
   const catIds = [...new Set(rawCatIds)].sort((a, b) => a - b);
 
   return db.transaction(async (tx): Promise<PlaceCatsOutcome> => {

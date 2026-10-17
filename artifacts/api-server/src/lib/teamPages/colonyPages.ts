@@ -21,8 +21,9 @@ import { wordsIn, type WordKey, type Words } from "./words";
 // that moved away "moved to another colony", and an "Add cats" result in a
 // colony that isn't hers is "In another colony", with no link. Her cats are
 // linked to her own cat page (roles plan PR 2.1, SYC-416), never the team's,
-// which is island-only. The actions (create, edit, add a site, add or
-// take out cats) are the team's until PR 4.2.
+// which is island-only. Since PR 4.2 she creates colonies, edits her own (not
+// its name), adds sites and puts cats in or takes them out; each action is
+// drawn only if can() allows it for this colony.
 
 /** Who a page is drawn for: the team (English) or a cat guardian. */
 export interface ColonyViewer {
@@ -494,9 +495,8 @@ export function renderAddCatsPage(opts: ColonyViewer & {
   results: CatToAdd[];
   personName: string;
   /**
-   * Draw the tick boxes and "Add the ticked cats". Adding is the team's
-   * until PR 4.2, so a cat guardian sees the search and its results only.
-   * Default: as `island`.
+   * Draw the tick boxes and "Add the ticked cats": can() for this colony
+   * (a cat guardian adds to her own since PR 4.2). Default: as `island`.
    */
   mayAdd?: boolean;
 }): string {

@@ -42,10 +42,9 @@ import { coordinate, fieldsOf, lf, noNul, optionalText } from "../lib/teamForms"
 // colony (`requireSeeing`), and every query behind them is filtered by
 // `visibleColonyIds` in SQL: a cat guardian sees her own colonies and nothing
 // else; another colony answers exactly what a number that was never a
-// colony answers. Every write still asks its capability with NO colony
-// target, so creating, editing, renaming and adding cats stay the team's
-// until PR 4.2. Creating a colony also insists on an island row (below),
-// since a guardian holds `create_colony`.
+// colony answers. Since PR 4.2 a cat guardian creates colonies (hers at
+// once), edits her own, and puts cats in or takes them out; each write is
+// checked against the colony read from the record. Renaming stays island-only.
 
 const router: IRouter = Router();
 
@@ -286,7 +285,7 @@ router.post(
     const raw = String(req.params["id"]);
     if (!ID_RE.test(raw)) return notFound(req, res);
     const id = Number(raw);
-    const back = { href: colonyPage(id), label: t("problem.backToColony") };
+    const back = { href: colonyPage(id), label: t("problem.backToColony", pageViewer(res).lang) };
     const parsed = UpdateForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, parsed.error, back);
 
@@ -347,7 +346,7 @@ const AddCatsForm = z.object({
  * The page for finding cats to add (`assign_cat_to_colony`, checked against
  * the colony READ FROM THE RECORD). A cat guardian may search for her own
  * colony; a cat outside her colonies shows only what the public sees, and
- * its colony as "In another colony". Adding itself is the team's until PR 4.2.
+ * its colony as "In another colony". Adding is checked against this colony (PR 4.2).
  */
 router.get(
   "/team/colonies/:id/cats",
@@ -397,7 +396,7 @@ router.post(
     const raw = String(req.params["id"]);
     if (!ID_RE.test(raw)) return notFound(req, res);
     const id = Number(raw);
-    const back = { href: `${colonyPage(id)}/cats`, label: t("problem.backToAdd") };
+    const back = { href: `${colonyPage(id)}/cats`, label: t("problem.backToAdd", pageViewer(res).lang) };
     const parsed = AddCatsForm.safeParse(req.body ?? {});
     if (!parsed.success) {
       if (!isFormPost(req)) {
@@ -408,7 +407,7 @@ router.post(
       return void res
         .status(400)
         .type("html")
-        .send(renderColonyProblem(person.name, t("problem.pickCats"), back, pageViewer(res)));
+        .send(renderColonyProblem(person.name, t("problem.pickCats", pageViewer(res).lang), back, pageViewer(res)));
     }
     try {
       const out = await placeCats(person, id, parsed.data.catIds.map(Number));
@@ -422,7 +421,7 @@ router.post(
           return void res
             .status(400)
             .type("html")
-            .send(renderColonyProblem(person.name, t("problem.noSuchCat"), back, pageViewer(res)));
+            .send(renderColonyProblem(person.name, t("problem.noSuchCat", pageViewer(res).lang), back, pageViewer(res)));
         case "done":
           if (isFormPost(req)) {
             return void res.redirect(

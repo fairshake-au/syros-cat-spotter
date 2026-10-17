@@ -267,15 +267,33 @@ describe("every sites and colonies read takes a Visible and uses it", () => {
 });
 
 describe("a target module reads only a record's colony", () => {
-  it("capabilityTargets.ts selects nothing from feeding_sites but its colony id", () => {
-    const src = stripComments(read("lib/capabilityTargets.ts"));
-    const selects = [...src.matchAll(/\.select\(\{([^}]*)\}\)\s*\.from\(feedingSitesTable\)/g)].map((m) => m[1]!.trim());
-    expect(selects.length).toBeGreaterThan(0);
-    for (const fields of selects) expect(fields).toBe("colonyId: feedingSitesTable.colonyId");
-    expect(src).not.toMatch(/\bfrom\s+"?feeding_sites\b/i);
-    // Its columns are named only to pick the colony out and to find the row.
+  // Review of PR 4.2 (M1): the first version of this test let a whole-row
+  // read through. Every read of feeding_sites here must name exactly its
+  // colony column, and no other table this file guards may appear at all.
+  const src = stripComments(read("lib/capabilityTargets.ts"));
+
+  it("every read of feeding_sites in capabilityTargets.ts selects its colony id and nothing else", () => {
+    const froms = src.match(/\.from\(\s*feedingSitesTable\s*\)/g) ?? [];
+    const narrow = src.match(/\.select\(\s*\{\s*colonyId:\s*feedingSitesTable\.colonyId\s*\}\s*\)\s*\.from\(\s*feedingSitesTable\s*\)/g) ?? [];
+    expect(froms.length).toBeGreaterThan(0);
+    expect(narrow.length).toBe(froms.length);
     const columns = [...src.matchAll(/feedingSitesTable\.(\w+)/g)].map((m) => m[1]);
     expect(new Set(columns)).toEqual(new Set(["colonyId", "id"]));
+  });
+
+  it("capabilityTargets.ts touches no other guarded table, by name or in SQL", () => {
+    for (const table of TABLES.filter((t) => t !== "feedingSitesTable")) {
+      expect(src, table).not.toMatch(new RegExp(`\\b${table}\\b`));
+    }
+    expect(src).not.toMatch(SQL_TABLE_RE);
+  });
+
+  it("a planted whole-row read, or a colonies read, turns it red", () => {
+    const wide = src + "\nexport const x = () => db.select().from(feedingSitesTable);";
+    const froms = wide.match(/\.from\(\s*feedingSitesTable\s*\)/g) ?? [];
+    const narrow = wide.match(/\.select\(\s*\{\s*colonyId:\s*feedingSitesTable\.colonyId\s*\}\s*\)\s*\.from\(\s*feedingSitesTable\s*\)/g) ?? [];
+    expect(narrow.length).not.toBe(froms.length);
+    expect("db.select().from(coloniesTable)").toMatch(/\bcoloniesTable\b/);
   });
 });
 

@@ -7,6 +7,7 @@ import app from "../app";
 import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { createColony } from "../lib/teamColonies";
 import { addSite } from "../lib/teamSiteWrites";
+import { placeCats } from "../lib/colonyCats";
 import { movedAwayNotices, MOVED_AWAY_DAYS } from "../lib/movedAway";
 import { guardianOn, seedCat, type SeededCat, type Signed } from "../test/roleKit";
 import { removeTestPerson } from "../test/removeTestPerson";
@@ -246,6 +247,34 @@ describe("a cat guardian puts cats in her colony and takes them out", () => {
     const out = await post(`/api/team/cats/${other.id}/colony`, { colonyId: "none", from: String(c1) }, eleni.cookie);
     expect([out.status, out.text]).toEqual([403, '{"error":"forbidden"}']);
     expect((await colonyStatements(other.id)).length).toBe(before);
+  });
+
+  it("placeCats itself refuses taking out another colony's cat, under the lock (not only the route's door)", async () => {
+    const other = await seedCat(c2);
+    const before = (await colonyStatements(other.id)).length;
+    const her = { id: eleni.id, scopes: [{ role: "guardian", colonyId: c1 }] };
+    await expect(placeCats(her, null, [other.id])).rejects.toMatchObject({ code: "NOT_AUTHORISED" });
+    // A batch with one cat that isn't hers writes nothing for any of them.
+    const mine = await seedCat(c1);
+    await expect(placeCats(her, null, [mine.id, other.id])).rejects.toMatchObject({ code: "NOT_AUTHORISED" });
+    expect((await colonyStatements(other.id)).length).toBe(before);
+    expect((await colonyStatements(mine.id)).length).toBe(1);
+  });
+
+  it("`from` is only for a take-out: with a destination the library refuses it and the route ignores it (no \"is cat X in colony N?\" test)", async () => {
+    const her = { id: eleni.id, scopes: [{ role: "guardian", colonyId: c1 }] };
+    const someone = await seedCat(c2);
+    await expect(placeCats(her, c1, [someone.id], { onlyFrom: c2 })).rejects.toMatchObject({ code: "MALFORMED_VALUE" });
+    // Through the route the answer is the same whatever `from` says: the cat moves to her colony.
+    const a = await seedCat(c2);
+    const b = await seedCat(c2);
+    const withWrongFrom = await post(`/api/team/cats/${a.id}/colony`, { colonyId: String(c1), from: String(c1) }, eleni.cookie);
+    const withRightFrom = await post(`/api/team/cats/${b.id}/colony`, { colonyId: String(c1), from: String(c2) }, eleni.cookie);
+    expect(withWrongFrom.status).toBe(withRightFrom.status);
+    expect(Object.keys(withWrongFrom.body).sort()).toEqual(Object.keys(withRightFrom.body).sort());
+    for (const cat of [a, b]) expect((await colonyStatements(cat.id))[0]?.value).toEqual({ colonyId: c1 });
+    const browser = await post(`/api/team/cats/${a.id}/colony`, { colonyId: String(c1), from: String(c2) }, eleni.cookie, "browser");
+    expect(browser.headers["location"] ?? "").not.toContain(`/api/team/colonies/${c2}`);
   });
 
   it("there is no pending state: nothing waits for the team", async () => {

@@ -26,6 +26,9 @@ export interface ConfirmPageOptions {
   cancelLabel: string;
   personName: string;
   active: NavKey;
+  /** The page's language, and a cat guardian's own menu (SYC-209 PR 4.2: she retires her sites). */
+  lang?: string;
+  nav?: "guardian";
 }
 
 export function renderConfirmPage(o: ConfirmPageOptions): string {
@@ -36,6 +39,8 @@ export function renderConfirmPage(o: ConfirmPageOptions): string {
   return renderPage({
     title: o.title,
     active: o.active,
+    nav: o.nav,
+    lang: o.lang,
     personName: o.personName,
     body:
       `<ul class="sure">${o.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` +

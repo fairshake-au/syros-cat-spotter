@@ -142,7 +142,7 @@ export function renderSitesPage(opts: SiteViewer & {
   note?: string;
   /** "Show on our map" from a sighting (PR 3.4): an outlined marker where the cat was seen. */
   sighting?: Position;
-  /** Draw "Add a site" (the add routes are the team's until PR 4.2). Default: as `island`. */
+  /** Draw "Add a site": anyone who may add a site to a colony they see (PR 4.2). Default: as `island`. */
   mayAdd?: boolean;
 }): string {
   const W = wordsIn(opts.lang);

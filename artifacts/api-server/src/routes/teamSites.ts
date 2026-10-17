@@ -66,9 +66,10 @@ import {
 // colony (`requireSeeing`), and every query behind them is filtered by
 // `visibleColonyIds` in SQL: a cat guardian sees her own colonies' sites and
 // nothing else. Another colony's site answers exactly what a number that was
-// never a site answers. Adding, editing, moving, retiring and changing a
-// site's colony still ask their capability with NO colony target, so they
-// stay the team's until PR 4.2. The two sighting entry points check their
+// never a site answers. Since PR 4.2 a cat guardian also adds, edits, moves,
+// retires and brings back sites in her own colonies: each write is checked
+// against the site's own colony (`siteTarget`), or for a new site the colony
+// it goes into. Changing a site's colony stays island-only. The two sighting entry points check their
 // capabilities against the sighting's CAT's colony, read from the record.
 // The "for any colony?" check is the sign-in door's alone.
 //
@@ -488,6 +489,7 @@ router.post(
     res.type("html").send(
       renderAddConfirm({
         personName: teamPerson(res).name,
+        lang: pageViewer(res).lang,
         spot: picked.spot,
         zoom: picked.zoom,
         colonies: await colonyOptions(pageViewer(res).visible),
@@ -738,6 +740,8 @@ router.post(
             cancelLabel: say("sure.cancel"),
             personName: v.personName,
             active: "sites",
+            lang: v.lang,
+            nav: v.island ? undefined : "guardian",
           }),
         );
       }
@@ -860,7 +864,7 @@ router.post(
     if (!stamp.success) {
       return badForm(req, res, ["updatedAt"], { href: sitePath(id), label: t("sproblem.backToSite", pageViewer(res).lang) });
     }
-    const picked = readPick(body);
+    const picked = readPick(body, pageViewer(res).lang);
     if (!picked.ok) {
       if (!isFormPost(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
       // Back on the site's own map, not the whole island.
@@ -880,6 +884,7 @@ router.post(
         checkNote: picked.checkNote,
         reason: MoveCarryForm.parse(body).reason,
         island: pageViewer(res).island,
+        lang: pageViewer(res).lang,
       }),
     );
   },

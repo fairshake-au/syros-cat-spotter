@@ -20,10 +20,9 @@ import {
 // (SYC-395), built by position.ts, only when the viewer is island-wide
 // (`island === true`).
 //
-// The picker and the move pages are the team's (English) until PR 4.2. The
-// confirmation page and the problem page can be reached by a cat guardian
-// through "Make a feeding site here" on a sighting of her own colony's cat
-// (PR 4.1), so they take her language and menu; saving is still the team's.
+// A cat guardian reaches every page here for her own colonies' sites (PR
+// 4.2): the picker, the add and move confirmations and the problem page all
+// take her language and menu.
 
 const w = (key: WordKey) => esc(t(key));
 
@@ -208,11 +207,16 @@ export function renderMoveConfirm(o: {
   reason?: string;
   /** Island-wide viewer (`isIslandWide`): only then "Open map" (D9). */
   island?: boolean;
+  /** A cat guardian moves her own sites (SYC-209 PR 4.2): her language. */
+  lang?: string;
 }): string {
+  const { t, w } = wordsIn(o.lang);
   const base = `${SITES_PATH}/${o.site.id}`;
   return renderPage({
     title: `${t("move.title")} ${o.site.name}`,
     active: "sites",
+    nav: o.island === false ? "guardian" : undefined,
+    lang: o.lang,
     personName: o.personName,
     mainClass: "mappage",
     beforeTitle: `<p class="back"><a href="${esc(base)}/move">${w("confirm.again")}</a></p>`,
@@ -220,7 +224,7 @@ export function renderMoveConfirm(o: {
       smallMap(o.spot, o.zoom, [
         { lat: o.site.lat, lng: o.site.lng, label: t("move.now"), look: "retired" },
         { ...o.spot, label: t("move.new"), look: "private" },
-      ], `${base}/move/pick`, { updatedAt: o.site.stamp, reason: o.reason ?? "" }) +
+      ], `${base}/move/pick`, { updatedAt: o.site.stamp, reason: o.reason ?? "" }, o.lang) +
       `<p class="hint">${w("confirm.nudge")}</p>` +
       `<p class="hint">${w("move.legend")}</p>` +
       `<p class="tapped">${w("move.now")}: ${position(o.site.lat, o.site.lng, { link: o.island === true })}<br>` +
