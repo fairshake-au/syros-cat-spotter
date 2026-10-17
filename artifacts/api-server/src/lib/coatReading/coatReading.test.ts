@@ -28,7 +28,8 @@ import { resolveCoatParts } from "../resolve";
 import { catsDueForReading } from "./due";
 import { _recordHooks, copyReadingForward, recordReading } from "./record";
 import { MODEL_VERSION } from "./reader";
-import { BUDGETS, spendReadBudget, sweepCoatReadings } from "./sweep";
+import { BUDGETS, losesWhatIsKnown, spendReadBudget, sweepCoatReadings } from "./sweep";
+import { VISION_MODEL } from "../visionModel";
 
 const RUN = randomBytes(3).toString("hex");
 const PREFIX = `vt-coat-${RUN}-`;
@@ -854,5 +855,339 @@ describe("spot review: the gaps it found, closed", () => {
     await write([c.id]);
     await write([c.id]);
     expect(sentLabels).toEqual(["reappear:main", "reappear:s"]);
+  });
+});
+
+// ── SYC-398 PR C: the one checked re-read (§7) ──────────────────────────────
+describe("T-reread: a manual re-read of photos read by an older reader version", () => {
+  const V1 = `${VISION_MODEL}/coat-v1`;
+
+  /**
+   * A reading by the coat-v1 reader, straight to the table (as the 15 Oct
+   * fill-in wrote them, before coat-v2). `value` is the stored coat.
+   */
+  async function v1Reading(catId: number, photoId: number, value: Record<string, unknown>, at: Date) {
+    const [row] = await db
+      .insert(observationsTable)
+      .values({
+        catId,
+        kind: "coat",
+        value: { ...value, modelVersion: V1 },
+        accountId: "system:vision",
+        roleAtTime: "system",
+        authorityScope: "none",
+        provenance: "machine",
+        photoId,
+        observedAt: at,
+        suggestionSource: "coat-reader",
+      })
+      .returning();
+    return row!;
+  }
+
+  async function team(catId: number, value: Record<string, unknown>) {
+    await writeObservation(db, {
+      catId,
+      kind: "coat",
+      value,
+      accountId: "person:vitest-coat-staff",
+      roleAtTime: "staff",
+      observedAt: new Date(Date.now() - 60_000),
+    });
+  }
+
+  const reread = (catIds: number[], mode: "dry_run" | "trial" | "write" = "write", tick = clock()) =>
+    sweepCoatReadings({ mode, limit: 50, catIds, reread: true, now: tick });
+
+  it("an automatic run never lists or reads a cat for an older version", async () => {
+    const c = await cat("rr-auto");
+    const tick = clock();
+    await v1Reading(c.id, c.main, { colours: ["tabby"] }, tick());
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toEqual([]);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: false })).toEqual([]);
+    const r = await write([c.id], tick);
+    expect(r.due).toBe(0);
+    expect(r.reread).toBe(false);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("a cat whose shown photo already has a v1 reading is listed with action read under reread, then written once", async () => {
+    const c = await cat("rr-read");
+    const tick = clock();
+    await v1Reading(c.id, c.main, { colours: ["tabby"] }, tick());
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toEqual([
+      { catId: c.id, photoId: c.main, action: "read", because: "older_version" },
+    ]);
+    answers.set("rr-read:main", answer(["brown", "ginger"], { pattern: "stripes" }));
+    const r = await reread([c.id], "write", tick);
+    expect(r.reread).toBe(true);
+    expect(r.items).toMatchObject([{ catId: c.id, because: "older_version", status: "written" }]);
+    expect(r.written).toBe(1);
+    const rows = await machineRows(c.id);
+    expect(rows).toHaveLength(2);
+    expect(rows[1]!.value).toEqual({ colours: ["brown", "ginger"], pattern: "stripes", modelVersion: MODEL_VERSION });
+    expect(rows[1]!.photoId).toBe(c.main);
+    expect((await resolvedCoat(c.id)).value).toEqual(["brown", "ginger"]);
+  });
+
+  it("after the v2 write it isn't listed again: at most one written reading per photo per version", async () => {
+    const c = await cat("rr-once");
+    const tick = clock();
+    await v1Reading(c.id, c.main, { colours: ["ginger", "white"] }, tick());
+    await reread([c.id], "write", tick);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toEqual([]);
+    const again = await reread([c.id], "write", tick);
+    expect(again.due).toBe(0);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("a v1 copy-forward under an automatic run isn't due again", async () => {
+    const c = await cat("rr-copy");
+    await sighting(c.id, "rr-copy:s");
+    const tick = clock();
+    const main = await v1Reading(c.id, c.main, { colours: ["ginger"], pattern: "stripes" }, tick());
+    await setHidden(c.main, true);
+    await write([c.id], tick); // the stand-in, read by coat-v2
+    await setHidden(c.main, false);
+    // Automatic: the main photo was read before (by v1), so it is copied as before.
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toMatchObject([
+      { photoId: c.main, action: "copy", copyOf: main.id, because: "main_restored" },
+    ]);
+    await write([c.id], tick);
+    const copy = (await machineRows(c.id)).at(-1)!;
+    expect(copy.value).toEqual({ colours: ["ginger"], pattern: "stripes", modelVersion: V1 });
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toEqual([]);
+    await write([c.id], tick);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("under reread, a restored photo read only by v1 is read rather than copied, and then isn't due again (no copy loop)", async () => {
+    const c = await cat("rr-loop");
+    await sighting(c.id, "rr-loop:s");
+    const tick = clock();
+    await v1Reading(c.id, c.main, { colours: ["black", "white"] }, tick());
+    await setHidden(c.main, true);
+    await write([c.id], tick); // the stand-in, read by coat-v2
+    await setHidden(c.main, false);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toEqual([
+      { catId: c.id, photoId: c.main, action: "read", because: "main_restored" },
+    ]);
+    answers.set("rr-loop:main", answer(["black", "white"], { pattern: "patches" }));
+    const r = await reread([c.id], "write", tick);
+    expect(r.items).toMatchObject([{ status: "written" }]);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toEqual([]);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toEqual([]);
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("under reread, a restored photo with a reading by this version is copied, not read", async () => {
+    const c = await cat("rr-copy2");
+    await sighting(c.id, "rr-copy2:s");
+    const tick = clock();
+    await write([c.id], tick); // main, coat-v2
+    const [mainRow] = await machineRows(c.id);
+    await setHidden(c.main, true);
+    await write([c.id], tick); // stand-in, coat-v2
+    await setHidden(c.main, false);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toMatchObject([
+      { photoId: c.main, action: "copy", copyOf: mainRow!.id, because: "main_restored" },
+    ]);
+  });
+
+  it("a photo with a reading the team marked wrong is skipped", async () => {
+    const c = await cat("rr-wrong");
+    const tick = clock();
+    const old = await v1Reading(c.id, c.main, { colours: ["tabby"] }, tick());
+    await markWrong(c.id, old.id);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toEqual([]);
+    const r = await reread([c.id], "write", tick);
+    expect(r.due).toBe(0);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("an older rejected reading of the shown photo is enough to skip it", async () => {
+    const c = await cat("rr-wrong-old");
+    const tick = clock();
+    const first = await v1Reading(c.id, c.main, { colours: ["grey"] }, tick());
+    await markWrong(c.id, first.id);
+    await v1Reading(c.id, c.main, { colours: ["tabby"] }, tick());
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toEqual([]);
+  });
+
+  it("a cat whose both parts the team decided is skipped; one part decided is not enough", async () => {
+    const both = await cat("rr-team-both");
+    const one = await cat("rr-team-one");
+    const tick = clock();
+    await v1Reading(both.id, both.main, { colours: ["tabby"] }, tick());
+    await v1Reading(one.id, one.main, { colours: ["tabby"] }, tick());
+    await team(both.id, { colours: ["brown", "ginger"], pattern: "stripes" });
+    await team(one.id, { colours: ["brown", "ginger"] });
+    expect(resolveCoatParts((await loadCatRecords([both.id])).get(both.id)!.observations).pattern.rule).toBe(1);
+    const due = await catsDueForReading(Infinity, db, { catIds: [both.id, one.id], reread: true });
+    expect(due).toEqual([{ catId: one.id, photoId: one.main, action: "read", because: "older_version" }]);
+    await reread([both.id, one.id], "write", tick);
+    expect(sentLabels).toEqual(["rr-team-one:main"]);
+  });
+
+  it("a reading that loses a known pattern is held back: nothing written, in a trial and a write", async () => {
+    const c = await cat("rr-pattern");
+    const tick = clock();
+    await v1Reading(c.id, c.main, { colours: ["ginger"], pattern: "stripes" }, tick());
+    answers.set("rr-pattern:main", answer(["ginger", "white"], { pattern: "cant_tell" }));
+    const trial = await reread([c.id], "trial", tick);
+    expect(trial.items).toMatchObject([
+      {
+        status: "held_back",
+        current: { colours: ["ginger"], pattern: "stripes", notSure: false },
+        parts: { colours: ["ginger", "white"], pattern: null, notSure: false },
+      },
+    ]);
+    const r = await reread([c.id], "write", tick);
+    expect(r.items).toMatchObject([{ status: "held_back" }]);
+    expect(r.written).toBe(0);
+    expect(await machineRows(c.id)).toHaveLength(1);
+    // Held back, so still due: it stays on the list by design.
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toHaveLength(1);
+  });
+
+  it("losing known colours is held back too (the pure rule)", () => {
+    const known = { colours: ["black" as const, "white" as const], pattern: null, notSure: false };
+    expect(losesWhatIsKnown(known, { colours: null, pattern: "patches", notSure: false })).toBe(true);
+    expect(losesWhatIsKnown(known, { colours: ["black"], pattern: null, notSure: false })).toBe(false);
+    expect(losesWhatIsKnown(null, { colours: ["black"], pattern: null, notSure: false })).toBe(false);
+    expect(losesWhatIsKnown({ colours: null, pattern: null, notSure: true }, { colours: null, pattern: "plain", notSure: false })).toBe(false);
+    expect(losesWhatIsKnown(null, { colours: null, pattern: null, notSure: true })).toBe(true);
+  });
+
+  it("a whole Not sure is held back, even over a v1 Not sure", async () => {
+    const known = await cat("rr-ns-known");
+    const unknown = await cat("rr-ns-unknown");
+    const tick = clock();
+    await v1Reading(known.id, known.main, { colours: ["tabby"] }, tick());
+    await v1Reading(unknown.id, unknown.main, { colours: ["not_sure"] }, tick());
+    answers.set("rr-ns-known:main", answer(["ginger"], { catCount: 2 }));
+    answers.set("rr-ns-unknown:main", answer(["ginger"], { photoClear: false }));
+    const r = await reread([known.id, unknown.id], "write", tick);
+    expect(r.items.map((i) => i.status)).toEqual(["held_back", "held_back"]);
+    expect(r.written).toBe(0);
+    expect(await machineRows(known.id)).toHaveLength(1);
+    expect(await machineRows(unknown.id)).toHaveLength(1);
+  });
+
+  it("a reading that keeps every known part, and adds to them, is written", async () => {
+    const c = await cat("rr-keeps");
+    const tick = clock();
+    await v1Reading(c.id, c.main, { colours: ["tabby", "white"] }, tick()); // Stripes, colours not known
+    answers.set("rr-keeps:main", answer(["brown", "white"], { pattern: "stripes" }));
+    const r = await reread([c.id], "write", tick);
+    expect(r.items).toMatchObject([
+      { status: "written", current: { colours: null, pattern: "stripes", notSure: false } },
+    ]);
+    expect((await resolvedCoat(c.id)).value).toEqual(["brown", "white"]);
+  });
+
+  it("current is the newest machine reading the team hasn't marked wrong", async () => {
+    const c = await cat("rr-current");
+    await sighting(c.id, "rr-current:s");
+    const tick = clock();
+    await v1Reading(c.id, c.main, { colours: ["ginger"], pattern: "stripes" }, tick());
+    await setHidden(c.main, true);
+    answers.set("rr-current:s", answer(["black"], { pattern: "cant_tell" }));
+    await write([c.id], tick); // the stand-in: Black, pattern not known
+    const standIn = (await machineRows(c.id)).at(-1)!;
+    await markWrong(c.id, standIn.id);
+    await setHidden(c.main, false);
+    // The main photo was read only by v1: under reread it is read again.
+    answers.set("rr-current:main", answer(["ginger"], { pattern: "cant_tell" }));
+    const r = await reread([c.id], "trial", tick);
+    expect(r.items).toMatchObject([
+      { because: "main_restored", status: "held_back", current: { colours: ["ginger"], pattern: "stripes" } },
+    ]);
+  });
+
+  it("exclude holds under reread", async () => {
+    const a = await cat("rr-ex-a");
+    const b = await cat("rr-ex-b");
+    const tick = clock();
+    await v1Reading(a.id, a.main, { colours: ["tabby"] }, tick());
+    await v1Reading(b.id, b.main, { colours: ["tabby"] }, tick());
+    const r = await sweepCoatReadings({
+      mode: "write",
+      limit: 50,
+      exclude: [a.id],
+      catIds: [a.id, b.id],
+      reread: true,
+      now: tick,
+    });
+    expect(r.items.find((i) => i.catId === a.id)).toMatchObject({ status: "excluded" });
+    expect(r.items.find((i) => i.catId === b.id)).toMatchObject({ status: "written" });
+    expect(await machineRows(a.id)).toHaveLength(1);
+    expect(sentLabels).toEqual(["rr-ex-b:main"]);
+  });
+
+  it("the re-check inside the lock honours reread (forced interleave, as in T-race): one row", async () => {
+    const c = await cat("rr-race");
+    const tick = clock();
+    await v1Reading(c.id, c.main, { colours: ["tabby"] }, tick());
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let reached = 0;
+    _recordHooks.afterRecheck = async () => {
+      reached += 1;
+      if (reached === 1) await gate;
+    };
+    const input = {
+      catId: c.id,
+      photoId: c.main,
+      parts: { colours: ["brown" as const], pattern: "stripes" as const, notSure: false },
+      raw: { colours: ["brown"], pattern: "stripes", confidence: 0.9, catCount: 1, photoClear: true },
+      reread: true,
+    };
+    const first = recordReading(input);
+    while (reached === 0) await new Promise((r) => setTimeout(r, 10));
+    // The first is now between its re-check and its insert. Start the second.
+    const second = recordReading(input);
+    await new Promise((r) => setTimeout(r, 300));
+    release();
+    const outcomes = await Promise.all([first, second]);
+    expect(outcomes.map((o) => o.kind).sort()).toEqual(["not_due", "written"]);
+    expect(await machineRows(c.id)).toHaveLength(2);
+    _recordHooks.afterRecheck = null;
+    // Without reread, the same reading is refused inside the lock.
+    const other = await cat("rr-race-auto");
+    await v1Reading(other.id, other.main, { colours: ["tabby"] }, tick());
+    expect(await recordReading({ ...input, catId: other.id, photoId: other.main, reread: false })).toEqual({
+      kind: "not_due",
+    });
+  });
+
+  it("a cat the team decides while its photo is being read is refused by the re-check, and nothing is written", async () => {
+    const c = await cat("rr-mid");
+    const tick = clock();
+    await v1Reading(c.id, c.main, { colours: ["tabby"] }, tick());
+    create.mockImplementationOnce(async () => {
+      sentLabels.push("rr-mid:main");
+      await team(c.id, { colours: ["grey"], pattern: "stripes" });
+      return { choices: [{ message: { content: JSON.stringify(answer(["grey"], { pattern: "stripes" })) } }] };
+    });
+    const r = await reread([c.id], "write", tick);
+    expect(r.items).toMatchObject([{ status: "not_due_any_more" }]);
+    expect(await machineRows(c.id)).toHaveLength(1);
+  });
+
+  it("a photo the team rejects between the list and the send is never sent", async () => {
+    const a = await cat("rr-send-a");
+    const b = await cat("rr-send-b");
+    const tick = clock();
+    await v1Reading(a.id, a.main, { colours: ["tabby"] }, tick());
+    const bOld = await v1Reading(b.id, b.main, { colours: ["tabby"] }, tick());
+    create.mockImplementationOnce(async () => {
+      sentLabels.push("rr-send-a:main");
+      await markWrong(b.id, bOld.id);
+      return { choices: [{ message: { content: JSON.stringify(answer(["grey"], { pattern: "stripes" })) } }] };
+    });
+    const r = await reread([a.id, b.id], "write", tick);
+    expect(sentLabels).toEqual(["rr-send-a:main"]);
+    expect(r.items.find((i) => i.catId === b.id)).toMatchObject({ status: "not_due_any_more" });
   });
 });
