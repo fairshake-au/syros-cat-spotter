@@ -313,6 +313,10 @@ export const en = {
   "colony.noCentre": "Not set.",
   "colony.sitesTitle": "Feeding sites",
   "colony.noSites": "No feeding sites are recorded for this colony yet.",
+  // SYC-209 PR 4.2: one of her cats was put in a colony that isn't hers
+  // (spec Decision 14). Never names the colony or its cat guardian.
+  "moved.title": "Moved to another colony",
+  "moved.line": "{cat} has moved to another colony ({date})",
   "colony.catsTitle": "Cats",
   "colony.noCats": "No cats are in this colony yet.",
   "colony.historyTitle": "History",
@@ -465,6 +469,8 @@ export const en = {
   "confirm.directions": "How to find it (optional)",
   "confirm.directionsHint": "A short line in words, like “down the steps by the blue gate”.",
   "confirm.notes": "Team-only notes (optional)",
+  "confirm.colonyOwn": "Colony",
+  "confirm.notesOwn": "Notes (optional)",
   "confirm.save": "Save the site",
   "confirm.again": "Start again on the full map",
   "confirm.nudge": "Not quite right? Tap the small map to move the pin. Place the pin first, then fill in the details.",

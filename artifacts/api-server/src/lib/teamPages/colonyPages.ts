@@ -21,8 +21,9 @@ import { wordsIn, type WordKey, type Words } from "./words";
 // that moved away "moved to another colony", and an "Add cats" result in a
 // colony that isn't hers is "In another colony", with no link. Her cats are
 // linked to her own cat page (roles plan PR 2.1, SYC-416), never the team's,
-// which is island-only. The actions (create, edit, add a site, add or
-// take out cats) are the team's until PR 4.2.
+// which is island-only. Since PR 4.2 she creates colonies, edits her own (not
+// its name), adds sites and puts cats in or takes them out; each action is
+// drawn only if can() allows it for this colony.
 
 /** Who a page is drawn for: the team (English) or a cat guardian. */
 export interface ColonyViewer {
@@ -103,7 +104,11 @@ function colonyCard(W: Words, c: ColonyRow): string {
   );
 }
 
-function createForm(W: Words): string {
+/**
+ * "Create a colony". A cat guardian's form has a name and notes only: she
+ * becomes its guardian, under her own name (spec §2.7; SYC-209 PR 4.2).
+ */
+function createForm(W: Words, island: boolean): string {
   const { w } = W;
   return (
     `<div class="fixes"><details><summary>${w("create.open")}</summary>` +
@@ -111,9 +116,11 @@ function createForm(W: Words): string {
     `<label class="label" for="new-name">${w("create.name")}</label>` +
     `<p class="hint">${w("create.nameHint")}</p>` +
     `<input class="text" id="new-name" name="name" type="text" required maxlength="${COLONY_NAME_MAX}" autocomplete="off">` +
-    `<label class="label" for="new-guardian">${w("create.guardian")}</label>` +
-    `<input class="text" id="new-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" autocomplete="off">` +
-    `<label class="label" for="new-notes">${w("create.notes")}</label>` +
+    (island
+      ? `<label class="label" for="new-guardian">${w("create.guardian")}</label>` +
+        `<input class="text" id="new-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" autocomplete="off">`
+      : "") +
+    `<label class="label" for="new-notes">${w(island ? "create.notes" : "colony.notesOwn")}</label>` +
     `<textarea id="new-notes" name="notes" maxlength="${COLONY_NOTES_MAX}"></textarea>` +
     notesHint(W) +
     `<button type="submit">${w("create.button")}</button>` +
@@ -151,7 +158,7 @@ export function renderColoniesPage(opts: ColonyViewer & {
       `<button type="submit">${w("colonies.searchButton")}</button></div></form>` +
       (searching ? `<p><a class="tap" href="/api/team/colonies">${w("colonies.showAll")}</a></p>` : "") +
       list +
-      (opts.canCreate ? createForm(W) : ""),
+      (opts.canCreate ? createForm(W, opts.island !== false) : ""),
   });
 }
 
@@ -278,7 +285,7 @@ function catList(
   );
 }
 
-function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean): string {
+function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean, island: boolean): string {
   const { w } = W;
   const rename = may("rename_colony")
     ? `<label class="label" for="edit-name">${w("colony.rename")}</label>` +
@@ -290,7 +297,8 @@ function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean): str
     rename +
     `<label class="label" for="edit-guardian">${w("create.guardian")}</label>` +
     `<input class="text" id="edit-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" value="${esc(v.guardianName ?? "")}" autocomplete="off">` +
-    `<label class="label" for="edit-notes">${w("create.notes")}</label>` +
+    // Her own colony's notes are just "Notes" to a cat guardian (PR 4.1).
+    `<label class="label" for="edit-notes">${w(island ? "create.notes" : "colony.notesOwn")}</label>` +
     `<textarea id="edit-notes" name="notes" maxlength="${COLONY_NOTES_MAX}">${esc(v.notes ?? "")}</textarea>` +
     notesHint(W) +
     `<label class="label" for="edit-lat">${w("colony.centreLat")}</label>` +
@@ -303,10 +311,34 @@ function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean): str
   );
 }
 
+/**
+ * "Mimi has moved to another colony" (spec Decision 14): the cat's name and
+ * the day, never the colony it went to or who looks after it.
+ */
+function movedAwayList(W: Words, moved: ReadonlyArray<{ catName: string; movedAt: Date }>): string {
+  if (moved.length === 0) return "";
+  return (
+    `<h3>${W.w("moved.title")}</h3>` +
+    `<ul class="refs moved">` +
+    moved
+      .map(
+        (m) =>
+          `<li>${esc(W.t("moved.line", { cat: m.catName, date: dayIn(W.lang, m.movedAt.toISOString()) }))}</li>`,
+      )
+      .join("") +
+    `</ul>`
+  );
+}
+
 export function renderColonyPage(
   v: ColonyView,
   personName: string,
-  opts: ColonyViewer & { may: (c: Capability) => boolean; done?: string },
+  opts: ColonyViewer & {
+    may: (c: Capability) => boolean;
+    done?: string;
+    /** Her cats that someone else moved to a colony that isn't hers (movedAwayNotices). */
+    movedAway?: ReadonlyArray<{ catName: string; movedAt: Date }>;
+  },
 ): string {
   const W = wordsIn(opts.lang);
   const { w } = W;
@@ -340,7 +372,7 @@ export function renderColonyPage(
     body:
       banner(W, opts.done) +
       summary +
-      (opts.may("edit_colony") ? editForm(W, v, opts.may) : "") +
+      (opts.may("edit_colony") ? editForm(W, v, opts.may, island) : "") +
       `<h2>${w("colony.sitesTitle")}</h2>` +
       sites +
       // Opens the add page with this colony chosen. Only the colony's number
@@ -356,6 +388,7 @@ export function renderColonyPage(
       (opts.may("assign_cat_to_colony")
         ? `<p><a class="tap cardlink" href="${esc(colonyHref(v.id))}/cats">${w("colony.addCats")}</a></p>`
         : "") +
+      movedAwayList(W, opts.movedAway ?? []) +
       notes +
       `<h2>${w("colony.historyTitle")}</h2>` +
       historyList(W, v.history, island, link),
@@ -462,9 +495,8 @@ export function renderAddCatsPage(opts: ColonyViewer & {
   results: CatToAdd[];
   personName: string;
   /**
-   * Draw the tick boxes and "Add the ticked cats". Adding is the team's
-   * until PR 4.2, so a cat guardian sees the search and its results only.
-   * Default: as `island`.
+   * Draw the tick boxes and "Add the ticked cats": can() for this colony
+   * (a cat guardian adds to her own since PR 4.2). Default: as `island`.
    */
   mayAdd?: boolean;
 }): string {

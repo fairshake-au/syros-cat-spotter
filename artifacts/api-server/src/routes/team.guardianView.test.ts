@@ -400,13 +400,14 @@ describe("what a guardian does see: her own colonies, in full", () => {
     expect(html).toContain(`href="/api/team/sites/${s1}"`);
   });
 
-  it("her menu is Colonies and Feeding sites only, and there is no 'Add a site' (PR 4.2)", async () => {
+  it("her menu is Colonies and Feeding sites only, and 'Add a site' is there (PR 4.2)", async () => {
     const html = (await get("/api/team/sites", eleni.cookie)).text;
     expect(html).toContain('href="/api/team/colonies"');
     expect(html).not.toContain("Welfare queue");
     expect(html).not.toContain('href="/api/team/cats"');
     expect(html).not.toContain('href="/api/team/likely"');
-    expect(html).not.toContain('action="/api/team/sites/new"');
+    // PR 4.2: she adds sites to her own colonies.
+    expect(html).toContain('action="/api/team/sites/new"');
   });
 
   it("Recently changed: her sites only, and names outside her colonies read 'Syros Cats'", async () => {
@@ -417,13 +418,16 @@ describe("what a guardian does see: her own colonies, in full", () => {
     expect(strip).toContain("by Syros Cats");
   });
 
-  it("her site page: exact position, how to find it, history with positions; no actions", async () => {
+  it("her site page: exact position, how to find it, history with positions; Edit, Move, Retire but never Change colony (PR 4.2)", async () => {
     const html = decoded((await get(`/api/team/sites/${s1}`, eleni.cookie)).text);
     expect(html).toContain(`${S1_POS.lat.toFixed(5)}, ${S1_POS.lng.toFixed(5)}`);
     expect(html).toContain(S1_DIRECTIONS);
     expect(html).toContain("Site created");
-    expect(html).not.toContain('data-actions="site"');
+    expect(html).toContain('data-actions="site"');
+    expect(html).toContain(`action="/api/team/sites/${s1}/retire"`);
+    expect(html).toContain(`action="/api/team/sites/${s1}/move"`);
     expect(html).not.toContain("Change colony");
+    expect(html).not.toContain(`action="/api/team/sites/${s1}/colony"`);
     // K7: the "Ask the team to make this public" button is not drawn yet.
     expect(html).not.toMatch(/make this public/i);
   });
@@ -445,9 +449,11 @@ describe("what a guardian does see: her own colonies, in full", () => {
     expect(html).toContain("Cat moved to another colony");
     expect(html).toContain("→ another colony");
     // None of the team's actions (PR 4.2).
-    expect(html).not.toContain("Change this colony");
-    expect(html).not.toContain("Add a feeding site to this colony");
-    expect(html).not.toContain("Take out of this colony");
+    // PR 4.2: she edits her colony (never its name), adds sites and takes cats out.
+    expect(html).toContain("Change this colony");
+    expect(html).not.toContain('name="name"');
+    expect(html).toContain("Add a feeding site to this colony");
+    expect(html).toContain("Take out of this colony");
   });
 
   it("Colonies and its search: her colony only, by any name", async () => {
@@ -458,7 +464,10 @@ describe("what a guardian does see: her own colonies, in full", () => {
     for (const q of ["Kini", "Oldname", "Zoe", XQ]) {
       expect((await get(`/api/team/colonies?q=${encodeURIComponent(q)}`, eleni.cookie, "json")).body.colonies, q).toEqual([]);
     }
-    expect((await get("/api/team/colonies", eleni.cookie)).text).not.toContain("Create a colony");
+    // PR 4.2: she creates colonies too, with a name and notes only.
+    const list = (await get("/api/team/colonies", eleni.cookie)).text;
+    expect(list).toContain("Create a colony");
+    expect(list).not.toContain('name="guardianName"');
   });
 
   it("Add cats: a cat in another colony is 'In another colony', with only what the public sees", async () => {
@@ -471,8 +480,9 @@ describe("what a guardian does see: her own colonies, in full", () => {
     const html = decoded((await get(`/api/team/colonies/${c1}/cats?q=${encodeURIComponent(`CatB ${RUN}`)}`, eleni.cookie)).text);
     expect(html).toContain("In another colony");
     // Adding is the team's until PR 4.2: no tick boxes, no button.
-    expect(html).not.toContain('name="catIds"');
-    expect(html).not.toContain("Add the ticked cats");
+    // PR 4.2: she adds cats to her colony, any cat, by name or number (spec §7.3).
+    expect(html).toContain('name="catIds"');
+    expect(html).toContain("Add the ticked cats");
     const own = (await get(`/api/team/colonies/${c1}/cats?q=SYR-${String(catA.id).padStart(4, "0")}`, eleni.cookie, "json")).body.results[0];
     expect(own).toMatchObject({ id: catA.id, colony: { id: c1, name: C1_NAME }, elsewhere: false });
     expect(own.thumbnailUrl).toBe(`/api/team/photos/${catA.photoPublicId}`);
@@ -487,7 +497,8 @@ describe("what a guardian does see: her own colonies, in full", () => {
     const res = await post("/api/team/sites/from-sighting", { sightingId: String(sightA) }, eleni.cookie);
     expect(res.status).toBe(200);
     const options = [...res.text.matchAll(/<option value="(\d*)"/g)].map((m) => m[1]);
-    expect(options).toEqual(["", String(c1)]);
+    // PR 4.2: her site always goes in one of her colonies, so no "no colony" choice.
+    expect(options).toEqual([String(c1)]);
     expect(res.text).toContain(`<option value="${c1}" selected>`);
   });
 
@@ -605,19 +616,35 @@ describe("test 12 (part): every placed check takes its colony from the record, n
     expect(ok.body.colonyId).toBe(c1);
   });
 
-  it("the writes stay the team's (PR 4.2): a guardian is refused on her own site and colony too", async () => {
-    const stamp = await stampOf(s1);
+  it("PR 4.2: on another colony's site, colony or cat she is refused, whatever the form names, and nothing is written", async () => {
+    const stamp2 = await stampOf(s2);
+    const count = async () =>
+      Number((await pool.query("select (select count(*) from feeding_sites) + (select count(*) from mapping_events) + (select count(*) from observations) as n")).rows[0].n);
+    const before = await count();
     for (const [path, body] of [
-      [`/api/team/sites/${s1}`, { updatedAt: stamp, name: "x" }],
-      [`/api/team/sites/${s1}/retire`, { updatedAt: stamp, reason: "x" }],
-      [`/api/team/colonies/${c1}`, { notes: "x" }],
-      [`/api/team/colonies/${c1}/cats`, { catIds: String(catA.id) }],
-      ["/api/team/sites", { name: "x", lat: "37.44", lng: "24.94", colonyId: String(c1) }],
-      ["/api/team/colonies", { name: `new ${RUN}` }],
+      // Colony 2's site and colony: the colony is read from the record.
+      [`/api/team/sites/${s2}`, { updatedAt: stamp2, name: "x" }],
+      [`/api/team/sites/${s2}/retire`, { updatedAt: stamp2, reason: "x", confirm: "1" }],
+      [`/api/team/sites/${s2}/restore`, { updatedAt: stamp2, reason: "x" }],
+      [`/api/team/sites/${s2}/move`, { updatedAt: stamp2, lat: "37.44", lng: "24.94", reason: "x" }],
+      [`/api/team/colonies/${c2}`, { notes: "x" }],
+      [`/api/team/colonies/${c2}/cats`, { catIds: String(catA.id) }],
+      // Taking colony 2's cat out: checked against the colony it LEAVES, even
+      // when the form claims it is leaving hers.
+      [`/api/team/cats/${catB.id}/colony`, { colonyId: "none", from: String(c1) }],
+      [`/api/team/cats/${catB.id}/colony`, { colonyId: "none" }],
+      // Her own site, moved to colony 2: Change colony is island-only.
+      [`/api/team/sites/${s1}/colony`, { updatedAt: await stampOf(s1), colonyId: String(c2) }],
     ] as const) {
       const res = await post(path, body, eleni.cookie, "json");
       expect([res.status, res.text], path).toEqual([403, '{"error":"forbidden"}']);
     }
+    // A new site naming colony 2, or no colony: the same 400 as a colony that doesn't exist.
+    for (const colonyId of [String(c2), "", String(NO_SUCH)]) {
+      const res = await post("/api/team/sites", { name: "x", lat: "37.44", lng: "24.94", colonyId }, eleni.cookie, "json");
+      expect([res.status, res.body], colonyId).toEqual([400, { error: "Invalid request", fields: ["colonyId"] }]);
+    }
+    expect(await count()).toBe(before);
   });
 });
 

@@ -438,6 +438,8 @@ export const fr: Record<StringKey, string> = {
   "confirm.directions": "Comment le trouver (facultatif)",
   "confirm.directionsHint": "Une courte phrase, comme « en bas des marches près du portail bleu ».",
   "confirm.notes": "Notes réservées à l’équipe (facultatif)",
+  "confirm.colonyOwn": "Colonie",
+  "confirm.notesOwn": "Notes (facultatif)",
   "confirm.save": "Enregistrer le point",
   "confirm.again": "Recommencer sur la carte complète",
   "confirm.nudge":
@@ -532,6 +534,8 @@ export const fr: Record<StringKey, string> = {
   "count.retired": ", {retired} fermés",
   "taken.cantUse": "Ce nom ne peut pas être utilisé.",
   "add.another": "Dans une autre colonie",
+  "moved.title": "Partis dans une autre colonie",
+  "moved.line": "{cat} est maintenant dans une autre colonie ({date})",
   "colony.another": "une autre colonie",
   "colony.notesOwn": "Notes",
   "count.colonySites": "{n} points de nourrissage",

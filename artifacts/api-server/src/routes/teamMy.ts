@@ -1,3 +1,4 @@
+import { movedAwayNotices } from "../lib/movedAway";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq } from "drizzle-orm";
 import {
@@ -82,8 +83,9 @@ router.get("/team/my", requireTeam(undefined, OWN), async (req: Request, res: Re
 /** GET /api/team/my/colonies: a guardian's colonies; the team gets a link to the island's pages. */
 router.get("/team/my/colonies", requireTeam(undefined, OWN), async (_req: Request, res: Response) => {
   setTeamHeaders(res);
-  const me = await aboutMe(teamPerson(res));
-  res.type("html").send(renderMyColoniesPage({ person: me }));
+  const person = teamPerson(res);
+  const me = await aboutMe(person);
+  res.type("html").send(renderMyColoniesPage({ person: me, movedAway: await movedAwayNotices(person) }));
 });
 
 // ── SYC-53 PR 2.1: her colony and her cats (roles-and-invites.md §2.2, §6.1) ──

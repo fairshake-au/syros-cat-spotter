@@ -2,6 +2,7 @@ import {
   catsTable,
   colonyNameHistoryTable,
   coloniesTable,
+  createColonyWithPlacement,
   db,
   feedingSitesTable,
   foldName,
@@ -402,6 +403,38 @@ export async function createColony(
       return row!.id;
     });
     return { kind: "created", id };
+  } catch (err) {
+    if (!isColonyNameClash(err)) throw err;
+    return { kind: "taken", holder: await colonyNamed(input.name) };
+  }
+}
+
+/**
+ * Creates a colony for anyone who may (SYC-209 PR 4.2; spec §2.7; roles
+ * Decision D), through roles PR 1.1's `createColonyWithPlacement`, which
+ * re-reads the person's roles inside its own transaction. For a cat guardian
+ * that one transaction writes the colony, her placement on it and the roles
+ * event: the colony is hers the moment it exists. For the team, the colony
+ * only. Either way the `colony_created` history row is written in the same
+ * transaction, by its hook, so the colony never exists without it.
+ */
+export async function createColonyAs(
+  person: { id: string },
+  input: { name: string; guardianName: string | null; notes: string | null },
+): Promise<CreateColonyOutcome> {
+  try {
+    const { colonyId } = await createColonyWithPlacement({ id: person.id }, input, {
+      inTransaction: async (tx, created) => {
+        await recordMappingEvent(tx, {
+          subjectKind: "colony",
+          subjectId: created.colonyId,
+          kind: "colony_created",
+          personId: person.id,
+          after: { name: input.name, guardianName: input.guardianName, notes: input.notes },
+        });
+      },
+    });
+    return { kind: "created", id: colonyId };
   } catch (err) {
     if (!isColonyNameClash(err)) throw err;
     return { kind: "taken", holder: await colonyNamed(input.name) };

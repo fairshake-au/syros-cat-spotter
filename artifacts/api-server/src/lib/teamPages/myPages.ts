@@ -215,15 +215,17 @@ export function renderStoppedPage(language?: string | null, live: readonly Langu
 
 export interface MyColoniesInput {
   person: MyPerson;
+  /** Her cats someone else moved to a colony that isn't hers (SYC-209 movedAwayNotices). */
+  movedAway?: ReadonlyArray<{ catName: string; fromColonyId: number; movedAt: Date }>;
 }
 
 /**
  * "My colonies": a cat guardian's colonies by name, each with the label the
  * team gave it and when it ends (Athens date, her language). The team sees one
  * line and a link to the island-wide pages instead. Each colony links to its
- * own page with its cats (PR 2.1);
- * SYC-209's `movedAwayNotices(person)` will add its moved-cat lines under the
- * colony names here once it exists (not on main when this was written).
+ * own page with its cats (PR 2.1). Under each colony, the lines from
+ * SYC-209's `movedAwayNotices(person)`: one of her cats someone else moved to
+ * another colony, by name and day, never which colony (spec Decision 14).
  */
 export function renderMyColoniesPage(input: MyColoniesInput, live: readonly Language[] = LIVE_LANGUAGES): string {
   const { person } = input;
@@ -251,7 +253,14 @@ export function renderMyColoniesPage(input: MyColoniesInput, live: readonly Lang
             : "";
           // Her colony page, with its cats (PR 2.1).
           const cats = `<p><a class="tap" href="${MY_COLONIES_PATH}/${p.colonyId}">${esc(t("mycol.seeCats"))}</a></p>`;
-          return `<div class="col"><strong>${esc(clip(p.name))}</strong>${label}${ends}${cats}</div>`;
+          const moved = (input.movedAway ?? [])
+            .filter((m) => m.fromColonyId === p.colonyId)
+            .map(
+              (m) =>
+                `<p class="moved">${esc(t("moved.line", { cat: clip(m.catName), date: formatDate(person.language, m.movedAt, live) }))}</p>`,
+            )
+            .join("");
+          return `<div class="col"><strong>${esc(clip(p.name))}</strong>${label}${ends}${moved}${cats}</div>`;
         })
         .join("");
   }

@@ -438,6 +438,8 @@ export const el: Record<StringKey, string> = {
   "confirm.directions": "Πώς θα το βρείτε (προαιρετικό)",
   "confirm.directionsHint": "Μια σύντομη φράση με λόγια, όπως «κάτω από τα σκαλιά δίπλα στη μπλε πόρτα».",
   "confirm.notes": "Σημειώσεις μόνο για την ομάδα (προαιρετικές)",
+  "confirm.colonyOwn": "Αποικία",
+  "confirm.notesOwn": "Σημειώσεις (προαιρετικές)",
   "confirm.save": "Αποθήκευση του σημείου",
   "confirm.again": "Από την αρχή στον πλήρη χάρτη",
   "confirm.nudge":
@@ -532,6 +534,8 @@ export const el: Record<StringKey, string> = {
   "count.retired": ", {retired} έκλεισαν",
   "taken.cantUse": "Αυτό το όνομα δεν μπορεί να χρησιμοποιηθεί.",
   "add.another": "Σε άλλη αποικία",
+  "moved.title": "Μετακινήθηκαν σε άλλη αποικία",
+  "moved.line": "{cat}: τώρα σε άλλη αποικία ({date})",
   "colony.another": "άλλη αποικία",
   "colony.notesOwn": "Σημειώσεις",
   "count.colonySites": "{n} σημεία ταΐσματος",

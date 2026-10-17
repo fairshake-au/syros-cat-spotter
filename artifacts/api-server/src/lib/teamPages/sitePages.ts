@@ -142,7 +142,7 @@ export function renderSitesPage(opts: SiteViewer & {
   note?: string;
   /** "Show on our map" from a sighting (PR 3.4): an outlined marker where the cat was seen. */
   sighting?: Position;
-  /** Draw "Add a site" (the add routes are the team's until PR 4.2). Default: as `island`. */
+  /** Draw "Add a site": anyone who may add a site to a colony they see (PR 4.2). Default: as `island`. */
   mayAdd?: boolean;
 }): string {
   const W = wordsIn(opts.lang);
@@ -247,6 +247,8 @@ export function renderSiteActions(
   s: SiteView,
   colonies: Array<{ id: number; name: string }>,
   lang?: string,
+  /** Draw "Change colony" (`reassign_feeding_site`, island-only: never for a cat guardian). Default: yes. */
+  mayReassign = true,
 ): string {
   const W = wordsIn(lang);
   const { w } = W;
@@ -297,7 +299,7 @@ export function renderSiteActions(
     `<select class="text" id="colony-pick" name="colonyId">${options}</select>` +
     `<p class="hint">${w("act.colonyPublic")}</p>` +
     `<button type="submit">${w("act.colonyButton")}</button></form></details></div>`;
-  return edit + move + retire + colony;
+  return edit + move + retire + (mayReassign ? colony : "");
 }
 
 // ── One site ───────────────────────────────────────────────────────────────
@@ -375,8 +377,10 @@ export function renderSitePage(opts: SiteViewer & {
   view: View;
   colonies: Array<{ id: number; name: string }>;
   done?: string;
-  /** Draw the team's actions (edit, move, retire, change colony). Default: as `island`. */
+  /** Draw the actions (edit, move, retire). Default: as `island`. */
   mayAct?: boolean;
+  /** Draw "Change colony" among them (island-only). Default: as `island`. */
+  mayReassign?: boolean;
 }): string {
   const W = wordsIn(opts.lang);
   const { w } = W;
@@ -434,7 +438,7 @@ export function renderSitePage(opts: SiteViewer & {
       historyList(W, s.history, mapLinks(opts)) +
       (mayAct
         ? `<h2>${w("act.title")}</h2>` +
-          `<div class="actions" data-actions="site">${renderSiteActions(s, opts.colonies, opts.lang)}</div>`
+          `<div class="actions" data-actions="site">${renderSiteActions(s, opts.colonies, opts.lang, opts.mayReassign ?? opts.island !== false)}</div>`
         : ""),
   });
 }

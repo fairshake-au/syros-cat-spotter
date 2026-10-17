@@ -20,10 +20,9 @@ import {
 // (SYC-395), built by position.ts, only when the viewer is island-wide
 // (`island === true`).
 //
-// The picker and the move pages are the team's (English) until PR 4.2. The
-// confirmation page and the problem page can be reached by a cat guardian
-// through "Make a feeding site here" on a sighting of her own colony's cat
-// (PR 4.1), so they take her language and menu; saving is still the team's.
+// A cat guardian reaches every page here for her own colonies' sites (PR
+// 4.2): the picker, the add and move confirmations and the problem page all
+// take her language and menu.
 
 const w = (key: WordKey) => esc(t(key));
 
@@ -68,7 +67,10 @@ export function renderPicker(o: {
   note?: string;
   legend?: string;
   below?: string;
-}): string {
+} & FormViewer): string {
+  // A cat guardian reaches the add and move pages for her own sites (SYC-209
+  // PR 4.2), so they are drawn in her language with her menu.
+  const { w } = wordsIn(o.lang);
   const typed =
     `<h2>${w("new.typedTitle")}</h2>` +
     `<form method="post" action="${esc(o.tapAction)}" class="typedpos">` +
@@ -84,6 +86,8 @@ export function renderPicker(o: {
   return renderPage({
     title: o.title,
     active: "sites",
+    nav: o.island === false ? "guardian" : undefined,
+    lang: o.lang,
     personName: o.personName,
     mainClass: "mappage",
     beforeTitle: `<p class="back"><a href="${esc(o.back.href)}">${esc(o.back.label)}</a></p>`,
@@ -91,6 +95,7 @@ export function renderPicker(o: {
       // Fixed line heights above the map (see .mappage in layout.ts).
       `<p>${esc(o.intro)}</p>` +
       renderMap({
+        lang: o.lang,
         view: o.view,
         markers: o.markers,
         mode: "place",
@@ -152,8 +157,10 @@ export function renderAddConfirm(o: {
 } & FormViewer): string {
   const { t, w } = wordsIn(o.lang);
   const c0: AddCarry = o.carry ?? { name: "", colonyId: "", directions: "", notes: "" };
+  // A cat guardian's site always goes in one of her colonies (spec §7.3,
+  // SYC-209 PR 4.2), so she has no "no colony" choice; the server insists too.
   const options =
-    `<option value="">${w("confirm.noColony")}</option>` +
+    (o.island === false ? "" : `<option value="">${w("confirm.noColony")}</option>`) +
     o.colonies
       .map((c) => `<option value="${c.id}"${String(c.id) === c0.colonyId ? " selected" : ""}>${esc(c.name)}</option>`)
       .join("");
@@ -177,12 +184,12 @@ export function renderAddConfirm(o: {
       `<label class="label" for="new-name">${w("confirm.name")}</label>` +
       `<p class="hint">${w("confirm.nameHint")}</p>` +
       `<input class="text" id="new-name" name="name" type="text" required maxlength="${SITE_NAME_MAX}" value="${esc(c0.name)}" autocomplete="off">` +
-      `<label class="label" for="new-colony">${w("confirm.colony")}</label>` +
-      `<select class="text" id="new-colony" name="colonyId">${options}</select>` +
+      `<label class="label" for="new-colony">${w(o.island === false ? "confirm.colonyOwn" : "confirm.colony")}</label>` +
+      `<select class="text" id="new-colony" name="colonyId"${o.island === false ? " required" : ""}>${options}</select>` +
       `<label class="label" for="new-directions">${w("confirm.directions")}</label>` +
       `<p class="hint">${w("confirm.directionsHint")}</p>` +
       `<input class="text" id="new-directions" name="directions" type="text" maxlength="${SITE_DIRECTIONS_MAX}" value="${esc(c0.directions)}" autocomplete="off">` +
-      `<label class="label" for="new-notes">${w("confirm.notes")}</label>` +
+      `<label class="label" for="new-notes">${w(o.island === false ? "confirm.notesOwn" : "confirm.notes")}</label>` +
       `<textarea id="new-notes" name="notes" maxlength="${SITE_NOTES_MAX}">${esc(c0.notes)}</textarea>` +
       `<p class="hint">${w("notes.hint")}</p>` +
       `<div class="actions"><button type="submit" class="save">${w("confirm.save")}</button></div>` +
@@ -200,11 +207,16 @@ export function renderMoveConfirm(o: {
   reason?: string;
   /** Island-wide viewer (`isIslandWide`): only then "Open map" (D9). */
   island?: boolean;
+  /** A cat guardian moves her own sites (SYC-209 PR 4.2): her language. */
+  lang?: string;
 }): string {
+  const { t, w } = wordsIn(o.lang);
   const base = `${SITES_PATH}/${o.site.id}`;
   return renderPage({
     title: `${t("move.title")} ${o.site.name}`,
     active: "sites",
+    nav: o.island === false ? "guardian" : undefined,
+    lang: o.lang,
     personName: o.personName,
     mainClass: "mappage",
     beforeTitle: `<p class="back"><a href="${esc(base)}/move">${w("confirm.again")}</a></p>`,
@@ -212,7 +224,7 @@ export function renderMoveConfirm(o: {
       smallMap(o.spot, o.zoom, [
         { lat: o.site.lat, lng: o.site.lng, label: t("move.now"), look: "retired" },
         { ...o.spot, label: t("move.new"), look: "private" },
-      ], `${base}/move/pick`, { updatedAt: o.site.stamp, reason: o.reason ?? "" }) +
+      ], `${base}/move/pick`, { updatedAt: o.site.stamp, reason: o.reason ?? "" }, o.lang) +
       `<p class="hint">${w("confirm.nudge")}</p>` +
       `<p class="hint">${w("move.legend")}</p>` +
       `<p class="tapped">${w("move.now")}: ${position(o.site.lat, o.site.lng, { link: o.island === true })}<br>` +

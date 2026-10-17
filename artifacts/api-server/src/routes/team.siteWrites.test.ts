@@ -1147,13 +1147,30 @@ describe("test 12: refusals", () => {
     expect({ sites: await totalSites(), events: await totalSiteEvents() }).toEqual(before);
   });
 
-  it("signed in without the role (a vet) or as a cat guardian (no target, Decision 1A): 403 everywhere, nothing written", async () => {
+  it("signed in without the role (a vet): 403 everywhere, nothing written", async () => {
     const s = await makeSite();
     const before = { row: await siteRow(s.id), sites: await totalSites(), events: await totalSiteEvents() };
-    for (const c of [vetCookie, guardianCookie]) {
-      for (const [method, path, body] of ROUTES) {
-        const res = await send(method, path(s.id), { updatedAt: await stampOf(s.id), ...body }, { cookie: c });
-        expect([res.status, res.text], `${method} ${path(s.id)}`).toEqual([403, '{"error":"forbidden"}']);
+    for (const [method, path, body] of ROUTES) {
+      const res = await send(method, path(s.id), { updatedAt: await stampOf(s.id), ...body }, { cookie: vetCookie });
+      expect([res.status, res.text], `${method} ${path(s.id)}`).toEqual([403, '{"error":"forbidden"}']);
+    }
+    expect(await siteRow(s.id)).toEqual(before.row);
+    expect({ sites: await totalSites(), events: await totalSiteEvents() }).toEqual({ sites: before.sites, events: before.events });
+  });
+
+  it("a cat guardian (SYC-209 PR 4.2): 403 on a site that isn't in her colony; the add pages open, and a site with no colony is refused; nothing written", async () => {
+    const s = await makeSite(); // in no colony: not hers
+    const before = { row: await siteRow(s.id), sites: await totalSites(), events: await totalSiteEvents() };
+    for (const [method, path, body] of ROUTES) {
+      const res = await send(method, path(s.id), { updatedAt: await stampOf(s.id), ...body }, { cookie: guardianCookie });
+      const where = `${method} ${path(s.id)}`;
+      if (path(s.id).includes(String(s.id))) {
+        expect([res.status, res.text], where).toEqual([403, '{"error":"forbidden"}']);
+      } else if (where === "POST /api/team/sites") {
+        // Her site must go in one of her colonies: no colony is a 400.
+        expect(res.status, where).toBe(400);
+      } else {
+        expect(res.status, where).toBe(200);
       }
     }
     expect(await siteRow(s.id)).toEqual(before.row);
