@@ -103,7 +103,11 @@ function colonyCard(W: Words, c: ColonyRow): string {
   );
 }
 
-function createForm(W: Words): string {
+/**
+ * "Create a colony". A cat guardian's form has a name and notes only: she
+ * becomes its guardian, under her own name (spec §2.7; SYC-209 PR 4.2).
+ */
+function createForm(W: Words, island: boolean): string {
   const { w } = W;
   return (
     `<div class="fixes"><details><summary>${w("create.open")}</summary>` +
@@ -111,8 +115,10 @@ function createForm(W: Words): string {
     `<label class="label" for="new-name">${w("create.name")}</label>` +
     `<p class="hint">${w("create.nameHint")}</p>` +
     `<input class="text" id="new-name" name="name" type="text" required maxlength="${COLONY_NAME_MAX}" autocomplete="off">` +
-    `<label class="label" for="new-guardian">${w("create.guardian")}</label>` +
-    `<input class="text" id="new-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" autocomplete="off">` +
+    (island
+      ? `<label class="label" for="new-guardian">${w("create.guardian")}</label>` +
+        `<input class="text" id="new-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" autocomplete="off">`
+      : "") +
     `<label class="label" for="new-notes">${w("create.notes")}</label>` +
     `<textarea id="new-notes" name="notes" maxlength="${COLONY_NOTES_MAX}"></textarea>` +
     notesHint(W) +
@@ -151,7 +157,7 @@ export function renderColoniesPage(opts: ColonyViewer & {
       `<button type="submit">${w("colonies.searchButton")}</button></div></form>` +
       (searching ? `<p><a class="tap" href="/api/team/colonies">${w("colonies.showAll")}</a></p>` : "") +
       list +
-      (opts.canCreate ? createForm(W) : ""),
+      (opts.canCreate ? createForm(W, opts.island !== false) : ""),
   });
 }
 

@@ -37,7 +37,8 @@ import { renderLikelyPage } from "../lib/teamPages/likelyPage";
 import { renderConfirmPage } from "../lib/teamPages/confirm";
 import { LIFE } from "../lib/teamPages/catPages";
 import { renderColourCheckPage } from "../lib/teamPages/appearancePage";
-import { can, type Capability } from "../lib/capabilities";
+import { can, type Capability, type CapabilityTarget } from "../lib/capabilities";
+import { catTarget } from "../lib/capabilityTargets";
 
 // The corrections (SYC-43 part 2 plan, PR 4): forms on the team cat page and
 // the Probably sterilised list. Every POST checks Origin first, then the
@@ -678,6 +679,21 @@ router.post(
 // ── Colony ─────────────────────────────────────────────────────────────────
 
 /** Digits only, or the word "none" ("take out"); JSON may send a number or null. */
+/**
+ * Where putting a cat in a colony, or taking it out, is first checked
+ * (SYC-209 PR 4.2; SYC-333): the colony it goes INTO, or for "none" the
+ * colony it is in now, the one it would LEAVE, read from the record. A form
+ * that can't be read has no colony, so only the team passes (and then gets
+ * the 400). placeCats checks again, under the cat's lock, before writing.
+ */
+async function colonyChangeTarget(req: Request): Promise<CapabilityTarget> {
+  const parsed = ColonyForm.safeParse(req.body ?? {});
+  const catId = catIdOf(req);
+  if (!parsed.success || catId === null) return { colonyId: null };
+  if (parsed.data.colonyId !== "none") return { colonyId: Number(parsed.data.colonyId) };
+  return catTarget(catId);
+}
+
 const ColonyForm = z.object({
   colonyId: z.preprocess(
     (v) => (v === null ? "none" : typeof v === "number" ? String(v) : v),
@@ -699,7 +715,7 @@ const ColonyForm = z.object({
  */
 router.post(
   "/team/cats/:id/colony",
-  ...formRoute("assign_cat_to_colony"),
+  ...formRoute("assign_cat_to_colony", { target: colonyChangeTarget }),
   async (req: Request, res: Response) => {
     const catId = catIdOf(req);
     if (catId === null) return notFound(req, res);

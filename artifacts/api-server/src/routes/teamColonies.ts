@@ -1,15 +1,15 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { can, holdsIslandRow } from "../lib/capabilities";
+import { can, type CapabilityTarget } from "../lib/capabilities";
 import { ObservationRefused } from "../lib/observations";
 import { ADD_CATS_MAX, colonyRef, placeCats, searchCatsToAdd } from "../lib/colonyCats";
-import { foldName } from "@workspace/db";
+import { foldName, PeopleError } from "@workspace/db";
 import {
   COLONY_NAME_MAX,
   COLONY_NOTES_MAX,
   GUARDIAN_NAME_MAX,
   colonyView,
-  createColony,
+  createColonyAs,
   listColonies,
   updateColony,
   type ColonyChanges,
@@ -134,6 +134,17 @@ function badForm(
     .send(renderColonyProblem(v.personName, problemFor(fields, typedName, v.lang), back, v));
 }
 
+/**
+ * Where a one-colony write is checked (SYC-209 PR 4.2): that colony. A cat
+ * guardian passes for her own; another colony and a number that is no colony
+ * get the same quiet 403. Anything that isn't a colony number has no colony,
+ * so only the team passes (and then gets the usual 404).
+ */
+async function thisColony(req: Request): Promise<CapabilityTarget> {
+  const raw = String(req.params["id"]);
+  return { colonyId: ID_RE.test(raw) ? Number(raw) : null };
+}
+
 // ── Reading ────────────────────────────────────────────────────────────────
 
 /** GET /api/team/colonies?q=: every colony, or those that ever had a name like q. */
@@ -162,8 +173,8 @@ router.get(
         lang: v.lang,
         island: v.island,
         done,
-        // The same rule as POST /team/colonies: an island row, until PR 1.1.
-        canCreate: holdsIslandRow(person) && can(person, "create_colony"),
+        // A cat guardian creates colonies too (spec §2.7; SYC-209 PR 4.2).
+        canCreate: can(person, "create_colony"),
       }),
     );
   },
@@ -185,8 +196,9 @@ router.get(
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
     res.type("html").send(
       renderColonyPage(view, v.personName, {
-        // With NO target: the writes behind these buttons are the team's until PR 4.2.
-        may: (c) => can(person, c),
+        // Asked against THIS colony, from the record (SYC-209 PR 4.2): a cat
+        // guardian edits her own colony and its cats; renaming stays island-only.
+        may: (c) => can(person, c, { colonyId: view.id }),
         done,
         lang: v.lang,
         island: v.island,
@@ -221,25 +233,37 @@ const takenResponse = (
 };
 
 /**
- * POST /api/team/colonies: create one (`create_colony`). A cat guardian holds
- * `create_colony` (it creates its own scope, roles spec §6.9), but this
- * route makes a colony with no placement, which is the team's way. So it
- * insists on an island row until PR 1.1's createColonyWithPlacement places a
- * guardian on what she creates.
+ * POST /api/team/colonies: create one (`create_colony`). A cat guardian
+ * creates colonies too (spec §2.7; SYC-209 PR 4.2): the colony and her
+ * placement on it are one transaction (`createColonyAs`), so it is hers at
+ * once. Her form has a name and notes only: her own name is the colony's
+ * guardian, whatever the form says.
  */
 router.post(
   "/team/colonies",
-  ...formRoute("create_colony", { island: true }),
+  ...formRoute("create_colony"),
   async (req: Request, res: Response) => {
-    const back = { href: "/api/team/colonies", label: t("problem.backToColonies") };
+    const v = pageViewer(res);
+    const back = { href: "/api/team/colonies", label: t("problem.backToColonies", v.lang) };
     const parsed = CreateForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, parsed.error, back);
     const person = teamPerson(res);
-    const outcome = await createColony(person.id, {
-      name: parsed.data.name,
-      guardianName: parsed.data.guardianName ?? null,
-      notes: parsed.data.notes ?? null,
-    });
+    let outcome;
+    try {
+      outcome = await createColonyAs(person, {
+        name: parsed.data.name,
+        guardianName: v.island ? (parsed.data.guardianName ?? null) : person.name,
+        notes: parsed.data.notes ?? null,
+      });
+    } catch (err) {
+      // Someone who holds `create_colony` but is neither the team nor a cat
+      // guardian (a vet, say): roles PR 1.1 refuses them, and so do we.
+      if (err instanceof PeopleError) {
+        req.log.info({ reason: "missing_capability" }, "colony create refused");
+        return refuseSignedIn(req, res);
+      }
+      throw err;
+    }
     if (outcome.kind === "taken") return takenResponse(req, res, outcome.holder, back);
     if (isFormPost(req)) return void res.redirect(303, colonyPage(outcome.id, "created"));
     res.status(201).json({ id: outcome.id });
@@ -253,7 +277,7 @@ router.post(
  */
 router.post(
   "/team/colonies/:id",
-  ...formRoute("edit_colony"),
+  ...formRoute("edit_colony", { target: thisColony }),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
     const raw = String(req.params["id"]);
@@ -278,7 +302,7 @@ router.post(
       changes,
       (needed) =>
         (!needed.rename || can(person, "rename_colony")) &&
-        (!needed.edit || can(person, "edit_colony")),
+        (!needed.edit || can(person, "edit_colony", { colonyId: id })),
     );
     switch (outcome.kind) {
       case "missing":
@@ -352,8 +376,7 @@ router.get(
           personName: v.personName,
           lang: v.lang,
           island: v.island,
-          // The POST is the team's until PR 4.2 (no target).
-          mayAdd: can(person, "assign_cat_to_colony"),
+          mayAdd: can(person, "assign_cat_to_colony", { colonyId: colony.id }),
         }),
       );
   },
@@ -365,7 +388,7 @@ router.get(
  */
 router.post(
   "/team/colonies/:id/cats",
-  ...formRoute("assign_cat_to_colony"),
+  ...formRoute("assign_cat_to_colony", { target: thisColony }),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
     const raw = String(req.params["id"]);

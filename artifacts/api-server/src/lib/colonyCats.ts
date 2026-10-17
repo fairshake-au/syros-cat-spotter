@@ -1,7 +1,6 @@
 import { catsTable, coloniesTable, db, foldName, photosTable } from "@workspace/db";
 import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import { actingRole, can } from "./capabilities";
-import { catTarget } from "./capabilityTargets";
 import { currentColonyOf } from "./colonyMembership";
 import { colonyFilter, covers, type Visible } from "./guardianView";
 import { ObservationRefused, writeObservation } from "./observations";
@@ -14,8 +13,12 @@ import { SYR_RE, syrNumber, teamPhotoUrl } from "./teamCatView";
 // says which one stands. Nothing here touches life status, sterilisation or
 // "last seen": a `colony` statement feeds none of those resolvers.
 //
-// Called with NO colony target, on purpose (plan Decision 1A): until PR 4.1,
-// `can(person, "assign_cat_to_colony")` means "the team".
+// Which colony is checked (SYC-209 PR 4.2; Linear SYC-333, decided 15 Oct
+// 2026): for putting a cat in a colony, the colony it goes INTO; for taking
+// it out, the colony it LEAVES, read from the record under the cat's lock.
+// The cat's current colony is not a target for an add or a move: a cat
+// guardian may put any cat in her own colony, the spec's accepted risk,
+// whose mitigation is the history and the team's Recent guardian changes.
 
 type Person = { id: string; scopes: { role: string; colonyId: number | null }[] };
 
@@ -55,7 +58,8 @@ export async function placeCats(
   rawCatIds: readonly number[],
   opts: { onlyFrom?: number } = {},
 ): Promise<PlaceCatsOutcome> {
-  if (!can(person, "assign_cat_to_colony")) {
+  // An add or a move: the colony the cats go into, checked before anything is read.
+  if (colonyId !== null && !can(person, "assign_cat_to_colony", { colonyId })) {
     throw new ObservationRefused("NOT_AUTHORISED", "Not authorised");
   }
   const catIds = [...new Set(rawCatIds)].sort((a, b) => a - b);
@@ -89,12 +93,23 @@ export async function placeCats(
         skipped++;
         continue;
       }
+      // The colony that grants this change: the one the cat goes into, or
+      // for a take-out the one it leaves (read above, under the lock). Taking
+      // a cat out of a colony that isn't hers refuses the whole batch.
+      const target = { colonyId: colonyId ?? inNow };
+      if (!can(person, "assign_cat_to_colony", target)) {
+        throw new ObservationRefused("NOT_AUTHORISED", "Not authorised");
+      }
+      const roleAtTime = actingRole(person, "assign_cat_to_colony", target);
       const row = await writeObservation(tx, {
         catId,
         kind: "colony",
         value: { colonyId },
         accountId: person.id,
-        roleAtTime: actingRole(person, "assign_cat_to_colony", await catTarget(catId, tx)),
+        roleAtTime,
+        // A cat guardian's statement names the colony that granted it (roles
+        // Decision B), decided here, never read from the request.
+        ...(roleAtTime === "guardian" ? { authorityScope: `colony:${target.colonyId}` } : {}),
         observedAt: new Date(),
       });
       written.push(row.id);
