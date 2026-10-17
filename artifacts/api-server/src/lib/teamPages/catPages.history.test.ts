@@ -188,25 +188,186 @@ describe("cat page layout", () => {
     expect(html).toContain('<h2 id="photos">All photos (2)</h2>');
   });
 
-  it("wraps the record and the forms in twocol when the person may correct", () => {
+  it("puts the summary beside the forms in catsummary when the person may correct (spec §7.1–7.2)", () => {
     const html = renderCatPage(view(1), "Sam", { may });
-    expect(html).toContain('<div class="twocol">');
-    expect(html).toContain('id="corrections"');
-    // The record is in the first column, the forms in the second.
-    const two = html.indexOf('<div class="twocol">');
-    expect(html.indexOf("What we know about this cat")).toBeGreaterThan(two);
-    expect(html.indexOf('id="corrections"')).toBeGreaterThan(html.indexOf("What we know about this cat"));
+    expect(html).not.toContain("twocol");
+    expect(html).toContain('<div class="catsummary">');
+    expect(html).toContain('<div class="catactions"><h2 id="corrections">');
+    // The facts first, then the forms; the evidence after both, full width.
+    const summary = html.indexOf('<div class="catsummary">');
+    expect(html.indexOf('class="catfacts"')).toBeGreaterThan(summary);
+    expect(html.indexOf('id="corrections"')).toBeGreaterThan(html.indexOf('class="catfacts"'));
+    expect(html.indexOf("What we know about this cat")).toBeGreaterThan(html.indexOf('id="corrections"'));
   });
 
-  it("has no twocol when the person may not correct anything", () => {
+  it("folds the evidence, and opens it by itself when something says otherwise", () => {
+    expect(renderCatPage(view(1), "Sam")).toContain('<details class="evidence"><summary><h2>What we know about this cat</h2>');
+    const v = view(3);
+    v.records.sterilised.conflictingStatementIds = [2];
+    expect(renderCatPage(v, "Sam")).toContain('<details class="evidence" open>');
+  });
+
+  it("folds how changes work into a short note, in #192's words", () => {
+    const html = renderCatPage(view(1), "Sam", { may });
+    expect(html).toMatch(/<details class="hownote"><summary>How changes work<\/summary><p class="hint">Every change is saved with your name\./);
+  });
+
+  it("has no actions column when the person may not correct anything", () => {
     const html = renderCatPage(view(1), "Sam", { may: mayNot });
-    expect(html).not.toContain('<div class="twocol">');
+    expect(html).not.toContain('class="catactions"');
     expect(html).not.toContain('id="corrections"');
     expect(html).toContain("What we know about this cat");
   });
 
-  it("has no twocol with the default (no may) either", () => {
-    expect(renderCatPage(view(1), "Sam")).not.toContain('<div class="twocol">');
+  it("has no actions column with the default (no may) either", () => {
+    expect(renderCatPage(view(1), "Sam")).not.toContain('class="catactions"');
+  });
+
+  it("never shows a dead button: no Log a vet visit yet (phase 3)", () => {
+    expect(renderCatPage(view(1), "Sam", { may })).not.toMatch(/vet visit/i);
+  });
+});
+
+// ── Routine sightings in the history (spec §7.3, plan Task 1.4.2) ───────────
+
+const NOW = new Date("2026-10-17T09:00:00Z");
+
+/** A spotter's "food and water were out", sent with sighting `sighting`, on day `d` of Aug or Sep 2026. */
+const routine = (id: number, sighting: number, iso: string, over: Partial<TeamStatement> = {}) =>
+  statement(id, {
+    kind: "food_and_water",
+    said: "Food and water were out",
+    author: { kind: "spotter", label: "a spotter" },
+    observedAt: iso,
+    createdAt: iso,
+    sightingId: sighting,
+    ...over,
+  });
+
+/** `n` routine rows, newest first, one per sighting, a day apart ending 24 Sep 2026. */
+const routineRun = (n: number, firstId = 100) =>
+  Array.from({ length: n }, (_, i) => {
+    const d = new Date(Date.UTC(2026, 8, 24, 9) - i * 86_400_000).toISOString();
+    return routine(firstId + n - i, 500 + n - i, d);
+  });
+
+const groupLines = (html: string) =>
+  [...html.matchAll(/<li class="statement routine"><details[^>]*><summary>([^<]*)<\/summary>/g)].map((m) => m[1]);
+
+describe("routine sightings in the history", () => {
+  it("twenty in a row with no change between them are one line, and expanding it lists them", () => {
+    const html = renderCatPage(view(0, { history: routineRun(20) }), "Sam", { now: NOW });
+    expect(groupLines(html)).toEqual(["Seen 20 times by spotters between 5 Sept and 24 Sept, looking well"]);
+    const group = /<li class="statement routine">[\s\S]*<\/details><\/li>/.exec(html)![0];
+    expect(statementIds(group)).toHaveLength(20);
+    // Every row is still there with its own anchor, so links to it work.
+    expect(statementIds(html)).toHaveLength(20);
+  });
+
+  it("counts sightings, not rows: one sighting can say two routine things", () => {
+    const iso = "2026-09-20T09:00:00Z";
+    const rows = [
+      routine(3, 77, iso),
+      routine(2, 77, iso, { kind: "ear_tip", said: "Ear tip not clipped" }),
+      routine(1, 76, "2026-09-10T09:00:00Z"),
+    ];
+    const html = renderCatPage(view(0, { history: rows }), "Sam", { now: NOW });
+    expect(groupLines(html)).toEqual(["Seen 2 times by spotters between 10 Sept and 20 Sept, looking well"]);
+  });
+
+  it("a colony change between two runs splits them into two groups", () => {
+    const newer = routineRun(3, 200);
+    const older = routineRun(4, 100).map((s) => ({ ...s, sightingId: (s.sightingId ?? 0) - 100 }));
+    const colony = statement(150, { kind: "colony", said: "Put in the colony Vaporia" });
+    const html = renderCatPage(view(0, { history: [...newer, colony, ...older] }), "Sam", { now: NOW });
+    expect(groupLines(html)).toHaveLength(2);
+    expect(html.indexOf("Put in the colony Vaporia")).toBeGreaterThan(html.indexOf(groupLines(html)[0]!));
+  });
+
+  it("never groups vet visits, status, colour, name, notes, welfare reports or a clipped ear", () => {
+    const never: Partial<TeamStatement>[] = [
+      { kind: "sterilised", said: "Sterilised (vet)" },
+      { kind: "life_status", said: "Lives on the street" },
+      { kind: "coat", said: "Coat: grey, stripes" },
+      { kind: "name", said: "Named “Mavros”" },
+      { kind: "note", said: "Note: “thin”" },
+      { kind: "welfare_report", said: "Welfare report: urgent" },
+      { kind: "ear_tip", said: "Ear tip clipped", correction: { kind: "ear_tip_clipped" } },
+    ];
+    for (const over of never) {
+      // Every row by a spotter, from its own sighting: only the kind differs.
+      const rows = [1, 2, 3].map((i) =>
+        statement(i, { author: { kind: "spotter", label: "a spotter" }, sightingId: i, ...over }),
+      );
+      const html = renderCatPage(view(0, { history: rows }), "Sam", { now: NOW });
+      expect(groupLines(html), over.kind).toEqual([]);
+      expect(statementIds(html), over.kind).toHaveLength(3);
+    }
+  });
+
+  it("never groups a team member's rows, or a row that was corrected", () => {
+    const team = routineRun(3).map((s) => ({ ...s, author: { kind: "team" as const, label: "Maria" } }));
+    expect(groupLines(renderCatPage(view(0, { history: team }), "Sam", { now: NOW }))).toEqual([]);
+    const fixed = routineRun(2).map((s) => ({ ...s, replacedBy: [999] }));
+    expect(groupLines(renderCatPage(view(0, { history: fixed }), "Sam", { now: NOW }))).toEqual([]);
+  });
+
+  it("a single routine row stays a row of its own", () => {
+    const html = renderCatPage(view(0, { history: routineRun(1) }), "Sam", { now: NOW });
+    expect(groupLines(html)).toEqual([]);
+    expect(statementIds(html)).toHaveLength(1);
+  });
+
+  it("adds the year when the run isn't all in this year", () => {
+    const old = routineRun(2).map((s) => ({ ...s, observedAt: s.observedAt.replace("2026", "2025") }));
+    expect(groupLines(renderCatPage(view(0, { history: old }), "Sam", { now: NOW }))).toEqual([
+      "Seen 2 times by spotters between 23 Sept 2025 and 24 Sept 2025, looking well",
+    ]);
+  });
+
+  it("opens the group the page lands on after a correction", () => {
+    const rows = routineRun(5);
+    const html = renderCatPage(view(0, { history: rows }), "Sam", { now: NOW, at: rows[2]!.id, done: "wrong" });
+    expect(html).toContain('<li class="statement routine"><details open>');
+  });
+
+  it("groups within the newest 20, and Show all still counts every row", () => {
+    const html = renderCatPage(view(0, { history: routineRun(25) }), "Sam", { now: NOW });
+    expect(showAll(html)).toBe("Show all 25");
+    expect(statementIds(html)).toHaveLength(20);
+    expect(groupLines(html)).toEqual(["Seen 20 times by spotters between 5 Sept and 24 Sept, looking well"]);
+  });
+});
+
+// ── Each sighting's "More" menu (spec §7.3) ─────────────────────────────────
+
+describe("each sighting's More menu", () => {
+  const sighting = { id: 41, lat: 37.4447, lng: 24.9418, at: "2026-10-14T08:00:00Z", photoUrl: null, extraPhotos: [], mixedCats: false };
+
+  it("puts Make a feeding site here, Show on the map and the position inside a <details> menu", () => {
+    const v = view(0);
+    v.sightings = [sighting];
+    const html = renderCatPage(v, "Sam", { may, island: true, now: NOW });
+    const li = /<li id="sg-41">[\s\S]*?<\/li>/.exec(html)![0];
+    const menu = /<details class="rowmenu">[\s\S]*?<\/details>/.exec(li)![0];
+    expect(menu).toContain("<summary>More");
+    for (const inside of ["/api/team/sites/from-sighting", "/api/team/sites/map-at-sighting#map", ">Open map</a>", "37.44470, 24.94180"]) {
+      expect(menu, inside).toContain(inside);
+      // …and nowhere else on the row.
+      expect(li.replace(menu, ""), inside).not.toContain(inside);
+    }
+    // The row itself shows the date and the named area, not numbers.
+    expect(li.replace(menu, "")).toMatch(/<\/time><br>[A-Z][a-z]/);
+  });
+
+  it("still has a menu, with the position, for someone who may not use either button", () => {
+    const v = view(0);
+    v.sightings = [sighting];
+    const html = renderCatPage(v, "Sam", { now: NOW });
+    const menu = /<details class="rowmenu">[\s\S]*?<\/details>/.exec(html)![0];
+    expect(menu).toContain("37.44470, 24.94180");
+    expect(menu).not.toContain("<form");
+    expect(menu).not.toContain("Open map");
   });
 });
 
