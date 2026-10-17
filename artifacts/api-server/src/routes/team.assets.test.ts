@@ -1,12 +1,12 @@
 import { afterAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pool } from "@workspace/db";
 import app from "../app";
-import { ASSET_NAMES, assetUrl, hashedName, loadAssets } from "../lib/teamAssets";
+import { ASSET_NAMES, assetUrl, hashedName, loadAssets, VENDOR, vendorBytes } from "../lib/teamAssets";
 
 // SYC-396 PR 1.3.4: GET /api/team/assets/:file serves the dashboard's own
 // scripts, and nothing else. Only a hashed name from the manifest; public
@@ -55,6 +55,20 @@ describe("a file in the manifest", () => {
 
   it("every name a page may ask for exists", () => {
     for (const name of ASSET_NAMES) expect(assetUrl(name), name).not.toBeNull();
+  });
+
+  // SYC-396 PR 1.5: the island map's library, from our own server only.
+  it("Leaflet is the pinned 1.9.4, served from here as JavaScript and as CSS", async () => {
+    const js = await request(app).get(assetUrl("leaflet.js")!);
+    expect(js.status).toBe(200);
+    expect(js.headers["content-type"]).toBe("text/javascript; charset=utf-8");
+    expect(js.text).toContain('version="1.9.4"');
+    expect(js.text).toBe(vendorBytes("leaflet.js").toString("utf8"));
+    const css = await request(app).get(assetUrl("leaflet.css")!);
+    expect(css.status).toBe(200);
+    expect(css.headers["content-type"]).toBe("text/css; charset=utf-8");
+    expect(css.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+    expect(css.text).toContain(".leaflet-pane");
   });
 });
 
@@ -124,9 +138,14 @@ describe("the production build and the in-memory names agree", () => {
     expect(Object.fromEntries(fromBuild.names)).toEqual(manifest);
     expect(Object.fromEntries(fromSource.names)).toEqual(manifest);
     for (const [name, hashed] of Object.entries(manifest)) {
-      expect(hashed).toBe(hashedName(name, readFileSync(path.join(SOURCE, name))));
-      expect(fromBuild.files.get(hashed)!.bytes.equals(readFileSync(path.join(SOURCE, name)))).toBe(true);
+      const bytes = Object.hasOwn(VENDOR, name) ? vendorBytes(name) : readFileSync(path.join(SOURCE, name));
+      expect(hashed).toBe(hashedName(name, bytes));
+      expect(fromBuild.files.get(hashed)!.bytes.equals(bytes)).toBe(true);
     }
+    // SYC-396 PR 1.5: every name a page may ask for is built, and Leaflet comes
+    // from the pinned package, never a hand-kept copy in assets/.
+    expect(Object.keys(manifest).sort()).toEqual([...ASSET_NAMES].sort());
+    for (const name of Object.keys(VENDOR)) expect(existsSync(path.join(SOURCE, name)), name).toBe(false);
   });
 
   it("a built file that doesn't match its hash is not served", () => {
@@ -135,7 +154,7 @@ describe("the production build and the in-memory names agree", () => {
     writeFileSync(path.join(out, hashed), "alert(1)");
     const loaded = loadAssets({ builtDir: out });
     expect(loaded.names.has("dashboard-grid.js")).toBe(false);
-    expect(loaded.files.size).toBe(0);
+    expect(loaded.files.has(hashed)).toBe(false);
   });
 
   it("a manifest entry that names a path is not served", () => {

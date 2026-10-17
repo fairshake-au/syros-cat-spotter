@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "./logger";
@@ -23,8 +24,24 @@ import { logger } from "./logger";
 // name from the manifest is ever served: a request's file name is looked up
 // in a Map, never joined onto a folder path.
 
-/** The files pages may ask for. A new one is added here and to assets/. */
-export const ASSET_NAMES = ["dashboard-grid.js"] as const;
+/** The files pages may ask for. A new one is added here and to assets/ (or VENDOR). */
+export const ASSET_NAMES = ["dashboard-grid.js", "dashboard-map.js", "leaflet.js", "leaflet.css"] as const;
+
+/**
+ * Files copied from a pinned npm package rather than kept in assets/
+ * (SYC-396 PR 1.5): Leaflet 1.9.4, the island map's library. The same list
+ * is in scripts/buildAssets.mjs, which copies them into dist/assets/ for
+ * production; running from source they are read from node_modules here.
+ */
+export const VENDOR: Readonly<Record<string, string>> = {
+  "leaflet.css": "leaflet/dist/leaflet.css",
+  "leaflet.js": "leaflet/dist/leaflet.js",
+};
+
+/** The bytes of a vendored file, from its package. Throws if it isn't installed. */
+export function vendorBytes(name: string): Buffer {
+  return readFileSync(createRequire(import.meta.url).resolve(VENDOR[name]!));
+}
 export type AssetName = (typeof ASSET_NAMES)[number];
 
 export const ASSET_PATH = "/api/team/assets";
@@ -91,6 +108,17 @@ export function loadAssets(from: { builtDir: string } | { sourceDir: string }): 
       const hashed = hashedName(name, bytes);
       names.set(name, hashed);
       files.set(hashed, { bytes, type });
+    }
+    for (const name of Object.keys(VENDOR)) {
+      let bytes: Buffer;
+      try {
+        bytes = vendorBytes(name);
+      } catch {
+        logger.error({ asset: name }, "dashboard asset: vendored package not installed, not served");
+        continue;
+      }
+      names.set(name, hashedName(name, bytes));
+      files.set(hashedName(name, bytes), { bytes, type: typeOf(name)! });
     }
   }
   return { names, files };

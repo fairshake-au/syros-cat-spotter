@@ -130,8 +130,12 @@ export async function listTeamCats(
  * Every cat the filters match, sorted, with no paging: the island map's
  * dots (SYC-396 PR 1.5, POST /api/team/cats/positions). `f.page` is ignored.
  */
-export async function allTeamCats(f: CatListFilters, now: Date = new Date()): Promise<CatListItem[]> {
-  return (await matchTeamCats(f, now)).matched;
+export async function allTeamCats(
+  f: CatListFilters,
+  now: Date = new Date(),
+): Promise<{ cats: CatListItem[]; catCount: number }> {
+  const { matched, catCount } = await matchTeamCats(f, now);
+  return { cats: matched, catCount };
 }
 
 async function matchTeamCats(

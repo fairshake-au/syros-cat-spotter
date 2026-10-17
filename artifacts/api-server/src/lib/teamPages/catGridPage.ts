@@ -97,15 +97,35 @@ export function activeFilterCount(f: CatListFilters): number {
   );
 }
 
-function address(f: CatListFilters, tie?: TieMode): string {
-  const parts = [filtersToQuery(f)];
+/**
+ * The Cats page's address for these filters: the grid, or with `map` the
+ * island map (`view=map`, SYC-396 PR 1.5). The map is never paged.
+ */
+export function catsAddress(f: CatListFilters, tie?: TieMode, map = false): string {
+  const parts = [filtersToQuery(map ? { ...f, page: undefined } : f)];
   if (tie) parts.push(`tie=${encodeURIComponent(tie.publicId)}`);
+  if (map) parts.push("view=map");
   const qs = parts.filter(Boolean).join("&");
   return qs ? `${PATH}?${qs}` : PATH;
 }
 
+const address = catsAddress;
+
+/**
+ * The one switch between Grid and Map (spec §6.1): the same filters either
+ * way, so the Grid link's query is exactly the grid's own. Not drawn while
+ * choosing a cat for a report.
+ */
+export function viewSwitch(f: CatListFilters, current: "grid" | "map"): string {
+  const link = (which: "grid" | "map", label: string) =>
+    `<a id="view-${which}" href="${esc(catsAddress({ ...f, page: undefined }, undefined, which === "map"))}"` +
+    (which === current ? ' aria-current="page"' : "") +
+    `>${label}</a>`;
+  return `<nav class="viewswitch" aria-label="Show the cats as">${link("grid", "Grid")}${link("map", "Map")}</nav>`;
+}
+
 /** The chips under the Filters button: each one a link to the same page without that filter. */
-function activeChips(o: CatGridOptions): string {
+export function activeChips(o: Pick<CatGridOptions, "filters" | "colonies" | "tie">, map = false): string {
   const f = o.filters;
   const colonyName = (id: number) => o.colonies.find((c) => c.id === id)?.name ?? "Colony";
   const chips: { label: string; without: CatListFilters }[] = [];
@@ -142,7 +162,7 @@ function activeChips(o: CatGridOptions): string {
     chips
       .map(
         (c) =>
-          `<li><a class="fchip" href="${esc(address(c.without, o.tie))}">${esc(c.label)} ` +
+          `<li><a class="fchip" href="${esc(address(c.without, o.tie, map))}">${esc(c.label)} ` +
           '<span aria-hidden="true">×</span><span class="sr"> Remove this filter</span></a></li>',
       )
       .join("") +
@@ -150,7 +170,8 @@ function activeChips(o: CatGridOptions): string {
   );
 }
 
-function filterForm(o: CatGridOptions): string {
+/** The filter form. With `map`, it stays on the island map (a hidden `view=map`). */
+export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie">, map = false): string {
   const f = o.filters;
   const n = activeFilterCount(f);
   const checked = (on: boolean) => (on ? " checked" : "");
@@ -190,6 +211,7 @@ function filterForm(o: CatGridOptions): string {
   return (
     `<form class="catfilters" id="catfilters" method="get" action="${PATH}" role="search">` +
     tieField +
+    (map ? '<input type="hidden" name="view" value="map">' : "") +
     '<label class="label" for="q">Name or SYR number</label>' +
     `<div class="searchrow"><input id="q" name="q" type="search" value="${esc(f.q ?? "")}" maxlength="${QUERY_MAX}" autocomplete="off" autocapitalize="none" spellcheck="false">` +
     '<button type="submit">Show cats</button></div>' +
@@ -302,8 +324,12 @@ export function renderCatGridPage(o: CatGridOptions): string {
       paging;
   }
   // #catresults is what dashboard-grid.js swaps when a filter changes: the
-  // chips, the count, the grid and "Show more", and nothing else.
-  const body = filterForm(o) + `<div id="catresults">${activeChips(o)}${results}</div>`;
+  // Grid/Map switch (so the Map link keeps the filters), the chips, the
+  // count, the grid and "Show more", and nothing else. No switch while
+  // choosing a cat for a report.
+  const body =
+    filterForm(o) +
+    `<div id="catresults">${tie ? "" : viewSwitch(o.filters, "grid")}${activeChips(o)}${results}</div>`;
   // The one page with our own script (SYC-396 PR 1.3.4). Its route sends the wider header.
   const script = assetUrl("dashboard-grid.js");
 

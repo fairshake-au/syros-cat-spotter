@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { escapeHtml } from "./escape";
 import { tr, pageLanguage, type Language } from "./strings";
-import { MARK_CSS } from "./marks";
+import { MAP_MARK_CSS, MARK_CSS } from "./marks";
 
 // The one page shell for the staff dashboard (SYC-43 part 2 plan, PR 1).
 // Plain server-drawn HTML: no scripts, mobile first, styles in one <style>
@@ -302,6 +302,36 @@ a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;tex
 .catcard .hint{margin:0}
 .catcard .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;width:100%}
 .paging{margin:8px 0}
+/* The island map (SYC-396 PR 1.5; spec §6, §12.4). */
+${MAP_MARK_CSS}
+.viewswitch{display:inline-flex;margin:8px 0;border:1px solid #0b5c6b;border-radius:8px;overflow:hidden}
+.viewswitch a{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;background:#fff;color:#0b4553;font-weight:700;text-decoration:none}
+.viewswitch a[aria-current="page"]{background:#0b5c6b;color:#fff}
+.maplayers{display:flex;flex-wrap:wrap;gap:8px;border:0;padding:0;margin:8px 0;min-width:0}
+.maplayers legend{font-weight:700;font-size:14px;padding:0 0 4px}
+.mapwrap{position:relative;margin:8px 0}
+#island-map{height:min(70vh,640px);min-height:320px;border:1px solid #d9d5ca;border-radius:8px;background:#e8e4d8;line-height:normal}
+#island-map.tilesfailed{background:#d9e4e8}
+.maplegend{position:absolute;top:8px;right:8px;z-index:1050;max-width:min(60%,240px);background:rgba(255,255,255,.96);border:1px solid #d9d5ca;border-radius:8px;padding:2px 10px;font-size:13px;line-height:1.3}
+.maplegend>summary{cursor:pointer;font-weight:700;min-height:36px;display:flex;align-items:center}
+.maplegend ul{list-style:none;margin:2px 0 6px;padding:0}
+.maplegend li{display:flex;align-items:center;gap:8px;margin:5px 0}
+.maplegend .catdot,.maplegend .sitesq{flex:none;margin:0 3px}
+.mapnote{position:absolute;left:8px;bottom:8px;z-index:1050;max-width:calc(100% - 16px);margin:0;background:#fff;border:1px solid #a6540a;border-radius:8px;padding:8px 10px;font-size:14px;line-height:1.3}
+.catsheet{position:absolute;z-index:1100;left:8px;right:8px;bottom:8px;max-height:75%;overflow:auto;background:#fff;border:1px solid #d9d5ca;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.2);padding:12px;line-height:1.4}
+.catsheet .sheethead{display:flex;gap:10px;align-items:flex-start}
+.catsheet img{flex:none;width:72px;height:72px;object-fit:cover;border-radius:6px;background:#ece8dc}
+.catsheet .sheetname{font-size:17px;font-weight:700;margin:0}
+.catsheet p{margin:4px 0;font-size:14px}
+.catsheet .sheetbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.catsheet .sheetbtns a,.catsheet .sheetbtns button{font:inherit;font-size:15px;min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;font-weight:700;text-decoration:none;cursor:pointer}
+.catsheet .sheetbtns a.primary{background:#0b5c6b;color:#fff}
+.catsheet .sheetclose{margin-left:auto;flex:none;min-width:44px;min-height:44px;border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:#3b3930}
+.trailpt{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#1a56a6;color:#fff;font:700 12px/1 system-ui,sans-serif;box-shadow:0 0 0 2px #fff}
+.mapfallback{margin:8px 0}
+.pin.catpin{width:44px;height:44px;margin:-22px 0 0 -22px;border:0;background:transparent;box-shadow:none;display:flex;align-items:center;justify-content:center}
+.pin.catpin.cluster .catcluster{width:30px;height:30px}
+@media (min-width:700px){.catsheet{right:auto;bottom:auto;top:8px;width:320px;max-height:calc(100% - 16px)}}
 @media (min-width:700px){
 .chips{grid-template-columns:1fr 1fr}
 main{padding-top:20px}
@@ -378,9 +408,16 @@ export interface PageOptions {
    * Our own script for this page, from lib/teamAssets.ts assetUrl() only,
    * never anything a request supplied. The page's route must also send the
    * wider security header (setTeamHeaders(res, { scripts: true })), or the
-   * browser refuses it; and every page must still work without it.
+   * browser refuses it; and every page must still work without it. A list
+   * runs in its order (the island map: Leaflet, then dashboard-map.js); a
+   * null in it (a file that couldn't be read) is left out.
    */
-  script?: string | null;
+  script?: string | null | (string | null)[];
+  /**
+   * Our own stylesheets for this page (the island map's leaflet.css), from
+   * assetUrl() only, under the same wider header. Nulls are left out.
+   */
+  styles?: (string | null)[];
 }
 
 export function renderPage(opts: PageOptions): string {
@@ -434,7 +471,14 @@ export function renderPage(opts: PageOptions): string {
     '<meta name="robots" content="noindex">' +
     `<title>${escapeHtml(opts.title)}</title>` +
     `<style>${STYLES}</style>` +
-    (opts.script ? `<script src="${escapeHtml(opts.script)}" defer></script>` : "") +
+    (opts.styles ?? [])
+      .filter((s): s is string => Boolean(s))
+      .map((s) => `<link rel="stylesheet" href="${escapeHtml(s)}">`)
+      .join("") +
+    (Array.isArray(opts.script) ? opts.script : [opts.script])
+      .filter((s): s is string => Boolean(s))
+      .map((s) => `<script src="${escapeHtml(s)}" defer></script>`)
+      .join("") +
     "</head><body>" +
     (nav ? `<nav class="bar${opts.mainClass === "wide" ? " wide" : ""}">${nav}</nav>` : "") +
     `<main${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
