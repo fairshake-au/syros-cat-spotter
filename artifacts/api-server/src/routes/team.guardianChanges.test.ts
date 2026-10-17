@@ -161,6 +161,16 @@ describe("what goes in the list", () => {
     expect((await get("/api/team/colonies", staffCookie)).text).not.toContain(`Team spot ${RUN}`);
   });
 
+  it("only the four kinds of change: her other statements (sterilised, say) are not listed here", async () => {
+    const cat = await seedCat(c1);
+    await pool.query(
+      `insert into observations (cat_id, kind, value, account_id, role_at_time, authority_scope, observed_at)
+       values ($1, 'sterilised', '{"sterilised": true}', $2, 'guardian', $3, now())`,
+      [cat.id, eleni.id, `colony:${c1}`],
+    );
+    expect((await teamList()).some((c) => c.cat?.id === cat.id)).toBe(false);
+  });
+
   it("a name someone typed is escaped, never markup", async () => {
     const odd = await guardianOn(`gchg-odd-${RUN}`, [c2]);
     await pool.query("update people set name = $1 where id = $2", [`<b>Odd</b> ${RUN}`, odd.id]);
