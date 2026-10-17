@@ -464,3 +464,128 @@ An independent adversarial review (Sonnet, its own worktree) of the first draft,
 | 12 | Greek and French drafts (*Tachetée* means spotted) and the join style | §2: nouns joined with " · " (E1); new drafts for Johnny |
 | 13 | The filter's placement rule was unclear | §5: a three-step rule |
 | 14 | Open questions lacked options, and SYC-397 was closed too early | §11 gives each decision options and a recommendation; SYC-397 closes when built |
+
+---
+
+## 15. Team words (amended 17 October 2026, SYC-443)
+
+**Decision 4 is now 4B, on team screens only.** Asked whether team screens should use the old words (tabby, tortoiseshell, calico), Samuel said: **"yes team screens use old words"** (17 October 2026). He had also said "ginger tabby": an orange striped cat is a **Ginger tabby**, never a "Red tabby". Everywhere else is unchanged: the public app, the public API and the drawn cat keep §2's words (Black, Grey, Brown, Ginger, White; Plain, Stripes, Patches).
+
+**Nothing stored changes.** A coat is still colours plus one pattern (§2), stored and resolved exactly as §4 and §6 say. The team words are only a way of *saying* a coat on team screens, worked out from the two parts each time a page is drawn. Changing the words later never touches the records.
+
+### 15.1 Who sees the team words, and where
+
+- **Who:** everyone signed in to the team dashboard (Decision T1).
+- **Where:** every place a team screen says a coat:
+  - the team cat page: the facts row at the top, the Appearance section's status rows, each statement, the history list and the drawn cat's caption;
+  - the Colour check list;
+  - the team's Correct form (its pattern buttons, Decision T3);
+  - the Cats grid: each card's coat line, the photo's description for screen readers, and the Pattern filter when it is built (SYC-435);
+  - cat guardians' own pages, if T1 is A (SYC-436 then uses the team words, not §2's).
+- **Never:** the box headed **"What the public sees"** on the team cat page. It shows exactly what the public sees, so it keeps §2's words: "Ginger · Stripes", not "Ginger tabby". The public app and the public API never carry a team word.
+
+The grid's **colour** filter stays the five colours. A colour is a colour in both vocabularies.
+
+### 15.2 The words
+
+**The pattern on its own** (status rows, pattern buttons, the grid's Pattern filter):
+
+| Part | Team word | §2 word, unchanged for the public |
+|---|---|---|
+| `plain` | Solid | Plain |
+| `stripes` | Tabby | Stripes |
+| `patches` | Patched | Patches |
+| not known | Not known | Not known |
+
+**The whole coat** in one phrase (facts row, cards, Colour check rows, statements, the drawn cat's caption). The colours are §2's colour words, in §2's order, with only the first word capitalised. "Main colours" means the colours other than White.
+
+| Pattern | Colours | Team words | Example |
+|---|---|---|---|
+| Stripes | none known | Tabby | Tabby |
+| Stripes | White only | Tabby and white | Tabby and white |
+| Stripes | main colours | {colours} tabby | Ginger tabby; Brown and ginger tabby |
+| Stripes | main colours and White | {colours} tabby and white | Grey tabby and white |
+| Patches | Ginger with Black, Grey or Brown, no White | Tortoiseshell | Tortoiseshell |
+| Patches | Ginger with Black, Grey or Brown, and White | Calico | Calico |
+| Patches | any other main colours, and White | {colours} and white | Black and white |
+| Patches | any other main colours, no White | {colours}, patched | Black and grey, patched |
+| Patches | White only | White, patched | White, patched |
+| Patches | none known | Patched | Patched |
+| Solid | main colours | {colours} | Black; Black and grey |
+| Solid | main colours and White | {colours} and white | Ginger and white |
+| Solid | White only | White | White |
+| Solid | none known | Solid colour | Solid colour |
+| not known | some known | {colours}, as Solid would say them | Ginger and white |
+| not known | none known | Not known | Not known |
+
+"{colours}" joins the colours with commas and a final "and": "Black, brown and ginger tabby".
+
+The rows above are rules, not a list. Every one of the 32 colour sets × 4 pattern states gets exactly one phrase, and the build tests all 128.
+
+### 15.3 Decisions for Samuel (team words)
+
+#### Decision T1: who sees the team words
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **T1A. Everyone on the dashboard: the island-wide team and cat guardians (recommended)** | One vocabulary per page. Guardians are locals, and these are the words people on Syros use (SYC-435). SYC-436 becomes "use the team words" | Guardians see words §2 dropped for visitors. Harmless: they are the people who already use them |
+| T1B. The island-wide team only; guardians get §2's words | Matches 4B's "team" most literally | The same page says a coat two ways depending on who is looking, and the build has to pass the viewer through every coat line |
+
+**Recommendation: T1A.**
+
+#### Decision T2: the team words instead of §2's, or beside them
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **T2A. Instead of (recommended)** | One phrase per coat ("Calico"). The Appearance status rows still give each part on its own (Colours: Black · Ginger · White; Pattern: Patched), so nothing is hidden | A team member can't see the public's phrase except in the "What the public sees" box. That box is right there on the same page |
+| T2B. Beside: "Calico (Black · Ginger · White · Patches)" | Both at once | Twice the text on cards and rows; brings back the two-vocabulary muddle Samuel wanted gone |
+
+**Recommendation: T2A.**
+
+#### Decision T3: the pattern buttons on the team's Correct form
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **T3A. The team words, each with a short hint (recommended):** *Solid (one colour, maybe a little white)*, *Tabby (stripes, swirls or spots)*, *Patched (tortoiseshell, calico, black and white…)*, *Not stated* | The form speaks the page's language; the hints keep Patches = "any patchy look" clear | Longer labels; checked at 390 px in the build |
+| T3B. Keep Plain, Stripes and Patches on the form | No change to PR B's form | The form says "Stripes" and the page says "Tabby" right beside it |
+
+**Recommendation: T3A.**
+
+#### Decision T4: Greek and French
+
+Team pages are served in English only until Johnny signs off Greek and French (SYC-291). Phrases like "Brown and ginger tabby and white" can't be built word by word in Greek or French: the adjectives agree and the order changes.
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **T4A. The team words are English only. A team page drawn in Greek or French says the coat in §2's words, already with Johnny (recommended)** | Nothing new for Johnny before the 22 October freeze; nothing wrong can show | When Greek and French go live, a Greek page says "Πορτοκαλί · Ρίγες", not a Greek "ginger tabby". A second pack can add them later |
+| T4B. Write Greek and French team phrases now | Full parity | Hard grammar, new work for Johnny inside the freeze week, and nobody sees it until SYC-291 |
+
+**Recommendation: T4A.**
+
+#### Decision T5: the unclear cases
+
+| Case | Recommended wording | Alternative |
+|---|---|---|
+| Black and Ginger, Stripes | **"Black and ginger tabby"** (the general rule) | "Torbie", the experts' word: jargon even to most volunteers |
+| Grey and Ginger, Patches | **"Tortoiseshell"**, or "Calico" with White | "Dilute tortoiseshell": correct for experts, unfamiliar to most |
+| Pattern not known | **The colours alone**: "Ginger and white". The status row says "Pattern: Not known" | "Ginger and white, pattern not known" on every card: clearer, but long |
+| Plain, colours not known | **"Solid colour"** | "Not known" (hides that the pattern *is* known) |
+
+**Recommendation:** the bold wording in each row.
+
+### 15.4 What else changes
+
+- **SYC-436** (guardian pages): with T1A, guardians get the team words. Their pages move off the old public field either way.
+- **SYC-435** (the grid's Pattern filter): its chips are *Solid · Tabby · Patched · Not known*.
+- **PR B's drawn cat** keeps the drawing; its caption becomes the team phrase.
+- **The SYC-396 facts row** (`catFacts.ts`, `coatWordsOf`) calls the one team-words function instead of joining §2's words.
+- **One function** turns a coat's two parts into the team phrase, and one gives the team's pattern word. Every team screen calls them, so the wording lives in one place.
+- **Timing:** built after PR B merges, as its own PR. Never blocks the 31 October launch (6A stands).
+
+### 15.5 Tests
+
+- All 128 combinations of colours and pattern give exactly one phrase, matching §15.2, with no "undefined" or raw code.
+- Every team screen in §15.1 shows the team phrase; "What the public sees" shows §2's line.
+- **The public never sees a team word:** the public cat list, a cat's page data and the name-taken reply never contain "tabby" (outside the old `coat` codes kept for older phones, §6), "tortoiseshell", "calico", "solid" or "patched" as display words. The public payload snapshots are unchanged.
+- The team's Correct still writes `plain`, `stripes` or `patches`, whatever the button says.
+- Greek and French (T4A): a team page drawn in either shows §2's words.
