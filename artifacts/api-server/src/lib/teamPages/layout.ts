@@ -92,12 +92,14 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
 .bar .off{color:#6b685f}
 .bar .short{display:none}
 /* The name and Sign out: at the right on a desktop, at the end of the row on a phone. */
-.bar>.who{margin-left:auto;padding-left:10px;color:#55524a;font-size:14px;max-width:260px;display:block;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;line-height:44px;min-width:0}
+/* Until Home takes the work lists out of the menu, a long name may shorten
+   with "…" on a desktop; the whole name is in its title. */
+.bar>.who{margin-left:auto;padding:8px 2px 8px 10px;color:#55524a;font-size:14px;line-height:28px;max-width:260px;display:block;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;min-width:120px}
 .bar>form{margin:0;flex:none}
 .bar button{font:inherit;font-size:15px;min-height:44px;min-width:44px;padding:8px 2px;background:none;border:0;color:#0b5c6b;text-decoration:underline;cursor:pointer}
 /* A desktop bar ends at the screen's right, so Sign out sits at the right. */
 @media (min-width:600px){.bar,.bar.wide{padding-right:16px}}
-@media (max-width:599px){.bar,.bar.wide{gap:0 6px;padding-inline:10px}.bar .long{display:none}.bar .short{display:inline}.bar>.who{max-width:none;overflow:visible}}
+@media (max-width:599px){.bar,.bar.wide{gap:0 6px;padding-inline:10px}.bar .long{display:none}.bar .short{display:inline}.bar>.who{max-width:none;flex:none}}
 main{max-width:760px;margin:0 auto;padding:12px 12px 48px}
 main.wide{max-width:1120px}
 h1{font-size:22px;margin:12px 0 4px}
@@ -529,7 +531,7 @@ export function renderPage(opts: PageOptions): string {
   // so the page's title comes first. A page without the menu (a refusal)
   // keeps the bar for them, but it's no <nav>: there's nowhere to go.
   const who =
-    `<span class="who">${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</span>` +
+    `<span class="who" title="${escapeHtml(opts.personName)}">${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</span>` +
     `<form method="post" action="/api/team/signout"><button type="submit">${t("shell.signOut")}</button></form>`;
   const barClass = `bar${opts.mainClass === "wide" ? " wide" : ""}`;
   return (

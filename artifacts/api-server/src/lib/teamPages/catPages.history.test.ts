@@ -414,7 +414,7 @@ describe("renderPage chrome (SYC-219)", () => {
   it("with the nav, the name and Sign out end the menu bar, not under the heading (SYC-396 PR 1.6)", () => {
     const html = page();
     const nav = /<nav class="bar"[^>]*>([\s\S]*?)<\/nav>/.exec(html)![1]!;
-    expect(nav).toContain('<span class="who">Signed in as Maria &lt;b&gt;</span>');
+    expect(nav).toContain('<span class="who" title="Maria &lt;b&gt;">Signed in as Maria &lt;b&gt;</span>');
     expect(nav.endsWith('<button type="submit">Sign out</button></form>')).toBe(true);
     expect(/<main[^>]*>([\s\S]*)<\/main>/.exec(html)![1]).not.toContain("Signed in as");
   });

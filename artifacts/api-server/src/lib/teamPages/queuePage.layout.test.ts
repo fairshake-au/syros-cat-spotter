@@ -56,7 +56,7 @@ describe("queue page chrome", () => {
   it("puts the name and Sign out at the end of the menu bar, not under the heading (SYC-396 PR 1.6)", () => {
     const html = render(queue([report("a")]));
     const nav = /<nav class="bar[^"]*"[^>]*>([\s\S]*?)<\/nav>/.exec(html)![1]!;
-    expect(nav).toContain('<span class="who">Signed in as Maria</span>');
+    expect(nav).toContain('<span class="who" title="Maria">Signed in as Maria</span>');
     expect(nav.endsWith('<button type="submit">Sign out</button></form>')).toBe(true);
     expect(/<main[^>]*>([\s\S]*)<\/main>/.exec(html)![1]).not.toContain("Signed in as");
   });
