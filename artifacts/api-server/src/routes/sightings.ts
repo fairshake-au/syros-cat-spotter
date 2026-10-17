@@ -412,6 +412,8 @@ function labelChoice(input: {
   catId: number;
   pickedFrom: "nearby" | "search" | "name_prompt" | null;
   openedPicker: boolean;
+  /** SYC-398 (coat-colours-and-pattern.md §5): a chip was picked in either row of "Find the cat"; null when the phone didn't say. */
+  colourFilterOn: boolean | null;
 }) {
   const base = {
     chosenCatId: input.catId,
@@ -420,6 +422,7 @@ function labelChoice(input: {
     pickedFrom: null as string | null,
     missKind: null as string | null,
     openedPicker: null as boolean | null,
+    colourFilterOn: input.colourFilterOn,
   };
   if (input.isNewCat) {
     return { ...base, choice: "new_cat", openedPicker: input.openedPicker };
@@ -845,6 +848,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     catId: cat.id,
     pickedFrom: body.pickedFrom ?? null,
     openedPicker: body.openedPicker === true,
+    colourFilterOn: body.colourFilterOn ?? null,
   });
   try {
     await db

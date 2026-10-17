@@ -428,7 +428,8 @@ export const ResolveSightingBody = zod.object({
   "catId": zod.number().nullish().describe('Existing cat to confirm as the match'),
   "newCatName": zod.string().nullish().describe('Name for a new unique cat (when no match)'),
   "pickedFrom": zod.enum(['nearby', 'search', 'name_prompt']).optional().describe('Which screen a hand pick came from. It only describes the phone\'s own screen: the server never uses it to decide whether a choice was a suggestion (choose-a-different-cat.md §4.6).'),
-  "openedPicker": zod.boolean().optional().describe('With newCatName: the spotter opened \"Find the cat yourself\" before choosing a new cat. Weak evidence the cat really is new; recorded for the team only (choose-a-different-cat.md §4.6).')
+  "openedPicker": zod.boolean().optional().describe('With newCatName: the spotter opened \"Find the cat yourself\" before choosing a new cat. Weak evidence the cat really is new; recorded for the team only (choose-a-different-cat.md §4.6).'),
+  "colourFilterOn": zod.boolean().optional().describe('From \"Find the cat yourself\": a chip was picked in either the colour or the pattern row when the choice was made. Recorded for the team only, as sighting_matches.colour_filter_on (coat-colours-and-pattern.md §5).')
 })
 
 export const resolveSightingResponseCatCoatMax = 2;
