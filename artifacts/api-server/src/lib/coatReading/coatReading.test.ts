@@ -1334,3 +1334,52 @@ describe("T-reread spot review: the gaps it found, closed", () => {
     expect(create).toHaveBeenCalledTimes(2);
   });
 });
+
+// Samuel, 17 Oct 2026 (SYC-448 decision 1, "Keep the new colours"): the
+// hold-back ignores a part the team or a cat guardian decides.
+describe("T-reread SYC-448: a part the team decided is never 'lost' by a re-read", () => {
+  it("Toula's case: team Stripes, old AI Stripes, new reading Brown · White with the pattern not told → written", async () => {
+    const c = await cat("d1-toula");
+    const tick = clock();
+    // The 15 Oct fill-in's "Tabby · White": Stripes, colours not known.
+    await db.insert(observationsTable).values({
+      catId: c.id,
+      kind: "coat",
+      value: { colours: ["tabby", "white"], modelVersion: `${VISION_MODEL}/coat-v1` },
+      accountId: "system:vision",
+      roleAtTime: "system",
+      authorityScope: "none",
+      provenance: "machine",
+      photoId: c.main,
+      observedAt: tick(),
+      suggestionSource: "coat-reader",
+    });
+    // Samuel's verdict, as the team: Stripes, colours not stated (spec §8).
+    await writeObservation(db, {
+      catId: c.id,
+      kind: "coat",
+      value: { pattern: "stripes" },
+      accountId: "person:vitest-coat-staff",
+      roleAtTime: "staff",
+      observedAt: new Date(Date.now() - 60_000),
+    });
+    answers.set("d1-toula:main", answer(["brown", "white"], { pattern: "cant_tell" }));
+    const r = await sweepCoatReadings({ mode: "write", limit: 50, catIds: [c.id], reread: true, now: tick });
+    expect(r.items).toMatchObject([
+      { because: "older_version", status: "written", current: { colours: null, pattern: "stripes" } },
+    ]);
+    expect((await resolvedCoat(c.id)).value).toEqual(["brown", "white"]);
+    expect((await resolvedPattern(c.id)).value).toBe("stripes");
+  });
+
+  it("the pure rule: a decided part is ignored, an AI-only part still counts, a whole Not sure is still held back", () => {
+    const current = { colours: ["ginger" as const], pattern: "stripes" as const, notSure: false };
+    const noPattern = { colours: ["ginger" as const], pattern: null, notSure: false };
+    expect(losesWhatIsKnown(current, noPattern)).toBe(true);
+    expect(losesWhatIsKnown(current, noPattern, { colours: false, pattern: true })).toBe(false);
+    expect(losesWhatIsKnown(current, noPattern, { colours: true, pattern: false })).toBe(true);
+    expect(
+      losesWhatIsKnown(current, { colours: null, pattern: null, notSure: true }, { colours: true, pattern: true }),
+    ).toBe(true);
+  });
+});

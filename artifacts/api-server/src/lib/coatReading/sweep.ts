@@ -3,6 +3,7 @@ import { db, observationsTable, photosTable } from "@workspace/db";
 import { readCoatValue, type CoatParts } from "../appearance";
 import { consume, declareLimit } from "../limits";
 import { loadCatRecords } from "../observations";
+import { resolveCoatParts } from "../resolve";
 import { catsDueForReading, isMachineReading, markedWrong, newest, type DueCat } from "./due";
 import { copyReadingForward, recordReading } from "./record";
 import { CONFIDENCE_CUTOFF, MODEL_VERSION, readCoatFromPhoto, type RawCoatAnswer } from "./reader";
@@ -204,7 +205,8 @@ export async function sweepCoatReadings(opts: {
       result.items.push({ ...item, status: "not_due_any_more" });
       continue;
     }
-    item.current = await currentCoat(d.catId);
+    const { current, decided } = await currentCoat(d.catId);
+    item.current = current;
     const [photo] = await db
       .select({ data: photosTable.data, mime: photosTable.mime })
       .from(photosTable)
@@ -236,7 +238,7 @@ export async function sweepCoatReadings(opts: {
     // before isn't a re-read: its reading, Not sure included, is written as
     // in any run (R2: Not sure rows count as rows; Opus spot review,
     // finding 3).
-    if (reread && d.because !== "unread" && losesWhatIsKnown(item.current ?? null, reading.parts)) {
+    if (reread && d.because !== "unread" && losesWhatIsKnown(current, reading.parts, decided)) {
       result.items.push({ ...item, status: "held_back" });
       continue;
     }
@@ -264,20 +266,40 @@ export async function sweepCoatReadings(opts: {
  * that the team hasn't marked wrong, through the one translation, or null.
  * Loaded through `loadCatRecords`, as `due.ts` does.
  */
-async function currentCoat(catId: number): Promise<CoatParts | null> {
+async function currentCoat(catId: number): Promise<{ current: CoatParts | null; decided: DecidedParts }> {
   const records = await loadCatRecords([catId]);
   const observations = records.get(catId)?.observations ?? [];
   const wrong = markedWrong(observations);
   const row = newest(observations.filter((o) => isMachineReading(o) && !wrong.has(o.id)));
-  return row ? readCoatValue(row.value) : null;
+  const parts = resolveCoatParts(observations);
+  return {
+    current: row ? readCoatValue(row.value) : null,
+    decided: { colours: parts.colours.rule === 1, pattern: parts.pattern.rule === 1 },
+  };
+}
+
+/** Which parts the team or a cat guardian decides (rule 1). */
+export interface DecidedParts {
+  colours: boolean;
+  pattern: boolean;
 }
 
 /**
  * The hold-back rule for a re-read (§7): a whole Not sure, or a reading that
- * leaves not known a part the current machine coat knows.
+ * leaves not known a part the current machine coat knows. A part the team or
+ * a cat guardian decides is ignored: theirs is what shows, so a reading
+ * can't lose it (Samuel, 17 Oct 2026, SYC-448 decision 1: "Keep the new
+ * colours").
  */
-export function losesWhatIsKnown(current: CoatParts | null, next: CoatParts): boolean {
+export function losesWhatIsKnown(
+  current: CoatParts | null,
+  next: CoatParts,
+  decided: DecidedParts = { colours: false, pattern: false },
+): boolean {
   if (next.notSure) return true;
   if (!current || current.notSure) return false;
-  return (current.colours !== null && next.colours === null) || (current.pattern !== null && next.pattern === null);
+  return (
+    (!decided.colours && current.colours !== null && next.colours === null) ||
+    (!decided.pattern && current.pattern !== null && next.pattern === null)
+  );
 }
