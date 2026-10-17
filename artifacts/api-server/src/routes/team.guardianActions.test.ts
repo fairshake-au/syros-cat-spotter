@@ -178,6 +178,17 @@ describe("a cat guardian's feeding sites", () => {
     });
   });
 
+  it("the add form says \"Colony\" (required) and \"Notes\" to her, not the team's \"optional\" and \"Team-only\"", async () => {
+    const res = await post("/api/team/sites/pick", { lat: "37.4447", lng: "24.9417" }, eleni.cookie, "browser");
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('<select class="text" id="new-colony" name="colonyId" required>');
+    expect(res.text).not.toContain("Colony (optional)");
+    expect(res.text).not.toContain("Team-only");
+    const team = await post("/api/team/sites/pick", { lat: "37.4447", lng: "24.9417" }, staffCookie, "browser");
+    expect(team.text).toContain("Colony (optional)");
+    expect(team.text).toContain("Team-only notes (optional)");
+  });
+
   it("a browser retire asks \"Are you sure?\" first (SYC-395), in her language's page", async () => {
     const made = await addSite(staffId, { name: `Sure ${RUN}`, lat: 37.4452, lng: 24.9422, colonyId: c1, directions: null, notes: null });
     if (made.kind !== "created") throw new Error("seed site");

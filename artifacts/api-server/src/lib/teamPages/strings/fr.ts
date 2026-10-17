@@ -438,6 +438,8 @@ export const fr: Record<StringKey, string> = {
   "confirm.directions": "Comment le trouver (facultatif)",
   "confirm.directionsHint": "Une courte phrase, comme « en bas des marches près du portail bleu ».",
   "confirm.notes": "Notes réservées à l’équipe (facultatif)",
+  "confirm.colonyOwn": "Colonie",
+  "confirm.notesOwn": "Notes (facultatif)",
   "confirm.save": "Enregistrer le point",
   "confirm.again": "Recommencer sur la carte complète",
   "confirm.nudge":

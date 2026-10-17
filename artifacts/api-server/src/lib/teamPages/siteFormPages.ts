@@ -185,12 +185,12 @@ export function renderAddConfirm(o: {
       `<label class="label" for="new-name">${w("confirm.name")}</label>` +
       `<p class="hint">${w("confirm.nameHint")}</p>` +
       `<input class="text" id="new-name" name="name" type="text" required maxlength="${SITE_NAME_MAX}" value="${esc(c0.name)}" autocomplete="off">` +
-      `<label class="label" for="new-colony">${w("confirm.colony")}</label>` +
-      `<select class="text" id="new-colony" name="colonyId">${options}</select>` +
+      `<label class="label" for="new-colony">${w(o.island === false ? "confirm.colonyOwn" : "confirm.colony")}</label>` +
+      `<select class="text" id="new-colony" name="colonyId"${o.island === false ? " required" : ""}>${options}</select>` +
       `<label class="label" for="new-directions">${w("confirm.directions")}</label>` +
       `<p class="hint">${w("confirm.directionsHint")}</p>` +
       `<input class="text" id="new-directions" name="directions" type="text" maxlength="${SITE_DIRECTIONS_MAX}" value="${esc(c0.directions)}" autocomplete="off">` +
-      `<label class="label" for="new-notes">${w("confirm.notes")}</label>` +
+      `<label class="label" for="new-notes">${w(o.island === false ? "confirm.notesOwn" : "confirm.notes")}</label>` +
       `<textarea id="new-notes" name="notes" maxlength="${SITE_NOTES_MAX}">${esc(c0.notes)}</textarea>` +
       `<p class="hint">${w("notes.hint")}</p>` +
       `<div class="actions"><button type="submit" class="save">${w("confirm.save")}</button></div>` +

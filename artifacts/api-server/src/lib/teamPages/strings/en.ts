@@ -469,6 +469,8 @@ export const en = {
   "confirm.directions": "How to find it (optional)",
   "confirm.directionsHint": "A short line in words, like “down the steps by the blue gate”.",
   "confirm.notes": "Team-only notes (optional)",
+  "confirm.colonyOwn": "Colony",
+  "confirm.notesOwn": "Notes (optional)",
   "confirm.save": "Save the site",
   "confirm.again": "Start again on the full map",
   "confirm.nudge": "Not quite right? Tap the small map to move the pin. Place the pin first, then fill in the details.",
