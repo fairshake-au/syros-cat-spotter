@@ -138,6 +138,8 @@ export interface ScreenPerson {
   placements: {
     role: string;
     colonyId: number | null;
+    /** `island`, `colony`, or `start` for "no colony yet" (SYC-439). */
+    reach: string;
     expiresAt: Date | null;
     relationship: string | null;
     inForce: boolean;
@@ -146,9 +148,18 @@ export interface ScreenPerson {
   history: { kind: string; at: Date; by: string; detail: Record<string, unknown> | null }[];
 }
 
-/** One placement as a label: the role, with `:<colony id>` when placed. */
-const scopeLabel = (s: { role: string; colonyId: number | null }) =>
-  s.colonyId === null ? s.role : `${s.role}:${s.colonyId}`;
+/**
+ * One placement as a label: the role, with `:<colony id>` when placed, and
+ * `guardian:start` for a cat guardian with no colony yet (SYC-439), read
+ * from the row's reach, never guessed from an empty colony.
+ */
+export const START_LABEL = "guardian:start";
+const scopeLabel = (s: { role: string; colonyId: number | null; reach?: string | null }) =>
+  s.reach === "start"
+    ? START_LABEL
+    : s.colonyId === null
+      ? s.role
+      : `${s.role}:${s.colonyId}`;
 
 /**
  * The row a role is written as. A guardian is always placed on a colony;
@@ -160,7 +171,15 @@ function scopeRow(
   role: PersonRole,
   colonyId: number | null,
   grantedBy: string,
+  /** "No colony yet" (SYC-439): only ever from an explicit choice. */
+  start = false,
 ) {
+  if (start) {
+    if (role !== "guardian" || colonyId !== null) {
+      throw new PeopleError("'No colony yet' is only for a cat guardian, with no colony.");
+    }
+    return { personId, role, colonyId: null, reach: "start" as ScopeReach, grantedBy };
+  }
   const placed = role === "guardian";
   return {
     personId,
@@ -195,6 +214,12 @@ export interface SetRolesInput {
   replace?: string[];
   /** The colony, for adding or removing a `guardian` placement. */
   colonyId?: number;
+  /**
+   * With `add: "guardian"` and no colony: a cat guardian with no colony yet,
+   * who may create her first one (SYC-439, `--start`). Only for someone who
+   * holds nothing else in force.
+   */
+  start?: boolean;
   /**
    * Allows a result without `staff`. Until plan PR 0.5, can() and mayEnter()
    * ask only for `staff`, so a person without it can't sign in at all, even
@@ -423,6 +448,12 @@ export interface PlacementInput {
   endsAt?: Date | null;
   /** feeds, owns_here or covering; a label, grants nothing (Decision 9). */
   relationship?: string | null;
+  /**
+   * A cat guardian with no colony yet, who may create her first one
+   * (SYC-439). Must be said in so many words: a guardian with no colony and
+   * no `start` is refused, never turned into one.
+   */
+  start?: boolean;
 }
 
 interface Placement {
@@ -430,6 +461,7 @@ interface Placement {
   colonyId: number | null;
   endsAt: Date | null;
   relationship: string | null;
+  reach: ScopeReach;
 }
 
 /**
@@ -450,6 +482,30 @@ function checkPlacements(input: readonly PlacementInput[]): Placement[] {
       throw new PeopleError(`"${p.role}" can't be given here. Choose the team, management or a cat guardian.`);
     }
     const colonyId = p.colonyId ?? null;
+    const start = p.start === true;
+    if (p.start !== undefined && typeof p.start !== "boolean") {
+      throw new PeopleError("'No colony yet' is yes or no.");
+    }
+    if (start) {
+      // "No colony yet" (SYC-439): a cat guardian alone, no colony, no end
+      // date, no label. The database checks the same.
+      if (p.role !== "guardian") {
+        throw new PeopleError(START_ALONE);
+      }
+      if (colonyId !== null) throw new PeopleError(START_OR_COLONIES);
+      if ((p.endsAt ?? null) !== null || (p.relationship ?? null) !== null) {
+        throw new PeopleError(START_NO_END);
+      }
+      if (input.length !== 1) {
+        throw new PeopleError(
+          input.some((q) => q.role === "guardian" && (q.colonyId ?? null) !== null)
+            ? START_OR_COLONIES
+            : START_ALONE,
+        );
+      }
+      out.push({ role: "guardian", colonyId: null, endsAt: null, relationship: null, reach: "start" });
+      continue;
+    }
     if (p.role === "guardian") {
       if (colonyId === null) {
         throw new PeopleError("A cat guardian needs a colony.");
@@ -492,14 +548,30 @@ function checkPlacements(input: readonly PlacementInput[]): Placement[] {
         `${scopeLabel({ role: p.role, colonyId })} is given twice.`,
       );
     }
-    out.push({ role: p.role, colonyId, endsAt, relationship });
+    out.push({
+      role: p.role,
+      colonyId,
+      endsAt,
+      relationship,
+      reach: p.role === "guardian" ? "colony" : "island",
+    });
   }
   return out;
 }
 
+export const START_ALONE = "'No colony yet' is only for a cat guardian with no other role.";
+export const START_OR_COLONIES = "Choose her colonies, or 'No colony yet', not both.";
+export const START_NO_END =
+  "'No colony yet' can't have an end date or a label. It ends when she creates her colony.";
+
 /** Role names and colony ids, for an event's detail (ids only, §11). */
-function rolesAndColonies(placements: readonly { role: string; colonyId: number | null }[]) {
+function rolesAndColonies(
+  placements: readonly { role: string; colonyId: number | null; reach?: string | null }[],
+) {
   return {
+    // A cat guardian with no colony yet (SYC-439): said, so the history and
+    // messages never read her as holding nothing.
+    ...(placements.some((p) => p.reach === "start") ? { start: true } : {}),
     roles: [...new Set(placements.map((p) => p.role))].sort(),
     colonyIds: [
       ...new Set(
@@ -609,6 +681,7 @@ async function heldRows(tx: Tx, personId: string) {
       id: personScopesTable.id,
       role: personScopesTable.role,
       colonyId: personScopesTable.colonyId,
+      reach: personScopesTable.reach,
       expiresAt: personScopesTable.expiresAt,
       relationship: personScopesTable.relationship,
       inForce: sql<boolean>`(${personScopesTable.expiresAt} is null or ${personScopesTable.expiresAt} > now())`,
@@ -637,11 +710,15 @@ async function writePlacements(
   const held = await heldRows(tx, personId);
   const before = held.filter((h) => h.inForce).map(scopeLabel).sort();
   let changed = false;
+  // A row is "the same placement" by role, colony AND reach, so a start row
+  // (SYC-439) is never mistaken for, or updated into, anything else.
+  const sameRow = (h: { role: string; colonyId: number | null; reach: string }, w: Placement) =>
+    h.role === w.role && h.colonyId === w.colonyId && h.reach === w.reach;
   for (const w of wanted) {
-    const row = held.find((h) => h.role === w.role && h.colonyId === w.colonyId);
+    const row = held.find((h) => sameRow(h, w));
     if (!row) {
       await tx.insert(personScopesTable).values({
-        ...scopeRow(personId, w.role, w.colonyId, by),
+        ...scopeRow(personId, w.role, w.colonyId, by, w.reach === "start"),
         expiresAt: w.endsAt,
         relationship: w.relationship,
       });
@@ -665,8 +742,10 @@ async function writePlacements(
     changed = true;
   }
   for (const h of held) {
-    if (wanted.some((w) => w.role === h.role && w.colonyId === h.colonyId)) continue;
+    if (wanted.some((w) => sameRow(h, w))) continue;
     if (!h.inForce) continue;
+    // A placement on a colony is ended, so it stays as the record of what she
+    // held; an island row, and a "no colony yet" row (SYC-439), is deleted.
     if (h.colonyId !== null) {
       await tx
         .update(personScopesTable)
@@ -755,7 +834,11 @@ async function closeInvitation(
 /** Labels and colony ids of the rows in force, for a `left` event. */
 async function heldInForce(tx: Tx, personId: string) {
   return tx
-    .select({ role: personScopesTable.role, colonyId: personScopesTable.colonyId })
+    .select({
+      role: personScopesTable.role,
+      colonyId: personScopesTable.colonyId,
+      reach: personScopesTable.reach,
+    })
     .from(personScopesTable)
     .where(and(eq(personScopesTable.personId, personId), scopeInForce()));
 }
@@ -1302,9 +1385,15 @@ export function peopleStore(db: PeopleDb) {
       const colonyId = input.colonyId ?? null;
       if (colonyId !== null) checkColonyId(colonyId);
       const single = input.add ?? input.remove;
+      const start = input.start === true;
+      if (start && (input.add !== "guardian" || colonyId !== null)) {
+        throw new PeopleError(
+          "--start is only for --add guardian, with no --colony: a cat guardian with no colony yet.",
+        );
+      }
       if (single !== undefined) {
         checkRole(single);
-        if (single === "guardian" && colonyId === null) {
+        if (single === "guardian" && colonyId === null && !start) {
           throw new PeopleError(
             "A cat guardian is placed on a colony: give its number with --colony.",
           );
@@ -1365,11 +1454,21 @@ export function peopleStore(db: PeopleDb) {
           held.some((h) => h.role === role && h.colonyId === colony);
 
         const toDelete: number[] = [];
-        const toInsert: { role: PersonRole; colonyId: number | null }[] = [];
+        const toInsert: { role: PersonRole; colonyId: number | null; start?: true }[] = [];
         const toRevive: number[] = [];
-        if (input.add !== undefined) {
+        // A "no colony yet" row (SYC-439) never sits beside another row in
+        // force: anything this adds clears it, in this transaction.
+        const startRows = held.filter((h) => h.reach === "start");
+        if (input.add !== undefined && start) {
+          if (startRows.length > 0) {
+            throw new PeopleError(`They already hold ${START_LABEL}. Nothing was changed.`);
+          }
+          if (held.length > 0) throw new PeopleError(`${START_ALONE} Nothing was changed.`);
+          toInsert.push({ role: "guardian", colonyId: null, start: true });
+        } else if (input.add !== undefined) {
           const role = input.add as PersonRole;
           const colony = role === "guardian" ? colonyId : null;
+          for (const r of startRows) toDelete.push(r.id);
           if (holds(role, colony)) {
             throw new PeopleError(
               `They already hold ${scopeLabel({ role, colonyId: colony })}. Nothing was changed.`,
@@ -1384,7 +1483,7 @@ export function peopleStore(db: PeopleDb) {
           const role = input.remove;
           const colony = role === "guardian" ? colonyId : null;
           const row = held.find(
-            (h) => h.role === role && h.colonyId === colony,
+            (h) => h.role === role && h.colonyId === colony && h.reach !== "start",
           );
           if (!row) {
             throw new PeopleError(
@@ -1408,7 +1507,7 @@ export function peopleStore(db: PeopleDb) {
 
         const after = [
           ...held.filter((h) => !toDelete.includes(h.id)).map(scopeLabel),
-          ...toInsert.map(scopeLabel),
+          ...toInsert.map((r) => scopeLabel({ ...r, reach: r.start ? "start" : null })),
           ...ended.filter((h) => toRevive.includes(h.id)).map(scopeLabel),
         ].sort();
         // Since plan PR 0.5, staff and management each let someone in on
@@ -1474,7 +1573,7 @@ export function peopleStore(db: PeopleDb) {
             .insert(personScopesTable)
             .values(
               toInsert.map((r) =>
-                scopeRow(person.id, r.role, r.colonyId, input.by),
+                scopeRow(person.id, r.role, r.colonyId, input.by, r.start === true),
               ),
             );
         }
@@ -2018,8 +2117,15 @@ export function peopleStore(db: PeopleDb) {
         const island = held.some(
           (h) => (ISLAND_ROLES as readonly string[]).includes(h.role) && h.colonyId === null,
         );
-        const guardian = held.some((h) => h.role === "guardian" && h.colonyId !== null);
-        if (!island && !guardian) {
+        const guardian = held.some(
+          (h) => h.role === "guardian" && h.colonyId !== null && h.reach === "colony",
+        );
+        // A cat guardian with no colony yet (SYC-439): read from the row's
+        // reach, never from an empty colony.
+        const starting = held.filter(
+          (h) => h.role === "guardian" && h.colonyId === null && h.reach === "start",
+        );
+        if (!island && !guardian && starting.length === 0) {
           throw new PeopleError("Only the team or a cat guardian can create a colony.");
         }
         const [row] = await tx
@@ -2038,7 +2144,23 @@ export function peopleStore(db: PeopleDb) {
         await tx.insert(personScopesTable).values(
           scopeRow(person.id, "guardian", colonyId, person.id),
         );
-        const after = [...before, scopeLabel({ role: "guardian", colonyId })].sort();
+        // Her first colony: "no colony yet" ends here, in this transaction
+        // (SYC-439, spec §5 step 4). Selected by reach, after the colony
+        // exists, so a name clash above leaves it untouched.
+        if (starting.length > 0) {
+          await tx
+            .delete(personScopesTable)
+            .where(
+              and(
+                eq(personScopesTable.personId, person.id),
+                eq(personScopesTable.reach, "start"),
+              ),
+            );
+        }
+        const after = [
+          ...held.filter((h) => h.reach !== "start").map(scopeLabel),
+          scopeLabel({ role: "guardian", colonyId }),
+        ].sort();
         await recordPersonEvent(tx, {
           personId: person.id,
           kind: "roles_changed",
@@ -2149,6 +2271,7 @@ export function peopleStore(db: PeopleDb) {
           personId: personScopesTable.personId,
           role: personScopesTable.role,
           colonyId: personScopesTable.colonyId,
+          reach: personScopesTable.reach,
           expiresAt: personScopesTable.expiresAt,
           relationship: personScopesTable.relationship,
           inForce: sql<boolean>`(${personScopesTable.expiresAt} is null or ${personScopesTable.expiresAt} > now())`,
@@ -2216,6 +2339,7 @@ export function peopleStore(db: PeopleDb) {
           personId: personScopesTable.personId,
           role: personScopesTable.role,
           colonyId: personScopesTable.colonyId,
+          reach: personScopesTable.reach,
           inForce: sql<boolean>`(${personScopesTable.expiresAt} is null or ${personScopesTable.expiresAt} > now())`,
         })
         .from(personScopesTable);
@@ -2245,7 +2369,13 @@ export function peopleStore(db: PeopleDb) {
         // A placement whose end has passed is shown, marked as ended.
         roles: scopes
           .filter((s) => s.personId === p.id)
-          .map((s) => (s.inForce ? scopeLabel(s) : `${scopeLabel(s)} (ended)`)),
+          .map((s) =>
+            s.reach === "start"
+              ? "guardian (no colony yet)"
+              : s.inForce
+                ? scopeLabel(s)
+                : `${scopeLabel(s)} (ended)`,
+          ),
       }));
     },
   };
