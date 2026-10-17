@@ -1,30 +1,24 @@
 /**
  * SYC-2 PR 2.1 (coat-markings-and-health.md §5.2, §7.2; plan Decision E1):
- * a cat's colour and markings as one quiet line, "Ginger · Tabby · White
- * paws · One eye", on the cat page and each "Find the cat" card.
+ * a cat's colour and markings as one quiet line, "Brown · Ginger · Stripes ·
+ * White paws · One eye", on the cat page and each "Find the cat" card.
  *
  * App-side only; the server's `artifacts/api-server/src/lib/appearance.ts`
- * owns the vocabulary. The codes arrive here through the generated client's
- * `CatCoatItem` and `CatMarkingsItem`, so a new code on the server fails the
- * typecheck below until it has a label.
+ * owns the vocabulary. Since SYC-398 the coat part comes from `coat.ts`
+ * (colours, then the pattern unless Plain, coat-colours-and-pattern.md §2),
+ * which also translates an old cached `coat` so no old word is shown. The
+ * marks arrive through the generated client's `CatMarkingsItem`, so a new
+ * mark on the server fails the typecheck below until it has a label.
  *
  * Pure: separated from the screens so it has a direct test in every
  * language.
  */
 // Types only: screens (and their tests) that mock the generated client
 // still load this file.
-import type { Cat, CatCoatItem, CatMarkingsItem } from '@workspace/api-client-react';
+import type { Cat, CatMarkingsItem } from '@workspace/api-client-react';
+import { coatLineKeys } from './coat';
 
-/** Every colour the public payload can carry, and the word it shows as. */
-export const COAT_LABEL_KEYS: Record<CatCoatItem, string> = {
-  black: 'coat_black',
-  white: 'coat_white',
-  ginger: 'coat_ginger',
-  grey: 'coat_grey',
-  tabby: 'coat_tabby',
-  tortoiseshell_or_calico: 'coat_tortoiseshell_or_calico',
-  black_and_white: 'coat_black_and_white',
-};
+type AppearanceFields = Pick<Cat, 'coat' | 'coatColours' | 'coatPattern' | 'markings'>;
 
 /**
  * Every mark, and the word the public sees (spec §5.2): the chip's own word,
@@ -45,9 +39,8 @@ export const MARK_LABEL_KEYS: Record<CatMarkingsItem, string> = {
   odd_eyes: 'markShown_odd_eyes',
 };
 
-/** The spec's order (§3.1, §3.2): the maps above are written in it, and a
- * test pins it to the generated enums. */
-const COAT_ORDER = Object.keys(COAT_LABEL_KEYS) as CatCoatItem[];
+/** The spec's order (§3.2): the map above is written in it, and a test pins
+ * it to the generated enum. */
 const MARK_ORDER = Object.keys(MARK_LABEL_KEYS) as CatMarkingsItem[];
 
 function inOrder<T extends string>(codes: readonly unknown[] | undefined, order: readonly T[]): T[] {
@@ -59,20 +52,21 @@ function inOrder<T extends string>(codes: readonly unknown[] | undefined, order:
 }
 
 /**
- * The i18n keys for a cat's line: colours first, then marks, each in the
- * spec's order. Empty when nothing is known, including for a cat from an
- * older server or an older cached catalogue, which has neither field.
+ * The i18n keys for a cat's line: the coat first (colours, then the pattern
+ * unless Plain), then marks, each in the spec's order. Empty when nothing is
+ * known, including for a cat from an older server or an older cached
+ * catalogue, which has none of the fields.
  */
-export function appearanceLabelKeys(cat: Pick<Cat, 'coat' | 'markings'>): string[] {
+export function appearanceLabelKeys(cat: AppearanceFields): string[] {
   return [
-    ...inOrder(cat.coat, COAT_ORDER).map((c) => COAT_LABEL_KEYS[c]),
+    ...coatLineKeys(cat),
     ...inOrder(cat.markings, MARK_ORDER).map((m) => MARK_LABEL_KEYS[m]),
   ];
 }
 
 /** The line itself, joined with " · " in every language (E1), or null. */
 export function appearanceLine(
-  cat: Pick<Cat, 'coat' | 'markings'>,
+  cat: AppearanceFields,
   t: (key: string) => string,
 ): string | null {
   const keys = appearanceLabelKeys(cat);

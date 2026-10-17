@@ -565,7 +565,10 @@ const en: Dict = {
 
   // SYC-2 PR 2.1 (coat-markings-and-health.md §3.1, §3.2, §5.1, §5.2, §9):
   // the colour and marking words, and Slice 4's questions, landed once.
-  // coat_*: the eight colours. mark_*: the eleven chip labels. markShown_*:
+  // coat_*: the five colours (SYC-398, coat-colours-and-pattern.md §2) and
+  // Not sure. pattern_*: the three patterns. The old tabby, tortoiseshell or
+  // calico and black-and-white words are gone: the public never sees them.
+  // mark_*: the eleven chip labels. markShown_*:
   // the four marks as the cat page and picker card show them (plain
   // recognition features, never injuries). The questions use the cat's name
   // or "this cat", never a pronoun.
@@ -573,9 +576,10 @@ const en: Dict = {
   coat_white: 'White',
   coat_ginger: 'Ginger',
   coat_grey: 'Grey',
-  coat_tabby: 'Tabby',
-  coat_tortoiseshell_or_calico: 'Tortoiseshell or calico',
-  coat_black_and_white: 'Black and white',
+  coat_brown: 'Brown',
+  pattern_plain: 'Plain',
+  pattern_stripes: 'Stripes',
+  pattern_patches: 'Patches',
   coat_not_sure: 'Not sure',
   mark_white_paws: 'White paws',
   mark_white_chest: 'White chest or bib',
@@ -1187,9 +1191,10 @@ const el: Dict = {
   coat_white: 'Λευκό',
   coat_ginger: 'Πορτοκαλί',
   coat_grey: 'Γκρι',
-  coat_tabby: 'Τιγρέ',
-  coat_tortoiseshell_or_calico: 'Χελωνόχρωμο ή τρίχρωμο',
-  coat_black_and_white: 'Ασπρόμαυρο',
+  coat_brown: 'Καφέ',
+  pattern_plain: 'Ενιαίο',
+  pattern_stripes: 'Ρίγες',
+  pattern_patches: 'Μπαλώματα',
   coat_not_sure: 'Δεν είμαι σίγουρος/η',
   mark_white_paws: 'Λευκά πόδια',
   mark_white_chest: 'Λευκό στήθος',
@@ -1802,9 +1807,10 @@ const fr: Dict = {
   coat_white: 'Blanc',
   coat_ginger: 'Roux',
   coat_grey: 'Gris',
-  coat_tabby: 'Tigré',
-  coat_tortoiseshell_or_calico: 'Écaille de tortue ou calico',
-  coat_black_and_white: 'Noir et blanc',
+  coat_brown: 'Brun',
+  pattern_plain: 'Uni',
+  pattern_stripes: 'Rayures',
+  pattern_patches: 'Plaques',
   coat_not_sure: 'Pas sûr',
   mark_white_paws: 'Pattes blanches',
   mark_white_chest: 'Plastron blanc',

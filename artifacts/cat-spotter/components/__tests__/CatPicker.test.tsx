@@ -107,19 +107,26 @@ describe('CatPicker', () => {
   // cat page's colour and markings line under the name; a cat nobody has
   // described, or one from an older server or cache, carries none.
   it('shows the colour and markings line under the name, and nothing for an undescribed cat', () => {
-    const described = { ...cat(42, 'Agatha', north(0.6)), coat: ['tabby', 'ginger'], markings: ['white_paws'] } as Cat;
+    // SYC-398 A2: the new fields win; `coat` is for older phones only.
+    const described = {
+      ...cat(42, 'Agatha', north(0.6)),
+      coat: ['tabby', 'ginger'],
+      coatColours: ['brown', 'ginger'],
+      coatPattern: 'stripes',
+      markings: ['white_paws'],
+    } as Cat;
     const empty = { ...cat(7, 'Krispy', north(0.05)), coat: [], markings: [] } as Cat;
     const old = cat(3, 'Savma', north(0.05));
     const { getByTestId } = renderPicker({ cats: [described, empty, old] });
     expect(getByTestId('picker-cat-42').textContent).toContain(
-      'Agatha' + 'coat_ginger · coat_tabby · mark_white_paws' + 'SYR-0042',
+      'Agatha' + 'coat_brown · coat_ginger · pattern_stripes · mark_white_paws' + 'SYR-0042',
     );
     for (const id of [7, 3]) {
-      expect(getByTestId(`picker-cat-${id}`).textContent).not.toMatch(/coat_|mark_|·/);
+      expect(getByTestId(`picker-cat-${id}`).textContent).not.toMatch(/coat_|pattern_|mark_|·/);
     }
     // A screen reader hears it too (review of #159).
     expect(getByTestId('picker-cat-42').getAttribute('aria-label')).toBe(
-      'Agatha, SYR-0042, coat_ginger · coat_tabby · mark_white_paws',
+      'Agatha, SYR-0042, coat_brown · coat_ginger · pattern_stripes · mark_white_paws',
     );
     expect(getByTestId('picker-cat-7').getAttribute('aria-label')).toBe('Krispy, SYR-0007');
   });
