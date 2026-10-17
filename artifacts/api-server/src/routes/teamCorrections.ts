@@ -36,7 +36,7 @@ import { escapeHtml as esc } from "../lib/teamPages/escape";
 import { renderLikelyPage } from "../lib/teamPages/likelyPage";
 import { renderConfirmPage } from "../lib/teamPages/confirm";
 import { LIFE } from "../lib/teamPages/catPages";
-import { renderColourCheckPage } from "../lib/teamPages/appearancePage";
+import { renderColourCheckPage, renderCorrectAgain } from "../lib/teamPages/appearancePage";
 import { can, type Capability, type CapabilityTarget } from "../lib/capabilities";
 import { catTarget } from "../lib/capabilityTargets";
 
@@ -146,7 +146,8 @@ const FIELD_WORDS: Record<string, string> = {
   choice: "Choose what it should say",
   name: `A name can be up to ${NAME_MAX} characters`,
   kind: "Choose colour or markings",
-  colours: "Pick one or two colours",
+  colours: "Tick at least one colour or choose a pattern",
+  pattern: "Choose plain, stripes, patches or not stated",
   marks: "Tick the marks the cat has, or none for “nothing special”",
   expected: "The page was out of date: open it again",
 };
@@ -863,6 +864,8 @@ const ConfirmForm = z.object({
 const CorrectForm = z.object({
   kind: z.enum(["coat", "markings"]),
   colours: z.preprocess(listOf, z.array(z.enum(TEAM_COLOURS)).max(TEAM_COLOURS.length).optional()),
+  /** A coat's pattern (SYC-398 PR B); "none" is the form's Not stated. */
+  pattern: z.enum(["plain", "stripes", "patches", "none"]).default("none"),
   // The form's hidden empty `marks` says the list was sent: none ticked is
   // "nothing special", a choice, never a missing field.
   marks: z.preprocess(
@@ -938,11 +941,28 @@ router.post(
     const parsed = CorrectForm.safeParse(req.body ?? {});
     let fields = parsed.success ? [] : fieldsOf(parsed.error);
     let codes: string[] = [];
+    // Not stated is never written: the pattern standing falls through (§4).
+    const pattern = parsed.success && parsed.data.pattern !== "none" ? parsed.data.pattern : undefined;
     if (parsed.success) {
       if (parsed.data.kind === "coat") {
-        // Every colour seen, once each, in display order (SYC-398 §2: no limit).
+        // Every colour seen, once each, in display order (SYC-398 §2: no
+        // limit), and at least one part: colours, a pattern, or both.
         codes = orderColours(parsed.data.colours ?? []);
-        if (codes.length < 1) fields = ["colours"];
+        if (codes.length < 1 && pattern === undefined) {
+          if (isFormPost(req)) {
+            return void res
+              .status(400)
+              .type("html")
+              .send(
+                renderCorrectAgain(catId, teamPerson(res).name, {
+                  reason: parsed.data.reason,
+                  shownAbove: parsed.data.shownAbove ?? [],
+                  back: parsed.data.back ?? "cat",
+                }),
+              );
+          }
+          fields = ["colours", "pattern"];
+        }
       } else if (parsed.data.marks === undefined) {
         fields = ["marks"];
       } else {
@@ -957,11 +977,14 @@ router.post(
         catId,
         kind: parsed.data.kind,
         codes,
+        ...(parsed.data.kind === "coat" && pattern ? { pattern } : {}),
         reason: parsed.data.reason,
         shownAbove: parsed.data.shownAbove,
       });
+      // A coat's page draws the coat after saving (SYC-398 §3).
+      const coat = parsed.data.kind === "coat" ? "a_coat_" : "a_";
       const done =
-        out.kind === "changed" ? "a_changed" : out.retracted.length > 0 ? "a_overruled" : "a_corrected";
+        out.kind === "changed" ? "a_changed" : out.retracted.length > 0 ? `${coat}overruled` : `${coat}corrected`;
       if (isFormPost(req)) return void res.redirect(303, afterAppearance(parsed.data.back, catId, done));
       if (out.kind === "changed") return void res.status(409).json({ error: "Changed", code: "CHANGED" });
       res.status(201).json({ id: out.row.id, retracted: out.retracted.map((r) => r.id) });

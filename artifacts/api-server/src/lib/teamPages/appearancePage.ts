@@ -3,6 +3,7 @@ import type { ColourCheckCat, ColourCheckReason } from "../colourCheck";
 import { REASON_ORDER } from "../colourCheck";
 import { COAT_COLOURS, COAT_PATTERNS, LEGACY_COAT_CODES, MARKS } from "../appearance";
 import type { TeamAppearance, TeamAppearanceStatement, TeamCatView } from "../teamCatView";
+import { colourSwatch, drawnCoatFigure } from "./coatDrawing";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { tr, type StringKey } from "./strings";
@@ -92,7 +93,13 @@ export const APPEARANCE_DONE: Record<string, StringKey> = {
   a_nothing: "appearance.done.nothing",
   a_changed: "appearance.done.changed",
   a_wrong: "appearance.done.markedWrong",
+  // A coat Correct (SYC-398 PR B): the same words, and the drawn cat after.
+  a_coat_corrected: "appearance.done.corrected",
+  a_coat_overruled: "appearance.done.overruled",
 };
+
+/** The `done` keys after which the cat page draws the coat as it now stands. */
+const DRAWN_AFTER: ReadonlySet<string> = new Set(["a_coat_corrected", "a_coat_overruled"]);
 
 export function appearanceNotice(lang: string | undefined, done: string | undefined): string {
   // Own keys only: ?done=constructor must not reach Object.prototype.
@@ -106,9 +113,9 @@ export type AppearanceBack = "cat" | "colour";
 const backField = (back: AppearanceBack) =>
   back === "colour" ? '<input type="hidden" name="back" value="colour">' : "";
 
-const reasonInput = (lang: string | undefined, id: string) =>
+const reasonInput = (lang: string | undefined, id: string, value?: string) =>
   `<label class="label" for="${id}">${esc(tr(lang, "appearance.why"))}</label>` +
-  `<input class="text" id="${id}" name="reason" required maxlength="500" autocomplete="off">`;
+  `<input class="text" id="${id}" name="reason" required maxlength="500" autocomplete="off"${value ? ` value="${esc(value)}"` : ""}>`;
 
 /** A coat's two parts as the page shows them (SYC-398 §4). */
 type CoatShown = { colours: readonly string[] | null; pattern: string | null };
@@ -155,11 +162,28 @@ function confirmForm(
 }
 
 /**
- * "Correct": the whole new value with a reason. Colour offers the five
- * colours, ticked as they stand, never Not sure (the pattern comes in
- * SYC-398 PR B); markings offer all eleven, ticked as they stand,
- * and none ticked means "nothing special". The hidden empty `marks` says the
- * list was sent, so an empty list is a choice, not a missing field.
+ * The pattern as radio buttons (SYC-398 §3), Not stated ticked: a Correct
+ * that leaves it there states the colours only, and the pattern already
+ * standing falls through (§4).
+ */
+function patternRadios(lang: string | undefined, idBase: string): string {
+  const radios = [...COAT_PATTERNS, "none"]
+    .map(
+      (p) =>
+        `<label class="choice" for="${idBase}-p-${p}"><input type="radio" id="${idBase}-p-${p}" name="pattern" value="${p}"${p === "none" ? " checked" : ""}> ` +
+        `${esc(tr(lang, `pattern.${p}` as StringKey))}</label>`,
+    )
+    .join("");
+  return `<fieldset><legend class="label">${esc(tr(lang, "appearance.pickPattern"))}</legend><div class="chips">${radios}</div></fieldset>`;
+}
+
+/**
+ * "Correct": the new value with a reason. Colour offers the five colours,
+ * each with its swatch, ticked as they stand, never Not sure, and the
+ * pattern, Not stated by default (SYC-398 §3): a coat Correct states at
+ * least one part. Markings offer all eleven, ticked as they stand, and none
+ * ticked means "nothing special". The hidden empty `marks` says the list was
+ * sent, so an empty list is a choice, not a missing field.
  */
 function correctForm(
   lang: string | undefined,
@@ -170,6 +194,8 @@ function correctForm(
   above: readonly number[],
   back: AppearanceBack,
   idBase: string,
+  /** Shown again after a refusal: open, with its error and the reason kept. */
+  again?: { error: string; reason: string },
 ): string {
   const codes: readonly string[] = kind === "coat" ? TEAM_COLOURS : MARKS;
   const field = kind === "coat" ? "colours" : "marks";
@@ -179,11 +205,13 @@ function correctForm(
     .map(
       (c) =>
         `<label class="choice" for="${idBase}-${c}"><input type="checkbox" id="${idBase}-${c}" name="${field}" value="${c}"${ticked.has(c) ? " checked" : ""}> ` +
+        (kind === "coat" ? colourSwatch(c) : "") +
         `${esc(kind === "coat" ? coatWord(lang, c) : markWord(lang, c))}</label>`,
     )
     .join("");
   return (
-    `<details><summary>${esc(tr(lang, kind === "coat" ? "appearance.correctColour" : "appearance.correctMarkings"))}</summary>` +
+    `<details${again ? " open" : ""}><summary>${esc(tr(lang, kind === "coat" ? "appearance.correctColour" : "appearance.correctMarkings"))}</summary>` +
+    (again ? `<p class="warn" role="alert">${esc(again.error)}</p>` : "") +
     `<form method="post" action="/api/team/cats/${catId}/appearance/correct">` +
     `<input type="hidden" name="kind" value="${kind}">` +
     (kind === "markings" ? '<input type="hidden" name="marks" value="">' : "") +
@@ -193,7 +221,8 @@ function correctForm(
     (above.length > 0 ? `<p class="warn">${esc(tr(lang, "appearance.overruleHint"))}</p>` : "") +
     `<fieldset><legend class="label">${esc(tr(lang, kind === "coat" ? "appearance.pickColours" : "appearance.pickMarks"))}</legend>` +
     `<div class="chips">${boxes}</div></fieldset>` +
-    reasonInput(lang, `${idBase}-why`) +
+    (kind === "coat" ? patternRadios(lang, idBase) : "") +
+    reasonInput(lang, `${idBase}-why`, again?.reason) +
     `<button type="submit">${esc(tr(lang, "appearance.save"))}</button></form></details>`
   );
 }
@@ -331,12 +360,42 @@ export function renderAppearanceSection(
   return (
     `<h2 id="appearance">${esc(tr(lang, "appearance.title"))}</h2>` +
     appearanceNotice(lang, done) +
+    // After a coat Correct, the coat as it now stands, drawn once (§3).
+    (done && DRAWN_AFTER.has(done) && parts
+      ? drawnCoatFigure(lang, { colours: parts.colours.value, pattern: parts.pattern.value }, `cat${v.cat.id}`)
+      : "") +
     `<h3>${esc(tr(lang, "appearance.publicSees"))}</h3>` +
     `<p class="public">${esc(line || tr(lang, "appearance.publicNothing"))}</p>` +
     kindBlock(lang, v.cat.id, "coat", a.coat, coatReasons, mayChange) +
     kindBlock(lang, v.cat.id, "markings", a.markings, a.markings.checkReasons, mayChange) +
     `<p class="hint">${esc(tr(lang, "appearance.historyHint"))}</p>`
   );
+}
+
+/**
+ * A coat Correct that stated neither part (SYC-398 PR B): the form again,
+ * open, with the error and the reason kept, and nothing ticked, as it was
+ * sent. Nothing was written.
+ */
+export function renderCorrectAgain(
+  catId: number,
+  personName: string,
+  opts: { reason: string; shownAbove: readonly number[]; back: AppearanceBack },
+  lang?: string,
+): string {
+  const backHref = opts.back === "colour" ? `/api/team/colour-check#c-${catId}` : `/api/team/cats/${catId}#appearance`;
+  return renderPage({
+    title: tr(lang, "appearance.problemTitle"),
+    active: opts.back === "colour" ? "colour" : "cats",
+    personName,
+    lang,
+    body:
+      correctForm(lang, catId, "coat", [], opts.shownAbove, opts.back, "again-coat", {
+        error: tr(lang, "appearance.needAPart"),
+        reason: opts.reason,
+      }) +
+      `<p><a class="tap" href="${esc(backHref)}">${esc(tr(lang, "gcat.problem.backToCat"))}</a></p>`,
+  });
 }
 
 // ── The Colour check list ───────────────────────────────────────────────────

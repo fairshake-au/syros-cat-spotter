@@ -277,6 +277,14 @@ export const en = {
   "appearance.done.markedWrong": "Saved. That change no longer counts. It stays in the history below.",
   "appearance.recordsSay": "Status",
   "appearance.noPhoto": "No photo",
+  // SYC-398 PR B: the pattern on the team's Correct, the error when it
+  // states neither part, and the drawn cat shown after saving.
+  "appearance.pickPattern": "Choose the pattern, if you can see it",
+  "appearance.needAPart": "Tick at least one colour or choose a pattern. Nothing was changed.",
+  "appearance.problemTitle": "That didn't save",
+  "appearance.drawnTitle": "The coat now",
+  "appearance.drawnColoursNotKnown": "Colours not known",
+  "appearance.drawnPatternNotKnown": "Pattern not known",
 
   "colourCheck.title": "Colour check",
   "colourCheck.intro": "Cats whose colour or markings are worth a second look. Low priority: a few minutes a week.",

@@ -250,6 +250,12 @@ export const fr: Record<StringKey, string> = {
   "appearance.done.markedWrong": "Enregistré. Cette modification ne compte plus. Elle reste dans l’historique ci-dessous.",
   "appearance.recordsSay": "Statut",
   "appearance.noPhoto": "Pas de photo",
+  "appearance.pickPattern": "Choisis le motif, si tu le vois",
+  "appearance.needAPart": "Coche au moins une couleur ou choisis un motif. Rien n’a été changé.",
+  "appearance.problemTitle": "Ça n’a pas été enregistré",
+  "appearance.drawnTitle": "Le pelage maintenant",
+  "appearance.drawnColoursNotKnown": "Couleurs inconnues",
+  "appearance.drawnPatternNotKnown": "Motif inconnu",
 
   "colourCheck.title": "Vérification des couleurs",
   "colourCheck.intro": "Les chats dont la couleur ou les marques méritent un second regard. Faible priorité : quelques minutes par semaine.",

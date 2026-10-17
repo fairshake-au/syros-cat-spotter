@@ -250,6 +250,12 @@ export const el: Record<StringKey, string> = {
   "appearance.done.markedWrong": "Αποθηκεύτηκε. Αυτή η αλλαγή δεν μετράει πια. Μένει στο ιστορικό παρακάτω.",
   "appearance.recordsSay": "Κατάσταση",
   "appearance.noPhoto": "Χωρίς φωτογραφία",
+  "appearance.pickPattern": "Επιλέξτε το σχέδιο, αν το βλέπετε",
+  "appearance.needAPart": "Σημειώστε τουλάχιστον ένα χρώμα ή επιλέξτε ένα σχέδιο. Δεν άλλαξε τίποτα.",
+  "appearance.problemTitle": "Δεν αποθηκεύτηκε",
+  "appearance.drawnTitle": "Το τρίχωμα τώρα",
+  "appearance.drawnColoursNotKnown": "Χρώματα άγνωστα",
+  "appearance.drawnPatternNotKnown": "Σχέδιο άγνωστο",
 
   "colourCheck.title": "Έλεγχος χρώματος",
   "colourCheck.intro": "Γάτες των οποίων το χρώμα ή τα σημάδια αξίζουν μια δεύτερη ματιά. Χαμηλή προτεραιότητα: λίγα λεπτά την εβδομάδα.",
