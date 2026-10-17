@@ -1,7 +1,12 @@
-import { sql } from "drizzle-orm";
-import { coloniesTable, db, peopleTable } from "@workspace/db";
-import { inArray } from "drizzle-orm";
-import { listGuardianChanges } from "./guardianChanges";
+import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import {
+  catsTable,
+  coloniesTable,
+  db,
+  observationsTable,
+  peopleTable,
+  personEventsTable,
+} from "@workspace/db";
 
 // "Recent guardian changes" at the top of the team's Colonies page (SYC-209
 // PR 4.3; feeding-sites spec §2.6; plan K6). The last twenty things cat
@@ -11,10 +16,16 @@ import { listGuardianChanges } from "./guardianChanges";
 // Island-only and team-only: the route checks `view_guardian_changes`
 // before it calls this, and nothing here reaches a cat guardian's pages.
 //
-// Built from two sources:
-// - roles PR 2.2's `listGuardianChanges()`: the colonies she created, and
-//   her `colony` statements (a cat put in, or taken out), which carry
-//   `roleAtTime = guardian` and the colony that granted them;
+// Built from the same records as roles PR 2.2's `listGuardianChanges()`
+// (lib/guardianChanges.ts), read narrowly here:
+// - the colonies she created (`roles_changed` with `createdColony`, written
+//   by her about herself), and her `colony` statements (a cat put in, or
+//   taken out), which carry `roleAtTime = guardian` and the colony that
+//   granted them. `listGuardianChanges()` itself takes the newest 200
+//   statements of EVERY kind, so a burst of sterilisation or coat statements
+//   would push cats off this list (review M1); it also works out
+//   disagreements this list doesn't show. So each source is read here with
+//   its own kind filter and limit;
 // - this plan's history rows (`mapping_events`) for sites added or moved.
 //   Those rows don't record the writer's role, so a site row counts as a
 //   cat guardian's when its writer has a guardian placement (in force or
@@ -86,47 +97,84 @@ async function guardianSiteEvents(limit: number): Promise<SiteRow[]> {
   return result.rows;
 }
 
-/** The list, newest first, at most twenty. A fixed number of queries. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The colony that granted a statement, from `colony:<id>`. */
+const colonyOfScope = (scope: string | null): number | null => {
+  const m = /^colony:([1-9][0-9]{0,8})$/.exec(scope ?? "");
+  return m ? Number(m[1]) : null;
+};
+
+type Pending = RecentGuardianChange & { personId: string | null };
+
+/** The list, newest first, at most twenty. Six queries, whatever the count. */
 export async function recentGuardianChanges(
   limit: number = RECENT_GUARDIAN_CHANGES,
 ): Promise<RecentGuardianChange[]> {
-  const [changes, sites] = await Promise.all([listGuardianChanges(), guardianSiteEvents(limit)]);
+  const [statements, created, sites] = await Promise.all([
+    // Her cats put in or taken out, newest first (the partial index from
+    // migration 0030 serves the guardian rows in this order).
+    db
+      .select({
+        at: observationsTable.createdAt,
+        catId: observationsTable.catId,
+        value: observationsTable.value,
+        accountId: observationsTable.accountId,
+        authorityScope: observationsTable.authorityScope,
+      })
+      .from(observationsTable)
+      .where(and(eq(observationsTable.roleAtTime, "guardian"), eq(observationsTable.kind, "colony")))
+      .orderBy(desc(observationsTable.createdAt), desc(observationsTable.id))
+      .limit(limit),
+    // Colonies she created: her own `roles_changed` naming the new colony.
+    db
+      .select({ personId: personEventsTable.personId, at: personEventsTable.at, detail: personEventsTable.detail })
+      .from(personEventsTable)
+      .where(
+        and(
+          eq(personEventsTable.kind, "roles_changed"),
+          sql`${personEventsTable.by} = ${personEventsTable.personId}::text`,
+          isNotNull(sql`${personEventsTable.detail} -> 'createdColony'`),
+        ),
+      )
+      .orderBy(desc(personEventsTable.at), desc(personEventsTable.id))
+      .limit(limit),
+    guardianSiteEvents(limit),
+  ]);
 
-  const out: RecentGuardianChange[] = [];
-  for (const c of changes) {
-    if (c.type === "colony_created") {
-      out.push({
-        kind: "colony_created",
-        at: c.at,
-        guardian: c.guardian,
-        colony: { id: c.colonyId, name: c.colony?.name ?? null },
-      });
-    } else if (c.type === "statement" && c.kind === "colony" && c.colonyId !== null) {
-      const into = (c.value as { colonyId?: unknown } | null)?.colonyId;
-      out.push({
-        kind: into === null ? "cat_taken_out" : "cat_added",
-        at: c.at,
-        guardian: c.guardian,
-        colony: { id: c.colonyId, name: null },
-        cat: c.cat,
-      });
-    }
+  const out: Pending[] = [];
+  for (const c of created) {
+    const colonyId = (c.detail as { createdColony?: unknown } | null)?.createdColony;
+    if (typeof colonyId !== "number") continue;
+    out.push({
+      kind: "colony_created",
+      at: c.at.toISOString(),
+      personId: c.personId,
+      guardian: null,
+      colony: { id: colonyId, name: null },
+    });
   }
-
-  const siteIds = [...new Set(sites.map((s) => s.person_id))];
-  const people =
-    siteIds.length === 0
-      ? []
-      : await db
-          .select({ id: peopleTable.id, name: peopleTable.name, leftAt: peopleTable.leftAt })
-          .from(peopleTable)
-          .where(inArray(peopleTable.id, siteIds));
-  const personById = new Map(people.map((p) => [p.id, { id: p.id, name: p.name, left: p.leftAt !== null }]));
+  for (const st of statements) {
+    const colonyId = colonyOfScope(st.authorityScope);
+    const into = (st.value as { colonyId?: unknown } | null)?.colonyId;
+    // Only a value that says where the cat went: a colony (put in) or none
+    // (taken out). Anything else is not one of these changes (review m3).
+    if (colonyId === null || !(into === null || typeof into === "number")) continue;
+    out.push({
+      kind: into === null ? "cat_taken_out" : "cat_added",
+      at: st.at.toISOString(),
+      personId: st.accountId,
+      guardian: null,
+      colony: { id: colonyId, name: null },
+      cat: { id: st.catId, name: "" },
+    });
+  }
   for (const s of sites) {
     out.push({
       kind: s.kind === "created" ? "site_added" : "site_moved",
       at: new Date(s.at).toISOString(),
-      guardian: personById.get(s.person_id) ?? null,
+      personId: s.person_id,
+      guardian: null,
       colony: { id: Number(s.colony_id), name: null },
       site: { id: Number(s.site_id), name: s.site_name },
     });
@@ -135,15 +183,36 @@ export async function recentGuardianChanges(
   out.sort((a, b) => b.at.localeCompare(a.at));
   const shown = out.slice(0, limit);
 
-  // Every colony by its name today, in one query.
+  // Every colony, cat and person by name, one query each.
   const colonyIds = [...new Set(shown.map((c) => c.colony.id))];
-  const colonies =
+  const catIds = [...new Set(shown.flatMap((c) => (c.cat ? [c.cat.id] : [])))];
+  const personIds = [
+    ...new Set(shown.map((c) => c.personId).filter((id): id is string => typeof id === "string" && UUID.test(id))),
+  ];
+  const [colonies, cats, people] = await Promise.all([
     colonyIds.length === 0
       ? []
-      : await db
+      : db
           .select({ id: coloniesTable.id, name: coloniesTable.name })
           .from(coloniesTable)
-          .where(inArray(coloniesTable.id, colonyIds));
-  const nameOf = new Map(colonies.map((c) => [c.id, c.name]));
-  return shown.map((c) => ({ ...c, colony: { id: c.colony.id, name: nameOf.get(c.colony.id) ?? null } }));
+          .where(inArray(coloniesTable.id, colonyIds)),
+    catIds.length === 0
+      ? []
+      : db.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(inArray(catsTable.id, catIds)),
+    personIds.length === 0
+      ? []
+      : db
+          .select({ id: peopleTable.id, name: peopleTable.name, leftAt: peopleTable.leftAt })
+          .from(peopleTable)
+          .where(inArray(peopleTable.id, personIds)),
+  ]);
+  const colonyName = new Map(colonies.map((c) => [c.id, c.name]));
+  const catName = new Map(cats.map((c) => [c.id, c.name]));
+  const person = new Map(people.map((p) => [p.id, { id: p.id, name: p.name, left: p.leftAt !== null }]));
+  return shown.map(({ personId, ...c }) => ({
+    ...c,
+    guardian: personId ? (person.get(personId) ?? null) : null,
+    colony: { id: c.colony.id, name: colonyName.get(c.colony.id) ?? null },
+    ...(c.cat ? { cat: { id: c.cat.id, name: catName.get(c.cat.id) ?? `#${c.cat.id}` } } : {}),
+  }));
 }

@@ -171,6 +171,58 @@ describe("what goes in the list", () => {
     expect((await teamList()).some((c) => c.cat?.id === cat.id)).toBe(false);
   });
 
+  it("a burst of her other statements never pushes a cat off the list (review M1)", async () => {
+    const her = { id: eleni.id, scopes: [{ role: "guardian" as const, colonyId: c1 }] };
+    const cat = await seedCat(null);
+    await placeCats(her, c1, [cat.id]);
+    // 210 newer statements of another kind: more than the roles reader's 200.
+    await pool.query(
+      `insert into observations (cat_id, kind, value, account_id, role_at_time, authority_scope, observed_at)
+       select $1, 'sterilised', '{"sterilised": true}', $2, 'guardian', $3, now() from generate_series(1, 210)`,
+      [cat.id, eleni.id, `colony:${c1}`],
+    );
+    const list = await teamList();
+    expect(list[0]).toMatchObject({ kind: "cat_added", cat: { id: cat.id }, colony: { id: c1 } });
+  });
+
+  it("a colony statement that doesn't say where the cat went is not listed (review m3)", async () => {
+    const cat = await seedCat(c1);
+    await pool.query(
+      `insert into observations (cat_id, kind, value, account_id, role_at_time, authority_scope, observed_at)
+       values ($1, 'colony', '{"retracted": true}', $2, 'guardian', $3, now())`,
+      [cat.id, eleni.id, `colony:${c1}`],
+    );
+    expect((await teamList()).some((c) => c.cat?.id === cat.id)).toBe(false);
+  });
+
+  it("someone who is both the team and a cat guardian acts as the team: her site isn't listed", async () => {
+    const both = await guardianOn(`gchg-both-${RUN}`, [c1]);
+    await pool.query(
+      "insert into person_scopes (person_id, role, colony_id, reach) values ($1, 'staff', null, 'island')",
+      [both.id],
+    );
+    const site = await addSite(both.id, { name: `Both ${RUN}`, lat: 37.4458, lng: 24.9428, colonyId: c1, directions: null, notes: null });
+    if (site.kind !== "created") throw new Error("seed site");
+    expect((await teamList()).some((c) => c.site?.id === site.id)).toBe(false);
+    await removeTestPerson(both.email).catch(() => undefined);
+  });
+
+  it("a cat guardian on another colony isn't credited with a site in this one", async () => {
+    const site = await addSite(zoe.id, { name: `Not hers ${RUN}`, lat: 37.4459, lng: 24.9429, colonyId: c1, directions: null, notes: null });
+    if (site.kind !== "created") throw new Error("seed site");
+    expect((await teamList()).some((c) => c.site?.id === site.id)).toBe(false);
+  });
+
+  it("a cat guardian who has left is shown as having left", async () => {
+    const gone = await guardianOn(`gchg-gone-${RUN}`, [c2]);
+    await addSite(gone.id, { name: `Gone ${RUN}`, lat: 37.446, lng: 24.943, colonyId: c2, directions: null, notes: null });
+    await pool.query("update people set left_at = now() where id = $1", [gone.id]);
+    const name = (await pool.query("select name from people where id = $1", [gone.id])).rows[0].name as string;
+    expect((await teamList())[0]).toMatchObject({ kind: "site_added", guardian: { id: gone.id, left: true } });
+    expect((await get("/api/team/colonies", staffCookie)).text).toContain(`<strong>${name} (has left)</strong> added a feeding site: Gone ${RUN}`);
+    await removeTestPerson(gone.email).catch(() => undefined);
+  });
+
   it("a name someone typed is escaped, never markup", async () => {
     const odd = await guardianOn(`gchg-odd-${RUN}`, [c2]);
     await pool.query("update people set name = $1 where id = $2", [`<b>Odd</b> ${RUN}`, odd.id]);

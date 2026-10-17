@@ -74,6 +74,20 @@ const TARGET_MODULES: Record<string, string> = {
 };
 
 /**
+ * Team-only readers a route may call without a Visible, because the route
+ * calls them only behind an island-only capability, so a cat guardian never
+ * reaches them. Each says why, and the test below holds every call to that
+ * capability.
+ */
+const ISLAND_ONLY_MODULES: Record<string, { why: string; fn: string; capability: string }> = {
+  "lib/recentGuardianChanges.ts": {
+    why: "the team's \"Recent changes by cat guardians\" (SYC-209 PR 4.3), the whole island's by design",
+    fn: "recentGuardianChanges",
+    capability: "view_guardian_changes",
+  },
+};
+
+/**
  * Functions in those modules that touch the tables WITHOUT a Visible, each
  * with the reason. Every one is a write, or a step inside one, behind a
  * route that asks can() against the colony read from the record (PR 4.2),
@@ -326,9 +340,26 @@ describe("the routes read sites and colonies only through those modules", () => 
         }
         if (!touchesTables(text)) continue;
         expect(
-          FILTERED_MODULES.includes(lib) || lib === "lib/guardianView.ts" || lib in TARGET_MODULES,
+          FILTERED_MODULES.includes(lib) ||
+            lib === "lib/guardianView.ts" ||
+            lib in TARGET_MODULES ||
+            lib in ISLAND_ONLY_MODULES,
           `${file} calls ${lib}, which touches sites or colonies but isn't checked here`,
         ).toBe(true);
+      }
+    });
+
+    it(`${file}: every island-only reader is called only behind its capability`, () => {
+      const src = read(join("routes", file));
+      for (const { fn, capability } of Object.values(ISLAND_ONLY_MODULES)) {
+        const calls = [...src.matchAll(new RegExp(`\\b${fn}\\(`, "g"))];
+        for (const call of calls) {
+          // The guard is in the same route, before the call: the route's own
+          // requireTeam(capability), or an inline can() check.
+          const before = src.slice(src.lastIndexOf("router.", call.index), call.index);
+          const guard = new RegExp(`(can\\(person, "${capability}"\\)|requireTeam\\("${capability}"\\))`);
+          expect(before, `${file}: ${fn}() at offset ${call.index} without ${capability}`).toMatch(guard);
+        }
       }
     });
 
