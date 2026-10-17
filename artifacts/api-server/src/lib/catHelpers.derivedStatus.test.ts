@@ -108,6 +108,8 @@ describe("deriveCatStatuses: the PR 3 gate (plan PR 4)", () => {
       notSeenSince: null,
       sterilised: { value: null, confidence: "unknown", clippedTipSightings: 0 },
       coat: [],
+      coatColours: [],
+      coatPattern: null,
       markings: [],
     });
   });
@@ -127,6 +129,8 @@ describe("deriveCatStatuses: the PR 3 gate (plan PR 4)", () => {
       notSeenSince: null,
       sterilised: { value: null, confidence: "unknown", clippedTipSightings: 0 },
       coat: [],
+      coatColours: [],
+      coatPattern: null,
       markings: [],
     });
   });

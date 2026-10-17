@@ -172,6 +172,9 @@ describe("source: catHelpers, which every notifier's deceased check goes through
     { fn: "export async function deriveCatStatuses", read: "snapshot.coatPattern.value" },
     { fn: "export async function deriveCatStatuses", read: "snapshot.markings.value" },
     { fn: "export function serialiseCat", read: "cat.derived.coat" },
+    // SYC-398 PR A2: the two parts on the public wire, right after `coat`.
+    { fn: "export function serialiseCat", read: "cat.derived.coatColours" },
+    { fn: "export function serialiseCat", read: "cat.derived.coatPattern" },
     { fn: "export function serialiseCat", read: "cat.derived.markings" },
   ];
 
@@ -200,7 +203,11 @@ describe("source: catHelpers, which every notifier's deceased check goes through
       "snapshot.coatColours.confidence",
       "snapshot.coatPattern.checkReasons",
       "snapshot.coatColours",
+      // SYC-398 A2: these are allowed reads now, so a second copy of each,
+      // outside serialiseCat, must still be caught.
       "cat.derived.coatColours",
+      "cat.derived.coatPattern",
+      "cat.derived.coat",
       "const { coatColours } = snapshot;",
       "snapshot.coat.confidence",
       "snapshot.vaccinations",
@@ -210,7 +217,9 @@ describe("source: catHelpers, which every notifier's deceased check goes through
       "const { lifeStatus, vaccinations }: CatSnapshot = resolveCat(o, e, now);",
     ]) {
       let rest = `${src}\n${extra}`;
-      for (const { read } of ALLOWED_READS) rest = rest.replace(word(read), "");
+      // Strip each allowed read once only: it is allowed exactly once (the
+      // test above), so a copy beside it must survive to be caught.
+      for (const { read } of ALLOWED_READS) rest = rest.replace(new RegExp(word(read).source), "");
       expect(READS_NEW_FIELDS.some((re) => re.test(rest)), extra).toBe(true);
     }
   });

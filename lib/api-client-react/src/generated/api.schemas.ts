@@ -197,6 +197,29 @@ export const CatCoatItem = {
   black_and_white: 'black_and_white',
 } as const;
 
+export type CatCoatColoursItem = typeof CatCoatColoursItem[keyof typeof CatCoatColoursItem];
+
+
+export const CatCoatColoursItem = {
+  black: 'black',
+  grey: 'grey',
+  brown: 'brown',
+  ginger: 'ginger',
+  white: 'white',
+} as const;
+
+/**
+ * The cat's resolved coat pattern (§6), or null when not known. Only the value.
+ */
+export type CatCoatPattern = typeof CatCoatPattern[keyof typeof CatCoatPattern] | null;
+
+
+export const CatCoatPattern = {
+  plain: 'plain',
+  stripes: 'stripes',
+  patches: 'patches',
+} as const;
+
 export type CatMarkingsItem = typeof CatMarkingsItem[keyof typeof CatMarkingsItem];
 
 
@@ -287,15 +310,15 @@ export interface Cat {
   /** Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly. Since SYC-75 "likely" (a clipped ear tip has been seen) is shown publicly too, now that Syros Cats can correct a wrong one (Q2). A missing clip is never shown as "not sterilised". */
   sterilised: CatSterilised;
   /**
-     * The cat's resolved coat colours (coat-markings-and-health.md
-     * §3.1, §10.4): one or two codes, or `[]` when not known. "Not
-     * sure" is never sent; it is `[]` (data spine §10.7). Only the
-     * value: never how sure, who said it, how many people, the model
-     * version or the date. Optional so an older server or a cached
-     * catalogue without it reads as "not known".
+     * For older app versions, display only, worked out from coatColours
+     * and coatPattern (§6). Never filter on it.
      * @maxItems 2
      */
   coat?: CatCoatItem[];
+  /** The cat's resolved coat colours (coat-colours-and-pattern.md §6), in display order; [] when not known. Only the value. */
+  coatColours?: CatCoatColoursItem[];
+  /** The cat's resolved coat pattern (§6), or null when not known. Only the value. */
+  coatPattern?: CatCoatPattern;
   /**
      * The cat's resolved markings (coat-markings-and-health.md §3.2,
      * §10.4), `[]` when none are known. Only the list: never how sure,

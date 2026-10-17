@@ -5,7 +5,9 @@
  * A cat's colour and markings reach the public as two lists of codes and
  * nothing else; vaccinations and team notes never do, by name and by word.
  * Three cats, described by the team: two colours plus marks and a
- * vaccination and a team note; one colour; nothing at all.
+ * vaccination and a team note; one colour; nothing at all. SYC-398 PR A2
+ * (coat-colours-and-pattern.md §6) adds two: Brown · Ginger · Stripes, and
+ * Brown alone, which has no old code.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -23,10 +25,12 @@ const TINY_JPEG_B64 =
   "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 const REPO = resolve(__dirname, "../../../..");
 
-const cats: { described: number; oneColour: number; undescribed: number } = {
+const cats: { described: number; oneColour: number; undescribed: number; brownGinger: number; brownAlone: number } = {
   described: 0,
   oneColour: 0,
   undescribed: 0,
+  brownGinger: 0,
+  brownAlone: 0,
 };
 
 async function seedCat(label: string): Promise<number> {
@@ -59,6 +63,8 @@ beforeAll(async () => {
   cats.described = await seedCat("described");
   cats.oneColour = await seedCat("one-colour");
   cats.undescribed = await seedCat("undescribed");
+  cats.brownGinger = await seedCat("brown-ginger");
+  cats.brownAlone = await seedCat("brown-alone");
   const staff = { accountId: "person:vitest-syc2-staff", roleAtTime: "staff", observedAt: new Date("2026-10-01T10:00:00Z") };
   const d = cats.described;
   // SYC-398: written as Ginger · Stripes, sent to older phones as the old
@@ -73,6 +79,13 @@ beforeAll(async () => {
   });
   await writeObservation(db, { ...staff, catId: d, kind: "team_note", value: { text: "Rabies booster due; watch for enteritis" } });
   await writeObservation(db, { ...staff, catId: cats.oneColour, kind: "coat", value: { colours: ["black"] } });
+  await writeObservation(db, {
+    ...staff,
+    catId: cats.brownGinger,
+    kind: "coat",
+    value: { colours: ["brown", "ginger"], pattern: "stripes" },
+  });
+  await writeObservation(db, { ...staff, catId: cats.brownAlone, kind: "coat", value: { colours: ["brown"] } });
 });
 
 afterAll(async () => {
@@ -87,6 +100,18 @@ function allKeys(v: unknown, out: Set<string> = new Set()): Set<string> {
     for (const [k, x] of Object.entries(v)) {
       out.add(k);
       allKeys(x, out);
+    }
+  }
+  return out;
+}
+
+/** The path of every `confidence` key, at every depth. */
+function confidencePaths(v: unknown, at = "", out: string[] = []): string[] {
+  if (Array.isArray(v)) v.forEach((x, i) => confidencePaths(x, `${at}[${i}]`, out));
+  else if (v !== null && typeof v === "object") {
+    for (const [k, x] of Object.entries(v)) {
+      if (k === "confidence") out.push(`${at}.${k}`);
+      confidencePaths(x, `${at}.${k}`, out);
     }
   }
   return out;
@@ -123,6 +148,8 @@ const NEVER_PUBLIC = [
  * snapshots only see undescribed cats (review of PR 2.1, minor 1). */
 const PUBLIC_CAT_KEYS = [
   "coat",
+  "coatColours",
+  "coatPattern",
   "description",
   "discovererNickname",
   "discovererSpotterCode",
@@ -149,9 +176,9 @@ const PUBLIC_CAT_KEYS = [
 async function publicResponses(): Promise<{ list: Record<string, unknown>[]; details: Record<string, unknown>[]; texts: string[] }> {
   const listRes = await request(app).get("/api/cats?pageSize=200");
   expect(listRes.status).toBe(200);
-  const ids = [cats.described, cats.oneColour, cats.undescribed];
+  const ids = [cats.described, cats.oneColour, cats.undescribed, cats.brownGinger, cats.brownAlone];
   const list = (listRes.body.cats as Record<string, unknown>[]).filter((c) => ids.includes(c["id"] as number));
-  expect(list).toHaveLength(3);
+  expect(list).toHaveLength(ids.length);
   const texts = [listRes.text];
   const details: Record<string, unknown>[] = [];
   for (const id of ids) {
@@ -174,10 +201,11 @@ describe("T-leak (C6): colour and markings reach the public as two lists of code
     const fromDetail = new Map(details.map((d) => [(d["cat"] as { id: number }).id, d["cat"] as Record<string, unknown>]));
     for (const source of [fromList, fromDetail]) {
       for (const cat of source.values()) {
-        for (const field of ["coat", "markings"]) {
+        for (const field of ["coat", "coatColours", "markings"]) {
           expect(Array.isArray(cat[field]), `${field} is a list`).toBe(true);
           expect((cat[field] as unknown[]).every((x) => typeof x === "string"), `${field} holds codes only`).toBe(true);
         }
+        expect(cat["coatPattern"] === null || typeof cat["coatPattern"] === "string", "coatPattern is a code or null").toBe(true);
       }
       expect(sorted(source.get(cats.described)!["coat"])).toEqual(["ginger", "tabby"]);
       expect(sorted(source.get(cats.described)!["markings"])).toEqual(["missing_eye", "white_paws"]);
@@ -188,10 +216,33 @@ describe("T-leak (C6): colour and markings reach the public as two lists of code
     }
   });
 
+  it("SYC-398 A2: the coat's two parts sit beside the old field, which is worked out from them (§6)", async () => {
+    const { list, details } = await publicResponses();
+    const fromList = new Map(list.map((c) => [c["id"] as number, c]));
+    const fromDetail = new Map(details.map((d) => [(d["cat"] as { id: number }).id, d["cat"] as Record<string, unknown>]));
+    for (const source of [fromList, fromDetail]) {
+      const pick = (id: number) => {
+        const c = source.get(id)!;
+        return { coat: sorted(c["coat"]), coatColours: c["coatColours"], coatPattern: c["coatPattern"] };
+      };
+      expect(pick(cats.brownGinger)).toEqual({ coat: ["ginger", "tabby"], coatColours: ["brown", "ginger"], coatPattern: "stripes" });
+      // Brown has no old code, and there are no stripes: older phones see nothing.
+      expect(pick(cats.brownAlone)).toEqual({ coat: [], coatColours: ["brown"], coatPattern: null });
+      expect(pick(cats.described)).toEqual({ coat: ["ginger", "tabby"], coatColours: ["ginger"], coatPattern: "stripes" });
+      expect(pick(cats.oneColour)).toEqual({ coat: ["black"], coatColours: ["black"], coatPattern: null });
+      expect(pick(cats.undescribed)).toEqual({ coat: [], coatColours: [], coatPattern: null });
+    }
+    // Right after `coat`, in that order, on the wire.
+    for (const cat of [...list, ...details.map((d) => d["cat"] as Record<string, unknown>)]) {
+      const keys = Object.keys(cat);
+      expect(keys.slice(keys.indexOf("coat"), keys.indexOf("coat") + 3)).toEqual(["coat", "coatColours", "coatPattern"]);
+    }
+  });
+
   it("a described cat carries exactly the public cat's keys, in the list and on its page", async () => {
     const { list, details } = await publicResponses();
     const cats = [...list, ...details.map((d) => d["cat"] as Record<string, unknown>)];
-    expect(cats).toHaveLength(6);
+    expect(cats).toHaveLength(10);
     for (const cat of cats) {
       expect(Object.keys(cat).sort(), String(cat["name"])).toEqual(PUBLIC_CAT_KEYS);
       expect(Object.keys(cat["sterilised"] as object).sort()).toEqual(["clippedTipSightings", "confidence", "value"]);
@@ -203,6 +254,9 @@ describe("T-leak (C6): colour and markings reach the public as two lists of code
     for (const text of texts) {
       const keys = allKeys(JSON.parse(text));
       expect(NEVER_PUBLIC.filter((k) => keys.has(k))).toEqual([]);
+      // SYC-398 A2: the only public confidence is the sterilised line's;
+      // the coat's parts are values only (§6).
+      expect(confidencePaths(JSON.parse(text)).filter((p) => !p.endsWith("sterilised.confidence"))).toEqual([]);
     }
   });
 });

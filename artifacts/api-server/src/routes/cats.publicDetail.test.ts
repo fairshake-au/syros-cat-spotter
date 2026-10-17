@@ -28,6 +28,9 @@ import app from "../app";
 // `"canClaim":false` on the page (no proven phone asked). Nothing else changed.
 // Regenerated again, on purpose, by SYC-2 PR 2.1: `"coat":[],"markings":[]`
 // on the cat (nobody has described it). Nothing else changed.
+// Regenerated again, on purpose, by SYC-398 PR A2: `,"coatColours":[],
+// "coatPattern":null` right after `"coat":[]` (coat-colours-and-pattern.md
+// §6). Nothing else changed.
 //
 // Only the database's own serial ids are swapped for placeholders; every other
 // byte, including key order, is compared as sent.

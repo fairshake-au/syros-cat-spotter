@@ -38,6 +38,10 @@ import app from "../app";
 // cat's page (no proven phone asked). No other byte changed.
 // Regenerated again, on purpose, by SYC-2 PR 2.1: `"coat":[],"markings":[]`
 // on every public cat (an undescribed cat). No other byte changed.
+// Regenerated again, on purpose, by SYC-398 PR A2: `,"coatColours":[],
+// "coatPattern":null` right after `"coat":[]` on every public cat (an
+// undescribed cat's two coat parts, coat-colours-and-pattern.md §6). No other
+// byte changed.
 //
 // Only values the database or the clock hand out (serial ids, the upload's
 // random public id, today's date) are swapped for placeholders; every other

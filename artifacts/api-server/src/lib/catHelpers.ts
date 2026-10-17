@@ -15,7 +15,13 @@ import {
 } from "./streak";
 import { loadCatRecords, type DbOrTx } from "./observations";
 import { resolveCat, type Confidence, type LifeStatusValue } from "./resolve";
-import { legacyCoatCodes, type LegacyPublicCode, type Mark } from "./appearance";
+import {
+  legacyCoatCodes,
+  type CoatColour,
+  type CoatPattern,
+  type LegacyPublicCode,
+  type Mark,
+} from "./appearance";
 import { pr3Recorded } from "./pr3Gate";
 import { LIKELY_STERILISED_PUBLIC_LIVE } from "./likelyGate";
 import { BLUR_CELL_METRES, blurPosition, publicDistanceKm } from "./blur";
@@ -73,6 +79,13 @@ export interface DerivedCatStatus {
    * model version or date.
    */
   coat: LegacyPublicCode[];
+  /**
+   * SYC-398 (coat-colours-and-pattern.md §6): the resolved colours in
+   * display order, `[]` when not known, and the resolved pattern, `null` when
+   * not known. Values only, as `coat`.
+   */
+  coatColours: CoatColour[];
+  coatPattern: CoatPattern | null;
   /** SYC-2 (§10.4): the resolved marks only, `[]` when none. */
   markings: Mark[];
 }
@@ -197,9 +210,13 @@ export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
       confidence: cat.derived.sterilised.confidence,
       clippedTipSightings: cat.derived.sterilised.clippedTipSightings,
     },
-    // SYC-2 (spec §10.4): two lists of codes, copied element by element so
+    // SYC-2 (spec §10.4): lists of codes, copied element by element so
     // nothing but the codes can ride along. Never vaccinations (§6.3).
+    // SYC-398 (§6): the two parts right after `coat`, which stays for older
+    // phones, display only.
     coat: [...cat.derived.coat],
+    coatColours: [...cat.derived.coatColours],
+    coatPattern: cat.derived.coatPattern,
     markings: [...cat.derived.markings],
   };
   if (viewer.from) {
@@ -337,6 +354,8 @@ export async function deriveCatStatuses(
         // Appearance comes from observations only; before PR 3 there are
         // none to read, so nothing is shown.
         coat: [],
+        coatColours: [],
+        coatPattern: null,
         markings: [],
       });
     }
@@ -359,6 +378,8 @@ export async function deriveCatStatuses(
       notSeenSince: toPublicDate(snapshot.notSeenSince),
       sterilised: publicSterilised(snapshot.sterilised),
       coat: legacyCoatCodes(colours ?? [], pattern),
+      coatColours: colours ? [...colours] : [],
+      coatPattern: pattern ?? null,
       markings: snapshot.markings.value ?? [],
     });
   }
