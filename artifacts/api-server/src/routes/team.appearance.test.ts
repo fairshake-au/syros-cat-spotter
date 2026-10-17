@@ -329,7 +329,7 @@ describe("Correct", () => {
     const catId = await newCat();
     const res = await correct(catId, { kind: "coat", colours: ["white", "black"], reason: "Saw her" });
     expect(res.status).toBe(303);
-    expect(res.headers["location"]).toBe(`/api/team/cats/${catId}?done=a_corrected#appearance`);
+    expect(res.headers["location"]).toBe(`/api/team/cats/${catId}?done=a_coat_corrected#appearance`);
     const [row] = await rowsFor(catId);
     expect(row!.value).toEqual({ colours: ["black", "white"], reason: "Saw her" });
     expect((await snapshot(catId)).coatColours).toMatchObject({ value: ["black", "white"], confidence: "confirmed" });
@@ -401,7 +401,7 @@ describe("T-overrule: a team Correct on a cat guardian's cat overrules her", () 
     const before = await rowsFor(catId);
 
     const res = await correct(catId, { kind: "coat", colours: "ginger" });
-    expect(res.headers["location"]).toBe(`/api/team/cats/${catId}?done=a_overruled#appearance`);
+    expect(res.headers["location"]).toBe(`/api/team/cats/${catId}?done=a_coat_overruled#appearance`);
 
     const added = (await rowsFor(catId)).slice(before.length);
     expect(added).toHaveLength(2);
@@ -486,14 +486,14 @@ describe("T-overrule: a team Correct on a cat guardian's cat overrules her", () 
     // The page's set, exactly: the overrule goes ahead.
     const ids = before.map((o) => o.id).join(",");
     const ok = await correct(catId, { kind: "coat", colours: "ginger", shownAbove: ids });
-    expect(ok.headers["location"]).toContain("done=a_overruled");
+    expect(ok.headers["location"]).toContain("done=a_coat_overruled");
   });
 
   it("does not touch the team's own earlier statements", async () => {
     const catId = await newCat();
     await team(catId, "coat", { value: { colours: ["grey"] }, daysAgo: 4 });
     const res = await correct(catId, { kind: "coat", colours: "ginger" });
-    expect(res.headers["location"]).toContain("done=a_corrected");
+    expect(res.headers["location"]).toContain("done=a_coat_corrected");
     expect((await rowsFor(catId)).filter((o) => o.supersedesId != null)).toHaveLength(0);
   });
 });
@@ -971,5 +971,265 @@ describe("the Appearance section on the team cat page", () => {
     expect(res.text).toContain('<h2 id="appearance">Appearance</h2>');
     expect(res.text).not.toContain("/appearance/confirm");
     expect(res.text).not.toContain(`/api/team/statements/${reading.id}/wrong`);
+  });
+});
+
+// ── SYC-398 PR B: the pattern on the team's Correct, and the drawn cat ─────
+
+describe("SYC-398 PR B: Correct states colours, a pattern, or both", () => {
+  const correct = (catId: number, body: Record<string, unknown>) =>
+    form(`/api/team/cats/${catId}/appearance/correct`).send({ reason: "Looked closely", ...body });
+
+  it("colours only: writes the colours and no pattern key (Not stated is the default)", async () => {
+    const catId = await newCat();
+    const res = await correct(catId, { kind: "coat", colours: ["ginger", "brown"], pattern: "none" });
+    expect(res.status).toBe(303);
+    const [row] = await rowsFor(catId);
+    expect(row!.value).toEqual({ colours: ["brown", "ginger"], reason: "Looked closely" });
+    // A form that sends no pattern at all is the same: Not stated.
+    expect((await correct(catId, { kind: "coat", colours: "grey" })).status).toBe(303);
+    expect((await rowsFor(catId))[1]!.value).toEqual({ colours: ["grey"], reason: "Looked closely" });
+  });
+
+  it("pattern only: writes the pattern and no colours; the colours standing fall through", async () => {
+    const catId = await newCat();
+    await machine(catId, ["grey"]);
+    const res = await correct(catId, { kind: "coat", pattern: "stripes" });
+    expect(res.status).toBe(303);
+    expect(res.headers["location"]).toBe(`/api/team/cats/${catId}?done=a_coat_corrected#appearance`);
+    const rows = await rowsFor(catId);
+    expect(rows.at(-1)!.value).toEqual({ pattern: "stripes", reason: "Looked closely" });
+    const snap = await snapshot(catId);
+    expect(snap.coatPattern).toMatchObject({ value: "stripes", confidence: "confirmed" });
+    expect(snap.coatColours).toMatchObject({ value: ["grey"], confidence: "reported" });
+  });
+
+  it("both: writes the colours and the pattern, each confirmed", async () => {
+    const catId = await newCat();
+    const res = await correct(catId, { kind: "coat", colours: ["white", "black"], pattern: "patches" });
+    expect(res.status).toBe(303);
+    const [row] = await rowsFor(catId);
+    expect(row!.value).toEqual({ colours: ["black", "white"], pattern: "patches", reason: "Looked closely" });
+    const snap = await snapshot(catId);
+    expect(snap.coatColours).toMatchObject({ value: ["black", "white"], confidence: "confirmed" });
+    expect(snap.coatPattern).toMatchObject({ value: "patches", confidence: "confirmed" });
+  });
+
+  it("neither: the form is shown again with an error and the reason kept, and nothing is written", async () => {
+    const catId = await newCat();
+    const res = await correct(catId, { kind: "coat", pattern: "none", reason: "Saw her at dusk", shownAbove: "" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("Tick at least one colour or choose a pattern. Nothing was changed.");
+    expect(res.text).toContain(`action="/api/team/cats/${catId}/appearance/correct"`);
+    expect(res.text).toContain("<details open>");
+    expect(res.text).toContain('value="Saw her at dusk"');
+    expect(res.text).toContain('name="pattern" value="none" checked');
+    expect(res.text).not.toContain("<script");
+    // No pattern field at all is neither, too.
+    expect((await correct(catId, { kind: "coat" })).status).toBe(400);
+    // JSON names both parts.
+    const j = await json(`/api/team/cats/${catId}/appearance/correct`).send({ kind: "coat", reason: "x" });
+    expect([j.status, j.body.fields]).toEqual([400, ["colours", "pattern"]]);
+    expect(await rowsFor(catId)).toHaveLength(0);
+  });
+
+  it("refuses a pattern outside the three and Not stated", async () => {
+    const catId = await newCat();
+    for (const pattern of ["tabby", "not_sure", "calico", ""]) {
+      const res = await correct(catId, { kind: "coat", colours: "grey", pattern });
+      expect(res.status, pattern).toBe(400);
+    }
+    expect(await rowsFor(catId)).toHaveLength(0);
+  });
+
+  it("a colours-only Correct leaves an older team pattern standing (§4: a part not stated falls through)", async () => {
+    const catId = await newCat();
+    expect((await correct(catId, { kind: "coat", colours: "ginger", pattern: "stripes" })).status).toBe(303);
+    expect((await correct(catId, { kind: "coat", colours: ["brown", "ginger"], pattern: "none" })).status).toBe(303);
+    const rows = await rowsFor(catId);
+    expect(rows).toHaveLength(2);
+    expect(rows[1]!.value).toEqual({ colours: ["brown", "ginger"], reason: "Looked closely" });
+    expect(rows[1]!.value).not.toHaveProperty("pattern");
+    const snap = await snapshot(catId);
+    expect(snap.coatColours).toMatchObject({ value: ["brown", "ginger"], confidence: "confirmed" });
+    expect(snap.coatPattern).toMatchObject({ value: "stripes", confidence: "confirmed" });
+  });
+
+  it("Correct on a cat guardian's statement retracts it, both parts (§4, as before)", async () => {
+    const catId = await newCat();
+    const g = await guardian(catId, "coat", "eleni", { value: { colours: ["grey"], pattern: "stripes" }, daysAgo: 2 });
+    // The team states the pattern only; her colours go with her statement.
+    const res = await correct(catId, { kind: "coat", pattern: "patches", shownAbove: String(g.id) });
+    expect(res.headers["location"]).toBe(`/api/team/cats/${catId}?done=a_coat_overruled#appearance`);
+    const added = (await rowsFor(catId)).filter((o) => o.id > g.id);
+    expect(added).toHaveLength(2);
+    expect(added[0]).toMatchObject({ value: { retracted: true }, supersedesId: g.id });
+    expect(added[1]!.value).toEqual({ pattern: "patches", reason: "Looked closely" });
+    const snap = await snapshot(catId);
+    expect(snap.coatPattern).toMatchObject({ value: "patches", confidence: "confirmed" });
+    // Nothing else said a colour: her grey no longer counts.
+    expect(snap.coatColours.value).toBeNull();
+  });
+});
+
+describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => {
+  const page = async (catId: number, done?: string) =>
+    (await request(app).get(`/api/team/cats/${catId}${done ? `?done=${done}` : ""}`).set("Cookie", cookie)).text;
+  const correct = (catId: number, body: Record<string, unknown>) =>
+    form(`/api/team/cats/${catId}/appearance/correct`).send({ reason: "Looked closely", ...body });
+
+  it("offers the pattern as radio buttons, Not stated ticked, and a swatch for each colour", async () => {
+    const catId = await newCat();
+    await machine(catId, ["ginger", "tabby"]);
+    const html = await page(catId);
+    const section = html.slice(html.indexOf('<h2 id="appearance">'));
+    for (const p of ["plain", "stripes", "patches"]) {
+      expect(section).toContain(`type="radio" id="ac-coat-p-${p}" name="pattern" value="${p}">`);
+    }
+    expect(section).toContain('type="radio" id="ac-coat-p-none" name="pattern" value="none" checked>');
+    expect(section).toContain("Not stated");
+    expect(section).toContain("Choose the pattern, if you can see it");
+    // A swatch beside each of the five colours.
+    expect(section.match(/<svg viewBox="0 0 20 20"/g)).toHaveLength(5);
+    // No drawn cat until a Correct is saved.
+    expect(section).not.toContain('class="drawncat"');
+  });
+
+  it("after a coat Correct, the coat is drawn with its caption, for each of Samuel's examples", async () => {
+    const cases = [
+      { body: { colours: ["brown", "ginger"], pattern: "stripes" }, caption: "Brown · Ginger · Stripes" },
+      { body: { colours: ["black", "white"], pattern: "patches" }, caption: "Black · White · Patches" },
+      { body: { colours: ["grey"], pattern: "plain" }, caption: "Grey · Plain" },
+      { body: { pattern: "stripes" }, caption: "Colours not known · Stripes" },
+      { body: { colours: ["ginger", "white"] }, caption: "Ginger · White · Pattern not known" },
+    ];
+    for (const c of cases) {
+      const catId = await newCat();
+      const res = await correct(catId, { kind: "coat", ...c.body });
+      const done = new URL(res.headers["location"], "http://x").searchParams.get("done")!;
+      expect(done).toBe("a_coat_corrected");
+      const html = await page(catId, done);
+      const section = html.slice(html.indexOf('<h2 id="appearance">'));
+      expect(section, c.caption).toContain('<svg class="drawncat"');
+      expect(section, c.caption).toContain(`aria-label="${c.caption}"`);
+      expect(section, c.caption).toContain(`<strong>${c.caption}</strong>`);
+      for (const bad of ["undefined", "null", "NaN", "Tabby", "calico", "Tortoiseshell"]) {
+        expect(section, `${c.caption}: ${bad}`).not.toContain(bad);
+      }
+    }
+  });
+
+  it("a markings Correct draws nothing", async () => {
+    const catId = await newCat();
+    await machine(catId, ["grey"]);
+    const res = await correct(catId, { kind: "markings", marks: ["", "torn_ear"] });
+    expect(res.headers["location"]).toContain("done=a_corrected");
+    expect(await page(catId, "a_corrected")).not.toContain('class="drawncat"');
+  });
+
+  it("no script: the cat page, the drawn cat and the form shown again never carry a <script>", async () => {
+    const catId = await newCat();
+    await correct(catId, { kind: "coat", colours: ["brown", "ginger"], pattern: "stripes" });
+    const html = await page(catId, "a_coat_corrected");
+    expect(html).toContain('class="drawncat"');
+    expect(html).not.toMatch(/<script/i);
+    expect(html).not.toMatch(/\son[a-z]+=/i);
+    const again = await correct(catId, { kind: "coat" });
+    expect(again.text).not.toMatch(/<script/i);
+    const list = await request(app).get("/api/team/colour-check?done=a_coat_corrected").set("Cookie", cookie);
+    expect(list.text).not.toMatch(/<script/i);
+  });
+});
+
+describe("SYC-398 PR B: the drawn cat itself", () => {
+  it("every combination of the five colours and four pattern states renders, and the caption matches", async () => {
+    const { coatSvg, drawnCaption } = await import("../lib/teamPages/coatDrawing");
+    const { publicLine } = await import("../lib/teamPages/appearancePage");
+    const colours = ["black", "grey", "brown", "ginger", "white"];
+    const words: Record<string, string> = {
+      black: "Black",
+      grey: "Grey",
+      brown: "Brown",
+      ginger: "Ginger",
+      white: "White",
+      plain: "Plain",
+      stripes: "Stripes",
+      patches: "Patches",
+    };
+    let drawn = 0;
+    for (let mask = 0; mask < 32; mask++) {
+      const set = colours.filter((_, i) => mask & (1 << i));
+      for (const pattern of ["plain", "stripes", "patches", null]) {
+        const coat = { colours: set.length ? set : null, pattern };
+        const svg = coatSvg(undefined, coat, `t${mask}`);
+        const caption = drawnCaption(undefined, coat);
+        const expected = [
+          ...(set.length ? set.map((c) => words[c]) : ["Colours not known"]),
+          pattern ? words[pattern] : "Pattern not known",
+        ].join(" · ");
+        expect(caption).toBe(expected);
+        expect(svg.startsWith('<svg class="drawncat"')).toBe(true);
+        expect(svg.endsWith("</svg>")).toBe(true);
+        expect(svg).toContain(`aria-label="${caption}"`);
+        expect(svg).not.toMatch(/undefined|null|NaN|<script/);
+        // The caption agrees with the public line's words (Plain aside).
+        if (set.length && pattern) {
+          expect(caption.replace(" · Plain", "")).toBe(publicLine(undefined, coat, []));
+        }
+        drawn += 1;
+      }
+    }
+    expect(drawn).toBe(128);
+  });
+
+  it("draws only the vocabulary: an unknown code is dropped, never written into the SVG", async () => {
+    const { coatSvg } = await import("../lib/teamPages/coatDrawing");
+    const svg = coatSvg(undefined, { colours: ["ginger", '"><script>x</script>', "tabby"], pattern: "calico" }, 'x"><y');
+    expect(svg).not.toContain("<script");
+    expect(svg).not.toContain("tabby");
+    expect(svg).not.toContain("calico");
+    expect(svg).not.toContain('x"><y');
+    expect(svg).toContain('aria-label="Ginger · Pattern not known"');
+  });
+});
+
+describe("SYC-398 PR B: the words", () => {
+  it("string parity: every new word is in en, el and fr, none empty, and never a breeder's name", async () => {
+    const { en } = await import("../lib/teamPages/strings/en");
+    const { el } = await import("../lib/teamPages/strings/el");
+    const { fr } = await import("../lib/teamPages/strings/fr");
+    expect(Object.keys(el).sort()).toEqual(Object.keys(en).sort());
+    expect(Object.keys(fr).sort()).toEqual(Object.keys(en).sort());
+    const keys = [
+      "pattern.plain",
+      "pattern.stripes",
+      "pattern.patches",
+      "pattern.none",
+      "appearance.pickPattern",
+      "appearance.needAPart",
+      "appearance.problemTitle",
+      "appearance.drawnTitle",
+      "appearance.drawnColoursNotKnown",
+      "appearance.drawnPatternNotKnown",
+    ] as const;
+    const all = { en, el, fr } as Record<string, Record<string, string>>;
+    for (const k of keys) {
+      for (const lang of ["en", "el", "fr"]) {
+        const w = all[lang]![k];
+        expect(w, `${lang} ${k}`).toBeTruthy();
+        expect(w!.trim(), `${lang} ${k}`).toBe(w);
+        expect(w, `${lang} ${k}`).not.toMatch(/tabby|tortoiseshell|calico|colony carer|snapper/i);
+      }
+      // Greek and French are their own words, not English left in place.
+      expect(all["el"]![k], k).not.toBe(all["en"]![k]);
+      expect(all["fr"]![k], k).not.toBe(all["en"]![k]);
+    }
+    // The pattern names are the spec's (§2).
+    expect([en["pattern.plain"], en["pattern.stripes"], en["pattern.patches"], en["pattern.none"]]).toEqual([
+      "Plain",
+      "Stripes",
+      "Patches",
+      "Not stated",
+    ]);
   });
 });
