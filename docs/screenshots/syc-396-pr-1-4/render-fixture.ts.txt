@@ -19,7 +19,7 @@ const v: TeamCatView = {
   cat: { id: 42, syr: "SYR-0042", name: "Mavros", description: "Friendly, waits by the fish market at 8.", lat: 37.4439, lng: 24.9428, createdAt: "2026-04-03T09:12:00Z", mainPhotoUrl: "/api/team/photos/main" },
   owner: { has: false, orphanedHome: false, homeDescription: null, homePin: null },
   colony: { id: 4, name: "Ermoupoli harbour", wasName: null },
-  publicStatus: { hasHome: false, lifeStatus: "street", notSeenSince: null, sterilised: { value: true, confidence: "likely", clippedTipSightings: 3 }, coat: ["grey", "stripes"], markings: ["white_paws"] },
+  publicStatus: { hasHome: false, lifeStatus: "street", notSeenSince: null, sterilised: { value: true, confidence: "likely", clippedTipSightings: 3 }, coat: ["grey", "stripes"], coatColours: ["grey"], coatPattern: "stripes", markings: ["white_paws"] },
   records: {
     lifeStatus: { value: "street", confidence: "likely", asOf: day(3), supportingStatementIds: [301], conflictingStatementIds: [], presumedDeceased: false, notSeenSince: null },
     sterilised: { value: true, confidence: "likely", asOf: day(10), supportingStatementIds: [298, 297], conflictingStatementIds: [], clippedTipSightings: 3 },
