@@ -11,7 +11,13 @@ on:
   # block against it, so a change to that folder must run the tests. The "!"
   # line goes LAST: later patterns win, and "**/*.md" would re-ignore it. Any
   # new test that reads a document needs the same exception here.
+  #
+  # A draft PR doesn't run either: PRs are opened as drafts, fixed up through
+  # review, and marked ready once, which runs the checks then (ready_for_review).
+  # In the run history for 14-16 Oct 2026, about 1,530 of 2,850 CI minutes
+  # went on runs a newer push cancelled or that failed mid-review.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
       - "docs/**"
       - "attached_assets/**"
@@ -38,6 +44,8 @@ permissions:
 jobs:
   test-and-build:
     name: Test and build
+    # Pushes to main always run; a PR runs only once it's out of draft.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
 
     services:
