@@ -20,7 +20,7 @@ export const COLOURS = ['black', 'grey', 'brown', 'ginger', 'white'] as const;
 export type Colour = (typeof COLOURS)[number];
 export const PATTERNS = ['plain', 'stripes', 'patches'] as const;
 export type Pattern = (typeof PATTERNS)[number];
-type CoatFields = Pick<Cat, 'coat' | 'coatColours' | 'coatPattern'>;
+export type CoatFields = Pick<Cat, 'coat' | 'coatColours' | 'coatPattern'>;
 export type Parts = { colours: Colour[] | null; pattern: Pattern | null };
 
 const hasNewFields = (cat: CoatFields) => cat.coatColours !== undefined || cat.coatPattern !== undefined;
@@ -59,4 +59,40 @@ export function displayParts(cat: CoatFields): Parts {
 export function coatLineKeys(cat: CoatFields): string[] {
   const { colours, pattern } = displayParts(cat);
   return [...(colours ?? []).map((c) => `coat_${c}`), ...(pattern && pattern !== 'plain' ? [`pattern_${pattern}`] : [])];
+}
+
+export type Placement = 'match' | 'not_known' | 'hidden';
+/** What someone has picked in the two chip rows; an empty row is *All*. */
+export type Picked = { colours: ReadonlySet<Colour>; patterns: ReadonlySet<Pattern> };
+
+/** Spec §5: hidden if any picked row is a known mismatch; else not_known if any picked row is unknown; else match. Plain and Patches are forgiving for a cat with White. Reads the new fields only. */
+export function placeCat(cat: CoatFields, picked: Picked): Placement {
+  const { colours, pattern } = filterParts(cat);
+  const rows: ('match' | 'mismatch' | 'unknown')[] = [];
+  if (picked.colours.size) rows.push(colours === null ? 'unknown' : colours.some((c) => picked.colours.has(c)) ? 'match' : 'mismatch');
+  if (picked.patterns.size) {
+    const forgiving = !!colours?.includes('white') && (pattern === 'plain' || pattern === 'patches');
+    const ok = pattern !== null && (picked.patterns.has(pattern) || (forgiving && (picked.patterns.has('plain') || picked.patterns.has('patches'))));
+    rows.push(pattern === null ? 'unknown' : ok ? 'match' : 'mismatch');
+  }
+  if (rows.includes('mismatch')) return 'hidden';
+  if (rows.includes('unknown')) return 'not_known';
+  return 'match';
+}
+
+/** True when either row has a chip picked: what the match record calls `colour_filter_on` (§5). */
+export function filterIsOn(picked: Picked): boolean {
+  return picked.colours.size > 0 || picked.patterns.size > 0;
+}
+
+/** Every cat counted once, in the order given: the matches, the Not known, and how many are hidden (§5). */
+export function placeCats<T extends CoatFields>(cats: readonly T[], picked: Picked): { matching: T[]; notKnown: T[]; hidden: number } {
+  const out = { matching: [] as T[], notKnown: [] as T[], hidden: 0 };
+  for (const cat of cats) {
+    const place = placeCat(cat, picked);
+    if (place === 'match') out.matching.push(cat);
+    else if (place === 'not_known') out.notKnown.push(cat);
+    else out.hidden += 1;
+  }
+  return out;
 }
