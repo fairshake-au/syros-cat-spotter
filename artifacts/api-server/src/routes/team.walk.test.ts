@@ -190,6 +190,7 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/reports/:publicId/note": { why: "add_team_note, island-only" },
   "POST /api/team/reports/:publicId/cat": { why: "change_report_state, island-only" },
   "GET /api/team/cats": { why: "the island-wide cat list: view_exact_location with no target, so island-only" },
+  "POST /api/team/cats/positions": { why: "the island map's cat positions (SYC-396 PR 1.5): view_exact_location with no target, so island-only" },
   "GET /api/team/cats/:id": { why: "the team's cat page: view_exact_location with no target (a guardian's own page is PR 2.1's)" },
   "POST /api/team/cats/:id/life-status": { why: "set_life_status with no target, island-only" },
   "POST /api/team/cats/:id/sterilisation": { why: "set_sterilisation with no target, island-only" },

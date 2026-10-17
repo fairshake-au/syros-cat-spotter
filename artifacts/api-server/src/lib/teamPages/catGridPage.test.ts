@@ -20,6 +20,7 @@ const item = (over: Partial<CatListItem> = {}): CatListItem => ({
   lives: "street",
   lastSeenAt: new Date("2026-10-12T12:00:00Z"),
   lastSeen: null,
+  placedAt: { lat: 37.44, lng: 24.94 },
   place: "Kini",
   notSeenSince: null,
   ...over,

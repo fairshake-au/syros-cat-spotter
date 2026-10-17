@@ -1,6 +1,6 @@
 import { isIslandWide, visibleColonyIds } from "../lib/guardianView";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { searchTeamCats, teamCatView } from "../lib/teamCatView";
+import { searchTeamCats, teamCatView, teamPhotoUrl } from "../lib/teamCatView";
 import { getQueueReport } from "../lib/welfareQueue";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
@@ -9,7 +9,8 @@ import { allColonyChoices } from "../lib/colonyCats";
 import { renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
 import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
 import { parseCatFilters } from "../lib/teamCatFilters";
-import { LIVES, listTeamCats } from "../lib/teamCatList";
+import { allTeamCats, LIVES, listTeamCats } from "../lib/teamCatList";
+import { formRoute } from "./teamCorrections";
 
 // The staff dashboard's "Cats" screens (SYC-43 part 2 plan, PR 3). Read-only;
 // the correction forms on the cat page post to routes/teamCorrections.ts (PR 4).
@@ -75,6 +76,41 @@ router.get(
     // alone gets the wider header (test/wideCsp.ts WIDE_CSP_ROUTES).
     setTeamHeaders(res, { scripts: true });
     res.type("html").send(html);
+  },
+);
+
+/**
+ * POST /api/team/cats/positions: every cat the filters match, at the place it
+ * was last seen (else first found), for the island map (SYC-396 PR 1.5; spec
+ * §6.1, §10.4). The filters come in the JSON BODY, in the grid's own shape,
+ * never in the address: a query string here is ignored. No paging. Team-only
+ * (view_exact_location with no target): a cat guardian gets the 403, since the
+ * Map is the team's in phase 1 (§10.2). `no-store`, like every dashboard
+ * answer. Positions reach the browser only in this signed-in answer and are
+ * never drawn as numbers (the map's card shows the place in words).
+ */
+router.post(
+  "/team/cats/positions",
+  ...formRoute("view_exact_location"),
+  async (req: Request, res: Response) => {
+    const body = typeof req.body === "object" && req.body !== null && !Array.isArray(req.body) ? req.body : {};
+    const { page: _page, ...filters } = parseCatFilters(body);
+    const started = Date.now();
+    const cats = await allTeamCats(filters, new Date());
+    // Spec §9.6: counts only, no names.
+    req.log.info({ ms: Date.now() - started, shown: cats.length }, "team cat positions");
+    res.json({
+      cats: cats.map((c) => ({
+        id: c.id,
+        name: c.name,
+        mark: c.mark,
+        lat: c.placedAt.lat,
+        lng: c.placedAt.lng,
+        place: c.place,
+        lastSeenAt: c.lastSeenAt ? c.lastSeenAt.toISOString() : null,
+        photo: c.photoPublicId ? `${teamPhotoUrl(c.photoPublicId)}/small` : null,
+      })),
+    });
   },
 );
 

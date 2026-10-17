@@ -171,6 +171,11 @@ const RESPONSES: [string, () => request.Test, string?][] = [
     "POST /api/team/map-squares",
   ],
   [
+    "the island map's cat positions",
+    () => request(app).post("/api/team/cats/positions").set("Origin", TEAM).set("Cookie", cookie).send({}),
+    "POST /api/team/cats/positions",
+  ],
+  [
     "an island map square with a bad token",
     () => request(app).get("/api/team/map-square/nope").set("Cookie", cookie),
     "GET /api/team/map-square/:token",

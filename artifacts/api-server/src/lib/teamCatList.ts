@@ -1,5 +1,5 @@
 import { catsTable, db, foldName, photosTable, sightingsTable } from "@workspace/db";
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { currentColonyOf } from "./colonyMembership";
 import { areaFor } from "./areas/namedAreas";
 import { placeLabel } from "./areas/placeLabel";
@@ -62,6 +62,12 @@ export interface CatListItem {
   lastSeenAt: Date | null;
   /** Server-side only: never drawn as numbers on a page or put in an address. */
   lastSeen: { lat: number; lng: number } | null;
+  /**
+   * Where the cat is placed: last seen, else where it was first found. The
+   * island map's dot (SYC-396 PR 1.5). Same rule as `lastSeen`: never drawn
+   * as numbers, never in an address.
+   */
+  placedAt: { lat: number; lng: number };
   /** The named area, in words (spec §3.2). */
   place: string;
   /** "2026-06-12" when the cat is presumed gone, else null. */
@@ -110,6 +116,28 @@ export async function listTeamCats(
   f: CatListFilters,
   now: Date = new Date(),
 ): Promise<{ items: CatListItem[]; total: number; catCount: number }> {
+  const { matched, catCount } = await matchTeamCats(f, now);
+  const page = Math.max(1, Math.floor(f.page ?? 1));
+  return {
+    items: matched.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    total: matched.length,
+    // Every cat there is, before any filter: "none recorded" is not "all hidden".
+    catCount,
+  };
+}
+
+/**
+ * Every cat the filters match, sorted, with no paging: the island map's
+ * dots (SYC-396 PR 1.5, POST /api/team/cats/positions). `f.page` is ignored.
+ */
+export async function allTeamCats(f: CatListFilters, now: Date = new Date()): Promise<CatListItem[]> {
+  return (await matchTeamCats(f, now)).matched;
+}
+
+async function matchTeamCats(
+  f: CatListFilters,
+  now: Date,
+): Promise<{ matched: CatListItem[]; catCount: number }> {
   const cats = await db
     .select({
       id: catsTable.id,
@@ -160,6 +188,7 @@ export async function listTeamCats(
       lives: livesOf(snap),
       lastSeenAt: sighting?.at ?? null,
       lastSeen: sighting ? { lat: sighting.lat, lng: sighting.lng } : null,
+      placedAt: { lat: where.lat, lng: where.lng },
       place: placeLabel(where),
       notSeenSince: snap.notSeenSince,
     };
@@ -213,11 +242,36 @@ export async function listTeamCats(
     matched.sort(byRecent);
   }
 
-  const page = Math.max(1, Math.floor(f.page ?? 1));
-  return {
-    items: matched.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    total: matched.length,
-    // Every cat there is, before any filter: "none recorded" is not "all hidden".
-    catCount: all.length,
-  };
+  return { matched, catCount: all.length };
+}
+
+/** At most this many points in a cat's trail on the map: the newest. */
+export const TRAIL_MAX = 50;
+
+/**
+ * Where one cat has been seen, oldest first, for the island map's "Show where
+ * else it's been seen" (SYC-396 PR 1.5; spec §6.2): where it was first found,
+ * then each resolved sighting, the newest TRAIL_MAX points in all. Null when
+ * there is no such cat. Positions for a signed-in team page only; never drawn
+ * as numbers, never put in an address.
+ */
+export async function catTrail(
+  catId: number,
+): Promise<{ id: number; name: string; points: { lat: number; lng: number; at: Date; first: boolean }[] } | null> {
+  const [cat] = await db
+    .select({ id: catsTable.id, name: catsTable.name, lat: catsTable.lat, lng: catsTable.lng, createdAt: catsTable.createdAt })
+    .from(catsTable)
+    .where(eq(catsTable.id, catId));
+  if (!cat) return null;
+  const sightings = await db
+    .select({ lat: sightingsTable.lat, lng: sightingsTable.lng, at: sightingsTable.createdAt })
+    .from(sightingsTable)
+    .where(and(eq(sightingsTable.catId, catId), eq(sightingsTable.status, "resolved")))
+    .orderBy(desc(sightingsTable.createdAt), desc(sightingsTable.id))
+    .limit(TRAIL_MAX);
+  const points = [
+    { lat: cat.lat, lng: cat.lng, at: cat.createdAt, first: true },
+    ...sightings.reverse().map((s) => ({ lat: s.lat, lng: s.lng, at: s.at, first: false })),
+  ].slice(-TRAIL_MAX);
+  return { id: cat.id, name: cat.name, points };
 }
