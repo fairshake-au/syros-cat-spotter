@@ -112,7 +112,7 @@ export function coatSvg(lang: string | undefined, coat: DrawnCoat, id: string): 
   const patches = patchColours.length
     ? SPOTS.map((s, i) => {
         const c = patchColours[i % patchColours.length]!;
-        return `<circle cx="${s.cx}" cy="${s.cy}" r="${(s.r * grow).toFixed(1)}" fill="${FILL[c]}"/>`;
+        return `<circle cx="${s.cx}" cy="${s.cy}" r="${Math.round(s.r * grow * 10) / 10}" fill="${FILL[c]}"/>`;
       }).join("")
     : "";
   const stripes =

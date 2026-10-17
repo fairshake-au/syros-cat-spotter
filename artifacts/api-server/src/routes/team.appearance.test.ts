@@ -1133,7 +1133,7 @@ describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => 
     const html = await page(catId, "a_coat_corrected");
     expect(html).toContain('class="drawncat"');
     expect(html).not.toMatch(/<script/i);
-    expect(html).not.toMatch(/\son[a-z]+=/i);
+    expect(html).not.toMatch(/<[^>]*\son[a-z]+=/i);
     const again = await correct(catId, { kind: "coat" });
     expect(again.text).not.toMatch(/<script/i);
     const list = await request(app).get("/api/team/colour-check?done=a_coat_corrected").set("Cookie", cookie);
