@@ -73,7 +73,7 @@ describe('DrawnCat: every coat draws, with the right label (§3)', () => {
 
     // The first colour (White last) fills the cat; nothing known is a neutral, dashed.
     const nonWhite = colours.filter((c) => c !== 'white');
-    const base = nonWhite[0] ?? (colours.includes('white') ? 'white' : null);
+    const base = (nonWhite[0] ?? (colours.includes('white') ? 'white' : null)) as Colour | null;
     const body = svg.querySelector(':scope > [data-el="G"]')!;
     expect(body.getAttribute('data-fill')).toBe(base ? FILL[base] : UNKNOWN);
     const outline = svg.querySelector('[data-stroke="#3b3934"]')!;
@@ -150,7 +150,7 @@ describe('CoatChips: two rows of toggles (§5)', () => {
       'coat-chip-colour-all', 'coat-chip-colour-black', 'coat-chip-colour-grey', 'coat-chip-colour-brown', 'coat-chip-colour-ginger', 'coat-chip-colour-white',
       'coat-chip-pattern-all', 'coat-chip-pattern-plain', 'coat-chip-pattern-stripes', 'coat-chip-pattern-patches',
     ]);
-    for (const el of container.querySelectorAll('[data-testid^="coat-chip-"]')) {
+    for (const el of Array.from(container.querySelectorAll('[data-testid^="coat-chip-"]'))) {
       expect(el.querySelector('[data-el="Svg"]')).not.toBeNull();
       expect(el.textContent).toBe(el.getAttribute('aria-label'));
     }

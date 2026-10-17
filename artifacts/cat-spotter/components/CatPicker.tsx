@@ -8,8 +8,14 @@
  * saved with the sighting (lib/catPicker.ts), so it works from the phone's
  * saved copy without signal. Sending the choice is the review screen's job.
  *
- * Not in this slice (plan decisions 3 and 4): the colour chips, and "Ask
- * Syros Cats to match it".
+ * SYC-398 PR D (coat-colours-and-pattern.md §5): two rows of drawn chips,
+ * colours and patterns, narrow the list further. A cat whose coat isn't known
+ * is never hidden: it is listed under *Not known*. The cats the chips hide
+ * are counted above "Can't find it?", with one tap to show them all. The
+ * chips start at *All* each time the picker opens (it is mounted afresh).
+ * They never touch the review screen's suggestions.
+ *
+ * Not yet (plan decision 4): "Ask Syros Cats to match it".
  */
 import React, { useMemo, useState, type ReactNode } from 'react';
 import {
@@ -37,6 +43,8 @@ import { Button, IconButton } from '@/components/purropolis';
 import { appearanceLine } from '@/lib/appearance';
 import { photoSource } from '@/lib/urls';
 import { pickedFromFor, pickerList, type PickedFrom } from '@/lib/catPicker';
+import { filterIsOn, placeCats, type Picked } from '@/lib/coat';
+import { CoatChips, NOTHING_PICKED } from '@/components/coat';
 import {
   borderWidths,
   fonts,
@@ -57,8 +65,9 @@ export interface CatPickerProps {
   message: string | null;
   /** The spotter's own photo, rendered by the review screen. */
   yourPhoto: ReactNode;
-  onPick: (catId: number, pickedFrom: PickedFrom) => void;
-  onAddNew: () => void;
+  /** `colourFilterOn`: a chip was picked in either row (sighting_matches.colour_filter_on, spec §5). */
+  onPick: (catId: number, pickedFrom: PickedFrom, colourFilterOn: boolean) => void;
+  onAddNew: (colourFilterOn: boolean) => void;
   onClose: () => void;
   insetTop?: number;
   insetBottom?: number;
@@ -89,6 +98,8 @@ export function CatPicker({
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Cat | null>(null);
+  // Both rows start at All, every time the picker opens (spec §5).
+  const [picked, setPicked] = useState<Picked>(NOTHING_PICKED);
   // Equal-width columns: two on a phone, up to four on a wide screen, so the
   // last row never stretches wider than the rows above it.
   const { width } = useWindowDimensions();
@@ -98,10 +109,14 @@ export function CatPicker({
     (contentWidth - GRID_GAP * (columns - 1)) / columns,
   );
 
+  // What the search finds, then where the chips place each of those cats:
+  // every one counted once, as a match, Not known, or hidden (spec §5).
   const listed = useMemo(
     () => (from ? pickerList(from, cats, query) : []),
     [from, cats, query],
   );
+  const placed = useMemo(() => placeCats(listed, picked), [listed, picked]);
+  const showAll = () => setPicked(NOTHING_PICKED);
 
   // Up to two more public photos for the side-by-side check. Only with
   // signal: offline, the main photo (if the phone has it) is all there is.
@@ -208,7 +223,7 @@ export function CatPicker({
             size="lg"
             block
             disabled={busy}
-            onPress={() => onPick(selected.id, pickedFromFor(query))}
+            onPress={() => onPick(selected.id, pickedFromFor(query), filterIsOn(picked))}
           >
             {busy ? (
               <ActivityIndicator size="small" color={colors.primaryForeground} />
@@ -220,6 +235,92 @@ export function CatPicker({
       </View>
     );
   }
+
+  // One cat's card, the same in the matches and under Not known.
+  const renderCard = (cat: Cat) => {
+    // SYC-119 Slice D (data spine PR 4): a cat recorded as
+    // deceased is greyed out, not hidden -- a spotter who really
+    // is looking at that cat should understand why they can't
+    // pick it, rather than wondering why it vanished from the
+    // list. resolve refuses a hand pick of one with the same
+    // refusal a too-far pick gets; a suggested match (never
+    // offered through this picker) is the only way to clear it.
+    const isDeceased = cat.lifeStatus === 'deceased';
+    const appearance = appearanceLine(cat, t);
+    return (
+      <Pressable
+        key={cat.id}
+        testID={`picker-cat-${cat.id}`}
+        disabled={isDeceased}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isDeceased }}
+        // SYC-2: a screen reader hears the colour and markings line
+        // too, since the label replaces the card's own text.
+        accessibilityLabel={[
+          cat.name,
+          catCode(cat.id),
+          appearance,
+          isDeceased ? t('pickerDeceased') : null,
+        ]
+          .filter(Boolean)
+          .join(', ')}
+        onPress={() => {
+          if (isDeceased) return;
+          setSelected(cat);
+        }}
+        style={({ pressed }) => [
+          styles.card,
+          {
+            width: cardWidth,
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            opacity: isDeceased ? 0.45 : pressed ? 0.85 : 1,
+          },
+        ]}
+      >
+        <View style={[styles.cardPhotoBox, { backgroundColor: colors.muted }]}>
+          {/* Offline, a photo the phone never loaded shows this
+              placeholder: the name and number are still below. */}
+          <Text style={styles.placeholder}>🐈</Text>
+          <Image
+            source={photoSource(cat.photoUrl)}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+        </View>
+        <View style={styles.cardText}>
+          <Text
+            style={[styles.cardName, { color: colors.foreground }]}
+            numberOfLines={1}
+          >
+            {cat.name}
+          </Text>
+          {/* SYC-2 (spec §7.2): the same line as the cat page,
+              so a spotter can compare. Not a filter. */}
+          {appearance ? (
+            <Text
+              style={[styles.cardAppearance, { color: colors.mutedForeground }]}
+              numberOfLines={3}
+            >
+              {appearance}
+            </Text>
+          ) : null}
+          <Text style={[styles.cardCode, { color: colors.mutedForeground }]}>
+            {catCode(cat.id)}
+          </Text>
+          {isDeceased ? (
+            <Text
+              style={[styles.cardDeceased, { color: colors.mutedForeground }]}
+              numberOfLines={1}
+            >
+              {t('pickerDeceased')}
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  };
 
   // ----- Cats known around here -----
   return (
@@ -269,6 +370,9 @@ export function CatPicker({
           ) : null}
         </View>
 
+        {/* SYC-398 PR D: the colour and pattern rows, under the search box (spec §5). */}
+        <CoatChips picked={picked} onChange={setPicked} />
+
         {isOffline ? (
           <Text style={[styles.note, { color: colors.mutedForeground }]}>
             {t('pickerOfflineStale')}
@@ -285,100 +389,56 @@ export function CatPicker({
               ? t('pickerNoResults').replace('{text}', query.trim())
               : t('pickerEmpty')}
           </Text>
-        ) : (
-          <View style={styles.grid}>
-            {listed.map((cat) => {
-              // SYC-119 Slice D (data spine PR 4): a cat recorded as
-              // deceased is greyed out, not hidden -- a spotter who really
-              // is looking at that cat should understand why they can't
-              // pick it, rather than wondering why it vanished from the
-              // list. resolve refuses a hand pick of one with the same
-              // refusal a too-far pick gets; a suggested match (never
-              // offered through this picker) is the only way to clear it.
-              const isDeceased = cat.lifeStatus === 'deceased';
-              const appearance = appearanceLine(cat, t);
-              return (
-                <Pressable
-                  key={cat.id}
-                  testID={`picker-cat-${cat.id}`}
-                  disabled={isDeceased}
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: isDeceased }}
-                  // SYC-2: a screen reader hears the colour and markings line
-                  // too, since the label replaces the card's own text.
-                  accessibilityLabel={[
-                    cat.name,
-                    catCode(cat.id),
-                    appearance,
-                    isDeceased ? t('pickerDeceased') : null,
-                  ]
-                    .filter(Boolean)
-                    .join(', ')}
-                  onPress={() => {
-                    if (isDeceased) return;
-                    setSelected(cat);
-                  }}
-                  style={({ pressed }) => [
-                    styles.card,
-                    {
-                      width: cardWidth,
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      opacity: isDeceased ? 0.45 : pressed ? 0.85 : 1,
-                    },
-                  ]}
-                >
-                  <View style={[styles.cardPhotoBox, { backgroundColor: colors.muted }]}>
-                    {/* Offline, a photo the phone never loaded shows this
-                        placeholder: the name and number are still below. */}
-                    <Text style={styles.placeholder}>🐈</Text>
-                    <Image
-                      source={photoSource(cat.photoUrl)}
-                      style={StyleSheet.absoluteFill}
-                      contentFit="cover"
-                      cachePolicy="memory-disk"
-                    />
-                  </View>
-                  <View style={styles.cardText}>
-                    <Text
-                      style={[styles.cardName, { color: colors.foreground }]}
-                      numberOfLines={1}
-                    >
-                      {cat.name}
-                    </Text>
-                    {/* SYC-2 (spec §7.2): the same line as the cat page,
-                        so a spotter can compare. Not a filter. */}
-                    {appearance ? (
-                      <Text
-                        style={[styles.cardAppearance, { color: colors.mutedForeground }]}
-                        numberOfLines={3}
-                      >
-                        {appearance}
-                      </Text>
-                    ) : null}
-                    <Text style={[styles.cardCode, { color: colors.mutedForeground }]}>
-                      {catCode(cat.id)}
-                    </Text>
-                    {isDeceased ? (
-                      <Text
-                        style={[styles.cardDeceased, { color: colors.mutedForeground }]}
-                        numberOfLines={1}
-                      >
-                        {t('pickerDeceased')}
-                      </Text>
-                    ) : null}
-                  </View>
-                </Pressable>
-              );
-            })}
+        ) : placed.matching.length + placed.notKnown.length === 0 && query.trim() ? (
+          // The search found cats, but the chips hide them all (spec §5).
+          <View style={styles.searchEmpty} testID="picker-search-empty">
+            <Text style={[styles.note, { color: colors.mutedForeground }]}>
+              {t('pickerNoResultsFiltered').replace('{text}', query.trim())}
+            </Text>
+            <Button variant="ghost" size="sm" onPress={showAll}>
+              {t('pickerSearchAll')}
+            </Button>
           </View>
+        ) : (
+          <>
+            {placed.matching.length > 0 ? (
+              <View style={styles.grid} testID="picker-matching">
+                {placed.matching.map(renderCard)}
+              </View>
+            ) : null}
+            {placed.notKnown.length > 0 ? (
+              <>
+                <Text style={[styles.heading, { color: colors.foreground }]}>
+                  {t('coatNotKnown')}
+                </Text>
+                <View style={styles.grid} testID="picker-not-known">
+                  {placed.notKnown.map(renderCard)}
+                </View>
+              </>
+            ) : null}
+          </>
         )}
+
+        {/* Directly above "Can't find it?" (spec §5): how many cats the
+            chips hide, with one tap to show them all. */}
+        {placed.hidden > 0 ? (
+          <View style={styles.hiddenLine} testID="picker-hidden-line">
+            <Text style={[styles.hiddenText, { color: colors.foreground }]}>
+              {placed.hidden === 1
+                ? t('pickerHiddenOne')
+                : t('pickerHiddenMany').replace('{n}', String(placed.hidden))}
+            </Text>
+            <Button variant="ghost" size="sm" onPress={showAll}>
+              {t('pickerShowAll')}
+            </Button>
+          </View>
+        ) : null}
 
         <View style={[styles.footer, { borderTopColor: colors.border }]}>
           <Text style={[styles.footerLead, { color: colors.mutedForeground }]}>
             {t('pickerAddNewLead')}
           </Text>
-          <Button variant="secondary" size="md" onPress={onAddNew}>
+          <Button variant="secondary" size="md" onPress={() => onAddNew(filterIsOn(picked))}>
             {t('pickerAddNewAction')}
           </Button>
         </View>
@@ -487,4 +547,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   footerLead: { fontSize: fontSizes.sm, fontFamily: fonts.body },
+  searchEmpty: { gap: 4, alignItems: 'flex-start' },
+  hiddenLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    columnGap: 4,
+    marginTop: 4,
+  },
+  hiddenText: { fontSize: fontSizes.sm, fontFamily: fonts.bodySemiBold, textAlign: 'center' },
 });

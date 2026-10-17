@@ -113,6 +113,9 @@ export default function ReviewScreen() {
   // SYC-151: a new cat chosen after looking is weak evidence it really is
   // new (spec §4.6), so the server is told the picker was opened.
   const [openedPicker, setOpenedPicker] = useState(false);
+  // SYC-398 PR D: whether "Find the cat" had a chip picked when the spotter
+  // chose "Add it as a new cat" (sighting_matches.colour_filter_on, spec §5).
+  const [pickerFilterOn, setPickerFilterOn] = useState<boolean | undefined>(undefined);
   const [pickerMessage, setPickerMessage] = useState<string | null>(null);
   const [sendMessage, setSendMessage] = useState<string | null>(null);
   const [nameTakenCat, setNameTakenCat] = useState<NameTakenCat | null>(null);
@@ -192,7 +195,11 @@ export default function ReviewScreen() {
   // review list; one sent straight away has no entry there, so that spotter
   // is asked to keep the screen open instead (noSignalMessage).
   const noSignal = noSignalMessage({ inReviewList: queuedItem != null });
-  const confirm = async (catId: number, pickedFrom?: PickedFrom | "name_prompt") => {
+  const confirm = async (
+    catId: number,
+    pickedFrom?: PickedFrom | "name_prompt",
+    colourFilterOn?: boolean,
+  ) => {
     if (!deviceId) return;
     const say = pickedFrom ? setPickerMessage : setSendMessage;
     setBusy(true);
@@ -203,6 +210,7 @@ export default function ReviewScreen() {
           deviceId,
           catId,
           ...(pickedFrom ? { pickedFrom } : {}),
+          ...(colourFilterOn !== undefined ? { colourFilterOn } : {}),
         }),
       );
     } catch (err) {
@@ -217,6 +225,7 @@ export default function ReviewScreen() {
   const openPicker = () => {
     setPickerMessage(null);
     setOpenedPicker(true);
+    setPickerFilterOn(undefined);
     setShowPicker(true);
   };
 
@@ -229,7 +238,7 @@ export default function ReviewScreen() {
       await finishAndInvalidate(
         await resolveSighting(
           data.sightingId,
-          newCatRequest(deviceId, newName, openedPicker),
+          newCatRequest(deviceId, newName, openedPicker, pickerFilterOn),
         ),
       );
     } catch (err) {
@@ -449,8 +458,9 @@ export default function ReviewScreen() {
         busy={busy}
         message={pickerMessage}
         yourPhoto={yourPhoto}
-        onPick={(catId, pickedFrom) => confirm(catId, pickedFrom)}
-        onAddNew={() => {
+        onPick={(catId, pickedFrom, colourFilterOn) => confirm(catId, pickedFrom, colourFilterOn)}
+        onAddNew={(colourFilterOn) => {
+          setPickerFilterOn(colourFilterOn);
           setShowPicker(false);
           setShowNewCat(true);
         }}

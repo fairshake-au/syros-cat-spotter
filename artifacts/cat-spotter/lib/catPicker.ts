@@ -91,14 +91,22 @@ export function noSignalMessage({
 /**
  * The request for a new cat. `openedPicker` says whether the spotter opened
  * "Find the cat yourself" first: weak evidence the cat really is new,
- * recorded for the team only (SYC-151, spec §4.6).
+ * recorded for the team only (SYC-151, spec §4.6). `colourFilterOn`, when
+ * the spotter came from "Add it as a new cat" there, says whether a colour
+ * or pattern chip was picked (SYC-398, coat-colours-and-pattern.md §5).
  */
 export function newCatRequest(
   deviceId: string,
   name: string,
   openedPicker: boolean,
-): { deviceId: string; newCatName: string; openedPicker: boolean } {
-  return { deviceId, newCatName: name.trim(), openedPicker };
+  colourFilterOn?: boolean,
+): { deviceId: string; newCatName: string; openedPicker: boolean; colourFilterOn?: boolean } {
+  return {
+    deviceId,
+    newCatName: name.trim(),
+    openedPicker,
+    ...(colourFilterOn !== undefined ? { colourFilterOn } : {}),
+  };
 }
 
 export type ResolveFailure =

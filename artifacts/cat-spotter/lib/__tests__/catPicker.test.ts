@@ -289,7 +289,8 @@ describe('the new-cat request (SYC-151)', () => {
 
   it('review.tsx builds its new-cat request with it, from the picker having been opened', () => {
     const review = readFileSync(path.resolve(__dirname, '../../app/review.tsx'), 'utf8');
-    expect(review).toMatch(/newCatRequest\(\s*deviceId,\s*newName,\s*openedPicker\s*\)/);
+    // SYC-398 PR D adds the optional colour-filter flag after it.
+    expect(review).toMatch(/newCatRequest\(\s*deviceId,\s*newName,\s*openedPicker(,\s*pickerFilterOn)?\s*\)/);
     expect(review).toMatch(/setOpenedPicker\(true\)/);
   });
 });
