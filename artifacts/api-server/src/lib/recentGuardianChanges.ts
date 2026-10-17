@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   catsTable,
   coloniesTable,
@@ -29,9 +29,13 @@ import {
 // - this plan's history rows (`mapping_events`) for sites added or moved.
 //   Those rows don't record the writer's role, so a site row counts as a
 //   cat guardian's when its writer has a guardian placement (in force or
-//   ended; colony placements are never deleted) on the site's colony, and
-//   holds no island-wide placement now. A team member who is also a cat
-//   guardian acts as the team, as `actingRole` decides.
+//   ended) on the site's colony, and holds no island-wide placement now. A
+//   team member who is also a cat guardian acts as the team, as
+//   `actingRole` decides. This is judged on today's placements: ending a
+//   placement keeps its row, but the roles command's replace and a rejoin
+//   delete rows, and a promotion to the team adds an island row, so those
+//   people's older site rows drop off. Recording the role on each row when
+//   it is written is SYC-444.
 
 export const RECENT_GUARDIAN_CHANGES = 20;
 
@@ -123,7 +127,16 @@ export async function recentGuardianChanges(
         authorityScope: observationsTable.authorityScope,
       })
       .from(observationsTable)
-      .where(and(eq(observationsTable.roleAtTime, "guardian"), eq(observationsTable.kind, "colony")))
+      .where(
+        and(
+          eq(observationsTable.roleAtTime, "guardian"),
+          eq(observationsTable.kind, "colony"),
+          // Only rows that can be listed, so malformed ones never take a
+          // place in the twenty (review of PR #224).
+          sql`${observationsTable.authorityScope} ~ '^colony:[1-9][0-9]{0,8}$'`,
+          sql`jsonb_typeof(${observationsTable.value} -> 'colonyId') in ('number', 'null')`,
+        ),
+      )
       .orderBy(desc(observationsTable.createdAt), desc(observationsTable.id))
       .limit(limit),
     // Colonies she created: her own `roles_changed` naming the new colony.
@@ -134,7 +147,7 @@ export async function recentGuardianChanges(
         and(
           eq(personEventsTable.kind, "roles_changed"),
           sql`${personEventsTable.by} = ${personEventsTable.personId}::text`,
-          isNotNull(sql`${personEventsTable.detail} -> 'createdColony'`),
+          sql`jsonb_typeof(${personEventsTable.detail} -> 'createdColony') = 'number'`,
         ),
       )
       .orderBy(desc(personEventsTable.at), desc(personEventsTable.id))

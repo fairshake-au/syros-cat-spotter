@@ -311,6 +311,69 @@ describe("a target module reads only a record's colony", () => {
   });
 });
 
+/**
+ * Is this call of an island-only reader guarded (review of PR #224)? Only two
+ * shapes count, both checked on the source with comments removed:
+ * - inline: `can(person, "<capability>") ? await <fn>(` and nothing else
+ *   between the check and the call;
+ * - the route's own door: `requireTeam("<capability>")` among the middleware
+ *   of the same `router.<method>(` statement, before its handler starts.
+ */
+function guardedCall(src: string, index: number, capability: string): boolean {
+  const before = src.slice(0, index);
+  const inline = new RegExp(`can\\(person, "${capability}"\\)\\s*\\?\\s*await\\s*$`);
+  if (inline.test(before)) return true;
+  const start = before.lastIndexOf("router.");
+  if (start < 0) return false;
+  const handler = before.indexOf("async (", start);
+  const middleware = before.slice(start, handler < 0 ? index : handler);
+  return middleware.includes(`requireTeam("${capability}")`);
+}
+
+describe("island-only readers are called only behind their capability", () => {
+  const routeFiles = readdirSync(join(SRC, "routes")).filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"));
+
+  it("every call in every route file is guarded", () => {
+    let seen = 0;
+    for (const file of routeFiles) {
+      const src = stripComments(read(join("routes", file)));
+      for (const { fn, capability } of Object.values(ISLAND_ONLY_MODULES)) {
+        for (const call of src.matchAll(new RegExp(`\\b${fn}\\(`, "g"))) {
+          seen++;
+          expect(guardedCall(src, call.index, capability), `${file}: ${fn}() at offset ${call.index} without ${capability}`).toBe(true);
+        }
+      }
+    }
+    // The Colonies page and its own route both call it.
+    expect(seen).toBeGreaterThanOrEqual(2);
+  });
+
+  it("planted unguarded calls turn it red", () => {
+    const cap = "view_guardian_changes";
+    const guarded = [
+      `router.get("/a", requireTeam("${cap}"), async (req, res) => { res.json(await recentGuardianChanges()); });`,
+      `router.get("/a", ...requireSeeing(), async (req, res) => { const x = can(person, "${cap}") ? await recentGuardianChanges() : undefined; });`,
+    ];
+    const planted = [
+      // a check whose answer is never used
+      `router.get("/a", ...requireSeeing(), async (req, res) => { const ok = can(person, "${cap}"); await recentGuardianChanges(); });`,
+      // the guard sits in the handler, not the door
+      `router.get("/a", ...requireSeeing(), async (req, res) => { requireTeam("${cap}"); await recentGuardianChanges(); });`,
+      // another route's door, then an open route
+      `router.get("/a", requireTeam("${cap}"), async () => {}); router.get("/b", ...requireSeeing(), async () => { await recentGuardianChanges(); });`,
+      // a helper outside any route
+      `const helper = async () => recentGuardianChanges();`,
+    ];
+    const at = (src: string) => src.indexOf("recentGuardianChanges(");
+    for (const src of guarded) expect(guardedCall(src, at(src), cap), src).toBe(true);
+    for (const src of planted) expect(guardedCall(src, at(src), cap), src).toBe(false);
+    // A guard only inside a comment doesn't count once comments are removed.
+    const commented = `router.get("/a", ...requireSeeing(), async () => { // can(person, "${cap}") ? await\n await recentGuardianChanges(); });`;
+    const stripped = stripComments(commented);
+    expect(guardedCall(stripped, at(stripped), cap)).toBe(false);
+  });
+});
+
 describe("the routes read sites and colonies only through those modules", () => {
   const routeFiles = readdirSync(join(SRC, "routes")).filter(
     (f) => /^team(Sites|Colonies|Map)\w*\.ts$/.test(f) && !f.endsWith(".test.ts"),
@@ -346,20 +409,6 @@ describe("the routes read sites and colonies only through those modules", () => 
             lib in ISLAND_ONLY_MODULES,
           `${file} calls ${lib}, which touches sites or colonies but isn't checked here`,
         ).toBe(true);
-      }
-    });
-
-    it(`${file}: every island-only reader is called only behind its capability`, () => {
-      const src = read(join("routes", file));
-      for (const { fn, capability } of Object.values(ISLAND_ONLY_MODULES)) {
-        const calls = [...src.matchAll(new RegExp(`\\b${fn}\\(`, "g"))];
-        for (const call of calls) {
-          // The guard is in the same route, before the call: the route's own
-          // requireTeam(capability), or an inline can() check.
-          const before = src.slice(src.lastIndexOf("router.", call.index), call.index);
-          const guard = new RegExp(`(can\\(person, "${capability}"\\)|requireTeam\\("${capability}"\\))`);
-          expect(before, `${file}: ${fn}() at offset ${call.index} without ${capability}`).toMatch(guard);
-        }
       }
     });
 

@@ -211,7 +211,7 @@ export function recentChangesSection(W: Words, changes: RecentGuardianChange[]):
             return (
               `<li class="statement"><p>${changeLine(W, c)}</p>` +
               `<p class="meta"><a href="${esc(colonyHref(c.colony.id))}">${esc(colonyName)}</a> · ` +
-              `<time datetime="${esc(c.at)}">${esc(day(c.at))}</time></p></li>`
+              `<time datetime="${esc(c.at)}">${esc(dayIn(W.lang, c.at))}</time></p></li>`
             );
           })
           .join("") +
