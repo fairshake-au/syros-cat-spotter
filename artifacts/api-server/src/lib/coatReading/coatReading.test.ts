@@ -941,6 +941,26 @@ describe("T-reread: a manual re-read of photos read by an older reader version",
     expect(create).toHaveBeenCalledTimes(1);
   });
 
+  it("after the v2 write, a restored photo copies its v2 reading, never a newer v1 one, and isn't listed again", async () => {
+    const c = await cat("rr-v2copy");
+    await sighting(c.id, "rr-v2copy:s");
+    const tick = clock();
+    await v1Reading(c.id, c.main, { colours: ["tabby"] }, tick());
+    await reread([c.id], "write", tick); // the v2 write of the main photo
+    const v2 = (await machineRows(c.id)).at(-1)!;
+    // A later v1 row of the same photo (as an old copy forward would leave).
+    await v1Reading(c.id, c.main, { colours: ["tabby"] }, tick());
+    await setHidden(c.main, true);
+    await write([c.id], tick); // the stand-in, coat-v2
+    await setHidden(c.main, false);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toMatchObject([
+      { photoId: c.main, action: "copy", copyOf: v2.id, because: "main_restored" },
+    ]);
+    await reread([c.id], "write", tick);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toEqual([]);
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
   it("a v1 copy-forward under an automatic run isn't due again", async () => {
     const c = await cat("rr-copy");
     await sighting(c.id, "rr-copy:s");
@@ -1144,7 +1164,11 @@ describe("T-reread: a manual re-read of photos read by an older reader version",
       reread: true,
     };
     const first = recordReading(input);
-    while (reached === 0) await new Promise((r) => setTimeout(r, 10));
+    // Fail fast, not by timeout, if the first never passes its re-check.
+    let settled = false;
+    void first.then(() => (settled = true));
+    while (reached === 0 && !settled) await new Promise((r) => setTimeout(r, 10));
+    expect(reached, "the first reading passed its re-check").toBe(1);
     // The first is now between its re-check and its insert. Start the second.
     const second = recordReading(input);
     await new Promise((r) => setTimeout(r, 300));
