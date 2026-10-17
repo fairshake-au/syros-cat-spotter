@@ -103,6 +103,8 @@ function factsView(o: Over = {}): TeamCatView {
       notSeenSince: null,
       sterilised: { value: null, confidence: "unknown", clippedTipSightings: 0 },
       coat: [],
+      coatColours: [],
+      coatPattern: null,
       markings: [],
     },
     records: {
