@@ -47,8 +47,19 @@ export function safeError(err: unknown): Record<string, unknown> {
  * `/api/team/map-tiles/17/74000/50000.png` → `/api/team/map-tiles/:tile`.
  * Odd spellings that a hand-made request could use (doubled slashes, `/./`,
  * `%2D` for the hyphen, `%2F` for the slash) are caught too.
+ *
+ * The island map's single squares (SYC-396 PR 1.5) are fetched the same way,
+ * by token, at `map-square/`: everything after it becomes `[redacted]`, e.g.
+ * `/api/team/map-square/<token>` → `/api/team/map-square/[redacted]`. The
+ * token request itself (POST `map-squares`, plural) carries square numbers
+ * in its body only, which is never logged, so its path is kept.
  */
-const MAP_TILE_IN_PATH = /\/api\/+team(?:\/+\.)*\/+map(?:-|%2d)tiles(?:\/|%2f)[^?]*/i;
+const MAP_TILE_IN_PATH = /\/api\/+team(?:\/+\.)*\/+map(?:-|%2d)(tiles|square)(?:\/|%2f)[^?]*/i;
+
+const MAP_TILE_PLACEHOLDER: Record<string, string> = {
+  tiles: "/api/team/map-tiles/:tile",
+  square: "/api/team/map-square/[redacted]",
+};
 
 /**
  * A device id is a credential (SYC-109), and it must not outlive a "Delete my
@@ -71,7 +82,7 @@ const DEVICE_ID_IN_PATH =
 export function redactRequestUrl(url: string | undefined): string | undefined {
   const path = url?.split("?")[0];
   return path
-    ?.replace(MAP_TILE_IN_PATH, "/api/team/map-tiles/:tile")
+    ?.replace(MAP_TILE_IN_PATH, (_m, kind: string) => MAP_TILE_PLACEHOLDER[kind.toLowerCase()]!)
     .replace(DEVICE_ID_IN_PATH, "/$1/:deviceId");
 }
 

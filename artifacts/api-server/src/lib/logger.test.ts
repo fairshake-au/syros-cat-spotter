@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeError } from "./logger";
+import { redactRequestUrl, safeError } from "./logger";
 
 // S1 (review of #55): an error object must never put query parameters in the
 // logs. Drizzle's error message is "Failed query: <sql>\nparams: <values>",
@@ -35,5 +35,39 @@ describe("safeError", () => {
   it("copes with things that aren't errors", () => {
     expect(safeError("a string")).toEqual({ type: "string" });
     expect(safeError(undefined)).toEqual({ type: "undefined" });
+  });
+});
+
+// SYC-396 PR 1.5 (spec §6.3; SYC-255): the island map's square addresses
+// carry a token that stands for a position, so the request log never keeps
+// it. app.logRedaction.test.ts checks the map-tiles twin through the real app.
+describe("map square addresses in the request log", () => {
+  const TOKEN = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AbCdEfGhIjKlMnOpQrStU";
+
+  it("shows /api/team/map-square/[redacted], never the token", () => {
+    expect(redactRequestUrl(`/api/team/map-square/${TOKEN}`)).toBe("/api/team/map-square/[redacted]");
+    expect(redactRequestUrl(`/api/team/map-square/${TOKEN}?x=1`)).toBe("/api/team/map-square/[redacted]");
+  });
+
+  it("catches hand-made spellings", () => {
+    for (const url of [
+      `//api/team/map-square/${TOKEN}`,
+      `/api/team//map-square/${TOKEN}`,
+      `/api/team/./map-square/${TOKEN}`,
+      `/api/team/map%2dsquare/${TOKEN}`,
+      `/api/team/map-square%2F${TOKEN}`,
+      `/API/Team/Map-Square/${TOKEN}`,
+      `/api/team/map-square/17/74230/50478.png`,
+    ]) {
+      const out = redactRequestUrl(url)!;
+      expect(out, url).toMatch(/\/map-square\/\[redacted\]$/);
+      expect(out, url).not.toContain(TOKEN);
+      expect(out, url).not.toMatch(/74230|50478/);
+    }
+  });
+
+  it("keeps the token request's own path, and the 2x2 pictures' redaction is unchanged", () => {
+    expect(redactRequestUrl("/api/team/map-squares")).toBe("/api/team/map-squares");
+    expect(redactRequestUrl("/api/team/map-tiles/17/74000/50000.png")).toBe("/api/team/map-tiles/:tile");
   });
 });
