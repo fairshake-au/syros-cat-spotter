@@ -24,8 +24,20 @@ import { isTileSize, type Tile, type TileSize } from "./geometry";
 // Both keys are derived from the dashboard's session key (TEAM_SESSION_KEYS),
 // so there is no new secret to set; during a session-key change either key
 // is accepted, as for sessions.
+//
+// **Two kinds of token (SYC-396 PR 1.5; spec §6.3).** Version 1 is the
+// 2×2 picture above, for the button maps. Version 2 is ONE 256 px map square,
+// for the draggable island map, which asks for its squares in a signed-in
+// POST (POST /api/team/map-squares) and then fetches each by its token alone
+// (GET /api/team/map-square/:token). The version byte is inside the
+// encrypted, authenticated block, so a token of one kind can never be read as
+// the other: readTileToken refuses a version 2 block and readSquareToken a
+// version 1 block.
 
 const VERSION = 1;
+const SQUARE_VERSION = 2;
+/** A map square is always drawn at OpenStreetMap's own size. */
+export const SQUARE_SIZE = 256;
 const BLOCK = 16;
 const NONCE = 12;
 const TAG = 16;
@@ -59,15 +71,26 @@ function keys(env: NodeJS.ProcessEnv): Keys[] | null {
   return secrets ? secrets.map(derive) : null;
 }
 
-function pack(ref: PictureRef, exp: number): Buffer {
+function pack(ref: PictureRef, exp: number, version: number): Buffer {
   const b = Buffer.alloc(BLOCK);
-  b.writeUInt8(VERSION, 0);
+  b.writeUInt8(version, 0);
   b.writeUInt8(ref.z, 1);
   b.writeUInt32BE(ref.x, 2);
   b.writeUInt32BE(ref.y, 6);
   b.writeUInt16BE(ref.size, 10);
   b.writeUInt32BE(exp, 12);
   return b;
+}
+
+function mint(ref: PictureRef, version: number, nowSeconds: number, env: NodeJS.ProcessEnv): string {
+  const k = keys(env)?.[0];
+  if (!k) throw new Error("mintTileToken: TEAM_SESSION_KEYS is not set");
+  const exp = (Math.floor(nowSeconds / HOUR) + LIFETIME_HOURS) * HOUR;
+  const block = pack(ref, exp, version);
+  const nonce = createHmac("sha256", k.nonce).update(block).digest().subarray(0, NONCE);
+  const cipher = createCipheriv("aes-256-gcm", k.enc, nonce);
+  const body = Buffer.concat([cipher.update(block), cipher.final()]);
+  return Buffer.concat([nonce, body, cipher.getAuthTag()]).toString("base64url");
 }
 
 /**
@@ -79,25 +102,23 @@ export function mintTileToken(
   nowSeconds = Math.floor(Date.now() / 1000),
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const k = keys(env)?.[0];
-  if (!k) throw new Error("mintTileToken: TEAM_SESSION_KEYS is not set");
-  const exp = (Math.floor(nowSeconds / HOUR) + LIFETIME_HOURS) * HOUR;
-  const block = pack(ref, exp);
-  const nonce = createHmac("sha256", k.nonce).update(block).digest().subarray(0, NONCE);
-  const cipher = createCipheriv("aes-256-gcm", k.enc, nonce);
-  const body = Buffer.concat([cipher.update(block), cipher.final()]);
-  return Buffer.concat([nonce, body, cipher.getAuthTag()]).toString("base64url");
+  return mint(ref, VERSION, nowSeconds, env);
 }
 
-/**
- * The picture a token stands for, or null for anything else: malformed,
- * altered, made with another key, expired, or naming a size the map never
- * draws. One null for all of them, so a refusal says nothing about why.
- */
-export function readTileToken(
-  token: unknown,
+/** The address token for one 256 px map square (version 2). Throws without a session key. */
+export function mintSquareToken(
+  tile: Tile,
   nowSeconds = Math.floor(Date.now() / 1000),
   env: NodeJS.ProcessEnv = process.env,
+): string {
+  return mint({ z: tile.z, x: tile.x, y: tile.y, size: SQUARE_SIZE }, SQUARE_VERSION, nowSeconds, env);
+}
+
+function read(
+  token: unknown,
+  version: number,
+  nowSeconds: number,
+  env: NodeJS.ProcessEnv,
 ): PictureRef | null {
   if (typeof token !== "string" || !TOKEN_RE.test(token)) return null;
   const raw = Buffer.from(token, "base64url");
@@ -117,18 +138,46 @@ export function readTileToken(
     } catch {
       continue; // not this key, or altered
     }
-    if (block.readUInt8(0) !== VERSION) return null;
+    // The other kind of token, or one this server never makes.
+    if (block.readUInt8(0) !== version) return null;
     const exp = block.readUInt32BE(12);
     // Expired, or further ahead than any token this server makes.
     if (exp <= nowSeconds || exp > nowSeconds + (LIFETIME_HOURS + 1) * HOUR) return null;
     const size = block.readUInt16BE(10);
-    if (!isTileSize(size)) return null;
+    if (version === SQUARE_VERSION ? size !== SQUARE_SIZE : !isTileSize(size)) return null;
     return {
       z: block.readUInt8(1),
       x: block.readUInt32BE(2),
       y: block.readUInt32BE(6),
-      size,
+      size: size as TileSize,
     };
   }
   return null;
+}
+
+/**
+ * The picture a token stands for, or null for anything else: malformed,
+ * altered, made with another key, expired, a square's token (version 2), or
+ * naming a size the map never draws. One null for all of them, so a refusal
+ * says nothing about why.
+ */
+export function readTileToken(
+  token: unknown,
+  nowSeconds = Math.floor(Date.now() / 1000),
+  env: NodeJS.ProcessEnv = process.env,
+): PictureRef | null {
+  return read(token, VERSION, nowSeconds, env);
+}
+
+/**
+ * The map square a version 2 token stands for, or null for anything else,
+ * a 2×2 picture's token (version 1) included. One null for all of them.
+ */
+export function readSquareToken(
+  token: unknown,
+  nowSeconds = Math.floor(Date.now() / 1000),
+  env: NodeJS.ProcessEnv = process.env,
+): Tile | null {
+  const ref = read(token, SQUARE_VERSION, nowSeconds, env);
+  return ref ? { z: ref.z, x: ref.x, y: ref.y } : null;
 }
