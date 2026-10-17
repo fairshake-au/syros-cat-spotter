@@ -80,7 +80,10 @@ describe("the island map's cat positions", () => {
     expect([b.lat, b.lng]).toEqual([37.445, 24.942]);
     expect(b.lastSeenAt).toBeNull();
     // Exactly these fields, nothing else about the cat.
-    expect(Object.keys(a).sort()).toEqual(["id", "lastSeenAt", "lat", "lng", "mark", "name", "photo", "place"]);
+    expect(Object.keys(a).sort()).toEqual(["colony", "id", "lastSeenAt", "lat", "lng", "mark", "name", "photo", "place", "seen"]);
+    expect(a.colony).toBe(colony);
+    expect(a.seen).toBe("Last seen 3 days ago");
+    expect(b.seen).toBe("Never seen since first recorded");
   });
 
   it("takes the filters from the body, in the grid's shape", async () => {

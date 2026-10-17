@@ -327,6 +327,8 @@ ${MAP_MARK_CSS}
 .catsheet .sheetbtns a,.catsheet .sheetbtns button{font:inherit;font-size:15px;min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;font-weight:700;text-decoration:none;cursor:pointer}
 .catsheet .sheetbtns a.primary{background:#0b5c6b;color:#fff}
 .catsheet .sheetclose{margin-left:auto;flex:none;min-width:44px;min-height:44px;border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:#3b3930}
+.catpinicon{display:flex;align-items:center;justify-content:center;background:transparent;border:0}
+.catpinicon:focus-visible{outline:3px solid #1d1d1b;outline-offset:2px;border-radius:50%}
 .trailpt{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#1a56a6;color:#fff;font:700 12px/1 system-ui,sans-serif;box-shadow:0 0 0 2px #fff}
 .mapfallback{margin:8px 0}
 .pin.catpin{width:44px;height:44px;margin:-22px 0 0 -22px;border:0;background:transparent;box-shadow:none;display:flex;align-items:center;justify-content:center}

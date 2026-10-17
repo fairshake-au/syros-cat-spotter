@@ -16,6 +16,7 @@ import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
 import { viewAround, type View } from "../lib/mapTiles/geometry";
 import { applyMove } from "../lib/mapTiles/mapForms";
 import { listSites } from "../lib/teamSites";
+import { lastSeenWords } from "../lib/teamPages/lastSeen";
 
 // The staff dashboard's "Cats" screens (SYC-43 part 2 plan, PR 3). Read-only;
 // the correction forms on the cat page post to routes/teamCorrections.ts (PR 4).
@@ -187,7 +188,8 @@ router.post(
     const body = typeof req.body === "object" && req.body !== null && !Array.isArray(req.body) ? req.body : {};
     const { page: _page, ...filters } = parseCatFilters(body);
     const started = Date.now();
-    const { cats } = await allTeamCats(filters, new Date());
+    const now = new Date();
+    const { cats } = await allTeamCats(filters, now);
     // Spec §9.6: counts only, no names.
     req.log.info({ ms: Date.now() - started, shown: cats.length }, "team cat positions");
     res.json({
@@ -199,6 +201,10 @@ router.post(
         lng: c.placedAt.lng,
         place: c.place,
         lastSeenAt: c.lastSeenAt ? c.lastSeenAt.toISOString() : null,
+        // The card's words, worded as everywhere else ("Last seen 3 days ago").
+        seen: lastSeenWords(c.lastSeenAt, now),
+        // The colony's number; the page's own colony list has its name.
+        colony: c.colonyId,
         photo: c.photoPublicId ? `${teamPhotoUrl(c.photoPublicId)}/small` : null,
       })),
     });
