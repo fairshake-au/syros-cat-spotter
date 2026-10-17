@@ -422,6 +422,8 @@ Placed capabilities on a cat depend on the cat's colony, so how a cat gets one m
 
 **Naming.** A guardian names her colony when she creates it (the usual form is "Place — Her name's", as in "Vaporia — Eleni's"). Changing a colony's name afterwards stays with the team (`rename_colony`), because a colony's name is how the team talks about it on the phone (§9.3).
 
+**A cat guardian with no colony yet (SYC-439, Samuel 17 October 2026).** Management can invite a cat guardian with no colony, so she can create her first one herself. How she is stored, what she can reach before she has a colony, and the door rule are in [`roles-and-invites-first-colony.md`](./roles-and-invites-first-colony.md).
+
 **What people notice.** A guardian taps *Add a colony*, types a name, marks the place on a map, and arrives on her new colony with the usual buttons. The team sees it on the recent guardian changes list.
 
 ---
