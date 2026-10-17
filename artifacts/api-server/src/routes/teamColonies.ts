@@ -27,6 +27,7 @@ import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { pageViewer, requireSeeing } from "../middlewares/requireSeeing";
 import { covers } from "../lib/guardianView";
+import { movedAwayNotices } from "../lib/movedAway";
 import { formRoute } from "./teamCorrections";
 import { coordinate, fieldsOf, lf, noNul, optionalText } from "../lib/teamForms";
 
@@ -200,6 +201,8 @@ router.get(
         // guardian edits her own colony and its cats; renaming stays island-only.
         may: (c) => can(person, c, { colonyId: view.id }),
         done,
+        // Her cats someone else moved elsewhere (spec Decision 14); nothing for the team.
+        movedAway: (await movedAwayNotices(person)).filter((n) => n.fromColonyId === view.id),
         lang: v.lang,
         island: v.island,
       }),

@@ -532,6 +532,8 @@ export const el: Record<StringKey, string> = {
   "count.retired": ", {retired} έκλεισαν",
   "taken.cantUse": "Αυτό το όνομα δεν μπορεί να χρησιμοποιηθεί.",
   "add.another": "Σε άλλη αποικία",
+  "moved.title": "Μετακινήθηκαν σε άλλη αποικία",
+  "moved.line": "{cat}: τώρα σε άλλη αποικία ({date})",
   "colony.another": "άλλη αποικία",
   "colony.notesOwn": "Σημειώσεις",
   "count.colonySites": "{n} σημεία ταΐσματος",

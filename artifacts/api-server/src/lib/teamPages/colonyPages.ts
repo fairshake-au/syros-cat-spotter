@@ -309,10 +309,34 @@ function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean): str
   );
 }
 
+/**
+ * "Mimi has moved to another colony" (spec Decision 14): the cat's name and
+ * the day, never the colony it went to or who looks after it.
+ */
+function movedAwayList(W: Words, moved: ReadonlyArray<{ catName: string; movedAt: Date }>): string {
+  if (moved.length === 0) return "";
+  return (
+    `<h3>${W.w("moved.title")}</h3>` +
+    `<ul class="refs moved">` +
+    moved
+      .map(
+        (m) =>
+          `<li>${esc(W.t("moved.line", { cat: m.catName, date: dayIn(W.lang, m.movedAt.toISOString()) }))}</li>`,
+      )
+      .join("") +
+    `</ul>`
+  );
+}
+
 export function renderColonyPage(
   v: ColonyView,
   personName: string,
-  opts: ColonyViewer & { may: (c: Capability) => boolean; done?: string },
+  opts: ColonyViewer & {
+    may: (c: Capability) => boolean;
+    done?: string;
+    /** Her cats that someone else moved to a colony that isn't hers (movedAwayNotices). */
+    movedAway?: ReadonlyArray<{ catName: string; movedAt: Date }>;
+  },
 ): string {
   const W = wordsIn(opts.lang);
   const { w } = W;
@@ -362,6 +386,7 @@ export function renderColonyPage(
       (opts.may("assign_cat_to_colony")
         ? `<p><a class="tap cardlink" href="${esc(colonyHref(v.id))}/cats">${w("colony.addCats")}</a></p>`
         : "") +
+      movedAwayList(W, opts.movedAway ?? []) +
       notes +
       `<h2>${w("colony.historyTitle")}</h2>` +
       historyList(W, v.history, island, link),

@@ -532,6 +532,8 @@ export const fr: Record<StringKey, string> = {
   "count.retired": ", {retired} fermés",
   "taken.cantUse": "Ce nom ne peut pas être utilisé.",
   "add.another": "Dans une autre colonie",
+  "moved.title": "Partis dans une autre colonie",
+  "moved.line": "{cat} est maintenant dans une autre colonie ({date})",
   "colony.another": "une autre colonie",
   "colony.notesOwn": "Notes",
   "count.colonySites": "{n} points de nourrissage",
