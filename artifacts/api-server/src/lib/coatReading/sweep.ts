@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { db, observationsTable, photosTable } from "@workspace/db";
 import { readCoatValue, type CoatParts } from "../appearance";
 import { consume, declareLimit } from "../limits";
-import { catsDueForReading, type DueCat } from "./due";
+import { loadCatRecords } from "../observations";
+import { catsDueForReading, isMachineReading, markedWrong, newest, type DueCat } from "./due";
 import { copyReadingForward, recordReading } from "./record";
 import { CONFIDENCE_CUTOFF, MODEL_VERSION, readCoatFromPhoto, type RawCoatAnswer } from "./reader";
 
@@ -18,6 +19,15 @@ import { CONFIDENCE_CUTOFF, MODEL_VERSION, readCoatFromPhoto, type RawCoatAnswer
  *   Samuel rejects, Decision A1).
  *
  * Nothing starts it automatically in this PR; only the manual route does.
+ *
+ * `reread` (SYC-398 §7, off by default) is the one checked re-read, started
+ * by hand: cats whose photo was read by an older reader version are due
+ * too. It reaches every "is this cat due?" check of the run, the re-check
+ * before a photo is sent and the one inside `record.ts`'s lock included. A
+ * re-read is **held back** (`held_back`, nothing written) when it is a whole
+ * Not sure, or when it would leave not known a part that the cat's current
+ * machine reading knows, so nothing showing is lost. Each read's `current`
+ * coat is reported, for the contact sheet.
  *
  * Budgets (R6, R7), counted in the database so every server shares them:
  * - `coat-read-hour`: 60 model calls an hour, all reading together;
@@ -83,15 +93,25 @@ export interface SweepItem {
     | "not_due_any_more"
     | "failed"
     | "photo_gone"
-    | "photo_attempts_used";
+    | "photo_attempts_used"
+    /** A re-read that would lose what's known: nothing written (§7). */
+    | "held_back";
   /** The coat read, or copied, as its two parts (SYC-398 §6). */
   parts?: CoatParts;
+  /**
+   * For a model read: the cat's current machine coat, its newest machine
+   * reading the team hasn't marked wrong, or null when there is none
+   * (SYC-398 §7, for the contact sheet).
+   */
+  current?: CoatParts | null;
   raw?: RawCoatAnswer;
   reason?: string;
 }
 
 export interface SweepResult {
   mode: SweepMode;
+  /** Whether this run re-reads older versions (SYC-398 §7). */
+  reread: boolean;
   modelVersion: string;
   cutoff: number;
   /** Cats due when the run started, `exclude`d ones included. */
@@ -110,15 +130,19 @@ export async function sweepCoatReadings(opts: {
   mode: SweepMode;
   limit: number;
   exclude?: readonly number[];
+  /** The one checked re-read (SYC-398 §7). Off unless a person asks. */
+  reread?: boolean;
   now?: () => Date;
   /** Tests only: look at these cats and no others. */
   catIds?: readonly number[];
 }): Promise<SweepResult> {
   const now = opts.now ?? (() => new Date());
   const exclude = new Set(opts.exclude ?? []);
-  const allDue = await catsDueForReading(Number.POSITIVE_INFINITY, db, { catIds: opts.catIds });
+  const reread = opts.reread ?? false;
+  const allDue = await catsDueForReading(Number.POSITIVE_INFINITY, db, { catIds: opts.catIds, reread });
   const result: SweepResult = {
     mode: opts.mode,
+    reread,
     modelVersion: MODEL_VERSION,
     cutoff: CONFIDENCE_CUTOFF,
     due: allDue.length,
@@ -156,7 +180,13 @@ export async function sweepCoatReadings(opts: {
         result.items.push({ ...item, status: "copied" });
         continue;
       }
-      const out = await copyReadingForward({ catId: d.catId, photoId: d.photoId, copyOf: d.copyOf!, now: now() });
+      const out = await copyReadingForward({
+        catId: d.catId,
+        photoId: d.photoId,
+        copyOf: d.copyOf!,
+        reread,
+        now: now(),
+      });
       if (out.kind === "written") result.written += 1;
       result.items.push({ ...item, status: out.kind === "written" ? "written" : "not_due_any_more" });
       continue;
@@ -166,12 +196,14 @@ export async function sweepCoatReadings(opts: {
     // only ever a public photo (R1). The list above was made when the run
     // started, and a run can take minutes, so the cat is checked again right
     // before its photo leaves the server: a photo the team hid in the
-    // meantime is never sent (Opus spot review, finding 1).
-    const [still] = await catsDueForReading(1, db, { catIds: [d.catId] });
+    // meantime is never sent (Opus spot review, finding 1). With the run's
+    // own `reread`, so a re-read's cat is still due here (SYC-398 §7).
+    const [still] = await catsDueForReading(1, db, { catIds: [d.catId], reread });
     if (!still || still.photoId !== d.photoId || still.action !== "read") {
       result.items.push({ ...item, status: "not_due_any_more" });
       continue;
     }
+    item.current = await currentCoat(d.catId);
     const [photo] = await db
       .select({ data: photosTable.data, mime: photosTable.mime })
       .from(photosTable)
@@ -198,6 +230,12 @@ export async function sweepCoatReadings(opts: {
     }
     item.parts = reading.parts;
     item.raw = reading.raw;
+    // §7: nothing showing is lost. Marked in a trial too, so the contact
+    // sheet shows which cats a write would hold back.
+    if (reread && losesWhatIsKnown(item.current ?? null, reading.parts)) {
+      result.items.push({ ...item, status: "held_back" });
+      continue;
+    }
     if (opts.mode === "trial") {
       result.items.push({ ...item, status: "read" });
       continue;
@@ -207,6 +245,7 @@ export async function sweepCoatReadings(opts: {
       photoId: d.photoId,
       parts: reading.parts,
       raw: reading.raw,
+      reread,
       now: now(),
     });
     if (out.kind === "written") result.written += 1;
@@ -214,4 +253,27 @@ export async function sweepCoatReadings(opts: {
   }
   result.stillDue = allDue.length - result.written;
   return result;
+}
+
+/**
+ * The cat's current machine coat (SYC-398 §7): its newest machine reading
+ * that the team hasn't marked wrong, through the one translation, or null.
+ * Loaded through `loadCatRecords`, as `due.ts` does.
+ */
+async function currentCoat(catId: number): Promise<CoatParts | null> {
+  const records = await loadCatRecords([catId]);
+  const observations = records.get(catId)?.observations ?? [];
+  const wrong = markedWrong(observations);
+  const row = newest(observations.filter((o) => isMachineReading(o) && !wrong.has(o.id)));
+  return row ? readCoatValue(row.value) : null;
+}
+
+/**
+ * The hold-back rule for a re-read (§7): a whole Not sure, or a reading that
+ * leaves not known a part the current machine coat knows.
+ */
+export function losesWhatIsKnown(current: CoatParts | null, next: CoatParts): boolean {
+  if (next.notSure) return true;
+  if (!current || current.notSure) return false;
+  return (current.colours !== null && next.colours === null) || (current.pattern !== null && next.pattern === null);
 }

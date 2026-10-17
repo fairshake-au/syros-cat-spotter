@@ -36,7 +36,7 @@ type Response = number | { exit: number };
  * number answers with that HTTP status; `{ exit }` fails like curl does
  * (prints 000, exits with that code: 7 = couldn't connect, 28 = timed out).
  */
-function run(env: { BASE_URL?: string; MODE?: string; LIMIT?: string; EXCLUDE?: string }, responses: Response[] = [200]) {
+function run(env: { BASE_URL?: string; MODE?: string; LIMIT?: string; EXCLUDE?: string; REREAD?: string }, responses: Response[] = [200]) {
   const dir = mkdtempSync(join(tmpdir(), "coat-readings-"));
   const calls = join(dir, "calls");
   writeFileSync(
@@ -75,6 +75,7 @@ printf '%s' "$r"
         MODE: env.MODE ?? "dry_run",
         LIMIT: env.LIMIT ?? "50",
         EXCLUDE: env.EXCLUDE ?? "",
+        REREAD: env.REREAD ?? "false",
       },
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -99,19 +100,39 @@ describe("coat-readings workflow step", () => {
     const r = run({ MODE: "write", LIMIT: "12", EXCLUDE: "4, 17,23" });
     expect(r.status).toBe(0);
     expect(r.urls).toEqual(["https://apptest.catspotters.com/api/internal/coat/sweep"]);
-    expect(r.bodies).toEqual([{ mode: "write", limit: 12, exclude: [4, 17, 23] }]);
+    expect(r.bodies).toEqual([{ mode: "write", limit: 12, exclude: [4, 17, 23], reread: false }]);
     expect(r.output).toContain("HTTP 200");
     expect(r.output).toContain('"due": 3');
     expect(r.output).not.toContain("test-token");
   });
 
   it("exclude: spaces separate ids too, never joining them (ship review finding 2)", () => {
-    expect(run({ MODE: "write", EXCLUDE: "12 14, 7" }).bodies).toEqual([{ mode: "write", limit: 50, exclude: [12, 14, 7] }]);
-    expect(run({ MODE: "write", EXCLUDE: " 3,,  9 " }).bodies).toEqual([{ mode: "write", limit: 50, exclude: [3, 9] }]);
+    expect(run({ MODE: "write", EXCLUDE: "12 14, 7" }).bodies).toEqual([{ mode: "write", limit: 50, exclude: [12, 14, 7], reread: false }]);
+    expect(run({ MODE: "write", EXCLUDE: " 3,,  9 " }).bodies).toEqual([{ mode: "write", limit: 50, exclude: [3, 9], reread: false }]);
   });
 
   it("defaults: a dry run with nothing excluded", () => {
-    expect(run({}).bodies).toEqual([{ mode: "dry_run", limit: 50, exclude: [] }]);
+    expect(run({}).bodies).toEqual([{ mode: "dry_run", limit: 50, exclude: [], reread: false }]);
+  });
+
+  it("SYC-398 §7: the run's reread reaches the body as a real boolean, off by default", () => {
+    expect(run({ MODE: "trial", REREAD: "true" }).bodies).toEqual([
+      { mode: "trial", limit: 50, exclude: [], reread: true },
+    ]);
+    expect(run({ MODE: "write", REREAD: "false", EXCLUDE: "5" }).bodies).toEqual([
+      { mode: "write", limit: 50, exclude: [5], reread: false },
+    ]);
+    const src = readFileSync(WORKFLOW, "utf8");
+    expect(src).toMatch(/reread:\n\s+type: choice\n\s+options: \["false", "true"\]\n\s+default: "false"/);
+    expect(src).toContain("REREAD: ${{ inputs.reread }}");
+  });
+
+  it("refuses a reread that isn't false or true, before calling", () => {
+    for (const REREAD of ["yes", "1", "", "TRUE", "true,", '{"a":1}', "true || 1"]) {
+      const r = run({ REREAD });
+      expect(r.status, REREAD).not.toBe(0);
+      expect(r.curlCalls, REREAD).toBe(0);
+    }
   });
 
   it("the token never goes to any other host", () => {

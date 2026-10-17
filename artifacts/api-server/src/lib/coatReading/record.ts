@@ -23,7 +23,9 @@ import { MODEL_VERSION, type RawCoatAnswer } from "./reader";
  * R8. Inside one transaction: an advisory lock on the cat, then a fresh check
  *     that the cat is still due for the same photo and the same action, then
  *     the insert. Two servers reading one cat at once can waste a call but
- *     never write two rows.
+ *     never write two rows. The re-check uses the run's own `reread`
+ *     (SYC-398 §7), so a re-read's cat is still due inside the lock, and an
+ *     automatic run's never is for a version change.
  */
 
 export const VISION_AUTHOR = "system:vision";
@@ -45,12 +47,13 @@ async function lockAndRecheck(
   catId: number,
   photoId: number,
   action: "read" | "copy",
-  copyOf?: number,
+  copyOf: number | undefined,
+  reread: boolean,
 ): Promise<boolean> {
   // The house style for per-cat locks (teamCorrections, sightings): a hashed
   // name, so this never shares a key with another lock.
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext('coat-reading'), ${catId})`);
-  const [entry] = await catsDueForReading(1, tx, { catIds: [catId] });
+  const [entry] = await catsDueForReading(1, tx, { catIds: [catId], reread });
   const still =
     entry !== undefined &&
     entry.photoId === photoId &&
@@ -67,10 +70,14 @@ export async function recordReading(input: {
   photoId: number;
   parts: CoatParts;
   raw: RawCoatAnswer;
+  /** The run's `reread` setting (SYC-398 §7); false for an automatic run. */
+  reread?: boolean;
   now?: Date;
 }): Promise<RecordOutcome> {
   return db.transaction(async (tx) => {
-    if (!(await lockAndRecheck(tx, input.catId, input.photoId, "read"))) return { kind: "not_due" } as const;
+    if (!(await lockAndRecheck(tx, input.catId, input.photoId, "read", undefined, input.reread ?? false))) {
+      return { kind: "not_due" } as const;
+    }
     const row = await writeObservation(
       tx,
       {
@@ -100,10 +107,12 @@ export async function copyReadingForward(input: {
   catId: number;
   photoId: number;
   copyOf: number;
+  /** The run's `reread` setting (SYC-398 §7); false for an automatic run. */
+  reread?: boolean;
   now?: Date;
 }): Promise<RecordOutcome> {
   return db.transaction(async (tx) => {
-    if (!(await lockAndRecheck(tx, input.catId, input.photoId, "copy", input.copyOf))) {
+    if (!(await lockAndRecheck(tx, input.catId, input.photoId, "copy", input.copyOf, input.reread ?? false))) {
       return { kind: "not_due" } as const;
     }
     const [source] = await tx.select().from(observationsTable).where(eq(observationsTable.id, input.copyOf));

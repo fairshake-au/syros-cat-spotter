@@ -7,6 +7,13 @@ name: coat-readings
 #                 raw numbers, for Samuel's contact sheet (Decision A1)
 #   mode=write    writes the readings, except the cats listed in `exclude`
 #
+#   reread=true   (SYC-398 §7; default false) the one checked re-read: also
+#                 reads cats whose photo was read by an older reader version.
+#                 Rejected photos and cats the team decided are skipped, and
+#                 a reading that would lose what's known is held back. Use it
+#                 only with Samuel's heads-up: dry run, trial, contact sheet,
+#                 then write with `exclude`.
+#
 # Every model call, trial or write, counts against the same budgets: 60 calls
 # an hour across the server, and 3 attempts a day per (cat, photo). A trial
 # and a write of the same cats in one hour can hit the hourly limit; the run
@@ -43,6 +50,11 @@ on:
         type: string
         default: ""
         description: "Cat ids NOT to write, separated by commas or spaces (the readings Samuel rejected)"
+      reread:
+        type: choice
+        options: ["false", "true"]
+        default: "false"
+        description: "true re-reads cats last read by an older reader version (SYC-398; with Samuel's heads-up only)"
 permissions: { contents: read }
 concurrency: { group: "coat-readings", cancel-in-progress: false }
 jobs:
@@ -58,6 +70,7 @@ jobs:
           MODE: ${{ inputs.mode }}
           LIMIT: ${{ inputs.limit }}
           EXCLUDE: ${{ inputs.exclude }}
+          REREAD: ${{ inputs.reread }}
         run: |
           set -euo pipefail
           if [ -z "${MAIL_DRAIN_TOKEN}" ]; then
@@ -95,8 +108,13 @@ jobs:
           case "${EXCLUDE}" in
             *[!0-9,\ ]*) echo "::error::exclude must be cat ids separated by commas"; exit 1 ;;
           esac
+          case "${REREAD}" in
+            false|true) ;;
+            *) echo "::error::reread must be false or true"; exit 1 ;;
+          esac
           body="$(jq -cn --arg mode "${MODE}" --argjson limit "${LIMIT}" --arg exclude "${EXCLUDE}" \
-            '{mode: $mode, limit: $limit, exclude: ($exclude | [splits("[, ]+")] | map(select(length > 0)) | map(tonumber))}')"
+            --argjson reread "${REREAD}" \
+            '{mode: $mode, limit: $limit, exclude: ($exclude | [splits("[, ]+")] | map(select(length > 0)) | map(tonumber)), reread: $reread}')"
           echo "Request: ${body}"
           out="$(mktemp)"
           # The first call can wake a sleeping deployment: retry once when
