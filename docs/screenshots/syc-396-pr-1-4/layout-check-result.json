@@ -1,0 +1,38 @@
+[
+ {
+  "width": 390,
+  "page": "cat",
+  "scrollW": 390,
+  "clientW": 390,
+  "tinyText": [],
+  "shortTargets": [],
+  "sideways": false
+ },
+ {
+  "width": 390,
+  "page": "bare",
+  "scrollW": 390,
+  "clientW": 390,
+  "tinyText": [],
+  "shortTargets": [],
+  "sideways": false
+ },
+ {
+  "width": 1280,
+  "page": "cat",
+  "scrollW": 1280,
+  "clientW": 1280,
+  "tinyText": [],
+  "shortTargets": [],
+  "sideways": false
+ },
+ {
+  "width": 1280,
+  "page": "bare",
+  "scrollW": 1280,
+  "clientW": 1280,
+  "tinyText": [],
+  "shortTargets": [],
+  "sideways": false
+ }
+]

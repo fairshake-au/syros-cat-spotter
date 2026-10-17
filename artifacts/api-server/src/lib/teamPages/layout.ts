@@ -161,6 +161,11 @@ form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12p
 .colourchip{display:inline-block;font-size:14px;border:1px solid #8a877e;border-radius:999px;padding:1px 10px;margin:0 2px 2px 0;color:#1d1d1b;background:#fff}
 .catfacts a:has(.colourchip){text-decoration:none}
 .publicline{font-size:14px;color:#3b3930;margin:8px 0 16px}
+.publicline .public{display:inline;background:none;border:0;padding:0;font-weight:400}
+/* The folds this page adds show which way they open. */
+details.evidence>summary::before,li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}
+details.evidence>summary::-webkit-details-marker,li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
+details.evidence[open]>summary::before,li.statement.routine>details[open]>summary::before,.hownote[open]>summary::before{content:"▾"}
 .photostrip{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .photostrip img{display:block;width:56px;height:56px;object-fit:cover;border-radius:4px;background:#ece8dc}
 .photostrip .more{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border:1px solid #d9d5ca;border-radius:4px;font-size:14px}
