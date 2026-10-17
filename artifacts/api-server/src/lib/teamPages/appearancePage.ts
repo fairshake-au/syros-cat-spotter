@@ -390,10 +390,12 @@ export function renderCorrectAgain(
     personName,
     lang,
     body:
+      '<div class="fixes appfix">' +
       correctForm(lang, catId, "coat", [], opts.shownAbove, opts.back, "again-coat", {
         error: tr(lang, "appearance.needAPart"),
         reason: opts.reason,
       }) +
+      "</div>" +
       `<p><a class="tap" href="${esc(backHref)}">${esc(tr(lang, "gcat.problem.backToCat"))}</a></p>`,
   });
 }
