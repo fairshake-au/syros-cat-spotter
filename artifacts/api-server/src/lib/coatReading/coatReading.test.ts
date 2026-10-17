@@ -1215,3 +1215,122 @@ describe("T-reread: a manual re-read of photos read by an older reader version",
     expect(r.items.find((i) => i.catId === b.id)).toMatchObject({ status: "not_due_any_more" });
   });
 });
+
+// Added from the Opus spot review of PR C (due.ts and sweep.ts).
+describe("T-reread spot review: the gaps it found, closed", () => {
+  const V1 = `${VISION_MODEL}/coat-v1`;
+
+  async function machine(catId: number, photoId: number, value: Record<string, unknown>, at: Date) {
+    const [row] = await db
+      .insert(observationsTable)
+      .values({
+        catId,
+        kind: "coat",
+        value,
+        accountId: "system:vision",
+        roleAtTime: "system",
+        authorityScope: "none",
+        provenance: "machine",
+        photoId,
+        observedAt: at,
+        suggestionSource: "coat-reader",
+      })
+      .returning();
+    return row!;
+  }
+
+  it("finding 3: under reread, a never-read cat's Not sure is written, as in any run", async () => {
+    const c = await cat("rv-unread-ns");
+    answers.set("rv-unread-ns:main", answer(["ginger"], { catCount: 2 }));
+    const r = await sweepCoatReadings({ mode: "write", limit: 50, catIds: [c.id], reread: true, now: clock() });
+    expect(r.items).toMatchObject([{ because: "unread", status: "written", current: null }]);
+    const [row] = await machineRows(c.id);
+    expect(row!.value).toEqual({ notSure: true, modelVersion: MODEL_VERSION });
+    expect(r.stillDue).toBe(0);
+  });
+
+  it("a cat whose both parts a cat guardian decided is skipped", async () => {
+    const c = await cat("rv-guardian");
+    const tick = clock();
+    await machine(c.id, c.main, { colours: ["tabby"], modelVersion: V1 }, tick());
+    // A guardian's statement, straight to the table (level 2: rule 1).
+    await db.insert(observationsTable).values({
+      catId: c.id,
+      kind: "coat",
+      value: { colours: ["grey"], pattern: "plain" },
+      accountId: "person:vitest-coat-guardian",
+      roleAtTime: "guardian",
+      authorityScope: "colony:1",
+      provenance: "volunteered",
+      observedAt: new Date(Date.now() - 60_000),
+    });
+    const parts = resolveCoatParts((await loadCatRecords([c.id])).get(c.id)!.observations);
+    expect([parts.colours.rule, parts.pattern.rule]).toEqual([1, 1]);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toEqual([]);
+  });
+
+  it("a retraction without standing doesn't make a photo 'rejected' for the re-read", async () => {
+    const c = await cat("rv-nostanding");
+    const tick = clock();
+    const old = await machine(c.id, c.main, { colours: ["tabby"], modelVersion: V1 }, tick());
+    await db.insert(observationsTable).values({
+      catId: c.id,
+      kind: "coat",
+      value: { retracted: true },
+      deviceId: `${PREFIX}rv-no-standing`,
+      roleAtTime: "public",
+      authorityScope: "none",
+      provenance: "volunteered",
+      observedAt: new Date(),
+      supersedesId: old.id,
+    });
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toMatchObject([
+      { action: "read", because: "older_version" },
+    ]);
+  });
+
+  it("under reread, a restored photo whose only (v1) reading was marked wrong is skipped, not read", async () => {
+    const c = await cat("rv-r2wrong");
+    await sighting(c.id, "rv-r2wrong:s");
+    const tick = clock();
+    const old = await machine(c.id, c.main, { colours: ["grey"], modelVersion: V1 }, tick());
+    await markWrong(c.id, old.id);
+    await setHidden(c.main, true);
+    await write([c.id], tick); // the stand-in, coat-v2
+    await setHidden(c.main, false);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toEqual([]);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toEqual([]);
+  });
+
+  it("a machine row with no modelVersion counts as an older version", async () => {
+    const c = await cat("rv-noversion");
+    await machine(c.id, c.main, { colours: ["ginger"] }, clock()());
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id], reread: true })).toMatchObject([
+      { action: "read", because: "older_version" },
+    ]);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toEqual([]);
+  });
+
+  it("stillDue counts a held-back cat", async () => {
+    const c = await cat("rv-stilldue");
+    const tick = clock();
+    await machine(c.id, c.main, { colours: ["ginger"], pattern: "stripes", modelVersion: V1 }, tick());
+    answers.set("rv-stilldue:main", answer(["ginger"], { pattern: "cant_tell" }));
+    const r = await sweepCoatReadings({ mode: "write", limit: 50, catIds: [c.id], reread: true, now: tick });
+    expect(r).toMatchObject({ due: 1, written: 0, stillDue: 1 });
+    expect(r.items).toMatchObject([{ status: "held_back" }]);
+  });
+
+  it("a copy under reread is written through the lock's re-check", async () => {
+    const c = await cat("rv-copywrite");
+    await sighting(c.id, "rv-copywrite:s");
+    const tick = clock();
+    await write([c.id], tick); // main, coat-v2
+    await setHidden(c.main, true);
+    await write([c.id], tick); // stand-in, coat-v2
+    await setHidden(c.main, false);
+    const r = await sweepCoatReadings({ mode: "write", limit: 50, catIds: [c.id], reread: true, now: tick });
+    expect(r.items).toMatchObject([{ action: "copy", status: "written" }]);
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+});

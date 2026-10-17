@@ -236,7 +236,12 @@ export async function catsDueForReading(
   return due;
 }
 
-/** A machine reading's `modelVersion`, or null. */
+/**
+ * A machine reading's `modelVersion`, or null (a row with none counts as an
+ * older version). "Older" means "not this one": after a rollback to an
+ * earlier reader, newer rows would count as older too, and a manual re-read
+ * would read them again (Opus spot review, nit 8).
+ */
 function versionOf(o: Observation): string | null {
   const v = (o.value as { modelVersion?: unknown } | null)?.modelVersion;
   return typeof v === "string" ? v : null;

@@ -24,7 +24,8 @@ import { CONFIDENCE_CUTOFF, MODEL_VERSION, readCoatFromPhoto, type RawCoatAnswer
  * by hand: cats whose photo was read by an older reader version are due
  * too. It reaches every "is this cat due?" check of the run, the re-check
  * before a photo is sent and the one inside `record.ts`'s lock included. A
- * re-read is **held back** (`held_back`, nothing written) when it is a whole
+ * re-read (any read in such a run of a cat that has a machine reading) is
+ * **held back** (`held_back`, nothing written) when it is a whole
  * Not sure, or when it would leave not known a part that the cat's current
  * machine reading knows, so nothing showing is lost. Each read's `current`
  * coat is reported, for the contact sheet.
@@ -231,8 +232,11 @@ export async function sweepCoatReadings(opts: {
     item.parts = reading.parts;
     item.raw = reading.raw;
     // §7: nothing showing is lost. Marked in a trial too, so the contact
-    // sheet shows which cats a write would hold back.
-    if (reread && losesWhatIsKnown(item.current ?? null, reading.parts)) {
+    // sheet shows which cats a write would hold back. A cat never read
+    // before isn't a re-read: its reading, Not sure included, is written as
+    // in any run (R2: Not sure rows count as rows; Opus spot review,
+    // finding 3).
+    if (reread && d.because !== "unread" && losesWhatIsKnown(item.current ?? null, reading.parts)) {
       result.items.push({ ...item, status: "held_back" });
       continue;
     }
