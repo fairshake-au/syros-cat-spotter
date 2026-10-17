@@ -6,6 +6,7 @@ import type {
   TeamResolved,
   TeamStatement,
 } from "../teamCatView";
+import { EAR_TIP_NOT_CLIPPED, FOOD_AND_WATER_OUT } from "../teamCatView";
 import type { Capability } from "../capabilities";
 import type { QueueReport } from "../welfareQueue";
 import { escapeHtml as esc } from "./escape";
@@ -15,6 +16,7 @@ import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
 import { coatWordsOf, renderCatFacts } from "./catFacts";
 import { fitView, renderMap, type MapMarker } from "./map";
+import { BANDS, pointOnView } from "../mapTiles/geometry";
 import { rowMenu } from "./rowMenu";
 import { placeLabel } from "../areas/placeLabel";
 
@@ -552,8 +554,9 @@ function summaryAndActions(summary: string, fixes: string): string {
 // ── The history's routine sightings (spec §7.3) ─────────────────────────────
 
 /**
- * A routine row: something a spotter's sighting said that changes nothing,
- * "food and water were out" or an ear that isn't clipped. Status, colony,
+ * A routine row: something a spotter's sighting said that means all is well,
+ * "Food and water were out" or "Ear tip not clipped". "No food or water" and
+ * "Couldn't tell" are never folded under "looking well". Status, colony,
  * colour, name, notes, welfare reports and vet visits are never routine, nor
  * a clipped ear (it counts towards "Probably"), nor anything corrected or
  * correcting.
@@ -561,8 +564,8 @@ function summaryAndActions(summary: string, fixes: string): string {
 export function isRoutine(s: TeamStatement): boolean {
   if (s.author.kind !== "spotter") return false;
   if (s.replacedBy.length > 0 || s.replaces != null || s.movedTo || s.movedFrom) return false;
-  if (s.kind === "food_and_water") return true;
-  return s.kind === "ear_tip" && s.correction === null;
+  if (s.kind === "food_and_water") return s.said === FOOD_AND_WATER_OUT;
+  return s.kind === "ear_tip" && s.correction === null && s.said === EAR_TIP_NOT_CLIPPED;
 }
 
 type HistoryPart = { one: TeamStatement } | { run: TeamStatement[] };
@@ -604,9 +607,11 @@ const yearOf = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { year
  */
 export function runWords(run: readonly TeamStatement[], now: Date): string {
   const times = new Set(run.map((s) => (s.sightingId === null ? `row ${s.id}` : `sighting ${s.sightingId}`))).size;
-  // Newest first: the last row is the oldest.
-  const first = run[run.length - 1]!.observedAt;
-  const last = run[0]!.observedAt;
+  // The earliest and latest dates seen. The history is in the order sightings
+  // were matched, which isn't always the order they were seen.
+  const seen = run.map((s) => s.observedAt).sort((a, b) => Date.parse(a) - Date.parse(b));
+  const first = seen[0]!;
+  const last = seen[seen.length - 1]!;
   const thisYear = yearOf(now.toISOString());
   const withYear = yearOf(first) !== thisYear || yearOf(last) !== thisYear;
   const from = dayMonth(first, withYear);
@@ -639,14 +644,18 @@ function sightingsMap(v: TeamCatView): string {
     href: `#sg-${s.id}`,
   }));
   const more = v.sightings.length > shown.length;
+  const view = fitView(shown);
   let map: string;
   try {
-    map = renderMap({ mode: "view", view: fitView(shown), markers, controls: false });
-  } catch {
-    // The picture can't be signed (no session key): the rest of the page
-    // still shows, and the sightings are listed below (spec §13).
+    map = renderMap({ mode: "view", view, markers, controls: false });
+  } catch (e) {
+    // Only a picture that can't be signed (no session key) is shown as "not
+    // available", with the rest of the page (spec §13). Anything else is a bug.
+    if (!(e instanceof Error && e.message.includes("TEAM_SESSION_KEYS"))) throw e;
     return '<p class="hint catmap">The map isn\'t available right now. The sightings are listed below.</p>';
   }
+  // Sightings too far apart for one picture are said, never silently dropped.
+  const drawn = shown.filter((s) => pointOnView(view, BANDS[0].size, s) !== null).length;
   return (
     '<div class="catmap">' +
     map +
@@ -654,6 +663,10 @@ function sightingsMap(v: TeamCatView): string {
       more
         ? `The newest ${shown.length} of ${v.sightings.length} sightings, numbered oldest first.`
         : `Sightings numbered oldest first.`
+    }${
+      drawn < shown.length
+        ? ` ${shown.length - drawn} ${shown.length - drawn === 1 ? "is" : "are"} too far from the others to fit on this map; see Sightings below.`
+        : ""
     }</p></div>`
   );
 }
@@ -845,13 +858,20 @@ export function renderCatPage(
           .join("") +
         "</div>");
 
+  const evidenceIds = new Set([
+    ...records.lifeStatus.supportingStatementIds,
+    ...records.lifeStatus.conflictingStatementIds,
+    ...records.sterilised.supportingStatementIds,
+    ...records.sterilised.conflictingStatementIds,
+  ]);
   const item = (s: TeamStatement) =>
     statementItem(s, byId, shown, may, atStatement && s.id === opts.at ? notice : "");
   const historyItems = groupHistory(shown === null ? v.history : newest)
     .map((part) => {
       if ("one" in part) return item(part.one);
-      // A run opens by itself when the page lands on one of its rows.
-      const open = atStatement && part.run.some((s) => s.id === opts.at);
+      // A run opens by itself when the page lands on one of its rows, or when
+      // "Why we think so" or "Says otherwise" above links to one of them.
+      const open = part.run.some((s) => (atStatement && s.id === opts.at) || evidenceIds.has(s.id));
       return (
         `<li class="statement routine"><details${open ? " open" : ""}><summary>${esc(runWords(part.run, now))}</summary>` +
         `<ol class="history">${part.run.map(item).join("")}</ol></details></li>`

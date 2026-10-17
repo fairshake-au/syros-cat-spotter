@@ -46,7 +46,8 @@ export const LIVES_WORD: Record<Lives, string> = {
 /** Who said it, as the history says it: "Eleni, cat guardian" for a guardian. */
 function confirmedBy(v: TeamCatView): string {
   const s = v.history.find((h) => h.id === v.records.sterilised.supportingStatementIds[0]);
-  return s?.asGuardian ? `${s.author.label}, cat guardian` : "Syros Cats";
+  if (!s?.asGuardian) return "Syros Cats";
+  return s.author.kind === "deleted" ? "a cat guardian" : `${s.author.label}, cat guardian`;
 }
 
 function sterilisedFact(v: TeamCatView): string {
@@ -67,15 +68,21 @@ function sterilisedFact(v: TeamCatView): string {
 function livesFact(v: TeamCatView): string {
   const l = v.records.lifeStatus;
   const lives: Lives | null = l.presumedDeceased || l.value === "deceased" ? "gone" : l.value;
-  const words = lives === null ? "Not known" : LIVES_WORD[lives];
+  // Presumed, not known: the records only say it hasn't been seen for years.
+  const words =
+    lives === null ? "Not known" : l.presumedDeceased && l.value !== "deceased" ? "Probably no longer with us" : LIVES_WORD[lives];
   return esc(words) + (l.notSeenSince ? `<br><span class="meta">Not seen since ${esc(monthYear(l.notSeenSince))}</span>` : "");
 }
 
-/** Who the coat's answer rests on: the machine, a person, or spotters. */
+/** Who the colours rest on (not the pattern): the machine, a person, or spotters. */
 function colourSource(v: TeamCatView): string | null {
-  const counting = v.appearance.coat.statements.filter((s) => s.counts);
+  const ids = v.appearance.coat.parts?.colours.supportingStatementIds;
+  const counting = v.appearance.coat.statements.filter((s) => (ids ? ids.includes(s.id) : s.counts));
   const person = counting.find((s) => s.source === "team" || s.source === "guardian");
-  if (person) return person.source === "guardian" ? `set by ${person.author.label}, cat guardian` : `set by ${person.author.label}`;
+  if (person) {
+    if (person.author.kind === "deleted") return person.source === "guardian" ? "set by a cat guardian" : "set by the team";
+    return person.source === "guardian" ? `set by ${person.author.label}, cat guardian` : `set by ${person.author.label}`;
+  }
   if (counting.some((s) => s.source === "machine")) return "read from the photo";
   if (counting.some((s) => s.source === "spotter")) return "from spotters' photos";
   return null;

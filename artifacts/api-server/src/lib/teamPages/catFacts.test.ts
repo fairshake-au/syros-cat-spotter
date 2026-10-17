@@ -192,9 +192,13 @@ describe("the facts row: lives", () => {
     expect(facts(view({ life: { value: null } }))["Lives"]).toBe("Not known");
   });
 
-  it("presumed deceased: No longer with us, and Not seen since with month and year", () => {
+  it("presumed deceased: Probably no longer with us, and Not seen since with month and year", () => {
     const v = view({ life: { value: "street", presumedDeceased: true, notSeenSince: "2026-06-12T08:00:00Z" } });
-    expect(facts(v)["Lives"]).toBe("No longer with us | Not seen since Jun 2026");
+    expect(facts(v)["Lives"]).toBe("Probably no longer with us | Not seen since Jun 2026");
+  });
+
+  it("recorded as no longer with us says so plainly", () => {
+    expect(facts(view({ life: { value: "deceased" } }))["Lives"]).toBe("No longer with us");
   });
 });
 
@@ -215,6 +219,30 @@ describe("the facts row: colour", () => {
       ]),
     });
     expect(facts(v)["Colour"]).toBe("Grey Stripes set by Maria");
+  });
+
+  it("names whoever decided the colours, not whoever added the pattern (review finding 5)", () => {
+    const coat = greyStripes([
+      coatStatement({ id: 61, source: "team", author: { kind: "team", label: "Maria" } }),
+      coatStatement({ id: 60 }),
+    ]);
+    coat.parts!.colours.supportingStatementIds = [60];
+    coat.parts!.pattern.supportingStatementIds = [61];
+    expect(facts(view({ coat }))["Colour"]).toBe("Grey Stripes read from the photo");
+  });
+
+  it("a cat guardian who has since deleted their details is never named by that phrase", () => {
+    const v = view({
+      sterilised: { value: true, confidence: "confirmed", asOf: "2026-10-14T09:00:00Z", supportingStatementIds: [3] },
+      history: [
+        statement(3, {
+          kind: "sterilised",
+          asGuardian: true,
+          author: { kind: "deleted", label: "someone who has since deleted their details" },
+        }),
+      ],
+    });
+    expect(facts(v)["Sterilised"]).toBe("Yes, confirmed by a cat guardian, 14 Oct 2026");
   });
 
   it("a statement that no longer counts names nobody", () => {

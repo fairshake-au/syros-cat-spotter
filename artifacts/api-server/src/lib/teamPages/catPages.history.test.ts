@@ -312,6 +312,34 @@ describe("routine sightings in the history", () => {
     expect(groupLines(renderCatPage(view(0, { history: fixed }), "Sam", { now: NOW }))).toEqual([]);
   });
 
+  it("never folds a worrying sighting under looking well: No food or water, Couldn't tell (review finding 1)", () => {
+    for (const said of ["No food or water", "Couldn't tell about food and water"]) {
+      const rows = [routine(3, 3, "2026-09-20T09:00:00Z", { said }), routine(2, 2, "2026-09-19T09:00:00Z", { said })];
+      expect(groupLines(renderCatPage(view(0, { history: rows }), "Sam", { now: NOW })), said).toEqual([]);
+    }
+    const ear = [1, 2].map((i) =>
+      routine(i, i, "2026-09-20T09:00:00Z", { kind: "ear_tip", said: "Couldn't tell whether the ear is clipped" }),
+    );
+    expect(groupLines(renderCatPage(view(0, { history: ear }), "Sam", { now: NOW }))).toEqual([]);
+  });
+
+  it("dates run from the earliest seen to the latest, whatever order they were matched in (review finding 2)", () => {
+    // Matched newest first, but the newer-matched one was seen earlier.
+    const rows = [routine(2, 2, "2026-09-01T09:00:00Z"), routine(1, 1, "2026-09-10T09:00:00Z")];
+    expect(groupLines(renderCatPage(view(0, { history: rows }), "Sam", { now: NOW }))).toEqual([
+      "Seen 2 times by spotters between 1 Sept and 10 Sept, looking well",
+    ]);
+  });
+
+  it("opens a group that Why we think so links into (review finding 6)", () => {
+    const rows = routineRun(4);
+    const v = view(0, { history: rows, sterilised: [rows[1]!.id] });
+    expect(renderCatPage(v, "Sam", { now: NOW })).toContain('<li class="statement routine"><details open>');
+    expect(renderCatPage(view(0, { history: rows }), "Sam", { now: NOW })).not.toContain(
+      '<li class="statement routine"><details open>',
+    );
+  });
+
   it("a single routine row stays a row of its own", () => {
     const html = renderCatPage(view(0, { history: routineRun(1) }), "Sam", { now: NOW });
     expect(groupLines(html)).toEqual([]);
@@ -460,6 +488,31 @@ describe("the small sightings map", () => {
     expect(pins(html)).toHaveLength(30);
     expect(pins(html)[29]!.id).toBe(1034);
     expect(html).toContain("The newest 30 of 34 sightings, numbered oldest first.");
+  });
+
+  it("sightings at both ends of Syros: every one is on the map, or the page says how many aren't (review finding 3)", () => {
+    const v = view(0);
+    v.sightings = [
+      { id: 2, lat: 37.51, lng: 24.9, at: "2026-10-10T08:00:00Z", photoUrl: null, extraPhotos: [], mixedCats: false },
+      { id: 1, lat: 37.37, lng: 24.92, at: "2026-10-01T08:00:00Z", photoUrl: null, extraPhotos: [], mixedCats: false },
+    ];
+    const html = renderCatPage(v, "Sam", { now: NOW });
+    const drawn = pins(html).length;
+    if (drawn < 2) expect(html).toContain(`${2 - drawn} ${2 - drawn === 1 ? "is" : "are"} too far from the others`);
+    else expect(html).not.toContain("too far from the others");
+    // Too far apart for one picture at the widest zoom: one is drawn, and the other is said.
+    expect(drawn).toBe(1);
+  });
+
+  it("a sighting off Syros is said, never silently dropped", () => {
+    const v = view(0);
+    v.sightings = [
+      { id: 2, lat: 37.44, lng: 24.94, at: "2026-10-10T08:00:00Z", photoUrl: null, extraPhotos: [], mixedCats: false },
+      { id: 1, lat: 33.45, lng: -112.07, at: "2026-10-01T08:00:00Z", photoUrl: null, extraPhotos: [], mixedCats: false },
+    ];
+    const html = renderCatPage(v, "Sam", { now: NOW });
+    expect(pins(html).length).toBeLessThan(2);
+    expect(html).toContain("too far from the others to fit on this map; see Sightings below.");
   });
 
   it("has no map with no sightings", () => {

@@ -140,15 +140,29 @@ export function fitView(points: readonly Position[], maxZoom = 17): View {
   // Worked out at the smallest picture, where a marker takes the most room.
   const size = BANDS[0].size;
   const margin = 12;
-  for (let z = maxZoom; z > MIN_ZOOM; z--) {
-    const v = viewAround(centre, z);
-    const fits = points.every((p) => {
+  const fits = (v: View) =>
+    points.every((p) => {
       const at = pointOnView(v, size, p);
       return at !== null && Math.min(at.left, at.top, GRID * size - at.left, GRID * size - at.top) >= margin;
     });
-    if (fits) return v;
+  for (let z = maxZoom; z >= MIN_ZOOM; z--) {
+    const base = viewAround(centre, z);
+    // The view snaps to whole map pictures, so also try one picture over each way.
+    for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+      const v = clampView({ z, x: base.x + dx, y: base.y + dy });
+      if (fits(v)) return v;
+    }
   }
-  return viewAround(centre, MIN_ZOOM);
+  // Too far apart for one picture: the widest view that shows the most of
+  // them, and the page says how many didn't fit.
+  let best = viewAround(centre, MIN_ZOOM);
+  let most = -1;
+  for (const p of [centre, ...points]) {
+    const v = viewAround(p, MIN_ZOOM);
+    const n = points.filter((q) => pointOnView(v, size, q) !== null).length;
+    if (n > most) [best, most] = [v, n];
+  }
+  return best;
 }
 
 /** The view a map option set describes, kept over the island. */
