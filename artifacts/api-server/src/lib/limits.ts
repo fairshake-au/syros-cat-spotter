@@ -7,7 +7,7 @@ import rateLimit, {
   type Options,
   type Store,
 } from "express-rate-limit";
-import type { RequestHandler } from "express";
+import type { Request, RequestHandler, Response } from "express";
 import { logger, safeError } from "./logger";
 
 /**
@@ -415,12 +415,20 @@ type SharedLimiterOptions = {
   failOpen?: boolean;
   /** Sliding window instead of a fixed one; see `WindowOptions`. */
   sliding?: boolean;
+  /**
+   * Count by something other than the visitor's address: a signed-in
+   * person's id, say (SYC-396 PR 1.5's map squares, "300 per person"). Runs
+   * after the route's own checks, so it may read what they left in
+   * `res.locals`. Hashed by `consume` like an address.
+   */
+  key?: (req: Request, res: Response) => string;
 };
 
 /**
  * An `express-rate-limit` middleware whose counts live in Postgres, keyed on
  * the visitor's address grouped the usual way (the library's default key
- * generator, `ipKeyGenerator(req.ip)`) and hashed by `consume`.
+ * generator, `ipKeyGenerator(req.ip)`), or on `opts.key`, and hashed by
+ * `consume`.
  */
 export function sharedLimiter(opts: SharedLimiterOptions): RequestHandler {
   declareLimit(opts.bucket, opts.limit, opts.windowMs, { sliding: opts.sliding });
@@ -432,6 +440,7 @@ export function sharedLimiter(opts: SharedLimiterOptions): RequestHandler {
     legacyHeaders: false,
     message: opts.message,
     store: new PostgresStore(opts.bucket, opts.limit, failOpen, opts.sliding ?? false),
+    ...(opts.key ? { keyGenerator: opts.key } : {}),
   });
   return (req, res, next) => {
     void limiter(req, res, (err?: unknown) => {

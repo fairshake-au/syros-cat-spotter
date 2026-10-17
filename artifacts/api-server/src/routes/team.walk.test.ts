@@ -225,6 +225,12 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/map": { why: "zoom, pan, areas on the team's map page: view_exact_location with no target" },
   "POST /api/team/map/tap": { why: "a tap on the team's map page: view_exact_location with no target" },
   "GET /api/team/map-tiles/:tile": { why: "a map picture: sees some colony (PR 4.1); the walk's token is unreadable, so 404", except: SEEING },
+  // SYC-396 PR 1.5, the island map's squares: team-only (the Map is the team's in phase 1).
+  "POST /api/team/map-squares": { why: "tokens for the island map's squares: view_exact_location with no target, so island-only" },
+  "GET /api/team/map-square/:token": {
+    why: "one island map square by its token: view_exact_location with no target; the walk's token is unreadable, so 404",
+    mayCache: "private, max-age=86400",
+  },
   // SYC-209 PR 3.2 and PR 4.1, the Feeding sites pages.
   "GET /api/team/sites": { why: "the Feeding sites page, filtered: sees some colony", except: SEEING },
   "POST /api/team/sites/map": { why: "zoom, pan, areas on the Feeding sites page, filtered: sees some colony", except: SEEING },
@@ -328,6 +334,8 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
   },
   "POST /api/team/my/cats/:id/sterilisation": { sterilised: "yes" },
   "POST /api/team/my/cats/:id/life-status": { status: "in_care", reason: "walk test" },
+  // A range off Syros: a well-formed ask that gets no tokens.
+  "POST /api/team/map-squares": { z: 14, xMin: 0, xMax: 1, yMin: 0, yMax: 1 },
 };
 
 /**

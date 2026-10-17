@@ -1,5 +1,6 @@
 import rateLimit from "express-rate-limit";
 import { _resetBucketForTests, consume, declareLimit, peek, sharedLimiter } from "../lib/limits";
+import { teamPerson } from "./requireTeam";
 
 // Per-IP throttles for public, unauthenticated endpoints.
 //
@@ -224,4 +225,23 @@ export const mapTileLimiter = rateLimit({
   ...common,
   windowMs: 15 * 60 * 1000,
   limit: 5000,
+});
+
+// The island map's single squares, GET /api/team/map-square/:token (SYC-396
+// PR 1.5; spec §6.3; plan Decision 7): at most 300 squares per PERSON per 10
+// minutes, to protect OpenStreetMap's goodwill and our 200 MB picture cache.
+// Counted per signed-in person, never per address: a team sharing an office
+// connection must not share one budget, and one person on two devices must
+// not get two. In Postgres, so it holds across servers and restarts. It runs
+// after requireTeam, so the person is known; squares seen again within the
+// hour come from the browser's own cache and don't count.
+export const MAP_SQUARES_BUCKET = "map_squares";
+export const MAP_SQUARES_LIMIT = 300;
+export const MAP_SQUARES_WINDOW_MS = 10 * 60 * 1000;
+export const mapSquareLimiter = sharedLimiter({
+  bucket: MAP_SQUARES_BUCKET,
+  message: { error: "Too many map pictures. Please try again in a few minutes." },
+  windowMs: MAP_SQUARES_WINDOW_MS,
+  limit: MAP_SQUARES_LIMIT,
+  key: (_req, res) => `person:${teamPerson(res).id}`,
 });
