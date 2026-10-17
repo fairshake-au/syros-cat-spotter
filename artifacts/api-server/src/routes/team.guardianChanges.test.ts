@@ -205,6 +205,18 @@ describe("what goes in the list", () => {
     expect((await teamList()).some((c) => c.cat?.id === cat.id)).toBe(false);
   });
 
+  it("malformed rows never take a place in the twenty", async () => {
+    const her = { id: eleni.id, scopes: [{ role: "guardian" as const, colonyId: c1 }] };
+    const cat = await seedCat(null);
+    await placeCats(her, c1, [cat.id]);
+    await pool.query(
+      `insert into observations (cat_id, kind, value, account_id, role_at_time, authority_scope, observed_at)
+       select $1, 'colony', '{"retracted": true}', $2, 'guardian', $3, now() from generate_series(1, 25)`,
+      [cat.id, eleni.id, `colony:${c1}`],
+    );
+    expect((await teamList())[0]).toMatchObject({ kind: "cat_added", cat: { id: cat.id } });
+  });
+
   it("someone who is both the team and a cat guardian acts as the team: her site isn't listed", async () => {
     const both = await guardianOn(`gchg-both-${RUN}`, [c1]);
     await pool.query(
