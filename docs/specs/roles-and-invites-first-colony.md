@@ -94,7 +94,7 @@ All in **one database transaction**, so it either all happens or none of it does
 2. The colony is created, with her as creator and her name as the guardian's name.
 3. Her placement on it is written (`guardian`, `colony`, no end date, no label, granted by herself), as §6.1 defines.
 4. **Her starting row is deleted.**
-5. One `roles_changed` event records it, before *"cat guardian, no colony yet"*, after *"cat guardian of <colony>"*, and the `colony_created` history entry is written as today.
+5. One `roles_changed` event records it, before *"cat guardian, no colony yet"*, after *"cat guardian of <colony>"*, and the `colony_created` history entry is written as today. The event keeps carrying `createdColony` (the new colony's number) in its detail, as today: the team's "Recent changes by cat guardians" list (SYC-209 PR 4.3) finds guardian-created colonies by reading exactly that, and its test (`team.guardianChanges.test.ts`) gains a case for a first colony made this way.
 
 She is then taken to her new colony's page with "Colony created". From now on she is an ordinary cat guardian: she can create more colonies (Decision 14), add cats, add feeding sites, and the team sees her new colony on "Recent guardian changes" (SYC-209 PR 4.3). If her colony placement is later ended or removed, she has no rows left and gets "Your access has ended", like any cat guardian; she does **not** go back to "no colony yet" unless management chooses it again.
 
