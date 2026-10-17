@@ -45,8 +45,13 @@ export const PERSON_ROLES = ["staff", "management", "guardian", "vet"] as const;
  */
 export const ISLAND_ROLES = ["staff", "management"] as const;
 
-/** Where a scope row applies (§10.1). No default: every insert says. */
-export const SCOPE_REACHES = ["island", "colony"] as const;
+/**
+ * Where a scope row applies (§10.1). No default: every insert says.
+ * `start` is a cat guardian with no colony yet, who may create her first
+ * one and nothing else (roles-and-invites-first-colony.md §4.2; SYC-439).
+ * It is only ever written on purpose, never inferred from a missing colony.
+ */
+export const SCOPE_REACHES = ["island", "colony", "start"] as const;
 
 /** A label for the team's records (§10.1). Grants nothing. */
 export const SCOPE_RELATIONSHIPS = ["feeds", "owns_here", "covering"] as const;
@@ -155,10 +160,18 @@ export const personScopesTable = pgTable(
       "person_scopes_reach_colony_ck",
       sql`(${t.reach} = 'colony') = (${t.colonyId} IS NOT NULL)`,
     ),
-    // A cat guardian is never island-wide.
+    // A cat guardian is never island-wide: she is on a colony, or has
+    // none yet (`start`, SYC-439).
     check(
       "person_scopes_guardian_colony_ck",
-      sql`${t.role} <> 'guardian' OR ${t.reach} = 'colony'`,
+      sql`${t.role} <> 'guardian' OR ${t.reach} IN ('colony', 'start')`,
+    ),
+    // "No colony yet" (SYC-439): only a cat guardian's, no colony, and no
+    // end date or label. It ends when she creates her colony or management
+    // changes her roles. One per person is the unique constraint below.
+    check(
+      "person_scopes_start_ck",
+      sql`${t.reach} <> 'start' OR (${t.role} = 'guardian' AND ${t.colonyId} IS NULL AND ${t.expiresAt} IS NULL AND ${t.relationship} IS NULL)`,
     ),
     // The team and management are island-wide.
     check(
