@@ -185,6 +185,16 @@ describe("what goes in the list", () => {
     expect(list[0]).toMatchObject({ kind: "cat_added", cat: { id: cat.id }, colony: { id: c1 } });
   });
 
+  it("a statement not written as a cat guardian is not listed, even one naming a colony", async () => {
+    const cat = await seedCat(null);
+    await pool.query(
+      `insert into observations (cat_id, kind, value, account_id, role_at_time, authority_scope, observed_at)
+       values ($1, 'colony', $2, $3, 'staff', $4, now())`,
+      [cat.id, JSON.stringify({ colonyId: c1 }), staffId, `colony:${c1}`],
+    );
+    expect((await teamList()).some((c) => c.cat?.id === cat.id)).toBe(false);
+  });
+
   it("a colony statement that doesn't say where the cat went is not listed (review m3)", async () => {
     const cat = await seedCat(c1);
     await pool.query(
