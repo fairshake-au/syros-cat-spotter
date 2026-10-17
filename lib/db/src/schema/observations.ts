@@ -70,6 +70,14 @@ export const observationsTable = pgTable(
     index("observations_account_idx")
       .on(t.accountId)
       .where(sql`${t.accountId} is not null`),
+    // The team's "Recent changes by cat guardians" (SYC-431; SYC-209 PR 4.3):
+    // a cat guardian's statements, newest first, and the rows that mark one wrong.
+    index("observations_guardian_recent_idx")
+      .on(t.createdAt.desc(), t.id.desc())
+      .where(sql`${t.roleAtTime} = 'guardian'`),
+    index("observations_supersedes_idx")
+      .on(t.supersedesId)
+      .where(sql`${t.supersedesId} is not null`),
     check(
       "observations_attribution_ck",
       sql`${t.redactedAt} is not null or (${t.deviceId} is null) <> (${t.accountId} is null)`,
