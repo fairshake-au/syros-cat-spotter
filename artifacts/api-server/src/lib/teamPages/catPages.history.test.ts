@@ -184,7 +184,7 @@ describe("cat page layout", () => {
       { url: "/api/team/photos/b", publicId: "b", source: "sighting", hidden: null },
     ];
     const html = renderCatPage(v, "Sam");
-    expect(html).toContain('<main class="wide">');
+    expect(html).toContain('<main id="main" tabindex="-1" class="wide">');
     expect(html).toContain('<h2 id="photos">All photos (2)</h2>');
   });
 
@@ -403,20 +403,20 @@ describe("renderPage chrome (SYC-219)", () => {
   const page = (nav?: boolean) =>
     renderPage({ title: "T", active: "queue", personName: "Maria <b>", body: "<p>x</p>", nav });
 
-  it("nav:false renders no nav but still has Sign out beside the name", () => {
+  it("nav:false renders no nav but still has Sign out beside the name, in the bar", () => {
     const html = page(false);
     expect(html).not.toContain("<nav");
+    expect(/<div class="bar">([\s\S]*?)<\/div>/.exec(html)![1]).toContain("Signed in as Maria &lt;b&gt;");
     expect(html).toContain('<form method="post" action="/api/team/signout"><button type="submit">Sign out</button></form>');
     expect(html).toContain("Signed in as Maria &lt;b&gt;");
   });
 
-  it("with the nav, Sign out is in div.who and not in the nav", () => {
+  it("with the nav, the name and Sign out end the menu bar, not under the heading (SYC-396 PR 1.6)", () => {
     const html = page();
-    const nav = /<nav class="bar">([\s\S]*?)<\/nav>/.exec(html)![1]!;
-    expect(nav).not.toContain("Sign out");
-    const who = /<div class="who">([\s\S]*?)<\/div>/.exec(html)![1]!;
-    expect(who).toContain("Signed in as");
-    expect(who).toContain("Sign out");
+    const nav = /<nav class="bar"[^>]*>([\s\S]*?)<\/nav>/.exec(html)![1]!;
+    expect(nav).toContain('<span class="who">Signed in as Maria &lt;b&gt;</span>');
+    expect(nav.endsWith('<button type="submit">Sign out</button></form>')).toBe(true);
+    expect(/<main[^>]*>([\s\S]*)<\/main>/.exec(html)![1]).not.toContain("Signed in as");
   });
 });
 

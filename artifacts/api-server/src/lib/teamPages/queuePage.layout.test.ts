@@ -53,17 +53,16 @@ const article = (html: string, id: string) => {
 };
 
 describe("queue page chrome", () => {
-  it("puts Sign out in div.who beside the name, not in the nav", () => {
+  it("puts the name and Sign out at the end of the menu bar, not under the heading (SYC-396 PR 1.6)", () => {
     const html = render(queue([report("a")]));
-    const nav = /<nav class="bar[^"]*">([\s\S]*?)<\/nav>/.exec(html)![1]!;
-    expect(nav).not.toContain("Sign out");
-    const who = /<div class="who">([\s\S]*?)<\/div>/.exec(html)![1]!;
-    expect(who).toContain("Signed in as Maria");
-    expect(who).toContain("Sign out");
+    const nav = /<nav class="bar[^"]*"[^>]*>([\s\S]*?)<\/nav>/.exec(html)![1]!;
+    expect(nav).toContain('<span class="who">Signed in as Maria</span>');
+    expect(nav.endsWith('<button type="submit">Sign out</button></form>')).toBe(true);
+    expect(/<main[^>]*>([\s\S]*)<\/main>/.exec(html)![1]).not.toContain("Signed in as");
   });
 
   it("uses the wide page", () => {
-    expect(render(queue([]))).toContain('<main class="wide">');
+    expect(render(queue([]))).toContain('<main id="main" tabindex="-1" class="wide">');
   });
 });
 
@@ -200,9 +199,9 @@ describe("after a team note is saved (?noted=)", () => {
 });
 
 describe("the phone menu", () => {
-  it("has a short label for the two long items, hidden on desktop by CSS", () => {
+  it("has a short label for Feeding sites, hidden on desktop by CSS; Queue is already short (SYC-396 PR 1.6)", () => {
     const html = render(queue([report("a")]));
-    expect(html).toContain('<span class="long">Welfare queue</span><span class="short">Queue</span>');
+    expect(html).toContain('aria-current="page">Queue</a>');
     expect(html).toContain('<span class="long">Feeding sites</span><span class="short">Sites</span>');
   });
 });

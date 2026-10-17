@@ -8,7 +8,7 @@ import { MAP_MARK_CSS, MARK_CSS } from "./marks";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "queue" | "cats" | "colonies" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies";
+export type NavKey = "queue" | "cats" | "map" | "colonies" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies";
 
 interface NavItem {
   key: NavKey;
@@ -19,9 +19,16 @@ interface NavItem {
   href: string | null;
 }
 
+// The menu names the team's jobs (SYC-396 spec §3.1): Home · Cats · Map ·
+// Queue · Colonies · Reports · People. Items appear as their screens ship:
+// until Home does (phase 2), the Queue is the dashboard's first page, and
+// Feeding sites and the two work lists keep their menu entries, since Home is
+// where they move to and nothing else links to them yet.
 const NAV: NavItem[] = [
-  { key: "queue", label: "Welfare queue", short: "Queue", href: "/api/team" },
+  { key: "queue", label: "Queue", href: "/api/team" },
   { key: "cats", label: "Cats", href: "/api/team/cats" },
+  // The Cats page's map view (SYC-396 PR 1.5). /api/team/map is the tap-check page.
+  { key: "map", label: "Map", href: "/api/team/cats?view=map" },
   { key: "colonies", label: "Colonies", href: "/api/team/colonies" },
   { key: "sites", label: "Feeding sites", short: "Sites", href: "/api/team/sites" },
   { key: "likely", label: "Probably sterilised", href: "/api/team/likely" },
@@ -62,9 +69,20 @@ const STYLES = `
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:#f6f4ef;color:#1d1d1b;font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 a{color:#0b5c6b}
+/* Skip to the page (SYC-366): off screen until a keyboard reaches it. */
+.skip{position:absolute;left:8px;top:-80px;z-index:10;display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;background:#fff;color:#0b5c6b;border:2px solid #0b5c6b;border-radius:8px;font-weight:700}
+.skip:focus{top:8px}
+/* A clear focus outline: the browser's own is faint on the beige (SYC-366). */
+:focus-visible{outline:3px solid #0b5c6b;outline-offset:2px}
+main:focus{outline:none}
 /* One row on every screen (SYC-219): on a phone the menu scrolls sideways
-   rather than wrapping, so it is always 53px tall. */
-.bar{background:#fff;border-bottom:1px solid #d9d5ca;padding:4px 12px;display:flex;flex-wrap:nowrap;gap:0 14px;align-items:center;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+   rather than wrapping, so it is always 53px tall. The person's name and
+   Sign out sit at its end (SYC-396 spec §3.2). When there's more to scroll to, a
+   soft shadow shows at that edge; the white "covers" scroll with the row and
+   hide the shadow once you reach the end, so no text is ever dimmed (SYC-374). */
+.bar{border-bottom:1px solid #d9d5ca;padding:4px 12px;display:flex;flex-wrap:nowrap;gap:0 14px;align-items:center;overflow-x:auto;white-space:nowrap;scrollbar-width:none;
+background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100% no-repeat local,linear-gradient(to left,#fff 40%,rgba(255,255,255,0)) right/28px 100% no-repeat local,radial-gradient(farthest-side at 0 50%,rgba(29,29,27,.22),rgba(29,29,27,0)) left/12px 100% no-repeat scroll,radial-gradient(farthest-side at 100% 50%,rgba(29,29,27,.22),rgba(29,29,27,0)) right/12px 100% no-repeat scroll;background-color:#fff}
+.bar :focus-visible{outline-offset:-3px}
 .bar::-webkit-scrollbar{display:none}
 /* The menu starts where the page's text starts. */
 .bar{padding-inline:max(12px,calc((100% - 760px) / 2 + 12px))}
@@ -73,15 +91,17 @@ a{color:#0b5c6b}
 .bar .here{font-weight:700;color:#1d1d1b;border-bottom:3px solid #0b5c6b;text-decoration:none}
 .bar .off{color:#6b685f}
 .bar .short{display:none}
-@media (max-width:599px){.bar{gap:0 6px;padding-inline:10px}.bar .long{display:none}.bar .short{display:inline}}
-@media (max-width:389px){.bar{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}}
+/* The name and Sign out: at the right on a desktop, at the end of the row on a phone. */
+.bar>.who{margin-left:auto;padding-left:10px;color:#55524a;font-size:14px;max-width:260px;display:block;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;line-height:44px;min-width:0}
+.bar>form{margin:0;flex:none}
+.bar button{font:inherit;font-size:15px;min-height:44px;min-width:44px;padding:8px 2px;background:none;border:0;color:#0b5c6b;text-decoration:underline;cursor:pointer}
+/* A desktop bar ends at the screen's right, so Sign out sits at the right. */
+@media (min-width:600px){.bar,.bar.wide{padding-right:16px}}
+@media (max-width:599px){.bar,.bar.wide{gap:0 6px;padding-inline:10px}.bar .long{display:none}.bar .short{display:inline}.bar>.who{max-width:none;overflow:visible}}
 main{max-width:760px;margin:0 auto;padding:12px 12px 48px}
 main.wide{max-width:1120px}
 h1{font-size:22px;margin:12px 0 4px}
 h2{font-size:18px;margin:28px 0 8px}
-.who{margin:0 0 12px;color:#55524a;font-size:14px;display:flex;flex-wrap:wrap;align-items:center;gap:0 12px;min-height:44px}
-.who form{margin:0 0 0 auto}
-.who button{font:inherit;font-size:15px;min-height:44px;padding:8px 2px;background:none;border:0;color:#0b5c6b;text-decoration:underline;cursor:pointer}
 .banner{background:#fff3cd;border:1px solid #c9a227;border-radius:8px;padding:10px 12px;margin:12px 0}
 .empty{color:#55524a;margin:8px 0}
 .report{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #a36b00;border-radius:8px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
@@ -297,7 +317,6 @@ a.cardlink{display:flex;align-items:center;min-height:46px;background:#fff;borde
 a.cardlink:hover{border-color:#0b5c6b}
 main.mappage{line-height:22px}
 main.mappage h1{line-height:28px}
-main.mappage .who{line-height:20px}
 @supports (margin-left:round(down,10.5px,1px)){main.mappage{margin-left:max(0px,round(down,(100% - 760px) / 2,1px));margin-right:0}}
 @media (min-width:360px){.mapband.b144{display:none}.mapband.b164{display:block}}
 @media (min-width:375px){.mapband.b164{display:none}.mapband.b171{display:block}}
@@ -410,8 +429,8 @@ export interface PageOptions {
   active: NavKey | null;
   /**
    * The team's menu (default true). A refusal page leaves it out: a cat
-   * guardian shouldn't be offered links to pages that refuse her. Sign out
-   * (beside the name) is always there. `"guardian"`: her own menu,
+   * guardian shouldn't be offered links to pages that refuse her. The name
+   * and Sign out are always there, in the bar. `"guardian"`: her own menu,
    * Colonies and Feeding sites only, in her language.
    */
   nav?: boolean | "guardian";
@@ -495,8 +514,8 @@ export function renderPage(opts: PageOptions): string {
           : showPeople
             ? [...NAV, PEOPLE_NAV]
             : NAV;
-  const nav = [...team, ...own].map((n) => {
-    // On a phone "Welfare queue" shows as "Queue" (CSS picks one).
+  const items = [...team, ...own].map((n) => {
+    // On a phone "Feeding sites" shows as "Sites" (CSS picks one).
     const label = n.short
       ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`
       : escapeHtml(n.label);
@@ -505,6 +524,14 @@ export function renderPage(opts: PageOptions): string {
       ? `<a class="here" href="${n.href}" aria-current="page">${label}</a>`
       : `<a href="${n.href}">${label}</a>`;
   }).join("");
+  const t = (key: "shell.signOut" | "shell.skip" | "shell.menu") => escapeHtml(tr(lang, key, undefined, opts.liveLanguages));
+  // "Signed in as" and Sign out sit at the end of the bar (SYC-396 spec §3.2),
+  // so the page's title comes first. A page without the menu (a refusal)
+  // keeps the bar for them, but it's no <nav>: there's nowhere to go.
+  const who =
+    `<span class="who">${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</span>` +
+    `<form method="post" action="/api/team/signout"><button type="submit">${t("shell.signOut")}</button></form>`;
+  const barClass = `bar${opts.mainClass === "wide" ? " wide" : ""}`;
   return (
     "<!doctype html>" +
     `<html lang="${lang}"><head><meta charset="utf-8">` +
@@ -521,17 +548,17 @@ export function renderPage(opts: PageOptions): string {
       .map((s) => `<script src="${escapeHtml(s)}" defer></script>`)
       .join("") +
     "</head><body>" +
-    (nav ? `<nav class="bar${opts.mainClass === "wide" ? " wide" : ""}">${nav}</nav>` : "") +
-    `<main${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
+    // The first thing a keyboard reaches (SYC-366).
+    `<a class="skip" href="#main">${t("shell.skip")}</a>` +
+    (items
+      ? `<nav class="${barClass}" aria-label="${t("shell.menu")}">${items}${who}</nav>`
+      : `<div class="${barClass}">${who}</div>`) +
+    // tabindex=-1: the skip link moves keyboard focus here, not just the view.
+    `<main id="main" tabindex="-1"${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
     (opts.banner ?? "") +
     (opts.beforeTitle ?? "") +
     `<h1>${escapeHtml(opts.title)}</h1>` +
     (opts.afterTitle ?? "") +
-    // Sign out sits here, not in the menu, so the menu fits one row (SYC-219).
-    `<div class="who"><span>${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</span>` +
-    '<form method="post" action="/api/team/signout"><button type="submit">' +
-    escapeHtml(tr(lang, "shell.signOut", undefined, opts.liveLanguages)) +
-    "</button></form></div>" +
     opts.body +
     "</main></body></html>"
   );
