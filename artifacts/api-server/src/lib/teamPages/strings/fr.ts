@@ -11,7 +11,7 @@ export const fr: Record<StringKey, string> = {
   "shell.signedInAs": "Connecté(e) en tant que {name}",
   "shell.signOut": "Se déconnecter",
   // SYC-396 PR 1.6 (SYC-366): the skip link, and the menu's name for screen readers.
-  "shell.skip": "Aller à la page",
+  "shell.skip": "Aller au contenu",
   "shell.menu": "Tableau de bord",
 
   "refused.title": "Cette partie est réservée à l’équipe",

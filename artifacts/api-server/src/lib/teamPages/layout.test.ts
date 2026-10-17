@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { accessEndedPage, forbiddenPage } from "../teamAuth/refuse";
 import { renderPage, type PageOptions } from "./layout";
 
 // The page shell (SYC-396 PR 1.6; spec §3.1, §3.2, §12.5): the menu names the
@@ -90,6 +91,24 @@ describe("Signed in as and Sign out sit in the menu bar (spec §3.2)", () => {
     expect(b.inner).toContain("Signed in as Maria &lt;b&gt;");
     expect(b.inner).toContain('action="/api/team/signout"');
     expect(links(html)).toEqual([]);
+  });
+
+  it("the real refusal pages keep the skip link, the name and Sign out in the bar", () => {
+    for (const html of [
+      forbiddenPage({ name: "Maria <b>", language: "en", island: true }),
+      forbiddenPage({ name: "Maria <b>", language: "en", island: false }),
+      accessEndedPage({ name: "Maria <b>", language: "en" }),
+    ]) {
+      expect(html).toContain('<a class="skip" href="#main">Skip to the page</a>');
+      const b = bar(html);
+      expect(b.inner).toContain("Signed in as Maria &lt;b&gt;");
+      expect(b.inner.endsWith('<button type="submit">Sign out</button></form>')).toBe(true);
+      expect(/<main[^>]*>([\s\S]*)<\/main>/.exec(html)![1]).not.toContain("Signed in as");
+    }
+  });
+
+  it("on a desktop, Sign out stays pinned at the right while a long menu slides under it", () => {
+    expect(page()).toMatch(/@media \(min-width:600px\)\{[^@]*\.bar>form\{position:sticky;right:0/);
   });
 
   it("keeps the wide bar for a wide page", () => {

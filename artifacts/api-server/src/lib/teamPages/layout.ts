@@ -97,8 +97,10 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
 .bar>.who{margin-left:auto;padding:8px 2px 8px 10px;color:#55524a;font-size:14px;line-height:28px;max-width:260px;display:block;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;min-width:120px}
 .bar>form{margin:0;flex:none}
 .bar button{font:inherit;font-size:15px;min-height:44px;min-width:44px;padding:8px 2px;background:none;border:0;color:#0b5c6b;text-decoration:underline;cursor:pointer}
-/* A desktop bar ends at the screen's right, so Sign out sits at the right. */
-@media (min-width:600px){.bar,.bar.wide{padding-right:16px}}
+/* On a desktop Sign out stays at the screen's right edge and never scrolls
+   away: if the menu is too long for the screen (768–1000px), it slides
+   under Sign out (adversarial review of PR 1.6). */
+@media (min-width:600px){.bar,.bar.wide{padding-right:0}.bar>form{position:sticky;right:0;z-index:1;background:#fff;padding:0 16px 0 10px;box-shadow:-8px 0 8px -6px rgba(29,29,27,.22)}.bar>.who{min-width:0}}
 @media (max-width:599px){.bar,.bar.wide{gap:0 6px;padding-inline:10px}.bar .long{display:none}.bar .short{display:inline}.bar>.who{max-width:none;flex:none}}
 main{max-width:760px;margin:0 auto;padding:12px 12px 48px}
 main.wide{max-width:1120px}
@@ -528,8 +530,9 @@ export function renderPage(opts: PageOptions): string {
   }).join("");
   const t = (key: "shell.signOut" | "shell.skip" | "shell.menu") => escapeHtml(tr(lang, key, undefined, opts.liveLanguages));
   // "Signed in as" and Sign out sit at the end of the bar (SYC-396 spec §3.2),
-  // so the page's title comes first. A page without the menu (a refusal)
-  // keeps the bar for them, but it's no <nav>: there's nowhere to go.
+  // so the page's title comes first. A page with no links at all (the
+  // welcome page) keeps the bar for them, but it's no <nav>: there's
+  // nowhere to go.
   const who =
     `<span class="who" title="${escapeHtml(opts.personName)}">${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</span>` +
     `<form method="post" action="/api/team/signout"><button type="submit">${t("shell.signOut")}</button></form>`;
