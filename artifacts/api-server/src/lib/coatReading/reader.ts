@@ -1,5 +1,5 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { COAT_COLOURS, normaliseColours, type CoatColour } from "../appearance";
+import { LEGACY_COAT_CODES, readCoatValue, type CoatParts, type LegacyCoatCode } from "../appearance";
 import { VISION_MODEL } from "../visionModel";
 
 /**
@@ -31,10 +31,11 @@ export const CONFIDENCE_CUTOFF = 0.8;
 export const READ_TIMEOUT_MS = 60_000;
 
 /**
- * What each code means, for the prompt. Keyed by `CoatColour`, so the list
- * the model is given can't drift from the one real list (`COAT_COLOURS`).
+ * What each code means, for the prompt. coat-v1 asks for the old eight codes
+ * (`LEGACY_COAT_CODES`) until SYC-398 PR C brings coat-v2: keyed by them, so
+ * the live prompt stays exactly as it was (reader.test.ts pins it).
  */
-const COLOUR_DESCRIPTIONS: Record<CoatColour, string> = {
+const COLOUR_DESCRIPTIONS: Record<LegacyCoatCode, string> = {
   black: "solid black, or nearly all black",
   white: "solid white, or nearly all white",
   ginger: "ginger, orange or cream",
@@ -47,7 +48,7 @@ const COLOUR_DESCRIPTIONS: Record<CoatColour, string> = {
 
 /** The prompt. Exported for T-prompt only. */
 export function coatPrompt(): string {
-  const list = COAT_COLOURS.map((c) => `  ${c}: ${COLOUR_DESCRIPTIONS[c]}`).join("\n");
+  const list = LEGACY_COAT_CODES.map((c) => `  ${c}: ${COLOUR_DESCRIPTIONS[c]}`).join("\n");
   return (
     `This is a photo of a street cat. Say what colour its coat is, and nothing else about the cat.\n\n` +
     `Respond with ONLY valid JSON, no markdown:\n` +
@@ -80,19 +81,21 @@ export interface RawCoatAnswer {
 }
 
 export type CoatReadResult =
-  | { kind: "reading"; colours: CoatColour[]; raw: RawCoatAnswer }
+  | { kind: "reading"; colours: LegacyCoatCode[]; parts: CoatParts; raw: RawCoatAnswer }
   | { kind: "failed"; reason: "error" | "timeout" | "unparseable" };
 
-const COLOUR_SET: ReadonlySet<string> = new Set(COAT_COLOURS);
+const COLOUR_SET: ReadonlySet<string> = new Set(LEGACY_COAT_CODES);
 
 /**
- * R5, pure: the colours to write for a parsed answer. `["not_sure"]` unless
- * the model saw exactly one cat, said the photo is clear, gave one or two
- * known colours that make a storable set, and was at least
- * {@link CONFIDENCE_CUTOFF} sure.
+ * R5, pure: the old codes the model gave, and what they say as a coat's two
+ * parts (SYC-398 §6, through the one translation), which is what is written.
+ * `["not_sure"]` (Not sure) unless the model saw exactly one cat, said the
+ * photo is clear, gave one or two known codes that make a storable set, and
+ * was at least {@link CONFIDENCE_CUTOFF} sure.
  */
 export function interpretCoatAnswer(answer: Record<string, unknown>): {
-  colours: CoatColour[];
+  colours: LegacyCoatCode[];
+  parts: CoatParts;
   raw: RawCoatAnswer;
 } {
   const given = Array.isArray(answer["colours"])
@@ -106,7 +109,8 @@ export function interpretCoatAnswer(answer: Record<string, unknown>): {
   const photoClear = typeof answer["photoClear"] === "boolean" ? answer["photoClear"] : null;
   const raw: RawCoatAnswer = { colours: given, confidence, catCount, photoClear };
   const notSure = (because: NotSureReason) => ({
-    colours: ["not_sure"] as CoatColour[],
+    colours: ["not_sure"] as LegacyCoatCode[],
+    parts: { colours: null, pattern: null, notSure: true },
     raw: { ...raw, notSureBecause: because },
   });
 
@@ -122,14 +126,21 @@ export function interpretCoatAnswer(answer: Record<string, unknown>): {
   if (unique.includes("not_sure")) {
     return notSure(unique.length === 1 ? "model_not_sure" : "colours");
   }
-  const colours = normaliseColours(unique) as CoatColour[];
+  // Black + white is the one stored code black_and_white (as before SYC-398).
+  const colours = (
+    unique.length === 2 && unique.includes("black") && unique.includes("white") ? ["black_and_white"] : unique
+  ) as LegacyCoatCode[];
   // "black_and_white" already says black and says white: the validator
   // refuses either beside it, so the pair is not a reading.
   if (colours.includes("black_and_white") && (colours.includes("black") || colours.includes("white"))) {
     return notSure("colours");
   }
   if (confidence == null || confidence < CONFIDENCE_CUTOFF) return notSure("low_confidence");
-  return { colours, raw };
+  const parts = readCoatValue({ colours });
+  // Every storable set of old codes translates; a set that says nothing
+  // (none can, today) is Not sure rather than an empty reading.
+  if (!parts || parts.notSure || (parts.colours === null && parts.pattern === null)) return notSure("colours");
+  return { colours, parts, raw };
 }
 
 /** The JSON object in a model reply, or null. */

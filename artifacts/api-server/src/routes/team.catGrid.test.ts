@@ -147,7 +147,7 @@ describe("the Cats grid", () => {
   });
 
   it("shows 'No cats match these filters' with 'Clear filters'", async () => {
-    const res = await get(`/api/team/cats?${mineQ}&colours=tabby`);
+    const res = await get(`/api/team/cats?${mineQ}&colours=brown`);
     expect(res.text).toContain("No cats match these filters");
     expect(res.text).toContain('>Clear filters</a>');
     expect(res.text).not.toContain('class="catgrid"');

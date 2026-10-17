@@ -6,8 +6,8 @@ import {
   sightingsTable,
 } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { deriveCatStatuses, toPublicDay, type PublicCoatColour } from "./catHelpers";
-import type { Mark } from "./appearance";
+import { deriveCatStatuses, toPublicDay } from "./catHelpers";
+import type { LegacyPublicCode, Mark } from "./appearance";
 import { hiddenPhotoIds } from "./photoVisibility";
 import { loadCatRecords } from "./observations";
 import {
@@ -68,7 +68,7 @@ export interface GuardianCat {
   lifeStatus: LifeStatusValue | null;
   /** The day (UTC, YYYY-MM-DD) of the newest sighting, or null for none. */
   lastSeen: string | null;
-  coat: PublicCoatColour[];
+  coat: LegacyPublicCode[];
   markings: Mark[];
 }
 

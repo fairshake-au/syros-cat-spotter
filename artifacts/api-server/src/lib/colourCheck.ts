@@ -1,9 +1,9 @@
 import { inArray } from "drizzle-orm";
 import { catsTable, db, photosTable } from "@workspace/db";
-import { loadCatRecords, type CoatColour, type Mark } from "./observations";
+import { loadCatRecords, type CoatColour, type CoatPattern, type Mark } from "./observations";
 import {
   appearanceAuthorityLevel,
-  resolveCoat,
+  resolveCoatParts,
   resolveMarkings,
   standingAboveTeam,
   type AppearanceCheckReason,
@@ -23,14 +23,19 @@ import { syrNumber, teamPhotoUrl } from "./teamCatView";
 // - `no_authority`: the colour is the machine's alone, or not known, and no
 //   team or cat guardian statement stands;
 // - `spotters_over_machine`: two spotters overturned a real machine reading;
-// - `tied_camps`: two groups of spotters disagree;
+// - `tied_camps`: two groups of spotters disagree on the colours;
+// - `pattern_tied_camps`: two groups of spotters disagree on the pattern
+//   (SYC-398);
+// - `mixed_sources`: the colours and the pattern come from different rules,
+//   say the team's colours and the machine's pattern (SYC-398 Decision 2A);
 // - `markings_reopened`: two spotters added a mark after the team's list;
 // - `markings_changed_recently`: marks reached two voices in the last 30 days;
 //
 // and one worked out here, because it needs `sighting_matches`:
 //
 // - `hand_pick`: on a sighting the spotter matched by hand, the spotter's own
-//   colour answer shares no colour with what the cat is resolved to. No
+//   colour answer shares no colour with what the cat is resolved to, or
+//   names a different pattern (both known). No
 //   spotter answer, no flag; nothing calls the model. It clears when that
 //   answer is marked wrong, or when a team or guardian statement made after
 //   the answer decides the colour (the team has looked, as "Looks right" does
@@ -51,8 +56,9 @@ export interface ColourCheckCat {
   name: string;
   /** The cat's main photo, through the team photo route. */
   photoUrl: string | null;
-  /** What the cat's colour and markings resolve to now (null: not known). */
-  coat: CoatColour[] | null;
+  /** What the cat's colours, pattern and markings resolve to now (null: not known). */
+  coatColours: CoatColour[] | null;
+  coatPattern: CoatPattern | null;
   markings: Mark[] | null;
   reasons: ColourCheckReason[];
   /**
@@ -71,6 +77,8 @@ export const REASON_ORDER: readonly ColourCheckReason[] = [
   "hand_pick",
   "spotters_over_machine",
   "tied_camps",
+  "pattern_tied_camps",
+  "mixed_sources",
   "markings_reopened",
   "markings_changed_recently",
   "no_authority",
@@ -109,9 +117,14 @@ export async function listColourCheck(now = new Date()): Promise<ColourCheckCat[
   const listed: ColourCheckCat[] = [];
   for (const cat of cats) {
     const observations = records.get(cat.id)?.observations ?? [];
-    const coat = resolveCoat(observations, appearanceAuthorityLevel);
+    const coat = resolveCoatParts(observations, appearanceAuthorityLevel);
     const markings = resolveMarkings(observations, now, appearanceAuthorityLevel);
-    const found = new Set<ColourCheckReason>([...coat.checkReasons, ...markings.checkReasons]);
+    // Each part has its own reasons (SYC-398 §4); the cat's are their union.
+    const found = new Set<ColourCheckReason>([
+      ...coat.colours.checkReasons,
+      ...coat.pattern.checkReasons,
+      ...markings.checkReasons,
+    ]);
     if (handPickDisagrees(observations, coat, handPicked)) found.add("hand_pick");
     if (found.size === 0) continue;
 
@@ -127,7 +140,8 @@ export async function listColourCheck(now = new Date()): Promise<ColourCheckCat[
       syr: syrNumber(cat.id),
       name: cat.name,
       photoUrl: publicId ? teamPhotoUrl(publicId) : null,
-      coat: coat.value,
+      coatColours: coat.colours.value,
+      coatPattern: coat.pattern.value,
       markings: markings.value,
       above: {
         coat: standingAboveTeam(observations, "coat").map((o) => o.id),

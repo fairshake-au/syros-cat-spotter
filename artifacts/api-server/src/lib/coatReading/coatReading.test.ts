@@ -24,7 +24,7 @@ import { deleteTestSightings } from "../../test/sightings";
 import { consume } from "../limits";
 import { loadCatRecords, writeObservation } from "../observations";
 import { catDisplayPhotoIds, catDisplayPhotos } from "../photoVisibility";
-import { resolveCoat } from "../resolve";
+import { resolveCoatParts } from "../resolve";
 import { catsDueForReading } from "./due";
 import { _recordHooks, copyReadingForward, recordReading } from "./record";
 import { MODEL_VERSION } from "./reader";
@@ -153,9 +153,15 @@ async function write(catIds: number[], tick = clock()) {
   return sweepCoatReadings({ mode: "write", limit: 50, catIds, now: tick });
 }
 
+/** The cat's resolved coat colours (SYC-398: the colours part). */
 async function resolvedCoat(catId: number) {
   const records = await loadCatRecords([catId]);
-  return resolveCoat(records.get(catId)!.observations);
+  return resolveCoatParts(records.get(catId)!.observations).colours;
+}
+
+async function resolvedPattern(catId: number) {
+  const records = await loadCatRecords([catId]);
+  return resolveCoatParts(records.get(catId)!.observations).pattern;
 }
 
 afterAll(async () => {
@@ -169,7 +175,7 @@ afterAll(async () => {
 });
 
 describe("T-row: one reading is one new row", () => {
-  it("system:vision, system, machine, the photo read, dated now, colours and modelVersion only", async () => {
+  it("system:vision, system, machine, the photo read, dated now, the coat in the new shape and modelVersion only", async () => {
     const c = await cat("row");
     const at = new Date(Date.now() - 5 * 60_000);
     const r = await sweepCoatReadings({ mode: "write", limit: 50, catIds: [c.id], now: () => at });
@@ -182,8 +188,9 @@ describe("T-row: one reading is one new row", () => {
     expect(row.provenance).toBe("machine");
     expect(row.photoId).toBe(c.main);
     expect(row.observedAt.toISOString()).toBe(at.toISOString());
-    expect(Object.keys(row.value as object).sort()).toEqual(["colours", "modelVersion"]);
-    expect(row.value).toEqual({ colours: ["ginger", "tabby"], modelVersion: MODEL_VERSION });
+    // SYC-398 §6: the v1 answer Ginger · Tabby is written as Ginger · Stripes.
+    expect(Object.keys(row.value as object).sort()).toEqual(["colours", "modelVersion", "pattern"]);
+    expect(row.value).toEqual({ colours: ["ginger"], pattern: "stripes", modelVersion: MODEL_VERSION });
     expect(row.supersedesId).toBeNull();
     expect(row.suggestionSource).toBe("coat-reader");
     expect(row.suggestionSource).not.toMatch(/^backfill:/);
@@ -195,7 +202,7 @@ describe("T-row: one reading is one new row", () => {
     answers.set("row-notsure:main", answer(["ginger"], { catCount: 2 }));
     await write([c.id]);
     const [row] = await machineRows(c.id);
-    expect(row!.value).toEqual({ colours: ["not_sure"], modelVersion: MODEL_VERSION });
+    expect(row!.value).toEqual({ notSure: true, modelVersion: MODEL_VERSION });
     expect(row!.suggestedValue).toMatchObject({ notSureBecause: "cat_count" });
   });
 });
@@ -345,7 +352,8 @@ describe("T-due: when a cat is due (R2) and when a photo is never read again (R4
     await write([c.id]);
     await setHidden(c.main, true);
     expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toEqual([]);
-    expect((await resolvedCoat(c.id)).value).toEqual(["ginger", "tabby"]);
+    expect((await resolvedCoat(c.id)).value).toEqual(["ginger"]);
+    expect((await resolvedPattern(c.id)).value).toBe("stripes");
   });
 
   it("a failed call writes nothing; the cat stays due (R6)", async () => {
@@ -393,6 +401,41 @@ describe("T-copy: a restored main photo that was read before is copied, with no 
     expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toEqual([]);
   });
 
+  it("SYC-398: a reading stored in the old v1 shape is copied in the new shape, keeping its own version", async () => {
+    const c = await cat("copyold");
+    await sighting(c.id, "copyold:s");
+    const tick = clock();
+    // A reading written before SYC-398, straight to the table (the write
+    // check now refuses the old shape), of the main photo.
+    const [old] = await db
+      .insert(observationsTable)
+      .values({
+        catId: c.id,
+        kind: "coat",
+        value: { colours: ["tabby", "white"], modelVersion: "vision-old/coat-v1" },
+        accountId: "system:vision",
+        roleAtTime: "system",
+        authorityScope: "none",
+        provenance: "machine",
+        photoId: c.main,
+        observedAt: tick(),
+        suggestionSource: "coat-reader",
+      })
+      .returning();
+    await setHidden(c.main, true);
+    await write([c.id], tick); // stand-in → ginger · stripes
+    await setHidden(c.main, false);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toMatchObject([
+      { photoId: c.main, action: "copy", copyOf: old!.id },
+    ]);
+    await write([c.id], tick);
+    const rows = await machineRows(c.id);
+    const copy = rows.at(-1)!;
+    expect(copy.suggestedValue).toEqual({ copiedFrom: old!.id });
+    // An old Tabby · White says only Stripes (§6); the version is the source's.
+    expect(copy.value).toEqual({ pattern: "stripes", modelVersion: "vision-old/coat-v1" });
+  });
+
   it("a trial reports the copy and writes nothing", async () => {
     const c = await cat("copytrial");
     await sighting(c.id, "copytrial:s");
@@ -402,7 +445,9 @@ describe("T-copy: a restored main photo that was read before is copied, with no 
     await setHidden(c.main, false);
     const before = (await machineRows(c.id)).length;
     const r = await sweepCoatReadings({ mode: "trial", limit: 50, catIds: [c.id] });
-    expect(r.items).toMatchObject([{ action: "copy", status: "copied", colours: ["ginger", "tabby"] }]);
+    expect(r.items).toMatchObject([
+      { action: "copy", status: "copied", parts: { colours: ["ginger"], pattern: "stripes", notSure: false } },
+    ]);
     expect(await machineRows(c.id)).toHaveLength(before);
   });
 
@@ -531,7 +576,7 @@ describe("T-precedence: SYC-2's rules decide, through the real resolver (spec te
       roleAtTime: "staff",
       observedAt: new Date(Date.now() - 3 * 86_400_000),
     });
-    await write([c.id]); // ginger tabby, dated now: newer
+    await write([c.id]); // ginger · stripes, dated now: newer
     expect((await resolvedCoat(c.id)).value).toEqual(["grey"]);
   });
 
@@ -541,7 +586,7 @@ describe("T-precedence: SYC-2's rules decide, through the real resolver (spec te
     // A minute ago: newer than the machine reading (the test clock dates it
     // about an hour ago), and still in the past.
     await spotter(c.id, "dev-1", ["black"], ago(60_000));
-    expect((await resolvedCoat(c.id)).value).toEqual(["ginger", "tabby"]);
+    expect((await resolvedCoat(c.id)).value).toEqual(["ginger"]);
   });
 
   it("two independent spotters do", async () => {
@@ -647,7 +692,7 @@ describe("T-race: two servers recording one cat at once write one row (R8)", () 
     const input = {
       catId: c.id,
       photoId: c.main,
-      colours: ["black" as const],
+      parts: { colours: ["black" as const], pattern: null, notSure: false },
       raw: { colours: ["black"], confidence: 0.9, catCount: 1, photoClear: true },
     };
     const first = recordReading(input);
@@ -698,7 +743,7 @@ describe("spot review: the gaps it found, closed", () => {
       observedAt: new Date(),
       supersedesId: first!.id,
     });
-    expect((await resolvedCoat(c.id)).value).toEqual(["ginger", "tabby"]);
+    expect((await resolvedCoat(c.id)).value).toEqual(["ginger"]);
     await setHidden(c.main, true);
     await write([c.id], tick);
     await setHidden(c.main, false);
@@ -743,7 +788,7 @@ describe("spot review: the gaps it found, closed", () => {
       await recordReading({
         catId: c.id,
         photoId: due!.photoId,
-        colours: ["white"],
+        parts: { colours: ["white"], pattern: null, notSure: false },
         raw: { colours: ["white"], confidence: 0.9, catCount: 1, photoClear: true },
         now: tick(),
       }),

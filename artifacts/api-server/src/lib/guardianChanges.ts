@@ -10,6 +10,7 @@ import {
   type Observation,
 } from "@workspace/db";
 import { authorityLevel } from "./resolve";
+import { readCoatValue } from "./appearance";
 
 // The team's "recent guardian changes" (SYC-53 plan, PR 2.2; roles spec §6.2
 // `view_guardian_changes`, §7.4, §6.9; Decision G). SYC-209's Colonies page
@@ -104,8 +105,14 @@ export function meaningOf(kind: string, value: unknown): string | null {
       return typeof v["status"] === "string" ? v["status"] : null;
     case "ear_tip":
       return v["clipped"] === undefined ? null : String(v["clipped"]);
-    case "coat":
-      return sorted(v["colours"]);
+    case "coat": {
+      // Read through the one translation (SYC-398 §6), so old and new shapes
+      // compare, and a difference in the pattern alone counts.
+      const parts = readCoatValue(v);
+      if (!parts) return null;
+      if (parts.notSure) return "notSure";
+      return `${(parts.colours ?? []).join(",")}|${parts.pattern ?? ""}`;
+    }
     case "markings":
       return v["cantTell"] === true ? "cantTell" : sorted(v["marks"]);
     case "colony":

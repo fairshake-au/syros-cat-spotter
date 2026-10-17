@@ -20,10 +20,11 @@ import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
 import { can, type CapabilityHolder } from "./capabilities";
 import { isWithdrawal, loadCatRecords, MARKS, type ObservationKind } from "./observations";
+import { readCoatValue, type CoatColour, type CoatParts, type CoatPattern } from "./appearance";
 import {
   appearanceAuthorityLevel,
   clippedTipCount,
-  resolveCoat,
+  resolveCoatParts,
   resolveLifeStatus,
   resolveMarkings,
   resolveSterilised,
@@ -122,16 +123,26 @@ const SEVERITY: Record<string, string> = {
   attention: "needs attention",
 };
 
-const COAT: Record<string, string> = {
+/** The five colours and three patterns in the team's history (SYC-398 §2, lower case). */
+const COAT: Record<CoatColour | CoatPattern, string> = {
   black: "black",
-  white: "white",
-  ginger: "ginger",
   grey: "grey",
-  tabby: "tabby",
-  tortoiseshell_or_calico: "tortoiseshell or calico",
-  black_and_white: "black and white",
-  not_sure: "not sure",
+  brown: "brown",
+  ginger: "ginger",
+  white: "white",
+  plain: "plain",
+  stripes: "stripes",
+  patches: "patches",
 };
+
+/** A coat statement in the history's words, read through the one translation:
+ * "brown and ginger, stripes". */
+function coatHistoryText(parts: CoatParts | null): string {
+  if (!parts) return "unknown";
+  if (parts.notSure) return "not sure";
+  const colours = (parts.colours ?? []).map((c) => COAT[c]).join(" and ");
+  return [colours, parts.pattern ? COAT[parts.pattern] : ""].filter((x) => x !== "").join(", ") || "unknown";
+}
 
 /** The eleven marks in the team's history (spec §3.2's chip words, lower case). */
 const MARK: Record<string, string> = {
@@ -218,8 +229,7 @@ export function describeStatement(
     case "coat": {
       // "Mark wrong" (SYC-2 PR 3.1): says nothing in its place.
       if (v["retracted"] === true) return "Marked wrong";
-      const colours = Array.isArray(v["colours"]) ? (v["colours"] as unknown[]) : [];
-      const text = `Coat: ${colours.map((c) => COAT[c as string] ?? "unknown").join(" and ") || "unknown"}`;
+      const text = `Coat: ${coatHistoryText(readCoatValue(v))}`;
       return typeof v["agreesWith"] === "number" ? `${text} (agrees with #${v["agreesWith"]})` : text;
     }
     case "markings": {
@@ -402,9 +412,19 @@ export interface TeamAppearanceStatement {
   markable: boolean;
 }
 
-export interface TeamAppearance {
-  value: string[] | null;
+/** One part of a coat, as the resolver gives it (SYC-398 §4). */
+export interface TeamCoatPart<T> {
+  value: T | null;
   confidence: Confidence;
+}
+
+export interface TeamAppearance {
+  /** Coat: the known colours then the known pattern, as codes (null: neither known). */
+  value: string[] | null;
+  /** Coat: the weaker of the known parts' confidences. */
+  confidence: Confidence;
+  /** Coat only (SYC-398 §4): each part on its own, as the page shows it. */
+  parts?: { colours: TeamCoatPart<CoatColour[]>; pattern: TeamCoatPart<CoatPattern> };
   checkReasons: AppearanceCheckReason[];
   /** Newest first. Replaced, marked-wrong and retraction rows are in the history only. */
   statements: TeamAppearanceStatement[];
@@ -775,7 +795,7 @@ export async function teamCatView(
     observations.some((o) => isOwnerHomed(o, cat.id) && !replacedIds.has(o.id));
   const life = resolveLifeStatus(observations, evidence, now);
   const sterilised = resolveSterilised(observations, []);
-  const coat = resolveCoat(observations, appearanceAuthorityLevel);
+  const coat = resolveCoatParts(observations, appearanceAuthorityLevel);
   const markings = resolveMarkings(observations, now, appearanceAuthorityLevel);
   const handPick = handPickDisagrees(observations, coat, await handPickedAmong(observations));
 
@@ -939,17 +959,45 @@ export async function teamCatView(
   };
 }
 
-/** The codes a colour or markings row says, or null for "Not sure" / "Can't tell". */
+/** The codes a colour or markings row says, or null for "Not sure" / "Can't tell".
+ * A coat row is read through the one translation (SYC-398 §6): its colours,
+ * then its pattern. */
 function codesOf(kind: "coat" | "markings", value: unknown): string[] | null {
+  if (kind === "coat") return coatCodes(readCoatValue(value));
   const v = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
-  const list = kind === "coat" ? v["colours"] : v["marks"];
+  const list = v["marks"];
   if (!Array.isArray(list)) return null;
   const codes = (list as unknown[]).filter((c): c is string => typeof c === "string");
-  if (kind === "coat") {
-    const real = codes.filter((c) => c !== "not_sure");
-    return real.length === 0 ? null : real;
-  }
   return MARKS.filter((m) => codes.includes(m));
+}
+
+function coatCodes(parts: { colours: readonly string[] | null; pattern: string | null; notSure?: boolean } | null) {
+  if (!parts || parts.notSure) return null;
+  const codes = [...(parts.colours ?? []), ...(parts.pattern ? [parts.pattern] : [])];
+  return codes.length === 0 ? null : codes;
+}
+
+const CONFIDENCE_ORDER: readonly Confidence[] = ["unknown", "reported", "likely", "confirmed"];
+
+/**
+ * The coat's two parts as one block for the page (SYC-398 §4): the value is
+ * the known colours then the known pattern; the confidence the weaker of the
+ * known parts; the reasons, supporting statements and conflicts both parts'.
+ */
+function coatAsOne(parts: ReturnType<typeof resolveCoatParts>): AppearanceResolved<string[]> {
+  const known = [parts.colours, parts.pattern].filter((p) => p.value !== null);
+  const confidence = known.length
+    ? known.map((p) => p.confidence).reduce((a, b) => (CONFIDENCE_ORDER.indexOf(a) <= CONFIDENCE_ORDER.indexOf(b) ? a : b))
+    : "unknown";
+  const both = [parts.colours, parts.pattern];
+  return {
+    value: coatCodes({ colours: parts.colours.value, pattern: parts.pattern.value }),
+    confidence,
+    supportingObservationIds: [...new Set(both.flatMap((p) => p.supportingObservationIds))],
+    conflicts: [...new Set(both.flatMap((p) => p.conflicts))],
+    asOf: [parts.colours.asOf, parts.pattern.asOf].sort().at(-1)!,
+    checkReasons: [...new Set(both.flatMap((p) => p.checkReasons))],
+  };
 }
 
 const sameCodes = (a: readonly string[], b: readonly string[]) =>
@@ -962,11 +1010,14 @@ const sameCodes = (a: readonly string[], b: readonly string[]) =>
 function appearanceOf(
   observations: readonly Observation[],
   kind: "coat" | "markings",
-  resolved: AppearanceResolved<string[]>,
+  given: AppearanceResolved<string[]> | ReturnType<typeof resolveCoatParts>,
   replacedIds: ReadonlySet<number>,
   people: Map<string, PersonName>,
   urlFor: (photoId: number | null) => string | null,
 ): TeamAppearance {
+  // The coat comes as its two parts (SYC-398): each part's decider counts.
+  const parts = "colours" in given ? given : undefined;
+  const resolved = parts ? coatAsOne(parts) : (given as AppearanceResolved<string[]>);
   const counts = new Set(resolved.supportingObservationIds);
   const standing = standingAppearanceRows(observations, kind, kind === "markings", appearanceAuthorityLevel);
   const statements = [...standing]
@@ -997,19 +1048,50 @@ function appearanceOf(
       };
     });
 
-  const decider =
-    resolved.confidence === "confirmed"
-      ? observations.find((o) => o.id === resolved.supportingObservationIds[0])
-      : undefined;
-  const guardianDecides = decider !== undefined && appearanceAuthorityLevel(decider) > 1;
-  const value = resolved.value ?? [];
-  const guardianDisagrees =
-    guardianDecides &&
-    statements.some((s) => s.source === "team" && !sameCodes(s.codes ?? [], value));
+  const deciderOf = (r: AppearanceResolved<unknown>) =>
+    r.confidence === "confirmed" ? observations.find((o) => o.id === r.supportingObservationIds[0]) : undefined;
+  const byGuardian = (r: AppearanceResolved<unknown>) => {
+    const d = deciderOf(r);
+    return d !== undefined && appearanceAuthorityLevel(d) > 1;
+  };
+  const teamRows = statements
+    .filter((s) => s.source === "team")
+    .map((s) => observations.find((o) => o.id === s.id))
+    .filter((o): o is Observation => o !== undefined);
+  let guardianDecides: boolean;
+  let guardianDisagrees: boolean;
+  if (parts) {
+    // Per part (SYC-398 §4): a team statement disagrees only on a part a
+    // guardian decides and the team statement itself states differently.
+    // One that states only the colours never disagrees about the pattern.
+    const colourGuardian = byGuardian(parts.colours);
+    const patternGuardian = byGuardian(parts.pattern);
+    guardianDecides = colourGuardian || patternGuardian;
+    guardianDisagrees = teamRows.some((o) => {
+      const said = readCoatValue(o.value);
+      if (!said || said.notSure) return false;
+      const colours =
+        colourGuardian && said.colours !== null && !sameCodes(said.colours, parts.colours.value ?? []);
+      const pattern = patternGuardian && said.pattern !== null && said.pattern !== parts.pattern.value;
+      return colours || pattern;
+    });
+  } else {
+    guardianDecides = byGuardian(resolved);
+    const value = resolved.value ?? [];
+    guardianDisagrees = guardianDecides && statements.some((s) => s.source === "team" && !sameCodes(s.codes ?? [], value));
+  }
 
   return {
     value: resolved.value,
     confidence: resolved.confidence,
+    ...(parts
+      ? {
+          parts: {
+            colours: { value: parts.colours.value, confidence: parts.colours.confidence },
+            pattern: { value: parts.pattern.value, confidence: parts.pattern.confidence },
+          },
+        }
+      : {}),
     checkReasons: resolved.checkReasons,
     statements,
     guardianDecides,

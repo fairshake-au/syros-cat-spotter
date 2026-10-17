@@ -1,7 +1,7 @@
 import type { Capability } from "../capabilities";
 import type { ColourCheckCat, ColourCheckReason } from "../colourCheck";
 import { REASON_ORDER } from "../colourCheck";
-import { COAT_COLOURS, MARKS } from "../observations";
+import { COAT_COLOURS, COAT_PATTERNS, LEGACY_COAT_CODES, MARKS } from "../appearance";
 import type { TeamAppearance, TeamAppearanceStatement, TeamCatView } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
@@ -15,11 +15,17 @@ import { tr, type StringKey } from "./strings";
 // section and list for their own colonies (spec §5.4). Team pages pass no
 // language, so they are English.
 
-/** The colours the team may state: never Not sure (Samuel, 14 Oct 2026). */
-const TEAM_COLOURS = COAT_COLOURS.filter((c) => c !== "not_sure");
+/** The colours the team may state: the five (SYC-398 §2). Never Not sure (Samuel, 14 Oct 2026). */
+const TEAM_COLOURS: readonly string[] = COAT_COLOURS;
 
+/** The words for a coat code: the five colours and three patterns (SYC-398
+ * §2), and the old public codes the guardian pages still send. */
 const coatWord = (lang: string | undefined, code: string) =>
-  (TEAM_COLOURS as readonly string[]).includes(code) ? tr(lang, `coat.${code}` as StringKey) : code;
+  (COAT_PATTERNS as readonly string[]).includes(code)
+    ? tr(lang, `pattern.${code}` as StringKey)
+    : TEAM_COLOURS.includes(code) || ((LEGACY_COAT_CODES as readonly string[]).includes(code) && code !== "not_sure")
+      ? tr(lang, `coat.${code}` as StringKey)
+      : code;
 
 const markWord = (lang: string | undefined, code: string) =>
   (MARKS as readonly string[]).includes(code) ? tr(lang, `mark.${code}` as StringKey) : code;
@@ -39,8 +45,30 @@ function valueText(lang: string | undefined, kind: "coat" | "markings", codes: r
   return words(lang, kind, codes);
 }
 
-/** "Ginger · Tabby · White paws · One eye", exactly as the public line (spec §5.2, plan Decision E1). */
-export function publicLine(lang: string | undefined, coat: readonly string[], markings: readonly string[]): string {
+/**
+ * "Brown · Ginger · Stripes · White paws · One eye", as the public line
+ * (coat-colours-and-pattern.md §2, spec §5.2, plan Decision E1): the
+ * colours, then the pattern except Plain (the photo shows it), then the
+ * marks.
+ */
+export function publicLine(
+  lang: string | undefined,
+  coat: { colours: readonly string[] | null; pattern: string | null },
+  markings: readonly string[],
+): string {
+  return [
+    ...(coat.colours ?? []).map((c) => coatWord(lang, c)),
+    ...(coat.pattern && coat.pattern !== "plain" ? [coatWord(lang, coat.pattern)] : []),
+    ...markings.map((m) => markShownWord(lang, m)),
+  ].join(" · ");
+}
+
+/**
+ * The same line from the old public coat codes, for the guardian pages,
+ * which keep the old field and words until they move to the new coat words
+ * (SYC-398 plan, Coordination).
+ */
+export function legacyPublicLine(lang: string | undefined, coat: readonly string[], markings: readonly string[]): string {
   return [...coat.map((c) => coatWord(lang, c)), ...markings.map((m) => markShownWord(lang, m))].join(" · ");
 }
 
@@ -82,6 +110,21 @@ const reasonInput = (lang: string | undefined, id: string) =>
   `<label class="label" for="${id}">${esc(tr(lang, "appearance.why"))}</label>` +
   `<input class="text" id="${id}" name="reason" required maxlength="500" autocomplete="off">`;
 
+/** A coat's two parts as the page shows them (SYC-398 §4). */
+type CoatShown = { colours: readonly string[] | null; pattern: string | null };
+
+/** What a Confirm sends back as the value the page showed: for a coat, each
+ * part on its own (SYC-398 §4). */
+function expectedFields(kind: "coat" | "markings", value: readonly string[], coat: CoatShown | undefined): string {
+  if (kind === "coat" && coat) {
+    return (
+      `<input type="hidden" name="expectedColours" value="${esc((coat.colours ?? []).join(","))}">` +
+      `<input type="hidden" name="expectedPattern" value="${esc(coat.pattern ?? "")}">`
+    );
+  }
+  return `<input type="hidden" name="expected" value="${esc(value.join(","))}">`;
+}
+
 /** "That's right": one tap. Sends the value the page shows, so a stale page confirms nothing. */
 function confirmForm(
   lang: string | undefined,
@@ -90,6 +133,7 @@ function confirmForm(
   value: readonly string[],
   guardianDecides: boolean,
   back: AppearanceBack,
+  coat?: CoatShown,
 ): string {
   const which = tr(lang, kind === "coat" ? "appearance.colour" : "appearance.markings");
   // On the Colour check list two of these sit together, so the button says
@@ -101,7 +145,7 @@ function confirmForm(
   return (
     `<form method="post" action="/api/team/cats/${catId}/appearance/confirm">` +
     `<input type="hidden" name="kind" value="${kind}">` +
-    `<input type="hidden" name="expected" value="${esc(value.join(","))}">` +
+    expectedFields(kind, value, coat) +
     backField(back) +
     `<button type="submit" class="save">${label}</button>` +
     `<p class="hint">${esc(tr(lang, "appearance.confirmHint"))}` +
@@ -111,8 +155,9 @@ function confirmForm(
 }
 
 /**
- * "Correct": the whole new value with a reason. Colour offers the seven
- * colours, never Not sure; markings offer all eleven, ticked as they stand,
+ * "Correct": the whole new value with a reason. Colour offers the five
+ * colours, ticked as they stand, never Not sure (the pattern comes in
+ * SYC-398 PR B); markings offer all eleven, ticked as they stand,
  * and none ticked means "nothing special". The hidden empty `marks` says the
  * list was sent, so an empty list is a choice, not a missing field.
  */
@@ -128,6 +173,7 @@ function correctForm(
 ): string {
   const codes: readonly string[] = kind === "coat" ? TEAM_COLOURS : MARKS;
   const field = kind === "coat" ? "colours" : "marks";
+  // A coat's value is its colours then its pattern: only the colours tick.
   const ticked = new Set(current ?? []);
   const boxes = codes
     .map(
@@ -208,6 +254,24 @@ function reasonList(lang: string | undefined, reasons: readonly ColourCheckReaso
   return `<ul class="refs">${ordered.map((r) => `<li>${esc(tr(lang, `reason.${r}` as StringKey))}</li>`).join("")}</ul>`;
 }
 
+const levelTag = (lang: string | undefined, confidence: string) =>
+  `<span class="tag">${esc(tr(lang, `appearance.level.${confidence}` as StringKey))}</span>`;
+
+/** What the records say. A coat says each part on its own, with its own
+ * confidence (SYC-398 §4). */
+function recordsSay(lang: string | undefined, kind: "coat" | "markings", a: TeamAppearance): string {
+  if (kind === "coat" && a.parts) {
+    const { colours, pattern } = a.parts;
+    return (
+      `<dt>${esc(tr(lang, "appearance.recordsSay"))}: ${esc(tr(lang, "appearance.coatColours"))}</dt>` +
+      `<dd>${esc(valueText(lang, "coat", colours.value))} ${levelTag(lang, colours.confidence)}</dd>` +
+      `<dt>${esc(tr(lang, "appearance.recordsSay"))}: ${esc(tr(lang, "appearance.coatPattern"))}</dt>` +
+      `<dd>${esc(valueText(lang, "coat", pattern.value === null ? null : [pattern.value]))} ${levelTag(lang, pattern.confidence)}</dd>`
+    );
+  }
+  return `<dt>${esc(tr(lang, "appearance.recordsSay"))}</dt><dd>${esc(valueText(lang, kind, a.value))} ${levelTag(lang, a.confidence)}</dd>`;
+}
+
 function kindBlock(
   lang: string | undefined,
   catId: number,
@@ -217,11 +281,11 @@ function kindBlock(
   mayChange: boolean,
 ): string {
   const label = tr(lang, kind === "coat" ? "appearance.colour" : "appearance.markings");
-  const value = valueText(lang, kind, a.value);
   const canConfirm = a.value !== null && (kind === "markings" || a.value.length > 0);
+  const coat = kind === "coat" && a.parts ? { colours: a.parts.colours.value, pattern: a.parts.pattern.value } : undefined;
   return (
     `<h3>${esc(label)}</h3><dl>` +
-    `<dt>${esc(tr(lang, "appearance.recordsSay"))}</dt><dd>${esc(value)} <span class="tag">${esc(tr(lang, `appearance.level.${a.confidence}` as StringKey))}</span></dd>` +
+    recordsSay(lang, kind, a) +
     (reasons.length
       ? `<dt>${esc(tr(lang, "appearance.checkTitle"))}</dt><dd>${reasonList(lang, reasons)}</dd>`
       : "") +
@@ -229,7 +293,7 @@ function kindBlock(
     (a.guardianDisagrees ? `<p class="warn">${esc(tr(lang, "appearance.guardianDisagrees"))}</p>` : "") +
     (mayChange
       ? '<div class="fixes appfix">' +
-        (canConfirm ? confirmForm(lang, catId, kind, a.value!, a.guardianDecides, "cat") : "") +
+        (canConfirm ? confirmForm(lang, catId, kind, a.value!, a.guardianDecides, "cat", coat) : "") +
         correctForm(lang, catId, kind, a.value, a.aboveTeamIds, "cat", `ac-${kind}`) +
         "</div>"
       : "") +
@@ -253,7 +317,16 @@ export function renderAppearanceSection(
 ): string {
   const a = v.appearance;
   const mayChange = may("set_appearance");
-  const line = publicLine(lang, v.publicStatus.coat, v.publicStatus.markings);
+  // The resolved parts the public payload carries from SYC-398 PR A2; never
+  // a breeder's word (Decision 4A). Until A2 is live the app still shows the
+  // old `coat` codes (Ginger · Tabby where this says Ginger · Stripes): a
+  // known, short gap, accepted in A1 (Opus spot review, finding 3).
+  const parts = a.coat.parts;
+  const line = publicLine(
+    lang,
+    { colours: parts?.colours.value ?? null, pattern: parts?.pattern.value ?? null },
+    v.publicStatus.markings,
+  );
   const coatReasons: ColourCheckReason[] = [...a.coat.checkReasons, ...(a.handPick ? (["hand_pick"] as const) : [])];
   return (
     `<h2 id="appearance">${esc(tr(lang, "appearance.title"))}</h2>` +
@@ -272,13 +345,19 @@ function checkRow(lang: string | undefined, c: ColourCheckCat, inline: boolean):
   const thumb = c.photoUrl
     ? `<img class="thumb" src="${esc(c.photoUrl)}" alt="" loading="lazy">`
     : `<span class="thumb nothumb">${esc(tr(lang, "appearance.noPhoto"))}</span>`;
+  // The coat's two parts (SYC-398 §4): its colours, then its pattern.
+  const coatCodes = [...(c.coatColours ?? []), ...(c.coatPattern ? [c.coatPattern] : [])];
+  const coat = coatCodes.length > 0 ? coatCodes : null;
   const line = [
-    `${tr(lang, "appearance.colour")}: ${valueText(lang, "coat", c.coat)}`,
+    `${tr(lang, "appearance.colour")}: ${valueText(lang, "coat", coat)}`,
     `${tr(lang, "appearance.markings")}: ${valueText(lang, "markings", c.markings)}`,
   ].join(" · ");
   const confirms = [
-    c.coat !== null && c.coat.length > 0
-      ? confirmForm(lang, c.catId, "coat", c.coat, c.above.coat.length > 0, "colour")
+    coat !== null
+      ? confirmForm(lang, c.catId, "coat", coat, c.above.coat.length > 0, "colour", {
+          colours: c.coatColours,
+          pattern: c.coatPattern,
+        })
       : "",
     c.markings !== null
       ? confirmForm(lang, c.catId, "markings", c.markings, c.above.markings.length > 0, "colour")
@@ -287,7 +366,7 @@ function checkRow(lang: string | undefined, c: ColourCheckCat, inline: boolean):
   // Correct inline for the cats that matter; a link for the long
   // "not yet described" group, so that page stays light.
   const corrects = inline
-    ? correctForm(lang, c.catId, "coat", c.coat, c.above.coat, "colour", `cc${c.catId}-coat`) +
+    ? correctForm(lang, c.catId, "coat", c.coatColours, c.above.coat, "colour", `cc${c.catId}-coat`) +
       correctForm(lang, c.catId, "markings", c.markings, c.above.markings, "colour", `cc${c.catId}-markings`)
     : "";
   return (

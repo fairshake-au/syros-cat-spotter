@@ -143,6 +143,8 @@ Four decisions. **A and B matter most**. C and D are smaller.
 
 ---
 
+**Amended 16 October 2026 (SYC-398, `docs/specs/coat-colours-and-pattern.md` §6, §7 and §9).** The coat is now five colours plus one pattern, so R2, R3, R4 and R5 change as marked below, and PRs 2 and 3 are amended. The reader prompt becomes `coat-v2`. Everything else here stands.
+
 ## The reading rules (the heart of it)
 
 These are the rules for **when** to read and **what** gets written. They sit on top of SYC-2's rules for which reading wins, and never replace them.
@@ -161,26 +163,29 @@ These are the rules for **when** to read and **what** gets written. They sit on 
 
   Cats with a standing team or guardian colour are still read. The call costs little, and SYC-2's Colour check list compares the machine's reading with people's.
 
+  **Amended (SYC-398):** a reader version change never makes a cat due in an automatic run, and never for a newly named cat. Only a manual run with `reread` on (off by default) reads a cat again for a new version. That re-read skips a cat whose both parts are stated by the team or a guardian, and skips a photo if any reading of it was marked wrong.
+
   **When every photo is hidden, or the main photo is deleted, the last reading stays.** The cat's colour is still true even when its photo isn't public, and the machine can't withdraw its own reading without reading something. A team member who thinks it is wrong marks it wrong (SYC-2 PR 3.1).
   - Today a deleted main photo gets no stand-in in `catDisplayPhotos`, whatever this plan does. That's a gap in photo display, not in colour, and SYC-44 PR 7.2 (deleting hidden photos for good) gets a comment about it.
 - **R3. One reading is one new row.** Each reading is a new `coat` observation, never an edit and never a supersession:
   - `accountId: "system:vision"`, `roleAtTime: "system"`, `provenance: "machine"`;
   - `photoId` = the photo read;
-  - `value: { colours, modelVersion }`, with the colours passed through `normaliseColours`;
+  - `value: { colours?, pattern?, modelVersion }` in the new shape, with either part absent when not known, or `{ notSure: true }` for a whole Not sure (SYC-398; `normaliseColours` is gone);
   - `observedAt` = **the moment of the reading**, never the photo's date. "Newest machine reading" must mean the last one read, or a reading of an older stand-in photo would lose to the reading of the photo it replaced. Colour is not evidence of life, so the date says nothing about whether the cat is alive.
   - The model's raw answer (its colours, its confidence, how many cats it saw) goes in the team-only `suggestedValue`, with `suggestionSource: "coat-reader"`. That lets SYC-56 tune the Not sure cut-off later without paying for a second reading. It never reaches the public, and the resolver doesn't read it.
-- **R4. Never call the model twice for the same photo.**
-  - A cat's photo is never sent to the model again once it has a machine reading, whatever that reading said.
+- **R4. At most one written reading per photo per reader version.** *(Amended 16 October 2026, SYC-398; it read "Never call the model twice for the same photo".)*
+  > **At most one written reading per photo per reader version.** Model calls stay bounded by the existing budgets: 3 attempts a day per photo, and 60 calls an hour.
+  - A cat's photo is not sent to the model again once it has a reading by the current reader version, whatever that reading said. A manual run with `reread` on is the only way an older version's reading is read again (`coat-colours-and-pattern.md` §7 lists the guards).
   - When R2 rule 2 makes a cat due for a main photo that was read before (a restore), the reader **copies that earlier reading forward** with no model call:
-    - a new row, with the same colours, the same `modelVersion` and `photoId`, and `observedAt` = now;
+    - a new row in the new shape (an old reading translated through `coat-colours-and-pattern.md` §6), with the same `modelVersion` and `photoId`, and `observedAt` = now;
     - `suggestionSource: "coat-reader:copy"`, and `suggestedValue` naming the row copied.
   - It does this **only if the team never marked that earlier reading wrong.** If they did, nothing is written, and the stand-in's reading stays the newest.
   - So the fill-in run can never bring back a colour the team rejected.
-  - Only a team action (hide or restore) can make a cat due again, and that is why the public can never cause a second call.
-- **R5. Not sure, honestly.** The model answers in a fixed JSON shape: how many cats it sees, whether the photo is clear, one or two colours from the list it is given, and a confidence. The list comes from `COAT_COLOURS` through a `Record<CoatColour, string>` of plain descriptions, so it can't drift from the real one. The reader writes `["not_sure"]` if any of these holds:
+  - Only a team action (hide or restore), or a manual run with `reread` on, can make a cat due again, and that is why the public can never cause a second call.
+- **R5. Not sure, honestly.** The model answers in a fixed JSON shape: how many cats it sees, whether the photo is clear, every colour it can see from the five it is given, the pattern from the three (or that it can't tell), and one confidence (`coat-v2`, SYC-398). The lists come from `COAT_COLOURS` and `COAT_PATTERNS` through `Record` types of plain descriptions, so they can't drift from the real ones. Any patchy look is Patches, a warm sandy brown is Brown, and white counts when it is part of the coat. If it can't tell the pattern but is sure of the colours, the pattern is absent and the colours stand. The reader writes `{ notSure: true }` if any of these holds:
   - it saw anything other than exactly one cat;
   - the photo isn't clear;
-  - it gave no colours, more than two, an unknown one, `not_sure` beside a colour, or an impossible pair that `normaliseColours` and the validator refuse;
+  - it gave an unknown code;
   - its confidence is **below 0.8** (cautious to start; tuned with SYC-56's labels and filed there).
 - **R6. A failed call writes nothing.** A timeout, an error or unreadable output leaves no row; the cat stays not known.
   - Each attempt is counted before the call, in a shared database bucket `coat-read-photo`, keyed by (cat, photo): **3 attempts a day, sliding**.
@@ -311,6 +316,7 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
 - **Both of the above sit behind one constant, `AUTO_COAT_READING`**, merged as `false` under Decision A1 (also A2). A one-line PR flips it once SYC-2 PR 3.1 is live, so PR 2 can merge and be published with other work without reading anything. Under A3 it merges as `true`.
 - While it is `false`, a photo the team hides keeps its old reading until the switch is on. That's acceptable, because the team only hides a few photos.
 - A hide or restore needs no hook: R2 makes the cat due, and the next sweep reads it. That takes up to about 2 hours, which is acceptable for a team action and keeps `teamPhotos.ts` untouched.
+- **Amended (SYC-398):** the sweep and the new-cat read both run with `reread` off. A cat whose newest reading is from an older reader version is not due for that reason, so it never fills an automatic run's slots, and the re-checks inside `record.ts` and before a photo is sent use the same setting as the run.
 
 **Tests**
 - the drain runs the sweep and its status is the same with the sweep failing;
@@ -318,7 +324,8 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
 - **the resolve response is identical and arrives without waiting** with the model mocked to hang;
 - resolving onto an existing cat starts no reading;
 - a hide followed by a drain gives a reading of the stand-in;
-- the round-up and keep-safe sweeps still run.
+- the round-up and keep-safe sweeps still run;
+- an automatic run, and a newly named cat, never list or read a cat for a reader version change.
 
 **Mutation probes:** awaiting the read inside the response (the hang test goes red); reading on every resolve, not just new cats (the existing-cat test); letting a sweep error reach the status code.
 
@@ -328,30 +335,29 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
 
 **In plain English.** The picker gets its row of colour chips, and every protection the spec asks for comes with it.
 
-- `lib/catPicker.ts`: `colourFilter(list, selected)` is pure. It takes `pickerList`'s output and returns `{ matching, notKnown, hiddenCount }`.
-  - A cat matches if any of its colours is selected.
-  - **A black-and-white cat also matches Black and White.** It is partly both, and someone who saw a tuxedo and tapped "Black" mustn't lose it, because a hidden cat is how duplicates get made. The chip *Black and white* matches only black-and-white cats.
-  - A cat with `coat` missing or `[]` is always in `notKnown`, under any selection (spec test 13).
+- `lib/catPicker.ts`: `colourFilter(list, colours, patterns)` is pure (amended by SYC-398, `coat-colours-and-pattern.md` §5). It takes `pickerList`'s output and returns `{ matching, notKnown, hiddenCount }`.
+  - For each row someone has picked a chip in, a cat is a **known match** (it has a picked colour, or the picked pattern), a **known mismatch**, or **not known**. It is hidden if any picked row is a known mismatch; otherwise Not known if any picked row is not known; otherwise matching.
+  - Within a row, any chip counts. **Plain and Patches are forgiving:** a cat with White among its colours shows under Plain and under Patches, whichever was recorded.
+  - A cat with `coatColours` and `coatPattern` missing (an old cache) or empty is always Not known in that row, under any selection (spec test 13). The old `coat` field is never read.
   - Both lists keep `pickerList`'s order exactly (K5, spec tests 14 and 18).
-  - `hiddenCount` counts the cats that match the search but not the colour.
-  - Under *All* there is no "Colour not known" heading: one list, as today.
-  - Picking the not-known chip alone shows only `notKnown`.
-- **The not-known chip is labelled "Colour not known"** (`pickerColourNotKnown`, the same words as the heading), not "Not sure". The Greek `coat_not_sure` reads "I'm not sure", which suits a spotter answering a question but not a filter. This departs from spec §6's chip list in one word, and Johnny checks it.
+  - `hiddenCount` counts the cats that match the search but not the colours or patterns picked.
+  - Under *All* in both rows there is no "Not known" heading: one list, as today.
+- **There is no not-known chip** (amended by SYC-398). The chip rows are colours (*All · Black · Grey · Brown · Ginger · White*) and patterns (*All · Plain · Stripes · Patches*). Cats whose part is not known sit under a heading *Not known* (`pickerNotKnown`), below the matches. Johnny checks the word.
 - `components/ColourChips.tsx` (new): the shared chip component, which SYC-2's PRs 4.2 and 4.3 reuse.
-  - Each chip has a drawn picture and the word (D1): plain swatches for the five solid colours, stripes for tabby, patches for tortoiseshell or calico, a split for black and white, a question mark for Not sure. *All* has no picture.
+  - Each chip has a drawn picture and the word (D1): plain swatches for the five colours (Black, Grey, Brown, Ginger, White) and drawn pictures for Plain, Stripes and Patches. *All* has no picture. The component serves both rows.
   - Each chip is a toggle button with `accessibilityState.selected`.
   - The pictures are `react-native-svg`, already a dependency.
 - `components/CatPicker.tsx`:
-  - the chips under the search box;
-  - the matching cats, then a "Colour not known" heading and those cats;
-  - then the hidden-count line, with "Show all colours" (which resets to *All*), **directly above** "Can't find it? Add it as a new cat";
+  - the two rows of chips under the search box;
+  - the matching cats, then a "Not known" heading and those cats;
+  - then the hidden-count line, with "Show all" (which resets both rows to *All*), **directly above** "Can't find it? Add it as a new cat";
   - when search plus filter finds nothing but search alone would, the "No {colour} cats called…" line with "Search all colours".
-  - The filter resets to *All* each time the picker opens (nothing is saved).
+  - Both rows reset to *All* each time the picker opens (nothing is saved).
 - `lib/i18n.ts`, new keys in `en`, `el` and `fr`:
   - `pickerColourAll`;
-  - `pickerColourNotKnown`;
-  - `pickerHiddenByColourOne` and `pickerHiddenByColourMany` ("{n} more cats nearby in other colours.");
-  - `pickerShowAllColours`;
+  - `pickerNotKnown`;
+  - `pickerHiddenByColourOne` and `pickerHiddenByColourMany` ("{n} more cats nearby in other colours or patterns.");
+  - `pickerShowAll`;
   - `pickerNoColourMatch` ("No {colour} cats called “{text}”.");
   - `pickerSearchAllColours`.
 
@@ -361,12 +367,13 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
 - `colourFilter`:
   - the order is kept in both lists;
   - not-known cats are present under every selection;
-  - a ginger tabby shows under Ginger and under Tabby;
-  - a black-and-white cat shows under Black, under White and under Black and white; a black cat doesn't show under Black and white;
-  - no "Colour not known" heading under *All*;
+  - a Ginger · Stripes cat shows under Ginger and under Stripes; Brown and Ginger together show cats with either;
+  - the three-way placement in every combination of the two rows (known match, known mismatch, not known);
+  - a cat with White among its colours shows under both Plain and Patches;
+  - no "Not known" heading under *All* in both rows;
   - `hiddenCount` counts only the cats the search matches;
   - the counts add up: matching + not known + hidden = total;
-  - a cat from an old cache with no `coat` field is not known.
+  - a cat from an old cache with no `coatColours` or `coatPattern` field is Not known in both rows.
 - Screen:
   - the hidden line sits above the new-cat link, checked through the order of the rendered tree;
   - "Show all colours" restores *All*;

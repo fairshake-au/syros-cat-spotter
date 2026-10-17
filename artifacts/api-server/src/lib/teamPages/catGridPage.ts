@@ -1,7 +1,7 @@
 import { NAMED_AREAS } from "../areas/namedAreas";
-import { COAT_COLOURS } from "../appearance";
 import { filtersToQuery } from "../teamCatFilters";
 import {
+  COLOUR_FILTERS,
   DEFAULT_LIVES,
   LAST_SEEN,
   LIVES,
@@ -32,7 +32,7 @@ const PATH = "/api/team/cats";
 const COLOUR_WORD = (c: string) =>
   c === "not_sure" ? "Not sure" : tr(undefined, `coat.${c}` as StringKey);
 // "Not sure" is a look filter only: the team never states it (see appearancePage).
-const COLOURS = [...COAT_COLOURS];
+const COLOURS = [...COLOUR_FILTERS];
 
 const LIVES_WORD: Record<Lives, string> = {
   street: "On the street",
@@ -218,12 +218,22 @@ function tieAction(c: CatListItem, tie: TieMode & { report: NonNullable<TieMode[
   );
 }
 
+/** The card's coat words, as the public line has them (SYC-398 §2): the
+ * colours, then the pattern unless Plain. */
+function coatWords(c: CatListItem): string[] {
+  return [
+    ...c.coat.map(COLOUR_WORD),
+    ...(c.pattern && c.pattern !== "plain" ? [tr(undefined, `pattern.${c.pattern}` as StringKey)] : []),
+  ];
+}
+
 function card(c: CatListItem, o: CatGridOptions): string {
-  const alt = `Photo of ${c.name}${c.coat.length ? `, ${c.coat.map(COLOUR_WORD).join(" · ")}` : ""}`;
+  const coat = coatWords(c);
+  const alt = `Photo of ${c.name}${coat.length ? `, ${coat.join(" · ")}` : ""}`;
   const photo = c.photoPublicId
     ? `<img class="cardimg" src="${esc(`${teamPhotoUrl(c.photoPublicId)}/small`)}" alt="${esc(alt)}" loading="lazy" width="180" height="180">`
     : '<span class="cardimg nothumb">No photo</span>';
-  const colour = c.coat.length ? c.coat.map((x) => esc(COLOUR_WORD(x))).join(" · ") : "Colour not known";
+  const colour = coat.length ? coat.map(esc).join(" · ") : "Colour not known";
   const colony = c.colonyId === null ? "No colony" : (o.colonies.find((x) => x.id === c.colonyId)?.name ?? "Colony");
   const words = esc(lastSeenWords(c.lastSeenAt, o.now));
   const seen = c.lastSeenAt ? `<time datetime="${esc(c.lastSeenAt.toISOString())}">${words}</time>` : words;

@@ -7,7 +7,6 @@ import {
   ObservationRefused,
   SYSTEM_AUTHORS,
   MARKS,
-  normaliseColours,
 } from "./observations";
 import { resolveLifeStatus } from "./resolve";
 
@@ -252,7 +251,7 @@ describe("writeObservation — go-forward acceptances", () => {
     const row = await writeObservation(db, {
       catId: cat.id,
       kind: "coat",
-      value: { colours: ["ginger", "tabby"], modelVersion: "v1" },
+      value: { colours: ["ginger"], pattern: "stripes", modelVersion: "v1" },
       accountId: "system:vision",
       roleAtTime: "system",
       provenance: "machine",
@@ -530,86 +529,7 @@ async function writeAs(
 
 const refused = (code: string) => ({ code });
 
-describe("normaliseColours", () => {
-  it("turns black + white into black_and_white, in either order", () => {
-    expect(normaliseColours(["black", "white"])).toEqual(["black_and_white"]);
-    expect(normaliseColours(["white", "black"])).toEqual(["black_and_white"]);
-  });
-  it("de-duplicates, and leaves everything else in its original order", () => {
-    expect(normaliseColours(["ginger", "ginger"])).toEqual(["ginger"]);
-    expect(normaliseColours(["black", "black", "white"])).toEqual(["black_and_white"]);
-    expect(normaliseColours(["tabby", "ginger"])).toEqual(["tabby", "ginger"]);
-    expect(normaliseColours(["black", "ginger"])).toEqual(["black", "ginger"]);
-  });
-});
-
-describe("coat validator", () => {
-  it("refuses black_and_white combined with black or white, accepts it with tabby", async () => {
-    const cat = await insertCat();
-    for (const colours of [["black_and_white", "black"], ["white", "black_and_white"]]) {
-      await expect(writeAs(cat.id, "coat", { colours }, "staff")).rejects.toMatchObject(
-        refused("MALFORMED_VALUE"),
-      );
-    }
-    await writeAs(cat.id, "coat", { colours: ["black_and_white", "tabby"] }, "staff");
-  });
-  it("accepts a person's coat pair from public", async () => {
-    const cat = await insertCat();
-    const row = await writeAs(cat.id, "coat", { colours: ["ginger", "tabby"] }, "public");
-    expect(row.kind).toBe("coat");
-  });
-  it("accepts black_and_white alone, and tolerates extra keys", async () => {
-    const cat = await insertCat();
-    await writeAs(cat.id, "coat", { colours: ["black_and_white"], agreesWith: 1, reason: "x" }, "staff");
-  });
-  it("NS1 refuses a team Not sure on colour; a spotter and the machine may still say it", async () => {
-    const cat = await insertCat();
-    for (const role of ["staff", "management"]) {
-      await expect(
-        writeAs(cat.id, "coat", { colours: ["not_sure"], reason: "x" }, "staff", { roleAtTime: role }),
-      ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
-    }
-    await writeAs(cat.id, "coat", { colours: ["not_sure"] }, "public");
-    await writeAs(cat.id, "coat", { colours: ["not_sure"], modelVersion: "v1" }, "system", {
-      provenance: "machine",
-    });
-    // Markings are unaffected: the team's "nothing special" stays valid.
-    await writeAs(cat.id, "markings", { marks: [] }, "staff");
-  });
-  it("refuses a person's coat carrying modelVersion", async () => {
-    const cat = await insertCat();
-    await expect(
-      writeAs(cat.id, "coat", { colours: ["ginger"], modelVersion: "v1" }, "public"),
-    ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
-  });
-  it("refuses a machine coat without modelVersion, or with an empty one", async () => {
-    const cat = await insertCat();
-    for (const value of [{ colours: ["ginger"] }, { colours: ["ginger"], modelVersion: "" }]) {
-      await expect(
-        writeAs(cat.id, "coat", value, "system", { provenance: "machine" }),
-      ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
-    }
-  });
-  it("refuses the raw black + white pair, duplicates, not_sure combined, empty, three, unknown", async () => {
-    const cat = await insertCat();
-    for (const colours of [
-      ["black", "white"],
-      ["white", "black"],
-      ["ginger", "ginger"],
-      ["not_sure", "ginger"],
-      [],
-      ["ginger", "tabby", "grey"],
-      ["purple"],
-    ]) {
-      await expect(writeAs(cat.id, "coat", { colours }, "staff")).rejects.toMatchObject(
-        refused("MALFORMED_VALUE"),
-      );
-    }
-    await expect(writeAs(cat.id, "coat", { colours: "ginger" }, "staff")).rejects.toMatchObject(
-      refused("MALFORMED_VALUE"),
-    );
-  });
-});
+// The coat write check (SYC-398) lives in observations.coat.test.ts.
 
 describe("markings validator", () => {
   it("has the eleven codes in spec order", () => {

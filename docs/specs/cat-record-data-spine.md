@@ -119,7 +119,7 @@ Three consequences that need deciding rather than discovering:
 - a linked import record's operation date,
 - failing all of those, the date the cat record was created.
 
-That last clause is what stops a cat registered by a resident this afternoon — no photo, no sightings — being presumed deceased this afternoon, or the comparison blowing up against a null. A `deceased` observation is not evidence of life and overrides the derivation entirely; the cat shows §3.3's line instead. Likewise `coat`, `markings`, `vaccinated` and `team_note` observations are not evidence of life (§10.1, amended 12 October 2026, SYC-2): a colour, a mark, a vaccination date or a team note does not show the cat was seen, and none of them moves the 36-month clock.
+That last clause is what stops a cat registered by a resident this afternoon — no photo, no sightings — being presumed deceased this afternoon, or the comparison blowing up against a null. A `deceased` observation is not evidence of life and overrides the derivation entirely; the cat shows §3.3's line instead. Likewise `coat`, `markings`, `vaccinated` and `team_note` observations are not evidence of life (§10.1, amended 12 October 2026, SYC-2): a colour, a pattern, a mark, a vaccination date or a team note does not show the cat was seen, and none of them moves the 36-month clock. *(Amended 16 October 2026, SYC-398: a `coat` observation now holds colours and a pattern, `coat-colours-and-pattern.md` §6. Neither part is evidence of life.)*
 
 **What it does and does not do.** A presumed-deceased cat leaves the active counts — colony coverage, "cats needing sterilisation", the targeting view. It stays fully in the record, keeps its page, keeps its history, and keeps counting toward the spotter's collection and the discoverer's credit.
 
@@ -634,8 +634,9 @@ Rows are inserted and never updated or deleted, with one exception: the redactio
 Approved with `coat-markings-and-health.md` (SYC-2). That document owns the colour and marking words, what "health" means and what is public; this section owns the observation kinds. `OBSERVATION_KINDS` gains `markings`, `vaccinated` and `team_note`. `coat` already exists. Values:
 
 ```ts
-//   coat        { colours: CoatColour[] }                        // 1–2 from the eight; ["not_sure"] alone
-//               { colours: CoatColour[], modelVersion: string }  // machine reading (system:vision)
+//   coat        { colours?: CoatColour[], pattern?: CoatPattern } // colours: 1–5 distinct of black, grey, brown, ginger, white; pattern: plain | stripes | patches; a team or guardian statement has at least one part; a spotter's answer always has colours (amended 16 Oct 2026, SYC-398, coat-colours-and-pattern.md §6)
+//               { notSure: true }                                 // a person's Not sure (withdraws that device's earlier answer)
+//               { colours?, pattern?, modelVersion: string }      // machine reading (system:vision); either part may be absent
 //               { retracted: true }                               // "mark wrong" (set_appearance only)
 //   markings    { marks: Mark[] }                                // from coat-markings-and-health.md §3.2; [] = "nothing special"; spotter answers hold at most 4, a team or guardian statement holds the whole list
 //               { cantTell: true }                               // recorded, no effect
@@ -645,7 +646,7 @@ Approved with `coat-markings-and-health.md` (SYC-2). That document owns the colo
 ```
 
 - **`modelVersion` is required only on a machine reading.** The `coat` validator in `observations.ts` currently requires it on every `coat` value, which would refuse a person's statement. It becomes: required when `provenance` is `machine`, absent otherwise.
-- **One normaliser, used by every writer.** `black` + `white` is stored as `black_and_white`; every writer (the answers route, the team and guardian statement functions) calls the same `normaliseColours()`, and the validator's refusal of the raw pair is only the backstop.
+- **One reader for old statements, no normaliser.** *Amended by `coat-colours-and-pattern.md` §6 (SYC-398, 16 October 2026):* Black and White are two colours now, so nothing is merged into `black_and_white` and `normaliseColours()` goes. Statements written in the old shape are never rewritten. One function, used everywhere, reads them, and only what an old statement said becomes known (for example *Tabby · White* gives Stripes with the colours not known). The write check refuses old-shape writes from now on.
 - **Who may write which kind.** `coat` and `markings` accept `public` (suggestions), `staff`, `management`, and `guardian` (with `authorityScope: colony:<id>`, her own colonies; the shape and its rules are in the `observations` comment above). There is no `volunteer` value: volunteers are on the team. `vet` has no standing on appearance and is refused. `vaccinated` is refused from `public` and `guardian`, and from `system` except `provenance: import` once `records-import.md` is built (the import is optional and after the first release). `team_note` is refused from `public` and `system`, accepted from staff and management, and from `guardian` only for her own colonies. The rename of the reserved `roleAtTime` value `admin` to `management`, and the live `guardian` value, are made in §10.1 above (`roles-and-invites.md` §17.1, item 3).
 - **A retraction may only target a row of the same kind, and only `coat` or `markings`.** `{ retracted: true }` is refused from `public`, refused unless `supersedesId` is set, and refused unless the row it supersedes is the same kind and that kind is `coat` or `markings`, for every role. A retraction can never remove a `sterilised`, `vaccinated`, `team_note` or any other row.
 - A prefilled "Yes" is `provenance: "prompted"`, with `suggestedValue` set to the machine's value and `suggestionSource` naming the reading. A different answer is `volunteered`. A team or guardian Confirm carries `agreesWith: <statement id>` and **no photo**, the PR #99 pattern, so it never counts as independent public evidence.
@@ -713,17 +714,19 @@ Approved with `coat-markings-and-health.md` (SYC-2), which owns the colour and m
 **Before any rule runs, tidy the statements:**
 
 - Throw out any statement that has been replaced or **retracted** (`coat-markings-and-health.md` §4.4).
-- Treat *Not sure*, *Can't tell* and any other answer that says nothing as no statement at all, with one exception for colour: **a spotter's newer *Not sure* withdraws that same device's earlier colour** (Samuel, 14 October 2026). Their device then counts towards nothing until it names a real colour again. For markings, *Can't tell* and "nothing special" still withdraw nothing (markings rule 4).
-- **Black plus white means black and white.** A pair that is exactly black and white is stored as `black_and_white`. Colours are then compared one at a time as plain values, never as the order or the way someone tapped them.
+- Treat *Can't tell* and any other answer that says nothing as no statement at all, with one exception: **a spotter's newer *Not sure* (`{ notSure: true }`) withdraws that same device's earlier coat answer, both parts** (Samuel, 14 October 2026). Their device then counts towards nothing until it names a colour again. **Only `{ notSure: true }` withdraws; an empty part never does.** For markings, *Can't tell* and "nothing special" still withdraw nothing (markings rule 4).
+- **Old statements are read through one translation** (`coat-colours-and-pattern.md` §6), never rewritten. Black and White are two colours, compared one at a time as plain values, never as the order or the way someone tapped them.
 - **One voice per device, counted when the answer is worked out.** Whoever is the author of a statement is one *voice*. If several standing statements on one cat come from the same device, only the newest counts. This is checked every time the answer is worked out, so a mistake in any writing route cannot let one device count twice. (It is also enforced at writing time, `coat-markings-and-health.md` §10.3.)
 - **A pair of voices only counts as two if they come from different photos and were written on different days** (Syros calendar days). A real user loses nothing by this; the "same photo from two browsers on one afternoon" trick now needs two visits.
 - A team member's or guardian's "yes, that's right" is stored as a team (or guardian) statement that agrees with an earlier one, not as a separate kind of evidence (`coat-markings-and-health.md` §4.4). There is no lesser "volunteer confirmation".
 
-**Colour**
+**Colour** *(and pattern)*
+
+*Amended by `coat-colours-and-pattern.md` §4 (SYC-398, 16 October 2026).* The five rules below keep their order. They are applied to **colours** and to **pattern** separately, and every statement says which parts it states. Each part resolves on its own, with its own confidence, supporting statements and date. A team or guardian statement decides each part it states; a part it leaves blank falls to the next rule. Rule 3 reads the machine's newest row only, part by part. When the two parts come from different rules, the cat goes onto the team's Colour check list ("colour and pattern from different sources").
 
 1. **A statement from the team or a cat guardian wins.** A cat guardian's standing statement (for a cat in her own colonies) outranks the team's (staff and management), whichever is newer; within the same level, the newest standing statement is the answer (Decision G, `roles-and-invites.md` plan, applied to colour by Samuel on 13 October 2026). The team overrules a guardian deliberately: **Correct** on a cat whose answer is a guardian's statement marks every guardian statement of colour that stands on that cat wrong and records the team's colour in one step, with a required reason, shown on the recent guardian changes list. Vets, imported records and owners have no standing on appearance (owners until the SYC-130 claim work decides otherwise). This is the *Confirmed* level. A later machine reading is recorded but never overrides it, and a spotter whose answer is later cannot change it.
-2. **Otherwise, two spotters who agree, colour by colour.** A colour is *Likely* when two voices hold it (a colour a voice named as part of a pair counts for that colour). So *Ginger · Tabby* from one spotter and *Ginger* from another agree on *Ginger*; *Tabby* has only one voice and is not shown. At most two colours are shown.
-   - If more than two colours are agreed, the two with the most voices are shown; on a tie, the colours whose newest supporting statement is more recent.
+2. **Otherwise, two spotters who agree, colour by colour.** A colour is *Likely* when two voices hold it. So *Ginger · Stripes* from one spotter and *Ginger* from another agree on *Ginger*; *Stripes* has only one voice and is not shown. **There is no limit on the number of colours shown.**
+   - **Pattern** is shown when two voices name the same pattern. If two patterns each have two voices, the one with the newer supporting statement is shown, and the cat goes onto the team's Colour check list ("spotters disagree on the pattern").
    - If two colours are agreed but **nobody ever named both** (two separate camps, such as two voices for *ginger* and two for *black*), only the camp with the **newer supporting statement** is shown, and the cat goes onto the team's Colour check list.
    Taps that merely confirmed a pre-filled guess count as **prompted**, not independent, and do not count towards the two (the `provenance` comment in §10.1).
 3. **Otherwise, the machine's reading** (SYC-161), if it is not *Not sure*. This is *Reported*. Only the machine's **newest** reading counts: if the team has marked it wrong, or it is *Not sure*, the machine has no reading and an older one never comes back (Samuel, 14 October 2026).
@@ -992,7 +995,9 @@ sterilised:
 
 *Amended 12 October 2026, SYC-2:* `Cat` and `CatDetail` also gain `coat` (a list of colours; `[]` means not known, never the string `not_sure`) and `markings` (a list). Not `vaccinated`, and nothing else about either field: not confidence, author, counts, model version or the date a colour was read. This is the single wire shape for "not known", used by every reader.
 
-**No cache-key change.** The new fields are additive: an old client ignores them and a new client treats a missing `coat` or `markings` as "not known". The reason for a bump in §6.5 (a *shape* change that could leak or break) does not apply, so `cats-cache/public/v2` stays. Retired cache keys are deleted without being read, so a bump would empty the offline catalogue for anyone who updates the app with no signal.
+*Amended 16 October 2026, SYC-398:* `Cat` and `CatDetail` also gain `coatColours` (the colour codes in display order, `[]` when not known) and `coatPattern` (one code, or `null` when not known), as in `coat-colours-and-pattern.md` §6. The old `coat` stays for phones that have not updated: it is for display only, worked out from the two new fields by one function with a full truth table, and is **never used to filter**. Nothing else about either new field is public.
+
+**No cache-key change.** The new fields are additive: an old client ignores them and a new client treats a missing `coat`, `coatColours`, `coatPattern` or `markings` as "not known" (for the filter, Not known, so the cat is never hidden). The reason for a bump in §6.5 (a *shape* change that could leak or break) does not apply, so `cats-cache/public/v2` stays. Retired cache keys are deleted without being read, so a bump would empty the offline catalogue for anyone who updates the app with no signal.
 
 New and changed endpoints:
 
@@ -1063,7 +1068,7 @@ export const sightingMatchesTable = pgTable("sighting_matches", {
   pickedFrom: text("picked_from"),             // nearby | search | name_prompt
   missKind: text("miss_kind"),                 // matcher_miss | distance_miss
   openedPicker: boolean("opened_picker"),      // with "new_cat"
-  colourFilterOn: boolean("colour_filter_on"), // with "new_cat"
+  colourFilterOn: boolean("colour_filter_on"), // with "new_cat"; true when either the colour row or the pattern row had a chip picked (name unchanged, SYC-398)
   aliveClaim: boolean("alive_claim"),          // with "sent_to_team"
   chosenAt: timestamp("chosen_at", { withTimezone: true }),
 
@@ -1091,7 +1096,7 @@ export const sightingMatchesTable = pgTable("sighting_matches", {
 
 | Label | When |
 |---|---|
-| `new_cat`, with `openedPicker` and `colourFilterOn` | The spotter created a cat. This label applies whatever the row holds. Whether they opened "Find the cat yourself" first, and whether a colour filter was on, are weak evidence the cat really is new. |
+| `new_cat`, with `openedPicker` and `colourFilterOn` | The spotter created a cat. This label applies whatever the row holds. Whether they opened "Find the cat yourself" first, and whether a colour or pattern chip was picked in either row of the filter, are weak evidence the cat really is new. |
 | `suggested`, with its rank | The chosen cat is in `suggested` **and** cleared the confidence threshold, so the spotter was actually shown it. A below-threshold candidate sits in the stored set but was never shown, so picking it is a hand pick. |
 | `hand_pick`, with `pickedFrom` and `missKind` | Any other existing cat. The miss is a `matcher_miss` if the cat is in `comparedCatIds`, and a `distance_miss` if it isn't. **When `matcherFailed` is set**, nothing was really compared, so `missKind` is null, never a distance miss. |
 | `sent_to_team`, with `aliveClaim` | The spotter asked Syros Cats to match the photo. `aliveClaim` marks a request made from a deceased cat's card ("Think this cat is alive?", `choose-a-different-cat.md` §4.3). |

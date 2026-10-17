@@ -57,7 +57,7 @@ From top to bottom:
 
 - **The spotter's own photo**, small, so they can compare as they scroll.
 - **A search box**: *"Name or SYR number"*. Typing narrows "Cats known around here". It does not search the rest of the island (§4.8).
-- **A row of colour chips** under the search box: *All · Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black and white · Not sure*. "All" is on until the spotter taps a colour. How it behaves is in §4.7.
+- **Two rows of drawn chips** under the search box: colours (*All · Black · Grey · Brown · Ginger · White*) and patterns (*All · Plain · Stripes · Patches*). "All" is on in each row until the spotter taps a chip. How it behaves is in §4.7 (amended by `coat-colours-and-pattern.md` §5, SYC-398, 16 October 2026).
 - **"Cats known around here"**: every cat whose public position is within 1.5 km of the photo, which is the same "Nearby" the Cats tab already uses. Each card shows the cat's main photo (large, since for a tourist the face is the decision), its name and its SYR number.
 
 > **The list is always nearest first.** "Nearest" means nearest by map square: the cat's published 250 m square, measured from where the photo was taken. Cats in the same square tie, and ties are broken by SYR number, lowest first. The order is never worked out from a cat's exact position, because an order based on exact distance would give that position away (§4.4). Search and the colour filter (§4.7) narrow the list. They never change its order.
@@ -173,7 +173,7 @@ Precisely, because "it all works offline" is never true of this app:
 | Getting suggestions | **No.** The photo check runs on the server once the phone has signal. After that, the suggestions are saved on the phone with the sighting. |
 | Opening the review screen for a sighting that has already synced | Yes. The saved suggestions show. |
 | Opening "Find the cat yourself", scrolling "Cats known around here", searching it by name or SYR number | **Yes, from the phone's saved copy of the cat-alogue**, the same copy the Cats tab uses offline. The nearby set is measured from the location saved with the sighting, so it doesn't need a GPS fix either. Cats added since that copy was last refreshed won't be there. |
-| Filtering by colour | **Yes.** Each cat's colour is part of the public cat-alogue, so the filter runs on the phone against the saved copy. A cat whose colour was read after the copy was saved shows as "Not sure" until the phone next has signal, and so is never hidden. Working out a colour needs signal, because the model runs on the server. |
+| Filtering by colour | **Yes.** Each cat's colour is part of the public cat-alogue, so the filter runs on the phone against the saved copy. A cat whose colour was read after the copy was saved is Not known until the phone next has signal, and so is never hidden. Working out a colour needs signal, because the model runs on the server. |
 | Seeing the cats' photos in the list | **Only photos the phone has already loaded before.** The others show a placeholder with the name and SYR number. |
 | Sending the pick, "That's the one", "New cat" or "Ask Syros Cats to match it" | **No.** All four need signal. Without it, the app says so plainly: *"No signal. Your sighting is saved. Finish this when you're back online."* The sighting stays in the review list and nothing is lost. |
 
@@ -221,6 +221,8 @@ For hand picks, the server also records for the team whether the chosen cat was 
 
 ### 4.7 A colour filter, with colours read automatically from each cat's photo
 
+> **Amended by `coat-colours-and-pattern.md` §2, §5 and §6 (SYC-398, 16 October 2026).** The filter now has two rows of drawn chips, colours and patterns. The fixed eight-value list, "one or two colours", the *Colour not known* chip and the words *Tabby*, *Tortoiseshell or calico* and *Black and white* are replaced by the wording below. The decision (option B), the cost and the protection for a cat whose coat is not known all stand.
+
 **Decision (Samuel, 30 September 2026): option B.** Samuel asked for a "filter by colour" box in the picker, and chose to have each cat's colour worked out automatically from its main photo rather than tagged by people or left out.
 
 **Why it helps.** In a dense part of Ermoupoli, "Cats known around here" can run to forty cards. A tourist who has just photographed a ginger cat shouldn't have to scroll past thirty black-and-white ones to find it. A guardian who knows the name doesn't need the filter, and loses nothing because it's there.
@@ -233,20 +235,22 @@ For hand picks, the server also records for the team whether the chosen cat was 
 | **B. Read automatically from each cat's main photo (chosen)** | The vision model matching already uses looks at the main photo once and records the colour | Every cat has a colour, or an honest "not sure", from the day it lands, backfilled for existing cats. Nobody has to tap anything. It costs one model call per cat. | The model is sometimes wrong, and wrong in predictable ways (below). A mislabelled cat disappears from a filtered list, and that could lead to a duplicate. The guards below exist for this. | Helps from day one | Can correct it once SYC-2 lands |
 | **C. No colour filter in this version** | Photos and search only | Nothing to get wrong, nothing to build | Long lists stay long in the busiest parts of town, which is exactly where duplicates are most likely | Slower scrolling | No change |
 
-**The colours.** A small fixed list, shown as tappable chips so it works the same in all three languages:
+**The colours and patterns.** Two small fixed lists, shown as drawn, tappable chips so they work the same in all three languages:
 
-**Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black and white · Not sure**
+**Colours: All · Black · Grey · Brown · Ginger · White**
 
-- **It fits SYC-2 and the health-record design.** SYC-2's design shows *Tuxedo / Black / Tabby / Ginger / White paws*, and the health-record design (`docs/superpowers/specs/2026-07-28-cat-health-record-design.md` §4.2) asks for a controlled list of base colour, pattern and markings, never free text. This list is the colour-and-pattern part of that vocabulary. *Black and white* is the everyday word for SYC-2's *Tuxedo*, and the two are the same value. *White paws* is a marking, not a coat colour, so it stays with SYC-2's markings and is not in the filter. When SYC-2 defines its full vocabulary, these eight values are its colour-and-pattern subset. They are not a second list.
-- **A cat can carry two colours**, because *tabby* is a pattern and not a colour. A ginger tabby is recorded as *Ginger* and *Tabby*, and a grey tabby as *Grey* and *Tabby*. It shows under either chip. The model never gives more than two.
-- **"Not sure"** is what a cat gets when the model can't tell, when the photo is dark or blurred, when the model call fails, or before its colour has been worked out.
+**Patterns: All · Plain · Stripes · Patches**
+
+- **It fits SYC-2 and the health-record design.** SYC-2's design shows *Tuxedo / Black / Tabby / Ginger / White paws*, and the health-record design (`docs/superpowers/specs/2026-07-28-cat-health-record-design.md` §4.2) asks for a controlled list of base colour, pattern and markings, never free text. This list is the colour-and-pattern part of that vocabulary. A tuxedo is Black · White, with a pattern of Plain or Patches, whichever it looks like. *White paws* is a marking, not a coat colour, so it stays with SYC-2's markings and is not in the filter. These five colours and three patterns are SYC-2's colour-and-pattern vocabulary (`coat-colours-and-pattern.md` §2). They are not a second list.
+- **A cat can carry any number of colours**, and one pattern. A ginger tabby is recorded as *Ginger* and *Stripes*, and a calico as *Black*, *Ginger*, *White* and *Patches*. A cat shows under any of its colours. The cat-fancier words (tabby, tortoiseshell, calico) are not shown to the public.
+- **"Not known"** is what a cat has for a part (the colours, or the pattern) when nobody has said it, when the model can't tell, when the photo is dark or blurred, when the model call fails, or before it has been worked out. Each part is known or not known on its own.
 
 **How the filter behaves**
 
 - **"All" is selected by default.** Nothing is filtered until the spotter taps a colour.
-- **More than one colour can be chosen at once** ("Ginger" and "Tabby", say).
-- **Cats marked "Not sure" always stay in a filtered list**, in their own section under the matching cats, headed *"Colour not known"*. A filter never hides a cat whose colour the app doesn't know.
-- **Under the list, the spotter sees how many cats the filter is hiding**, with one tap to show them: *"8 more cats nearby in other colours. Show all colours."* This is the escape hatch for a mislabelled cat (§12, pass 3). **"Can't find it? Add it as a new cat" always sits below this line**, so nobody can reach "new cat" from a filtered list without passing the reminder that some cats are hidden.
+- **More than one chip can be chosen in each row** ("Brown" and "Ginger" shows cats with either colour). A cat must match every row that has a chip picked. *Plain* and *Patches* are forgiving: a cat with White among its colours shows under both.
+- **Cats whose coat is not known always stay in a filtered list**, in their own section under the matching cats, headed *"Not known"*. A filter never hides a cat whose colour the app doesn't know.
+- **Under the list, the spotter sees how many cats the filter is hiding**, with one tap to show them: *"8 more cats nearby in other colours or patterns. Show all."* This is the escape hatch for a mislabelled cat (§12, pass 3). **"Can't find it? Add it as a new cat" always sits below this line**, so nobody can reach "new cat" from a filtered list without passing the reminder that some cats are hidden.
 - **Chips carry the word, not just a swatch.** Each chip shows a small colour sample and the colour's name in the spotter's language, so the filter works for colour-blind spotters and in bright sun.
 - **It combines with search.** Both narrow the same nearby list. When a search finds nothing because of the filter, the app says so and offers to clear it.
 - **Order doesn't change.** A filtered list is still nearest first by map square, with ties by SYR number (§3.2).
@@ -266,7 +270,7 @@ For hand picks, the server also records for the team whether the chosen cat was 
 
 Colour is the easiest thing a vision model can read from a cat photo, and it will still get some wrong. The predictable mistakes:
 
-- **Tabby, tortoiseshell and calico get confused with each other**, especially dark tortoiseshells and brown tabbies. That is why tortoiseshell and calico share one chip.
+- **Stripes and Patches get confused with each other**, especially dark patched coats and brown stripes. That is why *Patches* means any patchy look, and why the filter is forgiving between *Plain* and *Patches*.
 - **Black and dark grey or dark tabby merge** in shade or at dusk.
 - **White and cream, grey and "blue"** drift with light and phone cameras.
 - **A photo of half a cat**, a cat in deep shadow, or a kitten whose coat is still changing reads badly.
@@ -323,7 +327,7 @@ When the model is unsure, the answer is **"Not sure"**, never a guess. The cut-o
 
 ## 6. Words on screen
 
-English below. Every string also needs Greek and French, and a local check before launch, the same as all copy in `team-access-and-welfare-queue.md` §5. The colour words most of all: *tabby* (τιγρέ, tigré) and *tortoiseshell or calico* are the ones people get wrong.
+English below. Every string also needs Greek and French, and a local check before launch, the same as all copy in `team-access-and-welfare-queue.md` §5. The colour and pattern words most of all: *Brown*, *Stripes* and *Patches* are the new ones (`coat-colours-and-pattern.md` §2).
 
 | Where | Copy |
 |---|---|
@@ -331,9 +335,10 @@ English below. Every string also needs Greek and French, and a local check befor
 | Line on the new-cat screen | Seen this cat in the app before? **Find it instead** |
 | Picker title | Which cat is it? |
 | Search box | Name or SYR number |
-| Colour chips | All · Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black and white · Not sure |
-| Section under filtered cats | Colour not known |
-| Hidden-count line | {n} more cats nearby in other colours. **Show all colours** |
+| Colour chips | All · Black · Grey · Brown · Ginger · White |
+| Pattern chips | All · Plain · Stripes · Patches |
+| Section under filtered cats | Not known |
+| Hidden-count line | {n} more cats nearby in other colours or patterns. **Show all** |
 | Search finds nothing because of the filter | No {colour} cats called "{text}". **Search all colours** |
 | List heading | Cats known around here |
 | Side-by-side button | Yes, this is the cat |
@@ -383,7 +388,7 @@ Nothing in the approved specs lets the team say *this sighting is of a different
 
 ### 8.4 Coat colour is an observation like any other
 
-The colour behind the filter is a `coat` observation (§4.7), written by `system:vision` with `provenance: "machine"`. People's corrections are observations too, written by staff or, once they have accounts, by guardians. **The data spine owns the new kind and the rule for which reading wins**: a single spotter fills a gap but never overturns a machine reading; two independent spotters (different devices, photos and days), a cat guardian for her own cats, or the team do (`coat-markings-and-health.md` §4.2, SYC2-D10). That rule is filed there (§11), not defined here. *(Amended 12 October 2026, SYC2-D10.)* What this spec needs from it is small: the public cat payload carries the resolved colour (`coat`, a list of one or two colours; `coat: []` means not known, never the string "not sure"), and nothing else about how it was worked out.
+The colour behind the filter is a `coat` observation (§4.7), written by `system:vision` with `provenance: "machine"`. People's corrections are observations too, written by staff or, once they have accounts, by guardians. **The data spine owns the new kind and the rule for which reading wins**: a single spotter fills a gap but never overturns a machine reading; two independent spotters (different devices, photos and days), a cat guardian for her own cats, or the team do (`coat-markings-and-health.md` §4.2, SYC2-D10). That rule is filed there (§11), not defined here. *(Amended 12 October 2026, SYC2-D10.)* What this spec needs from it is small: the public cat payload carries the resolved coat as `coatColours` (the colour codes, `[]` when not known) and `coatPattern` (one code, or `null` when not known), and nothing else about how it was worked out (*amended 16 October 2026, `coat-colours-and-pattern.md` §6*). The old `coat` field stays for phones that have not updated: display only, never used to filter, never the string "not sure".
 
 Colour is **not evidence of life** (`cat-record-data-spine.md` §3.4). Reading a colour off a years-old photo says nothing about whether the cat is alive, so a backfill run never makes an old cat look recently seen. It is also **never notifiable** (§9): nobody gets news that a cat's colour changed.
 
@@ -412,7 +417,7 @@ For whoever builds it. Everything above is the product.
 - **Response shape** for a hand pick is identical to a suggested match, including timing. No field, message or status code differs when a pick is flagged.
 - **Name-taken**: when the name is taken, the server's refusal also returns that cat's id, name, main photo and whether it is deceased (all public), so the phone can ask "Is this them?", or skip the question for a deceased cat. The comparison uses the folded name from `DECISIONS.md` Part 2g.
 - **SYR numbers in search** accept every way people write them: `SYR-0042`, `syr 42`, `0042` and `42` all find cat 42.
-- **Colour** travels in the public cat payload as a list of at most two values from the fixed eight. A missing value, as in an older saved cat-alogue, is treated as "Not sure". There is no cache bump: `coat` is already in the v2 cat-alogue (`coat-markings-and-health.md` §10.4), and a retired cache key is deleted unread, which would empty a phone's offline cat-alogue.
+- **Colour and pattern** travel in the public cat payload as `coatColours` (any of the five colours) and `coatPattern` (one of three, or `null`). A missing value, as in an older saved cat-alogue, is treated as Not known. There is no cache bump: `coat` is already in the v2 cat-alogue (`coat-markings-and-health.md` §10.4), and a retired cache key is deleted unread, which would empty a phone's offline cat-alogue.
 - **Colour reading** is a server job: on a new cat, on a main-photo change, and a one-off backfill that can be re-run safely. It asks the model for colour only. It writes a `coat` observation, including "not sure", and never writes over a person's correction. Failures are logged and leave the cat "Not sure".
 - **Nothing about colour reaches the matcher.** The suggestions are worked out exactly as `DECISIONS.md` Part 2h says, with no colour pre-filter. The health-record design's idea of colour as a cheap pre-filter for matching is a separate decision, not made here.
 - **The match record is linked to the sighting, never to a device.** Deleting a person (`cat-record-data-spine.md` §8) severs the sighting from them, and the match record needs nothing extra.
@@ -431,7 +436,7 @@ For whoever builds it. Everything above is the product.
 10. Offline: the picker opens and searches from the saved cat-alogue. Sending without signal keeps the sighting in the review list and loses nothing.
 11. The name-taken prompt is not offered for a deceased cat.
 12. `SYR-0042`, `syr 42`, `0042` and `42` all find cat 42.
-13. With a colour selected, every cat whose colour is "Not sure" or missing still appears, under "Colour not known".
+13. With a colour or pattern selected, every cat whose part is not known or missing still appears, under "Not known" (amended by `coat-colours-and-pattern.md` §5 and §10).
 14. The filter never changes the order: a filtered list is the unfiltered list with cats removed, still nearest first by map square, with ties by SYR number.
 15. The suggested matches are identical whatever colour filter the spotter last used.
 16. A team correction of a cat's colour wins over any machine reading, including a newer one after a photo change.

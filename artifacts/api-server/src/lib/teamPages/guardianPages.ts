@@ -1,7 +1,7 @@
 import { renderPage, MY_COLONIES_PATH } from "./layout";
 import { escapeHtml as esc } from "./escape";
 import { position } from "./position";
-import { publicLine } from "./appearancePage";
+import { legacyPublicLine } from "./appearancePage";
 import {
   LIVE_LANGUAGES,
   formatDate,
@@ -115,7 +115,7 @@ function lastSeenWords(day: string | null, lang: string, t: Say, live: readonly 
  * and the team's never word a cat differently. Nothing when nothing is known.
  */
 function appearanceLine(lang: string, cat: { coat: readonly string[]; markings: readonly string[] }): string {
-  const line = publicLine(lang, cat.coat, cat.markings);
+  const line = legacyPublicLine(lang, cat.coat, cat.markings);
   return line ? `<p>${esc(line)}</p>` : "";
 }
 

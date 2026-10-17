@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db, observationsTable, photosTable } from "@workspace/db";
+import { readCoatValue, type CoatParts } from "../appearance";
 import { consume, declareLimit } from "../limits";
 import { catsDueForReading, type DueCat } from "./due";
 import { copyReadingForward, recordReading } from "./record";
@@ -11,7 +12,7 @@ import { CONFIDENCE_CUTOFF, MODEL_VERSION, readCoatFromPhoto, type RawCoatAnswer
  *
  * - `dry_run`: no model call, no write. Which cats are due, their photos,
  *   and whether each would be a call or a copy.
- * - `trial`: calls the model, writes nothing. Each cat's colours and the
+ * - `trial`: calls the model, writes nothing. Each cat's coat and the
  *   model's raw answer, with the cut-off in use, for the contact sheet.
  * - `write`: the real thing. `exclude` lists cats NOT to write (the readings
  *   Samuel rejects, Decision A1).
@@ -83,7 +84,8 @@ export interface SweepItem {
     | "failed"
     | "photo_gone"
     | "photo_attempts_used";
-  colours?: string[];
+  /** The coat read, or copied, as its two parts (SYC-398 §6). */
+  parts?: CoatParts;
   raw?: RawCoatAnswer;
   reason?: string;
 }
@@ -149,7 +151,7 @@ export async function sweepCoatReadings(opts: {
         .select({ value: observationsTable.value })
         .from(observationsTable)
         .where(eq(observationsTable.id, d.copyOf!));
-      item.colours = (source?.value as { colours?: string[] } | undefined)?.colours;
+      item.parts = readCoatValue(source?.value) ?? undefined;
       if (opts.mode === "trial") {
         result.items.push({ ...item, status: "copied" });
         continue;
@@ -194,7 +196,7 @@ export async function sweepCoatReadings(opts: {
       result.items.push({ ...item, status: "failed", reason: reading.reason });
       continue;
     }
-    item.colours = reading.colours;
+    item.parts = reading.parts;
     item.raw = reading.raw;
     if (opts.mode === "trial") {
       result.items.push({ ...item, status: "read" });
@@ -203,7 +205,7 @@ export async function sweepCoatReadings(opts: {
     const out = await recordReading({
       catId: d.catId,
       photoId: d.photoId,
-      colours: reading.colours,
+      parts: reading.parts,
       raw: reading.raw,
       now: now(),
     });
