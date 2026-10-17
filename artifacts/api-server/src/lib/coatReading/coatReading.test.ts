@@ -50,7 +50,8 @@ function labelOf(dataUrl: string): string {
 }
 
 function answer(colours: string[], over: Record<string, unknown> = {}) {
-  return { catCount: 1, photoClear: true, colours, confidence: 0.95, ...over };
+  // coat-v2 (SYC-398 §7): colours plus a pattern; "plain" unless a test says.
+  return { catCount: 1, photoClear: true, colours, pattern: "plain", confidence: 0.95, ...over };
 }
 
 beforeEach(() => {
@@ -61,7 +62,7 @@ beforeEach(() => {
     const image = body.messages[0]!.content.find((p) => p.type === "image_url")!;
     const label = labelOf(image.image_url!.url);
     sentLabels.push(label);
-    const a = answers.get(label) ?? answer(["ginger", "tabby"]);
+    const a = answers.get(label) ?? answer(["ginger"], { pattern: "stripes" });
     return { choices: [{ message: { content: JSON.stringify(a) } }] };
   });
 });
@@ -188,7 +189,7 @@ describe("T-row: one reading is one new row", () => {
     expect(row.provenance).toBe("machine");
     expect(row.photoId).toBe(c.main);
     expect(row.observedAt.toISOString()).toBe(at.toISOString());
-    // SYC-398 §6: the v1 answer Ginger · Tabby is written as Ginger · Stripes.
+    // SYC-398 §7: the coat-v2 answer Ginger · Stripes, in the new shape.
     expect(Object.keys(row.value as object).sort()).toEqual(["colours", "modelVersion", "pattern"]);
     expect(row.value).toEqual({ colours: ["ginger"], pattern: "stripes", modelVersion: MODEL_VERSION });
     expect(row.supersedesId).toBeNull();
@@ -693,7 +694,7 @@ describe("T-race: two servers recording one cat at once write one row (R8)", () 
       catId: c.id,
       photoId: c.main,
       parts: { colours: ["black" as const], pattern: null, notSure: false },
-      raw: { colours: ["black"], confidence: 0.9, catCount: 1, photoClear: true },
+      raw: { colours: ["black"], pattern: "plain", confidence: 0.9, catCount: 1, photoClear: true },
     };
     const first = recordReading(input);
     while (reached === 0) await new Promise((r) => setTimeout(r, 10));
@@ -789,7 +790,7 @@ describe("spot review: the gaps it found, closed", () => {
         catId: c.id,
         photoId: due!.photoId,
         parts: { colours: ["white"], pattern: null, notSure: false },
-        raw: { colours: ["white"], confidence: 0.9, catCount: 1, photoClear: true },
+        raw: { colours: ["white"], pattern: "plain", confidence: 0.9, catCount: 1, photoClear: true },
         now: tick(),
       }),
     ).toEqual({ kind: "not_due" });
