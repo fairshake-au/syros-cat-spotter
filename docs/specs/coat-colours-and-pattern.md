@@ -16,6 +16,7 @@
 - the chip list *All · Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black and white · Not sure* and its *Colour not known* chip;
 - the words *Tabby*, *Tortoiseshell or calico* and *Black and white* wherever the public sees them.
 **Status:** **approved by Samuel, 16 October 2026** ("approved"), with every recommendation taken: 2A, 3A, 4A, 5A and 6A (§11). The implementation plan follows, for his approval before any code.
+**Amended 17 October 2026 (SYC-443):** Decision 4 is now **4B on team screens only** (Samuel: "yes team screens use old words"). §15 says how; its decisions T1–T5 are **for Samuel's approval**.
 
 ---
 
@@ -100,7 +101,7 @@ It is a picture of the answer, the same in all three languages. Samuel judges th
   - A team statement states colours, a pattern, or both. A part it leaves blank is *not stated* and falls to the next rule (§4).
   - The team never states *Not sure*, as now.
 
-**Words on the team's screen.** The team sees the same words and drawings as everyone else. The breeders' names are not shown (Decision 4).
+**Words on the team's screen.** The team sees the same drawings as everyone else, and says a coat in the old words: "Ginger tabby", "Calico" (Decision 4, now 4B; §15).
 
 ---
 
@@ -402,6 +403,8 @@ Each test that guards a silent rule gets a mutation probe in its PR.
 | 4B. Yes, beside the drawing ("Red tabby", "Calico") | Familiar to experts | Brings back the words Samuel rejected; three more translations if the team pages ever leave English |
 
 **Recommendation: 4A.** Syros Cats can ask for 4B later.
+
+**Changed to 4B on team screens, 17 October 2026** (Samuel: "yes team screens use old words"; "ginger tabby", never "Red tabby"). The public keeps 4A. §15 sets out the words.
 
 ### Decision 5: the drawings
 
