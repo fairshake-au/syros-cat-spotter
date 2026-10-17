@@ -1,7 +1,7 @@
 # A cat guardian with no colony yet starts her first one
 
 **Amendment to [`roles-and-invites.md`](./roles-and-invites.md) · Cat Spotters (Syros)**
-**Status:** Draft for Samuel's approval (17 October 2026). Adversarial review (independent Opus, 17 October 2026): [`reviews/roles-and-invites-first-colony-review.md`](./reviews/roles-and-invites-first-colony-review.md). All 17 findings are folded in; the table in §11 says where.
+**Status:** **Approved by Samuel, 17 October 2026** ("approved as recommended": decisions A to F as recommended in §9). Adversarial review (independent Opus, 17 October 2026): [`reviews/roles-and-invites-first-colony-review.md`](./reviews/roles-and-invites-first-colony-review.md). All 17 findings are folded in; the table in §11 says where.
 **Linear:** SYC-439 (this) · SYC-53 (roles and invites) · SYC-209 (colonies; PR 4.2 built colony creation for cat guardians, PR 4.3 "Recent changes by cat guardians") · SYC-441 (no cap on colony creation) · SYC-283 (Johnny's Greek and French check; no cat guardian is invited before it).
 **Decided already (Samuel, 17 October 2026, on SYC-439):** *"Yes, let her start one."* This document settles how, not whether.
 **Amends:** §2.2 (cat guardian), §6.1 (the "creates its own scope" kind), §6.3 (the dashboard door), §6.9 (Decision 14), §8.2 (the people screen), §10.1 (`person_scopes`), §13 (languages), §14.1 and §14.2 (cases 1, 4 and 22), §15.3 (tests); and in [`feeding-sites-and-colonies.md`](./feeding-sites-and-colonies.md), the wording a cat guardian reads on the Colonies page (§2.7's "That name can't be used", and the empty and no-match lines). Everything not named here stays as it is.
