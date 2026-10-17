@@ -115,6 +115,8 @@ export interface RefusedPerson {
   island: boolean;
   /** Their saved language (people.language). Falls back to English until live. */
   language?: string | null;
+  /** A cat guardian with no colony yet (SYC-439): her own line and link. */
+  starting?: boolean;
 }
 
 function sendForbidden(req: Request, res: Response, page: () => string): void {
@@ -137,7 +139,7 @@ export function forbiddenPage(
     ? `<p>${escapeHtml(tr(lang, "refused.forManagement", undefined, live))}</p>` +
       `<p><a class="tap" href="${TEAM_HOME_PATH}">${escapeHtml(tr(lang, "refused.backHome", undefined, live))}</a></p>`
     : `<p>${escapeHtml(tr(lang, "refused.forTeam", undefined, live))} ` +
-      `<a href="${GUARDIAN_HOME_PATH}">${escapeHtml(tr(lang, "refused.yourColonies", undefined, live))}</a>.</p>`;
+      `<a href="${GUARDIAN_HOME_PATH}">${escapeHtml(tr(lang, person.starting ? "refused.startHere" : "refused.yourColonies", undefined, live))}</a>.</p>`;
   return renderPage({
     title: tr(lang, person.island ? "refused.titleManagement" : "refused.title", undefined, live),
     active: null,

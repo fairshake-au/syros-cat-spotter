@@ -9,8 +9,8 @@ import {
 } from "../lib/teamAuth/refuse";
 import {
   can,
+  doorFor,
   holdsIslandRow,
-  mayEnter,
   type Capability,
   type CapabilityTarget,
 } from "../lib/capabilities";
@@ -51,6 +51,7 @@ export function refuseSignedIn(req: Request, res: Response): void {
     name: person.name,
     island: holdsIslandRow(person),
     language: person.language,
+    starting: doorFor(person) === "starting",
   });
 }
 
@@ -81,6 +82,12 @@ export interface RequireTeamOptions {
    * "may enter" check and nothing else; no capability can be named with it.
    */
   own?: true;
+  /**
+   * Open to a cat guardian with no colony yet (SYC-439; first-colony spec
+   * §4.3), who is refused everywhere else. ONLY on GET and POST
+   * /team/colonies: a source test fails the build on any other use.
+   */
+  starting?: true;
 }
 
 /**
@@ -115,9 +122,23 @@ export function requireTeam(
         refuseNotSignedIn(req, res);
         return;
       }
-      if (options.own !== true && !mayEnter(person)) {
+      // The door (first-colony spec §4.1): `in` as always; `starting` (a cat
+      // guardian with no colony yet) only where a route says so; `out` is
+      // "access has ended". Her own pages skip the door, as before.
+      const door = doorFor(person);
+      if (options.own !== true && door === "out") {
         req.log.info({ reason: "no_capability" }, "team request refused");
         refuseAccessEnded(req, res, person);
+        return;
+      }
+      if (options.own !== true && door === "starting" && options.starting !== true) {
+        req.log.info({ reason: "starting_only" }, "team request refused");
+        refuseForbidden(req, res, {
+          name: person.name,
+          island: false,
+          language: person.language,
+          starting: true,
+        });
         return;
       }
       if (capability) {
@@ -145,12 +166,21 @@ export function requireTeam(
             name: person.name,
             island: holdsIslandRow(person),
             language: person.language,
+            starting: door === "starting",
           });
           return;
         }
       }
       res.locals["teamPerson"] = person;
-      navContext.run({ people: can(person, "manage_people"), island: holdsIslandRow(person), mine: true }, next);
+      navContext.run(
+        {
+          people: can(person, "manage_people"),
+          island: holdsIslandRow(person),
+          mine: true,
+          starting: door === "starting",
+        },
+        next,
+      );
     } catch (err) {
       next(err);
     }

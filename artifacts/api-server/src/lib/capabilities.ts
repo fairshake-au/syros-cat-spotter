@@ -146,6 +146,23 @@ function isColonyRow(s: Scope): s is Scope & { colonyId: number } {
   );
 }
 
+/**
+ * "No colony yet" (SYC-439; roles-and-invites-first-colony.md §4.3): a cat
+ * guardian who may create her first colony and nothing else. Counts only if
+ * the reach SAYS `start`: a row with no reach given, or any other, does not.
+ * Read in exactly two places: can() for `create_colony`, and doorFor().
+ * canSomewhere(), mayEnter() and capabilitiesOf() ignore it ON PURPOSE:
+ * counting it there would open every page that only checks the door.
+ */
+function isStartRow(s: Scope): boolean {
+  return s.role === "guardian" && s.colonyId === null && s.reach === "start";
+}
+
+/** Does this person hold a "no colony yet" row? */
+export function holdsStartRow(person: CapabilityHolder): boolean {
+  return person.scopes.some(isStartRow);
+}
+
 function entryOf(capability: Capability): CatalogueEntry | null {
   // Refuse anything not on the list, even if a caller gets past the type.
   if (!Object.prototype.hasOwnProperty.call(CATALOGUE, capability)) return null;
@@ -181,8 +198,16 @@ export function can(
       return rows.some((s) => isColonyRow(s) && s.colonyId === colonyId);
     }
     case "role_wide":
-    case "own_scope":
       return rows.some((s) => isIslandRow(s) || isColonyRow(s));
+    case "own_scope":
+      // A start row grants `create_colony` and nothing else (SYC-439):
+      // it is the one own-scope capability, and a test pins that.
+      return rows.some(
+        (s) =>
+          isIslandRow(s) ||
+          isColonyRow(s) ||
+          (capability === "create_colony" && isStartRow(s)),
+      );
   }
 }
 
@@ -286,6 +311,30 @@ export function mayEnter(person: CapabilityHolder): boolean {
   return CAPABILITIES.some(
     (c) => c !== "use_workspace" && canSomewhere(person, c),
   );
+}
+
+/**
+ * The three answers at the dashboard door (SYC-439; first-colony spec
+ * §4.1), used by EVERY place that lets someone in: the hand-off, its
+ * "already signed in" replay, the accept page, the sign-in Worker's
+ * dashboard question and every dashboard request.
+ * - `in`: mayEnter(), exactly as before.
+ * - `starting`: holds nothing else, and a "no colony yet" row. She gets a
+ *   session, then only the routes marked `starting` (and her own pages).
+ * - `out`: everyone else, an ended placement and a vet included ("access
+ *   has ended").
+ */
+export type Door = "in" | "starting" | "out";
+
+export function doorFor(person: CapabilityHolder): Door {
+  if (mayEnter(person)) return "in";
+  if (holdsStartRow(person)) return "starting";
+  return "out";
+}
+
+/** May this person be given a dashboard session at all? */
+export function maySignIn(person: CapabilityHolder): boolean {
+  return doorFor(person) !== "out";
 }
 
 /**

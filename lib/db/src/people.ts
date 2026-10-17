@@ -946,6 +946,8 @@ export interface InviteRecipient {
   roles: PersonRole[];
   /** Her own placements' colonies, with their names now. */
   colonies: { id: number; name: string }[];
+  /** A cat guardian with no colony yet (SYC-439), read from the row's reach. */
+  starting: boolean;
 }
 
 /**
@@ -991,8 +993,8 @@ export async function inviteRecipient(
     );
   const [row] = opts.lock ? await q.for("update") : await q;
   if (!row) return null;
-  const { roles, colonies } = await placementsOf(exec, personId);
-  return { ...row, language: asLanguage(row.language), roles, colonies };
+  const { roles, colonies, starting } = await placementsOf(exec, personId);
+  return { ...row, language: asLanguage(row.language), roles, colonies, starting };
 }
 
 /** In-force roles and colonies (with names) of one person, for wording. */
@@ -1001,6 +1003,7 @@ async function placementsOf(exec: PeopleExec, personId: string) {
     .select({
       role: personScopesTable.role,
       colonyId: personScopesTable.colonyId,
+      reach: personScopesTable.reach,
       colonyName: coloniesTable.name,
     })
     .from(personScopesTable)
@@ -1011,7 +1014,7 @@ async function placementsOf(exec: PeopleExec, personId: string) {
   const colonies = scopes
     .filter((s) => s.colonyId !== null && s.colonyName !== null)
     .map((s) => ({ id: s.colonyId!, name: s.colonyName! }));
-  return { roles, colonies };
+  return { roles, colonies, starting: scopes.some((s) => s.reach === "start") };
 }
 
 /**
@@ -1716,6 +1719,8 @@ export function peopleStore(db: PeopleDb) {
       inviterName: string | null;
       roles: PersonRole[];
       colonies: { id: number; name: string }[];
+      /** A cat guardian with no colony yet (SYC-439). */
+      starting: boolean;
     } | null> {
       const invitee = await findInviteeById(id);
       if (!invitee) return null;
@@ -1726,12 +1731,13 @@ export function peopleStore(db: PeopleDb) {
         .orderBy(sql`${personEventsTable.id} desc`)
         .limit(1);
       const names = await peopleNames(db, event ? [event.by] : []);
-      const { roles, colonies } = await placementsOf(db, id);
+      const { roles, colonies, starting } = await placementsOf(db, id);
       return {
         invitee,
         inviterName: event ? names.get(event.by) ?? null : null,
         roles,
         colonies,
+        starting,
       };
     },
 
