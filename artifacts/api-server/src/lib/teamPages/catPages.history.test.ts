@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { TeamCatView, TeamStatement } from "../teamCatView";
 import { HISTORY_SHOWN, renderCatPage } from "./catPages";
 import { renderPage } from "./layout";
@@ -389,5 +389,91 @@ describe("renderPage chrome (SYC-219)", () => {
     const who = /<div class="who">([\s\S]*?)<\/div>/.exec(html)![1]!;
     expect(who).toContain("Signed in as");
     expect(who).toContain("Sign out");
+  });
+});
+
+// ── The small map of the cat's sightings (spec §7.1, plan Task 1.4.2) ───────
+
+describe("the small sightings map", () => {
+  // A throwaway key, only so the map pictures' tokens can be signed here.
+  const KEY = "vitest-catmap-key-0123456789abcdef-0123456789";
+  let saved: string | undefined;
+  beforeAll(() => {
+    saved = process.env["TEAM_SESSION_KEYS"];
+    process.env["TEAM_SESSION_KEYS"] = KEY;
+  });
+  afterAll(() => {
+    if (saved === undefined) delete process.env["TEAM_SESSION_KEYS"];
+    else process.env["TEAM_SESSION_KEYS"] = saved;
+  });
+
+  /** `n` sightings round Ermoupoli's harbour, newest first. */
+  const sightings = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: 1000 + n - i,
+      lat: 37.4447 + ((n - i) % 5) * 0.0004,
+      lng: 24.9418 + ((n - i) % 7) * 0.0004,
+      at: new Date(Date.UTC(2026, 9, 16) - i * 86_400_000).toISOString(),
+      photoUrl: null,
+      extraPhotos: [],
+      mixedCats: false,
+    }));
+
+  const withSightings = (n: number) => {
+    const v = view(0);
+    v.sightings = sightings(n);
+    return renderCatPage(v, "Sam", { now: NOW });
+  };
+
+  /** The markers drawn in one picture band (the page draws one band per screen width). */
+  const pins = (html: string) => {
+    const band = /<div class="mapband b179"[\s\S]*?<\/div>/.exec(html)![0];
+    return [...band.matchAll(/<a class="pin seen" style="[^"]*" href="#sg-(\d+)" title="([^"]*)"><span class="pinnum" aria-hidden="true">(\d+)<\/span>/g)].map(
+      (m) => ({ id: Number(m[1]), title: m[2]!, n: Number(m[3]) }),
+    );
+  };
+
+  it("numbers every sighting in time order, 1 the oldest, each linking to its row", () => {
+    const html = withSightings(4);
+    expect(html).toContain('<div class="catmap">');
+    expect(pins(html)).toEqual([
+      { id: 1001, title: expect.stringMatching(/^Sighting 1, /), n: 1 },
+      { id: 1002, title: expect.stringMatching(/^Sighting 2, /), n: 2 },
+      { id: 1003, title: expect.stringMatching(/^Sighting 3, /), n: 3 },
+      { id: 1004, title: expect.stringMatching(/^Sighting 4, /), n: 4 },
+    ]);
+    for (const p of pins(html)) expect(html).toContain(`<li id="sg-${p.id}">`);
+  });
+
+  it("is the server-joined map picture: no script, and no position in any address", () => {
+    const html = withSightings(4);
+    const map = /<div class="catmap">[\s\S]*?<\/div><p class="attrib">/.exec(html)![0];
+    expect(map).not.toContain("<script");
+    expect(map).toMatch(/<img src="\/api\/team\/map-tiles\/[^"]+"/);
+    for (const m of map.matchAll(/(?:href|src|action)="([^"]*)"/g)) expect(m[1]).not.toMatch(/\d+\.\d{3}/);
+    // No zoom, pan or area buttons on the small map.
+    expect(html).not.toContain('class="mapmove"');
+  });
+
+  it("shows the newest 30 when there are more, and says so", () => {
+    const html = withSightings(34);
+    expect(pins(html)).toHaveLength(30);
+    expect(pins(html)[29]!.id).toBe(1034);
+    expect(html).toContain("The newest 30 of 34 sightings, numbered oldest first.");
+  });
+
+  it("has no map with no sightings", () => {
+    expect(renderCatPage(view(0), "Sam", { now: NOW })).not.toMatch(/class="[^"]*catmap/);
+  });
+
+  it("says the map isn't available, and draws the rest of the page, when the picture can't be signed", () => {
+    delete process.env["TEAM_SESSION_KEYS"];
+    try {
+      const html = withSightings(2);
+      expect(html).toContain("The map isn't available right now. The sightings are listed below.");
+      expect(html).toContain('<li id="sg-1002">');
+    } finally {
+      process.env["TEAM_SESSION_KEYS"] = KEY;
+    }
   });
 });
