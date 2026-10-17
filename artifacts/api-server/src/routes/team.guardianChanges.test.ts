@@ -258,14 +258,22 @@ describe("what goes in the list", () => {
 
 describe("twenty at most", () => {
   it("the route and the page both stop at twenty, newest first", async () => {
+    // One cat in and out 26 times: 26 changes without adding 25 cats to the
+    // shared test database (other files page through every cat).
     const her = { id: eleni.id, scopes: [{ role: "guardian" as const, colonyId: c1 }] };
-    const cats = await Promise.all(Array.from({ length: 25 }, () => seedCat(null)));
-    for (const cat of cats) await placeCats(her, c1, [cat.id]);
+    const cat = await seedCat(null);
+    const kinds: string[] = [];
+    for (let i = 0; i < 13; i++) {
+      await placeCats(her, c1, [cat.id]);
+      kinds.push("cat_added");
+      await placeCats(her, null, [cat.id], { onlyFrom: c1 });
+      kinds.push("cat_taken_out");
+    }
     const list = await teamList();
     expect(RECENT_GUARDIAN_CHANGES).toBe(20);
     expect(list).toHaveLength(20);
     // The newest twenty, newest first.
-    expect(list.map((c) => c.cat?.id)).toEqual(cats.slice(-20).map((c) => c.id).reverse());
+    expect(list.map((c) => [c.kind, c.cat?.id])).toEqual(kinds.slice(-20).reverse().map((k) => [k, cat.id]));
     const page = (await get("/api/team/colonies", staffCookie)).text;
     const section = page.slice(page.indexOf('id="recent-guardian-changes"'), page.indexOf("</ol>", page.indexOf('id="recent-guardian-changes"')));
     expect(section.match(/<li /g)).toHaveLength(20);
