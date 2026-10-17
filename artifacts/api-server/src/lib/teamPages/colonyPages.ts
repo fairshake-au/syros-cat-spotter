@@ -119,7 +119,7 @@ function createForm(W: Words, island: boolean): string {
       ? `<label class="label" for="new-guardian">${w("create.guardian")}</label>` +
         `<input class="text" id="new-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" autocomplete="off">`
       : "") +
-    `<label class="label" for="new-notes">${w("create.notes")}</label>` +
+    `<label class="label" for="new-notes">${w(island ? "create.notes" : "colony.notesOwn")}</label>` +
     `<textarea id="new-notes" name="notes" maxlength="${COLONY_NOTES_MAX}"></textarea>` +
     notesHint(W) +
     `<button type="submit">${w("create.button")}</button>` +
@@ -284,7 +284,7 @@ function catList(
   );
 }
 
-function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean): string {
+function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean, island: boolean): string {
   const { w } = W;
   const rename = may("rename_colony")
     ? `<label class="label" for="edit-name">${w("colony.rename")}</label>` +
@@ -296,7 +296,8 @@ function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean): str
     rename +
     `<label class="label" for="edit-guardian">${w("create.guardian")}</label>` +
     `<input class="text" id="edit-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" value="${esc(v.guardianName ?? "")}" autocomplete="off">` +
-    `<label class="label" for="edit-notes">${w("create.notes")}</label>` +
+    // Her own colony's notes are just "Notes" to a cat guardian (PR 4.1).
+    `<label class="label" for="edit-notes">${w(island ? "create.notes" : "colony.notesOwn")}</label>` +
     `<textarea id="edit-notes" name="notes" maxlength="${COLONY_NOTES_MAX}">${esc(v.notes ?? "")}</textarea>` +
     notesHint(W) +
     `<label class="label" for="edit-lat">${w("colony.centreLat")}</label>` +
@@ -370,7 +371,7 @@ export function renderColonyPage(
     body:
       banner(W, opts.done) +
       summary +
-      (opts.may("edit_colony") ? editForm(W, v, opts.may) : "") +
+      (opts.may("edit_colony") ? editForm(W, v, opts.may, island) : "") +
       `<h2>${w("colony.sitesTitle")}</h2>` +
       sites +
       // Opens the add page with this colony chosen. Only the colony's number

@@ -595,7 +595,14 @@ describe("access (roles PR 0.5: no target until PR 4.1)", () => {
         expect([res.status, res.text], path).toEqual([403, '{"error":"forbidden"}']);
       }
       const colonyLink = await get(`/api/team/sites/new?colony=${colonyId}`, c);
-      expect(colonyLink.status).toBe(403);
+      if (c === vetCookie) {
+        expect(colonyLink.status).toBe(403);
+      } else {
+        // A cat guardian may add sites to HER colonies (SYC-209 PR 4.2), so the
+        // add page opens; another colony in ?colony= is ignored like an unknown one.
+        expect(colonyLink.status).toBe(200);
+        expect(colonyLink.text).not.toContain(`name="colonyId" value="${colonyId}"`);
+      }
     }
     expect({ sites: await totalSites(), events: await totalSiteEvents() }).toEqual(before);
   });

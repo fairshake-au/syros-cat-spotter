@@ -63,10 +63,21 @@ const FILTERED_MODULES = [
 ];
 
 /**
+ * Modules a route may call that read a site or colony WITHOUT a Visible,
+ * because what they read decides a can() check and is never shown: the
+ * record's own colony, as a CapabilityTarget (SYC-209 PR 4.2). Each says why,
+ * and the test below holds it to reading the colony column only.
+ */
+const TARGET_MODULES: Record<string, string> = {
+  "lib/capabilityTargets.ts":
+    "siteTarget reads a site's colony id to decide a can() check; it returns a CapabilityTarget, never a row",
+};
+
+/**
  * Functions in those modules that touch the tables WITHOUT a Visible, each
  * with the reason. Every one is a write, or a step inside one, behind a
- * route that is still island-only (its capability asked with no target)
- * until PR 4.2, or the "who looked" record. Adding a name here is a review
+ * route that asks can() against the colony read from the record (PR 4.2),
+ * or the "who looked" record. Adding a name here is a review
  * question: "why may this read ignore whose colony it is?"
  */
 const UNFILTERED: Record<string, string> = {
@@ -76,20 +87,21 @@ const UNFILTERED: Record<string, string> = {
   sitesForPerson: "builds its own Visible from the person (visibleColonyIds) and filters with it",
   // lib/teamColonies.ts
   colonyNamed: "after a name clash on create or rename (island-only routes); the route names the holder only if covers(visible)",
-  createColony: "write; POST /team/colonies is island-only until PR 4.2",
-  updateColony: "write; POST /team/colonies/:id is island-only (no target) until PR 4.2",
+  createColony: "write; the team's original create, kept for its tests (the route uses createColonyAs)",
+  createColonyAs: "write; the route checks create_colony, and roles' createColonyWithPlacement re-reads her roles",
+  updateColony: "write; the route checks edit_colony against that colony (PR 4.2); renaming stays island-only",
   // lib/colonyCats.ts
-  placeCats: "write; asks can() with no target itself, island-only until PR 4.2",
+  placeCats: "write; checks can() against the colony a cat goes into, or leaves, read under its lock (PR 4.2)",
   // lib/teamSiteWrites.ts
-  lockFresh: "a step inside a site write (island-only routes until PR 4.2)",
-  colonyExists: "a step inside a site write (island-only routes until PR 4.2)",
-  makePrivateIfPublic: "a step inside a site write (island-only routes until PR 4.2)",
-  addSite: "write; POST /team/sites is island-only until PR 4.2",
-  editSite: "write; island-only until PR 4.2",
-  moveSite: "write; island-only until PR 4.2",
+  lockFresh: "a step inside a site write, behind a route checked against the site's own colony (PR 4.2)",
+  colonyExists: "a step inside a site write; a guardian's colony is checked by the route first (PR 4.2)",
+  makePrivateIfPublic: "a step inside a site write, behind a route checked against the site's own colony (PR 4.2)",
+  addSite: "write; the route checks add_feeding_site against the colony it goes into (PR 4.2)",
+  editSite: "write; the route checks edit_feeding_site against the site's own colony (PR 4.2)",
+  moveSite: "write; the route checks edit_feeding_site against the site's own colony (PR 4.2)",
   changeSiteColony: "write; reassign_feeding_site is island-only by kind",
-  retireSite: "write; island-only until PR 4.2",
-  restoreSite: "write; island-only until PR 4.2",
+  retireSite: "write; the route checks edit_feeding_site against the site's own colony (PR 4.2)",
+  restoreSite: "write; the route checks edit_feeding_site against the site's own colony (PR 4.2)",
 };
 
 interface Fn {
@@ -246,11 +258,24 @@ describe("every sites and colonies read takes a Visible and uses it", () => {
     for (const name of Object.keys(UNFILTERED)) expect(all, name).toContain(name);
   });
 
-  it("every write on the allow-list sits behind an island-only route: the module says so", () => {
-    // A cheap tripwire: PR 4.2 opens these to guardians and must revisit each.
+  it("every write on the allow-list says how its route is checked", () => {
+    // A cheap tripwire: anything added here must say why it may skip the Visible.
     for (const name of Object.keys(UNFILTERED)) {
       expect(UNFILTERED[name]!.length, name).toBeGreaterThan(10);
     }
+  });
+});
+
+describe("a target module reads only a record's colony", () => {
+  it("capabilityTargets.ts selects nothing from feeding_sites but its colony id", () => {
+    const src = stripComments(read("lib/capabilityTargets.ts"));
+    const selects = [...src.matchAll(/\.select\(\{([^}]*)\}\)\s*\.from\(feedingSitesTable\)/g)].map((m) => m[1]!.trim());
+    expect(selects.length).toBeGreaterThan(0);
+    for (const fields of selects) expect(fields).toBe("colonyId: feedingSitesTable.colonyId");
+    expect(src).not.toMatch(/\bfrom\s+"?feeding_sites\b/i);
+    // Its columns are named only to pick the colony out and to find the row.
+    const columns = [...src.matchAll(/feedingSitesTable\.(\w+)/g)].map((m) => m[1]);
+    expect(new Set(columns)).toEqual(new Set(["colonyId", "id"]));
   });
 });
 
@@ -283,7 +308,7 @@ describe("the routes read sites and colonies only through those modules", () => 
         }
         if (!touchesTables(text)) continue;
         expect(
-          FILTERED_MODULES.includes(lib) || lib === "lib/guardianView.ts",
+          FILTERED_MODULES.includes(lib) || lib === "lib/guardianView.ts" || lib in TARGET_MODULES,
           `${file} calls ${lib}, which touches sites or colonies but isn't checked here`,
         ).toBe(true);
       }

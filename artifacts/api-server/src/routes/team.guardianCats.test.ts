@@ -529,7 +529,11 @@ describe("SYC-416: her colony's feeding sites, and the colony page's cat links",
     const hers = await request(app).get(`/api/team/colonies/${colonyA}`).set("Cookie", eleni.cookie).set("Sec-Fetch-Mode", "navigate");
     expect(hers.status).toBe(200);
     expect(hers.text).toContain(`href="/api/team/my/cats/${mine.id}"`);
-    expect(hers.text).not.toContain("/api/team/cats/");
+    // No LINK to the team's cat page. Her "Take out of this colony" button
+    // (SYC-209 PR 4.2) posts to the take-out route, which checks the colony
+    // the cat leaves, from the record.
+    expect(hers.text).not.toContain(`href="/api/team/cats/`);
+    expect(hers.text).toContain(`action="/api/team/cats/${mine.id}/colony"`);
     const teams = await request(app).get(`/api/team/colonies/${colonyA}`).set("Cookie", team.cookie).set("Sec-Fetch-Mode", "navigate");
     expect(teams.status).toBe(200);
     expect(teams.text).toContain(`href="/api/team/cats/${mine.id}"`);
