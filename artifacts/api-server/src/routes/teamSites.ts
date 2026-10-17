@@ -1,11 +1,11 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
-import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { pageViewer, requireSeeing, seeingFormRoute } from "../middlewares/requireSeeing";
 import { covers } from "../lib/guardianView";
-import { catTarget } from "../lib/capabilityTargets";
-import type { CapabilityTarget } from "../lib/capabilities";
+import { catTarget, siteTarget } from "../lib/capabilityTargets";
+import { can, type CapabilityTarget } from "../lib/capabilities";
 import { formRoute } from "./teamCorrections";
 import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
 import {
@@ -115,6 +115,7 @@ async function sitesPage(
         showRetired,
         note,
         sighting,
+        mayAdd: mayAddSomewhere(res),
       }),
     );
 }
@@ -338,29 +339,59 @@ function newPickerPage(
   note?: string,
   colony?: { id: number; name: string } | null,
 ): void {
+  const v = pageViewer(res);
   res
     .status(status)
     .type("html")
     .send(
       renderPicker({
-        personName: teamPerson(res).name,
-        title: t("new.title"),
-        intro: colony ? `${t("new.intro")} ${t("new.introColony")} “${colony.name}”.` : t("new.intro"),
+        personName: v.personName,
+        lang: v.lang,
+        island: v.island,
+        title: t("new.title", v.lang),
+        intro: colony
+          ? `${t("new.intro", v.lang)} ${t("new.introColony", v.lang)} “${colony.name}”.`
+          : t("new.intro", v.lang),
         carry: colony ? { colonyId: String(colony.id) } : undefined,
-        back: { href: SITES_PATH, label: t("site.backToSites") },
+        back: { href: SITES_PATH, label: t("site.backToSites", v.lang) },
         view,
         tapAction: PICK_PATH,
         moveAction: `${NEW_PATH}/map`,
         note,
-        legend: t("new.private"),
+        legend: t("new.private", v.lang),
       }),
     );
 }
 
+/**
+ * May this person add a site to at least one colony they see? The team:
+ * `add_feeding_site` island-wide. A cat guardian: for one of her own colonies,
+ * asked of can() colony by colony (SYC-209 PR 4.2). The add pages' door; the
+ * save itself checks the colony the site goes into.
+ */
+function mayAddSomewhere(res: Response): boolean {
+  const person = teamPerson(res);
+  const { visible } = pageViewer(res);
+  if (visible.ids === null) return can(person, "add_feeding_site");
+  return visible.ids.some((colonyId) => can(person, "add_feeding_site", { colonyId }));
+}
+
+function addDoor(req: Request, res: Response, next: NextFunction): void {
+  if (!mayAddSomewhere(res)) {
+    req.log.info({ reason: "missing_capability" }, "team request refused");
+    return refuseSignedIn(req, res);
+  }
+  next();
+}
+
+/** The add pages: a page, or a form that writes nothing. */
+const addPage = [...requireSeeing(), addDoor];
+const addForm = [...seeingFormRoute(), addDoor];
+
 /** GET /api/team/sites/new: the map in place mode. Registered before /sites/:id. */
 router.get(
   "/team/sites/new",
-  requireTeam("add_feeding_site"),
+  ...addPage,
   async (req: Request, res: Response) => {
     setTeamHeaders(res);
     const colony = await knownColony(pageViewer(res).visible, req.query["colony"]);
@@ -371,7 +402,7 @@ router.get(
 /** POST /api/team/sites/new/map: zoom, pan and the area buttons on the add page. */
 router.post(
   "/team/sites/new/map",
-  ...formRoute("add_feeding_site"),
+  ...addForm,
   async (req: Request, res: Response) => {
     const colony = await knownColony(
       pageViewer(res).visible,
@@ -379,7 +410,7 @@ router.post(
     );
     const view = applyMove(req.body);
     if (!view) {
-      return void newPickerPage(res, 400, viewAround(ISLAND_CENTRE, START_ZOOM), t("sites.moveNote"), colony);
+      return void newPickerPage(res, 400, viewAround(ISLAND_CENTRE, START_ZOOM), t("sites.moveNote", pageViewer(res).lang), colony);
     }
     newPickerPage(res, 200, view, undefined, colony);
   },
@@ -391,16 +422,16 @@ type Picked =
   | { ok: false; status: 400; view: View; note: string; fields: string[] };
 
 /** Reads the picker's form: a tap on the map, or typed coordinates. Never parses the tap itself. */
-function readPick(body: Record<string, unknown>): Picked {
+function readPick(body: Record<string, unknown>, lang?: string): Picked {
   if (Object.hasOwn(body, "lat") || Object.hasOwn(body, "lng")) {
     const typed = typedSpot(body);
     const here = viewAround(ISLAND_CENTRE, START_ZOOM);
     if (!typed.success) {
-      return { ok: false, status: 400, view: here, note: t("sproblem.position"), fields: fieldsOf(typed.error) };
+      return { ok: false, status: 400, view: here, note: t("sproblem.position", lang), fields: fieldsOf(typed.error) };
     }
     const spot = { lat: typed.data.lat, lng: typed.data.lng };
     if (!inIsland(spot)) {
-      return { ok: false, status: 400, view: here, note: t("sproblem.outside"), fields: ["lat", "lng"] };
+      return { ok: false, status: 400, view: here, note: t("sproblem.outside", lang), fields: ["lat", "lng"] };
     }
     return { ok: true, spot, zoom: CONFIRM_ZOOM };
   }
@@ -410,7 +441,7 @@ function readPick(body: Record<string, unknown>): Picked {
       ok: false,
       status: 400,
       view: viewAround(ISLAND_CENTRE, START_ZOOM),
-      note: t("sproblem.tapUnreadable"),
+      note: t("sproblem.tapUnreadable", lang),
       fields: ["view"],
     };
   }
@@ -419,7 +450,7 @@ function readPick(body: Record<string, unknown>): Picked {
       ok: false,
       status: 400,
       view: clampView(tap.picture),
-      note: tap.reason === "outside" ? t("sproblem.outside") : t("sproblem.tapNoPoint"),
+      note: tap.reason === "outside" ? t("sproblem.outside", lang) : t("sproblem.tapNoPoint", lang),
       fields: ["x", "y"],
     };
   }
@@ -442,9 +473,9 @@ function readPick(body: Record<string, unknown>): Picked {
  */
 router.post(
   "/team/sites/pick",
-  ...formRoute("add_feeding_site"),
+  ...addForm,
   async (req: Request, res: Response) => {
-    const picked = readPick((req.body ?? {}) as Record<string, unknown>);
+    const picked = readPick((req.body ?? {}) as Record<string, unknown>, pageViewer(res).lang);
     if (!picked.ok) {
       if (!isFormPost(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
       const colony = await knownColony(
@@ -494,14 +525,14 @@ async function sightingCatTarget(req: Request): Promise<CapabilityTarget> {
 /** Reads the sighting named by the form: its spot, or a 400 that names no position. */
 async function sightingFor(req: Request, res: Response) {
   const parsed = SightingForm.safeParse(req.body ?? {});
-  const back = { href: "/api/team/cats", label: t("sproblem.backToCats") };
+  const back = { href: "/api/team/cats", label: t("sproblem.backToCats", pageViewer(res).lang) };
   if (!parsed.success) {
-    badForm(req, res, fieldsOf(parsed.error), back, t("sproblem.sighting"));
+    badForm(req, res, fieldsOf(parsed.error), back, t("sproblem.sighting", pageViewer(res).lang));
     return null;
   }
   const found = await sightingSpot(parsed.data.sightingId);
   if (found.kind !== "found") {
-    badForm(req, res, ["sightingId"], back, t("sproblem.sighting"));
+    badForm(req, res, ["sightingId"], back, t("sproblem.sighting", pageViewer(res).lang));
     return null;
   }
   return found;
@@ -562,11 +593,26 @@ router.post(
  */
 router.post(
   "/team/sites",
-  ...formRoute("add_feeding_site"),
+  ...addForm,
   async (req: Request, res: Response) => {
-    const back = { href: NEW_PATH, label: t("sproblem.backToAdd") };
+    const back = { href: NEW_PATH, label: t("sproblem.backToAdd", pageViewer(res).lang) };
     const parsed = AddForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, fieldsOf(parsed.error), back);
+    // A cat guardian's site goes in one of HER colonies (SYC-209 PR 4.2; spec
+    // §7.3): checked against the colony it goes into, the only colony a new
+    // site has. No colony, a colony she doesn't see and one that doesn't exist
+    // all get the same answer.
+    const v = pageViewer(res);
+    if (!v.island) {
+      const colonyId = parsed.data.colonyId;
+      if (
+        typeof colonyId !== "number" ||
+        !covers(v.visible, colonyId) ||
+        !can(teamPerson(res), "add_feeding_site", { colonyId })
+      ) {
+        return badForm(req, res, ["colonyId"], back);
+      }
+    }
     const out = await addSite(teamPerson(res).id, {
       ...parsed.data,
       directions: parsed.data.directions ?? null,
@@ -576,7 +622,7 @@ router.post(
       case "no_colony":
         return badForm(req, res, ["colonyId"], back);
       case "outside":
-        return badForm(req, res, ["lat", "lng"], back, t("sproblem.outside"));
+        return badForm(req, res, ["lat", "lng"], back, t("sproblem.outside", pageViewer(res).lang));
       case "created":
         if (isFormPost(req)) return void res.redirect(303, sitePath(out.id, "created"));
         return void res.status(201).json({ id: out.id });
@@ -585,6 +631,14 @@ router.post(
 );
 
 // ── One site: details, colony, retire, bring back ──────────────────────────
+
+/**
+ * Where a one-site write is checked (SYC-209 PR 4.2): the site's own colony,
+ * read from the record (`siteTarget`), never from the form. A cat guardian
+ * passes for a site in her colony; for another colony's site, a site in no
+ * colony, or a number that is no site, she gets the same quiet 403.
+ */
+const thisSite = (req: Request) => siteTarget(req.params["id"]);
 
 /** Answers a conditional write: the same few outcomes for every route below. */
 function answer(
@@ -609,7 +663,7 @@ function answer(
     case "no_colony":
       return badForm(req, res, ["colonyId"], back);
     case "outside":
-      return badForm(req, res, ["lat", "lng"], back, t("sproblem.outside"));
+      return badForm(req, res, ["lat", "lng"], back, t("sproblem.outside", pageViewer(res).lang));
     case "unchanged":
       if (isFormPost(req)) return void res.redirect(303, sitePath(id, "unchanged"));
       return void res.json({ changed: 0 });
@@ -625,11 +679,11 @@ function answer(
 /** POST /api/team/sites/:id: name, notes and how to find it (`edit_feeding_site`). */
 router.post(
   "/team/sites/:id",
-  ...formRoute("edit_feeding_site"),
+  ...formRoute("edit_feeding_site", { target: thisSite }),
   async (req: Request, res: Response) => {
     const id = siteIdOf(req);
     if (id === null) return notFound(req, res);
-    const back = { href: sitePath(id), label: t("sproblem.backToSite") };
+    const back = { href: sitePath(id), label: t("sproblem.backToSite", pageViewer(res).lang) };
     const parsed = EditForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, fieldsOf(parsed.error), back);
     const { updatedAt, ...details } = parsed.data;
@@ -645,7 +699,7 @@ router.post(
   async (req: Request, res: Response) => {
     const id = siteIdOf(req);
     if (id === null) return notFound(req, res);
-    const back = { href: sitePath(id), label: t("sproblem.backToSite") };
+    const back = { href: sitePath(id), label: t("sproblem.backToSite", pageViewer(res).lang) };
     const parsed = ColonyForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, fieldsOf(parsed.error), back);
     const out = await changeSiteColony(teamPerson(res).id, id, parsed.data.updatedAt, parsed.data.colonyId);
@@ -656,11 +710,11 @@ router.post(
 /** POST /api/team/sites/:id/retire: take the site off the map, with a reason (`edit_feeding_site`). */
 router.post(
   "/team/sites/:id/retire",
-  ...formRoute("edit_feeding_site"),
+  ...formRoute("edit_feeding_site", { target: thisSite }),
   async (req: Request, res: Response) => {
     const id = siteIdOf(req);
     if (id === null) return notFound(req, res);
-    const back = { href: sitePath(id), label: t("sproblem.backToSite") };
+    const back = { href: sitePath(id), label: t("sproblem.backToSite", pageViewer(res).lang) };
     const parsed = RetireForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, fieldsOf(parsed.error), back);
     // A browser asks "Are you sure?" first (SYC-395 D1), naming the site. The
@@ -701,11 +755,11 @@ router.post(
 /** POST /api/team/sites/:id/restore: bring a retired site back, private, with a reason (`edit_feeding_site`). */
 router.post(
   "/team/sites/:id/restore",
-  ...formRoute("edit_feeding_site"),
+  ...formRoute("edit_feeding_site", { target: thisSite }),
   async (req: Request, res: Response) => {
     const id = siteIdOf(req);
     if (id === null) return notFound(req, res);
-    const back = { href: sitePath(id), label: t("sproblem.backToSite") };
+    const back = { href: sitePath(id), label: t("sproblem.backToSite", pageViewer(res).lang) };
     const parsed = ReasonForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, fieldsOf(parsed.error), back);
     const out = await restoreSite(teamPerson(res).id, id, parsed.data.updatedAt, parsed.data.reason);
@@ -725,23 +779,26 @@ function movePickerPage(
   view: View,
   note?: string,
 ): void {
+  const v = pageViewer(res);
   const base = sitePath(site.id);
   res
     .status(status)
     .type("html")
     .send(
       renderPicker({
-        personName: teamPerson(res).name,
-        title: `${t("move.title")} ${site.name}`,
-        intro: t("move.intro"),
-        back: { href: base, label: t("sproblem.backToSite") },
+        personName: v.personName,
+        lang: v.lang,
+        island: v.island,
+        title: `${t("move.title", v.lang)} ${site.name}`,
+        intro: t("move.intro", v.lang),
+        back: { href: base, label: t("sproblem.backToSite", v.lang) },
         view,
-        markers: [{ lat: site.lat, lng: site.lng, label: t("move.now"), look: "retired" }],
+        markers: [{ lat: site.lat, lng: site.lng, label: t("move.now", v.lang), look: "retired" }],
         tapAction: `${base}/move/pick`,
         moveAction: `${base}/move/map`,
         carry: { updatedAt: stamp },
         note,
-        legend: t("move.legend"),
+        legend: t("move.legend", v.lang),
       }),
     );
 }
@@ -749,7 +806,7 @@ function movePickerPage(
 /** GET /api/team/sites/:id/move: the picker, starting at the site. It reads the page's stamp as it opens. */
 router.get(
   "/team/sites/:id/move",
-  requireTeam("edit_feeding_site"),
+  requireTeam("edit_feeding_site", { target: thisSite }),
   async (req: Request, res: Response) => {
     setTeamHeaders(res);
     const id = siteIdOf(req);
@@ -762,14 +819,14 @@ router.get(
 /** POST /api/team/sites/:id/move/map: zoom, pan and the area buttons on the move page. */
 router.post(
   "/team/sites/:id/move/map",
-  ...formRoute("edit_feeding_site"),
+  ...formRoute("edit_feeding_site", { target: thisSite }),
   async (req: Request, res: Response) => {
     const id = siteIdOf(req);
     const site = id === null ? null : await siteForMove(pageViewer(res).visible, id);
     if (id === null || !site) return notFound(req, res);
     const stamp = StampOnly.safeParse(req.body ?? {});
     if (!stamp.success) {
-      return badForm(req, res, ["updatedAt"], { href: sitePath(id), label: t("sproblem.backToSite") });
+      return badForm(req, res, ["updatedAt"], { href: sitePath(id), label: t("sproblem.backToSite", pageViewer(res).lang) });
     }
     const view = applyMove(req.body);
     if (!view) {
@@ -779,7 +836,7 @@ router.post(
         site,
         stamp.data.updatedAt,
         viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM),
-        t("sites.moveNote"),
+        t("sites.moveNote", pageViewer(res).lang),
       );
     }
     movePickerPage(res, 200, site, stamp.data.updatedAt, view);
@@ -793,7 +850,7 @@ router.post(
  */
 router.post(
   "/team/sites/:id/move/pick",
-  ...formRoute("edit_feeding_site"),
+  ...formRoute("edit_feeding_site", { target: thisSite }),
   async (req: Request, res: Response) => {
     const id = siteIdOf(req);
     const site = id === null ? null : await siteForMove(pageViewer(res).visible, id);
@@ -801,7 +858,7 @@ router.post(
     const body = (req.body ?? {}) as Record<string, unknown>;
     const stamp = StampOnly.safeParse(body);
     if (!stamp.success) {
-      return badForm(req, res, ["updatedAt"], { href: sitePath(id), label: t("sproblem.backToSite") });
+      return badForm(req, res, ["updatedAt"], { href: sitePath(id), label: t("sproblem.backToSite", pageViewer(res).lang) });
     }
     const picked = readPick(body);
     if (!picked.ok) {
@@ -831,11 +888,11 @@ router.post(
 /** POST /api/team/sites/:id/move: save the move, with its reason (`edit_feeding_site`). */
 router.post(
   "/team/sites/:id/move",
-  ...formRoute("edit_feeding_site"),
+  ...formRoute("edit_feeding_site", { target: thisSite }),
   async (req: Request, res: Response) => {
     const id = siteIdOf(req);
     if (id === null) return notFound(req, res);
-    const back = { href: `${SITES_PATH}/${id}/move`, label: t("sproblem.backToMove") };
+    const back = { href: `${SITES_PATH}/${id}/move`, label: t("sproblem.backToMove", pageViewer(res).lang) };
     const parsed = MoveForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, fieldsOf(parsed.error), back);
     const { updatedAt, lat, lng, reason } = parsed.data;
@@ -872,6 +929,10 @@ router.get(
         view: viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM),
         colonies: await colonyOptions(v.visible),
         done: typeof req.query["done"] === "string" ? req.query["done"] : undefined,
+        // Asked of can() against the site's own colony (SYC-209 PR 4.2): a cat
+        // guardian edits, moves and retires her own sites, never "Change colony".
+        mayAct: can(person, "edit_feeding_site", { colonyId: site.colony?.id ?? null }),
+        mayReassign: can(person, "reassign_feeding_site"),
       }),
     );
   },

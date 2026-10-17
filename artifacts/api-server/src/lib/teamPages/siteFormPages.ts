@@ -68,7 +68,10 @@ export function renderPicker(o: {
   note?: string;
   legend?: string;
   below?: string;
-}): string {
+} & FormViewer): string {
+  // A cat guardian reaches the add and move pages for her own sites (SYC-209
+  // PR 4.2), so they are drawn in her language with her menu.
+  const { w } = wordsIn(o.lang);
   const typed =
     `<h2>${w("new.typedTitle")}</h2>` +
     `<form method="post" action="${esc(o.tapAction)}" class="typedpos">` +
@@ -84,6 +87,8 @@ export function renderPicker(o: {
   return renderPage({
     title: o.title,
     active: "sites",
+    nav: o.island === false ? "guardian" : undefined,
+    lang: o.lang,
     personName: o.personName,
     mainClass: "mappage",
     beforeTitle: `<p class="back"><a href="${esc(o.back.href)}">${esc(o.back.label)}</a></p>`,
@@ -91,6 +96,7 @@ export function renderPicker(o: {
       // Fixed line heights above the map (see .mappage in layout.ts).
       `<p>${esc(o.intro)}</p>` +
       renderMap({
+        lang: o.lang,
         view: o.view,
         markers: o.markers,
         mode: "place",
@@ -152,8 +158,10 @@ export function renderAddConfirm(o: {
 } & FormViewer): string {
   const { t, w } = wordsIn(o.lang);
   const c0: AddCarry = o.carry ?? { name: "", colonyId: "", directions: "", notes: "" };
+  // A cat guardian's site always goes in one of her colonies (spec §7.3,
+  // SYC-209 PR 4.2), so she has no "no colony" choice; the server insists too.
   const options =
-    `<option value="">${w("confirm.noColony")}</option>` +
+    (o.island === false ? "" : `<option value="">${w("confirm.noColony")}</option>`) +
     o.colonies
       .map((c) => `<option value="${c.id}"${String(c.id) === c0.colonyId ? " selected" : ""}>${esc(c.name)}</option>`)
       .join("");
