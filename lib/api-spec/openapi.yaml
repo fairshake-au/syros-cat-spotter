@@ -1052,16 +1052,21 @@ components:
         coat:
           type: array
           description: |
-            The cat's resolved coat colours (coat-markings-and-health.md
-            §3.1, §10.4): one or two codes, or `[]` when not known. "Not
-            sure" is never sent; it is `[]` (data spine §10.7). Only the
-            value: never how sure, who said it, how many people, the model
-            version or the date. Optional so an older server or a cached
-            catalogue without it reads as "not known".
+            For older app versions, display only, worked out from coatColours
+            and coatPattern (§6). Never filter on it.
           maxItems: 2
           items:
             type: string
             enum: [black, white, ginger, grey, tabby, tortoiseshell_or_calico, black_and_white]
+        coatColours:
+          type: array
+          description: The cat's resolved coat colours (coat-colours-and-pattern.md §6), in display order; [] when not known. Only the value.
+          items: { type: string, enum: [black, grey, brown, ginger, white] }
+        coatPattern:
+          type: string
+          nullable: true
+          enum: [plain, stripes, patches]
+          description: The cat's resolved coat pattern (§6), or null when not known. Only the value.
         markings:
           type: array
           description: |

@@ -273,7 +273,9 @@ describe('T-cache: a catalogue saved by the build before SYC-2 still works', () 
     const described = { ...cat(4), coat: ['ginger', 'tabby'], markings: ['white_paws'] } as Cat;
     const storage = memoryStorage({ [V2]: JSON.stringify([described]) });
     const [c] = (await readCachedCatalogue(storage))!;
-    expect(appearanceLine(c!, (k) => TRANSLATIONS.en[k] ?? k)).toBe('Ginger · Tabby · White paws');
+    // SYC-398 A2 (coat-colours-and-pattern.md §6): an old cached coat is
+    // translated for display, so it never shows the old word "Tabby".
+    expect(appearanceLine(c!, (k) => TRANSLATIONS.en[k] ?? k)).toBe('Ginger · Stripes · White paws');
   });
 
   it('guard for any later bump: if the key changes, catalogue.ts still reads v2 as a fallback', () => {
