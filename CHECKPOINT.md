@@ -9,13 +9,13 @@ Plan: `docs/superpowers/plans/syc-44-report-an-issue.md` PR 6.1 (line 410).
 - SYC-415 already has a small full-size viewer in `SightingPhotos.tsx` for extra photos; 6.1 replaces it with the plan's viewer (photo, date, who spotted it, Close) and opens it from the hero, the sighting cover and the extras.
 
 ## Done
-- [ ] T6-2 server `photoHidden` (test first) + OpenAPI + codegen
-- [ ] PhotoViewer component + T6-1 tile + T6-3 exclusions
-- [ ] cat page wiring
-- [ ] strings en/el/fr
+- [x] T6-2 server `photoHidden` (test first) + OpenAPI + codegen (4454c041; 33/33; probe red)
+- [x] PhotoViewer component + T6-1 tile + T6-3 exclusions (027a8c18)
+- [x] cat page wiring, photoCaption helper, ReportIssueLink (d76b7ce9); app suite 1828/1828; 3 probes red
+- [x] strings en/el/fr (photoViewerSpottedBy, photoHiddenTile, reportIssue, reportIssuePhoto)
 - [ ] tests run, browser check 390/desktop en/el/fr, screenshots
 - [ ] adversarial review (Sonnet, own worktree), fold in
 - [ ] draft PR, Linear comments, SYC-346 strings
 
 ## Next
-Start with T6-2.
+Linear flag comment on SYC-44, then browser check (390/desktop, en/el/fr), screenshots to docs/screenshots/syc-44-pr-6-1/.
