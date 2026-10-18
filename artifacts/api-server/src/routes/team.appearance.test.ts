@@ -1209,6 +1209,126 @@ describe("SYC-398 PR B: the drawn cat itself", () => {
   });
 });
 
+// ── SYC-443 PR 1: team pages say a coat in the old words ───────────────────
+
+describe("SYC-443: the team cat page says the coat in the team's words (§15.1)", () => {
+  const page = async (catId: number, done?: string) =>
+    (await request(app).get(`/api/team/cats/${catId}${done ? `?done=${done}` : ""}`).set("Cookie", cookie)).text;
+  const correct = (catId: number, body: Record<string, unknown>) =>
+    form(`/api/team/cats/${catId}/appearance/correct`).send({ reason: "Looked closely", ...body });
+  const sectionOf = (html: string) => html.slice(html.indexOf('<h2 id="appearance">'));
+
+  it("every place on the page: summary line, photo description, Appearance, drawn cat and history", async () => {
+    const catId = await newCat();
+    expect((await correct(catId, { kind: "coat", colours: ["brown", "ginger"], pattern: "stripes" })).status).toBe(303);
+    const html = await page(catId, "a_coat_corrected");
+    const name = `${PREFIX}cat-`;
+    // The summary line: the label Coat, one chip.
+    expect(html).toContain('<dt>Coat</dt><dd><a href="#appearance"><span class="colourchip">Brown and ginger tabby</span></a>');
+    expect(html).not.toContain("<dt>Colour</dt>");
+    // The main photo's description.
+    expect(html).toMatch(new RegExp(`alt="Photo of ${name}\\d+, Brown and ginger tabby"`));
+    const section = sectionOf(html);
+    // The heading, Confirm's hidden label and the pattern row.
+    expect(section).toContain("<h3>Coat</h3>");
+    expect(section).toContain('<span class="sr"> (Coat)</span>');
+    expect(section).toContain("Pattern</dt><dd>Tabby");
+    expect(section).toContain("Colours</dt><dd>Brown · Ginger");
+    // The statement and the drawn cat.
+    expect(section).toContain("Brown and ginger tabby</p>");
+    expect(section).toContain('aria-label="Brown and ginger tabby"');
+    expect(section).toContain("<strong>Brown and ginger tabby</strong>");
+    // The history, and the team JSON's `said` (changed on purpose, English only).
+    expect(html).toContain("Coat: Brown and ginger tabby");
+    const j = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie).set("Accept", "application/json");
+    expect(j.body.history.find((h: { kind: string }) => h.kind === "coat").said).toBe("Coat: Brown and ginger tabby");
+    for (const bad of ["undefined", "null", "NaN", "<script"]) expect(html, bad).not.toContain(bad);
+  });
+
+  it("What the public sees still shows Brown · Ginger · Stripes", async () => {
+    const catId = await newCat();
+    await correct(catId, { kind: "coat", colours: ["brown", "ginger"], pattern: "stripes" });
+    const section = sectionOf(await page(catId));
+    expect(section).toContain('<h3>What the public sees</h3><p class="public">Brown · Ginger · Stripes</p>');
+  });
+
+  it("an unknown pattern says ', pattern not known' on the summary line and in the photo description", async () => {
+    const catId = await newCat();
+    await team(catId, "coat", { value: { colours: ["black", "white"] }, daysAgo: 1 });
+    const html = await page(catId);
+    expect(html).toContain('<span class="colourchip">Black and white, pattern not known</span>');
+    expect(html).toMatch(/alt="Photo of [^"]+, Black and white, pattern not known"/);
+    expect(sectionOf(html)).toContain("Pattern</dt><dd>Not known");
+  });
+
+  it("a cat with nothing known: Not known, and the photo description leaves the coat out", async () => {
+    const catId = await newCat();
+    const html = await page(catId);
+    expect(html).toContain('<dt>Coat</dt><dd><a href="#appearance">Not known</a>');
+    expect(html).toMatch(new RegExp(`alt="Photo of ${PREFIX}cat-\\d+"`));
+    expect(html).not.toMatch(/Photo of [^"]+, Not known/);
+  });
+
+  it("a pattern-only team Correct's statement says 'Tabby, colours not stated'", async () => {
+    const catId = await newCat();
+    await correct(catId, { kind: "coat", pattern: "stripes" });
+    const html = await page(catId);
+    expect(sectionOf(html)).toContain("Tabby, colours not stated");
+    expect(html).toContain("Coat: Tabby, colours not stated");
+  });
+
+  it("the pattern buttons show the team's words with their hints, and still post the codes", async () => {
+    const catId = await newCat();
+    const section = sectionOf(await page(catId));
+    const labels: Record<string, string> = {
+      plain: "Solid (one colour all over, maybe a little white)",
+      stripes: "Tabby (stripes, swirls or spots)",
+      patches: "Patched (tortoiseshell, calico, black and white…)",
+      none: "Not stated",
+    };
+    for (const [code, label] of Object.entries(labels)) {
+      expect(section).toContain(`name="pattern" value="${code}"${code === "none" ? " checked" : ""}> ${label}</label>`);
+    }
+    expect(section).not.toMatch(/name="pattern" value="(tabby|solid|patched)"/i);
+    // Post exactly what the Tabby button carries: the code, which the write check accepts.
+    const posted = /value="([^"]+)"> Tabby \(stripes/.exec(section)![1]!;
+    expect(posted).toBe("stripes");
+    expect((await correct(catId, { kind: "coat", colours: "ginger", pattern: posted })).status).toBe(303);
+    expect((await rowsFor(catId)).at(-1)!.value).toEqual({ colours: ["ginger"], pattern: "stripes", reason: "Looked closely" });
+  });
+});
+
+describe("SYC-443: the Colour check list and the Cats grid", () => {
+  it("each Colour check line starts 'Coat:' with the team's phrase", async () => {
+    const catId = await newCat();
+    await team(catId, "coat", { value: { colours: ["grey"], pattern: "stripes" }, daysAgo: 20 });
+    await twoSpotters(catId, "markings", { marks: ["long_fur"] });
+    expect(await listed(catId)).toBeDefined();
+    const page = await request(app).get("/api/team/colour-check").set("Cookie", cookie);
+    const row = page.text.slice(page.text.indexOf(`id="c-${catId}"`));
+    const end = row.indexOf('<li class="report colourcheck"', 1);
+    const mine = row.slice(0, end === -1 ? row.length : end);
+    expect(mine).toContain("Coat: Grey tabby · Markings:");
+    expect(mine).not.toMatch(/Colour: |undefined|null/);
+  });
+
+  it("the Cats grid card says the phrase, and Coat not known when nothing is", async () => {
+    const tabby = await newCat();
+    await team(tabby, "coat", { value: { colours: ["ginger"], pattern: "stripes" }, daysAgo: 1 });
+    const blank = await newCat();
+    const nameOf = async (id: number) => (await db.select().from(catsTable).where(eq(catsTable.id, id)))[0]!.name;
+    /** The grid, searched down to the one cat by its name. */
+    const grid = async (id: number) =>
+      (await request(app).get(`/api/team/cats?q=${encodeURIComponent(await nameOf(id))}`).set("Cookie", cookie)).text;
+    const tabbyHtml = await grid(tabby);
+    expect(tabbyHtml).toContain('<span class="cardfact">Ginger tabby</span>');
+    expect(tabbyHtml).toContain(`alt="Photo of ${await nameOf(tabby)}, Ginger tabby"`);
+    const blankHtml = await grid(blank);
+    expect(blankHtml).toContain('<span class="cardfact">Coat not known</span>');
+    expect(blankHtml).toContain(`alt="Photo of ${await nameOf(blank)}"`);
+  });
+});
+
 describe("SYC-398 PR B: the words", () => {
   it("string parity: every new word is in en, el and fr, none empty, and never a breeder's name", async () => {
     const { en } = await import("../lib/teamPages/strings/en");
