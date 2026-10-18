@@ -28,12 +28,14 @@ import {
   resolveLifeStatus,
   resolveMarkings,
   resolveSterilised,
+  resolveVaccinated,
   standingAboveTeam,
   standingAppearanceRows,
   type AppearanceCheckReason,
   type AppearanceResolved,
   type Confidence,
   type LifeStatusValue,
+  type VaccinationRecord,
 } from "./resolve";
 import { recentGuardianMark } from "./guardianStatements";
 import { handPickDisagrees, handPickedAmong } from "./handPick";
@@ -159,6 +161,11 @@ const MARK: Record<string, string> = {
   odd_eyes: "eyes of different colours",
 };
 
+/** The two things a spotter's sighting says that mean all is well (SYC-396
+ * PR 1.4: the cat page's history groups only these). */
+export const FOOD_AND_WATER_OUT = "Food and water were out";
+export const EAR_TIP_NOT_CLIPPED = "Ear tip not clipped";
+
 const str = (v: unknown): string | null =>
   typeof v === "string" && v.trim() !== "" ? v : null;
 
@@ -199,12 +206,12 @@ export function describeStatement(
           return `Agreed the ear tip is clipped${side}, in the photo of #${v["agreesWith"]}`;
         return `Ear tip clipped${side}`;
       }
-      if (v["clipped"] === false) return "Ear tip not clipped";
+      if (v["clipped"] === false) return EAR_TIP_NOT_CLIPPED;
       return "Couldn't tell whether the ear is clipped";
     }
     case "food_and_water":
       return v["present"] === true
-        ? "Food and water were out"
+        ? FOOD_AND_WATER_OUT
         : v["present"] === false
           ? "No food or water"
           : "Couldn't tell about food and water";
@@ -294,6 +301,11 @@ export interface TeamStatement {
   /** Set when this statement replaced one on a different cat: where it came from. */
   movedFrom: { statementId: number; cat: TeamCatRef } | null;
   photoUrl: string | null;
+  /**
+   * The sighting it was sent with, or null (SYC-396 PR 1.4): the history
+   * counts a run of routine spotter rows by their sightings.
+   */
+  sightingId: number | null;
   /**
    * How the team may mark it wrong (PR 4), or null. Only a standing
    * statement of a kind with a team capability: a life status, a
@@ -416,6 +428,8 @@ export interface TeamAppearanceStatement {
 export interface TeamCoatPart<T> {
   value: T | null;
   confidence: Confidence;
+  /** The statements this part rests on (SYC-396 PR 1.4: who set the colours). */
+  supportingStatementIds?: number[];
 }
 
 export interface TeamAppearance {
@@ -479,6 +493,8 @@ export interface TeamCatView {
       notSeenSince: string | null;
     };
     sterilised: TeamResolved<boolean> & { clippedTipSightings: number };
+    /** The vaccinations the team recorded, newest first (spec §7.1, team only). Empty: none recorded. */
+    vaccinations: VaccinationRecord[];
   };
   /**
    * Colour and markings, team-only (SYC-2 PR 3.1): what the resolver says,
@@ -858,6 +874,7 @@ export async function teamCatView(
       movedTo: crossCat.movedTo.get(o.id) ?? null,
       movedFrom: crossCat.movedFrom.get(o.id) ?? null,
       photoUrl: urlFor(o.photoId),
+      sightingId: o.sightingId ?? null,
       correction: correctionOf(o, replacedBy.has(o.id)),
       // Only this cat's own claim: Remove owner is scoped to it. A merged-in
       // cat's claim is ended from that cat's page.
@@ -927,6 +944,7 @@ export async function teamCatView(
         conflictingStatementIds: sterilised.conflicts,
         clippedTipSightings: clippedTipCount(observations),
       },
+      vaccinations: resolveVaccinated(observations),
     },
     appearance: {
       coat: appearanceOf(observations, "coat", coat, replacedIds, people, urlFor),
@@ -1087,8 +1105,16 @@ function appearanceOf(
     ...(parts
       ? {
           parts: {
-            colours: { value: parts.colours.value, confidence: parts.colours.confidence },
-            pattern: { value: parts.pattern.value, confidence: parts.pattern.confidence },
+            colours: {
+              value: parts.colours.value,
+              confidence: parts.colours.confidence,
+              supportingStatementIds: parts.colours.supportingObservationIds,
+            },
+            pattern: {
+              value: parts.pattern.value,
+              confidence: parts.pattern.confidence,
+              supportingStatementIds: parts.pattern.supportingObservationIds,
+            },
           },
         }
       : {}),

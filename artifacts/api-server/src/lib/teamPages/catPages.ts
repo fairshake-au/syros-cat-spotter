@@ -6,6 +6,7 @@ import type {
   TeamResolved,
   TeamStatement,
 } from "../teamCatView";
+import { EAR_TIP_NOT_CLIPPED, FOOD_AND_WATER_OUT } from "../teamCatView";
 import type { Capability } from "../capabilities";
 import type { QueueReport } from "../welfareQueue";
 import { escapeHtml as esc } from "./escape";
@@ -13,6 +14,11 @@ import { renderPage } from "./layout";
 import { position } from "./position";
 import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
+import { coatWordsOf, renderCatFacts } from "./catFacts";
+import { fitView, renderMap, type MapMarker } from "./map";
+import { BANDS, pointOnView } from "../mapTiles/geometry";
+import { rowMenu } from "./rowMenu";
+import { placeLabel } from "../areas/placeLabel";
 
 // The team's "Cats" screens (SYC-43 part 2 plan, PR 3): finding a cat, and
 // the team's page for one cat. Read-only. Server-drawn, no scripts. Every
@@ -25,13 +31,6 @@ export const LIFE: Record<LifeStatusValue, string> = {
   homed: "Has a home",
   in_care: "In Syros Cats' care",
   deceased: "No longer with us",
-};
-
-const CONFIDENCE: Record<Confidence, string> = {
-  confirmed: "confirmed",
-  likely: "likely",
-  reported: "reported",
-  unknown: "not known",
 };
 
 /** Dates on Syros: the team reads them in Greek time. */
@@ -64,14 +63,16 @@ const time = (iso: string, text = when(iso)) =>
 // Two buttons on each sighting (SYC-209 PR 3.4). Each is a POST form that
 // carries only the sighting's number: the server looks the position up, so no
 // position is ever in an address (K13). They replace the removed link to a map
-// company, and the page must never have both.
-const sightingButtons = (sightingId: number, may: (c: Capability) => boolean) =>
-  (may("add_feeding_site")
+// company, and the page must never have both. Since SYC-396 PR 1.4 they sit in
+// the sighting's "More" menu (spec §7.3).
+const sightingButtons = (sightingId: number, may: (c: Capability) => boolean): string[] => [
+  may("add_feeding_site")
     ? `<form method="post" action="/api/team/sites/from-sighting" class="sightact"><input type="hidden" name="sightingId" value="${sightingId}"><button type="submit">${esc(t("sighting.makeSite"))}</button></form>`
-    : "") +
-  (may("view_exact_location")
+    : "",
+  may("view_exact_location")
     ? `<form method="post" action="/api/team/sites/map-at-sighting#map" class="sightact"><input type="hidden" name="sightingId" value="${sightingId}"><button type="submit">${esc(t("sighting.showOnMap"))}</button></form>`
-    : "");
+    : "",
+];
 
 const row = (label: string, value: string) =>
   `<dt>${esc(label)}</dt><dd>${value}</dd>`;
@@ -88,7 +89,7 @@ function publicSterilisedText(s: { value: boolean | null; confidence: Confidence
   return "Not known yet";
 }
 
-/** The records' own answer, short: its confidence is shown beside it. */
+/** The records' own answer, short, its uncertainty in the words (spec §7.2: no tag beside it). */
 function sterilisedText(s: { value: boolean | null; confidence: Confidence }): string {
   if (s.value === null || s.confidence === "unknown") return "Not known yet";
   if (s.value) {
@@ -173,7 +174,7 @@ function recordBlock<T>(
 ): string {
   return (
     `<h3>${esc(label)}</h3><dl>` +
-    row("Status", `${esc(valueText)} <span class="tag">${esc(CONFIDENCE[r.confidence])}</span>`) +
+    row("Status", esc(valueText)) +
     row("Since", time(r.asOf, day(r.asOf))) +
     row("Why we think so", statementRefs(r.supportingStatementIds, byId, shown)) +
     (r.conflictingStatementIds.length
@@ -394,6 +395,8 @@ export interface CatPageOptions {
    * positions get an "Open map" link (D9). Left out means no link.
    */
   island?: boolean;
+  /** "Now", for "3 days ago" and the history's dates; tests pin it. */
+  now?: Date;
 }
 
 /**
@@ -532,18 +535,161 @@ function correctionForms(
   return (
     '<h2 id="corrections">Update this cat</h2>' +
     notice +
-    '<p class="hint">Every change is saved with your name. Nothing is deleted. A change with an older date won\'t override a newer one. To undo a change, use <strong>Mark wrong</strong> on it in the history below.</p>' +
-    `<div class="fixes">${forms.join("")}</div>`
+    `<div class="fixes">${forms.join("")}</div>` +
+    // How changes work, folded into a short note you can open (spec §7.2), in #192's words.
+    '<details class="hownote"><summary>How changes work</summary>' +
+    '<p class="hint">Every change is saved with your name. Nothing is deleted. A change with an older date won\'t override a newer one. To undo a change, use <strong>Mark wrong</strong> on it in the history below.</p></details>'
   );
 }
 
 /**
- * The record and "Update this cat" side by side on a wide screen, one
- * under the other on a phone. Without the forms, the record alone.
+ * The summary and "Update this cat" side by side on a wide screen, one under
+ * the other on a phone (spec §7.1–7.2). Without the forms, the summary alone.
  */
-function sideBySide(record: string, fixes: string): string {
-  if (!fixes.includes('id="corrections"')) return record + fixes;
-  return `<div class="twocol"><div>${record}</div><div>${fixes}</div></div>`;
+function summaryAndActions(summary: string, fixes: string): string {
+  if (!fixes.includes('id="corrections"')) return `<div class="catsummary"><div>${summary}</div></div>` + fixes;
+  return `<div class="catsummary"><div>${summary}</div><div class="catactions">${fixes}</div></div>`;
+}
+
+// ── The history's routine sightings (spec §7.3) ─────────────────────────────
+
+/**
+ * A routine row: something a spotter's sighting said that means all is well,
+ * "Food and water were out" or "Ear tip not clipped". "No food or water" and
+ * "Couldn't tell" are never folded under "looking well". Status, colony,
+ * colour, name, notes, welfare reports and vet visits are never routine, nor
+ * a clipped ear (it counts towards "Probably"), nor anything corrected or
+ * correcting.
+ */
+export function isRoutine(s: TeamStatement): boolean {
+  if (s.author.kind !== "spotter") return false;
+  if (s.replacedBy.length > 0 || s.replaces != null || s.movedTo || s.movedFrom) return false;
+  if (s.kind === "food_and_water") return s.said === FOOD_AND_WATER_OUT;
+  return s.kind === "ear_tip" && s.correction === null && s.said === EAR_TIP_NOT_CLIPPED;
+}
+
+type HistoryPart = { one: TeamStatement } | { run: TeamStatement[] };
+
+/** The history in order, with each run of two or more routine rows as one part. */
+export function groupHistory(rows: readonly TeamStatement[]): HistoryPart[] {
+  const parts: HistoryPart[] = [];
+  let run: TeamStatement[] = [];
+  const flush = () => {
+    if (run.length === 1) parts.push({ one: run[0]! });
+    else if (run.length > 1) parts.push({ run });
+    run = [];
+  };
+  for (const s of rows) {
+    if (isRoutine(s)) run.push(s);
+    else {
+      flush();
+      parts.push({ one: s });
+    }
+  }
+  flush();
+  return parts;
+}
+
+const dayMonth = (iso: string, withYear: boolean) =>
+  new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    ...(withYear ? { year: "numeric" } : {}),
+    timeZone: "Europe/Athens",
+  });
+
+const yearOf = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { year: "numeric", timeZone: "Europe/Athens" });
+
+/**
+ * "Seen 19 times by spotters between 29 Jul and 24 Sep, looking well". Counted
+ * by sighting: one sighting can say two routine things. The year is added
+ * when the run isn't all in this year.
+ */
+export function runWords(run: readonly TeamStatement[], now: Date): string {
+  const times = new Set(run.map((s) => (s.sightingId === null ? `row ${s.id}` : `sighting ${s.sightingId}`))).size;
+  // The earliest and latest dates seen. The history is in the order sightings
+  // were matched, which isn't always the order they were seen.
+  const seen = run.map((s) => s.observedAt).sort((a, b) => Date.parse(a) - Date.parse(b));
+  const first = seen[0]!;
+  const last = seen[seen.length - 1]!;
+  const thisYear = yearOf(now.toISOString());
+  const withYear = yearOf(first) !== thisYear || yearOf(last) !== thisYear;
+  const from = dayMonth(first, withYear);
+  const to = dayMonth(last, withYear);
+  if (times === 1) return `Seen once by a spotter on ${to}, looking well`;
+  return from === to
+    ? `Seen ${times} times by spotters on ${to}, looking well`
+    : `Seen ${times} times by spotters between ${from} and ${to}, looking well`;
+}
+
+// ── The small map of the cat's sightings (spec §7.1) ────────────────────────
+
+/** How many sightings the small map numbers: the newest, so it stays readable. */
+export const MAP_SIGHTINGS = 30;
+
+/**
+ * The cat's sightings on the same composed map picture as the rest of the
+ * dashboard, numbered in time order (1 is the oldest shown), each marker a
+ * link to its row in Sightings. No script; no position in any address.
+ */
+function sightingsMap(v: TeamCatView): string {
+  if (v.sightings.length === 0) return "";
+  const shown = v.sightings.slice(0, MAP_SIGHTINGS).reverse();
+  const markers: MapMarker[] = shown.map((s, i) => ({
+    lat: s.lat,
+    lng: s.lng,
+    n: i + 1,
+    look: "seen",
+    label: `Sighting ${i + 1}, ${when(s.at)}`,
+    href: `#sg-${s.id}`,
+  }));
+  const more = v.sightings.length > shown.length;
+  const view = fitView(shown);
+  let map: string;
+  try {
+    map = renderMap({ mode: "view", view, markers, controls: false });
+  } catch (e) {
+    // Only a picture that can't be signed (no session key) is shown as "not
+    // available", with the rest of the page (spec §13). Anything else is a bug.
+    if (!(e instanceof Error && e.message.includes("TEAM_SESSION_KEYS"))) throw e;
+    return '<p class="hint catmap">The map isn\'t available right now. The sightings are listed below.</p>';
+  }
+  // Sightings too far apart for one picture are said, never silently dropped.
+  const drawn = shown.filter((s) => pointOnView(view, BANDS[0].size, s) !== null).length;
+  return (
+    '<div class="catmap">' +
+    map +
+    `<p class="hint">${
+      more
+        ? `The newest ${shown.length} of ${v.sightings.length} sightings, numbered oldest first.`
+        : `Sightings numbered oldest first.`
+    }${
+      drawn < shown.length
+        ? ` ${shown.length - drawn} ${shown.length - drawn === 1 ? "is" : "are"} too far from the others to fit on this map; see Sightings below.`
+        : ""
+    }</p>` +
+    // The island Map, opened on this cat's numbered trail (PR 1.5). Only the
+    // cat's number is in the address: never a position or a name.
+    `<p class="maplink"><a class="tap" href="/api/team/cats?view=map&amp;focus=${v.cat.id}">Open the full map</a></p></div>`
+  );
+}
+
+/** Any other photos as a thin strip under the main one (spec §7.1). */
+function photoStrip(v: TeamCatView): string {
+  const others = v.photos.filter((p) => p.url !== v.cat.mainPhotoUrl);
+  if (others.length === 0) return "";
+  return (
+    '<ul class="photostrip" aria-label="Other photos">' +
+    others
+      .slice(0, 8)
+      .map(
+        (p, i) =>
+          `<li><a href="#p-${esc(p.publicId)}"><img src="${esc(`${p.url}/small`)}" alt="${esc(`Other photo ${i + 1}`)}" loading="lazy" width="56" height="56"></a></li>`,
+      )
+      .join("") +
+    (others.length > 8 ? `<li><a class="more" href="#photos">+${others.length - 8}</a></li>` : "") +
+    "</ul>"
+  );
 }
 
 export function renderCatPage(
@@ -554,6 +700,7 @@ export function renderCatPage(
   const { cat, records } = v;
   const may = opts.may ?? (() => false);
   const island = opts.island === true;
+  const now = opts.now ?? new Date();
   // The message goes where the page lands: beside the statement after a
   // correction, at the top of "Update this cat" after the other forms.
   // Own keys only: ?done=constructor must not reach Object.prototype.
@@ -574,23 +721,34 @@ export function renderCatPage(
       ? null
       : new Set(newest.map((h) => h.id));
   const mainHidden = v.photos.find((p) => p.source === "main")?.hidden ?? null;
+  const coat = coatWordsOf(v);
   const main =
     (cat.mainPhotoUrl
-      ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="Main photo of ${esc(cat.name)}">`
+      ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="${esc(`Photo of ${cat.name}${coat.length ? `, ${coat.join(" · ")}` : ""}`)}">`
       : '<div class="nophoto">No photo</div>') +
     (mainHidden
       ? '<p class="hiddenby">The main photo is hidden from the public. They see the newest photo of this cat that isn\'t hidden, or no photo if every one is. See <a href="#photos">All photos</a>.</p>'
-      : "");
+      : "") +
+    photoStrip(v);
   const clipped = records.sterilised.clippedTipSightings;
 
-  const overview =
+  // The answer first (spec §7.1): photo, the facts, the small map, and what
+  // the public sees in one line.
+  const summary =
     main +
     (cat.description ? `<p>${esc(cat.description)}</p>` : "") +
-    "<h2>What the public sees</h2>" +
-    `<p class="public">${esc(publicStatusText(v.publicStatus))}</p>` +
-    "<h2>What we know about this cat</h2>" +
-    '<p class="hint">Team only. How we got to what the public sees.</p>' +
     guardianMarkNotice(v, byId, shown) +
+    renderCatFacts(v, now) +
+    sightingsMap(v) +
+    `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`;
+
+  // The evidence behind the facts, folded (spec §7.3). It opens by itself when
+  // something says otherwise, so a disagreement is never hidden.
+  const conflicts =
+    records.lifeStatus.conflictingStatementIds.length + records.sterilised.conflictingStatementIds.length > 0;
+  const known =
+    `<details class="evidence"${conflicts ? " open" : ""}><summary><h2>What we know about this cat</h2></summary>` +
+    '<p class="hint">Team only. How we got to what the public sees.</p>' +
     recordBlock(
       "Life",
       records.lifeStatus,
@@ -648,11 +806,13 @@ export function renderCatPage(
         : "Not in a colony",
     ) +
     "</dl>" +
-    "<h2>First recorded</h2><dl>" +
+    "<h3>First recorded</h3><dl>" +
     row("Where", position(cat.lat, cat.lng, { link: island })) +
     row("When", time(cat.createdAt)) +
-    "</dl>";
+    "</dl></details>";
 
+  // A compact list: date, place and thumbnail. The position, "Open map" and
+  // the two buttons fold into each sighting's "More" menu (spec §7.3).
   const sightings =
     `<h2>Sightings (${v.sightings.length})</h2>` +
     (v.sightings.length === 0
@@ -661,14 +821,18 @@ export function renderCatPage(
         v.sightings
           .map(
             (s) =>
-              "<li>" +
+              `<li id="sg-${s.id}">` +
               (s.photoUrl
                 ? `<a href="${esc(s.photoUrl)}"><img class="thumb" src="${esc(s.photoUrl)}" alt="${esc(`Photo from the sighting on ${when(s.at)}`)}" loading="lazy"></a>`
                 : '<span class="thumb nothumb">No photo</span>') +
-              `<span>${time(s.at)}<br>${position(s.lat, s.lng, { link: island })}` +
+              `<span class="sightwhat">${time(s.at)}<br>${esc(placeLabel(s))}` +
               // SYC-415 spec §4.5: the matcher thought this spot's photos may be of more than one cat.
               (s.mixedCats ? '<br><span class="mixed">May show more than one cat</span>' : "") +
-              `${sightingButtons(s.id, may)}</span></li>`,
+              rowMenu("More", `the sighting on ${when(s.at)}`, [
+                `<p class="meta">${position(s.lat, s.lng, { link: island })}</p>`,
+                ...sightingButtons(s.id, may),
+              ]) +
+              "</span></li>",
           )
           .join("") +
         "</ul>");
@@ -697,12 +861,32 @@ export function renderCatPage(
           .join("") +
         "</div>");
 
+  const evidenceIds = new Set([
+    ...records.lifeStatus.supportingStatementIds,
+    ...records.lifeStatus.conflictingStatementIds,
+    ...records.sterilised.supportingStatementIds,
+    ...records.sterilised.conflictingStatementIds,
+  ]);
+  const item = (s: TeamStatement) =>
+    statementItem(s, byId, shown, may, atStatement && s.id === opts.at ? notice : "");
+  const historyItems = groupHistory(shown === null ? v.history : newest)
+    .map((part) => {
+      if ("one" in part) return item(part.one);
+      // A run opens by itself when the page lands on one of its rows, or when
+      // "Why we think so" or "Says otherwise" above links to one of them.
+      const open = part.run.some((s) => (atStatement && s.id === opts.at) || evidenceIds.has(s.id));
+      return (
+        `<li class="statement routine"><details${open ? " open" : ""}><summary>${esc(runWords(part.run, now))}</summary>` +
+        `<ol class="history">${part.run.map(item).join("")}</ol></details></li>`
+      );
+    })
+    .join("");
   const history =
     `<h2 id="history">History (${v.history.length})</h2>` +
     '<p class="hint">Newest first. A change marked wrong stays here, crossed out, with what replaced it.</p>' +
     (v.history.length === 0
       ? '<p class="empty">No changes yet.</p>'
-      : `<ol class="history">${(shown === null ? v.history : newest).map((s) => statementItem(s, byId, shown, may, atStatement && s.id === opts.at ? notice : "")).join("")}</ol>` +
+      : `<ol class="history">${historyItems}</ol>` +
         (shown === null
           ? ""
           : `<p class="more"><a class="tap" href="?history=all#history">Show all ${v.history.length}</a></p>`));
@@ -715,7 +899,8 @@ export function renderCatPage(
     afterTitle: `<p class="syrline">${esc(cat.syr)}</p>`,
     mainClass: "wide",
     body:
-      sideBySide(overview, correctionForms(v, may, formsNotice, opts.colonies)) +
+      summaryAndActions(summary, correctionForms(v, may, formsNotice, opts.colonies)) +
+      known +
       renderAppearanceSection(v, may, opts.done) +
       sightings +
       photos +

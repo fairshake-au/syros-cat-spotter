@@ -341,6 +341,8 @@ export const en = {
   "colony.noPhoto": "No photo",
   "colony.addCats": "Add cats",
   "colony.takeOut": "Take out of this colony",
+  // The menu on each cat in a colony (SYC-396 PR 1.4).
+  "colony.more": "More",
   "colony.takeOutNote": "The cat stays in the records; it just isn't in any colony.",
 
   "add.title": "Add cats to",

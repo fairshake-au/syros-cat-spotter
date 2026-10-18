@@ -151,6 +151,38 @@ form.takeout button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px
 .public{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:0;font-weight:700}
 form.sightact{margin:6px 0 0}
 form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
+/* The cat page's summary (SYC-396 spec §7.1): the plain facts, the strip of photos, the small map. */
+.catfacts{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:12px 0}
+.catfacts .fact{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px 12px}
+.catfacts dt{margin:0;font-size:13px;font-weight:700;color:#55524a}
+.catfacts dd{margin:2px 0 0;font-size:16px;overflow-wrap:anywhere}
+.catfacts .mark{font-weight:400;align-items:flex-start}
+.catfacts .mark-icon{margin-top:3px}
+.colourchip{display:inline-block;font-size:14px;border:1px solid #8a877e;border-radius:999px;padding:1px 10px;margin:0 2px 2px 0;color:#1d1d1b;background:#fff}
+.catfacts a:has(.colourchip){text-decoration:none}
+.publicline{font-size:14px;color:#3b3930;margin:8px 0 16px}
+.publicline .public{display:inline;background:none;border:0;padding:0;font-weight:400}
+/* The folds this page adds show which way they open. */
+details.evidence>summary::before,li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}
+details.evidence>summary::-webkit-details-marker,li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
+details.evidence[open]>summary::before,li.statement.routine>details[open]>summary::before,.hownote[open]>summary::before{content:"▾"}
+.photostrip{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.photostrip img{display:block;width:56px;height:56px;object-fit:cover;border-radius:4px;background:#ece8dc}
+.photostrip .more{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border:1px solid #d9d5ca;border-radius:4px;font-size:14px}
+.catmap{margin:8px 0}
+.catmap .hint{margin:4px 0 0}
+details.evidence{margin:16px 0}
+details.evidence>summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+details.evidence>summary h2{display:inline;margin:0}
+.hownote{margin:8px 0}
+.hownote summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:#0b4553}
+/* One "More" menu per row: a sighting's actions, or taking a cat out of a colony. */
+.rowmenu{margin:4px 0 0}
+.rowmenu>summary{cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid #0b5c6b;border-radius:8px;color:#0b4553;font-weight:700;background:#fff}
+.rowmenuitems{padding:6px 0 0}
+.rowmenuitems .meta{margin:0 0 4px}
+li.statement.routine>details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
+li.statement.routine ol.history{margin:4px 0 0}
 ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;font-size:15px;overflow-wrap:anywhere}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
 .gallery figure{margin:0;display:flex;flex-direction:column;gap:6px;scroll-margin-top:12px}
@@ -231,6 +263,11 @@ span.pin{pointer-events:none}
 .pin.site-public{background:#b3261e}
 .pin.site-private{background:rgba(255,255,255,.55)}
 .pin.site-retired{border-color:#8a877e;background:#d9d5ca}
+/* A cat's own sightings on its page (SYC-396 PR 1.4): numbered dark-ink circles with a light ring. */
+.pin.seen{width:24px;height:24px;margin:-12px 0 0 -12px;border:1px solid #1d1d1b;background:#1d1d1b;box-shadow:0 0 0 2px #fff;display:flex;align-items:center;justify-content:center;text-decoration:none}
+/* A 44px tap area round each 24px marker (spec §12.4). */
+.pin.seen::after{content:"";position:absolute;inset:-10px}
+.pinnum{color:#fff;font-size:12px;font-weight:700;line-height:1}
 .pin.sighting{border:3px dashed #1a56a6;border-radius:4px;background:transparent}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .attrib{margin:4px 0 8px;font-size:12px;color:#55524a}
@@ -359,10 +396,11 @@ details.filters>summary{display:none}
 .fpanel{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 24px;margin-top:0}
 }
 }
-/* A big screen: a wide page puts the record beside the forms that change it. */
+/* A big screen: the cat page's summary beside "Update this cat"; the evidence below uses the full width (SYC-396 spec §7.3). */
 @media (min-width:1000px){
-.twocol{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 32px;align-items:start}
-.twocol>div>h2:first-child,.twocol>div>:first-child{margin-top:12px}
+.catsummary{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:0 32px;align-items:start}
+.catsummary>div>h2:first-child,.catsummary>div>:first-child{margin-top:12px}
+.catfacts{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 `;
 

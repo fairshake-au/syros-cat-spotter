@@ -29,6 +29,7 @@ const statement = (id: number, over: Partial<TeamStatement> = {}): TeamStatement
   ownerClaim: false,
   movedFrom: null,
   photoUrl: null,
+  sightingId: null,
   correction: null,
   ...over,
 });
@@ -67,6 +68,7 @@ function ownedCatView(): TeamCatView {
     records: {
       lifeStatus: { ...resolved([1], [2]), presumedDeceased: false, notSeenSince: null },
       sterilised: { ...resolved([1], [2]), clippedTipSightings: 0 },
+      vaccinations: [],
     },
     // SYC-2 PR 3.1: no colour or markings known.
     appearance: {

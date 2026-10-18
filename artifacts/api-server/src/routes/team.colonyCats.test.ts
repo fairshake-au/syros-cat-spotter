@@ -478,6 +478,10 @@ describe("test 15 (team half): taking a cat out of a colony", () => {
     expect(html).toContain(`action="/api/team/cats/${cat}/colony"`);
     expect(html).toContain(`name="from" value="${a}"`);
     expect(html).toContain("Take out of this colony");
+    // SYC-396 PR 1.4: in the cat's own "More" menu, not a red button on every row.
+    const menu = /<details class="rowmenu"><summary>More<span class="sr"> \([^)]*From-cat[^)]*\)<\/span><\/summary>[\s\S]*?<\/details>/.exec(html);
+    expect(menu?.[0]).toContain(`action="/api/team/cats/${cat}/colony"`);
+    expect(html.replace(menu![0], "")).not.toContain("Take out of this colony");
 
     // Someone moves the cat to B; then the stale page's button is pressed.
     await moveCat(cat, b);

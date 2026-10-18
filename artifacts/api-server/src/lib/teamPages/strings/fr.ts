@@ -308,6 +308,8 @@ export const fr: Record<StringKey, string> = {
   "colony.noPhoto": "Pas de photo",
   "colony.addCats": "Ajouter des chats",
   "colony.takeOut": "Retirer de cette colonie",
+  // The menu on each cat in a colony (SYC-396 PR 1.4).
+  "colony.more": "Plus",
   "colony.takeOutNote": "Le chat reste dans les dossiers ; il n’est simplement dans aucune colonie.",
 
   "add.title": "Ajouter des chats à",
