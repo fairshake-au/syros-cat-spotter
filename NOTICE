@@ -1,0 +1,8 @@
+Required Notice: Copyright 2026 Fair Shake (https://github.com/fairshake-au/syros-cat-spotter)
+
+This software is licensed under the PolyForm Noncommercial License 1.0.0
+(LICENSE.md). Charities, personal and other noncommercial use is free.
+For commercial use, ask Fair Shake for permission.
+
+Third-party code keeps its own licence. That includes the patched
+dependencies in patches/, which carry their upstream licences.
