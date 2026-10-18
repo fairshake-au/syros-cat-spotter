@@ -2,7 +2,7 @@
 
 **Spec:** `docs/specs/coat-colours-and-pattern.md` §15, approved by Samuel on 18 October 2026 ("approved"), with T1A–T6A.
 **Ticket:** SYC-443 (child of SYC-398). Folds in **SYC-436** (guardian pages), because T1A gives guardians the team words.
-**Status:** for Samuel's approval. Nothing is built until he approves. Revised after an independent review (see the end).
+**Status:** **approved by Samuel, 18 October 2026** ("approve the plan, start PR 1"). Revised after an independent review (see the end).
 
 ## In plain English (for Samuel)
 
