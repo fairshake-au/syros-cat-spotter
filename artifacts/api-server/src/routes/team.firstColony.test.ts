@@ -72,7 +72,8 @@ beforeEach(() => {
 afterAll(async () => {
   delete process.env["TEAM_SESSION_KEYS"];
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
-  for (const e of made) await removeTestPerson(e);
+  // Someone with history (a colony they created) stays; the run's database is dropped after.
+  for (const e of made) await removeTestPerson(e).catch(() => undefined);
   await pool.end();
 });
 

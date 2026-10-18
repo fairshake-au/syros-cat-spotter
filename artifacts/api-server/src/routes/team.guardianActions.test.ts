@@ -119,10 +119,10 @@ describe("a cat guardian creates a colony, and it is hers at once", () => {
     expect((await get(`/api/team/colonies/${id}`, staffCookie, "json")).status).toBe(200);
   });
 
-  it("a name already used: only \"That name can't be used\", no link, no colony named", async () => {
+  it("a name already used: \"Another colony already has that name\" (SYC-439), no link, no colony named", async () => {
     const res = await post("/api/team/colonies", { name: C2_NAME }, eleni.cookie, "browser");
     expect(res.status).toBe(409);
-    expect(res.text).toContain("That name can");
+    expect(res.text).toContain("Another colony already has that name. Choose a different one.");
     expect(res.text).not.toContain(XQ);
     expect(res.text).not.toContain(`/api/team/colonies/${c2}`);
     const json = await post("/api/team/colonies", { name: C2_NAME }, eleni.cookie);

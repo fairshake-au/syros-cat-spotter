@@ -537,11 +537,12 @@ describe("what a guardian does see: her own colonies, in full", () => {
     expect(team.map((c) => c.id)).toEqual(expect.arrayContaining([c1, c2]));
   });
 
-  it("the name-clash message names no colony she doesn't hold: 'That name can't be used', no link", () => {
+  it("the name-clash message names no colony she doesn't hold, and links none", () => {
     const html = decoded(renderNameTaken("Eleni", null, { href: "/api/team/colonies", label: "Back" }, { island: false }));
-    expect(html).toContain("That name can't be used.");
+    // SYC-439 (first-colony spec §3, §7): true from where she stands; that a
+    // colony by that name exists somewhere is all it says, as before.
+    expect(html).toContain("Another colony already has that name. Choose a different one.");
     expect(html).not.toContain("/api/team/colonies/");
-    expect(html).not.toContain("Another colony");
   });
 });
 
