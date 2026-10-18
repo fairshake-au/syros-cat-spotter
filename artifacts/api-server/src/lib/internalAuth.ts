@@ -66,3 +66,31 @@ export function checkMailDrainToken(
     ? "ok"
     : "unauthorized";
 }
+
+/**
+ * SYC-45 Slice 1 (syc-344-email-capture.md, PR 1.1): `NEWS_JOB_TOKEN`, the
+ * nightly news check's own token, like MAIL_DRAIN_TOKEN. It opens exactly
+ * these two paths and nothing else, and neither other token opens them:
+ * - POST /api/internal/news/nightly (run tonight's check, once per Athens
+ *   night whoever calls), and
+ * - GET /api/internal/news/last-run (the Worker's "no run in 36 hours"
+ *   alarm).
+ * A leaked token can at worst run a check that sends nothing. Held only in
+ * Replit's deployment secrets, the mail-drain-cron Worker and the GitHub
+ * `production` environment; never in a file.
+ */
+export const NEWS_NIGHTLY_PATH = "/api/internal/news/nightly";
+export const NEWS_LAST_RUN_PATH = "/api/internal/news/last-run";
+
+export function checkNewsJobToken(
+  authorization: string | undefined,
+): InternalAuthResult {
+  const expected = process.env["NEWS_JOB_TOKEN"] ?? "";
+  if (!expected) return "not_configured";
+  const match = /^Bearer (.+)$/i.exec(authorization ?? "");
+  const supplied = match?.[1] ?? "";
+  if (!supplied) return "unauthorized";
+  return timingSafeEqual(sha256(expected), sha256(supplied))
+    ? "ok"
+    : "unauthorized";
+}
