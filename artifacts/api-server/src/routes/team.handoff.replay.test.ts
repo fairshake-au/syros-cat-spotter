@@ -54,7 +54,7 @@ describe("SYC-353: a replayed pass from a browser already signed in as that pers
     expect(first.status).toBe(303);
     const cookie = (first.headers["set-cookie"] as unknown as string[])[0]!.split(";")[0]!;
     const again = await handoff(token, cookie);
-    expect([again.status, again.headers["location"]]).toEqual([303, "https://team.catspotters.com/api/team/"]);
+    expect([again.status, again.headers["location"]]).toEqual([303, "https://team.catspotters.com/api/team/home"]);
     expect(again.headers["set-cookie"]).toBeUndefined();
     // Without the cookie it is the replay it always was.
     const bare = await handoff(token);

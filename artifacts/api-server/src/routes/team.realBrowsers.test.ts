@@ -60,7 +60,7 @@ vi.mock("../lib/teamAuth/config", async (importOriginal) => {
   return {
     ...real,
     TEAM_ORIGIN: local.origin,
-    TEAM_HOME: `${local.origin}/api/team/`,
+    TEAM_HOME: `${local.origin}/api/team/home`,
     // Where sign-out sends the browser. A page of the local server, so the
     // redirect can be followed and seen.
     SIGN_IN_PAGE: `${local.origin}/api/signed-out`,

@@ -158,7 +158,7 @@ describe("accepting, and the pending cookie afterwards (review minor 7)", () => 
     const pendingCookie = cookies[0]!;
     const res = await post("/api/team/my/accept", pendingCookie, { name: "  Eleni P.  " });
     expect(res.status).toBe(303);
-    expect(res.headers["location"]).toBe("https://team.catspotters.com/api/team/");
+    expect(res.headers["location"]).toBe("https://team.catspotters.com/api/team/home");
     const set = res.headers["set-cookie"] as unknown as string[];
     expect(set.find((c) => c.startsWith(`${INVITE_COOKIE}=;`))).toBeDefined();
     const team = set.find((c) => c.startsWith(`${SESSION_COOKIE}=`) && !c.startsWith(`${SESSION_COOKIE}=;`))!.split(";")[0]!;
@@ -196,7 +196,7 @@ describe("accepting, and the pending cookie afterwards (review minor 7)", () => 
     const first = await post("/api/team/my/accept", pending);
     const team = (first.headers["set-cookie"] as unknown as string[]).find((c) => c.startsWith(`${SESSION_COOKIE}=`) && !c.startsWith(`${SESSION_COOKIE}=;`))!.split(";")[0]!;
     const second = await post("/api/team/my/accept", team);
-    expect([second.status, second.headers["location"]]).toEqual([303, "https://team.catspotters.com/api/team/"]);
+    expect([second.status, second.headers["location"]]).toEqual([303, "https://team.catspotters.com/api/team/home"]);
     expect(await eventKinds(p.id)).toEqual(["invited", "invite_sent", "accepted"]);
   });
 

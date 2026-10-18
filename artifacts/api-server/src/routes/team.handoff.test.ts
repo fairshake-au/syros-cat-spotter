@@ -88,7 +88,7 @@ describe("a good pass", () => {
     const res = await handoff(mint(key, claimsFor(personId)));
     expect(res.status).toBe(303);
     expect(res.headers["location"]).toBe(
-      "https://team.catspotters.com/api/team/",
+      "https://team.catspotters.com/api/team/home",
     );
     const cookies = res.headers["set-cookie"] as unknown as string[];
     expect(cookies).toHaveLength(1);
