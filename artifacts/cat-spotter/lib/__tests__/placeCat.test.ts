@@ -73,7 +73,7 @@ describe('placeCat: every combination of the two parts and the rows picked (§5)
     expect(placeCat({ coatColours: ['black'], coatPattern: null }, picked)).toBe('hidden');
     const patterns = pick([], ['stripes', 'plain']);
     expect(placeCat({ coatColours: [], coatPattern: 'plain' }, patterns)).toBe('match');
-    expect(placeCat({ coatColours: [], coatPattern: 'patches' }, patterns)).toBe('hidden');
+    expect(placeCat({ coatColours: ['black'], coatPattern: 'patches' }, patterns)).toBe('hidden');
   });
 });
 
@@ -100,8 +100,25 @@ describe('placeCat: Plain and Patches are forgiving for a cat with White (§2, �
     expect(placeCat({ coatColours: ['grey', 'white'], coatPattern: 'stripes' }, pick([], ['patches']))).toBe('hidden');
   });
 
-  it('colours not known means White is not known, so no forgiveness; a pattern not known is Not known', () => {
-    expect(placeCat({ coatColours: [], coatPattern: 'plain' }, pick([], ['patches']))).toBe('hidden');
+  // SYC-453 (Samuel, 18 Oct 2026, "yes to SYC-453"): with the colours not
+  // known, nobody knows whether there's White, so Plain against Patches is
+  // Not known, never hidden.
+  it('SYC-453: colours not known, so Plain against Patches is Not known, never hidden', () => {
+    expect(placeCat({ coatColours: [], coatPattern: 'plain' }, pick([], ['patches']))).toBe('not_known');
+    expect(placeCat({ coatColours: [], coatPattern: 'patches' }, pick([], ['plain']))).toBe('not_known');
+    expect(placeCat({ coatPattern: 'patches' }, pick([], ['plain']))).toBe('not_known');
+    // Its own pattern still matches.
+    expect(placeCat({ coatColours: [], coatPattern: 'plain' }, pick([], ['plain']))).toBe('match');
+    // Stripes is never part of the judgement call, either way.
+    expect(placeCat({ coatColours: [], coatPattern: 'plain' }, pick([], ['stripes']))).toBe('hidden');
+    expect(placeCat({ coatColours: [], coatPattern: 'stripes' }, pick([], ['plain', 'patches']))).toBe('hidden');
+    // A known colour mismatch still hides the cat; colours known without White still don't forgive.
+    expect(placeCat({ coatColours: ['black'], coatPattern: 'plain' }, pick([], ['patches']))).toBe('hidden');
+    // With the colour row picked, an unknown colour row makes it Not known anyway.
+    expect(placeCat({ coatColours: [], coatPattern: 'plain' }, pick(['black'], ['patches']))).toBe('not_known');
+  });
+
+  it('a pattern not known is Not known', () => {
     expect(placeCat({ coatColours: ['white'], coatPattern: null }, pick([], ['plain']))).toBe('not_known');
   });
 

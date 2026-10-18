@@ -65,15 +65,19 @@ export type Placement = 'match' | 'not_known' | 'hidden';
 /** What someone has picked in the two chip rows; an empty row is *All*. */
 export type Picked = { colours: ReadonlySet<Colour>; patterns: ReadonlySet<Pattern> };
 
-/** Spec §5: hidden if any picked row is a known mismatch; else not_known if any picked row is unknown; else match. Plain and Patches are forgiving for a cat with White. Reads the new fields only. */
+/** Spec §5: hidden if any picked row is a known mismatch; else not_known if any picked row is unknown; else match. Plain and Patches are forgiving for a cat with White, and unknown (never hidden) when its colours are not known (SYC-453). Reads the new fields only. */
 export function placeCat(cat: CoatFields, picked: Picked): Placement {
   const { colours, pattern } = filterParts(cat);
   const rows: ('match' | 'mismatch' | 'unknown')[] = [];
   if (picked.colours.size) rows.push(colours === null ? 'unknown' : colours.some((c) => picked.colours.has(c)) ? 'match' : 'mismatch');
   if (picked.patterns.size) {
     const forgiving = !!colours?.includes('white') && (pattern === 'plain' || pattern === 'patches');
-    const ok = pattern !== null && (picked.patterns.has(pattern) || (forgiving && (picked.patterns.has('plain') || picked.patterns.has('patches'))));
-    rows.push(pattern === null ? 'unknown' : ok ? 'match' : 'mismatch');
+    const plainOrPatchesPicked = picked.patterns.has('plain') || picked.patterns.has('patches');
+    const ok = pattern !== null && (picked.patterns.has(pattern) || (forgiving && plainOrPatchesPicked));
+    // SYC-453 (Samuel, 18 Oct 2026): with the colours not known, nobody knows
+    // whether there's White, so Plain against Patches is unknown, never a mismatch.
+    const whiteUnknown = colours === null && (pattern === 'plain' || pattern === 'patches') && plainOrPatchesPicked;
+    rows.push(pattern === null || (!ok && whiteUnknown) ? 'unknown' : ok ? 'match' : 'mismatch');
   }
   if (rows.includes('mismatch')) return 'hidden';
   if (rows.includes('unknown')) return 'not_known';
