@@ -25,7 +25,8 @@ export interface ConfirmPageOptions {
   cancelHref: string;
   cancelLabel: string;
   personName: string;
-  active: NavKey;
+  /** The highlighted menu item; null for a page that isn't in the menu (Areas). */
+  active: NavKey | null;
   /** The page's language, and a cat guardian's own menu (SYC-209 PR 4.2: she retires her sites). */
   lang?: string;
   nav?: "guardian";

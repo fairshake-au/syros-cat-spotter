@@ -220,6 +220,8 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
     '<div class="fpanel">' +
     `<fieldset><legend>Look</legend><div class="choices">${colours}</div></fieldset>` +
     `<fieldset><legend>Where</legend><label class="flabel" for="f-area">Area</label><select class="text" id="f-area" name="area">${areas}</select>` +
+    // The list itself is the team's to correct (SYC-396 PR 2.4).
+    '<p class="hint"><a href="/api/team/areas">Change the areas</a></p>' +
     `<label class="flabel" for="f-colony">Colony</label><select class="text" id="f-colony" name="colony">${colonies}</select></fieldset>` +
     `<fieldset><legend>Sterilised</legend><div class="choices">${marks}</div></fieldset>` +
     `<fieldset><legend>Lives</legend><div class="choices">${lives}</div></fieldset>` +
