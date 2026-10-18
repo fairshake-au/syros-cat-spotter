@@ -38,4 +38,12 @@ None.
 
 ## How each finding was handled
 
-Filled in by the builder below.
+| Finding | Handling |
+|---|---|
+| **M1** help link gets Ermoupoli | **Fixed.** New pure `needsHelpCoords` in `lib/mapStart.ts`: no place while the map sits on an unmoved Ermoupoli start, the pin otherwise. The touch flag is now state, so the link updates when the spotter moves the map. Tests by value and a source test; a mutation probe that drops the rule turns the value test red. Unmoved Ermoupoli on "Check for matches" stays, as the spec's Decision 6 and the plan intend. |
+| **m1** zoom alone isn't a touch | **Filed: SYC-477.** It needs a new `onTouch` callback on both map pickers, which the plan's file list doesn't cover. The window is small: between the 4-second start and a late fix. |
+| **m2** threshold untested on a device | **Kept for the real-device pass** the plan already lists (one iPhone, one Android, location refused). Stated in the PR. On the website, the browser check confirmed that a real drag counts as a touch and that the map's own start does not. |
+| **m3** refused location not explained | **Accepted** as the plan's design: the spotter isn't stuck, and the Ermoupoli line is true. Stated in the PR. |
+| **m4** `phone.loading` unused | **Commented** in `MapStartInput`. The field stays because the plan fixes the input shape for slice 5. |
+| **m5** screen tests read the source | **Accepted.** `app/` is outside vitest's render paths (`vitest.config.ts` `include`), and the repo's other Spot screen tests read the source the same way. The decisions themselves (`resolveMapStart`, `nextMapStart`, `needsHelpCoords`) are pure and tested by value. The browser check covers the effect's behaviour: a slow fix, a drag then a late fix, a re-pick and a retake. |
+| **m6** Tinos coast unchecked | **Unchecked, low stakes.** In this slice the check only decides whether a phone position starts the map. A phone on Tinos's west tip being counted as Syros would start the map at the phone, which is today's behaviour. It matters more in slice 5 (photo position, off-island stop screen); noted there. |
