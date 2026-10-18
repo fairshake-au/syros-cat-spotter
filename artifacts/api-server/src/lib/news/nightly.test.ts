@@ -134,6 +134,10 @@ afterAll(async () => {
     await db.delete(catSubscriptionsTable).where(inArray(catSubscriptionsTable.catId, myCats));
     await db.delete(catNewsChangesTable).where(inArray(catNewsChangesTable.catId, myCats));
     await db.delete(catNewsBaselineTable).where(inArray(catNewsBaselineTable.catId, myCats));
+    // Hundreds of cats would push later files' cats off the first page of
+    // GET /cats. Observations and sightings are append-only and have no
+    // foreign key to cats, so they stay (as catHelpers.derivedStatus.test does).
+    await db.delete(catsTable).where(inArray(catsTable.id, myCats));
   }
   await db.delete(catNewsRunsTable);
   await pool.end();
