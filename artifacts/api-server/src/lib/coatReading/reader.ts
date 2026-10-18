@@ -1,11 +1,13 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { LEGACY_COAT_CODES, readCoatValue, type CoatParts, type LegacyCoatCode } from "../appearance";
+import { COAT_COLOURS, COAT_PATTERNS, orderColours, type CoatColour, type CoatParts, type CoatPattern } from "../appearance";
 import { VISION_MODEL } from "../visionModel";
 
 /**
  * The colour reader (SYC-161 plan, PR 1; rule R5). Looks at ONE photo of one
- * cat and says its coat colour from SYC-119's fixed list, or Not sure. It
- * asks about colour only: never sex, age, ears or health (spec §4.7).
+ * cat and says its coat as two parts (coat-colours-and-pattern.md §7): every
+ * colour it can see from the five, and the pattern from the three, or Not
+ * sure. It asks about the coat only: never sex, age, ears or health (spec
+ * §4.7 of choose-a-different-cat.md).
  *
  * One model call, one image. It never throws: a failed call (an error, a
  * timeout, output that isn't JSON) comes back as `failed`, and the caller
@@ -14,10 +16,12 @@ import { VISION_MODEL } from "../visionModel";
 
 /**
  * The version written on every reading (`value.modelVersion`). A change to
- * the prompt below bumps `coat-v1`, so readings from different prompts can
- * be told apart (SYC-56).
+ * the prompt below bumps the version, so readings from different prompts can
+ * be told apart (SYC-56), and a manual re-read (`reread`, SYC-398 §7) knows
+ * which cats were read by an older one. coat-v2 is SYC-398 PR C (absorbs
+ * SYC-397).
  */
-export const MODEL_VERSION = `${VISION_MODEL}/coat-v1`;
+export const MODEL_VERSION = `${VISION_MODEL}/coat-v2`;
 
 /**
  * Below this confidence the answer is Not sure. Cautious to start; tuned from
@@ -31,34 +35,45 @@ export const CONFIDENCE_CUTOFF = 0.8;
 export const READ_TIMEOUT_MS = 60_000;
 
 /**
- * What each code means, for the prompt. coat-v1 asks for the old eight codes
- * (`LEGACY_COAT_CODES`) until SYC-398 PR C brings coat-v2: keyed by them, so
- * the live prompt stays exactly as it was (reader.test.ts pins it).
+ * What each colour means, for the prompt (spec §2 and §7, in plain words).
+ * None of these, nor the pattern descriptions, names a breeders' coat
+ * (tabby, tortoiseshell, calico): the answers are the codes themselves, and
+ * an old code in an answer is Not sure.
  */
-const COLOUR_DESCRIPTIONS: Record<LegacyCoatCode, string> = {
-  black: "solid black, or nearly all black",
-  white: "solid white, or nearly all white",
+const COLOUR_DESCRIPTIONS: Record<CoatColour, string> = {
+  black: "black",
+  grey: "grey (what breeders call blue)",
+  brown: "warm brown, sandy or golden-brown. A warm sandy brown is brown, not ginger",
   ginger: "ginger, orange or cream",
-  grey: "solid grey (sometimes called blue)",
-  tabby: "a tabby pattern: stripes, spots or swirls, in any colour",
-  tortoiseshell_or_calico: "tortoiseshell or calico: patches of black and orange, with or without white",
-  black_and_white: "black and white (bicolour or tuxedo)",
-  not_sure: "you can't tell",
+  white: "white, when you can see it as part of the coat",
 };
+
+const PATTERN_DESCRIPTIONS: Record<CoatPattern, string> = {
+  plain: "one colour all over, perhaps with a small white bib, socks or face",
+  stripes: "stripes, swirls or spots",
+  patches:
+    "any patchy look: a patchwork of colours, including black and white or ginger and white in patches. " +
+    "Any patchy look is patches, never stripes; a coat that is both striped and patchy is patches",
+};
+
+/** The pattern answer when the model can't tell it; the colours still stand. */
+const CANT_TELL = "cant_tell";
 
 /** The prompt. Exported for T-prompt only. */
 export function coatPrompt(): string {
-  const list = LEGACY_COAT_CODES.map((c) => `  ${c}: ${COLOUR_DESCRIPTIONS[c]}`).join("\n");
+  const colours = COAT_COLOURS.map((c) => `  ${c}: ${COLOUR_DESCRIPTIONS[c]}`).join("\n");
+  const patterns = COAT_PATTERNS.map((p) => `  ${p}: ${PATTERN_DESCRIPTIONS[p]}`).join("\n");
   return (
-    `This is a photo of a street cat. Say what colour its coat is, and nothing else about the cat.\n\n` +
+    `This is a photo of a street cat. Say what its coat looks like, and nothing else about the cat.\n\n` +
     `Respond with ONLY valid JSON, no markdown:\n` +
-    `{"catCount": number, "photoClear": boolean, "colours": string[], "confidence": number}\n\n` +
+    `{"catCount": number, "photoClear": boolean, "colours": string[], "pattern": string, "confidence": number}\n\n` +
     `- catCount: how many cats you can see in the photo.\n` +
-    `- photoClear: false if the photo is too dark, blurred or far away to judge the coat's colour.\n` +
-    `- colours: one or two codes from this list:\n${list}\n` +
-    `  Use two codes only when both describe the coat (a ginger tabby is ["ginger", "tabby"]). ` +
-    `Use ["not_sure"] alone if you can't tell.\n` +
-    `- confidence: from 0.0 to 1.0, how sure you are of the colours.`
+    `- photoClear: false if the photo is too dark, blurred or far away to judge the coat.\n` +
+    `- colours: every colour you can see in the coat, from this list:\n${colours}\n` +
+    `  List each colour once. Use [] only if you can't tell the colours at all: the whole answer then counts as unsure.\n` +
+    `- pattern: one code from this list:\n${patterns}\n` +
+    `  Use "${CANT_TELL}" if you can't tell the pattern.\n` +
+    `- confidence: from 0.0 to 1.0, how sure you are of the coat.`
   );
 }
 
@@ -67,12 +82,15 @@ export type NotSureReason =
   | "cat_count"
   | "not_clear"
   | "colours"
+  | "pattern"
   | "model_not_sure"
   | "low_confidence";
 
 /** The model's own answer, kept in the team-only `suggestedValue`. */
 export interface RawCoatAnswer {
   colours: string[];
+  /** The pattern as the model gave it (`cant_tell` included), or null. */
+  pattern: string | null;
   confidence: number | null;
   catCount: number | null;
   photoClear: boolean | null;
@@ -81,23 +99,21 @@ export interface RawCoatAnswer {
 }
 
 export type CoatReadResult =
-  | { kind: "reading"; colours: LegacyCoatCode[]; parts: CoatParts; raw: RawCoatAnswer }
+  | { kind: "reading"; parts: CoatParts; raw: RawCoatAnswer }
   | { kind: "failed"; reason: "error" | "timeout" | "unparseable" };
 
-const COLOUR_SET: ReadonlySet<string> = new Set(LEGACY_COAT_CODES);
+const COLOUR_SET: ReadonlySet<string> = new Set(COAT_COLOURS);
+const PATTERN_SET: ReadonlySet<string> = new Set(COAT_PATTERNS);
 
 /**
- * R5, pure: the old codes the model gave, and what they say as a coat's two
- * parts (SYC-398 §6, through the one translation), which is what is written.
- * `["not_sure"]` (Not sure) unless the model saw exactly one cat, said the
- * photo is clear, gave one or two known codes that make a storable set, and
- * was at least {@link CONFIDENCE_CUTOFF} sure.
+ * R5, pure: the coat the model gave, as its two parts (spec §7), which is
+ * what is written. Not sure (`notSure`) unless the model saw exactly one
+ * cat, said the photo is clear, gave one or more of the five colours (an old
+ * code such as `tabby`, or any unknown code, is Not sure), gave one of the
+ * three patterns or `cant_tell`, and was at least {@link CONFIDENCE_CUTOFF}
+ * sure. `cant_tell` leaves the pattern not known while the colours stand.
  */
-export function interpretCoatAnswer(answer: Record<string, unknown>): {
-  colours: LegacyCoatCode[];
-  parts: CoatParts;
-  raw: RawCoatAnswer;
-} {
+export function interpretCoatAnswer(answer: Record<string, unknown>): { parts: CoatParts; raw: RawCoatAnswer } {
   const given = Array.isArray(answer["colours"])
     ? answer["colours"].filter((c): c is string => typeof c === "string")
     : [];
@@ -107,9 +123,9 @@ export function interpretCoatAnswer(answer: Record<string, unknown>): {
       : null;
   const catCount = typeof answer["catCount"] === "number" ? answer["catCount"] : null;
   const photoClear = typeof answer["photoClear"] === "boolean" ? answer["photoClear"] : null;
-  const raw: RawCoatAnswer = { colours: given, confidence, catCount, photoClear };
+  const pattern = typeof answer["pattern"] === "string" ? answer["pattern"] : null;
+  const raw: RawCoatAnswer = { colours: given, pattern, confidence, catCount, photoClear };
   const notSure = (because: NotSureReason) => ({
-    colours: ["not_sure"] as LegacyCoatCode[],
     parts: { colours: null, pattern: null, notSure: true },
     raw: { ...raw, notSureBecause: because },
   });
@@ -119,28 +135,18 @@ export function interpretCoatAnswer(answer: Record<string, unknown>): {
 
   const list = answer["colours"];
   if (!Array.isArray(list) || list.some((c) => typeof c !== "string")) return notSure("colours");
-  const unique = [...new Set(list as string[])];
-  if (unique.length < 1 || unique.length > 2 || !unique.every((c) => COLOUR_SET.has(c))) {
-    return notSure("colours");
-  }
-  if (unique.includes("not_sure")) {
-    return notSure(unique.length === 1 ? "model_not_sure" : "colours");
-  }
-  // Black + white is the one stored code black_and_white (as before SYC-398).
-  const colours = (
-    unique.length === 2 && unique.includes("black") && unique.includes("white") ? ["black_and_white"] : unique
-  ) as LegacyCoatCode[];
-  // "black_and_white" already says black and says white: the validator
-  // refuses either beside it, so the pair is not a reading.
-  if (colours.includes("black_and_white") && (colours.includes("black") || colours.includes("white"))) {
-    return notSure("colours");
-  }
+  if (list.length === 0) return notSure("model_not_sure");
+  if (!(list as string[]).every((c) => COLOUR_SET.has(c))) return notSure("colours");
+  if (pattern === null || (pattern !== CANT_TELL && !PATTERN_SET.has(pattern))) return notSure("pattern");
   if (confidence == null || confidence < CONFIDENCE_CUTOFF) return notSure("low_confidence");
-  const parts = readCoatValue({ colours });
-  // Every storable set of old codes translates; a set that says nothing
-  // (none can, today) is Not sure rather than an empty reading.
-  if (!parts || parts.notSure || (parts.colours === null && parts.pattern === null)) return notSure("colours");
-  return { colours, parts, raw };
+  return {
+    parts: {
+      colours: orderColours(list as string[]),
+      pattern: pattern === CANT_TELL ? null : (pattern as CoatPattern),
+      notSure: false,
+    },
+    raw,
+  };
 }
 
 /** The JSON object in a model reply, or null. */

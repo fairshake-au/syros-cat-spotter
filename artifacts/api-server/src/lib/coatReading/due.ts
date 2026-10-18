@@ -2,7 +2,8 @@ import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { catIdentityTable, catsTable, db, photosTable, sightingsTable, type Observation } from "@workspace/db";
 import { loadCatRecords, type DbOrTx } from "../observations";
 import { catDisplayPhotoIds, hiddenPhotoIds } from "../photoVisibility";
-import { appearanceAuthorityLevel } from "../resolve";
+import { appearanceAuthorityLevel, resolveCoatParts } from "../resolve";
+import { MODEL_VERSION } from "./reader";
 
 /**
  * Which cats need a colour reading (SYC-161 plan, rules R1, R2 and R4).
@@ -26,6 +27,15 @@ import { appearanceAuthorityLevel } from "../resolve";
  *     photo wrong: then the cat is not due at all, so a rejected colour never
  *     comes back and the cat isn't reported as due forever.
  *
+ * R4, as SYC-398 §7 amends it: **at most one written reading per photo per
+ *     reader version.** Only a run started by hand with `reread` re-reads:
+ *     a cat whose newest reading is of the photo shown, but by an older
+ *     `MODEL_VERSION`, is then due as `older_version`, unless a reading of
+ *     that photo was marked wrong, or the team or a guardian decides both
+ *     parts of its coat (rule 1), so a reading can't change what's shown.
+ *     An automatic run (`reread` false, the default) never lists a cat for
+ *     a version change, and behaves exactly as before.
+ *
  * "Newest" is the resolver's order (resolve.ts `isNewer`): `observedAt`, then
  * id. Readings are dated when they're read (R3), so the newest is the last
  * one read.
@@ -42,8 +52,12 @@ export interface DueCat {
   action: DueAction;
   /** For `copy`: the machine row to copy forward. */
   copyOf?: number;
-  /** Which R2 case made it due (for the dry run's report). */
-  because: "unread" | "main_restored" | "reading_photo_hidden";
+  /**
+   * Which R2 case made it due (for the dry run's report), or
+   * `older_version`: a manual re-read of a photo read by an older reader
+   * version (SYC-398 §7; only with `reread`).
+   */
+  because: "unread" | "main_restored" | "reading_photo_hidden" | "older_version";
 }
 
 /** A machine colour reading: a `coat` row from the reader, not a retraction. */
@@ -62,7 +76,7 @@ function isNewer(a: Observation, b: Observation): boolean {
   return at > bt || (at === bt && a.id > b.id);
 }
 
-function newest(rows: readonly Observation[]): Observation | undefined {
+export function newest(rows: readonly Observation[]): Observation | undefined {
   return rows.reduce<Observation | undefined>((best, o) => (!best || isNewer(o, best) ? o : best), undefined);
 }
 
@@ -74,7 +88,7 @@ function newest(rows: readonly Observation[]): Observation | undefined {
  * must not stop the reading being copied forward here (Opus spot review,
  * finding 2).
  */
-function markedWrong(observations: readonly Observation[]): Set<number> {
+export function markedWrong(observations: readonly Observation[]): Set<number> {
   const out = new Set<number>();
   for (const o of observations) {
     if (
@@ -94,12 +108,13 @@ function markedWrong(observations: readonly Observation[]): Set<number> {
 /**
  * Every due cat, oldest cat first (`created_at`, then id), up to `limit`.
  * `opts.catIds` narrows the cats looked at (one cat, for `record.ts`'s
- * re-check; or a test's own cats).
+ * re-check; or a test's own cats). `opts.reread` is the run's setting
+ * (SYC-398 §7), and every caller passes its run's own, re-checks included.
  */
 export async function catsDueForReading(
   limit: number = Number.POSITIVE_INFINITY,
   q: DbOrTx = db,
-  opts: { catIds?: readonly number[] } = {},
+  opts: { catIds?: readonly number[]; reread?: boolean } = {},
 ): Promise<DueCat[]> {
   if (opts.catIds && opts.catIds.length === 0) return [];
   const cats = await q
@@ -153,12 +168,15 @@ export async function catsDueForReading(
   const due: DueCat[] = [];
   for (const c of live) {
     if (due.length >= limit) break;
+    // 1. The photo the public sees (R1).
     const shown = display.get(c.id) ?? null;
     if (shown == null) continue; // R1: nothing public, nothing to read.
     const observations = records.get(c.id)?.observations ?? [];
+    // 2. The machine's newest reading.
     const latest = newestReading.get(c.id);
     const mainPublic = c.primaryPhotoId > 0 && shown === c.primaryPhotoId;
 
+    // 3. The R2 reasons, as before SYC-398.
     let because: DueCat["because"] | null = null;
     if (!latest) because = "unread";
     else if (mainPublic) {
@@ -166,25 +184,67 @@ export async function catsDueForReading(
     } else if (latest.photoId == null || !stillPublic.has(`${c.id}:${latest.photoId}`)) {
       because = "reading_photo_hidden";
     }
-    if (!because) continue;
-    // Belt and braces: the newest reading is already of the photo shown, so
-    // there is nothing to do. Unreachable while the two rules above agree
-    // with photoVisibility.ts; it stops a copy repeating every run if they
-    // ever drift (SYC-163 rewrites the stand-in rule; Opus spot review,
-    // finding 7).
-    if (latest?.photoId === shown) continue;
 
+    // 4. A manual re-read only (SYC-398 §7): the newest reading is of the
+    //    photo shown, by an older reader version.
+    if (opts.reread && !because && latest && latest.photoId === shown && versionOf(latest) !== MODEL_VERSION) {
+      const wrong = markedWrong(observations);
+      const rejected = observations.some((o) => isMachineReading(o) && o.photoId === shown && wrong.has(o.id));
+      const parts = resolveCoatParts(observations);
+      const teamDecided = parts.colours.rule === 1 && parts.pattern.rule === 1;
+      // A rejected photo stays rejected; a cat the team or a guardian has
+      // decided can't change, so no call is spent on it.
+      if (!rejected && !teamDecided) because = "older_version";
+    }
+
+    // 5. Nothing to do.
+    if (!because) continue;
+    // Belt and braces, for the R2 reasons only (never `older_version`, whose
+    // newest reading is of the photo shown by definition): the newest
+    // reading is already of the photo shown, so there is nothing to do.
+    // Unreachable while the R2 rules above agree with photoVisibility.ts; it
+    // stops a copy repeating every run if they ever drift (SYC-163 rewrites
+    // the stand-in rule; Opus spot review, finding 7).
+    if (because !== "older_version" && latest?.photoId === shown) continue;
+
+    // 6. The action.
+    if (because === "older_version") {
+      due.push({ catId: c.id, photoId: shown, action: "read", because });
+      continue;
+    }
     // R4: the photo to read may have been read before.
-    const ofPhoto = observations.filter((o) => isMachineReading(o) && o.photoId === shown);
-    if (ofPhoto.length === 0) {
+    const ofPhotoAnyVersion = observations.filter((o) => isMachineReading(o) && o.photoId === shown);
+    if (ofPhotoAnyVersion.length === 0) {
       due.push({ catId: c.id, photoId: shown, action: "read", because });
       continue;
     }
     const wrong = markedWrong(observations);
-    if (ofPhoto.some((o) => wrong.has(o.id))) continue; // the team rejected it
-    due.push({ catId: c.id, photoId: shown, action: "copy", copyOf: newest(ofPhoto)!.id, because });
+    if (ofPhotoAnyVersion.some((o) => wrong.has(o.id))) continue; // the team rejected it
+    // Only a reading by this reader version is copied as current; a re-read
+    // reads a photo that only an older version has read (otherwise the copy
+    // would make it due again as `older_version`). An automatic run copies
+    // the newest reading of the photo, whatever its version, as before.
+    const ofPhoto = ofPhotoAnyVersion.filter((o) => versionOf(o) === MODEL_VERSION);
+    if (ofPhoto.length > 0) {
+      due.push({ catId: c.id, photoId: shown, action: "copy", copyOf: newest(ofPhoto)!.id, because });
+    } else if (opts.reread) {
+      due.push({ catId: c.id, photoId: shown, action: "read", because });
+    } else {
+      due.push({ catId: c.id, photoId: shown, action: "copy", copyOf: newest(ofPhotoAnyVersion)!.id, because });
+    }
   }
   return due;
+}
+
+/**
+ * A machine reading's `modelVersion`, or null (a row with none counts as an
+ * older version). "Older" means "not this one": after a rollback to an
+ * earlier reader, newer rows would count as older too, and a manual re-read
+ * would read them again (Opus spot review, nit 8).
+ */
+function versionOf(o: Observation): string | null {
+  const v = (o.value as { modelVersion?: unknown } | null)?.modelVersion;
+  return typeof v === "string" ? v : null;
 }
 
 /**

@@ -17,9 +17,9 @@ export type CoatPattern = (typeof COAT_PATTERNS)[number];
 
 /**
  * The eight codes stored before SYC-398 (SYC-119's list,
- * `choose-a-different-cat.md` §4.7), and still asked of the coat-v1 reader
- * until SYC-398 PR C. Never written again from A1: every stored value is
- * read through `readCoatValue`.
+ * `choose-a-different-cat.md` §4.7). No longer asked of the reader since
+ * coat-v2 (SYC-398 PR C). Never written again from A1: every stored value
+ * is read through `readCoatValue`.
  */
 export const LEGACY_COAT_CODES = [
   "black",

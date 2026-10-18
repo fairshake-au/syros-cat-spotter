@@ -47,7 +47,14 @@ beforeEach(() => {
   process.env["INTERNAL_PEOPLE_TOKEN"] = PEOPLE_TOKEN;
   create.mockReset();
   create.mockResolvedValue({
-    choices: [{ message: { content: JSON.stringify({ catCount: 1, photoClear: true, colours: ["ginger", "tabby"], confidence: 0.93 }) } }],
+    // coat-v2 (SYC-398 §7): Ginger · Stripes, sent to older phones as ginger · tabby.
+    choices: [
+      {
+        message: {
+          content: JSON.stringify({ catCount: 1, photoClear: true, colours: ["ginger"], pattern: "stripes", confidence: 0.93 }),
+        },
+      },
+    ],
   });
   pushes.length = 0;
 });
@@ -174,6 +181,44 @@ describe("T-route: POST /api/internal/coat/sweep", () => {
       const res = await sweep(body);
       expect(res.status, JSON.stringify(body)).toBe(400);
     }
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("SYC-398 §7: a non-boolean reread is refused, never read as yes", async () => {
+    for (const reread of ["true", "false", 1, 0, null, ["true"], { on: true }]) {
+      const res = await sweep({ mode: "trial", reread });
+      expect(res.status, JSON.stringify(reread)).toBe(400);
+    }
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("SYC-398 §7: reread is off by default and reaches the sweep when asked for", async () => {
+    // Ten years old, so it sorts first: other files' due cats never push it past the limit.
+    const id = await seedCat("route-reread", 3650);
+    // A coat-v1 reading of the cat's main photo, straight to the table.
+    const [main] = await db.select({ primaryPhotoId: catsTable.primaryPhotoId }).from(catsTable).where(eq(catsTable.id, id));
+    await db.insert(observationsTable).values({
+      catId: id,
+      kind: "coat",
+      value: { colours: ["tabby"], modelVersion: MODEL_VERSION.replace(/coat-v2$/, "coat-v1") },
+      accountId: "system:vision",
+      roleAtTime: "system",
+      authorityScope: "none",
+      provenance: "machine",
+      photoId: main!.primaryPhotoId,
+      observedAt: new Date(Date.now() - 60_000),
+      suggestionSource: "coat-reader",
+    });
+    const plain = await sweep({ mode: "dry_run" });
+    expect(plain.body.reread).toBe(false);
+    expect((plain.body.items as { catId: number }[]).some((i) => i.catId === id)).toBe(false);
+    const asked = await sweep({ mode: "dry_run", reread: true });
+    expect(asked.status).toBe(200);
+    expect(asked.body.reread).toBe(true);
+    expect((asked.body.items as { catId: number; because: string; action: string }[]).find((i) => i.catId === id)).toMatchObject({
+      because: "older_version",
+      action: "read",
+    });
     expect(create).not.toHaveBeenCalled();
   });
 
