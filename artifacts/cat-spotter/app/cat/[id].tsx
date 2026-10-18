@@ -28,6 +28,8 @@ import { ClaimCatSheet } from '@/components/ClaimCatSheet';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { MoreToAdd } from '@/components/MoreToAdd';
 import { SightingPhotos } from '@/components/SightingPhotos';
+import { PhotoViewer } from '@/components/PhotoViewer';
+import { mainPhotoCaption, spotterName } from '@/lib/photoCaption';
 import { photoSource } from '@/lib/urls';
 import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
 import { lifeLine, parseDateOnly, parsePublicDate, sterilisedLineKey } from '@/lib/catStatusLines';
@@ -61,6 +63,10 @@ export default function CatDetailScreen() {
   const { ownedCatIds, deviceId, isReady, startupError } = useDevice();
   const { notifications, markRead } = useNotifications();
   const [sheet, setSheet] = React.useState<'claim' | 'edit' | null>(null);
+  // SYC-44 PR 6.1: the main photo opens full screen, but only once it has
+  // loaded, so nothing changes offline (report-an-issue.md §4.2).
+  const [heroLoaded, setHeroLoaded] = React.useState<string | null>(null);
+  const [heroOpen, setHeroOpen] = React.useState(false);
 
   // The inbox row matching the tapped push notification, if any.
   const highlighted = React.useMemo(
@@ -167,28 +173,40 @@ export default function CatDetailScreen() {
       ? t('notSeenSince').replace('{date}', parseDateOnly(line.date).toLocaleDateString())
       : t(line.key);
   const sterilisedLine = t(sterilisedLineKey(cat.sterilised));
+  const heroCaption = mainPhotoCaption(cat, sightings, careTimeline, t);
+  const heroCanOpen = !!cat.photoUrl && heroLoaded === cat.photoUrl && heroCaption !== null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
         <View>
-          <Image
-            source={photoSource(cat.photoUrl)}
-            style={styles.hero}
-            contentFit="cover"
-          />
-          <LinearGradient
-            colors={['rgba(10,51,80,0.7)', 'rgba(10,51,80,0)']}
-            start={{ x: 0, y: 1 }}
-            end={{ x: 0, y: 0.45 }}
-            style={StyleSheet.absoluteFillObject}
-          />
+          <Pressable
+            testID="cat-hero-open"
+            accessibilityRole={cat.photoUrl ? 'imagebutton' : undefined}
+            accessibilityLabel={cat.photoUrl ? cat.name : undefined}
+            disabled={!heroCanOpen}
+            onPress={() => setHeroOpen(true)}
+          >
+            <Image
+              source={photoSource(cat.photoUrl)}
+              style={styles.hero}
+              contentFit="cover"
+              onLoad={() => setHeroLoaded(cat.photoUrl)}
+            />
+            <LinearGradient
+              colors={['rgba(10,51,80,0.7)', 'rgba(10,51,80,0)']}
+              start={{ x: 0, y: 1 }}
+              end={{ x: 0, y: 0.45 }}
+              style={StyleSheet.absoluteFillObject}
+              pointerEvents="none"
+            />
+          </Pressable>
           <View style={[styles.heroTopRow, { top: insets.top + 8 }]}>
             <IconButton variant="solid" label={t('tabCatalog')} onPress={close}>
               <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
             </IconButton>
           </View>
-          <View style={styles.heroBottom}>
+          <View style={styles.heroBottom} pointerEvents="none">
             <View style={styles.heroNameRow}>
               <Text style={styles.heroName} numberOfLines={1}>
                 {cat.name}
@@ -246,6 +264,8 @@ export default function CatDetailScreen() {
             </View>
             {/* SYC-42: quiet, never the biggest thing on screen (spec §4.1). */}
             <NeedsHelpLink />
+            {/* SYC-44: PR 6.2 mounts <ReportIssueLink> here, below "needs
+                help" and never bigger, with the reason sheet as its onPress. */}
             {(
               <View style={styles.metaRow}>
                 <Feather name="star" size={14} color={colors.mutedForeground} />
@@ -452,7 +472,13 @@ export default function CatDetailScreen() {
           <View style={styles.sightingGrid}>
             {sightings.map((s, i) => (
               <View key={s.photoUrl ?? `sighting-${i}`} style={styles.sightingItem}>
-                <SightingPhotos photoUrl={s.photoUrl} extraPhotos={s.extraPhotos} createdAt={s.createdAt} />
+                <SightingPhotos
+                  photoUrl={s.photoUrl}
+                  photoHidden={s.photoHidden}
+                  extraPhotos={s.extraPhotos}
+                  createdAt={s.createdAt}
+                  spotter={spotterName(s, t)}
+                />
                 <Text style={[styles.sightingDate, { color: colors.mutedForeground }]}>
                   {parsePublicDate(s.createdAt).toLocaleDateString()}
                 </Text>
@@ -460,15 +486,22 @@ export default function CatDetailScreen() {
                   style={[styles.sightingSpotter, { color: colors.mutedForeground }]}
                   numberOfLines={1}
                 >
-                  {s.spotterUsername ??
-                    s.spotterNickname ??
-                    (s.spotterCode ? `${t('spotter')} ${s.spotterCode}` : t('aSpotter'))}
+                  {spotterName(s, t)}
                 </Text>
               </View>
             ))}
           </View>
         </View>
       </ScrollView>
+      {heroOpen && heroCanOpen && cat.photoUrl && heroCaption && (
+        <PhotoViewer
+          url={cat.photoUrl}
+          label={cat.name}
+          date={parsePublicDate(heroCaption.day).toLocaleDateString()}
+          spotter={heroCaption.spotter}
+          onClose={() => setHeroOpen(false)}
+        />
+      )}
       {sheet !== null && (
         <ClaimCatSheet
           visible
