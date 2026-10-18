@@ -1,11 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { like } from "drizzle-orm";
-import { catsTable, db, observationsTable, photosTable, sightingsTable } from "@workspace/db";
+import { catIdentityTable, catsTable, db, observationsTable, photosTable, sightingsTable } from "@workspace/db";
 import { deleteTestSightings } from "../test/sightings";
 import { newColony, putInColony } from "../test/roleKit";
-import { listTeamCats, livesOf, markOf, PAGE_SIZE } from "./teamCatList";
-import type { CatSnapshot } from "./resolve";
+import { allTeamCats, listTeamCats, livesOf, loadTeamCats, markOf, PAGE_SIZE } from "./teamCatList";
+import { loadCatRecords } from "./observations";
+import { resolveCat, type CatSnapshot } from "./resolve";
 
 // SYC-396 PR 1.3, Task 1.3.1: the team's list of every cat.
 
@@ -40,6 +41,8 @@ describe("livesOf", () => {
 
 const RUN = randomBytes(3).toString("hex");
 const PREFIX = `vt-list-${RUN}-`;
+// loadTeamCats's own cats (SYC-396 PR 2.0), kept out of the grid tests' name box.
+const LOAD = `vt-load-${RUN}-`;
 const DEVICE = `${PREFIX}device`;
 const NOW = new Date("2026-10-15T12:00:00Z");
 const daysAgo = (d: number) => new Date(NOW.getTime() - d * 86_400_000);
@@ -95,6 +98,7 @@ const list = (f: Parameters<typeof listTeamCats>[0] = {}) =>
 async function cleanup() {
   await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
   await db.delete(catsTable).where(like(catsTable.name, `${PREFIX}%`));
+  await db.delete(catsTable).where(like(catsTable.name, `${LOAD}%`));
   await db.delete(photosTable).where(like(photosTable.publicId, `${PREFIX}%`));
 }
 
@@ -247,5 +251,116 @@ describe("listTeamCats", () => {
     expect(one.total).toBe(50);
     expect(one.items).toHaveLength(PAGE_SIZE);
     expect(two.items.map((i) => i.name)).toEqual([`${bulk}48`, `${bulk}49`]);
+  });
+});
+
+// SYC-396 PR 2.0, Task 2.0.1: every team cat, unfiltered, resolved once.
+describe("loadTeamCats", () => {
+  const load: Record<string, number> = {};
+  const OLD = new Date("2022-01-01T09:00:00Z");
+  const CREATED = new Date("2026-03-04T05:06:07Z");
+
+  async function loadCat(key: string, o: Partial<typeof catsTable.$inferInsert> = {}) {
+    const [c] = await db
+      .insert(catsTable)
+      .values({
+        name: `${LOAD}${key}`,
+        primaryPhotoId: photoId,
+        lat: 37.4447,
+        lng: 24.9417, // Ermoupoli
+        discovererDeviceId: DEVICE,
+        ...o,
+      })
+      .returning({ id: catsTable.id });
+    load[key] = c!.id;
+    return c!.id;
+  }
+  const loaded = async () => (await loadTeamCats(NOW)).filter((c) => c.name.startsWith(LOAD));
+  const byKey = async (key: string) => (await loaded()).find((c) => c.id === load[key]);
+
+  beforeAll(async () => {
+    // No evidence of life for over 36 months: presumed deceased.
+    await loadCat("Old", { createdAt: OLD });
+
+    // Keeper is the canonical cat. Folded was merged into it, and no newer
+    // row undid that. Back was merged into it too, then the merge was undone.
+    await loadCat("Keeper", { createdAt: CREATED });
+    await say(load["Keeper"]!, "sterilised", { sterilised: true });
+    await loadCat("Folded");
+    await say(load["Folded"]!, "life_status", { status: "homed" });
+    await db.insert(catIdentityTable).values({ catId: load["Folded"]!, canonicalCatId: load["Keeper"]!, reason: LOAD });
+    await loadCat("Back");
+    const [merge] = await db
+      .insert(catIdentityTable)
+      .values({ catId: load["Back"]!, canonicalCatId: load["Keeper"]!, reason: LOAD })
+      .returning({ id: catIdentityTable.id });
+    await db.insert(catIdentityTable).values({
+      catId: load["Back"]!,
+      canonicalCatId: load["Back"]!,
+      supersedesId: merge!.id,
+      reason: `${LOAD}undo`,
+    });
+
+    // Arizona: the test report's kind, Off Syros.
+    await loadCat("Arizona", { lat: 33.4484, lng: -112.074 });
+  });
+
+  it("returns a presumed-deceased cat as gone, and the grid's default still hides it", async () => {
+    const old = await byKey("Old");
+    expect(old?.lives).toBe("gone");
+    expect(old?.snapshot.presumedDeceased).toBe(true);
+    const grid = await listTeamCats({ q: LOAD }, NOW);
+    expect(grid.items.map((i) => i.id)).not.toContain(load["Old"]);
+    const gone = await listTeamCats({ q: LOAD, lives: ["gone"] }, NOW);
+    expect(gone.items.map((i) => i.id)).toContain(load["Old"]);
+  });
+
+  it("leaves out a cat merged into another, and keeps its canonical cat", async () => {
+    const ids = (await loaded()).map((c) => c.id);
+    expect(ids).not.toContain(load["Folded"]);
+    expect(ids).toContain(load["Keeper"]);
+    // The grid, the map and the counts agree: the merged half is not a cat of its own.
+    const grid = await listTeamCats({ q: LOAD, lives: ["street", "homed", "in_care", "gone"] }, NOW);
+    expect(grid.items.map((i) => i.id)).not.toContain(load["Folded"]);
+    expect(grid.items.map((i) => i.id)).toContain(load["Keeper"]);
+  });
+
+  it("the grid's area filter uses the same key: area=off finds the Off Syros cat", async () => {
+    const off = await listTeamCats({ q: LOAD, area: "off" }, NOW);
+    expect(off.items.map((i) => i.id)).toEqual([load["Arizona"]]);
+    const erm = await listTeamCats({ q: LOAD, area: "ermoupoli" }, NOW);
+    expect(erm.items.map((i) => i.id)).not.toContain(load["Arizona"]);
+    expect(erm.items.map((i) => i.id)).toContain(load["Keeper"]);
+  });
+
+  it("the grid and the map's cards carry none of the extra fields (the snapshot is the whole resolved record)", async () => {
+    const card = (await listTeamCats({ q: LOAD }, NOW)).items.find((i) => i.id === load["Keeper"])!;
+    const dot = (await allTeamCats({ q: LOAD }, NOW)).cats.find((c) => c.id === load["Keeper"])!;
+    for (const c of [card, dot]) {
+      for (const key of ["snapshot", "createdAt", "areaKey"]) expect(c).not.toHaveProperty(key);
+    }
+  });
+
+  it("keeps a cat whose merge was undone", async () => {
+    expect(await byKey("Back")).toBeDefined();
+  });
+
+  it("carries the cat's created_at", async () => {
+    expect((await byKey("Keeper"))!.createdAt.getTime()).toBe(CREATED.getTime());
+  });
+
+  it("carries the snapshot resolveCat gives for the same records, merged halves included", async () => {
+    const recs = await loadCatRecords([load["Keeper"]!]);
+    const rec = recs.get(load["Keeper"]!);
+    const want = resolveCat(rec?.observations ?? [], rec?.evidenceOfLife ?? null, NOW);
+    const keeper = (await byKey("Keeper"))!;
+    expect(keeper.snapshot.sterilised).toEqual(want.sterilised);
+    expect(keeper.snapshot.lifeStatus).toEqual(want.lifeStatus);
+    expect(keeper.mark).toBe("sterilised");
+  });
+
+  it("names the area by key, and Off Syros as off", async () => {
+    expect((await byKey("Keeper"))!.areaKey).toBe("ermoupoli");
+    expect((await byKey("Arizona"))!.areaKey).toBe("off");
   });
 });
