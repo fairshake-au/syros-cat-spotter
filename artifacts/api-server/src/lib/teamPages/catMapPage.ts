@@ -188,7 +188,7 @@ export function renderCatMapPage(o: CatMapOptions): string {
   if (!o.scripted) {
     return renderPage({
       title: "Cats",
-      active: "cats",
+      active: "map",
       personName: o.personName,
       mainClass: "wide",
       body: top + buttonMap(o) + teamOnlyHint(),
@@ -232,7 +232,7 @@ export function renderCatMapPage(o: CatMapOptions): string {
     "</div>";
   return renderPage({
     title: "Cats",
-    active: "cats",
+    active: "map",
     personName: o.personName,
     mainClass: "wide",
     body: top + scripted + `<noscript>${buttonMap(o)}</noscript>` + teamOnlyHint(),

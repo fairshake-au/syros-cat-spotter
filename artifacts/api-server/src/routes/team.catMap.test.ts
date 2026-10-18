@@ -97,6 +97,16 @@ describe("the island Map page", () => {
     expect(res.text).toContain('<div id="mapscripted" hidden>');
   });
 
+  it("is the menu's Map: Map is underlined, not Cats (SYC-396 PR 1.6)", async () => {
+    const res = await page("/api/team/cats?view=map");
+    const nav = /<nav class="bar[^"]*"[^>]*>([\s\S]*?)<\/nav>/.exec(res.text)![1]!;
+    expect(nav).toContain('<a class="here" href="/api/team/cats?view=map" aria-current="page">Map</a>');
+    expect(nav.match(/aria-current/g)).toHaveLength(1);
+    // And the grid is still the menu's Cats.
+    const grid = (await page("/api/team/cats")).text;
+    expect(grid).toContain('<a class="here" href="/api/team/cats" aria-current="page">Cats</a>');
+  });
+
   it("loads only our own files, by assetUrl()", async () => {
     const res = await page("/api/team/cats?view=map");
     const srcs = [...res.text.matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
