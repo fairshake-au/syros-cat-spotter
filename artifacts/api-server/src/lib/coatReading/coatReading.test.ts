@@ -1378,6 +1378,12 @@ describe("T-reread SYC-448: a part the team decided is never 'lost' by a re-read
     expect(losesWhatIsKnown(current, noPattern)).toBe(true);
     expect(losesWhatIsKnown(current, noPattern, { colours: false, pattern: true })).toBe(false);
     expect(losesWhatIsKnown(current, noPattern, { colours: true, pattern: false })).toBe(true);
+    // The colours side too (the reader can't produce it today, but the rule
+    // must hold for any reading: ship review finding 1).
+    const noColours = { colours: null, pattern: "stripes" as const, notSure: false };
+    expect(losesWhatIsKnown(current, noColours)).toBe(true);
+    expect(losesWhatIsKnown(current, noColours, { colours: true, pattern: false })).toBe(false);
+    expect(losesWhatIsKnown(current, noColours, { colours: false, pattern: true })).toBe(true);
     expect(
       losesWhatIsKnown(current, { colours: null, pattern: null, notSure: true }, { colours: true, pattern: true }),
     ).toBe(true);

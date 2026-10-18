@@ -70,7 +70,7 @@ export function coatPrompt(): string {
     `- catCount: how many cats you can see in the photo.\n` +
     `- photoClear: false if the photo is too dark, blurred or far away to judge the coat.\n` +
     `- colours: every colour you can see in the coat, from this list:\n${colours}\n` +
-    `  List each colour once. Use [] if you can't tell the colours.\n` +
+    `  List each colour once. Use [] only if you can't tell the colours at all: the whole answer then counts as unsure.\n` +
     `- pattern: one code from this list:\n${patterns}\n` +
     `  Use "${CANT_TELL}" if you can't tell the pattern.\n` +
     `- confidence: from 0.0 to 1.0, how sure you are of the coat.`
