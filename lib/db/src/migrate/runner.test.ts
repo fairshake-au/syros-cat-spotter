@@ -458,7 +458,10 @@ describe("cycle catches incomplete rollbacks", () => {
 });
 
 describe("the real migration history", () => {
-  it("builds on an empty database and passes the up/down/up cycle", async () => {
+  // Its own time limit: it runs every migration up, down and up again, so it
+  // grows with each one. On CI it took 4.2 s at 31 migrations and 5.0 s at 32
+  // (SYC-439), past the 5 s default; 60 s is what the other migration tests use.
+  it("builds on an empty database and passes the up/down/up cycle", { timeout: 60_000 }, async () => {
     const c = await freshDb();
     await cycle(c, readMigrations(defaultMigrationsFolder()));
     expect(await tables(c)).toContain("cats");
