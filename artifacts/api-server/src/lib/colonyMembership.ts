@@ -1,5 +1,5 @@
 import { db, observationsTable } from "@workspace/db";
-import { and, asc, desc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 // "Which colony is a cat in" (SYC-209 plan, Slice 2; spec §2.8, data spine
@@ -21,9 +21,17 @@ export async function currentColonyOf(
   catIds?: readonly number[],
   /** A transaction to read through, so a caller inside one doesn't take a second connection. */
   q: Pick<typeof db, "select" | "selectDistinctOn"> = db,
+  /**
+   * `asOf` (SYC-396 PR 3.0, Decision 10): the colonies as they stood then.
+   * Only colony rows, and rows marking them wrong, entered by then
+   * (`createdAt <= asOf`) count, so a past report doesn't use today's
+   * colonies. A redacted row stays left out.
+   */
+  opts: { asOf?: Date } = {},
 ): Promise<Map<number, number>> {
   const out = new Map<number, number>();
   if (catIds && catIds.length === 0) return out;
+  const asOf = opts.asOf;
 
   // A statement is superseded when some other row points back at it.
   const replacer = alias(observationsTable, "replacer");
@@ -37,11 +45,17 @@ export async function currentColonyOf(
       and(
         eq(observationsTable.kind, "colony"),
         isNull(observationsTable.redactedAt),
+        asOf ? lte(observationsTable.createdAt, asOf) : undefined,
         notExists(
           q
             .select({ one: sql`1` })
             .from(replacer)
-            .where(eq(replacer.supersedesId, observationsTable.id)),
+            .where(
+              and(
+                eq(replacer.supersedesId, observationsTable.id),
+                asOf ? lte(replacer.createdAt, asOf) : undefined,
+              ),
+            ),
         ),
         catIds ? inArray(observationsTable.catId, [...catIds]) : undefined,
       ),
