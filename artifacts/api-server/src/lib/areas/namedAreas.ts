@@ -1,53 +1,102 @@
+import { db, namedAreasTable } from "@workspace/db";
+import { asc, isNull } from "drizzle-orm";
 import { haversineKm } from "../catHelpers";
+import { logger } from "../logger";
+import { areaEventCount } from "./areaHistory";
+import { SEED_AREAS, type NamedArea } from "./seedAreas";
 
 // Named areas (spec §3.3): each has one centre, and a place belongs to the
 // area whose centre is nearest. More than MAX_KM from every centre is
-// "Off Syros". Bump AREAS_VERSION whenever the list changes.
+// "Off Syros".
+//
+// SYC-396 PR 2.4 (plan Decision 9): the list lives in the `named_areas` table
+// and the team edits it on the Areas page. `areaFor` and `areaByKey` stay
+// synchronous by reading a cache of it:
+// - `loadAreas()` fills it, before the server listens (index.ts);
+// - after that, a call that finds it older than AREAS_TTL_MS starts a reload
+//   in the background and answers from what it has, so every server sees a
+//   change within a minute;
+// - `changeArea` reloads it at once on the server that made the change;
+// - a reload that fails keeps the last good list and logs a warning. It never
+//   empties the list.
+// Until the first load (and in tests that never load), it answers from
+// SEED_AREAS, version 1 of the list.
 
-export interface NamedArea {
-  key: string;
-  name: string;
-  lat: number;
-  lng: number;
-}
-export const AREAS_VERSION = 1;
+export type { NamedArea } from "./seedAreas";
+export { SEED_AREAS } from "./seedAreas";
+
 export const OFF_SYROS = { key: "off", name: "Off Syros" } as const;
 const MAX_KM = 2;
+export const AREAS_TTL_MS = 60_000;
 
-export const NAMED_AREAS: readonly NamedArea[] = [
-  // The first 7 are copied exactly from lib/mapTiles/areas.ts (checked 15 Oct 2026).
-  { key: "ermoupoli", name: "Ermoupoli", lat: 37.4447, lng: 24.9417 },
-  { key: "vaporia", name: "Vaporia", lat: 37.4447, lng: 24.9475 },
-  { key: "kini", name: "Kini", lat: 37.4436, lng: 24.8889 },
-  { key: "galissas", name: "Galissas", lat: 37.4226, lng: 24.8825 },
-  { key: "finikas", name: "Finikas", lat: 37.3976, lng: 24.8783 },
-  { key: "posidonia", name: "Posidonia", lat: 37.3889, lng: 24.8874 },
-  { key: "azolimnos", name: "Azolimnos", lat: 37.4105, lng: 24.9594 },
-  // Added villages: centres are the OpenStreetMap place nodes, looked up
-  // through Nominatim on 15 Oct 2026 (never typed from memory).
-  { key: "ano-syros", name: "Ano Syros", lat: 37.4501993, lng: 24.9357722 }, // OSM node 1844864373 (place=town)
-  { key: "vari", name: "Vari", lat: 37.3983488, lng: 24.9467109 }, // OSM node 1846917012 (place=village)
-  { key: "fabrika", name: "Fabrika", lat: 37.3919149, lng: 24.9528053 }, // OSM node 2684088129 (place=locality)
-  { key: "manna", name: "Manna", lat: 37.4196393, lng: 24.947383 }, // OSM node 1846917017 (place=village)
-  // Found under their Greek spellings (Χρούσα, Μέγας Γιαλός), checked 15 Oct 2026.
-  { key: "mega-gialos", name: "Mega Gialos", lat: 37.3809687, lng: 24.9109853 }, // OSM node 2684084813 (place=village)
-  { key: "chroussa", name: "Chroussa", lat: 37.4022955, lng: 24.9193522 }, // OSM node 1846917030 (place=village)
-  // Added for coverage of the north and the inland west (adversarial review B1),
-  // Nominatim 15 Oct 2026, Greek spellings. Guarded by namedAreas.coverage.test.ts.
-  { key: "kampos", name: "Kampos", lat: 37.4938214, lng: 24.915293 }, // OSM node 2684101669 (place=hamlet)
-  { key: "chalandriani", name: "Chalandriani", lat: 37.4847709, lng: 24.9357413 }, // OSM node 1846917029 (place=hamlet)
-  { key: "syringas", name: "Syringas", lat: 37.4843924, lng: 24.9132138 }, // OSM node 2684101451 (place=hamlet)
-  { key: "aetos", name: "Aetos", lat: 37.4727567, lng: 24.9021428 }, // OSM node 3434625183 (place=locality)
-  { key: "lia", name: "Lia", lat: 37.489323, lng: 24.9019931 }, // OSM node 3434625179 (place=locality)
-  { key: "grammata", name: "Grammata", lat: 37.4993396, lng: 24.8878902 }, // OSM node 2886089541 (place=locality)
-  { key: "pagos", name: "Pagos", lat: 37.4166124, lng: 24.9052657 }, // OSM node 1846917022 (place=village)
-  { key: "episkopio", name: "Episkopio", lat: 37.4367321, lng: 24.9179183 }, // OSM node 2684076935 (place=village)
-];
+interface Cache {
+  areas: readonly NamedArea[];
+  version: number;
+  loadedAt: number;
+}
+let cache: Cache | null = null;
+let reloading: Promise<void> | null = null;
 
-export function areaFor(lat: number, lng: number): NamedArea | typeof OFF_SYROS {
+/**
+ * Reads the areas still in use, in the order they were added, and the
+ * version. On failure, keeps whatever list it had and logs a warning.
+ */
+export async function loadAreas(): Promise<void> {
+  try {
+    const [rows, version] = await Promise.all([
+      db
+        .select({
+          key: namedAreasTable.key,
+          name: namedAreasTable.name,
+          lat: namedAreasTable.lat,
+          lng: namedAreasTable.lng,
+        })
+        .from(namedAreasTable)
+        .where(isNull(namedAreasTable.retiredAt))
+        .orderBy(asc(namedAreasTable.id)),
+      areaEventCount(),
+    ]);
+    cache = { areas: Object.freeze(rows), version, loadedAt: Date.now() };
+  } catch (err) {
+    logger.warn({ err }, "named areas: reload failed; keeping the last good list");
+    // Try again after another TTL, not on every call.
+    cache = cache ? { ...cache, loadedAt: Date.now() } : { areas: SEED_AREAS, version: 0, loadedAt: Date.now() };
+  }
+}
+
+/** Starts a background reload if the cache is stale and none is running. */
+function refreshIfStale(): void {
+  if (cache === null || reloading !== null) return;
+  if (Date.now() - cache.loadedAt <= AREAS_TTL_MS) return;
+  reloading = loadAreas().finally(() => {
+    reloading = null;
+  });
+}
+
+/** The areas in use now, from the cache. */
+export function currentAreas(): readonly NamedArea[] {
+  refreshIfStale();
+  return cache?.areas ?? SEED_AREAS;
+}
+
+/**
+ * The list's version: how many changes it has had (the seed is 21). 0 until
+ * the first load.
+ */
+export function areasVersion(): number {
+  refreshIfStale();
+  return cache?.version ?? 0;
+}
+
+/** The nearest area within MAX_KM of a place, in a given list. Pure. */
+export function areaForIn(
+  areas: readonly NamedArea[],
+  lat: number,
+  lng: number,
+): NamedArea | typeof OFF_SYROS {
   let best: NamedArea | null = null;
   let bestKm = Infinity;
-  for (const a of NAMED_AREAS) {
+  for (const a of areas) {
     const km = haversineKm(lat, lng, a.lat, a.lng);
     if (km < bestKm) {
       best = a;
@@ -57,5 +106,15 @@ export function areaFor(lat: number, lng: number): NamedArea | typeof OFF_SYROS 
   return best !== null && bestKm <= MAX_KM ? best : OFF_SYROS;
 }
 
+export function areaFor(lat: number, lng: number): NamedArea | typeof OFF_SYROS {
+  return areaForIn(currentAreas(), lat, lng);
+}
+
 export const areaByKey = (key: unknown): NamedArea | undefined =>
-  typeof key === "string" ? NAMED_AREAS.find((a) => a.key === key) : undefined;
+  typeof key === "string" ? currentAreas().find((a) => a.key === key) : undefined;
+
+/** Tests only: forget the cache, as a freshly started server would. */
+export function _resetAreasCacheForTests(): void {
+  cache = null;
+  reloading = null;
+}

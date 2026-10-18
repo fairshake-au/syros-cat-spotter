@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { COAT_COLOURS } from "./appearance";
-import { NAMED_AREAS } from "./areas/namedAreas";
+import { SEED_AREAS } from "./areas/namedAreas";
 import { filtersToQuery, parseCatFilters } from "./teamCatFilters";
 import { LAST_SEEN, LIVES, MARKS, SORTS, type CatListFilters } from "./teamCatList";
 
@@ -88,12 +88,12 @@ describe("parseCatFilters and filtersToQuery", () => {
     const lat = () => (35 + rnd() * 5).toFixed(2 + Math.floor(rnd() * 6));
     const lng = () => (23 + rnd() * 3).toFixed(2 + Math.floor(rnd() * 6));
     const junk = () => pick([`${lat()},${lng()}`, lat(), `near ${lat()} ${lng()}`, "Eleni", "a name"]);
-    const areaKeys = NAMED_AREAS.map((a) => a.key);
+    const areaKeys = SEED_AREAS.map((a) => a.key);
     for (let i = 0; i < 200; i++) {
       // q is left out: the search box's own text may be anything (D11).
       const f = {
         colours: some(COAT_COLOURS),
-        area: rnd() < 0.5 ? pick(NAMED_AREAS).key : junk(),
+        area: rnd() < 0.5 ? pick(SEED_AREAS).key : junk(),
         colony: rnd() < 0.5 ? Math.floor(rnd() * 500) : Number(lat()),
         sterilised: some(MARKS),
         lives: some(LIVES),
