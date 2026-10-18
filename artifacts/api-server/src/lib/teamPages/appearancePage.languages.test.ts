@@ -140,7 +140,9 @@ describe("T4A: the Appearance section in Greek and French says §2's words", () 
     expect(html).toContain("<dd>Ρίγες");
     expect(html).toContain("<strong>Καφέ · Πορτοκαλί · Ρίγες</strong>");
     expect(html).toContain('aria-label="Καφέ · Πορτοκαλί · Ρίγες"');
-    expect(html).toContain("Χρώματα άγνωστα · Ρίγες");
+    // A statement says only the parts it states, as before SYC-443 (review finding 2).
+    expect(html).toContain('<span class="sid">#51</span> Ρίγες <');
+    expect(html).not.toContain("Χρώματα άγνωστα · Ρίγες");
     for (const [code, word] of [["plain", "Ενιαίο"], ["stripes", "Ρίγες"], ["patches", "Μπαλώματα"], ["none", "Δεν δηλώθηκε"]]) {
       expect(html).toContain(`name="pattern" value="${code}"${code === "none" ? " checked" : ""}> ${word}</label>`);
     }
@@ -159,6 +161,9 @@ describe("T4A: the Appearance section in Greek and French says §2's words", () 
   it("the drawn caption and the Colour check line follow the page's language", () => {
     expect(drawnCaption("el", { colours: ["black", "ginger", "white"], pattern: "patches" })).toBe("Μαύρο · Πορτοκαλί · Λευκό · Μπαλώματα");
     expect(drawnCaption("en", { colours: ["black", "ginger", "white"], pattern: "patches" })).toBe("Calico");
+    // The drawn caption keeps its own wording for an unknown part, as before SYC-443.
+    expect(drawnCaption("el", { colours: null, pattern: "stripes" })).toBe("Χρώματα άγνωστα · Ρίγες");
+    expect(drawnCaption("fr", { colours: ["grey"], pattern: null })).toBe("Gris · Motif inconnu");
     const cat = {
       catId: 7,
       name: "Tiger",

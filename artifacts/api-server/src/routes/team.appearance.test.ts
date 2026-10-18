@@ -173,6 +173,17 @@ const form = (path: string) =>
 const json = (path: string) =>
   request(app).post(path).set("Origin", TEAM_ORIGIN).set("Cookie", cookie).set("Accept", "application/json");
 
+/** A page without the Correct form's pattern hints (SYC-443 T3A), the one
+ * place lower-case breeders' words belong; each hint must be there to remove. */
+function withoutHints(html: string): string {
+  let out = html;
+  for (const hint of ["(stripes, swirls or spots)", "(tortoiseshell, calico, black and white…)"]) {
+    expect(out, hint).toContain(hint);
+    out = out.split(hint).join("");
+  }
+  return out;
+}
+
 const confirm = (catId: number, kind: "coat" | "markings", extra: Record<string, string> = {}) =>
   form(`/api/team/cats/${catId}/appearance/confirm`).send({ kind, ...extra });
 
@@ -901,10 +912,12 @@ describe("the Appearance section on the team cat page", () => {
     expect(section).toContain("Black and white, pattern not stated");
     expect(section).toContain("Brown and ginger, pattern not stated");
     // SYC-443: the team's words are allowed now; the old codes and the old
-    // public word never are.
+    // public word never are. Lower-case breeders' words appear only in the
+    // Patched button's hint (T3A), so they are banned everywhere else.
     for (const bad of ["Tortoiseshell or calico", "black_and_white", "undefined", "not_sure", "null"]) {
       expect(section, bad).not.toContain(bad);
     }
+    expect(withoutHints(section)).not.toMatch(/tabby|calico|tortoiseshell/);
     // The Correct form offers the five colours, ticked as they stand.
     expect(section).toContain('name="colours" value="brown" checked');
     expect(section).toContain('name="colours" value="ginger" checked');
@@ -1149,10 +1162,12 @@ describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => 
       expect(section, c.caption).toContain(`aria-label="${c.caption}"`);
       expect(section, c.caption).toContain(`<strong>${c.caption}</strong>`);
       // "Tabby" is the team's word now; the Patched button's hint names
-      // "tortoiseshell, calico" in lower case (T3A).
+      // "tortoiseshell, calico" in lower case (T3A), so it is removed first.
       for (const bad of ["undefined", "null", "NaN", "Tortoiseshell"]) {
         expect(section, `${c.caption}: ${bad}`).not.toContain(bad);
       }
+      // (Lower-case "tabby" belongs in phrases such as "Brown and ginger tabby".)
+      expect(withoutHints(section), c.caption).not.toMatch(/calico|tortoiseshell/);
     }
   });
 

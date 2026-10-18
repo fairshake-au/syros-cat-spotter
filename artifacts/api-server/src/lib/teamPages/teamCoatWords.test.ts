@@ -110,6 +110,13 @@ describe("coatWordsFor: English only (T4A)", () => {
     }
   });
 
+  it("in Greek and French, only the parts that are known, as those pages said them before (review finding 2)", () => {
+    expect(coatWordsFor("el", { colours: null, pattern: "stripes" }, { gap: "stated", live: ALL })).toBe("Ρίγες");
+    expect(coatWordsFor("fr", { colours: ["grey", "white"], pattern: null }, { live: ALL })).toBe("Gris · Blanc");
+    expect(coatWordsFor("el", { colours: ["black"], pattern: "plain" }, { live: ALL })).toBe("Μαύρο · Ενιαίο");
+    expect(coatWordsFor("el", { colours: [], pattern: null }, { live: ALL })).toBe("Άγνωστο");
+  });
+
   it("with only English live (today), Greek falls back to English and its team phrase", () => {
     expect(coatWordsFor("el", coat)).toBe("Ginger tabby");
     expect(coatWordsFor("fr", coat, { live: ["en"] })).toBe("Ginger tabby");

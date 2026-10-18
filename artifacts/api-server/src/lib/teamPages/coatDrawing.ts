@@ -1,7 +1,7 @@
 import { COAT_COLOURS, COAT_PATTERNS, type CoatColour, type CoatPattern } from "../appearance";
 import { escapeHtml as esc } from "./escape";
-import { tr } from "./strings";
-import { coatWordsFor } from "./teamCoatWords";
+import { tr, type StringKey } from "./strings";
+import { coatWordsFor, teamWordsApply } from "./teamCoatWords";
 
 // The drawn cat (coat-colours-and-pattern.md §3, SYC-398 PR B): one simple
 // sitting cat, drawn on the server as static inline SVG. Team pages have no
@@ -88,11 +88,18 @@ function known(coat: DrawnCoat): { colours: CoatColour[]; pattern: CoatPattern |
 
 /**
  * The caption under the drawing, and its label: the team's phrase in
- * English ("Ginger tabby", "Tabby, colours not known"; SYC-443 §15.4), §2's
- * words in Greek and French, each unknown part said out loud.
+ * English ("Ginger tabby", "Tabby, colours not known"; SYC-443 §15.4). In
+ * Greek and French, as before: §2's colours, then the pattern (Plain said,
+ * since the drawing can't show it any other way), each part "not known"
+ * when it isn't, joined with " · " (Decision E1).
  */
 export function drawnCaption(lang: string | undefined, coat: DrawnCoat): string {
-  return coatWordsFor(lang, coat);
+  if (teamWordsApply(lang)) return coatWordsFor(lang, coat);
+  const { colours, pattern } = known(coat);
+  return [
+    ...(colours.length ? colours.map((c) => tr(lang, `coat.${c}` as StringKey)) : [tr(lang, "appearance.drawnColoursNotKnown")]),
+    pattern ? tr(lang, `pattern.${pattern}` as StringKey) : tr(lang, "appearance.drawnPatternNotKnown"),
+  ].join(" · ");
 }
 
 /** The drawn cat as an inline SVG. `id` keeps its clip path unique on a page. */

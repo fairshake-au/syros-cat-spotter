@@ -6,8 +6,8 @@ import type { TeamAppearance, TeamAppearanceStatement, TeamCatView } from "../te
 import { colourSwatch, drawnCoatFigure } from "./coatDrawing";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { pageLanguage, tr, type StringKey } from "./strings";
-import { coatWordsFor, teamPatternWord, TEAM_PATTERN_LABELS } from "./teamCoatWords";
+import { tr, type StringKey } from "./strings";
+import { coatWordsFor, teamPatternWord, teamWordsApply, TEAM_PATTERN_LABELS } from "./teamCoatWords";
 
 // The Appearance section on the team cat page, and the Colour check list
 // (SYC-2 PR 3.1; coat-markings-and-health.md §4.4, §5.3). Server-drawn, no
@@ -31,7 +31,7 @@ const coatWord = (lang: string | undefined, code: string) =>
 
 /** Team pages drawn in English say a coat in the team's words (SYC-443, T4A);
  * in Greek or French, in §2's words. */
-const teamWords = (lang: string | undefined) => pageLanguage(lang) === "en";
+const teamWords = (lang: string | undefined) => teamWordsApply(lang);
 
 /** A pattern on its own: Solid, Tabby, Patched in English (§15.2). */
 const patternText = (lang: string | undefined, pattern: string | null) =>

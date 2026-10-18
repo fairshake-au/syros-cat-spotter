@@ -94,11 +94,16 @@ export function teamCoatPhrase(coat: TeamCoat, gap: CoatGap = "known"): string {
   }
 }
 
+/** True when a page in `lang` says a coat in the team's words: English only (T4A). */
+export function teamWordsApply(lang: string | null | undefined, live: readonly Language[] = LIVE_LANGUAGES): boolean {
+  return pageLanguage(lang, live) === "en";
+}
+
 /**
  * The one entry point pages call. In English, the team phrase; in any other
  * language the page is drawn in (`live` widens the languages switched on),
- * §2's words joined with " · ", each unknown part said as the drawn cat's
- * caption says it.
+ * §2's words for the parts that are known, joined with " · ", as those pages
+ * said them before SYC-443 ("Ρίγες"), or "Not known" when neither is.
  */
 export function coatWordsFor(
   lang: string | null | undefined,
@@ -106,13 +111,11 @@ export function coatWordsFor(
   opts: { gap?: CoatGap; live?: readonly Language[] } = {},
 ): string {
   const live = opts.live ?? LIVE_LANGUAGES;
-  if (pageLanguage(lang, live) === "en") return teamCoatPhrase(coat, opts.gap);
+  if (teamWordsApply(lang, live)) return teamCoatPhrase(coat, opts.gap);
   const { colours, pattern } = known(coat);
   if (colours.length === 0 && pattern === null) return tr(lang, "appearance.notKnown", undefined, live);
   return [
-    ...(colours.length
-      ? colours.map((c) => tr(lang, `coat.${c}` as StringKey, undefined, live))
-      : [tr(lang, "appearance.drawnColoursNotKnown", undefined, live)]),
-    pattern ? tr(lang, `pattern.${pattern}` as StringKey, undefined, live) : tr(lang, "appearance.drawnPatternNotKnown", undefined, live),
+    ...colours.map((c) => tr(lang, `coat.${c}` as StringKey, undefined, live)),
+    ...(pattern ? [tr(lang, `pattern.${pattern}` as StringKey, undefined, live)] : []),
   ].join(" · ");
 }
