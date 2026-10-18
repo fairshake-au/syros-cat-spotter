@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { like } from "drizzle-orm";
+import { eq, inArray, like } from "drizzle-orm";
 import { db, photosTable, sightingsTable, welfareReportsTable } from "@workspace/db";
 import { seedReport } from "../teamAuth/__fixtures__/queueKit";
 import { deleteTestSightings } from "../../test/sightings";
@@ -29,6 +29,7 @@ const DEVICE = `${PREFIX}device`;
 const NOW = new Date("2026-10-18T12:00:00Z");
 
 let photoId: number;
+const redactedIds: number[] = [];
 
 beforeAll(async () => {
   const [p] = await db
@@ -40,6 +41,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
+  if (redactedIds.length) await deleteTestSightings(inArray(sightingsTable.id, redactedIds));
   await db.delete(welfareReportsTable).where(like(welfareReportsTable.publicId, `${PREFIX}%`));
   await db.delete(photosTable).where(like(photosTable.publicId, `${PREFIX}%`));
 });
@@ -139,10 +141,16 @@ describe("Needs us now", () => {
     expect(d.needs.value.reportsTotal).toBe(7);
   });
 
-  it("counts the reports waiting for a check", async () => {
-    const q = fakeQueue({ unchecked: { reports: [], reportsTotal: 3, drafts: [], draftsTotal: 0 } });
+  it("counts the reports waiting for a check apart: they are not in the open total", async () => {
+    const q = fakeQueue({
+      open: [fakeReport("o1"), fakeReport("o2")],
+      unchecked: { reports: [], reportsTotal: 3, drafts: [], draftsTotal: 0 },
+    });
     const d = await homeData(NOW, pure({ listWelfareQueue: async () => q }));
-    expect(d.needs.ok && d.needs.value.unchecked).toBe(3);
+    expect(d.needs.ok).toBe(true);
+    if (!d.needs.ok) return;
+    expect(d.needs.value.unchecked).toBe(3);
+    expect(d.needs.value.reportsTotal).toBe(2);
   });
 
   it("drafts: one started 25 hours ago is left out, one started 2 hours ago is in", async () => {
@@ -169,6 +177,9 @@ describe("Needs us now", () => {
     await seedReport({ publicId: pid("issue-done"), kind: "content", state: "done" });
     await seedReport({ publicId: pid("issue-draft"), kind: "content", state: "new", isDraft: true });
     expect(await countOpenIssues()).toBe(before + 1);
+    // An ordinary open welfare report is not an issue (review of #243).
+    await seedReport({ publicId: pid("issue-welfare"), kind: "welfare", state: "new" });
+    expect(await countOpenIssues()).toBe(before + 1);
   });
 
   it("counts a sighting held for the team to match", async () => {
@@ -184,6 +195,36 @@ describe("Needs us now", () => {
   });
 });
 
+describe("redacted sightings are never counted", () => {
+  // Redaction is an UPDATE that clears the device (sightings_append_only),
+  // so these rows lose the device the cleanup matches on: track their ids.
+  async function redactedSighting(over: Partial<typeof sightingsTable.$inferInsert>) {
+    const [row] = await db
+      .insert(sightingsTable)
+      .values({ deviceId: DEVICE, photoId, lat: 37.4447, lng: 24.9417, ...over })
+      .returning({ id: sightingsTable.id });
+    await db
+      .update(sightingsTable)
+      .set({ deviceId: null, redactedAt: new Date(), redactionReason: "vitest" })
+      .where(eq(sightingsTable.id, row!.id));
+    redactedIds.push(row!.id);
+  }
+
+  it("not as waiting for a match", async () => {
+    const before = await countAwaitingMatch();
+    await redactedSighting({ status: "awaiting_team" });
+    expect(await countAwaitingMatch()).toBe(before);
+  });
+
+  it("nor in this month's sightings", async () => {
+    const from = new Date("2002-03-01T00:00:00Z");
+    const to = new Date("2002-04-01T00:00:00Z");
+    const before = (await monthFigures(from, to, [])).sightings;
+    await redactedSighting({ status: "resolved", createdAt: new Date("2002-03-15T12:00:00Z") });
+    expect((await monthFigures(from, to, [])).sightings).toBe(before);
+  });
+});
+
 describe("Cats to check", () => {
   it("counts match the two lists' own rules", async () => {
     const d = await homeData(NOW);
@@ -193,6 +234,14 @@ describe("Cats to check", () => {
     if (!d.toCheck.ok) return;
     expect(d.toCheck.value.earClips.count).toBe(likely.length);
     expect(d.toCheck.value.colour.count).toBe(colour.filter((c) => c.group === "check").length);
+  });
+
+  it("takes a cat's first evidence photo that has an address, not just its first item", async () => {
+    const likely = [
+      { catId: 1, evidence: [{ photoUrl: null }, { photoUrl: "/api/team/photos/second" }] },
+    ] as unknown as LikelyCat[];
+    const d = await homeData(NOW, pure({ listLikelyForReview: async () => likely }));
+    expect(d.toCheck.ok && d.toCheck.value.earClips.photos).toEqual(["/api/team/photos/second/small"]);
   });
 
   it("counts only the 'check' group, shows at most four small photos, and skips cats with none", async () => {
@@ -275,6 +324,15 @@ describe("This month", () => {
     // Just after midnight on 1 Nov in Athens is November, though it's still 31 Oct in UTC.
     expect(athensMonths(new Date("2026-10-31T22:30:00Z")).now.from).toEqual(new Date("2026-10-31T22:00:00Z"));
     expect(athensMonths(new Date("2027-01-10T12:00:00Z")).last.from).toEqual(new Date("2026-11-30T22:00:00Z"));
+  });
+
+  it("homeData asks for Athens months: just after midnight on 1 Oct there is already October", async () => {
+    const asked: [Date, Date][] = [];
+    // 00:30 on 1 October in Athens is still 21:30 on 30 September in UTC.
+    const at = new Date("2026-09-30T21:30:00Z");
+    await homeData(at, pure({ monthFigures: async (from, to) => (asked.push([from, to]), { sightings: 0, newCats: 0, sterilisations: 0 }) }));
+    expect(asked[0]).toEqual([new Date("2026-09-30T21:00:00Z"), new Date("2026-10-31T22:00:00Z")]);
+    expect(asked[1]![0]).toEqual(new Date("2026-08-31T21:00:00Z"));
   });
 
   it("a sterilisation counts in the month of the operation, however late it was entered", async () => {

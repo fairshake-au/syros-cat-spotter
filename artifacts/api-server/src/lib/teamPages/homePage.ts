@@ -39,10 +39,12 @@ const QUEUE = "/api/team";
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const unavailable = `<p class="empty">${esc(UNAVAILABLE)}</p>`;
 
-/** The first words of a note, on whole characters (never half an emoji). */
-function firstWords(note: string | null): string {
+const graphemes = new Intl.Segmenter("en", { granularity: "grapheme" });
+
+/** The first words of a note, on whole characters: a family emoji or a flag is one, never cut in half. */
+export function firstWords(note: string | null): string {
   if (!note) return "";
-  const chars = [...note.trim().replace(/\s+/g, " ")];
+  const chars = [...graphemes.segment(note.trim().replace(/\s+/g, " "))].map((s) => s.segment);
   return chars.length <= NOTE_WORDS ? chars.join("") : `${chars.slice(0, NOTE_WORDS).join("").trimEnd()}…`;
 }
 
@@ -119,7 +121,7 @@ function quietCard(c: TeamCat, colonyNames: Record<number, string>, now: Date): 
   const photo = c.photoPublicId
     ? `<img class="cardimg" src="${esc(`${teamPhotoUrl(c.photoPublicId)}/small`)}" alt="${esc(`Photo of ${c.name}`)}" loading="lazy" width="180" height="180">`
     : '<span class="cardimg nothumb">No photo</span>';
-  const colony = c.colonyId === null ? "No colony" : (colonyNames[c.colonyId] ?? "Colony");
+  const colony = c.colonyId === null ? "No colony" : (colonyNames[c.colonyId] ?? "Another colony");
   const seen = lastSeenWords(c.lastSeenAt, now);
   return (
     '<li class="catcard">' +

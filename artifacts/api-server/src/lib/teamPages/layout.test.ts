@@ -140,6 +140,13 @@ describe("Signed in as and Sign out sit in the menu bar (spec §3.2)", () => {
   });
 });
 
+describe("Back home on the refusal page (SYC-396 PR 2.1)", () => {
+  it("takes a team member to Home, which is where signing in lands", () => {
+    const html = forbiddenPage({ name: "Maria", language: "en", island: true });
+    expect(html).toMatch(/<a class="tap" href="\/api\/team\/home">/);
+  });
+});
+
 describe("the skip link (SYC-366)", () => {
   it("is the first thing in the body, on every kind of page, and points at <main id=main>", () => {
     for (const nav of [true, false, "guardian"] as const) {

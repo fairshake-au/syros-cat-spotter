@@ -7,7 +7,7 @@ import app from "../app";
 import { seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
 import { homeData, type HomeData, type HomeDeps } from "../lib/dashboard/home";
-import { COMING_SOON, comingSoonLine, NOTHING_NEEDS_YOU, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
+import { COMING_SOON, comingSoonLine, firstWords, NOTHING_NEEDS_YOU, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
 import type { QueueReport, WelfareQueue } from "../lib/welfareQueue";
 import type { TeamCat } from "../lib/teamCatList";
 import { escapeHtml } from "../lib/teamPages/escape";
@@ -235,6 +235,24 @@ describe("renderHomePage", () => {
     expect(html).toContain('id="tocheck"');
     expect(html).toContain('id="month"');
     expect(html).not.toContain(NOTHING_NEEDS_YOU);
+  });
+});
+
+describe("small wording rules", () => {
+  it("firstWords never cuts a family emoji or a flag in half", () => {
+    const family = "👩‍👩‍👧‍👦";
+    const out = firstWords(family.repeat(100));
+    expect(out).toBe(`${family.repeat(80)}…`);
+    expect(firstWords("🇬🇷".repeat(90))).toBe(`${"🇬🇷".repeat(80)}…`);
+    expect(firstWords("  short   note ")).toBe("short note");
+    expect(firstWords(null)).toBe("");
+  });
+
+  it("a colony the viewer can't name is 'Another colony', never its name", () => {
+    const d = full({ notSeenLately: { ok: true, value: { cats: [quietCat(1)], total: 1, colonyNames: {} } } });
+    const html = page(d);
+    expect(html).toContain("Another colony");
+    expect(html).not.toContain("Harbour steps");
   });
 });
 
