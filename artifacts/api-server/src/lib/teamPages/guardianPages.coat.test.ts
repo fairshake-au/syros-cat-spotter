@@ -94,6 +94,12 @@ describe("a guardian's cat page says the coat in the team's words (SYC-443 PR 2)
     );
   });
 
+  it("a pattern with no colours keeps the pattern (review finding 1)", () => {
+    const tabby = cat({ coatColours: [], coatPattern: "stripes", markings: ["white_paws"] });
+    expect(coatLine(page(tabby))).toBe("Tabby, colours not known · White paws");
+    expect(coatLine(page(tabby, "el", GREEK_LIVE))).toBe("Ρίγες · Λευκά πόδια");
+  });
+
   it("an unknown coat shows only the marks", () => {
     for (const coatColours of [[], ["not_sure" as never]]) {
       const html = page(cat({ coatColours, coatPattern: null, markings: ["white_paws"] }));
