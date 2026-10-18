@@ -865,7 +865,11 @@ const CorrectForm = z.object({
   kind: z.enum(["coat", "markings"]),
   colours: z.preprocess(listOf, z.array(z.enum(TEAM_COLOURS)).max(TEAM_COLOURS.length).optional()),
   /** A coat's pattern (SYC-398 PR B); "none" is the form's Not stated. */
-  pattern: z.enum(["plain", "stripes", "patches", "none"]).default("none"),
+  // A JSON null is Not stated too.
+  pattern: z.preprocess(
+    (v) => (v === null ? undefined : v),
+    z.enum(["plain", "stripes", "patches", "none"]).default("none"),
+  ),
   // The form's hidden empty `marks` says the list was sent: none ticked is
   // "nothing special", a choice, never a missing field.
   marks: z.preprocess(

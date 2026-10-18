@@ -1033,6 +1033,30 @@ describe("SYC-398 PR B: Correct states colours, a pattern, or both", () => {
     expect(await rowsFor(catId)).toHaveLength(0);
   });
 
+  it("neither, shown again, keeps the guardian guard and the way back to the Colour check list", async () => {
+    const catId = await newCat();
+    const g = await guardian(catId, "coat", "eleni", { value: { colours: ["grey"] }, daysAgo: 2 });
+    const res = await correct(catId, { kind: "coat", pattern: "none", shownAbove: String(g.id), back: "colour" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain(`name="shownAbove" value="${g.id}"`);
+    expect(res.text).toContain('name="back" value="colour"');
+    expect(res.text).toContain(`href="/api/team/colour-check#c-${catId}"`);
+    expect(res.text).toContain("Saving marks every standing cat guardian change on it wrong");
+    expect((await rowsFor(catId)).filter((o) => o.id > g.id)).toHaveLength(0);
+  });
+
+  it("JSON: pattern null is Not stated", async () => {
+    const catId = await newCat();
+    const res = await json(`/api/team/cats/${catId}/appearance/correct`).send({
+      kind: "coat",
+      colours: ["grey"],
+      pattern: null,
+      reason: "x",
+    });
+    expect(res.status).toBe(201);
+    expect((await rowsFor(catId))[0]!.value).toEqual({ colours: ["grey"], reason: "x" });
+  });
+
   it("refuses a pattern outside the three and Not stated", async () => {
     const catId = await newCat();
     for (const pattern of ["tabby", "not_sure", "calico", ""]) {
@@ -1069,6 +1093,10 @@ describe("SYC-398 PR B: Correct states colours, a pattern, or both", () => {
     expect(snap.coatPattern).toMatchObject({ value: "patches", confidence: "confirmed" });
     // Nothing else said a colour: her grey no longer counts.
     expect(snap.coatColours.value).toBeNull();
+    // The page draws the coat after an overrule too.
+    const page = await request(app).get(`/api/team/cats/${catId}?done=a_coat_overruled`).set("Cookie", cookie);
+    expect(page.text).toContain("the team&#39;s change is added");
+    expect(page.text).toContain('aria-label="Colours not known · Patches"');
   });
 });
 
