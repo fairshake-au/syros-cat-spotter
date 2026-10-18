@@ -200,6 +200,7 @@ export async function invite(
               kind: "invited",
               roles: roleNames(input.placements),
               colonyIds: colonyIdsOf(input.placements),
+              ...(input.placements.some((p) => p.start === true) ? { starting: true as const } : {}),
             })),
           );
         },
@@ -372,6 +373,7 @@ export async function bringBack(
             kind: "rejoined",
             roles: roleNames(placements),
             colonyIds: colonyIdsOf(placements),
+            ...(placements.some((p) => p.start === true) ? { starting: true as const } : {}),
           })),
         );
       },

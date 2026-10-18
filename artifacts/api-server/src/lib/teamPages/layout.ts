@@ -50,6 +50,11 @@ export const navContext = new AsyncLocalStorage<{
   island?: boolean;
   /** Signed in: every page carries "My page" (SYC-53 PR 1.3). */
   mine?: boolean;
+  /**
+   * A cat guardian with no colony yet (SYC-439): her menu has Colonies and
+   * her own pages, not Feeding sites, which would refuse her.
+   */
+  starting?: boolean;
 }>();
 
 export const MY_PAGE_PATH = "/api/team/my";
@@ -503,7 +508,8 @@ export function renderPage(opts: PageOptions): string {
     : [];
   // A cat guardian on a Colonies or Feeding sites page (SYC-209 PR 4.1) gets
   // her own two links to those screens, in her language.
-  const guardianNav: NavItem[] = GUARDIAN_NAV.map((g) => ({
+  const starting = ctx?.starting === true;
+  const guardianNav: NavItem[] = GUARDIAN_NAV.filter((g) => !starting || g.key === "colonies").map((g) => ({
     key: g.key,
     label: tr(lang, g.word, undefined, opts.liveLanguages),
     href: g.href,

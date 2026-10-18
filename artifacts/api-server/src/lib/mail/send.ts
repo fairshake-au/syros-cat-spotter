@@ -320,6 +320,8 @@ export type PersonMailLookups = {
     language: string;
     roles: string[];
     colonies: { id: number; name: string }[];
+    /** A cat guardian with no colony yet (SYC-439); absent reads as no. */
+    starting?: boolean;
   } | null>;
   /** A joined management member with management in force now. */
   manager(personId: string): Promise<{ email: string; language: string } | null>;
@@ -423,6 +425,7 @@ async function buildPersonMail(
         language: invitee.language,
         roles: invitee.roles,
         colonies: invitee.colonies.map((c) => c.name),
+        starting: invitee.starting === true,
       }),
     };
   }

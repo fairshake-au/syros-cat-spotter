@@ -1,6 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
+import { holdsStartRow, type CapabilityHolder } from "../lib/capabilities";
 import {
   isIslandWide,
   pageLangFor,
@@ -18,10 +19,9 @@ import { refuseSignedIn, requireTeam, teamPerson } from "./requireTeam";
 //
 // Someone who may enter the dashboard but sees no colony (no
 // `view_exact_location` anywhere) gets the quiet 403, as any other refused
-// page. A cat guardian who holds only `create_colony`, with no colony yet,
-// can't exist today: a guardian with no placement holds nothing, and gets the
-// "access has ended" page at the dashboard door. Her create form arrives with
-// PR 4.2 (createColonyWithPlacement).
+// page. A cat guardian with no colony yet (SYC-439) is refused here too: only
+// the Colonies list (requireColoniesList, below) and its create form let her
+// in.
 
 function enterIfSees(req: Request, res: Response, next: NextFunction): void {
   if (!seesAny(visibleColonyIds(teamPerson(res)))) {
@@ -33,6 +33,34 @@ function enterIfSees(req: Request, res: Response, next: NextFunction): void {
 
 /** A page a cat guardian may read: the dashboard door, then "sees some colony". */
 export const requireSeeing = (): RequestHandler[] => [requireTeam(), enterIfSees];
+
+/**
+ * The Colonies LIST's own door (SYC-439; first-colony spec §4.3): "sees some
+ * colony, or holds a 'no colony yet' row", so a cat guardian with no colony
+ * reaches her empty list and the create form. Used ONLY by GET
+ * /team/colonies; the shared door above is unchanged, so the other Colonies
+ * and Feeding sites pages still refuse her. Every query behind it is still
+ * filtered by visibleColonyIds, which for her is nothing.
+ */
+export const requireColoniesList = (): RequestHandler[] => [
+  requireTeam(undefined, { openToStarter: true }),
+  (req: Request, res: Response, next: NextFunction) => {
+    if (!opensColoniesList(teamPerson(res))) {
+      req.log.info({ reason: "sees_no_colony" }, "team request refused");
+      return refuseSignedIn(req, res);
+    }
+    next();
+  },
+];
+
+/**
+ * May this person open the Colonies list? Sees some colony, or holds a "no
+ * colony yet" row. A second line behind the door (which already refuses
+ * someone who holds nothing), so it is tested on its own.
+ */
+export function opensColoniesList(person: CapabilityHolder): boolean {
+  return seesAny(visibleColonyIds(person)) || holdsStartRow(person);
+}
 
 /** The same, for a form that writes nothing (the map's zoom, pan and area buttons). */
 export const seeingFormRoute = (): RequestHandler[] => [

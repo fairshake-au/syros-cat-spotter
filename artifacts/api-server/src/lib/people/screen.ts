@@ -7,6 +7,8 @@ import {
   personState,
   placementEndsAt,
   SCOPE_RELATIONSHIPS,
+  START_ALONE,
+  START_OR_COLONIES,
   type PersonState,
   type PlacementInput,
   type ScreenPerson,
@@ -104,13 +106,20 @@ function who(by: string, lk: Lookups): string {
 function wordsForLabels(labels: readonly unknown[], lk: Lookups): string {
   const roles: string[] = [];
   const colonies: string[] = [];
+  let starting = false;
   for (const l of labels) {
     if (typeof l !== "string") continue;
+    // "No colony yet" (SYC-439) is its own label, never a colony.
+    if (l === "guardian:start") {
+      roles.push("guardian");
+      starting = true;
+      continue;
+    }
     const [role, colony] = l.split(":");
     if (role) roles.push(role);
     if (colony && /^\d+$/.test(colony)) colonies.push(colonyName(lk, Number(colony)));
   }
-  return roleSentence("en", roles, colonies, (n) => clip(n));
+  return roleSentence("en", roles, colonies, (n) => clip(n), undefined, starting);
 }
 
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
@@ -151,7 +160,7 @@ export function describeEvent(e: ScreenPerson["history"][number], lk: Lookups): 
       const colonies = asArray(d["colonyIds"])
         .filter((c): c is number => typeof c === "number")
         .map((c) => colonyName(lk, c));
-      return `${actor} invited them as ${roleSentence("en", roles, colonies, (n) => clip(n))}.`;
+      return `${actor} invited them as ${roleSentence("en", roles, colonies, (n) => clip(n), undefined, d["start"] === true)}.`;
     }
     case "invite_sent":
       return "The invitation email was sent.";
@@ -221,6 +230,8 @@ export interface PersonView {
   joinedAt: Date | null;
   history: { when: string; text: string }[];
   isSelf: boolean;
+  /** A cat guardian with no colony yet, in force (SYC-439). */
+  starting: boolean;
 }
 
 const capitalise = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s);
@@ -234,8 +245,10 @@ export function buildView(p: ScreenPerson, now: Date, lk: Lookups, selfId: strin
   const guardianColonies = inForce
     .filter((s) => s.role === "guardian" && s.colonyId !== null)
     .map((s) => colonyName(lk, s.colonyId!));
+  const starting = inForce.some((s) => s.reach === "start");
+  // A placement line is a colony: "no colony yet" is said in the roles line.
   const placements: PlacementView[] = p.placements
-    .filter((s) => s.role === "guardian")
+    .filter((s) => s.role === "guardian" && s.reach !== "start")
     .map((s) => ({
       colonyId: s.colonyId,
       colony: s.colonyId === null ? null : colonyName(lk, s.colonyId),
@@ -280,13 +293,17 @@ export function buildView(p: ScreenPerson, now: Date, lk: Lookups, selfId: strin
     anonymised,
     state,
     chip: CHIP_LABELS[state],
-    roles: capitalise(roleSentence("en", roles, guardianColonies, (n) => clip(n))),
+    roles:
+      starting && roles.every((r) => r === "guardian") && guardianColonies.length === 0
+        ? "Cat guardian · no colony yet"
+        : capitalise(roleSentence("en", roles, guardianColonies, (n) => clip(n), undefined, starting)),
     placements,
     timing,
     holdsWorkspace: roles.some((r) => WORKSPACE_ROLES.includes(r)),
     joinedAt: p.acceptedAt,
     history: p.history.map((e) => ({ when: athensDateTime(e.at), text: describeEvent(e, lk) })),
     isSelf: p.id === selfId,
+    starting,
   };
 }
 
@@ -317,6 +334,15 @@ export function parsePlacements(body: Record<string, unknown>, existing: Readonl
   if (roles.length === 0) return { ok: false, message: "Choose at least one role." };
   const wantsGuardian = roles.includes("guardian");
   const ticked = many(body["colony"]);
+  // "No colony yet: creates the first one" (SYC-439): an explicit box, read
+  // before anything that needs a colony to exist. Its rules (a cat guardian
+  // alone, no colony, no end date or label) are lib/db's, so every path
+  // keeps them; the two plain sentences here are the same ones.
+  if (many(body["no_colony"]).length > 0) {
+    if (!wantsGuardian || roles.length !== 1) return { ok: false, message: START_ALONE };
+    if (ticked.length > 0) return { ok: false, message: START_OR_COLONIES };
+    return { ok: true, placements: [{ role: "guardian", start: true }] };
+  }
   if (!wantsGuardian && ticked.length > 0) {
     return {
       ok: false,
@@ -326,9 +352,11 @@ export function parsePlacements(body: Record<string, unknown>, existing: Readonl
   const placements: PlacementInput[] = [...new Set(roles.filter((r) => r !== "guardian"))].map((role) => ({ role }));
   if (wantsGuardian) {
     if (existing.size === 0) {
-      return { ok: false, message: "No colonies exist yet, so nobody can be made a cat guardian yet." };
+      return { ok: false, message: "No colonies exist yet. Tick “No colony yet” for a cat guardian who will create the first one." };
     }
-    if (ticked.length === 0) return { ok: false, message: "A cat guardian needs at least one colony. Tick one." };
+    if (ticked.length === 0) {
+      return { ok: false, message: "A cat guardian needs at least one colony, or “No colony yet”. Tick one." };
+    }
     const seen = new Set<number>();
     for (const raw of ticked) {
       if (!/^[1-9]\d{0,8}$/.test(raw)) return { ok: false, message: "That colony isn't on the list." };

@@ -59,6 +59,8 @@ export function roleSentence(
   colonies: readonly string[],
   format: (name: string) => string,
   live?: readonly Language[],
+  /** A cat guardian with no colony yet (SYC-439): never "nothing". */
+  starting = false,
 ): string {
   const island = roles.includes("management")
     ? tr(lang, "role.management", undefined, live)
@@ -70,5 +72,6 @@ export function roleSentence(
       ? tr(lang, "role.guardian", { colonies: joinList(lang, colonies.map(format), live) }, live)
       : null;
   if (island && guardian) return tr(lang, "role.both", { first: island, second: guardian }, live);
+  if (!island && !guardian && starting) return tr(lang, "role.guardianStarting", undefined, live);
   return island ?? guardian ?? tr(lang, "role.none", undefined, live);
 }

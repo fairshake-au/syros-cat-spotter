@@ -250,6 +250,7 @@ router.get("/team/people/:id/roles", requireTeam("manage_people"), async (req: R
   const inForce = row.placements.filter((p) => p.inForce);
   const pre: Prefill = {
     roles: [...new Set(inForce.map((p) => p.role))],
+    starting: inForce.some((p) => p.reach === "start"),
     colonies: new Map(
       inForce
         .filter((p) => p.role === "guardian" && p.colonyId !== null)
@@ -279,12 +280,20 @@ router.get("/team/people/:id/bring-back", requireTeam("manage_people"), async (r
   // What they held, from the `left` event (ids only), else from the kept rows.
   const ev = await latest(found.view.id, "left");
   const heldRoles = ev ? strings(ev.detail["roles"]) : [];
+  const heldStarting = ev?.detail["start"] === true;
   const heldColonies = ev ? numbers(ev.detail["colonyIds"]) : [];
   let held: string | null =
     found.view.roles === "Nothing" ? null : found.view.roles.charAt(0).toLowerCase() + found.view.roles.slice(1);
   if (heldRoles.length > 0) {
     const names = await colonyNames(db, heldColonies);
-    held = roleSentence("en", heldRoles, heldColonies.map((c) => clip(names.get(c) ?? "a colony that no longer exists")), (n) => clip(n));
+    held = roleSentence(
+      "en",
+      heldRoles,
+      heldColonies.map((c) => clip(names.get(c) ?? "a colony that no longer exists")),
+      (n) => clip(n),
+      undefined,
+      heldStarting,
+    );
   }
   res.type("html").send(renderBringBackPage({ viewer: me.name, person: found.view, held, colonies: await colonyOptions(res) }));
 });
@@ -392,7 +401,7 @@ router.post("/team/people/:id/roles", ...formRoute("manage_people"), async (req:
       if (!form.ok) throw new Bad(form.message);
       const r = await changeRoles(me, id, form.placements);
       const guardian = (labels: string[]) =>
-        labels.filter((l) => l.startsWith("guardian:")).map((l) => Number(l.split(":")[1]));
+        labels.filter((l) => /^guardian:\d+$/.test(l)).map((l) => Number(l.split(":")[1]));
       const kept = new Set(guardian(r.after));
       const lost = guardian(r.before).filter((c) => !kept.has(c));
       return location("roles", { p: id });

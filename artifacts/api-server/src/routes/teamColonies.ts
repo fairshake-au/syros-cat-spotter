@@ -25,7 +25,7 @@ import {
 import { t, type WordKey } from "../lib/teamPages/words";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
-import { pageViewer, requireSeeing } from "../middlewares/requireSeeing";
+import { pageViewer, requireColoniesList, requireSeeing } from "../middlewares/requireSeeing";
 import { covers } from "../lib/guardianView";
 import { movedAwayNotices } from "../lib/movedAway";
 import { recentGuardianChanges } from "../lib/recentGuardianChanges";
@@ -151,7 +151,8 @@ async function thisColony(req: Request): Promise<CapabilityTarget> {
 /** GET /api/team/colonies?q=: every colony, or those that ever had a name like q. */
 router.get(
   "/team/colonies",
-  ...requireSeeing(),
+  // Its own door: a cat guardian with no colony yet reaches it too (SYC-439).
+  ...requireColoniesList(),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
     const v = pageViewer(res);
@@ -268,7 +269,8 @@ const takenResponse = (
  */
 router.post(
   "/team/colonies",
-  ...formRoute("create_colony"),
+  // A cat guardian with no colony yet creates her first one here (SYC-439).
+  ...formRoute("create_colony", { openToStarter: true }),
   async (req: Request, res: Response) => {
     const v = pageViewer(res);
     const back = { href: "/api/team/colonies", label: t("problem.backToColonies", v.lang) };

@@ -110,10 +110,12 @@ function colonyCard(W: Words, c: ColonyRow): string {
  * "Create a colony". A cat guardian's form has a name and notes only: she
  * becomes its guardian, under her own name (spec §2.7; SYC-209 PR 4.2).
  */
-function createForm(W: Words, island: boolean): string {
+function createForm(W: Words, island: boolean, open = false): string {
   const { w } = W;
+  // `#create` is where "Create a colony" on My colonies lands (SYC-439); it
+  // starts open for a cat guardian who has no colony to see yet.
   return (
-    `<div class="fixes"><details><summary>${w("create.open")}</summary>` +
+    `<div class="fixes"><details id="create"${open ? " open" : ""}><summary>${w("create.open")}</summary>` +
     `<form method="post" action="/api/team/colonies">` +
     `<label class="label" for="new-name">${w("create.name")}</label>` +
     `<p class="hint">${w("create.nameHint")}</p>` +
@@ -151,7 +153,17 @@ export function renderColoniesPage(opts: ColonyViewer & {
   const list =
     opts.colonies.length > 0
       ? `<ul class="cats">${opts.colonies.map((c) => colonyCard(W, c)).join("")}</ul>`
-      : `<p class="empty">${w(searching ? "colonies.noMatch" : "colonies.empty")}</p>`;
+      : // A cat guardian sees only her own colonies, so "there are none" would
+        // be untrue from where she stands (SYC-439).
+        `<p class="empty">${w(
+          opts.island === false
+            ? searching
+              ? "colonies.noMatchOwn"
+              : "colonies.emptyOwn"
+            : searching
+              ? "colonies.noMatch"
+              : "colonies.empty",
+        )}</p>`;
   return renderPage({
     title: t("colonies.title"),
     active: "colonies",
@@ -167,7 +179,9 @@ export function renderColoniesPage(opts: ColonyViewer & {
       `<button type="submit">${w("colonies.searchButton")}</button></div></form>` +
       (searching ? `<p><a class="tap" href="/api/team/colonies">${w("colonies.showAll")}</a></p>` : "") +
       list +
-      (opts.canCreate ? createForm(W, opts.island !== false) : ""),
+      (opts.canCreate
+        ? createForm(W, opts.island !== false, opts.island === false && opts.colonies.length === 0 && !searching)
+        : ""),
   });
 }
 
@@ -503,7 +517,7 @@ export function renderNameTaken(
         ? `<p>${w("taken.before")} <a href="${esc(colonyHref(holder.id))}"><strong>${esc(holder.name)}</strong></a>. ${w("taken.after")}</p>`
         : island
           ? `<p>${w("taken.generic")} ${w("taken.after")}</p>`
-          : `<p>${w("taken.cantUse")}</p>`) +
+          : `<p>${w("taken.anotherHas")}</p>`) +
       `<p>${w("problem.nothingChanged")}</p>` +
       `<p><a class="tap" href="${esc(back.href)}">${esc(back.label)}</a></p>`,
   });

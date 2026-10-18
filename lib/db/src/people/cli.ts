@@ -10,7 +10,7 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 // the list until the manage_people screen (SYC-104) exists.
 //
 //   pnpm --filter @workspace/db run people -- add --target <t> --accepted [--email <e>] [--name <n>] [--role staff] [--colony <id>] [--language en] [--by <operator>]
-//   pnpm --filter @workspace/db run people -- set-roles --target <t> (--add <role> | --remove <role> | --replace <role>...) [--colony <id>] [--force] [--email <e>] [--by <operator>]
+//   pnpm --filter @workspace/db run people -- set-roles --target <t> (--add <role> | --remove <role> | --replace <role>...) [--colony <id> | --start] [--force] [--email <e>] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- list --target <t>
 //   pnpm --filter @workspace/db run people -- mark-left --target <t> [--force] [--email <e>] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- sign-out-everywhere --target <t> [--email <e>] [--by <operator>]
@@ -60,14 +60,14 @@ export interface CliIo {
 const USAGE = [
   "Usage:",
   "  people add --target <target> --accepted [--email <address>] [--name <name>] [--role <role>]... [--colony <id>] [--language en|el|fr] [--by <operator>]",
-  "  people set-roles --target <target> (--add <role> | --remove <role> | --replace <role>...) [--colony <id>] [--force] [--email <address>] [--by <operator>]",
+  "  people set-roles --target <target> (--add <role> | --remove <role> | --replace <role>...) [--colony <id> | --start] [--force] [--email <address>] [--by <operator>]",
   "  people list --target <target>",
   "  people mark-left --target <target> [--force] [--email <address>] [--by <operator>]",
   "  people sign-out-everywhere --target <target> [--email <address>] [--by <operator>]",
   "<target> is development, rehearsal or production, and DATABASE_TARGET must equal it.",
   "The address comes from NEON_DEV_URL, NEON_REHEARSAL_URL or NEON_PROD_URL respectively.",
   "--email and --name may instead come from PEOPLE_EMAIL and PEOPLE_NAME.",
-  "Roles are staff, management, guardian and vet. A guardian needs --colony.",
+  "Roles are staff, management, guardian and vet. A guardian needs --colony, or --start for a cat guardian with no colony yet (set-roles --add guardian or --remove guardian).",
 ].join("\n");
 
 class UsageError extends Error {}
@@ -80,7 +80,7 @@ export const TARGET_URL_VARIABLES = {
 } as const;
 
 /** Flags that take no value. */
-const SWITCHES = new Set(["accepted", "force"]);
+const SWITCHES = new Set(["accepted", "force", "start"]);
 
 function parseArgs(argv: string[]): {
   command: string;
@@ -252,6 +252,7 @@ export async function runPeopleCommand(
             remove: optional(flags, "remove"),
             replace: flags.get("replace"),
             colonyId: colonyFlag(flags),
+            ...(flags.has("start") ? { start: true } : {}),
             force: flags.has("force"),
           }
         : null;

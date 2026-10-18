@@ -1,4 +1,5 @@
 import { pageLanguage, tr, type Language } from "../teamPages/strings";
+import { START_LABEL } from "@workspace/db";
 import { mailSafe, roleSentence } from "../people/words";
 
 // SYC-53 PR 1.1: the two closed templates for the people emails
@@ -14,8 +15,8 @@ export type RenderedPersonMail = { subject: string; text: string; html: string }
 
 /** What a notice is about. Role names and colony ids only: no free text. */
 export type AccessChange =
-  | { kind: "invited"; roles: string[]; colonyIds: number[] }
-  | { kind: "rejoined"; roles: string[]; colonyIds: number[] }
+  | { kind: "invited"; roles: string[]; colonyIds: number[]; starting?: true }
+  | { kind: "rejoined"; roles: string[]; colonyIds: number[]; starting?: true }
   | { kind: "roles_changed"; before: string[]; after: string[] }
   | { kind: "left"; withdrawn: number }
   // The person's own "Stop helping" (SYC-53 PR 1.3): they are the subject and
@@ -52,13 +53,15 @@ function paragraphs(lang: Language, parts: readonly string[]): RenderedPersonMai
 
 /** The invitation (§4.1 step 2), in her language if it is live. */
 export function renderInvitation(
-  input: { language: string; roles: readonly string[]; colonies: readonly string[] },
+  input: { language: string; roles: readonly string[]; colonies: readonly string[]; starting?: boolean },
   live?: readonly Language[],
 ): RenderedPersonMail {
   const lang = pageLanguage(input.language, live);
-  const role = roleSentence(lang, input.roles, input.colonies, (n) => mailSafe(n), live);
+  const starting = input.starting === true && input.colonies.length === 0 && input.roles.every((r) => r === "guardian");
+  const role = roleSentence(lang, input.roles, input.colonies, (n) => mailSafe(n), live, input.starting === true);
   const parts = [
-    tr(lang, "mail.invite.body", { role }, live),
+    // A cat guardian with no colony yet is told what she'll do (SYC-439 spec §2).
+    starting ? tr(lang, "mail.invite.bodyStarting", undefined, live) : tr(lang, "mail.invite.body", { role }, live),
     tr(lang, "mail.invite.how", undefined, live),
     tr(lang, "mail.invite.expiry", undefined, live),
   ];
@@ -69,16 +72,22 @@ export function renderInvitation(
   };
 }
 
-/** `guardian:12` → role `guardian`, colony 12. */
-function parseLabels(labels: readonly string[]): { roles: string[]; colonyIds: number[] } {
+/** `guardian:12` → role `guardian`, colony 12; `guardian:start` → no colony yet (SYC-439). */
+function parseLabels(labels: readonly string[]): { roles: string[]; colonyIds: number[]; starting: boolean } {
   const roles = new Set<string>();
   const colonyIds: number[] = [];
+  let starting = false;
   for (const label of labels) {
+    if (label === START_LABEL) {
+      roles.add("guardian");
+      starting = true;
+      continue;
+    }
     const [role, colony] = String(label).split(":");
     if (role) roles.add(role);
     if (colony && /^[1-9][0-9]*$/.test(colony)) colonyIds.push(Number(colony));
   }
-  return { roles: [...roles], colonyIds };
+  return { roles: [...roles], colonyIds, starting };
 }
 
 /** Colony ids a change names, so their names can be looked up. */
@@ -110,16 +119,16 @@ export function renderAccessNotice(
   const subject = mailSafe(input.subjectName);
   const names = (ids: readonly number[]) =>
     ids.map((id) => input.colonyNames.get(id) ?? `#${id}`);
-  const say = (roles: readonly string[], colonyIds: readonly number[]) =>
-    roleSentence(lang, roles, names(colonyIds), (n) => mailSafe(n), live);
+  const say = (roles: readonly string[], colonyIds: readonly number[], starting = false) =>
+    roleSentence(lang, roles, names(colonyIds), (n) => mailSafe(n), live, starting);
   const c = input.change;
   const lines: string[] = [];
   switch (c.kind) {
     case "invited":
-      lines.push(tr(lang, "mail.notice.invited", { actor, subject, role: say(c.roles, c.colonyIds) }, live));
+      lines.push(tr(lang, "mail.notice.invited", { actor, subject, role: say(c.roles, c.colonyIds, c.starting === true) }, live));
       break;
     case "rejoined":
-      lines.push(tr(lang, "mail.notice.rejoined", { actor, subject, role: say(c.roles, c.colonyIds) }, live));
+      lines.push(tr(lang, "mail.notice.rejoined", { actor, subject, role: say(c.roles, c.colonyIds, c.starting === true) }, live));
       break;
     case "roles_changed": {
       const before = parseLabels(c.before);
@@ -128,8 +137,8 @@ export function renderAccessNotice(
         tr(lang, "mail.notice.rolesChanged", {
           actor,
           subject,
-          before: say(before.roles, before.colonyIds),
-          after: say(after.roles, after.colonyIds),
+          before: say(before.roles, before.colonyIds, before.starting),
+          after: say(after.roles, after.colonyIds, after.starting),
         }, live),
       );
       break;
@@ -170,7 +179,11 @@ export function isAccessChange(value: unknown): value is AccessChange {
   switch (v["kind"]) {
     case "invited":
     case "rejoined":
-      return strings(v["roles"]) && ints(v["colonyIds"]);
+      return (
+        strings(v["roles"]) &&
+        ints(v["colonyIds"]) &&
+        (v["starting"] === undefined || v["starting"] === true)
+      );
     case "roles_changed":
       return strings(v["before"]) && strings(v["after"]);
     case "left":

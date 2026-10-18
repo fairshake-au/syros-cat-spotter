@@ -31,28 +31,44 @@ export interface WelcomeInput {
   inviterName: string | null;
   roles: readonly string[];
   colonies: readonly string[];
+  /** A cat guardian with no colony yet (SYC-439). */
+  starting?: boolean;
 }
 
 /** What she will be able to see and do, from the roles she was invited with. */
-function seeAndDo(lang: Language, roles: readonly string[], live: readonly Language[]): string[] {
+function seeAndDo(
+  lang: Language,
+  roles: readonly string[],
+  live: readonly Language[],
+  starting: boolean,
+): string[] {
   const out: string[] = [];
   if (roles.includes("staff") || roles.includes("management")) out.push(tr(lang, "welcome.seeDo.team", undefined, live));
   if (roles.includes("management")) out.push(tr(lang, "welcome.seeDo.management", undefined, live));
-  if (roles.includes("guardian")) out.push(tr(lang, "welcome.seeDo.guardian", undefined, live));
+  // With no colony yet she is promised nothing about positions (SYC-439).
+  if (roles.includes("guardian")) {
+    out.push(tr(lang, starting ? "welcome.seeDo.starting" : "welcome.seeDo.guardian", undefined, live));
+  }
   return out;
 }
 
 export function renderWelcomePage(input: WelcomeInput, live: readonly Language[] = LIVE_LANGUAGES): string {
   const lang = pageLanguage(input.language, live);
   const t = (key: StringKey, vars?: Record<string, string>) => tr(lang, key, vars, live);
-  const role = roleSentence(lang, input.roles, input.colonies, (n) => clip(n), live);
+  const starting = input.starting === true;
+  // "…invited you as a cat guardian." The paragraph below says she creates
+  // her colony (SYC-439 spec §2).
+  const role =
+    starting && input.colonies.length === 0 && input.roles.every((r) => r === "guardian")
+      ? tr(lang, "role.guardianPlain", undefined, live)
+      : roleSentence(lang, input.roles, input.colonies, (n) => clip(n), live, starting);
   const invited = input.inviterName
     ? t("welcome.invitedBy", { inviter: clip(input.inviterName), role })
     : t("welcome.invited", { role });
   const body =
     `<p class="invited">${escapeHtml(invited)}</p>` +
     `<h2>${escapeHtml(t("welcome.seeDo.title"))}</h2>` +
-    seeAndDo(lang, input.roles, live).map((p) => `<p class="seedo">${escapeHtml(p)}</p>`).join("") +
+    seeAndDo(lang, input.roles, live, starting).map((p) => `<p class="seedo">${escapeHtml(p)}</p>`).join("") +
     `<h2>${escapeHtml(t("welcome.ask.title"))}</h2>` +
     `<ol class="promises">${PROMISE_KEYS.map((k) => `<li>${escapeHtml(t(k))}</li>`).join("")}</ol>` +
     STATEMENT_KEYS.map((k) => `<p class="statement">${escapeHtml(t(k))}</p>`).join("") +

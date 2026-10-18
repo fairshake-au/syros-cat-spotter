@@ -33,7 +33,7 @@ import {
   renderGuardianNotFound,
   renderPublicCatForGuardian,
 } from "../lib/teamPages/guardianPages";
-import { can } from "../lib/capabilities";
+import { can, holdsStartRow } from "../lib/capabilities";
 import { canonicalCats, catTargetWithCanonical } from "../lib/capabilityTargets";
 import { catsInColony } from "../lib/colonyMembership";
 import { guardianCats, guardianCatView } from "../lib/guardianCatView";
@@ -70,6 +70,7 @@ async function aboutMe(person: PersonWithScopes): Promise<MyPerson> {
     team: person.scopes.some((s) => isTeamRole(s.role)),
     management: person.scopes.some((s) => s.role === "management"),
     placements: await myColonies(person.id),
+    starting: holdsStartRow(person),
   };
 }
 

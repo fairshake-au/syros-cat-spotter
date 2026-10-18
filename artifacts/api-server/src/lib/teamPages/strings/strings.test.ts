@@ -206,11 +206,14 @@ describe("the page shell and the person's language", () => {
 
   it("requireTeam hands the person's own language to both refusals (review of #176)", () => {
     // While only English is live the pages can't show the difference, so the
-    // wiring is pinned at the source: both refusals pass people.language.
+    // wiring is pinned at the source: every refusal passes people.language
+    // (the 403 from inside a route, the capability 403, and SYC-439's 403
+    // for a cat guardian with no colony yet; "access has ended" passes the
+    // whole person).
     const source = readFileSync(
       fileURLToPath(new URL("../../../middlewares/requireTeam.ts", import.meta.url)),
       "utf8",
     );
-    expect(source.match(/language: person\.language/g)?.length).toBe(2);
+    expect(source.match(/language: person\.language/g)?.length).toBe(3);
   });
 });

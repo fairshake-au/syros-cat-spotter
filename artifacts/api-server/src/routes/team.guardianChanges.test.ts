@@ -9,7 +9,7 @@ import { addSite, moveSite } from "../lib/teamSiteWrites";
 import { placeCats } from "../lib/colonyCats";
 import { RECENT_GUARDIAN_CHANGES, type RecentGuardianChange } from "../lib/recentGuardianChanges";
 import { day } from "../lib/teamPages/colonyPages";
-import { guardianOn, seedCat, type Signed } from "../test/roleKit";
+import { guardianOn, seedCat, starterPerson, type Signed } from "../test/roleKit";
 import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-209 PR 4.3: "Recent changes by cat guardians" at the top of the team's
@@ -113,6 +113,24 @@ describe("test 21's last part: a cat guardian creates a colony", () => {
     expect(section).toContain(`>${day(first!.at)}</time>`);
     // At the top: before the search and the list.
     expect(page.text.indexOf(TITLE)).toBeLessThan(page.text.indexOf('role="search"'));
+  });
+});
+
+describe("SYC-439: a cat guardian with no colony yet creates her first one", () => {
+  it("her first colony leads the team's list, under her name", async () => {
+    const mara = await starterPerson(`gchg-mara-${RUN}`);
+    const maraName = (await pool.query<{ name: string }>("select name from people where id = $1", [mara.id])).rows[0]!.name;
+    const name = `Agia Pakou ${RUN}`;
+    const res = await post("/api/team/colonies", { name }, mara.cookie);
+    expect(res.status).toBe(201);
+    const id = (res.body as { id: number }).id;
+    const [first] = await teamList();
+    expect(first).toMatchObject({
+      kind: "colony_created",
+      guardian: { id: mara.id, name: maraName, left: false },
+      colony: { id, name },
+    });
+    await removeTestPerson(mara.email).catch(() => undefined);
   });
 });
 
