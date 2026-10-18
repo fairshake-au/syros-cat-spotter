@@ -322,6 +322,15 @@ describe("loadTeamCats", () => {
     // The grid, the map and the counts agree: the merged half is not a cat of its own.
     const grid = await listTeamCats({ q: LOAD, lives: ["street", "homed", "in_care", "gone"] }, NOW);
     expect(grid.items.map((i) => i.id)).not.toContain(load["Folded"]);
+    expect(grid.items.map((i) => i.id)).toContain(load["Keeper"]);
+  });
+
+  it("the grid's area filter uses the same key: area=off finds the Off Syros cat", async () => {
+    const off = await listTeamCats({ q: LOAD, area: "off" }, NOW);
+    expect(off.items.map((i) => i.id)).toEqual([load["Arizona"]]);
+    const erm = await listTeamCats({ q: LOAD, area: "ermoupoli" }, NOW);
+    expect(erm.items.map((i) => i.id)).not.toContain(load["Arizona"]);
+    expect(erm.items.map((i) => i.id)).toContain(load["Keeper"]);
   });
 
   it("keeps a cat whose merge was undone", async () => {

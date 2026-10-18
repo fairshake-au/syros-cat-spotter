@@ -77,6 +77,12 @@ describe("markBar", () => {
     expect(html).toContain('aria-label="No street cats yet"');
   });
 
+  it("treats a count that isn't a finite number as none", () => {
+    const html = markBar({ sterilised: Infinity, probably: Number.NaN, not_known: -3, not_sterilised: 2 });
+    expect(text(html)).not.toContain("Infinity");
+    expect(html).toContain('aria-label="2 Not sterilised"');
+  });
+
   it("uses no segment colour outside MARK_COLOUR", () => {
     const allowed = new Set(Object.values(MARK_COLOUR));
     const segs = segments(markBar(split));

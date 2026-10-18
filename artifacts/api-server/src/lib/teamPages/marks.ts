@@ -98,7 +98,9 @@ function hundredths(counts: readonly number[], total: number): number[] {
  * fixed colours and the counts; `label` is escaped.
  */
 export function markBar(split: Split, opts: { label?: string } = {}): string {
-  const parts = MARK_ORDER.map((m) => ({ m, n: Math.max(0, Math.floor(split[m] ?? 0)) })).filter((p) => p.n > 0);
+  // Whole, finite, non-negative counts only: anything else counts as none.
+  const count = (v: number | undefined) => (Number.isFinite(v) ? Math.max(0, Math.floor(v!)) : 0);
+  const parts = MARK_ORDER.map((m) => ({ m, n: count(split[m]) })).filter((p) => p.n > 0);
   const total = parts.reduce((t, p) => t + p.n, 0);
   const words = total === 0 ? "No street cats yet" : parts.map((p) => `${p.n} ${MARK_WORD[p.m]}`).join(", ");
   const aria = esc(opts.label ? `${opts.label}: ${words}` : words);

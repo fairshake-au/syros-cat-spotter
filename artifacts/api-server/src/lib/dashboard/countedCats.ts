@@ -62,6 +62,14 @@ export function headline(cats: readonly TeamCat[], now: Date): Headline {
 /** The planner's group order (§9.2): not sterilised, then not known, then probably. */
 const TO_DO_ORDER: Partial<Record<SterilisedMark, number>> = { not_sterilised: 0, not_known: 1, probably: 2 };
 
+/** Most recently seen first; never seen last. Two never-seen cats tie (0), never NaN. */
+function seenOrder(a: TeamCat, b: TeamCat): number {
+  if (a.lastSeenAt === null || b.lastSeenAt === null) {
+    return (a.lastSeenAt === null ? 1 : 0) - (b.lastSeenAt === null ? 1 : 0);
+  }
+  return b.lastSeenAt.getTime() - a.lastSeenAt.getTime();
+}
+
 /**
  * Trapping "To do": street cats not confirmed sterilised, in the planner's
  * order (§9.2). Within each group the most recently seen comes first, and
@@ -73,7 +81,7 @@ export function toDo(cats: readonly TeamCat[]): TeamCat[] {
     .sort(
       (a, b) =>
         TO_DO_ORDER[a.mark]! - TO_DO_ORDER[b.mark]! ||
-        (b.lastSeenAt?.getTime() ?? -Infinity) - (a.lastSeenAt?.getTime() ?? -Infinity) ||
+        seenOrder(a, b) ||
         a.id - b.id,
     );
 }

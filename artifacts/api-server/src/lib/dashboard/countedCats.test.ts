@@ -162,6 +162,12 @@ describe("toDo", () => {
     expect(got.map((c) => c.id)).toEqual([ns2.id, ns1.id, ns3.id, nk2.id, nk1.id, pr1.id]);
   });
 
+  it("two never-seen cats in one group fall back to id order", () => {
+    const a = fake({ mark: "not_known", lastSeenAt: null });
+    const b = fake({ mark: "not_known", lastSeenAt: null });
+    expect(toDo([b, a]).map((c) => c.id)).toEqual([a.id, b.id]);
+  });
+
   it("never lists a sterilised cat", () => {
     expect(toDo([fake({ mark: "sterilised" })])).toEqual([]);
   });
