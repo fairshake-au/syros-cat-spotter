@@ -18,11 +18,13 @@ import {
   sightingsTable,
   type Observation,
 } from "@workspace/db";
+import { getGuidance } from "@workspace/welfare-guidance";
 import {
   authorityLevel,
   COLONY_SCOPE_PATTERN,
   type EvidenceOfLife,
   type EvidenceSource,
+  type Vaccine,
 } from "./resolve";
 import { TEAM_ROLES, isTeamRole } from "./teamRoles";
 
@@ -32,6 +34,8 @@ import { TEAM_ROLES, isTeamRole } from "./teamRoles";
  * (distinguishing marks, spec §3.2), `vaccinated` (team-recorded vaccines)
  * and `team_note` (a team-only health note). Later phases add kinds without
  * a migration — this list is deliberately code, not a database enum.
+ * SYC-396 PR 3.0 adds `vet_visit` (team-dashboard-redesign.md §8; plan
+ * Decision 4): one visit to a vet, with what was done, the clinic and the cost.
  */
 export const OBSERVATION_KINDS = [
   "life_status",
@@ -47,6 +51,7 @@ export const OBSERVATION_KINDS = [
   "markings",
   "vaccinated",
   "team_note",
+  "vet_visit",
 ] as const;
 export type ObservationKind = (typeof OBSERVATION_KINDS)[number];
 
@@ -94,7 +99,56 @@ const ROLES_REFUSED_FOR_KIND: Readonly<
   markings: ["vet", "system"],
   vaccinated: ["public", "guardian", "system"],
   team_note: ["public", "system"],
+  // A vet visit is logged by the team (`log_vet_visit` is island-only).
+  vet_visit: ["public", "guardian", "system"],
 };
+
+/**
+ * The kinds a vet visit writes, and whose `{ retracted: true }` only a
+ * vet-visit undo may write (SYC-396 PR 3.0; plan Decisions 6 and 7). The
+ * resolver reads them through `standingRows`, where retracting a row that
+ * had itself replaced another stands that other row up again.
+ */
+const VISIT_KINDS: ReadonlySet<string> = new Set(["sterilised", "vaccinated", "vet_visit"]);
+
+/** What a visit did (§8.2). "checked" is only ever alone. */
+export const VISIT_DID = ["sterilised", "vaccinated", "treated", "checked"] as const;
+/** Who paid for a visit (§8.4). */
+export const PAID_BY = ["syros_cats", "donation", "owner"] as const;
+
+/** A `vet_visit` value (§8.2; plan Task 3.0.1). The date is the row's
+ * `observedAt`, as for every statement; the cost lives only here. */
+export interface VetVisitValue {
+  /** 1–4, distinct; "checked" only alone. */
+  did: (typeof VISIT_DID)[number][];
+  /** Required iff `did` has "vaccinated"; the same rules as `vaccinated`. */
+  vaccines?: Vaccine[];
+  /** Required iff `did` has "treated"; 1–200 characters, trimmed. */
+  treatedNote?: string;
+  /** One of `getGuidance("en").vets` ids (Decision 16). */
+  clinicId: string;
+  /** 0–2000 euros, at most two decimals, or null when not known. */
+  costEur: number | null;
+  paidBy: (typeof PAID_BY)[number];
+  /** 0–500 characters. */
+  note?: string;
+}
+
+const VISIT_DID_SET: ReadonlySet<string> = new Set(VISIT_DID);
+const PAID_BY_SET: ReadonlySet<string> = new Set(PAID_BY);
+const VET_VISIT_KEYS: ReadonlySet<string> = new Set([
+  "did",
+  "vaccines",
+  "treatedNote",
+  "clinicId",
+  "costEur",
+  "paidBy",
+  "note",
+]);
+const VISIT_COST_MAX_EUR = 2000;
+
+/** The one clinic list (Decision 16), read once. */
+const CLINIC_IDS: ReadonlySet<string> = new Set(getGuidance("en").vets.map((c) => c.id));
 
 /**
  * The kinds Decision G ranks (roles spec §7.2; resolve.ts `authorityLevel`).
@@ -233,16 +287,19 @@ function validateValue(
   value: unknown,
   ctx: { roleAtTime: string; provenance: string },
 ): void {
-  // Only coat and markings have a retraction; a stray `retracted` key on any
-  // other kind is a malformed value, not an ignorable extra.
+  // Only coat, markings and the vet-visit kinds have a retraction; a stray
+  // `retracted` key on any other kind is a malformed value, not an ignorable
+  // extra.
   if (
     kind !== "coat" &&
     kind !== "markings" &&
+    !VISIT_KINDS.has(kind) &&
     isPlainObject(value) &&
     "retracted" in value
   ) {
     refuse("MALFORMED_VALUE", `${kind} does not accept a retracted key`);
   }
+  if (isVisitRetraction(kind, value)) return;
   switch (kind) {
     case "life_status": {
       const status = isPlainObject(value) ? value["status"] : undefined;
@@ -261,6 +318,7 @@ function validateValue(
       if (!isPlainObject(value) || typeof value["sterilised"] !== "boolean") {
         refuse("MALFORMED_VALUE", "sterilised needs { sterilised: boolean }");
       }
+      validateVisitIdShape(kind, value);
       return;
     }
     case "ear_tip": {
@@ -457,45 +515,8 @@ function validateValue(
       if (!isPlainObject(value) || !Array.isArray(value["vaccines"])) {
         refuse("MALFORMED_VALUE", "vaccinated needs { vaccines: [...] }");
       }
-      const vaccines = value["vaccines"] as unknown[];
-      if (vaccines.length < 1 || vaccines.length > 3) {
-        refuse("MALFORMED_VALUE", "vaccinated.vaccines must have 1 to 3 entries");
-      }
-      const seen = new Set<string>();
-      for (const v of vaccines) {
-        let key: string;
-        if (typeof v === "string" && VACCINE_CODES.has(v)) {
-          key = `code:${v}`;
-        } else if (isPlainObject(v) && typeof v["other"] === "string") {
-          // Callers store the name already trimmed.
-          const name = v["other"];
-          if (name !== name.trim() || name.length < 2 || name.length > 60) {
-            refuse(
-              "MALFORMED_VALUE",
-              "an other vaccine name must be trimmed and 2 to 60 characters",
-            );
-          }
-          // A typed name that is one of the listed vaccines is the listed
-          // vaccine, so it can't be stored twice under two forms.
-          const folded = name.toLowerCase();
-          if (LISTED_VACCINE_NAMES.has(folded)) {
-            refuse(
-              "MALFORMED_VALUE",
-              `"${name}" is a listed vaccine: use its code, not an other name`,
-            );
-          }
-          key = `other:${folded}`;
-        } else {
-          refuse(
-            "MALFORMED_VALUE",
-            'each vaccine must be "rabies", "cat_flu_enteritis" or { other: string }',
-          );
-        }
-        if (seen.has(key)) {
-          refuse("MALFORMED_VALUE", "vaccinated.vaccines must be distinct");
-        }
-        seen.add(key);
-      }
+      validateVaccineList(value["vaccines"] as unknown[], "vaccinated.vaccines");
+      validateVisitIdShape(kind, value);
       const clinic = value["clinic"];
       if (
         clinic !== undefined &&
@@ -525,6 +546,150 @@ function validateValue(
       }
       return;
     }
+    case "vet_visit": {
+      validateVetVisit(value);
+      return;
+    }
+  }
+}
+
+/**
+ * A `{ retracted: true, reason }` of a vet-visit kind (Task 3.0.1): true for
+ * a well-formed one, false when `retracted` is absent, refused when it is
+ * present but anything else is wrong. It asserts nothing, so it carries
+ * nothing but its reason. Whether it may be written at all is the writer's
+ * `fromVisitUndo` rule, not this shape's.
+ */
+function isVisitRetraction(kind: string, value: unknown): boolean {
+  if (!VISIT_KINDS.has(kind) || !isPlainObject(value) || !("retracted" in value)) return false;
+  if (value["retracted"] !== true) {
+    refuse("MALFORMED_VALUE", "retracted, when present, must be exactly true");
+  }
+  if (Object.keys(value).some((k) => k !== "retracted" && k !== "reason")) {
+    refuse("MALFORMED_VALUE", `a ${kind} retraction carries only { retracted: true, reason }`);
+  }
+  const reason = value["reason"];
+  if (typeof reason !== "string" || reason.trim().length < 1 || reason.length > 500) {
+    refuse("MALFORMED_VALUE", `a ${kind} retraction needs a reason of 1 to 500 characters`);
+  }
+  return true;
+}
+
+/** A visit link, when present, is a row id. Whether it names a standing
+ * visit of the same cat is the writer's check (`checkVisitLink`). */
+function validateVisitIdShape(kind: string, value: Record<string, unknown>): void {
+  if (!("vetVisitId" in value)) return;
+  const id = value["vetVisitId"];
+  if (typeof id !== "number" || !Number.isInteger(id) || id < 1) {
+    refuse("MALFORMED_VALUE", `${kind}.vetVisitId must be a row id`);
+  }
+}
+
+/** One to three distinct vaccines: listed codes, or a trimmed typed name
+ * that isn't a listed vaccine. Shared by `vaccinated` and `vet_visit`. */
+function validateVaccineList(vaccines: unknown[], label: string): void {
+  if (vaccines.length < 1 || vaccines.length > 3) {
+    refuse("MALFORMED_VALUE", `${label} must have 1 to 3 entries`);
+  }
+  const seen = new Set<string>();
+  for (const v of vaccines) {
+    let key: string;
+    if (typeof v === "string" && VACCINE_CODES.has(v)) {
+      key = `code:${v}`;
+    } else if (isPlainObject(v) && typeof v["other"] === "string") {
+      // Callers store the name already trimmed.
+      const name = v["other"];
+      if (name !== name.trim() || name.length < 2 || name.length > 60) {
+        refuse(
+          "MALFORMED_VALUE",
+          "an other vaccine name must be trimmed and 2 to 60 characters",
+        );
+      }
+      // A typed name that is one of the listed vaccines is the listed
+      // vaccine, so it can't be stored twice under two forms.
+      const folded = name.toLowerCase();
+      if (LISTED_VACCINE_NAMES.has(folded)) {
+        refuse(
+          "MALFORMED_VALUE",
+          `"${name}" is a listed vaccine: use its code, not an other name`,
+        );
+      }
+      key = `other:${folded}`;
+    } else {
+      refuse(
+        "MALFORMED_VALUE",
+        'each vaccine must be "rabies", "cat_flu_enteritis" or { other: string }',
+      );
+    }
+    if (seen.has(key)) {
+      refuse("MALFORMED_VALUE", `${label} must be distinct`);
+    }
+    seen.add(key);
+  }
+}
+
+/** {@link VetVisitValue}, exactly: no other keys (a new kind, so nothing
+ * older to stay compatible with). */
+function validateVetVisit(value: unknown): void {
+  if (!isPlainObject(value)) {
+    refuse("MALFORMED_VALUE", "vet_visit needs { did, clinicId, costEur, paidBy }");
+  }
+  const unknownKey = Object.keys(value).find((k) => !VET_VISIT_KEYS.has(k));
+  if (unknownKey !== undefined) {
+    refuse("MALFORMED_VALUE", `vet_visit does not accept a ${unknownKey} key`);
+  }
+  const did = value["did"];
+  if (!Array.isArray(did) || did.length < 1 || did.length > VISIT_DID.length) {
+    refuse("MALFORMED_VALUE", "vet_visit.did must have 1 to 4 entries");
+  }
+  if (!did.every((d) => VISIT_DID_SET.has(d as string))) {
+    refuse("MALFORMED_VALUE", "vet_visit.did must be from sterilised, vaccinated, treated, checked");
+  }
+  if (new Set(did).size !== did.length) {
+    refuse("MALFORMED_VALUE", "vet_visit.did must be distinct");
+  }
+  if (did.includes("checked") && did.length > 1) {
+    refuse("MALFORMED_VALUE", 'vet_visit.did has "checked" only on its own');
+  }
+  if (did.includes("vaccinated")) {
+    if (!Array.isArray(value["vaccines"])) {
+      refuse("MALFORMED_VALUE", "a vaccinated visit needs its vaccines");
+    }
+    validateVaccineList(value["vaccines"] as unknown[], "vet_visit.vaccines");
+  } else if ("vaccines" in value) {
+    refuse("MALFORMED_VALUE", "vet_visit.vaccines only when the visit vaccinated");
+  }
+  if (did.includes("treated")) {
+    const note = value["treatedNote"];
+    if (typeof note !== "string" || note !== note.trim() || note.length < 1 || note.length > 200) {
+      refuse("MALFORMED_VALUE", "a treated visit needs a trimmed treatedNote of 1 to 200 characters");
+    }
+  } else if ("treatedNote" in value) {
+    refuse("MALFORMED_VALUE", "vet_visit.treatedNote only when the visit treated");
+  }
+  const clinicId = value["clinicId"];
+  if (typeof clinicId !== "string" || !CLINIC_IDS.has(clinicId)) {
+    refuse("MALFORMED_VALUE", "vet_visit.clinicId must be one of the clinic list's ids");
+  }
+  if (!("costEur" in value)) {
+    refuse("MALFORMED_VALUE", "vet_visit.costEur is required (null when not known)");
+  }
+  const cost = value["costEur"];
+  if (cost !== null) {
+    if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0 || cost > VISIT_COST_MAX_EUR) {
+      refuse("MALFORMED_VALUE", `vet_visit.costEur must be 0 to ${VISIT_COST_MAX_EUR} euros, or null`);
+    }
+    const cents = cost * 100;
+    if (Math.abs(cents - Math.round(cents)) > 1e-6) {
+      refuse("MALFORMED_VALUE", "vet_visit.costEur has at most two decimals");
+    }
+  }
+  if (typeof value["paidBy"] !== "string" || !PAID_BY_SET.has(value["paidBy"])) {
+    refuse("MALFORMED_VALUE", "vet_visit.paidBy must be syros_cats, donation or owner");
+  }
+  const note = value["note"];
+  if (note !== undefined && (typeof note !== "string" || note.length > 500)) {
+    refuse("MALFORMED_VALUE", "vet_visit.note is at most 500 characters");
   }
 }
 
@@ -578,6 +743,14 @@ export interface WriteObservationInput {
    * (a team correction, the supersede API) may produce one.
    */
   allowWithdrawal?: boolean;
+  /**
+   * Must be true to write a `{ retracted: true }` of `sterilised`,
+   * `vaccinated` or `vet_visit` (SYC-396 PR 3.0; plan Decisions 6 and 7).
+   * Only `undoVetVisit` sets it: retracting the team row that overruled a cat
+   * guardian stands her statement up again, so no other writer (the generic
+   * Mark wrong, the JSON supersede route) may produce one.
+   */
+  fromVisitUndo?: boolean;
 }
 
 /** A claim withdrawn (claiming-a-cat.md §6, §7): supersedes a homed, asserts
@@ -630,6 +803,33 @@ async function checkWithdrawalTarget(
     .where(eq(observationsTable.supersedesId, targetId))
     .limit(1);
   if (already) refuse("MALFORMED_VALUE", WITHDRAWAL_TARGET_MESSAGE);
+}
+
+/**
+ * A `sterilised` or `vaccinated` value's `vetVisitId`, when present, names a
+ * `vet_visit` row of the same cat that nothing has superseded (plan Task
+ * 3.1.1): a stray number can't tie two cats together, or tie a statement to
+ * a visit already undone. Refused `INVALID_VISIT_LINK`.
+ */
+async function checkVisitLink(tx: DbOrTx, input: WriteObservationInput): Promise<void> {
+  if (input.kind !== "sterilised" && input.kind !== "vaccinated") return;
+  if (!isPlainObject(input.value) || !("vetVisitId" in input.value)) return;
+  const visitId = input.value["vetVisitId"] as number;
+  const [visit] = await tx
+    .select({ catId: observationsTable.catId, kind: observationsTable.kind })
+    .from(observationsTable)
+    .where(eq(observationsTable.id, visitId));
+  if (!visit || visit.kind !== "vet_visit" || visit.catId !== input.catId) {
+    refuse("INVALID_VISIT_LINK", "vetVisitId must name a vet visit of the same cat");
+  }
+  const [superseded] = await tx
+    .select({ id: observationsTable.id })
+    .from(observationsTable)
+    .where(eq(observationsTable.supersedesId, visitId))
+    .limit(1);
+  if (superseded) {
+    refuse("INVALID_VISIT_LINK", "vetVisitId names a vet visit that has been undone or replaced");
+  }
 }
 
 /**
@@ -724,6 +924,16 @@ export async function writeObservation(
       roleAtTime: input.roleAtTime,
       provenance,
     });
+  }
+  // Decision 7: only a vet-visit undo may retract these kinds. Checked
+  // before anything else about the retraction, so no other writer can even
+  // probe which rows it could reach.
+  const visitRetracting = isVisitRetraction(input.kind, input.value);
+  if (visitRetracting && input.fromVisitUndo !== true) {
+    refuse(
+      "RETRACTION_NOT_ALLOWED",
+      `a ${input.kind} statement is undone only by marking its vet visit wrong`,
+    );
   }
 
   if (!REACHABLE_ROLES.has(input.roleAtTime)) {
@@ -845,12 +1055,21 @@ export async function writeObservation(
   // Supersession rules for coat and markings. The superseded row is loaded
   // once and shared between the retraction rule and the own-row rule (C2).
   const isAppearanceKind = input.kind === "coat" || input.kind === "markings";
-  const retracting = isAppearanceKind && isRetraction(input.value);
+  const retracting = (isAppearanceKind && isRetraction(input.value)) || visitRetracting;
   const supersedesId = input.supersedesId ?? null;
   if (retracting && !RETRACTING_ROLES.has(input.roleAtTime)) {
     refuse(
       "INVALID_RETRACTION",
       `roleAtTime "${input.roleAtTime}" may not retract`,
+    );
+  }
+  // A vet-visit kind is retracted only by the team: undoing a visit needs
+  // `log_vet_visit`, which is island-only (undoVetVisit checks it). A cat
+  // guardian never retracts a sterilisation, even her own.
+  if (visitRetracting && !isTeamRole(input.roleAtTime)) {
+    refuse(
+      "INVALID_RETRACTION",
+      `roleAtTime "${input.roleAtTime}" may not retract a ${input.kind}`,
     );
   }
   if (retracting && supersedesId == null) {
@@ -887,6 +1106,21 @@ export async function writeObservation(
     if (RANKED_KINDS.has(input.kind) && target.catId !== input.catId) {
       refuse(refusalCode, "a supersession of this kind must stay on the same cat");
     }
+    // A vet-visit retraction, too: undoing a visit never reaches another cat.
+    if (visitRetracting && target.catId !== input.catId) {
+      refuse("INVALID_RETRACTION", "a retraction must stay on the same cat");
+    }
+    // Nothing is written over a vet-visit kind's retraction except, one day,
+    // undoVetVisit's re-do (not built): a new value there would stand next
+    // to the row the retraction put back.
+    if (
+      VISIT_KINDS.has(input.kind) &&
+      !retracting &&
+      isPlainObject(target.value) &&
+      target.value["retracted"] === true
+    ) {
+      refuse("INVALID_SUPERSESSION", "a retraction can't be corrected");
+    }
     // A retraction cannot retract a retraction.
     if (
       retracting &&
@@ -895,11 +1129,14 @@ export async function writeObservation(
     ) {
       refuse("INVALID_RETRACTION", "a retraction cannot supersede a retraction");
     }
-    // Every role: a retraction removes only a coat or markings row.
-    if (retracting && !(target.kind === "coat" || target.kind === "markings")) {
+    // Every role: a retraction removes only a row of a kind that has one.
+    if (
+      retracting &&
+      !(target.kind === "coat" || target.kind === "markings" || VISIT_KINDS.has(target.kind))
+    ) {
       refuse(
         "INVALID_RETRACTION",
-        "a retraction must supersede a row of the same kind (coat or markings)",
+        "a retraction must supersede a row of the same kind (coat, markings, sterilised, vaccinated or vet_visit)",
       );
     }
     // A cat guardian corrects her own statements only (SYC-53 plan, PR 2.2:
@@ -941,6 +1178,8 @@ export async function writeObservation(
       }
     }
   }
+
+  if (!retracting) await checkVisitLink(tx, input);
 
   const [row] = await tx
     .insert(observationsTable)

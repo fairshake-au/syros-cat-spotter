@@ -565,6 +565,25 @@ describe("POST /api/team/observations/:id/supersede", () => {
     expect(snapshot.sterilised.confidence).toBe("confirmed");
   });
 
+  it("refuses a { retracted: true } on a sterilisation: only a vet-visit undo may write one (SYC-396 PR 3.0)", async () => {
+    // Otherwise a team "Mark wrong" could retract a team row that had
+    // overruled a cat guardian, and her statement would silently come back.
+    const cat = await insertCat();
+    const cookie = await signIn(staffId);
+    const statement = await post("/api/team/observations")
+      .set("Cookie", cookie)
+      .send({ catId: cat.id, kind: "sterilised", value: { sterilised: true }, reason: "seen at the clinic" });
+    expect(statement.status).toBe(201);
+    const before = (await observationsFor(cat.id)).length;
+
+    const res = await post(`/api/team/observations/${statement.body.id}/supersede`)
+      .set("Cookie", cookie)
+      .send({ value: { retracted: true, reason: "undo" }, reason: "undo" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("RETRACTION_NOT_ALLOWED");
+    expect(await observationsFor(cat.id)).toHaveLength(before);
+  });
+
   it("lets only one of several concurrent supersede attempts against the same target succeed (review of #68, double-supersede-race)", async () => {
     const cat = await insertCat();
     const original = await writeEarTip(cat.id, true);
