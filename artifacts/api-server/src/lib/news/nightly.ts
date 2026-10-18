@@ -3,6 +3,7 @@ import {
   catNewsChangesTable,
   catNewsRunsTable,
   catSubscriptionsTable,
+  catsTable,
   db,
   sightingsTable,
   type CatNewsBaseline,
@@ -196,8 +197,8 @@ async function loadSightings(catIds: readonly number[], exec: DbOrTx): Promise<M
  * still count as new. A row written in a transaction that began before the
  * walk but committed after it carries a `created_at` a little before the
  * walk (Postgres stamps the transaction's start) and was invisible to it.
- * Widening the window can't announce anything twice: a row the walk did see
- * is already in the baseline, so the status hasn't changed.
+ * A row the walk did see but that wasn't yet winning can, rarely, count as
+ * new tonight; the ratchet still means a cat is never announced twice.
  */
 const NEWER_MARGIN_MS = 60 * 60_000;
 
@@ -207,9 +208,12 @@ const NEWER_MARGIN_MS = 60 * 60_000;
  * or a home is the one winning row (plan C2). Only those of the change's own
  * kind count, so an unrelated fresh row (a spotter's ear-tip answer beside an
  * imported sterilisation) can't make an import look like news. `null` means
- * news. Fails closed: if the evidence can't be judged, or every piece of it
- * is older than the last walk (the status moved because of a merge, or a
- * row on another cat), the change is silenced, never sent.
+ * news. Fails closed: if the evidence can't be judged, or nothing of this
+ * kind was written since the last walk (the status moved because of a merge,
+ * or a row on another cat), the change is silenced, never sent. A fresh row
+ * of the same kind does count, even when it isn't the winner itself: the
+ * team taking back a wrong "not sterilised" lets an older, true
+ * "sterilised" win again, and that is real news (second review, finding 2).
  */
 function guardReason(
   evidenceIds: readonly number[],
@@ -225,7 +229,8 @@ function guardReason(
   if (evidence.every((o) => o.createdAt.getTime() - o.observedAt.getTime() > OLD_NEWS_DAYS * DAY_MS)) {
     return "old_news";
   }
-  if (evidence.every((o) => o.createdAt.getTime() <= since - NEWER_MARGIN_MS)) return "old_news";
+  const fresh = (o: Observation) => o.createdAt.getTime() > since - NEWER_MARGIN_MS;
+  if (!evidence.some(fresh) && !observations.some((o) => o.kind === kind && fresh(o))) return "old_news";
   return null;
 }
 
@@ -300,12 +305,17 @@ export function compareCat(
     if (isLongGap(sightings[i - 1]!.createdAt, s.createdAt)) longGaps.push(s);
   }
   if (longGaps.length) {
+    // A sighting is new tonight (it wasn't resolved at the last walk), so
+    // its photo's date against tonight is how late it was recorded: the
+    // spec's 90-day rule, as for observations. A photo that waited months
+    // for the team to place it is old news (second review, finding 1).
+    const late = longGaps.every((s) => walkedAt.getTime() - s.createdAt.getTime() > OLD_NEWS_DAYS * DAY_MS);
     changes.push({
       catId: status.catId,
       change: "seen_again",
       evidenceIds: longGaps.map((s) => s.id),
       causedByDevices: devicesOf(longGaps),
-      silencedReason: null,
+      silencedReason: late ? "old_news" : null,
     });
   }
 
@@ -325,7 +335,8 @@ export function compareCat(
  */
 async function catsToWalk(exec: DbOrTx): Promise<number[]> {
   const rows = await exec.execute<{ cat_id: number }>(
-    sql`select cat_id from ${catSubscriptionsTable} union select cat_id from ${catNewsBaselineTable} order by cat_id`,
+    sql`select cat_id from (select cat_id from ${catSubscriptionsTable} union select cat_id from ${catNewsBaselineTable}) walked
+        where cat_id in (select id from ${catsTable}) order by cat_id`,
   );
   return rows.rows.map((r) => Number(r.cat_id));
 }

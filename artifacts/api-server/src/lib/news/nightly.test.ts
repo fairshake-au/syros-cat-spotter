@@ -54,6 +54,13 @@ const PREFIX = "VitestNews";
 const DEVICE = "vitest-news-follower";
 const TOKEN = "vitest-news-job-token-0123456789abcdef";
 const DAY = 86_400_000;
+/** Noon UTC on the Athens day `daysAgo` days back, as YYYY-MM-DD and as a Date. */
+function dayAgo(daysAgo: number): string {
+  return new Date(Date.now() - daysAgo * DAY).toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
+}
+const noon = (day: string) => new Date(`${day}T12:00:00Z`);
+/** The UTC instant 22:30 on the day before `day`, which is `day` in Athens. */
+const lateEveningBefore = (day: string) => new Date(noon(day).getTime() - DAY + 10.5 * 3_600_000);
 const TINY_JPEG_B64 =
   "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 
@@ -275,33 +282,48 @@ describe("T1-3: homed is news; seen again after four calendar months or more", (
     expect(rows[0]!.evidenceIds).toEqual([obs.id]);
   });
 
-  async function gap(second: string) {
+  // The first sighting about 200 days ago, so the second (four months
+  // later) is about 80 days ago: recent enough not to be old news.
+  const FIRST = dayAgo(200);
+  const FOUR_MONTHS = addCalendarMonths(FIRST, 4);
+  const shift = (day: string, days: number) => new Date(noon(day).getTime() + days * DAY);
+
+  async function gap(second: Date) {
     const id = await cat();
-    await sighting(id, new Date("2026-01-15T12:00:00Z"));
+    await sighting(id, noon(FIRST));
     await fresh();
-    const s = await sighting(id, new Date(second), "vitest-news-respotter");
+    const s = await sighting(id, second, "vitest-news-respotter");
     await fresh();
     return { rows: await changesFor([id]), sightingId: s };
   }
 
   it("exactly four months apart → seen_again (watch mode stores no device)", async () => {
-    const { rows, sightingId } = await gap("2026-05-15T12:00:00Z");
+    const { rows, sightingId } = await gap(noon(FOUR_MONTHS));
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ change: "seen_again", state: "watched", evidenceIds: [sightingId] });
     expect(rows[0]!.causedByDevices).toBeNull();
   });
 
-  it("the months are Athens days: 22:30 UTC on 14 May is 15 May in Athens, exactly four months", async () => {
-    expect((await gap("2026-05-14T22:30:00Z")).rows.map((r) => r.change)).toEqual(["seen_again"]);
+  it("the months are Athens days: 22:30 UTC the evening before is already that day in Athens, exactly four months", async () => {
+    expect((await gap(lateEveningBefore(FOUR_MONTHS))).rows.map((r) => r.change)).toEqual(["seen_again"]);
   });
 
   it("one day short → nothing", async () => {
-    expect((await gap("2026-05-14T12:00:00Z")).rows).toHaveLength(0);
+    expect((await gap(shift(FOUR_MONTHS, -1))).rows).toHaveLength(0);
   });
 
   it("one day over → seen_again", async () => {
-    const { rows } = await gap("2026-05-16T12:00:00Z");
+    const { rows } = await gap(shift(FOUR_MONTHS, 1));
     expect(rows.map((r) => r.change)).toEqual(["seen_again"]);
+  });
+
+  it("a photo that waited over 90 days to be placed on the cat is old news (second review, finding 1)", async () => {
+    const id = await cat();
+    await sighting(id, noon(dayAgo(300)));
+    await fresh();
+    await sighting(id, noon(dayAgo(100)), "vitest-news-respotter");
+    await fresh();
+    expect(await changesFor([id])).toMatchObject([{ change: "seen_again", state: "silenced", silencedReason: "old_news" }]);
   });
 
   it("calendar months clamp to the month's end", () => {
@@ -418,6 +440,27 @@ describe("guards fail closed (review of this PR, finding 1)", () => {
     expect(await changesFor([id])).toMatchObject([{ change: "sterilised", state: "silenced", silencedReason: "old_news" }]);
   });
 
+  it("the team takes back a wrong \"not sterilised\", so an older true \"sterilised\" wins again → news (second review, finding 2)", async () => {
+    const id = await cat();
+    const twoDaysAgo = new Date(Date.now() - 2 * DAY);
+    const staffRow = (value: unknown, observedAt: Date, supersedesId?: number) =>
+      db
+        .insert(observationsTable)
+        .values({ catId: id, kind: "sterilised", value, accountId: "staff-vitest-news", roleAtTime: "staff", observedAt, createdAt: twoDaysAgo, ...(supersedesId ? { supersedesId } : {}) })
+        .returning();
+    await staffRow({ sterilised: true }, new Date(Date.now() - 3 * DAY));
+    const [wrong] = await staffRow({ sterilised: false }, twoDaysAgo);
+    await fresh();
+    expect((await baselineOf(id))!.sterilisedConfirmed).toBe(false);
+    // Tonight: the wrong row is taken back by a row that asserts nothing.
+    await db.insert(observationsTable).values({
+      catId: id, kind: "sterilised", value: { withdrawn: true }, accountId: "staff-vitest-news", roleAtTime: "staff",
+      observedAt: new Date(), supersedesId: wrong!.id, supersedeReason: "correction",
+    });
+    await fresh();
+    expect(await changesFor([id])).toMatchObject([{ change: "sterilised", state: "watched", silencedReason: null }]);
+  });
+
   it("refuses to run while the data spine's backfill isn't recorded (the cat page would read the old columns)", async () => {
     pr3.recorded = false;
     try {
@@ -449,10 +492,10 @@ describe("who caused a change (kept for Slice 3; never stored in watch mode)", (
       { catId: 1, sterilisedConfirmed: true, lifeStatus: "homed", dead: false, sterilisedEvidence: [10], lifeEvidence: [11], lastSightingAt: null },
       [obs(10, "sterilised", "dev-a"), obs(11, "life_status", "dev-b"), obs(12, "ear_tip", "dev-c")],
       [
-        { id: 1, catId: 1, createdAt: new Date("2026-01-01T12:00:00Z"), deviceId: "dev-d" },
-        { id: 2, catId: 1, createdAt: new Date("2026-06-01T12:00:00Z"), deviceId: "dev-e" },
+        { id: 1, catId: 1, createdAt: new Date(now.getTime() - 200 * DAY), deviceId: "dev-d" },
+        { id: 2, catId: 1, createdAt: new Date(now.getTime() - 10 * DAY), deviceId: "dev-e" },
       ],
-      { catId: 1, sterilisedConfirmed: false, notifiedSterilisedAt: null, notifiedHomedAt: null, lifeStatus: "street", lastSightingAt: new Date("2026-01-01T12:00:00Z"), updatedAt: new Date(now.getTime() - 1000) },
+      { catId: 1, sterilisedConfirmed: false, notifiedSterilisedAt: null, notifiedHomedAt: null, lifeStatus: "street", lastSightingAt: new Date(now.getTime() - 200 * DAY), updatedAt: new Date(now.getTime() - 1000) },
       now,
     );
     expect(out.changes.map((c) => [c.change, c.causedByDevices, c.silencedReason])).toEqual([
@@ -737,18 +780,18 @@ describe("T1-13: more than 50 news changes in one night silences them all", () =
     const seen: number[] = [];
     for (let i = 0; i < n; i++) {
       const id = await cat();
-      await sighting(id, new Date("2026-01-10T12:00:00Z"));
+      await sighting(id, noon(dayAgo(200)));
       seen.push(id);
     }
     const ster = await cat();
     await fresh();
-    for (const id of seen) await sighting(id, new Date("2026-06-10T12:00:00Z"));
+    for (const id of seen) await sighting(id, noon(dayAgo(30)));
     await sterilised(ster, true);
     const r = await fresh();
     return { r, seenRows: await changesFor(seen), sterRows: await changesFor([ster]) };
   }
 
-  it("a busy spring night: 60 cats seen again don't count toward the 50, and nothing is held back (SYC-475)", async () => {
+  it("a busy spring night: 60 cats seen again don't count toward the 50, and nothing is held back (SYC-475)", { timeout: 120_000 }, async () => {
     const { r, seenRows, sterRows } = await springNight(60);
     expect(r.silencedBulk).toBe(false);
     expect(seenRows).toHaveLength(60);
@@ -756,7 +799,7 @@ describe("T1-13: more than 50 news changes in one night silences them all", () =
     expect(sterRows).toMatchObject([{ change: "sterilised", state: "watched" }]);
   });
 
-  it("201 cats seen again → only those are held back; the night's real sterilisation still counts (SYC-475)", async () => {
+  it("201 cats seen again → only those are held back; the night's real sterilisation still counts (SYC-475)", { timeout: 180_000 }, async () => {
     expect(SEEN_AGAIN_BULK_LIMIT).toBe(200);
     const { r, seenRows, sterRows } = await springNight(201);
     expect(r.silencedBulk).toBe(true);

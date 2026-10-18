@@ -13,7 +13,8 @@ import { safeError } from "../lib/logger";
  *   tonight (the Athens date) has finished; 200 {busy: true} if another
  *   caller is running it now. Any failure is a 500, which the Worker turns
  *   into an alarm. `silencedBulk: true` means more than 50 news changes were
- *   found and all were silenced: the Worker alarms on that too (plan C14).
+ *   found, or more than 200 "seen again", and that kind was held back: the
+ *   Worker alarms on that too (plan C14; SYC-475).
  * - GET /api/internal/news/last-run: the newest finished night, for the
  *   Worker's "no finished run in 36 hours" alarm.
  *
@@ -45,7 +46,7 @@ router.post("/internal/news/nightly", async (req, res) => {
     }
     const { status: _status, ...counts } = result;
     if (counts.silencedBulk) {
-      req.log.error(counts, "news check: more than 50 news changes tonight, all silenced");
+      req.log.error(counts, "news check: over a nightly limit (50 sterilised or homed, or 200 seen again); that kind of news held back");
     } else {
       req.log.info(counts, "news check: finished");
     }

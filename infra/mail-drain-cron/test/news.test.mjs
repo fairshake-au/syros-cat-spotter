@@ -80,7 +80,7 @@ test("a bulk night alarms once, and isn't left open", async () => {
   });
   await assert.rejects(t.promise, /bulk/);
   assert.equal(t.sent.length, 1);
-  assert.match(t.sent[0].subject, /over 50 changes/);
+  assert.match(t.sent[0].subject, /held back an unusually large night/);
   assert.ok(!t.kv.store.has(NEWS_OPEN_KEY));
 });
 

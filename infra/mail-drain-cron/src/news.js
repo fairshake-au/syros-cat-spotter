@@ -115,7 +115,7 @@ export async function callNews({
 export function newsAlarmMessage(result, baseUrl) {
   if (result.kind === "bulk") {
     return {
-      subject: "Syros Cat Spotters: the nightly news check found over 50 changes and held them all",
+      subject: "Syros Cat Spotters: the nightly news check held back an unusually large night of news",
       text: [
         "Tonight's news check found more cat news at once than its limits allow: more than 50",
         "sterilised or homed changes, or more than 200 seen-again changes. That looks like a",

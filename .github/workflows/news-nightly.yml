@@ -80,7 +80,10 @@ jobs:
             echo "::error::The nightly news check failed (HTTP ${code})."
             exit 1
           fi
+          # Only catches a bulk night when this backup was the night's first
+          # caller; after the Worker's run it gets {"already":true}, and the
+          # Worker's own alarm (which also reads last-run) covers it.
           if grep -q '"silencedBulk":true' "$out"; then
-            echo "::error::Over 50 news changes in one night: all were held back. Look at GET /api/team/news-changes."
+            echo "::error::An unusually large night (over 50 sterilised or homed, or over 200 seen again): that news was held back. Look at GET /api/team/news-changes."
             exit 1
           fi
