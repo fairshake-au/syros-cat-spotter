@@ -96,9 +96,9 @@ function input(
   opts: { hint?: string; invalid?: boolean; mode?: "decimal" } = {},
 ): string {
   return (
-    `<label for="${esc(id)}">${esc(label)}</label>` +
+    `<label class="label" for="${esc(id)}">${esc(label)}</label>` +
     (opts.hint ? `<p class="hint">${esc(opts.hint)}</p>` : "") +
-    `<input type="text" id="${esc(id)}" name="${esc(name)}" value="${esc(value)}"` +
+    `<input type="text" class="text" id="${esc(id)}" name="${esc(name)}" value="${esc(value)}"` +
     (opts.mode ? ` inputmode="${opts.mode}"` : "") +
     (opts.invalid ? ' aria-invalid="true"' : "") +
     ">"
@@ -142,12 +142,10 @@ function areaRow(a: AreaRow, o: AreasPageOptions): string {
     `<input type="hidden" name="key" value="${esc(k)}">` +
     `<button type="submit" class="risky">Retire</button></form>`;
   return (
-    `<li class="area"><h3>${esc(a.name)}</h3>` +
-    `<p>Centre: ${position(a.lat, a.lng, { link: o.link })}</p>` +
-    `<p>${a.cats === 1 ? "1 cat" : `${a.cats} cats`} nearest this centre</p>` +
-    rename +
-    move +
-    retire +
+    `<li class="statement"><h3>${esc(a.name)}</h3>` +
+    `<p class="meta">Centre: ${position(a.lat, a.lng, { link: o.link })}</p>` +
+    `<p class="meta">${a.cats === 1 ? "1 cat" : `${a.cats} cats`} nearest this centre</p>` +
+    `<div class="fixes">${rename}${move}${retire}</div>` +
     "</li>"
   );
 }
@@ -156,7 +154,7 @@ function addForm(o: AreasPageOptions): string {
   const again = o.again;
   const bad = (f: AreaField) => again?.op === "add" && again.field === f;
   return (
-    `<details${isOpen(again, "add") ? " open" : ""}><summary>Add an area</summary>` +
+    `<div class="fixes"><details${isOpen(again, "add") ? " open" : ""}><summary>Add an area</summary>` +
     `<form method="post" action="${AREAS_PATH}">` +
     '<input type="hidden" name="op" value="add">' +
     problem(again, "add", undefined, "name") +
@@ -178,7 +176,7 @@ function addForm(o: AreasPageOptions): string {
       invalid: bad("lng"),
       mode: "decimal",
     }) +
-    `<button type="submit">Add the area</button></form></details>`
+    `<button type="submit">Add the area</button></form></details></div>`
   );
 }
 
@@ -189,7 +187,7 @@ function historyList(history: readonly AreaChange[]): string {
     history
       .map(
         (c) =>
-          `<li><time datetime="${esc(c.at.toISOString())}">${esc(when(c.at))}</time> · ` +
+          `<li class="meta"><time datetime="${esc(c.at.toISOString())}">${esc(when(c.at))}</time> · ` +
           `${esc(c.who ?? "Syros Cats (the first list)")} · ${esc(changeWords(c))}</li>`,
       )
       .join("") +
@@ -209,7 +207,7 @@ export function renderAreasPage(o: AreasPageOptions): string {
       "Place labels and the Cats filters use this list within a minute of a change.</p>" +
       addForm(o) +
       `<h2>The areas (${o.areas.length})</h2>` +
-      `<ul class="areas">${o.areas.map((a) => areaRow(a, o)).join("")}</ul>` +
+      `<ul class="history">${o.areas.map((a) => areaRow(a, o)).join("")}</ul>` +
       '<h2 id="history">History</h2>' +
       historyList(o.history) +
       `<p class="hint">Each change makes a new version. Reports name the version they used. This is version ${o.version}.</p>`,
