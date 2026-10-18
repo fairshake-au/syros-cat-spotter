@@ -7,6 +7,10 @@ Plan: `docs/superpowers/plans/syc-166-photo-time-and-location.md` "Slice 4".
 - Read plan, review, spec §3.2/§8/§9 test 5, SYC-166 + comments, project P-SYC-54, launch plan.
 - Checked: nothing for slice 4 on origin/main.
 
+## Done (cont.)
+- island.ts, mapStart.ts, spot.tsx wiring, mapStartedInTown en/el/fr: committed 5696904b. Full cat-spotter suite 1837/1837. Typecheck clean.
+- Mutation probes 1-5 (+3b): all RED (scratchpad probe.py).
+
 ## Next
 1. `lib/island.ts` + test (red first), move rectangle out of `offlineTiles.ts`.
 2. `lib/mapStart.ts` + test.
