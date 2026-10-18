@@ -4,6 +4,7 @@ import { like } from "drizzle-orm";
 import { db, feedingSitesTable, pool, sightingsTable } from "@workspace/db";
 import app from "../app";
 import { assetUrl } from "../lib/teamAssets";
+import { isOpaqueAddress } from "../test/opaqueAddress";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { removeTestPerson } from "../test/removeTestPerson";
 import { deleteTestSightings } from "../test/sightings";
@@ -165,9 +166,14 @@ describe("the island Map page", () => {
 
   it("puts no position in any address", async () => {
     const res = await page(`/api/team/cats?view=map&focus=${cat.id}`);
-    for (const a of addresses(res.text)) {
-      expect(a, a).not.toMatch(/37\.\d|24\.\d/);
-      expect(a, a).not.toMatch(/\blat\b|\blng\b|map-tiles\/\d|map-square\/\d/i);
+    const all = addresses(res.text);
+    expect(all.length).toBeGreaterThan(10);
+    for (const a of all) {
+      // A photo uuid or a picture token this server signed is opaque by
+      // design, and may hold a digit run by chance (SYC-425).
+      if (isOpaqueAddress(a)) continue;
+      expect(a, a).not.toMatch(/37\.\d|24\.\d|\d+[/-]\d+[/-]\d+/);
+      expect(a, a).not.toMatch(/\blat\b|\blng\b|map-tiles\/|map-square\//i);
     }
   });
 

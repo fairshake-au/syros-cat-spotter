@@ -345,7 +345,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * their own checks. If an Express upgrade changes `router.stack` and the walk
  * finds fewer, the test fails rather than passing on an empty list.
  */
-const MINIMUM_ROUTES = 76;
+const MINIMUM_ROUTES = 80; // 76, plus SYC-396 PR 1.5's four map routes
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };

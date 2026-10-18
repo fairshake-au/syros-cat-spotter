@@ -60,6 +60,8 @@ interface Pos {
   lng: number;
   place: string;
   lastSeenAt: string | null;
+  seen: string;
+  colony: number | null;
   photo: string | null;
 }
 
