@@ -185,7 +185,7 @@ function confirmForm(
  * standing falls through (§4).
  */
 function patternRadios(lang: string | undefined, idBase: string): string {
-  const radios = [...COAT_PATTERNS, "none"]
+  const radios = [...COAT_PATTERNS, "none" as const]
     .map(
       (p) =>
         `<label class="choice" for="${idBase}-p-${p}"><input type="radio" id="${idBase}-p-${p}" name="pattern" value="${p}"${p === "none" ? " checked" : ""}> ` +
