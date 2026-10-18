@@ -97,7 +97,7 @@ The spec (`docs/specs/team-dashboard-redesign.md`) and its plan were both approv
 
 ## Decisions for Samuel
 
-Each has a recommendation. **D1, D2 and D3 were decided on 18 October; D4 and D5 are open.**
+Each has a recommendation. **All five were decided by Samuel on 18 October.**
 
 ### D1. Write the dashboard plans for phases 2, 3 and 4 together, now? (SYC-463) · **Decided: A** (Samuel, 18 Oct, recorded on SYC-463)
 
@@ -127,7 +127,7 @@ The order runs from what visitors and the team would miss least to what they'd m
 
 Turnstile, the QR codes and the staff sign-in all need it, and the QR artwork can't be finished without it. Recommended `app.catspotters.com`; **Samuel chose `syros.catspotters.com`.** It has no DNS record yet (`dig`, 18 Oct). Linking it to the Replit deployment may need Samuel's click in Replit; Claude then adds the records and the Turnstile widget through the Cloudflare API, and checks it end to end by Tuesday 27. `apptest` keeps working through November so staff and guardian sign-in can't break on launch day.
 
-### D4. The name printed on the QR materials (SYC-464), by Tuesday 20 October
+### D4. The name printed on the QR materials (SYC-464) · **Decided: A, "Syros Cat Spotters"** (Samuel, 18 Oct)
 
 The rename is in spring, so the launch carries today's name. But today's name isn't consistent. The welcome screen says **"Syros Cat Spotters"** in all three languages. The app's own name says **"Syros Cat Spotter"** in English, "Γάτες της Σύρου" in Greek and "Chats de Syros" in French (`artifacts/cat-spotter/lib/i18n.ts:50, 281, 727, 1375`).
 
@@ -136,9 +136,9 @@ The rename is in spring, so the launch carries today's name. But today's name is
 | **A. Print "Syros Cat Spotters", and make the English app name match (one word) (recommended)** | What people read on the poster is what they see when the app opens | A small wording change before Johnny's pack. Posters show the old name after the spring rename |
 | B. Print "Cat Spotters" now | Posters outlast the rename | The app says something different until spring |
 
-**Recommendation: A.** The web address on the poster outlasts either name.
+**Recommended A; Samuel chose A.** Posters read "Syros Cat Spotters" above `syros.catspotters.com`. The one-word fix to the English app name lands before the copy freeze on Thursday 22.
 
-### D5. Guardian screens that arrive after the copy freeze
+### D5. Guardian screens that arrive after the copy freeze · **Decided: A** (Samuel, 18 Oct)
 
 The team's dashboard stays English only (DECISIONS Part 2o), but what cat guardians see is in three languages. Phase 3's guardian views will land after Johnny's pack goes out on Friday 23.
 
@@ -147,7 +147,7 @@ The team's dashboard stays English only (DECISIONS Part 2o), but what cat guardi
 | **A. They show in English until Johnny checks a short second pack, with a second window of 27–29 Oct (recommended)** | Guardians get the screens at launch; nothing unchecked appears in Greek or French | A few guardian screens are in English for a few days |
 | B. Hold those guardian views back until checked | Every guardian screen is in their language | Guardians wait for the progress and health views |
 
-**Recommendation: A.** Ask Johnny now for both windows.
+**Recommended A; Samuel chose A.** Ask Johnny now for both windows (noted on SYC-346).
 
 ### Already settled
 
@@ -163,8 +163,8 @@ Claude's building runs in parallel worktrees. The limits are Samuel's approvals 
 | Day | Publish | Building and checks (Claude) | Samuel, Syros Cats, Johnny |
 |---|---|---|---|
 | **Sun 18** | — | This plan and its review | — |
-| **Mon 19** | **Yes: the 18-change backlog.** Neon snapshot, then `0030` (ask mode), then publish. Live check of each feature in the batch | Combined dashboard plan for phases 2–4 and its review (D1, written in the dashboard redesign session). Photo-removal runbook (SYC-462). Privacy policy changes for Samuel. SYC-44 6.1. SYC-166 slice 4. SYC-415 confirmed off, checked, then switched on | Approve this plan; decide D4 and D5. Pull in Replit; ask mode for the database step. Ask Syros Cats for door pins (SYC-68), QR printing and placement (SYC-51), privacy wording (SYC-66) and the four dashboard questions (SYC-442). Ask Johnny for both windows |
-| **Tue 20** | — | Roles-spec update (§10.3). Dashboard 2.1 Home, 2.2 Colonies list, 2.3 trapping planner, 2.4 editable areas, side by side. SYC-44 6.2 | **Approve the dashboard plan and the privacy spec.** D4. Link `syros.catspotters.com` in Replit |
+| **Mon 19** | **Yes: the 18-change backlog.** Neon snapshot, then `0030` (ask mode), then publish. Live check of each feature in the batch | Combined dashboard plan for phases 2–4 and its review (D1, written in the dashboard redesign session). Photo-removal runbook (SYC-462). Privacy policy changes for Samuel. SYC-44 6.1. SYC-166 slice 4. English app name fix (SYC-464). SYC-415 confirmed off, checked, then switched on | Approve this plan. Pull in Replit; ask mode for the database step. Ask Syros Cats for door pins (SYC-68), QR printing and placement (SYC-51), privacy wording (SYC-66) and the four dashboard questions (SYC-442). Ask Johnny for both windows |
+| **Tue 20** | — | Roles-spec update (§10.3). Dashboard 2.1 Home, 2.2 Colonies list, 2.3 trapping planner, 2.4 editable areas, side by side. SYC-44 6.2 | **Approve the dashboard plan and the privacy spec.** Link `syros.catspotters.com` in Replit |
 | **Wed 21** | **Yes** | Dashboard 2.5 Find from a photo; 3.1 vet visits (once Home's counting is merged). Privacy page live. QR artwork | Merges. Approve the QR artwork |
 | **Thu 22** | — | **Copy freeze.** Johnny's pack assembled (SYC-346). SYC-44 7.1. Vet visits, second part | Merges |
 | **Fri 23** | **Yes** | Round logging; first reports. SYC-105 republish check | **Send Johnny's pack.** QR to the printer |
@@ -225,7 +225,7 @@ Each line has a check that can fail. Run on Friday 30 with the pass on, then the
 
 | Who | What |
 |---|---|
-| **Samuel** | Approve this plan and decide D4 and D5 (D1–D3 decided 18 Oct). Approve the combined dashboard plan and the privacy spec (Tue 20). Every merge, in two windows a day, plus one weekend window on 24–25 Oct. The Replit pull and "ask" mode for each publish with a database change. Send Johnny's pack. Give the go-ahead to invite guardians. The announcement |
+| **Samuel** | Approve this plan and (D1–D5 all decided 18 Oct). Approve the combined dashboard plan and the privacy spec (Tue 20). Every merge, in two windows a day, plus one weekend window on 24–25 Oct. The Replit pull and "ask" mode for each publish with a database change. Send Johnny's pack. Give the go-ahead to invite guardians. The announcement |
 | **Syros Cats** | Door pins at the three clinics (SYC-68). QR printing and placement (SYC-51). The four dashboard questions (SYC-442). Confirm the report inbox (SYC-173). Privacy policy wording, as data controller (SYC-66), by Tue 20. The €1 and €30 figures on the feeding nudge (SYC-360) |
 | **Johnny** | The Greek and French check, 23–27 Oct (SYC-346), including the guardian words (SYC-283), and a short second window, 27–29 Oct (D5) |
 | **James** | The donation route, which unblocks dashboard phase 5. Not needed for 31 October |
