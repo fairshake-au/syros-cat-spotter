@@ -29,6 +29,10 @@
       shell.hidden = true;
       var ns = document.querySelector("noscript");
       if (!ns || document.querySelector(".mapfallback")) return;
+      // With scripting on, a browser keeps <noscript> as raw, still-escaped
+      // text, which is the only time re-reading it is safe. If it was parsed
+      // as markup (children, already decoded), leave it alone.
+      if (ns.children.length > 0) return;
       var doc = new DOMParser().parseFromString(ns.textContent || "", "text/html");
       var fb = doc.querySelector(".mapfallback");
       if (fb) ns.parentNode.insertBefore(document.importNode(fb, true), ns);
@@ -171,9 +175,28 @@
     }
   }
 
-  var tokens = {}; // "z/x/y" -> token, for this page's life (a token lasts a day)
-  var waiting = {}; // z -> [{ coords, img, done }]
+  // "z/x/y" -> { t: token, at: when it was handed out }. A token works for at
+  // least a day; one older than TOKEN_KEEP_MS is asked for again, so a map
+  // left open overnight doesn't spend the person's squares on dead tokens.
+  var TOKEN_KEEP_MS = 23 * 60 * 60 * 1000;
+  var tokens = {};
+  var waiting = {}; // z -> [{ coords, img, done, retried }]
   var flushTimer = 0;
+
+  function freshToken(key) {
+    var kept = Object.prototype.hasOwnProperty.call(tokens, key) ? tokens[key] : null;
+    if (!kept) return null;
+    if (Date.now() - kept.at > TOKEN_KEEP_MS) {
+      delete tokens[key];
+      return null;
+    }
+    return kept.t;
+  }
+
+  function wait(entry) {
+    (waiting[entry.coords.z] = waiting[entry.coords.z] || []).push(entry);
+    if (!flushTimer) flushTimer = window.setTimeout(flush, 0);
+  }
 
   function show(entry, token) {
     var img = entry.img;
@@ -187,6 +210,15 @@
       entry.done(null, img);
     };
     img.onerror = function () {
+      // The token may have died (a server key change, say): forget it and
+      // ask for a new one, once. A second failure is a real one.
+      delete tokens[entry.coords.z + "/" + entry.coords.x + "/" + entry.coords.y];
+      if (!entry.retried) {
+        entry.retried = true;
+        img.onload = img.onerror = null;
+        wait(entry);
+        return;
+      }
       failed++;
       tilesFailing();
       entry.done(new Error("map picture"), img);
@@ -201,7 +233,7 @@
         entries.forEach(function (e) {
           var key = z + "/" + e.coords.x + "/" + e.coords.y;
           var t = typeof got[key] === "string" && /^[A-Za-z0-9_-]{59}$/.test(got[key]) ? got[key] : "";
-          if (t) tokens[key] = t;
+          if (t) tokens[key] = { t: t, at: Date.now() };
           show(e, t);
         });
       })
@@ -252,15 +284,15 @@
       img.setAttribute("role", "presentation");
       img.decoding = "async";
       var key = coords.z + "/" + coords.x + "/" + coords.y;
-      var entry = { coords: coords, img: img, done: done };
-      if (Object.prototype.hasOwnProperty.call(tokens, key)) {
+      var entry = { coords: coords, img: img, done: done, retried: false };
+      var kept = freshToken(key);
+      if (kept) {
         window.setTimeout(function () {
-          show(entry, tokens[key]);
+          show(entry, kept);
         }, 0);
         return img;
       }
-      (waiting[coords.z] = waiting[coords.z] || []).push(entry);
-      if (!flushTimer) flushTimer = window.setTimeout(flush, 0);
+      wait(entry);
       return img;
     },
   });
@@ -568,12 +600,17 @@
     }
   }
 
-  var firstLoad = true;
+  // The filters the server drew the page (and its count line) for. Any answer
+  // for other filters rewrites the count, whichever request it was.
+  var asDrawn = query();
+  var focusOpened = false;
+  var countRewritten = false;
 
   function loadCats() {
     if (controller) controller.abort();
     var mine = new AbortController();
     controller = mine;
+    var asked = query();
     mapEl.setAttribute("aria-busy", "true");
     postJson("/api/team/cats/positions", filterBody(), mine.signal)
       .then(function (answer) {
@@ -581,14 +618,20 @@
         var list = answer && Array.isArray(answer.cats) ? answer.cats : [];
         cats = list.map(cleanCat).filter(Boolean);
         drawCats();
-        if (!firstLoad) setCount(cats.length);
-        if (firstLoad && focus) {
+        // Once rewritten, always rewritten (back to the drawn filters included).
+        if (asked !== asDrawn || countRewritten) {
+          countRewritten = true;
+          setCount(cats.length);
+        }
+        if (focus && !focusOpened) {
           var c = cats.filter(function (x) {
             return x.id === focus.id;
           })[0];
-          if (c) openCat(c);
+          if (c) {
+            focusOpened = true;
+            openCat(c);
+          }
         }
-        firstLoad = false;
       })
       .catch(function () {
         // The cats stay as they were; the form's button still works.

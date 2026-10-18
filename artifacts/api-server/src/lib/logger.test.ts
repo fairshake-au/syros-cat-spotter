@@ -58,6 +58,10 @@ describe("map square addresses in the request log", () => {
       `/api/team/map-square%2F${TOKEN}`,
       `/API/Team/Map-Square/${TOKEN}`,
       `/api/team/map-square/17/74230/50478.png`,
+      // Letters percent-encoded: not routed, but never logged with the token (review of PR #230).
+      `/api/team/map-squar%65/${TOKEN}`,
+      `/api/te%61m/map-square/${TOKEN}`,
+      `/%61pi/team/map%2Dsquare/${TOKEN}`,
     ]) {
       const out = redactRequestUrl(url)!;
       expect(out, url).toMatch(/\/map-square\/\[redacted\]$/);

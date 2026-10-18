@@ -238,10 +238,27 @@ export const mapTileLimiter = rateLimit({
 export const MAP_SQUARES_BUCKET = "map_squares";
 export const MAP_SQUARES_LIMIT = 300;
 export const MAP_SQUARES_WINDOW_MS = 10 * 60 * 1000;
+// Sliding, so a window boundary never hands out a second 300 at once
+// (adversarial review of PR #230, finding 4).
 export const mapSquareLimiter = sharedLimiter({
   bucket: MAP_SQUARES_BUCKET,
   message: { error: "Too many map pictures. Please try again in a few minutes." },
   windowMs: MAP_SQUARES_WINDOW_MS,
   limit: MAP_SQUARES_LIMIT,
+  sliding: true,
+  key: (_req, res) => `person:${teamPerson(res).id}`,
+});
+
+// The square-token requests, POST /api/team/map-squares (review of PR #230,
+// finding 3). Minting is cheap (no picture is fetched), but it shouldn't be
+// free without end: 120 asks per person per 10 minutes is far more than a
+// map ever makes (one or two per pan or zoom), at up to 64 squares each.
+export const MAP_SQUARE_TOKENS_BUCKET = "map_square_tokens";
+export const MAP_SQUARE_TOKENS_LIMIT = 120;
+export const mapSquareTokensLimiter = sharedLimiter({
+  bucket: MAP_SQUARE_TOKENS_BUCKET,
+  message: { error: "Too many map requests. Please try again in a few minutes." },
+  windowMs: MAP_SQUARES_WINDOW_MS,
+  limit: MAP_SQUARE_TOKENS_LIMIT,
   key: (_req, res) => `person:${teamPerson(res).id}`,
 });

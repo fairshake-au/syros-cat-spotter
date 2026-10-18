@@ -255,7 +255,7 @@ export const TRAIL_MAX = 50;
 /**
  * Where one cat has been seen, oldest first, for the island map's "Show where
  * else it's been seen" (SYC-396 PR 1.5; spec §6.2): where it was first found,
- * then each resolved sighting, the newest TRAIL_MAX points in all. Null when
+ * then its newest resolved sightings, TRAIL_MAX points in all. Null when
  * there is no such cat. Positions for a signed-in team page only; never drawn
  * as numbers, never put in an address.
  */
@@ -272,10 +272,11 @@ export async function catTrail(
     .from(sightingsTable)
     .where(and(eq(sightingsTable.catId, catId), eq(sightingsTable.status, "resolved")))
     .orderBy(desc(sightingsTable.createdAt), desc(sightingsTable.id))
-    .limit(TRAIL_MAX);
+    .limit(TRAIL_MAX - 1);
+  // Where it was first found always stays, then the newest sightings (review of PR #230).
   const points = [
     { lat: cat.lat, lng: cat.lng, at: cat.createdAt, first: true },
     ...sightings.reverse().map((s) => ({ lat: s.lat, lng: s.lng, at: s.at, first: false })),
-  ].slice(-TRAIL_MAX);
+  ];
   return { id: cat.id, name: cat.name, points };
 }

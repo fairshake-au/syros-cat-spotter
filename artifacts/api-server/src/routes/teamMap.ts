@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { mapSquareLimiter, mapTileLimiter } from "../middlewares/rateLimit";
+import { mapSquareLimiter, mapSquareTokensLimiter, mapTileLimiter } from "../middlewares/rateLimit";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { requireSeeing } from "../middlewares/requireSeeing";
@@ -230,6 +230,7 @@ const SquaresRequest = z
 router.post(
   "/team/map-squares",
   ...formRoute("view_exact_location"),
+  mapSquareTokensLimiter,
   (req: Request, res: Response) => {
     const parsed = SquaresRequest.safeParse(req.body);
     if (!parsed.success) return void res.status(400).json({ error: "bad_request" });

@@ -81,6 +81,20 @@ const DEVICE_ID_IN_PATH =
  */
 export function redactRequestUrl(url: string | undefined): string | undefined {
   const path = url?.split("?")[0];
+  // A map address with its letters percent-encoded (`map-squar%65/<token>`)
+  // isn't routed, but its line would still carry the token (review of PR
+  // #230, finding 6). Matched on the decoded path too; an undecodable path
+  // is matched as it is.
+  if (path !== undefined) {
+    let decoded = path;
+    try {
+      decoded = decodeURIComponent(path);
+    } catch {
+      // keep it as it is
+    }
+    const m = decoded !== path ? new RegExp(MAP_TILE_IN_PATH.source, "i").exec(decoded) : null;
+    if (m && !new RegExp(MAP_TILE_IN_PATH.source, "i").test(path)) return MAP_TILE_PLACEHOLDER[m[1]!.toLowerCase()]!;
+  }
   return path
     ?.replace(MAP_TILE_IN_PATH, (_m, kind: string) => MAP_TILE_PLACEHOLDER[kind.toLowerCase()]!)
     .replace(DEVICE_ID_IN_PATH, "/$1/:deviceId");

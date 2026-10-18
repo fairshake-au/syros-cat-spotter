@@ -29,7 +29,13 @@ import { islandTileRange, MAX_ZOOM, MIN_ZOOM } from "../lib/mapTiles/geometry";
 import { mintSquareToken, mintTileToken, TOKEN_RE } from "../lib/mapTiles/tileToken";
 import { _resetTileBackoffForTests } from "../lib/mapTiles/tileCache";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
-import { MAP_SQUARES_BUCKET, MAP_SQUARES_LIMIT, MAP_SQUARES_WINDOW_MS } from "../middlewares/rateLimit";
+import {
+  MAP_SQUARE_TOKENS_BUCKET,
+  MAP_SQUARE_TOKENS_LIMIT,
+  MAP_SQUARES_BUCKET,
+  MAP_SQUARES_LIMIT,
+  MAP_SQUARES_WINDOW_MS,
+} from "../middlewares/rateLimit";
 import { removeTestPerson } from "../test/removeTestPerson";
 import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
 import { MAX_SQUARES_PER_CALL } from "./teamMap";
@@ -214,8 +220,36 @@ describe("300 squares per person per 10 minutes", () => {
   // requests); a few real requests then cross the line.
   const fill = async (who: Signed, n: number) => {
     for (let i = 0; i < n; i++)
-      await consume(MAP_SQUARES_BUCKET, `person:${who.id}`, MAP_SQUARES_LIMIT, MAP_SQUARES_WINDOW_MS);
+      await consume(MAP_SQUARES_BUCKET, `person:${who.id}`, MAP_SQUARES_LIMIT, MAP_SQUARES_WINDOW_MS, undefined, Date.now(), {
+        sliding: true,
+      });
   };
+
+  it("is a rolling window: the last window's squares still count just after the boundary", async () => {
+    // Bob's 300 at the very end of one window; a second into the next, he is
+    // still refused (a fixed window would hand him 300 more at once). The
+    // old squares fade out over the next 10 minutes.
+    const end = Math.floor(Date.now() / MAP_SQUARES_WINDOW_MS) * MAP_SQUARES_WINDOW_MS;
+    vi.useFakeTimers({ toFake: ["Date"], now: end - 1000 });
+    await fill(bob, MAP_SQUARES_LIMIT);
+    vi.setSystemTime(end + 1000);
+    const r = await square(bob, mintSquareToken({ z: Z, x: R.minX, y: R.minY + 1 }));
+    expect(r.status).toBe(429);
+  });
+
+  it("asking for tokens has its own limit, per person: the 121st ask in 10 minutes gets 429", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
+    await _resetBucketForTests(MAP_SQUARE_TOKENS_BUCKET);
+    expect(MAP_SQUARE_TOKENS_LIMIT).toBe(120);
+    for (let i = 0; i < MAP_SQUARE_TOKENS_LIMIT - 1; i++)
+      await consume(MAP_SQUARE_TOKENS_BUCKET, `person:${alice.id}`, MAP_SQUARE_TOKENS_LIMIT, MAP_SQUARES_WINDOW_MS);
+    const body = { z: Z, xMin: R.minX, xMax: R.minX, yMin: R.minY, yMax: R.minY };
+    expect((await ask(alice, body)).status).toBe(200);
+    const over = await ask(alice, body);
+    expect([over.status, over.headers["cache-control"]]).toEqual([429, "no-store"]);
+    expect((await ask(bob, body)).status).toBe(200);
+    await _resetBucketForTests(MAP_SQUARE_TOKENS_BUCKET);
+  });
 
   it("the 301st square for one person gets 429, while a second person is unaffected", async () => {
     vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
