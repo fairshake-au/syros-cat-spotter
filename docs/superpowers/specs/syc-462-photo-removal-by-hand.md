@@ -16,7 +16,7 @@
 **Status:** revision 2. This is a draft for Samuel's approval, and nothing here is built yet.
 - Samuel decided D1–D4 on 18 October 2026 (recorded on SYC-462; see §10). D1 chose **"Bring November's change forward"**, so this revision adds a database change. Revision 1 was written without one.
 - The first adversarial review (`syc-462-photo-removal-by-hand-review.md`, 18 findings) is folded in. Its fixes carry over unless §13 says otherwise.
-- A second review, of what changed in this revision, comes next.
+- The second review, of what changed in this revision (`syc-462-photo-removal-by-hand-review-2.md`, 14 findings, "approve with changes"), is folded in too; its disposition is at its end.
 
 **Checked against:** `origin/main` at `c1958d7a` (18 October 2026). Every claim about how things work today names the file it was read in.
 
@@ -44,6 +44,13 @@ Someone writes to hello@catspotters.com: "there's a photo of my front door (or m
 
 Every command first **shows what it would do and changes nothing**. That's the dry run, and it's what happens unless Claude adds the confirmation word.
 
+**Words used below.**
+- **Ask mode**: a setting Samuel switches on in Claude's session so that every change to the live database waits for his yes.
+- **Publish**: putting a new version of the app live.
+- **Migration**: a change to the shape of the database, such as adding a field.
+- **The removal ledger**: one Linear ticket that lists every photo ever removed (id and date only), so a removal can be re-applied if an old backup is ever restored.
+- **Stand-in**: the photo the public already sees in place of a hidden main photo (the newest visible photo from that cat's sightings).
+
 **What changes in the app.** The database gains a proper "removed" marker (a migration). Every part of the app that reads a photo's picture learns to treat a removed photo as gone. That's the database half of November's SYC-246, brought forward as Samuel decided. November then only has to add the team's button.
 
 ---
@@ -61,7 +68,7 @@ Every command first **shows what it would do and changes nothing**. That's the d
 
 **When removal is allowed** is unchanged from DECISIONS.md Decision 3 (14 October 2026): *"Delete for good" is for privacy only.* That means a photo showing a person or a private place. An offensive photo stays hidden, not removed. The remove command enforces this (§5.4).
 
-**Removal is only switched on once the new app is live** (§4.6). Until then, a privacy request gets step 5 (hide) only. Hiding already takes the photo off every public page.
+**Removal is only switched on once the new app is live** (§4.6). Until then, a privacy request gets step 5 (hide) only. Hiding already takes the photo off every public page. **What the person sees meanwhile:** the photo is gone from the app and website within minutes of approval, and they get the short "hidden now, deleted soon" reply in §7. The full reply follows once removal has run.
 
 ---
 
@@ -105,11 +112,15 @@ A photo's web address is built every time it's needed, never stored (`api/lib/ph
 | R3 | Team small/medium versions | `api/routes/teamReports.ts:187-208` via `api/lib/photoVariants.ts:42-48` | `410`, and no version is made |
 | R4 | Matching: the main photos of nearby cats | `api/routes/sightings.ts:279-286` | That cat is skipped (it isn't sent) |
 | R5 | Matching: a repeat upload of the same spot | `api/routes/sightings.ts:560-579` | The removed photo is skipped in both reads, including the older single-photo fallback. If nothing's left, the existing "photo has gone" branch runs |
-| R6 | "Photo hidden" email attachment | `api/lib/mail/outbox.ts:590-591` | No attachment. The email already says the bytes were deleted (`api/lib/issues/alertEmail.ts:93-95`) |
-| R7 | Coat reader | `api/lib/coatReading/sweep.ts:211` | Skipped. It already never picks a hidden photo (`photoVisibility.ts:103`) |
+| R6 | "Photo hidden" email attachment | `api/lib/mail/outbox.ts:590-591` | Already null-safe (`stored?.data ? … : null`, `outbox.ts:591`): no attachment, and the email says the bytes were deleted (`api/lib/issues/alertEmail.ts:93-95`). A test only (T16) |
+| R7 | Coat reader | `api/lib/coatReading/sweep.ts:211` | Skipped: a null-`data` guard, which the type checker forces. It already never picks a hidden photo (`photoVisibility.ts:103`) |
 | R8 | Spot insert | `api/lib/spotPhotos.ts:96` | A writer, not a reader. It always writes a picture |
 
-Places that read only a photo's id, public id or type, never the picture, are unaffected. That's `likelyReview.ts:151`, `teamCatView.ts:592`, `capabilityTargets.ts:140`, `photoVisibility.ts:128`, `guardianCatView.ts:140`, `colourCheck.ts:113` and `routes/issues.ts:286`. Each still builds a team address for a removed photo, and that address answers `410`. T9 checks the team cat page shows the photo as removed rather than as a broken image.
+Places that read only a photo's id, public id or type never touch the picture: `likelyReview.ts:151`, `teamCatView.ts:592`, `capabilityTargets.ts:140`, `photoVisibility.ts:128`, `guardianCatView.ts:140`, `colourCheck.ts:113` and `routes/issues.ts:286`. But two of them **build team picture addresses that the page then draws as images**:
+- `teamCatView.ts:586-596` (`photoPublicIds`), with `urlFor` at `:801-804`, feeds the team cat page's gallery (`teamPages/catPages.ts:825-826` draws `<img>`);
+- `likelyReview.ts:148-157` feeds the coat-evidence images (`likelyPage.ts:43`).
+
+For a removed photo those would draw a broken image (the address answers `410`). So both are changed (§6 item 8) to **leave a removed photo out**, which keeps the change in `lib/` and out of `teamPages/` (another session's). The photo simply isn't there on the team's pages. A "Removed" label on the page is SYC-246's, with its button.
 
 ### 3.2 Copies made while the photo was in use
 
@@ -152,7 +163,9 @@ From `docs/runbooks/neon-database.md` and the Neon switchover plan. **Which of t
 - a carry-back;
 - resetting `development` from `production`.
 
-So every removal goes on the **removal ledger** (§7). After any of these, the runbook re-runs `photo-remove` for every ledger entry newer than the restore point. A line saying so is added to the restore section of `neon-database.md`.
+So every removal goes on the **removal ledger** (§7). After any of these, the runbook re-applies **both the hide and the removal** for every ledger entry newer than the restore point, **before visitors reach the restored database** (§7).
+
+**Carry-back to the old Replit database** (the documented last-resort rollback, `lib/db/src/switchover/carryBack.ts:469-499`) would fail on a removed photo, because the old database's `photos.data` is `NOT NULL` and it has none of the new columns. Carry-back is changed to **write `''` (no picture) for a removed photo's `data`**, so the rollback path still works and the picture still doesn't come back. A test in `carryBack.test.ts` pins it. Whether the old Replit database still exists is **unchecked** (kept to cutover + 30 days). A line saying so is added to the restore section of `neon-database.md`.
 
 ---
 
@@ -173,10 +186,13 @@ In `lib/db/src/schema/photos.ts`, so `migrate:check` passes:
   - all three are set and `data` is null.
 
   So **a photo has no picture exactly when it is marked removed**, with who and why. The database itself enforces this.
+- one trigger, `photo_visibility_events_not_after_removal`: it refuses a `restore` event for a removed photo. So "removed means hidden for good" is enforced in the database, not only in the app's restore function (a raw SQL restore, or any other path, is refused too).
 
-**The migration doesn't rewrite any row.** Every existing photo has a picture and no `removed_*`, so it already passes the check. It's an additive change plus one relaxed rule, which is safe for the app that's running now (§4.6).
+**`removed_reason` has one format**, for today's command and November's button alike: the request reference, `SYC-<n>` or `hello YYYY-MM-DD #<n>`. Anything else about why goes on the ticket, never in the database. SYC-246 is told (a comment).
 
-**Rollback** (commented, as the migrations README requires). Drop the check and the three columns, then set `data` back to `NOT NULL`. That last step fails if any photo has been removed. The rollback block says in capitals: **A REMOVED PHOTO'S BYTES CANNOT BE BROUGHT BACK. IF ANY PHOTO IS REMOVED, THIS ROLLBACK FAILS ON PURPOSE. SHIP A FIX FORWARD INSTEAD.**
+**The migration doesn't rewrite any row.** Every existing photo has a picture and no `removed_*`, so it already passes the check. It's an additive change plus one relaxed rule, which is safe for the app that's running now (§4.6). Adding the check scans `photos` once under a short exclusive lock, so the migration may hit the 5-second lock timeout (`MIGRATE_LOCK_TIMEOUT`) on a busy moment. It then rolls back whole and is simply run again; the runbook says to run it off-peak.
+
+**Rollback** (commented, as the migrations README requires). **First a guard**, as in `0031_person_scopes_start_reach.sql`: `DO $$ … IF EXISTS (SELECT 1 FROM photos WHERE data IS NULL) THEN RAISE EXCEPTION … $$`, so nothing is dropped and no record is lost if any photo is removed. Only then drop the trigger, the check and the three columns, and set `data` back to `NOT NULL`. The rollback block says in capitals: **A REMOVED PHOTO'S BYTES CANNOT BE BROUGHT BACK. IF ANY PHOTO IS REMOVED, THIS ROLLBACK FAILS ON PURPOSE. SHIP A FIX FORWARD INSTEAD.**
 
 ### 4.2 The cat stops using it
 
@@ -199,7 +215,7 @@ If there isn't one, it's set to `0`, "no photo", and the placeholder shows.
 
 `delete from photo_variants where photo_id = $1`.
 
-`variantFor` (`api/lib/photoVariants.ts:35-53`) reads a photo's picture without a lock. With `data` now nullable, it returns `null` for a removed photo when it reads. It also checks again just before saving, so a version can't be saved for a removal that happened in between. After the commit, the search (§5.5) checks twice, two seconds apart, and deletes any version it finds.
+`variantFor` (`api/lib/photoVariants.ts:35-53`) reads a photo's picture without a lock, makes the version, then saves it. With `data` now nullable, it returns `null` for a removed photo when it reads. **The save is made conditional**, in one statement: `insert into photo_variants … select … where exists (select 1 from photos where id = $1 and data is not null)`. A removal that lands while the version is being made therefore wins: the save writes nothing. A check-then-save would still leave a gap; this doesn't. After the commit, the search (§5.5) checks twice, two seconds apart, and deletes any version it finds.
 
 ### 4.4 The removal is one write, and it is the record
 
@@ -209,6 +225,7 @@ In **one transaction**, holding the same lock on the photo's row that hiding tak
 2. `update photos set data = null, removed_at = now(), removed_by = <approver>, removed_reason = <ref> where id = $1 and removed_at is null`.
 3. Delete its versions (§4.3).
 4. Repoint any cat using it (§4.2).
+5. **Run the byte search (§5.5 check 5) inside the same transaction**, so it sees the transaction's own writes and the fingerprint can never be lost. Then commit.
 
 `removed_at`, `removed_by` and `removed_reason` answer "who removed this, when, and for which request?" That's the storage spec's *"Removal is recorded — who, when, why"* (§6.5). Nothing is added to the hide/restore log. The photo is already hidden for privacy, and stays hidden.
 
@@ -218,7 +235,7 @@ The GitHub account that ran the workflow goes on the ledger, with the run link.
 
 ### 4.5 Everything else stays
 
-P4 to P8 keep pointing at the row. The row now holds no picture, is marked removed, and stays hidden. Every public reader already treats a hidden photo as having no address (`photoUrl: null`; `api/routes/cats.ts:239`, `api/lib/photoVisibility.ts:64`). `catDisplayPhotos` additionally skips removed photos, as a second guard (§6).
+P4 to P8 keep pointing at the row. The row now holds no picture, is marked removed, and stays hidden. Every public reader already treats a hidden photo as having no address (`photoUrl: null`; `api/routes/cats.ts:239`, `api/lib/photoVisibility.ts:64`). `hiddenPhotoIds` (`api/lib/photoVisibility.ts:51`), which every public and team route asks, **also counts removed photos as hidden**. So every route treats a removed photo as hidden even without its own check, and each route that reads the picture also has its own `data === null` guard (§6).
 
 The tile text "Photo hidden while Syros Cats take a look" belongs to SYC-44 PR 6.1, which isn't on `main` yet, and it's wrong for a removed photo. A note to that effect is on SYC-44.
 
@@ -228,7 +245,13 @@ The tile text "Photo hidden while Syros Cats take a look" belongs to SYC-44 PR 6
 2. **Publish the app that understands "removed".**
 3. **Only then can anyone remove a photo.**
 
-The old app would crash (`Buffer.from(null)`) on the team photo routes and in the email worker for a removed photo, and would send it to the matcher. So `photo-remove` refuses to run on `production` until a setting, `photo_removal_on`, is `true`. The runbook sets that setting after it has checked that the live build (`/api/healthz` commit) includes this PR. The setting uses the existing settings store (`app_settings`; `lib/db/src/appSettings/cli.ts`). Hiding works throughout.
+The old app would crash (`Buffer.from(null)`) on the team photo routes and in the email worker for a removed photo, and would send it to the matcher. So `photo-remove` refuses to run on `production` until a setting, `photo_removal_on`, is `true`. The runbook sets that setting only after checking that the live build includes this PR: `/api/healthz` returns the live commit (`routes/health.ts:9-27`), and `git merge-base --is-ancestor <PR merge commit> <live commit>` must succeed. This is a step a person (Claude) follows, not something the tool can check for itself, so the runbook lists it as a numbered step with its output pasted on SYC-462. Hiding works throughout.
+
+Adding the setting touches:
+- `SETTING_KEYS` and the boolean case in `settingShapeProblem` (`lib/db/src/appSettings/shape.ts:45-93`, as `extra_photos_on`);
+- the `setting_key` choice list (`db-ops.yml:58-65`);
+- `dbOps.settings.test.ts`;
+- the settings list in `neon-database.md:35`.
 
 ---
 
@@ -255,8 +278,14 @@ It prints photo ids, cat numbers, dates and yes/no answers.
 | `photo_id_confirm` | `photo-remove` | The same id, typed again |
 | `photo_cat` | `photo-list` | The cat's number |
 | `photo_by` | `photo-hide`, `photo-restore`, `photo-remove` | The approving team member's people id (from `people-list`) |
-| `photo_ref` | `photo-remove` | **Only** `SYC-<number>` or `hello YYYY-MM-DD #<n>` (pattern `^(SYC-[0-9]{1,5}\|hello [0-9]{4}-[0-9]{2}-[0-9]{2} #[0-9]{1,3})$`). This way a name, a phone number or a street can never reach the public log. It's stored as `removed_reason` |
+| `photo_ref` | `photo-remove` | **Only** `SYC-<number>` or `hello YYYY-MM-DD #<n>` (pattern below). This way a name, a phone number or a street can never reach the public log. It's stored as `removed_reason` |
 | `confirm` (already exists) | `HIDE`, `RESTORE` or `REMOVE` | Without it, a command only shows what it would do |
+
+The `photo_ref` pattern:
+
+```
+^(SYC-[0-9]{1,5}|hello [0-9]{4}-[0-9]{2}-[0-9]{2} #[0-9]{1,3})$
+```
 
 **Who counts as a team member** for `photo_by` is someone on the list now:
 - they joined (`accepted_at` set);
@@ -272,6 +301,8 @@ Every photo of one cat, newest first. For each:
 - where it's used: main photo, or sighting number and role;
 - the date taken;
 - `hidden`, `hidden for privacy` and `removed` (with date), each yes or no.
+
+In the public log this links a cat number to "hidden for privacy" on a date. That's accepted: it names no person, and the photo ids are unguessable. It's why reasons and report text are never printed.
 
 ### 5.2 `photo-hide` (a dry run unless `confirm=HIDE`)
 
@@ -322,18 +353,18 @@ The ids are shortened here only to fit the line. The tool prints them in full.
 
 ### 5.5 The search (part of every dry run and every real run)
 
-The search runs **after the commit, read-only, with no lock held**, has a 120-second statement timeout, and prints how long it took. It prints one line for each check:
+Check 5 (the bytes) runs **inside the removal's own transaction**, after the writes and before the commit (§4.4), so the fingerprint is never lost. Every other check runs **after the commit, read-only**. A dry run runs them all read-only. The scan prints how long it took. How long it takes on the production database is **unchecked**: the development rehearsal (§8.5) measures it, and the timeout (120 s to start with) is set from that measure. **A timeout reports `NOT VERIFIED`, not `NOT GONE`.** The runbook then re-runs the read-only search on its own with a longer timeout. One line per check:
 
 1. `photos.data` is null, and `removed_at`, `removed_by` and `removed_reason` are set.
 2. `photo_variants` has no rows for it. This is checked twice, two seconds apart, and any rows found are deleted and reported.
 3. No `cats.primary_photo_id` points at it.
 4. Its newest visibility event is a `hide`.
-5. **The picture's bytes appear nowhere else.** Before deleting the picture, the command takes a fingerprint of it: a 64-character slice of its base64 text, and the same bytes decoded. It then scans **every** text, `varchar`, `json`, `jsonb`, array and `bytea` column of **every** table in `public` (the same "every column" approach as `api/routes/me.delete.test.ts:324-346`). It also checks there's no other column type it would miss.
+5. **The picture's bytes appear nowhere else.** Before deleting the picture, the command takes a fingerprint of it: a 64-character slice of its base64 text **from the middle of the picture, not the start** (the first bytes are a JPEG/EXIF header that many photos from the same phone share, and would match them falsely), plus the same bytes decoded. It then scans **every** text, `varchar`, `json`, `jsonb`, array and `bytea` column of **every** table in `public` (the same "every column" approach as `api/routes/me.delete.test.ts:324-346`). It also checks there's no other column type it would miss.
    - The assumption, stated: pictures are stored as one unbroken line of base64 (`api/lib/spotPhotos.ts:~92`), so a whole copy keeps the same slice.
    - **The same picture under another id** (a race can save one spot twice; `api/routes/sightings.ts:~533-541`): the search names that row. The runbook treats it as its own request, with its own approval.
 6. **No other mention of it.** Every text, `json`, `jsonb` and array column is scanned for the photo's public id, except `photos.public_id`.
 
-It ends `GONE` only if all six pass. Otherwise it ends `NOT GONE: <checks>` with a non-zero exit, and the run goes red.
+It ends `GONE` only if all six pass. Otherwise it ends `NOT GONE: <checks>` (or `NOT VERIFIED` on a timeout) with a non-zero exit, and the run goes red. **A re-run after "already removed"** repeats checks 1–4 and 6, and for check 5 points to the run that did the removal, where it was done.
 
 ### 5.6 Checks from outside (runbook)
 
@@ -346,7 +377,7 @@ It ends `GONE` only if all six pass. Otherwise it ends `NOT GONE: <checks>` with
 
 All the readers in §3.1 (R1–R7). Most of these are November's T7-7 rows, built early.
 
-1. **`photos.data` is nullable.** Every reader handles a removed photo as in §3.1's table, and none of them returns a 500.
+1. **`photos.data` is nullable.** Every reader handles a removed photo as in §3.1's table, and none of them returns a 500. **Each route that reads the picture has its own `data === null` guard** (R1: `404 no-store`; R2 and R3, on their second read: `410 no-store`), so a removal landing between a route's two reads is still safe. And `hiddenPhotoIds` counts a removed photo as hidden (§4.5).
 2. **Restore is refused for a removed photo.**
    - `setPhotoVisibility` (`api/lib/photoVisibility.ts:221`) gets a new result, `removed`.
    - The dashboard route (`api/routes/teamPhotos.ts:68-111`), which today has no branch for unknown results, gets one: JSON `409` `{code: "REMOVED"}`, or a short page saying "This photo was removed for good on <date>. It can't be restored."
@@ -355,16 +386,23 @@ All the readers in §3.1 (R1–R7). Most of these are November's T7-7 rows, buil
 4. **A new cat never gets a removed photo as its main photo** (P9). It gets `0`.
 5. **Versions are never made from a removed photo** (R3, §4.3).
 6. **`catDisplayPhotos` skips removed photos**, so the public page never builds an address for one, even if it somehow became visible.
-7. **The team photo routes answer `410`** for a removed photo (R2, R3), so the team's cat page shows "removed" rather than a broken image.
+7. **The team photo routes answer `410`** for a removed photo (R2, R3).
+8. **The team's pages leave a removed photo out.** `photoPublicIds` (`api/lib/teamCatView.ts:586-596`) and `likelyReview.ts:148-157` select `removed_at` and return no address for a removed photo, so no broken image is drawn. `teamPages/` is untouched.
+9. **Carry-back writes `''` for a removed photo's picture** (`lib/db/src/switchover/carryBack.ts`), so a rollback to the old database still works (§3.4).
 
 ---
 
 ## 7. The runbook (`docs/runbooks/photo-removal.md`, written in this PR)
 
 **Once, at go-live:**
-- After the migration and the publish, check that `/api/healthz` shows a commit that includes this PR.
-- Then set `photo_removal_on` to `true` on `production` with `set-setting`.
-- Until that's done, a request gets steps 1–5 only.
+1. Run the migration on `development`, then on `production` (off-peak; if it hits the lock timeout, it changes nothing, so run it again).
+2. Publish.
+3. Check the live build includes this PR: `/api/healthz`'s commit, then `git merge-base --is-ancestor <merge commit> <live commit>`. Paste the output on SYC-462.
+4. Set `photo_removal_on` to `true` on `production` with `set-setting`.
+
+Until that's done, a request gets steps 1–5 only, plus the short reply below.
+
+**Never roll the app back past this PR once any photo is removed.** The old app crashes on a removed photo (`routes/photos.ts:58`, `routes/teamReports.ts:178`, the repeat-upload path). Fix forward instead.
 
 **For each request:**
 
@@ -390,10 +428,13 @@ All the readers in §3.1 (R1–R7). Most of these are November's T7-7 rows, buil
 12. **Reply** (only after steps 9 and 10):
     > "We've removed the photo from Cat Spotters. It no longer appears anywhere in the app or on the website, and we've deleted it from our live database [and from our team's inbox]. If your phone or browser had already shown it, a copy may stay there until its cache clears; that's on your device, and we can't reach it. Our backups still hold it for up to [N] days, after which it's gone from them too."
 
-    **N** is the longest-lived copy found in step 10. It's never an assumed figure. If a copy has no known deletion date, the reply waits for Samuel.
+    **N** is the longest-lived copy found in step 10. It's never an assumed figure. If a copy has no known deletion date, the reply waits for Samuel. Where the photo was used for matching, add: "Copies held by services we use to run the app are outside our reach."
+
+    **If removal isn't switched on yet** (before go-live), send this short reply after step 5 instead, and the full one after step 6 once it runs:
+    > "We've taken the photo off Cat Spotters: it no longer appears anywhere in the app or on the website. We'll delete it from our database within a few days and write again when that's done."
 13. **Close the ticket** with the run links.
 
-**After any restore** (a snapshot swap, using a point-in-time restore, a carry-back, or resetting `development` from `production`), re-run step 6 for every ledger row newer than the restore point.
+**After any restore** (a snapshot swap, using a point-in-time restore, a carry-back, or resetting `development` from `production`), re-run **steps 5 and 6** (hide, then remove) for every ledger row newer than the restore point. The restore point may be older than the hide, so the photo may be public again until step 5 runs. Do it **before visitors reach the restored database**, for example before a snapshot swap goes live.
 
 **If a step fails:**
 - Before step 6: restore the photo and start again.
@@ -412,7 +453,8 @@ Every test runs against a **throwaway local Postgres** with the real migrations 
   - `data = null` without `removed_*`;
   - `removed_at` set while `data` still holds a picture;
   - `removed_at` set without `removed_by` or without `removed_reason`;
-  - `removed_by` naming no person.
+  - and the foreign key refuses `removed_by` naming no person.
+- **T0c.** The trigger refuses a `restore` event for a removed photo, by raw SQL as well as through the app. The rollback's guard refuses to run on a database with a removed photo, and drops nothing.
 
 ### 8.2 The full search test (the one the launch plan names)
 
@@ -442,7 +484,7 @@ A test-only option skips one step. A parameterised test runs T1 once for each sk
 
 | Step skipped | Check that must fail |
 |---|---|
-| delete and record | 1 and 5 |
+| delete and record | 1 and 5 (nothing was removed at all: the check makes half-skipping impossible, so the photo's own picture still matches the fingerprint) |
 | versions | 2 |
 | main photo | 3 |
 
@@ -494,21 +536,23 @@ It compares them with the reviewed list here. A column added later turns it red 
 - **T9.** After a removal:
   - the public address answers `404` with `no-store`;
   - both team addresses answer `410` with `no-store`;
-  - the team cat page shows the photo as removed, with no broken image;
+  - the team cat page and the coat-evidence page draw no broken image: the removed photo is simply left out;
   - the cat's public page shows the same stand-in and doesn't contain P's id;
   - the sighting payload has `photoUrl: null`.
 - **T10.** Restore through the dashboard route, JSON and form, is refused with `REMOVED`.
 - **T11.** A repeat upload of a spot whose photo was removed returns the spot without calling the matcher. Two cases: with `sighting_photos` rows, and with only the older `sightings.photo_id` fallback.
 - **T12.** Matching for a new spot near the cat doesn't send P (the mock records what it was given).
 - **T12b.** Resolving as a new cat a spot whose cover photo was removed gives the new cat main photo `0`.
-- **T13.** A source test fails if `photosTable.data`, or a whole-row `select()` from `photos`, appears in a file outside R1–R8 (as in SYC-246's T7-8).
+- **T13.** A source test fails if `photosTable.data`, or a whole-row `select()` from `photos`, appears in a file outside R1–R8 (as in SYC-246's T7-8). Its pattern is tested against a `.select()` and `.from(photosTable)` split over lines, as at `sightings.ts:577-578`. Because it can't see the address builders, item 8's two files are covered by T9 instead.
 - **T14.** Parity: for several cats, the `lib/db` repoint picks the same photo `catDisplayPhotos` shows. The cases:
   - several candidates;
   - one candidate hidden;
   - one candidate removed;
   - a tie on `created_at`;
   - none at all.
-- **T15.** `variantFor` on a removed photo returns `null` and saves nothing. That includes a removal that lands between its read and its save.
+- **T15.** `variantFor` on a removed photo returns `null` and saves nothing. **The interleaving is tested directly**: the test holds `variantFor` after its read (a test hook), runs the removal to commit, then lets the save go. Nothing is saved.
+- **T17.** Carry-back of a removed photo writes `''` to the old database's `photos.data` and succeeds (`carryBack.test.ts`).
+- **T18.** `hiddenPhotoIds` returns a removed photo; the public route returns `404` for a removed photo even with no hide event (a seeded edge case).
 - **T16.** The "Photo hidden" email for a removed photo is sent without an attachment, and the coat reader skips the photo.
 
 **Mutation probes**, each recorded in the PR. Remove one of these and the named test goes red:
@@ -531,6 +575,7 @@ It compares them with the reviewed list here. A column added later turns it red 
 2. **After merge, on the Neon `development` branch**, through the workflow. Claude gives Samuel a heads-up first, because it writes to a Neon branch.
    - Migrate `development`.
    - On one real photo: list, hide, restore, hide, remove, check.
+   - Note how long the search took. That sets the production timeout (§5.5).
 
    This is the launch checklist's "the runbook's dry run passed on the development database" (plan line 211).
 
@@ -553,6 +598,8 @@ The eligibility rule (Decision 3) and the privacy reason (`'privacy'`, exactly) 
 - the Restore button's "removed" state in `teamPages/`.
 
 SYC-246's earlier backfill comment is withdrawn (a comment of 18 Oct). There's no backfill, because hand removals already use the final fields.
+
+**Two things November inherits:** `removed_reason` holds only a request reference (§4.1), so the button asks for one rather than free text. And the plan's "Photo removed" tile in the sightings payload isn't built here; a removed photo shows as no photo. Both go on SYC-246 as a comment.
 
 **What changes in November's plan.** SYC-246's PR 7.2 shrinks to the button and the tick. That's noted on SYC-246.
 
@@ -585,7 +632,7 @@ SYC-246's earlier backfill comment is withdrawn (a comment of 18 Oct). There's n
   - `api/routes/sightings.ts` (matching): check for in-flight work in it before editing;
   - `teamPages/` is untouched;
   - `db-ops.yml`: other commands may be in flight (the `set-setting` keys); agree the order with that session.
-- **The switchover tools** (`lib/db/src/switchover/`) copy tables between databases by column. Whether they need the three new columns listed is **unchecked**; the plan checks.
+- **The switchover tools.** Carry-back is decided (§3.4, §6 item 9). `fingerprint.ts` hashes `photos` rows generically, so it needs nothing (review 2).
 
 ## 13. What this PR will contain, once approved
 
@@ -601,7 +648,10 @@ SYC-246's earlier backfill comment is withdrawn (a comment of 18 Oct). There's n
   - `lib/photoVisibility.ts`;
   - `lib/photoVariants.ts`;
   - `lib/mail/outbox.ts`;
-  - `lib/coatReading/sweep.ts`.
+  - `lib/coatReading/sweep.ts`;
+  - `lib/teamCatView.ts` and `lib/likelyReview.ts` (item 8).
+- `lib/db/src/switchover/carryBack.ts` and its test (item 9).
+- The settings key: `lib/db/src/appSettings/shape.ts`, `dbOps.settings.test.ts` and `neon-database.md:35`.
 - `docs/runbooks/photo-removal.md`, the restore line in `docs/runbooks/neon-database.md`, and the line 58 wording in the launch plan.
 
 **Model delegation** comes in the plan.

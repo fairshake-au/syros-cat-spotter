@@ -256,3 +256,28 @@ The table shows `\|` inside a Markdown code span. Copied literally into code, th
   - the size of the production tables, for the 120-second scan;
   - GitHub's limit on inputs;
   - the effort estimate in §11, which the spec labels unchecked.
+
+---
+
+## Disposition (added by the spec author, 18 October 2026)
+
+Findings 1 and 2 were re-checked against the code before folding: `teamCatView.ts:586-596` (`photoPublicIds` selects only id and publicId, no hidden or removed filter) and `carryBack.ts:469-499` (projects onto the target's baseline columns, where `data` is `NOT NULL`). Both hold.
+
+| # | Severity | Disposition | Where in the spec |
+|---|---|---|---|
+| 1 | Major | **Fixed.** `photoPublicIds` and `likelyReview` leave a removed photo out; T9 now says "no broken image"; `teamPages/` untouched; "Removed" label left to SYC-246 | §3.1, §6 item 8, T9, §13 |
+| 2 | Major | **Fixed (decided).** Carry-back writes `''` for a removed photo's picture; test T17 | §3.4, §6 item 9, §12, §13 |
+| 3 | Major | **Fixed.** Re-apply after a restore runs hide and then remove, before visitors reach the restored database | §3.4, §7 |
+| 4 | Major | **Fixed.** `hiddenPhotoIds` counts removed photos as hidden; each route that reads the picture has its own null guard (R1 404, R2/R3 410); new DB trigger refuses a restore event for a removed photo | §4.1, §4.5, §6 item 1, T0c, T18 |
+| 5 | Major | **Fixed.** Byte scan runs inside the removal transaction; slice taken from the middle; timeout reports `NOT VERIFIED`; production cost measured in the dev rehearsal | §4.4, §5.5, §8.5 |
+| 6 | Minor | **Fixed.** Version save is a conditional insert; T15 tests the interleaving | §4.3, T15 |
+| 7 | Minor | **Fixed.** Rollback guard first (as 0031); runbook says never roll the app back past this PR once a photo is removed | §4.1, §7 |
+| 8 | Minor | **Fixed.** Full list of files the setting touches; `merge-base --is-ancestor` check as a numbered runbook step; hide-only reply while removal is off | §4.6, §7 |
+| 9 | Minor | **Fixed.** One `removed_reason` format (request reference) for now and November; tile note to SYC-246; T0b wording | §4.1, §9, T0b |
+| 10 | Minor | **Fixed.** Lock and retry note, run off-peak | §4.1, §7 |
+| 11 | Minor | **Fixed.** R6 marked already null-safe (test only); R7 guard noted | §3.1 |
+| 12 | Minor | **Fixed.** T2 table explains row 1; T13 tested against multi-line selects | T2, T13 |
+| 13 | Minor | **Fixed.** "Words used" box in §1; what the person sees before removal is switched on | §1, §2, §7 |
+| 14 | Nit | **Fixed.** Pattern shown in a code block | §5 |
+
+Revision-1 extras from this review: the reply line about "services we use" was added (§7 step 12), and the public-log line on `photo-list` was added (§5.1).
