@@ -203,6 +203,8 @@ export interface ColonyOption {
 
 export interface Prefill {
   roles: string[];
+  /** "No colony yet" is ticked (SYC-439), so saving unchanged keeps it. */
+  starting?: boolean;
   /** colony id to its current end date (form format) and label. */
   colonies: Map<number, { endDate: string | null; relationship: string | null }>;
 }
@@ -228,16 +230,21 @@ function placementFields(colonies: ColonyOption[], pre?: Prefill): string {
       );
     })
     .join("");
+  // "No colony yet" (SYC-439): a cat guardian alone, who creates her first
+  // colony herself. Either this or colonies, never both (lib/db refuses).
+  const startBox =
+    `<label class="choice"><input type="checkbox" name="no_colony" value="1"${pre?.starting ? " checked" : ""}> ` +
+    `<span>No colony yet: creates the first one <em>(a cat guardian with no other role)</em></span></label>`;
   return (
     `<fieldset><legend class="label">What will they be?</legend>` +
     roleBox("staff", "A member of the Syros Cats team") +
     roleBox("management", "A member of Syros Cats management") +
-    roleBox("guardian", "A cat guardian", none, none ? "No colonies exist yet" : "") +
+    roleBox("guardian", "A cat guardian") +
     `</fieldset>` +
+    `<fieldset><legend class="label">Colonies, for a cat guardian</legend>${startBox}${rows}</fieldset>` +
     (none
-      ? `<p class="hint">No colonies exist yet, so nobody can be made a cat guardian yet.</p>`
-      : `<fieldset><legend class="label">Colonies, for a cat guardian</legend>${rows}</fieldset>` +
-        `<p class="hint">An end date switches that colony off by itself at midnight Athens time at the end of that date. A label is only a note for the team; it changes nothing they can do.</p>`)
+      ? `<p class="hint">No colonies exist yet. A cat guardian can still be invited with “No colony yet”, and creates the first one herself.</p>`
+      : `<p class="hint">Tick her colonies, or “No colony yet” if she will create her own. An end date switches that colony off by itself at midnight Athens time at the end of that date. A label is only a note for the team; it changes nothing they can do.</p>`)
   );
 }
 

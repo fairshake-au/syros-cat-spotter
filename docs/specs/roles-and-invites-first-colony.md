@@ -43,7 +43,7 @@ The history label for her standing is **`guardian:start`**, never a bare `guardi
 - It is **only for a cat guardian with no other role.** Combined with the team or management (who already create colonies island-wide), it is refused: *"'No colony yet' is only for a cat guardian with no other role."*
 - It **takes no end date and no label** (Decision B). Either is refused with the message the team's rows get today.
 - It works **even when no colony exists yet on the island.** Today the guardian box is greyed out with "No colonies exist yet"; it now offers "No colony yet" instead, and that check runs only after the "No colony yet" choice has been read.
-- **Change roles and Bring back pre-tick "No colony yet"** when she holds that standing, so saving the form unchanged keeps it.
+- **Change roles pre-ticks "No colony yet"** when she holds that standing, so saving the form unchanged keeps it. **Bring back** starts from a blank form, as it does for everyone ("Nothing is restored automatically"); its "When they left they were…" line says *a cat guardian, with no colony yet*. *(Corrected during the build, 17 October 2026: the approved draft said Bring back pre-ticks it too, which would contradict how Bring back works for every other role.)*
 
 Nothing about the invitation itself changes: same 14-day expiry, resend, withdraw, the three promises on the accept page, and the same daily limits (§4, §8.5).
 
@@ -227,7 +227,7 @@ The workspace door; what any existing role can see or do; Decision 14 itself; th
 | F9 walk "pass" without creating | Minor | §6 walk entries spelled out; fresh person for the create row |
 | F10 "no rows left" wording; leaving | Minor | "no row in force"; §5 "Afterwards" |
 | F11 races and clashes | Minor | §5 "two tabs, or a double tap" and clash paragraph; §6 test |
-| F12 Change roles and Bring back forms | Minor | §2 pre-tick; "No colonies exist yet" check order |
+| F12 Change roles and Bring back forms | Minor | §2: Change roles pre-ticks; Bring back stays blank, as for everyone; "No colonies exist yet" check order |
 | F13 menu and refusal line | Minor | §3, §4.3; §6 test |
 | F14 missing tests and probes | Minor | §6 |
 | F15 gendered wording | Nit | §2 "Gender"; on-screen choice reworded |

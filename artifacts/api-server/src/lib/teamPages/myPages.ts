@@ -44,6 +44,8 @@ export interface MyPerson {
   team: boolean;
   management: boolean;
   placements: readonly MyPlacement[];
+  /** A cat guardian with no colony yet (SYC-439). */
+  starting?: boolean;
 }
 
 const CSS = `<style>
@@ -80,7 +82,7 @@ const sayIn = (lang: Language, live: readonly Language[]): Say => (key, vars) =>
  */
 export function aboutYou(
   requested: string | null | undefined,
-  who: Pick<MyPerson, "team" | "management" | "placements">,
+  who: Pick<MyPerson, "team" | "management" | "placements" | "starting">,
   live: readonly Language[] = LIVE_LANGUAGES,
 ): string {
   const lang = pageLanguage(requested, live);
@@ -89,7 +91,8 @@ export function aboutYou(
   const guardian = who.placements.length > 0;
   if (who.management) return guardian ? t("my.is.managementGuardian", { colonies }) : t("my.is.management");
   if (who.team) return guardian ? t("my.is.teamGuardian", { colonies }) : t("my.is.team");
-  return guardian ? t("my.is.guardian", { colonies }) : t("my.is.none");
+  if (guardian) return t("my.is.guardian", { colonies });
+  return who.starting === true ? t("my.is.starting") : t("my.is.none");
 }
 
 function shell(
@@ -236,6 +239,11 @@ export function renderMyColoniesPage(input: MyColoniesInput, live: readonly Lang
     body =
       `<p>${esc(t("mycol.team"))}</p>` +
       `<p><a class="mbtn go" href="${TEAM_COLONIES_PATH}">${esc(t("mycol.teamLink"))}</a></p>`;
+  } else if (person.placements.length === 0 && person.starting === true) {
+    // No colony yet (SYC-439): one way on, to the create form.
+    body =
+      `<p class="empty">${esc(t("mycol.starting"))}</p>` +
+      `<p><a class="mbtn go" href="${TEAM_COLONIES_PATH}#create">${esc(t("mycol.create"))}</a></p>`;
   } else if (person.placements.length === 0) {
     body = `<p class="empty">${esc(t("mycol.none"))}</p>`;
   } else {

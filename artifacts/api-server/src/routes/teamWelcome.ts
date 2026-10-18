@@ -44,6 +44,7 @@ router.get("/team/my/welcome", requireInvitee(), async (req: Request, res: Respo
       inviterName: invitation.inviterName,
       roles: invitation.roles,
       colonies: invitation.colonies.map((c) => c.name),
+      starting: invitation.starting,
     }),
   );
 });
