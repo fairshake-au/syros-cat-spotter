@@ -1273,7 +1273,9 @@ describe("SYC-443: the team cat page says the coat in the team's words (§15.1)"
     const catId = await newCat();
     await correct(catId, { kind: "coat", pattern: "stripes" });
     const html = await page(catId);
-    expect(sectionOf(html)).toContain("Tabby, colours not stated");
+    // The statement in the Appearance section itself, not the history below it.
+    const [row] = await rowsFor(catId);
+    expect(html).toMatch(new RegExp(`<p class="said"><span class="sid">#${row!.id}</span> Tabby, colours not stated[ <]`));
     expect(html).toContain("Coat: Tabby, colours not stated");
   });
 
