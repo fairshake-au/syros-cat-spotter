@@ -73,7 +73,7 @@ Both call `POST /api/internal/news/nightly`, then the Worker calls `GET /api/int
 Samuel gets an email (through Cloudflare, like the drain's) when:
 
 - the call fails (not a 200, or a 200 that isn't the check's answer);
-- more than 50 news changes were found in one night: they are all held back (`silencedBulk: true`), because that looks like a batch of corrections, not news;
+- more than 50 "sterilised" or "homed" changes were found in one night: those are all held back (`silencedBulk: true`), because that looks like a batch of corrections, not news. "Seen again" has its own limit of 200, and tripping it holds back only "seen again" news, so a busy spring night of real sightings never hides a real sterilisation (Samuel, 18 Oct 2026, SYC-475);
 - no night has finished in 36 hours;
 - the Worker has no `NEWS_JOB_TOKEN`.
 

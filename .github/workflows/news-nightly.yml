@@ -8,8 +8,8 @@ name: news-nightly
 # was claimed and this runs it.
 #
 # The check sends nobody anything (watch only). This run FAILS, and GitHub
-# emails Samuel, on a non-200, or when more than 50 news changes were found
-# in one night and all were silenced (plan C14).
+# emails Samuel, on a non-200, or when more than 50 sterilised or homed (or
+# 200 seen-again) changes were found in one night and silenced (plan C14).
 #
 # NEWS_JOB_TOKEN is a GitHub `production` Environment secret, a Replit
 # deployment secret and a Worker secret, never in a file or a prompt. It

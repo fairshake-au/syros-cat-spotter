@@ -48,7 +48,7 @@ import { writeObservation } from "../observations";
 import { deriveCatStatuses } from "../catHelpers";
 import { resolveCat } from "../resolve";
 import { loadCatRecords } from "../observations";
-import { BULK_LIMIT, addCalendarMonths, compareCat, runNightlyNewsCheck, seedNewsBaseline } from "./nightly";
+import { BULK_LIMIT, SEEN_AGAIN_BULK_LIMIT, addCalendarMonths, compareCat, runNightlyNewsCheck, seedNewsBaseline } from "./nightly";
 
 const PREFIX = "VitestNews";
 const DEVICE = "vitest-news-follower";
@@ -730,6 +730,39 @@ describe("T1-13: more than 50 news changes in one night silences them all", () =
     expect(rows.every((r) => r.state === "silenced" && r.silencedReason === "bulk" && r.causedByDevices === null)).toBe(true);
     const [run] = await db.select().from(catNewsRunsTable);
     expect(run!.silencedBulk).toBe(true);
+  });
+
+  /** n cats last seen in January, seen again in June, plus one newly sterilised cat, all tonight. */
+  async function springNight(n: number) {
+    const seen: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const id = await cat();
+      await sighting(id, new Date("2026-01-10T12:00:00Z"));
+      seen.push(id);
+    }
+    const ster = await cat();
+    await fresh();
+    for (const id of seen) await sighting(id, new Date("2026-06-10T12:00:00Z"));
+    await sterilised(ster, true);
+    const r = await fresh();
+    return { r, seenRows: await changesFor(seen), sterRows: await changesFor([ster]) };
+  }
+
+  it("a busy spring night: 60 cats seen again don't count toward the 50, and nothing is held back (SYC-475)", async () => {
+    const { r, seenRows, sterRows } = await springNight(60);
+    expect(r.silencedBulk).toBe(false);
+    expect(seenRows).toHaveLength(60);
+    expect(seenRows.every((x) => x.change === "seen_again" && x.state === "watched")).toBe(true);
+    expect(sterRows).toMatchObject([{ change: "sterilised", state: "watched" }]);
+  });
+
+  it("201 cats seen again → only those are held back; the night's real sterilisation still counts (SYC-475)", async () => {
+    expect(SEEN_AGAIN_BULK_LIMIT).toBe(200);
+    const { r, seenRows, sterRows } = await springNight(201);
+    expect(r.silencedBulk).toBe(true);
+    expect(seenRows).toHaveLength(201);
+    expect(seenRows.every((x) => x.state === "silenced" && x.silencedReason === "bulk")).toBe(true);
+    expect(sterRows).toMatchObject([{ change: "sterilised", state: "watched" }]);
   });
 
   it("50 → none silenced", async () => {

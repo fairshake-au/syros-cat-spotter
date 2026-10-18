@@ -45,8 +45,12 @@ import {
  *    than 90 days after they were observed, or none written since the last
  *    walk → silenced `old_news`. Fails closed.
  * 3. A cat with no baseline yet is seeded, and nothing is recorded.
- * 4. More than BULK_LIMIT news changes in one night → every one silenced
- *    `bulk`, and the caller raises the alarm (plan C14; data spine §9.2).
+ * 4. More than BULK_LIMIT "sterilised" and "homed" changes in one night →
+ *    every one of those silenced `bulk`, and the caller raises the alarm
+ *    (plan C14; data spine §9.2). "Seen again" has its own, higher limit
+ *    (SEEN_AGAIN_BULK_LIMIT), and tripping it holds back only "seen again"
+ *    news (Samuel, 18 Oct 2026, SYC-475: a spring wave of real sightings
+ *    must not hide a real sterilisation).
  * Watch mode (the only mode in Slice 1) marks what's left `watched`. Nothing
  * here sends anything.
  *
@@ -58,6 +62,8 @@ import {
 
 /** More news changes than this in one night silences all of them. */
 export const BULK_LIMIT = 50;
+/** More "seen again" changes than this in one night silences those (only). */
+export const SEEN_AGAIN_BULK_LIMIT = 200;
 /** An observation recorded more than this long after it was observed is old news. */
 export const OLD_NEWS_DAYS = 90;
 /** "Seen again" needs a gap of at least this many calendar months between sightings. */
@@ -406,8 +412,13 @@ export async function runNightlyNewsCheck(options: NightlyOptions = {}): Promise
     const { baselines, changes } = await walk(catIds, startedAt, tx);
 
     const news = changes.filter((c) => c.silencedReason === null);
-    const silencedBulk = news.length > BULK_LIMIT;
-    if (silencedBulk) for (const c of news) c.silencedReason = "bulk";
+    const statusNews = news.filter((c) => c.change !== "seen_again");
+    const seenNews = news.filter((c) => c.change === "seen_again");
+    const statusBulk = statusNews.length > BULK_LIMIT;
+    const seenBulk = seenNews.length > SEEN_AGAIN_BULK_LIMIT;
+    if (statusBulk) for (const c of statusNews) c.silencedReason = "bulk";
+    if (seenBulk) for (const c of seenNews) c.silencedReason = "bulk";
+    const silencedBulk = statusBulk || seenBulk;
 
     await options.beforeFinish?.();
 
@@ -438,7 +449,7 @@ export async function runNightlyNewsCheck(options: NightlyOptions = {}): Promise
       changesFound: changes.length,
       silencedBulk,
     });
-    const newsCount = silencedBulk ? 0 : news.length;
+    const newsCount = news.filter((c) => c.silencedReason === null).length;
     return {
       status: "ran",
       night,

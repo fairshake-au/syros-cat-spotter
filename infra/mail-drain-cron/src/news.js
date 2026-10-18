@@ -7,7 +7,7 @@
 // /api/internal/news/nightly with NEWS_JOB_TOKEN), then ask when the last
 // night finished (GET /api/internal/news/last-run). Email Samuel through
 // Cloudflare Email Routing if the run call fails, if more than 50 news
-// changes were found and all silenced (a bulk correction, plan C14), or if
+// (or 200 "seen again") changes were found and silenced (a bulk correction, plan C14), or if
 // no night has finished in 36 hours (review finding 17). The check itself
 // sends nobody anything.
 //
@@ -117,8 +117,9 @@ export function newsAlarmMessage(result, baseUrl) {
     return {
       subject: "Syros Cat Spotters: the nightly news check found over 50 changes and held them all",
       text: [
-        "Tonight's news check found more than 50 pieces of cat news at once. That looks like a",
-        "batch of corrections rather than real news, so it held every one of them back.",
+        "Tonight's news check found more cat news at once than its limits allow: more than 50",
+        "sterilised or homed changes, or more than 200 seen-again changes. That looks like a",
+        "batch of corrections rather than real news, so it held that kind of news back.",
         "Nothing was sent to anyone (the check doesn't send email yet in any case).",
         "",
         "Worth a look at the review list (GET /api/team/news-changes) to see what changed.",
