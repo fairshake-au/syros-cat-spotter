@@ -62,17 +62,28 @@ describe("the grid's links and styles", () => {
 describe("card contents", () => {
   it("describes the photo for a screen reader, escaped", () => {
     const html = render();
-    expect(html).toContain('alt="Photo of Mimi &lt;b&gt;, Ginger · White"');
+    expect(html).toContain('alt="Photo of Mimi &lt;b&gt;, Ginger and white, pattern not known"');
     expect(render({ items: [item({ coat: [] })] })).toContain('alt="Photo of Mimi &lt;b&gt;"');
   });
 
-  it("SYC-398: shows the pattern after the colours, except Plain, never an old word", () => {
+  it("SYC-443: the card says the coat in the team's words (§15.1)", () => {
     const striped = render({ items: [item({ coat: ["grey"], pattern: "stripes" })] });
-    expect(striped).toContain('alt="Photo of Mimi &lt;b&gt;, Grey · Stripes"');
-    expect(striped).toContain("Grey · Stripes");
+    expect(striped).toContain('alt="Photo of Mimi &lt;b&gt;, Grey tabby"');
+    expect(striped).toContain('<span class="cardfact">Grey tabby</span>');
+    expect(striped).not.toContain("Grey · Stripes");
     expect(render({ items: [item({ coat: ["black"], pattern: "plain" })] })).toContain('alt="Photo of Mimi &lt;b&gt;, Black"');
-    expect(render({ items: [item({ coat: [], pattern: "patches" })] })).toContain('alt="Photo of Mimi &lt;b&gt;, Patches"');
-    expect(striped).not.toMatch(/tabby/i);
+    expect(render({ items: [item({ coat: [], pattern: "patches" })] })).toContain(
+      'alt="Photo of Mimi &lt;b&gt;, Patched, colours not known"',
+    );
+    const calico = render({ items: [item({ coat: ["black", "ginger", "white"], pattern: "patches" })] });
+    expect(calico).toContain('<span class="cardfact">Calico</span>');
+  });
+
+  it("SYC-443: a card with nothing known says Coat not known, and the description leaves the coat out", () => {
+    const none = render({ items: [item({ coat: [], pattern: null })] });
+    expect(none).toContain('<span class="cardfact">Coat not known</span>');
+    expect(none).toContain('alt="Photo of Mimi &lt;b&gt;"');
+    expect(none).not.toMatch(/Colour not known|undefined|null/);
   });
 
   it("words last seen by the shared rule, in Athens time", () => {

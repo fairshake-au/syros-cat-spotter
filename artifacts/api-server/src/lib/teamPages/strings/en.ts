@@ -229,7 +229,8 @@ export const en = {
   "appearance.title": "Appearance",
   "appearance.publicSees": "What the public sees",
   "appearance.publicNothing": "Nothing yet: no colour or markings are known.",
-  "appearance.colour": "Colour",
+  // "Coat", not "Colour": "Colour: Tabby" reads wrongly (SYC-443 §15.1).
+  "appearance.colour": "Coat",
   "appearance.coatColours": "Colours",
   "appearance.coatPattern": "Pattern",
   "appearance.markings": "Markings",

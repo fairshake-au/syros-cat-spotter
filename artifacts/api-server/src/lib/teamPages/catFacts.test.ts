@@ -202,13 +202,15 @@ describe("the facts row: lives", () => {
   });
 });
 
-describe("the facts row: colour", () => {
+describe("the facts row: coat (SYC-443: the team's words, one chip)", () => {
   it("from the machine: the colours plus the pattern, read from the photo, linking to Appearance", () => {
     const v = view({ coat: greyStripes([coatStatement({})]) });
-    expect(facts(v)["Colour"]).toBe("Grey Stripes read from the photo");
-    const html = catFacts(v, NOW).find((f) => f.label === "Colour")!.html;
+    expect(facts(v)["Coat"]).toBe("Grey tabby read from the photo");
+    const html = catFacts(v, NOW).find((f) => f.label === "Coat")!.html;
     expect(html).toContain('href="#appearance"');
-    expect(html).toContain('<span class="colourchip">Grey</span>');
+    expect(html).toContain('<a href="#appearance"><span class="colourchip">Grey tabby</span></a>');
+    expect(html.match(/class="colourchip"/g)).toHaveLength(1);
+    expect(catFacts(v, NOW).some((f) => f.label === "Colour")).toBe(false);
   });
 
   it("from a team member: set by their name, ahead of the machine", () => {
@@ -218,7 +220,7 @@ describe("the facts row: colour", () => {
         coatStatement({}),
       ]),
     });
-    expect(facts(v)["Colour"]).toBe("Grey Stripes set by Maria");
+    expect(facts(v)["Coat"]).toBe("Grey tabby set by Maria");
   });
 
   it("names whoever decided the colours, not whoever added the pattern (review finding 5)", () => {
@@ -228,7 +230,7 @@ describe("the facts row: colour", () => {
     ]);
     coat.parts!.colours.supportingStatementIds = [60];
     coat.parts!.pattern.supportingStatementIds = [61];
-    expect(facts(view({ coat }))["Colour"]).toBe("Grey Stripes read from the photo");
+    expect(facts(view({ coat }))["Coat"]).toBe("Grey tabby read from the photo");
   });
 
   it("a cat guardian who has since deleted their details is never named by that phrase", () => {
@@ -249,16 +251,24 @@ describe("the facts row: colour", () => {
     const v = view({
       coat: greyStripes([coatStatement({ source: "team", author: { kind: "team", label: "Maria" }, counts: false })]),
     });
-    expect(facts(v)["Colour"]).toBe("Grey Stripes");
+    expect(facts(v)["Coat"]).toBe("Grey tabby");
   });
 
-  it("Plain is not a chip; nothing known is Not known", () => {
+  it("a Solid one-colour cat is just its colour; nothing known is Not known", () => {
     const plain: TeamAppearance = {
       ...greyStripes([coatStatement({})]),
       parts: { colours: { value: ["black"], confidence: "likely" }, pattern: { value: "plain", confidence: "likely" } },
     };
-    expect(facts(view({ coat: plain }))["Colour"]).toBe("Black read from the photo");
-    expect(facts(view())["Colour"]).toBe("Not known");
+    expect(facts(view({ coat: plain }))["Coat"]).toBe("Black read from the photo");
+    expect(facts(view())["Coat"]).toBe("Not known");
+  });
+
+  it("an unknown part is said out loud, never hidden", () => {
+    const noPattern: TeamAppearance = {
+      ...greyStripes([coatStatement({})]),
+      parts: { colours: { value: ["black", "white"], confidence: "likely" }, pattern: { value: null, confidence: "unknown" } },
+    };
+    expect(facts(view({ coat: noPattern }))["Coat"]).toBe("Black and white, pattern not known read from the photo");
   });
 });
 

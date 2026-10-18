@@ -14,7 +14,7 @@ import { renderPage } from "./layout";
 import { position } from "./position";
 import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
-import { coatWordsOf, renderCatFacts } from "./catFacts";
+import { coatPhraseOf, renderCatFacts } from "./catFacts";
 import { fitView, renderMap, type MapMarker } from "./map";
 import { BANDS, pointOnView } from "../mapTiles/geometry";
 import { rowMenu } from "./rowMenu";
@@ -721,10 +721,10 @@ export function renderCatPage(
       ? null
       : new Set(newest.map((h) => h.id));
   const mainHidden = v.photos.find((p) => p.source === "main")?.hidden ?? null;
-  const coat = coatWordsOf(v);
+  const coat = coatPhraseOf(v);
   const main =
     (cat.mainPhotoUrl
-      ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="${esc(`Photo of ${cat.name}${coat.length ? `, ${coat.join(" · ")}` : ""}`)}">`
+      ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="${esc(`Photo of ${cat.name}${coat !== null ? `, ${coat}` : ""}`)}">`
       : '<div class="nophoto">No photo</div>') +
     (mainHidden
       ? '<p class="hiddenby">The main photo is hidden from the public. They see the newest photo of this cat that isn\'t hidden, or no photo if every one is. See <a href="#photos">All photos</a>.</p>'

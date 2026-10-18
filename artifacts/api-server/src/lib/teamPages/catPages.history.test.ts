@@ -288,7 +288,7 @@ describe("routine sightings in the history", () => {
     const never: Partial<TeamStatement>[] = [
       { kind: "sterilised", said: "Sterilised (vet)" },
       { kind: "life_status", said: "Lives on the street" },
-      { kind: "coat", said: "Coat: grey, stripes" },
+      { kind: "coat", said: "Coat: Grey tabby" },
       { kind: "name", said: "Named “Mavros”" },
       { kind: "note", said: "Note: “thin”" },
       { kind: "welfare_report", said: "Welfare report: urgent" },

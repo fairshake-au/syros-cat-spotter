@@ -7,6 +7,7 @@ import { colourSwatch, drawnCoatFigure } from "./coatDrawing";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { tr, type StringKey } from "./strings";
+import { coatWordsFor, teamPatternWord, teamWordsApply, TEAM_PATTERN_LABELS } from "./teamCoatWords";
 
 // The Appearance section on the team cat page, and the Colour check list
 // (SYC-2 PR 3.1; coat-markings-and-health.md §4.4, §5.3). Server-drawn, no
@@ -27,6 +28,23 @@ const coatWord = (lang: string | undefined, code: string) =>
     : TEAM_COLOURS.includes(code) || ((LEGACY_COAT_CODES as readonly string[]).includes(code) && code !== "not_sure")
       ? tr(lang, `coat.${code}` as StringKey)
       : code;
+
+/** Team pages drawn in English say a coat in the team's words (SYC-443, T4A);
+ * in Greek or French, in §2's words. */
+const teamWords = (lang: string | undefined) => teamWordsApply(lang);
+
+/** A pattern on its own: Solid, Tabby, Patched in English (§15.2). */
+const patternText = (lang: string | undefined, pattern: string | null) =>
+  teamWords(lang) ? teamPatternWord(pattern) : valueText(lang, "coat", pattern === null ? null : [pattern]);
+
+/** A coat's codes split back into its two parts. The vocabularies don't overlap. */
+function coatOfCodes(codes: readonly string[]): { colours: string[] | null; pattern: string | null } {
+  const colours = codes.filter((c) => TEAM_COLOURS.includes(c));
+  return {
+    colours: colours.length ? colours : null,
+    pattern: codes.find((c) => (COAT_PATTERNS as readonly string[]).includes(c)) ?? null,
+  };
+}
 
 const markWord = (lang: string | undefined, code: string) =>
   (MARKS as readonly string[]).includes(code) ? tr(lang, `mark.${code}` as StringKey) : code;
@@ -167,11 +185,12 @@ function confirmForm(
  * standing falls through (§4).
  */
 function patternRadios(lang: string | undefined, idBase: string): string {
-  const radios = [...COAT_PATTERNS, "none"]
+  const radios = [...COAT_PATTERNS, "none" as const]
     .map(
       (p) =>
         `<label class="choice" for="${idBase}-p-${p}"><input type="radio" id="${idBase}-p-${p}" name="pattern" value="${p}"${p === "none" ? " checked" : ""}> ` +
-        `${esc(tr(lang, `pattern.${p}` as StringKey))}</label>`,
+        // The team's words with a hint in English (T3A); the codes posted are unchanged.
+        `${esc(teamWords(lang) ? TEAM_PATTERN_LABELS[p] : tr(lang, `pattern.${p}` as StringKey))}</label>`,
     )
     .join("");
   return `<fieldset><legend class="label">${esc(tr(lang, "appearance.pickPattern"))}</legend><div class="chips">${radios}</div></fieldset>`;
@@ -255,7 +274,10 @@ function statementItem(
   const said =
     s.codes === null
       ? tr(lang, kind === "coat" ? "appearance.notSure" : "appearance.cantTell")
-      : valueText(lang, kind, s.codes);
+      : kind === "coat"
+        ? // One statement: a part it leaves blank is "not stated" (§15.2).
+          coatWordsFor(lang, coatOfCodes(s.codes), { gap: "stated" })
+        : valueText(lang, kind, s.codes);
   const extras = [
     s.prompted ? tr(lang, "appearance.prompted") : null,
     s.agreesWith !== null ? tr(lang, "appearance.agrees", { id: String(s.agreesWith) }) : null,
@@ -295,7 +317,7 @@ function recordsSay(lang: string | undefined, kind: "coat" | "markings", a: Team
       `<dt>${esc(tr(lang, "appearance.recordsSay"))}: ${esc(tr(lang, "appearance.coatColours"))}</dt>` +
       `<dd>${esc(valueText(lang, "coat", colours.value))} ${levelTag(lang, colours.confidence)}</dd>` +
       `<dt>${esc(tr(lang, "appearance.recordsSay"))}: ${esc(tr(lang, "appearance.coatPattern"))}</dt>` +
-      `<dd>${esc(valueText(lang, "coat", pattern.value === null ? null : [pattern.value]))} ${levelTag(lang, pattern.confidence)}</dd>`
+      `<dd>${esc(patternText(lang, pattern.value))} ${levelTag(lang, pattern.confidence)}</dd>`
     );
   }
   return `<dt>${esc(tr(lang, "appearance.recordsSay"))}</dt><dd>${esc(valueText(lang, kind, a.value))} ${levelTag(lang, a.confidence)}</dd>`;
@@ -410,7 +432,8 @@ function checkRow(lang: string | undefined, c: ColourCheckCat, inline: boolean):
   const coatCodes = [...(c.coatColours ?? []), ...(c.coatPattern ? [c.coatPattern] : [])];
   const coat = coatCodes.length > 0 ? coatCodes : null;
   const line = [
-    `${tr(lang, "appearance.colour")}: ${valueText(lang, "coat", coat)}`,
+    // "Coat: Ginger tabby" (SYC-443 §15.1).
+    `${tr(lang, "appearance.colour")}: ${coatWordsFor(lang, { colours: c.coatColours, pattern: c.coatPattern })}`,
     `${tr(lang, "appearance.markings")}: ${valueText(lang, "markings", c.markings)}`,
   ].join(" · ");
   const confirms = [

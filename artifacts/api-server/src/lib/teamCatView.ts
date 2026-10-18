@@ -21,6 +21,7 @@ import { hiddenDetails } from "./photoVisibility";
 import { can, type CapabilityHolder } from "./capabilities";
 import { isWithdrawal, loadCatRecords, MARKS, type ObservationKind } from "./observations";
 import { readCoatValue, type CoatColour, type CoatParts, type CoatPattern } from "./appearance";
+import { coatIsUnknown, teamCoatPhrase } from "./teamPages/teamCoatWords";
 import {
   appearanceAuthorityLevel,
   clippedTipCount,
@@ -125,25 +126,14 @@ const SEVERITY: Record<string, string> = {
   attention: "needs attention",
 };
 
-/** The five colours and three patterns in the team's history (SYC-398 §2, lower case). */
-const COAT: Record<CoatColour | CoatPattern, string> = {
-  black: "black",
-  grey: "grey",
-  brown: "brown",
-  ginger: "ginger",
-  white: "white",
-  plain: "plain",
-  stripes: "stripes",
-  patches: "patches",
-};
-
-/** A coat statement in the history's words, read through the one translation:
- * "brown and ginger, stripes". */
+/** A coat statement in the team's words (SYC-443 §15.1), read through the one
+ * translation: "Brown and ginger tabby", "Ginger and white, pattern not
+ * stated". English only, as the rest of the history. */
 function coatHistoryText(parts: CoatParts | null): string {
   if (!parts) return "unknown";
   if (parts.notSure) return "not sure";
-  const colours = (parts.colours ?? []).map((c) => COAT[c]).join(" and ");
-  return [colours, parts.pattern ? COAT[parts.pattern] : ""].filter((x) => x !== "").join(", ") || "unknown";
+  if (coatIsUnknown(parts)) return "unknown";
+  return teamCoatPhrase(parts, "stated");
 }
 
 /** The eleven marks in the team's history (spec §3.2's chip words, lower case). */
