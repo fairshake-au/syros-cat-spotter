@@ -4,7 +4,7 @@ import { like } from "drizzle-orm";
 import { catIdentityTable, catsTable, db, observationsTable, photosTable, sightingsTable } from "@workspace/db";
 import { deleteTestSightings } from "../test/sightings";
 import { newColony, putInColony } from "../test/roleKit";
-import { listTeamCats, livesOf, loadTeamCats, markOf, PAGE_SIZE } from "./teamCatList";
+import { allTeamCats, listTeamCats, livesOf, loadTeamCats, markOf, PAGE_SIZE } from "./teamCatList";
 import { loadCatRecords } from "./observations";
 import { resolveCat, type CatSnapshot } from "./resolve";
 
@@ -331,6 +331,14 @@ describe("loadTeamCats", () => {
     const erm = await listTeamCats({ q: LOAD, area: "ermoupoli" }, NOW);
     expect(erm.items.map((i) => i.id)).not.toContain(load["Arizona"]);
     expect(erm.items.map((i) => i.id)).toContain(load["Keeper"]);
+  });
+
+  it("the grid and the map's cards carry none of the extra fields (the snapshot is the whole resolved record)", async () => {
+    const card = (await listTeamCats({ q: LOAD }, NOW)).items.find((i) => i.id === load["Keeper"])!;
+    const dot = (await allTeamCats({ q: LOAD }, NOW)).cats.find((c) => c.id === load["Keeper"])!;
+    for (const c of [card, dot]) {
+      for (const key of ["snapshot", "createdAt", "areaKey"]) expect(c).not.toHaveProperty(key);
+    }
   });
 
   it("keeps a cat whose merge was undone", async () => {

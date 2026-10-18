@@ -62,6 +62,12 @@ describe("markBar", () => {
     for (const m of MARK_ORDER) expect(html).toContain(`<span class="mark mark-${m}">`);
   });
 
+  it("hides the legend from screen readers, so the bar's own label is heard once", () => {
+    const html = markBar(split);
+    expect(html).toMatch(/<p class="markbar-legend" aria-hidden="true">/);
+    expect(html).toMatch(/<div class="markbar-track" role="img"/);
+  });
+
   it("leaves a zero part out of the bar and the legend", () => {
     const html = markBar({ sterilised: 4, probably: 0, not_known: 2, not_sterilised: 0 });
     expect(text(html)).toContain("4 Sterilised · 2 Not known");

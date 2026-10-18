@@ -156,7 +156,10 @@ export interface TeamCat extends CatListItem {
  * Every cat the team can see, active or not, resolved once (SYC-396 PR 2.0).
  * Merged-away halves are left out: their records are read through the cat
  * they were merged into (`loadCatRecords`), so counting them again would
- * count one cat twice. A merge that a newer row undid counts for nothing.
+ * count one cat twice. A merge that a newer row undid counts for nothing
+ * here. Note `loadCatRecords` does not yet agree: it still folds in an undone
+ * merge and follows no chains (SYC-410), so until that lands a chain of
+ * merges is only right if each merge names the final cat.
  */
 export async function loadTeamCats(now: Date = new Date()): Promise<TeamCat[]> {
   const [rows, merged] = await Promise.all([
