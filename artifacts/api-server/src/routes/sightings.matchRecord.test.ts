@@ -81,6 +81,8 @@ const PRIVATE_KEYS = [
   "matcherMiss",
   "distanceMiss",
   "openedPicker",
+  "colourFilterOn",
+  "colour_filter_on",
   "matcherFailed",
   "matchRecord",
 ];
@@ -697,5 +699,57 @@ describe("nothing about the record reaches a spotter", () => {
       const text = JSON.stringify(body);
       expect(text).not.toMatch(/matcher_miss|distance_miss|hand_pick/);
     }
+  });
+});
+
+describe("SYC-398 PR D: colour_filter_on records whether a chip was picked (coat-colours-and-pattern.md §5)", () => {
+  it("is true or false as the phone says, for a hand pick and for a new cat", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-colour-filter`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    const b = await seedCat(northOf(SEA, 0.2));
+    const s1 = await submit(device, SEA);
+    const s2 = await submit(device, SEA);
+    const s3 = await submit(device, SEA);
+    const s4 = await submit(device, SEA);
+
+    expect((await resolve(s1.body.sightingId, device, { catId: a, pickedFrom: "nearby", colourFilterOn: true })).status).toBe(200);
+    expect((await resolve(s2.body.sightingId, device, { catId: b, pickedFrom: "search", colourFilterOn: false })).status).toBe(200);
+    await resolve(s3.body.sightingId, device, {
+      newCatName: `${CAT_PREFIX}-Filtered-${Date.now()}`,
+      openedPicker: true,
+      colourFilterOn: true,
+    });
+    await resolve(s4.body.sightingId, device, {
+      newCatName: `${CAT_PREFIX}-Unfiltered-${Date.now()}`,
+      openedPicker: true,
+      colourFilterOn: false,
+    });
+
+    expect((await record(s1.body.sightingId))!.colourFilterOn).toBe(true);
+    expect((await record(s2.body.sightingId))!.colourFilterOn).toBe(false);
+    expect(await record(s3.body.sightingId)).toMatchObject({ choice: "new_cat", colourFilterOn: true });
+    expect(await record(s4.body.sightingId)).toMatchObject({ choice: "new_cat", colourFilterOn: false });
+  });
+
+  it("is left empty when the phone doesn't say (a suggestion, or an older phone)", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-colour-filter-unsaid`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    matcherReturns({ [a]: 0.9 });
+    const sub = await submit(device, SEA);
+    expect((await resolve(sub.body.sightingId, device, { catId: a })).status).toBe(200);
+    expect(await record(sub.body.sightingId)).toMatchObject({ choice: "suggested", colourFilterOn: null });
+  });
+
+  it("anything but a boolean is refused", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-colour-filter-bad`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    const sub = await submit(device, SEA);
+    const res = await resolve(sub.body.sightingId, device, { catId: a, colourFilterOn: "yes" });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBeLessThan(500);
+    expect((await record(sub.body.sightingId))!.colourFilterOn).toBeNull();
   });
 });

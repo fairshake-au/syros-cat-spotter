@@ -11,6 +11,14 @@ import type { Cat } from '@workspace/api-client-react';
 
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
 vi.mock('expo-image', () => ({ Image: () => null }));
+// SYC-398 PR D: the chips draw with react-native-svg, which has never
+// rendered under vitest here; plain stand-ins keep the shapes' names.
+vi.mock('react-native-svg', () => {
+  const make = (name: string) => ({ children }: { children?: React.ReactNode }) =>
+    React.createElement('span', { 'data-el': name }, children);
+  const names = ['Svg', 'G', 'Rect', 'Circle', 'Ellipse', 'Path', 'Polygon', 'Defs', 'ClipPath'];
+  return { __esModule: true, default: make('Svg'), ...Object.fromEntries(names.map((n) => [n, make(n)])) };
+});
 vi.mock('@/hooks/useColors', () => ({
   useColors: () => new Proxy({}, { get: () => '#123456' }),
 }));
@@ -163,7 +171,7 @@ describe('CatPicker', () => {
     expect(props.onPick).not.toHaveBeenCalled();
     expect(getByText('yourPhoto')).toBeTruthy();
     fireEvent.click(getByText('pickerConfirm'));
-    expect(props.onPick).toHaveBeenCalledWith(42, 'nearby');
+    expect(props.onPick).toHaveBeenCalledWith(42, 'nearby', false);
   });
 
   it('a pick made after typing in search says it came from search', () => {
@@ -173,7 +181,7 @@ describe('CatPicker', () => {
     });
     fireEvent.click(getByTestId('picker-cat-42'));
     fireEvent.click(getByText('pickerConfirm'));
-    expect(props.onPick).toHaveBeenCalledWith(42, 'search');
+    expect(props.onPick).toHaveBeenCalledWith(42, 'search', false);
   });
 
   it('the side-by-side check shows no match score', () => {

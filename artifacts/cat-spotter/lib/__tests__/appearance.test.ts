@@ -184,7 +184,8 @@ describe('T-no-health-words: the appearance words say nothing about health', () 
   });
 
   it('no appearance string, in any language, uses one', () => {
-    expect(APPEARANCE_KEYS.length).toBe(6 + 3 + 11 + 4 + 11);
+    // SYC-398 PR D: the patterns' four include Can't tell (pattern_cant_tell).
+    expect(APPEARANCE_KEYS.length).toBe(6 + 4 + 11 + 4 + 11);
     for (const lang of LANGS) {
       for (const key of APPEARANCE_KEYS) {
         const value = plain(TRANSLATIONS[lang][key]!);

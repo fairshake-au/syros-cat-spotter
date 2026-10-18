@@ -287,9 +287,22 @@ describe('the new-cat request (SYC-151)', () => {
     });
   });
 
+  it('SYC-398 PR D: carries colourFilterOn only when the picker said', async () => {
+    const { newCatRequest } = await import('../catPicker');
+    expect(newCatRequest('dev-1', 'Agatha', true, true)).toEqual({
+      deviceId: 'dev-1',
+      newCatName: 'Agatha',
+      openedPicker: true,
+      colourFilterOn: true,
+    });
+    expect(newCatRequest('dev-1', 'Agatha', true, false)).toMatchObject({ colourFilterOn: false });
+    expect(newCatRequest('dev-1', 'Agatha', true)).not.toHaveProperty('colourFilterOn');
+  });
+
   it('review.tsx builds its new-cat request with it, from the picker having been opened', () => {
     const review = readFileSync(path.resolve(__dirname, '../../app/review.tsx'), 'utf8');
-    expect(review).toMatch(/newCatRequest\(\s*deviceId,\s*newName,\s*openedPicker\s*\)/);
+    // SYC-398 PR D adds the optional colour-filter flag after it.
+    expect(review).toMatch(/newCatRequest\(\s*deviceId,\s*newName,\s*openedPicker(,\s*pickerFilterOn)?\s*\)/);
     expect(review).toMatch(/setOpenedPicker\(true\)/);
   });
 });
