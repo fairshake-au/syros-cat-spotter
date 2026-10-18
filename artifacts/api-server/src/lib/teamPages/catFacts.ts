@@ -5,7 +5,7 @@ import type { TeamCatView } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
 import { lastSeenWords } from "./lastSeen";
 import { markWithWords } from "./marks";
-import { tr, type StringKey } from "./strings";
+import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
 
 // The answer first (SYC-396 spec §7.1): a row of plain facts at the top of the
 // team cat page, each a label and a value. Where a fact is uncertain the words
@@ -88,23 +88,19 @@ function colourSource(v: TeamCatView): string | null {
   return null;
 }
 
-/** The coat in the Cats grid's words (SYC-398 §2): the colours, then the pattern unless Plain. */
-export function coatWordsOf(v: TeamCatView): string[] {
+/** The coat in the team's words (SYC-443, §15.2): "Ginger tabby", or null when neither part is known. */
+export function coatPhraseOf(v: TeamCatView): string | null {
   const parts = v.appearance.coat.parts;
-  return [
-    ...(parts?.colours.value ?? []).map((c) => tr(undefined, `coat.${c}` as StringKey)),
-    ...(parts?.pattern.value && parts.pattern.value !== "plain"
-      ? [tr(undefined, `pattern.${parts.pattern.value}` as StringKey)]
-      : []),
-  ];
+  const coat = { colours: parts?.colours.value ?? null, pattern: parts?.pattern.value ?? null };
+  return coatIsUnknown(coat) ? null : coatWordsFor(undefined, coat);
 }
 
 function colourFact(v: TeamCatView): string {
-  const words = coatWordsOf(v);
-  if (words.length === 0) return '<a href="#appearance">Not known</a>';
+  const phrase = coatPhraseOf(v);
+  if (phrase === null) return '<a href="#appearance">Not known</a>';
   const source = colourSource(v);
   return (
-    `<a href="#appearance">${words.map((w) => `<span class="colourchip">${esc(w)}</span>`).join(" ")}</a>` +
+    `<a href="#appearance"><span class="colourchip">${esc(phrase)}</span></a>` +
     (source ? ` <span class="meta">${esc(source)}</span>` : "")
   );
 }
@@ -142,7 +138,7 @@ export function catFacts(v: TeamCatView, now: Date): CatFact[] {
   return [
     { label: "Sterilised", html: sterilisedFact(v) },
     { label: "Lives", html: livesFact(v) },
-    { label: "Colour", html: colourFact(v) },
+    { label: "Coat", html: colourFact(v) },
     { label: "Colony", html: colonyFact(v) },
     { label: "Last seen", html: lastSeenFact(v, now) },
     ...(vaccinated ? [{ label: "Vaccinated", html: vaccinated }] : []),

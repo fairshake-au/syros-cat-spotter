@@ -21,6 +21,7 @@ import { lastSeenWords } from "./lastSeen";
 import { markBadge, MARK_WORD } from "./marks";
 import { timeAgo } from "./queuePage";
 import { tr, type StringKey } from "./strings";
+import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
 
 // The Cats page: every cat as a photo grid with filters (SYC-396 PR 1.3; spec
 // §5.1). An ordinary GET form that works with no script. The filters live in
@@ -240,22 +241,20 @@ function tieAction(c: CatListItem, tie: TieMode & { report: NonNullable<TieMode[
   );
 }
 
-/** The card's coat words, as the public line has them (SYC-398 §2): the
- * colours, then the pattern unless Plain. */
-function coatWords(c: CatListItem): string[] {
-  return [
-    ...c.coat.map(COLOUR_WORD),
-    ...(c.pattern && c.pattern !== "plain" ? [tr(undefined, `pattern.${c.pattern}` as StringKey)] : []),
-  ];
+/** The card's coat in the team's words (SYC-443 §15.1): "Ginger tabby", or
+ * null when neither part is known. */
+function coatPhrase(c: CatListItem): string | null {
+  const coat = { colours: c.coat, pattern: c.pattern };
+  return coatIsUnknown(coat) ? null : coatWordsFor(undefined, coat);
 }
 
 function card(c: CatListItem, o: CatGridOptions): string {
-  const coat = coatWords(c);
-  const alt = `Photo of ${c.name}${coat.length ? `, ${coat.join(" · ")}` : ""}`;
+  const coat = coatPhrase(c);
+  const alt = `Photo of ${c.name}${coat !== null ? `, ${coat}` : ""}`;
   const photo = c.photoPublicId
     ? `<img class="cardimg" src="${esc(`${teamPhotoUrl(c.photoPublicId)}/small`)}" alt="${esc(alt)}" loading="lazy" width="180" height="180">`
     : '<span class="cardimg nothumb">No photo</span>';
-  const colour = coat.length ? coat.map(esc).join(" · ") : "Colour not known";
+  const colour = coat !== null ? esc(coat) : "Coat not known";
   const colony = c.colonyId === null ? "No colony" : (o.colonies.find((x) => x.id === c.colonyId)?.name ?? "Colony");
   const words = esc(lastSeenWords(c.lastSeenAt, o.now));
   const seen = c.lastSeenAt ? `<time datetime="${esc(c.lastSeenAt.toISOString())}">${words}</time>` : words;
