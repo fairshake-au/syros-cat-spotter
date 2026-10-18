@@ -72,4 +72,17 @@ Safe on access. **Not ready until R1 and R2 have tests**; ideally R3 to R5 too, 
 
 ## How each finding was handled (author, 18 October 2026)
 
-FILLED_IN_BELOW
+| Finding | What was done |
+|---|---|
+| R1 | Tests added: the accept page as a starter invitee, and Yes, join gives a session and a 303 to My colonies. The reviewer's probe A now goes red. |
+| R2 | Tests added: GET `/api/team/my/welcome` as a starter, and the invitation built by `sendMail` from her real record. Probes I(a) and I(b) now go red. |
+| R3 | Test added: two starters; one creates, and the other keeps `start`. Probe E now goes red. |
+| R4 | Tests added: `--replace staff` on a starter, and Bring back onto a colony. Probe B now goes red. |
+| R5 | Test added: Change roles is pre-ticked, and saving it unchanged is refused with "already hold exactly that", with the start row kept. Probe G now goes red. |
+| R6 | The option is renamed `openToStarter`, a name used nowhere else. The scan counts every word-boundary use outside `requireTeam.ts` and expects exactly two. Probe J now goes red on the scan alone. |
+| R7 | The invitation email now uses its own sentence ("…to help as a cat guardian, to record a colony of cats you look after."), the accept page says "…invited you as a cat guardian.", and the People row says "Cat guardian · no colony yet", all as spec §2 says. The managers' notice, history and Bring back keep the role sentence "a cat guardian, with no colony yet"; spec §2 now says so. |
+| R8 | The hints now say "their colonies" and "a cat guardian who will create the first one". |
+| R9 | Added to Johnny's list on SYC-283. |
+| R10 | `people set-roles --remove guardian --start` now works and is tested; the usage text says so. |
+
+All 17 mutation probes, the PR's ten and the reviewer's seven, now turn a test red.

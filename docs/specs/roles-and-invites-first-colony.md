@@ -24,6 +24,7 @@ Someone whose placements have all ended still gets "Your access has ended". Hold
 |---|---|
 | People screen, the "A cat guardian" box | A new choice above the colony list: **"No colony yet: creates the first one"** |
 | People screen, her row | **"Cat guardian · no colony yet"**, with no empty colony line under it |
+| *(Role sentences in the managers' notice, history and Bring back)* | **"a cat guardian, with no colony yet"**, one phrase everywhere a role sentence is built *(settled during the build, 18 October 2026)* |
 | People screen, history | **"Before: nothing. Now: a cat guardian, no colony yet."**; and when she creates one, **"Before: a cat guardian, no colony yet. Now: a cat guardian for Vaporia — Eleni's."** |
 | Invitation email | **"Syros Cats has invited you to help as a cat guardian, to record a colony of cats you look after."** (instead of naming a colony) |
 | Accept page | **"Syros Cats has invited you as a cat guardian."** Its "What you'll be able to see and do" paragraph says: **"Create a colony for the cats you look after. Once it's created, you'll see exactly where each of its cats is, and you can add cats and feeding sites to it."** It doesn't promise positions for colonies she doesn't have |
