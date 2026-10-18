@@ -829,6 +829,8 @@ describe("inviteRecipient: the address only while pending, unexpired and not ano
       inviteSentAt: null,
       roles: ["guardian"],
       colonies: [{ id: colony, name: "Vaporia — Eleni's" }],
+      // SYC-439: placed on a colony, so not "no colony yet".
+      starting: false,
     });
     await expireInvite(p.id);
     expect(await inviteRecipient(d, p.id)).toBeNull();
