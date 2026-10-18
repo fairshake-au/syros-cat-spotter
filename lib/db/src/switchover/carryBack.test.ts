@@ -228,8 +228,10 @@ describe("carry-back, end to end (test 4)", () => {
     // SYC-36: migration 0027 seeds one app_settings row (the donation link,
     // Samuel's Decision 6), and SYC-415's 0029 seeds a second (the
     // extra-photo switch, off); like observations, they live on Neon only.
-    expect(dry.noHomeInTarget).toEqual(["app_settings", "observations"]);
-    expect(dry.noHomeRows).toEqual({ app_settings: 2, observations: 1 });
+    // SYC-396 PR 2.4's named_areas migration seeds 21 areas and one history
+    // row each: Neon only too.
+    expect(dry.noHomeInTarget).toEqual(["app_settings", "mapping_events", "named_areas", "observations"]);
+    expect(dry.noHomeRows).toEqual({ app_settings: 2, mapping_events: 21, named_areas: 21, observations: 1 });
     expect(dry.droppedColumns).toEqual([
       { table: "photos", columns: ["public_id"] },
       // SYC-101's generated folded name: the old database has no such

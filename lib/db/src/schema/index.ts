@@ -12,6 +12,7 @@ export * from "./sightingMatches";
 export * from "./email";
 export * from "./photoVisibility";
 export * from "./mappingEvents";
+export * from "./namedAreas";
 export * from "./personEvents";
 export * from "./rateLimits";
 export * from "./mapTiles";
