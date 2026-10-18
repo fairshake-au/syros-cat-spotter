@@ -247,6 +247,22 @@ describe('replacementPhotoKey', () => {
   });
 });
 
+describe('replacementPhotoKey with a role (SYC-415)', () => {
+  it('keeps the first photo keys unchanged, and gives extras their own prefix', () => {
+    expect(replacementPhotoKey('A', 'idb:A', 'first')).toBe('A-r1');
+    expect(replacementPhotoKey('A', 'idb:A-face', 'face')).toBe('A-face-r1');
+    expect(replacementPhotoKey('A', 'idb:A-face-r1', 'face')).toBe('A-face-r2');
+    expect(replacementPhotoKey('A', 'file:///documents/pending-photos/A-body-r4.jpg', 'body')).toBe('A-body-r5');
+  });
+
+  it('only counts refs with the same prefix, so the first photo and an extra never collide', () => {
+    expect(replacementPhotoKey('A', 'idb:A-r3', 'face')).toBe('A-face-r1');
+    expect(replacementPhotoKey('A', 'idb:A-face-r3', 'first')).toBe('A-r1');
+    expect(replacementPhotoKey('A', 'idb:A-face-r2', 'body')).toBe('A-body-r1');
+  });
+});
+
+
 describe('requestPersistentStorage', () => {
   it('asks once per session', async () => {
     const persist = vi.fn(async () => true);

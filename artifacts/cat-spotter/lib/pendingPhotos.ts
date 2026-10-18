@@ -330,20 +330,23 @@ export async function savePendingPhoto(
 }
 
 /**
- * The key for a replacement photo: `<localId>-r<n>`, never the key of the
- * photo it replaces — so a failed replacement cannot touch the original, and
- * the reference visibly changes.
+ * The key for a replacement photo: `<localId>-r<n>` for the first photo, and
+ * `<localId>-<role>-r<n>` for an extra (SYC-415), never the key of the photo
+ * it replaces — so a failed replacement cannot touch the original, and the
+ * reference visibly changes. The counter only reads refs with the same
+ * prefix, so the first photo's and an extra's replacements never collide.
  */
 export function replacementPhotoKey(
   localId: string,
   currentRef: string | undefined,
+  role: 'first' | 'face' | 'body' = 'first',
 ): string {
   const current = currentRef
     ? isStoredPhotoRef(currentRef)
       ? idbId(currentRef)
       : currentRef.slice(currentRef.lastIndexOf('/') + 1).replace(/\.jpg$/, '')
     : '';
-  const prefix = `${localId}-r`;
+  const prefix = role === 'first' ? `${localId}-r` : `${localId}-${role}-r`;
   const n = current.startsWith(prefix) ? Number(current.slice(prefix.length)) : 0;
   return `${prefix}${Number.isFinite(n) && n > 0 ? n + 1 : 1}`;
 }

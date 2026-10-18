@@ -143,7 +143,27 @@ describe('online', () => {
     expect(await submitSighting(s)).toEqual({
       kind: 'rejected',
       rejectionKey: 'photoTooLarge',
+      role: 'first',
     });
+  });
+
+  it('SYC-415: says which photo the server refused', async () => {
+    const s = steps({
+      send: vi.fn(async () => {
+        throw ApiError(400, { error: 'Image could not be decoded', photo: 'face' });
+      }),
+    });
+    expect(await submitSighting(s)).toEqual({ kind: 'rejected', rejectionKey: 'photoInvalid', role: 'face' });
+  });
+
+  it('SYC-415: a too-large spot is a fixable rejection, not a send failure', async () => {
+    const s = steps({
+      send: vi.fn(async () => {
+        throw ApiError(413, { error: 'too large' });
+      }),
+    });
+    expect(await submitSighting(s)).toEqual({ kind: 'rejected', rejectionKey: 'spotTooLarge', role: 'first' });
+    expect(s.offerSaveForLater).not.toHaveBeenCalled();
   });
 });
 

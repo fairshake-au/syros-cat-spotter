@@ -11,7 +11,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { createSighting } from '@workspace/api-client-react';
-import { photoRejectionKey } from '@/lib/photoRejection';
+import { photoRejectionKey, rejectedPhotoRole } from '@/lib/photoRejection';
 import {
   optimizePhotoForUpload,
   shouldOptimizePhoto,
@@ -50,20 +50,44 @@ import { useDevice } from './DeviceContext';
 import {
   applyServerFailure,
   classifySyncFailure,
+  extrasOf,
   markStaleItems,
   resetForRetry,
+  type ExtraRef,
   type PendingSighting,
 } from '../lib/offlineQueue';
+import type { ExtraRole } from '@/lib/extraPhotos';
 
 export type { PendingSighting };
 export { QueueWriteError, isQueueWriteError } from '@/lib/queueStore';
 
 const QUEUE_KEY = 'cat-spotter/pending-sightings';
 
-/** What callers provide when queueing — always includes the photo base64. */
-export type EnqueueInput = Omit<PendingSighting, 'status' | 'photoBase64'> & {
+/** One extra photo as the Spot screen hands it over: the prepared copy (SYC-415). */
+export interface EnqueueExtra {
+  role: ExtraRole;
+  photoUri: string;
   photoBase64: string;
+}
+
+/** What callers provide when queueing — always includes the photo base64. */
+export type EnqueueInput = Omit<
+  PendingSighting,
+  'status' | 'photoBase64' | 'extraPhotos' | 'extraNote' | 'rejectedRole'
+> & {
+  photoBase64: string;
+  extraPhotos?: EnqueueExtra[];
 };
+
+/**
+ * SYC-415: `extraNotKept` is true when an extra photo couldn't be stored
+ * outside the list, so the spot was queued without it (never inline).
+ */
+export interface EnqueueResult {
+  extraNotKept: boolean;
+  /** The extra photos that WERE kept, so only those count as logged. */
+  keptRoles: ExtraRole[];
+}
 
 export interface ReplacementPhoto {
   photoBase64: string;
@@ -83,7 +107,7 @@ interface OfflineContextValue {
   readOnly: boolean;
   pending: PendingSighting[];
   /** Throws QueueWriteError if the sighting could not be saved. */
-  enqueue: (item: EnqueueInput) => Promise<void>;
+  enqueue: (item: EnqueueInput) => Promise<EnqueueResult>;
   /** Throws QueueWriteError if the change could not be saved. */
   remove: (localId: string) => Promise<void>;
   /** Put a failed item back in the queue and try syncing again. */
@@ -93,6 +117,18 @@ interface OfflineContextValue {
    * Throws QueueWriteError if the change could not be saved.
    */
   replacePhoto: (localId: string, photo: ReplacementPhoto) => Promise<void>;
+  /**
+   * SYC-415: take one extra photo out of a rejected spot. If the server's
+   * refusal was about that photo (or the spot was too large), the spot goes
+   * back in the queue and syncs. Throws QueueWriteError if not saved.
+   */
+  removeExtraPhoto: (localId: string, role: ExtraRole) => Promise<void>;
+  /** SYC-415: as replacePhoto, for one extra photo of a rejected spot. */
+  replaceExtraPhoto: (
+    localId: string,
+    role: ExtraRole,
+    photo: ReplacementPhoto,
+  ) => Promise<void>;
   syncNow: () => Promise<void>;
   syncing: boolean;
   /** Number of synced sightings waiting for the user's review. */
@@ -256,15 +292,18 @@ async function prepareLoadedQueue(ctx: LoadContext): Promise<void> {
   // for it (it is stripped only after a later read-back).
   const keep = ctx
     .items()
-    .flatMap((p) =>
-      p.photoBase64 ? [p.photoUri, `idb:${p.localId}`] : [p.photoUri],
-    );
+    .flatMap((p) => [
+      ...(p.photoBase64 ? [p.photoUri, `idb:${p.localId}`] : [p.photoUri]),
+      // SYC-415: every photo of a waiting spot, not just the first.
+      ...extrasOf(p).map((e) => e.photoUri),
+    ]);
   await cleanupOrphanPhotos(keep).catch(() => undefined);
 }
 
 function markReview(
   localId: string,
   result: Pick<PendingSighting, 'sightingId' | 'isCatPhoto' | 'candidates'>,
+  extraNote?: PendingSighting['extraNote'],
 ) {
   return (list: PendingSighting[]) =>
     list.map((p) =>
@@ -275,6 +314,7 @@ function markReview(
             sightingId: result.sightingId,
             isCatPhoto: result.isCatPhoto,
             candidates: result.candidates,
+            ...(extraNote ? { extraNote } : {}),
           }
         : p,
     );
@@ -373,6 +413,31 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         photoBase64 = read.base64;
       }
 
+      // SYC-415: the extra photos. One that has gone missing is skipped and
+      // the spot sends with the others: a good first photo is never lost
+      // because of an extra (spec §6.4). One that merely can't be read this
+      // time keeps the spot queued for the next sync.
+      const extraPhotos: { role: ExtraRole; photoBase64: string }[] = [];
+      let extraMissing = false;
+      for (const extra of extrasOf(item)) {
+        const extraRead = extra.photoBase64
+          ? { status: 'ok' as const, base64: extra.photoBase64 }
+          : await readPendingPhoto(extra.photoUri);
+        if (extraRead.status === 'error') {
+          // Could not read it this time: leave the spot queued for the next
+          // sync, exactly as for the first photo. Only a photo that is gone
+          // ('missing') is ever sent without.
+          return 'done';
+        }
+        if (extraRead.status === 'ok') {
+          extraPhotos.push({ role: extra.role, photoBase64: extraRead.base64 });
+        } else {
+          extraMissing = true;
+        }
+      }
+
+      // The constrained-network shrink only ever applies to the first photo:
+      // extras were already prepared at pick time.
       let uploadPhotoBase64 = photoBase64;
       if (shouldOptimizePhoto(networkStateRef.current)) {
         // The shrink step must be given something it can load: on web, an
@@ -399,14 +464,20 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           // photo was actually taken, or the streak credits the day the
           // network came back instead of the day the cat was spotted.
           capturedAt: item.createdAt,
+          ...(extraPhotos.length > 0 ? { extraPhotos } : {}),
         });
       } catch (err) {
         const rejectionKey = photoRejectionKey(err);
         if (rejectionKey) {
           // Permanent rejection (bad format / too large) — retrying will
-          // never succeed, so mark it rejected and move on.
+          // never succeed, so mark it rejected, say which photo, and move on.
+          // The spotter can fix it (replace or remove that photo).
           await store.mutate(
-            markStatus(localId, { status: 'rejected', rejectionKey }),
+            markStatus(localId, {
+              status: 'rejected',
+              rejectionKey,
+              rejectedRole: rejectedPhotoRole(err) ?? 'first',
+            }),
             'system',
           );
           return 'done';
@@ -434,7 +505,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
 
       // The sighting now exists on the server. This change always reaches
       // memory, even if it cannot be saved, so it is never sent twice.
-      await store.mutate(markReview(localId, result), 'system');
+      await store.mutate(
+        markReview(localId, result, extraMissing ? 'extraMissing' : undefined),
+        'system',
+      );
       return 'synced';
     },
     [store],
@@ -594,22 +668,58 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       const saved = keepInlineUnlessBroken(
         await savePendingPhoto(item.localId, item.photoUri, item.photoBase64),
       );
-      const stored: PendingSighting = saved.ok
+      // SYC-415: each extra photo is stored outside the list too, and is
+      // NEVER kept inline: three inline photos could overflow the browser's
+      // list. One that can't be stored is dropped, and the spot says so.
+      const { extraPhotos: extrasIn, ...rest } = item;
+      const extraRefs: ExtraRef[] = [];
+      let extraNotKept = false;
+      for (const extra of extrasIn ?? []) {
+        let extraSaved: SavePhotoResult;
+        try {
+          extraSaved = await savePendingPhoto(
+            `${item.localId}-${extra.role}`,
+            extra.photoUri,
+            extra.photoBase64,
+          );
+        } catch {
+          extraSaved = { ok: false, reason: 'failed' };
+        }
+        if (extraSaved.ok) {
+          extraRefs.push({ role: extra.role, photoUri: extraSaved.ref });
+        } else {
+          extraNotKept = true;
+        }
+      }
+      const base: PendingSighting = saved.ok
         ? {
-            ...item,
+            ...rest,
             photoBase64: undefined,
             photoUri: saved.ref,
             status: 'queued' as const,
           }
-        : { ...item, status: 'queued' as const };
-      await store.mutate((list) => {
-        // SYC-63: nothing new joins the queue while "Delete my data" has
-        // syncing paused, or a spot whose photo was still saving could land
-        // after the wipe and survive it. Checked here, in the write itself,
-        // so it holds however long the photo took.
-        if (pausedRef.current) throw new QueueWriteError('failed');
-        return [...list.filter((p) => p.localId !== stored.localId), stored];
-      }, 'user');
+        : { ...rest, status: 'queued' as const };
+      const stored: PendingSighting = {
+        ...base,
+        ...(extraRefs.length > 0 ? { extraPhotos: extraRefs } : {}),
+        ...(extraNotKept ? { extraNote: 'extraNotKept' as const } : {}),
+      };
+      try {
+        await store.mutate((list) => {
+          // SYC-63: nothing new joins the queue while "Delete my data" has
+          // syncing paused, or a spot whose photo was still saving could land
+          // after the wipe and survive it. Checked here, in the write itself,
+          // so it holds however long the photo took.
+          if (pausedRef.current) throw new QueueWriteError('failed');
+          return [...list.filter((p) => p.localId !== stored.localId), stored];
+        }, 'user');
+      } catch (err) {
+        // The spot wasn't saved: don't leave its extra files behind (the
+        // first photo's file is left to the sweep, as before).
+        for (const ref of extraRefs) deletePendingPhoto(ref.photoUri).catch(() => {});
+        throw err;
+      }
+      return { extraNotKept, keptRoles: extraRefs.map((r) => r.role) };
     },
     [store],
   );
@@ -625,6 +735,12 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       const gone = removed as PendingSighting | undefined;
       if (gone && !gone.photoBase64) {
         deletePendingPhoto(gone.photoUri).catch(() => {});
+      }
+      // SYC-415: and every extra photo's file.
+      if (gone) {
+        for (const extra of extrasOf(gone)) {
+          deletePendingPhoto(extra.photoUri).catch(() => {});
+        }
       }
     },
     [store],
@@ -666,6 +782,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
               photoBase64: saved.ok ? undefined : photo.photoBase64,
               status: 'queued',
               rejectionKey: undefined,
+              rejectedRole: undefined,
               errorKind: undefined,
               failCount: 0,
               sightingId: undefined,
@@ -690,6 +807,86 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       await syncNowRef.current();
     },
     [store],
+  );
+
+  /**
+   * SYC-415: change one extra photo of a rejected spot (remove it, or swap in
+   * a new one stored under a new key), then delete the old file once the list
+   * no longer refers to it. When the refusal was about this photo, or the
+   * whole spot was too large, the rejection is cleared and the spot goes back
+   * in the queue; otherwise it stays rejected for the real fix.
+   */
+  const changeExtraPhoto = useCallback(
+    async (localId: string, role: ExtraRole, photo: ReplacementPhoto | null) => {
+      await store.ready;
+      const current = store.items().find((p) => p.localId === localId);
+      if (!current || current.status !== 'rejected') return;
+      const currentRef = extrasOf(current).find((e) => e.role === role)?.photoUri;
+      if (!photo && !currentRef) return;
+
+      let newRef: string | null = null;
+      if (photo) {
+        // Never inline (an extra never is): a save that doesn't work fails
+        // honestly, and the spot is left as it was.
+        const saved = await savePendingPhoto(
+          replacementPhotoKey(localId, currentRef, role),
+          photo.photoUri,
+          photo.photoBase64,
+        );
+        if (!saved.ok) throw new QueueWriteError('failed');
+        newRef = saved.ref;
+      }
+
+      let oldRef: string | undefined;
+      let requeued = false;
+      await store.mutate(
+        (list) =>
+          list.map((p) => {
+            if (p.localId !== localId || p.status !== 'rejected') return p;
+            const extras = extrasOf(p);
+            oldRef = extras.find((e) => e.role === role)?.photoUri;
+            const others = extras.filter((e) => e.role !== role);
+            const nextExtras: ExtraRef[] = newRef
+              ? [...others, { role, photoUri: newRef }].sort((a, b) =>
+                  a.role === b.role ? 0 : a.role === 'face' ? -1 : 1,
+                )
+              : others;
+            const clears =
+              p.rejectedRole === role || p.rejectionKey === 'spotTooLarge';
+            requeued = clears;
+            return {
+              ...p,
+              extraPhotos: nextExtras.length > 0 ? nextExtras : undefined,
+              ...(clears
+                ? {
+                    status: 'queued' as const,
+                    rejectionKey: undefined,
+                    rejectedRole: undefined,
+                    errorKind: undefined,
+                    failCount: 0,
+                  }
+                : {}),
+            };
+          }),
+        'user',
+      );
+      // The old photo goes only once the list no longer refers to it.
+      const old = oldRef as string | undefined;
+      if (old && old !== newRef) deletePendingPhoto(old).catch(() => {});
+      if (requeued) await syncNowRef.current();
+    },
+    [store],
+  );
+
+  const removeExtraPhoto = useCallback(
+    (localId: string, role: ExtraRole) => changeExtraPhoto(localId, role, null),
+    [changeExtraPhoto],
+  );
+
+  const replaceExtraPhoto = useCallback(
+    (localId: string, role: ExtraRole, photo: ReplacementPhoto) =>
+      changeExtraPhoto(localId, role, photo),
+    [changeExtraPhoto],
   );
 
   const pauseSync = useCallback(async () => {
@@ -745,6 +942,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       remove,
       retry,
       replacePhoto,
+      removeExtraPhoto,
+      replaceExtraPhoto,
       syncNow,
       syncing,
       reviewReadyCount,
@@ -767,6 +966,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       remove,
       retry,
       replacePhoto,
+      removeExtraPhoto,
+      replaceExtraPhoto,
       syncNow,
       syncing,
       reviewReadyCount,

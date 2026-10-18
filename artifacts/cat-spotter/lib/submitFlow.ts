@@ -11,7 +11,7 @@
  *    covers a send that half-arrived (R2).
  */
 import { classifySyncFailure } from './offlineQueue';
-import { photoRejectionKey } from './photoRejection';
+import { photoRejectionKey, rejectedPhotoRole } from './photoRejection';
 import { isQueueWriteError } from './queueStore';
 
 /** Which explanation a failed save gets. */
@@ -26,7 +26,8 @@ export type SubmitOutcome<R> =
   | { kind: 'sent'; result: R }
   | { kind: 'saved'; reason: 'offline' | 'later' }
   | { kind: 'save-failed'; failure: SaveFailure }
-  | { kind: 'rejected'; rejectionKey: string }
+  /** SYC-415: `role` says which of the spot's photos the server refused. */
+  | { kind: 'rejected'; rejectionKey: string; role: 'first' | 'face' | 'body' }
   /** Sending failed and the user chose not to save it for later. */
   | { kind: 'not-saved' }
   | { kind: 'send-failed' };
@@ -78,7 +79,9 @@ export async function submitSighting<R>(
     return { kind: 'sent', result: await steps.send() };
   } catch (err) {
     const rejectionKey = photoRejectionKey(err);
-    if (rejectionKey) return { kind: 'rejected', rejectionKey };
+    if (rejectionKey) {
+      return { kind: 'rejected', rejectionKey, role: rejectedPhotoRole(err) ?? 'first' };
+    }
     if (classifySyncFailure(err, 0).kind === 'network' && steps.canSaveForLater) {
       if (!(await steps.offerSaveForLater())) return { kind: 'not-saved' };
       return saveOrReport(steps, 'later');

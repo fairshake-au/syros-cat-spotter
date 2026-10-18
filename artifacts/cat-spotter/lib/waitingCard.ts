@@ -76,6 +76,8 @@ export interface SettingsView {
   loaded: boolean;
   linkOn: boolean;
   hiddenFacts: readonly string[];
+  /** SYC-415: show the face and body boxes on the New spot screen. Off until the server says on. */
+  extraPhotosOn: boolean;
 }
 
 /** "Does this phone look like a resident's?" (feeding-nudge.md §3.2). Any

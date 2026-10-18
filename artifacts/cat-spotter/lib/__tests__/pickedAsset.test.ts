@@ -282,13 +282,15 @@ describe('the website reads time from the file with the time-only reader (slice 
     const guarded = spot.indexOf('if (fromLibrary) {', at);
     expect(guarded).toBeGreaterThan(at);
     // Both checks sit inside that guard, before the photo is set.
-    const setPhotoAt = spot.indexOf('setPhoto(next);', guarded);
+    // SYC-415: the photo is set through the one setFirstPhoto.
+    const setPhotoAt = spot.indexOf('setFirstPhoto(next,', guarded);
     for (const check of ["timeInfo.kind === 'tooOld'", 'findAlreadyLogged(']) {
       const i = spot.indexOf(check, guarded);
       expect(i).toBeGreaterThan(guarded);
       expect(i).toBeLessThan(setPhotoAt);
     }
-    expect(spot).toMatch(/photoFingerprintRef\.current = fromLibrary \? fingerprint : undefined;/);
+    // SYC-415: camera photos carry their fingerprint too, so an extra photo can't repeat them.
+    expect(spot).toMatch(/setFirstPhoto\(next, timeInfo, fingerprint, takenAtMs\)/);
   });
 
   it('the recent-photos list is read and written on every platform, website included', () => {
