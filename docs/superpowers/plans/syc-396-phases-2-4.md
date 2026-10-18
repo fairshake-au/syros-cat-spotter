@@ -101,12 +101,13 @@ If they merge in another order, the later one is deleted and regenerated, as `li
                                                                   └─► 4.1 Impact report (needs 3.1, 2.4)
 ```
 
-**Wave 1 (from Tue 20, once this plan is approved):** these can run in parallel, with no file collisions between them.
-- 2.0 is small and should merge first, on Tue 20 or Wed 21.
-- 2.4 and 2.5 don't need 2.0.
+**Wave 1 (started 18 Oct, Samuel's choice):** 2.0, 2.1 and 3.0, at most three at once.
+- 2.0 is small and merges first.
+- **2.1 Home is built on top of 2.0's branch** (stacked), because its headline and Not seen lately use 2.0's counting. It rebases onto `main` once 2.0 merges, and stays a draft until then.
+- 2.4 starts when the first of the three finishes, then 2.5.
 - 3.0.1 and 3.0.2 touch only the resolver and the observation writer. 3.0.3 also changes `loadTeamCats` in `teamCatList.ts`, so it is committed last in PR 3.0 and rebased on 2.0 before review.
 
-**Wave 2 (once 2.0 merges):** 2.1, 2.2, 2.6 and 3.3a run in parallel (at most three building at once, so 2.6 starts when the first of them merges).
+**Wave 2 (once 2.0 merges):** 2.4, 2.5, 2.2, 2.6 and 3.3a, at most three building at once, started as slots free up in that order.
 - Only 2.2 touches `colonyPages.ts` in this wave. The Feeding sites link moved into 2.2 for that reason.
 - 2.3 starts once 2.2 merges, because both change `lib/teamPages/colonyPages.ts`.
 - 3.3a needs 2.4 for its areas version line, but can be built against the read-only list and rebased.
@@ -202,6 +203,7 @@ Samuel answered these in this session on 18 Oct. Each is recorded on SYC-463.
 | Q1 | When do cat guardians get their two reports (Sterilisation progress and Colony health, for their own colonies)? | **16 Nov** | At launch, the reports are team-only (PR 3.3a). The guardian variant and its Greek and French ship on 16 Nov, ticketed. |
 | Q2 | Can the round form create a cat that isn't recorded yet? | **No: add him separately** | The round form adds existing cats only (PR 3.2). A new cat is added the usual way first. A shortcut is ticketed for 16 Nov. |
 | Q3 | The map layers (colonies, welfare reports from the last 30 days, "Not looked at yet") and the Colonies list's Map view | **Before launch** | A new **PR 2.6** builds them (SYC-454 comes into the launch scope). |
+| H | Should Home show what's on the way? | **Yes: "Home shows upcoming features"** | Home gets a short **Coming soon** line (Task 2.1.2). This changes Decision 2 for this one line only: the line names features, it doesn't link them. |
 | W | Can Samuel merge on Sat 24 and Sun 25 Oct? | **Yes, one window each day** | The reports (3.3a–c) are lined up for those windows. The impact report (4.1) still most likely waits for Mon 26 or later. |
 
 ---
@@ -407,6 +409,18 @@ export async function monthFigures(from: Date, to: Date, cats: readonly TeamCat[
 3. **Not seen lately:** up to 6 cards (small photo, name, colony, "Last seen 9 weeks ago · Galissas"), then "and N more" linking to `/api/team/cats?lives=street&lastSeen=over3`. The words say it's a prompt to ask the guardian, never a death.
 4. **The headline:** "142 street cats known on Syros" as a large figure, then `markBar(headline.split)`, then "As of 18 Oct 2026, 16:40". Below it, the line "Also 31 cats with homes and 4 in care".
 5. **This month:** three small figures, each with last month's in brackets: "Sightings 214 (last month 187)".
+6. **Coming soon** (Samuel, 18 Oct): one quiet line at the foot of Home, for example "Coming soon: vet visits · reports · Find from a photo · editable areas". It has no links. The list is a constant, `COMING_SOON: { label: string; route: string }[]`, in `homePage.ts`, with one entry per feature that isn't merged yet:
+
+   | Label | Route |
+   |---|---|
+   | editable areas | `GET /api/team/areas` |
+   | Find from a photo | `GET /api/team/cats/find` |
+   | trapping plans | `GET /api/team/colonies/:id/plan` |
+   | vet visits | `GET /api/team/cats/:id/vet-visit` |
+   | reports | `GET /api/team/insights` |
+   | the impact report | `GET /api/team/insights/impact` |
+
+   **The PR that builds each route removes its entry.** A test keeps that honest: it fails if any `COMING_SOON` route is in `team.walk.test.ts` `TABLE`, which means the feature has arrived but the line still says "coming". When the list is empty, the line disappears.
 - **Nothing to act on:** "Nothing needs you right now." The headline and This month still show.
 - **A failed figure:** the section shows "This figure isn't available right now" and the rest of the page still draws. Each section's data is read in its own `try`.
 
@@ -419,6 +433,8 @@ export async function monthFigures(from: Date, to: Date, cats: readonly TeamCat[
   - **no response time, "open for", per-person count or name of a team member appears anywhere** (a regex list of "minutes open", "response", "by Jacky");
   - a forced throw in one section's loader still renders the page with the fallback line. `homeData` takes its loaders as an optional `deps` argument, so the test injects a throwing one; `vi.spyOn` can't intercept a call inside the same module;
   - the Not-seen-lately cards use `/small` cat thumbnails.
+  - **the Coming soon guard:** with a fake `TABLE` entry for `GET /api/team/areas`, the test fails. Without it, it passes. Remove the fake entry afterwards. This is the guard's mutation probe;
+  - the Coming soon line holds no `<a`.
 - [ ] **Step 2: Fail. Step 3: Implement** following the `routes/teamCorrections.ts:788` GET pattern. **Step 4: Pass.**
 - [ ] **Step 5: Mutation probe:** remove the per-section `try` around Needs. The forced-throw test **must** go red. Restore it.
 - [ ] **Step 6: Commit:** `SYC-396 PR 2.1: Home, the first page after signing in`
