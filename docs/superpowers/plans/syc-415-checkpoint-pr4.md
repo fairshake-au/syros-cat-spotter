@@ -18,6 +18,10 @@ Scope: plan Tasks 4.1–4.6 only (not 4.7, not the browser walk-through — pare
 - Items 2-6, 8-10 done (suite 131 files / 1539 tests, typecheck 0): spot generation ref + stale checks after each await in addExtra, boxes disabled while preparing (replaceRejectedExtra acts on the queued spot, which the context re-reads and ignores if no longer refused, so no generation check there); back chevron reads 'Start again' (new key startAgain); recheck returns a reason and duplicates get new key extraRemovedDuplicate; no re-check/notice and no hidden extras kept while the switch is off; photosInUse/coverExtra helpers drive payload, queue, cover and fingerprints; removeFaceA11y/removeBodyA11y labels; enqueue returns keptRoles and only kept extras are remembered; recent-photo extra fingerprints are now role-tagged and replaceRecentExtraFingerprint updates them on remove/replace of a refused extra. 19 probes red then restored. Item 11 (cheaper size read) skipped: on web any size read loads the image anyway, so the saving is only the encode, not worth the extra code.
 - Items 1 and 7: syncOne now leaves the spot queued when an extra can't be read this time (only a missing one is skipped); test 3b red first, probe red. Enqueue-failure cleanup of extra files now tested; probe red. Next: items 2-6, 8-11.
 
+## 18 Oct: rebase onto today's main
+- Done: rebased onto origin/main 4ceca698 (#228); 13 commits replayed with no conflicts. No migrations in this PR.
+- Next: install, full app + api-server suites and typechecks, switch-off check, force-push, mark ready, wait for CI.
+
 ## Next
 - Draft PR open: https://github.com/fairshake-au/syros-cat-spotter/pull/215 (suite 131 files / 1527 tests green, typecheck exit 0). Remaining (parent): browser walk-through at 390px and desktop, light and dark; adversarial review in its own worktree; rebase onto main after #212 and #209 merge; Task 4.7 switch-on after PRs 2–4 are live.
 
