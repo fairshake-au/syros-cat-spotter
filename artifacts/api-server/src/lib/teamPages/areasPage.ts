@@ -183,7 +183,7 @@ function addForm(o: AreasPageOptions): string {
 function historyList(history: readonly AreaChange[]): string {
   if (history.length === 0) return '<p class="hint">No changes yet.</p>';
   return (
-    '<ul class="history">' +
+    '<ol class="history">' +
     history
       .map(
         (c) =>
@@ -191,7 +191,7 @@ function historyList(history: readonly AreaChange[]): string {
           `${esc(c.who ?? "Syros Cats (the first list)")} · ${esc(changeWords(c))}</li>`,
       )
       .join("") +
-    "</ul>"
+    "</ol>"
   );
 }
 
@@ -207,7 +207,7 @@ export function renderAreasPage(o: AreasPageOptions): string {
       "Place labels and the Cats filters use this list within a minute of a change.</p>" +
       addForm(o) +
       `<h2>The areas (${o.areas.length})</h2>` +
-      `<ul class="history">${o.areas.map((a) => areaRow(a, o)).join("")}</ul>` +
+      `<ul class="cats">${o.areas.map((a) => areaRow(a, o)).join("")}</ul>` +
       '<h2 id="history">History</h2>' +
       historyList(o.history) +
       `<p class="hint">Each change makes a new version. Reports name the version they used. This is version ${o.version}.</p>`,
