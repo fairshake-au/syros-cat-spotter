@@ -190,7 +190,8 @@ describe("the Feeding sites page: what is on it", () => {
     expect(res.headers["cache-control"]).toBe("no-store");
     expect(res.text).not.toMatch(/<script/i);
     expect(res.text).toContain('aria-current="page"><span class="long">Feeding sites</span><span class="short">Sites</span></a>');
-    expect(res.text).not.toContain(">Map</a>");
+    // The menu's Map is the Cats page's map view (SYC-396 PR 1.6), never this tap-check page.
+    expect(res.text).not.toContain('href="/api/team/map"');
     expect(res.text).toContain("Recently changed");
     expect(res.text).toContain("OpenStreetMap contributors");
   });

@@ -15,6 +15,9 @@ export const en = {
   // Shared page shell (every translated page).
   "shell.signedInAs": "Signed in as {name}",
   "shell.signOut": "Sign out",
+  // SYC-396 PR 1.6 (SYC-366): the skip link, and the menu's name for screen readers.
+  "shell.skip": "Skip to the page",
+  "shell.menu": "Dashboard",
 
   // The dashboard's refusals for a signed-in person (roles-and-invites.md
   // §6.4; SYC-53 PR 0.5).

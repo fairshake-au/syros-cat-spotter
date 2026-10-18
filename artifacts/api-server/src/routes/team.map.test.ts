@@ -518,7 +518,7 @@ describe("the Map page", () => {
     expect(res.text).toContain('href="/api/team/sites"><span class="long">Feeding sites</span><span class="short">Sites</span></a>');
     expect(res.text).toContain("© <a href=\"https://www.openstreetmap.org/copyright\"");
     expect(res.text).toContain("OpenStreetMap contributors");
-    expect(res.text).toContain('<main class="mappage">');
+    expect(res.text).toContain('<main id="main" tabindex="-1" class="mappage">');
     expect(viewOf(res.text).z).toBe(12);
   });
 

@@ -10,6 +10,9 @@ import type { StringKey } from "./en";
 export const el: Record<StringKey, string> = {
   "shell.signedInAs": "Συνδεδεμένος/η ως {name}",
   "shell.signOut": "Αποσύνδεση",
+  // SYC-396 PR 1.6 (SYC-366): the skip link, and the menu's name for screen readers.
+  "shell.skip": "Μετάβαση στη σελίδα",
+  "shell.menu": "Πίνακας ελέγχου",
 
   "refused.title": "Αυτή η ενότητα είναι για την ομάδα",
   "refused.titleManagement": "Αυτή η ενότητα είναι για τη διοίκηση",
