@@ -6,6 +6,9 @@ import { listColourCheck } from "../colourCheck";
 import { loadTeamCats, type TeamCat } from "../teamCatList";
 import { areaFor, OFF_SYROS } from "../areas/namedAreas";
 import { athensMonths } from "../athensTime";
+import { allColonyChoices } from "../colonyCats";
+import type { Visible } from "../guardianView";
+import { headline, notSeenLately, type Headline } from "./countedCats";
 
 // The figures behind Home (SYC-396 spec §4; plan PR 2.1, Task 2.1.1).
 // Worked out from the records on every request (§9.6). Each section is read
@@ -17,6 +20,7 @@ import { athensMonths } from "../athensTime";
 export const HOME_NEEDS_LIMIT = 5; // rows shown per Needs-us section
 export const HOME_PHOTOS = 4; // first photos per Cats-to-check list
 export const DRAFT_WINDOW_HOURS = 24;
+export const HOME_NOT_SEEN = 6; // Not-seen-lately cards shown
 
 export interface MonthFigures {
   sightings: number;
@@ -51,12 +55,22 @@ export interface HomeToCheck {
   colour: CheckList;
 }
 
+export interface NotSeenLately {
+  /** Up to HOME_NOT_SEEN street cats, the most recently seen first: the ones that just went quiet. */
+  cats: TeamCat[];
+  total: number;
+  /** Colony names by id, for the cards' colony line: only the colonies the viewer sees. */
+  colonyNames: Record<number, string>;
+}
+
 /** A section's figures, or a note that they couldn't be worked out this time. */
 export type Section<T> = { ok: true; value: T } | { ok: false };
 
 export interface HomeData {
   needs: Section<HomeNeeds>;
   toCheck: Section<HomeToCheck>;
+  notSeenLately: Section<NotSeenLately>;
+  headline: Section<Headline>;
   month: Section<{ now: MonthFigures; last: MonthFigures }>;
   /** When these figures were worked out (§9.6: a page always says). */
   at: Date;
@@ -130,6 +144,7 @@ export interface HomeDeps {
   listColourCheck: typeof listColourCheck;
   loadTeamCats: typeof loadTeamCats;
   monthFigures: typeof monthFigures;
+  allColonyChoices: typeof allColonyChoices;
 }
 
 const DEFAULT_DEPS: HomeDeps = {
@@ -140,6 +155,7 @@ const DEFAULT_DEPS: HomeDeps = {
   listColourCheck,
   loadTeamCats,
   monthFigures,
+  allColonyChoices,
 };
 
 async function section<T>(read: () => Promise<T>): Promise<Section<T>> {
@@ -152,7 +168,15 @@ async function section<T>(read: () => Promise<T>): Promise<Section<T>> {
 
 const small = (url: string) => `${url}/small`;
 
-export async function homeData(now: Date = new Date(), deps: Partial<HomeDeps> = {}): Promise<HomeData> {
+/**
+ * `visible`: the viewer's colonies (visibleColonyIds), used only to name a
+ * Not-seen-lately card's colony. Without it no colony is named (fails closed).
+ */
+export async function homeData(
+  now: Date = new Date(),
+  deps: Partial<HomeDeps> = {},
+  visible?: Visible,
+): Promise<HomeData> {
   const d: HomeDeps = { ...DEFAULT_DEPS, ...deps };
   const since = now.getTime() - DRAFT_WINDOW_HOURS * 3_600_000;
   const months = athensMonths(now);
@@ -161,7 +185,7 @@ export async function homeData(now: Date = new Date(), deps: Partial<HomeDeps> =
   const catsOnce = d.loadTeamCats(now);
   catsOnce.catch(() => undefined); // read below inside each section's own try
 
-  const [needs, toCheck, month] = await Promise.all([
+  const [needs, toCheck, quiet, head, month] = await Promise.all([
     section(async (): Promise<HomeNeeds> => {
       const [queue, issuesOpen, awaitingMatch] = await Promise.all([
         d.listWelfareQueue(),
@@ -201,6 +225,18 @@ export async function homeData(now: Date = new Date(), deps: Partial<HomeDeps> =
         },
       };
     }),
+    section(async (): Promise<NotSeenLately> => {
+      const [cats, colonies] = await Promise.all([catsOnce, visible ? d.allColonyChoices(visible) : Promise.resolve([])]);
+      const all = notSeenLately(cats, now).sort(
+        (a, b) => (b.lastSeenAt?.getTime() ?? 0) - (a.lastSeenAt?.getTime() ?? 0) || a.id - b.id,
+      );
+      return {
+        cats: all.slice(0, HOME_NOT_SEEN),
+        total: all.length,
+        colonyNames: Object.fromEntries(colonies.map((c) => [c.id, c.name])),
+      };
+    }),
+    section(async () => headline(await catsOnce, now)),
     section(async () => {
       const cats = await catsOnce;
       const [nowFigures, lastFigures] = await Promise.all([
@@ -211,5 +247,5 @@ export async function homeData(now: Date = new Date(), deps: Partial<HomeDeps> =
     }),
   ]);
 
-  return { needs, toCheck, month, at: now };
+  return { needs, toCheck, notSeenLately: quiet, headline: head, month, at: now };
 }
