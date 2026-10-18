@@ -39,6 +39,7 @@ import { LIFE } from "../lib/teamPages/catPages";
 import { renderColourCheckPage, renderCorrectAgain } from "../lib/teamPages/appearancePage";
 import { can, type Capability, type CapabilityTarget } from "../lib/capabilities";
 import { catTarget } from "../lib/capabilityTargets";
+import { athensToday } from "../lib/athensTime";
 
 // The corrections (SYC-43 part 2 plan, PR 4): forms on the team cat page and
 // the Probably sterilised list. Every POST checks Origin first, then the
@@ -93,10 +94,8 @@ const catPage = (catId: number, done?: string, statement?: number) =>
 
 const fieldsOf = (err: z.ZodError) => [...new Set(err.issues.map((i) => i.path.join(".")))];
 
-/** Today's date on Syros, as YYYY-MM-DD. */
-export function athensToday(now = new Date()): string {
-  return now.toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
-}
+// Today's date on Syros, now shared with Home's months (SYC-396 PR 2.1).
+export { athensToday };
 
 /**
  * When a statement dated `date` was true. Midday UTC of that day (afternoon
