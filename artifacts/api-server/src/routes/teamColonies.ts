@@ -28,6 +28,7 @@ import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireT
 import { pageViewer, requireSeeing } from "../middlewares/requireSeeing";
 import { covers } from "../lib/guardianView";
 import { movedAwayNotices } from "../lib/movedAway";
+import { recentGuardianChanges } from "../lib/recentGuardianChanges";
 import { formRoute } from "./teamCorrections";
 import { coordinate, fieldsOf, lf, noNul, optionalText } from "../lib/teamForms";
 
@@ -162,7 +163,15 @@ router.get(
     const unmatchable = q.includes(NUL);
     const shown = unmatchable ? "" : q;
     const colonies = unmatchable ? [] : await listColonies(v.visible, q);
-    if (wantsJson(req)) return void res.json({ query: shown, colonies });
+    // "Recent changes by cat guardians" (PR 4.3): the team's alone
+    // (`view_guardian_changes`, island-only). A cat guardian gets neither the
+    // list nor the field.
+    const recentChanges = can(person, "view_guardian_changes")
+      ? await recentGuardianChanges()
+      : undefined;
+    if (wantsJson(req)) {
+      return void res.json({ query: shown, colonies, ...(recentChanges ? { recentChanges } : {}) });
+    }
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
     res.type("html").send(
       renderColoniesPage({
@@ -175,8 +184,24 @@ router.get(
         done,
         // A cat guardian creates colonies too (spec §2.7; SYC-209 PR 4.2).
         canCreate: can(person, "create_colony"),
+        recentChanges,
       }),
     );
+  },
+);
+
+/**
+ * GET /api/team/guardian-changes: the same list on its own, as JSON
+ * (`view_guardian_changes`, island-only, so a cat guardian gets the 403). A
+ * browser is sent to the Colonies page, where the list is drawn.
+ */
+router.get(
+  "/team/guardian-changes",
+  requireTeam("view_guardian_changes"),
+  async (req: Request, res: Response) => {
+    setTeamHeaders(res);
+    if (!wantsJson(req)) return void res.redirect(303, "/api/team/colonies#recent-changes-title");
+    res.json({ changes: await recentGuardianChanges() });
   },
 );
 

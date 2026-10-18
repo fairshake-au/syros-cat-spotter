@@ -828,7 +828,9 @@ describe("a NUL character", () => {
     expect(decoded(res.text)).toContain("No colony has ever had a name like that.");
     const json = await get(`/api/team/colonies?q=%00`).set("Accept", "application/json");
     expect(json.status).toBe(200);
-    expect(json.body).toEqual({ query: "", colonies: [] });
+    // The team's JSON also carries "Recent changes by cat guardians" (PR 4.3).
+    expect({ ...json.body, recentChanges: undefined }).toEqual({ query: "", colonies: [], recentChanges: undefined });
+    expect(Array.isArray(json.body.recentChanges)).toBe(true);
   });
 });
 

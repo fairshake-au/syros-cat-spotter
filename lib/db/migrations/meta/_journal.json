@@ -211,6 +211,13 @@
       "when": 1792129339141,
       "tag": "0029_sighting_photos",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792248923324,
+      "tag": "0030_guardian_changes_index",
+      "breakpoints": true
     }
   ]
 }

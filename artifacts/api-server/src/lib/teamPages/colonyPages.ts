@@ -3,6 +3,7 @@ import { myCatPath } from "./guardianPages";
 import type { ColonyHistoryEntry, ColonyRow, ColonyView } from "../teamColonies";
 import { COLONY_NAME_MAX, COLONY_NOTES_MAX, GUARDIAN_NAME_MAX } from "../teamColonies";
 import type { CatToAdd } from "../colonyCats";
+import { RECENT_GUARDIAN_CHANGES, type RecentGuardianChange } from "../recentGuardianChanges";
 import { ADD_SEARCH_LIMIT } from "../colonyCats";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
@@ -136,6 +137,12 @@ export function renderColoniesPage(opts: ColonyViewer & {
   personName: string;
   done?: string;
   canCreate: boolean;
+  /**
+   * "Recent changes by cat guardians" (SYC-209 PR 4.3): passed only when the
+   * viewer holds `view_guardian_changes` (island-only, team-only). Left out,
+   * nothing is drawn.
+   */
+  recentChanges?: RecentGuardianChange[];
 }): string {
   const W = wordsIn(opts.lang);
   const { t, w } = W;
@@ -152,6 +159,7 @@ export function renderColoniesPage(opts: ColonyViewer & {
     personName: opts.personName,
     body:
       banner(W, opts.done) +
+      (opts.recentChanges ? recentChangesSection(W, opts.recentChanges) : "") +
       `<form class="search" method="get" action="/api/team/colonies" role="search">` +
       `<label class="label" for="colony-q">${w("colonies.searchLabel")}</label>` +
       `<div class="searchrow"><input id="colony-q" name="q" type="search" value="${esc(opts.query)}" maxlength="200" autocomplete="off">` +
@@ -160,6 +168,61 @@ export function renderColoniesPage(opts: ColonyViewer & {
       list +
       (opts.canCreate ? createForm(W, opts.island !== false) : ""),
   });
+}
+
+// ── Recent changes by cat guardians (PR 4.3; spec §2.6) ────────────────────
+
+/** What one change says, as trusted HTML: fixed words, every typed name escaped. */
+function changeLine({ w }: Words, c: RecentGuardianChange): string {
+  const who = c.guardian
+    ? c.guardian.left
+      ? w("changes.left", { name: c.guardian.name })
+      : esc(c.guardian.name)
+    : w("changes.someone");
+  // Fill the escaped sentence's holes with escaped values, so a name can
+  // never be read as a placeholder or as markup.
+  const fill = (key: WordKey, extra: Record<string, string> = {}) =>
+    w(key, { who: "\u0001who\u0001", ...Object.fromEntries(Object.keys(extra).map((k) => [k, `\u0001${k}\u0001`])) })
+      .replace(/\u0001(\w+)\u0001/g, (_, k: string) => (k === "who" ? `<strong>${who}</strong>` : esc(extra[k] ?? "")));
+  switch (c.kind) {
+    case "colony_created":
+      return fill("changes.colonyCreated");
+    case "site_added":
+      return fill("changes.siteAdded", { site: c.site?.name ?? "" });
+    case "site_moved":
+      return fill("changes.siteMoved", { site: c.site?.name ?? "" });
+    case "cat_added":
+      return fill("changes.catAdded", { cat: c.cat?.name ?? "" });
+    case "cat_taken_out":
+      return fill("changes.catTakenOut", { cat: c.cat?.name ?? "" });
+  }
+}
+
+/** The team's list at the top of the Colonies page. */
+export function recentChangesSection(W: Words, changes: RecentGuardianChange[]): string {
+  const { w, t } = W;
+  const list =
+    changes.length === 0
+      ? `<p class="empty">${w("changes.empty")}</p>`
+      : `<ol class="history" id="recent-guardian-changes">` +
+        changes
+          .map((c) => {
+            const colonyName = c.colony.name ?? t("changes.colonyNumber", { id: String(c.colony.id) });
+            return (
+              `<li class="statement"><p>${changeLine(W, c)}</p>` +
+              `<p class="meta"><a href="${esc(colonyHref(c.colony.id))}">${esc(colonyName)}</a> · ` +
+              `<time datetime="${esc(c.at)}">${esc(dayIn(W.lang, c.at))}</time></p></li>`
+            );
+          })
+          .join("") +
+        `</ol>`;
+  return (
+    `<section class="recent-changes" aria-labelledby="recent-changes-title">` +
+    `<h2 id="recent-changes-title">${w("changes.title")}</h2>` +
+    `<p class="hint">${w("changes.intro", { n: String(RECENT_GUARDIAN_CHANGES) })}</p>` +
+    list +
+    `</section>`
+  );
 }
 
 // ── One colony ─────────────────────────────────────────────────────────────

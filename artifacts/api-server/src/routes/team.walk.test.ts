@@ -215,6 +215,8 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/colonies/:id": { why: "edit_colony on that colony (PR 4.2), rename_colony island-only; a colony that isn't hers, or isn't one, is the same 403" },
   "GET /api/team/colonies/:id/cats": { why: "the Add cats search: sees some colony, then assign_cat_to_colony on the colony read from the record", except: SEEING },
   "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony on the colony the cats go into (PR 4.2); a colony that isn't hers, or isn't one, is the same 403" },
+  // SYC-209 PR 4.3: "Recent changes by cat guardians" on its own. Team-only.
+  "GET /api/team/guardian-changes": { why: "view_guardian_changes: island-only, so every cat guardian gets the 403" },
   "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony on the colony it goes into, or for a take-out the one it leaves, from the record (PR 4.2); an unreadable form has no colony" },
   // SYC-209 PR 3.1, the team map. Never the door's "any colony" check. The Map page and its
   // tap stay the team's; the picture route opens to anyone who sees a colony (PR 4.1: a
@@ -333,7 +335,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * their own checks. If an Express upgrade changes `router.stack` and the walk
  * finds fewer, the test fails rather than passing on an empty list.
  */
-const MINIMUM_ROUTES = 75;
+const MINIMUM_ROUTES = 76;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
