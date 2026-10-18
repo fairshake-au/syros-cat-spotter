@@ -21,7 +21,8 @@ Scope: plan Tasks 4.1–4.6 only (not 4.7, not the browser walk-through — pare
 ## 18 Oct: rebase onto today's main
 - Done: rebased onto origin/main 4ceca698 (#228); 13 commits replayed with no conflicts. No migrations in this PR.
 - Switch-off check (code read of spot.tsx): boxes render only when `extraPhotosOn`; nothing extra is sent, kept or re-checked while off. Two deliberate differences remain even with the switch off (both from review round 1): the back arrow's screen-reader label reads 'Start again' instead of 'Retake photo' (it still discards the whole spot as before), and camera photos are now fingerprinted, so a camera photo later picked again from the library is caught as already logged.
-- Next: full app + api-server suites and typechecks (running), force-push, mark ready, wait for CI.
+- Local runs on the rebased branch: app 133 files / 1563 tests green; api-server 210 files passed, 1 skipped / 3417 tests passed, 4 skipped; typechecks for libs, app and api-server exit 0 (the ones CI runs). mockup-sandbox typecheck fails locally on untouched UI files; CI does not run it.
+- Next: force-push, confirm ready (not draft), wait for the 'Test and build' run.
 
 ## Next
 - Draft PR open: https://github.com/fairshake-au/syros-cat-spotter/pull/215 (suite 131 files / 1527 tests green, typecheck exit 0). Remaining (parent): browser walk-through at 390px and desktop, light and dark; adversarial review in its own worktree; rebase onto main after #212 and #209 merge; Task 4.7 switch-on after PRs 2–4 are live.
