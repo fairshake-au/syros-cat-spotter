@@ -14,6 +14,7 @@ import {
   maySignIn,
   mayUseWorkspace,
 } from "./capabilities";
+import { opensColoniesList } from "../middlewares/requireSeeing";
 
 // SYC-439 (roles-and-invites-first-colony.md §4): a cat guardian with no
 // colony yet. A "start" row grants `create_colony` and nothing else, opens
@@ -77,6 +78,17 @@ describe("a 'no colony yet' row (SYC-439)", () => {
     expect(maySignIn(vet)).toBe(false);
     expect(doorFor(guardian)).toBe("in");
     expect(doorFor(staff)).toBe("in");
+  });
+});
+
+describe("the Colonies list's own door (requireColoniesList)", () => {
+  it("opens for someone who sees a colony or has no colony yet, and for nobody else", () => {
+    expect(opensColoniesList(starter)).toBe(true);
+    expect(opensColoniesList(guardian)).toBe(true);
+    expect(opensColoniesList(staff)).toBe(true);
+    expect(opensColoniesList(vet)).toBe(false);
+    expect(opensColoniesList(ended)).toBe(false);
+    expect(opensColoniesList({ scopes: [{ role: "guardian", colonyId: null }] })).toBe(false);
   });
 });
 

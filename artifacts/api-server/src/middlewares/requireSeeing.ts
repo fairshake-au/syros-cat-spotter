@@ -1,7 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
-import { holdsStartRow } from "../lib/capabilities";
+import { holdsStartRow, type CapabilityHolder } from "../lib/capabilities";
 import {
   isIslandWide,
   pageLangFor,
@@ -45,14 +45,22 @@ export const requireSeeing = (): RequestHandler[] => [requireTeam(), enterIfSees
 export const requireColoniesList = (): RequestHandler[] => [
   requireTeam(undefined, { starting: true }),
   (req: Request, res: Response, next: NextFunction) => {
-    const person = teamPerson(res);
-    if (!seesAny(visibleColonyIds(person)) && !holdsStartRow(person)) {
+    if (!opensColoniesList(teamPerson(res))) {
       req.log.info({ reason: "sees_no_colony" }, "team request refused");
       return refuseSignedIn(req, res);
     }
     next();
   },
 ];
+
+/**
+ * May this person open the Colonies list? Sees some colony, or holds a "no
+ * colony yet" row. A second line behind the door (which already refuses
+ * someone who holds nothing), so it is tested on its own.
+ */
+export function opensColoniesList(person: CapabilityHolder): boolean {
+  return seesAny(visibleColonyIds(person)) || holdsStartRow(person);
+}
 
 /** The same, for a form that writes nothing (the map's zoom, pan and area buttons). */
 export const seeingFormRoute = (): RequestHandler[] => [
