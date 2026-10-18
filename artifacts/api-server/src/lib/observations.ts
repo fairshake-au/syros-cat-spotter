@@ -22,6 +22,8 @@ import { getGuidance } from "@workspace/welfare-guidance";
 import {
   authorityLevel,
   COLONY_SCOPE_PATTERN,
+  standingRows,
+  supersedeChains,
   type EvidenceOfLife,
   type EvidenceSource,
   type Vaccine,
@@ -822,12 +824,12 @@ async function checkVisitLink(tx: DbOrTx, input: WriteObservationInput): Promise
   if (!visit || visit.kind !== "vet_visit" || visit.catId !== input.catId) {
     refuse("INVALID_VISIT_LINK", "vetVisitId must name a vet visit of the same cat");
   }
-  const [superseded] = await tx
-    .select({ id: observationsTable.id })
+  // Standing by the resolver's own rule, over the cat's visits.
+  const visits = await tx
+    .select()
     .from(observationsTable)
-    .where(eq(observationsTable.supersedesId, visitId))
-    .limit(1);
-  if (superseded) {
+    .where(and(eq(observationsTable.catId, input.catId), eq(observationsTable.kind, "vet_visit")));
+  if (!standingRows(visits, "vet_visit").some((o) => o.id === visitId)) {
     refuse("INVALID_VISIT_LINK", "vetVisitId names a vet visit that has been undone or replaced");
   }
 }
@@ -1338,8 +1340,18 @@ export async function loadCatRecords(
         bestSource = source;
       }
     };
+    // SYC-396 PR 3.0: a retraction is never evidence of life, nor is a row it
+    // retracted (an undone vet visit's "sterilised"); every other
+    // sterilisation row still counts, superseded or not, as before. The
+    // newest standing vet visit counts (§8.3, amending spine §3.4).
+    const sterilisedRetracted = supersedeChains(observations, "sterilised").retracted;
+    for (const o of standingRows(observations, "vet_visit")) consider(o.observedAt, "vet_visit");
     for (const o of observations) {
-      if (o.kind === "sterilised") consider(o.observedAt, "sterilised");
+      if (o.kind === "sterilised") {
+        if (!isPlainObject(o.value) || o.value["retracted"] !== true) {
+          if (!sterilisedRetracted.has(o.id)) consider(o.observedAt, "sterilised");
+        }
+      }
       // An ear-tip answer that belongs to a sighting (data spine PR 7) adds
       // nothing the sighting doesn't already say, at its true date. Counting
       // it separately would be wrong whenever writeObservation's 30-day

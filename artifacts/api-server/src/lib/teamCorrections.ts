@@ -22,6 +22,8 @@ import {
   resolveMarkings,
   resolveSterilised,
   standingAboveTeam,
+  supersedeChains,
+  type RestorableKind,
 } from "./resolve";
 import { catNamed, isBlankName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
@@ -134,7 +136,8 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 /**
  * Locks one observation for the rest of the transaction and returns it,
  * refusing NOT_FOUND if there is no such row and ALREADY_SUPERSEDED if
- * something already points at it. The ONE place this shape lives: marking a
+ * something already points at it (for sterilised, vaccinated and vet_visit:
+ * something in effect, by `supersedeChains`). The ONE place this shape lives: marking a
  * statement wrong (supersedeStatement) and re-tying a welfare report to
  * another cat (lib/welfareTie.ts) both go through it.
  *
@@ -159,6 +162,20 @@ export async function lockActiveObservation(tx: Tx, id: number): Promise<Observa
     .where(eq(observationsTable.id, id));
   if (!original) throw notFound();
 
+  // The kinds a vet visit writes stand by the resolver's restore rule
+  // (SYC-396 PR 3.0): a statement put back by an undone visit stands again,
+  // so it can be marked wrong again; one replaced in effect cannot.
+  if (isRestorableKind(original.kind)) {
+    const sameKind = await tx
+      .select()
+      .from(observationsTable)
+      .where(and(eq(observationsTable.catId, original.catId), eq(observationsTable.kind, original.kind)));
+    if (supersedeChains(sameKind, original.kind).displaced.has(id)) {
+      throw new ObservationRefused("ALREADY_SUPERSEDED", "Already superseded");
+    }
+    return original;
+  }
+
   const [alreadySuperseded] = await tx
     .select({ id: observationsTable.id })
     .from(observationsTable)
@@ -168,6 +185,9 @@ export async function lockActiveObservation(tx: Tx, id: number): Promise<Observa
   }
   return original;
 }
+
+const isRestorableKind = (kind: string): kind is RestorableKind =>
+  kind === "sterilised" || kind === "vaccinated" || kind === "vet_visit";
 
 // ── A fresh statement: life status or sterilisation ───────────────────────
 

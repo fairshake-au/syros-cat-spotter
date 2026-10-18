@@ -115,7 +115,8 @@ Three consequences that need deciding rather than discovering:
 **Computed from what, exactly.** The previous rule keyed off sightings alone, and that broke in four places the review found. The rule is now: presumed deceased when **the newest evidence that this cat was alive is more than 36 months old**, where evidence of life is the newest of:
 
 - a resolved sighting,
-- any observation whose kind implies the cat was alive at `observedAt` — a `life_status` of street, homed or in care; a `sterilised` record (a cat on a clinic table is alive); an `ear_tip` observation; a `welfare_report` (somebody stood in front of this cat and was worried about it),
+- any observation whose kind implies the cat was alive at `observedAt` — a `life_status` of street, homed or in care; a `sterilised` record (a cat on a clinic table is alive); an `ear_tip` observation; a `welfare_report` (somebody stood in front of this cat and was worried about it); a vet visit (`vet_visit`) that still stands,
+  *(Amended 18 October 2026, SYC-396 PR 3.0, team-dashboard-redesign.md §8.3: a vet visit is evidence of life. A `{ retracted: true }` row, which a vet-visit undo writes, is never evidence of life, and nor is a `sterilised` or `vet_visit` row it undid.)*
 - a linked import record's operation date,
 - failing all of those, the date the cat record was created.
 
