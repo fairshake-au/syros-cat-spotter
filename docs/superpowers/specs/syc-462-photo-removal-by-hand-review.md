@@ -317,3 +317,30 @@ Other points:
   - `scripts/db-ops.sh:491-498` has the target restriction;
   - `neon-database.md:172` says 7 days (the live setting is unchecked).
 - **Logs.** `app.ts:30-41` records request paths, which include the photo's public id.
+
+---
+
+## Disposition (added by the spec author, 18 October 2026)
+
+Findings 1, 2, 8 and 14 were re-checked against the code before folding: `sightings.ts:769-775` (new cat takes `sighting.photoId`), `teamPages/catPages.ts:414-424` (Hide form has no reason), `teamPhotos.ts:68-111` (no default branch), and the "Photo hidden while…" string (not in app code on main). All four hold.
+
+| # | Severity | Disposition | Where in the spec |
+|---|---|---|---|
+| 1 | Major | **Fixed.** Matching skips the marker; repeat upload filters both reads incl. the fallback; new cat from a removed cover gets `0`; P9 added | §3.1 P9, §6 changes 2–3, T11, T12b |
+| 2 | Blocker | **Fixed.** `photo-hide` on an already-hidden photo adds a second `privacy` hide; never re-exposed; exact, case-sensitive rule | §5.2, §5.4(3), T4 success cases |
+| 3 | Major | **Fixed.** Removal ledger; re-apply after any restore/swap/carry-back/dev reset; line added to `neon-database.md` | §3.4, §7 steps 11 and "after any restore" |
+| 4 | Major | **Fixed.** Reply template conditional on step 10's list; no assumed "7 days"; sent only after steps 9–10 | §1 point 5, §7 step 12 |
+| 5 | Major | **Fixed.** Search check 5 (the `removed:` record); T2 table maps each step to its check | §5.5, T2 |
+| 6 | Major | **Fixed.** `photo_ref` allowlist; output never prints reasons; full ids; `GITHUB_ACTOR` on the ledger | §5 inputs, §5.1, §4.4, T4, T7 |
+| 7 | Minor | **Fixed.** Reuse the people store's "on the list now" query (joined, not left, role in force); `remove_photo` sentence corrected; approver is the real gate | §2, §5, T4 |
+| 8 | Minor | **Fixed.** `teamPhotos.ts` gets a `removed` branch (409 / page); T10 goes through the route | §6 change 1, §12, T10 |
+| 9 | Major | **Fixed.** Source test over `photos.data`/`mime` readers | §3.1 readers list, T13 |
+| 10 | Minor | **Fixed.** Duplicate-picture handling; public-id pointer scan; alignment assumption stated; post-commit, read-only, timeout, duration; `bytea` and "no other types" | §5.5 checks 6–7, §7 step 6 |
+| 11 | Minor | **Fixed.** `variantFor` refuses the marker at read and before insert; re-check twice | §4.3, §6 change 4, T15 |
+| 12 | Minor | **Fixed.** Parity test; `0` handling stated | §4.2, T14 |
+| 13 | Nit | **Accepted and noted.** | §4.2 |
+| 14 | Minor | **Fixed.** Tile claim corrected (payload `photoUrl: null`); `sharp` case covered by T15 (returns null, saves nothing); plan line 58 wording noted | §4.5, §11, T9, T15 |
+| 15 | Minor | **Fixed (runbook).** Search repo/PRs/Linear for the id and cat screenshots; seeded-data rule | §3.2 C6, §7 step 10 |
+| 16 | Minor | **Fixed.** Input count to be checked with actionlint + a real dispatch (limit unchecked); one run at a time; dev branch runs steps 5–6; restore warning | §5, §5.3, §7 step 8 |
+| 17 | Minor | **Fixed.** Reason `'privacy'` exactly; `mime` back to `image/jpeg` in the backfill; stand-in vs placeholder noted | §5.2, §9, §4.2 |
+| 18 | Minor | **Fixed.** Plain-English pass on §1, §2 and §10; "who's affected" line per option; §3 flagged skippable | §1, §2, §10 |
