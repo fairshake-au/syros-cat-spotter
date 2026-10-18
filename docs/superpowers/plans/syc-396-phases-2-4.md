@@ -1,6 +1,6 @@
 # Team dashboard redesign: implementation plan for phases 2, 3 and 4
 
-**Status:** draft for Samuel's approval on Tue 20 Oct 2026. One combined plan, as Samuel decided on 18 Oct (D1, recorded on SYC-463).
+**Status:** for Samuel's approval on Tue 20 Oct 2026, revised after its adversarial review (18 Oct). One combined plan, as Samuel decided on 18 Oct (D1, recorded on SYC-463).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to carry out this plan task by task. Steps use checkbox (`- [ ]`) syntax for tracking. **Commit after every task, and write a checkpoint line to `PROGRESS.md` in your worktree after every task (what's done, what's next). Never hold work only in memory. Do not sub-delegate.**
 
@@ -57,10 +57,10 @@ Every task's requirements include these.
 
 **Sterilisation marks** (§12.2) mean sterilisation status and nothing else. Use `MARK_ORDER`, `MARK_COLOUR`, `MARK_WORD` and `markBadge` from `lib/teamPages/marks.ts`. A total that isn't a status is drawn in neutral ink `#1d1d1b` at 55% opacity.
 
-**Migrations.** Three are planned, numbered in the order the PRs are expected to merge:
+**Migrations.** Three are planned, numbered in the order the PRs are expected to merge (revised after the plan review):
 - `0031_named_areas` (PR 2.4);
-- `0032_vet_settings_history` (PR 3.1);
-- `0033_report_downloads` (PR 3.3a).
+- `0032_report_downloads` (PR 3.3a, wave 2);
+- `0033_vet_settings_history` (PR 3.1b).
 
 If they merge in another order, the later one is deleted and regenerated, as `lib/db/migrations/README.md` says. Every migration has a commented rollback and passes `migrate:check`. All three are applied to production by Claude before the publish that carries them. Production writes need Samuel to switch the session to "ask" mode first (memory `neon-writes-need-ask-mode`).
 
@@ -102,21 +102,44 @@ If they merge in another order, the later one is deleted and regenerated, as `li
 **Wave 1 (from Tue 20, once this plan is approved):** these can run in parallel, with no file collisions between them.
 - 2.0 is small and should merge first, on Tue 20 or Wed 21.
 - 2.4 and 2.5 don't need 2.0.
-- 3.0 touches only the resolver and the observation writer.
+- 3.0.1 and 3.0.2 touch only the resolver and the observation writer. 3.0.3 also changes `loadTeamCats` in `teamCatList.ts`, so it is committed last in PR 3.0 and rebased on 2.0 before review.
 
 **Wave 2 (once 2.0 merges):** 2.1, 2.2 and 3.3a run in parallel.
+- Only 2.2 touches `colonyPages.ts` in this wave. The Feeding sites link moved into 2.2 for that reason.
 - 2.3 starts once 2.2 merges, because both change `lib/teamPages/colonyPages.ts`.
 - 3.3a needs 2.4 for its areas version line, but can be built against the read-only list and rebased.
+- 3.3a's one-line menu change in `layout.ts` is made after 2.1 merges (2.1 rewrites the menu).
+- **Shared lists every PR appends to:** `team.walk.test.ts` `TABLE`, the `guardianView.source.test.ts` lists, `CATALOGUE`, and roles §6.2. These conflict only as adjacent-line rebases. Whoever merges second rebases and re-runs the walk.
 
 **Wave 3:**
-- 3.1 starts once 3.0 and 2.3 merge (it needs the price setting and `view_vet_costs` from 2.3).
+- 3.1a (Tasks 3.1.1 and 3.1.3) starts once 3.0 and 2.3 merge. It needs the price setting and `view_vet_costs` from 2.3.
+- 3.1b (Task 3.1.2, Vet settings) can start as soon as 2.3 merges, in parallel with 3.0.
 - 3.2 and 3.3c follow 3.1.
 - 3.3b follows 3.3a.
 - 4.1 follows 3.3a and 3.1.
 
 **What else is running.** SYC-44's 6.1, 6.2 and 7.1 change `queuePage.ts` and add the Issues section. PR 2.1 links to that section by the anchor `#issues`, so 7.1's builder must give the section `id="issues"` (agreed through SYC-44). SYC-439 (#229) changes colony creation in `teamColonies.ts`. PR 2.2 rebases on it if #229 merges first.
 
-**Fit to 31 October (D2).** The launch plan has eight building days, from Tue 20 to the freeze on Wed 28. Phase 2 (six PRs) and 3.0, 3.1 and 3.2 fit. 3.3a–c and 4.1 are the first to slip, in D2's order. Every PR here can go live any day after 31 October without a relaunch.
+**Fit to 31 October (D2).** The launch plan has eight building days, from Tue 20 to the freeze on Wed 28. The honest picture:
+
+- **The critical path** is 2.0 → 2.2 → 2.3 → 3.1 → 3.2. That's five PRs in a row, each with a review and a merge by Samuel in his two merge windows a day. It fits only if each one takes about a day and a half.
+- **3.1 is the biggest PR,** so it's split:
+  - **3.1a** covers the writer, undo, capabilities and the form;
+  - **3.1b** covers the Vet settings page and its history (Task 3.1.2). It can be built in parallel from wave 2, because it needs only 2.3's setting.
+- **Production migrations** 0031 and 0033 (and 0032 for 3.3a) each need Samuel to switch the session to "ask" mode once. They can share one switch per publish day.
+- **The test database** is shared by every parallel agent on this Mac. At most three building agents run at once.
+
+**Verdict:**
+- **Phase 2:** 2.0–2.4 fit. 2.5 fits if its review finds nothing large.
+- **Phase 3:** 3.0, 3.1 and 3.2 fit.
+- **The first to slip,** in D2's order, are 3.3a–c and 4.1.
+
+Every PR here can go live any day after 31 October without a relaunch.
+
+**Johnny's pack (copy freeze Thu 22).**
+- The guardian words in 2.2 and 2.3 are written as soon as each PR starts, and posted to SYC-346 by Thu 22, before the code merges.
+- 3.1's guardian line goes in the flagged second pack.
+- If 2.3 starts after Thu 22, its guardian words go in the second pack too.
 
 ## Decisions this plan makes (within the approved spec)
 
@@ -146,7 +169,8 @@ Each one is a choice the spec leaves open. "What the team sees" says what it mea
    - Their changes go into `mapping_events` as subject kind `named_area`.
    - `namedAreasAt(asOf)` rebuilds the list as it stood at any moment, so a report names its version and an old report never moves.
    - The public map's "Go to" list (`lib/mapTiles/areas.ts`) is a separate list, and stays untouched.
-10. **"As of" means "entered by then".** A report as of time T uses only observations, sightings, cats and welfare reports with `createdAt <= T`.
+10. **"As of" means "entered by then".** A report as of time T uses only observations, sightings, cats, colony rows and welfare reports with `createdAt <= T`.
+    - Known limit: a sighting entered before T but matched to a cat after T counts as matched, because matches aren't dated. That can move "last seen" lines, but not the impact report's sterilisation, colony or new-cat figures.
     - One exception: a record **redacted** for privacy after T stays gone. Privacy beats reproducibility.
     - The method note already says figures change as records are corrected.
 11. **Welfare kinds never overlap on a chart.** Every report is in exactly one kind:
@@ -163,7 +187,7 @@ Each one is a choice the spec leaves open. "What the team sees" says what it mea
 16. **A visit's clinic is stored by id, from the one clinic list** (`getGuidance("en").vets`, three clinics today). Older statements that have free-text clinics are left as they are.
 17. **Find from a photo takes the photo as an ordinary file upload** (`multer`, held in memory only, one file of at most 10 MB). The form therefore works with no script.
     - The daily caps use the shared limiter's UTC day, so the words say "They reset overnight", not "at midnight".
-    - The candidates' reference photos are their **display** photo (`catDisplayPhoto`), never a hidden one. This also fixes SYC-303 for this route.
+    - The candidates' reference photos are their **display** photo, never a hidden one. The ids come from `catDisplayPhotoIds` (`lib/photoVisibility.ts:103`), and the bytes come from the photo's 640px medium version (`variantFor(id, "medium")`), not the full photo. That keeps 30 candidates small in memory and in the AI call. This also fixes SYC-303 for this route.
 
 ## Questions for Samuel (with the approval)
 
@@ -191,7 +215,7 @@ These change the spec's scope, so they're his.
 
 **Interfaces:**
 - Consumes:
-  - `loadCatRecords(ids)` (`lib/observations.ts:1002`);
+  - `loadCatRecords(ids)` (`lib/observations.ts:1003`);
   - `resolveCat` (`lib/resolve.ts:1532`);
   - `currentColonyOf` (`lib/colonyMembership.ts`);
   - `catIdentityTable` (`lib/db/src/schema/observations.ts`, `{ catId, canonicalCatId, supersedesId }`).
@@ -201,6 +225,7 @@ These change the spec's scope, so they're his.
 export interface TeamCat extends CatListItem {
   createdAt: Date;                       // cats.created_at: "new to the records"
   snapshot: CatSnapshot;                 // the resolved cat, for figures that need more than the card
+  areaKey: string;                       // areaFor(placedAt).key; "off" for Off Syros
 }
 /** Every cat the team can see, active or not, resolved once. Merged-away halves are left out. */
 export async function loadTeamCats(now?: Date): Promise<TeamCat[]>;
@@ -241,7 +266,7 @@ where ci.canonical_cat_id <> ci.cat_id
 ```ts
 export const NOT_SEEN_LATELY_DAYS = 42;          // 6 weeks, spec §4.3 (Syros Cats may change it: SYC-442)
 export type Split = Record<SterilisedMark, number>;
-export const isStreet = (c: TeamCat): boolean => c.lives === "street";
+export const isStreet = (c: TeamCat): boolean => c.lives === "street" && c.areaKey !== "off";   // §3.3: Off Syros is never counted
 export const isActive = (c: TeamCat): boolean => c.lives !== "gone";
 /** Street cats with at least one resolved sighting, last seen NOT_SEEN_LATELY_DAYS or more ago. */
 export function notSeenLately(cats: readonly TeamCat[], now: Date): TeamCat[];
@@ -259,7 +284,8 @@ export function toDo(cats: readonly TeamCat[]): TeamCat[];
     - a street cat last seen 43 days ago is in;
     - one seen 41 days ago is out;
     - one never sighted (`lastSeenAt: null`) is out;
-    - a homed cat seen 100 days ago is out.
+    - a homed cat seen 100 days ago is out;
+  - an Off Syros street cat (the Arizona test report's kind) is in **no** figure: not `street`, not `split`, not `homed`, not `notSeenLately`, not `toDo`. The split, the area totals and the headline must reconcile.
   - `toDo` order: `not_sterilised` first, then `not_known`, then `probably`. Within each group, newest `lastSeenAt` first, with nulls last. A `sterilised` cat is never in the list.
 - [ ] **Step 2: Run them and see them fail. Step 3: Implement. Step 4: See them pass.**
 - [ ] **Step 5: Mutation probe:** change `isStreet` to `c.lives !== "gone"`. The headline test **must** go red. Restore it.
@@ -316,7 +342,7 @@ export const HOME_PHOTOS = 4;              // first photos per Cats-to-check lis
 export const DRAFT_WINDOW_HOURS = 24;
 export interface MonthFigures { sightings: number; newCats: number; sterilisations: number }
 export interface HomeData {
-  needs: { reports: QueueReport[]; reportsTotal: number; drafts: QueueDraft[]; issuesOpen: number; awaitingMatch: number };
+  needs: { reports: QueueReport[]; reportsTotal: number; unchecked: number; drafts: QueueDraft[]; issuesOpen: number; awaitingMatch: number };
   toCheck: { earClips: { count: number; photos: string[] }; colour: { count: number; photos: string[] } };
   notSeenLately: { cats: TeamCat[]; total: number };
   headline: Headline;
@@ -354,7 +380,7 @@ export async function monthFigures(from: Date, to: Date, cats: readonly TeamCat[
 - Modify:
   - `artifacts/api-server/src/routes/index.ts` (register `teamHome` after `team`);
   - `routes/team.walk.test.ts` (one row);
-  - `lib/teamAuth/config.ts` (`TEAM_HOME` becomes `…/api/team/home`);
+  - `lib/teamAuth/config.ts` (`TEAM_HOME` becomes `…/api/team/home`), plus its other user `middlewares/requireInvitee.ts:46`, and `lib/teamAuth/refuse.ts:108` (`TEAM_HOME_PATH` becomes `/api/team/home`, so "Back home" lands on Home);
   - `routes/team.ts` (the sign-in hand-off and `alreadySignedInAs` land on Home for holders of `view_welfare_queue`).
 - Test: `artifacts/api-server/src/routes/team.home.test.ts`
 
@@ -363,7 +389,8 @@ export async function monthFigures(from: Date, to: Date, cats: readonly TeamCat[
 
 **The page** (§4, in this order). A section shows only when it has something:
 1. **Needs us now:**
-   - up to 5 reports from `needs.reports`, each one line: small photo, `placeLabel`, `timeAgo`, and the first 80 characters of the note, escaped. Each links to `/api/team/reports/:publicId`;
+   - up to 5 reports from `needs.reports`, each one line: the report's photo through the queue's own photo URL (`QueueReport.photo.url`, because report photos have no small versions yet; SYC-403), `placeLabel`, `timeAgo`, and the first 80 characters of the note, escaped. Each links to its row in the Queue, `/api/team#r-<publicId>` (the queue anchors rows as `id="r-…"`, `queuePage.ts:252`). There is no page for a single report;
+   - "N reports waiting for a check", from `queue.unchecked.reportsTotal`, linking to the Queue, so reports accepted while the bot check was down are never missed;
    - "See all N in the Queue" → `/api/team`;
    - "Started but not sent (N)", listing the last 24 hours' drafts;
    - "Problems reported with photos or names (N)" → `/api/team#issues`;
@@ -381,12 +408,12 @@ export async function monthFigures(from: Date, to: Date, cats: readonly TeamCat[
 - [ ] **Step 1: Write the failing tests:**
   - a team member gets 200 and the sections in order (assert index order in the HTML);
   - a guardian gets 403;
-  - signing in lands on `/api/team/home` (copy the hand-off test from `team.signin.test.ts`);
+  - signing in lands on `/api/team/home` (copy the hand-off test from `team.handoff.test.ts`, and update the landing assertions in `team.my.test.ts` and `team.realBrowsers.test.ts`);
   - an empty Needs section is absent;
-  - the headline numbers match `headline()` for the same `now`;
+  - the headline is tested in `renderHomePage` against a hand-built `HomeData`, not by reading the island twice, because the database is shared;
   - **no response time, "open for", per-person count or name of a team member appears anywhere** (a regex list of "minutes open", "response", "by Jacky");
-  - a forced throw in `countOpenIssues` (with `vi.spyOn`) still renders the page with the fallback line;
-  - thumbnails use `/small`.
+  - a forced throw in one section's loader still renders the page with the fallback line. `homeData` takes its loaders as an optional `deps` argument, so the test injects a throwing one; `vi.spyOn` can't intercept a call inside the same module;
+  - the Not-seen-lately cards use `/small` cat thumbnails.
 - [ ] **Step 2: Fail. Step 3: Implement** following the `routes/teamCorrections.ts:788` GET pattern. **Step 4: Pass.**
 - [ ] **Step 5: Mutation probe:** remove the per-section `try` around Needs. The forced-throw test **must** go red. Restore it.
 - [ ] **Step 6: Commit:** `SYC-396 PR 2.1: Home, the first page after signing in`
@@ -397,15 +424,14 @@ export async function monthFigures(from: Date, to: Date, cats: readonly TeamCat[
 - Modify:
   - `artifacts/api-server/src/lib/teamPages/layout.ts`: `NavKey` gains `"home"`. The `NAV` array becomes Home `/api/team/home`, Cats, Map, Queue `/api/team`, Colonies, then People when shown. Likely, Colour check and Feeding sites leave it. Their pages pass `active: null`, or the nearest parent: Colour check and Ear clips use `"home"`, and Feeding sites uses `"colonies"`.
   - `lib/teamPages/likelyPage.ts`: the title and heading become "Ear clips to check". The explanation line keeps its wording.
-  - `lib/teamPages/colonyPages.ts`: a "Feeding sites" link under the Colonies title.
-  - The tests that pin menu labels: `team.menu.test.ts`, and any snapshot found by `grep -rn "Probably sterilised" src`.
-- Test: `artifacts/api-server/src/routes/team.menu.test.ts`
+  - (The "Feeding sites" link under the Colonies title is added by PR 2.2, which owns `colonyPages.ts` in this wave. Until 2.2 merges, Feeding sites stays reachable from the Map's layer and from each colony.)
+  - The tests that pin menu labels: `lib/teamPages/layout.test.ts`, and any other found by `grep -rn "Probably sterilised" src`.
+- Test: `artifacts/api-server/src/lib/teamPages/layout.test.ts`
 
 - [ ] **Step 1: Write the failing tests:**
   - the team menu is exactly the six labels in order;
   - the guardian menu is unchanged;
   - `/api/team/likely` is titled "Ear clips to check";
-  - Feeding sites can be reached from the Colonies page.
 - [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** then run the whole api-server suite, because menu words appear in many tests.
 - [ ] **Step 5: Look at it:** screenshots at 390px and 1280px of Home with seeded data, saved to `docs/screenshots/syc-396-pr-2-1/`. Check: the menu row slides on a phone, nothing else scrolls sideways, tap targets are 44px, and no text is under 12px.
 - [ ] **Step 6: Commit:** `SYC-396 PR 2.1: the menu names the team's jobs; Ear clips to check (SYC-365, SYC-450)`
@@ -460,7 +486,7 @@ export async function colonyFigures(visible: Visible, opts: { island: boolean },
 
 **Files:**
 - Modify:
-  - `artifacts/api-server/src/lib/teamPages/colonyPages.ts`: `renderColoniesPage` takes `figures: Map<number, ColonyFigures>` and `sort`, and draws each card with `markBar`.
+  - `artifacts/api-server/src/lib/teamPages/colonyPages.ts`: `renderColoniesPage` takes `figures: Map<number, ColonyFigures>` and `sort`, and draws each card with `markBar`. A "Feeding sites" link sits under the title for island-wide viewers (moved here from 2.1.3, so only this PR touches `colonyPages.ts` in wave 2).
   - `routes/teamColonies.ts`: read `sort` (`name` | `fewest` | `recent`; anything else means `name`), and call `colonyFigures(v.visible, { island: v.island })`.
   - `lib/teamPages/strings/{en,el,fr}.ts`: new keys under `colonies.` for the four flags, "% confirmed sterilised", "Latest sighting", the three sort words, and "No street cats yet".
 - Test: `routes/team.colonies.test.ts`, `routes/team.guardianView.test.ts`
@@ -498,7 +524,7 @@ export async function colonyFigures(visible: Visible, opts: { island: boolean },
   - `artifacts/api-server/src/lib/capabilities.ts` gains `view_vet_costs: { kind: "island", roles: TEAM }` and `print_trapping_plan: { kind: "island", roles: TEAM }`.
   - `docs/specs/roles-and-invites.md` §6.2 gains the two rows, under "Seeing": `| \`view_vet_costs\` | See vet costs, who paid, and estimates | Island-only | ✓ | ✓ | — |` and `| \`print_trapping_plan\` | Print a colony's trapping plan | Island-only | ✓ | ✓ | — |`.
   - `docs/specs/team-dashboard-redesign.md` §10.3 gains the `print_trapping_plan` row, with a line noting it was added by this plan.
-- Test: `lib/db/src/appSettings/shape.test.ts`, `lib/appSettings.test.ts`, `lib/capabilities.catalogue.test.ts`
+- Test: `lib/db/src/appSettings/dbOps.settings.test.ts` (or a new `shape.test.ts` beside it), `lib/appSettings.test.ts`, `lib/capabilities.catalogue.test.ts`
 
 - [ ] **Step 1: Failing tests:**
   - the shape refuses `0`, `501`, `"55"` and `55.5`;
@@ -520,8 +546,12 @@ export async function colonyFigures(visible: Visible, opts: { island: boolean },
 ```ts
 export const USUAL_SITE_RADIUS_M = 300;
 export interface PlanCat extends TeamCat { usualPlace: string; earClipSeen: boolean }
+/** What a guardian's planner may hold: an explicit field list, never a TeamCat with fields hidden.
+ * No lastSeen, placedAt, place or snapshot: those carry or derive from sighting positions. */
+export interface GuardianPlanCat { id: number; name: string; syr: string; photoPublicId: string | null; coat: CoatColour[]; pattern: CoatPattern | null; mark: SterilisedMark; lastSeenAt: Date | null; usualPlace: string; earClipSeen: boolean }
+export function forGuardian(c: PlanCat): GuardianPlanCat;   // copies the listed fields only
 export interface TrappingPlan {
-  colonyId: number; toDo: PlanCat[]; done: PlanCat[];
+  colonyId: number; toDo: PlanCat[] | GuardianPlanCat[]; done: PlanCat[] | GuardianPlanCat[];   // guardian: GuardianPlanCat only
   estimate: { cats: number; priceEur: number; totalEur: number } | null;   // null unless island
   sites: { id: number; lat: number; lng: number; publicLabel: PublicLabel | null }[];
 }
@@ -539,7 +569,8 @@ export async function trappingPlan(visible: Visible, colonyId: number, opts: { i
   - for a guardian, `usualPlace` uses the discovery position: seed a cat whose last sighting is next to a site with a **public label**, and whose discovery position is 2 km away in another area, and assert the guardian's label is the other area;
   - `estimate` is null for a guardian, and `7 × 55 = 385` for the team;
   - a colony outside `visible` returns null;
-  - **no `PlanCat.usualPlace` ever contains a site's internal name:** seed the site named "Vaporia — Eleni's" with the public label "harbour steps".
+  - **no `PlanCat.usualPlace` ever contains a site's internal name:** seed the site named "Vaporia — Eleni's" with the public label "harbour steps";
+  - **the serialised guardian plan** (`JSON.stringify` of what the guardian's page and its JSON variant receive) has no `lastSeen`, `placedAt`, `place` or `snapshot` key, and no number with 4 or more decimals.
 - [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass.**
 - [ ] **Step 5: Mutation probe:** make the guardian branch use the last sighting. The guardian `usualPlace` test **must** go red. Restore it.
 - [ ] **Step 6: Commit:** `SYC-396 PR 2.3: trappingPlan, To do, Done and the estimate`
@@ -565,7 +596,7 @@ export async function trappingPlan(visible: Visible, colonyId: number, opts: { i
     - holds no `\d+\.\d{4,}` (a coordinate), no map-company address, and no internal site name;
     - a guardian gets 403;
     - the page's own `<title>` doesn't hold the colony name in the address, so the route stays `/colonies/:id/plan`.
-- [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus `positions.source.test.ts` and `position.guard.source.test.ts`.
+- [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus `lib/teamPages/positions.source.test.ts` and `lib/teamPages/position.guard.source.test.ts`.
 - [ ] **Step 5: Look at it** at 390px and 1280px, and print-preview `/plan` to PDF in Chrome. Check the margins and the white background. Save to `docs/screenshots/syc-396-pr-2-3/`.
 - [ ] **Step 6: Commit:** `SYC-396 PR 2.3: the colony page is a trapping planner, with a printable plan`
 
@@ -599,12 +630,15 @@ export const namedAreasTable = pgTable("named_areas", {
   - `MAPPING_SUBJECT_KINDS` gains `"named_area"`.
   - `MAPPING_EVENT_KINDS` gains `"area_added"`, `"area_renamed"`, `"area_moved"` and `"area_retired"`.
 - Create: `lib/db/migrations/0031_named_areas.sql`, generated, then edited by hand:
+  - widen `mapping_events_subject_kind_ck` and `mapping_events_kind_ck` to the new values **first**, so the seed events are allowed;
   - insert today's 22 rows from `NAMED_AREAS`, in the same order, with the same keys;
-  - write one `area_added` event per row with `actor_system = 'system:migration'` and `after = {key,name,lat,lng}`;
+  - write one `area_added` event per row with `actor_system = 'system:migration'`, `after = {key,name,lat,lng}`, and **`at = '2026-10-15T00:00:00Z'`**, the day version 1 was approved. Then `namedAreasAt` for any date from then on gives the seed list. For earlier dates, `namedAreasAt` falls back to `SEED_AREAS` with version 0, so a report reaching back before the table still has areas;
+  - a partial unique index on `lower(name) where retired_at is null`, so two areas can't share a name in a race;
+  - the key check also refuses `off`, which is reserved for Off Syros;
   - a commented rollback.
 - Test: `lib/db/src/migrate/namedAreas.test.ts`. It uses its own throwaway database, applies the migration, and checks 22 rows, 22 events, and that the history trigger still refuses an update.
 
-- [ ] **Step 1: Failing test. Step 2: Fail. Step 3: Implement** with `pnpm --filter @workspace/db run generate --name named_areas`, then the seed SQL. **Step 4: `migrate:check` and the test pass. Step 5: Commit:** `SYC-396 PR 2.4: named_areas table, seeded with version 1 (migration 0031)`
+- [ ] **Step 1: Failing test. Step 2: Fail. Step 3: Implement** with `pnpm --filter @workspace/db run generate --name named_areas`, then the seed SQL. **Step 4: `migrate:check` and the test pass. Step 5: Commit:** `SYC-396 PR 2.4: named_areas table, seeded with the first 22 areas (migration 0031)`
 
 #### Task 2.4.2: The cache, `namedAreasAt` and the writer
 
@@ -641,7 +675,10 @@ export async function changeArea(person: Person, change: AreaChange): Promise<vo
 
 - **The cache refreshes** when it's older than `AREAS_TTL_MS`, triggered by the next `areaFor` call, without blocking. It also refreshes at once after `changeArea` on this server.
 - **`namedAreasAt(at)`** replays the `named_area` events with `at <= at`, using each event's `after`. `version` is the number of those events.
-- **`changeArea`** runs in one transaction: lock the row, check the change, update `named_areas`, then `recordMappingEvent(tx, { subjectKind: "named_area", subjectId: row.id, kind, personId, before, after })`.
+- **`changeArea`** runs in one transaction: lock the row, check the change, update `named_areas`, then `recordMappingEvent(tx, { subjectKind: "named_area", subjectId: row.id, kind, personId, before, after })`. **`before` and `after` always hold the whole row** (`{key, name, lat, lng, retired}`), for every kind, so `namedAreasAt` can replay from `after` alone.
+- **The version** is the number of `named_area` events, starting at 22 for the seed. The old constant `AREAS_VERSION = 1` (`namedAreas.ts:13`) is removed, and every reader moves to `areasVersion()`.
+- **`namedAreasAt` reads `mapping_events`,** so it lives in its own module, `lib/areas/areaHistory.ts`. That module is registered in `ISLAND_ONLY_MODULES`, with the capability that guards each route calling it (`edit_named_areas` for the Areas page, `view_reports` for the reports). The cache in `namedAreas.ts` reads only `named_areas`, so the many routes that use `areaFor` stay outside the source test's lists.
+- **A failed cache reload** keeps the last good list and logs a warning. It never empties the list.
   - A new or moved centre must be on Syros: inside the box lat 37.36–37.52, lng 24.86–24.99.
   - A name is 2–40 characters, and unique among the areas that aren't retired.
 
@@ -649,6 +686,7 @@ export async function changeArea(person: Person, change: AreaChange): Promise<vo
   - `areaFor` gives the same answers as before for every seed centre;
   - after `changeArea(move)`, `areaFor` at the old centre gives the moved area **on this server immediately**;
   - after a simulated 61 s (`vi.setSystemTime`), a second process-local cache also sees it. Clear the module and load it again;
+  - **every test that writes areas uses its own per-run key** (`vt-<RUN>-…`, with the key check relaxed only for the test prefix, through a test-only seed helper) and never moves, renames or retires a seed row. Otherwise every later file in the run would see a moved Kini;
   - `namedAreasAt` before the move gives the old centre and `version` 22; after it, the new centre and `version` 23;
   - a centre at Mykonos (37.45, 25.33) is refused;
   - a duplicate name is refused;
@@ -668,6 +706,7 @@ export async function changeArea(person: Person, change: AreaChange): Promise<vo
   - `routes/index.ts`;
   - `routes/team.walk.test.ts` (`GET /api/team/areas` and `POST /api/team/areas` are team-only);
   - `lib/teamPages/position.guard.source.test.ts` `ALLOWED` gains `areasPage`.
+  - `lib/teamPages/positions.source.test.ts`, which this page must pass.
 - Test: `routes/team.areas.test.ts`
 
 **The page:**
@@ -682,7 +721,8 @@ export async function changeArea(person: Person, change: AreaChange): Promise<vo
   - a guardian gets 403 on GET and POST;
   - a POST without the Origin check is refused (copy from `team.sites.test.ts`);
   - an empty name is named next to its field, and the form keeps what was typed;
-  - **no position appears in any `href` or `action`:** assert `not.toMatch(/[?&][^"]*\d+\.\d{4,}/)` over the page.
+  - **no position appears in any of our own `href` or `action` values:** collect every `href` and `action`, drop the Open map links (`https://www.google.com/maps/…`, which D9 allows for island-wide viewers), and assert that none of the rest matches `\d+\.\d{4,}`. A guardian never reaches the page;
+  - the Areas page is reachable: Home's footer links it (an edit to `homePage.ts`, so this task rebases on 2.1 if 2.1 has merged; otherwise 2.1 adds the link), and the Cats filters' area select has "Change the areas" beside it (`catGridPage.ts`).
 - [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass. Step 5: Screenshots** at 390px and 1280px. **Step 6: Commit:** `SYC-396 PR 2.4: the Areas page`
 
 **After merge:** reply on SYC-442 that the list can now be corrected on the Areas page.
@@ -707,8 +747,8 @@ export async function changeArea(person: Person, change: AreaChange): Promise<vo
   - `matchCatPhoto(newPhotos, candidates)` (`lib/matching.ts`);
   - `MAX_CANDIDATES = 10` (`lib/candidateSelection.ts:18`);
   - `validatePhotoBase64` (`lib/imageValidation.ts`), which re-encodes the photo and drops EXIF and GPS;
-  - `catDisplayPhoto` (`lib/photoVisibility.ts`);
-  - `listTeamCats` with `{ area | colony, colours }`.
+  - `catDisplayPhotoIds` (`lib/photoVisibility.ts:103`) for which photo to use, and `variantFor(photoId, "medium")` (`lib/photoVariants.ts`) for its bytes;
+  - `allTeamCats` with `{ area | colony, colours }` (unpaged; `listTeamCats` stops at 48).
 - Produces:
 
 ```ts
@@ -739,7 +779,7 @@ export async function findFromPhoto(photo: Buffer, filters: Pick<CatListFilters,
   - a candidate whose main photo is hidden is sent with its display photo, never the hidden bytes. Assert the mock's arguments;
   - the bands sit at 0.8 and 0.5 exactly;
   - a mock that throws gives `matching_down`;
-  - **the row counts of `photos`, `sightings` and `observations` are unchanged after a search;**
+  - **nothing is stored:** after a search, there's no `photos` row created since the search began, no `sightings` row and no `observations` row. The test checks rows with `created_at >=` the search start, never absolute counts, because the database is shared. The mock also records that no write helper (`writeObservation`, photo insert) was called, through spies on those modules;
   - the buffer sent has no EXIF: feed a JPEG with a GPS tag from `imageValidation.exif.test.ts`'s fixture, and assert `sharp(sent).metadata()` has no `exif`.
 - [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass.**
 - [ ] **Step 5: Mutation probes:**
@@ -755,7 +795,9 @@ export async function findFromPhoto(photo: Buffer, filters: Pick<CatListFilters,
 - Modify:
   - `artifacts/api-server/package.json`: add `multer@^2` and `@types/multer`. Check the latest 2.x release and its advisories on the day.
   - `lib/capabilities.ts` gains `find_cat_from_photo: { kind: "island", roles: TEAM }`, and roles §6.2 gains its row: `| \`find_cat_from_photo\` | Search the cats of an area or colony with a photo | Island-only | ✓ | ✓ | — |`.
-  - `middlewares/rateLimit.ts`: `declareLimit("find_photo_person", 20, DAY_MS)` and `declareLimit("find_photo_team", 100, DAY_MS)`, plus `checkFindLimits(personId): Promise<"ok" | "person" | "team">`, which consumes both, person first, copying `checkClaimLimit`.
+  - `middlewares/rateLimit.ts`: `declareLimit("find_photo_person", 20, DAY_MS, { sliding: true })` and `declareLimit("find_photo_team", 100, DAY_MS, { sliding: true })`. Sliding windows, as `checkClaimLimit` uses, can't be doubled across a fixed window's edge. Also `checkFindLimits(personId): Promise<"ok" | "person" | "team">`, which consumes both, person first;
+  - `lib/teamPages/catGridPage.ts`: a "Find from a photo" link above the grid, carrying the current area or colony. `lib/teamPages/queuePage.ts`: on a report row, "Find this cat from the report's photo" links to the form with `tie=<publicId>`. This edit is coordinated with SYC-44 7.1, which owns `queuePage.ts` this week. If 7.1 hasn't merged, it is left to a follow-up;
+  - `routes/teamCats.ts`: the two `/team/cats/find` routes are registered **before** `GET /team/cats/:id` (`teamCats.ts:219`), so `find` is never read as a cat id.
   - `routes/teamCats.ts`: `GET /team/cats/find` (the form and the count) and `POST /team/cats/find` (multipart).
   - `routes/team.walk.test.ts`: two rows, team only.
 - Create: `artifacts/api-server/src/lib/teamPages/findPhotoPage.ts`
@@ -764,8 +806,9 @@ export async function findFromPhoto(photo: Buffer, filters: Pick<CatListFilters,
 **Route details:**
 - The POST is `requireOrigin(TEAM_ORIGIN)`, then `requireTeam("find_cat_from_photo")`, then `setTeamHeaders`, then `multer({ storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 10 } }).single("photo")`.
 - The filters arrive as form fields and are parsed with `parseCatFilters`.
-- The limits are checked **after** the narrowing check, so a refused narrowing costs nothing, and **before** any AI call.
-- A `tie` field (a welfare report's `publicId`) is carried through, and each result gets "This is the cat", which posts to the existing tie route.
+- The upload is parsed first, because the narrowing fields arrive in the same form. The limits are checked **after** the narrowing check, so a refused narrowing doesn't use up a search, and **before** any AI call.
+- A `MulterError` (too large, too many files) is caught by an error handler on this route only. It answers 413 or 400 with the page and words, never the app's generic JSON 500 (`app.ts` `jsonErrorHandler`).
+- A `tie` field (a welfare report's `publicId`) is carried through, and each result gets "This is the cat", which posts to the existing tie route with the fields that route expects, including `expectedCatId` (`teamReports.ts:396`).
 - The result page is the POST's response, so no address ever holds a result, a photo or a position.
 - The words are §5.2's, plus "You've used today's 20 searches. They reset overnight." (Decision 17) and "The team has used today's 100 searches." The cap words show once a cap is reached.
 - **"Show unlikely matches"** is a `<details>`.
@@ -804,7 +847,12 @@ It touches only `lib/observations.ts`, `lib/resolve.ts` and their tests, so it c
   - `OBSERVATION_KINDS` gains `"vet_visit"`;
   - `validateValue` gets a `vet_visit` case;
   - `sterilised` and `vaccinated` accept an optional `vetVisitId` and `{ retracted: true }`;
-  - `ROLES_REFUSED_FOR_KIND.vet_visit = ["public", "guardian", "system"]`.
+  - `ROLES_REFUSED_FOR_KIND.vet_visit = ["public", "guardian", "system"]`;
+  - **the writer's retraction checks** (`writeObservation`, `observations.ts:~848-933`, today only for appearance kinds through `isAppearanceKind && isRetraction(...)`) are extended to `sterilised`, `vaccinated` and `vet_visit`:
+    - the target exists, is the same kind and the same cat;
+    - a retraction may not supersede a retraction, except through `undoVetVisit`'s re-do path, which 3.0 doesn't build;
+    - the writer must hold the kind's capability;
+  - **only a vet-visit undo may write a retraction of these kinds.** `writeObservation` takes a new input flag, `fromVisitUndo: true`, which only `undoVetVisit` sets. Without it, a `{ retracted: true }` value for these kinds is refused (`RETRACTION_NOT_ALLOWED`). So the generic Mark wrong form and the JSON supersede route (`routes/observations.ts:~96`, which accepts any `value`) can't make a guardian's statement silently come back.
 - Test: `artifacts/api-server/src/lib/observations.vetVisit.test.ts`
 
 **Interfaces:**
@@ -836,7 +884,9 @@ export interface VetVisitValue {
   - an unknown clinic id is refused;
   - a cost of −1 or 2000.001 is refused;
   - a guardian or public writer of `vet_visit` is refused;
-  - every existing `sterilised` and `vaccinated` shape is still accepted, using the existing fixtures in `observations.test.ts`.
+  - every existing `sterilised` and `vaccinated` shape is still accepted, using the existing fixtures in `observations.test.ts`;
+  - `{ retracted: true }` for `sterilised` without `fromVisitUndo` is refused, through `writeObservation` **and** through `POST /team/observations/:id/supersede`;
+  - a retraction whose target is another cat's row, or another kind, is refused.
 - [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus the whole of `observations*.test.ts`.
 - [ ] **Step 5: Commit:** `SYC-396 PR 3.0: the vet_visit kind, and visit links on sterilised and vaccinated`
 
@@ -873,7 +923,13 @@ The chain logic:
   - retracting it brings back the guardian's "no";
   - `resolveVaccinated` drops a retracted record and keeps the others;
   - `loadCatRecords` reports `source: "vet_visit"` when the visit is the newest evidence;
-  - **a replay check:** for every cat in a fixture of 300 generated observation histories with no retractions, `resolveSterilised` gives the same answer before and after the change. Generate the histories with a seeded generator, and compare against a frozen copy of the old function kept in the test file.
+  - **a retraction is never evidence of life:** undoing a visit on a cat last seen 40 months ago leaves it presumed deceased. `loadCatRecords` today calls `consider(o.observedAt, "sterilised")` for every sterilised row (`observations.ts:1103`), so retractions, and the rows they stand down, are skipped;
+  - `resolveVaccinated` keeps its order: team rows first, then standing rows (`resolve.ts:1500-1505`);
+  - **the other readers agree with the resolver.** These build their own "was this superseded?" set from `supersedesId` and must use `standingRows` for these kinds instead. Each gets a test where G ← Y ← R shows G standing:
+    - `lib/guardianChanges.ts:~236` (`replaced` and `contradictsTeamRecord`): an undone visit's "overruled" line is shown as "put back when the visit was undone";
+    - `lib/teamCatView.ts:191, 354` (the team cat page's history marks);
+    - `lib/guardianStatements.ts:257-277` (the guardian's own view of her answer);
+  - **a replay check:** for every cat in a fixture of 300 generated histories, `resolveSterilised` gives the same answer as a frozen copy of the old function kept in the test file. The histories are generated with a seeded generator and include supersede chains of length 1–3, guardian and team rows, and past dates. This only proves that histories **without** retractions are unchanged, which is the claim. The new behaviour is covered by the four chain tests above.
 - [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus the whole of `resolve*.test.ts`.
 - [ ] **Step 5: Mutation probes:**
   - make a retraction stand nothing back up: the "brings back the guardian's no" test **must** go red;
@@ -886,6 +942,8 @@ The chain logic:
 
 **Files:**
 - Modify: `artifacts/api-server/src/lib/observations.ts`: `loadCatRecords(catIds, exec = db, opts: { asOf?: Date } = {})`.
+- Modify: `artifacts/api-server/src/lib/colonyMembership.ts`: `currentColonyOf(catIds, q, opts: { asOf?: Date } = {})`, which leaves out colony rows with `createdAt > asOf`. Without it, a past report would use today's colonies.
+- Add: `resolveAt(records: CatRecords, at: Date, now: Date): CatSnapshot`, a pure function that filters one cat's loaded rows to `createdAt <= at` and resolves. Reports that need many points load once and call it per point, instead of loading the island 24 times.
 - Modify: `artifacts/api-server/src/lib/teamCatList.ts`: `loadTeamCats(now, opts?: { asOf?: Date })`. With `asOf`, cats with `created_at > asOf`, sightings with `created_at > asOf` and `cat_identity` rows after `asOf` are left out, and `now` defaults to `asOf`.
 - Test: `artifacts/api-server/src/lib/asOf.test.ts`
 
@@ -896,12 +954,19 @@ The chain logic:
   - a statement entered on 15 Oct with an operation date of 1 Oct is **absent** as of 12 Oct, because it hadn't been entered yet;
   - a cat created on 14 Oct is absent as of 12 Oct;
   - evidence of life as of 12 Oct ignores a sighting from 13 Oct;
-  - with no `asOf`, the output is identical to today's, checked by snapshot over the replay fixture.
+  - with no `asOf`, the output is identical to today's, checked by snapshot over the replay fixture;
+  - a cat moved from colony A to B on 15 Oct is in A as of 12 Oct;
+  - `resolveAt(records, T)` equals `loadCatRecords(…, { asOf: T })` then `resolveCat`, for 50 random T.
+- **Known limit, written into Decision 10 and the method note:** a sighting entered before T but matched to a cat after T counts for that cat as of T, because a sighting's match isn't dated. This can change "last seen" and "presumed" lines, but not sterilisation, colonies or new-cat counts. The reproducibility test (4.1) covers the figures the impact report prints.
 - [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass.**
 - [ ] **Step 5: Mutation probe:** filter by `observedAt` instead of `createdAt`. The "entered on 15 Oct" test **must** go red. Restore it.
 - [ ] **Step 6: Commit:** `SYC-396 PR 3.0: loadCatRecords and loadTeamCats as of a moment`
 
-### PR 3.1: Logging a vet visit (after 3.0 and 2.3 merge)
+### PR 3.1: Logging a vet visit (3.1a after 3.0 and 2.3 merge; 3.1b after 2.3)
+
+3.1 ships as two PRs, to keep the biggest change reviewable:
+- **3.1a** is Tasks 3.1.1 and 3.1.3;
+- **3.1b** is Task 3.1.2, the Vet settings page and its history (migration 0033).
 
 **What the team sees:** **Log a vet visit** becomes the main button on the team cat page.
 - The form asks for:
@@ -928,14 +993,14 @@ The chain logic:
 - Consumes:
   - `inStatementTransaction(fn)` (`lib/commitStatement.ts:140`);
   - `commitStatement(tx, input, news)` (`:81`);
-  - `supersedeStatement(person, { id, value, reason, observedAt? }, tx, news)` (`lib/teamCorrections.ts:390`);
+  - `writeObservation(tx, { …, supersedesId, value: { retracted: true, reason }, fromVisitUndo: true })` for the undo. Undo does **not** go through `supersedeStatement`, because `capabilityFor("vaccinated")` and `capabilityFor("vet_visit")` return null (`teamCorrections.ts:62-70`) and `SUPERSEDE_CAPABILITIES` (`:74`) lacks them. `undoVetVisit` checks `log_vet_visit` itself and locks each row with `lockActiveObservation(tx, id)` (`:150`);
   - `loadCatRecords`, `standingRows`, `authorityLevel` (`lib/resolve.ts:188`);
   - `actingRole`, `can`.
 - Produces:
 
 ```ts
 export interface VisitInput { catId: number; date: string /* YYYY-MM-DD, not in the future */; value: VetVisitValue }
-export interface SavedVisit { visitId: number; sterilisedId: number | null; vaccinatedId: number | null; overruled: number[] }
+export interface SavedVisit { visitId: number; sterilisedIds: number[]; vaccinatedId: number | null; overruled: number[] }   // one sterilised row per overruled guardian row, or one plain row
 /** One transaction: the visit row, then a `sterilised` row (if ticked) that supersedes each standing
  * higher-authority "not sterilised" (D8), else a plain one, then a `vaccinated` row (if ticked). */
 export async function logVetVisit(person: Person, input: VisitInput): Promise<SavedVisit>;
@@ -953,17 +1018,20 @@ export interface VisitLine { visitId: number; date: string; did: VetVisitValue["
   - **with none,** one `sterilised` row `{ sterilised: true, clinic: clinicName, vetVisitId, reason: "vet visit" }`;
   - **with some,** one such row **superseding each**, with `supersedeReason = "vet visit on <d MMM yyyy>"`;
   - every one of them dated to the visit.
-- If Vaccinated is ticked, one `vaccinated` row `{ vaccines, clinic: clinicName, vetVisitId }`.
+- If Vaccinated is ticked, one `vaccinated` row `{ vaccines, clinic: clinicName, vetVisitId }`. Ticking Vaccinated needs `set_vaccination` as well as `log_vet_visit`, so the visit can't step around the existing vaccination rule.
 - The news ("desexed") is sent after the commit, as `commitStatement` already does.
 
 **Undoing a visit:**
 - Each row whose value has this `vetVisitId`, and then the visit itself, is superseded by `{ retracted: true, reason }`, all in one transaction.
+- The rows to retract are found by `value->>'vetVisitId' = visitId` **and** `cat_id = the visit's cat` **and** a kind in (`sterilised`, `vaccinated`). The validator also refuses a `vetVisitId` that isn't a standing `vet_visit` row of the same cat, so a stray number can't tie two cats together.
 - `ALREADY_SUPERSEDED` on any row rolls the whole undo back, with the words "This visit was already undone."
 
 - [ ] **Step 1: Failing tests (database-backed):**
   - a visit with Sterilised makes the cat `sterilised` / `confirmed`, dated to the visit, with `clinic` set;
   - a visit with both Sterilised and Vaccinated writes 3 rows in one transaction. Prove the rollback by making the third write throw: **no** rows remain;
-  - D8: with a guardian's standing "no", the visit's row supersedes it, the cat reads `sterilised`, and `listGuardianChanges()` gains an `overruled` entry with the reason "vet visit on 13 Aug 2026";
+  - D8: with a guardian's standing "no" dated 20 Aug, a visit dated **13 Aug** (before it, so SYC-315 B's "a newer yes wins" can't hide a missing D8) supersedes it. The cat reads `sterilised`, and `listGuardianChanges()` gains an `overruled` entry with the reason "vet visit on 13 Aug 2026";
+  - with two guardians' standing "no" rows, `sterilisedIds` has two entries and both are overruled;
+  - Vaccinated ticked by someone without `set_vaccination` is refused;
   - undo: the cat reads the guardian's "no" again, the vaccination is gone, and `visitsFor` no longer lists the visit;
   - undoing twice is refused, and the second attempt writes nothing;
   - a guardian calling `logVetVisit` is refused (`log_vet_visit` is island-only);
@@ -985,8 +1053,8 @@ export interface VisitLine { visitId: number; date: string; did: VetVisitValue["
   - roles §6.2 gains their rows: `| \`log_vet_visit\` | Log a vet visit on a cat | Island-only | ✓ | ✓ | — |` and `| \`edit_vet_settings\` | Change the standard sterilisation price | Island-only | ✓ | ✓ | — |`;
   - `lib/db/src/schema/mappingEvents.ts`: `MAPPING_SUBJECT_KINDS` gains `"vet_settings"`, and `MAPPING_EVENT_KINDS` gains `"price_changed"`.
 - Create:
-  - `lib/db/migrations/0032_vet_settings_history.sql`, which widens the two check constraints, with a rollback;
-  - `artifacts/api-server/src/lib/vetSettings.ts` with `setStandardPrice(person, eur)`. One transaction upserts `app_settings` and records `{ subjectKind: "vet_settings", subjectId: 1, kind: "price_changed", before: { eur }, after: { eur } }`. It also clears the `getAppSettings` cache;
+  - `lib/db/migrations/0033_vet_settings_history.sql`, which widens the two check constraints, with a rollback;
+  - `artifacts/api-server/src/lib/vetSettings.ts` with `setStandardPrice(person, eur)`. One transaction upserts `app_settings` and records `{ subjectKind: "vet_settings", subjectId: 1, kind: "price_changed", before: { eur }, after: { eur } }`. It also clears the `getAppSettings` cache through a new exported `clearAppSettingsCache()` (today only `_resetAppSettingsCacheForTests` exists). If the settings can't be read, the planner's estimate says "The standard price isn't available right now" rather than silently using €55;
   - `artifacts/api-server/src/lib/teamPages/vetSettingsPage.ts`;
   - the routes `GET` and `POST /team/vet-settings` (`edit_vet_settings`) in a new `routes/teamVet.ts`.
 - Modify: `lib/guardianView.source.test.ts` `ISLAND_ONLY_MODULES` gains `vetSettings.ts`, with capability `edit_vet_settings`.
@@ -998,7 +1066,7 @@ export interface VisitLine { visitId: number; date: string; did: VetVisitValue["
   - €0 is refused with words;
   - a guardian gets 403;
   - the migration test checks that a `vet_settings` event is accepted and that an unknown subject kind is still refused.
-- [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus `migrate:check`. **Step 5: Commit:** `SYC-396 PR 3.1: Vet settings, the standard price with its history (migration 0032)`
+- [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus `migrate:check`. **Step 5: Commit:** `SYC-396 PR 3.1: Vet settings, the standard price with its history (migration 0033)`
 
 #### Task 3.1.3: The form, the cat page, the guardian line and Home's spend
 
@@ -1067,7 +1135,7 @@ export interface RoundInput { colonyId: number; date: string; clinicId: string; 
   - a guardian gets 403.
 - [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass. Step 5: Screenshots. Step 6: Commit:** `SYC-396 PR 3.2: log a whole round's vet visits from the planner`
 
-### PR 3.3a: The Reports area, Sterilisation progress and Colony health (migration 0033)
+### PR 3.3a: The Reports area, Sterilisation progress and Colony health (migration 0032)
 
 **What the team sees:** **Reports** joins the menu. It lists seven reports, with Donations showing "Coming once donations are set up". Each report has a time range at the top. The first two are built here:
 - **Sterilisation progress:** the island headline, a line over time of confirmed sterilised against all street cats known, and every colony as a sorted bar.
@@ -1100,7 +1168,7 @@ export function sortedBars(o: { rows: { label: string; split: Split; href?: stri
 export function tableFor(o: { caption: string; columns: { key: string; label: string; numeric?: true }[]; rows: Record<string, string | number>[] }): string; // inside <details><summary>Show as table</summary>
 // csv.ts
 export function csvCell(v: string | number | null): string;   // quotes, doubles quotes; text starting = + - @ TAB CR gets a leading '
-export function toCsv(columns: { key: string; label: string }[], rows: Record<string, string | number | null>[]): string;
+export function toCsv(columns: { key: string; label: string }[], rows: Record<string, string | number | null>[]): string;   // starts with a UTF-8 BOM, so Greek names open correctly in Excel; CRLF line ends
 ```
 
 **The chart rules** (§12.3):
@@ -1125,8 +1193,8 @@ export function toCsv(columns: { key: string; label: string }[], rows: Record<st
 
 **Files:**
 - Create:
-  - `lib/db/src/schema/reportDownloads.ts`: `report_downloads(id serial, person_id uuid not null references people, report text not null, range text not null, at timestamptz default now())`, append-only by trigger, copying `site_page_reads`;
-  - `lib/db/migrations/0033_report_downloads.sql`, with a rollback.
+  - `lib/db/src/schema/reportDownloads.ts`: `report_downloads(id serial, person_id uuid not null references people, report text not null, range text not null, at timestamptz default now())`, made append-only by a trigger written in the migration (copy the `mapping_events` trigger from migration 0015; `site_page_reads` has none), with a migration test that an UPDATE and a DELETE are refused;
+  - `lib/db/migrations/0032_report_downloads.sql`, with a rollback.
 - Modify:
   - `lib/capabilities.ts` gains `view_reports: { kind: "placed", roles: EVERYONE }` and `export_report: { kind: "island", roles: TEAM }`;
   - roles §6.2 gains `| \`view_reports\` | See the reports (cat guardians: their colonies' progress and health) | Placed | All | All | Own |` and `| \`export_report\` | Download a report as a spreadsheet | Island-only | ✓ | ✓ | — |`.
@@ -1148,20 +1216,22 @@ export function toCsv(columns: { key: string; label: string }[], rows: Record<st
   - a forced failure in `recordDownload` sends 503 and no CSV body;
   - a guardian gets 403;
   - `team.headers.test.ts`: these pages keep the strict security header, because they have no script.
-- [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus `migrate:check`. **Step 5: Mutation probe:** move `recordDownload` after `res.send`. The 503 test **must** go red. Restore it. **Step 6: Commit:** `SYC-396 PR 3.3a: the Reports area, view_reports and export_report, downloads recorded (migration 0033)`
+- [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus `migrate:check`. **Step 5: Mutation probe:** move `recordDownload` after `res.send`. The 503 test **must** go red. Restore it. **Step 6: Commit:** `SYC-396 PR 3.3a: the Reports area, view_reports and export_report, downloads recorded (migration 0032)`
 
 #### Task 3.3a.3: Sterilisation progress and Colony health
 
 **Files:**
 - Create:
-  - `artifacts/api-server/src/lib/reports/progress.ts`: `progressReport(range, now): Promise<{ headline: Headline; over: { at: Date; confirmed: number; street: number }[]; colonies: { colonyId: number; name: string; split: Split }[]; workedOutAt: Date; ms: number }>`. Each point uses `loadTeamCats(at, { asOf: at })` at each month's end, or each week's end for ranges of 3 months or less, capped at 24 points;
-  - `artifacts/api-server/src/lib/reports/colonyHealth.ts`: one row per colony with cats now, the change over 90 days, kittens reported, not seen lately, guardian yes or no, and last visit. It reuses `colonyFigures`;
+  - `artifacts/api-server/src/lib/reports/progress.ts`: `progressReport(range, now): Promise<{ headline: Headline; over: { at: Date; confirmed: number; street: number }[]; colonies: { colonyId: number; name: string; split: Split }[]; workedOutAt: Date; ms: number }>`. It loads the island's records **once** and calls `resolveAt` for each point (Task 3.0.3): each month's end, or each week's end for ranges of 3 months or less, capped at 24 points. Colony membership for each point uses `currentColonyOf(…, { asOf })`;
+  - `artifacts/api-server/src/lib/reports/colonyHealth.ts`: one row per colony with cats now, the change over 90 days, kittens reported, not seen lately, guardian yes or no, and **last visit**, meaning the latest resolved sighting of any of its cats. It reuses `colonyFigures`. Every column header is a sort link (`?sort=<column>&dir=asc|desc`, with the column names on an allow-list), so it sorts with no script;
+  - Home's headline gains its "See Sterilisation progress" link (§4.4), a one-line change to `homePage.ts`;
   - `artifacts/api-server/src/lib/teamPages/reportPages.ts`, which renders the two reports and their CSVs.
-- Modify: `lib/guardianView.source.test.ts`, to register `colonyHealth.ts` as island-only (`view_reports`, team) for now.
+- Modify: `lib/guardianView.source.test.ts`, to register `colonyHealth.ts` and `progress.ts` (both read colonies) as island-only (`view_reports`, team) for now. PR 4.1 registers `impact.ts` the same way.
 - Test: `lib/reports/progress.test.ts`, `lib/reports/colonyHealth.test.ts`, `routes/team.reportPages.test.ts`
 
 **The words on every report** (§9.3):
-- "Counted by the date of the operation";
+- for counts of events in the period (sterilisations, new cats, visits): "Counted by the date of the operation";
+- for the progress line: "Each point shows the records as they stood on that date";
 - "Figures change as records are corrected";
 - "Worked out 18 Oct 2026, 16:40 · last 3 months";
 - the named-areas version, from 2.4's `areasVersion()`.
@@ -1194,14 +1264,14 @@ There are no response times and no per-person figures.
 - Produces: `coverageReport(range, now): Promise<{ cells: { cellLat: number; cellLng: number; seen: boolean; notLookedAt: boolean }[]; perWeek: { at: Date; sightings: number }[]; spotters: number; areasVersion: number }>`.
 - **The cells** are `blurPosition(lat, lng)` from `lib/blur.ts` (250 m), over resolved **and** pending sightings in the range.
 - **`notLookedAt`** is a cell centre within 500 m of a current area centre with no sighting.
-- **`spotters`** counts distinct `device_id`/`account_id` with a sighting in the range. It's a count, never a list.
+- **`spotters`** counts distinct `device_id` with a sighting in the range. `sightings` has no `account_id`. A deleted spotter's sightings have no device, so they count towards sightings but not spotters, which the page says. It's a count, never a list.
 - **The SVG** draws the cells on a plain projection (lng × cos(37.44°)) and writes the area names at their centres (Decision 13). This page draws the cell centres, not exact positions, so it isn't added to the position guard. Its source test still forbids `toFixed` on raw positions.
 
 - [ ] **Step 1: Failing tests:**
   - two sightings in the same cell make one cell;
   - a cell 400 m from Kini's centre with nothing in it is `notLookedAt`, and one 600 m away isn't;
   - `spotters` counts a device once;
-  - **the page and the CSV hold no 5-decimal position:** cell centres are printed to 3 decimals only, which matches the public grid.
+  - **the page and the CSV hold no position at all:** the SVG draws each cell as a `<rect>` at whole-number viewBox coordinates worked out on the server, and the CSV lists areas with their counts of looked-at and not-looked-at squares, never cell coordinates. `blurPosition` gives 6 decimals (`blur.ts` `PUBLISHED_DECIMALS`), so cell centres are never printed. Assert no `\d+\.\d{3,}` in either.
 - [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass. Step 5: Commit:** `SYC-396 PR 3.3b: Coverage and spotting`
 
 #### Task 3.3b.2: Welfare patterns
@@ -1304,7 +1374,7 @@ export async function impactReport(o: { from: Date | null; asOf: Date }): Promis
 - Everything is read **as of `asOf`** (Decision 10), including the areas, through `namedAreasAt(asOf)`.
 - **Milestones:**
   - every 100th cat recorded, where the count crossed a multiple of 100 between `from` and `asOf`;
-  - "N colonies fully sterilised this year": colonies where every street cat is confirmed sterilised as of `asOf` but wasn't as of `from`;
+  - "N colonies fully sterilised this year": colonies with **at least one** street cat where every street cat is confirmed sterilised as of `asOf`, but which weren't as of `from`. A colony with no street cats is never "fully sterilised";
   - **never a colony's name.**
 - "Off Syros" cats are counted nowhere.
 
@@ -1361,7 +1431,8 @@ This plan was written on Opus. That was synthesis across the spec, three code in
 | PR 2.4 Named areas (migration, cache, page) | **Opus** | A migration that widens `mapping_events` checks, a cache shared across servers, and `namedAreasAt`, which every report's reproducibility rests on | Migration test on its own database; `migrate:check`; **mutation probe** on `namedAreasAt`; Opus adversarial review in its own worktree |
 | PR 2.5 Find from a photo | **Opus** | A paid AI service with caps, a new upload parser, and photo privacy (EXIF, hidden photos, nothing stored) | **Three mutation probes** (EXIF, display photo, limiter order); the row-count test; one live probe on the test site with a heads-up to Samuel; Opus adversarial review focused on the upload and caps |
 | PR 3.0 Resolver groundwork | **Opus** | Changes how sterilisation is resolved for every cat. Restore semantics and "as of" are both silent-failure risks | The **replay check** over 300 generated histories against a frozen copy of the old resolver; **three mutation probes**; Opus adversarial review whose brief is to find a cat whose answer changes |
-| PR 3.1 Vet visits | **Opus** | Multi-statement transactions, D8, undo, and cost visibility to guardians | The rollback test; **mutation probes** on D8, undo and `costs: false`; Opus adversarial review |
+| PR 3.1a Vet visits | **Opus** | Multi-statement transactions, D8, undo, and cost visibility to guardians | The rollback test; **mutation probes** on D8 (with the visit dated before the guardian's "no"), undo and `costs: false`; Opus adversarial review |
+| PR 3.1b Vet settings | Sonnet | One setting, one page, copying the areas history pattern | Migration test; `migrate:check`; Sonnet adversarial review |
 | PR 3.2 Round logging | Sonnet | Reuses 3.1's writer in a loop | All-or-nothing test; Sonnet adversarial review |
 | PR 3.3a Charts, CSV, downloads, progress, health | Sonnet for the charts and pages; **Opus** for `csv.ts` and `downloads.ts` | CSV escaping and the download record are silent-failure guards: a bad escape or an unrecorded download looks like success | **Mutation probes** on the `-` escape and on record-before-send; migration test; black-and-white print check; palette check of every chart colour (below) |
 | PR 3.3b Coverage, welfare | Sonnet | Clear queries and rules | The `state_changed` source test with its **mutation probe**; the no-5-decimals check |
@@ -1432,6 +1503,31 @@ Each must reach at least 3:1. Any that fails is changed in the plan's constant a
   - Welfare patterns (source test);
   - Colony health (no per-guardian figures beyond "guardian yes or no");
   - the impact report.
+
+## How the plan review was handled (18 Oct 2026)
+
+A Sonnet critic checked the draft against the spec, the earlier plan and the code: about 60 claims, with file and line evidence. It found 6 blockers, 8 major and 3 other groups of issues. Each is handled in the plan above:
+
+| # | Finding | Handled in |
+|---|---|---|
+| 1 | Home linked to report pages that don't exist; it missed unchecked reports | 2.1.2: links to `/api/team#r-<id>`; an "N reports waiting for a check" line; queue photo URLs |
+| 2 | The restore rule was only in the resolver; the writer, three other readers and evidence of life disagreed | 3.0.1 (writer checks, `fromVisitUndo` only); 3.0.2 (other readers, retractions never evidence, vaccinated order) |
+| 3 | Undo couldn't use `supersedeStatement`; `vetVisitId` wasn't tied to a cat; one sterilised id where several are possible | 3.1.1: undo through `writeObservation`, a cat-scoped lookup, `sterilisedIds[]`, the validator checks the link |
+| 4 | `namedAreasAt` would be empty before the migration; the checks weren't widened; the version was ambiguous | 2.4.1: widen first, seed events dated 15 Oct, a fallback for older dates; 2.4.2: one version rule, full-row events |
+| 5 | "As of" ignored colony membership; progress loaded the island 24 times; vacuous "fully sterilised" | 3.0.3 (`currentColonyOf` as of, `resolveAt`); 3.3a.3 (load once); 4.1.1 (at least one street cat); Decision 10's known limit |
+| 6 | A guardian's planner carried sighting positions in the `TeamCat` fields | 2.3.2: an explicit `GuardianPlanCat` field list, and a serialised-output test |
+| 7–8 | Find from a photo: wrong photo helper, full-size photos, paged list, fixed-window caps, upload errors, route order, entry points, tie fields | 2.5.1 and 2.5.2 |
+| 9 | The download log wasn't really append-only | 3.3a.2: its own trigger and a test |
+| 10 | The Areas page test contradicted Open map links; nothing linked to the page | 2.4.3 |
+| 11 | Wrong cites (sightings `account_id`, blur decimals, test file names, `TEAM_HOME` users) | Corrected where cited |
+| 12 | Off Syros was counted | 2.0.2: `isStreet` and a reconcile test |
+| 13 | Parallel PRs claimed to share no files did; migration order | Sequencing (waves, shared lists); migrations renumbered (0032 downloads, 0033 vet settings) |
+| 14 | Source-test registration was missing for new readers | 2.4.2 (`areaHistory.ts`), 3.3a.3, 4.1 |
+| 15 | Spec items with no task: the headline link, sortable health columns, vaccination rights, CSV in Greek, area name races, the `off` key | 3.3a.3, 3.1.1, 3.3a.1, 2.4.1 |
+| 16 | Tests that would flake or pass wrongly in the shared database | 2.1.2 (injected loaders), 2.4.2 (per-run keys), 2.5.1 (since-start checks) |
+| 17 | The schedule was optimistic | "Fit to 31 October": the critical path named, 3.1 split, at most three agents at once, Johnny's pack timing |
+
+One claim was checked and **not** taken: the critic said `catDisplayPhoto` doesn't exist. It does (`photoVisibility.ts:165`), but it returns a URL, not bytes, so the fix (use `catDisplayPhotoIds` plus the medium version) stands anyway.
 
 ## Self-review against the spec
 
