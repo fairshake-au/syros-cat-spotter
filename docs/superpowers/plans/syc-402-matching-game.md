@@ -1,7 +1,7 @@
 # SYC-402: "Tell the cats apart", the matching game (implementation plan, draft 2, for Samuel's approval)
 
 **Linear:** SYC-402 (the game), with SYC-408 (two fields on the match record), SYC-409 (two capability rows), SYC-56 (the test set this feeds), SYC-150 (team re-files a sighting; not built here), SYC-59 (merge; not built here), SYC-44 (report an issue: PRs 6.2 and 7.2 are dependencies), SYC-404 and SYC-403 (photo versions), SYC-163 (team chooses a main photo), SYC-53 (guardian pages), SYC-383 (dashboard settings page), SYC-4 (native review of strings).
-**Status:** draft 2 for Samuel's approval, 16 October 2026. An independent Sonnet review of draft 1 found 3 blockers, 12 majors, 5 minors and a set of nits (`syc-402-matching-game-review.md`); all are folded in here, and § "Review outcome" says how. Nothing here is built.
+**Status:** draft 2 for Samuel's approval, 16 October 2026. **Decisions 1, 2 and 3 answered by Samuel on 18 October 2026, all as recommended** (recorded under each decision and on SYC-402). An independent Sonnet review of draft 1 found 3 blockers, 12 majors, 5 minors and a set of nits (`syc-402-matching-game-review.md`); all are folded in here, and § "Review outcome" says how. Nothing here is built.
 **Design (approved, not reopened here):** `docs/specs/matching-game.md`, **approved by Samuel on 16 October 2026** ("Approved — accept the D8 narrowing and D4 as written, Phase 4"), decisions SYC402-D1 to D8 and its §15 answers · its review `docs/specs/reviews/matching-game-review.md` · `roles-and-invites.md` §6.2 (owns the capability names) · `cat-record-data-spine.md` (owns `cat_identity` and the public-position grid) · `choose-a-different-cat.md` §4.6 (owns the match record) · `report-an-issue.md` (owns reports and removal) · `DECISIONS.md` (wins).
 **Checked against:** `origin/main` at `2d6e636` (16 October 2026, after #191, #195 and #201 merged); the launch plan `docs/superpowers/plans/mvp-launch-31-oct.md` (PR #172: feature freeze Wed 28 Oct, final publish Thu 29 Oct, one-instance pin lifted Mon 26 Oct, store track in November); the SYC-44 plan (PRs 5.1, 6.x and 7.2 not yet on `main`); open PRs #194, #196, #197; Linear SYC-402 (all comments), SYC-408, SYC-409, SYC-404, SYC-150, SYC-59. Every "exists today" claim names the file it was read in, and the reviewer re-checked each.
 **Timing:** **Phase 4 · Intelligence and income.** Nothing in this plan touches the 31 October launch. The first PR can merge in the first merge window **after** the launch publish settles (week of 3 November); the game switches on for players only when §"Rollout" step 7 is reached, which needs weeks of real spotting first. Earliest realistic switch-on: **early December 2026**.
@@ -53,6 +53,8 @@ Three, each with a recommendation. The rest are small calls (below), which stand
 
 ### Decision 1: How a game badge is announced (C1)
 
+> **Decided by Samuel, 18 October 2026: option A** (a `kind` on the inbox row, served only to apps that ask for it).
+
 The spec says "through the in-app inbox" (§3.4, §8); that stands. The open question is how an inbox built around cat updates carries a row that has no cat, without breaking phones that haven't updated.
 
 | Option | What it means | Benefits | Risks |
@@ -64,6 +66,8 @@ The spec says "through the in-app inbox" (§3.4, §8); that stands. The open que
 
 ### Decision 2: Who seeds the check pairs, and when (spec §15.4, left to this plan)
 
+> **Decided by Samuel, 18 October 2026: option A** (Samuel, in seed mode, before switch-on).
+
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. Samuel, in seed mode, before switch-on** *(recommended)* | Thirty minutes; he knows what a clear-cut pair looks like for this purpose; no team time before the game has proven itself | The pairs reflect one person's eye |
@@ -73,6 +77,8 @@ The spec says "through the in-app inbox" (§3.4, §8); that stands. The open que
 **Recommendation: A** (C follows naturally once the page is in use).
 
 ### Decision 3: The photo size parameter (C2)
+
+> **Decided by Samuel, 18 October 2026: option A** (SYC-404's stored version if merged; else resize-on-request with an LRU).
 
 The spec fixes the mechanism (a size parameter on the existing route, through `photoVisibility.ts`, §4.3); that stands. The question is what it reads from.
 
@@ -346,7 +352,7 @@ Each PR is built in its own worktree off fresh `origin/main`. **Commit after eac
 
 ## Still needs Samuel
 
-1. Decisions 1, 2 and 3.
+1. ~~Decisions 1, 2 and 3~~ **Settled 18 October 2026, all as recommended.**
 2. "Ask" mode and a Neon snapshot for each production migration (1.1, 2.1, 5.1).
 3. Thirty minutes in seed mode before switch-on (Decision 2 A).
 4. The Cloudflare Worker's six-hourly call (Claude adds it through the Cloudflare API, as for the mail drain; Samuel confirms).
