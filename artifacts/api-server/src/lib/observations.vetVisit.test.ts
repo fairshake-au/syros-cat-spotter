@@ -75,6 +75,9 @@ async function rowsFor(catId: number) {
   return db.select().from(observationsTable).where(eq(observationsTable.catId, catId));
 }
 
+/** What logVetVisit (PR 3.1) passes when it writes a statement linked to its visit. */
+const FROM_VISIT = { fromVisit: true } as const;
+
 const VISIT = {
   did: ["sterilised"],
   clinicId: "symviosis",
@@ -181,7 +184,7 @@ describe("the visit link (vetVisitId)", () => {
         kind === "sterilised"
           ? { sterilised: true, clinic: "Symviosis", vetVisitId: visit.id, reason: "vet visit" }
           : { vaccines: ["rabies"], clinic: "Symviosis", vetVisitId: visit.id };
-      const row = await write(cat.id, kind, value);
+      const row = await write(cat.id, kind, value, "staff", FROM_VISIT);
       expect((row.value as { vetVisitId: number }).vetVisitId).toBe(visit.id);
     },
   );
@@ -192,15 +195,31 @@ describe("the visit link (vetVisitId)", () => {
     const visit = await write(other.id, "vet_visit", VISIT);
     const value =
       kind === "sterilised" ? { sterilised: true, vetVisitId: visit.id } : { vaccines: ["rabies"], vetVisitId: visit.id };
-    await expect(write(cat.id, kind, value)).rejects.toMatchObject({ code: "INVALID_VISIT_LINK" });
+    await expect(write(cat.id, kind, value, "staff", FROM_VISIT)).rejects.toMatchObject({ code: "INVALID_VISIT_LINK" });
     expect(await rowsFor(cat.id)).toHaveLength(0);
+  });
+
+  it("only a visit's own save may link a statement to it (review F1)", async () => {
+    // Undoing a visit retracts every row carrying its id, so a row written
+    // any other way must never carry one.
+    const cat = await insertCat();
+    const visit = await write(cat.id, "vet_visit", VISIT);
+    for (const kind of ["sterilised", "vaccinated"] as const) {
+      const value = kind === "sterilised" ? { sterilised: true, vetVisitId: visit.id } : { vaccines: ["rabies"], vetVisitId: visit.id };
+      await expect(write(cat.id, kind, value)).rejects.toMatchObject({ code: "INVALID_VISIT_LINK" });
+    }
+    // A cat guardian's own statement, even with the flag.
+    await expect(
+      write(cat.id, "sterilised", { sterilised: false, vetVisitId: visit.id }, "guardian", FROM_VISIT),
+    ).rejects.toMatchObject({ code: "INVALID_VISIT_LINK" });
+    expect((await rowsFor(cat.id)).map((o) => o.kind)).toEqual(["vet_visit"]);
   });
 
   it("refuses a link to a row that isn't a visit, or to no row at all", async () => {
     const cat = await insertCat();
     const note = await write(cat.id, "team_note", { text: "not a visit" });
     for (const vetVisitId of [note.id, 2_000_000_000]) {
-      await expect(write(cat.id, "sterilised", { sterilised: true, vetVisitId })).rejects.toMatchObject({
+      await expect(write(cat.id, "sterilised", { sterilised: true, vetVisitId }, "staff", FROM_VISIT)).rejects.toMatchObject({
         code: "INVALID_VISIT_LINK",
       });
     }
@@ -214,7 +233,7 @@ describe("the visit link (vetVisitId)", () => {
       fromVisitUndo: true,
     });
     await expect(
-      write(cat.id, "sterilised", { sterilised: true, vetVisitId: visit.id }),
+      write(cat.id, "sterilised", { sterilised: true, vetVisitId: visit.id }, "staff", FROM_VISIT),
     ).rejects.toMatchObject({ code: "INVALID_VISIT_LINK" });
   });
 
@@ -236,8 +255,8 @@ describe("retractions of sterilised, vaccinated and vet_visit", () => {
   async function seeded() {
     const cat = await insertCat();
     const visit = await write(cat.id, "vet_visit", { ...VISIT, did: ["sterilised", "vaccinated"], vaccines: ["rabies"] });
-    const sterilised = await write(cat.id, "sterilised", { sterilised: true, vetVisitId: visit.id });
-    const vaccinated = await write(cat.id, "vaccinated", { vaccines: ["rabies"], vetVisitId: visit.id });
+    const sterilised = await write(cat.id, "sterilised", { sterilised: true, vetVisitId: visit.id }, "staff", FROM_VISIT);
+    const vaccinated = await write(cat.id, "vaccinated", { vaccines: ["rabies"], vetVisitId: visit.id }, "staff", FROM_VISIT);
     return { cat, rows: { vet_visit: visit, sterilised, vaccinated } };
   }
 
@@ -322,6 +341,27 @@ describe("retractions of sterilised, vaccinated and vet_visit", () => {
         fromVisitUndo: true,
       }),
     ).rejects.toMatchObject({ code: "INVALID_RETRACTION" });
+  });
+
+  it("refuses a retraction of a row a correction already replaced (review F2)", async () => {
+    // Her "no" G, overruled by the visit's yes Y, which the team then
+    // corrected (Z). Retracting Y now would stand G up next to Z.
+    const cat = await insertCat();
+    const no = await write(cat.id, "sterilised", { sterilised: false }, "guardian");
+    const visit = await write(cat.id, "vet_visit", VISIT);
+    const yes = await write(cat.id, "sterilised", { sterilised: true, vetVisitId: visit.id }, "staff", {
+      ...FROM_VISIT,
+      supersedesId: no.id,
+    });
+    await write(cat.id, "sterilised", { sterilised: true, reason: "clinic record" }, "staff", { supersedesId: yes.id });
+    const before = (await rowsFor(cat.id)).length;
+    await expect(
+      write(cat.id, "sterilised", { retracted: true, reason: "undo" }, "staff", {
+        supersedesId: yes.id,
+        fromVisitUndo: true,
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_RETRACTION" });
+    expect(await rowsFor(cat.id)).toHaveLength(before);
   });
 
   it("refuses a new value written over a retraction", async () => {

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { db, pool, catsTable, observationsTable, sightingsTable, type Observation } from "@workspace/db";
+import { db, pool, catsTable, catIdentityTable, observationsTable, sightingsTable, type Observation } from "@workspace/db";
 import { like } from "drizzle-orm";
 import { loadCatRecords, resolveAt } from "./observations";
 import { resolveCat } from "./resolve";
@@ -19,6 +19,8 @@ const DEVICE = `vitest-asof-${Date.now()}`;
 let counter = 0;
 
 async function cleanup() {
+  // cat_identity is append-only: this file's merge rows stay, naming only
+  // its own (deleted) cats, and the database is thrown away after the run.
   await db.delete(catsTable).where(like(catsTable.name, `${NAME_PREFIX}%`));
   await deleteTestSightings(like(sightingsTable.deviceId, "vitest-asof-%"));
 }
@@ -240,6 +242,45 @@ describe("resolveAt", () => {
         expect(resolveAt(loaded.get(id)!, T, now)).toEqual(expected);
       }
     }
+  });
+
+  it("agrees with loadCatRecords(asOf) across a merge, and a merge undone (review F4)", async () => {
+    // A ← B merged on 5 Oct. C merged into D on 5 Oct, undone on 8 Oct: the
+    // undo row is C → C. Nothing in the app writes cat_identity yet (SYC-59).
+    const a = await catCreated(day(1));
+    const b = await catCreated(day(1));
+    const c = await catCreated(day(1));
+    const d = await catCreated(day(1));
+    await row(b.id, "sterilised", { sterilised: true }, day(2));
+    await row(c.id, "sterilised", { sterilised: true }, day(2));
+    await sighting(b.id, day(3));
+    await db.insert(catIdentityTable).values({ catId: b.id, canonicalCatId: a.id, createdBy: "vitest-asof", createdAt: day(5) });
+    const [merge] = await db
+      .insert(catIdentityTable)
+      .values({ catId: c.id, canonicalCatId: d.id, createdBy: "vitest-asof", createdAt: day(5) })
+      .returning();
+    await db.insert(catIdentityTable).values({
+      catId: c.id,
+      canonicalCatId: c.id,
+      createdBy: "vitest-asof",
+      supersedesId: merge!.id,
+      createdAt: day(8),
+    });
+    const ids = [a.id, c.id];
+    const loaded = await loadCatRecords(ids, db, { withHistory: true });
+    for (const T of [day(4), day(6), day(9), day(12)]) {
+      const asOf = await loadCatRecords(ids, db, { asOf: T });
+      for (const id of ids) {
+        const r = asOf.get(id)!;
+        expect(resolveAt(loaded.get(id)!, T, day(20))).toEqual(resolveCat(r.observations, r.evidenceOfLife, day(20)));
+      }
+    }
+    // A takes in B's sterilisation from the merge on.
+    expect((await sterilisedAsOf(a.id, day(4)))).toBeNull();
+    expect((await sterilisedAsOf(a.id, day(6)))).toBe(true);
+    // C's own rows count once, before and after its undone merge.
+    expect((await loadCatRecords([c.id])).get(c.id)!.observations).toHaveLength(1);
+    expect(await sterilisedAsOf(c.id, day(6))).toBe(true);
   });
 
   it("refuses records loaded without history", async () => {

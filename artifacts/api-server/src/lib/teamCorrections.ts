@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, notExists, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { actingRole, can, type Capability } from "./capabilities";
@@ -169,7 +169,7 @@ export async function lockActiveObservation(tx: Tx, id: number): Promise<Observa
     const sameKind = await tx
       .select()
       .from(observationsTable)
-      .where(and(eq(observationsTable.catId, original.catId), eq(observationsTable.kind, original.kind)));
+      .where(or(and(eq(observationsTable.catId, original.catId), eq(observationsTable.kind, original.kind)), eq(observationsTable.supersedesId, id)));
     if (supersedeChains(sameKind, original.kind).displaced.has(id)) {
       throw new ObservationRefused("ALREADY_SUPERSEDED", "Already superseded");
     }

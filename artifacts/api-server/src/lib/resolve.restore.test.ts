@@ -21,6 +21,7 @@ import { listGuardianChanges } from "./guardianChanges";
 import { teamCatView } from "./teamCatView";
 import { myStatementsOnCat } from "./guardianStatements";
 import { lockActiveObservation } from "./teamCorrections";
+import { isTeamRole } from "./teamRoles";
 
 // SYC-396 PR 3.0, Task 3.0.2 (plan Decision 6; team-dashboard-redesign.md
 // §8.3, D8): for sterilised, vaccinated and vet_visit, undoing a statement
@@ -333,6 +334,23 @@ function frozenResolveLifeStatus(observations: readonly Observation[], evidenceO
   return { value, confidence, supportingObservationIds, conflicts, asOf, presumedDeceased, notSeenSince };
 }
 
+function frozenResolveVaccinated(observations: readonly Observation[]) {
+  const teamRows = observations.filter(
+    (o) => o.kind === "vaccinated" && isTeamRole(o.roleAtTime) && o.roleAtTime !== "vet",
+  );
+  const newer = (a: Observation, b: Observation) =>
+    a.observedAt.getTime() > b.observedAt.getTime() || (a.observedAt.getTime() === b.observedAt.getTime() && a.id > b.id);
+  return teamRows
+    .filter((o) => frozenIsActive(o, teamRows))
+    .flatMap((o) => {
+      const v = o.value as { vaccines?: unknown; clinic?: unknown } | null;
+      if (!v || !Array.isArray(v.vaccines) || v.vaccines.length === 0) return [];
+      return [{ o, vaccines: v.vaccines, clinic: typeof v.clinic === "string" ? v.clinic : null }];
+    })
+    .sort((a, b) => (newer(a.o, b.o) ? -1 : newer(b.o, a.o) ? 1 : 0))
+    .map(({ o, vaccines, clinic }) => ({ observationId: o.id, date: o.observedAt.toISOString(), vaccines, clinic }));
+}
+
 /** mulberry32: a small seeded generator, so the 300 histories are the same every run. */
 function seeded(seed: number) {
   let a = seed >>> 0;
@@ -377,7 +395,15 @@ function generateHistories(count: number, seed: number): History[] {
       const author = pick(AUTHORS);
       const observedAt = new Date(now - Math.floor(rand() * 5 * 365) * 86_400_000 - Math.floor(rand() * 86_400_000));
       const sameKind = rows.filter((r) => r.kind === kind);
-      const supersedesId = sameKind.length > 0 && rand() < 0.4 ? pick(sameKind).id : null;
+      // Mostly within the kind, as writers do; sometimes a row of another
+      // kind (refused since 13 Oct, older data unchecked: review F3), and
+      // so sometimes two rows pointing at one.
+      const supersedesId =
+        sameKind.length > 0 && rand() < 0.4
+          ? pick(sameKind).id
+          : rows.length > 0 && rand() < 0.1
+            ? pick(rows).id
+            : null;
       let value: unknown;
       if (kind === "sterilised") value = { sterilised: rand() < 0.5 };
       else if (kind === "vaccinated") value = { vaccines: ["rabies"] };
@@ -422,6 +448,22 @@ describe("the replay check", () => {
     const junk = histories.flatMap((h) => h.rows).filter((r) => (r.value as { retracted?: unknown }).retracted === true);
     expect(junk.length).toBeGreaterThan(10);
     expect(histories.filter((h) => h.rows.some((r) => r.kind === "sterilised" && r.supersedesId != null)).length).toBeGreaterThan(50);
+    const crossKind = histories.filter((h) => {
+      const byId = new Map(h.rows.map((r) => [r.id, r]));
+      return h.rows.some((r) => r.supersedesId != null && byId.get(r.supersedesId)!.kind !== r.kind);
+    });
+    expect(crossKind.length).toBeGreaterThan(20);
+    const doubled = histories.filter((h) => {
+      const targets = h.rows.map((r) => r.supersedesId).filter((id) => id != null);
+      return new Set(targets).size < targets.length;
+    });
+    expect(doubled.length).toBeGreaterThan(20);
+  });
+
+  it("resolveVaccinated gives the old answer for every one of 300 histories", () => {
+    for (const h of histories) {
+      expect(resolveVaccinated(h.rows)).toEqual(frozenResolveVaccinated(h.rows));
+    }
   });
 
   it("resolveSterilised gives the old answer for every one of 300 histories", () => {
@@ -505,6 +547,7 @@ async function overruledCat(herDay: Date, visitDay: Date) {
     observedAt: visitDay,
     supersedesId: no.id,
     supersedeReason: "vet visit on 13 Aug 2026",
+    fromVisit: true,
   });
   return { cat, no, visit, yes };
 }
@@ -626,6 +669,7 @@ describe("the other readers agree with the resolver (G ← Y ← R shows G stand
         value: { vaccines: ["rabies"], vetVisitId: visit.id },
         accountId: TEAM,
         roleAtTime: "staff",
+        fromVisit: true,
       }),
     ).rejects.toMatchObject({ code: "INVALID_VISIT_LINK" });
   });

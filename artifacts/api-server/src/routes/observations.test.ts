@@ -584,6 +584,34 @@ describe("POST /api/team/observations/:id/supersede", () => {
     expect(await observationsFor(cat.id)).toHaveLength(before);
   });
 
+  it("refuses a correction that claims to come from a vet visit (SYC-396 PR 3.0, review F1)", async () => {
+    // Undoing the visit would take this correction back too, and the
+    // statement it marked wrong would silently return.
+    const cat = await insertCat();
+    const cookie = await signIn(staffId);
+    const { writeObservation } = await import("../lib/observations");
+    const visit = await writeObservation(db, {
+      catId: cat.id,
+      kind: "vet_visit",
+      value: { did: ["checked"], clinicId: "symviosis", costEur: null, paidBy: "owner" },
+      accountId: staffId,
+      roleAtTime: "staff",
+      observedAt: new Date(),
+    });
+    const statement = await post("/api/team/observations")
+      .set("Cookie", cookie)
+      .send({ catId: cat.id, kind: "sterilised", value: { sterilised: false }, reason: "no ear clip" });
+    expect(statement.status).toBe(201);
+    const before = (await observationsFor(cat.id)).length;
+
+    const res = await post(`/api/team/observations/${statement.body.id}/supersede`)
+      .set("Cookie", cookie)
+      .send({ value: { sterilised: true, vetVisitId: visit.id }, reason: "manual correction" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("INVALID_VISIT_LINK");
+    expect(await observationsFor(cat.id)).toHaveLength(before);
+  });
+
   it("lets only one of several concurrent supersede attempts against the same target succeed (review of #68, double-supersede-race)", async () => {
     const cat = await insertCat();
     const original = await writeEarTip(cat.id, true);

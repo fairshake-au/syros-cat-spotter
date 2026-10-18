@@ -8,7 +8,7 @@
  * exists — goes through `writeObservation`. Nothing else may `insert` into
  * `observationsTable` outside a migration's backfill.
  */
-import { and, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, eq, inArray, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
   db,
@@ -27,6 +27,7 @@ import {
   supersedeChains,
   type EvidenceOfLife,
   type CatSnapshot,
+  type RestorableKind,
   type EvidenceSource,
   type Vaccine,
 } from "./resolve";
@@ -755,6 +756,14 @@ export interface WriteObservationInput {
    * Mark wrong, the JSON supersede route) may produce one.
    */
   fromVisitUndo?: boolean;
+  /**
+   * Must be true to write a `sterilised` or `vaccinated` value carrying a
+   * `vetVisitId` (review of PR 3.0, F1). Only `logVetVisit` sets it: undoing
+   * a visit retracts every row carrying its id, so a row written any other
+   * way (a Mark wrong through the generic path, a guardian's own statement)
+   * must never carry one, or undoing the visit would take it back too.
+   */
+  fromVisit?: boolean;
 }
 
 /** A claim withdrawn (claiming-a-cat.md §6, §7): supersedes a homed, asserts
@@ -818,6 +827,9 @@ async function checkWithdrawalTarget(
 async function checkVisitLink(tx: DbOrTx, input: WriteObservationInput): Promise<void> {
   if (input.kind !== "sterilised" && input.kind !== "vaccinated") return;
   if (!isPlainObject(input.value) || !("vetVisitId" in input.value)) return;
+  if (input.fromVisit !== true || !isTeamRole(input.roleAtTime)) {
+    refuse("INVALID_VISIT_LINK", "only a vet visit, logged by the team, writes a statement linked to it");
+  }
   const visitId = input.value["vetVisitId"] as number;
   const [visit] = await tx
     .select({ catId: observationsTable.catId, kind: observationsTable.kind })
@@ -1114,6 +1126,18 @@ export async function writeObservation(
     if (visitRetracting && target.catId !== input.catId) {
       refuse("INVALID_RETRACTION", "a retraction must stay on the same cat");
     }
+    // And only a row that still stands (review of PR 3.0, F2): retracting a
+    // row a correction already replaced would stand up the row IT replaced
+    // next to that correction.
+    if (visitRetracting && target.kind === input.kind) {
+      const sameKind = await tx
+        .select()
+        .from(observationsTable)
+        .where(or(and(eq(observationsTable.catId, target.catId), eq(observationsTable.kind, target.kind)), eq(observationsTable.supersedesId, target.id)));
+      if (supersedeChains(sameKind, input.kind as RestorableKind).displaced.has(target.id)) {
+        refuse("INVALID_RETRACTION", "a retraction must supersede a row that still stands");
+      }
+    }
     // Nothing is written over a vet-visit kind's retraction except, one day,
     // undoVetVisit's re-do (not built): a new value there would stand next
     // to the row the retraction put back.
@@ -1373,6 +1397,10 @@ export async function loadCatRecords(
   for (const id of uniqueIds) idsForCanonical.set(id, [id]);
   const mergedAtByCanonical = new Map<number, Map<number, Date>>();
   for (const row of identityRows) {
+    // A cat's own row (B → B) is what undoing a merge writes: it feeds
+    // nothing new into B, and isn't a merge (review of PR 3.0, F4; the rest
+    // of undone merges is SYC-410).
+    if (row.catId === row.canonicalCatId) continue;
     idsForCanonical.get(row.canonicalCatId)?.push(row.catId);
     const merged = mergedAtByCanonical.get(row.canonicalCatId) ?? new Map<number, Date>();
     const was = merged.get(row.catId);

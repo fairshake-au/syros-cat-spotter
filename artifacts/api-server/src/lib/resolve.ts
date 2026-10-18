@@ -348,8 +348,12 @@ export interface SupersedeChains {
  */
 export function supersedeChains(observations: readonly Observation[], kind: RestorableKind): SupersedeChains {
   const rows = observations.filter((o) => o.kind === kind);
+  // Every row pointing at one of this kind, whatever its own kind: a row of
+  // another kind (no writer has made one since 13 Oct; older data unchecked)
+  // still stands its target down exactly as `isActive` did (review of PR
+  // 3.0, F3). Only a same-kind retraction undoes anything.
   const supersededBy = new Map<number, Observation[]>();
-  for (const o of rows) {
+  for (const o of observations) {
     if (o.supersedesId == null) continue;
     supersededBy.set(o.supersedesId, [...(supersededBy.get(o.supersedesId) ?? []), o]);
   }
@@ -360,7 +364,9 @@ export function supersedeChains(observations: readonly Observation[], kind: Rest
     const known = memo.get(id);
     if (known !== undefined) return known;
     memo.set(id, false);
-    const result = (supersededBy.get(id) ?? []).some((r) => isRetractionValue(r.value) && !isRetracted(r.id));
+    const result = (supersededBy.get(id) ?? []).some(
+      (r) => r.kind === kind && isRetractionValue(r.value) && !isRetracted(r.id),
+    );
     memo.set(id, result);
     return result;
   };
@@ -368,7 +374,7 @@ export function supersedeChains(observations: readonly Observation[], kind: Rest
   const retracted = new Set<number>();
   for (const o of rows) {
     if (isRetracted(o.id)) retracted.add(o.id);
-    if ((supersededBy.get(o.id) ?? []).some((s) => !isRetracted(s.id))) displaced.add(o.id);
+    if ((supersededBy.get(o.id) ?? []).some((s) => s.kind !== kind || !isRetracted(s.id))) displaced.add(o.id);
   }
   return {
     standing: rows.filter((o) => !displaced.has(o.id) && !isRetractionValue(o.value)),
