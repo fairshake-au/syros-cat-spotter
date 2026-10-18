@@ -89,9 +89,10 @@ function CoatChip({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected }}
-      // react-native-web 0.21 drops accessibilityState, so the web build
-      // (and a screen reader on it) hears the state through aria-selected.
-      aria-selected={selected}
+      // react-native-web 0.21 drops accessibilityState, so on the web a
+      // screen reader hears the toggle through aria-pressed (aria-selected
+      // isn't valid on a button).
+      aria-pressed={selected}
       style={({ pressed }) => [
         styles.chip,
         {
@@ -113,6 +114,8 @@ const styles = StyleSheet.create({
   rows: { gap: 8 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
+    // A comfortable tap target (44 points), as elsewhere in the app.
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

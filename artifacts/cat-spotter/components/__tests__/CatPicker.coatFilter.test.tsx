@@ -95,7 +95,7 @@ function renderPicker(overrides: Partial<React.ComponentProps<typeof CatPicker>>
 const ids = (root: Element | null) =>
   root ? Array.from(root.querySelectorAll('[data-testid^="picker-cat-"]')).map((el) => Number(el.getAttribute('data-testid')!.slice('picker-cat-'.length))) : [];
 const all = (c: HTMLElement) => ids(c);
-const selected = (el: Element) => el.getAttribute('aria-selected') === 'true';
+const selected = (el: Element) => el.getAttribute('aria-pressed') === 'true';
 
 /** Every element in document order, to check what comes before what. */
 function order(container: HTMLElement, ...els: Element[]): number[] {
@@ -199,6 +199,8 @@ describe('the hidden-count line (spec §5)', () => {
     const { getByTestId } = renderPicker({ cats: [CATS[0]!, CATS[2]!] });
     fireEvent.click(getByTestId('coat-chip-pattern-plain'));
     expect(getByTestId('picker-hidden-line').textContent).toBe('1 more cat nearby in other colours or patterns.Show all');
+    // A screen reader hears the count change.
+    expect(getByTestId('picker-hidden-line').getAttribute('aria-live')).toBe('polite');
   });
 
   it('"Show all" resets both rows and shows every cat again', () => {

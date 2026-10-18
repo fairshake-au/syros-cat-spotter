@@ -140,7 +140,7 @@ function Harness({ onChange }: { onChange?: (p: Picked) => void }) {
   );
 }
 
-const selected = (el: Element | null) => el?.getAttribute('aria-selected') === 'true';
+const selected = (el: Element | null) => el?.getAttribute('aria-pressed') === 'true';
 
 describe('CoatChips: two rows of toggles (§5)', () => {
   it('the colour row is All · Black · Grey · Brown · Ginger · White and the pattern row All · Plain · Stripes · Patches, each a drawing plus its word', () => {

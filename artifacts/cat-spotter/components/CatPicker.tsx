@@ -422,7 +422,13 @@ export function CatPicker({
         {/* Directly above "Can't find it?" (spec §5): how many cats the
             chips hide, with one tap to show them all. */}
         {placed.hidden > 0 ? (
-          <View style={styles.hiddenLine} testID="picker-hidden-line">
+          <View
+            style={styles.hiddenLine}
+            testID="picker-hidden-line"
+            // Read out when a chip changes the count.
+            accessibilityLiveRegion="polite"
+            aria-live="polite"
+          >
             <Text style={[styles.hiddenText, { color: colors.foreground }]}>
               {placed.hidden === 1
                 ? t('pickerHiddenOne')
