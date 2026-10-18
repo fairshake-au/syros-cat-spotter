@@ -106,7 +106,7 @@ If they merge in another order, the later one is deleted and regenerated, as `li
 - 2.4 and 2.5 don't need 2.0.
 - 3.0.1 and 3.0.2 touch only the resolver and the observation writer. 3.0.3 also changes `loadTeamCats` in `teamCatList.ts`, so it is committed last in PR 3.0 and rebased on 2.0 before review.
 
-**Wave 2 (once 2.0 merges):** 2.1, 2.2 and 3.3a run in parallel.
+**Wave 2 (once 2.0 merges):** 2.1, 2.2, 2.6 and 3.3a run in parallel (at most three building at once, so 2.6 starts when the first of them merges).
 - Only 2.2 touches `colonyPages.ts` in this wave. The Feeding sites link moved into 2.2 for that reason.
 - 2.3 starts once 2.2 merges, because both change `lib/teamPages/colonyPages.ts`.
 - 3.3a needs 2.4 for its areas version line, but can be built against the read-only list and rebased.
@@ -130,11 +130,11 @@ If they merge in another order, the later one is deleted and regenerated, as `li
   - **3.1b** covers the Vet settings page and its history (Task 3.1.2). It can be built in parallel from wave 2, because it needs only 2.3's setting.
 - **Production migrations** for named areas, downloads and vet settings each need Samuel to switch the session to "ask" mode once. They can share one switch per publish day.
 - **Publishes** are on Mon 19, Wed 21, Fri 23 and Mon 26, with the freeze publish on Wed 28 and fixes only on Thu 29 (`mvp-launch-31-oct.md`, merged as #172). A PR reaches the live site only at the next publish after it merges.
-- **The reports need a weekend merge window on Sat 24 and Sun 25.** Without one, 3.3a–c and 4.1 wait for 16 Nov. That's Samuel's call.
+- **Samuel will merge on Sat 24 and Sun 25** (one window each day), so 3.3a–c are lined up for that weekend.
 - **The test database** is shared by every parallel agent on this Mac. At most three building agents run at once.
 
 **Verdict:**
-- **Phase 2:** 2.0–2.4 fit. 2.5 fits if its review finds nothing large.
+- **Phase 2:** 2.0–2.4 fit. 2.5 and 2.6 (the map layers Samuel added) fit if their reviews find nothing large. 2.6 is the one to watch, because it changes the map script.
 - **Phase 3:** 3.0, 3.1 and 3.2 fit.
 - **The first to slip,** in D2's order, are 3.3a–c and 4.1.
 
@@ -193,15 +193,16 @@ Each one is a choice the spec leaves open. "What the team sees" says what it mea
     - The daily caps use the shared limiter's UTC day, so the words say "They reset overnight", not "at midnight".
     - The candidates' reference photos are their **display** photo, never a hidden one. The ids come from `catDisplayPhotoIds` (`lib/photoVisibility.ts:103`), and the bytes come from the photo's 640px medium version (`variantFor(id, "medium")`), not the full photo. That keeps 30 candidates small in memory and in the AI call. This also fixes SYC-303 for this route.
 
-## Questions for Samuel (with the approval)
+## Samuel's decisions on scope (18 Oct 2026)
 
-These change the spec's scope, so they're his.
+Samuel answered these in this session on 18 Oct. Each is recorded on SYC-463.
 
-| # | Question | Recommendation |
-|---|---|---|
-| Q1 | Should cat guardians get their two reports (Sterilisation progress and Colony health, for their own colonies) on 31 Oct, or on 16 Nov? | **16 Nov.** The reports land after Johnny's copy freeze (Thu 22), so their Greek and French would go live unchecked, and the reports are the third thing to slip anyway. The team gets them as soon as they're built. |
-| Q2 | Should round logging be able to create a new cat for one trapped on the round that isn't in the records yet (§8.5)? | **Not at launch; 16 Nov.** A new cat needs a photo and a position, which makes it a second form. At launch, the round form can add any existing cat, and a new cat is made the usual way first. |
-| Q3 | The Colonies list's Map switch, and the map layers for colonies, welfare reports and "Not looked at yet" (§6.1, §9.1): now or later? | **Later, on SYC-454.** They change the Map's script, the riskiest file in phase 1. The Colonies list and the reports show the same facts as words and tables. |
+| # | Question | Samuel's answer | What it means for the build |
+|---|---|---|---|
+| Q1 | When do cat guardians get their two reports (Sterilisation progress and Colony health, for their own colonies)? | **16 Nov** | At launch, the reports are team-only (PR 3.3a). The guardian variant and its Greek and French ship on 16 Nov, ticketed. |
+| Q2 | Can the round form create a cat that isn't recorded yet? | **No: add him separately** | The round form adds existing cats only (PR 3.2). A new cat is added the usual way first. A shortcut is ticketed for 16 Nov. |
+| Q3 | The map layers (colonies, welfare reports from the last 30 days, "Not looked at yet") and the Colonies list's Map view | **Before launch** | A new **PR 2.6** builds them (SYC-454 comes into the launch scope). |
+| W | Can Samuel merge on Sat 24 and Sun 25 Oct? | **Yes, one window each day** | The reports (3.3a–c) are lined up for those windows. The impact report (4.1) still most likely waits for Mon 26 or later. |
 
 ---
 
@@ -833,6 +834,77 @@ export async function findFromPhoto(photo: Buffer, filters: Pick<CatListFilters,
 
 ---
 
+### PR 2.6: Map layers and the Colonies map view (Samuel's Q3; SYC-454)
+
+**What the team sees:** the island Map gets three more layers, each switched on and off like Cats and Feeding sites:
+- **Colonies:** each colony's name at its feeding sites;
+- **Welfare reports from the last 30 days:** each one as a marker in its kind's colour and shape, with a card saying its kind, how long ago it was sent and its place in words, and "Open in the Queue";
+- **Not looked at yet:** the 250 m squares within 500 m of an area centre where nothing has been sighted in the last 90 days, drawn as outlined squares.
+
+The Colonies list gets a **Map** switch that opens the Map with the Colonies layer on. Cat guardians don't get the Map yet (that's SYC-455), so none of this is shown to them.
+
+**Depends on:** 2.0. It also shares coverage squares with 3.3b and welfare kinds with 3.3b, so it builds those two small modules first and 3.3b reuses them. **Files it shares:** `catGridPage.ts` and `routes/teamCats.ts` with 2.5. Whichever merges second rebases.
+
+#### Task 2.6.1: Shared squares and kinds
+
+**Files:**
+- Create: `artifacts/api-server/src/lib/dashboard/coverageCells.ts` and `artifacts/api-server/src/lib/dashboard/welfareKinds.ts`. These move here from 3.3b's plan. 3.3b imports them and doesn't redefine them.
+- Test: `lib/dashboard/coverageCells.test.ts`, `lib/dashboard/welfareKinds.test.ts`
+
+**Interfaces:**
+- Produces:
+
+```ts
+// welfareKinds.ts: exactly as 3.3b.2 describes, now defined here
+export type WelfareKind = "litter" | "urgent" | "attention";
+export const WELFARE_ORDER: readonly WelfareKind[];
+export const WELFARE_COLOUR: Record<WelfareKind, string>;
+export const WELFARE_WORD: Record<WelfareKind, string>;       // "Urgent", "Needs attention", "Kittens"
+export const kindOf: (r: { severity: "urgent" | "attention"; isLitter: boolean }) => WelfareKind;
+// coverageCells.ts
+export const GAP_RADIUS_M = 500, GAP_LOOKBACK_DAYS = 90;
+export interface Cell { key: string; south: number; west: number; north: number; east: number; seen: boolean; notLookedAt: boolean }
+export async function coverageCells(o: { from: Date | null; to: Date }): Promise<Cell[]>;   // blurPosition's 250 m cells
+```
+
+- [ ] **Step 1: Failing tests:** the same cell and gap cases as 3.3b.1 (two sightings in one cell make one cell; 400 m from a centre is a gap, 600 m isn't); `kindOf` puts an urgent litter in `litter`. **Step 2–4: Fail, implement, pass. Step 5: Commit:** `SYC-396 PR 2.6: shared coverage squares and welfare kinds`
+
+#### Task 2.6.2: The three layers
+
+**Files:**
+- Modify:
+  - `artifacts/api-server/src/lib/teamPages/catMapPage.ts`: three new data blocks in the signed-in page, read by `readData`, in the same way as `sites`:
+    - `colonies`: `{ id, name, sites: [{ lat, lng }] }`, built through a reader that takes `Visible` (team only, so the whole island);
+    - `welfare`: `{ publicId, kind, word, ago, place, lat, lng }` for `kind='welfare'`, not drafts, sent in the last 30 days;
+    - `gaps`: `{ south, west, north, east }` for each `notLookedAt` cell.
+  - Three layer check boxes, off by default, beside Cats and Feeding sites, and the key, which gains the welfare shapes and the outlined gap square.
+  - `artifacts/api-server/assets/dashboard-map.js`: three `L.layerGroup()`s fed from those blocks, plus `layerBox(...)` for each.
+    - **Colony names** are `L.tooltip`s with `permanent: true` at each site, never circles.
+    - **Welfare markers** are squares rotated 45° (diamonds): never circles, which mean cats; never teal, which means sterilisation; never plain squares, which mean feeding sites. Each has its kind's colour **and** its word in the card.
+    - **Gaps** are `L.rectangle`s with a 1.5px dashed outline and no fill.
+  - `?layer=colonies` turns the Colonies layer on at load. It's read only by the page, and holds no position.
+  - `lib/teamPages/colonyPages.ts`: a **Map** link on the Colonies list (island-wide viewers only) to `/api/team/cats?view=map&layer=colonies`. This rebases on 2.2.
+  - `lib/guardianView.source.test.ts`: register the colonies-for-map reader.
+  - `docs/screenshots/syc-396-pr-2-6/`.
+- Test: `routes/team.catMap.test.ts`, `lib/teamPages/catMapPage.test.ts`
+
+- [ ] **Step 1: Failing tests:**
+  - the map page's data blocks hold a seeded colony's name, a welfare report from 10 days ago, **not** one from 40 days ago, **not** a draft, and **not** a `content` report;
+  - a seeded gap square is in `gaps`;
+  - `?layer=colonies` checks the Colonies box;
+  - a guardian still gets the walk's `forbidden` on the Map;
+  - **no position appears in any of our own addresses** (the same href and action check as 2.4.3);
+  - **no feeding site's internal name is in the `colonies` block.** It carries the colony's name and site positions only. Seed "Vaporia — Eleni's" and assert it's absent;
+  - the welfare block holds no note text and no reporter details.
+- [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass**, plus `positions.source.test.ts`, `team.scriptTags.test.ts` and `team.headers.test.ts` (the Map page keeps its scripts-on header; nothing else changes).
+- [ ] **Step 5: Mutation probe:** drop the 30-day bound on the welfare query. The "not one from 40 days ago" test **must** go red. Restore it.
+- [ ] **Step 6: Look at it** in Chrome, Safari and Firefox, at 390px and 1280px, with all five layers on. Check that colony names don't hide the cat dots at zoom 15, that the key folds away, and that tapping a welfare marker opens its card. Save to `docs/screenshots/syc-396-pr-2-6/`.
+- [ ] **Step 7: Commit:** `SYC-396 PR 2.6: colonies, welfare and gaps layers on the island Map`
+
+**After merge:** close SYC-454 (its guardian part stays on SYC-455).
+
+---
+
 ## Phase 3: vet visits and the reports
 
 ### PR 3.0: Resolver groundwork (can start in wave 1)
@@ -1129,7 +1201,7 @@ export interface RoundInput { colonyId: number; date: string; clinicId: string; 
 ```
 
 - Extra cats are added by a `GET` with `?add=<q>`, which re-draws the form with the search results under "Add a cat not on this list", reusing `searchCatsToAdd`. The ticked state is kept in hidden fields. Only an id goes in the address.
-- Q2's default: there's no new-cat option.
+- Samuel's Q2: there's no new-cat option. A cat nobody has recorded is added the usual way first.
 
 - [ ] **Step 1: Failing tests:**
   - 3 ticked cats give 3 visits;
@@ -1212,7 +1284,7 @@ export function toCsv(columns: { key: string; label: string }[], rows: Record<st
 
 **Why `/insights` and not `/reports`:** `/api/team/reports` and `/api/team/reports/:publicId` are already the welfare queue's JSON and report pages (`routes/teamReports.ts:47`). The menu **label** is still "Reports".
 
-**Q1's default:** until Samuel says otherwise, a guardian holding `view_reports` gets 403 on every `/insights` route, and the Reports item isn't in the guardian menu. The guardian variant is ticketed for 16 Nov.
+**Samuel's Q1 (16 Nov):** a guardian holding `view_reports` gets 403 on every `/insights` route at launch, and the Reports item isn't in the guardian menu. The guardian variant is ticketed for 16 Nov.
 
 - [ ] **Step 1: Failing tests:**
   - the list shows seven reports, with Donations unlinked and showing its words;
@@ -1260,7 +1332,7 @@ There are no response times and no per-person figures.
 #### Task 3.3b.1: Coverage
 
 **Files:**
-- Create: `artifacts/api-server/src/lib/reports/coverage.ts`
+- Create: `artifacts/api-server/src/lib/reports/coverage.ts`, built on `coverageCells` from PR 2.6 (don't redefine the cells)
 - Modify: `lib/teamPages/reportPages.ts`
 - Test: `lib/reports/coverage.test.ts`
 
@@ -1281,7 +1353,7 @@ There are no response times and no per-person figures.
 #### Task 3.3b.2: Welfare patterns
 
 **Files:**
-- Create: `artifacts/api-server/src/lib/reports/welfarePatterns.ts`
+- Create: `artifacts/api-server/src/lib/reports/welfarePatterns.ts`. It imports `WelfareKind`, `WELFARE_ORDER`, `WELFARE_COLOUR` and `kindOf` from PR 2.6's `lib/dashboard/welfareKinds.ts`; the block below shows their definitions for reference
 - Modify: `lib/teamPages/reportPages.ts`
 - Test: `lib/reports/welfarePatterns.test.ts`
 
@@ -1433,6 +1505,7 @@ This plan was written on Opus. That was synthesis across the spec, three code in
 | PR 2.2 Colonies figures and cards | Sonnet | Clear rules, existing query patterns | Tests per flag; **mutation probes** on the guardian Kittens branch and on `FILTERED_MODULES`; `strings.test.ts`; Sonnet adversarial review |
 | PR 2.3 Planner, price setting, printable plan | Sonnet for 2.3.1 and 2.3.3; **Opus** for 2.3.2 | 2.3.2 decides which position a guardian's label is drawn from. A wrong choice leaks sighting positions to guardians silently | **Mutation probe** on the guardian reference point; the internal-name marker test; the catalogue test proven red first; an Opus adversarial review of 2.3.2 |
 | PR 2.4 Named areas (migration, cache, page) | **Opus** | A migration that widens `mapping_events` checks, a cache shared across servers, and `namedAreasAt`, which every report's reproducibility rests on | Migration test on its own database; `migrate:check`; **mutation probe** on `namedAreasAt`; Opus adversarial review in its own worktree |
+| PR 2.6 Map layers | **Opus** | Changes the map script (the riskiest file in phase 1) and puts exact welfare positions in a page | **Mutation probe** on the 30-day bound; the internal-name and no-address checks; a three-browser check; Opus adversarial review |
 | PR 2.5 Find from a photo | **Opus** | A paid AI service with caps, a new upload parser, and photo privacy (EXIF, hidden photos, nothing stored) | **Three mutation probes** (EXIF, display photo, limiter order); the row-count test; one live probe on the test site with a heads-up to Samuel; Opus adversarial review focused on the upload and caps |
 | PR 3.0 Resolver groundwork | **Opus** | Changes how sterilisation is resolved for every cat. Restore semantics and "as of" are both silent-failure risks | The **replay check** over 300 generated histories against a frozen copy of the old resolver; **three mutation probes**; Opus adversarial review whose brief is to find a cat whose answer changes |
 | PR 3.1a Vet visits | **Opus** | Multi-statement transactions, D8, undo, and cost visibility to guardians | The rollback test; **mutation probes** on D8 (with the visit dated before the guardian's "no"), undo and `costs: false`; Opus adversarial review |
@@ -1544,7 +1617,7 @@ One claim was checked and **not** taken: the critic said `catDisplayPhoto` doesn
 - **§5.2 Find from a photo:**
   - PR 2.5: narrowing, groups of 10 plus a final round, the bands, the words, the caps, EXIF and nothing kept;
   - the reset wording changes slightly (Decision 17).
-- **§6.1 extra layers and the §9.1 Map switch:** Q3, recommended for SYC-454.
+- **§6.1 extra layers and the §9.1 Map switch:** PR 2.6 (Samuel, Q3: before launch). The welfare layer at the 30-day window; the coverage layer as "Not looked at yet".
 - **§7.2 Log a vet visit button:** PR 3.1. **Add a note** stays on SYC-446, outside this plan.
 - **§8:**
   - 8.1 team only: PR 3.1;
