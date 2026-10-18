@@ -42,12 +42,12 @@ describe('the Spot screen map start', () => {
     expect(source).toMatch(/onChange=\{onMapMoved\}/);
     const moved = between('const onMapMoved = ', 'const resetMapStart = ');
     expect(moved).toMatch(/isSpotterMove\(mapStart\.coords, next\)/);
-    expect(moved).toMatch(/mapTouchedRef\.current = true/);
+    expect(moved).toMatch(/setMapTouched\(true\)/);
   });
 
   it('starts afresh on a new photo, a retake and a discard', () => {
     const reset = between('const resetMapStart = ', 'const setFirstPhoto = (');
-    for (const step of [/setMapStart\(null\)/, /setMapWaitedMs\(0\)/, /mapTouchedRef\.current = false/, /setPickedCoords\(null\)/]) {
+    for (const step of [/setMapStart\(null\)/, /setMapWaitedMs\(0\)/, /setMapTouched\(false\)/, /setPickedCoords\(null\)/]) {
       expect(reset).toMatch(step);
     }
     expect(between('const setFirstPhoto = (', 'const retakeFirstPhoto = ')).toMatch(/resetMapStart\(\);/);
@@ -62,5 +62,9 @@ describe('the Spot screen map start', () => {
 
   it('enables "Check for matches" only once the map has a start', () => {
     expect(source).toMatch(/disabled=\{!canCheckForMatches\(mapStart\) \|\| !pickedCoords \|\| submitting \|\| !deviceId\}/);
+  });
+
+  it('gives "This cat needs help" no place while the map sits on an unmoved Ermoupoli start (review M1)', () => {
+    expect(source).toMatch(/handoff=\{\{ photo, coords: needsHelpCoords\(mapStart, pickedCoords, mapTouched\) \}\}/);
   });
 });

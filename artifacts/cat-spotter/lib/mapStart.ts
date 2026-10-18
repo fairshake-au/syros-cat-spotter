@@ -24,6 +24,8 @@ export interface MapStartCoords {
 
 export interface MapStartInput {
   source: PickSource;
+  /** The phone's position, as useLocation gives it. `loading` is not read:
+   * still searching and "nothing yet" both wait out MAP_START_WAIT_MS. */
   phone: { coords: MapStartCoords | null; denied: boolean; loading: boolean };
   /** Time since the photo was picked. */
   waitedMs: number;
@@ -91,4 +93,19 @@ export function mapStartHintKey(start: ReadyMapStart | null): 'mapStartedInTown'
 /** "Check for matches" needs a start (the other conditions stay on the screen). */
 export function canCheckForMatches(start: MapStart | null): boolean {
   return start?.status === 'ready';
+}
+
+/**
+ * The place handed to "This cat needs help": none while the map still sits on
+ * an Ermoupoli start the spotter hasn't moved, because that is our guess, not
+ * where the cat is (review M1). Otherwise the pin.
+ */
+export function needsHelpCoords(
+  start: ReadyMapStart | null,
+  pin: MapStartCoords | null,
+  touched: boolean,
+): MapStartCoords | undefined {
+  if (!pin) return undefined;
+  if (start?.origin === 'town' && !touched) return undefined;
+  return pin;
 }

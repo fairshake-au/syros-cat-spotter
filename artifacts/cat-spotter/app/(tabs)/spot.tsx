@@ -119,6 +119,7 @@ import {
   canCheckForMatches,
   isSpotterMove,
   mapStartHintKey,
+  needsHelpCoords,
   nextMapStart,
   resolveMapStart,
   type PickSource,
@@ -386,7 +387,7 @@ export default function SpotScreen() {
   const [mapStartKey, setMapStartKey] = useState(0);
   // Whether the spotter has moved the map since it started. Until then an
   // Ermoupoli start gives way to a late phone fix on Syros.
-  const mapTouchedRef = React.useRef(false);
+  const [mapTouched, setMapTouched] = useState(false);
   const [mapWaitedMs, setMapWaitedMs] = useState(0);
   // Reset in resetMapStart (with the new photo), not here: an effect's reset
   // would land a render late, after the start below had read the old value.
@@ -404,23 +405,23 @@ export default function SpotScreen() {
         phone: { coords, denied, loading: locating },
         waitedMs: mapWaitedMs,
       }),
-      mapTouchedRef.current,
+      mapTouched,
     );
     if (next && next !== mapStart) {
       setMapStart(next);
       setMapStartKey((k) => k + 1);
       setPickedCoords({ latitude: next.coords.latitude, longitude: next.coords.longitude });
     }
-  }, [photo, pickSource, coords, denied, locating, mapWaitedMs, mapStart]);
+  }, [photo, pickSource, coords, denied, locating, mapWaitedMs, mapStart, mapTouched]);
   const onMapMoved = (next: { latitude: number; longitude: number }) => {
-    if (mapStart && isSpotterMove(mapStart.coords, next)) mapTouchedRef.current = true;
+    if (mapStart && isSpotterMove(mapStart.coords, next)) setMapTouched(true);
     setPickedCoords(next);
   };
   /** A new photo, a retake or a discard: the map starts afresh. */
   const resetMapStart = () => {
     setMapStart(null);
     setMapWaitedMs(0);
-    mapTouchedRef.current = false;
+    setMapTouched(false);
     setPickedCoords(null);
   };
 
@@ -1651,7 +1652,7 @@ export default function SpotScreen() {
             {/* SYC-42: quiet, below the main action; reuses this photo and place. */}
             {photo && !submitting && (
               <NeedsHelpLink
-                handoff={{ photo, coords: pickedCoords ?? undefined }}
+                handoff={{ photo, coords: needsHelpCoords(mapStart, pickedCoords, mapTouched) }}
                 style={{ alignSelf: 'center' }}
               />
             )}

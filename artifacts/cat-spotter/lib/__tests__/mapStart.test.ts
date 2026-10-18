@@ -10,6 +10,7 @@ import {
   canCheckForMatches,
   isSpotterMove,
   mapStartHintKey,
+  needsHelpCoords,
   nextMapStart,
   resolveMapStart,
   type MapStartInput,
@@ -143,5 +144,27 @@ describe('the line under the map, and the button', () => {
     expect(canCheckForMatches(null)).toBe(false);
     expect(canCheckForMatches({ status: 'ready', coords: ERMOUPOLI, origin: 'town' })).toBe(true);
     expect(canCheckForMatches({ status: 'ready', coords: SYROS_FIX, origin: 'phone' })).toBe(true);
+  });
+});
+
+describe('needsHelpCoords: the place handed to "This cat needs help" (review M1)', () => {
+  const town: ReadyMapStart = { status: 'ready', coords: { ...ERMOUPOLI }, origin: 'town' };
+  const atPhone: ReadyMapStart = { status: 'ready', coords: SYROS_FIX, origin: 'phone' };
+  const dragged = { latitude: 37.4401, longitude: 24.9412 };
+
+  it('is nothing while the map sits on an Ermoupoli start the spotter has not moved', () => {
+    expect(needsHelpCoords(town, { ...ERMOUPOLI }, false)).toBeUndefined();
+  });
+
+  it('is the pin once the spotter has moved the map', () => {
+    expect(needsHelpCoords(town, dragged, true)).toEqual(dragged);
+  });
+
+  it('is the pin for a start from the phone, moved or not', () => {
+    expect(needsHelpCoords(atPhone, SYROS_FIX, false)).toEqual(SYROS_FIX);
+  });
+
+  it('is nothing with no pin', () => {
+    expect(needsHelpCoords(null, null, false)).toBeUndefined();
   });
 });
