@@ -167,7 +167,7 @@ The Cats screen opens on **every active cat**, most recently seen first. It's a 
 - a small tag where it applies: "Has a home", "In care", or "Not seen since Jun 2026".
 
 **Filters.** On a desktop they sit in one row above the grid. On a phone, a single **"Filters (2)"** button opens a panel with every filter. The active filters show beneath it as chips with a × to remove each one. The name search box stays beside the button. The filters are:
-- **Look:** the colour chips from SYC-161 (Black, White, Ginger, Grey, Tabby, Tortoiseshell or calico, Black and white, Not sure). You can pick more than one.
+- **Look:** the colour chips from SYC-161 (Black, White, Ginger, Grey, Tabby, Tortoiseshell or calico, Black and white, Not sure). You can pick more than one. *Amended by `coat-colours-and-pattern.md` §15 (SYC-443, approved 18 October 2026): the colour chips are the five colours (Black, Grey, Brown, Ginger, White), and a Pattern row uses the team's words: Solid, Tabby, Patched, Not known.*
 - **Where:** a named area or a colony.
 - **Sterilised:** Sterilised, Probably, Not sterilised, or Not known.
 - **Lives:** On the street, Has a home, In care, or No longer with us (which includes cats not seen for 3 years). The default is On the street, Has a home and In care.
