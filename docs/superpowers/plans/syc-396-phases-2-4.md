@@ -36,7 +36,7 @@
 Every task's requirements include these.
 
 **Words and facts**
-- Sterilisation costs €50–60 per cat. The default standard price is **€55**.
+- Sterilisation costs €50–60 per cat. The default standard price is **€60** (Syros Cats' answer, SYC-442, 18 Oct).
 - The terms are "cat guardian" and "spotter", never "colony carer" or "snapper".
 - Team pages are English only (Decision 12).
   - Pages shared with cat guardians take their words from `lib/teamPages/strings/{en,el,fr}.ts`. `strings.test.ts` enforces that all three have the same keys and the same `{placeholders}`.
@@ -166,7 +166,7 @@ Each one is a choice the spec leaves open. "What the team sees" says what it mea
    - Undoing the visit retracts that row. A new resolver rule (PR 3.0) makes a **retraction of a superseding row** stand the row it replaced up again, for `sterilised` and `vaccinated` only, so the guardian's statement comes back.
    - *What the team sees:* undo really is undo.
 7. **A statement created by a visit can only be undone through the visit.** The generic "Mark wrong" refuses rows that carry a `vetVisitId`, with the words "This came from a vet visit. Mark the visit wrong instead." Otherwise a cat page and the vet report could disagree.
-8. **The standard price is an app setting, `standard_sterilisation_price_eur`, defaulting to 55.** Its changes go into `mapping_events` as a new subject kind, `vet_settings`, the "same add-only history" §10.3 asks for.
+8. **The standard price is an app setting, `standard_sterilisation_price_eur`, defaulting to 60** (SYC-442). Its changes go into `mapping_events` as a new subject kind, `vet_settings`, the "same add-only history" §10.3 asks for.
    - PR 2.3 reads it for the planner's estimate.
    - PR 3.1 adds the page that changes it.
 9. **Named areas move into a `named_areas` table** (migration `named_areas`). The first rows are seeded from today's 22 entries.
@@ -529,7 +529,7 @@ export async function colonyFigures(visible: Visible, opts: { island: boolean },
 
 **What the team sees:** a colony page now leads with what a round needs:
 - **To do:** every street cat here not confirmed sterilised. "Not sterilised" comes first, then "Not known", then "Probably", most recently seen first in each group. Each cat shows its photo, name, colours, usual place, last seen, and "ear clip seen" where that applies.
-- **The estimate:** "7 cats × €55 = €385".
+- **The estimate:** "7 cats × €60 = €420".
 - The colony's feeding sites on a small map.
 - A **printable plan**.
 - **Done:** the sterilised cats, folded away.
@@ -541,7 +541,7 @@ export async function colonyFigures(visible: Visible, opts: { island: boolean },
 **Files:**
 - Modify:
   - `lib/db/src/appSettings/shape.ts`: `SETTING_KEYS` gains `"standard_sterilisation_price_eur"`, and `settingShapeProblem` accepts an integer from 1 to 500.
-  - `artifacts/api-server/src/lib/appSettings.ts`: `AppSettings` gains `sterilisationPriceEur: number`, default `55`.
+  - `artifacts/api-server/src/lib/appSettings.ts`: `AppSettings` gains `sterilisationPriceEur: number`, default `60`.
   - `artifacts/api-server/src/lib/capabilities.ts` gains `view_vet_costs: { kind: "island", roles: TEAM }` and `print_trapping_plan: { kind: "island", roles: TEAM }`.
   - `docs/specs/roles-and-invites.md` §6.2 gains the two rows, under "Seeing": `| \`view_vet_costs\` | See vet costs, who paid, and estimates | Island-only | ✓ | ✓ | — |` and `| \`print_trapping_plan\` | Print a colony's trapping plan | Island-only | ✓ | ✓ | — |`.
   - `docs/specs/team-dashboard-redesign.md` §10.3 gains the `print_trapping_plan` row, with a line noting it was added by this plan.
@@ -549,7 +549,7 @@ export async function colonyFigures(visible: Visible, opts: { island: boolean },
 
 - [ ] **Step 1: Failing tests:**
   - the shape refuses `0`, `501`, `"55"` and `55.5`;
-  - a bad stored value falls back to 55;
+  - a bad stored value falls back to 60;
   - the catalogue test passes only once **both** files have the rows. Prove it by adding the code row alone first, so the test goes red, then adding the spec row.
 - [ ] **Step 2–4: Fail, implement, pass. Step 5: Commit:** `SYC-396 PR 2.3: standard price setting; view_vet_costs and print_trapping_plan`
 
@@ -588,7 +588,7 @@ export async function trappingPlan(visible: Visible, colonyId: number, opts: { i
   - order and grouping as in `toDo`;
   - a homed cat is never in To do;
   - for a guardian, `usualPlace` uses the discovery position: seed a cat whose last sighting is next to a site with a **public label**, and whose discovery position is 2 km away in another area, and assert the guardian's label is the other area;
-  - `estimate` is null for a guardian, and `7 × 55 = 385` for the team;
+  - `estimate` is null for a guardian, and `7 × 60 = 420` for the team;
   - a colony outside `visible` returns null;
   - **no `PlanCat.usualPlace` ever contains a site's internal name:** seed the site named "Vaporia — Eleni's" with the public label "harbour steps";
   - **the serialised guardian plan** (`JSON.stringify` of what the guardian's page and its JSON variant receive) has no `lastSeen`, `placedAt`, `place` or `snapshot` key, and no number with 4 or more decimals.
@@ -1065,7 +1065,7 @@ The chain logic:
   - the date;
   - what was done (Sterilised, Vaccinated with the vaccine picker, Treated with a note, or Checked only);
   - the clinic, from the one list;
-  - the cost, pre-filled with the standard €55 when Sterilised is ticked;
+  - the cost, pre-filled with the standard €60 when Sterilised is ticked;
   - who paid;
   - a note.
 - Saving records the visit and, together with it, the cat's sterilisation and vaccination. If the cat guardian had said "not sterilised", that is marked wrong with the reason "vet visit on 13 Aug 2026", and it shows on the guardian changes list.
@@ -1153,8 +1153,8 @@ export interface VisitLine { visitId: number; date: string; did: VetVisitValue["
 - Test: `lib/db/src/migrate/vetSettingsHistory.test.ts`, `routes/team.vetSettings.test.ts`
 
 - [ ] **Step 1: Failing tests:**
-  - setting €60 makes the planner's estimate use 60 at once on this server;
-  - the history shows "18 Oct 2026 · Jacky · €55 → €60";
+  - setting €65 makes the planner's estimate use 65 at once on this server;
+  - the history shows "18 Oct 2026 · Jacky · €60 → €65";
   - €0 is refused with words;
   - a guardian gets 403;
   - the migration test checks that a `vet_settings` event is accepted and that an unknown subject kind is still refused.
@@ -1186,7 +1186,7 @@ export interface VisitLine { visitId: number; date: string; did: VetVisitValue["
   - a failed save keeps the typed note;
   - "Mark wrong" on the visit's `sterilised` row through the generic route is refused with the Decision 7 words;
   - a guardian's own cat page shows "Seen by a vet on 13 Aug 2026: sterilised", and **no** "vaccin", no "€" and no clinic name;
-  - Home's spend counts a €55 Syros Cats visit and leaves out a €60 owner-paid one.
+  - Home's spend counts a €60 Syros Cats visit and leaves out a €70 owner-paid one.
 - [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass.**
 - [ ] **Step 5: Mutation probe:** pass `costs: true` for guardians. The "no €" test **must** go red. Restore it.
 - [ ] **Step 6: Screenshots** of the form and the cat page at 390px and 1280px. **Step 7: Commit:** `SYC-396 PR 3.1: Log a vet visit on the cat page`

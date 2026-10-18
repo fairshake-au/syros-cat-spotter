@@ -374,7 +374,7 @@ The colony page leads with what a trapping round needs:
    - "Not sterilised" cats come first, then "Not known", then "Probably". Within each group, most recently seen comes first, because those cats are most likely to turn up.
    - Every cat is listed. The list is never cut short.
    - Each cat shows: photo, name, colour chips, the place label where it's usually seen (its feeding site's public label, or its area), last seen, and "ear clip seen" where that applies.
-2. **The estimate:** "N cats × €55 = €X", using the standard price from §8.2. The price is shown.
+2. **The estimate:** "N cats × €60 = €X", using the standard price from §8.2. The price is shown.
 3. **The colony's feeding sites,** on a small map.
 4. **A printable plan.** A clean one-page version for the round:
    - it shows photos, names, colours and place labels;
@@ -493,7 +493,7 @@ Once the donation route with James is settled, a Donations report will show:
 - money received per month, by source;
 - Syros Cats' vet spend per month (§8.4);
 - cats sterilised with money given for that cat;
-- a simple meter towards a fundraising goal the team sets, worded as "€X raised, enough for about N sterilisations at €55".
+- a simple meter towards a fundraising goal the team sets, worded as "€X raised, enough for about N sterilisations at €60".
 
 Until then, the Reports list shows Donations as "Coming once donations are set up". The data source will be decided with James. This spec fixes nothing about payment tools.
 
@@ -714,11 +714,11 @@ Each phase is its own set of pull requests, reviewed and shipped before the next
 
 **Decided:** D8, when a vet visit and a cat guardian disagree (§8.3).
 
-**Questions for Syros Cats** (they don't block approval; the spec's assumptions stand until answered):
-1. **Standard sterilisation price.** Is there one price at the clinic Syros Cats use, or one per clinic? The spec assumes one standard price, which the team sets and can override per visit.
-2. **The named-area list.** We draft it. Syros Cats correct it.
-3. **The "Not seen lately" threshold.** The spec uses 6 weeks. Syros Cats may know better for street cats on Syros.
-4. **The impact report's smallest area.** The spec shows an area only with at least 5 cats. Is that enough?
+**Questions for Syros Cats: answered** (Samuel, 18 Oct 2026, SYC-442):
+1. **Standard sterilisation price:** **€60**, one standard price. The team can still change it per visit, and on the Vet settings page.
+2. **The named-area list:** the drafted list of 21 areas is right as it stands. The team can correct it later on the Areas page.
+3. **The "Not seen lately" threshold:** **6 weeks** stands.
+4. **The impact report's smallest area:** **5 cats** stands.
 
 ## 17. How the adversarial review was handled
 
