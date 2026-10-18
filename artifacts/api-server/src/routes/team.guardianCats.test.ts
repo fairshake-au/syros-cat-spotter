@@ -42,6 +42,10 @@ const JSON_ACCEPT = { Accept: "application/json" };
 /** Spec §2.2, "She sees". Pinned here, never imported. */
 const HER_FIELDS = [
   "coat",
+  // SYC-443 PR 2 (SYC-436): the colours and pattern the public wire carries,
+  // so her page can say the coat in the team's words.
+  "coatColours",
+  "coatPattern",
   "colony",
   "description",
   "id",
