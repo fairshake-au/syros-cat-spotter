@@ -27,7 +27,7 @@ import {
   setTeamHeaders,
 } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
-import { can, capabilitiesOf, mayEnter } from "../lib/capabilities";
+import { can, capabilitiesOf, maySignIn } from "../lib/capabilities";
 import { renderQueuePage } from "../lib/teamPages/queuePage";
 import { listWelfareQueue } from "../lib/welfareQueue";
 import { isIslandWide } from "../lib/guardianView";
@@ -56,7 +56,7 @@ async function alreadySignedInAs(req: Request, sub: string, now: number): Promis
   const team = readSession(req, now);
   if (team && team.pid === sub) {
     const person = await findPersonById(team.pid);
-    if (person && person.sessionVersion === team.sv && mayEnter(person)) {
+    if (person && person.sessionVersion === team.sv && maySignIn(person)) {
       return can(person, "view_welfare_queue") ? TEAM_HOME : `${TEAM_ORIGIN}${GUARDIAN_HOME_PATH}`;
     }
   }
@@ -147,8 +147,10 @@ router.post(
       res.redirect(303, `${TEAM_ORIGIN}${WELCOME_PATH}`);
       return;
     }
-    // A role that grants nothing gets no session either (SYC-188).
-    if (!mayEnter(person)) return refuse("no_capability", claims.jti);
+    // A role that grants nothing gets no session either (SYC-188). A cat
+    // guardian with no colony yet does (SYC-439): she reaches only her own
+    // pages and the Colonies list and create form (doorFor).
+    if (!maySignIn(person)) return refuse("no_capability", claims.jti);
     if (claims.sv !== person.sessionVersion) {
       return refuse("stale_session_version", claims.jti);
     }

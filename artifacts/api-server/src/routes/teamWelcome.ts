@@ -11,7 +11,7 @@ import {
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import { clearInviteSession, issueSession } from "../lib/teamAuth/session";
 import { isBrowserNavigation, refuseAccessEnded, requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
-import { mayEnter } from "../lib/capabilities";
+import { maySignIn } from "../lib/capabilities";
 import { homeFor, invitee, requireInvitee, sendClosed } from "../middlewares/requireInvitee";
 import {
   PROMISES_VERSION,
@@ -92,7 +92,7 @@ router.post(
     // nothing that opens the dashboard, say a placement that ended between
     // the invitation and the yes. She has joined; she gets "Your access has
     // ended", not a session.
-    if (!mayEnter(person)) {
+    if (!maySignIn(person)) {
       req.log.info({ reason: "no_capability" }, "accepted, but holds nothing; no session issued");
       refuseAccessEnded(req, res, person);
       return;

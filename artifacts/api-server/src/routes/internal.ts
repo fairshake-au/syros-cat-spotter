@@ -7,7 +7,7 @@ import {
 } from "express";
 import { findAllowedPerson, findInviteeByEmail, normaliseEmail } from "@workspace/db";
 import { checkInternalToken } from "../lib/internalAuth";
-import { mayEnter, mayUseWorkspace } from "../lib/capabilities";
+import { maySignIn, mayUseWorkspace } from "../lib/capabilities";
 
 // POST /api/internal/people/allowed (team-access spec §2.7; SYC-43 part 1
 // plan §4, Decisions 1 and 2). The sign-in Worker asks "is this address on
@@ -96,7 +96,9 @@ router.post(
     const person = await findAllowedPerson(normaliseEmail(raw));
     const doors = {
       workspace: person !== null && mayUseWorkspace(person),
-      dashboard: person !== null && mayEnter(person),
+      // The same door as the hand-off (SYC-439: a cat guardian with no
+      // colony yet is let in, to create her first one).
+      dashboard: person !== null && maySignIn(person),
     };
 
     if (version === undefined) {
