@@ -1516,7 +1516,7 @@ export function resolveVaccinated(observations: readonly Observation[]): Vaccina
 }
 
 /** SYC-2's kinds, kept away from the life-status and sterilised resolvers. */
-const APPEARANCE_AND_HEALTH_KINDS: ReadonlySet<string> = new Set([
+export const APPEARANCE_AND_HEALTH_KINDS: ReadonlySet<string> = new Set([
   "coat",
   "markings",
   "vaccinated",

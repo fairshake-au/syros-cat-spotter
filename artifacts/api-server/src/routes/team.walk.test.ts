@@ -308,6 +308,9 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/my/welcome": { why: "the accept page: an invitee's own session only (requireInvitee)", except: ACCEPT_PAGE },
   "POST /api/team/my/accept": { why: "Yes, join: requireInvitee and the dashboard's Origin", except: ACCEPT_PAGE },
   "POST /api/team/my/decline": { why: "No, this isn't for me: requireInvitee and the dashboard's Origin", except: ACCEPT_PAGE },
+  // SYC-45 Slice 1: the nightly news check's review list. Staff only.
+  "GET /api/team/news-changes": { why: "use_workspace: island-only, so every cat guardian gets the 403 (teamNews.test.ts)" },
+  "POST /api/team/news-changes/:id/review": { why: "use_workspace: island-only, Origin checked (teamNews.test.ts)" },
 };
 
 /** Routes with their own checks instead of a person's session. */
@@ -318,6 +321,8 @@ const OWN_CHECKS: Record<string, string> = {
   "POST /api/internal/mail/drain": "the drain timer's bearer token (internalMail.test.ts)",
   "POST /api/internal/coat/sweep": "the drain timer's bearer token, SYC-161 Decision D1 (internalCoat.test.ts)",
   "POST /api/internal/resend/webhook": "Resend's signature, no token (reports.reporterEmail.test.ts, prelaunchGate.test.ts)",
+  "POST /api/internal/news/nightly": "the news check's own bearer token, SYC-45 (news/nightly.test.ts)",
+  "GET /api/internal/news/last-run": "the news check's own bearer token, SYC-45 (news/nightly.test.ts)",
 };
 
 /**

@@ -18,3 +18,4 @@ export * from "./mapTiles";
 export * from "./matchWait";
 export * from "./photoVariants";
 export * from "./sightingPhotos";
+export * from "./catNews";
