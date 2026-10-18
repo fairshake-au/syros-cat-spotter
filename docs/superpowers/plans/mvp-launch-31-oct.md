@@ -97,18 +97,20 @@ The spec (`docs/specs/team-dashboard-redesign.md`) and its plan were both approv
 
 ## Decisions for Samuel
 
-Each has a recommendation. D1 matters most.
+Each has a recommendation. **D1 and D2 were decided on 18 October; D3, D4 and D5 are open.**
 
-### D1. Write the dashboard plans for phases 2, 3 and 4 together, now? (SYC-463)
+### D1. Write the dashboard plans for phases 2, 3 and 4 together, now? (SYC-463) · **Decided: A** (Samuel, 18 Oct, recorded on SYC-463)
+
+The combined plan is written in its own session (the dashboard redesign worktree) as a new file under `docs/superpowers/plans/`, for approval on Tuesday 20 October.
 
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. One combined plan for phases 2–4, written 19 Oct and reviewed, for approval on Tue 20 Oct (recommended)** | Vet visits can start as soon as Home's counting is merged, and the reports as soon as vet visits are. It gives the reports a real chance | Changes the approved plan's rule. Phase 3's plan is written before phase 2's code exists, so each builder re-reads the merged code first, which the plan already requires |
 | B. One plan per phase, as approved | Each plan sees the code before it | Two more write–review–approve cycles of about two days each. The reports and the impact report would almost certainly miss 31 October |
 
-**Recommendation: A.** The combined plan starts with the roles-spec update (§10.3) and lists every guardian screen and its tests.
+**Recommended A; Samuel chose A.** The combined plan starts with the roles-spec update (§10.3) and lists every guardian screen and its tests.
 
-### D2. If it doesn't all fit: the order to decide on Wednesday 28 October
+### D2. If it doesn't all fit: the order to decide on Wednesday 28 October · **Decided: the recommended order** (Samuel, 18 Oct, recorded on SYC-396)
 
 You kept all of phases 2–5 for 31 October, and the plan builds for that. This isn't a request to cut anything now. It's the order I'd recommend on Wednesday 28, at the feature freeze, if not everything has merged. You'd decide then, with what's merged and what isn't in front of you.
 
@@ -119,7 +121,7 @@ The order runs from what visitors and the team would miss least to what they'd m
 3. **The five reports and downloads (phase 3)** wait for 16 November. Vet visits and round logging stay in, so data starts building up from launch day.
 4. **Find from a photo (phase 2)** waits for 16 November. The team can already find cats by look and place with phase 1's grid.
 
-**Recommendation:** agree this order now as the fallback, so the decision on Wednesday 28 is quick.
+**Samuel agreed this order as the fallback.** On Wednesday 28, anything on it that hasn't merged waits for 16 November, starting from the top. Never slipped: Home, the Colonies list, the trapping planner, editable areas, vet visits and round logging.
 
 ### D3. The launch web address (SYC-306)
 
@@ -161,7 +163,7 @@ Claude's building runs in parallel worktrees. The limits are Samuel's approvals 
 | Day | Publish | Building and checks (Claude) | Samuel, Syros Cats, Johnny |
 |---|---|---|---|
 | **Sun 18** | — | This plan and its review | — |
-| **Mon 19** | **Yes: the 18-change backlog.** Neon snapshot, then `0030` (ask mode), then publish. Live check of each feature in the batch | Combined dashboard plan for phases 2–4 and its review (D1). Photo-removal runbook (SYC-462). Privacy policy changes for Samuel. SYC-44 6.1. SYC-166 slice 4. SYC-415 confirmed off, checked, then switched on | Approve this plan and D1–D5. Pull in Replit; ask mode for the database step. Ask Syros Cats for door pins (SYC-68), QR printing and placement (SYC-51), privacy wording (SYC-66) and the four dashboard questions (SYC-442). Ask Johnny for both windows |
+| **Mon 19** | **Yes: the 18-change backlog.** Neon snapshot, then `0030` (ask mode), then publish. Live check of each feature in the batch | Combined dashboard plan for phases 2–4 and its review (D1, written in the dashboard redesign session). Photo-removal runbook (SYC-462). Privacy policy changes for Samuel. SYC-44 6.1. SYC-166 slice 4. SYC-415 confirmed off, checked, then switched on | Approve this plan; decide D3–D5. Pull in Replit; ask mode for the database step. Ask Syros Cats for door pins (SYC-68), QR printing and placement (SYC-51), privacy wording (SYC-66) and the four dashboard questions (SYC-442). Ask Johnny for both windows |
 | **Tue 20** | — | Roles-spec update (§10.3). Dashboard 2.1 Home, 2.2 Colonies list, 2.3 trapping planner, 2.4 editable areas, side by side. SYC-44 6.2 | **Approve the dashboard plan and the privacy spec.** D3, D4 |
 | **Wed 21** | **Yes** | Dashboard 2.5 Find from a photo; 3.1 vet visits (once Home's counting is merged). Privacy page live. QR artwork | Merges. Approve the QR artwork |
 | **Thu 22** | — | **Copy freeze.** Johnny's pack assembled (SYC-346). SYC-44 7.1. Vet visits, second part | Merges |
@@ -223,7 +225,7 @@ Each line has a check that can fail. Run on Friday 30 with the pass on, then the
 
 | Who | What |
 |---|---|
-| **Samuel** | Approve this plan and D1–D5. Approve the combined dashboard plan and the privacy spec (Tue 20). Every merge, in two windows a day, plus one weekend window on 24–25 Oct. The Replit pull and "ask" mode for each publish with a database change. Send Johnny's pack. Give the go-ahead to invite guardians. The announcement |
+| **Samuel** | Approve this plan and decide D3–D5 (D1 and D2 decided 18 Oct). Approve the combined dashboard plan and the privacy spec (Tue 20). Every merge, in two windows a day, plus one weekend window on 24–25 Oct. The Replit pull and "ask" mode for each publish with a database change. Send Johnny's pack. Give the go-ahead to invite guardians. The announcement |
 | **Syros Cats** | Door pins at the three clinics (SYC-68). QR printing and placement (SYC-51). The four dashboard questions (SYC-442). Confirm the report inbox (SYC-173). Privacy policy wording, as data controller (SYC-66), by Tue 20. The €1 and €30 figures on the feeding nudge (SYC-360) |
 | **Johnny** | The Greek and French check, 23–27 Oct (SYC-346), including the guardian words (SYC-283), and a short second window, 27–29 Oct (D5) |
 | **James** | The donation route, which unblocks dashboard phase 5. Not needed for 31 October |
