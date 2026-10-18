@@ -4,5 +4,12 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0
 (LICENSE.md). Charities, personal and other noncommercial use is free.
 For commercial use, ask Fair Shake for permission.
 
-Third-party code keeps its own licence. That includes the patched
-dependencies in patches/, which carry their upstream licences.
+Not covered by this licence:
+- Photographs supplied by Syros Cats or other people (for example
+  artifacts/cat-spotter/assets/images/ear-tip-example.jpg), and any
+  photographs of real cats or people in docs/ and attached_assets/. These
+  are used here with permission and are not licensed to anyone else.
+- Third-party code, which keeps its own licence. That includes the patched
+  dependencies in patches/, which carry their upstream licences.
+- Map pictures, which come from OpenStreetMap at runtime and are
+  © OpenStreetMap contributors under the Open Database License.
