@@ -15,6 +15,8 @@ import {
 import { AREAS } from "../mapTiles/areas";
 import { mintTileToken } from "../mapTiles/tileToken";
 import { wordsIn } from "./words";
+import { clusterRing } from "./marks";
+import type { SterilisedMark } from "../teamCatList";
 
 // The team's map (SYC-209 PR 3.1; spec §3, Decision 1A; plan K4, K13). One
 // function draws it, so a better map can replace it later without touching
@@ -42,8 +44,15 @@ export interface MapMarker extends Position {
   label: string;
   /** View mode: where the marker goes. Never holds a position. */
   href?: string;
-  /** How a feeding site's marker looks (SYC-209 PR 3.2); a fixed set, never free text. */
-  look?: "public" | "private" | "retired" | "sighting";
+  /**
+   * How a marker looks; a fixed set, never free text. A feeding site's
+   * (SYC-209 PR 3.2), a sighting's (PR 3.4), or a cat's on the island map
+   * (SYC-396 PR 1.5): one of the four sterilisation marks (spec §12.2), or a
+   * group of nearby cats.
+   */
+  look?: "public" | "private" | "retired" | "sighting" | SterilisedMark | "cluster";
+  /** A cluster only: how many cats, and how many of each mark (its ring). */
+  cluster?: { count: number; split: Partial<Record<SterilisedMark, number>> };
 }
 
 const LOOKS: Record<NonNullable<MapMarker["look"]>, string> = {
@@ -52,7 +61,26 @@ const LOOKS: Record<NonNullable<MapMarker["look"]>, string> = {
   retired: " site-retired",
   // Where a cat was seen (PR 3.4): outlined and dashed, so it never reads as a site.
   sighting: " sighting",
+  // A cat (SYC-396 PR 1.5): its mark's dot inside a 44px tap target.
+  sterilised: " catpin",
+  probably: " catpin",
+  not_known: " catpin",
+  not_sterilised: " catpin",
+  cluster: " catpin cluster",
 };
+
+const isMark = (look: MapMarker["look"]): look is SterilisedMark =>
+  look === "sterilised" || look === "probably" || look === "not_known" || look === "not_sterilised";
+
+/** What is drawn inside a cat's pin: its dot, or a cluster's count in its ring. Fixed text and numbers only. */
+function pinInside(m: MapMarker): string {
+  if (isMark(m.look)) return `<span class="catdot mark-${m.look}" aria-hidden="true"></span>`;
+  if (m.look === "cluster" && m.cluster) {
+    const n = Math.max(0, Math.floor(m.cluster.count));
+    return `<span class="catcluster" style="background:${clusterRing(m.cluster.split)}" aria-hidden="true"><span>${n}</span></span>`;
+  }
+  return "";
+}
 
 export interface MapOptions {
   /** What to show: a view, or a centre and zoom to build one around. */
@@ -121,9 +149,10 @@ function band(view: View, size: number, opts: MapOptions): string {
       const style = `left:${at.left}px;top:${at.top}px`;
       const label = esc(m.label);
       const cls = "pin" + (m.look && Object.hasOwn(LOOKS, m.look) ? LOOKS[m.look] : "");
+      const inside = pinInside(m);
       return opts.mode === "view" && m.href
-        ? `<a class="${cls}" style="${style}" href="${esc(m.href)}" title="${label}"><span class="sr">${label}</span></a>`
-        : `<span class="${cls}" style="${style}" title="${label}"><span class="sr">${label}</span></span>`;
+        ? `<a class="${cls}" style="${style}" href="${esc(m.href)}" title="${label}">${inside}<span class="sr">${label}</span></a>`
+        : `<span class="${cls}" style="${style}" title="${label}">${inside}<span class="sr">${label}</span></span>`;
     })
     .join("");
   return (

@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { mapTileLimiter } from "../middlewares/rateLimit";
+import { z } from "zod";
+import { mapSquareLimiter, mapSquareTokensLimiter, mapTileLimiter } from "../middlewares/rateLimit";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { requireSeeing } from "../middlewares/requireSeeing";
@@ -11,15 +12,17 @@ import { position } from "../lib/teamPages/position";
 import { isIslandWide } from "../lib/guardianView";
 import {
   clampView,
+  isTileAllowed,
   isViewAllowed,
   MAX_ZOOM,
+  MIN_ZOOM,
   viewAround,
   type Position,
   type View,
 } from "../lib/mapTiles/geometry";
 import { applyMove, readTap } from "../lib/mapTiles/mapForms";
-import { readTileToken } from "../lib/mapTiles/tileToken";
-import { mosaicPicture } from "../lib/mapTiles/tileCache";
+import { mintSquareToken, readSquareToken, readTileToken } from "../lib/mapTiles/tileToken";
+import { getTilePng, mosaicPicture } from "../lib/mapTiles/tileCache";
 
 // The team's map (SYC-209 PR 3.1; feeding-sites spec §3, §11.4; plan K4,
 // K13). PR 3.2 puts the feeding sites on it, PR 3.3 uses its tap to place
@@ -183,6 +186,97 @@ router.get(
     // hour (same address) picks up the tile once the server has it.
     if (picture.complete) res.setHeader("Cache-Control", "private, max-age=86400");
     res.type("png").send(picture.png);
+  },
+);
+
+// ── The island map's squares (SYC-396 PR 1.5; spec §6.3) ───────────────────
+//
+// The draggable map on the Cats page (?view=map) needs one picture per map
+// square, not a 2×2 picture. Positions still never reach an address:
+// 1. the page asks, in a signed-in POST, for the squares it can see
+//    (square numbers in the BODY, never a latitude or longitude, and never in
+//    the address);
+// 2. the server answers with a token for each square on Syros;
+// 3. the map fetches each square by its token alone.
+// Both are team-only (view_exact_location with no target): the Map is the
+// team's in phase 1, so a cat guardian gets the 403 (spec §10.2 gives her a
+// map of her own colonies later). The request log redacts the square's
+// address (lib/logger.ts MAP_TILE_IN_PATH), and each person may fetch at
+// most 300 squares in 10 minutes (middlewares/rateLimit.ts mapSquareLimiter).
+
+/** Squares in one token request. A 2560 px wide screen asks in two. */
+export const MAX_SQUARES_PER_CALL = 64;
+
+const SquareNumber = z.number().int().min(0).max(2 ** MAX_ZOOM - 1);
+/** Square numbers only: anything else, a lat or lng included, is refused. */
+const SquaresRequest = z
+  .object({
+    z: z.number().int().min(MIN_ZOOM).max(MAX_ZOOM),
+    xMin: SquareNumber,
+    xMax: SquareNumber,
+    yMin: SquareNumber,
+    yMax: SquareNumber,
+  })
+  .strict()
+  .refine((r) => r.xMin <= r.xMax && r.yMin <= r.yMax);
+
+/**
+ * POST /api/team/map-squares: `{ z, xMin, xMax, yMin, yMax }` (JSON) to
+ * `{ tokens: { "z/x/y": token } }`, for the squares in that range that are on
+ * Syros only. More than 64 squares in one call is refused whole (400), so
+ * the answer never depends on which 64 were picked. `no-store`, like every
+ * dashboard answer.
+ */
+router.post(
+  "/team/map-squares",
+  ...formRoute("view_exact_location"),
+  mapSquareTokensLimiter,
+  (req: Request, res: Response) => {
+    const parsed = SquaresRequest.safeParse(req.body);
+    if (!parsed.success) return void res.status(400).json({ error: "bad_request" });
+    const { z: zoom, xMin, xMax, yMin, yMax } = parsed.data;
+    if ((xMax - xMin + 1) * (yMax - yMin + 1) > MAX_SQUARES_PER_CALL) {
+      return void res.status(400).json({ error: "too_many_squares" });
+    }
+    const tokens: Record<string, string> = {};
+    for (let x = xMin; x <= xMax; x++)
+      for (let y = yMin; y <= yMax; y++) {
+        const square = { z: zoom, x, y };
+        if (isTileAllowed(square)) tokens[`${zoom}/${x}/${y}`] = mintSquareToken(square);
+      }
+    res.json({ tokens });
+  },
+);
+
+/**
+ * GET /api/team/map-square/:token: one 256 px map square. `:token` is a
+ * version 2 token (lib/mapTiles/tileToken.ts), never z/x/y; a 2×2
+ * picture's token is refused here. Counted against the person's 300 squares
+ * per 10 minutes before anything is fetched.
+ *
+ * A square is cached `private, max-age=86400`, never `public`, as the 2×2
+ * pictures are. Every refusal or error stays `no-store`.
+ */
+router.get(
+  "/team/map-square/:token",
+  requireTeam("view_exact_location"),
+  (_req: Request, res: Response, next: () => void) => {
+    setTeamHeaders(res); // no-store until there is a square to send, a 429 included
+    next();
+  },
+  mapSquareLimiter,
+  async (req: Request, res: Response) => {
+    const square = readSquareToken(req.params["token"]);
+    if (!square || !isTileAllowed(square)) {
+      return void res.status(404).json({ error: "Not found" });
+    }
+    const png = await getTilePng(square);
+    if (!png) {
+      req.log.warn({ reason: "tile_unavailable" }, "map square unavailable");
+      return void res.status(503).json({ error: "Map picture unavailable" });
+    }
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.type("png").send(png);
   },
 );
 

@@ -158,6 +158,54 @@ const RESPONSES: [string, () => request.Test, string?][] = [
     () => request(app).get("/api/team/map").set("Cookie", cookie).set("Accept", "text/html"),
     "GET /api/team/map",
   ],
+  // SYC-396 PR 1.5: the island map's square tokens and squares (JSON and
+  // pictures, so the strict header, never the Cats page's wider one).
+  [
+    "the island map's square tokens",
+    () =>
+      request(app)
+        .post("/api/team/map-squares")
+        .set("Origin", TEAM)
+        .set("Cookie", cookie)
+        .send({ z: 14, xMin: 0, xMax: 1, yMin: 0, yMax: 1 }),
+    "POST /api/team/map-squares",
+  ],
+  [
+    "the island Map (the Cats page as a map)",
+    () => request(app).get("/api/team/cats?view=map").set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/cats",
+  ],
+  [
+    "the island Map, filtered, with a cat in focus",
+    () =>
+      request(app)
+        .get(`/api/team/cats?view=map&sterilised=not_known&focus=${catId}`)
+        .set("Cookie", cookie)
+        .set("Accept", "text/html")
+        .set("Sec-Fetch-Mode", "navigate"),
+    "GET /api/team/cats",
+  ],
+  [
+    "the island Map's button-map move (no script)",
+    () =>
+      request(app)
+        .post("/api/team/cats/map")
+        .set("Origin", TEAM)
+        .set("Cookie", cookie)
+        .type("form")
+        .send({ vz: "12", vx: "0", vy: "0", go: "in", filters: "sterilised=not_known" }),
+    "POST /api/team/cats/map",
+  ],
+  [
+    "the island map's cat positions",
+    () => request(app).post("/api/team/cats/positions").set("Origin", TEAM).set("Cookie", cookie).send({}),
+    "POST /api/team/cats/positions",
+  ],
+  [
+    "an island map square with a bad token",
+    () => request(app).get("/api/team/map-square/nope").set("Cookie", cookie),
+    "GET /api/team/map-square/:token",
+  ],
   ["My page", () => request(app).get("/api/team/my").set("Cookie", cookie), "GET /api/team/my"],
   ["GET /me", () => request(app).get("/api/team/me").set("Cookie", cookie)],
   ["GET /me, signed out", () => request(app).get("/api/team/me")],
@@ -230,6 +278,27 @@ describe("the wider header is the Cats grid's alone, and exactly this", () => {
     expect(directive("connect-src")).toBe("connect-src 'self'");
     expect(directive("default-src")).toBe("default-src 'none'");
     expect(String(res.headers["content-security-policy"])).not.toMatch(/unsafe-eval|strict-dynamic|'nonce-|'sha(256|384|512)-/);
+  });
+
+  // SYC-396 PR 1.5: the island Map is the Cats route's own page (?view=map),
+  // so it carries the same wider header and no other; the exemption still
+  // names one route. Its no-script move page and its JSON answers are strict.
+  it("the island Map carries exactly the wider header; its move page and JSON answers the strict one", async () => {
+    const map = await request(app).get("/api/team/cats?view=map").set("Cookie", cookie).set("Accept", "text/html");
+    expect(map.status).toBe(200);
+    expect(map.headers["content-security-policy"]).toBe(WIDE_CSP);
+    const move = await request(app)
+      .post("/api/team/cats/map")
+      .set("Origin", TEAM)
+      .set("Cookie", cookie)
+      .type("form")
+      .send({ vz: "12", vx: "0", vy: "0" });
+    expect(move.status).toBe(200);
+    expect(move.headers["content-security-policy"]).toBe(STRICT_CSP);
+    for (const post of ["/api/team/cats/positions", "/api/team/map-squares"]) {
+      const res = await request(app).post(post).set("Origin", TEAM).set("Cookie", cookie).send({});
+      expect(res.headers["content-security-policy"], post).toBe(STRICT_CSP);
+    }
   });
 
   it("every other page keeps today's header, byte for byte", async () => {

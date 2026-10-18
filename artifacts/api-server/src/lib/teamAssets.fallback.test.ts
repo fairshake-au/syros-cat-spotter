@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { logger } from "./logger";
-import { createAssets, hashedName } from "./teamAssets";
+import { ASSET_NAMES, createAssets, hashedName, VENDOR, vendorBytes } from "./teamAssets";
 import { renderPage } from "./teamPages/layout";
 
 // SYC-396 PR 1.3.4 (adversarial review, finding 3): with no script to give,
@@ -74,7 +74,15 @@ describe("a broken build: logged, no script, no crash", () => {
 
   it("a good build loads, and says nothing", () => {
     const errors = vi.spyOn(logger, "error").mockImplementation(() => undefined);
-    const dir = codeDir({ "manifest.json": JSON.stringify({ "dashboard-grid.js": good }), [good]: GRID });
+    // Every file a page may ask for (SYC-396 PR 1.5 added the map's three).
+    const files: Record<string, Buffer> = { [good]: GRID };
+    const manifest: Record<string, string> = { "dashboard-grid.js": good };
+    for (const name of ASSET_NAMES.filter((a) => a !== "dashboard-grid.js")) {
+      const bytes = Object.hasOwn(VENDOR, name) ? vendorBytes(name) : readFileSync(path.join(SOURCE, name));
+      manifest[name] = hashedName(name, bytes);
+      files[manifest[name]!] = bytes;
+    }
+    const dir = codeDir({ "manifest.json": JSON.stringify(manifest), ...files });
     const made = createAssets(dir);
     expect(made.assetUrl("dashboard-grid.js")).toBe(`/api/team/assets/${good}`);
     expect(made.assetFile(good)!.bytes.equals(GRID)).toBe(true);

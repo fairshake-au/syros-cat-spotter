@@ -11,15 +11,29 @@
 // memory when there is no dist/ (tests, and running from source).
 // teamAssets.test.ts runs this script and checks the two agree.
 //
+// Vendored files (SYC-396 PR 1.5): Leaflet 1.9.4, the island map's library,
+// is copied the same way from the pinned npm package (api-server's
+// devDependency), never from another website. VENDOR names each one; the
+// same list is in src/lib/teamAssets.ts.
+//
 // Run by build.mjs, or on its own: node scripts/buildAssets.mjs <src> <out>.
 
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** The kinds of file the dashboard serves. Anything else in assets/ fails the build. */
 export const ASSET_EXTENSIONS = [".js", ".css"];
+
+/** Files copied from npm packages: the served name to the package file. */
+export const VENDOR = {
+  "leaflet.css": "leaflet/dist/leaflet.css",
+  "leaflet.js": "leaflet/dist/leaflet.js",
+};
+
+const require = createRequire(import.meta.url);
 
 /** A plain file name: letters, digits, dot, dash, underscore; no folder. */
 const NAME_RE = /^[a-z0-9][a-z0-9._-]*$/;
@@ -45,6 +59,13 @@ export async function buildAssets(srcDir, outDir) {
     const out = hashedName(e.name, bytes);
     await writeFile(path.join(outDir, out), bytes);
     manifest[e.name] = out;
+  }
+  for (const [name, spec] of Object.entries(VENDOR)) {
+    if (Object.hasOwn(manifest, name)) throw new Error(`assets/: ${name} is vendored; remove the copy in assets/`);
+    const bytes = await readFile(require.resolve(spec));
+    const out = hashedName(name, bytes);
+    await writeFile(path.join(outDir, out), bytes);
+    manifest[name] = out;
   }
   await writeFile(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
   return manifest;

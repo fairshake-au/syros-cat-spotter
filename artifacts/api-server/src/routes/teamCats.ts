@@ -1,6 +1,6 @@
 import { isIslandWide, visibleColonyIds } from "../lib/guardianView";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { searchTeamCats, teamCatView } from "../lib/teamCatView";
+import { searchTeamCats, teamCatView, teamPhotoUrl } from "../lib/teamCatView";
 import { getQueueReport } from "../lib/welfareQueue";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
@@ -9,7 +9,14 @@ import { allColonyChoices } from "../lib/colonyCats";
 import { renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
 import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
 import { parseCatFilters } from "../lib/teamCatFilters";
-import { LIVES, listTeamCats } from "../lib/teamCatList";
+import { allTeamCats, catTrail, LIVES, listTeamCats, type CatListFilters } from "../lib/teamCatList";
+import { formRoute } from "./teamCorrections";
+import { renderCatMapPage } from "../lib/teamPages/catMapPage";
+import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
+import { viewAround, type View } from "../lib/mapTiles/geometry";
+import { applyMove } from "../lib/mapTiles/mapForms";
+import { listSites } from "../lib/teamSites";
+import { lastSeenWords } from "../lib/teamPages/lastSeen";
 
 // The staff dashboard's "Cats" screens (SYC-43 part 2 plan, PR 3). Read-only;
 // the correction forms on the cat page post to routes/teamCorrections.ts (PR 4).
@@ -52,6 +59,20 @@ router.get(
           canTie: can(person, "change_report_state"),
         }
       : undefined;
+    // ?view=map: the island Map (SYC-396 PR 1.5; plan Decision 1). Not while
+    // choosing a cat for a report.
+    if (!tie && req.query["view"] === "map") {
+      const focusRaw = req.query["focus"];
+      const focusId = typeof focusRaw === "string" && CAT_ID_RE.test(focusRaw) ? Number(focusRaw) : undefined;
+      const html = await catMapHtml(person, withoutDefaultLives(parseCatFilters(req.query)), {
+        focusId,
+        scripted: true,
+      });
+      // As for the grid: the wider header only once the page is built. The
+      // map is the Cats route's own page, so WIDE_CSP_ROUTES needs no new name.
+      setTeamHeaders(res, { scripts: true });
+      return void res.type("html").send(html);
+    }
     const filters = withoutDefaultLives(parseCatFilters(req.query), Boolean(tie));
     // Choosing a cat for a report: everyone is in, so a cat already tied always shows.
     const forList = tie && !filters.lives ? { ...filters, lives: [...LIVES] } : filters;
@@ -75,6 +96,118 @@ router.get(
     // alone gets the wider header (test/wideCsp.ts WIDE_CSP_ROUTES).
     setTeamHeaders(res, { scripts: true });
     res.type("html").send(html);
+  },
+);
+
+/** The island Map page for this person and these filters (SYC-396 PR 1.5). */
+async function catMapHtml(
+  person: ReturnType<typeof teamPerson>,
+  filters: CatListFilters,
+  opts: { focusId?: number; scripted: boolean; view?: View; note?: string },
+): Promise<string> {
+  const now = new Date();
+  const visible = visibleColonyIds(person);
+  const [{ cats, catCount }, sites, colonies, focus] = await Promise.all([
+    allTeamCats(filters, now),
+    listSites(visible, { includeRetired: false }),
+    allColonyChoices(visible),
+    opts.focusId !== undefined ? catTrail(opts.focusId) : Promise.resolve(null),
+  ]);
+  const last = focus?.points.at(-1);
+  const view = opts.view ?? (last ? viewAround(last, FOCUS_ZOOM) : viewAround(ISLAND_CENTRE, START_ZOOM));
+  return renderCatMapPage({
+    personName: person.name,
+    filters,
+    colonies,
+    cats,
+    catCount,
+    sites: sites.map((s) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng, look: s.isPublic ? "public" : "private" })),
+    focus,
+    view,
+    now,
+    scripted: opts.scripted,
+    note: opts.note,
+  });
+}
+
+/** The button map opens this close on a focused cat's last spot. */
+const FOCUS_ZOOM = 16;
+
+/** A query string from a hidden field, as the object parseCatFilters reads (repeats become lists). */
+function queryObject(qs: unknown): Record<string, string | string[]> {
+  const out: Record<string, string | string[]> = {};
+  if (typeof qs !== "string" || qs.length > 2000) return out;
+  for (const [k, v] of new URLSearchParams(qs)) {
+    const had = out[k];
+    out[k] = had === undefined ? v : Array.isArray(had) ? [...had, v] : [had, v];
+  }
+  return out;
+}
+
+/**
+ * POST /api/team/cats/map: the zoom, pan and "Go to" buttons of the island
+ * Map's button map, for a browser with no script (SYC-396 PR 1.5; spec §6.3).
+ * The view and the filters come in hidden fields, never the address. Draws
+ * the Map page with the button map in the open and no script at all, so it
+ * keeps the strict security header (formRoute sets it).
+ */
+router.post(
+  "/team/cats/map",
+  ...formRoute("view_exact_location"),
+  async (req: Request, res: Response) => {
+    const person = teamPerson(res);
+    const body = typeof req.body === "object" && req.body !== null ? (req.body as Record<string, unknown>) : {};
+    const filters = withoutDefaultLives(parseCatFilters(queryObject(body["filters"])));
+    const focusRaw = body["focus"];
+    const focusId = typeof focusRaw === "string" && CAT_ID_RE.test(focusRaw) ? Number(focusRaw) : undefined;
+    const view = applyMove(body);
+    const html = await catMapHtml(person, filters, {
+      focusId,
+      scripted: false,
+      view: view ?? viewAround(ISLAND_CENTRE, START_ZOOM),
+      note: view ? undefined : "That didn't work, so the map is back at the whole island.",
+    });
+    res.status(view ? 200 : 400).type("html").send(html);
+  },
+);
+
+/**
+ * POST /api/team/cats/positions: every cat the filters match, at the place it
+ * was last seen (else first found), for the island map (SYC-396 PR 1.5; spec
+ * §6.1, §10.4). The filters come in the JSON BODY, in the grid's own shape,
+ * never in the address: a query string here is ignored. No paging. Team-only
+ * (view_exact_location with no target): a cat guardian gets the 403, since the
+ * Map is the team's in phase 1 (§10.2). `no-store`, like every dashboard
+ * answer. Positions reach the browser only in this signed-in answer and are
+ * never drawn as numbers (the map's card shows the place in words).
+ */
+router.post(
+  "/team/cats/positions",
+  ...formRoute("view_exact_location"),
+  async (req: Request, res: Response) => {
+    const body = typeof req.body === "object" && req.body !== null && !Array.isArray(req.body) ? req.body : {};
+    const { page: _page, ...filters } = parseCatFilters(body);
+    const started = Date.now();
+    const now = new Date();
+    const { cats } = await allTeamCats(filters, now);
+    // Spec §9.6: counts only, no names.
+    req.log.info({ ms: Date.now() - started, shown: cats.length }, "team cat positions");
+    res.json({
+      cats: cats.map((c) => ({
+        id: c.id,
+        name: c.name,
+        mark: c.mark,
+        lat: c.placedAt.lat,
+        lng: c.placedAt.lng,
+        place: c.place,
+        lastSeenAt: c.lastSeenAt ? c.lastSeenAt.toISOString() : null,
+        // The card's words, worded as everywhere else ("Last seen 3 days ago").
+        seen: lastSeenWords(c.lastSeenAt, now),
+        // The colony's number; the page's own colony list has its name.
+        colony: c.colonyId,
+        photo: c.photoPublicId ? `${teamPhotoUrl(c.photoPublicId)}/small` : null,
+      })),
+    });
   },
 );
 

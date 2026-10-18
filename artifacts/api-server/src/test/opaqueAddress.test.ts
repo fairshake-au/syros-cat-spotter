@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { mintTileToken } from "../lib/mapTiles/tileToken";
+import { mintSquareToken, mintTileToken } from "../lib/mapTiles/tileToken";
 import { isOpaqueAddress } from "./opaqueAddress";
 
 // SYC-425: the K13 scans set aside a photo uuid and a map picture's signed
@@ -31,6 +31,25 @@ describe("isOpaqueAddress", () => {
     expect(isOpaqueAddress(`/api/team/map-tiles/${token}`)).toBe(true);
     expect(isOpaqueAddress(`/api/team/map-tiles/${flipped}`)).toBe(false);
     expect(isOpaqueAddress(`/api/team/map-tiles/${token}?lat=37.4`)).toBe(false);
+  });
+
+  // SYC-396 PR 1.5: an island-map square's token, by its own kind only.
+  it("sets aside a map square this server signed, and nothing passing for one", () => {
+    for (let x = 0; x < 50; x++) {
+      const token = mintSquareToken({ z: 16, x: 37000 + x, y: 25000 });
+      expect(isOpaqueAddress(`/api/team/map-square/${token}`)).toBe(true);
+    }
+    const token = mintSquareToken({ z: 16, x: 37012, y: 25011 });
+    const flipped = token.slice(0, 10) + (token[10] === "A" ? "B" : "A") + token.slice(11);
+    expect(isOpaqueAddress(`/api/team/map-square/${flipped}`)).toBe(false);
+    expect(isOpaqueAddress(`/api/team/map-square/${token}A`)).toBe(false);
+    expect(isOpaqueAddress(`/api/team/map-square/${token}?lat=37.4`)).toBe(false);
+    for (const v of ["/api/team/map-square/16-37012-25011", "/api/team/map-square/16/37012/25011"])
+      expect(isOpaqueAddress(v), v).toBe(false);
+    // Each kind only at its own address.
+    const picture = mintTileToken({ z: 16, x: 37012, y: 25011, size: 256 });
+    expect(isOpaqueAddress(`/api/team/map-square/${picture}`)).toBe(false);
+    expect(isOpaqueAddress(`/api/team/map-tiles/${token}`)).toBe(false);
   });
 
   it("sets aside a photo's uuid address", () => {

@@ -94,6 +94,31 @@ describe("positions print only through position.ts (D9)", () => {
     for (const args of calls) expect(args, `position(${args})`).toMatch(/,\s*\{\s*link:\s*false\s*\}\s*$/);
   });
 
+  // SYC-396 PR 1.5: the dashboard's own scripts (assets/dashboard-*.js) draw
+  // the island map's card and markers in the browser. They hand positions to
+  // the map library only, and never print one: no map company's address, no
+  // toFixed, and no lat or lng written as text into the page or put together
+  // into a string.
+  it("the dashboard's scripts never print a position or name a map company", () => {
+    const dir = join(SRC, "..", "assets");
+    const scripts = readdirSync(dir).filter((n) => /^dashboard-[\w-]+\.js$/.test(n));
+    expect(scripts).toContain("dashboard-map.js");
+    const SCRIPT_PRINT = [
+      ...RAW_PRINT,
+      // "c.lat + ", " + c.lng", and the like.
+      /\.lat\b[^;\n]*\+[^;\n]*\.lng\b|\.lng\b[^;\n]*\+[^;\n]*\.lat\b/,
+      // A lat or lng written into the page as text or an attribute.
+      /(?:textContent|innerText|innerHTML|outerHTML|insertAdjacentHTML|createTextNode|nodeValue|setAttribute|\.title\s*=|\.alt\s*=|\.href\s*=|\.src\s*=)[^;\n]*\b(?:lat|lng)\b/,
+      // A position as text: String(lat), lat.toString(), [lat, lng].join.
+      /String\(\s*[\w.]*\b(?:lat|lng)\b|\b(?:lat|lng)\.toString\(|\[[^\]]*\blat\b[^\]]*\blng\b[^\]]*\]\.join/,
+    ];
+    for (const name of scripts) {
+      const src = readFileSync(join(dir, name), "utf8");
+      for (const m of MAP_COMPANIES) expect(src, `${name} names ${m}`).not.toContain(m);
+      for (const re of SCRIPT_PRINT) expect(re.test(src), `${name} prints a raw position (${re})`).toBe(false);
+    }
+  });
+
   // The owner's home position never gets a link (D5).
   it("the cat page's home pin is printed with link: false, literally", () => {
     const src = read("lib/teamPages/catPages.ts");

@@ -1,0 +1,2976 @@
+{
+  "passed": 315,
+  "failed": 0,
+  "checks": [
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 287,
+        "dark": 115,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 375,
+        "dark": 113,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/lud3Zta-LpruqW6W2pJY2HyxEhhTbjtrILjFzBri1179G_FYTROtwwbg9uI"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2331,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 320,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 287,
+        "dark": 115,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 375,
+        "dark": 113,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/h7KX1aXTU_LRoBZTb2ff-zAcMFauqR2c-uC0IUAIL5Sli658tkw2Ty2pBTA"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 360,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 287,
+        "dark": 115,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 375,
+        "dark": 113,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/h7KX1aXTU_LRoBZTb2ff-zAcMFauqR2c-uC0IUAIL5Sli658tkw2Ty2pBTA"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 375,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 287,
+        "dark": 115,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 375,
+        "dark": 113,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/h7KX1aXTU_LRoBZTb2ff-zAcMFauqR2c-uC0IUAIL5Sli658tkw2Ty2pBTA"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 46,
+        "dark": 30,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 46,
+        "dark": 28,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "on a computer the card sits top-left",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": false,
+        "atTopLeft": true
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/01I7dtPaYlE8wUbS7EgrJRiFruvlcXJs05A9gRhrJLp9MMhiVUuMeDLP00A"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1589
+        },
+        {
+          "z": 14,
+          "xMin": 9324,
+          "xMax": 9329,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "?focus= draws the cat's trail as numbered dots, and opens its card",
+      "ok": true,
+      "detail": {
+        "points": 3,
+        "card": "MavrosNot sterilised×Harbour stepsLast seen 2 days ago · ErmoupoliHide where else it's been seenOpen the cat"
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "the Feeding sites layer shows the two sites as squares",
+      "ok": true,
+      "detail": {
+        "sites": 2
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "the Cats layer can be switched off",
+      "ok": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "no console errors (trail and layers)",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "pictures failing: the words, a plain island outline, and the cats still shown",
+      "ok": true,
+      "detail": {
+        "note": "Map pictures aren't loading. The cats are still shown.",
+        "outline": 1,
+        "cats": 6
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "if Leaflet fails to load, the button map comes back with the cats",
+      "ok": true,
+      "detail": {
+        "fallback": true,
+        "pins": 25,
+        "scriptedHidden": true
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "JavaScript off: the button map shows the cats, and the draggable map's box stays hidden",
+      "ok": true,
+      "detail": {
+        "fallback": true,
+        "pins": 25,
+        "scripted": true,
+        "sideways": false
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "what": "JavaScript off: Go to Ermoupoli works, with nothing in the address",
+      "ok": true,
+      "detail": {
+        "url": "/api/team/cats/map",
+        "zoom": "15",
+        "pins": 10
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "JavaScript off: the button map shows the cats, and the draggable map's box stays hidden",
+      "ok": true,
+      "detail": {
+        "fallback": true,
+        "pins": 25,
+        "scripted": true,
+        "sideways": false
+      }
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "what": "JavaScript off: Go to Ermoupoli works, with nothing in the address",
+      "ok": true,
+      "detail": {
+        "url": "/api/team/cats/map",
+        "zoom": "15",
+        "pins": 10
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 260,
+        "dark": 112,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 260,
+        "dark": 112,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/lud3Zta-LpruqW6W2pJY2HyxEhhTbjtrILjFzBri1179G_FYTROtwwbg9uI"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2331,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 320,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 260,
+        "dark": 112,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 260,
+        "dark": 112,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/h7KX1aXTU_LRoBZTb2ff-zAcMFauqR2c-uC0IUAIL5Sli658tkw2Ty2pBTA"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 360,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 260,
+        "dark": 112,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 260,
+        "dark": 112,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/h7KX1aXTU_LRoBZTb2ff-zAcMFauqR2c-uC0IUAIL5Sli658tkw2Ty2pBTA"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 375,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 260,
+        "dark": 112,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 260,
+        "dark": 112,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/h7KX1aXTU_LRoBZTb2ff-zAcMFauqR2c-uC0IUAIL5Sli658tkw2Ty2pBTA"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 40,
+        "dark": 20,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 40,
+        "dark": 20,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "on a computer the card sits top-left",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": false,
+        "atTopLeft": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/01I7dtPaYlE8wUbS7EgrJRiFruvlcXJs05A9gRhrJLp9MMhiVUuMeDLP00A"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1589
+        },
+        {
+          "z": 14,
+          "xMin": 9324,
+          "xMax": 9329,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "?focus= draws the cat's trail as numbered dots, and opens its card",
+      "ok": true,
+      "detail": {
+        "points": 3,
+        "card": "MavrosNot sterilised×Harbour stepsLast seen 2 days ago · ErmoupoliHide where else it's been seenOpen the cat"
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "the Feeding sites layer shows the two sites as squares",
+      "ok": true,
+      "detail": {
+        "sites": 2
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "the Cats layer can be switched off",
+      "ok": true
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "no console errors (trail and layers)",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "pictures failing: the words, a plain island outline, and the cats still shown",
+      "ok": true,
+      "detail": {
+        "note": "Map pictures aren't loading. The cats are still shown.",
+        "outline": 1,
+        "cats": 6
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "if Leaflet fails to load, the button map comes back with the cats",
+      "ok": true,
+      "detail": {
+        "fallback": true,
+        "pins": 25,
+        "scriptedHidden": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "JavaScript off: the button map shows the cats, and the draggable map's box stays hidden",
+      "ok": true,
+      "detail": {
+        "fallback": true,
+        "pins": 25,
+        "scripted": true,
+        "sideways": false
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "what": "JavaScript off: Go to Ermoupoli works, with nothing in the address",
+      "ok": true,
+      "detail": {
+        "url": "/api/team/cats/map",
+        "zoom": "15",
+        "pins": 10
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "JavaScript off: the button map shows the cats, and the draggable map's box stays hidden",
+      "ok": true,
+      "detail": {
+        "fallback": true,
+        "pins": 25,
+        "scripted": true,
+        "sideways": false
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "what": "JavaScript off: Go to Ermoupoli works, with nothing in the address",
+      "ok": true,
+      "detail": {
+        "url": "/api/team/cats/map",
+        "zoom": "15",
+        "pins": 10
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 279,
+        "dark": 117,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 279,
+        "dark": 117,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/lud3Zta-LpruqW6W2pJY2HyxEhhTbjtrILjFzBri1179G_FYTROtwwbg9uI"
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2331,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 320,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 279,
+        "dark": 117,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 279,
+        "dark": 117,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/h7KX1aXTU_LRoBZTb2ff-zAcMFauqR2c-uC0IUAIL5Sli658tkw2Ty2pBTA"
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 360,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 279,
+        "dark": 117,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 279,
+        "dark": 117,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/h7KX1aXTU_LRoBZTb2ff-zAcMFauqR2c-uC0IUAIL5Sli658tkw2Ty2pBTA"
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 375,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 279,
+        "dark": 117,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 279,
+        "dark": 117,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "on a phone the card is a sheet at the bottom",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": true,
+        "atTopLeft": false
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/h7KX1aXTU_LRoBZTb2ff-zAcMFauqR2c-uC0IUAIL5Sli658tkw2Ty2pBTA"
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1588
+        },
+        {
+          "z": 14,
+          "xMin": 9326,
+          "xMax": 9327,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "the map comes up with cats and map pictures",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "nothing scrolls sideways",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "the button map stays in <noscript> when the script runs",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "the key is there, folded on a phone and open on a computer",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "nearby cats are grouped with a count when zoomed out",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "tapping a group zooms in",
+      "ok": true,
+      "detail": {
+        "before": 12,
+        "after": 14
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "Thalassa's dot shows on the sea: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 47,
+        "dark": 21,
+        "corner": [
+          170,
+          211,
+          223
+        ]
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "Portokali's dot shows on the land: a light ring and a dark outline",
+      "ok": true,
+      "detail": {
+        "white": 47,
+        "dark": 21,
+        "corner": [
+          242,
+          239,
+          233
+        ]
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "a tap opens the cat's card, with Open the cat and Where else it's been seen",
+      "ok": true,
+      "detail": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat"
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "on a computer the card sits top-left",
+      "ok": true,
+      "detail": {
+        "hidden": false,
+        "text": "PortokaliSterilised×Harbour stepsNever seen since first recorded · GalissasShow where else it's been seenOpen the cat",
+        "open": true,
+        "trail": true,
+        "inView": true,
+        "atBottom": false,
+        "atTopLeft": true
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "the card closes",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "a filter applies with no page load, and the address keeps it",
+      "ok": true,
+      "detail": {
+        "url": "?view=map&sterilised=sterilised&lives=street&lives=homed&lives=in_care&sort=recent",
+        "count": "8 cats on the map Clear filters",
+        "loads": 0
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "nothing outside this server was asked for",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "map squares are fetched by token only",
+      "ok": true,
+      "detail": [
+        "http://localhost:8156/api/team/map-square/glRAW7yhpWQQVWePWc9kSobj59KUtyV9FljGB8eJuIzGBqZ8ZF9Ep8yqAsw",
+        "http://localhost:8156/api/team/map-square/01I7dtPaYlE8wUbS7EgrJRiFruvlcXJs05A9gRhrJLp9MMhiVUuMeDLP00A"
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "no address holds a position",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "the cats are asked for in the body, with no position in it",
+      "ok": true,
+      "detail": [
+        "{\"sterilised\":[\"sterilised\"],\"lives\":[\"street\",\"homed\",\"in_care\"],\"sort\":\"recent\"}"
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "square tokens are asked for by square numbers, at most 64 at a time",
+      "ok": true,
+      "detail": [
+        {
+          "z": 12,
+          "xMin": 2330,
+          "xMax": 2332,
+          "yMin": 1586,
+          "yMax": 1589
+        },
+        {
+          "z": 14,
+          "xMin": 9324,
+          "xMax": 9329,
+          "yMin": 6350,
+          "yMax": 6352
+        }
+      ]
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "no security-policy violations",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "no console errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "?focus= draws the cat's trail as numbered dots, and opens its card",
+      "ok": true,
+      "detail": {
+        "points": 3,
+        "card": "MavrosNot sterilised×Harbour stepsLast seen 2 days ago · ErmoupoliHide where else it's been seenOpen the cat"
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "the Feeding sites layer shows the two sites as squares",
+      "ok": true,
+      "detail": {
+        "sites": 2
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "the Cats layer can be switched off",
+      "ok": true
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "no console errors (trail and layers)",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "pictures failing: the words, a plain island outline, and the cats still shown",
+      "ok": true,
+      "detail": {
+        "note": "Map pictures aren't loading. The cats are still shown.",
+        "outline": 1,
+        "cats": 6
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "if Leaflet fails to load, the button map comes back with the cats",
+      "ok": true,
+      "detail": {
+        "fallback": true,
+        "pins": 25,
+        "scriptedHidden": true
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "JavaScript off: the button map shows the cats, and the draggable map's box stays hidden",
+      "ok": true,
+      "detail": {
+        "fallback": true,
+        "pins": 25,
+        "scripted": true,
+        "sideways": false
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 390,
+      "what": "JavaScript off: Go to Ermoupoli works, with nothing in the address",
+      "ok": true,
+      "detail": {
+        "url": "/api/team/cats/map",
+        "zoom": "15",
+        "pins": 10
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "JavaScript off: the button map shows the cats, and the draggable map's box stays hidden",
+      "ok": true,
+      "detail": {
+        "fallback": true,
+        "pins": 25,
+        "scripted": true,
+        "sideways": false
+      }
+    },
+    {
+      "engine": "firefox",
+      "width": 1280,
+      "what": "JavaScript off: Go to Ermoupoli works, with nothing in the address",
+      "ok": true,
+      "detail": {
+        "url": "/api/team/cats/map",
+        "zoom": "15",
+        "pins": 10
+      }
+    }
+  ]
+}
