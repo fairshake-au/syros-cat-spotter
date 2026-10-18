@@ -58,9 +58,11 @@ Every task's requirements include these.
 **Sterilisation marks** (§12.2) mean sterilisation status and nothing else. Use `MARK_ORDER`, `MARK_COLOUR`, `MARK_WORD` and `markBadge` from `lib/teamPages/marks.ts`. A total that isn't a status is drawn in neutral ink `#1d1d1b` at 55% opacity.
 
 **Migrations.** Three are planned, numbered in the order the PRs are expected to merge (revised after the plan review):
-- `0031_named_areas` (PR 2.4);
-- `0032_report_downloads` (PR 3.3a, wave 2);
-- `0033_vet_settings_history` (PR 3.1b).
+- `named_areas` (PR 2.4);
+- `report_downloads` (PR 3.3a, wave 2);
+- `vet_settings_history` (PR 3.1b).
+
+They **take the next free numbers when each PR leaves draft**, not fixed numbers. On 18 Oct `main` was already at `0031` (#229), and SYC-45 Slice 1 had claimed `0032`. Each builder re-checks `lib/db/migrations/` on fresh `origin/main` before `gh pr ready`, and regenerates if another migration landed first.
 
 If they merge in another order, the later one is deleted and regenerated, as `lib/db/migrations/README.md` says. Every migration has a commented rollback and passes `migrate:check`. All three are applied to production by Claude before the publish that carries them. Production writes need Samuel to switch the session to "ask" mode first (memory `neon-writes-need-ask-mode`).
 
@@ -126,7 +128,9 @@ If they merge in another order, the later one is deleted and regenerated, as `li
 - **3.1 is the biggest PR,** so it's split:
   - **3.1a** covers the writer, undo, capabilities and the form;
   - **3.1b** covers the Vet settings page and its history (Task 3.1.2). It can be built in parallel from wave 2, because it needs only 2.3's setting.
-- **Production migrations** 0031 and 0033 (and 0032 for 3.3a) each need Samuel to switch the session to "ask" mode once. They can share one switch per publish day.
+- **Production migrations** for named areas, downloads and vet settings each need Samuel to switch the session to "ask" mode once. They can share one switch per publish day.
+- **Publishes** are on Mon 19, Wed 21, Fri 23 and Mon 26, with the freeze publish on Wed 28 and fixes only on Thu 29 (`mvp-launch-31-oct.md`, merged as #172). A PR reaches the live site only at the next publish after it merges.
+- **The reports need a weekend merge window on Sat 24 and Sun 25.** Without one, 3.3a–c and 4.1 wait for 16 Nov. That's Samuel's call.
 - **The test database** is shared by every parallel agent on this Mac. At most three building agents run at once.
 
 **Verdict:**
@@ -164,7 +168,7 @@ Each one is a choice the spec leaves open. "What the team sees" says what it mea
 8. **The standard price is an app setting, `standard_sterilisation_price_eur`, defaulting to 55.** Its changes go into `mapping_events` as a new subject kind, `vet_settings`, the "same add-only history" §10.3 asks for.
    - PR 2.3 reads it for the planner's estimate.
    - PR 3.1 adds the page that changes it.
-9. **Named areas move into a `named_areas` table** (migration 0031). The first rows are seeded from today's 22 entries.
+9. **Named areas move into a `named_areas` table** (migration `named_areas`). The first rows are seeded from today's 22 entries.
    - `areaFor` and `areaByKey` stay synchronous by reading a cache. The cache reloads after any write on this server, and at most 60 seconds later on every other server.
    - Their changes go into `mapping_events` as subject kind `named_area`.
    - `namedAreasAt(asOf)` rebuilds the list as it stood at any moment, so a report names its version and an old report never moves.
@@ -600,7 +604,7 @@ export async function trappingPlan(visible: Visible, colonyId: number, opts: { i
 - [ ] **Step 5: Look at it** at 390px and 1280px, and print-preview `/plan` to PDF in Chrome. Check the margins and the white background. Save to `docs/screenshots/syc-396-pr-2-3/`.
 - [ ] **Step 6: Commit:** `SYC-396 PR 2.3: the colony page is a trapping planner, with a printable plan`
 
-### PR 2.4: Named areas the team can edit (migration 0031)
+### PR 2.4: Named areas the team can edit (migration `named_areas`)
 
 **What the team sees:** an **Areas** page, linked from Home's footer and from the Cats filters.
 - It lists every named area with its centre and the number of cats nearest it.
@@ -629,7 +633,7 @@ export const namedAreasTable = pgTable("named_areas", {
 - Modify: `lib/db/src/schema/mappingEvents.ts`.
   - `MAPPING_SUBJECT_KINDS` gains `"named_area"`.
   - `MAPPING_EVENT_KINDS` gains `"area_added"`, `"area_renamed"`, `"area_moved"` and `"area_retired"`.
-- Create: `lib/db/migrations/0031_named_areas.sql`, generated, then edited by hand:
+- Create: `lib/db/migrations/NNNN_named_areas.sql` (the next free number), generated, then edited by hand:
   - widen `mapping_events_subject_kind_ck` and `mapping_events_kind_ck` to the new values **first**, so the seed events are allowed;
   - insert today's 22 rows from `NAMED_AREAS`, in the same order, with the same keys;
   - write one `area_added` event per row with `actor_system = 'system:migration'`, `after = {key,name,lat,lng}`, and **`at = '2026-10-15T00:00:00Z'`**, the day version 1 was approved. Then `namedAreasAt` for any date from then on gives the seed list. For earlier dates, `namedAreasAt` falls back to `SEED_AREAS` with version 0, so a report reaching back before the table still has areas;
@@ -638,7 +642,7 @@ export const namedAreasTable = pgTable("named_areas", {
   - a commented rollback.
 - Test: `lib/db/src/migrate/namedAreas.test.ts`. It uses its own throwaway database, applies the migration, and checks 22 rows, 22 events, and that the history trigger still refuses an update.
 
-- [ ] **Step 1: Failing test. Step 2: Fail. Step 3: Implement** with `pnpm --filter @workspace/db run generate --name named_areas`, then the seed SQL. **Step 4: `migrate:check` and the test pass. Step 5: Commit:** `SYC-396 PR 2.4: named_areas table, seeded with the first 22 areas (migration 0031)`
+- [ ] **Step 1: Failing test. Step 2: Fail. Step 3: Implement** with `pnpm --filter @workspace/db run generate --name named_areas`, then the seed SQL. **Step 4: `migrate:check` and the test pass. Step 5: Commit:** `SYC-396 PR 2.4: named_areas table, seeded with the first 22 areas (migration `named_areas`)`
 
 #### Task 2.4.2: The cache, `namedAreasAt` and the writer
 
@@ -966,7 +970,7 @@ The chain logic:
 
 3.1 ships as two PRs, to keep the biggest change reviewable:
 - **3.1a** is Tasks 3.1.1 and 3.1.3;
-- **3.1b** is Task 3.1.2, the Vet settings page and its history (migration 0033).
+- **3.1b** is Task 3.1.2, the Vet settings page and its history (migration `vet_settings_history`).
 
 **What the team sees:** **Log a vet visit** becomes the main button on the team cat page.
 - The form asks for:
@@ -1053,7 +1057,7 @@ export interface VisitLine { visitId: number; date: string; did: VetVisitValue["
   - roles §6.2 gains their rows: `| \`log_vet_visit\` | Log a vet visit on a cat | Island-only | ✓ | ✓ | — |` and `| \`edit_vet_settings\` | Change the standard sterilisation price | Island-only | ✓ | ✓ | — |`;
   - `lib/db/src/schema/mappingEvents.ts`: `MAPPING_SUBJECT_KINDS` gains `"vet_settings"`, and `MAPPING_EVENT_KINDS` gains `"price_changed"`.
 - Create:
-  - `lib/db/migrations/0033_vet_settings_history.sql`, which widens the two check constraints, with a rollback;
+  - `lib/db/migrations/NNNN_vet_settings_history.sql`, which widens the two check constraints, with a rollback;
   - `artifacts/api-server/src/lib/vetSettings.ts` with `setStandardPrice(person, eur)`. One transaction upserts `app_settings` and records `{ subjectKind: "vet_settings", subjectId: 1, kind: "price_changed", before: { eur }, after: { eur } }`. It also clears the `getAppSettings` cache through a new exported `clearAppSettingsCache()` (today only `_resetAppSettingsCacheForTests` exists). If the settings can't be read, the planner's estimate says "The standard price isn't available right now" rather than silently using €55;
   - `artifacts/api-server/src/lib/teamPages/vetSettingsPage.ts`;
   - the routes `GET` and `POST /team/vet-settings` (`edit_vet_settings`) in a new `routes/teamVet.ts`.
@@ -1066,7 +1070,7 @@ export interface VisitLine { visitId: number; date: string; did: VetVisitValue["
   - €0 is refused with words;
   - a guardian gets 403;
   - the migration test checks that a `vet_settings` event is accepted and that an unknown subject kind is still refused.
-- [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus `migrate:check`. **Step 5: Commit:** `SYC-396 PR 3.1: Vet settings, the standard price with its history (migration 0033)`
+- [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus `migrate:check`. **Step 5: Commit:** `SYC-396 PR 3.1: Vet settings, the standard price with its history (migration `vet_settings_history`)`
 
 #### Task 3.1.3: The form, the cat page, the guardian line and Home's spend
 
@@ -1135,7 +1139,7 @@ export interface RoundInput { colonyId: number; date: string; clinicId: string; 
   - a guardian gets 403.
 - [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass. Step 5: Screenshots. Step 6: Commit:** `SYC-396 PR 3.2: log a whole round's vet visits from the planner`
 
-### PR 3.3a: The Reports area, Sterilisation progress and Colony health (migration 0032)
+### PR 3.3a: The Reports area, Sterilisation progress and Colony health (migration `report_downloads`)
 
 **What the team sees:** **Reports** joins the menu. It lists seven reports, with Donations showing "Coming once donations are set up". Each report has a time range at the top. The first two are built here:
 - **Sterilisation progress:** the island headline, a line over time of confirmed sterilised against all street cats known, and every colony as a sorted bar.
@@ -1194,7 +1198,7 @@ export function toCsv(columns: { key: string; label: string }[], rows: Record<st
 **Files:**
 - Create:
   - `lib/db/src/schema/reportDownloads.ts`: `report_downloads(id serial, person_id uuid not null references people, report text not null, range text not null, at timestamptz default now())`, made append-only by a trigger written in the migration (copy the `mapping_events` trigger from migration 0015; `site_page_reads` has none), with a migration test that an UPDATE and a DELETE are refused;
-  - `lib/db/migrations/0032_report_downloads.sql`, with a rollback.
+  - `lib/db/migrations/NNNN_report_downloads.sql`, with a rollback.
 - Modify:
   - `lib/capabilities.ts` gains `view_reports: { kind: "placed", roles: EVERYONE }` and `export_report: { kind: "island", roles: TEAM }`;
   - roles §6.2 gains `| \`view_reports\` | See the reports (cat guardians: their colonies' progress and health) | Placed | All | All | Own |` and `| \`export_report\` | Download a report as a spreadsheet | Island-only | ✓ | ✓ | — |`.
@@ -1216,7 +1220,7 @@ export function toCsv(columns: { key: string; label: string }[], rows: Record<st
   - a forced failure in `recordDownload` sends 503 and no CSV body;
   - a guardian gets 403;
   - `team.headers.test.ts`: these pages keep the strict security header, because they have no script.
-- [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus `migrate:check`. **Step 5: Mutation probe:** move `recordDownload` after `res.send`. The 503 test **must** go red. Restore it. **Step 6: Commit:** `SYC-396 PR 3.3a: the Reports area, view_reports and export_report, downloads recorded (migration 0032)`
+- [ ] **Step 2: Fail. Step 3: Implement. Step 4: Pass,** plus `migrate:check`. **Step 5: Mutation probe:** move `recordDownload` after `res.send`. The 503 test **must** go red. Restore it. **Step 6: Commit:** `SYC-396 PR 3.3a: the Reports area, view_reports and export_report, downloads recorded (migration `report_downloads`)`
 
 #### Task 3.3a.3: Sterilisation progress and Colony health
 
@@ -1521,7 +1525,7 @@ A Sonnet critic checked the draft against the spec, the earlier plan and the cod
 | 10 | The Areas page test contradicted Open map links; nothing linked to the page | 2.4.3 |
 | 11 | Wrong cites (sightings `account_id`, blur decimals, test file names, `TEAM_HOME` users) | Corrected where cited |
 | 12 | Off Syros was counted | 2.0.2: `isStreet` and a reconcile test |
-| 13 | Parallel PRs claimed to share no files did; migration order | Sequencing (waves, shared lists); migrations renumbered (0032 downloads, 0033 vet settings) |
+| 13 | Parallel PRs claimed to share no files did; migration order | Sequencing (waves, shared lists); migrations take the next free number when each PR leaves draft |
 | 14 | Source-test registration was missing for new readers | 2.4.2 (`areaHistory.ts`), 3.3a.3, 4.1 |
 | 15 | Spec items with no task: the headline link, sortable health columns, vaccination rights, CSV in Greek, area name races, the `off` key | 3.3a.3, 3.1.1, 3.3a.1, 2.4.1 |
 | 16 | Tests that would flake or pass wrongly in the shared database | 2.1.2 (injected loaders), 2.4.2 (per-run keys), 2.5.1 (since-start checks) |
