@@ -1,0 +1,86 @@
+name: news-nightly
+# SYC-45 Slice 1 (docs/superpowers/plans/syc-344-email-capture.md, PR 1.1):
+# the DAILY BACKUP for the nightly news check, and for manual runs. The main
+# caller is the `mail-drain-cron` Cloudflare Worker's second cron (00:30 UTC,
+# infra/mail-drain-cron/src/news.js). The check runs once per Athens night
+# whoever calls: if the Worker already ran tonight, this answers
+# {"already": true} and does nothing. If the Worker's run crashed, nothing
+# was claimed and this runs it.
+#
+# The check sends nobody anything (watch only). This run FAILS, and GitHub
+# emails Samuel, on a non-200, or when more than 50 news changes were found
+# in one night and all were silenced (plan C14).
+#
+# NEWS_JOB_TOKEN is a GitHub `production` Environment secret, a Replit
+# deployment secret and a Worker secret, never in a file or a prompt. It
+# opens two paths only: POST /api/internal/news/nightly and GET
+# /api/internal/news/last-run.
+on:
+  schedule:
+    # 06:17 UTC: 09:17 in Athens in summer time, 08:17 in winter time, the
+    # same Athens night as the Worker's run. Off the hour, when GitHub's
+    # schedule queue is least busy.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        type: string
+        required: false
+        description: "https://apptest.catspotters.com or localhost only. Defaults to the production variable MAIL_DRAIN_BASE_URL, then https://apptest.catspotters.com"
+permissions: { contents: read }
+concurrency: { group: "news-nightly", cancel-in-progress: false }
+jobs:
+  check:
+    # Off until the rollout switches it on (repo variable NEWS_NIGHTLY_ENABLED
+    # = true, set once the migration and NEWS_JOB_TOKEN are live), so it
+    # doesn't fail every day before then. A manual run always goes.
+    if: ${{ vars.NEWS_NIGHTLY_ENABLED == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - name: Run tonight's news check
+        env:
+          NEWS_JOB_TOKEN: ${{ secrets.NEWS_JOB_TOKEN }}
+          BASE_URL: ${{ inputs.base_url || vars.MAIL_DRAIN_BASE_URL || 'https://apptest.catspotters.com' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NEWS_JOB_TOKEN}" ]; then
+            echo "::error::NEWS_JOB_TOKEN is not set in the production environment"
+            exit 1
+          fi
+          # The token only ever goes to the app: a manual run's base_url must
+          # be the production host or localhost.
+          rest="${BASE_URL#*://}"
+          scheme="${BASE_URL%%://*}"
+          host="${rest%%/*}"
+          host="${host%%:*}"
+          case "${scheme}://${host}" in
+            https://apptest.catspotters.com|http://localhost|http://127.0.0.1) ;;
+            *)
+              echo "::error::base_url must be https://apptest.catspotters.com or localhost"
+              exit 1
+              ;;
+          esac
+          out="$(mktemp)"
+          # The first call can wake a sleeping deployment; retry once on a
+          # connection error or a 502/503/504 from the platform.
+          for attempt in 1 2; do
+            code=$(curl -sS -o "$out" -w '%{http_code}' --max-time 120 \
+              -X POST -H "Authorization: Bearer ${NEWS_JOB_TOKEN}" \
+              "${BASE_URL%/}/api/internal/news/nightly") || true
+            code="${code:-000}"
+            case "$code" in 000*|502|503|504) [ "$attempt" = 1 ] && sleep 20 && continue ;; esac
+            break
+          done
+          echo "HTTP ${code}"
+          cat "$out" || true
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error::The nightly news check failed (HTTP ${code})."
+            exit 1
+          fi
+          if grep -q '"silencedBulk":true' "$out"; then
+            echo "::error::Over 50 news changes in one night: all were held back. Look at GET /api/team/news-changes."
+            exit 1
+          fi
