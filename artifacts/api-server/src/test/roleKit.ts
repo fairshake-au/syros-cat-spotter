@@ -121,6 +121,20 @@ export async function guardianOn(label: string, colonies: number[]): Promise<Sig
   return g;
 }
 
+/**
+ * A cat guardian with no colony yet (SYC-439): joined, holding only a
+ * "start" row, written the way the people command writes one.
+ */
+export async function starterPerson(label: string): Promise<Signed> {
+  const s = await signedPerson(label, ["vet"]);
+  await pool.query("delete from person_scopes where person_id = $1", [s.id]);
+  await pool.query(
+    `insert into person_scopes (person_id, role, colony_id, reach, granted_by) values ($1, 'guardian', null, 'start', 'cli:vitest')`,
+    [s.id],
+  );
+  return s;
+}
+
 /** Ends every placement this person has, a second ago by the database's clock. */
 export async function endPlacements(personId: string): Promise<void> {
   await pool.query(

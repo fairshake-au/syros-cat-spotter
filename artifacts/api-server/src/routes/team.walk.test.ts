@@ -20,6 +20,7 @@ import {
   pendingPerson,
   seedCat,
   signedPerson,
+  starterPerson,
   type SeededCat,
   type Signed,
 } from "../test/roleKit";
@@ -56,7 +57,11 @@ type Kind =
   | "left"
   | "nothing"
   | "ended"
-  | "invitee";
+  | "invitee"
+  // SYC-439: a cat guardian with no colony yet. Only her own pages, the
+  // Colonies list and Create a colony; the 403 with her own line everywhere
+  // else, never "access has ended".
+  | "guardianNone";
 
 const KINDS: Kind[] = [
   "team",
@@ -69,6 +74,7 @@ const KINDS: Kind[] = [
   "nothing",
   "ended",
   "invitee",
+  "guardianNone",
 ];
 
 /** What a kind of person gets from a route. */
@@ -97,6 +103,7 @@ const TEAM_ONLY: Partial<Record<Kind, Outcome>> = {
   // team session: every team route answers it with the sign-in 401, the
   // photo route for her own colony's cat included (T9).
   invitee: "signin",
+  guardianNone: "forbidden",
 };
 
 /**
@@ -115,6 +122,7 @@ const OWN_PAGES: Partial<Record<Kind, Outcome>> = {
   nothing: "pass",
   ended: "pass",
   invitee: "signin",
+  guardianNone: "pass",
 };
 
 /**
@@ -134,6 +142,8 @@ const ACCEPT_PAGE: Partial<Record<Kind, Outcome>> = {
   nothing: "pass",
   ended: "pass",
   invitee: "pass",
+  // A joined starter is sent home, as any joined person is.
+  guardianNone: "pass",
 };
 
 /** manage_people is management's alone: the team is refused like a guardian. */
@@ -211,9 +221,17 @@ const TABLE: Record<string, Row> = {
   // anyone who sees some colony (visibleColonyIds), filtered by it in SQL; the walk's
   // made-up ids are then simply not found (404), as another colony's would be.
   // Every write keeps its capability with no target, so stays the team's until PR 4.2.
-  "GET /api/team/colonies": { why: "her own colonies (filtered): sees some colony (visibleColonyIds)", except: SEEING },
+  "GET /api/team/colonies": {
+    why: "her own colonies (filtered): sees some colony (visibleColonyIds), or a cat guardian with no colony yet (SYC-439: an empty list and the create form)",
+    except: { ...SEEING, guardianNone: "pass" },
+  },
   "GET /api/team/colonies/:id": { why: "one colony, filtered in the query: sees some colony; another colony is 404", except: SEEING },
-  "POST /api/team/colonies": { why: "create_colony (own scope): a cat guardian creates one and is placed on it (SYC-209 PR 4.2)", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
+  "POST /api/team/colonies": {
+    why: "create_colony (own scope): a cat guardian creates one and is placed on it (SYC-209 PR 4.2); one with no colony yet creates her first (SYC-439)",
+    except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass", guardianNone: "pass" },
+    // A real create would turn the walk's starter into a guardian partway through.
+    fresh: true,
+  },
   "POST /api/team/colonies/:id": { why: "edit_colony on that colony (PR 4.2), rename_colony island-only; a colony that isn't hers, or isn't one, is the same 403" },
   "GET /api/team/colonies/:id/cats": { why: "the Add cats search: sees some colony, then assign_cat_to_colony on the colony read from the record", except: SEEING },
   "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony on the colony the cats go into (PR 4.2); a colony that isn't hers, or isn't one, is the same 403" },
@@ -408,6 +426,7 @@ beforeAll(async () => {
   });
   await pool.query(`update people set invite_sent_at = now() where id = $1`, [inv.id]);
   people.invitee = { id: inv.id, email: inv.email, cookie: inviteCookieFor(inv.id, 1) };
+  people.guardianNone = await starterPerson("walk-gnone");
 });
 
 beforeEach(() => {
@@ -472,6 +491,9 @@ async function freshCookie(kind: Kind): Promise<string> {
     case "ended":
       who = await guardianOn(`walk-f${n}-ended`, [colonyA]);
       await endPlacements(who.id);
+      break;
+    case "guardianNone":
+      who = await starterPerson(`walk-f${n}-gnone`);
       break;
     default:
       return people[kind].cookie;
@@ -559,7 +581,10 @@ describe("T1: the route walk", () => {
             expect([json.status, json.text], where).toEqual([403, '{"error":"forbidden"}']);
             expect(page.status, where).toBe(403);
             expect(page.text, where).toContain("That part of the dashboard is for the Syros Cats team.");
-            expect(page.text, where).toContain("Your colonies are here");
+            // SYC-439: a cat guardian with no colony yet is pointed at her first one.
+            expect(page.text, where).toContain(
+              kind === "guardianNone" ? "You can create your first colony here" : "Your colonies are here",
+            );
             expect(page.text, where).not.toContain("Please sign in again.");
             break;
           case "management":
