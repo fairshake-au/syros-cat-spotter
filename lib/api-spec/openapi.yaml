@@ -1190,10 +1190,17 @@ components:
             team hid has a null `photoUrl`.
           items:
             $ref: "#/components/schemas/SightingExtraPhoto"
+        photoHidden:
+          type: boolean
+          description: |
+            SYC-44 PR 6.1 (report-an-issue.md D4). True while this sighting's
+            own photo is hidden from the public (then `photoUrl` is null), so
+            the app shows "Photo hidden while Syros Cats take a look." in its
+            place. It says only that a photo is hidden, never why or by whom.
         createdAt:
           type: string
           description: A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).
-      required: [spotterCode, photoUrl, createdAt]
+      required: [spotterCode, photoUrl, photoHidden, createdAt]
     SightingExtraPhoto:
       type: object
       properties:
