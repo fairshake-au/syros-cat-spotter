@@ -26,7 +26,9 @@ describe("no surface calls her nothing (SYC-439)", () => {
   for (const lang of LANGS) {
     it(`the invitation email, in ${lang}`, () => {
       const m = renderInvitation({ language: lang, roles: ["guardian"], colonies: [], starting: true }, LIVE);
-      expect(m.text).toContain(STARTING[lang]);
+      // Spec §2: what she'll do, not a role sentence (review R7).
+      const body = { en: "Syros Cats has invited you to help as a cat guardian, to record a colony of cats you look after.", el: el["mail.invite.bodyStarting"], fr: fr["mail.invite.bodyStarting"] }[lang];
+      expect(m.text).toContain(body);
       expect(words(m.text)).not.toContain(` ${NOTHING[lang]}.`);
     });
 
@@ -62,7 +64,10 @@ describe("no surface calls her nothing (SYC-439)", () => {
         { name: "Eleni", language: lang, inviterName: "Maria", roles: ["guardian"], colonies: [], starting: true },
         LIVE,
       );
-      expect(html).toContain(STARTING[lang].replace(/'/g, "&#39;"));
+      // Spec §2: "…invited you as a cat guardian." (review R7)
+      const plain = { en: "a cat guardian", el: el["role.guardianPlain"], fr: fr["role.guardianPlain"] }[lang];
+      expect(html).toContain(`${plain}.`);
+      expect(html).not.toContain(STARTING[lang]);
       const seeDo = { en: "Create a colony for the cats you look after.", el: el["welcome.seeDo.starting"], fr: fr["welcome.seeDo.starting"] }[lang];
       expect(html).toContain(seeDo.slice(0, 30));
       const guardianSeeDo = { en: "For your own colonies only", el: el["welcome.seeDo.guardian"], fr: fr["welcome.seeDo.guardian"] }[lang];
@@ -96,7 +101,7 @@ describe("no surface calls her nothing (SYC-439)", () => {
     };
     const lk = { people: new Map<string, string>(), colonies: new Map<number, string>() };
     const v = buildView(p, new Date("2026-10-17T10:00:00Z"), lk, "someone-else");
-    expect(v.roles).toBe("A cat guardian, with no colony yet");
+    expect(v.roles).toBe("Cat guardian · no colony yet");
     expect(v.placements).toEqual([]);
     expect(v.starting).toBe(true);
     expect(describeEvent(p.history[0]!, lk)).toContain("invited them as a cat guardian, with no colony yet.");

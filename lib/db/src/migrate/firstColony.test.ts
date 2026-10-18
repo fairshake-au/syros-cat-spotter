@@ -207,6 +207,29 @@ describe("clearing 'no colony yet': any other row ends it (§4.4)", () => {
     expect((await rowsOf(p)).map((x) => x.reach)).toEqual(["start"]);
   });
 
+  it("--replace deletes it too, so dropping the new role later can't bring it back (review R4)", async () => {
+    const p = await starter("mara@example.com");
+    await store.setRoles({ email: "mara@example.com", by: "cli:test", replace: ["staff"] });
+    expect((await rowsOf(p)).map((x) => [x.role, x.reach])).toEqual([["staff", "island"]]);
+  });
+
+  it("Bring back onto a colony leaves only that colony (review R4)", async () => {
+    const p = await starter("mara@example.com");
+    await c.query(`update people set left_at = now(), left_by = 'cli:test' where id = $1`, [p]);
+    const colony = await newColony();
+    await store.rejoinPerson("cli:test", p, [{ role: "guardian", colonyId: colony }], "en", "en");
+    expect((await rowsOf(p)).map((x) => [x.colony_id, x.reach])).toEqual([[colony, "colony"]]);
+  });
+
+  it("--remove guardian --start takes it away (review R10)", async () => {
+    const p = await starter("mara@example.com");
+    await store.setRoles({ email: "mara@example.com", by: "cli:test", remove: "guardian", start: true, force: true });
+    expect(await rowsOf(p)).toEqual([]);
+    await expect(
+      store.setRoles({ email: "mara@example.com", by: "cli:test", remove: "guardian", start: true, force: true }),
+    ).rejects.toThrow(/don't hold guardian:start/);
+  });
+
   it("the people command's --add guardian --colony and --add staff delete it", async () => {
     const p = await starter("mara@example.com");
     const colony = await newColony();
@@ -230,6 +253,14 @@ describe("her first colony (§5)", () => {
     expect(ev.rows).toEqual([
       { by: p, detail: { before: ["guardian:start"], after: [`guardian:${colonyId}`], createdColony: colonyId } },
     ]);
+  });
+
+  it("her first colony ends only HER 'no colony yet', not another starter's (review R3)", async () => {
+    const p = await starter("mara@example.com");
+    const q = await starter("zoe@example.com");
+    await store.createColonyWithPlacement({ id: p }, { name: `Ano Syros ${crypto.randomBytes(3).toString("hex")}` });
+    expect((await rowsOf(p)).map((x) => x.reach)).toEqual(["colony"]);
+    expect((await rowsOf(q)).map((x) => x.reach)).toEqual(["start"]);
   });
 
   it("a name clash writes nothing: no colony, no event, and she is still a starter", async () => {

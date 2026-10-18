@@ -29,6 +29,7 @@ export const fr: Record<StringKey, string> = {
   "role.both": "{first} et {second}",
   "role.none": "rien",
   "role.guardianStarting": "gardien·ne de chats, sans colonie pour l’instant",
+  "role.guardianPlain": "gardien·ne de chats",
   "list.and": "{first} et {last}",
   "list.more": "{count} autres",
 
@@ -56,6 +57,7 @@ export const fr: Record<StringKey, string> = {
 
   "mail.invite.subject": "Syros Cats t’invite à aider",
   "mail.invite.body": "Syros Cats t’invite à aider en tant que {role}.",
+  "mail.invite.bodyStarting": "Syros Cats t’invite à aider en tant que gardien·ne de chats, pour enregistrer une colonie de chats dont tu t’occupes.",
   "mail.invite.how": "Pour commencer, va sur admin.catspotters.com, saisis cette adresse et appuie sur le lien que nous t’enverrons.",
   "mail.invite.expiry": "Cette invitation ne fonctionne plus au bout de 14 jours. Si tu ne l’attendais pas, tu peux ignorer ce message.",
 

@@ -43,7 +43,7 @@ export const requireSeeing = (): RequestHandler[] => [requireTeam(), enterIfSees
  * filtered by visibleColonyIds, which for her is nothing.
  */
 export const requireColoniesList = (): RequestHandler[] => [
-  requireTeam(undefined, { starting: true }),
+  requireTeam(undefined, { openToStarter: true }),
   (req: Request, res: Response, next: NextFunction) => {
     if (!opensColoniesList(teamPerson(res))) {
       req.log.info({ reason: "sees_no_colony" }, "team request refused");

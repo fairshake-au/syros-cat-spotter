@@ -56,7 +56,12 @@ export function renderWelcomePage(input: WelcomeInput, live: readonly Language[]
   const lang = pageLanguage(input.language, live);
   const t = (key: StringKey, vars?: Record<string, string>) => tr(lang, key, vars, live);
   const starting = input.starting === true;
-  const role = roleSentence(lang, input.roles, input.colonies, (n) => clip(n), live, starting);
+  // "…invited you as a cat guardian." The paragraph below says she creates
+  // her colony (SYC-439 spec §2).
+  const role =
+    starting && input.colonies.length === 0 && input.roles.every((r) => r === "guardian")
+      ? tr(lang, "role.guardianPlain", undefined, live)
+      : roleSentence(lang, input.roles, input.colonies, (n) => clip(n), live, starting);
   const invited = input.inviterName
     ? t("welcome.invitedBy", { inviter: clip(input.inviterName), role })
     : t("welcome.invited", { role });

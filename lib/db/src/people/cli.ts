@@ -67,7 +67,7 @@ const USAGE = [
   "<target> is development, rehearsal or production, and DATABASE_TARGET must equal it.",
   "The address comes from NEON_DEV_URL, NEON_REHEARSAL_URL or NEON_PROD_URL respectively.",
   "--email and --name may instead come from PEOPLE_EMAIL and PEOPLE_NAME.",
-  "Roles are staff, management, guardian and vet. A guardian needs --colony, or --start for a cat guardian with no colony yet (set-roles --add guardian only).",
+  "Roles are staff, management, guardian and vet. A guardian needs --colony, or --start for a cat guardian with no colony yet (set-roles --add guardian or --remove guardian).",
 ].join("\n");
 
 class UsageError extends Error {}

@@ -1389,9 +1389,9 @@ export function peopleStore(db: PeopleDb) {
       if (colonyId !== null) checkColonyId(colonyId);
       const single = input.add ?? input.remove;
       const start = input.start === true;
-      if (start && (input.add !== "guardian" || colonyId !== null)) {
+      if (start && ((input.add ?? input.remove) !== "guardian" || colonyId !== null)) {
         throw new PeopleError(
-          "--start is only for --add guardian, with no --colony: a cat guardian with no colony yet.",
+          "--start is only for --add guardian or --remove guardian, with no --colony: a cat guardian with no colony yet.",
         );
       }
       if (single !== undefined) {
@@ -1485,12 +1485,16 @@ export function peopleStore(db: PeopleDb) {
         } else if (input.remove !== undefined) {
           const role = input.remove;
           const colony = role === "guardian" ? colonyId : null;
+          // --remove guardian --start takes "no colony yet" away (SYC-439).
           const row = held.find(
-            (h) => h.role === role && h.colonyId === colony && h.reach !== "start",
+            (h) =>
+              h.role === role &&
+              h.colonyId === colony &&
+              (start ? h.reach === "start" : h.reach !== "start"),
           );
           if (!row) {
             throw new PeopleError(
-              `They don't hold ${scopeLabel({ role, colonyId: colony })}. Nothing was changed.`,
+              `They don't hold ${start ? START_LABEL : scopeLabel({ role, colonyId: colony })}. Nothing was changed.`,
             );
           }
           toDelete.push(row.id);

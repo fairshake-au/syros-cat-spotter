@@ -293,7 +293,10 @@ export function buildView(p: ScreenPerson, now: Date, lk: Lookups, selfId: strin
     anonymised,
     state,
     chip: CHIP_LABELS[state],
-    roles: capitalise(roleSentence("en", roles, guardianColonies, (n) => clip(n), undefined, starting)),
+    roles:
+      starting && roles.every((r) => r === "guardian") && guardianColonies.length === 0
+        ? "Cat guardian · no colony yet"
+        : capitalise(roleSentence("en", roles, guardianColonies, (n) => clip(n), undefined, starting)),
     placements,
     timing,
     holdsWorkspace: roles.some((r) => WORKSPACE_ROLES.includes(r)),

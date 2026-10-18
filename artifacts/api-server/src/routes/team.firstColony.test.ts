@@ -1,10 +1,13 @@
 import { randomBytes } from "node:crypto";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { addPerson, pool } from "@workspace/db";
+import { addPerson, db, invitePerson, pool } from "@workspace/db";
+import { inviteCookieFor } from "../test/inviteKit";
+import { sendMail } from "../lib/mail/send";
+import { personMailLookups } from "../lib/mail/personOutbox";
+import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
-import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { createColony } from "../lib/teamColonies";
 import { endPlacements, guardianOn, starterPerson, type Signed } from "../test/roleKit";
 import { removeTestPerson } from "../test/removeTestPerson";
@@ -137,6 +140,91 @@ describe("before her first colony", () => {
     expect(res.text).not.toContain(`/api/team/colonies/${other}`);
     expect(await rowsOf(mara.id)).toEqual([{ role: "guardian", colony_id: null, reach: "start" }]);
     expect(await rolesChanged(mara.id)).toEqual([]);
+  });
+});
+
+describe("her invitation, the accept page and Yes, join (review R1, R2)", () => {
+  let inv: { id: string; email: string };
+  beforeAll(async () => {
+    const email = `vitest-firstcol-inv-${RUN}@example.com`;
+    made.push(email);
+    inv = await invitePerson(staffId, {
+      email,
+      name: "Vt Eleni",
+      placements: [{ role: "guardian", start: true }],
+      language: "en",
+      languageUsed: "en",
+    });
+    await pool.query("update people set invite_sent_at = now() where id = $1", [inv.id]);
+  });
+
+  it("the invitation email, built from her record, says what she'll do and never 'nothing'", async () => {
+    process.env["RESEND_API_KEY"] = "re_test_not_real";
+    const bodies: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async (_u: string | URL | Request, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(JSON.stringify({ id: "re_x" }), { status: 200 });
+    }) as unknown as typeof fetch;
+    try {
+      const r = await sendMail(
+        { purpose: "person_invite", personId: inv.id },
+        {
+          fetchImpl,
+          log: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
+          people: personMailLookups(db),
+          isSuppressed: async () => false,
+        },
+      );
+      expect(r.ok).toBe(true);
+      const text = String(bodies[0]?.["text"]);
+      expect(text).toContain("Syros Cats has invited you to help as a cat guardian, to record a colony of cats you look after.");
+      expect(text).not.toMatch(/\bnothing\b/);
+    } finally {
+      delete process.env["RESEND_API_KEY"];
+    }
+  });
+
+  it("the accept page says 'a cat guardian' and promises no positions she can't see", async () => {
+    const page = await get("/api/team/my/welcome", inviteCookieFor(inv.id, 1));
+    expect(page.status).toBe(200);
+    expect(page.text).toContain("invited you as a cat guardian.");
+    expect(page.text).toContain("Create a colony for the cats you look after.");
+    expect(page.text).not.toContain("For your own colonies only");
+    expect(page.text).not.toMatch(/\bnothing\b/);
+  });
+
+  it("Yes, join gives her a session and sends her to My colonies", async () => {
+    const res = await request(app)
+      .post("/api/team/my/accept")
+      .set("Origin", TEAM_ORIGIN)
+      .set("Cookie", inviteCookieFor(inv.id, 1))
+      .type("form")
+      .send({ name: "Vt Eleni" });
+    expect(res.status).toBe(303);
+    expect(res.headers["location"]).toBe("https://team.catspotters.com/api/team/my/colonies");
+    const cookies = (res.headers["set-cookie"] as unknown as string[]).join("\n");
+    expect(cookies).toMatch(/__Host-cs_team=[^;]+;/);
+    expect(cookies).not.toMatch(/__Host-cs_team=;/);
+  });
+});
+
+describe("Change roles keeps 'No colony yet' when saved unchanged (review R5)", () => {
+  it("the form pre-ticks it, and posting it back changes nothing", async () => {
+    const email = `vitest-firstcol-mgmt-${RUN}@example.com`;
+    made.push(email);
+    const mgmt = await addPerson({ email, name: "Jacky", addedBy: "cli:vitest" });
+    await pool.query("update person_scopes set role = 'management' where person_id = $1", [mgmt.id]);
+    const cookie = sessionCookieFor(mgmt.id, mgmt.sessionVersion);
+    const zoe = await starterPerson(`firstcol-zoe-${RUN}`);
+    made.push(zoe.email);
+    const form = await get(`/api/team/people/${zoe.id}/roles`, cookie);
+    expect(form.status).toBe(200);
+    expect(form.text).toMatch(/<input type="checkbox" name="no_colony" value="1" checked>/);
+    expect(form.text).toMatch(/<input type="checkbox" name="roles" value="guardian" checked>/);
+    const saved = await postForm(`/api/team/people/${zoe.id}/roles`, { roles: "guardian", no_colony: "1" }, cookie);
+    expect(saved.status).toBe(409);
+    expect(saved.text).toContain("already hold exactly that");
+    expect(await rowsOf(zoe.id)).toEqual([{ role: "guardian", colony_id: null, reach: "start" }]);
   });
 });
 

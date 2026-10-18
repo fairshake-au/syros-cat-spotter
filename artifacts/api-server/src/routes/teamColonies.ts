@@ -270,7 +270,7 @@ const takenResponse = (
 router.post(
   "/team/colonies",
   // A cat guardian with no colony yet creates her first one here (SYC-439).
-  ...formRoute("create_colony", { starting: true }),
+  ...formRoute("create_colony", { openToStarter: true }),
   async (req: Request, res: Response) => {
     const v = pageViewer(res);
     const back = { href: "/api/team/colonies", label: t("problem.backToColonies", v.lang) };

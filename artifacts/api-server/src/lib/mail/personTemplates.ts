@@ -57,9 +57,11 @@ export function renderInvitation(
   live?: readonly Language[],
 ): RenderedPersonMail {
   const lang = pageLanguage(input.language, live);
+  const starting = input.starting === true && input.colonies.length === 0 && input.roles.every((r) => r === "guardian");
   const role = roleSentence(lang, input.roles, input.colonies, (n) => mailSafe(n), live, input.starting === true);
   const parts = [
-    tr(lang, "mail.invite.body", { role }, live),
+    // A cat guardian with no colony yet is told what she'll do (SYC-439 spec §2).
+    starting ? tr(lang, "mail.invite.bodyStarting", undefined, live) : tr(lang, "mail.invite.body", { role }, live),
     tr(lang, "mail.invite.how", undefined, live),
     tr(lang, "mail.invite.expiry", undefined, live),
   ];

@@ -29,6 +29,7 @@ export const el: Record<StringKey, string> = {
   "role.both": "{first} και {second}",
   "role.none": "τίποτα",
   "role.guardianStarting": "κηδεμόνας γατών, χωρίς αποικία ακόμη",
+  "role.guardianPlain": "κηδεμόνας γατών",
   "list.and": "{first} και {last}",
   "list.more": "{count} ακόμη",
 
@@ -56,6 +57,7 @@ export const el: Record<StringKey, string> = {
 
   "mail.invite.subject": "Οι Syros Cats σας προσκαλούν να βοηθήσετε",
   "mail.invite.body": "Οι Syros Cats σας προσκαλούν να βοηθήσετε ως {role}.",
+  "mail.invite.bodyStarting": "Οι Syros Cats σας προσκάλεσαν να βοηθήσετε ως κηδεμόνας γατών, καταγράφοντας μια αποικία γατών που φροντίζετε.",
   "mail.invite.how": "Για να ξεκινήσετε, πηγαίνετε στο admin.catspotters.com, πληκτρολογήστε αυτή τη διεύθυνση και πατήστε τον σύνδεσμο που θα σας στείλουμε.",
   "mail.invite.expiry": "Αυτή η πρόσκληση λήγει μετά από 14 ημέρες. Αν δεν την περιμένατε, μπορείτε να αγνοήσετε αυτό το μήνυμα.",
 

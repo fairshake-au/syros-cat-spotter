@@ -85,9 +85,10 @@ export interface RequireTeamOptions {
   /**
    * Open to a cat guardian with no colony yet (SYC-439; first-colony spec
    * §4.3), who is refused everywhere else. ONLY on GET and POST
-   * /team/colonies: a source test fails the build on any other use.
+   * /team/colonies: a source test counts every use of this name outside
+   * this file and fails the build on a third.
    */
-  starting?: true;
+  openToStarter?: true;
 }
 
 /**
@@ -131,7 +132,7 @@ export function requireTeam(
         refuseAccessEnded(req, res, person);
         return;
       }
-      if (options.own !== true && door === "starting" && options.starting !== true) {
+      if (options.own !== true && door === "starting" && options.openToStarter !== true) {
         req.log.info({ reason: "starting_only" }, "team request refused");
         refuseForbidden(req, res, {
           name: person.name,

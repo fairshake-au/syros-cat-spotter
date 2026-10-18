@@ -243,8 +243,8 @@ function placementFields(colonies: ColonyOption[], pre?: Prefill): string {
     `</fieldset>` +
     `<fieldset><legend class="label">Colonies, for a cat guardian</legend>${startBox}${rows}</fieldset>` +
     (none
-      ? `<p class="hint">No colonies exist yet. A cat guardian can still be invited with “No colony yet”, and creates the first one herself.</p>`
-      : `<p class="hint">Tick her colonies, or “No colony yet” if she will create her own. An end date switches that colony off by itself at midnight Athens time at the end of that date. A label is only a note for the team; it changes nothing they can do.</p>`)
+      ? `<p class="hint">No colonies exist yet. A cat guardian can still be invited with “No colony yet”, and creates the first one.</p>`
+      : `<p class="hint">Tick their colonies, or “No colony yet” for a cat guardian who will create the first one. An end date switches that colony off by itself at midnight Athens time at the end of that date. A label is only a note for the team; it changes nothing they can do.</p>`)
   );
 }
 

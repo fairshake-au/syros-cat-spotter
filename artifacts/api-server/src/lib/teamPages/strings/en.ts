@@ -38,6 +38,7 @@ export const en = {
   "role.both": "{first}, and {second}",
   "role.none": "nothing",
   "role.guardianStarting": "a cat guardian, with no colony yet",
+  "role.guardianPlain": "a cat guardian",
   "list.and": "{first} and {last}",
   "list.more": "{count} more",
 
@@ -71,6 +72,7 @@ export const en = {
   // other person. The only words that vary are the role and the colonies.
   "mail.invite.subject": "Syros Cats has invited you to help",
   "mail.invite.body": "Syros Cats has invited you to help as {role}.",
+  "mail.invite.bodyStarting": "Syros Cats has invited you to help as a cat guardian, to record a colony of cats you look after.",
   "mail.invite.how": "To get started, go to admin.catspotters.com, type this address, and tap the link we send you.",
   "mail.invite.expiry": "This invitation stops working after 14 days. If you weren't expecting it, you can ignore this message.",
 

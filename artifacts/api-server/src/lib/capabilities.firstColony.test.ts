@@ -92,8 +92,8 @@ describe("the Colonies list's own door (requireColoniesList)", () => {
   });
 });
 
-describe("only GET and POST /team/colonies are open to her (source scan, SYC-439)", () => {
-  it("the `starting` route option appears exactly twice, both in routes/teamColonies.ts", () => {
+describe("only GET and POST /team/colonies are open to her (source scan, SYC-439; review R6)", () => {
+  it("the openToStarter route option is used exactly twice outside requireTeam.ts: requireColoniesList and POST /team/colonies", () => {
     const src = join(__dirname, "..");
     const walk = (dir: string): string[] =>
       readdirSync(dir).flatMap((name) => {
@@ -101,23 +101,17 @@ describe("only GET and POST /team/colonies are open to her (source scan, SYC-439
         if (statSync(p).isDirectory()) return walk(p);
         return p.endsWith(".ts") && !p.endsWith(".test.ts") ? [p] : [];
       });
-    const files = walk(src);
+    const files = walk(src).filter((f) => !f.endsWith(join("middlewares", "requireTeam.ts")));
     expect(files.length).toBeGreaterThan(50);
     const uses: string[] = [];
     for (const f of files) {
-      const text = readFileSync(f, "utf8");
-      for (const m of text.matchAll(/starting:\s*true\s*}/g)) uses.push(`${f}@${m.index}`);
+      for (const m of readFileSync(f, "utf8").matchAll(/\bopenToStarter\b/g)) uses.push(`${f}@${m.index}`);
     }
-    const inColonies = uses.filter((u) => u.includes(join("routes", "teamColonies.ts")));
-    const inSeeing = uses.filter((u) => u.includes(join("middlewares", "requireSeeing.ts")));
-    // POST /team/colonies names it directly; GET /team/colonies through requireColoniesList.
-    expect(inColonies, uses.join("\n")).toHaveLength(1);
-    expect(inSeeing, uses.join("\n")).toHaveLength(1);
+    expect(uses.filter((u) => u.includes(join("routes", "teamColonies.ts"))), uses.join("\n")).toHaveLength(1);
+    expect(uses.filter((u) => u.includes(join("middlewares", "requireSeeing.ts"))), uses.join("\n")).toHaveLength(1);
     expect(uses, uses.join("\n")).toHaveLength(2);
-    const seeing = readFileSync(join(src, "middlewares", "requireSeeing.ts"), "utf8");
+    // And requireColoniesList is the door of exactly one route.
     const routes = walk(join(src, "routes")).map((f) => readFileSync(f, "utf8"));
-    const listUses = routes.join("\n").match(/requireColoniesList\(\)/g) ?? [];
-    expect(listUses).toHaveLength(1);
-    expect(seeing).toContain("export const requireColoniesList");
+    expect(routes.join("\n").match(/requireColoniesList\(\)/g) ?? []).toHaveLength(1);
   });
 });
