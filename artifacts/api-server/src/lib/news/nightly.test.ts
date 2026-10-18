@@ -598,25 +598,26 @@ describe("T1-13: more than 50 news changes in one night silences them all", () =
     return ids;
   }
 
-  it(`${BULK_LIMIT + 1} → every one silenced 'bulk', and the endpoint says so (the Worker alarms on it)`, async () => {
-    const ids = await confirmed(BULK_LIMIT + 1);
+  it("51 → every one silenced 'bulk', and the endpoint says so (the Worker alarms on it)", async () => {
+    expect(BULK_LIMIT).toBe(50);
+    const ids = await confirmed(51);
     await db.delete(catNewsRunsTable);
     const res = await request(app).post("/api/internal/news/nightly").set("Authorization", `Bearer ${TOKEN}`);
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ silencedBulk: true, news: 0 });
     const rows = await changesFor(ids);
-    expect(rows).toHaveLength(BULK_LIMIT + 1);
+    expect(rows).toHaveLength(51);
     expect(rows.every((r) => r.state === "silenced" && r.silencedReason === "bulk" && r.causedByDevices === null)).toBe(true);
     const [run] = await db.select().from(catNewsRunsTable);
     expect(run!.silencedBulk).toBe(true);
   });
 
-  it(`${BULK_LIMIT} → none silenced`, async () => {
-    const ids = await confirmed(BULK_LIMIT);
+  it("50 → none silenced", async () => {
+    const ids = await confirmed(50);
     const r = await fresh();
     expect(r.silencedBulk).toBe(false);
     const rows = await changesFor(ids);
-    expect(rows).toHaveLength(BULK_LIMIT);
+    expect(rows).toHaveLength(50);
     expect(rows.every((x) => x.state === "watched")).toBe(true);
   });
 });
