@@ -7,6 +7,7 @@ import { catIdentityTable, catsTable, db, feedingSitesTable, markLeft, observati
 import { eq, sql } from "drizzle-orm";
 import app from "../app";
 import { catTarget } from "../lib/capabilityTargets";
+import { writeObservation } from "../lib/observations";
 import { GUARDIAN_CAT_FIELDS } from "../lib/guardianCatView";
 import { CATALOGUE } from "../lib/teamPages/strings";
 import { removeTestPerson } from "../test/removeTestPerson";
@@ -42,6 +43,10 @@ const JSON_ACCEPT = { Accept: "application/json" };
 /** Spec §2.2, "She sees". Pinned here, never imported. */
 const HER_FIELDS = [
   "coat",
+  // SYC-443 PR 2 (SYC-436): the colours and pattern the public wire carries,
+  // so her page can say the coat in the team's words.
+  "coatColours",
+  "coatPattern",
   "colony",
   "description",
   "id",
@@ -567,5 +572,72 @@ describe("the guardian's pages never reach the team's cat view (source)", () => 
   ])("%s calls no teamCatView, searchTeamCats or renderCatPage", (file) => {
     const src = readFileSync(file, "utf8");
     expect(src).not.toMatch(/\bteamCatView\s*\(|\bsearchTeamCats\s*\(|\brenderCatPage\s*\(/);
+  });
+});
+
+describe("SYC-443 PR 2 (SYC-436): her pages say a coat in the team's words", () => {
+  let striped: SeededCat; // in A: ginger stripes, white paws and one eye
+  let calico: SeededCat; // in A: black, ginger and white patches
+  let outside: SeededCat; // in B: ginger stripes
+
+  const htmlOf = async (id: number) => {
+    const res = await request(app).get(`/api/team/my/cats/${id}`).set("Cookie", eleni.cookie).set("Sec-Fetch-Mode", "navigate");
+    expect(res.status).toBe(200);
+    return res.text;
+  };
+
+  beforeAll(async () => {
+    const staff = { accountId: team.id, roleAtTime: "staff", observedAt: new Date("2026-10-01T10:00:00Z") };
+    striped = await seedCat(colonyA);
+    calico = await seedCat(colonyA);
+    outside = await seedCat(colonyB);
+    for (const c of [striped, outside]) {
+      await writeObservation(db, { ...staff, catId: c.id, kind: "coat", value: { colours: ["ginger"], pattern: "stripes" } });
+    }
+    await writeObservation(db, { ...staff, catId: striped.id, kind: "markings", value: { marks: ["white_paws", "missing_eye"] } });
+    await writeObservation(db, {
+      ...staff,
+      catId: calico.id,
+      kind: "coat",
+      value: { colours: ["black", "ginger", "white"], pattern: "patches" },
+    });
+  });
+
+  it("her cat carries the colours and pattern, and her page says Ginger tabby, then the marks", async () => {
+    const json = await asEleni(`/api/team/my/cats/${striped.id}`);
+    expect(json.body.view).toBe("guardian");
+    expect(json.body.cat.coatColours).toEqual(["ginger"]);
+    expect(json.body.cat.coatPattern).toBe("stripes");
+    const html = await htmlOf(striped.id);
+    expect(html).toContain("<p>Ginger tabby · White paws · One eye</p>");
+    expect(html).not.toContain("Stripes");
+  });
+
+  it("a calico says Calico, never Tortoiseshell or calico", async () => {
+    const json = await asEleni(`/api/team/my/cats/${calico.id}`);
+    expect(json.body.cat.coatColours).toEqual(["black", "ginger", "white"]);
+    expect(json.body.cat.coatPattern).toBe("patches");
+    const html = await htmlOf(calico.id);
+    expect(html).toContain("<p>Calico</p>");
+    expect(html).not.toContain("Tortoiseshell or calico");
+  });
+
+  it("a coat nobody has said: no coat words at all", async () => {
+    const json = await asEleni(`/api/team/my/cats/${mine.id}`);
+    expect(json.body.cat.coatColours).toEqual([]);
+    expect(json.body.cat.coatPattern).toBeNull();
+    const html = await htmlOf(mine.id);
+    expect(html).not.toMatch(/pattern not known|colours not known|>Not known</);
+  });
+
+  it("scope unchanged: a cat outside her colonies is still exactly the public view", async () => {
+    const res = await asEleni(`/api/team/my/cats/${outside.id}`);
+    expect(res.body.view).toBe("public");
+    expect(res.body.cat).toEqual(await publicCat(outside.id));
+    expect(res.body.cat.locationPrecision).toBe("approximate");
+    // Her page for it uses the same line (appearanceLine), so the team's words.
+    const html = await htmlOf(outside.id);
+    expect(html).toContain("<p>Ginger tabby</p>");
+    expect(html).not.toContain("37.445");
   });
 });

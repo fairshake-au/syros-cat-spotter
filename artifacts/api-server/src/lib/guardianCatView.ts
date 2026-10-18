@@ -7,7 +7,7 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { deriveCatStatuses, toPublicDay } from "./catHelpers";
-import type { LegacyPublicCode, Mark } from "./appearance";
+import type { CoatColour, CoatPattern, LegacyPublicCode, Mark } from "./appearance";
 import { hiddenPhotoIds } from "./photoVisibility";
 import { loadCatRecords } from "./observations";
 import {
@@ -31,7 +31,9 @@ import { syrNumber, teamPhotoUrl } from "./teamCatView";
 //     (whose target is the photo's cat, so the route checks her again);
 //   - the sterilisation answer and how sure we are;
 //   - life status, and the day the cat was last seen;
-//   - colour and markings, as the public sees them.
+//   - colour and markings, as the public sees them (the colours and pattern
+//     the public wire carries; her page words them in the team's words,
+//     SYC-443 T1A).
 //
 // Never here, by construction (there is no field for them): welfare reports
 // and their notes, hidden photos or any photo sent privately, team members'
@@ -68,7 +70,12 @@ export interface GuardianCat {
   lifeStatus: LifeStatusValue | null;
   /** The day (UTC, YYYY-MM-DD) of the newest sighting, or null for none. */
   lastSeen: string | null;
+  /** The old public codes, kept for now (SYC-443 plan, PR 2); her page no longer reads them. */
   coat: LegacyPublicCode[];
+  /** The resolved colours (catHelpers status.coatColours); [] means not known. */
+  coatColours: CoatColour[];
+  /** The resolved pattern; null means not known. */
+  coatPattern: CoatPattern | null;
   markings: Mark[];
 }
 
@@ -189,6 +196,8 @@ export async function guardianCats(
       lifeStatus: life.value,
       lastSeen: own[0] ? toPublicDay(own[0].createdAt) : null,
       coat: status ? [...status.coat] : [],
+      coatColours: status ? [...status.coatColours] : [],
+      coatPattern: status?.coatPattern ?? null,
       markings: status ? [...status.markings] : [],
     });
   }
@@ -220,5 +229,7 @@ export const GUARDIAN_CAT_FIELDS = [
   "lifeStatus",
   "lastSeen",
   "coat",
+  "coatColours",
+  "coatPattern",
   "markings",
 ] as const satisfies readonly (keyof GuardianCat)[];

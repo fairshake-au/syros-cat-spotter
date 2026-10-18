@@ -200,12 +200,8 @@ export const en = {
   "coat.white": "White",
   "coat.ginger": "Ginger",
   "coat.grey": "Grey",
-  "coat.tabby": "Tabby",
-  "coat.tortoiseshell_or_calico": "Tortoiseshell or calico",
-  "coat.black_and_white": "Black and white",
   // SYC-398 (coat-colours-and-pattern.md §2): the five colours and three
-  // patterns. Tabby, tortoiseshell or calico and black and white above stay
-  // only for the guardian pages' old public codes until they move over.
+  // patterns. The old public coat words went with SYC-443 PR 2.
   "coat.brown": "Brown",
   "pattern.plain": "Plain",
   "pattern.stripes": "Stripes",
