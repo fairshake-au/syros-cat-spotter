@@ -667,7 +667,10 @@ function sightingsMap(v: TeamCatView): string {
       drawn < shown.length
         ? ` ${shown.length - drawn} ${shown.length - drawn === 1 ? "is" : "are"} too far from the others to fit on this map; see Sightings below.`
         : ""
-    }</p></div>`
+    }</p>` +
+    // The island Map, opened on this cat's numbered trail (PR 1.5). Only the
+    // cat's number is in the address: never a position or a name.
+    `<p class="maplink"><a class="tap" href="/api/team/cats?view=map&amp;focus=${v.cat.id}">Open the full map</a></p></div>`
   );
 }
 

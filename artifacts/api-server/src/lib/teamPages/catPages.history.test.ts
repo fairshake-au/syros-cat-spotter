@@ -483,6 +483,13 @@ describe("the small sightings map", () => {
     expect(html).not.toContain('class="mapmove"');
   });
 
+  it("links to the full island Map focused on this cat, by its number only (PR 1.5)", () => {
+    const html = withSightings(2);
+    expect(html).toContain('<p class="maplink"><a class="tap" href="/api/team/cats?view=map&amp;focus=7">Open the full map</a></p>');
+    // Under the picture, never around it: no link holds another.
+    expect(html).not.toMatch(/<a\b[^>]*>(?:(?!<\/a>)[\s\S])*<a\b/);
+  });
+
   it("shows the newest 30 when there are more, and says so", () => {
     const html = withSightings(34);
     expect(pins(html)).toHaveLength(30);
