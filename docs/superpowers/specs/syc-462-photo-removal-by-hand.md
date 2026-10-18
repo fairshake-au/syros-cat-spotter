@@ -66,7 +66,7 @@ The picture itself lives in **one column only**: `photos.data`, base64 text, `NO
 
 | # | Place | File:line | What we can do |
 |---|---|---|---|
-| C1 | **Matching (OpenAI)**: a cat's main photo is sent with every nearby spot, **and today that includes a hidden main photo** (no hidden check on the read) | `api/routes/sightings.ts:276-289` | P3's repoint stops it being sent from the moment of removal. Whatever the provider kept from earlier calls is outside the system. We store no prompts, outputs or embeddings (only `sighting_matches`). The general "hidden photos are still sent" gap is filed separately (§11) |
+| C1 | **Matching (OpenAI)**: a cat's main photo is sent with every nearby spot, **and today that includes a hidden main photo** (no hidden check on the read) | `api/routes/sightings.ts:276-289` | P3's repoint stops it being sent from the moment of removal. Whatever the provider kept from earlier calls is outside the system. We store no prompts, outputs or embeddings (only `sighting_matches`). The general "hidden photos are still sent" gap is SYC-303 (§11) |
 | C2 | **A repeat upload of the same spot** re-reads that spot's photos and sends them again | `api/routes/sightings.ts:556-601` | Must skip a wiped photo (§6, change 2) |
 | C3 | **Coat reader**: sends the cat's display photo, never a hidden one | `api/lib/photoVisibility.ts:103`; `api/lib/coatReading/sweep.ts:203` | Nothing needed: a hidden photo is never sent |
 | C4 | **"Photo hidden" email** to the team inbox, **with the photo attached** (only when a report hid it) | `api/lib/mail/outbox.ts:568-603`; `api/lib/issues/alertEmail.ts:137-146` | Ask the inbox owner to delete that email (runbook step 9). Resend's own retention: **unchecked** |
@@ -80,7 +80,7 @@ The picture itself lives in **one column only**: `photos.data`, base64 text, `NO
 | K2 | Team full photo `GET /api/team/photos/:publicId` | `api/routes/teamReports.ts:166-178` | `no-store`. Answers `404` for any row whose `mime` isn't an image type (`:150`), so the "removed" marker closes it with no code change (§4.1) |
 | K3 | Team small/medium `GET /api/team/photos/:publicId/:size` | `api/routes/teamReports.ts:187-208` | `private, no-cache` with an ETag: asked again on every view. Closed by the same `mime` check |
 | K4 | **The app's saved cat list** | `artifacts/cat-spotter/lib/catalogue.ts:17` | Keeps addresses, not pictures. The next fetch of the address gets `404` |
-| K5 | **The app's and browser's image store** (`expo-image`, browser HTTP cache) | `artifacts/cat-spotter/components/CatPicker.tsx:289` and the defaults | **A phone that already showed the photo may keep it** until its cache clears. Nothing on the server can reach it. Said plainly in the reply (§7) |
+| K5 | **The app's and browser's image store** (`expo-image`, browser HTTP cache) | `artifacts/cat-spotter/components/CatPicker.tsx:289` and the defaults | **A phone that already showed the photo may keep it** until its cache clears. Nothing on the server can reach it (SYC-276). Said plainly in the reply (§7) |
 | K6 | Spotter's own offline queue (photos waiting to upload) | `artifacts/cat-spotter/lib/pendingPhotos.ts:23`; `lib/webPhotoStore.ts:52` | The spotter's own phone, holding their own photo, until it uploads. Not ours to reach |
 
 ### 3.4 Backups and whole-database copies
@@ -394,7 +394,7 @@ Nothing here contradicts it:
 
 ## 11. Found while mapping (filed, not fixed here)
 
-- **Hidden photos are still sent to the matcher.** `api/routes/sightings.ts:276-289` reads a cat's main photo with no hidden check, so a photo hidden for privacy, but not yet removed, still goes to OpenAI with every nearby spot. The removal fixes this for removed photos (§4.2). For hidden ones it's a new ticket (dedupe checked first).
+- **Hidden photos are still sent to the matcher.** `api/routes/sightings.ts:276-289` reads a cat's main photo with no hidden check, so a photo hidden for privacy, but not yet removed, still goes to OpenAI with every nearby spot. The removal fixes this for removed photos (§4.2). For hidden ones it's already filed as **SYC-303** (checked 18 Oct).
 - **SYC-246 backfill note** (§9): a comment on SYC-246.
 - **Reporter photos** (D3): a ticket, if Samuel picks A.
 
