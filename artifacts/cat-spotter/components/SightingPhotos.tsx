@@ -67,9 +67,8 @@ export function SightingPhotos({
       ) : (
         <Pressable
           testID="sighting-cover-open"
-          accessibilityRole={photoUrl ? 'imagebutton' : undefined}
+          role={photoUrl ? 'button' : undefined}
           accessibilityLabel={photoUrl ? when : undefined}
-          disabled={!photoUrl}
           onPress={() => {
             if (photoUrl && coverLoaded === photoUrl) setOpen({ url: photoUrl, label: when });
           }}

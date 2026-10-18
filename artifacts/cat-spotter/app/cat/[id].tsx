@@ -182,10 +182,11 @@ export default function CatDetailScreen() {
         <View>
           <Pressable
             testID="cat-hero-open"
-            accessibilityRole={cat.photoUrl ? 'imagebutton' : undefined}
+            role={cat.photoUrl ? 'button' : undefined}
             accessibilityLabel={cat.photoUrl ? cat.name : undefined}
-            disabled={!heroCanOpen}
-            onPress={() => setHeroOpen(true)}
+            onPress={() => {
+              if (heroCanOpen) setHeroOpen(true);
+            }}
           >
             <Image
               source={photoSource(cat.photoUrl)}
