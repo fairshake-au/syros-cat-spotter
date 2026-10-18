@@ -1,6 +1,6 @@
 # Team dashboard redesign: implementation plan for phases 2, 3 and 4
 
-**Status:** for Samuel's approval on Tue 20 Oct 2026, revised after its adversarial review (18 Oct). One combined plan, as Samuel decided on 18 Oct (D1, recorded on SYC-463).
+**Status:** **Approved by Samuel, 18 Oct 2026** ("approved, start building asap"), after its adversarial review and his scope answers the same day. One combined plan, as Samuel decided on 18 Oct (D1, recorded on SYC-463).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to carry out this plan task by task. Steps use checkbox (`- [ ]`) syntax for tracking. **Commit after every task, and write a checkpoint line to `PROGRESS.md` in your worktree after every task (what's done, what's next). Never hold work only in memory. Do not sub-delegate.**
 
