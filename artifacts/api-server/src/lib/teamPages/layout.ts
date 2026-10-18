@@ -340,6 +340,24 @@ main.mappage h1{line-height:28px}
 li.colourcheck{list-style:none}
 li.colourcheck .catrow{border:0;padding:0;margin:0 0 6px}
 details.notdescribed>summary{cursor:pointer;font-weight:700;padding:10px 0;color:#0b4553}
+/* Home (SYC-396 PR 2.1; spec §4). */
+ul.hlist,ul.hplain,ul.hfigs{list-style:none;margin:8px 0;padding:0}
+ul.hplain li,ul.hfigs li{margin:4px 0}
+a.hrow{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;color:inherit;text-decoration:none;min-height:44px;overflow-wrap:anywhere}
+a.hrow:hover{border-color:#0b5c6b}
+.hthumb{flex:none;width:56px;height:56px;object-fit:cover;border-radius:6px;background:#ece8dc}
+.hthumb.nothumb{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#55524a;text-align:center}
+.htext{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hwhere{font-size:15px}
+.hwhere strong{color:#0b5c6b;text-decoration:underline}
+.hnote{font-size:14px;color:#3b3930}
+a.hlink{display:inline-flex;align-items:center;min-height:44px;padding:0;font-weight:700}
+.hstrip{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.hstrip img{display:block;width:56px;height:56px;object-fit:cover;border-radius:4px;background:#ece8dc}
+.hbig{font-size:18px;margin:16px 0 8px}
+.hbig strong{font-size:40px;line-height:1;margin-right:4px;font-variant-numeric:tabular-nums}
+.hfig{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-right:2px}
+.hsoon{margin:32px 0 0;padding-top:12px;border-top:1px solid #e6e2d6;color:#55524a;font-size:14px}
 /* The Cats grid (SYC-396 PR 1.3). */
 ${MARK_CSS}
 .catfilters{margin:8px 0 8px}
