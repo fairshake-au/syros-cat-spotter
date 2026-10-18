@@ -891,14 +891,18 @@ describe("the Appearance section on the team cat page", () => {
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
     const html = res.text;
     const section = html.slice(html.indexOf('<h2 id="appearance">'));
-    // The public line: the colours, then the pattern (Plain is never said).
+    // The public line keeps §2's words: the colours, then the pattern (Plain is never said).
     expect(section).toContain('<p class="public">Brown · Ginger · Stripes</p>');
     expect(section).toContain("Colours</dt><dd>Brown · Ginger");
-    expect(section).toContain("Pattern</dt><dd>Stripes");
-    // The old reading and answer, in the new words.
-    expect(section).toContain("Stripes");
-    expect(section).toContain("Black · White");
-    for (const bad of ["Tabby", "tabby", "Tortoiseshell", "calico", "black_and_white", "undefined", "not_sure"]) {
+    // SYC-443: the pattern on its own in the team's word.
+    expect(section).toContain("Pattern</dt><dd>Tabby");
+    // The old reading and answer, each statement in the team's words (§15.2).
+    expect(section).toContain("Tabby, colours not stated");
+    expect(section).toContain("Black and white, pattern not stated");
+    expect(section).toContain("Brown and ginger, pattern not stated");
+    // SYC-443: the team's words are allowed now; the old codes and the old
+    // public word never are.
+    for (const bad of ["Tortoiseshell or calico", "black_and_white", "undefined", "not_sure", "null"]) {
       expect(section, bad).not.toContain(bad);
     }
     // The Correct form offers the five colours, ticked as they stand.
@@ -908,10 +912,12 @@ describe("the Appearance section on the team cat page", () => {
     // Confirm sends each part.
     expect(section).toContain('name="expectedColours" value="brown,ginger"');
     expect(section).toContain('name="expectedPattern" value="stripes"');
-    // The history reads every coat through the one translation.
-    expect(html).toContain("Coat: brown and ginger");
-    expect(html).toContain("Coat: stripes");
-    expect(html).toContain("Coat: black and white");
+    // The history reads every coat through the one translation, in the team's
+    // words (SYC-443): each statement says the part it left "not stated".
+    expect(html).toContain("Coat: Brown and ginger, pattern not stated");
+    expect(html).toContain("Coat: Tabby, colours not stated");
+    expect(html).toContain("Coat: Black and white, pattern not stated");
+    expect(html).not.toMatch(/Coat: (brown|stripes|black and white)/);
   });
 
   it("shows a guardian–team disagreement, with Correct offered to overrule", async () => {
@@ -1096,7 +1102,7 @@ describe("SYC-398 PR B: Correct states colours, a pattern, or both", () => {
     // The page draws the coat after an overrule too.
     const page = await request(app).get(`/api/team/cats/${catId}?done=a_coat_overruled`).set("Cookie", cookie);
     expect(page.text).toContain("the team&#39;s change is added");
-    expect(page.text).toContain('aria-label="Colours not known · Patches"');
+    expect(page.text).toContain('aria-label="Patched, colours not known"');
   });
 });
 
@@ -1125,11 +1131,12 @@ describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => 
 
   it("after a coat Correct, the coat is drawn with its caption, for each of Samuel's examples", async () => {
     const cases = [
-      { body: { colours: ["brown", "ginger"], pattern: "stripes" }, caption: "Brown · Ginger · Stripes" },
-      { body: { colours: ["black", "white"], pattern: "patches" }, caption: "Black · White · Patches" },
-      { body: { colours: ["grey"], pattern: "plain" }, caption: "Grey · Plain" },
-      { body: { pattern: "stripes" }, caption: "Colours not known · Stripes" },
-      { body: { colours: ["ginger", "white"] }, caption: "Ginger · White · Pattern not known" },
+      // SYC-443 §15.4: the caption is the team's phrase.
+      { body: { colours: ["brown", "ginger"], pattern: "stripes" }, caption: "Brown and ginger tabby" },
+      { body: { colours: ["black", "white"], pattern: "patches" }, caption: "Black and white" },
+      { body: { colours: ["grey"], pattern: "plain" }, caption: "Grey" },
+      { body: { pattern: "stripes" }, caption: "Tabby, colours not known" },
+      { body: { colours: ["ginger", "white"] }, caption: "Ginger and white, pattern not known" },
     ];
     for (const c of cases) {
       const catId = await newCat();
@@ -1141,7 +1148,9 @@ describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => 
       expect(section, c.caption).toContain('<svg class="drawncat"');
       expect(section, c.caption).toContain(`aria-label="${c.caption}"`);
       expect(section, c.caption).toContain(`<strong>${c.caption}</strong>`);
-      for (const bad of ["undefined", "null", "NaN", "Tabby", "calico", "Tortoiseshell"]) {
+      // "Tabby" is the team's word now; the Patched button's hint names
+      // "tortoiseshell, calico" in lower case (T3A).
+      for (const bad of ["undefined", "null", "NaN", "Tortoiseshell"]) {
         expect(section, `${c.caption}: ${bad}`).not.toContain(bad);
       }
     }
@@ -1170,42 +1179,21 @@ describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => 
 });
 
 describe("SYC-398 PR B: the drawn cat itself", () => {
-  it("every combination of the five colours and four pattern states renders, and the caption matches", async () => {
+  it("every combination of the five colours and four pattern states renders, and the caption is the golden table's", async () => {
     const { coatSvg, drawnCaption } = await import("../lib/teamPages/coatDrawing");
-    const { publicLine } = await import("../lib/teamPages/appearancePage");
-    const colours = ["black", "grey", "brown", "ginger", "white"];
-    const words: Record<string, string> = {
-      black: "Black",
-      grey: "Grey",
-      brown: "Brown",
-      ginger: "Ginger",
-      white: "White",
-      plain: "Plain",
-      stripes: "Stripes",
-      patches: "Patches",
-    };
+    const { TEAM_COAT_GOLDEN } = await import("../lib/teamPages/__fixtures__/teamCoatGolden");
+    // SYC-443 §15.6: the caption is checked against the spec's table, typed by hand.
     let drawn = 0;
-    for (let mask = 0; mask < 32; mask++) {
-      const set = colours.filter((_, i) => mask & (1 << i));
-      for (const pattern of ["plain", "stripes", "patches", null]) {
-        const coat = { colours: set.length ? set : null, pattern };
-        const svg = coatSvg(undefined, coat, `t${mask}`);
-        const caption = drawnCaption(undefined, coat);
-        const expected = [
-          ...(set.length ? set.map((c) => words[c]) : ["Colours not known"]),
-          pattern ? words[pattern] : "Pattern not known",
-        ].join(" · ");
-        expect(caption).toBe(expected);
-        expect(svg.startsWith('<svg class="drawncat"')).toBe(true);
-        expect(svg.endsWith("</svg>")).toBe(true);
-        expect(svg).toContain(`aria-label="${caption}"`);
-        expect(svg).not.toMatch(/undefined|null|NaN|<script/);
-        // The caption agrees with the public line's words (Plain aside).
-        if (set.length && pattern) {
-          expect(caption.replace(" · Plain", "")).toBe(publicLine(undefined, coat, []));
-        }
-        drawn += 1;
-      }
+    for (const [row, colours, pattern, words] of TEAM_COAT_GOLDEN) {
+      const coat = { colours, pattern };
+      const svg = coatSvg(undefined, coat, `t${row}`);
+      const caption = drawnCaption(undefined, coat);
+      expect(caption, `row ${row}`).toBe(words);
+      expect(svg.startsWith('<svg class="drawncat"')).toBe(true);
+      expect(svg.endsWith("</svg>")).toBe(true);
+      expect(svg).toContain(`aria-label="${caption}"`);
+      expect(svg).not.toMatch(/undefined|null|NaN|<script/);
+      drawn += 1;
     }
     expect(drawn).toBe(128);
   });
@@ -1217,7 +1205,7 @@ describe("SYC-398 PR B: the drawn cat itself", () => {
     expect(svg).not.toContain("tabby");
     expect(svg).not.toContain("calico");
     expect(svg).not.toContain('x"><y');
-    expect(svg).toContain('aria-label="Ginger · Pattern not known"');
+    expect(svg).toContain('aria-label="Ginger, pattern not known"');
   });
 });
 
