@@ -1,5 +1,5 @@
 import { catIdentityTable, catsTable, db, foldName, photosTable, sightingsTable } from "@workspace/db";
-import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
 import { currentColonyOf } from "./colonyMembership";
 import { areaFor } from "./areas/namedAreas";
 import { placeLabel } from "./areas/placeLabel";
@@ -160,8 +160,15 @@ export interface TeamCat extends CatListItem {
  * here. Note `loadCatRecords` does not yet agree: it still folds in an undone
  * merge and follows no chains (SYC-410), so until that lands a chain of
  * merges is only right if each merge names the final cat.
+ *
+ * `opts.asOf` (SYC-396 PR 3.0, Decision 10): the cats as they stood then.
+ * Cats, sightings and `cat_identity` rows entered after it are left out, the
+ * records and colonies are read as of it, and `now` defaults to it. A cat's
+ * name and photo are today's: they aren't dated.
  */
-export async function loadTeamCats(now: Date = new Date()): Promise<TeamCat[]> {
+export async function loadTeamCats(now?: Date, opts: { asOf?: Date } = {}): Promise<TeamCat[]> {
+  const asOf = opts.asOf;
+  const at = now ?? asOf ?? new Date();
   const [rows, merged] = await Promise.all([
     db
       .select({
@@ -173,24 +180,33 @@ export async function loadTeamCats(now: Date = new Date()): Promise<TeamCat[]> {
         photoPublicId: photosTable.publicId,
       })
       .from(catsTable)
-      .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId)),
+      .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
+      .where(asOf ? lte(catsTable.createdAt, asOf) : undefined),
     db.execute<{ cat_id: number }>(sql`
       select ci.cat_id from ${catIdentityTable} ci
       where ci.canonical_cat_id <> ci.cat_id
-        and not exists (select 1 from ${catIdentityTable} n where n.supersedes_id = ci.id)`),
+        and (${asOf ?? null}::timestamptz is null or ci.created_at <= ${asOf ?? null}::timestamptz)
+        and not exists (
+          select 1 from ${catIdentityTable} n
+          where n.supersedes_id = ci.id
+            and (${asOf ?? null}::timestamptz is null or n.created_at <= ${asOf ?? null}::timestamptz))`),
   ]);
   const away = new Set(merged.rows.map((r) => Number(r.cat_id)));
   const cats = rows.filter((c) => !away.has(c.id));
   const ids = cats.map((c) => c.id);
 
   const [records, colonies, seen] = await Promise.all([
-    loadCatRecords(ids),
-    currentColonyOf(ids),
+    loadCatRecords(ids, db, { asOf }),
+    currentColonyOf(ids, db, { asOf }),
     // The newest resolved sighting of each cat: one query, not one per cat.
     db.execute<{ cat_id: number; lat: number; lng: number; created_at: Date }>(sql`
       select distinct on (cat_id) cat_id, lat, lng, created_at
       from ${sightingsTable}
-      where ${and(eq(sightingsTable.status, "resolved"), isNotNull(sightingsTable.catId))}
+      where ${and(
+        eq(sightingsTable.status, "resolved"),
+        isNotNull(sightingsTable.catId),
+        asOf ? lte(sightingsTable.createdAt, asOf) : undefined,
+      )}
       order by cat_id, created_at desc, id desc`),
   ]);
   const lastSighting = new Map<number, { lat: number; lng: number; at: Date }>();
@@ -200,7 +216,7 @@ export async function loadTeamCats(now: Date = new Date()): Promise<TeamCat[]> {
 
   return cats.map((c) => {
     const rec = records.get(c.id);
-    const snap = resolveCat(rec?.observations ?? [], rec?.evidenceOfLife ?? null, now);
+    const snap = resolveCat(rec?.observations ?? [], rec?.evidenceOfLife ?? null, at);
     const sighting = lastSighting.get(c.id) ?? null;
     // Where it was last seen, else where it was first found.
     const where = sighting ?? { lat: c.lat, lng: c.lng };

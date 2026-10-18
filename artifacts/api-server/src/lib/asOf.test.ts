@@ -4,6 +4,7 @@ import { like } from "drizzle-orm";
 import { loadCatRecords, resolveAt } from "./observations";
 import { resolveCat } from "./resolve";
 import { currentColonyOf } from "./colonyMembership";
+import { loadTeamCats } from "./teamCatList";
 import { deleteTestSightings } from "../test/sightings";
 
 // SYC-396 PR 3.0, Task 3.0.3 (plan Decision 10): records as they stood at a
@@ -166,6 +167,40 @@ describe("currentColonyOf as of a moment", () => {
     await row(cat.id, "colony", { colonyId: null }, day(15), { supersedesId: putIn.id });
     expect((await currentColonyOf([cat.id], db, { asOf: day(12) })).get(cat.id)).toBe(910_003);
     expect((await currentColonyOf([cat.id], db, { asOf: day(16) })).has(cat.id)).toBe(false);
+  });
+});
+
+describe("loadTeamCats as of a moment", () => {
+  it("leaves out a cat created later, and reads sightings, records and colonies as they stood", async () => {
+    const early = await catCreated(day(1));
+    const late = await catCreated(day(14));
+    const yes = await row(early.id, "sterilised", { sterilised: true }, day(10));
+    await row(early.id, "sterilised", { sterilised: false }, day(15), { supersedesId: yes.id });
+    await row(early.id, "colony", { colonyId: 910_011 }, day(10));
+    await row(early.id, "colony", { colonyId: 910_012 }, day(15));
+    await sighting(early.id, day(5));
+    await sighting(early.id, day(13));
+
+    const asOf12 = await loadTeamCats(undefined, { asOf: day(12) });
+    expect(asOf12.some((c) => c.id === late.id)).toBe(false);
+    const then = asOf12.find((c) => c.id === early.id)!;
+    expect(then).toMatchObject({ colonyId: 910_011, lastSeenAt: day(5) });
+    expect(then.snapshot.sterilised.value).toBe(true);
+
+    const today = await loadTeamCats();
+    expect(today.some((c) => c.id === late.id)).toBe(true);
+    const nowRow = today.find((c) => c.id === early.id)!;
+    expect(nowRow).toMatchObject({ colonyId: 910_012, lastSeenAt: day(13) });
+    expect(nowRow.snapshot.sterilised.value).toBe(false);
+  });
+
+  it("with asOf and no now, resolves as of the moment (a cat last seen long before is presumed deceased only later)", async () => {
+    const cat = await catCreated(day(1));
+    await sighting(cat.id, day(2));
+    const then = (await loadTeamCats(undefined, { asOf: day(12) })).find((c) => c.id === cat.id)!;
+    expect(then.snapshot.presumedDeceased).toBe(false);
+    const later = (await loadTeamCats(new Date("2030-01-01"), { asOf: day(12) })).find((c) => c.id === cat.id)!;
+    expect(later.snapshot.presumedDeceased).toBe(true);
   });
 });
 
