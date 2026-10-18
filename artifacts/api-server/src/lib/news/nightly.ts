@@ -10,6 +10,7 @@ import {
 import type { Observation } from "@workspace/db/schema";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { loadCatRecords, type DbOrTx } from "../observations";
+import { pr3Recorded } from "../pr3Gate";
 import {
   APPEARANCE_AND_HEALTH_KINDS,
   athensDay,
@@ -24,8 +25,8 @@ import {
  * email-capture.md §5.3; cat-record-data-spine.md §9).
  *
  * Once a night it walks EVERY followed cat (any row in cat_subscriptions),
- * whoever follows it, so no baseline is ever months stale (plan review
- * finding 3). For each cat it takes the status the cat page shows from
+ * whoever follows it, and every cat already in the baseline, so no baseline
+ * is ever months stale (plan review finding 3). For each cat it takes the status the cat page shows from
  * `resolveCat`, and the evidence ids from `resolveSterilised` /
  * `resolveLifeStatus` (plan C2: `resolveCat` carries no ids). The resolver
  * is called, never reimplemented, and never reads `cat_news_baseline`.
@@ -39,9 +40,10 @@ import {
  * Guards, in order:
  * 1. A cat that is dead or presumed dead gives no news of any kind
  *    (silenced `deceased`; F4).
- * 2. The observations newer than the baseline: all `import` or `legacy` →
- *    silenced with that reason; all recorded more than 90 days after they
- *    were observed → silenced `old_news`.
+ * 2. The observations that produced the change (the resolver's evidence):
+ *    all `import` or `legacy` → silenced with that reason; all recorded more
+ *    than 90 days after they were observed, or none written since the last
+ *    walk → silenced `old_news`. Fails closed.
  * 3. A cat with no baseline yet is seeded, and nothing is recorded.
  * 4. More than BULK_LIMIT news changes in one night → every one silenced
  *    `bulk`, and the caller raises the alarm (plan C14; data spine §9.2).
@@ -183,23 +185,47 @@ async function loadSightings(catIds: readonly number[], exec: DbOrTx): Promise<M
   return out;
 }
 
-const STERILISED_KINDS = new Set(["sterilised", "ear_tip"]);
-const LIFE_KINDS = new Set(["life_status"]);
+/**
+ * How far before the last walk an evidence row may have been written and
+ * still count as new. A row written in a transaction that began before the
+ * walk but committed after it carries a `created_at` a little before the
+ * walk (Postgres stamps the transaction's start) and was invisible to it.
+ * Widening the window can't announce anything twice: a row the walk did see
+ * is already in the baseline, so the status hasn't changed.
+ */
+const NEWER_MARGIN_MS = 60 * 60_000;
 
 /**
- * Spec §5.3's guards, on the observations newer than the baseline that bear
- * on this change. `null` means the change is news.
+ * Spec §5.3's guards, on the observations that PRODUCED this change: the
+ * resolver's `supportingObservationIds`, which for a confirmed sterilisation
+ * or a home is the one winning row (plan C2). Only those of the change's own
+ * kind count, so an unrelated fresh row (a spotter's ear-tip answer beside an
+ * imported sterilisation) can't make an import look like news. `null` means
+ * news. Fails closed: if the evidence can't be judged, or every piece of it
+ * is older than the last walk (the status moved because of a merge, or a
+ * row on another cat), the change is silenced, never sent.
  */
-function guardReason(newer: readonly Observation[]): SilencedReason | null {
-  // Never empty for a real status change (a change needs a new row); if it
-  // ever is, nothing here can say it's old, and a person reviews it.
-  if (newer.length === 0) return null;
-  if (newer.every((o) => o.provenance === "legacy")) return "legacy";
-  if (newer.every((o) => o.provenance === "import" || o.provenance === "legacy")) return "import";
-  if (newer.every((o) => o.createdAt.getTime() - o.observedAt.getTime() > OLD_NEWS_DAYS * DAY_MS)) {
+function guardReason(
+  evidenceIds: readonly number[],
+  kind: "sterilised" | "life_status",
+  observations: readonly Observation[],
+  since: number,
+): SilencedReason | null {
+  const ids = new Set(evidenceIds);
+  const evidence = observations.filter((o) => ids.has(o.id) && o.kind === kind);
+  if (evidence.length === 0) return "old_news";
+  if (evidence.every((o) => o.provenance === "legacy")) return "legacy";
+  if (evidence.every((o) => o.provenance === "import" || o.provenance === "legacy")) return "import";
+  if (evidence.every((o) => o.createdAt.getTime() - o.observedAt.getTime() > OLD_NEWS_DAYS * DAY_MS)) {
     return "old_news";
   }
+  if (evidence.every((o) => o.createdAt.getTime() <= since - NEWER_MARGIN_MS)) return "old_news";
   return null;
+}
+
+function evidenceRows(evidenceIds: readonly number[], observations: readonly Observation[]): Observation[] {
+  const ids = new Set(evidenceIds);
+  return observations.filter((o) => ids.has(o.id));
 }
 
 function devicesOf(rows: readonly { deviceId: string | null }[]): string[] {
@@ -235,30 +261,25 @@ export function compareCat(
   if (!baseline) return { changes: [], baseline: next };
 
   const since = baseline.updatedAt.getTime();
-  const newerOf = (kinds: ReadonlySet<string>) =>
-    observations.filter((o) => kinds.has(o.kind) && o.createdAt.getTime() > since);
-
   const changes: FoundChange[] = [];
 
   if (status.sterilisedConfirmed && baseline.notifiedSterilisedAt == null) {
-    const newer = newerOf(STERILISED_KINDS);
     changes.push({
       catId: status.catId,
       change: "sterilised",
       evidenceIds: status.sterilisedEvidence,
-      causedByDevices: devicesOf(newer),
-      silencedReason: guardReason(newer),
+      causedByDevices: devicesOf(evidenceRows(status.sterilisedEvidence, observations)),
+      silencedReason: guardReason(status.sterilisedEvidence, "sterilised", observations, since),
     });
   }
 
   if (status.lifeStatus === "homed" && baseline.notifiedHomedAt == null) {
-    const newer = newerOf(LIFE_KINDS);
     changes.push({
       catId: status.catId,
       change: "homed",
       evidenceIds: status.lifeEvidence,
-      causedByDevices: devicesOf(newer),
-      silencedReason: guardReason(newer),
+      causedByDevices: devicesOf(evidenceRows(status.lifeEvidence, observations)),
+      silencedReason: guardReason(status.lifeEvidence, "life_status", observations, since),
     });
   }
 
@@ -290,12 +311,17 @@ export function compareCat(
   return { changes, baseline: next };
 }
 
-async function followedCatIds(exec: DbOrTx): Promise<number[]> {
-  const rows = await exec
-    .selectDistinct({ catId: catSubscriptionsTable.catId })
-    .from(catSubscriptionsTable)
-    .orderBy(asc(catSubscriptionsTable.catId));
-  return rows.map((r) => r.catId);
+/**
+ * Every followed cat, and every cat already in the baseline: a cat that
+ * loses its last follower keeps being walked, so if someone follows it again
+ * months later its baseline is last night's, not months old (review of this
+ * PR, finding 6).
+ */
+async function catsToWalk(exec: DbOrTx): Promise<number[]> {
+  const rows = await exec.execute<{ cat_id: number }>(
+    sql`select cat_id from ${catSubscriptionsTable} union select cat_id from ${catNewsBaselineTable} order by cat_id`,
+  );
+  return rows.rows.map((r) => Number(r.cat_id));
 }
 
 async function walk(
@@ -365,13 +391,18 @@ export async function runNightlyNewsCheck(options: NightlyOptions = {}): Promise
     );
     if (!lock.rows[0]?.locked) return { status: "busy", night } as const;
 
+    // The cat page reads the legacy columns until the data spine's PR 3
+    // backfill is recorded (pr3Gate.ts); the check reads only observations,
+    // so until then they could disagree. Refuse, so the Worker alarms.
+    if (!(await pr3Recorded())) throw new Error("news check: the data spine backfill (PR 3) isn't recorded");
+
     const [done] = await tx
       .select({ athensDate: catNewsRunsTable.athensDate })
       .from(catNewsRunsTable)
       .where(eq(catNewsRunsTable.athensDate, night));
     if (done) return { status: "already", night } as const;
 
-    const catIds = await followedCatIds(tx);
+    const catIds = await catsToWalk(tx);
     const { baselines, changes } = await walk(catIds, startedAt, tx);
 
     const news = changes.filter((c) => c.silencedReason === null);
@@ -381,16 +412,17 @@ export async function runNightlyNewsCheck(options: NightlyOptions = {}): Promise
     await options.beforeFinish?.();
 
     await writeBaselines(baselines, tx);
-    if (changes.length) {
+    for (let i = 0; i < changes.length; i += BATCH) {
       await tx.insert(catNewsChangesTable).values(
-        changes.map((c) => ({
+        changes.slice(i, i + BATCH).map((c) => ({
           catId: c.catId,
           change: c.change,
           evidenceIds: c.evidenceIds,
-          // Kept only while a change could still be sent (Slice 3 reads it
-          // to skip the person whose own spot caused it); a silenced change
-          // is settled, so it keeps none.
-          causedByDevices: c.silencedReason === null ? c.causedByDevices : null,
+          // WATCH MODE STORES NO DEVICE ID. The column exists for Slice 3,
+          // which needs it to skip the person whose own spot caused a change
+          // (plan C13) and must clear it from "Delete my data" when it starts
+          // storing it. A watched change is never sent, so it needs none.
+          causedByDevices: null,
           foundAt: startedAt,
           state: c.silencedReason === null ? "watched" : "silenced",
           silencedReason: c.silencedReason,

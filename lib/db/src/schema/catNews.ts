@@ -13,9 +13,10 @@ import {
 
 // SYC-45 Slice 1 (docs/superpowers/plans/syc-344-email-capture.md, PR 1.1;
 // email-capture.md §5.3): the nightly news check's own three tables. None
-// holds an address, and a device id appears only in `caused_by_devices`
-// until a change is settled, so there is nothing here for "Delete my data"
-// to remove beyond that column.
+// holds an address. A device id could appear only in `caused_by_devices`,
+// and Slice 1 (watch only) never writes one there, so there is nothing here
+// for "Delete my data" to remove. Slice 3 starts filling it, and must clear
+// it from "Delete my data" in the same PR.
 
 // The last status the nightly check saw for each followed cat.
 //
@@ -46,9 +47,10 @@ export const catNewsBaselineTable = pgTable("cat_news_baseline", {
 // - `change`: sterilised | homed | seen_again.
 // - `evidence_ids`: observation ids for sterilised and homed (from the
 //   resolver's `supportingObservationIds`); sighting ids for seen_again.
-// - `caused_by_devices`: the devices whose new observations or sightings
-//   caused it, used only to stop telling someone about their own spot
-//   (plan C13, Slice 3), then cleared when the change is settled.
+// - `caused_by_devices`: the devices whose observations or sightings caused
+//   it, used only to stop telling someone about their own spot (plan C13,
+//   Slice 3), then cleared when the change is settled. Always null in watch
+//   mode (Slice 1).
 // - `state`: watched (watch mode) | held | sent | silenced | expired.
 // - `silenced_reason`, only when silenced: import | legacy | old_news |
 //   first_seen | deceased | bulk.

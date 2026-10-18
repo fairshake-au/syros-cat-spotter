@@ -84,6 +84,17 @@ test("a bulk night alarms once, and isn't left open", async () => {
   assert.ok(!t.kv.store.has(NEWS_OPEN_KEY));
 });
 
+test("a bulk night is caught from tonight's record when the run call timed out and the retry said busy", async () => {
+  const record = JSON.stringify({ lastRun: { night: "2026-10-25", finishedAt: "2026-10-25T00:33:00Z", silencedBulk: true } });
+  const t = tick({ answers: ["conn", [200, '{"busy":true,"night":"2026-10-25"}'], [200, record]] });
+  await assert.rejects(t.promise, /bulk/);
+  assert.equal(t.sent.length, 1);
+  // Yesterday's bulk night isn't tonight's news.
+  const old = JSON.stringify({ lastRun: { night: "2026-10-24", finishedAt: "2026-10-24T00:33:00Z", silencedBulk: true } });
+  const y = tick({ answers: [[200, '{"already":true}'], [200, old]] });
+  assert.equal((await y.promise).kind, "ok");
+});
+
 test("no finished night in 36 hours alarms, even when the run call says busy", async () => {
   const t = tick({ answers: [[200, '{"busy":true,"night":"2026-10-25"}'], [200, lastRun("2026-10-23T11:00:00Z")]] });
   await assert.rejects(t.promise, /stale/);

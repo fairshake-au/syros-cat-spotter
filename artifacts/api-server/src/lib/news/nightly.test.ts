@@ -22,6 +22,13 @@ vi.mock("../logger", async (importOriginal) => {
   );
   return { ...actual, logger };
 });
+// The data spine's PR 3 backfill is recorded in every real database this
+// runs on; one test turns it off to prove the check refuses.
+const pr3 = vi.hoisted(() => ({ recorded: true }));
+vi.mock("../pr3Gate", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../pr3Gate")>();
+  return { ...actual, pr3Recorded: async () => (pr3.recorded ? actual.pr3Recorded() : false) };
+});
 
 import {
   catNewsBaselineTable,
@@ -30,6 +37,7 @@ import {
   catSubscriptionsTable,
   catsTable,
   db,
+  observationsTable,
   photosTable,
   pool,
   sightingsTable,
@@ -40,7 +48,7 @@ import { writeObservation } from "../observations";
 import { deriveCatStatuses } from "../catHelpers";
 import { resolveCat } from "../resolve";
 import { loadCatRecords } from "../observations";
-import { BULK_LIMIT, addCalendarMonths, runNightlyNewsCheck, seedNewsBaseline } from "./nightly";
+import { BULK_LIMIT, addCalendarMonths, compareCat, runNightlyNewsCheck, seedNewsBaseline } from "./nightly";
 
 const PREFIX = "VitestNews";
 const DEVICE = "vitest-news-follower";
@@ -215,7 +223,6 @@ describe("T1-2b: good news about a dead or presumed-dead cat is silenced 'deceas
     const rows = await changesFor([id]);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ change: "sterilised", state: "silenced", silencedReason: "deceased" });
-    expect(rows[0]!.causedByDevices).toBeNull();
   });
 
   it("sterilisation confirmed on a cat presumed dead", async () => {
@@ -277,11 +284,15 @@ describe("T1-3: homed is news; seen again after four calendar months or more", (
     return { rows: await changesFor([id]), sightingId: s };
   }
 
-  it("exactly four months apart → seen_again, caused by the spotter", async () => {
+  it("exactly four months apart → seen_again (watch mode stores no device)", async () => {
     const { rows, sightingId } = await gap("2026-05-15T12:00:00Z");
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ change: "seen_again", state: "watched", evidenceIds: [sightingId] });
-    expect(rows[0]!.causedByDevices).toEqual(["vitest-news-respotter"]);
+    expect(rows[0]!.causedByDevices).toBeNull();
+  });
+
+  it("the months are Athens days: 22:30 UTC on 14 May is 15 May in Athens, exactly four months", async () => {
+    expect((await gap("2026-05-14T22:30:00Z")).rows.map((r) => r.change)).toEqual(["seen_again"]);
   });
 
   it("one day short → nothing", async () => {
@@ -334,6 +345,32 @@ describe("T1-4: a change resting only on import or legacy observations is silenc
     expect(await changesFor([id])).toMatchObject([{ change: "homed", state: "silenced", silencedReason: "legacy" }]);
   });
 
+  it("an import beside a spotter's fresh ear-tip answer is still an import", async () => {
+    const id = await cat();
+    await fresh();
+    await sterilised(id, true, { provenance: "import" });
+    await writeObservation(db, {
+      catId: id,
+      kind: "ear_tip",
+      value: { clipped: true },
+      deviceId: "vitest-news-spotter",
+      roleAtTime: "public",
+      photoId: await photo(),
+      observedAt: new Date(),
+    });
+    await fresh();
+    expect(await changesFor([id])).toMatchObject([{ change: "sterilised", state: "silenced", silencedReason: "import" }]);
+  });
+
+  it("import and legacy together → silenced 'import'", async () => {
+    const id = await cat();
+    await fresh();
+    await sterilised(id, true, { provenance: "legacy", observedAt: new Date(Date.now() - DAY) });
+    await sterilised(id, true, { provenance: "import" });
+    await fresh();
+    expect(await changesFor([id])).toMatchObject([{ silencedReason: "import" }]);
+  });
+
   it("import plus a volunteered statement → news", async () => {
     const id = await cat();
     await fresh();
@@ -359,6 +396,70 @@ describe("T1-5: recorded more than 90 days after it was observed is old news", (
     await sterilised(id, true, { observedAt: new Date(Date.now() - 89 * DAY) });
     await fresh();
     expect(await changesFor([id])).toMatchObject([{ state: "watched", silencedReason: null }]);
+  });
+});
+
+describe("guards fail closed (review of this PR, finding 1)", () => {
+  it("a status that moves with no evidence written since the last walk (a merge, a row on another cat) → silenced, never news", async () => {
+    const id = await cat();
+    await fresh();
+    // As a merge would bring it: a timely staff statement, written two days ago.
+    const twoDaysAgo = new Date(Date.now() - 2 * DAY);
+    await db.insert(observationsTable).values({
+      catId: id,
+      kind: "sterilised",
+      value: { sterilised: true },
+      accountId: "staff-vitest-news",
+      roleAtTime: "staff",
+      observedAt: twoDaysAgo,
+      createdAt: twoDaysAgo,
+    });
+    await fresh();
+    expect(await changesFor([id])).toMatchObject([{ change: "sterilised", state: "silenced", silencedReason: "old_news" }]);
+  });
+
+  it("refuses to run while the data spine's backfill isn't recorded (the cat page would read the old columns)", async () => {
+    pr3.recorded = false;
+    try {
+      await db.delete(catNewsRunsTable);
+      await expect(runNightlyNewsCheck()).rejects.toThrow(/PR 3/);
+      expect(await db.select().from(catNewsRunsTable)).toHaveLength(0);
+    } finally {
+      pr3.recorded = true;
+    }
+  });
+
+  it("a cat that loses its last follower is still walked", async () => {
+    const id = await cat();
+    await fresh();
+    await db.delete(catSubscriptionsTable).where(eq(catSubscriptionsTable.catId, id));
+    const before = (await baselineOf(id))!.updatedAt.getTime();
+    await new Promise((r) => setTimeout(r, 5));
+    await fresh();
+    expect((await baselineOf(id))!.updatedAt.getTime()).toBeGreaterThan(before);
+  });
+});
+
+describe("who caused a change (kept for Slice 3; never stored in watch mode)", () => {
+  it("compareCat names the devices behind the evidence, for each kind", () => {
+    const now = new Date();
+    const obs = (id: number, kind: string, deviceId: string | null) =>
+      ({ id, catId: 1, kind, deviceId, provenance: "volunteered", observedAt: now, createdAt: now }) as never;
+    const out = compareCat(
+      { catId: 1, sterilisedConfirmed: true, lifeStatus: "homed", dead: false, sterilisedEvidence: [10], lifeEvidence: [11], lastSightingAt: null },
+      [obs(10, "sterilised", "dev-a"), obs(11, "life_status", "dev-b"), obs(12, "ear_tip", "dev-c")],
+      [
+        { id: 1, catId: 1, createdAt: new Date("2026-01-01T12:00:00Z"), deviceId: "dev-d" },
+        { id: 2, catId: 1, createdAt: new Date("2026-06-01T12:00:00Z"), deviceId: "dev-e" },
+      ],
+      { catId: 1, sterilisedConfirmed: false, notifiedSterilisedAt: null, notifiedHomedAt: null, lifeStatus: "street", lastSightingAt: new Date("2026-01-01T12:00:00Z"), updatedAt: new Date(now.getTime() - 1000) },
+      now,
+    );
+    expect(out.changes.map((c) => [c.change, c.causedByDevices, c.silencedReason])).toEqual([
+      ["sterilised", ["dev-a"], null],
+      ["homed", ["dev-b"], null],
+      ["seen_again", ["dev-e"], null],
+    ]);
   });
 });
 
@@ -496,8 +597,23 @@ describe("T1-10: the endpoint takes only NEWS_JOB_TOKEN, and never logs it", () 
       await db.delete(catNewsRunsTable);
       expect((await request(app).post("/api/internal/news/nightly").set("Authorization", `Bearer ${TOKEN}`)).status).toBe(200);
       expect((await request(app).get("/api/internal/news/last-run").set("Authorization", `Bearer ${TOKEN}`)).status).toBe(200);
-      // The news token opens nothing else.
+      expect((await request(app).head("/api/internal/news/last-run").set("Authorization", `Bearer ${TOKEN}`)).status).toBe(200);
+      // The news token opens nothing else, and no other token opens the news paths.
       expect((await request(app).post("/api/internal/mail/drain").set("Authorization", `Bearer ${TOKEN}`)).status).toBe(401);
+      const saved = { drain: process.env["MAIL_DRAIN_TOKEN"], people: process.env["INTERNAL_PEOPLE_TOKEN"] };
+      process.env["MAIL_DRAIN_TOKEN"] = "vitest-drain-token-other";
+      process.env["INTERNAL_PEOPLE_TOKEN"] = "vitest-people-token-other";
+      try {
+        for (const other of ["vitest-drain-token-other", "vitest-people-token-other"]) {
+          expect((await request(app).post("/api/internal/news/nightly").set("Authorization", `Bearer ${other}`)).status).toBe(401);
+          expect((await request(app).get("/api/internal/news/last-run").set("Authorization", `Bearer ${other}`)).status).toBe(401);
+        }
+      } finally {
+        for (const [k, v] of [["MAIL_DRAIN_TOKEN", saved.drain], ["INTERNAL_PEOPLE_TOKEN", saved.people]] as const) {
+          if (v === undefined) delete process.env[k];
+          else process.env[k] = v;
+        }
+      }
     } finally {
       if (before === undefined) delete process.env["PRELAUNCH_GATE"];
       else process.env["PRELAUNCH_GATE"] = before;

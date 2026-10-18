@@ -100,7 +100,11 @@ export async function callNews({
   }
   const lastFinishedAt = lastJson.lastRun?.finishedAt ?? null;
   const finishedMs = lastFinishedAt ? Date.parse(lastFinishedAt) : NaN;
-  if (json.silencedBulk === true) return { kind: "bulk", ...run, lastFinishedAt };
+  // From the run's own answer, or, if this call timed out and the retry was
+  // told "busy" or "already", from tonight's record (review finding 4).
+  const tonight = new Date(nowMs).toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
+  const bulkTonight = lastJson.lastRun?.silencedBulk === true && lastJson.lastRun?.night === tonight;
+  if (json.silencedBulk === true || bulkTonight) return { kind: "bulk", ...run, lastFinishedAt };
   if (!Number.isFinite(finishedMs) || nowMs - finishedMs > STALE_HOURS * 3_600_000) {
     return { kind: "stale", ...run, lastFinishedAt };
   }
