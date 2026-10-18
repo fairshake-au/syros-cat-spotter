@@ -129,12 +129,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
+  // Square like the photos it stands in for. The longest wording (Greek)
+  // still fits a 320pt phone's tile at this size (checked in the browser).
   tile: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    padding: 4,
+    overflow: 'hidden',
   },
-  tileText: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15, textAlign: 'center' },
+  tileText: { fontFamily: fonts.body, fontSize: 10, lineHeight: 13, textAlign: 'center' },
   thumbs: { flexDirection: 'row', gap: 6 },
   thumb: {
     flex: 1,
