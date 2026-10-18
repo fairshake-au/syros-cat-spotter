@@ -63,3 +63,18 @@ Between steps 2 and 4 the Worker gets 401s and may send one "call failed" email.
 ## Changing the Worker
 
 Code is in `infra/mail-drain-cron/src` (the tick's logic is `drain.js`; tests: `npm test` in that folder, also run by CI). Deploy with `npx wrangler deploy` from that folder; the secret carries over between deploys.
+
+## The nightly news check (SYC-45 Slice 1)
+
+The same Worker has a second cron, `30 0 * * *` (UTC): 03:30 in Athens in summer time and 02:30 in winter time, always the same Athens night. It asks the app to run the **nightly news check** (`docs/superpowers/plans/syc-344-email-capture.md`, Slice 1). The check looks at every followed cat for good news (confirmed sterilised, found a home, seen again after four months or more) and records what it finds. **It sends nobody anything**: it is watch only, to start the two-week clock that cat-news emails need before they can switch on (spec §10.1, Risk 1). `news-nightly.yml` is the daily backup (06:17 UTC), switched on by the repo variable `NEWS_NIGHTLY_ENABLED = true`.
+
+Both call `POST /api/internal/news/nightly`, then the Worker calls `GET /api/internal/news/last-run`, each with `Authorization: Bearer <NEWS_JOB_TOKEN>`. That token opens only those two paths. It lives in the same three places as `MAIL_DRAIN_TOKEN` (Replit deployment secrets, the Worker's secrets, the GitHub `production` environment), never in a file. The check runs once per Athens night whoever calls: a second call answers `{"already": true}`, and one made while another is running answers `{"busy": true}`. A run that crashes claims nothing, so the backup runs it again.
+
+Samuel gets an email (through Cloudflare, like the drain's) when:
+
+- the call fails (not a 200, or a 200 that isn't the check's answer);
+- more than 50 news changes were found in one night: they are all held back (`silencedBulk: true`), because that looks like a batch of corrections, not news;
+- no night has finished in 36 hours;
+- the Worker has no `NEWS_JOB_TOKEN`.
+
+What the check found is at `GET /api/team/news-changes` (staff only, the last 30 days), and a person marks one looked at with `POST /api/team/news-changes/:id/review` (an optional `note`). The clock needs at least one reviewed, genuine change.
