@@ -17,7 +17,7 @@ import { like } from "drizzle-orm";
 import { catsTable, db, photosTable, pool } from "@workspace/db";
 import { CatCoatItem, CatMarkingsItem } from "@workspace/api-zod";
 import { writeObservation } from "../lib/observations";
-import { LEGACY_COAT_CODES, MARKS } from "../lib/appearance";
+import { COAT_COLOURS, COAT_PATTERNS, LEGACY_COAT_CODES, MARKS } from "../lib/appearance";
 import app from "../app";
 
 const PREFIX = "vitest-syc2-public-";
@@ -237,6 +237,24 @@ describe("T-leak (C6): colour and markings reach the public as two lists of code
       const keys = Object.keys(cat);
       expect(keys.slice(keys.indexOf("coat"), keys.indexOf("coat") + 3)).toEqual(["coat", "coatColours", "coatPattern"]);
     }
+  });
+
+  it("SYC-443: the public never gets a team word: the coat fields only ever hold §2's codes (§15.5)", async () => {
+    // Field by field, not a search of the whole payload: the old `coat`
+    // legitimately holds "tabby", and a cat can be named "Calico".
+    const { list, details } = await publicResponses();
+    const all = [...list, ...details.map((d) => d["cat"] as Record<string, unknown>)];
+    expect(all).toHaveLength(10);
+    const legacy = LEGACY_COAT_CODES.filter((c) => c !== "not_sure") as readonly string[];
+    for (const cat of all) {
+      const name = String(cat["name"]);
+      for (const c of cat["coatColours"] as unknown[]) expect(COAT_COLOURS as readonly unknown[], name).toContain(c);
+      expect([...COAT_PATTERNS, null] as unknown[], name).toContain(cat["coatPattern"]);
+      for (const c of cat["coat"] as unknown[]) expect(legacy, name).toContain(c);
+    }
+    // The striped cats really are striped, so a team word would have shown here.
+    const striped = all.filter((c) => c["coatPattern"] === "stripes");
+    expect(striped.length).toBeGreaterThanOrEqual(4);
   });
 
   it("a described cat carries exactly the public cat's keys, in the list and on its page", async () => {
