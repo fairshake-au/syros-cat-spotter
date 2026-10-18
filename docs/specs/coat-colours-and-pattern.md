@@ -16,7 +16,7 @@
 - the chip list *All · Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black and white · Not sure* and its *Colour not known* chip;
 - the words *Tabby*, *Tortoiseshell or calico* and *Black and white* wherever the public sees them.
 **Status:** **approved by Samuel, 16 October 2026** ("approved"), with every recommendation taken: 2A, 3A, 4A, 5A and 6A (§11). The implementation plan follows, for his approval before any code.
-**Amended 17 October 2026 (SYC-443):** Decision 4 is now **4B on team screens only** (Samuel: "yes team screens use old words"). §15 says how; its decisions T1–T6 are **for Samuel's approval**. It also amends `DECISIONS.md` Part 2n, `team-dashboard-redesign.md` (the grid's Look filter) and the SYC-396 plan, Task 1.4.1 (§15.4).
+**Amended 17 October 2026 (SYC-443):** Decision 4 is now **4B on team screens only** (Samuel: "yes team screens use old words"). §15 says how. **Approved by Samuel, 18 October 2026** ("approved"), taking every recommendation: T1A, T2A, T3A, T4A, T5A and T6A. It also amends `DECISIONS.md` Part 2n, `team-dashboard-redesign.md` (the grid's Look filter) and the SYC-396 plan, Task 1.4.1 (§15.4).
 
 ---
 
@@ -472,7 +472,7 @@ An independent adversarial review (Sonnet, its own worktree) of the first draft,
 
 ## 15. Team words (amended 17 October 2026, SYC-443)
 
-**What Samuel decided.** Asked whether team screens should use the old words (tabby, tortoiseshell, calico), Samuel said **"yes team screens use old words"** (17 October 2026). He had also said **"ginger tabby"**: an orange striped cat is a *Ginger tabby*, never a "Red tabby". So Decision 4 is now **4B on team screens only**.
+**What Samuel decided.** Asked whether team screens should use the old words (tabby, tortoiseshell, calico), Samuel said **"yes team screens use old words"** (17 October 2026). He had also said **"ginger tabby"**: an orange striped cat is a *Ginger tabby*, never a "Red tabby". So Decision 4 is now **4B on team screens only**. **Samuel approved this section on 18 October 2026 ("approved"), with every recommendation: T1A, T2A, T3A, T4A, T5A and T6A.**
 
 **What stays the same:**
 - the public app, the public data the app downloads, and the drawn cat keep §2's words (Black, Grey, Brown, Ginger, White; Plain, Stripes, Patches);
