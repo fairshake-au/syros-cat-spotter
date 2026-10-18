@@ -322,6 +322,7 @@ ${MAP_MARK_CSS}
 .catsheet .sheethead{display:flex;gap:10px;align-items:flex-start}
 .catsheet img{flex:none;width:72px;height:72px;object-fit:cover;border-radius:6px;background:#ece8dc}
 .catsheet .sheetname{font-size:17px;font-weight:700;margin:0}
+.catsheet .sheetname:focus{outline:none}
 .catsheet p{margin:4px 0;font-size:14px}
 .catsheet .sheetbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .catsheet .sheetbtns a,.catsheet .sheetbtns button{font:inherit;font-size:15px;min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;font-weight:700;text-decoration:none;cursor:pointer}
