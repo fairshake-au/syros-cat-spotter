@@ -63,8 +63,9 @@ function reportLine(r: QueueReport, now: Date): string {
 function draftLine(d: QueueDraft, now: Date): string {
   const kind = d.severity === "urgent" ? "Urgent" : "Needs attention";
   return (
-    `<li><a class="hlink" href="${QUEUE}#d-${esc(encodeURIComponent(d.id))}">${esc(kind)}, ${esc(placeLabel(d))} · ` +
-    `<time datetime="${esc(d.startedAt)}">started ${esc(timeAgo(d.startedAt, now))}</time></a></li>`
+    // One span inside the flex link, so the words stay one line of text.
+    `<li><a class="hlink" href="${QUEUE}#d-${esc(encodeURIComponent(d.id))}"><span>${esc(kind)}, ${esc(placeLabel(d))} · ` +
+    `<time datetime="${esc(d.startedAt)}">started ${esc(timeAgo(d.startedAt, now))}</time></span></a></li>`
   );
 }
 
