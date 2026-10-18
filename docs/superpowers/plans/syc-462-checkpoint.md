@@ -16,7 +16,7 @@ Branch `claude/syc-462-photo-removal`, worktree `.claude/worktrees/adoring-bohr-
 - D4: settled by D1 (app changes required).
 
 ## Waiting on
-- Spec revision to D1=B (not yet done), delta adversarial review, then Samuel's spec approval. Migration number to be agreed with live sessions (0031 is latest on main).
+- Spec revision 2 for D1=B DONE (d971a0d5). Delta adversarial review (Sonnet, own worktree) RUNNING → commit as `syc-462-photo-removal-by-hand-review-2.md`, fold in, republish artifact, then Samuel's spec approval. Migration number to be agreed with live sessions (0031 is latest on main).
 
 ## Next, after approval
 1. Write the plan (with model delegation), get it approved.
