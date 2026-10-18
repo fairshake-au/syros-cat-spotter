@@ -15,7 +15,7 @@ import {
 import { clearOwner, newestActiveOwnerHomed } from "./claiming";
 import { commitStatement, inStatementTransaction, type PendingNews } from "./commitStatement";
 import { isOwnerHomed } from "./teamCatView";
-import { orderColours, partsToValue } from "./appearance";
+import { orderColours, partsToValue, type CoatPattern } from "./appearance";
 import {
   appearanceAuthorityLevel,
   resolveCoatParts,
@@ -627,8 +627,17 @@ export async function confirmAppearance(
 export interface CorrectInput {
   catId: number;
   kind: AppearanceKind;
-  /** Colour codes (1–5, never Not sure; the pattern comes with SYC-398 PR B) or the whole list of marks ([] = nothing special). */
+  /**
+   * For a coat, the colours stated (0–5, never Not sure); for markings, the
+   * whole list of marks ([] = nothing special).
+   */
   codes: readonly string[];
+  /**
+   * A coat's pattern, when the team states it (SYC-398 PR B). Left out, the
+   * pattern is not stated and an older one stands (spec §4). A coat Correct
+   * states at least one part.
+   */
+  pattern?: CoatPattern;
   reason: string;
   /**
    * The ids of the statements outranking the team that the page showed (the
@@ -667,9 +676,11 @@ export async function correctAppearance(
   // PR 5.1) pass the cat's colony, read from the record.
   if (!can(person, "set_appearance")) throw notAuthorised();
 
+  // A coat says only the parts stated (spec §4): never a null part, never
+  // `pattern: "none"`, through the one writer's shape.
   const value =
     input.kind === "coat"
-      ? { colours: orderColours(input.codes) }
+      ? partsToValue({ colours: orderColours(input.codes), pattern: input.pattern ?? null, notSure: false })
       : { marks: [...new Set(input.codes)] };
 
   return db.transaction(async (tx) => {
