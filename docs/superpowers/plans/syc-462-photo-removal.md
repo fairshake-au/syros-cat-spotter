@@ -5,7 +5,7 @@
 **Goal:** Let Claude remove a photo for good on a privacy request. A team member approves first, the photo is hidden, then deleted, and a search proves it's gone. Underneath that is a real "removed" state in the database, which every part of the app respects.
 
 **Architecture:**
-- Migration `0033_photo_removal` (number provisional; §Global constraints) makes `photos.data` nullable and adds `removed_at`, `removed_by` and `removed_reason`, with a check and a restore-refusing trigger.
+- Migration `0034_photo_removal` (number provisional; §Global constraints) makes `photos.data` nullable and adds `removed_at`, `removed_by` and `removed_reason`, with a check and a restore-refusing trigger.
 - One removal function in `lib/db/src/photoRemoval/` does the eligibility checks, the single write, the version delete, the main-photo repoint and the in-transaction byte search.
 - A CLI on top of it is run through `db-ops`.
 - The api-server's eight picture readers, and two address builders, learn to treat a removed photo as gone.
@@ -18,7 +18,7 @@
 ## Global constraints
 
 - **Work only in** `/Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/adoring-bohr-e8be1c`, on branch `claude/syc-462-photo-removal`. Check `pwd` before the first write of every session. Never write to the primary checkout.
-- **Migration number:** `0033` is **provisional**. Before Task 1 writes the file, the replies to the 19 Oct messages must be in: SYC-396 PR 3.0, PR 2.4, PR 2.1, SYC-443 PR 2 and SYC-44 PR 6.1. If any of those sessions claims `0033`, take the next free number and change every `0033` in this plan. Record the agreed number on SYC-462.
+- **Migration number: `0034_photo_removal`, agreed on 19 Oct.** SYC-396 PR 2.4 (#245) holds `0033_named_areas`. PR 3.0, PR 2.1, SYC-443 PR 2 (merged as #242) and SYC-44 PR 6.1 add no migration. Before `gh pr ready`, check `lib/db/migrations/` again on a fresh `origin/main`. If #245 hasn't merged by then, tell that session: whoever merges second regenerates the migration and `meta/_journal.json`. Carry-back's `carryBack.test.ts` (`noHomeInTarget`/`noHomeRows`) may also need a small rebase against #245.
 - **Never touch Neon, Replit or the live site.** Tests use throwaway local Postgres databases only (`createThrowawayDatabase`, which refuses `.neon.tech`). The development-branch rehearsal happens after merge, by the parent session, with a heads-up to Samuel first (spec §8.5 step 2).
 - **Off limits, owned by another session:** `artifacts/api-server/src/lib/teamPages/`.
 - **`removed_reason` format**, the only one accepted:
@@ -66,7 +66,7 @@ Note the counts in the checkpoint.
 | File | Responsibility |
 |---|---|
 | `lib/db/src/schema/photos.ts` (modify) | Nullable `data`, the three `removed_*` columns, `photos_removed_ck` |
-| `lib/db/migrations/0033_photo_removal.sql` + `meta/` (create) | Generated DDL, plus the hand-written trigger and a guarded rollback |
+| `lib/db/migrations/0034_photo_removal.sql` + `meta/` (create) | Generated DDL, plus the hand-written trigger and a guarded rollback |
 | `lib/db/src/migrate/photoRemoval.test.ts` (create) | T0, T0b, T0c: the migration, the check, the trigger and the rollback guard |
 | `lib/db/src/photoRemoval/rules.ts` (create) | Pure helpers: the `photo_ref` pattern, the fingerprint slice |
 | `lib/db/src/photoRemoval/eligibility.ts` (create) | Read-only SQL: is it hidden, hidden for privacy, removed; is the approver on the team now |
@@ -97,7 +97,7 @@ Note the counts in the checkpoint.
 
 **Files:**
 - Modify: `lib/db/src/schema/photos.ts`
-- Create: `lib/db/migrations/0033_photo_removal.sql` and its `lib/db/migrations/meta/*` entries (generated)
+- Create: `lib/db/migrations/0034_photo_removal.sql` and its `lib/db/migrations/meta/*` entries (generated)
 - Test: `lib/db/src/migrate/photoRemoval.test.ts`
 
 **Interfaces:**
@@ -117,7 +117,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { defaultMigrationsFolder, migrateUp, readMigrations } from "./runner";
 
-// SYC-462 (spec §4.1): migration 0033. A photo has no picture exactly when it
+// SYC-462 (spec §4.1): migration 0034. A photo has no picture exactly when it
 // is marked removed, with who and why; a removed photo can't be restored.
 const baseUrl = process.env.DATABASE_URL;
 if (!baseUrl) throw new Error("DATABASE_URL must be set to run these tests");
@@ -191,7 +191,7 @@ T0 (the rollback) is covered by the existing `pnpm --filter @workspace/db test` 
 describe("T0: the rollback's guard", () => {
   it("refuses, and drops nothing, when a photo is removed", async () => {
     const files = readMigrations(defaultMigrationsFolder());
-    const m = files.find((f) => f.name.startsWith("0033_"))!;
+    const m = files.find((f) => f.name.startsWith("0034_"))!;
     const guard = m.rollbackSql.split("\n").filter((l) => !/^(ALTER|DROP)/i.test(l.trim())).join("\n");
     await expect(c.query(guard)).rejects.toThrow(/removed for good/);
     const cols = await c.query(`select column_name from information_schema.columns where table_name = 'photos' and column_name = 'removed_at'`);
@@ -247,7 +247,7 @@ If `import { peopleTable } from "./people"` makes an import cycle that breaks lo
 
 - [ ] **Step 4: Generate the migration, then add the trigger and the rollback by hand.**
 
-Run: `pnpm --filter @workspace/db run generate --name photo_removal`. Rename the file to `0033_photo_removal.sql` if the generator numbered it differently, and fix the `meta/_journal.json` tag to match. Read the generated SQL. Expect four statements:
+Run: `pnpm --filter @workspace/db run generate --name photo_removal`. Rename the file to `0034_photo_removal.sql` if the generator numbered it differently, and fix the `meta/_journal.json` tag to match. Read the generated SQL. Expect four statements:
 - `ALTER COLUMN "data" DROP NOT NULL`;
 - three `ADD COLUMN` statements;
 - the FK;
@@ -277,7 +277,7 @@ CREATE TRIGGER "photo_visibility_events_not_after_removal" BEFORE INSERT ON "pho
 -- DO $$
 -- BEGIN
 --   IF EXISTS (SELECT 1 FROM "photos" WHERE "data" IS NULL) THEN
---     RAISE EXCEPTION 'photos: a photo was removed for good; refusing to roll back 0033';
+--     RAISE EXCEPTION 'photos: a photo was removed for good; refusing to roll back 0034';
 --   END IF;
 -- END $$;
 -- DROP TRIGGER "photo_visibility_events_not_after_removal" ON "photo_visibility_events";
@@ -305,7 +305,7 @@ Expected: all pass. `migrate:check` must report no drift. `test` includes the ro
 
 - [ ] **Step 6: The type ripple.** Run `pnpm -r --filter @workspace/api-server exec tsc --noEmit`. Expected: errors at exactly the eight reader sites (R1–R7, plus `roleKit`/test kits if they read `data`). **Don't fix them here**; Tasks 2–6 do. Paste the error list into the checkpoint, because it is the ground-truth reader list. If a site appears that isn't in spec §3.1, stop, add it to the spec's table, and give it a guard in the right task.
 
-- [ ] **Step 7: Commit.** Use the message `SYC-462: migration 0033 — photos can be removed for good (check + no-restore trigger)`.
+- [ ] **Step 7: Commit.** Use the message `SYC-462: migration 0034 — photos can be removed for good (check + no-restore trigger)`.
 
 ---
 
@@ -789,7 +789,20 @@ describe("T13: who reads a photo's picture", () => {
     .where(and(inArray(photosTable.id, unique), isNull(photosTable.removedAt)));
 ```
 
-Do the same `isNull(photosTable.removedAt)` in `likelyReview.ts:154`. Then check every caller of `photoPublicIds` copes with a missing id; it should already, because hidden or missing rows can be absent today. List them with `grep -n "photoPublicIds\|urlFor" api/lib/teamCatView.ts`, and test any gallery-count text if it counts ids.
+Do the same `isNull(photosTable.removedAt)` in `likelyReview.ts:154`.
+
+**Every other place that builds a team photo address** (found with `grep -rn "teamPhotoUrl(" api/lib api/routes`, 19 Oct), and why each one is safe:
+- **`guardianCatView.ts:148`:** filters through `hiddenPhotoIds`. Task 2 makes that count removed photos, so it's covered with no edit. SYC-443 #242 changed this file, so rebase before touching it.
+- **Cats' main photos only**, all safe because the removal repoints every cat whose main photo it was (§4.2), so no main photo is ever a removed one:
+  - `colourCheck.ts:142` (also read by Home, SYC-396 PR 2.1);
+  - `colonyCats.ts:204`;
+  - `teamColonies.ts:315`;
+  - `teamCatView.ts:1184` (search thumbnails);
+  - `routes/teamCats.ts:208`;
+  - `teamPages/catGridPage.ts:255`.
+- **P9 (Task 5)** keeps it true for new cats.
+
+T9 part 2 asserts this for the colour check and the guardian cat page as well: a cat whose main photo was removed shows its stand-in, and the page HTML never contains the removed id. Then check every caller of `photoPublicIds` copes with a missing id; it should already, because hidden or missing rows can be absent today. List them with `grep -n "photoPublicIds\|urlFor" api/lib/teamCatView.ts`, and test any gallery-count text if it counts ids.
 
 - [ ] **Step 4: Run the tests and see them pass.** Run this block, plus `team.cats.test.ts`, `team.catGrid.test.ts`, `team.guardianCats.test.ts`, `teamCatList.source.test.ts` and the likely-review tests.
 
@@ -798,6 +811,14 @@ Do the same `isNull(photosTable.removedAt)` in `likelyReview.ts:154`. Then check
   2. Add `const x = photosTable.data;` to `lib/colourCheck.ts`: T13 must go red.
 
   Restore each after probing.
+
+- [ ] **Step 5b: Tell the public app a photo was removed** (agreed with SYC-44 PR 6.1, 19 Oct). On `main` after 6.1 merges, a public sighting carries `photoHidden` (6.1's field, from `hiddenPhotoIds`). That would be true for a removed photo, and the app would say "Photo hidden while Syros Cats take a look", which is wrong for a removal.
+  - This PR adds `photoRemoved: boolean` to the public sighting, computed from `photos.removed_at`, in `lib/catHelpers.ts` (`PublicSighting`/`serialiseSighting`), `routes/cats.ts`, `openapi.yaml` and the generated clients.
+  - `photoHidden` keeps its meaning. A removed photo is hidden too.
+  - The app's tile and its en/el/fr string are **6.1's or SYC-246's**, per the reply below. This PR only sends the field.
+  - **If 6.1 hasn't merged when this task starts,** rebase onto its branch's final state, or wait. Don't edit `cats.ts` or `catHelpers.ts` at the same time as 6.1.
+  - Test: the public cat detail's sighting for a removed photo has `photoRemoved: true` and `photoUrl: null`.
+  - Mutation probe: always send `false`, and the test goes red.
 
 - [ ] **Step 6: Run the api-server type check.** Run `pnpm --filter @workspace/api-server exec tsc --noEmit`. Expected: clean. Any error left over is a reader that Tasks 2–6 missed; fix it with a guard and a test.
 
