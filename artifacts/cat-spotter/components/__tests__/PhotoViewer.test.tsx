@@ -11,7 +11,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/context/LanguageContext', () => ({
-  useLanguage: () => ({ t: (k: string) => (k === 'photoViewerSpottedBy' ? 'by {name}' : k) }),
+  useLanguage: () => ({ t: (k: string) => k }),
 }));
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -75,7 +75,7 @@ function loadCover(container: HTMLElement) {
 describe('T6-1: the hidden-photo tile', () => {
   it('shows "Photo hidden while Syros Cats take a look." in place of a hidden photo, and no photo', () => {
     const { container, getByTestId } = render(
-      <SightingPhotos createdAt={DAY} spotter="Maria" photoUrl={null} photoHidden />,
+      <SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={null} photoHidden />,
     );
     expect(getByTestId('photo-hidden-tile').textContent).toBe('photoHiddenTile');
     expect(container.querySelector('[data-testid="sighting-cover"]')).toBeNull();
@@ -88,14 +88,14 @@ describe('T6-1: the hidden-photo tile', () => {
       { photoUrl: null }, // an older server sends no flag
       { photoUrl: COVER },
     ]) {
-      const { queryByTestId, unmount } = render(<SightingPhotos createdAt={DAY} spotter="Maria" {...props} />);
+      const { queryByTestId, unmount } = render(<SightingPhotos createdAt={DAY} byline="by Maria" {...props} />);
       expect(queryByTestId('photo-hidden-tile')).toBeNull();
       unmount();
     }
   });
 
   it('the tile never opens the full-screen view', () => {
-    const { getByTestId } = render(<SightingPhotos createdAt={DAY} spotter="Maria" photoUrl={null} photoHidden />);
+    const { getByTestId } = render(<SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={null} photoHidden />);
     fireEvent.click(getByTestId('photo-hidden-tile'));
     expect(viewer()).toBeNull();
   });
@@ -104,7 +104,7 @@ describe('T6-1: the hidden-photo tile', () => {
     const { container, getByTestId } = render(
       <SightingPhotos
         createdAt={DAY}
-        spotter="Maria"
+        byline="by Maria"
         photoUrl={null}
         photoHidden
         extraPhotos={[{ role: 'body', photoUrl: BODY }]}
@@ -117,7 +117,7 @@ describe('T6-1: the hidden-photo tile', () => {
 
 describe('the full-screen photo (spec §3.2, D8)', () => {
   it('tapping a loaded cover opens it with the date, who spotted it and Close', () => {
-    const { container, getByTestId } = render(<SightingPhotos createdAt={DAY} spotter="Maria" photoUrl={COVER} />);
+    const { container, getByTestId } = render(<SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={COVER} />);
     loadCover(container);
     fireEvent.click(getByTestId('sighting-cover-open'));
     const v = viewer()!;
@@ -130,23 +130,37 @@ describe('the full-screen photo (spec §3.2, D8)', () => {
     expect(viewer()).toBeNull();
   });
 
+  it('the cover is a button labelled "Photo, <date>", unavailable until it has loaded', () => {
+    const { container, getByTestId } = render(<SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={COVER} />);
+    const cover = () => getByTestId('sighting-cover-open');
+    expect(cover().getAttribute('role')).toBe('button');
+    expect(cover().getAttribute('aria-label')).toBe(`extraPhotoFirstLabel, ${WHEN}`);
+    expect(cover().getAttribute('aria-disabled')).toBe('true');
+    loadCover(container);
+    expect(cover().getAttribute('aria-disabled')).toBeNull();
+  });
+
   it('opens only for a photo already loaded, so nothing changes offline (spec §4.2)', () => {
-    const { getByTestId } = render(<SightingPhotos createdAt={DAY} spotter="Maria" photoUrl={COVER} />);
+    const { getByTestId } = render(<SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={COVER} />);
     fireEvent.click(getByTestId('sighting-cover-open'));
     expect(viewer()).toBeNull();
   });
 
   it('an extra photo opens in the same view, with the same date and spotter', () => {
     const { container, getByTestId } = render(
-      <SightingPhotos createdAt={DAY} spotter="Maria" photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
+      <SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
     );
-    fireEvent.click(container.querySelector('[data-testid="extra-photo-body"]')!);
+    const thumb = container.querySelector('[data-testid="extra-photo-body"]')!;
+    fireEvent.click(thumb);
+    expect(viewer(), 'not before the thumbnail has loaded').toBeNull();
+    fireEvent.load(thumb.querySelector('img')!);
+    fireEvent.click(thumb);
     expect(viewer()!.querySelector(`[data-uri$="${BODY}"]`)).not.toBeNull();
     expect(getByTestId('photo-viewer-spotter').textContent).toContain('Maria');
   });
 
   it('Android back / Escape closes it', () => {
-    const { container, getByTestId } = render(<SightingPhotos createdAt={DAY} spotter="Maria" photoUrl={COVER} />);
+    const { container, getByTestId } = render(<SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={COVER} />);
     loadCover(container);
     fireEvent.click(getByTestId('sighting-cover-open'));
     fireEvent.click(getByTestId('android-back'));
@@ -156,14 +170,14 @@ describe('the full-screen photo (spec §3.2, D8)', () => {
 
 describe('"Report an issue with this photo" (spec §3.2)', () => {
   it('is beneath the photo only when there is somewhere for it to go (PR 6.2\'s sheet)', () => {
-    const quiet = render(<PhotoViewer url={COVER} label="x" date={WHEN} spotter="Maria" onClose={() => {}} />);
+    const quiet = render(<PhotoViewer url={COVER} label="x" date={WHEN} byline="by Maria" onClose={() => {}} />);
     expect(quiet.queryByTestId('photo-viewer-report')).toBeNull();
     quiet.unmount();
 
     const onReport = vi.fn();
     const onClose = vi.fn();
     const { getByTestId } = render(
-      <PhotoViewer url={COVER} label="x" date={WHEN} spotter="Maria" onClose={onClose} onReport={onReport} />,
+      <PhotoViewer url={COVER} label="x" date={WHEN} byline="by Maria" onClose={onClose} onReport={onReport} />,
     );
     const link = getByTestId('photo-viewer-report');
     expect(link.textContent).toBe('reportIssuePhoto');
@@ -174,7 +188,7 @@ describe('"Report an issue with this photo" (spec §3.2)', () => {
   it('a sighting passes its own photo to the report handler', () => {
     const onReportPhoto = vi.fn();
     const { container, getByTestId } = render(
-      <SightingPhotos createdAt={DAY} spotter="Maria" photoUrl={COVER} onReportPhoto={onReportPhoto} />,
+      <SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={COVER} onReportPhoto={onReportPhoto} />,
     );
     loadCover(container);
     fireEvent.click(getByTestId('sighting-cover-open'));

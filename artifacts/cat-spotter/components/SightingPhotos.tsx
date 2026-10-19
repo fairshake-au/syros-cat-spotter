@@ -32,7 +32,7 @@ export function SightingPhotos({
   photoHidden,
   extraPhotos,
   createdAt,
-  spotter,
+  byline,
   onReportPhoto,
 }: {
   photoUrl: string | null;
@@ -40,8 +40,8 @@ export function SightingPhotos({
   photoHidden?: boolean;
   /** The sighting's public day, as the tile shows it: part of each photo's spoken label. */
   createdAt: string;
-  /** Who spotted it, as the tile names them. */
-  spotter: string;
+  /** Who spotted it, for the full-screen view (`bylineFor`). */
+  byline: string;
   extraPhotos?: ExtraPhoto[];
   /** PR 6.2: opens the reason sheet for this photo. Without it there is no report link. */
   onReportPhoto?: (photoUrl: string) => void;
@@ -49,8 +49,15 @@ export function SightingPhotos({
   const colors = useColors();
   const { t } = useLanguage();
   const [open, setOpen] = useState<{ url: string; label: string } | null>(null);
-  const [coverLoaded, setCoverLoaded] = useState<string | null>(null);
   const when = parsePublicDate(createdAt).toLocaleDateString();
+  // Addresses whose image has loaded: only those open full screen, so
+  // nothing changes offline (spec §4.2; review finding 2).
+  const [loaded, setLoaded] = useState<ReadonlySet<string>>(new Set());
+  const markLoaded = (url: string | null) => {
+    if (url) setLoaded((prev) => (prev.has(url) ? prev : new Set(prev).add(url)));
+  };
+  const coverLabel = `${t('extraPhotoFirstLabel')}, ${when}`;
+  const coverCanOpen = !!photoUrl && loaded.has(photoUrl);
   const visible = (extraPhotos ?? []).filter(
     (e): e is ExtraPhoto & { photoUrl: string } => !!e.photoUrl,
   );
@@ -67,10 +74,13 @@ export function SightingPhotos({
       ) : (
         <Pressable
           testID="sighting-cover-open"
+          // A fixed role: switching it would swap the element (a div becomes a
+          // button on the web) and reload the photo. Unavailable until loaded.
           role={photoUrl ? 'button' : undefined}
-          accessibilityLabel={photoUrl ? when : undefined}
+          disabled={!coverCanOpen}
+          accessibilityLabel={photoUrl ? coverLabel : undefined}
           onPress={() => {
-            if (photoUrl && coverLoaded === photoUrl) setOpen({ url: photoUrl, label: when });
+            if (coverCanOpen) setOpen({ url: photoUrl, label: coverLabel });
           }}
         >
           <Image
@@ -78,7 +88,7 @@ export function SightingPhotos({
             source={photoSource(photoUrl)}
             style={[styles.cover, { borderColor: colors.border }]}
             contentFit="cover"
-            onLoad={() => setCoverLoaded(photoUrl)}
+            onLoad={() => markLoaded(photoUrl)}
           />
         </Pressable>
       )}
@@ -94,13 +104,16 @@ export function SightingPhotos({
               accessibilityRole="button"
               accessibilityLabel={label}
               hitSlop={8}
-              onPress={() => setOpen({ url: e.photoUrl, label })}
+              onPress={() => {
+                if (loaded.has(e.photoUrl)) setOpen({ url: e.photoUrl, label });
+              }}
               style={[styles.thumb, { borderColor: colors.border }]}
             >
               <Image
                 source={photoSource(e.photoUrl)}
                 style={StyleSheet.absoluteFill}
                 contentFit="cover"
+                onLoad={() => markLoaded(e.photoUrl)}
               />
             </Pressable>
             );
@@ -112,7 +125,7 @@ export function SightingPhotos({
           url={open.url}
           label={open.label}
           date={when}
-          spotter={spotter}
+          byline={byline}
           onClose={() => setOpen(null)}
           onReport={onReportPhoto ? () => onReportPhoto(open.url) : undefined}
         />

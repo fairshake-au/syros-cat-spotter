@@ -179,6 +179,28 @@ describe('the cat page\'s photos (SYC-44 PR 6.1)', () => {
     expect(viewer()).toBeNull();
   });
 
+  it('a new main photo (a stand-in after a hide) opens only once it has loaded too (review finding 1)', () => {
+    const view = page(cat());
+    const hero = () => screen.getByTestId('cat-hero-open');
+    fireEvent.load(hero().querySelector('img')!);
+
+    // A refetch after the team hides the main photo: the stand-in is another
+    // sighting's photo, which this phone hasn't loaded yet.
+    const standIn = [
+      { ...SIGHTINGS[1]!, photoUrl: '/api/photos/stand-in', createdAt: '2026-10-12', spotterUsername: 'nik' },
+      SIGHTINGS[1]!,
+    ];
+    h.data = { ...(h.data as object), cat: cat({ photoUrl: '/api/photos/stand-in' }), sightings: standIn };
+    view.rerender(<CatDetailScreen />);
+    fireEvent.click(hero());
+    expect(viewer(), 'the old photo loading must not open the new one').toBeNull();
+
+    fireEvent.load(hero().querySelector('img')!);
+    fireEvent.click(hero());
+    expect(viewer()!.querySelector('[data-uri$="/api/photos/stand-in"]')).not.toBeNull();
+    expect(screen.getByTestId('photo-viewer-spotter').textContent).toBe('Spotted by nik');
+  });
+
   it('a cat with no photo opens nothing', () => {
     page(cat({ photoUrl: null }), []);
     const hero = screen.getByTestId('cat-hero-open');

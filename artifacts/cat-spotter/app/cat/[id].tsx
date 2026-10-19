@@ -29,7 +29,7 @@ import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { MoreToAdd } from '@/components/MoreToAdd';
 import { SightingPhotos } from '@/components/SightingPhotos';
 import { PhotoViewer } from '@/components/PhotoViewer';
-import { mainPhotoCaption, spotterName } from '@/lib/photoCaption';
+import { bylineFor, mainPhotoCaption, spotterName } from '@/lib/photoCaption';
 import { photoSource } from '@/lib/urls';
 import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
 import { lifeLine, parseDateOnly, parsePublicDate, sterilisedLineKey } from '@/lib/catStatusLines';
@@ -183,6 +183,7 @@ export default function CatDetailScreen() {
           <Pressable
             testID="cat-hero-open"
             role={cat.photoUrl ? 'button' : undefined}
+            disabled={!heroCanOpen}
             accessibilityLabel={cat.photoUrl ? cat.name : undefined}
             onPress={() => {
               if (heroCanOpen) setHeroOpen(true);
@@ -472,13 +473,16 @@ export default function CatDetailScreen() {
           </Text>
           <View style={styles.sightingGrid}>
             {sightings.map((s, i) => (
+              // Keyed by the photo's address: when a refetch hides a photo its
+              // key changes, so an open full-screen view of it closes rather
+              // than go on showing a hidden photo (review finding 7).
               <View key={s.photoUrl ?? `sighting-${i}`} style={styles.sightingItem}>
                 <SightingPhotos
                   photoUrl={s.photoUrl}
                   photoHidden={s.photoHidden}
                   extraPhotos={s.extraPhotos}
                   createdAt={s.createdAt}
-                  spotter={spotterName(s, t)}
+                  byline={bylineFor(s, t)}
                 />
                 <Text style={[styles.sightingDate, { color: colors.mutedForeground }]}>
                   {parsePublicDate(s.createdAt).toLocaleDateString()}
@@ -499,7 +503,7 @@ export default function CatDetailScreen() {
           url={cat.photoUrl}
           label={cat.name}
           date={parsePublicDate(heroCaption.day).toLocaleDateString()}
-          spotter={heroCaption.spotter}
+          byline={heroCaption.byline}
           onClose={() => setHeroOpen(false)}
         />
       )}

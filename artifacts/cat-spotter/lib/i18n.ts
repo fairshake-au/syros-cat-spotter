@@ -842,7 +842,7 @@ const el: Dict = {
   extraPhotoClose: 'Κλείσιμο',
   // SYC-44 PR 6.1
   photoViewerSpottedBy: 'Εντοπίστηκε από {name}',
-  photoHiddenTile: 'Η φωτογραφία είναι κρυμμένη όσο η Syros Cats την εξετάζει.',
+  photoHiddenTile: 'Η φωτογραφία είναι κρυμμένη όσο οι Syros Cats την εξετάζουν.',
   reportIssue: 'Ανάφερε ένα πρόβλημα',
   reportIssuePhoto: 'Ανάφερε ένα πρόβλημα με αυτή τη φωτογραφία',
   kmAway: 'χλμ μακριά',

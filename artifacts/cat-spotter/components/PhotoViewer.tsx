@@ -19,7 +19,7 @@ export function PhotoViewer({
   url,
   label,
   date,
-  spotter,
+  byline,
   onClose,
   onReport,
 }: {
@@ -28,8 +28,8 @@ export function PhotoViewer({
   label: string;
   /** Already formatted for the reader's language. */
   date: string;
-  /** The spotter's name as the page shows it ("a spotter" when unknown). */
-  spotter: string;
+  /** Who spotted it, ready to show (`bylineFor`). */
+  byline: string;
   onClose: () => void;
   onReport?: () => void;
 }) {
@@ -62,7 +62,7 @@ export function PhotoViewer({
                 {date}
               </Text>
               <Text testID="photo-viewer-spotter" style={styles.spotter} numberOfLines={1}>
-                {t('photoViewerSpottedBy').split('{name}').join(spotter)}
+                {byline}
               </Text>
             </View>
             <Pressable
