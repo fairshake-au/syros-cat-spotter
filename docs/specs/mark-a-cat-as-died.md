@@ -1,6 +1,6 @@
 # Marking a cat as died, from the team's cat page
 
-**Status:** Draft for Samuel's approval, 18 October 2026. One adversarial review pass done and folded in (§12). Revised the same day: recording a death never removes the owner (Samuel, 18 Oct 2026).
+**Status:** **Approved by Samuel, 18 October 2026** (D1–D5 as recommended). One adversarial review pass done and folded in (§12). Revised the same day: recording a death never removes the owner (Samuel, 18 Oct 2026).
 **Owner:** Samuel
 **Covers:** SYC-513.
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2–§3.4 (life status, a sighting after a death, presumed deceased) · [`claiming-a-cat.md`](./claiming-a-cat.md) §7 (removing an owner) · [`roles-and-invites.md`](./roles-and-invites.md) §2.2, §7.2 (a cat guardian's own "Has died") · SYC-362 (the "Are you sure?" page for an owned cat) · SYC-489 (litter reports on a dead cat)
