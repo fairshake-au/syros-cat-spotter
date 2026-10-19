@@ -29,3 +29,9 @@ Branch `claude/syc-462-photo-removal`, worktree `.claude/worktrees/adoring-bohr-
 - Written: `docs/superpowers/plans/syc-462-photo-removal.md` (12 tasks, inline Opus, mutation probes). Waiting on Samuel's plan approval.
 - Migration number AGREED: 0034_photo_removal (PR 2.4 #245 holds 0033_named_areas; others none). photoRemoved field agreed in principle with SYC-44 6.1 (their choice pending: inert app tile now, or SYC-246).
 - Branch rebased onto origin/main 4cad95e3 (force-pushed, own branch).
+
+## Build (started 19 Oct, plan approved "approved, start building")
+- Env: scratchpad env.sh (ESBUILD_BINARY_PATH 0.28.1, DATABASE_URL postgres://samuelporter@localhost:5432/postgres); rollup darwin copied; hoisted @esbuild/darwin-arm64 replaced 0.27.3→0.28.1. Baseline: lib/db photoVisibility 6/6; api photos.cache+team.photos 13/13.
+- **Task 1 DONE**: migration `0034_photo_removal.sql` (journal idx 33 — the runner needs consecutive idx; `0033_named_areas` (#245) isn't on main; whoever merges second regenerates). photoRemoval.test.ts 10/10; migrate:check ok; carryBack.test droppedColumns updated (photos gains removed_* as Neon-only). Full lib/db parallel run had load timeouts (~5 s) in different files each run; the failing files re-run serially 71/71.
+- Type ripple (ground-truth reader list): coatReading/sweep.ts:228, photoVariants.ts:48, routes/photos.ts:58, routes/sightings.ts:286,567,579, routes/teamReports.ts:177, plus tests sightings.extraPhotos.test.ts:345, sightings.upload.test.ts:79. Matches spec R1–R5, R7 (R6 already null-safe). No unlisted reader.
+- Next: Task 2.

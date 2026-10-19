@@ -231,7 +231,9 @@ describe("carry-back, end to end (test 4)", () => {
     expect(dry.noHomeInTarget).toEqual(["app_settings", "observations"]);
     expect(dry.noHomeRows).toEqual({ app_settings: 2, observations: 1 });
     expect(dry.droppedColumns).toEqual([
-      { table: "photos", columns: ["public_id"] },
+      // SYC-462's removal record (0034) lives on Neon only too; a removed
+      // photo goes back as an empty picture (writeRows, test T17).
+      { table: "photos", columns: ["public_id", "removed_at", "removed_by", "removed_reason"] },
       // SYC-101's generated folded name: the old database has no such
       // column, and recomputes nothing it needs from it.
       // SYC-63's deletion stamps live on Neon only, like the sightings ones.
