@@ -16,6 +16,6 @@ Plan: `docs/superpowers/plans/syc-396-phases-2-4.md`, "PR 2.2". Worktree `.claud
   Probes red: sort ignored, nulls-last, route try, FILTERED_MODULES, route island flag.
 
 ## Next
-- Screenshots 390/1280, team + guardian, en + el/fr (via liveLanguages seam or note), docs/screenshots/syc-396-pr-2-2/.
+- Screenshots done (docs/screenshots/syc-396-pr-2-2/, hand-built figures, el/fr switched on in a throwaway script). Greek/French mark words changed to number-invariant forms.
 - Affected test files re-run together; typecheck.
 - Sonnet adversarial review in its own worktree; draft PR; Linear (SYC-396, SYC-346 strings, deferred tickets).
