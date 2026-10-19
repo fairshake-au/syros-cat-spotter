@@ -187,6 +187,8 @@ describe("renderHomePage", () => {
     expect(section).toContain("Harbour steps");
     expect(section).toContain("Last seen on 20 Aug 2026 · Galissas");
     expect(section).toContain('href="/api/team/cats?lives=street&amp;lastSeen=quiet">and 7 more</a>');
+    // The hint and the Cats list filter are worded from the same number (SYC-485).
+    expect(section).toContain("Street cats not seen for 6 weeks or more.");
     expect(section).not.toMatch(/died|dead|deceased|no longer with us/i);
   });
 
