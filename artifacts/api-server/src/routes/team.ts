@@ -161,8 +161,8 @@ router.post(
     }
     req.log.info({ jti: claims.jti }, "team hand-off accepted");
     setTeamHeaders(res);
-    // The team lands on the welfare queue. Someone with no island row (a
-    // cat guardian) lands on her own page instead, never on the queue's 403
+    // The team lands on Home (SYC-396 PR 2.1). Someone with no island row (a
+    // cat guardian) lands on her own page instead, never on Home's 403
     // (roles spec §6.3: "straight to the dashboard"). PR 1.3 makes that page
     // "My colonies".
     res.redirect(

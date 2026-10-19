@@ -87,7 +87,8 @@ export function renderLikelyPage(
       ? '<p class="empty">Nothing to check. Every Probably sterilised cat has been looked at.</p>'
       : `<h2>${cats.length === 1 ? "1 cat" : `${cats.length} cats`} to check</h2>` + cats.map(card).join("");
   return renderPage({
-    title: "Probably sterilised",
+    // SYC-365: the list is a job, so it's named for what the team does.
+    title: "Ear clips to check",
     active: "likely",
     personName,
     body: notice + intro + body,

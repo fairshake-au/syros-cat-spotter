@@ -170,7 +170,7 @@ describe("the signed-in page", () => {
     const res = await request(app).get("/api/team/").set("Cookie", cookie);
     expect(res.status).toBe(200);
     expect(res.text).toContain("Signed in as Susan &lt;b&gt;");
-    expect(res.text).toContain("<h1>Welfare queue</h1>");
+    expect(res.text).toContain("<h1>Queue</h1>");
     expect(res.text).toContain('action="/api/team/signout"');
     expect(res.text).not.toMatch(/<script/i);
   });

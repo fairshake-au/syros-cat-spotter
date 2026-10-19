@@ -24,16 +24,41 @@ const links = (html: string) =>
   ]);
 
 describe("the team's menu (spec §3.1)", () => {
-  it("names the team's jobs in the spec's order, keeping phase 1's work lists until Home ships", () => {
+  it("names the team's jobs in the spec's order: Home · Cats · Map · Queue · Colonies", () => {
     expect(links(page({ island: true, showPeople: false }))).toEqual([
-      ["Queue", "/api/team"],
+      ["Home", "/api/team/home"],
       ["Cats", "/api/team/cats"],
       ["Map", "/api/team/cats?view=map"],
+      ["Queue", "/api/team"],
       ["Colonies", "/api/team/colonies"],
-      ["Feeding sites", "/api/team/sites"],
-      ["Probably sterilised", "/api/team/likely"],
-      ["Colour check", "/api/team/colour-check"],
     ]);
+  });
+
+  it("with People, is exactly the six labels in order (SYC-450)", () => {
+    expect(links(page({ island: true, showPeople: true })).map((x) => x[0])).toEqual([
+      "Home",
+      "Cats",
+      "Map",
+      "Queue",
+      "Colonies",
+      "People",
+    ]);
+  });
+
+  it("the work lists and Feeding sites have left it, and underline their parent instead", () => {
+    for (const [active, parent] of [
+      ["likely", "Home"],
+      ["colour", "Home"],
+      ["sites", "Colonies"],
+    ] as const) {
+      const html = page({ active });
+      const inner = bar(html).inner;
+      expect(inner).not.toContain("Probably sterilised");
+      expect(inner).not.toContain("Colour check");
+      expect(inner).not.toContain("Feeding sites");
+      expect(inner.match(/aria-current/g)).toHaveLength(1);
+      expect(inner).toMatch(new RegExp(`aria-current="page">${parent}</a>`));
+    }
   });
 
   it("puts People last, for those who can manage people, then My page", () => {
@@ -41,9 +66,8 @@ describe("the team's menu (spec §3.1)", () => {
     expect(l.slice(-2)).toEqual(["People", "My page"]);
   });
 
-  it("has no Home or Reports yet: items appear as their screens ship", () => {
+  it("has no Reports yet: items appear as their screens ship", () => {
     const l = links(page({ island: true, showPeople: true, mine: true })).map((x) => x[0]);
-    expect(l).not.toContain("Home");
     expect(l).not.toContain("Reports");
   });
 
@@ -113,6 +137,25 @@ describe("Signed in as and Sign out sit in the menu bar (spec §3.2)", () => {
 
   it("keeps the wide bar for a wide page", () => {
     expect(page({ mainClass: "wide" })).toContain('<nav class="bar wide" aria-label="Dashboard">');
+  });
+});
+
+describe("a cat guardian's menu is untouched by the team menu's changes (review of #243)", () => {
+  it("underlines Feeding sites itself, never its team parent Colonies", () => {
+    for (const active of ["sites", "colonies"] as const) {
+      const html = page({ nav: "guardian", active, mine: true });
+      const inner = bar(html).inner;
+      expect(inner.match(/aria-current/g), active).toHaveLength(1);
+      const label = active === "sites" ? "Feeding sites" : "Colonies";
+      expect(inner).toMatch(new RegExp(`aria-current="page">[^<]*(<span[^>]*>)?${label}`));
+    }
+  });
+});
+
+describe("Back home on the refusal page (SYC-396 PR 2.1)", () => {
+  it("takes a team member to Home, which is where signing in lands", () => {
+    const html = forbiddenPage({ name: "Maria", language: "en", island: true });
+    expect(html).toMatch(/<a class="tap" href="\/api\/team\/home">/);
   });
 });
 

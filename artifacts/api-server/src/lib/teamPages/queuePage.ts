@@ -353,7 +353,8 @@ export function renderQueuePage(
         : "")
     : "";
   return renderPage({
-    title: "Welfare queue",
+    // Named as the menu names it (SYC-450).
+    title: "Queue",
     active: "queue",
     mainClass: "wide",
     personName,

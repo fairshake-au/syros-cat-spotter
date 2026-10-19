@@ -31,6 +31,8 @@ const ALLOWLIST: Record<string, string> = {
     "the definition: kind check, content-row checks and the (device, kind, clientRef) key live here",
   "artifacts/api-server/src/lib/welfareQueue.ts":
     "the needs-help queue: every list, count and draft read carries kind = 'welfare'; mailHealth counts failed welfare_alert and issue_alert",
+  "artifacts/api-server/src/lib/dashboard/home.ts":
+    "Home: the needs-help list comes from listWelfareQueue (welfare only); countOpenIssues is the one query here and counts kind = 'content' only",
   "artifacts/api-server/src/lib/welfareActions.ts":
     "both kinds can move state and take a team note; a welfare_outcome is written only for kind = 'welfare'",
   "artifacts/api-server/src/lib/welfareTie.ts":

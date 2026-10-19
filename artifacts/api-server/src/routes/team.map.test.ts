@@ -515,7 +515,9 @@ describe("the Map page", () => {
     expect(res.text).not.toMatch(/<script/i);
     // PR 3.2 folded the temporary "Map" menu item into "Feeding sites".
     expect(res.text).not.toContain('aria-current="page">Map</a>');
-    expect(res.text).toContain('href="/api/team/sites"><span class="long">Feeding sites</span><span class="short">Sites</span></a>');
+    // Feeding sites left the menu with Home (SYC-396 PR 2.1, SYC-450).
+    expect(res.text).not.toContain("Feeding sites</a>");
+    expect(res.text).toContain('href="/api/team/home">Home</a>');
     expect(res.text).toContain("© <a href=\"https://www.openstreetmap.org/copyright\"");
     expect(res.text).toContain("OpenStreetMap contributors");
     expect(res.text).toContain('<main id="main" tabindex="-1" class="mappage">');

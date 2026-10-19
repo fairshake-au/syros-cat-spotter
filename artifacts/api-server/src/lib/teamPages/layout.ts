@@ -8,7 +8,7 @@ import { MAP_MARK_CSS, MARK_CSS } from "./marks";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "queue" | "cats" | "map" | "colonies" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies";
+export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies";
 
 interface NavItem {
   key: NavKey;
@@ -20,22 +20,25 @@ interface NavItem {
 }
 
 // The menu names the team's jobs (SYC-396 spec §3.1): Home · Cats · Map ·
-// Queue · Colonies · Reports · People. Items appear as their screens ship:
-// until Home does (phase 2), the Queue is the dashboard's first page, and
-// Feeding sites and the two work lists keep their menu entries, since Home is
-// where they move to and nothing else links to them yet.
+// Queue · Colonies · Reports · People. Items appear as their screens ship
+// (Reports with PR 3.3a). Since Home (PR 2.1), the work lists live on Home:
+// Ear clips to check and Colour check are linked from there, and Feeding
+// sites from the Map and each colony (SYC-450).
 const NAV: NavItem[] = [
-  { key: "queue", label: "Queue", href: "/api/team" },
+  { key: "home", label: "Home", href: "/api/team/home" },
   { key: "cats", label: "Cats", href: "/api/team/cats" },
   // The Cats page's map view (SYC-396 PR 1.5). /api/team/map is the tap-check page.
   { key: "map", label: "Map", href: "/api/team/cats?view=map" },
+  { key: "queue", label: "Queue", href: "/api/team" },
   { key: "colonies", label: "Colonies", href: "/api/team/colonies" },
-  { key: "sites", label: "Feeding sites", short: "Sites", href: "/api/team/sites" },
-  { key: "likely", label: "Probably sterilised", href: "/api/team/likely" },
-  // SYC-2 PR 3.1: the team's low-priority list of cats whose colour or
-  // markings deserve a second look (spec §5.3).
-  { key: "colour", label: "Colour check", href: "/api/team/colour-check" },
 ];
+
+/**
+ * A page that has left the team's menu underlines its nearest parent there:
+ * the two work lists sit under Home, Feeding sites under Colonies. A cat
+ * guardian's own menu still has Feeding sites, so it's mapped for the team only.
+ */
+const TEAM_PARENT: Partial<Record<NavKey, NavKey>> = { likely: "home", colour: "home", sites: "colonies" };
 
 /** The People link: only for people who hold `manage_people` (SYC-53 PR 1.2). */
 const PEOPLE_NAV: NavItem = { key: "people", label: "People", href: "/api/team/people" };
@@ -97,8 +100,7 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
 .bar .off{color:#6b685f}
 .bar .short{display:none}
 /* The name and Sign out: at the right on a desktop, at the end of the row on a phone. */
-/* Until Home takes the work lists out of the menu, a long name may shorten
-   with "…" on a desktop; the whole name is in its title. */
+/* A very long name may still shorten with "…" on a desktop; the whole name is in its title. */
 .bar>.who{margin-left:auto;padding:8px 2px 8px 10px;color:#55524a;font-size:14px;line-height:28px;max-width:260px;display:block;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;min-width:120px}
 .bar>form{margin:0;flex:none}
 .bar button{font:inherit;font-size:15px;min-height:44px;min-width:44px;padding:8px 2px;background:none;border:0;color:#0b5c6b;text-decoration:underline;cursor:pointer}
@@ -338,6 +340,24 @@ main.mappage h1{line-height:28px}
 li.colourcheck{list-style:none}
 li.colourcheck .catrow{border:0;padding:0;margin:0 0 6px}
 details.notdescribed>summary{cursor:pointer;font-weight:700;padding:10px 0;color:#0b4553}
+/* Home (SYC-396 PR 2.1; spec §4). */
+ul.hlist,ul.hplain,ul.hfigs{list-style:none;margin:8px 0;padding:0}
+ul.hplain li,ul.hfigs li{margin:4px 0}
+a.hrow{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;color:inherit;text-decoration:none;min-height:44px;overflow-wrap:anywhere}
+a.hrow:hover{border-color:#0b5c6b}
+.hthumb{flex:none;width:56px;height:56px;object-fit:cover;border-radius:6px;background:#ece8dc}
+.hthumb.nothumb{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#55524a;text-align:center}
+.htext{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hwhere{font-size:15px}
+.hwhere strong{color:#0b5c6b;text-decoration:underline}
+.hnote{font-size:14px;color:#3b3930}
+a.hlink{display:inline-flex;align-items:center;min-height:44px;padding:0;font-weight:700}
+.hstrip{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.hstrip img{display:block;width:56px;height:56px;object-fit:cover;border-radius:4px;background:#ece8dc}
+.hbig{font-size:18px;margin:16px 0 8px}
+.hbig strong{font-size:40px;line-height:1;margin-right:4px;font-variant-numeric:tabular-nums}
+.hfig{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-right:2px}
+.hsoon{margin:32px 0 0;padding-top:12px;border-top:1px solid #e6e2d6;color:#55524a;font-size:14px}
 /* The Cats grid (SYC-396 PR 1.3). */
 ${MARK_CSS}
 .catfilters{margin:8px 0 8px}
@@ -524,13 +544,14 @@ export function renderPage(opts: PageOptions): string {
           : showPeople
             ? [...NAV, PEOPLE_NAV]
             : NAV;
-  const items = [...team, ...own].map((n) => {
+  const teamActive = opts.active ? (TEAM_PARENT[opts.active] ?? opts.active) : null;
+  const items = [...team.map((n) => ({ n, active: opts.nav === "guardian" ? opts.active : teamActive })), ...own.map((n) => ({ n, active: opts.active }))].map(({ n, active }) => {
     // On a phone "Feeding sites" shows as "Sites" (CSS picks one).
     const label = n.short
       ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`
       : escapeHtml(n.label);
     if (!n.href) return `<span class="off">${label}</span>`;
-    return n.key === opts.active
+    return n.key === active
       ? `<a class="here" href="${n.href}" aria-current="page">${label}</a>`
       : `<a href="${n.href}">${label}</a>`;
   }).join("");

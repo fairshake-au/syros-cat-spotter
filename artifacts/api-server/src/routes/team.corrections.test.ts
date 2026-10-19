@@ -389,7 +389,9 @@ describe("P4-2: the Probably sterilised list", () => {
     expect(res.text).toContain('name="choice" value="not_clipped"');
     expect(res.text).toContain("Saved. The cat stays Probably sterilised");
     // The nav link is on.
-    expect(res.text).toContain('<a class="here" href="/api/team/likely" aria-current="page">Probably sterilised</a>');
+    // Ear clips to check has left the menu (SYC-450): it underlines Home, its parent.
+    expect(res.text).toContain("<title>Ear clips to check</title>");
+    expect(res.text).toContain('<a class="here" href="/api/team/home" aria-current="page">Home</a>');
   });
 
   it("an unknown done= is never shown", async () => {

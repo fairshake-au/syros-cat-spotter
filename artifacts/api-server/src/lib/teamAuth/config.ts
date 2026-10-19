@@ -14,8 +14,8 @@ export const HANDOFF_AUDIENCE = "https://team.catspotters.com";
 export const SIGN_IN_ORIGIN = "https://admin.catspotters.com";
 /** The only Origin a dashboard POST may come from. */
 export const TEAM_ORIGIN = "https://team.catspotters.com";
-/** Where a signed-in person lands. */
-export const TEAM_HOME = "https://team.catspotters.com/api/team/";
+/** Where a signed-in team member lands: Home (SYC-396 PR 2.1). The Queue keeps /api/team. */
+export const TEAM_HOME = "https://team.catspotters.com/api/team/home";
 /** Where a refused browser is sent back to. */
 export const SIGN_IN_PAGE = "https://admin.catspotters.com/";
 
