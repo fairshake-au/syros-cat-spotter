@@ -32,6 +32,7 @@ export const ISSUE_KEYS = [
   'issueSaved',
   'issueSavedBrowserNote',
   'issueReminder',
+  'issueSaveFailed',
   // Shared with the cat-in-trouble form, and shown by the sheet too.
   'reportCheckUnavailable',
   'reportCheckBlocked',

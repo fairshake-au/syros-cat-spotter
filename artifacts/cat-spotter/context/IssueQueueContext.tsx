@@ -207,7 +207,14 @@ export function IssueQueueProvider({ children }: { children: React.ReactNode }) 
         tRef.current('issueReminder'),
         new Date(Date.now() + REMINDER_AFTER_MS),
       );
-      await store.mutate((list) => [...list, item]);
+      try {
+        await store.mutate((list) => [...list, item]);
+      } catch (err) {
+        // Not saved, so nothing to remind about (review finding 2). The
+        // sheet says it couldn't be saved.
+        await cancelNativeReminder(item.nativeReminderId);
+        throw err;
+      }
       // Sent at once while the app is open (the person is looking at it).
       void syncNow();
       return item.localId;

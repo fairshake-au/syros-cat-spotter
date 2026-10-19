@@ -217,8 +217,11 @@ export interface IssueSyncDeps {
  */
 export async function syncIssues(store: QueueStore<PendingIssue>, deps: IssueSyncDeps): Promise<void> {
   const now = deps.now ?? Date.now;
-  for (const item of [...store.items()]) {
-    if (item.status !== 'queued' || restingFromCheck(item, now())) continue;
+  for (const snapshot of [...store.items()]) {
+    // Re-read: another tab, or "Delete my data", may have taken it off the
+    // list while an earlier one was sending (review finding 6).
+    const item = store.items().find((r) => r.localId === snapshot.localId);
+    if (!item || item.status !== 'queued' || restingFromCheck(item, now())) continue;
     const attempt: SendAttempt = { sentToken: false };
     try {
       const note = item.note.trim();

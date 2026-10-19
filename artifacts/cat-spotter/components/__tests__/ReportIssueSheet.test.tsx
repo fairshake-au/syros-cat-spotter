@@ -266,3 +266,38 @@ describe('T6-6: offline it says saved, never hidden', () => {
     expect(h.queue.retryFailed).toHaveBeenCalled();
   });
 });
+
+describe('review fixes (findings 2, 7, 8)', () => {
+  it('a report that could not be saved says so, stays on the confirm step, and can be tried again', async () => {
+    h.queue.submitIssue.mockRejectedValueOnce(new Error('QueueWriteError'));
+    photoSheet();
+    fireEvent.click(screen.getByTestId('issue-reason-photo_private'));
+    fireEvent.click(screen.getByTestId('issue-send'));
+    fireEvent.click(screen.getByTestId('issue-report-and-hide'));
+    expect((await screen.findByTestId('issue-save-failed')).textContent).toBe(en.issueSaveFailed);
+    expect(screen.queryByTestId('issue-done')).toBeNull();
+    fireEvent.click(screen.getByTestId('issue-report-and-hide'));
+    await screen.findByTestId('issue-done');
+    expect(h.queue.submitIssue).toHaveBeenCalledTimes(2);
+  });
+
+  it('two quick taps save one report', async () => {
+    let finish!: (id: string) => void;
+    h.queue.submitIssue.mockImplementationOnce(() => new Promise<string>((r) => (finish = r)));
+    catSheet();
+    fireEvent.click(screen.getByTestId('issue-reason-wrong_name'));
+    const sendButton = screen.getByTestId('issue-send');
+    fireEvent.click(sendButton);
+    fireEvent.click(sendButton);
+    finish('L1');
+    await screen.findByTestId('issue-done');
+    expect(h.queue.submitIssue).toHaveBeenCalledTimes(1);
+  });
+
+  it('the reasons are buttons and the note box has a name, for screen readers', () => {
+    catSheet();
+    expect(screen.getByTestId('issue-reason-wrong_name').getAttribute('role')).toBe('button');
+    fireEvent.click(screen.getByTestId('issue-reason-wrong_name'));
+    expect(screen.getByTestId('issue-note').getAttribute('aria-label')).toBe(en.issueNoteLabel);
+  });
+});

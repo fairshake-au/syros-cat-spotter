@@ -247,6 +247,24 @@ describe('syncIssues', () => {
     expect(store.items()[0]!.serverFailures).toBe(0);
   });
 
+  it('a report taken off the list while another is sending is not sent (review finding 6)', async () => {
+    const first = issue({}, 'wrong_name');
+    const second = issue({}, 'cat_died');
+    const { store } = makeStore([first, second]);
+    await store.load();
+    const a = api({ hidden: false }, {
+      submit: vi.fn(async (body) => {
+        // "Delete my data", or another tab, empties the list mid-send.
+        if (body.clientRef === first.clientRef) {
+          await store.mutate((list) => list.filter((r) => r.localId !== second.localId), 'system');
+        }
+        return { publicId: 'x', hidden: false };
+      }),
+    });
+    await syncIssues(store, { api: a, deviceId: 'd', getToken: freshToken });
+    expect((a.submit as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0].reason)).toEqual(['wrong_name']);
+  });
+
   it('one report under a check wait never holds back the next', async () => {
     const resting = issue({ checkDeclinedAt: new Date('2026-10-20T10:00:00Z').toISOString() });
     const next = issue({}, 'wrong_name');

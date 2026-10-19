@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -95,14 +95,19 @@ export function ReportIssueSheet({
   const [note, setNote] = useState('');
   const [sentId, setSentId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // A ref as well as state: two quick taps land before a re-render (review finding 7).
+  const savingRef = useRef(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const isWeb = Platform.OS === 'web';
   // On the website a waiting report is saved in the browser, not on a phone.
   const saved = (text: string) => savedWording(text, language as Language, isWeb);
 
   const send = async () => {
-    if (!reason || saving) return;
+    if (!reason || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
+    setSaveFailed(false);
     try {
       const id = await submitIssue({
         reason,
@@ -113,10 +118,20 @@ export function ReportIssueSheet({
       });
       setSentId(id);
       setStep('done');
+    } catch {
+      // Not saved (storage full or unreadable): say so, and let them try again.
+      setSaveFailed(true);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
+
+  const saveFailedLine = saveFailed ? (
+    <Text testID="issue-save-failed" role="alert" style={[styles.body, { color: colors.destructive }]}>
+      {t('issueSaveFailed')}
+    </Text>
+  ) : null;
 
   const goToNeedsHelp = () => {
     onClose();
@@ -135,7 +150,7 @@ export function ReportIssueSheet({
       <>
         <Pressable
           testID="issue-hurt-first"
-          accessibilityRole="link"
+          role="link"
           onPress={goToNeedsHelp}
           style={[styles.hurt, { backgroundColor: colors.muted, borderColor: colors.border }]}
         >
@@ -146,7 +161,8 @@ export function ReportIssueSheet({
             <Pressable
               key={r}
               testID={`issue-reason-${r}`}
-              accessibilityRole="button"
+              // `role`, not accessibilityRole: react-native-web announces it as a button.
+              role="button"
               onPress={() => {
                 setReason(r);
                 setStep('details');
@@ -176,6 +192,9 @@ export function ReportIssueSheet({
           </Text>
           <TextInput
             testID="issue-note"
+            accessibilityLabel={t(
+              reason === 'wrong_info' && initialReason === 'wrong_info' ? 'issueNoteLabelWrongInfo' : 'issueNoteLabel',
+            )}
             value={note}
             onChangeText={setNote}
             maxLength={NOTE_MAX}
@@ -186,6 +205,7 @@ export function ReportIssueSheet({
             ]}
           />
         </View>
+        {saveFailedLine}
         <Button
           variant="primary"
           size="lg"
@@ -207,6 +227,7 @@ export function ReportIssueSheet({
         <Text testID="issue-confirm-text" role="heading" style={[styles.confirm, { color: colors.foreground }]}>
           {t('issueConfirm')}
         </Text>
+        {saveFailedLine}
         <Button variant="primary" size="lg" block testID="issue-report-and-hide" disabled={saving} onPress={() => void send()}>
           {t('issueConfirmHide')}
         </Button>
@@ -218,7 +239,10 @@ export function ReportIssueSheet({
   } else {
     content = (
       <>
-        {renderDone(shown)}
+        {/* Announced when it changes, e.g. from "Sending…" to the server's answer. */}
+        <View aria-live="polite" accessibilityLiveRegion="polite">
+          {renderDone(shown)}
+        </View>
         {shown === 'failed' ? (
           <Button variant="primary" size="lg" block testID="issue-try-again" onPress={() => void retryFailed()}>
             {t('reportTryAgain')}

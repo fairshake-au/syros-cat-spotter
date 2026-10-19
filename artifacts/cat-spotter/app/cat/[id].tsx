@@ -29,6 +29,7 @@ import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { ReportIssueLink } from '@/components/report/ReportIssueLink';
 import { ReportIssueSheet } from '@/components/report/ReportIssueSheet';
 import type { IssueReason } from '@/lib/issueQueue';
+import { afterModalCloses } from '@/lib/modalHandoff';
 import { MoreToAdd } from '@/components/MoreToAdd';
 import { SightingPhotos } from '@/components/SightingPhotos';
 import { PhotoViewer } from '@/components/PhotoViewer';
@@ -78,7 +79,11 @@ export default function CatDetailScreen() {
   // this cat is alive?" link lands (choose-a-different-cat.md; plan C11).
   const [issueSheet, setIssueSheet] = React.useState<
     { photoUrl: string | null; initialReason?: IssueReason } | null
-  >(params.report === 'wrong_info' ? { photoUrl: null, initialReason: 'wrong_info' } : null);
+  >(null);
+  // Read whenever the link sets it, not only on the first mount (review finding 4).
+  React.useEffect(() => {
+    if (params.report === 'wrong_info') setIssueSheet({ photoUrl: null, initialReason: 'wrong_info' });
+  }, [params.report]);
 
   // The inbox row matching the tapped push notification, if any.
   const highlighted = React.useMemo(
@@ -495,7 +500,7 @@ export default function CatDetailScreen() {
                   extraPhotos={s.extraPhotos}
                   createdAt={s.createdAt}
                   byline={bylineFor(s, t)}
-                  onReportPhoto={(url) => setIssueSheet({ photoUrl: url })}
+                  onReportPhoto={(url) => afterModalCloses(() => setIssueSheet({ photoUrl: url }))}
                 />
                 <Text style={[styles.sightingDate, { color: colors.mutedForeground }]}>
                   {parsePublicDate(s.createdAt).toLocaleDateString()}
@@ -522,7 +527,7 @@ export default function CatDetailScreen() {
             // The viewer closes first: one modal at a time.
             const url = heroOpenUrl;
             setHeroOpenUrl(null);
-            setIssueSheet({ photoUrl: url });
+            afterModalCloses(() => setIssueSheet({ photoUrl: url }));
           }}
         />
       )}

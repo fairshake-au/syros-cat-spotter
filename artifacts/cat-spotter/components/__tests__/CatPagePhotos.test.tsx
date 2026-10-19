@@ -294,4 +294,12 @@ describe('Report an issue on the cat page (SYC-44 PR 6.2; Samuel, 19 Oct: the li
     expect(sheet()!.getAttribute('data-reason')).toBe('wrong_info');
     expect(sheet()!.getAttribute('data-photo')).toBe('');
   });
+
+  it('?report=wrong_info set after the page is open still opens the sheet (review finding 4)', () => {
+    const utils = page(cat());
+    expect(sheet()).toBeNull();
+    h.params = { id: '7', report: 'wrong_info' };
+    utils.rerender(<CatDetailScreen />);
+    expect(sheet()!.getAttribute('data-reason')).toBe('wrong_info');
+  });
 });

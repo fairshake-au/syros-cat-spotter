@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
   storage: new Map<string, string>(),
+  failWrites: false,
   reportIssue: vi.fn(),
   getToken: vi.fn(async (_action: string, _cdata: string) => 'tok-fresh'),
   schedule: vi.fn(async () => 'notif-1'),
@@ -21,6 +22,7 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
   default: {
     getItem: vi.fn(async (k: string) => h.storage.get(k) ?? null),
     setItem: vi.fn(async (k: string, v: string) => {
+      if (h.failWrites) throw new Error('QuotaExceededError');
       h.storage.set(k, v);
     }),
     removeItem: vi.fn(async (k: string) => {
@@ -78,6 +80,7 @@ const input = {
 };
 
 beforeEach(() => {
+  h.failWrites = false;
   h.storage.clear();
   h.reportIssue.mockReset();
   h.getToken.mockClear();
@@ -131,5 +134,20 @@ describe('IssueQueueProvider', () => {
     });
     expect(stored()).toEqual([]);
     expect(h.cancel).toHaveBeenCalledWith('notif-1');
+  });
+
+  it('a report that could not be saved rejects, and leaves no reminder behind (review finding 2)', async () => {
+    const q = mount();
+    await waitFor(() => expect(q.current?.ready).toBe(true));
+    h.failWrites = true;
+    let failed = false;
+    await act(async () => {
+      await q.current!.submitIssue(input).catch(() => {
+        failed = true;
+      });
+    });
+    expect(failed).toBe(true);
+    expect(h.cancel).toHaveBeenCalledWith('notif-1');
+    expect(h.reportIssue).not.toHaveBeenCalled();
   });
 });
