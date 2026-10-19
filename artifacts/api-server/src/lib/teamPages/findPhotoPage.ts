@@ -235,6 +235,24 @@ export interface FindResultsOptions extends Common {
   results: FindResult[];
   /** The cards' facts for each cat compared, by id. */
   cards: Map<number, CatListItem>;
+  /**
+   * The team's own photo (SYC-491): base64 JPEG, 640px, already stripped of
+   * EXIF and GPS. Drawn as a `data:` picture in this answer only; the route
+   * sends this page with the header that allows exactly that.
+   */
+  preview?: string | null;
+}
+
+/** The team's photo, kept in view beside the matches. Only base64 text reaches the page. */
+function yourPhoto(preview: string | null | undefined): string {
+  if (!preview || !/^[A-Za-z0-9+/]+={0,2}$/.test(preview)) {
+    return '<p class="hint">Your photo couldn\'t be shown here. Compare these with the photo on your phone.</p>';
+  }
+  return (
+    '<figure class="yourphoto">' +
+    `<img src="data:image/jpeg;base64,${preview}" alt="Your photo" width="320" height="320">` +
+    "<figcaption>Your photo. It isn't kept.</figcaption></figure>"
+  );
 }
 
 function tieAction(catId: number, tie: TieMode): string {
@@ -278,11 +296,7 @@ export function renderFindResults(o: FindResultsOptions): string {
   const list = (rs: FindResult[]) => `<ul class="findlist">${rs.map((r) => resultCard(r, o)).join("")}</ul>`;
   const again = `<a class="tap" href="${esc(findAddress(o.filters, o.tie?.publicId))}">Try another photo</a>`;
   const grid = `<a class="tap" href="${esc(gridAddress(o.filters))}">Browse these cats as a grid</a>`;
-  const body =
-    tieIntro(o.tie, o.now) +
-    `<p class="count" role="status">Compared with ${cats(o.compared)} in ${esc(placeName(o.filters, o.colonies))}</p>` +
-    `<p class="notice">${esc(LESS_SURE)}</p>` +
-    '<p class="hint">Your photo isn\'t kept, so it isn\'t shown here. Compare these with the photo on your phone.</p>' +
+  const matches =
     (close.length
       ? list(close)
       : `<p class="notice" role="status">No close match among these ${cats(o.compared)}.</p><p>${grid}</p>`) +
@@ -290,6 +304,11 @@ export function renderFindResults(o: FindResultsOptions): string {
       ? `<details class="unlikely"><summary>Show unlikely matches (${unlikely.length})</summary>${list(unlikely)}</details>`
       : "") +
     `<p class="findagain">${again}${close.length ? ` ${grid}` : ""}</p>`;
+  const body =
+    tieIntro(o.tie, o.now) +
+    `<p class="count" role="status">Compared with ${cats(o.compared)} in ${esc(placeName(o.filters, o.colonies))}</p>` +
+    `<p class="notice">${esc(LESS_SURE)}</p>` +
+    `<div class="findcompare"><div class="findmine">${yourPhoto(o.preview)}</div><div class="findmatches">${matches}</div></div>`;
   return renderPage({
     title: "Find from a photo",
     active: o.tie ? "queue" : "cats",

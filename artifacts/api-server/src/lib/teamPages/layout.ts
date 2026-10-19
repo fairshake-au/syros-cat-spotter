@@ -418,7 +418,19 @@ ul.findlist{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-co
 .findfacts .why{font-size:13px;color:#55524a}
 details.unlikely>summary{cursor:pointer;display:inline-flex;align-items:center;min-height:44px;font-weight:700;color:#0b4553}
 .findagain{display:flex;flex-wrap:wrap;gap:0 16px;margin:12px 0}
+/* Your photo stays in view while the matches scroll (SYC-491). */
+.findmine{position:sticky;top:0;z-index:2;background:#f6f4ef;padding:4px 0;border-bottom:1px solid #e6e2d6}
+figure.yourphoto{display:flex;align-items:center;gap:10px;margin:0}
+figure.yourphoto img{display:block;width:96px;height:96px;object-fit:cover;border-radius:6px;border:3px solid #0b5c6b;background:#ece8dc}
+figure.yourphoto figcaption{font-size:14px;font-weight:700;color:#0b4553}
 @media (min-width:700px){ul.findlist{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))}}
+@media (min-width:1000px){
+.findcompare{display:grid;grid-template-columns:300px minmax(0,1fr);gap:0 24px;align-items:start}
+.findmine{top:12px;border-bottom:0;padding:0}
+figure.yourphoto{flex-direction:column;align-items:stretch}
+figure.yourphoto img{width:300px;height:auto;aspect-ratio:1/1}
+ul.findlist{grid-template-columns:1fr}
+}
 /* The island map (SYC-396 PR 1.5; spec §6, §12.4). */
 ${MAP_MARK_CSS}
 .viewswitch{display:inline-flex;margin:8px 0;border:1px solid #0b5c6b;border-radius:8px;overflow:hidden}

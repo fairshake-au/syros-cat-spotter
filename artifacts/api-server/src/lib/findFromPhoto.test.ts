@@ -276,6 +276,13 @@ describe("the photos sent", () => {
     const sent = (matchMock.mock.calls[0]![0] as NewPhotoInput[])[0]!;
     expect(sent.role).toBe("first");
     expect((await sharp(Buffer.from(sent.photoBase64, "base64")).metadata()).exif).toBeUndefined();
+    // The results page's copy of it (SYC-491) is made from the re-encoded photo too.
+    const out = await findFromPhoto(withGps, { colony: small.colony }, NOW);
+    expect(out.kind === "results" && out.preview).toBeTruthy();
+    if (out.kind !== "results") return;
+    const preview = await sharp(Buffer.from(out.preview!, "base64")).metadata();
+    expect(preview.exif).toBeUndefined();
+    expect(preview.width).toBeLessThanOrEqual(640);
   });
 });
 

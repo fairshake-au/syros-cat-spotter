@@ -4,7 +4,7 @@ import { MAX_CANDIDATES } from "./candidateSelection";
 import { validatePhotoBase64 } from "./imageValidation";
 import { matchCatPhoto, type CandidateInput } from "./matching";
 import { catDisplayPhotoIds } from "./photoVisibility";
-import { variantFor } from "./photoVariants";
+import { makeVariant, variantFor } from "./photoVariants";
 import { allTeamCats, type CatListFilters } from "./teamCatList";
 
 // Find from a photo (SYC-396 PR 2.5; spec §5.2). The team narrows the search
@@ -48,7 +48,18 @@ export type FindOutcome =
   | { kind: "refused"; count: number; reason: string }
   | { kind: "not_a_cat"; count: number }
   | { kind: "matching_down"; count: number }
-  | { kind: "results"; count: number; compared: number; results: FindResult[] };
+  | {
+      kind: "results";
+      count: number;
+      compared: number;
+      results: FindResult[];
+      /**
+       * The team's photo, for the results page only (SYC-491): a 640px JPEG
+       * made from the RE-ENCODED photo, never the upload, so it carries no
+       * EXIF or GPS. Base64. Kept nowhere; null if it couldn't be made.
+       */
+      preview: string | null;
+    };
 
 export interface FindOptions {
   /**
@@ -131,7 +142,11 @@ export async function findFromPhoto(
       });
     }
     results.sort((a, b) => b.score - a.score || a.catId - b.catId);
-    return { kind: "results", count, compared: candidates.length, results };
+    const preview = await makeVariant(valid.buffer, "medium").then(
+      (b) => b.toString("base64"),
+      () => null,
+    );
+    return { kind: "results", count, compared: candidates.length, results, preview };
   } catch {
     // 6. Anything thrown (the service down, an answer we can't read).
     return { kind: "matching_down", count };

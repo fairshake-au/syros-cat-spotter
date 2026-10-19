@@ -33,7 +33,7 @@ import {
 } from "../middlewares/rateLimit";
 import { LESS_SURE, MATCHING_DOWN_WORDS, PERSON_CAP_WORDS, TEAM_CAP_WORDS, TOO_BIG_WORDS } from "../lib/teamPages/findPhotoPage";
 import { guardianOn, newColony, putInColony, RUN, signedPerson, type Signed } from "../test/roleKit";
-import { STRICT_CSP } from "../test/wideCsp";
+import { PHOTO_CSP, STRICT_CSP } from "../test/wideCsp";
 
 const KEY = "vitest-find-key-0123456789abcdef-0123456789";
 const PREFIX = `vt-findroute-${RUN}-`;
@@ -189,9 +189,50 @@ describe("the search", () => {
     expect(res.text).toContain("Possible");
     expect(res.text).toMatch(/<details class="unlikely"><summary>Show unlikely matches \(1\)<\/summary>/);
     expect(res.text).toContain("Compared with 3 cats");
-    expect(res.headers["content-security-policy"]).toBe(STRICT_CSP);
+    // SYC-491: the results answer alone allows data: pictures, for the team's own photo.
+    expect(res.headers["content-security-policy"]).toBe(PHOTO_CSP);
+    expect(res.text).not.toContain("<script");
     expect(res.headers["location"]).toBeUndefined();
     expect(matchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the team's photo beside the matches: 640px at most, with no EXIF, and not the upload's bytes", async () => {
+    const team = await teamMember("preview");
+    const withGps = await sharp({ create: { width: 1600, height: 1200, channels: 3, background: "#aa5500" } })
+      .jpeg()
+      .withMetadata({
+        exif: {
+          IFD0: { Copyright: "vitest fixture" },
+          GPS: { GPSLatitudeRef: "N", GPSLatitude: "37/1 26/1 24/1", GPSLongitudeRef: "E", GPSLongitude: "24/1 56/1 0/1" },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any,
+      })
+      .toBuffer();
+    expect((await sharp(withGps).metadata()).exif).toBeDefined();
+    const res = await search(team.cookie, { colony: String(colony) }, { bytes: withGps });
+    const m = /<img src="data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})" alt="Your photo"/.exec(res.text);
+    expect(m).not.toBeNull();
+    const shown = Buffer.from(m![1]!, "base64");
+    const meta = await sharp(shown).metadata();
+    expect(meta.exif).toBeUndefined();
+    expect(meta.width).toBeLessThanOrEqual(640);
+    expect(m![1]).not.toBe(withGps.toString("base64"));
+    // Exactly one data: picture, and never in a log line.
+    expect(res.text.match(/data:image/g)).toHaveLength(1);
+    for (const line of spies.logLines) expect(line).not.toContain(m![1]!.slice(0, 200));
+  });
+
+  it("every answer but the results keeps the strict header, with no data: pictures", async () => {
+    const team = await teamMember("strict");
+    matchMock.mockResolvedValue({ isCatPhoto: false, matches: [] });
+    const notCat = await search(team.cookie, { colony: String(colony) });
+    expect(notCat.status).toBe(422);
+    expect(notCat.headers["content-security-policy"]).toBe(STRICT_CSP);
+    const big = await search(team.cookie, { colony: String(colony) }, { bytes: Buffer.alloc(10 * 1024 * 1024 + 1, 1) });
+    expect(big.headers["content-security-policy"]).toBe(STRICT_CSP);
+    const page = await form(team.cookie, `?colony=${colony}`);
+    expect(page.headers["content-security-policy"]).toBe(STRICT_CSP);
+    for (const r of [notCat, big, page]) expect(r.text).not.toContain("data:image");
   });
 
   it("a missing area and colony is named next to the field, and uses no search", async () => {

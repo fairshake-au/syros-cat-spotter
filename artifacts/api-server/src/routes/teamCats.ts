@@ -384,7 +384,8 @@ router.post(
           .type("html")
           .send(await findFormHtml(person, filters, tie, { capped: capped ?? "person" }));
       case "not_a_cat":
-        return void res.type("html").send(
+        // 422, not 200: the POST's only 200 is the results page (test/wideCsp.ts PHOTO_CSP_ROUTES).
+        return void res.status(422).type("html").send(
           renderFindProblem({ ...common, words: "We couldn't see a cat in that photo. Try another photo of the cat.", gridLink: false }),
         );
       case "matching_down":
@@ -392,9 +393,18 @@ router.post(
       case "results": {
         const { cats } = await allTeamCats({ area: filters.area, colony: filters.colony, colours: filters.colours }, now);
         const cards = new Map(cats.map((c) => [c.id, c]));
-        return void res.type("html").send(
-          renderFindResults({ ...common, count: out.count, compared: out.compared, results: out.results, cards }),
-        );
+        const html = renderFindResults({
+          ...common,
+          count: out.count,
+          compared: out.compared,
+          results: out.results,
+          cards,
+          preview: out.preview,
+        });
+        // Only now, with the page built: the team's photo is a data: picture
+        // in this answer, so this answer alone allows them (SYC-491).
+        setTeamHeaders(res, { uploadedPhoto: true });
+        return void res.type("html").send(html);
       }
     }
   },
