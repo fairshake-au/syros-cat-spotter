@@ -253,6 +253,12 @@ export interface PublicSighting {
    * was. It says only that: never why, nor by whom.
    */
   photoHidden: boolean;
+  /**
+   * SYC-462: present, and true, only when the sighting's own photo was removed
+   * for good, so the app says "Photo removed." rather than the hidden tile.
+   * LEFT OUT otherwise, so every other payload is byte-for-byte unchanged.
+   */
+  photoRemoved?: true;
   createdAt: string;
 }
 
@@ -270,6 +276,8 @@ export function serialiseSighting(s: {
   extraPhotos?: { role: "first" | "face" | "body"; photoUrl: PublicPhotoUrl | null }[];
   /** Set from the same `hiddenPhotoIds` lookup that blanks `photoUrl`. */
   photoHidden: boolean;
+  /** SYC-462: from `removedPhotoIds`. */
+  photoRemoved?: boolean;
 }): PublicSighting {
   return {
     catId: s.catId,
@@ -279,6 +287,7 @@ export function serialiseSighting(s: {
     photoUrl: s.photoUrl,
     ...(s.extraPhotos?.length ? { extraPhotos: s.extraPhotos } : {}),
     photoHidden: s.photoHidden,
+    ...(s.photoRemoved ? { photoRemoved: true as const } : {}),
     createdAt: toPublicDay(s.createdAt),
   };
 }

@@ -483,6 +483,7 @@ export default function CatDetailScreen() {
                 <SightingPhotos
                   photoUrl={s.photoUrl}
                   photoHidden={s.photoHidden}
+                  photoRemoved={s.photoRemoved}
                   extraPhotos={s.extraPhotos}
                   createdAt={s.createdAt}
                   byline={bylineFor(s, t)}

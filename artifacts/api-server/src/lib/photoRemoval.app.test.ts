@@ -273,3 +273,22 @@ describe("end to end: removePhoto (the command's function), then every page", ()
     expect(JSON.stringify(mine.body)).not.toContain(cat.photoPublicId);
   });
 });
+
+describe("step 5b: the public app is told a photo was removed (photoRemoved)", () => {
+  it("a removed sighting photo says photoRemoved: true; other sightings don't carry the field", async () => {
+    const cat = await seedCat(null);
+    const gone = await resolvedSightingPhoto(cat.id);
+    const kept = await resolvedSightingPhoto(cat.id);
+    await hidePhoto(gone.photoId);
+    await markRemoved(gone.photoId, staff.id);
+    const r = await request(app).get(`/api/cats/${cat.id}`);
+    expect(r.status).toBe(200);
+    const sightings = r.body.sightings as { photoUrl: string | null; photoHidden: boolean; photoRemoved?: boolean }[];
+    const removed = sightings.filter((x) => x.photoRemoved === true);
+    expect(removed).toHaveLength(1);
+    expect(removed[0]).toMatchObject({ photoUrl: null, photoHidden: true });
+    const others = sightings.filter((x) => x.photoRemoved !== true);
+    expect(others.some((x) => x.photoUrl?.includes(kept.publicId))).toBe(true);
+    for (const x of others) expect(Object.keys(x)).not.toContain("photoRemoved");
+  });
+});

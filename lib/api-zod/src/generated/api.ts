@@ -151,6 +151,7 @@ export const GetCatResponse = zod.object({
   "photoUrl": zod.string().nullable()
 })).optional().describe('SYC-415. The spot\'s photos other than the one in `photoUrl`, in the\norder taken. Left out entirely when a sighting has none. A photo the\nteam hid has a null `photoUrl`.\n'),
   "photoHidden": zod.boolean().describe('SYC-44 PR 6.1 (report-an-issue.md D4). True while this sighting\'s\nown photo is hidden from the public (then `photoUrl` is null), so\nthe app shows \"Photo hidden while Syros Cats take a look.\" in its\nplace. It says only that a photo is hidden, never why or by whom.\n'),
+  "photoRemoved": zod.boolean().optional().describe('SYC-462. Present, and true, only when this sighting\'s own photo was\nremoved for good (it is hidden too, so `photoUrl` is null and\n`photoHidden` is true); the app then shows \"Photo removed.\" Left\nout otherwise.\n'),
   "createdAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).')
 }).describe('A sighting in a cat\'s public history: photo, spotter and date. No\nposition and no sighting id, which would give away upload order\n(cat-record-data-spine.md §6.4).\n')),
   "fansCount": zod.number().describe('Distinct devices that have spotted this cat'),

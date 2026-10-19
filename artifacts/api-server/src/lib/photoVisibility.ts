@@ -71,6 +71,21 @@ export async function hiddenPhotoIds(
 }
 
 /**
+ * Which of these photos were removed for good (SYC-462). Each is also in
+ * {@link hiddenPhotoIds}; this says the stronger thing, for the app's
+ * "Photo removed" tile. One batched query.
+ */
+export async function removedPhotoIds(ids: readonly number[], q: Queryable = db): Promise<Set<number>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Set();
+  const rows = await q
+    .select({ id: photosTable.id })
+    .from(photosTable)
+    .where(and(inArray(photosTable.id, unique), isNotNull(photosTable.removedAt)));
+  return new Set(rows.map((r) => r.id));
+}
+
+/**
  * **The only builder of a public photo address.** Null for a hidden photo,
  * and for a photo that isn't there (the `primaryPhotoId: 0` sentinel, or a
  * row that has gone).

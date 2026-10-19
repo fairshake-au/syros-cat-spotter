@@ -29,7 +29,7 @@ import {
   type Viewer,
 } from "../lib/catHelpers";
 import { notifyCatSpotters } from "../lib/notifications";
-import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl } from "../lib/photoVisibility";
+import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl, removedPhotoIds } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter, checkClaimLimit } from "../middlewares/rateLimit";
 import { safeError } from "../lib/logger";
@@ -242,6 +242,8 @@ router.get("/cats/:catId", async (req, res) => {
     ...sightings.map((r) => r.sighting.photoId),
     ...spotPhotoRows.map((r) => r.photoId),
   ]);
+  // SYC-462: covers removed for good, for the app's "Photo removed" tile.
+  const removed = await removedPhotoIds(sightings.map((r) => r.sighting.photoId));
 
   // Care timeline: the cat's own update history, newest first. Sighting-type
   // updates are excluded — the sightings list below already covers those, and
@@ -309,6 +311,7 @@ router.get("/cats/:catId", async (req, res) => {
           ),
           // SYC-44 PR 6.1: the app's "Photo hidden" tile (D4).
           photoHidden: photoId != null && hidden.has(photoId),
+          photoRemoved: photoId != null && removed.has(photoId),
           extraPhotos: (extrasBySighting.get(s.id) ?? []).map((e) => ({
             role: e.role as "first" | "face" | "body",
             photoUrl: publicPhotoUrl({ id: e.photoId, publicId: e.photoPublicId }, hidden),
