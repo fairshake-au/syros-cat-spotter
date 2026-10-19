@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
-import { pool } from "@workspace/db";
+import { db, photoVisibilityEventsTable, pool } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { TEAM_ORIGIN } from "./teamAuth/config";
 import app from "../app";
 import { hiddenPhotoIds } from "./photoVisibility";
 import { hidePhoto, seedCat, signedPerson, type Signed } from "../test/roleKit";
@@ -70,5 +72,50 @@ describe("T9/T18: a removed photo is gone from every address", () => {
     const r = await request(app).get(`/api/cats/${cat.id}`);
     expect(r.status).toBe(200);
     expect(JSON.stringify(r.body)).not.toContain(cat.photoPublicId);
+  });
+});
+
+const countEvents = async (photoId: number) =>
+  (await db.select().from(photoVisibilityEventsTable).where(eq(photoVisibilityEventsTable.photoId, photoId)))
+    .length;
+const post = (path: string, cookie: string) =>
+  request(app).post(path).set("Origin", TEAM_ORIGIN).set("Cookie", cookie);
+
+describe("T10: restoring a removed photo is refused (spec §6 item 2)", () => {
+  it("JSON: 409 REMOVED, and no event is written", async () => {
+    const cat = await seedCat(null);
+    await hidePhoto(cat.photoId);
+    await markRemoved(cat.photoId, staff.id);
+    const before = await countEvents(cat.photoId);
+    const r = await post(`/api/team/photos/${cat.photoPublicId}/restore`, staff.cookie).send({
+      cat: String(cat.id),
+    });
+    expect(r.status).toBe(409);
+    expect(r.body.code).toBe("REMOVED");
+    expect(await countEvents(cat.photoId)).toBe(before);
+  });
+
+  it("form: a plain page saying it was removed for good, and no event is written", async () => {
+    const cat = await seedCat(null);
+    await hidePhoto(cat.photoId);
+    await markRemoved(cat.photoId, staff.id);
+    const before = await countEvents(cat.photoId);
+    const r = await post(`/api/team/photos/${cat.photoPublicId}/restore`, staff.cookie)
+      .type("form")
+      .send({ cat: String(cat.id) });
+    expect(r.status).toBe(409);
+    expect(r.text).toContain("removed for good");
+    expect(r.text).toContain("can't be restored");
+    expect(await countEvents(cat.photoId)).toBe(before);
+  });
+
+  it("hiding a removed photo again writes nothing (it is hidden already)", async () => {
+    const cat = await seedCat(null);
+    await hidePhoto(cat.photoId);
+    await markRemoved(cat.photoId, staff.id);
+    const before = await countEvents(cat.photoId);
+    const r = await post(`/api/team/photos/${cat.photoPublicId}/hide`, staff.cookie).send({});
+    expect(r.status).toBe(409);
+    expect(await countEvents(cat.photoId)).toBe(before);
   });
 });

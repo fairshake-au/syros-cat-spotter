@@ -216,7 +216,9 @@ export type VisibilityOutcome =
   /** Already in that state (a second tab, or a double tap): nothing written. */
   | { kind: "already" }
   | { kind: "not_found" }
-  | { kind: "not_authorised" };
+  | { kind: "not_authorised" }
+  /** SYC-462: removed for good. It stays hidden and can't be restored. */
+  | { kind: "removed"; removedAt: Date };
 
 const CAPABILITY = { hide: "hide_photo", restore: "restore_photo" } as const;
 
@@ -238,11 +240,17 @@ export async function setPhotoVisibility(
 ): Promise<VisibilityOutcome> {
   if (!can(person, CAPABILITY[input.action])) return { kind: "not_authorised" };
   return db.transaction(async (tx) => {
-    const locked = await tx.execute<{ id: number }>(
-      sql`select id from photos where public_id = ${input.publicId} for update`,
+    const locked = await tx.execute<{ id: number; removed_at: Date | string | null }>(
+      sql`select id, removed_at from photos where public_id = ${input.publicId} for update`,
     );
     const photoId = locked.rows[0]?.id;
     if (photoId === undefined) return { kind: "not_found" } as const;
+    // SYC-462 spec §6 item 2: a removed photo is hidden for good (migration
+    // 0034's trigger refuses the event too). A hide falls through to "already".
+    const removedAt = locked.rows[0]!.removed_at;
+    if (removedAt !== null && input.action === "restore") {
+      return { kind: "removed", removedAt: new Date(removedAt) } as const;
+    }
     const newest = (await newestEvents([photoId], tx)).get(photoId);
     const hiddenNow = newest?.action === "hide";
     if ((input.action === "hide") === hiddenNow) return { kind: "already" } as const;
