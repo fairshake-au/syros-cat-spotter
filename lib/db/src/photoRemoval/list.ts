@@ -38,7 +38,7 @@ export async function listCatPhotos(q: pg.ClientBase, catId: number): Promise<Li
                       where h.photo_id = p.id and h.action = 'hide' and h.reason = 'privacy'
                         and h.id > coalesce((select max(r.id) from photo_visibility_events r
                                               where r.photo_id = p.id and r.action = 'restore'), 0))
-             or exists (select 1 from welfare_reports w where w.photo_id = p.id and w.reason = 'photo_private'))
+             or exists (select 1 from welfare_reports w where w.photo_id = p.id and w.kind = 'content' and w.reason = 'photo_private'))
               as hidden_for_privacy
        from photos p join ids on ids.id = p.id
       order by p.created_at desc, p.id desc`,

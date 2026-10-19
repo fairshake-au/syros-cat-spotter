@@ -1,4 +1,5 @@
 import type pg from "pg";
+import { ISLAND_ROLES } from "../schema/people";
 import { PERSON_ID_RE } from "./rules";
 
 // SYC-462 (spec §5.4): what state a photo is in, and whether the approver is
@@ -35,7 +36,7 @@ export async function photoState(q: pg.ClientBase, publicId: string, lock = fals
                         and h.id > coalesce((select max(r.id) from photo_visibility_events r
                                               where r.photo_id = p.id and r.action = 'restore'), 0))
              or exists (select 1 from welfare_reports w
-                         where w.photo_id = p.id and w.reason = 'photo_private')) as hidden_for_privacy
+                         where w.photo_id = p.id and w.kind = 'content' and w.reason = 'photo_private')) as hidden_for_privacy
        from photos p
       where p.public_id = $1
       ${lock ? "for update of p" : ""}`,
@@ -54,7 +55,7 @@ export async function photoState(q: pg.ClientBase, publicId: string, lock = fals
 
 /**
  * On the team now: joined (accepted_at set), not left, and holding staff or
- * management in force. The same conditions as people.ts's managerRecipient
+ * management (ISLAND_ROLES) in force. The same conditions as people.ts's managerRecipient
  * (isNull(leftAt), isNotNull(acceptedAt), scopeInForce()), written in SQL
  * because this CLI uses a plain pg client. Those two roles hold hide_photo,
  * restore_photo and remove_photo (api-server lib/capabilities.ts).
@@ -65,10 +66,10 @@ export async function isTeamMemberNow(q: pg.ClientBase, personId: string): Promi
     `select 1 from people p
        join person_scopes s on s.person_id = p.id
       where p.id = $1 and p.accepted_at is not null and p.left_at is null
-        and s.role in ('staff', 'management')
+        and s.role = any($2::text[])
         and (s.expires_at is null or s.expires_at > now())
       limit 1`,
-    [personId],
+    [personId, [...ISLAND_ROLES]],
   );
   return r.rowCount === 1;
 }
