@@ -878,7 +878,7 @@ export const ReportIssueBody = zod.object({
   "clientRef": zod.string().min(reportIssueBodyClientRefMin).max(reportIssueBodyClientRefMax),
   "reason": zod.enum(['photo_private', 'photo_inappropriate', 'photo_not_cat', 'wrong_cat', 'wrong_name', 'wrong_info', 'location_revealing', 'cat_died', 'other']),
   "catId": zod.number(),
-  "photoPublicId": zod.string().optional().describe('Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat; not allowed otherwise.'),
+  "photoPublicId": zod.string().optional().describe('Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat and other; not allowed otherwise.'),
   "note": zod.string().max(reportIssueBodyNoteMax).optional(),
   "language": zod.enum(['en', 'el', 'fr']).optional(),
   "turnstileToken": zod.string().max(reportIssueBodyTurnstileTokenMax).optional()

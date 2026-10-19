@@ -92,7 +92,7 @@ export const welfareReportsTable = pgTable(
     // keys; non-null exactly when kind = 'content'.
     reason: text("reason"),
     // The catalogue photo the report is about (`photos.id`). Required for the
-    // three photo reasons; optional for wrong_cat.
+    // three photo reasons; optional for wrong_cat and other (SYC-487).
     photoId: integer("photo_id").references(() => photosTable.id),
     // True when this report hid the photo (so a restore can tell its own).
     hiddenByReport: boolean("hidden_by_report").notNull().default(false),
