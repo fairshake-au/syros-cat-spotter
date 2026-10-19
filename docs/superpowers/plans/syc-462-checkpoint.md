@@ -27,5 +27,5 @@ Branch `claude/syc-462-photo-removal`, worktree `.claude/worktrees/adoring-bohr-
 
 ## Plan (19 Oct)
 - Written: `docs/superpowers/plans/syc-462-photo-removal.md` (12 tasks, inline Opus, mutation probes). Waiting on Samuel's plan approval.
-- Migration number: 0033 provisional; messages sent 19 Oct to SYC-396 PR 3.0, PR 2.4, PR 2.1, SYC-443 PR 2, SYC-44 PR 6.1 — replies pending. Confirm before Task 1.
+- Migration number AGREED: 0034_photo_removal (PR 2.4 #245 holds 0033_named_areas; others none). photoRemoved field agreed in principle with SYC-44 6.1 (their choice pending: inert app tile now, or SYC-246).
 - Branch rebased onto origin/main 4cad95e3 (force-pushed, own branch).
