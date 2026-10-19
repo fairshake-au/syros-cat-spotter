@@ -702,6 +702,32 @@ describe("the tidied forms (spec §7)", () => {
   });
 });
 
+describe("review probes (SYC-513 adversarial)", () => {
+  it("a revived cat: a blank-date death is recorded and shows; a death dated before the sighting is refused", async () => {
+    const c = await streetCat();
+    await sayLife(c.id, "deceased", new Date(Date.now() - 10 * DAY));
+    await met(c.id, phone("revived")); // 5 days ago
+    expect(await lifeNow(c.id)).toBe("street");
+    const early = await diedJson(c.id, { reason: "x", date: ymd(new Date(Date.now() - 7 * DAY)) });
+    expect([early.status, early.body.code]).toEqual([409, "SIGHTED_AFTER"]);
+    const ok = await died(c.id, { reason: "again" });
+    expect(ok.status).toBe(303);
+    expect(ok.headers["location"]).toBe(`/api/team/cats/${c.id}?done=died`);
+    expect(await lifeNow(c.id)).toBe("deceased");
+    expect((await page(c.id)).text).toContain(`<strong>${c.name} has died</strong>`);
+  });
+
+  it("orphaned home (owner link gone, claim stands): keep removes the claim and the cat stays dead", async () => {
+    const { c } = await ownedCat("orphan");
+    expect((await died(c.id)).status).toBe(303);
+    await db.update(catsTable).set({ ownerDeviceId: null }).where(eq(catsTable.id, c.id));
+    const res = await removeOwner(c.id, { reason: "x", status: "keep" });
+    expect([res.status, res.headers["location"]]).toEqual([303, `/api/team/cats/${c.id}?done=ownerRemovedKept#corrections`]);
+    expect(await lifeNow(c.id)).toBe("deceased");
+    expect(await withdrawals(c.id)).toHaveLength(1);
+  });
+});
+
 const guardians: Signed[] = [];
 afterAll(async () => {
   for (const g of guardians) {
