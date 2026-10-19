@@ -13,9 +13,9 @@ Plan: `docs/superpowers/plans/syc-44-report-an-issue.md` PR 6.1 (line 410).
 - [x] PhotoViewer component + T6-1 tile + T6-3 exclusions (027a8c18)
 - [x] cat page wiring, photoCaption helper, ReportIssueLink (d76b7ce9); app suite 1828/1828; 3 probes red
 - [x] strings en/el/fr (photoViewerSpottedBy, photoHiddenTile, reportIssue, reportIssuePhoto)
-- [ ] tests run, browser check 390/desktop en/el/fr, screenshots
+- [x] browser check 390/320/desktop en/el/fr with real data (scratch DB syc44_61_preview, API :8198, web :8199); screenshots in docs/screenshots/syc-44-pr-6-1/ (971d7970). Found+fixed: web screen-reader role (e7a71c68), Greek tile overflow at 320 (982e9332). Linear flag comment posted on SYC-44.
 - [ ] adversarial review (Sonnet, own worktree), fold in
 - [ ] draft PR, Linear comments, SYC-346 strings
 
 ## Next
-Linear flag comment on SYC-44, then browser check (390/desktop, en/el/fr), screenshots to docs/screenshots/syc-44-pr-6-1/.
+Sonnet adversarial review in its own worktree; fold in; re-run tests; draft PR; Linear (SYC-44 comment, SYC-346 strings, nits filed). Then drop scratch DB and stop :8198/:8199.
