@@ -46,3 +46,15 @@ Reviewer: an Opus subagent in its own worktree (`agent-a7f1f7973e0001ac7`), on h
 ## How each was handled
 
 See the PR description's "Review" section.
+
+---
+
+# Second pass at /ship: Sonnet critic, head 419b5b64, 19 Oct 2026
+
+Run in its own worktree. **No blockers.** It found no way to get the wider header or the team's photo onto any answer but the results page, and no leak of raw upload bytes, EXIF or GPS. The caps hold under concurrency: 130 parallel calls let at most 100 through. Each of the four review fixes went red when undone.
+
+1. **Should-fix: the strict-header test covered only 3 of the POST's error answers.** Mutation: adding the photo header to `matching_down`, `no_photos` or `too_many` was not caught. *Fixed: a table test covers every non-200 answer.*
+2. **Should-fix: the source guard didn't stop another file from using `TEAM_CSP_WITH_UPLOADED_PHOTO` or writing a `data:` image rule.** *Fixed: `refuse.source.test.ts` bans both outside `refuse.ts`.*
+3. **Nit: when the team's last search is raced, the people who lose the race still spend one of their own.** Red with 130 parallel calls: 30 people each lost one. The team's cap holds. *Accepted: rare, and the cost is one search for those people only.*
+4. **Nit: a search with a `tie` for a report that doesn't exist still ran and spent.** *Fixed: refused before any work, with the "report couldn't be found" page.*
+5. **Plausible nit: a person already over their cap still had their photo re-encoded and the reference photos read before being refused.** *Fixed: a free check of the counts first. The real count is still made in the gate.*
