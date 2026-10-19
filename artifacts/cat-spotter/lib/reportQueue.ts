@@ -16,12 +16,31 @@
  * Framework-free so the ordering rules are unit-testable.
  */
 import type { QueueStore } from './queueStore';
-import { isChallengeUnavailable, type ChallengeAction } from './challengeUnavailable';
+import type { ChallengeAction } from './challengeUnavailable';
+import {
+  BACKOFF_428_MS,
+  CHECK_DECLINED_SKIP_MS,
+  afterCheckFailure,
+  checkMessage,
+  clearCheck,
+  clearCheckWaits,
+  isCheckFailure,
+  isPermanentRefusal,
+  restingFromCheck,
+  sendWithFreshCheck,
+  statusOf,
+  type CheckFields,
+  type SendAttempt,
+} from './checkedSend';
+
+// The safety-check rules are shared with the "Report an issue" queue (SYC-44
+// PR 6.2): one copy, in lib/checkedSend.ts.
+export { BACKOFF_428_MS, CHECK_DECLINED_SKIP_MS, isPermanentRefusal };
 
 export type ReportSeverity = 'attention' | 'urgent';
 export type ReportLanguage = 'en' | 'el' | 'fr';
 
-export interface PendingReport {
+export interface PendingReport extends CheckFields {
   localId: string;
   /** Sent with the text, so a resend after a lost reply makes one report. */
   clientRef: string;
@@ -104,10 +123,6 @@ export interface ReportApi {
 }
 
 export const MAX_SERVER_FAILURES = 3;
-/** After an unanswered tap, leave that report alone for a few minutes. */
-export const CHECK_DECLINED_SKIP_MS = 3 * 60 * 1000;
-/** Wait after the 1st, 2nd, 3rd... consecutive 428 on one report; the last repeats. */
-export const BACKOFF_428_MS = [1, 5, 15, 30].map((m) => m * 60 * 1000);
 export const REMINDER_AFTER_MS = 24 * 60 * 60 * 1000;
 
 function randomId(): string {
@@ -173,23 +188,6 @@ export function isPendingReport(value: unknown): value is PendingReport {
   );
 }
 
-function statusOf(err: unknown): number | null {
-  const s = (err as { status?: unknown } | null)?.status;
-  return typeof s === 'number' ? s : null;
-}
-
-/**
- * A refusal that won't change on retry (the server read the request and said
- * no). Busy, gated or unreachable servers are retried for ever.
- */
-export function isPermanentRefusal(err: unknown): boolean {
-  const s = statusOf(err);
-  // 428 is "run the safety check again", never a refusal: no strike (SYC-170).
-  return (
-    s !== null && s >= 400 && s < 500 && s !== 401 && s !== 403 && s !== 408 && s !== 428 && s !== 429
-  );
-}
-
 function update(localId: string, patch: (r: PendingReport) => PendingReport) {
   return (list: PendingReport[]) => {
     let changed = false;
@@ -244,27 +242,14 @@ export async function syncReports(
   const ordered = [...all.filter((r) => r.status === 'photo'), ...all.filter((r) => r.status === 'queued')];
   for (const item of ordered) {
     let current = item;
-    // Someone just declined to tap for this one: leave it for a few minutes.
-    if (
-      current.status === 'queued' &&
-      current.checkDeclinedAt &&
-      now() - new Date(current.checkDeclinedAt).getTime() < CHECK_DECLINED_SKIP_MS
-    ) {
-      continue;
-    }
-    // Backing off after a 428.
-    if (current.status === 'queued' && current.nextTryAt && now() < new Date(current.nextTryAt).getTime()) {
-      continue;
-    }
+    // Someone just declined to tap for this one, or it's backing off after a 428.
+    if (current.status === 'queued' && restingFromCheck(current, now())) continue;
 
     if (current.status === 'queued') {
-      let sentToken = false;
+      const attempt: SendAttempt = { sentToken: false };
       try {
-        const sendText = async () => {
-          // A fresh token for every send, never reused and never stored.
-          const token = await deps.getToken('welfare_report', current.clientRef);
-          sentToken = Boolean(token);
-          return deps.api.submit({
+        const sendText = (token: string | null) =>
+          deps.api.submit({
             deviceId: deps.deviceId,
             clientRef: current.clientRef,
             severity: current.severity,
@@ -277,20 +262,13 @@ export async function syncReports(
             ...(token ? { turnstileToken: token } : {}),
             ...(current.email ? { email: current.email } : {}),
           });
-        };
-        let accepted: { publicId: string };
-        try {
-          accepted = await sendText();
-        } catch (first) {
-          // 428: the check wasn't good. If the first send carried a token (so a
-          // fresh one may well pass), run it once more and resend straight
-          // away, but only the first time round. With no token a resend can
-          // only meet the same 428 and spend one of the connection's ten
-          // reports an hour, so it waits for the back-off instead.
-          if (statusOf(first) !== 428 || !sentToken || (current.checks428 ?? 0) > 0) throw first;
-          accepted = await sendText();
-        }
-        const { publicId } = accepted;
+        // A fresh token per send; one immediate resend after a first 428.
+        const { publicId } = await sendWithFreshCheck(
+          current,
+          () => deps.getToken('welfare_report', current.clientRef),
+          sendText,
+          attempt,
+        );
         deps.onTextAccepted?.(current.localId);
         if (!current.hasPhoto) {
           await store.mutate(removeItem(current.localId), 'system');
@@ -301,44 +279,25 @@ export async function syncReports(
         current = { ...rest, status: 'photo', publicId, serverFailures: 0 };
         await store.mutate(
           update(current.localId, ({ email: _e, ...r }) => ({
-            ...r,
+            ...clearCheck(r),
             status: 'photo',
             publicId,
             serverFailures: 0,
-            checkUnavailable: undefined,
-            checkDeclinedAt: undefined,
-            checks428: undefined,
-            nextTryAt: undefined,
-            checkBlocked: undefined,
           })),
           'system',
         );
       } catch (err) {
-        if (isChallengeUnavailable(err) || statusOf(err) === 428) {
+        if (isCheckFailure(err)) {
           // The safety check didn't pass (a tap not made in time, or the
           // server still answers 428 after a resend, e.g. when no token could
           // be made): keep the report, no strike, and say so on the
-          // confirmation, and move on to the rest. An unanswered tap is
-          // remembered, so it isn't asked again for a few minutes.
-          const declinedAt = isChallengeUnavailable(err) ? new Date(now()).toISOString() : undefined;
+          // confirmation, and move on to the rest.
+          const at = now();
           await store
             .mutate(
-              update(current.localId, (r) => {
-                if (declinedAt) {
-                  return { ...r, checkUnavailable: true, checkBlocked: undefined, checkDeclinedAt: declinedAt };
-                }
-                // A 428: back off (1, 5, 15, 30 minutes, then 30 again), no strike.
-                const checks428 = (r.checks428 ?? 0) + 1;
-                const wait = BACKOFF_428_MS[Math.min(checks428, BACKOFF_428_MS.length) - 1]!;
-                return {
-                  ...r,
-                  checkUnavailable: true,
-                  // Only after a tokenless send that followed a failed script load.
-                  checkBlocked: !sentToken && Boolean(deps.scriptBlocked?.()),
-                  checks428,
-                  nextTryAt: new Date(now() + wait).toISOString(),
-                };
-              }),
+              update(current.localId, (r) =>
+                afterCheckFailure(r, err, { now: at, sentToken: attempt.sentToken, scriptBlocked: deps.scriptBlocked }),
+              ),
               'system',
             )
             .catch(() => undefined);
@@ -419,7 +378,8 @@ export function confirmationState(
   if (acceptedIds.has(localId) || item?.status === 'photo') return 'sent';
   if (item?.status === 'failed') return 'failed';
   if (syncing && item) return 'sending';
-  if (item?.checkUnavailable) return item.checkBlocked ? 'blocked' : 'check';
+  const check = checkMessage(item);
+  if (check) return check;
   return item?.busy ? 'busy' : 'queued';
 }
 
@@ -442,8 +402,7 @@ export function dueReminders(items: PendingReport[], now: Date): PendingReport[]
  * resting after an unanswered tap or a 428 goes out this time too.
  */
 export function clearWaits(list: PendingReport[]): PendingReport[] {
-  if (!list.some((r) => r.checkDeclinedAt || r.nextTryAt)) return list;
-  return list.map((r) => ({ ...r, checkDeclinedAt: undefined, nextTryAt: undefined }));
+  return clearCheckWaits(list);
 }
 
 /** Try again: refused reports go back in the queue with a fresh count. */
