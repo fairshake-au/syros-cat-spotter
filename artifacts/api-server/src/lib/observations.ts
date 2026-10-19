@@ -1130,6 +1130,9 @@ export async function writeObservation(
     // row a correction already replaced would stand up the row IT replaced
     // next to that correction.
     if (visitRetracting && target.kind === input.kind) {
+      // Held for the rest of the caller's transaction, so a correction or a
+      // second undo of the same row queues behind this one (second review).
+      await tx.execute(sql`select id from observations where id = ${target.id} for update`);
       const sameKind = await tx
         .select()
         .from(observationsTable)
