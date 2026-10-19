@@ -13,11 +13,16 @@ Branch: `claude/relaxed-sutherland-722f64` (renaming it was refused by the permi
 - Photo sheet reasons: photo_private, photo_inappropriate, photo_not_cat, wrong_cat, other (spec §3.2). Cat sheet: wrong_name, wrong_info, location_revealing, cat_died, wrong_cat, other (spec §3.1).
 - Reuses existing strings: reportCheckUnavailable, reportCheckBlocked, reportSending, reportBusy, reportTryAgain, reportDone.
 
+## Built (all committed)
+1. lib/checkedSend.ts shared; reportQueue.ts on it (35 tests unchanged).
+2. lib/issueQueue.ts + tests (T6-5, T6-6, T6-7).
+3. IssueQueueProvider (cat-spotter/pending-issues), IssueReminderBanner, lib/nativeReminder.ts, delete-my-data wipes issues.
+4. Strings en/el/fr (issue* block) + issueStrings.test.ts (T6-8, T6-4 strings).
+5. ReportIssueSheet + tests; links mounted on the cat page, SightingPhotos, main PhotoViewer; ?report=wrong_info.
+6. Full app suite 1928/1928 after the layout stub fix; typecheck clean.
+7. Mutation probes P1-P7 all red (P3 needed a direct guard test, added).
+
 ## Next
-1. lib/checkedSend.ts: shared token-per-send / 428 / ChallengeUnavailable rules; refactor reportQueue.ts onto it (its tests must stay green).
-2. lib/issueQueue.ts on QueueStore + tests (T6-6, T6-7).
-3. context/IssueQueueContext.tsx (key cat-spotter/pending-issues, lock, reminder, foreground gate) + banner.
-4. Strings en/el/fr + T6-8.
-5. components/report/ReportIssueSheet.tsx + T6-4, T6-5.
-6. Mount links on the cat page, SightingPhotos, main PhotoViewer.
-7. Full app suite, mutation probes, browser check, adversarial review, draft PR, Linear.
+- Browser check (scratch DB, api 8198, expo 8199), en/el/fr, 390px + desktop; screenshots docs/screenshots/syc-44-pr-6-2/.
+- Sonnet adversarial review in its own worktree; commit to docs/superpowers/plans/syc-44-pr-6-2-review.md.
+- Draft PR, Linear (SYC-44, SYC-346, SYC-305, deferred tickets).
