@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import {
   db,
   photosTable,
@@ -47,13 +47,27 @@ async function newestEvents(
   return out;
 }
 
-/** Which of these photos are hidden from the public. One batched query. */
+/**
+ * Which of these photos are hidden from the public: their newest event is a
+ * hide, or they were removed for good (SYC-462 spec §4.5: removed implies
+ * hidden, so every route that asks this treats a removed photo as hidden,
+ * whatever its log says). Two batched queries.
+ */
 export async function hiddenPhotoIds(
   ids: readonly number[],
   q: Queryable = db,
 ): Promise<Set<number>> {
   const newest = await newestEvents(ids, q);
-  return new Set([...newest].filter(([, e]) => e.action === "hide").map(([id]) => id));
+  const out = new Set([...newest].filter(([, e]) => e.action === "hide").map(([id]) => id));
+  const unique = [...new Set(ids)];
+  if (unique.length > 0) {
+    const removed = await q
+      .select({ id: photosTable.id })
+      .from(photosTable)
+      .where(and(inArray(photosTable.id, unique), isNotNull(photosTable.removedAt)));
+    for (const r of removed) out.add(r.id);
+  }
+  return out;
 }
 
 /**
