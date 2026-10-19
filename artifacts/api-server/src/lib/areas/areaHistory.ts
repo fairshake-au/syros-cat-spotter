@@ -15,9 +15,12 @@ import { SEED_AREAS, type NamedArea } from "./seedAreas";
 /** The `named_area` part of the history, and nothing else. */
 const areaRows = eq(mappingEventsTable.subjectKind, "named_area");
 
-/** How many changes the list has had: the current version. */
-export async function areaEventCount(): Promise<number> {
-  const [row] = await db
+/**
+ * How many changes the list has had: the current version. Takes the caller's
+ * transaction, so the cache reads the list and its version in one snapshot.
+ */
+export async function areaEventCount(tx: Pick<typeof db, "select"> = db): Promise<number> {
+  const [row] = await tx
     .select({ n: sql<number>`count(*)::int` })
     .from(mappingEventsTable)
     .where(areaRows);
@@ -57,7 +60,11 @@ export async function namedAreasAt(at: Date): Promise<{ version: number; areas: 
     .select({ subjectId: mappingEventsTable.subjectId, after: mappingEventsTable.after })
     .from(mappingEventsTable)
     .where(and(areaRows, sql`date_trunc('milliseconds', ${mappingEventsTable.at}) <= ${at.toISOString()}::timestamptz`))
-    .orderBy(mappingEventsTable.at, mappingEventsTable.id);
+    // By id, not by `at`: `at` is when the writing transaction began, and a
+    // change that waited on another's lock can carry the earlier stamp. The
+    // id is taken at insert, after the lock, so it follows the real order
+    // (review of #245, F5).
+    .orderBy(mappingEventsTable.id);
   if (rows.length === 0) return { version: 0, areas: SEED_AREAS.map((a) => ({ ...a })) };
 
   const latest = new Map<number, NamedArea & { retired: boolean }>();
@@ -95,7 +102,7 @@ export async function areaChanges(limit = 50): Promise<AreaChange[]> {
     .from(mappingEventsTable)
     .leftJoin(peopleTable, eq(peopleTable.id, mappingEventsTable.personId))
     .where(areaRows)
-    .orderBy(desc(mappingEventsTable.at), desc(mappingEventsTable.id))
+    .orderBy(desc(mappingEventsTable.id))
     .limit(limit);
   return rows.map((r) => ({
     at: r.at,

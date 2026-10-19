@@ -76,24 +76,25 @@ const TARGET_MODULES: Record<string, string> = {
 /**
  * Team-only readers a route may call without a Visible, because the route
  * calls them only behind an island-only capability, so a cat guardian never
- * reaches them. Each says why, and the test below holds every call to that
- * capability.
+ * reaches them. Each says why, and the test below holds every call to one of
+ * its capabilities (a module several pages call names each page's, e.g. the
+ * reports' view_reports beside edit_named_areas once they call namedAreasAt).
  */
-const ISLAND_ONLY_MODULES: Record<string, { why: string; fns: string[]; capability: string }> = {
+const ISLAND_ONLY_MODULES: Record<string, { why: string; fns: string[]; capabilities: string[] }> = {
   "lib/recentGuardianChanges.ts": {
     why: "the team's \"Recent changes by cat guardians\" (SYC-209 PR 4.3), the whole island's by design",
     fns: ["recentGuardianChanges"],
-    capability: "view_guardian_changes",
+    capabilities: ["view_guardian_changes"],
   },
   "lib/areas/areaHistory.ts": {
     why: "the named areas' own history (SYC-396 PR 2.4): area centres and who changed them, never a site or a colony",
     fns: ["namedAreasAt", "areaChanges"],
-    capability: "edit_named_areas",
+    capabilities: ["edit_named_areas"],
   },
   "lib/areas/areaWrites.ts": {
     why: "the only writer of named_areas and its history rows (SYC-396 PR 2.4); the team's list, island-wide by design",
     fns: ["changeArea"],
-    capability: "edit_named_areas",
+    capabilities: ["edit_named_areas"],
   },
 };
 
@@ -348,11 +349,12 @@ describe("island-only readers are called only behind their capability", () => {
     let seen = 0;
     for (const file of routeFiles) {
       const src = stripComments(read(join("routes", file)));
-      for (const { fns, capability } of Object.values(ISLAND_ONLY_MODULES)) {
+      for (const { fns, capabilities } of Object.values(ISLAND_ONLY_MODULES)) {
         for (const fn of fns) {
           for (const call of src.matchAll(new RegExp(`\\b${fn}\\(`, "g"))) {
             seen++;
-            expect(guardedCall(src, call.index, capability), `${file}: ${fn}() at offset ${call.index} without ${capability}`).toBe(true);
+            const ok = capabilities.some((cap) => guardedCall(src, call.index, cap));
+            expect(ok, `${file}: ${fn}() at offset ${call.index} without ${capabilities.join(" or ")}`).toBe(true);
           }
         }
       }

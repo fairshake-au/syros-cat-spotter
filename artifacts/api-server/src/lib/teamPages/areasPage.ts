@@ -195,14 +195,28 @@ function historyList(history: readonly AreaChange[]): string {
   );
 }
 
+/**
+ * Can a problem be shown beside its own form? Not when the area it was about
+ * is no longer listed (retired meanwhile), nor for a form the page doesn't
+ * have: then it goes at the top (review of #245, F3).
+ */
+function placed(o: AreasPageOptions): boolean {
+  const again = o.again;
+  if (!again) return true;
+  if (again.op === "add") return again.field !== "area";
+  return o.areas.some((a) => a.key === again.key);
+}
+
 export function renderAreasPage(o: AreasPageOptions): string {
   const done = o.done !== undefined ? AREAS_DONE[o.done] : undefined;
+  const loose = !placed(o) ? `<p class="warn" role="alert">${esc(o.again!.message)}</p>` : "";
   return renderPage({
     title: "Areas",
     active: null,
     personName: o.personName,
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
+      loose +
       '<p class="hint">A place belongs to the area whose centre is nearest. More than 2 km from every centre is Off Syros. ' +
       "Place labels and the Cats filters use this list within a minute of a change.</p>" +
       addForm(o) +

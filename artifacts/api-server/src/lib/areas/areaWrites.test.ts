@@ -18,8 +18,11 @@ import { areaByKey, areaFor, areasVersion, currentAreas, loadAreas, SEED_AREAS }
 const RUN = crypto.randomBytes(3).toString("hex");
 const key = (s: string) => `vt-${RUN}-${s}`;
 const name = (s: string) => `VT ${RUN} ${s}`;
-// Off Syros today: about 4 km from Fabrika, the nearest seed centre.
+// Off Syros today: about 4 km from Fabrika, the nearest seed centre. Each
+// areas test file has its own point, kilometres apart.
 const SEA = { lat: 37.365, lng: 24.982 };
+/** Two changes in one millisecond would share a moment; keep them apart. */
+const tick = () => new Promise((r) => setTimeout(r, 5));
 
 let person: { id: string };
 
@@ -89,6 +92,7 @@ describe("changeArea", () => {
   it("moves a centre: namedAreasAt before the move gives the old centre, after it the new one", async () => {
     const k = key("move");
     await changeArea(person, { kind: "add", key: k, name: name("Move"), ...SEA });
+    await tick();
     await changeArea(person, { kind: "move", key: k, lat: 37.366, lng: 24.981 });
     // This server sees it at once: the old centre is now nearest the moved one.
     expect(areaFor(SEA.lat, SEA.lng)).toMatchObject({ key: k, lat: 37.366, lng: 24.981 });
@@ -122,6 +126,7 @@ describe("changeArea", () => {
   it("a retired area drops out of the list now, but stays in namedAreasAt for earlier moments", async () => {
     const k = key("ret");
     await changeArea(person, { kind: "add", key: k, name: name("Ret"), ...SEA });
+    await tick();
     await changeArea(person, { kind: "retire", key: k });
     expect(areaByKey(k)).toBeUndefined();
     expect(currentAreas().some((a) => a.key === k)).toBe(false);

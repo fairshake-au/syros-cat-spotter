@@ -7,12 +7,14 @@ import * as here from "./namedAreas";
 // SYC-396 PR 2.4 (plan Task 2.4.2): the named-areas cache. `here` plays one
 // server; a second copy of the module, loaded after vi.resetModules(), plays
 // the server that makes the change. Areas written here use this run's own
-// key and sit in the sea off Syros's south-east corner (see areaWrites.test.ts).
+// key and sit in the sea off Syros's south-west corner (see areaWrites.test.ts).
 
 const RUN = crypto.randomBytes(3).toString("hex");
 const K = `vt-${RUN}-cache`;
-const SEA = { lat: 37.365, lng: 24.982 };
-const MOVED = { lat: 37.366, lng: 24.981 };
+// Its own point (each areas test file has one, kilometres apart): the sea off
+// the south-west corner, about 3.7 km from Posidonia.
+const SEA = { lat: 37.362, lng: 24.863 };
+const MOVED = { lat: 37.363, lng: 24.864 };
 
 type Areas = typeof here;
 let other: Areas;

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { pool } from "@workspace/db";
 import app from "../app";
@@ -9,13 +9,15 @@ import { isOpenMapLink } from "../test/openMapLink";
 
 // SYC-396 PR 2.4 (plan Task 2.4.3; dashboard §3.3): the Areas page. Team-only
 // (edit_named_areas). Areas written here use this run's own keys and sit in
-// the sea off Syros's south-east corner, more than 2 km from every seed
+// the sea off Syros's north-east corner, more than 2 km from every seed
 // centre; the seed rows are never changed (see areaWrites.test.ts).
 
 const KEY = "vitest-areas-key-0123456789abcdef-0123456789";
 const k = (s: string) => `vt-${RUN}-${s}`;
 const nm = (s: string) => `VT ${RUN} ${s}`;
-const SEA = { lat: "37.36500", lng: "24.98200" };
+// Its own point: the sea off the north-east corner, about 5.5 km from Chalandriani.
+const SEA = { lat: "37.51500", lng: "24.98500" };
+const NUM = { lat: 37.515, lng: 24.985 };
 
 let team: Signed;
 let guardian: Signed;
@@ -59,9 +61,9 @@ describe("the Areas page", () => {
 
     const ren = await send(team.cookie, { op: "rename", key, name: nm("Paged") });
     expect(ren.headers["location"]).toBe("/api/team/areas?done=renamed");
-    const move = await send(team.cookie, { op: "move", key, lat: "37.36600", lng: "24.98100" });
+    const move = await send(team.cookie, { op: "move", key, lat: "37.51600", lng: "24.98400" });
     expect(move.headers["location"]).toBe("/api/team/areas?done=moved");
-    expect(areaByKey(key)).toMatchObject({ name: nm("Paged"), lat: 37.366, lng: 24.981 });
+    expect(areaByKey(key)).toMatchObject({ name: nm("Paged"), lat: 37.516, lng: 24.984 });
 
     // Retire asks first, and changes nothing until Yes.
     const sure = await send(team.cookie, { op: "retire", key });
@@ -114,7 +116,7 @@ describe("the Areas page", () => {
     expect(nameAt - errAt).toBeLessThan(300);
     expect(res.text).toContain('<details open><summary>Add an area</summary>');
     expect(res.text).toContain(`value="${k("empty")}"`);
-    expect(res.text).toContain('value="37.36500"');
+    expect(res.text).toContain('value="37.51500"');
     expect(areaByKey(k("empty"))).toBeUndefined();
   });
 
@@ -123,6 +125,34 @@ describe("the Areas page", () => {
     expect(res.status).toBe(400);
     expect(res.text).toContain("That centre isn&#39;t on Syros. Check the longitude.");
     expect(res.text).toContain('id="add-lng" name="lng" value="25.33" inputmode="decimal" aria-invalid="true"');
+  });
+
+  it("retire asks first even for an area this server's list hasn't seen yet (review F1)", async () => {
+    // Another server: a second copy of the module, with its own cache and pool.
+    vi.resetModules();
+    const otherServer = await import("../lib/areas/areaWrites");
+    const otherDb = await import("@workspace/db");
+    await otherServer.changeArea({ id: team.id }, { kind: "add", key: k("fresh"), name: nm("Fresh"), ...NUM });
+    await otherDb.pool.end();
+    const sure = await send(team.cookie, { op: "retire", key: k("fresh") });
+    expect(sure.status).toBe(200);
+    expect(sure.text).toContain(`Retire ${nm("Fresh")}?`);
+    const ret = await send(team.cookie, { op: "retire", key: k("fresh"), confirm: "1" });
+    expect(ret.headers["location"]).toBe("/api/team/areas?done=retired");
+  });
+
+  it("a refusal about an area no longer listed, or a form the page doesn't send, still says why (review F3)", async () => {
+    await send(team.cookie, { op: "add", key: k("gone"), name: nm("Gone"), ...SEA });
+    await send(team.cookie, { op: "retire", key: k("gone"), confirm: "1" });
+    const ren = await send(team.cookie, { op: "rename", key: k("gone"), name: nm("Back") });
+    expect(ren.status).toBe(400);
+    expect(ren.text).toContain(`${nm("Gone")} has been retired.`);
+    const retire = await send(team.cookie, { op: "retire", key: k("gone") });
+    expect(retire.status).toBe(400);
+    expect(retire.text).toContain("There is no such area, or it has already been retired.");
+    const bogus = await send(team.cookie, { op: "bogus" });
+    expect(bogus.status).toBe(400);
+    expect(bogus.text).toContain("That form wasn&#39;t one this page sends.");
   });
 
   it("is reachable: the Cats filters link it beside the area select", async () => {

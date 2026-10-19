@@ -38,27 +38,43 @@ let cache: Cache | null = null;
 let reloading: Promise<void> | null = null;
 
 /**
+ * Each load takes a number when it starts. A load writes the cache only if no
+ * later-started load has written it already, so a slow background reload that
+ * began before a change can never put the old list back (review of #245, F2).
+ */
+let started = 0;
+let written = 0;
+
+/**
  * Reads the areas still in use, in the order they were added, and the
- * version. On failure, keeps whatever list it had and logs a warning.
+ * version, in one read-only snapshot, so the two always agree (review F4).
+ * On failure, keeps whatever list it had and logs a warning.
  */
 export async function loadAreas(): Promise<void> {
+  const mine = ++started;
   try {
-    const [rows, version] = await Promise.all([
-      db
-        .select({
-          key: namedAreasTable.key,
-          name: namedAreasTable.name,
-          lat: namedAreasTable.lat,
-          lng: namedAreasTable.lng,
-        })
-        .from(namedAreasTable)
-        .where(isNull(namedAreasTable.retiredAt))
-        .orderBy(asc(namedAreasTable.id)),
-      areaEventCount(),
-    ]);
+    const { rows, version } = await db.transaction(
+      async (tx) => {
+        const rows = await tx
+          .select({
+            key: namedAreasTable.key,
+            name: namedAreasTable.name,
+            lat: namedAreasTable.lat,
+            lng: namedAreasTable.lng,
+          })
+          .from(namedAreasTable)
+          .where(isNull(namedAreasTable.retiredAt))
+          .orderBy(asc(namedAreasTable.id));
+        return { rows, version: await areaEventCount(tx) };
+      },
+      { isolationLevel: "repeatable read", accessMode: "read only" },
+    );
+    if (mine < written) return;
+    written = mine;
     cache = { areas: Object.freeze(rows), version, loadedAt: Date.now() };
   } catch (err) {
     logger.warn({ err }, "named areas: reload failed; keeping the last good list");
+    if (mine < written) return;
     // Try again after another TTL, not on every call.
     cache = cache ? { ...cache, loadedAt: Date.now() } : { areas: SEED_AREAS, version: 0, loadedAt: Date.now() };
   }
@@ -117,4 +133,6 @@ export const areaByKey = (key: unknown): NamedArea | undefined =>
 export function _resetAreasCacheForTests(): void {
   cache = null;
   reloading = null;
+  started = 0;
+  written = 0;
 }

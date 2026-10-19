@@ -110,8 +110,13 @@ router.post("/team/areas", ...formRoute("edit_named_areas"), async (req: Request
   } else if (op === "rename") {
     change = { kind: "rename", key, name: values.name };
   } else if (op === "retire") {
-    const area = currentAreas().find((a) => a.key === key);
-    if (area && str(body["confirm"]) !== "1" && !wantsJson(req)) {
+    if (str(body["confirm"]) !== "1" && !wantsJson(req)) {
+      // Always ask first, from the list as the database has it now: this
+      // server's copy may not have seen an area another server just added
+      // (review of #245, F1).
+      await loadAreas();
+      const area = currentAreas().find((a) => a.key === key);
+      if (!area) return refuse("area", "There is no such area, or it has already been retired.");
       return void res.type("html").send(
         renderConfirmPage({
           title: `Retire ${area.name}?`,
