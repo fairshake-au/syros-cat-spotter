@@ -25,8 +25,13 @@ Plan: `docs/superpowers/plans/syc-396-phases-2-4.md`, "PR 2.5" (Tasks 2.5.1, 2.5
 - [x] Told the Home follow-ups session (#247/#248 land first; I rebase) and the PR 2.2 session (layout.ts and the walk TABLE are shared).
 - Note: an early `pkill -f dist/index.mjs` matched by name and may have stopped another session's preview server (unknown). Since then, stopped by PID only.
 
+- [x] Rebased on main (#247, #248). SYC-491 option 2 built (af1d9e5f): photo beside the matches, data: on the results answer only; probes red.
+- [x] Opus review done (docs/reviews/syc-396-pr-2-5-adversarial-review.md); findings 1, 2, 4, 5 fixed (75b5fc80) with probes red; finding 3 -> SYC-496 decision.
+- [x] Affected set 15 files / 296 tests green; typecheck clean. Scratch preview DB dropped; servers stopped by PID.
+
 ## Next
-- [ ] Opus adversarial review (own worktree): RUNNING, started ~01:23 UTC 19 Oct. Fold findings in, re-run named tests.
-- [ ] Full api-server suite: RUNNING (scratchpad/full.log). Quote counts in the PR.
-- [ ] Comment on SYC-396 with the PR, once the review is folded in.
-- [ ] Live probe on test site after publish, with heads-up first
+- [ ] Full suite on the final tree (running), then update the PR body (scratchpad/pr-body.md) and push.
+- [ ] Comment on SYC-396 with the PR. Leave as draft for Samuel's /ship.
+- [ ] Rebase again when #250 / #237 merge (layout.ts; T13 photoData source test).
+- [ ] SYC-493 live probe after publish, with a heads-up first.
+- Leftovers for Samuel: empty worktree syc-396-pr-2-5 + branch claude/syc-396-pr-2-5; reviewer worktree agent-a7f1f7973e0001ac7 (untracked review notes).
