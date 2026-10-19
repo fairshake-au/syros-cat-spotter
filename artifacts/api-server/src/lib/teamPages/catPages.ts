@@ -219,6 +219,29 @@ function guardianMarkNotice(v: TeamCatView, byId: Map<number, TeamStatement>, sh
   );
 }
 
+/**
+ * "{name} has died" (SYC-513, spec §6): at the top of the summary when the
+ * cat's status is "No longer with us" and nothing disagrees. A cat guardian's
+ * mark in the last 30 days has its own notice instead, so the page never says
+ * the same thing twice.
+ */
+function deathNotice(v: TeamCatView, byId: Map<number, TeamStatement>, shown: Shown): string {
+  const life = v.records.lifeStatus;
+  if (life.value !== "deceased" || life.conflictingStatementIds.length > 0) return "";
+  if (v.recentGuardianMark?.status === "deceased") return "";
+  const id = life.supportingStatementIds[0];
+  const s = id === undefined ? undefined : byId.get(id);
+  if (!s) return "";
+  const happened = day(s.observedAt) !== day(s.createdAt) ? `, about ${time(s.observedAt, day(s.observedAt))}` : "";
+  return (
+    `<p class="notice" role="note"><strong>${esc(v.cat.name)} has died</strong>${happened}. ` +
+    `Recorded by ${esc(byWhom(s))} on ${time(s.createdAt, day(s.createdAt))}.` +
+    (s.reason ? ` How we know: ${esc(s.reason)}.` : "") +
+    ` If this is a mistake, use <strong>Mark wrong</strong> on it in the history. ` +
+    `<a href="${statementHref(s.id, shown)}">Go to it</a></p>`
+  );
+}
+
 /** Today on Syros, for a date box's max. */
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
 
@@ -367,7 +390,12 @@ const DONE: Record<string, string> = {
   colony: "Saved. The colony is added to the history below.",
   colonyOut: "Saved. The cat is out of its colony. This is added to the history below.",
   colonyAlready: "The cat was already there, so nothing was changed.",
+  died: "Saved. The cat is recorded as no longer with us.",
+  diedAlready: "This cat is already recorded as no longer with us. Nothing was changed.",
 };
+
+/** The messages that sit at the top of the page, not in "Update this cat". */
+const TOP_DONE = new Set(["died", "diedAlready"]);
 
 /** What the page says beside a photo after Hide or Restore (PR 6). */
 const PHOTO_DONE: Record<string, string> = {
@@ -478,18 +506,22 @@ function correctionForms(
 ): string {
   const base = `/api/team/cats/${v.cat.id}`;
   const forms: string[] = [];
+  // Recorded as died and nothing disagrees: no "This cat has died" button,
+  // and Remove owner offers only "Still no longer with us" (SYC-513, spec §7).
+  const dead =
+    v.records.lifeStatus.value === "deceased" && v.records.lifeStatus.conflictingStatementIds.length === 0;
   if (may("set_life_status")) {
     forms.push(
       `<details><summary>Update where the cat lives</summary><form method="post" action="${base}/life-status">` +
         '<fieldset><legend class="label">The cat…</legend>' +
-        lifeChoices("status", "ls", null) +
+        lifeChoices("status", "ls", null, ["street", "homed", "in_care"]) +
         "</fieldset>" +
         // Owned cat (spec §7, SYC-362 D2): no box. Saving anything but "has a
         // home" asks first, on its own page, before the owner is removed.
         ((v.owner.has || v.owner.orphanedHome) && may("remove_owner")
           ? '<p class="hint">This cat has an owner. Saving anything but “Has a home” asks you first whether to remove the owner.</p>'
           : "") +
-        dateInput("ls-date", "Date it happened", "(needed for “No longer with us”; leave blank for today)") +
+        dateInput("ls-date", "Date it happened", "(leave blank for today)") +
         reasonInput("ls-why") +
         '<button type="submit">Save</button></form></details>',
     );
@@ -523,12 +555,22 @@ function correctionForms(
     forms.push(
       `<details><summary>Remove owner</summary><form method="post" action="${base}/remove-owner">` +
         '<p class="hint">Ends this claim. The owner stops seeing the exact spot and getting alerts. Nobody is told.</p>' +
-        '<fieldset><legend class="label">The cat now…</legend>' +
-        lifeChoices("status", "ro", null, ["street", "in_care", "deceased"], "street") +
-        "</fieldset>" +
-        dateInput("ro-date", "Date it happened", "(needed for “No longer with us”)") +
+        (dead
+          ? '<fieldset><legend class="label">The cat now…</legend>' +
+            '<label class="choice" for="ro-keep"><input type="radio" id="ro-keep" name="status" value="keep" required checked> Still no longer with us</label>' +
+            "</fieldset>"
+          : '<fieldset><legend class="label">The cat now…</legend>' +
+            lifeChoices("status", "ro", null, ["street", "in_care"], "street") +
+            "</fieldset>" +
+            '<p class="hint">If the cat has died, use “This cat has died” instead.</p>' +
+            dateInput("ro-date", "Date it happened", "(leave blank for today)")) +
         reasonInput("ro-why") +
         '<button type="submit" class="risky">Remove owner</button></form></details>',
+    );
+  }
+  if (may("set_life_status") && !dead) {
+    forms.push(
+      `<form method="get" action="${base}/died" class="diedform"><button type="submit">This cat has died</button></form>`,
     );
   }
   if (forms.length === 0) return notice;
@@ -709,7 +751,8 @@ export function renderCatPage(
       ? `<p class="notice" role="status">${esc(DONE[opts.done]!)}</p>`
       : "";
   const atStatement = opts.at !== undefined && v.history.some((h) => h.id === opts.at);
-  const formsNotice = atStatement ? "" : notice;
+  const topDone = opts.done !== undefined && TOP_DONE.has(opts.done);
+  const formsNotice = atStatement || topDone ? "" : notice;
   const byId = new Map(v.history.map((s) => [s.id, s]));
   // The history is newest first. After a correction to an older statement
   // the page lands on it, so then every statement is shown.
@@ -737,6 +780,8 @@ export function renderCatPage(
   const summary =
     main +
     (cat.description ? `<p>${esc(cat.description)}</p>` : "") +
+    (topDone ? notice : "") +
+    deathNotice(v, byId, shown) +
     guardianMarkNotice(v, byId, shown) +
     renderCatFacts(v, now) +
     sightingsMap(v) +

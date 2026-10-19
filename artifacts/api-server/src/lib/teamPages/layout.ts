@@ -265,6 +265,9 @@ input[type=date]{max-width:220px}
 .fixes summary,.statement summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .fixes details[open]{padding-bottom:12px}
 .fixes form,.statement form{margin:4px 0 0}
+.fixes form.diedform{margin:20px 0 4px}
+.fixes form.diedform button{width:100%}
+.photo.catmain.diedphoto{max-height:140px}
 fieldset{border:0;margin:0 0 8px;padding:0}
 legend{padding:0}
 .choice{display:flex;align-items:center;gap:10px;min-height:44px;font-size:16px}

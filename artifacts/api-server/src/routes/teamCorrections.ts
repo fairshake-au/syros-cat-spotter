@@ -9,6 +9,7 @@ import {
   correctAppearance,
   isAppearanceKind,
   NAME_MAX,
+  recordDeath,
   recordTeamStatement,
   catOwnerState,
   removeOwnerAndSay,
@@ -19,7 +20,7 @@ import {
 import { placeCats } from "../lib/colonyCats";
 import { listLikelyForReview } from "../lib/likelyReview";
 import { listColourCheck } from "../lib/colourCheck";
-import { syrNumber } from "../lib/teamCatView";
+import { syrNumber, teamCatView, type TeamCatView } from "../lib/teamCatView";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import {
   requireOrigin,
@@ -35,7 +36,8 @@ import { renderPage, type NavKey } from "../lib/teamPages/layout";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 import { renderLikelyPage } from "../lib/teamPages/likelyPage";
 import { renderConfirmPage } from "../lib/teamPages/confirm";
-import { LIFE } from "../lib/teamPages/catPages";
+import { LIFE, renderNoSuchCat } from "../lib/teamPages/catPages";
+import { renderDiedPage } from "../lib/teamPages/diedPage";
 import { renderColourCheckPage, renderCorrectAgain } from "../lib/teamPages/appearancePage";
 import { can, type Capability, type CapabilityTarget } from "../lib/capabilities";
 import { catTarget } from "../lib/capabilityTargets";
@@ -87,10 +89,10 @@ const dateField = z.preprocess(
  * Back to the cat page after a form. `statement`: the history row the page
  * should land on (and show its message beside), after a correction.
  */
-const catPage = (catId: number, done?: string, statement?: number) =>
+const catPage = (catId: number, done?: string, statement?: number, topOfPage = false) =>
   `/api/team/cats/${catId}${done ? `?done=${encodeURIComponent(done)}` : ""}` +
   `${statement != null ? `${done ? "&" : "?"}s=${statement}` : ""}` +
-  `#${statement != null ? `s-${statement}` : "corrections"}`;
+  (topOfPage ? "" : `#${statement != null ? `s-${statement}` : "corrections"}`);
 
 const fieldsOf = (err: z.ZodError) => [...new Set(err.issues.map((i) => i.path.join(".")))];
 
@@ -106,6 +108,17 @@ export function observedAtFor(date: string | undefined, now = new Date()): Date 
   if (!date) return now;
   const midday = new Date(`${date}T12:00:00Z`);
   return midday.getTime() > now.getTime() ? now : midday;
+}
+
+/**
+ * When a death was true (SYC-513, spec §4). Blank, or today's date, is "right
+ * now": a sighting earlier today, before the news reached the team, is not
+ * evidence the cat is alive now, and saving "now" never wrongly brings a cat
+ * back. An earlier date is saved the way every other date is.
+ */
+export function deathObservedAt(date: string | undefined, now = new Date()): Date {
+  if (!date || date === athensToday(now)) return now;
+  return observedAtFor(date, now);
 }
 
 /** A short page saying what was wrong, by field name only, with a way back. */
@@ -325,6 +338,111 @@ router.post(
   },
 );
 
+// ── This cat has died (SYC-513, docs/specs/mark-a-cat-as-died.md) ──────────
+
+const DiedForm = z.object({ reason: reasonField, date: dateField });
+
+const dayWords = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/Athens" });
+
+/** Is the cat recorded as died, with nothing disagreeing? */
+const isRecordedDead = (v: TeamCatView) =>
+  v.records.lifeStatus.value === "deceased" && v.records.lifeStatus.conflictingStatementIds.length === 0;
+
+/** GET /api/team/cats/:id/died: the one page that records a death. */
+router.get(
+  "/team/cats/:id/died",
+  requireTeam("set_life_status"),
+  async (req: Request, res: Response) => {
+    const person = teamPerson(res);
+    setTeamHeaders(res);
+    const catId = catIdOf(req);
+    const view = catId === null ? null : await teamCatView(catId, new Date(), person);
+    if (!view) return void res.status(404).type("html").send(renderNoSuchCat(person.name));
+    if (isRecordedDead(view)) return void res.redirect(303, catPage(view.cat.id, "diedAlready", undefined, true));
+    res.type("html").send(renderDiedPage(view, person.name));
+  },
+);
+
+/**
+ * POST /api/team/cats/:id/died. Records a death through recordDeath: under the
+ * cat's lock, refusing a date that wouldn't take effect, writing nothing for a
+ * cat already recorded as died, and never touching the owner.
+ */
+router.post(
+  "/team/cats/:id/died",
+  ...formRoute("set_life_status"),
+  async (req: Request, res: Response) => {
+    const catId = catIdOf(req);
+    if (catId === null) return notFound(req, res);
+    const person = teamPerson(res);
+    const form = isFormPost(req);
+    const back = catPage(catId);
+    const parsed = DiedForm.safeParse(req.body ?? {});
+    const raw = (req.body ?? {}) as Record<string, unknown>;
+    const kept = {
+      reason: typeof raw["reason"] === "string" ? raw["reason"] : undefined,
+      date: typeof raw["date"] === "string" ? raw["date"] : undefined,
+    };
+    // The died page again, with what was typed and one plain message.
+    const again = async (message: string, fields: string[], code?: string) => {
+      if (!form) {
+        return void res
+          .status(code ? 409 : 400)
+          .json(code ? { error: message, code } : { error: "Invalid request", fields });
+      }
+      const view = await teamCatView(catId, new Date(), person);
+      if (!view) return notFound(req, res);
+      res.status(400).type("html").send(renderDiedPage(view, person.name, { problem: message, fields: kept }));
+    };
+    if (!parsed.success) {
+      const fields = fieldsOf(parsed.error);
+      const message = fields.includes("reason")
+        ? "Say in a few words how we know."
+        : fields.includes("date")
+          ? "The date wasn't a real date."
+          : problemFor(fields);
+      return again(message, fields);
+    }
+    const { reason, date } = parsed.data;
+    if (date && date > athensToday()) return again("The date can't be in the future.", ["date"]);
+    try {
+      const out = await recordDeath(person, { catId, reason, observedAt: deathObservedAt(date) });
+      if (out.outcome === "recorded") {
+        if (form) return void res.redirect(303, catPage(catId, "died", undefined, true));
+        return void res.status(201).json({ id: out.row.id });
+      }
+      if (out.outcome === "already") {
+        if (form) return void res.redirect(303, catPage(catId, "diedAlready", undefined, true));
+        return void res.status(200).json({ already: true });
+      }
+      const view = await teamCatView(catId, new Date(), person);
+      const name = view?.cat.name ?? "The cat";
+      if (out.outcome === "sightedAfter") {
+        return again(
+          `${name} was spotted on ${dayWords(out.at.toISOString())}, after that date. ` +
+            "Saving it would show the cat as alive straight away. Leave the date blank, or check that sighting in the history first.",
+          ["date"],
+          "SIGHTED_AFTER",
+        );
+      }
+      const st = view?.history.find((h) => h.id === out.statement.id);
+      const at = dayWords((st?.observedAt ?? out.statement.observedAt.toISOString()));
+      const words = (st?.said ?? "").trim();
+      return again(
+        out.ownerClaim
+          ? `${name}'s owner said the cat has a home on ${at}, after that date, so this wouldn't take effect. Leave the date blank.`
+          : `${st?.author.label ?? "Someone"} recorded “${words || "a newer status"}” on ${at}, after that date, so this wouldn't take effect. ` +
+            "Leave the date blank, or use Mark wrong on that change first.",
+        ["date"],
+        "NEWER_STATUS",
+      );
+    } catch (err) {
+      refusalFor(req, res, err, back);
+    }
+  },
+);
+
 // ── Remove the owner ───────────────────────────────────────────────────────
 
 const RemoveOwnerForm = z.object({
@@ -332,7 +450,7 @@ const RemoveOwnerForm = z.object({
   confirm: z.literal("1").optional(),
   status: z.preprocess(
     (v) => (v === "" ? undefined : v),
-    z.enum(["street", "in_care", "deceased"]).default("street"),
+    z.enum(["street", "in_care", "deceased", "keep"]).default("street"),
   ),
   reason: reasonField,
   date: dateField,
@@ -391,7 +509,9 @@ router.post(
           lines: [
             "The owner stops seeing the exact spot and getting alerts.",
             "The owner is not told.",
-            `${state.name} will be saved as “${LIFE[status]}”.`,
+            status === "keep"
+              ? `${state.name} stays recorded as “${LIFE.deceased}”.`
+              : `${state.name} will be saved as “${LIFE[status]}”.`,
           ],
           action: `/api/team/cats/${catId}/remove-owner`,
           fields: { status, reason, date },
