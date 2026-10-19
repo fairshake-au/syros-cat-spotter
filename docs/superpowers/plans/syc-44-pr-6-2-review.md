@@ -123,3 +123,22 @@ Checked out `origin/claude/relaxed-sutherland-722f64` at 38386cf8 (detached, own
 | 10 | Remove `onReportPhoto` from the cat page | RED (1 test in `CatPagePhotos.test.tsx`) |
 
 The probes show the tests are real for the claims they make. The gaps are the failure paths in findings 1, 2, 4 and 6, which no test reaches.
+
+---
+
+# Ship review (`/ship`, 19 Oct 2026): a second independent critic on the final version
+
+Sonnet, in its own worktree, at `527f9229`. **Verdict: MERGE.** No blocker or major. The first review's two Majors were confirmed fixed. The critic ran both typechecks (clean), the whole app suite (147 files, 1,943 tests, all pass) and 9 mutation probes.
+
+| # | Finding | Outcome |
+|---|---|---|
+| 1 | Minor: the retry-path wipe of issue reports (after an interrupted deletion) had no test; probe P1 stayed green | **Fixed**: test added, P1 now red |
+| 2 | Minor: the double-tap ref guard had no test; probe P5 stayed green | **Fixed**: two taps in one act, P5 now red |
+| 3 | Minor: the live region had no test; probe P9 stayed green | **Fixed**: test added, P9 now red |
+| 4 | Minor (wording): the Delete my data screen calls an issue report a "cat report" | **Filed** for a copy decision (not changed here: the screen's wording is reviewed copy) |
+| 5 | Nit: the "couldn't save" line stayed after going back | **Fixed**, tested |
+| 6 | Nit: the send-loop comment claimed to cover another tab | **Fixed** (comment) |
+| 7 | Nit: `CHECKPOINT.md` committed | **Removed** before ready |
+| 8 | Nit, plausible: the iOS handoff timer has no cleanup | No change: a state update after leaving the screen is ignored by React 18; real-device check is SYC-488 |
+
+**Core promises re-verified on the final code:** the confirmation comes only from the server's `hidden`; the `reportQueue.ts` refactor is unchanged since the first review; nothing the app sends meets a permanent 400 from `routes/issues.ts` on `main`; a failed save leaves no ghost report or reminder; Delete my data never wipes an issue report unasked.
