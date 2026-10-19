@@ -77,7 +77,9 @@ describe('newPendingIssue', () => {
   it('keeps the photo id only for a reason that may name a photo (the server refuses it otherwise)', () => {
     expect(issue({}, 'photo_private').photoPublicId).toBe('ph-abc');
     expect(issue({}, 'wrong_cat').photoPublicId).toBe('ph-abc');
-    expect(issue({}, 'other').photoPublicId).toBeUndefined();
+    // SYC-487: "Something else" from a photo names it; from the cat page there is no photo to name.
+    expect(issue({}, 'other').photoPublicId).toBe('ph-abc');
+    expect(newPendingIssue({ reason: 'other', catId: 7, photoPublicId: null, note: '', language: 'en' }).photoPublicId).toBeUndefined();
     expect(issue({}, 'wrong_name').photoPublicId).toBeUndefined();
   });
 
