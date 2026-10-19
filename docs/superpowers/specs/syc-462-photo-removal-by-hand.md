@@ -171,9 +171,9 @@ So every removal goes on the **removal ledger** (§7). After any of these, the r
 
 ## 4. The database change, and what "removed" means
 
-### 4.1 Migration `0033_photo_removal` (number provisional)
+### 4.1 Migration `0034_photo_removal` (number agreed 19 Oct; `0033` is #245's named areas)
 
-`0032` is claimed by PR #239 (SYC-45). The number is agreed with every live session before the file is written (§12).
+`0032` is SYC-45's (#239) and `0033` is SYC-396 PR 2.4's (#245, named areas). `0034` was agreed with every live session on 19 Oct.
 
 In `lib/db/src/schema/photos.ts`, so `migrate:check` passes:
 - `data` loses `.notNull()`;
@@ -627,7 +627,7 @@ SYC-246's earlier backfill comment is withdrawn (a comment of 18 Oct). There's n
 
 ## 12. Before building
 
-- **The migration number.** `0032` is claimed by PR #239. Message every live session on this repo (re-listed first), agree `0033` or the next free number, and write it on SYC-462.
+- **The migration number.** Done on 19 Oct: `0034_photo_removal`, agreed with every live session and recorded on SYC-462 (`0032` is #239's, `0033` is #245's).
 - **Files other sessions own:**
   - `api/routes/sightings.ts` (matching): check for in-flight work in it before editing;
   - `teamPages/` is untouched;
@@ -636,7 +636,7 @@ SYC-246's earlier backfill comment is withdrawn (a comment of 18 Oct). There's n
 
 ## 13. What this PR will contain, once approved
 
-- `lib/db/migrations/0033_photo_removal.sql` (number provisional) and the `photos.ts` schema change.
+- `lib/db/migrations/0034_photo_removal.sql` and the `photos.ts` schema change.
 - `lib/db/src/photoRemoval/`: the remove function, the command, and the search, with tests T0–T8 and T14.
 - `scripts/db-ops.sh` and `.github/workflows/db-ops.yml`: four commands, five inputs, and the `photo_removal_on` setting key.
 - `lib/db/package.json`: a `photos` script.
