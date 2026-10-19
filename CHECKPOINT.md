@@ -20,8 +20,13 @@ Plan: `docs/superpowers/plans/syc-396-phases-2-4.md`, "PR 2.5" (Tasks 2.5.1, 2.5
   Probes red then restored: team bucket first -> "21st personal search doesn't use up the team's" red; per-person cap removed -> 3 cap tests red; upload stored in photos -> row-count test red.
 - Open for Samuel: the strict header (img-src 'self') means the uploaded photo can't be shown beside results without a script or `data:`; the page says "compare with the photo on your phone". Needs a decision ticket.
 
+- [x] Screenshots 390/1280 in docs/screenshots/syc-396-pr-2-5 (1981c1bb); form problem also shown at top.
+- [x] Draft PR #252 opened. Filed SYC-491 (decide: show upload beside results), SYC-492 (Queue link after SYC-44 7.1), SYC-493 (live probe + cost). SYC-346 comment: no guardian strings.
+- [x] Told the Home follow-ups session (#247/#248 land first; I rebase) and the PR 2.2 session (layout.ts and the walk TABLE are shared).
+- Note: an early `pkill -f dist/index.mjs` matched by name and may have stopped another session's preview server (unknown). Since then, stopped by PID only.
+
 ## Next
-- [ ] Screenshots 390/1280, upload errors, over-30
-- [ ] Opus adversarial review (own worktree)
-- [ ] Draft PR, Linear (SYC-396 comment, SYC-346 strings, follow-up tickets)
+- [ ] Opus adversarial review (own worktree): RUNNING, started ~01:23 UTC 19 Oct. Fold findings in, re-run named tests.
+- [ ] Full api-server suite: RUNNING (scratchpad/full.log). Quote counts in the PR.
+- [ ] Comment on SYC-396 with the PR, once the review is folded in.
 - [ ] Live probe on test site after publish, with heads-up first
