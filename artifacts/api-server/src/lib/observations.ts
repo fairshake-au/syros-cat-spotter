@@ -8,7 +8,7 @@
  * exists — goes through `writeObservation`. Nothing else may `insert` into
  * `observationsTable` outside a migration's backfill.
  */
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
   db,
@@ -18,11 +18,18 @@ import {
   sightingsTable,
   type Observation,
 } from "@workspace/db";
+import { getGuidance } from "@workspace/welfare-guidance";
 import {
   authorityLevel,
   COLONY_SCOPE_PATTERN,
+  resolveCat,
+  standingRows,
+  supersedeChains,
   type EvidenceOfLife,
+  type CatSnapshot,
+  type RestorableKind,
   type EvidenceSource,
+  type Vaccine,
 } from "./resolve";
 import { TEAM_ROLES, isTeamRole } from "./teamRoles";
 
@@ -32,6 +39,8 @@ import { TEAM_ROLES, isTeamRole } from "./teamRoles";
  * (distinguishing marks, spec §3.2), `vaccinated` (team-recorded vaccines)
  * and `team_note` (a team-only health note). Later phases add kinds without
  * a migration — this list is deliberately code, not a database enum.
+ * SYC-396 PR 3.0 adds `vet_visit` (team-dashboard-redesign.md §8; plan
+ * Decision 4): one visit to a vet, with what was done, the clinic and the cost.
  */
 export const OBSERVATION_KINDS = [
   "life_status",
@@ -47,6 +56,7 @@ export const OBSERVATION_KINDS = [
   "markings",
   "vaccinated",
   "team_note",
+  "vet_visit",
 ] as const;
 export type ObservationKind = (typeof OBSERVATION_KINDS)[number];
 
@@ -94,7 +104,56 @@ const ROLES_REFUSED_FOR_KIND: Readonly<
   markings: ["vet", "system"],
   vaccinated: ["public", "guardian", "system"],
   team_note: ["public", "system"],
+  // A vet visit is logged by the team (`log_vet_visit` is island-only).
+  vet_visit: ["public", "guardian", "system"],
 };
+
+/**
+ * The kinds a vet visit writes, and whose `{ retracted: true }` only a
+ * vet-visit undo may write (SYC-396 PR 3.0; plan Decisions 6 and 7). The
+ * resolver reads them through `standingRows`, where retracting a row that
+ * had itself replaced another stands that other row up again.
+ */
+const VISIT_KINDS: ReadonlySet<string> = new Set(["sterilised", "vaccinated", "vet_visit"]);
+
+/** What a visit did (§8.2). "checked" is only ever alone. */
+export const VISIT_DID = ["sterilised", "vaccinated", "treated", "checked"] as const;
+/** Who paid for a visit (§8.4). */
+export const PAID_BY = ["syros_cats", "donation", "owner"] as const;
+
+/** A `vet_visit` value (§8.2; plan Task 3.0.1). The date is the row's
+ * `observedAt`, as for every statement; the cost lives only here. */
+export interface VetVisitValue {
+  /** 1–4, distinct; "checked" only alone. */
+  did: (typeof VISIT_DID)[number][];
+  /** Required iff `did` has "vaccinated"; the same rules as `vaccinated`. */
+  vaccines?: Vaccine[];
+  /** Required iff `did` has "treated"; 1–200 characters, trimmed. */
+  treatedNote?: string;
+  /** One of `getGuidance("en").vets` ids (Decision 16). */
+  clinicId: string;
+  /** 0–2000 euros, at most two decimals, or null when not known. */
+  costEur: number | null;
+  paidBy: (typeof PAID_BY)[number];
+  /** 0–500 characters. */
+  note?: string;
+}
+
+const VISIT_DID_SET: ReadonlySet<string> = new Set(VISIT_DID);
+const PAID_BY_SET: ReadonlySet<string> = new Set(PAID_BY);
+const VET_VISIT_KEYS: ReadonlySet<string> = new Set([
+  "did",
+  "vaccines",
+  "treatedNote",
+  "clinicId",
+  "costEur",
+  "paidBy",
+  "note",
+]);
+const VISIT_COST_MAX_EUR = 2000;
+
+/** The one clinic list (Decision 16), read once. */
+const CLINIC_IDS: ReadonlySet<string> = new Set(getGuidance("en").vets.map((c) => c.id));
 
 /**
  * The kinds Decision G ranks (roles spec §7.2; resolve.ts `authorityLevel`).
@@ -233,16 +292,19 @@ function validateValue(
   value: unknown,
   ctx: { roleAtTime: string; provenance: string },
 ): void {
-  // Only coat and markings have a retraction; a stray `retracted` key on any
-  // other kind is a malformed value, not an ignorable extra.
+  // Only coat, markings and the vet-visit kinds have a retraction; a stray
+  // `retracted` key on any other kind is a malformed value, not an ignorable
+  // extra.
   if (
     kind !== "coat" &&
     kind !== "markings" &&
+    !VISIT_KINDS.has(kind) &&
     isPlainObject(value) &&
     "retracted" in value
   ) {
     refuse("MALFORMED_VALUE", `${kind} does not accept a retracted key`);
   }
+  if (isVisitRetraction(kind, value)) return;
   switch (kind) {
     case "life_status": {
       const status = isPlainObject(value) ? value["status"] : undefined;
@@ -261,6 +323,7 @@ function validateValue(
       if (!isPlainObject(value) || typeof value["sterilised"] !== "boolean") {
         refuse("MALFORMED_VALUE", "sterilised needs { sterilised: boolean }");
       }
+      validateVisitIdShape(kind, value);
       return;
     }
     case "ear_tip": {
@@ -457,45 +520,8 @@ function validateValue(
       if (!isPlainObject(value) || !Array.isArray(value["vaccines"])) {
         refuse("MALFORMED_VALUE", "vaccinated needs { vaccines: [...] }");
       }
-      const vaccines = value["vaccines"] as unknown[];
-      if (vaccines.length < 1 || vaccines.length > 3) {
-        refuse("MALFORMED_VALUE", "vaccinated.vaccines must have 1 to 3 entries");
-      }
-      const seen = new Set<string>();
-      for (const v of vaccines) {
-        let key: string;
-        if (typeof v === "string" && VACCINE_CODES.has(v)) {
-          key = `code:${v}`;
-        } else if (isPlainObject(v) && typeof v["other"] === "string") {
-          // Callers store the name already trimmed.
-          const name = v["other"];
-          if (name !== name.trim() || name.length < 2 || name.length > 60) {
-            refuse(
-              "MALFORMED_VALUE",
-              "an other vaccine name must be trimmed and 2 to 60 characters",
-            );
-          }
-          // A typed name that is one of the listed vaccines is the listed
-          // vaccine, so it can't be stored twice under two forms.
-          const folded = name.toLowerCase();
-          if (LISTED_VACCINE_NAMES.has(folded)) {
-            refuse(
-              "MALFORMED_VALUE",
-              `"${name}" is a listed vaccine: use its code, not an other name`,
-            );
-          }
-          key = `other:${folded}`;
-        } else {
-          refuse(
-            "MALFORMED_VALUE",
-            'each vaccine must be "rabies", "cat_flu_enteritis" or { other: string }',
-          );
-        }
-        if (seen.has(key)) {
-          refuse("MALFORMED_VALUE", "vaccinated.vaccines must be distinct");
-        }
-        seen.add(key);
-      }
+      validateVaccineList(value["vaccines"] as unknown[], "vaccinated.vaccines");
+      validateVisitIdShape(kind, value);
       const clinic = value["clinic"];
       if (
         clinic !== undefined &&
@@ -525,6 +551,150 @@ function validateValue(
       }
       return;
     }
+    case "vet_visit": {
+      validateVetVisit(value);
+      return;
+    }
+  }
+}
+
+/**
+ * A `{ retracted: true, reason }` of a vet-visit kind (Task 3.0.1): true for
+ * a well-formed one, false when `retracted` is absent, refused when it is
+ * present but anything else is wrong. It asserts nothing, so it carries
+ * nothing but its reason. Whether it may be written at all is the writer's
+ * `fromVisitUndo` rule, not this shape's.
+ */
+function isVisitRetraction(kind: string, value: unknown): boolean {
+  if (!VISIT_KINDS.has(kind) || !isPlainObject(value) || !("retracted" in value)) return false;
+  if (value["retracted"] !== true) {
+    refuse("MALFORMED_VALUE", "retracted, when present, must be exactly true");
+  }
+  if (Object.keys(value).some((k) => k !== "retracted" && k !== "reason")) {
+    refuse("MALFORMED_VALUE", `a ${kind} retraction carries only { retracted: true, reason }`);
+  }
+  const reason = value["reason"];
+  if (typeof reason !== "string" || reason.trim().length < 1 || reason.length > 500) {
+    refuse("MALFORMED_VALUE", `a ${kind} retraction needs a reason of 1 to 500 characters`);
+  }
+  return true;
+}
+
+/** A visit link, when present, is a row id. Whether it names a standing
+ * visit of the same cat is the writer's check (`checkVisitLink`). */
+function validateVisitIdShape(kind: string, value: Record<string, unknown>): void {
+  if (!("vetVisitId" in value)) return;
+  const id = value["vetVisitId"];
+  if (typeof id !== "number" || !Number.isInteger(id) || id < 1) {
+    refuse("MALFORMED_VALUE", `${kind}.vetVisitId must be a row id`);
+  }
+}
+
+/** One to three distinct vaccines: listed codes, or a trimmed typed name
+ * that isn't a listed vaccine. Shared by `vaccinated` and `vet_visit`. */
+function validateVaccineList(vaccines: unknown[], label: string): void {
+  if (vaccines.length < 1 || vaccines.length > 3) {
+    refuse("MALFORMED_VALUE", `${label} must have 1 to 3 entries`);
+  }
+  const seen = new Set<string>();
+  for (const v of vaccines) {
+    let key: string;
+    if (typeof v === "string" && VACCINE_CODES.has(v)) {
+      key = `code:${v}`;
+    } else if (isPlainObject(v) && typeof v["other"] === "string") {
+      // Callers store the name already trimmed.
+      const name = v["other"];
+      if (name !== name.trim() || name.length < 2 || name.length > 60) {
+        refuse(
+          "MALFORMED_VALUE",
+          "an other vaccine name must be trimmed and 2 to 60 characters",
+        );
+      }
+      // A typed name that is one of the listed vaccines is the listed
+      // vaccine, so it can't be stored twice under two forms.
+      const folded = name.toLowerCase();
+      if (LISTED_VACCINE_NAMES.has(folded)) {
+        refuse(
+          "MALFORMED_VALUE",
+          `"${name}" is a listed vaccine: use its code, not an other name`,
+        );
+      }
+      key = `other:${folded}`;
+    } else {
+      refuse(
+        "MALFORMED_VALUE",
+        'each vaccine must be "rabies", "cat_flu_enteritis" or { other: string }',
+      );
+    }
+    if (seen.has(key)) {
+      refuse("MALFORMED_VALUE", `${label} must be distinct`);
+    }
+    seen.add(key);
+  }
+}
+
+/** {@link VetVisitValue}, exactly: no other keys (a new kind, so nothing
+ * older to stay compatible with). */
+function validateVetVisit(value: unknown): void {
+  if (!isPlainObject(value)) {
+    refuse("MALFORMED_VALUE", "vet_visit needs { did, clinicId, costEur, paidBy }");
+  }
+  const unknownKey = Object.keys(value).find((k) => !VET_VISIT_KEYS.has(k));
+  if (unknownKey !== undefined) {
+    refuse("MALFORMED_VALUE", `vet_visit does not accept a ${unknownKey} key`);
+  }
+  const did = value["did"];
+  if (!Array.isArray(did) || did.length < 1 || did.length > VISIT_DID.length) {
+    refuse("MALFORMED_VALUE", "vet_visit.did must have 1 to 4 entries");
+  }
+  if (!did.every((d) => VISIT_DID_SET.has(d as string))) {
+    refuse("MALFORMED_VALUE", "vet_visit.did must be from sterilised, vaccinated, treated, checked");
+  }
+  if (new Set(did).size !== did.length) {
+    refuse("MALFORMED_VALUE", "vet_visit.did must be distinct");
+  }
+  if (did.includes("checked") && did.length > 1) {
+    refuse("MALFORMED_VALUE", 'vet_visit.did has "checked" only on its own');
+  }
+  if (did.includes("vaccinated")) {
+    if (!Array.isArray(value["vaccines"])) {
+      refuse("MALFORMED_VALUE", "a vaccinated visit needs its vaccines");
+    }
+    validateVaccineList(value["vaccines"] as unknown[], "vet_visit.vaccines");
+  } else if ("vaccines" in value) {
+    refuse("MALFORMED_VALUE", "vet_visit.vaccines only when the visit vaccinated");
+  }
+  if (did.includes("treated")) {
+    const note = value["treatedNote"];
+    if (typeof note !== "string" || note !== note.trim() || note.length < 1 || note.length > 200) {
+      refuse("MALFORMED_VALUE", "a treated visit needs a trimmed treatedNote of 1 to 200 characters");
+    }
+  } else if ("treatedNote" in value) {
+    refuse("MALFORMED_VALUE", "vet_visit.treatedNote only when the visit treated");
+  }
+  const clinicId = value["clinicId"];
+  if (typeof clinicId !== "string" || !CLINIC_IDS.has(clinicId)) {
+    refuse("MALFORMED_VALUE", "vet_visit.clinicId must be one of the clinic list's ids");
+  }
+  if (!("costEur" in value)) {
+    refuse("MALFORMED_VALUE", "vet_visit.costEur is required (null when not known)");
+  }
+  const cost = value["costEur"];
+  if (cost !== null) {
+    if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0 || cost > VISIT_COST_MAX_EUR) {
+      refuse("MALFORMED_VALUE", `vet_visit.costEur must be 0 to ${VISIT_COST_MAX_EUR} euros, or null`);
+    }
+    const cents = cost * 100;
+    if (Math.abs(cents - Math.round(cents)) > 1e-6) {
+      refuse("MALFORMED_VALUE", "vet_visit.costEur has at most two decimals");
+    }
+  }
+  if (typeof value["paidBy"] !== "string" || !PAID_BY_SET.has(value["paidBy"])) {
+    refuse("MALFORMED_VALUE", "vet_visit.paidBy must be syros_cats, donation or owner");
+  }
+  const note = value["note"];
+  if (note !== undefined && (typeof note !== "string" || note.length > 500)) {
+    refuse("MALFORMED_VALUE", "vet_visit.note is at most 500 characters");
   }
 }
 
@@ -578,6 +748,22 @@ export interface WriteObservationInput {
    * (a team correction, the supersede API) may produce one.
    */
   allowWithdrawal?: boolean;
+  /**
+   * Must be true to write a `{ retracted: true }` of `sterilised`,
+   * `vaccinated` or `vet_visit` (SYC-396 PR 3.0; plan Decisions 6 and 7).
+   * Only `undoVetVisit` sets it: retracting the team row that overruled a cat
+   * guardian stands her statement up again, so no other writer (the generic
+   * Mark wrong, the JSON supersede route) may produce one.
+   */
+  fromVisitUndo?: boolean;
+  /**
+   * Must be true to write a `sterilised` or `vaccinated` value carrying a
+   * `vetVisitId` (review of PR 3.0, F1). Only `logVetVisit` sets it: undoing
+   * a visit retracts every row carrying its id, so a row written any other
+   * way (a Mark wrong through the generic path, a guardian's own statement)
+   * must never carry one, or undoing the visit would take it back too.
+   */
+  fromVisit?: boolean;
 }
 
 /** A claim withdrawn (claiming-a-cat.md §6, §7): supersedes a homed, asserts
@@ -630,6 +816,36 @@ async function checkWithdrawalTarget(
     .where(eq(observationsTable.supersedesId, targetId))
     .limit(1);
   if (already) refuse("MALFORMED_VALUE", WITHDRAWAL_TARGET_MESSAGE);
+}
+
+/**
+ * A `sterilised` or `vaccinated` value's `vetVisitId`, when present, names a
+ * `vet_visit` row of the same cat that nothing has superseded (plan Task
+ * 3.1.1): a stray number can't tie two cats together, or tie a statement to
+ * a visit already undone. Refused `INVALID_VISIT_LINK`.
+ */
+async function checkVisitLink(tx: DbOrTx, input: WriteObservationInput): Promise<void> {
+  if (input.kind !== "sterilised" && input.kind !== "vaccinated") return;
+  if (!isPlainObject(input.value) || !("vetVisitId" in input.value)) return;
+  if (input.fromVisit !== true || !isTeamRole(input.roleAtTime)) {
+    refuse("INVALID_VISIT_LINK", "only a vet visit, logged by the team, writes a statement linked to it");
+  }
+  const visitId = input.value["vetVisitId"] as number;
+  const [visit] = await tx
+    .select({ catId: observationsTable.catId, kind: observationsTable.kind })
+    .from(observationsTable)
+    .where(eq(observationsTable.id, visitId));
+  if (!visit || visit.kind !== "vet_visit" || visit.catId !== input.catId) {
+    refuse("INVALID_VISIT_LINK", "vetVisitId must name a vet visit of the same cat");
+  }
+  // Standing by the resolver's own rule, over the cat's visits.
+  const visits = await tx
+    .select()
+    .from(observationsTable)
+    .where(and(eq(observationsTable.catId, input.catId), eq(observationsTable.kind, "vet_visit")));
+  if (!standingRows(visits, "vet_visit").some((o) => o.id === visitId)) {
+    refuse("INVALID_VISIT_LINK", "vetVisitId names a vet visit that has been undone or replaced");
+  }
 }
 
 /**
@@ -724,6 +940,16 @@ export async function writeObservation(
       roleAtTime: input.roleAtTime,
       provenance,
     });
+  }
+  // Decision 7: only a vet-visit undo may retract these kinds. Checked
+  // before anything else about the retraction, so no other writer can even
+  // probe which rows it could reach.
+  const visitRetracting = isVisitRetraction(input.kind, input.value);
+  if (visitRetracting && input.fromVisitUndo !== true) {
+    refuse(
+      "RETRACTION_NOT_ALLOWED",
+      `a ${input.kind} statement is undone only by marking its vet visit wrong`,
+    );
   }
 
   if (!REACHABLE_ROLES.has(input.roleAtTime)) {
@@ -845,12 +1071,21 @@ export async function writeObservation(
   // Supersession rules for coat and markings. The superseded row is loaded
   // once and shared between the retraction rule and the own-row rule (C2).
   const isAppearanceKind = input.kind === "coat" || input.kind === "markings";
-  const retracting = isAppearanceKind && isRetraction(input.value);
+  const retracting = (isAppearanceKind && isRetraction(input.value)) || visitRetracting;
   const supersedesId = input.supersedesId ?? null;
   if (retracting && !RETRACTING_ROLES.has(input.roleAtTime)) {
     refuse(
       "INVALID_RETRACTION",
       `roleAtTime "${input.roleAtTime}" may not retract`,
+    );
+  }
+  // A vet-visit kind is retracted only by the team: undoing a visit needs
+  // `log_vet_visit`, which is island-only (undoVetVisit checks it). A cat
+  // guardian never retracts a sterilisation, even her own.
+  if (visitRetracting && !isTeamRole(input.roleAtTime)) {
+    refuse(
+      "INVALID_RETRACTION",
+      `roleAtTime "${input.roleAtTime}" may not retract a ${input.kind}`,
     );
   }
   if (retracting && supersedesId == null) {
@@ -887,6 +1122,36 @@ export async function writeObservation(
     if (RANKED_KINDS.has(input.kind) && target.catId !== input.catId) {
       refuse(refusalCode, "a supersession of this kind must stay on the same cat");
     }
+    // A vet-visit retraction, too: undoing a visit never reaches another cat.
+    if (visitRetracting && target.catId !== input.catId) {
+      refuse("INVALID_RETRACTION", "a retraction must stay on the same cat");
+    }
+    // And only a row that still stands (review of PR 3.0, F2): retracting a
+    // row a correction already replaced would stand up the row IT replaced
+    // next to that correction.
+    if (visitRetracting && target.kind === input.kind) {
+      // Held for the rest of the caller's transaction, so a correction or a
+      // second undo of the same row queues behind this one (second review).
+      await tx.execute(sql`select id from observations where id = ${target.id} for update`);
+      const sameKind = await tx
+        .select()
+        .from(observationsTable)
+        .where(or(and(eq(observationsTable.catId, target.catId), eq(observationsTable.kind, target.kind)), eq(observationsTable.supersedesId, target.id)));
+      if (supersedeChains(sameKind, input.kind as RestorableKind).displaced.has(target.id)) {
+        refuse("INVALID_RETRACTION", "a retraction must supersede a row that still stands");
+      }
+    }
+    // Nothing is written over a vet-visit kind's retraction except, one day,
+    // undoVetVisit's re-do (not built): a new value there would stand next
+    // to the row the retraction put back.
+    if (
+      VISIT_KINDS.has(input.kind) &&
+      !retracting &&
+      isPlainObject(target.value) &&
+      target.value["retracted"] === true
+    ) {
+      refuse("INVALID_SUPERSESSION", "a retraction can't be corrected");
+    }
     // A retraction cannot retract a retraction.
     if (
       retracting &&
@@ -895,11 +1160,14 @@ export async function writeObservation(
     ) {
       refuse("INVALID_RETRACTION", "a retraction cannot supersede a retraction");
     }
-    // Every role: a retraction removes only a coat or markings row.
-    if (retracting && !(target.kind === "coat" || target.kind === "markings")) {
+    // Every role: a retraction removes only a row of a kind that has one.
+    if (
+      retracting &&
+      !(target.kind === "coat" || target.kind === "markings" || VISIT_KINDS.has(target.kind))
+    ) {
       refuse(
         "INVALID_RETRACTION",
-        "a retraction must supersede a row of the same kind (coat or markings)",
+        "a retraction must supersede a row of the same kind (coat, markings, sterilised, vaccinated or vet_visit)",
       );
     }
     // A cat guardian corrects her own statements only (SYC-53 plan, PR 2.2:
@@ -942,6 +1210,8 @@ export async function writeObservation(
     }
   }
 
+  if (!retracting) await checkVisitLink(tx, input);
+
   const [row] = await tx
     .insert(observationsTable)
     .values({
@@ -969,7 +1239,107 @@ export async function writeObservation(
 export interface CatRecords {
   observations: Observation[];
   evidenceOfLife: EvidenceOfLife | null;
+  /**
+   * Only with `loadCatRecords(…, { withHistory: true })`: what
+   * {@link resolveAt} needs to rebuild this cat at any earlier moment.
+   */
+  history?: CatHistory;
 }
+
+/**
+ * The dated ingredients of a cat's evidence of life (SYC-396 PR 3.0, Task
+ * 3.0.3), so a report loads the island once and asks {@link resolveAt} for
+ * each point instead of loading it again per point.
+ */
+export interface CatHistory {
+  /** The cat's own `created_at`. */
+  createdAt: Date;
+  /** Every cat merged into this one, with when (`cat_identity.created_at`, the earliest). */
+  mergedAt: ReadonlyMap<number, Date>;
+  /** `created_at` of each cat that feeds this one (itself and the merged ones). */
+  feedingCreatedAt: ReadonlyMap<number, Date>;
+  /** Every resolved sighting of a feeding cat: which cat, and when it was entered. */
+  sightings: readonly { catId: number; at: Date }[];
+  /** Each `welfare_report` replaced by a row on any cat, with when the first replacing row was entered. */
+  welfareReplacedAt: ReadonlyMap<number, Date>;
+}
+
+/** `loadCatRecords`'s options (SYC-396 PR 3.0, Decision 10). */
+export interface LoadCatRecordsOptions {
+  /**
+   * The records as they stood at this moment: only rows *entered* by then
+   * (`createdAt <= asOf`) — observations, the rows that replaced them,
+   * sightings, merges — before supersession is worked out. A cat created
+   * after it is left out of the result. A redacted row stays as it is now
+   * (privacy beats reproducibility). Known limit: a sighting entered before
+   * `asOf` but matched to the cat after it counts, because a match isn't
+   * dated.
+   */
+  asOf?: Date;
+  /** Also return each cat's {@link CatHistory}, for `resolveAt`. */
+  withHistory?: boolean;
+}
+
+/**
+ * Evidence of life (§3.4) from a cat's rows, excluding life_status (the
+ * resolver already has it directly — resolve.ts's EvidenceOfLife doc
+ * comment), colony, note, name, food_and_water, coat, markings, vaccinated
+ * and team_note (none imply the cat was alive). The one rule, shared by
+ * `loadCatRecords` and `resolveAt`.
+ */
+function evidenceOfLifeOf(
+  observations: readonly Observation[],
+  replacedWelfare: ReadonlySet<number>,
+  lastSightingAt: Date | null,
+  createdAt: Date | null,
+): EvidenceOfLife | null {
+  let bestAt: Date | null = null;
+  let bestSource: EvidenceSource | null = null;
+  const consider = (at: Date, source: EvidenceSource) => {
+    if (bestAt == null || at.getTime() > bestAt.getTime()) {
+      bestAt = at;
+      bestSource = source;
+    }
+  };
+  // SYC-396 PR 3.0: a retraction is never evidence of life, nor is a row it
+  // retracted (an undone vet visit's "sterilised"); every other
+  // sterilisation row still counts, superseded or not, as before. The
+  // newest standing vet visit counts (§8.3, amending spine §3.4).
+  const sterilisedRetracted = supersedeChains(observations, "sterilised").retracted;
+  for (const o of standingRows(observations, "vet_visit")) consider(o.observedAt, "vet_visit");
+  for (const o of observations) {
+    if (o.kind === "sterilised") {
+      if (!isPlainObject(o.value) || o.value["retracted"] !== true) {
+        if (!sterilisedRetracted.has(o.id)) consider(o.observedAt, "sterilised");
+      }
+    }
+    // An ear-tip answer that belongs to a sighting (data spine PR 7) adds
+    // nothing the sighting doesn't already say, at its true date. Counting
+    // it separately would be wrong whenever writeObservation's 30-day
+    // public clamp moved its date forward (a late-synced sighting answered
+    // later still), pulling the cat's "last seen alive" forward with it.
+    // Ear tips with no sighting (team entries) still count.
+    else if (o.kind === "ear_tip" && o.sightingId == null) consider(o.observedAt, "ear_tip");
+    else if (o.kind === "welfare_report" && !replacedWelfare.has(o.id))
+      consider(o.observedAt, "welfare_report");
+  }
+  if (lastSightingAt != null) consider(lastSightingAt, "sighting");
+
+  if (bestAt != null && bestSource != null) return { at: bestAt, source: bestSource, lastSightingAt };
+  if (createdAt) return { at: createdAt, source: "created", lastSightingAt };
+  return null;
+}
+
+const newestOf = (dates: Iterable<Date>): Date | null => {
+  let newest: Date | null = null;
+  for (const d of dates) if (newest == null || d.getTime() > newest.getTime()) newest = d;
+  return newest;
+};
+const earliestOf = (dates: Iterable<Date>): Date | null => {
+  let earliest: Date | null = null;
+  for (const d of dates) if (earliest == null || d.getTime() < earliest.getTime()) earliest = d;
+  return earliest;
+};
 
 /**
  * The batched loader every reader uses (§2.3: never one query per cat).
@@ -981,45 +1351,64 @@ export interface CatRecords {
  *    folded into the one being asked for.
  * 2. Every observation for every id that feeds any requested cat, in one
  *    `IN (...)`.
- * 3. The newest *resolved* sighting for each of those ids, in one grouped
+ * 3. The welfare reports replaced by a row on any cat.
+ * 4. The newest *resolved* sighting for each of those ids, in one grouped
  *    query — needed for `lastSightingAt`, which isn't itself an
- *    observation.
- * 4. Each cat's `created_at`, for §3.4's last-resort fallback.
+ *    observation (with `withHistory`, every resolved sighting's date).
+ * 5. Each cat's `created_at`, for §3.4's last-resort fallback.
  *
  * The plan describes this as "one batched query for the observations ...
  * and one batched query for each cat's evidence of life". This loader
  * computes the evidence-of-life kinds (`sterilised`, `ear_tip`,
- * `welfare_report`) from the observation rows query 2 already fetches,
- * rather than a separate query for them — functionally the same thing
- * (every cat gets the same fixed, N-independent query count; the named test
- * only requires that it's fixed), one query cheaper.
+ * `welfare_report`, `vet_visit`) from the observation rows query 2 already
+ * fetches, rather than a separate query for them — functionally the same
+ * thing (every cat gets the same fixed, N-independent query count; the
+ * named test only requires that it's fixed), one query cheaper.
  *
  * Deliberately leaves out §3.4's fourth evidence-of-life source, a linked
  * import record's operation date (SYC-49 / SYC-82, not built).
  *
  * `exec` lets a caller read through its own transaction (claiming-a-cat.md
  * §5: the claim reads the cat's status inside the transaction that locks it).
+ * `opts.asOf` reads the records as they stood then (Decision 10).
  */
 export async function loadCatRecords(
   catIds: readonly number[],
   exec: DbOrTx = db,
+  opts: LoadCatRecordsOptions = {},
 ): Promise<Map<number, CatRecords>> {
   const result = new Map<number, CatRecords>();
   const uniqueIds = [...new Set(catIds)];
   if (uniqueIds.length === 0) return result;
+  const asOf = opts.asOf;
 
   const identityRows = await exec
     .select({
       catId: catIdentityTable.catId,
       canonicalCatId: catIdentityTable.canonicalCatId,
+      createdAt: catIdentityTable.createdAt,
     })
     .from(catIdentityTable)
-    .where(inArray(catIdentityTable.canonicalCatId, uniqueIds));
+    .where(
+      and(
+        inArray(catIdentityTable.canonicalCatId, uniqueIds),
+        asOf ? lte(catIdentityTable.createdAt, asOf) : undefined,
+      ),
+    );
 
   const idsForCanonical = new Map<number, number[]>();
   for (const id of uniqueIds) idsForCanonical.set(id, [id]);
+  const mergedAtByCanonical = new Map<number, Map<number, Date>>();
   for (const row of identityRows) {
+    // A cat's own row (B → B) is what undoing a merge writes: it feeds
+    // nothing new into B, and isn't a merge (review of PR 3.0, F4; the rest
+    // of undone merges is SYC-410).
+    if (row.catId === row.canonicalCatId) continue;
     idsForCanonical.get(row.canonicalCatId)?.push(row.catId);
+    const merged = mergedAtByCanonical.get(row.canonicalCatId) ?? new Map<number, Date>();
+    const was = merged.get(row.catId);
+    if (!was || row.createdAt.getTime() < was.getTime()) merged.set(row.catId, row.createdAt);
+    mergedAtByCanonical.set(row.canonicalCatId, merged);
   }
   const allCatIds = [
     ...new Set([...uniqueIds, ...identityRows.map((r) => r.catId)]),
@@ -1028,7 +1417,12 @@ export async function loadCatRecords(
   const obsRows = await exec
     .select()
     .from(observationsTable)
-    .where(inArray(observationsTable.catId, allCatIds));
+    .where(
+      and(
+        inArray(observationsTable.catId, allCatIds),
+        asOf ? lte(observationsTable.createdAt, asOf) : undefined,
+      ),
+    );
 
   // A welfare_report that has been replaced by a row on ANY cat (re-tying a
   // report to a different cat writes the new row on the new cat, pointing
@@ -1038,30 +1432,44 @@ export async function loadCatRecords(
   // whatever the number of cats.
   const replacer = alias(observationsTable, "replacer");
   const replacedWelfareRows = await exec
-    .select({ id: observationsTable.id })
+    .select({ id: observationsTable.id, at: replacer.createdAt })
     .from(observationsTable)
     .innerJoin(replacer, eq(replacer.supersedesId, observationsTable.id))
     .where(
       and(
         eq(observationsTable.kind, "welfare_report"),
         inArray(observationsTable.catId, allCatIds),
+        asOf ? lte(replacer.createdAt, asOf) : undefined,
       ),
     );
-  const replacedWelfare = new Set(replacedWelfareRows.map((r) => r.id));
+  const welfareReplacedAt = new Map<number, Date>();
+  for (const r of replacedWelfareRows) {
+    const was = welfareReplacedAt.get(r.id);
+    if (!was || r.at.getTime() < was.getTime()) welfareReplacedAt.set(r.id, r.at);
+  }
+  const replacedWelfare = new Set(welfareReplacedAt.keys());
 
-  const sightingRows = await exec
-    .select({
-      catId: sightingsTable.catId,
-      newest: sql<string>`max(${sightingsTable.createdAt})`,
-    })
-    .from(sightingsTable)
-    .where(
-      and(
-        inArray(sightingsTable.catId, allCatIds),
-        eq(sightingsTable.status, "resolved"),
-      ),
-    )
-    .groupBy(sightingsTable.catId);
+  const sightingWhere = and(
+    inArray(sightingsTable.catId, allCatIds),
+    eq(sightingsTable.status, "resolved"),
+    asOf ? lte(sightingsTable.createdAt, asOf) : undefined,
+  );
+  // With history, every resolved sighting's date; otherwise the newest per cat.
+  const sightingRows: { catId: number | null; at: Date }[] = opts.withHistory
+    ? await exec
+        .select({ catId: sightingsTable.catId, at: sightingsTable.createdAt })
+        .from(sightingsTable)
+        .where(sightingWhere)
+    : (
+        await exec
+          .select({
+            catId: sightingsTable.catId,
+            newest: sql<string>`max(${sightingsTable.createdAt})`,
+          })
+          .from(sightingsTable)
+          .where(sightingWhere)
+          .groupBy(sightingsTable.catId)
+      ).flatMap((s) => (s.newest ? [{ catId: s.catId, at: new Date(s.newest) }] : []));
 
   const catRows = await exec
     .select({ id: catsTable.id, createdAt: catsTable.createdAt })
@@ -1074,68 +1482,74 @@ export async function loadCatRecords(
     list.push(o);
     obsByCatId.set(o.catId, list);
   }
-  const sightingByCatId = new Map<number, Date>();
+  const sightingsByCatId = new Map<number, Date[]>();
   for (const s of sightingRows) {
-    if (s.catId != null && s.newest) {
-      sightingByCatId.set(s.catId, new Date(s.newest));
-    }
+    if (s.catId == null) continue;
+    sightingsByCatId.set(s.catId, [...(sightingsByCatId.get(s.catId) ?? []), s.at]);
   }
   const createdAtByCatId = new Map<number, Date>();
   for (const c of catRows) createdAtByCatId.set(c.id, c.createdAt);
 
   for (const canonicalId of uniqueIds) {
+    const ownCreatedAt = createdAtByCatId.get(canonicalId);
+    // Not created yet at `asOf`: not a cat then.
+    if (asOf && ownCreatedAt && ownCreatedAt.getTime() > asOf.getTime()) continue;
+
     const feedingIds = idsForCanonical.get(canonicalId) ?? [canonicalId];
     const observations = feedingIds.flatMap((id) => obsByCatId.get(id) ?? []);
+    const lastSightingAt = newestOf(feedingIds.flatMap((id) => sightingsByCatId.get(id) ?? []));
+    const createdAt = earliestOf(
+      feedingIds.map((id) => createdAtByCatId.get(id)).filter((d): d is Date => d != null),
+    );
+    const evidenceOfLife = evidenceOfLifeOf(observations, replacedWelfare, lastSightingAt, createdAt);
 
-    // Evidence of life (§3.4), excluding life_status (the resolver already
-    // has it directly — resolve.ts's EvidenceOfLife doc comment), colony,
-    // note, name, food_and_water, coat, markings, vaccinated and team_note
-    // (none imply the cat was alive).
-    let bestAt: Date | null = null;
-    let bestSource: EvidenceSource | null = null;
-    const consider = (at: Date, source: EvidenceSource) => {
-      if (bestAt == null || at.getTime() > bestAt.getTime()) {
-        bestAt = at;
-        bestSource = source;
+    const records: CatRecords = { observations, evidenceOfLife };
+    if (opts.withHistory && ownCreatedAt) {
+      const feedingCreatedAt = new Map<number, Date>();
+      for (const id of feedingIds) {
+        const at = createdAtByCatId.get(id);
+        if (at) feedingCreatedAt.set(id, at);
       }
-    };
-    for (const o of observations) {
-      if (o.kind === "sterilised") consider(o.observedAt, "sterilised");
-      // An ear-tip answer that belongs to a sighting (data spine PR 7) adds
-      // nothing the sighting doesn't already say, at its true date. Counting
-      // it separately would be wrong whenever writeObservation's 30-day
-      // public clamp moved its date forward (a late-synced sighting answered
-      // later still), pulling the cat's "last seen alive" forward with it.
-      // Ear tips with no sighting (team entries) still count.
-      else if (o.kind === "ear_tip" && o.sightingId == null) consider(o.observedAt, "ear_tip");
-      else if (o.kind === "welfare_report" && !replacedWelfare.has(o.id))
-        consider(o.observedAt, "welfare_report");
+      const welfareIds = new Set(observations.filter((o) => o.kind === "welfare_report").map((o) => o.id));
+      records.history = {
+        createdAt: ownCreatedAt,
+        mergedAt: mergedAtByCanonical.get(canonicalId) ?? new Map(),
+        feedingCreatedAt,
+        sightings: feedingIds.flatMap((id) => (sightingsByCatId.get(id) ?? []).map((at) => ({ catId: id, at }))),
+        welfareReplacedAt: new Map([...welfareReplacedAt].filter(([id]) => welfareIds.has(id))),
+      };
     }
-
-    let lastSightingAt: Date | null = null;
-    for (const id of feedingIds) {
-      const newest = sightingByCatId.get(id);
-      if (newest && (lastSightingAt == null || newest.getTime() > lastSightingAt.getTime())) {
-        lastSightingAt = newest;
-      }
-    }
-    if (lastSightingAt != null) consider(lastSightingAt, "sighting");
-
-    let evidenceOfLife: EvidenceOfLife | null = null;
-    if (bestAt != null && bestSource != null) {
-      evidenceOfLife = { at: bestAt, source: bestSource, lastSightingAt };
-    } else {
-      const createdAt = feedingIds
-        .map((id) => createdAtByCatId.get(id))
-        .filter((d): d is Date => d != null)
-        .sort((a, b) => a.getTime() - b.getTime())[0];
-      if (createdAt) {
-        evidenceOfLife = { at: createdAt, source: "created", lastSightingAt };
-      }
-    }
-
-    result.set(canonicalId, { observations, evidenceOfLife });
+    result.set(canonicalId, records);
   }
 
   return result;
+}
+
+/**
+ * One cat as it stood at `at` (SYC-396 PR 3.0, Task 3.0.3; Decision 10),
+ * from records loaded once with `withHistory`: only what had been entered by
+ * then (`createdAt <= at`) — rows, the rows that replaced them, sightings,
+ * merges — and resolved as `resolveCat` would at `now`. Null when the cat
+ * had not been created yet. Pure: a report with many points loads the
+ * island once and calls this per point.
+ *
+ * `resolveAt(records, T, now)` is exactly `loadCatRecords(…, { asOf: T })`
+ * then `resolveCat(…, now)`, as long as `records` was loaded at or after T.
+ */
+export function resolveAt(records: CatRecords, at: Date, now: Date): CatSnapshot | null {
+  const h = records.history;
+  if (!h) throw new Error("resolveAt needs records loaded with { withHistory: true }");
+  const t = at.getTime();
+  if (h.createdAt.getTime() > t) return null;
+  const merged = (catId: number) => {
+    const m = h.mergedAt.get(catId);
+    return m === undefined || m.getTime() <= t;
+  };
+  const observations = records.observations.filter((o) => o.createdAt.getTime() <= t && merged(o.catId));
+  const replaced = new Set([...h.welfareReplacedAt].filter(([, d]) => d.getTime() <= t).map(([id]) => id));
+  const lastSightingAt = newestOf(
+    h.sightings.filter((s) => s.at.getTime() <= t && merged(s.catId)).map((s) => s.at),
+  );
+  const createdAt = earliestOf([...h.feedingCreatedAt].filter(([id]) => merged(id)).map(([, d]) => d));
+  return resolveCat(observations, evidenceOfLifeOf(observations, replaced, lastSightingAt, createdAt), now);
 }

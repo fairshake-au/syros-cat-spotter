@@ -701,9 +701,22 @@ describe("retraction", () => {
   });
   it("other kinds do not accept a retraction value", async () => {
     const cat = await insertCat();
-    await expect(writeAs(cat.id, "sterilised", { retracted: true })).rejects.toMatchObject(
-      refused("MALFORMED_VALUE"),
+    // SYC-396 PR 3.0: sterilised (with vaccinated and vet_visit) now has a
+    // retraction, but only a vet-visit undo may write one
+    // (observations.vetVisit.test.ts); a plain write is still refused.
+    await expect(writeAs(cat.id, "sterilised", { retracted: true, reason: "x" })).rejects.toMatchObject(
+      refused("RETRACTION_NOT_ALLOWED"),
     );
+    await expect(
+      writeObservation(db, {
+        catId: cat.id,
+        kind: "ear_tip",
+        value: { retracted: true },
+        accountId: "staff-pr11",
+        roleAtTime: "staff",
+        observedAt: new Date(),
+      }),
+    ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
   });
   it("T-retract-kind: a retraction can only supersede a row of its own kind (coat or markings)", async () => {
     const cat = await insertCat();
