@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import request from "supertest";
-import { addPerson, db, markLeft, observationsTable, pool, sightingsTable } from "@workspace/db";
+import { addPerson, db, markLeft, observationsTable, pool, sightingsTable, welfareReportsTable } from "@workspace/db";
+import { like } from "drizzle-orm";
+import { northOf } from "../test/feedingSites";
+import { tr } from "../lib/teamPages/strings";
 import app from "../app";
 import router from "./index";
 import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
@@ -468,6 +471,51 @@ describe("what a guardian does see: her own colonies, in full", () => {
     const list = (await get("/api/team/colonies", eleni.cookie)).text;
     expect(list).toContain("Create a colony");
     expect(list).not.toContain('name="guardianName"');
+  });
+
+  it("Colonies list figures (SYC-396 PR 2.2): her colony only, in her language, Kittens only from reports tied to her cats", async () => {
+    const figs = async (cookie: string) =>
+      (await get("/api/team/colonies", cookie, "json")).body.figures as { colonyId: number; flags: string[]; guardianNames: string[] }[];
+    const mine = await figs(eleni.cookie);
+    expect(mine.map((f) => f.colonyId)).toEqual([c1]);
+    // The people placed on her colony now, never an expired or a left one.
+    expect(mine[0]!.guardianNames).toEqual(expect.arrayContaining(["Eleni", MARIA_NAME]));
+    expect(mine[0]!.guardianNames).not.toContain(EXPIRED_NAME);
+    expect(mine[0]!.guardianNames).not.toContain(LEFT_NAME);
+
+    const publicId = `vt-gview-litter-${RUN}-`;
+    const litter = (n: string, catId: number | null) =>
+      db.insert(welfareReportsTable).values({
+        publicId: `${publicId}${n}`,
+        kind: "welfare",
+        severity: "attention",
+        isLitter: true,
+        lat: northOf(S1_POS.lat, 250),
+        lng: S1_POS.lng,
+        catId,
+        reporterDevice: `vt-gview-device-${RUN}`,
+        clientRef: `${publicId}${n}`,
+        photoState: "none",
+        submittedAt: new Date(Date.now() - 86_400_000),
+      });
+    try {
+      // 250 m from her site, tied to no cat: the team's flag, not hers.
+      await litter("near", null);
+      const team = (await figs(staffCookie)).find((f) => f.colonyId === c1)!;
+      expect(team.flags).toContain("kittens");
+      expect((await figs(eleni.cookie))[0]!.flags).not.toContain("kittens");
+      // Tied to her cat: hers too.
+      await litter("tied", catA.id);
+      expect((await figs(eleni.cookie))[0]!.flags).toContain("kittens");
+    } finally {
+      await db.delete(welfareReportsTable).where(like(welfareReportsTable.publicId, `${publicId}%`));
+    }
+
+    const lang = (await pool.query<{ language: string | null }>("select language from people where id = $1", [eleni.id])).rows[0]!.language;
+    const html = (await get("/api/team/colonies", eleni.cookie)).text;
+    expect(html).toContain(`aria-label="${tr(lang, "colonies.streetCats")}:`);
+    // Her own menu has Feeding sites; the team's link under the title isn't drawn for her.
+    expect(html).not.toContain('<p><a class="tap" href="/api/team/sites">');
   });
 
   it("Add cats: a cat in another colony is 'In another colony', with only what the public sees", async () => {

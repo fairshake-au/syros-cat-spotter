@@ -11,7 +11,11 @@ Plan: `docs/superpowers/plans/syc-396-phases-2-4.md`, "PR 2.2". Worktree `.claud
 - `markBar` takes optional words, so a guardian's legend uses `colonies.mark.*`.
 - Card's cat count = active cats (not "No longer with us") from `loadTeamCats`.
 
+- Task 2.2.1 done (cd9640d2): colonyFigures + 20 tests; probes red: island check on 300 m, colonyFilter on the colony list.
+- Task 2.2.2 code done (57ed1454, 98c5a5cc + guardian test): strings en/el/fr, markBar words, cards, sort, Feeding sites link, fallback.
+  Probes red: sort ignored, nulls-last, route try, FILTERED_MODULES, route island flag.
+
 ## Next
-- Task 2.2.1: `lib/dashboard/colonyFigures.ts` + test, FILTERED_MODULES, mutation probes.
-- Task 2.2.2: cards, sort, strings (en/el/fr), route, tests, screenshots.
-- Sonnet adversarial review in its own worktree; draft PR; Linear.
+- Screenshots 390/1280, team + guardian, en + el/fr (via liveLanguages seam or note), docs/screenshots/syc-396-pr-2-2/.
+- Affected test files re-run together; typecheck.
+- Sonnet adversarial review in its own worktree; draft PR; Linear (SYC-396, SYC-346 strings, deferred tickets).
