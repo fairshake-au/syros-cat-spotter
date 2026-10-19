@@ -5,7 +5,7 @@
  * English strings render as themselves through the real dictionary.
  */
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IssueReason, PendingIssue } from '@/lib/issueQueue';
 
@@ -302,5 +302,37 @@ describe('review fixes (findings 2, 7, 8)', () => {
     expect(screen.getByTestId('issue-reason-wrong_name').getAttribute('role')).toBe('button');
     fireEvent.click(screen.getByTestId('issue-reason-wrong_name'));
     expect(screen.getByTestId('issue-note').getAttribute('aria-label')).toBe(en.issueNoteLabel);
+  });
+
+  it('two taps in the same moment, before any re-render, still save one report (ship review, finding 2)', async () => {
+    catSheet();
+    fireEvent.click(screen.getByTestId('issue-reason-wrong_name'));
+    const sendButton = screen.getByTestId('issue-send');
+    // Both clicks inside one act: the button can't disable itself in between.
+    await act(async () => {
+      sendButton.click();
+      sendButton.click();
+    });
+    await screen.findByTestId('issue-done');
+    expect(h.queue.submitIssue).toHaveBeenCalledTimes(1);
+  });
+
+  it('the confirmation is a polite live region, so a late answer is read out (ship review, finding 3)', async () => {
+    catSheet();
+    savedAs('wrong_name');
+    await report('wrong_name');
+    const live = screen.getByTestId('issue-done-saved').closest('[aria-live]');
+    expect(live?.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('a "couldn\'t save" line goes once they go back and choose again (ship review, finding 5)', async () => {
+    h.queue.submitIssue.mockRejectedValueOnce(new Error('QueueWriteError'));
+    catSheet();
+    fireEvent.click(screen.getByTestId('issue-reason-wrong_name'));
+    fireEvent.click(screen.getByTestId('issue-send'));
+    await screen.findByTestId('issue-save-failed');
+    fireEvent.click(screen.getByTestId('issue-back'));
+    fireEvent.click(screen.getByTestId('issue-reason-other'));
+    expect(screen.queryByTestId('issue-save-failed')).toBeNull();
   });
 });

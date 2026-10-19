@@ -283,6 +283,8 @@ describe('DeleteMyDataProvider', () => {
     act(() => h.handler!());
     await waitFor(() => expect(h.resetIdentity).toHaveBeenCalled());
     expect(h.reports.wipeReports).toHaveBeenCalled();
+    // SYC-44 PR 6.2 (ship review, finding 1): waiting issue reports go on this path too.
+    expect(h.issues.wipeIssues).toHaveBeenCalled();
     expect(h.storage.has('cat-spotter/delete-my-data-reports')).toBe(false);
   });
 

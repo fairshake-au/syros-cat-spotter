@@ -98,6 +98,10 @@ export function ReportIssueSheet({
   // A ref as well as state: two quick taps land before a re-render (review finding 7).
   const savingRef = useRef(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  // A failed save is about that attempt: going back or choosing again clears it (ship review, finding 5).
+  useEffect(() => {
+    if (step === 'reasons') setSaveFailed(false);
+  }, [step]);
 
   const isWeb = Platform.OS === 'web';
   // On the website a waiting report is saved in the browser, not on a phone.

@@ -218,8 +218,10 @@ export interface IssueSyncDeps {
 export async function syncIssues(store: QueueStore<PendingIssue>, deps: IssueSyncDeps): Promise<void> {
   const now = deps.now ?? Date.now;
   for (const snapshot of [...store.items()]) {
-    // Re-read: another tab, or "Delete my data", may have taken it off the
-    // list while an earlier one was sending (review finding 6).
+    // Re-read: "Delete my data" in this tab may have taken it off the list
+    // while an earlier one was sending (review finding 6). Another tab's
+    // change is only seen at the next write; the server's clientRef check
+    // makes a repeat send harmless.
     const item = store.items().find((r) => r.localId === snapshot.localId);
     if (!item || item.status !== 'queued' || restingFromCheck(item, now())) continue;
     const attempt: SendAttempt = { sentToken: false };
