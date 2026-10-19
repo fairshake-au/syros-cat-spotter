@@ -387,6 +387,17 @@ a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;tex
 .catcard .hint{margin:0}
 .catcard .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;width:100%}
 .paging{margin:8px 0}
+/* The Colonies list's progress and flags (SYC-396 PR 2.2). */
+.colonylist .catrow>span{display:block;flex:1;min-width:0}
+.colonylist .markbar{max-width:480px}
+.cpct{font-weight:700;color:#1d1d1b}
+.cflags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.cflag{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border:1px solid rgba(29,29,27,.55);border-radius:999px;background:#f6f4ef;color:#1d1d1b;font-size:14px}
+.cflag svg{flex:none}
+.sortbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;font-size:15px}
+.sortbar a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #0b5c6b;border-radius:999px;background:#fff;color:#0b4553;text-decoration:none}
+.sortbar a[aria-current="true"]{background:#0b5c6b;color:#fff}
+.figat{font-size:14px;color:#55524a;margin:4px 0}
 /* The island map (SYC-396 PR 1.5; spec §6, §12.4). */
 ${MAP_MARK_CSS}
 .viewswitch{display:inline-flex;margin:8px 0;border:1px solid #0b5c6b;border-radius:8px;overflow:hidden}
