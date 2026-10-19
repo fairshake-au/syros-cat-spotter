@@ -1,3 +1,4 @@
+import { NOT_SEEN_LATELY_DAYS } from "../dashboard/countedCats";
 import { currentAreas } from "../areas/namedAreas";
 import { filtersToQuery } from "../teamCatFilters";
 import {
@@ -42,11 +43,17 @@ const LIVES_WORD: Record<Lives, string> = {
   gone: "No longer with us",
 };
 
+/** "6 weeks or more", from the one constant Home uses, so it follows if Syros Cats change it (SYC-442). */
+function quietWord(): string {
+  return NOT_SEEN_LATELY_DAYS % 7 === 0 ? `${NOT_SEEN_LATELY_DAYS / 7} weeks or more` : `${NOT_SEEN_LATELY_DAYS} days or more`;
+}
+
 const LAST_SEEN_WORD: Record<(typeof LAST_SEEN)[number], string> = {
   week: "This week",
   month: "This month",
   "1to3": "1–3 months",
   over3: "Over 3 months",
+  quiet: quietWord(),
   never: "Never seen since first recorded",
 };
 

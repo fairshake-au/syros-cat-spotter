@@ -186,7 +186,7 @@ describe("renderHomePage", () => {
     expect(section).toContain('src="/api/team/photos/ph1/small"');
     expect(section).toContain("Harbour steps");
     expect(section).toContain("Last seen on 20 Aug 2026 · Galissas");
-    expect(section).toContain('href="/api/team/cats?lives=street&amp;lastSeen=over3">and 7 more</a>');
+    expect(section).toContain('href="/api/team/cats?lives=street&amp;lastSeen=quiet">and 7 more</a>');
     expect(section).not.toMatch(/died|dead|deceased|no longer with us/i);
   });
 

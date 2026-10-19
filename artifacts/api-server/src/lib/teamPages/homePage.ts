@@ -142,7 +142,7 @@ function notSeenSection(s: HomeData["notSeenLately"], now: Date): string {
     // A prompt to ask, never a claim that a cat has died (§4.3).
     `<p class="hint">Street cats not seen for 6 weeks or more. Worth asking their cat guardian whether they've been around.</p>` +
     `<ul class="catgrid">${cats.map((c) => quietCard(c, colonyNames, now)).join("")}</ul>` +
-    (more > 0 ? `<p><a class="hlink" href="/api/team/cats?lives=street&amp;lastSeen=over3">and ${more} more</a></p>` : "") +
+    (more > 0 ? `<p><a class="hlink" href="/api/team/cats?lives=street&amp;lastSeen=quiet">and ${more} more</a></p>` : "") +
     "</section>"
   );
 }

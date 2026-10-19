@@ -5,6 +5,7 @@ import { catIdentityTable, catsTable, db, observationsTable, photosTable, sighti
 import { deleteTestSightings } from "../test/sightings";
 import { newColony, putInColony } from "../test/roleKit";
 import { allTeamCats, listTeamCats, livesOf, loadTeamCats, markOf, PAGE_SIZE } from "./teamCatList";
+import { NOT_SEEN_LATELY_DAYS, notSeenLately } from "./dashboard/countedCats";
 import { loadCatRecords } from "./observations";
 import { resolveCat, type CatSnapshot } from "./resolve";
 
@@ -362,5 +363,43 @@ describe("loadTeamCats", () => {
   it("names the area by key, and Off Syros as off", async () => {
     expect((await byKey("Keeper"))!.areaKey).toBe("ermoupoli");
     expect((await byKey("Arizona"))!.areaKey).toBe("off");
+  });
+});
+
+describe("the Quiet filter: Home's Not seen lately, as a list (SYC-485)", () => {
+  beforeAll(async () => {
+    await cat("Quiet50");
+    await sighted(ids["Quiet50"]!, daysAgo(50), 37.4436, 24.8889);
+    await cat("Quiet41");
+    await sighted(ids["Quiet41"]!, daysAgo(NOT_SEEN_LATELY_DAYS - 1), 37.4436, 24.8889);
+    await cat("Quiet42");
+    await sighted(ids["Quiet42"]!, daysAgo(NOT_SEEN_LATELY_DAYS), 37.4436, 24.8889);
+    await cat("QuietOff");
+    await sighted(ids["QuietOff"]!, daysAgo(50), 33.4, -112.0);
+    await cat("QuietHomed");
+    await say(ids["QuietHomed"]!, "life_status", { status: "homed" });
+    await sighted(ids["QuietHomed"]!, daysAgo(60), 37.4436, 24.8889);
+  });
+
+  it("is six weeks or more, never Off Syros, and needs a sighting", async () => {
+    const street = await list({ lives: ["street"], lastSeen: "quiet" });
+    const got = names(street.items).sort();
+    expect(got).toContain("Quiet50");
+    expect(got).toContain("Quiet42"); // exactly the limit is in, as Home counts it
+    expect(got).not.toContain("Quiet41");
+    expect(got).not.toContain("QuietOff");
+    expect(got).not.toContain("QuietHomed"); // not a street cat
+    expect(got).not.toContain("Never"); // never seen: no sighting to be quiet since
+  });
+
+  it("agrees with Home's count: the same cats, by the same rule", async () => {
+    const home = notSeenLately(await loadTeamCats(NOW), NOW)
+      .map((c) => c.name)
+      .filter((n) => n.startsWith(PREFIX))
+      .map((n) => n.slice(PREFIX.length))
+      .sort();
+    const grid = names((await list({ lives: ["street"], lastSeen: "quiet" })).items).sort();
+    expect(grid).toEqual(home);
+    expect(home.length).toBeGreaterThanOrEqual(2);
   });
 });

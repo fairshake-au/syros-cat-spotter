@@ -7,6 +7,7 @@ import { COAT_COLOURS, type CoatColour, type CoatPattern } from "./appearance";
 import { loadCatRecords } from "./observations";
 import { resolveCat, type CatSnapshot } from "./resolve";
 import { QUERY_MAX, SYR_RE, syrNumber } from "./teamCatView";
+import { NOT_SEEN_LATELY_DAYS } from "./dashboard/countedCats";
 
 // The team's list of every cat (SYC-396 PR 1.3; spec §5.1, §9.5, §9.6). Worked
 // out from the observation records on each request: no status is stored.
@@ -23,7 +24,10 @@ export type SterilisedMark = "sterilised" | "probably" | "not_sterilised" | "not
 export type Lives = "street" | "homed" | "in_care" | "gone";
 
 export const SORTS = ["recent", "newest", "name"] as const;
-export const LAST_SEEN = ["week", "month", "1to3", "over3", "never"] as const;
+// "quiet" is Home's Not seen lately (SYC-485): NOT_SEEN_LATELY_DAYS or more,
+// at least one matched sighting. Named for what it means, not the number,
+// because Syros Cats may change the number (SYC-442).
+export const LAST_SEEN = ["week", "month", "1to3", "over3", "quiet", "never"] as const;
 export const LIVES: readonly Lives[] = ["street", "homed", "in_care", "gone"];
 export const MARKS: readonly SterilisedMark[] = ["sterilised", "probably", "not_sterilised", "not_known"];
 
@@ -100,7 +104,8 @@ const DAY = 86_400_000;
 /**
  * Does a last-seen time fall in this band? The first two add up: a cat seen 3
  * days ago is in "This week" and in "This month". "1–3 months" is 31 to 90
- * days and "Over 3 months" is more than 90.
+ * days and "Over 3 months" is more than 90. "Quiet" is NOT_SEEN_LATELY_DAYS or
+ * more (it overlaps the two above).
  */
 function inLastSeenBand(band: (typeof LAST_SEEN)[number], at: Date | null, now: Date): boolean {
   if (band === "never") return at === null;
@@ -109,6 +114,7 @@ function inLastSeenBand(band: (typeof LAST_SEEN)[number], at: Date | null, now: 
   if (band === "week") return days <= 7;
   if (band === "month") return days <= 30;
   if (band === "1to3") return days > 30 && days <= 90;
+  if (band === "quiet") return days >= NOT_SEEN_LATELY_DAYS;
   return days > 90;
 }
 
@@ -282,6 +288,9 @@ async function matchTeamCats(
     if (f.colony !== undefined && i.colonyId !== f.colony) return false;
     if (f.sterilised?.length && !f.sterilised.includes(i.mark)) return false;
     if (f.lastSeen !== undefined && !inLastSeenBand(f.lastSeen, i.lastSeenAt, now)) return false;
+    // Off Syros is never counted in any figure (spec §3.3), so Home's count
+    // and the list its "and N more" opens agree: this band leaves it out.
+    if (f.lastSeen === "quiet" && areaOf.get(i.id) === "off") return false;
     return true;
   });
 
