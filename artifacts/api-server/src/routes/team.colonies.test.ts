@@ -809,10 +809,15 @@ describe("progress, flags and the sort (SYC-396 PR 2.2; spec §9.1)", () => {
   });
 
   it("?sort=recent orders by latest sighting, never-sighted last", async () => {
-    const { names } = await threeColonies("recent");
+    const { b, names } = await threeColonies("recent");
+    // B gets the newest sighting, so "recent" differs from name order (second review).
+    const fresh = await seedCat("recent-cb2");
+    await colonyStatement(fresh.id, b);
+    await seen(fresh.id, 0);
     const html = decoded((await get(`/api/team/colonies?q=${encodeURIComponent(`${P}recent`)}&sort=recent`)).text);
-    expect(order(html, [names.a, names.b, names.c])).toEqual([names.a, names.b, names.c]);
-    const html2 = decoded((await get(`/api/team/colonies?sort=fewest&q=${encodeURIComponent(`${P}recent`)}`)).text);
+    expect(order(html, [names.a, names.b, names.c])).toEqual([names.b, names.a, names.c]);
+    // The order travels with the address, either way round.
+    const html2 = decoded((await get(`/api/team/colonies?sort=recent&q=${encodeURIComponent(`${P}recent`)}`)).text);
     expect(order(html2, [names.a, names.b, names.c])).toEqual([names.b, names.a, names.c]);
   });
 
@@ -841,6 +846,10 @@ describe("progress, flags and the sort (SYC-396 PR 2.2; spec §9.1)", () => {
     const fig = (id: number) => (res.body.figures as { colonyId: number }[]).find((f) => f.colonyId === id);
     expect(fig(a)).toMatchObject({ street: 1, confirmedPct: 100, catCount: 1, flags: [], guardianNames: [] });
     expect(fig(c)).toMatchObject({ street: 0, confirmedPct: null, catCount: 0, flags: ["no_guardian"] });
+    // One cat count per colony in the JSON (second review).
+    for (const col of res.body.colonies as { id: number; catCount: number }[]) {
+      expect(col.catCount).toBe((fig(col.id) as unknown as { catCount: number }).catCount);
+    }
     // Only the colonies in this answer (review of PR 2.2).
     expect((res.body.figures as { colonyId: number }[]).map((f) => f.colonyId).sort()).toEqual(
       (res.body.colonies as { id: number }[]).map((c) => c.id).sort(),

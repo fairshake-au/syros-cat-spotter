@@ -12,7 +12,7 @@ import { and, asc, eq, gt, inArray, isNotNull, isNull, lte, notExists, sql } fro
 import { alias } from "drizzle-orm/pg-core";
 import { loadTeamCats, type TeamCat } from "../teamCatList";
 import { colonyFilter, covers, type Visible } from "../guardianView";
-import { isActive, splitOf, type Split } from "./countedCats";
+import { isActive, isStreet, splitOf, type Split } from "./countedCats";
 
 // Each colony's figures and flags for the Colonies list (SYC-396 PR 2.2;
 // spec §9.1). Who is counted comes from countedCats (§9.5): the bar is the
@@ -86,7 +86,8 @@ async function visibleColonies(visible: Visible): Promise<{ id: number; guardian
 /** The names of the cat guardians placed on each visible colony now. */
 async function placedGuardians(visible: Visible, now: Date): Promise<Map<number, string[]>> {
   const rows = await db
-    .selectDistinct({ colonyId: personScopesTable.colonyId, name: peopleTable.name })
+    // By person, so two guardians who share a name are both named.
+    .selectDistinct({ colonyId: personScopesTable.colonyId, personId: peopleTable.id, name: peopleTable.name })
     .from(personScopesTable)
     .innerJoin(peopleTable, eq(peopleTable.id, personScopesTable.personId))
     .where(
@@ -267,20 +268,27 @@ export async function colonyFigures(
     const here = byColony.get(colony.id) ?? [];
     const split = splitOf(here);
     const street = split.sterilised + split.probably + split.not_sterilised + split.not_known;
-    // Not visited, the latest sighting and the cat count read the colony's
-    // current cats: active (not "No longer with us") and on Syros (§3.3).
+    // The latest sighting and the cat count read the colony's current cats:
+    // active (not "No longer with us") and on Syros (§3.3).
     const current = here.filter((c) => isActive(c) && c.areaKey !== "off");
-    const latest = current.reduce<number | null>(
-      (m, c) => (c.lastSeenAt === null ? m : Math.max(m ?? -Infinity, c.lastSeenAt.getTime())),
-      null,
-    );
+    const newest = (cs: readonly TeamCat[]) =>
+      cs.reduce<number | null>(
+        (m, c) => (c.lastSeenAt === null ? m : Math.max(m ?? -Infinity, c.lastSeenAt.getTime())),
+        null,
+      );
+    const latest = newest(current);
+    // Not visited lately reads its street cats only (Samuel, 19 Oct): a cat
+    // with a home or in care isn't expected to be spotted, so a colony whose
+    // street cats were all rehomed is never flagged.
+    const streetCats = here.filter(isStreet);
+    const streetLatest = newest(streetCats);
     const names = guardians.get(colony.id) ?? [];
     const flags = new Set<ColonyFlag>();
     if (growing.has(colony.id)) flags.add("growing");
     if (tied.has(colony.id) || near.has(colony.id)) flags.add("kittens");
     // Decision 15: no placement in force AND no typed name.
     if (names.length === 0 && blank(colony.guardianName)) flags.add("no_guardian");
-    if (current.length > 0 && (latest === null || latest < notVisitedBefore)) flags.add("not_visited");
+    if (streetCats.length > 0 && (streetLatest === null || streetLatest < notVisitedBefore)) flags.add("not_visited");
     out.set(colony.id, {
       colonyId: colony.id,
       street,

@@ -420,3 +420,45 @@ describe("review findings", () => {
     expect(wholePct(1, 3)).toBe(33);
   });
 });
+
+// From the second critic on PR 2.2, and Samuel's answer on Not visited (19 Oct).
+describe("second review", () => {
+  it("two different guardians who share a name are both named", async () => {
+    const c = await newColony("samename");
+    await person("twin", ["guardian"], c);
+    await addPerson({ email: `vitest-cfig-twin2-${RUN}@example.com`, name: "Vt twin", addedBy: "cli:vitest", roles: ["guardian"], colonyId: c });
+    expect((await figuresFor(c))!.guardianNames).toEqual(["Vt twin", "Vt twin"]);
+  });
+
+  it("a colony whose street cats were all rehomed is not 'Not visited lately'", async () => {
+    const c = await newColony("allhomed");
+    const k = await cat();
+    await into(k, c);
+    await sighted(k, daysAgo(200));
+    await say(k, "life_status", { status: "homed" }, daysAgo(100));
+    const f = (await figuresFor(c))!;
+    expect(f.street).toBe(0);
+    expect(f.catCount).toBe(1);
+    expect(f.flags).not.toContain("not_visited");
+  });
+
+  it("a street cat beside a recently seen homed cat still makes it 'Not visited lately'", async () => {
+    const c = await newColony("mixedvisit");
+    const street = await cat();
+    await into(street, c);
+    await sighted(street, daysAgo(NOT_VISITED_DAYS + 5));
+    const homed = await cat();
+    await into(homed, c);
+    await sighted(homed, daysAgo(1));
+    await say(homed, "life_status", { status: "homed" }, daysAgo(1));
+    expect((await figuresFor(c))!.flags).toContain("not_visited");
+  });
+
+  it("a sighting exactly 30 days ago still counts as a visit", async () => {
+    const c = await newColony("exact30");
+    const k = await cat();
+    await into(k, c);
+    await sighted(k, daysAgo(NOT_VISITED_DAYS));
+    expect((await figuresFor(c))!.flags).not.toContain("not_visited");
+  });
+});

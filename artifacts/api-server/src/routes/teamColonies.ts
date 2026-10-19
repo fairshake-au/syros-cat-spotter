@@ -191,7 +191,8 @@ router.get(
       return void res.json({
         query: shown,
         sort,
-        colonies,
+        // One cat count per colony: the figures' (active, on Syros) when there are figures.
+        colonies: colonies.map((c) => ({ ...c, catCount: figures?.get(c.id)?.catCount ?? c.catCount })),
         // The figures of the colonies in this answer only.
         figures: figures === null ? null : colonies.flatMap((c) => figures.get(c.id) ?? []),
         ...(recentChanges ? { recentChanges } : {}),
