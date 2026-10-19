@@ -878,7 +878,7 @@ const el: Dict = {
   // SYC-44 PR 6.2 (drafts for the native review, SYC-305)
   issueHurtFirst: 'Μια γάτα είναι τραυματισμένη ή σε κίνδυνο αυτή τη στιγμή; Πάτα καλύτερα το «Αυτή η γάτα χρειάζεται βοήθεια».',
   issueReason_photo_private: 'Δείχνει ένα άτομο ή έναν ιδιωτικό χώρο',
-  issueHint_photo_private: 'πρόσωπα, αριθμούς σπιτιών, πινακίδες αυτοκινήτων, το μέσα ενός σπιτιού ή κήπου',
+  issueHint_photo_private: 'πρόσωπα, αριθμούς σπιτιών, πινακίδες αυτοκινήτων, το εσωτερικό ενός σπιτιού ή κήπου',
   issueReason_photo_inappropriate: 'Είναι ενοχλητική ή προσβλητική',
   issueReason_photo_not_cat: 'Δεν είναι γάτα',
   issueHint_photo_not_cat: 'μια εικόνα που δεν έχει καμία σχέση με γάτες',
