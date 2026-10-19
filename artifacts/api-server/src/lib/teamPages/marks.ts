@@ -96,18 +96,27 @@ function hundredths(counts: readonly number[], total: number): number[] {
  * share, then a legend line giving every non-zero part its shape, number and
  * word, so it is never colour alone. Built only from the fixed words, the
  * fixed colours and the counts; `label` is escaped.
+ *
+ * `words` and `empty` let a cat guardian's page give the four words and the
+ * "no street cats" line in her language (SYC-396 PR 2.2); they are escaped
+ * too. Left out, the team's English words are used.
  */
-export function markBar(split: Split, opts: { label?: string } = {}): string {
+export function markBar(
+  split: Split,
+  opts: { label?: string; words?: Record<SterilisedMark, string>; empty?: string } = {},
+): string {
+  const word = opts.words ?? MARK_WORD;
+  const emptyWords = opts.empty ?? "No street cats yet";
   // Whole, finite, non-negative counts only: anything else counts as none.
   const count = (v: number | undefined) => (Number.isFinite(v) ? Math.max(0, Math.floor(v!)) : 0);
   const parts = MARK_ORDER.map((m) => ({ m, n: count(split[m]) })).filter((p) => p.n > 0);
   const total = parts.reduce((t, p) => t + p.n, 0);
-  const words = total === 0 ? "No street cats yet" : parts.map((p) => `${p.n} ${MARK_WORD[p.m]}`).join(", ");
+  const words = total === 0 ? emptyWords : parts.map((p) => `${p.n} ${word[p.m]}`).join(", ");
   const aria = esc(opts.label ? `${opts.label}: ${words}` : words);
   if (total === 0) {
     return (
       `<div class="markbar"><div class="markbar-track markbar-empty" role="img" aria-label="${aria}"></div>` +
-      `<p class="markbar-legend">No street cats yet</p></div>`
+      `<p class="markbar-legend">${esc(emptyWords)}</p></div>`
     );
   }
   const widths = hundredths(parts.map((p) => p.n), total);
@@ -116,7 +125,7 @@ export function markBar(split: Split, opts: { label?: string } = {}): string {
     .join("");
   // The legend repeats the bar's label in sight, so screen readers hear it once.
   const legend = parts
-    .map((p) => `<span class="mark mark-${p.m}">${icon(p.m)}<span class="mark-word">${p.n} ${MARK_WORD[p.m]}</span></span>`)
+    .map((p) => `<span class="mark mark-${p.m}">${icon(p.m)}<span class="mark-word">${p.n} ${esc(word[p.m])}</span></span>`)
     .join('<span class="markbar-sep"> · </span>');
   return (
     `<div class="markbar"><div class="markbar-track" role="img" aria-label="${aria}">${segs}</div>` +

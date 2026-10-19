@@ -14,6 +14,7 @@ import {
   observationsTable,
   photosTable,
   pool,
+  sightingsTable,
 } from "@workspace/db";
 import app from "../app";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
@@ -25,6 +26,7 @@ import {
 import { deleteTestRows } from "../test/deleteGuarded";
 import { recordMappingEvent } from "../lib/mappingEvents";
 import { currentColonyOf } from "../lib/colonyMembership";
+import { deleteTestSightings } from "../test/sightings";
 
 // SYC-209 PR 2.1: the Colonies pages. Spec tests 14 (colony names), 11 (part:
 // one history row per change, in the same transaction), 16 (escaping) and 12
@@ -40,6 +42,17 @@ import { currentColonyOf } from "../lib/colonyMembership";
 vi.mock("../lib/mappingEvents", async (importOriginal) => {
   const real = await importOriginal<typeof import("../lib/mappingEvents")>();
   return { ...real, recordMappingEvent: vi.fn(real.recordMappingEvent) };
+});
+
+// The Colonies list's figures (SYC-396 PR 2.2), made to fail once on demand.
+const figuresFail = vi.hoisted(() => ({ on: false }));
+vi.mock("../lib/dashboard/colonyFigures", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../lib/dashboard/colonyFigures")>();
+  return {
+    ...real,
+    colonyFigures: (...args: Parameters<typeof real.colonyFigures>) =>
+      figuresFail.on ? Promise.reject(new Error("figures down")) : real.colonyFigures(...args),
+  };
 });
 
 // A staff member who lacks exactly one capability: today staff hold all
@@ -198,12 +211,14 @@ beforeEach(() => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   denied.cap = null;
+  figuresFail.on = false;
   vi.mocked(recordMappingEvent).mockClear();
 });
 
 afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
+  await deleteTestSightings(like(sightingsTable.deviceId, `${P}%`));
   await deleteTestRows("feeding_sites", "name like $1", [`${P}%`]);
   await db.delete(catsTable).where(like(catsTable.name, `${P}%`));
   await db.delete(photosTable).where(inArray(photosTable.id, photoIds));
@@ -712,6 +727,154 @@ describe("the list and a colony's page", () => {
   });
 });
 
+describe("progress, flags and the sort (SYC-396 PR 2.2; spec §9.1)", () => {
+  async function sterilised(catId: number, value: boolean) {
+    statementClock += 60_000;
+    await db.insert(observationsTable).values({
+      catId,
+      kind: "sterilised",
+      value: { sterilised: value },
+      accountId: susan,
+      roleAtTime: "staff",
+      observedAt: new Date(statementClock),
+    });
+  }
+  async function seen(catId: number, daysAgo: number) {
+    await db.insert(sightingsTable).values({
+      catId,
+      deviceId: `${P}device`,
+      photoId: photoIds[0]!,
+      lat: 37.445,
+      lng: 24.942,
+      status: "resolved",
+      createdAt: new Date(Date.now() - daysAgo * 86_400_000),
+    });
+  }
+  /** Where each name first appears in the page: the order the cards are drawn in. */
+  const order = (html: string, names: string[]) =>
+    [...names].sort((a, b) => html.indexOf(`<strong>${a}</strong>`) - html.indexOf(`<strong>${b}</strong>`));
+
+  /** Three colonies: A 100% confirmed sterilised and seen 1 day ago, B 0% and seen 5 days ago, C no cats. */
+  async function threeColonies(tag: string) {
+    const names = { a: unique(`${tag}-a`), b: unique(`${tag}-b`), c: unique(`${tag}-c`) };
+    const a = await makeColony(names.a, { guardianName: "Eleni" });
+    const b = await makeColony(names.b);
+    const c = await makeColony(names.c);
+    const ca = await seedCat(`${tag}-ca`);
+    await sterilised(ca.id, true);
+    await colonyStatement(ca.id, a);
+    await seen(ca.id, 1);
+    const cb = await seedCat(`${tag}-cb`);
+    await sterilised(cb.id, false);
+    await colonyStatement(cb.id, b);
+    await seen(cb.id, 5);
+    return { a, b, c, names };
+  }
+
+  it("a card shows its bar, its percentage, the latest sighting and its flags, each an icon and a word", async () => {
+    const id = await makeColony(unique("card"));
+    const yes = await seedCat("card-yes");
+    await sterilised(yes.id, true);
+    await colonyStatement(yes.id, id);
+    const no = await seedCat("card-no");
+    await sterilised(no.id, false);
+    await colonyStatement(no.id, id);
+
+    const html = (await get(`/api/team/colonies?q=${encodeURIComponent(`${P}card`)}`)).text;
+    const text = decoded(html.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ");
+    expect(html).toContain('class="markbar-track"');
+    expect(html).toContain('aria-label="Street cats: 1 Sterilised, 1 Not sterilised"');
+    expect(text).toContain("50% confirmed sterilised");
+    expect(text).toContain("No sightings yet");
+    expect(text).toContain("0 feeding sites · 2 cats");
+    // No typed guardian and nobody placed: the flag says so, and no guardian line.
+    expect(text).not.toContain("No cat guardian recorded");
+    for (const [flag, word] of [
+      ["no_guardian", "No cat guardian"],
+      ["not_visited", "Not visited lately"],
+    ] as const) {
+      expect(html).toMatch(new RegExp(`<span class="cflag cflag-${flag}"><svg [^>]*aria-hidden="true"[^>]*>[\\s\\S]*?</svg>${word}</span>`));
+    }
+    expect(html).not.toContain("cflag-growing");
+    expect(html).not.toContain("cflag-kittens");
+    expect(text).toMatch(/Figures as of \d{1,2} \w+ \d{4}/);
+  });
+
+  it("?sort=fewest orders by % confirmed sterilised, lowest first, no street cats last", async () => {
+    const { names } = await threeColonies("fewest");
+    const html = decoded((await get(`/api/team/colonies?q=${encodeURIComponent(`${P}fewest`)}&sort=fewest`)).text);
+    expect(order(html, [names.a, names.b, names.c])).toEqual([names.b, names.a, names.c]);
+    // The search keeps the order, and the sort link is marked.
+    expect(html).toContain('<input type="hidden" name="sort" value="fewest">');
+  });
+
+  it("?sort=recent orders by latest sighting, never-sighted last", async () => {
+    const { b, names } = await threeColonies("recent");
+    // B gets the newest sighting, so "recent" differs from name order (second review).
+    const fresh = await seedCat("recent-cb2");
+    await colonyStatement(fresh.id, b);
+    await seen(fresh.id, 0);
+    const html = decoded((await get(`/api/team/colonies?q=${encodeURIComponent(`${P}recent`)}&sort=recent`)).text);
+    expect(order(html, [names.a, names.b, names.c])).toEqual([names.b, names.a, names.c]);
+    // The order travels with the address, either way round.
+    const html2 = decoded((await get(`/api/team/colonies?sort=recent&q=${encodeURIComponent(`${P}recent`)}`)).text);
+    expect(order(html2, [names.a, names.b, names.c])).toEqual([names.b, names.a, names.c]);
+  });
+
+  it("?sort=Eleni, or several sorts, falls back to name", async () => {
+    const { names } = await threeColonies("byname");
+    for (const qs of ["sort=Eleni", "sort=fewest&sort=recent", "sort[x]=fewest", ""]) {
+      const html = decoded((await get(`/api/team/colonies?q=${encodeURIComponent(`${P}byname`)}&${qs}`)).text);
+      expect(order(html, [names.c, names.b, names.a]), qs).toEqual([names.a, names.b, names.c]);
+      expect(html, qs).not.toContain('name="sort"');
+    }
+  });
+
+  it("the sort links carry no search, name or position: fixed addresses only", async () => {
+    await threeColonies("links");
+    const html = (await get(`/api/team/colonies?q=${encodeURIComponent(`${P}links`)}`)).text;
+    const bar = html.slice(html.indexOf('<nav class="sortbar"'), html.indexOf("</nav>", html.indexOf('<nav class="sortbar"')));
+    const hrefs = [...bar.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+    expect(hrefs).toEqual(["/api/team/colonies", "/api/team/colonies?sort=fewest", "/api/team/colonies?sort=recent"]);
+    expect(bar).toContain('aria-current="true">Name</a>');
+  });
+
+  it("the JSON variant gains the sort and each colony's figures", async () => {
+    const { a, c } = await threeColonies("json");
+    const res = await get(`/api/team/colonies?q=${encodeURIComponent(`${P}json`)}&sort=fewest`).set("Accept", "application/json");
+    expect(res.body.sort).toBe("fewest");
+    const fig = (id: number) => (res.body.figures as { colonyId: number }[]).find((f) => f.colonyId === id);
+    expect(fig(a)).toMatchObject({ street: 1, confirmedPct: 100, catCount: 1, flags: [], guardianNames: [] });
+    expect(fig(c)).toMatchObject({ street: 0, confirmedPct: null, catCount: 0, flags: ["no_guardian"] });
+    // One cat count per colony in the JSON (second review).
+    for (const col of res.body.colonies as { id: number; catCount: number }[]) {
+      expect(col.catCount).toBe((fig(col.id) as unknown as { catCount: number }).catCount);
+    }
+    // Only the colonies in this answer (review of PR 2.2).
+    expect((res.body.figures as { colonyId: number }[]).map((f) => f.colonyId).sort()).toEqual(
+      (res.body.colonies as { id: number }[]).map((c) => c.id).sort(),
+    );
+  });
+
+  it("the team gets the Feeding sites link under the title", async () => {
+    const html = (await get("/api/team/colonies")).text;
+    expect(html).toContain('<p><a class="tap" href="/api/team/sites">Feeding sites</a></p>');
+  });
+
+  it("when the figures can't be worked out, the list still draws, and says so", async () => {
+    const id = await makeColony(unique("down"), { guardianName: "Eleni" });
+    figuresFail.on = true;
+    const res = await get(`/api/team/colonies?q=${encodeURIComponent(`${P}down`)}`);
+    expect(res.status).toBe(200);
+    expect(decoded(res.text)).toContain("The figures aren't available right now.");
+    expect(res.text).toContain(`href="/api/team/colonies/${id}"`);
+    expect(res.text).not.toContain('class="markbar"');
+    expect(res.text).not.toContain('class="sortbar"');
+    const json = await get(`/api/team/colonies?q=${encodeURIComponent(`${P}down`)}`).set("Accept", "application/json");
+    expect(json.body.figures).toBeNull();
+  });
+});
+
 describe("the ?done= message is looked up safely", () => {
   it("names that exist on every object are no message, and no error", async () => {
     const id = await makeColony(unique("done"));
@@ -829,7 +992,7 @@ describe("a NUL character", () => {
     const json = await get(`/api/team/colonies?q=%00`).set("Accept", "application/json");
     expect(json.status).toBe(200);
     // The team's JSON also carries "Recent changes by cat guardians" (PR 4.3).
-    expect({ ...json.body, recentChanges: undefined }).toEqual({ query: "", colonies: [], recentChanges: undefined });
+    expect({ ...json.body, recentChanges: undefined }).toEqual({ query: "", sort: "name", colonies: [], figures: [], recentChanges: undefined });
     expect(Array.isArray(json.body.recentChanges)).toBe(true);
   });
 });
