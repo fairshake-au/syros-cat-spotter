@@ -388,7 +388,10 @@ export function confirmationState(
  * A report the server refused (failed) counts too: it is stranded on the
  * phone until the person taps Try again (review of #55, S3).
  */
-export function dueReminders(items: PendingReport[], now: Date): PendingReport[] {
+export function dueReminders<T extends Pick<PendingReport, 'status' | 'remindedAt' | 'createdAt'>>(
+  items: T[],
+  now: Date,
+): T[] {
   return items.filter(
     (r) =>
       (r.status === 'queued' || r.status === 'failed') &&
@@ -406,7 +409,7 @@ export function clearWaits(list: PendingReport[]): PendingReport[] {
 }
 
 /** Try again: refused reports go back in the queue with a fresh count. */
-export function requeueFailed(list: PendingReport[]): PendingReport[] {
+export function requeueFailed<T extends Pick<PendingReport, 'status' | 'serverFailures'>>(list: T[]): T[] {
   if (!list.some((r) => r.status === 'failed')) return list;
   return list.map((r) => (r.status === 'failed' ? { ...r, status: 'queued' as const, serverFailures: 0 } : r));
 }
