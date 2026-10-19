@@ -16,7 +16,7 @@ Branch `claude/syc-462-photo-removal`, worktree `.claude/worktrees/adoring-bohr-
 - D4: settled by D1 (app changes required).
 
 ## Waiting on
-- Spec revision 2 for D1=B DONE (d971a0d5). Review 2 (Sonnet) committed verbatim (ef3a6243) and all 14 findings folded in. Waiting on Samuel's spec approval. Migration number to be agreed with live sessions (0031 is latest on main).
+- Spec revision 2 for D1=B DONE (d971a0d5). Review 2 (Sonnet) committed verbatim (ef3a6243) and all 14 findings folded in. Spec APPROVED by Samuel 19 Oct ("approved, write the plan"). Migration number to be agreed with live sessions (0031 is latest on main).
 
 ## Next, after approval
 1. Write the plan (with model delegation), get it approved.
@@ -24,3 +24,8 @@ Branch `claude/syc-462-photo-removal`, worktree `.claude/worktrees/adoring-bohr-
 3. Runbook `docs/runbooks/photo-removal.md`, restore line in `neon-database.md`, launch plan line 58 wording.
 4. Before merge: re-check live sessions; message them (db-ops.yml / sightings.ts overlap). No migration needed.
 5. After merge (parent session): D2 development-branch run with heads-up.
+
+## Plan (19 Oct)
+- Written: `docs/superpowers/plans/syc-462-photo-removal.md` (12 tasks, inline Opus, mutation probes). Waiting on Samuel's plan approval.
+- Migration number: 0033 provisional; messages sent 19 Oct to SYC-396 PR 3.0, PR 2.4, PR 2.1, SYC-443 PR 2, SYC-44 PR 6.1 — replies pending. Confirm before Task 1.
+- Branch rebased onto origin/main 4cad95e3 (force-pushed, own branch).
