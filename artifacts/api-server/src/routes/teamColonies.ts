@@ -192,7 +192,8 @@ router.get(
         query: shown,
         sort,
         colonies,
-        figures: figures === null ? null : [...figures.values()],
+        // The figures of the colonies in this answer only.
+        figures: figures === null ? null : colonies.flatMap((c) => figures.get(c.id) ?? []),
         ...(recentChanges ? { recentChanges } : {}),
       });
     }

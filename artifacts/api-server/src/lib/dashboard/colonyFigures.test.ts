@@ -17,7 +17,7 @@ import { deleteTestRows } from "../../test/deleteGuarded";
 import { northOf } from "../../test/feedingSites";
 import { newColony } from "../../test/roleKit";
 import { visibleColonyIds } from "../guardianView";
-import { colonyFigures, GROWING_DAYS, KITTENS_DAYS, NOT_VISITED_DAYS, type ColonyFigures } from "./colonyFigures";
+import { colonyFigures, GROWING_DAYS, KITTENS_DAYS, NOT_VISITED_DAYS, wholePct, type ColonyFigures } from "./colonyFigures";
 
 // SYC-396 PR 2.2, Task 2.2.1: each colony's figures and its four flags
 // (spec §9.1). The test database is shared and never truncated, so every
@@ -359,5 +359,64 @@ describe("who sees which colony", () => {
     const figures = await colonyFigures(TEAM, { island: true }, NOW);
     expect(figures.has(a)).toBe(true);
     expect(figures.has(b)).toBe(true);
+  });
+});
+
+// From the adversarial review of PR 2.2 (each failed before its fix).
+describe("review findings", () => {
+  const FAR = { lat: 37.98, lng: 23.72 }; // Athens: Off Syros
+
+  it("an Off Syros cat is not in a colony's cat count (spec §3.3)", async () => {
+    const c = await newColony("offsyros");
+    const here = await cat();
+    await into(here, c);
+    const away = await cat(daysAgo(400), FAR);
+    await say(away, "life_status", { status: "homed" });
+    await into(away, c);
+    expect((await figuresFor(c))!.catCount).toBe(1);
+  });
+
+  it("a colony whose only cats are gone is not 'Not visited lately', and their sightings set no date", async () => {
+    const c = await newColony("onlygone");
+    const gone = await cat();
+    await into(gone, c);
+    await sighted(gone, daysAgo(200));
+    // Said to have died after that sighting.
+    await say(gone, "life_status", { status: "deceased" }, daysAgo(100));
+    const f = (await figuresFor(c))!;
+    expect(f.street + f.catCount).toBe(0);
+    expect(f.flags).not.toContain("not_visited");
+    expect(f.latestSightingAt).toBeNull();
+  });
+
+  it("a guardian who hasn't accepted the invitation is not named and doesn't clear No guardian", async () => {
+    const c = await newColony("pending");
+    const g = await person("pend", ["guardian"], c);
+    await pool.query("update people set accepted_at = null where id = $1", [g]);
+    const f = (await figuresFor(c))!;
+    expect(f.guardianNames).toEqual([]);
+    expect(f.flags).toContain("no_guardian");
+  });
+
+  it("Growing reads the same for the team and for the colony's own cat guardian", async () => {
+    const a = await newColony("growA");
+    const b = await newColony("growB");
+    for (let i = 0; i < 3; i++) {
+      const k = await cat(daysAgo(10));
+      await into(k, a, daysAgo(10));
+      await into(k, b, daysAgo(5));
+    }
+    expect((await figuresFor(a))!.flags).toContain("growing");
+    expect((await figuresFor(a, guardianOf(a), false))!.flags).toContain("growing");
+    // ...and her answer still holds only her colony.
+    expect([...(await colonyFigures(guardianOf(a), { island: false }, NOW)).keys()]).toEqual([a]);
+  });
+
+  it("% confirmed sterilised is 100 only when all are, and 0 only when none are", () => {
+    expect(wholePct(199, 200)).toBe(99);
+    expect(wholePct(200, 200)).toBe(100);
+    expect(wholePct(1, 300)).toBe(1);
+    expect(wholePct(0, 300)).toBe(0);
+    expect(wholePct(1, 3)).toBe(33);
   });
 });

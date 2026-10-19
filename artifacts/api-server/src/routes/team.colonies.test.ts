@@ -841,6 +841,10 @@ describe("progress, flags and the sort (SYC-396 PR 2.2; spec §9.1)", () => {
     const fig = (id: number) => (res.body.figures as { colonyId: number }[]).find((f) => f.colonyId === id);
     expect(fig(a)).toMatchObject({ street: 1, confirmedPct: 100, catCount: 1, flags: [], guardianNames: [] });
     expect(fig(c)).toMatchObject({ street: 0, confirmedPct: null, catCount: 0, flags: ["no_guardian"] });
+    // Only the colonies in this answer (review of PR 2.2).
+    expect((res.body.figures as { colonyId: number }[]).map((f) => f.colonyId).sort()).toEqual(
+      (res.body.colonies as { id: number }[]).map((c) => c.id).sort(),
+    );
   });
 
   it("the team gets the Feeding sites link under the title", async () => {

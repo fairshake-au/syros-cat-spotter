@@ -42,9 +42,12 @@ export interface ColonyFigures {
   colonyId: number;
   street: number;
   split: Split;
-  /** Whole per cent of street cats confirmed sterilised; null when street = 0. */
+  /**
+ * Whole per cent of street cats confirmed sterilised; null when street = 0.
+ * Never 100 while one isn't, and never 0 while one is.
+ */
   confirmedPct: number | null;
-  /** Active cats here now (street, homed, in care), never "No longer with us". */
+  /** Active cats here now (street, homed, in care) on Syros, never "No longer with us". */
   catCount: number;
   latestSightingAt: Date | null;
   flags: ColonyFlag[];
@@ -61,6 +64,13 @@ const DAY = 86_400_000;
 const EARTH_RADIUS_M = 6_371_000;
 
 const blank = (s: string | null) => s === null || s.trim() === "";
+
+/** Rounded, but 100 only when all are, and 0 only when none are. */
+export function wholePct(part: number, whole: number): number {
+  if (part >= whole) return 100;
+  if (part <= 0) return 0;
+  return Math.min(99, Math.max(1, Math.round((part / whole) * 100)));
+}
 
 /**
  * The colonies this viewer sees, with their typed guardian names. The
@@ -86,6 +96,8 @@ async function placedGuardians(visible: Visible, now: Date): Promise<Map<number,
         isNotNull(personScopesTable.colonyId),
         scopeInForce(sql`${now.toISOString()}::timestamptz`),
         isNull(peopleTable.leftAt),
+        // Someone invited who hasn't joined yet isn't looking after it.
+        isNotNull(peopleTable.acceptedAt),
         colonyFilter(personScopesTable.colonyId, visible),
       ),
     )
@@ -235,7 +247,10 @@ export async function colonyFigures(
 
   const [guardians, growing, tied, near] = await Promise.all([
     placedGuardians(visible, now),
-    growingColonies(cats, now),
+    // Over every cat, so a cat new here that has since moved to a colony this
+    // viewer can't see still counts here: the team and the colony's own cat
+    // guardian read the same flag. Only the flags of visible colonies leave.
+    growingColonies(all, now),
     kittensTiedToCats(cats, now),
     opts.island ? kittensNearSites(visible, now) : Promise.resolve(new Set<number>()),
   ]);
@@ -252,7 +267,10 @@ export async function colonyFigures(
     const here = byColony.get(colony.id) ?? [];
     const split = splitOf(here);
     const street = split.sterilised + split.probably + split.not_sterilised + split.not_known;
-    const latest = here.reduce<number | null>(
+    // Not visited, the latest sighting and the cat count read the colony's
+    // current cats: active (not "No longer with us") and on Syros (§3.3).
+    const current = here.filter((c) => isActive(c) && c.areaKey !== "off");
+    const latest = current.reduce<number | null>(
       (m, c) => (c.lastSeenAt === null ? m : Math.max(m ?? -Infinity, c.lastSeenAt.getTime())),
       null,
     );
@@ -262,13 +280,13 @@ export async function colonyFigures(
     if (tied.has(colony.id) || near.has(colony.id)) flags.add("kittens");
     // Decision 15: no placement in force AND no typed name.
     if (names.length === 0 && blank(colony.guardianName)) flags.add("no_guardian");
-    if (here.length > 0 && (latest === null || latest < notVisitedBefore)) flags.add("not_visited");
+    if (current.length > 0 && (latest === null || latest < notVisitedBefore)) flags.add("not_visited");
     out.set(colony.id, {
       colonyId: colony.id,
       street,
       split,
-      confirmedPct: street === 0 ? null : Math.round((split.sterilised / street) * 100),
-      catCount: here.filter(isActive).length,
+      confirmedPct: street === 0 ? null : wholePct(split.sterilised, street),
+      catCount: current.length,
       latestSightingAt: latest === null ? null : new Date(latest),
       flags: FLAG_ORDER.filter((f) => flags.has(f)),
       guardianNames: names,
