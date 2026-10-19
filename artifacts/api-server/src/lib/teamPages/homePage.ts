@@ -180,8 +180,8 @@ function monthSection(s: Section<{ now: MonthFigures; last: MonthFigures }>): st
   return (
     '<section id="month"><h2>This month</h2><ul class="hfigs">' +
     figure("Sightings", now.sightings, last.sightings) +
-    figure("New cats", now.newCats, last.newCats) +
-    figure("Sterilisations", now.sterilisations, last.sterilisations) +
+    figure("New cats recorded", now.newCats, last.newCats) +
+    figure("Sterilisations done", now.sterilisations, last.sterilisations) +
     "</ul></section>"
   );
 }
