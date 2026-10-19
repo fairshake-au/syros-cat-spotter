@@ -14,7 +14,7 @@ import {
   type Observation,
   type SightingPhotoRole,
 } from "@workspace/db";
-import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, notInArray } from "drizzle-orm";
 import { currentColonyOf } from "./colonyMembership";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
@@ -592,7 +592,9 @@ async function photoPublicIds(ids: readonly number[]): Promise<Map<number, strin
   const rows = await db
     .select({ id: photosTable.id, publicId: photosTable.publicId })
     .from(photosTable)
-    .where(inArray(photosTable.id, unique));
+    // SYC-462 spec §6 item 8: a photo removed for good has no address, so
+    // the page draws no broken image (the gallery skips an id with none).
+    .where(and(inArray(photosTable.id, unique), isNull(photosTable.removedAt)));
   for (const r of rows) out.set(r.id, r.publicId);
   return out;
 }

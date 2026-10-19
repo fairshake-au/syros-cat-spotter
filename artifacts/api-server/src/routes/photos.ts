@@ -55,6 +55,14 @@ router.get("/photos/:id", photoLimiter, async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
+  if (photo.data === null) {
+    // Removed for good (SYC-462). hiddenPhotoIds already counts it as hidden;
+    // this is the route's own guard (spec §6 item 1), answering exactly as an
+    // unknown id does.
+    res.setHeader("Cache-Control", "no-store");
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   const buffer = Buffer.from(photo.data, "base64");
   res.setHeader("Content-Type", photo.mime);
   // Decision 1 (SYC-279): shared caches must never store photos. Public photos

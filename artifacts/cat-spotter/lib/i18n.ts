@@ -163,6 +163,8 @@ const en: Dict = {
   // 6.2's reason sheet exists).
   photoViewerSpottedBy: 'Spotted by {name}',
   photoHiddenTile: 'Photo hidden while Syros Cats take a look.',
+  // SYC-462: a photo removed for good on a privacy request.
+  photoRemovedTile: 'Photo removed.',
   reportIssue: 'Report an issue',
   reportIssuePhoto: 'Report an issue with this photo',
   // SYC-44 PR 6.2 (report-an-issue.md §2, §4, §11): the reason sheet, the
@@ -873,6 +875,8 @@ const el: Dict = {
   // SYC-44 PR 6.1
   photoViewerSpottedBy: 'Εντοπίστηκε από {name}',
   photoHiddenTile: 'Η φωτογραφία είναι κρυμμένη όσο οι Syros Cats την εξετάζουν.',
+  // SYC-462: needs native review (SYC-4; Johnny's second pack, SYC-346, if after the 22 Oct freeze).
+  photoRemovedTile: 'Η φωτογραφία αφαιρέθηκε.',
   reportIssue: 'Ανάφερε ένα πρόβλημα',
   reportIssuePhoto: 'Ανάφερε ένα πρόβλημα με αυτή τη φωτογραφία',
   // SYC-44 PR 6.2 (drafts for the native review, SYC-305)
@@ -1554,6 +1558,8 @@ const fr: Dict = {
   // SYC-44 PR 6.1
   photoViewerSpottedBy: 'Repéré par {name}',
   photoHiddenTile: 'Photo masquée le temps que Syros Cats l’examinent.',
+  // SYC-462: needs native review (SYC-4; Johnny's second pack, SYC-346, if after the 22 Oct freeze).
+  photoRemovedTile: 'Photo retirée.',
   reportIssue: 'Signaler un problème',
   reportIssuePhoto: 'Signaler un problème avec cette photo',
   // SYC-44 PR 6.2 (drafts for the native review, SYC-305)

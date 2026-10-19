@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, photosTable, photoVariantsTable } from "@workspace/db";
 import { logger, safeError } from "./logger";
 
@@ -27,10 +27,14 @@ export async function makeVariant(original: Buffer, size: VariantSize): Promise<
     .toBuffer();
 }
 
+/** Tests only (SYC-462 T15): lets a test land a removal between the read and the save. */
+export const __variantHooks: { afterRead?: () => Promise<void> } = {};
+
 /**
  * The stored version, or one made now, stored and returned. Null when the
- * photo is missing, or its stored bytes can't be read as an image (nothing is
- * stored in that case, so a later fix is picked up).
+ * photo is missing, removed for good (SYC-462), or its stored bytes can't be
+ * read as an image (nothing is stored in that case, so a later fix is picked
+ * up).
  */
 export async function variantFor(photoId: number, size: VariantSize): Promise<Buffer | null> {
   const [hit] = await db
@@ -42,7 +46,9 @@ export async function variantFor(photoId: number, size: VariantSize): Promise<Bu
     .select({ data: photosTable.data })
     .from(photosTable)
     .where(eq(photosTable.id, photoId));
-  if (!p) return null;
+  // Missing, or removed for good: there is nothing to make a version from.
+  if (!p || p.data === null) return null;
+  await __variantHooks.afterRead?.();
   let bytes: Buffer;
   try {
     bytes = await makeVariant(Buffer.from(p.data, "base64"), size);
@@ -50,13 +56,27 @@ export async function variantFor(photoId: number, size: VariantSize): Promise<Bu
     logger.warn({ err: safeError(err), size }, "photo version could not be made");
     return null;
   }
-  await db.insert(photoVariantsTable).values({ photoId, size, bytes }).onConflictDoNothing();
+  // Saved only while the photo still has its picture (SYC-462 spec §4.3). The
+  // row is locked FOR KEY SHARE first, which waits for a removal holding FOR
+  // UPDATE; once it commits, the re-checked `data is not null` fails and
+  // nothing is saved (PR review F5: a bare INSERT … WHERE EXISTS read the old
+  // snapshot and could still insert).
+  const saved = await db.transaction(async (tx) => {
+    const live = await tx.execute(
+      sql`select id from photos where id = ${photoId} and data is not null for key share`,
+    );
+    if ((live.rowCount ?? 0) === 0) return "removed" as const;
+    await tx.insert(photoVariantsTable).values({ photoId, size, bytes }).onConflictDoNothing();
+    return "saved" as const;
+  });
+  if (saved === "removed") return null;
   return bytes;
 }
 
-// Hook points (spec §11). Nothing calls these yet, because neither feature exists (checked 15 Oct 2026):
-//  - remove_photo: deleting the photos row cascades to its versions.
-//  - 12-month shrink: must call clearVariants(photoId) after shrinking.
+// Hook points (spec §11):
+//  - remove_photo (SYC-462): the photos row stays; lib/db/src/photoRemoval/remove.ts
+//    deletes the versions itself, and variantFor above never makes one again.
+//  - 12-month shrink (not built): must call clearVariants(photoId) after shrinking.
 export async function clearVariants(photoId: number): Promise<void> {
   await db.delete(photoVariantsTable).where(eq(photoVariantsTable.photoId, photoId));
 }

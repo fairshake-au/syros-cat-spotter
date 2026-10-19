@@ -232,6 +232,20 @@
       "when": 1792343442441,
       "tag": "0032_cat_news_check",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792367762892,
+      "tag": "0033_named_areas",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792371448680,
+      "tag": "0034_photo_removal",
+      "breakpoints": true
     }
   ]
 }

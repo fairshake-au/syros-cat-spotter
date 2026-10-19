@@ -1027,6 +1027,22 @@ describe("T5-11: only this cat's photo, and only a real one", () => {
     expect(siteverifyCalls).toBe(calls);
   });
 
+  it("SYC-487: \"Something else\" may name the photo it was sent from; it is recorded, hides nothing and is still checked against the cat", async () => {
+    const cat = await seedCat();
+    const res = await send({ catId: cat.id, reason: "other", photoPublicId: cat.sightings[0]!.publicId });
+    expect(res.status).toBe(201);
+    expect(res.body.hidden).toBe(false);
+    const [row] = await db
+      .select({ photoId: welfareReportsTable.photoId, hideSkipped: welfareReportsTable.hideSkipped })
+      .from(welfareReportsTable)
+      .where(eq(welfareReportsTable.publicId, res.body.publicId));
+    expect(row).toEqual({ photoId: cat.sightings[0]!.id, hideSkipped: null });
+    expect(await eventsFor(cat.sightings[0]!.id)).toHaveLength(0);
+    // Another cat's photo is still refused, as for every reason that names one.
+    const elsewhere = await seedCat();
+    expect((await send({ catId: cat.id, reason: "other", photoPublicId: elsewhere.main.publicId })).status).toBe(422);
+  });
+
   it("a photo reason needs a photo, and a cat reason refuses one (400)", async () => {
     const cat = await seedCat(0);
     expect((await send({ catId: cat.id, reason: "photo_private" })).status).toBe(400);

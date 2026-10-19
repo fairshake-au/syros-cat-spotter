@@ -90,6 +90,15 @@ afterAll(async () => {
   await cleanup();
 });
 
+describe("the Quiet choice on the Last seen filter (SYC-485)", () => {
+  it("is worded from the one number Home uses, is selectable, and shows as a chip", async () => {
+    const res = await get(`/api/team/cats?lastSeen=quiet&${mineQ}`);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('<option value="quiet" selected>6 weeks or more</option>');
+    expect(res.text).toContain("Last seen: 6 weeks or more");
+  });
+});
+
 describe("the Cats grid", () => {
   it("an empty GET lists cats, not the old 'Type a name' prompt", async () => {
     const res = await get("/api/team/cats");

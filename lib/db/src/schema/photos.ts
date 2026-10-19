@@ -1,11 +1,15 @@
 import { sql } from "drizzle-orm";
 import {
+  check,
   pgTable,
   text,
   serial,
   timestamp,
   uniqueIndex,
+  uuid,
 } from "drizzle-orm/pg-core";
+// people.ts doesn't import this file; the reference below is lazy anyway.
+import { peopleTable } from "./people";
 
 export const photosTable = pgTable(
   "photos",
@@ -33,13 +37,29 @@ export const photosTable = pgTable(
     publicId: text("public_id")
       .notNull()
       .default(sql`gen_random_uuid()::text`),
-    data: text("data").notNull(), // base64-encoded image
+    // Base64-encoded image. Null only once the photo is removed for good
+    // (SYC-462 spec §4.1; hosting-and-photo-storage.md §6.5: "null the bytes
+    // and mark it removed"). photos_removed_ck ties the two together.
+    data: text("data"),
     mime: text("mime").notNull().default("image/jpeg"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    // SYC-462 spec §4.1: who removed it, when, and the request it answered (a
+    // reference only: SYC-<n> or "hello YYYY-MM-DD #<n>", never personal
+    // data). The row stays, so every link to it survives. A removed photo
+    // can't be restored: migration 0034's trigger on photo_visibility_events.
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+    removedBy: uuid("removed_by").references(() => peopleTable.id),
+    removedReason: text("removed_reason"),
   },
-  (table) => [uniqueIndex("photos_public_id_unique").on(table.publicId)],
+  (table) => [
+    uniqueIndex("photos_public_id_unique").on(table.publicId),
+    check(
+      "photos_removed_ck",
+      sql`(${table.removedAt} is null and ${table.removedBy} is null and ${table.removedReason} is null and ${table.data} is not null) or (${table.removedAt} is not null and ${table.removedBy} is not null and ${table.removedReason} is not null and ${table.data} is null)`,
+    ),
+  ],
 );
 
 export type Photo = typeof photosTable.$inferSelect;

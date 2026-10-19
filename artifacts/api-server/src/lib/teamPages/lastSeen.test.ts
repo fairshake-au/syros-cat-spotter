@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { lastSeenWords } from "./lastSeen";
+import { lastSeenWords, notSeenWords } from "./lastSeen";
 
 // SYC-396 PR 1.3 review fix: one wording rule for "last seen", in Athens time.
 
@@ -22,5 +23,25 @@ describe("lastSeenWords", () => {
 
   it("with no date, says it was never seen since first recorded", () => {
     expect(lastSeenWords(null, NOW)).toBe("Never seen since first recorded");
+  });
+});
+
+describe("notSeenWords (SYC-485): worded from the one number, so the filter and Home's hint follow it", () => {
+  it("today's six weeks", () => expect(notSeenWords()).toBe("6 weeks or more"));
+  it("whole weeks read as weeks", () => {
+    expect(notSeenWords(7)).toBe("1 week or more");
+    expect(notSeenWords(56)).toBe("8 weeks or more");
+  });
+  it("anything else reads as days, never a wrong number of weeks", () => {
+    expect(notSeenWords(45)).toBe("45 days or more");
+    expect(notSeenWords(10)).toBe("10 days or more");
+  });
+});
+
+describe("no page words the 'not seen lately' number by hand (SYC-485, SYC-442)", () => {
+  it.each(["homePage.ts", "catGridPage.ts"])("%s takes it from notSeenWords()", (file) => {
+    const src = readFileSync(new URL(`./${file}`, import.meta.url), "utf8");
+    expect(src).toContain("notSeenWords()");
+    expect(src, "a hand-typed number of weeks goes stale when Syros Cats change it").not.toMatch(/\d+ (weeks?|days) or more/);
   });
 });

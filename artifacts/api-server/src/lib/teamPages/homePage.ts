@@ -6,7 +6,7 @@ import { teamPhotoUrl } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { markBar } from "./marks";
-import { lastSeenWords } from "./lastSeen";
+import { lastSeenWords, notSeenWords } from "./lastSeen";
 import { timeAgo } from "./queuePage";
 
 // Home: what needs us today (SYC-396 spec §4; plan PR 2.1, Task 2.1.2).
@@ -23,7 +23,6 @@ import { timeAgo } from "./queuePage";
  * list is empty, the line disappears.
  */
 export const COMING_SOON: readonly { label: string; route: string }[] = [
-  { label: "editable areas", route: "GET /api/team/areas" },
   { label: "Find from a photo", route: "GET /api/team/cats/find" },
   { label: "trapping plans", route: "GET /api/team/colonies/:id/plan" },
   { label: "vet visits", route: "GET /api/team/cats/:id/vet-visit" },
@@ -141,9 +140,9 @@ function notSeenSection(s: HomeData["notSeenLately"], now: Date): string {
   return (
     '<section id="notseen"><h2>Not seen lately</h2>' +
     // A prompt to ask, never a claim that a cat has died (§4.3).
-    `<p class="hint">Street cats not seen for 6 weeks or more. Worth asking their cat guardian whether they've been around.</p>` +
+    `<p class="hint">Street cats not seen for ${notSeenWords()}. Worth asking their cat guardian whether they've been around.</p>` +
     `<ul class="catgrid">${cats.map((c) => quietCard(c, colonyNames, now)).join("")}</ul>` +
-    (more > 0 ? `<p><a class="hlink" href="/api/team/cats?lives=street&amp;lastSeen=over3">and ${more} more</a></p>` : "") +
+    (more > 0 ? `<p><a class="hlink" href="/api/team/cats?lives=street&amp;lastSeen=quiet">and ${more} more</a></p>` : "") +
     "</section>"
   );
 }
@@ -181,11 +180,14 @@ function monthSection(s: Section<{ now: MonthFigures; last: MonthFigures }>): st
   return (
     '<section id="month"><h2>This month</h2><ul class="hfigs">' +
     figure("Sightings", now.sightings, last.sightings) +
-    figure("New cats", now.newCats, last.newCats) +
-    figure("Sterilisations", now.sterilisations, last.sterilisations) +
+    figure("New cats recorded", now.newCats, last.newCats) +
+    figure("Sterilisations done", now.sterilisations, last.sterilisations) +
     "</ul></section>"
   );
 }
+
+/** The team's named areas, to correct the list (SYC-396 PR 2.4). Home is island-only, so no other check. */
+export const AREAS_LINE = '<p id="areas-link"><a class="hlink" href="/api/team/areas">Areas: the place names used in labels and filters</a></p>';
 
 /** One quiet line, no links. Gone once every feature on it has arrived. */
 export function comingSoonLine(list: readonly { label: string }[] = COMING_SOON): string {
@@ -209,6 +211,7 @@ export function renderHomePage(d: HomeData, o: { personName: string; now: Date }
     notSeenSection(d.notSeenLately, o.now) +
     headlineSection(d.headline) +
     monthSection(d.month) +
+    AREAS_LINE +
     comingSoonLine();
   return renderPage({ title: "Home", active: "home", personName: o.personName, body });
 }

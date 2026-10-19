@@ -76,14 +76,25 @@ const TARGET_MODULES: Record<string, string> = {
 /**
  * Team-only readers a route may call without a Visible, because the route
  * calls them only behind an island-only capability, so a cat guardian never
- * reaches them. Each says why, and the test below holds every call to that
- * capability.
+ * reaches them. Each says why, and the test below holds every call to one of
+ * its capabilities (a module several pages call names each page's, e.g. the
+ * reports' view_reports beside edit_named_areas once they call namedAreasAt).
  */
-const ISLAND_ONLY_MODULES: Record<string, { why: string; fn: string; capability: string }> = {
+const ISLAND_ONLY_MODULES: Record<string, { why: string; fns: string[]; capabilities: string[] }> = {
   "lib/recentGuardianChanges.ts": {
     why: "the team's \"Recent changes by cat guardians\" (SYC-209 PR 4.3), the whole island's by design",
-    fn: "recentGuardianChanges",
-    capability: "view_guardian_changes",
+    fns: ["recentGuardianChanges"],
+    capabilities: ["view_guardian_changes"],
+  },
+  "lib/areas/areaHistory.ts": {
+    why: "the named areas' own history (SYC-396 PR 2.4): area centres and who changed them, never a site or a colony",
+    fns: ["namedAreasAt", "areaChanges"],
+    capabilities: ["edit_named_areas"],
+  },
+  "lib/areas/areaWrites.ts": {
+    why: "the only writer of named_areas and its history rows (SYC-396 PR 2.4); the team's list, island-wide by design",
+    fns: ["changeArea"],
+    capabilities: ["edit_named_areas"],
   },
 };
 
@@ -316,8 +327,9 @@ describe("a target module reads only a record's colony", () => {
  * shapes count, both checked on the source with comments removed:
  * - inline: `can(person, "<capability>") ? await <fn>(` and nothing else
  *   between the check and the call;
- * - the route's own door: `requireTeam("<capability>")` among the middleware
- *   of the same `router.<method>(` statement, before its handler starts.
+ * - the route's own door: `requireTeam("<capability>")`, or a form's
+ *   `formRoute("<capability>")` (which wraps it), among the middleware of the
+ *   same `router.<method>(` statement, before its handler starts.
  */
 function guardedCall(src: string, index: number, capability: string): boolean {
   const before = src.slice(0, index);
@@ -327,7 +339,7 @@ function guardedCall(src: string, index: number, capability: string): boolean {
   if (start < 0) return false;
   const handler = before.indexOf("async (", start);
   const middleware = before.slice(start, handler < 0 ? index : handler);
-  return middleware.includes(`requireTeam("${capability}")`);
+  return middleware.includes(`requireTeam("${capability}")`) || middleware.includes(`formRoute("${capability}")`);
 }
 
 describe("island-only readers are called only behind their capability", () => {
@@ -337,10 +349,13 @@ describe("island-only readers are called only behind their capability", () => {
     let seen = 0;
     for (const file of routeFiles) {
       const src = stripComments(read(join("routes", file)));
-      for (const { fn, capability } of Object.values(ISLAND_ONLY_MODULES)) {
-        for (const call of src.matchAll(new RegExp(`\\b${fn}\\(`, "g"))) {
-          seen++;
-          expect(guardedCall(src, call.index, capability), `${file}: ${fn}() at offset ${call.index} without ${capability}`).toBe(true);
+      for (const { fns, capabilities } of Object.values(ISLAND_ONLY_MODULES)) {
+        for (const fn of fns) {
+          for (const call of src.matchAll(new RegExp(`\\b${fn}\\(`, "g"))) {
+            seen++;
+            const ok = capabilities.some((cap) => guardedCall(src, call.index, cap));
+            expect(ok, `${file}: ${fn}() at offset ${call.index} without ${capabilities.join(" or ")}`).toBe(true);
+          }
         }
       }
     }
@@ -353,6 +368,7 @@ describe("island-only readers are called only behind their capability", () => {
     const guarded = [
       `router.get("/a", requireTeam("${cap}"), async (req, res) => { res.json(await recentGuardianChanges()); });`,
       `router.get("/a", ...requireSeeing(), async (req, res) => { const x = can(person, "${cap}") ? await recentGuardianChanges() : undefined; });`,
+      `router.post("/a", ...formRoute("${cap}"), async (req, res) => { await recentGuardianChanges(); });`,
     ];
     const planted = [
       // a check whose answer is never used
@@ -363,6 +379,8 @@ describe("island-only readers are called only behind their capability", () => {
       `router.get("/a", requireTeam("${cap}"), async () => {}); router.get("/b", ...requireSeeing(), async () => { await recentGuardianChanges(); });`,
       // a helper outside any route
       `const helper = async () => recentGuardianChanges();`,
+      // a form route for another capability
+      `router.post("/a", ...formRoute("view_exact_location"), async (req, res) => { await recentGuardianChanges(); });`,
     ];
     const at = (src: string) => src.indexOf("recentGuardianChanges(");
     for (const src of guarded) expect(guardedCall(src, at(src), cap), src).toBe(true);

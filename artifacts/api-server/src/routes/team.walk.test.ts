@@ -239,6 +239,9 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony on the colony the cats go into (PR 4.2); a colony that isn't hers, or isn't one, is the same 403" },
   // SYC-209 PR 4.3: "Recent changes by cat guardians" on its own. Team-only.
   "GET /api/team/guardian-changes": { why: "view_guardian_changes: island-only, so every cat guardian gets the 403" },
+  // SYC-396 PR 2.4: the Areas page and its one form route. Team-only.
+  "GET /api/team/areas": { why: "edit_named_areas: island-only, so every cat guardian gets the 403" },
+  "POST /api/team/areas": { why: "edit_named_areas: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony on the colony it goes into, or for a take-out the one it leaves, from the record (PR 4.2); an unreadable form has no colony" },
   // SYC-209 PR 3.1, the team map. Never the door's "any colony" check. The Map page and its
   // tap stay the team's; the picture route opens to anyone who sees a colony (PR 4.1: a

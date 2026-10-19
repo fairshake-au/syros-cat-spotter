@@ -7,7 +7,7 @@ import app from "../app";
 import { seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
 import { homeData, type HomeData, type HomeDeps } from "../lib/dashboard/home";
-import { COMING_SOON, comingSoonLine, firstWords, NOTHING_NEEDS_YOU, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
+import { AREAS_LINE, COMING_SOON, comingSoonLine, firstWords, NOTHING_NEEDS_YOU, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
 import type { QueueReport, WelfareQueue } from "../lib/welfareQueue";
 import type { TeamCat } from "../lib/teamCatList";
 import { escapeHtml } from "../lib/teamPages/escape";
@@ -186,7 +186,9 @@ describe("renderHomePage", () => {
     expect(section).toContain('src="/api/team/photos/ph1/small"');
     expect(section).toContain("Harbour steps");
     expect(section).toContain("Last seen on 20 Aug 2026 · Galissas");
-    expect(section).toContain('href="/api/team/cats?lives=street&amp;lastSeen=over3">and 7 more</a>');
+    expect(section).toContain('href="/api/team/cats?lives=street&amp;lastSeen=quiet">and 7 more</a>');
+    // The hint and the Cats list filter are worded from the same number (SYC-485).
+    expect(section).toContain("Street cats not seen for 6 weeks or more.");
     expect(section).not.toMatch(/died|dead|deceased|no longer with us/i);
   });
 
@@ -204,6 +206,9 @@ describe("renderHomePage", () => {
     expect(html).toMatch(/214<\/span> <span>Sightings<\/span> <span class="hint">\(last month 187\)/);
     expect(html).toContain("(last month 4)");
     expect(html).toContain("(last month 9)");
+    // SYC-486 (Samuel, 19 Oct): they read as activity, not as a headcount.
+    expect(html).toContain("New cats recorded");
+    expect(html).toContain("Sterilisations done");
   });
 
   it("never shows response times, ages of reports as 'open for', or any team member's name (D6)", () => {
@@ -307,6 +312,18 @@ describe("one failing loader doesn't take Home down", () => {
     expect(html).toContain('id="headline"');
     expect(html).toContain('id="month"');
     expect(html).toContain("(last month 1)");
+  });
+});
+
+describe("the Areas link (SYC-396 PR 2.4)", () => {
+  it("sits at the foot of Home, just above Coming soon, and goes to the Areas page", () => {
+    const html = page(full());
+    const link = html.indexOf('<a class="hlink" href="/api/team/areas">');
+    expect(link).toBeGreaterThan(html.indexOf('id="month"'));
+    expect(html.indexOf(AREAS_LINE)).toBeGreaterThan(-1);
+    const soon = html.indexOf('id="soon"');
+    if (soon > -1) expect(link).toBeLessThan(soon);
+    expect(COMING_SOON.map((f) => f.label)).not.toContain("editable areas");
   });
 });
 

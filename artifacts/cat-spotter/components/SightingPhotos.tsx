@@ -30,6 +30,7 @@ const LABEL_KEY = {
 export function SightingPhotos({
   photoUrl,
   photoHidden,
+  photoRemoved,
   extraPhotos,
   createdAt,
   byline,
@@ -38,6 +39,8 @@ export function SightingPhotos({
   photoUrl: string | null;
   /** SYC-44 PR 6.1: the server's flag. Undefined from an older server. */
   photoHidden?: boolean;
+  /** SYC-462: removed for good (also hidden). Undefined unless true. */
+  photoRemoved?: boolean;
   /** The sighting's public day, as the tile shows it: part of each photo's spoken label. */
   createdAt: string;
   /** Who spotted it, for the full-screen view (`bylineFor`). */
@@ -64,7 +67,14 @@ export function SightingPhotos({
 
   return (
     <View style={styles.wrap}>
-      {photoHidden === true ? (
+      {photoRemoved === true ? (
+        <View
+          testID="photo-removed-tile"
+          style={[styles.cover, styles.tile, { borderColor: colors.border, backgroundColor: colors.muted }]}
+        >
+          <Text style={[styles.tileText, { color: colors.mutedForeground }]}>{t('photoRemovedTile')}</Text>
+        </View>
+      ) : photoHidden === true ? (
         <View
           testID="photo-hidden-tile"
           style={[styles.cover, styles.tile, { borderColor: colors.border, backgroundColor: colors.muted }]}

@@ -85,9 +85,21 @@ export async function tableColumns(
  * the given order, so two databases whose tables have different column sets
  * are compared on the columns they share.
  */
-export function rowTextExpr(columns?: readonly string[]): string {
+export function rowTextExpr(columns?: readonly string[], table?: string): string {
   if (!columns) return "t::text";
-  return `row(${columns.map((c) => `t.${quoteIdent(c)}`).join(", ")})::text`;
+  return `row(${columns.map((c) => projectedColumnExpr(table, c)).join(", ")})::text`;
+}
+
+/**
+ * How one column reads in a projected comparison or copy onto the old
+ * database (SYC-462, T17). A photo removed for good has no picture (data
+ * null); the old database's photos.data is NOT NULL and has no removed_*
+ * columns, so a removed photo goes back, and compares, as an empty picture.
+ * Only projected reads use this: a plain fingerprint (`t::text`) is unchanged.
+ */
+export function projectedColumnExpr(table: string | undefined, column: string): string {
+  if (table === "photos" && column === "data") return `coalesce(t."data", '')`;
+  return `t.${quoteIdent(column)}`;
 }
 
 async function fingerprintTable(
@@ -98,7 +110,7 @@ async function fingerprintTable(
 ): Promise<TableFingerprint> {
   const orderBy = primaryKey.map(quoteIdent).join(", ");
   const sql = `select count(*)::bigint as rows,
-       md5(coalesce(string_agg(md5(${rowTextExpr(columns)}), '' order by ${orderBy}), '')) as hash
+       md5(coalesce(string_agg(md5(${rowTextExpr(columns, table)}), '' order by ${orderBy}), '')) as hash
   from ${quoteIdent(table)} t`;
   const r = await client.query<{ rows: string; hash: string | null }>(sql);
   const row = r.rows[0]!;

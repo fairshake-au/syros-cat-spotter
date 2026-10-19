@@ -99,11 +99,34 @@ function route(action: VisibilityAction) {
             303,
             backTo(cat, publicId, action === "hide" ? "already_hidden" : "already_public"),
           );
+        case "removed":
+          // SYC-462 spec §6 item 2: removed for good; nothing is written.
+          if (!isFormPost(req)) {
+            return void res.status(409).json({ error: "Removed for good", code: "REMOVED" });
+          }
+          return void res
+            .status(409)
+            .type("html")
+            .send(
+              renderPage({
+                title: "Removed for good",
+                active: "cats",
+                personName: teamPerson(res).name,
+                body:
+                  `<p>This photo was removed for good on ${esc(outcome.removedAt.toISOString().slice(0, 10))}. It can't be restored.</p>` +
+                  `<p><a class="tap" href="${esc(backTo(cat, publicId, "none"))}">Back</a></p>`,
+              }),
+            );
         case "changed":
           if (!isFormPost(req)) {
             return void res.status(201).json({ id: outcome.event.id, hidden: action === "hide" });
           }
           return void res.redirect(303, backTo(cat, publicId, action === "hide" ? "hidden" : "restored"));
+        default: {
+          // A new outcome fails the type check here, rather than leaving the request hanging (SYC-462 review 1, finding 8).
+          const unhandled: never = outcome;
+          throw new Error(`unhandled photo visibility outcome: ${JSON.stringify(unhandled)}`);
+        }
       }
     },
   );

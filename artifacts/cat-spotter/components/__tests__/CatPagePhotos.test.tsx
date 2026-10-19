@@ -247,6 +247,15 @@ describe('the cat page\'s photos (SYC-44 PR 6.1)', () => {
     expect(screen.getAllByTestId('sighting-cover')).toHaveLength(1);
   });
 
+  it('a removed sighting photo says "Photo removed." and not the hidden tile (SYC-462)', () => {
+    page(cat(), [{ ...SIGHTINGS[0]!, photoRemoved: true } as Sighting, SIGHTINGS[1]!]);
+    const removed = screen.getAllByTestId('photo-removed-tile');
+    expect(removed).toHaveLength(1);
+    expect(removed[0]!.textContent).toBe('Photo removed.');
+    expect(screen.queryAllByTestId('photo-hidden-tile')).toHaveLength(0);
+    expect(screen.getAllByTestId('sighting-cover')).toHaveLength(1);
+  });
+
 });
 
 describe('Report an issue on the cat page (SYC-44 PR 6.2; Samuel, 19 Oct: the links show with the sheet)', () => {

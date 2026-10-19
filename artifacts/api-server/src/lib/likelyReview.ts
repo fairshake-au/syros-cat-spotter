@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
   catsTable,
   db,
@@ -149,7 +149,8 @@ export async function listLikelyForReview(now = new Date()): Promise<LikelyCat[]
       : await db
           .select({ id: photosTable.id, publicId: photosTable.publicId })
           .from(photosTable)
-          .where(inArray(photosTable.id, photoIds));
+          // SYC-462 spec §6 item 8: a removed photo has no address (no broken image).
+          .where(and(inArray(photosTable.id, photoIds), isNull(photosTable.removedAt)));
   const publicIdByPhotoId = new Map(photoRows.map((p) => [p.id, p.publicId]));
 
   const likely: LikelyCat[] = drafts.map((c) => ({

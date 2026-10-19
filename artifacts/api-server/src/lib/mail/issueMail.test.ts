@@ -6,6 +6,7 @@ import {
   db,
   issueDigestRunsTable,
   mailOutboxTable,
+  peopleTable,
   photosTable,
   pool,
   welfareReportsTable,
@@ -266,6 +267,24 @@ describe("T5-13: the Photo hidden email", () => {
   it("sends with a line instead of an attachment when the photo's bytes have been deleted", async () => {
     const gone = await seedPhoto(null);
     const r = await seedIssue({ photoId: gone });
+    await queueAlert(r.id);
+    await drainDue(10);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.attachments).toBeUndefined();
+    expect(sent[0]!.text).toContain("no longer available");
+  });
+
+  it("T16 (SYC-462): a photo removed for good is sent with the line, never an attachment", async () => {
+    const photoId = await seedPhoto();
+    const [remover] = await db
+      .insert(peopleTable)
+      .values({ email: `vitest-issuemail-remover-${Date.now()}@example.com`, name: "Remover", addedBy: "cli:vitest" })
+      .returning({ id: peopleTable.id });
+    await db
+      .update(photosTable)
+      .set({ data: null, removedAt: sql`now()`, removedBy: remover!.id, removedReason: "SYC-462" })
+      .where(eq(photosTable.id, photoId));
+    const r = await seedIssue({ photoId });
     await queueAlert(r.id);
     await drainDue(10);
     expect(sent).toHaveLength(1);
