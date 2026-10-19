@@ -385,6 +385,7 @@ const DONE: Record<string, string> = {
   unchanged: "That is already the cat's name. Nothing was changed.",
   already: "Someone already corrected this. Here's what replaced it.",
   ownerRemoved: "Saved. The owner is removed and the cat's new status is in the history below. Nobody was told.",
+  ownerRemovedKept: "Saved. The owner is removed. The cat is still recorded as no longer with us. Nobody was told.",
   ownerGone: "This cat has no owner now, so there was nothing to remove. Nothing was changed.",
   lifeOwnerKept: "Saved. This cat still has an owner. Ask the team if the owner should be removed.",
   colony: "Saved. The colony is added to the history below.",

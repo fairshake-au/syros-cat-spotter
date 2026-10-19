@@ -534,8 +534,14 @@ router.post(
         if (isFormPost(req)) return void res.redirect(303, catPage(catId, "ownerGone"));
         return void res.status(409).json({ error: "No owner", code: "NO_OWNER" });
       }
-      if (isFormPost(req)) return void res.redirect(303, catPage(catId, "ownerRemoved", out.row!.id));
-      res.status(201).json({ id: out.row!.id });
+      // `keep` writes no status, so there is no history row to land on.
+      if (isFormPost(req)) {
+        return void res.redirect(
+          303,
+          out.row ? catPage(catId, "ownerRemoved", out.row.id) : catPage(catId, "ownerRemovedKept"),
+        );
+      }
+      res.status(201).json({ id: out.row?.id ?? null });
     } catch (err) {
       refusalFor(req, res, err, back);
     }
