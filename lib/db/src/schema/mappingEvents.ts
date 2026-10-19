@@ -22,8 +22,8 @@ import { peopleTable } from "./people";
 const sqlList = (values: readonly string[]) =>
   sql.raw(values.map((v) => `'${v}'`).join(", "));
 
-/** What a history row is about. */
-export const MAPPING_SUBJECT_KINDS = ["site", "colony"] as const;
+/** What a history row is about. `named_area`: SYC-396 PR 2.4 (dashboard §3.3). */
+export const MAPPING_SUBJECT_KINDS = ["site", "colony", "named_area"] as const;
 export type MappingSubjectKind = (typeof MAPPING_SUBJECT_KINDS)[number];
 
 /**
@@ -54,6 +54,12 @@ export const MAPPING_EVENT_KINDS = [
   "colony_notes_changed",
   "colony_centre_changed",
   "guardian_forgotten",
+  // Named areas (SYC-396 PR 2.4). `before` and `after` always hold the whole
+  // row ({key, name, lat, lng, retired}), so the list replays from `after`.
+  "area_added",
+  "area_renamed",
+  "area_moved",
+  "area_retired",
 ] as const;
 export type MappingEventKind = (typeof MAPPING_EVENT_KINDS)[number];
 

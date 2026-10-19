@@ -1,5 +1,6 @@
 import { databaseTarget, pool } from "@workspace/db";
 import app from "./app";
+import { loadAreas } from "./lib/areas/namedAreas";
 import { logDatabaseTarget } from "./lib/databaseStartup";
 import { logger } from "./lib/logger";
 import { describeGate } from "./lib/prelaunch";
@@ -26,6 +27,11 @@ for (const line of describeGate()) logger.info(line);
 for (const { level, line } of describeTurnstile()) logger[level](line);
 // SYC-42: say whether the mail key is present (never its value).
 for (const { level, line } of describeMail()) logger[level](line);
+
+// SYC-396 PR 2.4: the named areas come from the database. Fill their cache
+// before the first request, so place labels and filters use the team's list.
+// A failure keeps SEED_AREAS and logs a warning; it never stops start-up.
+await loadAreas();
 
 app.listen(port, (err) => {
   if (err) {

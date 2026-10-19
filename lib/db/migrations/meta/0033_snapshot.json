@@ -1,5 +1,5 @@
 {
-  "id": "9e0d13aa-419b-4d5a-aead-79f1f98402bd",
+  "id": "b2a490f2-83aa-42b3-81fe-3e0ea5bae2c4",
   "prevId": "f3b6a14d-2e65-496d-a85e-f0a3be5ef2af",
   "version": "7",
   "dialect": "postgresql",
@@ -25,7 +25,7 @@
           "name": "data",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "mime": {
           "name": "mime",
@@ -40,24 +40,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "removed_at": {
-          "name": "removed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "removed_by": {
-          "name": "removed_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "removed_reason": {
-          "name": "removed_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -77,30 +59,11 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "photos_removed_by_people_id_fk": {
-          "name": "photos_removed_by_people_id_fk",
-          "tableFrom": "photos",
-          "tableTo": "people",
-          "columnsFrom": [
-            "removed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "photos_removed_ck": {
-          "name": "photos_removed_ck",
-          "value": "(\"photos\".\"removed_at\" is null and \"photos\".\"removed_by\" is null and \"photos\".\"removed_reason\" is null and \"photos\".\"data\" is not null) or (\"photos\".\"removed_at\" is not null and \"photos\".\"removed_by\" is not null and \"photos\".\"removed_reason\" is not null and \"photos\".\"data\" is null)"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.cats": {
@@ -3536,11 +3499,11 @@
       "checkConstraints": {
         "mapping_events_subject_kind_ck": {
           "name": "mapping_events_subject_kind_ck",
-          "value": "\"mapping_events\".\"subject_kind\" in ('site', 'colony')"
+          "value": "\"mapping_events\".\"subject_kind\" in ('site', 'colony', 'named_area')"
         },
         "mapping_events_kind_ck": {
           "name": "mapping_events_kind_ck",
-          "value": "\"mapping_events\".\"kind\" in ('existing', 'created', 'seeded', 'renamed', 'notes_edited', 'directions_edited', 'colony_changed', 'moved', 'made_public', 'made_private', 'made_private_moved', 'made_private_colony_changed', 'made_private_guardian_changed', 'label_changed', 'retired', 'restored', 'colony_created', 'colony_renamed', 'guardian_changed', 'colony_notes_changed', 'colony_centre_changed', 'guardian_forgotten')"
+          "value": "\"mapping_events\".\"kind\" in ('existing', 'created', 'seeded', 'renamed', 'notes_edited', 'directions_edited', 'colony_changed', 'moved', 'made_public', 'made_private', 'made_private_moved', 'made_private_colony_changed', 'made_private_guardian_changed', 'label_changed', 'retired', 'restored', 'colony_created', 'colony_renamed', 'guardian_changed', 'colony_notes_changed', 'colony_centre_changed', 'guardian_forgotten', 'area_added', 'area_renamed', 'area_moved', 'area_retired')"
         },
         "mapping_events_actor_system_ck": {
           "name": "mapping_events_actor_system_ck",
@@ -3616,6 +3579,92 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.named_areas": {
+      "name": "named_areas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lat": {
+          "name": "lat",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lng": {
+          "name": "lng",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "retired_at": {
+          "name": "retired_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "named_areas_live_name_unique": {
+          "name": "named_areas_live_name_unique",
+          "columns": [
+            {
+              "expression": "lower(\"name\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"named_areas\".\"retired_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "named_areas_key_unique": {
+          "name": "named_areas_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "named_areas_key_ck": {
+          "name": "named_areas_key_ck",
+          "value": "\"named_areas\".\"key\" ~ '^[a-z][a-z0-9-]{1,30}$' and \"named_areas\".\"key\" <> 'off'"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.person_events": {

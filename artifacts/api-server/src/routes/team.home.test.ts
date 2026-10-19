@@ -7,7 +7,7 @@ import app from "../app";
 import { seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
 import { homeData, type HomeData, type HomeDeps } from "../lib/dashboard/home";
-import { COMING_SOON, comingSoonLine, firstWords, NOTHING_NEEDS_YOU, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
+import { AREAS_LINE, COMING_SOON, comingSoonLine, firstWords, NOTHING_NEEDS_YOU, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
 import type { QueueReport, WelfareQueue } from "../lib/welfareQueue";
 import type { TeamCat } from "../lib/teamCatList";
 import { escapeHtml } from "../lib/teamPages/escape";
@@ -307,6 +307,18 @@ describe("one failing loader doesn't take Home down", () => {
     expect(html).toContain('id="headline"');
     expect(html).toContain('id="month"');
     expect(html).toContain("(last month 1)");
+  });
+});
+
+describe("the Areas link (SYC-396 PR 2.4)", () => {
+  it("sits at the foot of Home, just above Coming soon, and goes to the Areas page", () => {
+    const html = page(full());
+    const link = html.indexOf('<a class="hlink" href="/api/team/areas">');
+    expect(link).toBeGreaterThan(html.indexOf('id="month"'));
+    expect(html.indexOf(AREAS_LINE)).toBeGreaterThan(-1);
+    const soon = html.indexOf('id="soon"');
+    if (soon > -1) expect(link).toBeLessThan(soon);
+    expect(COMING_SOON.map((f) => f.label)).not.toContain("editable areas");
   });
 });
 

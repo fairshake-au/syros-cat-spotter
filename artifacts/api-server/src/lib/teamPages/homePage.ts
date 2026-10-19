@@ -23,7 +23,6 @@ import { timeAgo } from "./queuePage";
  * list is empty, the line disappears.
  */
 export const COMING_SOON: readonly { label: string; route: string }[] = [
-  { label: "editable areas", route: "GET /api/team/areas" },
   { label: "Find from a photo", route: "GET /api/team/cats/find" },
   { label: "trapping plans", route: "GET /api/team/colonies/:id/plan" },
   { label: "vet visits", route: "GET /api/team/cats/:id/vet-visit" },
@@ -187,6 +186,9 @@ function monthSection(s: Section<{ now: MonthFigures; last: MonthFigures }>): st
   );
 }
 
+/** The team's named areas, to correct the list (SYC-396 PR 2.4). Home is island-only, so no other check. */
+export const AREAS_LINE = '<p id="areas-link"><a class="hlink" href="/api/team/areas">Areas: the place names used in labels and filters</a></p>';
+
 /** One quiet line, no links. Gone once every feature on it has arrived. */
 export function comingSoonLine(list: readonly { label: string }[] = COMING_SOON): string {
   if (list.length === 0) return "";
@@ -209,6 +211,7 @@ export function renderHomePage(d: HomeData, o: { personName: string; now: Date }
     notSeenSection(d.notSeenLately, o.now) +
     headlineSection(d.headline) +
     monthSection(d.month) +
+    AREAS_LINE +
     comingSoonLine();
   return renderPage({ title: "Home", active: "home", personName: o.personName, body });
 }

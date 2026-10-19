@@ -82,6 +82,8 @@ export const CATALOGUE = {
   edit_feeding_site: { kind: "placed", roles: EVERYONE },
   reassign_feeding_site: { kind: "island", roles: TEAM },
   set_site_public: { kind: "island", roles: TEAM },
+  // The named areas (SYC-396 PR 2.4; dashboard §3.3).
+  edit_named_areas: { kind: "island", roles: TEAM },
   request_site_public: { kind: "placed", roles: ["guardian"] },
   review_hand_picks: { kind: "placed", roles: EVERYONE },
   // Reserved (§6.2 note 3): no screen uses it yet.

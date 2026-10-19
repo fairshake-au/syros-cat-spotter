@@ -9,6 +9,7 @@ import {
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
 import { removeTestPerson } from "../test/removeTestPerson";
+import { CAPABILITIES } from "../lib/capabilities";
 
 // The dashboard session (SYC-43 part 1 plan §6, tests 14–18; spec §8.6 #11).
 
@@ -79,7 +80,7 @@ describe("the session", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ name: "Susan <b>", email: EMAIL });
     // A team-only member: every island capability but management's two and the guardian-only request_site_public.
-    expect(res.body.capabilities).toHaveLength(32);
+    expect(res.body.capabilities).toHaveLength(CAPABILITIES.length - 3);
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
     expect(res.headers["cache-control"]).toBe("no-store");
   });

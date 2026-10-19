@@ -731,8 +731,9 @@ describe("the migration on existing data (spec test 24)", () => {
     await migrateUp(s, migrations);
     const r = await s.query(
       `select subject_kind, subject_id, kind, person_id, actor_system, after, before, note, redacted_at
-         from mapping_events order by id`,
+         from mapping_events where subject_kind <> 'named_area' order by id`,
     );
+    // The named_areas migration's seed (SYC-396 PR 2.4) is a later migration's history.
     expect(r.rows).toHaveLength(sites.length);
     expect(r.rows.map((e) => e.subject_id)).toEqual(sites);
     for (const e of r.rows) {
@@ -771,7 +772,7 @@ describe("the migration on existing data (spec test 24)", () => {
 
   it("runs on a database with no sites, writing no events", async () => {
     await migrateUp(s, migrations);
-    const r = await s.query(`select count(*)::int as n from mapping_events`);
+    const r = await s.query(`select count(*)::int as n from mapping_events where subject_kind <> 'named_area'`);
     expect(r.rows[0].n).toBe(0);
   });
 });

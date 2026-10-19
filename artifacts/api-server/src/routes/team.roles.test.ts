@@ -12,6 +12,7 @@ import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
 import { sessionCookieFor } from "../lib/teamAuth/__fixtures__/queueKit";
 import { removeTestPerson } from "../test/removeTestPerson";
+import { CAPABILITIES } from "../lib/capabilities";
 
 // SYC-188: being in the people table is not being let in. Only someone whose
 // role grants something through can() gets a yes from the Worker's question,
@@ -132,7 +133,7 @@ describe("SYC-188: only a role that grants something is let in", () => {
     // Everything in the catalogue but the three a team-only member lacks
     // (manage_people and action_deletion_request are management's;
     // request_site_public is a guardian's), each island-wide.
-    expect(m.body.capabilities).toHaveLength(32);
+    expect(m.body.capabilities).toHaveLength(CAPABILITIES.length - 3);
     for (const c of m.body.capabilities) expect(c.where).toBe("island");
   });
 

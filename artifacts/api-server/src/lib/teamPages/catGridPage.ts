@@ -1,4 +1,4 @@
-import { NAMED_AREAS } from "../areas/namedAreas";
+import { currentAreas } from "../areas/namedAreas";
 import { filtersToQuery } from "../teamCatFilters";
 import {
   COLOUR_FILTERS,
@@ -135,7 +135,7 @@ export function activeChips(o: Pick<CatGridOptions, "filters" | "colonies" | "ti
     chips.push({ label: COLOUR_WORD(c), without: { ...f, colours: left.length ? left : undefined, page: undefined } });
   }
   if (f.area !== undefined) {
-    const a = NAMED_AREAS.find((x) => x.key === f.area);
+    const a = currentAreas().find((x) => x.key === f.area);
     chips.push({ label: a ? a.name : "Area", without: { ...f, area: undefined, page: undefined } });
   }
   if (f.colony !== undefined) {
@@ -183,7 +183,7 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
   ).join("");
   const areas =
     '<option value="">Anywhere</option>' +
-    NAMED_AREAS.map(
+    currentAreas().map(
       (a) => `<option value="${esc(a.key)}"${sel(f.area === a.key)}>${esc(a.name)}</option>`,
     ).join("");
   const colonies =
@@ -220,6 +220,8 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
     '<div class="fpanel">' +
     `<fieldset><legend>Look</legend><div class="choices">${colours}</div></fieldset>` +
     `<fieldset><legend>Where</legend><label class="flabel" for="f-area">Area</label><select class="text" id="f-area" name="area">${areas}</select>` +
+    // The list itself is the team's to correct (SYC-396 PR 2.4).
+    '<p class="hint"><a href="/api/team/areas">Change the areas</a></p>' +
     `<label class="flabel" for="f-colony">Colony</label><select class="text" id="f-colony" name="colony">${colonies}</select></fieldset>` +
     `<fieldset><legend>Sterilised</legend><div class="choices">${marks}</div></fieldset>` +
     `<fieldset><legend>Lives</legend><div class="choices">${lives}</div></fieldset>` +
