@@ -120,7 +120,10 @@ export function SightingPhotos({
           })}
         </View>
       ) : null}
-      {open !== null ? (
+      {/* Only while the page still shows that photo: a refetch that hides it
+          (a cover or an extra) closes the view (ship review, finding 2). */}
+      {open !== null &&
+      ((open.url === photoUrl && photoHidden !== true) || visible.some((e) => e.photoUrl === open.url)) ? (
         <PhotoViewer
           url={open.url}
           label={open.label}

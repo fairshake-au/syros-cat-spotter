@@ -201,6 +201,20 @@ describe('the cat page\'s photos (SYC-44 PR 6.1)', () => {
     expect(screen.getByTestId('photo-viewer-spotter').textContent).toBe('Spotted by nik');
   });
 
+  it('an open main photo closes when a refetch swaps it, and never reopens by itself (ship review, finding 1)', () => {
+    const view = page(cat());
+    const hero = () => screen.getByTestId('cat-hero-open');
+    fireEvent.load(hero().querySelector('img')!);
+    fireEvent.click(hero());
+    expect(viewer()).not.toBeNull();
+
+    h.data = { ...(h.data as object), cat: cat({ photoUrl: '/api/photos/stand-in' }) };
+    view.rerender(<CatDetailScreen />);
+    expect(viewer(), 'closed: the photo it showed is gone').toBeNull();
+    fireEvent.load(hero().querySelector('img')!);
+    expect(viewer(), 'the new photo loading must not open it uninvited').toBeNull();
+  });
+
   it('a cat with no photo opens nothing', () => {
     page(cat({ photoUrl: null }), []);
     const hero = screen.getByTestId('cat-hero-open');

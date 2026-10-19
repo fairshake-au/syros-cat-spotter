@@ -196,3 +196,28 @@ describe('"Report an issue with this photo" (spec §3.2)', () => {
     expect(onReportPhoto).toHaveBeenCalledWith(COVER);
   });
 });
+
+describe('a refetch that hides the open photo closes the view (ship review, finding 2)', () => {
+  it('an open extra photo closes when it is hidden, though the cover stays', () => {
+    const view = render(
+      <SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
+    );
+    const thumb = view.container.querySelector('[data-testid="extra-photo-body"]')!;
+    fireEvent.load(thumb.querySelector('img')!);
+    fireEvent.click(thumb);
+    expect(viewer()).not.toBeNull();
+    view.rerender(
+      <SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: null }]} />,
+    );
+    expect(viewer()).toBeNull();
+  });
+
+  it('an open cover closes when it is hidden', () => {
+    const view = render(<SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={COVER} />);
+    loadCover(view.container);
+    fireEvent.click(view.getByTestId('sighting-cover-open'));
+    expect(viewer()).not.toBeNull();
+    view.rerender(<SightingPhotos createdAt={DAY} byline="by Maria" photoUrl={null} photoHidden />);
+    expect(viewer()).toBeNull();
+  });
+});

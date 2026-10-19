@@ -45,3 +45,32 @@ Independent reviewer: Sonnet, in its own worktree, at `origin/claude/syc-44-pr-6
 | ii-b | Hero's loaded-gate dropped | RED |
 | ii-c | Hero staleness weakened to `heroLoaded !== null` | GREEN (finding 1) |
 | iii | Server sends `photoHidden: false` always | RED (2 T6-2 tests) |
+
+---
+
+# Ship review (`/ship`, 19 Oct 2026): a second independent critic on the final version
+
+Sonnet, in its own worktree, at `69b4d50e` (after the fixes above and the snapshot regeneration). **Verdict: MERGE.** No blockers; 2 Minor and 3 Nit.
+
+1. **Minor, PLAUSIBLE: the main photo's viewer could reopen by itself on a different photo.**
+   - A refetch swaps the main photo while the viewer is open: the viewer closes, but its "open" flag stays set. When the new photo loads, the viewer opens unasked.
+   - **Fixed:** the page remembers *which* photo was opened. Tested, and the probe goes red.
+2. **Minor, PLAUSIBLE: a viewer opened on an extra photo stayed open after a refetch hid that photo.**
+   - The list key only covers the cover photo.
+   - **Fixed:** the viewer shows only while the page still shows that photo. Tested for an extra photo and for the cover, and the probe goes red.
+3. **Nit:** a photo that never loads stays a disabled button. That matches spec §4.2, and the fixed role is deliberate. **No change.**
+4. **Nit:** `toLocaleUpperCase` uses the device's locale. **Changed to `toUpperCase`.** None of the current words is affected.
+5. **Nit:** T6-2 has no test for a sighting with no photo. A sighting can't exist without a photo (`sightings.photo_id` is `NOT NULL`, checked while building), and the code guards it anyway. **No change.**
+
+**Checked, no issue:**
+- The snapshots change only by `"photoHidden":false`.
+- OpenAPI, zod and the client agree.
+- Privacy holds.
+- `serialiseSighting` is the only public sighting serialiser.
+- Disabling the main photo doesn't block the back button.
+
+**The critic ran:**
+- the app suite, 1,832 tests;
+- the full typecheck;
+- 4 server test files, 40 tests;
+- 3 mutation probes, all red.

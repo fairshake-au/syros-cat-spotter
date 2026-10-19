@@ -66,7 +66,10 @@ export default function CatDetailScreen() {
   // SYC-44 PR 6.1: the main photo opens full screen, but only once it has
   // loaded, so nothing changes offline (report-an-issue.md §4.2).
   const [heroLoaded, setHeroLoaded] = React.useState<string | null>(null);
-  const [heroOpen, setHeroOpen] = React.useState(false);
+  // Which photo was opened, not just "open": if a refetch swaps the main
+  // photo (a stand-in after a hide), the viewer closes and never reopens
+  // by itself on the new one (ship review, finding 1).
+  const [heroOpenUrl, setHeroOpenUrl] = React.useState<string | null>(null);
 
   // The inbox row matching the tapped push notification, if any.
   const highlighted = React.useMemo(
@@ -186,7 +189,7 @@ export default function CatDetailScreen() {
             disabled={!heroCanOpen}
             accessibilityLabel={cat.photoUrl ? cat.name : undefined}
             onPress={() => {
-              if (heroCanOpen) setHeroOpen(true);
+              if (heroCanOpen) setHeroOpenUrl(cat.photoUrl);
             }}
           >
             <Image
@@ -498,13 +501,13 @@ export default function CatDetailScreen() {
           </View>
         </View>
       </ScrollView>
-      {heroOpen && heroCanOpen && cat.photoUrl && heroCaption && (
+      {heroOpenUrl !== null && heroOpenUrl === cat.photoUrl && heroCanOpen && heroCaption && (
         <PhotoViewer
-          url={cat.photoUrl}
+          url={heroOpenUrl}
           label={cat.name}
           date={parsePublicDate(heroCaption.day).toLocaleDateString()}
           byline={heroCaption.byline}
-          onClose={() => setHeroOpen(false)}
+          onClose={() => setHeroOpenUrl(null)}
         />
       )}
       {sheet !== null && (

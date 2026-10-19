@@ -27,7 +27,7 @@ export function bylineFor(
   const name = s.spotterUsername ?? s.spotterNickname;
   if (name) return t('photoViewerSpottedBy').split('{name}').join(name);
   const label = spotterName(s, t);
-  return label.charAt(0).toLocaleUpperCase() + label.slice(1);
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 /**
