@@ -105,11 +105,10 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
       await AsyncStorage.removeItem(APP_SETTINGS_STORAGE_KEY);
       if ((await AsyncStorage.getItem(DELETE_REPORTS_KEY)) === 'delete') {
         await reportQueueRef.current.wipeReports();
+        // SYC-44 PR 6.2: waiting "Report an issue" reports are counted in
+        // the same choice on the screen, so they follow it.
+        await issueQueueRef.current.wipeIssues();
       }
-      // SYC-44 PR 6.2: an unsent "Report an issue" report (and its note)
-      // never outlives "Delete my data" on the phone; it would otherwise go
-      // later under the new identity. "Send them first" tried it already.
-      await issueQueueRef.current.wipeIssues();
       // Profile, notifications, anything fetched with the old id.
       queryClient.clear();
     },
@@ -138,12 +137,17 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
           ...stepsRef.current,
           deleteOnServer: () =>
             deleteMyDataRequest({ headers: { 'X-Device-Id': deviceId } }),
+          // SYC-44 PR 6.2: both lists. If either still holds a report,
+          // nothing is deleted, as for cat reports (SYC-234).
           sendReports: async () => {
-            // Best effort for "Report an issue" reports: they leave the phone either way.
-            await issueQueueRef.current.sendAllNow().catch(() => false);
-            return reportQueueRef.current.sendAllNow();
+            const issuesSent = await issueQueueRef.current.sendAllNow().catch(() => false);
+            const reportsSent = await reportQueueRef.current.sendAllNow();
+            return issuesSent && reportsSent;
           },
-          wipeReports: () => reportQueueRef.current.wipeReports(),
+          wipeReports: async () => {
+            await reportQueueRef.current.wipeReports();
+            await issueQueueRef.current.wipeIssues();
+          },
         },
         reports,
       );

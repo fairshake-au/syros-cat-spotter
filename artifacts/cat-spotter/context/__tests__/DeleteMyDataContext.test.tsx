@@ -104,8 +104,8 @@ describe('DeleteMyDataProvider', () => {
       headers: { 'X-Device-Id': 'dev-current' },
     });
     expect(h.offline.wipeQueue).toHaveBeenCalled();
-    // SYC-44 PR 6.2: an unsent "Report an issue" report never outlives the deletion.
-    expect(h.issues.wipeIssues).toHaveBeenCalled();
+    // SYC-44 PR 6.2: with no choice made (none waiting), no issue report is wiped.
+    expect(h.issues.wipeIssues).not.toHaveBeenCalled();
     expect(h.clear).toHaveBeenCalled();
     expect(h.resetIdentity).toHaveBeenCalled();
     expect(h.storage.has('catSpotters.waitingCard.v1:dev-current')).toBe(false);
@@ -190,23 +190,36 @@ describe('DeleteMyDataProvider', () => {
     expect(h.reports.wipeReports).not.toHaveBeenCalled();
   });
 
-  it('send: tries the waiting "Report an issue" reports first; one that will not send never holds up the deletion (SYC-44 PR 6.2)', async () => {
-    const order: string[] = [];
-    h.issues.sendAllNow.mockImplementationOnce(async () => {
-      order.push('issues');
-      return false;
+  it('send: an issue report that will not send deletes nothing, as for cat reports (SYC-44 PR 6.2; review finding 1)', async () => {
+    h.issues.sendAllNow.mockResolvedValueOnce(false);
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    let outcome: string | undefined;
+    await act(async () => {
+      outcome = await result.current.deleteNow('send');
     });
-    h.reports.sendAllNow.mockImplementationOnce(async () => {
-      order.push('reports');
-      return true;
-    });
+    expect(outcome).toBe('reports_unsent');
+    expect(h.reports.sendAllNow).toHaveBeenCalled();
+    expect(h.deleteRequest).not.toHaveBeenCalled();
+    expect(h.issues.wipeIssues).not.toHaveBeenCalled();
+  });
+
+  it('send: both lists sent, then deleted; nothing wiped (SYC-44 PR 6.2)', async () => {
     const { result } = renderHook(() => useDeleteMyData(), { wrapper });
     let outcome: string | undefined;
     await act(async () => {
       outcome = await result.current.deleteNow('send');
     });
     expect(outcome).toBe('done');
-    expect(order).toEqual(['issues', 'reports']);
+    expect(h.issues.sendAllNow).toHaveBeenCalled();
+    expect(h.issues.wipeIssues).not.toHaveBeenCalled();
+  });
+
+  it('delete: "Delete them too" wipes the waiting issue reports with the cat reports (SYC-44 PR 6.2)', async () => {
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    await act(async () => {
+      await result.current.deleteNow('delete');
+    });
+    expect(h.reports.wipeReports).toHaveBeenCalled();
     expect(h.issues.wipeIssues).toHaveBeenCalled();
   });
 
