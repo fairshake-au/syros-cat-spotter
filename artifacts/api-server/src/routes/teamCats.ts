@@ -337,6 +337,12 @@ router.post(
         .type("html")
         .send(await findFormHtml(person, filters, tie, { problem: { field: "place", words: "Choose an area or a colony first." } }));
     }
+    // A report that doesn't exist: nothing to tie, so no search runs and none
+    // is used (second review, finding 4).
+    if (tie && !tie.report) {
+      req.log.info({ outcome: "no_such_report" }, "find from a photo");
+      return void res.status(404).type("html").send(await findFormHtml(person, filters, tie));
+    }
     const file = req.file;
     if (!file || file.size === 0) {
       req.log.info({ outcome: "no_photo" }, "find from a photo");
@@ -346,6 +352,14 @@ router.post(
         .send(await findFormHtml(person, filters, tie, { problem: { field: "photo", words: "Choose or take a photo first." } }));
     }
 
+    // A free early look at the caps: someone already over theirs isn't kept
+    // waiting while the photo is re-encoded and the cats' photos are read
+    // (second review, finding 5). The real count is still made in the gate.
+    const already = await findLimitReached(person.id).catch(() => "ok" as const);
+    if (already !== "ok") {
+      req.log.info({ outcome: "refused" }, "find from a photo");
+      return void res.status(429).type("html").send(await findFormHtml(person, filters, tie, { capped: already }));
+    }
     const started = Date.now();
     const now = new Date();
     let capped: "person" | "team" | null = null;

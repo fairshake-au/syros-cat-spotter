@@ -341,6 +341,81 @@ describe("the search", () => {
   });
 });
 
+describe("every answer but the results keeps the strict header (second review, finding 1)", () => {
+  it("each non-200 answer of the search carries STRICT_CSP and no data: picture", async () => {
+    const empty = await newColony("find route strict empty");
+    const blank = await newColony("find route strict blank");
+    const [p] = await db
+      .insert(photosTable)
+      .values({ publicId: `${PREFIX}strict-unreadable`, data: Buffer.from("not an image").toString("base64"), mime: "image/jpeg" })
+      .returning({ id: photosTable.id });
+    await catIn(blank, p!.id);
+    const answers: [string, number, () => Promise<request.Response>][] = [
+      ["no place", 400, async () => search((await teamMember("t1")).cookie, {})],
+      ["no photo", 400, async () => search((await teamMember("t2")).cookie, { colony: String(colony) }, null)],
+      ["not a photo", 400, async () => search((await teamMember("t3")).cookie, { colony: String(colony) }, { bytes: Buffer.from("nope") })],
+      ["too big", 413, async () => search((await teamMember("t4")).cookie, { colony: String(colony) }, { bytes: Buffer.alloc(10 * 1024 * 1024 + 1, 1) })],
+      ["too many", 400, async () => search((await teamMember("t5")).cookie, { colony: String(bigColony) })],
+      ["none to compare", 400, async () => search((await teamMember("t6")).cookie, { colony: String(empty) })],
+      ["no photos", 422, async () => search((await teamMember("t7")).cookie, { colony: String(blank) })],
+      ["no such report", 404, async () => search((await teamMember("t8")).cookie, { colony: String(colony), tie: "no-such-report" })],
+      [
+        "matching down",
+        503,
+        async () => {
+          matchMock.mockRejectedValueOnce(new Error("down"));
+          return search((await teamMember("t9")).cookie, { colony: String(colony) });
+        },
+      ],
+      [
+        "not a cat",
+        422,
+        async () => {
+          matchMock.mockResolvedValueOnce({ isCatPhoto: false, matches: [] });
+          return search((await teamMember("t10")).cookie, { colony: String(colony) });
+        },
+      ],
+      [
+        "over the cap",
+        429,
+        async () => {
+          const t = await teamMember("t11");
+          for (let i = 0; i < FIND_PHOTO_PERSON_LIMIT; i++) await checkFindLimits(t.id);
+          return search(t.cookie, { colony: String(colony) });
+        },
+      ],
+    ];
+    for (const [what, status, send] of answers) {
+      const res = await send();
+      expect([what, res.status], what).toEqual([what, status]);
+      expect(res.headers["content-type"], what).toMatch(/text\/html/);
+      expect(res.headers["content-security-policy"], what).toBe(STRICT_CSP);
+      expect(res.text, what).not.toContain("data:image");
+    }
+  });
+});
+
+describe("refused before any work", () => {
+  it("a tie to a report that doesn't exist runs no search and uses none (second review, finding 4)", async () => {
+    const team = await teamMember("noreport");
+    const res = await search(team.cookie, { colony: String(colony), tie: "no-such-report" });
+    expect(res.status).toBe(404);
+    expect(res.text).toContain("That report couldn't be found.");
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await findTeamHits()).toBe(0);
+    expect(await findPersonHits(team.id)).toBe(0);
+  });
+
+  it("someone over their cap is refused before the photo is even read (second review, finding 5)", async () => {
+    const team = await teamMember("early");
+    for (let i = 0; i < FIND_PHOTO_PERSON_LIMIT; i++) await checkFindLimits(team.id);
+    // An unreadable file would be a 400 if it were read first; the cap answers first.
+    const res = await search(team.cookie, { colony: String(colony) }, { bytes: Buffer.from("not a photo") });
+    expect(res.status).toBe(429);
+    expect(res.text).toContain("They reset overnight.");
+  });
+});
+
 describe("tying a welfare report", () => {
   it("from ?tie=, each result's This is the cat posts to the report's tie route", async () => {
     const team = await teamMember("tie");
