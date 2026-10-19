@@ -22,6 +22,7 @@ import {
   type PendingIssue,
 } from '../issueQueue';
 import { dueReminders, REMINDER_AFTER_MS, requeueFailed } from '../reportQueue';
+import { isPermanentRefusal } from '../checkedSend';
 
 class FakeApiError extends Error {
   constructor(readonly status: number) {
@@ -209,6 +210,11 @@ describe('syncIssues', () => {
       clock += 60 * 60 * 1000;
     }
     expect(store.items()[0]!.status).toBe('failed');
+  });
+
+  it('T6-7: the shared rule itself says a 428 is never a refusal (its own guard, probed directly)', () => {
+    expect(isPermanentRefusal(new FakeApiError(428))).toBe(false);
+    expect(isPermanentRefusal(new FakeApiError(404))).toBe(true);
   });
 
   it('ChallengeUnavailable keeps the report with no strike, and the screen gives the safety-check message', async () => {
