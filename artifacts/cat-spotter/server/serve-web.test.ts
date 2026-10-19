@@ -778,12 +778,12 @@ describe('SYC-189: team.catspotters.com goes to the dashboard, never the tester 
     ['gate on', gatedEnv()],
     ['gate off', { PRELAUNCH_GATE: 'off' }],
   ] as const) {
-    it(`${label}: every page and file on the team address redirects to /api/team/`, async () => {
+    it(`${label}: every page and file on the team address redirects to /api/team/home`, async () => {
       const req = await start(env);
       for (const p of ['/', '/cat/12', '/restore?t=abc', '/_expo/static/js/web/x.js', '/robots.txt', '/_gate/login']) {
         const res = await req('GET', p, { headers: TEAM });
         expect(res.status, p).toBe(302);
-        expect(res.headers.location, p).toBe('/api/team/');
+        expect(res.headers.location, p).toBe('/api/team/home');
         expect(res.headers['cache-control'], p).toBe('no-store');
         expect(res.body, p).not.toContain('<html>home');
       }
@@ -802,7 +802,7 @@ describe('SYC-189: team.catspotters.com goes to the dashboard, never the tester 
     ] as Record<string, string>[]) {
       const res = await req('GET', '/', { headers });
       expect(res.status, JSON.stringify(headers)).toBe(302);
-      expect(res.headers.location).toBe('/api/team/');
+      expect(res.headers.location).toBe('/api/team/home');
     }
   });
 
@@ -824,7 +824,7 @@ describe('SYC-189: team.catspotters.com goes to the dashboard, never the tester 
     const req = await start(gatedEnv());
     const res = await req('GET', '/', { headers: { host: 'catspotters.com', 'x-forwarded-host': 'team.catspotters.com' } });
     expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/api/team/');
+    expect(res.headers.location).toBe('/api/team/home');
   });
 
   it('other addresses are unchanged: the tester app and its password page', async () => {

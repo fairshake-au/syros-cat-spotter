@@ -41,10 +41,11 @@ const challenge = require('./challenge-page');
 
 const DIST_ROOT = path.resolve(__dirname, '..', 'dist');
 
-// SYC-189: the staff dashboard's address, and where its home page lives.
-// The API server holds the same two values (lib/teamAuth/config.ts).
+// SYC-189: the staff dashboard's address, and where its home page lives
+// (Home since SYC-396 PR 2.1). The API server holds the same two values
+// (lib/teamAuth/config.ts).
 const TEAM_HOST = 'team.catspotters.com';
-const TEAM_HOME_PATH = '/api/team/';
+const TEAM_HOME_PATH = '/api/team/home';
 
 /** The address the visitor typed, lower-case, without a port or trailing dot. */
 function hostName(value) {

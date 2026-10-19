@@ -140,6 +140,18 @@ describe("Signed in as and Sign out sit in the menu bar (spec §3.2)", () => {
   });
 });
 
+describe("a cat guardian's menu is untouched by the team menu's changes (review of #243)", () => {
+  it("underlines Feeding sites itself, never its team parent Colonies", () => {
+    for (const active of ["sites", "colonies"] as const) {
+      const html = page({ nav: "guardian", active, mine: true });
+      const inner = bar(html).inner;
+      expect(inner.match(/aria-current/g), active).toHaveLength(1);
+      const label = active === "sites" ? "Feeding sites" : "Colonies";
+      expect(inner).toMatch(new RegExp(`aria-current="page">[^<]*(<span[^>]*>)?${label}`));
+    }
+  });
+});
+
 describe("Back home on the refusal page (SYC-396 PR 2.1)", () => {
   it("takes a team member to Home, which is where signing in lands", () => {
     const html = forbiddenPage({ name: "Maria", language: "en", island: true });

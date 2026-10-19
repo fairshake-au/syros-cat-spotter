@@ -238,6 +238,34 @@ describe("renderHomePage", () => {
   });
 });
 
+describe("everything typed by someone else is escaped (review of #243)", () => {
+  const EVIL = `"><img src=x onerror=alert(1)><script>alert(2)</script>`;
+  const raw = (html: string) => /<img src=x|<script|"onerror=/.test(html);
+
+  it("a short note, a cat's name, a colony's name and a place never reach the page raw", () => {
+    const cat = { ...quietCat(1), name: EVIL, place: EVIL } as TeamCat;
+    const d = full({
+      needs: {
+        ok: true,
+        value: {
+          reports: [report("evil1", { note: EVIL, photo: { status: "attached", url: `/x"onerror="alert(1)` } })],
+          reportsTotal: 1,
+          unchecked: 0,
+          drafts: [],
+          draftsTotal: 0,
+          issuesOpen: 0,
+          awaitingMatch: 0,
+        },
+      },
+      notSeenLately: { ok: true, value: { cats: [cat], total: 1, colonyNames: { 7: EVIL } } },
+    });
+    const html = page(d);
+    expect(raw(html)).toBe(false);
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+    expect(html).not.toContain('onerror="alert(1)');
+  });
+});
+
 describe("small wording rules", () => {
   it("firstWords never cuts a family emoji or a flag in half", () => {
     const family = "👩‍👩‍👧‍👦";
