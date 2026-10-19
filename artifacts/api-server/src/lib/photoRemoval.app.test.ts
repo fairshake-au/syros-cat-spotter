@@ -1,6 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
-import { db, photosTable, photoVariantsTable, photoVisibilityEventsTable, pool } from "@workspace/db";
+import {
+  db,
+  observationsTable,
+  photosTable,
+  photoVariantsTable,
+  photoVisibilityEventsTable,
+  pool,
+  sightingsTable,
+} from "@workspace/db";
+import { listLikelyForReview } from "./likelyReview";
 import sharp from "sharp";
 import { __variantHooks, variantFor } from "./photoVariants";
 import { eq } from "drizzle-orm";
@@ -160,5 +169,59 @@ describe("T15: no version is made from a removed photo (spec §4.3)", () => {
     const cat = await realJpegCat();
     expect(await variantFor(cat.photoId, "small")).not.toBeNull();
     expect(await countVariants(cat.photoId)).toBe(1);
+  });
+});
+
+/** A second photo of `catId`, as the cover of a resolved sighting. */
+async function resolvedSightingPhoto(catId: number) {
+  const [p] = await db
+    .insert(photosTable)
+    .values({ data: Buffer.from("stand-in").toString("base64"), mime: "image/jpeg" })
+    .returning({ id: photosTable.id, publicId: photosTable.publicId });
+  const [s] = await db
+    .insert(sightingsTable)
+    .values({ deviceId: "vt-removal-dev", photoId: p!.id, lat: 37.445, lng: 24.942, status: "resolved", catId })
+    .returning({ id: sightingsTable.id });
+  return { photoId: p!.id, publicId: p!.publicId, sightingId: s!.id };
+}
+
+describe("T9 part 2: the team's pages draw no broken image (spec §6 item 8)", () => {
+  it("the team cat page (HTML and JSON) leaves a removed photo out, and keeps the live one", async () => {
+    const cat = await seedCat(null);
+    const live = await resolvedSightingPhoto(cat.id);
+    await hidePhoto(cat.photoId);
+    await markRemoved(cat.photoId, staff.id);
+    const html = await request(app).get(`/api/team/cats/${cat.id}`).set("Cookie", staff.cookie);
+    expect(html.status).toBe(200);
+    expect(html.text).not.toContain(cat.photoPublicId);
+    expect(html.text).toContain(live.publicId);
+    const json = await request(app)
+      .get(`/api/team/cats/${cat.id}`)
+      .set("Accept", "application/json")
+      .set("Cookie", staff.cookie);
+    expect(json.status).toBe(200);
+    expect(JSON.stringify(json.body)).not.toContain(cat.photoPublicId);
+  });
+
+  it("the likely-coat list gives a removed ear-clip photo no address", async () => {
+    const cat = await seedCat(null);
+    const clip = await resolvedSightingPhoto(cat.id);
+    await db.insert(observationsTable).values({
+      catId: cat.id,
+      kind: "ear_tip",
+      value: { clipped: true, side: "left" },
+      deviceId: "vt-removal-dev",
+      roleAtTime: "public",
+      sightingId: clip.sightingId,
+      photoId: clip.photoId,
+      observedAt: new Date(Date.now() - 3_600_000),
+    });
+    const before = (await listLikelyForReview()).find((c) => c.catId === cat.id);
+    expect(before, "the cat is in the likely list").toBeTruthy();
+    expect(JSON.stringify(before)).toContain(clip.publicId);
+    await hidePhoto(clip.photoId);
+    await markRemoved(clip.photoId, staff.id);
+    const after = (await listLikelyForReview()).find((c) => c.catId === cat.id);
+    expect(JSON.stringify(after ?? {})).not.toContain(clip.publicId);
   });
 });
