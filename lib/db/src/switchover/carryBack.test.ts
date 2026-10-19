@@ -233,7 +233,9 @@ describe("carry-back, end to end (test 4)", () => {
     expect(dry.noHomeInTarget).toEqual(["app_settings", "mapping_events", "named_areas", "observations"]);
     expect(dry.noHomeRows).toEqual({ app_settings: 2, mapping_events: 21, named_areas: 21, observations: 1 });
     expect(dry.droppedColumns).toEqual([
-      { table: "photos", columns: ["public_id"] },
+      // SYC-462's removal record (0034) lives on Neon only too; a removed
+      // photo goes back as an empty picture (writeRows, test T17).
+      { table: "photos", columns: ["public_id", "removed_at", "removed_by", "removed_reason"] },
       // SYC-101's generated folded name: the old database has no such
       // column, and recomputes nothing it needs from it.
       // SYC-63's deletion stamps live on Neon only, like the sightings ones.
@@ -338,6 +340,38 @@ describe("carry-back: exact values, secrets and every table", () => {
     ]);
     // Microsecond timestamps survive (compare hashes their text form).
     expect(await compare(neon, old, { projected: true, onto: "target" })).toEqual([]);
+  });
+});
+
+describe("carry-back of a photo removed for good (SYC-462, T17)", () => {
+  it("carries a removed photo as an empty picture, and a second apply finds nothing to do", async () => {
+    const { old, neon } = await scenario();
+    const person = (
+      await neon.query(
+        `insert into people (email, name, added_by) values ('remover@example.com', 'R', 'cli:test') returning id`,
+      )
+    ).rows[0].id;
+    // One photo removed after the copy (an update), and one added and removed on Neon (an insert).
+    await neon.query(
+      `update photos set data = null, removed_at = now(), removed_by = $1, removed_reason = 'SYC-462' where id = 1`,
+      [person],
+    );
+    const added = (
+      await neon.query(
+        `insert into photos (data, mime, public_id, removed_at, removed_by, removed_reason)
+         values (null, 'image/jpeg', 'pub-removed', now(), $1, 'SYC-462') returning id`,
+        [person],
+      )
+    ).rows[0].id;
+    const applied = await carryBack(neon, old, { apply: true });
+    expect(applied.applied).toBe(true);
+    // The old database is at the baseline: it has no public_id, so by id.
+    const rows = await old.query(`select id, data from photos where id = any($1) order by id`, [[1, added]]);
+    expect(rows.rows.map((r) => r.data)).toEqual(["", ""]);
+    const again = await carryBack(neon, old, { apply: true });
+    const photos = again.tables.find((t) => t.table === "photos");
+    expect(photos?.toInsert ?? []).toEqual([]);
+    expect(photos?.toUpdate ?? []).toEqual([]);
   });
 });
 

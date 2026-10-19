@@ -6,6 +6,7 @@ import {
   applyCanonicalSettings,
   fingerprint,
   quoteIdent,
+  projectedColumnExpr,
   rowTextExpr,
   tableColumns,
   type ColumnInfo,
@@ -215,7 +216,7 @@ async function rowKeys(
     .map((c, i) => `t.${quoteIdent(c)}::text as "k${i}"`)
     .join(", ");
   const r = await client.query<Record<string, string>>(
-    `select ${pkSelect}, md5(${rowTextExpr(columns)}) as "h" from ${quoteIdent(table)} t`,
+    `select ${pkSelect}, md5(${rowTextExpr(columns, table)}) as "h" from ${quoteIdent(table)} t`,
   );
   const out = new Map<string, { pk: string[]; hash: string }>();
   for (const row of r.rows) {
@@ -800,7 +801,8 @@ async function writeRows(
 ): Promise<void> {
   const cols = plan.columns;
   const select = cols
-    .map((c, i) => `t.${quoteIdent(c.name)}::text as "c${i}"`)
+    // projectedColumnExpr: a removed photo (SYC-462) is written as an empty picture.
+    .map((c, i) => `${projectedColumnExpr(plan.table, c.name)}::text as "c${i}"`)
     .join(", ");
   const pkSelect = plan.primaryKey
     .map((c, i) => `t.${quoteIdent(c)}::text as "k${i}"`)

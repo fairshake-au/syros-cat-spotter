@@ -76,7 +76,7 @@ describe("POST /api/sightings photo handling", () => {
       .from(photosTable)
       .where(eq(photosTable.id, sighting!.photoId));
 
-    const stored = Buffer.from(photo!.data, "base64");
+    const stored = Buffer.from(photo!.data!, "base64");
     expect(photo!.mime).toBe("image/jpeg");
     expect(stored.length).toBeLessThanOrEqual(MAX_STORED_BYTES);
     expect((await sharp(stored).metadata()).format).toBe("jpeg");

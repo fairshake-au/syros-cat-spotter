@@ -86,6 +86,12 @@ const PHOTO_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 // row is served as nothing, never as the type the row claims.
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png"]);
 
+/** A photo removed for good (SYC-462 spec §3.1 R2/R3): gone, said plainly. */
+const removedForGood = (res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.status(410).type("text").send("Removed for good.");
+};
+
 /**
  * GET /api/team/report-photos/:publicId: **the only route that serves a
  * report photo** (spec §4.3). It reads welfare_report_photos and nothing
@@ -138,18 +144,24 @@ const photoAccess = requireTeam("view_exact_location", {
 async function servablePhoto(
   req: Request,
   res: Response,
-): Promise<{ id: number; mime: string } | null> {
+): Promise<{ id: number; mime: string; removedAt: Date | null } | null> {
   const publicId = String(req.params["publicId"]);
   if (!PHOTO_ID_RE.test(publicId)) {
     notFound(res);
     return null;
   }
   const [photo] = await db
-    .select({ id: photosTable.id, mime: photosTable.mime })
+    .select({ id: photosTable.id, mime: photosTable.mime, removedAt: photosTable.removedAt })
     .from(photosTable)
     .where(eq(photosTable.publicId, publicId));
   if (!photo || !IMAGE_TYPES.has(photo.mime)) {
     notFound(res);
+    return null;
+  }
+  // SYC-462: removed for good. Said before the hidden check, so whoever may
+  // see this cat's photos learns it is gone rather than "not allowed".
+  if (photo.removedAt !== null) {
+    removedForGood(res);
     return null;
   }
   if (
@@ -173,6 +185,8 @@ router.get("/team/photos/:publicId", photoAccess, async (req: Request, res: Resp
     .from(photosTable)
     .where(eq(photosTable.id, photo.id));
   if (!full) return notFound(res);
+  // Removed between the two reads (SYC-462 spec §6 item 1): still gone, never a 500.
+  if (full.data === null) return removedForGood(res);
   res.setHeader("Content-Type", photo.mime);
   res.send(Buffer.from(full.data, "base64"));
 });

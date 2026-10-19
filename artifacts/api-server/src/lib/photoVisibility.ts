@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import {
   db,
   photosTable,
@@ -47,13 +47,42 @@ async function newestEvents(
   return out;
 }
 
-/** Which of these photos are hidden from the public. One batched query. */
+/**
+ * Which of these photos are hidden from the public: their newest event is a
+ * hide, or they were removed for good (SYC-462 spec §4.5: removed implies
+ * hidden, so every route that asks this treats a removed photo as hidden,
+ * whatever its log says). Two batched queries.
+ */
 export async function hiddenPhotoIds(
   ids: readonly number[],
   q: Queryable = db,
 ): Promise<Set<number>> {
   const newest = await newestEvents(ids, q);
-  return new Set([...newest].filter(([, e]) => e.action === "hide").map(([id]) => id));
+  const out = new Set([...newest].filter(([, e]) => e.action === "hide").map(([id]) => id));
+  const unique = [...new Set(ids)];
+  if (unique.length > 0) {
+    const removed = await q
+      .select({ id: photosTable.id })
+      .from(photosTable)
+      .where(and(inArray(photosTable.id, unique), isNotNull(photosTable.removedAt)));
+    for (const r of removed) out.add(r.id);
+  }
+  return out;
+}
+
+/**
+ * Which of these photos were removed for good (SYC-462). Each is also in
+ * {@link hiddenPhotoIds}; this says the stronger thing, for the app's
+ * "Photo removed" tile. One batched query.
+ */
+export async function removedPhotoIds(ids: readonly number[], q: Queryable = db): Promise<Set<number>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Set();
+  const rows = await q
+    .select({ id: photosTable.id })
+    .from(photosTable)
+    .where(and(inArray(photosTable.id, unique), isNotNull(photosTable.removedAt)));
+  return new Set(rows.map((r) => r.id));
 }
 
 /**
@@ -202,7 +231,9 @@ export type VisibilityOutcome =
   /** Already in that state (a second tab, or a double tap): nothing written. */
   | { kind: "already" }
   | { kind: "not_found" }
-  | { kind: "not_authorised" };
+  | { kind: "not_authorised" }
+  /** SYC-462: removed for good. It stays hidden and can't be restored. */
+  | { kind: "removed"; removedAt: Date };
 
 const CAPABILITY = { hide: "hide_photo", restore: "restore_photo" } as const;
 
@@ -224,11 +255,17 @@ export async function setPhotoVisibility(
 ): Promise<VisibilityOutcome> {
   if (!can(person, CAPABILITY[input.action])) return { kind: "not_authorised" };
   return db.transaction(async (tx) => {
-    const locked = await tx.execute<{ id: number }>(
-      sql`select id from photos where public_id = ${input.publicId} for update`,
+    const locked = await tx.execute<{ id: number; removed_at: Date | string | null }>(
+      sql`select id, removed_at from photos where public_id = ${input.publicId} for update`,
     );
     const photoId = locked.rows[0]?.id;
     if (photoId === undefined) return { kind: "not_found" } as const;
+    // SYC-462 spec §6 item 2: a removed photo is hidden for good (migration
+    // 0034's trigger refuses the event too). A hide falls through to "already".
+    const removedAt = locked.rows[0]!.removed_at;
+    if (removedAt !== null && input.action === "restore") {
+      return { kind: "removed", removedAt: new Date(removedAt) } as const;
+    }
     const newest = (await newestEvents([photoId], tx)).get(photoId);
     const hiddenNow = newest?.action === "hide";
     if ((input.action === "hide") === hiddenNow) return { kind: "already" } as const;

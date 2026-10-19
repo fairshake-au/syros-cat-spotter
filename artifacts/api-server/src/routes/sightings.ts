@@ -16,7 +16,7 @@ import {
   type SightingPhotoRole,
   type SuggestedMatch,
 } from "@workspace/db";
-import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
@@ -279,7 +279,9 @@ async function computeMatchCandidates(
         .select()
         .from(photosTable)
         .where(eq(photosTable.id, cat.primaryPhotoId));
-      if (p) {
+      // SYC-462 spec §6 item 3: a main photo removed for good (no picture) is
+      // never sent; that cat simply isn't compared.
+      if (p && p.data !== null) {
         candidateInputs.push({
           catId: cat.id,
           name: cat.name,
@@ -295,7 +297,8 @@ async function computeMatchCandidates(
     mixedCats = result.mixedCats === true;
     const byId = new Map(nearest.map((cat) => [cat.id, cat]));
     // Only a cat the matcher was actually sent can be suggested (review F5):
-    // a nearby cat whose photo row is gone was never compared.
+    // a nearby cat whose photo row is gone, or was removed for good (SYC-462),
+    // was never compared.
     const sent = new Set(candidateInputs.map((c) => c.catId));
     // Data spine PR 5 (§6.3 point 3; DECISIONS.md Part 2h): ranked by
     // confidence, ties broken by cat id — NEVER by true distance, and
@@ -562,11 +565,12 @@ router.post("/sightings", aiLimiter, async (req, res) => {
       })
       .from(sightingPhotosTable)
       .innerJoin(photosTable, eq(photosTable.id, sightingPhotosTable.photoId))
-      .where(eq(sightingPhotosTable.sightingId, existing.id))
+      // SYC-462 spec §6 item 3: a photo removed for good is never re-sent.
+      .where(and(eq(sightingPhotosTable.sightingId, existing.id), isNotNull(photosTable.data)))
       .orderBy(asc(sightingPhotosTable.position));
     let photos: NewPhotoInput[] = rows.map((r) => ({
       role: r.role as SightingPhotoRole,
-      photoBase64: r.data,
+      photoBase64: r.data!,
       mime: r.mime,
     }));
     if (photos.length === 0) {
@@ -576,7 +580,10 @@ router.post("/sightings", aiLimiter, async (req, res) => {
         .select()
         .from(photosTable)
         .where(eq(photosTable.id, existing.photoId));
-      if (only) photos = [{ role: "first", photoBase64: only.data, mime: only.mime }];
+      // A removed cover (SYC-462) leaves nothing to send: the "photo has gone" branch below.
+      if (only && only.data !== null) {
+        photos = [{ role: "first", photoBase64: only.data, mime: only.mime }];
+      }
     }
     // `sightings.photo_id` has no foreign key, and the approved deletion work
     // (DECISIONS.md F3) will remove photo bytes. A repeat for a sighting whose
@@ -765,12 +772,18 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       const pointsAwarded = isNewCat ? POINTS_NEW_CAT : POINTS_CONFIRM;
 
       if (newCatName != null) {
+        // SYC-462 spec §6 item 4 (P9): a cover photo removed for good never
+        // becomes a new cat's main photo; the cat starts with none (0).
+        const [cover] = await tx
+          .select({ removedAt: photosTable.removedAt })
+          .from(photosTable)
+          .where(eq(photosTable.id, sighting.photoId));
         [cat] = await tx
           .insert(catsTable)
           .values({
             name: newCatName,
             description: "",
-            primaryPhotoId: sighting.photoId,
+            primaryPhotoId: cover && cover.removedAt === null ? sighting.photoId : 0,
             lat: sighting.lat,
             lng: sighting.lng,
             discovererDeviceId: sighting.deviceId,

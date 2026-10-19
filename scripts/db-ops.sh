@@ -446,6 +446,44 @@ run_settings() {
   return "$status"
 }
 
+# --- photo-* (SYC-462) -------------------------------------------------------
+# Removing a photo by hand on a privacy request (docs/runbooks/photo-removal.md).
+# Every writing command is a dry run unless CONFIRM names it (HIDE, RESTORE,
+# REMOVE); remove also needs PHOTO_ID_CONFIRM equal to PHOTO_ID, and on
+# production the photo_removal_on setting. Output is public: the photos CLI
+# prints ids, cat numbers, dates and yes/no only. Run only with an approval
+# from Samuel or the Syros Cats team, recorded on the ticket.
+run_photos() {
+  local sub="$1" # list | hide | restore | remove
+  local out="$WORKDIR/photos.log"
+  local status=0
+  local args=(--target "$TARGET")
+  case "$sub" in
+    list)
+      require PHOTO_CAT
+      args+=(--cat "$PHOTO_CAT")
+      ;;
+    hide|restore)
+      require PHOTO_ID
+      require PHOTO_BY
+      args+=(--photo "$PHOTO_ID" --by "$PHOTO_BY")
+      ;;
+    remove)
+      require PHOTO_ID
+      require PHOTO_BY
+      require PHOTO_REF
+      args+=(--photo "$PHOTO_ID" --by "$PHOTO_BY" --ref "$PHOTO_REF")
+      if [ -n "${PHOTO_ID_CONFIRM:-}" ]; then args+=(--photo-confirm "$PHOTO_ID_CONFIRM"); fi
+      ;;
+  esac
+  if [ -n "${CONFIRM:-}" ]; then args+=(--confirm "$CONFIRM"); fi
+  (cd "$ROOT" && pnpm --silent --filter @workspace/db run photos -- "$sub" "${args[@]}") \
+    >"$out" 2>&1 || status=$?
+  grep_no_urls "$out"
+  cat "$out"
+  return "$status"
+}
+
 # --- main -------------------------------------------------------------------
 case "$COMMAND" in
   fingerprint-source)
@@ -504,6 +542,15 @@ case "$COMMAND" in
     fi
     require_neon_url
     if [ "$COMMAND" = "set-setting" ]; then run_settings set; else run_settings list; fi
+    ;;
+
+  photo-list|photo-hide|photo-restore|photo-remove)
+    if [ "$TARGET" = "rehearsal" ]; then
+      echo "db-ops: $COMMAND only runs against target=development or target=production." >&2
+      exit 1
+    fi
+    require_neon_url
+    run_photos "${COMMAND#photo-}"
     ;;
 
   carry-back-dry-run|carry-back-apply)

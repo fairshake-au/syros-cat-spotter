@@ -342,7 +342,7 @@ describe("POST /api/sightings with extra photos", () => {
       .where(inArray(photosTable.id, rows.map((r) => r.photoId)));
     expect(stored).toHaveLength(3);
     for (const p of stored) {
-      const meta = await sharp(Buffer.from(p.data, "base64")).metadata();
+      const meta = await sharp(Buffer.from(p.data!, "base64")).metadata();
       expect(meta.exif).toBeUndefined();
     }
   });

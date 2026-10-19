@@ -480,6 +480,13 @@ export interface Sighting {
      * place. It says only that a photo is hidden, never why or by whom.
      */
   photoHidden: boolean;
+  /**
+     * SYC-462. Present, and true, only when this sighting's own photo was
+     * removed for good (it is hidden too, so `photoUrl` is null and
+     * `photoHidden` is true); the app then shows "Photo removed." Left
+     * out otherwise.
+     */
+  photoRemoved?: boolean;
   /** A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
   createdAt: string;
 }

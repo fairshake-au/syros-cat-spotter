@@ -55,6 +55,15 @@ const ALLOWLIST: Record<string, string> = {
     "deliberately no kind filter: deletion clears the device from both kinds",
   "artifacts/api-server/src/lib/teamAuth/__fixtures__/queueKit.ts":
     "test fixture: seeds both kinds",
+  // SYC-462: removing a photo by hand. Read only; nothing here writes the table.
+  "lib/db/src/photoRemoval/eligibility.ts":
+    "content only: a kind = 'content' report with reason photo_private makes a photo hidden for privacy (Decision 3)",
+  "lib/db/src/photoRemoval/list.ts":
+    "content only: the same kind = 'content' photo_private read, for the list's 'hidden for privacy'",
+  "lib/db/src/photoRemoval/remove.ts":
+    "both kinds, on purpose: the dry run counts every report that names the photo (they all stay, linked to it)",
+  "lib/db/src/photoRemoval/__fixtures__/seed.ts":
+    "test fixture: seeds a kind = 'content' report",
 };
 
 const TERMS = [/\bwelfare_reports\b/, /\bwelfareReportsTable\b/, /\bWelfareReport\b/];
