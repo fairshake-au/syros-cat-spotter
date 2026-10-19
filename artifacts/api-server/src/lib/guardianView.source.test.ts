@@ -60,6 +60,8 @@ const FILTERED_MODULES = [
   "lib/teamColonies.ts",
   "lib/colonyCats.ts",
   "lib/teamSiteWrites.ts",
+  // The Colonies list's figures and flags (SYC-396 PR 2.2).
+  "lib/dashboard/colonyFigures.ts",
 ];
 
 /**
