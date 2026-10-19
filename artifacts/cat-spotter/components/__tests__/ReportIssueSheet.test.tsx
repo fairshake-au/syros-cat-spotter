@@ -274,7 +274,10 @@ describe('review fixes (findings 2, 7, 8)', () => {
     fireEvent.click(screen.getByTestId('issue-reason-photo_private'));
     fireEvent.click(screen.getByTestId('issue-send'));
     fireEvent.click(screen.getByTestId('issue-report-and-hide'));
-    expect((await screen.findByTestId('issue-save-failed')).textContent).toBe(en.issueSaveFailed);
+    // On the web it says "in this browser", like every other saved line.
+    expect((await screen.findByTestId('issue-save-failed')).textContent).toBe(
+      'We couldn’t save this report in this browser. Please try again.',
+    );
     expect(screen.queryByTestId('issue-done')).toBeNull();
     fireEvent.click(screen.getByTestId('issue-report-and-hide'));
     await screen.findByTestId('issue-done');

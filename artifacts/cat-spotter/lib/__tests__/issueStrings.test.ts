@@ -65,11 +65,11 @@ describe('T6-8: the Report an issue strings', () => {
   });
 
   it('the web strings say "saved in this browser", never "on your phone"', () => {
-    for (const lang of LANGS) {
+    for (const [lang, key] of LANGS.flatMap((l) => ['issueSaved', 'issueSaveFailed'].map((k) => [l, k] as const))) {
       const { from, to } = SAVED_ON_PHONE[lang];
-      const saved = TRANSLATIONS[lang].issueSaved;
+      const saved = TRANSLATIONS[lang][key]!;
       // The phone wording is the one the web rewrite looks for…
-      expect(saved, `${lang}.issueSaved`).toContain(from);
+      expect(saved, `${lang}.${key}`).toContain(from);
       // …so on the web it reads "in this browser".
       const web = savedWording(saved, lang, true);
       expect(web).toContain(to);

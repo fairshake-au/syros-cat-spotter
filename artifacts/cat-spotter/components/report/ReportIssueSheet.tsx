@@ -129,7 +129,7 @@ export function ReportIssueSheet({
 
   const saveFailedLine = saveFailed ? (
     <Text testID="issue-save-failed" role="alert" style={[styles.body, { color: colors.destructive }]}>
-      {t('issueSaveFailed')}
+      {saved(t('issueSaveFailed'))}
     </Text>
   ) : null;
 
