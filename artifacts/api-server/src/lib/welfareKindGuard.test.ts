@@ -33,6 +33,8 @@ const ALLOWLIST: Record<string, string> = {
     "the needs-help queue: every list, count and draft read carries kind = 'welfare'; mailHealth counts failed welfare_alert and issue_alert",
   "artifacts/api-server/src/lib/dashboard/home.ts":
     "Home: the needs-help list comes from listWelfareQueue (welfare only); countOpenIssues is the one query here and counts kind = 'content' only",
+  "artifacts/api-server/src/lib/dashboard/colonyFigures.ts":
+    "Colonies list's Kittens reported flag (SYC-396 PR 2.2): both its queries carry kind = 'welfare' and is_litter (countedLitter), so a content row never flags a colony",
   "artifacts/api-server/src/lib/welfareActions.ts":
     "both kinds can move state and take a team note; a welfare_outcome is written only for kind = 'welfare'",
   "artifacts/api-server/src/lib/welfareTie.ts":
