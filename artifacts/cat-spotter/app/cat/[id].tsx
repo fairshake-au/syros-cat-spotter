@@ -26,6 +26,9 @@ import { useNotifications } from '@/context/NotificationContext';
 import { OwnershipBanner } from '@/components/OwnershipBanner';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
+import { ReportIssueLink } from '@/components/report/ReportIssueLink';
+import { ReportIssueSheet } from '@/components/report/ReportIssueSheet';
+import type { IssueReason } from '@/lib/issueQueue';
 import { MoreToAdd } from '@/components/MoreToAdd';
 import { SightingPhotos } from '@/components/SightingPhotos';
 import { PhotoViewer } from '@/components/PhotoViewer';
@@ -57,7 +60,7 @@ export default function CatDetailScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ id: string; updateId?: string }>();
+  const params = useLocalSearchParams<{ id: string; updateId?: string; report?: string }>();
   const catId = Number(params.id);
   const updateId = Number(params.updateId);
   const { ownedCatIds, deviceId, isReady, startupError } = useDevice();
@@ -70,6 +73,12 @@ export default function CatDetailScreen() {
   // photo (a stand-in after a hide), the viewer closes and never reopens
   // by itself on the new one (ship review, finding 1).
   const [heroOpenUrl, setHeroOpenUrl] = React.useState<string | null>(null);
+  // SYC-44 PR 6.2: the reason sheet, about the cat (no photo) or one photo.
+  // `?report=wrong_info` opens it with that reason chosen: where the "Think
+  // this cat is alive?" link lands (choose-a-different-cat.md; plan C11).
+  const [issueSheet, setIssueSheet] = React.useState<
+    { photoUrl: string | null; initialReason?: IssueReason } | null
+  >(params.report === 'wrong_info' ? { photoUrl: null, initialReason: 'wrong_info' } : null);
 
   // The inbox row matching the tapped push notification, if any.
   const highlighted = React.useMemo(
@@ -269,8 +278,8 @@ export default function CatDetailScreen() {
             </View>
             {/* SYC-42: quiet, never the biggest thing on screen (spec §4.1). */}
             <NeedsHelpLink />
-            {/* SYC-44: PR 6.2 mounts <ReportIssueLink> here, below "needs
-                help" and never bigger, with the reason sheet as its onPress. */}
+            {/* SYC-44 PR 6.2: below "needs help" and never bigger (spec §3.1). */}
+            <ReportIssueLink onPress={() => setIssueSheet({ photoUrl: null })} />
             {(
               <View style={styles.metaRow}>
                 <Feather name="star" size={14} color={colors.mutedForeground} />
@@ -486,6 +495,7 @@ export default function CatDetailScreen() {
                   extraPhotos={s.extraPhotos}
                   createdAt={s.createdAt}
                   byline={bylineFor(s, t)}
+                  onReportPhoto={(url) => setIssueSheet({ photoUrl: url })}
                 />
                 <Text style={[styles.sightingDate, { color: colors.mutedForeground }]}>
                   {parsePublicDate(s.createdAt).toLocaleDateString()}
@@ -508,6 +518,21 @@ export default function CatDetailScreen() {
           date={parsePublicDate(heroCaption.day).toLocaleDateString()}
           byline={heroCaption.byline}
           onClose={() => setHeroOpenUrl(null)}
+          onReport={() => {
+            // The viewer closes first: one modal at a time.
+            const url = heroOpenUrl;
+            setHeroOpenUrl(null);
+            setIssueSheet({ photoUrl: url });
+          }}
+        />
+      )}
+      {issueSheet !== null && (
+        <ReportIssueSheet
+          catId={cat.id}
+          catName={cat.name}
+          photoUrl={issueSheet.photoUrl}
+          initialReason={issueSheet.initialReason}
+          onClose={() => setIssueSheet(null)}
         />
       )}
       {sheet !== null && (

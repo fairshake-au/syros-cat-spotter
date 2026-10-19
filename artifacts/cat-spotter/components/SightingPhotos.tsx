@@ -43,7 +43,7 @@ export function SightingPhotos({
   /** Who spotted it, for the full-screen view (`bylineFor`). */
   byline: string;
   extraPhotos?: ExtraPhoto[];
-  /** PR 6.2: opens the reason sheet for this photo. Without it there is no report link. */
+  /** SYC-44 PR 6.2: opens the reason sheet for this photo (the viewer closes first). Without it there is no report link. */
   onReportPhoto?: (photoUrl: string) => void;
 }) {
   const colors = useColors();
@@ -130,7 +130,16 @@ export function SightingPhotos({
           date={when}
           byline={byline}
           onClose={() => setOpen(null)}
-          onReport={onReportPhoto ? () => onReportPhoto(open.url) : undefined}
+          onReport={
+            onReportPhoto
+              ? () => {
+                  // The viewer closes first: one modal at a time.
+                  const url = open.url;
+                  setOpen(null);
+                  onReportPhoto(url);
+                }
+              : undefined
+          }
         />
       ) : null}
     </View>
