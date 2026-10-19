@@ -111,7 +111,7 @@ function whereForm(o: FindFormOptions): string {
       `<label class="choicechip"><input type="checkbox" name="colours" value="${esc(c)}"${f.colours?.includes(c) ? " checked" : ""}> ${esc(COLOUR_WORD(c))}</label>`,
   ).join("");
   const placeProblem =
-    o.problem?.field === "place" ? `<p class="warn" role="alert" id="place-error">${esc(o.problem.words)}</p>` : "";
+    o.problem?.field === "place" ? `<p class="warn" id="place-error">${esc(o.problem.words)}</p>` : "";
   const described = o.problem?.field === "place" ? ' aria-describedby="place-error" aria-invalid="true"' : "";
   return (
     `<form class="findwhere" method="get" action="${FIND_PATH}">` +
@@ -161,7 +161,7 @@ function photoForm(o: FindFormOptions): string {
     inside = '<p class="hint">Once there are 30 cats or fewer to compare, choose the photo here.</p>';
   } else {
     const photoProblem =
-      o.problem?.field === "photo" ? `<p class="warn" role="alert" id="photo-error">${esc(o.problem.words)}</p>` : "";
+      o.problem?.field === "photo" ? `<p class="warn" id="photo-error">${esc(o.problem.words)}</p>` : "";
     inside =
       `<form class="findphoto" method="post" action="${FIND_PATH}" enctype="multipart/form-data">` +
       hiddenFilters(o.filters, o.tie) +
@@ -215,6 +215,10 @@ export function renderFindForm(o: FindFormOptions): string {
     personName: o.personName,
     beforeTitle: backLink(o.tie, o.filters),
     body:
+      // On a phone the field is well below the fold: say it at the top too.
+      (o.problem
+        ? `<p class="notice" role="alert">${esc(o.problem.words)} <a href="${o.problem.field === "place" ? "#find-area" : "#find-photo"}">Go to it</a></p>`
+        : "") +
       tieIntro(o.tie, o.now) +
       '<p class="hint">Compare a photo, for example one a resident sent, with the cats of one area or colony. You decide which cat it is; the page only says how close each one looks.</p>' +
       whereForm(o) +

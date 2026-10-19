@@ -198,7 +198,8 @@ describe("the search", () => {
     const team = await teamMember("missing");
     const res = await search(team.cookie, {});
     expect(res.status).toBe(400);
-    expect(res.text).toContain('<p class="warn" role="alert" id="place-error">Choose an area or a colony first.</p>');
+    expect(res.text).toContain('<p class="warn" id="place-error">Choose an area or a colony first.</p>');
+    expect(res.text).toContain('<p class="notice" role="alert">Choose an area or a colony first. <a href="#find-area">Go to it</a></p>');
     expect(res.text).toContain('aria-describedby="place-error"');
     expect(matchMock).not.toHaveBeenCalled();
     expect(await findTeamHits()).toBe(0);
