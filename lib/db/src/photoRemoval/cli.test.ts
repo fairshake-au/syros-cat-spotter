@@ -135,12 +135,30 @@ describe("refusals and exit codes", () => {
     expect(r.text).toMatch(/^NOT GONE/m);
   });
 
-  it("a second remove says already removed (0)", async () => {
+  it("F1: after NOT GONE, a second remove still isn't GONE (3)", async () => {
+    const pic = picture(++seq);
+    const P = await seedEverywhere(c, pic, "cli-f1");
+    await c.query(`create table if not exists zz_cli_copy (d text)`);
+    await c.query(`insert into zz_cli_copy (d) values ($1)`, [pic]);
+    try {
+      const args = ["remove", "--photo", P.publicId, "--by", P.person, "--ref", "SYC-462", "--photo-confirm", P.publicId, "--confirm", "REMOVE"];
+      expect((await run(args)).code).toBe(3);
+      const again = await run(args);
+      expect(again.text).not.toMatch(/^GONE/m);
+      expect(again.code).not.toBe(0);
+    } finally {
+      await c.query(`drop table zz_cli_copy`);
+    }
+  });
+
+  it("a second remove says already removed, and can't re-verify the bytes (4)", async () => {
     const P = await seedEverywhere(c, picture(++seq), "cli-again");
     const args = ["remove", "--photo", P.publicId, "--by", P.person, "--ref", "SYC-462", "--photo-confirm", P.publicId, "--confirm", "REMOVE"];
     expect((await run(args)).code).toBe(0);
     const again = await run(args);
-    expect(again.code).toBe(0);
+    expect(again.code).toBe(4);
     expect(again.text).toContain("already removed on");
+    expect(again.text).toMatch(/^ALREADY REMOVED/m);
+    expect(again.text).not.toMatch(/^GONE/m);
   });
 });

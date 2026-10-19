@@ -33,7 +33,9 @@ export type RemoveResult =
   | { kind: "refused"; why: RemoveRefusal }
   | { kind: "already"; removedAt: Date; search: SearchResult }
   | { kind: "plan"; plan: RemovalPlan; search: SearchResult }
-  | { kind: "removed"; plan: RemovalPlan; search: SearchResult };
+  | { kind: "removed"; plan: RemovalPlan; search: SearchResult }
+  /** The in-transaction byte scan timed out: the whole removal was rolled back; nothing changed (PR review F3). */
+  | { kind: "timed_out" };
 
 export interface RemoveInput {
   publicId: string;
@@ -53,6 +55,8 @@ export interface RemoveInput {
 export interface RemoveTestOnly {
   skip?: RemoveStep;
   afterCommit?: () => Promise<void>;
+  /** Makes the in-transaction scan take this long (T: the F3 timeout). */
+  slowScanMs?: number;
 }
 
 async function planFor(q: pg.ClientBase, st: PhotoState): Promise<RemovalPlan> {
@@ -100,7 +104,12 @@ export async function removePhoto(
   await client.query(input.apply ? "begin" : "begin isolation level repeatable read read only");
   let committed = false;
   try {
-    const st = await photoState(client, input.publicId, input.apply);
+    // PR review F6: lock first, in its own statement, then read the state,
+    // so a hide or restore that committed while this waited is seen.
+    if (input.apply) {
+      await client.query(`select id from photos where public_id = $1 for update`, [input.publicId]);
+    }
+    const st = await photoState(client, input.publicId);
     const refuse = async (why: RemoveRefusal): Promise<RemoveResult> => {
       await client.query("rollback");
       committed = true;
@@ -122,7 +131,7 @@ export async function removePhoto(
     const fp = fingerprint(data);
 
     if (!input.apply) {
-      const search = await searchFor(client, st, { apply: false, bytes: null, ...searchOpts });
+      const search = await searchFor(client, st, { apply: false, bytes: null, inTransaction: true, ...searchOpts });
       await client.query("rollback");
       committed = true;
       return { kind: "plan", plan, search };
@@ -150,7 +159,17 @@ export async function removePhoto(
     }
     // Check 5 inside the transaction (spec §4.4 step 5): it sees this
     // transaction's own writes, and the fingerprint can't be lost.
-    const bytes = await scanBytes(client, st, fp, input.timeoutMs);
+    const bytes = await scanBytes(client, st, fp, {
+      inTransaction: true,
+      timeoutMs: input.timeoutMs,
+      slowMs: testOnly.slowScanMs,
+    });
+    if (bytes.line.ok === "not_verified") {
+      // Never commit a removal that couldn't be checked (PR review F3).
+      await client.query("rollback");
+      committed = true;
+      return { kind: "timed_out" };
+    }
     await client.query("commit");
     committed = true;
     await testOnly.afterCommit?.();

@@ -306,3 +306,34 @@ describe("dry run, T5 and T8", () => {
     }
   });
 });
+
+describe("PR review fixes", () => {
+  it("F1: a re-run after NOT GONE never says GONE (the byte check can't be repeated)", async () => {
+    const pic = picture(++seq);
+    const P = await seedEverywhere(c, pic, "f1");
+    await c.query(`create table if not exists zz_copy (d text)`);
+    await c.query(`insert into zz_copy (d) values ($1)`, [pic]);
+    try {
+      const first = await run(P.publicId, P.person);
+      if (first.kind !== "removed") throw new Error(first.kind);
+      expect(first.search.verdict).toBe("NOT GONE");
+      const again = await run(P.publicId, P.person);
+      expect(again.kind).toBe("already");
+      if (again.kind !== "already") return;
+      expect(again.search.verdict).not.toBe("GONE");
+      expect(again.search.lines.find((l) => l.check === "bytes")!.ok).toBe("not_verified");
+    } finally {
+      await c.query(`drop table zz_copy`);
+    }
+  });
+
+  it("F3: a scan that times out inside the removal rolls it all back and says so", async () => {
+    const P = await seedEverywhere(c, picture(++seq), "f3");
+    const before = await checksum();
+    const r = await run(P.publicId, P.person, { timeoutMs: 1 }, { slowScanMs: 50 });
+    expect(r).toEqual({ kind: "timed_out" });
+    expect(await checksum()).toBe(before);
+    const t = (await c.query(`show statement_timeout`)).rows[0].statement_timeout;
+    expect(t).toBe("0");
+  });
+});

@@ -46,7 +46,9 @@ async function inTransaction<T>(q: pg.ClientBase, apply: boolean, fn: () => Prom
 
 export async function hidePhotoForPrivacy(q: pg.ClientBase, input: Input): Promise<HideResult> {
   return inTransaction(q, input.apply, async () => {
-    const st = await photoState(q, input.publicId, input.apply);
+    // Lock first, then read the state (PR review F6).
+    if (input.apply) await q.query(`select id from photos where public_id = $1 for update`, [input.publicId]);
+    const st = await photoState(q, input.publicId);
     if (!st) return { kind: "refused", why: "not_found" } as const;
     if (st.removedAt) return { kind: "refused", why: "removed" } as const;
     if (!(await isTeamMemberNow(q, input.by))) return { kind: "refused", why: "not_team" } as const;
@@ -61,7 +63,9 @@ export async function hidePhotoForPrivacy(q: pg.ClientBase, input: Input): Promi
 
 export async function restorePhoto(q: pg.ClientBase, input: Input): Promise<RestoreResult> {
   return inTransaction(q, input.apply, async () => {
-    const st = await photoState(q, input.publicId, input.apply);
+    // Lock first, then read the state (PR review F6).
+    if (input.apply) await q.query(`select id from photos where public_id = $1 for update`, [input.publicId]);
+    const st = await photoState(q, input.publicId);
     if (!st) return { kind: "refused", why: "not_found" } as const;
     if (st.removedAt) return { kind: "refused", why: "removed" } as const;
     if (!(await isTeamMemberNow(q, input.by))) return { kind: "refused", why: "not_team" } as const;

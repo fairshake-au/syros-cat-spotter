@@ -51,6 +51,18 @@ describe("db-ops photo-*", () => {
     expect(r.out).toContain("only runs against target=development or target=production");
   });
 
+  it("F4: photo-remove with CONFIRM=REMOVE but a missing or different PHOTO_ID_CONFIRM is refused, and changes nothing", async () => {
+    const P = await seedEverywhere(c, picture(902), "dbops-f4");
+    const base = { COMMAND: "photo-remove", PHOTO_ID: P.publicId, PHOTO_BY: P.person, PHOTO_REF: "SYC-462", CONFIRM: "REMOVE" };
+    const missing = dev(base);
+    expect(missing.code).not.toBe(0);
+    expect(missing.out).toContain("doesn't match");
+    const other = dev({ ...base, PHOTO_ID_CONFIRM: "11111111-1111-4111-8111-111111111111" });
+    expect(other.code).not.toBe(0);
+    expect(other.out).toContain("doesn't match");
+    expect((await c.query(`select data is not null as has from photos where id = $1`, [P.photoId])).rows[0].has).toBe(true);
+  });
+
   it("refuses a missing PHOTO_ID before running anything", () => {
     const r = dev({ COMMAND: "photo-hide", PHOTO_BY: "00000000-0000-4000-8000-000000000000" });
     expect(r.code).not.toBe(0);

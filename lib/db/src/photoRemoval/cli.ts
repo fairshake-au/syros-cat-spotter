@@ -26,8 +26,11 @@ import type { SearchResult } from "./search";
 // photo ids, cat numbers, sighting numbers, dates and yes/no only. Never a
 // location, a device, a name, a note, a report reason or a hide reason.
 //
-// Exit codes: 0 done, already, or a dry run; 1 refused, or failed; 2 a usage
-// or target problem (as the settings command); 3 NOT GONE; 4 NOT VERIFIED.
+// Exit codes: 0 done (GONE) or a dry run; 1 refused, or failed; 2 a usage or
+// target problem (as the settings command); 3 NOT GONE; 4 NOT VERIFIED: the
+// search timed out and the removal was rolled back, or the photo was already
+// removed and the byte search (only possible in the removal run) can't be
+// repeated, so the removal run's log holds that result (PR review F1, F3).
 
 export interface PhotosIo {
   env: Record<string, string | undefined>;
@@ -193,8 +196,24 @@ export async function runPhotosCommand(argv: string[], io: PhotosIo): Promise<nu
       io.out(`  refused: ${refusalWords[r.why]}. Nothing was changed.`);
       return 1;
     }
+    if (r.kind === "timed_out") {
+      io.out("  the search timed out before it could prove the picture gone, so the removal was rolled back: nothing changed.");
+      io.out("  Raise it on the ticket (runbook, \"If a step fails\"). Don't run it again until the timeout is looked at.");
+      io.out("NOT VERIFIED");
+      return 4;
+    }
     if (r.kind === "already") {
       io.out(`  already removed on ${day(r.removedAt)}; nothing written.`);
+      printSearch(io, r.search);
+      // PR review F1: a re-run can't repeat the byte check, so it never says GONE.
+      // The removal run's log holds that result.
+      const failed = r.search.lines.some((l) => l.ok === false);
+      io.out(
+        failed
+          ? `NOT GONE (${r.search.ms} ms): see the lines above`
+          : `ALREADY REMOVED (${r.search.ms} ms): the byte search ran only in the removal run; its log has the result`,
+      );
+      return failed ? 3 : 4;
     } else {
       io.out(`  hidden now: yes · hidden for privacy: yes${requireSwitch ? " · removal switched on: yes" : ""}`);
       printPlan(io, r.plan, r.kind === "removed");

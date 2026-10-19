@@ -72,16 +72,32 @@ async function columns(q: pg.ClientBase): Promise<Column[]> {
   return r.rows.map((x) => ({ table: x.table_name, column: x.column_name, type: x.data_type }));
 }
 
-/** Runs `fn` under a statement timeout; a timeout comes back as "not_verified". */
-async function timed<T>(q: pg.ClientBase, timeoutMs: number, fn: () => Promise<T>): Promise<T | "not_verified"> {
-  await q.query(`set statement_timeout = ${Math.max(1, Math.floor(timeoutMs))}`);
+/**
+ * Runs `fn` under a statement timeout; a timeout comes back as "not_verified"
+ * and changes nothing (PR review F3). Never a session-level setting, so it
+ * can't leak to a pooled connection: inside a transaction it uses a
+ * savepoint and `set local`; outside, its own short read-only transaction.
+ */
+async function timed<T>(
+  q: pg.ClientBase,
+  opts: { inTransaction: boolean; timeoutMs: number; slowMs?: number },
+  fn: () => Promise<T>,
+): Promise<T | "not_verified"> {
+  const ms = Math.max(1, Math.floor(opts.timeoutMs));
+  const [open, done, undo] = opts.inTransaction
+    ? ["savepoint photo_scan", "release savepoint photo_scan", "rollback to savepoint photo_scan"]
+    : ["begin isolation level read committed read only", "commit", "rollback"];
+  await q.query(open);
   try {
-    return await fn();
+    await q.query(`set local statement_timeout = ${ms}`);
+    if (opts.slowMs) await q.query(`select pg_sleep(${opts.slowMs / 1000})`);
+    const out = await fn();
+    await q.query(done);
+    return out;
   } catch (err) {
+    await q.query(undo).catch(() => {});
     if ((err as { code?: string }).code === TIMEOUT) return "not_verified";
     throw err;
-  } finally {
-    await q.query(`reset statement_timeout`);
   }
 }
 
@@ -98,13 +114,16 @@ export async function scanBytes(
   q: pg.ClientBase,
   photo: PhotoRef,
   fp: Fingerprint,
-  timeoutMs = STATEMENT_TIMEOUT_MS,
+  opts: { inTransaction: boolean; timeoutMs?: number; slowMs?: number },
 ): Promise<{ line: SearchLine; otherPhotoIds: number[] }> {
   const cols = await columns(q);
   const unscanned = cols.filter((c) => !SCANNED.has(c.type) && !CANNOT_HOLD.has(c.type));
   const hits: string[] = [];
   const otherPhotoIds: number[] = [];
-  const outcome = await timed(q, timeoutMs, async () => {
+  const outcome = await timed(
+    q,
+    { inTransaction: opts.inTransaction, timeoutMs: opts.timeoutMs ?? STATEMENT_TIMEOUT_MS, slowMs: opts.slowMs },
+    async () => {
     for (const c of cols.filter((x) => SCANNED.has(x.type))) {
       const col = `x.${quoteIdent(c.column)}`;
       const match = c.type === "bytea" ? `position($1::bytea in ${col}) > 0` : `${col}::text like '%' || $1 || '%'`;
@@ -124,7 +143,8 @@ export async function scanBytes(
       if (r.rows[0]!.n > 0) hits.push(`${c.table}.${c.column}`);
     }
     return true;
-  });
+    },
+  );
   if (outcome === "not_verified") {
     return { line: { check: "bytes", ok: "not_verified", detail: "the scan timed out" }, otherPhotoIds };
   }
@@ -144,12 +164,16 @@ export async function scanBytes(
 }
 
 /** Check 6: the photo's public id appears in no text column but photos.public_id. */
-async function scanMentions(q: pg.ClientBase, photo: PhotoRef, timeoutMs: number): Promise<SearchLine> {
+async function scanMentions(
+  q: pg.ClientBase,
+  photo: PhotoRef,
+  opts: { inTransaction: boolean; timeoutMs: number },
+): Promise<SearchLine> {
   const cols = (await columns(q)).filter(
     (c) => SCANNED.has(c.type) && c.type !== "bytea" && !(c.table === "photos" && c.column === "public_id"),
   );
   const hits: string[] = [];
-  const outcome = await timed(q, timeoutMs, async () => {
+  const outcome = await timed(q, opts, async () => {
     for (const c of cols) {
       const r = await q.query<{ n: number }>(
         `select count(*)::int as n from ${quoteIdent(c.table)} x where x.${quoteIdent(c.column)}::text like '%' || $1 || '%'`,
@@ -187,6 +211,8 @@ export async function searchFor(
   opts: {
     apply: boolean;
     bytes: { line: SearchLine; otherPhotoIds: number[] } | null;
+    /** True when called inside a transaction (a dry run): scans use a savepoint. */
+    inTransaction?: boolean;
     recheckDelayMs?: number;
     timeoutMs?: number;
   },
@@ -250,15 +276,20 @@ export async function searchFor(
     detail: recorded ? "who, when and the request are recorded" : "no complete removal record",
   });
 
+  // PR review F1: the fingerprint exists only during the removal run, so a
+  // later run can't repeat the byte check. It says so, and never passes it:
+  // "already removed" must not turn an earlier NOT GONE into GONE.
   lines.push(
     opts.bytes?.line ?? {
       check: "bytes",
-      ok: row?.no_picture ? true : false,
-      detail: row?.no_picture ? "checked during the removal run" : "not checked: the picture is still there",
+      ok: row?.no_picture ? "not_verified" : false,
+      detail: row?.no_picture
+        ? "can only be checked in the removal run: see that run's log for its result"
+        : "not checked: the picture is still there",
     },
   );
 
-  lines.push(await scanMentions(q, photo, timeoutMs));
+  lines.push(await scanMentions(q, photo, { inTransaction: opts.inTransaction ?? false, timeoutMs }));
 
   return { lines, verdict: verdictOf(lines), ms: Date.now() - t0, otherPhotoIds: opts.bytes?.otherPhotoIds ?? [] };
 }

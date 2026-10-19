@@ -77,6 +77,8 @@ The examples use `production`. Use `development` for the rehearsal (step 8).
    ```
    Every photo of the cat is listed with its id, where it's used, the date, and "hidden", "hidden for privacy" and "removed".
 3. **Get approval** from Samuel or someone on the Syros Cats team. Quote the photo's id and what it shows, and record the approval on the ticket. Get the approver's people id from `people-list`.
+
+   **The approver confirms the photo shows a person or a private place.** A "shows a person or something private" report from the public only puts a photo forward. It makes the command accept the photo, but it never stands in for the approval.
 4. **Warn Samuel** that a live database change comes next, and ask him to switch to ask mode.
 5. **Hide it, for privacy.** First a dry run, which changes nothing:
    ```
@@ -97,10 +99,15 @@ The examples use `production`. Use `development` for the rehearsal (step 8).
    ```
    gh workflow run db-ops.yml --ref main -f target=production -f command=photo-remove -f photo_id=<id> -f photo_id_confirm=<id> -f photo_by=<people id> -f photo_ref=SYC-<n> -f confirm=REMOVE
    ```
-   The run must end `GONE`:
-   - If it names another photo row holding the same picture, go back to step 3 for that photo; it's a request of its own.
-   - `NOT GONE` turns the run red. Stop, and raise it on the ticket with the run link. Don't run it again blindly.
-   - `NOT VERIFIED` means the search ran out of time. Run `photo-remove` again for the same photo. It says "already removed" and repeats the read-only checks.
+   **Before you dispatch, check `photo_ref` holds only `SYC-<n>` or `hello YYYY-MM-DD #<n>`.** Workflow inputs appear on the public run page before the command checks them.
+
+   The run must end `GONE` (exit 0). Keep the link to this run on the ledger: it is **the only run that can check the picture's bytes**, because the fingerprint exists only while the picture does.
+
+   **The other results:**
+   - **Another photo row holds the same picture.** If the run names one, go back to step 3 for that photo; it's a request of its own.
+   - **`NOT GONE`** (exit 3). The picture itself is already deleted, but a copy or a mention was found. Stop, and raise it on the ticket with the run link.
+   - **`NOT VERIFIED`** (exit 4) on the first run. The search ran out of time, so **the whole removal was rolled back and nothing changed**. Raise it on the ticket. Don't run it again until the timeout has been looked at.
+   - **Running `photo-remove` again for a removed photo** prints `ALREADY REMOVED` and exits 4. That's expected, not a failure: it re-checks everything except the bytes, which only the removal run could check. It never says `GONE`. The removal run's log has the byte result.
 7. **Check from outside:**
    ```
    curl -sI https://<live host>/api/photos/<id>
@@ -111,6 +118,9 @@ The examples use `production`. Use `development` for the rehearsal (step 8).
 9. **The team inbox.** If a report hid the photo, the "Photo hidden" email carried it as an attachment. Ask whoever looks after the inbox to delete that email, and wait until they confirm.
 10. **Other copies.**
     - With read-only calls, list the Neon branches and snapshots and the restore window on `production`. On the ticket, note any copy older than the removal and the date it will be deleted.
+    - **The old Replit database.** It's kept until 30 days after the cutover (switchover plan G.1) and still holds the picture until it's deleted. Note its deletion date on the ticket. If that date is later than you'd want to put in the reply, ask Samuel to choose between two options:
+      - wait for the deletion;
+      - have the picture blanked there now. Carry-back does exactly that for a removed photo, but only as part of a full rollback, so it would be a one-off he approves.
     - Search the repository, pull request comments and Linear attachments for the photo id and for screenshots of that cat. A copy in the repository's history can only be removed by rewriting history, so raise any you find with Samuel.
     - Screenshots for the repo always use seeded test data.
 11. **The ledger.** Add the row.
@@ -144,4 +154,5 @@ Carry-back to the old Replit database copies a removed photo as an empty picture
 
 - **Before step 6:** restore the photo (`photo-restore`, `confirm=RESTORE`) and start again.
 - **Step 6 ends `NOT GONE`:** the output names the check that failed. Stop, and raise it on the ticket.
+- **Step 6 ends `NOT VERIFIED` on its first run:** the search timed out and nothing changed. Raise it on the ticket.
 - **A refusal** names its reason. For example, "isn't hidden for privacy": run step 5 first. Or "--by isn't someone on the team now": use a current team member's people id. A refusal changes nothing.

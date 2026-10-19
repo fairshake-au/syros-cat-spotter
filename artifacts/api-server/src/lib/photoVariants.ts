@@ -56,22 +56,20 @@ export async function variantFor(photoId: number, size: VariantSize): Promise<Bu
     logger.warn({ err: safeError(err), size }, "photo version could not be made");
     return null;
   }
-  // Saved only while the photo still has its picture, in one statement (SYC-462
-  // spec §4.3): a removal that commits while the version was being made wins,
-  // and nothing is saved. A check and then a save would leave a gap.
-  const saved = await db.execute(sql`
-    insert into photo_variants (photo_id, size, bytes)
-    select ${photoId}, ${size}, ${bytes}
-     where exists (select 1 from photos where id = ${photoId} and data is not null)
-    on conflict do nothing`);
-  if (saved.rowCount === 0) {
-    // Either it was removed meanwhile, or another request saved the same version first.
-    const [still] = await db
-      .select({ data: photosTable.data })
-      .from(photosTable)
-      .where(eq(photosTable.id, photoId));
-    if (!still || still.data === null) return null;
-  }
+  // Saved only while the photo still has its picture (SYC-462 spec §4.3). The
+  // row is locked FOR KEY SHARE first, which waits for a removal holding FOR
+  // UPDATE; once it commits, the re-checked `data is not null` fails and
+  // nothing is saved (PR review F5: a bare INSERT … WHERE EXISTS read the old
+  // snapshot and could still insert).
+  const saved = await db.transaction(async (tx) => {
+    const live = await tx.execute(
+      sql`select id from photos where id = ${photoId} and data is not null for key share`,
+    );
+    if ((live.rowCount ?? 0) === 0) return "removed" as const;
+    await tx.insert(photoVariantsTable).values({ photoId, size, bytes }).onConflictDoNothing();
+    return "saved" as const;
+  });
+  if (saved === "removed") return null;
   return bytes;
 }
 
