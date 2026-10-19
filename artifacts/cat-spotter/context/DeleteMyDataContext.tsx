@@ -30,6 +30,7 @@ import { clearRecentPhotos } from '@/lib/recentPhotos';
 import { readStoredDeviceId, useDevice } from './DeviceContext';
 import { useOffline } from './OfflineContext';
 import { useReportQueue } from './ReportQueueContext';
+import { useIssueQueue } from './IssueQueueContext';
 
 /**
  * "Delete my data" for the whole app (SYC-63). Owns the deletion itself, and
@@ -77,6 +78,9 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
   const reportQueue = useReportQueue();
   const reportQueueRef = useRef(reportQueue);
   reportQueueRef.current = reportQueue;
+  const issueQueue = useIssueQueue();
+  const issueQueueRef = useRef(issueQueue);
+  issueQueueRef.current = issueQueue;
   const [doneVisible, setDoneVisible] = useState(false);
 
   // The latest values, for callbacks registered once (the 410 handler).
@@ -101,6 +105,9 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
       await AsyncStorage.removeItem(APP_SETTINGS_STORAGE_KEY);
       if ((await AsyncStorage.getItem(DELETE_REPORTS_KEY)) === 'delete') {
         await reportQueueRef.current.wipeReports();
+        // SYC-44 PR 6.2: waiting "Report an issue" reports are counted in
+        // the same choice on the screen, so they follow it.
+        await issueQueueRef.current.wipeIssues();
       }
       // Profile, notifications, anything fetched with the old id.
       queryClient.clear();
@@ -130,8 +137,17 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
           ...stepsRef.current,
           deleteOnServer: () =>
             deleteMyDataRequest({ headers: { 'X-Device-Id': deviceId } }),
-          sendReports: () => reportQueueRef.current.sendAllNow(),
-          wipeReports: () => reportQueueRef.current.wipeReports(),
+          // SYC-44 PR 6.2: both lists. If either still holds a report,
+          // nothing is deleted, as for cat reports (SYC-234).
+          sendReports: async () => {
+            const issuesSent = await issueQueueRef.current.sendAllNow().catch(() => false);
+            const reportsSent = await reportQueueRef.current.sendAllNow();
+            return issuesSent && reportsSent;
+          },
+          wipeReports: async () => {
+            await reportQueueRef.current.wipeReports();
+            await issueQueueRef.current.wipeIssues();
+          },
         },
         reports,
       );

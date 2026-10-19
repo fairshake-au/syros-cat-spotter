@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useReportQueue } from '@/context/ReportQueueContext';
+import { useIssueQueue } from '@/context/IssueQueueContext';
 
 /**
  * Spec §4.3 (SYC-42 plan item 1.13): "You have a cat report that hasn't sent
@@ -12,13 +13,37 @@ import { useReportQueue } from '@/context/ReportQueueContext';
  * to send again. Mounted in BannerStack.
  */
 export function ReportReminderBanner() {
-  const colors = useColors();
   const { t } = useLanguage();
   const { reminderVisible, dismissReminder, retryFailed } = useReportQueue();
   if (!reminderVisible) return null;
+  return <ReminderBanner text={t('reportReminder')} onDismiss={dismissReminder} onRetry={retryFailed} />;
+}
+
+/**
+ * The same reminder for a "Report an issue" report (SYC-44 PR 6.2; spec
+ * §4.2: the one reminder after 24 hours), from its own saved list.
+ */
+export function IssueReminderBanner() {
+  const { t } = useLanguage();
+  const { reminderVisible, dismissReminder, retryFailed } = useIssueQueue();
+  if (!reminderVisible) return null;
+  return <ReminderBanner text={t('issueReminder')} onDismiss={dismissReminder} onRetry={retryFailed} />;
+}
+
+function ReminderBanner({
+  text,
+  onDismiss,
+  onRetry,
+}: {
+  text: string;
+  onDismiss: () => void;
+  onRetry: () => Promise<void>;
+}) {
+  const colors = useColors();
+  const { t } = useLanguage();
   const tryAgain = () => {
-    dismissReminder();
-    void retryFailed();
+    onDismiss();
+    void onRetry();
   };
   return (
     <Pressable
@@ -27,11 +52,11 @@ export function ReportReminderBanner() {
       accessibilityRole="button"
     >
       <Feather name="alert-circle" size={16} color={colors.accentForeground} />
-      <Text style={[styles.text, { color: colors.accentForeground }]}>{t('reportReminder')}</Text>
+      <Text style={[styles.text, { color: colors.accentForeground }]}>{text}</Text>
       <Pressable onPress={tryAgain} hitSlop={8} accessibilityRole="button">
         <Text style={[styles.action, { color: colors.accentForeground }]}>{t('reportTryAgain')}</Text>
       </Pressable>
-      <Pressable onPress={dismissReminder} hitSlop={10} accessibilityLabel={t('homeScreenNudgeDismissLabel')}>
+      <Pressable onPress={onDismiss} hitSlop={10} accessibilityLabel={t('homeScreenNudgeDismissLabel')}>
         <Feather name="x" size={16} color={colors.accentForeground} />
       </Pressable>
     </Pressable>

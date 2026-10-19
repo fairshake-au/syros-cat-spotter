@@ -32,12 +32,26 @@ vi.mock('@/hooks/useColors', () => ({
   useColors: () => new Proxy({}, { get: () => '#123456' }),
 }));
 vi.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ id: '7' }),
+  useLocalSearchParams: () => h.params,
   useRouter: () => ({ canGoBack: () => false, back: () => {}, replace: () => {} }),
 }));
 vi.mock('@/components/AppMap', () => ({ AppMap: () => null }));
 vi.mock('@/components/MoreToAdd', () => ({ MoreToAdd: () => null }));
-vi.mock('@/components/report/NeedsHelpLink', () => ({ NeedsHelpLink: () => null }));
+vi.mock('@/components/report/NeedsHelpLink', () => ({ NeedsHelpLink: () => <span data-testid="needs-help-link" /> }));
+// SYC-44 PR 6.2: the sheet is tested on its own (ReportIssueSheet.test.tsx);
+// here only what the page opens it with.
+vi.mock('@/components/report/ReportIssueSheet', () => ({
+  ReportIssueSheet: (p: { catId: number; photoUrl?: string | null; initialReason?: string; onClose: () => void }) => (
+    <div
+      data-testid="issue-sheet"
+      data-cat={String(p.catId)}
+      data-photo={p.photoUrl ?? ''}
+      data-reason={p.initialReason ?? ''}
+    >
+      <button data-testid="issue-sheet-close" onClick={p.onClose} />
+    </div>
+  ),
+}));
 vi.mock('@/components/ClaimCatSheet', () => ({
   ClaimCatSheet: (p: { mode: string }) => <div data-testid="sheet">{p.mode}</div>,
 }));
@@ -53,6 +67,7 @@ vi.mock('@/components/purropolis', async () => {
 vi.mock('@/lib/urls', () => ({ photoSource: (p: string) => ({ uri: p }) }));
 
 const h = vi.hoisted(() => ({
+  params: { id: '7' } as Record<string, string>,
   isOnline: true,
   deviceId: 'dev-1' as string | null,
   isReady: true,
@@ -151,6 +166,7 @@ function page(c: Cat, sightings: Sighting[] = SIGHTINGS) {
 const viewer = () => document.querySelector('[data-testid="sighting-photo-viewer"]');
 
 beforeEach(() => {
+  h.params = { id: '7' };
   h.isOnline = true;
   h.deviceId = 'dev-1';
   h.isReady = true;
@@ -240,12 +256,59 @@ describe('the cat page\'s photos (SYC-44 PR 6.1)', () => {
     expect(screen.getAllByTestId('sighting-cover')).toHaveLength(1);
   });
 
-  it('offers no "Report an issue" link yet: PR 6.2 adds it with its sheet', () => {
+});
+
+describe('Report an issue on the cat page (SYC-44 PR 6.2; Samuel, 19 Oct: the links show with the sheet)', () => {
+  const sheet = () => screen.queryByTestId('issue-sheet');
+
+  it('shows "Report an issue" below "This cat needs help", and it opens the sheet about the cat', () => {
     page(cat());
-    expect(document.body.textContent).not.toContain(en.reportIssue);
+    const link = screen.getByTestId('report-issue-link');
+    expect(link.textContent).toBe(en.reportIssue);
+    const needsHelp = screen.getByTestId('needs-help-link');
+    // Below it, in reading order.
+    expect(needsHelp.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(sheet()).toBeNull();
+    fireEvent.click(link);
+    expect(sheet()!.getAttribute('data-cat')).toBe('7');
+    expect(sheet()!.getAttribute('data-photo')).toBe('');
+    fireEvent.click(screen.getByTestId('issue-sheet-close'));
+    expect(sheet()).toBeNull();
+  });
+
+  it('the main photo\'s full-screen view reports that photo, closing the viewer first', () => {
+    page(cat());
     const hero = screen.getByTestId('cat-hero-open');
     fireEvent.load(hero.querySelector('img')!);
     fireEvent.click(hero);
-    expect(screen.queryByTestId('photo-viewer-report')).toBeNull();
+    expect(viewer()).not.toBeNull();
+    fireEvent.click(screen.getByTestId('photo-viewer-report'));
+    expect(viewer()).toBeNull();
+    expect(sheet()!.getAttribute('data-photo')).toBe('/api/photos/7');
+  });
+
+  it('a sighting photo\'s full-screen view reports that photo', () => {
+    page(cat({ photoUrl: '/api/photos/main' }));
+    const cover = screen.getByTestId('sighting-cover');
+    fireEvent.load(cover);
+    fireEvent.click(screen.getByTestId('sighting-cover-open'));
+    fireEvent.click(screen.getByTestId('photo-viewer-report'));
+    expect(viewer()).toBeNull();
+    expect(sheet()!.getAttribute('data-photo')).toBe('/api/photos/7');
+  });
+
+  it('?report=wrong_info opens the sheet with that reason chosen (the "Think this cat is alive?" landing, C11)', () => {
+    h.params = { id: '7', report: 'wrong_info' };
+    page(cat());
+    expect(sheet()!.getAttribute('data-reason')).toBe('wrong_info');
+    expect(sheet()!.getAttribute('data-photo')).toBe('');
+  });
+
+  it('?report=wrong_info set after the page is open still opens the sheet (review finding 4)', () => {
+    const utils = page(cat());
+    expect(sheet()).toBeNull();
+    h.params = { id: '7', report: 'wrong_info' };
+    utils.rerender(<CatDetailScreen />);
+    expect(sheet()!.getAttribute('data-reason')).toBe('wrong_info');
   });
 });

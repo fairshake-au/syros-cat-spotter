@@ -24,6 +24,10 @@ const h = vi.hoisted(() => ({
     sendAllNow: vi.fn(async () => true),
     wipeReports: vi.fn(async () => {}),
   },
+  issues: {
+    sendAllNow: vi.fn(async () => true),
+    wipeIssues: vi.fn(async () => {}),
+  },
 }));
 
 vi.mock('@workspace/api-client-react', () => ({
@@ -62,6 +66,9 @@ vi.mock('../OfflineContext', () => ({
 vi.mock('../ReportQueueContext', () => ({
   useReportQueue: () => h.reports,
 }));
+vi.mock('../IssueQueueContext', () => ({
+  useIssueQueue: () => h.issues,
+}));
 
 import { DeleteMyDataProvider, useDeleteMyData } from '../DeleteMyDataContext';
 
@@ -97,6 +104,8 @@ describe('DeleteMyDataProvider', () => {
       headers: { 'X-Device-Id': 'dev-current' },
     });
     expect(h.offline.wipeQueue).toHaveBeenCalled();
+    // SYC-44 PR 6.2: with no choice made (none waiting), no issue report is wiped.
+    expect(h.issues.wipeIssues).not.toHaveBeenCalled();
     expect(h.clear).toHaveBeenCalled();
     expect(h.resetIdentity).toHaveBeenCalled();
     expect(h.storage.has('catSpotters.waitingCard.v1:dev-current')).toBe(false);
@@ -181,6 +190,39 @@ describe('DeleteMyDataProvider', () => {
     expect(h.reports.wipeReports).not.toHaveBeenCalled();
   });
 
+  it('send: an issue report that will not send deletes nothing, as for cat reports (SYC-44 PR 6.2; review finding 1)', async () => {
+    h.issues.sendAllNow.mockResolvedValueOnce(false);
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    let outcome: string | undefined;
+    await act(async () => {
+      outcome = await result.current.deleteNow('send');
+    });
+    expect(outcome).toBe('reports_unsent');
+    expect(h.reports.sendAllNow).toHaveBeenCalled();
+    expect(h.deleteRequest).not.toHaveBeenCalled();
+    expect(h.issues.wipeIssues).not.toHaveBeenCalled();
+  });
+
+  it('send: both lists sent, then deleted; nothing wiped (SYC-44 PR 6.2)', async () => {
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    let outcome: string | undefined;
+    await act(async () => {
+      outcome = await result.current.deleteNow('send');
+    });
+    expect(outcome).toBe('done');
+    expect(h.issues.sendAllNow).toHaveBeenCalled();
+    expect(h.issues.wipeIssues).not.toHaveBeenCalled();
+  });
+
+  it('delete: "Delete them too" wipes the waiting issue reports with the cat reports (SYC-44 PR 6.2)', async () => {
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    await act(async () => {
+      await result.current.deleteNow('delete');
+    });
+    expect(h.reports.wipeReports).toHaveBeenCalled();
+    expect(h.issues.wipeIssues).toHaveBeenCalled();
+  });
+
   it('send: deletes nothing when a report will not send', async () => {
     h.reports.sendAllNow.mockResolvedValueOnce(false);
     const { result } = renderHook(() => useDeleteMyData(), { wrapper });
@@ -241,6 +283,8 @@ describe('DeleteMyDataProvider', () => {
     act(() => h.handler!());
     await waitFor(() => expect(h.resetIdentity).toHaveBeenCalled());
     expect(h.reports.wipeReports).toHaveBeenCalled();
+    // SYC-44 PR 6.2 (ship review, finding 1): waiting issue reports go on this path too.
+    expect(h.issues.wipeIssues).toHaveBeenCalled();
     expect(h.storage.has('cat-spotter/delete-my-data-reports')).toBe(false);
   });
 

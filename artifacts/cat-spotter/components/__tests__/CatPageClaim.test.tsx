@@ -49,6 +49,7 @@ const h = vi.hoisted(() => ({
   data: undefined as unknown,
   useGetCat: vi.fn(),
 }));
+vi.mock('@/components/report/ReportIssueSheet', () => ({ ReportIssueSheet: () => null }));
 vi.mock('@/context/DeviceContext', () => ({
   useDevice: () => ({
     deviceId: h.deviceId,
