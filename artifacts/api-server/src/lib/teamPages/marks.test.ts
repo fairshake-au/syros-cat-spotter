@@ -109,4 +109,17 @@ describe("markBar", () => {
     expect(MARK_CSS).toContain(".markbar{");
     expect(MARK_CSS).toContain(".markbar-track{");
   });
+
+  it("takes a guardian's words and empty line, escaped, in place of the team's English (SYC-396 PR 2.2)", () => {
+    const words = { sterilised: "Στειρωμένες", probably: "<b>", not_known: "Άγνωστο", not_sterilised: "Μη στειρωμένες" };
+    const html = markBar({ sterilised: 2, probably: 1, not_known: 0, not_sterilised: 3 }, { words });
+    expect(text(html)).toContain("2 Στειρωμένες");
+    expect(text(html)).toContain("3 Μη στειρωμένες");
+    expect(html).toContain("1 &lt;b&gt;");
+    expect(html).not.toContain("<b>");
+    for (const w of Object.values(MARK_WORD)) expect(text(html)).not.toContain(w);
+    const empty = markBar({ sterilised: 0, probably: 0, not_known: 0, not_sterilised: 0 }, { words, empty: "Καμία <i>" });
+    expect(empty).toContain("Καμία &lt;i&gt;");
+    expect(empty).not.toContain("No street cats yet");
+  });
 });
