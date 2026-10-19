@@ -204,6 +204,9 @@ describe("renderHomePage", () => {
     expect(html).toMatch(/214<\/span> <span>Sightings<\/span> <span class="hint">\(last month 187\)/);
     expect(html).toContain("(last month 4)");
     expect(html).toContain("(last month 9)");
+    // SYC-486 (Samuel, 19 Oct): they read as activity, not as a headcount.
+    expect(html).toContain("New cats recorded");
+    expect(html).toContain("Sterilisations done");
   });
 
   it("never shows response times, ages of reports as 'open for', or any team member's name (D6)", () => {

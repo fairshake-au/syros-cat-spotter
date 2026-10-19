@@ -350,6 +350,19 @@ describe("This month", () => {
     expect([sep.sterilisations, sep.newCats]).toEqual([1, 0]);
   });
 
+  it("a cat adopted, in care or gone since still counts in the month it was recorded or operated on (SYC-486)", async () => {
+    const m = athensMonths(NOW);
+    const op = { value: true, confidence: "confirmed" as const, asOf: "2026-10-03T12:00:00Z" };
+    const cats = (["street", "homed", "in_care", "gone"] as const).map((lives, i) =>
+      fakeCat({ id: i + 1, lives, createdAt: new Date("2026-10-05T09:00:00Z"), sterilised: op }),
+    );
+    const oct = await monthFigures(m.now.from, m.now.to, cats);
+    expect([oct.newCats, oct.sterilisations]).toEqual([4, 4]);
+    // ...but a cat off the island never does.
+    const off = await monthFigures(m.now.from, m.now.to, [fakeCat({ id: 9, areaKey: "off", createdAt: new Date("2026-10-05T09:00:00Z"), sterilised: op })]);
+    expect([off.newCats, off.sterilisations]).toEqual([0, 0]);
+  });
+
   it("counts resolved sightings on Syros entered in the month, never Off Syros ones", async () => {
     const from = new Date("2001-03-01T00:00:00Z");
     const to = new Date("2001-04-01T00:00:00Z");
