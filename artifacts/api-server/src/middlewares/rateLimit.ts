@@ -262,3 +262,74 @@ export const mapSquareTokensLimiter = sharedLimiter({
   limit: MAP_SQUARE_TOKENS_LIMIT,
   key: (_req, res) => `person:${teamPerson(res).id}`,
 });
+
+// Find from a photo (SYC-396 PR 2.5; dashboard spec §5.2): each search makes
+// up to 4 paid AI calls, so searches are capped at 20 a day for each team
+// member and 100 a day across the team. Counted per signed-in PERSON, never
+// per address, in Postgres (one count across servers and restarts). SLIDING,
+// as the claim limit is, so spending the cap just before the window turns
+// hands out no fresh one just after it. The spec sets the numbers after a
+// week of measured cost; these are the starting caps.
+export const FIND_PHOTO_PERSON_LIMIT = 20;
+export const FIND_PHOTO_TEAM_LIMIT = 100;
+export const FIND_PHOTO_WINDOW_MS = 24 * 60 * 60 * 1000;
+const FIND_PHOTO_PERSON_BUCKET = "find_photo_person";
+const FIND_PHOTO_TEAM_BUCKET = "find_photo_team";
+const FIND_PHOTO_TEAM_KEY = "team";
+declareLimit(FIND_PHOTO_PERSON_BUCKET, FIND_PHOTO_PERSON_LIMIT, FIND_PHOTO_WINDOW_MS, { sliding: true });
+declareLimit(FIND_PHOTO_TEAM_BUCKET, FIND_PHOTO_TEAM_LIMIT, FIND_PHOTO_WINDOW_MS, { sliding: true });
+
+export type FindLimit = "ok" | "person" | "team";
+
+/**
+ * Counts one search against both caps and says whether it may run. The
+ * person's cap is consumed FIRST, and the team's only if the person is still
+ * within theirs: a person who has used their 20 can't use up the team's 100
+ * by trying again. Throws if the counter fails; the route fails closed.
+ */
+export async function checkFindLimits(personId: string, now: number = Date.now()): Promise<FindLimit> {
+  const mine = await consume(
+    FIND_PHOTO_PERSON_BUCKET,
+    `person:${personId}`,
+    FIND_PHOTO_PERSON_LIMIT,
+    FIND_PHOTO_WINDOW_MS,
+    undefined,
+    now,
+    { sliding: true },
+  );
+  if (!mine.allowed) return "person";
+  const team = await consume(
+    FIND_PHOTO_TEAM_BUCKET,
+    FIND_PHOTO_TEAM_KEY,
+    FIND_PHOTO_TEAM_LIMIT,
+    FIND_PHOTO_WINDOW_MS,
+    undefined,
+    now,
+    { sliding: true },
+  );
+  return team.allowed ? "ok" : "team";
+}
+
+/**
+ * Whether a cap is already reached, without counting anything: the form
+ * says so before a photo is chosen (§5.2, "the page shows the cap once it's
+ * reached"). Never decides whether a search runs; `checkFindLimits` does.
+ */
+export async function findLimitReached(personId: string, now: number = Date.now()): Promise<FindLimit> {
+  const opts = (limit: number) => ({ sliding: true, limit });
+  const mine = await peek(FIND_PHOTO_PERSON_BUCKET, `person:${personId}`, FIND_PHOTO_WINDOW_MS, undefined, now, opts(FIND_PHOTO_PERSON_LIMIT));
+  if (mine.hits >= FIND_PHOTO_PERSON_LIMIT) return "person";
+  const team = await peek(FIND_PHOTO_TEAM_BUCKET, FIND_PHOTO_TEAM_KEY, FIND_PHOTO_WINDOW_MS, undefined, now, opts(FIND_PHOTO_TEAM_LIMIT));
+  return team.hits >= FIND_PHOTO_TEAM_LIMIT ? "team" : "ok";
+}
+
+/** The team's count so far (an estimate, as every sliding count is). For tests. */
+export async function findTeamHits(now: number = Date.now()): Promise<number> {
+  return (await peek(FIND_PHOTO_TEAM_BUCKET, FIND_PHOTO_TEAM_KEY, FIND_PHOTO_WINDOW_MS, undefined, now, { sliding: true, limit: FIND_PHOTO_TEAM_LIMIT })).hits;
+}
+
+/** Test-only: clears both Find-from-a-photo counts. */
+export async function _resetFindLimitsForTests(): Promise<void> {
+  await _resetBucketForTests(FIND_PHOTO_PERSON_BUCKET);
+  await _resetBucketForTests(FIND_PHOTO_TEAM_BUCKET);
+}

@@ -1,4 +1,4 @@
-import { catsTable, db } from "@workspace/db";
+import { catsTable, db, photosTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 import { MAX_CANDIDATES } from "./candidateSelection";
 import { validatePhotoBase64 } from "./imageValidation";
@@ -29,7 +29,10 @@ export const bandOf = (score: number): Band =>
 
 export type FindFilters = Pick<CatListFilters, "area" | "colony" | "colours">;
 
-export type FindResult = { catId: number; score: number; band: Band; reasoning: string };
+/** `photoPublicId`: the reference photo it was compared with (its display photo). */
+export type FindResult = { catId: number; score: number; band: Band; reasoning: string; photoPublicId: string };
+
+type Candidate = CandidateInput & { photoPublicId: string };
 
 /**
  * The plan's outcomes, plus three the route needs (PR 2.5 build):
@@ -99,14 +102,14 @@ export async function findFromPhoto(
     if (candidates.length === 0) return { kind: "none_to_compare" };
 
     // 4. Groups of up to 10, at most 3.
-    const groups: CandidateInput[][] = [];
+    const groups: Candidate[][] = [];
     for (let i = 0; i < candidates.length && groups.length < FIND_GROUPS; i += MAX_CANDIDATES) {
       groups.push(candidates.slice(i, i + MAX_CANDIDATES));
     }
     const byId = new Map(candidates.map((c) => [c.catId, c]));
-    const finalists: { candidate: CandidateInput; score: number; reasoning: string }[] = [];
+    const finalists: { candidate: Candidate; score: number; reasoning: string }[] = [];
     for (const group of groups) {
-      const out = await matchCatPhoto(sent, group);
+      const out = await matchCatPhoto(sent, group.map(toInput));
       if (!out.isCatPhoto) return { kind: "not_a_cat", count };
       finalists.push(...best(out.matches, group, byId));
     }
@@ -117,16 +120,14 @@ export async function findFromPhoto(
     // will do.
     let results: FindResult[];
     if (groups.length === 1) {
-      results = finalists.map((f) => result(f.candidate.catId, f.score, f.reasoning));
+      results = finalists.map((f) => result(f.candidate, f.score, f.reasoning));
     } else {
-      const out = await matchCatPhoto(
-        sent,
-        finalists.map((f) => f.candidate),
-      );
+      // Only what the service needs: never the photo's public id.
+      const out = await matchCatPhoto(sent, finalists.map((f) => toInput(f.candidate)));
       const scored = new Map(out.matches.map((m) => [m.catId, m]));
       results = finalists.map((f) => {
         const m = scored.get(f.candidate.catId);
-        return result(f.candidate.catId, m?.confidence ?? 0, m?.reasoning ?? "");
+        return result(f.candidate, m?.confidence ?? 0, m?.reasoning ?? "");
       });
     }
     results.sort((a, b) => b.score - a.score || a.catId - b.catId);
@@ -137,15 +138,17 @@ export async function findFromPhoto(
   }
 }
 
-function result(catId: number, score: number, reasoning: string): FindResult {
-  return { catId, score, band: bandOf(score), reasoning };
+function result(c: Candidate, score: number, reasoning: string): FindResult {
+  return { catId: c.catId, score, band: bandOf(score), reasoning, photoPublicId: c.photoPublicId };
 }
+
+const toInput = ({ catId, name, photoBase64, mime }: Candidate): CandidateInput => ({ catId, name, photoBase64, mime });
 
 /** A group's best few, by the model's score. A cat it left out scores 0. */
 function best(
   matches: { catId: number; confidence: number; reasoning: string }[],
-  group: CandidateInput[],
-  byId: Map<number, CandidateInput>,
+  group: Candidate[],
+  byId: Map<number, Candidate>,
 ) {
   const inGroup = new Set(group.map((c) => c.catId));
   const scored = new Map<number, { confidence: number; reasoning: string }>();
@@ -165,19 +168,33 @@ function best(
  * so never a hidden photo), at its medium size. A cat with no photo to show
  * can't be compared and is left out.
  */
-async function referencePhotos(cats: { id: number; name: string }[]): Promise<CandidateInput[]> {
+async function referencePhotos(cats: { id: number; name: string }[]): Promise<Candidate[]> {
   const rows = await db
     .select({ id: catsTable.id, primaryPhotoId: catsTable.primaryPhotoId })
     .from(catsTable)
     .where(inArray(catsTable.id, cats.map((c) => c.id)));
   const shown = await catDisplayPhotoIds(rows);
+  const shownIds = [...new Set([...shown.values()].filter((id): id is number => id !== null))];
+  const publicIds = new Map(
+    shownIds.length
+      ? (
+          await db
+            .select({ id: photosTable.id, publicId: photosTable.publicId })
+            .from(photosTable)
+            .where(inArray(photosTable.id, shownIds))
+        ).map((p) => [p.id, p.publicId])
+      : [],
+  );
   const out = await Promise.all(
-    cats.map(async (c): Promise<CandidateInput | null> => {
+    cats.map(async (c): Promise<Candidate | null> => {
       const photoId = shown.get(c.id) ?? null;
-      if (photoId === null) return null;
+      const publicId = photoId === null ? undefined : publicIds.get(photoId);
+      if (photoId === null || publicId === undefined) return null;
       const bytes = await variantFor(photoId, "medium");
-      return bytes ? { catId: c.id, name: c.name, photoBase64: bytes.toString("base64"), mime: "image/jpeg" } : null;
+      return bytes
+        ? { catId: c.id, name: c.name, photoBase64: bytes.toString("base64"), mime: "image/jpeg", photoPublicId: publicId }
+        : null;
     }),
   );
-  return out.filter((c): c is CandidateInput => c !== null);
+  return out.filter((c): c is Candidate => c !== null);
 }
