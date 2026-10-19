@@ -19,6 +19,7 @@ import { orderColours, partsToValue, type CoatPattern } from "./appearance";
 import {
   appearanceAuthorityLevel,
   resolveCoatParts,
+  resolveLifeStatus,
   resolveMarkings,
   resolveSterilised,
   standingAboveTeam,
@@ -260,8 +261,12 @@ export async function recordTeamStatement(
 
 export interface RemoveOwnerInput {
   catId: number;
-  /** What the cat is now: the team's choice, "street" by default (the route). */
-  status: "street" | "in_care" | "deceased";
+  /**
+   * What the cat is now: the team's choice, "street" by default (the route).
+   * `keep` (SYC-513, spec §7): only for a cat recorded as died. The owner is
+   * removed and NO status is written, so the death and its date stand.
+   */
+  status: "street" | "in_care" | "deceased" | "keep";
   reason: string;
   observedAt?: Date;
 }
@@ -313,6 +318,15 @@ export async function removeOwnerAndSay(
       return { owner: "needs_confirm" as const, row: null, catName: cat!.name };
     }
 
+    // `keep` is only for a cat that is dead now, read under the lock: on a
+    // live cat it would remove the owner and leave the cat "homed" by nobody.
+    if (input.status === "keep") {
+      const rec = (await loadCatRecords([input.catId], tx)).get(input.catId);
+      const life = resolveLifeStatus(rec?.observations ?? [], rec?.evidenceOfLife ?? null, new Date());
+      if (life.value !== "deceased") {
+        throw new ObservationRefused("MALFORMED_VALUE", "Only a cat recorded as died can keep its status");
+      }
+    }
     const observedAt = input.observedAt ?? new Date();
     if (hasOwner) {
       // Each withdrawal supersedes the one found, so the next call finds the
@@ -334,6 +348,9 @@ export async function removeOwnerAndSay(
       }
       await clearOwner(tx, input.catId);
     }
+    if (input.status === "keep") {
+      return { owner: hasOwner ? ("removed" as const) : ("none" as const), row: null };
+    }
     const row = await recordTeamStatement(
       person,
       {
@@ -346,6 +363,78 @@ export async function removeOwnerAndSay(
       tx,
     );
     return { owner: hasOwner ? ("removed" as const) : ("none" as const), row };
+  });
+}
+
+// ── "This cat has died" (SYC-513, mark-a-cat-as-died.md §4–§5) ───────────
+
+export type DeathOutcome =
+  | { outcome: "recorded"; row: Observation }
+  /** Already recorded as died (and nothing disagrees): nothing written. */
+  | { outcome: "already" }
+  /** A sighting after `observedAt` would bring the cat straight back: nothing written. */
+  | { outcome: "sightedAfter"; at: Date }
+  /** A newer standing life status would win (the resolver's own order): nothing written. */
+  | { outcome: "newerStatus"; statement: Observation; ownerClaim: boolean };
+
+/**
+ * Records that a cat has died, as the island-wide team, in ONE transaction:
+ * the cat is locked, its record read, and the death written only if it will
+ * actually take effect. The owner is never touched (Samuel, 18 Oct 2026):
+ * this never calls {@link removeOwnerAndSay}. Tells nobody.
+ *
+ * "Will it take effect" is asked of the resolver itself: the death is tried
+ * on the record as it stands, so this can never disagree with what the page
+ * shows afterwards.
+ */
+export async function recordDeath(
+  person: Person,
+  input: { catId: number; reason: string; observedAt: Date },
+  now: Date = new Date(),
+): Promise<DeathOutcome> {
+  if (!can(person, "set_life_status")) throw notAuthorised();
+  return db.transaction(async (tx) => {
+    await lockCat(tx as Tx, input.catId);
+    const rec = (await loadCatRecords([input.catId], tx)).get(input.catId);
+    const observations = rec?.observations ?? [];
+    const evidence = rec?.evidenceOfLife ?? null;
+    const before = resolveLifeStatus(observations, evidence, now);
+    if (before.value === "deceased" && before.conflicts.length === 0) return { outcome: "already" as const };
+
+    // The death as it would be written, tried on the record as it stands.
+    // Only the fields the life-status resolver reads; the highest id wins a
+    // tie on observedAt, as the row about to be written would.
+    const trial = {
+      id: Number.MAX_SAFE_INTEGER,
+      catId: input.catId,
+      kind: "life_status",
+      value: { status: "deceased" },
+      observedAt: input.observedAt,
+      createdAt: now,
+      supersedesId: null,
+    } as unknown as Observation;
+    const after = resolveLifeStatus([...observations, trial], evidence, now);
+    if (after.value !== "deceased" || after.supportingObservationIds[0] !== trial.id) {
+      const sighted = evidence?.lastSightingAt ?? null;
+      if (sighted && sighted.getTime() > input.observedAt.getTime()) {
+        return { outcome: "sightedAfter" as const, at: sighted };
+      }
+      const winnerId = after.supportingObservationIds[0];
+      const statement = observations.find((o) => o.id === winnerId);
+      if (statement) {
+        return { outcome: "newerStatus" as const, statement, ownerClaim: isOwnerHomed(statement) };
+      }
+      // Never expected: the resolver refused the death for a reason this
+      // doesn't know. Refuse rather than write a death that won't show.
+      throw new ObservationRefused("MALFORMED_VALUE", "The death would not take effect");
+    }
+
+    const row = await recordTeamStatement(
+      person,
+      { catId: input.catId, kind: "life_status", value: { status: "deceased" }, reason: input.reason, observedAt: input.observedAt },
+      tx,
+    );
+    return { outcome: "recorded" as const, row };
   });
 }
 
