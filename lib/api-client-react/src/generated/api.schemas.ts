@@ -407,7 +407,7 @@ export interface IssueReportRequest {
   clientRef: string;
   reason: IssueReportRequestReason;
   catId: number;
-  /** Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat; not allowed otherwise. */
+  /** Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat and other; not allowed otherwise. */
   photoPublicId?: string;
   /** @maxLength 1000 */
   note?: string;
