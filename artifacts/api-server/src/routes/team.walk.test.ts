@@ -202,6 +202,8 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/reports/:publicId/note": { why: "add_team_note, island-only" },
   "POST /api/team/reports/:publicId/cat": { why: "change_report_state, island-only" },
   "GET /api/team/cats": { why: "the island-wide cat list: view_exact_location with no target, so island-only" },
+  "GET /api/team/cats/find": { why: "Find from a photo's form and count (SYC-396 PR 2.5): find_cat_from_photo, island-only, so every cat guardian gets the 403" },
+  "POST /api/team/cats/find": { why: "Find from a photo's search: find_cat_from_photo, island-only; the walk's form has no photo, so the team gets a 400 and no search runs" },
   "POST /api/team/cats/map": { why: "the island Map's button-map moves, for a browser with no script (SYC-396 PR 1.5): view_exact_location with no target" },
   "POST /api/team/cats/positions": { why: "the island map's cat positions (SYC-396 PR 1.5): view_exact_location with no target, so island-only" },
   "GET /api/team/cats/:id": { why: "the team's cat page: view_exact_location with no target (a guardian's own page is PR 2.1's)" },

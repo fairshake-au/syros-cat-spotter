@@ -402,6 +402,9 @@ a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;tex
 .findwhere fieldset{border:0;padding:0;margin:8px 0 12px;min-width:0}
 .findwhere legend{font-weight:700;font-size:14px;padding:0 0 4px}
 button.secondary{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
+.findentry{margin:8px 0}
+a.findentrylink{display:inline-flex;align-items:center;min-height:44px;background:#fff;border:1px solid #0b5c6b;border-radius:8px;padding:0 16px;font-weight:700;color:#0b4553;text-decoration:none}
+a.findentrylink:hover{background:#e6f1f3}
 .findstep{margin:16px 0 0;padding-top:8px;border-top:1px solid #e6e2d6}
 input.filein{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 0;margin:0 0 8px}
 ul.findlist{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-columns:1fr;gap:12px}

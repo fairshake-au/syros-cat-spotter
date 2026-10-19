@@ -23,7 +23,6 @@ import { timeAgo } from "./queuePage";
  * list is empty, the line disappears.
  */
 export const COMING_SOON: readonly { label: string; route: string }[] = [
-  { label: "Find from a photo", route: "GET /api/team/cats/find" },
   { label: "trapping plans", route: "GET /api/team/colonies/:id/plan" },
   { label: "vet visits", route: "GET /api/team/cats/:id/vet-visit" },
   { label: "reports", route: "GET /api/team/insights" },

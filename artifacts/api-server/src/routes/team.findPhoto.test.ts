@@ -1,0 +1,342 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import request from "supertest";
+import sharp from "sharp";
+import { and, like, sql } from "drizzle-orm";
+import { catsTable, db, photosTable, pool } from "@workspace/db";
+
+// SYC-396 PR 2.5, Task 2.5.2: the Find-from-a-photo page, its upload and its
+// daily caps. The matching service is mocked in every test (no real call is
+// ever made). The caps are proved with a few requests: the counts are filled
+// straight through the limiter, never by firing 20 or 100 requests.
+
+const spies = vi.hoisted(() => ({ logLines: [] as string[] }));
+vi.mock("../lib/logger", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/logger")>();
+  const { default: pino } = await import("pino");
+  const logger = pino(
+    { level: "trace", redact: actual.REDACT_PATHS, serializers: actual.LOG_SERIALIZERS },
+    { write: (line: string) => void spies.logLines.push(line) },
+  );
+  return { ...actual, logger };
+});
+vi.mock("../lib/matching", () => ({ matchCatPhoto: vi.fn() }));
+
+import app from "../app";
+import { matchCatPhoto, type CandidateInput } from "../lib/matching";
+import { TEAM_ORIGIN, clearWelfareTables, seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
+import {
+  _resetFindLimitsForTests,
+  checkFindLimits,
+  FIND_PHOTO_PERSON_LIMIT,
+  FIND_PHOTO_TEAM_LIMIT,
+  findTeamHits,
+} from "../middlewares/rateLimit";
+import { LESS_SURE, MATCHING_DOWN_WORDS, PERSON_CAP_WORDS, TEAM_CAP_WORDS, TOO_BIG_WORDS } from "../lib/teamPages/findPhotoPage";
+import { guardianOn, newColony, putInColony, RUN, signedPerson, type Signed } from "../test/roleKit";
+import { STRICT_CSP } from "../test/wideCsp";
+
+const KEY = "vitest-find-key-0123456789abcdef-0123456789";
+const PREFIX = `vt-findroute-${RUN}-`;
+const matchMock = vi.mocked(matchCatPhoto);
+
+let guardian: Signed;
+let colony: number;
+let bigColony: number;
+let photoBytes: Buffer;
+let catIds: number[] = [];
+let n = 0;
+
+async function jpeg(colour: string, size = 64): Promise<Buffer> {
+  return sharp({ create: { width: size, height: size, channels: 3, background: colour } }).jpeg().toBuffer();
+}
+
+async function catIn(colonyId: number, photoId: number): Promise<number> {
+  const [c] = await db
+    .insert(catsTable)
+    .values({ name: `${PREFIX}${n++}`, primaryPhotoId: photoId, lat: 37.4447, lng: 24.9417, discovererDeviceId: `${PREFIX}d` })
+    .returning({ id: catsTable.id });
+  await putInColony(c!.id, colonyId);
+  return c!.id;
+}
+
+/** A team member of their own, so every test starts with its own 20. */
+const teamMember = (label: string) => signedPerson(`find-${label}-${n++}`, ["staff"]);
+
+beforeAll(async () => {
+  process.env["TEAM_SESSION_KEYS"] = KEY;
+  const [p] = await db
+    .insert(photosTable)
+    .values({ publicId: `${PREFIX}p`, data: (await jpeg("#336699")).toString("base64"), mime: "image/jpeg" })
+    .returning({ id: photosTable.id });
+  colony = await newColony("find route");
+  for (let i = 0; i < 3; i++) catIds.push(await catIn(colony, p!.id));
+  bigColony = await newColony("find route big");
+  for (let i = 0; i < 31; i++) await catIn(bigColony, p!.id);
+  guardian = await guardianOn("find-guardian", [colony]);
+  photoBytes = await jpeg("#aa5500", 200);
+});
+
+beforeEach(async () => {
+  process.env["TEAM_SESSION_KEYS"] = KEY;
+  spies.logLines.length = 0;
+  matchMock.mockReset();
+  matchMock.mockImplementation(async (_p, candidates: CandidateInput[]) => ({
+    isCatPhoto: true,
+    matches: candidates.map((c, i) => ({ catId: c.catId, confidence: [0.9, 0.6, 0.2][i] ?? 0.1, reasoning: `same ear ${i}` })),
+  }));
+  await _resetFindLimitsForTests();
+});
+
+afterAll(async () => {
+  await _resetFindLimitsForTests();
+  await clearWelfareTables();
+  await db.delete(catsTable).where(like(catsTable.name, `${PREFIX}%`));
+  await db.delete(photosTable).where(
+    and(
+      like(photosTable.publicId, `${PREFIX}%`),
+      sql`not exists (select 1 from photo_visibility_events e where e.photo_id = ${photosTable.id})`,
+    ),
+  );
+  await pool.end();
+});
+
+const form = (cookie: string, query = "") =>
+  request(app).get(`/api/team/cats/find${query}`).set("Cookie", cookie).set("Accept", "text/html");
+
+/** The multipart search, as the page's form sends it. */
+function search(
+  cookie: string,
+  fields: Record<string, string | string[]>,
+  file: { bytes: Buffer; name?: string } | null = { bytes: photoBytes },
+) {
+  let r = request(app).post("/api/team/cats/find").set("Origin", TEAM_ORIGIN).set("Cookie", cookie).set("Accept", "text/html");
+  for (const [k, v] of Object.entries(fields)) for (const one of [v].flat()) r = r.field(k, one);
+  if (file) r = r.attach("photo", file.bytes, { filename: file.name ?? "cat.jpg", contentType: "image/jpeg" });
+  return r;
+}
+
+describe("who may", () => {
+  it("a cat guardian gets the 403, for the form and the search", async () => {
+    expect((await form(guardian.cookie, `?colony=${colony}`)).status).toBe(403);
+    expect((await search(guardian.cookie, { colony: String(colony) })).status).toBe(403);
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+
+  it("a search from another site is refused before anything is read", async () => {
+    const team = await teamMember("origin");
+    const res = await request(app)
+      .post("/api/team/cats/find")
+      .set("Origin", "https://evil.example")
+      .set("Cookie", team.cookie)
+      .attach("photo", photoBytes, "cat.jpg")
+      .field("colony", String(colony));
+    expect(res.status).toBe(401);
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("the form", () => {
+  it("the Cats page links to it, carrying the colours and the place chosen there", async () => {
+    const team = await teamMember("entry");
+    const res = await request(app)
+      .get(`/api/team/cats?colours=black&colony=${colony}&sterilised=not_known`)
+      .set("Cookie", team.cookie)
+      .set("Accept", "text/html");
+    // Only the three narrowing filters travel: not "Sterilised".
+    expect(res.text).toContain(`<a class="findentrylink" href="/api/team/cats/find?colours=black&amp;colony=${colony}">Find from a photo</a>`);
+  });
+
+  it("counts the cats a colony leaves, and offers the photo form", async () => {
+    const team = await teamMember("form");
+    const res = await form(team.cookie, `?colony=${colony}`);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("3 cats to compare");
+    expect(res.text).toContain('enctype="multipart/form-data"');
+    expect(res.text).toContain(`<input type="hidden" name="colony" value="${colony}">`);
+    expect(res.headers["content-security-policy"]).toBe(STRICT_CSP);
+    expect(res.text).not.toContain("<script");
+  });
+
+  it("over 30 cats, asks to narrow first and offers no photo form", async () => {
+    const team = await teamMember("over");
+    const res = await form(team.cookie, `?colony=${bigColony}`);
+    expect(res.text).toContain("31 cats to compare. That's too many");
+    expect(res.text).not.toContain('type="file"');
+  });
+
+  it("with no place chosen, says to choose one", async () => {
+    const team = await teamMember("noplace");
+    const res = await form(team.cookie);
+    expect(res.text).toContain("Choose an area or a colony to see how many cats that leaves.");
+    expect(res.text).not.toContain('type="file"');
+  });
+
+  it("the narrowing form is a GET with no file field, so no file name can reach an address", async () => {
+    const team = await teamMember("get");
+    const res = await form(team.cookie, `?colony=${colony}`);
+    const getForm = /<form class="findwhere" method="get"[\s\S]*?<\/form>/.exec(res.text)![0];
+    expect(getForm).not.toContain('type="file"');
+  });
+});
+
+describe("the search", () => {
+  it("shows the closest cats in bands, with the plain warning, and keeps no address", async () => {
+    const team = await teamMember("results");
+    const res = await search(team.cookie, { colony: String(colony) });
+    expect(res.status).toBe(200);
+    expect(res.text).toContain(LESS_SURE.replace("app's", "app&#39;s"));
+    expect(res.text).toContain("Very likely");
+    expect(res.text).toContain("Possible");
+    expect(res.text).toMatch(/<details class="unlikely"><summary>Show unlikely matches \(1\)<\/summary>/);
+    expect(res.text).toContain("Compared with 3 cats");
+    expect(res.headers["content-security-policy"]).toBe(STRICT_CSP);
+    expect(res.headers["location"]).toBeUndefined();
+    expect(matchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("a missing area and colony is named next to the field, and uses no search", async () => {
+    const team = await teamMember("missing");
+    const res = await search(team.cookie, {});
+    expect(res.status).toBe(400);
+    expect(res.text).toContain('<p class="warn" role="alert" id="place-error">Choose an area or a colony first.</p>');
+    expect(res.text).toContain('aria-describedby="place-error"');
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await findTeamHits()).toBe(0);
+  });
+
+  it("over 30 cats is refused before the caps and the service", async () => {
+    const team = await teamMember("toomany");
+    const res = await search(team.cookie, { colony: String(bigColony) });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("That's too many");
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await findTeamHits()).toBe(0);
+  });
+
+  it("no photo is named next to the photo field", async () => {
+    const team = await teamMember("nophoto");
+    const res = await search(team.cookie, { colony: String(colony) }, null);
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("Choose or take a photo first.");
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+
+  it("an upload over 10 MB gets 413 with words, not a crash", async () => {
+    const team = await teamMember("big");
+    const res = await search(team.cookie, { colony: String(colony) }, { bytes: Buffer.alloc(10 * 1024 * 1024 + 1, 1) });
+    expect(res.status).toBe(413);
+    expect(res.headers["content-type"]).toMatch(/text\/html/);
+    expect(res.text).toContain(TOO_BIG_WORDS);
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await findTeamHits()).toBe(0);
+  });
+
+  it("a file that isn't a photo gets 400 with words, and uses no search", async () => {
+    const team = await teamMember("wrongtype");
+    const res = await search(team.cookie, { colony: String(colony) }, { bytes: Buffer.from("%PDF-1.4 not a photo"), name: "notes.pdf" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("That file isn&#39;t a photo we can read.");
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await findTeamHits()).toBe(0);
+  });
+
+  it("two files are refused with words", async () => {
+    const team = await teamMember("two");
+    const res = await search(team.cookie, { colony: String(colony) }).attach("photo", photoBytes, "second.jpg");
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("Choose one photo");
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+
+  it("matching down gives §5.2's words and a link to the grid", async () => {
+    const team = await teamMember("down");
+    matchMock.mockRejectedValue(new Error("down"));
+    const res = await search(team.cookie, { colony: String(colony) });
+    expect(res.status).toBe(503);
+    expect(res.text).toContain(MATCHING_DOWN_WORDS.replace("isn't", "isn&#39;t").replace("area's", "area&#39;s"));
+    expect(res.text).toContain(`href="/api/team/cats?colony=${colony}"`);
+  });
+
+  it("nothing above Unlikely says so, and offers the grid", async () => {
+    const team = await teamMember("none");
+    matchMock.mockImplementation(async (_p, candidates: CandidateInput[]) => ({
+      isCatPhoto: true,
+      matches: candidates.map((c) => ({ catId: c.catId, confidence: 0.1, reasoning: "" })),
+    }));
+    const res = await search(team.cookie, { colony: String(colony) });
+    expect(res.text).toContain("No close match among these 3 cats.");
+    expect(res.text).toContain("Browse these cats as a grid");
+  });
+
+  it("the access log line holds no file name", async () => {
+    const team = await teamMember("log");
+    const name = `IMG_${RUN}_secret-name.jpg`;
+    await search(team.cookie, { colony: String(colony) }, { bytes: photoBytes, name });
+    const completed = spies.logLines.filter((l) => l.includes('"request completed"') && l.includes("/api/team/cats/find"));
+    expect(completed).toHaveLength(1);
+    expect(spies.logLines.some((l) => l.includes('"find from a photo"'))).toBe(true);
+    for (const line of spies.logLines) {
+      expect(line).not.toContain(name);
+      expect(line).not.toContain("secret-name");
+    }
+  });
+});
+
+describe("tying a welfare report", () => {
+  it("from ?tie=, each result's This is the cat posts to the report's tie route", async () => {
+    const team = await teamMember("tie");
+    const report = await seedReport();
+    const page = await form(team.cookie, `?colony=${colony}&tie=${report.publicId}`);
+    expect(page.text).toContain(`<input type="hidden" name="tie" value="${report.publicId}">`);
+    const res = await search(team.cookie, { colony: String(colony), tie: report.publicId });
+    expect(res.status).toBe(200);
+    expect(res.text).toContain(`<form method="post" action="/api/team/reports/${report.publicId}/cat">`);
+    expect(res.text).toContain('<input type="hidden" name="expectedCatId" value="">');
+    expect(res.text).toContain(`<input type="hidden" name="catId" value="${catIds[0]}">`);
+    expect(res.text).toContain("This is the cat");
+  });
+});
+
+describe("the daily caps", () => {
+  it("a team member's 21st search in a day is refused with the words, and the service isn't called", async () => {
+    const team = await teamMember("cap");
+    for (let i = 0; i < FIND_PHOTO_PERSON_LIMIT; i++) expect(await checkFindLimits(team.id)).toBe("ok");
+    const res = await search(team.cookie, { colony: String(colony) });
+    expect(res.status).toBe(429);
+    expect(res.text).toContain(PERSON_CAP_WORDS.replace("You've", "You&#39;ve").replace("today's", "today&#39;s"));
+    expect(matchMock).not.toHaveBeenCalled();
+    // And the form says so before a photo is chosen.
+    const page = await form(team.cookie, `?colony=${colony}`);
+    expect(page.text).not.toContain('type="file"');
+    expect(page.text).toContain("They reset overnight.");
+  });
+
+  it("the 21st personal search doesn't use up the team's", async () => {
+    const team = await teamMember("noleak");
+    const now = Date.now();
+    for (let i = 0; i < FIND_PHOTO_PERSON_LIMIT; i++) await checkFindLimits(team.id, now);
+    expect(await findTeamHits(now)).toBe(FIND_PHOTO_PERSON_LIMIT);
+    expect(await checkFindLimits(team.id, now)).toBe("person");
+    expect(await checkFindLimits(team.id, now)).toBe("person");
+    expect(await findTeamHits(now)).toBe(FIND_PHOTO_PERSON_LIMIT);
+  });
+
+  it("the team's 101st search is refused for everyone, with the team's words", async () => {
+    const now = Date.now();
+    const people = Array.from({ length: FIND_PHOTO_TEAM_LIMIT / FIND_PHOTO_PERSON_LIMIT }, (_, i) => `vt-find-team-${RUN}-${i}`);
+    for (const id of people) for (let i = 0; i < FIND_PHOTO_PERSON_LIMIT; i++) expect(await checkFindLimits(id, now)).toBe("ok");
+    const team = await teamMember("teamcap");
+    const res = await search(team.cookie, { colony: String(colony) });
+    expect(res.status).toBe(429);
+    expect(res.text).toContain(TEAM_CAP_WORDS.replace("today's", "today&#39;s"));
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+
+  it("a sliding day: spending the 20 late in a window gives no fresh 20 just after it", async () => {
+    const team = await teamMember("slide");
+    const DAY = 24 * 60 * 60 * 1000;
+    const lateInWindow = Math.floor(Date.now() / DAY) * DAY + DAY - 60_000;
+    for (let i = 0; i < FIND_PHOTO_PERSON_LIMIT; i++) await checkFindLimits(team.id, lateInWindow);
+    expect(await checkFindLimits(team.id, lateInWindow + 120_000)).toBe("person");
+  });
+});

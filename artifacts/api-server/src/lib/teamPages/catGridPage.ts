@@ -1,5 +1,6 @@
 import { currentAreas } from "../areas/namedAreas";
 import { filtersToQuery } from "../teamCatFilters";
+import { findAddress } from "./findPhotoPage";
 import {
   COLOUR_FILTERS,
   DEFAULT_LIVES,
@@ -281,6 +282,16 @@ function card(c: CatListItem, o: CatGridOptions): string {
   );
 }
 
+/**
+ * "Find from a photo" (SYC-396 PR 2.5; spec §5.2), carrying the place and
+ * colours chosen here, and the report being tied. Inside #catresults, so it
+ * follows the filters when the script swaps the results.
+ */
+function findLink(o: Pick<CatGridOptions, "filters" | "tie">): string {
+  const f = o.filters;
+  return `<p class="findentry"><a class="findentrylink" href="${esc(findAddress({ area: f.area, colony: f.colony, colours: f.colours }, o.tie?.publicId))}">Find from a photo</a></p>`;
+}
+
 export function renderCatGridPage(o: CatGridOptions): string {
   const { tie } = o;
   if (tie && !tie.report) {
@@ -331,7 +342,7 @@ export function renderCatGridPage(o: CatGridOptions): string {
   // choosing a cat for a report.
   const body =
     filterForm(o) +
-    `<div id="catresults">${tie ? "" : viewSwitch(o.filters, "grid")}${activeChips(o)}${results}</div>`;
+    `<div id="catresults">${tie ? "" : viewSwitch(o.filters, "grid")}${findLink(o)}${activeChips(o)}${results}</div>`;
   // The one page with our own script (SYC-396 PR 1.3.4). Its route sends the wider header.
   const script = assetUrl("dashboard-grid.js");
 

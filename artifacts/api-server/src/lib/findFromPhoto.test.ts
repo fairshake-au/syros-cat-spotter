@@ -253,6 +253,10 @@ describe("the photos sent", () => {
     const sent = (matchMock.mock.calls[0]![1] as CandidateInput[]).find((c) => c.catId === id)!;
     expect(sent.photoBase64).toBe((await variantFor(shown, "medium"))!.toString("base64"));
     expect(sent.photoBase64).not.toBe((await variantFor(main, "medium"))!.toString("base64"));
+    // The result points at the photo compared, never the hidden one.
+    const out = await findFromPhoto(upload, { colony }, NOW);
+    const [shownRow] = await db.select({ publicId: photosTable.publicId }).from(photosTable).where(eq(photosTable.id, shown));
+    expect(out.kind === "results" && out.results.find((r) => r.catId === id)?.photoPublicId).toBe(shownRow!.publicId);
   });
 
   it("the medium version is sent, not the full photo", async () => {
