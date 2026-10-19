@@ -2,7 +2,22 @@ import { isIslandWide, visibleColonyIds } from "../lib/guardianView";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { searchTeamCats, teamCatView, teamPhotoUrl } from "../lib/teamCatView";
 import { getQueueReport } from "../lib/welfareQueue";
-import { setTeamHeaders } from "../lib/teamAuth/refuse";
+import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
+import { TEAM_ORIGIN } from "../lib/teamAuth/config";
+import multer from "multer";
+import { safeError } from "../lib/logger";
+import { catsToCompare, findFromPhoto, hasPlace, type FindFilters } from "../lib/findFromPhoto";
+import { checkFindLimits, findLimitReached } from "../middlewares/rateLimit";
+import {
+  MATCHING_DOWN_WORDS,
+  narrowingOf,
+  renderFindForm,
+  renderFindProblem,
+  renderFindResults,
+  TOO_BIG_WORDS,
+  type FindFormOptions,
+} from "../lib/teamPages/findPhotoPage";
+import type { TieMode } from "../lib/teamPages/catPages";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
 import { allColonyChoices } from "../lib/colonyCats";
@@ -208,6 +223,226 @@ router.post(
         photo: c.photoPublicId ? `${teamPhotoUrl(c.photoPublicId)}/small` : null,
       })),
     });
+  },
+);
+
+// ── Find from a photo (SYC-396 PR 2.5; spec §5.2) ─────────────────────────
+// Registered before GET /team/cats/:id, so "find" is never read as a cat id.
+
+/** Only the three narrowing filters: an area key, a colony number, colour codes. */
+function findFilters(src: unknown): FindFilters {
+  const f = parseCatFilters(src);
+  return { area: f.area, colony: f.colony, colours: f.colours };
+}
+
+/** ?tie= / a `tie` field: choosing a cat for that welfare report, as on the Cats page. */
+async function tieFrom(raw: unknown, person: ReturnType<typeof teamPerson>): Promise<TieMode | undefined> {
+  if (typeof raw !== "string" || !TIE_ID_RE.test(raw)) return undefined;
+  return { publicId: raw, report: await getQueueReport(raw), canTie: can(person, "change_report_state") };
+}
+
+/**
+ * The upload, held in memory only and never written anywhere: one file of at
+ * most 10 MB, and a few short fields (the narrowing and the report).
+ */
+const findUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 10, fieldSize: 1024, parts: 12 },
+}).single("photo");
+
+/** The form again, with a problem drawn next to its field. */
+async function findFormHtml(
+  person: ReturnType<typeof teamPerson>,
+  filters: FindFilters,
+  tie: TieMode | undefined,
+  extra: Pick<FindFormOptions, "problem" | "capped"> = {},
+): Promise<string> {
+  const now = new Date();
+  const [count, capped, colonies] = await Promise.all([
+    hasPlace(filters) ? catsToCompare(filters, now).then((c) => c.length) : Promise.resolve(null),
+    // A notice only: if the counter can't be read, the form shows without
+    // one, and the POST still enforces the caps (review finding 1).
+    extra.capped ? Promise.resolve(extra.capped) : findLimitReached(person.id).catch(() => "ok" as const),
+    allColonyChoices(visibleColonyIds(person)),
+  ]);
+  return renderFindForm({
+    personName: person.name,
+    filters,
+    colonies,
+    tie,
+    now,
+    narrowing: narrowingOf(count),
+    capped: capped === "ok" ? undefined : capped,
+    problem: extra.problem,
+  });
+}
+
+/** GET /api/team/cats/find: where to look, how many cats that leaves, and the photo form. */
+router.get(
+  "/team/cats/find",
+  requireTeam("find_cat_from_photo"),
+  async (req: Request, res: Response) => {
+    // Strict header first, before any await: this page has no script.
+    setTeamHeaders(res);
+    const person = teamPerson(res);
+    const html = await findFormHtml(person, findFilters(req.query), await tieFrom(req.query["tie"], person));
+    res.type("html").send(html);
+  },
+);
+
+/**
+ * POST /api/team/cats/find: the search. Multipart, with the photo and the
+ * narrowing in one form. The upload is read first (the narrowing arrives in
+ * it); the daily caps are counted only after the narrowing and the photo
+ * pass, and before any AI call (lib/findFromPhoto.ts `gate`). The answer is
+ * this POST's own page: no address holds a result, a photo or a position.
+ * The log line holds counts only: never the file's name, the filters or a
+ * cat.
+ */
+router.post(
+  "/team/cats/find",
+  requireOrigin(TEAM_ORIGIN),
+  requireTeam("find_cat_from_photo"),
+  (_req: Request, res: Response, next: () => void) => {
+    setTeamHeaders(res);
+    next();
+  },
+  async (req: Request, res: Response) => {
+    const person = teamPerson(res);
+    // The upload's own errors are answered here, on this route only, with the
+    // page and words: never the app's generic JSON 500.
+    let uploadError: unknown = null;
+    await new Promise<void>((resolve) => {
+      findUpload(req, res, (err?: unknown) => {
+        uploadError = err ?? null;
+        resolve();
+      });
+    });
+    const body = typeof req.body === "object" && req.body !== null ? (req.body as Record<string, unknown>) : {};
+    const filters = findFilters(body);
+    const tie = await tieFrom(body["tie"], person);
+    if (uploadError !== null) {
+      const tooBig = uploadError instanceof multer.MulterError && uploadError.code === "LIMIT_FILE_SIZE";
+      req.log.info({ outcome: tooBig ? "too_big" : "bad_upload" }, "find from a photo");
+      const words = tooBig ? TOO_BIG_WORDS : "That upload didn't work. Choose one photo and try again.";
+      return void res
+        .status(tooBig ? 413 : 400)
+        .type("html")
+        .send(await findFormHtml(person, filters, tie, { problem: { field: "photo", words } }));
+    }
+    if (!hasPlace(filters)) {
+      req.log.info({ outcome: "no_place" }, "find from a photo");
+      return void res
+        .status(400)
+        .type("html")
+        .send(await findFormHtml(person, filters, tie, { problem: { field: "place", words: "Choose an area or a colony first." } }));
+    }
+    // A report that doesn't exist: nothing to tie, so no search runs and none
+    // is used (second review, finding 4).
+    if (tie && !tie.report) {
+      req.log.info({ outcome: "no_such_report" }, "find from a photo");
+      return void res.status(404).type("html").send(await findFormHtml(person, filters, tie));
+    }
+    const file = req.file;
+    if (!file || file.size === 0) {
+      req.log.info({ outcome: "no_photo" }, "find from a photo");
+      return void res
+        .status(400)
+        .type("html")
+        .send(await findFormHtml(person, filters, tie, { problem: { field: "photo", words: "Choose or take a photo first." } }));
+    }
+
+    // A free early look at the caps: someone already over theirs isn't kept
+    // waiting while the photo is re-encoded and the cats' photos are read
+    // (second review, finding 5). The real count is still made in the gate.
+    const already = await findLimitReached(person.id).catch(() => "ok" as const);
+    if (already !== "ok") {
+      req.log.info({ outcome: "refused" }, "find from a photo");
+      return void res.status(429).type("html").send(await findFormHtml(person, filters, tie, { capped: already }));
+    }
+    const started = Date.now();
+    const now = new Date();
+    let capped: "person" | "team" | null = null;
+    const out = await findFromPhoto(file.buffer, filters, now, {
+      gate: async () => {
+        let r: Awaited<ReturnType<typeof checkFindLimits>>;
+        try {
+          r = await checkFindLimits(person.id);
+        } catch (err) {
+          // Fails closed, with the page and words, never the app's JSON 500
+          // (review finding 1).
+          req.log.warn({ err: safeError(err) }, "find from a photo: the daily count failed");
+          return "counter_down";
+        }
+        if (r === "ok") return null;
+        capped = r;
+        return r;
+      },
+    });
+    // Spec §9.6: counts only. Never the file's name, the filters or a cat.
+    req.log.info(
+      {
+        ms: Date.now() - started,
+        outcome: out.kind,
+        ...("count" in out ? { count: out.count } : {}),
+        ...(out.kind === "results" ? { compared: out.compared, shown: out.results.length } : {}),
+      },
+      "find from a photo",
+    );
+    const colonies = await allColonyChoices(visibleColonyIds(person));
+    const common = { personName: person.name, filters, colonies, tie, now };
+    switch (out.kind) {
+      case "no_place":
+        return void res.status(400).type("html").send(await findFormHtml(person, filters, tie, { problem: { field: "place", words: "Choose an area or a colony first." } }));
+      case "too_many":
+      case "none_to_compare":
+        return void res.status(400).type("html").send(await findFormHtml(person, filters, tie));
+      case "bad_photo":
+        return void res.status(400).type("html").send(
+          await findFormHtml(person, filters, tie, {
+            problem: { field: "photo", words: "That file isn't a photo we can read. Choose a JPEG, PNG, HEIC or WebP photo." },
+          }),
+        );
+      case "no_photos":
+        return void res.status(422).type("html").send(
+          renderFindProblem({
+            ...common,
+            words: "None of these cats has a photo to compare with. No search was used.",
+            gridLink: true,
+          }),
+        );
+      case "refused":
+        if (out.reason === "counter_down") {
+          return void res.status(503).type("html").send(renderFindProblem({ ...common, words: MATCHING_DOWN_WORDS, gridLink: true }));
+        }
+        return void res
+          .status(429)
+          .type("html")
+          .send(await findFormHtml(person, filters, tie, { capped: capped ?? "person" }));
+      case "not_a_cat":
+        // 422, not 200: the POST's only 200 is the results page (test/wideCsp.ts PHOTO_CSP_ROUTES).
+        return void res.status(422).type("html").send(
+          renderFindProblem({ ...common, words: "We couldn't see a cat in that photo. Try another photo of the cat.", gridLink: false }),
+        );
+      case "matching_down":
+        return void res.status(503).type("html").send(renderFindProblem({ ...common, words: MATCHING_DOWN_WORDS, gridLink: true }));
+      case "results": {
+        const { cats } = await allTeamCats({ area: filters.area, colony: filters.colony, colours: filters.colours }, now);
+        const cards = new Map(cats.map((c) => [c.id, c]));
+        const html = renderFindResults({
+          ...common,
+          count: out.count,
+          compared: out.compared,
+          results: out.results,
+          cards,
+          preview: out.preview,
+        });
+        // Only now, with the page built: the team's photo is a data: picture
+        // in this answer, so this answer alone allows them (SYC-491).
+        setTeamHeaders(res, { uploadedPhoto: true });
+        return void res.type("html").send(html);
+      }
+    }
   },
 );
 

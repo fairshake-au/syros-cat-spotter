@@ -31,13 +31,32 @@ export const WIDE_CSP_ROUTES: ReadonlySet<string> = new Set([
  */
 export const WIDE_CSP_FILES: ReadonlySet<string> = new Set(["src/routes/teamCats.ts"]);
 
-/** The header an answer must carry: WIDE_CSP only for an exempt route's own page. */
+/**
+ * Find from a photo's results (SYC-491, option 2): the strict header plus
+ * `data:` pictures, so the team's photo sits beside the matches without
+ * being stored. Still no script. Exactly this, nothing more.
+ */
+export const PHOTO_CSP =
+  "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+
+/**
+ * The routes whose 200 HTML answer carries PHOTO_CSP. Every other answer
+ * from them (a 4xx form, a refusal) carries STRICT_CSP. A security
+ * decision, as WIDE_CSP_ROUTES is.
+ */
+export const PHOTO_CSP_ROUTES: ReadonlySet<string> = new Set([
+  // Find from a photo's results: the only 200 the POST gives (SYC-396 PR 2.5).
+  "POST /api/team/cats/find",
+]);
+
+/** The header an answer must carry: WIDE_CSP or PHOTO_CSP only for an exempt route's own page. */
 export function expectedCsp(
   route: string | undefined,
   res: { status: number; headers: Record<string, unknown> },
 ): string {
   const html = /^text\/html\b/.test(String(res.headers["content-type"] ?? ""));
-  return route !== undefined && WIDE_CSP_ROUTES.has(route) && res.status === 200 && html
-    ? WIDE_CSP
-    : STRICT_CSP;
+  const own = route !== undefined && res.status === 200 && html;
+  if (own && WIDE_CSP_ROUTES.has(route)) return WIDE_CSP;
+  if (own && PHOTO_CSP_ROUTES.has(route)) return PHOTO_CSP;
+  return STRICT_CSP;
 }

@@ -130,6 +130,21 @@ const RESPONSES: [string, () => request.Test, string?][] = [
     "GET /api/team/cats",
   ],
   [
+    "Find from a photo's form (SYC-396 PR 2.5: no script, so the strict header)",
+    () => request(app).get("/api/team/cats/find?area=kini").set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/cats/find",
+  ],
+  [
+    "Find from a photo's search with no photo",
+    () =>
+      request(app)
+        .post("/api/team/cats/find")
+        .set("Origin", TEAM)
+        .set("Cookie", cookie)
+        .field("area", "kini"),
+    "POST /api/team/cats/find",
+  ],
+  [
     "the Cats grid, signed out",
     () => request(app).get("/api/team/cats").set("Sec-Fetch-Mode", "navigate"),
   ],

@@ -85,6 +85,9 @@ describe("only the named pages turn scripts on", () => {
       const src = code(f);
       expect(src, rel(f)).not.toMatch(/script-src|connect-src|unsafe-eval/);
       expect(src, rel(f)).not.toContain("TEAM_CSP_WITH_SCRIPTS");
+      // Nor the one that allows data: pictures (SYC-396 PR 2.5; SYC-491).
+      expect(src, rel(f)).not.toContain("TEAM_CSP_WITH_UPLOADED_PHOTO");
+      expect(src, rel(f)).not.toMatch(/img-src[^;"'`]*data:/);
     }
   });
 });
