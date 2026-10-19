@@ -13,9 +13,10 @@ Plan: `docs/superpowers/plans/syc-396-phases-2-4.md`, "PR 2.5" (Tasks 2.5.1, 2.5
 
 ## Done
 - [x] Read plan, spec §5.2, code, SYC-396/463, P-SYC-54, launch plan.
+- [x] 2.5.1 `findFromPhoto.ts` (7be534c9): 16/16 tests. Probes red then restored: raw upload sent -> EXIF test red; primaryPhotoId -> hidden-photo test red.
+  Additions to the plan's union: `no_place`, `bad_photo`, `refused` (gate = caps, run after narrowing + photo check, before any AI call). One group skips the final round (the group round already ranks them; still <= 4 calls).
 
 ## Next
-- [ ] 2.5.1 findFromPhoto.ts + tests, probes (EXIF, display photo)
 - [ ] 2.5.2 multer, capability, limits, routes, page, Cats link, walk rows, tests, probes (limiter order, per-person cap)
 - [ ] Screenshots 390/1280, upload errors, over-30
 - [ ] Opus adversarial review (own worktree)
