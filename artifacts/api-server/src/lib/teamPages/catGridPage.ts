@@ -17,7 +17,7 @@ import { assetUrl } from "../teamAssets";
 import type { TieMode } from "./catPages";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { lastSeenWords } from "./lastSeen";
+import { lastSeenWords, notSeenWords } from "./lastSeen";
 import { markBadge, MARK_WORD } from "./marks";
 import { timeAgo } from "./queuePage";
 import { tr, type StringKey } from "./strings";
@@ -47,6 +47,7 @@ const LAST_SEEN_WORD: Record<(typeof LAST_SEEN)[number], string> = {
   month: "This month",
   "1to3": "1–3 months",
   over3: "Over 3 months",
+  quiet: notSeenWords(),
   never: "Never seen since first recorded",
 };
 

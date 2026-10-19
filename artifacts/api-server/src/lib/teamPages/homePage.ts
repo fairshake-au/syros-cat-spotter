@@ -6,7 +6,7 @@ import { teamPhotoUrl } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { markBar } from "./marks";
-import { lastSeenWords } from "./lastSeen";
+import { lastSeenWords, notSeenWords } from "./lastSeen";
 import { timeAgo } from "./queuePage";
 
 // Home: what needs us today (SYC-396 spec §4; plan PR 2.1, Task 2.1.2).
@@ -140,9 +140,9 @@ function notSeenSection(s: HomeData["notSeenLately"], now: Date): string {
   return (
     '<section id="notseen"><h2>Not seen lately</h2>' +
     // A prompt to ask, never a claim that a cat has died (§4.3).
-    `<p class="hint">Street cats not seen for 6 weeks or more. Worth asking their cat guardian whether they've been around.</p>` +
+    `<p class="hint">Street cats not seen for ${notSeenWords()}. Worth asking their cat guardian whether they've been around.</p>` +
     `<ul class="catgrid">${cats.map((c) => quietCard(c, colonyNames, now)).join("")}</ul>` +
-    (more > 0 ? `<p><a class="hlink" href="/api/team/cats?lives=street&amp;lastSeen=over3">and ${more} more</a></p>` : "") +
+    (more > 0 ? `<p><a class="hlink" href="/api/team/cats?lives=street&amp;lastSeen=quiet">and ${more} more</a></p>` : "") +
     "</section>"
   );
 }
