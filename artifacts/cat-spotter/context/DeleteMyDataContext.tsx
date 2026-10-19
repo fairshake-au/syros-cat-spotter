@@ -30,6 +30,7 @@ import { clearRecentPhotos } from '@/lib/recentPhotos';
 import { readStoredDeviceId, useDevice } from './DeviceContext';
 import { useOffline } from './OfflineContext';
 import { useReportQueue } from './ReportQueueContext';
+import { useIssueQueue } from './IssueQueueContext';
 
 /**
  * "Delete my data" for the whole app (SYC-63). Owns the deletion itself, and
@@ -77,6 +78,9 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
   const reportQueue = useReportQueue();
   const reportQueueRef = useRef(reportQueue);
   reportQueueRef.current = reportQueue;
+  const issueQueue = useIssueQueue();
+  const issueQueueRef = useRef(issueQueue);
+  issueQueueRef.current = issueQueue;
   const [doneVisible, setDoneVisible] = useState(false);
 
   // The latest values, for callbacks registered once (the 410 handler).
@@ -102,6 +106,10 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
       if ((await AsyncStorage.getItem(DELETE_REPORTS_KEY)) === 'delete') {
         await reportQueueRef.current.wipeReports();
       }
+      // SYC-44 PR 6.2: an unsent "Report an issue" report (and its note)
+      // never outlives "Delete my data" on the phone; it would otherwise go
+      // later under the new identity. "Send them first" tried it already.
+      await issueQueueRef.current.wipeIssues();
       // Profile, notifications, anything fetched with the old id.
       queryClient.clear();
     },
@@ -130,7 +138,11 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
           ...stepsRef.current,
           deleteOnServer: () =>
             deleteMyDataRequest({ headers: { 'X-Device-Id': deviceId } }),
-          sendReports: () => reportQueueRef.current.sendAllNow(),
+          sendReports: async () => {
+            // Best effort for "Report an issue" reports: they leave the phone either way.
+            await issueQueueRef.current.sendAllNow().catch(() => false);
+            return reportQueueRef.current.sendAllNow();
+          },
           wipeReports: () => reportQueueRef.current.wipeReports(),
         },
         reports,

@@ -67,6 +67,9 @@ const { useOffline, openURL } = vi.hoisted(() => ({
 }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline }));
 // SYC-42: the cat-report reminder banner reads the report queue.
+vi.mock('@/context/IssueQueueContext', () => ({
+  useIssueQueue: () => ({ reminderVisible: false, dismissReminder: () => undefined, retryFailed: async () => undefined }),
+}));
 vi.mock('@/context/ReportQueueContext', () => ({
   useReportQueue: () => ({ reminderVisible: false, dismissReminder: () => undefined, syncNow: async () => undefined }),
 }));

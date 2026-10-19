@@ -24,6 +24,10 @@ const h = vi.hoisted(() => ({
     sendAllNow: vi.fn(async () => true),
     wipeReports: vi.fn(async () => {}),
   },
+  issues: {
+    sendAllNow: vi.fn(async () => true),
+    wipeIssues: vi.fn(async () => {}),
+  },
 }));
 
 vi.mock('@workspace/api-client-react', () => ({
@@ -62,6 +66,9 @@ vi.mock('../OfflineContext', () => ({
 vi.mock('../ReportQueueContext', () => ({
   useReportQueue: () => h.reports,
 }));
+vi.mock('../IssueQueueContext', () => ({
+  useIssueQueue: () => h.issues,
+}));
 
 import { DeleteMyDataProvider, useDeleteMyData } from '../DeleteMyDataContext';
 
@@ -97,6 +104,8 @@ describe('DeleteMyDataProvider', () => {
       headers: { 'X-Device-Id': 'dev-current' },
     });
     expect(h.offline.wipeQueue).toHaveBeenCalled();
+    // SYC-44 PR 6.2: an unsent "Report an issue" report never outlives the deletion.
+    expect(h.issues.wipeIssues).toHaveBeenCalled();
     expect(h.clear).toHaveBeenCalled();
     expect(h.resetIdentity).toHaveBeenCalled();
     expect(h.storage.has('catSpotters.waitingCard.v1:dev-current')).toBe(false);
@@ -179,6 +188,26 @@ describe('DeleteMyDataProvider', () => {
     expect(outcome).toBe('done');
     expect(order).toEqual(['reports', 'server']);
     expect(h.reports.wipeReports).not.toHaveBeenCalled();
+  });
+
+  it('send: tries the waiting "Report an issue" reports first; one that will not send never holds up the deletion (SYC-44 PR 6.2)', async () => {
+    const order: string[] = [];
+    h.issues.sendAllNow.mockImplementationOnce(async () => {
+      order.push('issues');
+      return false;
+    });
+    h.reports.sendAllNow.mockImplementationOnce(async () => {
+      order.push('reports');
+      return true;
+    });
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    let outcome: string | undefined;
+    await act(async () => {
+      outcome = await result.current.deleteNow('send');
+    });
+    expect(outcome).toBe('done');
+    expect(order).toEqual(['issues', 'reports']);
+    expect(h.issues.wipeIssues).toHaveBeenCalled();
   });
 
   it('send: deletes nothing when a report will not send', async () => {

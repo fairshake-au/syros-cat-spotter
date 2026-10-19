@@ -28,6 +28,7 @@ import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { AppSettingsProvider } from '@/context/AppSettingsContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { ReportQueueProvider } from '@/context/ReportQueueContext';
+import { IssueQueueProvider } from '@/context/IssueQueueContext';
 import { TurnstileHost } from '@/components/TurnstileHost';
 import {
   DeleteMyDataProvider,
@@ -184,16 +185,18 @@ export default function RootLayout() {
                 <OfflineProvider>
                   <AppSettingsProvider>
                     <ReportQueueProvider>
-                      <NotificationProvider>
-                        <DeleteMyDataProvider>
-                          <GestureHandlerRootView>
-                            <KeyboardProvider>
-                              <OnboardingGate />
-                              <TurnstileHost />
-                            </KeyboardProvider>
-                          </GestureHandlerRootView>
-                        </DeleteMyDataProvider>
-                      </NotificationProvider>
+                      <IssueQueueProvider>
+                        <NotificationProvider>
+                          <DeleteMyDataProvider>
+                            <GestureHandlerRootView>
+                              <KeyboardProvider>
+                                <OnboardingGate />
+                                <TurnstileHost />
+                              </KeyboardProvider>
+                            </GestureHandlerRootView>
+                          </DeleteMyDataProvider>
+                        </NotificationProvider>
+                      </IssueQueueProvider>
                     </ReportQueueProvider>
                   </AppSettingsProvider>
                 </OfflineProvider>
