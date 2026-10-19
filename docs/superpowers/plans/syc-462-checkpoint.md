@@ -49,3 +49,5 @@ Branch `claude/syc-462-photo-removal`, worktree `.claude/worktrees/adoring-bohr-
   - Exit codes (adjusted to the settings CLI's convention): 0 done/already/dry run; 1 refused/failed; 2 usage/target; 3 NOT GONE; 4 NOT VERIFIED.
   - Probe: standIn order `s.id asc` → T14 tie case red.
   - Finding while testing: seedCat's shared fake bytes make the search (correctly) report "the same picture is photo row N" → the e2e test gives its cat its own picture. The search's duplicate detection works.
+- **Task 10 DONE**: carry-back writes and compares a removed photo as an empty picture (`projectedColumnExpr` in switchover/fingerprint.ts, used by projected fingerprints, carryBack rowKeys and writeRows; plain `t::text` fingerprints unchanged). T17 in carryBack.test.ts (an update and an insert of removed photos; second apply finds nothing). switchover suite 44/44 (serial). Probe: drop the coalesce → T17 red.
+  - Deviation from plan text: the rule lives in fingerprint.ts (projected mode only), not only writeRows — carry-back's post-write verify uses the projected compare, so both sides must agree (the plan anticipated this "if the comparison hashes data").

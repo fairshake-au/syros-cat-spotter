@@ -341,6 +341,38 @@ describe("carry-back: exact values, secrets and every table", () => {
   });
 });
 
+describe("carry-back of a photo removed for good (SYC-462, T17)", () => {
+  it("carries a removed photo as an empty picture, and a second apply finds nothing to do", async () => {
+    const { old, neon } = await scenario();
+    const person = (
+      await neon.query(
+        `insert into people (email, name, added_by) values ('remover@example.com', 'R', 'cli:test') returning id`,
+      )
+    ).rows[0].id;
+    // One photo removed after the copy (an update), and one added and removed on Neon (an insert).
+    await neon.query(
+      `update photos set data = null, removed_at = now(), removed_by = $1, removed_reason = 'SYC-462' where id = 1`,
+      [person],
+    );
+    const added = (
+      await neon.query(
+        `insert into photos (data, mime, public_id, removed_at, removed_by, removed_reason)
+         values (null, 'image/jpeg', 'pub-removed', now(), $1, 'SYC-462') returning id`,
+        [person],
+      )
+    ).rows[0].id;
+    const applied = await carryBack(neon, old, { apply: true });
+    expect(applied.applied).toBe(true);
+    // The old database is at the baseline: it has no public_id, so by id.
+    const rows = await old.query(`select id, data from photos where id = any($1) order by id`, [[1, added]]);
+    expect(rows.rows.map((r) => r.data)).toEqual(["", ""]);
+    const again = await carryBack(neon, old, { apply: true });
+    const photos = again.tables.find((t) => t.table === "photos");
+    expect(photos?.toInsert ?? []).toEqual([]);
+    expect(photos?.toUpdate ?? []).toEqual([]);
+  });
+});
+
 describe("carry-back refuses id collisions and old-app writes since the copy", () => {
   it("refuses to apply when the old app wrote a row whose id Neon also used, and changes nothing", async () => {
     const { old, neon } = await scenario();
