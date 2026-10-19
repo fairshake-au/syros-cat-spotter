@@ -22,7 +22,12 @@ Branch: `claude/relaxed-sutherland-722f64` (renaming it was refused by the permi
 6. Full app suite 1928/1928 after the layout stub fix; typecheck clean.
 7. Mutation probes P1-P7 all red (P3 needed a direct guard test, added).
 
-## Next
-- Browser check (scratch DB, api 8198, expo 8199), en/el/fr, 390px + desktop; screenshots docs/screenshots/syc-44-pr-6-2/.
-- Sonnet adversarial review in its own worktree; commit to docs/superpowers/plans/syc-44-pr-6-2-review.md.
-- Draft PR, Linear (SYC-44, SYC-346, SYC-305, deferred tickets).
+## Done after the build
+- Browser check en/el/fr, 390px + desktop, screenshots committed; scratch DB dropped, servers stopped.
+- Sonnet adversarial review committed (docs/superpowers/plans/syc-44-pr-6-2-review.md); findings 1,2,3,4,6,7,8 fixed; 5 -> SYC-487; 3 device check -> SYC-488; focus -> SYC-483.
+- Full app suite 1943/1943, typecheck clean.
+- Draft PR #249 open. Linear: SYC-44, SYC-346 (strings), SYC-305 commented. SYC-462 session told about shared files.
+
+## Next (for /ship)
+- Delete this CHECKPOINT.md before `gh pr ready`.
+- SYC-487 is Samuel's decision ("Something else" under a photo).
