@@ -815,7 +815,12 @@ T9 part 2 asserts this for the colour check and the guardian cat page as well: a
 - [ ] **Step 5b: Tell the public app a photo was removed** (agreed with SYC-44 PR 6.1, 19 Oct). On `main` after 6.1 merges, a public sighting carries `photoHidden` (6.1's field, from `hiddenPhotoIds`). That would be true for a removed photo, and the app would say "Photo hidden while Syros Cats take a look", which is wrong for a removal.
   - This PR adds `photoRemoved: boolean` to the public sighting, computed from `photos.removed_at`, in `lib/catHelpers.ts` (`PublicSighting`/`serialiseSighting`), `routes/cats.ts`, `openapi.yaml` and the generated clients.
   - `photoHidden` keeps its meaning. A removed photo is hidden too.
-  - The app's tile and its en/el/fr string are **6.1's or SYC-246's**, per the reply below. This PR only sends the field.
+  - **The app tile, decided by Samuel on 19 Oct ("Add 'Photo removed' now").** After 6.1 merges, add a `photoRemoved === true` branch *above* 6.1's `photoHidden` tile in `artifacts/cat-spotter/components/SightingPhotos.tsx`. Its text is a new string, `"Photo removed"`, in `artifacts/cat-spotter/lib/i18n.ts`:
+    - add it in en, el and fr, following how 6.1 adds its hidden-tile string;
+    - the el and fr text are marked for native review the way that file marks other new strings;
+    - if this lands after the 22 Oct copy freeze, the el and fr go in Johnny's second pack (SYC-346), with a note on SYC-346.
+
+    Test this in the app's own vitest setup (`artifacts/cat-spotter/vitest.config.ts`), the way 6.1 tests its tile: `photoRemoved: true` shows "Photo removed" and not the hidden text. Mutation probe: remove the branch, and the test goes red.
   - **If 6.1 hasn't merged when this task starts,** rebase onto its branch's final state, or wait. Don't edit `cats.ts` or `catHelpers.ts` at the same time as 6.1.
   - Test: the public cat detail's sighting for a removed photo has `photoRemoved: true` and `photoUrl: null`.
   - Mutation probe: always send `false`, and the test goes red.
