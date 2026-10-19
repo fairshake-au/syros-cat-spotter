@@ -158,6 +158,13 @@ const en: Dict = {
   extraPhotoFaceLabel: 'Face photo',
   extraPhotoBodyLabel: 'Whole body photo',
   extraPhotoClose: 'Close',
+  // SYC-44 PR 6.1 (report-an-issue.md §3, D4): the full-screen photo, the
+  // tile for a hidden photo, and the two report links (they show once PR
+  // 6.2's reason sheet exists).
+  photoViewerSpottedBy: 'Spotted by {name}',
+  photoHiddenTile: 'Photo hidden while Syros Cats take a look.',
+  reportIssue: 'Report an issue',
+  reportIssuePhoto: 'Report an issue with this photo',
   kmAway: 'km away',
   yourPhoto: 'Your photo',
   knownCat: 'Known cat',
@@ -833,6 +840,11 @@ const el: Dict = {
   extraPhotoFaceLabel: 'Φωτογραφία προσώπου',
   extraPhotoBodyLabel: 'Φωτογραφία ολόκληρου σώματος',
   extraPhotoClose: 'Κλείσιμο',
+  // SYC-44 PR 6.1
+  photoViewerSpottedBy: 'Εντοπίστηκε από {name}',
+  photoHiddenTile: 'Η φωτογραφία είναι κρυμμένη όσο οι Syros Cats την εξετάζουν.',
+  reportIssue: 'Ανάφερε ένα πρόβλημα',
+  reportIssuePhoto: 'Ανάφερε ένα πρόβλημα με αυτή τη φωτογραφία',
   kmAway: 'χλμ μακριά',
   yourPhoto: 'Η φωτογραφία σας',
   knownCat: 'Γνωστή γάτα',
@@ -1481,6 +1493,11 @@ const fr: Dict = {
   extraPhotoFaceLabel: 'Photo du visage',
   extraPhotoBodyLabel: 'Photo du corps entier',
   extraPhotoClose: 'Fermer',
+  // SYC-44 PR 6.1
+  photoViewerSpottedBy: 'Repéré par {name}',
+  photoHiddenTile: 'Photo masquée le temps que Syros Cats l’examinent.',
+  reportIssue: 'Signaler un problème',
+  reportIssuePhoto: 'Signaler un problème avec cette photo',
   kmAway: 'km',
   yourPhoto: 'Ta photo',
   knownCat: 'Chat connu',

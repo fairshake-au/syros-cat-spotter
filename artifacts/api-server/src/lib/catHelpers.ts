@@ -247,6 +247,12 @@ export interface PublicSighting {
    * it was before.
    */
   extraPhotos?: { role: "first" | "face" | "body"; photoUrl: string | null }[];
+  /**
+   * SYC-44 PR 6.1 (spec D4): true while the sighting's own photo is hidden,
+   * so the app can show "Photo hidden while Syros Cats take a look." where it
+   * was. It says only that: never why, nor by whom.
+   */
+  photoHidden: boolean;
   createdAt: string;
 }
 
@@ -262,6 +268,8 @@ export function serialiseSighting(s: {
   photoUrl: PublicPhotoUrl | null;
   /** Other photos of the same spot, built the same way. Omitted from the output when empty. */
   extraPhotos?: { role: "first" | "face" | "body"; photoUrl: PublicPhotoUrl | null }[];
+  /** Set from the same `hiddenPhotoIds` lookup that blanks `photoUrl`. */
+  photoHidden: boolean;
 }): PublicSighting {
   return {
     catId: s.catId,
@@ -270,6 +278,7 @@ export function serialiseSighting(s: {
     spotterNickname: s.spotterNickname,
     photoUrl: s.photoUrl,
     ...(s.extraPhotos?.length ? { extraPhotos: s.extraPhotos } : {}),
+    photoHidden: s.photoHidden,
     createdAt: toPublicDay(s.createdAt),
   };
 }

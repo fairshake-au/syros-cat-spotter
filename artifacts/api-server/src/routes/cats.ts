@@ -307,6 +307,8 @@ router.get("/cats/:catId", async (req, res) => {
             photoId != null && photoPublicId != null ? { id: photoId, publicId: photoPublicId } : null,
             hidden,
           ),
+          // SYC-44 PR 6.1: the app's "Photo hidden" tile (D4).
+          photoHidden: photoId != null && hidden.has(photoId),
           extraPhotos: (extrasBySighting.get(s.id) ?? []).map((e) => ({
             role: e.role as "first" | "face" | "body",
             photoUrl: publicPhotoUrl({ id: e.photoId, publicId: e.photoPublicId }, hidden),

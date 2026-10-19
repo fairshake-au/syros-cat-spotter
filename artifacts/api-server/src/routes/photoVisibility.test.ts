@@ -382,6 +382,42 @@ describe("P6-3: GET /api/cats/:id", () => {
   });
 });
 
+// ── T6-2 (SYC-44 PR 6.1): the hidden-photo tile's flag ─────────────────────
+
+describe("T6-2: GET /api/cats/:id says which sighting's photo is hidden", () => {
+  const flags = async (catId: number) =>
+    ((await detail(catId)).sightings as unknown as { photoHidden: unknown }[]).map((s) => s.photoHidden);
+
+  it("photoHidden is true for a hidden sighting photo and false for every other; restored, false again", async () => {
+    const cat = await seedCat(2);
+    expect(await flags(cat.id)).toEqual([false, false]);
+
+    await hide(cat.sightings[1]!, cat.id);
+    expect(await flags(cat.id)).toEqual([true, false]);
+
+    await restore(cat.sightings[1]!, cat.id);
+    expect(await flags(cat.id)).toEqual([false, false]);
+  });
+
+  it("is never set by hiding the cat's main photo: only the sighting's own photo counts", async () => {
+    const cat = await seedCat(1);
+    await hide(cat.main, cat.id);
+    const sightings = (await detail(cat.id)).sightings as unknown as { photoUrl: string | null; photoHidden: unknown }[];
+    expect(sightings).toEqual([expect.objectContaining({ photoUrl: url(cat.sightings[0]!), photoHidden: false })]);
+  });
+
+  it("the flag says only that a photo was hidden: no reason or author rides along (D4)", async () => {
+    const cat = await seedCat(1);
+    await hide(cat.sightings[0]!, cat.id);
+    const res = await request(app).get(`/api/cats/${cat.id}`);
+    const s = res.body.sightings[0] as Record<string, unknown>;
+    expect(s["photoHidden"]).toBe(true);
+    expect(Object.keys(s).sort()).toEqual(
+      ["catId", "createdAt", "photoHidden", "photoUrl", "spotterCode", "spotterNickname", "spotterUsername"],
+    );
+  });
+});
+
 // ── P6-4: matching a sighting ──────────────────────────────────────────────
 
 let captureOffsetMs = 0;
