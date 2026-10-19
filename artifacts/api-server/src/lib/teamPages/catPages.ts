@@ -236,7 +236,7 @@ function deathNotice(v: TeamCatView, byId: Map<number, TeamStatement>, shown: Sh
   return (
     `<p class="notice" role="note"><strong>${esc(v.cat.name)} has died</strong>${happened}. ` +
     `Recorded by ${esc(byWhom(s))} on ${time(s.createdAt, day(s.createdAt))}.` +
-    (s.reason ? ` How we know: ${esc(s.reason)}.` : "") +
+    (s.reason ? ` How we know: ${esc(s.reason.trim().replace(/[.!?]+$/, ""))}.` : "") +
     ` If this is a mistake, use <strong>Mark wrong</strong> on it in the history. ` +
     `<a href="${statementHref(s.id, shown)}">Go to it</a></p>`
   );
