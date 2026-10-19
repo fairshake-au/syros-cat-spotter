@@ -1,6 +1,6 @@
 # Marking a cat as died, from the team's cat page
 
-**Status:** Draft for Samuel's approval, 18 October 2026. One adversarial review pass done and folded in (§12).
+**Status:** Draft for Samuel's approval, 18 October 2026. One adversarial review pass done and folded in (§12). Revised the same day: recording a death never removes the owner (Samuel, 18 Oct 2026).
 **Owner:** Samuel
 **Covers:** SYC-513.
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2–§3.4 (life status, a sighting after a death, presumed deceased) · [`claiming-a-cat.md`](./claiming-a-cat.md) §7 (removing an owner) · [`roles-and-invites.md`](./roles-and-invites.md) §2.2, §7.2 (a cat guardian's own "Has died") · SYC-362 (the "Are you sure?" page for an owned cat) · SYC-489 (litter reports on a dead cat)
@@ -20,7 +20,7 @@ Pressing it opens one short page that:
 - asks **how we know**, in a few words;
 - has one button to save.
 
-If the cat has an owner, the same page says the owner will be removed. There is no second "Are you sure?" page.
+Recording a death **never removes the owner** (Samuel, 18 Oct 2026). If the cat has an owner, the page says the owner stays. There is no second "Are you sure?" page.
 
 If the date would leave the cat showing as alive, the page says why and asks again rather than saving something that looks done but isn't. That happens when someone spotted the cat after that date, or when a newer change already says otherwise.
 
@@ -68,10 +68,7 @@ It opens its own page, `GET /api/team/cats/:id/died`. The button is a small form
 - Nobody will get alerts or news about Agatha any more.
 - Agatha can't be claimed. Spotters can't pick her by hand: she is greyed out in the list.
 - If someone spots Agatha after the date below, she will show as alive again, and you'll see that on this page. That includes a photo taken earlier but only sent once the spotter had signal.
-- *Only when the cat has an owner, or a home whose owner deleted their data, and this person may remove owners:*
-  - **With an owner:** "Agatha's owner will be removed. They stop seeing her exact spot and getting alerts. They are not told. Undoing this later won't put the owner back."
-  - **With a home whose owner deleted their data:** "Agatha's old home details will be cleared."
-- *Only when the cat has an owner and this person may **not** remove owners:* "Agatha has an owner. The owner stays until someone who can remove owners does so."
+- *Only when the cat has an owner:* "Agatha's owner stays. They aren't told, and they'll see “No longer with us” the next time they open her page."
 
 **Date it happened:** one optional date box, labelled "Date it happened (leave blank if you're not sure)". It accepts today or earlier.
 
@@ -82,7 +79,7 @@ It opens its own page, `GET /api/team/cats/:id/died`. The button is a small form
 
 **Buttons:** "Save: Agatha has died" and a link "Back to Agatha (nothing changed)".
 
-This page **is** the confirmation. Saving records the death and, when allowed, removes the owner, in one go. No second page follows.
+This page **is** the confirmation. Saving records the death, and nothing else. No second page follows.
 
 **When the page says no.** The page comes back with everything still filled in and one plain message. Each case:
 
@@ -90,6 +87,7 @@ This page **is** the confirmation. Saving records the death and, when allowed, r
 - **A future date.** "The date can't be in the future."
 - **Someone spotted the cat after the date.** "Agatha was spotted on 12 Oct, after that date. Saving it would show her as alive straight away. Leave the date blank, or check that sighting in the history first."
 - **A newer change of where the cat lives already stands.** "Eleni recorded “Has a home” on 11 Oct, after that date, so this wouldn't take effect. Leave the date blank, or use Mark wrong on that change first."
+  If that newer change is the owner's own claim: "Agatha's owner said she has a home on 11 Oct, after that date, so this wouldn't take effect. Leave the date blank."
 
 The last two checks are made on the server, at the moment of saving.
 
@@ -108,13 +106,13 @@ The page posts to its own route, `POST /api/team/cats/:id/died`, allowed for the
 It records the same thing the current life-status form records. There is no new kind of record, no new field, and no change to the database:
 
 - one team life-status change: `deceased`, with the reason, the person's name and role, and the date from §4;
-- if the cat has an owner, or a home whose owner deleted their data, and this person may remove owners: the owner is removed in the **same** step, exactly as "Remove owner" does today (`removeOwnerAndSay`, `if_owner`). Nobody is told.
+- nothing about the owner changes: the owner link, their "has a home" claim, their note and their pin all stay. This goes through `recordTeamStatement` only, never `removeOwnerAndSay`. Nobody is told.
 
 **Two people at once.** The cat is locked while the server checks and saves. If the second save finds the cat already recorded as died, it writes nothing and shows "Agatha is already recorded as died. Nothing was changed." This holds whether or not the cat has an owner.
 
 **A cat merged into another.** The died page and route treat a merged-away cat exactly as the existing life-status form does. The implementation plan confirms which cat the change lands on and adds a test for it.
 
-Then the cat's page opens at the top, where the §6 notice is. If the cat kept its owner because this person may not remove owners, the notice adds: "Agatha still has an owner. Ask someone who can remove owners."
+Then the cat's page opens at the top, where the §6 notice is.
 
 ---
 
@@ -126,7 +124,7 @@ At the top of the summary, where the cat guardian's 30-day notice already appear
 > If this is a mistake, use **Mark wrong** on it in the history. [Go to it]
 
 - The first date is when it happened. It is left out when that's the same day it was recorded.
-- "Go to it" jumps to that change in the history, where **Mark wrong** already lets the team put the right status back. No new undo is needed. Mark wrong does not bring back an owner who was removed. The §4 page says so before saving.
+- "Go to it" jumps to that change in the history, where **Mark wrong** already lets the team put the right status back. No new undo is needed, and since the owner was never touched there is nothing else to put back.
 
 **When the notice shows:** when the cat's status, as the page works it out, is "No longer with us" and nothing disagrees with it. That covers a death recorded with this button, through Mark wrong, or by a cat guardian more than 30 days ago (then it names the cat guardian).
 
@@ -145,10 +143,7 @@ So there is one obvious way to record a death:
 
 - **"Update where the cat lives"** no longer offers "No longer with us". Its date box stops saying "(needed for 'No longer with us')".
 - **"Remove owner"**, for a cat that is **alive**, offers "Lives on the street" and "In Syros Cats' care". A line under them says: "If the cat has died, use 'This cat has died' instead."
-- **"Remove owner"**, for a cat **already recorded as died** that still has an owner, offers one choice: "Still no longer with us". Saving removes the owner and writes **no** new change of status, so the death and its date stand. This needs a small option in `removeOwnerAndSay` to skip writing a status. Without it, removing the owner of a dead cat would bring it back to life. That case comes up when:
-  - someone who couldn't remove owners recorded the death;
-  - an owner claimed the cat before it died;
-  - a cat guardian marked the cat died.
+- **"Remove owner"**, for a cat **already recorded as died** that still has an owner, offers one choice: "Still no longer with us". Saving removes the owner and writes **no** new change of status, so the death and its date stand. This needs a small option in `removeOwnerAndSay` to skip writing a status. Without it, removing the owner of a dead cat would bring it back to life. Since "This cat has died" never removes the owner, this is the only way to do it later, if the team decides the owner should go.
 - **"Mark wrong"** in the history **keeps** "No longer with us". It corrects what an older change said ("this wasn't homed, she died"), which isn't the same as recording news.
 - The existing POST routes (`/life-status`, `/remove-owner`), whether used from a form or as JSON, keep accepting `deceased` as they do today, so nothing outside these two forms changes.
 
@@ -214,9 +209,8 @@ Each has a recommendation. They are written so the spec reads as if the recommen
 - In both cases nothing is written.
 
 **Owners**
-- **Owned cat, person can remove owners:** one save removes the owner and records the death, with no extra confirm page.
-- **Home whose owner deleted their data:** it is cleared too.
-- **Person can't remove owners:** the owner stays and the notice says so.
+- **Owned cat:** one save records the death with no extra confirm page. The owner link, their "has a home" claim, note and pin are all unchanged, whoever saves it.
+- **An owner's "has a home" claim dated after a known date:** refused with the §4 message, naming the owner's claim.
 
 **Repeats and bad visits**
 - A second save on a cat already recorded as died writes nothing and says so, with or without an owner.
@@ -251,7 +245,7 @@ One independent pass checked every claim against the code. What it found and wha
 - **A date box that only appears after a choice needs scripts.** The radios are gone; one optional date box replaces them (§4).
 - **Removing the owner of an already-dead cat would have brought it back to life** once "No longer with us" left "Remove owner". There's now "Still no longer with us", which writes no new status (§7).
 - **Two saves at once, an already-dead cat, a merged cat, and bad visits** are now covered (§4, §5).
-- **Mark wrong doesn't bring back a removed owner.** The page says so (§4, §6).
+- **Mark wrong doesn't bring back a removed owner.** Since resolved differently: Samuel decided the button never removes the owner (§4, §5).
 - **The notice rule is now exact.** That covers a cat guardian's death after 30 days, deaths through Mark wrong, and showing the date it happened (§6).
 - **Who sees the button is now stated as the island-wide team.** A home whose owner deleted their data is covered (§3, §4).
 - **Language, the word test, and the missing-photo and accessibility cases** are now stated (§4, §8, §9).
