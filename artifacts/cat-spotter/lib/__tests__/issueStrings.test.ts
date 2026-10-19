@@ -80,6 +80,12 @@ describe('T6-8: the Report an issue strings', () => {
     );
   });
 
+  it('French punctuation keeps its space without breaking the line before ? : » (seen wrapping in the browser check)', () => {
+    for (const key of ISSUE_KEYS.filter((k) => k.startsWith('issue'))) {
+      expect(TRANSLATIONS.fr[key], `fr.${key}`).not.toMatch(/ [?:»]|« /);
+    }
+  });
+
   it('shown in capitals, the Greek lines lose their accents (SYC-159)', () => {
     for (const key of ISSUE_KEYS) {
       expect(displayUpperCase(TRANSLATIONS.el[key])).not.toMatch(/[άέήίόύώΐΰ]/);
