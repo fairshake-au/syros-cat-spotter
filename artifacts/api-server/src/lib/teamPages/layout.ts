@@ -324,6 +324,9 @@ button.risky:hover{background:#fbeaea}
 /* "Are you sure?" (SYC-362): what will happen, then Yes or Cancel. */
 ul.sure{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #8c1d18;border-radius:8px;margin:12px 0 16px;padding:12px 12px 12px 32px}
 ul.sure li{margin:4px 0}
+ul.happens{background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:12px 0 16px;padding:12px 12px 12px 32px}
+ul.happens li{margin:4px 0}
+button.primary.wide{width:100%}
 form.sureform{margin:0 0 4px}
 form.sureform button{font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:10px 18px;border-radius:8px;cursor:pointer}
 /* A link that opens another page of actions looks like the action cards. */
