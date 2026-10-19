@@ -16,7 +16,8 @@ import { eq } from "drizzle-orm";
 import { TEAM_ORIGIN } from "./teamAuth/config";
 import app from "../app";
 import { hiddenPhotoIds } from "./photoVisibility";
-import { hidePhoto, seedCat, signedPerson, type Signed } from "../test/roleKit";
+import { guardianOn, hidePhoto, newColony, seedCat, signedPerson, type Signed } from "../test/roleKit";
+import { removePhoto } from "@workspace/db/photoRemoval";
 import { markRemoved } from "../test/removalKit";
 
 // SYC-462 (spec §6, §8.4): a photo removed for good is gone from every
@@ -223,5 +224,52 @@ describe("T9 part 2: the team's pages draw no broken image (spec §6 item 8)", (
     await markRemoved(clip.photoId, staff.id);
     const after = (await listLikelyForReview()).find((c) => c.catId === cat.id);
     expect(JSON.stringify(after ?? {})).not.toContain(clip.publicId);
+  });
+});
+
+describe("end to end: removePhoto (the command's function), then every page", () => {
+  it("the public page, the team page and a cat guardian's page show the stand-in, never the removed photo", async () => {
+    const colony = await newColony("e2e-removal");
+    const cat = await seedCat(colony);
+    // A picture of its own: seedCat's stand-in bytes are shared by every seeded
+    // cat, and the search rightly reports the same picture in another row.
+    await db
+      .update(photosTable)
+      .set({ data: Buffer.from(`e2e-own-picture-${cat.photoId}-${Date.now()}`.repeat(4)).toString("base64") })
+      .where(eq(photosTable.id, cat.photoId));
+    const standIn = await resolvedSightingPhoto(cat.id);
+    const eleni = await guardianOn("e2e-removal-eleni", [colony]);
+    await db.insert(photoVisibilityEventsTable).values({
+      photoId: cat.photoId,
+      action: "hide",
+      author: staff.id,
+      personId: staff.id,
+      reason: "privacy",
+    });
+    const client = await pool.connect();
+    try {
+      const r = await removePhoto(client as unknown as Parameters<typeof removePhoto>[0], {
+        publicId: cat.photoPublicId,
+        by: staff.id,
+        ref: "SYC-462",
+        apply: true,
+        requireSwitch: false,
+        recheckDelayMs: 5,
+      });
+      expect(r.kind).toBe("removed");
+      if (r.kind === "removed") expect(r.search.lines.filter((l) => l.ok !== true)).toEqual([]);
+    } finally {
+      client.release();
+    }
+    const pub = await request(app).get(`/api/cats/${cat.id}`);
+    expect(JSON.stringify(pub.body)).not.toContain(cat.photoPublicId);
+    expect(JSON.stringify(pub.body)).toContain(standIn.publicId);
+    const team = await request(app).get(`/api/team/cats/${cat.id}`).set("Accept", "application/json").set("Cookie", staff.cookie);
+    expect(team.status).toBe(200);
+    expect(JSON.stringify(team.body)).not.toContain(cat.photoPublicId);
+    expect(team.body.cat.mainPhotoUrl).toContain(standIn.publicId);
+    const mine = await request(app).get(`/api/team/my/cats/${cat.id}`).set("Accept", "application/json").set("Cookie", eleni.cookie);
+    expect(mine.status).toBe(200);
+    expect(JSON.stringify(mine.body)).not.toContain(cat.photoPublicId);
   });
 });

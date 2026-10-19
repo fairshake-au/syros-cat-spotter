@@ -49,6 +49,10 @@ export const SETTING_KEYS = [
   // SYC-415: shows the extra-photo boxes on the New spot screen. The server
   // takes extra photos whatever it says; it only hides the boxes.
   "extra_photos_on",
+  // SYC-462 spec §4.6: removal of a photo for good runs on production only once
+  // this is true, set after the live build is confirmed to include SYC-462.
+  // Hiding never needs it. The server doesn't read it; the photos command does.
+  "photo_removal_on",
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
 
@@ -85,6 +89,7 @@ export function settingShapeProblem(key: SettingKey, value: unknown): string | n
       return null;
     case "feed_tap_count":
     case "extra_photos_on":
+    case "photo_removal_on":
       return typeof value === "boolean" ? null : "must be true or false";
   }
 }
