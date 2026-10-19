@@ -16,8 +16,11 @@ Plan: `docs/superpowers/plans/syc-396-phases-2-4.md`, "PR 2.5" (Tasks 2.5.1, 2.5
 - [x] 2.5.1 `findFromPhoto.ts` (7be534c9): 16/16 tests. Probes red then restored: raw upload sent -> EXIF test red; primaryPhotoId -> hidden-photo test red.
   Additions to the plan's union: `no_place`, `bad_photo`, `refused` (gate = caps, run after narrowing + photo check, before any AI call). One group skips the final round (the group round already ranks them; still <= 4 calls).
 
+- [x] 2.5.2 (160f8d98, 6cf251f5, cb14c52e): multer 2.4.0, capability + roles row, sliding caps, GET/POST /api/team/cats/find, page, Cats link, walk + header rows, Home Coming soon entry removed. team.findPhoto 22/22; affected set 9 files green.
+  Probes red then restored: team bucket first -> "21st personal search doesn't use up the team's" red; per-person cap removed -> 3 cap tests red; upload stored in photos -> row-count test red.
+- Open for Samuel: the strict header (img-src 'self') means the uploaded photo can't be shown beside results without a script or `data:`; the page says "compare with the photo on your phone". Needs a decision ticket.
+
 ## Next
-- [ ] 2.5.2 multer, capability, limits, routes, page, Cats link, walk rows, tests, probes (limiter order, per-person cap)
 - [ ] Screenshots 390/1280, upload errors, over-30
 - [ ] Opus adversarial review (own worktree)
 - [ ] Draft PR, Linear (SYC-396 comment, SYC-346 strings, follow-up tickets)
