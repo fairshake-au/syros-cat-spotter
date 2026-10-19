@@ -430,6 +430,7 @@ figure.yourphoto figcaption{font-size:14px;font-weight:700;color:#0b4553}
 figure.yourphoto{flex-direction:column;align-items:stretch}
 figure.yourphoto img{width:300px;height:auto;aspect-ratio:1/1}
 ul.findlist{grid-template-columns:1fr}
+.findcard{grid-template-columns:300px minmax(0,1fr);gap:16px}
 }
 /* The island map (SYC-396 PR 1.5; spec §6, §12.4). */
 ${MAP_MARK_CSS}
