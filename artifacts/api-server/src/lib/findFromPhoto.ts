@@ -44,6 +44,8 @@ export type FindOutcome =
   | { kind: "no_place" }
   | { kind: "too_many"; count: number }
   | { kind: "none_to_compare" }
+  /** Cats to compare, but none has a photo the public can see (review finding 2). Uses no search. */
+  | { kind: "no_photos"; count: number }
   | { kind: "bad_photo"; count: number }
   | { kind: "refused"; count: number; reason: string }
   | { kind: "not_a_cat"; count: number }
@@ -104,13 +106,21 @@ export async function findFromPhoto(
   const valid = await validatePhotoBase64(photo.toString("base64"));
   if ("error" in valid) return { kind: "bad_photo", count };
 
+  // Each cat's reference photo, BEFORE the caps: a colony whose cats have no
+  // photo to compare with must not use up a search (review finding 2).
+  let candidates: Candidate[];
+  try {
+    candidates = await referencePhotos(cats.map((c) => ({ id: c.id, name: c.name })));
+  } catch {
+    return { kind: "matching_down", count };
+  }
+  if (candidates.length === 0) return { kind: "no_photos", count };
+
   const refusal = opts.gate ? await opts.gate() : null;
   if (refusal !== null) return { kind: "refused", count, reason: refusal };
 
   try {
     const sent = [{ role: "first" as const, photoBase64: valid.buffer.toString("base64"), mime: valid.mime }];
-    const candidates = await referencePhotos(cats.map((c) => ({ id: c.id, name: c.name })));
-    if (candidates.length === 0) return { kind: "none_to_compare" };
 
     // 4. Groups of up to 10, at most 3.
     const groups: Candidate[][] = [];
@@ -119,9 +129,12 @@ export async function findFromPhoto(
     }
     const byId = new Map(candidates.map((c) => [c.catId, c]));
     const finalists: { candidate: Candidate; score: number; reasoning: string }[] = [];
-    for (const group of groups) {
+    for (const [i, group] of groups.entries()) {
       const out = await matchCatPhoto(sent, group.map(toInput));
-      if (!out.isCatPhoto) return { kind: "not_a_cat", count };
+      // Only the first group decides "not a cat": it stops before any more
+      // calls, and one later group's odd answer can't throw away a real
+      // cat photo after the calls are paid for (review finding 5).
+      if (i === 0 && !out.isCatPhoto) return { kind: "not_a_cat", count };
       finalists.push(...best(out.matches, group, byId));
     }
 

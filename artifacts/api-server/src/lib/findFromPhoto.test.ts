@@ -214,6 +214,37 @@ describe("findFromPhoto: groups of 10 and a final round", () => {
     expect(await findFromPhoto(upload, { colony: small.colony }, NOW)).toEqual({ kind: "not_a_cat", count: 4 });
   });
 
+  it("only the first group decides not_a_cat: a later group's odd answer doesn't throw the photo away (review finding 5)", async () => {
+    const mid = await colonyOf(15, "laternotcat");
+    let call = 0;
+    matchMock.mockImplementation(async (_p, candidates: CandidateInput[]) => ({
+      isCatPhoto: ++call !== 2,
+      matches: candidates.map((c) => ({ catId: c.catId, confidence: 0.6, reasoning: "" })),
+    }));
+    const out = await findFromPhoto(upload, { colony: mid.colony }, NOW);
+    expect(out.kind).toBe("results");
+  });
+
+  it("the first group seeing no cat stops at once", async () => {
+    const mid = await colonyOf(15, "firstnotcat");
+    matchMock.mockResolvedValue({ isCatPhoto: false, matches: [] });
+    expect(await findFromPhoto(upload, { colony: mid.colony }, NOW)).toEqual({ kind: "not_a_cat", count: 15 });
+    expect(matchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("cats with no photo to compare give no_photos, before the gate (review finding 2)", async () => {
+    const colony = await newColony("find nophotos");
+    const [p] = await db
+      .insert(photosTable)
+      .values({ publicId: `${PREFIX}p${n++}`, data: Buffer.from("not an image").toString("base64"), mime: "image/jpeg" })
+      .returning({ id: photosTable.id });
+    await cat("unreadable", p!.id, colony);
+    const gate = vi.fn(async () => null);
+    expect(await findFromPhoto(upload, { colony }, NOW, { gate })).toEqual({ kind: "no_photos", count: 1 });
+    expect(gate).not.toHaveBeenCalled();
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+
   it("a service that throws gives matching_down", async () => {
     matchMock.mockRejectedValue(new Error("AI matching returned unparseable output"));
     expect(await findFromPhoto(upload, { colony: small.colony }, NOW)).toEqual({ kind: "matching_down", count: 4 });

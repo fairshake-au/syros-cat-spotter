@@ -267,9 +267,12 @@ export const mapSquareTokensLimiter = sharedLimiter({
 // up to 4 paid AI calls, so searches are capped at 20 a day for each team
 // member and 100 a day across the team. Counted per signed-in PERSON, never
 // per address, in Postgres (one count across servers and restarts). SLIDING,
-// as the claim limit is, so spending the cap just before the window turns
-// hands out no fresh one just after it. The spec sets the numbers after a
-// week of measured cost; these are the starting caps.
+// as the claim limit is, so spending the cap just before 00:00 UTC hands out
+// no fresh one just after it. What it guarantees exactly: at most 20 (100)
+// in any one UTC day. It is an estimate across the day's edge, so a long
+// rolling stretch can see more: 20 at 23:59 and 19 more the next evening is
+// 39 in 23 hours (adversarial review of #252, finding 3; SYC-496). The spec
+// sets the numbers after a week of measured cost; these are the starting caps.
 export const FIND_PHOTO_PERSON_LIMIT = 20;
 export const FIND_PHOTO_TEAM_LIMIT = 100;
 export const FIND_PHOTO_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -285,9 +288,17 @@ export type FindLimit = "ok" | "person" | "team";
  * Counts one search against both caps and says whether it may run. The
  * person's cap is consumed FIRST, and the team's only if the person is still
  * within theirs: a person who has used their 20 can't use up the team's 100
- * by trying again. Throws if the counter fails; the route fails closed.
+ * by trying again. And while the team's 100 are used up, a try is refused
+ * before the person's count is touched, so waiting for the team's cap to
+ * free up doesn't cost anyone their own searches (review finding 4). Throws
+ * if the counter fails; the route answers with its own page (fails closed).
  */
 export async function checkFindLimits(personId: string, now: number = Date.now()): Promise<FindLimit> {
+  const teamNow = await peek(FIND_PHOTO_TEAM_BUCKET, FIND_PHOTO_TEAM_KEY, FIND_PHOTO_WINDOW_MS, undefined, now, {
+    sliding: true,
+    limit: FIND_PHOTO_TEAM_LIMIT,
+  });
+  if (teamNow.hits >= FIND_PHOTO_TEAM_LIMIT) return "team";
   const mine = await consume(
     FIND_PHOTO_PERSON_BUCKET,
     `person:${personId}`,
@@ -308,6 +319,16 @@ export async function checkFindLimits(personId: string, now: number = Date.now()
     { sliding: true },
   );
   return team.allowed ? "ok" : "team";
+}
+
+/** A person's count so far (an estimate, as every sliding count is). For tests. */
+export async function findPersonHits(personId: string, now: number = Date.now()): Promise<number> {
+  return (
+    await peek(FIND_PHOTO_PERSON_BUCKET, `person:${personId}`, FIND_PHOTO_WINDOW_MS, undefined, now, {
+      sliding: true,
+      limit: FIND_PHOTO_PERSON_LIMIT,
+    })
+  ).hits;
 }
 
 /**

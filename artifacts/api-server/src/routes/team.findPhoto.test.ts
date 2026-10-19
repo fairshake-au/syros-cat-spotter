@@ -29,6 +29,7 @@ import {
   checkFindLimits,
   FIND_PHOTO_PERSON_LIMIT,
   FIND_PHOTO_TEAM_LIMIT,
+  findPersonHits,
   findTeamHits,
 } from "../middlewares/rateLimit";
 import { LESS_SURE, MATCHING_DOWN_WORDS, PERSON_CAP_WORDS, TEAM_CAP_WORDS, TOO_BIG_WORDS } from "../lib/teamPages/findPhotoPage";
@@ -235,6 +236,22 @@ describe("the search", () => {
     for (const r of [notCat, big, page]) expect(r.text).not.toContain("data:image");
   });
 
+  it("cats with no photo to compare say so, and use no search (review finding 2)", async () => {
+    const team = await teamMember("nophotos");
+    const blank = await newColony("find route no photos");
+    const [p] = await db
+      .insert(photosTable)
+      .values({ publicId: `${PREFIX}unreadable`, data: Buffer.from("not an image").toString("base64"), mime: "image/jpeg" })
+      .returning({ id: photosTable.id });
+    await catIn(blank, p!.id);
+    const res = await search(team.cookie, { colony: String(blank) });
+    expect(res.status).toBe(422);
+    expect(res.text).toContain("None of these cats has a photo to compare with. No search was used.");
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await findTeamHits()).toBe(0);
+    expect(await findPersonHits(team.id)).toBe(0);
+  });
+
   it("a missing area and colony is named next to the field, and uses no search", async () => {
     const team = await teamMember("missing");
     const res = await search(team.cookie, {});
@@ -372,6 +389,16 @@ describe("the daily caps", () => {
     expect(res.status).toBe(429);
     expect(res.text).toContain(TEAM_CAP_WORDS.replace("today's", "today&#39;s"));
     expect(matchMock).not.toHaveBeenCalled();
+  });
+
+  it("while the team's 100 are used up, trying again doesn't use up a person's own 20 (review finding 4)", async () => {
+    const now = Date.now();
+    for (let p = 0; p < FIND_PHOTO_TEAM_LIMIT / FIND_PHOTO_PERSON_LIMIT; p++) {
+      for (let i = 0; i < FIND_PHOTO_PERSON_LIMIT; i++) await checkFindLimits(`vt-find-full-${RUN}-${p}`, now);
+    }
+    const team = await teamMember("waiting");
+    for (let i = 0; i < 5; i++) expect(await checkFindLimits(team.id, now)).toBe("team");
+    expect(await findPersonHits(team.id, now)).toBe(0);
   });
 
   it("a sliding day: spending the 20 late in a window gives no fresh 20 just after it", async () => {

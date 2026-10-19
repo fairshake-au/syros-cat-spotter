@@ -5,6 +5,7 @@ import { getQueueReport } from "../lib/welfareQueue";
 import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import multer from "multer";
+import { safeError } from "../lib/logger";
 import { catsToCompare, findFromPhoto, hasPlace, type FindFilters } from "../lib/findFromPhoto";
 import { checkFindLimits, findLimitReached } from "../middlewares/rateLimit";
 import {
@@ -259,7 +260,9 @@ async function findFormHtml(
   const now = new Date();
   const [count, capped, colonies] = await Promise.all([
     hasPlace(filters) ? catsToCompare(filters, now).then((c) => c.length) : Promise.resolve(null),
-    extra.capped ? Promise.resolve(extra.capped) : findLimitReached(person.id),
+    // A notice only: if the counter can't be read, the form shows without
+    // one, and the POST still enforces the caps (review finding 1).
+    extra.capped ? Promise.resolve(extra.capped) : findLimitReached(person.id).catch(() => "ok" as const),
     allColonyChoices(visibleColonyIds(person)),
   ]);
   return renderFindForm({
@@ -348,7 +351,15 @@ router.post(
     let capped: "person" | "team" | null = null;
     const out = await findFromPhoto(file.buffer, filters, now, {
       gate: async () => {
-        const r = await checkFindLimits(person.id);
+        let r: Awaited<ReturnType<typeof checkFindLimits>>;
+        try {
+          r = await checkFindLimits(person.id);
+        } catch (err) {
+          // Fails closed, with the page and words, never the app's JSON 500
+          // (review finding 1).
+          req.log.warn({ err: safeError(err) }, "find from a photo: the daily count failed");
+          return "counter_down";
+        }
         if (r === "ok") return null;
         capped = r;
         return r;
@@ -378,7 +389,18 @@ router.post(
             problem: { field: "photo", words: "That file isn't a photo we can read. Choose a JPEG, PNG, HEIC or WebP photo." },
           }),
         );
+      case "no_photos":
+        return void res.status(422).type("html").send(
+          renderFindProblem({
+            ...common,
+            words: "None of these cats has a photo to compare with. No search was used.",
+            gridLink: true,
+          }),
+        );
       case "refused":
+        if (out.reason === "counter_down") {
+          return void res.status(503).type("html").send(renderFindProblem({ ...common, words: MATCHING_DOWN_WORDS, gridLink: true }));
+        }
         return void res
           .status(429)
           .type("html")
