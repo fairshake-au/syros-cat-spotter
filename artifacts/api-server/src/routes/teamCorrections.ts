@@ -18,6 +18,7 @@ import {
   supersedeStatement,
 } from "../lib/teamCorrections";
 import { placeCats } from "../lib/colonyCats";
+import { isResolvedDeceased } from "../lib/catHelpers";
 import { listLikelyForReview } from "../lib/likelyReview";
 import { listColourCheck } from "../lib/colourCheck";
 import { syrNumber, teamCatView, type TeamCatView } from "../lib/teamCatView";
@@ -503,6 +504,17 @@ router.post(
       const state = await catOwnerState(catId);
       if (!state) return notFound(req, res);
       if (!state.hasOwner) return void res.redirect(303, catPage(catId, "ownerGone"));
+      // "Still no longer with us" only fits a cat recorded as died: say so
+      // before the "Are you sure?" page, not after Yes (checked again under
+      // the lock in removeOwnerAndSay).
+      if (status === "keep" && !(await isResolvedDeceased(catId))) {
+        return formProblem(req, res, 400, {
+          fields: ["status"],
+          message: "This cat isn't recorded as no longer with us. Choose what the cat is now.",
+          back,
+          backLabel: "Back to the cat",
+        });
+      }
       return void res.status(200).type("html").send(
         renderConfirmPage({
           title: `Remove ${state.name}'s owner?`,

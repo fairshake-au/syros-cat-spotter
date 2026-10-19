@@ -700,6 +700,15 @@ describe("the tidied forms (spec §7)", () => {
     expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
     expect(await lifeRows(c.id)).toEqual(before);
   });
+
+  it("'keep' on a live cat is refused before the Are you sure? page, not after Yes", async () => {
+    const { c, d } = await ownedCat("keepask");
+    const res = await form(`/api/team/cats/${c.id}/remove-owner`).send({ reason: "x", status: "keep" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("recorded as no longer with us. Choose what the cat is now");
+    expect(res.text).not.toContain("stays recorded as");
+    expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
+  });
 });
 
 describe("review probes (SYC-513 adversarial)", () => {

@@ -424,8 +424,10 @@ export async function recordDeath(
       if (statement) {
         return { outcome: "newerStatus" as const, statement, ownerClaim: isOwnerHomed(statement) };
       }
-      // Never expected: the resolver refused the death for a reason this
-      // doesn't know. Refuse rather than write a death that won't show.
+      // Unreachable by construction (the trial loses only to a later sighting,
+      // a newer standing row, or a death already standing, caught above as
+      // "already"). Kept so a future resolver rule refuses rather than writes
+      // a death that won't show.
       throw new ObservationRefused("MALFORMED_VALUE", "The death would not take effect");
     }
 
