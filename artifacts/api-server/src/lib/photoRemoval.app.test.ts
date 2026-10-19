@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
-import { db, photoVisibilityEventsTable, pool } from "@workspace/db";
+import { db, photosTable, photoVariantsTable, photoVisibilityEventsTable, pool } from "@workspace/db";
+import sharp from "sharp";
+import { __variantHooks, variantFor } from "./photoVariants";
 import { eq } from "drizzle-orm";
 import { TEAM_ORIGIN } from "./teamAuth/config";
 import app from "../app";
@@ -117,5 +119,46 @@ describe("T10: restoring a removed photo is refused (spec §6 item 2)", () => {
     const r = await post(`/api/team/photos/${cat.photoPublicId}/hide`, staff.cookie).send({});
     expect(r.status).toBe(409);
     expect(await countEvents(cat.photoId)).toBe(before);
+  });
+});
+
+const countVariants = async (photoId: number) =>
+  (await db.select().from(photoVariantsTable).where(eq(photoVariantsTable.photoId, photoId))).length;
+
+/** A cat whose main photo is a real JPEG, so a version can actually be made. */
+async function realJpegCat() {
+  const cat = await seedCat(null);
+  const jpeg = await sharp({ create: { width: 900, height: 600, channels: 3, background: "#284" } })
+    .jpeg()
+    .toBuffer();
+  await db.update(photosTable).set({ data: jpeg.toString("base64") }).where(eq(photosTable.id, cat.photoId));
+  return cat;
+}
+
+describe("T15: no version is made from a removed photo (spec §4.3)", () => {
+  it("returns null and saves nothing", async () => {
+    const cat = await realJpegCat();
+    await markRemoved(cat.photoId, staff.id);
+    expect(await variantFor(cat.photoId, "small")).toBeNull();
+    expect(await countVariants(cat.photoId)).toBe(0);
+  });
+
+  it("a removal that lands between the read and the save wins: nothing is saved", async () => {
+    const cat = await realJpegCat();
+    __variantHooks.afterRead = async () => {
+      await markRemoved(cat.photoId, staff.id);
+    };
+    try {
+      expect(await variantFor(cat.photoId, "small")).toBeNull();
+    } finally {
+      __variantHooks.afterRead = undefined;
+    }
+    expect(await countVariants(cat.photoId)).toBe(0);
+  });
+
+  it("an ordinary photo still gets its version, saved once", async () => {
+    const cat = await realJpegCat();
+    expect(await variantFor(cat.photoId, "small")).not.toBeNull();
+    expect(await countVariants(cat.photoId)).toBe(1);
   });
 });
