@@ -71,6 +71,8 @@ describe("after a change on another server", () => {
   });
 
   it("a reload that fails keeps the last good list", async () => {
+    // Settle first: the last test's stale call started a reload of its own.
+    await other.loadAreas();
     const before = other.currentAreas();
     expect(before.length).toBeGreaterThan(0);
     await otherDb.pool.end();
