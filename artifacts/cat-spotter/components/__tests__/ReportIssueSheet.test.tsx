@@ -54,6 +54,7 @@ vi.mock('@/context/IssueQueueContext', () => ({ useIssueQueue: () => h.queue }))
 import { ReportIssueSheet } from '../report/ReportIssueSheet';
 import { TRANSLATIONS } from '@/lib/i18n';
 import { newPendingIssue } from '@/lib/issueQueue';
+import { takeReportHandoff } from '@/lib/reportHandoff';
 
 const en = TRANSLATIONS.en;
 const onClose = vi.fn();
@@ -120,6 +121,13 @@ describe('T6-4: the reasons and the first line', () => {
     fireEvent.click(first);
     expect(onClose).toHaveBeenCalled();
     expect(h.push).toHaveBeenCalledWith('/report');
+  });
+
+  it('SYC-504: "needs help" hands over the sheet\'s cat, with no photo', () => {
+    takeReportHandoff();
+    catSheet();
+    fireEvent.click(screen.getByTestId('issue-hurt-first'));
+    expect(takeReportHandoff()).toEqual({ cat: { id: 7, name: 'Agatha', photoUrl: null } });
   });
 
   it('opened with wrong_info chosen, it skips the list and the box asks "What do you know?"', () => {
