@@ -10,14 +10,38 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { photoSource } from '@/lib/urls';
 import colorsConst from '@/constants/colors';
+import { SpottedStamp } from './SpottedStamp';
 
-export function CatCard({ cat }: { cat: Cat }) {
+export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
   const colors = useColors();
   const { t } = useLanguage();
   const router = useRouter();
 
+  const distanceText =
+    typeof cat.distanceKm === 'number'
+      ? cat.distanceKm < 1
+        ? `${Math.round(cat.distanceKm * 1000)} m`
+        : `${cat.distanceKm.toFixed(1)} ${t('kmAway')}`
+      : null;
+  const discovererText = `${t('discoveredBy')} ${
+    cat.discovererUsername ??
+    cat.discovererNickname ??
+    (cat.discovererSpotterCode ? `${t('spotter')} ${cat.discovererSpotterCode}` : t('aSpotter'))
+  }`;
+  // Unknown is not zero: only say spotted / not spotted when we know.
+  const lead =
+    typeof spotted === 'boolean'
+      ? t(spotted ? 'catCardA11ySpotted' : 'catCardA11yNotSpotted').replace('{name}', cat.name)
+      : cat.name;
+  // Join with a full stop, unless a part already ends its sentence ("Nefeli. Not spotted yet.").
+  const a11yLabel = [lead, distanceText, discovererText]
+    .filter((part): part is string => Boolean(part))
+    .reduce((acc, part) => (/[.!?;]$/.test(acc) ? `${acc} ${part}` : `${acc}. ${part}`));
+
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
       onPress={() => {
         if (Platform.OS !== 'web') Haptics.selectionAsync();
         router.push({ pathname: '/cat/[id]', params: { id: String(cat.id) } });
@@ -43,6 +67,7 @@ export function CatCard({ cat }: { cat: Cat }) {
             <Feather name="home" size={12} color={colors.primaryForeground} />
           </View>
         )}
+        {spotted === true && <SpottedStamp />}
       </View>
       <View style={styles.info}>
         <Text
@@ -56,7 +81,7 @@ export function CatCard({ cat }: { cat: Cat }) {
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>
             {cat.sightingsCount}
           </Text>
-          {typeof cat.distanceKm === 'number' && (
+          {distanceText !== null && (
             <>
               <Feather
                 name="map-pin"
@@ -65,9 +90,7 @@ export function CatCard({ cat }: { cat: Cat }) {
                 style={{ marginLeft: 8 }}
               />
               <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-                {cat.distanceKm < 1
-                  ? `${Math.round(cat.distanceKm * 1000)} m`
-                  : `${cat.distanceKm.toFixed(1)} ${t('kmAway')}`}
+                {distanceText}
               </Text>
             </>
           )}
@@ -79,12 +102,7 @@ export function CatCard({ cat }: { cat: Cat }) {
               style={[styles.meta, { color: colors.mutedForeground }]}
               numberOfLines={1}
             >
-              {t('discoveredBy')}{' '}
-              {cat.discovererUsername ??
-                cat.discovererNickname ??
-                (cat.discovererSpotterCode
-                  ? `${t('spotter')} ${cat.discovererSpotterCode}`
-                  : t('aSpotter'))}
+              {discovererText}
             </Text>
           </View>
         )}
