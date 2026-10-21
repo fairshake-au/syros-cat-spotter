@@ -244,6 +244,9 @@ const TABLE: Record<string, Row> = {
   // SYC-209 PR 4.3: "Recent changes by cat guardians" on its own. Team-only.
   "GET /api/team/guardian-changes": { why: "view_guardian_changes: island-only, so every cat guardian gets the 403" },
   // SYC-396 PR 2.4: the Areas page and its one form route. Team-only.
+  "GET /api/team/insights": { why: "the Reports list (SYC-396 PR 3.3a): view_reports with no target, so island rows only; every cat guardian gets the 403 until SYC-472" },
+  "GET /api/team/insights/:report": { why: "one report: view_reports with no target, island rows only; the walk's :report is no report, so the team gets a 404" },
+  "GET /api/team/insights/:report.csv": { why: "a report's spreadsheet: export_report, island-only; the walk's :report is no report, so the team gets a 404 and nothing is recorded" },
   "GET /api/team/areas": { why: "edit_named_areas: island-only, so every cat guardian gets the 403" },
   "POST /api/team/areas": { why: "edit_named_areas: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony on the colony it goes into, or for a take-out the one it leaves, from the record (PR 4.2); an unreadable form has no colony" },
