@@ -42,3 +42,14 @@ Checkpoint notes, newest last. Each agent appends after every commit.
   - (b) "Be the first to chip in!" rendered in the state B card -> FAIL HelpInfoScreen '"Be the first to chip in!" never shows in state B or C' (expected <div> to be null)
   - (c) givingState returns 'campaign' while pending -> FAIL helpGiving.test "loading is never A: B with a saved host, C without (no spinner state)" + 6 HelpInfoScreen tests
 - Full run found 2 failures in starterFacts.test.ts that the plan missed: it pins feedNudgeInsteadNoLink to docs/specs/feeding-nudge.md (updated that row, 3 languages), and helpGiveBody EL/FR need a non-breaking space before € (project rule), fixed. Full app suite 151 files / 1987 tests pass; typecheck clean.
+
+## Step 2 review (session, Opus, 21 Oct)
+- Re-ran myself: the full app suite gave 1987/1987 twice. One earlier run had a single failure I didn't catch the name of; it didn't come back in two runs, so I'm treating it as a timing flake. Typecheck exit 0.
+- Review fix: dropped unused `campaignEyebrow` (1d298c2c).
+- Hand checks in the browser pane (Expo web on :8117, no API, so giving state C by default):
+  - EN light at 390x844: the order is urgent card, vets, folds, contact, privacy. The "Help & info" tab label fits.
+  - State B planted through the saved app settings: the "Support Syros Cats" card with "Give on syroscats.com" sits last.
+  - EL dark at 390x844: reads well, and the tab label stays "Βοήθεια".
+  - FR light at desktop width: the "Aide" tab, and the Spotting cats fold opens with the four steps.
+- Not as the spec says: the full VetList renders its own MunicipalityCard (VetList.tsx:200), so "For long-term care: Municipality" shows under the vets. Spec §3.2 said not repeated. Kept, because it's useful and comes from the shared component. To be noted in the PR.
+- Next: step 3 (report knows the cat).
