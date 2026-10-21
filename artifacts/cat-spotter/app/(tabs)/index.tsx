@@ -160,7 +160,7 @@ export default function HomeScreen() {
                 {t('homeFirstSpotLine').replace('{n}', String(totalCats))}
               </Text>
               <Button
-                variant="primary"
+                variant="accent"
                 size="lg"
                 block
                 wrapLabel

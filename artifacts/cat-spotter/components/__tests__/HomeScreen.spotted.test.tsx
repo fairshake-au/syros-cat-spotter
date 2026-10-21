@@ -21,7 +21,10 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 vi.mock('@/hooks/useColors', () => ({
-  useColors: () => new Proxy({}, { get: () => '#123456' }),
+  useColors: () =>
+    new Proxy({}, {
+      get: (_t, key) => (key === 'accent' ? '#ff00aa' : key === 'primary' ? '#0000ff' : '#123456'),
+    }),
 }));
 vi.mock('expo-router', () => ({ useRouter: () => ({ push: h.push }) }));
 vi.mock('@/context/LanguageContext', () => ({
@@ -89,6 +92,14 @@ describe('Home hero and strip (SYC-505)', () => {
     fireEvent.click(screen.getByText('homeFirstSpotCta'));
     expect(h.push).toHaveBeenCalledWith('/spot');
     noLocks();
+  });
+
+  it('the first-spot button is the pink accent, not primary blue on the blue hero', () => {
+    h.profile = { catsSpotted: 0, spottedCatIds: [], totalCats: 18 };
+    render(<HomeScreen />);
+    const button = screen.getByText('homeFirstSpotCta').closest('[role="button"]') as HTMLElement;
+    expect(button).not.toBeNull();
+    expect(button.style.backgroundColor).toBe('rgb(255, 0, 170)');
   });
 
   it('after a sighting: shows progress and stamps spotted cards', () => {
