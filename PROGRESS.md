@@ -3,3 +3,4 @@
 - 2026-10-21T22:15:36Z Task 3.1.1 vetVisits.ts done, 13/13; probes red→restored: D8 skip (answer stays false), undo-visit-only (vaccination stays)
 - 2026-10-21T22:18:49Z Home vet spend (home.test, team.home.test, walk: 65/65)
 - 2026-10-21T22:27:02Z Task 3.1.3 form/routes/cat page/D7/guardian line/walk; team.vetVisit 12/12, walk + guardianCats green
+- 2026-10-21T22:29:58Z probes red→restored: costs:true without view_vet_costs (€ shows), guardian view spread (JSON check); affected set 57 files 1421 tests, 13 fixed
