@@ -24,6 +24,10 @@ import {
 const STORAGE_KEY = 'cat-spotter/device-id';
 const SECRET_KEY = 'cat-spotter/device-secret';
 const USERNAME_KEY = 'cat-spotter/username';
+// SYC-506: a name chosen offline, kept on the phone until the server saves it.
+const HELD_USERNAME_KEY = 'cat-spotter/held-username';
+// SYC-506: "Someone already had X, so you're Y", shown in Me until dismissed.
+const NAME_NOTE_KEY = 'cat-spotter/name-note';
 const OWNED_CATS_KEY = 'cat-spotter/owned-cat-ids';
 // Written by OwnershipNoticeBanner: which of "your" cats had a home, last seen.
 const OWNERSHIP_SNAPSHOT_KEY = 'cat-spotter/ownership-snapshot';
@@ -46,9 +50,32 @@ export const IDENTITY_KEYS = [
   STORAGE_KEY,
   SECRET_KEY,
   USERNAME_KEY,
+  HELD_USERNAME_KEY,
+  NAME_NOTE_KEY,
   OWNED_CATS_KEY,
   OWNERSHIP_SNAPSHOT_KEY,
 ] as const;
+
+/** SYC-506: why the background save gave the spotter a different name. */
+export type NameNote = { from: string; to: string; reason: 'taken' | 'refused' };
+
+function parseNameNote(raw: string | null): NameNote | null {
+  if (!raw) return null;
+  try {
+    const note = JSON.parse(raw);
+    if (
+      note &&
+      typeof note.from === 'string' &&
+      typeof note.to === 'string' &&
+      (note.reason === 'taken' || note.reason === 'refused')
+    ) {
+      return { from: note.from, to: note.to, reason: note.reason };
+    }
+  } catch {
+    // ignore corrupt storage
+  }
+  return null;
+}
 
 const BASE64URL_CHARS =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
@@ -152,8 +179,22 @@ async function makeDeviceSecret(): Promise<string> {
 
 interface DeviceContextValue {
   deviceId: string | null;
-  /** Chosen unique username; null = not chosen yet. */
+  /**
+   * The username the server has saved for this phone; null = none yet. Every
+   * reader that means "a real spotter" (restore, the offline queue, the
+   * keep-safe offer) reads this, never `heldUsername`.
+   */
   username: string | null;
+  /**
+   * SYC-506: a name picked offline and kept on the phone until the server
+   * saves it (then it becomes `username`). Set only while `username` is null.
+   */
+  heldUsername: string | null;
+  /** SYC-506: keep a name chosen offline; the background save claims it later. */
+  holdUsername: (name: string) => void;
+  /** SYC-506: the background save renamed the spotter; shown in Me. */
+  nameNote: NameNote | null;
+  setNameNote: (note: NameNote | null) => void;
   /** True once local storage has been read (deviceId & username resolved). */
   isReady: boolean;
   /**
@@ -207,6 +248,10 @@ interface DeviceContextValue {
 const DeviceContext = createContext<DeviceContextValue>({
   deviceId: null,
   username: null,
+  heldUsername: null,
+  holdUsername: () => {},
+  nameNote: null,
+  setNameNote: () => {},
   isReady: false,
   startupError: null,
   setUsername: () => {},
@@ -224,6 +269,8 @@ const DeviceContext = createContext<DeviceContextValue>({
 export function DeviceProvider({ children }: { children: React.ReactNode }) {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [username, setUsernameState] = useState<string | null>(null);
+  const [heldUsername, setHeldUsernameState] = useState<string | null>(null);
+  const [nameNote, setNameNoteState] = useState<NameNote | null>(null);
   const [ownedCatIds, setOwnedCatIds] = useState<number[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [startupError, setStartupError] = useState<Error | null>(null);
@@ -239,12 +286,14 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const [storedId, storedName, storedOwned, storedSecret] =
+        const [storedId, storedName, storedOwned, storedSecret, storedHeld, storedNote] =
           await Promise.all([
             AsyncStorage.getItem(STORAGE_KEY),
             AsyncStorage.getItem(USERNAME_KEY),
             AsyncStorage.getItem(OWNED_CATS_KEY),
             AsyncStorage.getItem(SECRET_KEY),
+            AsyncStorage.getItem(HELD_USERNAME_KEY),
+            AsyncStorage.getItem(NAME_NOTE_KEY),
           ]);
         let secret = storedSecret;
         if (!secret) {
@@ -270,6 +319,9 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
           setDeviceId(id);
         }
         if (storedName) setUsernameState(storedName);
+        // A saved name wins; a held one left behind is stale.
+        else if (storedHeld) setHeldUsernameState(storedHeld);
+        setNameNoteState(parseNameNote(storedNote));
         setKeepSafeOfferState(await readKeepSafeOffer());
         if (!cancelled) setIsReady(true);
       } catch (error) {
@@ -298,7 +350,20 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
 
   const setUsername = useCallback((name: string) => {
     setUsernameState(name);
+    setHeldUsernameState(null);
     AsyncStorage.setItem(USERNAME_KEY, name);
+    AsyncStorage.removeItem(HELD_USERNAME_KEY);
+  }, []);
+
+  const holdUsername = useCallback((name: string) => {
+    setHeldUsernameState(name);
+    AsyncStorage.setItem(HELD_USERNAME_KEY, name);
+  }, []);
+
+  const setNameNote = useCallback((note: NameNote | null) => {
+    setNameNoteState(note);
+    if (note) AsyncStorage.setItem(NAME_NOTE_KEY, JSON.stringify(note));
+    else AsyncStorage.removeItem(NAME_NOTE_KEY);
   }, []);
 
   // Hydrate the owned-cat list from the server so edit rights survive
@@ -360,13 +425,21 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
 
   const startAgain = useCallback(async () => {
     const [id, secret] = [await makeDeviceId(), await makeDeviceSecret()];
-    await AsyncStorage.multiRemove([USERNAME_KEY, OWNED_CATS_KEY, KEEP_SAFE_OFFER_KEY]);
+    await AsyncStorage.multiRemove([
+      USERNAME_KEY,
+      HELD_USERNAME_KEY,
+      NAME_NOTE_KEY,
+      OWNED_CATS_KEY,
+      KEEP_SAFE_OFFER_KEY,
+    ]);
     await AsyncStorage.setItem(SECRET_KEY, secret);
     await AsyncStorage.setItem(STORAGE_KEY, id);
     setDeviceSecretGetter(() => secret);
     setOwnedCatIds([]);
     setKeepSafeOfferState(null);
     setUsernameState(null);
+    setHeldUsernameState(null);
+    setNameNoteState(null);
     setDeviceId(id);
     setMoved(false);
   }, []);
@@ -375,6 +448,8 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(STORAGE_KEY, restoredId);
     if (restoredName) await AsyncStorage.setItem(USERNAME_KEY, restoredName);
     else await AsyncStorage.removeItem(USERNAME_KEY);
+    // SYC-506: a name held offline was never saved; the restored one replaces it.
+    await AsyncStorage.multiRemove([HELD_USERNAME_KEY, NAME_NOTE_KEY]);
     // The server's list of owned cats replaces this phone's (hydrated below).
     await AsyncStorage.removeItem(OWNED_CATS_KEY);
     // The restored spotter is already kept safe.
@@ -383,6 +458,8 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     setKeepSafeOfferState('done');
     setDeviceId(restoredId);
     setUsernameState(restoredName);
+    setHeldUsernameState(null);
+    setNameNoteState(null);
     setMoved(false);
   }, []);
 
@@ -398,6 +475,8 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     // The new secret is in place before anything can send the new id.
     setDeviceSecretGetter(() => secret);
     setUsernameState(null);
+    setHeldUsernameState(null);
+    setNameNoteState(null);
     setOwnedCatIds([]);
     // SYC-3: deletion removed the keep-safe address too, so the new spotter
     // is offered "keep my spots safe" again, as after "start again".
@@ -410,6 +489,10 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     () => ({
       deviceId,
       username,
+      heldUsername,
+      holdUsername,
+      nameNote,
+      setNameNote,
       isReady,
       startupError,
       setUsername,
@@ -431,6 +514,10 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       setKeepSafeOffer,
       deviceId,
       username,
+      heldUsername,
+      holdUsername,
+      nameNote,
+      setNameNote,
       isReady,
       startupError,
       setUsername,
