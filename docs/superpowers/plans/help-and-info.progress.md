@@ -11,3 +11,7 @@ Checkpoint notes, newest last. Each agent appends after every commit.
   - set catId in submit insert -> FAIL "a known catId sets reporter_cat_id and leaves cat_id null" (expected 1 to be null)
   - set catId in draft insert -> FAIL "a draft names the cat but never sets cat_id" (expected 7 to be null) plus two more
 - 1.3 done: /api/go/give (shared handler, count:false), gate exact path, new LINK_OFF_PAGE bodies (go.ts:35 comment fixed here too); go.test.ts + prelaunchGate.test.ts 63/63. Next: probes for 1.3, then 1.4.
+- 1.3 probes (restored with git checkout; go.test.ts + prelaunchGate.test.ts back to 63/63):
+  - remove /api/go/give from gate list -> FAIL prelaunchGate "10c ... GET and HEAD /api/go/give pass with no pass" (refused: true)
+  - gate `startsWith("/api/go/give")` -> FAIL "10c ... anything next to it is still refused" (url /api/go/give/ got 302, wanted 401; the loop stops at the first miss, so /givex is not reached in that run)
+  - `/go/give` counts (count:true) -> FAIL go.test.ts "GET /api/go/give > forwards ... writes nothing to donation_link_taps" (length 1), plus two more
