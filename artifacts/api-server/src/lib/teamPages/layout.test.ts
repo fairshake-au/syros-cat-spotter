@@ -77,6 +77,27 @@ describe("the team's menu (spec §3.1)", () => {
     expect(bar(html).inner.match(/aria-current/g)).toHaveLength(1);
   });
 
+  it("ends with Workspace, on the sign-in site, for people who may use the workspace", () => {
+    const l = links(page({ island: true, showPeople: true, mine: true, workspace: true }));
+    expect(l.slice(-3)).toEqual([
+      ["People", "/api/team/people"],
+      ["My page", "/api/team/my"],
+      ["Workspace", "https://admin.catspotters.com/workspace"],
+    ]);
+  });
+
+  it("has no Workspace link for anyone else, or on a refusal page or a cat guardian's menu", () => {
+    for (const over of [
+      { island: true, mine: true },
+      { island: true, mine: true, workspace: false },
+      { island: true, mine: true, workspace: true, nav: false },
+      { island: false, mine: true, workspace: true },
+      { mine: true, workspace: true, nav: "guardian" },
+    ] as const) {
+      expect(page(over)).not.toContain("/workspace");
+    }
+  });
+
   it("is a labelled menu (SYC-366)", () => {
     expect(page()).toContain('<nav class="bar" aria-label="Dashboard">');
   });
