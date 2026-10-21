@@ -1,6 +1,6 @@
 # Show every cat, stamp the ones you've spotted
 
-**Status:** All decisions made by Samuel (D1 on 19 Oct, D2–D7 on 21 Oct 2026, §4). Waiting for his approval of the spec as a whole. Two adversarial reviews done and folded in (§10, §11).
+**Status:** Approved by Samuel, 21 Oct 2026 ("Approve (Recommended)"). All decisions are his (D1 on 19 Oct, D2–D7 on 21 Oct, §4). Next: the implementation plan. Two adversarial reviews done and folded in (§10, §11).
 **Owner:** Samuel
 **Covers:** SYC-505. The direction was decided by Samuel on 19 Oct 2026 ("agree w SYC-505"): show cat photos everywhere and mark the cats a spotter has spotted, instead of padlocking the rest.
 **Related:** `docs/SPEC.md` §5.1 Home and §5.2 Cat-alog (both change, §9) · SYC-501 (the UX review this came from) · SYC-509 (accessibility pass; this spec fixes the cat card's label only) · SYC-502 (the first sighting's success screen) · SYC-6 (desktop layout, untouched here).
