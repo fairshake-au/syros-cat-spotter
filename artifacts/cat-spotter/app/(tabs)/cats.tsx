@@ -381,6 +381,8 @@ const styles = StyleSheet.create({
     left: spacing[4],
     right: spacing[4],
     zIndex: 1,
+    // Android draws the native map above zIndex alone.
+    elevation: 4,
     alignItems: 'center',
     gap: spacing[2],
     padding: spacing[4],

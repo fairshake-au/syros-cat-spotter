@@ -183,7 +183,16 @@ describe('Cat-alogue stamps and Not spotted yet filter (SYC-505)', () => {
     fireEvent.click(screen.getByText('filterNotSpotted'));
     fireEvent.click(screen.getByLabelText('viewMap'));
     expect(screen.getByTestId('map')).toBeTruthy();
-    expect(screen.getByText('filterNotSpottedAllDone')).toBeTruthy();
+    const message = screen.getByText('filterNotSpottedAllDone');
+    expect(message).toBeTruthy();
+    // The overlay must not swallow map touches.
+    let node: HTMLElement | null = message;
+    let none = false;
+    while (node && !none) {
+      none = getComputedStyle(node).pointerEvents === 'none' || node.style.pointerEvents === 'none';
+      node = node.parentElement;
+    }
+    expect(none).toBe(true);
   });
 
   it('offline with profile data: chip and stamps still show', () => {
