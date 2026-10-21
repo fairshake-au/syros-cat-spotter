@@ -115,6 +115,7 @@ const BOTH: VetVisitValue = {
   costEur: 75,
   paidBy: "donation",
   note: "Calm in the carrier",
+  costReason: "Pregnant, longer surgery",
 };
 
 async function refusal(p: Promise<unknown>): Promise<ObservationRefused> {
@@ -267,10 +268,11 @@ describe("visitsFor", () => {
     expect(hidden).toBeDefined();
     expect("costEur" in hidden!).toBe(false);
     expect("paidBy" in hidden!).toBe(false);
+    expect("costReason" in hidden!).toBe(false);
     expect(hidden).toMatchObject({ did: ["sterilised", "vaccinated"], note: "Calm in the carrier" });
 
     const [shown] = await visitsFor(catId, { costs: true });
-    expect(shown).toMatchObject({ costEur: 75, paidBy: "donation" });
+    expect(shown).toMatchObject({ costEur: 75, paidBy: "donation", costReason: "Pregnant, longer surgery" });
   });
 
   it("lists visits newest first", async () => {
