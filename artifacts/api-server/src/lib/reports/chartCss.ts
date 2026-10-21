@@ -24,7 +24,7 @@ export const CHART_CSS =
   "table.rtable .num{text-align:right;font-variant-numeric:tabular-nums}" +
   // On a phone a table never scrolls sideways (§12.1): each row becomes a
   // small card of label and value, and the header's sort links wrap above.
-  "@media (max-width:599px){table.rtable,table.rtable thead,table.rtable tbody{display:block}" +
+  "@media (max-width:599px){table.rtable,table.rtable thead,table.rtable tbody,table.rtable caption{display:block}" +
   "table.rtable thead tr{display:flex;flex-wrap:wrap;gap:0 14px}" +
   "table.rtable th{border:0;padding:0;min-height:44px;display:flex;align-items:center}" +
   "table.rtable tbody tr{display:block;border-bottom:1px solid #d9d5ca;padding:6px 8px}" +
@@ -36,6 +36,7 @@ export const CHART_CSS =
   ".sbname{font-weight:700}" +
   // The Reports list, the time range and the method lines.
   "ul.reportlist{list-style:none;margin:12px 0;padding:0;display:grid;gap:10px}" +
+  "ul.reportlist>li{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 14px}" +
   "ul.reportlist>li h2{margin:0 0 4px;font-size:18px}" +
   "ul.reportlist>li p{margin:4px 0}" +
   "nav.rangebar{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}" +
