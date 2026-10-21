@@ -4,6 +4,9 @@ import type { SterilisedMark } from "../teamCatList";
 import { escapeHtml as esc } from "../teamPages/escape";
 import { MARK_COLOUR, markBar } from "../teamPages/marks";
 import { dayWords } from "./range";
+import { INK, VIEW_W } from "./chartCss";
+
+export { CHART_CSS, VIEW_W } from "./chartCss";
 
 // The reports' charts (SYC-396 PR 3.3a; plan Decision 12, spec §12.3): SVG
 // pictures drawn by the server, with no chart script. Every function returns
@@ -23,35 +26,14 @@ import { dayWords } from "./range";
 //   VIEW_W px (CHART_CSS), and on a 390px phone it is CHART_MIN_PX wide, so a
 //   font of FONT units is never under 12px.
 
-/** The width every chart is drawn at, in viewBox units. */
-export const VIEW_W = 560;
 /** A chart's width on a 390px phone: 390, less main's 12px padding and the card's 13px, each side. */
 export const CHART_MIN_PX = 340;
 /** The one text size, in viewBox units: 12px at CHART_MIN_PX. */
 export const FONT = Math.ceil((12 * VIEW_W) / CHART_MIN_PX);
 
-const INK = "#1d1d1b";
 /** A total that isn't a status (§12.2): neutral ink at 55%. */
 const NEUTRAL_OPACITY = 0.55;
 const GRID = "rgba(29,29,27,.14)";
-
-/** Styles for the charts; included in the page shell's stylesheet. */
-export const CHART_CSS =
-  ".chart{display:block;width:100%;max-width:" + VIEW_W + "px;height:auto;margin:8px 0}" +
-  ".chartbox{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px 13px;margin:12px 0}" +
-  ".chartlegend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0 0;padding:0;list-style:none;font-size:14px}" +
-  ".chartlegend li{display:inline-flex;align-items:center;gap:6px}" +
-  ".swatch{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid " + INK + "}" +
-  "details.astable{margin:6px 0 12px}" +
-  "details.astable>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}" +
-  ".tablewrap{overflow-x:auto}" +
-  "table.rtable{border-collapse:collapse;width:100%;font-size:14px;background:#fff}" +
-  "table.rtable caption{text-align:left;font-weight:700;padding:4px 0}" +
-  "table.rtable th,table.rtable td{border-bottom:1px solid #d9d5ca;padding:6px 8px;text-align:left;vertical-align:top}" +
-  "table.rtable .num{text-align:right;font-variant-numeric:tabular-nums}" +
-  "ol.sbars{list-style:none;margin:8px 0;padding:0}" +
-  "ol.sbars>li{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px 12px;margin:0 0 8px}" +
-  ".sbname{font-weight:700}";
 
 /** Round a number to 0.1 of a unit: enough for a picture, and no long decimals in the page. */
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -257,26 +239,33 @@ export interface TableColumn {
   numeric?: true;
 }
 
-/**
- * A chart's exact numbers, or a report's whole table, folded inside "Show as
- * table" (§9.3). Every cell is escaped.
- */
-export function tableFor(o: {
+/** One table's rows, as a table report or a chart's table shows them. */
+export interface TableSpec {
   caption: string;
   columns: readonly TableColumn[];
   rows: readonly Record<string, string | number>[];
-  /** Trusted HTML for each header cell, e.g. a sort link (built from fixed text and escapeHtml). */
+  /** Trusted HTML for a header cell, e.g. a sort link (built from fixed text and escapeHtml). */
   headers?: Record<string, string>;
-  /** Show it open, not folded (a report that is only a table). */
-  open?: true;
-}): string {
+  /** aria-sort for the column the rows are sorted by. */
+  sorted?: { key: string; dir: "asc" | "desc" };
+}
+
+/** A table on its own (a report that is only a table). Every cell is escaped. */
+export function tableHtml(o: TableSpec): string {
   const cls = (c: TableColumn) => (c.numeric ? ' class="num"' : "");
-  const head = o.columns.map((c) => `<th scope="col"${cls(c)}>${o.headers?.[c.key] ?? esc(c.label)}</th>`).join("");
+  const aria = (c: TableColumn) =>
+    o.sorted?.key === c.key ? ` aria-sort="${o.sorted.dir === "asc" ? "ascending" : "descending"}"` : "";
+  const head = o.columns.map((c) => `<th scope="col"${cls(c)}${aria(c)}>${o.headers?.[c.key] ?? esc(c.label)}</th>`).join("");
   const body = o.rows
     .map((r) => `<tr>${o.columns.map((c) => `<td${cls(c)}>${esc(String(r[c.key] ?? ""))}</td>`).join("")}</tr>`)
     .join("");
-  const table =
+  return (
     `<div class="tablewrap"><table class="rtable"><caption>${esc(o.caption)}</caption>` +
-    `<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
-  return `<details class="astable"${o.open ? " open" : ""}><summary>Show as table</summary>${table}</details>`;
+    `<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`
+  );
+}
+
+/** A chart's exact numbers, folded inside "Show as table" (§9.3). Every cell is escaped. */
+export function tableFor(o: TableSpec): string {
+  return `<details class="astable"><summary>Show as table</summary>${tableHtml(o)}</details>`;
 }
