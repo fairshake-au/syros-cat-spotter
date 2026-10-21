@@ -265,6 +265,9 @@ input[type=date]{max-width:220px}
 .fixes summary,.statement summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .fixes details[open]{padding-bottom:12px}
 .fixes form,.statement form{margin:4px 0 0}
+.fixes form.diedform{margin:20px 0 4px}
+.fixes form.diedform button{width:100%}
+.photo.catmain.diedphoto{max-height:140px}
 fieldset{border:0;margin:0 0 8px;padding:0}
 legend{padding:0}
 .choice{display:flex;align-items:center;gap:10px;min-height:44px;font-size:16px}
@@ -321,6 +324,9 @@ button.risky:hover{background:#fbeaea}
 /* "Are you sure?" (SYC-362): what will happen, then Yes or Cancel. */
 ul.sure{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #8c1d18;border-radius:8px;margin:12px 0 16px;padding:12px 12px 12px 32px}
 ul.sure li{margin:4px 0}
+ul.happens{background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:12px 0 16px;padding:12px 12px 12px 32px}
+ul.happens li{margin:4px 0}
+button.primary.wide{width:100%}
 form.sureform{margin:0 0 4px}
 form.sureform button{font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:10px 18px;border-radius:8px;cursor:pointer}
 /* A link that opens another page of actions looks like the action cards. */
