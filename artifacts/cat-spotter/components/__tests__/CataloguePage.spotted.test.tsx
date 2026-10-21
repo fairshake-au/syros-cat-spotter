@@ -89,6 +89,9 @@ const cardIds = () =>
     .queryAllByTestId(/^card-/)
     .map((el) => el.getAttribute('data-testid')!.replace('card-', ''));
 
+const selected = (label: string) =>
+  screen.getByText(label).closest('[role="button"]')?.getAttribute('aria-selected') === 'true';
+
 const noLocks = () => {
   expect(screen.queryByText('homeSpotToUnlock')).toBeNull();
   expect(document.body.textContent).not.toContain('🔒');
@@ -145,9 +148,11 @@ describe('Cat-alogue stamps and Not spotted yet filter (SYC-505)', () => {
     h.profile = undefined;
     rerender(<CatalogScreen />);
     expect(cardIds()).toEqual(['1', '2', '3', '4']);
+    expect(selected('filterAll')).toBe(true);
     h.profile = { spottedCatIds: [1, 2] };
     rerender(<CatalogScreen />);
     expect(cardIds()).toEqual(['3', '4']);
+    expect(selected('filterNotSpotted')).toBe(true);
   });
 
   it('all spotted (extra unknown id 99): kind message in the list', () => {
