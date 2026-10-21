@@ -11,8 +11,10 @@ import type { CoatColour, CoatPattern, LegacyPublicCode, Mark } from "./appearan
 import { hiddenPhotoIds } from "./photoVisibility";
 import { loadCatRecords } from "./observations";
 import {
+  athensDay,
   resolveLifeStatus,
   resolveSterilised,
+  standingRows,
   type Confidence,
   type LifeStatusValue,
 } from "./resolve";
@@ -77,6 +79,36 @@ export interface GuardianCat {
   /** The resolved pattern; null means not known. */
   coatPattern: CoatPattern | null;
   markings: Mark[];
+  /**
+   * Her cat's vet visits, newest first (dashboard §10.2; SYC-396 PR 3.1a):
+   * the day (Syros, YYYY-MM-DD) and what was done, **never** "vaccinated",
+   * the cost, who paid, the clinic or a note. Built from those two fields
+   * alone, so nothing else can ride along.
+   */
+  vetVisits: GuardianVetVisit[];
+}
+
+export interface GuardianVetVisit {
+  date: string;
+  did: ("sterilised" | "treated" | "checked")[];
+}
+
+const GUARDIAN_DID: ReadonlySet<string> = new Set(["sterilised", "treated", "checked"]);
+
+/** The visits a guardian may see of, from the cat's own rows (§10.2). */
+function guardianVisits(observations: Parameters<typeof standingRows>[0]): GuardianVetVisit[] {
+  return standingRows(observations, "vet_visit")
+    .filter((o) => !o.redactedAt)
+    .sort((a, b) => b.observedAt.getTime() - a.observedAt.getTime() || b.id - a.id)
+    .map((o) => {
+      const did = (o.value as { did?: unknown }).did;
+      return {
+        date: athensDay(o.observedAt),
+        did: (Array.isArray(did) ? did : []).filter((d): d is GuardianVetVisit["did"][number] =>
+          typeof d === "string" && GUARDIAN_DID.has(d),
+        ),
+      };
+    });
 }
 
 /**
@@ -199,6 +231,7 @@ export async function guardianCats(
       coatColours: status ? [...status.coatColours] : [],
       coatPattern: status?.coatPattern ?? null,
       markings: status ? [...status.markings] : [],
+      vetVisits: guardianVisits(observations),
     });
   }
   return out;
@@ -232,4 +265,5 @@ export const GUARDIAN_CAT_FIELDS = [
   "coatColours",
   "coatPattern",
   "markings",
+  "vetVisits",
 ] as const satisfies readonly (keyof GuardianCat)[];
