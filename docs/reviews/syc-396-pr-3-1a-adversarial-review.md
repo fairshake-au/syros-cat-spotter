@@ -29,3 +29,17 @@
 ## The builder's deviations, as the reviewer judged them
 
 1–4 are acceptable. The unconditional Decision 7 refusal is stricter than the plan, and safe. Deviation 5 (no costs means "paid by Syros Cats") is filed as SYC-542 point 3.
+
+## Second review at /ship (Sonnet, its own worktree, head d810aff4)
+
+The F1 fix held. Three visits and two guardians were undone in all six orders. A log and an undo were run at the same moment. 80 randomised histories were tried. In every one the cat read sterilised while any visit stood, and the "desexed" news fired once. Three small findings, each proven by a failing test, then fixed:
+
+| # | Severity | Finding | Done |
+|---|---|---|---|
+| 1 | Should-fix | After a visit was undone and the team then corrected her restored "no", the list showed the undone visit as still overruling her (`putBack: false`). A regression from the F1 change. | `putBack` now looks only at standing visits' hold on her statement. Test in `vetVisits.test.ts`. |
+| 2 | Should-fix | A JSON caller's numeric `costEur` was saved as "cost not recorded". | The form reader accepts a number. Test in `team.vetVisit.test.ts`. |
+| 3 | Nit | "Mark the visit wrong" on an undo row's id gave a confirm page, then a 500. | Now a 404. Test in `team.vetVisit.test.ts`. |
+
+**Unproven, for later:**
+- A visit logged twice gives her page two "looked again" lines. That belongs with SYC-542.
+- `vetSpend` reads every visit twice per Home request: once for this month, once for last. This is about speed, not correctness.
