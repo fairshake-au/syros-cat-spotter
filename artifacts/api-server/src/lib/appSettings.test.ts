@@ -18,6 +18,7 @@ describe("settingsFromRows", () => {
       hiddenFacts: [...SIGN_OFF_FACT_IDS],
       countTaps: true,
       extraPhotosOn: false,
+      sterilisationPriceEur: 60,
     });
   });
 
@@ -100,5 +101,35 @@ describe("the fact ids match the app's", () => {
     );
     const appIds = [...source.matchAll(/id:\s*'(fact\.[A-Za-z]+)'/g)].map((m) => m[1]);
     expect(appIds).toEqual([...STARTER_FACT_IDS]);
+  });
+});
+
+// SYC-396 PR 2.3 (Task 2.3.1): the standard sterilisation price.
+describe("the standard sterilisation price", () => {
+  it("is €60 until the team sets one", () => {
+    expect(settingsFromRows([]).sterilisationPriceEur).toBe(60);
+  });
+
+  it("reads a stored whole-euro price", () => {
+    const s = settingsFromRows([{ key: "standard_sterilisation_price_eur", value: 55 }]);
+    expect(s.sterilisationPriceEur).toBe(55);
+  });
+
+  it.each([[1], [500]])("accepts %j, the ends of the range", (value) => {
+    expect(settingShapeProblem("standard_sterilisation_price_eur", value)).toBeNull();
+  });
+
+  it.each([[0], [501], ["55"], [55.5], [-60], [null], [Number.NaN]])(
+    "refuses %j",
+    (value) => {
+      expect(settingShapeProblem("standard_sterilisation_price_eur", value)).toBe(
+        "must be a whole number of euros from 1 to 500",
+      );
+    },
+  );
+
+  it.each([[0], [501], ["55"], [55.5]])("a stored %j falls back to €60, never an error", (value) => {
+    const s = settingsFromRows([{ key: "standard_sterilisation_price_eur", value }]);
+    expect(s.sterilisationPriceEur).toBe(60);
   });
 });

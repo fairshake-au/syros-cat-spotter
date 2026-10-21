@@ -17,7 +17,7 @@ import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl, setPrelaunchKey } from '@workspace/api-client-react';
 import { AppearanceProvider } from '@/context/AppearanceContext';
-import { LanguageProvider } from '@/context/LanguageContext';
+import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { AppSettingsProvider } from '@/context/AppSettingsContext';
@@ -31,6 +31,7 @@ import {
 } from '@/context/DeleteMyDataContext';
 import { DeleteMyDataDone } from '@/components/DeleteMyDataDone';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
+import { HeldNameSaver } from '@/hooks/useHeldNameSaver';
 import { StartupErrorScreen } from '@/components/StartupErrorScreen';
 import { BannerStack } from '@/components/BannerStack';
 import { KeepSafeScreen } from '@/components/keepSafe/KeepSafeScreen';
@@ -86,7 +87,10 @@ function RootLayoutNav() {
  * (FirstBadgeOffer, SYC-502).
  */
 function OnboardingGate() {
-  const { isReady, username, startupError, moved, keepSafeOffer, setKeepSafeOffer } = useDevice();
+  const { isReady, username, heldUsername, startupError, moved, keepSafeOffer, setKeepSafeOffer } = useDevice();
+  // SYC-155: the first screen waits for the stored language, so a phone that
+  // chose Greek or French never flashes English first.
+  const { isLanguageReady } = useLanguage();
   const pathname = usePathname();
   // Whether this phone already had a spotter when the app opened: a spotter
   // from before this version sees "keep my spots safe" once as a one-time
@@ -99,15 +103,17 @@ function OnboardingGate() {
   // surfaces it here instead of leaving isReady false and this app stuck
   // on a blank screen forever.
   if (startupError) return <StartupErrorScreen />;
-  if (!isReady) return null;
+  if (!isReady || !isLanguageReady) return null;
   // SYC-63: "Done" comes before the new spotter's first-run step.
   if (doneVisible) return <DeleteMyDataDone />;
   // SYC-3: this phone's spotter moved to a new phone.
   if (moved) return <MovedScreen />;
   // SYC-3: a restore link works on a phone that hasn't finished onboarding.
   if (pathname === '/restore') return <RootLayoutNav />;
-  if (!username) return <OnboardingFlow />;
-  if (keepSafeOffer === null) {
+  // SYC-506: a name held on the phone (chosen offline) is past onboarding;
+  // HeldNameSaver saves it once there's a connection.
+  if (!username && !heldUsername) return <OnboardingFlow />;
+  if (keepSafeOffer === null && username) {
     const onboarding = startedWithName.current === false;
     return (
       <KeepSafeScreen
@@ -121,9 +127,11 @@ function OnboardingGate() {
   return (
     <>
       <OfflineTilesLoader />
+      {!username && <HeldNameSaver />}
       <RootLayoutNav />
       <BannerStack />
-      {keepSafeOffer === 'skipped-onboarding' ? <FirstBadgeOffer /> : null}
+      {/* SYC-506: only for a spotter whose name the server has saved. */}
+      {keepSafeOffer === 'skipped-onboarding' && username ? <FirstBadgeOffer /> : null}
     </>
   );
 }

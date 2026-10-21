@@ -22,7 +22,8 @@ export { SIGN_OFF_FACT_IDS, STARTER_FACT_IDS, settingShapeProblem };
  *  - no donation link (the nudge's words-only form, `feeding-nudge.md` §5.2);
  *  - the nine facts that need Syros Cats' yes hidden (plan small call 3);
  *  - taps counted;
- *  - the extra-photo boxes hidden (SYC-415 plan Decision P1).
+ *  - the extra-photo boxes hidden (SYC-415 plan Decision P1);
+ *  - a standard sterilisation price of €60 (SYC-396 PR 2.3; Syros Cats' €50–60).
  */
 
 export interface AppSettings {
@@ -35,9 +36,16 @@ export interface AppSettings {
   /** SYC-415: whether the app shows the extra-photo boxes. The upload takes
    * extra photos either way; this only hides the boxes. */
   extraPhotosOn: boolean;
+  /** SYC-396 PR 2.3: the standard sterilisation price, in whole euros, for the
+   * trapping planner's estimate and the vet-visit form. Team-only: never sent
+   * to the app. */
+  sterilisationPriceEur: number;
 }
 
 const KNOWN_FACTS = new Set<string>(STARTER_FACT_IDS);
+
+/** The standard price until the team sets one (SYC-396 plan Task 2.3.1). */
+export const DEFAULT_STERILISATION_PRICE_EUR = 60;
 
 /** Turn the stored rows into settings. Pure, so it is tested without a
  * database. */
@@ -74,7 +82,13 @@ export function settingsFromRows(
 
   const extraPhotosOn = read<boolean>("extra_photos_on", false, (v) => v as boolean);
 
-  return { donateUrl, hiddenFacts, countTaps, extraPhotosOn };
+  const sterilisationPriceEur = read<number>(
+    "standard_sterilisation_price_eur",
+    DEFAULT_STERILISATION_PRICE_EUR,
+    (v) => v as number,
+  );
+
+  return { donateUrl, hiddenFacts, countTaps, extraPhotosOn, sterilisationPriceEur };
 }
 
 /** One answer per server for this long. A change reaches every server within
