@@ -338,7 +338,7 @@ async function computeMatchCandidates(
     });
   } catch (err) {
     matcherFailed = true;
-    req.log.error({ err }, "AI matching failed; returning no candidates");
+    req.log.error({ err }, "AI matching failed; telling the phone the check failed");
   }
 
   await recordMatch(req, sightingId, {
