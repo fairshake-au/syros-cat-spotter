@@ -1,4 +1,0 @@
-- 2026-10-21T22:00Z 3.3a: started; read plan and spec; migration 0035 claimed in messages to live sessions. Next: Task 3.3a.1.
-- 2026-10-21T22:03Z Task 3.3a.1 done (range/charts/csv, 25 tests; probe: dropping '-' turned 'text starting with -' red, restored). Next: 3.3a.2.
-- 2026-10-21T22:13Z WIP: routes, pages, progress/health libs committed; next: route tests (reportsArea, reportPages), headers, health lib test, probes.
-- 2026-10-21T22:15Z Tasks 3.3a.2/3.3a.3 code + tests passing; probe: record-after-send turned the 503 test red, restored. Next: headers test rows, wider test run, palette check, screenshots, PR.
