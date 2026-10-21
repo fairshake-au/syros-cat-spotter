@@ -267,6 +267,8 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `view_colony_welfare_reports` | Read the cat-in-trouble (welfare) reports **tied to a cat that is in a colony she guards**: the report, its photo and its location. Never the reporter's contact details or device, never the team's notes, never a "Report an issue" report, never a report tied to no cat or to a cat outside her colonies. **Read only**: she cannot change a report's state or add a note (those stay with `change_report_state` and `add_team_note`, island-only). The target is the report's cat's colony, read from the record at each request (Q2, answered 12 October 2026) | Placed | All | All | Own |
 | `use_workspace` | See the workspace documents and the shared document password (§6.3) | Island-only | ✓ | ✓ | — |
 | `view_guardian_changes` | The "recent guardian changes" list on the team's **Colonies page** (SYC-209 §2.6): every cat a guardian added to or took out of a colony, every sterilisation, life-status and colour statement she made, and every colony she created, with who and when (§7.4, §6.9) | Island-only | ✓ | ✓ | — |
+| `view_vet_costs` | See vet costs, who paid, and estimates (team-dashboard-redesign.md §8.4) | Island-only | ✓ | ✓ | — |
+| `print_trapping_plan` | Print a colony's trapping plan (team-dashboard-redesign.md §9.2) | Island-only | ✓ | ✓ | — |
 
 **Saying what you saw or know**
 

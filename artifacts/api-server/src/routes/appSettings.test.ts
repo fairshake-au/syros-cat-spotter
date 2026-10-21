@@ -111,6 +111,14 @@ describe("GET /api/app-settings", () => {
     expect(JSON.stringify(res.body)).not.toContain("/donations");
   });
 
+  it("never sends the standard sterilisation price, which is team-only (SYC-396 PR 2.3)", async () => {
+    await db.insert(appSettingsTable).values({ key: "standard_sterilisation_price_eur", value: 57 });
+    const res = await request(app).get("/api/app-settings");
+    expect(res.status).toBe(200);
+    expect(Object.keys(res.body).sort()).toEqual(["extraPhotos", "feedNudge", "hiddenFacts"]);
+    expect(JSON.stringify(res.body)).not.toContain("57");
+  });
+
   it.each([["http://syroscats.com/donations"], ["javascript:alert(1)"], [""]])(
     "a donation page of %j leaves the link off",
     async (value) => {
