@@ -8,8 +8,8 @@ import { getIssueReport, listIssues } from "../lib/issues/queue";
 import {
   hideFromIssue,
   keepHidden,
+  ISSUE_OUTCOME_TEXT,
   restoreFromIssue,
-  type IssueActionOutcome,
 } from "../lib/issues/teamActions";
 import {
   CHANGED_MESSAGE,
@@ -550,18 +550,6 @@ router.post(
 // ── SYC-44 PR 7.1: the Issues row's actions (spec §5.4) ──────────────────
 
 const FromBody = z.object({ from: z.enum(REPORT_STATES) });
-
-/** The fixed words each outcome is shown with on the queue (?issue=<key>). */
-export const ISSUE_OUTCOME_TEXT: Record<Exclude<IssueActionOutcome, "not_found" | "not_authorised">, string> = {
-  kept: "Saved. The photo stays hidden, and this report is closed as Done.",
-  restored: "Saved. The photo is public again, and this report is closed as Nothing needed.",
-  hidden: "Saved. The photo is hidden from the public.",
-  not_hidden: "Nothing changed: someone has already made this photo public again.",
-  already_hidden: "Nothing changed: this photo is already hidden from the public.",
-  removed: "Nothing changed: this photo was deleted for good, so it can't be restored.",
-  changed: CHANGED_MESSAGE,
-  no_photo: "Nothing changed: this report isn't about a photo.",
-};
 
 /** Where a browser goes after an Issues action: the queue, this row, what happened. */
 const backToIssue = (publicId: string, outcome: string) =>

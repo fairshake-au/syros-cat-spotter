@@ -1,7 +1,7 @@
 import { db, photoVisibilityEventsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { can, type CapabilityHolder } from "../capabilities";
-import { moveReportStateIn, type ReportState } from "../welfareActions";
+import { CHANGED_MESSAGE, moveReportStateIn, type ReportState } from "../welfareActions";
 import { reasonLabel } from "./alertEmail";
 
 /**
@@ -47,6 +47,18 @@ export type IssueActionOutcome =
   /** No such sent issue report. */
   | "not_found"
   | "not_authorised";
+
+/** The fixed words each outcome is shown with on the queue (?issue=<key>). */
+export const ISSUE_OUTCOME_TEXT: Record<Exclude<IssueActionOutcome, "not_found" | "not_authorised">, string> = {
+  kept: "Saved. The photo stays hidden, and this report is closed as Done.",
+  restored: "Saved. The photo is public again, and this report is closed as Nothing needed.",
+  hidden: "Saved. The photo is hidden from the public.",
+  not_hidden: "Nothing changed: someone has already made this photo public again.",
+  already_hidden: "Nothing changed: this photo is already hidden from the public.",
+  removed: "Nothing changed: this photo was deleted for good, so it can't be restored.",
+  changed: CHANGED_MESSAGE,
+  no_photo: "Nothing changed: this report isn't about a photo.",
+};
 
 const CAPABILITY = { keep: "hide_photo", restore: "restore_photo", hide: "hide_photo" } as const;
 

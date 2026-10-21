@@ -30,6 +30,7 @@ import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can, capabilitiesOf, maySignIn } from "../lib/capabilities";
 import { renderQueuePage } from "../lib/teamPages/queuePage";
 import { listWelfareQueue } from "../lib/welfareQueue";
+import { listIssues } from "../lib/issues/queue";
 import { isIslandWide } from "../lib/guardianView";
 
 // The staff dashboard on team.catspotters.com (team-access spec §2.4, §2.6,
@@ -173,7 +174,8 @@ router.post(
 );
 
 /**
- * GET /api/team/: the welfare queue (SYC-43 part 2, PR 1). Plain
+ * GET /api/team/: the welfare queue (SYC-43 part 2, PR 1), and below it
+ * the Issues section (SYC-44 PR 7.1). Plain
  * server-rendered HTML with no scripts. `view_welfare_queue`, island-only
  * (roles spec §6.2 note 4): it holds every report on the island, "Report an
  * issue" reports, reporters' photos and the team's notes, none of which
@@ -185,7 +187,7 @@ router.get(
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
     setTeamHeaders(res); // before any await, so an error answer carries them too
-    const queue = await listWelfareQueue();
+    const [queue, issues] = await Promise.all([listWelfareQueue(), listIssues()]);
     // ?changed=<publicId>: the state route's 303 after someone else moved
     // that report first. Only a string is used, and only to pick a card.
     const changed =
@@ -201,10 +203,16 @@ router.get(
     // ?noted=<publicId>: the note route's 303. Only picks a card.
     const noted =
       typeof req.query["noted"] === "string" ? req.query["noted"] : undefined;
+    // ?issue=<outcome>&r=<publicId>: an Issues action's 303 (SYC-44 PR 7.1).
+    // Only picks a card and a fixed sentence, never echoed.
+    const issueNotice =
+      typeof req.query["issue"] === "string" && typeof req.query["r"] === "string"
+        ? { key: req.query["issue"], id: req.query["r"] }
+        : undefined;
     res
       .type("html")
       // Open map on each position only for an island-wide viewer (D9, SYC-395).
-      .send(renderQueuePage(queue, person.name, new Date(), changed, tied, isIslandWide(person), noted));
+      .send(renderQueuePage(queue, person.name, new Date(), changed, tied, isIslandWide(person), noted, issues, issueNotice));
   },
 );
 

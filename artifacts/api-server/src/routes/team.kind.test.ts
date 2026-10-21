@@ -135,6 +135,16 @@ const getJson = async () => {
   expect(res.status).toBe(200);
   return { text: res.text, body: res.body as WelfareQueue };
 };
+/** The Issues section (SYC-44 PR 7.1): the last thing on the page. */
+const ISSUES_RE = /<section id="issues"[\s\S]*?<\/section>/;
+const issuesPart = (html: string) => {
+  const m = ISSUES_RE.exec(html);
+  expect(m, "the queue page has its Issues section").not.toBeNull();
+  return m![0];
+};
+/** The page without the Issues section and the "waiting for you" line at its top. */
+const withoutIssues = (html: string) =>
+  html.replace(ISSUES_RE, "").replace(/<p class="notice issuewait">[\s\S]*?<\/p>/, "");
 const getHtml = async () => {
   const res = await request(app).get("/api/team").set("Cookie", cookie);
   expect(res.status).toBe(200);
@@ -194,8 +204,12 @@ describe("T4-1: content rows never show in the welfare queue", () => {
     const afterJson = await getJson();
     const afterHtml = await getHtml();
     expect(afterJson.text).toBe(beforeJson.text);
-    expect(afterHtml).toBe(beforeHtml);
-    for (const text of [afterJson.text, afterHtml]) expect(text).not.toContain(`${PREFIX}c-`);
+    // SYC-44 PR 7.1: the page now ends with the Issues section, where these
+    // rows belong. Everything outside it is byte-for-byte unchanged.
+    expect(withoutIssues(afterHtml)).toBe(withoutIssues(beforeHtml));
+    for (const text of [afterJson.text, withoutIssues(afterHtml)]) expect(text).not.toContain(`${PREFIX}c-`);
+    expect(issuesPart(afterHtml)).toContain(`id="r-${PREFIX}c-open"`);
+    expect(issuesPart(beforeHtml)).not.toContain(`${PREFIX}c-`);
   });
 
   it("a single content row's public id is not a welfare report", async () => {
@@ -264,24 +278,30 @@ describe("#170 review, finding 4: the JSON routes never answer 200 null for a co
   const json = (path: string) =>
     request(app).post(path).set("Origin", TEAM_ORIGIN).set("Cookie", cookie);
 
-  it("state: 404 { error: 'not_found' }, although the move itself happened; a stale move too", async () => {
+  // SYC-44 PR 7.1 gave issue rows their own answer: the Issues section's shape.
+  it("state: the issue in the Issues shape; a stale move is the 409 with it", async () => {
     const content = await seedReport({ publicId: `${PREFIX}c-json-state`, kind: "content", reason: "other" });
     const moved = await json(`/api/team/reports/${content.publicId}/state`).send({ from: "new", to: "done" });
-    expect(moved.status).toBe(404);
-    expect(moved.body).toEqual({ error: "not_found" });
+    expect(moved.status).toBe(200);
+    expect(moved.body).toMatchObject({ id: content.publicId, reason: "other", state: "done", group: "closed" });
     expect((await reportRow(content.publicId)).state).toBe("done");
 
     const stale = await json(`/api/team/reports/${content.publicId}/state`).send({ from: "new", to: "looking" });
-    expect(stale.status).toBe(404);
-    expect(stale.body).toEqual({ error: "not_found" });
+    expect(stale.status).toBe(409);
+    expect(stale.body).toMatchObject({ error: "changed_by_someone_else", report: { id: content.publicId, state: "done" } });
   });
 
-  it("note: 404 { error: 'not_found' }, although the note was written", async () => {
+  it("note: the issue in the Issues shape, with the note written", async () => {
     const content = await seedReport({ publicId: `${PREFIX}c-json-note`, kind: "content", reason: "other" });
     const res = await json(`/api/team/reports/${content.publicId}/note`).send({ note: "Checked the photo" });
-    expect(res.status).toBe(404);
-    expect(res.body).toEqual({ error: "not_found" });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: content.publicId, teamNote: "Checked the photo" });
     expect((await reportRow(content.publicId)).teamNote).toBe("Checked the photo");
+  });
+
+  it("an unknown id is still the 404, never a 200 null", async () => {
+    const res = await json(`/api/team/reports/${PREFIX}no-such/note`).send({ note: "x" });
+    expect(res.status).toBe(404);
   });
 
   it("a welfare row's JSON answers are unchanged", async () => {
