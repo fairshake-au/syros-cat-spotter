@@ -14,6 +14,6 @@ Branch: claude/blissful-feistel-417000 (app-made worktree). Spec only, no implem
   - No records import before launch (records-import.md: optional, post-MVP).
 
 ## Next
-- [ ] Draft docs/specs/find-from-a-photo-whole-island.md
+- [x] Draft v0.1 docs/specs/find-from-a-photo-whole-island.md (committed)
 - [ ] Critic (Sonnet, own worktree) -> fold in
 - [ ] Artifact, draft PR, Linear comment, deferred tickets
