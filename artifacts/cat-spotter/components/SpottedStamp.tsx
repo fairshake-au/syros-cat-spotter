@@ -7,6 +7,7 @@ import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Ellipse } from 'react-native-svg';
 import { palette } from '@/constants/colors';
+import { fonts } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 
 const INK = palette.terra700;
@@ -82,7 +83,7 @@ const styles = StyleSheet.create({
   bandText: {
     color: '#ffffff',
     fontSize: 9,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: fonts.bodyBold,
     fontWeight: '700',
   },
 });
