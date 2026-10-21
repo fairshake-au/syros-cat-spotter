@@ -55,7 +55,7 @@ const RUN = randomBytes(3).toString("hex");
 const PREFIX = `vt-find-${RUN}-`;
 // The island's own scope: only cats named with ISLE are "the island" in the seam above.
 const ISLE = `${PREFIX}isle-`;
-const DEVICE =`${PREFIX}device`;
+const DEVICE = `${PREFIX}device`;
 const NOW = new Date();
 
 /** A small real JPEG of one colour, as base64 (variantFor must be able to decode it). */
