@@ -78,7 +78,7 @@ The subtitle's pun ("one furriend at a time", Greek *γατοπαρέα*, French
 ## Out of scope
 
 - **When "Don't lose your spots" appears** (SYC-502), beyond waiting for a saved name.
-- **The number of onboarding screens** and **asking for location on "How it works"** before the spotter has a reason to share it. Both seen on 18 Oct; filed as their own ticket.
+- **The number of onboarding screens** and **asking for location on "How it works"** before the spotter has a reason to share it. Both seen on 18 Oct; filed as SYC-524.
 - **Weak, not absent, connections.** If the phone thinks it's online but the server doesn't answer, the name screen keeps today's SYC-211 behaviour. Offering "start anyway" after a failed save mixes with SYC-211's guarantees; a later ticket if testers hit it.
 - **SYC-212's** "error messages keep the old language" on the name screen: unchanged here.
 
