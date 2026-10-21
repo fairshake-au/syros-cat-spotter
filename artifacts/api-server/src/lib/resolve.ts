@@ -460,6 +460,11 @@ function parseEarTip(value: unknown): EarTipValueShape | null {
   return null;
 }
 
+/** A statement a vet visit wrote: its value names the visit (SYC-396 PR 3.1a). */
+function isFromVisit(value: unknown): boolean {
+  return typeof value === "object" && value !== null && typeof (value as { vetVisitId?: unknown }).vetVisitId === "number";
+}
+
 /** Before any date exists to derive from. Never shown; only a fallback for "nothing at all". */
 const EPOCH = new Date(0).toISOString();
 
@@ -474,6 +479,8 @@ const EPOCH = new Date(0).toISOString();
  *    newest by `observedAt` within it wins, whatever sign (Decision G),
  *    after setting aside every `false` that a `true` with standing is dated
  *    strictly later than (SYC-315 B: a newer "sterilised" always wins).
+ *    A standing statement from a vet visit (its value carries `vetVisitId`)
+ *    decides over all of that (SYC-543): see the rule in the fold.
  * 3. Otherwise, a photo-backed `ear_tip { clipped: true }` reaches *likely*,
  *    unless an authoritative `clipped: false` (§10.2 rule 3: never an
  *    import — see `earTipAuthorityLevel`) beats it: see `clipCountered`.
@@ -514,13 +521,15 @@ export function resolveSterilised(
     at: Date;
     rank: Dated;
     observationId: number | null;
+    /** Written by a vet visit that stands (its value carries `vetVisitId`). */
+    fromVisit: boolean;
   };
   const authoritative: Candidate[] = active
     .filter((o) => o.kind === "sterilised" && authorityLevel(o) > 0)
     .flatMap((o) => {
       const parsed = parseSterilised(o.value);
       return parsed
-        ? [{ sterilised: parsed.sterilised, at: o.observedAt, rank: o, observationId: o.id }]
+        ? [{ sterilised: parsed.sterilised, at: o.observedAt, rank: o, observationId: o.id, fromVisit: isFromVisit(o.value) }]
         : [];
     });
   // A not-yet-linked import record ranks with the team (Decision G). Its
@@ -533,6 +542,7 @@ export function resolveSterilised(
       at,
       rank: { roleAtTime: "system", authorityScope: "none", provenance: "import", observedAt: at, id: 0 },
       observationId: null,
+      fromVisit: false,
     };
   });
   // SYC-315, option B (Samuel, 16 October 2026): a newer "sterilised" beats
@@ -555,7 +565,14 @@ export function resolveSterilised(
     // Decision G (§4.6), through the one ordering (`outranks`): the highest
     // level present decides, and within it the newest by observedAt wins,
     // whatever sign it carries; an exact tie goes to the later row.
-    const winner = candidates.reduce((best, candidate) =>
+    // SYC-543 (Samuel, 21 October 2026): "a vet visit in which the cat was
+    // sterilised should always prevail". While a visit's "yes" stands, it
+    // decides, whoever said "not sterilised" and whenever, even after the
+    // visit. Only standing rows reach here, so an undone visit decides
+    // nothing and the rest rank as before. Each "no" it outweighs stays a
+    // conflict, so the team sees it under "Says otherwise".
+    const visitYes = candidates.filter((c) => c.fromVisit && c.sterilised);
+    const winner = (visitYes.length > 0 ? visitYes : candidates).reduce((best, candidate) =>
       outranks(candidate.rank, best.rank) ? candidate : best,
     );
     const disagreeingConflicts = candidates
