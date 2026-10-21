@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { eq, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import {
   db,
   markLeft,
@@ -84,8 +84,13 @@ const jsonPost = (path: string, body: Record<string, string> = {}) =>
 
 const reportRow = async (publicId: string) =>
   (await db.select().from(welfareReportsTable).where(eq(welfareReportsTable.publicId, publicId)))[0]!;
+/** A photo's visibility events, oldest first (newest = highest id, as the code reads them). */
 const eventsFor = (photoId: number) =>
-  db.select().from(photoVisibilityEventsTable).where(eq(photoVisibilityEventsTable.photoId, photoId));
+  db
+    .select()
+    .from(photoVisibilityEventsTable)
+    .where(eq(photoVisibilityEventsTable.photoId, photoId))
+    .orderBy(asc(photoVisibilityEventsTable.id));
 const stateEvents = async (reportId: number) =>
   db.select().from(reportStateEventsTable).where(eq(reportStateEventsTable.reportId, reportId));
 
