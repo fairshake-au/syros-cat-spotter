@@ -64,3 +64,15 @@ Checkpoint notes, newest last. Each agent appends after every commit.
   - (b) catId left out of the wizard's draftKey -> FAIL ReportWizard.test "clearing the cat after a draft was written writes a new draft with no cat" (expected "vi.fn()" to be called 2 times, but got 1 times)
   - (c) clearCat returns the flow unchanged -> FAIL reportFlow.test "clearCat sets the cat to none and touches nothing else" (expected { id: 7, ... } to be null), "the cat survives Next and Back; once cleared ...", and ReportWizard "It's a different cat removes the strip ..." and the clear-after-draft test (4 failures)
 - Step 3 final: full app suite 151 files / 2012 tests pass; typecheck exit 0.
+
+## Step 3 review and step 4 start (session, Opus, 21 Oct)
+- Re-ran myself: the full app suite gave 2012/2012; typecheck clean.
+- End to end against a local API on a scratch DB (syc504_preview, one seeded cat "Tigris"):
+  - from the cat page, "This cat needs help" opens the report;
+  - the Where screen shows "About Tigris" with the paw (the seeded photo is deliberately broken) and "It's a different cat";
+  - the map starts at the default spot, not the cat;
+  - after sending, the row has reporter_cat_id=1 and cat_id null.
+- The team queue was rendered from that DB with the real loader and renderer, at 390px: the "Sent from Tigris's page" line, the thumbnails, and "Yes, it's Tigris" only when the viewer may tie.
+  - Layout fix: the cat name in the line was a block link (`a.catlink`). Now `.muted a.catlink{display:inline}` (6657cf33). Team page tests 479/479.
+- Merged origin/main (b602975d), then checked again: api-server 4351 passed (4 skipped); app 2099; migrate:check ok; typecheck clean.
+- Draft PR #267 opened. Adversarial review (Opus, its own worktree) running.
