@@ -94,6 +94,7 @@ vi.mock('@/components/TurnstileHost', () => ({ TurnstileHost: stubComponent('Tur
 // SYC-3: the keep-safe step and the "moved" screen.
 vi.mock('@/components/keepSafe/KeepSafeScreen', () => ({ KeepSafeScreen: stubComponent('KeepSafeScreen') }));
 vi.mock('@/components/keepSafe/MovedScreen', () => ({ MovedScreen: stubComponent('MovedScreen') }));
+vi.mock('@/components/keepSafe/FirstBadgeOffer', () => ({ FirstBadgeOffer: stubComponent('FirstBadgeOffer') }));
 
 
 afterEach(cleanup);
@@ -141,6 +142,14 @@ describe('root gate (SYC-155, SYC-506)', () => {
     const shown = await renderGate({ username: 'SunnyTabby', heldUsername: null, keepSafeOffer: null });
     expect(shown).toContain('KeepSafeScreen');
     expect(shown).not.toContain('HeldNameSaver');
+  });
+
+  it('the first-badge email offer waits for a saved name (SYC-502 + SYC-506)', async () => {
+    let shown = await renderGate({ username: null, heldUsername: 'SunnyTabby', keepSafeOffer: 'skipped-onboarding' });
+    expect(shown).not.toContain('FirstBadgeOffer');
+    cleanup();
+    shown = await renderGate({ username: 'SunnyTabby', heldUsername: null, keepSafeOffer: 'skipped-onboarding' });
+    expect(shown).toContain('FirstBadgeOffer');
   });
 
   it('waits for the stored language before showing anything', async () => {

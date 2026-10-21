@@ -130,7 +130,8 @@ function OnboardingGate() {
       {!username && <HeldNameSaver />}
       <RootLayoutNav />
       <BannerStack />
-      {keepSafeOffer === 'skipped-onboarding' ? <FirstBadgeOffer /> : null}
+      {/* SYC-506: only for a spotter whose name the server has saved. */}
+      {keepSafeOffer === 'skipped-onboarding' && username ? <FirstBadgeOffer /> : null}
     </>
   );
 }
