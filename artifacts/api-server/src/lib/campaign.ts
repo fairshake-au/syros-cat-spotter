@@ -1,5 +1,5 @@
 /**
- * The colony campaign shown on the Help tab.
+ * The colony campaign shown on the Help & info page.
  *
  * Server-side config rather than app constants, so the numbers can be corrected
  * without shipping an App Store release. There is no payments backend yet — the

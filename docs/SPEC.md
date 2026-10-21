@@ -194,7 +194,7 @@ Ownership is remembered locally for a fast start and re-hydrated from the server
 
 Username (editable, with the same availability and moderation checks), optional nickname, language, points, streak, badges with descriptions, spotted/discovered counts, and the pending offline queue.
 
-### 5.8 Help tab — colony campaign
+### 5.8 Help & info page — colony campaign
 
 A fundraising card for the charity: title, plain-language blurb ("€10 covers a rabies vaccine. €50–60 desexes one cat."), progress toward a goal in EUR, cats helped, donor count, days remaining, and suggested chip-in amounts (€5 / €10 / €25 / €50).
 
@@ -312,7 +312,7 @@ These are observations about the current build, not proposals. Each is a candida
 7. Only the first photo is ever a cat's primary photo; later sightings never update it, so a kitten stays a kitten in the catalogue forever.
 
 **Product**
-8. There is no payments path — the Help tab links out, and campaign figures are hand-maintained environment variables.
+8. There is no payments path — the Help & info page links out, and campaign figures are hand-maintained environment variables.
 9. There is no moderation or takedown path for a bad photo once uploaded.
 10. Anonymity means a lost device is a lost profile; the "restore" copy in onboarding is not backed by a mechanism.
 11. Photos are publicly enumerable by sequential integer id.
