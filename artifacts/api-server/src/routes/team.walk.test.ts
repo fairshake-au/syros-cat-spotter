@@ -201,6 +201,14 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/reports/:publicId/state": { why: "change_report_state, island-only" },
   "POST /api/team/reports/:publicId/note": { why: "add_team_note, island-only" },
   "POST /api/team/reports/:publicId/cat": { why: "change_report_state, island-only" },
+  // SYC-44 PR 7.1 (spec §5.3, §5.4; plan T7-1): the Issues section. Every one
+  // team-only: refused, not hidden, for every cat guardian, even one whose
+  // colony holds the reported cat (that case: team.issues.test.ts).
+  "GET /api/team/issues": { why: "the Issues section as JSON: view_welfare_queue, island-only" },
+  "GET /api/team/issue-photos/:reportPublicId": { why: "the photo an issue report points at: view_welfare_queue, island-only (never view_exact_location); the walk's id is no report, so the team gets a 404" },
+  "POST /api/team/issues/:publicId/keep-hidden": { why: "Keep hidden: hide_photo, island-only; the walk's id is no report, so the team gets a 404" },
+  "POST /api/team/issues/:publicId/restore": { why: "Restore: restore_photo, island-only; the walk's id is no report, so the team gets a 404" },
+  "POST /api/team/issues/:publicId/hide": { why: "Hide this photo: hide_photo, island-only; the walk's id is no report, so the team gets a 404" },
   "GET /api/team/cats": { why: "the island-wide cat list: view_exact_location with no target, so island-only" },
   "GET /api/team/cats/find": { why: "Find from a photo's form and count (SYC-396 PR 2.5): find_cat_from_photo, island-only, so every cat guardian gets the 403" },
   "POST /api/team/cats/find": { why: "Find from a photo's search: find_cat_from_photo, island-only; the walk's form has no photo, so the team gets a 400 and no search runs" },
@@ -374,6 +382,8 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
   },
   "POST /api/team/my/cats/:id/sterilisation": { sterilised: "yes" },
   "POST /api/team/my/cats/:id/life-status": { status: "in_care", reason: "walk test" },
+  "POST /api/team/issues/:publicId/keep-hidden": { from: "new" },
+  "POST /api/team/issues/:publicId/restore": { from: "new" },
   // A range off Syros: a well-formed ask that gets no tokens.
   "POST /api/team/map-squares": { z: 14, xMin: 0, xMax: 1, yMin: 0, yMax: 1 },
 };
@@ -678,6 +688,8 @@ describe("T3 (routes): a guardian on every colony that exists still can't reach 
       "GET /api/team",
       "GET /api/team/reports",
       "GET /api/team/report-photos/:publicId",
+      "GET /api/team/issues",
+      "GET /api/team/issue-photos/:reportPublicId",
       "GET /api/team/cats",
       "GET /api/team/cats/:id",
     ]) {
