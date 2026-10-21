@@ -4,6 +4,7 @@ import type { Vaccine } from "../resolve";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { VACCINE } from "./catFacts";
+import { euroText } from "../euros";
 
 // Log a vet visit (SYC-396 PR 3.1a; team-dashboard-redesign.md §8.2, §13;
 // plan Task 3.1.3). One server-drawn page, no scripts. A failed save comes
@@ -50,7 +51,7 @@ export const clinics = () => getGuidance("en").vets.map((c) => ({ id: c.id, name
 const today = (now: Date) => now.toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
 
 /** The price as the cost box shows it: 60, or 55.50. */
-export const priceText = (eur: number) => (Number.isInteger(eur) ? String(eur) : eur.toFixed(2));
+export const priceText = (eur: number) => euroText(eur).slice(1);
 
 /**
  * The form as it first opens: today's date, Sterilised ticked and the cost

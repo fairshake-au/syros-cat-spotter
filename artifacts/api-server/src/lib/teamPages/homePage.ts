@@ -1,4 +1,5 @@
 import type { HomeData, MonthFigures, Section } from "../dashboard/home";
+import { euroText } from "../euros";
 import type { QueueDraft, QueueReport } from "../welfareQueue";
 import type { TeamCat } from "../teamCatList";
 import { placeLabel } from "../areas/placeLabel";
@@ -169,8 +170,6 @@ function headlineSection(s: HomeData["headline"]): string {
   );
 }
 
-const euros = (n: number) => `€${Number.isInteger(n) ? n : n.toFixed(2)}`;
-
 const figure = (words: string, now: number | string, last: number | string) =>
   `<li><span class="hfig">${now}</span> <span>${esc(words)}</span> <span class="hint">(last month ${last})</span></li>`;
 
@@ -183,7 +182,7 @@ function monthSection(s: Section<{ now: MonthFigures; last: MonthFigures }>, cos
     figure("New cats recorded", now.newCats, last.newCats) +
     figure("Sterilisations done", now.sterilisations, last.sterilisations) +
     // Money is the team's only (§8.4): `view_vet_costs`.
-    (costs ? figure("Vet spend", euros(now.vetSpendEur), euros(last.vetSpendEur)) : "") +
+    (costs ? figure("Vet spend", euroText(now.vetSpendEur), euroText(last.vetSpendEur)) : "") +
     "</ul></section>"
   );
 }

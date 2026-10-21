@@ -29,6 +29,7 @@ function cat(over: Partial<GuardianCat> = {}): GuardianCat {
     coatColours: ["ginger"],
     coatPattern: "stripes",
     markings: ["white_paws", "missing_eye"],
+    vetVisits: [],
     ...over,
   };
 }

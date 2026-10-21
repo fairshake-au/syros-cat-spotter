@@ -16,6 +16,7 @@ import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
 import { coatPhraseOf, renderCatFacts, vaccineWord } from "./catFacts";
 import type { VisitLine } from "../vetVisits";
+import { euroText } from "../euros";
 import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
 import { fitView, renderMap, type MapMarker } from "./map";
 import { BANDS, pointOnView } from "../mapTiles/geometry";
@@ -754,8 +755,6 @@ function photoStrip(v: TeamCatView): string {
   );
 }
 
-/** "€60", "€55.50". */
-const euros = (n: number) => `€${Number.isInteger(n) ? n : n.toFixed(2)}`;
 
 /** What a visit did, in words: "Sterilised, vaccinated (Rabies)". */
 export function visitDidWords(l: Pick<VisitLine, "did" | "vaccines" | "treatedNote">): string {
@@ -772,7 +771,7 @@ export function visitDidWords(l: Pick<VisitLine, "did" | "vaccines" | "treatedNo
 function visitItem(l: VisitLine, may: (c: Capability) => boolean): string {
   const money =
     "costEur" in l
-      ? `<br><span class="meta">${l.costEur == null ? "Cost not recorded" : esc(euros(l.costEur))}` +
+      ? `<br><span class="meta">${l.costEur == null ? "Cost not recorded" : esc(euroText(l.costEur))}` +
         (l.paidBy ? ` · paid by ${esc(PAID_WORDS[l.paidBy].replace(/^A /, "a ").replace(/^The /, "the "))}` : "") +
         "</span>"
       : "";
