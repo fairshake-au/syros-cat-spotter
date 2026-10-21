@@ -12,7 +12,7 @@
 
 ## Before starting
 
-- **Spec PR first.** Merge #255 (doc only) to main, then branch the build off fresh `origin/main` in the session's own worktree. If #255 hasn't merged, branch off `claude/syc-505-spec-decisions` and keep the build PR a draft until #255 merges (repo rule for stacked PRs).
+- **Spec PR first.** Merge #255 (doc only) to main, then branch the build off fresh `origin/main` in the session's own worktree. If #255 hasn't merged, branch off `claude/syc-505-spec-decisions` and keep the build PR a draft until #255 merges (repo rule for stacked PRs). (Done that way: the build is #268, stacked on #255.)
 - **SYC-502 sequencing.** SYC-502 (first sighting's success screen swallowed by the email screen) must merge before, or in the same release as, this build (spec edge case 9). Check `gh pr list --search SYC-502` before marking the build PR ready.
 - **Migrations:** none. Session SYC-396 PR 3.3a holds `0035`; this plan takes no number.
 - **Running tests locally:** from `artifacts/cat-spotter`, `ESBUILD_BINARY_PATH=<scratchpad>/package/bin/esbuild pnpm exec vitest run <files>`. Use the darwin esbuild workaround from `npm pack @esbuild/darwin-arm64@<the version in node_modules/.pnpm/esbuild@*>`. Test files must live under `components/`, `lib/`, `hooks/`, `context/` or `server/` (vitest `include`); screen tests import the screen from `../../app/(tabs)/…`, as `components/__tests__/CatPageClaim.test.tsx` does.
@@ -124,7 +124,7 @@
 - Test: `artifacts/cat-spotter/components/__tests__/HomeScreen.spotted.test.tsx` (new)
 
 **Interfaces:**
-- Consumes: `homeHeroState`, `stripHeadingKey` (Task 2); `CatCard` `spotted` prop (Task 3); keys from Task 1; `Button` from `@/components/purropolis` (`variant="primary" size="lg" block wrapLabel`).
+- Consumes: `homeHeroState`, `stripHeadingKey` (Task 2); `CatCard` `spotted` prop (Task 3); keys from Task 1; `Button` from `@/components/purropolis` (`variant="accent" size="lg" block wrapLabel`; built first as `primary`, changed to `accent` after the browser check showed blue on the blue hero was nearly invisible).
 
 - [ ] **Step 1: Write the failing tests.** Mount `../../app/(tabs)/index`. Mock `useDevice`, `useOffline`, `useLocation`, `useCatsWithCache`, `useGetProfile`/`getGetProfileQueryKey`, `expo-router` (`useRouter → { push }`), `react-native-safe-area-context`, `@/lib/bannerArea`, and stub `OfflineBanner`, `NotificationBell` and `CatCard`. The `CatCard` stub renders `data-testid="card-{id}"` and `data-spotted={String(spotted)}`, following `CatPageClaim.test.tsx`. `t` returns the key. Cases:
   - Profile `{ catsSpotted: 0, spottedCatIds: [], totalCats: 18 }`: text `homeFirstSpotLine` and button `homeFirstSpotCta` present; `homeOfNCats` absent. Clicking the button calls `push('/spot')`.
@@ -137,7 +137,7 @@
 - [ ] **Step 2:** Run the new test. Expected: FAIL.
 - [ ] **Step 3: Implement.**
   - `const hero = homeHeroState(profile)`. When `'firstSpot'`, render in place of `progressBlock`: a `Text` with `homeFirstSpotLine` (`{n}` → `totalCats`, white, `fontSizes.md`) and the `Button` labelled `homeFirstSpotCta`, calling `router.push('/spot')`. Otherwise keep `progressBlock` exactly as now. `'unknown'` already renders the dash.
-  - Heading: `displayUpperCase(t(stripHeadingKey(!!coords, cats)))`. Pass the full `cats` list, not the 4-card strip. Update the comment above it.
+  - Heading: `displayUpperCase(t(stripHeadingKey(!!coords, cats)))`. Pass the cats shown in the strip (`nearby`), not the whole list (corrected by the final review: with the near cats already spotted, the strip shows far-away cats). Update the comment above it.
   - Strip: `<CatCard cat={cat} spotted={hasCollectionData ? spottedIds.has(cat.id) : undefined} />`; delete the lock overlay block and its three styles. Rewrite the sort comment (~line 94) to say unspotted cats lead the strip because they're the ones to look out for.
 - [ ] **Step 4:** Run the Home test and `PhotoViewerExcluded.test.tsx`. Expected: PASS.
 - [ ] **Step 5: Mutation probe** (commit Step 4's work first). Temporarily replace the `homeHeroState(profile)` call with `profile?.catsSpotted === 0 ? 'firstSpot' : 'progress'` and confirm the "no `spottedCatIds`" case goes red. This proves the screen really goes through the guarded function. Restore with `git checkout`.

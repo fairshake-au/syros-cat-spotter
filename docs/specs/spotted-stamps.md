@@ -1,6 +1,6 @@
 # Show every cat, stamp the ones you've spotted
 
-**Status:** Approved by Samuel, 21 Oct 2026 ("Approve (Recommended)"). All decisions are his (D1 on 19 Oct, D2–D7 on 21 Oct, §4). Next: the implementation plan. Two adversarial reviews done and folded in (§10, §11).
+**Status:** Approved by Samuel, 21 Oct 2026 ("Approve (Recommended)"). All decisions are his (D1 on 19 Oct, D2–D7 on 21 Oct, §4). Plan: `docs/superpowers/plans/syc-505-spotted-stamps.md`. Three adversarial reviews done and folded in (§10, §11, §12).
 **Owner:** Samuel
 **Covers:** SYC-505. The direction was decided by Samuel on 19 Oct 2026 ("agree w SYC-505"): show cat photos everywhere and mark the cats a spotter has spotted, instead of padlocking the rest.
 **Related:** `docs/SPEC.md` §5.1 Home and §5.2 Cat-alog (both change, §9) · SYC-501 (the UX review this came from) · SYC-509 (accessibility pass; this spec fixes the cat card's label only) · SYC-502 (the first sighting's success screen) · SYC-6 (desktop layout, untouched here).
@@ -32,7 +32,7 @@ From the 18 Oct UX review (SYC-501, screenshots 06–08):
 
 ### 3.1 A cat card (Home and the Cat-alogue list)
 
-| | Today | After |
+| | Before this change | After |
 |---|---|---|
 | Photo | Hidden under a dark overlay, unless spotted | Always shown |
 | Padlock and "Spot to unlock" | On every cat not yet spotted | Gone |
@@ -40,11 +40,11 @@ From the 18 Oct UX review (SYC-501, screenshots 06–08):
 | "Has a home" house badge | Top-right of the photo | Unchanged, top-right |
 | Name, sightings count, distance, "Discovered by" | Shown | Unchanged |
 
-**The stamp.** It looks like a stamp in a passport, tilted 14° anticlockwise, in the bottom-right corner of the photo. On a phone the cards' photos are about 170pt square (Home's strip and the Cat-alogue's two columns at 390px), so the ring is **52pt across** before tilting, about 30% of the photo's width. Its tilted outline measures about 63pt, and the 8pt inset is measured to that tilted outline, so no part is clipped by the card's rounded edge:
+**The stamp.** It looks like a stamp in a passport, tilted 14° anticlockwise, in the bottom-right corner of the photo. On a phone the cards' photos are about 170pt square (at 390px: Home's strip cards are 48% of 390 − 2×16 = 172pt; the Cat-alogue's two columns are (390 − 2×12 − 12) ÷ 2 = 177pt), so the ring is **52pt across** before tilting, about 30% of the photo's width. Its tilted outline measures about 63pt, and the 8pt inset is measured to that tilted outline, so no part is clipped by the card's rounded edge:
 
 - **Ring and paw:** a terracotta (`palette.terra700`, #b8552f) double ring with a filled paw print in the middle. The inside of the ring is a **see-through** paper-white wash (about 55% opaque), so the cat shows through it (Samuel, D2: "make it slightly transparent so the cat is visible underneath").
 - **The word:** "Spotted" sits on a small **100% opaque** terracotta band across the stamp, in pure white bold text at 9pt, in normal case (not capitals). White on terra700 measures **4.8:1** on any photo, above the 4.5:1 standard. The word can't be see-through as well: calculated over a near-black cat photo (#2b2522 to #000000), terracotta on the 55% wash drops to 1.4–1.7:1 (Samuel chose the band, D2 follow-up).
-- **Long words:** the band may run wider than the ring, as on a real passport stamp, so the Greek "Εντοπίστηκε" (11 letters) fits. Its text grows with the phone's text-size setting only up to 1.1× (`maxFontSizeMultiplier`, new to this app), and shrinks to fit (`adjustsFontSizeToFit`) rather than cutting off.
+- **Long words:** the band may run wider than the ring, as on a real passport stamp, so the Greek "Εντοπίστηκε" (11 letters) fits. Its text grows with the phone's text-size setting only up to 1.1× (`maxFontSizeMultiplier`, new to this app), and on the phone app shrinks to fit (`adjustsFontSizeToFit`) rather than cutting off. On the web the band simply grows wider than the ring; that is accepted (checked in Greek at 390px and 1280px).
 - The ring and paw are decoration; the band carries the meaning, and the card's screen-reader label (§3.4) says it in words. On a very dark cat the ring itself is faint, which is acceptable because the band is still readable.
 - It's the same in light and dark mode: it sits on the photo, not on the app's background.
 - The cat's own page and its large photo don't get a stamp; this is for the cards only.
@@ -66,21 +66,21 @@ The Greek uses the app's own "spot" verb (the Spot tab is "Εντόπισε") an
 
 | Profile | Hero shows |
 |---|---|
-| Loaded, 0 cats spotted | The first-spot line and button (below) |
+| Loaded, 0 cats spotted and an empty spotted list | The first-spot line and button (below) |
 | Loaded, 1 or more | "2 of 19 cats spotted" and the progress bar, as today |
 | Not loaded | A dash, as today. No button and no bar |
 
-The count and the list of spotted cats come from the same profile request, so the button and the stamps always agree (except for a sighting that happens to finish in the split second between the two parts of that request, which corrects itself on the next refresh).
+If the count and the list ever disagree (a count of 0 with cats in the list), the counter and bar win over the button. The count and the list of spotted cats come from the same profile request, so the button and the stamps always agree (except for a sighting that happens to finish in the split second between the two parts of that request, which corrects itself on the next refresh).
 
 **Before the first sighting:**
 
 - The greeting row is unchanged.
 - In place of the big "0" and the "of 18 cats spotted" bar, the blue hero shows one line, **"18 cats live on Syros. Can you spot one?"**, and a large **"Spot your first cat"** button that opens the Spot tab. The photo tips card opens there the first time, which is exactly what a new spotter needs.
 - "18" is the whole island's count, the same number the progress bar uses today. The line deliberately says "on Syros", not "near you": the count isn't filtered by distance, so "near you" would be false for anyone reading it from a hotel in Athens.
-- The three stat tiles stay, showing 0, 0 and 0. They're honest and they show where points will go.
+- The three stat tiles stay, showing the profile's own figures (0, 0 and 0 for a new spotter). They're honest and they show where points will go.
 - The cat strip below shows **photos**, nearest first when the phone's location is known, under the heading **"Cats near you"** or **"Cats to look out for"** (D7; the rule is below).
 
-**Which heading the strip gets (D7).** "Cats near you" only when it's true: the phone's location is known **and** the nearest cat is within the app's "near me" distance (`NEARBY_KM`, the same one the Cat-alogue's Near me filter uses). Otherwise, including for someone reading from a hotel in Athens, it's "Cats to look out for". (Today the heading only checks whether the phone has a location.)
+**Which heading the strip gets (D7).** "Cats near you" only when it's true: the phone's location is known **and** at least one of the cats shown in the strip is within the app's "near me" distance (`NEARBY_KM`, the same one the Cat-alogue's Near me filter uses). It judges the cats shown, not the whole island: once a spotter has spotted the nearby cats, the strip shows unspotted cats further away, and calling those "near you" would be false. Otherwise, including for someone reading from a hotel in Athens, it's "Cats to look out for". (Before this change the heading only checked whether the phone had a location.)
 
 **After the first sighting:** Home is exactly as today ("2 of 19 cats spotted" with the progress bar), except the strip's cards show photos and stamps instead of padlocks. The strip still puts cats you haven't spotted first (so once you've spotted some, it's no longer strictly nearest-first: an unspotted cat further away comes before a spotted one close by), and it keeps pointing you at cats to look out for.
 
@@ -117,7 +117,7 @@ Johnny to confirm the Greek and French (SYC-346).
 
 ### 3.4 Screen readers
 
-Each cat card gets a label, so a screen reader says "Tigris. Spotted by you." or "Nefeli. Not spotted yet." followed by its existing text. Without the profile it just says the name. The stamp itself is hidden from screen readers so it isn't read twice, the same way the app already hides decoration elsewhere (`components/ExtraPhotoBoxes.tsx`). The card gets the "button" role. (The rest of SYC-509 stays in SYC-509.)
+Each cat card gets a label, so a screen reader says "Tigris. Spotted by you." or "Nefeli. Not spotted yet.", then the distance (when known) and "Discovered by …", for example "Nefeli. Not spotted yet. 350 m. Discovered by BrightTabby". Without the profile it says the name without the spotted / not spotted sentence. The sightings count isn't in the label yet: there's no three-language wording for "N sightings", so it is tracked in SYC-509. The stamp itself is hidden from screen readers so it isn't read twice, the same way the app already hides decoration elsewhere (`components/ExtraPhotoBoxes.tsx`). The card gets the "button" role. (The rest of SYC-509 stays in SYC-509.)
 
 ### 3.5 What doesn't change
 
@@ -163,8 +163,8 @@ All decided by Samuel. His answers are quoted on SYC-505.
 ## 6. Accessibility
 
 - Stamp: the word "Spotted" is white on a solid terra700 band, 4.8:1 on any photo and in both themes. The see-through ring and paw are decoration (§3.1).
-- Stamp text grows with the phone's text-size setting only up to 1.1× and shrinks to fit the band, so at the largest sizes the stamp never grows over the cat's face. The card's screen-reader label (§3.4) carries the same meaning for anyone using very large text or a screen reader.
-- The first-spot button is the standard large primary button, 48pt tall.
+- Stamp text grows with the phone's text-size setting only up to 1.1× and, on the phone app, shrinks to fit the band (on the web the band grows wider instead), so at the largest sizes the stamp never grows over the cat's face. The card's screen-reader label (§3.4) carries the same meaning for anyone using very large text or a screen reader.
+- The first-spot button is a large button (48pt tall) in the app's pink accent colour, so it stands out on the blue hero; the standard blue button was nearly invisible there. Its white-on-pink text measures 3.36:1, below the 4.5:1 standard, the same as onboarding's main button; the fix for the accent colour is tracked in SYC-142.
 
 ---
 
@@ -173,7 +173,7 @@ All decided by Samuel. His answers are quoted on SYC-505.
 All in `artifacts/cat-spotter`:
 
 1. **`components/CatCard.tsx`**: a new optional `spotted?: boolean` prop. `true` shows the passport stamp (§3.1: 52pt see-through ring and paw drawn with `react-native-svg`, solid band for the word, bottom-right, inset measured to the tilted outline); `false` or missing doesn't. The stamp's wrapper gets `importantForAccessibility="no-hide-descendants"` and `accessibilityElementsHidden`, and the SVG `accessible={false}`. The band's text gets `maxFontSizeMultiplier={1.1}` and `adjustsFontSizeToFit` with one line. Adds the screen-reader label and "button" role (§3.4); the spotted / not-spotted part of the label is used only when `spotted` is a boolean (that is, the profile loaded). The `Pressable` stays the card's outermost element: `components/__tests__/PhotoViewerExcluded.test.tsx:74` taps the card's first element.
-2. **`app/(tabs)/index.tsx`** (Home): remove the lock overlay and its styles; pass `spotted` to each card; add the first-spot state to the hero using the rule table in §3.2 (`profile.catsSpotted === 0` *and* the spotted list present); new heading strings and the heading rule (D7, §3.2: "near you" only when the nearest cat is within `NEARBY_KM` from `@workspace/geo`); update the strip's sort comment, which still talks about "Spot to unlock".
+2. **`app/(tabs)/index.tsx`** (Home): remove the lock overlay and its styles; pass `spotted` to each card; add the first-spot state to the hero using the rule table in §3.2 (`profile.catsSpotted === 0` *and* the spotted list present); new heading strings and the heading rule (D7, §3.2: "near you" only when a cat shown in the strip is within `NEARBY_KM` from `@workspace/geo`); update the strip's sort comment, which still talks about "Spot to unlock".
 3. **`app/(tabs)/cats.tsx`** (Cat-alogue): remove the lock overlay and its styles; pass `spotted` to each card; add the `notSpotted` filter (§3.3), shown only when `spottedCatIds` is present; the filter actually applied is derived (`filter === 'notSpotted' && !hasCollectionData ? 'all' : filter`), not reset; the empty-message order in §3.3, including the well-done message over the map view.
 4. **`lib/i18n.ts`**: add the keys in §3.1, §3.2 and §3.3 and change the two heading strings (D7) in all three languages; remove `homeSpotToUnlock` once nothing uses it (the key-parity test catches a half-removal).
 5. **`api-server/src/lib/catHelpers.ts`**: comment-only fix near line 657, which describes the list as driving "Spot to unlock".
@@ -187,7 +187,7 @@ No API behaviour, database or OpenAPI change. Not in scope: analytics on the new
 
 **Tests (vitest):**
 - CatCard (extends the existing component tests): shows the stamp when `spotted` is true, and not when it's false or missing; the stamp's wrapper is hidden from screen readers; its screen-reader label says "Spotted by you", "Not spotted yet", or just the name for true, false and missing. `PhotoViewerExcluded.test.tsx` still passes.
-- Home (**new test file**; no test mounts Home today, so it needs the profile, cat-list and router hooks mocked): with 0 spotted shows the first-spot button and no progress bar; with 2 spotted shows the bar and no button; with no profile shows neither; the button opens the Spot tab; no lock overlay in any state; the heading is "Cats near you" with a cat within `NEARBY_KM`, and "Cats to look out for" with location but every cat further away, and without location.
+- Home (**new test file**; no test mounts Home today, so it needs the profile, cat-list and router hooks mocked): with 0 spotted shows the first-spot button and no progress bar; with 2 spotted shows the bar and no button; with no profile shows neither; the button opens the Spot tab; no lock overlay in any state; the heading is "Cats near you" with a strip cat within `NEARBY_KM`, and "Cats to look out for" with location but every strip cat further away (including when the only near cat is spotted and pushed off the strip), and without location.
 - Cat-alogue (**new test file**, same mocks): stamps on spotted cats, no lock overlay. "Not spotted yet": shows only unspotted cats; is hidden without the profile; is shown (with every cat) when the spotted list is empty; shows the well-done message when every cat is spotted, in list and map view; shows "No cats match your search." when combined with a search that matches nothing; falls back to All when the profile goes away and returns to "Not spotted yet" when it comes back; sits fourth in the chip row.
 - i18n key parity still passes for the new keys.
 
@@ -243,3 +243,9 @@ One adversarial review (Sonnet, 21 Oct 2026) of the additions made after Samuel'
 | 10 | Four chips don't "fit" a phone; the Greek chip label is long | Now says the row scrolls (§3.3); shorter Greek option offered for Johnny. |
 | 11 | More filter test cases | Added (§8). |
 | 12 | Project wording and offline claims | Checked, no change needed. |
+
+---
+
+## 12. Third review (at merge)
+
+One adversarial review (Sonnet, 21 Oct 2026) of this spec and its plan against the code built in fairshake-au/syros-cat-spotter#268. Verdict: merge after fixes. Folded in: the first-spot button is the pink accent, with its contrast stated (§6); the heading judges the cats shown in the strip (§3.2, §7, §8); the screen-reader label's exact parts, with the sightings count deferred to SYC-509 (§3.4); shrink-to-fit applies on the phone app only, and on the web the band grows wider (§3.1, §6); the hero rule covers a count and list that disagree (§3.2); the photo size arithmetic is shown (§3.1); "Today" is relabelled "Before this change". Left as they are: more stamp detail (paw size, ring widths, font) lives in the code, and the Greek chip wording waits for Johnny (SYC-346).
