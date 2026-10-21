@@ -21,8 +21,9 @@ Session model Opus 5.5 (card can't choose; plan row says Sonnet for 7.1). Critic
 8. State/note JSON answers for content rows: getIssueReport instead of 404.
 9. Tests: team.issues.test.ts (T7-1..T7-6), walk TABLE rows, T4-1 updated (welfare part byte-for-byte, Issues section stripped), allowlists.
 
-## Done
-- (nothing yet)
+## Done (21 Oct)
+- Items 1-9 built and committed (743e6d49 .. 174f635f). team.issues 20/20, walk 22/22, team.kind 14/14.
+- Test runner: scratchpad vt.sh (ESBUILD_BINARY_PATH, local DB catspotter_test).
 
 ## Next
-- Test tooling (esbuild/rollup workaround), then build items 1-9, committing after each.
+- Mutation probes (script in scratchpad probes.sh), then full api-server suite, browser check 390/desktop + screenshots to docs/screenshots/syc-44-pr-7-1/, Sonnet critic in own worktree, draft PR, Linear (SYC-44 comment, tickets), message overlapping sessions (#269, #267, #266 queuePage.ts; #262 walk; #270 kind allowlist).
