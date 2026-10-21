@@ -21,7 +21,8 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 vi.mock('@/hooks/useColors', () => ({
-  useColors: () => new Proxy({}, { get: () => '#123456' }),
+  useColors: () =>
+    new Proxy({}, { get: (_t, k) => (k === 'primary' ? 'rgb(1, 2, 3)' : '#123456') }),
 }));
 vi.mock('expo-router', () => ({ useRouter: () => ({ push: h.push }) }));
 vi.mock('@/context/LanguageContext', () => ({
@@ -90,7 +91,9 @@ const cardIds = () =>
     .map((el) => el.getAttribute('data-testid')!.replace('card-', ''));
 
 const selected = (label: string) =>
-  screen.getByText(label).closest('[role="button"]')?.getAttribute('aria-selected') === 'true';
+  // An active Chip is painted with the primary colour.
+  (screen.getByText(label).closest('[role="button"]') as HTMLElement).style.backgroundColor ===
+  'rgb(1, 2, 3)';
 
 const noLocks = () => {
   expect(screen.queryByText('homeSpotToUnlock')).toBeNull();
