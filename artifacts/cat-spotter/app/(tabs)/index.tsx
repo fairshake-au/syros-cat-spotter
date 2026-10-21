@@ -238,11 +238,13 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHead}>
             <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>
-              {/* "Nearby" only when the first cats really are close; otherwise
-                  the strip is just cats to look out for (stripHeadingKey). */}
+              {/* "Nearby" only when the cats shown in the strip really are
+                  close (the strip puts unspotted cats first, so judge
+                  `nearby`, not the whole list); otherwise the strip is just
+                  cats to look out for (stripHeadingKey). */}
               {/* SYC-143: capitals via displayUpperCase, not textTransform,
                   so Greek drops its accents. */}
-              {displayUpperCase(t(stripHeadingKey(!!coords, cats)))}
+              {displayUpperCase(t(stripHeadingKey(!!coords, nearby)))}
             </Text>
             <Pressable onPress={() => router.push('/cats')}>
               <Text style={[styles.seeAll, { color: colors.primary }]}>

@@ -155,4 +155,17 @@ describe('Home hero and strip (SYC-505)', () => {
     expect(screen.getByText('homeToCollectEyebrow')).toBeTruthy();
     noLocks();
   });
+
+  it('heading judges the cats actually shown: a spotted near cat pushed off the strip is not "near you"', () => {
+    h.coords = { latitude: 37, longitude: 24 };
+    h.profile = { catsSpotted: 1, spottedCatIds: [1], totalCats: 6 };
+    h.cats = [
+      { id: 1, distanceKm: 0.2 },
+      ...[2, 3, 4, 5, 6].map((id) => ({ id, distanceKm: 40 })),
+    ];
+    render(<HomeScreen />);
+    expect(screen.queryByTestId('card-1')).toBeNull();
+    expect(screen.getByText('homeToCollectEyebrow')).toBeTruthy();
+    expect(screen.queryByText('homeNearbyEyebrow')).toBeNull();
+  });
 });
