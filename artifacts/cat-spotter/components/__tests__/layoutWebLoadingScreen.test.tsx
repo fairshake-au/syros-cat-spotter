@@ -57,7 +57,10 @@ vi.mock('expo-splash-screen', () => ({
   hideAsync: () => Promise.resolve(true),
 }));
 vi.mock('@/context/AppearanceContext', () => ({ AppearanceProvider: stubComponent('AppearanceProvider') }));
-vi.mock('@/context/LanguageContext', () => ({ LanguageProvider: stubComponent('LanguageProvider') }));
+vi.mock('@/context/LanguageContext', () => ({
+  LanguageProvider: stubComponent('LanguageProvider'),
+  useLanguage: () => ({ isLanguageReady: true, t: (k: string) => k }),
+}));
 vi.mock('@/context/DeviceContext', () => ({
   DeviceProvider: stubComponent('DeviceProvider'),
   useDevice: () => ({}),

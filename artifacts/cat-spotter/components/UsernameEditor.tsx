@@ -31,7 +31,14 @@ const MIN_LEN = 3;
  * button; editing reuses the landing-screen availability check and the
  * claim endpoint, with live feedback and duplicate blocking.
  */
-export function UsernameEditor({ currentUsername }: { currentUsername: string | null }) {
+export function UsernameEditor({
+  currentUsername,
+  editRequest = 0,
+}: {
+  currentUsername: string | null;
+  /** SYC-506: bump to open the editor (the rename note's "Change it"). */
+  editRequest?: number;
+}) {
   const colors = useColors();
   const { t } = useLanguage();
   const { deviceId, setUsername } = useDevice();
@@ -40,6 +47,14 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  useEffect(() => {
+    if (editRequest > 0) {
+      setDraft(currentUsername ?? '');
+      setEditing(true);
+    }
+    // Only a new request opens it, not a changed name.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editRequest]);
   const [debounced, setDebounced] = useState('');
   const [saved, setSaved] = useState(false);
 

@@ -66,7 +66,7 @@ function setup() {
   const input = view.container.querySelector('input')!;
   // The purropolis Button mock is the only element with type="button" text.
   const mainButton = () =>
-    [...view.container.querySelectorAll('button[type="button"]')].at(-1) as HTMLButtonElement;
+    Array.from(view.container.querySelectorAll('button[type="button"]')).at(-1) as HTMLButtonElement;
   return { view, input, mainButton };
 }
 
@@ -84,13 +84,13 @@ describe('LanguageUsernameStep offline (SYC-506)', () => {
     expect(view.container.textContent).toContain(en.offlineNameNote);
     expect(view.container.textContent).not.toContain(en.landingOffline);
     expect(mainButton().textContent).toBe(en.startSpotting);
-    const chips = [...view.container.querySelectorAll('span')].filter((s) => s.textContent?.startsWith('@'));
+    const chips = Array.from(view.container.querySelectorAll('span')).filter((s) => s.textContent?.startsWith('@'));
     expect(chips.length).toBe(4);
   });
 
   it('a suggested name, then Start spotting, holds it on the phone and sends nothing', async () => {
     const { view, input, mainButton } = setup();
-    const chip = [...view.container.querySelectorAll('span')].find((s) => s.textContent?.startsWith('@'))!;
+    const chip = Array.from(view.container.querySelectorAll('span')).find((s) => s.textContent?.startsWith('@'))!;
     const name = chip.textContent!.slice(1);
     await act(async () => { fireEvent.click(chip); });
     expect(input.value).toBe(name);
