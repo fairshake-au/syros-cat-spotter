@@ -135,14 +135,16 @@ describe("a missing or broken stored price (review of PR 3.1b)", () => {
 });
 
 describe("the settings cache (review of PR 3.1b)", () => {
-  it("a read that began before a change can't put the old price back", async () => {
+  it("a read that began before a clear can't put the old price back", async () => {
     clearAppSettingsCache();
     const was = (await getAppSettings()).sterilisationPriceEur;
     clearAppSettingsCache();
-    const slow = getAppSettings(); // starts now, reading the old price
+    const slow = getAppSettings(); // in flight, reading the old price
+    clearAppSettingsCache(); // a change lands on this server meanwhile
+    expect((await slow).sterilisationPriceEur).toBe(was);
+    // The change's row (written straight, so only the cache is under test).
     const next = other(was, 9);
-    await setStandardPrice(team, next); // clears the cache after its commit
-    await slow;
+    await pool.query(`update app_settings set value = $2::jsonb where key = $1`, [KEY, JSON.stringify(next)]);
     expect((await getAppSettings()).sterilisationPriceEur).toBe(next);
   });
 });
