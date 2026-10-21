@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MatchCandidate } from './matchCandidate';
+import type { MatchResultMatchCheck } from './matchResultMatchCheck';
 
 export interface MatchResult {
   sightingId: number;
@@ -13,4 +14,8 @@ export interface MatchResult {
   isCatPhoto: boolean;
   /** Candidates below the matcher's confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry. */
   candidates: MatchCandidate[];
+  /** SYC-503: whether the look-alike check worked. Read this FIRST: on "failed", candidates is empty and isCatPhoto is true only because nothing is known, never "no look-alikes" or "a cat". A stored answer without this field is read as "done". */
+  matchCheck: MatchResultMatchCheck;
+  /** SYC-503: true when a failed check can be run again with recheckSighting; false when the check worked, or when the photo has gone and there is nothing to check. */
+  canRecheck: boolean;
 }

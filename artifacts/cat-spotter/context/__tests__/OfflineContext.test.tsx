@@ -677,3 +677,93 @@ describe("the pre-launch gate's 401 on a native store build (SYC-121)", () => {
     errorSpy.mockRestore();
   });
 });
+
+// SYC-503 (when-the-photo-check-fails.md §5): the queue keeps a failed
+// look-alike check, replaces it after a successful "Check again", and a
+// replaced photo starts clean.
+describe('a failed look-alike check in the queue (SYC-503)', () => {
+  it('stores matchCheck and canRecheck when a queued spot syncs', async () => {
+    seedQueue([makeItem({ localId: 'failed-1' })]);
+    createSighting.mockResolvedValueOnce({
+      sightingId: 41,
+      isCatPhoto: true,
+      candidates: [],
+      matchCheck: 'failed',
+      canRecheck: true,
+    });
+    const ctx = renderProvider();
+    await waitFor(() => expect(ctx.current.pending).toHaveLength(1));
+    await act(async () => {
+      await ctx.current.syncNow();
+    });
+    expect(ctx.current.pending[0]).toMatchObject({
+      status: 'review',
+      sightingId: 41,
+      matchCheck: 'failed',
+      canRecheck: true,
+    });
+    expect(persistedQueue()[0]).toMatchObject({ matchCheck: 'failed', canRecheck: true });
+  });
+
+  it('updateReview replaces a waiting item\'s answer after a successful check', async () => {
+    seedQueue([
+      makeItem({
+        localId: 'review-1',
+        status: 'review',
+        sightingId: 42,
+        isCatPhoto: true,
+        candidates: [],
+        matchCheck: 'failed',
+        canRecheck: true,
+      }),
+    ]);
+    const ctx = renderProvider();
+    await waitFor(() => expect(ctx.current.pending).toHaveLength(1));
+    const found = {
+      catId: 3,
+      name: 'Mitsos',
+      photoUrl: null,
+      confidence: 0.9,
+      reasoning: 'same ears',
+    };
+    await act(async () => {
+      await ctx.current.updateReview('review-1', {
+        isCatPhoto: true,
+        candidates: [found],
+        matchCheck: 'done',
+        canRecheck: false,
+      });
+    });
+    expect(ctx.current.pending[0]).toMatchObject({
+      status: 'review',
+      sightingId: 42,
+      candidates: [found],
+      matchCheck: 'done',
+      canRecheck: false,
+    });
+    expect(persistedQueue()[0]).toMatchObject({ matchCheck: 'done' });
+  });
+
+  it('a replaced photo clears an old check result, even if it cannot send yet', async () => {
+    seedQueue([
+      makeItem({
+        status: 'rejected',
+        rejectionKey: 'photoInvalid',
+        matchCheck: 'failed',
+        canRecheck: true,
+      }),
+    ]);
+    createSighting.mockRejectedValue(new TypeError('Network request failed'));
+    const ctx = renderProvider();
+    await waitFor(() => expect(ctx.current.pending).toHaveLength(1));
+    await act(async () => {
+      await ctx.current.replacePhoto('local-1', {
+        photoBase64: 'replacement-photo',
+        photoUri: 'file://replacement.jpg',
+      });
+    });
+    expect(ctx.current.pending[0].status).toBe('queued');
+    expect(ctx.current.pending[0].matchCheck).toBeUndefined();
+    expect(ctx.current.pending[0].canRecheck).toBeUndefined();
+  });
+});

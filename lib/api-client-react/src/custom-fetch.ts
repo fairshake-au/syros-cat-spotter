@@ -20,8 +20,19 @@ export type CustomFetchOptions = RequestInit & {
 export const USERNAME_REQUEST_TIMEOUT_MS = 30_000;
 const USERNAME_ROUTE = /\/api\/profiles\/(?:username-availability|[^/?#]+\/username)(?:[?#]|$)/;
 
+/**
+ * SYC-503: "Check again" after a failed look-alike check. The server gives
+ * up after about 35 s (one 30 s try after a quick retry), so the phone stops
+ * waiting a little later instead of showing "Checking…" forever on Android.
+ * It sends no photo, so a hard limit can't cut off an upload.
+ */
+export const RECHECK_REQUEST_TIMEOUT_MS = 45_000;
+const RECHECK_ROUTE = /\/api\/sightings\/[^/?#]+\/recheck(?:[?#]|$)/;
+
 function defaultTimeoutMs(url: string): number | undefined {
-  return USERNAME_ROUTE.test(url) ? USERNAME_REQUEST_TIMEOUT_MS : undefined;
+  if (USERNAME_ROUTE.test(url)) return USERNAME_REQUEST_TIMEOUT_MS;
+  if (RECHECK_ROUTE.test(url)) return RECHECK_REQUEST_TIMEOUT_MS;
+  return undefined;
 }
 
 /** Thrown when a request is abandoned by its transport timeout. No HTTP status: the outcome is unknown. */

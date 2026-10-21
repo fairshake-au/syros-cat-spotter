@@ -27,7 +27,10 @@ describe('the feeding nudge on the result screens', () => {
     const decide = source.indexOf('useResultNudge({');
     expect(decide).toBeGreaterThan(-1);
     expect(decide).toBeLessThan(source.indexOf('if (!data) {'));
-    expect(source).toMatch(/const openedOn = !data\?\.isCatPhoto \? "notCat" : data\.candidates\.length === 0 \? "naming" : "matches"/);
+    // SYC-503: a failed look-alike check is its own screen, checked first.
+    expect(source).toMatch(
+      /const openedOn = checkFailed\s*\? "couldntCheck"\s*: !data\?\.isCatPhoto\s*\? "notCat"\s*: data\.candidates\.length === 0\s*\? "naming"\s*: "matches"/,
+    );
   });
 
   it('2. on the match list: after the matches, "Find the cat yourself" and "None of these", before "This cat needs help"', () => {
@@ -52,10 +55,13 @@ describe('the feeding nudge on the result screens', () => {
   });
 
   it('3. never on the no-cat screen or the reward screen', () => {
-    const notCat = between(source, 'if (!data.isCatPhoto) {', 'if (showPicker) {');
+    const notCat = between(source, 'if (!checkFailed && !data.isCatPhoto) {', 'if (showPicker) {');
     expect(notCat).not.toMatch(/feedNudge/);
-    const reward = between(source, 'if (result) {', 'if (!data.isCatPhoto) {');
+    const reward = between(source, 'if (result) {', 'if (!checkFailed && !data.isCatPhoto) {');
     expect(reward).not.toMatch(/feedNudge/);
+    // SYC-503: nor on the "couldn't check" screen.
+    const couldntCheck = between(source, 'if (checkFailed && !showNewCat) {', '// ----- ④ Name');
+    expect(couldntCheck).not.toMatch(/feedNudge/);
   });
 
   it('15. a queued sighting is passed through as such (its localId), so it never shows', () => {
