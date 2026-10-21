@@ -93,6 +93,16 @@ const ISLAND_ONLY_MODULES: Record<string, { why: string; fns: string[]; capabili
     fns: ["namedAreasAt", "areaChanges"],
     capabilities: ["edit_named_areas"],
   },
+  "lib/reports/progress.ts": {
+    why: "Sterilisation progress (SYC-396 PR 3.3a): the whole island's colonies, team-only until the guardian variant (SYC-472, 16 Nov)",
+    fns: ["progressReport"],
+    capabilities: ["view_reports", "export_report"],
+  },
+  "lib/reports/colonyHealth.ts": {
+    why: "Colony health (SYC-396 PR 3.3a): every colony's row, team-only until the guardian variant (SYC-472, 16 Nov)",
+    fns: ["colonyHealthReport"],
+    capabilities: ["view_reports", "export_report"],
+  },
   "lib/areas/areaWrites.ts": {
     why: "the only writer of named_areas and its history rows (SYC-396 PR 2.4); the team's list, island-wide by design",
     fns: ["changeArea"],

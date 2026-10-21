@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -26,7 +27,7 @@ import { useOffline } from '@/context/OfflineContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { UsernameEditor } from '@/components/UsernameEditor';
 import { KeepSafeSettings } from '@/components/keepSafe/KeepSafeSettings';
-import { Avatar, Card, StatTile } from '@/components/purropolis';
+import { Avatar, Button, Card, StatTile } from '@/components/purropolis';
 import { BADGE_IDS, BADGE_ICONS, LANGUAGES } from '@/lib/i18n';
 
 const BADGE_TONES: { bg: string; fg: string }[] = [
@@ -41,7 +42,9 @@ export default function ProfileScreen() {
   const { appearance, setAppearance } = useAppearance();
   const { t, language, setLanguage } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { deviceId } = useDevice();
+  const { deviceId, username, heldUsername, nameNote, setNameNote } = useDevice();
+  // SYC-506: "Change it" on the rename note opens the name editor.
+  const [editRequest, setEditRequest] = useState(0);
   const { isOnline } = useOffline();
 
   const profileQuery = useGetProfile(deviceId ?? '', {
@@ -100,10 +103,16 @@ export default function ProfileScreen() {
             ]}
           >
             <Text style={styles.heroPaw}>🐾</Text>
-            <Avatar name={profile?.username || t('spotter')} ring size="xl" />
-            {!!profile?.username && (
+            <Avatar name={profile?.username || username || heldUsername || t('spotter')} ring size="xl" />
+            {!!(profile?.username || username || heldUsername) && (
               <Text style={[styles.username, { color: colors.primaryForeground }]}>
-                {profile.username}
+                {profile?.username || username || heldUsername}
+              </Text>
+            )}
+            {/* SYC-506: a name chosen offline, not on the server yet. */}
+            {!username && !!heldUsername && (
+              <Text style={[styles.heroSub, styles.notSaved, { color: colors.primaryForeground }]}>
+                {t('nameNotSavedYet')}
               </Text>
             )}
             <View style={styles.heroSubRow}>
@@ -150,9 +159,42 @@ export default function ProfileScreen() {
             />
           </View>
 
-          {/* Username */}
-          {isOnline && !!deviceId && (
-            <UsernameEditor currentUsername={profile?.username ?? null} />
+          {/* SYC-506: the background save gave this spotter another name. */}
+          {!!nameNote && (
+            <View
+              style={[styles.nameNote, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              <Text style={[styles.nameNoteText, { color: colors.foreground }]}>
+                {t(nameNote.reason === 'taken' ? 'nameNoteTaken' : 'nameNoteRefused')
+                  .replace('{from}', nameNote.from)
+                  .replace('{to}', nameNote.to)}
+              </Text>
+              <View style={styles.nameNoteActions}>
+                {isOnline && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onPress={() => {
+                      setNameNote(null);
+                      setEditRequest((n) => n + 1);
+                    }}
+                  >
+                    {t('nameNoteChange')}
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onPress={() => setNameNote(null)}>
+                  {t('nameNoteDismiss')}
+                </Button>
+              </View>
+            </View>
+          )}
+
+          {/* Username: waits until a name held offline has been saved. */}
+          {isOnline && !!deviceId && !heldUsername && (
+            <UsernameEditor
+              currentUsername={profile?.username ?? username ?? null}
+              editRequest={editRequest}
+            />
           )}
 
           {/* Badges */}
@@ -399,6 +441,10 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  notSaved: { textAlign: 'center', paddingHorizontal: 24, opacity: 0.9 },
+  nameNote: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 10 },
+  nameNoteText: { fontFamily: fonts.body, fontSize: fontSizes.sm, lineHeight: 20 },
+  nameNoteActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   container: { flex: 1 },
   loadingBox: { paddingVertical: 60, alignItems: 'center' },
   hero: {

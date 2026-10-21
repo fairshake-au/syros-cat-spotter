@@ -1379,7 +1379,7 @@ There are no response times and no per-person figures.
 ```ts
 export type WelfareKind = "litter" | "urgent" | "attention";
 export const WELFARE_ORDER: readonly WelfareKind[] = ["urgent", "attention", "litter"];
-export const WELFARE_COLOUR: Record<WelfareKind, string> = { urgent: "#b42318", attention: "#8a6d1d", litter: "#5b4b8a" };
+export const WELFARE_COLOUR: Record<WelfareKind, string> = { urgent: "#b42318", attention: "#a08000", litter: "#5b4b8a" };
 export const kindOf = (r: { severity: "urgent" | "attention"; isLitter: boolean }): WelfareKind => r.isLitter ? "litter" : r.severity === "urgent" ? "urgent" : "attention";
 export async function welfarePatterns(range: Range, now: Date): Promise<{ perWeek: { at: Date; counts: Record<WelfareKind, number> }[]; drafts: number; contentReports: number; topAreas: { area: string; count: number }[] }>;
 ```
@@ -1541,7 +1541,7 @@ This plan was written on Opus. That was synthesis across the spec, three code in
 **Re-running tests:** before any merge, the session model re-runs the named test files itself (memory `rerun-delegated-tests`).
 
 **Chart colours:** before PR 3.3a merges, every new colour is run through the dataviz skill's palette validator against the page background (`#f6f4ef`) and white cards:
-- the welfare kinds `#b42318`, `#8a6d1d` and `#5b4b8a`;
+- the welfare kinds `#b42318`, `#a08000` and `#5b4b8a` (Needs attention was `#8a6d1d` until PR 3.3a's check on 21 Oct 2026: beside Urgent's red it failed colour-blind separation, ΔE 4.0 for deuteranopia. `#a08000` passes every check on both surfaces, ΔE 10.8, and keeps 3:1);
 - the neutral total line.
 
 Each must reach at least 3:1. Any that fails is changed in the plan's constant and in the code together.

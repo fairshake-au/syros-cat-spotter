@@ -91,6 +91,12 @@ export const CATALOGUE = {
   // Find from a photo (SYC-396 PR 2.5; dashboard §5.2, §10.3). Never for a
   // guardian: matching anywhere stays reserved (match_cat_anywhere).
   find_cat_from_photo: { kind: "island", roles: TEAM },
+  // The reports (SYC-396 PR 3.3a; dashboard §9.3). A cat guardian holds
+  // view_reports for her own colonies, but her reports arrive on 16 Nov
+  // (SYC-472): until then every report route is placed with no target, so it
+  // answers for island rows only and she gets the 403. Downloads are the team's.
+  view_reports: { kind: "placed", roles: EVERYONE },
+  export_report: { kind: "island", roles: TEAM },
   // The Vet settings page (SYC-396 PR 3.1b; dashboard §10.3): the standard
   // sterilisation price, with its history. Never for a guardian.
   edit_vet_settings: { kind: "island", roles: TEAM },

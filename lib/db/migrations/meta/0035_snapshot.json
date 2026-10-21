@@ -1,5 +1,5 @@
 {
-  "id": "79e5b0d1-9682-4a07-a3f8-fe7c1c8efc85",
+  "id": "bcfb5240-5353-410c-b54e-9248dd037668",
   "prevId": "402ed27c-a6d4-4032-a552-df6c64a20639",
   "version": "7",
   "dialect": "postgresql",
@@ -3536,11 +3536,11 @@
       "checkConstraints": {
         "mapping_events_subject_kind_ck": {
           "name": "mapping_events_subject_kind_ck",
-          "value": "\"mapping_events\".\"subject_kind\" in ('site', 'colony', 'named_area', 'vet_settings')"
+          "value": "\"mapping_events\".\"subject_kind\" in ('site', 'colony', 'named_area')"
         },
         "mapping_events_kind_ck": {
           "name": "mapping_events_kind_ck",
-          "value": "\"mapping_events\".\"kind\" in ('existing', 'created', 'seeded', 'renamed', 'notes_edited', 'directions_edited', 'colony_changed', 'moved', 'made_public', 'made_private', 'made_private_moved', 'made_private_colony_changed', 'made_private_guardian_changed', 'label_changed', 'retired', 'restored', 'colony_created', 'colony_renamed', 'guardian_changed', 'colony_notes_changed', 'colony_centre_changed', 'guardian_forgotten', 'area_added', 'area_renamed', 'area_moved', 'area_retired', 'price_changed')"
+          "value": "\"mapping_events\".\"kind\" in ('existing', 'created', 'seeded', 'renamed', 'notes_edited', 'directions_edited', 'colony_changed', 'moved', 'made_public', 'made_private', 'made_private_moved', 'made_private_colony_changed', 'made_private_guardian_changed', 'label_changed', 'retired', 'restored', 'colony_created', 'colony_renamed', 'guardian_changed', 'colony_notes_changed', 'colony_centre_changed', 'guardian_forgotten', 'area_added', 'area_renamed', 'area_moved', 'area_retired')"
         },
         "mapping_events_actor_system_ck": {
           "name": "mapping_events_actor_system_ck",
@@ -4412,6 +4412,64 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.report_downloads": {
+      "name": "report_downloads",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "report": {
+          "name": "report",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "range": {
+          "name": "range",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "at": {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "report_downloads_person_id_people_id_fk": {
+          "name": "report_downloads_person_id_people_id_fk",
+          "tableFrom": "report_downloads",
+          "tableTo": "people",
+          "columnsFrom": [
+            "person_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

@@ -20,3 +20,4 @@ export * from "./matchWait";
 export * from "./photoVariants";
 export * from "./sightingPhotos";
 export * from "./catNews";
+export * from "./reportDownloads";

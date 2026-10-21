@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { escapeHtml } from "./escape";
 import { tr, pageLanguage, type Language } from "./strings";
 import { MAP_MARK_CSS, MARK_CSS } from "./marks";
+import { CHART_CSS } from "../reports/chartCss";
 import { WORKSPACE_PAGE } from "../teamAuth/config";
 
 // The one page shell for the staff dashboard (SYC-43 part 2 plan, PR 1).
@@ -9,7 +10,7 @@ import { WORKSPACE_PAGE } from "../teamAuth/config";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies" | "workspace";
+export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "reports" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies" | "workspace";
 
 interface NavItem {
   key: NavKey;
@@ -22,7 +23,7 @@ interface NavItem {
 
 // The menu names the team's jobs (SYC-396 spec §3.1): Home · Cats · Map ·
 // Queue · Colonies · Reports · People. Items appear as their screens ship
-// (Reports with PR 3.3a). Since Home (PR 2.1), the work lists live on Home:
+// (Reports came with PR 3.3a). Since Home (PR 2.1), the work lists live on Home:
 // Ear clips to check and Colour check are linked from there, and Feeding
 // sites from the Map and each colony (SYC-450).
 const NAV: NavItem[] = [
@@ -32,6 +33,8 @@ const NAV: NavItem[] = [
   { key: "map", label: "Map", href: "/api/team/cats?view=map" },
   { key: "queue", label: "Queue", href: "/api/team" },
   { key: "colonies", label: "Colonies", href: "/api/team/colonies" },
+  // /insights, because /api/team/reports is the welfare queue's (PR 3.3a).
+  { key: "reports", label: "Reports", href: "/api/team/insights" },
 ];
 
 /**
@@ -449,6 +452,7 @@ ul.findlist{grid-template-columns:1fr}
 }
 /* The island map (SYC-396 PR 1.5; spec §6, §12.4). */
 ${MAP_MARK_CSS}
+${CHART_CSS}
 .viewswitch{display:inline-flex;margin:8px 0;border:1px solid #0b5c6b;border-radius:8px;overflow:hidden}
 .viewswitch a{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;background:#fff;color:#0b4553;font-weight:700;text-decoration:none}
 .viewswitch a[aria-current="page"]{background:#0b5c6b;color:#fff}
