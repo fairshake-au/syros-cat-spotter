@@ -165,6 +165,7 @@ Each one is a choice the spec leaves open. "What the team sees" says what it mea
    - That one row records the yes and marks the guardian row wrong, with the reason "vet visit on 13 Aug 2026". `listGuardianChanges` already shows such rows as "overruled".
    - Undoing the visit retracts that row. A new resolver rule (PR 3.0) makes a **retraction of a superseding row** stand the row it replaced up again, for `sterilised` and `vaccinated` only, so the guardian's statement comes back.
    - *What the team sees:* undo really is undo.
+   - **A standing visit's "yes" always prevails** (Samuel, 21 Oct 2026, SYC-543). D8's supersede reaches only a guardian's "no" that stands when the visit is saved, so a team "no" dated after the visit, or any "no" entered later, would still have won. `resolveSterilised` therefore treats a standing `sterilised` row whose value carries `vetVisitId` as deciding the answer, whatever else is recorded. Only standing rows count (`standingRows`), so an undone visit decides nothing and every other answer stands again as before. Every "no" it outweighs is listed in the resolver's `conflicts`, so the team cat page shows it under *Says otherwise*. D8's visible overrule stays, so a guardian is never overruled silently. Cats with no visit keep exactly today's answer.
 7. **A statement created by a visit can only be undone through the visit.** The generic "Mark wrong" refuses rows that carry a `vetVisitId`, with the words "This came from a vet visit. Mark the visit wrong instead." Otherwise a cat page and the vet report could disagree.
 8. **The standard price is an app setting, `standard_sterilisation_price_eur`, defaulting to 60** (SYC-442). Its changes go into `mapping_events` as a new subject kind, `vet_settings`, the "same add-only history" §10.3 asks for.
    - PR 2.3 reads it for the planner's estimate.
@@ -1112,6 +1113,7 @@ export interface VisitLine { visitId: number; date: string; did: VetVisitValue["
   - every one of them dated to the visit.
 - If Vaccinated is ticked, one `vaccinated` row `{ vaccines, clinic: clinicName, vetVisitId }`. Ticking Vaccinated needs `set_vaccination` as well as `log_vet_visit`, so the visit can't step around the existing vaccination rule.
 - The news ("desexed") is sent after the commit, as `commitStatement` already does.
+- While the visit stands its "yes" decides the cat's answer, over any "not sterilised" from any level and of any date (Decision 6, SYC-543). D8's supersede is kept so the guardian changes list shows the overrule.
 
 **Undoing a visit:**
 - Each row whose value has this `vetVisitId`, and then the visit itself, is superseded by `{ retracted: true, reason }`, all in one transaction.

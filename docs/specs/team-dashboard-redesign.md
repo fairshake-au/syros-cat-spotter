@@ -331,6 +331,8 @@ Each statement it creates points back to the visit.
 
 **When a guardian disagrees (D8).** Under Decision G, a cat guardian's standing "not sterilised" on the same cat would outrank a team statement. So the same save also marks that guardian statement wrong, with the reason "vet visit on 13 Aug 2026". It appears on the recent guardian changes list, so nobody is overruled silently. This mirrors the team's **Correct** on colour (DECISIONS, 13 Oct 2026). Undoing the visit restores the guardian's statement.
 
+**A visit that sterilised the cat always prevails** (Samuel, 21 Oct 2026, SYC-543: "a vet visit in which the cat was sterilised should always prevail"). While a visit with Sterilised ticked stands, the cat reads *Sterilised, confirmed*, whoever said "not sterilised" (the team, a cat guardian, anyone) and whenever they said it, including after the visit. Sterilisation can't be reversed, so a vet's record of doing it outweighs anyone's later "no". The only way back is to mark the visit wrong; the other answers then stand again exactly as before. A "not sterilised" the visit outweighs is never hidden: a guardian's is overruled visibly as above, and any other (a team member's, or one recorded after the visit) shows under *Says otherwise* on the cat page, so the team can see the clash and tidy it up. A visit logged on the wrong cat is fixed by marking the visit wrong.
+
 **Sterilisations recorded without a visit.** "Update this cat → whether sterilised" still works. The vet report counts those as "sterilised, no cost recorded".
 
 **Proof the cat was alive.** A vet visit also counts as proof the cat was alive on that date. This amends the data spine's list in §3.4.
@@ -713,7 +715,7 @@ Each phase is its own set of pull requests, reviewed and shipped before the next
 
 ## 16. Questions still open
 
-**Decided:** D8, when a vet visit and a cat guardian disagree (§8.3).
+**Decided:** D8, when a vet visit and a cat guardian disagree (§8.3); and a visit that sterilised the cat always prevails over any "not sterilised" (§8.3, SYC-543).
 
 **Questions for Syros Cats: answered** (Samuel, 18 Oct 2026, SYC-442):
 1. **Standard sterilisation price:** **€60**, one standard price. The team can still change it per visit, and on the Vet settings page.
