@@ -82,11 +82,12 @@ describe('WaitingCard', () => {
     expect(announce).toHaveBeenCalledWith('Why not to feed the cats');
   });
 
-  it('the no-link nudge has no figures and points to the Help tab (nudge spec test 16)', () => {
+  it('the no-link nudge has no figures and no pointer to another tab (nudge spec test 16)', () => {
     const { queryByText, getByText } = render(
       <WaitingCard choice={{ kind: 'nudge', form: 'noLink', countable: false }} t={t} />,
     );
     expect(queryByText(TRANSLATIONS.en.feedNudgeEuro!)).toBeNull();
     expect(getByText(TRANSLATIONS.en.feedNudgeInsteadNoLink!)).toBeTruthy();
+    expect(TRANSLATIONS.en.feedNudgeInsteadNoLink).not.toMatch(/tab/i);
   });
 });
