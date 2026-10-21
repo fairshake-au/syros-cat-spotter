@@ -13,7 +13,7 @@
 
 **Checked against:** `origin/main` at `f22ba944`. The newest migration on `origin/main` is `0034_photo_removal` (checked 21 Oct). The SYC-396 PR 3.3a session has claimed 0035; this work takes **0036**.
 
-**Status:** draft, awaiting Samuel's approval. Nothing is built.
+**Status:** **Approved by Samuel, 21 October 2026** ("approved, start step 1"). Step 1 in progress.
 
 ---
 
