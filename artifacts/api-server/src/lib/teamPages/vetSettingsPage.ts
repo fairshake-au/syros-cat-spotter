@@ -24,8 +24,19 @@ export interface VetSettingsPageOptions {
   done?: string;
 }
 
-const day = (d: Date) =>
-  d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Athens" });
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "18 Oct 2026", in Athens. The month by our own list: ICU writes September "Sept". */
+export function day(d: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    timeZone: "Europe/Athens",
+  }).formatToParts(d);
+  const part = (t: string) => Number(parts.find((p) => p.type === t)!.value);
+  return `${part("day")} ${MONTHS[part("month") - 1]} ${part("year")}`;
+}
 
 const euros = (eur: number | null) => (eur === null ? "a price no longer shown" : `€${eur}`);
 

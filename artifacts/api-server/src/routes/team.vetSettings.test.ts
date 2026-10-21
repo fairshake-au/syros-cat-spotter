@@ -4,6 +4,7 @@ import { pool } from "@workspace/db";
 import app from "../app";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { clearAppSettingsCache, getAppSettings } from "../lib/appSettings";
+import { day } from "../lib/teamPages/vetSettingsPage";
 import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
 
 // SYC-396 PR 3.1b (plan Task 3.1.2; dashboard §8.4, §10.3): the Vet settings
@@ -20,8 +21,7 @@ let guardian: Signed;
 let original: { value: unknown } | undefined;
 
 const other = (eur: number, by = 5) => (eur + by > 500 ? eur - by : eur + by);
-const today = () =>
-  new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Athens" });
+const today = () => day(new Date());
 const priceNow = async () => {
   clearAppSettingsCache();
   return (await getAppSettings()).sterilisationPriceEur;
@@ -138,6 +138,25 @@ describe("the Vet settings page", () => {
       expect([res.status, res.text]).toEqual([401, '{"error":"not_signed_in"}']);
     }
     expect(await priceNow()).toBe(was);
+  });
+
+  it("the history's day reads 18 Oct 2026, and September is Sep (review of PR 3.1b)", () => {
+    expect(day(new Date("2026-10-18T09:00:00Z"))).toBe("18 Oct 2026");
+    expect(day(new Date("2026-09-03T09:00:00Z"))).toBe("3 Sep 2026");
+    // Athens is ahead of UTC: late on 31 Dec in London is already the new year there.
+    expect(day(new Date("2026-12-31T23:30:00Z"))).toBe("1 Jan 2027");
+  });
+
+  it("a JSON client may send the price as a number", async () => {
+    const was = await priceNow();
+    const next = other(was, 4);
+    const res = await request(app)
+      .post(PATH)
+      .set("Origin", TEAM_ORIGIN)
+      .set("Cookie", team.cookie)
+      .set("Accept", "application/json")
+      .send({ eur: next });
+    expect([res.status, res.body.standardPriceEur]).toEqual([200, next]);
   });
 
   it("answers JSON too: the price and its history", async () => {

@@ -54,7 +54,9 @@ export async function setStandardPrice(
     // The price the app has been using: the stored one, or the default for a
     // missing or wrongly shaped row (as getAppSettings reads it).
     const before = settingsFromRows(rows).sterilisationPriceEur;
-    if (before === eur) throw new PriceRefused(`The standard price is already €${eur}.`);
+    // Refused only when the stored row already says so: a missing or broken
+    // row reads as €60, and writing 60 then makes it explicit (review of PR 3.1b).
+    if (rows[0]?.value === eur) throw new PriceRefused(`The standard price is already €${eur}.`);
     await tx
       .insert(appSettingsTable)
       .values({ key: KEY, value: eur })

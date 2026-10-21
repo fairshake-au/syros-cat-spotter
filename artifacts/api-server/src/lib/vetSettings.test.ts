@@ -121,6 +121,32 @@ describe("setStandardPrice", () => {
   });
 });
 
+describe("a missing or broken stored price (review of PR 3.1b)", () => {
+  it("writing 60 over a broken row is allowed, and its before is the €60 the app was using", async () => {
+    await pool.query(
+      `insert into app_settings (key, value) values ($1, '"sixty"'::jsonb)
+         on conflict (key) do update set value = excluded.value`,
+      [KEY],
+    );
+    clearAppSettingsCache();
+    expect(await setStandardPrice(team, 60)).toEqual({ before: 60, after: 60 });
+    expect(await stored()).toBe(60);
+  });
+});
+
+describe("the settings cache (review of PR 3.1b)", () => {
+  it("a read that began before a change can't put the old price back", async () => {
+    clearAppSettingsCache();
+    const was = (await getAppSettings()).sterilisationPriceEur;
+    clearAppSettingsCache();
+    const slow = getAppSettings(); // starts now, reading the old price
+    const next = other(was, 9);
+    await setStandardPrice(team, next); // clears the cache after its commit
+    await slow;
+    expect((await getAppSettings()).sterilisationPriceEur).toBe(next);
+  });
+});
+
 describe("priceChanges", () => {
   it("lists the changes newest first, with who made them", async () => {
     clearAppSettingsCache();

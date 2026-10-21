@@ -53,7 +53,9 @@ router.get("/team/vet-settings", requireTeam("edit_vet_settings"), async (req: R
 
 router.post("/team/vet-settings", ...formRoute("edit_vet_settings"), async (req: Request, res: Response) => {
   const person = teamPerson(res);
-  const typed = str(((req.body ?? {}) as Record<string, unknown>)["eur"]);
+  const raw = ((req.body ?? {}) as Record<string, unknown>)["eur"];
+  // A JSON client may send the number itself.
+  const typed = typeof raw === "number" ? String(raw) : str(raw);
   try {
     await setStandardPrice(person, typedEuros(typed));
   } catch (err) {
