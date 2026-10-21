@@ -2,7 +2,7 @@
 
 **Spec:** [`docs/specs/when-the-photo-check-fails.md`](../../specs/when-the-photo-check-fails.md), approved by Samuel on 21 Oct 2026 with these choices: D1 A, D2 A (25 points as usual), D3 30 seconds, D4 as recommended.
 **Branch:** `claude/inspiring-goldstine-b9108e`, from origin/main 7a2d83ff. **Delivers:** one draft PR.
-**Coordination:** the SYC-502 chip also edits `app/review.tsx`. I've proposed that SYC-502 merges first and this branch rebases onto it. Before the PR, I confirm its state and rebase.
+**Coordination:** none needed. The SYC-502 chip (PR #257) confirmed on 21 Oct that it doesn't touch `app/review.tsx`, so the two can merge in either order. No migration here (SYC-396 PR 3.3a holds 0035).
 
 ## Steps
 
