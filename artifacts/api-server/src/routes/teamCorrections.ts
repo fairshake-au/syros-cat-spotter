@@ -7,6 +7,7 @@ import {
   catIdOfStatement,
   confirmAppearance,
   correctAppearance,
+  FROM_VET_VISIT_WORDS,
   isAppearanceKind,
   NAME_MAX,
   recordDeath,
@@ -716,6 +717,16 @@ router.post(
       }
       res.status(201).json({ id: row.id });
     } catch (err) {
+      if (err instanceof ObservationRefused && err.code === "FROM_VET_VISIT") {
+        // Decision 7: in words, with the way back to the cat's Vet visits.
+        const catId = await catIdOfStatement(id);
+        return formProblem(req, res, 400, {
+          message: FROM_VET_VISIT_WORDS,
+          back: catId === null ? "/api/team/cats" : `/api/team/cats/${catId}#vet-visits`,
+          backLabel: "Back to the cat",
+          active,
+        });
+      }
       if (err instanceof ObservationRefused && err.code === "ALREADY_SUPERSEDED") {
         if (!isFormPost(req)) {
           return void res.status(409).json({ error: "Already superseded", code: "ALREADY_SUPERSEDED" });

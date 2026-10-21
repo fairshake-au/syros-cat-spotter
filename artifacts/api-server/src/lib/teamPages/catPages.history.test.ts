@@ -223,8 +223,11 @@ describe("cat page layout", () => {
     expect(renderCatPage(view(1), "Sam")).not.toContain('class="catactions"');
   });
 
-  it("never shows a dead button: no Log a vet visit yet (phase 3)", () => {
-    expect(renderCatPage(view(1), "Sam", { may })).not.toMatch(/vet visit/i);
+  it("Log a vet visit is the main button, only for someone who may log one (SYC-396 PR 3.1a)", () => {
+    expect(renderCatPage(view(1), "Sam", { may })).toContain('class="primary wide">Log a vet visit</button>');
+    const cannot = renderCatPage(view(1), "Sam", { may: (c) => c !== "log_vet_visit" });
+    expect(cannot).not.toContain("Log a vet visit");
+    expect(cannot).not.toContain("Mark the visit wrong");
   });
 });
 

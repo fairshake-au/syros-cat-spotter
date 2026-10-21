@@ -137,6 +137,13 @@ export interface VetVisitValue {
   paidBy: (typeof PAID_BY)[number];
   /** 0–500 characters. */
   note?: string;
+  /**
+   * Why a sterilisation cost what it did, when that isn't the standard price
+   * (Samuel, 21 Oct 2026; SYC-396). Optional; trimmed, 1–200 characters;
+   * only on a visit that sterilised and has a cost. Money information: shown
+   * only with `view_vet_costs`.
+   */
+  costReason?: string;
 }
 
 const VISIT_DID_SET: ReadonlySet<string> = new Set(VISIT_DID);
@@ -149,6 +156,7 @@ const VET_VISIT_KEYS: ReadonlySet<string> = new Set([
   "costEur",
   "paidBy",
   "note",
+  "costReason",
 ]);
 const VISIT_COST_MAX_EUR = 2000;
 
@@ -695,6 +703,15 @@ function validateVetVisit(value: unknown): void {
   const note = value["note"];
   if (note !== undefined && (typeof note !== "string" || note.length > 500)) {
     refuse("MALFORMED_VALUE", "vet_visit.note is at most 500 characters");
+  }
+  if ("costReason" in value) {
+    const reason = value["costReason"];
+    if (typeof reason !== "string" || reason !== reason.trim() || reason.length < 1 || reason.length > 200) {
+      refuse("MALFORMED_VALUE", "vet_visit.costReason must be trimmed, 1 to 200 characters");
+    }
+    if (!did.includes("sterilised") || cost === null) {
+      refuse("MALFORMED_VALUE", "vet_visit.costReason only on a sterilisation with a cost");
+    }
   }
 }
 

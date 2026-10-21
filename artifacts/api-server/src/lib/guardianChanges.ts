@@ -272,10 +272,21 @@ export async function listGuardianChanges(
   for (const o of sameKindRows) {
     if (o.supersedesId != null && !isRestorable(o.kind)) replaced.add(o.supersedesId);
   }
+  // Her statements a standing vet visit still overrules: with two visits
+  // overruling one "no", undoing one doesn't put it back (review F1). Only
+  // a visit's row counts here; a team correction after the undo is its own
+  // "overruled" entry, and the undone one was still put back.
+  const visitHeld = new Set<number>();
   for (const kind of ["sterilised", "vaccinated", "vet_visit"] as const) {
     const chains = supersedeChains(sameKindRows, kind);
     for (const id of chains.displaced) replaced.add(id);
     for (const id of chains.retracted) undone.add(id);
+    for (const o of sameKindRows) {
+      const v = o.value as { vetVisitId?: unknown } | null;
+      if (o.kind === kind && o.supersedesId != null && !chains.retracted.has(o.id) && typeof v?.vetVisitId === "number") {
+        visitHeld.add(o.supersedesId);
+      }
+    }
   }
   const cats =
     catIds.length === 0
@@ -353,7 +364,9 @@ export async function listGuardianChanges(
         by: who(row.accountId),
         guardian: who(targetAccount),
         cat: catRef(row.catId),
-        putBack: undone.has(row.id),
+        // Only when her statement really stands again: with two visits
+        // overruling it, undoing one leaves it overruled (review of 3.1a, F1).
+        putBack: undone.has(row.id) && !visitHeld.has(targetId),
       }),
     ),
     ...created.flatMap((c): GuardianChange[] => {

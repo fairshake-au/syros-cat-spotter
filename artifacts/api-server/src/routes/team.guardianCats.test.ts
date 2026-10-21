@@ -60,6 +60,8 @@ const HER_FIELDS = [
   "photoUrls",
   "sterilised",
   "syr",
+  // SYC-396 PR 3.1a (dashboard §10.2): the day and what was done, nothing more.
+  "vetVisits",
 ];
 
 /**
