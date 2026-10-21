@@ -1,4 +1,4 @@
-import { db, sightingsTable, welfareReportsTable } from "@workspace/db";
+import { db, observationsTable, sightingsTable, welfareReportsTable } from "@workspace/db";
 import { and, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { listWelfareQueue, type QueueDraft, type QueueReport } from "../welfareQueue";
 import { listLikelyForReview } from "../likelyReview";
@@ -9,6 +9,8 @@ import { athensMonths } from "../athensTime";
 import { allColonyChoices } from "../colonyCats";
 import type { Visible } from "../guardianView";
 import { headline, notSeenLately, type Headline } from "./countedCats";
+import { standingRows } from "../resolve";
+import type { VetVisitValue } from "../observations";
 
 // The figures behind Home (SYC-396 spec §4; plan PR 2.1, Task 2.1.1).
 // Worked out from the records on every request (§9.6). Each section is read
@@ -26,6 +28,12 @@ export interface MonthFigures {
   sightings: number;
   newCats: number;
   sterilisations: number;
+  /**
+   * Syros Cats' money spent on vet visits in the month (§8.4): the cost of
+   * every standing visit paid by Syros Cats or by a donation for that cat.
+   * Owner-paid visits are never added in. Shown only with `view_vet_costs`.
+   */
+  vetSpendEur: number;
 }
 
 export interface HomeNeeds {
@@ -109,6 +117,26 @@ export async function countOpenIssues(): Promise<number> {
  *   resolved value's asOf) falls in the month, however late it was entered.
  * Off Syros is never counted in any figure (§3.3).
  */
+/** Who paid, for spend (§8.4): Syros Cats' own money and donations given for the cat. */
+const SPEND_PAID_BY: ReadonlySet<string> = new Set(["syros_cats", "donation"]);
+
+/**
+ * The month's vet spend (§8.4), from the visits as they stand: an undone
+ * visit costs nothing. Every visit counts, wherever the cat is: this is
+ * money spent, not a count of cats.
+ */
+export async function vetSpend(from: Date, to: Date): Promise<number> {
+  // Every vet_visit row, with its undos (they are vet_visit rows too), so
+  // the restore rule can say which visits stand.
+  const rows = await db.select().from(observationsTable).where(eq(observationsTable.kind, "vet_visit"));
+  const cents = standingRows(rows, "vet_visit")
+    .filter((o) => !o.redactedAt && o.observedAt.getTime() >= from.getTime() && o.observedAt.getTime() < to.getTime())
+    .map((o) => o.value as VetVisitValue)
+    .filter((v) => SPEND_PAID_BY.has(v.paidBy) && typeof v.costEur === "number")
+    .reduce((sum, v) => sum + Math.round((v.costEur as number) * 100), 0);
+  return cents / 100;
+}
+
 export async function monthFigures(from: Date, to: Date, cats: readonly TeamCat[]): Promise<MonthFigures> {
   const rows = await db
     .select({ lat: sightingsTable.lat, lng: sightingsTable.lng })
@@ -132,6 +160,7 @@ export async function monthFigures(from: Date, to: Date, cats: readonly TeamCat[
         c.snapshot.sterilised.confidence === "confirmed" &&
         inMonth(new Date(c.snapshot.sterilised.asOf)),
     ).length,
+    vetSpendEur: await vetSpend(from, to),
   };
 }
 

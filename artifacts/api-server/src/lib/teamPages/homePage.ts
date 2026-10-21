@@ -24,7 +24,6 @@ import { timeAgo } from "./queuePage";
  */
 export const COMING_SOON: readonly { label: string; route: string }[] = [
   { label: "trapping plans", route: "GET /api/team/colonies/:id/plan" },
-  { label: "vet visits", route: "GET /api/team/cats/:id/vet-visit" },
   { label: "reports", route: "GET /api/team/insights" },
   { label: "the impact report", route: "GET /api/team/insights/impact" },
 ];
@@ -170,10 +169,12 @@ function headlineSection(s: HomeData["headline"]): string {
   );
 }
 
-const figure = (words: string, now: number, last: number) =>
+const euros = (n: number) => `€${Number.isInteger(n) ? n : n.toFixed(2)}`;
+
+const figure = (words: string, now: number | string, last: number | string) =>
   `<li><span class="hfig">${now}</span> <span>${esc(words)}</span> <span class="hint">(last month ${last})</span></li>`;
 
-function monthSection(s: Section<{ now: MonthFigures; last: MonthFigures }>): string {
+function monthSection(s: Section<{ now: MonthFigures; last: MonthFigures }>, costs: boolean): string {
   if (!s.ok) return `<section id="month"><h2>This month</h2>${unavailable}</section>`;
   const { now, last } = s.value;
   return (
@@ -181,6 +182,8 @@ function monthSection(s: Section<{ now: MonthFigures; last: MonthFigures }>): st
     figure("Sightings", now.sightings, last.sightings) +
     figure("New cats recorded", now.newCats, last.newCats) +
     figure("Sterilisations done", now.sterilisations, last.sterilisations) +
+    // Money is the team's only (§8.4): `view_vet_costs`.
+    (costs ? figure("Vet spend", euros(now.vetSpendEur), euros(last.vetSpendEur)) : "") +
     "</ul></section>"
   );
 }
@@ -202,14 +205,14 @@ const isEmpty = (d: HomeData) =>
   toCheckSection(d.toCheck) === "" &&
   d.notSeenLately.value.total === 0;
 
-export function renderHomePage(d: HomeData, o: { personName: string; now: Date }): string {
+export function renderHomePage(d: HomeData, o: { personName: string; now: Date; costs?: boolean }): string {
   const body =
     (isEmpty(d) ? `<p class="empty" id="nothing">${esc(NOTHING_NEEDS_YOU)}</p>` : "") +
     needsSection(d.needs, o.now) +
     toCheckSection(d.toCheck) +
     notSeenSection(d.notSeenLately, o.now) +
     headlineSection(d.headline) +
-    monthSection(d.month) +
+    monthSection(d.month, o.costs === true) +
     AREAS_LINE +
     comingSoonLine();
   return renderPage({ title: "Home", active: "home", personName: o.personName, body });
