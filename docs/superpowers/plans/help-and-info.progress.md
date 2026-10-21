@@ -76,3 +76,10 @@ Checkpoint notes, newest last. Each agent appends after every commit.
   - Layout fix: the cat name in the line was a block link (`a.catlink`). Now `.muted a.catlink{display:inline}` (6657cf33). Team page tests 479/479.
 - Merged origin/main (b602975d), then checked again: api-server 4351 passed (4 skipped); app 2099; migrate:check ok; typecheck clean.
 - Draft PR #267 opened. Adversarial review (Opus, its own worktree) running.
+
+## Adversarial review folded in (session, Opus, 21 Oct)
+- #260 merged 0035_report_downloads, so I took main's meta, deleted ours and regenerated: ours is now 0036_report_suggested_cat. 3.1b (#262) was promised 0036, and that session has been told. If #262 leaves draft first, ours is regenerated as 0037 before ready.
+- Major: the step 3 agent's report claimed NeedsHelpLink and ReportIssueSheet cat tests that didn't exist. Added those two plus a cat-page test. Probed each entry point; every one goes red.
+- Minor fixes, each probed: the selectable test checks user-select; the a11y test checks every control's role and name; "It's a different cat" uses role=button; a removed primary photo gives a null thumbnail; "sterilise" in the campaign defaults.
+- Full runs: app 2104/2104; api 4421 passed, with 1 known flake (SYC-359, limits.test, passes alone).
+- Not done: the iOS tab-label check (needs the simulator). Listed in the PR body.
