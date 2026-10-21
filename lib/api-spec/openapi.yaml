@@ -298,6 +298,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
+  /sightings/{sightingId}/recheck:
+    post:
+      operationId: recheckSighting
+      tags: [sightings]
+      summary: Run the look-alike check again after it failed (SYC-503)
+      description: >-
+        Only the sighting's own device, and only while it is unresolved.
+        After a stored failure it runs the check again on the photos and
+        location already saved, counted against the same limits as sending
+        a spot. A check that worked is final: asking again returns that
+        check's answer (from the stored record, with empty reasoning) and runs
+        nothing, so a phone that never heard a successful recheck still gets
+        the look-alikes. Answers exactly as sending a spot does.
+      parameters:
+        - name: sightingId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecheckSightingRequest"
+      responses:
+        "200":
+          description: The check ran again (it may have failed again)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResult"
+        "403":
+          description: Not this device's sighting
+        "404":
+          description: Sighting not found
+        "409":
+          description: >-
+            Refused, with a code: RESOLVED (already resolved), CHECK_RUNNING
+            (a check for it is running now; try again in a moment), or
+            NOT_CHECKABLE (the failure was never recorded, so there is
+            nothing to re-run)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "429":
+          description: Too many checks; Retry-After says how long to wait
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
   /sightings/{sightingId}/resolve:
     post:
       operationId: resolveSighting
@@ -1386,7 +1437,29 @@ components:
             Candidates below the matcher's confidence threshold are omitted
             entirely — not included with blank or null fields. A weak match
             never names a cat, not even via an anonymous placeholder entry.
-      required: [sightingId, isCatPhoto, candidates]
+        matchCheck:
+          type: string
+          enum: [done, failed]
+          description: >-
+            SYC-503: whether the look-alike check worked. Read this FIRST: on
+            "failed", candidates is empty and isCatPhoto is true only because
+            nothing is known, never "no look-alikes" or "a cat". A stored
+            answer without this field is read as "done".
+        canRecheck:
+          type: boolean
+          description: >-
+            SYC-503: true when a failed check can be run again with
+            recheckSighting; false when the check worked, or when the photo
+            has gone and there is nothing to check.
+      required: [sightingId, isCatPhoto, candidates, matchCheck, canRecheck]
+    RecheckSightingRequest:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          minLength: 1
+          description: Device credential of the sighting owner; must match the sighting
+      required: [deviceId]
     ResolveSightingRequest:
       type: object
       properties:

@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 // SYC-211 F1: the transport timeout is scoped to the username claim, read
 // and availability routes, so it can never cut off a slow photo upload.
-import { RequestTimeoutError, USERNAME_REQUEST_TIMEOUT_MS, customFetch } from '@workspace/api-client-react';
+import {
+  RECHECK_REQUEST_TIMEOUT_MS,
+  RequestTimeoutError,
+  USERNAME_REQUEST_TIMEOUT_MS,
+  customFetch,
+} from '@workspace/api-client-react';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -55,5 +60,18 @@ describe('customFetch transport timeout (SYC-211)', () => {
     const state = await settleState(request, 0);
     expect(state).not.toBe('pending');
     expect(state).not.toBeInstanceOf(RequestTimeoutError);
+  });
+});
+
+// SYC-503: "Check again" never leaves the spotter on "Checking…" forever.
+describe('customFetch transport timeout for "Check again" (SYC-503)', () => {
+  it('times out a recheck after RECHECK_REQUEST_TIMEOUT_MS, not before the server gives up', async () => {
+    expect(RECHECK_REQUEST_TIMEOUT_MS).toBeGreaterThan(35_000);
+    vi.useFakeTimers();
+    hangingFetch();
+    const request = customFetch('/api/sightings/42/recheck', { method: 'POST', body: '{}' });
+    expect(await settleState(request, 35_000)).toBe('pending');
+    const late = customFetch('/api/sightings/43/recheck', { method: 'POST', body: '{}' });
+    expect(await settleState(late, RECHECK_REQUEST_TIMEOUT_MS + 1)).toBeInstanceOf(RequestTimeoutError);
   });
 });

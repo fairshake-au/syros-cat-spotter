@@ -653,8 +653,8 @@ export async function computeStreak(deviceId: string): Promise<number> {
 }
 
 /**
- * Cat ids this device has personally spotted — drives the design's
- * collected-vs-"Spot to unlock" treatment on the Home and Cat-alog grids.
+ * Cat ids this device has personally spotted — drives the cards' "Spotted"
+ * stamp and the "Not spotted yet" filter on Home and the Cat-alog.
  */
 export async function spottedCatIds(deviceId: string): Promise<number[]> {
   const rows = await db

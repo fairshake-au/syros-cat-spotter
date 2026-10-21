@@ -6,6 +6,7 @@ import {
   emptyRecord,
   markTapped,
   settleWait,
+  waitOutcomeForSend,
   shouldShowWaitingCard,
   type ScheduleContext,
   type SettingsView,
@@ -124,7 +125,7 @@ describe('starter-facts.md §9.1', () => {
     expect(again.record.everSeen).toContain('fact.earTip');
   });
 
-  it.each([[{ kind: 'notCat' } as const], [{ kind: 'failed' } as const]])(
+  it.each([[{ kind: 'notCat' } as const], [{ kind: 'failed' } as const], [{ kind: 'couldntCheck' } as const]])(
     '4. a wait ending %j marks nothing; the next wait shows the same item',
     (outcome) => {
       const c = ctx();
@@ -319,5 +320,36 @@ describe('feeding-nudge.md §9.1 (the schedule; the screens come in PR 2)', () =
     const r = chooseForResult(w.record, LOADED, VISITOR, ctx(), { sightingId: 1, screen: 'matches' });
     expect(r.show).toEqual({ kind: 'nudge', form: 'noLink' });
     expect(r.record!.nudgeCounted).toBe(false);
+  });
+});
+
+// SYC-503: the "couldn't check" screen shows no nudge and uses up nothing.
+describe("the couldn't-check screen (SYC-503)", () => {
+  it('shows no nudge or line, even with a nudge carried from the wait', () => {
+    const c = ctx();
+    const w = spot(emptyRecord(), LOADED, c, 31);
+    expect(w.record.pendingResult?.nudge).not.toBeNull();
+    const r = chooseForResult(w.record, LOADED, VISITOR, c, { sightingId: 31, screen: 'couldntCheck' });
+    expect(r.show).toBeNull();
+    expect(r.record!.nudgeCounted).toBe(false);
+  });
+});
+
+// SYC-503 (review finding 3): how a send ends, for the wait record.
+describe('waitOutcomeForSend (SYC-503)', () => {
+  it('a failed look-alike check is its own outcome, even if "is a cat"', () => {
+    expect(waitOutcomeForSend({ sightingId: 4, isCatPhoto: true, matchCheck: 'failed' })).toEqual({
+      kind: 'couldntCheck',
+    });
+  });
+  it('a check that worked is a result, or not a cat', () => {
+    expect(waitOutcomeForSend({ sightingId: 4, isCatPhoto: true, matchCheck: 'done' })).toEqual({
+      kind: 'result',
+      sightingId: 4,
+    });
+    expect(waitOutcomeForSend({ sightingId: 4, isCatPhoto: false })).toEqual({ kind: 'notCat' });
+  });
+  it('no answer is a failed send', () => {
+    expect(waitOutcomeForSend(null)).toEqual({ kind: 'failed' });
   });
 });

@@ -111,6 +111,23 @@ function lastSeenWords(day: string | null, lang: string, t: Say, live: readonly 
 }
 
 /**
+ * "Seen by a vet on 13 Aug 2026: sterilised", one line per visit (dashboard
+ * §10.2). The view carries only the day and what was done, never a
+ * vaccination, a cost or the clinic.
+ */
+function vetVisitLines(cat: GuardianCat, lang: string, t: Say, live: readonly Language[]): string {
+  return cat.vetVisits
+    .map((v) => {
+      const date = formatDate(lang, new Date(`${v.date}T12:00:00Z`), live);
+      const line = v.did.length
+        ? t("gcat.vet.did", { date, did: v.did.map((d) => t(`gcat.vet.${d}` as StringKey)).join(", ") })
+        : t("gcat.vet.seen", { date });
+      return `<p>${esc(line)}</p>`;
+    })
+    .join("");
+}
+
+/**
  * The coat in the team's words, then the marks as the public line words them
  * ("Ginger tabby · White paws · One eye"; SYC-443 T1A, so her page and the
  * team's never word a cat differently). In Greek or French, §2's words for the
@@ -302,6 +319,7 @@ export function renderGuardianCatPage(
     `<p>${esc(sterilisedWords(cat.sterilised, t))}</p>` +
     (cat.lifeStatus ? `<p>${esc(t(`gcat.life.${cat.lifeStatus}` as StringKey))}</p>` : "") +
     `<p>${esc(lastSeenWords(cat.lastSeen, lang, t, live))}</p>` +
+    vetVisitLines(cat, lang, t, live) +
     `<p>${esc(t("gcat.position", { position: exact(cat.lat, cat.lng) }))}</p>` +
     appearanceLine(lang, cat, live) +
     (cat.description ? `<p class="muted">${esc(cat.description)}</p>` : "") +

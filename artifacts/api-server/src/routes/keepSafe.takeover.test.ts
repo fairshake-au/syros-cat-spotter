@@ -438,6 +438,8 @@ const PROBES: Probe[] = [
   { name: "GET /app-settings/:id/signals", file: "appSettings.ts", call: (id, s) => request(app).get(`/api/app-settings/${id}/signals`).set("X-Device-Secret", s) },
   { name: "POST /sightings", file: "sightings.ts", call: (id, s) => request(app).post("/api/sightings").set("X-Device-Secret", s).set("X-Forwarded-For", freshIp()).send({ deviceId: id, lat: 37.44, lng: 24.9, photoBase64: "AAAA" }) },
   { name: "POST /sightings/:id/resolve", file: "sightings.ts", call: (id, s, c) => request(app).post(`/api/sightings/${c.sightingId}/resolve`).set("X-Device-Secret", s).send({ deviceId: id, newCatName: "Anything" }) },
+  // SYC-503: "Check again" after a failed look-alike check.
+  { name: "POST /sightings/:id/recheck", file: "sightings.ts", call: (id, s, c) => request(app).post(`/api/sightings/${c.sightingId}/recheck`).set("X-Device-Secret", s).set("X-Forwarded-For", freshIp()).send({ deviceId: id }) },
   { name: "POST /sightings/:id/answers", file: "sightings.ts", call: (id, s, c) => request(app).post(`/api/sightings/${c.sightingId}/answers`).set("X-Device-Secret", s).send({ deviceId: id }) },
   { name: "GET /profiles/:id/cats/:c/open-sightings", file: "sightings.ts", call: (id, s, c) => request(app).get(`/api/profiles/${id}/cats/${c.catId}/open-sightings`).set("X-Device-Secret", s) },
   { name: "POST /cats/:id/claim", file: "cats.ts", call: (id, s, c) => request(app).post(`/api/cats/${c.catId}/claim`).set("X-Device-Secret", s).send({ deviceId: id, livesOnSyros: true, livesInMyHome: true, homePin: { lat: 37.44, lng: 24.9 } }) },
