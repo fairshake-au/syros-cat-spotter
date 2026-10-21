@@ -353,7 +353,9 @@ export async function listGuardianChanges(
         by: who(row.accountId),
         guardian: who(targetAccount),
         cat: catRef(row.catId),
-        putBack: undone.has(row.id),
+        // Only when her statement really stands again: with two visits
+        // overruling it, undoing one leaves it overruled (review of 3.1a, F1).
+        putBack: undone.has(row.id) && !replaced.has(targetId),
       }),
     ),
     ...created.flatMap((c): GuardianChange[] => {

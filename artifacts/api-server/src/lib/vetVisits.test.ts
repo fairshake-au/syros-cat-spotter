@@ -260,6 +260,38 @@ describe("undoVetVisit", () => {
   });
 });
 
+describe("D8 holds while any visit stands (adversarial review F1)", () => {
+  it("a visit logged twice (dated before her 'no'), with the first undone, still reads sterilised", async () => {
+    const catId = await insertCat();
+    const no = await guardianSaysNo(catId, "2026-08-20");
+    const first = await logVetVisit(STAFF, { catId, date: "2026-08-13", value: STERILISED }, NOW);
+    const second = await logVetVisit(STAFF, { catId, date: "2026-08-13", value: STERILISED }, NOW);
+    // Her "no" is held down only by the first visit, so the second overrules it too.
+    expect(second.overruled).toEqual([no.id]);
+    await undoVetVisit(STAFF, first.visitId, "Logged twice", NOW);
+    expect(await visitsFor(catId, { costs: false })).toHaveLength(1);
+    expect((await sterilisedOf(catId)).value).toBe(true);
+    const entry = async (statementId: number) =>
+      (await listGuardianChanges({ limit: 1000 })).find((c) => c.type === "overruled" && c.statementId === statementId);
+    // Still overruled by the second visit, so not "put back".
+    expect(await entry(first.sterilisedIds[0]!)).toMatchObject({ putBack: false });
+    // Undo the other one too: now her "no" really is back.
+    await undoVetVisit(STAFF, second.visitId, "Wrong cat after all", NOW);
+    expect((await sterilisedOf(catId)).value).toBe(false);
+    expect(await entry(first.sterilisedIds[0]!)).toMatchObject({ putBack: true });
+    expect(await entry(second.sterilisedIds[0]!)).toMatchObject({ putBack: true });
+  });
+
+  it("the same, undoing the second visit first", async () => {
+    const catId = await insertCat();
+    await guardianSaysNo(catId, "2026-08-20");
+    await logVetVisit(STAFF, { catId, date: "2026-08-13", value: STERILISED }, NOW);
+    const second = await logVetVisit(STAFF, { catId, date: "2026-08-13", value: STERILISED }, NOW);
+    await undoVetVisit(STAFF, second.visitId, "Logged twice", NOW);
+    expect((await sterilisedOf(catId)).value).toBe(true);
+  });
+});
+
 describe("visitsFor", () => {
   it("without costs, the lines have no costEur and no paidBy keys at all", async () => {
     const catId = await insertCat();

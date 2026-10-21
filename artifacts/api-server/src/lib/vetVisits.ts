@@ -5,7 +5,7 @@ import { actingRole, can } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
 import { commitStatement, inStatementTransaction, type PendingNews, type Tx } from "./commitStatement";
 import { loadCatRecords, ObservationRefused, type VetVisitValue } from "./observations";
-import { authorityLevel, standingRows, type Vaccine } from "./resolve";
+import { authorityLevel, standingRows, supersedeChains, type Vaccine } from "./resolve";
 import { lockActiveObservation } from "./teamCorrections";
 import { athensToday } from "./athensTime";
 
@@ -114,15 +114,27 @@ function visitAt(date: string, now: Date): Date {
 const isSterilisedNo = (o: Observation) =>
   typeof o.value === "object" && o.value !== null && (o.value as { sterilised?: unknown }).sterilised === false;
 
+const isVisitRow = (o: Observation) =>
+  typeof o.value === "object" && o.value !== null && typeof (o.value as { vetVisitId?: unknown }).vetVisitId === "number";
+
 /**
- * The cat's standing "not sterilised" statements that outrank the team
- * (a cat guardian's, and later an owner's or a vet's): the rows a visit's
- * "yes" has to mark wrong to count (D8). Standing by the resolver's own rule.
+ * The cat's "not sterilised" statements that outrank the team (a cat
+ * guardian's, and later an owner's or a vet's) and that this visit's "yes"
+ * must mark wrong (D8): every such row that stands, AND every such row held
+ * down only by other visits' statements. Each visit then overrules her "no"
+ * on its own, so undoing one visit of two never stands her "no" back up while
+ * the other visit still says Sterilised (adversarial review F1). A row a
+ * correction (anything not from a visit) held down is left alone.
  */
-export function standingNotSterilisedAboveTeam(observations: readonly Observation[]): Observation[] {
-  return standingRows(observations, "sterilised").filter(
-    (o) => !o.redactedAt && isSterilisedNo(o) && authorityLevel(o) > 1,
-  );
+export function notSterilisedToOverrule(observations: readonly Observation[]): Observation[] {
+  const chains = supersedeChains(observations, "sterilised");
+  const sterilised = observations.filter((o) => o.kind === "sterilised");
+  return sterilised.filter((o) => {
+    if (o.redactedAt || !isSterilisedNo(o) || authorityLevel(o) <= 1 || chains.retracted.has(o.id)) return false;
+    // What holds it down now: superseders that aren't themselves retracted.
+    const holding = observations.filter((s) => s.supersedesId === o.id && !chains.retracted.has(s.id));
+    return holding.every((s) => s.kind === "sterilised" && isVisitRow(s));
+  });
 }
 
 async function lockCat(tx: Tx, catId: number): Promise<void> {
@@ -161,14 +173,20 @@ export async function logVetVisit(person: Person, input: VisitInput, now = new D
     if (did.includes("sterilised")) {
       const value = { sterilised: true, clinic, vetVisitId: visit.id, reason: VISIT_REASON };
       const observations = (await loadCatRecords([input.catId], tx)).get(input.catId)?.observations ?? [];
-      const above = standingNotSterilisedAboveTeam(observations);
+      const above = notSterilisedToOverrule(observations);
       if (above.length === 0) {
         sterilisedIds.push((await commitStatement(tx, { ...base, kind: "sterilised", value, fromVisit: true }, news, now)).id);
       }
+      const displaced = supersedeChains(observations, "sterilised").displaced;
       for (const guardianNo of above) {
         // Held to the end of the transaction: a second visit or a correction
-        // of the same statement queues behind this one.
-        await lockActiveObservation(tx, guardianNo.id);
+        // of the same statement queues behind this one. A row only other
+        // visits hold down isn't "active", so it is locked plainly.
+        if (displaced.has(guardianNo.id)) {
+          await tx.execute(sql`select id from observations where id = ${guardianNo.id} for update`);
+        } else {
+          await lockActiveObservation(tx, guardianNo.id);
+        }
         const row = await commitStatement(
           tx,
           {
