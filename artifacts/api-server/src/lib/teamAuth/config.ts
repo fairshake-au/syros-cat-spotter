@@ -24,6 +24,12 @@ export const SIGN_IN_PAGE = "https://admin.catspotters.com/";
  * address, linked from the dashboard's menu.
  */
 export const WORKSPACE_PAGE = "https://admin.catspotters.com/workspace";
+/**
+ * Where Sign out on the dashboard ends up: the sign-in site's own sign-out,
+ * which ends its session too. Sent to admin.catspotters.com itself, a person
+ * still signed in there would be taken straight back into the dashboard.
+ */
+export const SIGN_OUT_PAGE = "https://admin.catspotters.com/signout";
 
 const B64URL = /^[A-Za-z0-9_-]+$/;
 
