@@ -84,8 +84,11 @@ export default function HomeScreen() {
   const spotted = profile?.catsSpotted;
   // 'firstSpot' only when the profile loaded with its list; unknown stays a dash.
   const hero = homeHeroState(profile);
+  // Unknown hero state (profile without its list, e.g. an out-of-date server)
+  // shows a dash and no fill even if a bare count came through.
+  const knownSpotted = hero === 'unknown' ? undefined : spotted;
   const progress =
-    spotted !== undefined && totalCats > 0 ? spotted / totalCats : 0;
+    knownSpotted !== undefined && totalCats > 0 ? knownSpotted / totalCats : 0;
 
   const spottedIds = useMemo(
     () => new Set(profile?.spottedCatIds ?? []),
@@ -172,13 +175,13 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.progressBlock}>
               <View style={styles.progressLine}>
-                <Text style={styles.progressValue}>{spotted ?? dash}</Text>
+                <Text style={styles.progressValue}>{knownSpotted ?? dash}</Text>
                 <Text style={styles.progressLabel}>
                   {t('homeOfNCats').replace('{n}', String(totalCats))}
                 </Text>
               </View>
               <View style={styles.progressTrack}>
-                {spotted !== undefined && (
+                {knownSpotted !== undefined && (
                   <View
                     testID="home-progress-fill"
                     style={[
@@ -210,7 +213,7 @@ export default function HomeScreen() {
         >
           <View style={styles.tile}>
             <StatTile
-              value={spotted ?? dash}
+              value={knownSpotted ?? dash}
               label={t('statSpotted')}
               tone="aegean"
               style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}

@@ -168,4 +168,12 @@ describe('Home hero and strip (SYC-505)', () => {
     expect(screen.getByText('homeToCollectEyebrow')).toBeTruthy();
     expect(screen.queryByText('homeNearbyEyebrow')).toBeNull();
   });
+
+  it('profile without spottedCatIds shows a dash and an empty bar, even with a count', () => {
+    h.profile = { catsSpotted: 0, totalCats: 18 };
+    render(<HomeScreen />);
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+    expect(screen.queryByText('0')).toBeNull();
+    expect(screen.queryByTestId('home-progress-fill')).toBeNull();
+  });
 });
