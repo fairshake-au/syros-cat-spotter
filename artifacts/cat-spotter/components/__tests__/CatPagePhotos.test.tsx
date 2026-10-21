@@ -37,7 +37,12 @@ vi.mock('expo-router', () => ({
 }));
 vi.mock('@/components/AppMap', () => ({ AppMap: () => null }));
 vi.mock('@/components/MoreToAdd', () => ({ MoreToAdd: () => null }));
-vi.mock('@/components/report/NeedsHelpLink', () => ({ NeedsHelpLink: () => <span data-testid="needs-help-link" /> }));
+// SYC-504: the mock carries the cat it was given, so a test can check it.
+vi.mock('@/components/report/NeedsHelpLink', () => ({
+  NeedsHelpLink: ({ cat }: { cat?: unknown }) => (
+    <span data-testid="needs-help-link" data-cat={cat ? JSON.stringify(cat) : ''} />
+  ),
+}));
 // SYC-44 PR 6.2: the sheet is tested on its own (ReportIssueSheet.test.tsx);
 // here only what the page opens it with.
 vi.mock('@/components/report/ReportIssueSheet', () => ({
@@ -274,6 +279,15 @@ describe('Report an issue on the cat page (SYC-44 PR 6.2; Samuel, 19 Oct: the li
     expect(sheet()!.getAttribute('data-photo')).toBe('');
     fireEvent.click(screen.getByTestId('issue-sheet-close'));
     expect(sheet()).toBeNull();
+  });
+
+  it('SYC-504: "This cat needs help" is given this cat (id, name and page photo)', () => {
+    page(cat());
+    expect(JSON.parse(screen.getByTestId('needs-help-link').getAttribute('data-cat')!)).toEqual({
+      id: 7,
+      name: 'Agatha',
+      photoUrl: '/api/photos/7',
+    });
   });
 
   it('the main photo\'s full-screen view reports that photo, closing the viewer first', () => {

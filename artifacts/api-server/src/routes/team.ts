@@ -204,7 +204,16 @@ router.get(
     res
       .type("html")
       // Open map on each position only for an island-wide viewer (D9, SYC-395).
-      .send(renderQueuePage(queue, person.name, new Date(), changed, tied, isIslandWide(person), noted));
+      .send(renderQueuePage(
+          queue,
+          person.name,
+          new Date(),
+          changed,
+          tied,
+          isIslandWide(person),
+          noted,
+          can(person, "change_report_state"),
+        ));
   },
 );
 

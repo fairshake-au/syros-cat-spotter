@@ -19,6 +19,7 @@ const report = (id: string, over: Partial<QueueReport> = {}): QueueReport => ({
   stateChangedBy: null,
   photo: { status: "none", url: null },
   cat: null,
+  suggestedCat: null,
   contactLeft: false,
   emailToReporter: null,
   teamNote: null,

@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   INITIAL_FLOW,
   canAdvance,
+  clearCat,
   draftReady,
   flowBack,
   flowNext,
@@ -114,5 +115,36 @@ describe('SYC-42 Slice 3: the email screen (Samuel, 15 Oct 2026)', () => {
   it('without it: the three screens, unchanged', async () => {
     const { screenAt } = await import('../reportFlow');
     expect([1, 2, 3].map((n) => screenAt(n as 1 | 2 | 3, false))).toEqual(['where', 'howBad', 'beforeSend']);
+  });
+});
+
+describe('SYC-504: the report knows the cat', () => {
+  const tigris = { id: 7, name: 'Tigris', photoUrl: '/api/photos/ph-1' };
+
+  it('startFlow keeps the handoff cat; with none, the cat is null', () => {
+    expect(startFlow({ cat: tigris }).cat).toEqual(tigris);
+    expect(startFlow({ cat: tigris }).step).toBe(1);
+    expect(startFlow(null).cat).toBeNull();
+    expect(startFlow({ coords: here }).cat).toBeNull();
+  });
+
+  it('clearCat sets the cat to none and touches nothing else', () => {
+    const f: ReportFlow = { ...startFlow({ cat: tigris, coords: here }), severity: 'urgent', note: 'limping' };
+    const cleared = clearCat(f);
+    expect(cleared.cat).toBeNull();
+    expect({ ...cleared, cat: tigris }).toEqual(f);
+  });
+
+  it('the cat survives Next and Back; once cleared it stays cleared through both', () => {
+    let f: ReportFlow = startFlow({ cat: tigris, coords: here });
+    f = flowNext(f);
+    expect(f.cat).toEqual(tigris);
+    f = flowBack(f);
+    expect(f.cat).toEqual(tigris);
+    f = clearCat(f);
+    f = flowNext(f);
+    expect(f.cat).toBeNull();
+    f = flowBack(f);
+    expect(f.cat).toBeNull();
   });
 });

@@ -5,8 +5,7 @@ import { Alert, Platform } from 'react-native';
  *
  * `Alert.alert` is an empty function on react-native-web, so on the web build
  * — the one every tester uses — a message sent through it is never seen. This
- * routes through `window.alert` there, following the pattern in
- * app/(tabs)/help.tsx.
+ * routes through `window.alert` there.
  */
 export function notify(title: string, message?: string): void {
   if (Platform.OS === 'web') {

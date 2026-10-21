@@ -12,8 +12,8 @@ import { fonts, fontSizes, spacing } from '@/constants/theme';
  * act on, never above it.
  *
  * - `full`: the nudge the wait showed, now with its two buttons. Without a
- *   donation link (§5.2) it says the Help tab shows how to give, has no
- *   figures and no "Help feed a cat", and keeps "Got it".
+ *   donation link (§5.2) it says only who feeds the colonies (no pointer to
+ *   another tab), has no figures and no "Help feed a cat", and keeps "Got it".
  * - `line`: the visitor's daily one-liner, with "Help feed a cat" only.
  *
  * "Help feed a cat" opens the counting address in the phone's own browser

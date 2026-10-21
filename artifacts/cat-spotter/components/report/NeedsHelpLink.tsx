@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { fonts } from '@/constants/theme';
-import { setReportHandoff, type ReportHandoff } from '@/lib/reportHandoff';
+import { setReportHandoff, takeReportHandoff, type ReportHandoff } from '@/lib/reportHandoff';
 
 /**
  * "This cat needs help" (spec §4.1; SYC-42 plan item 1.8). Quiet on purpose:
@@ -15,9 +15,12 @@ import { setReportHandoff, type ReportHandoff } from '@/lib/reportHandoff';
 export function NeedsHelpLink({
   handoff,
   prepare,
+  cat,
   style,
 }: {
   handoff?: ReportHandoff;
+  /** SYC-504: the cat whose page this is; the report opens "About {name}". */
+  cat?: ReportHandoff['cat'];
   /** Builds the handoff on tap (the review screen reads the sighting's photo). */
   prepare?: () => Promise<ReportHandoff>;
   style?: object;
@@ -35,6 +38,7 @@ export function NeedsHelpLink({
           const ready = await prepare().catch(() => null);
           if (ready) setReportHandoff(ready);
         }
+        if (cat) setReportHandoff({ ...takeReportHandoff(), cat });
         router.push('/report');
       }}
       hitSlop={8}

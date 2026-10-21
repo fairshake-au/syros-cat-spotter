@@ -3,6 +3,7 @@ import request from "supertest";
 import sharp from "sharp";
 import { randomBytes } from "node:crypto";
 import {
+  catsTable,
   db,
   pool,
   deviceCredentialsTable,
@@ -137,6 +138,34 @@ async function makeAllDue() {
   );
 }
 
+/** A cat the report can name (SYC-504). Cleaned up with the rest. */
+async function seedCat(): Promise<number> {
+  const k = randomBytes(4).toString("hex");
+  const [p] = await db
+    .insert(photosTable)
+    .values({ publicId: `${DEVICE}-photo-${k}`, data: "ZmFrZQ==", mime: "image/jpeg" })
+    .returning({ id: photosTable.id });
+  const [c] = await db
+    .insert(catsTable)
+    .values({
+      name: `${DEVICE}-cat-${k}`,
+      description: "",
+      primaryPhotoId: p!.id,
+      lat: 37.445,
+      lng: 24.942,
+      discovererDeviceId: `${DEVICE}-spotter`,
+    })
+    .returning({ id: catsTable.id });
+  return c!.id;
+}
+
+function draft(body: Partial<Record<string, unknown>> & { clientRef: string }) {
+  return request(app)
+    .post("/api/reports/draft")
+    .set("X-Device-Secret", SECRET)
+    .send({ deviceId: DEVICE, severity: "attention", lat: LAT, lng: LNG, language: "en", ...body });
+}
+
 async function cleanup() {
   await deleteTestFeedingSites();
   await db.execute(
@@ -144,6 +173,8 @@ async function cleanup() {
   );
   await db.delete(welfareReportsTable).where(like(welfareReportsTable.reporterDevice, `${DEVICE}%`));
   await db.delete(deviceCredentialsTable).where(like(deviceCredentialsTable.deviceId, `${DEVICE}%`));
+  await db.delete(catsTable).where(like(catsTable.name, `${DEVICE}%`));
+  await db.delete(photosTable).where(like(photosTable.publicId, `${DEVICE}%`));
 }
 
 const saved = { ...process.env };
@@ -319,6 +350,95 @@ describe("POST /api/reports/draft (spec §4.2)", () => {
     expect(row.isDraft).toBe(false);
     expect(row.severity).toBe("urgent");
     expect(row.lat).toBe(LAT);
+  });
+});
+
+describe("SYC-504: the cat the report was sent from", () => {
+  it("a known catId sets reporter_cat_id and leaves cat_id null", async () => {
+    const cat = await seedCat();
+    const res = await submit({ catId: cat });
+    expect(res.status).toBe(201);
+    const row = await reportRow(res.body.publicId);
+    expect(row.reporterCatId).toBe(cat);
+    expect(row.catId).toBeNull();
+  });
+
+  it("an unknown or garbage catId gives null and a 201", async () => {
+    // Not coerced: a real cat's id as a string, or `true`, is not a number.
+    const cat = await seedCat();
+    for (const catId of [999_999_998, 0, -4, 1.5, "abc", {}, [], 1_000_000_000, true, String(cat)]) {
+      const res = await submit({ catId });
+      expect(res.status, JSON.stringify(catId)).toBe(201);
+      const row = await reportRow(res.body.publicId);
+      expect(row.reporterCatId, JSON.stringify(catId)).toBeNull();
+      expect(row.catId).toBeNull();
+    }
+  });
+
+  it("no catId, or null, gives null", async () => {
+    const a = await submit();
+    expect((await reportRow(a.body.publicId)).reporterCatId).toBeNull();
+    const b = await submit({ catId: null });
+    expect((await reportRow(b.body.publicId)).reporterCatId).toBeNull();
+  });
+
+  it("a draft with a cat, then a submit with catId null, ends null", async () => {
+    const cat = await seedCat();
+    const ref = clientRef();
+    expect((await draft({ clientRef: ref, catId: cat })).status).toBe(204);
+    const [d] = await db.select().from(welfareReportsTable).where(eq(welfareReportsTable.clientRef, ref));
+    expect(d!.reporterCatId).toBe(cat);
+    const res = await submit({ clientRef: ref, catId: null });
+    expect(res.status).toBe(201);
+    const row = await reportRow(res.body.publicId);
+    expect(row.reporterCatId).toBeNull();
+    expect(row.catId).toBeNull();
+  });
+
+  it("a draft with a cat, then a submit with the same cat, keeps it", async () => {
+    const cat = await seedCat();
+    const ref = clientRef();
+    await draft({ clientRef: ref, catId: cat });
+    const res = await submit({ clientRef: ref, catId: cat });
+    expect((await reportRow(res.body.publicId)).reporterCatId).toBe(cat);
+  });
+
+  it("the draft route stores and clears the suggestion the same way", async () => {
+    const cat = await seedCat();
+    const ref = clientRef();
+    const get = async () =>
+      (await db.select().from(welfareReportsTable).where(eq(welfareReportsTable.clientRef, ref)))[0]!;
+    await draft({ clientRef: ref, catId: cat });
+    expect((await get()).reporterCatId).toBe(cat);
+    await draft({ clientRef: ref, catId: null });
+    expect((await get()).reporterCatId).toBeNull();
+    await draft({ clientRef: ref, catId: cat });
+    expect((await get()).reporterCatId).toBe(cat);
+    await draft({ clientRef: ref, catId: 999_999_998 });
+    const row = await get();
+    expect(row.reporterCatId).toBeNull();
+    expect(row.catId).toBeNull();
+  });
+
+  it("a resend of a sent report changes nothing, and a late draft cannot change the cat", async () => {
+    const cat = await seedCat();
+    const other = await seedCat();
+    const ref = clientRef();
+    const first = await submit({ clientRef: ref, catId: cat });
+    const again = await submit({ clientRef: ref, catId: other });
+    expect(again.status).toBe(200);
+    expect(again.body.publicId).toBe(first.body.publicId);
+    expect((await reportRow(first.body.publicId)).reporterCatId).toBe(cat);
+    expect((await draft({ clientRef: ref, catId: other })).status).toBe(204);
+    expect((await reportRow(first.body.publicId)).reporterCatId).toBe(cat);
+  });
+
+  it("a draft names the cat but never sets cat_id", async () => {
+    const cat = await seedCat();
+    const ref = clientRef();
+    await draft({ clientRef: ref, catId: cat });
+    const [d] = await db.select().from(welfareReportsTable).where(eq(welfareReportsTable.clientRef, ref));
+    expect(d!.catId).toBeNull();
   });
 });
 

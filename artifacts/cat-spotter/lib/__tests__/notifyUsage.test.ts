@@ -1,8 +1,7 @@
 /**
  * Every message reaches the user, on every platform.
  *
- * `Alert.alert` is an empty function on react-native-web (`app/(tabs)/help.tsx`
- * already works around this for its own screen), so any `Alert.alert(` outside
+ * `Alert.alert` is an empty function on react-native-web, so any `Alert.alert(` outside
  * the notify helper itself is a message a web tester will never see. This
  * scans the app's source so a reintroduced `Alert.alert` fails here rather
  * than silently swallowing a message on a tester's phone.
@@ -15,10 +14,9 @@ const APP_ROOT = path.resolve(__dirname, '../..');
 const SOURCE_DIRS = ['app', 'components', 'context', 'lib'];
 
 // `lib/notify.ts` is the one place Alert.alert is allowed to live — it is the
-// native branch of the cross-platform helper. `app/(tabs)/help.tsx` has its
-// own long-standing local helper (`notifyError`) whose native branch calls
-// Alert.alert the same way; that screen is explicitly out of scope here.
-const EXCLUDED_FILES = new Set(['lib/notify.ts', 'app/(tabs)/help.tsx']);
+// native branch of the cross-platform helper. (The Help & info screen used to
+// have its own local helper; it now calls notify() like everything else.)
+const EXCLUDED_FILES = new Set(['lib/notify.ts']);
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];
@@ -49,7 +47,7 @@ function rawAlertUsages(): string[] {
 }
 
 describe('notify helper coverage', () => {
-  it('no Alert.alert( outside lib/notify.ts and the native branch of help.tsx', () => {
+  it('no Alert.alert( outside lib/notify.ts', () => {
     expect(rawAlertUsages()).toEqual([]);
   });
 });

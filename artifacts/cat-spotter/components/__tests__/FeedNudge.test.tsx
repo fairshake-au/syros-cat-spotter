@@ -53,11 +53,12 @@ describe('FeedNudge', () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('16. without a link: no figures, no Help feed a cat, the Help tab line, and Got it', () => {
+  it('16. without a link: no figures, no Help feed a cat, the short no-link line (no pointer to a tab), and Got it', () => {
     const { queryByText, getByText } = setup({ form: 'noLink' });
     expect(queryByText(en.feedNudgeEuro!)).toBeNull();
     expect(queryByText('Help feed a cat')).toBeNull();
     expect(getByText(en.feedNudgeInsteadNoLink!)).toBeTruthy();
+    expect(en.feedNudgeInsteadNoLink).not.toMatch(/tab/i);
     expect(getByText('Got it')).toBeTruthy();
   });
 

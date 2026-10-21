@@ -15,7 +15,7 @@ import { IconButton } from '@/components/purropolis';
 import { ReportWizard } from '@/components/report/ReportWizard';
 import { ReportConfirmation } from '@/components/report/ReportConfirmation';
 import { takeReportHandoff } from '@/lib/reportHandoff';
-import { reporterEmail, startFlow, type ReportFlow } from '@/lib/reportFlow';
+import { catIdOf, reporterEmail, startFlow, type ReportFlow } from '@/lib/reportFlow';
 import { confirmationState, newClientRef, type ReportLanguage } from '@/lib/reportQueue';
 import { notify } from '@/lib/notify';
 import { spacing } from '@/constants/theme';
@@ -96,6 +96,7 @@ export default function ReportScreen() {
         clientRef,
         photo: flow.photo,
         email,
+        catId: catIdOf(flow),
       });
       setSentHasPhoto(!!flow.photo);
       setSentEmailGiven(!!email);
@@ -155,6 +156,7 @@ export default function ReportScreen() {
           lng: flow.coords.longitude,
           isLitter: flow.isLitter,
           language: language as ReportLanguage,
+          catId: catIdOf(flow),
         });
       }}
       onSend={send}

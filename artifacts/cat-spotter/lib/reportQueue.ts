@@ -99,6 +99,13 @@ export interface PendingReport extends CheckFields {
    * text, and dropped from the phone the moment the server has the report.
    */
   email?: string;
+  /**
+   * SYC-504: the cat this report was opened about, or null if the reporter
+   * said "It's a different cat". Reports queued by an older version have none
+   * at all. Read it with `reportCatId`, never directly: a stored value that
+   * isn't a positive integer counts as no cat.
+   */
+  catId?: number | null;
 }
 
 export interface SubmitBody {
@@ -115,6 +122,12 @@ export interface SubmitBody {
   turnstileToken?: string;
   /** SYC-42 Slice 3: only when the reporter left one. */
   email?: string;
+  /**
+   * SYC-504: always sent. A number, or null when the cat was cleared or never
+   * set: the server needs the null to overwrite a suggestion an earlier draft
+   * made. Not coerced server-side, so this is a JS number.
+   */
+  catId: number | null;
 }
 
 export interface ReportApi {
@@ -140,6 +153,12 @@ export function newClientRef(): string {
   return `r-${randomId()}`;
 }
 
+/** The cat a saved report names: a positive integer, or null for anything else (old items, "7", 1.5, -1). */
+export function reportCatId(r: Pick<PendingReport, 'catId'>): number | null {
+  const id: unknown = r.catId;
+  return typeof id === 'number' && Number.isInteger(id) && id > 0 ? id : null;
+}
+
 export function newPendingReport(input: {
   severity: ReportSeverity;
   isLitter: boolean;
@@ -150,6 +169,7 @@ export function newPendingReport(input: {
   hasPhoto: boolean;
   clientRef?: string;
   email?: string | null;
+  catId?: number | null;
   now?: Date;
 }): PendingReport {
   const now = input.now ?? new Date();
@@ -167,6 +187,7 @@ export function newPendingReport(input: {
     status: 'queued',
     serverFailures: 0,
     ...(input.email ? { email: input.email } : {}),
+    catId: reportCatId({ catId: input.catId }),
   };
 }
 
@@ -175,6 +196,10 @@ export function reportPhotoKey(localId: string): string {
   return `report-${localId}`;
 }
 
+/**
+ * A bad stored `catId` does not make the item unreadable (that would refuse
+ * the whole saved list): it is accepted, and `reportCatId` reads it as none.
+ */
 export function isPendingReport(value: unknown): value is PendingReport {
   if (!value || typeof value !== 'object') return false;
   const r = value as Partial<PendingReport>;
@@ -259,6 +284,7 @@ export async function syncReports(
             note: current.note.trim() ? current.note.trim() : null,
             language: current.language,
             hasPhoto: current.hasPhoto,
+            catId: reportCatId(current),
             ...(token ? { turnstileToken: token } : {}),
             ...(current.email ? { email: current.email } : {}),
           });

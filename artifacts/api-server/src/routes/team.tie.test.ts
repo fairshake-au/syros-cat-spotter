@@ -548,6 +548,135 @@ describe("the queue row and the tie-mode search", () => {
     }
   });
 
+  // ── SYC-504: the cat the reporter sent the report from ──────────────────
+
+  describe("the suggestion (SYC-504, help-and-info spec §4.4)", () => {
+    let tig = "";
+    beforeEach(() => {
+      tig = `${PREFIX}Tigris${++n}`;
+    });
+    const yesForm = (publicId: string, catId: number) =>
+      `<form method="post" action="/api/team/reports/${publicId}/cat"><input type="hidden" name="catId" value="${catId}"><input type="hidden" name="expectedCatId" value=""><button type="submit" class="tiebtn">`;
+
+    it("state: not tied, no suggestion -> 'Match to a known cat', no 'Sent from' line, no Yes form", async () => {
+      const r = await newReport();
+      const html = rowHtml((await request(app).get("/api/team").set("Cookie", cookie)).text, r.publicId);
+      expect(html).toContain("Match to a known cat");
+      expect(html).not.toContain("Sent from");
+      expect(html).not.toContain("tiebtn");
+    });
+
+    it("state: not tied, with a suggestion -> the line, both thumbnails, 'Yes, it's X' and 'Choose another cat'", async () => {
+      const catId = await newCat(tig);
+      const r = await newReport({ reporterCatId: catId, photo: { mime: "image/jpeg", bytes: Buffer.from("fake") } });
+      const html = rowHtml((await request(app).get("/api/team").set("Cookie", cookie)).text, r.publicId);
+      expect(html).toContain(`Sent from <a class="catlink" href="/api/team/cats/${catId}">${tig}</a>'s page`);
+      // Side by side: the report's own photo and the suggested cat's small photo.
+      expect(html).toContain('<div class="compare">');
+      expect(html).toContain(`src="/api/team/report-photos/${r.photoPublicId}"`);
+      expect(html).toContain(`src="/api/team/photos/${PREFIX}photo-`);
+      expect(html).toContain("/small\"");
+      expect(html).toContain(`${yesForm(r.publicId, catId)}Yes, it's ${tig}</button></form>`);
+      expect(html).toContain(`href="/api/team/cats?tie=${r.publicId}">Choose another cat</a>`);
+      expect(html).not.toContain("Match to a known cat");
+      // Nothing was applied by showing it.
+      expect((await reportRow(r.publicId)).catId).toBeNull();
+    });
+
+    it("state: tied to the suggested cat -> as before, no 'Sent from' line", async () => {
+      const catId = await newCat(`${PREFIX}Same`);
+      const r = await newReport({ reporterCatId: catId });
+      await tie(r.publicId, catId, null);
+      const html = rowHtml((await request(app).get("/api/team").set("Cookie", cookie)).text, r.publicId);
+      expect(html).toContain("Wrong cat? Choose another");
+      expect(html).not.toContain("Sent from");
+      expect(html).not.toContain("tiebtn");
+    });
+
+    it("state: tied to a different cat -> as before, plus a muted 'Sent from' line", async () => {
+      const suggested = await newCat(tig);
+      const chosen = await newCat(`${PREFIX}Other`);
+      const r = await newReport({ reporterCatId: suggested });
+      await tie(r.publicId, chosen, null);
+      const html = rowHtml((await request(app).get("/api/team").set("Cookie", cookie)).text, r.publicId);
+      expect(html).toContain(`<a class="tap catlink" href="/api/team/cats/${chosen}">${PREFIX}Other</a>`);
+      expect(html).toContain("Wrong cat? Choose another");
+      expect(html).toContain(`<p class="muted">Sent from <a class="catlink" href="/api/team/cats/${suggested}">${tig}</a>'s page</p>`);
+      expect(html).not.toContain("tiebtn");
+    });
+
+    it("a viewer without change_report_state sees the line and thumbnails but no Yes form", async () => {
+      const catId = await newCat(tig);
+      const r = await newReport({ reporterCatId: catId });
+      denied.cap = "change_report_state";
+      const html = rowHtml((await request(app).get("/api/team").set("Cookie", cookie)).text, r.publicId);
+      expect(html).toContain(`Sent from <a class="catlink" href="/api/team/cats/${catId}">`);
+      expect(html).toContain('<div class="compare">');
+      expect(html).not.toContain("Yes, it's");
+      expect(html).not.toContain("tiebtn");
+      expect(html).toContain("Choose another cat");
+    });
+
+    it("escapes a cat named <script> in the line, the thumbnail and the button, and on the draft card", async () => {
+      const evil = `${PREFIX}<script>alert(1)</script>`;
+      const catId = await newCat(evil);
+      const r = await newReport({ reporterCatId: catId });
+      const d = await newReport({ isDraft: true, reporterCatId: catId });
+      const page = (await request(app).get("/api/team").set("Cookie", cookie)).text;
+      expect(page).not.toContain("<script>alert(1)");
+      const html = rowHtml(page, r.publicId);
+      const esc = `${PREFIX}&lt;script&gt;alert(1)&lt;/script&gt;`;
+      // The line, the thumbnail caption (or alt) and the button each carry it escaped.
+      expect(html).toContain(`">${esc}</a>'s page`);
+      expect(html).toContain(`Yes, it's ${esc}</button>`);
+      const draftHtml = page.slice(page.indexOf(`id="d-${d.publicId}"`));
+      expect(draftHtml.slice(0, draftHtml.indexOf("</article>"))).toContain(`">${esc}</a>'s page`);
+    });
+
+    it("a draft shows 'Sent from' with no buttons, and none when no cat", async () => {
+      const catId = await newCat(tig);
+      const withCat = await newReport({ isDraft: true, reporterCatId: catId });
+      const without = await newReport({ isDraft: true });
+      const page = (await request(app).get("/api/team").set("Cookie", cookie)).text;
+      const cut = (id: string) => {
+        const at = page.indexOf(`id="d-${id}"`);
+        expect(at).toBeGreaterThan(-1);
+        return page.slice(at, page.indexOf("</article>", at));
+      };
+      expect(cut(withCat.publicId)).toContain(`Sent from <a class="catlink" href="/api/team/cats/${catId}">${tig}</a>'s page`);
+      expect(cut(withCat.publicId)).not.toContain("<form");
+      expect(cut(withCat.publicId)).not.toContain("<button");
+      expect(cut(without.publicId)).not.toContain("Sent from");
+    });
+
+    it("posting the Yes form's body ties the report and writes exactly one observation, as a tie from search does", async () => {
+      const catId = await newCat(tig);
+      const r = await newReport({ reporterCatId: catId });
+      const before = await rowsFor(catId);
+      // Exactly the fields the form carries: catId = the suggestion, expectedCatId empty.
+      const res = await form(`/api/team/reports/${r.publicId}/cat`).send({ catId: String(catId), expectedCatId: "" });
+      expect(res.status).toBe(303);
+      expect(res.headers["location"]).toBe(`/api/team?tied=ok&r=${r.publicId}#r-${r.publicId}`);
+      expect((await reportRow(r.publicId)).catId).toBe(catId);
+      const added = (await rowsFor(catId)).slice(before.length);
+      expect(added).toHaveLength(1);
+      expect(added[0]!.kind).toBe("welfare_report");
+      expect((await welfareRowsFor(r.id)).filter((o) => o.kind === "welfare_report")).toHaveLength(1);
+      // Once tied, the Yes form is gone.
+      const html = rowHtml((await request(app).get("/api/team").set("Cookie", cookie)).text, r.publicId);
+      expect(html).not.toContain("tiebtn");
+    });
+
+    it("a viewer without change_report_state posting the Yes body is refused and nothing is written", async () => {
+      const catId = await newCat(tig);
+      const r = await newReport({ reporterCatId: catId });
+      denied.cap = "change_report_state";
+      const res = await form(`/api/team/reports/${r.publicId}/cat`).send({ catId: String(catId), expectedCatId: "" });
+      expect(res.status).not.toBe(303);
+      expect((await reportRow(r.publicId)).catId).toBeNull();
+    });
+  });
+
   it("each result in tie mode has a plain 'This is the cat' form carrying what the page showed", async () => {
     const a = await newCat(`${PREFIX}Gamma`);
     const b = await newCat(`${PREFIX}Delta`);

@@ -74,6 +74,8 @@ export interface SeedReport {
   photoId?: number | null;
   /** The cat the row is tied to (`welfare_reports.cat_id`). */
   catId?: number | null;
+  /** SYC-504: the cat the reporter sent it from (`reporter_cat_id`). */
+  reporterCatId?: number | null;
   /** The app's own reference; default random. */
   clientRef?: string;
   severity?: "attention" | "urgent";
@@ -124,6 +126,7 @@ export async function seedReport(
       reason: content ? (o.reason ?? "other") : null,
       photoId: content ? (o.photoId ?? null) : null,
       catId: o.catId ?? null,
+      reporterCatId: o.reporterCatId ?? null,
       severity: content ? "attention" : (o.severity ?? "attention"),
       state: o.state ?? "new",
       isDraft: o.isDraft ?? false,
