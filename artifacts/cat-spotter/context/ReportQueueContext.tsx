@@ -61,6 +61,8 @@ export interface NewReportInput {
   photo: { uri: string; base64: string } | null;
   /** SYC-42 Slice 3: the address the reporter left, if any. */
   email?: string | null;
+  /** SYC-504: the cat the report is about, or null. */
+  catId?: number | null;
 }
 
 interface ReportQueueValue {
@@ -85,6 +87,8 @@ interface ReportQueueValue {
     lng: number;
     isLitter: boolean;
     language: ReportLanguage;
+    /** SYC-504: the cat, or null (sent as null so a cleared cat replaces an earlier draft's). */
+    catId: number | null;
   }) => void;
   /**
    * "Delete my data" (SYC-234): try to send every waiting report now,
@@ -267,6 +271,7 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
         hasPhoto: !!input.photo,
         clientRef: input.clientRef,
         email: input.email,
+        catId: input.catId,
       });
       let item: PendingReport = base;
       if (input.photo) {

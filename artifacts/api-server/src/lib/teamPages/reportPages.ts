@@ -1,6 +1,10 @@
 import { athensToday } from "../athensTime";
 import { wholePct, type ColonyFlag } from "../dashboard/colonyFigures";
-import { lineChart, sortedBars, tableFor, tableHtml, type TableColumn, type TableSpec } from "../reports/charts";
+import { WELFARE_COLOUR, WELFARE_ORDER, WELFARE_PATTERN, WELFARE_WORD } from "../dashboard/welfareKinds";
+import { barChart, lineChart, sortedBars, tableFor, tableHtml, type TableColumn, type TableSpec } from "../reports/charts";
+import type { CoverageReport } from "../reports/coverage";
+import { coverageMap } from "../reports/coverageMap";
+import type { WelfarePatterns } from "../reports/welfarePatterns";
 import { toCsv } from "../reports/csv";
 import { HEALTH_SORTS, sortHealth, type HealthReport, type HealthRow, type HealthSort, type SortDir } from "../reports/colonyHealth";
 import type { ProgressReport } from "../reports/progress";
@@ -23,8 +27,8 @@ export const INSIGHTS = "/api/team/insights";
 export const REPORTS: readonly { key: string; title: string; about: string; built: boolean; pending?: string }[] = [
   { key: "progress", title: "Sterilisation progress", about: "The island's progress over time, and every colony's.", built: true },
   { key: "health", title: "Colony health", about: "Every colony in one table: cats, change, kittens, cat guardians and visits.", built: true },
-  { key: "coverage", title: "Coverage and spotting", about: "Where spotters have looked, and where to send them next.", built: false },
-  { key: "welfare", title: "Welfare patterns", about: "Welfare reports per week, by kind.", built: false },
+  { key: "coverage", title: "Coverage and spotting", about: "Where spotters have looked, and where to send them next.", built: true },
+  { key: "welfare", title: "Welfare patterns", about: "Welfare reports per week, by kind.", built: true },
   { key: "vet", title: "Vet visits and costs", about: "Visits and Syros Cats' spend per month.", built: false },
   { key: "impact", title: "Impact report for funders", about: "What the work has achieved, to share with funders.", built: false },
   { key: "donations", title: "Donations", about: "Money received, and what it paid for.", built: false, pending: "Coming once donations are set up" },
@@ -301,16 +305,174 @@ export function renderHealthPage(
   return renderPage({ title: "Colony health", active: "reports", personName: o.personName, beforeTitle: back, body, mainClass: "wide" });
 }
 
+// ─── Coverage and spotting ──────────────────────────────────────────────
+
+/** A total that isn't a status (§12.2): neutral ink #1d1d1b at 55%. */
+const NEUTRAL_TOTAL = "rgba(29,29,27,0.55)";
+
+export const NO_SPOTTER = "Sightings from spotters who have since deleted their account count as sightings, but not as spotters";
+
+const WEEK_COLUMNS: TableColumn[] = [
+  { key: "week", label: "Week starting" },
+  { key: "sightings", label: "Sightings", numeric: true },
+];
+
+const COVERAGE_AREA_COLUMNS: TableColumn[] = [
+  { key: "area", label: "Area" },
+  { key: "not_looked_at", label: "Squares not looked at yet", numeric: true },
+  { key: "seen", label: "Squares with a sighting", numeric: true },
+  { key: "sightings", label: "Sightings", numeric: true },
+];
+
+/** The coverage tables' rows: no position, only areas, weeks and counts. `forCsv`: dates are YYYY-MM-DD. */
+export function coverageTables(r: CoverageReport, forCsv = false): { weeks: TableSpec; areas: TableSpec } {
+  return {
+    weeks: {
+      caption: "Sightings per week",
+      columns: WEEK_COLUMNS,
+      rows: r.perWeek.map((w) => ({ week: forCsv ? isoDay(w.at) : dayWords(w.at), sightings: w.sightings })),
+    },
+    areas: {
+      caption: "Every named area, most squares not looked at yet first",
+      columns: COVERAGE_AREA_COLUMNS,
+      rows: r.areas.map((a) => ({ area: a.area, not_looked_at: a.notLookedAt, seen: a.seen, sightings: a.sightings })),
+    },
+  };
+}
+
+export function renderCoveragePage(r: CoverageReport, o: { personName: string; range: Range; canExport: boolean }): string {
+  const path = `${INSIGHTS}/coverage`;
+  const t = coverageTables(r);
+  const notLooked = r.cells.filter((c) => !c.seen).length;
+  const seen = r.cells.length - notLooked;
+  const lines = ["Counted by the date each sighting was sent"];
+  const body =
+    rangeBar(path, o.range) +
+    (r.sightings === 0 ? nothing(path) : "") +
+    '<section id="spotting"><h2>Spotting</h2>' +
+    `<p class="hbig"><strong>${r.sightings}</strong> ${r.sightings === 1 ? "sighting" : "sightings"}, from ` +
+    `<strong>${r.spotters}</strong> ${r.spotters === 1 ? "spotter" : "spotters"}</p>` +
+    '<p class="hint">Spotters are counted, never named.' +
+    (r.withoutSpotter > 0 ? ` ${esc(NO_SPOTTER)}.` : "") +
+    "</p>" +
+    (r.sightings === 0
+      ? ""
+      : '<div class="chartbox">' +
+        barChart({
+          title: "Sightings per week",
+          bars: r.perWeek.map((w) => ({ at: w.at, parts: [{ key: "sightings", label: "Sightings", value: w.sightings, colour: NEUTRAL_TOTAL }] })),
+        }) +
+        "</div>" +
+        tableFor(t.weeks) +
+        (o.canExport ? download("coverage-weeks", o.range, "Download sightings per week as a spreadsheet (CSV)") : "")) +
+    "</section>" +
+    '<section id="coverage"><h2>Where spotters have looked</h2>' +
+    `<p class="hint">Squares of about 250 m. ${esc(plural(seen, "square", "squares"))} with a sighting in this period; ` +
+    `${esc(plural(notLooked, "square", "squares"))} within 500 m of an area's centre not looked at yet.</p>` +
+    '<div class="chartbox">' +
+    coverageMap({ cells: r.cells, labels: r.labels, title: "Squares sighted in this period, and squares not looked at yet" }) +
+    "</div>" +
+    (r.offSyros > 0 ? `<p class="hint">Also ${esc(plural(r.offSyros, "sighting", "sightings"))} more than 2 km from every area, not drawn.</p>` : "") +
+    tableFor(t.areas) +
+    (o.canExport ? download("coverage-areas", o.range, "Download the areas as a spreadsheet (CSV)") : "") +
+    "</section>" +
+    methodNote(o.range, r.workedOutAt, r.areasVersion, lines);
+  return renderPage({ title: "Coverage and spotting", active: "reports", personName: o.personName, beforeTitle: back, body, mainClass: "wide" });
+}
+
+// ─── Welfare patterns ───────────────────────────────────────────────────
+
+export const DRAFTS = "Started, not sent";
+export const CONTENT = "Problems reported with photos or names";
+
+const WELFARE_WEEK_COLUMNS: TableColumn[] = [
+  { key: "week", label: "Week starting" },
+  ...WELFARE_ORDER.map((k) => ({ key: k, label: WELFARE_WORD[k], numeric: true as const })),
+  { key: "total", label: "All welfare reports", numeric: true },
+];
+
+const WELFARE_AREA_COLUMNS: TableColumn[] = [
+  { key: "area", label: "Area" },
+  { key: "count", label: "Welfare reports", numeric: true },
+];
+
+export function welfareTables(r: WelfarePatterns, forCsv = false): { weeks: TableSpec; areas: TableSpec } {
+  return {
+    weeks: {
+      caption: "Welfare reports per week, by kind",
+      columns: WELFARE_WEEK_COLUMNS,
+      rows: r.perWeek.map((w) => ({
+        week: forCsv ? isoDay(w.at) : dayWords(w.at),
+        ...w.counts,
+        total: WELFARE_ORDER.reduce((n, k) => n + w.counts[k], 0),
+      })),
+    },
+    areas: {
+      caption: "The areas with the most welfare reports",
+      columns: WELFARE_AREA_COLUMNS,
+      rows: r.topAreas.map((a) => ({ area: a.area, count: a.count })),
+    },
+  };
+}
+
+export function renderWelfarePage(r: WelfarePatterns, o: { personName: string; range: Range; canExport: boolean }): string {
+  const path = `${INSIGHTS}/welfare`;
+  const t = welfareTables(r);
+  const sums = Object.fromEntries(WELFARE_ORDER.map((k) => [k, r.perWeek.reduce((n, w) => n + w.counts[k], 0)]));
+  const split = WELFARE_ORDER.map((k) => `${sums[k]} ${WELFARE_WORD[k].toLowerCase()}`).join(", ");
+  const body =
+    rangeBar(path, o.range) +
+    (r.total === 0 && r.drafts === 0 && r.contentReports === 0 ? nothing(path) : "") +
+    '<section id="welfare"><h2>Welfare reports per week</h2>' +
+    `<p class="hbig"><strong>${r.total}</strong> welfare ${r.total === 1 ? "report" : "reports"} sent` +
+    (r.total === 0 ? "" : `: ${esc(split)}`) +
+    "</p>" +
+    '<p class="hint">Each report is in one kind only: a report with kittens is Litter, however urgent.</p>' +
+    (r.total === 0
+      ? ""
+      : '<div class="chartbox">' +
+        barChart({
+          title: "Welfare reports per week, by kind",
+          bars: r.perWeek.map((w) => ({
+            at: w.at,
+            parts: WELFARE_ORDER.map((k) => ({ key: k, label: WELFARE_WORD[k], value: w.counts[k], colour: WELFARE_COLOUR[k], pattern: WELFARE_PATTERN[k] })),
+          })),
+        }) +
+        "</div>" +
+        tableFor(t.weeks) +
+        (o.canExport ? download("welfare-weeks", o.range, "Download reports per week as a spreadsheet (CSV)") : "")) +
+    "</section>" +
+    '<section id="counted-apart"><h2>Counted separately</h2><ul class="counts">' +
+    `<li id="drafts"><strong>${r.drafts}</strong> ${esc(DRAFTS.toLowerCase())}: welfare reports someone began but didn't send.</li>` +
+    `<li id="content"><strong>${r.contentReports}</strong> ${esc(CONTENT.toLowerCase())}. These are about the catalogue, not a cat's welfare, so they aren't on the chart.</li>` +
+    "</ul></section>" +
+    '<section id="areas"><h2>Where reports came from</h2>' +
+    (r.topAreas.length === 0
+      ? '<p class="empty">No welfare reports in this period.</p>'
+      : tableHtml(t.areas) + (o.canExport ? download("welfare-areas", o.range, "Download the areas as a spreadsheet (CSV)") : "")) +
+    "</section>" +
+    methodNote(o.range, r.workedOutAt, r.areasVersion, ["Counted by the date each report was sent", "No response times and nothing about who sent or handled a report"]);
+  return renderPage({ title: "Welfare patterns", active: "reports", personName: o.personName, beforeTitle: back, body, mainClass: "wide" });
+}
+
 // ─── The spreadsheet files ──────────────────────────────────────────────
 
 /** The downloads, by the name in their address. */
-export const CSV_REPORTS = ["progress-over", "progress-colonies", "health"] as const;
+export const CSV_REPORTS = ["progress-over", "progress-colonies", "health", "coverage-weeks", "coverage-areas", "welfare-weeks", "welfare-areas"] as const;
 export type CsvReport = (typeof CSV_REPORTS)[number];
 
 export const csvOf = (t: TableSpec): string => toCsv(t.columns, t.rows);
 
 /** "sterilisation-progress-2026-10-18.csv": the report and the day, nothing else. */
 export function csvFilename(report: CsvReport, now: Date): string {
-  const name = { "progress-over": "sterilisation-progress", "progress-colonies": "sterilisation-progress-colonies", health: "colony-health" }[report];
+  const name = {
+    "progress-over": "sterilisation-progress",
+    "progress-colonies": "sterilisation-progress-colonies",
+    health: "colony-health",
+    "coverage-weeks": "sightings-per-week",
+    "coverage-areas": "coverage-by-area",
+    "welfare-weeks": "welfare-reports-per-week",
+    "welfare-areas": "welfare-reports-by-area",
+  }[report];
   return `${name}-${isoDay(now)}.csv`;
 }

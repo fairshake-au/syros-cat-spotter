@@ -2,12 +2,14 @@ import {
   catsTable,
   db,
   peopleTable,
+  photosTable,
   welfareReportPhotosTable,
   welfareReportsTable,
 } from "@workspace/db";
-import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { OVERDUE_MINUTES } from "./mail/outbox";
+import { teamPhotoUrl } from "./teamCatView";
 
 /**
  * The welfare queue's data (SYC-43 part 2 plan, PR 1; spec §3.1, §4.2).
@@ -29,6 +31,17 @@ const OPEN_STATES = ["new", "looking"] as const;
 
 const changedBy = alias(peopleTable, "changed_by_person");
 const notedBy = alias(peopleTable, "noted_by_person");
+// SYC-504: the cat whose page the reporter sent the report from
+// (`reporter_cat_id`), joined apart from `cat` (the cat the team tied it to).
+const suggestedCat = alias(catsTable, "suggested_cat");
+const suggestedCatPhoto = alias(photosTable, "suggested_cat_photo");
+
+/** What the queue reads about a suggested cat, for both reports and drafts. */
+const SUGGESTED_CAT = {
+  suggestedCatId: suggestedCat.id,
+  suggestedCatName: suggestedCat.name,
+  suggestedCatPhotoPublicId: suggestedCatPhoto.publicId,
+};
 
 /** Exactly what the queue reads from welfare_reports. */
 export const QUEUE_COLUMNS = {
@@ -54,6 +67,7 @@ const SELECT = {
   ...QUEUE_COLUMNS,
   photoPublicId: welfareReportPhotosTable.publicId,
   catName: catsTable.name,
+  ...SUGGESTED_CAT,
   changedByName: changedBy.name,
   changedByLeftAt: changedBy.leftAt,
   notedByName: notedBy.name,
@@ -78,6 +92,32 @@ export interface TeamPerson {
   left: boolean;
 }
 
+/**
+ * SYC-504: the cat whose page the reporter sent this from. Only a suggestion;
+ * the team's tie is what sets `cat`. `photoUrl` is the small team-route
+ * photo, as the cat search gives it.
+ */
+export interface SuggestedCat {
+  id: number;
+  name: string;
+  photoUrl: string | null;
+}
+
+function suggestedCatOf(r: {
+  suggestedCatId: number | null;
+  suggestedCatName: string | null;
+  suggestedCatPhotoPublicId: string | null;
+}): SuggestedCat | null {
+  if (r.suggestedCatId === null || r.suggestedCatName === null) return null;
+  return {
+    id: r.suggestedCatId,
+    name: r.suggestedCatName,
+    photoUrl: r.suggestedCatPhotoPublicId
+      ? `${teamPhotoUrl(r.suggestedCatPhotoPublicId)}/small`
+      : null,
+  };
+}
+
 export interface QueueReport {
   /** The report's public id: the only id that ever leaves the server. */
   id: string;
@@ -94,6 +134,8 @@ export interface QueueReport {
   photo: { status: PhotoStatus; url: string | null };
   /** The cat the team tied this report to (SYC-43 part 2, PR 5), or null. */
   cat: { id: number; name: string } | null;
+  /** The cat whose page the reporter sent it from (SYC-504), or null. */
+  suggestedCat: SuggestedCat | null;
   /** The reporter left an email address (never shown: spec §3.1). */
   contactLeft: boolean;
   /** What happened to the reporter's emails; null when they left no address. */
@@ -116,6 +158,8 @@ export interface QueueDraft {
   lat: number;
   lng: number;
   startedAt: string;
+  /** The cat whose page the reporter began it from (SYC-504), or null. */
+  suggestedCat: SuggestedCat | null;
 }
 
 export interface MailHealth {
@@ -213,6 +257,7 @@ function toReport(r: Row, mail: Map<number, ReportMail>): QueueReport {
       url: hasPhoto ? `${TEAM_REPORT_PHOTO_PREFIX}${r.photoPublicId}` : null,
     },
     cat: r.catId !== null && r.catName !== null ? { id: r.catId, name: r.catName } : null,
+    suggestedCat: suggestedCatOf(r),
     contactLeft: Boolean(mail.get(r.id)?.contact),
     emailToReporter: reporterState(mail.get(r.id)),
     teamNote: r.teamNote,
@@ -242,8 +287,35 @@ function reportsQuery(where: SQL | undefined) {
       eq(welfareReportPhotosTable.reportId, welfareReportsTable.id),
     )
     .leftJoin(catsTable, eq(catsTable.id, welfareReportsTable.catId))
+    .leftJoin(suggestedCat, eq(suggestedCat.id, welfareReportsTable.reporterCatId))
+    .leftJoin(
+      suggestedCatPhoto,
+      // A photo removed for good gives no thumbnail, not a broken one.
+      and(eq(suggestedCatPhoto.id, suggestedCat.primaryPhotoId), isNull(suggestedCatPhoto.removedAt)),
+    )
     .leftJoin(changedBy, eq(changedBy.id, welfareReportsTable.stateChangedBy))
     .leftJoin(notedBy, eq(notedBy.id, welfareReportsTable.teamNoteBy))
+    .where(and(isWelfare, where));
+}
+
+/** The queue's draft rows, with the cat each was begun from (SYC-504). */
+function draftsQuery(where: SQL | undefined) {
+  return db
+    .select({
+      publicId: welfareReportsTable.publicId,
+      severity: welfareReportsTable.severity,
+      lat: welfareReportsTable.lat,
+      lng: welfareReportsTable.lng,
+      createdAt: welfareReportsTable.createdAt,
+      ...SUGGESTED_CAT,
+    })
+    .from(welfareReportsTable)
+    .leftJoin(suggestedCat, eq(suggestedCat.id, welfareReportsTable.reporterCatId))
+    .leftJoin(
+      suggestedCatPhoto,
+      // A photo removed for good gives no thumbnail, not a broken one.
+      and(eq(suggestedCatPhoto.id, suggestedCat.primaryPhotoId), isNull(suggestedCatPhoto.removedAt)),
+    )
     .where(and(isWelfare, where));
 }
 
@@ -347,13 +419,6 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
   const checked = sql`${welfareReportsTable.tokenChecked} is distinct from false`;
   const unchecked = sql`${welfareReportsTable.tokenChecked} = false`;
   const isOpen = inArray(welfareReportsTable.state, [...OPEN_STATES]);
-  const draftColumns = {
-    publicId: welfareReportsTable.publicId,
-    severity: welfareReportsTable.severity,
-    lat: welfareReportsTable.lat,
-    lng: welfareReportsTable.lng,
-    createdAt: welfareReportsTable.createdAt,
-  };
   const [
     openRows,
     closedRows,
@@ -388,10 +453,7 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
             inArray(welfareReportsTable.state, [...CLOSED_STATES]),
           ),
         ),
-      db
-        .select(draftColumns)
-        .from(welfareReportsTable)
-        .where(and(isWelfare, draft, checked))
+      draftsQuery(and(draft, checked))
         .orderBy(
           desc(welfareReportsTable.createdAt),
           desc(welfareReportsTable.id),
@@ -409,10 +471,7 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
         .select({ n: sql<number>`count(*)::int` })
         .from(welfareReportsTable)
         .where(and(isWelfare, sent, isOpen, unchecked)),
-      db
-        .select(draftColumns)
-        .from(welfareReportsTable)
-        .where(and(isWelfare, draft, unchecked))
+      draftsQuery(and(draft, unchecked))
         .orderBy(
           desc(welfareReportsTable.createdAt),
           desc(welfareReportsTable.id),
@@ -434,6 +493,7 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
     lat: d.lat!,
     lng: d.lng!,
     startedAt: d.createdAt.toISOString(),
+    suggestedCat: suggestedCatOf(d),
   });
 
   return {

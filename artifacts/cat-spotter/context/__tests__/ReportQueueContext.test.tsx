@@ -194,4 +194,47 @@ describe('ReportQueueProvider', () => {
     expect(h.customFetch).toHaveBeenCalledWith('/api/reports', expect.objectContaining({ method: 'POST' }));
     await waitFor(() => expect(stored()).toEqual([]));
   });
+  it('SYC-504: the cat goes into the saved report and the submit body as a number; cleared, as null', async () => {
+    h.customFetch.mockImplementation(noSignal);
+    const q = mount();
+    await waitFor(() => expect(q.current?.ready).toBe(true));
+    await act(async () => {
+      await q.current!.submitReport({ ...input(null), clientRef: 'c-cat', catId: 7 });
+      await q.current!.submitReport({ ...input(null), clientRef: 'c-none', catId: null });
+    });
+    expect(stored().map((r) => [r.clientRef, r.catId])).toEqual([
+      ['c-cat', 7],
+      ['c-none', null],
+    ]);
+    h.customFetch.mockImplementation(accepted);
+    await act(async () => {
+      await q.current!.syncNow();
+    });
+    await waitFor(() => expect(stored()).toEqual([]));
+    const bodies = h.customFetch.mock.calls
+      .filter((c) => c[0] === '/api/reports')
+      .map((c) => JSON.parse(String((c[1] as { body: string }).body)) as Record<string, unknown>);
+    expect(bodies.find((b) => b['clientRef'] === 'c-cat')?.['catId']).toBe(7);
+    const cleared = bodies.find((b) => b['clientRef'] === 'c-none')!;
+    expect('catId' in cleared).toBe(true);
+    expect(cleared['catId']).toBeNull();
+  });
+
+  it('SYC-504: the draft carries catId, a number or null', async () => {
+    h.customFetch.mockImplementation(accepted);
+    const q = mount();
+    await waitFor(() => expect(q.current?.ready).toBe(true));
+    const base = { clientRef: 'c-d', severity: 'urgent' as const, lat: 37.4, lng: 24.9, isLitter: false, language: 'en' as const };
+    await act(async () => {
+      q.current!.sendDraft({ ...base, catId: 7 });
+      q.current!.sendDraft({ ...base, catId: null });
+    });
+    await waitFor(() =>
+      expect(h.customFetch.mock.calls.filter((c) => c[0] === '/api/reports/draft')).toHaveLength(2),
+    );
+    const drafts = h.customFetch.mock.calls
+      .filter((c) => c[0] === '/api/reports/draft')
+      .map((c) => JSON.parse(String((c[1] as { body: string }).body)) as Record<string, unknown>);
+    expect(drafts.map((d) => d['catId'])).toEqual([7, null]);
+  });
 });

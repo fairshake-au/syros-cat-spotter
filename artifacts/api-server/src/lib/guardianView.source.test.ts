@@ -103,10 +103,25 @@ const ISLAND_ONLY_MODULES: Record<string, { why: string; fns: string[]; capabili
     fns: ["colonyHealthReport"],
     capabilities: ["view_reports", "export_report"],
   },
+  "lib/reports/coverage.ts": {
+    why: "Coverage and spotting (SYC-396 PR 3.3b): the whole island's sightings as 250 m squares and named areas, team-only until the guardian variant (SYC-472, 16 Nov)",
+    fns: ["coverageReport"],
+    capabilities: ["view_reports", "export_report"],
+  },
+  "lib/reports/welfarePatterns.ts": {
+    why: "Welfare patterns (SYC-396 PR 3.3b): the whole island's welfare reports by kind, week and area, team-only until the guardian variant (SYC-472, 16 Nov)",
+    fns: ["welfarePatterns"],
+    capabilities: ["view_reports", "export_report"],
+  },
   "lib/areas/areaWrites.ts": {
     why: "the only writer of named_areas and its history rows (SYC-396 PR 2.4); the team's list, island-wide by design",
     fns: ["changeArea"],
     capabilities: ["edit_named_areas"],
+  },
+  "lib/vetSettings.ts": {
+    why: "the standard sterilisation price and its own history rows (SYC-396 PR 3.1b): a price and who changed it, never a site or a colony",
+    fns: ["setStandardPrice", "priceChanges"],
+    capabilities: ["edit_vet_settings"],
   },
 };
 

@@ -752,7 +752,7 @@ paths:
     get:
       operationId: getCampaign
       tags: [campaign]
-      summary: The colony fundraising campaign shown on the Help tab
+      summary: The colony fundraising campaign shown on the Help & info page
       responses:
         "200":
           description: Campaign configuration
@@ -795,6 +795,16 @@ paths:
       operationId: goFeed
       tags: [campaign]
       summary: "\"Help feed a cat\": counts the tap and forwards to the donation page. A browser link, not called by the client"
+      responses:
+        "302":
+          description: Forwarded to the donation page
+        "200":
+          description: The donation link is switched off; a plain page saying so
+  /go/give:
+    get:
+      operationId: goGive
+      tags: [campaign]
+      summary: "The Help & info page's give link: forwards to the donation page and counts nothing. A browser link, not called by the client"
       responses:
         "302":
           description: Forwarded to the donation page
@@ -1327,7 +1337,7 @@ components:
     Campaign:
       type: object
       description: |
-        Colony fundraising campaign shown on the Help tab. Server-side config, so
+        Colony fundraising campaign shown on the Help & info page. Server-side config, so
         figures can be corrected without an app release. There is no payments
         backend: the app opens `donateUrl` externally and no money moves through
         this API.

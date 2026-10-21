@@ -551,7 +551,7 @@ export const CampaignCurrency = {
 } as const;
 
 /**
- * Colony fundraising campaign shown on the Help tab. Server-side config, so
+ * Colony fundraising campaign shown on the Help & info page. Server-side config, so
  * figures can be corrected without an app release. There is no payments
  * backend: the app opens `donateUrl` externally and no money moves through
  * this API.

@@ -89,7 +89,7 @@ function full(over: Partial<HomeData> = {}): HomeData {
         reports: [report("r1", { severity: "urgent" }), report("r2", { note: "x".repeat(120) + "<b>" })],
         reportsTotal: 9,
         unchecked: 2,
-        drafts: [{ id: "d1", severity: "urgent", lat: 37.4447, lng: 24.9417, startedAt: "2026-10-18T12:40:00Z" }],
+        drafts: [{ id: "d1", severity: "urgent", lat: 37.4447, lng: 24.9417, startedAt: "2026-10-18T12:40:00Z", suggestedCat: null }],
         draftsTotal: 1,
         issuesOpen: 3,
         awaitingMatch: 0,

@@ -1993,7 +1993,7 @@ export const getGetCampaignUrl = () => {
 }
 
 /**
- * @summary The colony fundraising campaign shown on the Help tab
+ * @summary The colony fundraising campaign shown on the Help & info page
  */
 export const getCampaign = async ( options?: RequestInit): Promise<Campaign> => {
 
@@ -2040,7 +2040,7 @@ export type GetCampaignQueryError = ErrorType<unknown>
 
 
 /**
- * @summary The colony fundraising campaign shown on the Help tab
+ * @summary The colony fundraising campaign shown on the Help & info page
  */
 
 export function useGetCampaign<TData = Awaited<ReturnType<typeof getCampaign>>, TError = ErrorType<unknown>>(
@@ -2280,6 +2280,83 @@ export function useGoFeed<TData = Awaited<ReturnType<typeof goFeed>>, TError = E
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGoFeedQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGoGiveUrl = () => {
+
+
+
+
+  return `/api/go/give`
+}
+
+/**
+ * @summary The Help & info page's give link: forwards to the donation page and counts nothing. A browser link, not called by the client
+ */
+export const goGive = async ( options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getGoGiveUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGoGiveQueryKey = () => {
+    return [
+    `/api/go/give`
+    ] as const;
+    }
+
+
+export const getGoGiveQueryOptions = <TData = Awaited<ReturnType<typeof goGive>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof goGive>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGoGiveQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof goGive>>> = ({ signal }) => goGive({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof goGive>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GoGiveQueryResult = NonNullable<Awaited<ReturnType<typeof goGive>>>
+export type GoGiveQueryError = ErrorType<void>
+
+
+/**
+ * @summary The Help & info page's give link: forwards to the donation page and counts nothing. A browser link, not called by the client
+ */
+
+export function useGoGive<TData = Awaited<ReturnType<typeof goGive>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof goGive>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGoGiveQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

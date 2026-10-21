@@ -178,7 +178,7 @@ It uses the same **Help feed a cat** button and *"Opens {host} in your browser"*
 
 | Key | English | Ελληνικά | Français |
 |---|---|---|---|
-| `feedNudgeInsteadNoLink` | Syros Cats and local cat guardians feed colonies the right food, in the right places, all year round. The Help tab shows how to give. | Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν τις αποικίες με τη σωστή τροφή, στα σωστά σημεία, όλο τον χρόνο. Στην καρτέλα «Βοήθεια» θα δεις πώς μπορείς να κάνεις δωρεά. | Syros Cats et les gardiens de chats locaux nourrissent les colonies avec une alimentation adaptée, aux bons endroits, toute l’année. L’onglet « Aider » te montre comment faire un don. |
+| `feedNudgeInsteadNoLink` | Syros Cats and local cat guardians feed colonies the right food, in the right places, all year round. | Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν τις αποικίες με τη σωστή τροφή, στα σωστά σημεία, όλο τον χρόνο. | Syros Cats et les gardiens de chats locaux nourrissent les colonies avec une alimentation adaptée, aux bons endroits, toute l’année. |
 
 The quoted tab names match the live tab labels (`tabHelp`: Help, Βοήθεια, Aider, checked against `i18n.ts` on origin/main `f757c0d`); if a label changes, these change with it. The line says "how to give", not "how to help", so it isn't confused with the **This cat needs help** button, which is for a cat in trouble.
 

@@ -24,6 +24,7 @@ import { guardianOn, newColony, seedCat, signedPerson, type SeededCat, type Sign
 import { removeTestPerson } from "../test/removeTestPerson";
 import { getAppSettings } from "../lib/appSettings";
 import { FROM_VET_VISIT_WORDS } from "../lib/teamCorrections";
+import { commitStatement } from "../lib/commitStatement";
 
 let staff: Signed;
 let eleni: Signed;
@@ -263,6 +264,39 @@ describe("Mark the visit wrong", () => {
     await post(`/api/team/cats/${cat.id}/vet-visit`, FORM);
     const visit = await visitOf(cat.id);
     expect((await post(`/api/team/vet-visits/${visit.id}/wrong`, { reason: "No", confirm: "1" }, eleni)).status).toBe(403);
+  });
+});
+
+describe("a visit that sterilised the cat always prevails (SYC-543)", () => {
+  it("a team 'no' dated after the visit shows under Says otherwise, and goes back to deciding once the visit is undone", async () => {
+    const cat = await seedCat(colony);
+    await post(`/api/team/cats/${cat.id}/vet-visit`, FORM);
+    const visit = await visitOf(cat.id);
+    const teamNo = await db.transaction((tx) =>
+      commitStatement(
+        tx,
+        {
+          catId: cat.id,
+          kind: "sterilised",
+          value: { sterilised: false, reason: "Old clinic list" },
+          accountId: staff.id,
+          roleAtTime: "staff",
+          observedAt: new Date("2026-09-01T12:00:00Z"),
+        },
+        [],
+      ),
+    );
+
+    const page = await get(`/api/team/cats/${cat.id}`);
+    expect(page.text).toContain("Yes, confirmed by Syros Cats");
+    const saysOtherwise = page.text.slice(page.text.indexOf("Says otherwise"));
+    expect(page.text).toContain("Says otherwise");
+    expect(saysOtherwise.slice(0, saysOtherwise.indexOf("</dl>"))).toContain(`#s-${teamNo.id}`);
+
+    await post(`/api/team/vet-visits/${visit.id}/wrong`, { reason: "Wrong cat", confirm: "1" });
+    const after = await get(`/api/team/cats/${cat.id}`);
+    expect(after.text).not.toContain("Yes, confirmed by Syros Cats");
+    expect(after.text).not.toContain("Says otherwise");
   });
 });
 

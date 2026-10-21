@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import type { WelfareGuidance } from '@workspace/welfare-guidance';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
-import { fonts, radii, spacing } from '@/constants/theme';
+import { fonts } from '@/constants/theme';
+import { Fold } from './Fold';
 import { RichText } from './RichText';
 import { MunicipalityCard, VetList } from './VetList';
 
@@ -27,35 +27,6 @@ import { MunicipalityCard, VetList } from './VetList';
  * how they are shown, not what they say. The cage still comes before any
  * handling: the handling paragraph is inside the how-to, after the cage line.
  */
-function Fold({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: React.ComponentProps<typeof Feather>['name'];
-  children: React.ReactNode;
-}) {
-  const colors = useColors();
-  const [open, setOpen] = useState(false);
-  return (
-    <View style={[styles.fold, { borderColor: colors.primary, backgroundColor: colors.card }]}>
-      <Pressable
-        onPress={() => setOpen((o) => !o)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        aria-expanded={open}
-        style={styles.foldHeader}
-      >
-        <Feather name={icon} size={18} color={colors.primary} />
-        <Text style={[styles.foldTitle, { color: colors.primary }]}>{title}</Text>
-        <Feather name={open ? 'chevron-up' : 'chevron-down'} size={20} color={colors.primary} />
-      </Pressable>
-      {open && <View style={styles.foldBody}>{children}</View>}
-    </View>
-  );
-}
-
 export function UrgentAdvice({ guidance }: { guidance: WelfareGuidance }) {
   const colors = useColors();
   const { t } = useLanguage();
@@ -99,14 +70,4 @@ const styles = StyleSheet.create({
   para: { fontFamily: fonts.body, fontSize: 14, lineHeight: 19 },
   capacity: { fontFamily: fonts.body, fontSize: 13, lineHeight: 17 },
   subheading: { fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 18 },
-  fold: { borderWidth: 1.5, borderRadius: radii.md, overflow: 'hidden' },
-  foldHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    paddingHorizontal: spacing[3],
-    minHeight: 44,
-  },
-  foldTitle: { flex: 1, fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 18, paddingVertical: 8 },
-  foldBody: { paddingHorizontal: spacing[3], paddingBottom: spacing[3], gap: spacing[2] },
 });

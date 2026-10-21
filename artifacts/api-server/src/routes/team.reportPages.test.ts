@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { coloniesTable, db, observationsTable, pool } from "@workspace/db";
+import { coloniesTable, db, observationsTable, pool, sightingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { deleteTestSightings } from "../test/sightings";
+import { seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import app from "../app";
 import { RUN, seedCat, signedPerson, type Signed } from "../test/roleKit";
 
@@ -156,6 +159,74 @@ describe("Colony health", () => {
     expect(csvHeader(csv.text)).toEqual(headers(page));
     expect(csv.text).toContain(`'=cmd|' /C calc'!A0 ${RUN}`);
     expect(csv.text).not.toMatch(/(^|\r\n|,)=cmd/);
+  });
+});
+
+/** The photo of this file's one sighting, for cleaning up. */
+let sightingPhoto: number;
+
+describe("Coverage and spotting (PR 3.3b)", () => {
+  beforeAll(async () => {
+    // One sighting in Kini today, so every table on the page is drawn.
+    const c = await seedCat(null);
+    sightingPhoto = c.photoId;
+    await db.insert(sightingsTable).values({ deviceId: `vt-roles-device-${RUN}`, photoId: c.photoId, lat: 37.4436, lng: 24.8889, status: "pending" });
+  });
+
+  afterAll(async () => {
+    await deleteTestSightings(eq(sightingsTable.photoId, sightingPhoto));
+  });
+
+  it("shows the spotting count, sightings per week and the squares, each chart with its table", async () => {
+    const res = await get("/api/team/insights/coverage?range=all");
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/<strong>\d+<\/strong> sightings?, from <strong>\d+<\/strong> spotters?/);
+    expect(res.text).toContain("Spotters are counted, never named.");
+    expect(res.text).toContain('aria-label="Squares sighted in this period, and squares not looked at yet"');
+    expect(res.text).toContain("Counted by the date each sighting was sent.");
+    expect(res.text).toMatch(/id="areas-version">Place names from the named areas, version \d+/);
+  });
+
+  it("each spreadsheet's columns are its table's, and holds no position", async () => {
+    const page = await get("/api/team/insights/coverage?range=all");
+    const captions = [...page.text.matchAll(/<table class="rtable"><caption>([^<]*)<\/caption>/g)].map((m) => m[1]);
+    expect(captions).toEqual(["Sightings per week", "Every named area, most squares not looked at yet first"]);
+    for (const [file, n] of [["coverage-weeks", 0], ["coverage-areas", 1]] as const) {
+      const csv = await get(`/api/team/insights/${file}.csv?range=all`);
+      expect(csv.status, file).toBe(200);
+      expect(csvHeader(csv.text), file).toEqual(headers(page.text, n));
+      expect(csv.text, file).not.toMatch(/\d+\.\d{3,}/);
+    }
+  });
+});
+
+describe("Welfare patterns (PR 3.3b)", () => {
+  beforeAll(async () => {
+    // One welfare report today, so the chart and both tables are drawn.
+    await seedReport({ severity: "urgent", lat: 37.4436, lng: 24.8889 });
+  });
+
+  it("shows the kinds, the counts kept apart, and the areas table", async () => {
+    const res = await get("/api/team/insights/welfare?range=all");
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/<strong>\d+<\/strong> welfare reports? sent/);
+    expect(res.text).toContain('<li id="drafts">');
+    expect(res.text).toContain('<li id="content">');
+    // D6: the only mention of response times is the line saying there are none.
+    const rest = res.text.replace("No response times and nothing about who sent or handled a report.", "");
+    expect(rest).not.toMatch(/response time|time open|handled by/i);
+  });
+
+  it("each spreadsheet's columns are its table's", async () => {
+    const page = await get("/api/team/insights/welfare?range=all");
+    expect([...page.text.matchAll(/<table class="rtable">/g)]).toHaveLength(2);
+    const csv = await get("/api/team/insights/welfare-weeks.csv?range=all");
+    expect(csv.status).toBe(200);
+    expect(csvHeader(csv.text)).toEqual(["Week starting", "Urgent", "Needs attention", "Litter", "All welfare reports"]);
+    expect(csvHeader(csv.text)).toEqual(headers(page.text, 0));
+    const areas = await get("/api/team/insights/welfare-areas.csv?range=all");
+    expect(csvHeader(areas.text)).toEqual(["Area", "Welfare reports"]);
+    expect(csvHeader(areas.text)).toEqual(headers(page.text, 1));
   });
 });
 

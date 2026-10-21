@@ -282,7 +282,7 @@ export default function CatDetailScreen() {
               </Text>
             </View>
             {/* SYC-42: quiet, never the biggest thing on screen (spec §4.1). */}
-            <NeedsHelpLink />
+            <NeedsHelpLink cat={{ id: cat.id, name: cat.name, photoUrl: cat.photoUrl }} />
             {/* SYC-44 PR 6.2: below "needs help" and never bigger (spec §3.1). */}
             <ReportIssueLink onPress={() => setIssueSheet({ photoUrl: null })} />
             {(

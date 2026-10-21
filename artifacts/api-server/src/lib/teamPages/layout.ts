@@ -199,6 +199,11 @@ form.takeout button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px
 .syr{color:#55524a;font-size:14px;font-variant-numeric:tabular-nums}
 .status{display:block;font-size:14px;color:#3b3930;margin-top:2px}
 .thumb{flex:none;width:72px;height:72px;object-fit:cover;border-radius:6px;background:#ece8dc}
+.compare{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 8px}
+.compare figure{margin:0;display:flex;flex-direction:column;gap:2px;font-size:13px;color:#55524a}
+.compare img{width:72px;height:72px;object-fit:cover;border-radius:6px;background:#ece8dc}
+.muted{color:#55524a;font-size:14px;margin:0}
+.report .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;margin:4px 0}
 .nothumb{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#55524a;text-align:center}
 .public{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:0;font-weight:700}
 form.sightact{margin:6px 0 0}
@@ -299,6 +304,7 @@ legend{padding:0}
 .fixes button,.statement button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
 .likelyactions button:not(.save){width:100%}
 a.catlink{display:block;font-weight:700}
+.muted a.catlink{display:inline}
 a.sublink{display:block;font-size:14px;padding-top:0}
 .tiecard{margin:8px 0}
 .tiecard .catrow{margin:0}
