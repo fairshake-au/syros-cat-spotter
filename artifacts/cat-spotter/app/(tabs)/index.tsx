@@ -73,7 +73,7 @@ export default function HomeScreen() {
   //
   // An older server can also return a profile *without* `spottedCatIds`, so
   // the presence of the profile is not enough — collection state gates on the
-  // array actually being there. Ordering and locks share this one flag so they
+  // array actually being there. Ordering and stamps share this one flag so they
   // can never disagree about the same fact.
   const hasCollectionData = Array.isArray(profile?.spottedCatIds);
 
@@ -180,6 +180,7 @@ export default function HomeScreen() {
               <View style={styles.progressTrack}>
                 {spotted !== undefined && (
                   <View
+                    testID="home-progress-fill"
                     style={[
                       styles.progressFill,
                       {

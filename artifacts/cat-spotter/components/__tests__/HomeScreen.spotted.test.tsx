@@ -104,6 +104,9 @@ describe('Home hero and strip (SYC-505)', () => {
   it('no profile: no button, no stamps', () => {
     render(<HomeScreen />);
     expect(screen.queryByText('homeFirstSpotCta')).toBeNull();
+    expect(screen.queryByText('homeFirstSpotLine')).toBeNull();
+    expect(screen.queryByTestId('home-progress-fill')).toBeNull();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     for (const id of [1, 2, 3, 4]) {
       expect(screen.getByTestId(`card-${id}`).getAttribute('data-spotted')).toBe('undefined');
     }
@@ -139,5 +142,6 @@ describe('Home hero and strip (SYC-505)', () => {
     h.coords = undefined;
     render(<HomeScreen />);
     expect(screen.getByText('homeToCollectEyebrow')).toBeTruthy();
+    noLocks();
   });
 });
