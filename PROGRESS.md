@@ -4,3 +4,4 @@
 - 2026-10-21T22:18:49Z Home vet spend (home.test, team.home.test, walk: 65/65)
 - 2026-10-21T22:27:02Z Task 3.1.3 form/routes/cat page/D7/guardian line/walk; team.vetVisit 12/12, walk + guardianCats green
 - 2026-10-21T22:29:58Z probes red→restored: costs:true without view_vet_costs (€ shows), guardian view spread (JSON check); affected set 57 files 1421 tests, 13 fixed
+- 2026-10-21T22:34:38Z screenshots in docs/screenshots/syc-396-pr-3-1a (local scratch DB, all non-localhost requests blocked after the first run)
