@@ -15,12 +15,7 @@ import {
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
 import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import {
-  getGetProfileQueryKey,
-  setBaseUrl,
-  setPrelaunchKey,
-  useGetProfile,
-} from '@workspace/api-client-react';
+import { setBaseUrl, setPrelaunchKey } from '@workspace/api-client-react';
 import { AppearanceProvider } from '@/context/AppearanceContext';
 import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
@@ -41,6 +36,7 @@ import { StartupErrorScreen } from '@/components/StartupErrorScreen';
 import { BannerStack } from '@/components/BannerStack';
 import { KeepSafeScreen } from '@/components/keepSafe/KeepSafeScreen';
 import { MovedScreen } from '@/components/keepSafe/MovedScreen';
+import { FirstBadgeOffer } from '@/components/keepSafe/FirstBadgeOffer';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 import { apiOrigin } from '@/lib/urls';
 import { prelaunchKey } from '@/lib/prelaunch';
@@ -85,32 +81,10 @@ function RootLayoutNav() {
 }
 
 /**
- * SYC-3: "keep my spots safe" offered once more when a spotter who skipped it
- * at onboarding first has something to lose, their first badge
- * (email-capture.md §8.3). Declining is one tap, and it's never asked again.
- */
-function FirstBadgeOffer({ children }: { children: React.ReactNode }) {
-  const { deviceId, setKeepSafeOffer } = useDevice();
-  const { isOnline } = useOffline();
-  const profile = useGetProfile(deviceId ?? '', {
-    query: { enabled: !!deviceId && isOnline, queryKey: getGetProfileQueryKey(deviceId ?? '') },
-  });
-  const badges = profile.data?.badges;
-  if (Array.isArray(badges) && badges.length > 0) {
-    return (
-      <KeepSafeScreen
-        surface="first_badge"
-        onSaved={() => setKeepSafeOffer('done')}
-        onSkip={() => setKeepSafeOffer('done')}
-      />
-    );
-  }
-  return <>{children}</>;
-}
-
-/**
  * Shows the one-time landing screen until a username has been claimed, then
- * (SYC-3) "Don't lose your spots" once, before the app.
+ * (SYC-3) "Don't lose your spots" once, before the app. A spotter who skipped
+ * it is offered it once more at their first badge, on top of the app
+ * (FirstBadgeOffer, SYC-502).
  */
 function OnboardingGate() {
   const { isReady, username, heldUsername, startupError, moved, keepSafeOffer, setKeepSafeOffer } = useDevice();
@@ -150,15 +124,15 @@ function OnboardingGate() {
       />
     );
   }
-  const app = (
+  return (
     <>
       <OfflineTilesLoader />
       {!username && <HeldNameSaver />}
       <RootLayoutNav />
       <BannerStack />
+      {keepSafeOffer === 'skipped-onboarding' ? <FirstBadgeOffer /> : null}
     </>
   );
-  return keepSafeOffer === 'skipped-onboarding' ? <FirstBadgeOffer>{app}</FirstBadgeOffer> : app;
 }
 
 export default function RootLayout() {
