@@ -189,7 +189,7 @@ The Cats screen opens on **every active cat**, most recently seen first. It's a 
 **Who and what it's for.** It's for the team only, and sits on the Cats screen as **"Find from a photo"**. The team chooses or takes a photo, for example one a resident sent on WhatsApp, and narrows the search before it runs.
 
 **Narrowing.** The search compares the photo against a limited set of cats, so the team says where to look:
-- **Where:** "Anywhere on the island" (the first choice, and the one chosen when nothing else is), a named area, or a colony. If the team knows where the photo was taken, choosing the area is surer.
+- **Where:** "Anywhere on the island" (the first choice, and the one chosen when nothing else is), a named area, or a colony. With "Anywhere on the island" chosen, the form says: "Anywhere on the island compares every cat. If you know where the photo was taken, choosing the area is surer."
 - **Strongly suggested:** one or more colour chips.
 - The page shows how many cats that leaves ("34 cats to compare", or "34 cats to compare across the island").
 - If more than 30 cats are left, it asks for a colour or a smaller area before it will run. On the island it says: "There are now too many cats to compare them all at once. Choose an area or a colony."
@@ -201,7 +201,7 @@ The Cats screen opens on **every active cat**, most recently seen first. It's a 
 - **Possible:** from 0.5 up to 0.8;
 - **Unlikely:** below 0.5. These are folded away under "Show unlikely matches".
 
-**What the page says plainly.** "This is less sure than the app's matching, because it compares more cats at once and has no exact position. Check the photos yourself." With "Anywhere on the island" it also says: "Anywhere on the island compares every cat. If you know where the photo was taken, choosing the area is surer." The team always decides; the dashboard never does.
+**What the page says plainly.** "This is less sure than the app's matching, because it compares more cats at once and has no exact position. Check the photos yourself." The team always decides; the dashboard never does.
 
 **Afterwards.** From the results, the team can open a cat, or tie a welfare report to it when they came from the Queue. If nothing scores above Unlikely, the page says "No close match among these 34 cats" and offers to browse them as a grid.
 
