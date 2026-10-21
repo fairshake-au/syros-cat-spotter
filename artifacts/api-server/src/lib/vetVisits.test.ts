@@ -227,12 +227,13 @@ describe("undoVetVisit", () => {
     expect(await visitsFor(catId, { costs: true })).toHaveLength(1);
 
     const { retracted } = await undoVetVisit(STAFF, saved.visitId, "Wrong cat", NOW);
-    expect(retracted).toHaveLength(3);
 
+    expect(await vaccinationsOf(catId)).toEqual([]);
     const answer = await sterilisedOf(catId);
     expect(answer.value).toBe(false);
-    expect(await vaccinationsOf(catId)).toEqual([]);
     expect(await visitsFor(catId, { costs: true })).toEqual([]);
+    // The visit and both of its statements, all retracted together.
+    expect(retracted).toHaveLength(3);
 
     const changes = await listGuardianChanges({ limit: 1000 });
     const entry = changes.find((c) => c.type === "overruled" && c.statementId === saved.sterilisedIds[0]);
