@@ -25,7 +25,6 @@ import { timeAgo } from "./queuePage";
 export const COMING_SOON: readonly { label: string; route: string }[] = [
   { label: "trapping plans", route: "GET /api/team/colonies/:id/plan" },
   { label: "vet visits", route: "GET /api/team/cats/:id/vet-visit" },
-  { label: "reports", route: "GET /api/team/insights" },
   { label: "the impact report", route: "GET /api/team/insights/impact" },
 ];
 
@@ -166,6 +165,8 @@ function headlineSection(s: HomeData["headline"]): string {
     markBar(h.split) +
     `<p class="hint">As of ${esc(asOf(h.at))}</p>` +
     also +
+    // The report behind the headline (§4.4; SYC-396 PR 3.3a). Home is island-only, as the report is.
+    '<p><a class="hlink" href="/api/team/insights/progress">See Sterilisation progress</a></p>' +
     "</section>"
   );
 }

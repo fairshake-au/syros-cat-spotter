@@ -232,17 +232,20 @@ async function kittensNearSites(visible: Visible, now: Date): Promise<Set<number
 /**
  * Every visible colony's figures, by colony id. `opts.island` is true for the
  * team (`isIslandWide`): only then does "Kittens reported" read the 300 m rule.
+ * `opts.asOf` (Colony health for a past range, SYC-396 PR 3.3a): the cats,
+ * their sightings and colonies as they stood then (`loadTeamCats`'s asOf), so
+ * the latest sighting and Not visited lately don't use later records.
  */
 export async function colonyFigures(
   visible: Visible,
-  opts: { island: boolean },
+  opts: { island: boolean; asOf?: Date },
   now: Date = new Date(),
 ): Promise<Map<number, ColonyFigures>> {
   const out = new Map<number, ColonyFigures>();
   const colonies = await visibleColonies(visible);
   if (colonies.length === 0) return out;
 
-  const all = await loadTeamCats(now);
+  const all = await loadTeamCats(now, { asOf: opts.asOf });
   // Only the cats in a colony this viewer sees.
   const cats = all.filter((c) => c.colonyId !== null && covers(visible, c.colonyId));
 
