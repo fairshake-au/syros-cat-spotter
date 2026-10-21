@@ -13,9 +13,6 @@ import React from 'react';
 import { render, cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { render, cleanup } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
 const hideWebLoadingScreen = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/webLoadingScreen', () => ({ hideWebLoadingScreen }));
 
