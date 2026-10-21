@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { and, eq, gt, inArray, like, max, sql } from "drizzle-orm";
 import {
@@ -36,7 +36,7 @@ vi.mock("./teamCatList", async (orig) => {
     allTeamCats: vi.fn(async (f: Parameters<typeof real.allTeamCats>[0], now?: Date) => {
       const out = await real.allTeamCats(f, now);
       if (f.area !== undefined || f.colony !== undefined) return out;
-      const cats = out.cats.filter((c) => c.name.startsWith(PREFIX));
+      const cats = out.cats.filter((c) => c.name.startsWith(ISLE));
       return { ...out, cats, catCount: cats.length };
     }),
   };
@@ -53,7 +53,9 @@ const matchMock = vi.mocked(matchCatPhoto);
 
 const RUN = randomBytes(3).toString("hex");
 const PREFIX = `vt-find-${RUN}-`;
-const DEVICE = `${PREFIX}device`;
+// The island's own scope: only cats named with ISLE are "the island" in the seam above.
+const ISLE = `${PREFIX}isle-`;
+const DEVICE =`${PREFIX}device`;
 const NOW = new Date();
 
 /** A small real JPEG of one colour, as base64 (variantFor must be able to decode it). */
@@ -361,8 +363,11 @@ describe("nothing is stored", () => {
 });
 
 describe("findFromPhoto: no place means the whole island (SYC-527 piece 1)", () => {
-  // Each test starts from an island of only its own cats (this run's cats).
-  beforeEach(cleanup);
+  // The island is its own scope (cats named with ISLE), cleared after each
+  // test; it never touches other tests' fixtures, so file position is free.
+  afterEach(async () => {
+    await db.delete(catsTable).where(like(catsTable.name, `${ISLE}%`));
+  });
 
   /** `count` island cats (a colony is only a way to make them), with a coat colour. */
   async function island(count: number, colour: string, label: string): Promise<number[]> {
@@ -381,7 +386,7 @@ describe("findFromPhoto: no place means the whole island (SYC-527 piece 1)", () 
   }
 
   it("with no place, compares every active cat on the island", async () => {
-    const ids = await island(12, "black", "isle12");
+    const ids = await island(12, "black", "isle-12");
     const out = await findFromPhoto(upload, {}, NOW);
     expect(out.kind).toBe("results");
     if (out.kind !== "results") return;
@@ -392,14 +397,14 @@ describe("findFromPhoto: no place means the whole island (SYC-527 piece 1)", () 
   });
 
   it("with no place and colours, compares the island's cats of those colours", async () => {
-    await island(5, "black", "isleblack");
-    await island(4, "ginger", "isleginger");
+    await island(5, "black", "isle-black");
+    await island(4, "ginger", "isle-ginger");
     const out = await findFromPhoto(upload, { colours: ["black"] }, NOW);
     expect(out.kind === "results" && out.compared).toBe(5);
   });
 
   it("with no place and over 30 cats, gives too_many before the gate and the service", async () => {
-    await island(FIND_MAX_CATS + 1, "black", "isle31");
+    await island(FIND_MAX_CATS + 1, "black", "isle-31");
     const gate = vi.fn(async () => null);
     expect(await findFromPhoto(upload, {}, NOW, { gate })).toEqual({ kind: "too_many", count: FIND_MAX_CATS + 1 });
     expect(gate).not.toHaveBeenCalled();
@@ -407,7 +412,7 @@ describe("findFromPhoto: no place means the whole island (SYC-527 piece 1)", () 
   });
 
   it("the island test seam is in use", async () => {
-    await island(3, "black", "isleseam");
+    await island(3, "black", "isle-seam");
     vi.mocked(allTeamCats).mockClear();
     await findFromPhoto(upload, {}, NOW);
     expect(allTeamCats).toHaveBeenCalledTimes(1);
@@ -416,6 +421,10 @@ describe("findFromPhoto: no place means the whole island (SYC-527 piece 1)", () 
     expect(filters.colony).toBeUndefined();
     const { cats } = await vi.mocked(allTeamCats).mock.results[0]!.value;
     expect(cats.length).toBeGreaterThan(0);
-    expect(cats.every((c: { name: string }) => c.name.startsWith(PREFIX))).toBe(true);
+    expect(cats.every((c: { name: string }) => c.name.startsWith(ISLE))).toBe(true);
+    // And it really is narrower than this run's cats: the file's other
+    // fixtures (e.g. `small`) exist but are not on the island.
+    const all = await db.select({ id: catsTable.id }).from(catsTable).where(like(catsTable.name, `${PREFIX}%`));
+    expect(all.length).toBeGreaterThan(cats.length);
   });
 });
