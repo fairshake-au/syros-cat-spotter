@@ -594,7 +594,9 @@ router.post(
     const [visit] = CAT_ID_RE.test(raw)
       ? await db.select().from(observationsTable).where(eq(observationsTable.id, Number(raw)))
       : [];
-    if (!visit || visit.kind !== "vet_visit") {
+    // An undo is a vet_visit row too; it is no visit to mark wrong (second review, finding 3).
+    const isUndo = (visit?.value as { retracted?: unknown } | undefined)?.retracted === true;
+    if (!visit || visit.kind !== "vet_visit" || isUndo) {
       if (!isForm(req)) return void res.status(404).json({ error: "Not found" });
       return void res.status(404).type("html").send(renderNoSuchCat(person.name));
     }

@@ -266,6 +266,33 @@ describe("Mark the visit wrong", () => {
   });
 });
 
+describe("odd requests (second review, findings 2 and 3)", () => {
+  it("a JSON caller's numeric cost is kept, not turned into 'cost not recorded'", async () => {
+    const cat = await seedCat(colony);
+    const res = await request(app)
+      .post(`/api/team/cats/${cat.id}/vet-visit`)
+      .set("Cookie", staff.cookie)
+      .set("Origin", TEAM_ORIGIN)
+      .send({ date: "2026-08-13", did: ["sterilised"], clinicId: "symviosis", costEur: 60, paidBy: "donation" });
+    expect(res.status).toBe(201);
+    expect(((await visitOf(cat.id)).value as { costEur: unknown }).costEur).toBe(60);
+  });
+
+  it("marking an undo row wrong is 'no such visit', never a 500", async () => {
+    const cat = await seedCat(colony);
+    await post(`/api/team/cats/${cat.id}/vet-visit`, FORM);
+    const visit = await visitOf(cat.id);
+    await post(`/api/team/vet-visits/${visit.id}/wrong`, { reason: "Wrong cat", confirm: "1" });
+    const [undo] = await db
+      .select()
+      .from(observationsTable)
+      .where(and(eq(observationsTable.catId, cat.id), eq(observationsTable.supersedesId, visit.id)));
+    expect((undo!.value as { retracted?: boolean }).retracted).toBe(true);
+    expect((await post(`/api/team/vet-visits/${undo!.id}/wrong`, { reason: "Again" })).status).toBe(404);
+    expect((await post(`/api/team/vet-visits/${undo!.id}/wrong`, { reason: "Again", confirm: "1" })).status).toBe(404);
+  });
+});
+
 describe("who sees the money", () => {
   it("without view_vet_costs, the cat page shows no cost and no payer", async () => {
     const cat = await seedCat(colony);

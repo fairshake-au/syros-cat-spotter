@@ -7,6 +7,7 @@ import { loadCatRecords, ObservationRefused, type VetVisitValue } from "./observ
 import { resolveSterilised, resolveVaccinated } from "./resolve";
 import { listGuardianChanges } from "./guardianChanges";
 import { ALREADY_UNDONE, logVetVisit, undoVetVisit, visitsFor } from "./vetVisits";
+import { supersedeStatement } from "./teamCorrections";
 
 // SYC-396 PR 3.1a, Task 3.1.1 (team-dashboard-redesign.md §8.3; plan
 // Decisions 5–7 and D8): writing a visit and undoing it, against the shared
@@ -289,6 +290,21 @@ describe("D8 holds while any visit stands (adversarial review F1)", () => {
     const second = await logVetVisit(STAFF, { catId, date: "2026-08-13", value: STERILISED }, NOW);
     await undoVetVisit(STAFF, second.visitId, "Logged twice", NOW);
     expect((await sterilisedOf(catId)).value).toBe(true);
+  });
+});
+
+describe("the guardian changes list after an undo (second review, finding 1)", () => {
+  it("an undone overrule says 'put back' even after the team corrects her restored 'no' another way", async () => {
+    const catId = await insertCat();
+    const no = await guardianSaysNo(catId, "2026-08-20");
+    const visit = await logVetVisit(STAFF, { catId, date: "2026-08-13", value: STERILISED }, NOW);
+    await undoVetVisit(STAFF, visit.visitId, "Wrong cat", NOW);
+    await supersedeStatement(STAFF, { id: no.id, value: { sterilised: true }, reason: "Checked in person" });
+    expect((await sterilisedOf(catId)).value).toBe(true);
+    const entry = (await listGuardianChanges({ limit: 1000 })).find(
+      (c) => c.type === "overruled" && c.statementId === visit.sterilisedIds[0],
+    );
+    expect(entry).toMatchObject({ putBack: true });
   });
 });
 

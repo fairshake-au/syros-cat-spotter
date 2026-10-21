@@ -101,7 +101,8 @@ export function visitFormFrom(body: unknown): VisitFormValues {
     vaccineOther: str(b["vaccineOther"]),
     treatedNote: lf(str(b["treatedNote"])),
     clinicId: str(b["clinicId"]),
-    costEur: str(b["costEur"]),
+    // A JSON caller may send the cost as a number (second review, finding 2).
+    costEur: typeof b["costEur"] === "number" && Number.isFinite(b["costEur"]) ? String(b["costEur"]) : str(b["costEur"]),
     paidBy: str(b["paidBy"]),
     note: lf(str(b["note"])),
     costReason: lf(str(b["costReason"])),
