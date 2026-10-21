@@ -1,0 +1,1 @@
+- 21 Oct: Task A done: edit_vet_settings capability (catalogue red then green)
