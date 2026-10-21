@@ -376,6 +376,28 @@ describe("check again", () => {
     expect((await first).status).toBe(200);
   });
 
+  it("a cat chosen while the check ran makes its answer moot (409 RESOLVED)", async () => {
+    const { id } = await failedSpot();
+    let finish!: () => void;
+    matchCatPhoto.mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          finish = () => r({ isCatPhoto: true, matches: [] });
+        }),
+    );
+    const running = recheck(id, DEVICE).then((r) => r);
+    await vi.waitFor(() => expect(matchCatPhoto).toHaveBeenCalledTimes(2));
+    const resolved = await request(app)
+      .post(`/api/sightings/${id}/resolve`)
+      .set("X-Device-Secret", SECRET)
+      .send({ deviceId: DEVICE, newCatName: `${CAT_PREFIX}-mid-${Date.now()}` });
+    expect(resolved.status, JSON.stringify(resolved.body)).toBe(200);
+    finish();
+    const res = await running;
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("RESOLVED");
+  });
+
   it("counts against the per-device limit, and says when to try again (429)", async () => {
     const { id } = await failedSpot();
     limit.ok = false;

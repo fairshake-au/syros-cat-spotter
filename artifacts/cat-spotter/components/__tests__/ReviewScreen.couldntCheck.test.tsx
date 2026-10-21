@@ -3,7 +3,7 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MatchCandidate } from '@workspace/api-client-react';
-import { ApiError } from '@workspace/api-client-react';
+import { ApiError, RequestTimeoutError } from '@workspace/api-client-react';
 
 const m = vi.hoisted(() => ({
   params: { data: '' } as { data?: string },
@@ -39,6 +39,7 @@ vi.mock('@workspace/api-client-react', () => ({
       super(`HTTP ${status}`);
     }
   },
+  RequestTimeoutError: class RequestTimeoutError extends Error {},
   resolveSighting: m.resolveSighting,
   recheckSighting: m.recheckSighting,
   suggestCatNames: vi.fn(async () => ({ suggestions: [] })),
@@ -269,6 +270,16 @@ describe('"Check again"', () => {
     fireEvent.click(screen.getByTestId('couldnt-check-again'));
     await waitFor(() => expect(screen.queryByTestId('couldnt-check-again')).toBeNull());
     expect(screen.getByTestId('couldnt-check-line').textContent).toBe(en.couldntCheckCant);
+  });
+
+  it('a request that never answers stops "Checking…" and says there is no signal', async () => {
+    m.recheckSighting.mockRejectedValueOnce(new (RequestTimeoutError as unknown as new () => Error)());
+    renderReview();
+    fireEvent.click(screen.getByTestId('couldnt-check-again'));
+    await waitFor(() =>
+      expect(screen.getByTestId('couldnt-check-line').textContent).toBe(en.pickerNoSignalStay),
+    );
+    expect(screen.getByTestId('couldnt-check-again').textContent).toBe(en.couldntCheckAgain);
   });
 
   it('with no signal says so', async () => {

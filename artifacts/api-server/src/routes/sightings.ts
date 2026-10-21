@@ -457,15 +457,18 @@ async function recordMatch(
 ): Promise<boolean> {
   const values = { ...sets, matchedAt: new Date() };
   try {
-    await db
+    // True only when the row was really written: an update skipped because
+    // a choice was already made (setWhere) writes nothing.
+    const written = await db
       .insert(sightingMatchesTable)
       .values({ sightingId, ...values })
       .onConflictDoUpdate({
         target: sightingMatchesTable.sightingId,
         set: values,
         setWhere: isNull(sightingMatchesTable.chosenAt),
-      });
-    return true;
+      })
+      .returning({ sightingId: sightingMatchesTable.sightingId });
+    return written.length > 0;
   } catch (err) {
     req.log.error({ err, sightingId }, "Could not write the match record");
     return false;
@@ -819,6 +822,16 @@ router.post("/sightings/:sightingId/recheck", aiLimiter, async (req, res) => {
     // Always the sighting's own stored location, never one from the phone
     // (cat-record-data-spine.md §6.3: no nearest-cat oracle).
     const answer = await computeMatchCandidates(req, sightingId, photos, sighting.lat, sighting.lng);
+    // The spotter may have chosen a cat while this ran (up to ~35 s): the
+    // answer is then moot, and saying so beats look-alikes for a done spot.
+    const [after] = await db
+      .select({ status: sightingsTable.status })
+      .from(sightingsTable)
+      .where(eq(sightingsTable.id, sightingId));
+    if (after?.status === "resolved") {
+      res.status(409).json({ error: "Sighting already resolved", code: "RESOLVED" });
+      return;
+    }
     res.json({ sightingId, ...answer });
   } finally {
     recheckInFlight.delete(sightingId);

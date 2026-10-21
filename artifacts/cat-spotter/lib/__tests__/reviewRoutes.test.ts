@@ -86,7 +86,11 @@ describe('review routes', () => {
   // "no look-alikes, you're the first to spot this cat".
   it('every /review navigation passes the look-alike check result along', () => {
     const missing = reviewNavigations()
-      .filter((n) => !/matchCheck:/.test(n.args ?? '') || !/canRecheck:/.test(n.args ?? ''))
+      .filter(
+        (n) =>
+          !/matchCheck:\s*(first|result|item)\.matchCheck\b/.test(n.args ?? '') ||
+          !/canRecheck:\s*(first|result|item)\.canRecheck\b/.test(n.args ?? ''),
+      )
       .map((n) => n.where);
     expect(missing).toEqual([]);
   });

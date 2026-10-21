@@ -16,6 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ApiError,
+  RequestTimeoutError,
   answerSightingQuestions,
   recheckSighting,
   resolveSighting,
@@ -296,6 +297,8 @@ export default function ReviewScreen() {
     if (!deviceId || !routeData) return;
     setRecheckState("checking");
     try {
+      // Ends after RECHECK_REQUEST_TIMEOUT_MS (custom-fetch.ts) with a
+      // RequestTimeoutError, never "Checking…" forever.
       const res = await recheckSighting(routeData.sightingId, { deviceId });
       const next: RecheckAnswer = {
         isCatPhoto: res.isCatPhoto,
@@ -317,7 +320,12 @@ export default function ReviewScreen() {
         // Resolved, or the failure was never recorded: not again from here.
         setRecheckState("cantRecheck");
         setRechecked((prev) => ({ ...(prev ?? answerOf(routeData)), canRecheck: false }));
-      } else if (!(err instanceof ApiError) && err instanceof TypeError) setRecheckState("offline");
+      } else if (
+        err instanceof RequestTimeoutError ||
+        (!(err instanceof ApiError) && err instanceof TypeError)
+      ) {
+        setRecheckState("offline");
+      }
       else setRecheckState("error");
     }
   };
