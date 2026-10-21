@@ -56,3 +56,4 @@ Checkpoint notes, newest last. Each agent appends after every commit.
 
 ## Step 3 (Sonnet)
 - 3.1 done: ReportHandoff.cat, NeedsHelpLink cat prop (merges into handoff via takeReportHandoff), cat page passes it, ReportIssueSheet.goToNeedsHelp hands {id,name,photoUrl:null}. NeedsHelpLink 6/6, ReportIssueSheet (test file needed a pendingPhotos mock now that the sheet imports reportHandoff). Next: 3.2 flow.
+- 3.2 done: ReportFlow.cat (optional, INITIAL null), startFlow keeps handoff cat, clearCat; reportFlow.test 14/14, reportHandoff.test green; typecheck clean. Next: 3.3 strip.

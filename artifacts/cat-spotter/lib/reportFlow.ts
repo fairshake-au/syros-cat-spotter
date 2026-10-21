@@ -54,6 +54,12 @@ export interface ReportFlow {
    */
   wantsUpdates?: boolean;
   email?: string;
+  /**
+   * SYC-504: the cat this report is about, when it was opened from a cat's
+   * page. "It's a different cat" (`clearCat`) sets it to null for good; Back
+   * and Next keep whatever is current. The photoUrl is for the strip only.
+   */
+  cat?: { id: number; name: string; photoUrl: string | null } | null;
 }
 
 export const INITIAL_FLOW: ReportFlow = {
@@ -66,6 +72,7 @@ export const INITIAL_FLOW: ReportFlow = {
   pinIsDefault: false,
   wantsUpdates: false,
   email: '',
+  cat: null,
 };
 
 const SINGLE_ADDRESS = /^[^\s@,;<>"()]+@[^\s@,;<>"()]+\.[^\s@,;<>"()]+$/;
@@ -101,6 +108,11 @@ export function flowNext(flow: ReportFlow, withEmail = false): ReportFlow {
   return { ...flow, step: (flow.step + 1) as ReportStep };
 }
 
+/** "It's a different cat": this report carries on as an ordinary one. */
+export function clearCat(flow: ReportFlow): ReportFlow {
+  return !flow.cat ? flow : { ...flow, cat: null };
+}
+
 export function flowBack(flow: ReportFlow): ReportFlow {
   if (flow.step === 1) return flow;
   return { ...flow, step: (flow.step - 1) as ReportStep };
@@ -117,9 +129,10 @@ export function draftReady(flow: ReportFlow): boolean {
  * change either). Anywhere else it opens on screen 1.
  */
 export function startFlow(
-  handoff: { photo?: ReportFlow['photo']; coords?: ReportFlow['coords'] } | null,
+  handoff: { photo?: ReportFlow['photo']; coords?: ReportFlow['coords']; cat?: ReportFlow['cat'] } | null,
 ): ReportFlow {
   const photo = handoff?.photo ?? null;
   const coords = handoff?.coords ?? null;
-  return { ...INITIAL_FLOW, photo, coords, step: photo && coords ? 2 : 1 };
+  const cat = handoff?.cat ?? null;
+  return { ...INITIAL_FLOW, photo, coords, cat, step: photo && coords ? 2 : 1 };
 }
