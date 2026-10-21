@@ -10,12 +10,12 @@ import { catsToCompare, findFromPhoto, isWholeIsland, type FindFilters } from ".
 import { checkFindLimits, findLimitReached } from "../middlewares/rateLimit";
 import {
   MATCHING_DOWN_ISLAND_WORDS,
-  STALE_PLACE_WORDS,
   MATCHING_DOWN_WORDS,
   narrowingOf,
   renderFindForm,
   renderFindProblem,
   renderFindResults,
+  STALE_PLACE_WORDS,
   TOO_BIG_WORDS,
   type FindFormOptions,
 } from "../lib/teamPages/findPhotoPage";
@@ -253,6 +253,8 @@ async function stalePlace(src: unknown, f: FindFilters, person: ReturnType<typeo
   return !(await allColonyChoices(visibleColonyIds(person))).some((c) => c.id === f.colony);
 }
 
+const matchingDownWords = (f: FindFilters) => (isWholeIsland(f) ? MATCHING_DOWN_ISLAND_WORDS : MATCHING_DOWN_WORDS);
+
 /** ?tie= / a `tie` field: choosing a cat for that welfare report, as on the Cats page. */
 async function tieFrom(raw: unknown, person: ReturnType<typeof teamPerson>): Promise<TieMode | undefined> {
   if (typeof raw !== "string" || !TIE_ID_RE.test(raw)) return undefined;
@@ -345,6 +347,9 @@ router.post(
     const body = typeof req.body === "object" && req.body !== null ? (req.body as Record<string, unknown>) : {};
     const filters = findFilters(body);
     const tie = await tieFrom(body["tie"], person);
+    // Checked first: a stale place must never be redrawn as the island, even
+    // when the upload also failed.
+    const stale = await stalePlace(body, filters, person);
     if (uploadError !== null) {
       const tooBig = uploadError instanceof multer.MulterError && uploadError.code === "LIMIT_FILE_SIZE";
       req.log.info({ outcome: tooBig ? "too_big" : "bad_upload" }, "find from a photo");
@@ -352,7 +357,11 @@ router.post(
       return void res
         .status(tooBig ? 413 : 400)
         .type("html")
-        .send(await findFormHtml(person, filters, tie, { problem: { field: "photo", words } }));
+        .send(
+          await findFormHtml(person, filters, tie, {
+            problem: stale ? { field: "place", words: STALE_PLACE_WORDS } : { field: "photo", words },
+          }),
+        );
     }
     // A report that doesn't exist: nothing to tie, so no search runs and none
     // is used (second review, finding 4).
@@ -360,7 +369,7 @@ router.post(
       req.log.info({ outcome: "no_such_report" }, "find from a photo");
       return void res.status(404).type("html").send(await findFormHtml(person, filters, tie));
     }
-    if (await stalePlace(body, filters, person)) {
+    if (stale) {
       req.log.info({ outcome: "stale_place" }, "find from a photo");
       return void res
         .status(400)
@@ -435,7 +444,7 @@ router.post(
         );
       case "refused":
         if (out.reason === "counter_down") {
-          return void res.status(503).type("html").send(renderFindProblem({ ...common, words: isWholeIsland(filters) ? MATCHING_DOWN_ISLAND_WORDS : MATCHING_DOWN_WORDS, gridLink: true }));
+          return void res.status(503).type("html").send(renderFindProblem({ ...common, words: matchingDownWords(filters), gridLink: true }));
         }
         return void res
           .status(429)
@@ -447,7 +456,7 @@ router.post(
           renderFindProblem({ ...common, words: "We couldn't see a cat in that photo. Try another photo of the cat.", gridLink: false }),
         );
       case "matching_down":
-        return void res.status(503).type("html").send(renderFindProblem({ ...common, words: isWholeIsland(filters) ? MATCHING_DOWN_ISLAND_WORDS : MATCHING_DOWN_WORDS, gridLink: true }));
+        return void res.status(503).type("html").send(renderFindProblem({ ...common, words: matchingDownWords(filters), gridLink: true }));
       case "results": {
         const { cats } = await allTeamCats({ area: filters.area, colony: filters.colony, colours: filters.colours }, now);
         const cards = new Map(cats.map((c) => [c.id, c]));

@@ -50,9 +50,9 @@ import {
 import {
   ISLAND_TOO_MANY,
   LESS_SURE,
-  STALE_PLACE_WORDS,
   MATCHING_DOWN_WORDS,
   PERSON_CAP_WORDS,
+  STALE_PLACE_WORDS,
   TEAM_CAP_WORDS,
   TOO_BIG_WORDS,
   WHERE_HINT,
@@ -259,6 +259,15 @@ describe("the form", () => {
     }
   });
 
+  it("a colony chosen alone shows its own count, not the island's wording", async () => {
+    const team = await teamMember("colonyalone");
+    const res = await form(team.cookie, `?colony=${colony}`);
+    expect(res.text).toContain("3 cats to compare");
+    expect(res.text).not.toContain("across the island");
+    expect(res.text).not.toContain("selected>Anywhere on the island");
+    expect(res.text).not.toContain(WHERE_HINT);
+  });
+
   it("an empty area and colony in the address is the island", async () => {
     await island(12);
     const team = await teamMember("emptyplace");
@@ -419,6 +428,33 @@ describe("the search", () => {
     expect(matchMock).not.toHaveBeenCalled();
     expect(await findTeamHits()).toBe(0);
     expect(await findPersonHits(team.id)).toBe(0);
+  });
+
+  it("an unrecognised area with a file over 10 MB is still 413, and still not read as the island", async () => {
+    await island(12);
+    const team = await teamMember("stalebig");
+    const res = await search(team.cookie, { area: "no-such-area" }, { bytes: Buffer.alloc(10 * 1024 * 1024 + 1, 1) });
+    expect(res.status).toBe(413);
+    expect(res.text).toContain(STALE_PLACE_WORDS.replace("isn't", "isn&#39;t"));
+    expect(res.text).not.toContain("across the island");
+    expect(res.text).not.toContain('type="file"');
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await findTeamHits()).toBe(0);
+    expect(await findPersonHits(team.id)).toBe(0);
+  });
+
+  it("with only a tie, the search is the island and ties the report", async () => {
+    await island(12);
+    const team = await teamMember("tieisle");
+    const report = await seedReport();
+    const page = await form(team.cookie, `?tie=${report.publicId}`);
+    expect(page.text).toContain(`<input type="hidden" name="tie" value="${report.publicId}">`);
+    expect(page.text).toContain('type="file"');
+    const res = await search(team.cookie, { tie: report.publicId });
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("across the island");
+    expect(res.text).toContain("This is the cat");
+    expect(res.text).toContain(`<form method="post" action="/api/team/reports/${report.publicId}/cat">`);
   });
 
   it("over 30 island cats, a search is refused before the caps and the service", async () => {
