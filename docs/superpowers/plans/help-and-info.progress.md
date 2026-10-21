@@ -15,3 +15,4 @@ Checkpoint notes, newest last. Each agent appends after every commit.
   - remove /api/go/give from gate list -> FAIL prelaunchGate "10c ... GET and HEAD /api/go/give pass with no pass" (refused: true)
   - gate `startsWith("/api/go/give")` -> FAIL "10c ... anything next to it is still refused" (url /api/go/give/ got 302, wanted 401; the loop stops at the first miss, so /givex is not reached in that run)
   - `/go/give` counts (count:true) -> FAIL go.test.ts "GET /api/go/give > forwards ... writes nothing to donation_link_taps" (length 1), plus two more
+- 1.4 done: /go/give in openapi, two Help-tab descriptions reworded, codegen run (api-zod, api-client-react) + typecheck:libs ok. NOTE: the welfare queue is not in openapi.yaml at all (no /reports, no queue schema), so there is no suggestedCat schema to add; skipped, flagged in report. Next: 1.5 team queue.

@@ -788,7 +788,7 @@ export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)
 
 
 /**
- * @summary The colony fundraising campaign shown on the Help tab
+ * @summary The colony fundraising campaign shown on the Help & info page
  */
 export const GetCampaignResponse = zod.object({
   "id": zod.string(),
@@ -802,7 +802,7 @@ export const GetCampaignResponse = zod.object({
   "endsAt": zod.string(),
   "donateUrl": zod.string().describe('Empty when no donation page is configured; the client hides the CTA'),
   "suggestedAmountsCents": zod.array(zod.number())
-}).describe('Colony fundraising campaign shown on the Help tab. Server-side config, so\nfigures can be corrected without an app release. There is no payments\nbackend: the app opens `donateUrl` externally and no money moves through\nthis API.\n')
+}).describe('Colony fundraising campaign shown on the Help & info page. Server-side config, so\nfigures can be corrected without an app release. There is no payments\nbackend: the app opens `donateUrl` externally and no money moves through\nthis API.\n')
 
 
 /**
@@ -838,6 +838,12 @@ export const GetSpotterSignalsResponse = zod.object({
  * @summary "Help feed a cat": counts the tap and forwards to the donation page. A browser link, not called by the client
  */
 export const GoFeedResponse = zod.unknown()
+
+
+/**
+ * @summary The Help & info page's give link: forwards to the donation page and counts nothing. A browser link, not called by the client
+ */
+export const GoGiveResponse = zod.unknown()
 
 
 /**
