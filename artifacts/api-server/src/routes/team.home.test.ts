@@ -109,7 +109,7 @@ function full(over: Partial<HomeData> = {}): HomeData {
     },
     month: {
       ok: true,
-      value: { now: { sightings: 214, newCats: 6, sterilisations: 11 }, last: { sightings: 187, newCats: 4, sterilisations: 9 } },
+      value: { now: { sightings: 214, newCats: 6, sterilisations: 11, vetSpendEur: 660 }, last: { sightings: 187, newCats: 4, sterilisations: 9, vetSpendEur: 542.5 } },
     },
     at: NOW,
     ...over,
@@ -218,6 +218,16 @@ describe("renderHomePage", () => {
     }
   });
 
+  it("This month's vet spend shows only to someone who may see vet costs (§8.4)", () => {
+    const shown = renderHomePage(full(), { personName: "Maria", now: NOW, costs: true });
+    expect(shown).toContain("Vet spend");
+    expect(shown).toContain("€660");
+    expect(shown).toContain("(last month €542.50)");
+    const hidden = page(full());
+    expect(hidden).not.toContain("Vet spend");
+    expect(hidden).not.toContain("€");
+  });
+
   it("an empty Needs section is absent, and with nothing to act on Home says so; the headline and This month still show", () => {
     const empty = full({
       needs: { ok: true, value: { reports: [], reportsTotal: 0, unchecked: 0, drafts: [], draftsTotal: 0, issuesOpen: 0, awaitingMatch: 0 } },
@@ -300,7 +310,7 @@ describe("one failing loader doesn't take Home down", () => {
     listLikelyForReview: async () => [],
     listColourCheck: async () => [],
     loadTeamCats: async () => [],
-    monthFigures: async () => ({ sightings: 1, newCats: 2, sterilisations: 3 }),
+    monthFigures: async () => ({ sightings: 1, newCats: 2, sterilisations: 3, vetSpendEur: 0 }),
     allColonyChoices: async () => [],
   };
 

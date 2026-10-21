@@ -105,6 +105,8 @@ describe("vet_visit: accepted shapes", () => {
     ["the cost at exactly 2000", { ...VISIT, costEur: 2000 }],
     ["two decimals", { ...VISIT, costEur: 55.99 }],
     ["an empty note", { ...VISIT, note: "" }],
+    // Samuel, 21 Oct 2026 (SYC-396): an optional reason for a sterilisation's non-standard cost.
+    ["a reason for the cost", { ...VISIT, costEur: 75, costReason: "pregnant, longer surgery" }],
   ])("accepts %s", async (_label, value) => {
     const cat = await insertCat();
     const row = await write(cat.id, "vet_visit", value);
@@ -126,6 +128,11 @@ describe("vet_visit: refusals", () => {
     ["a listed vaccine typed as other", { ...VISIT, did: ["vaccinated"], vaccines: [{ other: "Rabies" }] }],
     ["a repeated vaccine", { ...VISIT, did: ["vaccinated"], vaccines: ["rabies", "rabies"] }],
     ["treated without a note", { ...VISIT, did: ["treated"] }],
+    ["a cost reason without a sterilisation", { ...VISIT, did: ["checked"], costEur: 20, costReason: "late" }],
+    ["a cost reason with no cost", { ...VISIT, costEur: null, costReason: "unknown" }],
+    ["a blank cost reason", { ...VISIT, costReason: "" }],
+    ["an untrimmed cost reason", { ...VISIT, costReason: " pregnant" }],
+    ["a cost reason over 200 characters", { ...VISIT, costReason: "x".repeat(201) }],
     ["a blank treated note", { ...VISIT, did: ["treated"], treatedNote: "  " }],
     ["a treated note of 201 characters", { ...VISIT, did: ["treated"], treatedNote: "x".repeat(201) }],
     ["a treated note without treated", { ...VISIT, treatedNote: "ear mites" }],

@@ -14,7 +14,10 @@ import { renderPage } from "./layout";
 import { position } from "./position";
 import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
-import { coatPhraseOf, renderCatFacts } from "./catFacts";
+import { coatPhraseOf, renderCatFacts, vaccineWord } from "./catFacts";
+import type { VisitLine } from "../vetVisits";
+import { euroText } from "../euros";
+import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
 import { fitView, renderMap, type MapMarker } from "./map";
 import { BANDS, pointOnView } from "../mapTiles/geometry";
 import { rowMenu } from "./rowMenu";
@@ -391,12 +394,19 @@ const DONE: Record<string, string> = {
   colony: "Saved. The colony is added to the history below.",
   colonyOut: "Saved. The cat is out of its colony. This is added to the history below.",
   colonyAlready: "The cat was already there, so nothing was changed.",
+  visit: "Saved. The vet visit is below, and what it recorded is in the history.",
+  visitWrong: "Saved. The vet visit and everything it recorded are marked wrong.",
+  visitAlready: "This visit was already undone. Nothing was changed.",
+  visitReason: "Say why the visit is wrong, in up to 500 characters. Nothing was changed.",
   died: "Saved. The cat is recorded as no longer with us.",
   diedAlready: "This cat is already recorded as no longer with us. Nothing was changed.",
 };
 
 /** The messages that sit at the top of the page, not in "Update this cat". */
 const TOP_DONE = new Set(["died", "diedAlready"]);
+
+/** The messages that sit beside the Vet visits list. */
+const VISIT_DONE = new Set(["visit", "visitWrong", "visitAlready", "visitReason"]);
 
 /** What the page says beside a photo after Hide or Restore (PR 6). */
 const PHOTO_DONE: Record<string, string> = {
@@ -426,6 +436,11 @@ export interface CatPageOptions {
   island?: boolean;
   /** "Now", for "3 days ago" and the history's dates; tests pin it. */
   now?: Date;
+  /**
+   * The cat's standing vet visits, newest first (SYC-396 PR 3.1a). Without
+   * `view_vet_costs` the caller leaves the cost and who paid out of each.
+   */
+  visits?: VisitLine[];
 }
 
 /**
@@ -574,10 +589,15 @@ function correctionForms(
       `<form method="get" action="${base}/died" class="diedform"><button type="submit">This cat has died</button></form>`,
     );
   }
-  if (forms.length === 0) return notice;
+  // Log a vet visit (spec §7.2): the main action, full width, above the rest.
+  const vet = may("log_vet_visit")
+    ? `<form method="get" action="${base}/vet-visit" class="vetvisit"><button type="submit" class="primary wide">Log a vet visit</button></form>`
+    : "";
+  if (forms.length === 0) return vet ? '<h2 id="corrections">Update this cat</h2>' + notice + vet : notice;
   return (
     '<h2 id="corrections">Update this cat</h2>' +
     notice +
+    vet +
     `<div class="fixes">${forms.join("")}</div>` +
     // How changes work, folded into a short note you can open (spec §7.2), in #192's words.
     '<details class="hownote"><summary>How changes work</summary>' +
@@ -735,6 +755,44 @@ function photoStrip(v: TeamCatView): string {
   );
 }
 
+
+/** What a visit did, in words: "Sterilised, vaccinated (Rabies)". */
+export function visitDidWords(l: Pick<VisitLine, "did" | "vaccines" | "treatedNote">): string {
+  return l.did
+    .map((d, i) => {
+      const w = i === 0 ? DID_WORDS[d] : DID_WORDS[d].toLowerCase();
+      if (d === "vaccinated" && l.vaccines?.length) return `${w} (${l.vaccines.map(vaccineWord).join(", ")})`;
+      if (d === "treated" && l.treatedNote) return `${w} (${l.treatedNote})`;
+      return w;
+    })
+    .join(", ");
+}
+
+function visitItem(l: VisitLine, may: (c: Capability) => boolean): string {
+  const money =
+    "costEur" in l
+      ? `<br><span class="meta">${l.costEur == null ? "Cost not recorded" : esc(euroText(l.costEur))}` +
+        (l.paidBy ? ` · paid by ${esc(PAID_WORDS[l.paidBy].replace(/^A /, "a ").replace(/^The /, "the "))}` : "") +
+        (l.costReason ? `<br>Why the cost was different: ${esc(l.costReason)}` : "") +
+        "</span>"
+      : "";
+  const wrong = may("log_vet_visit")
+    ? `<details><summary>Mark the visit wrong</summary><form method="post" action="/api/team/vet-visits/${l.visitId}/wrong">` +
+      '<p class="hint">Everything this visit recorded is marked wrong with it.</p>' +
+      reasonInput(`vw${l.visitId}-why`) +
+      '<button type="submit">Mark the visit wrong</button></form></details>'
+    : "";
+  return (
+    `<li id="vv-${l.visitId}" class="statement">` +
+    `<strong>${time(l.date, day(l.date))}</strong>: ${esc(visitDidWords(l))}` +
+    `<br>${esc(l.clinicName)} · logged by ${esc(l.by)}` +
+    money +
+    (l.note ? `<br><span class="meta">${esc(l.note)}</span>` : "") +
+    wrong +
+    "</li>"
+  );
+}
+
 export function renderCatPage(
   v: TeamCatView,
   personName: string,
@@ -753,7 +811,8 @@ export function renderCatPage(
       : "";
   const atStatement = opts.at !== undefined && v.history.some((h) => h.id === opts.at);
   const topDone = opts.done !== undefined && TOP_DONE.has(opts.done);
-  const formsNotice = atStatement || topDone ? "" : notice;
+  const visitDone = opts.done !== undefined && VISIT_DONE.has(opts.done);
+  const formsNotice = atStatement || topDone || visitDone ? "" : notice;
   const byId = new Map(v.history.map((s) => [s.id, s]));
   // The history is newest first. After a correction to an older statement
   // the page lands on it, so then every statement is shown.
@@ -883,6 +942,17 @@ export function renderCatPage(
           .join("") +
         "</ul>");
 
+  // Vet visits (spec §7.3): date, what was done, clinic and, for those who
+  // may see it, the cost. Each can be marked wrong, which undoes everything
+  // the visit recorded.
+  const visitList = opts.visits ?? [];
+  const visits =
+    `<h2 id="vet-visits">Vet visits (${visitList.length})</h2>` +
+    (visitDone ? notice : "") +
+    (visitList.length === 0
+      ? '<p class="empty">No vet visits recorded.</p>'
+      : '<ol class="history visits">' + visitList.map((l) => visitItem(l, may)).join("") + "</ol>");
+
   // After Hide or Restore, the message goes beside that photo (own keys only:
   // ?done=constructor must not reach Object.prototype).
   const photoNotice =
@@ -949,6 +1019,7 @@ export function renderCatPage(
       known +
       renderAppearanceSection(v, may, opts.done) +
       sightings +
+      visits +
       photos +
       history,
   });

@@ -269,6 +269,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `view_guardian_changes` | The "recent guardian changes" list on the team's **Colonies page** (SYC-209 §2.6): every cat a guardian added to or took out of a colony, every sterilisation, life-status and colour statement she made, and every colony she created, with who and when (§7.4, §6.9) | Island-only | ✓ | ✓ | — |
 | `view_vet_costs` | See vet costs, who paid, and estimates (team-dashboard-redesign.md §8.4) | Island-only | ✓ | ✓ | — |
 | `print_trapping_plan` | Print a colony's trapping plan (team-dashboard-redesign.md §9.2) | Island-only | ✓ | ✓ | — |
+| `log_vet_visit` | Log a vet visit on a cat (team-dashboard-redesign.md §8.1) | Island-only | ✓ | ✓ | — |
 
 **Saying what you saw or know**
 

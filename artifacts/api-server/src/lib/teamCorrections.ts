@@ -498,6 +498,17 @@ export interface SupersedeInput {
  * first, in the same order as Correct and Confirm (cat, then statement), so
  * none of them reads a colour another is halfway through changing.
  */
+/** What the generic Mark wrong says about a vet visit's statement (Decision 7). */
+export const FROM_VET_VISIT_WORDS = "This came from a vet visit. Mark the visit wrong instead.";
+
+/** A vet visit, or a statement one wrote (its value names the visit). */
+export function cameFromVisit(o: Pick<Observation, "kind" | "value">): boolean {
+  if (o.kind === "vet_visit") return true;
+  if (o.kind !== "sterilised" && o.kind !== "vaccinated") return false;
+  const v = o.value as Record<string, unknown> | null;
+  return v !== null && typeof v === "object" && typeof v["vetVisitId"] === "number";
+}
+
 export async function supersedeStatement(
   person: Person,
   input: SupersedeInput,
@@ -541,6 +552,15 @@ export async function supersedeStatement(
     // team path that ends a claim.
     if (isOwnerHomed(original)) {
       throw new ObservationRefused("MALFORMED_VALUE", "An owner's claim is ended with Remove owner");
+    }
+
+    // Decision 7 (SYC-396 PR 3.1a): a statement a vet visit wrote, and the
+    // visit itself, are undone only by marking the visit wrong, which takes
+    // all of them back together. Checked here, not in the routes, so no
+    // route that marks a statement wrong can skip it. There is no way
+    // round it: undoVetVisit writes its retractions itself.
+    if (cameFromVisit(original)) {
+      throw new ObservationRefused("FROM_VET_VISIT", FROM_VET_VISIT_WORDS);
     }
 
     const capability = capabilityFor(original.kind);
