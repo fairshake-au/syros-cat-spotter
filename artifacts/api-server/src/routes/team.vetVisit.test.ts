@@ -130,6 +130,39 @@ describe("the vet visit form", () => {
   });
 });
 
+describe("vaccine problems are named beside the field (adversarial review F2, F3)", () => {
+  it("Rabies ticked and also typed saves it once", async () => {
+    const cat = await seedCat(colony);
+    const res = await post(`/api/team/cats/${cat.id}/vet-visit`, {
+      ...FORM, did: ["sterilised", "vaccinated"], vaccines: "rabies", vaccineOther: "Rabies",
+    });
+    expect(res.status).toBe(303);
+    const [row] = await db
+      .select()
+      .from(observationsTable)
+      .where(and(eq(observationsTable.catId, cat.id), eq(observationsTable.kind, "vet_visit")));
+    expect((row!.value as { vaccines: unknown[] }).vaccines).toEqual(["rabies"]);
+  });
+
+  it("a one-letter other vaccine is named beside the vaccines", async () => {
+    const cat = await seedCat(colony);
+    const res = await post(`/api/team/cats/${cat.id}/vet-visit`, { ...FORM, did: ["sterilised", "vaccinated"], vaccineOther: "X" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain('id="vv-vaccines-err"');
+  });
+
+  it("ticking Vaccinated without set_vaccination comes back as the form, with the typed note", async () => {
+    const cat = await seedCat(colony);
+    denied.cap = "set_vaccination";
+    const res = await post(`/api/team/cats/${cat.id}/vet-visit`, {
+      ...FORM, did: ["sterilised", "vaccinated"], vaccines: "rabies", note: "Long note typed at the clinic",
+    });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("Long note typed at the clinic");
+    expect(res.text).toContain('id="vv-did-err"');
+  });
+});
+
 describe("why the cost is different (Samuel, 21 Oct 2026)", () => {
   it("is optional, saved with a sterilisation's cost, and shown beside it", async () => {
     const cat = await seedCat(colony);

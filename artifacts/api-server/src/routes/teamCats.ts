@@ -562,7 +562,7 @@ router.post(
       if (!isForm(req)) return void res.status(status).json({ error: "Invalid request", fields: Object.keys(problems ?? {}) });
       res.status(status).type("html").send(renderVetVisitForm({ ...found.page, values, problems, problem }));
     };
-    const read = readVisitForm(values, { costs: found.page.costs });
+    const read = readVisitForm(values, { costs: found.page.costs, vaccinate: found.page.vaccinate });
     if (!read.ok) return again(400, read.problems);
     try {
       const saved = await logVetVisit(found.person, { catId: found.view.cat.id, date: read.date, value: read.value });

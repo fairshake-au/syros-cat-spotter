@@ -123,7 +123,7 @@ const noNul = (s: string) => !s.includes(String.fromCharCode(0));
  */
 export function readVisitForm(
   f: VisitFormValues,
-  opts: { costs: boolean; now?: Date },
+  opts: { costs: boolean; vaccinate?: boolean; now?: Date },
 ): { ok: true; date: string; value: VetVisitValue } | { ok: false; problems: Partial<Record<VisitField, string>> } {
   const problems: Partial<Record<VisitField, string>> = {};
   const now = opts.now ?? new Date();
@@ -136,6 +136,9 @@ export function readVisitForm(
   if (did.length === 0) problems.did = "Tick what was done.";
   else if (!did.every((d) => (VISIT_DID as readonly string[]).includes(d))) problems.did = "Tick what was done.";
   else if (did.includes("checked") && did.length > 1) problems.did = "“Checked only” can't go with anything else.";
+  else if (did.includes("vaccinated") && opts.vaccinate === false) {
+    problems.did = "You can't record a vaccination. Untick Vaccinated, or ask someone who can.";
+  }
 
   const vaccines: Vaccine[] = [];
   if (did.includes("vaccinated")) {
@@ -145,11 +148,13 @@ export function readVisitForm(
     }
     const other = f.vaccineOther.trim();
     if (other) {
-      if (other.length > OTHER_VACCINE_MAX || !noNul(other)) {
-        problems.vaccines = `Another vaccine's name can be up to ${OTHER_VACCINE_MAX} characters.`;
+      if (other.length < 2 || other.length > OTHER_VACCINE_MAX || !noNul(other)) {
+        problems.vaccines = `Another vaccine's name is 2 to ${OTHER_VACCINE_MAX} characters.`;
       } else {
         const listed = LISTED_VACCINES.find((code) => VACCINE[code].toLowerCase() === other.toLowerCase());
-        vaccines.push(listed ?? { other });
+        // A listed vaccine typed as well as ticked is the same vaccine, once.
+        if (!listed) vaccines.push({ other });
+        else if (!vaccines.includes(listed)) vaccines.push(listed);
       }
     }
     if (vaccines.length === 0 && !problems.vaccines) problems.vaccines = "Tick the vaccines given, or type another.";
