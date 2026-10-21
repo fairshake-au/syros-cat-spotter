@@ -1,7 +1,7 @@
 # First run: your language from the start, and starting without a connection
 
 Tickets: SYC-155 (Greek and French speakers see the first screens in English), SYC-506 (a visitor without data can't get past onboarding). Parent: SYC-501, the public app review of 18 Oct 2026.
-Status: revised after adversarial review (`docs/specs/reviews/first-run-language-and-offline-start-review.md`), for Samuel's approval, 21 Oct 2026. Checked against `origin/main` at `7a2d83ff`.
+Status: **approved by Samuel, 21 Oct 2026**, after adversarial review (`docs/specs/reviews/first-run-language-and-offline-start-review.md`). Decisions 1–4 went with the recommendation; Decision 5 chose (b), the pun stays in English. Checked against `origin/main` at `7a2d83ff`.
 
 ## The problem, as a new spotter meets it
 
@@ -50,7 +50,7 @@ Until the name is saved: they show on the leaderboard as "You" (others see "Spot
 
 ### 4. The Welcome subtitle
 
-The subtitle's pun ("one furriend at a time", Greek *γατοπαρέα*, French *miaou-ami*) doesn't carry across languages. Replace it with a plain line: *"Spot, name and help the street cats of Syros."* (Decision 5). New Greek and French go into Johnny's review pack (SYC-346); French uses *tu*, as the rest of the app does.
+The subtitle's pun ("one furriend at a time", Greek *γατοπαρέα*, French *miaou-ami*) doesn't carry across languages. English keeps it. Greek and French get a plain line, *"Spot, name and help the street cats of Syros."* (Decision 5, option b). New Greek and French go into Johnny's review pack (SYC-346); French uses *tu*, as the rest of the app does.
 
 ## The rules underneath (for the plan; Samuel can skip this section)
 
@@ -67,7 +67,7 @@ The subtitle's pun ("one furriend at a time", Greek *γατοπαρέα*, French
 - **Notes are worded when shown, not when saved**, so a spotter who changes language sees them in the new one.
 - **Language detection** is one small function (phone or browser languages in, `el`/`fr`/`en` out) matching on the language part of a tag (`fr-BE` → French, `el-CY` → Greek), case-insensitive, safe when there's no browser (`navigator` missing).
 
-## Decisions for Samuel
+## Decisions (Samuel, 21 Oct 2026: 1a, 2a, 3a, 4a, 5b)
 
 1. **How the phone's language is read.** (a) Main language only on iPhone/Android, full list on web, no new app build (**recommended**: covers the common case, no native rebuild before launch). (b) Add the native language component (`expo-localization`) to read the phone's full list: catches a German phone with French second, but needs a new app build.
 2. **Language list on the name screen.** (a) Remove it; it's on Welcome and in Me (**recommended**: the name screen asks one thing, and the spotter already saw their language working on three screens). (b) Keep it as well: a second chance, but a longer screen and two places to do the same thing.
@@ -86,7 +86,7 @@ The subtitle's pun ("one furriend at a time", Greek *γατοπαρέα*, French
 
 | Where | English |
 |---|---|
-| Welcome subtitle | Spot, name and help the street cats of Syros. |
+| Welcome subtitle (Greek and French only; English unchanged) | Spot, name and help the street cats of Syros. |
 | Name screen subtitle | Pick the name other spotters will see. |
 | Offline note | You're offline. We'll save your name when you're back online. |
 | Offline button | Start spotting |
