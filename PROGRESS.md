@@ -6,3 +6,4 @@
 - 2026-10-21T22:29:58Z probes red→restored: costs:true without view_vet_costs (€ shows), guardian view spread (JSON check); affected set 57 files 1421 tests, 13 fixed
 - 2026-10-21T22:34:38Z screenshots in docs/screenshots/syc-396-pr-3-1a (local scratch DB, all non-localhost requests blocked after the first run)
 - 2026-10-21T22:39:05Z costReason (Samuel's decision); probe: reason outside the costs gate → red, restored
+- 2026-10-21T22:45:54Z review folded: F1 (+probe red→restored), F2, F3; putBack only when her row stands
