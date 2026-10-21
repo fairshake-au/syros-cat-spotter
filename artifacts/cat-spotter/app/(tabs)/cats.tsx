@@ -14,7 +14,6 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
-import colorsConst from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, borderWidths } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
@@ -29,6 +28,11 @@ import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Chip } from '@/components/purropolis';
 import { photoSource, SYROS_CENTER } from '@/lib/urls';
+import {
+  catalogueEmptyKey,
+  effectiveFilter,
+  type CatalogueFilter,
+} from '@/lib/spotted';
 // Cats within NEARBY_KM count as "near me": one number for the whole app,
 // shared with the "Find the cat" picker (SYC-119).
 import { NEARBY_KM } from '@workspace/geo';
@@ -37,16 +41,10 @@ import {
   getGetProfileQueryKey,
 } from '@workspace/api-client-react';
 
-/** CatCard's own corner radius — the lock overlay has to match it exactly. */
-const catCardRadius = colorsConst.radius;
-
-/**
- * Cat-alog filters. `owned` and `nearby` are computed from data we actually
- * have. The design also shows "Needs vet" / "Desexed" filters, but health
- * status is not modelled on cats yet (tracked separately), so those two are
- * deliberately absent rather than rendered as controls that do nothing.
- */
-type FilterKey = 'all' | 'nearby' | 'homed';
+// Cat-alog filters (`CatalogueFilter`). The design also shows "Needs vet" /
+// "Desexed" filters, but health status is not modelled on cats yet (tracked
+// separately), so those two are deliberately absent rather than rendered as
+// controls that do nothing.
 
 export default function CatalogScreen() {
   const colors = useColors();
@@ -61,7 +59,7 @@ export default function CatalogScreen() {
   const { deviceId } = useDevice();
   const { isOnline } = useOffline();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<FilterKey>('all');
+  const [filter, setFilter] = useState<CatalogueFilter>('all');
   const [showMap, setShowMap] = useState(false);
 
   const profileQuery = useGetProfile(deviceId ?? '', {
@@ -72,13 +70,18 @@ export default function CatalogScreen() {
   });
   const profile = profileQuery.data;
   // Mirror Home's guard exactly: an older server can return a profile
-  // without `spottedCatIds`, so locks must depend on the array actually
-  // being present, not just on the profile existing.
+  // without `spottedCatIds`, so stamps and the "Not spotted yet" chip must
+  // depend on the array actually being present, not just on the profile
+  // existing. Unknown is not zero.
   const hasCollectionData = Array.isArray(profile?.spottedCatIds);
   const spottedIds = useMemo(
     () => new Set(profile?.spottedCatIds ?? []),
     [profile?.spottedCatIds],
   );
+
+  // Derived, not stored: if the profile goes away the chip disappears and
+  // the list falls back to All; when it returns the choice is still there.
+  const applied = effectiveFilter(filter, hasCollectionData);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -89,14 +92,22 @@ export default function CatalogScreen() {
           .toLowerCase();
         if (!haystack.includes(q)) return false;
       }
-      if (filter === 'nearby') {
+      if (applied === 'nearby') {
         // distanceKm is only present when the list was fetched with coords.
         return c.distanceKm != null && c.distanceKm <= NEARBY_KM;
       }
-      if (filter === 'homed') return c.hasHome;
+      if (applied === 'homed') return c.hasHome;
+      if (applied === 'notSpotted') return !spottedIds.has(c.id);
       return true;
     });
-  }, [cats, search, filter]);
+  }, [cats, search, applied, spottedIds]);
+
+  const emptyKey = catalogueEmptyKey({
+    filter: applied,
+    hasCoords: !!coords,
+    catCount: cats.length,
+    search,
+  });
 
   const initialRegion = useMemo(
     () => ({
@@ -109,10 +120,13 @@ export default function CatalogScreen() {
     [coords === null],
   );
 
-  const filters: { key: FilterKey; label: string }[] = [
+  const filters: { key: CatalogueFilter; label: string }[] = [
     { key: 'all', label: t('filterAll') },
     { key: 'nearby', label: t('filterNearMe') },
     { key: 'homed', label: t('filterHasHome') },
+    ...(hasCollectionData
+      ? [{ key: 'notSpotted' as const, label: t('filterNotSpotted') }]
+      : []),
   ];
 
   return (
@@ -184,7 +198,7 @@ export default function CatalogScreen() {
             <Chip
               key={f.key}
               label={f.label}
-              active={filter === f.key}
+              active={applied === f.key}
               onPress={() => setFilter(f.key)}
             />
           ))}
@@ -213,6 +227,19 @@ export default function CatalogScreen() {
             paddingBottom: insets.bottom + (Platform.OS === 'web' ? 100 : 90),
           }}
         >
+          {filtered.length === 0 && emptyKey === 'filterNotSpottedAllDone' && (
+            <View
+              style={[styles.mapMessage, { backgroundColor: colors.card }]}
+              pointerEvents="none"
+            >
+              <Text style={styles.emptyIcon} allowFontScaling={false}>
+                🐾
+              </Text>
+              <Text style={[styles.empty, { color: colors.mutedForeground }]}>
+                {t(emptyKey)}
+              </Text>
+            </View>
+          )}
           <AppMap
             key={coords ? 'located' : 'default'}
             latitude={initialRegion.latitude}
@@ -259,11 +286,7 @@ export default function CatalogScreen() {
             🐾
           </Text>
           <Text style={[styles.empty, { color: colors.mutedForeground }]}>
-            {filter === 'nearby' && !coords
-              ? t('filterNeedsLocation')
-              : cats.length === 0
-                ? t('noCats')
-                : t('noCatsSearch')}
+            {t(emptyKey)}
           </Text>
         </View>
       ) : (
@@ -278,18 +301,10 @@ export default function CatalogScreen() {
           }}
           renderItem={({ item }) => (
             <View style={styles.gridItem}>
-              <CatCard cat={item} />
-              {/* Decorative only. An interactive overlay here would swallow
-                  the card's own tap and strand the user — tapping a locked
-                  cat must still open its profile. */}
-              {hasCollectionData && !spottedIds.has(item.id) && (
-                <View style={styles.lockOverlay} pointerEvents="none">
-                  <Text style={styles.lockIcon} allowFontScaling={false}>
-                    🔒
-                  </Text>
-                  <Text style={styles.lockText}>{t('homeSpotToUnlock')}</Text>
-                </View>
-              )}
+              <CatCard
+                cat={item}
+                spotted={hasCollectionData ? spottedIds.has(item.id) : undefined}
+              />
             </View>
           )}
         />
@@ -360,21 +375,15 @@ const styles = StyleSheet.create({
   },
   row: { gap: spacing[3], marginBottom: spacing[3] },
   gridItem: { flex: 1, position: 'relative' },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(27,42,56,0.72)',
-    // Match CatCard's own corner radius, not the DS `lg` step, or the card
-    // shows through at the corners.
-    borderRadius: catCardRadius,
+  mapMessage: {
+    position: 'absolute',
+    top: spacing[3],
+    left: spacing[4],
+    right: spacing[4],
+    zIndex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-  },
-  lockIcon: { fontSize: 30 },
-  lockText: {
-    fontFamily: fonts.displayBold,
-    fontSize: fontSizes.sm,
-    color: '#fff',
-    textAlign: 'center',
+    gap: spacing[2],
+    padding: spacing[4],
+    borderRadius: radii.lg,
   },
 });
