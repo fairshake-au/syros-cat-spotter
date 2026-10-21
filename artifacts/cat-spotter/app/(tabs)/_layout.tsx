@@ -31,7 +31,7 @@ function NativeTabLayout() {
         {reviewReadyCount > 0 && <Badge>{String(reviewReadyCount)}</Badge>}
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="help">
-        <Icon sf={{ default: 'heart', selected: 'heart.fill' }} />
+        <Icon sf={{ default: 'questionmark.circle', selected: 'questionmark.circle.fill' }} />
         <Label>{t('tabHelp')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
@@ -134,9 +134,9 @@ function ClassicTabLayout() {
           title: t('tabHelp'),
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="heart" tintColor={color} size={24} />
+              <SymbolView name="questionmark.circle" tintColor={color} size={24} />
             ) : (
-              <Feather name="heart" size={22} color={color} />
+              <Feather name="help-circle" size={22} color={color} />
             ),
         }}
       />
