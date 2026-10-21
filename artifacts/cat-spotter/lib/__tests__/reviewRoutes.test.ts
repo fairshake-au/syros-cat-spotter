@@ -28,6 +28,8 @@ function sourceFiles(dir: string): string[] {
 interface Navigation {
   where: string;
   builtBy: string | null;
+  /** The route's source text, up to the end of its params object. */
+  args?: string;
 }
 
 /** Every place the source names the /review route, other than comparisons. */
@@ -57,6 +59,7 @@ function reviewNavigations(): Navigation[] {
         found.push({
           where,
           builtBy: params && params[2] === '(' ? (params[1] ?? null) : null,
+          args: after.slice(0, after.indexOf('})') + 2),
         });
       }
     }
@@ -77,5 +80,14 @@ describe('review routes', () => {
     const files = reviewNavigations().map((n) => n.where.split(':')[0]);
     expect(files.filter((f) => f.endsWith('spot.tsx'))).toHaveLength(2);
     expect(files.filter((f) => f.endsWith('ReviewReadyBanner.tsx'))).toHaveLength(1);
+  });
+
+  // SYC-503: a route that drops the check result reopens a failed check as
+  // "no look-alikes, you're the first to spot this cat".
+  it('every /review navigation passes the look-alike check result along', () => {
+    const missing = reviewNavigations()
+      .filter((n) => !/matchCheck:/.test(n.args ?? '') || !/canRecheck:/.test(n.args ?? ''))
+      .map((n) => n.where);
+    expect(missing).toEqual([]);
   });
 });

@@ -933,9 +933,12 @@ export default function SpotScreen() {
         waitRef.current = null;
         const waitOutcome: WaitOutcome =
           outcome.kind === 'sent'
-            ? outcome.result.isCatPhoto
-              ? { kind: 'result', sightingId: outcome.result.sightingId }
-              : { kind: 'notCat' }
+            ? // SYC-503: a failed check is its own outcome, never a result.
+              outcome.result.matchCheck === 'failed'
+              ? { kind: 'couldntCheck' }
+              : outcome.result.isCatPhoto
+                ? { kind: 'result', sightingId: outcome.result.sightingId }
+                : { kind: 'notCat' }
             : { kind: 'failed' };
         // Only a wait that reached a result changes the record. It is read
         // again first, so nothing written meanwhile is lost, and a record wiped
@@ -995,6 +998,8 @@ export default function SpotScreen() {
                 sightingId: result.sightingId,
                 isCatPhoto: result.isCatPhoto,
                 candidates: result.candidates,
+                matchCheck: result.matchCheck,
+                canRecheck: result.canRecheck,
                 photoRef: kept.ok ? kept.ref : undefined,
                 // SYC-119: where the photo was taken, so "Find the cat" can
                 // list the cats near it.
@@ -1065,6 +1070,8 @@ export default function SpotScreen() {
         sightingId: item.sightingId,
         isCatPhoto: item.isCatPhoto,
         candidates: item.candidates,
+        matchCheck: item.matchCheck,
+        canRecheck: item.canRecheck,
         localId: item.localId,
       }),
     });

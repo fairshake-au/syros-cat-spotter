@@ -38,6 +38,8 @@ describe('buildReviewParams', () => {
       sightingId: 42,
       isCatPhoto: true,
       candidates: [candidate()],
+      matchCheck: 'done',
+      canRecheck: false,
       localId: undefined,
       photoRef: 'idb:review-42',
     });
@@ -295,5 +297,67 @@ describe('the route carries a rounded position only (SYC-258)', () => {
     expect(Object.is(old?.lat, 0)).toBe(true);
     expect(Object.is(old?.lng, 0)).toBe(true);
     expect(build(-33.8688, -70.1239).data).toContain('"lat":-33.869');
+  });
+});
+
+// SYC-503 (when-the-photo-check-fails.md §4, §5): a failed look-alike check
+// survives every copy of the route, or it reopens as "you're the first".
+describe('the look-alike check result (SYC-503)', () => {
+  it('carries a failed check and whether it can be re-checked', () => {
+    const parsed = parseReviewParams(
+      buildReviewParams({ sightingId: 5, isCatPhoto: true, candidates: [], matchCheck: 'failed', canRecheck: true }).data,
+    );
+    expect(parsed).toMatchObject({ matchCheck: 'failed', canRecheck: true });
+  });
+
+  it('a failed check with the photo gone cannot be re-checked', () => {
+    const parsed = parseReviewParams(
+      buildReviewParams({ sightingId: 5, matchCheck: 'failed', canRecheck: false }).data,
+    );
+    expect(parsed).toMatchObject({ matchCheck: 'failed', canRecheck: false });
+  });
+
+  it('reads a missing field (an item saved by an older app) as done', () => {
+    expect(parseReviewParams('{"sightingId":1,"isCatPhoto":true,"candidates":[]}')).toMatchObject({
+      matchCheck: 'done',
+      canRecheck: false,
+    });
+    expect(parseReviewParams(buildReviewParams({ sightingId: 1 }).data)).toMatchObject({
+      matchCheck: 'done',
+    });
+  });
+
+  it('only the word "failed" is a failure, and only a failure can be re-checked', () => {
+    expect(parseReviewParams('{"sightingId":1,"matchCheck":"FAILED","canRecheck":true}')).toMatchObject({
+      matchCheck: 'done',
+      canRecheck: false,
+    });
+    expect(
+      parseReviewParams(buildReviewParams({ sightingId: 1, matchCheck: 'done', canRecheck: true }).data),
+    ).toMatchObject({ canRecheck: false });
+  });
+
+  it("keeps a failed check when building the route falls back (it never throws)", () => {
+    const explosive: MatchCandidate[] = [];
+    Object.defineProperty(explosive, 0, {
+      get() {
+        throw new Error('boom');
+      },
+      enumerable: true,
+    });
+    explosive.length = 1;
+    const params = buildReviewParams({
+      sightingId: 8,
+      isCatPhoto: true,
+      candidates: explosive,
+      matchCheck: 'failed',
+      canRecheck: true,
+    });
+    expect(parseReviewParams(params.data)).toMatchObject({
+      sightingId: 8,
+      candidates: [],
+      matchCheck: 'failed',
+      canRecheck: true,
+    });
   });
 });
