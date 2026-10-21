@@ -31,3 +31,20 @@ LanguageContext (guess never stored; ready always true; Hermes Intl fallback; no
 
 ## Verdict
 Not ready to merge: fix F1 with an unmount test; F2–F5 cheap and worth fixing before merge; F6–F11 to Linear.
+
+## Resolution (parent session, 21 Oct 2026)
+
+| Finding | What was done |
+|---|---|
+| F1 | Fixed. `DeviceContext.identityGeneration()` (live, bumped by Delete my data, Start again, restore). The save captures it, `saveHeldName` checks it before and after every request (`abandoned`), and the saver applies nothing once it changes. New tests mount the saver as `_layout` does and change identity mid-claim (reset and restore). Mutation probe: removing both checks turns 3 tests red. Removing only the saver's final check is still caught by the save's own checks, by design. |
+| F2 | Fixed by the same check between requests; the `runBackgroundClaim` comment is corrected (restore waits up to 35 s; the save stops itself after). |
+| F3 | Fixed: a refused name is never numbered; a taken suggestion gets another suggestion. Tests added. |
+| F4 | Fixed: adopting a name the server already has for this phone shows no note. Test added. |
+| F5 | Gate tests added (`layoutOnboardingGate.test.tsx`: held name passes onboarding, no email offer before the name is saved, waits for language), each mutation-probed. Restore needs no change, because it reads only the saved `username`. The Me tab has no component tests in the repo; it was checked in the browser (en, el, fr). |
+| F6 | Fixed: names are redrawn (up to 10 times) to avoid repeats. Test added. |
+| F7 | Backoff added (1, 2, 5, then 10 minutes). `Retry-After` on 429 filed as SYC-536. |
+| F8, F11 | Filed as SYC-536. |
+| F9 | Comments updated. |
+| F10 | Fixed: the editor remembers the last request it handled. |
+
+Full cat-spotter suite after fixes: 156 files, 2021 tests pass; typecheck clean.
