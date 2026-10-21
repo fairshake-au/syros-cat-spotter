@@ -81,6 +81,17 @@ describe("a colony's row", () => {
     expect(row.flags).toContain("not_visited");
   });
 
+  it("for a range that ended in the past, last visit and the flags use the records as they stood then (review of #260)", async () => {
+    // Ended 60 days ago: the sighting 50 days ago hadn't happened yet.
+    const end = daysAgo(60);
+    const d = (t: Date) => t.toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
+    const range = parseRange({ range: "custom", from: d(daysAgo(150)), to: d(end) }, NOW);
+    const r = await colonyHealthReport(TEAM, range, NOW);
+    const row = r.rows.find((x) => x.colonyId === colonyId)!;
+    expect(row.lastVisit).toBeNull();
+    expect(row.catsNow).toBe(2);
+  });
+
   it("a colony created after the range ends isn't in it", async () => {
     const r = await colonyHealthReport(TEAM, parseRange({ range: "custom", from: "2026-01-01", to: "2026-01-31" }, NOW), NOW);
     expect(r.rows.find((x) => x.colonyId === colonyId)).toBeUndefined();

@@ -96,6 +96,14 @@ describe("downloads are recorded, never their contents", () => {
     expect(rows[0]).toMatchObject({ person_id: team.id, report: "health", range: "range=custom&from=2026-08-01&to=2026-09-30" });
   });
 
+  it("a HEAD request (a link preview, a scanner) sends no file and records nothing (review of #260)", async () => {
+    const since = await lastId();
+    const res = await request(app).head("/api/team/insights/health.csv?range=all").set("Cookie", team.cookie);
+    expect(res.status).toBe(405);
+    expect(res.headers["content-disposition"]).toBeUndefined();
+    expect(await downloadsSince(team.id, since)).toHaveLength(0);
+  });
+
   it("the table has no column that could hold contents", async () => {
     const cols = (
       await pool.query<{ column_name: string }>(

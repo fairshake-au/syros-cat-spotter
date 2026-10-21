@@ -137,6 +137,13 @@ describe("Colony health", () => {
     expect(res.text).toContain('aria-sort="ascending"');
   });
 
+  it("Dates you choose keeps the chosen sort (review of #260)", async () => {
+    const res = await get("/api/team/insights/health?sort=cats&dir=desc");
+    const form = /<form method="get" action="\/api\/team\/insights\/health" class="rangeform">([\s\S]*?)<\/form>/.exec(res.text)![1]!;
+    expect(form).toContain('<input type="hidden" name="sort" value="cats">');
+    expect(form).toContain('<input type="hidden" name="dir" value="desc">');
+  });
+
   it("an unknown sort is by name, never an error", async () => {
     const res = await get("/api/team/insights/health?sort=lat&dir=sideways");
     expect(res.status).toBe(200);

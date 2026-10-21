@@ -80,7 +80,7 @@ const QUICK: { key: Exclude<RangeKey, "custom">; label: string }[] = [
 ];
 
 /** The time range at the top: four links and a form for dates you choose (dates only in the address). */
-function rangeBar(path: string, range: Range, extra = ""): string {
+function rangeBar(path: string, range: Range, extra = "", keep: Record<string, string> = {}): string {
   const links = QUICK.map((q) =>
     q.key === range.key
       ? `<a class="tap here" href="${path}?range=${q.key}${extra}" aria-current="true">${esc(q.label)}</a>`
@@ -94,6 +94,9 @@ function rangeBar(path: string, range: Range, extra = ""): string {
     `<details class="astable"${range.key === "custom" ? " open" : ""}><summary>Dates you choose</summary>` +
     `<form method="get" action="${path}" class="rangeform">` +
     '<input type="hidden" name="range" value="custom">' +
+    Object.entries(keep)
+      .map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`)
+      .join("") +
     `<label>From <input type="date" name="from" value="${esc(from)}" max="${esc(today)}" required></label>` +
     `<label>To <input type="date" name="to" value="${esc(to)}" max="${esc(today)}" required></label>` +
     '<button type="submit">Show</button></form></details>'
@@ -288,7 +291,7 @@ export function renderHealthPage(
     headers[c.key] = `<a href="${path}?${rangeQuery(o.range)}&amp;sort=${key}&amp;dir=${dir}">${esc(c.label)}${arrow}</a>`;
   }
   const body =
-    rangeBar(path, o.range, keep.replace(/&/g, "&amp;")) +
+    rangeBar(path, o.range, keep.replace(/&/g, "&amp;"), { sort: o.sort, dir: o.dir }) +
     (r.rows.length === 0
       ? nothing(path)
       : '<p class="hint">Figures at the end of the range. Change over 90 days compares with the records as they stood 90 days before. Tap a column to sort by it.</p>' +

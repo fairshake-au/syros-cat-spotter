@@ -16,6 +16,11 @@ describe("parseRange", () => {
     }
   });
 
+  it("the last 3 months from 31 May starts on 28 Feb, never rolling over into March (review of #260)", () => {
+    expect(parseRange({}, new Date("2026-05-31T10:00:00Z")).from!.toISOString()).toBe("2026-02-27T22:00:00.000Z");
+    expect(parseRange({}, new Date("2026-08-31T10:00:00Z")).from!.toISOString()).toBe("2026-05-30T21:00:00.000Z");
+  });
+
   it("this month, this year and all time start on Syros midnights and end now", () => {
     expect(parseRange({ range: "month" }, now).from!.toISOString()).toBe("2026-09-30T21:00:00.000Z");
     expect(parseRange({ range: "year" }, now).from!.toISOString()).toBe("2025-12-31T22:00:00.000Z");

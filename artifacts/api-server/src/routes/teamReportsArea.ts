@@ -46,6 +46,9 @@ router.get("/team/insights", requireTeam("view_reports"), (req: Request, res: Re
 // Before /team/insights/:report, which would otherwise take "health.csv" as a report's name.
 router.get("/team/insights/:report.csv", requireTeam("export_report"), async (req: Request, res: Response) => {
   setTeamHeaders(res); // before any await, so an error answer carries them too
+  // Express answers HEAD on a GET route. A HEAD sends no file, so it must not
+  // be recorded as a download (review of #260).
+  if (req.method !== "GET") return void res.status(405).set("Allow", "GET").end();
   const person = teamPerson(res);
   const report = String(req.params["report"]);
   if (!(CSV_REPORTS as readonly string[]).includes(report)) return void res.status(404).json({ error: "Not found" });

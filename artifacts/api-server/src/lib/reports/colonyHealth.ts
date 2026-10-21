@@ -14,7 +14,8 @@ import type { Range } from "./range";
 //   that count read as the records stood then ("as of", Decision 10).
 // - Kittens reported, guardian yes or no and last visit come from
 //   `colonyFigures`, so they match the Colonies list's flags exactly. Last
-//   visit is the latest resolved sighting of any of its cats.
+//   visit is the latest resolved sighting of any of its cats. For a range
+//   that ends in the past they read the cats as they stood then (asOf).
 // - Not seen lately: countedCats' `notSeenLately`, street cats only.
 //
 // Patterns, not performance (D6): nobody is named, and "guardian" is only yes
@@ -69,7 +70,7 @@ export async function colonyHealthReport(visible: Visible, range: Range, now: Da
       .select({ id: coloniesTable.id, name: coloniesTable.name, createdAt: coloniesTable.createdAt })
       .from(coloniesTable)
       .where(colonyFilter(coloniesTable.id, visible)),
-    colonyFigures(visible, { island: true }, end),
+    colonyFigures(visible, { island: true, asOf: atEnd }, end),
     loadTeamCats(end, { asOf: atEnd }),
     loadTeamCats(before, { asOf: before }),
     namedAreasAt(end),

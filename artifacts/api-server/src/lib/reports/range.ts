@@ -98,7 +98,11 @@ export function parseRange(q: unknown, now: Date): Range {
       }
     }
   }
-  return { key: "3months", from: athensMidnight(today.y, today.m - 3, today.d), to: now, label: "Last 3 months" };
+  // Three calendar months back, the day clamped to that month's length (31 May starts on 28 Feb, not 3 Mar).
+  const back = new Date(Date.UTC(today.y, today.m - 4, 1));
+  const lastDay = new Date(Date.UTC(back.getUTCFullYear(), back.getUTCMonth() + 1, 0)).getUTCDate();
+  const from = athensMidnight(back.getUTCFullYear(), back.getUTCMonth() + 1, Math.min(today.d, lastDay));
+  return { key: "3months", from, to: now, label: "Last 3 months" };
 }
 
 /** The query string for a range, for links that keep it (dates only). */
