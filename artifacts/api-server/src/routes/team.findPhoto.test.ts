@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import sharp from "sharp";
 import { and, like, sql } from "drizzle-orm";
@@ -20,6 +20,21 @@ vi.mock("../lib/logger", async (importOriginal) => {
   return { ...actual, logger };
 });
 vi.mock("../lib/matching", () => ({ matchCatPhoto: vi.fn() }));
+// The island test seam (SYC-527 piece 1): with no area and no colony the real
+// list would return every cat on the shared test database, so "the island" is
+// narrowed to this file's own island cats (names starting with ISLE).
+vi.mock("../lib/teamCatList", async (orig) => {
+  const real = (await orig()) as typeof import("../lib/teamCatList");
+  return {
+    ...real,
+    allTeamCats: vi.fn(async (f: Parameters<typeof real.allTeamCats>[0], now?: Date) => {
+      const out = await real.allTeamCats(f, now);
+      if (f.area !== undefined || f.colony !== undefined) return out;
+      const cats = out.cats.filter((c) => c.name.startsWith(ISLE));
+      return { ...out, cats, catCount: cats.length };
+    }),
+  };
+});
 
 import app from "../app";
 import { matchCatPhoto, type CandidateInput } from "../lib/matching";
@@ -32,12 +47,23 @@ import {
   findPersonHits,
   findTeamHits,
 } from "../middlewares/rateLimit";
-import { LESS_SURE, MATCHING_DOWN_WORDS, PERSON_CAP_WORDS, TEAM_CAP_WORDS, TOO_BIG_WORDS } from "../lib/teamPages/findPhotoPage";
+import {
+  ISLAND_TOO_MANY,
+  LESS_SURE,
+  MATCHING_DOWN_WORDS,
+  PERSON_CAP_WORDS,
+  TEAM_CAP_WORDS,
+  TOO_BIG_WORDS,
+  WHERE_HINT,
+} from "../lib/teamPages/findPhotoPage";
+import { currentAreas } from "../lib/areas/namedAreas";
 import { guardianOn, newColony, putInColony, RUN, signedPerson, type Signed } from "../test/roleKit";
 import { PHOTO_CSP, STRICT_CSP } from "../test/wideCsp";
 
 const KEY = "vitest-find-key-0123456789abcdef-0123456789";
 const PREFIX = `vt-findroute-${RUN}-`;
+// The island's own scope: only cats named with ISLE are "the island" in the seam above.
+const ISLE = `${PREFIX}isle-`;
 const matchMock = vi.mocked(matchCatPhoto);
 
 let guardian: Signed;
@@ -59,6 +85,24 @@ async function catIn(colonyId: number, photoId: number): Promise<number> {
   await putInColony(c!.id, colonyId);
   return c!.id;
 }
+
+/** `count` island cats (no colony, no area), deleted after each test. */
+async function island(count: number): Promise<void> {
+  const [p] = await db.select({ id: photosTable.id }).from(photosTable).where(like(photosTable.publicId, `${PREFIX}p`));
+  await db.insert(catsTable).values(
+    Array.from({ length: count }, () => ({
+      name: `${ISLE}${n++}`,
+      primaryPhotoId: p!.id,
+      lat: 37.4447,
+      lng: 24.9417,
+      discovererDeviceId: `${PREFIX}d`,
+    })),
+  );
+}
+
+afterEach(async () => {
+  await db.delete(catsTable).where(like(catsTable.name, `${ISLE}%`));
+});
 
 /** A team member of their own, so every test starts with its own 20. */
 const teamMember = (label: string) => signedPerson(`find-${label}-${n++}`, ["staff"]);
@@ -117,6 +161,12 @@ function search(
 }
 
 describe("who may", () => {
+  it("a cat guardian gets the 403 for the island too", async () => {
+    expect((await form(guardian.cookie)).status).toBe(403);
+    expect((await search(guardian.cookie, {})).status).toBe(403);
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+
   it("a cat guardian gets the 403, for the form and the search", async () => {
     expect((await form(guardian.cookie, `?colony=${colony}`)).status).toBe(403);
     expect((await search(guardian.cookie, { colony: String(colony) })).status).toBe(403);
@@ -165,11 +215,47 @@ describe("the form", () => {
     expect(res.text).not.toContain('type="file"');
   });
 
-  it("with no place chosen, says to choose one", async () => {
+  it("with no place, the form counts the island's cats and offers the photo form", async () => {
+    await island(12);
     const team = await teamMember("noplace");
     const res = await form(team.cookie);
-    expect(res.text).toContain("Choose an area or a colony to see how many cats that leaves.");
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('<option value="" selected>Anywhere on the island</option>');
+    expect(res.text).toContain("12 cats to compare across the island");
+    expect(res.text).toContain(WHERE_HINT);
+    expect(res.text).toContain("Compare with 12 cats");
+    expect(res.text).toContain('type="file"');
+  });
+
+  it("arriving with an area keeps that area chosen, not Anywhere", async () => {
+    const area = currentAreas()[0]!;
+    const team = await teamMember("area");
+    const res = await form(team.cookie, `?area=${encodeURIComponent(area.key)}`);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain(`<option value="${area.key}" selected>`);
+    expect(res.text).toContain('<option value="">Anywhere on the island</option>');
+    expect(res.text).not.toContain("selected>Anywhere on the island");
+  });
+
+  it("over 30 island cats, the form says so plainly and offers no photo form", async () => {
+    await island(31);
+    const team = await teamMember("isleover");
+    const res = await form(team.cookie);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain(ISLAND_TOO_MANY);
     expect(res.text).not.toContain('type="file"');
+  });
+
+  it("the island form's address carries nothing new", async () => {
+    const team = await teamMember("isleaddr");
+    const res = await form(team.cookie);
+    const getForm = /<form class="findwhere" method="get"[\s\S]*?<\/form>/.exec(res.text)![0];
+    const names = [...getForm.matchAll(/<(?:input|select)\b[^>]*\bname="([^"]+)"/g)].map((m) => m[1]);
+    expect([...new Set(names)].sort()).toEqual(["area", "colony", "colours"]);
+    expect(getForm).toContain('<option value="" selected>Anywhere on the island</option>');
+    // An empty area is dropped from the address by the page's own filters.
+    const { filtersToQuery } = await import("../lib/teamCatFilters");
+    expect(filtersToQuery({ area: undefined, colony: undefined, colours: undefined })).toBe("");
   });
 
   it("the narrowing form is a GET with no file field, so no file name can reach an address", async () => {
@@ -252,15 +338,25 @@ describe("the search", () => {
     expect(await findPersonHits(team.id)).toBe(0);
   });
 
-  it("a missing area and colony is named next to the field, and uses no search", async () => {
-    const team = await teamMember("missing");
+  it("a search with no place compares the island's cats", async () => {
+    await island(12);
+    const team = await teamMember("isle");
+    const res = await search(team.cookie, {});
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("Compared with 12 cats");
+    expect(res.text).toContain("Very likely");
+    expect(matchMock).toHaveBeenCalled();
+  });
+
+  it("over 30 island cats, a search is refused before the caps and the service", async () => {
+    await island(31);
+    const team = await teamMember("isleoversearch");
     const res = await search(team.cookie, {});
     expect(res.status).toBe(400);
-    expect(res.text).toContain('<p class="warn" id="place-error">Choose an area or a colony first.</p>');
-    expect(res.text).toContain('<p class="notice" role="alert">Choose an area or a colony first. <a href="#find-area">Go to it</a></p>');
-    expect(res.text).toContain('aria-describedby="place-error"');
+    expect(res.text).toContain(ISLAND_TOO_MANY);
     expect(matchMock).not.toHaveBeenCalled();
     expect(await findTeamHits()).toBe(0);
+    expect(await findPersonHits(team.id)).toBe(0);
   });
 
   it("over 30 cats is refused before the caps and the service", async () => {
@@ -350,8 +446,9 @@ describe("every answer but the results keeps the strict header (second review, f
       .values({ publicId: `${PREFIX}strict-unreadable`, data: Buffer.from("not an image").toString("base64"), mime: "image/jpeg" })
       .returning({ id: photosTable.id });
     await catIn(blank, p!.id);
+    await island(31);
     const answers: [string, number, () => Promise<request.Response>][] = [
-      ["no place", 400, async () => search((await teamMember("t1")).cookie, {})],
+      ["island too many", 400, async () => search((await teamMember("t1")).cookie, {})],
       ["no photo", 400, async () => search((await teamMember("t2")).cookie, { colony: String(colony) }, null)],
       ["not a photo", 400, async () => search((await teamMember("t3")).cookie, { colony: String(colony) }, { bytes: Buffer.from("nope") })],
       ["too big", 413, async () => search((await teamMember("t4")).cookie, { colony: String(colony) }, { bytes: Buffer.alloc(10 * 1024 * 1024 + 1, 1) })],
