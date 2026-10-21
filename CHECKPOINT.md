@@ -11,5 +11,6 @@ Branch: claude/blissful-feistel-417000 (app-made worktree). Spec only, no implem
 
 ## Next
 - [x] Samuel answered all nine (/decide, 21 Oct): spec v0.3; Linear comments + description updated
-- Then: implementation plan (with Model delegation section), Samuel approves plan.
+- [x] Spec approved ("approved, write the plan", 21 Oct). Plan written: docs/superpowers/plans/2026-10-21-syc-527-find-anywhere.md
+- Next: Samuel reviews the plan, picks execution method; then piece 1 build card, piece 2 Replit check (heads-up first).
 - Remove CHECKPOINT.md before the PR merges.
