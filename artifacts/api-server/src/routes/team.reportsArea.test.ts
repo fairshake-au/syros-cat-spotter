@@ -58,7 +58,7 @@ const downloadsSince = async (personId: string, after: number) =>
   ).rows;
 
 describe("the Reports list", () => {
-  it("lists the seven reports; the two built ones are linked, Donations says it's coming once donations are set up", async () => {
+  it("lists the seven reports; the four built ones are linked, Donations says it's coming once donations are set up", async () => {
     const res = await get("/api/team/insights", team.cookie);
     expect(res.status).toBe(200);
     const cards = [...res.text.matchAll(/<li class="card reportcard" id="report-(\w+)">([\s\S]*?)<\/li>/g)];
@@ -66,9 +66,12 @@ describe("the Reports list", () => {
     const card = (key: string) => cards.find((m) => m[1] === key)![2]!;
     expect(card("progress")).toContain('<a href="/api/team/insights/progress">Sterilisation progress</a>');
     expect(card("health")).toContain('<a href="/api/team/insights/health">Colony health</a>');
+    // PR 3.3b.
+    expect(card("coverage")).toContain('<a href="/api/team/insights/coverage">Coverage and spotting</a>');
+    expect(card("welfare")).toContain('<a href="/api/team/insights/welfare">Welfare patterns</a>');
     expect(card("donations")).not.toContain("<a ");
     expect(card("donations")).toContain("Coming once donations are set up");
-    for (const key of ["coverage", "welfare", "vet", "impact"]) {
+    for (const key of ["vet", "impact"]) {
       expect(card(key), key).not.toContain("<a ");
       expect(card(key), key).toContain("Coming soon");
     }
@@ -77,8 +80,8 @@ describe("the Reports list", () => {
   });
 
   it("a report not built yet is a 404, not a page", async () => {
-    expect((await get("/api/team/insights/coverage", team.cookie, false)).status).toBe(404);
-    expect((await get("/api/team/insights/coverage.csv", team.cookie, false)).status).toBe(404);
+    expect((await get("/api/team/insights/vet", team.cookie, false)).status).toBe(404);
+    expect((await get("/api/team/insights/vet.csv", team.cookie, false)).status).toBe(404);
   });
 });
 
@@ -134,6 +137,10 @@ describe("team-only at launch (Samuel's Q1, 16 Nov)", () => {
       "/api/team/insights/health",
       "/api/team/insights/health.csv",
       "/api/team/insights/progress-over.csv",
+      "/api/team/insights/coverage",
+      "/api/team/insights/coverage-areas.csv",
+      "/api/team/insights/welfare",
+      "/api/team/insights/welfare-weeks.csv",
     ]) {
       const res = await get(path, guardian.cookie);
       expect(res.status, path).toBe(403);
@@ -150,6 +157,9 @@ describe("the strict security header (no script on these pages)", () => {
       ["/api/team/insights/progress", team.cookie],
       ["/api/team/insights/health?sort=cats&dir=desc", team.cookie],
       ["/api/team/insights/health.csv", team.cookie],
+      ["/api/team/insights/coverage", team.cookie],
+      ["/api/team/insights/welfare", team.cookie],
+      ["/api/team/insights/welfare-areas.csv", team.cookie],
       ["/api/team/insights", guardian.cookie],
     ] as const) {
       const res = await get(path, cookie);

@@ -35,6 +35,8 @@ const ALLOWLIST: Record<string, string> = {
     "Home: the needs-help list comes from listWelfareQueue (welfare only); countOpenIssues is the one query here and counts kind = 'content' only",
   "artifacts/api-server/src/lib/dashboard/colonyFigures.ts":
     "Colonies list's Kittens reported flag (SYC-396 PR 2.2): both its queries carry kind = 'welfare' and is_litter (countedLitter), so a content row never flags a colony",
+  "artifacts/api-server/src/lib/reports/welfarePatterns.ts":
+    "Welfare patterns (SYC-396 PR 3.3b): kind = 'welfare' rows feed the chart, the drafts count and the areas table; kind = 'content' rows are only counted, as \"Problems reported with photos or names\" (patternsFrom; welfarePatterns.test.ts seeds a content row)",
   "artifacts/api-server/src/lib/welfareActions.ts":
     "both kinds can move state and take a team note; a welfare_outcome is written only for kind = 'welfare'",
   "artifacts/api-server/src/lib/welfareTie.ts":
