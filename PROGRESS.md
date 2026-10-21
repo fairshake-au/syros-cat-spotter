@@ -1,0 +1,1 @@
+- 2026-10-21T22:00Z 3.3a: started; read plan and spec; migration 0035 claimed in messages to live sessions. Next: Task 3.3a.1.
