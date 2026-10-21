@@ -90,6 +90,24 @@ export function waitForUsernameClaimToSettle(maxMs = 35_000): Promise<void> {
   });
 }
 
+/**
+ * SYC-506: run the background save of a name held offline under the same
+ * lock as the name screen and the Me editor, so only one claim is ever open
+ * and "Get your spots back" waits for it (waitForUsernameClaimToSettle).
+ * Returns undefined, without running `fn`, if a claim is already open.
+ */
+export async function runBackgroundClaim<T>(fn: () => Promise<T>): Promise<T | undefined> {
+  if (usernameClaimOpen()) return undefined;
+  shared.inFlight = true;
+  update({});
+  try {
+    return await fn();
+  } finally {
+    shared.inFlight = false;
+    update({});
+  }
+}
+
 /** Tests only: forget every claim, as a fresh app start would. */
 export function resetUsernameClaimStateForTests() {
   shared.state = IDLE;
