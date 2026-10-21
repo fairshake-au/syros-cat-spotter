@@ -493,8 +493,8 @@ const EPOCH = new Date(0).toISOString();
  *
  * J2 (Samuel, flagged to the team): when an authoritative negative wins at
  * step 2 but a *newer* photo-backed clipped-tip observation also exists,
- * the public answer stays the authoritative negative (§4.6: nothing beats
- * an authoritative assertion except a newer authoritative one) — but that
+ * the public answer stays the authoritative negative (§4.6: only a newer or
+ * higher-ranked authoritative assertion, or a standing vet visit, beats it) — but that
  * newer clip is surfaced in `conflicts` so the team sees it rather than it
  * silently vanishing into "we already said no".
  */
