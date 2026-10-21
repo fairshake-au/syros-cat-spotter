@@ -34,6 +34,7 @@ import {
 import type { Language } from '@/lib/i18n';
 import type { ReportLanguage } from '@/lib/reportQueue';
 import { fonts, radii, spacing } from '@/constants/theme';
+import { setReportHandoff } from '@/lib/reportHandoff';
 
 /** Reasons with a short hint under them (spec §2). `wrong_cat`'s is about a photo. */
 const HINTS: Partial<Record<IssueReason, string>> = {
@@ -139,6 +140,8 @@ export function ReportIssueSheet({
 
   const goToNeedsHelp = () => {
     onClose();
+    // SYC-504: the report is about this cat; the sheet has no photo URL to hand over.
+    setReportHandoff({ cat: { id: catId, name: catName, photoUrl: null } });
     router.push('/report');
   };
 

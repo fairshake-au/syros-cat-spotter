@@ -38,6 +38,7 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 vi.mock('@/hooks/useColors', () => ({ useColors: () => new Proxy({}, { get: () => '#123456' }) }));
+vi.mock('@/lib/pendingPhotos', () => ({ readPendingPhotoBase64: vi.fn() }));
 vi.mock('@/lib/urls', () => ({ photoSource: (p: string) => ({ uri: p }) }));
 vi.mock('@/context/LanguageContext', async () => {
   const { TRANSLATIONS: T } = await import('@/lib/i18n');

@@ -53,3 +53,6 @@ Checkpoint notes, newest last. Each agent appends after every commit.
   - FR light at desktop width: the "Aide" tab, and the Spotting cats fold opens with the four steps.
 - Not as the spec says: the full VetList renders its own MunicipalityCard (VetList.tsx:200), so "For long-term care: Municipality" shows under the vets. Spec §3.2 said not repeated. Kept, because it's useful and comes from the shared component. To be noted in the PR.
 - Next: step 3 (report knows the cat).
+
+## Step 3 (Sonnet)
+- 3.1 done: ReportHandoff.cat, NeedsHelpLink cat prop (merges into handoff via takeReportHandoff), cat page passes it, ReportIssueSheet.goToNeedsHelp hands {id,name,photoUrl:null}. NeedsHelpLink 6/6, ReportIssueSheet (test file needed a pendingPhotos mock now that the sheet imports reportHandoff). Next: 3.2 flow.

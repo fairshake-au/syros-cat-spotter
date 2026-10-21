@@ -10,6 +10,8 @@ import { readPendingPhotoBase64 } from './pendingPhotos';
 export interface ReportHandoff {
   photo?: { uri: string; base64: string };
   coords?: { latitude: number; longitude: number };
+  /** SYC-504: the cat this report is about (from its page, or the "something wrong" sheet). */
+  cat?: { id: number; name: string; photoUrl: string | null };
 }
 
 let pending: ReportHandoff | null = null;
