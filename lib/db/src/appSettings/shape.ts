@@ -53,6 +53,10 @@ export const SETTING_KEYS = [
   // this is true, set after the live build is confirmed to include SYC-462.
   // Hiding never needs it. The server doesn't read it; the photos command does.
   "photo_removal_on",
+  // SYC-396 PR 2.3 (dashboard §8.4): the standard sterilisation price in whole
+  // euros. The trapping planner's estimate and the vet-visit form's cost read
+  // it; the Vet settings page (PR 3.1b) changes it, with its history.
+  "standard_sterilisation_price_eur",
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
 
@@ -91,6 +95,10 @@ export function settingShapeProblem(key: SettingKey, value: unknown): string | n
     case "extra_photos_on":
     case "photo_removal_on":
       return typeof value === "boolean" ? null : "must be true or false";
+    case "standard_sterilisation_price_eur":
+      return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 500
+        ? null
+        : "must be a whole number of euros from 1 to 500";
   }
 }
 

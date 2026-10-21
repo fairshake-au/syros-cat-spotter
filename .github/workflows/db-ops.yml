@@ -62,9 +62,10 @@ on:
       setting_key:
         # SYC-36 / SYC-48 (match-wait plan PR 1): the match-wait switches.
         # A fixed list, checked again by the settings CLI. SYC-415 adds
-        # extra_photos_on (the extra-photo boxes; true or false).
+        # extra_photos_on (the extra-photo boxes; true or false). SYC-396
+        # PR 2.3 adds standard_sterilisation_price_eur (whole euros, 1 to 500).
         type: choice
-        options: [feed_nudge_donate_url, starter_facts_hidden, feed_tap_count, extra_photos_on, photo_removal_on]
+        options: [feed_nudge_donate_url, starter_facts_hidden, feed_tap_count, extra_photos_on, photo_removal_on, standard_sterilisation_price_eur]
         required: false
         description: "For set-setting: which switch"
       setting_value:
