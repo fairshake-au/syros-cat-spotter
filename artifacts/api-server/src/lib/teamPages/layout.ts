@@ -280,6 +280,7 @@ legend{padding:0}
 .fixes button,.statement button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
 .likelyactions button:not(.save){width:100%}
 a.catlink{display:block;font-weight:700}
+.muted a.catlink{display:inline}
 a.sublink{display:block;font-size:14px;padding-top:0}
 .tiecard{margin:8px 0}
 .tiecard .catrow{margin:0}
