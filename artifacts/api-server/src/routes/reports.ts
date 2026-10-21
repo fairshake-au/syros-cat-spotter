@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import {
+  catsTable,
   db,
   mailOutboxTable,
   welfareReportPhotosTable,
@@ -93,6 +94,18 @@ const Lng = z.number().finite().min(-180).max(180);
 const ClientRef = z.string().min(8).max(100);
 const DeviceId = z.string().min(1).max(128);
 
+// SYC-504: the cat whose page the report was sent from. A bad value becomes
+// null and the report is still accepted. It is only a suggestion: the team's
+// tie is what sets cat_id.
+const SuggestedCatId = z.coerce
+  .number()
+  .int()
+  .positive()
+  .max(999_999_999)
+  .nullable()
+  .optional()
+  .catch(null);
+
 const DraftBody = z.object({
   deviceId: DeviceId,
   clientRef: ClientRef,
@@ -101,6 +114,7 @@ const DraftBody = z.object({
   lng: Lng,
   isLitter: z.boolean().optional(),
   language: Language,
+  catId: SuggestedCatId,
 });
 
 const SubmitBody = z.object({
@@ -112,6 +126,7 @@ const SubmitBody = z.object({
   lng: Lng,
   note: z.string().max(4000).optional().nullable(),
   language: Language,
+  catId: SuggestedCatId,
   // False when the reporter sent no photo: then the alert goes at once.
   hasPhoto: z.boolean().default(true),
   // SYC-42 Slice 3: optional. A bad one is ignored, never a reason to refuse
@@ -239,6 +254,20 @@ function badRequest(res: import("express").Response, err: z.ZodError) {
   });
 }
 
+/** The id if `cats` has that row, else null. Never a reason to refuse a report. */
+async function knownCatId(
+  dbOrTx: Pick<typeof db, "select">,
+  id: number | null | undefined,
+): Promise<number | null> {
+  if (id == null) return null;
+  const [row] = await dbOrTx
+    .select({ id: catsTable.id })
+    .from(catsTable)
+    .where(eq(catsTable.id, id))
+    .limit(1);
+  return row?.id ?? null;
+}
+
 // ── Slice 3: may the app offer the email box? ──────────────────────────────
 router.get("/reports/options", (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
@@ -261,6 +290,7 @@ router.post("/reports/draft", draftLimiter, async (req, res) => {
   const tokenChecked = await tokenGate(req, res, "welfare_draft", body.clientRef, "draft");
   if (tokenChecked === undefined) return;
 
+  const reporterCatId = await knownCatId(db, body.catId);
   await db
     .insert(welfareReportsTable)
     .values({
@@ -272,6 +302,7 @@ router.post("/reports/draft", draftLimiter, async (req, res) => {
       lng: body.lng,
       reporterLanguage: body.language,
       reporterDevice: body.deviceId,
+      reporterCatId,
       clientRef: body.clientRef,
       isDraft: true,
       tokenChecked,
@@ -288,6 +319,8 @@ router.post("/reports/draft", draftLimiter, async (req, res) => {
         lat: body.lat,
         lng: body.lng,
         reporterLanguage: body.language,
+        // Explicit, including null: a cleared cat overwrites the suggestion.
+        reporterCatId,
         tokenChecked,
       },
       // A sent report is never turned back into a draft, or changed by one.
@@ -318,6 +351,7 @@ router.post("/reports", reportLimiter, async (req, res) => {
   const photoState = body.hasPhoto ? "pending" : "none";
 
   const created = await db.transaction(async (tx) => {
+    const reporterCatId = await knownCatId(tx, body.catId);
     // Insert, or turn this device's draft into the report. A report that was
     // already sent is left alone and nothing new is queued (test 13).
     const [row] = await tx
@@ -332,6 +366,7 @@ router.post("/reports", reportLimiter, async (req, res) => {
         note,
         reporterLanguage: body.language,
         reporterDevice: body.deviceId,
+        reporterCatId,
         clientRef: body.clientRef,
         isDraft: false,
         photoState,
@@ -351,6 +386,8 @@ router.post("/reports", reportLimiter, async (req, res) => {
           lng: body.lng,
           note,
           reporterLanguage: body.language,
+          // Explicit, including null: a cleared cat overwrites the draft's.
+          reporterCatId,
           isDraft: false,
           photoState,
           submittedAt: now,
