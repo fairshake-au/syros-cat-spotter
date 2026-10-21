@@ -58,14 +58,11 @@ describe('saveHeldName (SYC-506)', () => {
     expect(s.deps.claim).not.toHaveBeenCalled();
   });
 
-  it('adopts a different saved name with a note (an earlier numbered try landed)', async () => {
-    const s = server({ saved: 'SunnyTabby47' });
-    const result = await saveHeldName('dev-1', 'SunnyTabby', s.deps);
-    expect(result).toEqual({
-      kind: 'saved',
-      username: 'SunnyTabby47',
-      note: { from: 'SunnyTabby', to: 'SunnyTabby47', reason: 'taken' },
-    });
+  it('adopts a different name the server already has for this phone, without blaming anyone (review F4)', async () => {
+    const s = server({ saved: 'Alice' });
+    const result = await saveHeldName('dev-1', 'Bob', s.deps);
+    expect(result).toEqual({ kind: 'saved', username: 'Alice', note: null });
+    expect(s.deps.claim).not.toHaveBeenCalled();
   });
 
   it('keeps the held name when the first read fails (offline again)', async () => {
@@ -134,5 +131,44 @@ describe('saveHeldName (SYC-506)', () => {
     const s = server({ claimFails: err(403) });
     await expect(saveHeldName('dev-1', 'SunnyTabby', s.deps)).resolves.toEqual({ kind: 'retryLater' });
     expect(s.claims).toEqual(['SunnyTabby']);
+  });
+
+  it('a refused name is never numbered, even when a suggestion is taken (review F3)', async () => {
+    const s = server({ refused: ['Badname'], taken: ['Suggested0'] });
+    const result = await saveHeldName('dev-1', 'Badname', s.deps);
+    expect(s.claims).toEqual(['Badname', 'Suggested0', 'Suggested1']);
+    expect(s.claims.some((c) => c.startsWith('Badname') && c !== 'Badname')).toBe(false);
+    expect(result).toEqual({
+      kind: 'saved',
+      username: 'Suggested1',
+      note: { from: 'Badname', to: 'Suggested1', reason: 'refused' },
+    });
+  });
+
+  it('a taken suggestion gets another suggestion, not a numbered held name (review F3)', async () => {
+    const s = server({ taken: ['Alex', 'Alex10', 'Alex11', 'Alex12', 'Suggested0'] });
+    await saveHeldName('dev-1', 'Alex', s.deps);
+    expect(s.claims).toEqual(['Alex', 'Alex10', 'Alex11', 'Alex12', 'Suggested0', 'Suggested1']);
+  });
+
+  it('does not send the same numbered name twice (review F6)', async () => {
+    const s = server({ taken: ['Alex', 'Alex47', 'Alex48'] });
+    const numbers = [47, 47, 48, 48, 49];
+    s.deps.numbered = (name) => `${name}${numbers.shift() ?? 50}`;
+    await saveHeldName('dev-1', 'Alex', s.deps);
+    expect(s.claims).toEqual(['Alex', 'Alex47', 'Alex48', 'Alex49']);
+  });
+
+  it('stops before the next request once the phone is another spotter (review F1/F2)', async () => {
+    const s = server({ taken: ['Alex'] });
+    let current = true;
+    s.deps.stillCurrent = () => current;
+    const claim = s.deps.claim;
+    s.deps.claim = vi.fn(async (id, body) => {
+      current = false; // "Delete my data" while this request is open
+      return claim(id, body);
+    });
+    await expect(saveHeldName('dev-1', 'Alex', s.deps)).resolves.toEqual({ kind: 'abandoned' });
+    expect(s.claims).toEqual(['Alex']);
   });
 });

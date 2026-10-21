@@ -125,7 +125,7 @@ describe('useHeldNameSaver (SYC-506)', () => {
     expect(result.current.username).toBeNull();
     up = true;
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(HELD_NAME_RETRY_MS);
+      await vi.advanceTimersByTimeAsync(HELD_NAME_RETRY_MS[0]);
     });
     await waitFor(() => expect(result.current.username).toBe('SunnyTabby'));
   });
@@ -161,4 +161,37 @@ describe('useHeldNameSaver (SYC-506)', () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(deps.read).not.toHaveBeenCalled();
   });
+
+  /** Mounted as app/_layout.tsx does: only while a held name waits. */
+  function AppLikeGate({ deps }: { deps: HeldNameDeps }) {
+    const { username, heldUsername } = useDevice();
+    return !username && heldUsername ? <SaverProbe deps={deps} /> : null;
+  }
+  function SaverProbe({ deps }: { deps: HeldNameDeps }) {
+    useHeldNameSaver(deps);
+    return null;
+  }
+
+  it.each(['resetIdentity', 'adoptRestoredIdentity'] as const)(
+    'a save answered after %s (saver already unmounted) changes nothing (review F1)',
+    async (change) => {
+      store.set('cat-spotter/held-username', 'SunnyTabby');
+      let answer!: (v: { username: string }) => void;
+      const deps = fakeServer({
+        claim: vi.fn(() => new Promise<{ username: string }>((r) => { answer = r; })),
+      });
+      const hook = renderHook(
+        () => useDevice(),
+        { wrapper: ({ children }) => <DeviceProvider><AppLikeGate deps={deps} />{children}</DeviceProvider> },
+      );
+      await waitFor(() => expect(deps.claim).toHaveBeenCalled());
+      if (change === 'resetIdentity') await act(() => hook.result.current.resetIdentity());
+      else await act(() => hook.result.current.adoptRestoredIdentity('dev-restored', null));
+      expect(hook.result.current.heldUsername).toBeNull();
+      await act(async () => answer({ username: 'SunnyTabby' }));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(hook.result.current.username).toBeNull();
+      expect(store.get('cat-spotter/username')).toBeUndefined();
+    },
+  );
 });

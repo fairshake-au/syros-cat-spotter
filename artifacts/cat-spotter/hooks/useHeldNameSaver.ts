@@ -9,8 +9,8 @@ import { runBackgroundClaim } from '@/hooks/useUsernameClaim';
 
 /** One open tab saves the held name at a time (the others then read it first). */
 export const NAME_SAVE_LOCK = 'cat-spotter-name-save';
-/** How long to wait before trying again while online and still unsaved. */
-export const HELD_NAME_RETRY_MS = 60_000;
+/** Waits before trying again while online and still unsaved (review F7: backs off). */
+export const HELD_NAME_RETRY_MS = [60_000, 120_000, 300_000, 600_000] as const;
 
 const DEPS: HeldNameDeps = {
   read: (deviceId) => getClaimedUsername(deviceId),
@@ -22,17 +22,21 @@ const DEPS: HeldNameDeps = {
 /**
  * SYC-506: while this phone holds a name chosen offline, save it whenever
  * there's a connection: at start, on reconnect, and every minute after a try
- * that couldn't finish. A result is applied only if the phone is still the
- * same spotter holding the same name (a restore or "Delete my data" may have
- * happened meanwhile).
+ * that couldn't finish (backing off to every ten minutes).
+ *
+ * Review F1/F2: the run captures which spotter this phone is
+ * (`identityGeneration`, live from DeviceContext) and stops before any
+ * request, and applies nothing, once that changes ("Delete my data", "Start
+ * again", restore). The check is live, not from a render, because this
+ * component unmounts as soon as the identity changes.
  */
 export function useHeldNameSaver(deps: HeldNameDeps = DEPS) {
-  const { deviceId, username, heldUsername, moved, setUsername, setNameNote } = useDevice();
+  const { deviceId, username, heldUsername, moved, setUsername, setNameNote, identityGeneration } =
+    useDevice();
   const { isOnline } = useOffline();
   const [attempt, setAttempt] = useState(0);
+  const failures = useRef(0);
 
-  const latest = useRef({ deviceId, username, heldUsername });
-  latest.current = { deviceId, username, heldUsername };
   const depsRef = useRef(deps);
   depsRef.current = deps;
 
@@ -40,8 +44,13 @@ export function useHeldNameSaver(deps: HeldNameDeps = DEPS) {
     if (!deviceId || !heldUsername || username || moved || !isOnline) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let active = true;
+    const generation = identityGeneration();
+    const stillCurrent = () => identityGeneration() === generation;
     const retry = () => {
-      if (active) timer = setTimeout(() => setAttempt((n) => n + 1), HELD_NAME_RETRY_MS);
+      if (!active) return;
+      const wait = HELD_NAME_RETRY_MS[Math.min(failures.current, HELD_NAME_RETRY_MS.length - 1)];
+      failures.current++;
+      timer = setTimeout(() => setAttempt((n) => n + 1), wait);
     };
 
     void (async () => {
@@ -49,12 +58,11 @@ export function useHeldNameSaver(deps: HeldNameDeps = DEPS) {
       try {
         await ifLockFree(NAME_SAVE_LOCK, async () => {
           const result = await runBackgroundClaim(() =>
-            saveHeldName(deviceId, heldUsername, depsRef.current),
+            saveHeldName(deviceId, heldUsername, { ...depsRef.current, stillCurrent }),
           );
-          if (result?.kind !== 'saved') return;
-          const now = latest.current;
-          if (now.deviceId !== deviceId || now.heldUsername !== heldUsername || now.username) return;
+          if (result?.kind !== 'saved' || !stillCurrent()) return;
           saved = true;
+          failures.current = 0;
           if (result.note) setNameNote(result.note);
           setUsername(result.username);
         });
@@ -68,7 +76,7 @@ export function useHeldNameSaver(deps: HeldNameDeps = DEPS) {
       active = false;
       if (timer) clearTimeout(timer);
     };
-  }, [deviceId, heldUsername, username, moved, isOnline, attempt, setUsername, setNameNote]);
+  }, [deviceId, heldUsername, username, moved, isOnline, attempt, setUsername, setNameNote, identityGeneration]);
 }
 
 /** Mounted once, beside the app, while a held name waits to be saved. */

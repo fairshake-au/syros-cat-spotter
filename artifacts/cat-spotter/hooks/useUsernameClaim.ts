@@ -92,8 +92,11 @@ export function waitForUsernameClaimToSettle(maxMs = 35_000): Promise<void> {
 
 /**
  * SYC-506: run the background save of a name held offline under the same
- * lock as the name screen and the Me editor, so only one claim is ever open
- * and "Get your spots back" waits for it (waitForUsernameClaimToSettle).
+ * lock as the name screen and the Me editor, so their claims never overlap
+ * it, and "Get your spots back" waits for it (up to its 35 s cap). A run can
+ * outlast that cap on a weak signal; the save itself checks, before every
+ * request, that the phone is still the same spotter, and applies nothing
+ * otherwise (hooks/useHeldNameSaver.ts).
  * Returns undefined, without running `fn`, if a claim is already open.
  */
 export async function runBackgroundClaim<T>(fn: () => Promise<T>): Promise<T | undefined> {

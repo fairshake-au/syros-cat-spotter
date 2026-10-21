@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -47,8 +47,12 @@ export function UsernameEditor({
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  // Review F10: open only for a new request, not again when the editor
+  // remounts (it unmounts offline) with an old one.
+  const handledEditRequest = useRef(editRequest);
   useEffect(() => {
-    if (editRequest > 0) {
+    if (editRequest > handledEditRequest.current) {
+      handledEditRequest.current = editRequest;
       setDraft(currentUsername ?? '');
       setEditing(true);
     }

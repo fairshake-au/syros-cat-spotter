@@ -195,7 +195,14 @@ interface DeviceContextValue {
   /** SYC-506: the background save renamed the spotter; shown in Me. */
   nameNote: NameNote | null;
   setNameNote: (note: NameNote | null) => void;
-  /** True once local storage has been read (deviceId & username resolved). */
+  /**
+   * SYC-506 review F1: which spotter this phone is, as a number that changes
+   * on "Delete my data", "Start again" and restore. Read live (not from a
+   * render), so work started for one spotter can check it is still current
+   * before it changes anything.
+   */
+  identityGeneration: () => number;
+  /** True once local storage has been read (deviceId, username and any held name resolved). */
   isReady: boolean;
   /**
    * Set if the one-time device id/secret setup failed outright (e.g. no
@@ -252,6 +259,7 @@ const DeviceContext = createContext<DeviceContextValue>({
   holdUsername: () => {},
   nameNote: null,
   setNameNote: () => {},
+  identityGeneration: () => 0,
   isReady: false,
   startupError: null,
   setUsername: () => {},
@@ -271,6 +279,8 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   const [username, setUsernameState] = useState<string | null>(null);
   const [heldUsername, setHeldUsernameState] = useState<string | null>(null);
   const [nameNote, setNameNoteState] = useState<NameNote | null>(null);
+  const generation = useRef(0);
+  const identityGeneration = useCallback(() => generation.current, []);
   const [ownedCatIds, setOwnedCatIds] = useState<number[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [startupError, setStartupError] = useState<Error | null>(null);
@@ -424,6 +434,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startAgain = useCallback(async () => {
+    generation.current++;
     const [id, secret] = [await makeDeviceId(), await makeDeviceSecret()];
     await AsyncStorage.multiRemove([
       USERNAME_KEY,
@@ -445,6 +456,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const adoptRestoredIdentity = useCallback(async (restoredId: string, restoredName: string | null) => {
+    generation.current++;
     await AsyncStorage.setItem(STORAGE_KEY, restoredId);
     if (restoredName) await AsyncStorage.setItem(USERNAME_KEY, restoredName);
     else await AsyncStorage.removeItem(USERNAME_KEY);
@@ -464,6 +476,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetIdentity = useCallback(async () => {
+    generation.current++;
     // Removed first: if the app dies after this, the next launch makes a
     // fresh identity anyway. If it dies before, the old id gets 410 and the
     // wipe runs again (plan §6.4).
@@ -493,6 +506,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       holdUsername,
       nameNote,
       setNameNote,
+      identityGeneration,
       isReady,
       startupError,
       setUsername,
@@ -518,6 +532,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       holdUsername,
       nameNote,
       setNameNote,
+      identityGeneration,
       isReady,
       startupError,
       setUsername,
