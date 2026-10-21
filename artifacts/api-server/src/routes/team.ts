@@ -6,7 +6,7 @@ import {
   handoffPublicKeys,
   sessionKeys,
   SIGN_IN_ORIGIN,
-  SIGN_IN_PAGE,
+  SIGN_OUT_PAGE,
   TEAM_HOME,
   TEAM_ORIGIN,
 } from "../lib/teamAuth/config";
@@ -236,8 +236,10 @@ router.post(
     clearSession(res);
     // An invitee's session too (SYC-53 PR 1.1): sign-out ends both kinds.
     clearInviteSession(res);
+    // A browser goes on through the sign-in site's own sign-out, which ends
+    // that session too and leaves it on the sign-in page.
     if (isBrowserNavigation(req)) {
-      res.redirect(303, SIGN_IN_PAGE);
+      res.redirect(303, SIGN_OUT_PAGE);
       return;
     }
     res.status(204).end();

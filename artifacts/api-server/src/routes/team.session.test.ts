@@ -216,13 +216,13 @@ describe("POST /api/team/signout", () => {
     expect(cookie).toMatch(/; HttpOnly/);
   });
 
-  it("sends a browser form post back to the sign-in page", async () => {
+  it("sends a browser on through the sign-in site's own sign-out, so it isn't taken straight back in", async () => {
     const res = await request(app)
       .post("/api/team/signout")
       .set("Origin", "https://team.catspotters.com")
       .set("Sec-Fetch-Mode", "navigate");
     expect(res.status).toBe(303);
-    expect(res.headers["location"]).toBe("https://admin.catspotters.com/");
+    expect(res.headers["location"]).toBe("https://admin.catspotters.com/signout");
   });
 });
 

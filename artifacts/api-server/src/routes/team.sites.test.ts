@@ -680,7 +680,9 @@ describe("links out to a map company: Open map only", () => {
         expect(html).not.toContain(c);
       }
     }
-    const external = (html: string) => [...html.matchAll(/href="(https?:[^"]*)"/g)].map((m) => m[1]!);
+    // Not the menu's Workspace link: our own sign-in site, with no position in it.
+    const external = (html: string) =>
+      [...html.matchAll(/href="(https?:[^"]*)"/g)].map((m) => m[1]!).filter((h) => h !== "https://admin.catspotters.com/workspace");
     expect(external(list)).toEqual(["https://www.openstreetmap.org/copyright"]);
     expect(external(page).filter((h) => !isOpenMapLink(h))).toEqual(["https://www.openstreetmap.org/copyright"]);
     expect(external(page).filter(isOpenMapLink)).toHaveLength(1);
