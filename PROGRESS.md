@@ -1,1 +1,2 @@
 - 21 Oct: Task A done: edit_vet_settings capability (catalogue red then green)
+- 21 Oct: Task B done: migration 0035_vet_settings_history, its test 4/4, migrate:check ok
