@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TeamCatView, TeamStatement } from "../teamCatView";
 import { renderCatPage } from "./catPages";
+import { renderDiedPage } from "./diedPage";
 
 const appearanceNone = {
   value: null,
@@ -130,8 +131,53 @@ describe("the team cat page's words (SYC-362 D3)", () => {
       "Newest first. A change marked wrong stays here, crossed out, with what replaced it.",
       "Every change is saved with your name.",
       "under “Update this cat”",
+      // SYC-513: the died button, and the tidied older forms.
+      '<button type="submit">This cat has died</button>',
+      "If the cat has died, use “This cat has died” instead.",
     ]) {
       expect(html, word).toContain(word);
     }
+  });
+});
+
+describe("the died page and the dead cat's page words (SYC-513)", () => {
+  const dead = () => {
+    const v = ownedCatView();
+    v.records.lifeStatus = {
+      ...v.records.lifeStatus,
+      value: "deceased",
+      conflictingStatementIds: [],
+      supportingStatementIds: [4],
+    };
+    v.history = [statement(4, { kind: "life_status", said: "No longer with us", reason: "Found by the harbour" }), ...v.history];
+    return v;
+  };
+
+  it("the died page uses the spec's words and never says statement", () => {
+    const html = withoutStyle(renderDiedPage(ownedCatView(), "Sam", { fields: { reason: "<b>x</b>", date: "2026-10-01" } }));
+    for (const word of [
+      "<h1>Tiger has died</h1>",
+      "The public will see “No longer with us” on Tiger&#39;s page.",
+      "Tiger&#39;s owner stays. They aren&#39;t told",
+      "Date it happened <span",
+      "(leave blank if you're not sure)",
+      "How do you know?",
+      "For example: found by the harbour; Maria, her cat guardian, told us; the vet let us know.",
+      "Save: Tiger has died",
+      "Back to Tiger (nothing changed)",
+    ]) {
+      expect(html, word).toContain(word);
+    }
+    expect(html).toContain("&lt;b&gt;x&lt;/b&gt;");
+    expect(html.replace(/<[^>]*>/g, " ").toLowerCase()).not.toContain("statement");
+    expect(html).not.toContain("<script");
+  });
+
+  it("a dead cat: the notice, no died button, Remove owner offers 'Still no longer with us'", () => {
+    const html = withoutStyle(renderCatPage(dead(), "Sam", { may: () => true }));
+    expect(html).toContain("<strong>Tiger has died</strong>");
+    expect(html).toContain("Still no longer with us");
+    expect(html).not.toContain("This cat has died</button>");
+    expect(html.replace(/<[^>]*>/g, " ").toLowerCase()).not.toContain("statement");
   });
 });

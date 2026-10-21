@@ -68,13 +68,16 @@ export const HIDING_REASONS: ReadonlySet<IssueReason> = new Set(['photo_private'
 
 /**
  * The reasons that may name a photo. The server refuses a photo id with any
- * other reason (a 400), so `other` sent from a photo goes without it.
+ * other reason (a 400). "Something else" sent from a photo names it too, so
+ * the team knows which one (SYC-487; the server accepts it since #251, live
+ * from build b205c685). The cat reasons still go without it.
  */
 const PHOTO_ID_REASONS: ReadonlySet<IssueReason> = new Set([
   'photo_private',
   'photo_inappropriate',
   'photo_not_cat',
   'wrong_cat',
+  'other',
 ]);
 
 export function isHidingReason(reason: IssueReason): boolean {
