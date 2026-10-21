@@ -216,7 +216,7 @@ The page picks one of three states:
 - **Reports aren't tied to the cat automatically.**
   - The team's "Which cat is this?" tie (`lib/welfareTie.ts`) does more than set `cat_id`. It writes a `welfare_report` observation on the cat, which feeds the cat's history and its evidence of life.
   - A member of the public tapping the wrong cat's page must not write that history. So the reporter's cat is kept as a **suggestion**, and a team member confirms it (§4.4).
-- **New column:** `welfare_reports.reporter_cat_id`. A nullable integer.
+- **New column:** `welfare_reports.reporter_cat_id`. A nullable integer, in migration **0036** (`0036_report_suggested_cat.sql`). The number is claimed with the SYC-396 PR 3.3a session, which has 0035.
   - **No foreign key**, matching `cat_id` on the same table (`schema/welfare.ts:67`). Cats are never deleted in production code, and a dangling id simply shows no suggestion.
   - Additive migration: no existing row changes. It has the usual commented `-- rollback-begin/end` block (`lib/db/migrations/README.md` step 3).
 - **`POST /api/reports/draft` (`DraftBody`, `reports.ts:96-104`) and `POST /api/reports` (`SubmitBody`, `reports.ts:106-120`)** both gain:
