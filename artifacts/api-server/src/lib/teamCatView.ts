@@ -244,8 +244,12 @@ export function describeStatement(
     }
     // SYC-396 PR 3.0: a vet visit, and the undo of one. PR 3.1 words the
     // visit in full on the cat page's Vet visits section.
-    case "vet_visit":
-      return v["retracted"] === true ? "Marked wrong" : "Vet visit";
+    case "vet_visit": {
+      if (v["retracted"] === true) return "Marked wrong";
+      const did = Array.isArray(v["did"]) ? (v["did"] as unknown[]).filter((d): d is string => typeof d === "string") : [];
+      const words: Record<string, string> = { sterilised: "sterilised", vaccinated: "vaccinated", treated: "treated", checked: "checked only" };
+      return did.length ? `Vet visit: ${did.map((d) => words[d] ?? d).join(", ")}` : "Vet visit";
+    }
     case "vaccinated":
       if (v["retracted"] === true) return "Marked wrong";
       return `A “${kind}” statement`;
@@ -346,6 +350,8 @@ function correctionOf(o: Observation, replaced: boolean): StatementCorrection | 
   const v = (o.value && typeof o.value === "object" ? o.value : {}) as Record<string, unknown>;
   // An undone vet visit's retraction asserts nothing (SYC-396 PR 3.0).
   if (v["retracted"] === true) return null;
+  // A statement a vet visit wrote is marked wrong with its visit (Decision 7).
+  if ((o.kind === "sterilised" || o.kind === "vaccinated") && typeof v["vetVisitId"] === "number") return null;
   if (o.kind === "life_status") {
     const now = v["status"];
     return {
