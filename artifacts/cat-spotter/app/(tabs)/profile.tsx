@@ -111,7 +111,7 @@ export default function ProfileScreen() {
             )}
             {/* SYC-506: a name chosen offline, not on the server yet. */}
             {!username && !!heldUsername && (
-              <Text style={[styles.heroSub, { color: colors.primaryForeground }]}>
+              <Text style={[styles.heroSub, styles.notSaved, { color: colors.primaryForeground }]}>
                 {t('nameNotSavedYet')}
               </Text>
             )}
@@ -441,6 +441,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  notSaved: { textAlign: 'center', paddingHorizontal: 24, opacity: 0.9 },
   nameNote: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 10 },
   nameNoteText: { fontFamily: fonts.body, fontSize: fontSizes.sm, lineHeight: 20 },
   nameNoteActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
