@@ -10,3 +10,4 @@ Checkpoint notes, newest last. Each agent appends after every commit.
   - drop it from draft `set` -> FAIL "the draft route stores and clears the suggestion the same way" (expected 4 to be null)
   - set catId in submit insert -> FAIL "a known catId sets reporter_cat_id and leaves cat_id null" (expected 1 to be null)
   - set catId in draft insert -> FAIL "a draft names the cat but never sets cat_id" (expected 7 to be null) plus two more
+- 1.3 done: /api/go/give (shared handler, count:false), gate exact path, new LINK_OFF_PAGE bodies (go.ts:35 comment fixed here too); go.test.ts + prelaunchGate.test.ts 63/63. Next: probes for 1.3, then 1.4.

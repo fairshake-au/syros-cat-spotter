@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAppSettings } from "../lib/appSettings";
@@ -31,20 +31,22 @@ async function countTap(now: Date): Promise<void> {
   }
 }
 
-/** Shown only to a phone whose switches are out of date (plan small call 5,
- * Appendix B.2). The tab names match the app's `tabHelp`. */
+/** Shown to anyone who follows a donations link while the setting is empty
+ * (a phone whose switches are out of date, plan small call 5, Appendix B.2).
+ * It must not point at a tab: with the link off, the app shows no giving
+ * section either (help-and-info spec §2.1). */
 const LINK_OFF_PAGE = {
   en: {
     title: "This link isn't available",
-    body: "The Help tab in the Cat Spotters app shows how to give.",
+    body: "This link isn't available right now.",
   },
   el: {
     title: "Αυτός ο σύνδεσμος δεν είναι διαθέσιμος",
-    body: "Στην καρτέλα «Βοήθεια» της εφαρμογής Cat Spotters θα δεις πώς μπορείς να κάνεις δωρεά.",
+    body: "Αυτός ο σύνδεσμος δεν είναι διαθέσιμος αυτή τη στιγμή.",
   },
   fr: {
     title: "Ce lien n’est pas disponible",
-    body: "L’onglet « Aider » de l’appli Cat Spotters te montre comment faire un don.",
+    body: "Ce lien n'est pas disponible pour le moment.",
   },
 } as const;
 
@@ -59,14 +61,12 @@ function sendLinkOff(res: Response, lang: keyof typeof LINK_OFF_PAGE): void {
   );
 }
 
-/**
- * "Help feed a cat" (SYC-36, `feeding-nudge.md` §9, plan PR 1). Counts the
- * tap and forwards to the donation page in the switches. Nothing about who
- * tapped is read or kept: no query string, no device, no limiter (the
- * limiter would keep a salted fingerprint of the address; plan Decision 5).
- * Let through the pre-launch pass by exact path (plan Decision 3).
- */
-router.get("/go/feed", async (req, res) => {
+/** Redirect to the donations page in the switches, or show the link-off page. */
+async function forwardToDonations(
+  req: Request,
+  res: Response,
+  opts: { count: boolean },
+): Promise<void> {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Referrer-Policy", "no-referrer");
   const settings = await getAppSettings();
@@ -79,10 +79,28 @@ router.get("/go/feed", async (req, res) => {
 
   // Express answers HEAD with the GET handler; only a real GET is a tap
   // (a link preview fetches HEAD).
-  if (req.method === "GET" && settings.countTaps) {
+  if (opts.count && req.method === "GET" && settings.countTaps) {
     await countTap(new Date());
   }
   res.redirect(302, settings.donateUrl);
-});
+}
+
+/**
+ * "Help feed a cat" (SYC-36, `feeding-nudge.md` §9, plan PR 1). Counts the
+ * tap and forwards to the donation page in the switches. Nothing about who
+ * tapped is read or kept: no query string, no device, no limiter (the
+ * limiter would keep a salted fingerprint of the address; plan Decision 5).
+ * Let through the pre-launch pass by exact path (plan Decision 3).
+ */
+router.get("/go/feed", (req, res) => forwardToDonations(req, res, { count: true }));
+
+/**
+ * The Help & info page's "Give" link (SYC-120, help-and-info spec §3.7).
+ * The same page, headers and link-off page as /go/feed, but it keeps
+ * nothing: a tap from here would inflate the feeding nudge's count
+ * (`donation_link_taps`, SYC-36). Counting per source is SYC-525. Let through
+ * the pre-launch pass by exact path, like /go/feed.
+ */
+router.get("/go/give", (req, res) => forwardToDonations(req, res, { count: false }));
 
 export default router;
