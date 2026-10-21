@@ -81,7 +81,8 @@ describe("barChart", () => {
       title: "Reports per week",
       bars: [{ at: at(1), parts: [{ key: "u", label: "Urgent", value: 2, colour: "#b42318" }, { key: "n", label: "Needs attention", value: 3, colour: "#a08000" }] }],
     });
-    expect(svg.match(/<rect\b/g)).toHaveLength(2);
+    // The chart's own marks (the legend's swatches are drawn too, after it).
+    expect(svg.slice(0, svg.indexOf("</svg>")).match(/<rect\b/g)).toHaveLength(2);
     expect(svg).toContain("<title>Urgent: 2, from 1 Sep 2026</title>");
     expect(svg).toContain("Needs attention</li>");
   });
