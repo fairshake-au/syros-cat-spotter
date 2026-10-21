@@ -22,7 +22,7 @@ import {
   useGetProfile,
 } from '@workspace/api-client-react';
 import { AppearanceProvider } from '@/context/AppearanceContext';
-import { LanguageProvider } from '@/context/LanguageContext';
+import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { AppSettingsProvider } from '@/context/AppSettingsContext';
@@ -113,6 +113,9 @@ function FirstBadgeOffer({ children }: { children: React.ReactNode }) {
  */
 function OnboardingGate() {
   const { isReady, username, startupError, moved, keepSafeOffer, setKeepSafeOffer } = useDevice();
+  // SYC-155: the first screen waits for the stored language, so a phone that
+  // chose Greek or French never flashes English first.
+  const { isLanguageReady } = useLanguage();
   const pathname = usePathname();
   // Whether this phone already had a spotter when the app opened: a spotter
   // from before this version sees "keep my spots safe" once as a one-time
@@ -125,7 +128,7 @@ function OnboardingGate() {
   // surfaces it here instead of leaving isReady false and this app stuck
   // on a blank screen forever.
   if (startupError) return <StartupErrorScreen />;
-  if (!isReady) return null;
+  if (!isReady || !isLanguageReady) return null;
   // SYC-63: "Done" comes before the new spotter's first-run step.
   if (doneVisible) return <DeleteMyDataDone />;
   // SYC-3: this phone's spotter moved to a new phone.
