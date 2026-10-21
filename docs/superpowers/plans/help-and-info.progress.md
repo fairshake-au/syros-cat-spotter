@@ -30,3 +30,7 @@ Checkpoint notes, newest last. Each agent appends after every commit.
 - OpenAPI has no welfare-queue schema, so suggestedCat lives only in the QueueReport/QueueDraft types. Not added as new work.
 - Next: step 2 (Help & info page).
 - Migration number (agreed with the SYC-396 sessions, 21 Oct): 0035 is 3.3a (#260) and 0036 is 3.1b. Ours is 0037 or later. Before leaving draft, delete the local 0035_report_suggested_cat plus its meta entries, check `git ls-tree origin/main lib/db/migrations` and the open PRs, then regenerate.
+
+## Step 2 (Sonnet)
+- 2.1 done (d1410dfb): tab icons on all three variants; tabHelp EN "Help & info", FR "Aide". i18n.test.ts 10/10. Next: 2.2 Fold.
+- 2.2 done: Fold.tsx exported with tone (default urgent); UrgentAdvice imports it; Fold.test.tsx + ReportAdvice.test.tsx 45/45 (ReportAdvice unmodified). Next: 2.4 strings first (2.3 needs the keys), then 2.3.
