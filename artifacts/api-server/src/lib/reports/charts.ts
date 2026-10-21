@@ -163,7 +163,12 @@ export interface BarPart {
   pattern?: "solid" | "hatch" | "dots";
 }
 
-/** The white patterns drawn over a coloured part, once per chart. */
+/**
+ * The white patterns drawn over a coloured part, once per chart. Their ids
+ * are page-wide (the legend's swatches use them too), so a page holds at most
+ * one patterned bar chart; a second one would repeat the ids harmlessly but
+ * invalidly.
+ */
 const PATTERN_DEFS =
   "<defs>" +
   '<pattern id="pat-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2.4" height="6" fill="#fff"/></pattern>' +

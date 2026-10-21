@@ -94,8 +94,8 @@ export function coverageFrom(
     if (row) row.sightings++;
   }
 
-  const first = points[0]?.at ?? range.to;
-  const starts = weeksIn(range, first);
+  // From the start of the range, so quiet weeks before the first sighting are drawn as zero (ship review).
+  const starts = weeksIn(range, range.from ?? points[0]?.at ?? range.to);
   const counts = bucketWeeks(starts, points, (p) => p.at);
 
   return {

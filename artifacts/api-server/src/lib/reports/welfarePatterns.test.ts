@@ -41,6 +41,12 @@ describe("patternsFrom", () => {
     expect(sums).toEqual({ urgent: 0, attention: 0, litter: 1 });
   });
 
+  it("draws every week of the range, quiet ones as zero (ship review)", () => {
+    const r = patternsFrom(ROWS, SEED_AREAS, RANGE);
+    expect(r.perWeek.length).toBeGreaterThanOrEqual(13);
+    expect(r.perWeek[0]!.at.getTime()).toBeLessThanOrEqual(RANGE.from!.getTime());
+  });
+
   it("the kinds sum to the total of welfare reports sent", () => {
     const r = patternsFrom(ROWS, SEED_AREAS, RANGE);
     expect(r.total).toBe(4);

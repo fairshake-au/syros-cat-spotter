@@ -76,7 +76,8 @@ export function patternsFrom(rows: readonly WelfareRow[], areas: readonly NamedA
   const drafts = rows.filter((r) => r.kind === "welfare" && inRange(r.createdAt) && !sentBy(r)).length;
   const contentReports = rows.filter((r) => r.kind === "content" && r.sentAt !== null && inRange(r.sentAt)).length;
 
-  const first = sent.reduce<Date>((m, r) => (r.at < m ? r.at : m), range.to);
+  // From the start of the range, so quiet weeks before the first report are drawn as zero (ship review).
+  const first = range.from ?? sent.reduce<Date>((m, r) => (r.at < m ? r.at : m), range.to);
   const starts = weeksIn(range, first);
   const perWeek: WelfareWeek[] = starts.map((at) => ({ at, counts: { urgent: 0, attention: 0, litter: 0 } }));
   for (const kind of WELFARE_ORDER) {

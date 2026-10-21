@@ -1,6 +1,6 @@
 import { db, sightingsTable } from "@workspace/db";
 import { CELL_LAT_DEG, CELL_LNG_DEG, haversineKm, type LatLng } from "@workspace/geo";
-import { and, gte, isNull, lte } from "drizzle-orm";
+import { and, gte, lte } from "drizzle-orm";
 import { namedAreasAt } from "../areas/areaHistory";
 
 // The island as 250 m squares (SYC-396 plan Decision 13; spec §9.3 report 3,
@@ -19,8 +19,11 @@ import { namedAreasAt } from "../areas/areaHistory";
 //
 // Sightings counted: every one a spotter sent (pending, waiting for the team
 // or matched), entered within the period ("as of" is entered by then,
-// Decision 10), and never one redacted for privacy (privacy beats
-// reproducibility).
+// Decision 10). A spotter who deletes their account is cut from their
+// sightings (severPerson: the device goes, redacted_at is set), but the
+// sighting itself stays, with its photo, date and place, by design. So it
+// still shows that someone looked there: it counts as a sighting, never as a
+// spotter (ship review of PR 3.3b).
 
 export const GAP_RADIUS_M = 500;
 /** PR 2.6's map layer looks back this far for "Not looked at yet". */
@@ -94,17 +97,17 @@ export interface SightingPoint {
   lat: number;
   lng: number;
   at: Date;
-  /** Null once a spotter has been deleted: counted as a sighting, not as a spotter. */
+  /** Null once its spotter has deleted their account: counted as a sighting, not as a spotter. */
   deviceId: string | null;
 }
 
-/** The sightings entered in a period, not redacted. All time when `from` is null. */
+/** The sightings entered in a period, a deleted spotter's included (with no device). All time when `from` is null. */
 export async function sightingsIn(o: { from: Date | null; to: Date }): Promise<SightingPoint[]> {
   const s = sightingsTable;
   return db
     .select({ lat: s.lat, lng: s.lng, at: s.createdAt, deviceId: s.deviceId })
     .from(s)
-    .where(and(isNull(s.redactedAt), lte(s.createdAt, o.to), o.from === null ? undefined : gte(s.createdAt, o.from)))
+    .where(and(lte(s.createdAt, o.to), o.from === null ? undefined : gte(s.createdAt, o.from)))
     .orderBy(s.createdAt, s.id);
 }
 

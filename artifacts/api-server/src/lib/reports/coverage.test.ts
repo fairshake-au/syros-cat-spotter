@@ -56,6 +56,14 @@ describe("coverageFrom", () => {
     expect(r.cells.every((c) => c.area !== "Off Syros")).toBe(true);
   });
 
+  it("draws every week of the range, quiet ones before the first sighting as zero (ship review)", () => {
+    const r = report();
+    // Last 3 months from 21 Oct: from 21 Jul, about 14 weeks, though the first sighting is 1 Oct.
+    expect(r.perWeek.length).toBeGreaterThanOrEqual(13);
+    expect(r.perWeek[0]!.at.getTime()).toBeLessThanOrEqual(RANGE.from!.getTime());
+    expect(r.perWeek[0]!.sightings).toBe(0);
+  });
+
   it("puts each sighting in its week, and the weeks add up", () => {
     const r = report();
     expect(r.perWeek.reduce((n, w) => n + w.sightings, 0)).toBe(5);
@@ -159,7 +167,7 @@ describe("coverageReport, from the database", () => {
     await pool.end();
   });
 
-  it("counts sightings and spotters in the range, never a redacted sighting, never one outside it", async () => {
+  it("counts sightings and spotters in the range, a deleted spotter's sighting as a sighting only, never one outside it", async () => {
     const before = await coverageReport(RANGE_2003, NOW);
     const one = `${PREFIX}-one`;
     const two = `${PREFIX}-two`;
@@ -167,7 +175,7 @@ describe("coverageReport, from the database", () => {
       { deviceId: one, photoId, ...ERMOUPOLI_EXACT, status: "pending", createdAt: at("2003-03-10T10:00:00Z") },
       { deviceId: one, photoId, ...KINI_EXACT, status: "resolved", createdAt: at("2003-03-11T10:00:00Z") },
       { deviceId: two, photoId, ...KINI_EXACT, status: "awaiting_team", createdAt: at("2003-03-12T10:00:00Z") },
-      // Redacted for privacy below: gone from every report.
+      // Its spotter deletes their account below: still a sighting, no longer a spotter.
       { deviceId: `${PREFIX}-gone`, photoId, ...KINI_EXACT, status: "pending", createdAt: at("2003-03-12T10:00:00Z") },
       // The day after the range.
       { deviceId: `${PREFIX}-late`, photoId, ...KINI_EXACT, status: "pending", createdAt: at("2003-04-01T10:00:00Z") },
@@ -177,7 +185,8 @@ describe("coverageReport, from the database", () => {
       .set({ deviceId: null, redactedAt: at("2003-03-13T10:00:00Z"), redactionReason: "test" })
       .where(eq(sightingsTable.deviceId, `${PREFIX}-gone`));
     const after = await coverageReport(RANGE_2003, NOW);
-    expect(after.sightings - before.sightings).toBe(3);
+    expect(after.sightings - before.sightings).toBe(4);
     expect(after.spotters - before.spotters).toBe(2);
+    expect(after.withoutSpotter - before.withoutSpotter).toBe(1);
   });
 });
