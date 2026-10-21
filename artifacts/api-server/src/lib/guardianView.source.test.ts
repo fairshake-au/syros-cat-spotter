@@ -98,6 +98,11 @@ const ISLAND_ONLY_MODULES: Record<string, { why: string; fns: string[]; capabili
     fns: ["changeArea"],
     capabilities: ["edit_named_areas"],
   },
+  "lib/vetSettings.ts": {
+    why: "the standard sterilisation price and its own history rows (SYC-396 PR 3.1b): a price and who changed it, never a site or a colony",
+    fns: ["setStandardPrice", "priceChanges"],
+    capabilities: ["edit_vet_settings"],
+  },
 };
 
 /**

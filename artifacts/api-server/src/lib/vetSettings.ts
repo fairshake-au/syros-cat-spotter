@@ -73,6 +73,19 @@ export async function setStandardPrice(
   return result;
 }
 
+/**
+ * The standard price as the database has it now, read past the settings
+ * cache, for the Vet settings page. Unlike getAppSettings it throws if the
+ * database can't be read: the page must never show a price it didn't read.
+ */
+export async function standardPriceNow(): Promise<number> {
+  const rows = await db
+    .select({ key: appSettingsTable.key, value: appSettingsTable.value })
+    .from(appSettingsTable)
+    .where(eq(appSettingsTable.key, KEY));
+  return settingsFromRows(rows).sterilisationPriceEur;
+}
+
 /** One line of the Vet settings page's history. */
 export interface PriceChange {
   at: Date;
