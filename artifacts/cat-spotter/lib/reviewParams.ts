@@ -30,6 +30,13 @@ export interface ReviewRouteData {
   sightingId: number;
   isCatPhoto: boolean;
   candidates: MatchCandidate[];
+  /**
+   * SYC-503: whether the look-alike check worked. Read before isCatPhoto and
+   * candidates: on "failed" they mean nothing. Missing reads as "done".
+   */
+  matchCheck: 'done' | 'failed';
+  /** SYC-503: a failed check can be run again. */
+  canRecheck: boolean;
   /** A queued sighting: its photo is found through the queue. */
   localId?: string;
   /** An online submission: its photo, saved as `review-<sightingId>`. */
@@ -43,6 +50,8 @@ export interface ReviewRouteInput {
   sightingId?: number | null;
   isCatPhoto?: boolean | null;
   candidates?: readonly MatchCandidate[] | null;
+  matchCheck?: 'done' | 'failed' | null;
+  canRecheck?: boolean | null;
   localId?: string | null;
   photoRef?: string | null;
   lat?: number | null;
@@ -119,16 +128,25 @@ function safeCandidate(candidate: unknown): MatchCandidate | null {
   };
 }
 
+/** SYC-503: only the exact word "failed" is a failure; anything else, or nothing, is "done". */
+function readMatchCheck(value: unknown): 'done' | 'failed' {
+  return value === 'failed' ? 'failed' : 'done';
+}
+
 export function buildReviewParams(input: ReviewRouteInput): { data: string } {
   const sightingId = Number(input.sightingId) || 0;
   const isCatPhoto = input.isCatPhoto !== false;
+  // SYC-503: carried by the fallback below too, or a failed check would
+  // reopen as "no look-alikes, you're the first to spot this cat".
+  const matchCheck = readMatchCheck(input.matchCheck);
+  const canRecheck = matchCheck === 'failed' && input.canRecheck === true;
   try {
     const candidates = Array.isArray(input.candidates)
       ? input.candidates
           .map(safeCandidate)
           .filter((c): c is MatchCandidate => c !== null)
       : [];
-    const data: ReviewRouteData = { sightingId, isCatPhoto, candidates };
+    const data: ReviewRouteData = { sightingId, isCatPhoto, candidates, matchCheck, canRecheck };
     const localId = safeText(input.localId, 200);
     if (localId) data.localId = localId;
     const photoRef = safeText(input.photoRef, 500);
@@ -142,7 +160,9 @@ export function buildReviewParams(input: ReviewRouteInput): { data: string } {
   } catch {
     // Never throw: a route to review the sighting, even without candidates,
     // beats a sighting that can never be reviewed.
-    return { data: JSON.stringify({ sightingId, isCatPhoto, candidates: [] }) };
+    return {
+      data: JSON.stringify({ sightingId, isCatPhoto, candidates: [], matchCheck, canRecheck }),
+    };
   }
 }
 
@@ -157,6 +177,8 @@ export function parseReviewParams(raw: string | undefined): ReviewRouteData | nu
       sightingId: value.sightingId,
       isCatPhoto: value.isCatPhoto !== false,
       candidates: Array.isArray(value.candidates) ? value.candidates : [],
+      matchCheck: readMatchCheck(value.matchCheck),
+      canRecheck: readMatchCheck(value.matchCheck) === 'failed' && value.canRecheck === true,
       localId: typeof value.localId === 'string' ? value.localId : undefined,
       photoRef: typeof value.photoRef === 'string' ? value.photoRef : undefined,
       ...(safeLocation(value.lat, value.lng) ?? {}),

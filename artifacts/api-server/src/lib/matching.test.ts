@@ -7,7 +7,7 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: { chat: { completions: { create } } },
 }));
 
-import { matchCatPhoto, type NewPhotoInput } from "./matching";
+import { isQuickRetryable, matchCatPhoto, type NewPhotoInput } from "./matching";
 
 function replies(obj: unknown) {
   create.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(obj) } }] });
@@ -126,5 +126,59 @@ describe("matchCatPhoto with one photo", () => {
     replies({ isCatPhoto: true, matches: [] });
     const r = await matchCatPhoto([THREE[0]!], []);
     expect(r).toEqual({ isCatPhoto: true, mixedCats: false, matches: [] });
+  });
+});
+
+// SYC-503 D3: a 30-second cap per try, and one retry only for a quick failure.
+describe("matchCatPhoto time limit and retry (SYC-503)", () => {
+  const ok = { choices: [{ message: { content: JSON.stringify({ anyCat: true, matches: [] }) } }] };
+
+  it("caps each try at 30 seconds and turns the library's own retries off", async () => {
+    create.mockResolvedValueOnce(ok);
+    await matchCatPhoto("ONE", []);
+    expect(create.mock.calls[0]![1]).toEqual({ timeout: 30_000, maxRetries: 0 });
+  });
+
+  it("retries once when the service couldn't be reached", async () => {
+    create.mockRejectedValueOnce(Object.assign(new Error("Connection error."), { status: undefined }));
+    create.mockResolvedValueOnce(ok);
+    await expect(matchCatPhoto("ONE", [])).resolves.toMatchObject({ isCatPhoto: true });
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries once on a server error, and gives up if that fails too", async () => {
+    create.mockRejectedValueOnce(Object.assign(new Error("502"), { status: 502 }));
+    create.mockRejectedValueOnce(Object.assign(new Error("503"), { status: 503 }));
+    await expect(matchCatPhoto("ONE", [])).rejects.toThrow("503");
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("never retries a 4xx", async () => {
+    create.mockRejectedValueOnce(Object.assign(new Error("400"), { status: 400 }));
+    await expect(matchCatPhoto("ONE", [])).rejects.toThrow("400");
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("never retries after a timeout (a slow failure)", async () => {
+    vi.useFakeTimers();
+    try {
+      create.mockImplementationOnce(async () => {
+        vi.advanceTimersByTime(30_000);
+        throw new Error("Request timed out.");
+      });
+      await expect(matchCatPhoto("ONE", [])).rejects.toThrow("timed out");
+      expect(create).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("isQuickRetryable", () => {
+  it("is quick-and-not-4xx only", () => {
+    expect(isQuickRetryable(new Error("x"), 100)).toBe(true);
+    expect(isQuickRetryable({ status: 500 }, 100)).toBe(true);
+    expect(isQuickRetryable({ status: 429 }, 100)).toBe(false);
+    expect(isQuickRetryable(new Error("x"), 5_000)).toBe(false);
   });
 });

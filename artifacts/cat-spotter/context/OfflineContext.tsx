@@ -131,6 +131,11 @@ interface OfflineContextValue {
   ) => Promise<void>;
   syncNow: () => Promise<void>;
   syncing: boolean;
+  /**
+   * SYC-503: store a successful "Check again" on a waiting item. Throws
+   * QueueWriteError if the change could not be saved.
+   */
+  updateReview: (localId: string, result: Omit<ReviewResult, 'sightingId'>) => Promise<void>;
   /** Number of synced sightings waiting for the user's review. */
   reviewReadyCount: number;
   /** True right after queued sightings finish syncing, until dismissed. */
@@ -300,9 +305,38 @@ async function prepareLoadedQueue(ctx: LoadContext): Promise<void> {
   await cleanupOrphanPhotos(keep).catch(() => undefined);
 }
 
+/** What the server answered about a sent spot: its check, and any look-alikes. */
+type ReviewResult = Pick<
+  PendingSighting,
+  'sightingId' | 'isCatPhoto' | 'candidates' | 'matchCheck' | 'canRecheck'
+>;
+
+/**
+ * SYC-503: a successful "Check again" replaces a waiting item's stored
+ * answer, so reopening it later shows the new result. Only an item still
+ * waiting for review, and only its answer.
+ */
+export function applyRecheck(
+  localId: string,
+  result: Omit<ReviewResult, 'sightingId'>,
+) {
+  return (list: PendingSighting[]) =>
+    list.map((p) =>
+      p.localId === localId && p.status === 'review'
+        ? {
+            ...p,
+            isCatPhoto: result.isCatPhoto,
+            candidates: result.candidates,
+            matchCheck: result.matchCheck,
+            canRecheck: result.canRecheck,
+          }
+        : p,
+    );
+}
+
 function markReview(
   localId: string,
-  result: Pick<PendingSighting, 'sightingId' | 'isCatPhoto' | 'candidates'>,
+  result: ReviewResult,
   extraNote?: PendingSighting['extraNote'],
 ) {
   return (list: PendingSighting[]) =>
@@ -314,6 +348,8 @@ function markReview(
             sightingId: result.sightingId,
             isCatPhoto: result.isCatPhoto,
             candidates: result.candidates,
+            matchCheck: result.matchCheck,
+            canRecheck: result.canRecheck,
             ...(extraNote ? { extraNote } : {}),
           }
         : p,
@@ -746,6 +782,13 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     [store],
   );
 
+  const updateReview = useCallback(
+    async (localId: string, result: Omit<ReviewResult, 'sightingId'>) => {
+      await store.mutate(applyRecheck(localId, result), 'user');
+    },
+    [store],
+  );
+
   const retry = useCallback(
     async (localId: string) => {
       await store.mutate((list) => resetForRetry(list, localId), 'user');
@@ -788,6 +831,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
               sightingId: undefined,
               isCatPhoto: undefined,
               candidates: undefined,
+              matchCheck: undefined,
+              canRecheck: undefined,
             };
             return replacement;
           }),
@@ -941,6 +986,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       enqueue,
       remove,
       retry,
+      updateReview,
       replacePhoto,
       removeExtraPhoto,
       replaceExtraPhoto,
@@ -965,6 +1011,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       enqueue,
       remove,
       retry,
+      updateReview,
       replacePhoto,
       removeExtraPhoto,
       replaceExtraPhoto,
