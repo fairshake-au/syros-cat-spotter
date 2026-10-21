@@ -159,7 +159,33 @@ export interface BarPart {
   label: string;
   value: number;
   colour: string;
+  /** A non-colour cue drawn over the colour (white hatching or dots), so a black-and-white print still tells parts apart. */
+  pattern?: "solid" | "hatch" | "dots";
 }
+
+/**
+ * The white patterns drawn over a coloured part, once per chart. Their ids
+ * are page-wide (the legend's swatches use them too), so a page holds at most
+ * one patterned bar chart; a second one would repeat the ids harmlessly but
+ * invalidly.
+ */
+const PATTERN_DEFS =
+  "<defs>" +
+  '<pattern id="pat-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2.4" height="6" fill="#fff"/></pattern>' +
+  '<pattern id="pat-dots" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.3" fill="#fff"/></pattern>' +
+  "</defs>";
+
+/** A part's pattern over its colour: nothing for a plain or solid part. */
+const patternOver = (part: BarPart, x: number, y: number, w: number, h: number, title: string) =>
+  part.pattern === "hatch" || part.pattern === "dots"
+    ? `<rect x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="2" fill="url(#pat-${part.pattern})">${title}</rect>`
+    : "";
+
+/** A legend swatch: the part's colour and pattern, drawn (so it prints, unlike a CSS background). */
+const legendSwatch = (part: BarPart) =>
+  `<svg class="swatch" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="${esc(part.colour)}"/>` +
+  patternOver(part, 0, 0, 14, 14, "") +
+  "</svg>";
 
 /**
  * Bars over time (counts per week or month), each split into parts stacked in
@@ -188,9 +214,10 @@ export function barChart(o: { bars: { at: Date; parts: BarPart[] }[]; title: str
           const h = Math.max(1, part.value * unit - GAP);
           const top = base - h;
           base = top - GAP;
+          const title = `<title>${esc(`${part.label}: ${part.value}, from ${dayWords(b.at)}`)}</title>`;
           return (
-            `<rect x="${r1(bx)}" y="${r1(top)}" width="${r1(w)}" height="${r1(h)}" rx="2" fill="${esc(part.colour)}">` +
-            `<title>${esc(`${part.label}: ${part.value}, from ${dayWords(b.at)}`)}</title></rect>`
+            `<rect x="${r1(bx)}" y="${r1(top)}" width="${r1(w)}" height="${r1(h)}" rx="2" fill="${esc(part.colour)}">${title}</rect>` +
+            patternOver(part, bx, top, w, h, title)
           );
         })
         .join("");
@@ -212,10 +239,11 @@ export function barChart(o: { bars: { at: Date; parts: BarPart[] }[]; title: str
     keys.size === 0
       ? ""
       : `<ul class="chartlegend">${[...keys.values()]
-          .map((k) => `<li><span class="swatch" style="background:${esc(k.colour)}"></span>${esc(k.label)}</li>`)
+          .map((k) => `<li>${legendSwatch(k)}${esc(k.label)}</li>`)
           .join("")}</ul>`;
 
-  return open(H, o.title) + grid(p, scale) + bars + xLabels + "</svg>" + legend;
+  const defs = o.bars.some((b) => b.parts.some((part) => part.pattern === "hatch" || part.pattern === "dots")) ? PATTERN_DEFS : "";
+  return open(H, o.title) + defs + grid(p, scale) + bars + xLabels + "</svg>" + legend;
 }
 
 /**

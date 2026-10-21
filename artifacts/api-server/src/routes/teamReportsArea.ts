@@ -4,19 +4,25 @@ import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { can } from "../lib/capabilities";
 import { visibleColonyIds } from "../lib/guardianView";
 import { colonyHealthReport } from "../lib/reports/colonyHealth";
+import { coverageReport } from "../lib/reports/coverage";
 import { recordDownload } from "../lib/reports/downloads";
 import { progressReport } from "../lib/reports/progress";
 import { parseRange, rangeQuery } from "../lib/reports/range";
+import { welfarePatterns } from "../lib/reports/welfarePatterns";
 import {
   CSV_REPORTS,
+  coverageTables,
   csvFilename,
   csvOf,
   healthTable,
   parseHealthSort,
   progressTables,
+  renderCoveragePage,
   renderHealthPage,
   renderProgressPage,
   renderReportsList,
+  renderWelfarePage,
+  welfareTables,
   type CsvReport,
 } from "../lib/teamPages/reportPages";
 
@@ -58,6 +64,12 @@ router.get("/team/insights/:report.csv", requireTeam("export_report"), async (re
   if (report === "health") {
     const { sort, dir } = parseHealthSort(req.query);
     csv = csvOf(healthTable(await colonyHealthReport(visibleColonyIds(person), range, now), sort, dir, true));
+  } else if (report === "coverage-weeks" || report === "coverage-areas") {
+    const tables = coverageTables(await coverageReport(range, now), true);
+    csv = csvOf(report === "coverage-weeks" ? tables.weeks : tables.areas);
+  } else if (report === "welfare-weeks" || report === "welfare-areas") {
+    const tables = welfareTables(await welfarePatterns(range, now), true);
+    csv = csvOf(report === "welfare-weeks" ? tables.weeks : tables.areas);
   } else {
     const tables = progressTables(await progressReport(range, now), true);
     csv = csvOf(report === "progress-over" ? tables.over : tables.colonies);
@@ -92,6 +104,16 @@ router.get("/team/insights/:report", requireTeam("view_reports"), async (req: Re
     const data = await colonyHealthReport(visibleColonyIds(person), range, now);
     req.log.info({ ms: Date.now() - started, report }, "report worked out");
     return void res.type("html").send(renderHealthPage(data, { personName: person.name, range, sort, dir, canExport }));
+  }
+  if (report === "coverage") {
+    const data = await coverageReport(range, now);
+    req.log.info({ ms: Date.now() - started, report }, "report worked out");
+    return void res.type("html").send(renderCoveragePage(data, { personName: person.name, range, canExport }));
+  }
+  if (report === "welfare") {
+    const data = await welfarePatterns(range, now);
+    req.log.info({ ms: Date.now() - started, report }, "report worked out");
+    return void res.type("html").send(renderWelfarePage(data, { personName: person.name, range, canExport }));
   }
   res.status(404).json({ error: "Not found" });
 });

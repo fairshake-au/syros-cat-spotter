@@ -12,6 +12,8 @@ export const CHART_CSS =
   ".chartlegend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0 0;padding:0;list-style:none;font-size:14px}" +
   ".chartlegend li{display:inline-flex;align-items:center;gap:6px}" +
   ".swatch{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid " + INK + "}" +
+  // A drawn swatch (barChart's legend) carries its own colour and pattern: no second outline.
+  "svg.swatch{border:0;flex:none}" +
   "details.astable{margin:6px 0 12px}" +
   "details.astable>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}" +
   'details.astable>summary::before{content:"▸";flex:none;width:1.2em}' +
