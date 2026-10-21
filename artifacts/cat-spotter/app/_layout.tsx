@@ -36,6 +36,7 @@ import {
 } from '@/context/DeleteMyDataContext';
 import { DeleteMyDataDone } from '@/components/DeleteMyDataDone';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
+import { HeldNameSaver } from '@/hooks/useHeldNameSaver';
 import { StartupErrorScreen } from '@/components/StartupErrorScreen';
 import { BannerStack } from '@/components/BannerStack';
 import { KeepSafeScreen } from '@/components/keepSafe/KeepSafeScreen';
@@ -112,7 +113,7 @@ function FirstBadgeOffer({ children }: { children: React.ReactNode }) {
  * (SYC-3) "Don't lose your spots" once, before the app.
  */
 function OnboardingGate() {
-  const { isReady, username, startupError, moved, keepSafeOffer, setKeepSafeOffer } = useDevice();
+  const { isReady, username, heldUsername, startupError, moved, keepSafeOffer, setKeepSafeOffer } = useDevice();
   // SYC-155: the first screen waits for the stored language, so a phone that
   // chose Greek or French never flashes English first.
   const { isLanguageReady } = useLanguage();
@@ -135,8 +136,10 @@ function OnboardingGate() {
   if (moved) return <MovedScreen />;
   // SYC-3: a restore link works on a phone that hasn't finished onboarding.
   if (pathname === '/restore') return <RootLayoutNav />;
-  if (!username) return <OnboardingFlow />;
-  if (keepSafeOffer === null) {
+  // SYC-506: a name held on the phone (chosen offline) is past onboarding;
+  // HeldNameSaver saves it once there's a connection.
+  if (!username && !heldUsername) return <OnboardingFlow />;
+  if (keepSafeOffer === null && username) {
     const onboarding = startedWithName.current === false;
     return (
       <KeepSafeScreen
@@ -150,6 +153,7 @@ function OnboardingGate() {
   const app = (
     <>
       <OfflineTilesLoader />
+      {!username && <HeldNameSaver />}
       <RootLayoutNav />
       <BannerStack />
     </>
