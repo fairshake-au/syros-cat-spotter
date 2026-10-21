@@ -307,6 +307,9 @@ export function renderHealthPage(
 
 // ─── Coverage and spotting ──────────────────────────────────────────────
 
+/** A total that isn't a status (§12.2): neutral ink #1d1d1b at 55%. */
+const NEUTRAL_TOTAL = "rgba(29,29,27,0.55)";
+
 export const NO_SPOTTER = "Sightings from spotters who have since deleted their account count as sightings, but not as spotters";
 
 const WEEK_COLUMNS: TableColumn[] = [
@@ -357,7 +360,7 @@ export function renderCoveragePage(r: CoverageReport, o: { personName: string; r
       : '<div class="chartbox">' +
         barChart({
           title: "Sightings per week",
-          bars: r.perWeek.map((w) => ({ at: w.at, parts: [{ key: "sightings", label: "Sightings", value: w.sightings, colour: "#1d1d1b" }] })),
+          bars: r.perWeek.map((w) => ({ at: w.at, parts: [{ key: "sightings", label: "Sightings", value: w.sightings, colour: NEUTRAL_TOTAL }] })),
         }) +
         "</div>" +
         tableFor(t.weeks) +
