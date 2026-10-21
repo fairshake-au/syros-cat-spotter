@@ -19,7 +19,7 @@
 5. A report sent from a cat's page **knows the cat**, but its map **still starts where the reporter is**. The map never shows where a cat is usually fed.
 
 **Review:** an adversarial review of 0.1 found 1 blocker, 8 major and 13 minor issues. All are handled here; §10 says where.
-**Status:** Revised, awaiting Samuel's approval.
+**Status:** **Approved by Samuel, 21 October 2026** ("approved, write the plan").
 
 ---
 
