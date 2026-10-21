@@ -35,7 +35,7 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
       : cat.name;
   // Join with a full stop, unless a part already ends its sentence ("Nefeli. Not spotted yet.").
   const a11yLabel = [lead, distanceText, discovererText]
-    .filter(Boolean)
+    .filter((part): part is string => Boolean(part))
     .reduce((acc, part) => (/[.!?;]$/.test(acc) ? `${acc} ${part}` : `${acc}. ${part}`));
 
   return (
