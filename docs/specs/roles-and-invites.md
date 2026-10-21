@@ -295,6 +295,8 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `set_site_public` | Make a feeding site public or private again, and change a public label | Island-only | ✓ | ✓ | — |
 | `edit_named_areas` | Add, rename, move or retire a named area (team-dashboard-redesign.md §3.3). Every change is kept in the history | Island-only | ✓ | ✓ | — |
 | `find_cat_from_photo` | Search the cats of an area or colony with a photo | Island-only | ✓ | ✓ | — |
+| `view_reports` | See the reports (cat guardians: their colonies' progress and health) | Placed | All | All | Own |
+| `export_report` | Download a report as a spreadsheet | Island-only | ✓ | ✓ | — |
 | `request_site_public` | Ask the team to make a site in her colony public. Changes nothing by itself (§6.7) | Placed | — | — | Own |
 | `review_hand_picks` | Check the "Matched by hand" list for cats in her colonies; she sees a hand-picked sighting's position only at the 250 m-square level | Placed | All | All | Own |
 | `match_cat_anywhere` | Pick a cat from anywhere on the island when matching a photo (published positions only). Reserved: see note 3 | Role-wide | ✓ | ✓ | ✓ |
