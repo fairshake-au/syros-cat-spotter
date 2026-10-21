@@ -104,7 +104,8 @@ function AboutCatStrip({
         <Pressable
           onPress={onDifferent}
           hitSlop={8}
-          accessibilityRole="link"
+          // It acts in place (clears the cat), so a button, not a link.
+          accessibilityRole="button"
           accessibilityLabel={t('reportDifferentCat')}
           testID="report-cat-different"
         >

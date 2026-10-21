@@ -6,7 +6,7 @@ import {
   welfareReportPhotosTable,
   welfareReportsTable,
 } from "@workspace/db";
-import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { OVERDUE_MINUTES } from "./mail/outbox";
 import { teamPhotoUrl } from "./teamCatView";
@@ -288,7 +288,11 @@ function reportsQuery(where: SQL | undefined) {
     )
     .leftJoin(catsTable, eq(catsTable.id, welfareReportsTable.catId))
     .leftJoin(suggestedCat, eq(suggestedCat.id, welfareReportsTable.reporterCatId))
-    .leftJoin(suggestedCatPhoto, eq(suggestedCatPhoto.id, suggestedCat.primaryPhotoId))
+    .leftJoin(
+      suggestedCatPhoto,
+      // A photo removed for good gives no thumbnail, not a broken one.
+      and(eq(suggestedCatPhoto.id, suggestedCat.primaryPhotoId), isNull(suggestedCatPhoto.removedAt)),
+    )
     .leftJoin(changedBy, eq(changedBy.id, welfareReportsTable.stateChangedBy))
     .leftJoin(notedBy, eq(notedBy.id, welfareReportsTable.teamNoteBy))
     .where(and(isWelfare, where));
@@ -307,7 +311,11 @@ function draftsQuery(where: SQL | undefined) {
     })
     .from(welfareReportsTable)
     .leftJoin(suggestedCat, eq(suggestedCat.id, welfareReportsTable.reporterCatId))
-    .leftJoin(suggestedCatPhoto, eq(suggestedCatPhoto.id, suggestedCat.primaryPhotoId))
+    .leftJoin(
+      suggestedCatPhoto,
+      // A photo removed for good gives no thumbnail, not a broken one.
+      and(eq(suggestedCatPhoto.id, suggestedCat.primaryPhotoId), isNull(suggestedCatPhoto.removedAt)),
+    )
     .where(and(isWelfare, where));
 }
 

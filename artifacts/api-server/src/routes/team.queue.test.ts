@@ -236,6 +236,34 @@ describe("SYC-504: the suggested cat", () => {
     });
     expect(drafts["draft-none"]!.suggestedCat).toBeNull();
   });
+  it("a cat whose photo was removed for good gets no thumbnail, not a broken one", async () => {
+    const [p] = await db
+      .insert(photosTable)
+      .values({
+        publicId: "vt-queue-photo-gone",
+        data: null,
+        mime: "image/jpeg",
+        removedAt: new Date(),
+        removedBy: mariaId,
+        removedReason: "SYC-1",
+      })
+      .returning({ id: photosTable.id });
+    const [c] = await db
+      .insert(catsTable)
+      .values({
+        name: "vt-queue-Ghost",
+        description: "",
+        primaryPhotoId: p!.id,
+        lat: 37.445,
+        lng: 24.942,
+        discovererDeviceId: "vt-queue-spotter",
+      })
+      .returning({ id: catsTable.id });
+    await seedReport({ publicId: "photo-gone", reporterCatId: c!.id });
+    const q = await getQueue();
+    const r = q.open.find((x) => x.id === "photo-gone")!;
+    expect(r.suggestedCat).toEqual({ id: c!.id, name: "vt-queue-Ghost", photoUrl: null });
+  });
 });
 
 describe("P1-4: nothing private leaves the queue", () => {

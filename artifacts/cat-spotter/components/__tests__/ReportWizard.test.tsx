@@ -359,7 +359,7 @@ describe('SYC-504: "About {name}" on Where only', () => {
     expect(w.getByTestId('photo-thumb').getAttribute("aria-label")).toBe('https://api.test/api/photos/ph-1');
     const link = w.getByTestId('report-cat-different');
     expect(link.textContent).toBe(T.reportDifferentCat);
-    expect(link.getAttribute('role')).toBe('link');
+    expect(link.getAttribute('role')).toBe('button');
     expect(link.getAttribute('aria-label')).toBe(T.reportDifferentCat);
   });
 
