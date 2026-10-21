@@ -260,6 +260,13 @@
       "when": 1792623578723,
       "tag": "0036_vet_settings_history",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792625955149,
+      "tag": "0037_report_suggested_cat",
+      "breakpoints": true
     }
   ]
 }
