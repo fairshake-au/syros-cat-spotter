@@ -1,7 +1,7 @@
 import { CELL_LAT_DEG, CELL_LNG_DEG } from "@workspace/geo";
 import { namedAreasAt } from "../areas/areaHistory";
 import { OFF_SYROS, areaForIn, type NamedArea } from "../areas/namedAreas";
-import { cellCentre, cellsFrom, sightingsIn, type Cell, type SightingPoint } from "../dashboard/coverageCells";
+import { cellCentre, cellOf, cellsFrom, sightingsIn, type Cell, type SightingPoint } from "../dashboard/coverageCells";
 import { weeksIn, type Range } from "./range";
 
 // Coverage and spotting (SYC-396 PR 3.3b, Task 3.3b.1; spec §9.3 report 3).
@@ -72,7 +72,11 @@ export function coverageFrom(
   range: Range,
 ): Omit<CoverageReport, "areasVersion" | "workedOutAt" | "ms"> {
   const areaOf = (p: { lat: number; lng: number }) => areaForIn(areas, p.lat, p.lng);
-  const onSyros = points.filter((p) => areaOf(p).key !== OFF_SYROS.key);
+  // On Syros by its square's centre, as the squares are, so the areas table and the map always agree (review of PR 3.3b).
+  const onSyros = points.filter((p) => {
+    const c = cellOf(p);
+    return areaOf(cellCentre(c.row, c.col)).key !== OFF_SYROS.key;
+  });
   const cells = cellsFrom(onSyros, areas)
     .map((c) => ({ ...c, areaKey: areaOf(cellCentre(c.row, c.col)) }))
     .filter((c) => c.areaKey.key !== OFF_SYROS.key);
@@ -85,7 +89,8 @@ export function coverageFrom(
     else row.notLookedAt++;
   }
   for (const p of onSyros) {
-    const row = byArea.get(areaOf(p).key);
+    const c = cellOf(p);
+    const row = byArea.get(areaOf(cellCentre(c.row, c.col)).key);
     if (row) row.sightings++;
   }
 

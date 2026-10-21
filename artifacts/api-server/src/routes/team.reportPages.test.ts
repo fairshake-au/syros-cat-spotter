@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { coloniesTable, db, observationsTable, pool } from "@workspace/db";
+import { coloniesTable, db, observationsTable, pool, sightingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { deleteTestSightings } from "../test/sightings";
+import { seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import app from "../app";
 import { RUN, seedCat, signedPerson, type Signed } from "../test/roleKit";
 
@@ -159,7 +162,21 @@ describe("Colony health", () => {
   });
 });
 
+/** The photo of this file's one sighting, for cleaning up. */
+let sightingPhoto: number;
+
 describe("Coverage and spotting (PR 3.3b)", () => {
+  beforeAll(async () => {
+    // One sighting in Kini today, so every table on the page is drawn.
+    const c = await seedCat(null);
+    sightingPhoto = c.photoId;
+    await db.insert(sightingsTable).values({ deviceId: `vt-roles-device-${RUN}`, photoId: c.photoId, lat: 37.4436, lng: 24.8889, status: "pending" });
+  });
+
+  afterAll(async () => {
+    await deleteTestSightings(eq(sightingsTable.photoId, sightingPhoto));
+  });
+
   it("shows the spotting count, sightings per week and the squares, each chart with its table", async () => {
     const res = await get("/api/team/insights/coverage?range=all");
     expect(res.status).toBe(200);
@@ -172,20 +189,23 @@ describe("Coverage and spotting (PR 3.3b)", () => {
 
   it("each spreadsheet's columns are its table's, and holds no position", async () => {
     const page = await get("/api/team/insights/coverage?range=all");
-    // The weeks table is shown only once there is a sighting; find each table by its caption.
     const captions = [...page.text.matchAll(/<table class="rtable"><caption>([^<]*)<\/caption>/g)].map((m) => m[1]);
-    for (const [file, caption] of [["coverage-weeks", "Sightings per week"], ["coverage-areas", "Every named area, most squares not looked at yet first"]] as const) {
+    expect(captions).toEqual(["Sightings per week", "Every named area, most squares not looked at yet first"]);
+    for (const [file, n] of [["coverage-weeks", 0], ["coverage-areas", 1]] as const) {
       const csv = await get(`/api/team/insights/${file}.csv?range=all`);
       expect(csv.status, file).toBe(200);
-      const n = captions.indexOf(caption);
-      if (n >= 0) expect(csvHeader(csv.text), file).toEqual(headers(page.text, n));
-      else expect(caption).toBe("Sightings per week");
+      expect(csvHeader(csv.text), file).toEqual(headers(page.text, n));
       expect(csv.text, file).not.toMatch(/\d+\.\d{3,}/);
     }
   });
 });
 
 describe("Welfare patterns (PR 3.3b)", () => {
+  beforeAll(async () => {
+    // One welfare report today, so the chart and both tables are drawn.
+    await seedReport({ severity: "urgent", lat: 37.4436, lng: 24.8889 });
+  });
+
   it("shows the kinds, the counts kept apart, and the areas table", async () => {
     const res = await get("/api/team/insights/welfare?range=all");
     expect(res.status).toBe(200);
@@ -199,13 +219,14 @@ describe("Welfare patterns (PR 3.3b)", () => {
 
   it("each spreadsheet's columns are its table's", async () => {
     const page = await get("/api/team/insights/welfare?range=all");
-    const tables = [...page.text.matchAll(/<table class="rtable">/g)].length;
+    expect([...page.text.matchAll(/<table class="rtable">/g)]).toHaveLength(2);
     const csv = await get("/api/team/insights/welfare-weeks.csv?range=all");
     expect(csv.status).toBe(200);
     expect(csvHeader(csv.text)).toEqual(["Week starting", "Urgent", "Needs attention", "Litter", "All welfare reports"]);
+    expect(csvHeader(csv.text)).toEqual(headers(page.text, 0));
     const areas = await get("/api/team/insights/welfare-areas.csv?range=all");
     expect(csvHeader(areas.text)).toEqual(["Area", "Welfare reports"]);
-    if (tables === 2) expect(csvHeader(areas.text)).toEqual(headers(page.text, 1));
+    expect(csvHeader(areas.text)).toEqual(headers(page.text, 1));
   });
 });
 

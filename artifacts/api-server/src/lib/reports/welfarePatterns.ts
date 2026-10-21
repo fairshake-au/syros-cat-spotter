@@ -1,5 +1,5 @@
 import { db, welfareReportsTable } from "@workspace/db";
-import { and, gte, lte, sql } from "drizzle-orm";
+import { and, gte, lte, or, sql } from "drizzle-orm";
 import { namedAreasAt } from "../areas/areaHistory";
 import { areaForIn, type NamedArea } from "../areas/namedAreas";
 import { WELFARE_ORDER, kindOf, type WelfareKind } from "../dashboard/welfareKinds";
@@ -23,8 +23,10 @@ import { weeksIn, type Range } from "./range";
 // welfarePatterns.test.ts fails if this file names them, with a mutation
 // probe. Nothing here says who sent a report or who handled it.
 //
-// A report counts on the day it was sent (submitted_at), or on the day it was
-// started if it never was (a draft). "As of" is entered by then (Decision 10).
+// A report counts on the day it was sent (submitted_at). A draft counts on the
+// day it was started, and a report started in the range but sent after it
+// ends counts as a draft there, as things stood then ("as of" is entered by
+// then, Decision 10; review of PR 3.3b).
 //
 // welfareKindGuard.test.ts: this file reads welfare_reports, and decides both
 // kinds: welfare rows feed the chart, drafts and the areas; content rows are
@@ -50,22 +52,29 @@ export interface WelfarePatterns {
 
 export const TOP_AREAS = 10;
 
-/** One row of the read: what kind it is, when it counts, and where (positions stay here). */
+/** One row of the read: what kind it is, when it was started and sent, and where (positions stay here). */
 export interface WelfareRow {
   kind: string;
-  isDraft: boolean;
   severity: "urgent" | "attention";
   isLitter: boolean;
   lat: number | null;
   lng: number | null;
-  at: Date;
+  createdAt: Date;
+  /** When it was sent (submitted_at, else created_at); null while it is still a draft. */
+  sentAt: Date | null;
 }
 
 /** The report from its rows. Pure. */
 export function patternsFrom(rows: readonly WelfareRow[], areas: readonly NamedArea[], range: Range): Omit<WelfarePatterns, "areasVersion" | "workedOutAt" | "ms"> {
-  const sent = rows.filter((r) => r.kind === "welfare" && !r.isDraft);
-  const drafts = rows.filter((r) => r.kind === "welfare" && r.isDraft).length;
-  const contentReports = rows.filter((r) => r.kind === "content" && !r.isDraft).length;
+  const from = range.from?.getTime() ?? -Infinity;
+  const to = range.to.getTime();
+  const inRange = (d: Date) => d.getTime() >= from && d.getTime() <= to;
+  // Sent by the end of the range ("as of" is entered by then, Decision 10).
+  const sentBy = (r: WelfareRow) => r.sentAt !== null && r.sentAt.getTime() <= to;
+  const sent = rows.filter((r) => r.kind === "welfare" && r.sentAt !== null && inRange(r.sentAt)).map((r) => ({ ...r, at: r.sentAt! }));
+  // Started in the range and not sent by its end, even if it was sent later: a draft as things stood then.
+  const drafts = rows.filter((r) => r.kind === "welfare" && inRange(r.createdAt) && !sentBy(r)).length;
+  const contentReports = rows.filter((r) => r.kind === "content" && r.sentAt !== null && inRange(r.sentAt)).length;
 
   const first = sent.reduce<Date>((m, r) => (r.at < m ? r.at : m), range.to);
   const starts = weeksIn(range, first);
@@ -92,12 +101,17 @@ export function patternsFrom(rows: readonly WelfareRow[], areas: readonly NamedA
 export async function welfarePatterns(range: Range, now: Date): Promise<WelfarePatterns> {
   const started = Date.now();
   const w = welfareReportsTable;
-  const at = sql<Date>`coalesce(${w.submittedAt}, ${w.createdAt})`.mapWith(w.createdAt);
+  const sentAt = sql<Date | null>`case when ${w.isDraft} then null else coalesce(${w.submittedAt}, ${w.createdAt}) end`.mapWith(w.createdAt);
   const [rows, areas] = await Promise.all([
     db
-      .select({ kind: w.kind, isDraft: w.isDraft, severity: w.severity, isLitter: w.isLitter, lat: w.lat, lng: w.lng, at })
+      .select({ kind: w.kind, severity: w.severity, isLitter: w.isLitter, lat: w.lat, lng: w.lng, createdAt: w.createdAt, sentAt })
       .from(w)
-      .where(and(lte(w.createdAt, range.to), lte(at, range.to), range.from === null ? undefined : gte(at, range.from))),
+      .where(
+        and(
+          lte(w.createdAt, range.to),
+          range.from === null ? undefined : or(gte(w.createdAt, range.from), gte(w.submittedAt, range.from)),
+        ),
+      ),
     namedAreasAt(range.to),
   ]);
   const typed = rows.map((r) => ({ ...r, severity: r.severity === "urgent" ? ("urgent" as const) : ("attention" as const) }));

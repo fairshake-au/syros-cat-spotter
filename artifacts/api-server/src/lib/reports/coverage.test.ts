@@ -8,7 +8,7 @@ import { deleteTestSightings } from "../../test/sightings";
 import { SEED_AREAS } from "../areas/namedAreas";
 import { cellOf } from "../dashboard/coverageCells";
 import { coverageTables, csvOf, renderCoveragePage } from "../teamPages/reportPages";
-import { coverageFrom, coverageReport, type CoverageReport } from "./coverage";
+import { bucketWeeks, coverageFrom, coverageReport, type CoverageReport } from "./coverage";
 import { parseRange } from "./range";
 
 // SYC-396 PR 3.3b, Task 3.3b.1 (spec §9.3 report 3): Coverage and spotting.
@@ -66,6 +66,38 @@ describe("coverageFrom", () => {
     expect(r.areas).toHaveLength(SEED_AREAS.length);
     for (let i = 1; i < r.areas.length; i++) expect(r.areas[i - 1]!.notLookedAt).toBeGreaterThanOrEqual(r.areas[i]!.notLookedAt);
     expect(r.areas.find((a) => a.area === "Kini")).toMatchObject({ seen: 1, sightings: 2 });
+  });
+});
+
+describe("bucketWeeks (Syros weeks, Monday to Sunday)", () => {
+  // Mondays at midnight on Syros (UTC+3 in summer time).
+  const MON_1 = at("2026-09-27T21:00:00Z"); // Mon 28 Sep 00:00 Athens
+  const MON_2 = at("2026-10-04T21:00:00Z"); // Mon 5 Oct 00:00 Athens
+  const MON_3 = at("2026-10-11T21:00:00Z"); // Mon 12 Oct 00:00 Athens
+  const starts = [MON_1, MON_2, MON_3];
+  const cases: [string, string, number][] = [
+    ["Sunday 23:30 on Syros is the week before", "2026-10-04T20:30:00Z", 0],
+    ["exactly Monday midnight on Syros starts the new week", "2026-10-04T21:00:00Z", 1],
+    ["Monday 00:10 on Syros, still Sunday in UTC, is the new week", "2026-10-04T21:10:00Z", 1],
+    ["late in the last week", "2026-10-18T20:00:00Z", 2],
+    ["the first moment", "2026-09-27T21:00:00Z", 0],
+  ];
+  for (const [name, iso, week] of cases) {
+    it(name, () => {
+      const counts = bucketWeeks(starts, [at(iso)], (d) => d);
+      expect(counts.indexOf(1)).toBe(week);
+      expect(counts.reduce((a, b) => a + b, 0)).toBe(1);
+    });
+  }
+
+  it("the report's weeks start on Syros Mondays", () => {
+    for (const w of report().perWeek) {
+      expect(w.at.toLocaleDateString("en-GB", { weekday: "long", timeZone: "Europe/Athens" })).toBe("Monday");
+      expect(w.at.toLocaleTimeString("en-GB", { timeZone: "Europe/Athens", hourCycle: "h23" })).toBe("00:00:00");
+    }
+    // 1 and 2 Oct are one week; 15 and 16 Oct (three sightings) another.
+    const busy = report().perWeek.filter((w) => w.sightings > 0).map((w) => w.sightings);
+    expect(busy).toEqual([2, 3]);
   });
 });
 

@@ -17,15 +17,10 @@ const RANGE = parseRange({ range: "3months" }, NOW);
 const VAPORIA = { lat: 37.4447, lng: 24.9475 };
 const KINI = { lat: 37.4436, lng: 24.8889 };
 
-const row = (o: Partial<WelfareRow>): WelfareRow => ({
-  kind: "welfare",
-  isDraft: false,
-  severity: "attention",
-  isLitter: false,
-  ...VAPORIA,
-  at: new Date("2026-10-05T10:00:00Z"),
-  ...o,
-});
+const row = (o: Partial<WelfareRow> & { at?: Date; isDraft?: boolean }): WelfareRow => {
+  const { at = new Date("2026-10-05T10:00:00Z"), isDraft = false, ...rest } = o;
+  return { kind: "welfare", severity: "attention", isLitter: false, ...VAPORIA, createdAt: at, sentAt: isDraft ? null : at, ...rest };
+};
 
 const ROWS: WelfareRow[] = [
   row({ severity: "urgent", isLitter: true }),
@@ -63,6 +58,15 @@ describe("patternsFrom", () => {
     const r = patternsFrom([row({ isDraft: true })], SEED_AREAS, RANGE);
     expect(r).toMatchObject({ drafts: 1, total: 0, topAreas: [] });
     expect(total(r)).toBe(0);
+  });
+
+  it("a report started in the range but sent after it ends was a draft as things stood then (review of PR 3.3b)", () => {
+    const past = parseRange({ range: "custom", from: "2026-09-01", to: "2026-09-30" }, NOW);
+    const r = patternsFrom([row({ createdAt: new Date("2026-09-28T10:00:00Z"), sentAt: new Date("2026-10-03T10:00:00Z") })], SEED_AREAS, past);
+    expect(r).toMatchObject({ drafts: 1, total: 0 });
+    // The same report, read for October: sent, not a draft.
+    const oct = parseRange({ range: "custom", from: "2026-10-01", to: "2026-10-20" }, NOW);
+    expect(patternsFrom([row({ createdAt: new Date("2026-09-28T10:00:00Z"), sentAt: new Date("2026-10-03T10:00:00Z") })], SEED_AREAS, oct)).toMatchObject({ drafts: 0, total: 1 });
   });
 
   it("lists the areas with the most reports first", () => {
