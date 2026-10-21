@@ -159,6 +159,56 @@ describe("Colony health", () => {
   });
 });
 
+describe("Coverage and spotting (PR 3.3b)", () => {
+  it("shows the spotting count, sightings per week and the squares, each chart with its table", async () => {
+    const res = await get("/api/team/insights/coverage?range=all");
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/<strong>\d+<\/strong> sightings?, from <strong>\d+<\/strong> spotters?/);
+    expect(res.text).toContain("Spotters are counted, never named.");
+    expect(res.text).toContain('aria-label="Squares sighted in this period, and squares not looked at yet"');
+    expect(res.text).toContain("Counted by the date each sighting was sent.");
+    expect(res.text).toMatch(/id="areas-version">Place names from the named areas, version \d+/);
+  });
+
+  it("each spreadsheet's columns are its table's, and holds no position", async () => {
+    const page = await get("/api/team/insights/coverage?range=all");
+    // The weeks table is shown only once there is a sighting; find each table by its caption.
+    const captions = [...page.text.matchAll(/<table class="rtable"><caption>([^<]*)<\/caption>/g)].map((m) => m[1]);
+    for (const [file, caption] of [["coverage-weeks", "Sightings per week"], ["coverage-areas", "Every named area, most squares not looked at yet first"]] as const) {
+      const csv = await get(`/api/team/insights/${file}.csv?range=all`);
+      expect(csv.status, file).toBe(200);
+      const n = captions.indexOf(caption);
+      if (n >= 0) expect(csvHeader(csv.text), file).toEqual(headers(page.text, n));
+      else expect(caption).toBe("Sightings per week");
+      expect(csv.text, file).not.toMatch(/\d+\.\d{3,}/);
+    }
+  });
+});
+
+describe("Welfare patterns (PR 3.3b)", () => {
+  it("shows the kinds, the counts kept apart, and the areas table", async () => {
+    const res = await get("/api/team/insights/welfare?range=all");
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/<strong>\d+<\/strong> welfare reports? sent/);
+    expect(res.text).toContain('<li id="drafts">');
+    expect(res.text).toContain('<li id="content">');
+    // D6: the only mention of response times is the line saying there are none.
+    const rest = res.text.replace("No response times and nothing about who sent or handled a report.", "");
+    expect(rest).not.toMatch(/response time|time open|handled by/i);
+  });
+
+  it("each spreadsheet's columns are its table's", async () => {
+    const page = await get("/api/team/insights/welfare?range=all");
+    const tables = [...page.text.matchAll(/<table class="rtable">/g)].length;
+    const csv = await get("/api/team/insights/welfare-weeks.csv?range=all");
+    expect(csv.status).toBe(200);
+    expect(csvHeader(csv.text)).toEqual(["Week starting", "Urgent", "Needs attention", "Litter", "All welfare reports"]);
+    const areas = await get("/api/team/insights/welfare-areas.csv?range=all");
+    expect(csvHeader(areas.text)).toEqual(["Area", "Welfare reports"]);
+    if (tables === 2) expect(csvHeader(areas.text)).toEqual(headers(page.text, 1));
+  });
+});
+
 describe("Home links its headline to the report (§4.4)", () => {
   it("shows See Sterilisation progress, and reports are no longer coming soon", async () => {
     const res = await get("/api/team/home");
