@@ -1,7 +1,7 @@
 # When the photo check fails
 
 **Ticket:** SYC-503 (parent SYC-501, the 18 Oct 2026 app review). **Related:** SYC-59 (duplicate cats), SYC-151 (the match record), SYC-38 (points).
-**Status:** draft for Samuel's approval, 21 Oct 2026. D1 decided A and D2 decided A by Samuel, 21 Oct 2026.
+**Status:** draft for Samuel's approval, 21 Oct 2026. Approved by Samuel, 21 Oct 2026, with D1 A, D2 A (25 points as usual), D3 30 seconds, D4 as recommended.
 **Builds on:** [`choose-a-different-cat.md`](./choose-a-different-cat.md) (the "Find the cat" picker, hand picks, points), [`offline-queue-on-web.md`](./offline-queue-on-web.md) (queued spots and the review list), [`photo-tips-and-extra-photos.md`](./photo-tips-and-extra-photos.md) (the "not a cat" screen).
 
 ## 1. The problem
@@ -69,7 +69,7 @@ Today a new cat earns 25 points, a match or hand pick 15. Points are paid at onc
 
 Today the matching call has **no time limit of its own**: the OpenAI library's default is 10 minutes, and it retries twice on connection errors and server errors. A matcher that hangs could keep the spotter on "Checking…" for a very long time.
 
-**Recommendation:** cap each try at 60 seconds, set on the matching call itself. Retry once only when the failure was quick (the service couldn't be reached, or answered with a server error); never retry after a timeout. So the spotter waits at most about a minute before the "couldn't check" screen. The phone has no time limit of its own, so this is the only thing protecting the wait. A check compares at most 10 nearby cats, so 60 seconds is generous; how long checks take and how often they time out is logged, so the limit can be tuned.
+**Decided (Samuel, 21 Oct 2026): about 30 seconds** (the recommendation was 60). Each try is capped at 30 seconds, set on the matching call itself. It retries once only when the failure was quick (the service couldn't be reached, or answered with a server error), never after a timeout. So the spotter waits at most about 30 seconds before the "couldn't check" screen, and "Check again" is there for another go. The phone has no time limit of its own, so this is the only thing protecting the wait. How long checks take, and how often they time out, is logged so the limit can be tuned if working checks are being cut off.
 
 ### D4. When there are no known cats nearby
 
@@ -113,7 +113,7 @@ All findings were accepted and folded in; finding 2 became moot when D2 was deci
 | 6 | Other doors into the naming screen (the picker's "Add it as a new cat", the name-taken prompt) would still show "first to spot"; no way back | Medium | Subtitle follows the check, back arrow returns (§2) |
 | 7 | The feeding nudge and the match-wait record would treat a failed check as a normal result | Medium | Its own outcome: no nudge, not counted (§2) |
 | 8 | The queue, banner and recent photos copy the answer without the new field; replacing a photo must clear it | Medium | All named (§5) |
-| 9 | Where the time limit goes was unstated; retrying after a timeout doubles the wait | Medium | Set on the matching call, 60 s, no retry after a timeout, durations logged (D3) |
+| 9 | Where the time limit goes was unstated; retrying after a timeout doubles the wait | Medium | Set on the matching call, 30 s (Samuel's choice), no retry after a timeout, durations logged (D3) |
 | 10 | Re-check needed an explicit check order, the stored location, and protection against two at once | Medium | Specified (§4) |
 | 11 | The discoverer badge still counts a cat named after a failed check; "a spotter can always choose new cat" should be stated as accepted | Medium | Stated (D2) |
 | 12 | Contract should say clients read `matchCheck` first; old saved items must still parse | Low | Stated (§4) |
