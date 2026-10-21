@@ -36,7 +36,7 @@ The feeding nudge's donation link and the starter facts that are switched off li
 | `starter_facts_hidden` | `["fact.earTip","fact.cost"]`, or `[]` | Facts the app must not show. With no row, the nine that need Syros Cats' yes are hidden. `[]` shows all twenty. Unknown ids are refused |
 | `feed_tap_count` | `true` or `false` | Whether a tap on **Help feed a cat** is counted (one number per day). No row means counted |
 | `photo_removal_on` | `true` or `false` | SYC-462: whether `photo-remove` may run on `production`. Set to `true` once, after the live build is confirmed to include SYC-462 (`docs/runbooks/photo-removal.md`, go-live). No row means off. The server doesn't read it |
-| `standard_sterilisation_price_eur` | `60`, a whole number from `1` to `500` | SYC-396 PR 2.3: the standard sterilisation price in euros, for the trapping planner's estimate and the vet-visit form's cost. No row means €60. Team-only: the app is never sent it. The Vet settings page (SYC-396 PR 3.1b) will change it with a history; until then it changes here |
+| `standard_sterilisation_price_eur` | `60`, a whole number from `1` to `500` | SYC-396 PR 2.3: the standard sterilisation price in euros, for the trapping planner's estimate and the vet-visit form's cost. No row means €60. Team-only: the app is never sent it. Change it on the team dashboard's **Vet settings** page (SYC-396 PR 3.1b), which keeps the history of who changed it and when. Use `set-setting` only as a fallback, when the page can't be used: a change made here leaves no history row, so the page's history won't show it |
 
 ```
 gh workflow run db-ops.yml --ref main -f target=production -f command=list-settings
