@@ -6,6 +6,7 @@ import {
   emptyRecord,
   markTapped,
   settleWait,
+  waitOutcomeForSend,
   shouldShowWaitingCard,
   type ScheduleContext,
   type SettingsView,
@@ -331,5 +332,24 @@ describe("the couldn't-check screen (SYC-503)", () => {
     const r = chooseForResult(w.record, LOADED, VISITOR, c, { sightingId: 31, screen: 'couldntCheck' });
     expect(r.show).toBeNull();
     expect(r.record!.nudgeCounted).toBe(false);
+  });
+});
+
+// SYC-503 (review finding 3): how a send ends, for the wait record.
+describe('waitOutcomeForSend (SYC-503)', () => {
+  it('a failed look-alike check is its own outcome, even if "is a cat"', () => {
+    expect(waitOutcomeForSend({ sightingId: 4, isCatPhoto: true, matchCheck: 'failed' })).toEqual({
+      kind: 'couldntCheck',
+    });
+  });
+  it('a check that worked is a result, or not a cat', () => {
+    expect(waitOutcomeForSend({ sightingId: 4, isCatPhoto: true, matchCheck: 'done' })).toEqual({
+      kind: 'result',
+      sightingId: 4,
+    });
+    expect(waitOutcomeForSend({ sightingId: 4, isCatPhoto: false })).toEqual({ kind: 'notCat' });
+  });
+  it('no answer is a failed send', () => {
+    expect(waitOutcomeForSend(null)).toEqual({ kind: 'failed' });
   });
 });

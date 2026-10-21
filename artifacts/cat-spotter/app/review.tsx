@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -92,7 +92,21 @@ type RecheckAnswer = Pick<
   ReviewRouteData,
   "isCatPhoto" | "candidates" | "matchCheck" | "canRecheck"
 >;
-type RecheckState = "idle" | "checking" | "stillFailed" | "limit" | "cantRecheck" | "offline" | "error";
+type RecheckState =
+  | "idle"
+  | "checking"
+  | "stillFailed"
+  | "limit"
+  | "busy"
+  | "cantRecheck"
+  | "offline"
+  | "error";
+
+/** The code on a refused recheck (RESOLVED, CHECK_RUNNING, NOT_CHECKABLE). */
+function recheckCode(err: ApiError): string | undefined {
+  const code = (err.data as { code?: unknown } | null | undefined)?.code;
+  return typeof code === "string" ? code : undefined;
+}
 
 function answerOf(data: ReviewRouteData): RecheckAnswer {
   return {
@@ -124,6 +138,13 @@ export default function ReviewScreen() {
   // SYC-503: read before isCatPhoto and candidates, which mean nothing on a
   // failed check (when-the-photo-check-fails.md §4).
   const checkFailed = data?.matchCheck === "failed";
+  // A recheck's answer belongs to its own sighting only (review of SYC-503,
+  // finding 9): a different sighting in the same screen starts fresh.
+  const sightingId = routeData?.sightingId;
+  useEffect(() => {
+    setRechecked(null);
+    setRecheckState("idle");
+  }, [sightingId]);
   const queuedItem = data?.localId
     ? pending.find((p) => p.localId === data.localId)
     : undefined;
@@ -289,8 +310,11 @@ export default function ReviewScreen() {
       keepAnswer(next);
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) setRecheckState("limit");
-      else if (err instanceof ApiError && err.status === 409) {
-        // Already checked, resolved, or a check is running: not again from here.
+      else if (err instanceof ApiError && err.status === 409 && recheckCode(err) === "CHECK_RUNNING") {
+        // An earlier tap is still being checked: try again in a moment.
+        setRecheckState("busy");
+      } else if (err instanceof ApiError && err.status === 409) {
+        // Resolved, or the failure was never recorded: not again from here.
         setRecheckState("cantRecheck");
         setRechecked((prev) => ({ ...(prev ?? answerOf(routeData)), canRecheck: false }));
       } else if (!(err instanceof ApiError) && err instanceof TypeError) setRecheckState("offline");
@@ -641,6 +665,8 @@ export default function ReviewScreen() {
         ? t("couldntCheckStill")
         : recheckState === "limit"
           ? t("couldntCheckLimit")
+          : recheckState === "busy"
+            ? t("couldntCheckBusy")
           : recheckState === "cantRecheck" || !data.canRecheck
             ? t("couldntCheckCant")
             : recheckState === "offline"

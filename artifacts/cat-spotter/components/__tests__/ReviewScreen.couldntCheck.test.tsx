@@ -32,7 +32,10 @@ vi.mock('react-native-svg', () => {
 });
 vi.mock('@workspace/api-client-react', () => ({
   ApiError: class ApiError extends Error {
-    constructor(public status: number) {
+    constructor(
+      public status: number,
+      public data: unknown = null,
+    ) {
       super(`HTTP ${status}`);
     }
   },
@@ -129,6 +132,26 @@ describe("the couldn't-check screen", () => {
     fireEvent.click(screen.getByTestId('couldnt-check-find'));
     expect(screen.queryByTestId('couldnt-check')).toBeNull();
     expect(text()).toContain(en.pickerAddNewAction);
+    fireEvent.click(screen.getByLabelText(en.back));
+    expect(screen.getByTestId('couldnt-check')).toBeTruthy();
+  });
+
+  it('a name that is taken by a nearby cat, then "no", keeps the unchecked subtitle', async () => {
+    m.resolveSighting.mockRejectedValueOnce(
+      new (ApiError as unknown as new (s: number, d: unknown) => Error)(409, {
+        code: 'NAME_TAKEN',
+        cat: { id: 77, name: 'Mitsos', photoUrl: null },
+      }),
+    );
+    renderReview();
+    fireEvent.click(screen.getByTestId('couldnt-check-new'));
+    fireEvent.change(screen.getByPlaceholderText(en.nameYourCat), { target: { value: 'Mitsos' } });
+    fireEvent.click(screen.getByText(en.addToCatalogButton));
+    await waitFor(() => expect(m.resolveSighting).toHaveBeenCalled());
+    // The taken cat isn't nearby here, so the spotter is asked for another name.
+    await waitFor(() =>
+      expect(screen.getByTestId('naming-subtitle').textContent).toBe(en.newFurriendSubtitleUnchecked),
+    );
   });
 
   it('"It\'s a new cat" names it without "first to spot", and back returns here', () => {
@@ -213,8 +236,35 @@ describe('"Check again"', () => {
     );
   });
 
-  it('a refusal (already checked or resolved) hides the button', async () => {
-    m.recheckSighting.mockRejectedValueOnce(new (ApiError as unknown as new (s: number) => Error)(409));
+  it('"still checking" (an earlier tap is running) keeps the button and says wait', async () => {
+    m.recheckSighting.mockRejectedValueOnce(
+      new (ApiError as unknown as new (s: number, d: unknown) => Error)(409, { code: 'CHECK_RUNNING' }),
+    );
+    renderReview();
+    fireEvent.click(screen.getByTestId('couldnt-check-again'));
+    await waitFor(() =>
+      expect(screen.getByTestId('couldnt-check-line').textContent).toBe(en.couldntCheckBusy),
+    );
+    expect(screen.getByTestId('couldnt-check-again')).toBeTruthy();
+  });
+
+  it('a check that already worked elsewhere comes back with its look-alikes', async () => {
+    m.recheckSighting.mockResolvedValueOnce({
+      sightingId: 503,
+      isCatPhoto: true,
+      candidates: [{ ...FOUND, reasoning: '' }],
+      matchCheck: 'done',
+      canRecheck: false,
+    });
+    renderReview();
+    fireEvent.click(screen.getByTestId('couldnt-check-again'));
+    await waitFor(() => expect(text()).toContain('Krispy'));
+  });
+
+  it('a refusal (resolved, or never recorded) hides the button', async () => {
+    m.recheckSighting.mockRejectedValueOnce(
+      new (ApiError as unknown as new (s: number, d: unknown) => Error)(409, { code: 'RESOLVED' }),
+    );
     renderReview();
     fireEvent.click(screen.getByTestId('couldnt-check-again'));
     await waitFor(() => expect(screen.queryByTestId('couldnt-check-again')).toBeNull());
@@ -243,5 +293,30 @@ describe('the naming screen after a check that worked', () => {
     renderReview({ matchCheck: 'done', canRecheck: false, photoRef: undefined });
     expect(screen.queryByTestId('naming-photo')).toBeNull();
     expect(text()).toContain('🐈');
+  });
+});
+
+describe('a different sighting in the same screen (review finding 9)', () => {
+  it('starts fresh, without the previous sighting\'s recheck answer', async () => {
+    m.recheckSighting.mockResolvedValueOnce({
+      sightingId: 503,
+      isCatPhoto: true,
+      candidates: [FOUND],
+      matchCheck: 'done',
+      canRecheck: false,
+    });
+    const view = renderReview();
+    fireEvent.click(screen.getByTestId('couldnt-check-again'));
+    await waitFor(() => expect(text()).toContain(en.lookalikesFound));
+    m.params = buildReviewParams({
+      sightingId: 504,
+      isCatPhoto: true,
+      candidates: [],
+      matchCheck: 'failed',
+      canRecheck: true,
+      photoRef: 'review-504',
+    });
+    view.rerender(<ReviewScreen />);
+    await waitFor(() => expect(screen.getByTestId('couldnt-check')).toBeTruthy());
   });
 });

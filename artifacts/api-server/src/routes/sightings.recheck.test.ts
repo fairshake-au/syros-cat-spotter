@@ -295,13 +295,55 @@ describe("check again", () => {
     expect(res.status).toBe(403);
   });
 
-  it("refuses a check that worked (409): its answer is final", async () => {
-    const res = await send(DEVICE, spot());
+  it("a check that worked is final: asking again returns its answer, with no new check", async () => {
+    const at = spot();
+    const catId = await seedCat(at);
+    const withheld = await seedCat(at);
+    matchCatPhoto.mockResolvedValueOnce({
+      isCatPhoto: true,
+      matches: [
+        { catId, confidence: 0.9, reasoning: "test" },
+        { catId: withheld, confidence: 0.2, reasoning: "test" },
+      ],
+    });
+    const res = await send(DEVICE, at);
     expect(res.body.matchCheck).toBe("done");
     matchCatPhoto.mockClear();
+    limit.calls = 0;
     const again = await recheck(res.body.sightingId, DEVICE);
-    expect(again.status).toBe(409);
+    expect(again.status).toBe(200);
+    expect(again.body).toMatchObject({ matchCheck: "done", canRecheck: false, isCatPhoto: true });
+    // Only what the send showed: the withheld, below-threshold cat never appears.
+    expect(again.body.candidates.map((c: { catId: number }) => c.catId)).toEqual([catId]);
     expect(matchCatPhoto).not.toHaveBeenCalled();
+    expect(limit.calls).toBe(0);
+  });
+
+  it("the phone that never heard its recheck worked gets the look-alikes, not a dead end", async () => {
+    const { id, at } = await failedSpot();
+    const catId = await seedCat(at);
+    finds(catId);
+    expect((await recheck(id, DEVICE)).body.matchCheck).toBe("done");
+    matchCatPhoto.mockClear();
+    const again = await recheck(id, DEVICE);
+    expect(again.status).toBe(200);
+    expect(again.body.candidates.map((c: { catId: number }) => c.catId)).toEqual([catId]);
+    expect(matchCatPhoto).not.toHaveBeenCalled();
+  });
+
+  it("a stored 'no cat in the photo' comes back as not a cat", async () => {
+    matchCatPhoto.mockResolvedValueOnce({ isCatPhoto: false, matches: [] });
+    const res = await send(DEVICE, spot());
+    const again = await recheck(res.body.sightingId, DEVICE);
+    expect(again.body).toMatchObject({ matchCheck: "done", isCatPhoto: false });
+  });
+
+  it("a failure that was never written down can't be re-checked (409 NOT_CHECKABLE)", async () => {
+    const { id } = await failedSpot();
+    await db.delete(sightingMatchesTable).where(eq(sightingMatchesTable.sightingId, id));
+    const res = await recheck(id, DEVICE);
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("NOT_CHECKABLE");
   });
 
   it("refuses a resolved sighting (409)", async () => {
@@ -311,7 +353,9 @@ describe("check again", () => {
       .set("X-Device-Secret", SECRET)
       .send({ deviceId: DEVICE, newCatName: `${CAT_PREFIX}-resolved-${Date.now()}` });
     expect(resolved.status, JSON.stringify(resolved.body)).toBe(200);
-    expect((await recheck(id, DEVICE)).status).toBe(409);
+    const res = await recheck(id, DEVICE);
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("RESOLVED");
   });
 
   it("refuses a second check while one is running (409)", async () => {
@@ -327,6 +371,7 @@ describe("check again", () => {
     await vi.waitFor(() => expect(matchCatPhoto).toHaveBeenCalledTimes(2));
     const second = await recheck(id, DEVICE);
     expect(second.status).toBe(409);
+    expect(second.body.code).toBe("CHECK_RUNNING");
     finish();
     expect((await first).status).toBe(200);
   });

@@ -56,6 +56,7 @@ import {
   type WaitChoice,
   type WaitingRecord,
   type WaitOutcome,
+  waitOutcomeForSend,
 } from '@/lib/waitingCard';
 import { loadExistingWaitingRecord, loadWaitingRecord, saveWaitingRecord } from '@/lib/waitingCardStore';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
@@ -931,15 +932,9 @@ export default function SpotScreen() {
         waitTokenRef.current += 1;
         const wait = waitRef.current;
         waitRef.current = null;
-        const waitOutcome: WaitOutcome =
-          outcome.kind === 'sent'
-            ? // SYC-503: a failed check is its own outcome, never a result.
-              outcome.result.matchCheck === 'failed'
-              ? { kind: 'couldntCheck' }
-              : outcome.result.isCatPhoto
-                ? { kind: 'result', sightingId: outcome.result.sightingId }
-                : { kind: 'notCat' }
-            : { kind: 'failed' };
+        const waitOutcome: WaitOutcome = waitOutcomeForSend(
+          outcome.kind === 'sent' ? outcome.result : null,
+        );
         // Only a wait that reached a result changes the record. It is read
         // again first, so nothing written meanwhile is lost, and a record wiped
         // meanwhile ("Delete my data") isn't brought back.

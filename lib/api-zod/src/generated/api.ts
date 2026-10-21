@@ -421,7 +421,7 @@ export const CreateSightingResponse = zod.object({
 
 
 /**
- * Only the sighting's own device, only while it is unresolved, and only when its stored check failed: a check that worked is final. Uses the photos and location already saved. Counts against the same limits as sending a spot. Answers exactly as sending a spot does.
+ * Only the sighting's own device, and only while it is unresolved. After a stored failure it runs the check again on the photos and location already saved, counted against the same limits as sending a spot. A check that worked is final: asking again returns that check's answer (from the stored record, with empty reasoning) and runs nothing, so a phone that never heard a successful recheck still gets the look-alikes. Answers exactly as sending a spot does.
  * @summary Run the look-alike check again after it failed (SYC-503)
  */
 export const RecheckSightingParams = zod.object({

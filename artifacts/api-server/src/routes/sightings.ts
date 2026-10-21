@@ -341,7 +341,7 @@ async function computeMatchCandidates(
     req.log.error({ err }, "AI matching failed; telling the phone the check failed");
   }
 
-  await recordMatch(req, sightingId, {
+  const recorded = await recordMatch(req, sightingId, {
     // A failed call scored nothing, so nothing counts as compared (review
     // F1): a hand pick on it is then a distance miss, never a matcher miss.
     comparedCatIds: matcherFailed ? [] : candidateInputs.map((c) => c.catId),
@@ -358,8 +358,10 @@ async function computeMatchCandidates(
 
   // SYC-503: a failed check is never "no look-alikes". The phone reads
   // matchCheck first; isCatPhoto stays true only because nothing is known.
+  // A failure the server couldn't write down can't be re-checked: recheck
+  // only runs on a stored failure (review of SYC-503, finding 8).
   return matcherFailed
-    ? { isCatPhoto: true, candidates: [], matchCheck: "failed", canRecheck: true }
+    ? { isCatPhoto: true, candidates: [], matchCheck: "failed", canRecheck: recorded }
     : { isCatPhoto, candidates, matchCheck: "done", canRecheck: false };
 }
 
@@ -452,7 +454,7 @@ async function recordMatch(
     noCatInAnyPhoto: boolean | null;
     mixedCats: boolean | null;
   },
-): Promise<void> {
+): Promise<boolean> {
   const values = { ...sets, matchedAt: new Date() };
   try {
     await db
@@ -463,8 +465,10 @@ async function recordMatch(
         set: values,
         setWhere: isNull(sightingMatchesTable.chosenAt),
       });
+    return true;
   } catch (err) {
     req.log.error({ err, sightingId }, "Could not write the match record");
+    return false;
   }
 }
 
@@ -699,6 +703,47 @@ router.post("/sightings", aiLimiter, async (req, res) => {
 });
 
 /**
+ * SYC-503: the answer a check that worked already gave, rebuilt from the
+ * team-only record without calling the matcher again. Used when the phone
+ * asks to check again but never heard that an earlier "Check again"
+ * worked (the app went to the background, or the signal dropped): it gets
+ * the look-alikes rather than a dead end (review of SYC-503, finding 1).
+ * Only what a send would have shown: candidates at or above the threshold,
+ * best first, with the photo the catalogue shows. The model's reasoning
+ * isn't stored, so it is empty.
+ */
+async function storedAnswer(stored: {
+  suggested: SuggestedMatch[] | null;
+  noCatInAnyPhoto: boolean | null;
+}): Promise<MatchAnswer> {
+  const shown = (stored.suggested ?? [])
+    .filter((m) => m.score >= CONFIDENCE_THRESHOLD)
+    .sort((a, b) => a.rank - b.rank);
+  const cats =
+    shown.length > 0
+      ? await db
+          .select()
+          .from(catsTable)
+          .where(inArray(catsTable.id, shown.map((m) => m.catId)))
+      : [];
+  const byId = new Map(cats.map((c) => [c.id, c]));
+  const present = shown.filter((m) => byId.has(m.catId));
+  const photos = await catDisplayPhotos(present.map((m) => byId.get(m.catId)!));
+  return {
+    isCatPhoto: stored.noCatInAnyPhoto !== true,
+    candidates: present.map((m) => ({
+      catId: m.catId,
+      name: byId.get(m.catId)!.name,
+      photoUrl: photos.get(m.catId) ?? null,
+      confidence: m.score,
+      reasoning: "",
+    })),
+    matchCheck: "done",
+    canRecheck: false,
+  };
+}
+
+/**
  * SYC-503 (when-the-photo-check-fails.md §4): one look-alike check per
  * sighting at a time. In-process is enough for one phone double-tapping;
  * recordMatch's "only until a choice is made" guard still protects the record.
@@ -729,26 +774,41 @@ router.post("/sightings/:sightingId/recheck", aiLimiter, async (req, res) => {
   if (!(await verifyDeviceSecret(req, res, sighting.deviceId))) return;
   const deviceId: string = sighting.deviceId;
 
-  if (sighting.status === "resolved") {
-    res.status(409).json({ error: "Sighting already resolved" });
-    return;
-  }
-  const [stored] = await db
-    .select({ matcherFailed: sightingMatchesTable.matcherFailed })
-    .from(sightingMatchesTable)
-    .where(eq(sightingMatchesTable.sightingId, sightingId));
-  // No record at all is not a failure the phone was told about: a fresh
-  // send writes one, failed or not, so the phone never offers recheck then.
-  if (!stored?.matcherFailed) {
-    res.status(409).json({ error: "This photo has already been checked" });
-    return;
-  }
+  // The lock is taken before anything is read, so a check that finishes
+  // meanwhile can't be re-rolled (review of SYC-503, finding 5).
   if (recheckInFlight.has(sightingId)) {
-    res.status(409).json({ error: "This photo is already being checked" });
+    res.status(409).json({ error: "This photo is already being checked", code: "CHECK_RUNNING" });
     return;
   }
   recheckInFlight.add(sightingId);
   try {
+    const [current] = await db
+      .select({ status: sightingsTable.status })
+      .from(sightingsTable)
+      .where(eq(sightingsTable.id, sightingId));
+    if (current?.status === "resolved") {
+      res.status(409).json({ error: "Sighting already resolved", code: "RESOLVED" });
+      return;
+    }
+    const [stored] = await db
+      .select({
+        matcherFailed: sightingMatchesTable.matcherFailed,
+        suggested: sightingMatchesTable.suggested,
+        noCatInAnyPhoto: sightingMatchesTable.noCatInAnyPhoto,
+      })
+      .from(sightingMatchesTable)
+      .where(eq(sightingMatchesTable.sightingId, sightingId));
+    // No record at all: the failure was never written down, so the phone
+    // was told it can't recheck (computeMatchCandidates). Nothing to do.
+    if (!stored) {
+      res.status(409).json({ error: "This photo can't be checked again", code: "NOT_CHECKABLE" });
+      return;
+    }
+    // A check that worked is final: its answer again, never a new roll.
+    if (!stored.matcherFailed) {
+      res.json({ sightingId, ...(await storedAnswer(stored)) });
+      return;
+    }
     const photos = await storedSpotPhotos(sighting);
     if (photos.length === 0) {
       // Nothing to send, so no model call and nothing counted.

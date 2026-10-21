@@ -197,6 +197,18 @@ export type WaitOutcome =
   | { kind: 'failed' };
 
 /**
+ * How a send ended, for the record (SYC-503): a failed look-alike check is
+ * its own outcome, checked before anything else, never a result.
+ */
+export function waitOutcomeForSend(
+  sent: { sightingId: number; isCatPhoto: boolean; matchCheck?: 'done' | 'failed' } | null,
+): WaitOutcome {
+  if (!sent) return { kind: 'failed' };
+  if (sent.matchCheck === 'failed') return { kind: 'couldntCheck' };
+  return sent.isCatPhoto ? { kind: 'result', sightingId: sent.sightingId } : { kind: 'notCat' };
+}
+
+/**
  * The record after a wait ended. Only a wait that reached a result screen
  * changes anything (starter-facts.md §3.2): a fact counts as seen after 3
  * seconds on screen; a nudge is carried to the result screen, where it is
