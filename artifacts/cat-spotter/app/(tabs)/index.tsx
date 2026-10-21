@@ -12,11 +12,9 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
-import colorsConst, { palette } from '@/constants/colors';
+import { palette } from '@/constants/colors';
 import { fonts, fontSizes, spacing } from '@/constants/theme';
 
-/** CatCard's own corner radius — the lock overlay has to match it exactly. */
-const catCardRadius = colorsConst.radius;
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
@@ -25,9 +23,10 @@ import { useCatsWithCache } from '@/hooks/useCatsWithCache';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CatCard } from '@/components/CatCard';
-import { Avatar, StatTile, StatTileGroup } from '@/components/purropolis';
+import { Avatar, Button, StatTile, StatTileGroup } from '@/components/purropolis';
 import { useBannerAreaReserve } from '@/lib/bannerArea';
 import { displayUpperCase } from '@/lib/displayUpperCase';
+import { homeHeroState, stripHeadingKey } from '@/lib/spotted';
 import {
   useGetProfile,
   getGetProfileQueryKey,
@@ -83,6 +82,8 @@ export default function HomeScreen() {
   // denominator is never smaller than the cats actually on screen.
   const totalCats = Math.max(profile?.totalCats ?? 0, cats.length);
   const spotted = profile?.catsSpotted;
+  // 'firstSpot' only when the profile loaded with its list; unknown stays a dash.
+  const hero = homeHeroState(profile);
   const progress =
     spotted !== undefined && totalCats > 0 ? spotted / totalCats : 0;
 
@@ -91,9 +92,9 @@ export default function HomeScreen() {
     [profile?.spottedCatIds],
   );
 
-  // Nearby cats the user has not collected yet lead the strip — those are the
-  // ones the design's "Spot to unlock" treatment is actually for. Without stats
-  // we cannot tell collected from not, so leave the order alone.
+  // Cats the user has not spotted yet lead the strip — those are the ones to
+  // look out for. Without stats we cannot tell spotted from not, so leave the
+  // order alone.
   const nearby = useMemo(() => {
     if (!hasCollectionData) return cats.slice(0, NEARBY_LIMIT);
     const uncollected = cats.filter((c) => !spottedIds.has(c.id));
@@ -153,27 +154,44 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.progressBlock}>
-            <View style={styles.progressLine}>
-              <Text style={styles.progressValue}>{spotted ?? dash}</Text>
-              <Text style={styles.progressLabel}>
-                {t('homeOfNCats').replace('{n}', String(totalCats))}
+          {hero === 'firstSpot' ? (
+            <View style={styles.progressBlock}>
+              <Text style={styles.firstSpotLine}>
+                {t('homeFirstSpotLine').replace('{n}', String(totalCats))}
               </Text>
+              <Button
+                variant="primary"
+                size="lg"
+                block
+                wrapLabel
+                onPress={() => router.push('/spot')}
+              >
+                {t('homeFirstSpotCta')}
+              </Button>
             </View>
-            <View style={styles.progressTrack}>
-              {spotted !== undefined && (
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${Math.min(100, Math.round(progress * 100))}%`,
-                      backgroundColor: palette.sun500,
-                    },
-                  ]}
-                />
-              )}
+          ) : (
+            <View style={styles.progressBlock}>
+              <View style={styles.progressLine}>
+                <Text style={styles.progressValue}>{spotted ?? dash}</Text>
+                <Text style={styles.progressLabel}>
+                  {t('homeOfNCats').replace('{n}', String(totalCats))}
+                </Text>
+              </View>
+              <View style={styles.progressTrack}>
+                {spotted !== undefined && (
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${Math.min(100, Math.round(progress * 100))}%`,
+                        backgroundColor: palette.sun500,
+                      },
+                    ]}
+                  />
+                )}
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         <OfflineBanner />
@@ -219,14 +237,11 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHead}>
             <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>
-              {/* The server only sorts by distance when it was given coords.
-                  Without them this strip is just "some cats", so don't call it
-                  nearby. */}
+              {/* "Nearby" only when the first cats really are close; otherwise
+                  the strip is just cats to look out for (stripHeadingKey). */}
               {/* SYC-143: capitals via displayUpperCase, not textTransform,
                   so Greek drops its accents. */}
-              {displayUpperCase(
-                coords ? t('homeNearbyEyebrow') : t('homeToCollectEyebrow'),
-              )}
+              {displayUpperCase(t(stripHeadingKey(!!coords, cats)))}
             </Text>
             <Pressable onPress={() => router.push('/cats')}>
               <Text style={[styles.seeAll, { color: colors.primary }]}>
@@ -247,20 +262,10 @@ export default function HomeScreen() {
             <View style={styles.grid}>
               {nearby.map((cat) => (
                 <View key={cat.id} style={styles.gridItem}>
-                  <CatCard cat={cat} />
-                  {/* Decorative only. An interactive overlay here would swallow
-                      the card's own tap and strand the user — tapping a locked
-                      cat must still open its profile. */}
-                  {hasCollectionData && !spottedIds.has(cat.id) && (
-                    <View style={styles.lockOverlay} pointerEvents="none">
-                      <Text style={styles.lockIcon} allowFontScaling={false}>
-                        🔒
-                      </Text>
-                      <Text style={styles.lockText}>
-                        {t('homeSpotToUnlock')}
-                      </Text>
-                    </View>
-                  )}
+                  <CatCard
+                    cat={cat}
+                    spotted={hasCollectionData ? spottedIds.has(cat.id) : undefined}
+                  />
                 </View>
               ))}
             </View>
@@ -331,6 +336,12 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.88)',
     flexShrink: 1,
   },
+  firstSpotLine: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.md,
+    color: '#fff',
+    marginBottom: spacing[3],
+  },
   progressTrack: {
     marginTop: 11,
     height: 12,
@@ -375,23 +386,6 @@ const styles = StyleSheet.create({
   seeAll: { fontFamily: fonts.bodyBold, fontSize: fontSizes.sm },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
   gridItem: { width: '48%', position: 'relative' },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(27,42,56,0.72)',
-    // Match CatCard's own corner radius, not the DS `lg` step, or the card
-    // shows through at the corners.
-    borderRadius: catCardRadius,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-  },
-  lockIcon: { fontSize: 30 },
-  lockText: {
-    fontFamily: fonts.displayBold,
-    fontSize: fontSizes.sm,
-    color: '#fff',
-    textAlign: 'center',
-  },
   center: { paddingVertical: spacing[5], alignItems: 'center' },
   empty: {
     fontFamily: fonts.body,
