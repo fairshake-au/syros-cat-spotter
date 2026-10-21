@@ -414,7 +414,39 @@ export const CreateSightingResponse = zod.object({
   "photoUrl": zod.string().nullable(),
   "confidence": zod.number().describe('Match likelihood 0-1'),
   "reasoning": zod.string()
-})).describe('Candidates below the matcher\'s confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry.')
+})).describe('Candidates below the matcher\'s confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry.'),
+  "matchCheck": zod.enum(['done', 'failed']).describe('SYC-503: whether the look-alike check worked. Read this FIRST: on \"failed\", candidates is empty and isCatPhoto is true only because nothing is known, never \"no look-alikes\" or \"a cat\". A stored answer without this field is read as \"done\".'),
+  "canRecheck": zod.boolean().describe('SYC-503: true when a failed check can be run again with recheckSighting; false when the check worked, or when the photo has gone and there is nothing to check.')
+})
+
+
+/**
+ * Only the sighting's own device, only while it is unresolved, and only when its stored check failed: a check that worked is final. Uses the photos and location already saved. Counts against the same limits as sending a spot. Answers exactly as sending a spot does.
+ * @summary Run the look-alike check again after it failed (SYC-503)
+ */
+export const RecheckSightingParams = zod.object({
+  "sightingId": zod.coerce.number()
+})
+
+
+
+
+export const RecheckSightingBody = zod.object({
+  "deviceId": zod.string().min(1).describe('Device credential of the sighting owner; must match the sighting')
+})
+
+export const RecheckSightingResponse = zod.object({
+  "sightingId": zod.number(),
+  "isCatPhoto": zod.boolean().describe('False when the AI could not find a cat in the photo'),
+  "candidates": zod.array(zod.object({
+  "catId": zod.number(),
+  "name": zod.string(),
+  "photoUrl": zod.string().nullable(),
+  "confidence": zod.number().describe('Match likelihood 0-1'),
+  "reasoning": zod.string()
+})).describe('Candidates below the matcher\'s confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry.'),
+  "matchCheck": zod.enum(['done', 'failed']).describe('SYC-503: whether the look-alike check worked. Read this FIRST: on \"failed\", candidates is empty and isCatPhoto is true only because nothing is known, never \"no look-alikes\" or \"a cat\". A stored answer without this field is read as \"done\".'),
+  "canRecheck": zod.boolean().describe('SYC-503: true when a failed check can be run again with recheckSighting; false when the check worked, or when the photo has gone and there is nothing to check.')
 })
 
 

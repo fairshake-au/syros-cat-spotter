@@ -47,6 +47,7 @@ import type {
   MatchResult,
   MyOpenSightings,
   Profile,
+  RecheckSightingRequest,
   RegisterPushToken200,
   RegisterPushTokenRequest,
   ResolveConflictBody,
@@ -708,6 +709,79 @@ export const useCreateSighting = <TError = ErrorType<CreateSightingError | ApiEr
         TContext
       > => {
       return useMutation(getCreateSightingMutationOptions(options));
+    }
+
+export const getRecheckSightingUrl = (sightingId: number,) => {
+
+
+
+
+  return `/api/sightings/${sightingId}/recheck`
+}
+
+/**
+ * Only the sighting's own device, only while it is unresolved, and only when its stored check failed: a check that worked is final. Uses the photos and location already saved. Counts against the same limits as sending a spot. Answers exactly as sending a spot does.
+ * @summary Run the look-alike check again after it failed (SYC-503)
+ */
+export const recheckSighting = async (sightingId: number,
+    recheckSightingRequest: RecheckSightingRequest, options?: RequestInit): Promise<MatchResult> => {
+
+  return customFetch<MatchResult>(getRecheckSightingUrl(sightingId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recheckSightingRequest)
+  }
+);}
+
+
+
+
+
+export const getRecheckSightingMutationOptions = <TError = ErrorType<void | ApiErrorBody>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recheckSighting>>, TError,{sightingId: number;data: BodyType<RecheckSightingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recheckSighting>>, TError,{sightingId: number;data: BodyType<RecheckSightingRequest>}, TContext> => {
+
+const mutationKey = ['recheckSighting'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recheckSighting>>, {sightingId: number;data: BodyType<RecheckSightingRequest>}> = (props) => {
+          const {sightingId,data} = props ?? {};
+
+          return  recheckSighting(sightingId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecheckSightingMutationResult = NonNullable<Awaited<ReturnType<typeof recheckSighting>>>
+    export type RecheckSightingMutationBody = BodyType<RecheckSightingRequest>
+    export type RecheckSightingMutationError = ErrorType<void | ApiErrorBody>
+
+    /**
+ * @summary Run the look-alike check again after it failed (SYC-503)
+ */
+export const useRecheckSighting = <TError = ErrorType<void | ApiErrorBody>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recheckSighting>>, TError,{sightingId: number;data: BodyType<RecheckSightingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recheckSighting>>,
+        TError,
+        {sightingId: number;data: BodyType<RecheckSightingRequest>},
+        TContext
+      > => {
+      return useMutation(getRecheckSightingMutationOptions(options));
     }
 
 export const getResolveSightingUrl = (sightingId: number,) => {
