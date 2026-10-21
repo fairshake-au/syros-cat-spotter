@@ -50,13 +50,14 @@ import {
 import {
   ISLAND_TOO_MANY,
   LESS_SURE,
+  STALE_PLACE_WORDS,
   MATCHING_DOWN_WORDS,
   PERSON_CAP_WORDS,
   TEAM_CAP_WORDS,
   TOO_BIG_WORDS,
   WHERE_HINT,
 } from "../lib/teamPages/findPhotoPage";
-import { currentAreas } from "../lib/areas/namedAreas";
+import { areaFor, currentAreas } from "../lib/areas/namedAreas";
 import { guardianOn, newColony, putInColony, RUN, signedPerson, type Signed } from "../test/roleKit";
 import { PHOTO_CSP, STRICT_CSP } from "../test/wideCsp";
 
@@ -246,6 +247,63 @@ describe("the form", () => {
     expect(res.text).not.toContain('type="file"');
   });
 
+  it("a place over 30 cats keeps the place's too-many words, not the island's, and offers no photo form", async () => {
+    const team = await teamMember("placeover");
+    const area = areaFor(37.4447, 24.9417).key;
+    for (const query of [`?colony=${bigColony}`, `?area=${encodeURIComponent(area)}`]) {
+      const res = await form(team.cookie, query);
+      expect(res.status, query).toBe(200);
+      expect(res.text, query).toMatch(/\d+ cats to compare\. That's too many: choose a colour or a smaller area first, so there are 30 or fewer\./);
+      expect(res.text, query).not.toContain(ISLAND_TOO_MANY);
+      expect(res.text, query).not.toContain('type="file"');
+    }
+  });
+
+  it("an empty area and colony in the address is the island", async () => {
+    await island(12);
+    const team = await teamMember("emptyplace");
+    const res = await form(team.cookie, "?area=&colony=");
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('<option value="" selected>Anywhere on the island</option>');
+    expect(res.text).toContain("12 cats to compare across the island");
+    expect(res.text).not.toContain(STALE_PLACE_WORDS);
+  });
+
+  it("an island over 30 cats, narrowed by colour to 30 or fewer, counts and offers the photo form", async () => {
+    await island(31);
+    const [p] = await db.select({ id: photosTable.id }).from(photosTable).where(like(photosTable.publicId, `${PREFIX}p`));
+    const rows = await db.select({ id: catsTable.id }).from(catsTable).where(like(catsTable.name, `${ISLE}%`));
+    const { observationsTable } = await import("@workspace/db");
+    expect(p).toBeDefined();
+    for (const r of rows.slice(0, 5)) {
+      await db.insert(observationsTable).values({
+        catId: r.id,
+        kind: "coat",
+        value: { colours: ["ginger"] } as never,
+        deviceId: `${PREFIX}d`,
+        roleAtTime: "staff",
+        observedAt: new Date(Date.now() - 40 * 86400_000),
+      });
+    }
+    const team = await teamMember("isleColour");
+    const res = await form(team.cookie, "?colours=ginger");
+    expect(res.text).toContain("5 cats to compare across the island");
+    expect(res.text).toContain('type="file"');
+  });
+
+  it("an area or colony that isn't recognised is refused, never read as the island", async () => {
+    await island(12);
+    const team = await teamMember("stale");
+    for (const query of ["?area=no-such-area", "?colony=999999999"]) {
+      const res = await form(team.cookie, query);
+      expect(res.status, query).toBe(200);
+      expect(res.text, query).toContain(STALE_PLACE_WORDS.replace("isn't", "isn&#39;t"));
+      expect(res.text, query).toContain('id="place-error"');
+      expect(res.text, query).not.toContain('type="file"');
+      expect(res.text, query).not.toContain("selected>Anywhere on the island");
+    }
+  });
+
   it("the island form's address carries nothing new", async () => {
     const team = await teamMember("isleaddr");
     const res = await form(team.cookie);
@@ -346,6 +404,21 @@ describe("the search", () => {
     expect(res.text).toContain("Compared with 12 cats");
     expect(res.text).toContain("Very likely");
     expect(matchMock).toHaveBeenCalled();
+  });
+
+  it("a search with an unrecognised area or colony is refused, uses no search, and doesn't read it as the island", async () => {
+    await island(12);
+    const team = await teamMember("stalepost");
+    const stale: Record<string, string>[] = [{ area: "no-such-area" }, { colony: "999999999" }];
+    for (const fields of stale) {
+      const res = await search(team.cookie, fields);
+      expect(res.status).toBe(400);
+      expect(res.text).toContain(STALE_PLACE_WORDS.replace("isn't", "isn&#39;t"));
+      expect(res.headers["content-security-policy"]).toBe(STRICT_CSP);
+    }
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await findTeamHits()).toBe(0);
+    expect(await findPersonHits(team.id)).toBe(0);
   });
 
   it("over 30 island cats, a search is refused before the caps and the service", async () => {

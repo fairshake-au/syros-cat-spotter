@@ -10,6 +10,7 @@ import { catsToCompare, findFromPhoto, isWholeIsland, type FindFilters } from ".
 import { checkFindLimits, findLimitReached } from "../middlewares/rateLimit";
 import {
   MATCHING_DOWN_ISLAND_WORDS,
+  STALE_PLACE_WORDS,
   MATCHING_DOWN_WORDS,
   narrowingOf,
   renderFindForm,
@@ -236,6 +237,22 @@ function findFilters(src: unknown): FindFilters {
   return { area: f.area, colony: f.colony, colours: f.colours };
 }
 
+/**
+ * An area or colony that was given with a value but isn't recognised (a
+ * retired key, a typo). parseCatFilters drops it, which would quietly turn
+ * the search into the whole island, so the find page refuses it. An empty
+ * value still means the island.
+ */
+async function stalePlace(src: unknown, f: FindFilters, person: ReturnType<typeof teamPerson>): Promise<boolean> {
+  const q = (typeof src === "object" && src !== null ? src : {}) as Record<string, unknown>;
+  const given = (v: unknown) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0);
+  if (given(q["area"]) && f.area === undefined) return true;
+  if (!given(q["colony"])) return false;
+  if (f.colony === undefined) return true;
+  // A well-formed number that is no colony (or none this person may see) is just as stale.
+  return !(await allColonyChoices(visibleColonyIds(person))).some((c) => c.id === f.colony);
+}
+
 /** ?tie= / a `tie` field: choosing a cat for that welfare report, as on the Cats page. */
 async function tieFrom(raw: unknown, person: ReturnType<typeof teamPerson>): Promise<TieMode | undefined> {
   if (typeof raw !== "string" || !TIE_ID_RE.test(raw)) return undefined;
@@ -286,7 +303,13 @@ router.get(
     // Strict header first, before any await: this page has no script.
     setTeamHeaders(res);
     const person = teamPerson(res);
-    const html = await findFormHtml(person, findFilters(req.query), await tieFrom(req.query["tie"], person));
+    const filters = findFilters(req.query);
+    const html = await findFormHtml(
+      person,
+      filters,
+      await tieFrom(req.query["tie"], person),
+      (await stalePlace(req.query, filters, person)) ? { problem: { field: "place", words: STALE_PLACE_WORDS } } : {},
+    );
     res.type("html").send(html);
   },
 );
@@ -336,6 +359,13 @@ router.post(
     if (tie && !tie.report) {
       req.log.info({ outcome: "no_such_report" }, "find from a photo");
       return void res.status(404).type("html").send(await findFormHtml(person, filters, tie));
+    }
+    if (await stalePlace(body, filters, person)) {
+      req.log.info({ outcome: "stale_place" }, "find from a photo");
+      return void res
+        .status(400)
+        .type("html")
+        .send(await findFormHtml(person, filters, tie, { problem: { field: "place", words: STALE_PLACE_WORDS } }));
     }
     const file = req.file;
     if (!file || file.size === 0) {

@@ -39,6 +39,9 @@ export const WHERE_HINT =
 export const ISLAND_TOO_MANY = "There are now too many cats to compare them all at once. Choose an area or a colony.";
 /** Matching down with no place: there is no area's cats to browse, so browse the cats. */
 export const MATCHING_DOWN_ISLAND_WORDS = "Matching isn't working right now. Try again in a few minutes, or browse the cats.";
+/** An area or colony that was given but isn't recognised: refused, never read as the island. */
+export const STALE_PLACE_WORDS =
+  "That area or colony isn't on the list any more. Choose another, or choose Anywhere on the island.";
 export const TOO_BIG_WORDS = "That photo is too big. Choose one under 10 MB.";
 
 const BAND_WORD: Record<Band, string> = {
@@ -104,7 +107,7 @@ function whereForm(o: FindFormOptions): string {
   const f = o.filters;
   const sel = (on: boolean) => (on ? " selected" : "");
   const areas =
-    `<option value=""${sel(f.area === undefined)}>${esc(ANYWHERE_OPTION)}</option>` +
+    `<option value=""${sel(f.area === undefined && o.problem?.field !== "place")}>${esc(ANYWHERE_OPTION)}</option>` +
     currentAreas()
       .map((a) => `<option value="${esc(a.key)}"${sel(f.area === a.key)}>${esc(a.name)}</option>`)
       .join("");
@@ -162,6 +165,8 @@ function photoForm(o: FindFormOptions): string {
   let inside: string;
   if (capWords) {
     inside = `<p class="notice" role="status">${esc(capWords)}</p>`;
+  } else if (o.problem?.field === "place") {
+    inside = '<p class="hint">Choose where to look first, then choose the photo here.</p>';
   } else if (o.narrowing.kind !== "ok") {
     inside =
       o.narrowing.kind === "too_many" && o.narrowing.island
@@ -230,7 +235,7 @@ export function renderFindForm(o: FindFormOptions): string {
       tieIntro(o.tie, o.now) +
       '<p class="hint">Compare a photo, for example one a resident sent, with the cats of the whole island, one area or one colony. You decide which cat it is; the page only says how close each one looks.</p>' +
       whereForm(o) +
-      countLine(o.narrowing, o.filters, o.colonies) +
+      (o.problem?.field === "place" ? "" : countLine(o.narrowing, o.filters, o.colonies)) +
       photoForm(o),
   });
 }
