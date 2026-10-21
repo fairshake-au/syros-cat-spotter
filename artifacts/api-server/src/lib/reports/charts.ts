@@ -128,13 +128,19 @@ export function lineChart(o: { series: LineSeries[]; title: string }): string {
     })
     .join("");
 
+  // Each end is named just above itself, unless that would crowd the name
+  // above it, then just below; the lines rise from the left, so above-left
+  // of an end is clear of its own line.
+  let lastY = -Infinity;
   const labels = ends
-    .map((e, rank) => {
+    .map((e) => {
       const lx = x(e.last!.at);
       const ly = y(e.last!.value);
-      const above = rank === 0;
-      const ty = above ? Math.max(FONT, ly - 12) : Math.min(p.bottom - 6, ly + FONT + 8);
-      return text(lx, ty, `${e.s.label}: ${e.last!.value}`, "end", ' font-weight="700"');
+      const above = Math.max(FONT, ly - 12);
+      const ty = above - lastY >= FONT + 6 ? above : Math.min(p.bottom - 6, Math.max(ly + FONT + 8, lastY + FONT + 6));
+      lastY = ty;
+      // A halo in the card's white, so a label reads clearly where it crosses a line.
+      return text(lx, ty, `${e.s.label}: ${e.last!.value}`, "end", ' font-weight="700" stroke="#fff" stroke-width="6" stroke-linejoin="round" paint-order="stroke"');
     })
     .join("");
 
@@ -257,7 +263,7 @@ export function tableHtml(o: TableSpec): string {
     o.sorted?.key === c.key ? ` aria-sort="${o.sorted.dir === "asc" ? "ascending" : "descending"}"` : "";
   const head = o.columns.map((c) => `<th scope="col"${cls(c)}${aria(c)}>${o.headers?.[c.key] ?? esc(c.label)}</th>`).join("");
   const body = o.rows
-    .map((r) => `<tr>${o.columns.map((c) => `<td${cls(c)}>${esc(String(r[c.key] ?? ""))}</td>`).join("")}</tr>`)
+    .map((r) => `<tr>${o.columns.map((c) => `<td${cls(c)} data-label="${esc(c.label)}">${esc(String(r[c.key] ?? ""))}</td>`).join("")}</tr>`)
     .join("");
   return (
     `<div class="tablewrap"><table class="rtable"><caption>${esc(o.caption)}</caption>` +

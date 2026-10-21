@@ -79,7 +79,7 @@ describe("barChart", () => {
   it("stacks the parts with a title each, and names every part in the legend", () => {
     const svg = barChart({
       title: "Reports per week",
-      bars: [{ at: at(1), parts: [{ key: "u", label: "Urgent", value: 2, colour: "#b42318" }, { key: "n", label: "Needs attention", value: 3, colour: "#8a6d1d" }] }],
+      bars: [{ at: at(1), parts: [{ key: "u", label: "Urgent", value: 2, colour: "#b42318" }, { key: "n", label: "Needs attention", value: 3, colour: "#a08000" }] }],
     });
     expect(svg.match(/<rect\b/g)).toHaveLength(2);
     expect(svg).toContain("<title>Urgent: 2, from 1 Sep 2026</title>");
@@ -121,6 +121,6 @@ describe("tableFor", () => {
     expect(html.startsWith('<details class="astable"><summary>Show as table</summary>')).toBe(true);
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
-    expect(html).toContain('<td class="num">3</td>');
+    expect(html).toContain('<td class="num" data-label="Cats">3</td>');
   });
 });

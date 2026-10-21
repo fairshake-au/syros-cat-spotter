@@ -147,7 +147,9 @@ describe("the strict security header (no script on these pages)", () => {
       const res = await get(path, cookie);
       expect(res.headers["content-security-policy"], path).toBe(STRICT_CSP);
       expect(res.headers["cache-control"], path).toBe("no-store");
-      expect(res.text, path).not.toContain("<script");
+      // The pages carry no script tag. (A spreadsheet is text: a colony
+      // called "<script>" is just its name there, sent as an attachment.)
+      if (!path.includes(".csv")) expect(res.text, path).not.toContain("<script");
     }
   });
 });
