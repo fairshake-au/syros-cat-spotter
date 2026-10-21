@@ -34,6 +34,8 @@ export const MATCHING_DOWN_WORDS =
   "Matching isn't working right now. Try again in a few minutes, or browse this area's cats.";
 /** SYC-527 piece 1: no place chosen searches the whole island. */
 export const ANYWHERE_OPTION = "Anywhere on the island";
+/** The empty area option when a colony is chosen, so it doesn't contradict the colony. */
+export const ANY_AREA_OPTION = "Any area";
 export const WHERE_HINT =
   "Anywhere on the island compares every cat. If you know where the photo was taken, choosing the area is surer.";
 export const ISLAND_TOO_MANY = "There are now too many cats to compare them all at once. Choose an area or a colony.";
@@ -107,7 +109,7 @@ function whereForm(o: FindFormOptions): string {
   const f = o.filters;
   const sel = (on: boolean) => (on ? " selected" : "");
   const areas =
-    `<option value=""${sel(isWholeIsland(f) && o.problem?.field !== "place")}>${esc(ANYWHERE_OPTION)}</option>` +
+    `<option value=""${sel(isWholeIsland(f) && o.problem?.field !== "place")}>${esc(f.colony !== undefined ? ANY_AREA_OPTION : ANYWHERE_OPTION)}</option>` +
     currentAreas()
       .map((a) => `<option value="${esc(a.key)}"${sel(f.area === a.key)}>${esc(a.name)}</option>`)
       .join("");

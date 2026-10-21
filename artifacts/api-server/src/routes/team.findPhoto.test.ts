@@ -265,6 +265,8 @@ describe("the form", () => {
     expect(res.text).toContain("3 cats to compare");
     expect(res.text).not.toContain("across the island");
     expect(res.text).not.toContain("selected>Anywhere on the island");
+    expect(res.text).toContain('<option value="">Any area</option>');
+    expect(res.text).not.toContain("Anywhere on the island");
     expect(res.text).not.toContain(WHERE_HINT);
   });
 
