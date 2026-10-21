@@ -117,7 +117,17 @@ export async function getAppSettings(now: number = Date.now()): Promise<AppSetti
   }
 }
 
+/**
+ * Forget the cached answer, so the next read goes to the database. Called
+ * after a change made on this server (the Vet settings page, SYC-396 PR 3.1b),
+ * so this server uses it at once; other servers pick it up within
+ * SETTINGS_CACHE_MS.
+ */
+export function clearAppSettingsCache(): void {
+  cached = null;
+}
+
 /** Tests only: forget the cached answer. */
 export function _resetAppSettingsCacheForTests(): void {
-  cached = null;
+  clearAppSettingsCache();
 }
