@@ -1,11 +1,11 @@
 # Find from a photo across the whole island: a looks-like index
 
 **Feature spec · Cat Spotters (Syros)**
-**Version:** 0.2, revised after adversarial review · 21 October 2026
+**Version:** 0.3, with Samuel's nine decisions · 21 October 2026
 **Linear:** SYC-527 (this spec). Related: SYC-396 (the dashboard), SYC-57 (visual memory, whose first half this brings forward), SYC-56 (matching accuracy), SYC-493 (the first live search), SYC-496 (the caps), SYC-462 (photo removal), SYC-534 (logging AI cost).
 **Amends:** `team-dashboard-redesign.md` §5.2 (a place is no longer required), §13 (empty and error states) and §14 (how it's built).
 **Review:** a Sonnet adversarial review of v0.1 found 1 blocker, 8 major and several minor points (`docs/reviews/syc-527-spec-adversarial-review.md`). §15 says where each is handled.
-**Status:** Draft, for Samuel's approval. No code is written until he approves.
+**Status:** All nine decisions answered by Samuel on 21 October 2026 (his exact words are on SYC-527; summary in §2). Awaiting his approval of the spec as a whole. No code is written until he approves.
 
 ---
 
@@ -38,6 +38,20 @@
 1. **Approach C, a looks-like index.** Options A (narrow by colour instead of place) and B (the app reads the coat first, then searches by colour) were offered and not chosen.
 2. **Timing: before launch.** Code freeze Wed 28 October. §12 gives the honest fit, as SYC-527 asks.
 3. **The daily caps stay** at 20 a person and 100 for the team, per calendar day (SYC-496).
+
+**The spec's nine decisions** (Samuel, 21 October 2026, answered one at a time; his exact words are quoted on SYC-527):
+
+| # | Decision | His answer |
+|---|---|---|
+| 9 | Launch fit (§12) | **"Anywhere now, index when ready"**: *Anywhere* ships before the freeze and compares every cat while the island has 30 or fewer; the Replit check runs this week; the index ships in an early fix release once built and reviewed, not held for 16 November |
+| 1 | What makes fingerprints (§4) | DINOv2 small, on our own server |
+| 2 | Getting the model live (§5) | Keep the file in our code |
+| 3 | Storage (§6) | An ordinary table, no pgvector |
+| 4 | Filling the index (§7) | **"Batch updates every night"** (his own option), and, asked as a follow-up, "Nightly + small top-ups" |
+| 5 | Shortlist length (§8) | **"Let the test decide"**: 20, or 10 if the test shows it finds the right cat just as often |
+| 6 | The page (§9) | All three choices, *Anywhere* first |
+| 7 | Privacy (§10) | The rules as written |
+| 8 | Who (§11) | The team only |
 
 ## 3. How a search works, step by step
 
@@ -186,10 +200,14 @@ A search never makes more than 4 AI calls. A whole-island search on a large isla
 | **Risks** | One more command to remember. **It runs where the production database is reachable, so it needs Samuel's ask-mode switch**, like a database change | After an import, the first several searches each leave cats out and are slow | Touches sighting and hiding code that other work changes constantly; a missed path is silent |
 | **What the team sees** | Usually nothing. Rarely: "12 newer cats weren't included this time" | After a big addition, several searches that leave cats out | Nothing |
 
-**Recommendation: A.**
-- **The command** runs through the existing `db-ops` workflow, which already handles photos for SYC-462's procedures. It works oldest photo first, reports how many it made and how many failed, and can be run again safely.
-- **During a search**, missing fingerprints are made oldest first, for at most 15 seconds. Any cat still missing is left out, and the page counts it: "12 newer cats weren't included this time. Choose an area to include them." Choosing an area of 30 cats or fewer always includes them, because that needs no fingerprints.
-- **A photo that can't be fingerprinted** is left out of that search and counted the same way. Nothing is stored about the failure; the next backfill tries it again.
+**Recommended: A. Decided (Samuel, 21 October 2026): "Batch updates every night", his own option, plus "Nightly + small top-ups" as a follow-up.** So the index is filled in two ways:
+- **A nightly batch,** built the same way as the nightly news check (`.github/workflows/news-nightly.yml`). A scheduled GitHub job calls a route on the app that only that job's token can open, and the app fingerprints every display photo that has none, oldest first, and reports how many it made and how many failed.
+  - **The app does the work itself, so no ask-mode switch is needed**, unlike the command option A described.
+  - The same job, started by hand, does the first backfill, and the batch after a records import or a model change.
+  - **It needs a new job token,** set in GitHub and Replit from a file with no line break, in the same way as the news token. No token value goes in any routine, prompt or file.
+  - **It runs only once the index ships** (the early fix release, §12), not before the freeze.
+- **During a search**, missing fingerprints are made oldest first, for at most 15 seconds, so a cat added this morning can be found this afternoon. Any cat still missing is left out, and the page counts it: "12 newer cats weren't included this time. Choose an area to include them." Choosing an area of 30 cats or fewer always includes them, because that needs no fingerprints.
+- **A photo that can't be fingerprinted** is left out of that search and counted the same way. Nothing is stored about the failure; the next night's batch tries it again.
 
 **Measured cost and time:** no money (no AI service is used). On the Mac, 44 ms a photo: the island's 28 photos take about 1–2 s. **On Replit: unchecked until §5's first task measures it.** The build writes the real figure on SYC-527.
 
@@ -219,7 +237,10 @@ A search never makes more than 4 AI calls. A whole-island search on a large isla
 | **20 (recommended)** | 3 | The same results page; a few seconds slower than K=10 | Twice the room, and still one call fewer than today's largest narrowed search | — |
 | 30 | 4 | The slowest | Most room | Today's maximum calls, for little gain if 20 passes |
 
-**Recommendation: 20.** If check 2 shows 10 doing just as well, Samuel chooses between saving 2 calls a search and keeping the room. The results go on SYC-527, and become the first small entry in SYC-56's baseline.
+**Recommended: 20. Decided (Samuel, 21 October 2026): "Let the test decide".**
+- K is 20 by default.
+- It becomes 10 if, on check 2, the right cat is in the top 10 within 2 percentage points as often as it is in the top 20, and the smoke test still passes at 10.
+- If check 2's set isn't available, K stays at 20. The results go on SYC-527, and become the first small entry in SYC-56's baseline.
 
 ## 9. Decision 6: the page
 
@@ -304,17 +325,31 @@ These are **team-only words**, in English like the rest of the dashboard. They a
 
 **Recommendation: B.** It gives Syros Cats what they asked for on launch day, at a fraction of the work, and keeps new compiled software and a database change out of freeze week. Running the Replit check this week means the index's biggest unknown is answered before the freeze rather than after it. This keeps Samuel's decision on approach C and changes only when the index lands, so **it's Samuel's call**. If he prefers A, the build starts as soon as this spec is approved, and §5's check decides by Friday whether it can make the Mon 26 publish.
 
+**Decided (Samuel, 21 October 2026): "Anywhere now, index when ready".** This is B, except that the index doesn't wait for 16 November: it ships in an early fix release as soon as it is built and reviewed, which closes the 2-cat headroom gap sooner. The cost is one more publish in the busy week after launch.
+
 ## 13. How it's built (outline for the plan)
 
-1. **The Replit check** (§5). Stop if it fails.
-2. **The accuracy check** (§8) on both models. Choose the model and K.
-3. **The database change:** `photo_fingerprints` and its two triggers (§6), with its number claimed at build start.
-4. **`lib/photoFingerprint.ts`:** load the model from disk once; make a fingerprint from a photo's medium version; save it with the locked re-check; rank a set of display photos against an in-memory fingerprint; one fill at a time per server copy.
-5. **`lib/findFromPhoto.ts`:** the order in §3; *Anywhere*; over 30 cats, fill (15 s), rank, keep 20, then read those 20 photos and compare as now.
-6. **The backfill command** in `db-ops`.
-7. **The page words** (§9), and the guardian route test.
-8. **Logging:** each search logs which path it took, the number of cats, how many fingerprints it made, how many were left out and how long it took. Counts and times only: never a photo id, never a fingerprint.
-9. **SYC-462's catalogue** updated (§6.1).
+It comes in three pieces, in this order:
+
+**Piece 1, before the freeze (Wed 28 Oct): *Anywhere on the island*, with no index.**
+- *Anywhere* is the first choice, with area and colony kept (§9.1).
+- While the island has 30 cats or fewer with a display photo, it compares every cat exactly as #252 does.
+- Over 30, it asks for an area or colony, and says why: "There are now too many cats to compare them all at once. Choose an area or a colony."
+- It changes the five places the place rule lives (§9.1), the page words and their tests. There's no database change and no model.
+- Team only, with the guardian refusal test extended.
+
+**Piece 2, this week: the Replit check** (§5), on a throwaway branch, with nothing published. Its numbers go on SYC-527.
+
+**Piece 3, the index, for an early fix release:**
+
+1. **The accuracy check** (§8) on both models. Choose the model and K.
+2. **The database change:** `photo_fingerprints` and its two triggers (§6), with its number claimed at build start.
+3. **`lib/photoFingerprint.ts`:** load the model from disk once; make a fingerprint from a photo's medium version; save it with the locked re-check; rank a set of display photos against an in-memory fingerprint; one fill at a time per server copy.
+4. **`lib/findFromPhoto.ts`:** the order in §3; over 30 cats, fill (15 s), rank, keep K, then read those K photos and compare as now.
+5. **The nightly batch** (§7): a token-protected route, a scheduled GitHub job modelled on `news-nightly.yml`, and the new job token rolled out from a file with no line break.
+6. **The page words** for shortlisted searches (§9.2–§9.4).
+7. **Logging:** each search logs which path it took, the number of cats, how many fingerprints it made, how many were left out and how long it took. Counts and times only: never a photo id, never a fingerprint.
+8. **SYC-462's catalogue** updated (§6.1).
 
 **Tests, each shown to fail when the code it guards is broken:** the upload's fingerprint is never stored; every hide and removal path leaves no fingerprint, including when racing a save; a search reads only display photos' fingerprints; with 30 cats or fewer the index isn't touched and #252's comparison runs unchanged; over 30, exactly 20 cats' photos are read and 3 AI calls are made; a model failure gives §9.4's page and spends no search; the 15-second fill limit leaves cats out and counts them; a guardian is refused.
 
@@ -334,7 +369,7 @@ These are **team-only words**, in English like the rest of the dashboard. They a
 | 1 | Blocker: a fingerprint save could land after a hide's delete; removal never deletes the photo row | §6.2: triggers on hide and removal, a locked re-check before every save, a race test |
 | 2 | A third hide path (`lib/issues/hide.ts`) was missed | §6.2: all four paths listed; the trigger covers any path that writes a hide |
 | 3 | The order against the caps was contradictory; #252 reads every cat's photo | §3: the full order, nothing before the gate counts, photos read for the 20 only, one fill at a time |
-| 4 | Filling during searches fails after a big addition (records import, model change) | §7: a backfill command plus a 15-second fill; "three months" replaced with sourced dates |
+| 4 | Filling during searches fails after a big addition (records import, model change) | §7: a nightly batch (Samuel's choice) plus a 15-second fill; "three months" replaced with sourced dates |
 | 5 | Option B has 2 cats of headroom; the forecast was unlabelled | §12: headroom stated, forecast labelled unchecked, the Replit check moved into this week |
 | 6 | The accuracy check couldn't answer the question; background bias | §8: check 1 is a smoke test on different-day pairs; check 2's dataset marked unchecked; the 90% bar explained; background measured; a model-choice rule (§4) |
 | 7 | The deploy story was thin | §5: the model kept in our code, every file to change listed, a 200 MB memory limit, the check first |

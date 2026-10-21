@@ -10,6 +10,6 @@ Branch: claude/blissful-feistel-417000 (app-made worktree). Spec only, no implem
 - Linear: progress + ready-for-approval comments on SYC-527; SYC-534 filed; SYC-57 comment.
 
 ## Next
-- Samuel's decisions on the nine (record his exact words on SYC-527, update spec, republish artifact).
+- [x] Samuel answered all nine (/decide, 21 Oct): spec v0.3; Linear comments + description updated
 - Then: implementation plan (with Model delegation section), Samuel approves plan.
 - Remove CHECKPOINT.md before the PR merges.
