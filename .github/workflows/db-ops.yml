@@ -71,7 +71,7 @@ on:
       setting_value:
         type: string
         required: false
-        description: 'For set-setting: the value as JSON, e.g. "https://syroscats.com/donations" (quotes included), "" to switch the link off, ["fact.earTip"], [] or false'
+        description: 'For set-setting: the value as JSON, e.g. "https://syroscats.com/donations" (quotes included), "" to switch the link off, ["fact.earTip"], [], false, or 60 for the price'
       # SYC-462: removing a photo by hand (docs/runbooks/photo-removal.md).
       # Inputs show on the public run page: ids and a request reference only,
       # never a name, address or note. The photos CLI checks each again.
