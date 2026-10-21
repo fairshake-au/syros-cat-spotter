@@ -56,6 +56,14 @@ export async function removeTestPerson(email: string): Promise<boolean> {
     await client.query(
       `alter table person_events enable trigger person_events_append_only`,
     );
+    // SYC-396 PR 3.3a: the record of their report downloads is add-only too.
+    await client.query(
+      `alter table report_downloads disable trigger report_downloads_append_only`,
+    );
+    await client.query(`delete from report_downloads where person_id = $1`, [id]);
+    await client.query(
+      `alter table report_downloads enable trigger report_downloads_append_only`,
+    );
     await client.query(`delete from person_scopes where person_id = $1`, [id]);
     await client.query(`delete from people where id = $1`, [id]);
     await client.query("commit");

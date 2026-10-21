@@ -1,5 +1,5 @@
 {
-  "id": "40bd109a-0494-41a2-8801-ba63c91e824e",
+  "id": "bcfb5240-5353-410c-b54e-9248dd037668",
   "prevId": "402ed27c-a6d4-4032-a552-df6c64a20639",
   "version": "7",
   "dialect": "postgresql",
@@ -2029,12 +2029,6 @@
         },
         "cat_id": {
           "name": "cat_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reporter_cat_id": {
-          "name": "reporter_cat_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -4418,6 +4412,64 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.report_downloads": {
+      "name": "report_downloads",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "report": {
+          "name": "report",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "range": {
+          "name": "range",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "at": {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "report_downloads_person_id_people_id_fk": {
+          "name": "report_downloads_person_id_people_id_fk",
+          "tableFrom": "report_downloads",
+          "tableTo": "people",
+          "columnsFrom": [
+            "person_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
