@@ -66,7 +66,7 @@ function priceForm(o: VetSettingsPageOptions): string {
     ' inputmode="numeric" autocomplete="off"' +
     (again ? ' aria-invalid="true" aria-describedby="price-err"' : "") +
     ">" +
-    '<button type="submit">Change the price</button></form>'
+    '<button type="submit" class="primary">Change the price</button></form>'
   );
 }
 

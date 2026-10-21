@@ -2,3 +2,4 @@
 - 21 Oct: Task B done: migration 0035_vet_settings_history, its test 4/4, migrate:check ok
 - 21 Oct: Task C done: vetSettings.ts with setStandardPrice and priceChanges, 11/11; lib/db suite 620 tests with 2 load timeouts, which re-ran green alone (47/47)
 - 21 Oct: Task D done: Vet settings page and routes, plus the runbook row; vetSettings, route, home, walk and guardian-view tests 106/106; typecheck clean
+- 21 Oct: review nits folded in (cache probe red); screenshots at 390 and 1280 committed
