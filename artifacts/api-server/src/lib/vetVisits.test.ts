@@ -169,12 +169,12 @@ describe("logVetVisit", () => {
     expect((await sterilisedOf(catId)).value).toBe(false);
 
     const saved = await logVetVisit(STAFF, { catId, date: "2026-08-13", value: STERILISED }, NOW);
-    expect(saved.overruled).toEqual([no.id]);
-    expect(saved.sterilisedIds).toHaveLength(1);
-
+    // Without D8 her "no" would still win: it outranks the team and is newer.
     const answer = await sterilisedOf(catId);
     expect(answer.value).toBe(true);
     expect(answer.confidence).toBe("confirmed");
+    expect(saved.overruled).toEqual([no.id]);
+    expect(saved.sterilisedIds).toHaveLength(1);
 
     const changes = await listGuardianChanges({ limit: 1000 });
     const entry = changes.find((c) => c.type === "overruled" && c.overruledId === no.id);
