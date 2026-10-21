@@ -101,7 +101,7 @@ describe("GET /api/go/feed", () => {
     const el = await request(app).get("/api/go/feed").set("Accept-Language", "el-GR,el;q=0.9");
     expect(el.text).toContain("<p>Αυτός ο σύνδεσμος δεν είναι διαθέσιμος αυτή τη στιγμή.</p>");
     const fr = await request(app).get("/api/go/feed").set("Accept-Language", "fr-FR,fr;q=0.9");
-    expect(fr.text).toContain("<p>Ce lien n'est pas disponible pour le moment.</p>");
+    expect(fr.text).toContain("<p>Ce lien n’est pas disponible pour le moment.</p>");
     // The page no longer points at a tab (help-and-info spec §2.1).
     for (const page of [en.text, el.text, fr.text]) {
       expect(page).not.toMatch(/Help tab|Aider|καρτέλα/);
@@ -146,7 +146,7 @@ describe("GET /api/go/give", () => {
     const el = await request(app).get("/api/go/give").set("Accept-Language", "el-GR,el;q=0.9");
     expect(el.text).toContain("Αυτός ο σύνδεσμος δεν είναι διαθέσιμος αυτή τη στιγμή.");
     const fr = await request(app).get("/api/go/give").set("Accept-Language", "fr-FR,fr;q=0.9");
-    expect(fr.text).toContain("Ce lien n'est pas disponible pour le moment.");
+    expect(fr.text).toContain("Ce lien n’est pas disponible pour le moment.");
     expect(await db.select().from(donationLinkTapsTable)).toHaveLength(0);
   });
 

@@ -97,7 +97,8 @@ const DeviceId = z.string().min(1).max(128);
 // SYC-504: the cat whose page the report was sent from. A bad value becomes
 // null and the report is still accepted. It is only a suggestion: the team's
 // tie is what sets cat_id.
-const SuggestedCatId = z.coerce
+// No coercion: the app sends a number, and coercing would turn `true` into 1.
+const SuggestedCatId = z
   .number()
   .int()
   .positive()

@@ -364,11 +364,13 @@ describe("SYC-504: the cat the report was sent from", () => {
   });
 
   it("an unknown or garbage catId gives null and a 201", async () => {
-    for (const catId of [999_999_998, 0, -4, 1.5, "abc", {}, [], 1_000_000_000]) {
+    // Not coerced: a real cat's id as a string, or `true`, is not a number.
+    const cat = await seedCat();
+    for (const catId of [999_999_998, 0, -4, 1.5, "abc", {}, [], 1_000_000_000, true, String(cat)]) {
       const res = await submit({ catId });
       expect(res.status, JSON.stringify(catId)).toBe(201);
       const row = await reportRow(res.body.publicId);
-      expect(row.reporterCatId).toBeNull();
+      expect(row.reporterCatId, JSON.stringify(catId)).toBeNull();
       expect(row.catId).toBeNull();
     }
   });

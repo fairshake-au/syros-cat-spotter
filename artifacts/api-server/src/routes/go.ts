@@ -46,7 +46,7 @@ const LINK_OFF_PAGE = {
   },
   fr: {
     title: "Ce lien n’est pas disponible",
-    body: "Ce lien n'est pas disponible pour le moment.",
+    body: "Ce lien n’est pas disponible pour le moment.",
   },
 } as const;
 
