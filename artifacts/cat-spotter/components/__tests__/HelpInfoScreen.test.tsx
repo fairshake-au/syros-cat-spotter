@@ -105,10 +105,14 @@ describe('Help & info page', () => {
     for (const v of vets) expect(container.textContent).toContain(v.name);
   });
 
-  it('every control has an accessibility role', () => {
+  it('every control has a role and a name', () => {
     state.donateHost = 'syroscats.com';
-    const { getAllByRole } = render(<HelpScreen />);
-    expect(getAllByRole('button').length).toBeGreaterThanOrEqual(4);
+    const { getByRole } = render(<HelpScreen />);
+    const T = TRANSLATIONS.en;
+    for (const name of [T.helpCatButton, T.helpContactButton, T.deleteMyDataRow, 'Give on syroscats.com']) {
+      expect(getByRole('button', { name }), name).toBeTruthy();
+    }
+    expect(getByRole('link', { name: T.helpPrivacyPolicy })).toBeTruthy();
   });
 });
 
@@ -213,7 +217,8 @@ describe('Help & info: contact and privacy', () => {
 
   it('shows the address as selectable text', () => {
     const { getByText } = render(<HelpScreen />);
-    expect(getByText('hello@catspotters.com')).toBeTruthy();
+    const address = getByText('hello@catspotters.com');
+    expect(getComputedStyle(address).userSelect).toBe('text');
   });
 
   it('when openURL rejects, the copy line shows', async () => {
