@@ -29,3 +29,4 @@ Checkpoint notes, newest last. Each agent appends after every commit.
 - Migration is 0035_report_suggested_cat on this base. When SYC-396's 0035 merges first, delete ours plus meta and regenerate as 0036 (README rule).
 - OpenAPI has no welfare-queue schema, so suggestedCat lives only in the QueueReport/QueueDraft types. Not added as new work.
 - Next: step 2 (Help & info page).
+- Migration number (agreed with the SYC-396 sessions, 21 Oct): 0035 is 3.3a (#260) and 0036 is 3.1b. Ours is 0037 or later. Before leaving draft, delete the local 0035_report_suggested_cat plus its meta entries, check `git ls-tree origin/main lib/db/migrations` and the open PRs, then regenerate.
