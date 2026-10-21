@@ -48,3 +48,12 @@ Not ready to merge: fix F1 with an unmount test; F2–F5 cheap and worth fixing 
 | F10 | Fixed: the editor remembers the last request it handled. |
 
 Full cat-spotter suite after fixes: 156 files, 2021 tests pass; typecheck clean.
+
+## Ship review (Opus, read-only, 21 Oct 2026, head 87aae8e4)
+
+Verdict: merge, no blocking issues. Typecheck clean; full suite 156 files, 2021 tests. Mutation probes confirmed that the F1 identity checks and the F3 rule are guarded by tests. Every claim in the resolution table above was re-checked and holds.
+
+- **S1 (should-fix, filed to SYC-536).** Two web tabs: tab B's save, mid-request when tab A restores, can write the held name into shared storage after A's restore. A then reloads wearing it. Restore's wait and the identity counter are per tab. Fix: restore takes the cross-tab name-save lock, or the saver re-reads the stored device id before applying.
+- **S2 (fixed).** The `!onSuggestions` guard had no test. Added: held taken → numbered refused → suggestion taken → next suggestion. Probe: removing the guard turns it red.
+- **S3 (fixed).** Runs skipped because another tab or claim held the lock no longer count as failures for the backoff.
+- **S4 (nit, filed to SYC-536).** Some negative assertions in `useHeldNameSaver.test.tsx` wait a fixed 20 ms. They could miss a late apply on a slow machine, but they can't fail falsely.
