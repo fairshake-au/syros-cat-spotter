@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
+import { LANGUAGES } from '@/lib/i18n';
 import { Button } from '@/components/purropolis';
 import { FairShakeMark } from '@/components/FairShakeMark';
 
@@ -13,7 +14,7 @@ import { FairShakeMark } from '@/components/FairShakeMark';
  */
 export function WelcomeStep({ onNext, onRestore }: { onNext: () => void; onRestore: () => void }) {
   const insets = useSafeAreaInsets();
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
 
   return (
     <View style={[styles.container, { backgroundColor: palette.aegean600 }]}>
@@ -29,7 +30,36 @@ export function WelcomeStep({ onNext, onRestore }: { onNext: () => void; onResto
         </Text>
       </View>
 
-      <View style={[styles.body, { paddingTop: insets.top + spacing[6] }]}>
+      {/* SYC-155: change language before "How it works" and the safety guidance. */}
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel={t('language')}
+        style={[styles.languages, { paddingTop: insets.top + spacing[3] }]}
+      >
+        {LANGUAGES.map((lang) => {
+          const selected = lang.code === language;
+          return (
+            <Pressable
+              key={lang.code}
+              onPress={() => setLanguage(lang.code)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected, checked: selected }}
+              aria-checked={selected}
+              accessibilityLabel={lang.label}
+              hitSlop={6}
+              style={[styles.languageChip, selected && styles.languageChipSelected]}
+            >
+              <Text
+                style={[styles.languageText, selected && styles.languageTextSelected]}
+              >
+                {lang.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={[styles.body, { paddingTop: spacing[4] }]}>
         <View style={styles.mark}>
           <Text style={styles.markEmoji} allowFontScaling={false}>
             🐈
@@ -61,6 +91,27 @@ export function WelcomeStep({ onNext, onRestore }: { onNext: () => void; onResto
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  languages: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: spacing[2],
+    paddingHorizontal: spacing[5],
+  },
+  languageChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.6)',
+  },
+  languageChipSelected: { backgroundColor: '#fff', borderColor: '#fff' },
+  languageText: {
+    fontFamily: fonts.displaySemiBold,
+    fontSize: fontSizes.sm,
+    color: '#fff',
+  },
+  languageTextSelected: { color: palette.aegean600 },
   paw: { position: 'absolute', opacity: 0.1, color: '#fff' },
   paw1: { top: 96, left: -30, fontSize: 120 },
   paw2: { top: 300, right: -20, fontSize: 80 },

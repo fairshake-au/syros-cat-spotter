@@ -47,7 +47,7 @@ export default function HomeScreen() {
   // SYC-143: on the narrowest phones (320px) three tiles leave the label
   // too little room, so tighten the tile padding and gaps there.
   const compactTiles = useWindowDimensions().width < 360;
-  const { deviceId, username } = useDevice();
+  const { deviceId, username, heldUsername } = useDevice();
   const { isOnline } = useOffline();
   const { coords } = useLocation();
   const { cats, isLoading } = useCatsWithCache(
@@ -102,9 +102,10 @@ export default function HomeScreen() {
   }, [cats, spottedIds, hasCollectionData]);
 
   // `username` comes from DeviceContext and survives offline, so greet by name
-  // even when the profile fetch hasn't landed.
+  // even when the profile fetch hasn't landed; a name held offline (SYC-506)
+  // greets too.
   const displayName =
-    profile?.nickname ?? profile?.username ?? username ?? t('homeFallbackName');
+    profile?.nickname ?? profile?.username ?? username ?? heldUsername ?? t('homeFallbackName');
   const streak = profile?.currentStreakDays ?? 0;
   const dash = '—';
   // A failed fetch while online is not the same as being offline — most likely

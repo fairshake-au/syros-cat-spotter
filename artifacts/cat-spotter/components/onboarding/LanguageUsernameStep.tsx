@@ -30,7 +30,10 @@ import {
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
-import { LANGUAGES } from '@/lib/i18n';
+import {
+  normalizeUsernameLocally,
+  suggestLocalUsernames,
+} from '@/lib/usernameSuggestions';
 import { Button, Tag } from '@/components/purropolis';
 import { StepDots } from './StepDots';
 import { ONBOARDING_DOT_COUNT, stepIndex } from './steps';
@@ -39,23 +42,20 @@ import { useUsernameClaim } from '@/hooks/useUsernameClaim';
 
 const MIN_LEN = 3;
 
-const FLAGS: Record<string, string> = { en: '🇬🇧', el: '🇬🇷', fr: '🇫🇷' };
-/** English gloss under the native language name, as in the design. */
-const GLOSS_KEY: Record<string, string> = {
-  en: '',
-  el: 'languageGlossGreek',
-  fr: 'languageGlossFrench',
-};
-
 /**
- * Final onboarding step: choose a language and claim a unique username.
- * Claim completion opens the app; full profile statistics load independently.
+ * Final onboarding step: claim a unique username. Claim completion opens the
+ * app; full profile statistics load independently. The language is chosen on
+ * Welcome (SYC-155).
+ *
+ * SYC-506: offline, the phone suggests names and "Start spotting" keeps the
+ * chosen one on the phone (DeviceContext `heldUsername`); the app opens and
+ * saves it once there's a connection (hooks/useHeldNameSaver.ts).
  */
 export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { t, language, setLanguage } = useLanguage();
-  const { deviceId, setUsername } = useDevice();
+  const { t } = useLanguage();
+  const { deviceId, setUsername, holdUsername, setKeepSafeOffer } = useDevice();
   const { isOnline } = useOffline();
 
   const tappedAt = useRef(0);
@@ -103,6 +103,10 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
 
   const trimmed = draft.trim();
   const longEnough = trimmed.length >= MIN_LEN;
+  const offline = !isOnline;
+  // SYC-506: offline, the phone checks the server's rules itself.
+  const heldName = offline ? normalizeUsernameLocally(trimmed) : null;
+  const [localSuggestions, setLocalSuggestions] = useState(() => suggestLocalUsernames(4));
   const checkEnabled = isOnline && debounced.length >= MIN_LEN;
 
   const availability = useCheckUsernameAvailability(
@@ -154,7 +158,9 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
     if (!longEnough)
       return { text: t('landingTooShort'), color: colors.mutedForeground };
     if (!isOnline)
-      return { text: t('landingOffline'), color: colors.mutedForeground };
+      return heldName
+        ? null
+        : { text: t('landingInvalid'), color: colors.destructive ?? '#c0392b' };
     if (checking)
       return { text: t('landingChecking'), color: colors.mutedForeground };
     if (availability.isError)
@@ -181,6 +187,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
     available,
     taken,
     availability.data,
+    heldName,
     t,
     colors,
   ]);
@@ -189,21 +196,34 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
   // itself is authoritative (409 when taken). A name known to be taken, or
   // firmly refused by the server, still disables it. While a claim is
   // uncertain, only the same-name retry is offered.
-  const canSubmit =
-    isOnline &&
-    !!deviceId &&
-    !pending &&
-    (uncertainName
-      ? true
-      : longEnough && !taken && !isRejectedName(trimmed));
+  const canSubmit = offline
+    ? !!deviceId && !pending && !uncertainName && heldName !== null
+    : !!deviceId &&
+      !pending &&
+      (uncertainName
+        ? true
+        : longEnough && !taken && !isRejectedName(trimmed));
 
   const submit = () => {
     if (!canSubmit) return;
+    if (offline) {
+      if (!heldName) return;
+      // "Don't lose your spots" needs a connection and a saved name. An
+      // offline start counts as skipping it here, which offers it again at
+      // the first badge (FirstBadgeOffer), never mid-visit.
+      setKeepSafeOffer('skipped-onboarding');
+      holdUsername(heldName);
+      return;
+    }
     tappedAt.current = Date.now();
     void claim(trimmed);
   };
 
-  const suggestions = suggestionsQuery.data?.suggestions ?? [];
+  const suggestions = offline ? localSuggestions : (suggestionsQuery.data?.suggestions ?? []);
+  const shuffle = () => {
+    if (offline) setLocalSuggestions(suggestLocalUsernames(4));
+    else void suggestionsQuery.refetch();
+  };
   const tones = ['sun', 'olive', 'aegean', 'terra'] as const;
 
   return (
@@ -234,62 +254,8 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
             {t('makeItYours')}
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            {t('makeItYoursSubtitle')}
+            {t('nameScreenSubtitle')}
           </Text>
-        </View>
-
-        {/* Language */}
-        <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
-            {t('languageTrilingualLabel')}
-          </Text>
-          <View style={styles.langList}>
-            {LANGUAGES.map((lang) => {
-              const active = lang.code === language;
-              const glossKey = GLOSS_KEY[lang.code];
-              return (
-                <Pressable
-                  key={lang.code}
-                  onPress={() => setLanguage(lang.code)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
-                  style={[
-                    styles.langRow,
-                    {
-                      backgroundColor: active ? palette.aegean100 : colors.card,
-                      borderColor: active ? colors.primary : colors.border,
-                    },
-                  ]}
-                >
-                  <Text style={styles.flag} allowFontScaling={false}>
-                    {FLAGS[lang.code] ?? '🏳️'}
-                  </Text>
-                  <View style={styles.langText}>
-                    <Text style={[styles.langName, { color: colors.foreground }]}>
-                      {lang.label}
-                    </Text>
-                    {glossKey ? (
-                      <Text
-                        style={[styles.langGloss, { color: colors.mutedForeground }]}
-                      >
-                        {t(glossKey)}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <View
-                    style={[
-                      styles.radio,
-                      active
-                        ? { backgroundColor: colors.primary, borderColor: colors.primary }
-                        : { borderColor: colors.border },
-                    ]}
-                  >
-                    {active && <Feather name="check" size={13} color="#fff" />}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
         </View>
 
         {/* Username */}
@@ -337,35 +303,33 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
             />
           </View>
 
-          {isOnline && (
-            <View style={styles.suggestions}>
-              <Pressable
-                onPress={() => suggestionsQuery.refetch()}
-                disabled={suggestionsQuery.isFetching || pending || !!uncertainName}
-                style={[styles.shuffle, { backgroundColor: palette.bougain500 }]}
-                accessibilityRole="button"
-              >
-                <Text style={styles.shuffleText}>🎲 {t('landingShuffle')}</Text>
-              </Pressable>
-              {suggestionsQuery.isFetching && suggestions.length === 0 ? (
-                <ActivityIndicator color={colors.primary} />
-              ) : (
-                suggestions.slice(0, 4).map((name, i) => (
-                  <Pressable
-                    key={name}
-                    onPress={() => {
-                      if (pending || uncertainName) return;
-                      setDraft(name);
-                      setClaimError(null);
-                    }}
-                    accessibilityRole="button"
-                  >
-                    <Tag tone={tones[i % tones.length]}>@{name}</Tag>
-                  </Pressable>
-                ))
-              )}
-            </View>
-          )}
+          <View style={styles.suggestions}>
+            <Pressable
+              onPress={shuffle}
+              disabled={(!offline && suggestionsQuery.isFetching) || pending || !!uncertainName}
+              style={[styles.shuffle, { backgroundColor: palette.bougain500 }]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.shuffleText}>🎲 {t('landingShuffle')}</Text>
+            </Pressable>
+            {!offline && suggestionsQuery.isFetching && suggestions.length === 0 ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              suggestions.slice(0, 4).map((name, i) => (
+                <Pressable
+                  key={name}
+                  onPress={() => {
+                    if (pending || uncertainName) return;
+                    setDraft(name);
+                    setClaimError(null);
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Tag tone={tones[i % tones.length]}>@{name}</Tag>
+                </Pressable>
+              ))
+            )}
+          </View>
         </View>
 
         {claimError && (
@@ -375,9 +339,9 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
             {claimError}
           </Text>
         )}
-        {!isOnline && (
+        {offline && (
           <Text style={[styles.status, { color: colors.mutedForeground }]}>
-            {t('landingOffline')}
+            {t('offlineNameNote')}
           </Text>
         )}
 
@@ -388,7 +352,13 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
           disabled={!canSubmit}
           onPress={submit}
         >
-          {pending ? t('usernameClaiming') : uncertainName ? t('usernameRetryClaim') : t('continue')}
+          {pending
+            ? t('usernameClaiming')
+            : uncertainName
+              ? t('usernameRetryClaim')
+              : offline
+                ? t('startSpotting')
+                : t('continue')}
         </Button>
       </KeyboardAwareScrollViewCompat>
     </View>
@@ -418,28 +388,6 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontFamily: fonts.bodyExtraBold,
     fontSize: fontSizes['2xs'],
-  },
-  langList: { gap: 9 },
-  langRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    borderRadius: radii.md,
-    borderWidth: borderWidths.thin,
-  },
-  flag: { fontSize: 24 },
-  langText: { flex: 1 },
-  langName: { fontFamily: fonts.displayBold, fontSize: fontSizes.sm },
-  langGloss: { fontFamily: fonts.body, fontSize: fontSizes['2xs'] },
-  radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: borderWidths.thin,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   inputWrap: {
     flexDirection: 'row',
