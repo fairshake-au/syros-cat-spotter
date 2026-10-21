@@ -534,6 +534,7 @@ These are added to `roles-and-invites.md` §6.2 before anything is built:
 | `export_report` | island | team |
 | `edit_named_areas` | island | team |
 | `edit_vet_settings` (standard price; the vet list stays as team-access §5.7 sets it) | island | team |
+| `print_trapping_plan` (added by the phases 2–4 plan, Task 2.3.1, so the printable plan has its own permission) | island | team |
 
 Changes to named areas and to the standard price are kept in the same add-only history as site and colony changes.
 

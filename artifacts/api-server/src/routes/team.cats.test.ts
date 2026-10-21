@@ -354,9 +354,11 @@ describe("P3-2 (team half): the team's cat page shows exact positions", () => {
     // outbound link: the provider requires it, and it carries no position.
     const OSM_CREDIT = "https://www.openstreetmap.org/copyright";
     expect(html.split(`href="${OSM_CREDIT}"`)).toHaveLength(2);
+    // The menu's Workspace link goes to our own sign-in site and carries no
+    // position either (and the dashboard sends no Referer off its own origin).
     const external = [...html.matchAll(/<a\b[^>]*\shref="(https?:[^"]*)"/gi)]
       .map((m) => m[1]!.replace(/&amp;/g, "&"))
-      .filter((u) => u !== OSM_CREDIT);
+      .filter((u) => u !== OSM_CREDIT && u !== "https://admin.catspotters.com/workspace");
     expect(external.sort()).toEqual(
       ["37.44512,24.94235", "37.44620,24.94335", "37.44471,24.94188"]
         .map((q) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`)

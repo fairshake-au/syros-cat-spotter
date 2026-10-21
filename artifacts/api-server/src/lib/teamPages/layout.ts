@@ -2,13 +2,14 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { escapeHtml } from "./escape";
 import { tr, pageLanguage, type Language } from "./strings";
 import { MAP_MARK_CSS, MARK_CSS } from "./marks";
+import { WORKSPACE_PAGE } from "../teamAuth/config";
 
 // The one page shell for the staff dashboard (SYC-43 part 2 plan, PR 1).
 // Plain server-drawn HTML: no scripts, mobile first, styles in one <style>
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies";
+export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies" | "workspace";
 
 interface NavItem {
   key: NavKey;
@@ -44,6 +45,12 @@ const TEAM_PARENT: Partial<Record<NavKey, NavKey>> = { likely: "home", colour: "
 const PEOPLE_NAV: NavItem = { key: "people", label: "People", href: "/api/team/people" };
 
 /**
+ * The shared workspace, on the sign-in site: only for people the workspace
+ * would let in (mayUseWorkspace), last in the menu, since it leaves the dashboard.
+ */
+const WORKSPACE_NAV: NavItem = { key: "workspace", label: "Workspace", href: WORKSPACE_PAGE };
+
+/**
  * Set by requireTeam for the rest of a request, so every page drawn for a
  * management member carries the People link without each page passing it.
  */
@@ -58,6 +65,8 @@ export const navContext = new AsyncLocalStorage<{
    * her own pages, not Feeding sites, which would refuse her.
    */
   starting?: boolean;
+  /** May use the shared workspace: the menu ends with a link to it. */
+  workspace?: boolean;
 }>();
 
 export const MY_PAGE_PATH = "/api/team/my";
@@ -270,6 +279,9 @@ input[type=date]{max-width:220px}
 .fixes summary,.statement summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .fixes details[open]{padding-bottom:12px}
 .fixes form,.statement form{margin:4px 0 0}
+.fixes form.diedform{margin:20px 0 4px}
+.fixes form.diedform button{width:100%}
+.photo.catmain.diedphoto{max-height:140px}
 fieldset{border:0;margin:0 0 8px;padding:0}
 legend{padding:0}
 .choice{display:flex;align-items:center;gap:10px;min-height:44px;font-size:16px}
@@ -327,6 +339,9 @@ button.risky:hover{background:#fbeaea}
 /* "Are you sure?" (SYC-362): what will happen, then Yes or Cancel. */
 ul.sure{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #8c1d18;border-radius:8px;margin:12px 0 16px;padding:12px 12px 12px 32px}
 ul.sure li{margin:4px 0}
+ul.happens{background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:12px 0 16px;padding:12px 12px 12px 32px}
+ul.happens li{margin:4px 0}
+button.primary.wide{width:100%}
 form.sureform{margin:0 0 4px}
 form.sureform button{font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:10px 18px;border-radius:8px;cursor:pointer}
 /* A link that opens another page of actions looks like the action cards. */
@@ -544,6 +559,8 @@ export interface PageOptions {
   island?: boolean;
   /** Carry the signed-in person's own links, "My page" (default: whatever requireTeam set; false without it). */
   mine?: boolean;
+  /** End the menu with the Workspace link (default: whatever requireTeam set; false without it). */
+  workspace?: boolean;
   /**
    * Our own script for this page, from lib/teamAssets.ts assetUrl() only,
    * never anything a request supplied. The page's route must also send the
@@ -569,6 +586,8 @@ export function renderPage(opts: PageOptions): string {
   const showPeople = opts.showPeople ?? ctx?.people ?? false;
   const island = opts.island ?? ctx?.island ?? true;
   const mine = opts.mine ?? ctx?.mine ?? false;
+  // Not on a refusal page or a cat guardian's menu: only beside the team's own menu.
+  const workspace = (opts.workspace ?? ctx?.workspace ?? false) && island && opts.nav !== false && opts.nav !== "guardian";
   // The team's menu for the team (not for a refusal page); a cat guardian's
   // own two links; "My page" for everyone signed in. SYC-53 PR 1.3.
   const own: NavItem[] = mine
@@ -596,7 +615,7 @@ export function renderPage(opts: PageOptions): string {
             ? [...NAV, PEOPLE_NAV]
             : NAV;
   const teamActive = opts.active ? (TEAM_PARENT[opts.active] ?? opts.active) : null;
-  const items = [...team.map((n) => ({ n, active: opts.nav === "guardian" ? opts.active : teamActive })), ...own.map((n) => ({ n, active: opts.active }))].map(({ n, active }) => {
+  const items = [...team.map((n) => ({ n, active: opts.nav === "guardian" ? opts.active : teamActive })), ...own.map((n) => ({ n, active: opts.active })), ...(workspace ? [{ n: WORKSPACE_NAV, active: null }] : [])].map(({ n, active }) => {
     // On a phone "Feeding sites" shows as "Sites" (CSS picks one).
     const label = n.short
       ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`

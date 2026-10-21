@@ -342,3 +342,19 @@ describe("Coming soon (Samuel, 18 Oct 2026)", () => {
     expect(comingSoonLine([])).toBe("");
   });
 });
+
+describe("the menu's Workspace link (admin.catspotters.com opens the dashboard first)", () => {
+  const WORKSPACE_LINK = '<a href="https://admin.catspotters.com/workspace">Workspace</a>';
+
+  it("is there for the team, who may use the shared workspace", async () => {
+    const res = await get("/api/team/home", staff);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain(WORKSPACE_LINK);
+  });
+
+  it("isn't there for a cat guardian, whom the workspace would refuse", async () => {
+    const res = await get("/api/team/my", guardian);
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain("admin.catspotters.com/workspace");
+  });
+});
