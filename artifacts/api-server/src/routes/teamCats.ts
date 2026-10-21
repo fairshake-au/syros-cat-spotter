@@ -6,7 +6,7 @@ import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import multer from "multer";
 import { safeError } from "../lib/logger";
-import { catsToCompare, findFromPhoto, hasPlace, type FindFilters } from "../lib/findFromPhoto";
+import { catsToCompare, findFromPhoto, type FindFilters } from "../lib/findFromPhoto";
 import { checkFindLimits, findLimitReached } from "../middlewares/rateLimit";
 import {
   MATCHING_DOWN_WORDS,
@@ -259,7 +259,7 @@ async function findFormHtml(
 ): Promise<string> {
   const now = new Date();
   const [count, capped, colonies] = await Promise.all([
-    hasPlace(filters) ? catsToCompare(filters, now).then((c) => c.length) : Promise.resolve(null),
+    catsToCompare(filters, now).then((c) => c.length),
     // A notice only: if the counter can't be read, the form shows without
     // one, and the POST still enforces the caps (review finding 1).
     extra.capped ? Promise.resolve(extra.capped) : findLimitReached(person.id).catch(() => "ok" as const),
@@ -330,13 +330,6 @@ router.post(
         .type("html")
         .send(await findFormHtml(person, filters, tie, { problem: { field: "photo", words } }));
     }
-    if (!hasPlace(filters)) {
-      req.log.info({ outcome: "no_place" }, "find from a photo");
-      return void res
-        .status(400)
-        .type("html")
-        .send(await findFormHtml(person, filters, tie, { problem: { field: "place", words: "Choose an area or a colony first." } }));
-    }
     // A report that doesn't exist: nothing to tie, so no search runs and none
     // is used (second review, finding 4).
     if (tie && !tie.report) {
@@ -392,8 +385,6 @@ router.post(
     const colonies = await allColonyChoices(visibleColonyIds(person));
     const common = { personName: person.name, filters, colonies, tie, now };
     switch (out.kind) {
-      case "no_place":
-        return void res.status(400).type("html").send(await findFormHtml(person, filters, tie, { problem: { field: "place", words: "Choose an area or a colony first." } }));
       case "too_many":
       case "none_to_compare":
         return void res.status(400).type("html").send(await findFormHtml(person, filters, tie));

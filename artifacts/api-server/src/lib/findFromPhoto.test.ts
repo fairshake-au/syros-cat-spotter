@@ -26,9 +26,26 @@ vi.mock("./spotPhotos", async (orig) => {
   return { ...real, saveSpotWithPhotos: vi.fn(real.saveSpotWithPhotos) };
 });
 
+// The island test seam (SYC-527 piece 1): with no area and no colony the real
+// list would return every cat on the shared test database, so "the island" is
+// narrowed to this run's own cats (names starting with PREFIX).
+vi.mock("./teamCatList", async (orig) => {
+  const real = (await orig()) as typeof import("./teamCatList");
+  return {
+    ...real,
+    allTeamCats: vi.fn(async (f: Parameters<typeof real.allTeamCats>[0], now?: Date) => {
+      const out = await real.allTeamCats(f, now);
+      if (f.area !== undefined || f.colony !== undefined) return out;
+      const cats = out.cats.filter((c) => c.name.startsWith(PREFIX));
+      return { ...out, cats, catCount: cats.length };
+    }),
+  };
+});
+
 import { matchCatPhoto, type CandidateInput, type MatchOutput, type NewPhotoInput } from "./matching";
 import { writeObservation } from "./observations";
 import { saveSpotWithPhotos } from "./spotPhotos";
+import { allTeamCats } from "./teamCatList";
 import { variantFor } from "./photoVariants";
 import { bandOf, findFromPhoto, FIND_MAX_CATS, POSSIBLE, VERY_LIKELY } from "./findFromPhoto";
 
@@ -122,12 +139,6 @@ beforeEach(() => {
 });
 
 describe("findFromPhoto: narrowing (spec §5.2)", () => {
-  it("refuses without an area or a colony, and never calls the service", async () => {
-    expect(await findFromPhoto(upload, {}, NOW)).toEqual({ kind: "no_place" });
-    expect(await findFromPhoto(upload, { colours: ["black"] }, NOW)).toEqual({ kind: "no_place" });
-    expect(matchMock).not.toHaveBeenCalled();
-  });
-
   it(`${FIND_MAX_CATS + 1} cats is too many, with no call to the service`, async () => {
     const big = await colonyOf(FIND_MAX_CATS + 1, "big");
     expect(await findFromPhoto(upload, { colony: big.colony }, NOW)).toEqual({
@@ -346,5 +357,65 @@ describe("nothing is stored", () => {
     expect(observations).toEqual([]);
     expect(writeObservation).not.toHaveBeenCalled();
     expect(saveSpotWithPhotos).not.toHaveBeenCalled();
+  });
+});
+
+describe("findFromPhoto: no place means the whole island (SYC-527 piece 1)", () => {
+  // Each test starts from an island of only its own cats (this run's cats).
+  beforeEach(cleanup);
+
+  /** `count` island cats (a colony is only a way to make them), with a coat colour. */
+  async function island(count: number, colour: string, label: string): Promise<number[]> {
+    const { ids } = await colonyOf(count, label);
+    for (const id of ids) {
+      await db.insert(observationsTable).values({
+        catId: id,
+        kind: "coat",
+        value: { colours: [colour] } as never,
+        deviceId: DEVICE,
+        roleAtTime: "staff",
+        observedAt: new Date(Date.now() - 40 * 86400_000),
+      });
+    }
+    return ids;
+  }
+
+  it("with no place, compares every active cat on the island", async () => {
+    const ids = await island(12, "black", "isle12");
+    const out = await findFromPhoto(upload, {}, NOW);
+    expect(out.kind).toBe("results");
+    if (out.kind !== "results") return;
+    expect(out.compared).toBe(12);
+    expect(matchMock).toHaveBeenCalledTimes(3); // 2 groups plus the final round
+    const groupCats = matchMock.mock.calls.slice(0, 2).flatMap((c) => (c[1] as CandidateInput[]).map((x) => x.catId));
+    expect([...groupCats].sort((a, b) => a - b)).toEqual([...ids].sort((a, b) => a - b));
+  });
+
+  it("with no place and colours, compares the island's cats of those colours", async () => {
+    await island(5, "black", "isleblack");
+    await island(4, "ginger", "isleginger");
+    const out = await findFromPhoto(upload, { colours: ["black"] }, NOW);
+    expect(out.kind === "results" && out.compared).toBe(5);
+  });
+
+  it("with no place and over 30 cats, gives too_many before the gate and the service", async () => {
+    await island(FIND_MAX_CATS + 1, "black", "isle31");
+    const gate = vi.fn(async () => null);
+    expect(await findFromPhoto(upload, {}, NOW, { gate })).toEqual({ kind: "too_many", count: FIND_MAX_CATS + 1 });
+    expect(gate).not.toHaveBeenCalled();
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+
+  it("the island test seam is in use", async () => {
+    await island(3, "black", "isleseam");
+    vi.mocked(allTeamCats).mockClear();
+    await findFromPhoto(upload, {}, NOW);
+    expect(allTeamCats).toHaveBeenCalledTimes(1);
+    const [filters] = vi.mocked(allTeamCats).mock.calls[0]!;
+    expect(filters.area).toBeUndefined();
+    expect(filters.colony).toBeUndefined();
+    const { cats } = await vi.mocked(allTeamCats).mock.results[0]!.value;
+    expect(cats.length).toBeGreaterThan(0);
+    expect(cats.every((c: { name: string }) => c.name.startsWith(PREFIX))).toBe(true);
   });
 });

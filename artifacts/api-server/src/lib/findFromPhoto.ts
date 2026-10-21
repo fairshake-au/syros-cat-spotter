@@ -8,7 +8,8 @@ import { makeVariant, variantFor } from "./photoVariants";
 import { allTeamCats, type CatListFilters } from "./teamCatList";
 
 // Find from a photo (SYC-396 PR 2.5; spec §5.2). The team narrows the search
-// to an area or a colony, and the photo is compared with those cats in groups
+// to an area or a colony (or, with neither, the whole island: SYC-527 piece 1;
+// still at most 30 cats, so the colours narrow it), and the photo is compared with those cats in groups
 // of up to 10 (the most the app's matching compares at once), then the best
 // of every group are compared again together, so their scores rank against
 // each other. The team always decides; this only says how close each one is.
@@ -35,13 +36,11 @@ export type FindResult = { catId: number; score: number; band: Band; reasoning: 
 type Candidate = CandidateInput & { photoPublicId: string };
 
 /**
- * The plan's outcomes, plus three the route needs (PR 2.5 build):
- * `no_place` (no area or colony), `bad_photo` (the upload isn't a photo we
- * can read) and `refused` (the gate said no, e.g. a daily cap). None of them
- * calls the matching service.
+ * The plan's outcomes, plus two the route needs (PR 2.5 build):
+ * `bad_photo` (the upload isn't a photo we can read) and `refused` (the gate
+ * said no, e.g. a daily cap). Neither calls the matching service.
  */
 export type FindOutcome =
-  | { kind: "no_place" }
   | { kind: "too_many"; count: number }
   | { kind: "none_to_compare" }
   /** Cats to compare, but none has a photo the public can see (review finding 2). Uses no search. */
@@ -84,7 +83,8 @@ export async function catsToCompare(filters: FindFilters, now: Date = new Date()
   return cats;
 }
 
-export const hasPlace = (f: FindFilters): boolean => f.area !== undefined || f.colony !== undefined;
+/** No area and no colony: the search covers the whole island (SYC-527 piece 1). */
+export const isWholeIsland = (f: FindFilters): boolean => f.area === undefined && f.colony === undefined;
 
 export async function findFromPhoto(
   photo: Buffer,
@@ -92,10 +92,7 @@ export async function findFromPhoto(
   now: Date = new Date(),
   opts: FindOptions = {},
 ): Promise<FindOutcome> {
-  // 1. Never without a place.
-  if (!hasPlace(filters)) return { kind: "no_place" };
-
-  // 2. The narrowed cats.
+  // 1. The narrowed cats. With no area and no colony that is the whole island.
   const cats = await catsToCompare(filters, now);
   const count = cats.length;
   if (count > FIND_MAX_CATS) return { kind: "too_many", count };
