@@ -13,6 +13,9 @@ Branch: claude/blissful-feistel-417000 (app-made worktree). Spec only, no implem
   - Migrations: 0035 claimed by origin/claude/syc-396-pr-3-1b-vet-settings; 3.3a report_downloads next.
   - No records import before launch (records-import.md: optional, post-MVP).
 
+- [x] Filed SYC-534 (token logging); SYC-57 comment (pgvector later); SYC-527 progress comment
+- [~] Critic running (Sonnet, own worktree), started ~22:24 UTC
+
 ## Next
 - [x] Draft v0.1 docs/specs/find-from-a-photo-whole-island.md (committed)
 - [ ] Critic (Sonnet, own worktree) -> fold in

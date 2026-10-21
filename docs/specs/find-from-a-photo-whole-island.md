@@ -255,7 +255,7 @@ If the model fails to load or the fingerprint fails: "Searching the whole island
 
 ## 12. Deferred (each filed in Linear)
 
-- **Log AI tokens per search**, so the cost per search stops being unchecked (SYC-493 found the app logs counts only).
+- **Log AI tokens per search**, so the cost per search stops being unchecked (SYC-534; SYC-493 found the app logs counts only).
 - **pgvector**, when SYC-57 moves to the whole sighting history or on-device matching (§5.1).
 - **A larger accuracy set** from launch-era confirmed sightings (SYC-56, existing ticket; this spec's check is its first small entry).
 - **`match_cat_anywhere`** stays reserved (existing note 3; no new ticket).
