@@ -57,6 +57,8 @@ export interface VisitLine {
   costEur?: number | null;
   /** Only with `costs: true`. */
   paidBy?: VetVisitValue["paidBy"];
+  /** Why a sterilisation's cost wasn't the standard price. Only with `costs: true`. */
+  costReason?: string;
   note?: string;
   /** Who logged it: their name, with "(left)" if they have. */
   by: string;
@@ -309,6 +311,7 @@ export async function visitsFor(catId: number, opts: { costs: boolean }): Promis
     if (opts.costs) {
       line.costEur = v.costEur;
       line.paidBy = v.paidBy;
+      if (v.costReason) line.costReason = v.costReason;
     }
     return line;
   });

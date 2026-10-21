@@ -29,6 +29,7 @@ const COST_MAX = 2000;
 const NOTE_MAX = 500;
 const TREATED_MAX = 200;
 const OTHER_VACCINE_MAX = 60;
+const COST_REASON_MAX = 200;
 
 /** What the form holds, as typed: every value a string, so a failed save shows it again exactly. */
 export interface VisitFormValues {
@@ -41,9 +42,19 @@ export interface VisitFormValues {
   costEur: string;
   paidBy: string;
   note: string;
+  costReason: string;
 }
 
-export type VisitField = "date" | "did" | "vaccines" | "treatedNote" | "clinicId" | "costEur" | "paidBy" | "note";
+export type VisitField =
+  | "date"
+  | "did"
+  | "vaccines"
+  | "treatedNote"
+  | "clinicId"
+  | "costEur"
+  | "costReason"
+  | "paidBy"
+  | "note";
 
 export const clinics = () => getGuidance("en").vets.map((c) => ({ id: c.id, name: c.name }));
 
@@ -71,6 +82,7 @@ export function blankVisitForm(standardPriceEur: number, did: string[] = ["steri
     costEur: chosen.includes("sterilised") ? priceText(standardPriceEur) : "",
     paidBy: "syros_cats",
     note: "",
+    costReason: "",
   };
 }
 
@@ -92,6 +104,7 @@ export function visitFormFrom(body: unknown): VisitFormValues {
     costEur: str(b["costEur"]),
     paidBy: str(b["paidBy"]),
     note: lf(str(b["note"])),
+    costReason: lf(str(b["costReason"])),
   };
 }
 
@@ -164,6 +177,18 @@ export function readVisitForm(
     else problems.paidBy = "Choose who paid.";
   }
 
+  // Optional (Samuel, 21 Oct 2026): why a sterilisation didn't cost the standard price.
+  const costReason = opts.costs ? f.costReason.trim() : "";
+  if (costReason) {
+    if (!did.includes("sterilised")) {
+      problems.costReason = "A reason for the cost is only for a sterilisation. Clear it, or tick Sterilised.";
+    } else if (costEur === null && !problems.costEur) {
+      problems.costReason = "Type the cost, or clear the reason.";
+    } else if (costReason.length > COST_REASON_MAX || !noNul(costReason)) {
+      problems.costReason = `Say why in up to ${COST_REASON_MAX} characters.`;
+    }
+  }
+
   const note = f.note.trim();
   if (note.length > NOTE_MAX || !noNul(note)) problems.note = `A note can be up to ${NOTE_MAX} characters.`;
 
@@ -172,6 +197,7 @@ export function readVisitForm(
   if (did.includes("vaccinated")) value.vaccines = vaccines;
   if (did.includes("treated")) value.treatedNote = treatedNote;
   if (note) value.note = note;
+  if (costReason) value.costReason = costReason;
   return { ok: true, date: f.date, value };
 }
 
@@ -224,6 +250,10 @@ export function renderVetVisitForm(p: VisitFormPage): string {
       `<p class="hint" id="vv-cost-hint">The standard sterilisation price is €${esc(priceText(p.standardPriceEur))}. Change it here if this visit cost something else.</p>` +
       err("costEur") +
       `<input class="text" id="vv-cost" name="costEur" inputmode="decimal" autocomplete="off" value="${esc(f.costEur)}" aria-describedby="vv-cost-hint${problems.costEur ? " vv-costEur-err" : ""}"${problems.costEur ? ' aria-invalid="true"' : ""}>` +
+      '<label class="label" for="vv-cost-why">Why the cost is different <span class="hint">(optional)</span></label>' +
+      `<p class="hint" id="vv-cost-why-hint">For a sterilisation that didn't cost the standard €${esc(priceText(p.standardPriceEur))}.</p>` +
+      err("costReason") +
+      `<input class="text" id="vv-cost-why" name="costReason" maxlength="${COST_REASON_MAX}" autocomplete="off" value="${esc(f.costReason)}" aria-describedby="vv-cost-why-hint${problems.costReason ? " vv-costReason-err" : ""}"${problems.costReason ? ' aria-invalid="true"' : ""}>` +
       '<fieldset><legend class="label">Paid by</legend>' +
       err("paidBy") +
       PAID_BY.map((w) => radio("paidBy", `vv-paid-${w}`, w, PAID_WORDS[w], f.paidBy === w)).join("") +

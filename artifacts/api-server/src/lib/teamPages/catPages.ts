@@ -773,6 +773,7 @@ function visitItem(l: VisitLine, may: (c: Capability) => boolean): string {
     "costEur" in l
       ? `<br><span class="meta">${l.costEur == null ? "Cost not recorded" : esc(euroText(l.costEur))}` +
         (l.paidBy ? ` · paid by ${esc(PAID_WORDS[l.paidBy].replace(/^A /, "a ").replace(/^The /, "the "))}` : "") +
+        (l.costReason ? `<br>Why the cost was different: ${esc(l.costReason)}` : "") +
         "</span>"
       : "";
   const wrong = may("log_vet_visit")

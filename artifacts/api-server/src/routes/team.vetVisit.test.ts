@@ -130,6 +130,41 @@ describe("the vet visit form", () => {
   });
 });
 
+describe("why the cost is different (Samuel, 21 Oct 2026)", () => {
+  it("is optional, saved with a sterilisation's cost, and shown beside it", async () => {
+    const cat = await seedCat(colony);
+    const form = await get(`/api/team/cats/${cat.id}/vet-visit`);
+    expect(form.text).toContain('name="costReason"');
+    expect(form.text).toContain("Why the cost is different");
+
+    const plain = await post(`/api/team/cats/${cat.id}/vet-visit`, FORM);
+    expect(plain.status).toBe(303);
+    const saved = await post(`/api/team/cats/${cat.id}/vet-visit`, { ...FORM, date: "2026-08-14", costEur: "75", costReason: "Pregnant, longer surgery" });
+    expect(saved.status).toBe(303);
+    const page = await get(`/api/team/cats/${cat.id}`);
+    expect(page.text).toContain("€75 · paid by Syros Cats<br>Why the cost was different: Pregnant, longer surgery");
+  });
+
+  it("isn't for a visit that didn't sterilise, and the form says so and keeps it", async () => {
+    const cat = await seedCat(colony);
+    const res = await post(`/api/team/cats/${cat.id}/vet-visit`, { ...FORM, did: "checked", costEur: "20", costReason: "Late night" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("A reason for the cost is only for a sterilisation.");
+    expect(res.text).toContain('value="Late night"');
+  });
+
+  it("is money information: hidden without view_vet_costs and from a cat guardian", async () => {
+    const cat = await seedCat(colony);
+    await post(`/api/team/cats/${cat.id}/vet-visit`, { ...FORM, costEur: "75", costReason: "Pregnant XQZ" });
+    denied.cap = "view_vet_costs";
+    expect((await get(`/api/team/cats/${cat.id}`)).text).not.toContain("Pregnant XQZ");
+    denied.cap = null;
+    expect((await get(`/api/team/my/cats/${cat.id}`, eleni)).text).not.toContain("Pregnant XQZ");
+    const json = await request(app).get(`/api/team/my/cats/${cat.id}`).set("Cookie", eleni.cookie).set("Accept", "application/json");
+    expect(JSON.stringify(json.body)).not.toContain("Pregnant XQZ");
+  });
+});
+
 describe("Decision 7: a visit's statements are undone only with the visit", () => {
   let cat: SeededCat;
   let sterilisedId: number;
