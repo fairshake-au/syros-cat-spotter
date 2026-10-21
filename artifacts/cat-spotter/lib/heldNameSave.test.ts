@@ -171,4 +171,15 @@ describe('saveHeldName (SYC-506)', () => {
     await expect(saveHeldName('dev-1', 'Alex', s.deps)).resolves.toEqual({ kind: 'abandoned' });
     expect(s.claims).toEqual(['Alex']);
   });
+
+  it('after a taken name and a refused number, a taken suggestion is not followed by another number (ship review F2)', async () => {
+    const s = server({ taken: ['Alex', 'Suggested0'], refused: ['Alex10'] });
+    const result = await saveHeldName('dev-1', 'Alex', s.deps);
+    expect(s.claims).toEqual(['Alex', 'Alex10', 'Suggested0', 'Suggested1']);
+    expect(result).toEqual({
+      kind: 'saved',
+      username: 'Suggested1',
+      note: { from: 'Alex', to: 'Suggested1', reason: 'taken' },
+    });
+  });
 });

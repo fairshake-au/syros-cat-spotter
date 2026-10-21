@@ -46,20 +46,24 @@ export function useHeldNameSaver(deps: HeldNameDeps = DEPS) {
     let active = true;
     const generation = identityGeneration();
     const stillCurrent = () => identityGeneration() === generation;
-    const retry = () => {
+    // Ship review F3: only a try that failed backs off. A run skipped because
+    // another tab or claim held the lock retries at the current pace.
+    const retry = (failed: boolean) => {
       if (!active) return;
       const wait = HELD_NAME_RETRY_MS[Math.min(failures.current, HELD_NAME_RETRY_MS.length - 1)];
-      failures.current++;
+      if (failed) failures.current++;
       timer = setTimeout(() => setAttempt((n) => n + 1), wait);
     };
 
     void (async () => {
       let saved = false;
+      let failed = true;
       try {
         await ifLockFree(NAME_SAVE_LOCK, async () => {
           const result = await runBackgroundClaim(() =>
             saveHeldName(deviceId, heldUsername, { ...depsRef.current, stillCurrent }),
           );
+          if (result === undefined) failed = false; // another claim held the lock
           if (result?.kind !== 'saved' || !stillCurrent()) return;
           saved = true;
           failures.current = 0;
@@ -69,7 +73,7 @@ export function useHeldNameSaver(deps: HeldNameDeps = DEPS) {
       } catch {
         // retried below
       }
-      if (!saved) retry();
+      if (!saved) retry(failed);
     })();
 
     return () => {
