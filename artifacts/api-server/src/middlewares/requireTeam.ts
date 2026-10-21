@@ -11,6 +11,7 @@ import {
   can,
   doorFor,
   holdsIslandRow,
+  mayUseWorkspace,
   type Capability,
   type CapabilityTarget,
 } from "../lib/capabilities";
@@ -179,6 +180,7 @@ export function requireTeam(
           island: holdsIslandRow(person),
           mine: true,
           starting: door === "starting",
+          workspace: mayUseWorkspace(person),
         },
         next,
       );

@@ -18,6 +18,12 @@ export const TEAM_ORIGIN = "https://team.catspotters.com";
 export const TEAM_HOME = "https://team.catspotters.com/api/team/home";
 /** Where a refused browser is sent back to. */
 export const SIGN_IN_PAGE = "https://admin.catspotters.com/";
+/**
+ * The shared Syros Cats & Fair Shake workspace. admin.catspotters.com itself
+ * opens the dashboard for anyone who may use it, so the workspace has its own
+ * address, linked from the dashboard's menu.
+ */
+export const WORKSPACE_PAGE = "https://admin.catspotters.com/workspace";
 
 const B64URL = /^[A-Za-z0-9_-]+$/;
 
