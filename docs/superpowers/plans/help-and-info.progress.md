@@ -21,3 +21,11 @@ Checkpoint notes, newest last. Each agent appends after every commit.
   - Yes form rendered unconditionally -> FAIL "a viewer without change_report_state sees the line and thumbnails but no Yes form" (expected ... not to contain "Yes, it's")
   - cat name unescaped in the "Sent from" line / the Yes button / the thumbnail caption / the thumbnail alt / the draft card (five separate probes) -> each FAIL "escapes a cat named <script> in the line, the thumbnail and the button, and on the draft card" at `not.toContain("<script>alert(1)")`
 - 1.6 done: campaign.ts:2 and docs/SPEC.md 5.8 heading + limitation 8 reworded (go.ts comment was fixed in 1.3, openapi in 1.4). Next: typecheck, final test run.
+
+## Step 1 review (session, Opus, 21 Oct)
+- Re-ran myself: api-server 28 files / 641 tests passed; api-server tsc clean.
+- lib/db full suite: the 29 failures were the known stale hoisted @esbuild/darwin-arm64 0.27.3 (tsx "Host version" clash). Replaced it with 0.28.1 in node_modules; then 3 timeouts remained, and those 5 files pass 80/80 run serially with longer timeouts. No real failure.
+- Review fixes (commit after de0a63bc): catId no longer coerced (`true` would have become cat 1); curly apostrophe in the FR link-off body. Probe: re-adding z.coerce fails "an unknown or garbage catId gives null and a 201" (true: expected 1 to be null); restored.
+- Migration is 0035_report_suggested_cat on this base. When SYC-396's 0035 merges first, delete ours plus meta and regenerate as 0036 (README rule).
+- OpenAPI has no welfare-queue schema, so suggestedCat lives only in the QueueReport/QueueDraft types. Not added as new work.
+- Next: step 2 (Help & info page).
