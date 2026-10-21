@@ -1,10 +1,11 @@
 # Find from a photo across the whole island: a looks-like index
 
 **Feature spec · Cat Spotters (Syros)**
-**Version:** 0.1, draft for adversarial review · 21 October 2026
-**Linear:** SYC-527 (this spec). Related: SYC-396 (the dashboard), SYC-57 (visual memory, whose first half this brings forward), SYC-56 (matching accuracy), SYC-493 (the first live search), SYC-496 (the caps), SYC-462 (photo removal).
-**Amends:** `team-dashboard-redesign.md` §5.2 (a place is no longer required), §10.2–§10.3 (who may use it), §13 (empty and error states) and §14 (how it's built).
-**Status:** Draft. Needs adversarial review, then Samuel's approval. No code is written until he approves.
+**Version:** 0.2, revised after adversarial review · 21 October 2026
+**Linear:** SYC-527 (this spec). Related: SYC-396 (the dashboard), SYC-57 (visual memory, whose first half this brings forward), SYC-56 (matching accuracy), SYC-493 (the first live search), SYC-496 (the caps), SYC-462 (photo removal), SYC-534 (logging AI cost).
+**Amends:** `team-dashboard-redesign.md` §5.2 (a place is no longer required), §13 (empty and error states) and §14 (how it's built).
+**Review:** a Sonnet adversarial review of v0.1 found 1 blocker, 8 major and several minor points (`docs/reviews/syc-527-spec-adversarial-review.md`). §15 says where each is handled.
+**Status:** Draft, for Samuel's approval. No code is written until he approves.
 
 ---
 
@@ -12,259 +13,345 @@
 
 **What Syros Cats asked for** (via Samuel, 21 October 2026): "Syros Cats needs the ability to search and match against all cats on the island too, without specifying a location or colony."
 
-**What exists today.** Find from a photo is live (PR 2.5, #252). The team must choose an area or a colony, which must leave 30 cats or fewer. The photo is then compared with those cats by the same AI model the app uses for sightings, in groups of 10, with a final round for the best of each group. That's at most 4 AI calls a search.
-
-**What changes.**
-- The team can choose **Anywhere on the island**. Choosing an area or a colony still works, and is still the surer search.
-- When there are more cats to compare than the AI can take in a few calls, the app first picks the **20 cats that look most like the photo**, then the AI compares only those 20 closely.
-- The "looks most like" step uses a **looks-like index**: every cat's display photo gets a fingerprint once, a short list of numbers that describes how the photo looks. Similar-looking cats get similar numbers, so the app can rank every cat on the island in a fraction of a second, with no AI call and no money spent.
+**How it works.**
+- In Find from a photo, the team can choose **Anywhere on the island**, as well as an area or a colony. A place is still the surer search when they know it.
+- When there are more cats than the AI can compare in a few calls, the app first picks the **20 cats whose photos look most like the team's photo**. Then the AI that already does Find from a photo compares only those 20 closely.
+- The "look most like" step uses a **looks-like index**. Every cat's display photo gets a fingerprint once: a short list of numbers that describes how the photo looks. Similar-looking photos get similar numbers. So the app can rank every cat on the island in a fraction of a second, with no AI call and no money spent.
 - The fingerprints are made **on our own server**, by a small open-source image model. No new company sees any cat photo.
+- The AI comparison, the Very likely / Possible / Unlikely wording, the daily caps (20 a person, 100 for the team, per calendar day) and "the team's photo is never kept" all stay exactly as they are.
 
-**What doesn't change.** The AI comparison that judges the finalists, the Very likely / Possible / Unlikely wording, the daily caps (20 a person, 100 for the team, per calendar day), and the rule that the team's photo is never kept.
+**The island now** (read-only query on the production database, 21 October 2026): **28 cats**, every one with a main photo. The first was added on 27 July and the most recent on 29 September; none has been added in the three weeks since. While the island has 30 cats or fewer, a whole-island search simply compares them all, as a narrowed search does. The index starts doing the work once the island passes 30.
 
-**Where the island is today** (Neon, read-only query, 21 October 2026): **28 cats**, every one with a main photo. A whole-island search at launch therefore compares fewer than 30 cats, which the existing comparison already handles in at most 4 calls. The index starts doing work once the island passes 30 cats. §11 says what this means for the launch date.
+### Words used in this spec
+
+| Word | Meaning |
+|---|---|
+| **Fingerprint** | A list of 384 numbers worked out from a photo. Two photos of the same cat usually get close numbers. It isn't a picture, and a photo can't be rebuilt from it. |
+| **Display photo** | The photo the public sees for a cat: its main photo, or a stand-in if the team hid the main one. Worked out by the app's existing rule. |
+| **Shortlist** | The 20 cats whose display photos' fingerprints are closest to the team's photo's. |
+| **Transaction** | A group of database changes that all happen together or not at all. |
+| **Trigger** | A rule kept inside the database that runs every time a certain row is written, whichever part of the app writes it. |
+| **Autoscale** | How the live app runs on Replit: copies of the server start and stop with demand, each with a fixed amount of memory. |
 
 ## 2. Decided already (Samuel, 21 October 2026; not reopened here)
 
 1. **Approach C, a looks-like index.** Options A (narrow by colour instead of place) and B (the app reads the coat first, then searches by colour) were offered and not chosen.
-2. **Timing: before launch.** Code freeze Wed 28 October. (§11 gives the honest fit, as SYC-527 asks.)
+2. **Timing: before launch.** Code freeze Wed 28 October. §12 gives the honest fit, as SYC-527 asks.
 3. **The daily caps stay** at 20 a person and 100 for the team, per calendar day (SYC-496).
 
 ## 3. How a search works, step by step
 
-1. The team member opens Find from a photo and picks **where to look**: *Anywhere on the island* (new), *an area*, or *a colony*. Colour chips stay optional, as today.
-2. The page says how many cats that leaves, and what will happen (§7.2).
-3. They choose a photo and tap **Compare**. The checks before any work stay as #252 built them: the photo is re-encoded (which drops its location data), the caps are checked, nothing is stored.
-4. **If 30 cats or fewer are left** (a place, or the whole island while it is small): exactly today's comparison. Every cat is compared, in up to 3 groups of 10 plus a final round. No index needed.
-5. **If more than 30 are left** (the whole island once it grows, or a large area that today is refused):
-   1. The server makes the photo's fingerprint in memory. It is never written anywhere.
-   2. It ranks the fingerprints of those cats' display photos by how close they are to it, and keeps the **closest 20**.
-   3. Those 20 go to the existing comparison: 2 groups of 10, plus the final round. **3 AI calls.**
-6. The results page is today's, with one new line saying how the 20 were chosen (§7.3).
+1. The team member opens Find from a photo and picks **where to look**: *Anywhere on the island*, *an area*, or *a colony*. Colour chips stay optional.
+2. The page says how many cats that leaves and what will happen (§9.2).
+3. They choose a photo and tap **Compare**. In this order, and **nothing in steps 3–6 uses up a search**:
+   1. The photo is re-encoded (which drops its location data) and checked, as #252 does.
+   2. A free look at the caps: someone already over their cap is turned away before any work (#252, second review, finding 5).
+   3. The cats to compare are worked out. "The number of cats" means **cats with a display photo**; a cat with none can't be compared by any method.
+4. **30 cats or fewer:** the search is exactly #252's. Every cat is compared, in up to 3 groups of 10, plus a final round.
+5. **More than 30:**
+   1. The server works out the team's photo's fingerprint, in memory only.
+   2. It makes any fingerprints still missing for those cats' display photos (§7), within a time limit.
+   3. It ranks the cats by how close their fingerprints are, and keeps the **closest 20**.
+   4. Only then does it read those 20 cats' photos for the AI. #252 reads every cat's photo; reading 400 would be slow.
+6. If step 5 fails (the model won't load, or the fingerprint can't be made), the page says so (§9.4) and the search isn't counted.
+7. **The caps are counted** (the same gate as #252, before any AI call).
+8. The AI compares: up to 4 calls for 30 cats or fewer, **3 calls** for a shortlist of 20 (2 groups of 10, plus the final round).
+9. The results page is #252's, with one new line saying how the 20 were chosen (§9.3).
 
-A search never makes more than 4 AI calls, as today. The index makes the whole-island search cheaper than a full narrowed search (3 calls, not 4), not dearer.
+A search never makes more than 4 AI calls. A whole-island search on a large island is cheaper than today's largest narrowed search (3 calls, not 4).
+
+**Two searches at once.** Each server copy makes fingerprints for only one search at a time; a second search waits for the first to finish making them and then reuses them. This stops a burst of searches from each starting the same slow work.
 
 ## 4. Decision 1: what makes the fingerprints
 
-**The question.** The index needs something that turns a photo into a fingerprint. What should it be?
+**The question.** Something has to turn a photo into a fingerprint. What should it be?
 
 **What we checked (21 October 2026):**
-- **The app's current AI service can't do it.** Replit's AI Integrations documentation lists chat, responses, image generation and audio for OpenAI, and no embeddings ([Replit docs](https://docs.replit.com/features/integrations/replit-ai-integrations)). And OpenAI's own embeddings endpoint takes text only, never a picture. So even if Replit passed embeddings through, it couldn't fingerprint a photo.
-  - *Why no live probe:* a probe could at most show that text embeddings work, and that wouldn't change the answer. So none was run, and the paid service wasn't called. If Samuel wants it confirmed anyway, the probe is: ask the Replit agent to make one call to `openai.embeddings.create({ model: "text-embedding-3-small", input: "test" })` through the project's integration and report only the status code. Expect a 404 or "not supported".
-- **On-server models, measured** on Samuel's Mac (Apple M5 Pro), with the open-source `@huggingface/transformers` library (3.7.5) on its CPU runtime, 8-bit models, a 640 px photo (the app's medium size), 12 runs each:
+- **The app's current AI service can't do it.** Replit's AI Integrations documentation lists chat, responses, image generation and audio for OpenAI, and no embeddings ([Replit docs](https://docs.replit.com/features/integrations/replit-ai-integrations)). And OpenAI's own embeddings service takes text only, never a picture.
+  - *Why there was no live test call:* a test could at most show that text fingerprints work, and that wouldn't change the answer. So the paid service wasn't called. If Samuel wants it confirmed anyway: ask the Replit agent to make one call to `openai.embeddings.create({ model: "text-embedding-3-small", input: "test" })` through the project's integration and report only whether it worked. Expect a "not found" or "not supported".
+- **Two open-source models, measured on Samuel's Mac** (Apple M5 Pro). These used the `@huggingface/transformers` library (3.7.5) on the computer's processor, with the models' compact 8-bit versions and a 640 px photo (the app's medium size), 12 runs each:
 
-| Model | Fingerprint size | Time per photo (median) | Extra server memory | Model file |
+| Model | Fingerprint | Time per photo | Extra server memory | Model file |
 |---|---|---|---|---|
-| **DINOv2 small** (Meta, Apache 2.0) | 384 numbers | 44 ms | about 110 MB | 24 MB |
-| CLIP ViT-B/32 (OpenAI, MIT) | 512 numbers | 32 ms | about 240 MB | 85 MB |
+| **DINOv2 small** (Meta, Apache 2.0 licence) | 384 numbers | 44 ms | about 110 MB | 24 MB |
+| CLIP ViT-B/32 (OpenAI, MIT licence) | 512 numbers | 32 ms | about 240 MB | 85 MB |
 
-  The live server is slower than a new Mac. **Unchecked:** the Replit machine's size; a guess of 5–10× slower puts it at 0.2–0.5 s a photo, still well under the AI calls, which take several seconds each (also unchecked; the app doesn't log their time).
-- **A hosted fingerprint service** (for example Voyage's multimodal model) costs about **$0.0002 a photo** at its listed $0.60 per billion pixels ([Voyage pricing](https://docs.voyageai.com/docs/pricing)). Others exist (Cohere, Google, Jina), at similar prices (unchecked).
+  **Unchecked:** how fast the Replit server is, and how much memory each copy has. A guess of 5–10 times slower puts a fingerprint at 0.2–0.5 s.
+- **A hosted fingerprint service** (for example Voyage's multimodal model) costs about **$0.0002 a photo** at its listed $0.60 per billion pixels ([Voyage pricing](https://docs.voyageai.com/docs/pricing)). Others (Cohere, Google, Jina) are similar (unchecked).
 
 **The options**
 
 | | A. Our own server, DINOv2 small **(recommended)** | B. Our own server, CLIP | C. A hosted service |
 |---|---|---|---|
-| **Who sees the photos** | Nobody new | Nobody new | **A new company sees every cat's display photo and every photo the team searches with.** The privacy policy going live this week would have to name it, and it needs a data-processing agreement |
-| **Money** | None. Server time only | None. Server time only | About $0.0002 a photo; a few cents for the whole island |
-| **Good at telling one cat from another** | Built for "find the same thing again"; usually the stronger of the two at telling individuals apart (to be confirmed by §6's check) | Built for matching photos to words ("a ginger cat"). Good at kind, weaker at individuals | Varies by service; unmeasured |
+| **Who sees the photos** | Nobody new | Nobody new | **A new company sees every cat's display photo and every photo the team searches with.** The privacy policy going live this week would have to name it, with a data-processing agreement (the contract that says what they may do with it) |
+| **Money** | None. Server time only | None. Server time only | About $0.0002 a photo: a few cents for the whole island |
+| **Telling one cat from another** | Made for "find this same thing again". Published comparisons usually rate it better than CLIP at that (**unchecked here**; §8 decides) | Made for matching photos to words ("a ginger cat"): good at kind, expected to be weaker at individuals | Varies by service; not measured |
 | **Server memory** | +110 MB | +240 MB | None |
-| **Risks** | A native library (`onnxruntime-node`, 208 MB installed) must work on Replit's build and machine; the model file has to reach the server (§4.1) | The same, and twice the memory | A new outside dependency that can be down, change price or change terms; another key to keep secret |
-| **What the team sees** | Nothing different, unless the server can't run the model; then *Anywhere on the island* says so and offers the area search (§7.4) | Same as A | Same, plus a short wait for the round trip |
+| **Risks** | A new piece of compiled software (`onnxruntime-node`) must install and run on Replit (§5) | The same, with twice the memory and a file too big to keep in our code | A new outside dependency that can be down, change price or change terms; another secret key to keep |
+| **What the team sees** | Nothing different. If the model can't run, *Anywhere on the island* says so and offers the area search (§9.4) | Same as A | Same, plus a short extra wait |
 
-**Recommendation: A, DINOv2 small on our own server.** It keeps every photo inside services we already use, costs nothing per search, uses the least memory, and is the better kind of model for "is this the same cat". §6's accuracy check runs both DINOv2 and CLIP on the same photos before the build commits; if CLIP does clearly better there, we use CLIP instead. **C only if Samuel prefers it**, and then only once the privacy policy names the service (his call: say so before it goes live this week).
+**Recommendation: A, DINOv2 small on our own server.** It keeps every photo inside services we already use, costs nothing per search, and uses the least memory. §8's check runs both A and B on the same photos. The rule for choosing: **use the one that puts the right cat in the top 20 more often; if they're within 5 percentage points, use DINOv2 small** for its smaller memory and file. **Choose C only if Samuel prefers it**, and then only once the privacy policy names the service (his call, before the policy goes live this week).
 
-### 4.1 Getting the model onto the server
+## 5. Decision 2: getting the model onto the live server
 
-- **The model file is fetched when the app is built, not at run time.** The build downloads one pinned version from Hugging Face, checks its fingerprint (SHA-256) against the one written in our code, and fails the build if it doesn't match. At run time the library is told never to download anything. So the live app never talks to Hugging Face, and a changed file can't slip in.
-- **It loads on the first whole-island search**, not when the server starts, so ordinary pages don't pay for it. On the Mac, loading took 0.2 s. On a fresh Replit instance it's likely a second or two (unchecked).
-- `onnxruntime-node` is already on the server build's list of packages kept outside the bundle (`build.mjs`), so the bundler needs no change. **Unchecked, and the build's first task:** that the package installs and runs on Replit's Linux machine and its deploy step, and how much it adds to the deploy size. If it doesn't run there, stop and come back to Samuel with options (C, or WebAssembly instead of the native runtime, which is slower).
+**The question.** The model is a 24 MB file and a piece of compiled software. How do they reach the live app, and what has to change?
 
-## 5. Decision 2: where the fingerprints are kept, and keeping them in step
+**What the code shows (origin/main, 21 October):** `onnxruntime-node` is already on the server build's list of packages it leaves out of the bundle (`artifacts/api-server/build.mjs`), but neither it nor `@huggingface/transformers` is installed anywhere. The workspace has a 1-day minimum age for new packages, an allowlist of packages that may run build steps (`onlyBuiltDependencies`) and rules that strip other computers' versions of some packages (`pnpm-workspace.yaml`). The live server runs `node dist/index.mjs` after a build step on Replit (`.replit`).
 
-### 5.1 Storage
+**Where the model file comes from**
 
-**The question.** Neon (our database) offers pgvector, an add-on built for storing and searching fingerprints. Do we need it?
+| | A. Kept in our code, beside the server **(recommended for DINOv2 small)** | B. Downloaded from Hugging Face during each build | C. Downloaded when the server starts |
+|---|---|---|---|
+| **How** | The 24 MB file is committed once under `artifacts/api-server/models/`, with its licence. The server reads it from disk | The build fetches one pinned version and checks its checksum (a fingerprint of the file itself) | The server fetches it on the first search |
+| **Benefits** | No outside service during a build or a search; the exact file is reviewed in the PR | Keeps the repository small; works for CLIP's 85 MB | Nothing to set up |
+| **Risks** | 24 MB added to the repository for good (each model change adds another) | A Hugging Face outage in release week fails the build | The live app depends on Hugging Face; a slow first search on every new server copy |
+| **What the team sees** | Nothing | Nothing, unless a build fails on publish day | A slower first search |
 
-**What we checked (Neon, read-only, 21 October 2026):** pgvector 0.8.0 is **available but not switched on** in the production database. Our CI's test database (`postgres:16` in `.github/workflows/ci.yml`) and the local test database on the Mac (Homebrew `postgresql@16`) **don't have it**.
+**Recommendation: A** for DINOv2 small; **B** if §8 picks CLIP (85 MB is too big to keep in the code). Never C. At run time the library is told never to download anything.
 
-| | A. A plain list of numbers in an ordinary table, ranked by the server **(recommended)** | B. pgvector |
+**What the build changes** (the build PR lists each):
+- `artifacts/api-server/package.json`: add `@huggingface/transformers` and `onnxruntime-node`, at versions over a day old.
+- `artifacts/api-server/build.mjs`: also leave `@huggingface/transformers` out of the bundle, so it loads its compiled part at run time.
+- `pnpm-workspace.yaml`: allow `onnxruntime-node`'s build step only if it needs one (it ships ready-made copies for Linux, macOS and Windows).
+- The repository's package-safety tests, updated for the two new packages.
+
+**The first task of the build, before anything else:** on Replit, install the two packages, load the model, fingerprint one photo, and report three numbers: time per photo, the server's extra memory, and how much bigger the deploy is. **The limit:** no more than 200 MB of extra memory per server copy. The model loads on the first whole-island search, not at start-up, so other pages never pay for it. **If it fails or breaks the limit,** the build stops and comes back to Samuel with options (C from §4, or a slower version of the library that needs no compiled part).
+
+## 6. Decision 3: where fingerprints are kept, and keeping them safe
+
+### 6.1 Storage
+
+**The question.** Neon (our database) offers pgvector, an add-on made for storing and searching fingerprints. Do we need it?
+
+**What we checked (read-only, 21 October 2026):** pgvector 0.8.0 is **available but not switched on** in the production database. The test database CI uses (`postgres:16` in `.github/workflows/ci.yml`) and the one on the Mac (Homebrew `postgresql@16`) **don't have it**.
+
+| | A. An ordinary table, ranked by the server **(recommended)** | B. pgvector |
 |---|---|---|
-| **What it is** | Each fingerprint is stored as a list of 384 numbers (`real[]`). At search time the server reads the fingerprints of the cats being compared and ranks them itself | Postgres stores and ranks the fingerprints, and can use a special index to stay fast with millions |
-| **Speed for us** | A few hundred cats is about 100,000 multiplications: well under a millisecond. Still fine at several thousand cats | Same at our size; better only at sizes we won't reach for years |
-| **What it takes** | One ordinary migration | Switching the add-on on in production (Samuel's ask-mode switch), changing the CI database image, and installing it on every Mac and Replit database that runs tests |
-| **Risks** | None new | More moving parts in launch week. A test database without it fails every test run |
+| **What it is** | Each fingerprint is stored as a list of numbers. The server reads the ones it needs and ranks them itself | The database stores and ranks them, with a special index for very large collections |
+| **Speed for us** | A few hundred cats is about 100,000 multiplications: under a millisecond. Fine at several thousand | The same at our size; better only at sizes we won't reach for years |
+| **What it takes** | One ordinary database change | Switching the add-on on in production, a different CI database, and installing it on every database that runs tests |
+| **Risks** | None new | More moving parts in launch week; a test database without it fails every run |
 | **What the team sees** | Nothing | Nothing |
 
-**Recommendation: A.** pgvector is the right tool when SYC-57 grows to the whole sighting history or on-device matching. Moving from A to B later is a small migration, because the numbers are the same.
+**Recommendation: A.** pgvector belongs to SYC-57, when the index extends to the whole sighting history. Moving later is a small change, because the numbers are the same.
 
-**The table** (one migration):
-- `photo_fingerprints`: the photo's id (the key, and deleted with the photo), the model and version that made it, the 384 numbers, and when it was made.
-- **It holds no cat id.** Which photo a cat is shown by is worked out on each search by the existing rule (`catDisplayPhotoIds`), so the index can never disagree with what the public sees.
+**The table, `photo_fingerprints`:** the photo's id (one row per photo), which model made it, the numbers (scaled to length 1, so closeness is a plain dot product), and when it was made. **It holds no cat id.** Which photo shows each cat is worked out on every search by the existing rule (`catDisplayPhotoIds`), so the index can never disagree with what the public sees. Its link to `photos` deletes the fingerprint if a photo row is ever deleted.
 
-**Migration number:** **not claimed by this spec.** On fresh `origin/main` (21 October) the newest is `0034_photo_removal`. `0035` is already used on the branch `claude/syc-396-pr-3-1b-vet-settings`, and PR 3.3a's `report_downloads` comes next. The build session claims its number when it starts, after checking `origin/main` and the open branches, and posts it on SYC-396 so the other sessions know. Its production run shares Samuel's ask-mode switch with the other migrations of that publish day.
+**SYC-462's photo catalogue** (`lib/db/src/photoRemoval/catalogue.test.ts`, test T3) lists every column that points at a photo, and its test fails on a new one. The build adds `photo_fingerprints.photo_id` to it as "deleted on removal". The removal search scans list-type columns for photo addresses; the build makes it skip this table, whose lists hold only numbers, and says so in that file.
 
-### 5.2 Keeping the index in step
+**Database change number:** **not claimed by this spec.** On fresh `origin/main` (21 October) the newest is `0034_photo_removal`. `0035` is used on the branch `claude/syc-396-pr-3-1b-vet-settings`, and PR 3.3a's `report_downloads` comes next. The build claims its number when it starts, after checking `origin/main` and the open branches, and posts it on SYC-396. Its production run shares Samuel's ask-mode switch with the other changes of that publish day.
 
-Because fingerprints belong to **photos**, not cats, most changes need nothing:
+### 6.2 Hidden and removed photos: no fingerprint, ever
+
+**The rule:** a photo that is hidden or removed has no fingerprint in the table. Not just "not used": not kept.
+
+**Where photos get hidden or removed** (checked on origin/main):
+1. The team hides one on the dashboard (`setPhotoVisibility`, `lib/photoVisibility.ts`).
+2. A welfare report hides one automatically (`applyHideRules`, `lib/issues/hide.ts`; SYC-44).
+3. The written procedure hides one (`lib/db/src/photoRemoval/hide.ts`).
+4. The written procedure removes one for good (`lib/db/src/photoRemoval/remove.ts`, SYC-462). It empties the picture and records who and why; it **doesn't delete the photo row**.
+
+**How the rule holds, whatever writes the hide:**
+- **Two database triggers delete the fingerprint**, in the same transaction:
+  - every time a "hide" row is added to `photo_visibility_events` (all three hide paths write one; migration 0034 already uses a trigger on that table the same way);
+  - every time a photo's picture is removed (the `removed_at` column is set).
+- **Making a fingerprint re-checks first.** The save locks the photo's row, re-checks that it isn't hidden or removed, and only then saves (copying how `variantFor` saves photo versions, `lib/photoVariants.ts`). The hide triggers take the same row lock. So whichever goes first, a hide and a fingerprint can never both win:
+  - hide first: the save waits, re-checks, sees the hide, and saves nothing;
+  - save first: the hide waits, then its trigger deletes the new fingerprint.
+- **And a search only reads fingerprints of current display photos,** which by the existing rule are never hidden or removed.
+
+**Tests, each shown to fail when the thing it guards is taken out:** each of the four paths leaves no fingerprint; a hide racing a fingerprint save leaves none either way round; a source test fails if any new code writes a fingerprint without the locked re-check.
+
+### 6.3 Everything else that changes a cat's photo
 
 | What happens | What the index does |
 |---|---|
-| A new cat is named from a sighting | Its display photo has no fingerprint yet. The next search that includes it makes one (§5.3) |
-| A cat's main photo changes (SYC-163, later) | The new photo has no fingerprint yet: same as above. The old photo's fingerprint is no longer used, because it's no longer anyone's display photo |
-| **The team hides a photo** | **Its fingerprint is deleted in the same database transaction as the hide** (`setPhotoVisibility` for the dashboard, `photoRemoval/hide.ts` for the written procedure). If it was a cat's display photo, the cat's stand-in photo is used and fingerprinted in its place |
-| The team restores a photo | Nothing. If it's a display photo again, the next search fingerprints it again |
-| **A photo is removed for good** (SYC-462) | **Its fingerprint is deleted in the same transaction as the picture**, beside the small versions it already deletes (`photoRemoval/remove.ts`). The table's link to the photo also deletes it if the photo row ever goes |
-| Two cats are merged | Nothing. The cat merged away isn't compared any more (the cat list already leaves it out) |
-| A cat dies, is homed or leaves Syros | Nothing new. The search compares the same cats as today's (§9.5's "active cats") |
-| The model changes | Fingerprints from the old model are ignored and remade as searches need them |
+| A new cat is named | Its display photo has no fingerprint yet; the next big search, or the backfill, makes one (§7) |
+| A cat's main photo changes (SYC-163, later), or a stand-in takes over | The new display photo gets a fingerprint the same way. The old one's stays; it's a public photo's fingerprint, unused unless it becomes a display photo again |
+| The team restores a photo | Nothing. The next search makes its fingerprint again if it's a display photo |
+| Two cats are merged | Nothing. The cat merged away is no longer compared (`lib/teamCatList.ts` already leaves it out) |
+| A cat dies, is homed or leaves Syros | Nothing new: the cats compared are the same as #252's |
+| The model changes | Old fingerprints are ignored; the backfill makes new ones |
 
-**Belt and braces:** a search only ever reads the fingerprints of the photos that are *right now* the cats' display photos, which are never hidden or removed. So even a fingerprint that a missed delete left behind could never be used. A test proves each of the three deletes happens, and a mutation probe (taking one out) turns it red.
+## 7. Decision 4: filling the index (the backfill, and new cats)
 
-### 5.3 Filling the index (the backfill, and new cats)
+**The question.** Every cat's display photo needs a fingerprint before it can be ranked. When are they made?
 
-**The question.** Every cat's display photo needs a fingerprint before the index can rank it. When are they made?
+**Why this matters more than it looks:** the 16 November release may bring Syros Cats' old records (SYC-49, "if Syros Cats want it", `mvp-launch-31-oct.md`). Any cats that arrive with photos then need fingerprints all at once, as they do after any model change.
 
-| | A. When a search needs them **(recommended)** | B. As soon as a cat or a display photo appears | C. A nightly job |
+| | A. A one-off backfill, plus filling gaps during a search **(recommended)** | B. Filling during searches only | C. Fingerprint the moment a cat or display photo appears |
 |---|---|---|---|
-| **How** | Before ranking, the search fingerprints any display photo that has none (at most 50 in one search), and saves them | The code that names a cat, or hides a main photo, also queues a fingerprint | Every night, fingerprint whatever is missing |
-| **Benefits** | One place does it, and it can't miss a path. The first search after launch does the whole backfill: 28 photos at an estimated 0.2–0.5 s each is 6–14 s, once | New cats are ready before anyone searches | Searches are never slowed |
-| **Risks** | A search after a big wave of new cats is slower. Over 50 missing, the rest are left out of that search, and the page says how many | Touches the sighting and hiding code, which other work changes all the time; a missed path is silent | A new scheduled job on Replit autoscale, which has no always-on process; new cats wait up to a day |
-| **What the team sees** | Usually nothing. Rarely: "12 newer cats weren't included this time. Search again in a minute, or choose an area." | Nothing | Brand-new cats missing from whole-island searches until the next morning |
+| **How** | A command fingerprints every display photo that has none. It runs once at release, after any import, and after any model change. A search still fills small gaps, at most 15 seconds' worth | Each big search fills what's missing, up to a limit | The code that names a cat or hides a main photo also makes a fingerprint |
+| **Benefits** | Big jobs never land on a team member's search; small gaps (a new cat this week) still get filled | Nothing to run by hand | New cats ready at once |
+| **Risks** | One more command to remember. **It runs where the production database is reachable, so it needs Samuel's ask-mode switch**, like a database change | After an import, the first several searches each leave cats out and are slow | Touches sighting and hiding code that other work changes constantly; a missed path is silent |
+| **What the team sees** | Usually nothing. Rarely: "12 newer cats weren't included this time" | After a big addition, several searches that leave cats out | Nothing |
 
-**Recommendation: A**, with the cap of 50 a search. At launch rates (28 cats in three months of testing), a search will almost never meet more than a handful of missing photos. A new cat with no fingerprint is **never silently missed**: either it is fingerprinted in that search, or the page counts it as left out.
+**Recommendation: A.**
+- **The command** runs through the existing `db-ops` workflow, which already handles photos for SYC-462's procedures. It works oldest photo first, reports how many it made and how many failed, and can be run again safely.
+- **During a search**, missing fingerprints are made oldest first, for at most 15 seconds. Any cat still missing is left out, and the page counts it: "12 newer cats weren't included this time. Choose an area to include them." Choosing an area of 30 cats or fewer always includes them, because that needs no fingerprints.
+- **A photo that can't be fingerprinted** is left out of that search and counted the same way. Nothing is stored about the failure; the next backfill tries it again.
 
-**Measured cost and time of the backfill.** Money: none (no AI service is called). Time: measured on the Mac at 44 ms a photo, so 28 photos ≈ 1.2 s plus reading the photos. **On Replit: unchecked until the build runs it**; the build records the real time on SYC-527 from the first search's log line (§9).
+**Measured cost and time:** no money (no AI service is used). On the Mac, 44 ms a photo: the island's 28 photos take about 1–2 s. **On Replit: unchecked until §5's first task measures it.** The build writes the real figure on SYC-527.
 
-## 6. Decision 4: does the right cat make the 20? (accuracy)
+## 8. Decision 5: does the right cat make the 20? (accuracy)
 
-**The question.** The index only helps if the right cat is nearly always among the 20 it picks. How do we know, and is 20 the right number?
+**The question.** The index only helps if the right cat is nearly always on the shortlist. How do we know, and how long should the shortlist be?
 
-**What there is to test on** (Neon, read-only, 21 October 2026): 35 confirmed sightings with a photo, across all 28 cats. Only **6 cats** have more than one photo. That gives about **7 test searches** (a cat's other photo against every cat's display photo). That's enough to catch a broken index, not to measure one.
+**What there is to test on** (read-only, 21 October 2026): 35 confirmed sightings with a photo across the 28 cats, and only **6 cats** with more than one photo. That's about 7 test searches.
+
+**Why that isn't enough on its own:**
+- With 28 cats, a shortlist of 20 would include the right cat 71% of the time **by pure chance**.
+- Two photos of the same cat from the same visit look almost identical, which flatters any method.
+- These models look at the whole photo, background included. Street cats at one feeding site share a background, so the index may rank "photos taken at the same spot" close together. That helps when the team's photo comes from the cat's usual spot, and hurts when it doesn't.
 
 **The check, run by the build before the page changes:**
-1. **The island's own photos.** For every cat with two or more confirmed, visible photos: search with each photo that isn't its display photo, against the display photos of every active cat. Record where the right cat ranks. Hidden and removed photos are never used, and only the ranks are written down: no photo leaves our systems. **Pass:** every one ranks in the top 10.
-2. **A larger set of known cats.** A published collection of photos of individually known cats, with at least 100 cats and two or more photos each, used only on the Mac and never uploaded. **Pass:** the right cat is in the top 20 at least 90% of the time. **Unchecked:** which collection, and whether its licence allows this. If none fits, the check is the island's own photos only, and the PR says so plainly.
-3. **Both models** (DINOv2 small and CLIP) run on both sets. The better one is used (§4).
+1. **A smoke test on the island's own photos.** For each cat with two confirmed, visible photos **taken on different days**: search with the one that isn't its display photo, against every active cat. Record the right cat's rank. Only ranks are written down, and no photo leaves our systems. It passes if every one is in the top 10. It shows the index isn't broken; it can't show the index is good.
+2. **A larger set of individually known cats,** used only on the Mac and never uploaded: at least 100 cats, with two or more photos each taken on different occasions. **Unchecked: which public collection, and whether its licence allows this.** If none fits, the build says so, and the only measure until SYC-56's launch-era set exists is the smoke test.
+   - **It passes if the right cat is in the top 20 at least 90% of the time.** That bar means 1 search in 10 might miss the right cat, which the page's "if you know where, choose the area" line (§9.3) is there to cover.
+   - The check also records how often the top 20 are mostly cats from one place, to see how much background sways it.
+3. **Both models** run on both sets, chosen by §4's rule.
 
-**Choosing K (how many go to the AI):**
+**Choosing the shortlist's length (K):**
 
-| K | AI calls | Benefits | Risks |
-|---|---|---|---|
-| 10 | 1 | Cheapest and fastest | The right cat has to be in the closest 10: least room for a different angle or light |
-| **20 (recommended)** | 3 | Twice the room for error, and still fewer calls than today's narrowed search of 21–30 cats | — |
-| 30 | 4 | Most room | The same calls as today's largest search, for little gain if 20 already passes |
+| K | AI calls | What the team sees | Benefits | Risks |
+|---|---|---|---|---|
+| 10 | 1 | The quickest answer | Cheapest | The right cat must be in the closest 10: least room for different light or angle |
+| **20 (recommended)** | 3 | The same results page; a few seconds slower than K=10 | Twice the room, and still one call fewer than today's largest narrowed search | — |
+| 30 | 4 | The slowest | Most room | Today's maximum calls, for little gain if 20 passes |
 
-**Recommendation: 20**, unless the check shows 10 passing just as well on both sets, in which case Samuel chooses between saving 2 calls a search and keeping the room. The check's numbers are recorded on SYC-527, and become the first entry in SYC-56's baseline (labelled as a small one).
+**Recommendation: 20.** If check 2 shows 10 doing just as well, Samuel chooses between saving 2 calls a search and keeping the room. The results go on SYC-527, and become the first small entry in SYC-56's baseline.
 
-## 7. Decision 5: the page
+## 9. Decision 6: the page
 
-### 7.1 Anywhere beside area and colony
+### 9.1 Anywhere beside area and colony
 
 **The question.** Does *Anywhere on the island* replace choosing a place, or sit beside it?
 
-| | A. Both kept, *Anywhere* as the first choice **(recommended)** | B. Both kept, a place still the first choice | C. *Anywhere* only |
+| | A. Both kept, *Anywhere* chosen first **(recommended)** | B. Both kept, a place chosen first | C. *Anywhere* only |
 |---|---|---|---|
-| **What the team sees** | "Where to look: Anywhere on the island · An area · A colony". *Anywhere* is picked unless they arrived with an area or colony from the Cats page | The same three, with *An area* picked | No place choice at all |
-| **Benefits** | What Syros Cats asked for is the obvious path. A place is one tap away when they know it | Nudges the team toward the surer search | Simplest page |
-| **Risks** | Some searches that could have been narrowed won't be | Syros Cats' request is a step away | Throws away the surer search for a resident's WhatsApp photo from a known street |
+| **What the team sees** | "Where to look: Anywhere on the island · An area · A colony", with *Anywhere* picked unless they came from the Cats page with an area or colony | The same three, with *An area* picked | No place choice |
+| **Benefits** | What Syros Cats asked for is the obvious path, and a place is one tap away | Nudges toward the surer search | Simplest page |
+| **Risks** | Some searches that could have been narrowed won't be | Syros Cats' request is a step away | Throws away the surer search for a resident's photo from a known street |
 
-**Recommendation: A.** The place is still the strongest clue when it's known, so the page keeps it one tap away and says why: "If you know where the photo was taken, choosing the area is surer."
+**Recommendation: A**, with the line "If you know where the photo was taken, choosing the area is surer."
 
-**A large area** (more than 30 cats) stops being refused: it uses the index within that area, the same way. Colours stay optional narrowing for every choice.
+**A large area** (more than 30 cats) is no longer refused: it uses the index within that area. Colours stay optional for every choice. The place rule lives in five places today, and each changes together: `hasPlace` in `lib/findFromPhoto.ts`, the route's check (`routes/teamCats.ts`), `findFilters`, the form page and the "tie a report" flow.
 
-### 7.2 The words before the search
+### 9.2 The words before the search
 
 - *Anywhere*, 30 cats or fewer: "**28 cats to compare** across the island."
-- *Anywhere*, more than 30: "**412 cats on the island.** The app picks the 20 that look most alike, then compares those closely."
-- A place: today's words ("12 cats to compare"), or the line above with the area's count.
+- *Anywhere*, more than 30: "**412 cats on the island.** The app picks the 20 whose photos look most like yours, then compares those closely. This can take up to a minute."
+- A place: #252's words ("12 cats to compare"), or the line above with the area's count.
 
-### 7.3 §5.2's "less sure" sentence
+### 9.3 §5.2's "less sure" sentence
 
-Today: "This is less sure than the app's matching, because it compares more cats at once and has no exact position. Check the photos yourself."
+#252's sentence stays when every cat was compared: "This is less sure than the app's matching, because it compares more cats at once and has no exact position. Check the photos yourself."
 
-**Proposed, when the index was used:** "This is less sure than the app's matching. It first picked the 20 cats whose photos look most alike, so a cat photographed in very different light or from another angle can be missed. Check the photos yourself, and if you know where the photo was taken, try choosing the area."
+**When the shortlist was used:** "This is less sure than the app's matching. It first picked the 20 cats whose photos look most like yours. A cat photographed in different light, from another angle or somewhere else can be missed. Check the photos yourself, and if you know where the photo was taken, try choosing the area."
 
-When the index wasn't used (30 cats or fewer), today's sentence stays.
+**The results line:** "Compared closely with the 20 of 412 cats whose photos look most like yours", or #252's "Compared with 28 cats".
 
-**The results line:** "Compared closely with the 20 of 412 cats that look most alike" (index) or "Compared with 28 cats" (today's). **No close match:** "No close match among the 20 cats that look most alike. Try choosing an area, or browse the cats." The browse link opens the Cats grid as today (filtered by area when one was chosen).
+**No close match:** "No close match among the 20 cats whose photos look most like yours. Try choosing an area, or browse the cats." The browse link opens the Cats grid, filtered by area when one was chosen.
 
-These are **team-only words**, in English like the rest of the dashboard. They aren't in Johnny's translation pack (SYC-346), so the 22 October copy freeze doesn't bind them; #252 had none either.
+These are **team-only words**, in English like the rest of the dashboard. They aren't in Johnny's translation pack (SYC-346), so the 22 October copy freeze doesn't bind them. #252 had none either.
 
-### 7.4 When the index can't run
+### 9.4 When the index can't run
 
-If the model fails to load or the fingerprint fails: "Searching the whole island isn't working right now. Choose an area or a colony to search without it." No search is used up (the failure happens before the caps are counted), and a place search of 30 cats or fewer still works, because it never needs the index.
+"Searching the whole island isn't working right now. Choose an area or a colony to search without it." No search is used up: this happens before the caps are counted (§3). A place with 30 cats or fewer still works, because it never needs the index.
 
-### 7.5 The caps
+### 9.5 The caps
 
-**Unchanged:** 20 a person and 100 for the team, per calendar day (SYC-496). A whole-island search makes 3 AI calls, fewer than the largest narrowed search, so the most the AI service can be billed per day stays at 400 calls (100 searches of at most 4). The fingerprint costs no money. **Cost in money per call: still unchecked** (the app logs no tokens; SYC-493). A deferred ticket adds token logging (§12).
+**Unchanged:** 20 a person and 100 for the team, per calendar day (SYC-496). A shortlist search makes 3 AI calls, so the most the AI service can be billed for in a day stays at 400 calls (100 searches of at most 4). Fingerprints cost no money. **The money per call is still unchecked:** the app logs no tokens (SYC-493). SYC-534 adds that logging.
 
-## 8. Decision 6: privacy
+## 10. Decision 7: privacy
 
-- **The team's photo:** re-encoded (no location data), fingerprinted **in memory only**, compared, and forgotten. Its fingerprint is never written to the database, a log or a file. A test runs a search and checks that the fingerprint table's row count only grows by the cats' display photos, never by one for the upload. Same rule as #252's "nothing is stored" test.
-- **Hidden and removed photos are never fingerprinted.** The search fingerprints only current display photos, which by the existing rule are never hidden or removed. A fingerprint is deleted when its photo is hidden or removed (§5.2).
-- **No new company sees any photo** (with §4's recommendation). The model file comes from Hugging Face at build time only; the running app never contacts it.
-- **No positions in addresses.** *Anywhere on the island* is one more value of the existing place choice (no position, no name). The address rule in spec §10.4 and its tests are unchanged.
-- **The privacy policy:** with on-server fingerprints, nothing changes. With a hosted service (option C), it must name the service before launch.
+- **The team's photo:** re-encoded (no location data), fingerprinted in memory only, compared, and forgotten. Its fingerprint never goes to the database, a log line or an error report. **Test:** after a search, no fingerprint row exists for anything but the compared cats' display photos (checked by photo id, so other tests on the shared test database can't upset it).
+- **Hidden and removed photos are never fingerprinted, and lose any fingerprint they had** (§6.2).
+- **No new company sees any photo** with §4's recommendation. The model file is kept in our code (§5), so nothing contacts Hugging Face at all.
+- **No positions in addresses.** *Anywhere on the island* is one more value of the existing place choice, with no position and no name. Spec §10.4's rule and its tests are unchanged.
+- **The privacy policy:** nothing changes with on-server fingerprints. A hosted service (§4, option C) would have to be named before launch.
 
-## 9. Decision 7: who can use it
+## 11. Decision 8: who can use it
 
 | | A. The team only **(recommended)** | B. Cat guardians too (`match_cat_anywhere`) |
 |---|---|---|
-| **What it means** | Same as Find from a photo today: `find_cat_from_photo`, island-wide team members | A guardian could search every cat on the island from the dashboard |
-| **Benefits** | No new permission, no new tests of who sees what | Guardians could identify a cat that wandered in from elsewhere |
-| **Risks** | Guardians still ask the office | A guardian would see photos and names of cats in colonies that aren't theirs, which spec §10.2 deliberately keeps from them. `roles-and-invites.md` note 3 reserves this power until a guardian can upload her own sighting in the dashboard, which doesn't exist |
+| **What it means** | The same as Find from a photo today: `find_cat_from_photo`, island-wide team members | A guardian could search every cat on the island |
+| **Benefits** | No new permission, and no new tests of who sees what | Guardians could identify a cat that wandered in from elsewhere |
+| **Risks** | Guardians still ask the office | A guardian would see photos and names of cats in colonies that aren't theirs, which spec §10.2 keeps from them. `roles-and-invites.md` note 3 reserves this until a guardian can upload her own sighting in the dashboard, which doesn't exist |
 | **What guardians see** | No change | A new search page |
 
-**Recommendation: A.** `match_cat_anywhere` stays reserved. A guardian who tries the route still gets the refusal page (#252's route test, extended to the *Anywhere* choice).
+**Recommendation: A.** `match_cat_anywhere` stays reserved. A guardian who tries the route still gets the refusal page; #252's route test is extended to the *Anywhere* choice.
 
-## 10. How it's built (outline for the plan)
+## 12. Decision 9: does it fit by 28 October?
 
-1. **Probe the runtime on Replit first** (§4.1): install, load the model, fingerprint one photo, report memory and time. Stop if it fails.
-2. **The accuracy check** (§6), on both models. Choose the model and K.
-3. **Migration:** `photo_fingerprints`, number claimed at build start (§5.1).
-4. **`lib/photoFingerprint.ts`:** load the pinned model once, fingerprint a photo's medium version, save it; and rank a set of display photos against an in-memory fingerprint.
-5. **`findFromPhoto.ts`:** *Anywhere* as a place choice; over 30 cats, fill missing fingerprints (cap 50), rank, keep 20, compare as today. Nothing else in the comparison changes.
-6. **The deletes** in `setPhotoVisibility`, `photoRemoval/hide.ts` and `photoRemoval/remove.ts`, each in the existing transaction.
-7. **The page words** (§7) and the guardian route test.
-8. **Logging:** each search logs which path it took, how many cats, how many fingerprints it had to make and how long they took. Counts and times only, never a photo id.
-
-**Tests that must exist, each proven red by breaking the code it guards:** the upload's fingerprint is never stored; a hidden photo's fingerprint is deleted; a removed photo's fingerprint is deleted; a search never reads a non-display photo's fingerprint; at 30 cats the index isn't used (today's comparison exactly); over 30, exactly 20 reach the AI and 3 calls are made; the model failing gives §7.4's page and spends no search; a guardian is refused.
-
-**Review:** an adversarial review on the PR, focused on the privacy rules above and on the model running on Replit.
-
-## 11. Decision 8: does it fit by 28 October?
-
-**The honest picture** (21 October; plan `docs/superpowers/plans/syc-396-phases-2-4.md`, "Fit to 31 October", and Samuel's new build order on SYC-396):
+**The picture** (21 October; `docs/superpowers/plans/syc-396-phases-2-4.md`, "Fit to 31 October", and Samuel's new build order on SYC-396):
 - **Building now or next:** PR 2.3.1 (draft #256), then 3.1a, 3.1b (branch exists) and 3.3a in parallel. **At most three building agents at once** share the test database on the Mac.
-- **The critical path** is 2.3 → 3.1 → 3.2, each needing a review and one of Samuel's merge windows. Publishes left: Fri 23, Mon 26 and the freeze on Wed 28.
-- **This feature, with the index:** about 2 building days, plus review and a merge window, plus one migration (sharing an ask-mode switch). Its biggest unknown is the native model runtime on Replit, which can only be found out by trying.
-- **The index has nothing to do at launch.** With 28 cats, every whole-island search is 30 cats or fewer and uses today's comparison. The index only matters once the island passes 30 cats, which took three months of testing to reach 28.
+- **The critical path** is 2.3 → 3.1 → 3.2, each needing a review and one of Samuel's merge windows. Publishes left: Fri 23, Mon 26, and the freeze on Wed 28.
+- **This feature with the index** (estimate): the Replit check (§5), the accuracy check (§8), the table and two triggers, the fingerprint code, the backfill command, the page, and the tests above. **About 2–3 building days**, plus a review and a merge window, and one database change sharing an ask-mode switch. Its biggest unknown is the compiled model software on Replit, which only trying will answer.
+- **The index has nothing to do at launch.** With 28 cats, every whole-island search compares 30 or fewer and doesn't use it.
+- **The headroom is small:** 2 cats. No cat has been added since 29 September, but launch opens the app to tourists. **How fast cats will be added after launch is unchecked.**
 
 **The options**
 
-| | A. Everything before the freeze (Samuel's 21 Oct timing) | B. *Anywhere* before the freeze, the index straight after launch **(recommended)** | C. Everything after launch |
+| | A. Everything before the freeze (Samuel's 21 Oct timing) | B. *Anywhere* before the freeze; the index after launch, with its riskiest part checked this week **(recommended)** | C. Everything after launch |
 |---|---|---|---|
-| **What ships by 28 Oct** | *Anywhere*, the index, the migration, the model on Replit | *Anywhere on the island* using today's comparison while the island has 30 cats or fewer: the page words, one rule changed, its tests. About half a day. No migration, no model | Nothing |
-| **What Syros Cats get at launch** | Search the whole island | **The same**: search the whole island (it's 28 cats) | They still must choose a place |
-| **Then** | — | The index ships in the 16 Nov release, before the island is likely to pass 30. If it passes 30 sooner, *Anywhere* asks for a place, as today | — |
-| **What slips** | It takes a building slot from 3.1a/3.1b/3.3a, or waits for one. By D2's slip order, the reports (3.3) go first. And a new native library goes into the freeze publish | Nothing on the critical path | Nothing |
-| **Risks** | A failed model install on Replit found in freeze week | The index's own risks move to a calmer week | Syros Cats' request is unmet at launch |
+| **What ships by 28 Oct** | *Anywhere*, the index, the table, the model on Replit | *Anywhere on the island*, comparing every cat while the island has 30 or fewer. That's the five place-rule changes in §9.1, the page words and their tests: **an estimated half to one day**, with no database change and no model | Nothing |
+| **Also this week** | — | **§5's Replit check** (an hour or two, a throwaway branch, nothing published), so the index's biggest risk is known before the freeze | — |
+| **What Syros Cats get at launch** | A whole-island search | **The same**, while the island is 30 cats or fewer | They must still choose a place |
+| **Then** | — | The index ships in the 16 Nov release, with the backfill command run at that release and after any records import. If the island passes 30 before then, *Anywhere* asks for an area again, and the page says why | — |
+| **What slips** | A building slot taken from 3.1a, 3.1b or 3.3a. By D2's slip order the reports (3.3) go first. And new compiled software goes into the freeze publish | Nothing on the critical path | Nothing |
+| **Risks** | A failed model install found in freeze week | The island passes 30 before 16 Nov (2 cats of headroom), and *Anywhere* stops working in the weeks after launch. If the Replit check passes cleanly, the index could instead go in an early fix release | Syros Cats' request is unmet at launch |
 
-**Recommendation: B.** It gives Syros Cats exactly what they asked for on launch day, takes about half a day, and keeps a new native library and a migration out of freeze week. The index still comes before it's needed. This keeps Samuel's decision on approach C and changes only when the index lands, so **it's Samuel's call**: if he prefers A, the build starts as soon as this spec is approved, and §10's step 1 decides by Friday whether it can make the Mon 26 publish.
+**Recommendation: B.** It gives Syros Cats what they asked for on launch day, at a fraction of the work, and keeps new compiled software and a database change out of freeze week. Running the Replit check this week means the index's biggest unknown is answered before the freeze rather than after it. This keeps Samuel's decision on approach C and changes only when the index lands, so **it's Samuel's call**. If he prefers A, the build starts as soon as this spec is approved, and §5's check decides by Friday whether it can make the Mon 26 publish.
 
-## 12. Deferred (each filed in Linear)
+## 13. How it's built (outline for the plan)
 
-- **Log AI tokens per search**, so the cost per search stops being unchecked (SYC-534; SYC-493 found the app logs counts only).
-- **pgvector**, when SYC-57 moves to the whole sighting history or on-device matching (§5.1).
-- **A larger accuracy set** from launch-era confirmed sightings (SYC-56, existing ticket; this spec's check is its first small entry).
+1. **The Replit check** (§5). Stop if it fails.
+2. **The accuracy check** (§8) on both models. Choose the model and K.
+3. **The database change:** `photo_fingerprints` and its two triggers (§6), with its number claimed at build start.
+4. **`lib/photoFingerprint.ts`:** load the model from disk once; make a fingerprint from a photo's medium version; save it with the locked re-check; rank a set of display photos against an in-memory fingerprint; one fill at a time per server copy.
+5. **`lib/findFromPhoto.ts`:** the order in §3; *Anywhere*; over 30 cats, fill (15 s), rank, keep 20, then read those 20 photos and compare as now.
+6. **The backfill command** in `db-ops`.
+7. **The page words** (§9), and the guardian route test.
+8. **Logging:** each search logs which path it took, the number of cats, how many fingerprints it made, how many were left out and how long it took. Counts and times only: never a photo id, never a fingerprint.
+9. **SYC-462's catalogue** updated (§6.1).
+
+**Tests, each shown to fail when the code it guards is broken:** the upload's fingerprint is never stored; every hide and removal path leaves no fingerprint, including when racing a save; a search reads only display photos' fingerprints; with 30 cats or fewer the index isn't touched and #252's comparison runs unchanged; over 30, exactly 20 cats' photos are read and 3 AI calls are made; a model failure gives §9.4's page and spends no search; the 15-second fill limit leaves cats out and counts them; a guardian is refused.
+
+**Review:** an adversarial review on the PR, in its own worktree, focused on §6.2's race, privacy, and the model on Replit.
+
+## 14. Deferred (filed in Linear)
+
+- **SYC-534:** log the AI tokens each call uses, so the cost per search stops being unchecked.
+- **SYC-57** (existing, comment added): pgvector, when the index extends to the whole sighting history.
+- **SYC-56** (existing): a larger accuracy set from launch-era confirmed sightings. §8's check is its first small entry.
 - **`match_cat_anywhere`** stays reserved (existing note 3; no new ticket).
 
-## 13. Changes to `team-dashboard-redesign.md`
+## 15. How the adversarial review was handled
 
-- **§5.2 Narrowing:** "Required: a named area, or a colony" becomes "Where to look: anywhere on the island, a named area, or a colony". Over 30 cats, the app picks the 20 that look most alike first (this spec §3), instead of refusing.
-- **§5.2 What the page says plainly:** add §7.3's sentence for searches that used the index.
-- **§5.2 Cost:** "at most 4 AI requests" stands; a whole-island search makes 3.
-- **§10.2:** unchanged: guardians don't get Find from a photo.
-- **§13:** add §7.4's error and §5.3's "weren't included" line.
-- **§14:** add the looks-like index: an on-server model, fingerprints in an ordinary table, keyed by photo.
+| # | Finding | Where it's handled |
+|---|---|---|
+| 1 | Blocker: a fingerprint save could land after a hide's delete; removal never deletes the photo row | §6.2: triggers on hide and removal, a locked re-check before every save, a race test |
+| 2 | A third hide path (`lib/issues/hide.ts`) was missed | §6.2: all four paths listed; the trigger covers any path that writes a hide |
+| 3 | The order against the caps was contradictory; #252 reads every cat's photo | §3: the full order, nothing before the gate counts, photos read for the 20 only, one fill at a time |
+| 4 | Filling during searches fails after a big addition (records import, model change) | §7: a backfill command plus a 15-second fill; "three months" replaced with sourced dates |
+| 5 | Option B has 2 cats of headroom; the forecast was unlabelled | §12: headroom stated, forecast labelled unchecked, the Replit check moved into this week |
+| 6 | The accuracy check couldn't answer the question; background bias | §8: check 1 is a smoke test on different-day pairs; check 2's dataset marked unchecked; the 90% bar explained; background measured; a model-choice rule (§4) |
+| 7 | The deploy story was thin | §5: the model kept in our code, every file to change listed, a 200 MB memory limit, the check first |
+| 8 | Time and load: no limit, no lock, no progress line | §3 (one fill at a time), §7 (15 s), §9.2 ("up to a minute"); the save skips a fingerprint that already exists |
+| 9 | The new table trips SYC-462's catalogue and its scan | §6.1 |
+| Minor | "One rule changed" was optimistic | §9.1 lists the five places; §12 re-estimates |
+| Minor | Words: background, "look most alike" | §9.3 rewritten |
+| Minor | Jargon | The word list in §1; technical names kept only where a builder needs them |
+| Minor | Decision numbering, §4.1 with no options, K table missing what the team sees | Decisions numbered 1–9; §5 and §8 now have both |
+| Minor | Unlabelled claims (DINOv2 vs CLIP, estimates) | Labelled unchecked or estimate |
+| Minor | CLAUDE.md: "never distinguish built today vs proposed" | Kept to a minimum. This spec changes a live feature, so it names what #252 does where a builder needs it; flagged to Samuel |
+| Nits | Normalising, the racy row-count test, vectors in logs, orphan fingerprints | §6.1 (scaled to length 1), §10 (checked by photo id), §13 (never logged), §6.3 (kept, harmless) |
+
+## 16. Changes to `team-dashboard-redesign.md`
+
+- **§5.2 Narrowing:** "Required: a named area, or a colony" becomes "Where to look: anywhere on the island, a named area, or a colony". Over 30 cats, the app shortlists the 20 whose photos look most alike instead of refusing (this spec §3).
+- **§5.2 What the page says plainly:** add §9.3's sentence for shortlisted searches.
+- **§5.2 Cost:** "at most 4 AI requests" stands; a shortlisted search makes 3.
+- **§13:** add §9.4's error and §7's "weren't included" line.
+- **§14:** add the looks-like index: an on-server model, fingerprints in an ordinary table, one per photo, removed by triggers on hide and removal.

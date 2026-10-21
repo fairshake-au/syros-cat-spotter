@@ -14,9 +14,10 @@ Branch: claude/blissful-feistel-417000 (app-made worktree). Spec only, no implem
   - No records import before launch (records-import.md: optional, post-MVP).
 
 - [x] Filed SYC-534 (token logging); SYC-57 comment (pgvector later); SYC-527 progress comment
-- [~] Critic running (Sonnet, own worktree), started ~22:24 UTC
+- [x] Critic done (1 blocker, 8 major); review in docs/reviews/syc-527-spec-adversarial-review.md
+- [x] Spec v0.2 folds in every finding (§15 table)
 
 ## Next
 - [x] Draft v0.1 docs/specs/find-from-a-photo-whole-island.md (committed)
-- [ ] Critic (Sonnet, own worktree) -> fold in
+
 - [ ] Artifact, draft PR, Linear comment, deferred tickets
