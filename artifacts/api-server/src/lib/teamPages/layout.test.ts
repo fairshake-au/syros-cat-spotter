@@ -24,23 +24,25 @@ const links = (html: string) =>
   ]);
 
 describe("the team's menu (spec §3.1)", () => {
-  it("names the team's jobs in the spec's order: Home · Cats · Map · Queue · Colonies", () => {
+  it("names the team's jobs in the spec's order: Home · Cats · Map · Queue · Colonies · Reports", () => {
     expect(links(page({ island: true, showPeople: false }))).toEqual([
       ["Home", "/api/team/home"],
       ["Cats", "/api/team/cats"],
       ["Map", "/api/team/cats?view=map"],
       ["Queue", "/api/team"],
       ["Colonies", "/api/team/colonies"],
+      ["Reports", "/api/team/insights"],
     ]);
   });
 
-  it("with People, is exactly the six labels in order (SYC-450)", () => {
+  it("with People, is exactly the seven labels in order (SYC-450; Reports since PR 3.3a)", () => {
     expect(links(page({ island: true, showPeople: true })).map((x) => x[0])).toEqual([
       "Home",
       "Cats",
       "Map",
       "Queue",
       "Colonies",
+      "Reports",
       "People",
     ]);
   });
@@ -66,8 +68,9 @@ describe("the team's menu (spec §3.1)", () => {
     expect(l.slice(-2)).toEqual(["People", "My page"]);
   });
 
-  it("has no Reports yet: items appear as their screens ship", () => {
-    const l = links(page({ island: true, showPeople: true, mine: true })).map((x) => x[0]);
+  it("Reports opens the Reports area at /insights (/api/team/reports is the welfare queue's), and a guardian's menu has none", () => {
+    expect(page({ active: "reports" })).toContain('<a class="here" href="/api/team/insights" aria-current="page">Reports</a>');
+    const l = links(page({ island: false, mine: true })).map((x) => x[0]);
     expect(l).not.toContain("Reports");
   });
 
