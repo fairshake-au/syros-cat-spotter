@@ -107,7 +107,7 @@ function whereForm(o: FindFormOptions): string {
   const f = o.filters;
   const sel = (on: boolean) => (on ? " selected" : "");
   const areas =
-    `<option value=""${sel(f.area === undefined && o.problem?.field !== "place")}>${esc(ANYWHERE_OPTION)}</option>` +
+    `<option value=""${sel(isWholeIsland(f) && o.problem?.field !== "place")}>${esc(ANYWHERE_OPTION)}</option>` +
     currentAreas()
       .map((a) => `<option value="${esc(a.key)}"${sel(f.area === a.key)}>${esc(a.name)}</option>`)
       .join("");
@@ -125,7 +125,7 @@ function whereForm(o: FindFormOptions): string {
     `<form class="findwhere" method="get" action="${FIND_PATH}">` +
     (o.tie ? `<input type="hidden" name="tie" value="${esc(o.tie.publicId)}">` : "") +
     "<h2>1. Where to look</h2>" +
-    `<p class="hint">${esc(o.narrowing.kind === "too_many" && o.narrowing.island ? "Choose an area or a colony. Colours narrow it further." : WHERE_HINT)}</p>` +
+    `<p class="hint">${esc(isWholeIsland(f) && o.problem?.field !== "place" && !(o.narrowing.kind === "too_many" && o.narrowing.island) ? WHERE_HINT : "Choose an area or a colony. Colours narrow it further.")}</p>` +
     placeProblem +
     '<fieldset><legend>Where</legend>' +
     `<label class="flabel" for="find-area">Area</label><select class="text" id="find-area" name="area"${described}>${areas}</select>` +
