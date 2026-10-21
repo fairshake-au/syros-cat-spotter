@@ -40,6 +40,7 @@ import { renderConfirmPage } from "../lib/teamPages/confirm";
 import { refuseSignedIn } from "../middlewares/requireTeam";
 import { db, observationsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { issueStripFor } from "../lib/issues/queue";
 
 // The staff dashboard's "Cats" screens (SYC-43 part 2 plan, PR 3). Read-only;
 // the correction forms on the cat page post to routes/teamCorrections.ts (PR 4).
@@ -492,6 +493,8 @@ router.get(
           : undefined,
         allHistory: req.query["history"] === "all",
         island: isIslandWide(person),
+        // SYC-44 PR 7.1: its own check (view_welfare_queue), not this page's.
+        issues: await issueStripFor(person, view.cat.id),
       }),
     );
   },

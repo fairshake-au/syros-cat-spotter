@@ -9,6 +9,8 @@ import type {
 import { EAR_TIP_NOT_CLIPPED, FOOD_AND_WATER_OUT } from "../teamCatView";
 import type { Capability } from "../capabilities";
 import type { QueueReport } from "../welfareQueue";
+import type { IssueReport } from "../issues/queue";
+import { reasonLabel } from "../issues/alertEmail";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { position } from "./position";
@@ -441,6 +443,45 @@ export interface CatPageOptions {
    * `view_vet_costs` the caller leaves the cost and who paid out of each.
    */
   visits?: VisitLine[];
+  /**
+   * SYC-44 PR 7.1 (spec §5.3): this cat's "Report an issue" reports, from
+   * issueStripFor, which answers null for anyone without `view_welfare_queue`.
+   * Null or left out: no strip at all, not even its heading.
+   */
+  issues?: IssueReport[] | null;
+}
+
+const ISSUE_STATE: Record<IssueReport["state"], string> = {
+  new: "New",
+  looking: "Looking at it",
+  done: "Done",
+  nothing_needed: "Nothing needed",
+};
+
+/**
+ * "Reports about this cat" (spec §5.3): the cat's issue reports, newest
+ * first, each linking to its row in the Queue. Team only, and drawn only when
+ * there are some. The reporter is never named: there is nothing to name.
+ */
+function issueStrip(issues: IssueReport[] | null | undefined): string {
+  if (!issues || issues.length === 0) return "";
+  const items = issues
+    .map(
+      (i) =>
+        "<li>" +
+        `<a href="/api/team#r-${esc(encodeURIComponent(i.id))}">${esc(reasonLabel(i.reason))}</a> ` +
+        `<span class="tag state">${esc(ISSUE_STATE[i.state])}</span>` +
+        (i.photo?.hidden ? ' <span class="tag hiddennow">Photo hidden</span>' : "") +
+        ` <span class="meta">${time(i.at)}</span>` +
+        (i.others > 0 ? ` <span class="meta">· ${esc(i.others === 1 ? "1 other open report like it" : `${i.others} other open reports like it`)}</span>` : "") +
+        "</li>",
+    )
+    .join("");
+  return (
+    `<section id="issue-strip" class="issues"><h2>Reports about this cat (${issues.length})</h2>` +
+    '<p class="hint">Problems the public reported with this cat\'s photos, name or page. Team only.</p>' +
+    `<ul class="hplain">${items}</ul></section>`
+  );
 }
 
 /**
@@ -1016,6 +1057,7 @@ export function renderCatPage(
     mainClass: "wide",
     body:
       summaryAndActions(summary, correctionForms(v, may, formsNotice, opts.colonies)) +
+      issueStrip(opts.issues) +
       known +
       renderAppearanceSection(v, may, opts.done) +
       sightings +
