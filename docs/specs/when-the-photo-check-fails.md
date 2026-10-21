@@ -1,7 +1,7 @@
 # When the photo check fails
 
 **Ticket:** SYC-503 (parent SYC-501, the 18 Oct 2026 app review). **Related:** SYC-59 (duplicate cats), SYC-151 (the match record), SYC-38 (points).
-**Status:** draft for Samuel's approval, 21 Oct 2026.
+**Status:** draft for Samuel's approval, 21 Oct 2026. D1 decided A and D2 decided A by Samuel, 21 Oct 2026.
 **Builds on:** [`choose-a-different-cat.md`](./choose-a-different-cat.md) (the "Find the cat" picker, hand picks, points), [`offline-queue-on-web.md`](./offline-queue-on-web.md) (queued spots and the review list), [`photo-tips-and-extra-photos.md`](./photo-tips-and-extra-photos.md) (the "not a cat" screen).
 
 ## 1. The problem
@@ -58,12 +58,12 @@ Today a new cat earns 25 points, a match or hand pick 15. Points are paid at onc
 
 | Option | Benefits | Risks |
 |---|---|---|
-| A. 25 as usual | Simplest | Pays the "first find" bonus during every outage; rewards adding duplicates |
-| **B. 15 now, same as a match (recommended)** | The spotter still gets the reward moment and the cat still gets added. Naming no longer pays more than picking, so there's no reason to skip the picker. Simple: one rule at resolve. | A spotter who really did find a new cat gets 10 fewer points. Rare (an outage plus a truly new cat), and small. |
+| **A. 25 as usual (decided)** | Simplest. A spotter who really found a new cat isn't short-changed. | Pays the "first find" bonus during every outage; rewards adding duplicates |
+| B. 15 now, same as a match (was recommended) | The spotter still gets the reward moment and the cat still gets added. Naming no longer pays more than picking, so there's no reason to skip the picker. Simple: one rule at resolve. | A spotter who really did find a new cat gets 10 fewer points. Rare (an outage plus a truly new cat), and small. |
 | C. 15 now, top up to 25 later if an automatic re-check finds no look-alike | Fair to the genuine discoverer | Needs a background re-check job, a top-up path and a notification. Real work for a rare case. |
 | D. Nothing until the team confirms | Strictest | No team step exists; the reward moment is the heart of the app and "pending" feels like an accusation (`choose-a-different-cat.md` §4.2 rejected this for the same reason) |
 
-**Recommendation: B**, and file C as a follow-up ticket so it isn't lost. The spotter is still recorded as the cat's discoverer and it still counts towards their discovery badges (badges count discovered cats, not points), even if the cat later turns out to be a duplicate; merging duplicates (SYC-59) sorts that out. **Accepted, knowingly:** anyone who sees a failed check can still choose "It's a new cat". With B that pays no more than picking, so there's nothing to gain by it. A spotter can't cause a failure themselves: photos are checked for size and type before the look-alike check runs. The reward screen says "+15" as it does for any sighting, with no explanation; the naming subtitle (§2) has already set expectations.
+**Decided: A** (Samuel, 21 Oct 2026; the recommendation was B). Points stay as they are: 25 for a new cat however it was named. The screen in §2 is what steers spotters towards picking a known cat. The spotter is recorded as the cat's discoverer and it counts towards their discovery badges, even if the cat later turns out to be a duplicate; merging duplicates (SYC-59) sorts that out. **Accepted, knowingly:** anyone who sees a failed check can still choose "It's a new cat" and earn 25. A spotter can't cause a failure themselves: photos are checked for size and type before the look-alike check runs.
 
 ### D3. How long the spotter waits, and retries
 
@@ -81,7 +81,7 @@ If there are no cats within 500 m to compare, a failed check couldn't have found
 - **Old saved answers.** A queued item saved by an older app has no `matchCheck` and is read as `"done"`, as today. Points don't depend on what the phone thinks: the server decides them (below).
 - **A new request, "check again"** (`POST /sightings/{sightingId}/recheck`). Checks in the same order as resolve, so nobody can probe another phone's sighting: 404 if it doesn't exist, 403 if the device isn't its owner, then the device secret, then 409 if it's resolved **or its stored check didn't fail**, then the per-address and per-device limits (429 with Retry-After). It re-runs the check on the photos already saved, at the sighting's own stored location (never a location sent by the phone), and answers exactly as sending a spot does, nothing more. One check per sighting runs at a time; a second request while one is running gets 409. A sighting with no photo left answers `"failed"`, `canRecheck: false`, without calling the matcher or counting against the limit.
 - **The match record** keeps `matcher_failed` as today; a successful re-check sets it back to false with the new compared and suggested sets, using the existing "only until a choice is made" guard. No migration.
-- **Resolve** pays 15 rather than 25 for a new cat when the check didn't succeed: the stored record says it failed, **or there is no record at all** (the record write is best-effort, so a failure to write it must not pay 25). That also catches any still-unreviewed sighting from before match records existed (SYC-151, 2 Oct 2026); there can only be a handful, and 15 is the safe answer for them too. When the failure path can't write its record it logs loudly. The response's `pointsAwarded` already carries the number, so the reward screen needs no change.
+- **Resolve is unchanged** (D2: points stay as they are).
 - **The contract** is updated in `lib/api-spec/openapi.yaml` and the client regenerated.
 
 ## 5. The offline queue
@@ -90,24 +90,23 @@ A spot saved for later is sent by the queue when signal returns. The queue store
 
 ## 6. Out of scope (filed or to be filed)
 
-- **C in D2**, an automatic later re-check with a points top-up.
 - **Showing the team which new cats were named after a failed check**, as likely duplicates. The record already holds it; surfacing it belongs with SYC-59.
 - **An outage alert** to the team when checks start failing. Logs already say so; noticing them is separate work.
 
 ## 7. Tests
 
-Server: a failed check answers `matchCheck: "failed"` with no candidates, on a fresh send and on a dedupe repeat; the photo-gone repeat answers `"failed"` with `canRecheck: false`; a working one answers `"done"`; the timeout is applied and a timeout isn't retried; "check again" works for the owner, refuses others (403), refuses a resolved sighting and a sighting whose check worked (409), refuses a second one in flight (409), counts against the limit (429), uses the stored location, and replaces the record; resolve pays 15 for a new cat after a failed check, 15 when the record is missing, 25 when the check worked, and 25 when a re-check succeeded.
+Server: a failed check answers `matchCheck: "failed"` with no candidates, on a fresh send and on a dedupe repeat; the photo-gone repeat answers `"failed"` with `canRecheck: false`; a working one answers `"done"`; the timeout is applied and a timeout isn't retried; "check again" works for the owner, refuses others (403), refuses a resolved sighting and a sighting whose check worked (409), refuses a second one in flight (409), counts against the limit (429), uses the stored location, and replaces the record.
 
 App: the route builder and reader carry `matchCheck` and `canRecheck` (missing reads as done), including the builder's fallback; a failed check opens the "couldn't check" screen, never the naming screen or "not a cat"; each of the three actions goes where §2 says; "Check again" success lands on the right screen and failure shows the line; every door into the naming screen shows the "couldn't check" subtitle after a failure, and its back arrow returns to that screen; "Check again" is hidden when `canRecheck` is false; a 429 shows the "few minutes" line; no nudge, and the wait isn't counted; the naming screen shows the spotter's photo; a queued item stores and shows the failed state, and a replaced photo clears it. Copy in English, Greek and French. Checked in the browser at 390 px and desktop, in English and Greek.
 
 ## 8. Adversarial review (21 Oct 2026, Sonnet subagent, read-only against origin/main 7a2d83ff)
 
-All findings were accepted and are folded in above.
+All findings were accepted and folded in; finding 2 became moot when D2 was decided.
 
 | # | Finding | Severity | Resolution |
 |---|---|---|---|
 | 1 | "Check again" on a check that worked would let a spotter re-roll the matcher until no look-alikes came back, then claim 25 points, and spend paid model calls | High | Re-check only when the stored check failed; a check that worked is final (§2, §4) |
-| 2 | The match record is written best-effort; if both the matcher and the write failed, resolve would find no record and pay 25 | High | No record pays 15; the failed write is logged loudly (§4) |
+| 2 | The match record is written best-effort; if both the matcher and the write failed, resolve would find no record and pay 25 | High | Moot after D2 was decided A (resolve is unchanged) |
 | 3 | A repeat send whose photo has gone already skips the check and looks like "no look-alikes"; "Check again" would fail forever there | High | That case answers "failed" with `canRecheck: false`; the button hides (§2, §4) |
 | 4 | The review route's fallback and the queue's copies drop everything but the sighting id, turning "failed" back into "done" | High | Carried through every copy, including the fallback; points are decided by the server anyway (§4, §5) |
 | 5 | The limit message said "today"; the real limit is 20 per 15 minutes, plus a per-address cap | Medium | Copy changed to "in a few minutes"; re-check sits behind both limits (§2, §4) |
