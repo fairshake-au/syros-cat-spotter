@@ -134,11 +134,11 @@ Only **resolved** sightings count anywhere: statistics, catalogue counts, streak
 
 ### 5.1 Home
 
-Greeting, current streak, nearby cats, and a collection progress readout ("12 of 142"). Cats the device has personally spotted are shown collected; the rest render as **"spot to unlock"**.
+Greeting, current streak, nearby cats, and a collection progress readout ("12 of 142"). Every cat shows its photo; cats the device has personally spotted carry a passport-style **"Spotted"** stamp. Before a spotter's first sighting, the progress readout is replaced by a **"Spot your first cat"** button.
 
 ### 5.2 Cat-alog
 
-Searchable grid of every cat. Filters: all / near me / has a home. Same collected-vs-locked treatment. Sorted by distance when location is available, otherwise by most recently seen.
+Searchable grid of every cat. Filters: all / near me / has a home. Same photo-and-stamp treatment, plus a **Not spotted yet** filter. Sorted by distance when location is available, otherwise by most recently seen.
 
 ### 5.3 Cat detail
 

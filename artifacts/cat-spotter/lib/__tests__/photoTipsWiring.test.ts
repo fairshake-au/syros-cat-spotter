@@ -70,7 +70,8 @@ describe('photo tips wiring', () => {
   });
 
   it('the "no cat" screen shows the tips', () => {
-    const start = review.indexOf('if (!data.isCatPhoto)');
+    // SYC-503: a failed look-alike check never reaches the "no cat" screen.
+    const start = review.indexOf('if (!checkFailed && !data.isCatPhoto)');
     const startBlock = review.indexOf('// ----- Not a cat -----');
     expect(start).toBeGreaterThan(-1);
     const end = review.indexOf('// -----', startBlock + 10);

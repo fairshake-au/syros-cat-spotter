@@ -210,6 +210,9 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/cats/:id/life-status": { why: "set_life_status with no target, island-only" },
   "GET /api/team/cats/:id/died": { why: "the \"This cat has died\" page (SYC-513): set_life_status with no target, island-only" },
   "POST /api/team/cats/:id/died": { why: "records a death (SYC-513): set_life_status with no target, island-only" },
+  "GET /api/team/cats/:id/vet-visit": { why: "the Log a vet visit form (SYC-396 PR 3.1a): log_vet_visit, island-only" },
+  "POST /api/team/cats/:id/vet-visit": { why: "logs a vet visit (SYC-396 PR 3.1a): log_vet_visit, island-only; the walk's empty form gets a 400 and nothing is written" },
+  "POST /api/team/vet-visits/:visitId/wrong": { why: "marks a vet visit wrong with everything it recorded (SYC-396 PR 3.1a): log_vet_visit, island-only; the walk's id is no visit, so the team gets a 404" },
   "POST /api/team/cats/:id/sterilisation": { why: "set_sterilisation with no target, island-only" },
   "POST /api/team/cats/:id/name": { why: "rename_cat, island-only" },
   "POST /api/team/cats/:id/remove-owner": { why: "remove_owner, island-only" },
@@ -249,6 +252,9 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/insights/:report.csv": { why: "a report's spreadsheet: export_report, island-only; the walk's :report is no report, so the team gets a 404 and nothing is recorded" },
   "GET /api/team/areas": { why: "edit_named_areas: island-only, so every cat guardian gets the 403" },
   "POST /api/team/areas": { why: "edit_named_areas: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
+  // SYC-396 PR 3.1b: the Vet settings page and its one form route. Team-only.
+  "GET /api/team/vet-settings": { why: "edit_vet_settings: island-only, so every cat guardian gets the 403" },
+  "POST /api/team/vet-settings": { why: "edit_vet_settings: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony on the colony it goes into, or for a take-out the one it leaves, from the record (PR 4.2); an unreadable form has no colony" },
   // SYC-209 PR 3.1, the team map. Never the door's "any colony" check. The Map page and its
   // tap stay the team's; the picture route opens to anyone who sees a colony (PR 4.1: a

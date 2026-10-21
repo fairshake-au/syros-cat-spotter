@@ -96,6 +96,9 @@ export function settingsFromRows(
 export const SETTINGS_CACHE_MS = 60_000;
 
 let cached: { at: number; settings: AppSettings } | null = null;
+/** Bumped by every clear, so a read that began before a clear can't put the
+ * old answer back into the cache when it finishes (review of PR 3.1b). */
+let generation = 0;
 
 /**
  * The current settings. A database failure serves the last answer if there is
@@ -104,12 +107,13 @@ let cached: { at: number; settings: AppSettings } | null = null;
  */
 export async function getAppSettings(now: number = Date.now()): Promise<AppSettings> {
   if (cached && now - cached.at < SETTINGS_CACHE_MS) return cached.settings;
+  const startedIn = generation;
   try {
     const rows = await db
       .select({ key: appSettingsTable.key, value: appSettingsTable.value })
       .from(appSettingsTable);
     const settings = settingsFromRows(rows);
-    cached = { at: now, settings };
+    if (startedIn === generation) cached = { at: now, settings };
     return settings;
   } catch (err) {
     logger.error({ err: safeError(err) }, "could not read app settings; using the last answer or defaults");
@@ -117,7 +121,18 @@ export async function getAppSettings(now: number = Date.now()): Promise<AppSetti
   }
 }
 
+/**
+ * Forget the cached answer, so the next read goes to the database. Called
+ * after a change made on this server (the Vet settings page, SYC-396 PR 3.1b),
+ * so this server uses it at once; other servers pick it up within
+ * SETTINGS_CACHE_MS.
+ */
+export function clearAppSettingsCache(): void {
+  generation += 1;
+  cached = null;
+}
+
 /** Tests only: forget the cached answer. */
 export function _resetAppSettingsCacheForTests(): void {
-  cached = null;
+  clearAppSettingsCache();
 }

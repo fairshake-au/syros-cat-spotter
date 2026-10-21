@@ -60,6 +60,13 @@ export interface PendingSighting {
   sightingId?: number;
   isCatPhoto?: boolean;
   candidates?: MatchCandidate[];
+  /**
+   * SYC-503: whether the look-alike check worked. Missing (an item saved by
+   * an older app) means "done", as before this field existed.
+   */
+  matchCheck?: 'done' | 'failed';
+  /** SYC-503: a failed check can be run again (false when the photo has gone). */
+  canRecheck?: boolean;
 }
 
 /** One stored extra photo of a queued spot (SYC-415). */

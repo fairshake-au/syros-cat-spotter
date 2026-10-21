@@ -154,6 +154,13 @@ export const en = {
   "gcat.position": "First recorded at {position}",
   "gcat.lastSeen": "Last seen {date}",
   "gcat.neverSeen": "No sightings yet",
+  // SYC-396 PR 3.1a: a vet visit on her cat (dashboard §10.2). Never the
+  // vaccinations, the cost or the clinic. Greek and French: Johnny's second pack (SYC-346).
+  "gcat.vet.did": "Seen by a vet on {date}: {did}",
+  "gcat.vet.seen": "Seen by a vet on {date}",
+  "gcat.vet.sterilised": "sterilised",
+  "gcat.vet.treated": "treated",
+  "gcat.vet.checked": "checked",
   "gcat.ster.yesConfirmed": "Sterilised (confirmed)",
   "gcat.ster.yesLikely": "Probably sterilised",
   "gcat.ster.yesReported": "Said to be sterilised, not yet confirmed",

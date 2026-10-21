@@ -174,12 +174,19 @@ const PUBLIC_CAT_KEYS = [
 ];
 
 async function publicResponses(): Promise<{ list: Record<string, unknown>[]; details: Record<string, unknown>[]; texts: string[] }> {
-  const listRes = await request(app).get("/api/cats?pageSize=200");
-  expect(listRes.status).toBe(200);
   const ids = [cats.described, cats.oneColour, cats.undescribed, cats.brownGinger, cats.brownAlone];
-  const list = (listRes.body.cats as Record<string, unknown>[]).filter((c) => ids.includes(c["id"] as number));
+  // Every page, not just the first: the test database is shared by every
+  // file in a run, so this file's cats need not be among the first 200.
+  const list: Record<string, unknown>[] = [];
+  const texts: string[] = [];
+  for (let page: number | null = 1; page !== null; ) {
+    const listRes = await request(app).get(`/api/cats?pageSize=200&page=${page}`);
+    expect(listRes.status).toBe(200);
+    texts.push(listRes.text);
+    list.push(...(listRes.body.cats as Record<string, unknown>[]).filter((c) => ids.includes(c["id"] as number)));
+    page = listRes.body.nextPage as number | null;
+  }
   expect(list).toHaveLength(ids.length);
-  const texts = [listRes.text];
   const details: Record<string, unknown>[] = [];
   for (const id of ids) {
     const res = await request(app).get(`/api/cats/${id}`);

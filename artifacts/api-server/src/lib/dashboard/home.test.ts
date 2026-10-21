@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, inArray, like } from "drizzle-orm";
-import { db, photosTable, sightingsTable, welfareReportsTable } from "@workspace/db";
+import { catsTable, db, photosTable, sightingsTable, welfareReportsTable } from "@workspace/db";
 import { seedReport } from "../teamAuth/__fixtures__/queueKit";
 import { deleteTestSightings } from "../../test/sightings";
 import { listWelfareQueue, type QueueDraft, type QueueReport, type WelfareQueue } from "../welfareQueue";
@@ -16,8 +16,10 @@ import {
   HOME_NEEDS_LIMIT,
   homeData,
   monthFigures,
+  vetSpend,
   type HomeDeps,
 } from "./home";
+import { logVetVisit, undoVetVisit } from "../vetVisits";
 
 // SYC-396 PR 2.1, Task 2.1.1: the figures behind Home. The test database is
 // shared and never truncated, so every database check is a delta against a
@@ -44,6 +46,7 @@ afterAll(async () => {
   if (redactedIds.length) await deleteTestSightings(inArray(sightingsTable.id, redactedIds));
   await db.delete(welfareReportsTable).where(like(welfareReportsTable.publicId, `${PREFIX}%`));
   await db.delete(photosTable).where(like(photosTable.publicId, `${PREFIX}%`));
+  await db.delete(catsTable).where(like(catsTable.name, `${PREFIX}%`));
 });
 
 const pid = (k: string) => `${PREFIX}${k}`;
@@ -113,7 +116,7 @@ const pure = (over: Partial<HomeDeps> = {}): Partial<HomeDeps> => ({
   listLikelyForReview: async () => [],
   listColourCheck: async () => [],
   loadTeamCats: async () => [],
-  monthFigures: async () => ({ sightings: 0, newCats: 0, sterilisations: 0 }),
+  monthFigures: async () => ({ sightings: 0, newCats: 0, sterilisations: 0, vetSpendEur: 0 }),
   allColonyChoices: async () => [],
   ...over,
 });
@@ -332,7 +335,7 @@ describe("This month", () => {
     const asked: [Date, Date][] = [];
     // 00:30 on 1 October in Athens is still 21:30 on 30 September in UTC.
     const at = new Date("2026-09-30T21:30:00Z");
-    await homeData(at, pure({ monthFigures: async (from, to) => (asked.push([from, to]), { sightings: 0, newCats: 0, sterilisations: 0 }) }));
+    await homeData(at, pure({ monthFigures: async (from, to) => (asked.push([from, to]), { sightings: 0, newCats: 0, sterilisations: 0, vetSpendEur: 0 }) }));
     expect(asked[0]).toEqual([new Date("2026-09-30T21:00:00Z"), new Date("2026-10-31T22:00:00Z")]);
     expect(asked[1]![0]).toEqual(new Date("2026-08-31T21:00:00Z"));
   });
@@ -391,5 +394,45 @@ describe("one failing figure doesn't take Home down (§13)", () => {
     const d = await homeData(NOW, pure({ loadTeamCats: async () => { throw new Error("cats down"); } }));
     expect([d.needs.ok, d.toCheck.ok]).toEqual([true, true]);
     expect([d.notSeenLately.ok, d.headline.ok, d.month.ok]).toEqual([false, false, false]);
+  });
+});
+
+describe("This month's vet spend (SYC-396 PR 3.1a; §8.4)", () => {
+  const staff = { id: `${PREFIX}staff`, scopes: [{ role: "staff", colonyId: null }] };
+  const at = new Date("2026-10-21T10:00:00Z");
+  const from = new Date("2026-08-31T21:00:00Z"); // 1 Sep 2026 on Syros
+  const to = new Date("2026-09-30T21:00:00Z"); // 1 Oct 2026 on Syros
+  let n = 0;
+  const newCat = async () => {
+    n += 1;
+    const [cat] = await db
+      .insert(catsTable)
+      .values({ name: `${PREFIX}cat-${n}`, description: "", primaryPhotoId: 0, lat: 37.44, lng: 24.9, discovererDeviceId: DEVICE })
+      .returning({ id: catsTable.id });
+    return cat!.id;
+  };
+  const visit = async (catId: number, date: string, costEur: number | null, paidBy: "syros_cats" | "donation" | "owner") =>
+    logVetVisit(staff, { catId, date, value: { did: ["sterilised"], clinicId: "symviosis", costEur, paidBy } }, at);
+
+  it("counts a €60 Syros Cats visit and leaves out a €70 owner-paid one", async () => {
+    const before = await vetSpend(from, to);
+    await visit(await newCat(), "2026-09-10", 60, "syros_cats");
+    await visit(await newCat(), "2026-09-11", 70, "owner");
+    expect(await vetSpend(from, to)).toBe(before + 60);
+  });
+
+  it("counts a donation for the cat, skips an unknown cost, an undone visit and another month", async () => {
+    const before = await vetSpend(from, to);
+    await visit(await newCat(), "2026-09-12", 55.5, "donation");
+    await visit(await newCat(), "2026-09-13", null, "syros_cats");
+    const undone = await visit(await newCat(), "2026-09-14", 40, "syros_cats");
+    await undoVetVisit(staff, undone.visitId, "Wrong cat", at);
+    await visit(await newCat(), "2026-10-02", 45, "syros_cats");
+    expect(await vetSpend(from, to)).toBe(before + 55.5);
+  });
+
+  it("is part of the month's figures", async () => {
+    const figures = await monthFigures(from, to, []);
+    expect(figures.vetSpendEur).toBe(await vetSpend(from, to));
   });
 });

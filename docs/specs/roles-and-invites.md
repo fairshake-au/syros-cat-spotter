@@ -269,6 +269,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `view_guardian_changes` | The "recent guardian changes" list on the team's **Colonies page** (SYC-209 §2.6): every cat a guardian added to or took out of a colony, every sterilisation, life-status and colour statement she made, and every colony she created, with who and when (§7.4, §6.9) | Island-only | ✓ | ✓ | — |
 | `view_vet_costs` | See vet costs, who paid, and estimates (team-dashboard-redesign.md §8.4) | Island-only | ✓ | ✓ | — |
 | `print_trapping_plan` | Print a colony's trapping plan (team-dashboard-redesign.md §9.2) | Island-only | ✓ | ✓ | — |
+| `log_vet_visit` | Log a vet visit on a cat (team-dashboard-redesign.md §8.1) | Island-only | ✓ | ✓ | — |
 
 **Saying what you saw or know**
 
@@ -299,6 +300,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `find_cat_from_photo` | Search the cats of an area or colony with a photo | Island-only | ✓ | ✓ | — |
 | `view_reports` | See the reports (cat guardians: their colonies' progress and health) | Placed | All | All | Own |
 | `export_report` | Download a report as a spreadsheet | Island-only | ✓ | ✓ | — |
+| `edit_vet_settings` | Change the standard sterilisation price (team-dashboard-redesign.md §10.3). Every change is kept in the history | Island-only | ✓ | ✓ | — |
 | `request_site_public` | Ask the team to make a site in her colony public. Changes nothing by itself (§6.7) | Placed | — | — | Own |
 | `review_hand_picks` | Check the "Matched by hand" list for cats in her colonies; she sees a hand-picked sighting's position only at the 250 m-square level | Placed | All | All | Own |
 | `match_cat_anywhere` | Pick a cat from anywhere on the island when matching a photo (published positions only). Reserved: see note 3 | Role-wide | ✓ | ✓ | ✓ |

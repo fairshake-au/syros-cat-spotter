@@ -1,5 +1,5 @@
 {
-  "id": "bdc2924f-66ec-4eef-9543-f70eca6c996a",
+  "id": "d8abd5ea-bf3f-41bc-9eb5-ea1c9df08acf",
   "prevId": "bcfb5240-5353-410c-b54e-9248dd037668",
   "version": "7",
   "dialect": "postgresql",
@@ -2033,12 +2033,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "reporter_cat_id": {
-          "name": "reporter_cat_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "state": {
           "name": "state",
           "type": "text",
@@ -3542,11 +3536,11 @@
       "checkConstraints": {
         "mapping_events_subject_kind_ck": {
           "name": "mapping_events_subject_kind_ck",
-          "value": "\"mapping_events\".\"subject_kind\" in ('site', 'colony', 'named_area')"
+          "value": "\"mapping_events\".\"subject_kind\" in ('site', 'colony', 'named_area', 'vet_settings')"
         },
         "mapping_events_kind_ck": {
           "name": "mapping_events_kind_ck",
-          "value": "\"mapping_events\".\"kind\" in ('existing', 'created', 'seeded', 'renamed', 'notes_edited', 'directions_edited', 'colony_changed', 'moved', 'made_public', 'made_private', 'made_private_moved', 'made_private_colony_changed', 'made_private_guardian_changed', 'label_changed', 'retired', 'restored', 'colony_created', 'colony_renamed', 'guardian_changed', 'colony_notes_changed', 'colony_centre_changed', 'guardian_forgotten', 'area_added', 'area_renamed', 'area_moved', 'area_retired')"
+          "value": "\"mapping_events\".\"kind\" in ('existing', 'created', 'seeded', 'renamed', 'notes_edited', 'directions_edited', 'colony_changed', 'moved', 'made_public', 'made_private', 'made_private_moved', 'made_private_colony_changed', 'made_private_guardian_changed', 'label_changed', 'retired', 'restored', 'colony_created', 'colony_renamed', 'guardian_changed', 'colony_notes_changed', 'colony_centre_changed', 'guardian_forgotten', 'area_added', 'area_renamed', 'area_moved', 'area_retired', 'price_changed')"
         },
         "mapping_events_actor_system_ck": {
           "name": "mapping_events_actor_system_ck",

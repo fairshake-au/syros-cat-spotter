@@ -191,8 +191,22 @@ export type WaitOutcome =
   | { kind: 'result'; sightingId: number }
   /** Sent, but there's no cat in the photo. */
   | { kind: 'notCat' }
+  /** SYC-503: sent, but the look-alike check failed. Not a result: nothing is counted. */
+  | { kind: 'couldntCheck' }
   /** A failed or refused send, "Save and send later", or nothing saved. */
   | { kind: 'failed' };
+
+/**
+ * How a send ended, for the record (SYC-503): a failed look-alike check is
+ * its own outcome, checked before anything else, never a result.
+ */
+export function waitOutcomeForSend(
+  sent: { sightingId: number; isCatPhoto: boolean; matchCheck?: 'done' | 'failed' } | null,
+): WaitOutcome {
+  if (!sent) return { kind: 'failed' };
+  if (sent.matchCheck === 'failed') return { kind: 'couldntCheck' };
+  return sent.isCatPhoto ? { kind: 'result', sightingId: sent.sightingId } : { kind: 'notCat' };
+}
 
 /**
  * The record after a wait ended. Only a wait that reached a result screen
@@ -226,7 +240,8 @@ export function settleWait(
   return next;
 }
 
-export type ResultScreen = 'matches' | 'naming' | 'notCat';
+/** SYC-503: 'couldntCheck' shows no nudge, like 'notCat'. */
+export type ResultScreen = 'matches' | 'naming' | 'notCat' | 'couldntCheck';
 
 export interface ResultTarget {
   sightingId: number;
@@ -258,7 +273,9 @@ export function chooseForResult(
     return { show: null, record };
   }
   const cleared: WaitingRecord = { ...record, pendingResult: null };
-  if (target.screen === 'notCat') return { show: null, record: cleared };
+  if (target.screen === 'notCat' || target.screen === 'couldntCheck') {
+    return { show: null, record: cleared };
+  }
 
   if (pending.nudge) {
     return {

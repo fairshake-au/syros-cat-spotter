@@ -68,6 +68,9 @@ export const CATALOGUE = {
   // Never for a guardian: she sees that a visit happened, not what it cost.
   view_vet_costs: { kind: "island", roles: TEAM },
   print_trapping_plan: { kind: "island", roles: TEAM },
+  // Logging a vet visit on a cat (SYC-396 PR 3.1a; dashboard §8.1). The
+  // team only: a cat guardian keeps her "Say whether sterilised".
+  log_vet_visit: { kind: "island", roles: TEAM },
   // Saying what you saw or know
   record_field_check: { kind: "placed", roles: EVERYONE },
   set_life_status: { kind: "placed", roles: EVERYONE },
@@ -97,6 +100,9 @@ export const CATALOGUE = {
   // answers for island rows only and she gets the 403. Downloads are the team's.
   view_reports: { kind: "placed", roles: EVERYONE },
   export_report: { kind: "island", roles: TEAM },
+  // The Vet settings page (SYC-396 PR 3.1b; dashboard §10.3): the standard
+  // sterilisation price, with its history. Never for a guardian.
+  edit_vet_settings: { kind: "island", roles: TEAM },
   request_site_public: { kind: "placed", roles: ["guardian"] },
   review_hand_picks: { kind: "placed", roles: EVERYONE },
   // Reserved (§6.2 note 3): no screen uses it yet.

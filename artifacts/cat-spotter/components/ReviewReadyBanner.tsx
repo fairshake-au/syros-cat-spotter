@@ -38,6 +38,8 @@ export function ReviewReadyBanner() {
         sightingId: first.sightingId,
         isCatPhoto: first.isCatPhoto,
         candidates: first.candidates,
+        matchCheck: first.matchCheck,
+        canRecheck: first.canRecheck,
         localId: first.localId,
       }),
     });

@@ -32,6 +32,14 @@ import { viewAround, type View } from "../lib/mapTiles/geometry";
 import { applyMove } from "../lib/mapTiles/mapForms";
 import { listSites } from "../lib/teamSites";
 import { lastSeenWords } from "../lib/teamPages/lastSeen";
+import { ObservationRefused } from "../lib/observations";
+import { getAppSettings } from "../lib/appSettings";
+import { ALREADY_UNDONE, logVetVisit, undoVetVisit, visitDay, visitsFor } from "../lib/vetVisits";
+import { blankVisitForm, readVisitForm, renderVetVisitForm, visitFormFrom } from "../lib/teamPages/vetVisitForm";
+import { renderConfirmPage } from "../lib/teamPages/confirm";
+import { refuseSignedIn } from "../middlewares/requireTeam";
+import { db, observationsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 // The staff dashboard's "Cats" screens (SYC-43 part 2 plan, PR 3). Read-only;
 // the correction forms on the cat page post to routes/teamCorrections.ts (PR 4).
@@ -471,8 +479,10 @@ router.get(
     // After Hide or Restore (PR 6): the photo the page lands on, by publicId.
     const p = req.query["p"];
     const photo = typeof p === "string" && PHOTO_ID_RE.test(p) ? p : undefined;
+    const visits = await visitsFor(view.cat.id, { costs: can(person, "view_vet_costs") });
     res.type("html").send(
       renderCatPage(view, person.name, {
+        visits,
         may: (c) => can(person, c),
         done,
         at,
@@ -484,6 +494,149 @@ router.get(
         island: isIslandWide(person),
       }),
     );
+  },
+);
+
+// ── Vet visits (SYC-396 PR 3.1a; dashboard §8; plan Task 3.1.3) ──────────
+
+const isForm = (req: Request) => Boolean(req.is("application/x-www-form-urlencoded"));
+const VISIT_REASON_MAX = 500;
+
+/** The visit form, drawn for the person: costs and vaccinations only if they may. */
+async function visitFormFor(req: Request, res: Response, catId: number) {
+  const person = teamPerson(res);
+  const view = await teamCatView(catId, new Date(), person);
+  if (!view) return null;
+  const { sterilisationPriceEur } = await getAppSettings();
+  return {
+    person,
+    view,
+    page: {
+      cat: { id: view.cat.id, name: view.cat.name, mainPhotoUrl: view.cat.mainPhotoUrl },
+      personName: person.name,
+      costs: can(person, "view_vet_costs"),
+      vaccinate: can(person, "set_vaccination"),
+      standardPriceEur: sterilisationPriceEur,
+    },
+  };
+}
+
+/**
+ * GET /api/team/cats/:id/vet-visit: the form. It opens with Sterilised
+ * ticked and the cost filled with the standard price; `?did=` ticks other
+ * boxes, and fills the price only when Sterilised is among them.
+ */
+router.get(
+  "/team/cats/:id/vet-visit",
+  requireTeam("log_vet_visit"),
+  async (req: Request, res: Response) => {
+    setTeamHeaders(res);
+    const raw = String(req.params["id"]);
+    const found = CAT_ID_RE.test(raw) ? await visitFormFor(req, res, Number(raw)) : null;
+    if (!found) return void res.status(404).type("html").send(renderNoSuchCat(teamPerson(res).name));
+    const q = req.query["did"];
+    const did = Array.isArray(q) ? q.map(String) : typeof q === "string" ? [q] : undefined;
+    res.type("html").send(
+      renderVetVisitForm({ ...found.page, values: blankVisitForm(found.page.standardPriceEur, did) }),
+    );
+  },
+);
+
+/**
+ * POST /api/team/cats/:id/vet-visit: saves the visit and what it settled, in
+ * one transaction (lib/vetVisits.ts). A problem comes back as the form again,
+ * with everything typed kept and the problem named beside its field.
+ */
+router.post(
+  "/team/cats/:id/vet-visit",
+  ...formRoute("log_vet_visit"),
+  async (req: Request, res: Response) => {
+    const raw = String(req.params["id"]);
+    const found = CAT_ID_RE.test(raw) ? await visitFormFor(req, res, Number(raw)) : null;
+    if (!found) {
+      if (!isForm(req)) return void res.status(404).json({ error: "Not found" });
+      return void res.status(404).type("html").send(renderNoSuchCat(teamPerson(res).name));
+    }
+    const values = visitFormFrom(req.body);
+    const again = (status: number, problems: Parameters<typeof renderVetVisitForm>[0]["problems"], problem?: string) => {
+      if (!isForm(req)) return void res.status(status).json({ error: "Invalid request", fields: Object.keys(problems ?? {}) });
+      res.status(status).type("html").send(renderVetVisitForm({ ...found.page, values, problems, problem }));
+    };
+    const read = readVisitForm(values, { costs: found.page.costs, vaccinate: found.page.vaccinate });
+    if (!read.ok) return again(400, read.problems);
+    try {
+      const saved = await logVetVisit(found.person, { catId: found.view.cat.id, date: read.date, value: read.value });
+      if (!isForm(req)) return void res.status(201).json(saved);
+      res.redirect(303, `/api/team/cats/${found.view.cat.id}?done=visit#vet-visits`);
+    } catch (err) {
+      if (!(err instanceof ObservationRefused)) throw err;
+      if (err.code === "NOT_AUTHORISED") return refuseSignedIn(req, res);
+      if (err.code === "FUTURE_OBSERVED_AT") return again(400, { date: "The date can't be in the future." });
+      req.log.info({ code: err.code }, "vet visit refused");
+      return again(400, {}, "That visit couldn't be saved as it is. Check the answers and try again.");
+    }
+  },
+);
+
+/**
+ * POST /api/team/vet-visits/:visitId/wrong: undoes a visit and everything it
+ * recorded, in one step (Decision 6). A browser gets "Are you sure?" first;
+ * Yes posts again with confirm=1.
+ */
+router.post(
+  "/team/vet-visits/:visitId/wrong",
+  ...formRoute("log_vet_visit"),
+  async (req: Request, res: Response) => {
+    const person = teamPerson(res);
+    const raw = String(req.params["visitId"]);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const reason = typeof body["reason"] === "string" ? body["reason"].replace(/\r\n?/g, "\n").trim() : "";
+    const [visit] = CAT_ID_RE.test(raw)
+      ? await db.select().from(observationsTable).where(eq(observationsTable.id, Number(raw)))
+      : [];
+    // An undo is a vet_visit row too; it is no visit to mark wrong (second review, finding 3).
+    const isUndo = (visit?.value as { retracted?: unknown } | undefined)?.retracted === true;
+    if (!visit || visit.kind !== "vet_visit" || isUndo) {
+      if (!isForm(req)) return void res.status(404).json({ error: "Not found" });
+      return void res.status(404).type("html").send(renderNoSuchCat(person.name));
+    }
+    const back = `/api/team/cats/${visit.catId}`;
+    if (reason.length < 1 || reason.length > VISIT_REASON_MAX || reason.includes(String.fromCharCode(0))) {
+      if (!isForm(req)) return void res.status(400).json({ error: "Invalid request", fields: ["reason"] });
+      return void res.redirect(303, `${back}?done=visitReason#vet-visits`);
+    }
+    if (isForm(req) && body["confirm"] !== "1") {
+      return void res.type("html").send(
+        renderConfirmPage({
+          title: `Mark the vet visit on ${visitDay(visit.observedAt)} wrong?`,
+          lines: [
+            "The visit and everything it recorded are marked wrong together: its sterilisation and any vaccination.",
+            "If it overruled a cat guardian's answer, her answer stands again.",
+            "Nothing is deleted. It all stays in the history, crossed out, with your reason.",
+          ],
+          action: `/api/team/vet-visits/${visit.id}/wrong`,
+          fields: { reason },
+          yes: "Yes, mark the visit wrong",
+          cancelHref: `${back}#vet-visits`,
+          cancelLabel: "No, go back (nothing changed)",
+          personName: person.name,
+          active: "cats",
+        }),
+      );
+    }
+    try {
+      const out = await undoVetVisit(person, visit.id, reason);
+      if (!isForm(req)) return void res.status(201).json(out);
+      res.redirect(303, `${back}?done=visitWrong#vet-visits`);
+    } catch (err) {
+      if (!(err instanceof ObservationRefused)) throw err;
+      if (err.code === "NOT_AUTHORISED") return refuseSignedIn(req, res);
+      if (err.code === "ALREADY_SUPERSEDED") {
+        if (!isForm(req)) return void res.status(409).json({ error: ALREADY_UNDONE, code: "ALREADY_SUPERSEDED" });
+        return void res.redirect(303, `${back}?done=visitAlready#vet-visits`);
+      }
+      throw err;
+    }
   },
 );
 

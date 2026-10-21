@@ -120,12 +120,12 @@ function lastSeenFact(v: TeamCatView, now: Date): string {
   return `${when} · ${esc(placeLabel(where))}`;
 }
 
-const VACCINE: Record<Exclude<Vaccine, { other: string }>, string> = {
+export const VACCINE: Record<Exclude<Vaccine, { other: string }>, string> = {
   rabies: "Rabies",
   cat_flu_enteritis: "Cat flu and enteritis",
 };
 
-const vaccineWord = (x: Vaccine) => (typeof x === "string" ? VACCINE[x] : x.other);
+export const vaccineWord = (x: Vaccine) => (typeof x === "string" ? VACCINE[x] : x.other);
 
 function vaccinatedFact(v: TeamCatView): string | null {
   const given = v.records.vaccinations;
