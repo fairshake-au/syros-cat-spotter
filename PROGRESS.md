@@ -1,3 +1,4 @@
 - 2026-10-21T22:10:34Z setup: branch from #256, runner works
 - 2026-10-21T22:11:05Z log_vet_visit capability + §6.2 row (catalogue red→green)
 - 2026-10-21T22:15:36Z Task 3.1.1 vetVisits.ts done, 13/13; probes red→restored: D8 skip (answer stays false), undo-visit-only (vaccination stays)
+- 2026-10-21T22:18:49Z Home vet spend (home.test, team.home.test, walk: 65/65)
