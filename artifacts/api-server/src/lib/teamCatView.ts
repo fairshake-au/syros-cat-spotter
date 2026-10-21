@@ -250,9 +250,16 @@ export function describeStatement(
       const words: Record<string, string> = { sterilised: "sterilised", vaccinated: "vaccinated", treated: "treated", checked: "checked only" };
       return did.length ? `Vet visit: ${did.map((d) => words[d] ?? d).join(", ")}` : "Vet visit";
     }
-    case "vaccinated":
+    case "vaccinated": {
       if (v["retracted"] === true) return "Marked wrong";
-      return `A “${kind}” statement`;
+      const names: Record<string, string> = { rabies: "Rabies", cat_flu_enteritis: "Cat flu and enteritis" };
+      const list = Array.isArray(v["vaccines"])
+        ? (v["vaccines"] as unknown[])
+            .map((x) => (typeof x === "string" ? names[x] : x && typeof x === "object" ? str((x as Record<string, unknown>)["other"]) : null))
+            .filter((x): x is string => typeof x === "string")
+        : [];
+      return list.length ? `Vaccinated: ${list.join(", ")}` : "Vaccinated";
+    }
     default:
       return `A “${kind}” statement`;
   }

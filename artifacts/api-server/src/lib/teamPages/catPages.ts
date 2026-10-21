@@ -950,7 +950,7 @@ export function renderCatPage(
     (visitDone ? notice : "") +
     (visitList.length === 0
       ? '<p class="empty">No vet visits recorded.</p>'
-      : '<ul class="visits">' + visitList.map((l) => visitItem(l, may)).join("") + "</ul>");
+      : '<ol class="history visits">' + visitList.map((l) => visitItem(l, may)).join("") + "</ol>");
 
   // After Hide or Restore, the message goes beside that photo (own keys only:
   // ?done=constructor must not reach Object.prototype).
