@@ -64,6 +64,10 @@ export const CATALOGUE = {
   // door never opens the workspace.
   use_workspace: { kind: "island", roles: TEAM },
   view_guardian_changes: { kind: "island", roles: TEAM },
+  // Vet costs and the trapping plan (SYC-396 PR 2.3; dashboard §8.4, §10.3).
+  // Never for a guardian: she sees that a visit happened, not what it cost.
+  view_vet_costs: { kind: "island", roles: TEAM },
+  print_trapping_plan: { kind: "island", roles: TEAM },
   // Saying what you saw or know
   record_field_check: { kind: "placed", roles: EVERYONE },
   set_life_status: { kind: "placed", roles: EVERYONE },

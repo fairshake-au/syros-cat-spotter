@@ -97,6 +97,12 @@ describe("db-ops set-setting", () => {
     expect(await value("extra_photos_on")).toBe(true);
   });
 
+  it("sets the standard sterilisation price (SYC-396 PR 2.3)", async () => {
+    const r = dev({ COMMAND: "set-setting", SETTING_KEY: "standard_sterilisation_price_eur", SETTING_VALUE: "55" });
+    expect(r.code).toBe(0);
+    expect(await value("standard_sterilisation_price_eur")).toBe(55);
+  });
+
   it.each([
     ["feed_nudge_donate_url", '"http://syroscats.com/donations"'],
     ["feed_nudge_donate_url", "https://syroscats.com/donations"],
@@ -104,6 +110,9 @@ describe("db-ops set-setting", () => {
     ["starter_facts_hidden", '"fact.earTip"'],
     ["feed_tap_count", '"false"'],
     ["extra_photos_on", '"yes"'],
+    ["standard_sterilisation_price_eur", '"55"'],
+    ["standard_sterilisation_price_eur", "0"],
+    ["standard_sterilisation_price_eur", "55.5"],
     ["no_such_key", "true"],
   ])("refuses %s = %s and changes nothing", async (key, raw) => {
     const before = (await c.query(`select key, value from app_settings order by key`)).rows;
