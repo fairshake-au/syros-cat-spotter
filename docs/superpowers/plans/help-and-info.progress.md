@@ -57,3 +57,4 @@ Checkpoint notes, newest last. Each agent appends after every commit.
 ## Step 3 (Sonnet)
 - 3.1 done: ReportHandoff.cat, NeedsHelpLink cat prop (merges into handoff via takeReportHandoff), cat page passes it, ReportIssueSheet.goToNeedsHelp hands {id,name,photoUrl:null}. NeedsHelpLink 6/6, ReportIssueSheet (test file needed a pendingPhotos mock now that the sheet imports reportHandoff). Next: 3.2 flow.
 - 3.2 done: ReportFlow.cat (optional, INITIAL null), startFlow keeps handoff cat, clearCat; reportFlow.test 14/14, reportHandoff.test green; typecheck clean. Next: 3.3 strip.
+- 3.3 done: AboutCatStrip in ReportWizard (Where only; paw behind an expo-image via photoSource, dropped on onError; link role/label), plus catIdOf(flow) in reportFlow and `:cat id` added to the wizard's draftKey (done here because the wizard test for "clear after draft" needs it; probe (b) targets it). ReportWizard.test 33/33; typecheck clean. Next: 3.4 queue + body + draft wiring.

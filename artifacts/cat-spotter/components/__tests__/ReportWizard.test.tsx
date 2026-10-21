@@ -9,7 +9,7 @@ import { render, cleanup, fireEvent, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getGuidance } from '@workspace/welfare-guidance';
 import { TRANSLATIONS } from '@/lib/i18n';
-import { INITIAL_FLOW } from '@/lib/reportFlow';
+import { INITIAL_FLOW, catIdOf, type ReportFlow } from '@/lib/reportFlow';
 
 const lang = vi.hoisted(() => ({ current: 'en' as 'en' | 'el' | 'fr' }));
 
@@ -22,8 +22,14 @@ vi.mock('@/context/LanguageContext', async () => {
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
 vi.mock('expo-image', async () => {
   const { View } = await import('react-native');
-  return { Image: () => <View testID="photo-thumb" /> };
+  // `onError` is exposed so a test can say the picture never loaded.
+  return {
+    Image: ({ source, onError }: { source?: { uri?: string }; onError?: () => void }) => (
+      <View testID="photo-thumb" aria-label={source?.uri} {...({ onClick: onError } as object)} />
+    ),
+  };
 });
+vi.mock('@/lib/urls', () => ({ photoSource: (p: string | null) => (p ? { uri: `https://api.test${p}` } : {}) }));
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -68,7 +74,7 @@ const here = { latitude: 37.444, longitude: 24.942 };
 
 function setup(over: Partial<React.ComponentProps<typeof ReportWizard>> = {}) {
   const onDraft = vi.fn();
-  const onSend = vi.fn(async () => undefined);
+  const onSend = vi.fn(async (_flow: ReportFlow) => undefined);
   const onClose = vi.fn();
   const utils = render(
     <ReportWizard
@@ -339,5 +345,97 @@ describe('SYC-42 Slice 3: "Shall we tell you what happens?" (email-capture.md §
     nextIn(w);
     fireEvent.click(within(w.getByTestId('report-footer')).getByText(T.reportSendReport));
     expect(w.onSend).toHaveBeenCalledWith(expect.objectContaining({ wantsUpdates: true, email: 'me@example.org' }));
+  });
+});
+
+describe('SYC-504: "About {name}" on Where only', () => {
+  const tigris = { id: 7, name: 'Tigris', photoUrl: '/api/photos/ph-1' };
+  const withCat = { ...INITIAL_FLOW, cat: tigris };
+
+  it('Where shows the strip: the name line, the photo through photoSource, and the link', () => {
+    const w = setup({ initial: withCat });
+    expect(w.getByTestId('report-cat-strip')).toBeTruthy();
+    expect(w.getByTestId('report-cat-about').textContent).toBe(T.reportAboutCat.replace('{name}', 'Tigris'));
+    expect(w.getByTestId('photo-thumb').getAttribute("aria-label")).toBe('https://api.test/api/photos/ph-1');
+    const link = w.getByTestId('report-cat-different');
+    expect(link.textContent).toBe(T.reportDifferentCat);
+    expect(link.getAttribute('role')).toBe('link');
+    expect(link.getAttribute('aria-label')).toBe(T.reportDifferentCat);
+  });
+
+  it('no strip without a cat', () => {
+    const w = setup();
+    expect(w.queryByTestId('report-cat-strip')).toBeNull();
+  });
+
+  it('How bad, Email and Before you send do not show it', () => {
+    const w = setup({ initial: withCat, offerEmail: true });
+    w.next();
+    expect(w.text()).toContain(T.reportHowBadTitle);
+    expect(w.queryByTestId('report-cat-strip')).toBeNull();
+    fireEvent.click(w.getByTestId('severity-urgent'));
+    w.next();
+    expect(w.queryByTestId('report-cat-strip')).toBeNull();
+    w.next();
+    expect(w.text()).toContain(T.reportBeforeSendTitle);
+    expect(w.queryByTestId('report-cat-strip')).toBeNull();
+    expect(w.text()).not.toContain('Tigris');
+  });
+
+  it('with no photo (the report-issue sheet hands none) the paw shows and no image is requested', () => {
+    const w = setup({ initial: { ...INITIAL_FLOW, cat: { ...tigris, photoUrl: null } } });
+    expect(w.getByTestId('report-cat-paw')).toBeTruthy();
+    expect(w.queryByTestId('photo-thumb')).toBeNull();
+  });
+
+  it('a picture that fails to load is dropped, leaving the paw; the line is already there', () => {
+    const w = setup({ initial: withCat });
+    expect(w.getByTestId('report-cat-paw')).toBeTruthy();
+    fireEvent.click(w.getByTestId('photo-thumb'));
+    expect(w.queryByTestId('photo-thumb')).toBeNull();
+    expect(w.getByTestId('report-cat-paw')).toBeTruthy();
+    expect(w.getByTestId('report-cat-about')).toBeTruthy();
+  });
+
+  it('"It\'s a different cat" removes the strip, and it stays gone after Next then Back', () => {
+    const w = setup({ initial: withCat });
+    fireEvent.click(w.getByTestId('report-cat-different'));
+    expect(w.queryByTestId('report-cat-strip')).toBeNull();
+    w.next();
+    fireEvent.click(within(w.container).getByLabelText(T.back));
+    expect(w.text()).toContain(T.reportWhereTitle);
+    expect(w.queryByTestId('report-cat-strip')).toBeNull();
+  });
+
+  it('Back keeps the cat when it was not cleared', () => {
+    const w = setup({ initial: withCat });
+    w.next();
+    fireEvent.click(within(w.container).getByLabelText(T.back));
+    expect(w.getByTestId('report-cat-strip')).toBeTruthy();
+  });
+
+  it('clearing the cat after a draft was written writes a new draft with no cat', () => {
+    vi.useFakeTimers();
+    try {
+      const w = setup({ initial: withCat });
+      w.next();
+      fireEvent.click(w.getByTestId('severity-urgent'));
+      vi.advanceTimersByTime(2000);
+      expect(w.onDraft).toHaveBeenCalledTimes(1);
+      expect(catIdOf(w.onDraft.mock.calls[0]![0])).toBe(7);
+      fireEvent.click(within(w.container).getByLabelText(T.back));
+      fireEvent.click(w.getByTestId('report-cat-different'));
+      vi.advanceTimersByTime(2000);
+      expect(w.onDraft).toHaveBeenCalledTimes(2);
+      expect(catIdOf(w.onDraft.mock.calls[1]![0])).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Send report hands over the cat still on the flow, or none once cleared', () => {
+    const w = setup({ initial: { ...withCat, step: 3, coords: here, severity: 'attention' } });
+    fireEvent.click(within(w.getByTestId('report-footer')).getByText(T.reportSendReport));
+    expect(catIdOf(w.onSend.mock.calls[0]![0])).toBe(7);
   });
 });

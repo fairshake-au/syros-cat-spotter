@@ -108,6 +108,11 @@ export function flowNext(flow: ReportFlow, withEmail = false): ReportFlow {
   return { ...flow, step: (flow.step + 1) as ReportStep };
 }
 
+/** The cat id a report or draft names: a number, or null (cleared or never set). */
+export function catIdOf(flow: Pick<ReportFlow, 'cat'>): number | null {
+  return flow.cat?.id ?? null;
+}
+
 /** "It's a different cat": this report carries on as an ordinary one. */
 export function clearCat(flow: ReportFlow): ReportFlow {
   return !flow.cat ? flow : { ...flow, cat: null };

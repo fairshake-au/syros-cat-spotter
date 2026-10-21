@@ -9,8 +9,10 @@ import { useLanguage } from '@/context/LanguageContext';
 import { LocationPicker } from '@/components/LocationPicker';
 import { Button, IconButton } from '@/components/purropolis';
 import { fonts, radii, spacing } from '@/constants/theme';
+import { photoSource } from '@/lib/urls';
 import {
   canAdvance,
+  clearCat,
   draftReady,
   flowBack,
   flowNext,
@@ -63,6 +65,58 @@ export interface ReportWizardProps {
 
 const PRIVACY_URL = 'https://catspotters.com/privacy';
 
+/**
+ * SYC-504 (spec §4.1): at the top of Where's the cat? only, "About Tigris"
+ * with a small round thumbnail of the cat's page photo and a quiet "It's a
+ * different cat" link. The paw sits behind the picture, so a photo that
+ * hasn't loaded (offline) or never will leaves the paw, and nothing waits.
+ */
+function AboutCatStrip({
+  cat,
+  onDifferent,
+}: {
+  cat: NonNullable<ReportFlow['cat']>;
+  onDifferent: () => void;
+}) {
+  const colors = useColors();
+  const { t } = useLanguage();
+  const [failed, setFailed] = useState(false);
+  return (
+    <View style={styles.catStrip} testID="report-cat-strip">
+      <View style={[styles.catThumb, { backgroundColor: colors.muted }]}>
+        <Text style={styles.catPaw} allowFontScaling={false} testID="report-cat-paw">
+          {'\u{1F43E}'}
+        </Text>
+        {cat.photoUrl && !failed ? (
+          <Image
+            source={photoSource(cat.photoUrl)}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            onError={() => setFailed(true)}
+            accessibilityElementsHidden
+          />
+        ) : null}
+      </View>
+      <View style={styles.catText}>
+        <Text style={[styles.catAbout, { color: colors.foreground }]} numberOfLines={1} testID="report-cat-about">
+          {t('reportAboutCat').replace('{name}', cat.name)}
+        </Text>
+        <Pressable
+          onPress={onDifferent}
+          hitSlop={8}
+          accessibilityRole="link"
+          accessibilityLabel={t('reportDifferentCat')}
+          testID="report-cat-different"
+        >
+          <Text style={[styles.linkText, styles.catDifferent, { color: colors.mutedForeground }]}>
+            {t('reportDifferentCat')}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export function ReportWizard({
   guidance,
   initial,
@@ -99,7 +153,7 @@ export function ReportWizard({
 
   // §4.2: the draft once location and severity are both set. Best effort.
   const draftKey = draftReady(flow)
-    ? `${flow.severity}:${flow.coords!.latitude.toFixed(5)},${flow.coords!.longitude.toFixed(5)}:${flow.isLitter}`
+    ? `${flow.severity}:${flow.coords!.latitude.toFixed(5)},${flow.coords!.longitude.toFixed(5)}:${flow.isLitter}:${flow.cat?.id ?? 'none'}`
     : null;
   const flowRef = useRef(flow);
   flowRef.current = flow;
@@ -153,6 +207,7 @@ export function ReportWizard({
         <View style={styles.column}>
           {screen === 'where' && (
             <>
+              {flow.cat ? <AboutCatStrip cat={flow.cat} onDifferent={() => setFlow(clearCat)} /> : null}
               {flow.photo ? (
                 <View style={styles.photoRow}>
                   <Image
@@ -406,6 +461,12 @@ const styles = StyleSheet.create({
   column: { flexGrow: 1, width: '100%', maxWidth: 640, alignSelf: 'center', gap: spacing[3] },
   hint: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18 },
   linkText: { fontFamily: fonts.bodySemiBold, fontSize: 14, textDecorationLine: 'underline' },
+  catStrip: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  catThumb: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  catPaw: { fontSize: 18, opacity: 0.5 },
+  catText: { flex: 1, gap: 2 },
+  catAbout: { fontFamily: fonts.bodyBold, fontSize: 15 },
+  catDifferent: { fontSize: 13 },
   photoBlock: { gap: 6 },
   photoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   photo: { width: 64, height: 64, borderRadius: radii.sm },
