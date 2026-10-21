@@ -62,6 +62,7 @@ function fakeReport(id: string, over: Partial<QueueReport> = {}): QueueReport {
     stateChangedBy: null,
     photo: { status: "none", url: null },
     cat: null,
+    suggestedCat: null,
     contactLeft: false,
     emailToReporter: null,
     teamNote: null,
@@ -160,6 +161,7 @@ describe("Needs us now", () => {
       lat: 37.4447,
       lng: 24.9417,
       startedAt: new Date(NOW.getTime() - hoursAgo * 3_600_000).toISOString(),
+      suggestedCat: null,
     });
     expect(DRAFT_WINDOW_HOURS).toBe(24);
     const q = fakeQueue({ drafts: [draft("fresh", 2), draft("stale", 25)], draftsTotal: 2 });

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { addPerson, markLeft, pool } from "@workspace/db";
+import { addPerson, catsTable, db, markLeft, photosTable, pool } from "@workspace/db";
+import { like } from "drizzle-orm";
 import app from "../app";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import {
@@ -49,6 +50,8 @@ afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   await clearWelfareTables();
+  await db.delete(catsTable).where(like(catsTable.name, "vt-queue-%"));
+  await db.delete(photosTable).where(like(photosTable.publicId, "vt-queue-%"));
   await removeTestPerson(EMAIL);
   await removeTestPerson(MARIA);
   await pool.end();
@@ -81,6 +84,9 @@ const EXPECTED_REPORT_KEYS = [
   "state",
   "stateChangedAt",
   "stateChangedBy",
+  // SYC-504: the cat whose page the reporter sent it from ({ id, name,
+  // photoUrl } or null). A public cat id and name; the team route's photo.
+  "suggestedCat",
   "teamNote",
   "teamNoteAt",
   "teamNoteBy",
@@ -146,7 +152,9 @@ describe("P1-2: order and sections", () => {
       "lat",
       "lng",
       "severity",
+      // SYC-504: the cat the reporter began it from, or null.
       "startedAt",
+      "suggestedCat",
     ]);
   });
 
@@ -187,6 +195,46 @@ describe("P1-2: order and sections", () => {
     expect(byId["bare"]!.photo).toEqual({ status: "failed", url: null });
     expect(byId["bare"]!.emailToTeam).toBe("failed");
     expect(byId["waiting"]!.emailToTeam).toBeNull();
+  });
+});
+
+describe("SYC-504: the suggested cat", () => {
+  it("is { id, name, photoUrl } on a report and on a draft, null without one, and never sets cat", async () => {
+    const [p] = await db
+      .insert(photosTable)
+      .values({ publicId: "vt-queue-photo-1", data: "ZmFrZQ==", mime: "image/jpeg" })
+      .returning({ id: photosTable.id });
+    const [c] = await db
+      .insert(catsTable)
+      .values({
+        name: "vt-queue-Tigris",
+        description: "",
+        primaryPhotoId: p!.id,
+        lat: 37.445,
+        lng: 24.942,
+        discovererDeviceId: "vt-queue-spotter",
+      })
+      .returning({ id: catsTable.id });
+    await seedReport({ publicId: "with-cat", reporterCatId: c!.id });
+    await seedReport({ publicId: "no-cat" });
+    await seedReport({ publicId: "draft-cat", isDraft: true, reporterCatId: c!.id });
+    await seedReport({ publicId: "draft-none", isDraft: true });
+    const q = await getQueue();
+    const byId = Object.fromEntries(q.open.map((x) => [x.id, x]));
+    expect(byId["with-cat"]!.suggestedCat).toEqual({
+      id: c!.id,
+      name: "vt-queue-Tigris",
+      photoUrl: "/api/team/photos/vt-queue-photo-1/small",
+    });
+    expect(byId["with-cat"]!.cat).toBeNull();
+    expect(byId["no-cat"]!.suggestedCat).toBeNull();
+    const drafts = Object.fromEntries(q.drafts.map((x) => [x.id, x]));
+    expect(drafts["draft-cat"]!.suggestedCat).toEqual({
+      id: c!.id,
+      name: "vt-queue-Tigris",
+      photoUrl: "/api/team/photos/vt-queue-photo-1/small",
+    });
+    expect(drafts["draft-none"]!.suggestedCat).toBeNull();
   });
 });
 
