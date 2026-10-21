@@ -724,6 +724,12 @@ describe("T2: a person who may enter but lacks the capability gets the 403, neve
   });
 });
 
+describe("T7-5 (SYC-44 PR 7.1; spec D3): the daily brake has no resume", () => {
+  it("no route resumes, lifts or resets automatic hiding", () => {
+    expect(walkedRoutes().filter((r) => /resume|brake|unpause|lift/i.test(r))).toEqual([]);
+  });
+});
+
 describe("Home's Coming soon line (SYC-396 PR 2.1)", () => {
   // A feature whose route is in the TABLE has arrived: the PR that built it
   // must take it off Home's "Coming soon" line in the same change.
