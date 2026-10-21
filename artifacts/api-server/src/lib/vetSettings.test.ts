@@ -90,18 +90,34 @@ describe("setStandardPrice", () => {
     expect(await historyCount()).toBe(before);
   });
 
-  it("two changes at once both land, each with the right before", async () => {
+  it("waits for a change already under way, so its before is the price that change left", async () => {
     clearAppSettingsCache();
     const was = (await getAppSettings()).sterilisationPriceEur;
-    const a = other(was, 11);
-    const b = other(was, 13);
-    const results = await Promise.all([setStandardPrice(team, a), setStandardPrice(team, b)]);
-    // One went first from `was`; the other went from the first one's price.
-    const first = results.find((r) => r.before === was)!;
-    const second = results.find((r) => r !== first)!;
-    expect(first).toBeDefined();
-    expect(second.before).toBe(first.after);
-    expect(await stored()).toBe(second.after);
+    const first = other(was, 11);
+    const second = other(was, 13);
+    // Another change in flight: a transaction holding the same lock, about to
+    // write `first`.
+    const other_ = await pool.connect();
+    try {
+      await other_.query("begin");
+      await other_.query(`select pg_advisory_xact_lock(hashtext('vet_settings.standard_price'))`);
+      let settled = false;
+      const mine = setStandardPrice(team, second).finally(() => {
+        settled = true;
+      });
+      await new Promise((r) => setTimeout(r, 300));
+      expect(settled).toBe(false);
+      await other_.query(
+        `insert into app_settings (key, value) values ($1, $2::jsonb)
+           on conflict (key) do update set value = excluded.value`,
+        [KEY, JSON.stringify(first)],
+      );
+      await other_.query("commit");
+      expect(await mine).toEqual({ before: first, after: second });
+    } finally {
+      other_.release();
+    }
+    expect(await stored()).toBe(second);
   });
 });
 
