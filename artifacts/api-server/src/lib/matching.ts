@@ -1,5 +1,27 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { VISION_MODEL } from "./visionModel";
+import { logger } from "./logger";
+
+/**
+ * SYC-503 D3 (Samuel, 21 Oct 2026): each try at the look-alike check is cut
+ * off after 30 seconds. The library's own default was 10 minutes with two
+ * silent retries, so a stuck service could keep a spotter on "Checking…"
+ * for a very long time.
+ */
+export const MATCH_TIMEOUT_MS = 30_000;
+/** A failure faster than this was "couldn't connect" or a server error, never a timeout. */
+export const QUICK_FAILURE_MS = 5_000;
+
+/**
+ * Retry once only when the failure was quick: the service couldn't be
+ * reached, or answered with a server error. Never after a timeout (that
+ * would double the wait) and never on a 4xx (asking again won't help).
+ */
+export function isQuickRetryable(err: unknown, elapsedMs: number): boolean {
+  const status = (err as { status?: unknown } | null)?.status;
+  if (typeof status === "number" && status < 500) return false;
+  return elapsedMs < QUICK_FAILURE_MS;
+}
 
 export interface CandidateInput {
   catId: number;
@@ -71,11 +93,37 @@ export async function matchCatPhoto(
     })),
   ];
 
-  const response = await openai.chat.completions.create({
-    model: VISION_MODEL,
-    max_completion_tokens: 8192,
-    messages: [{ role: "user", content }],
-  });
+  const call = () =>
+    openai.chat.completions.create(
+      {
+        model: VISION_MODEL,
+        max_completion_tokens: 8192,
+        messages: [{ role: "user", content }],
+      },
+      { timeout: MATCH_TIMEOUT_MS, maxRetries: 0 },
+    );
+  // How long checks take, and how often they time out, is logged so the
+  // 30-second limit can be tuned (spec D3).
+  const started = Date.now();
+  let attempts = 1;
+  let response: Awaited<ReturnType<typeof call>>;
+  try {
+    try {
+      response = await call();
+    } catch (err) {
+      if (!isQuickRetryable(err, Date.now() - started)) throw err;
+      attempts = 2;
+      response = await call();
+    }
+  } catch (err) {
+    const durationMs = Date.now() - started;
+    logger.warn(
+      { durationMs, attempts, timedOut: durationMs >= MATCH_TIMEOUT_MS * 0.95 },
+      "look-alike check failed",
+    );
+    throw err;
+  }
+  logger.info({ durationMs: Date.now() - started, attempts }, "look-alike check answered");
 
   const raw = response.choices[0]?.message?.content ?? "";
   const jsonText = raw.replace(/```json|```/g, "").trim();
