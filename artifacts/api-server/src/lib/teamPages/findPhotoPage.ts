@@ -1,5 +1,5 @@
 import { currentAreas } from "../areas/namedAreas";
-import { FIND_MAX_CATS, type Band, type FindFilters, type FindResult } from "../findFromPhoto";
+import { FIND_MAX_CATS, isWholeIsland, type Band, type FindFilters, type FindResult } from "../findFromPhoto";
 import { filtersToQuery } from "../teamCatFilters";
 import { COLOUR_FILTERS, type CatListItem } from "../teamCatList";
 import { teamPhotoUrl } from "../teamCatView";
@@ -32,6 +32,13 @@ export const PERSON_CAP_WORDS = "You've used today's 20 searches. They reset ove
 export const TEAM_CAP_WORDS = "The team has used today's 100 searches.";
 export const MATCHING_DOWN_WORDS =
   "Matching isn't working right now. Try again in a few minutes, or browse this area's cats.";
+/** SYC-527 piece 1: no place chosen searches the whole island. */
+export const ANYWHERE_OPTION = "Anywhere on the island";
+export const WHERE_HINT =
+  "Anywhere on the island compares every cat. If you know where the photo was taken, choosing the area is surer.";
+export const ISLAND_TOO_MANY = "There are now too many cats to compare them all at once. Choose an area or a colony.";
+/** Matching down with no place: there is no area's cats to browse, so browse the cats. */
+export const MATCHING_DOWN_ISLAND_WORDS = "Matching isn't working right now. Try again in a few minutes, or browse the cats.";
 export const TOO_BIG_WORDS = "That photo is too big. Choose one under 10 MB.";
 
 const BAND_WORD: Record<Band, string> = {
@@ -60,16 +67,14 @@ export function findAddress(f: FindFilters, tie?: string): string {
 
 /** Where the narrowing stands, as the form's count line says it. */
 export type Narrowing =
-  | { kind: "no_place" }
   | { kind: "none" }
-  | { kind: "too_many"; count: number }
-  | { kind: "ok"; count: number };
+  | { kind: "too_many"; count: number; island: boolean }
+  | { kind: "ok"; count: number; island: boolean };
 
-export function narrowingOf(count: number | null): Narrowing {
-  if (count === null) return { kind: "no_place" };
+export function narrowingOf(count: number, island: boolean): Narrowing {
   if (count === 0) return { kind: "none" };
-  if (count > FIND_MAX_CATS) return { kind: "too_many", count };
-  return { kind: "ok", count };
+  if (count > FIND_MAX_CATS) return { kind: "too_many", count, island };
+  return { kind: "ok", count, island };
 }
 
 interface Common {
@@ -91,7 +96,7 @@ export interface FindFormOptions extends Common {
 function placeName(f: FindFilters, colonies: Common["colonies"]): string {
   const area = f.area !== undefined ? currentAreas().find((a) => a.key === f.area)?.name : undefined;
   const colony = f.colony !== undefined ? colonies.find((c) => c.id === f.colony)?.name : undefined;
-  return [area, colony].filter((x): x is string => Boolean(x)).join(", ") || "here";
+  return [area, colony].filter((x): x is string => Boolean(x)).join(", ") || (isWholeIsland(f) ? "the island" : "here");
 }
 
 /** Step 1: where to look. A GET form: an area key, a colony number and colour codes only. */
@@ -99,7 +104,7 @@ function whereForm(o: FindFormOptions): string {
   const f = o.filters;
   const sel = (on: boolean) => (on ? " selected" : "");
   const areas =
-    '<option value="">Choose an area</option>' +
+    `<option value=""${sel(f.area === undefined)}>${esc(ANYWHERE_OPTION)}</option>` +
     currentAreas()
       .map((a) => `<option value="${esc(a.key)}"${sel(f.area === a.key)}>${esc(a.name)}</option>`)
       .join("");
@@ -117,7 +122,7 @@ function whereForm(o: FindFormOptions): string {
     `<form class="findwhere" method="get" action="${FIND_PATH}">` +
     (o.tie ? `<input type="hidden" name="tie" value="${esc(o.tie.publicId)}">` : "") +
     "<h2>1. Where to look</h2>" +
-    '<p class="hint">Choose an area or a colony. Colours narrow it further.</p>' +
+    `<p class="hint">${esc(o.narrowing.kind === "too_many" && o.narrowing.island ? "Choose an area or a colony. Colours narrow it further." : WHERE_HINT)}</p>` +
     placeProblem +
     '<fieldset><legend>Where</legend>' +
     `<label class="flabel" for="find-area">Area</label><select class="text" id="find-area" name="area"${described}>${areas}</select>` +
@@ -130,11 +135,11 @@ function whereForm(o: FindFormOptions): string {
 }
 
 function countLine(n: Narrowing, f: FindFilters, colonies: Common["colonies"]): string {
-  if (n.kind === "no_place") {
-    return '<p class="count" role="status">Choose an area or a colony to see how many cats that leaves.</p>';
-  }
   if (n.kind === "none") {
-    return `<p class="count" role="status">No cats to compare in ${esc(placeName(f, colonies))}.</p>`;
+    return `<p class="count" role="status">No cats to compare ${isWholeIsland(f) ? "on the island" : `in ${esc(placeName(f, colonies))}`}.</p>`;
+  }
+  if (n.kind === "too_many" && n.island) {
+    return `<p class="count" role="status">${esc(ISLAND_TOO_MANY)}</p>`;
   }
   if (n.kind === "too_many") {
     return (
@@ -142,7 +147,7 @@ function countLine(n: Narrowing, f: FindFilters, colonies: Common["colonies"]): 
       `choose a colour or a smaller area first, so there are ${FIND_MAX_CATS} or fewer.</p>`
     );
   }
-  return `<p class="count" role="status">${cats(n.count)} to compare</p>`;
+  return `<p class="count" role="status">${cats(n.count)} to compare${n.island ? " across the island" : ""}</p>`;
 }
 
 const hiddenFilters = (f: FindFilters, tie?: TieMode) =>
@@ -158,7 +163,10 @@ function photoForm(o: FindFormOptions): string {
   if (capWords) {
     inside = `<p class="notice" role="status">${esc(capWords)}</p>`;
   } else if (o.narrowing.kind !== "ok") {
-    inside = '<p class="hint">Once there are 30 cats or fewer to compare, choose the photo here.</p>';
+    inside =
+      o.narrowing.kind === "too_many" && o.narrowing.island
+        ? '<p class="hint">Once you have chosen an area or a colony, choose the photo here.</p>'
+        : '<p class="hint">Once there are 30 cats or fewer to compare, choose the photo here.</p>';
   } else {
     const photoProblem =
       o.problem?.field === "photo" ? `<p class="warn" id="photo-error">${esc(o.problem.words)}</p>` : "";
@@ -220,7 +228,7 @@ export function renderFindForm(o: FindFormOptions): string {
         ? `<p class="notice" role="alert">${esc(o.problem.words)} <a href="${o.problem.field === "place" ? "#find-area" : "#find-photo"}">Go to it</a></p>`
         : "") +
       tieIntro(o.tie, o.now) +
-      '<p class="hint">Compare a photo, for example one a resident sent, with the cats of one area or colony. You decide which cat it is; the page only says how close each one looks.</p>' +
+      '<p class="hint">Compare a photo, for example one a resident sent, with the cats of the whole island, one area or one colony. You decide which cat it is; the page only says how close each one looks.</p>' +
       whereForm(o) +
       countLine(o.narrowing, o.filters, o.colonies) +
       photoForm(o),
@@ -306,7 +314,7 @@ export function renderFindResults(o: FindResultsOptions): string {
     `<p class="findagain">${again}${close.length ? ` ${grid}` : ""}</p>`;
   const body =
     tieIntro(o.tie, o.now) +
-    `<p class="count" role="status">Compared with ${cats(o.compared)} in ${esc(placeName(o.filters, o.colonies))}</p>` +
+    `<p class="count" role="status">Compared with ${cats(o.compared)} ${isWholeIsland(o.filters) ? "across the island" : `in ${esc(placeName(o.filters, o.colonies))}`}</p>` +
     `<p class="notice">${esc(LESS_SURE)}</p>` +
     `<div class="findcompare"><div class="findmine">${yourPhoto(o.preview)}</div><div class="findmatches">${matches}</div></div>`;
   return renderPage({
@@ -331,7 +339,9 @@ export function renderFindProblem(o: Common & { words: string; gridLink: boolean
       `<p class="notice" role="status">${esc(o.words)}</p>` +
       '<p class="findagain">' +
       `<a class="tap" href="${esc(findAddress(o.filters, o.tie?.publicId))}">Try again</a>` +
-      (o.gridLink ? ` <a class="tap" href="${esc(gridAddress(o.filters))}">Browse this area's cats</a>` : "") +
+      (o.gridLink
+        ? ` <a class="tap" href="${esc(gridAddress(o.filters))}">${isWholeIsland(o.filters) ? "Browse the cats" : "Browse this area's cats"}</a>`
+        : "") +
       "</p>",
   });
 }

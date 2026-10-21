@@ -412,6 +412,16 @@ describe("the search", () => {
     expect(res.text).toContain(`href="/api/team/cats?colony=${colony}"`);
   });
 
+  it("matching down on the island says to browse the cats, not an area's cats", async () => {
+    await island(3);
+    const team = await teamMember("isledown");
+    matchMock.mockRejectedValue(new Error("down"));
+    const res = await search(team.cookie, {});
+    expect(res.status).toBe(503);
+    expect(res.text).toContain("Matching isn&#39;t working right now. Try again in a few minutes, or browse the cats.");
+    expect(res.text).not.toContain("this area");
+  });
+
   it("nothing above Unlikely says so, and offers the grid", async () => {
     const team = await teamMember("none");
     matchMock.mockImplementation(async (_p, candidates: CandidateInput[]) => ({

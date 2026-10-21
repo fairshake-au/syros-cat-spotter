@@ -6,9 +6,10 @@ import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import multer from "multer";
 import { safeError } from "../lib/logger";
-import { catsToCompare, findFromPhoto, type FindFilters } from "../lib/findFromPhoto";
+import { catsToCompare, findFromPhoto, isWholeIsland, type FindFilters } from "../lib/findFromPhoto";
 import { checkFindLimits, findLimitReached } from "../middlewares/rateLimit";
 import {
+  MATCHING_DOWN_ISLAND_WORDS,
   MATCHING_DOWN_WORDS,
   narrowingOf,
   renderFindForm,
@@ -271,7 +272,7 @@ async function findFormHtml(
     colonies,
     tie,
     now,
-    narrowing: narrowingOf(count),
+    narrowing: narrowingOf(count, isWholeIsland(filters)),
     capped: capped === "ok" ? undefined : capped,
     problem: extra.problem,
   });
@@ -404,7 +405,7 @@ router.post(
         );
       case "refused":
         if (out.reason === "counter_down") {
-          return void res.status(503).type("html").send(renderFindProblem({ ...common, words: MATCHING_DOWN_WORDS, gridLink: true }));
+          return void res.status(503).type("html").send(renderFindProblem({ ...common, words: isWholeIsland(filters) ? MATCHING_DOWN_ISLAND_WORDS : MATCHING_DOWN_WORDS, gridLink: true }));
         }
         return void res
           .status(429)
@@ -416,7 +417,7 @@ router.post(
           renderFindProblem({ ...common, words: "We couldn't see a cat in that photo. Try another photo of the cat.", gridLink: false }),
         );
       case "matching_down":
-        return void res.status(503).type("html").send(renderFindProblem({ ...common, words: MATCHING_DOWN_WORDS, gridLink: true }));
+        return void res.status(503).type("html").send(renderFindProblem({ ...common, words: isWholeIsland(filters) ? MATCHING_DOWN_ISLAND_WORDS : MATCHING_DOWN_WORDS, gridLink: true }));
       case "results": {
         const { cats } = await allTeamCats({ area: filters.area, colony: filters.colony, colours: filters.colours }, now);
         const cards = new Map(cats.map((c) => [c.id, c]));
