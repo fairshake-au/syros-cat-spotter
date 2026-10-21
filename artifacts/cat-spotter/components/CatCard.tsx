@@ -33,7 +33,10 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
     typeof spotted === 'boolean'
       ? t(spotted ? 'catCardA11ySpotted' : 'catCardA11yNotSpotted').replace('{name}', cat.name)
       : cat.name;
-  const a11yLabel = [lead, distanceText, discovererText].filter(Boolean).join('. ');
+  // Join with a full stop, unless a part already ends its sentence ("Nefeli. Not spotted yet.").
+  const a11yLabel = [lead, distanceText, discovererText]
+    .filter(Boolean)
+    .reduce((acc, part) => (/[.!?;]$/.test(acc) ? `${acc} ${part}` : `${acc}. ${part}`));
 
   return (
     <Pressable

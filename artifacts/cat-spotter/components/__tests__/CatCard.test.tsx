@@ -80,23 +80,30 @@ describe('SYC-505: spotted stamp on the cat card', () => {
     const spotted = render(<CatCard cat={CAT} spotted />);
     let card = spotted.container.firstElementChild!;
     expect(card.getAttribute('role')).toBe('button');
-    expect(card.getAttribute('aria-label')!.startsWith('Agatha. Spotted by you.')).toBe(true);
+    expect(card.getAttribute('aria-label')).toBe(
+      'Agatha. Spotted by you. 100 m. discoveredBy aSpotter',
+    );
     spotted.unmount();
 
     const notSpotted = render(<CatCard cat={CAT} spotted={false} />);
     card = notSpotted.container.firstElementChild!;
-    expect(card.getAttribute('aria-label')!.startsWith('Agatha. Not spotted yet.')).toBe(true);
+    expect(card.getAttribute('aria-label')).toBe(
+      'Agatha. Not spotted yet. 100 m. discoveredBy aSpotter',
+    );
     notSpotted.unmount();
 
     const unknown = render(<CatCard cat={CAT} />);
     card = unknown.container.firstElementChild!;
-    const label = card.getAttribute('aria-label')!;
-    expect(label.startsWith('Agatha. ')).toBe(true);
-    expect(label).not.toContain('Spotted by you');
-    expect(label).not.toContain('Not spotted yet');
-    // the visible facts ride along
-    expect(label).toContain('100 m');
-    expect(label).toContain('discoveredBy');
+    expect(card.getAttribute('aria-label')).toBe('Agatha. 100 m. discoveredBy aSpotter');
+  });
+
+  it('never doubles a full stop, with or without a distance', () => {
+    const { container } = render(
+      <CatCard cat={{ ...CAT, distanceKm: null, discovererUsername: 'BrightTabby' }} spotted={false} />,
+    );
+    expect(container.firstElementChild!.getAttribute('aria-label')).toBe(
+      'Agatha. Not spotted yet. discoveredBy BrightTabby',
+    );
   });
 
   it('still goes to the cat page when tapped', () => {
