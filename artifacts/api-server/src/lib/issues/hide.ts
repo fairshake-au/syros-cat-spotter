@@ -83,11 +83,17 @@ export async function reportHidesToday(q: Pick<typeof db, "execute"> = db): Prom
 }
 
 /**
- * Whether the brake has tripped: today's report-hides have reached the limit,
- * so until midnight Athens time no report hides a photo. There is no resume.
+ * Whether the brake has tripped, given {@link reportHidesToday}: today's
+ * report-hides have reached the limit, so until midnight Athens time no report
+ * hides a photo. There is no resume. The hide and the banner both decide here.
  */
-export async function brakeOn(q: Pick<typeof db, "execute"> = db): Promise<boolean> {
-  return (await reportHidesToday(q)) >= brakeLimit;
+export function brakeTripped(hidesToday: number): boolean {
+  return hidesToday >= brakeLimit;
+}
+
+/** The brake's limit in force (the constant, unless a test raised it). */
+export function brakeLimitNow(): number {
+  return brakeLimit;
 }
 
 // ── The address hide limits (spec §8.1) ────────────────────────────────────
@@ -234,7 +240,7 @@ async function decide(tx: Tx, input: HideInput & { photoId: number }): Promise<H
     return skip("brake");
   }
   const now = nowSql();
-  if ((await reportHidesToday(tx)) >= brakeLimit) return skip("brake");
+  if (brakeTripped(await reportHidesToday(tx))) return skip("brake");
 
   // 5. This address's hide limits, counted in this transaction (a savepoint,
   //    so a counter error can't poison the report). A report that rolls back
