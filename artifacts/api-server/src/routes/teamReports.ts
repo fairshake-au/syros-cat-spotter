@@ -1,15 +1,23 @@
 import { createHash } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, photosTable, welfareReportPhotosTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, photosTable, welfareReportPhotosTable, welfareReportsTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getQueueReport, listWelfareQueue } from "../lib/welfareQueue";
+import { getIssueReport, listIssues } from "../lib/issues/queue";
+import {
+  hideFromIssue,
+  keepHidden,
+  restoreFromIssue,
+  type IssueActionOutcome,
+} from "../lib/issues/teamActions";
 import {
   CHANGED_MESSAGE,
   moveReportState,
   NOTE_MAX,
   REPORT_STATES,
   writeTeamNote,
+  type ReportState as ReportStateValue,
 } from "../lib/welfareActions";
 import { ObservationRefused } from "../lib/observations";
 import {
@@ -54,21 +62,34 @@ router.get(
   },
 );
 
+/**
+ * GET /api/team/issues: the Issues section as JSON (SYC-44 PR 7.1; spec
+ * §5.3). `view_welfare_queue`, island-only: refused, not hidden, for anyone
+ * without it. No device, address or contact: lib/issues/queue.ts reads none.
+ */
+router.get(
+  "/team/issues",
+  requireTeam("view_welfare_queue"),
+  async (_req: Request, res: Response) => {
+    setTeamHeaders(res); // before any await, so an error answer carries them too
+    res.json(await listIssues());
+  },
+);
+
 const notFound = (res: Response) => {
   setTeamHeaders(res);
   res.status(404).json({ error: "Not found" });
 };
 
 /**
- * The queue's JSON for a report just written to, for the state, note and tie
- * routes' answers. `getQueueReport` is welfare-only (SYC-44 PR 4.1), so for a
- * "Report an issue" row (`kind = 'content'`) it is null. Until Slice 7 gives
- * issues their own answer shape, that is a 404 `{ error: "not_found" }`, never
- * a `200 null`; the write itself has already happened (review of #170,
- * finding 4). Returns undefined after answering.
+ * The queue's JSON for a report just written to, for the state and note
+ * routes' answers. `getQueueReport` is welfare-only (SYC-44 PR 4.1); a
+ * "Report an issue" row (`kind = 'content'`) answers in the Issues section's
+ * shape (PR 7.1). Neither: a 404 `{ error: "not_found" }`, never a `200 null`
+ * (review of #170, finding 4). Returns undefined after answering.
  */
 async function queueReportOr404(res: Response, publicId: string) {
-  const report = await getQueueReport(publicId);
+  const report = (await getQueueReport(publicId)) ?? (await getIssueReport(publicId));
   if (report === null) {
     setTeamHeaders(res);
     res.status(404).json({ error: "not_found" });
@@ -115,6 +136,50 @@ router.get(
     if (!photo || !IMAGE_TYPES.has(photo.mime)) return notFound(res);
     res.setHeader("Content-Type", photo.mime);
     res.send(photo.bytes);
+  },
+);
+
+/**
+ * GET /api/team/issue-photos/:reportPublicId: **the photo an issue report
+ * points at**, by the REPORT's public id, hidden or not (SYC-44 PR 7.1; plan
+ * review finding 14). `view_welfare_queue`, island-only, so a cat guardian who
+ * may see her colony's catalogue photos (/team/photos/) never reaches a photo
+ * through an issue report. It serves that one photo and nothing else; a
+ * hidden one only to a holder of `hide_photo` too (spec §5.3). Never cached.
+ */
+router.get(
+  "/team/issue-photos/:reportPublicId",
+  requireTeam("view_welfare_queue"),
+  async (req: Request, res: Response) => {
+    setTeamHeaders(res);
+    const reportId = String(req.params["reportPublicId"]);
+    if (!PHOTO_ID_RE.test(reportId)) return notFound(res);
+    const [photo] = await db
+      .select({ id: photosTable.id, mime: photosTable.mime, removedAt: photosTable.removedAt })
+      .from(welfareReportsTable)
+      .innerJoin(photosTable, eq(photosTable.id, welfareReportsTable.photoId))
+      .where(
+        and(
+          eq(welfareReportsTable.publicId, reportId),
+          eq(welfareReportsTable.kind, "content"),
+          eq(welfareReportsTable.isDraft, false),
+        ),
+      );
+    if (!photo || !IMAGE_TYPES.has(photo.mime)) return notFound(res);
+    if (photo.removedAt !== null) return removedForGood(res);
+    if (!can(teamPerson(res), "hide_photo") && (await hiddenPhotoIds([photo.id])).has(photo.id)) {
+      req.log.info({ reason: "hidden_photo" }, "team request refused");
+      return refuseSignedIn(req, res);
+    }
+    // The picture itself is read only now the checks have passed.
+    const [full] = await db
+      .select({ data: photosTable.data })
+      .from(photosTable)
+      .where(eq(photosTable.id, photo.id));
+    // Removed between the two reads (SYC-462 spec §6 item 1): still gone, never a 500.
+    if (!full || full.data === null) return removedForGood(res);
+    res.setHeader("Content-Type", photo.mime);
+    res.send(Buffer.from(full.data, "base64"));
   },
 );
 
@@ -481,5 +546,72 @@ router.post(
     res.json({ ...report, message: TIE_SAME_MESSAGE });
   },
 );
+
+// ── SYC-44 PR 7.1: the Issues row's actions (spec §5.4) ──────────────────
+
+const FromBody = z.object({ from: z.enum(REPORT_STATES) });
+
+/** The fixed words each outcome is shown with on the queue (?issue=<key>). */
+export const ISSUE_OUTCOME_TEXT: Record<Exclude<IssueActionOutcome, "not_found" | "not_authorised">, string> = {
+  kept: "Saved. The photo stays hidden, and this report is closed as Done.",
+  restored: "Saved. The photo is public again, and this report is closed as Nothing needed.",
+  hidden: "Saved. The photo is hidden from the public.",
+  not_hidden: "Nothing changed: someone has already made this photo public again.",
+  already_hidden: "Nothing changed: this photo is already hidden from the public.",
+  removed: "Nothing changed: this photo was deleted for good, so it can't be restored.",
+  changed: CHANGED_MESSAGE,
+  no_photo: "Nothing changed: this report isn't about a photo.",
+};
+
+/** Where a browser goes after an Issues action: the queue, this row, what happened. */
+const backToIssue = (publicId: string, outcome: string) =>
+  `/api/team?issue=${encodeURIComponent(outcome)}&r=${encodeURIComponent(publicId)}#r-${encodeURIComponent(publicId)}`;
+
+const ISSUE_ACTIONS = {
+  "keep-hidden": { capability: "hide_photo", needsFrom: true },
+  restore: { capability: "restore_photo", needsFrom: true },
+  hide: { capability: "hide_photo", needsFrom: false },
+} as const;
+
+for (const [name, spec] of Object.entries(ISSUE_ACTIONS)) {
+  /**
+   * POST /api/team/issues/:publicId/keep-hidden | restore | hide. Origin first,
+   * then the capability (island-only), then the action, in one transaction
+   * (lib/issues/teamActions.ts). `from` is the state the page showed, for the
+   * two that close the report.
+   */
+  router.post(
+    `/team/issues/:publicId/${name}`,
+    requireOrigin(TEAM_ORIGIN),
+    requireTeam(spec.capability),
+    async (req: Request, res: Response) => {
+      setTeamHeaders(res);
+      const person = teamPerson(res);
+      const publicId = String(req.params["publicId"]);
+      let from: ReportStateValue | undefined;
+      if (spec.needsFrom) {
+        const parsed = FromBody.safeParse(req.body ?? {});
+        if (!parsed.success) return badRequest(req, res, fieldsOf(parsed.error), publicId);
+        from = parsed.data.from;
+      }
+      if (!PUBLIC_ID_RE.test(publicId)) return notFound(res);
+      const outcome =
+        name === "keep-hidden"
+          ? await keepHidden(person, { publicId, from: from! }, kickRow)
+          : name === "restore"
+            ? await restoreFromIssue(person, { publicId, from: from! }, kickRow)
+            : await hideFromIssue(person, { publicId });
+      if (outcome === "not_found") return notFound(res);
+      if (outcome === "not_authorised") {
+        req.log.info({ reason: "missing_capability" }, "issue action refused");
+        return refuseSignedIn(req, res);
+      }
+      if (isFormPost(req)) return void res.redirect(303, backToIssue(publicId, outcome));
+      const report = await getIssueReport(publicId);
+      const done = outcome === "kept" || outcome === "restored" || outcome === "hidden";
+      res.status(done ? 200 : 409).json({ outcome, message: ISSUE_OUTCOME_TEXT[outcome], report });
+    },
+  );
+}
 
 export default router;
