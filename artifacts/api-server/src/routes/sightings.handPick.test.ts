@@ -33,6 +33,7 @@ vi.mock("../lib/matching", () => ({
 
 import app from "../app";
 import { POINTS_CONFIRM } from "./sightings";
+import { ResolveSightingBody } from "@workspace/api-zod";
 
 const DEVICE = "vitest-handpick-device";
 const CAT_PREFIX = "VitestHandPickCat";
@@ -289,7 +290,7 @@ describe("hand pick: the server's nearby check (spec §4.8)", () => {
   it("accepts the optional pickedFrom field and ignores it", async () => {
     const device = `${DEVICE}-picked-from`;
     const cat = await seedCat(SQUARE);
-    for (const pickedFrom of ["nearby", "search", "name_prompt"]) {
+    for (const pickedFrom of ["nearby", "search", "name_prompt", "cat_page"]) {
       const sightingId = await insertSighting(device, SQUARE);
       const res = await resolve(sightingId, device, { catId: cat.id, pickedFrom });
       expect(res.status).toBe(200);
@@ -307,6 +308,16 @@ describe("hand pick: the server's nearby check (spec §4.8)", () => {
     });
     expect(res.status).toBe(400);
     expect((await sightingRow(sightingId)).status).toBe("pending");
+  });
+
+  it("the resolve body schema accepts cat_page (SYC-569 D3) and still refuses an unknown value", () => {
+    const base = { deviceId: "d", catId: 1 };
+    expect(ResolveSightingBody.safeParse({ ...base, pickedFrom: "cat_page" }).success).toBe(true);
+    for (const pickedFrom of ["nearby", "search", "name_prompt"]) {
+      expect(ResolveSightingBody.safeParse({ ...base, pickedFrom }).success).toBe(true);
+    }
+    expect(ResolveSightingBody.safeParse({ ...base, pickedFrom: "island_wide" }).success).toBe(false);
+    expect(ResolveSightingBody.safeParse({ ...base, pickedFrom: "cat-page" }).success).toBe(false);
   });
 });
 

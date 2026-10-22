@@ -16,6 +16,7 @@ import {
   observationsTable,
   type SightingPhotoRole,
   type SuggestedMatch,
+  type PICKED_FROM,
 } from "@workspace/db";
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
@@ -499,7 +500,7 @@ function labelChoice(input: {
   storedSuggestion: SuggestedMatch | undefined;
   isNewCat: boolean;
   catId: number;
-  pickedFrom: "nearby" | "search" | "name_prompt" | null;
+  pickedFrom: (typeof PICKED_FROM)[number] | null;
   openedPicker: boolean;
   /** SYC-398 (coat-colours-and-pattern.md §5): a chip was picked in either row of "Find the cat"; null when the phone didn't say. */
   colourFilterOn: boolean | null;
@@ -524,6 +525,13 @@ function labelChoice(input: {
       ...base,
       choice: "suggested",
       suggestedRank: input.storedSuggestion.rank,
+      // SYC-569 D3 (design-review-fixes-oct22.md §2.5): a pick from the cat
+      // page's question is recorded whatever the label, so primed "Yes"
+      // answers stay separable when matcher accuracy is measured. It is a
+      // separate fact from the choice: the label above still comes from the
+      // stored set alone. Every other screen's word is dropped on a
+      // suggestion, as before.
+      pickedFrom: input.pickedFrom === "cat_page" ? "cat_page" : null,
     };
   }
   return {
