@@ -135,6 +135,10 @@ describe('"Don\'t lose your spots" (§3.0)', () => {
     }
     expect(en.keepSafeTitle).toBe('Don’t lose your spots');
     expect(en.keepSafeUnder15).toBe('Under 15? Ask a parent to add theirs.');
+    expect(en.keepSafeWarning).toBe(
+      'Use an email only you, or a parent, can read. Anyone who can open it can get your spots back.',
+    );
+    expect(text).not.toMatch(/collection/i);
     expect(text).not.toMatch(/news about cats/i);
   });
 

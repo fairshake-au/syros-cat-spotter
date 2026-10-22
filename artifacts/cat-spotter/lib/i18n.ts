@@ -33,7 +33,6 @@ const en: Dict = {
   deleteWipeFailed: 'Your data is deleted, but this phone couldn’t finish clearing up. Please try again.',
   deleteDoneTitle: 'Done.',
   deleteDoneBody: 'Nothing on this phone is linked to you any more, and we’ve no way to contact you. You can carry on spotting straight away — you’ll start again from zero.',
-  deleteDoneEmail: 'If you also asked us by email, that request is already finished; there’s nothing left to wait for.',
   deleteDoneContinue: 'Carry on spotting',
   aSpotter: 'a spotter',
   // SYC-234 (approved by Samuel, 7 Oct): cat reports still on the phone.
@@ -342,7 +341,7 @@ const en: Dict = {
   // SYC-3: "keep my spots safe" (email-capture.md §3.0, word for word; the news box arrives with SYC-45).
   keepSafeTitle: 'Don’t lose your spots',
   keepSafeBody: 'Add your email so you can get your spots, points and badges back if you lose or change your phone.',
-  keepSafeWarning: 'Anyone who can open this inbox can open your collection, so use an address only you (or a parent) can read.',
+  keepSafeWarning: 'Use an email only you, or a parent, can read. Anyone who can open it can get your spots back.',
   keepSafeUnder15: 'Under 15? Ask a parent to add theirs.',
   keepSafePlaceholder: 'your@email.com',
   keepSafeOptional: 'This is optional.',
@@ -637,7 +636,7 @@ const en: Dict = {
   reportCheckUnavailable: 'We couldn’t run the safety check. Your report is still saved and we’ll try again.',
   turnstileTapLine: 'Quick safety check: please tick the box to show you’re a real person.',
   // Shown only when the server asked for the check and Cloudflare's script never loaded.
-  reportCheckBlocked: 'Your report is saved. A content blocker may be stopping the safety check: allow challenges.cloudflare.com for this page, or use the Cat Spotters app.',
+  reportCheckBlocked: 'Your report is saved, but something in this browser (often an ad blocker) is stopping it sending. Turn it off for this page and we’ll try again. If that doesn’t help, allow challenges.cloudflare.com.',
   reportDone: 'Done',
   reportReminder: 'You have a cat report that hasn’t sent yet.',
   // Samuel, 2 Oct 2026: three screens, no scrolling.
@@ -793,7 +792,6 @@ const el: Dict = {
   deleteWipeFailed: 'Τα δεδομένα σου διαγράφηκαν, αλλά αυτό το τηλέφωνο δεν ολοκλήρωσε τον καθαρισμό. Δοκίμασε ξανά.',
   deleteDoneTitle: 'Έγινε.',
   deleteDoneBody: 'Τίποτα σε αυτό το τηλέφωνο δεν συνδέεται πια με σένα, και δεν έχουμε τρόπο να επικοινωνήσουμε μαζί σου. Μπορείς να συνεχίσεις να εντοπίζεις γάτες αμέσως — θα ξεκινήσεις ξανά από το μηδέν.',
-  deleteDoneEmail: 'Αν μας το ζήτησες και με email, το αίτημα έχει ήδη ολοκληρωθεί· δεν χρειάζεται να περιμένεις τίποτα.',
   deleteDoneContinue: 'Συνέχισε τους εντοπισμούς',
   aSpotter: 'ένας παρατηρητής',
   // SYC-234: needs a native speaker's review before release.
@@ -1095,7 +1093,7 @@ const el: Dict = {
   welcomeHaveAccount: 'Είσαι ήδη spotter; Πάρε πίσω τις παρατηρήσεις σου',
   keepSafeTitle: 'Μη χάσεις τις παρατηρήσεις σου',
   keepSafeBody: 'Πρόσθεσε το email σου για να πάρεις πίσω τις παρατηρήσεις, τους πόντους και τα σήματά σου αν χάσεις ή αλλάξεις κινητό.',
-  keepSafeWarning: 'Όποιος μπορεί να ανοίξει αυτό το email μπορεί να ανοίξει τη συλλογή σου, οπότε χρησιμοποίησε μια διεύθυνση που διαβάζεις μόνο εσύ (ή ένας γονιός).',
+  keepSafeWarning: 'Χρησιμοποίησε ένα email που διαβάζεις μόνο εσύ ή ένας γονιός. Όποιος μπορεί να το ανοίξει μπορεί να πάρει πίσω τις παρατηρήσεις σου.',
   keepSafeUnder15: 'Κάτω από 15; Ζήτα από έναν γονιό να βάλει τη δική του.',
   keepSafePlaceholder: 'to@email.sou',
   keepSafeOptional: 'Είναι προαιρετικό.',
@@ -1372,7 +1370,7 @@ const el: Dict = {
   reportBusy: 'Έχουν σταλεί πολλές αναφορές από αυτή τη σύνδεση την τελευταία ώρα. Η δική σου είναι αποθηκευμένη στο κινητό σου και θα σταλεί μόνη της μέσα στην ώρα.',
   reportCheckUnavailable: 'Δεν μπορέσαμε να κάνουμε τον έλεγχο ασφαλείας. Η αναφορά σου είναι ακόμα αποθηκευμένη και θα ξαναπροσπαθήσουμε.',
   turnstileTapLine: 'Γρήγορος έλεγχος ασφαλείας: πάτα το πλαίσιο για να φανεί ότι είσαι άνθρωπος.',
-  reportCheckBlocked: 'Η αναφορά σου είναι αποθηκευμένη. Ένας αποκλεισμός περιεχομένου μπορεί να εμποδίζει τον έλεγχο ασφαλείας: επίτρεψε το challenges.cloudflare.com για αυτή τη σελίδα ή χρησιμοποίησε την εφαρμογή Cat Spotters.',
+  reportCheckBlocked: 'Η αναφορά σου είναι αποθηκευμένη, αλλά κάτι σε αυτό το πρόγραμμα περιήγησης (συχνά ένας αποκλεισμός διαφημίσεων) εμποδίζει την αποστολή. Απενεργοποίησέ το για αυτή τη σελίδα και θα ξαναπροσπαθήσουμε. Αν δεν βοηθήσει, επίτρεψε το challenges.cloudflare.com.',
   reportDone: 'Τέλος',
   reportReminder: 'Έχεις μια αναφορά για γάτα που δεν έχει σταλεί ακόμα.',
   reportStepOf: '{n} από {total}',
@@ -1519,7 +1517,6 @@ const fr: Dict = {
   deleteWipeFailed: 'Tes données sont supprimées, mais ce téléphone n’a pas fini de faire le ménage. Réessaie.',
   deleteDoneTitle: 'C’est fait.',
   deleteDoneBody: 'Plus rien sur ce téléphone n’est lié à toi, et nous n’avons aucun moyen de te contacter. Tu peux continuer à repérer des chats tout de suite — tu repartiras de zéro.',
-  deleteDoneEmail: 'Si tu nous l’as aussi demandé par e-mail, cette demande est déjà traitée ; il n’y a plus rien à attendre.',
   deleteDoneContinue: 'Continuer à repérer',
   aSpotter: 'un observateur',
   // SYC-234: needs a native speaker's review before release.
@@ -1821,7 +1818,7 @@ const fr: Dict = {
   welcomeHaveAccount: 'Déjà spotter ? Récupère tes observations',
   keepSafeTitle: 'Ne perds pas tes observations',
   keepSafeBody: 'Ajoute ton e-mail pour récupérer tes observations, tes points et tes badges si tu perds ou changes de téléphone.',
-  keepSafeWarning: 'Toute personne qui peut ouvrir cette boîte mail peut ouvrir ta collection : utilise une adresse que toi seul (ou un parent) peux lire.',
+  keepSafeWarning: 'Utilise un e-mail que toi seul (ou un parent) peux lire. Quiconque peut l’ouvrir peut récupérer tes observations.',
   keepSafeUnder15: 'Moins de 15 ans ? Demande à un parent d’ajouter la sienne.',
   keepSafePlaceholder: 'ton@email.com',
   keepSafeOptional: 'C’est facultatif.',
@@ -2099,7 +2096,7 @@ const fr: Dict = {
   reportBusy: 'Trop de signalements sont partis de cette connexion dans la dernière heure. Le tien est enregistré sur ton téléphone et partira tout seul dans l’heure.',
   reportCheckUnavailable: 'On n’a pas pu faire la vérification de sécurité. Ton signalement est toujours enregistré et on réessaiera.',
   turnstileTapLine: 'Petite vérification de sécurité : coche la case pour montrer que tu es bien une vraie personne.',
-  reportCheckBlocked: 'Ton signalement est enregistré. Un bloqueur de contenu empêche peut-être la vérification de sécurité : autorise challenges.cloudflare.com pour cette page, ou utilise l’application Cat Spotters.',
+  reportCheckBlocked: 'Ton signalement est enregistré, mais quelque chose dans ce navigateur (souvent un bloqueur de publicités) l’empêche de partir. Désactive-le pour cette page et nous réessaierons. Si ça n’aide pas, autorise challenges.cloudflare.com.',
   reportDone: 'Terminé',
   reportReminder: 'Tu as un signalement de chat qui n’a pas encore été envoyé.',
   reportStepOf: '{n} sur {total}',

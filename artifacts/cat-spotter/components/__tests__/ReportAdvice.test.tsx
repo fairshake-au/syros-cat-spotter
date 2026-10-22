@@ -226,6 +226,24 @@ describe('ReportConfirmation (§5.3(e), item 1.12)', () => {
     expect(text).not.toContain(g.copy.confirmation.sentHeading);
   });
 
+  // 22 Oct 2026 (design-review-fixes-oct22.md §1.4): the first sentence is for
+  // everyone; the domain stays last, for the person who needs it. A blocked
+  // report shows no send button (the queue retries by itself), so the text
+  // must not tell people to press one.
+  it.each(LANGS)('(%s): reportCheckBlocked ends with the domain and does not point at a send button', (code) => {
+    const msg = TRANSLATIONS[code].reportCheckBlocked!;
+    expect(msg.trim().endsWith('challenges.cloudflare.com.')).toBe(true);
+    expect(msg.indexOf('challenges.cloudflare.com')).toBeGreaterThan(msg.length / 2);
+  });
+
+  it('en: reportCheckBlocked says browser, not phone, and promises a retry rather than a button', () => {
+    const msg = TRANSLATIONS.en.reportCheckBlocked!;
+    expect(msg).toMatch(/browser/);
+    expect(msg).toMatch(/ad blocker/);
+    expect(msg).toMatch(/we’ll try again/);
+    expect(msg).not.toMatch(/send again|Cat Spotters app/);
+  });
+
   it.each(LANGS)('SYC-170 PR 1.2 (%s): when the safety check could not run, the report is said to be saved and tried again', (code) => {
     lang.current = code;
     const g = getGuidance(code);
