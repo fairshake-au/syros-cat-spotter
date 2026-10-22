@@ -73,7 +73,7 @@ function todaySection(needs: Section<HomeNeeds>, toCheck: Section<HomeToCheck>, 
     }
     if (n.unchecked > 0) {
       const words = `${n.unchecked} ${plural(n.unchecked, "report", "reports")} arrived while our spam check was down`;
-      parts.push(`<p class="notice"><a href="${QUEUE}#unchecked">${esc(words)}</a></p>`);
+      parts.push(`<p class="notice"><a class="hlink" href="${QUEUE}#unchecked">${esc(words)}</a></p>`); // 44px tap (§12.5)
     }
     const more = n.lines.length > 0;
     tiles.push(

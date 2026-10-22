@@ -189,7 +189,7 @@ describe("renderHomePage", () => {
 
   it("the spam-check line is a notice that links to the unchecked reports", () => {
     expect(page(full())).toContain(
-      '<p class="notice"><a href="/api/team#unchecked">2 reports arrived while our spam check was down</a></p>',
+      '<p class="notice"><a class="hlink" href="/api/team#unchecked">2 reports arrived while our spam check was down</a></p>',
     );
   });
 

@@ -248,7 +248,9 @@ export async function homeData(
       return { earClips: likely.length, colour: colour.filter((c) => c.group === "check").length };
     }),
     section(async (): Promise<TrapNext> => {
-      if (!visible) throw new Error("Where to trap next needs the viewer's colonies");
+      // Island-wide only: the 300 m kittens rule (island: true) reads exact
+      // welfare positions, which only the island-wide team may see.
+      if (!visible || visible.ids !== null) throw new Error("Where to trap next is island-wide only");
       const cats = await catsOnce;
       const [figures, colonies, priceEur] = await Promise.all([
         d.colonyFigures(visible, { island: true, cats }, now),

@@ -324,6 +324,17 @@ describe("Where to trap next", () => {
     expect(d.trapNext.value.colonyCount).toBe(1);
   });
 
+  it("trapNext for a viewer who isn't island-wide fails closed (the 300 m kittens rule reads exact positions)", async () => {
+    let asked = false;
+    const d = await homeData(
+      NOW,
+      pure({ colonyFigures: async () => ((asked = true), new Map()) }),
+      { ids: [7] } as never,
+    );
+    expect(d.trapNext.ok).toBe(false);
+    expect(asked).toBe(false);
+  });
+
   it("trapNext without visible fails closed", async () => {
     let asked = false;
     const d = await homeData(NOW, pure({ colonyFigures: async () => ((asked = true), new Map()) }));
