@@ -44,7 +44,7 @@ export type SterilisedLineKey =
 
 /**
  * §4.2's table. `reported` (the fourth confidence level, not yet reachable
- * -- resolve.ts's doc comment) falls through to the same "Not known yet"
+ * -- resolve.ts's doc comment) falls through to the same "Sterilised: not known yet"
  * text as `unknown`, so a future resolver change that starts emitting it
  * degrades gracefully rather than rendering nothing.
  */

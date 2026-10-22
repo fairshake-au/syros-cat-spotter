@@ -119,4 +119,17 @@ describe('every status line, in every language', () => {
       expect(notSeenSince).not.toBe(deceased);
     });
   }
+
+  // SYC-510 (22 Oct 2026): on its own, "Not known yet" didn't say what wasn't
+  // known. The unknown line names sterilisation, as its siblings do.
+  const STERILISATION_WORD: Record<string, RegExp> = {
+    en: /^Sterilised: /,
+    el: /^Στείρωση: /,
+    fr: /^Stérilisation : /,
+  };
+  for (const { code } of LANGUAGES) {
+    it(`${code}: the unknown sterilisation line says it is about sterilisation`, () => {
+      expect(textFor(code, 'sterilisedUnknown')).toMatch(STERILISATION_WORD[code]!);
+    });
+  }
 });

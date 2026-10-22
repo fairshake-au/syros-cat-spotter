@@ -227,3 +227,11 @@ Three Greek dashboard strings that came in with #283 said "stray cats"; they now
 | `colonies.emptyTeam` | (unchanged) | "…ομάδα γατών του δρόμου…" (was αδέσποτων γατών) |
 | `sites.empty` | (unchanged) | "…ταΐζονται γάτες του δρόμου." (was αδέσποτες γάτες) |
 | `colonies.noStreetCats` | No street cats yet | Καμία γάτα του δρόμου ακόμα (was Καμία αδέσποτη γάτα ακόμα) |
+
+## SYC-510: the unknown sterilisation line (22 Oct 2026, after the freeze)
+
+| Key | English | Greek (draft) | French (draft) |
+|---|---|---|---|
+| `sterilisedUnknown` | Sterilised: not known yet | Στείρωση: δεν είναι γνωστή ακόμη | Stérilisation : pas encore connue |
+
+The line used to say only "Not known yet". The Greek uses the noun Στείρωση, so it doesn't need the cat's gender.
