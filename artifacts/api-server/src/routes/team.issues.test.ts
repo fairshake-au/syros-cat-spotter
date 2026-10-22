@@ -402,9 +402,11 @@ describe("T7-5 (spec test 5): the brake banner", () => {
     expect(page).toContain("<strong>Automatic hiding is paused until midnight, Athens time.</strong>");
     expect(page).toContain("Reports hid 5 photos today");
     expect(((await get("/api/team/issues")).body as IssuesSection).brake).toEqual({ on: true, hidesToday: 5, limit: 5 });
-    const banner = page.slice(page.indexOf('<div class="banner" role="status"><strong>Automatic hiding'));
+    const banner = page.slice(page.indexOf('<div class="banner brake" role="status"><strong>Automatic hiding'));
     expect(banner.slice(0, banner.indexOf("</div>"))).not.toMatch(/<form|<button|<a /);
     expect(page.toLowerCase()).not.toContain("resume");
+    // Never mistaken for the page's mail-failure banner, which other tests look for.
+    expect(page).not.toContain('class="banner"');
   });
 });
 

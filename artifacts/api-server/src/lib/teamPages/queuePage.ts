@@ -484,7 +484,9 @@ function issueCard(
 function brakeBanner(b: IssuesSection["brake"]): string {
   if (!b.on) return "";
   return (
-    '<div class="banner" role="status">' +
+    // Its own class beside "banner": the page's mail-failure banner is the
+    // only plain "banner" (tests look for it), and this one lives in the section.
+    '<div class="banner brake" role="status">' +
     "<strong>Automatic hiding is paused until midnight, Athens time.</strong> " +
     `Reports hid ${b.hidesToday} ${b.hidesToday === 1 ? "photo" : "photos"} today, the most allowed in a day. ` +
     "New reports are still saved and listed here, but they won't hide a photo. You can still hide a photo yourself." +
