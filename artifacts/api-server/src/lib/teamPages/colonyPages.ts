@@ -305,6 +305,12 @@ export function renderColoniesPage(opts: ColonyViewer & {
               ? "colonies.noMatch"
               : "colonies.empty",
         )}</p>`;
+  // The team's first visit with no colony yet (SYC-577): say what a colony is
+  // and offer "Create a colony" before "Recent changes" and the search.
+  const leadCreate = opts.canCreate && opts.island !== false && opts.colonies.length === 0 && !searching;
+  const create = opts.canCreate
+    ? createForm(W, opts.island !== false, opts.island === false && opts.colonies.length === 0 && !searching, opts.kept)
+    : "";
   return renderPage({
     title: t("colonies.title"),
     active: "colonies",
@@ -318,6 +324,9 @@ export function renderColoniesPage(opts: ColonyViewer & {
     body:
       (opts.kept && opts.canCreate ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
+      (leadCreate
+        ? `<p>${w("colonies.lead")}</p>` + create
+        : "") +
       (opts.recentChanges ? recentChangesSection(W, opts.recentChanges) : "") +
       `<form class="search" method="get" action="/api/team/colonies" role="search">` +
       `<label class="label" for="colony-q">${w("colonies.searchLabel")}</label>` +
@@ -329,9 +338,7 @@ export function renderColoniesPage(opts: ColonyViewer & {
       (opts.colonies.length > 1 && opts.figures !== null ? sortBar(W, opts.sort) : "") +
       figuresLine +
       list +
-      (opts.canCreate
-        ? createForm(W, opts.island !== false, opts.island === false && opts.colonies.length === 0 && !searching, opts.kept)
-        : ""),
+      (leadCreate ? "" : create),
   });
 }
 

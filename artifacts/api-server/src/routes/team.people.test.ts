@@ -181,7 +181,7 @@ describe("the chips follow the state table (spec §10.1), worked out when the pa
     const old = await joined("recent-old");
     await pool.query(`update people set accepted_at = now() - interval '8 days' where id = $1`, [old.id]);
     const html = (await get("/api/team/people", susan)).text;
-    const section = html.slice(html.indexOf("Joined in the last 7 days"), html.indexOf("<h2>Everyone</h2>"));
+    const section = html.slice(html.indexOf("Joined in the last 7 days"));
     expect(section).toContain(`href="#p-${fresh.id}"`);
     expect(section).not.toContain(`href="#p-${old.id}"`);
   });
@@ -323,7 +323,7 @@ describe("no free text on this screen ends up in an email", () => {
   it("the screen offers no free-text box except the name (the address is typed once)", async () => {
     const html = (await get("/api/team/people", susan)).text;
     expect(html).not.toContain("<textarea");
-    const form = html.slice(html.indexOf('id="invite"'), html.indexOf("Joined in the last 7 days"));
+    const form = html.slice(html.indexOf('id="invite"'), html.indexOf("</section>", html.indexOf('id="invite"')));
     expect(form.match(/name="email"/g)).toHaveLength(1);
     expect(form).not.toMatch(/confirm/i);
   });
