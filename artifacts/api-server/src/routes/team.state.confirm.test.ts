@@ -181,7 +181,7 @@ describe("SYC-515: closing a report that would email the reporter asks first", (
     await db.execute(sql`update email_contacts set status = 'confirmed', confirmed_at = now() where id = ${r.contactId}`);
     const res = await form(r.publicId, { from: "new", to: "done", confirm: "1", expect: "held" });
     expect(res.status).toBe(303);
-    expect(res.headers["location"]).toBe(`/api/team?changed=${r.publicId}#r-${r.publicId}`);
+    expect(res.headers["location"]).toBe(`/api/team?changed=${r.publicId}&open=${r.publicId}#r-${r.publicId}`);
     expect(await stateOf(r.id)).toBe("new");
     expect(await events(r.id)).toHaveLength(0);
     expect(await outbox()).toHaveLength(0);

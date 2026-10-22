@@ -72,7 +72,7 @@ const getPage = async () => {
 const JPEG = { mime: "image/jpeg", bytes: Buffer.from("fake jpeg bytes") };
 
 describe("P1-2: the page's order", () => {
-  it("lists urgent above attention, then newest; closed below the open ones; drafts only under their own heading", async () => {
+  it("lists urgent above attention, then newest; closed below the open ones; no drafts at all", async () => {
     await seedReport({ publicId: "attn-old", sentMinutesAgo: 300 });
     await seedReport({ publicId: "attn-new", sentMinutesAgo: 2 });
     await seedReport({
@@ -108,13 +108,13 @@ describe("P1-2: the page's order", () => {
     expect(at("closed-1")).toBeGreaterThan(closedHeading);
     expect(at("closed-1")).toBeLessThan(at("closed-2"));
 
-    const draftHeading = html.indexOf("<h2>Started but not sent</h2>");
-    expect(draftHeading).toBeGreaterThan(-1);
-    expect(html.indexOf('id="d-a-draft"')).toBeGreaterThan(draftHeading);
+    // SYC-519 (decision 519-B): unfinished reports are not on the Queue at all.
+    expect(html).not.toContain("Started but not sent");
+    expect(html).not.toContain('id="d-');
     expect(html).not.toContain('id="r-a-draft"');
   });
 
-  it("T1-8 (SYC-170): unchecked reports sit in their own list below every checked report, newest first and never urgent-first; unchecked drafts folded", async () => {
+  it("T1-8 (SYC-170): unchecked reports sit in their own list below every checked report, newest first and never urgent-first; no drafts anywhere", async () => {
     await seedReport({ publicId: "chk-urgent", severity: "urgent", sentMinutesAgo: 600, tokenChecked: true });
     await seedReport({ publicId: "chk-old", sentMinutesAgo: 900, tokenChecked: null });
     await seedReport({ publicId: "chk-closed", state: "done", sentMinutesAgo: 1000, tokenChecked: true });
@@ -126,14 +126,13 @@ describe("P1-2: the page's order", () => {
 
     const html = await getPage();
     const at = (id: string) => html.indexOf(`id="r-${id}"`);
-    const heading = html.indexOf("<h2>Unchecked (Cloudflare was unreachable) (2)</h2>");
+    const heading = html.indexOf("<h2>Arrived while our spam check was down (2)</h2>");
     expect(heading).toBeGreaterThan(-1);
     // Below every checked report, open and closed, and below the checked drafts.
     for (const id of ["chk-urgent", "chk-old", "chk-closed"]) {
       expect(at(id), id).toBeGreaterThan(-1);
       expect(at(id), id).toBeLessThan(heading);
     }
-    expect(html.indexOf('id="d-chk-draft"')).toBeLessThan(heading);
     // The queue's own count leaves them out.
     expect(html).toContain("<h2>Waiting for the team (2)</h2>");
     // Newest first: the urgent one is NOT lifted above the newer attention one.
@@ -143,23 +142,20 @@ describe("P1-2: the page's order", () => {
     expect(at("unc-closed")).toBeLessThan(heading);
     const closedCard = html.slice(at("unc-closed"), html.indexOf("</article>", at("unc-closed")));
     expect(closedCard).toContain('<span class="tag unchecked">Unchecked</span>');
-    // Unchecked drafts are folded away, inside the unchecked section.
-    const details = html.indexOf('<details class="unchecked-drafts"><summary>Unchecked drafts (1)</summary>');
-    expect(details).toBeGreaterThan(at("unc-urgent-old"));
-    expect(html.indexOf('id="d-unc-draft"')).toBeGreaterThan(details);
-    expect(html.indexOf('id="d-unc-draft"')).toBeLessThan(html.indexOf("</details>", details));
+    expect(html).toContain("Our spam check couldn&#39;t be reached when these arrived. Most are real; check before acting.");
+    // No unchecked drafts fold, and no draft card anywhere.
+    expect(html).not.toContain("Unchecked drafts");
+    expect(html).not.toContain("unchecked-drafts");
+    expect(html).not.toContain('id="d-');
   });
 
-  it("T1-8: the unchecked count shows even when it is zero, below the checked reports", async () => {
+  it("SYC-519: with no unchecked reports there is no Unchecked section at all", async () => {
     await seedReport({ publicId: "only-checked", tokenChecked: true });
     const html = await getPage();
-    const heading = html.indexOf("<h2>Unchecked (Cloudflare was unreachable) (0)</h2>");
-    expect(heading).toBeGreaterThan(html.indexOf('id="r-only-checked"'));
-    // No unchecked drafts, so no fold for them (each report's team note has its own).
-    expect(html).not.toContain('<details class="unchecked-drafts"');
-    // Review finding 7: true for rows sent before the check existed, too.
-    expect(html).toContain("Reports above were either checked or sent before the safety check existed.");
-    expect(html).not.toContain("Every report above passed the safety check");
+    expect(html).not.toContain('id="unchecked"');
+    expect(html).not.toContain("Arrived while our spam check was down");
+    expect(html).not.toContain("Unchecked (Cloudflare");
+    expect(html).not.toContain("safety check");
   });
 
   it("review finding 6: the unchecked list shows the newest 50, with the total", async () => {
@@ -167,7 +163,7 @@ describe("P1-2: the page's order", () => {
       await seedReport({ publicId: `unc-many-${i}`, sentMinutesAgo: i + 1, tokenChecked: false });
     }
     const html = await getPage();
-    expect(html).toContain("<h2>Unchecked (Cloudflare was unreachable) (52)</h2>");
+    expect(html).toContain("<h2>Arrived while our spam check was down (52)</h2>");
     expect(html).toContain("Showing the newest 50 of 52.");
     expect(html).toContain('id="r-unc-many-0"');
     expect(html).toContain('id="r-unc-many-49"');
@@ -220,16 +216,19 @@ describe("what each row shows", () => {
     );
     expect(html).toContain("Kittens");
     expect(html).toContain("Three kittens under the red boat");
-    expect(html).toContain("Contact left</dt><dd>No</dd>");
+    expect(html).toContain("Their email</dt><dd>No email left</dd>");
+    expect(html).not.toContain("Contact left");
     expect(html).toContain("Looking at it");
     expect(html).toContain("3 hours ago");
     expect(html).toContain("Maria went, the cat had moved on");
     expect(html).toContain("Maria (left)");
-    expect(html).toContain("Email to Syros Cats</dt><dd><span>Sent</span>");
-    expect(html).toContain("Waiting to send");
+    expect(html).toContain("Team alert</dt><dd><span>We emailed the team about it</span>");
+    expect(html).toContain("Our email to the team is waiting to send");
     expect(html).toContain(
-      "Failed. Syros Cats may not have been told by email.",
+      "Our email to the team didn&#39;t arrive. Nothing is lost: it&#39;s here.",
     );
+    expect(html).not.toContain("Email to Syros Cats");
+    expect(html).not.toContain("Syros Cats may not have been told");
   });
 
   it("has no scripts, and images only from the dashboard's own routes", async () => {
@@ -240,7 +239,9 @@ describe("what each row shows", () => {
     const srcs = [...html.matchAll(/<img[^>]*\ssrc="([^"]*)"/g)].map(
       (m) => m[1],
     );
-    expect(srcs).toHaveLength(1);
+    // The line's thumbnail and the photo in the fold: the same one.
+    expect(srcs).toHaveLength(2);
+    expect(new Set(srcs).size).toBe(1);
     expect(srcs[0]).toMatch(/^\/api\/team\/report-photos\//);
     expect(html).not.toContain("/api/photos/");
   });
@@ -274,7 +275,11 @@ describe("P1-6: words the page must not use (spec §3.1, §3.6, F1)", () => {
       mail: { state: "queued", minutesAgo: 90 },
     });
     await seedReport({ publicId: "w4", isDraft: true, severity: "urgent" });
+    await seedReport({ publicId: "w5", tokenChecked: false });
     const html = await getPage();
+    expect(html).not.toContain("Started but not sent");
+    expect(html).not.toContain("Unchecked drafts");
+    expect(html).not.toContain('id="d-');
     // The banner is on: it is part of the page too.
     expect(html).toContain('class="banner"');
     const text = html.replace(/<style>[\s\S]*?<\/style>/, "");
@@ -301,6 +306,8 @@ describe("P1-7: the mail banner", () => {
     expect(html).toContain('class="banner"');
     expect(html).toContain("could not be sent");
     expect(html).toContain("Every report is still safe in the queue");
+    expect(html).toContain("Please email hello@catspotters.com.");
+    expect(html).not.toContain("whoever looks after the app");
   });
 
   it("review finding 8 (SYC-170): is shown for a \"N unchecked reports waiting\" email that failed for good", async () => {
@@ -398,12 +405,13 @@ describe("timeAgo", () => {
   });
 });
 
-describe("drafts beyond the newest 50", () => {
-  it("are counted, and the page says only the newest are shown", async () => {
+describe("SYC-519: drafts are not on the Queue, however many", () => {
+  it("shows none of them and offers nothing about them", async () => {
     for (let i = 0; i < 51; i++) await seedReport({ isDraft: true });
     const html = await getPage();
-    expect(html).toContain("Showing the newest 50 of 51.");
-    expect(html.match(/id="d-/g)).toHaveLength(50);
+    expect(html).not.toContain('id="d-');
+    expect(html).not.toContain("Showing the newest 50 of 51.");
+    expect(html).toContain("No reports are waiting for the team.");
   });
 });
 
@@ -415,17 +423,16 @@ describe("SYC-395 (D9): Open map on every position, near a feeding site or not",
   const LNG = 24.9412345;
   const OPEN_MAP = "google.com/maps/search/?api=1&amp;query=37.44412%2C24.94123";
 
-  it("30 m from a site: a report and a draft both keep their Open map link", async () => {
+  it("30 m from a site: a report keeps their Open map link", async () => {
     await seedFeedingSite(northOf(LAT, 30), LNG);
     await seedReport({ publicId: "near-report" });
-    await seedReport({ publicId: "near-draft", isDraft: true });
     const html = await getPage();
     const card = (id: string) => {
       const start = html.indexOf(`id="${id}"`);
       expect(start, id).toBeGreaterThan(-1);
       return html.slice(start, html.indexOf("</article>", start));
     };
-    for (const id of ["r-near-report", "d-near-draft"]) {
+    for (const id of ["r-near-report"]) {
       expect(card(id).replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{5}/);
       expect(card(id)).toContain(OPEN_MAP);
       expect(card(id)).toContain(">Open map</a>");
@@ -459,7 +466,7 @@ describe("SYC-42 Slice 3: the reporter's email on the queue page", () => {
     await db.execute(sql`update welfare_reports set reporter_contact_id = ${contact!.id} where public_id = ${"with-contact"}`);
     await seedReport({ publicId: "no-contact" });
     const html = await getPage();
-    expect(html).toContain("They haven&#39;t confirmed the address yet, so nothing else goes to it.");
+    expect(html).toContain("They left an email but haven&#39;t confirmed it yet.");
     // Not confirmed: no line box, since a line written now would never reach
     // them (review of #181, finding 2).
     expect(html).not.toContain('name="reporterSentence"');
@@ -467,11 +474,45 @@ describe("SYC-42 Slice 3: the reporter's email on the queue page", () => {
     expect(html).not.toContain("n•••@example.org");
     await db.execute(sql`update email_contacts set status = 'confirmed', confirmed_at = now() where id = ${contact!.id}`);
     const after = await getPage();
-    expect(after).toContain("Yes. They confirmed the address.");
+    expect(after).toContain("They left an email and confirmed it.");
     // SYC-515: the line box moved to the "Close and email?" page.
     expect(after).not.toContain('name="reporterSentence"');
     expect(after).not.toContain(address);
     await db.execute(sql`update welfare_reports set reporter_contact_id = null where public_id = ${"with-contact"}`);
     await db.execute(sql`delete from email_contacts where id = ${contact!.id}`);
+  });
+});
+
+describe("SYC-519 D1: ?open= opens one row", () => {
+  const getOpen = async (q: string) => {
+    const res = await request(app).get(`/api/team?open=${q}`).set("Cookie", cookie);
+    expect(res.status).toBe(200);
+    return res.text;
+  };
+
+  it("opens exactly that report, and every row is a fold with the anchor outside it", async () => {
+    await seedReport({ publicId: "o-a", note: "First cat note" });
+    await seedReport({ publicId: "o-b", note: "Second cat note" });
+    const html = await getOpen("o-b");
+    expect(html).toMatch(/<article [^>]*id="r-o-b"><details open><summary/);
+    expect(html).toMatch(/<article [^>]*id="r-o-a"><details><summary/);
+    expect(html.match(/<details open>/g)).toHaveLength(1);
+  });
+
+  it("Review Focus 4: an open that matches no report, or holds markup, does nothing and is never printed", async () => {
+    await seedReport({ publicId: "o-c" });
+    for (const bad of ["nope", encodeURIComponent("<script>alert(1)</script>")]) {
+      const html = await getOpen(bad);
+      expect(html).not.toMatch(/<details open>/);
+      expect(html).not.toContain("alert(1)");
+      expect(html).not.toContain("nope");
+    }
+  });
+
+  it("urgent reports still come first", async () => {
+    await seedReport({ publicId: "o-new", severity: "attention" });
+    await seedReport({ publicId: "o-urg", severity: "urgent" });
+    const html = await getPage();
+    expect(html.indexOf('id="r-o-urg"')).toBeLessThan(html.indexOf('id="r-o-new"'));
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { QueueReport, WelfareQueue } from "../welfareQueue";
+import { placeLabel } from "../areas/placeLabel";
 import { renderQueuePage } from "./queuePage";
 
 // Pure render tests for the welfare queue's phone/desktop layout (SYC-219).
@@ -117,21 +118,19 @@ describe("queue page closed reports", () => {
   const closed = (over: Partial<QueueReport> = {}) =>
     report("c", { state: "done", severity: "urgent", note: "Cat was hurt", ...over });
 
-  it("keeps an open report unfolded (no details around the report itself)", () => {
+  it("draws an open report as one line in a fold: a closed <details> in the article, anchor outside it", () => {
     const a = article(render(queue([report("a")])), "a");
-    expect(a).not.toContain("<details>");
+    expect(a).toMatch(/^<article [^>]*id="r-a"><details><summary/);
     expect(a).not.toContain("<details open>");
-    expect(a).not.toContain("said1");
-    expect(a).toContain('<div class="head">');
+    expect(a).toContain('<div class="actions">');
   });
 
   it("folds a closed report: tags and a one-line summary inside <summary>, forms inside <details>", () => {
     const html = render(queue([], [closed()]));
     const a = article(html, "c");
-    const m = /<details><summary>([\s\S]*?)<\/summary>([\s\S]*)<\/details>/.exec(a)!;
+    const m = /<details><summary[^>]*>([\s\S]*?)<\/summary>([\s\S]*)<\/details>/.exec(a)!;
     expect(m).not.toBeNull();
     const summary = m[1]!;
-    expect(summary).toContain('<span class="head">');
     expect(summary).toContain('<span class="tag urgent">Urgent</span>');
     expect(summary).toContain('<span class="tag state">Done</span>');
     expect(summary).toContain('<span class="said1">Cat was hurt</span>');
@@ -140,7 +139,7 @@ describe("queue page closed reports", () => {
     expect(inside).toContain('action="/api/team/reports/c/state"');
     expect(inside).toContain('action="/api/team/reports/c/note"');
     // The tags are not repeated in the body.
-    expect(inside).not.toContain('<div class="head">');
+    expect(inside).not.toContain('<span class="tag state">');
     // Nothing of the forms leaks into the summary.
     expect(summary).not.toContain("<form");
   });
@@ -153,21 +152,21 @@ describe("queue page closed reports", () => {
   it("is closed by default and open when it is the changedId", () => {
     const q = queue([], [closed(), report("d", { state: "nothing_needed" })]);
     const html = render(q, "c");
-    expect(article(html, "c")).toContain("<details open><summary>");
-    expect(article(html, "d")).toContain("<details><summary>");
-    expect(render(q)).not.toContain("<details open>");
+    expect(article(html, "c")).toMatch(/<details open><summary/);
+    expect(article(html, "d")).toMatch(/<details><summary/);
+    expect(render(q)).not.toMatch(/<details open>/);
   });
 
   it("is open when it is the tied one", () => {
     const html = render(queue([], [closed()]), undefined, { id: "c", key: "ok" });
-    expect(article(html, "c")).toContain("<details open><summary>");
+    expect(article(html, "c")).toMatch(/<details open><summary/);
   });
 
   it("escapes a note containing <script> inside the summary", () => {
     const evil = '<script>alert("x")</script>';
     const html = render(queue([], [closed({ note: evil, teamNote: evil })]));
     expect(html).not.toContain("<script>");
-    const summary = /<summary><span class="head">[\s\S]*?<\/summary>/.exec(article(html, "c"))![0];
+    const summary = /<summary[\s\S]*?<\/summary>/.exec(article(html, "c"))![0];
     expect(summary).toContain("&lt;script&gt;");
     expect(summary).not.toContain("<script");
   });
@@ -175,7 +174,6 @@ describe("queue page closed reports", () => {
   it("puts the photo in the closed report's body with a photolink", () => {
     const html = render(queue([], [closed({ photo: { status: "attached", url: "/api/team/photos/p9" } })]));
     const a = article(html, "c");
-    expect(a).toContain('<div class="has-photo">');
     expect(a).toContain('<a class="photolink" href="/api/team/photos/p9">');
     expect(a.indexOf("</summary>")).toBeLessThan(a.indexOf("photolink"));
   });
@@ -206,5 +204,65 @@ describe("the phone menu", () => {
     expect(html).toContain('aria-current="page">Queue</a>');
     expect(html).not.toContain('class="long"');
     expect(html).not.toContain("Feeding sites</a>");
+  });
+});
+
+describe("one-line rows (SYC-519 D1)", () => {
+  const line = (html: string, id: string) =>
+    /<summary[^>]*>([\s\S]*?)<\/summary>/.exec(article(html, id))![1]!;
+  const renderOpen = (q: WelfareQueue, open?: string) =>
+    renderQueuePage(q, "Maria", NOW, undefined, undefined, true, undefined, false, undefined, open);
+
+  it("holds the place, how long ago, the first words and the state in <summary>", () => {
+    const html = render(queue([report("a", { photo: { status: "attached", url: "/api/team/photos/p1" }, note: "A thin cat by the bins" })]));
+    const sum = line(html, "a");
+    expect(sum).toContain(placeLabel({ lat: 37.44, lng: 24.94 }));
+    expect(sum).toContain("2 hours ago");
+    expect(sum).toContain("A thin cat by the bins");
+    expect(sum).toContain('<span class="tag state">New</span>');
+    expect(sum).toContain('<img class="hthumb" src="/api/team/photos/p1"');
+    expect(sum).not.toContain("<form");
+    expect(sum).not.toContain("<dl");
+  });
+
+  it("marks urgent, kittens and unchecked in the line", () => {
+    const sum = line(render(queue([report("a", { severity: "urgent", isLitter: true, unchecked: true })])), "a");
+    expect(sum).toContain('<span class="tag urgent">Urgent</span>');
+    expect(sum).toContain('<span class="tag kittens">Kittens</span>');
+    expect(sum).toContain('<span class="tag unchecked">Unchecked</span>');
+  });
+
+  it("keeps the full note, the dl and the buttons in the body, not the line", () => {
+    const a = article(render(queue([report("a")])), "a");
+    expect(a.indexOf("</summary>")).toBeLessThan(a.indexOf("<dl>"));
+    expect(a.indexOf("</summary>")).toBeLessThan(a.indexOf('class="actions"'));
+  });
+
+  it("opens exactly the report named by open", () => {
+    const html = renderOpen(queue([report("a"), report("b")]), "b");
+    expect(article(html, "b")).toMatch(/<details open><summary/);
+    expect(article(html, "a")).toMatch(/<details><summary/);
+  });
+
+  it("opens nothing for an open that matches no report, and never prints it", () => {
+    for (const bad of ["nope", "<script>alert(1)</script>"]) {
+      const html = renderOpen(queue([report("a")]), bad);
+      expect(html).not.toMatch(/<details open>/);
+      expect(html).not.toContain(bad);
+      expect(html).not.toContain("alert(1)");
+    }
+  });
+
+  it("opens the report just changed, noted or tied", () => {
+    expect(article(render(queue([report("a")]), "a"), "a")).toMatch(/<details open>/);
+    expect(article(renderQueuePage(queue([report("a")]), "Maria", NOW, undefined, undefined, true, "a"), "a")).toMatch(/<details open>/);
+    expect(article(render(queue([report("a")]), undefined, { id: "a", key: "ok" }), "a")).toMatch(/<details open>/);
+  });
+
+  it("escapes the note in the line", () => {
+    const evil = '<img src=x onerror=alert(1)>';
+    const html = render(queue([report("a", { note: evil })]));
+    expect(line(html, "a")).toContain("&lt;img");
+    expect(html).not.toContain(evil);
   });
 });

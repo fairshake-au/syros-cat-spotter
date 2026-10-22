@@ -205,7 +205,7 @@ function tieIntro(tie: TieMode | undefined, now: Date): string {
 
 function backLink(tie: TieMode | undefined, f: FindFilters): string {
   if (tie) {
-    return `<p class="back"><a class="tap" href="${esc(`/api/team#r-${encodeURIComponent(tie.publicId)}`)}">Back to the report</a></p>`;
+    return `<p class="back"><a class="tap" href="${esc(`/api/team?open=${encodeURIComponent(tie.publicId)}#r-${encodeURIComponent(tie.publicId)}`)}">Back to the report</a></p>`;
   }
   return `<p class="back"><a class="tap" href="${esc(gridAddress(f))}">Back to Cats</a></p>`;
 }

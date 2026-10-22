@@ -148,7 +148,7 @@ describe("P2-1: a state change writes exactly one event, by the signed-in person
     const { id, publicId } = await seedReport({ state: "new" });
     const res = await moveForm(publicId, { from: "new", to: "nothing_needed" });
     expect(res.status).toBe(303);
-    expect(res.headers["location"]).toBe(`/api/team#r-${publicId}`);
+    expect(res.headers["location"]).toBe(`/api/team?open=${publicId}#r-${publicId}`);
     expect((await report(id)).state).toBe("nothing_needed");
     expect(await events(id)).toHaveLength(1);
   });
@@ -188,7 +188,7 @@ describe("P2-2: two people move the same report at once", () => {
     const res = await moveForm(publicId, { from: "new", to: "done" });
     expect(res.status).toBe(303);
     expect(res.headers["location"]).toBe(
-      `/api/team?changed=${publicId}#r-${publicId}`,
+      `/api/team?changed=${publicId}&open=${publicId}#r-${publicId}`,
     );
     expect((await report(id)).state).toBe("looking");
     expect(await events(id)).toHaveLength(1);
