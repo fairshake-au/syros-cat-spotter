@@ -13,7 +13,7 @@ import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import type { AppMapProps } from './AppMap';
 import { useColors } from '@/hooks/useColors';
-import { cellBoxPixels } from '@/lib/cellShape';
+import { LABEL_MIN_PX, cellBoxPixels, fitRegion } from '@/lib/cellShape';
 import { clampZoom, latLngAtOffset, visibleTiles, type LatLng } from '@/lib/mapTiles';
 
 // Tiles drawn beyond each edge, so a drag doesn't show grey gaps before the
@@ -41,6 +41,8 @@ export function AppMap({
   interactive = true,
   markerBorderColor,
   style,
+  fitKey,
+  stripAction,
 }: AppMapProps) {
   const colors = useColors();
   const resolvedMarkerBorderColor = markerBorderColor ?? colors.primary;
@@ -57,6 +59,29 @@ export function AppMap({
   useEffect(() => {
     setCenter({ latitude, longitude });
   }, [latitude, longitude]);
+
+  // Fit to the areas once per `fitKey`, when the map is measured and there is
+  // something to fit. New data under the same key does not move the map.
+  const areasRef = useRef(areas);
+  areasRef.current = areas;
+  const fittedKey = useRef<string | number | null>(null);
+  const hasAreas = areas.length > 0;
+  useEffect(() => {
+    if (fitKey === undefined || size.width <= 0 || !hasAreas) return;
+    if (fittedKey.current === fitKey) return;
+    const fit = fitRegion(
+      areasRef.current.map((a) => ({
+        latitude: a.latitude,
+        longitude: a.longitude,
+        sizeMetres: a.sizeMetres,
+      })),
+      size,
+    );
+    if (!fit) return;
+    fittedKey.current = fitKey;
+    setCenter({ latitude: fit.latitude, longitude: fit.longitude });
+    setZoom(fit.zoom);
+  }, [fitKey, size, hasAreas]);
 
   const panResponder = useMemo(
     () =>
@@ -77,7 +102,7 @@ export function AppMap({
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
-    setSize({ width, height });
+    setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
   };
 
   const tiles = visibleTiles(center, zoom, size.width, size.height, DRAG_MARGIN);
@@ -117,7 +142,8 @@ export function AppMap({
                 key={a.id}
                 disabled={!a.onPress}
                 onPress={a.onPress}
-                accessibilityLabel={a.label}
+                accessibilityRole={a.onPress ? 'button' : undefined}
+                accessibilityLabel={a.accessibilityLabel ?? a.label}
                 style={[
                   styles.area,
                   {
@@ -131,7 +157,7 @@ export function AppMap({
                   },
                 ]}
               >
-                {a.label ? (
+                {a.label && box.width >= LABEL_MIN_PX ? (
                   <View style={[styles.areaLabel, { backgroundColor: colors.card }]}>
                     <Text
                       numberOfLines={1}
@@ -158,6 +184,15 @@ export function AppMap({
           style={styles.strip}
           contentContainerStyle={styles.stripContent}
         >
+          {stripAction ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={stripAction.onPress}
+              style={[styles.chip, styles.stripAction, { backgroundColor: colors.card, borderColor: colors.primary }]}
+            >
+              <Text style={[styles.chipText, { color: colors.primary }]}>{stripAction.label}</Text>
+            </Pressable>
+          ) : null}
           {markers.map((m) => (
             <Pressable
               key={m.id}
@@ -241,6 +276,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 8,
   },
+  stripAction: { justifyContent: 'center', borderWidth: 1, paddingHorizontal: 14 },
   markerWrap: {
     width: 44,
     height: 44,

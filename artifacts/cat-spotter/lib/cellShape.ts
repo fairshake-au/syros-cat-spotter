@@ -173,3 +173,18 @@ export function fitRegion(cells: readonly FitCell[], opts: FitOptions): FittedRe
     longitudeDelta: (width / (256 * 2 ** zoom)) * 360,
   };
 }
+
+/** A label inside a square only shows once the square is at least this wide on screen. */
+export const LABEL_MIN_PX = 40;
+
+/** How wide a cell looks on a native map showing `longitudeDelta` degrees across `mapWidth` px. */
+export function cellWidthOnNativeMap(
+  centre: LatLng,
+  sideMetres: number,
+  longitudeDelta: number,
+  mapWidth: number,
+): number {
+  if (!(longitudeDelta > 0)) return 0;
+  const { dLng } = halfSideDegrees(centre, sideMetres);
+  return ((2 * dLng) / longitudeDelta) * mapWidth;
+}

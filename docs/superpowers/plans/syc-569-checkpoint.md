@@ -18,6 +18,11 @@ Part 1 gate: cat-spotter full vitest (172 files, 2236 tests) green; api-server t
 ## Part 3 (SYC-573)
 
 - [x] T3.1 `fitRegion` in `lib/cellShape.ts` (returns null for no cells or an unmeasured map; whole-number zoom, deltas = what the map shows at that zoom). 6 tests in `lib/__tests__/cellShape.test.ts`.
+- [x] T3.2 app map: `fitKey` prop on AppMap (web + native), measured with onLayout, refit without remount; `cats.tsx` drops the `key={coords...}` remount, the opening view no longer depends on `coords`, `fitKey` = filter chip + settled search (400ms; there was no existing debounce in cats.tsx); labels "N cats" (hidden under 40px; native uses the longitude delta from onRegionChangeComplete), a11y labels on every square, web strip filter plus "Show all" chip (`stripAction` prop). Keys catsInArea, areaOfCat, areaWithCats, mapShowAll added in en/el/fr. Tests: `components/__tests__/AppMapFit.web.test.tsx`, `CataloguePage.mapFit.test.tsx`.
+  - Judgement: if a fit key arrives while there are no areas, the fit waits (pending) and happens once when the first areas appear, so a map opened on a cold cache still lands on the cats. Later data under the same key never moves it.
+  - Judgement: "N cats" only shows for 2 or more cats, so one plural form per language is enough (el γάτες, fr chats).
+  - Native: react-native-maps Polygons take no accessibility label, so the spoken labels are web-only in effect.
+  - Coordination: a second agent works on Part 2 server files in this worktree; I stage only my own files.
 
 ## Next
-T3.2, T3.3, T3.4, then Part 2.
+T3.3 dashboard map, T3.4 second-pack rows, then Part 2.
