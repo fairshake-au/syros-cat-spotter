@@ -6,11 +6,12 @@ import { db, welfareReportsTable } from "@workspace/db";
 import app from "../app";
 import { seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
-import { homeData, type HomeData, type HomeDeps } from "../lib/dashboard/home";
-import { AREAS_LINE, NOTHING_NEEDS_YOU, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
+import { readFileSync } from "node:fs";
+import { homeData, type HomeData, type HomeDeps, type HomeNeeds } from "../lib/dashboard/home";
+import type { TrapColony } from "../lib/dashboard/trapNext";
+import { AREAS_LINE, NOTHING_WAITING, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
 import { firstWords } from "../lib/teamPages/noteWords";
 import type { QueueReport, WelfareQueue } from "../lib/welfareQueue";
-import type { TeamCat } from "../lib/teamCatList";
 import { escapeHtml } from "../lib/teamPages/escape";
 
 const UNAVAILABLE_HTML = escapeHtml(UNAVAILABLE);
@@ -69,17 +70,16 @@ const report = (id: string, over: Partial<QueueReport> = {}): QueueReport =>
     ...over,
   }) as QueueReport;
 
-const quietCat = (id: number): TeamCat =>
-  ({
-    id,
-    name: `Cat ${id}`,
-    photoPublicId: `ph${id}`,
-    colonyId: 7,
-    lives: "street",
-    mark: "not_known",
-    place: "Galissas",
-    lastSeenAt: new Date("2026-08-20T10:00:00Z"),
-  }) as unknown as TeamCat;
+const trapColony = (id: number, name: string, over: Partial<TrapColony> = {}): TrapColony => ({
+  colonyId: id,
+  name,
+  toDo: 9,
+  street: 14,
+  sterilised: 5,
+  split: { sterilised: 5, probably: 0, not_known: 0, not_sterilised: 9 },
+  kittens: false,
+  ...over,
+});
 
 /** A full Home, built by hand: the headline is tested here, never by reading the shared island twice. */
 function full(over: Partial<HomeData> = {}): HomeData {
@@ -87,21 +87,24 @@ function full(over: Partial<HomeData> = {}): HomeData {
     needs: {
       ok: true,
       value: {
-        reports: [report("r1", { severity: "urgent" }), report("r2", { note: "x".repeat(120) + "<b>" })],
-        reportsTotal: 9,
+        lines: [report("r1", { severity: "urgent" }), report("r2", { isLitter: true, note: "x".repeat(120) + "<b>" })],
+        linesTotal: 2,
+        otherOpen: 7,
         unchecked: 2,
         issuesOpen: 3,
         awaitingMatch: 0,
       },
     },
-    toCheck: {
+    toCheck: { ok: true, value: { earClips: 4, colour: 2 } },
+    trapNext: {
       ok: true,
       value: {
-        earClips: { count: 5, photos: ["/api/team/photos/e1/small"] },
-        colour: { count: 2, photos: ["/api/team/photos/c1/small"] },
+        colonies: [trapColony(12, "Galissas beach", { kittens: true }), trapColony(13, "Kini harbour", { toDo: 8, street: 11, sterilised: 3 })],
+        colonyCount: 5,
+        noColony: 0,
+        priceEur: 60,
       },
     },
-    notSeenLately: { ok: true, value: { cats: [quietCat(1), quietCat(2)], total: 9, colonyNames: { 7: "Harbour steps" } } },
     headline: {
       ok: true,
       value: { street: 142, split: { sterilised: 89, probably: 23, not_known: 18, not_sterilised: 12 }, homed: 31, inCare: 4, at: NOW },
@@ -115,25 +118,26 @@ function full(over: Partial<HomeData> = {}): HomeData {
   };
 }
 
-const page = (d: HomeData) => renderHomePage(d, { personName: "Maria", now: NOW });
+const page = (d: HomeData, costs = false) => renderHomePage(d, { personName: "Maria", now: NOW, costs });
+const between = (html: string, from: string, to?: string) =>
+  html.slice(html.indexOf(`id="${from}"`), to ? html.indexOf(`id="${to}"`) : undefined);
+const noNeeds: HomeNeeds = { lines: [], linesTotal: 0, otherOpen: 0, unchecked: 0, issuesOpen: 0, awaitingMatch: 0 };
 
 describe("GET /api/team/home", () => {
-  it("a team member gets Home, with its sections in the spec's order", async () => {
+  it("a team member gets Home, with its parts in the spec's order", async () => {
     const res = await get("/api/team/home", staff);
     expect(res.status).toBe(200);
     expect(res.type).toBe("text/html");
     expect(res.headers["cache-control"]).toBe("no-store");
     expect(res.text).toContain("<title>Home</title>");
     expect(res.text).toContain('<a class="here" href="/api/team/home" aria-current="page">Home</a>');
-    // The shared database decides which optional sections show; the ones
-    // that do must be in order. Needs shows: this file seeded an urgent report.
     const at = (id: string) => res.text.indexOf(`id="${id}"`);
-    const order = ["needs", "tocheck", "notseen", "headline", "month"].map(at).filter((i) => i > -1);
-    expect(at("needs")).toBeGreaterThan(-1);
-    expect(at("headline")).toBeGreaterThan(-1);
-    expect(at("month")).toBeGreaterThan(-1);
-    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect([at("today"), at("trap"), at("progress")].every((i) => i > -1)).toBe(true);
+    expect(at("today")).toBeLessThan(at("trap"));
+    expect(at("trap")).toBeLessThan(at("progress"));
     expect(res.text).toContain(`${PREFIX} a cat by the steps`);
+    // The island's figures, never "isn't available", for an island-wide team member.
+    expect(between(res.text, "trap", "progress")).not.toContain(UNAVAILABLE_HTML);
   });
 
   it("a cat guardian gets the 403: Home is island-wide", async () => {
@@ -143,114 +147,186 @@ describe("GET /api/team/home", () => {
 });
 
 describe("renderHomePage", () => {
-  it("draws the sections in order: needs, cats to check, not seen lately, headline, this month", () => {
+  it("draws Today, Where to trap next, How we're doing in that order", () => {
     const html = page(full());
-    const ids = ["needs", "tocheck", "notseen", "headline", "month"].map((id) => html.indexOf(`id="${id}"`));
+    const ids = ["today", "trap", "progress"].map((id) => html.indexOf(`id="${id}"`));
     expect(ids.every((i) => i > -1)).toBe(true);
     expect(ids).toEqual([...ids].sort((a, b) => a - b));
+    expect(html).toContain("<h2>Today</h2>");
+    expect(html).toContain("<h2>Where to trap next</h2>");
+    expect(html).toContain("<h2>How we're doing</h2>");
+    expect(html).not.toContain('id="notseen"');
+    expect(html).not.toMatch(/not seen lately/i);
   });
 
-  it("each report is one line linking to its row in the Queue, with the queue's photo and the first 80 characters", () => {
-    const html = page(full());
-    expect(html).toContain('href="/api/team?open=r1#r-r1"');
-    expect(html).toContain('src="/api/team/report-photos/r1"');
-    expect(html).toContain("Galissas");
-    expect(html).toContain(`${"x".repeat(80)}…`);
-    expect(html).not.toContain("x".repeat(81));
-    expect(html).not.toContain("<b>");
-    expect(html).toContain('<a class="hlink" href="/api/team">See all 9 in the Queue</a>');
-    expect(html).toContain('href="/api/team#unchecked">2 reports arrived while our spam check was down</a>');
-    expect(html).not.toContain("waiting for a check");
-    expect(html).not.toContain("Started but not sent");
-    expect(html).not.toContain("#d-");
-    expect(html).not.toContain('id="d-');
-    expect(html).toContain('href="/api/team#issues">Problems reported with photos or names (3)</a>');
+  it("urgent and kitten lines link to the Queue with ?open=", () => {
+    const today = between(page(full()), "today", "trap");
+    expect(today).toContain('href="/api/team?open=r1#r-r1"');
+    expect(today).toContain('href="/api/team?open=r2#r-r2"');
+    expect(today).toContain('src="/api/team/report-photos/r1"');
+    expect(today).toContain("Galissas");
+    expect(today).toContain(`${"x".repeat(80)}…`);
+    expect(today).not.toContain("x".repeat(81));
+    expect(today).not.toContain("<b>");
+    expect(today).toContain('<span class="tag urgent">Urgent</span>');
+    expect(today).toContain('<span class="tag kittens">Kittens</span>');
+    expect(today).not.toContain("See all");
   });
 
-  it("Sightings waiting for a match shows only when there are some", () => {
-    expect(page(full())).not.toContain("Sightings waiting for a match");
+  it("past five lines, says how many there are in all", () => {
     const d = full();
-    if (d.needs.ok) d.needs.value.awaitingMatch = 4;
-    expect(page(d)).toContain('href="/api/team/cats">Sightings waiting for a match (4)</a>');
+    if (d.needs.ok) d.needs.value.linesTotal = 8;
+    expect(page(d)).toContain('<a class="hlink" href="/api/team">See all 8 urgent and kitten reports in the Queue</a>');
   });
 
-  it("Cats to check links each list with its count and small photos", () => {
-    const html = page(full());
-    expect(html).toContain('href="/api/team/likely">Ear clips to check (5)</a>');
-    expect(html).toContain('href="/api/team/colour-check">Colour check (2)</a>');
-    expect(html).toContain('src="/api/team/photos/e1/small"');
+  it("a report both urgent and kittens shows both words", () => {
+    const d = full({ needs: { ok: true, value: { ...noNeeds, lines: [report("b", { severity: "urgent", isLitter: true })], linesTotal: 1 } } });
+    const line = between(page(d), "today", "trap");
+    expect(line).toContain('<span class="tag urgent">Urgent</span>');
+    expect(line).toContain('<span class="tag kittens">Kittens</span>');
+    expect(line.match(/class="hrow/g)).toHaveLength(1);
   });
 
-  it("Not seen lately: small photos, colony, last seen and place, then 'and N more'; never a death", () => {
-    const html = page(full());
-    const section = html.slice(html.indexOf('id="notseen"'), html.indexOf('id="headline"'));
-    expect(section).toContain('src="/api/team/photos/ph1/small"');
-    expect(section).toContain("Harbour steps");
-    expect(section).toContain("Last seen on 20 Aug 2026 · Galissas");
-    expect(section).toContain('href="/api/team/cats?lives=street&amp;lastSeen=quiet">and 7 more</a>');
-    // The hint and the Cats list filter are worded from the same number (SYC-485).
-    expect(section).toContain("Street cats not seen for 6 weeks or more.");
-    expect(section).not.toMatch(/died|dead|deceased|no longer with us/i);
+  it("the spam-check line is a notice that links to the unchecked reports", () => {
+    expect(page(full())).toContain(
+      '<p class="notice"><a href="/api/team#unchecked">2 reports arrived while our spam check was down</a></p>',
+    );
   });
 
-  it("the headline: the large figure, the four-part bar, the time, and homes and care apart", () => {
-    const html = page(full());
-    expect(html).toContain("<strong>142</strong> street cats known on Syros");
-    expect(html).toContain('class="markbar"');
-    expect(html).toContain("89 Sterilised");
-    expect(html).toContain("As of 18 Oct 2026, 16:40");
-    expect(html).toContain("Also 31 cats with homes and 4 in care.");
+  it("tiles show only when above zero, with the number and words in one link", () => {
+    const today = between(page(full()), "today", "trap");
+    expect(today).toContain('<a class="htile" href="/api/team"><span class="hn">7</span> <span>more reports</span></a>');
+    expect(today).toContain('<a class="htile" href="/api/team#issues"><span class="hn">3</span> <span>problems with photos or names</span></a>');
+    expect(today).toContain('<a class="htile" href="/api/team/likely"><span class="hn">4</span> <span>ear clips to check</span></a>');
+    expect(today).toContain('<a class="htile" href="/api/team/colour-check"><span class="hn">2</span> <span>cats for the colour check</span></a>');
+    expect(today).not.toContain("sightings to match");
+    const d = full();
+    if (d.needs.ok) Object.assign(d.needs.value, { issuesOpen: 0, awaitingMatch: 1, otherOpen: 1 });
+    const one = page(d);
+    expect(one).not.toContain("problems with");
+    expect(one).toContain('<a class="htile" href="/api/team/cats"><span class="hn">1</span> <span>sighting to match</span></a>');
+    expect(one).toContain("<span>more report</span>");
   });
 
-  it("This month: each figure with last month in brackets", () => {
-    const html = page(full());
-    expect(html).toMatch(/214<\/span> <span>Sightings<\/span> <span class="hint">\(last month 187\)/);
-    expect(html).toContain("(last month 4)");
-    expect(html).toContain("(last month 9)");
-    // SYC-486 (Samuel, 19 Oct): they read as activity, not as a headcount.
-    expect(html).toContain("New cats recorded");
-    expect(html).toContain("Sterilisations done");
+  it("with no lines above, other reports are 'open reports', not 'more'", () => {
+    const d = full({ needs: { ok: true, value: { ...noNeeds, otherOpen: 3 } } });
+    expect(page(d)).toContain('<span class="hn">3</span> <span>open reports</span>');
+  });
+
+  it("a failed Queue read never says nothing is waiting", () => {
+    const html = page(full({ needs: { ok: false }, toCheck: { ok: true, value: { earClips: 0, colour: 0 } } }));
+    const today = between(html, "today", "trap");
+    expect(today).toContain(UNAVAILABLE_HTML);
+    expect(today).not.toContain(NOTHING_WAITING);
+  });
+
+  it("a failed check-list read never says nothing is waiting either", () => {
+    const html = page(full({ needs: { ok: true, value: noNeeds }, toCheck: { ok: false } }));
+    const today = between(html, "today", "trap");
+    expect(today).toContain(UNAVAILABLE_HTML);
+    expect(today).not.toContain(NOTHING_WAITING);
+  });
+
+  it("with nothing waiting, Today says so and the other parts still draw", () => {
+    const html = page(full({ needs: { ok: true, value: noNeeds }, toCheck: { ok: true, value: { earClips: 0, colour: 0 } } }));
+    expect(between(html, "today", "trap")).toContain(NOTHING_WAITING);
+    expect(html).toContain('id="trap"');
+    expect(html).toContain('id="progress"');
+    expect(page(full())).not.toContain(NOTHING_WAITING);
+  });
+
+  it("trap rows: name links to the colony, to do, up to €, bar, kittens flag", () => {
+    const trap = between(page(full()), "trap", "progress");
+    expect(trap).toContain('<a href="/api/team/colonies/12"><strong>Galissas beach</strong></a>');
+    expect(trap).toContain("9 to do · up to €540");
+    expect(trap).toContain("8 to do · up to €480");
+    expect(trap).toContain('class="markbar"');
+    expect(trap).toContain("14 street cats · 5 sterilised");
+    expect(trap.match(/Kittens reported/g)).toHaveLength(1);
+    expect(trap).toContain("To do: street cats not sterilised, not known, or probably sterilised. At the standard price of €60 a cat.");
+    expect(trap).toContain('<a class="hlink" href="/api/team/colonies">See all colonies</a>');
+    expect(trap).not.toContain("aren't in a colony");
+  });
+
+  it("the price comes from Vet settings, not a fixed 60", () => {
+    const d = full();
+    if (d.trapNext.ok) d.trapNext.value.priceEur = 55;
+    const trap = between(page(d), "trap", "progress");
+    expect(trap).toContain("9 to do · up to €495");
+    expect(trap).toContain("€55 a cat");
+    const source = readFileSync(new URL("../lib/teamPages/homePage.ts", import.meta.url), "utf8");
+    expect(source).not.toMatch(/€\s?60/);
+  });
+
+  it("street cats to do outside any colony get one line", () => {
+    const d = full();
+    if (d.trapNext.ok) d.trapNext.value.noColony = 1;
+    expect(page(d)).toContain("Plus 1 street cat to do that isn't in a colony.");
+    if (d.trapNext.ok) d.trapNext.value.noColony = 6;
+    expect(page(d)).toContain("Plus 6 street cats to do that aren't in a colony.");
+  });
+
+  it("no colonies, and all done, each say so", () => {
+    const none = full({ trapNext: { ok: true, value: { colonies: [], colonyCount: 0, noColony: 0, priceEur: 60 } } });
+    const t1 = between(page(none), "trap", "progress");
+    expect(t1).toContain("No colonies yet. Grouping cats into colonies lets you plan trapping rounds.");
+    expect(t1).toContain('href="/api/team/colonies#create">Create a colony</a>');
+    const done = full({ trapNext: { ok: true, value: { colonies: [], colonyCount: 4, noColony: 0, priceEur: 60 } } });
+    expect(page(done)).toContain("Every colony's street cats are sterilised.");
+  });
+
+  it("How we're doing: count, % confirmed sterilised, bar, month line, time, homes and care", () => {
+    const progress = between(page(full()), "progress");
+    expect(progress).toContain("<strong>142</strong> street cats · 63% confirmed sterilised");
+    expect(progress).toContain('class="markbar"');
+    expect(progress).toContain("89 Sterilised");
+    expect(progress).toContain("11 sterilisations this month (9 last month)");
+    expect(progress).toContain("As of 18 Oct 2026, 16:40");
+    expect(progress).toContain("Also 31 cats with homes and 4 in care.");
+    expect(progress).toContain('href="/api/team/insights/progress">See Sterilisation progress</a>');
+    expect(progress).not.toContain("Sightings");
+    expect(progress).not.toContain("New cats");
+  });
+
+  it("one sterilised in 300 reads 1%", () => {
+    const d = full({
+      headline: { ok: true, value: { street: 300, split: { sterilised: 1, probably: 0, not_known: 299, not_sterilised: 0 }, homed: 0, inCare: 0, at: NOW } },
+    });
+    expect(page(d)).toContain("<strong>300</strong> street cats · 1% confirmed sterilised");
+  });
+
+  it("with no street cats, the progress part says so and nothing else", () => {
+    const d = full({ headline: { ok: true, value: { street: 0, split: { sterilised: 0, probably: 0, not_known: 0, not_sterilised: 0 }, homed: 2, inCare: 0, at: NOW } } });
+    const progress = between(page(d), "progress");
+    expect(progress).toContain("No street cats recorded yet");
+    expect(progress).not.toContain("markbar");
+    expect(progress).not.toContain("sterilisations this month");
+  });
+
+  it("vet spend shows only with costs", () => {
+    expect(page(full(), true)).toContain("11 sterilisations this month (9 last month) · €660 vet spend, paid by Syros Cats or by donations");
+    expect(page(full())).not.toContain("vet spend");
+  });
+
+  it("a failed month read greys out only the month line", () => {
+    const progress = between(page(full({ month: { ok: false } })), "progress");
+    expect(progress).toContain(UNAVAILABLE_HTML);
+    expect(progress).toContain("<strong>142</strong>");
+  });
+
+  it("failed trapping and headline reads each say so in their own part", () => {
+    const html = page(full({ trapNext: { ok: false }, headline: { ok: false } }));
+    expect(between(html, "trap", "progress")).toContain(UNAVAILABLE_HTML);
+    expect(between(html, "progress")).toContain(UNAVAILABLE_HTML);
+    expect(between(html, "today", "trap")).not.toContain(UNAVAILABLE_HTML);
   });
 
   it("never shows response times, ages of reports as 'open for', or any team member's name (D6)", () => {
-    const main = mainOf(page(full()));
-    for (const banned of [/minutes? open/i, /open for/i, /response/i, /Jacky/, /\bby [A-Z]/, /fastest|slowest|league/i]) {
+    const main = mainOf(page(full(), true));
+    // "paid by Syros Cats" is the charity, not a person (spec §4.3's own words).
+    for (const banned of [/minutes? open/i, /open for/i, /response/i, /Jacky/, /\bby (?!Syros Cats\b)[A-Z]/, /fastest|slowest|league/i]) {
       expect(main, String(banned)).not.toMatch(banned);
     }
-  });
-
-  it("This month's vet spend shows only to someone who may see vet costs (§8.4)", () => {
-    const shown = renderHomePage(full(), { personName: "Maria", now: NOW, costs: true });
-    expect(shown).toContain("Vet spend");
-    expect(shown).toContain("€660");
-    expect(shown).toContain("(last month €542.50)");
-    const hidden = page(full());
-    expect(hidden).not.toContain("Vet spend");
-    expect(hidden).not.toContain("€");
-  });
-
-  it("an empty Needs section is absent, and with nothing to act on Home says so; the headline and This month still show", () => {
-    const empty = full({
-      needs: { ok: true, value: { reports: [], reportsTotal: 0, unchecked: 0, issuesOpen: 0, awaitingMatch: 0 } },
-      toCheck: { ok: true, value: { earClips: { count: 0, photos: [] }, colour: { count: 0, photos: [] } } },
-      notSeenLately: { ok: true, value: { cats: [], total: 0, colonyNames: {} } },
-    });
-    const html = page(empty);
-    expect(html).not.toContain('id="needs"');
-    expect(html).not.toContain('id="tocheck"');
-    expect(html).not.toContain('id="notseen"');
-    expect(html).toContain(NOTHING_NEEDS_YOU);
-    expect(html).toContain('id="headline"');
-    expect(html).toContain('id="month"');
-    expect(page(full())).not.toContain(NOTHING_NEEDS_YOU);
-  });
-
-  it("a failed figure says so, and the rest of Home still draws", () => {
-    const html = page(full({ needs: { ok: false }, headline: { ok: false } }));
-    expect(html.split(UNAVAILABLE_HTML)).toHaveLength(3);
-    expect(html).toContain('id="tocheck"');
-    expect(html).toContain('id="month"');
-    expect(html).not.toContain(NOTHING_NEEDS_YOU);
   });
 });
 
@@ -258,20 +334,13 @@ describe("everything typed by someone else is escaped (review of #243)", () => {
   const EVIL = `"><img src=x onerror=alert(1)><script>alert(2)</script>`;
   const raw = (html: string) => /<img src=x|<script|"onerror=/.test(html);
 
-  it("a short note, a cat's name, a colony's name and a place never reach the page raw", () => {
-    const cat = { ...quietCat(1), name: EVIL, place: EVIL } as TeamCat;
+  it("a short note, a colony's name and a place never reach the page raw", () => {
     const d = full({
       needs: {
         ok: true,
-        value: {
-          reports: [report("evil1", { note: EVIL, photo: { status: "attached", url: `/x"onerror="alert(1)` } })],
-          reportsTotal: 1,
-          unchecked: 0,
-          issuesOpen: 0,
-          awaitingMatch: 0,
-        },
+        value: { ...noNeeds, lines: [report("evil1", { severity: "urgent", note: EVIL, photo: { status: "attached", url: `/x"onerror="alert(1)` } })], linesTotal: 1 },
       },
-      notSeenLately: { ok: true, value: { cats: [cat], total: 1, colonyNames: { 7: EVIL } } },
+      trapNext: { ok: true, value: { colonies: [trapColony(1, EVIL)], colonyCount: 1, noColony: 0, priceEur: 60 } },
     });
     const html = page(d);
     expect(raw(html)).toBe(false);
@@ -289,13 +358,6 @@ describe("small wording rules", () => {
     expect(firstWords("  short   note ")).toBe("short note");
     expect(firstWords(null)).toBe("");
   });
-
-  it("a colony the viewer can't name is 'Another colony', never its name", () => {
-    const d = full({ notSeenLately: { ok: true, value: { cats: [quietCat(1)], total: 1, colonyNames: {} } } });
-    const html = page(d);
-    expect(html).toContain("Another colony");
-    expect(html).not.toContain("Harbour steps");
-  });
 });
 
 describe("one failing loader doesn't take Home down", () => {
@@ -311,16 +373,16 @@ describe("one failing loader doesn't take Home down", () => {
     loadTeamCats: async () => [],
     monthFigures: async () => ({ sightings: 1, newCats: 2, sterilisations: 3, vetSpendEur: 0 }),
     allColonyChoices: async () => [],
+    colonyFigures: async () => new Map(),
+    standardPriceNow: async () => 60,
   };
 
-  it("a forced throw in Needs still renders the page, with the fallback line there", async () => {
-    const d = await homeData(NOW, quiet);
+  it("a forced throw in the Queue still renders the page, with the fallback line in Today", async () => {
+    const d = await homeData(NOW, quiet, { ids: null } as never);
     const html = page(d);
-    const needs = html.slice(html.indexOf('id="needs"'), html.indexOf('id="headline"'));
-    expect(needs).toContain(UNAVAILABLE_HTML);
-    expect(html).toContain('id="headline"');
-    expect(html).toContain('id="month"');
-    expect(html).toContain("(last month 1)");
+    expect(between(html, "today", "trap")).toContain(UNAVAILABLE_HTML);
+    expect(html).toContain('id="trap"');
+    expect(between(html, "progress")).toContain("No street cats recorded yet");
   });
 });
 
@@ -328,7 +390,7 @@ describe("the Areas link (SYC-396 PR 2.4)", () => {
   it("sits at the foot of Home and goes to the Areas page", () => {
     const html = page(full());
     const link = html.indexOf('<a class="hlink" href="/api/team/areas">');
-    expect(link).toBeGreaterThan(html.indexOf('id="month"'));
+    expect(link).toBeGreaterThan(html.indexOf('id="progress"'));
     expect(html.indexOf(AREAS_LINE)).toBeGreaterThan(-1);
   });
 });
@@ -340,9 +402,9 @@ describe("Home advertises nothing it cannot open (SYC-522)", () => {
     expect(html).not.toContain('id="soon"');
   });
 
-  it("says No reports waiting, not that nothing needs the team", () => {
-    expect(NOTHING_NEEDS_YOU).toBe("No reports waiting.");
-    expect(NOTHING_NEEDS_YOU).not.toMatch(/needs you/i);
+  it("says Nothing waiting right now, not that nothing needs the team", () => {
+    expect(NOTHING_WAITING).toBe("Nothing waiting right now.");
+    expect(NOTHING_WAITING).not.toMatch(/needs you/i);
   });
 });
 
