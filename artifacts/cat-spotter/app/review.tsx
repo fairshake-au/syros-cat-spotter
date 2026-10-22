@@ -669,13 +669,21 @@ export default function ReviewScreen() {
           </Text>
           <View style={styles.compareRow}>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={[styles.photoLabel, { color: colors.mutedForeground }]}>
+              {/* One line each, so a long name can't push one photo below
+                  the other (seen with "Bartholomew Whiskerton" at 390px). */}
+              <Text
+                numberOfLines={1}
+                style={[styles.photoLabel, { color: colors.mutedForeground }]}
+              >
                 {t("yourPhoto")}
               </Text>
               {yourPhoto}
             </View>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={[styles.photoLabel, { color: colors.mutedForeground }]}>
+              <Text
+                numberOfLines={1}
+                style={[styles.photoLabel, { color: colors.mutedForeground }]}
+              >
                 {named("hintTheirPhoto")}
               </Text>
               <Image
