@@ -100,8 +100,8 @@ export function checkNewsJobToken(
  * own token, like NEWS_JOB_TOKEN. It opens exactly one path and nothing
  * else, and no other token opens it:
  * - POST /api/internal/fingerprints/nightly (fingerprint every active cat's
- *   display photo that has none, within a 4-minute budget).
- * A leaked token can at worst make the server do a few minutes of its own
+ *   display photo that has none, within a 90-second budget).
+ * A leaked token can at worst make the server do 90 seconds at a time of its own
  * fingerprinting, which a search would do anyway. Held only in Replit's
  * deployment secrets and the GitHub `production` environment; never in a file.
  */
