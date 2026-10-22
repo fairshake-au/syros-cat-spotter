@@ -22,6 +22,7 @@ import {
   type Cat,
 } from '@workspace/api-client-react';
 import { isDeviceMovedError } from '@/lib/deviceMoved';
+import { SHEET_MAX_WIDTH } from '@/lib/appColumn';
 import { CATALOGUE_QUERY_ROOT } from '@/lib/catalogue';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
@@ -544,6 +545,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   sheet: {
+    width: '100%',
+    maxWidth: SHEET_MAX_WIDTH,
+    alignSelf: 'center',
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingHorizontal: 20,

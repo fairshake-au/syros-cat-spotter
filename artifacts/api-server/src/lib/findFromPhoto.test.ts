@@ -6,6 +6,7 @@ import {
   catsTable,
   db,
   observationsTable,
+  photoFingerprintsTable,
   photosTable,
   photoVisibilityEventsTable,
   sightingsTable,
@@ -24,6 +25,24 @@ vi.mock("./observations", async (orig) => {
 vi.mock("./spotPhotos", async (orig) => {
   const real = (await orig()) as typeof import("./spotPhotos");
   return { ...real, saveSpotWithPhotos: vi.fn(real.saveSpotWithPhotos) };
+});
+
+// SYC-527 piece 3, Task 8: the model is mocked (fingerprints are made from a
+// photo's colour, deterministically); the logger is captured to prove nothing
+// private is logged.
+const spies = vi.hoisted(() => ({ logLines: [] as string[] }));
+vi.mock("./logger", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./logger")>();
+  const { default: pino } = await import("pino");
+  const logger = pino(
+    { level: "trace", redact: actual.REDACT_PATHS, serializers: actual.LOG_SERIALIZERS },
+    { write: (line: string) => void spies.logLines.push(line) },
+  );
+  return { ...actual, logger };
+});
+vi.mock("./fingerprint/model", async (orig) => {
+  const real = (await orig()) as typeof import("./fingerprint/model");
+  return { ...real, fingerprintOf: vi.fn() };
 });
 
 // The island test seam (SYC-527 piece 1): with no area and no colony the real
@@ -47,9 +66,21 @@ import { writeObservation } from "./observations";
 import { saveSpotWithPhotos } from "./spotPhotos";
 import { allTeamCats } from "./teamCatList";
 import { variantFor } from "./photoVariants";
-import { bandOf, findFromPhoto, FIND_MAX_CATS, POSSIBLE, VERY_LIKELY } from "./findFromPhoto";
+import {
+  bandOf,
+  findFromPhoto,
+  FIND_FILL_BUDGET_MS,
+  FIND_MAX_CATS,
+  FIND_SHORTLIST_K,
+  POSSIBLE,
+  VERY_LIKELY,
+} from "./findFromPhoto";
+import { DIMENSIONS, fingerprintOf } from "./fingerprint/model";
+import { __fillClock } from "./fingerprint/index";
+import { safeError } from "./logger";
 
 const matchMock = vi.mocked(matchCatPhoto);
+const fingerprintMock = vi.mocked(fingerprintOf);
 
 const RUN = randomBytes(3).toString("hex");
 const PREFIX = `vt-find-${RUN}-`;
@@ -62,6 +93,25 @@ const NOW = new Date();
 async function jpeg(colour: string): Promise<Buffer> {
   return sharp({ create: { width: 64, height: 64, channels: 3, background: colour } }).jpeg().toBuffer();
 }
+
+/** The red of a solid-colour photo, rounded: the stand-in "look" the mocked model reads. */
+async function redOf(bytes: Buffer): Promise<number> {
+  return Math.round((await sharp(bytes).stats()).channels[0]!.mean);
+}
+/** A length-1 fingerprint that is closer to another the nearer their reds are. */
+function vecOf(red: number): Float32Array {
+  const v = new Float32Array(DIMENSIONS);
+  let sum = 0;
+  for (let j = 0; j < DIMENSIONS; j++) {
+    v[j] = Math.exp(-Math.abs(j - red) / 12);
+    sum += v[j]! * v[j]!;
+  }
+  for (let j = 0; j < DIMENSIONS; j++) v[j] = v[j]! / Math.sqrt(sum);
+  return v;
+}
+const redOfCat = (i: number) => 10 + 6 * i;
+const solid = (red: number) =>
+  sharp({ create: { width: 64, height: 64, channels: 3, background: { r: red, g: 90, b: 60 } } }).jpeg().toBuffer();
 
 let n = 0;
 async function photo(colour: string): Promise<number> {
@@ -138,16 +188,17 @@ afterAll(cleanup);
 beforeEach(() => {
   matchMock.mockReset();
   answer();
+  spies.logLines.length = 0;
+  fingerprintMock.mockReset();
+  fingerprintMock.mockImplementation(async (jpegBytes: Buffer) => vecOf(await redOf(jpegBytes)));
 });
 
 describe("findFromPhoto: narrowing (spec §5.2)", () => {
-  it(`${FIND_MAX_CATS + 1} cats is too many, with no call to the service`, async () => {
+  it(`a colony of ${FIND_MAX_CATS + 1} is not refused: it uses the shortlist`, async () => {
     const big = await colonyOf(FIND_MAX_CATS + 1, "big");
-    expect(await findFromPhoto(upload, { colony: big.colony }, NOW)).toEqual({
-      kind: "too_many",
-      count: FIND_MAX_CATS + 1,
-    });
-    expect(matchMock).not.toHaveBeenCalled();
+    const out = await findFromPhoto(upload, { colony: big.colony }, NOW);
+    expect(out.kind).toBe("results");
+    expect(fingerprintMock).toHaveBeenCalled();
   });
 
   it("a colony with no active cats has none to compare", async () => {
@@ -403,14 +454,6 @@ describe("findFromPhoto: no place means the whole island (SYC-527 piece 1)", () 
     expect(out.kind === "results" && out.compared).toBe(5);
   });
 
-  it("with no place and over 30 cats, gives too_many before the gate and the service", async () => {
-    await island(FIND_MAX_CATS + 1, "black", "isle-31");
-    const gate = vi.fn(async () => null);
-    expect(await findFromPhoto(upload, {}, NOW, { gate })).toEqual({ kind: "too_many", count: FIND_MAX_CATS + 1 });
-    expect(gate).not.toHaveBeenCalled();
-    expect(matchMock).not.toHaveBeenCalled();
-  });
-
   it("the island test seam is in use", async () => {
     await island(3, "black", "isle-seam");
     vi.mocked(allTeamCats).mockClear();
@@ -426,5 +469,177 @@ describe("findFromPhoto: no place means the whole island (SYC-527 piece 1)", () 
     // fixtures (e.g. `small`) exist but are not on the island.
     const all = await db.select({ id: catsTable.id }).from(catsTable).where(like(catsTable.name, `${PREFIX}%`));
     expect(all.length).toBeGreaterThan(cats.length);
+  });
+});
+
+describe("findFromPhoto: the shortlist over 30 cats (SYC-527 piece 3, spec §3)", () => {
+  afterEach(async () => {
+    __fillClock.now = () => Date.now();
+    await db.delete(catsTable).where(like(catsTable.name, `${ISLE}%`));
+  });
+
+  /** `count` island cats, each with a photo of its own whose red is redOfCat(i). Returns ids in order. */
+  async function spread(count: number, label: string): Promise<{ ids: number[]; photoIds: number[] }> {
+    const ids: number[] = [];
+    const photoIds: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const [p] = await db
+        .insert(photosTable)
+        .values({ publicId: `${PREFIX}p${n++}`, data: (await solid(redOfCat(i))).toString("base64"), mime: "image/jpeg" })
+        .returning({ id: photosTable.id });
+      const [c] = await db
+        .insert(catsTable)
+        .values({
+          name: `${ISLE}${label}-${i}`,
+          primaryPhotoId: p!.id,
+          lat: 37.4447,
+          lng: 24.9417,
+          discovererDeviceId: DEVICE,
+        })
+        .returning({ id: catsTable.id });
+      ids.push(c!.id);
+      photoIds.push(p!.id);
+    }
+    return { ids, photoIds };
+  }
+
+  /** An upload whose look is the cat at position `i` (or a little off it). */
+  const uploadLike = (i: number, off = 0) => solid(redOfCat(i) + off);
+
+  const candidateIds = () =>
+    matchMock.mock.calls.slice(0, 2).flatMap((c) => (c[1] as CandidateInput[]).map((x) => x.catId));
+
+  it("at 30 cats the index isn't touched and #252's calls are unchanged", async () => {
+    await spread(FIND_MAX_CATS, "t30");
+    const out = await findFromPhoto(upload, {}, NOW);
+    expect(fingerprintMock).not.toHaveBeenCalled();
+    expect(matchMock).toHaveBeenCalledTimes(4); // 3 groups plus the final round
+    expect(out.kind === "results" && [out.compared, out.shortlist, out.leftOut]).toEqual([30, null, 0]);
+  });
+
+  it("at 31, the shortlist holds the cats that look closest, reads exactly K, and makes 3 AI calls", async () => {
+    const { ids } = await spread(FIND_MAX_CATS + 1, "t31");
+    const gate = vi.fn(async () => null);
+    const out = await findFromPhoto(await uploadLike(25, 2), {}, NOW, { gate });
+    expect(out.kind).toBe("results");
+    if (out.kind !== "results") return;
+    expect(out.count).toBe(31);
+    expect(out.compared).toBe(FIND_SHORTLIST_K);
+    expect(out.shortlist).toEqual({ of: 31 });
+    expect(out.leftOut).toBe(0);
+    expect(gate).toHaveBeenCalledTimes(1);
+    expect(matchMock).toHaveBeenCalledTimes(3); // 2 groups of 10, plus the final round
+    const sent = candidateIds();
+    expect(sent).toHaveLength(FIND_SHORTLIST_K);
+    // The 20 whose red is nearest 25's: positions 15..30 are within 6 steps; the far low ones are out.
+    expect(sent).toContain(ids[25]);
+    expect(sent).toContain(ids[24]);
+    for (const far of [0, 1, 2, 3, 4]) expect(sent).not.toContain(ids[far]);
+    // Every cat shown is one of the sent.
+    expect(out.results.every((r) => sent.includes(r.catId))).toBe(true);
+  });
+
+  it("fingerprints the re-encoded photo, never the raw upload", async () => {
+    await spread(FIND_MAX_CATS + 1, "tenc");
+    const raw = await jpegWithGps();
+    await findFromPhoto(raw, {}, NOW);
+    // The upload is the first call (the fill fingerprints the cats' photos after it).
+    const first = fingerprintMock.mock.calls[0]![0] as Buffer;
+    expect(first.equals(raw)).toBe(false);
+    const meta = await sharp(first).metadata();
+    expect(meta.exif).toBeUndefined();
+    expect(meta.format).toBe("jpeg");
+  });
+
+  it("fingerprintOf throwing for the upload gives index_down: no gate, no AI", async () => {
+    await spread(FIND_MAX_CATS + 1, "tdown");
+    fingerprintMock.mockRejectedValue(new Error("the model is not available"));
+    const gate = vi.fn(async () => null);
+    expect(await findFromPhoto(upload, {}, NOW, { gate })).toEqual({ kind: "index_down", count: 31 });
+    expect(gate).not.toHaveBeenCalled();
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+
+  it("when no cat's photo can be fingerprinted the index is down too", async () => {
+    await spread(FIND_MAX_CATS + 1, "tnone");
+    let calls = 0;
+    fingerprintMock.mockImplementation(async () => {
+      if (calls++ === 0) return vecOf(50);
+      throw new Error("bad image");
+    });
+    const gate = vi.fn(async () => null);
+    expect(await findFromPhoto(upload, {}, NOW, { gate })).toEqual({ kind: "index_down", count: 31 });
+    expect(gate).not.toHaveBeenCalled();
+    expect(matchMock).not.toHaveBeenCalled();
+  });
+
+  it("cats past the fill budget are left out and counted", async () => {
+    await spread(FIND_MAX_CATS + 1, "tbudget");
+    // Each look at the clock is one second later: the budget runs out after 14 photos.
+    let t = 0;
+    __fillClock.now = () => (t += 1000);
+    const out = await findFromPhoto(upload, {}, NOW);
+    expect(FIND_FILL_BUDGET_MS).toBe(15_000);
+    expect(out.kind).toBe("results");
+    if (out.kind !== "results") return;
+    expect(out.leftOut).toBe(31 - 14);
+    expect(out.compared).toBe(14);
+    expect(out.shortlist).toEqual({ of: 31 });
+  });
+
+  it("the upload is never stored: only this run's cats' display photos have fingerprints", async () => {
+    const { photoIds } = await spread(FIND_MAX_CATS + 1, "tstore");
+    const queryRed = redOfCat(25) + 3; // a look no cat has
+    await findFromPhoto(await solid(queryRed), {}, NOW);
+    const rows = await db
+      .select({ photoId: photoFingerprintsTable.photoId, vector: photoFingerprintsTable.vector })
+      .from(photoFingerprintsTable)
+      .innerJoin(photosTable, eq(photosTable.id, photoFingerprintsTable.photoId))
+      .where(like(photosTable.publicId, `${PREFIX}%`));
+    expect(rows.length).toBeGreaterThanOrEqual(31);
+    const shown = new Set(photoIds);
+    // Other tests' photos of this run may have rows; ours must all be display photos of cats made here.
+    const ours = rows.filter((r) => shown.has(r.photoId));
+    expect(ours).toHaveLength(31);
+    const query = Array.from(vecOf(queryRed));
+    for (const r of rows) {
+      const close = r.vector.every((x, j) => Math.abs(x - query[j]!) < 1e-6);
+      expect(close, "a row holds the upload's fingerprint").toBe(false);
+    }
+  });
+
+  it("logs counts only: no vector and no id, also when the model throws", async () => {
+    const { photoIds } = await spread(FIND_MAX_CATS + 1, "tlog");
+    await findFromPhoto(upload, {}, NOW);
+    const bigArray = /\[(?:-?[\d.e+-]+,){383}-?[\d.e+-]+\]/;
+    const text = () => spies.logLines.join("\n");
+    expect(text()).toContain("shortlist");
+    expect(text()).toMatch(/"path":"shortlist"/);
+    expect(text()).not.toMatch(bigArray);
+    expect(text()).not.toMatch(/photoId|publicId|catId/);
+    expect(text()).not.toContain(PREFIX);
+    for (const id of photoIds) expect(text()).not.toMatch(new RegExp(`"[a-zA-Z]*[iI]d":${id}[,}]`));
+
+    spies.logLines.length = 0;
+    const err = Object.assign(new Error("model failed"), { vector: Array.from(vecOf(40)), cause: { name: "Boom", vector: Array.from(vecOf(41)) } });
+    fingerprintMock.mockRejectedValue(err);
+    expect((await findFromPhoto(upload, {}, NOW)).kind).toBe("index_down");
+    expect(text()).toContain("model failed");
+    expect(text()).not.toMatch(bigArray);
+    expect(text()).not.toContain(PREFIX);
+  });
+
+  it("safeError keeps a vector out of what it returns", () => {
+    const v = Array.from(vecOf(40));
+    const err = Object.assign(new Error("model failed"), { vector: v, data: v, cause: { name: "Boom", vector: v } });
+    const out = JSON.stringify(safeError(err));
+    expect(out).not.toMatch(/\[(?:-?[\d.e+-]+,){10}/);
+    expect(out).toContain("model failed");
+  });
+
+  it("a colony over 30 is shortlisted inside the colony, and says so", async () => {
+    const big = await colonyOf(FIND_MAX_CATS + 2, "colshort");
+    const out = await findFromPhoto(upload, { colony: big.colony }, NOW);
+    expect(out.kind === "results" && out.shortlist).toEqual({ of: FIND_MAX_CATS + 2 });
   });
 });

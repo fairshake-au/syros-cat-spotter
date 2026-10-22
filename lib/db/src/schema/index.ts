@@ -22,3 +22,4 @@ export * from "./sightingPhotos";
 export * from "./catNews";
 export * from "./reportDownloads";
 export * from "./heldTyping";
+export * from "./photoFingerprints";

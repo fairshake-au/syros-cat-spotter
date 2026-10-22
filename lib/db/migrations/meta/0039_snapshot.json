@@ -1,5 +1,5 @@
 {
-  "id": "f1240fb4-cf76-432c-8a0d-4a6d1e18a405",
+  "id": "6028ec97-a533-4b23-b3fd-0ef105d3d2d8",
   "prevId": "880bd702-401e-43ba-877c-c0ea3c1293f5",
   "version": "7",
   "dialect": "postgresql",
@@ -2483,7 +2483,7 @@
         },
         "sighting_matches_picked_from_ck": {
           "name": "sighting_matches_picked_from_ck",
-          "value": "\"sighting_matches\".\"picked_from\" IS NULL OR \"sighting_matches\".\"picked_from\" IN ('nearby', 'search', 'name_prompt', 'cat_page')"
+          "value": "\"sighting_matches\".\"picked_from\" IS NULL OR \"sighting_matches\".\"picked_from\" IN ('nearby', 'search', 'name_prompt')"
         },
         "sighting_matches_miss_kind_ck": {
           "name": "sighting_matches_miss_kind_ck",
@@ -4573,6 +4573,63 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.photo_fingerprints": {
+      "name": "photo_fingerprints",
+      "schema": "",
+      "columns": {
+        "photo_id": {
+          "name": "photo_id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vector": {
+          "name": "vector",
+          "type": "real[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "made_at": {
+          "name": "made_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "photo_fingerprints_photo_id_photos_id_fk": {
+          "name": "photo_fingerprints_photo_id_photos_id_fk",
+          "tableFrom": "photo_fingerprints",
+          "tableTo": "photos",
+          "columnsFrom": [
+            "photo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "photo_fingerprints_vector_len_ck": {
+          "name": "photo_fingerprints_vector_len_ck",
+          "value": "array_ndims(\"photo_fingerprints\".\"vector\") = 1 and cardinality(\"photo_fingerprints\".\"vector\") = 384"
+        }
+      },
       "isRLSEnabled": false
     }
   },

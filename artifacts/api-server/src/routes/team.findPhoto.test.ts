@@ -20,6 +20,11 @@ vi.mock("../lib/logger", async (importOriginal) => {
   return { ...actual, logger };
 });
 vi.mock("../lib/matching", () => ({ matchCatPhoto: vi.fn() }));
+// SYC-527 piece 3: the model is mocked; a fingerprint is made from a photo's colour.
+vi.mock("../lib/fingerprint/model", async (orig) => {
+  const real = (await orig()) as typeof import("../lib/fingerprint/model");
+  return { ...real, fingerprintOf: vi.fn() };
+});
 // The island test seam (SYC-527 piece 1): with no area and no colony the real
 // list would return every cat on the shared test database, so "the island" is
 // narrowed to this file's own island cats (names starting with ISLE).
@@ -38,6 +43,9 @@ vi.mock("../lib/teamCatList", async (orig) => {
 
 import app from "../app";
 import { matchCatPhoto, type CandidateInput } from "../lib/matching";
+import { DIMENSIONS, fingerprintOf } from "../lib/fingerprint/model";
+import { __fillClock } from "../lib/fingerprint";
+import { FIND_SHORTLIST_K } from "../lib/findFromPhoto";
 import { TEAM_ORIGIN, clearWelfareTables, seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import {
   _resetFindLimitsForTests,
@@ -48,14 +56,22 @@ import {
   findTeamHits,
 } from "../middlewares/rateLimit";
 import {
-  ISLAND_TOO_MANY,
+  INDEX_DOWN_WORDS,
   LESS_SURE,
+  LESS_SURE_SHORTLIST,
+  lessSureShortlist,
+  noCloseMatchShortlist,
+  leftOutWords,
+  NO_CLOSE_MATCH_SHORTLIST,
+  SHORTLIST_EXPLAINER,
+  shortlistResultsLine,
   MATCHING_DOWN_WORDS,
   PERSON_CAP_WORDS,
   STALE_PLACE_WORDS,
   TEAM_CAP_WORDS,
   TOO_BIG_WORDS,
   WHERE_HINT,
+  WHERE_HINT_SHORT,
 } from "../lib/teamPages/findPhotoPage";
 import { areaFor, currentAreas } from "../lib/areas/namedAreas";
 import { guardianOn, newColony, putInColony, RUN, signedPerson, type Signed } from "../test/roleKit";
@@ -66,6 +82,21 @@ const PREFIX = `vt-findroute-${RUN}-`;
 // The island's own scope: only cats named with ISLE are "the island" in the seam above.
 const ISLE = `${PREFIX}isle-`;
 const matchMock = vi.mocked(matchCatPhoto);
+const fingerprintMock = vi.mocked(fingerprintOf);
+const html = (t: string) => t.replace(/'/g, "&#39;");
+
+/** A fingerprint read from a photo's red: photos with near reds are close. */
+async function vecFromRed(bytes: Buffer): Promise<Float32Array> {
+  const red = Math.round((await sharp(bytes).stats()).channels[0]!.mean);
+  const v = new Float32Array(DIMENSIONS);
+  let sum = 0;
+  for (let j = 0; j < DIMENSIONS; j++) {
+    v[j] = Math.exp(-Math.abs(j - red) / 12);
+    sum += v[j]! * v[j]!;
+  }
+  for (let j = 0; j < DIMENSIONS; j++) v[j] = v[j]! / Math.sqrt(sum);
+  return v;
+}
 
 let guardian: Signed;
 let colony: number;
@@ -102,8 +133,30 @@ async function island(count: number): Promise<void> {
 }
 
 afterEach(async () => {
+  __fillClock.now = () => Date.now();
   await db.delete(catsTable).where(like(catsTable.name, `${ISLE}%`));
 });
+
+/** `count` island cats with a photo each (so the fill has `count` photos to make). */
+async function islandDistinct(count: number): Promise<void> {
+  for (let i = 0; i < count; i++) {
+    const [p] = await db
+      .insert(photosTable)
+      .values({
+        publicId: `${PREFIX}d${n++}`,
+        data: (await sharp({ create: { width: 64, height: 64, channels: 3, background: { r: 10 + 6 * i, g: 90, b: 60 } } }).jpeg().toBuffer()).toString("base64"),
+        mime: "image/jpeg",
+      })
+      .returning({ id: photosTable.id });
+    await db.insert(catsTable).values({
+      name: `${ISLE}${n++}`,
+      primaryPhotoId: p!.id,
+      lat: 37.4447,
+      lng: 24.9417,
+      discovererDeviceId: `${PREFIX}d`,
+    });
+  }
+}
 
 /** A team member of their own, so every test starts with its own 20. */
 const teamMember = (label: string) => signedPerson(`find-${label}-${n++}`, ["staff"]);
@@ -125,6 +178,8 @@ beforeAll(async () => {
 beforeEach(async () => {
   process.env["TEAM_SESSION_KEYS"] = KEY;
   spies.logLines.length = 0;
+  fingerprintMock.mockReset();
+  fingerprintMock.mockImplementation(vecFromRed);
   matchMock.mockReset();
   matchMock.mockImplementation(async (_p, candidates: CandidateInput[]) => ({
     isCatPhoto: true,
@@ -209,11 +264,13 @@ describe("the form", () => {
     expect(res.text).not.toContain("<script");
   });
 
-  it("over 30 cats, asks to narrow first and offers no photo form", async () => {
+  it("over 30 cats in a colony, the form says what the shortlist does and offers the photo form", async () => {
     const team = await teamMember("over");
     const res = await form(team.cookie, `?colony=${bigColony}`);
-    expect(res.text).toContain("31 cats to compare. That's too many");
-    expect(res.text).not.toContain('type="file"');
+    expect(res.text).toMatch(/31 cats in [^<]+\./);
+    expect(html(res.text)).toContain(html(SHORTLIST_EXPLAINER));
+    expect(res.text).not.toContain("That's too many");
+    expect(res.text).toContain('type="file"');
   });
 
   it("with no place, the form counts the island's cats and offers the photo form", async () => {
@@ -224,6 +281,7 @@ describe("the form", () => {
     expect(res.text).toContain('<option value="" selected>Anywhere on the island</option>');
     expect(res.text).toContain("12 cats to compare across the island");
     expect(res.text).toContain(WHERE_HINT);
+    expect(res.text).toContain("compares every cat");
     expect(res.text).toContain("Compare with 12 cats");
     expect(res.text).toContain('type="file"');
   });
@@ -238,25 +296,32 @@ describe("the form", () => {
     expect(res.text).not.toContain("selected>Anywhere on the island");
   });
 
-  it("over 30 island cats, the form says so plainly and offers no photo form", async () => {
+  it("over 30 island cats, the form gives §9.2's words and offers the photo form", async () => {
     await island(31);
     const team = await teamMember("isleover");
     const res = await form(team.cookie);
     expect(res.status).toBe(200);
-    expect(res.text).toContain(ISLAND_TOO_MANY);
-    expect(res.text).not.toContain('type="file"');
+    expect(res.text).toContain("31 cats on the island.");
+    expect(html(res.text)).toContain(html(SHORTLIST_EXPLAINER));
+    expect(SHORTLIST_EXPLAINER).toBe(
+      `The app picks the ${FIND_SHORTLIST_K} whose photos look most like yours, then compares those closely. This can take up to a minute.`,
+    );
+    expect(res.text).toContain('type="file"');
+    expect(res.text).not.toContain("too many");
+    expect(res.text).toContain(WHERE_HINT_SHORT);
+    expect(WHERE_HINT_SHORT).toBe("If you know where the photo was taken, choosing the area is surer.");
+    expect(res.text).not.toContain("compares every cat");
+    expect(res.text).not.toContain(WHERE_HINT);
   });
 
-  it("a place over 30 cats keeps the place's too-many words, not the island's, and offers no photo form", async () => {
+  it("a large area counts its own cats with the same words, naming the area", async () => {
     const team = await teamMember("placeover");
-    const area = areaFor(37.4447, 24.9417).key;
-    for (const query of [`?colony=${bigColony}`, `?area=${encodeURIComponent(area)}`]) {
-      const res = await form(team.cookie, query);
-      expect(res.status, query).toBe(200);
-      expect(res.text, query).toMatch(/\d+ cats to compare\. That's too many: choose a colour or a smaller area first, so there are 30 or fewer\./);
-      expect(res.text, query).not.toContain(ISLAND_TOO_MANY);
-      expect(res.text, query).not.toContain('type="file"');
-    }
+    const area = areaFor(37.4447, 24.9417);
+    const res = await form(team.cookie, `?area=${encodeURIComponent(area.key)}`);
+    expect(res.status).toBe(200);
+    expect(html(res.text)).toMatch(new RegExp(`\\d+ cats in ${html(area.name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.`));
+    expect(html(res.text)).toContain(html(SHORTLIST_EXPLAINER));
+    expect(res.text).toContain('type="file"');
   });
 
   it("a colony chosen alone shows its own count, not the island's wording", async () => {
@@ -514,24 +579,111 @@ describe("the search", () => {
     expect(res.text).toContain(`<form method="post" action="/api/team/reports/${report.publicId}/cat">`);
   });
 
-  it("over 30 island cats, a search is refused before the caps and the service", async () => {
-    await island(31);
+  it("over 30 island cats, a search uses the shortlist: 3 calls, §9.3's words, #252's header rules", async () => {
+    await islandDistinct(31);
     const team = await teamMember("isleoversearch");
     const res = await search(team.cookie, {});
-    expect(res.status).toBe(400);
-    expect(res.text).toContain(ISLAND_TOO_MANY);
+    expect(res.status).toBe(200);
+    expect(res.headers["content-security-policy"]).toBe(PHOTO_CSP);
+    expect(html(res.text)).toContain(html(shortlistResultsLine(31)));
+    expect(shortlistResultsLine(31)).toBe(`Compared closely with the ${FIND_SHORTLIST_K} of 31 cats whose photos look most like yours`);
+    expect(html(res.text)).toContain(html(LESS_SURE_SHORTLIST));
+    expect(res.text).not.toContain(html(LESS_SURE));
+    expect(res.text).not.toContain("newer cat");
+    expect(matchMock).toHaveBeenCalledTimes(3);
+    expect(await findTeamHits()).toBe(1);
+    expect(await findPersonHits(team.id)).toBe(1);
+  });
+
+  it("a colony over 30 uses the shortlist too, and #252's words stay for 30 or fewer", async () => {
+    const team = await teamMember("toomany");
+    const res = await search(team.cookie, { colony: String(bigColony) });
+    expect(res.status).toBe(200);
+    expect(html(res.text)).toContain(html(shortlistResultsLine(31)));
+    const small = await search(team.cookie, { colony: String(colony) });
+    expect(small.text).toContain("Compared with 3 cats");
+    expect(small.text).not.toContain("Compared closely");
+    expect(html(small.text)).toContain(html(LESS_SURE));
+  });
+
+  it("the index down gives §9.4's words and uses no search, for the island and for a large area", async () => {
+    await islandDistinct(31);
+    const team = await teamMember("indexdown");
+    fingerprintMock.mockRejectedValue(new Error("the model is not available"));
+    for (const fields of [{}, { colony: String(bigColony) }] as Record<string, string>[]) {
+      const res = await search(team.cookie, fields);
+      expect([JSON.stringify(fields), res.status]).toEqual([JSON.stringify(fields), 503]);
+      expect(res.text).toContain(html(INDEX_DOWN_WORDS));
+      expect(INDEX_DOWN_WORDS).toBe("Searching the whole island isn't working right now. Choose an area or a colony to search without it.");
+      expect(res.headers["content-security-policy"]).toBe(STRICT_CSP);
+    }
     expect(matchMock).not.toHaveBeenCalled();
     expect(await findTeamHits()).toBe(0);
     expect(await findPersonHits(team.id)).toBe(0);
   });
 
-  it("over 30 cats is refused before the caps and the service", async () => {
-    const team = await teamMember("toomany");
+  it("cats whose photos weren't fingerprinted in time are counted on the results page", async () => {
+    await islandDistinct(31);
+    let t = 0;
+    __fillClock.now = () => (t += 1000);
+    const team = await teamMember("leftout");
+    const res = await search(team.cookie, {});
+    expect(res.status).toBe(200);
+    expect(res.text).toContain(html(leftOutWords(17)));
+    expect(leftOutWords(17)).toBe("17 newer cats weren't included this time. Choose an area to include them.");
+    expect(leftOutWords(1)).toBe("1 newer cat wasn't included this time. Choose an area to include them.");
+  });
+
+  it("with fewer fingerprinted cats than the shortlist size, every line says the real count, not 20", async () => {
+    await islandDistinct(31);
+    let t = 0;
+    __fillClock.now = () => (t += 1000);
+    const team = await teamMember("fewerthank");
+    const res = await search(team.cookie, {});
+    expect(res.status).toBe(200);
+    const compared = Number(/Compared closely with the (\d+) of 31 cats/.exec(html(res.text))?.[1]);
+    expect(compared).toBeGreaterThan(0);
+    expect(compared).toBeLessThan(FIND_SHORTLIST_K);
+    expect(html(res.text)).toContain(html(shortlistResultsLine(31, compared)));
+    expect(html(res.text)).toContain(html(lessSureShortlist(compared)));
+    expect(html(res.text)).not.toContain(`the ${FIND_SHORTLIST_K} cats whose photos`);
+    expect(html(res.text)).not.toContain(`the ${FIND_SHORTLIST_K} of 31`);
+    expect(noCloseMatchShortlist(compared)).toBe(
+      `No close match among the ${compared} cats whose photos look most like yours. Try choosing an area, or`,
+    );
+  });
+
+  it("nothing close among fewer than the shortlist size names the real count", async () => {
+    await islandDistinct(31);
+    let t = 0;
+    __fillClock.now = () => (t += 1000);
+    matchMock.mockImplementation(async (_p, candidates: CandidateInput[]) => ({
+      isCatPhoto: true,
+      matches: candidates.map((c) => ({ catId: c.catId, confidence: 0.1, reasoning: "" })),
+    }));
+    const team = await teamMember("fewernomatch");
+    const res = await search(team.cookie, {});
+    expect(res.status).toBe(200);
+    const compared = Number(/Compared closely with the (\d+) of 31 cats/.exec(html(res.text))?.[1]);
+    expect(compared).toBeLessThan(FIND_SHORTLIST_K);
+    expect(html(res.text)).toContain(html(noCloseMatchShortlist(compared)));
+    expect(html(res.text)).not.toContain(`among the ${FIND_SHORTLIST_K} cats`);
+  });
+
+  it("nothing above Unlikely among the shortlist says §9.3's words, and the browse link keeps the area", async () => {
+    const team = await teamMember("nomatchshort");
+    matchMock.mockImplementation(async (_p, candidates: CandidateInput[]) => ({
+      isCatPhoto: true,
+      matches: candidates.map((c) => ({ catId: c.catId, confidence: 0.1, reasoning: "" })),
+    }));
     const res = await search(team.cookie, { colony: String(bigColony) });
-    expect(res.status).toBe(400);
-    expect(res.text).toContain("That's too many");
-    expect(matchMock).not.toHaveBeenCalled();
-    expect(await findTeamHits()).toBe(0);
+    expect(res.status).toBe(200);
+    expect(html(res.text)).toContain(html(NO_CLOSE_MATCH_SHORTLIST));
+    expect(NO_CLOSE_MATCH_SHORTLIST).toBe(
+      `No close match among the ${FIND_SHORTLIST_K} cats whose photos look most like yours. Try choosing an area, or`,
+    );
+    expect(res.text).toContain(`href="/api/team/cats?colony=${bigColony}">browse the cats</a>`);
+    expect(res.text).not.toContain("No close match among these");
   });
 
   it("no photo is named next to the photo field", async () => {
@@ -624,11 +776,17 @@ describe("every answer but the results keeps the strict header (second review, f
     await catIn(blank, p!.id);
     await island(31);
     const answers: [string, number, () => Promise<request.Response>][] = [
-      ["island too many", 400, async () => search((await teamMember("t1")).cookie, {})],
+      [
+        "index down",
+        503,
+        async () => {
+          fingerprintMock.mockRejectedValueOnce(new Error("down"));
+          return search((await teamMember("t1")).cookie, {});
+        },
+      ],
       ["no photo", 400, async () => search((await teamMember("t2")).cookie, { colony: String(colony) }, null)],
       ["not a photo", 400, async () => search((await teamMember("t3")).cookie, { colony: String(colony) }, { bytes: Buffer.from("nope") })],
       ["too big", 413, async () => search((await teamMember("t4")).cookie, { colony: String(colony) }, { bytes: Buffer.alloc(10 * 1024 * 1024 + 1, 1) })],
-      ["too many", 400, async () => search((await teamMember("t5")).cookie, { colony: String(bigColony) })],
       ["none to compare", 400, async () => search((await teamMember("t6")).cookie, { colony: String(empty) })],
       ["no photos", 422, async () => search((await teamMember("t7")).cookie, { colony: String(blank) })],
       ["no such report", 404, async () => search((await teamMember("t8")).cookie, { colony: String(colony), tie: "no-such-report" })],

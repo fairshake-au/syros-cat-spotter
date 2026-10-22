@@ -32,6 +32,7 @@ import {
 import { DeleteMyDataDone } from '@/components/DeleteMyDataDone';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { HeldNameSaver } from '@/hooks/useHeldNameSaver';
+import { AppColumn } from '@/components/AppColumn';
 import { StartupErrorScreen } from '@/components/StartupErrorScreen';
 import { BannerStack } from '@/components/BannerStack';
 import { KeepSafeScreen } from '@/components/keepSafe/KeepSafeScreen';
@@ -172,7 +173,9 @@ export default function RootLayout() {
                           <DeleteMyDataProvider>
                             <GestureHandlerRootView>
                               <KeyboardProvider>
-                                <OnboardingGate />
+                                <AppColumn>
+                                  <OnboardingGate />
+                                </AppColumn>
                                 <TurnstileHost />
                               </KeyboardProvider>
                             </GestureHandlerRootView>

@@ -159,8 +159,10 @@ describe("Signed in as and Sign out sit in the menu bar (spec §3.2)", () => {
     expect(page()).toMatch(/@media \(min-width:600px\)\{[^@]*\.bar>form\{position:sticky;right:0/);
   });
 
-  it("keeps the wide bar for a wide page", () => {
+  it("keeps the bar at one width on every page, wide or narrow (SYC-577)", () => {
     expect(page({ mainClass: "wide" })).toContain('<nav class="bar wide" aria-label="Dashboard">');
+    expect(page()).toMatch(/\.bar,\.bar\.wide\{padding-inline:max\(12px,calc\(\(100% - 1120px\)/);
+    expect(page()).not.toMatch(/\.bar\{padding-inline:max\(12px,calc\(\(100% - 760px\)/);
   });
 });
 
@@ -230,6 +232,10 @@ describe("the phone menu (SYC-374)", () => {
 
   it("the phone padding rule reaches the wide bar too", () => {
     expect(page()).toMatch(/@media \(max-width:599px\)\{\.bar,\.bar\.wide\{/);
+  });
+
+  it("wraps onto more rows on a phone instead of hiding links off the edge (SYC-522)", () => {
+    expect(page()).toMatch(/@media \(max-width:599px\)\{\.bar,\.bar\.wide\{[^}]*flex-wrap:wrap[^}]*overflow:visible/);
   });
 });
 

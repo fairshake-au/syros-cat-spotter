@@ -94,3 +94,28 @@ export function checkNewsJobToken(
     ? "ok"
     : "unauthorized";
 }
+
+/**
+ * SYC-527 piece 3: `FINGERPRINT_JOB_TOKEN`, the nightly looks-like batch's
+ * own token, like NEWS_JOB_TOKEN. It opens exactly one path and nothing
+ * else, and no other token opens it:
+ * - POST /api/internal/fingerprints/nightly (fingerprint every active cat's
+ *   display photo that has none, within a 90-second budget).
+ * A leaked token can at worst make the server do 90 seconds at a time of its own
+ * fingerprinting, which a search would do anyway. Held only in Replit's
+ * deployment secrets and the GitHub `production` environment; never in a file.
+ */
+export const FINGERPRINT_NIGHTLY_PATH = "/api/internal/fingerprints/nightly";
+
+export function checkFingerprintJobToken(
+  authorization: string | undefined,
+): InternalAuthResult {
+  const expected = process.env["FINGERPRINT_JOB_TOKEN"] ?? "";
+  if (!expected) return "not_configured";
+  const match = /^Bearer (.+)$/i.exec(authorization ?? "");
+  const supplied = match?.[1] ?? "";
+  if (!supplied) return "unauthorized";
+  return timingSafeEqual(sha256(expected), sha256(supplied))
+    ? "ok"
+    : "unauthorized";
+}

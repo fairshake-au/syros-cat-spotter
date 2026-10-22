@@ -41,6 +41,7 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { Button, IconButton } from '@/components/purropolis';
 import { appearanceLine } from '@/lib/appearance';
+import { appWidth } from '@/lib/appColumn';
 import { photoSource } from '@/lib/urls';
 import { pickedFromFor, pickerList, type PickedFrom } from '@/lib/catPicker';
 import { filterIsOn, placeCats, type Picked } from '@/lib/coat';
@@ -102,7 +103,7 @@ export function CatPicker({
   const [picked, setPicked] = useState<Picked>(NOTHING_PICKED);
   // Equal-width columns: two on a phone, up to four on a wide screen, so the
   // last row never stretches wider than the rows above it.
-  const { width } = useWindowDimensions();
+  const width = appWidth(useWindowDimensions().width);
   const contentWidth = Math.min(width, CONTENT_MAX_WIDTH) - 2 * CONTENT_PADDING;
   const columns = contentWidth >= 600 ? 4 : contentWidth >= 420 ? 3 : 2;
   const cardWidth = Math.floor(

@@ -1,9 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
 import {
   COAT_SWEEP_PATH,
+  FINGERPRINT_NIGHTLY_PATH,
   MAIL_DRAIN_PATH,
   NEWS_LAST_RUN_PATH,
   NEWS_NIGHTLY_PATH,
+  checkFingerprintJobToken,
   checkMailDrainToken,
   checkNewsJobToken,
 } from "../lib/internalAuth";
@@ -43,6 +45,9 @@ import {
  *    Exactly POST /api/internal/news/nightly, or exactly GET or HEAD
  *    /api/internal/news/last-run (SYC-45 Slice 1) → only `Authorization:
  *    Bearer <NEWS_JOB_TOKEN>`, the nightly news check's own token.
+ *    Exactly POST /api/internal/fingerprints/nightly (SYC-527 piece 3) → only
+ *    `Authorization: Bearer <FINGERPRINT_JOB_TOKEN>`, the looks-like batch's
+ *    own token.
  *    Any other /api/internal/* → only `Authorization: Bearer
  *    <INTERNAL_PEOPLE_TOKEN>`. Neither token opens the other's paths.
  *    Exactly POST /api/internal/resend/webhook → next(): Resend can't send
@@ -139,6 +144,16 @@ export function prelaunchGate(
   ) {
     // SYC-45 Slice 1: the nightly news check's own token, and only it.
     if (checkNewsJobToken(req.headers.authorization) === "ok") {
+      next();
+      return;
+    }
+    refuse(res);
+    return;
+  }
+
+  if (path === FINGERPRINT_NIGHTLY_PATH && req.method === "POST") {
+    // SYC-527 piece 3: the looks-like batch's own token, and only it.
+    if (checkFingerprintJobToken(req.headers.authorization) === "ok") {
       next();
       return;
     }
