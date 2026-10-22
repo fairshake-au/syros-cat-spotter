@@ -418,7 +418,7 @@ describe("one site", () => {
       "Private. Only Syros Cats people signed in here can see this place.",
       `<a href="/api/team/colonies/${colonyId}">${colonyName}</a>`,
       "the gate is round the back",
-      "Don't write when people come and go.",
+      "Please don't note people's comings and goings.",
       "How to find it",
       "down the steps",
       "<h2>History</h2>",

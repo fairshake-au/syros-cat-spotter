@@ -225,7 +225,7 @@ describe("adding a site: the map and the pick", () => {
     expect(res.text).toContain("<h1>Add a feeding site</h1>");
     expect(res.text).toContain('action="/api/team/sites/pick"');
     expect(res.text).toContain('alt="Map of Syros. Tap a spot to pick it."');
-    expect(res.text).toContain("Don&#39;t copy these from a map company&#39;s site; ask a colleague who has been there.");
+    expect(res.text).toContain("Don&#39;t copy numbers from other map apps. Ask a colleague who has been there.");
     expect(res.text).not.toContain("No such feeding site");
     expect(res.text).not.toMatch(/<script/i);
     expectNoPositionInAddresses(res.text);
@@ -270,7 +270,7 @@ describe("adding a site: the map and the pick", () => {
     const { body } = tapBody(ERMOUPOLI);
     const res = await post("/api/team/sites/pick", { ...body, x: "0", y: "0" });
     expect(res.status).toBe(400);
-    expect(res.text).toContain("say where on the map it was");
+    expect(res.text).toContain("Please tap the map itself");
     expect(res.text).not.toContain("Check the spot");
     expectNoPositionInAddresses(res.text);
   });
@@ -285,7 +285,7 @@ describe("adding a site: the map and the pick", () => {
     expect(outside.text).toContain("outside Syros");
     const altered = await post("/api/team/sites/pick", { view: token.slice(0, 20) + (token[20] === "A" ? "B" : "A") + token.slice(21), size: "256", x: "5", y: "5" });
     expect(altered.status).toBe(400);
-    expect(altered.text).toContain("couldn&#39;t be read");
+    expect(altered.text).toContain("That tap didn&#39;t work. Please tap the map again");
     const empty = await post("/api/team/sites/pick", {});
     expect(empty.status).toBe(400);
   });
@@ -551,7 +551,7 @@ describe("edit details", () => {
     expect(late.status).toBe(303);
     expect(late.headers["location"]).toBe(`/api/team/sites/${s.id}?done=stale`);
     const page = await get(late.headers["location"] as string);
-    expect(page.text).toContain("Someone already changed this.");
+    expect(page.text).toContain("Someone else changed this first.");
     const json = await postJson(`/api/team/sites/${s.id}`, { updatedAt: seen, name: unique("third") });
     expect(json.status).toBe(409);
     expect(json.body).toEqual({ error: "Someone already changed this.", code: "STALE" });
@@ -577,7 +577,7 @@ describe("move", () => {
     expect(res.text).toContain(`action="/api/team/sites/${s.id}/move/map"`);
     expect(stampIn(res.text)).toBe(await stampOf(s.id));
     expect(res.text).toContain('<span class="pin site-retired"');
-    expect(res.text).toContain("Don&#39;t copy these from a map company&#39;s site");
+    expect(res.text).toContain("Don&#39;t copy numbers from other map apps");
     expectNoPositionInAddresses(res.text);
     expect((await get(`/api/team/sites/${NO_SUCH}/move`)).status).toBe(404);
     expect((await get("/api/team/sites/abc/move")).status).toBe(404);
@@ -738,7 +738,7 @@ describe("test 9 (early half): moving or re-homing a public site makes it privat
     expect(after.madePublicAt?.toISOString()).toBe(before.madePublicAt?.toISOString());
     expect(await kindsOf(s.id)).toEqual(["moved", "made_private_moved"]);
     const page = await get(res.headers["location"] as string);
-    expect(page.text).toContain("it is private again until the new position is confirmed");
+    expect(page.text).toContain("it&#39;s private again until you confirm the new spot");
   });
 
   it("changing a public site's colony makes it private and writes both events", async () => {
@@ -816,7 +816,7 @@ describe("retire confirm (SYC-395 D1)", () => {
     expect(again.headers["location"]).toBe(`/api/team/sites/${s.id}?done=alreadyRetired`);
     const page = (await get(again.headers["location"] as string)).text;
     expect(page).toContain("This site is already retired.");
-    expect(page).not.toContain("Someone already changed this");
+    expect(page).not.toContain("Someone else changed this first");
     expect(await kindsOf(s.id)).toEqual(["retired"]);
   });
 
@@ -951,7 +951,7 @@ describe("test 10: retired is never public, and bringing back never makes a site
   it("the retire form of a public site says to take down any QR sticker; a private site's does not", async () => {
     const pub = await makeSite({ isPublic: true });
     const priv = await makeSite();
-    expect((await get(`/api/team/sites/${pub.id}`)).text).toContain("Take down any QR sticker at this place.");
+    expect((await get(`/api/team/sites/${pub.id}`)).text).toContain("If there&#39;s a QR sticker here, take it down.");
     expect((await get(`/api/team/sites/${priv.id}`)).text).not.toContain("QR sticker");
   });
 
@@ -1309,7 +1309,7 @@ describe("test 13: concurrent writes", () => {
     expect(targets.map((t) => [Number(t.lat), Number(t.lng)])).toContainEqual([row.lat, row.lng]);
     expect(events[0]!.after).toEqual({ lat: row.lat, lng: row.lng });
     const loser = await get(`/api/team/sites/${s.id}?done=stale`);
-    expect(loser.text).toContain("Someone already changed this.");
+    expect(loser.text).toContain("Someone else changed this first.");
   });
 
   it("a move racing an edit of the name: one wins, one history row, one definite state", async () => {
