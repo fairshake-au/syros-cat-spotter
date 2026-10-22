@@ -59,6 +59,8 @@ import {
   INDEX_DOWN_WORDS,
   LESS_SURE,
   LESS_SURE_SHORTLIST,
+  lessSureShortlist,
+  noCloseMatchShortlist,
   leftOutWords,
   NO_CLOSE_MATCH_SHORTLIST,
   SHORTLIST_EXPLAINER,
@@ -624,6 +626,42 @@ describe("the search", () => {
     expect(res.text).toContain(html(leftOutWords(17)));
     expect(leftOutWords(17)).toBe("17 newer cats weren't included this time. Choose an area to include them.");
     expect(leftOutWords(1)).toBe("1 newer cat wasn't included this time. Choose an area to include them.");
+  });
+
+  it("with fewer fingerprinted cats than the shortlist size, every line says the real count, not 20", async () => {
+    await islandDistinct(31);
+    let t = 0;
+    __fillClock.now = () => (t += 1000);
+    const team = await teamMember("fewerthank");
+    const res = await search(team.cookie, {});
+    expect(res.status).toBe(200);
+    const compared = Number(/Compared closely with the (\d+) of 31 cats/.exec(html(res.text))?.[1]);
+    expect(compared).toBeGreaterThan(0);
+    expect(compared).toBeLessThan(FIND_SHORTLIST_K);
+    expect(html(res.text)).toContain(html(shortlistResultsLine(31, compared)));
+    expect(html(res.text)).toContain(html(lessSureShortlist(compared)));
+    expect(html(res.text)).not.toContain(`the ${FIND_SHORTLIST_K} cats whose photos`);
+    expect(html(res.text)).not.toContain(`the ${FIND_SHORTLIST_K} of 31`);
+    expect(noCloseMatchShortlist(compared)).toBe(
+      `No close match among the ${compared} cats whose photos look most like yours. Try choosing an area, or`,
+    );
+  });
+
+  it("nothing close among fewer than the shortlist size names the real count", async () => {
+    await islandDistinct(31);
+    let t = 0;
+    __fillClock.now = () => (t += 1000);
+    matchMock.mockImplementation(async (_p, candidates: CandidateInput[]) => ({
+      isCatPhoto: true,
+      matches: candidates.map((c) => ({ catId: c.catId, confidence: 0.1, reasoning: "" })),
+    }));
+    const team = await teamMember("fewernomatch");
+    const res = await search(team.cookie, {});
+    expect(res.status).toBe(200);
+    const compared = Number(/Compared closely with the (\d+) of 31 cats/.exec(html(res.text))?.[1]);
+    expect(compared).toBeLessThan(FIND_SHORTLIST_K);
+    expect(html(res.text)).toContain(html(noCloseMatchShortlist(compared)));
+    expect(html(res.text)).not.toContain(`among the ${FIND_SHORTLIST_K} cats`);
   });
 
   it("nothing above Unlikely among the shortlist says §9.3's words, and the browse link keeps the area", async () => {

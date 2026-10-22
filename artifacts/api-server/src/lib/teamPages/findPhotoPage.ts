@@ -44,15 +44,23 @@ export const WHERE_HINT =
  */
 export const INDEX_DOWN_WORDS =
   "Searching the whole island isn't working right now. Choose an area or a colony to search without it.";
-/** Spec §9.3: shown instead of LESS_SURE when the shortlist was used. */
-export const LESS_SURE_SHORTLIST = `This is less sure than the app's matching. It first picked the ${FIND_SHORTLIST_K} cats whose photos look most like yours. A cat photographed in different light, from another angle or somewhere else can be missed. Check the photos yourself, and if you know where the photo was taken, try choosing the area.`;
+/**
+ * Spec §9.3: shown instead of LESS_SURE when the shortlist was used. `n` is how
+ * many cats were really compared: fewer than the shortlist size when only
+ * that many had a fingerprint in time.
+ */
+export const lessSureShortlist = (n: number = FIND_SHORTLIST_K) =>
+  `This is less sure than the app's matching. It first picked the ${n} cats whose photos look most like yours. A cat photographed in different light, from another angle or somewhere else can be missed. Check the photos yourself, and if you know where the photo was taken, try choosing the area.`;
+export const LESS_SURE_SHORTLIST = lessSureShortlist();
 /** Spec §9.2: the words before a search that will use the shortlist. */
 export const SHORTLIST_EXPLAINER = `The app picks the ${FIND_SHORTLIST_K} whose photos look most like yours, then compares those closely. This can take up to a minute.`;
-/** Spec §9.3: the results line when the shortlist was used. */
-export const shortlistResultsLine = (of: number) =>
-  `Compared closely with the ${FIND_SHORTLIST_K} of ${of} cats whose photos look most like yours`;
+/** Spec §9.3: the results line when the shortlist was used. `n`: how many were really compared. */
+export const shortlistResultsLine = (of: number, n: number = FIND_SHORTLIST_K) =>
+  `Compared closely with the ${n} of ${of} cats whose photos look most like yours`;
 /** Spec §9.3: nothing scored Possible or better. The browse link follows "or". */
-export const NO_CLOSE_MATCH_SHORTLIST = `No close match among the ${FIND_SHORTLIST_K} cats whose photos look most like yours. Try choosing an area, or`;
+export const noCloseMatchShortlist = (n: number = FIND_SHORTLIST_K) =>
+  `No close match among the ${n} cats whose photos look most like yours. Try choosing an area, or`;
+export const NO_CLOSE_MATCH_SHORTLIST = noCloseMatchShortlist();
 /** Spec §7: cats whose photo had no fingerprint when the time ran out. */
 export const leftOutWords = (n: number) =>
   `${n === 1 ? "1 newer cat wasn't" : `${n} newer cats weren't`} included this time. Choose an area to include them.`;
@@ -323,7 +331,7 @@ export function renderFindResults(o: FindResultsOptions): string {
   const grid = `<a class="tap" href="${esc(gridAddress(o.filters))}">Browse these cats as a grid</a>`;
   const shortlisted = o.shortlist != null;
   const noMatch = shortlisted
-    ? `<p class="notice" role="status">${esc(NO_CLOSE_MATCH_SHORTLIST)} <a class="tap" href="${esc(gridAddress(o.filters))}">browse the cats</a>.</p>`
+    ? `<p class="notice" role="status">${esc(noCloseMatchShortlist(o.compared))} <a class="tap" href="${esc(gridAddress(o.filters))}">browse the cats</a>.</p>`
     : `<p class="notice" role="status">No close match among these ${cats(o.compared)}.</p><p>${grid}</p>`;
   const matches =
     (close.length ? list(close) : noMatch) +
@@ -334,10 +342,10 @@ export function renderFindResults(o: FindResultsOptions): string {
   const body =
     tieIntro(o.tie, o.now) +
     (o.shortlist
-      ? `<p class="count" role="status">${esc(shortlistResultsLine(o.shortlist.of))}</p>`
+      ? `<p class="count" role="status">${esc(shortlistResultsLine(o.shortlist.of, o.compared))}</p>`
       : `<p class="count" role="status">Compared with ${cats(o.compared)} ${isWholeIsland(o.filters) ? "across the island" : `in ${esc(placeName(o.filters, o.colonies))}`}</p>`) +
     (o.leftOut ? `<p class="notice" role="status">${esc(leftOutWords(o.leftOut))}</p>` : "") +
-    `<p class="notice">${esc(o.shortlist ? LESS_SURE_SHORTLIST : LESS_SURE)}</p>` +
+    `<p class="notice">${esc(o.shortlist ? lessSureShortlist(o.compared) : LESS_SURE)}</p>` +
     `<div class="findcompare"><div class="findmine">${yourPhoto(o.preview)}</div><div class="findmatches">${matches}</div></div>`;
   return renderPage({
     title: "Find from a photo",
