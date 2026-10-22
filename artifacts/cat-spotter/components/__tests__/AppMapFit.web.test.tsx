@@ -89,7 +89,9 @@ describe('AppMap.web fit', () => {
 
   it('keeps the given view when there are no areas', async () => {
     render(<AppMap {...base} areas={[]} fitKey="all|" />);
-    await new Promise((r) => setTimeout(r, 50));
+    // Wait for the tiles themselves, not a fixed delay: under the full suite's
+    // load a 50 ms sleep sometimes ran before the first tile rendered (null).
+    await waitFor(() => expect(tileZoom()).not.toBeNull());
     expect(tileZoom()).toBe(12);
   });
 });
