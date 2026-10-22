@@ -18,9 +18,11 @@ import {
   ApiError,
   RequestTimeoutError,
   answerSightingQuestions,
+  getGetCatQueryKey,
   recheckSighting,
   resolveSighting,
   suggestCatNames,
+  useGetCat,
   type NameTakenCat,
   type ResolveResult,
 } from "@workspace/api-client-react";
@@ -60,7 +62,8 @@ import {
   type ReviewRouteData,
 } from "@/lib/reviewParams";
 import { linkRecentPhotoToCat } from "@/lib/recentPhotos";
-import { coverOf } from "@/lib/offlineQueue";
+import { coverOf, hintOf } from "@/lib/offlineQueue";
+import { canSpotFromPage } from "@/lib/spotHint";
 import {
   Button,
   Badge,
@@ -145,10 +148,42 @@ export default function ReviewScreen() {
   useEffect(() => {
     setRechecked(null);
     setRecheckState("idle");
+    setHintAnswered(false);
+    setHintMessage(null);
+    setHintRefused(false);
   }, [sightingId]);
   const queuedItem = data?.localId
     ? pending.find((p) => p.localId === data.localId)
     : undefined;
+
+  // SYC-574 (design-review-fixes-oct22.md §2.3, §2.4): the cat the spotter
+  // came to spot from its page. A queued spot keeps it on its queue item
+  // (read by localId, so the Spot tab's list and the "ready to review" banner
+  // need no change); an online send carries it in the route. It only ever
+  // asks "Is this {name}?" first: it never changes what the matcher's answer
+  // shows, and nothing below reads it.
+  const hintCatId = data?.localId ? hintOf(queuedItem) : data?.hintCatId;
+  const [hintAnswered, setHintAnswered] = useState(false);
+  const [hintBusy, setHintBusy] = useState(false);
+  // The question step's OWN message slot, never confirm()'s picker or send slots.
+  const [hintMessage, setHintMessage] = useState<string | null>(null);
+  // A refusal (NOT_NEARBY and the like): "Yes" becomes "Carry on".
+  const [hintRefused, setHintRefused] = useState(false);
+  const hintQuery = useGetCat(hintCatId ?? 0, {
+    query: {
+      enabled: hintCatId !== undefined,
+      // The cat page's own key, so the page the spotter came from answers it.
+      queryKey: [...getGetCatQueryKey(hintCatId ?? 0), deviceId],
+    },
+    request: deviceId ? { headers: { "X-Device-Id": deviceId } } : undefined,
+  });
+  const hintCatData =
+    hintCatId !== undefined && hintQuery.data?.cat?.id === hintCatId
+      ? hintQuery.data.cat
+      : null;
+  // A cat in care or one that has died is never asked about.
+  const hintCat = hintCatData && canSpotFromPage(hintCatData.lifeStatus) ? hintCatData : null;
+  const hintLoading = hintCatId !== undefined && !hintCatData && hintQuery.isLoading === true;
   // SYC-415: the queued spot's cover photo (the face photo when there is one,
   // spec §5.1). Its uri and base64 always come from the same photo.
   const cover = queuedItem ? coverOf(queuedItem) : null;
@@ -559,6 +594,149 @@ export default function ReviewScreen() {
           {t("tryAgain")}
         </Button>
       </ScrollView>
+    );
+  }
+
+  // ----- "Is this {name}?" (SYC-574, §2.3): its own first step -----
+  // Shown, identically, for every result except "not a cat" (which returned
+  // above and drops the hint): matches, no candidates and couldn't-check. It
+  // never looks at the candidates. "No" and "Carry on" open the screen the
+  // result would have opened; openedOn already names that screen.
+  if (hintCatId !== undefined && !hintAnswered && hintLoading) {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+  if (hintCat && !hintAnswered) {
+    const named = (key: string) => t(key).split("{name}").join(hintCat.name);
+    const sayYes = async () => {
+      if (!deviceId) return;
+      setHintBusy(true);
+      setHintMessage(null);
+      try {
+        await finishAndInvalidate(
+          await resolveSighting(data.sightingId, {
+            deviceId,
+            catId: hintCat.id,
+            // Decision D3 (R): recorded on every pick from this step,
+            // suggestion or not. The server still decides the label.
+            pickedFrom: "cat_page",
+          }),
+        );
+      } catch (err) {
+        const failure = classifyResolveError(err);
+        if (failure.kind === "offline") {
+          // Not a refusal: "Yes" stays, to try again with signal.
+          setHintMessage(noSignal);
+        } else {
+          setHintMessage(failure.kind === "not-nearby" ? "hintNotNearby" : "hintCantAdd");
+          setHintRefused(true);
+        }
+        setHintBusy(false);
+      }
+    };
+    const carryOn = () => {
+      setHintMessage(null);
+      setHintAnswered(true);
+    };
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]} testID="hint-question">
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <View style={{ width: 40 }} />
+          <Pressable
+            onPress={close}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t("extraPhotoClose")}
+          >
+            <Feather name="x" size={20} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
+        <ScrollView
+          contentContainerStyle={[styles.nameTakenBody, { paddingBottom: insets.bottom + 32 }]}
+        >
+          <Text
+            role="heading"
+            style={[styles.nameTakenTitle, { color: colors.foreground }]}
+            testID="hint-question-title"
+          >
+            {named("hintQuestion")}
+          </Text>
+          <View style={styles.compareRow}>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={[styles.photoLabel, { color: colors.mutedForeground }]}>
+                {t("yourPhoto")}
+              </Text>
+              {yourPhoto}
+            </View>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={[styles.photoLabel, { color: colors.mutedForeground }]}>
+                {named("hintTheirPhoto")}
+              </Text>
+              <Image
+                source={photoSource(hintCat.photoUrl)}
+                style={[styles.pickerPhoto, { borderColor: colors.border }]}
+                contentFit="cover"
+                accessibilityLabel={named("hintTheirPhoto")}
+              />
+            </View>
+          </View>
+          {hintRefused ? (
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              wrapLabel
+              testID="hint-carry-on"
+              onPress={carryOn}
+            >
+              {t("hintCarryOn")}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              wrapLabel
+              disabled={hintBusy}
+              testID="hint-yes"
+              accessibilityLabel={named("hintYes")}
+              onPress={sayYes}
+            >
+              {hintBusy ? (
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+              ) : (
+                named("hintYes")
+              )}
+            </Button>
+          )}
+          {/* "No" has the same weight as "Yes" (§2.6: primed answers). */}
+          {hintRefused ? null : (
+            <Button
+              variant="secondary"
+              size="lg"
+              block
+              wrapLabel
+              disabled={hintBusy}
+              testID="hint-no"
+              accessibilityLabel={named("hintNo")}
+              onPress={carryOn}
+            >
+              {named("hintNo")}
+            </Button>
+          )}
+          {hintMessage ? (
+            <Text
+              style={[styles.sendMessage, { color: colors.foreground }]}
+              testID="hint-message"
+            >
+              {named(hintMessage)}
+            </Text>
+          ) : null}
+        </ScrollView>
+      </View>
     );
   }
 
