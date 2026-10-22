@@ -90,15 +90,9 @@ describe("path 1: setPhotoVisibility (the team hides a photo)", () => {
     expect((await setPhotoVisibility(staff, { publicId: a.publicId, action: "restore" })).kind).toBe("changed");
     expect(await hasFingerprint(a.id)).toBe(false);
   });
-
-  it("a restore leaves a public photo's fingerprint alone", async () => {
-    const a = await seedPhoto();
-    expect((await setPhotoVisibility(staff, { publicId: a.publicId, action: "hide" })).kind).toBe("changed");
-    expect((await setPhotoVisibility(staff, { publicId: a.publicId, action: "restore" })).kind).toBe("changed");
-    await addFingerprint(a.id); // made again once it is public
-    expect((await setPhotoVisibility(staff, { publicId: a.publicId, action: "restore" })).kind).toBe("already");
-    expect(await hasFingerprint(a.id)).toBe(true);
-  });
+  // That a restore event never deletes one (the trigger's WHEN) is tested in
+  // lib/db/src/photoFingerprints.test.ts: here a restore of a public photo
+  // writes no event at all.
 });
 
 describe("path 2: applyHideRules (a report hides a photo)", () => {
