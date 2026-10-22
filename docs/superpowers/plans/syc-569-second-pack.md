@@ -6,7 +6,7 @@ Rules applied (SYC-346, SYC-159): French uses *tu*; Greek capitals drop their ac
 
 Greek needs an article before the cat's name (the existing claim strings already say *η {name}*); please check that reads right for a name whose cat is male.
 
-Status of this file: **Parts 1 (SYC-571) and 3 (SYC-573).** Part 2 adds its rows when it lands (T2.7).
+Status of this file: **Parts 1 (SYC-571), 2 (SYC-574) and 3 (SYC-573).**
 
 ## App strings (`artifacts/cat-spotter/lib/i18n.ts`)
 
@@ -25,7 +25,7 @@ Status of this file: **Parts 1 (SYC-571) and 3 (SYC-573).** Part 2 adds its rows
 | `reportCheckBlocked` | Your report is saved, but something in this browser (often an ad blocker) is stopping it sending. Turn it off for this page and we’ll try again. If that doesn’t help, allow challenges.cloudflare.com. | Η αναφορά σου είναι αποθηκευμένη, αλλά κάτι σε αυτό το πρόγραμμα περιήγησης (συχνά ένας αποκλεισμός διαφημίσεων) εμποδίζει την αποστολή. Απενεργοποίησέ το για αυτή τη σελίδα και θα ξαναπροσπαθήσουμε. Αν δεν βοηθήσει, επίτρεψε το challenges.cloudflare.com. | Ton signalement est enregistré, mais quelque chose dans ce navigateur (souvent un bloqueur de publicités) l’empêche de partir. Désactive-le pour cette page et nous réessaierons. Si ça n’aide pas, autorise challenges.cloudflare.com. |
 
 Notes:
-- `claimAskSpotNow` is added now but is not shown until Part 2 (the "Spot {name} now" button in street mode).
+- `claimAskSpotNow` is shown from Part 2: the "Spot {name} now" button in street mode.
 - `claimAskHomed` must keep `hello@catspotters.com` in the sentence: the sheet turns that address into a mail link by finding it in the text.
 - `reportCheckBlocked` keeps `challenges.cloudflare.com` last (a test pins it).
 
@@ -59,3 +59,26 @@ Notes:
 - `areaOfCat` in French is "Zone : {name}" on purpose: "Zone de {name}" would need "d’" before a name starting with a vowel, which a fixed template can't do. Johnny may prefer another shape.
 - `areaOfCat` in Greek uses the article *της* before the name, like the claim strings; please check it reads right for a male cat.
 - `mapShowAll` reuses the wording of the existing `pickerShowAll`.
+
+## Part 2: "I've spotted {name}" (SYC-574)
+
+App strings (`artifacts/cat-spotter/lib/i18n.ts`). `claimAskSpotNow` (Part 1's table) is now shown: the "Spot {name} now" button in the street sheet.
+
+| Key | English | el draft | fr draft |
+|---|---|---|---|
+| `spottedCatButton` | I’ve spotted {name} | Εντόπισα την {name} | J’ai repéré {name} |
+| `spotHintBanner` | Spotting {name} | Εντοπίζεις την {name} | Tu repères {name} |
+| `spotHintStop` | Stop spotting {name} | Σταμάτα τον εντοπισμό της {name} | Arrêter de repérer {name} |
+| `hintQuestion` | Is this {name}? | Είναι η {name}; | C’est {name} ? |
+| `hintTheirPhoto` | {name}’s photo | Η φωτογραφία της {name} | La photo de {name} |
+| `hintYes` | Yes, it’s {name} | Ναι, είναι η {name} | Oui, c’est {name} |
+| `hintNo` | No, it’s a different cat | Όχι, είναι άλλη γάτα | Non, c’est un autre chat |
+| `hintCarryOn` | Carry on | Συνέχισε | Continuer |
+| `hintNotNearby` | {name} isn’t listed near where you took this photo, so this photo can’t go on {name}’s page. Carry on to find the right cat. | Η {name} δεν είναι καταγεγραμμένη κοντά στο σημείο όπου τράβηξες τη φωτογραφία, οπότε δεν μπορούμε να την προσθέσουμε στη σελίδα της {name}. Συνέχισε για να βρεις τη σωστή γάτα. | {name} n’est pas répertorié près de l’endroit où tu as pris cette photo, donc nous ne pouvons pas l’ajouter à la page de {name}. Continue pour trouver le bon chat. |
+| `hintCantAdd` | We couldn’t add this photo to {name}’s page. Carry on to find the right cat. | Δεν μπορέσαμε να προσθέσουμε τη φωτογραφία στη σελίδα της {name}. Συνέχισε για να βρεις τη σωστή γάτα. | Nous n’avons pas pu ajouter cette photo à la page de {name}. Continue pour trouver le bon chat. |
+
+Notes:
+- `spottedCatButton` is the cat page's main button; `spotHintBanner` and `spotHintStop` (the ✕'s spoken label) are the Spot screen's banner; the `hint*` keys are the "Is this {name}?" step in review.
+- `hintNotNearby` and `hintCantAdd` show on that step when the server refuses the pick; the button then reads `hintCarryOn`. With no signal the step reuses the existing `pickerNoSignal` / `pickerNoSignalStay` lines.
+- Greek uses the article *η* / *της* / *την* before the name, as in Part 1; please check it reads right for a male cat (e.g. `hintQuestion` "Είναι η {name};").
+- French `hintNotNearby` says "{name} n’est pas répertorié", masculine, which a fixed template can't adjust for a female cat; Johnny may prefer a shape without the agreement.

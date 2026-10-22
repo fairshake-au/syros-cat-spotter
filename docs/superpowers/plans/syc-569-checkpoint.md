@@ -66,3 +66,5 @@ Part 3 gate (full suites, typechecks), then Part 2.
 - Next: T2.6.
 - [x] T2.6 `ClaimAskSheet` takes `onSpotNow`; in street mode (only) it renders "Spot {name} now" (`claimAskSpotNow`, primary, above OK). The cat page passes it for spottable cats: closes the sheet, then `afterModalCloses(() => router.push(spotRouteFor(cat.id)))` (iOS won't navigate under a closing modal; web/Android at once). Tests: `ClaimAskSheet.test.tsx` (+2: street shows and calls it, homed never), `CatPageSpotted.test.tsx` (+1: the page closes the sheet and pushes `/spot?for=7`). Part 1's "must not render in Part 1" comment reworded; its assertion (no button without `onSpotNow`) unchanged.
 - Next: T2.7 (second-pack rows, parity), then the full suite.
+- [x] T2.7 Part 2 rows in `syc-569-second-pack.md` (10 new keys, generated from the dictionaries so they match; `claimAskSpotNow` note updated; status line now names Parts 1–3). el informal *σου*, article before the name as Part 1; fr *tu*. Flagged for Johnny: Greek article for male cats, French masculine agreement in `hintNotNearby`. `lib/__tests__/i18n.test.ts` (parity) 10/10.
+- Next: Part 2 app gate (full cat-spotter vitest, typecheck).
