@@ -58,7 +58,7 @@ const downloadsSince = async (personId: string, after: number) =>
   ).rows;
 
 describe("the Reports list", () => {
-  it("lists the seven reports; the four built ones are linked, Donations says it's coming once donations are set up", async () => {
+  it("lists the seven reports; the five built ones are linked, Donations says it's coming once donations are set up", async () => {
     const res = await get("/api/team/insights", team.cookie);
     expect(res.status).toBe(200);
     const cards = [...res.text.matchAll(/<li class="card reportcard" id="report-(\w+)">([\s\S]*?)<\/li>/g)];
@@ -69,19 +69,19 @@ describe("the Reports list", () => {
     // PR 3.3b.
     expect(card("coverage")).toContain('<a href="/api/team/insights/coverage">Coverage and spotting</a>');
     expect(card("welfare")).toContain('<a href="/api/team/insights/welfare">Welfare patterns</a>');
+    // PR 3.3c.
+    expect(card("vet")).toContain('<a href="/api/team/insights/vet">Vet visits and costs</a>');
     expect(card("donations")).not.toContain("<a ");
     expect(card("donations")).toContain("Coming once donations are set up");
-    for (const key of ["vet", "impact"]) {
-      expect(card(key), key).not.toContain("<a ");
-      expect(card(key), key).toContain("Coming soon");
-    }
+    expect(card("impact")).not.toContain("<a ");
+    expect(card("impact")).toContain("Coming soon");
     // Reports is in the menu, underlined here.
     expect(res.text).toContain('<a class="here" href="/api/team/insights" aria-current="page">Reports</a>');
   });
 
   it("a report not built yet is a 404, not a page", async () => {
-    expect((await get("/api/team/insights/vet", team.cookie, false)).status).toBe(404);
-    expect((await get("/api/team/insights/vet.csv", team.cookie, false)).status).toBe(404);
+    expect((await get("/api/team/insights/impact", team.cookie, false)).status).toBe(404);
+    expect((await get("/api/team/insights/impact.csv", team.cookie, false)).status).toBe(404);
   });
 });
 

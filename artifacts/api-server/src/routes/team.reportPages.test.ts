@@ -1,12 +1,26 @@
 import { randomBytes } from "node:crypto";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { coloniesTable, db, observationsTable, pool, sightingsTable } from "@workspace/db";
+import { catsTable, coloniesTable, db, observationsTable, pool, sightingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { deleteTestSightings } from "../test/sightings";
 import { seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import app from "../app";
-import { RUN, seedCat, signedPerson, type Signed } from "../test/roleKit";
+import { RUN, guardianOn, newColony, seedCat, signedPerson, type Signed } from "../test/roleKit";
+import { logVetVisit } from "../lib/vetVisits";
+
+// Every team member holds view_vet_costs today, so `can` is wrapped: the
+// person in `denied.id` is refused view_vet_costs, and only that (the
+// vetVisits.test.ts pattern). Everyone else gets the real answer.
+const denied = vi.hoisted(() => ({ id: null as string | null }));
+vi.mock("../lib/capabilities", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../lib/capabilities")>();
+  return {
+    ...real,
+    can: (...args: Parameters<typeof real.can>) =>
+      args[1] === "view_vet_costs" && args[0].id === denied.id ? false : real.can(...args),
+  };
+});
 
 // SYC-396 PR 3.3a, Task 3.3a.3 (spec §9.3, §12.3): the Sterilisation progress
 // and Colony health pages, and their spreadsheet files. Assertions are on
@@ -227,6 +241,89 @@ describe("Welfare patterns (PR 3.3b)", () => {
     const areas = await get("/api/team/insights/welfare-areas.csv?range=all");
     expect(csvHeader(areas.text)).toEqual(["Area", "Welfare reports"]);
     expect(csvHeader(areas.text)).toEqual(headers(page.text, 1));
+  });
+});
+
+describe("Vet visits and costs (PR 3.3c)", () => {
+  /** A cat whose name a spreadsheet would run as a formula, with two visits today. */
+  let cat: { id: number; name: string };
+  let noCosts: Signed;
+  let guardian: Signed;
+
+  beforeAll(async () => {
+    const seeded = await seedCat(null);
+    const name = `=HYPERLINK("x") ${RUN} ${randomBytes(2).toString("hex")}`;
+    await db.update(catsTable).set({ name }).where(eq(catsTable.id, seeded.id));
+    cat = { id: seeded.id, name };
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
+    const staff = { id: team.id, scopes: [{ role: "staff", colonyId: null }] };
+    await logVetVisit(staff, { catId: cat.id, date: today, value: { did: ["sterilised", "vaccinated"], vaccines: ["rabies"], clinicId: "symviosis", costEur: 60, paidBy: "syros_cats" } });
+    await logVetVisit(staff, { catId: cat.id, date: today, value: { did: ["checked"], clinicId: "symviosis", costEur: 25, paidBy: "owner" } });
+    noCosts = await signedPerson("report-pages-no-costs", ["staff"]);
+    denied.id = noCosts.id;
+    guardian = await guardianOn("report-pages-guardian", [await newColony("report-pages")]);
+  });
+
+  afterAll(() => {
+    denied.id = null;
+  });
+
+  it("shows spend per month, spend by what was done, cost per sterilisation, no cost recorded, and every visit", async () => {
+    const res = await get("/api/team/insights/vet?range=month");
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/<strong>\d+<\/strong> vet visits?/);
+    expect(res.text).toContain('aria-label="Syros Cats\' spend per month"');
+    expect(res.text).toContain('id="by-purpose"');
+    expect(res.text).toContain('id="per-sterilisation"');
+    expect(res.text).toContain('id="no-cost"');
+    expect(res.text).toContain("Counted by the date of the visit.");
+    expect(res.text).toContain("Owner-paid visits are listed, but never added into spend.");
+    const captions = [...res.text.matchAll(/<table class="rtable"><caption>([^<]*)<\/caption>/g)].map((m) => m[1]);
+    expect(captions).toEqual(["Visits and Syros Cats&#39; spend per month", "Syros Cats&#39; spend by what was done", "Every visit, newest first"]);
+    expect(headers(res.text, 2)).toEqual(["Cat", "Date", "Clinic", "What was done", "Cost", "Paid by"]);
+    // The owner-paid visit is in the table, with its cost and who paid.
+    expect(res.text).toContain("The owner");
+    expect(res.text).toContain(`href="/api/team/cats/${cat.id}"`);
+  });
+
+  it("every spreadsheet's columns are its table's; the visits file lists the owner-paid visit and the = name is text", async () => {
+    const page = (await get("/api/team/insights/vet?range=month")).text;
+    for (const [file, n] of [["vet-months", 0], ["vet-purposes", 1], ["vet-visits", 2]] as const) {
+      const csv = await get(`/api/team/insights/${file}.csv?range=month`);
+      expect(csv.status, file).toBe(200);
+      expect(csvHeader(csv.text), file).toEqual(headers(page, n));
+    }
+    const visits = (await get("/api/team/insights/vet-visits.csv?range=month")).text;
+    const mine = visits.split("\r\n").filter((l) => l.includes(RUN) && l.includes("HYPERLINK"));
+    expect(mine).toHaveLength(2);
+    for (const l of mine) expect(l.startsWith(`"'=HYPERLINK(""x"") ${RUN}`)).toBe(true);
+    expect(mine.some((l) => l.endsWith(",25,The owner"))).toBe(true);
+    expect(mine.some((l) => l.includes("Sterilised, vaccinated (") && l.endsWith(",60,Syros Cats"))).toBe(true);
+    expect(visits).not.toMatch(/(^|\r\n|,)=HYPERLINK/);
+  });
+
+  it("someone without view_vet_costs is refused the page and every file, and nothing is recorded", async () => {
+    const since = (await pool.query<{ n: number }>("select coalesce(max(id), 0)::int as n from report_downloads")).rows[0]!.n;
+    const page = await request(app).get("/api/team/insights/vet").set("Cookie", noCosts.cookie).set("Accept", "text/html");
+    expect(page.status).toBe(403);
+    expect(page.text).not.toContain("Syros Cats' spend");
+    for (const file of ["vet-months", "vet-purposes", "vet-visits"]) {
+      const csv = await request(app).get(`/api/team/insights/${file}.csv`).set("Cookie", noCosts.cookie).set("Accept", "text/html");
+      expect(csv.status, file).toBe(403);
+      expect(csv.text, file).not.toContain("HYPERLINK");
+    }
+    const rows = await pool.query("select 1 from report_downloads where person_id = $1 and id > $2", [noCosts.id, since]);
+    expect(rows.rowCount).toBe(0);
+    // The list doesn't link a report they can't open.
+    const list = await request(app).get("/api/team/insights").set("Cookie", noCosts.cookie).set("Accept", "text/html");
+    expect(list.text).not.toContain('href="/api/team/insights/vet"');
+    // The same person sees the other reports.
+    expect((await request(app).get("/api/team/insights/welfare").set("Cookie", noCosts.cookie).set("Accept", "text/html")).status).toBe(200);
+  });
+
+  it("a cat guardian is refused the page and the files", async () => {
+    expect((await request(app).get("/api/team/insights/vet").set("Cookie", guardian.cookie).set("Accept", "text/html")).status).toBe(403);
+    expect((await request(app).get("/api/team/insights/vet-visits.csv").set("Cookie", guardian.cookie).set("Accept", "text/html")).status).toBe(403);
   });
 });
 
