@@ -767,3 +767,42 @@ describe('a failed look-alike check in the queue (SYC-503)', () => {
     expect(ctx.current.pending[0].canRecheck).toBeUndefined();
   });
 });
+
+describe('SYC-574: a queued spot\'s hint stays on the phone', () => {
+  it('keeps hintCatId on the item through sync, and the replayed body never carries it', async () => {
+    const createdAt = '2026-10-21T09:00:00.000Z';
+    createSighting.mockResolvedValueOnce({ sightingId: 31, isCatPhoto: true, candidates: [] });
+    const ctx = renderProvider();
+    await act(async () => {
+      await ctx.current.enqueue(
+        {
+          localId: 'q-1',
+          photoBase64: 'queued-photo',
+          photoUri: 'file://picker-cache/q-1.jpg',
+          lat: 37.441,
+          lng: 24.942,
+          createdAt,
+        },
+        { hintCatId: 7 },
+      );
+    });
+    expect(ctx.current.pending[0]).toMatchObject({ localId: 'q-1', hintCatId: 7, status: 'queued' });
+    expect(persistedQueue()[0].hintCatId).toBe(7);
+
+    await act(async () => {
+      await ctx.current.syncNow();
+    });
+
+    expect(createSighting).toHaveBeenCalledTimes(1);
+    expect(createSighting).toHaveBeenCalledWith({
+      deviceId: 'device-1',
+      photoBase64: 'queued-photo',
+      lat: 37.441,
+      lng: 24.942,
+      capturedAt: createdAt,
+    });
+    expect(JSON.stringify(createSighting.mock.calls[0])).not.toMatch(/hint/i);
+    expect(ctx.current.pending[0]).toMatchObject({ status: 'review', sightingId: 31, hintCatId: 7 });
+    await waitFor(() => expect(persistedQueue()[0]).toMatchObject({ status: 'review', hintCatId: 7 }));
+  });
+});

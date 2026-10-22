@@ -70,6 +70,8 @@ import {
 } from '@/lib/pendingPhotos';
 import { buildReviewParams } from '@/lib/reviewParams';
 import { CaptureControls } from '@/components/CaptureControls';
+import { SpotHintBanner } from '@/components/SpotHintBanner';
+import { useSpotHint } from '@/hooks/useSpotHint';
 import { Button } from '@/components/purropolis/Button';
 import { Card } from '@/components/purropolis/Card';
 import { Badge } from '@/components/purropolis/Badge';
@@ -195,6 +197,10 @@ export default function SpotScreen() {
     setPhotoState(next);
   }, []);
   React.useEffect(() => () => releasePhotoUri(photoUriRef.current), []);
+  // SYC-574 (design-review-fixes-oct22.md §2.2): the cat the spotter came to
+  // spot from its page. It belongs to the photo about to be taken or staged,
+  // lives only on the phone, and is never part of the request body.
+  const { hintCatId, hintCat, dispatch: dispatchHint } = useSpotHint(photo !== null);
   // Stamped when the photo is picked. Submitting can happen minutes later —
   // and across local midnight — so using submit time would put the sighting on
   // the wrong day for streak purposes.
@@ -489,6 +495,8 @@ export default function SpotScreen() {
   const clearPhoto = () => {
     retakeFirstPhoto();
     setExtras({});
+    // SYC-574: "Start again" drops the hint too ("Retake photo" keeps it).
+    dispatchHint({ kind: 'startAgain' });
   };
 
   const choosePhoto = async (
@@ -908,6 +916,9 @@ export default function SpotScreen() {
       setSubmitting(true);
       // A photo still being picked for the boxes must not join this spot.
       spotGenerationRef.current += 1;
+      // SYC-574: the hint this spot leaves with. It goes to review (online)
+      // or onto the queued item (offline), never into the request body.
+      const hint = hintCatId;
       try {
         // Two different photos from the same second would otherwise be one
         // sighting to the server (SYC-166 Decision 2 B): move this one on by
@@ -969,6 +980,11 @@ export default function SpotScreen() {
                   base64: extra.base64,
                 })),
               }),
+              // SYC-574: set on the stored item AFTER queuedSighting builds
+              // it, so the saved-for-later shape (test 6b) stays exactly as
+              // it was. The replay builds its body field by field and never
+              // reads it.
+              { hintCatId: hint },
             ).then((result) => {
               extraNotKept = result.extraNotKept;
               keptRoles = result.keptRoles;
@@ -1044,6 +1060,7 @@ export default function SpotScreen() {
               cover.uri,
               cover.base64,
             );
+            dispatchHint({ kind: 'sent' });
             clearPhoto();
             router.push({
               pathname: '/review',
@@ -1058,11 +1075,14 @@ export default function SpotScreen() {
                 // list the cats near it.
                 lat: finalCoords.latitude,
                 lng: finalCoords.longitude,
+                // SYC-574: asks "Is this {name}?" first. Never sent anywhere.
+                hintCatId: hint,
               }),
             });
             break;
           }
           case 'saved':
+            dispatchHint({ kind: 'sent' });
             clearPhoto();
             notify(
               outcome.reason === 'offline' ? t('queuedOffline') : t('savedForLater'),
@@ -1508,6 +1528,15 @@ export default function SpotScreen() {
           paddingBottom: insets.bottom + (Platform.OS === 'web' ? 110 : 100),
         }}
       >
+        {/* SYC-574: "Spotting {name}", above the camera (and above a
+            staged photo, which the hint applies to). */}
+        {hintCat ? (
+          <SpotHintBanner
+            catName={hintCat.name}
+            photoUrl={hintCat.photoUrl}
+            onStop={() => dispatchHint({ kind: 'stop' })}
+          />
+        ) : null}
         {!photo && photoProblem && (
           // SYC-166: a library photo we can't use. The library is offered from
           // this card's own button: a browser only opens a file chooser from

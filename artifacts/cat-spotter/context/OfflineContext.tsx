@@ -51,6 +51,7 @@ import {
   applyServerFailure,
   classifySyncFailure,
   extrasOf,
+  hintOf,
   markStaleItems,
   resetForRetry,
   type ExtraRef,
@@ -73,7 +74,7 @@ export interface EnqueueExtra {
 /** What callers provide when queueing — always includes the photo base64. */
 export type EnqueueInput = Omit<
   PendingSighting,
-  'status' | 'photoBase64' | 'extraPhotos' | 'extraNote' | 'rejectedRole'
+  'status' | 'photoBase64' | 'extraPhotos' | 'extraNote' | 'rejectedRole' | 'hintCatId'
 > & {
   photoBase64: string;
   extraPhotos?: EnqueueExtra[];
@@ -106,8 +107,13 @@ interface OfflineContextValue {
    */
   readOnly: boolean;
   pending: PendingSighting[];
-  /** Throws QueueWriteError if the sighting could not be saved. */
-  enqueue: (item: EnqueueInput) => Promise<EnqueueResult>;
+  /**
+   * Throws QueueWriteError if the sighting could not be saved. SYC-574: a
+   * hint (`hintCatId`) is set on the stored item here, after `queuedSighting`
+   * built it, so the saved-for-later shape stays pinned (test 6b). It stays
+   * on the phone: the replay builds its body field by field and never reads it.
+   */
+  enqueue: (item: EnqueueInput, options?: { hintCatId?: number | null }) => Promise<EnqueueResult>;
   /** Throws QueueWriteError if the change could not be saved. */
   remove: (localId: string) => Promise<void>;
   /** Put a failed item back in the queue and try syncing again. */
@@ -698,8 +704,9 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   }, [syncNow]);
 
   const enqueue = useCallback(
-    async (item: EnqueueInput) => {
+    async (item: EnqueueInput, options?: { hintCatId?: number | null }) => {
       await store.ready;
+      const hint = hintOf(options);
       // Store the photo outside the list so the list stays small.
       const saved = keepInlineUnlessBroken(
         await savePendingPhoto(item.localId, item.photoUri, item.photoBase64),
@@ -739,6 +746,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         ...base,
         ...(extraRefs.length > 0 ? { extraPhotos: extraRefs } : {}),
         ...(extraNotKept ? { extraNote: 'extraNotKept' as const } : {}),
+        ...(hint !== undefined ? { hintCatId: hint } : {}),
       };
       try {
         await store.mutate((list) => {
