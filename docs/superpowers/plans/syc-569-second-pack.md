@@ -6,7 +6,7 @@ Rules applied (SYC-346, SYC-159): French uses *tu*; Greek capitals drop their ac
 
 Greek needs an article before the cat's name (the existing claim strings already say *η {name}*); please check that reads right for a name whose cat is male.
 
-Status of this file: **Part 1 (SYC-571) only.** Parts 2 and 3 add their rows when they land (T2.7, T3.4).
+Status of this file: **Parts 1 (SYC-571) and 3 (SYC-573).** Part 2 adds its rows when it lands (T2.7).
 
 ## App strings (`artifacts/cat-spotter/lib/i18n.ts`)
 
@@ -42,3 +42,20 @@ These are not live yet (`LIVE_LANGUAGES = ["en"]`), but they keep the three dict
 ## Keys removed in Part 1 (nothing to translate)
 
 `claimNotMetHint`, `claimNewPhone`, `earTipUsuallyLeft` and `deleteDoneEmail` (app, all three languages); `sites.mapHint` and `new.mapNote` (dashboard, replaced by the three `map.*` keys above).
+
+## Part 3: maps open on the cats (SYC-573)
+
+App strings (`artifacts/cat-spotter/lib/i18n.ts`). The first three are only ever used for **2 or more cats** (a lone cat's square has no count), so one plural form per language is enough.
+
+| Key | English | el draft | fr draft |
+|---|---|---|---|
+| `catsInArea` | {n} cats | {n} γάτες | {n} chats |
+| `areaWithCats` | Area with {n} cats | Περιοχή με {n} γάτες | Zone avec {n} chats |
+| `areaOfCat` | {name}’s area | Περιοχή της {name} | Zone : {name} |
+| `mapShowAll` | Show all | Εμφάνιση όλων | Tout afficher |
+
+Notes:
+- `catsInArea` is the label drawn on a shared square, shown only when the square is at least 40 px wide. `areaWithCats` and `areaOfCat` are the spoken labels (web).
+- `areaOfCat` in French is "Zone : {name}" on purpose: "Zone de {name}" would need "d’" before a name starting with a vowel, which a fixed template can't do. Johnny may prefer another shape.
+- `areaOfCat` in Greek uses the article *της* before the name, like the claim strings; please check it reads right for a male cat.
+- `mapShowAll` reuses the wording of the existing `pickerShowAll`.
