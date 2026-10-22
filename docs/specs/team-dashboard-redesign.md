@@ -188,11 +188,11 @@ The Cats screen opens on **every active cat**, most recently seen first. It's a 
 
 **Who and what it's for.** It's for the team only, and sits on the Cats screen as **"Find from a photo"**. The team chooses or takes a photo, for example one a resident sent on WhatsApp, and narrows the search before it runs.
 
-**Narrowing.** The search compares the photo against a limited set of cats, so the team must say where to look:
-- **Required:** a named area, or a colony.
+**Narrowing.** The search compares the photo against a limited set of cats, so the team says where to look:
+- **Where:** "Anywhere on the island" (the first choice, and the one chosen when nothing else is), a named area, or a colony. With "Anywhere on the island" chosen, the form says: "Anywhere on the island compares every cat. If you know where the photo was taken, choosing the area is surer."
 - **Strongly suggested:** one or more colour chips.
-- The page shows how many cats that leaves ("34 cats to compare").
-- If more than 30 cats are left, it asks for a colour or a smaller area before it will run.
+- The page shows how many cats that leaves ("34 cats to compare", or "34 cats to compare across the island").
+- If more than 30 cats are left, it asks for a colour or a smaller area before it will run. On the island it says: "There are now too many cats to compare them all at once. Choose an area or a colony."
 
 **How it compares.** It uses the matching model the app uses for sightings. The app's matching compares a photo with at most 10 nearby cats in one go, so Find from a photo works through the narrowed cats **in groups of up to 10** (at most 3 groups). The best few from all the groups are then compared again together in one final round, so their scores can be ranked against each other.
 

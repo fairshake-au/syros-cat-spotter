@@ -21,16 +21,30 @@ vi.mock("../middlewares/rateLimit", async (orig) => {
   };
 });
 vi.mock("../lib/matching", () => ({ matchCatPhoto: vi.fn() }));
+// The island test seam (SYC-527 piece 1): with no place, "the island" is only this file's own island cat.
+vi.mock("../lib/teamCatList", async (orig) => {
+  const real = (await orig()) as typeof import("../lib/teamCatList");
+  return {
+    ...real,
+    allTeamCats: vi.fn(async (f: Parameters<typeof real.allTeamCats>[0], now?: Date) => {
+      const out = await real.allTeamCats(f, now);
+      if (f.area !== undefined || f.colony !== undefined) return out;
+      const cats = out.cats.filter((c) => c.name.startsWith(ISLE));
+      return { ...out, cats, catCount: cats.length };
+    }),
+  };
+});
 
 import app from "../app";
 import { matchCatPhoto } from "../lib/matching";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
-import { MATCHING_DOWN_WORDS } from "../lib/teamPages/findPhotoPage";
+import { MATCHING_DOWN_ISLAND_WORDS, MATCHING_DOWN_WORDS } from "../lib/teamPages/findPhotoPage";
 import { newColony, putInColony, RUN, signedPerson, type Signed } from "../test/roleKit";
 import { STRICT_CSP } from "../test/wideCsp";
 
 const KEY = "vitest-finddown-key-0123456789abcdef-0123456789";
 const PREFIX = `vt-finddown-${RUN}-`;
+const ISLE = `${PREFIX}isle-`;
 let team: Signed;
 let colony: number;
 let upload: Buffer;
@@ -50,6 +64,9 @@ beforeAll(async () => {
     .values({ name: `${PREFIX}cat`, primaryPhotoId: p!.id, lat: 37.4447, lng: 24.9417, discovererDeviceId: `${PREFIX}d` })
     .returning({ id: catsTable.id });
   await putInColony(c!.id, colony);
+  await db
+    .insert(catsTable)
+    .values({ name: `${ISLE}cat`, primaryPhotoId: p!.id, lat: 37.4447, lng: 24.9417, discovererDeviceId: `${PREFIX}d` });
   team = await signedPerson(`finddown-${RUN}`, ["staff"]);
   upload = await jpeg("#aa5500");
 });
@@ -80,6 +97,19 @@ describe("the daily count is down", () => {
     expect(res.headers["content-type"]).toMatch(/text\/html/);
     expect(res.headers["content-security-policy"]).toBe(STRICT_CSP);
     expect(res.text).toContain(MATCHING_DOWN_WORDS.replace("isn't", "isn&#39;t").replace("area's", "area&#39;s"));
+    expect(vi.mocked(matchCatPhoto)).not.toHaveBeenCalled();
+  });
+
+  it("on the island the 503 says to browse the cats, not an area's cats", async () => {
+    const res = await request(app)
+      .post("/api/team/cats/find")
+      .set("Origin", TEAM_ORIGIN)
+      .set("Cookie", team.cookie)
+      .set("Accept", "text/html")
+      .attach("photo", upload, "cat.jpg");
+    expect(res.status).toBe(503);
+    expect(res.text).toContain(MATCHING_DOWN_ISLAND_WORDS.replace("isn't", "isn&#39;t"));
+    expect(res.text).not.toContain("this area");
     expect(vi.mocked(matchCatPhoto)).not.toHaveBeenCalled();
   });
 
