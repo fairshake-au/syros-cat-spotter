@@ -4,12 +4,11 @@ For approval. English only here; the Greek and French drafts follow once the Eng
 
 Source: `docs/reviews/copy-review-2026-10-22.md`. Who-sees-it comes from the render conditions in the code (checked 22 Oct). Not in this table: the "What we know" section of the team cat page (SYC-521), onboarding "desex" (SYC-348), and everything already fixed on the base branch.
 
-**Three things I could not decide from the code** (questions for Samuel, marked ASK):
+**Four things I could not decide from the code** (questions for Samuel, marked ASK):
 1. `lifeStatusInCare`: what "In Syros Cats' care" means.
 2. `howStepHelpBody`: whether Syros Cats vaccinates.
 3. `fact.cost`: whether sterilising a male costs the same as a female. The fact is on the Syros Cats sign-off list, so a change to what it claims needs their yes.
-
-**4. Whether to rename "Private / Public" on sites.** I recommend leaving it (see the table).
+4. Whether to rename "Private / Public" on sites. I recommend leaving it (see the table).
 
 **Where the review's suggestion was wrong or needed changing** (marked CHANGED):
 - `signInRequiredTitle`: the review said "Pick your name again". The banner actually opens the website's pre-launch password page. It is only for testers before launch, so the right fix is to say that.
@@ -71,10 +70,8 @@ Source: `docs/reviews/copy-review-2026-10-22.md`. Who-sees-it comes from the ren
 | Report busy (`reportBusy`) | Someone who sent many reports from one network in an hour | Too many reports have come from this connection in the last hour. Yours is saved on your phone and will send itself within the hour. | Too many reports were sent from this network in the last hour. Yours is saved on your phone and will send by itself within the hour. | "Connection" becomes "network". The review's "lots of reports are arriving" would invent a cause. |
 | Report check (`turnstileTapLine`) | Someone asked to prove they are a person | Quick safety check: please tick the box to show you're a real person. | Tick the box so we know you're a person. | Shorter. |
 | Report check failed (`reportCheckUnavailable`) | Same, when the check can't run | We couldn't run the safety check. Your report is still saved and we'll try again. | We couldn't check you're a real person. Your report is saved and we'll try again. | Says what the check is. |
-| Photo time (`photoTakenAt`) | Someone who picked a photo from their gallery | Photo taken {when} (Greek time) | Photo taken {when}, Greek time | Brackets add noise. |
 | Report-an-issue reason (`issueReason_wrong_name`) | Someone reporting a problem with a cat page | The name is wrong, or not OK | The name is wrong or rude | "Not OK" is vague. |
 | Report-an-issue saved note (`issueSavedBrowserNote`) | Web users whose report is saved but not sent | A browser can clear what it has stored, so open this page again once you have a connection. | Open this page again when you have signal, so it can be sent. | Drops the explanation. |
-| Report-an-issue confirm (`issueConfirm`) | Someone about to hide a photo | Are you sure? Reporting this will hide it from everyone until Syros Cats have reviewed it. | Are you sure? This photo will be hidden for everyone until Syros Cats have looked at it. | "This" is clearer as "this photo". |
 | Spot tab, extra photo problem (`extraDifferentVisit`) | Someone adding a photo from another visit | This photo was taken at a different time ({when}). Photos in one spot need to be from the same visit. Choose another photo. | This photo was taken at a different time ({when}). All photos for one spot must be from the same visit. Choose another. | Same meaning, plainer. |
 | Spot tab note (`extraNotKeptNote`) | Someone whose extra photos couldn't be kept | Your extra photos couldn't be saved for later, so this spot will send with its first photo. | We couldn't keep your extra photos, so only the first photo will be sent. | Plainer. |
 
