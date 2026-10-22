@@ -22,6 +22,15 @@ import type { SessionPayload } from "./session";
 //   page deletes it as it fills the form in (useHeldTyping), someone else
 //   signing in deletes it, and deleteStaleHeldTyping clears what is left.
 // - A dashboard-only cookie holds the row's random id, nothing else.
+//
+// Final review, fix 2 (spec §3.2 "Back where they were"): a save with no
+// text to keep (a Queue state button, tying a cat, "Close and send", an area
+// or colony centre, Clear the centre, an empty note) still brings the person
+// back to the page they were on. Such a row holds the landing and NO fields
+// (LANDING_ONLY, or a KEEPABLE form whose boxes were empty), under the same
+// rules: the same person at the same session version, 30 minutes, the same
+// landing list, the same cookie. The hand-off deletes it as it redirects
+// (there is nothing to fill in), so it never reaches a landing page's form.
 
 export const HELD_COOKIE = "__Host-cs_held";
 /** How long typed text is kept, in seconds. */
@@ -137,6 +146,43 @@ export const KEEPABLE: Record<string, Keepable> = {
 };
 
 /**
+ * Saves with no text box to keep that still come back to their page after
+ * signing in again (final review, fix 2). `fields` is always empty: a row
+ * for one of these holds a landing only. The landing reads at most a fixed
+ * choice from the body (the Areas form's `op`), never a value.
+ */
+export const LANDING_ONLY: Record<string, Keepable> = {
+  // New, Looking, Done, Nothing needed, and "Close and send" (its confirm page posts here too).
+  "POST /api/team/reports/:publicId/state": {
+    match: path(`/api/team/reports/${PUBLIC_ID}/state`),
+    formKey: (m) => `state:${m[1]}`,
+    landing: (m) => `/api/team?open=${m[1]}`,
+    fields: [],
+  },
+  // "Which cat is this?": tying the report to a cat.
+  "POST /api/team/reports/:publicId/cat": {
+    match: path(`/api/team/reports/${PUBLIC_ID}/cat`),
+    formKey: (m) => `tie:${m[1]}`,
+    landing: (m) => `/api/team?open=${m[1]}`,
+    fields: [],
+  },
+  // SYC-44 PR 7.1: an Issues row's Keep hidden, Restore and Hide this photo.
+  "POST /api/team/issues/:publicId/(keep-hidden|restore|hide)": {
+    match: path(`/api/team/issues/${PUBLIC_ID}/(keep-hidden|restore|hide)`),
+    formKey: (m) => `issue:${m[2]}:${m[1]}`,
+    landing: (m) => `/api/team?open=${m[1]}`,
+    fields: [],
+  },
+  // An area's centre, confirmed on the map (op=move). Other Areas forms carry a typed name: not these.
+  "POST /api/team/areas": {
+    match: path("/api/team/areas"),
+    formKey: () => "areas:move",
+    landing: (_m, body) => (body["op"] === "move" ? "/api/team/areas" : null),
+    fields: [],
+  },
+};
+
+/**
  * The page shapes a kept row may land on, checked on the way in and again
  * on the way out: the dashboard only, no other site, no `//`, no `..`.
  */
@@ -149,6 +195,7 @@ const LANDINGS: readonly RegExp[] = [
   path(`/api/team/cats/${ID}\\?s=${ID}`),
   path(`/api/team/cats/${ID}/died`),
   path("/api/team/likely"),
+  path("/api/team/areas"),
 ];
 
 export function isKeptLanding(landing: string): boolean {
@@ -168,6 +215,29 @@ export function keepableFor(req: Request): { entry: Keepable; m: RegExpMatchArra
   }
   return null;
 }
+
+/** A save with no text box that still comes back to its page, if this POST is one. */
+export function landingOnlyFor(req: Request): { entry: Keepable; m: RegExpMatchArray } | null {
+  if (req.method !== "POST") return null;
+  const p = pathOf(req);
+  for (const entry of Object.values(LANDING_ONLY)) {
+    const m = p.match(entry.match);
+    if (m) return { entry, m };
+  }
+  return null;
+}
+
+/**
+ * A listed box sent as something our forms never send (an array, an object:
+ * `note[]=x`). Such a body keeps nothing at all, not even a landing.
+ */
+function malformed(req: Request, entry: Keepable): boolean {
+  const body = (req.body ?? {}) as Body;
+  return entry.fields.some((f) => Object.hasOwn(body, f) && typeof body[f] !== "string");
+}
+
+/** The form key a landing-only row is stored under: never one a landing page fills in. */
+const LANDING_KEY = "land:";
 
 /** A browser sends a text box's line breaks as CRLF; keep them as LF. */
 const lf = (s: string) => s.replace(/\r\n?/g, "\n");
@@ -202,20 +272,29 @@ const cookieValues = (req: Request): string[] => {
 };
 
 /**
- * Keep what was typed, for the person whose expired sign-in this is. True
- * only if the path is in KEEPABLE, the person is still on the list at that
- * session version, and at least one listed box has text. Any older row of
- * theirs goes first. Sets the cookie holding the new row's id.
+ * Keep what was typed, for the person whose expired sign-in this is. Only if
+ * the path is in KEEPABLE or LANDING_ONLY, the person is still on the list at
+ * that session version, and the page it came from is on the landing list.
+ * "typed": at least one listed box had text, kept with its landing.
+ * "landing": no text to keep, so the row holds the landing only.
+ * null: nothing kept. Any older row of theirs goes first. Sets the cookie
+ * holding the new row's id.
  */
-export async function keepTyping(req: Request, res: Response, who: SessionPayload): Promise<boolean> {
-  const found = keepableFor(req);
-  if (!found) return false;
+export async function keepTyping(
+  req: Request,
+  res: Response,
+  who: SessionPayload,
+): Promise<"typed" | "landing" | null> {
+  const found = keepableFor(req) ?? landingOnlyFor(req);
+  if (!found) return null;
+  if (malformed(req, found.entry)) return null;
   const person = await findPersonById(who.pid);
-  if (!person || person.sessionVersion !== who.sv) return false;
+  if (!person || person.sessionVersion !== who.sv) return null;
   const fields = typedFields(req, found.entry);
-  if (Object.keys(fields).length === 0) return false;
+  const typed = Object.keys(fields).length > 0;
   const landing = await found.entry.landing(found.m, (req.body ?? {}) as Body);
-  if (landing === null || !isKeptLanding(landing)) return false;
+  if (landing === null || !isKeptLanding(landing)) return null;
+  const formKey = found.entry.formKey(found.m);
   const id = await db.transaction(async (tx) => {
     await tx.delete(heldTypingTable).where(eq(heldTypingTable.personId, person.id));
     const [row] = await tx
@@ -223,30 +302,32 @@ export async function keepTyping(req: Request, res: Response, who: SessionPayloa
       .values({
         personId: person.id,
         sessionVersion: person.sessionVersion,
-        formKey: found.entry.formKey(found.m),
+        formKey: typed ? formKey : `${LANDING_KEY}${formKey}`,
         landingPath: landing,
-        fields,
+        fields: typed ? fields : {},
       })
       .returning({ id: heldTypingTable.id });
     return row!.id;
   });
   res.cookie(HELD_COOKIE, id, { ...COOKIE_OPTIONS, maxAge: HELD_SECONDS * 1000 });
-  return true;
+  return typed ? "typed" : "landing";
 }
 
 /**
  * At the hand-off's normal exit: the kept row this browser points at, if it
  * is this person's, at this session version, under 30 minutes old, with a
- * landing they may open. That row is claimed (not deleted: the landing page
- * deletes it as it fills the form in). Any other row the cookie points at is
- * deleted. The cookie is always cleared when sent.
+ * landing they may open. A row with typed text is claimed (not deleted: the
+ * landing page deletes it as it fills the form in) and its id returned; a
+ * landing-only row is deleted here and returns `id: null` (nothing to fill
+ * in). Any other row the cookie points at is deleted. The cookie is always
+ * cleared when sent.
  */
 export async function takeHeldTyping(
   req: Request,
   res: Response,
   person: { id: string; sessionVersion: number },
   mayOpen: (path: string) => boolean | Promise<boolean>,
-): Promise<{ id: string; landing: string } | null> {
+): Promise<{ id: string | null; landing: string } | null> {
   const values = cookieValues(req);
   if (values.length === 0) return null;
   res.clearCookie(HELD_COOKIE, COOKIE_OPTIONS);
@@ -263,6 +344,15 @@ export async function takeHeldTyping(
       (await mayOpen(row.landingPath));
     if (!matches) {
       await db.delete(heldTypingTable).where(eq(heldTypingTable.id, row.id));
+      continue;
+    }
+    if (Object.keys(row.fields ?? {}).length === 0) {
+      // Landing only: used up now, by this person alone.
+      const [gone] = await db
+        .delete(heldTypingTable)
+        .where(and(eq(heldTypingTable.id, row.id), eq(heldTypingTable.personId, person.id)))
+        .returning({ id: heldTypingTable.id });
+      if (gone) return { id: null, landing: row.landingPath };
       continue;
     }
     const [claimed] = await db
@@ -380,5 +470,6 @@ export function mayOpenPath(person: CapabilityHolder, landing: string): boolean 
   if (/^\/api\/team\/cats\/\d+$/.test(p)) return can(person, "view_exact_location");
   if (/^\/api\/team\/cats\/\d+\/died$/.test(p)) return can(person, "set_life_status");
   if (p === "/api/team/likely") return can(person, "set_sterilisation");
+  if (p === "/api/team/areas") return can(person, "edit_named_areas");
   return false;
 }

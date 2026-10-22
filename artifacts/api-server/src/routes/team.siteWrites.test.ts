@@ -230,6 +230,12 @@ describe("adding a site: the map and the pick", () => {
     expectNoPositionInAddresses(res.text);
   });
 
+  it("the typed position is folded under 'Type a position instead' (517-B)", async () => {
+    const res = await get("/api/team/sites/new");
+    expect(res.text).toMatch(/<details class="typedfold"><summary>Type a position instead<\/summary><form method="post" action="\/api\/team\/sites\/pick" class="typedpos">/);
+    expect(res.text).not.toContain("Or type the position");
+  });
+
   it("a tap answers with the confirmation page directly: the spot in hidden fields only, and the tap's details", async () => {
     const { body, spot } = tapBody(ERMOUPOLI);
     const res = await post("/api/team/sites/pick", body);

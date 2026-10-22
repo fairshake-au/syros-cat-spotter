@@ -65,7 +65,7 @@ router.get(
   requireTeam("view_welfare_queue"),
   async (_req: Request, res: Response) => {
     setTeamHeaders(res); // before any await, so an error answer carries them too
-    const queue = await listWelfareQueue();
+    const queue = await listWelfareQueue({ onClose: true });
     res.json(queue);
   },
 );
@@ -97,7 +97,7 @@ const notFound = (res: Response) => {
  * (review of #170, finding 4). Returns undefined after answering.
  */
 async function queueReportOr404(res: Response, publicId: string) {
-  const report = (await getQueueReport(publicId)) ?? (await getIssueReport(publicId));
+  const report = (await getQueueReport(publicId, { onClose: true })) ?? (await getIssueReport(publicId));
   if (report === null) {
     setTeamHeaders(res);
     res.status(404).json({ error: "not_found" });
@@ -297,7 +297,7 @@ router.get("/team/photos/:publicId/:size", photoAccess, async (req: Request, res
 
 // ── PR 2: moving a report and the team note ────────────────────────────────
 
-const PUBLIC_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+export const PUBLIC_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 const StateBody = z.object({
   from: z.enum(REPORT_STATES),
@@ -626,11 +626,11 @@ router.post(
     const form = isFormPost(req);
     if (outcome.kind === "tied") {
       if (form) return void res.redirect(303, backToTiedReport(publicId, "ok"));
-      return void res.json(await getQueueReport(publicId));
+      return void res.json(await getQueueReport(publicId, { onClose: true }));
     }
     const kind = outcome.kind; // "changed" | "same"
     if (form) return void res.redirect(303, backToTiedReport(publicId, kind));
-    const report = await getQueueReport(publicId);
+    const report = await getQueueReport(publicId, { onClose: true });
     if (kind === "changed") {
       return void res.status(409).json({
         error: "changed_by_someone_else",

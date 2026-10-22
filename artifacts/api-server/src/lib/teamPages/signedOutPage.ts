@@ -37,6 +37,8 @@ const FIELD_LABEL: Record<string, StringKey> = {
 
 export function renderSignedOutPage(opts: {
   kept: boolean;
+  /** Nothing typed was kept, but signing in again comes back to this page. */
+  comeBack?: boolean;
   copyBack?: readonly CopyBack[];
   lang?: string | null;
   liveLanguages?: readonly Language[];
@@ -55,7 +57,7 @@ export function renderSignedOutPage(opts: {
     })
     .join("");
   const body =
-    `<p>${t("signedOut.notSaved")}${opts.kept ? ` ${t("signedOut.kept")}` : ""}</p>` +
+    `<p>${t("signedOut.notSaved")}${opts.kept ? ` ${t("signedOut.kept")}` : opts.comeBack ? ` ${t("signedOut.comeBack")}` : ""}</p>` +
     (boxes ? `<p>${t("signedOut.copy")}</p>${boxes}` : "") +
     `<p><a class="tap" href="${escapeHtml(SIGN_IN_PAGE)}">${t("signedOut.signIn")}</a></p>`;
   return renderPage({

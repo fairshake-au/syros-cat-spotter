@@ -205,6 +205,9 @@ async function keepAndReturn(path: string, body: Record<string, string>, pid = s
 const runPerson = async () =>
   (await addPerson({ email: `vitest-signedout-run-${randomBytes(4).toString("hex")}@example.com`, name: "Wren", addedBy: "cli:vitest" })).id;
 
+const COME_BACK =
+  "You were signed out, so this wasn&#39;t saved. Sign in again and you&#39;ll come back to this page.";
+
 const STATUS_LINE =
   '<p class="notice" role="status">You were signed out before this was saved. We kept what you typed. Check it and press Save.</p>';
 
@@ -256,15 +259,17 @@ describe("C3: keep what was typed", () => {
     expect(row!.fields["note"]!.startsWith("a\nb")).toBe(true);
   });
 
-  it("an empty box keeps nothing, and the page says only that it wasn't saved", async () => {
+  it("an empty box keeps no text, only the way back to the report (final review, fix 2)", async () => {
     const { publicId } = await seedReport();
     const res = await save(`/api/team/reports/${publicId}/note`, { note: "   " }, expiredFor(susanId));
     expect(res.status).toBe(401);
-    expect(res.text).toContain("You were signed out, so this wasn&#39;t saved.");
+    expect(res.text).toContain(COME_BACK);
     expect(res.text).not.toContain("kept what you typed");
     expect(res.text).not.toContain("<textarea");
-    expect(await heldRows()).toEqual([]);
-    expect(heldCookieOf(res)).toBeUndefined();
+    const rows = await heldRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ fields: {}, landingPath: `/api/team?open=${publicId}`, formKey: `land:note:${publicId}` });
+    expect(heldCookieOf(res)).toBeDefined();
   });
 
   it("the hand-off for the same person lands on that report with the note filled in; the row is gone after", async () => {
@@ -272,7 +277,8 @@ describe("C3: keep what was typed", () => {
     const { location, html, teamCookie } = await keepAndReturn(`/api/team/reports/${publicId}/note`, { note: "Fed <her> at six" });
     const [row] = await db.select({ id: heldTypingTable.id }).from(heldTypingTable);
     expect(row).toBeUndefined();
-    expect(location).toMatch(new RegExp(`^${TEAM_ORIGIN}/api/team\\?open=${publicId}&kept=[0-9a-f-]{36}$`));
+    // Final review, fix 3: the opened row is scrolled into view.
+    expect(location).toMatch(new RegExp(`^${TEAM_ORIGIN}/api/team\\?open=${publicId}&kept=[0-9a-f-]{36}#r-${publicId}$`));
     expect(html).toContain(STATUS_LINE);
     expect(html).toContain(`<details class="notebox" open>`);
     expect(html).toContain(`name="note" rows="3" maxlength="2000">\nFed &lt;her&gt; at six</textarea>`);
@@ -555,5 +561,155 @@ describe("C3: every landing page fills its form in", () => {
     expect(location).toContain(`/api/team/cats/${cat.id}?s=${statement}&kept=`);
     expect(html).toContain(STATUS_LINE);
     expect(html).toContain(`id="w${statement}-why" name="reason" required maxlength="500" autocomplete="off" value="Wrong cat"`);
+  });
+});
+
+// Final review, fix 2 (spec §3.2 "Back where they were"): a save with no
+// text to keep still comes back to its page after signing in again.
+describe("landing only: saves with nothing typed come back to their page", () => {
+  /** A signed-out save, then the hand-off with its held cookie; both responses. */
+  async function landAfter(path: string, body: Record<string, string>, pid = susanId, signIn = pid) {
+    const kept = await save(path, body, expiredFor(pid));
+    expect(kept.status, kept.text.slice(0, 200)).toBe(401);
+    const held = heldCookieOf(kept);
+    expect(held, "a held cookie").toBeDefined();
+    const rows = await heldRows();
+    const back = await handoff(signIn, held!.split(";")[0]!);
+    expect(back.status).toBe(303);
+    return { kept, rows, location: String(back.headers["location"]), back };
+  }
+
+  it("a Queue state button: a row with no fields, then the hand-off opens that report", async () => {
+    const { publicId } = await seedReport();
+    const { kept, rows, location } = await landAfter(`/api/team/reports/${publicId}/state`, { from: "new", to: "looking" });
+    expect(kept.text).toContain(COME_BACK);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      personId: susanId,
+      sessionVersion: 1,
+      formKey: `land:state:${publicId}`,
+      landingPath: `/api/team?open=${publicId}`,
+      fields: {},
+    });
+    expect(location).toBe(`${TEAM_ORIGIN}/api/team?open=${publicId}#r-${publicId}`);
+    // Used up by the hand-off: there is nothing to fill in.
+    expect(await heldRows()).toEqual([]);
+  });
+
+  it("Close and send (the confirm page's press), with the reporter's line: no field is ever stored", async () => {
+    const { publicId } = await seedReport({ state: "looking" });
+    const { rows } = await landAfter(`/api/team/reports/${publicId}/state`, {
+      from: "looking",
+      to: "done",
+      confirm: "1",
+      expect: "will_send",
+      reporterSentence: "She is at the vet",
+    });
+    expect(rows[0]!.fields).toEqual({});
+    expect(JSON.stringify(rows[0])).not.toContain("She is at the vet");
+  });
+
+  it("SYC-44 PR 7.1: an Issues row's Keep hidden, Restore and Hide come back to that row", async () => {
+    const posts: [string, Record<string, string>][] = [["keep-hidden", { from: "new" }], ["restore", { from: "new" }], ["hide", {}]];
+    for (const [action, body] of posts) {
+      await db.delete(heldTypingTable);
+      // The save never reaches the route (signed out), so the row needs no photo.
+      const { publicId } = await seedReport({ kind: "content", reason: "other" });
+      const { rows, location } = await landAfter(`/api/team/issues/${publicId}/${action}`, body);
+      expect(rows, action).toHaveLength(1);
+      expect(rows[0], action).toMatchObject({
+        personId: susanId,
+        formKey: `land:issue:${action}:${publicId}`,
+        landingPath: `/api/team?open=${publicId}`,
+        fields: {},
+      });
+      expect(location, action).toBe(`${TEAM_ORIGIN}/api/team?open=${publicId}#r-${publicId}`);
+    }
+  });
+
+  it("SYC-44 PR 7.1: a team note on an Issues row is kept and filled in on that row", async () => {
+    const { publicId } = await seedReport({ kind: "content", reason: "other" });
+    const { html } = await keepAndReturn(`/api/team/reports/${publicId}/note`, { note: "Asked the owner" });
+    expect(html).toContain(STATUS_LINE);
+    const start = html.indexOf(`id="r-${publicId}"`);
+    const row = html.slice(start, html.indexOf("</article>", start));
+    expect(row).toMatch(/^id="r-[^"]+"><details open>/);
+    expect(row).toContain(`<details class="notebox" open>`);
+    expect(row).toContain(`name="note" rows="3" maxlength="2000">\nAsked the owner</textarea>`);
+    expect(await heldRows()).toEqual([]);
+  });
+
+  it("tying a cat comes back to that report", async () => {
+    const { publicId } = await seedReport();
+    const { location } = await landAfter(`/api/team/reports/${publicId}/cat`, { catId: "1", expectedCatId: "" });
+    expect(location).toBe(`${TEAM_ORIGIN}/api/team?open=${publicId}#r-${publicId}`);
+  });
+
+  it("a different person signs in on that browser: their home, and the row is deleted", async () => {
+    const { publicId } = await seedReport();
+    const { location } = await landAfter(`/api/team/reports/${publicId}/state`, { from: "new", to: "looking" }, susanId, mariaId);
+    expect(location).toBe("https://team.catspotters.com/api/team/home");
+    expect(await heldRows()).toEqual([]);
+  });
+
+  it("a cat guardian on a team page's landing: her own home, and the row is deleted", async () => {
+    const { publicId } = await seedReport();
+    const { location } = await landAfter(`/api/team/reports/${publicId}/state`, { from: "new", to: "looking" }, ginaId);
+    expect(location).toBe("https://team.catspotters.com/api/team/my/colonies");
+    expect(await heldRows()).toEqual([]);
+  });
+
+  it("a state post from another site keeps today's exact 401, and nothing is kept", async () => {
+    const { publicId } = await seedReport();
+    for (const origin of ["https://evil.example", "https://admin.catspotters.com"]) {
+      const res = await request(app)
+        .post(`/api/team/reports/${publicId}/state`)
+        .set("Origin", origin)
+        .set("Sec-Fetch-Mode", "navigate")
+        .set("Cookie", expiredFor(susanId))
+        .type("form")
+        .send({ from: "new", to: "looking" });
+      expect([res.status, res.text]).toEqual([401, NOT_SIGNED_IN_PAGE]);
+      expect(res.headers["set-cookie"]).toBeUndefined();
+    }
+    const noOrigin = await request(app)
+      .post(`/api/team/reports/${publicId}/state`)
+      .set("Sec-Fetch-Mode", "navigate")
+      .set("Cookie", expiredFor(susanId))
+      .type("form")
+      .send({ from: "new", to: "looking" });
+    expect([noOrigin.status, noOrigin.text]).toEqual([401, NOT_SIGNED_IN_PAGE]);
+    expect(await heldRows()).toEqual([]);
+  });
+
+  it("someone signed out everywhere since: nothing kept, the plain signed-out page", async () => {
+    const { publicId } = await seedReport();
+    const res = await save(`/api/team/reports/${publicId}/state`, { from: "new", to: "looking" }, expiredFor(susanId, 0));
+    expect(res.status).toBe(401);
+    expect(res.text).toContain("You were signed out, so this wasn&#39;t saved.");
+    expect(res.text).not.toContain("come back to this page");
+    expect(heldCookieOf(res)).toBeUndefined();
+    expect(await heldRows()).toEqual([]);
+  });
+
+  it("a guardian's Clear the centre, and her centre confirm, come back to her colony page", async () => {
+    for (const body of [{ lat: "", lng: "" }, { lat: "37.4447", lng: "24.9417" }]) {
+      const { kept, rows, location } = await landAfter(`/api/team/colonies/${colonyId}`, body, ginaId);
+      expect(kept.text).toContain(COME_BACK);
+      expect(rows[0]).toMatchObject({ landingPath: `/api/team/colonies/${colonyId}`, fields: {} });
+      expect(JSON.stringify(rows[0])).not.toContain("37.4447");
+      expect(location).toBe(`${TEAM_ORIGIN}/api/team/colonies/${colonyId}`);
+      expect(await heldRows()).toEqual([]);
+    }
+  });
+
+  it("an area's centre confirmed on the map comes back to the Areas page; other Areas forms keep nothing", async () => {
+    const { rows, location } = await landAfter("/api/team/areas", { op: "move", key: "kini", lat: "37.44", lng: "24.90" });
+    expect(rows[0]).toMatchObject({ landingPath: "/api/team/areas", fields: {} });
+    expect(location).toBe(`${TEAM_ORIGIN}/api/team/areas`);
+    const add = await save("/api/team/areas", { op: "add", name: "Somewhere", key: "x", lat: "37.4", lng: "24.9" }, expiredFor(susanId));
+    expect(add.status).toBe(401);
+    expect(heldCookieOf(add)).toBeUndefined();
+    expect(await heldRows()).toEqual([]);
   });
 });

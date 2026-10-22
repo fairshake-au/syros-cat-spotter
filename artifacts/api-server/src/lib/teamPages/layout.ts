@@ -161,12 +161,6 @@ h2{font-size:18px;margin:28px 0 8px}
 details.notebox{margin:10px 0 0}
 details.notebox>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .more{margin:8px 0 0}
-/* On a phone a report's photo is a thumbnail beside its tags (SYC-219 pass). */
-.has-photo{display:grid;grid-template-columns:88px 1fr;gap:0 12px;align-items:start}
-.has-photo>*{grid-column:1 / -1}
-.has-photo>.photolink{grid-column:1;grid-row:1;margin:0 0 8px}
-.has-photo>.head{grid-column:2;grid-row:1}
-.has-photo>.photolink .photo{width:88px;height:88px;object-fit:cover;margin:0}
 .photo{display:block;width:100%;max-width:100%;height:auto;max-height:420px;object-fit:contain;background:#ece8dc;border-radius:6px;margin:0 0 8px}
 .nophoto{background:#ece8dc;border-radius:6px;padding:14px 10px;margin:0 0 8px;color:#55524a;font-size:14px}
 dl{margin:8px 0 0;display:grid;grid-template-columns:minmax(88px,30%) 1fr;gap:6px 10px}
@@ -293,7 +287,7 @@ div.evidence figcaption{font-size:13px;color:#55524a;margin-top:2px}
 input.text,input[type=date],select.text{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;margin:0 0 8px;background:#fff}
 input[type=date]{max-width:220px}
 .fixes details{background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:8px 0;padding:0 12px}
-.fixes summary,.statement summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
+.fixes summary,.statement summary,.typedfold summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .fixes details[open]{padding-bottom:12px}
 .fixes form,.statement form{margin:4px 0 0}
 .fixes form.diedform{margin:20px 0 4px}
@@ -508,10 +502,6 @@ ${CHART_CSS}
 .chips{grid-template-columns:1fr 1fr}
 main{padding-top:20px}
 .tiecard button{width:auto}
-.has-photo{grid-template-columns:240px 1fr;gap:0 16px}
-.has-photo>.photolink{grid-row:1 / span 3}
-.has-photo>.photolink .photo{width:240px;height:auto;max-height:320px;object-fit:contain}
-.has-photo>*:not(.photolink){grid-column:2}
 .states{grid-template-columns:repeat(4,1fr)}
 dl{grid-template-columns:150px 1fr;gap:4px 12px}
 dt{margin-top:0}
