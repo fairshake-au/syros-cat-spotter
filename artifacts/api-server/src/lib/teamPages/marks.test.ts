@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MARKS } from "../teamCatList";
-import { markBadge, markBar, MARK_COLOUR, MARK_CSS, MARK_ORDER, MARK_WORD } from "./marks";
+import { markBadge, markBar, MARK_BAR_WORD, MARK_COLOUR, MARK_CSS, MARK_ORDER, MARK_WORD } from "./marks";
 
 // SYC-396 PR 1.3: the four sterilisation marks are a shape AND a word.
 
@@ -55,9 +55,9 @@ describe("markBar", () => {
 
   it("says every non-zero part in words and numbers, never colour alone", () => {
     const html = markBar(split);
-    expect(text(html)).toContain("89 Sterilised · 23 Probably · 18 Not known · 12 Not sterilised");
+    expect(text(html)).toContain("89 Sterilised · 23 Probably sterilised · 18 Sterilisation not known · 12 Not sterilised");
     expect(html).toContain('role="img"');
-    expect(html).toContain('aria-label="89 Sterilised, 23 Probably, 18 Not known, 12 Not sterilised"');
+    expect(html).toContain('aria-label="89 Sterilised, 23 Probably sterilised, 18 Sterilisation not known, 12 Not sterilised"');
     // Every legend part carries its mark's shape.
     for (const m of MARK_ORDER) expect(html).toContain(`<span class="mark mark-${m}">`);
   });
@@ -70,7 +70,7 @@ describe("markBar", () => {
 
   it("leaves a zero part out of the bar and the legend", () => {
     const html = markBar({ sterilised: 4, probably: 0, not_known: 2, not_sterilised: 0 });
-    expect(text(html)).toContain("4 Sterilised · 2 Not known");
+    expect(text(html)).toContain("4 Sterilised · 2 Sterilisation not known");
     expect(text(html)).not.toContain("Probably");
     expect(html).not.toContain("mark-not_sterilised");
   });
@@ -101,8 +101,14 @@ describe("markBar", () => {
 
   it("puts an optional label in front of the words, escaped", () => {
     const html = markBar(split, { label: "Kini <b>" });
-    expect(html).toContain('aria-label="Kini &lt;b&gt;: 89 Sterilised, 23 Probably, 18 Not known, 12 Not sterilised"');
+    expect(html).toContain('aria-label="Kini &lt;b&gt;: 89 Sterilised, 23 Probably sterilised, 18 Sterilisation not known, 12 Not sterilised"');
     expect(html).not.toContain("<b>");
+  });
+
+  it("says sterilisation in every legend word, since the bar has no heading", () => {
+    for (const w of Object.values(MARK_BAR_WORD)) expect(w.toLowerCase()).toContain("sterilis");
+    const html = markBar({ sterilised: 0, probably: 0, not_known: 16, not_sterilised: 0 });
+    expect(text(html)).toContain("16 Sterilisation not known");
   });
 
   it("has its styles in MARK_CSS", () => {
@@ -117,7 +123,7 @@ describe("markBar", () => {
     expect(text(html)).toContain("3 Μη στειρωμένες");
     expect(html).toContain("1 &lt;b&gt;");
     expect(html).not.toContain("<b>");
-    for (const w of Object.values(MARK_WORD)) expect(text(html)).not.toContain(w);
+    for (const w of [...Object.values(MARK_WORD), ...Object.values(MARK_BAR_WORD)]) expect(text(html)).not.toContain(w);
     const empty = markBar({ sterilised: 0, probably: 0, not_known: 0, not_sterilised: 0 }, { words, empty: "Καμία <i>" });
     expect(empty).toContain("Καμία &lt;i&gt;");
     expect(empty).not.toContain("No street cats yet");
