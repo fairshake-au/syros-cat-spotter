@@ -78,3 +78,18 @@ Samuel gets an email (through Cloudflare, like the drain's) when:
 - the Worker has no `NEWS_JOB_TOKEN`.
 
 What the check found is at `GET /api/team/news-changes` (staff only, the last 30 days), and a person marks one looked at with `POST /api/team/news-changes/:id/review` (an optional `note`). The clock needs at least one reviewed, genuine change.
+
+## The nightly fingerprint batch (SYC-527 piece 3)
+
+"Find from a photo" compares a photo against each cat's picture by a stored "fingerprint" of that picture (the looks-like index; spec `docs/specs/find-from-a-photo-whole-island.md` §7). Searches top up a few missing ones, but the bulk is made overnight. `fingerprints-nightly.yml` runs at 01:41 UTC (04:41 in Athens in summer time, 03:41 in winter time) and calls `POST /api/internal/fingerprints/nightly` with `Authorization: Bearer <FINGERPRINT_JOB_TOKEN>`. That token opens only that path, and no other token opens it. The app fingerprints every active cat's display photo that has none (a cat whose main photo the team hid is covered by its stand-in; a hidden photo never gets a fingerprint), oldest first, and stops starting new photos after 4 minutes. It answers `{"made", "failed", "left"}`, counts only; `left` is how many were not reached, and the next night carries on. The request stays open for the whole run (up to about 4 minutes and a little more; the workflow waits up to 330 seconds). The run fails, and GitHub emails Samuel, on any answer but 200. Unlike the news check it has no Worker caller: the GitHub schedule is the only one.
+
+The first run (the backfill) is done by hand: after the migration has run and `/api/healthz` shows the new build, start the workflow from the Actions tab (a manual run goes whether or not the switch is on). If `left` is not 0, run it again until it is. Put the counts on SYC-527, then set the repo variable `FINGERPRINTS_NIGHTLY_ENABLED` to `true` to switch the nightly schedule on. Switching it off again is setting the variable to anything else.
+
+The token rollout, in words and never with a value on screen or in a chat, routine or prompt:
+
+- make the token into a file that has no line break at the end;
+- set it from that file as the `FINGERPRINT_JOB_TOKEN` secret in GitHub's `production` environment, and as a deployment secret in Replit;
+- check from Replit that the pasted value has no stray space or line break;
+- give Samuel a one-line heads-up first, and deploy only after the app shows the new build.
+
+Until the token exists in the app, the route answers 503 and the workflow's manual run fails with that, which is the right alarm.

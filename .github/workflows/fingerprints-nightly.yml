@@ -1,0 +1,85 @@
+name: fingerprints-nightly
+# SYC-527 piece 3 (docs/specs/find-from-a-photo-whole-island.md §7): the
+# nightly batch for the looks-like index. It asks the app to make the
+# fingerprint of every active cat's display photo that has none, oldest
+# first, for at most 4 minutes, and to answer with counts only
+# ({"made":..,"failed":..,"left":..}). It sends nobody anything. Modelled on
+# news-nightly.yml. A manual run does the first backfill.
+#
+# FINGERPRINT_JOB_TOKEN is a GitHub `production` Environment secret and a
+# Replit deployment secret, never in a file or a prompt. It opens one path
+# only: POST /api/internal/fingerprints/nightly.
+on:
+  schedule:
+    # 01:41 UTC: 04:41 in Athens in summer time, 03:41 in winter time. A quiet
+    # hour, off the news check's runs (00:30 and 06:17 UTC) and off the hour,
+    # when GitHub's schedule queue is least busy.
+    - cron: "41 1 * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        type: string
+        required: false
+        description: "https://apptest.catspotters.com or localhost only. Defaults to the production variable MAIL_DRAIN_BASE_URL, then https://apptest.catspotters.com"
+permissions: { contents: read }
+concurrency: { group: "fingerprints-nightly", cancel-in-progress: false }
+jobs:
+  fill:
+    # Off until the rollout switches it on (repo variable
+    # FINGERPRINTS_NIGHTLY_ENABLED = true, set once the migration and
+    # FINGERPRINT_JOB_TOKEN are live and the first manual backfill has run),
+    # so it doesn't fail every day before then. A manual run always goes.
+    if: ${{ vars.FINGERPRINTS_NIGHTLY_ENABLED == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    environment: production
+    # The app works for at most 4 minutes (plus the photo in hand); curl waits
+    # up to 330 seconds for the answer.
+    timeout-minutes: 8
+    steps:
+      - name: Fill tonight's missing fingerprints
+        env:
+          FINGERPRINT_JOB_TOKEN: ${{ secrets.FINGERPRINT_JOB_TOKEN }}
+          BASE_URL: ${{ inputs.base_url || vars.MAIL_DRAIN_BASE_URL || 'https://apptest.catspotters.com' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${FINGERPRINT_JOB_TOKEN}" ]; then
+            echo "::error::FINGERPRINT_JOB_TOKEN is not set in the production environment"
+            exit 1
+          fi
+          # The token only ever goes to the app: a manual run's base_url must
+          # be the production host or localhost.
+          rest="${BASE_URL#*://}"
+          scheme="${BASE_URL%%://*}"
+          host="${rest%%/*}"
+          host="${host%%:*}"
+          case "${scheme}://${host}" in
+            https://apptest.catspotters.com|http://localhost|http://127.0.0.1) ;;
+            *)
+              echo "::error::base_url must be https://apptest.catspotters.com or localhost"
+              exit 1
+              ;;
+          esac
+          out="$(mktemp)"
+          # The first call can wake a sleeping deployment: retry once when
+          # the connection fails (curl exits 6 or 7, before anything reached
+          # the app) or the platform answers 502/503. Never on a timeout or a
+          # 504, where the app may still be working.
+          for attempt in 1 2; do
+            rc=0
+            code=$(curl -sS -o "$out" -w '%{http_code}' --max-time 330 \
+              -X POST -H "Authorization: Bearer ${FINGERPRINT_JOB_TOKEN}" \
+              "${BASE_URL%/}/api/internal/fingerprints/nightly") || rc=$?
+            code="${code:-000}"
+            if [ "$attempt" = 1 ] && { [ "$rc" = 6 ] || [ "$rc" = 7 ] || [ "$code" = 502 ] || [ "$code" = 503 ]; }; then
+              sleep 20
+              continue
+            fi
+            break
+          done
+          echo "HTTP ${code}"
+          cat "$out" || true
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error::The nightly fingerprint batch failed (HTTP ${code})."
+            exit 1
+          fi
