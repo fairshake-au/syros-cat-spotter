@@ -435,7 +435,17 @@ export async function getQueueReport(
  * first; the drafts apart (spec §3.1, §4.2). Never throws on mail trouble:
  * a failing mail system is reported in `mail`, not by hiding the queue.
  */
-export async function listWelfareQueue(): Promise<WelfareQueue> {
+export async function listWelfareQueue(
+  opts: {
+    /**
+     * Read the drafts too (the default). The Queue and Home pass false
+     * (SYC-519, decision 519-B): they no longer show unfinished reports, so
+     * the four draft queries are skipped. The JSON route keeps them.
+     */
+    drafts?: boolean;
+  } = {},
+): Promise<WelfareQueue> {
+  const withDrafts = opts.drafts !== false;
   const sent = eq(welfareReportsTable.isDraft, false);
   const draft = eq(welfareReportsTable.isDraft, true);
   // null (before Turnstile) and true are both "checked" for the queue.
@@ -476,16 +486,20 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
             inArray(welfareReportsTable.state, [...CLOSED_STATES]),
           ),
         ),
-      draftsQuery(and(draft, checked))
-        .orderBy(
-          desc(welfareReportsTable.createdAt),
-          desc(welfareReportsTable.id),
-        )
-        .limit(DRAFT_LIMIT),
-      db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(welfareReportsTable)
-        .where(and(isWelfare, draft, checked)),
+      withDrafts
+        ? draftsQuery(and(draft, checked))
+            .orderBy(
+              desc(welfareReportsTable.createdAt),
+              desc(welfareReportsTable.id),
+            )
+            .limit(DRAFT_LIMIT)
+        : Promise.resolve([]),
+      withDrafts
+        ? db
+            .select({ n: sql<number>`count(*)::int` })
+            .from(welfareReportsTable)
+            .where(and(isWelfare, draft, checked))
+        : Promise.resolve([{ n: 0 }]),
       // Unchecked: newest first, urgent or not (never the urgent-first order).
       reportsQuery(and(sent, isOpen, unchecked))
         .orderBy(desc(reportTime), desc(welfareReportsTable.id))
@@ -494,16 +508,20 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
         .select({ n: sql<number>`count(*)::int` })
         .from(welfareReportsTable)
         .where(and(isWelfare, sent, isOpen, unchecked)),
-      draftsQuery(and(draft, unchecked))
-        .orderBy(
-          desc(welfareReportsTable.createdAt),
-          desc(welfareReportsTable.id),
-        )
-        .limit(DRAFT_LIMIT),
-      db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(welfareReportsTable)
-        .where(and(isWelfare, draft, unchecked)),
+      withDrafts
+        ? draftsQuery(and(draft, unchecked))
+            .orderBy(
+              desc(welfareReportsTable.createdAt),
+              desc(welfareReportsTable.id),
+            )
+            .limit(DRAFT_LIMIT)
+        : Promise.resolve([]),
+      withDrafts
+        ? db
+            .select({ n: sql<number>`count(*)::int` })
+            .from(welfareReportsTable)
+            .where(and(isWelfare, draft, unchecked))
+        : Promise.resolve([{ n: 0 }]),
       mailHealth(),
     ]);
 

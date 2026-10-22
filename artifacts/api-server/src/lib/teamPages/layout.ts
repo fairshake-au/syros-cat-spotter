@@ -130,14 +130,12 @@ h2{font-size:18px;margin:28px 0 8px}
 .report{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #a36b00;border-radius:8px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
 .report.urgent{border-left-color:#b3261e}
 .report.closed{border-left-color:#8a877e;background:#faf9f6}
-.report.draft{border-left-style:dashed}
 .head{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:0 0 8px}
 .tag{display:inline-block;font-size:13px;font-weight:700;border-radius:999px;padding:2px 10px;background:#eee9da;color:#3b3930}
 .tag.urgent{background:#b3261e;color:#fff}
 .tag.attention{background:#fbe7b5;color:#4d3800}
 .tag.kittens{background:#d9ecf0;color:#0b4553}
 .tag.unchecked{background:#fff;border:1px dashed #8a6d00;color:#5c4800}
-details.unchecked-drafts summary{cursor:pointer;font-weight:700;margin:8px 0}
 .tag.state{background:#fff;border:1px solid #8a877e}
 /* SYC-44 PR 7.1: the Issues section, in its own colour band, every row also labelled "Issue". */
 .issues{background:#eef2f9;border-top:6px solid #2f5d9e;border-radius:8px;padding:2px 12px 12px;margin:28px 0 12px}
@@ -149,10 +147,17 @@ details.unchecked-drafts summary{cursor:pointer;font-weight:700;margin:8px 0}
 .issueacts form{margin:0}
 .issueacts button{width:100%}
 .ago{color:#55524a;font-size:14px}
-.report.closed>details>summary{cursor:pointer;min-height:44px;padding:4px 0}
-.report.closed>details>summary .head{display:inline-flex;margin:0;vertical-align:middle}
-.said1{display:block;margin:4px 0 0 18px;color:#3b3930;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.report.closed>details[open]>summary{margin-bottom:8px}
+.said1{display:block;margin:0;color:#3b3930;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.report>details>summary.rowline{cursor:pointer;min-height:56px;display:flex;gap:10px;align-items:center;list-style:none}
+.report>details>summary.rowline::-webkit-details-marker{display:none}
+.report>details[open]>summary.rowline{margin-bottom:8px}
+.rtext{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.rwhere{font-size:15px}
+.rtags{flex:none}
+.rwhere time{white-space:nowrap}
+.rwhere .tag{margin-left:2px;padding:0 8px;font-size:12px}
+.rbody .photolink{display:inline-block}
+.rbody .photo{max-width:240px}
 details.notebox{margin:10px 0 0}
 details.notebox>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .more{margin:8px 0 0}

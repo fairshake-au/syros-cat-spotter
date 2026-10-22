@@ -362,7 +362,7 @@ export function renderCatGridPage(o: CatGridOptions): string {
     title: "Which cat is this?",
     active: "queue",
     personName: o.personName,
-    beforeTitle: `<p class="back"><a class="tap" href="${esc(`/api/team#r-${encodeURIComponent(tie.publicId)}`)}">Back to the report</a></p>`,
+    beforeTitle: `<p class="back"><a class="tap" href="${esc(`/api/team?open=${encodeURIComponent(tie.publicId)}#r-${encodeURIComponent(tie.publicId)}`)}">Back to the report</a></p>`,
     body: intro + body,
     mainClass: "wide",
     script,

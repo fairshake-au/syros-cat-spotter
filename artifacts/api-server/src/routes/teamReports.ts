@@ -330,7 +330,7 @@ const isFormPost = (req: Request) =>
 
 /** Where a browser goes next: the queue, with this report in view. */
 const backToReport = (publicId: string, changed = false) =>
-  `/api/team${changed ? `?changed=${encodeURIComponent(publicId)}` : ""}#r-${encodeURIComponent(publicId)}`;
+  `/api/team?${changed ? `changed=${encodeURIComponent(publicId)}&` : ""}open=${encodeURIComponent(publicId)}#r-${encodeURIComponent(publicId)}`;
 
 /**
  * 400 with field names only: never the values, which can include the note.
@@ -548,7 +548,7 @@ router.post(
     if (!written) return notFound(res);
     // ?noted=: the queue says it's saved and keeps this report open.
     if (isFormPost(req)) {
-      return void res.redirect(303, `/api/team?noted=${encodeURIComponent(publicId)}#r-${encodeURIComponent(publicId)}`);
+      return void res.redirect(303, `/api/team?noted=${encodeURIComponent(publicId)}&open=${encodeURIComponent(publicId)}#r-${encodeURIComponent(publicId)}`);
     }
     const report = await queueReportOr404(res, publicId);
     if (report) res.json(report);
@@ -571,7 +571,7 @@ const TieBody = z.object({ catId: catIdField, expectedCatId: expectedCatField })
 
 /** Where a browser goes after a tie: the queue, this row, with what happened. */
 const backToTiedReport = (publicId: string, outcome: "ok" | "changed" | "same") =>
-  `/api/team?tied=${outcome}&r=${encodeURIComponent(publicId)}#r-${encodeURIComponent(publicId)}`;
+  `/api/team?tied=${outcome}&r=${encodeURIComponent(publicId)}&open=${encodeURIComponent(publicId)}#r-${encodeURIComponent(publicId)}`;
 
 /**
  * POST /api/team/reports/:publicId/cat: tie a sent report to a cat, or move

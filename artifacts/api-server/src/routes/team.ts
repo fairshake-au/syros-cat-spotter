@@ -203,7 +203,8 @@ router.get(
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
     setTeamHeaders(res); // before any await, so an error answer carries them too
-    const [queue, issues] = await Promise.all([listWelfareQueue(), listIssues()]);
+    // No drafts: the Queue no longer shows unfinished reports (SYC-519).
+    const [queue, issues] = await Promise.all([listWelfareQueue({ drafts: false }), listIssues()]);
     // ?changed=<publicId>: the state route's 303 after someone else moved
     // that report first. Only a string is used, and only to pick a card.
     const changed =
@@ -245,6 +246,8 @@ router.get(
           noted,
           can(person, "change_report_state"),
           kept,
+          // Only a well-formed id gets this far; one that matches no report does nothing.
+          open,
           issues,
           issueNotice,
         ));
