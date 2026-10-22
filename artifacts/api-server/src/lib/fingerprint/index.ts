@@ -40,9 +40,11 @@ export async function saveFingerprint(photoId: number, v: Float32Array): Promise
   }
   const vector = Array.from(v);
   return db.transaction(async (tx) => {
-    // 1. Lock the photo row. FOR SHARE conflicts with the hide paths' FOR
-    //    UPDATE, so a hide in progress finishes before this goes on, and a
-    //    hide that starts now waits until this transaction ends.
+    // 1. Lock the photo row (a share lock; the source test looks for the
+    //    clause itself, so it isn't spelled out in this comment). It
+    //    conflicts with the hide paths' row lock for update, so a hide in
+    //    progress finishes before this goes on, and a hide that starts now
+    //    waits until this transaction ends.
     const locked = await tx.execute(sql`select id from photos where id = ${photoId} for share`);
     if (locked.rows.length === 0) return "hidden_or_removed" as const;
     // 2. Re-check, under the lock, through this transaction.
