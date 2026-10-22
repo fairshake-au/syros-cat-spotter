@@ -629,3 +629,64 @@ describe("ship review of 7.1: findings pinned", () => {
     expect(page).toContain("Showing the newest 50 of 52.");
   });
 });
+
+describe("SYC-519 (D) with 7.1: an Issues row is the Queue's one-line row", () => {
+  const card = (html: string, id: string) => {
+    const start = html.indexOf(`id="r-${id}"`);
+    expect(start, id).toBeGreaterThan(-1);
+    return html.slice(start, html.indexOf("</article>", start));
+  };
+
+  it("one line (what's wrong, the Issue label, the cat, the state) that opens to everything 7.1 shows", async () => {
+    const r = await hiddenIssue({ publicId: `vt-iss-${RUN}-row` });
+    const page = (await get("/api/team")).text;
+    const row = card(page, r.publicId);
+    // The fold is shut, its anchor outside it, like a welfare row.
+    expect(row).toMatch(/^id="r-[^"]+"><details><summary class="rowline">/);
+    const line = /<summary class="rowline">([\s\S]*?)<\/summary>/.exec(row)![1]!;
+    expect(line).toContain("<strong>It shows a person or a private place</strong>");
+    expect(line).toContain('<span class="tag issue">Issue</span>');
+    expect(line).toContain('<span class="tag hiddennow">Photo hidden</span>');
+    // The cat, then the first words they said.
+    expect(line).toMatch(/<span class="said1">vt-roles cat [^<]+ · Thin grey cat by the bins<\/span>/);
+    expect(line).toContain('<span class="tag state">New</span>');
+    expect(line).toContain(`src="/api/team/issue-photos/${r.publicId}"`);
+    expect(line).not.toContain("<form");
+    // Everything else is inside the fold.
+    const body = row.slice(row.indexOf("</summary>"));
+    for (const words of ["What&#39;s wrong", "Which cat", "The photo", "A member of the public", "Others", "Team note"]) {
+      expect(body, words).toContain(words);
+    }
+    expect(body).toContain(`action="/api/team/issues/${r.publicId}/keep-hidden"`);
+    expect(body).toContain(`action="/api/team/issues/${r.publicId}/restore"`);
+    expect(body).toContain(`action="/api/team/reports/${r.publicId}/note"`);
+    expect(page).toContain(`<article class="report issue" id="r-${r.publicId}">`);
+  });
+
+  it("?open= opens an issue row, and an Issues action's notice opens its row", async () => {
+    const r = await seedReport({ publicId: `vt-iss-${RUN}-open`, kind: "content", reason: "other", catId: cat.id });
+    expect(card((await get("/api/team")).text, r.publicId)).toContain("<details><summary");
+    expect(card((await get(`/api/team?open=${r.publicId}`)).text, r.publicId)).toContain("<details open><summary");
+    expect(card((await get(`/api/team?issue=hidden&r=${r.publicId}`)).text, r.publicId)).toContain("<details open><summary");
+  });
+
+  it("the Unchecked issues group is hidden at zero, and named in plain words when there are some", async () => {
+    await seedReport({ publicId: `vt-iss-${RUN}-chk`, kind: "content", reason: "other", catId: cat.id, tokenChecked: true });
+    const none = (await get("/api/team")).text;
+    expect(none).not.toContain('id="issues-unchecked"');
+    expect(none).not.toContain("Cloudflare was unreachable");
+    // The other three groups keep their place, even when empty.
+    for (const id of ["issues-hidden", "issues-needs", "issues-other"]) expect(none).toContain(`id="${id}"`);
+    await seedReport({ publicId: `vt-iss-${RUN}-unc`, kind: "content", reason: "other", catId: cat.id, tokenChecked: false });
+    const some = (await get("/api/team")).text;
+    expect(some).toContain('<h3 id="issues-unchecked">Arrived while our spam check was down (1)</h3>');
+    expect(some.indexOf('id="issues-other"')).toBeLessThan(some.indexOf('id="issues-unchecked"'));
+  });
+
+  it("no draft is drawn in the Issues section", async () => {
+    await seedReport({ publicId: `vt-iss-${RUN}-draft`, kind: "content", reason: "other", catId: cat.id, isDraft: true });
+    const html = (await get("/api/team")).text;
+    expect(html).not.toContain(`vt-iss-${RUN}-draft`);
+    expect(html).not.toContain("Started but not sent");
+  });
+});

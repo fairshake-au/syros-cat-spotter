@@ -240,32 +240,56 @@ export interface ReportRowOptions {
   keptNote?: string;
 }
 
+/** What differs between a welfare row and an Issues row: the first line's pieces, and the opened body. */
+interface RowParts {
+  /** Extra classes on the <article> ("urgent", "issue"). */
+  classes: string[];
+  thumbUrl: string | null;
+  /** The line's bold words: the place, or what's wrong. Plain text. */
+  where: string;
+  /** Tag chips on the first line (already escaped HTML). */
+  tags: string;
+  /** The second line: the first words they said. Plain text. */
+  said: string;
+  /** Everything inside the fold (already escaped HTML). */
+  body: string;
+}
+
+/** An Issues row ("Report an issue", SYC-44 PR 7.1) rather than a welfare report. */
+const isIssue = (r: QueueReport | IssueReport): r is IssueReport => "reason" in r && "group" in r;
+
 /**
  * One report as one line that opens in place (SYC-519; spec §5): photo, place,
  * how long ago, the first words they said, and its state. The body holds
  * everything: the full note, which cat, contact, team note and the buttons. It
  * is a plain <details>, no script. The anchor stays on the <article>, outside
- * the fold, so old #r-<id> links still scroll to it. Exported so the Issues
- * section (SYC-44 PR 7.1) draws its rows the same way.
+ * the fold, so old #r-<id> links still scroll to it. The one row for every
+ * report on the page: the Issues section (SYC-44 PR 7.1) draws its rows here
+ * too, with what's wrong in place of the place name.
  */
-export function reportRow(r: QueueReport, now: Date, opts: ReportRowOptions): string {
-  const classes = ["report", r.severity === "urgent" ? "urgent" : "", opts.closed ? "closed" : ""]
-    .filter(Boolean)
-    .join(" ");
-  const thumb = r.photo.url
-    ? `<img class="hthumb" src="${esc(r.photo.url)}" alt="" loading="lazy" width="56" height="56">`
+export function reportRow(r: QueueReport | IssueReport, now: Date, opts: ReportRowOptions): string {
+  const p = isIssue(r) ? issueParts(r, now, opts) : welfareParts(r, now, opts);
+  const classes = ["report", ...p.classes, opts.closed ? "closed" : ""].filter(Boolean).join(" ");
+  const thumb = p.thumbUrl
+    ? `<img class="hthumb" src="${esc(p.thumbUrl)}" alt="" loading="lazy" width="56" height="56">`
     : '<span class="hthumb nothumb">No photo</span>';
+  const line =
+    `<summary class="rowline">${thumb}<span class="rtext">` +
+    `<span class="rwhere"><strong>${esc(p.where)}</strong> · ${ago(r.at, now)}${p.tags ? ` ${p.tags}` : ""}</span>` +
+    `<span class="said1">${p.said ? esc(p.said) : "Nothing written"}</span></span>` +
+    `<span class="rtags"><span class="tag state">${esc(STATE[r.state])}</span></span></summary>`;
+  return (
+    `<article class="${classes}" id="r-${esc(r.id)}">` +
+    `<details${opts.open ? " open" : ""}>${line}<div class="rbody">${p.body}</div></details></article>`
+  );
+}
+
+function welfareParts(r: QueueReport, now: Date, opts: ReportRowOptions): RowParts {
   // Urgent, kittens and unchecked sit on the first line; the state is the chip on the right.
   const tags =
     (r.severity === "urgent" ? '<span class="tag urgent">Urgent</span>' : "") +
     (r.isLitter ? '<span class="tag kittens">Kittens</span>' : "") +
     (r.unchecked ? '<span class="tag unchecked">Unchecked</span>' : "");
-  const said = firstWords(r.note);
-  const line =
-    `<summary class="rowline">${thumb}<span class="rtext">` +
-    `<span class="rwhere"><strong>${esc(placeLabel(r))}</strong> · ${ago(r.at, now)}${tags ? ` ${tags}` : ""}</span>` +
-    `<span class="said1">${said ? esc(said) : "Nothing written"}</span></span>` +
-    `<span class="rtags"><span class="tag state">${esc(STATE[r.state])}</span></span></summary>`;
   const moved =
     r.stateChangedAt && r.stateChangedBy
       ? row(
@@ -305,10 +329,14 @@ export function reportRow(r: QueueReport, now: Date, opts: ReportRowOptions): st
     row("Team alert", email) +
     "</dl>" +
     actionForms(r, opts.noteOpen === true, REPORT_STATES, "", opts.keptNote);
-  return (
-    `<article class="${classes}" id="r-${esc(r.id)}">` +
-    `<details${opts.open ? " open" : ""}>${line}<div class="rbody">${body}</div></details></article>`
-  );
+  return {
+    classes: [r.severity === "urgent" ? "urgent" : ""],
+    thumbUrl: r.photo.url,
+    where: placeLabel(r),
+    tags,
+    said: firstWords(r.note),
+    body,
+  };
 }
 
 function reportCard(
@@ -431,44 +459,27 @@ function issueButtons(i: IssueReport): string {
 /** What happened after an Issues action, by the fixed key the route sent back. */
 export type IssueNotice = { id: string; key: string };
 
-function issueCard(
-  i: IssueReport,
-  now: Date,
-  closed: boolean,
-  changedId: string | undefined,
-  issueNotice: IssueNotice | undefined,
-  noted: string | undefined,
-): string {
-  const landed = i.id === changedId || i.id === noted || i.id === issueNotice?.id;
-  const classes = ["report", "issue", closed ? "closed" : "", i.photo?.url && !closed ? "has-photo" : ""]
-    .filter(Boolean)
-    .join(" ");
+/** An Issues row's line and body (SYC-44 PR 7.1, §5.3–5.4), drawn by reportRow. */
+function issueParts(i: IssueReport, now: Date, opts: ReportRowOptions): RowParts {
+  // The "Issue" label on every row, beside the colour band: never colour alone (T7-2).
   const tags =
     '<span class="tag issue">Issue</span>' +
     (i.photo?.hidden ? '<span class="tag hiddennow">Photo hidden</span>' : "") +
-    (i.unchecked ? '<span class="tag unchecked">Unchecked</span>' : "") +
-    `<span class="tag state">${esc(STATE[i.state])}</span>` +
-    `<span class="ago">${ago(i.at, now)}</span>`;
+    (i.unchecked ? '<span class="tag unchecked">Unchecked</span>' : "");
   const photo = i.photo?.url
     ? `<a class="photolink" href="${esc(i.photo.url)}">` +
       `<img class="photo" src="${esc(i.photo.url)}" alt="The reported photo" loading="lazy"></a>`
     : i.photo?.removed
       ? '<div class="nophoto">The photo was deleted for good</div>'
       : "";
-  const outcome =
-    issueNotice && i.id === issueNotice.id && Object.hasOwn(ISSUE_OUTCOME_TEXT, issueNotice.key)
-      ? `<p class="notice" role="status">${esc(ISSUE_OUTCOME_TEXT[issueNotice.key as keyof typeof ISSUE_OUTCOME_TEXT])}</p>`
-      : "";
   const note = i.teamNote
     ? `<span class="note">${esc(i.teamNote)}</span>` +
       (i.teamNoteBy && i.teamNoteAt ? ` <span class="ago">${esc(who(i.teamNoteBy))}, ${ago(i.teamNoteAt, now)}</span>` : "")
     : '<span class="ago">None yet</span>';
+  const forms = { ...i, contactLeft: false, emailToReporter: null };
   const body =
     photo +
-    (i.id === changedId ? `<p class="notice" role="status">${esc(CHANGED_MESSAGE)}</p>` : "") +
-    outcome +
-    (i.id === noted ? '<p class="notice" role="status">Saved. The team note is updated.</p>' : "") +
-    (closed ? "" : `<div class="head">${tags}</div>`) +
+    opts.notices +
     "<dl>" +
     row("What's wrong", `<strong>${esc(reasonLabel(i.reason))}</strong>`) +
     row("Which cat", i.cat ? `<a class="tap catlink" href="/api/team/cats/${i.cat.id}">${esc(i.cat.name)}</a>` : "Not known") +
@@ -486,18 +497,48 @@ function issueCard(
     (i.stateChangedAt && i.stateChangedBy ? row("Last moved", `${esc(who(i.stateChangedBy))}, ${ago(i.stateChangedAt, now)}`) : "") +
     "</dl>" +
     catLinks(i) +
-    (closed ? "" : issueButtons(i)) +
-    (i.photo?.hidden && !i.photo.removed && !closed
-      ? actionForms({ ...i, contactLeft: false, emailToReporter: null }, landed, ["new", "looking"],
-          '<p class="hint">To close it, keep the photo hidden or restore it, above.</p>')
-      : actionForms({ ...i, contactLeft: false, emailToReporter: null }, landed));
-  if (!closed) return `<article class="${classes}" id="r-${esc(i.id)}">${body}</article>`;
-  return (
-    `<article class="${classes}" id="r-${esc(i.id)}">` +
-    `<details${landed ? " open" : ""}><summary><span class="head">${tags}</span>` +
-    `<span class="said1">${esc(reasonLabel(i.reason))}${i.cat ? ` · ${esc(i.cat.name)}` : ""}</span></summary>` +
-    `<div${i.photo?.url ? ' class="has-photo"' : ""}>${body}</div></details></article>`
-  );
+    (opts.closed ? "" : issueButtons(i)) +
+    (i.photo?.hidden && !i.photo.removed && !opts.closed
+      ? actionForms(forms, opts.noteOpen === true, ["new", "looking"],
+          '<p class="hint">To close it, keep the photo hidden or restore it, above.</p>', opts.keptNote)
+      : actionForms(forms, opts.noteOpen === true, REPORT_STATES, "", opts.keptNote));
+  return {
+    classes: ["issue"],
+    thumbUrl: i.photo?.url ?? null,
+    where: reasonLabel(i.reason),
+    tags,
+    said: [i.cat?.name ?? "", firstWords(i.note)].filter(Boolean).join(" · "),
+    body,
+  };
+}
+
+function issueCard(
+  i: IssueReport,
+  now: Date,
+  closed: boolean,
+  changedId: string | undefined,
+  issueNotice: IssueNotice | undefined,
+  noted: string | undefined,
+  kept?: KeptNote,
+  openId?: string,
+): string {
+  const keptNote = kept !== undefined && i.id === kept.id ? kept.note : undefined;
+  // An Issues action's notice (?issue=&r=) opens its row too, in view.
+  const landed = i.id === changedId || i.id === noted || i.id === issueNotice?.id || keptNote !== undefined;
+  const notices =
+    (i.id === changedId ? `<p class="notice" role="status">${esc(CHANGED_MESSAGE)}</p>` : "") +
+    (issueNotice && i.id === issueNotice.id && Object.hasOwn(ISSUE_OUTCOME_TEXT, issueNotice.key)
+      ? `<p class="notice" role="status">${esc(ISSUE_OUTCOME_TEXT[issueNotice.key as keyof typeof ISSUE_OUTCOME_TEXT])}</p>`
+      : "") +
+    (i.id === noted ? '<p class="notice" role="status">Saved. The team note is updated.</p>' : "");
+  return reportRow(i, now, {
+    open: landed || i.id === openId,
+    island: false,
+    closed,
+    notices,
+    noteOpen: landed,
+    keptNote,
+  });
 }
 
 /** The brake banner (D3): shown while today's report-hides are at the limit. No resume, anywhere. */
@@ -531,6 +572,8 @@ function issuesSection(
   changedId: string | undefined,
   issueNotice: IssueNotice | undefined,
   noted: string | undefined,
+  kept?: KeptNote,
+  openId?: string,
 ): string {
   const t = issues.totals;
   const open = t.hidden + t.needsPerson + t.other + t.unchecked;
@@ -538,12 +581,12 @@ function issuesSection(
     `<h3 id="${id}">${esc(title)} (${total})</h3>` +
     intro +
     (list.length
-      ? list.map((i) => issueCard(i, now, false, changedId, issueNotice, noted)).join("") +
+      ? list.map((i) => issueCard(i, now, false, changedId, issueNotice, noted, kept, openId)).join("") +
         (total > list.length ? `<p class="empty">Showing ${list.length} of ${total}.</p>` : "")
       : `<p class="empty">${esc(empty)}</p>`);
   const closed = issues.closed.length
     ? `<h3 id="issues-closed">Closed issues (${issues.closedTotal})</h3>` +
-      issues.closed.map((i) => issueCard(i, now, true, changedId, issueNotice, noted)).join("") +
+      issues.closed.map((i) => issueCard(i, now, true, changedId, issueNotice, noted, kept, openId)).join("") +
       (issues.closedTotal > issues.closed.length
         ? `<p class="empty">Showing the newest ${issues.closed.length} of ${issues.closedTotal}.</p>`
         : "")
@@ -555,16 +598,17 @@ function issuesSection(
     group("issues-hidden", "Hidden, waiting for you", issues.hidden, t.hidden, "None. No photo hidden by a report is waiting.") +
     group("issues-needs", "Location, and cats reported as died", issues.needsPerson, t.needsPerson, "None.") +
     group("issues-other", "Everything else", issues.other, t.other, "None.") +
-    group(
-      "issues-unchecked",
-      "Unchecked (Cloudflare was unreachable)",
-      issues.unchecked,
-      t.unchecked,
-      "None.",
-      issues.unchecked.length
-        ? "<p class=\"empty\">These arrived while the safety check couldn't reach Cloudflare. None of them hid a photo.</p>"
-        : "",
-    ) +
+    // SYC-519: like the welfare list's, nothing at all when there are none.
+    (t.unchecked > 0
+      ? group(
+          "issues-unchecked",
+          "Arrived while our spam check was down",
+          issues.unchecked,
+          t.unchecked,
+          "None.",
+          `<p class="empty">${esc("Our spam check couldn't be reached when these arrived. None of them hid a photo.")}</p>`,
+        )
+      : "") +
     closed +
     "</section>"
   );
@@ -635,6 +679,6 @@ export function renderQueuePage(
       (kept ? keptLine() : "") +
       hiddenWaitingLine(issues) +
       `<h2>Waiting for the team (${queue.open.length})</h2>${openList}${closed}${uncheckedSection(queue, now, changedId, tied, island, canTie, noted, kept, openId)}` +
-      (issues ? issuesSection(issues, now, changedId, issueNotice, noted) : ""),
+      (issues ? issuesSection(issues, now, changedId, issueNotice, noted, kept, openId) : ""),
   });
 }
