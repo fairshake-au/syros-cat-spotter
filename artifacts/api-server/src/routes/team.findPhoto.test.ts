@@ -71,6 +71,7 @@ import {
   TEAM_CAP_WORDS,
   TOO_BIG_WORDS,
   WHERE_HINT,
+  WHERE_HINT_SHORT,
 } from "../lib/teamPages/findPhotoPage";
 import { areaFor, currentAreas } from "../lib/areas/namedAreas";
 import { guardianOn, newColony, putInColony, RUN, signedPerson, type Signed } from "../test/roleKit";
@@ -280,6 +281,7 @@ describe("the form", () => {
     expect(res.text).toContain('<option value="" selected>Anywhere on the island</option>');
     expect(res.text).toContain("12 cats to compare across the island");
     expect(res.text).toContain(WHERE_HINT);
+    expect(res.text).toContain("compares every cat");
     expect(res.text).toContain("Compare with 12 cats");
     expect(res.text).toContain('type="file"');
   });
@@ -306,6 +308,10 @@ describe("the form", () => {
     );
     expect(res.text).toContain('type="file"');
     expect(res.text).not.toContain("too many");
+    expect(res.text).toContain(WHERE_HINT_SHORT);
+    expect(WHERE_HINT_SHORT).toBe("If you know where the photo was taken, choosing the area is surer.");
+    expect(res.text).not.toContain("compares every cat");
+    expect(res.text).not.toContain(WHERE_HINT);
   });
 
   it("a large area counts its own cats with the same words, naming the area", async () => {

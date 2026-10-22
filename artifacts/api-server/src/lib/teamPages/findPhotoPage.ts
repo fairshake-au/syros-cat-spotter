@@ -38,6 +38,8 @@ export const ANYWHERE_OPTION = "Anywhere on the island";
 export const ANY_AREA_OPTION = "Any area";
 export const WHERE_HINT =
   "Anywhere on the island compares every cat. If you know where the photo was taken, choosing the area is surer.";
+/** Spec §9.1: over 30 cats the island search shortlists, so it no longer "compares every cat". */
+export const WHERE_HINT_SHORT = "If you know where the photo was taken, choosing the area is surer.";
 /**
  * SYC-527 piece 3, spec §9.4: the looks-like index can't run. Shown for the
  * island and for a large area alike; no search is used up.
@@ -148,7 +150,7 @@ function whereForm(o: FindFormOptions): string {
     `<form class="findwhere" method="get" action="${FIND_PATH}">` +
     (o.tie ? `<input type="hidden" name="tie" value="${esc(o.tie.publicId)}">` : "") +
     "<h2>1. Where to look</h2>" +
-    `<p class="hint">${esc(isWholeIsland(f) && o.problem?.field !== "place" ? WHERE_HINT : "Choose an area or a colony. Colours narrow it further.")}</p>` +
+    `<p class="hint">${esc(isWholeIsland(f) && o.problem?.field !== "place" ? (o.narrowing.kind === "ok" && o.narrowing.count > FIND_MAX_CATS ? WHERE_HINT_SHORT : WHERE_HINT) : "Choose an area or a colony. Colours narrow it further.")}</p>` +
     placeProblem +
     '<fieldset><legend>Where</legend>' +
     `<label class="flabel" for="find-area">Area</label><select class="text" id="find-area" name="area"${described}>${areas}</select>` +
