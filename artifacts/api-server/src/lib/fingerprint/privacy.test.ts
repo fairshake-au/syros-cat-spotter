@@ -4,13 +4,18 @@ import { sql } from "drizzle-orm";
 import { db, photosTable } from "@workspace/db";
 import { setPhotoVisibility } from "../photoVisibility";
 import { _setBrakeForTests, applyHideRules, prepareHide } from "../issues/hide";
+import { hideFromIssue } from "../issues/teamActions";
 import { markRemoved } from "../../test/removalKit";
 
 // SYC-527 piece 3, spec docs/specs/find-from-a-photo-whole-island.md §6.2:
 // a hidden or removed photo has no fingerprint, ever. The two api-server
 // paths that write a hide, run for real:
 //   1. setPhotoVisibility (lib/photoVisibility.ts), the team's dashboard hide;
-//   2. applyHideRules (lib/issues/hide.ts), a "Report an issue" report's hide.
+//   2. applyHideRules (lib/issues/hide.ts), a "Report an issue" report's hide;
+//   and one the spec's list (§6.2) missed, found while building this:
+//   2b. hideFromIssue (lib/issues/teamActions.ts), the team's "Hide this
+//       photo" on an Issues row, a second writer of hide events by design.
+//       The trigger covers it like the others; this proves it.
 // The two lib/db paths (the written procedure's hide and removal), the table's
 // own checks and the removal search are in lib/db/src/photoFingerprints.test.ts.
 // The only writer of fingerprints is guarded by fingerprint.source.test.ts.
@@ -134,6 +139,19 @@ describe("path 2: applyHideRules (a report hides a photo)", () => {
     );
     expect(out).toEqual({ hiddenByReport: false, skipped: "unchecked" });
     expect(await hasFingerprint(a.id)).toBe(true);
+  });
+});
+
+describe("path 2b: hideFromIssue (the team hides a reported photo from the Issues queue)", () => {
+  it("deletes the photo's fingerprint, and leaves another photo's", async () => {
+    const a = await seedPhoto();
+    const b = await seedPhoto();
+    await addFingerprint(a.id);
+    await addFingerprint(b.id);
+    await seedReport(a.id);
+    expect(await hideFromIssue(staff, { publicId: `${PREFIX}report-${a.id}` })).toBe("hidden");
+    expect(await hasFingerprint(a.id)).toBe(false);
+    expect(await hasFingerprint(b.id)).toBe(true);
   });
 });
 
