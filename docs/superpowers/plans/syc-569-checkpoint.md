@@ -26,3 +26,7 @@ Part 1 gate: cat-spotter full vitest (172 files, 2236 tests) green; api-server t
 
 ## Next
 T3.3 dashboard map, T3.4 second-pack rows, then Part 2.
+
+## T2.1 (SYC-574, Part 2 server side)
+
+- [x] (a) Schema plus migration. `PICKED_FROM` gains `cat_page`. Migration `0039_picked_from_cat_page.sql` drops and re-adds `sighting_matches_picked_from_ck`; commented rollback nulls `cat_page` rows, then restores the narrow check. `migrate:check` ok (40 migrations); `lib/db` tests 625/625 passed, `runner.test.ts` alone 25/25 (incl. the real history's up/down/up cycle). Local DB URL needs the user name (`postgres://samuelporter@localhost/...`): without it the spawned db-ops CLIs fail with "no PostgreSQL user name specified". The full db run's `afterAll` drop-database hooks in `runner.test.ts` and `switchover.test.ts` hit the 10 s hook timeout once (all tests had passed; the file alone is clean).

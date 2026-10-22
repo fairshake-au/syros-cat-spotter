@@ -20,8 +20,12 @@ export const MATCH_CHOICES = [
   "unlabelled",
 ] as const;
 
-/** Which screen a hand pick came from. The phone's word, about its own screen. */
-export const PICKED_FROM = ["nearby", "search", "name_prompt"] as const;
+/**
+ * Which screen a pick came from. The phone's word, about its own screen.
+ * `cat_page` (SYC-569 D3) is kept on suggested picks too; the others only on
+ * hand picks and unlabelled rows.
+ */
+export const PICKED_FROM = ["nearby", "search", "name_prompt", "cat_page"] as const;
 
 /** Why the matcher missed a hand-picked cat (§4.6). */
 export const MISS_KINDS = [
