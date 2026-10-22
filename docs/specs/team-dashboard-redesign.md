@@ -75,7 +75,7 @@ The dashboard stays fast on a phone in a street with weak signal. A few screens 
 | D10 | SYC-362's unfinished work | "Hand all of it to the redesign" (Samuel, 15 Oct 2026). It's tracked as SYC-395 and placed in §15. |
 | D11 | The Cats search text in the web address | **Allowed** (Samuel, 16 Oct 2026). The search box's own text appears in the address like any search, as the old Cats search did. Every other part of the address follows §10.4. Server logs already strip the query. |
 | D8 | A vet visit versus a cat guardian's earlier "not sterilised" | **The visit overrules, visibly.** Logging a visit with Sterilised also marks any standing guardian "not sterilised" on that cat wrong, with the reason "vet visit on [date]". The change appears on the recent guardian changes list. This works the same way as the team's **Correct** on colour. |
-| D12 | What Home is for | **Today, where to trap next, and how we're doing, in that order; no "Not seen lately"** (Samuel, 22 Oct 2026: "go with D, but remove the “not seen lately” part"). Chosen from four mockups. §4 is rewritten. |
+| D12 | What Home is for | **Today, where to trap next, and how we're doing, in that order; no "Not seen lately"** (Samuel, 22 Oct 2026: "go with D, but remove the “not seen lately” part"). Chosen from four mockups. After review, Samuel added that kitten reports get their own lines too ("Urgent + kittens"). §4 is rewritten. |
 
 ## 3. How the dashboard is laid out
 
@@ -147,17 +147,18 @@ Home never shows response times, league tables of people, or anything that reads
 
 ### 4.1 Today
 
-1. **Urgent reports, in full.**
+1. **Urgent and kitten reports, in full** (Samuel, 22 Oct 2026, after review).
    - "Open, checked" means the Queue's open list. Reports that arrived while the spam check was down are left out, so they're never counted twice (item 2).
-   - Every open, checked urgent welfare report gets one line, newest first: photo, place label, how long ago, and the first words of the report. Each line has the red band and the word **Urgent**, so it never relies on colour alone.
-   - At most 5 lines. If there are more, the next line reads "See all N urgent reports in the Queue". N is a count of urgent reports only, which Home's data gains alongside the existing total.
+   - Every open, checked report that is urgent, or is a litter report (kittens, whatever its urgency), gets one line: photo, place label, how long ago, and the first words of the report. Urgent ones come first, then kitten ones, newest first within each.
+   - An urgent line has the red band and the word **Urgent**. A kitten line has the word **Kittens**. Neither relies on colour alone.
+   - At most 5 lines. If there are more, the next line reads "See all N urgent and kitten reports in the Queue". N counts those two kinds only, which Home's data gains alongside the existing total.
    - Tapping a line opens that report in the Queue (`?open=`).
 2. **The spam-check line.** "N reports arrived while our spam check was down" appears whenever that count is above zero. It sits under the urgent reports in the notice style, never as a tile, so it can't be skimmed past. It links to the Queue's unchecked section.
 3. **Count tiles.** Each tile is a large number and a few words, and the whole tile links to its list. A tile shows only when its count is above zero. In this order:
 
    | Tile | Counts | Opens |
    |---|---|---|
-   | **More reports** | Open, checked welfare reports that aren't urgent: all open reports minus the urgent count | The Queue |
+   | **More reports** | Open, checked welfare reports that are neither urgent nor kitten reports | The Queue |
    | **Problems with photos or names** | Open "Report an issue" reports | The Queue's issues section |
    | **Sightings to match** | Sightings waiting for the team to match them. Hidden while nothing writes this state (plan Decision 2). | The Cats screen, as now |
    | **Ear clips to check** | That list's own count | Ear clips to check |
@@ -167,7 +168,7 @@ Home never shows response times, league tables of people, or anything that reads
 
    - Tiles sit two to a row on a phone and four to a row from 560 px. That breakpoint belongs to the tile row alone, not the page.
    - Each tile's link reads as one phrase for screen readers, for example "4 ear clips to check".
-4. **Nothing waiting.** "Nothing waiting right now." shows only when every Today read worked and there are no urgent reports, no spam-check line and no tiles. The Today heading always shows. If any Today read failed, this line never shows (§4.4).
+4. **Nothing waiting.** "Nothing waiting right now." shows only when every Today read worked and there are no urgent or kitten reports, no spam-check line and no tiles. The Today heading always shows. If any Today read failed, this line never shows (§4.4).
 
 ### 4.2 Where to trap next
 
@@ -216,7 +217,7 @@ Each read is worked out separately: the Queue counts, the check lists, the colon
   - Home calls it for the whole island, with island-wide visibility and `island: true`, and takes colony names from the colony list.
   - `colonyFigures` should take the cats Home has already loaded, rather than loading every cat a second time.
 - **"Not in a colony"** is a separate count from the same loaded cats, because `colonyFigures` leaves out cats with no colony.
-- **Home's data** drops the Not-seen-lately read and gains an urgent-report count and the colony ranking.
+- **Home's data** drops the Not-seen-lately read and gains a count of urgent and kitten reports, and the colony ranking.
 
 ## 5. Cats: finding a cat without knowing its name
 
@@ -830,12 +831,12 @@ A Sonnet critic reviewed the rewritten §4: 7 major and 7 minor findings, no blo
 
 | # | Finding | Handled in |
 |---|---|---|
-| 1 | Non-urgent reports, litter ones included, collapse to a count | **Open: for Samuel** |
+| 1 | Non-urgent reports, litter ones included, collapse to a count | Samuel, 22 Oct: urgent **and kitten** reports get lines (§4.1 item 1) |
 | 2 | §1, §3.1, §13 and §15 still describe the old Home | §1, §4.1 (Needs an OK tile), §13, §15 updated |
 | 3 | A failed read could read as "nothing waiting" | §4.4: never a zero; §4.1 item 4 |
 | 4 | Ranking data, double load, no-colony count | §4.5 |
 | 5 | "See all colonies" sort doesn't match Home's ranking | §4.2: default order |
-| 6 | No urgent-only count | §4.1 item 1, tile table |
+| 6 | No urgent-only count | §4.1 item 1: an urgent-and-kitten count; tile table |
 | 7 | 760 px breaks §12.1's 1000 px | §4: 1000 px; the tiles' own 560 px is stated |
 | 8 | Rounding down contradicts `wholePct` | §4.3 uses `wholePct`, "confirmed sterilised" |
 | 9 | Estimate overstates; €60 hard-coded; cost gate differs from §9.2 | §4.2: "up to", price from Vet settings, no gate, as §9.2 |
