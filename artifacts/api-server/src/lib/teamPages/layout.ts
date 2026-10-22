@@ -95,8 +95,8 @@ a{color:#0b5c6b}
 /* A clear focus outline: the browser's own is faint on the beige (SYC-366). */
 :focus-visible{outline:3px solid #0b5c6b;outline-offset:2px}
 main:focus{outline:none}
-/* One row on every screen (SYC-219): on a phone the menu scrolls sideways
-   rather than wrapping, so it is always 53px tall. The person's name and
+/* One row on a desktop (53px). On a phone (SYC-522) the menu wraps onto up to
+   three rows (about 141px at 390px) so no link is hidden. The person's name and
    Sign out sit at its end (SYC-396 spec §3.2). When there's more to scroll to, a
    soft shadow shows at that edge; the white "covers" scroll with the row and
    hide the shadow once you reach the end, so no text is ever dimmed (SYC-374). */
