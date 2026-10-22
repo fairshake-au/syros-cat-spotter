@@ -176,7 +176,8 @@ describe("the removal search and this table (spec §6.1)", () => {
     const P = await seedEverywhere(c, picture(++seq), "fp-scan", { hide: false, report: false });
     await addFingerprint(P.photoId);
     const data = (await c.query<{ data: string }>(`select data from photos where id = $1`, [P.photoId])).rows[0]!.data;
-    const out = await scanBytes(c, P, fingerprint(data), { inTransaction: false });
+    const out = await scanBytes(c, { id: P.photoId, publicId: P.publicId }, fingerprint(data), { inTransaction: false });
+    expect(out.line.ok).toBe(true);
     expect(out.line.detail).not.toMatch(/photo_fingerprints/);
   });
 });
