@@ -201,5 +201,6 @@ export function renderHomePage(d: HomeData, o: { personName: string; now: Date; 
     "</div>" +
     AREAS_LINE +
     VET_SETTINGS_LINE;
-  return renderPage({ title: "Home", active: "home", personName: o.personName, body });
+  // Wide, as the Cats grid is: two columns from 1000px need more than the 760px reading column.
+  return renderPage({ title: "Home", active: "home", personName: o.personName, body, mainClass: "wide" });
 }

@@ -392,6 +392,9 @@ a.hrow.urgent{border-left:6px solid #b3261e}
 ul.htiles{list-style:none;margin:12px 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 @media (min-width:560px){ul.htiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
 ul.htiles li.hwide{grid-column:1/-1}
+ul.htiles li{display:flex}
+ul.htiles li>a.htile{flex:1}
+li.trow .cflag{align-self:flex-start}
 a.htile{display:flex;flex-direction:column;gap:2px;min-height:44px;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px 10px;color:#0b5c6b;font-size:14px;overflow-wrap:anywhere}
 a.htile:hover{border-color:#0b5c6b}
 a.htile .hn{font-size:24px;font-weight:700;line-height:1.1;color:#1d1d1b;font-variant-numeric:tabular-nums}
