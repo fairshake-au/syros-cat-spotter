@@ -105,17 +105,23 @@ export async function refuseSignedOutSave(req: Request, res: Response): Promise<
   // C3: kept on the server only when a genuine expired sign-in says whose it
   // was, and that person is still on the list at that version (keepTyping).
   const who = readExpiredSession(req, Math.floor(Date.now() / 1000));
-  let kept = false;
+  let kept: "typed" | "landing" | null = null;
   try {
-    kept = who !== null && (await keepTyping(req, res, who));
+    kept = who === null ? null : await keepTyping(req, res, who);
   } catch (err) {
     // Keeping is a kindness, never a reason to fail: the copy-back page instead.
     req.log.warn({ err }, "keeping typed text failed");
-    kept = false;
+    kept = null;
   }
-  if (kept) {
+  if (kept === "typed") {
     req.log.info({ reason: "signed_out_save_kept" }, "team save refused, typing kept");
     res.status(401).type("html").send(renderSignedOutPage({ kept: true, lang }));
+    return;
+  }
+  if (kept === "landing") {
+    // Nothing typed to keep, but they come back to this page (final review, fix 2).
+    req.log.info({ reason: "signed_out_save_landing" }, "team save refused, landing kept");
+    res.status(401).type("html").send(renderSignedOutPage({ kept: false, comeBack: true, lang }));
     return;
   }
   // Otherwise the named boxes are shown back, read-only, to copy. Never any

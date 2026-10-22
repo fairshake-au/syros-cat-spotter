@@ -419,12 +419,12 @@ router.post(
 );
 
 /** What a tap or typed position turned into. */
-type Picked =
+export type Picked =
   | { ok: true; spot: Position; zoom: number; checkNote?: string }
   | { ok: false; status: 400; view: View; note: string; fields: string[] };
 
 /** Reads the picker's form: a tap on the map, or typed coordinates. Never parses the tap itself. */
-function readPick(body: Record<string, unknown>, lang?: string): Picked {
+export function readPick(body: Record<string, unknown>, lang?: string): Picked {
   if (Object.hasOwn(body, "lat") || Object.hasOwn(body, "lng")) {
     const typed = typedSpot(body);
     const here = viewAround(ISLAND_CENTRE, START_ZOOM);

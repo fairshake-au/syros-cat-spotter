@@ -28,6 +28,8 @@ export class AreaChangeRefused extends Error {
   constructor(
     readonly field: AreaField,
     message: string,
+    /** The centre is outside Syros's box (a page may word that its own way). */
+    readonly offSyros = false,
   ) {
     super(message);
     this.name = "AreaChangeRefused";
@@ -69,10 +71,10 @@ function checkName(raw: string): string {
 
 function checkCentre(lat: number, lng: number): void {
   if (!Number.isFinite(lat) || lat < SYROS_BOX.latMin || lat > SYROS_BOX.latMax) {
-    throw new AreaChangeRefused("lat", "That centre isn't on Syros. Check the latitude.");
+    throw new AreaChangeRefused("lat", "That centre isn't on Syros. Check the latitude.", true);
   }
   if (!Number.isFinite(lng) || lng < SYROS_BOX.lngMin || lng > SYROS_BOX.lngMax) {
-    throw new AreaChangeRefused("lng", "That centre isn't on Syros. Check the longitude.");
+    throw new AreaChangeRefused("lng", "That centre isn't on Syros. Check the longitude.", true);
   }
 }
 

@@ -100,7 +100,7 @@ describe("reporterOnClose", () => {
   it("the queue carries the same answer as onClose", async () => {
     const none = await seedReport();
     const will = await reportWithContact("confirmed");
-    const q = await listWelfareQueue();
+    const q = await listWelfareQueue({ onClose: true });
     const by = new Map(q.open.map((x) => [x.id, x.onClose]));
     expect(by.get(none.publicId)).toBe("none");
     expect(by.get(will.publicId)).toBe("will_send");

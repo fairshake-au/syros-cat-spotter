@@ -536,7 +536,7 @@ describe("review of 7.1: the critic's findings, pinned", () => {
       restored_before: "Not hidden: the team restored this photo before, so a report can't hide it again",
       address_limit: "Not hidden: hide limit reached for the sender",
       brake: "Not hidden: daily brake (automatic hiding was paused for the day)",
-      unchecked: "Not hidden: unchecked (the safety check couldn't reach Cloudflare)",
+      unchecked: "Not hidden: our spam check couldn't be reached when this was sent",
     };
     for (const k of Object.keys(words)) {
       await seedReport({ publicId: `vt-iss-${RUN}-skip-${k}`, kind: "content", reason: "photo_private", photoId: (await newPhoto()).id, catId: cat.id, hideSkipped: k });
