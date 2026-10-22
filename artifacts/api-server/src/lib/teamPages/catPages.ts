@@ -458,6 +458,11 @@ export interface CatPageOptions {
   /** "Now", for "3 days ago" and the history's dates; tests pin it. */
   now?: Date;
   /**
+   * The Cats grid or Map address the person came from, filters and all
+   * (SYC-522), from `cameFromCats`. Left out: "Find another cat" to the plain list.
+   */
+  back?: string;
+  /**
    * The cat's standing vet visits, newest first (SYC-396 PR 3.1a). Without
    * `view_vet_costs` the caller leaves the cost and who paid out of each.
    */
@@ -890,6 +895,36 @@ function visitItem(l: VisitLine, may: (c: Capability) => boolean): string {
   );
 }
 
+/**
+ * Where "back" goes from a cat page: the Cats grid or Map the person just
+ * left, with its filters (SYC-522). Takes the Referer header (the dashboard
+ * sends `Referrer-Policy: same-origin`) but keeps only its path and query,
+ * and only when the path is exactly the Cats page, so no other site can
+ * make the link point anywhere else. Anything else: undefined.
+ */
+export function cameFromCats(referer: string | undefined): string | undefined {
+  if (!referer) return undefined;
+  let u: URL;
+  try {
+    u = new URL(referer);
+  } catch {
+    return undefined;
+  }
+  if (u.pathname !== "/api/team/cats") return undefined;
+  const q = new URLSearchParams(u.search);
+  // A page of results or a report being tied is not a place to return to.
+  q.delete("page");
+  q.delete("tie");
+  const qs = q.toString();
+  return `/api/team/cats${qs ? `?${qs}` : ""}`;
+}
+
+function backToCats(back: string | undefined): string {
+  if (!back) return '<p class="back"><a href="/api/team/cats">&larr; Find another cat</a></p>';
+  const words = new URLSearchParams(back.split("?")[1] ?? "").get("view") === "map" ? "Back to the map" : "Back to the cats";
+  return `<p class="back"><a href="${esc(back)}">&larr; ${words}</a></p>`;
+}
+
 export function renderCatPage(
   v: TeamCatView,
   personName: string,
@@ -1109,7 +1144,7 @@ export function renderCatPage(
     title: cat.name,
     active: "cats",
     personName,
-    beforeTitle: '<p class="back"><a href="/api/team/cats">&larr; Find another cat</a></p>',
+    beforeTitle: backToCats(opts.back),
     afterTitle: `<p class="syrline">${esc(cat.syr)}</p>`,
     mainClass: "wide",
     body:

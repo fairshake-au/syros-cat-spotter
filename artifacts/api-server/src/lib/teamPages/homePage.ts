@@ -15,22 +15,13 @@ import { firstWords } from "./noteWords";
 // Server-drawn, no scripts. It reads top to bottom by urgency, and a section
 // shows only when it has something in it. Every value goes through escapeHtml.
 //
+// Nothing is advertised that cannot be opened (SYC-522): the old "Coming soon" line is gone.
+//
 // Home never shows response times, "open for", rankings, or who did what
 // (D6): it names no team member at all. home.test pins the words.
 
-/**
- * Features on the way (Samuel, 18 Oct 2026: "Home shows upcoming features").
- * Named, never linked. **The PR that builds each route removes its entry**:
- * team.walk.test.ts fails while a route listed here is in its TABLE. When the
- * list is empty, the line disappears.
- */
-export const COMING_SOON: readonly { label: string; route: string }[] = [
-  { label: "trapping plans", route: "GET /api/team/colonies/:id/plan" },
-  { label: "the impact report", route: "GET /api/team/insights/impact" },
-];
-
 export const UNAVAILABLE = "This figure isn't available right now.";
-export const NOTHING_NEEDS_YOU = "Nothing needs you right now.";
+export const NOTHING_NEEDS_YOU = "No reports waiting.";
 
 const QUEUE = "/api/team";
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -171,12 +162,6 @@ export const AREAS_LINE = '<p id="areas-link"><a class="hlink" href="/api/team/a
 export const VET_SETTINGS_LINE =
   '<p id="vet-settings-link"><a class="hlink" href="/api/team/vet-settings">Vet settings: the standard sterilisation price</a></p>';
 
-/** One quiet line, no links. Gone once every feature on it has arrived. */
-export function comingSoonLine(list: readonly { label: string }[] = COMING_SOON): string {
-  if (list.length === 0) return "";
-  return `<p class="hsoon" id="soon">Coming soon: ${list.map((f) => esc(f.label)).join(" · ")}</p>`;
-}
-
 const isEmpty = (d: HomeData) =>
   d.needs.ok &&
   d.toCheck.ok &&
@@ -194,7 +179,6 @@ export function renderHomePage(d: HomeData, o: { personName: string; now: Date; 
     headlineSection(d.headline) +
     monthSection(d.month, o.costs === true) +
     AREAS_LINE +
-    VET_SETTINGS_LINE +
-    comingSoonLine();
+    VET_SETTINGS_LINE;
   return renderPage({ title: "Home", active: "home", personName: o.personName, body });
 }

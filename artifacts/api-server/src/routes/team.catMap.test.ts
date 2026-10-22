@@ -108,6 +108,17 @@ describe("the island Map page", () => {
     expect(html.indexOf("This map is only for the team.")).toBeGreaterThan(html.indexOf("</noscript>"));
   });
 
+  it("is titled Map and keeps Grid/Map after the search and Filters, as the grid does (SYC-522)", async () => {
+    const map = (await page("/api/team/cats?view=map")).text;
+    expect(map).toContain("<title>Map</title>");
+    expect(map).toContain("<h1>Map</h1>");
+    const grid = (await page("/api/team/cats")).text;
+    for (const html of [map, grid]) {
+      expect(html.indexOf('role="search"')).toBeLessThan(html.indexOf('class="viewswitch"'));
+      expect(html.indexOf("<summary>Filters")).toBeLessThan(html.indexOf('class="viewswitch"'));
+    }
+  });
+
   it("is the menu's Map: Map is underlined, not Cats (SYC-396 PR 1.6)", async () => {
     const res = await page("/api/team/cats?view=map");
     const nav = /<nav class="bar[^"]*"[^>]*>([\s\S]*?)<\/nav>/.exec(res.text)![1]!;

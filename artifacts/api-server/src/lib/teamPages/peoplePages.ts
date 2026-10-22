@@ -244,6 +244,8 @@ function placementFields(colonies: ColonyOption[], pre?: Prefill): string {
     roleBox("staff", "A member of the Syros Cats team") +
     roleBox("management", "A member of Syros Cats management") +
     roleBox("guardian", "A cat guardian") +
+    // What the roles mean, in the words the invitee will be shown (SYC-522).
+    '<p class="hint">The team sees the whole island and records what they find. Management can do all of that and also invite people, change what they can do and sign anyone out. A cat guardian sees only the colonies they look after.</p>' +
     `</fieldset>` +
     `<fieldset><legend class="label">Colonies, for a cat guardian</legend>${startBox}${rows}</fieldset>` +
     (none
@@ -261,7 +263,7 @@ function inviteForm(colonies: ColonyOption[]): string {
   const options = langs
     .map(([code, label]) => {
       const live = (LIVE_LANGUAGES as readonly string[]).includes(code);
-      return `<option value="${code}">${esc(label)}${live ? "" : " (will be sent in English)"}</option>`;
+      return `<option value="${code}">${esc(label)}${live ? "" : " (the email will still be in English)"}</option>`;
     })
     .join("");
   return (
@@ -345,7 +347,7 @@ export function renderBringBackPage(o: {
     ["el", "Greek"],
     ["fr", "French"],
   ]
-    .map(([c, l]) => `<option value="${c}">${esc(l)}${lang.includes(c!) ? "" : " (will be sent in English)"}</option>`)
+    .map(([c, l]) => `<option value="${c}">${esc(l)}${lang.includes(c!) ? "" : " (the email will still be in English)"}</option>`)
     .join("");
   return page(
     o.viewer,

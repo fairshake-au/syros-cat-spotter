@@ -390,7 +390,6 @@ a.hlink{display:inline-flex;align-items:center;min-height:44px;padding:0;font-we
 .hbig{font-size:18px;margin:16px 0 8px}
 .hbig strong{font-size:40px;line-height:1;margin-right:4px;font-variant-numeric:tabular-nums}
 .hfig{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-right:2px}
-.hsoon{margin:32px 0 0;padding-top:12px;border-top:1px solid #e6e2d6;color:#55524a;font-size:14px}
 /* The Cats grid (SYC-396 PR 1.3). */
 ${MARK_CSS}
 .catfilters{margin:8px 0 8px}

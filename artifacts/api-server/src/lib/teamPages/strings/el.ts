@@ -268,6 +268,7 @@ export const el: Record<StringKey, string> = {
   "appearance.drawnPatternNotKnown": "Σχέδιο άγνωστο",
 
   "colourCheck.title": "Έλεγχος χρώματος",
+  "colourCheck.back": "← Πίσω στην αρχική",
   "colourCheck.intro": "Γάτες των οποίων το χρώμα ή τα σημάδια αξίζουν μια δεύτερη ματιά. Χαμηλή προτεραιότητα: λίγα λεπτά την εβδομάδα.",
   "colourCheck.empty": "Τίποτα για έλεγχο.",
   "colourCheck.toCheck": "Για έλεγχο: {count}",
@@ -278,6 +279,7 @@ export const el: Record<StringKey, string> = {
   "colonies.title": "Αποικίες",
   "colonies.lead": "Μια αποικία είναι μια ομάδα γατών του δρόμου που τις φροντίζει ένας κηδεμόνας γατών, συνήθως σε ένα σημείο ταΐσματος. Δημιουργήστε μία για να αρχίσετε να καταγράφετε τις γάτες της.",
   "colonies.empty": "Δεν υπάρχουν ακόμα αποικίες.",
+  "colonies.emptyTeam": "Δεν υπάρχουν ακόμα αποικίες. Μια αποικία είναι μια ομάδα αδέσποτων γατών που τις φροντίζει ένας κηδεμόνας γατών, συνήθως σε ένα σημείο ταΐσματος.",
   "colonies.noMatch": "Καμία αποικία δεν είχε ποτέ τέτοιο όνομα.",
   "colonies.emptyOwn": "Οι αποικίες που φροντίζετε εμφανίζονται εδώ.",
   "colonies.noMatchOwn": "Καμία από τις αποικίες σας δεν έχει τέτοιο όνομα.",
@@ -291,6 +293,7 @@ export const el: Record<StringKey, string> = {
   "colonies.formerly": "Παλιότερο όνομα",
   // The Colonies list's figures and flags (SYC-396 PR 2.2).
   "colonies.flag.growing": "Αυξάνεται",
+  "colonies.flag.growingKey": "Αυξάνεται: 3 ή περισσότερες νέες γάτες τις τελευταίες 90 ημέρες, και περισσότερες από τις προηγούμενες 90.",
   "colonies.flag.kittens": "Αναφέρθηκαν γατάκια",
   "colonies.flag.noGuardian": "Χωρίς κηδεμόνα γατών",
   "colonies.flag.notVisited": "Δεν έχει επισκεφθεί πρόσφατα",
@@ -409,7 +412,7 @@ export const el: Record<StringKey, string> = {
   "none.body": "Δεν υπάρχει αποικία με αυτόν τον αριθμό.",
 
   "sites.title": "Σημεία ταΐσματος",
-  "sites.empty": "Δεν υπάρχουν ακόμα σημεία ταΐσματος.",
+  "sites.empty": "Δεν υπάρχουν ακόμα σημεία ταΐσματος. Ένα σημείο ταΐσματος είναι ένα μέρος όπου ταΐζονται αδέσποτες γάτες. Τα σημεία ταΐσματος εμφανίζονται στον χάρτη, ώστε η ομάδα να ξέρει πού να βρει τις γάτες.",
   "sites.showRetired": "Εμφάνιση των σημείων που έκλεισαν",
   "sites.update": "Ενημέρωση",
   "sites.recentTitle": "Πρόσφατες αλλαγές",
