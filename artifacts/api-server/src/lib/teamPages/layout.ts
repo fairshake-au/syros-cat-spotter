@@ -120,7 +120,7 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
    under Sign out (adversarial review of PR 1.6). */
 @media (min-width:600px){.bar,.bar.wide{padding-right:0}.bar>form{position:sticky;right:0;z-index:1;background:#fff;padding:0 16px 0 10px;box-shadow:-8px 0 8px -6px rgba(29,29,27,.22)}.bar>.who{min-width:0}}
 /* On a phone the menu wraps onto more rows, so every link is in view with no script (SYC-522). */
-@media (max-width:599px){.bar,.bar.wide{gap:0 10px;padding-inline:10px;flex-wrap:wrap;overflow:visible;white-space:normal;background:#fff}.bar .long{display:none}.bar .short{display:inline}.bar>.who{max-width:none;flex:1 1 100%;order:1;margin-left:0;padding:4px 2px 0}.bar>form{order:2;margin-left:auto}}
+@media (max-width:599px){.bar,.bar.wide{gap:0 10px;padding-inline:10px;flex-wrap:wrap;overflow:visible;white-space:normal;background:#fff}.bar .long{display:none}.bar .short{display:inline}.bar>.who{max-width:none;flex:1 1 150px;min-width:0;margin-left:0;padding:8px 2px 8px 0;white-space:nowrap}.bar>form{margin-left:auto}}
 main{max-width:760px;margin:0 auto;padding:12px 12px 48px}
 main.wide{max-width:1120px}
 h1{font-size:22px;margin:12px 0 4px}
