@@ -364,7 +364,7 @@ Each colony is a card showing:
   - **Growing:** at least 3 cats were added to the records for the first time in this colony in the last 90 days, more than in the 90 days before. Cats moved in from elsewhere don't count.
   - **Kittens reported:** a litter report in the last 60 days, either tied to a cat in this colony or within 300 m of one of its feeding sites.
   - **No guardian.**
-  - **Not visited lately:** no sighting of any of its cats in 30 days.
+  - **No street cat seen for 30 days:** no sighting of any of its cats in 30 days.
 
 Sort by name, by fewest confirmed sterilised, or by latest activity. A **Map** switch shows the colonies at their feeding sites on the island map.
 
