@@ -38,6 +38,10 @@ const CSS = `<style>
 details.confirm{border:1px solid #d9d5ca;border-radius:8px;padding:0 12px;background:#fff}
 details.confirm summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:#8c1d18;font-weight:700}
 details.confirm[open]{padding-bottom:12px}
+details.invitefold summary{list-style:none;width:fit-content}
+details.invitefold summary::-webkit-details-marker{display:none}
+details.invitefold[open]{margin:0 0 16px}
+details.invitefold[open] summary{margin-bottom:8px}
 details.hist summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 ol.hist{margin:0 0 4px;padding-left:20px}
 ol.hist li{margin:4px 0;font-size:15px}
@@ -261,9 +265,9 @@ function inviteForm(colonies: ColonyOption[]): string {
     })
     .join("");
   return (
-    `<section id="invite"><h2>Invite someone</h2>` +
+    `<section id="invite"><details class="invitefold"><summary class="pbtn go">Invite someone</summary>` +
     `<form class="pform" method="post" action="${PEOPLE}/invite">` +
-    `<label class="l" for="inv-email">Their email address (type it carefully, once)</label>` +
+    `<label class="l" for="inv-email">Their email address</label>` +
     `<input id="inv-email" type="email" name="email" required autocomplete="off" maxlength="254">` +
     `<label class="l" for="inv-name">Their name</label>` +
     `<input id="inv-name" type="text" name="name" required maxlength="100" autocomplete="off">` +
@@ -271,7 +275,7 @@ function inviteForm(colonies: ColonyOption[]): string {
     `<label class="l" for="inv-lang">Language of the invitation</label>` +
     `<select id="inv-lang" name="language">${options}</select>` +
     `<p class="hint">The email says which colonies and what they are being asked to do. You cannot add a message of your own.</p>` +
-    `<button class="pbtn go" type="submit">Send the invitation</button></form></section>`
+    `<button class="pbtn go" type="submit">Send the invitation</button></form></details></section>`
   );
 }
 
@@ -300,12 +304,12 @@ export function renderPeoplePage(o: {
   } else {
     body +=
       inviteForm(o.colonies) +
+      `<h2>Everyone</h2>` +
+      (o.people.length === 0 ? `<p class="empty">Nobody is on the list.</p>` : o.people.map(card).join("")) +
       `<h2>Joined in the last 7 days</h2>` +
       (o.recent.length === 0
         ? `<p class="empty">Nobody has joined in the last 7 days.</p>`
-        : `<ul class="joined7">${o.recent.map((p) => `<li><a href="#p-${esc(p.id)}">${esc(p.name)}</a> · ${esc(p.roles)}</li>`).join("")}</ul>`) +
-      `<h2>Everyone</h2>` +
-      (o.people.length === 0 ? `<p class="empty">Nobody is on the list.</p>` : o.people.map(card).join(""));
+        : `<ul class="joined7">${o.recent.map((p) => `<li><a href="#p-${esc(p.id)}">${esc(p.name)}</a> · ${esc(p.roles)}</li>`).join("")}</ul>`);
   }
   return page(o.viewer, "People", body);
 }
