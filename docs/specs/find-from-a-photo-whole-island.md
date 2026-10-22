@@ -164,17 +164,18 @@ A search never makes more than 4 AI calls. A whole-island search on a large isla
 2. A welfare report hides one automatically (`applyHideRules`, `lib/issues/hide.ts`; SYC-44).
 3. The written procedure hides one (`lib/db/src/photoRemoval/hide.ts`).
 4. The written procedure removes one for good (`lib/db/src/photoRemoval/remove.ts`, SYC-462). It empties the picture and records who and why; it **doesn't delete the photo row**.
+5. The Issues queue's "Hide this photo" hides one (`hideFromIssue`, `lib/issues/teamActions.ts`). Found while building the triggers; it writes a "hide" row to `photo_visibility_events`, so the trigger already covers it.
 
 **How the rule holds, whatever writes the hide:**
 - **Two database triggers delete the fingerprint**, in the same transaction:
-  - every time a "hide" row is added to `photo_visibility_events` (all three hide paths write one; migration 0034 already uses a trigger on that table the same way);
+  - every time a "hide" row is added to `photo_visibility_events` (every hide path writes one; migration 0034 already uses a trigger on that table the same way);
   - every time a photo's picture is removed (the `removed_at` column is set).
 - **Making a fingerprint re-checks first.** The save locks the photo's row, re-checks that it isn't hidden or removed, and only then saves (copying how `variantFor` saves photo versions, `lib/photoVariants.ts`). The hide triggers take the same row lock. So whichever goes first, a hide and a fingerprint can never both win:
   - hide first: the save waits, re-checks, sees the hide, and saves nothing;
   - save first: the hide waits, then its trigger deletes the new fingerprint.
 - **And a search only reads fingerprints of current display photos,** which by the existing rule are never hidden or removed.
 
-**Tests, each shown to fail when the thing it guards is taken out:** each of the four paths leaves no fingerprint; a hide racing a fingerprint save leaves none either way round; a source test fails if any new code writes a fingerprint without the locked re-check.
+**Tests, each shown to fail when the thing it guards is taken out:** each of the five paths leaves no fingerprint; a hide racing a fingerprint save leaves none either way round; a source test fails if any new code writes a fingerprint without the locked re-check.
 
 ### 6.3 Everything else that changes a cat's photo
 
