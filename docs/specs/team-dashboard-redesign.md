@@ -658,7 +658,7 @@ These rules follow the data-visualisation method.
 
 | Screen | Empty | Error |
 |---|---|---|
-| Home | "Nothing needs you right now." The headline and This month still show. | If a figure can't be worked out: "This figure isn't available right now", and the rest of Home still shows. |
+| Home | "No reports waiting." The headline and This month still show. | If a figure can't be worked out: "This figure isn't available right now", and the rest of Home still shows. |
 | Cats | No cats: "No cats recorded yet. Cats appear here once spotters send sightings." No match: §5.1. | — |
 | Find from a photo | No close match: §5.2. | AI service down or unreadable: §5.2. Over the daily cap: "You've used today's 20 searches. They reset at midnight." |
 | Map | No cats match: the map shows, with "No cats match these filters" and "Clear filters". | Map pictures or script fail: §6.3. |

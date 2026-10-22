@@ -23,6 +23,10 @@ export const WIDE_CSP =
 export const WIDE_CSP_ROUTES: ReadonlySet<string> = new Set([
   // The Cats grid: dashboard-grid.js applies the filters as you tap.
   "GET /api/team/cats",
+  // Find from a photo's form: find-photo.js locks the button once the search
+  // starts, so a double tap can't spend two of the day's searches (SYC-522).
+  // Only this 200; the POST's problem forms and results keep their own headers.
+  "GET /api/team/cats/find",
 ]);
 
 /**

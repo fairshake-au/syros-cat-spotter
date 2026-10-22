@@ -270,6 +270,7 @@ export const fr: Record<StringKey, string> = {
   "appearance.drawnPatternNotKnown": "Motif inconnu",
 
   "colourCheck.title": "Vérification des couleurs",
+  "colourCheck.back": "← Retour à l'accueil",
   "colourCheck.intro": "Les chats dont la couleur ou les marques méritent un second regard. Faible priorité : quelques minutes par semaine.",
   "colourCheck.empty": "Rien à vérifier.",
   "colourCheck.toCheck": "À vérifier : {count}",
@@ -280,6 +281,7 @@ export const fr: Record<StringKey, string> = {
   "colonies.title": "Colonies",
   "colonies.lead": "Une colonie est un groupe de chats des rues dont s’occupe un·e gardien·ne de chats, en général nourris au même endroit. Crée-en une pour commencer à noter ses chats.",
   "colonies.empty": "Il n’y a pas encore de colonie.",
+  "colonies.emptyTeam": "Il n’y a pas encore de colonie. Une colonie est un groupe de chats des rues dont s’occupe un·e gardien·ne de chats, en général nourris au même endroit.",
   "colonies.noMatch": "Aucune colonie n’a jamais porté un nom comme celui-ci.",
   "colonies.emptyOwn": "Les colonies dont tu t’occupes apparaissent ici.",
   "colonies.noMatchOwn": "Aucune de tes colonies ne porte un nom comme celui-ci.",
@@ -293,6 +295,7 @@ export const fr: Record<StringKey, string> = {
   "colonies.formerly": "S’appelait autrefois",
   // The Colonies list's figures and flags (SYC-396 PR 2.2).
   "colonies.flag.growing": "En augmentation",
+  "colonies.flag.growingKey": "En augmentation : 3 nouveaux chats ou plus ces 90 derniers jours, et plus que les 90 jours d’avant.",
   "colonies.flag.kittens": "Chatons signalés",
   "colonies.flag.noGuardian": "Aucun gardien de chats",
   "colonies.flag.notVisited": "Aucun chat de rue vu depuis 30 jours",
@@ -410,7 +413,7 @@ export const fr: Record<StringKey, string> = {
   "none.body": "Il n’y a pas de colonie avec ce numéro.",
 
   "sites.title": "Points de nourrissage",
-  "sites.empty": "Il n’y a pas encore de point de nourrissage.",
+  "sites.empty": "Il n’y a pas encore de point de nourrissage. Un point de nourrissage est un endroit où l’on nourrit des chats des rues. Les points de nourrissage apparaissent sur la carte, pour que l’équipe sache où trouver les chats.",
   "sites.showRetired": "Afficher les points fermés",
   "sites.update": "Mettre à jour",
   "sites.recentTitle": "Modifié récemment",

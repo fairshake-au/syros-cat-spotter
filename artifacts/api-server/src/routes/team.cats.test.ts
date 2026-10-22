@@ -497,6 +497,23 @@ describe("design review fixes (PR 3)", () => {
     expect(html).toContain(`<h1>Μιμή</h1><p class="syrline">${syr}</p>`);
   });
 
+  it("goes back to the filtered list or the map the person came from (SYC-522)", async () => {
+    const from = (ref?: string) => {
+      const r = request(app).get(`/api/team/cats/${mimi}`).set("Cookie", cookie);
+      return (ref ? r.set("Referer", ref) : r).then((x) => x.text);
+    };
+    const filtered = await from("https://admin.example.test/api/team/cats?colour=black&page=3&q=mimi");
+    expect(filtered).toContain('href="/api/team/cats?colour=black&amp;q=mimi">&larr; Back to the cats</a>');
+    expect(filtered).not.toContain("Find another cat");
+    const map = await from("http://localhost/api/team/cats?view=map&area=ano-syros");
+    expect(map).toContain("Back to the map");
+    expect(map).toContain('href="/api/team/cats?view=map&amp;area=ano-syros"');
+    for (const ref of [undefined, "https://evil.example/", "https://x.test/api/team/colonies", "not a url", "https://x.test/api/team/cats/5"]) {
+      const html = await from(ref);
+      expect(html).toContain('<a href="/api/team/cats">&larr; Find another cat</a>');
+    }
+  });
+
   it("says in words what each answer rests on", async () => {
     const html = await catHtml();
     expect(html).toContain(`<a href="#s-${ids["maria"]}">Lives on the street</a> <span class="meta">(Maria (left), `);

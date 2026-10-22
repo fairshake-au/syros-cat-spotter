@@ -96,6 +96,7 @@ export function renderLikelyPage(
     title: "Ear clips to check",
     active: "likely",
     personName,
+    beforeTitle: '<p class="back"><a href="/api/team">&larr; Back to Home</a></p>',
     body: notice + intro + body,
   });
 }

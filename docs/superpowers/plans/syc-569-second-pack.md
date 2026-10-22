@@ -218,3 +218,12 @@ Key | English | el | fr. These are already in `strings/{en,el,fr}.ts` (drafted b
 
 Also changed without a key: `Probably sterilised` / `Not known yet` in `assets/dashboard-map.js` and `reportPages.ts` (English-only table headings and legend).
 
+### Greek "street cats" fix (found in #284's review)
+
+Three Greek dashboard strings that came in with #283 said "stray cats"; they now say γάτες του δρόμου, as `colonies.lead` and the rest of the app do. The Greek dashboard is not live yet.
+
+| Key | English | el draft |
+|---|---|---|
+| `colonies.emptyTeam` | (unchanged) | "…ομάδα γατών του δρόμου…" (was αδέσποτων γατών) |
+| `sites.empty` | (unchanged) | "…ταΐζονται γάτες του δρόμου." (was αδέσποτες γάτες) |
+| `colonies.noStreetCats` | No street cats yet | Καμία γάτα του δρόμου ακόμα (was Καμία αδέσποτη γάτα ακόμα) |

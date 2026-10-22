@@ -10,7 +10,6 @@ import { removeTestPerson } from "../test/removeTestPerson";
 import { expectedCsp } from "../test/wideCsp";
 import { assetUrl } from "../lib/teamAssets";
 import { ASSET_CACHE } from "./teamAssets";
-import { COMING_SOON } from "../lib/teamPages/homePage";
 import { invitePerson } from "@workspace/db";
 import { inviteCookieFor } from "../test/inviteKit";
 import { STRICT_CSP } from "../test/wideCsp";
@@ -754,15 +753,3 @@ describe("T7-5 (SYC-44 PR 7.1; spec D3): the daily brake has no resume", () => {
   });
 });
 
-describe("Home's Coming soon line (SYC-396 PR 2.1)", () => {
-  // A feature whose route is in the TABLE has arrived: the PR that built it
-  // must take it off Home's "Coming soon" line in the same change.
-  it("names no feature whose route already exists", () => {
-    const arrived = COMING_SOON.filter((f) => f.route in TABLE).map((f) => `${f.label} (${f.route})`);
-    expect(arrived, "remove these from COMING_SOON in lib/teamPages/homePage.ts").toEqual([]);
-  });
-
-  it("lists every route in the same form as the TABLE's keys", () => {
-    for (const f of COMING_SOON) expect(f.route).toMatch(/^(GET|POST) \/api\/team\//);
-  });
-});

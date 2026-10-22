@@ -25,7 +25,7 @@ import type { TieMode } from "../lib/teamPages/catPages";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
 import { allColonyChoices } from "../lib/colonyCats";
-import { catPageFormKeys, renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
+import { cameFromCats, catPageFormKeys, renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
 import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
 import { parseCatFilters } from "../lib/teamCatFilters";
 import { allTeamCats, catTrail, LIVES, listTeamCats, type CatListFilters } from "../lib/teamCatList";
@@ -299,7 +299,7 @@ async function findFormHtml(
   person: ReturnType<typeof teamPerson>,
   filters: FindFilters,
   tie: TieMode | undefined,
-  extra: Pick<FindFormOptions, "problem" | "capped"> = {},
+  extra: Pick<FindFormOptions, "problem" | "capped" | "scripted"> = {},
 ): Promise<string> {
   const now = new Date();
   const [count, capped, colonies] = await Promise.all([
@@ -318,6 +318,7 @@ async function findFormHtml(
     narrowing: narrowingOf(count, isWholeIsland(filters)),
     capped: capped === "ok" ? undefined : capped,
     problem: extra.problem,
+    scripted: extra.scripted,
   });
 }
 
@@ -326,7 +327,8 @@ router.get(
   "/team/cats/find",
   requireTeam("find_cat_from_photo"),
   async (req: Request, res: Response) => {
-    // Strict header first, before any await: this page has no script.
+    // Strict header first, before any await; the page is upgraded to the
+    // script header below once it is built (find-photo.js, SYC-522).
     setTeamHeaders(res);
     const person = teamPerson(res);
     const filters = findFilters(req.query);
@@ -334,8 +336,14 @@ router.get(
       person,
       filters,
       await tieFrom(req.query["tie"], person),
-      (await stalePlace(req.query, filters, person)) ? { problem: { field: "place", words: STALE_PLACE_WORDS } } : {},
+      {
+        scripted: true,
+        ...((await stalePlace(req.query, filters, person)) ? { problem: { field: "place" as const, words: STALE_PLACE_WORDS } } : {}),
+      },
     );
+    // Only now, with the page built: this form loads find-photo.js (SYC-522),
+    // which locks the button so one tap spends one search.
+    setTeamHeaders(res, { scripts: true });
     res.type("html").send(html);
   },
 );
@@ -544,6 +552,7 @@ router.get(
         colonies: can(person, "assign_cat_to_colony")
           ? await allColonyChoices(visibleColonyIds(person))
           : undefined,
+        back: cameFromCats(req.get("referer")),
         allHistory: req.query["history"] === "all",
         island: isIslandWide(person),
         // SYC-44 PR 7.1: its own check (view_welfare_queue), not this page's.

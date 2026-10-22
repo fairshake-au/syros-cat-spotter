@@ -496,6 +496,7 @@ export function renderColourCheckPage(
     active: "colour",
     personName,
     lang,
+    beforeTitle: `<p class="back"><a href="/api/team">${tr(lang, "colourCheck.back")}</a></p>`,
     body,
   });
 }
