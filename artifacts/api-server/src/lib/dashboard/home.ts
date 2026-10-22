@@ -8,7 +8,10 @@ import { areaFor, OFF_SYROS } from "../areas/namedAreas";
 import { athensMonths } from "../athensTime";
 import { allColonyChoices } from "../colonyCats";
 import type { Visible } from "../guardianView";
-import { headline, notSeenLately, type Headline } from "./countedCats";
+import { headline, toDo, type Headline } from "./countedCats";
+import { colonyFigures } from "./colonyFigures";
+import { rankTrapNext, type TrapColony } from "./trapNext";
+import { standardPriceNow } from "../vetSettings";
 import { standingRows } from "../resolve";
 import type { VetVisitValue } from "../observations";
 
@@ -19,9 +22,7 @@ import type { VetVisitValue } from "../observations";
 // draws (§13). Home never holds response times, rankings or anything per
 // person (D6): nothing here reads who did what.
 
-export const HOME_NEEDS_LIMIT = 5; // rows shown per Needs-us section
-export const HOME_PHOTOS = 4; // first photos per Cats-to-check list
-export const HOME_NOT_SEEN = 6; // Not-seen-lately cards shown
+export const HOME_LINES_LIMIT = 5; // urgent and kitten report lines shown (SYC-603, §4.1)
 
 export interface MonthFigures {
   sightings: number;
@@ -36,10 +37,16 @@ export interface MonthFigures {
 }
 
 export interface HomeNeeds {
-  /** Open reports, urgent first and then newest (the queue's own order), at most HOME_NEEDS_LIMIT. */
-  reports: QueueReport[];
-  /** Every open, checked report, so "See all N in the Queue" is honest. */
-  reportsTotal: number;
+  /**
+   * Open, checked reports that are urgent or about kittens (§4.1): urgent
+   * first, then newest, at most HOME_LINES_LIMIT. A report both urgent and
+   * about kittens is one line.
+   */
+  lines: QueueReport[];
+  /** Every such report, so "See all N" is honest. */
+  linesTotal: number;
+  /** The other open, checked reports: the "more reports" tile. */
+  otherOpen: number;
   /** Reports accepted while the bot check was down: never missed (§4, plan review finding 1). */
   unchecked: number;
   /** "Report an issue" reports still open. */
@@ -48,23 +55,21 @@ export interface HomeNeeds {
   awaitingMatch: number;
 }
 
-export interface CheckList {
-  count: number;
-  /** Up to HOME_PHOTOS small photo addresses, through the team photo route. */
-  photos: string[];
-}
-
+/** The two check lists' counts (§4.1 tiles). Their photos stay on their own pages. */
 export interface HomeToCheck {
-  earClips: CheckList;
-  colour: CheckList;
+  earClips: number;
+  colour: number;
 }
 
-export interface NotSeenLately {
-  /** Up to HOME_NOT_SEEN street cats, the most recently seen first: the ones that just went quiet. */
-  cats: TeamCat[];
-  total: number;
-  /** Colony names by id, for the cards' colony line: only the colonies the viewer sees. */
-  colonyNames: Record<number, string>;
+/** Where to trap next (§4.2). */
+export interface TrapNext {
+  colonies: TrapColony[];
+  /** Every colony on the island, so the empty states can tell "none yet" from "all done". */
+  colonyCount: number;
+  /** Street cats to do that aren't in any colony. */
+  noColony: number;
+  /** The standard sterilisation price from Vet settings (§8.2). */
+  priceEur: number;
 }
 
 /** A section's figures, or a note that they couldn't be worked out this time. */
@@ -73,7 +78,7 @@ export type Section<T> = { ok: true; value: T } | { ok: false };
 export interface HomeData {
   needs: Section<HomeNeeds>;
   toCheck: Section<HomeToCheck>;
-  notSeenLately: Section<NotSeenLately>;
+  trapNext: Section<TrapNext>;
   headline: Section<Headline>;
   month: Section<{ now: MonthFigures; last: MonthFigures }>;
   /** When these figures were worked out (§9.6: a page always says). */
@@ -170,6 +175,8 @@ export interface HomeDeps {
   loadTeamCats: typeof loadTeamCats;
   monthFigures: typeof monthFigures;
   allColonyChoices: typeof allColonyChoices;
+  colonyFigures: typeof colonyFigures;
+  standardPriceNow: typeof standardPriceNow;
 }
 
 const DEFAULT_DEPS: HomeDeps = {
@@ -181,6 +188,8 @@ const DEFAULT_DEPS: HomeDeps = {
   loadTeamCats,
   monthFigures,
   allColonyChoices,
+  colonyFigures,
+  standardPriceNow,
 };
 
 async function section<T>(read: () => Promise<T>): Promise<Section<T>> {
@@ -191,11 +200,18 @@ async function section<T>(read: () => Promise<T>): Promise<Section<T>> {
   }
 }
 
-const small = (url: string) => `${url}/small`;
+const isLine = (r: QueueReport) => r.severity === "urgent" || r.isLitter;
+
+/** Urgent first, then newest; the id settles a tie so the order never wobbles. */
+const lineOrder = (a: QueueReport, b: QueueReport) =>
+  Number(b.severity === "urgent") - Number(a.severity === "urgent") ||
+  Date.parse(b.at) - Date.parse(a.at) ||
+  a.id.localeCompare(b.id);
 
 /**
- * `visible`: the viewer's colonies (visibleColonyIds), used only to name a
- * Not-seen-lately card's colony. Without it no colony is named (fails closed).
+ * `visible`: the viewer's colonies (visibleColonyIds). Home is island-wide
+ * (the route refuses a cat guardian); without it, Where to trap next fails
+ * closed rather than ranking colonies for nobody in particular.
  */
 export async function homeData(
   now: Date = new Date(),
@@ -209,7 +225,7 @@ export async function homeData(
   const catsOnce = d.loadTeamCats(now);
   catsOnce.catch(() => undefined); // read below inside each section's own try
 
-  const [needs, toCheck, quiet, head, month] = await Promise.all([
+  const [needs, toCheck, trapNext, head, month] = await Promise.all([
     section(async (): Promise<HomeNeeds> => {
       const [queue, issuesOpen, awaitingMatch] = await Promise.all([
         // Home no longer shows unfinished reports (SYC-519): skip reading them.
@@ -217,9 +233,11 @@ export async function homeData(
         d.countOpenIssues(),
         d.countAwaitingMatch(),
       ]);
+      const lines = queue.open.filter(isLine).sort(lineOrder);
       return {
-        reports: queue.open.slice(0, HOME_NEEDS_LIMIT),
-        reportsTotal: queue.open.length,
+        lines: lines.slice(0, HOME_LINES_LIMIT),
+        linesTotal: lines.length,
+        otherOpen: queue.open.length - lines.length,
         unchecked: queue.unchecked.reportsTotal,
         issuesOpen,
         awaitingMatch,
@@ -227,35 +245,21 @@ export async function homeData(
     }),
     section(async (): Promise<HomeToCheck> => {
       const [likely, colour] = await Promise.all([d.listLikelyForReview(now), d.listColourCheck(now)]);
-      const toCheck = colour.filter((c) => c.group === "check");
-      return {
-        earClips: {
-          count: likely.length,
-          photos: likely
-            .map((c) => c.evidence.find((e) => e.photoUrl)?.photoUrl ?? null)
-            .filter((u): u is string => u !== null)
-            .slice(0, HOME_PHOTOS)
-            .map(small),
-        },
-        colour: {
-          count: toCheck.length,
-          photos: toCheck
-            .map((c) => c.photoUrl)
-            .filter((u): u is string => u !== null)
-            .slice(0, HOME_PHOTOS)
-            .map(small),
-        },
-      };
+      return { earClips: likely.length, colour: colour.filter((c) => c.group === "check").length };
     }),
-    section(async (): Promise<NotSeenLately> => {
-      const [cats, colonies] = await Promise.all([catsOnce, visible ? d.allColonyChoices(visible) : Promise.resolve([])]);
-      const all = notSeenLately(cats, now).sort(
-        (a, b) => (b.lastSeenAt?.getTime() ?? 0) - (a.lastSeenAt?.getTime() ?? 0) || a.id - b.id,
-      );
+    section(async (): Promise<TrapNext> => {
+      if (!visible) throw new Error("Where to trap next needs the viewer's colonies");
+      const cats = await catsOnce;
+      const [figures, colonies, priceEur] = await Promise.all([
+        d.colonyFigures(visible, { island: true, cats }, now),
+        d.allColonyChoices(visible),
+        d.standardPriceNow(),
+      ]);
       return {
-        cats: all.slice(0, HOME_NOT_SEEN),
-        total: all.length,
-        colonyNames: Object.fromEntries(colonies.map((c) => [c.id, c.name])),
+        colonies: rankTrapNext(figures, new Map(colonies.map((c) => [c.id, c.name]))),
+        colonyCount: colonies.length,
+        noColony: toDo(cats.filter((c) => c.colonyId === null)).length,
+        priceEur,
       };
     }),
     section(async () => headline(await catsOnce, now)),
@@ -269,5 +273,5 @@ export async function homeData(
     }),
   ]);
 
-  return { needs, toCheck, notSeenLately: quiet, headline: head, month, at: now };
+  return { needs, toCheck, trapNext, headline: head, month, at: now };
 }

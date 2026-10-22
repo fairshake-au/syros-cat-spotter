@@ -238,14 +238,17 @@ async function kittensNearSites(visible: Visible, now: Date): Promise<Set<number
  */
 export async function colonyFigures(
   visible: Visible,
-  opts: { island: boolean; asOf?: Date },
+  opts: { island: boolean; asOf?: Date; cats?: readonly TeamCat[] },
   now: Date = new Date(),
 ): Promise<Map<number, ColonyFigures>> {
+  // `cats`: a caller that already loaded every cat (Home, SYC-603) passes them
+  // in, so they aren't loaded twice. They are as of now, so never with asOf.
+  if (opts.cats && opts.asOf) throw new Error("colonyFigures: cats and asOf are exclusive");
   const out = new Map<number, ColonyFigures>();
   const colonies = await visibleColonies(visible);
   if (colonies.length === 0) return out;
 
-  const all = await loadTeamCats(now, { asOf: opts.asOf });
+  const all = opts.cats ?? (await loadTeamCats(now, { asOf: opts.asOf }));
   // Only the cats in a colony this viewer sees.
   const cats = all.filter((c) => c.colonyId !== null && covers(visible, c.colonyId));
 
