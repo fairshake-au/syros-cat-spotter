@@ -26,7 +26,7 @@ describe("the team cat page summary", () => {
     const line = html.indexOf('class="statusline"');
     expect(line).toBeGreaterThan(h1);
     const at = (needle: string) => html.indexOf(needle, line);
-    const order = [at("mark-sterilised"), at("On the street"), at('href="/api/team/colonies/4"'), at("Last seen 4 days ago")];
+    const order = [at("mark-sterilised"), at("Lives on the street"), at('href="/api/team/colonies/4"'), at("Last seen 4 days ago")];
     expect(order.every((i) => i > line)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });

@@ -175,7 +175,7 @@ export function statusLine(v: TeamCatView, now: Date): string {
   const last = v.sightings[0] ?? null;
   const parts = [
     markBadge(markOf(v.records.sterilised)),
-    esc(livesWords(v)),
+    esc(livesWords(v) === LIVES_WORD.street ? "Lives on the street" : livesWords(v)),
     ...(v.colony ? [`<a href="/api/team/colonies/${v.colony.id}">${esc(v.colony.name)}</a>`] : []),
     esc(lastSeenWords(last ? new Date(last.at) : null, now)),
   ];
