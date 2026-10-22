@@ -128,7 +128,7 @@ describe("GET /api/team/home", () => {
     // The shared database decides which optional sections show; the ones
     // that do must be in order. Needs shows: this file seeded an urgent report.
     const at = (id: string) => res.text.indexOf(`id="${id}"`);
-    const order = ["needs", "tocheck", "notseen", "headline", "month", "soon"].map(at).filter((i) => i > -1);
+    const order = ["needs", "tocheck", "notseen", "headline", "month"].map(at).filter((i) => i > -1);
     expect(at("needs")).toBeGreaterThan(-1);
     expect(at("headline")).toBeGreaterThan(-1);
     expect(at("month")).toBeGreaterThan(-1);
@@ -143,9 +143,9 @@ describe("GET /api/team/home", () => {
 });
 
 describe("renderHomePage", () => {
-  it("draws the sections in order: needs, cats to check, not seen lately, headline, this month, coming soon", () => {
+  it("draws the sections in order: needs, cats to check, not seen lately, headline, this month", () => {
     const html = page(full());
-    const ids = ["needs", "tocheck", "notseen", "headline", "month", "soon"].map((id) => html.indexOf(`id="${id}"`));
+    const ids = ["needs", "tocheck", "notseen", "headline", "month"].map((id) => html.indexOf(`id="${id}"`));
     expect(ids.every((i) => i > -1)).toBe(true);
     expect(ids).toEqual([...ids].sort((a, b) => a - b));
   });

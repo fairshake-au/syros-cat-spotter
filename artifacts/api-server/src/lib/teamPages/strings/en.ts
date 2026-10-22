@@ -310,7 +310,7 @@ export const en = {
   // so a cat guardian reads them in her language; the team reads English.
   "colonies.title": "Colonies",
   "colonies.lead": "A colony is a group of street cats looked after by a cat guardian, usually fed at one place. Create one to start recording its cats.",
-  "colonies.empty": "There are no colonies yet.",
+  "colonies.empty": "There are no colonies yet. A colony is a group of street cats looked after by a cat guardian, usually fed at one place.",
   "colonies.noMatch": "No colony has ever had a name like that.",
   "colonies.emptyOwn": "Colonies you look after appear here.",
   "colonies.noMatchOwn": "None of your colonies has a name like that.",
@@ -324,6 +324,7 @@ export const en = {
   "colonies.formerly": "Used to be called",
   // The Colonies list's figures and flags (SYC-396 PR 2.2).
   "colonies.flag.growing": "Growing",
+  "colonies.flag.growingKey": "Growing: 3 or more new cats in the last 90 days, and more than in the 90 days before.",
   "colonies.flag.kittens": "Kittens reported",
   "colonies.flag.noGuardian": "No cat guardian",
   "colonies.flag.notVisited": "Not visited lately",
@@ -447,7 +448,7 @@ export const en = {
   "none.body": "There is no colony with that number.",
 
   "sites.title": "Feeding sites",
-  "sites.empty": "There are no feeding sites yet.",
+  "sites.empty": "There are no feeding sites yet. A feeding site is a place where street cats are fed. Adding one shows the team on the map where to find them.",
   "sites.showRetired": "Show retired sites",
   "sites.update": "Update",
   "sites.recentTitle": "Recently changed",

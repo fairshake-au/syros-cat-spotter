@@ -278,7 +278,7 @@ export const fr: Record<StringKey, string> = {
   // ── Colonies and Feeding sites (SYC-209 PR 4.1).
   "colonies.title": "Colonies",
   "colonies.lead": "Une colonie est un groupe de chats des rues dont s’occupe un·e gardien·ne de chats, en général nourris au même endroit. Crée-en une pour commencer à noter ses chats.",
-  "colonies.empty": "Il n’y a pas encore de colonie.",
+  "colonies.empty": "Il n’y a pas encore de colonie. Une colonie est un groupe de chats des rues dont s’occupe un·e gardien·ne de chats, en général nourris au même endroit.",
   "colonies.noMatch": "Aucune colonie n’a jamais porté un nom comme celui-ci.",
   "colonies.emptyOwn": "Les colonies dont tu t’occupes apparaissent ici.",
   "colonies.noMatchOwn": "Aucune de tes colonies ne porte un nom comme celui-ci.",
@@ -292,6 +292,7 @@ export const fr: Record<StringKey, string> = {
   "colonies.formerly": "S’appelait autrefois",
   // The Colonies list's figures and flags (SYC-396 PR 2.2).
   "colonies.flag.growing": "En augmentation",
+  "colonies.flag.growingKey": "En augmentation : 3 nouveaux chats ou plus ces 90 derniers jours, et plus que les 90 jours d’avant.",
   "colonies.flag.kittens": "Chatons signalés",
   "colonies.flag.noGuardian": "Aucun gardien de chats",
   "colonies.flag.notVisited": "Pas visitée récemment",
@@ -410,7 +411,7 @@ export const fr: Record<StringKey, string> = {
   "none.body": "Il n’y a pas de colonie avec ce numéro.",
 
   "sites.title": "Points de nourrissage",
-  "sites.empty": "Il n’y a pas encore de point de nourrissage.",
+  "sites.empty": "Il n’y a pas encore de point de nourrissage. Un point de nourrissage est un endroit où l’on nourrit des chats des rues. En ajouter un montre à l’équipe sur la carte où les trouver.",
   "sites.showRetired": "Afficher les points fermés",
   "sites.update": "Mettre à jour",
   "sites.recentTitle": "Modifié récemment",

@@ -32,7 +32,10 @@ describe("Colonies with none yet (SYC-577)", () => {
   });
 
   it("is left out when the team cannot create, when searching, and for a cat guardian", () => {
-    expect(colonies({ canCreate: false })).not.toContain(LEAD);
+    // Without Create, the empty list itself says what a colony is (SYC-522), once, with no button.
+    const readOnly = colonies({ canCreate: false });
+    expect(readOnly.split(LEAD)).toHaveLength(2);
+    expect(readOnly).not.toContain("Create a colony");
     expect(colonies({ query: "zzz" })).not.toContain(LEAD);
     expect(colonies({ searched: true })).not.toContain(LEAD);
     expect(colonies({ island: false })).not.toContain(LEAD);

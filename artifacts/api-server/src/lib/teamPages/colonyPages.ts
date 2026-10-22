@@ -291,6 +291,9 @@ export function renderColoniesPage(opts: ColonyViewer & {
       : opts.figures === null
         ? `<p class="figat" role="status">${w("colonies.figuresUnavailable")}</p>`
         : `<p class="figat">${w("colonies.figuresAt", { time: formatDateTime(opts.lang, opts.now) })}</p>`;
+  // The "Growing" chip says what it means, once, above the list (SYC-522).
+  const anyGrowing = opts.figures !== null && [...opts.figures.values()].some((f) => f.flags.includes("growing"));
+  const growingKey = anyGrowing ? `<p class="hint">${w("colonies.flag.growingKey")}</p>` : "";
   const list =
     opts.colonies.length > 0
       ? `<ul class="cats colonylist">${shown.map((c) => colonyCard(W, c, opts.figures?.get(c.id))).join("")}</ul>`
@@ -337,6 +340,7 @@ export function renderColoniesPage(opts: ColonyViewer & {
       (searching ? `<p><a class="tap" href="/api/team/colonies">${w("colonies.showAll")}</a></p>` : "") +
       (opts.colonies.length > 1 && opts.figures !== null ? sortBar(W, opts.sort) : "") +
       figuresLine +
+      growingKey +
       list +
       (leadCreate ? "" : create),
   });
