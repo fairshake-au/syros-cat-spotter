@@ -264,10 +264,17 @@ Each item is tested before its PR opens, with the affected suites run locally (v
 
 ## Build order
 
-There are three PRs, each opened as a draft (project rule):
+**One PR for all three parts (Samuel, 22 Oct 2026).** It is opened as a draft (project rule). Inside it, there's one commit per part, in this order:
 
-1. **Part 1** (copy and a sheet; no server change).
-2. **Part 3** (maps; app and dashboard script).
-3. **Part 2** (the button, the hint, the review question and the migration). It goes last because it's the only one with a migration and a deploy-order step.
+1. Part 1: copy and the sheet.
+2. Part 3: the maps.
+3. Part 2: the button, the hint, the review question and the migration.
 
-Parts 1 and 3 touch different files and can be built in parallel. Part 2 touches `app/cat/[id].tsx`, as Part 1 does, so it waits for Part 1 to merge.
+Each commit keeps its own tests green, so review can follow part by part.
+
+Because the PR carries Part 2's migration, the whole PR follows the migrate-before-republish rule (SYC-497):
+1. After merge, run `db-ops migrate` on production.
+2. Then run `verify-history`.
+3. Only then does Samuel republish.
+
+Claude says "don't republish yet" until the migration is confirmed.
