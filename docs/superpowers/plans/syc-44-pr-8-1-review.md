@@ -6,7 +6,7 @@
 
 | # | Severity | Summary | Status / evidence | What was done |
 |---|---|---|---|---|
-| F1 | Minor | The queue and the row page show "Nothing written" for a cleared note, because nothing reads `note_cleared_at` | CONFIRMED: `lib/issues/queue.ts:132-183`, `teamPages/queuePage.ts:314-319` | **Filed** as its own ticket. The queue page belongs to #276 right now |
+| F1 | Minor | The queue and the row page show "Nothing written" for a cleared note, because nothing reads `note_cleared_at` | CONFIRMED: `lib/issues/queue.ts:132-183`, `teamPages/queuePage.ts:314-319` | **Filed as SYC-565.** The queue page belongs to #276 right now |
 | F2 | Minor | A closed content row with a null `state_changed_at` is never swept | PLAUSIBLE: `retention.ts:38`. No real code path produces such a row | **Fixed**: the age is counted from `coalesce(state_changed_at, created_at)`, with a test |
 | F3 | Minor | `lastSweep` is set before the work runs, so one failure delays the clean-up by 24 hours | CONFIRMED: `retention.ts:52-57` | **Fixed**: the `catch` resets the guard, so the next drain tries again |
 | F4 | Nit | No test that the drain calls the sweep; no test for a row with no notes | CONFIRMED | **Fixed**: a route test in `internalMail.test.ts`, and a test for the no-notes row |
@@ -35,7 +35,7 @@
 
 ## F1. Cleared notes look like "Nothing written"
 
-A closed report that is more than a year old shows "Nothing written" on the Issues queue, so the team can't tell an empty report from a cleared one. Fix: select `note_cleared_at` and show something like "Cleared after a year". Deferred to its own ticket.
+A closed report that is more than a year old shows "Nothing written" on the Issues queue, so the team can't tell an empty report from a cleared one. Fix: select `note_cleared_at` and show something like "Cleared after a year". Deferred to SYC-565.
 
 ## F2. Closed rows with a null `state_changed_at`
 
