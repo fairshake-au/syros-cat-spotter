@@ -604,7 +604,8 @@ export function renderColonyPage(
     `<dt>${w("colonies.sites")}</dt><dd>${esc(String(v.siteCount))}</dd>` +
     `<dt>${w("colonies.cats")}</dt><dd>${esc(String(v.catCount))}</dd>` +
     `<dt>${w("colony.centre")}</dt><dd>${v.lat !== null && v.lng !== null ? place(v.lat, v.lng, { link }) : w("colony.noCentre")}</dd>` +
-    `</dl>`;
+    `</dl>` +
+    `<p class="hint">${w("colony.centreNote")}</p>`;
   // A cat guardian may read (and from PR 4.2 edit) her own colony's notes, so
   // to her they are just "Notes"; the team keeps "Team-only notes".
   const notes =

@@ -153,8 +153,8 @@ const COLONY_COLUMNS: TableColumn[] = [
   { key: "colony", label: "Colony" },
   { key: "street", label: "Street cats", numeric: true },
   { key: "sterilised", label: "Sterilised", numeric: true },
-  { key: "probably", label: "Probably", numeric: true },
-  { key: "not_known", label: "Not known", numeric: true },
+  { key: "probably", label: "Probably sterilised", numeric: true },
+  { key: "not_known", label: "Not known yet", numeric: true },
   { key: "not_sterilised", label: "Not sterilised", numeric: true },
   { key: "pct", label: "% confirmed sterilised", numeric: true },
 ];

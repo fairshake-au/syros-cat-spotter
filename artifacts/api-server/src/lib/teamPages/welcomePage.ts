@@ -47,7 +47,13 @@ function seeAndDo(
   if (roles.includes("management")) out.push(tr(lang, "welcome.seeDo.management", undefined, live));
   // With no colony yet she is promised nothing about positions (SYC-439).
   if (roles.includes("guardian")) {
-    out.push(tr(lang, starting ? "welcome.seeDo.starting" : "welcome.seeDo.guardian", undefined, live));
+    if (starting) out.push(tr(lang, "welcome.seeDo.starting", undefined, live));
+    else {
+      // Three short lines (SYC-572): what she sees, what she can change, what she can only read.
+      for (const key of ["welcome.seeDo.guardianSee", "welcome.seeDo.guardianChange", "welcome.seeDo.guardianRead"] as const) {
+        out.push(tr(lang, key, undefined, live));
+      }
+    }
   }
   return out;
 }
