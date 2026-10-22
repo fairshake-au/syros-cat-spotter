@@ -105,6 +105,11 @@ describe("fingerprints-nightly.yml", () => {
     expect(r.calls).toEqual([]);
   });
 
+  it("waits at most 150 seconds for the answer (the app works for 90)", () => {
+    expect(runScript()).toContain("--max-time 150");
+    expect(runScript()).not.toContain("--max-time 330");
+  });
+
   it("fails on a non-200", () => {
     expect(run({}, [401]).status).not.toBe(0);
     expect(run({}, [500]).status).not.toBe(0);

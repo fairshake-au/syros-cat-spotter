@@ -2,7 +2,7 @@ name: fingerprints-nightly
 # SYC-527 piece 3 (docs/specs/find-from-a-photo-whole-island.md §7): the
 # nightly batch for the looks-like index. It asks the app to make the
 # fingerprint of every active cat's display photo that has none, oldest
-# first, for at most 4 minutes, and to answer with counts only
+# first, for at most 90 seconds, and to answer with counts only
 # ({"made":..,"failed":..,"left":..}). It sends nobody anything. Modelled on
 # news-nightly.yml. A manual run does the first backfill.
 #
@@ -32,9 +32,9 @@ jobs:
     if: ${{ vars.FINGERPRINTS_NIGHTLY_ENABLED == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     environment: production
-    # The app works for at most 4 minutes (plus the photo in hand); curl waits
-    # up to 330 seconds for the answer.
-    timeout-minutes: 8
+    # The app works for at most 90 seconds (plus the photo in hand); curl waits
+    # up to 150 seconds for the answer.
+    timeout-minutes: 6
     steps:
       - name: Fill tonight's missing fingerprints
         env:
@@ -66,7 +66,7 @@ jobs:
           # 504, where the app may still be working.
           for attempt in 1 2; do
             rc=0
-            code=$(curl -sS -o "$out" -w '%{http_code}' --max-time 330 \
+            code=$(curl -sS -o "$out" -w '%{http_code}' --max-time 150 \
               -X POST -H "Authorization: Bearer ${FINGERPRINT_JOB_TOKEN}" \
               "${BASE_URL%/}/api/internal/fingerprints/nightly") || rc=$?
             code="${code:-000}"
