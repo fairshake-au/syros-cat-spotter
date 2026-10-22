@@ -100,7 +100,7 @@ describe("T29d: and the text the spec requires beside them (review M5)", () => {
       const t = CATALOGUE[lang];
       const g = page(lang);
       expect(g).toContain(escapeHtml(t["welcome.seeDo.title"]));
-      expect(g).toContain(escapeHtml(t["welcome.seeDo.guardian"]));
+      for (const key of ["welcome.seeDo.guardianSee", "welcome.seeDo.guardianChange", "welcome.seeDo.guardianRead"] as const) expect(g).toContain(escapeHtml(t[key]));
       expect(g).toContain(escapeHtml(t["welcome.lock"]));
       expect(g).toContain(escapeHtml(t["welcome.neverReopened"]));
       const m = page(lang, ["staff", "management"]);
@@ -116,7 +116,7 @@ describe("T29d: and the text the spec requires beside them (review M5)", () => {
     for (const lang of ALL) {
       const t = CATALOGUE[lang];
       const listed = promisesOn(page(lang));
-      for (const key of [...STATEMENT_KEYS, "welcome.seeDo.guardian", "welcome.seeDo.team", "welcome.seeDo.management"] as const) {
+      for (const key of [...STATEMENT_KEYS, "welcome.seeDo.guardianSee", "welcome.seeDo.guardianChange", "welcome.seeDo.guardianRead", "welcome.seeDo.team", "welcome.seeDo.management"] as const) {
         expect({ lang, key, inList: listed.includes(escapeHtml(t[key])) }).toEqual({ lang, key, inList: false });
         expect({ lang, key, promiseShaped: PROMISE_SHAPED[lang].test(t[key]) }).toEqual({ lang, key, promiseShaped: false });
       }
@@ -134,12 +134,16 @@ describe("T29d: and the text the spec requires beside them (review M5)", () => {
   });
 
   it("review minor 8: the see-and-do text covers what spec §2.2, §2.4 and §6.2 give each role", () => {
-    const g = CATALOGUE.en["welcome.seeDo.guardian"];
-    expect(g).toMatch(/reports of cats in trouble about your colonies' cats/);
-    expect(g).toMatch(/but not change them/);
-    expect(g).toMatch(/never the “Report an issue” reports/);
-    expect(g).toMatch(/create a new colony/);
-    expect(g).toMatch(/decide which cats are in your colonies \(adding them or taking them out\)/);
+    // SYC-572: three short lines for a guardian with a colony, and no "Report an issue" clause.
+    const see = CATALOGUE.en["welcome.seeDo.guardianSee"];
+    const change = CATALOGUE.en["welcome.seeDo.guardianChange"];
+    const read = CATALOGUE.en["welcome.seeDo.guardianRead"];
+    expect(see).toMatch(/^For your own colonies only: the area each cat was first seen in/);
+    expect(read).toMatch(/reports of cats in trouble about your colonies' cats/);
+    expect(change).toMatch(/create a new colony/);
+    expect(change).toMatch(/choose which cats are in your colonies/);
+    expect(`${see} ${change} ${read}`).not.toMatch(/Report an issue/);
+    expect(Object.keys(CATALOGUE.en)).not.toContain("welcome.seeDo.guardian");
     const m = CATALOGUE.en["welcome.seeDo.management"];
     expect(m).toMatch(/invite people/);
     expect(m).toMatch(/take them off the list/);
@@ -150,7 +154,7 @@ describe("T29d: and the text the spec requires beside them (review M5)", () => {
     expect(CATALOGUE.fr["welcome.seeDo.management"]).toMatch(/traiter les demandes de suppression de données/);
     expect(CATALOGUE.fr["welcome.seeDo.management"]).not.toMatch(/'/);
     // French: a non-breaking space before the colon; Greek: no accented capital letters.
-    expect(CATALOGUE.fr["welcome.seeDo.guardian"]).toContain("uniquement\u00a0:");
+    expect(CATALOGUE.fr["welcome.seeDo.guardianSee"]).toContain("uniquement\u00a0:");
     for (const key of Object.keys(CATALOGUE.el).filter((k) => k.startsWith("welcome.seeDo"))) {
       expect({ key, accentedCapital: /[ΆΈΉΊΌΎΏ]/.test(CATALOGUE.el[key as keyof typeof CATALOGUE.el]) }).toEqual({ key, accentedCapital: false });
     }
@@ -159,7 +163,7 @@ describe("T29d: and the text the spec requires beside them (review M5)", () => {
   it("the lock request asks; the never-reopened sentence states (English wording pinned)", () => {
     expect(CATALOGUE.en["welcome.lock"]).toMatch(/^Please keep a lock on your phone/);
     expect(CATALOGUE.en["welcome.neverReopened"]).toMatch(
-      /^A phone that is never opened again keeps its saved list until the browser clears it\./,
+      /^If you lose your phone, the saved list stays on it\. Tell Syros Cats\./,
     );
   });
 

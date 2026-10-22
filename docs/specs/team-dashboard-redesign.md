@@ -172,7 +172,7 @@ The Cats screen opens on **every active cat**, most recently seen first. It's a 
 - **Sterilised:** Sterilised, Probably, Not sterilised, or Not known.
 - **Lives:** On the street, Has a home, In care, or No longer with us (which includes cats not seen for 3 years). The default is On the street, Has a home and In care.
 - **Last seen:** This week, This month, 1–3 months, Over 3 months, or Never seen since first recorded.
-- **Name or SYR number:** a search box, now just one filter among the others.
+- **Name or cat number:** a search box, now just one filter among the others.
 
 **How the filters behave:**
 - With interactivity, the grid updates as filters change. Without it, the filters are an ordinary form with a "Show cats" button, and the results are the same.
@@ -364,7 +364,7 @@ Each colony is a card showing:
   - **Growing:** at least 3 cats were added to the records for the first time in this colony in the last 90 days, more than in the 90 days before. Cats moved in from elsewhere don't count.
   - **Kittens reported:** a litter report in the last 60 days, either tied to a cat in this colony or within 300 m of one of its feeding sites.
   - **No guardian.**
-  - **Not visited lately:** no sighting of any of its cats in 30 days.
+  - **No street cat seen for 30 days:** no sighting of any of its cats in 30 days.
 
 Sort by name, by fewest confirmed sterilised, or by latest activity. A **Map** switch shows the colonies at their feeding sites on the island map.
 

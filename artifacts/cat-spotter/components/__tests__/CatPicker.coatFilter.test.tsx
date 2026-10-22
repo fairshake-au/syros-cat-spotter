@@ -108,7 +108,7 @@ describe('the chips sit under the search box, and start at All', () => {
     const { container, getByPlaceholderText, getByTestId, getByText } = renderPicker();
     const [search, colourAll, patternAll, heading] = order(
       container,
-      getByPlaceholderText('Name or SYR number'),
+      getByPlaceholderText('Name or cat number (like SYR-0012)'),
       getByTestId('coat-chip-colour-all'),
       getByTestId('coat-chip-pattern-all'),
       getByText('Cats known around here'),
@@ -222,7 +222,7 @@ describe('the search-empty line (spec §5)', () => {
   it('a name the chips hide says so, and "Search all" resets the rows', () => {
     const { container, getByPlaceholderText, getByTestId, getByText } = renderPicker();
     fireEvent.click(getByTestId('coat-chip-colour-grey'));
-    fireEvent.change(getByPlaceholderText('Name or SYR number'), { target: { value: 'Krispy' } });
+    fireEvent.change(getByPlaceholderText('Name or cat number (like SYR-0012)'), { target: { value: 'Krispy' } });
     expect(getByTestId('picker-search-empty').textContent).toContain('No cats like that called “Krispy”.');
     expect(all(container)).toEqual([]);
     fireEvent.click(getByText('Search all'));
@@ -233,7 +233,7 @@ describe('the search-empty line (spec §5)', () => {
   it('a name nobody has keeps the plain no-results line', () => {
     const { getByPlaceholderText, getByTestId, queryByTestId, getByText } = renderPicker();
     fireEvent.click(getByTestId('coat-chip-colour-grey'));
-    fireEvent.change(getByPlaceholderText('Name or SYR number'), { target: { value: 'nobody' } });
+    fireEvent.change(getByPlaceholderText('Name or cat number (like SYR-0012)'), { target: { value: 'nobody' } });
     expect(queryByTestId('picker-search-empty')).toBeNull();
     expect(getByText('No cats around here match "nobody".')).toBeTruthy();
   });
@@ -241,7 +241,7 @@ describe('the search-empty line (spec §5)', () => {
   it('a name whose cat is Not known still shows it', () => {
     const { container, getByPlaceholderText, getByTestId } = renderPicker();
     fireEvent.click(getByTestId('coat-chip-colour-grey'));
-    fireEvent.change(getByPlaceholderText('Name or SYR number'), { target: { value: 'oldie' } });
+    fireEvent.change(getByPlaceholderText('Name or cat number (like SYR-0012)'), { target: { value: 'oldie' } });
     expect(ids(getByTestId('picker-not-known'))).toEqual([6]);
     expect(all(container)).toEqual([6]);
   });

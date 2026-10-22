@@ -56,7 +56,7 @@ The two needs fit together. The guardian's search keeps the catalogue clean in t
 From top to bottom:
 
 - **The spotter's own photo**, small, so they can compare as they scroll.
-- **A search box**: *"Name or SYR number"*. Typing narrows "Cats known around here". It does not search the rest of the island (§4.8).
+- **A search box**: *"Name or cat number (like SYR-0012)"* (SYC-572). Typing narrows "Cats known around here". It does not search the rest of the island (§4.8).
 - **Two rows of drawn chips** under the search box: colours (*All · Black · Grey · Brown · Ginger · White*) and patterns (*All · Plain · Stripes · Patches*). "All" is on in each row until the spotter taps a chip. How it behaves is in §4.7 (amended by `coat-colours-and-pattern.md` §5, SYC-398, 16 October 2026).
 - **"Cats known around here"**: every cat whose public position is within 1.5 km of the photo, which is the same "Nearby" the Cats tab already uses. Each card shows the cat's main photo (large, since for a tourist the face is the decision), its name and its SYR number.
 
@@ -334,7 +334,7 @@ English below. Every string also needs Greek and French, and a local check befor
 | Card under suggestions | **Not one of these?** Find the cat yourself |
 | Line on the new-cat screen | Seen this cat in the app before? **Find it instead** |
 | Picker title | Which cat is it? |
-| Search box | Name or SYR number |
+| Search box | Name or cat number (like SYR-0012) |
 | Colour chips | All · Black · Grey · Brown · Ginger · White |
 | Pattern chips | All · Plain · Stripes · Patches |
 | Section under filtered cats | Not known |

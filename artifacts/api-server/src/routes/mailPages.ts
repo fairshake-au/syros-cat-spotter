@@ -26,14 +26,14 @@ type Action = "confirm" | "forget";
 
 /** SYC-262: Forget on an address that already keeps another spotter safe. */
 const REQUEST_CANCELLED =
-  "Done. We've cancelled that request, and we won't send this address any more \"Is this you?\" emails. Any spotter this address already keeps safe stays safe.";
+  "Done. We've cancelled that request and won't send this address any more \"Is this you?\" emails. Anyone already using it to save their spots still can.";
 
 const COPY: Record<Action, Copy> = {
   confirm: {
-    title: "Keep my spots safe",
-    ask: "Someone using the Cat Spotters app asked to use this address to keep their spots safe. If that was you, press the button.",
+    title: "Confirm your email",
+    ask: "Someone using Cat Spotters gave us this email so they can get their cat photos and points back if they lose their phone. Was that you?",
     button: "Yes, that was me",
-    done: "Thank you. This address is now keeping a Cat Spotters collection safe. You can close this page.",
+    done: "Thanks. This email can now get your spots back if you lose your phone. You can close this page.",
   },
   forget: {
     title: "Forget this address",

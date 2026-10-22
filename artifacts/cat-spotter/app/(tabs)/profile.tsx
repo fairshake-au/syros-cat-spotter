@@ -158,6 +158,9 @@ export default function ProfileScreen() {
               style={styles.statTile}
             />
           </View>
+          <Text style={[styles.firstFindsHint, { color: colors.mutedForeground }]}>
+            {t('profileFirstFinds')}: {t('profileFirstFindsHint')}
+          </Text>
 
           {/* SYC-506: the background save gave this spotter another name. */}
           {!!nameNote && (
@@ -496,6 +499,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: spacing[4],
     paddingTop: spacing[3],
+  },
+  firstFindsHint: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   statsRow: {
     flexDirection: 'row',

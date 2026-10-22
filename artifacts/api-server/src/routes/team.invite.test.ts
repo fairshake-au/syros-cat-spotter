@@ -131,10 +131,12 @@ describe("the accept page (§4.1 step 4; T29d's route half)", () => {
     expect(page.headers["cache-control"]).toBe("no-store");
     const colonyName = (await pool.query(`select name from colonies where id = $1`, [colony])).rows[0].name;
     expect(page.text).toContain(`Vt rt-susan from Syros Cats invited you as a cat guardian for ${colonyName}.`);
-    expect(page.text).toContain(en["welcome.seeDo.guardian"].replace(/'/g, "&#39;"));
+    for (const key of ["welcome.seeDo.guardianSee", "welcome.seeDo.guardianChange", "welcome.seeDo.guardianRead"] as const) {
+      expect(page.text).toContain(en[key].replace(/'/g, "&#39;"));
+    }
     expect((page.text.match(/<ol class="promises">(.*?)<\/ol>/s)![1]!.match(/<li>/g) ?? []).length).toBe(3);
     expect(page.text).toContain("Please keep a lock on your phone");
-    expect(page.text).toContain("A phone that is never opened again keeps its saved list until the browser clears it.");
+    expect(page.text).toContain("If you lose your phone, the saved list stays on it. Tell Syros Cats.");
     expect(page.text).toContain('value="Vt rt-page"');
     expect(page.text).toContain(">Yes, join</button>");
     expect(page.text).toContain("No, this isn&#39;t for me</button>");

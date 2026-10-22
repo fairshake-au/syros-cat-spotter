@@ -453,7 +453,7 @@ describe("stopping helping, and signing yourself out: who is told", () => {
     const mails = await notices();
     expect(mails.map((m) => m.to).sort()).toEqual(expected);
     for (const m of mails) {
-      expect(m.text).toContain("Vt my-n-team2 signed out of the dashboard on every device.");
+      expect(m.text).toContain("Vt my-n-team2 signed out on all their phones and computers.");
       expect(m.text.split("Vt my-n-team2")).toHaveLength(2); // the name once, never twice
     }
   });

@@ -432,7 +432,7 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 
 > **Look, don't touch.**
 >
-> The cats of Syros are not pets, and they are not strays. They live here.
+> The cats of Syros aren’t lost. The streets are their home.
 >
 > Keep a step or two back and let them come to you if they want to. A cat that stays a bit wary of people is a cat that stays out of the road and out of trouble — being careful around strangers is one of the things keeping it alive. Picking one up, or feeding it, does it no favours.
 >

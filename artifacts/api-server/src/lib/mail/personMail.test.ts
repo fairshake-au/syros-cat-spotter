@@ -94,7 +94,7 @@ describe("T22: the invitation can't be given an address, and says only the role 
     expect(body["subject"]).toBe("Syros Cats has invited you to help");
     expect(body["text"]).toBe(
       "Syros Cats has invited you to help as a cat guardian for Vaporia — Eleni's.\n\n" +
-        "To get started, go to admin.catspotters.com, type this address, and tap the link we send you.\n\n" +
+        "To get started, go to admin.catspotters.com, type your email address, and tap the link we email you.\n\n" +
         "This invitation stops working after 14 days. If you weren't expecting it, you can ignore this message.\n",
     );
     // No link anywhere: no scheme, no anchor.

@@ -83,7 +83,7 @@ This fixes the pre-existing lost-update bugs on the phone apps as well as the we
 - **Photos for review** are stored as `review-<sightingId>` (§3.4).
 - **Display.** A hook, `useStoredPhotoUri(ref)`, returns native file paths unchanged and on web creates an object URL from the stored bytes, revoking it on unmount or when the reference changes. `SightingPhoto` and the review screen use it; `SightingPhoto` keeps its base64 fallback for inline items.
 - **Upload.** On mobile data `syncNow` shrinks photos first. For an `idb:` item it makes an object URL from the stored bytes, passes that to `optimizePhotoForUpload`, and revokes it afterwards — otherwise the shrink silently fails and the full photo is sent.
-- **A photo the browser has cleared** gets its own status and wording — "Your browser cleared this photo" — never "too old to send".
+- **A photo the browser has cleared** gets its own status and wording — "Your phone deleted this photo before it could be sent" (SYC-572) — never "too old to send".
 - **Persistent storage** is requested once, from a tap on the queue screen, never in the middle of a save. Chrome refuses it for a new site (measured), so it helps only regular users; nothing relies on it.
 - **No new dependency.** The raw IndexedDB API behind a small adapter. The lockfile is not touched.
 

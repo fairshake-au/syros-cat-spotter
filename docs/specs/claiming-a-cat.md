@@ -1,4 +1,6 @@
-# Saying a cat lives with you ("This is my cat")
+# Saying a cat lives with you ("{name} lives with me")
+
+*Button wording changed from "This is my cat" on 22 Oct 2026 (SYC-572).*
 
 **Status:** **Approved by Samuel, 13 Oct 2026.** The decisions were first approved on 8 October 2026: all thirteen decisions (§15) and all the wording, including the extra steps he asked for the same day (D10–D13, §4.2). Two adversarial reviews folded in (§13). One adversarial review pass done and folded in (§13); its report is [`reviews/claiming-a-cat-review.md`](./reviews/claiming-a-cat-review.md).
 **Owner:** Samuel
@@ -16,7 +18,7 @@ Dashboard actions belong to `team-access-and-welfare-queue.md`. Where this spec 
 
 ## 1. The short version
 
-A cat's page offers **"This is my cat"** only to someone who has **met the cat**: their phone found it, or has photographed it and confirmed the app's suggestion that it was this cat. Tapping it asks plainly, **"Is Agatha your cat?"**, and says what saying yes will do. Someone who hasn't met the cat sees a quiet line saying how. The server checks the same rule, so it holds outside the app too.
+A cat's page offers **"{name} lives with me"** only to someone who has **met the cat**: their phone found it, or has photographed it and confirmed the app's suggestion that it was this cat. Tapping it asks plainly, **"Is Agatha your cat?"**, and says what saying yes will do. Someone who hasn't met the cat sees a quiet line saying how. The server checks the same rule, so it holds outside the app too.
 
 Only a cat recorded as **living on the street** can be claimed. A cat that already has a home, is in care or has died can't be.
 
@@ -52,7 +54,7 @@ So a claim is worth a lot to the wrong person, and does real harm when made care
 
 ---
 
-## 3. Who can say "This is my cat"
+## 3. Who can say "{name} lives with me"
 
 A phone can claim a cat when **all** of these hold.
 
@@ -96,7 +98,7 @@ The server tells the app, for the phone looking (and only once it has proved who
 
 | Who is looking | What they see |
 |---|---|
-| A phone that may claim the cat | **"This is my cat"**, where the claim button has always been, styled as a secondary action rather than the page's most prominent button |
+| A phone that may claim the cat | **"{name} lives with me"**, where the claim button has always been, styled as a secondary action rather than the page's most prominent button |
 | A phone that hasn't met it, when it lives on the street | No button. A small link, *"Does Agatha live with you?"*, which opens a sheet saying to spot Agatha with the camera first, then come back and say Agatha lives with you (D2; changed 22 Oct 2026, from a line shown to everyone: [design-review-fixes-oct22.md](design-review-fixes-oct22.md) §1.1-§1.2) |
 | A phone that has met it but let it go in the last 7 days, or that the team removed as owner in the last 30 | No button and no line |
 | Anyone except the owner, when the cat has a home | No button. The same *"Does Agatha live with you?"* link under "Has a home"; its sheet says to email us if Agatha's yours and you've changed phone. This **reverses** the 14 Oct 2026 decision to keep "Got a new phone? Ask Syros Cats to remove the old owner…" on the page: on 22 Oct 2026 Samuel said that line didn't make sense to people it wasn't about (§6; [design-review-fixes-oct22.md](design-review-fixes-oct22.md) §1.1-§1.2) |

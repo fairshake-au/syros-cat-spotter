@@ -274,7 +274,7 @@ describe("creating a colony", () => {
     const page = decoded((await get("/api/team/colonies")).text);
     expect(page).toContain("Create a colony");
     expect(page).toContain("Use the place, not a person's name, like “Vaporia steps” or “Kini harbour”.");
-    expect(page).toContain("Don't write when people come and go.");
+    expect(page).toContain("Please don't note people's comings and goings.");
   });
 
   it("answers JSON to a JSON caller", async () => {
@@ -675,7 +675,7 @@ describe("the list and a colony's page", () => {
     expect(page).toContain(`${P}site-1`);
     expect(page).not.toContain(`${P}site-closed`);
     expect(page).toContain("&lt;b&gt;notes&lt;/b&gt;");
-    expect(decoded(page)).toContain("Don't write when people come and go.");
+    expect(decoded(page)).toContain("Please don't note people's comings and goings.");
     // Team-only notes never need the colony to be public: nothing about a
     // colony is on a public route (the canary is test 1, PR 6.1).
     const asJson = await get(`/api/team/colonies/${a}`).set("Accept", "application/json");
@@ -798,7 +798,7 @@ describe("progress, flags and the sort (SYC-396 PR 2.2; spec §9.1)", () => {
     expect(text).not.toContain("No cat guardian recorded");
     for (const [flag, word] of [
       ["no_guardian", "No cat guardian"],
-      ["not_visited", "Not visited lately"],
+      ["not_visited", "No street cat seen for 30 days"],
     ] as const) {
       expect(html).toMatch(new RegExp(`<span class="cflag cflag-${flag}"><svg [^>]*aria-hidden="true"[^>]*>[\\s\\S]*?</svg>${word}</span>`));
     }

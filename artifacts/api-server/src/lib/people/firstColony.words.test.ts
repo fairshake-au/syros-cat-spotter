@@ -70,7 +70,7 @@ describe("no surface calls her nothing (SYC-439)", () => {
       expect(html).not.toContain(STARTING[lang]);
       const seeDo = { en: "Create a colony for the cats you look after.", el: el["welcome.seeDo.starting"], fr: fr["welcome.seeDo.starting"] }[lang];
       expect(html).toContain(seeDo.slice(0, 30));
-      const guardianSeeDo = { en: "For your own colonies only", el: el["welcome.seeDo.guardian"], fr: fr["welcome.seeDo.guardian"] }[lang];
+      const guardianSeeDo = { en: "For your own colonies only", el: el["welcome.seeDo.guardianSee"], fr: fr["welcome.seeDo.guardianSee"] }[lang];
       expect(html).not.toContain(guardianSeeDo.slice(0, 20));
     });
 
