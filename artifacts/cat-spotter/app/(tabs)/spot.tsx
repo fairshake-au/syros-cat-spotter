@@ -1071,12 +1071,10 @@ export default function SpotScreen() {
                 matchCheck: result.matchCheck,
                 canRecheck: result.canRecheck,
                 photoRef: kept.ok ? kept.ref : undefined,
-                // SYC-119: where the photo was taken, so "Find the cat" can
-                // list the cats near it.
+                // SYC-119: where the photo was taken, for "Find the cat".
                 lat: finalCoords.latitude,
                 lng: finalCoords.longitude,
-                // SYC-574: asks "Is this {name}?" first. Never sent anywhere.
-                hintCatId: hint,
+                hintCatId: hint, // SYC-574
               }),
             });
             break;
