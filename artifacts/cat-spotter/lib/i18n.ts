@@ -2139,7 +2139,7 @@ const fr: Dict = {
   reportBusy: 'Trop de signalements sont partis de cette connexion dans la dernière heure. Le tien est enregistré sur ton téléphone et partira tout seul dans l’heure.',
   reportCheckUnavailable: 'On n’a pas pu faire la vérification de sécurité. Ton signalement est toujours enregistré et on réessaiera.',
   turnstileTapLine: 'Petite vérification de sécurité : coche la case pour montrer que tu es bien une vraie personne.',
-  reportCheckBlocked: 'Ton signalement est enregistré, mais quelque chose dans ce navigateur (souvent un bloqueur de publicités) l’empêche de partir. Désactive-le pour cette page et nous réessaierons. Si ça n’aide pas, autorise challenges.cloudflare.com.',
+  reportCheckBlocked: 'Ton signalement est enregistré, mais quelque chose dans ce navigateur (souvent un bloqueur de publicités) l’empêche de partir. Désactive-le pour cette page et on réessaiera. Si ça n’aide pas, autorise challenges.cloudflare.com.',
   reportDone: 'Terminé',
   reportReminder: 'Tu as un signalement de chat qui n’a pas encore été envoyé.',
   reportStepOf: '{n} sur {total}',

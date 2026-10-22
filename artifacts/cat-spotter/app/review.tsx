@@ -172,6 +172,9 @@ export default function ReviewScreen() {
   const hintQuery = useGetCat(hintCatId ?? 0, {
     query: {
       enabled: hintCatId !== undefined,
+      // One retry, not react-query's three: a cat that won't load should fall
+      // back to no question quickly, not leave a bare spinner for ~7 s.
+      retry: 1,
       // The cat page's own key, so the page the spotter came from answers it.
       queryKey: [...getGetCatQueryKey(hintCatId ?? 0), deviceId],
     },
