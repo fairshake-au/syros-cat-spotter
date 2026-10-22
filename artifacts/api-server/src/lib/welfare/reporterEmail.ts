@@ -320,6 +320,59 @@ async function outcomeAlreadySent(tx: Tx, reportId: number): Promise<boolean> {
   );
 }
 
+export const REPORTER_ON_CLOSE = ["none", "already_sent", "will_send", "held", "may_not_arrive"] as const;
+/** SYC-515: what happens to the reporter if this report closes. */
+export type ReporterOnClose = (typeof REPORTER_ON_CLOSE)[number];
+
+/**
+ * SYC-515 (spec §2): the one answer to "what happens to the reporter if this
+ * closes?". The Queue and the state route both use it, and `moveReportState`
+ * asks it again inside the move's transaction. It reads the same facts
+ * `onReportStateChanged` acts on, and judges a bounced or refused address the
+ * way `sendMail` does (`isReportSuppressed`, as for a confirmed address).
+ */
+export async function reporterOnClose(
+  tx: Tx | typeof db,
+  reportId: number,
+  /** `lock`: inside a move's transaction, take the address lock first, as
+   * `onReportStateChanged` does, so a confirmation running at the same
+   * moment either lands before this read or waits for the move. */
+  opts: { lock?: boolean } = {},
+): Promise<ReporterOnClose> {
+  const readContact = async () =>
+    (
+      await tx.execute(sql`
+        select c.address, c.status, c.address_hmac, c.device_id from welfare_reports r
+          join email_contacts c on c.id = r.reporter_contact_id
+         where r.id = ${reportId} and r.kind = 'welfare'
+      `)
+    ).rows[0] as { address: string | null; status: string; address_hmac: string; device_id: string | null } | undefined;
+  let c = await readContact();
+  if (!c) return "none";
+  if (opts.lock) {
+    await lock(tx as Tx, c.address_hmac);
+    c = await readContact();
+    if (!c) return "none";
+  }
+  // The same conditions, in the same order, as onReportStateChanged (and
+  // confirmReporterAddress, which skips a contact with no device): a contact
+  // with no phone on file, or no address left, is never emailed.
+  if (!c.device_id || !c.address) return "none";
+  if (c.status !== "confirmed") return "held";
+  const sent =
+    (
+      (
+        await tx.execute(sql`
+          select count(*)::int as n from report_state_events
+           where report_id = ${reportId} and reporter_message = 'report_outcome'
+        `)
+      ).rows[0] as { n: number }
+    ).n > 0;
+  if (sent) return "already_sent";
+  if (await isReportSuppressed(c.address, "confirmed")) return "may_not_arrive";
+  return "will_send";
+}
+
 async function queueOutcome(
   tx: Tx,
   o: { reportId: number; contactId: number; hmac: string; deviceId: string; outcome: ReportOutcome; teamSentence: string | null; dueAt?: Date },

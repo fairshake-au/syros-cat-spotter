@@ -58,6 +58,9 @@ const ALLOWLIST: Record<string, string> = {
     "content only: every read (the section, one report, the cat page's strip, the others count) carries kind = 'content'; no reporter column is selected",
   "artifacts/api-server/src/lib/issues/teamActions.ts":
     "content only: Keep hidden, Restore and Hide lock a report with kind = 'content' and is_draft = false, or do nothing",
+  // SYC-44 PR 8.1: the one-year clean-up.
+  "artifacts/api-server/src/lib/issues/retention.ts":
+    "content only: the one update carries kind = 'content'; a welfare row is never cleared (its three-year rule is SYC-302's)",
   "artifacts/api-server/src/routes/teamReports.ts":
     "content only: the reported-photo route finds the photo through a kind = 'content' report; every other read here goes through welfareQueue.ts or lib/issues",
   "artifacts/api-server/src/lib/welfare/reporterEmail.ts":

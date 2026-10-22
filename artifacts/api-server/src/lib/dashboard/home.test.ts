@@ -4,7 +4,7 @@ import { eq, inArray, like } from "drizzle-orm";
 import { catsTable, db, photosTable, sightingsTable, welfareReportsTable } from "@workspace/db";
 import { seedReport } from "../teamAuth/__fixtures__/queueKit";
 import { deleteTestSightings } from "../../test/sightings";
-import { listWelfareQueue, type QueueDraft, type QueueReport, type WelfareQueue } from "../welfareQueue";
+import { listWelfareQueue, type QueueReport, type WelfareQueue } from "../welfareQueue";
 import { listLikelyForReview, type LikelyCat } from "../likelyReview";
 import { listColourCheck, type ColourCheckCat } from "../colourCheck";
 import type { TeamCat } from "../teamCatList";
@@ -12,7 +12,6 @@ import { athensMonths } from "../athensTime";
 import {
   countAwaitingMatch,
   countOpenIssues,
-  DRAFT_WINDOW_HOURS,
   HOME_NEEDS_LIMIT,
   homeData,
   monthFigures,
@@ -157,22 +156,22 @@ describe("Needs us now", () => {
     expect(d.needs.value.reportsTotal).toBe(2);
   });
 
-  it("drafts: one started 25 hours ago is left out, one started 2 hours ago is in", async () => {
-    const draft = (id: string, hoursAgo: number): QueueDraft => ({
-      id,
-      severity: "attention",
-      lat: 37.4447,
-      lng: 24.9417,
-      startedAt: new Date(NOW.getTime() - hoursAgo * 3_600_000).toISOString(),
-      suggestedCat: null,
-    });
-    expect(DRAFT_WINDOW_HOURS).toBe(24);
-    const q = fakeQueue({ drafts: [draft("fresh", 2), draft("stale", 25)], draftsTotal: 2 });
-    const d = await homeData(NOW, pure({ listWelfareQueue: async () => q }));
+  it("SYC-519: Home asks the queue for no drafts and carries none", async () => {
+    const asked: unknown[] = [];
+    const d = await homeData(
+      NOW,
+      pure({
+        listWelfareQueue: async (opts?: { drafts?: boolean }) => {
+          asked.push(opts);
+          return fakeQueue();
+        },
+      }),
+    );
+    expect(asked).toEqual([{ drafts: false }]);
     expect(d.needs.ok).toBe(true);
     if (!d.needs.ok) return;
-    expect(d.needs.value.drafts.map((x) => x.id)).toEqual(["fresh"]);
-    expect(d.needs.value.draftsTotal).toBe(1);
+    expect(d.needs.value).not.toHaveProperty("drafts");
+    expect(d.needs.value).not.toHaveProperty("draftsTotal");
   });
 
   it("a 'Report an issue' row raises the open issues by one; a done one and a draft don't", async () => {

@@ -130,14 +130,12 @@ h2{font-size:18px;margin:28px 0 8px}
 .report{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #a36b00;border-radius:8px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
 .report.urgent{border-left-color:#b3261e}
 .report.closed{border-left-color:#8a877e;background:#faf9f6}
-.report.draft{border-left-style:dashed}
 .head{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:0 0 8px}
 .tag{display:inline-block;font-size:13px;font-weight:700;border-radius:999px;padding:2px 10px;background:#eee9da;color:#3b3930}
 .tag.urgent{background:#b3261e;color:#fff}
 .tag.attention{background:#fbe7b5;color:#4d3800}
 .tag.kittens{background:#d9ecf0;color:#0b4553}
 .tag.unchecked{background:#fff;border:1px dashed #8a6d00;color:#5c4800}
-details.unchecked-drafts summary{cursor:pointer;font-weight:700;margin:8px 0}
 .tag.state{background:#fff;border:1px solid #8a877e}
 /* SYC-44 PR 7.1: the Issues section, in its own colour band, every row also labelled "Issue". */
 .issues{background:#eef2f9;border-top:6px solid #2f5d9e;border-radius:8px;padding:2px 12px 12px;margin:28px 0 12px}
@@ -149,19 +147,20 @@ details.unchecked-drafts summary{cursor:pointer;font-weight:700;margin:8px 0}
 .issueacts form{margin:0}
 .issueacts button{width:100%}
 .ago{color:#55524a;font-size:14px}
-.report.closed>details>summary{cursor:pointer;min-height:44px;padding:4px 0}
-.report.closed>details>summary .head{display:inline-flex;margin:0;vertical-align:middle}
-.said1{display:block;margin:4px 0 0 18px;color:#3b3930;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.report.closed>details[open]>summary{margin-bottom:8px}
+.said1{display:block;margin:0;color:#3b3930;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.report>details>summary.rowline{cursor:pointer;min-height:56px;display:flex;gap:10px;align-items:center;list-style:none}
+.report>details>summary.rowline::-webkit-details-marker{display:none}
+.report>details[open]>summary.rowline{margin-bottom:8px}
+.rtext{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.rwhere{font-size:15px}
+.rtags{flex:none}
+.rwhere time{white-space:nowrap}
+.rwhere .tag{margin-left:2px;padding:0 8px;font-size:12px}
+.rbody .photolink{display:inline-block}
+.rbody .photo{max-width:240px}
 details.notebox{margin:10px 0 0}
 details.notebox>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .more{margin:8px 0 0}
-/* On a phone a report's photo is a thumbnail beside its tags (SYC-219 pass). */
-.has-photo{display:grid;grid-template-columns:88px 1fr;gap:0 12px;align-items:start}
-.has-photo>*{grid-column:1 / -1}
-.has-photo>.photolink{grid-column:1;grid-row:1;margin:0 0 8px}
-.has-photo>.head{grid-column:2;grid-row:1}
-.has-photo>.photolink .photo{width:88px;height:88px;object-fit:cover;margin:0}
 .photo{display:block;width:100%;max-width:100%;height:auto;max-height:420px;object-fit:contain;background:#ece8dc;border-radius:6px;margin:0 0 8px}
 .nophoto{background:#ece8dc;border-radius:6px;padding:14px 10px;margin:0 0 8px;color:#55524a;font-size:14px}
 dl{margin:8px 0 0;display:grid;grid-template-columns:minmax(88px,30%) 1fr;gap:6px 10px}
@@ -279,16 +278,16 @@ a.catlink.tap,a.sublink.tap{display:flex}
 .refs li{margin:0 0 6px}
 .hintlist{margin:0 0 8px;padding-left:20px}
 .hintlist li{margin:4px 0}
-.evidence{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:0 0 4px;max-width:520px}
-.evidence figure{margin:0}
-.evidence img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#ece8dc}
-.evidence figcaption{font-size:13px;color:#55524a;margin-top:2px}
+div.evidence{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:0 0 4px;max-width:520px}
+div.evidence figure{margin:0}
+div.evidence img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#ece8dc}
+div.evidence figcaption{font-size:13px;color:#55524a;margin-top:2px}
 .likelyactions form{margin:12px 0 0}
 .likelyactions .save{width:100%}
 input.text,input[type=date],select.text{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;margin:0 0 8px;background:#fff}
 input[type=date]{max-width:220px}
 .fixes details{background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:8px 0;padding:0 12px}
-.fixes summary,.statement summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
+.fixes summary,.statement summary,.typedfold summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .fixes details[open]{padding-bottom:12px}
 .fixes form,.statement form{margin:4px 0 0}
 .fixes form.diedform{margin:20px 0 4px}
@@ -503,10 +502,6 @@ ${CHART_CSS}
 .chips{grid-template-columns:1fr 1fr}
 main{padding-top:20px}
 .tiecard button{width:auto}
-.has-photo{grid-template-columns:240px 1fr;gap:0 16px}
-.has-photo>.photolink{grid-row:1 / span 3}
-.has-photo>.photolink .photo{width:240px;height:auto;max-height:320px;object-fit:contain}
-.has-photo>*:not(.photolink){grid-column:2}
 .states{grid-template-columns:repeat(4,1fr)}
 dl{grid-template-columns:150px 1fr;gap:4px 12px}
 dt{margin-top:0}
@@ -542,8 +537,12 @@ export interface PageOptions {
    * Colonies and Feeding sites only, in her language.
    */
   nav?: boolean | "guardian";
-  /** The signed-in person's name (escaped here). */
-  personName: string;
+  /**
+   * The signed-in person's name (escaped here). `null`: no person at all, so
+   * no "Signed in as", no Sign out and no bar (the error page, which never
+   * reads the session; SYC-516 C1).
+   */
+  personName: string | null;
   /**
    * The person's language, for guardian-facing pages only. Anything not live
    * yet is drawn in English (see strings/index.ts). Default English.
@@ -644,7 +643,9 @@ export function renderPage(opts: PageOptions): string {
   // welcome page) keeps the bar for them, but it's no <nav>: there's
   // nowhere to go.
   const who =
-    `<span class="who" title="${escapeHtml(opts.personName)}">${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</span>` +
+    opts.personName === null
+      ? ""
+      : `<span class="who" title="${escapeHtml(opts.personName)}">${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</span>` +
     `<form method="post" action="/api/team/signout"><button type="submit">${t("shell.signOut")}</button></form>`;
   const barClass = `bar${opts.mainClass === "wide" ? " wide" : ""}`;
   return (
@@ -667,7 +668,9 @@ export function renderPage(opts: PageOptions): string {
     `<a class="skip" href="#main">${t("shell.skip")}</a>` +
     (items
       ? `<nav class="${barClass}" aria-label="${t("shell.menu")}">${items}${who}</nav>`
-      : `<div class="${barClass}">${who}</div>`) +
+      : who
+        ? `<div class="${barClass}">${who}</div>`
+        : "") +
     // tabindex=-1: the skip link moves keyboard focus here, not just the view.
     `<main id="main" tabindex="-1"${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
     (opts.banner ?? "") +

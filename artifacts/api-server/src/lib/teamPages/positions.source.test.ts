@@ -85,13 +85,9 @@ describe("positions print only through position.ts (D9)", () => {
     for (const m of MAP_COMPANIES.filter((c) => c !== "google.com/maps")) expect(src).not.toContain(m);
   });
 
-  // A cat guardian's own pages never carry a link, whoever reads them.
-  it("guardianPages.ts only ever asks position() for no link", () => {
-    const src = read("lib/teamPages/guardianPages.ts");
-    // Every call to position(), and what it passes as `link`.
-    const calls = [...src.matchAll(/\bposition\(([^;]*?)\)/g)].map((m) => m[1]!);
-    expect(calls.length).toBeGreaterThan(0);
-    for (const args of calls) expect(args, `position(${args})`).toMatch(/,\s*\{\s*link:\s*false\s*\}\s*$/);
+  // A cat guardian's colony and cat pages say where in words (SYC-517); they no longer call position() at all.
+  it("guardianPages.ts never calls position()", () => {
+    expect(read("lib/teamPages/guardianPages.ts")).not.toMatch(/\bposition\(/);
   });
 
   // SYC-396 PR 1.5: the dashboard's own scripts (assets/dashboard-*.js) draw
@@ -119,9 +115,21 @@ describe("positions print only through position.ts (D9)", () => {
     }
   });
 
-  // The owner's home position never gets a link (D5).
-  it("the cat page's home pin is printed with link: false, literally", () => {
+  // SYC-517: team pages say where in words. Only a cat guardian's own site
+  // pages (sitePages.ts, siteFormPages.ts) may still call position().
+  it("position( is called only by the guardian-facing files", () => {
+    const ALLOWED_CALLERS = new Set([
+      "lib/teamPages/position.ts",
+      "lib/teamPages/sitePages.ts",
+      "lib/teamPages/siteFormPages.ts",
+    ]);
+    const callers = files.filter((f) => /\bposition\(/.test(read(f)) && !ALLOWED_CALLERS.has(f));
+    expect(callers).toEqual([]);
+  });
+
+  // The owner's home pin is a sentence in words, never a link (D5).
+  it("the cat page's home pin is words, with no link", () => {
     const src = read("lib/teamPages/catPages.ts");
-    expect(src).toMatch(/position\(\s*v\.owner\.homePin\.lat,\s*v\.owner\.homePin\.lng,\s*\{\s*link:\s*false\s*\}\s*\)/);
+    expect(src).toMatch(/row\("Home pin", esc\(`Pinned, in \$\{placeLabel\(v\.owner\.homePin\)\}`\)\)/);
   });
 });

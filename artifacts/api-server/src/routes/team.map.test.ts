@@ -692,7 +692,7 @@ describe("a tap on the map (test 17)", () => {
     const res = await post("/api/team/map/tap", { view: f.view, size: "179", x: String(at.x), y: String(at.y) });
     expect(res.status).toBe(200);
     // With the team's Open map link (SYC-395, D9).
-    expect(res.text).toMatch(/You tapped <strong>37\.4\d{4}, 24\.94\d{3} &middot; <a [^>]*>Open map<\/a><\/strong>/);
+    expect(res.text).toMatch(/You tapped a spot in <strong>[^<\d]+ &middot; <a [^>]*>Open map<\/a><\/strong>/);
     expect(res.text).toContain('<span class="pin" style="left:');
     expect(res.text).toContain(`Point ${at.x}, ${at.y} on a 358 px map picture.`);
     expect(viewOf(res.text).z).toBe(17);

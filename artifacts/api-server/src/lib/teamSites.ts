@@ -196,6 +196,8 @@ export interface SiteView {
   madePublicAt: string | null;
   madePublicBy: string | null;
   retiredAt: string | null;
+  /** The label the public sees (null when blank). Only for place(); never the internal name. */
+  publicLabel: string | null;
   colony: { id: number; name: string } | null;
   notes: string | null;
   directions: string | null;
@@ -216,6 +218,7 @@ export async function siteView(visible: Visible, id: number): Promise<SiteView |
       madePublicAt: feedingSitesTable.madePublicAt,
       madePublicBy: feedingSitesTable.madePublicBy,
       retiredAt: feedingSitesTable.retiredAt,
+      publicLabel: feedingSitesTable.publicLabel,
       notes: feedingSitesTable.notes,
       directions: feedingSitesTable.directions,
       // The stamp text (UTC, to the microsecond, fixed layout) (PR 3.3's writes compare it in SQL).
@@ -256,6 +259,7 @@ export async function siteView(visible: Visible, id: number): Promise<SiteView |
     madePublicAt: site.madePublicAt?.toISOString() ?? null,
     madePublicBy: site.madePublicBy ? label(site.madePublicBy) : null,
     retiredAt: site.retiredAt?.toISOString() ?? null,
+    publicLabel: site.publicLabel,
     colony: site.colonyId !== null ? { id: site.colonyId, name: site.colonyName! } : null,
     notes: site.notes,
     directions: site.directions,

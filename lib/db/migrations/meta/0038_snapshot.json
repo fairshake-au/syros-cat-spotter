@@ -1,5 +1,5 @@
 {
-  "id": "381141ce-9687-410e-a3b8-802f36f0a9df",
+  "id": "880bd702-401e-43ba-877c-c0ea3c1293f5",
   "prevId": "512a9d20-e90f-4170-b226-6342d61fac74",
   "version": "7",
   "dialect": "postgresql",
@@ -4482,44 +4482,85 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.photo_fingerprints": {
-      "name": "photo_fingerprints",
+    "public.held_typing": {
+      "name": "held_typing",
       "schema": "",
       "columns": {
-        "photo_id": {
-          "name": "photo_id",
-          "type": "integer",
+        "id": {
+          "name": "id",
+          "type": "uuid",
           "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
           "notNull": true
         },
-        "model": {
-          "name": "model",
+        "session_version": {
+          "name": "session_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "form_key": {
+          "name": "form_key",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "vector": {
-          "name": "vector",
-          "type": "real[]",
+        "landing_path": {
+          "name": "landing_path",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "made_at": {
-          "name": "made_at",
+        "fields": {
+          "name": "fields",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "claimed_at": {
+          "name": "claimed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "held_typing_created_at_idx": {
+          "name": "held_typing_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
-        "photo_fingerprints_photo_id_photos_id_fk": {
-          "name": "photo_fingerprints_photo_id_photos_id_fk",
-          "tableFrom": "photo_fingerprints",
-          "tableTo": "photos",
+        "held_typing_person_id_people_id_fk": {
+          "name": "held_typing_person_id_people_id_fk",
+          "tableFrom": "held_typing",
+          "tableTo": "people",
           "columnsFrom": [
-            "photo_id"
+            "person_id"
           ],
           "columnsTo": [
             "id"
@@ -4531,12 +4572,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "photo_fingerprints_vector_len_ck": {
-          "name": "photo_fingerprints_vector_len_ck",
-          "value": "array_ndims(\"photo_fingerprints\".\"vector\") = 1 and cardinality(\"photo_fingerprints\".\"vector\") = 384"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },

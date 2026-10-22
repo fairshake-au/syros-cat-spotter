@@ -21,6 +21,7 @@ vi.mock("../lib/sightingRoundUp", () => ({
 
 import app from "../app";
 import { drainDue, settleOutbox } from "../lib/mail/outbox";
+import { _resetIssueNotesSweepForTests } from "../lib/issues/retention";
 
 // SYC-42 plan, Slice 1 item 1.6: making sure the email actually goes.
 // Plan tests 14 (exactly once under parallel drains), 15 (the narrow drain
@@ -199,6 +200,24 @@ describe("test 15: the drain path and its narrow token", () => {
     expect(res.status).toBe(200);
     expect(res.body.sent).toBeGreaterThanOrEqual(1);
     expect(sentIds).toContain(report.publicId);
+  });
+
+  it("also clears the notes on issue reports closed over a year ago (SYC-44 PR 8.1)", async () => {
+    const r = await db.execute(sql`
+      insert into welfare_reports
+        (public_id, kind, reason, severity, photo_state, note, team_note, reporter_device, client_ref,
+         state, state_changed_at, submitted_at)
+      values (${`vt-${randomBytes(6).toString("hex")}`}, 'content', 'other', 'attention', 'none',
+              'Old words', 'Old team words', ${`${DEVICE}-retention`}, ${`ref-${randomBytes(6).toString("hex")}`},
+              'done', now() - interval '2 years', now() - interval '2 years')
+      returning id
+    `);
+    const id = (r.rows[0] as { id: number }).id;
+    _resetIssueNotesSweepForTests();
+    expect((await drain(DRAIN_TOKEN)).status).toBe(200);
+    const after = await db.execute(sql`select note, team_note, note_cleared_at from welfare_reports where id = ${id}`);
+    expect(after.rows[0]).toMatchObject({ note: null, team_note: null });
+    expect((after.rows[0] as { note_cleared_at: unknown }).note_cleared_at).not.toBeNull();
   });
 
   it("also runs the evening sighting round-up, and its failure doesn't fail the drain", async () => {

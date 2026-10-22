@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { useHeldTyping, useHeldTypingFor } from "../lib/teamAuth/heldTyping";
 import { z } from "zod";
 import { COAT_COLOURS, COAT_PATTERNS, MARKS, ObservationRefused } from "../lib/observations";
 import { orderColours, readCoatValue } from "../lib/appearance";
@@ -226,7 +227,7 @@ export const formRoute = (capability?: Capability, options?: RequireTeamOptions)
 
 // ── Update where the cat lives ────────────────────────────────────────────────────
 
-const LifeStatusForm = z.object({
+export const LifeStatusForm = z.object({
   status: z.enum(["street", "homed", "in_care", "deceased"]),
   reason: reasonField,
   date: dateField,
@@ -342,7 +343,7 @@ router.post(
 
 // ── This cat has died (SYC-513, docs/specs/mark-a-cat-as-died.md) ──────────
 
-const DiedForm = z.object({ reason: reasonField, date: dateField });
+export const DiedForm = z.object({ reason: reasonField, date: dateField });
 
 const dayWords = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/Athens" });
@@ -362,7 +363,11 @@ router.get(
     const view = catId === null ? null : await teamCatView(catId, new Date(), person);
     if (!view) return void res.status(404).type("html").send(renderNoSuchCat(person.name));
     if (isRecordedDead(view)) return void res.redirect(303, catPage(view.cat.id, "diedAlready", undefined, true));
-    res.type("html").send(renderDiedPage(view, person.name));
+    // Back after signing in again (SYC-516 C3): "How do you know?" filled in.
+    const kept = await useHeldTyping(req, person, `died:${view.cat.id}`);
+    res
+      .type("html")
+      .send(renderDiedPage(view, person.name, kept ? { kept: true, fields: { reason: kept["reason"] } } : {}));
   },
 );
 
@@ -563,7 +568,7 @@ router.post(
 
 // ── Update whether sterilised ─────────────────────────────────────────────────
 
-const SterilisationForm = z.object({
+export const SterilisationForm = z.object({
   sterilised: z.enum(["yes", "no"]),
   reason: reasonField,
   date: dateField,
@@ -637,7 +642,7 @@ const CHOICES: Record<string, Record<string, unknown>> = {
   retract: { retracted: true },
 };
 
-const WrongForm = z.object({
+export const WrongForm = z.object({
   choice: z.enum(Object.keys(CHOICES) as [string, ...string[]]),
   reason: reasonField,
   date: dateField,
@@ -747,7 +752,7 @@ router.post(
 
 // ── Rename the cat ─────────────────────────────────────────────────────────
 
-const RenameForm = z.object({
+export const RenameForm = z.object({
   name: z.preprocess(lf, z.string().max(NAME_MAX * 4)),
   reason: reasonField,
 });
@@ -944,7 +949,10 @@ router.get(
     const done = typeof req.query["done"] === "string" && LIKELY_DONE.has(req.query["done"])
       ? (req.query["done"] as string)
       : undefined;
-    res.type("html").send(renderLikelyPage(cats, person.name, done));
+    // Back after signing in again (SYC-516 C3): "That's not a clip" on one of these cats.
+    const ids = new Set(cats.map((c) => `wrong:${c.reviewObservationId}`));
+    const kept = await useHeldTypingFor(req, person, (k) => ids.has(k));
+    res.type("html").send(renderLikelyPage(cats, person.name, done, kept ?? undefined));
   },
 );
 

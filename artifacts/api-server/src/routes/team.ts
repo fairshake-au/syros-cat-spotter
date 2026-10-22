@@ -28,10 +28,12 @@ import {
 } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can, capabilitiesOf, maySignIn } from "../lib/capabilities";
-import { renderQueuePage } from "../lib/teamPages/queuePage";
+import { drawnReportIds, renderQueuePage } from "../lib/teamPages/queuePage";
 import { listWelfareQueue } from "../lib/welfareQueue";
 import { listIssues } from "../lib/issues/queue";
 import { isIslandWide } from "../lib/guardianView";
+import { mayOpenPath, takeHeldTyping, useHeldTyping } from "../lib/teamAuth/heldTyping";
+import { PUBLIC_ID_RE } from "./teamReports";
 
 // The staff dashboard on team.catspotters.com (team-access spec §2.4, §2.6,
 // §8.2; SYC-43 part 1 plan §5, §6). No CORS headers: app.ts skips /api/team/.
@@ -45,6 +47,9 @@ const router: IRouter = Router();
 export const WELCOME_PATH = "/api/team/my/welcome";
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);
+
+/** A kept row's Queue landing is this followed by the report's public id. */
+const QUEUE_LANDING = "/api/team?open=";
 
 /**
  * Where a replayed pass's person already is (SYC-353): her home, if this
@@ -162,6 +167,26 @@ router.post(
     }
     req.log.info({ jti: claims.jti }, "team hand-off accepted");
     setTeamHeaders(res);
+    // SYC-516 C3: what this person typed when their sign-in lapsed, if this
+    // browser kept some for exactly them. Back to the page the form was on,
+    // which fills it in. Anyone else's row is deleted here.
+    let held: { id: string | null; landing: string } | null = null;
+    try {
+      held = await takeHeldTyping(req, res, person, (p) => mayOpenPath(person, p));
+    } catch (err) {
+      // Never a reason to fail a sign-in: the usual home, as today.
+      req.log.warn({ err }, "returning kept typing failed");
+    }
+    if (held) {
+      // A landing-only row (id null) has nothing to fill in: just the page.
+      req.log.info({ jti: claims.jti, typed: held.id !== null }, "team hand-off returning to the page it left");
+      const kept = held.id === null ? "" : `${held.landing.includes("?") ? "&" : "?"}kept=${held.id}`;
+      // A Queue landing scrolls to the opened report (its card's id is r-<publicId>).
+      const queueRow = held.landing.startsWith(QUEUE_LANDING) ? held.landing.slice(QUEUE_LANDING.length) : null;
+      const anchor = queueRow !== null && PUBLIC_ID_RE.test(queueRow) ? `#r-${queueRow}` : "";
+      res.redirect(303, `${TEAM_ORIGIN}${held.landing}${kept}${anchor}`);
+      return;
+    }
     // The team lands on Home (SYC-396 PR 2.1). Someone with no island row (a
     // cat guardian) lands on her own page instead, never on Home's 403
     // (roles spec §6.3: "straight to the dashboard"). PR 1.3 makes that page
@@ -187,7 +212,8 @@ router.get(
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
     setTeamHeaders(res); // before any await, so an error answer carries them too
-    const [queue, issues] = await Promise.all([listWelfareQueue(), listIssues()]);
+    // No drafts: the Queue no longer shows unfinished reports (SYC-519).
+    const [queue, issues] = await Promise.all([listWelfareQueue({ drafts: false }), listIssues()]);
     // ?changed=<publicId>: the state route's 303 after someone else moved
     // that report first. Only a string is used, and only to pick a card.
     const changed =
@@ -209,6 +235,15 @@ router.get(
       typeof req.query["issue"] === "string" && typeof req.query["r"] === "string"
         ? { key: req.query["issue"], id: req.query["r"] }
         : undefined;
+    // ?open=<publicId>: that report's card drawn open. Every link into the
+    // Queue uses it (Home, the routes' 303s, and the hand-off's return after
+    // signing in again). With &kept=<row> (SYC-516 C3) the team note that
+    // wasn't saved is filled in too: only this person's own kept row for that
+    // report's note; anything else is ignored.
+    const open = typeof req.query["open"] === "string" && PUBLIC_ID_RE.test(req.query["open"]) ? req.query["open"] : undefined;
+    // Only for a card this page draws: otherwise the row is left to expire.
+    const keptFields = open && drawnReportIds(queue, issues).has(open) ? await useHeldTyping(req, person, `note:${open}`) : null;
+    const kept = open && keptFields?.["note"] !== undefined ? { id: open, note: keptFields["note"] } : undefined;
     res
       .type("html")
       // Open map on each position only for an island-wide viewer (D9, SYC-395).
@@ -221,6 +256,9 @@ router.get(
           isIslandWide(person),
           noted,
           can(person, "change_report_state"),
+          kept,
+          // Only a well-formed id gets this far; one that matches no report does nothing.
+          open,
           issues,
           issueNotice,
         ));

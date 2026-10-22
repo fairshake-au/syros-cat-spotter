@@ -1,11 +1,13 @@
 import type { SiteChange, SiteCounts, SiteHistoryEntry, SiteRow, SiteView } from "../teamSites";
+import { keptLine, type KeptFields } from "./signedOutPage";
 import type { Position, TileSize, View } from "../mapTiles/geometry";
 import { mintTileToken } from "../mapTiles/tileToken";
 import { escapeHtml as esc } from "./escape";
 import { dayIn } from "./colonyPages";
 import { renderPage } from "./layout";
 import { renderMap, type MapMarker } from "./map";
-import { position } from "./position";
+import { place, position } from "./position";
+import { publicLabelOf } from "../areas/placeLabel";
 import { wordsIn, type WordKey, type Words } from "./words";
 import {
   SITE_DIRECTIONS_MAX,
@@ -249,20 +251,23 @@ export function renderSiteActions(
   lang?: string,
   /** Draw "Change colony" (`reassign_feeding_site`, island-only: never for a cat guardian). Default: yes. */
   mayReassign = true,
+  /** What was typed into "Edit details" before the sign-in lapsed (SYC-516 C3). */
+  kept?: KeptFields,
 ): string {
+  const k = kept ?? {};
   const W = wordsIn(lang);
   const { w } = W;
   const base = esc(siteHref(s.id));
   const stamp = stampField(s.updatedAt);
   const retired = s.retiredAt !== null;
   const edit =
-    `<div class="fixes"><details><summary>${w("act.edit")}</summary>` +
+    `<div class="fixes"><details${kept ? " open" : ""}><summary>${w("act.edit")}</summary>` +
     `<form method="post" action="${base}">` +
     stamp +
-    textBox(W, "edit-name", "name", "confirm.name", s.name, SITE_NAME_MAX).replace(" maxlength=", " required maxlength=") +
-    textBox(W, "edit-directions", "directions", "site.directions", s.directions ?? "", SITE_DIRECTIONS_MAX, "confirm.directionsHint") +
+    textBox(W, "edit-name", "name", "confirm.name", k["name"] ?? s.name, SITE_NAME_MAX).replace(" maxlength=", " required maxlength=") +
+    textBox(W, "edit-directions", "directions", "site.directions", k["directions"] ?? s.directions ?? "", SITE_DIRECTIONS_MAX, "confirm.directionsHint") +
     `<label class="label" for="edit-notes">${w("site.notes")}</label>` +
-    `<textarea id="edit-notes" name="notes" maxlength="${SITE_NOTES_MAX}">${esc(s.notes ?? "")}</textarea>` +
+    `<textarea id="edit-notes" name="notes" maxlength="${SITE_NOTES_MAX}">${esc(k["notes"] ?? s.notes ?? "")}</textarea>` +
     `<p class="hint">${w("notes.hint")}</p>` +
     `<button type="submit">${w("act.save")}</button></form></details></div>`;
   const move =
@@ -307,12 +312,17 @@ export function renderSiteActions(
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
 
-/** A position from a history row, through position.ts. Trusted HTML. */
+/**
+ * A position from a history row, through position.ts. Trusted HTML. An
+ * island-wide viewer (link true) reads the area in words; a cat guardian's
+ * own site keeps the exact position.
+ */
 function where(o: Record<string, unknown> | null, link: boolean): string | null {
   const p = o && typeof o["position"] === "object" && o["position"] ? (o["position"] as Record<string, unknown>) : o;
   const lat = num(p?.["lat"]);
   const lng = num(p?.["lng"]);
-  return lat !== null && lng !== null ? position(lat, lng, { link }) : null;
+  if (lat === null || lng === null) return null;
+  return link ? place(lat, lng, { link }) : position(lat, lng, { link });
 }
 
 const quoted = ({ w }: Words, v: string | null) => (v === null || v === "" ? w("site.none") : `“${esc(v)}”`);
@@ -381,6 +391,8 @@ export function renderSitePage(opts: SiteViewer & {
   mayAct?: boolean;
   /** Draw "Change colony" among them (island-only). Default: as `island`. */
   mayReassign?: boolean;
+  /** What was typed into "Edit details" before the sign-in lapsed (SYC-516 C3). */
+  kept?: KeptFields;
 }): string {
   const W = wordsIn(opts.lang);
   const { w } = W;
@@ -422,6 +434,7 @@ export function renderSitePage(opts: SiteViewer & {
     body:
       map +
       // Below the map, so nothing of variable height sits above it (see .mappage).
+      (opts.kept && mayAct ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
       retired +
       visibility +
@@ -433,12 +446,23 @@ export function renderSitePage(opts: SiteViewer & {
       `<h2>${w("site.directions")}</h2>` +
       textOrNone(W, s.directions) +
       `<h2>${w("site.position")}</h2>` +
-      `<p class="syrline">${position(s.lat, s.lng, { link: mapLinks(opts) })}</p>` +
+      `<p class="syrline">${
+        mapLinks(opts)
+          ? place(s.lat, s.lng, {
+              link: true,
+              label: publicLabelOf({
+                isPublic: s.isPublic,
+                publicLabel: s.publicLabel,
+                retiredAt: s.retiredAt ? new Date(s.retiredAt) : null,
+              }),
+            })
+          : position(s.lat, s.lng, { link: false })
+      }</p>` +
       `<h2>${w("site.historyTitle")}</h2>` +
       historyList(W, s.history, mapLinks(opts)) +
       (mayAct
         ? `<h2>${w("act.title")}</h2>` +
-          `<div class="actions" data-actions="site">${renderSiteActions(s, opts.colonies, opts.lang, opts.mayReassign ?? opts.island !== false)}</div>`
+          `<div class="actions" data-actions="site">${renderSiteActions(s, opts.colonies, opts.lang, opts.mayReassign ?? opts.island !== false, mayAct ? opts.kept : undefined)}</div>`
         : ""),
   });
 }

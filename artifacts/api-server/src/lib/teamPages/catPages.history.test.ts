@@ -382,23 +382,25 @@ describe("each sighting's More menu", () => {
     const li = /<li id="sg-41">[\s\S]*?<\/li>/.exec(html)![0];
     const menu = /<details class="rowmenu">[\s\S]*?<\/details>/.exec(li)![0];
     expect(menu).toContain("<summary>More");
-    for (const inside of ["/api/team/sites/from-sighting", "/api/team/sites/map-at-sighting#map", ">Open map</a>", "37.44470, 24.94180"]) {
+    for (const inside of ["/api/team/sites/from-sighting", "/api/team/sites/map-at-sighting#map", ">Open map</a>"]) {
       expect(menu, inside).toContain(inside);
       // …and nowhere else on the row.
       expect(li.replace(menu, ""), inside).not.toContain(inside);
     }
+    // No numbers anywhere on the row or in the menu (SYC-517).
+    expect(li.replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{4}/);
     // The row itself shows the date and the named area, not numbers.
     expect(li.replace(menu, "")).toMatch(/<\/time><br>[A-Z][a-z]/);
   });
 
-  it("still has a menu, with the position, for someone who may not use either button", () => {
+  it("shows no position and no Open map to someone who is not island-wide and may not use either button", () => {
     const v = view(0);
     v.sightings = [sighting];
     const html = renderCatPage(v, "Sam", { now: NOW });
-    const menu = /<details class="rowmenu">[\s\S]*?<\/details>/.exec(html)![0];
-    expect(menu).toContain("37.44470, 24.94180");
-    expect(menu).not.toContain("<form");
-    expect(menu).not.toContain("Open map");
+    const li = /<li id="sg-41">[\s\S]*?<\/li>/.exec(html)![0];
+    expect(li.replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{4}/);
+    expect(li).not.toContain("Open map");
+    expect(li).not.toContain("<form");
   });
 });
 

@@ -79,6 +79,8 @@ const EXPECTED_REPORT_KEYS = [
   "lat",
   "lng",
   "note",
+  // SYC-515: what closing would do for the reporter; a fixed word, never an address.
+  "onClose",
   "photo",
   "severity",
   "state",
@@ -156,6 +158,21 @@ describe("P1-2: order and sections", () => {
       "startedAt",
       "suggestedCat",
     ]);
+  });
+
+  it("SYC-519: listWelfareQueue({ drafts: false }) reads no drafts, checked or unchecked, and everything else as before", async () => {
+    await seedReport({ publicId: "nd-draft", isDraft: true });
+    await seedReport({ publicId: "nd-draft-unc", isDraft: true, tokenChecked: false });
+    await seedReport({ publicId: "nd-report" });
+    const { listWelfareQueue } = await import("../lib/welfareQueue");
+    const q = await listWelfareQueue({ drafts: false });
+    expect(q.drafts).toEqual([]);
+    expect(q.draftsTotal).toBe(0);
+    expect(q.unchecked.drafts).toEqual([]);
+    expect(q.unchecked.draftsTotal).toBe(0);
+    expect(q.open.map((r) => r.id)).toContain("nd-report");
+    // The default still reads them (the JSON route keeps its shape).
+    expect((await listWelfareQueue()).drafts.map((d) => d.id)).toContain("nd-draft");
   });
 
   it("shows what each report holds: the photo through the team route, kittens, the team note and who wrote it, with left people marked", async () => {

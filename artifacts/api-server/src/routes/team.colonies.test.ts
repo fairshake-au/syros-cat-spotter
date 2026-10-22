@@ -27,6 +27,9 @@ import { deleteTestRows } from "../test/deleteGuarded";
 import { recordMappingEvent } from "../lib/mappingEvents";
 import { currentColonyOf } from "../lib/colonyMembership";
 import { deleteTestSightings } from "../test/sightings";
+import { guardianOn, newColony } from "../test/roleKit";
+import { viewAround, tapToPosition } from "../lib/mapTiles/geometry";
+import { mintTileToken } from "../lib/mapTiles/tileToken";
 
 // SYC-209 PR 2.1: the Colonies pages. Spec tests 14 (colony names), 11 (part:
 // one history row per change, in the same transaction), 16 (escaping) and 12
@@ -270,7 +273,7 @@ describe("creating a colony", () => {
   it("the list shows the naming convention and the notes hint", async () => {
     const page = decoded((await get("/api/team/colonies")).text);
     expect(page).toContain("Create a colony");
-    expect(page).toContain("A place and the person who looks after it, like “Vaporia — Eleni's”.");
+    expect(page).toContain("Use the place, not a person's name, like “Vaporia steps” or “Kini harbour”.");
     expect(page).toContain("Don't write when people come and go.");
   });
 
@@ -518,6 +521,10 @@ describe("test 11 (part): one history row per change, in the same transaction", 
     expect((await post(`/api/team/colonies/${id}`, { lat: "", lng: "" })).status).toBe(303);
     expect(await kinds()).toHaveLength(6);
     expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null });
+    // The history says so in words (no numbers).
+    const html = (await request(app).get(`/api/team/colonies/${id}`).set("Cookie", cookie)).text;
+    expect(html).toMatch(/Centre cleared \(it was in [^)\d]+\)/);
+    expect(html).toMatch(/Centre set in [^<\d]+/);
   });
 
   it("sending the form again with nothing different writes nothing", async () => {
@@ -898,7 +905,7 @@ describe("a bad centre number", () => {
     expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null });
     for (const [lat, lng, want] of [
       ["37.4452", "24.9423", [37.4452, 24.9423]],
-      ["+37.4", "-24.9", [37.4, -24.9]],
+      ["+37.4450", "24.9420", [37.445, 24.942]],
     ] as const) {
       const res = await post(`/api/team/colonies/${id}`, { lat, lng });
       expect(res.status, lat).toBe(303);
@@ -1082,5 +1089,121 @@ describe("test 12 (part): refusals", () => {
     }
     expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null });
     expect(await eventsOf(id)).toHaveLength(1);
+  });
+});
+
+// SYC-517 (decision 517-B), PR E task E1: the colony's centre is set by tapping
+// a map, not by typing numbers.
+describe("the colony's centre by map (517-B)", () => {
+  const tap = () => {
+    const view = viewAround({ lat: 37.4447, lng: 24.9417 }, 16);
+    const spot = tapToPosition(view, 179, 190, 190)!;
+    return { spot, body: { view: mintTileToken({ ...view, size: 179 as const }), size: "179", x: "190", y: "190" } };
+  };
+  const hidden = (html: string, name: string) =>
+    decoded(new RegExp(`name="${name}" value="([^"]*)"`).exec(html)![1]!);
+
+  it("the edit form has a link to the map and no typed latitude or longitude", async () => {
+    const id = await makeColony(unique("cm-form"));
+    const html = (await get(`/api/team/colonies/${id}`)).text;
+    expect(html).toContain(`href="/api/team/colonies/${id}/centre"`);
+    expect(html).toContain("Set the centre on a map");
+    expect(html).not.toContain('name="lat"');
+    expect(html).not.toContain('name="lng"');
+    expect(html).not.toContain("Centre, latitude");
+  });
+
+  it("the map page starts on Ermoupoli when there is no centre, and has the typed fallback folded away", async () => {
+    const id = await makeColony(unique("cm-page"));
+    const res = await get(`/api/team/colonies/${id}/centre`);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('class="mappage"');
+    expect(res.text).toContain(`action="/api/team/colonies/${id}/centre/pick"`);
+    expect(res.text).toContain(`action="/api/team/colonies/${id}/centre/map"`);
+    expect(res.text).toContain("<summary>Type a position instead</summary>");
+    expect(res.text).not.toMatch(/<script/i);
+  });
+
+  it("a tap shows 'Set the centre here, in {place}?' and saves nothing; saving sets it and the history says where", async () => {
+    const id = await makeColony(unique("cm-pick"));
+    const { body, spot } = tap();
+    const before = await eventsOf(id);
+    const res = await post(`/api/team/colonies/${id}/centre/pick`, body);
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/Set the centre here, in [^<?]+\?/);
+    expect(res.text).toContain("Open map");
+    expect(res.text).toContain(`<form method="post" action="/api/team/colonies/${id}">`);
+    expect(Number(hidden(res.text, "lat"))).toBeCloseTo(spot.lat, 9);
+    expect(await eventsOf(id)).toHaveLength(before.length);
+    expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null });
+
+    const save = await post(`/api/team/colonies/${id}`, { lat: hidden(res.text, "lat"), lng: hidden(res.text, "lng") });
+    expect(save.status).toBe(303);
+    expect(await colonyRow(id)).toMatchObject({ lat: expect.any(Number), lng: expect.any(Number) });
+    const page = (await get(`/api/team/colonies/${id}`)).text;
+    expect(page).toMatch(/Centre set in [^<\d]+/);
+  });
+
+  it("a pick off the island is refused with the plain line, on the map again", async () => {
+    const id = await makeColony(unique("cm-off"));
+    const res = await post(`/api/team/colonies/${id}/centre/pick`, { lat: "38.5", lng: "26.0" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("That&#39;s off Syros. Tap a spot on the island.");
+    expect(res.text).toContain(`action="/api/team/colonies/${id}/centre/pick"`);
+    expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null });
+  });
+
+  it("the map starts on the colony's centre when it has one", async () => {
+    const id = await makeColony(unique("cm-start"));
+    await post(`/api/team/colonies/${id}`, { lat: "37.4447", lng: "24.9417" });
+    const res = await get(`/api/team/colonies/${id}/centre`);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("The centre now");
+  });
+
+  it("a cat guardian on her own colony gets the map and no Open map; another colony is refused", async () => {
+    const mine = await newColony("cm-mine");
+    const other = await newColony("cm-other");
+    const g = await guardianOn("cm-guardian", [mine]);
+    const page = await get(`/api/team/colonies/${mine}/centre`, g.cookie);
+    expect(page.status).toBe(200);
+    expect(page.text).not.toContain("Open map");
+    const res = await post(`/api/team/colonies/${mine}/centre/pick`, tap().body, { cookie: g.cookie });
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/Set the centre here, in /);
+    expect(res.text).not.toContain("Open map");
+    expect((await get(`/api/team/colonies/${other}/centre`, g.cookie)).status).toBe(403);
+    expect((await post(`/api/team/colonies/${other}/centre/pick`, tap().body, { cookie: g.cookie })).status).toBe(403);
+  });
+
+  it("a hand-posted off-island centre is refused and the row is unchanged", async () => {
+    const id = await makeColony(unique("cm-hand"));
+    const res = await post(`/api/team/colonies/${id}`, { lat: "38.5", lng: "26" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("That&#39;s off Syros. Tap a spot on the island.");
+    expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null });
+  });
+
+  it("a set centre can be cleared from the map page, and the history says so; no button without one", async () => {
+    const id = await makeColony(unique("cm-clear"));
+    expect((await get(`/api/team/colonies/${id}/centre`)).text).not.toContain("Clear the centre");
+    await post(`/api/team/colonies/${id}`, { guardianName: "Keep", lat: "37.4447", lng: "24.9417" });
+    const map = await get(`/api/team/colonies/${id}/centre`);
+    expect(map.text).toContain("Clear the centre");
+    expect(map.text).toContain(`<form method="post" action="/api/team/colonies/${id}" class="clearcentre">`);
+    const res = await post(`/api/team/colonies/${id}`, { lat: "", lng: "" });
+    expect(res.status).toBe(303);
+    expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null, guardianName: "Keep" });
+    expect((await get(`/api/team/colonies/${id}`)).text).toMatch(/Centre cleared \(it was in [^)\d]+\)/);
+  });
+
+  it("a cat guardian gets the Clear button on her own colony", async () => {
+    const mine = await newColony("cm-clear-mine");
+    const g = await guardianOn("cm-clear-guardian", [mine]);
+    expect((await post(`/api/team/colonies/${mine}`, { lat: "37.4447", lng: "24.9417" })).status).toBe(303);
+    expect((await get(`/api/team/colonies/${mine}/centre`, g.cookie)).text).toContain("Clear the centre");
+    const res = await post(`/api/team/colonies/${mine}`, { lat: "", lng: "" }, { cookie: g.cookie });
+    expect(res.status).toBe(303);
+    expect(await colonyRow(mine)).toMatchObject({ lat: null, lng: null });
   });
 });

@@ -1,4 +1,5 @@
 import type { LikelyCat } from "../likelyReview";
+import { keptLine, type KeptFields } from "./signedOutPage";
 import { syrNumber } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
@@ -31,7 +32,8 @@ const DONE: Record<string, string> = {
 /** The text the reason box starts with. The person can change it. */
 export const NOT_A_CLIP_REASON = "Checked the photo: not a clip";
 
-function card(c: LikelyCat): string {
+function card(c: LikelyCat, kept?: { formKey: string; fields: KeptFields }): string {
+  const why = kept?.formKey === `wrong:${c.reviewObservationId}` ? kept.fields["reason"] : undefined;
   const photos = c.evidence.filter((e) => e.photoUrl);
   const gallery =
     photos.length === 0
@@ -62,7 +64,7 @@ function card(c: LikelyCat): string {
     '<input type="hidden" name="choice" value="not_clipped">' +
     '<input type="hidden" name="back" value="likely">' +
     `<label class="label" for="why-${c.catId}">Why it isn't a clip</label>` +
-    `<input class="text" id="why-${c.catId}" name="reason" value="${esc(NOT_A_CLIP_REASON)}" required maxlength="500">` +
+    `<input class="text" id="why-${c.catId}" name="reason" value="${esc(why ?? NOT_A_CLIP_REASON)}" required maxlength="500">` +
     "<button type=\"submit\">That's not a clip</button></form>" +
     "</div></article>"
   );
@@ -72,9 +74,12 @@ export function renderLikelyPage(
   cats: LikelyCat[],
   personName: string,
   done?: string,
+  /** "That's not a clip" filled in again after signing in (SYC-516 C3). */
+  kept?: { formKey: string; fields: KeptFields },
 ): string {
   const notice =
-    done && Object.hasOwn(DONE, done) ? `<p class="notice" role="status">${esc(DONE[done]!)}</p>` : "";
+    (kept ? keptLine() : "") +
+    (done && Object.hasOwn(DONE, done) ? `<p class="notice" role="status">${esc(DONE[done]!)}</p>` : "");
   const intro =
     "<p>These cats show as <strong>Probably sterilised</strong> only because a spotter said they saw a clipped ear. Look at each photo.</p>" +
     '<ul class="hintlist">' +
@@ -85,7 +90,7 @@ export function renderLikelyPage(
   const body =
     cats.length === 0
       ? '<p class="empty">Nothing to check. Every Probably sterilised cat has been looked at.</p>'
-      : `<h2>${cats.length === 1 ? "1 cat" : `${cats.length} cats`} to check</h2>` + cats.map(card).join("");
+      : `<h2>${cats.length === 1 ? "1 cat" : `${cats.length} cats`} to check</h2>` + cats.map((c) => card(c, kept)).join("");
   return renderPage({
     // SYC-365: the list is a job, so it's named for what the team does.
     title: "Ear clips to check",

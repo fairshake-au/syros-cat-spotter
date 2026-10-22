@@ -109,7 +109,11 @@ describe("the island map's cat positions", () => {
   it("is unpaged: a page number is ignored", async () => {
     const all = await positions(staff, {});
     const paged = await positions(staff, { page: "2" });
-    expect(paged.body.cats).toEqual(all.body.cats);
+    // "Last seen 3 minutes ago" can tick over between the two calls (SYC-563),
+    // so compare everything but that relative label.
+    const settled = (cats: Pos[]) => cats.map(({ seen: _seen, ...rest }) => rest);
+    expect((all.body.cats as Pos[]).length).toBeGreaterThan(0);
+    expect(settled(paged.body.cats as Pos[])).toEqual(settled(all.body.cats as Pos[]));
   });
 
   it("anything odd in the body is no filter, never an error", async () => {

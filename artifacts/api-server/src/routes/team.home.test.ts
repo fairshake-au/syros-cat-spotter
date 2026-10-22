@@ -7,7 +7,8 @@ import app from "../app";
 import { seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
 import { homeData, type HomeData, type HomeDeps } from "../lib/dashboard/home";
-import { AREAS_LINE, COMING_SOON, comingSoonLine, firstWords, NOTHING_NEEDS_YOU, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
+import { AREAS_LINE, COMING_SOON, comingSoonLine, NOTHING_NEEDS_YOU, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
+import { firstWords } from "../lib/teamPages/noteWords";
 import type { QueueReport, WelfareQueue } from "../lib/welfareQueue";
 import type { TeamCat } from "../lib/teamCatList";
 import { escapeHtml } from "../lib/teamPages/escape";
@@ -89,8 +90,6 @@ function full(over: Partial<HomeData> = {}): HomeData {
         reports: [report("r1", { severity: "urgent" }), report("r2", { note: "x".repeat(120) + "<b>" })],
         reportsTotal: 9,
         unchecked: 2,
-        drafts: [{ id: "d1", severity: "urgent", lat: 37.4447, lng: 24.9417, startedAt: "2026-10-18T12:40:00Z", suggestedCat: null }],
-        draftsTotal: 1,
         issuesOpen: 3,
         awaitingMatch: 0,
       },
@@ -153,16 +152,18 @@ describe("renderHomePage", () => {
 
   it("each report is one line linking to its row in the Queue, with the queue's photo and the first 80 characters", () => {
     const html = page(full());
-    expect(html).toContain('href="/api/team#r-r1"');
+    expect(html).toContain('href="/api/team?open=r1#r-r1"');
     expect(html).toContain('src="/api/team/report-photos/r1"');
     expect(html).toContain("Galissas");
     expect(html).toContain(`${"x".repeat(80)}…`);
     expect(html).not.toContain("x".repeat(81));
     expect(html).not.toContain("<b>");
     expect(html).toContain('<a class="hlink" href="/api/team">See all 9 in the Queue</a>');
-    expect(html).toContain('href="/api/team#unchecked">2 reports waiting for a check</a>');
-    expect(html).toContain("Started but not sent (1)");
-    expect(html).toContain('href="/api/team#d-d1"');
+    expect(html).toContain('href="/api/team#unchecked">2 reports arrived while our spam check was down</a>');
+    expect(html).not.toContain("waiting for a check");
+    expect(html).not.toContain("Started but not sent");
+    expect(html).not.toContain("#d-");
+    expect(html).not.toContain('id="d-');
     expect(html).toContain('href="/api/team#issues">Problems reported with photos or names (3)</a>');
   });
 
@@ -230,7 +231,7 @@ describe("renderHomePage", () => {
 
   it("an empty Needs section is absent, and with nothing to act on Home says so; the headline and This month still show", () => {
     const empty = full({
-      needs: { ok: true, value: { reports: [], reportsTotal: 0, unchecked: 0, drafts: [], draftsTotal: 0, issuesOpen: 0, awaitingMatch: 0 } },
+      needs: { ok: true, value: { reports: [], reportsTotal: 0, unchecked: 0, issuesOpen: 0, awaitingMatch: 0 } },
       toCheck: { ok: true, value: { earClips: { count: 0, photos: [] }, colour: { count: 0, photos: [] } } },
       notSeenLately: { ok: true, value: { cats: [], total: 0, colonyNames: {} } },
     });
@@ -266,8 +267,6 @@ describe("everything typed by someone else is escaped (review of #243)", () => {
           reports: [report("evil1", { note: EVIL, photo: { status: "attached", url: `/x"onerror="alert(1)` } })],
           reportsTotal: 1,
           unchecked: 0,
-          drafts: [],
-          draftsTotal: 0,
           issuesOpen: 0,
           awaitingMatch: 0,
         },

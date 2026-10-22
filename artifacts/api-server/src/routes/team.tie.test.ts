@@ -195,7 +195,7 @@ describe("P5-1 [SYC-42 #40]: tying and closing write the right rows and move no 
 
     const res = await tie(r.publicId, catId, null);
     expect(res.status).toBe(303);
-    expect(res.headers["location"]).toBe(`/api/team?tied=ok&r=${r.publicId}#r-${r.publicId}`);
+    expect(res.headers["location"]).toBe(`/api/team?tied=ok&r=${r.publicId}&open=${r.publicId}#r-${r.publicId}`);
 
     const added = (await rowsFor(catId)).slice(rowsBefore.length);
     expect(added).toHaveLength(1);
@@ -272,7 +272,7 @@ describe("P5-2: choosing a different cat supersedes the first welfare_report, an
     expect((await records(a)).evidenceOfLife!.source).toBe("welfare_report");
 
     const res = await tie(r.publicId, b, a);
-    expect(res.headers["location"]).toBe(`/api/team?tied=ok&r=${r.publicId}#r-${r.publicId}`);
+    expect(res.headers["location"]).toBe(`/api/team?tied=ok&r=${r.publicId}&open=${r.publicId}#r-${r.publicId}`);
     expect((await reportRow(r.publicId)).catId).toBe(b);
 
     // Nothing new on the old cat.
@@ -417,7 +417,7 @@ describe("P5-4: two people tying one report at once", () => {
     );
     expect(results.every((x) => x.status === 303)).toBe(true);
     for (const r of reports) {
-      const mine = results.filter((x) => String(x.headers["location"]).includes(`r=${r.publicId}#`));
+      const mine = results.filter((x) => String(x.headers["location"]).includes(`r=${r.publicId}&`));
       expect(mine.filter((x) => String(x.headers["location"]).includes("tied=ok"))).toHaveLength(1);
       expect(mine.filter((x) => String(x.headers["location"]).includes("tied=changed"))).toHaveLength(1);
       const rows = await welfareRowsFor(r.id);
@@ -617,11 +617,10 @@ describe("the queue row and the tie-mode search", () => {
       expect(html).toContain("Choose another cat");
     });
 
-    it("escapes a cat named <script> in the line, the thumbnail and the button, and on the draft card", async () => {
+    it("escapes a cat named <script> in the line, the thumbnail and the button", async () => {
       const evil = `${PREFIX}<script>alert(1)</script>`;
       const catId = await newCat(evil);
       const r = await newReport({ reporterCatId: catId });
-      const d = await newReport({ isDraft: true, reporterCatId: catId });
       const page = (await request(app).get("/api/team").set("Cookie", cookie)).text;
       expect(page).not.toContain("<script>alert(1)");
       const html = rowHtml(page, r.publicId);
@@ -629,24 +628,6 @@ describe("the queue row and the tie-mode search", () => {
       // The line, the thumbnail caption (or alt) and the button each carry it escaped.
       expect(html).toContain(`">${esc}</a>'s page`);
       expect(html).toContain(`Yes, it's ${esc}</button>`);
-      const draftHtml = page.slice(page.indexOf(`id="d-${d.publicId}"`));
-      expect(draftHtml.slice(0, draftHtml.indexOf("</article>"))).toContain(`">${esc}</a>'s page`);
-    });
-
-    it("a draft shows 'Sent from' with no buttons, and none when no cat", async () => {
-      const catId = await newCat(tig);
-      const withCat = await newReport({ isDraft: true, reporterCatId: catId });
-      const without = await newReport({ isDraft: true });
-      const page = (await request(app).get("/api/team").set("Cookie", cookie)).text;
-      const cut = (id: string) => {
-        const at = page.indexOf(`id="d-${id}"`);
-        expect(at).toBeGreaterThan(-1);
-        return page.slice(at, page.indexOf("</article>", at));
-      };
-      expect(cut(withCat.publicId)).toContain(`Sent from <a class="catlink" href="/api/team/cats/${catId}">${tig}</a>'s page`);
-      expect(cut(withCat.publicId)).not.toContain("<form");
-      expect(cut(withCat.publicId)).not.toContain("<button");
-      expect(cut(without.publicId)).not.toContain("Sent from");
     });
 
     it("posting the Yes form's body ties the report and writes exactly one observation, as a tie from search does", async () => {
@@ -656,7 +637,7 @@ describe("the queue row and the tie-mode search", () => {
       // Exactly the fields the form carries: catId = the suggestion, expectedCatId empty.
       const res = await form(`/api/team/reports/${r.publicId}/cat`).send({ catId: String(catId), expectedCatId: "" });
       expect(res.status).toBe(303);
-      expect(res.headers["location"]).toBe(`/api/team?tied=ok&r=${r.publicId}#r-${r.publicId}`);
+      expect(res.headers["location"]).toBe(`/api/team?tied=ok&r=${r.publicId}&open=${r.publicId}#r-${r.publicId}`);
       expect((await reportRow(r.publicId)).catId).toBe(catId);
       const added = (await rowsFor(catId)).slice(before.length);
       expect(added).toHaveLength(1);

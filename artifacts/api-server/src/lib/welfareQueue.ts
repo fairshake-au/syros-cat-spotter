@@ -10,6 +10,7 @@ import { and, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { OVERDUE_MINUTES } from "./mail/outbox";
 import { teamPhotoUrl } from "./teamCatView";
+import { reporterOnClose, type ReporterOnClose } from "./welfare/reporterEmail";
 
 /**
  * The welfare queue's data (SYC-43 part 2 plan, PR 1; spec §3.1, §4.2).
@@ -140,6 +141,12 @@ export interface QueueReport {
   contactLeft: boolean;
   /** What happened to the reporter's emails; null when they left no address. */
   emailToReporter: EmailToReporter | null;
+  /**
+   * SYC-515: what happens to the reporter if this closes. Only when asked
+   * for (`{ onClose: true }`): the JSON routes show it, the pages don't, so
+   * the Queue and Home never work it out.
+   */
+  onClose?: ReporterOnClose;
   teamNote: string | null;
   teamNoteAt: string | null;
   teamNoteBy: TeamPerson | null;
@@ -236,7 +243,25 @@ function reporterState(m: ReportMail | undefined): EmailToReporter | null {
 
 type Row = Awaited<ReturnType<typeof reportsQuery>>[number];
 
-function toReport(r: Row, mail: Map<number, ReportMail>): QueueReport {
+/**
+ * SYC-515: each report's "what happens to the reporter if this closes?",
+ * from the same function the state route uses. A report with no address on
+ * file is "none" without asking.
+ */
+async function onCloseFor(
+  ids: number[],
+  mail: Map<number, ReportMail>,
+): Promise<Map<number, ReporterOnClose>> {
+  const out = new Map<number, ReporterOnClose>();
+  await Promise.all(
+    ids.map(async (id) => {
+      out.set(id, mail.get(id)?.contact ? await reporterOnClose(db, id) : "none");
+    }),
+  );
+  return out;
+}
+
+function toReport(r: Row, mail: Map<number, ReportMail>, onClose: ReporterOnClose | undefined): QueueReport {
   const status = r.photoState as PhotoStatus;
   const hasPhoto = status === "attached" && r.photoPublicId !== null;
   return {
@@ -260,6 +285,7 @@ function toReport(r: Row, mail: Map<number, ReportMail>): QueueReport {
     suggestedCat: suggestedCatOf(r),
     contactLeft: Boolean(mail.get(r.id)?.contact),
     emailToReporter: reporterState(mail.get(r.id)),
+    ...(onClose === undefined ? {} : { onClose }),
     teamNote: r.teamNote,
     teamNoteAt: r.teamNoteAt?.toISOString() ?? null,
     teamNoteBy: person(r.notedByName, r.notedByLeftAt),
@@ -396,6 +422,7 @@ async function mailStatesFor(ids: number[]): Promise<Map<number, ReportMail>> {
  */
 export async function getQueueReport(
   publicId: string,
+  opts: { onClose?: boolean } = {},
 ): Promise<QueueReport | null> {
   const [row] = await reportsQuery(
     and(
@@ -404,7 +431,9 @@ export async function getQueueReport(
     ),
   );
   if (!row) return null;
-  return toReport(row, await mailStatesFor([row.id]));
+  const mail = await mailStatesFor([row.id]);
+  const onClose = opts.onClose === true ? (await onCloseFor([row.id], mail)).get(row.id) : undefined;
+  return toReport(row, mail, onClose);
 }
 
 /**
@@ -412,7 +441,23 @@ export async function getQueueReport(
  * first; the drafts apart (spec §3.1, §4.2). Never throws on mail trouble:
  * a failing mail system is reported in `mail`, not by hiding the queue.
  */
-export async function listWelfareQueue(): Promise<WelfareQueue> {
+export async function listWelfareQueue(
+  opts: {
+    /**
+     * Read the drafts too (the default). The Queue and Home pass false
+     * (SYC-519, decision 519-B): they no longer show unfinished reports, so
+     * the four draft queries are skipped. The JSON route keeps them.
+     */
+    drafts?: boolean;
+    /**
+     * Work out each report's `onClose` (a query per report with an address
+     * on file). Only the JSON route asks; the Queue page and Home show it
+     * nowhere, so they leave it off.
+     */
+    onClose?: boolean;
+  } = {},
+): Promise<WelfareQueue> {
+  const withDrafts = opts.drafts !== false;
   const sent = eq(welfareReportsTable.isDraft, false);
   const draft = eq(welfareReportsTable.isDraft, true);
   // null (before Turnstile) and true are both "checked" for the queue.
@@ -453,16 +498,20 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
             inArray(welfareReportsTable.state, [...CLOSED_STATES]),
           ),
         ),
-      draftsQuery(and(draft, checked))
-        .orderBy(
-          desc(welfareReportsTable.createdAt),
-          desc(welfareReportsTable.id),
-        )
-        .limit(DRAFT_LIMIT),
-      db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(welfareReportsTable)
-        .where(and(isWelfare, draft, checked)),
+      withDrafts
+        ? draftsQuery(and(draft, checked))
+            .orderBy(
+              desc(welfareReportsTable.createdAt),
+              desc(welfareReportsTable.id),
+            )
+            .limit(DRAFT_LIMIT)
+        : Promise.resolve([]),
+      withDrafts
+        ? db
+            .select({ n: sql<number>`count(*)::int` })
+            .from(welfareReportsTable)
+            .where(and(isWelfare, draft, checked))
+        : Promise.resolve([{ n: 0 }]),
       // Unchecked: newest first, urgent or not (never the urgent-first order).
       reportsQuery(and(sent, isOpen, unchecked))
         .orderBy(desc(reportTime), desc(welfareReportsTable.id))
@@ -471,22 +520,30 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
         .select({ n: sql<number>`count(*)::int` })
         .from(welfareReportsTable)
         .where(and(isWelfare, sent, isOpen, unchecked)),
-      draftsQuery(and(draft, unchecked))
-        .orderBy(
-          desc(welfareReportsTable.createdAt),
-          desc(welfareReportsTable.id),
-        )
-        .limit(DRAFT_LIMIT),
-      db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(welfareReportsTable)
-        .where(and(isWelfare, draft, unchecked)),
+      withDrafts
+        ? draftsQuery(and(draft, unchecked))
+            .orderBy(
+              desc(welfareReportsTable.createdAt),
+              desc(welfareReportsTable.id),
+            )
+            .limit(DRAFT_LIMIT)
+        : Promise.resolve([]),
+      withDrafts
+        ? db
+            .select({ n: sql<number>`count(*)::int` })
+            .from(welfareReportsTable)
+            .where(and(isWelfare, draft, unchecked))
+        : Promise.resolve([{ n: 0 }]),
       mailHealth(),
     ]);
 
   const mailByReport = await mailStatesFor(
     [...openRows, ...closedRows, ...uncheckedRows].map((r) => r.id),
   );
+  const onClose =
+    opts.onClose === true
+      ? await onCloseFor([...openRows, ...closedRows, ...uncheckedRows].map((r) => r.id), mailByReport)
+      : new Map<number, ReporterOnClose>();
   const toDraft = (d: (typeof draftRows)[number]): QueueDraft => ({
     id: d.publicId,
     severity: d.severity as QueueDraft["severity"],
@@ -497,13 +554,13 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
   });
 
   return {
-    open: openRows.map((r) => toReport(r, mailByReport)),
-    closed: closedRows.map((r) => toReport(r, mailByReport)),
+    open: openRows.map((r) => toReport(r, mailByReport, onClose.get(r.id))),
+    closed: closedRows.map((r) => toReport(r, mailByReport, onClose.get(r.id))),
     closedTotal: Number(closedCount[0]?.n ?? 0),
     drafts: draftRows.map(toDraft),
     draftsTotal: Number(draftCount[0]?.n ?? 0),
     unchecked: {
-      reports: uncheckedRows.map((r) => toReport(r, mailByReport)),
+      reports: uncheckedRows.map((r) => toReport(r, mailByReport, onClose.get(r.id))),
       reportsTotal: Number(uncheckedCount[0]?.n ?? 0),
       drafts: uncheckedDraftRows.map(toDraft),
       draftsTotal: Number(uncheckedDraftCount[0]?.n ?? 0),

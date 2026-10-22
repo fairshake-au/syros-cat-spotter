@@ -159,7 +159,7 @@ describe("the team note route", () => {
       .send({ note: "Line one\nLine two" });
     expect(res.status).toBe(303);
     // ?noted= makes the queue say "Saved" and keep this report open.
-    expect(res.headers["location"]).toBe(`/api/team?noted=${publicId}#r-${publicId}`);
+    expect(res.headers["location"]).toBe(`/api/team?noted=${publicId}&open=${publicId}#r-${publicId}`);
     const page = await request(app).get(`/api/team?noted=${publicId}`).set("Cookie", mariaCookie);
     expect(page.text).toContain("Saved. The team note is updated.");
     const r = await row(id);
@@ -210,7 +210,7 @@ describe("the team note route", () => {
     expect(res.status).toBe(400);
     expect(res.headers["content-type"]).toMatch(/text\/html/);
     expect(res.text).toContain("A team note can be at most 2,000 characters.");
-    expect(res.text).toContain(`href="/api/team#r-${publicId}"`);
+    expect(res.text).toContain(`href="/api/team?open=${publicId}#r-${publicId}"`);
     expect(res.text).not.toContain(marker);
     expect(res.headers["content-security-policy"]).toContain(
       "default-src 'none'",
@@ -281,9 +281,7 @@ describe("the forms on the queue page", () => {
       expect(c).toContain('maxlength="2000"');
     }
     expect(card(html, "open-1")).toContain(">Looking at it (current)");
-    const from = html.indexOf('id="d-draft-1"');
-    const draft = html.slice(from, html.indexOf("</article>", from));
-    expect(draft).not.toContain("<form");
+    expect(html).not.toContain('id="d-');
     expect(html).not.toContain("<script");
   });
 

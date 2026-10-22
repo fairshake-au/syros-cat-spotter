@@ -1,6 +1,6 @@
 import { renderPage, MY_COLONIES_PATH } from "./layout";
 import { escapeHtml as esc } from "./escape";
-import { position } from "./position";
+import { placeLabel } from "../areas/placeLabel";
 import { markShownWord } from "./appearancePage";
 import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
 import {
@@ -22,18 +22,9 @@ import { GUARDIAN_LIFE_STATUSES, GUARDIAN_UNDO_DAYS } from "../guardianStatement
 // .md §2.2). Server-drawn, no scripts, in her language once it is live.
 // Built ONLY from guardianCatView's shape (or, for a cat outside her
 // colonies, the public view), so nothing the team's cat page carries can
-// reach here. Positions print as plain text and never as a map link
-// (SYC-245, SYC-362: map links are for island-wide viewers only). Every name
+// reach here. Where a cat was first seen is words (the area), never numbers or a
+// map link (SYC-517; SYC-245, SYC-362: map links are for island-wide viewers only). Every name
 // that came from a record goes through esc() where it is drawn.
-
-/**
- * A position as text, to 5 decimal places (about 1 m), printed by position.ts
- * like every team page (SYC-395). Always link: false: these pages are a cat
- * guardian's, and D9's Open map is for island-wide viewers only
- * (positions.source.test.ts pins the literal). The result is digits, a comma
- * and a space, so the esc() at each call site leaves it as it is.
- */
-const exact = (lat: number, lng: number): string => position(lat, lng, { link: false });
 
 export const MY_CAT_PATH = "/api/team/my/cats";
 export const myColonyPath = (id: number) => `${MY_COLONIES_PATH}/${id}`;
@@ -157,7 +148,7 @@ export interface GuardianColonyPageInput {
 
 /**
  * The colony's feeding sites (spec §2.2: "colony and feeding sites"; SYC-416):
- * name, exact position as text, and the "how to find it" line. Always from
+ * name and the "how to find it" line (no position; SYC-517). Always from
  * sitesForPerson, which filters to her colonies in SQL. Nothing when none.
  */
 function sitesBlock(sites: readonly PersonSite[], t: Say): string {
@@ -168,7 +159,6 @@ function sitesBlock(sites: readonly PersonSite[], t: Say): string {
       .map(
         (s) =>
           `<li class="gcat"><div><strong>${esc(s.name)}</strong>` +
-          `<p class="muted">${esc(exact(s.lat, s.lng))}</p>` +
           (s.directions ? `<p>${esc(s.directions)}</p>` : "") +
           "</div></li>",
       )
@@ -177,7 +167,7 @@ function sitesBlock(sites: readonly PersonSite[], t: Say): string {
   );
 }
 
-/** Her colony: every cat in it, with where each was first recorded. */
+/** Her colony: every cat in it. */
 export function renderGuardianColonyPage(
   input: GuardianColonyPageInput,
   live: readonly Language[] = LIVE_LANGUAGES,
@@ -199,7 +189,6 @@ export function renderGuardianColonyPage(
               `<p>${esc(sterilisedWords(c.sterilised, t))}</p>` +
               (c.lifeStatus ? `<p>${esc(t(`gcat.life.${c.lifeStatus}` as StringKey))}</p>` : "") +
               `<p class="muted">${esc(lastSeenWords(c.lastSeen, lang, t, live))}</p>` +
-              `<p class="muted">${esc(t("gcat.position", { position: exact(c.lat, c.lng) }))}</p>` +
               "</div></li>"
             );
           })
@@ -320,7 +309,7 @@ export function renderGuardianCatPage(
     (cat.lifeStatus ? `<p>${esc(t(`gcat.life.${cat.lifeStatus}` as StringKey))}</p>` : "") +
     `<p>${esc(lastSeenWords(cat.lastSeen, lang, t, live))}</p>` +
     vetVisitLines(cat, lang, t, live) +
-    `<p>${esc(t("gcat.position", { position: exact(cat.lat, cat.lng) }))}</p>` +
+    `<p>${esc(t("gcat.firstSeenIn", { place: placeLabel({ lat: cat.lat, lng: cat.lng }) }))}</p>` +
     appearanceLine(lang, cat, live) +
     (cat.description ? `<p class="muted">${esc(cat.description)}</p>` : "") +
     "</div>" +

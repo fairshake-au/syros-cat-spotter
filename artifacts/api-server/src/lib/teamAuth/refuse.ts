@@ -3,6 +3,10 @@ import { SIGN_IN_PAGE } from "./config";
 import { renderPage } from "../teamPages/layout";
 import { escapeHtml } from "../teamPages/escape";
 import { LIVE_LANGUAGES, pageLanguage, tr, type Language } from "../teamPages/strings";
+import { renderSignedOutPage } from "../teamPages/signedOutPage";
+import { preferredLanguage } from "../teamPages/errorPage";
+import { readExpiredSession } from "./session";
+import { keepableFor, keepTyping, typedFields } from "./heldTyping";
 
 // The refusals for the dashboard. **Not signed in** (team-access spec §2.4):
 // 401, a fixed body, nothing about which check failed. A browser page load gets the
@@ -80,6 +84,60 @@ export function refuseNotSignedIn(req: Request, res: Response): void {
     return;
   }
   res.json(NOT_SIGNED_IN_JSON);
+}
+
+/** A browser's ordinary form post (not JSON, not a file upload). */
+export function isFormPost(req: Request): boolean {
+  return Boolean(req.is("application/x-www-form-urlencoded"));
+}
+
+/**
+ * SYC-516 C2 (spec 3.2): the one refusal that isn't refuseNotSignedIn. Only
+ * for a browser form post that already passed the dashboard's own-Origin
+ * check and failed only because there is no live session (requireTeam's
+ * `!session` branch decides that). A 401 page in the dashboard's look, with
+ * no instant jump. The outside still learns nothing: only a browser that has
+ * proved it is on the dashboard ever sees it.
+ */
+export async function refuseSignedOutSave(req: Request, res: Response): Promise<void> {
+  setTeamHeaders(res);
+  const lang = preferredLanguage(req);
+  // C3: kept on the server only when a genuine expired sign-in says whose it
+  // was, and that person is still on the list at that version (keepTyping).
+  const who = readExpiredSession(req, Math.floor(Date.now() / 1000));
+  let kept: "typed" | "landing" | null = null;
+  try {
+    kept = who === null ? null : await keepTyping(req, res, who);
+  } catch (err) {
+    // Keeping is a kindness, never a reason to fail: the copy-back page instead.
+    req.log.warn({ err }, "keeping typed text failed");
+    kept = null;
+  }
+  if (kept === "typed") {
+    req.log.info({ reason: "signed_out_save_kept" }, "team save refused, typing kept");
+    res.status(401).type("html").send(renderSignedOutPage({ kept: true, lang }));
+    return;
+  }
+  if (kept === "landing") {
+    // Nothing typed to keep, but they come back to this page (final review, fix 2).
+    req.log.info({ reason: "signed_out_save_landing" }, "team save refused, landing kept");
+    res.status(401).type("html").send(renderSignedOutPage({ kept: false, comeBack: true, lang }));
+    return;
+  }
+  // Otherwise the named boxes are shown back, read-only, to copy. Never any
+  // other field (a position, which button was pressed).
+  const found = keepableFor(req);
+  const typed = found ? typedFields(req, found.entry) : {};
+  res
+    .status(401)
+    .type("html")
+    .send(
+      renderSignedOutPage({
+        kept: false,
+        copyBack: Object.entries(typed).map(([field, value]) => ({ field, value })),
+        lang,
+      }),
+    );
 }
 
 /**

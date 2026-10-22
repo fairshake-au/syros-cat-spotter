@@ -1,7 +1,7 @@
 import { escapeHtml as esc } from "./escape";
-import { renderPage } from "./layout";
+import { renderPage, type NavKey } from "./layout";
 import { renderMap, type MapMarker } from "./map";
-import { position } from "./position";
+import { place, position } from "./position";
 import { SITES_PATH, stampField } from "./sitePages";
 import { t, wordsIn, type WordKey } from "./words";
 import { viewAround, type Position, type View } from "../mapTiles/geometry";
@@ -25,6 +25,14 @@ import {
 // take her language and menu.
 
 const w = (key: WordKey) => esc(t(key));
+
+/** Team view: "You tapped a spot in {area}" and the Open map link. Trusted HTML. */
+const tappedIn = (p: { lat: number; lng: number }): string =>
+  `${w("confirm.tappedIn")} <strong>${place(p.lat, p.lng, { link: true })}</strong>`;
+
+/** A spot in words and Open map for an island-wide viewer; a cat guardian's own site keeps the exact position. */
+const spotText = (p: { lat: number; lng: number }, island: boolean): string =>
+  island ? place(p.lat, p.lng, { link: true }) : position(p.lat, p.lng, { link: false });
 
 /** A cat guardian's language and menu; omitted for the team. */
 export interface FormViewer {
@@ -67,12 +75,16 @@ export function renderPicker(o: {
   note?: string;
   legend?: string;
   below?: string;
+  /** Which menu item is lit; the sites by default (the colony and area pickers say their own). */
+  active?: NavKey | null;
 } & FormViewer): string {
   // A cat guardian reaches the add and move pages for her own sites (SYC-209
   // PR 4.2), so they are drawn in her language with her menu.
   const { w } = wordsIn(o.lang);
+  // The typed fallback is folded away (SYC-517, 517-B): for the rare case
+  // someone has numbers from a vet or a GPS.
   const typed =
-    `<h2>${w("new.typedTitle")}</h2>` +
+    `<details class="typedfold"><summary>${w("new.typedTitle")}</summary>` +
     `<form method="post" action="${esc(o.tapAction)}" class="typedpos">` +
     Object.entries(o.carry ?? {})
       .map(([k, v]) => hidden(k, v))
@@ -82,10 +94,10 @@ export function renderPicker(o: {
     `<input class="text" id="typed-lat" name="lat" type="text" inputmode="decimal" required autocomplete="off">` +
     `<label class="label" for="typed-lng">${w("new.lng")}</label>` +
     `<input class="text" id="typed-lng" name="lng" type="text" inputmode="decimal" required autocomplete="off">` +
-    `<button type="submit">${w("new.typedButton")}</button></form>`;
+    `<button type="submit">${w("new.typedButton")}</button></form></details>`;
   return renderPage({
     title: o.title,
-    active: "sites",
+    active: o.active === undefined ? "sites" : o.active,
     nav: o.island === false ? "guardian" : undefined,
     lang: o.lang,
     personName: o.personName,
@@ -120,7 +132,7 @@ export function renderPicker(o: {
  * `nudge` (a re-tap keeps the zoom instead of zooming in again). Nothing in
  * any address.
  */
-const smallMap = (
+export const smallMap = (
   spot: Position,
   zoom: number,
   markers: MapMarker[],
@@ -175,7 +187,7 @@ export function renderAddConfirm(o: {
     body:
       smallMap(o.spot, o.zoom, [{ ...o.spot, label: t("confirm.spot"), look: "private" }], PICK_PATH, { ...c0 }, o.lang) +
       `<p class="hint">${w("confirm.nudge")}</p>` +
-      `<p class="tapped">${w("confirm.spot")}: <strong>${position(o.spot.lat, o.spot.lng, { link: o.island === true })}</strong>. ${w("confirm.legend")}</p>` +
+      `<p class="tapped">${o.island === true ? tappedIn(o.spot) : `${w("confirm.spot")}: <strong>${spotText(o.spot, false)}</strong>`}. ${w("confirm.legend")}</p>` +
       checkTapBlock(o.checkNote) +
       `<p class="hint">${w("new.private")}</p>` +
       `<form method="post" action="${esc(SITES_PATH)}">` +
@@ -227,8 +239,8 @@ export function renderMoveConfirm(o: {
       ], `${base}/move/pick`, { updatedAt: o.site.stamp, reason: o.reason ?? "" }, o.lang) +
       `<p class="hint">${w("confirm.nudge")}</p>` +
       `<p class="hint">${w("move.legend")}</p>` +
-      `<p class="tapped">${w("move.now")}: ${position(o.site.lat, o.site.lng, { link: o.island === true })}<br>` +
-      `${w("move.new")}: <strong>${position(o.spot.lat, o.spot.lng, { link: o.island === true })}</strong></p>` +
+      `<p class="tapped">${w("move.now")}: ${spotText(o.site, o.island === true)}<br>` +
+      `${o.island === true ? tappedIn(o.spot) : `${w("move.new")}: <strong>${spotText(o.spot, false)}</strong>`}</p>` +
       checkTapBlock(o.checkNote) +
       (o.site.isPublic ? `<p class="notice">${w("move.publicWarning")}</p>` : "") +
       `<form method="post" action="${esc(base)}/move">` +

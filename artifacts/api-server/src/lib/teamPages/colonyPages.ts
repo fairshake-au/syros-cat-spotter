@@ -1,4 +1,5 @@
 import type { Capability } from "../capabilities";
+import { keptLine, type KeptFields } from "./signedOutPage";
 import { myCatPath } from "./guardianPages";
 import type { ColonyHistoryEntry, ColonyRow, ColonyView } from "../teamColonies";
 import { COLONY_NAME_MAX, COLONY_NOTES_MAX, GUARDIAN_NAME_MAX } from "../teamColonies";
@@ -8,7 +9,8 @@ import { ADD_SEARCH_LIMIT } from "../colonyCats";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { rowMenu } from "./rowMenu";
-import { position } from "./position";
+import { place } from "./position";
+import { placeLabel } from "../areas/placeLabel";
 import { formatDate, formatDateTime, pageLanguage } from "./strings";
 import { markBar } from "./marks";
 import type { ColonyFigures, ColonyFlag } from "../dashboard/colonyFigures";
@@ -230,22 +232,24 @@ function sortBar(W: Words, sort: ColonySort): string {
  * "Create a colony". A cat guardian's form has a name and notes only: she
  * becomes its guardian, under her own name (spec §2.7; SYC-209 PR 4.2).
  */
-function createForm(W: Words, island: boolean, open = false): string {
+function createForm(W: Words, island: boolean, open = false, kept?: KeptFields): string {
   const { w } = W;
+  const k = kept ?? {};
+  const value = (f: string) => (k[f] !== undefined ? ` value="${esc(k[f]!)}"` : "");
   // `#create` is where "Create a colony" on My colonies lands (SYC-439); it
   // starts open for a cat guardian who has no colony to see yet.
   return (
-    `<div class="fixes"><details id="create"${open ? " open" : ""}><summary>${w("create.open")}</summary>` +
+    `<div class="fixes"><details id="create"${open || kept ? " open" : ""}><summary>${w("create.open")}</summary>` +
     `<form method="post" action="/api/team/colonies">` +
     `<label class="label" for="new-name">${w("create.name")}</label>` +
     `<p class="hint">${w("create.nameHint")}</p>` +
-    `<input class="text" id="new-name" name="name" type="text" required maxlength="${COLONY_NAME_MAX}" autocomplete="off">` +
+    `<input class="text" id="new-name" name="name" type="text" required maxlength="${COLONY_NAME_MAX}" autocomplete="off"${value("name")}>` +
     (island
       ? `<label class="label" for="new-guardian">${w("create.guardian")}</label>` +
-        `<input class="text" id="new-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" autocomplete="off">`
+        `<input class="text" id="new-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" autocomplete="off"${value("guardianName")}>`
       : "") +
     `<label class="label" for="new-notes">${w(island ? "create.notes" : "colony.notesOwn")}</label>` +
-    `<textarea id="new-notes" name="notes" maxlength="${COLONY_NOTES_MAX}"></textarea>` +
+    `<textarea id="new-notes" name="notes" maxlength="${COLONY_NOTES_MAX}">${esc(k["notes"] ?? "")}</textarea>` +
     notesHint(W) +
     `<button type="submit">${w("create.button")}</button>` +
     `</form></details></div>`
@@ -260,6 +264,8 @@ export function renderColoniesPage(opts: ColonyViewer & {
   personName: string;
   done?: string;
   canCreate: boolean;
+  /** What was typed into "Create a colony" before the sign-in lapsed (SYC-516 C3). */
+  kept?: KeptFields;
   /**
    * "Recent changes by cat guardians" (SYC-209 PR 4.3): passed only when the
    * viewer holds `view_guardian_changes` (island-only, team-only). Left out,
@@ -310,6 +316,7 @@ export function renderColoniesPage(opts: ColonyViewer & {
     afterTitle:
       opts.island === false ? undefined : `<p><a class="tap" href="/api/team/sites">${w("colonies.sites")}</a></p>`,
     body:
+      (opts.kept && opts.canCreate ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
       (opts.recentChanges ? recentChangesSection(W, opts.recentChanges) : "") +
       `<form class="search" method="get" action="/api/team/colonies" role="search">` +
@@ -323,7 +330,7 @@ export function renderColoniesPage(opts: ColonyViewer & {
       figuresLine +
       list +
       (opts.canCreate
-        ? createForm(W, opts.island !== false, opts.island === false && opts.colonies.length === 0 && !searching)
+        ? createForm(W, opts.island !== false, opts.island === false && opts.colonies.length === 0 && !searching, opts.kept)
         : ""),
   });
 }
@@ -390,12 +397,22 @@ const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
 const quoted = ({ t }: Words, v: string | null) =>
   v === null || v === "" ? esc(t("history.nobody")) : `“${esc(v)}”`;
 
-/** A centre from a history row, through position.ts (D9). Trusted HTML. */
-function centreText({ t }: Words, v: unknown, link: boolean): string {
+/** A centre from a history row, as the area it is in (no numbers). */
+const centreArea = (v: unknown): string | null => {
   const c = v as { lat?: unknown; lng?: unknown } | null | undefined;
   return c && typeof c.lat === "number" && typeof c.lng === "number"
-    ? position(c.lat, c.lng, { link })
-    : esc(t("colony.noCentre"));
+    ? placeLabel({ lat: c.lat, lng: c.lng })
+    : null;
+};
+
+/** The "centre moved" line: words only, escaped by w(). Trusted HTML. */
+function centreChange({ w }: Words, before: unknown, after: unknown): string {
+  const a = centreArea(before);
+  const b = centreArea(after);
+  if (a === null && b === null) return w("colony.noCentre");
+  if (a === null) return w("colony.centreSet", { area: b! });
+  if (b === null) return w("colony.centreCleared", { area: a });
+  return a === b ? w("colony.centreWithin", { area: b }) : w("colony.centreFromTo", { a, b });
 }
 
 /**
@@ -406,10 +423,9 @@ function centreText({ t }: Words, v: unknown, link: boolean): string {
 const mapLinks = (v: ColonyViewer) => v.island === true;
 
 /** What a history row says, as trusted HTML built from fixed words and esc. */
-function describe(W: Words, e: ColonyHistoryEntry, island: boolean, link: boolean): string {
+function describe(W: Words, e: ColonyHistoryEntry, island: boolean): string {
   const { w } = W;
   const quoted_ = (v: string | null) => quoted(W, v);
-  const centre = (v: unknown) => centreText(W, v, link);
   if (e.redacted) return w("history.removed");
   const b = e.before ?? {};
   const a = e.after ?? {};
@@ -423,7 +439,7 @@ function describe(W: Words, e: ColonyHistoryEntry, island: boolean, link: boolea
     case "colony_notes_changed":
       return w("history.notes");
     case "colony_centre_changed":
-      return `${w("history.centre")}: ${centre(b["centre"])} → ${centre(a["centre"])}`;
+      return centreChange(W, b["centre"], a["centre"]);
     case "cat_added":
     case "cat_taken_out":
     case "cat_moved_out": {
@@ -453,7 +469,7 @@ function describe(W: Words, e: ColonyHistoryEntry, island: boolean, link: boolea
   }
 }
 
-function historyList(W: Words, history: ColonyHistoryEntry[], island: boolean, link: boolean): string {
+function historyList(W: Words, history: ColonyHistoryEntry[], island: boolean): string {
   const { w } = W;
   if (history.length === 0) return `<p class="empty">${w("colony.noHistory")}</p>`;
   return (
@@ -461,7 +477,7 @@ function historyList(W: Words, history: ColonyHistoryEntry[], island: boolean, l
     history
       .map(
         (e) =>
-          `<li class="statement"><p>${describe(W, e, island, link)}</p>` +
+          `<li class="statement"><p>${describe(W, e, island)}</p>` +
           `<p class="meta">${w("history.by")} ${esc(e.by)} · <time datetime="${esc(e.at)}">${esc(dayIn(W.lang, e.at))}</time></p></li>`,
       )
       .join("") +
@@ -509,29 +525,28 @@ function catList(
   );
 }
 
-function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean, island: boolean): string {
+function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean, island: boolean, kept?: KeptFields): string {
   const { w } = W;
+  const k = kept ?? {};
   const rename = may("rename_colony")
     ? `<label class="label" for="edit-name">${w("colony.rename")}</label>` +
-      `<input class="text" id="edit-name" name="name" type="text" required maxlength="${COLONY_NAME_MAX}" value="${esc(v.name)}" autocomplete="off">`
+      `<input class="text" id="edit-name" name="name" type="text" required maxlength="${COLONY_NAME_MAX}" value="${esc(k["name"] ?? v.name)}" autocomplete="off">`
     : "";
   return (
-    `<div class="fixes"><details><summary>${w("colony.editTitle")}</summary>` +
+    `<div class="fixes"><details${kept ? " open" : ""}><summary>${w("colony.editTitle")}</summary>` +
     `<form method="post" action="${esc(colonyHref(v.id))}">` +
     rename +
     `<label class="label" for="edit-guardian">${w("create.guardian")}</label>` +
-    `<input class="text" id="edit-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" value="${esc(v.guardianName ?? "")}" autocomplete="off">` +
+    `<input class="text" id="edit-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" value="${esc(k["guardianName"] ?? v.guardianName ?? "")}" autocomplete="off">` +
     // Her own colony's notes are just "Notes" to a cat guardian (PR 4.1).
     `<label class="label" for="edit-notes">${w(island ? "create.notes" : "colony.notesOwn")}</label>` +
-    `<textarea id="edit-notes" name="notes" maxlength="${COLONY_NOTES_MAX}">${esc(v.notes ?? "")}</textarea>` +
+    `<textarea id="edit-notes" name="notes" maxlength="${COLONY_NOTES_MAX}">${esc(k["notes"] ?? v.notes ?? "")}</textarea>` +
     notesHint(W) +
-    `<label class="label" for="edit-lat">${w("colony.centreLat")}</label>` +
-    `<input class="text" id="edit-lat" name="lat" type="text" inputmode="decimal" value="${v.lat !== null ? esc(String(v.lat)) : ""}" autocomplete="off">` +
-    `<label class="label" for="edit-lng">${w("colony.centreLng")}</label>` +
-    `<input class="text" id="edit-lng" name="lng" type="text" inputmode="decimal" value="${v.lng !== null ? esc(String(v.lng)) : ""}" autocomplete="off">` +
-    `<p class="hint">${w("colony.centreHint")}</p>` +
     `<button type="submit">${w("colony.save")}</button>` +
-    `</form></details></div>`
+    `</form>` +
+    // The centre is set by tapping a map (SYC-517, 517-B), not by typing numbers.
+    `<p><a class="tap" href="${esc(colonyHref(v.id))}/centre">${w("centre.link")}</a></p>` +
+    `</details></div>`
   );
 }
 
@@ -562,6 +577,8 @@ export function renderColonyPage(
     done?: string;
     /** Her cats that someone else moved to a colony that isn't hers (movedAwayNotices). */
     movedAway?: ReadonlyArray<{ catName: string; movedAt: Date }>;
+    /** What was typed into the edit form before the sign-in lapsed (SYC-516 C3). */
+    kept?: KeptFields;
   },
 ): string {
   const W = wordsIn(opts.lang);
@@ -579,7 +596,7 @@ export function renderColonyPage(
     `<dt>${w("colonies.guardian")}</dt><dd>${v.guardianName ? esc(v.guardianName) : w("colonies.noGuardian")}</dd>` +
     `<dt>${w("colonies.sites")}</dt><dd>${esc(String(v.siteCount))}</dd>` +
     `<dt>${w("colonies.cats")}</dt><dd>${esc(String(v.catCount))}</dd>` +
-    `<dt>${w("colony.centre")}</dt><dd>${v.lat !== null && v.lng !== null ? position(v.lat, v.lng, { link }) : w("colony.noCentre")}</dd>` +
+    `<dt>${w("colony.centre")}</dt><dd>${v.lat !== null && v.lng !== null ? place(v.lat, v.lng, { link }) : w("colony.noCentre")}</dd>` +
     `</dl>`;
   // A cat guardian may read (and from PR 4.2 edit) her own colony's notes, so
   // to her they are just "Notes"; the team keeps "Team-only notes".
@@ -594,9 +611,10 @@ export function renderColonyPage(
     personName,
     beforeTitle: `<p class="back"><a href="/api/team/colonies">${w("colony.back")}</a></p>`,
     body:
+      (opts.kept && opts.may("edit_colony") ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
       summary +
-      (opts.may("edit_colony") ? editForm(W, v, opts.may, island) : "") +
+      (opts.may("edit_colony") ? editForm(W, v, opts.may, island, opts.kept) : "") +
       `<h2>${w("colony.sitesTitle")}</h2>` +
       sites +
       // Opens the add page with this colony chosen. Only the colony's number
@@ -615,7 +633,7 @@ export function renderColonyPage(
       movedAwayList(W, opts.movedAway ?? []) +
       notes +
       `<h2>${w("colony.historyTitle")}</h2>` +
-      historyList(W, v.history, island, link),
+      historyList(W, v.history, island),
   });
 }
 

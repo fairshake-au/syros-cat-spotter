@@ -31,6 +31,7 @@ const PHOTO_LINKS = [
  */
 const BYTES_AND_JSON = [
   "app_settings.value", // switches
+  "held_typing.fields", // SYC-516: a signed-out save's named text boxes; never bytes, a photo id or an address
   "mail_outbox.payload", // kind + digest counts; never bytes or an id
   "map_tile_cache.bytes", // OSM map tiles
   "mapping_events.after",

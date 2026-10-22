@@ -1,6 +1,6 @@
 import { db, observationsTable, sightingsTable, welfareReportsTable } from "@workspace/db";
 import { and, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
-import { listWelfareQueue, type QueueDraft, type QueueReport } from "../welfareQueue";
+import { listWelfareQueue, type QueueReport } from "../welfareQueue";
 import { listLikelyForReview } from "../likelyReview";
 import { listColourCheck } from "../colourCheck";
 import { loadTeamCats, type TeamCat } from "../teamCatList";
@@ -21,7 +21,6 @@ import type { VetVisitValue } from "../observations";
 
 export const HOME_NEEDS_LIMIT = 5; // rows shown per Needs-us section
 export const HOME_PHOTOS = 4; // first photos per Cats-to-check list
-export const DRAFT_WINDOW_HOURS = 24;
 export const HOME_NOT_SEEN = 6; // Not-seen-lately cards shown
 
 export interface MonthFigures {
@@ -43,9 +42,6 @@ export interface HomeNeeds {
   reportsTotal: number;
   /** Reports accepted while the bot check was down: never missed (§4, plan review finding 1). */
   unchecked: number;
-  /** "Started but not sent" in the last DRAFT_WINDOW_HOURS, newest first, at most HOME_NEEDS_LIMIT. */
-  drafts: QueueDraft[];
-  draftsTotal: number;
   /** "Report an issue" reports still open. */
   issuesOpen: number;
   /** Sightings held for the team to match ("Ask Syros Cats to match it"). 0 until something writes it. */
@@ -207,7 +203,6 @@ export async function homeData(
   visible?: Visible,
 ): Promise<HomeData> {
   const d: HomeDeps = { ...DEFAULT_DEPS, ...deps };
-  const since = now.getTime() - DRAFT_WINDOW_HOURS * 3_600_000;
   const months = athensMonths(now);
   // Every cat once, shared by the sections that need it. A failure here
   // fails those sections, not the page.
@@ -217,17 +212,15 @@ export async function homeData(
   const [needs, toCheck, quiet, head, month] = await Promise.all([
     section(async (): Promise<HomeNeeds> => {
       const [queue, issuesOpen, awaitingMatch] = await Promise.all([
-        d.listWelfareQueue(),
+        // Home no longer shows unfinished reports (SYC-519): skip reading them.
+        d.listWelfareQueue({ drafts: false }),
         d.countOpenIssues(),
         d.countAwaitingMatch(),
       ]);
-      const recentDrafts = queue.drafts.filter((x) => new Date(x.startedAt).getTime() >= since);
       return {
         reports: queue.open.slice(0, HOME_NEEDS_LIMIT),
         reportsTotal: queue.open.length,
         unchecked: queue.unchecked.reportsTotal,
-        drafts: recentDrafts.slice(0, HOME_NEEDS_LIMIT),
-        draftsTotal: recentDrafts.length,
         issuesOpen,
         awaitingMatch,
       };

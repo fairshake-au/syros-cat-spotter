@@ -241,6 +241,16 @@ const RESPONSES: [string, () => request.Test, string?][] = [
     "POST /api/team/cats/positions",
   ],
   [
+    "an unmatched dashboard path (SYC-516 C1)",
+    () => request(app).get("/api/team/nope").set("Sec-Fetch-Mode", "navigate"),
+    "GET /api/team/nope",
+  ],
+  [
+    "an unmatched dashboard path, as data (SYC-516 C1)",
+    () => request(app).get("/api/team/nope"),
+    "GET /api/team/nope",
+  ],
+  [
     "an island map square with a bad token",
     () => request(app).get("/api/team/map-square/nope").set("Cookie", cookie),
     "GET /api/team/map-square/:token",

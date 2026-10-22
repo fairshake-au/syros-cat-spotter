@@ -13,6 +13,7 @@ import { ASSET_CACHE } from "./teamAssets";
 import { COMING_SOON } from "../lib/teamPages/homePage";
 import { invitePerson } from "@workspace/db";
 import { inviteCookieFor } from "../test/inviteKit";
+import { STRICT_CSP } from "../test/wideCsp";
 import {
   endPlacements,
   guardianOn,
@@ -250,6 +251,9 @@ const TABLE: Record<string, Row> = {
     fresh: true,
   },
   "POST /api/team/colonies/:id": { why: "edit_colony on that colony (PR 4.2), rename_colony island-only; a colony that isn't hers, or isn't one, is the same 403" },
+  "GET /api/team/colonies/:id/centre": { why: "the centre map: edit_colony on that colony (SYC-517, 517-B); a colony that isn't hers, or isn't one, is the same 403" },
+  "POST /api/team/colonies/:id/centre/map": { why: "zoom, pan, areas on the centre map: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
+  "POST /api/team/colonies/:id/centre/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
   "GET /api/team/colonies/:id/cats": { why: "the Add cats search: sees some colony, then assign_cat_to_colony on the colony read from the record", except: SEEING },
   "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony on the colony the cats go into (PR 4.2); a colony that isn't hers, or isn't one, is the same 403" },
   // SYC-209 PR 4.3: "Recent changes by cat guardians" on its own. Team-only.
@@ -259,6 +263,9 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/insights/:report": { why: "one report: view_reports with no target, island rows only; the walk's :report is no report, so the team gets a 404" },
   "GET /api/team/insights/:report.csv": { why: "a report's spreadsheet: export_report, island-only; the walk's :report is no report, so the team gets a 404 and nothing is recorded" },
   "GET /api/team/areas": { why: "edit_named_areas: island-only, so every cat guardian gets the 403" },
+  "GET /api/team/areas/:key/centre": { why: "the area centre map: edit_named_areas: island-only, so every cat guardian gets the 403 (SYC-517, 517-B)" },
+  "POST /api/team/areas/:key/centre/map": { why: "zoom, pan on the area centre map: edit_named_areas: island-only" },
+  "POST /api/team/areas/:key/centre/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_named_areas: island-only" },
   "POST /api/team/areas": { why: "edit_named_areas: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   // SYC-396 PR 3.1b: the Vet settings page and its one form route. Team-only.
   "GET /api/team/vet-settings": { why: "edit_vet_settings: island-only, so every cat guardian gets the 403" },
@@ -585,6 +592,19 @@ describe("T1: the route walk", () => {
       for (const cookie of route.startsWith("GET ") ? [undefined, people.team.cookie] : [undefined]) {
         const res = await send(route, cookie);
         expect(res.headers["x-content-type-options"], `${route} (${cookie ? "team" : "no session"})`).toBe("nosniff");
+      }
+    }
+  });
+
+  it("SYC-516 C1 (SYC-339): an unmatched /api/team path carries the full team headers, JSON and page", async () => {
+    for (const route of ["GET /api/team/no-such-page", "POST /api/team/no/such/thing"]) {
+      for (const browser of [false, true]) {
+        const res = await send(route, undefined, browser);
+        const where = `${route} (${browser ? "browser" : "data"})`;
+        expect(res.status, where).toBe(404);
+        expect(res.headers["content-security-policy"], where).toBe(STRICT_CSP);
+        expect(res.headers["cache-control"], where).toBe("no-store");
+        expect(res.headers["referrer-policy"], where).toBe("same-origin");
       }
     }
   });

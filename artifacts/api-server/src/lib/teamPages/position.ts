@@ -4,6 +4,7 @@
  * added when the caller says so: island-wide viewers get it, nobody else.
  * Never pass link: true for an owner's home pin (D5).
  */
+import { placeLabel, type PublicLabel } from "../areas/placeLabel";
 import { escapeHtml as esc } from "./escape";
 
 export const roundPos = (n: number): string => n.toFixed(5);
@@ -16,4 +17,18 @@ export function position(lat: number, lng: number, opts: { link: boolean }): str
   const here = esc(`${roundPos(lat)}, ${roundPos(lng)}`);
   if (!opts.link) return here;
   return `${here} &middot; <a href="${esc(mapUrl(lat, lng))}" rel="noopener noreferrer">Open map</a>`;
+}
+
+/**
+ * A place as words (SYC-517): the named area, plus a site's public label. The
+ * numbers never print. Returns trusted HTML. Same link rule as position().
+ */
+export function place(lat: number, lng: number, opts: { link: boolean; label?: PublicLabel | null }): string {
+  const words = esc(placeLabel({ lat, lng }, opts.label));
+  return opts.link ? `${words} &middot; ${openMapLink(lat, lng)}` : words;
+}
+
+/** Just the "Open map" link, for a line that already says where (island-wide viewers only). */
+export function openMapLink(lat: number, lng: number): string {
+  return `<a href="${esc(mapUrl(lat, lng))}" rel="noopener noreferrer">Open map</a>`;
 }

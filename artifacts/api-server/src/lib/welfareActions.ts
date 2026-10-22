@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { actingRole, type CapabilityHolder } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
 import { writeObservation } from "./observations";
-import { onReportStateChanged } from "./welfare/reporterEmail";
+import { onReportStateChanged, reporterOnClose, type ReporterOnClose } from "./welfare/reporterEmail";
 
 /**
  * What the team does to a sent report (SYC-43 part 2 plan, PR 2; spec §3.1,
@@ -38,6 +38,12 @@ export type MoveOutcome =
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+/**
+ * Thrown inside the transaction to undo a move whose reporter answer changed
+ * (SYC-515). Private: {@link moveReportState} turns it into "changed".
+ */
+class ReporterAnswerChanged extends Error {}
+
 export type MoveInput = {
   publicId: string;
   from: ReportState;
@@ -47,6 +53,12 @@ export type MoveInput = {
   person: CapabilityHolder & { id: string };
   /** SYC-42 Slice 3: the optional line for the reporter's "Done" email. */
   reporterSentence?: string | null;
+  /**
+   * SYC-515: what the person was told would happen to the reporter. The
+   * answer is worked out again inside the transaction, under the address
+   * lock; if it differs, the whole move is undone and nothing is sent.
+   */
+  expectReporter?: ReporterOnClose;
   /** Called with the outcome email's outbox row, to send after the commit. */
   onQueued?: (outboxId: number) => void;
 };
@@ -60,11 +72,20 @@ export type MoveInput = {
  */
 export async function moveReportState(input: MoveInput): Promise<MoveOutcome> {
   let queued: number | null = null;
-  const outcome = await db.transaction(async (tx) => {
-    const moved = await moveReportStateIn(tx, input);
-    queued = moved.queued;
-    return moved.outcome;
-  });
+  const outcome = await db
+    .transaction(async (tx) => {
+      const moved = await moveReportStateIn(tx, input);
+      queued = moved.queued;
+      return moved.outcome;
+    })
+    .catch((e: unknown): MoveOutcome => {
+      // The whole move was rolled back: nothing written, nothing queued.
+      if (e instanceof ReporterAnswerChanged) {
+        queued = null;
+        return "changed";
+      }
+      throw e;
+    });
   if (queued !== null) input.onQueued?.(queued);
   return outcome;
 }
@@ -74,6 +95,11 @@ export async function moveReportState(input: MoveInput): Promise<MoveOutcome> {
  * holds (SYC-44 PR 7.1: the Issues row's Keep hidden and Restore move the
  * report in the same transaction as the photo). The caller calls `onQueued`
  * with `queued` after its commit.
+ *
+ * Passing `expectReporter` (SYC-515) can throw the private
+ * `ReporterAnswerChanged` to roll the caller's transaction back; only
+ * {@link moveReportState} turns that into "changed". A caller that passes it
+ * here must catch it the same way. Issue rows never pass it.
  */
 export async function moveReportStateIn(
   tx: Tx,
@@ -98,6 +124,17 @@ export async function moveReportStateIn(
       kind: welfareReportsTable.kind,
     });
   if (updated.length === 1) {
+    // SYC-515: the page said what would happen to the reporter; check it is
+    // still true, under the address lock, before anything is written. A
+    // mismatch throws, which undoes the move with the caller's transaction.
+    // Issue reports (kind 'content') answer "none", so they stay one tap.
+    if (
+      input.expectReporter !== undefined &&
+      (to === "done" || to === "nothing_needed") &&
+      (await reporterOnClose(tx, updated[0]!.id, { lock: true })) !== input.expectReporter
+    ) {
+      throw new ReporterAnswerChanged();
+    }
     const [event] = await tx
       .insert(reportStateEventsTable)
       .values({
@@ -152,6 +189,22 @@ export async function moveReportStateIn(
       ),
     );
   return { outcome: exists ? "changed" : "not_found", queued };
+}
+
+/**
+ * SYC-515: a sent report's row id and current state, for the "close and
+ * email?" step. Null for an unknown id or a draft. Which rows can email
+ * anyone is decided by `reporterOnClose`, which only answers for welfare
+ * reports; any other kind answers "none".
+ */
+export async function sentReportRef(
+  publicId: string,
+): Promise<{ id: number; state: string } | null> {
+  const [row] = await db
+    .select({ id: welfareReportsTable.id, state: welfareReportsTable.state })
+    .from(welfareReportsTable)
+    .where(and(eq(welfareReportsTable.publicId, publicId), eq(welfareReportsTable.isDraft, false)));
+  return row ?? null;
 }
 
 /**

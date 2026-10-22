@@ -269,6 +269,40 @@ async function catHistoryEntries(visible: Visible, colonyId: number): Promise<Co
   return out;
 }
 
+/**
+ * Where "Set the centre on a map" opens (SYC-517, 517-B): the colony's name,
+ * its centre if it has one, otherwise the midpoint of its open sites, otherwise
+ * neither (the page falls back to Ermoupoli). Filtered by `visible` like every
+ * reader: another colony is simply not found.
+ */
+export async function colonyCentreStart(
+  visible: Visible,
+  id: number,
+): Promise<{
+  id: number;
+  name: string;
+  centre: { lat: number; lng: number } | null;
+  sitesMidpoint: { lat: number; lng: number } | null;
+} | null> {
+  const [colony] = await db
+    .select()
+    .from(coloniesTable)
+    .where(and(eq(coloniesTable.id, id), colonyFilter(coloniesTable.id, visible)));
+  if (!colony) return null;
+  const sites = await db
+    .select({ lat: feedingSitesTable.lat, lng: feedingSitesTable.lng })
+    .from(feedingSitesTable)
+    .where(and(eq(feedingSitesTable.colonyId, id), isNull(feedingSitesTable.retiredAt)));
+  const mid =
+    sites.length === 0
+      ? null
+      : {
+          lat: sites.reduce((a, b) => a + b.lat, 0) / sites.length,
+          lng: sites.reduce((a, b) => a + b.lng, 0) / sites.length,
+        };
+  return { id: colony.id, name: colony.name, centre: centreOf(colony), sitesMidpoint: mid };
+}
+
 export async function colonyView(visible: Visible, id: number): Promise<ColonyView | null> {
   // Another colony is not found, exactly like a colony that doesn't exist.
   const [colony] = await db

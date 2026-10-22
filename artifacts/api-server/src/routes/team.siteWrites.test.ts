@@ -19,6 +19,7 @@ import { guardianOn, newColony } from "../test/roleKit";
 import { makePrivateIfPublic } from "../lib/teamSiteWrites";
 import { isOpaqueAddress } from "../test/opaqueAddress";
 import { isOpenMapLink } from "../test/openMapLink";
+import { placeLabel } from "../lib/areas/placeLabel";
 
 // SYC-209 PR 3.3: adding, moving, retiring and bringing back feeding sites,
 // and changing their colony. Spec tests 7 (never created public), 9 (early
@@ -229,11 +230,18 @@ describe("adding a site: the map and the pick", () => {
     expectNoPositionInAddresses(res.text);
   });
 
+  it("the typed position is folded under 'Type a position instead' (517-B)", async () => {
+    const res = await get("/api/team/sites/new");
+    expect(res.text).toMatch(/<details class="typedfold"><summary>Type a position instead<\/summary><form method="post" action="\/api\/team\/sites\/pick" class="typedpos">/);
+    expect(res.text).not.toContain("Or type the position");
+  });
+
   it("a tap answers with the confirmation page directly: the spot in hidden fields only, and the tap's details", async () => {
     const { body, spot } = tapBody(ERMOUPOLI);
     const res = await post("/api/team/sites/pick", body);
     expect(res.status).toBe(200);
     expect(res.text).toContain("Check the spot");
+    expect(res.text).toContain(`You tapped a spot in <strong>${placeLabel(spot)} &middot; <a `);
     expect(res.text).toContain('<form method="post" action="/api/team/sites">');
     expect(Number(hiddenIn(res.text, "lat"))).toBeCloseTo(spot.lat, 9);
     expect(Number(hiddenIn(res.text, "lng"))).toBeCloseTo(spot.lng, 9);
@@ -577,9 +585,11 @@ describe("move", () => {
     const res = await post(`/api/team/sites/${s.id}/move/pick`, { ...body, updatedAt: stamp });
     expect(res.status).toBe(200);
     expect(res.text).toContain("Where it is now");
+    expect(res.text).toContain(`You tapped a spot in <strong>${placeLabel(spot)} &middot; <a `);
     expect(res.text).toContain("The new spot");
-    expect(res.text).toContain(`${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}`);
-    expect(res.text).toContain(`${spot.lat.toFixed(5)}, ${spot.lng.toFixed(5)}`);
+    // Words, not numbers (SYC-517); the 5-place position is in the Open map link only.
+    expect(res.text.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{5}/);
+    expect(res.text).toContain(encodeURIComponent(`${spot.lat.toFixed(5)},${spot.lng.toFixed(5)}`));
     expect(res.text).toMatch(/name="reason" type="text" required/);
     expect(res.text).toContain(`action="/api/team/sites/${s.id}/move"`);
     expect(stampIn(res.text)).toBe(stamp);

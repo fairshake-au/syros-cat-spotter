@@ -1,6 +1,6 @@
 import type { HomeData, MonthFigures, Section } from "../dashboard/home";
 import { euroText } from "../euros";
-import type { QueueDraft, QueueReport } from "../welfareQueue";
+import type { QueueReport } from "../welfareQueue";
 import type { TeamCat } from "../teamCatList";
 import { placeLabel } from "../areas/placeLabel";
 import { teamPhotoUrl } from "../teamCatView";
@@ -9,6 +9,7 @@ import { renderPage } from "./layout";
 import { markBar } from "./marks";
 import { lastSeenWords, notSeenWords } from "./lastSeen";
 import { timeAgo } from "./queuePage";
+import { firstWords } from "./noteWords";
 
 // Home: what needs us today (SYC-396 spec §4; plan PR 2.1, Task 2.1.2).
 // Server-drawn, no scripts. It reads top to bottom by urgency, and a section
@@ -30,20 +31,10 @@ export const COMING_SOON: readonly { label: string; route: string }[] = [
 
 export const UNAVAILABLE = "This figure isn't available right now.";
 export const NOTHING_NEEDS_YOU = "Nothing needs you right now.";
-const NOTE_WORDS = 80;
 
 const QUEUE = "/api/team";
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const unavailable = `<p class="empty">${esc(UNAVAILABLE)}</p>`;
-
-const graphemes = new Intl.Segmenter("en", { granularity: "grapheme" });
-
-/** The first words of a note, on whole characters: a family emoji or a flag is one, never cut in half. */
-export function firstWords(note: string | null): string {
-  if (!note) return "";
-  const chars = [...graphemes.segment(note.trim().replace(/\s+/g, " "))].map((s) => s.segment);
-  return chars.length <= NOTE_WORDS ? chars.join("") : `${chars.slice(0, NOTE_WORDS).join("").trimEnd()}…`;
-}
 
 function reportLine(r: QueueReport, now: Date): string {
   const photo = r.photo.url
@@ -52,19 +43,10 @@ function reportLine(r: QueueReport, now: Date): string {
   const urgent = r.severity === "urgent" ? '<span class="tag urgent">Urgent</span> ' : "";
   const note = firstWords(r.note);
   return (
-    `<li><a class="hrow" href="${QUEUE}#r-${esc(encodeURIComponent(r.id))}">${photo}<span class="htext">` +
+    `<li><a class="hrow" href="${QUEUE}?open=${esc(encodeURIComponent(r.id))}#r-${esc(encodeURIComponent(r.id))}">${photo}<span class="htext">` +
     `<span class="hwhere">${urgent}<strong>${esc(placeLabel(r))}</strong> · <time datetime="${esc(r.at)}">${esc(timeAgo(r.at, now))}</time></span>` +
     (note ? `<span class="hnote">${esc(note)}</span>` : "") +
     "</span></a></li>"
-  );
-}
-
-function draftLine(d: QueueDraft, now: Date): string {
-  const kind = d.severity === "urgent" ? "Urgent" : "Needs attention";
-  return (
-    // One span inside the flex link, so the words stay one line of text.
-    `<li><a class="hlink" href="${QUEUE}#d-${esc(encodeURIComponent(d.id))}"><span>${esc(kind)}, ${esc(placeLabel(d))} · ` +
-    `<time datetime="${esc(d.startedAt)}">started ${esc(timeAgo(d.startedAt, now))}</time></span></a></li>`
   );
 }
 
@@ -81,13 +63,7 @@ function needsSection(s: HomeData["needs"], now: Date): string {
     parts.push(`<p><a class="hlink" href="${QUEUE}">See all ${n.reportsTotal} in the Queue</a></p>`);
   }
   if (n.unchecked > 0) {
-    parts.push(`<p><a class="hlink" href="${QUEUE}#unchecked">${esc(plural(n.unchecked, "report", "reports"))} waiting for a check</a></p>`);
-  }
-  if (n.drafts.length > 0) {
-    parts.push(
-      `<h3>Started but not sent (${n.draftsTotal})</h3>` +
-        `<ul class="hplain">${n.drafts.map((d) => draftLine(d, now)).join("")}</ul>`,
-    );
+    parts.push(`<p><a class="hlink" href="${QUEUE}#unchecked">${esc(plural(n.unchecked, "report", "reports"))} arrived while our spam check was down</a></p>`);
   }
   if (n.issuesOpen > 0) parts.push(`<p>${countLink(`${QUEUE}#issues`, "Problems reported with photos or names", n.issuesOpen)}</p>`);
   // Nothing writes awaiting_team yet (plan Decision 2): hidden until something does.
