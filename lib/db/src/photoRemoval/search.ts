@@ -49,6 +49,20 @@ const CANNOT_HOLD = new Set([
   "enum",
 ]);
 
+/**
+ * List columns the scan skips, each only while it is still the numeric list
+ * named here: if its type ever changes, it is scanned (or reported unscanned)
+ * like any other column.
+ *
+ * - photo_fingerprints.vector (SYC-527 §6.1): 384 real numbers per photo, the
+ *   looks-like index. A list of numbers can't hold a picture's bytes or a
+ *   public id, and reading every one as text would slow each run for nothing.
+ *   The table's other columns are still read. Its rows are deleted when a
+ *   photo is hidden or removed (migration 0039's triggers), so a removed
+ *   photo has none anyway.
+ */
+const SKIPPED_LISTS: ReadonlyMap<string, string> = new Map([["photo_fingerprints.vector", "_float4"]]);
+
 const STATEMENT_TIMEOUT_MS = 120_000;
 const TIMEOUT = "57014";
 
@@ -59,8 +73,8 @@ interface Column {
 }
 
 async function columns(q: pg.ClientBase): Promise<Column[]> {
-  const r = await q.query<{ table_name: string; column_name: string; data_type: string }>(
-    `select c.table_name, c.column_name,
+  const r = await q.query<{ table_name: string; column_name: string; data_type: string; udt_name: string }>(
+    `select c.table_name, c.column_name, c.udt_name,
             case when c.data_type = 'USER-DEFINED'
                   and exists (select 1 from pg_type ty where ty.typname = c.udt_name and ty.typtype = 'e')
                  then 'enum' else c.data_type end as data_type
@@ -69,7 +83,14 @@ async function columns(q: pg.ClientBase): Promise<Column[]> {
       where c.table_schema = 'public' and t.table_type = 'BASE TABLE'
       order by c.table_name, c.ordinal_position`,
   );
-  return r.rows.map((x) => ({ table: x.table_name, column: x.column_name, type: x.data_type }));
+  return r.rows
+    .filter((x) => SKIPPED_LISTS.get(`${x.table_name}.${x.column_name}`) !== x.udt_name)
+    .map((x) => ({ table: x.table_name, column: x.column_name, type: x.data_type }));
+}
+
+/** The columns check 5 reads, as `table.column` (tests). */
+export async function scannedColumns(q: pg.ClientBase): Promise<string[]> {
+  return (await columns(q)).filter((c) => SCANNED.has(c.type)).map((c) => `${c.table}.${c.column}`);
 }
 
 /**

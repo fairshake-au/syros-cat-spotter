@@ -1,5 +1,5 @@
 import { currentAreas } from "../areas/namedAreas";
-import { FIND_MAX_CATS, isWholeIsland, type Band, type FindFilters, type FindResult } from "../findFromPhoto";
+import { FIND_MAX_CATS, FIND_SHORTLIST_K, isWholeIsland, type Band, type FindFilters, type FindResult } from "../findFromPhoto";
 import { filtersToQuery } from "../teamCatFilters";
 import { COLOUR_FILTERS, type CatListItem } from "../teamCatList";
 import { teamPhotoUrl } from "../teamCatView";
@@ -38,7 +38,34 @@ export const ANYWHERE_OPTION = "Anywhere on the island";
 export const ANY_AREA_OPTION = "Any area";
 export const WHERE_HINT =
   "Anywhere on the island compares every cat. If you know where the photo was taken, choosing the area is surer.";
-export const ISLAND_TOO_MANY = "There are now too many cats to compare them all at once. Choose an area or a colony.";
+/** Spec §9.1: over 30 cats the island search shortlists, so it no longer "compares every cat". */
+export const WHERE_HINT_SHORT = "If you know where the photo was taken, choosing the area is surer.";
+/**
+ * SYC-527 piece 3, spec §9.4: the looks-like index can't run. Shown for the
+ * island and for a large area alike; no search is used up.
+ */
+export const INDEX_DOWN_WORDS =
+  "Searching the whole island isn't working right now. Choose an area or a colony to search without it.";
+/**
+ * Spec §9.3: shown instead of LESS_SURE when the shortlist was used. `n` is how
+ * many cats were really compared: fewer than the shortlist size when only
+ * that many had a fingerprint in time.
+ */
+export const lessSureShortlist = (n: number = FIND_SHORTLIST_K) =>
+  `This is less sure than the app's matching. It first picked the ${n} cats whose photos look most like yours. A cat photographed in different light, from another angle or somewhere else can be missed. Check the photos yourself, and if you know where the photo was taken, try choosing the area.`;
+export const LESS_SURE_SHORTLIST = lessSureShortlist();
+/** Spec §9.2: the words before a search that will use the shortlist. */
+export const SHORTLIST_EXPLAINER = `The app picks the ${FIND_SHORTLIST_K} whose photos look most like yours, then compares those closely. This can take up to a minute.`;
+/** Spec §9.3: the results line when the shortlist was used. `n`: how many were really compared. */
+export const shortlistResultsLine = (of: number, n: number = FIND_SHORTLIST_K) =>
+  `Compared closely with the ${n} of ${of} cats whose photos look most like yours`;
+/** Spec §9.3: nothing scored Possible or better. The browse link follows "or". */
+export const noCloseMatchShortlist = (n: number = FIND_SHORTLIST_K) =>
+  `No close match among the ${n} cats whose photos look most like yours. Try choosing an area, or`;
+export const NO_CLOSE_MATCH_SHORTLIST = noCloseMatchShortlist();
+/** Spec §7: cats whose photo had no fingerprint when the time ran out. */
+export const leftOutWords = (n: number) =>
+  `${n === 1 ? "1 newer cat wasn't" : `${n} newer cats weren't`} included this time. Choose an area to include them.`;
 /** Matching down with no place: there is no area's cats to browse, so browse the cats. */
 export const MATCHING_DOWN_ISLAND_WORDS = "Matching isn't working right now. Try again in a few minutes, or browse the cats.";
 /** An area or colony that was given but isn't recognised: refused, never read as the island. */
@@ -71,14 +98,10 @@ export function findAddress(f: FindFilters, tie?: string): string {
 }
 
 /** Where the narrowing stands, as the form's count line says it. */
-export type Narrowing =
-  | { kind: "none" }
-  | { kind: "too_many"; count: number; island: boolean }
-  | { kind: "ok"; count: number; island: boolean };
+export type Narrowing = { kind: "none" } | { kind: "ok"; count: number; island: boolean };
 
 export function narrowingOf(count: number, island: boolean): Narrowing {
   if (count === 0) return { kind: "none" };
-  if (count > FIND_MAX_CATS) return { kind: "too_many", count, island };
   return { kind: "ok", count, island };
 }
 
@@ -127,7 +150,7 @@ function whereForm(o: FindFormOptions): string {
     `<form class="findwhere" method="get" action="${FIND_PATH}">` +
     (o.tie ? `<input type="hidden" name="tie" value="${esc(o.tie.publicId)}">` : "") +
     "<h2>1. Where to look</h2>" +
-    `<p class="hint">${esc(isWholeIsland(f) && o.problem?.field !== "place" && !(o.narrowing.kind === "too_many" && o.narrowing.island) ? WHERE_HINT : "Choose an area or a colony. Colours narrow it further.")}</p>` +
+    `<p class="hint">${esc(isWholeIsland(f) && o.problem?.field !== "place" ? (o.narrowing.kind === "ok" && o.narrowing.count > FIND_MAX_CATS ? WHERE_HINT_SHORT : WHERE_HINT) : "Choose an area or a colony. Colours narrow it further.")}</p>` +
     placeProblem +
     '<fieldset><legend>Where</legend>' +
     `<label class="flabel" for="find-area">Area</label><select class="text" id="find-area" name="area"${described}>${areas}</select>` +
@@ -143,14 +166,10 @@ function countLine(n: Narrowing, f: FindFilters, colonies: Common["colonies"]): 
   if (n.kind === "none") {
     return `<p class="count" role="status">No cats to compare ${isWholeIsland(f) ? "on the island" : `in ${esc(placeName(f, colonies))}`}.</p>`;
   }
-  if (n.kind === "too_many" && n.island) {
-    return `<p class="count" role="status">${esc(ISLAND_TOO_MANY)}</p>`;
-  }
-  if (n.kind === "too_many") {
-    return (
-      `<p class="count" role="status">${cats(n.count)} to compare. That's too many: ` +
-      `choose a colour or a smaller area first, so there are ${FIND_MAX_CATS} or fewer.</p>`
-    );
+  if (n.count > FIND_MAX_CATS) {
+    // Spec §9.2: more than 30 uses the shortlist.
+    const where = n.island ? "on the island" : `in ${esc(placeName(f, colonies))}`;
+    return `<p class="count" role="status">${n.count} cats ${where}.</p><p class="hint">${esc(SHORTLIST_EXPLAINER)}</p>`;
   }
   return `<p class="count" role="status">${cats(n.count)} to compare${n.island ? " across the island" : ""}</p>`;
 }
@@ -161,7 +180,7 @@ const hiddenFilters = (f: FindFilters, tie?: TieMode) =>
   (f.colours ?? []).map((c) => `<input type="hidden" name="colours" value="${esc(c)}">`).join("") +
   (tie ? `<input type="hidden" name="tie" value="${esc(tie.publicId)}">` : "");
 
-/** Step 2: the photo. Only once there are 1 to 30 cats to compare, and no cap is reached. */
+/** Step 2: the photo. Once there is a cat to compare and no cap is reached. */
 function photoForm(o: FindFormOptions): string {
   const capWords = o.capped === "person" ? PERSON_CAP_WORDS : o.capped === "team" ? TEAM_CAP_WORDS : null;
   let inside: string;
@@ -170,10 +189,7 @@ function photoForm(o: FindFormOptions): string {
   } else if (o.problem?.field === "place") {
     inside = '<p class="hint">Choose where to look first, then choose the photo here.</p>';
   } else if (o.narrowing.kind !== "ok") {
-    inside =
-      o.narrowing.kind === "too_many" && o.narrowing.island
-        ? '<p class="hint">Once you have chosen an area or a colony, choose the photo here.</p>'
-        : '<p class="hint">Once there are 30 cats or fewer to compare, choose the photo here.</p>';
+    inside = '<p class="hint">Once there are cats to compare, choose the photo here.</p>';
   } else {
     const photoProblem =
       o.problem?.field === "photo" ? `<p class="warn" id="photo-error">${esc(o.problem.words)}</p>` : "";
@@ -186,7 +202,7 @@ function photoForm(o: FindFormOptions): string {
       (photoProblem ? ' aria-describedby="photo-error" aria-invalid="true"' : "") +
       ">" +
       '<p class="hint">A JPEG, PNG, HEIC or WebP photo under 10 MB. Its location and other hidden details are removed before it is sent to the AI service the app already uses for matching. The photo isn\'t kept.</p>' +
-      `<button type="submit" class="primary">Compare with ${cats(o.narrowing.count)}</button>` +
+      `<button type="submit" class="primary">${o.narrowing.count > FIND_MAX_CATS ? "Compare" : `Compare with ${cats(o.narrowing.count)}`}</button>` +
       "</form>";
   }
   return `<section class="findstep"><h2>2. Your photo</h2>${inside}</section>`;
@@ -247,6 +263,10 @@ export function renderFindForm(o: FindFormOptions): string {
 export interface FindResultsOptions extends Common {
   count: number;
   compared: number;
+  /** `{ of: N }` when the shortlist was used (spec §9.3). */
+  shortlist?: { of: number } | null;
+  /** Newer cats without a fingerprint when the time ran out (spec §7). */
+  leftOut?: number;
   results: FindResult[];
   /** The cards' facts for each cat compared, by id. */
   cards: Map<number, CatListItem>;
@@ -311,18 +331,23 @@ export function renderFindResults(o: FindResultsOptions): string {
   const list = (rs: FindResult[]) => `<ul class="findlist">${rs.map((r) => resultCard(r, o)).join("")}</ul>`;
   const again = `<a class="tap" href="${esc(findAddress(o.filters, o.tie?.publicId))}">Try another photo</a>`;
   const grid = `<a class="tap" href="${esc(gridAddress(o.filters))}">Browse these cats as a grid</a>`;
+  const shortlisted = o.shortlist != null;
+  const noMatch = shortlisted
+    ? `<p class="notice" role="status">${esc(noCloseMatchShortlist(o.compared))} <a class="tap" href="${esc(gridAddress(o.filters))}">browse the cats</a>.</p>`
+    : `<p class="notice" role="status">No close match among these ${cats(o.compared)}.</p><p>${grid}</p>`;
   const matches =
-    (close.length
-      ? list(close)
-      : `<p class="notice" role="status">No close match among these ${cats(o.compared)}.</p><p>${grid}</p>`) +
+    (close.length ? list(close) : noMatch) +
     (unlikely.length
       ? `<details class="unlikely"><summary>Show unlikely matches (${unlikely.length})</summary>${list(unlikely)}</details>`
       : "") +
     `<p class="findagain">${again}${close.length ? ` ${grid}` : ""}</p>`;
   const body =
     tieIntro(o.tie, o.now) +
-    `<p class="count" role="status">Compared with ${cats(o.compared)} ${isWholeIsland(o.filters) ? "across the island" : `in ${esc(placeName(o.filters, o.colonies))}`}</p>` +
-    `<p class="notice">${esc(LESS_SURE)}</p>` +
+    (o.shortlist
+      ? `<p class="count" role="status">${esc(shortlistResultsLine(o.shortlist.of, o.compared))}</p>`
+      : `<p class="count" role="status">Compared with ${cats(o.compared)} ${isWholeIsland(o.filters) ? "across the island" : `in ${esc(placeName(o.filters, o.colonies))}`}</p>`) +
+    (o.leftOut ? `<p class="notice" role="status">${esc(leftOutWords(o.leftOut))}</p>` : "") +
+    `<p class="notice">${esc(o.shortlist ? lessSureShortlist(o.compared) : LESS_SURE)}</p>` +
     `<div class="findcompare"><div class="findmine">${yourPhoto(o.preview)}</div><div class="findmatches">${matches}</div></div>`;
   return renderPage({
     title: "Find from a photo",

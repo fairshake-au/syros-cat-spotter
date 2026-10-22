@@ -484,6 +484,28 @@ run_photos() {
   return "$status"
 }
 
+# --- fingerprint-accuracy (SYC-527 piece 3, Task 4) ---------------------------
+# The looks-like index's smoke test (spec section 8, check 1) on the island's
+# own photos. Strictly read-only: the script opens a read-only database
+# session, makes photo sizes in memory only, and prints ranks and counts, never
+# a photo, a cat, a name or a position. The api-server script runs through the
+# repo's tsx (the same pattern as the people/photos CLIs); only DATABASE_URL
+# reaches it, taken from the target's own branch. PGOPTIONS makes the database
+# itself default every session this command opens to read-only (this command
+# only); the script also sets and checks it on its one connection.
+run_fingerprint_accuracy() {
+  local out="$WORKDIR/fingerprint-accuracy.log"
+  local status=0
+  (cd "$ROOT" && env -u APP_DATABASE_URL -u DEV_DATABASE_URL -u REPL_ID -u NODE_ENV \
+    DATABASE_URL="$NEON_URL" \
+    PGOPTIONS="-c default_transaction_read_only=on" \
+    pnpm --silent --filter @workspace/db exec tsx "$ROOT/artifacts/api-server/src/scripts/fingerprintAccuracy.ts") \
+    >"$out" 2>&1 || status=$?
+  grep_no_urls "$out"
+  cat "$out"
+  return "$status"
+}
+
 # --- main -------------------------------------------------------------------
 case "$COMMAND" in
   fingerprint-source)
@@ -551,6 +573,15 @@ case "$COMMAND" in
     fi
     require_neon_url
     run_photos "${COMMAND#photo-}"
+    ;;
+
+  fingerprint-accuracy)
+    if [ "$TARGET" = "rehearsal" ]; then
+      echo "db-ops: $COMMAND only runs against target=development or target=production." >&2
+      exit 1
+    fi
+    require_neon_url
+    run_fingerprint_accuracy
     ;;
 
   carry-back-dry-run|carry-back-apply)

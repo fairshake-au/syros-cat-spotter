@@ -7,9 +7,10 @@ import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import multer from "multer";
 import { safeError } from "../lib/logger";
-import { catsToCompare, findFromPhoto, isWholeIsland, type FindFilters } from "../lib/findFromPhoto";
+import { comparableCount, findFromPhoto, isWholeIsland, type FindFilters } from "../lib/findFromPhoto";
 import { checkFindLimits, findLimitReached } from "../middlewares/rateLimit";
 import {
+  INDEX_DOWN_WORDS,
   MATCHING_DOWN_ISLAND_WORDS,
   MATCHING_DOWN_WORDS,
   narrowingOf,
@@ -302,7 +303,7 @@ async function findFormHtml(
 ): Promise<string> {
   const now = new Date();
   const [count, capped, colonies] = await Promise.all([
-    catsToCompare(filters, now).then((c) => c.length),
+    comparableCount(filters, now),
     // A notice only: if the counter can't be read, the form shows without
     // one, and the POST still enforces the caps (review finding 1).
     extra.capped ? Promise.resolve(extra.capped) : findLimitReached(person.id).catch(() => "ok" as const),
@@ -448,7 +449,6 @@ router.post(
     const colonies = await allColonyChoices(visibleColonyIds(person));
     const common = { personName: person.name, filters, colonies, tie, now };
     switch (out.kind) {
-      case "too_many":
       case "none_to_compare":
         return void res.status(400).type("html").send(await findFormHtml(person, filters, tie));
       case "bad_photo":
@@ -478,6 +478,9 @@ router.post(
         return void res.status(422).type("html").send(
           renderFindProblem({ ...common, words: "We couldn't see a cat in that photo. Try another photo of the cat.", gridLink: false }),
         );
+      case "index_down":
+        // Spec §9.4: no search was used up (this is before the caps are counted).
+        return void res.status(503).type("html").send(renderFindProblem({ ...common, words: INDEX_DOWN_WORDS, gridLink: false }));
       case "matching_down":
         return void res.status(503).type("html").send(renderFindProblem({ ...common, words: matchingDownWords(filters), gridLink: true }));
       case "results": {
@@ -487,6 +490,8 @@ router.post(
           ...common,
           count: out.count,
           compared: out.compared,
+          shortlist: out.shortlist,
+          leftOut: out.leftOut,
           results: out.results,
           cards,
           preview: out.preview,

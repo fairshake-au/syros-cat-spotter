@@ -96,3 +96,52 @@ test('nyc YAML loading still works after removing argparse v1 and sprintf-js', a
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+// SYC-527 piece 3: the looks-like model runs inside the API server.
+// Resolve through the real consumer chain (api-server -> transformers -> ...).
+// Several of these packages don't export ./package.json, so go by directory.
+const fs = require('node:fs');
+const apiDir = path.resolve(__dirname, '../artifacts/api-server');
+const dirOf = (fromDir, name) => fs.realpathSync(path.join(fromDir, 'node_modules', name));
+const pkgJson = (dir) => JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+// A package's own dependencies sit beside it in pnpm's store, not inside it.
+const siblingDir = (dir, name) => {
+  let up = dir;
+  while (path.basename(path.dirname(up)) !== 'node_modules') up = path.dirname(up);
+  return fs.realpathSync(path.join(path.dirname(up), name));
+};
+
+test('the model runtime is pinned exactly and onnxruntime-node is the version transformers asks for', () => {
+  const own = pkgJson(apiDir);
+  assert.equal(own.dependencies['@huggingface/transformers'], '3.7.5');
+  assert.equal(own.dependencies['onnxruntime-node'], '1.21.0');
+  const transformersDir = dirOf(apiDir, '@huggingface/transformers');
+  const transformers = pkgJson(transformersDir);
+  assert.equal(transformers.version, '3.7.5');
+  assert.equal(transformers.dependencies['onnxruntime-node'], '1.21.0');
+  // One copy of onnxruntime-node: transformers resolves the same folder we do.
+  assert.equal(siblingDir(transformersDir, 'onnxruntime-node'), dirOf(apiDir, 'onnxruntime-node'));
+  assert.equal(pkgJson(dirOf(apiDir, 'onnxruntime-node')).version, '1.21.0');
+});
+
+test('onnxruntime-node ships its compiled part, so its install script (a CUDA download) is not needed', () => {
+  const dir = dirOf(apiDir, 'onnxruntime-node');
+  for (const platform of ['linux/x64', 'darwin/arm64']) {
+    assert.ok(
+      fs.existsSync(path.join(dir, 'bin/napi-v3', platform, 'onnxruntime_binding.node')),
+      `${platform} binary is inside the package`,
+    );
+  }
+  // The workspace must not grant it a build step: the only thing it would do is fetch CUDA binaries.
+  const workspace = fs.readFileSync(path.resolve(__dirname, '../pnpm-workspace.yaml'), 'utf8');
+  const allowlist = workspace.split('onlyBuiltDependencies:')[1].split(/\n\S/)[0];
+  assert.doesNotMatch(allowlist, /onnxruntime-node/);
+});
+
+test('transformers uses the app\'s own sharp (one libvips per process, no sharp 0.34 advisories)', () => {
+  // transformers asks for sharp ^0.34; pnpm-workspace.yaml overrides it to the app's version.
+  const ours = dirOf(apiDir, 'sharp');
+  const theirs = siblingDir(dirOf(apiDir, '@huggingface/transformers'), 'sharp');
+  assert.equal(theirs, ours);
+  assert.equal(pkgJson(ours).version, '0.35.5');
+});
