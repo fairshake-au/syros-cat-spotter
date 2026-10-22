@@ -4,6 +4,7 @@ import { drainDue, overdueWelfareAlerts, sendIssueDigestIfDue, OVERDUE_MINUTES }
 import { sendDailyRoundUp, type RoundUpResult } from "../lib/sightingRoundUp";
 import { sweepKeepSafeIfDue } from "../lib/keepSafe/sweep";
 import { sweepRateLimitsIfDue } from "../lib/limits";
+import { sweepIssueNotesIfDue } from "../lib/issues/retention";
 import { safeError } from "../lib/logger";
 
 /**
@@ -31,7 +32,10 @@ import { safeError } from "../lib/logger";
  * (SYC-44 PR 5.2, `sendIssueDigestIfDue`), once per Athens day.
  *
  * It also runs the keep-safe sweep (SYC-3, lib/keepSafe/sweep.ts), at most
- * hourly per server, and the rate-limit sweep (lib/limits.ts) on the same terms. A sweep failure is logged and never changes the status.
+ * hourly per server, and the rate-limit sweep (lib/limits.ts) on the same terms.
+ * Once a day per server it also clears the notes on issue reports closed over
+ * a year ago (SYC-44 PR 8.1, lib/issues/retention.ts). A sweep failure is
+ * logged and never changes the status.
  */
 const router: IRouter = Router();
 
@@ -58,6 +62,7 @@ router.post("/internal/mail/drain", async (req, res) => {
   const overdue = await overdueWelfareAlerts();
   await sweepKeepSafeIfDue(req.log);
   await sweepRateLimitsIfDue(req.log);
+  await sweepIssueNotesIfDue(req.log);
   // After the welfare check, so a slow push service can't delay it.
   let roundUp: RoundUpResult | { status: "error" };
   try {
