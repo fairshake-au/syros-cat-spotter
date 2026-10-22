@@ -138,12 +138,10 @@ test('onnxruntime-node ships its compiled part, so its install script (a CUDA do
   assert.doesNotMatch(allowlist, /onnxruntime-node/);
 });
 
-test('the sharp that transformers brings is a separate, older copy from the one the server uses', () => {
-  // sharp 0.34.x (advisories fixed in 0.35.x) is reachable only through
-  // transformers, which here is given already-decoded pixels (fingerprint/model.ts),
-  // never an encoded file. The server's own decoding uses its own sharp 0.35.x.
-  const ours = pkgJson(dirOf(apiDir, 'sharp'));
-  const theirs = pkgJson(siblingDir(dirOf(apiDir, '@huggingface/transformers'), 'sharp'));
-  assert.match(ours.version, /^0\.35\./);
-  assert.match(theirs.version, /^0\.34\./);
+test('transformers uses the app\'s own sharp (one libvips per process, no sharp 0.34 advisories)', () => {
+  // transformers asks for sharp ^0.34; pnpm-workspace.yaml overrides it to the app's version.
+  const ours = dirOf(apiDir, 'sharp');
+  const theirs = siblingDir(dirOf(apiDir, '@huggingface/transformers'), 'sharp');
+  assert.equal(theirs, ours);
+  assert.equal(pkgJson(ours).version, '0.35.5');
 });
