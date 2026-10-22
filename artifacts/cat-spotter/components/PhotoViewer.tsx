@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '@/context/LanguageContext';
 import { registerModalOpen } from '@/lib/modalVisibility';
+import { APP_COLUMN_MAX_WIDTH } from '@/lib/appColumn';
 import { photoSource } from '@/lib/urls';
 import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
 
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
   photo: { width: '100%', height: '100%' },
   footer: {
     width: '100%',
-    maxWidth: 560,
+    maxWidth: APP_COLUMN_MAX_WIDTH,
     alignSelf: 'center',
     paddingTop: spacing[3],
     gap: spacing[2],
