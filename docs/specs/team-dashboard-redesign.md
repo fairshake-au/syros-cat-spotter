@@ -26,7 +26,7 @@ It turns the dashboard parts of PRODUCT-SPEC §2.6 and §3 (items 9, 12 and 13) 
 
 **Evidence:** `docs/reviews/team-dashboard-ux-review-2026-10-15.md`.
 **Review:** an adversarial review found 4 blockers, 13 major and 5 minor issues. Every finding is handled in this version, and the table at the end (§17) says where.
-**Status:** **Approved by Samuel, 15 October 2026.** §4 (Home) rewritten 22 October 2026 after D12, **awaiting approval**.
+**Status:** **Approved by Samuel, 15 October 2026.** §4 (Home) rewritten 22 October 2026 after D12, **approved by Samuel, 22 October 2026** ("approved, write the plan").
 
 ### What this document owns, and what it borrows
 
