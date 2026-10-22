@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
@@ -64,6 +65,12 @@ async function photo(b64: string, at: string): Promise<number> {
 }
 
 describe("db-ops fingerprint-accuracy", () => {
+  it("starts the script with every session read-only by default, for this command only", () => {
+    const sh = readFileSync(SCRIPT, "utf8");
+    const fn = /run_fingerprint_accuracy\(\) \{[\s\S]*?\n\}/.exec(sh)?.[0] ?? "";
+    expect(fn).toContain('PGOPTIONS="-c default_transaction_read_only=on"');
+    expect(fn).not.toMatch(/export\s+PGOPTIONS/); // set on that command only, never exported
+  });
   it("refuses rehearsal", () => {
     const r = run({ TARGET: "rehearsal", DATABASE_TARGET: "rehearsal", NEON_REHEARSAL_URL: url(name), COMMAND: "fingerprint-accuracy" });
     expect(r.code).not.toBe(0);

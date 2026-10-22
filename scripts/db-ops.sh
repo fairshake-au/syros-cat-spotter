@@ -490,12 +490,15 @@ run_photos() {
 # session, makes photo sizes in memory only, and prints ranks and counts, never
 # a photo, a cat, a name or a position. The api-server script runs through the
 # repo's tsx (the same pattern as the people/photos CLIs); only DATABASE_URL
-# reaches it, taken from the target's own branch.
+# reaches it, taken from the target's own branch. PGOPTIONS makes the database
+# itself default every session this command opens to read-only (this command
+# only); the script also sets and checks it on its one connection.
 run_fingerprint_accuracy() {
   local out="$WORKDIR/fingerprint-accuracy.log"
   local status=0
   (cd "$ROOT" && env -u APP_DATABASE_URL -u DEV_DATABASE_URL -u REPL_ID -u NODE_ENV \
     DATABASE_URL="$NEON_URL" \
+    PGOPTIONS="-c default_transaction_read_only=on" \
     pnpm --silent --filter @workspace/db exec tsx "$ROOT/artifacts/api-server/src/scripts/fingerprintAccuracy.ts") \
     >"$out" 2>&1 || status=$?
   grep_no_urls "$out"

@@ -200,20 +200,50 @@ describe("the read-only connection", () => {
     expect(red.rows[0].n).toBe(1);
   });
 
-  it("also covers connections that were open before it was switched on, and new ones", async () => {
+  it("narrows the pool to one connection: those open before are closed, and every query runs read-only on it", async () => {
     // Open several connections first, then switch on.
     const held = await Promise.all([pool.connect(), pool.connect(), pool.connect()]);
     held.forEach((c) => c.release());
     await readOnly(async () => {
-      const again = await Promise.all([pool.connect(), pool.connect(), pool.connect(), pool.connect()]);
-      try {
-        for (const c of again) {
-          expect((await c.query("show transaction_read_only")).rows[0].transaction_read_only).toBe("on");
-        }
-      } finally {
-        again.forEach((c) => c.release());
-      }
+      expect(pool.totalCount).toBe(1);
+      expect(pool.options.max).toBe(1);
+      // Several queries at once queue on the one connection; each sees read-only.
+      const answers = await Promise.all([1, 2, 3, 4].map(() => pool.query("show transaction_read_only")));
+      for (const a of answers) expect(a.rows[0].transaction_read_only).toBe("on");
+      expect(pool.totalCount).toBe(1);
     });
+  });
+
+  it("a second query on the connection is read-only too: the write fails after a read has run", async () => {
+    await readOnly(async () => {
+      expect((await pool.query("show transaction_read_only")).rows[0].transaction_read_only).toBe("on");
+      await expect(pool.query("insert into photos (public_id, data, mime) values ($1, 'x', 'image/jpeg')", [`${PREFIX}nope3`])).rejects.toThrow(/read-only/i);
+      expect((await pool.query("show transaction_read_only")).rows[0].transaction_read_only).toBe("on");
+      await expect(pool.query("update cats set name = name where name = $1", [`${PREFIX}red`])).rejects.toThrow(/read-only/i);
+    });
+    const left = await writer.query("select count(*)::int as n from photos where public_id like $1", [`${PREFIX}nope%`]);
+    expect(left.rows[0].n).toBe(0);
+  });
+
+  it("refuses to run when the session cannot be proven read-only, and when a connection is in use", async () => {
+    const busy = await pool.connect();
+    try {
+      await expect(makeReadOnly(pool)).rejects.toThrow(/in use/);
+    } finally {
+      busy.release();
+    }
+    const fake = {
+      options: { max: 10, idleTimeoutMillis: 10_000 },
+      totalCount: 0,
+      idleCount: 0,
+      on: () => undefined,
+      off: () => undefined,
+      connect: async () => ({
+        query: async (q: string) => (q.startsWith("SHOW") ? { rows: [{ transaction_read_only: "off" }] } : {}),
+        release: () => undefined,
+      }),
+    } as unknown as typeof pool;
+    await expect(makeReadOnly(fake)).rejects.toThrow(/not read-only/);
   });
 
   it("reads still work", async () => {

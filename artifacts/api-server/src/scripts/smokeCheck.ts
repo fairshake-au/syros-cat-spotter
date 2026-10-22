@@ -17,38 +17,63 @@ import type { Embedder } from "./embedders";
 
 type Pool = typeof pool;
 
-/** Run a statement on every idle connection of the pool. */
-async function onIdle(p: Pool, statement: string): Promise<void> {
-  const idle = [];
-  for (let i = p.idleCount; i > 0; i--) idle.push(await p.connect());
-  for (const c of idle) {
-    await c.query(statement);
-    c.release();
-  }
-}
-
 const READ_ONLY = "SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY";
-const READ_WRITE = "SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE";
 
 /**
- * Make every connection of the shared pool read-only for its whole session,
- * and prove it before anything else runs. Returns a function that undoes it:
- * for tests only (the test harness writes to the same pool); the script never
- * calls it.
+ * Narrow the shared pool to ONE read-only connection, and prove it before
+ * anything else runs: the pool is limited to a single connection that never
+ * idles out, every other connection it holds is closed, the session is set
+ * read-only, and `SHOW transaction_read_only` must say "on" or this throws.
+ * (db-ops also starts the script with PGOPTIONS making every session
+ * read-only by default, so a reconnect is covered on the server side too; a
+ * reconnect that cannot be set read-only crashes the script rather than
+ * reading on.) Returns a function that undoes it: for tests only (the test
+ * harness writes to the same pool); the script never calls it.
  */
 export async function makeReadOnly(p: Pool = pool): Promise<() => Promise<void>> {
+  if (p.totalCount > p.idleCount) throw new Error("a database connection is in use; refusing to switch to read-only");
+  const before = { max: p.options.max, idle: p.options.idleTimeoutMillis };
+  p.options.max = 1;
+  p.options.idleTimeoutMillis = 0;
+  const held = [];
+  for (let i = p.idleCount; i > 0; i--) held.push(await p.connect());
+  const keep = held.pop();
+  for (const extra of held) extra.release(true); // closes it
   const onConnect = (client: { query: (q: string) => Promise<unknown> }) => {
-    // Queued ahead of the first query the pool hands this connection to.
-    void client.query(READ_ONLY).catch(() => undefined);
+    // Queued ahead of the first query the pool hands this connection to. If it
+    // fails, the script must not read on: crash it.
+    client.query(READ_ONLY).catch((err: unknown) => {
+      queueMicrotask(() => {
+        throw err;
+      });
+    });
   };
   p.on("connect", onConnect);
-  await onIdle(p, READ_ONLY); // connections made before the hook
-  const res = await p.query("SHOW transaction_read_only");
-  if (res.rows[0]?.transaction_read_only !== "on") throw new Error("the database session is not read-only; refusing to run");
-  return async () => {
+  const undo = async () => {
     p.off("connect", onConnect);
-    await onIdle(p, READ_WRITE);
+    p.options.max = before.max;
+    p.options.idleTimeoutMillis = before.idle;
+    const c = await p.connect();
+    try {
+      await c.query("SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE");
+    } finally {
+      c.release();
+    }
   };
+  const client = keep ?? (await p.connect());
+  try {
+    await client.query(READ_ONLY);
+    const res = await client.query("SHOW transaction_read_only");
+    if (res.rows[0]?.transaction_read_only !== "on") {
+      throw new Error("the database session is not read-only; refusing to run");
+    }
+  } catch (err) {
+    client.release(true);
+    p.off("connect", onConnect);
+    throw err;
+  }
+  client.release();
+  return undo;
 }
 
 const athensDay = (d: Date): string => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Athens" }).format(d);
