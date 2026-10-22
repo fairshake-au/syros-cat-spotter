@@ -706,6 +706,8 @@ const en: Dict = {
   photoTooOld: 'This photo was taken on {date}, more than {days} days ago. We can only record sightings from the last {days} days. Please choose a newer photo.',
   photoAlreadyLogged: 'You\'ve already logged this photo.',
   photoAlreadyLoggedOpen: 'Open that sighting',
+  // SYC-166 slice 4: the map starts in Ermoupoli (spec photo-location-from-library.md §8).
+  mapStartedInTown: "We've started the map in Ermoupoli. Drag it to where you saw the cat.",
   // SYC-48 / SYC-36 (match-wait plan PR 1): the waiting card, the twenty starter
   // facts and the feeding nudge, word for word from docs/specs/starter-facts.md §4
   // and docs/specs/feeding-nudge.md §5 (a test compares them). Greek and French
@@ -1426,6 +1428,8 @@ const el: Dict = {
   photoTooOld: 'Η φωτογραφία τραβήχτηκε στις {date}, πριν από περισσότερες από {days} ημέρες. Μπορούμε να καταγράψουμε μόνο θεάσεις των τελευταίων {days} ημερών. Διάλεξε μια πιο πρόσφατη φωτογραφία.',
   photoAlreadyLogged: 'Έχεις ήδη καταγράψει αυτή τη φωτογραφία.',
   photoAlreadyLoggedOpen: 'Άνοιγμα της θέασης',
+  // SYC-166 slice 4: needs native review (SYC-4, SYC-346).
+  mapStartedInTown: 'Ξεκινήσαμε τον χάρτη στην Ερμούπολη. Σύρε τον εκεί όπου είδες τη γάτα.',
   // SYC-48 / SYC-36 (match-wait plan PR 1): the waiting card, the twenty starter
   // facts and the feeding nudge, word for word from docs/specs/starter-facts.md §4
   // and docs/specs/feeding-nudge.md §5 (a test compares them). Greek and French
@@ -2147,6 +2151,8 @@ const fr: Dict = {
   photoTooOld: "Cette photo a été prise le {date}, il y a plus de {days} jours. On ne peut enregistrer que les observations des {days} derniers jours. Choisis une photo plus récente.",
   photoAlreadyLogged: 'Tu as déjà enregistré cette photo.',
   photoAlreadyLoggedOpen: 'Ouvrir cette observation',
+  // SYC-166 slice 4: needs native review (SYC-4, SYC-346).
+  mapStartedInTown: 'On a démarré la carte à Ermoupoli. Fais-la glisser là où tu as vu le chat.',
   // SYC-48 / SYC-36 (match-wait plan PR 1): the waiting card, the twenty starter
   // facts and the feeding nudge, word for word from docs/specs/starter-facts.md §4
   // and docs/specs/feeding-nudge.md §5 (a test compares them). Greek and French
