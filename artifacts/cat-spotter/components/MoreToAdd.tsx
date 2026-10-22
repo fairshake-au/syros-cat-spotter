@@ -15,7 +15,7 @@ import { useOffline } from '@/context/OfflineContext';
 import { SightingQuestions } from '@/components/SightingQuestions';
 import { Button } from '@/components/purropolis';
 import { addLaterRequest, earTipAnswerLabel, moreToAddHeadline } from '@/lib/moreToAdd';
-import { APP_COLUMN_MAX_WIDTH } from '@/lib/appColumn';
+import { SHEET_MAX_WIDTH } from '@/lib/appColumn';
 import { classifyAnswersError, NO_ANSWERS, type SightingAnswers } from '@/lib/sightingAnswers';
 import { registerModalOpen } from '@/lib/modalVisibility';
 import { photoSource } from '@/lib/urls';
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 22,
     maxHeight: '90%',
     width: '100%',
-    maxWidth: APP_COLUMN_MAX_WIDTH,
+    maxWidth: SHEET_MAX_WIDTH,
     alignSelf: 'center',
   },
   sheetBody: { padding: spacing[5], gap: spacing[3] },

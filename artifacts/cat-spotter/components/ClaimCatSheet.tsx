@@ -22,7 +22,7 @@ import {
   type Cat,
 } from '@workspace/api-client-react';
 import { isDeviceMovedError } from '@/lib/deviceMoved';
-import { APP_COLUMN_MAX_WIDTH } from '@/lib/appColumn';
+import { SHEET_MAX_WIDTH } from '@/lib/appColumn';
 import { CATALOGUE_QUERY_ROOT } from '@/lib/catalogue';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: '100%',
-    maxWidth: APP_COLUMN_MAX_WIDTH,
+    maxWidth: SHEET_MAX_WIDTH,
     alignSelf: 'center',
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,

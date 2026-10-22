@@ -19,7 +19,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useIssueQueue } from '@/context/IssueQueueContext';
 import { Button } from '@/components/purropolis/Button';
 import { registerModalOpen } from '@/lib/modalVisibility';
-import { APP_COLUMN_MAX_WIDTH } from '@/lib/appColumn';
+import { SHEET_MAX_WIDTH } from '@/lib/appColumn';
 import { displayUpperCase } from '@/lib/displayUpperCase';
 import { savedWording } from '@/lib/savedWording';
 import { photoSource } from '@/lib/urls';
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: {
     width: '100%',
-    maxWidth: APP_COLUMN_MAX_WIDTH,
+    maxWidth: SHEET_MAX_WIDTH,
     alignSelf: 'center',
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
