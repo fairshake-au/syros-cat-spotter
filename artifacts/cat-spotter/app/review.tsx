@@ -683,8 +683,11 @@ export default function ReviewScreen() {
               />
             </View>
           </View>
+          {/* Separate keys: "Carry on" is a new button, never the "Yes" that
+              was just tapped (a second tap on Yes must not carry on). */}
           {hintRefused ? (
             <Button
+              key="hint-carry-on"
               variant="primary"
               size="lg"
               block
@@ -696,6 +699,7 @@ export default function ReviewScreen() {
             </Button>
           ) : (
             <Button
+              key="hint-yes"
               variant="primary"
               size="lg"
               block
