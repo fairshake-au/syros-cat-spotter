@@ -1,10 +1,11 @@
 import { placeLabel } from "../areas/placeLabel";
 import type { Vaccine } from "../resolve";
 import { markOf, type Lives } from "../teamCatList";
-import type { TeamCatView } from "../teamCatView";
+import type { TeamCatView, TeamResolved, TeamStatement } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
 import { lastSeenWords } from "./lastSeen";
 import { markWithWords } from "./marks";
+import { place } from "./position";
 import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
 
 // The answer first (SYC-396 spec §7.1): a row of plain facts at the top of the
@@ -20,6 +21,89 @@ export interface CatFact {
   label: string;
   /** Trusted HTML. */
   html: string;
+  /** The grey line under the value saying where it comes from. Plain text. */
+  source?: string;
+  /** The folded "Why we think so", trusted HTML (a `<details>`). */
+  why?: string;
+}
+
+/**
+ * The statements the history on the page shows; null when it shows every one.
+ * A link to a statement left out reloads the page with the full list. (Defined
+ * here, where the facts use it; catPages.ts re-exports it.)
+ */
+export type Shown = ReadonlySet<number> | null;
+
+export interface FactsOpts {
+  byId: Map<number, TeamStatement>;
+  shown: Shown;
+  /** An island-wide viewer: "First recorded in …" carries an "Open map" link. */
+  island?: boolean;
+}
+
+export const statementHref = (id: number, shown: Shown) =>
+  shown === null || shown.has(id) ? `#s-${id}` : `?history=all#s-${id}`;
+
+/** Who said it, as the history shows it: "Eleni, cat guardian" for a guardian's word. */
+export const byWhom = (s: TeamStatement) => (s.asGuardian ? `${s.author.label}, cat guardian` : s.author.label);
+
+const time = (iso: string, text: string) => `<time datetime="${esc(iso)}">${esc(text)}</time>`;
+
+const dd = (label: string, value: string) => `<dt>${esc(label)}</dt><dd>${value}</dd>`;
+
+/**
+ * The statements an answer rests on, in words: what was said, by whom and
+ * when, each linking to its place in the history. Never a record number.
+ */
+function statementRefs(ids: number[], byId: Map<number, TeamStatement>, shown: Shown): string {
+  if (ids.length === 0) return "Nothing yet";
+  return (
+    '<ul class="refs">' +
+    ids
+      .map((id) => {
+        const s = byId.get(id);
+        if (!s) return `<li><a href="${statementHref(id, shown)}">An earlier statement</a></li>`;
+        return (
+          `<li><a href="${statementHref(id, shown)}">${esc(s.said)}</a> ` +
+          `<span class="meta">(${esc(byWhom(s))}, ${time(s.createdAt, day(s.createdAt))})</span></li>`
+        );
+      })
+      .join("") +
+    "</ul>"
+  );
+}
+
+/** "Since", "Why we think so" and "Says otherwise" for one answer, as rows. */
+function evidenceRows<T>(r: TeamResolved<T>, o: FactsOpts): string {
+  return (
+    // The resolver dates "nothing known" at the epoch (SYC-270): no date then.
+    (Date.parse(r.asOf) > 0 ? dd("Since", time(r.asOf, day(r.asOf))) : "") +
+    dd("Why we think so", statementRefs(r.supportingStatementIds, o.byId, o.shown)) +
+    (r.conflictingStatementIds.length
+      ? dd("Says otherwise", `<div class="bad">${statementRefs(r.conflictingStatementIds, o.byId, o.shown)}</div>`)
+      : "")
+  );
+}
+
+// It opens by itself when something says otherwise, so a disagreement is never hidden.
+const whyBlock = (rows: string, extra = "", open = false) =>
+  `<details class="why"${open ? " open" : ""}><summary>Why we think so</summary><dl>${rows}</dl>${extra}</details>`;
+
+/**
+ * "Confirmed by Eleni, cat guardian, 14 October" (SYC-53 PR 2.2; spec §7.2):
+ * when a cat guardian's statement decides the sterilisation answer, the team
+ * sees whose word it is, and *This is wrong* (Mark wrong) is on that
+ * statement in the history.
+ */
+function guardianConfirmed(r: TeamResolved<boolean>, o: FactsOpts): string {
+  if (r.confidence !== "confirmed") return "";
+  const s = o.byId.get(r.supportingStatementIds[0] ?? -1);
+  if (!s || !s.asGuardian) return "";
+  return dd(
+    "Confirmed by",
+    `${esc(byWhom(s))}, ${time(s.createdAt, day(s.createdAt))} · ` +
+      `<a href="${statementHref(s.id, o.shown)}">This is wrong?</a>`,
+  );
 }
 
 /** Dates on Syros, in Greek time: "13 Aug 2026". */
@@ -106,7 +190,10 @@ function colourFact(v: TeamCatView): string {
 }
 
 function colonyFact(v: TeamCatView): string {
-  return v.colony ? `<a href="/api/team/colonies/${v.colony.id}">${esc(v.colony.name)}</a>` : "No colony";
+  return v.colony
+    ? `<a href="/api/team/colonies/${v.colony.id}">${esc(v.colony.name)}</a>` +
+        (v.colony.wasName ? ` <span class="meta">(was “${esc(v.colony.wasName)}”)</span>` : "")
+    : "No colony";
 }
 
 /** "3 days ago · Kini": the same words as the Cats grid, without its "Last seen". */
@@ -133,23 +220,104 @@ function vaccinatedFact(v: TeamCatView): string | null {
   return given.map((r) => esc(`${r.vaccines.map(vaccineWord).join(", ")}, ${day(r.date)}`)).join("<br>");
 }
 
-export function catFacts(v: TeamCatView, now: Date): CatFact[] {
+/** "Set by Maria, 14 Oct 2026": whose word the answer rests on, or how it was worked out. */
+function livesSource(v: TeamCatView, o: FactsOpts): string {
+  const s = o.byId.get(v.records.lifeStatus.supportingStatementIds[0] ?? -1);
+  if (!s) return "Worked out from the sightings";
+  if (s.author.kind === "spotter") return "Set by a spotter";
+  if (s.author.kind === "system") return "Set automatically";
+  return `Set by ${byWhom(s)}, ${day(s.createdAt)}`;
+}
+
+/** "Seen 21 times since April": this year's months by name, an earlier year with its year. */
+function seenSource(v: TeamCatView, now: Date): string | undefined {
+  const oldest = v.sightings[v.sightings.length - 1];
+  if (!oldest) return undefined;
+  if (v.sightings.length === 1) return "Seen once";
+  const at = new Date(oldest.at);
+  const inYear = (d: Date) => d.toLocaleDateString("en-GB", { year: "numeric", timeZone: "Europe/Athens" });
+  const since =
+    inYear(at) === inYear(now)
+      ? at.toLocaleDateString("en-GB", { month: "long", timeZone: "Europe/Athens" })
+      : monthYear(oldest.at);
+  return `Seen ${v.sightings.length} times since ${since}`;
+}
+
+function ownerFact(v: TeamCatView): CatFact | null {
+  const o = v.owner;
+  // D13: after an owner deletes their data the note and pin stay, with no
+  // owner link, so show them whenever they are stored: a stored note or pin
+  // always means the cat has a home (lib/teamCatView.ts).
+  if (!o.has && !o.orphanedHome && !o.homeDescription && !o.homePin) return null;
+  const note =
+    o.has || o.homeDescription || o.homePin
+      ? `<br><span class="meta">${esc(o.has ? "Where the owner says the cat lives" : "Where the cat lives, from a past owner")}: ${o.homeDescription ? esc(o.homeDescription) : "No note"}</span>`
+      : "";
+  const pin = o.homePin ? `<br><span class="meta">Home pin: ${esc(`Pinned, in ${placeLabel(o.homePin)}`)}</span>` : "";
+  return {
+    label: "Owner",
+    html:
+      esc(o.has ? "Has an owner" : o.orphanedHome ? "Has a home, but the owner deleted their data" : "Has a home, no owner on record") +
+      note +
+      pin,
+  };
+}
+
+export function catFacts(v: TeamCatView, now: Date, opts: FactsOpts): CatFact[] {
   const vaccinated = vaccinatedFact(v);
+  const records = v.records;
+  const clipped = records.sterilised.clippedTipSightings;
+  const owner = ownerFact(v);
+  const lastSource = seenSource(v, now);
   return [
-    { label: "Sterilised", html: sterilisedFact(v) },
-    { label: "Lives", html: livesFact(v) },
+    {
+      label: "Sterilised",
+      html: sterilisedFact(v),
+      why: whyBlock(
+        evidenceRows(records.sterilised, opts) +
+          guardianConfirmed(records.sterilised, opts) +
+          dd(
+            "Clipped ear",
+            clipped === 0 ? "Not seen in any sighting" : esc(`Seen in ${clipped} sighting${clipped === 1 ? "" : "s"}`),
+          ),
+        "",
+        records.sterilised.conflictingStatementIds.length > 0,
+      ),
+    },
+    {
+      label: "Lives",
+      html: livesFact(v),
+      source: livesSource(v, opts),
+      why: whyBlock(
+        evidenceRows(records.lifeStatus, opts) +
+          (records.lifeStatus.presumedDeceased
+            ? dd("Note", "Not seen for over three years. The public sees “Not seen since…”, never that it may have died.")
+            : ""),
+        `<p class="meta">First recorded in ${place(v.cat.lat, v.cat.lng, { link: opts.island === true })}, ${time(v.cat.createdAt, day(v.cat.createdAt))}</p>`,
+        records.lifeStatus.conflictingStatementIds.length > 0,
+      ),
+    },
+    ...(owner ? [owner] : []),
     { label: "Coat", html: colourFact(v) },
     { label: "Colony", html: colonyFact(v) },
-    { label: "Last seen", html: lastSeenFact(v, now) },
+    { label: "Last seen", html: lastSeenFact(v, now), ...(lastSource ? { source: lastSource } : {}) },
     ...(vaccinated ? [{ label: "Vaccinated", html: vaccinated }] : []),
   ];
 }
 
-/** The facts row as HTML: a list of label and value. */
-export function renderCatFacts(v: TeamCatView, now: Date): string {
+/** The facts panel as HTML: a row per fact, its source under the value, its evidence folded. */
+export function renderCatFacts(v: TeamCatView, now: Date, opts: FactsOpts): string {
   return (
-    '<dl class="catfacts">' +
-    catFacts(v, now).map((f) => `<div class="fact"><dt>${esc(f.label)}</dt><dd>${f.html}</dd></div>`).join("") +
+    '<h2 class="sr">What we know about this cat</h2><dl class="catfacts">' +
+    catFacts(v, now, opts)
+      .map(
+        (f) =>
+          `<div class="fact"><dt>${esc(f.label)}</dt><dd>${f.html}` +
+          (f.source ? `<span class="how">${esc(f.source)}</span>` : "") +
+          (f.why ?? "") +
+          "</dd></div>",
+      )
+      .join("") +
     "</dl>"
   );
 }

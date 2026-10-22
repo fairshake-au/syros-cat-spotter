@@ -865,7 +865,7 @@ describe("SYC-395 (D9): Open map links by viewer", () => {
   it("an owner's home position never has a link, even for the team (D5)", async () => {
     const res = await get(`/api/team/cats/${homeCat.id}`, staffCookie);
     expect(res.status).toBe(200);
-    expect(res.text).toContain(`<dt>Home pin</dt><dd>Pinned, in ${words(HOME)}</dd>`);
+    expect(res.text).toContain(`Home pin: Pinned, in ${words(HOME)}</span>`);
     expect(res.text).not.toContain(encodeURIComponent(`${HOME.lat.toFixed(5)},${HOME.lng.toFixed(5)}`));
   });
 });

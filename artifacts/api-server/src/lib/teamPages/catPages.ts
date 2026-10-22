@@ -4,7 +4,6 @@ import type { Confidence, LifeStatusValue } from "../resolve";
 import type {
   TeamCatView,
   TeamPhoto,
-  TeamResolved,
   TeamStatement,
 } from "../teamCatView";
 import { EAR_TIP_NOT_CLIPPED, FOOD_AND_WATER_OUT } from "../teamCatView";
@@ -17,7 +16,9 @@ import { renderPage } from "./layout";
 import { openMapLink, place } from "./position";
 import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
-import { coatPhraseOf, renderCatFacts, vaccineWord } from "./catFacts";
+import { byWhom, coatPhraseOf, renderCatFacts, statementHref, vaccineWord, type Shown } from "./catFacts";
+
+export type { Shown };
 import type { VisitLine } from "../vetVisits";
 import { euroText } from "../euros";
 import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
@@ -80,9 +81,6 @@ const sightingButtons = (sightingId: number, may: (c: Capability) => boolean): s
     : "",
 ];
 
-const row = (label: string, value: string) =>
-  `<dt>${esc(label)}</dt><dd>${value}</dd>`;
-
 /**
  * The public sterilised line, word for word as the app shows it
  * (catStatusLines.ts's sterilisedLineKey): only confirmed and likely say
@@ -93,17 +91,6 @@ function publicSterilisedText(s: { value: boolean | null; confidence: Confidence
     return s.value ? "Sterilised — confirmed by Syros Cats" : "Not sterilised — Syros Cats' records";
   if (s.confidence === "likely") return "Probably sterilised — a clipped ear tip has been seen";
   return "Not known yet";
-}
-
-/** The records' own answer, short, its uncertainty in the words (spec §7.2: no tag beside it). */
-function sterilisedText(s: { value: boolean | null; confidence: Confidence }): string {
-  if (s.value === null || s.confidence === "unknown") return "Not known yet";
-  if (s.value) {
-    if (s.confidence === "likely") return "Probably sterilised";
-    if (s.confidence === "reported") return "Reported sterilised";
-    return "Sterilised";
-  }
-  return s.confidence === "reported" ? "Reported not sterilised" : "Not sterilised";
 }
 
 function publicStatusText(s: DerivedCatStatus): string {
@@ -133,81 +120,9 @@ export interface TieMode {
 /** How many statements the history shows before "Show all" (SYC-219). */
 export const HISTORY_SHOWN = 20;
 
-/**
- * The statements the history on this page shows; null when it shows every
- * one. A link to a statement left out reloads the page with the full list.
- */
-type Shown = ReadonlySet<number> | null;
-
-const statementHref = (id: number, shown: Shown) =>
-  shown === null || shown.has(id) ? `#s-${id}` : `?history=all#s-${id}`;
-
 const statementLink = (id: number, shown: Shown) =>
   `<a href="${statementHref(id, shown)}">#${id}</a>`;
 
-/** Who said it, as the history shows it: "Eleni, cat guardian" for a guardian's word (PR 2.2). */
-const byWhom = (s: TeamStatement) => (s.asGuardian ? `${s.author.label}, cat guardian` : s.author.label);
-
-/**
- * The statements an answer rests on, in words: what was said, by whom and
- * when, each linking to its place in the history below.
- */
-function statementRefs(ids: number[], byId: Map<number, TeamStatement>, shown: Shown): string {
-  if (ids.length === 0) return "Nothing yet";
-  return (
-    '<ul class="refs">' +
-    ids
-      .map((id) => {
-        const s = byId.get(id);
-        if (!s) return `<li>${statementLink(id, shown)}</li>`;
-        return (
-          `<li><a href="${statementHref(id, shown)}">${esc(s.said)}</a> ` +
-          `<span class="meta">(${esc(byWhom(s))}, ${time(s.createdAt, day(s.createdAt))})</span></li>`
-        );
-      })
-      .join("") +
-    "</ul>"
-  );
-}
-
-function recordBlock<T>(
-  label: string,
-  r: TeamResolved<T>,
-  valueText: string,
-  extra: string,
-  byId: Map<number, TeamStatement>,
-  shown: Shown,
-): string {
-  return (
-    `<h3>${esc(label)}</h3><dl>` +
-    row("Status", esc(valueText)) +
-    // The resolver dates "nothing known" at the epoch (SYC-270): no date then.
-    (Date.parse(r.asOf) > 0 ? row("Since", time(r.asOf, day(r.asOf))) : "") +
-    row("Why we think so", statementRefs(r.supportingStatementIds, byId, shown)) +
-    (r.conflictingStatementIds.length
-      ? row("Says otherwise", `<div class="bad">${statementRefs(r.conflictingStatementIds, byId, shown)}</div>`)
-      : "") +
-    extra +
-    "</dl>"
-  );
-}
-
-/**
- * "Confirmed by Eleni, cat guardian, 14 October" (SYC-53 PR 2.2; spec §7.2):
- * when a cat guardian's statement decides the sterilisation answer, the team
- * sees whose word it is, and *This is wrong* (Mark wrong) is on that
- * statement in the history.
- */
-function guardianConfirmed(r: TeamResolved<boolean>, byId: Map<number, TeamStatement>, shown: Shown): string {
-  if (r.confidence !== "confirmed") return "";
-  const s = byId.get(r.supportingStatementIds[0] ?? -1);
-  if (!s || !s.asGuardian) return "";
-  return row(
-    "Confirmed by",
-    `${esc(byWhom(s))}, ${time(s.createdAt, day(s.createdAt))} · ` +
-      `<a href="${statementHref(s.id, shown)}">This is wrong?</a>`,
-  );
-}
 
 /**
  * The 30-day flag (spec §2.2, §7.2): a cat a guardian marked homed or
@@ -965,7 +880,6 @@ export function renderCatPage(
       ? '<p class="hiddenby">The main photo is hidden from the public. They see the newest photo of this cat that isn\'t hidden, or no photo if every one is. See <a href="#photos">All photos</a>.</p>'
       : "") +
     photoStrip(v);
-  const clipped = records.sterilised.clippedTipSightings;
 
   // The answer first (spec §7.1): photo, the facts, the small map, and what
   // the public sees in one line.
@@ -975,78 +889,9 @@ export function renderCatPage(
     (topDone ? notice : "") +
     deathNotice(v, byId, shown) +
     guardianMarkNotice(v, byId, shown) +
-    renderCatFacts(v, now) +
+    renderCatFacts(v, now, { byId, shown, island }) +
     sightingsMap(v) +
     `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`;
-
-  // The evidence behind the facts, folded (spec §7.3). It opens by itself when
-  // something says otherwise, so a disagreement is never hidden.
-  const conflicts =
-    records.lifeStatus.conflictingStatementIds.length + records.sterilised.conflictingStatementIds.length > 0;
-  const known =
-    `<details class="evidence"${conflicts ? " open" : ""}><summary><h2>What we know about this cat</h2></summary>` +
-    '<p class="hint">Team only. How we got to what the public sees.</p>' +
-    recordBlock(
-      "Life",
-      records.lifeStatus,
-      records.lifeStatus.value ? LIFE[records.lifeStatus.value] : "Not known",
-      (records.lifeStatus.notSeenSince
-        ? row("Not seen since", time(records.lifeStatus.notSeenSince, day(records.lifeStatus.notSeenSince)))
-        : "") +
-        (records.lifeStatus.presumedDeceased
-          ? row(
-              "Note",
-              "Not seen for over three years. The public sees “Not seen since…”, never that it may have died.",
-            )
-          : ""),
-      byId,
-      shown,
-    ) +
-    recordBlock(
-      "Sterilised",
-      records.sterilised,
-      sterilisedText(records.sterilised),
-      guardianConfirmed(records.sterilised, byId, shown) +
-      row(
-        "Clipped ear",
-        clipped === 0
-          ? "Not seen in any sighting"
-          : esc(`Seen in ${clipped} sighting${clipped === 1 ? "" : "s"}`),
-      ),
-      byId,
-      shown,
-    ) +
-    "<h3>Owner</h3><dl>" +
-    row(
-      "Owner",
-      v.owner.has
-        ? "Has an owner"
-        : v.owner.orphanedHome
-          ? "Has a home, but the owner deleted their data"
-          : "No owner",
-    ) +
-    // D13: after an owner deletes their data the note and pin stay, with no
-    // owner link, so show them whenever they are stored.
-    (v.owner.has || v.owner.homeDescription || v.owner.homePin
-      ? row(
-          v.owner.has ? "Where the owner says the cat lives" : "Where the cat lives, from a past owner",
-          v.owner.homeDescription ? esc(v.owner.homeDescription) : "No note",
-        ) + (v.owner.homePin ? row("Home pin", esc(`Pinned, in ${placeLabel(v.owner.homePin)}`)) : "")
-      : "") +
-    "</dl>" +
-    "<h3>Colony</h3><dl>" +
-    row(
-      "Colony",
-      v.colony
-        ? `<a href="/api/team/colonies/${v.colony.id}">${esc(v.colony.name)}</a>` +
-            (v.colony.wasName ? ` <span class="meta">(was “${esc(v.colony.wasName)}”)</span>` : "")
-        : "Not in a colony",
-    ) +
-    "</dl>" +
-    "<h3>First recorded</h3><dl>" +
-    row("Where", place(cat.lat, cat.lng, { link: island })) +
-    row("When", time(cat.createdAt)) +
-    "</dl></details>";
 
   // A compact list: date, place and thumbnail. The position, "Open map" and
   // the two buttons fold into each sighting's "More" menu (spec §7.3).
@@ -1151,7 +996,6 @@ export function renderCatPage(
       (opts.kept ? keptLine() : "") +
       summaryAndActions(summary, correctionForms(v, may, formsNotice, opts.colonies, opts.kept)) +
       issueStrip(opts.issues) +
-      known +
       renderAppearanceSection(v, may, opts.done) +
       sightings +
       visits +

@@ -193,18 +193,20 @@ describe("cat page layout", () => {
     expect(html).not.toContain("twocol");
     expect(html).toContain('<div class="catsummary">');
     expect(html).toContain('<div class="catactions"><h2 id="corrections">');
-    // The facts first, then the forms; the evidence after both, full width.
+    // The facts (headed "What we know about this cat") first, then the forms.
     const summary = html.indexOf('<div class="catsummary">');
     expect(html.indexOf('class="catfacts"')).toBeGreaterThan(summary);
     expect(html.indexOf('id="corrections"')).toBeGreaterThan(html.indexOf('class="catfacts"'));
-    expect(html.indexOf("What we know about this cat")).toBeGreaterThan(html.indexOf('id="corrections"'));
+    expect(html.indexOf("What we know about this cat")).toBeLessThan(html.indexOf('id="corrections"'));
   });
 
-  it("folds the evidence, and opens it by itself when something says otherwise", () => {
-    expect(renderCatPage(view(1), "Sam")).toContain('<details class="evidence"><summary><h2>What we know about this cat</h2>');
+  it("folds the evidence under each fact, and opens it by itself when something says otherwise", () => {
+    const quiet = renderCatPage(view(1), "Sam");
+    expect(quiet).toContain('<details class="why"><summary>Why we think so</summary>');
+    expect(quiet).not.toContain('<details class="evidence"');
     const v = view(3);
     v.records.sterilised.conflictingStatementIds = [2];
-    expect(renderCatPage(v, "Sam")).toContain('<details class="evidence" open>');
+    expect(renderCatPage(v, "Sam")).toContain('<details class="why" open>');
   });
 
   it("folds how changes work into a short note, in #192's words", () => {

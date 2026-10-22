@@ -214,6 +214,11 @@ form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12p
 .catfacts dd{margin:2px 0 0;font-size:16px;overflow-wrap:anywhere}
 .catfacts .mark{font-weight:400;align-items:flex-start}
 .catfacts .mark-icon{margin-top:3px}
+.catfacts .how{display:block;font-size:14px;color:#55524a}
+.catfacts .why summary{font-size:14px;color:#0b4553;cursor:pointer;min-height:44px;display:flex;align-items:center}
+.catfacts .why dl{margin:4px 0 8px;font-size:14px}
+.catfacts .why dt{font-weight:700;margin-top:6px}
+.catfacts .why dd{margin:0}
 .colourchip{display:inline-block;font-size:14px;border:1px solid #8a877e;border-radius:999px;padding:1px 10px;margin:0 2px 2px 0;color:#1d1d1b;background:#fff}
 .catfacts a:has(.colourchip){text-decoration:none}
 .publicline{font-size:14px;color:#3b3930;margin:8px 0 16px}
