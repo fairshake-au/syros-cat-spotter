@@ -297,6 +297,10 @@ input[type=date]{max-width:220px}
 .fixes summary,.statement summary,.typedfold summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .fixes details[open]{padding-bottom:12px}
 .fixes form,.statement form{margin:4px 0 0}
+.fixes details.update>summary{border:2px solid #0b5c6b;border-radius:8px;justify-content:center;margin:8px 0}
+.fixes details.update{padding:0;border:0;background:none}
+.fixes summary.risky{color:#8c1d18}
+.fixes a.coatlink{display:flex;align-items:center;min-height:44px;font-weight:700;color:#0b4553}
 .fixes form.diedform{margin:20px 0 4px}
 .fixes form.diedform button{width:100%;background:#fff;color:#8c1d18;border:2px solid #8c1d18}
 .fixes form.diedform button:hover{background:#fbeaea}

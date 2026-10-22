@@ -317,7 +317,7 @@ describe("the facts row on the page", () => {
 
   it("keeps #192's words", () => {
     expect(html).toContain("What we know about this cat");
-    expect(html).toContain(">Update this cat</h2>");
+    expect(html).toContain("<summary>Update this cat</summary>");
   });
 
   it("What the public sees is one line under the facts", () => {

@@ -192,7 +192,7 @@ describe("cat page layout", () => {
     const html = renderCatPage(view(1), "Sam", { may });
     expect(html).not.toContain("twocol");
     expect(html).toContain('<div class="catsummary">');
-    expect(html).toContain('<div class="catactions"><h2 id="corrections">');
+    expect(html).toContain('<div class="catactions"><div class="fixes" id="corrections">');
     // The facts (headed "What we know about this cat") first, then the forms.
     const summary = html.indexOf('<div class="catsummary">');
     expect(html.indexOf('class="catfacts"')).toBeGreaterThan(summary);

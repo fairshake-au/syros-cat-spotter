@@ -829,9 +829,9 @@ describe("test 12 (part): refusals", () => {
     const page = (await get(`/api/team/colonies/${colony}`)).text;
     expect(page).not.toContain(`/api/team/colonies/${colony}/cats`);
     const catPage = (await get(`/api/team/cats/${cat}`)).text;
-    expect(catPage).not.toContain("<summary>Colony</summary>");
+    expect(catPage).not.toContain("<summary>Change the colony</summary>");
     denied.cap = null;
-    expect((await get(`/api/team/cats/${cat}`)).text).toContain("<summary>Colony</summary>");
+    expect((await get(`/api/team/cats/${cat}`)).text).toContain("<summary>Change the colony</summary>");
     expect((await get(`/api/team/colonies/${colony}`)).text).toContain(`/api/team/colonies/${colony}/cats`);
   });
 
