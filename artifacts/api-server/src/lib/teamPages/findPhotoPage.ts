@@ -5,6 +5,7 @@ import { COLOUR_FILTERS, type CatListItem } from "../teamCatList";
 import { teamPhotoUrl } from "../teamCatView";
 import type { TieMode } from "./catPages";
 import { escapeHtml as esc } from "./escape";
+import { assetUrl } from "../teamAssets";
 import { renderPage } from "./layout";
 import { lastSeenWords } from "./lastSeen";
 import { markBadge } from "./marks";
@@ -119,6 +120,12 @@ export interface FindFormOptions extends Common {
   capped?: "person" | "team";
   /** A problem with the last try, drawn next to its field. */
   problem?: { field: "place" | "photo"; words: string };
+  /**
+   * Load find-photo.js (it locks the button once the search starts, SYC-522).
+   * Only for the form the GET route sends with the script header; the forms
+   * the POST sends back after a problem carry the strict header, no script.
+   */
+  scripted?: boolean;
 }
 
 function placeName(f: FindFilters, colonies: Common["colonies"]): string {
@@ -203,6 +210,8 @@ function photoForm(o: FindFormOptions): string {
       ">" +
       '<p class="hint">A JPEG, PNG, HEIC or WebP photo under 10 MB. Its location and other hidden details are removed before it is sent to the AI service the app already uses for matching. The photo isn\'t kept.</p>' +
       `<button type="submit" class="primary">${o.narrowing.count > FIND_MAX_CATS ? "Compare" : `Compare with ${cats(o.narrowing.count)}`}</button>` +
+      // Shown by find-photo.js when the search starts; with no script it stays hidden.
+      '<p class="hint" id="find-progress" role="status" hidden>Comparing your photo. This can take up to half a minute. Please keep this page open and don\'t tap again.</p>' +
       "</form>";
   }
   return `<section class="findstep"><h2>2. Your photo</h2>${inside}</section>`;
@@ -245,6 +254,7 @@ export function renderFindForm(o: FindFormOptions): string {
     active: o.tie ? "queue" : "cats",
     personName: o.personName,
     beforeTitle: backLink(o.tie, o.filters),
+    script: o.scripted ? assetUrl("find-photo.js") : undefined,
     body:
       // On a phone the field is well below the fold: say it at the top too.
       (o.problem

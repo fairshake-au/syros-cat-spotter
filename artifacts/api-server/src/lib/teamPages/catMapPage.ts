@@ -180,14 +180,16 @@ function buttonMap(o: CatMapOptions): string {
 /** The island Map page. Trusted HTML: fixed text, numbers, assetUrl() addresses and escapeHtml only. */
 export function renderCatMapPage(o: CatMapOptions): string {
   const top =
-    viewSwitch(o.filters, "map") +
+    // Same order as the grid (search and Filters, then Grid/Map), so the
+    // controls stay put when the person switches view (SYC-522).
     filterForm(o, true) +
+    viewSwitch(o.filters, "map") +
     `<div id="mapresults">${activeChips(o, true)}${countLine(o)}</div>` +
     (o.note ? `<p class="warn" role="status">${esc(o.note)}</p>` : "");
 
   if (!o.scripted) {
     return renderPage({
-      title: "Cats",
+      title: "Map",
       active: "map",
       personName: o.personName,
       mainClass: "wide",
@@ -231,7 +233,7 @@ export function renderCatMapPage(o: CatMapOptions): string {
     `<p class="attrib">Map pictures © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap contributors</a></p>` +
     "</div>";
   return renderPage({
-    title: "Cats",
+    title: "Map",
     active: "map",
     personName: o.personName,
     mainClass: "wide",

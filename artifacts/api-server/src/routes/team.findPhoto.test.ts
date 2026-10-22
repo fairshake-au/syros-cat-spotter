@@ -75,7 +75,8 @@ import {
 } from "../lib/teamPages/findPhotoPage";
 import { areaFor, currentAreas } from "../lib/areas/namedAreas";
 import { guardianOn, newColony, putInColony, RUN, signedPerson, type Signed } from "../test/roleKit";
-import { PHOTO_CSP, STRICT_CSP } from "../test/wideCsp";
+import { assetUrl } from "../lib/teamAssets";
+import { PHOTO_CSP, STRICT_CSP, WIDE_CSP } from "../test/wideCsp";
 
 const KEY = "vitest-find-key-0123456789abcdef-0123456789";
 const PREFIX = `vt-findroute-${RUN}-`;
@@ -260,8 +261,12 @@ describe("the form", () => {
     expect(res.text).toContain("3 cats to compare");
     expect(res.text).toContain('enctype="multipart/form-data"');
     expect(res.text).toContain(`<input type="hidden" name="colony" value="${colony}">`);
-    expect(res.headers["content-security-policy"]).toBe(STRICT_CSP);
-    expect(res.text).not.toContain("<script");
+    // SYC-522: the form alone carries find-photo.js, which locks the button once
+    // the search starts (one tap, one search); with no script it is a plain POST.
+    expect(res.headers["content-security-policy"]).toBe(WIDE_CSP);
+    expect([...res.text.matchAll(/<script src="([^"]+)"/g)].map((m) => m[1])).toEqual([assetUrl("find-photo.js")]);
+    expect(res.text).toContain('<p class="hint" id="find-progress" role="status" hidden>');
+    expect(res.text).toContain('<form class="findphoto" method="post"');
   });
 
   it("over 30 cats in a colony, the form says what the shortlist does and offers the photo form", async () => {
@@ -451,8 +456,9 @@ describe("the search", () => {
     expect(notCat.headers["content-security-policy"]).toBe(STRICT_CSP);
     const big = await search(team.cookie, { colony: String(colony) }, { bytes: Buffer.alloc(10 * 1024 * 1024 + 1, 1) });
     expect(big.headers["content-security-policy"]).toBe(STRICT_CSP);
+    // The form itself is the one 200 that loads find-photo.js (SYC-522).
     const page = await form(team.cookie, `?colony=${colony}`);
-    expect(page.headers["content-security-policy"]).toBe(STRICT_CSP);
+    expect(page.headers["content-security-policy"]).toBe(WIDE_CSP);
     for (const r of [notCat, big, page]) expect(r.text).not.toContain("data:image");
   });
 

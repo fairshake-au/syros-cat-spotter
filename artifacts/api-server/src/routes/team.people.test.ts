@@ -338,12 +338,21 @@ describe("colony names are drawn whole", () => {
   });
 });
 
-describe("the language wording", () => {
-  it('says "will be sent in English" for Greek and French while only English is live', async () => {
+describe("the roles are explained (SYC-522)", () => {
+  it("says what the team, management and a cat guardian can do, beside the role boxes", async () => {
     const html = (await get("/api/team/people", susan)).text;
-    expect(html).toContain("Greek (will be sent in English)");
-    expect(html).toContain("French (will be sent in English)");
-    expect(html).not.toContain("English (will be sent in English)");
+    expect(html).toContain("The team sees the whole island and records what they find.");
+    expect(html).toContain("Management can do all of that and also invite people");
+    expect(html).toContain("A cat guardian sees only the colonies they look after.");
+  });
+});
+
+describe("the language wording", () => {
+  it('says the email will still be in English for Greek and French while only English is live', async () => {
+    const html = (await get("/api/team/people", susan)).text;
+    expect(html).toContain("Greek (the email will still be in English)");
+    expect(html).toContain("French (the email will still be in English)");
+    expect(html).not.toContain("English (the email will still be in English)");
   });
   it("and says it again after sending an invitation in Greek", async () => {
     const res = await post("/api/team/people/invite", susan, {
