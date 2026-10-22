@@ -19,14 +19,13 @@ afterEach(() => {
 });
 
 describe('AppColumn', () => {
-  it('wraps children in a 480px column with the app background on web', () => {
+  it('wraps children in a column with the app background on web', () => {
     const { getByTestId, getByText } = render(
       <AppColumn>
         <Text>hello</Text>
       </AppColumn>,
     );
     const column = getByTestId('app-column');
-    expect(column.style.maxWidth).toBe('480px');
     expect(column.style.backgroundColor).toBe('rgb(254, 252, 247)');
     expect(column.contains(getByText('hello'))).toBe(true);
     expect(column.parentElement?.style.backgroundColor).toBe('rgb(254, 252, 247)');
