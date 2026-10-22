@@ -1486,11 +1486,14 @@ components:
           description: Name for a new unique cat (when no match)
         pickedFrom:
           type: string
-          enum: [nearby, search, name_prompt]
+          enum: [nearby, search, name_prompt, cat_page]
           description: >-
-            Which screen a hand pick came from. It only describes the phone's
+            Which screen a pick came from. It only describes the phone's
             own screen: the server never uses it to decide whether a choice
-            was a suggestion (choose-a-different-cat.md §4.6).
+            was a suggestion (choose-a-different-cat.md §4.6). nearby, search
+            and name_prompt are recorded on hand picks only; cat_page (the
+            cat page's "I've spotted" question) is recorded on suggested
+            picks too.
         openedPicker:
           type: boolean
           description: >-
