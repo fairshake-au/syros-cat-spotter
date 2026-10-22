@@ -15,6 +15,18 @@ export const MARK_WORD: Record<SterilisedMark, string> = {
   not_known: "Not known",
 };
 
+/**
+ * The bar's legend words. The bar stands alone (no column heading), so every
+ * word says it is about sterilisation: a bare "16 Not known" read as sixteen
+ * cats nobody knows.
+ */
+export const MARK_BAR_WORD: Record<SterilisedMark, string> = {
+  sterilised: "Sterilised",
+  probably: "Probably sterilised",
+  not_sterilised: "Not sterilised",
+  not_known: "Sterilisation not known",
+};
+
 /** The spec's colours for each mark (§12.2). */
 export const MARK_COLOUR: Record<SterilisedMark, string> = {
   sterilised: "#0a4d59",
@@ -99,13 +111,13 @@ function hundredths(counts: readonly number[], total: number): number[] {
  *
  * `words` and `empty` let a cat guardian's page give the four words and the
  * "no street cats" line in her language (SYC-396 PR 2.2); they are escaped
- * too. Left out, the team's English words are used.
+ * too. Left out, the team's English words (MARK_BAR_WORD) are used.
  */
 export function markBar(
   split: Split,
   opts: { label?: string; words?: Record<SterilisedMark, string>; empty?: string } = {},
 ): string {
-  const word = opts.words ?? MARK_WORD;
+  const word = opts.words ?? MARK_BAR_WORD;
   const emptyWords = opts.empty ?? "No street cats yet";
   // Whole, finite, non-negative counts only: anything else counts as none.
   const count = (v: number | undefined) => (Number.isFinite(v) ? Math.max(0, Math.floor(v!)) : 0);
