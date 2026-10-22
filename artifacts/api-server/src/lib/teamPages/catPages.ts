@@ -514,9 +514,9 @@ function issueStrip(strip: { reports: IssueReport[]; total: number } | null | un
     .map(
       (i) =>
         "<li>" +
-        // ?issue=open&r=: the Queue opens this card even when it's a folded,
-        // closed one (review of 7.1, finding 6); "open" shows no notice.
-        `<a href="/api/team?issue=open&amp;r=${esc(encodeURIComponent(i.id))}#r-${esc(encodeURIComponent(i.id))}">${esc(reasonLabel(i.reason))}</a> ` +
+        // ?open=: the Queue opens this row even when it's a folded, closed
+        // one (review of 7.1, finding 6; SYC-519), with no notice.
+        `<a href="/api/team?open=${esc(encodeURIComponent(i.id))}#r-${esc(encodeURIComponent(i.id))}">${esc(reasonLabel(i.reason))}</a> ` +
         `<span class="tag state">${esc(ISSUE_STATE[i.state])}</span>` +
         (i.photo?.hidden ? ' <span class="tag hiddennow">Photo hidden</span>' : "") +
         ` <span class="meta">${time(i.at)}</span>` +

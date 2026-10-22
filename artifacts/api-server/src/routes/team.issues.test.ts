@@ -136,7 +136,7 @@ describe("T7-1 (spec test 17): only view_welfare_queue sees an issue, anywhere",
     const catPage = await get(`/api/team/cats/${cat.id}`);
     expect(catPage.status).toBe(200);
     expect(catPage.text).toContain("Reports about this cat (1)");
-    expect(catPage.text).toContain(`href="/api/team?issue=open&amp;r=${r.publicId}#r-${r.publicId}"`);
+    expect(catPage.text).toContain(`href="/api/team?open=${r.publicId}#r-${r.publicId}"`);
   });
 
   it("a cat guardian with that cat in her colony is refused the section, its JSON, the reported photo and the alert's link", async () => {
@@ -521,9 +521,13 @@ describe("review of 7.1: the critic's findings, pinned", () => {
     const r = await seedReport({ publicId: `vt-iss-${RUN}-f6`, kind: "content", reason: "other", catId: cat.id, state: "done" });
     const shut = card((await get("/api/team")).text, r.publicId);
     expect(shut).toContain("<details>");
-    const opened = card((await get(`/api/team?issue=open&r=${r.publicId}`)).text, r.publicId);
+    const opened = card((await get(`/api/team?open=${r.publicId}`)).text, r.publicId);
     expect(opened).toContain("<details open>");
     expect(opened).not.toContain('class="notice"');
+    // An old ?issue=open&r= link still opens it, with no notice.
+    const old = card((await get(`/api/team?issue=open&r=${r.publicId}`)).text, r.publicId);
+    expect(old).toContain("<details open>");
+    expect(old).not.toContain('class="notice"');
   });
 
   it("finding 7: hide_skipped is said in words", async () => {
