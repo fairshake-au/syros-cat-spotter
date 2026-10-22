@@ -1,6 +1,6 @@
 # The team cat page, redesigned
 
-**Status:** draft for Samuel's approval, 22 Oct 2026. D1 and D2 decided the same day (§6).
+**Status:** approved by Samuel, 22 Oct 2026 ("approved, write the plan"). D1 and D2 decided the same day (§6).
 **Covers:** the page the team sees for one cat in the dashboard (`/api/team/cats/:id`, `renderCatPage` in `artifacts/api-server/src/lib/teamPages/catPages.ts`).
 **Mockup:** [`assets/team-cat-page-redesign/mockup.html`](assets/team-cat-page-redesign/mockup.html). Open it in a browser and narrow the window to see the phone layout.
 **Builds on:** [team-dashboard-redesign.md](team-dashboard-redesign.md) §7 (the team cat page) and §12 (design rules). Where this document and §7 differ, this one wins. Everything else in that spec still stands.
