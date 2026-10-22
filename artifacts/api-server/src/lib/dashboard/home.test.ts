@@ -8,11 +8,12 @@ import { listWelfareQueue, type QueueReport, type WelfareQueue } from "../welfar
 import { listLikelyForReview, type LikelyCat } from "../likelyReview";
 import { listColourCheck, type ColourCheckCat } from "../colourCheck";
 import type { TeamCat } from "../teamCatList";
+import type { ColonyFigures } from "./colonyFigures";
 import { athensMonths } from "../athensTime";
 import {
   countAwaitingMatch,
   countOpenIssues,
-  HOME_NEEDS_LIMIT,
+  HOME_LINES_LIMIT,
   homeData,
   monthFigures,
   vetSpend,
@@ -117,6 +118,8 @@ const pure = (over: Partial<HomeDeps> = {}): Partial<HomeDeps> => ({
   loadTeamCats: async () => [],
   monthFigures: async () => ({ sightings: 0, newCats: 0, sterilisations: 0, vetSpendEur: 0 }),
   allColonyChoices: async () => [],
+  colonyFigures: async () => new Map(),
+  standardPriceNow: async () => 60,
   ...over,
 });
 
@@ -128,20 +131,50 @@ describe("Needs us now", () => {
     const after = (await homeData(NOW)).needs;
     expect(before.ok && after.ok).toBe(true);
     if (!before.ok || !after.ok) return;
-    expect(after.value.reportsTotal).toBe(before.value.reportsTotal + 2);
+    const total = (n: typeof after.value) => n.linesTotal + n.otherOpen;
+    expect(total(after.value)).toBe(total(before.value) + 2);
     const ids = (await listWelfareQueue()).open.map((r) => r.id);
     expect(ids.indexOf(urgent.publicId)).toBeGreaterThan(-1);
     expect(ids.indexOf(urgent.publicId)).toBeLessThan(ids.indexOf(newer.publicId));
   });
 
-  it("shows the first five in the queue's order, and counts them all", async () => {
-    const open = Array.from({ length: 7 }, (_, i) => fakeReport(`r${i}`));
+  const at = (h: number) => new Date(Date.UTC(2026, 9, 18, h)).toISOString();
+
+  it("lines are urgent and kitten reports, urgent first then newest", async () => {
+    const open = [
+      fakeReport("urgent-09", { severity: "urgent", at: at(9) }),
+      fakeReport("litter-11", { isLitter: true, at: at(11) }),
+      fakeReport("plain-12", { at: at(12) }),
+      fakeReport("urgent-10", { severity: "urgent", at: at(10) }),
+    ];
     const d = await homeData(NOW, pure({ listWelfareQueue: async () => fakeQueue({ open }) }));
     expect(d.needs.ok).toBe(true);
     if (!d.needs.ok) return;
-    expect(HOME_NEEDS_LIMIT).toBe(5);
-    expect(d.needs.value.reports.map((r) => r.id)).toEqual(["r0", "r1", "r2", "r3", "r4"]);
-    expect(d.needs.value.reportsTotal).toBe(7);
+    expect(d.needs.value.lines.map((r) => r.id)).toEqual(["urgent-10", "urgent-09", "litter-11"]);
+    expect(d.needs.value.linesTotal).toBe(3);
+    expect(d.needs.value.otherOpen).toBe(1);
+  });
+
+  it("an urgent litter report is one line, counted once", async () => {
+    const open = [fakeReport("both", { severity: "urgent", isLitter: true })];
+    const d = await homeData(NOW, pure({ listWelfareQueue: async () => fakeQueue({ open }) }));
+    expect(d.needs.ok && d.needs.value.lines.map((r) => r.id)).toEqual(["both"]);
+    expect(d.needs.ok && [d.needs.value.linesTotal, d.needs.value.otherOpen]).toEqual([1, 0]);
+  });
+
+  it("seven lines of kind cap at five; linesTotal 7; otherOpen excludes them", async () => {
+    const open = [
+      ...Array.from({ length: 7 }, (_, i) => fakeReport(`u${i}`, { severity: "urgent", at: at(10 - i) })),
+      fakeReport("plain-a"),
+      fakeReport("plain-b"),
+    ];
+    const d = await homeData(NOW, pure({ listWelfareQueue: async () => fakeQueue({ open }) }));
+    expect(d.needs.ok).toBe(true);
+    if (!d.needs.ok) return;
+    expect(HOME_LINES_LIMIT).toBe(5);
+    expect(d.needs.value.lines.map((r) => r.id)).toEqual(["u0", "u1", "u2", "u3", "u4"]);
+    expect(d.needs.value.linesTotal).toBe(7);
+    expect(d.needs.value.otherOpen).toBe(2);
   });
 
   it("counts the reports waiting for a check apart: they are not in the open total", async () => {
@@ -153,7 +186,7 @@ describe("Needs us now", () => {
     expect(d.needs.ok).toBe(true);
     if (!d.needs.ok) return;
     expect(d.needs.value.unchecked).toBe(3);
-    expect(d.needs.value.reportsTotal).toBe(2);
+    expect(d.needs.value.linesTotal + d.needs.value.otherOpen).toBe(2);
   });
 
   it("SYC-519: Home asks the queue for no drafts and carries none", async () => {
@@ -236,72 +269,108 @@ describe("Cats to check", () => {
     const colour = await listColourCheck(NOW);
     expect(d.toCheck.ok).toBe(true);
     if (!d.toCheck.ok) return;
-    expect(d.toCheck.value.earClips.count).toBe(likely.length);
-    expect(d.toCheck.value.colour.count).toBe(colour.filter((c) => c.group === "check").length);
+    expect(d.toCheck.value.earClips).toBe(likely.length);
+    expect(d.toCheck.value.colour).toBe(colour.filter((c) => c.group === "check").length);
   });
 
-  it("takes a cat's first evidence photo that has an address, not just its first item", async () => {
-    const likely = [
-      { catId: 1, evidence: [{ photoUrl: null }, { photoUrl: "/api/team/photos/second" }] },
-    ] as unknown as LikelyCat[];
-    const d = await homeData(NOW, pure({ listLikelyForReview: async () => likely }));
-    expect(d.toCheck.ok && d.toCheck.value.earClips.photos).toEqual(["/api/team/photos/second/small"]);
-  });
-
-  it("counts only the 'check' group, shows at most four small photos, and skips cats with none", async () => {
-    const likely = Array.from({ length: 6 }, (_, i) => ({
-      catId: i,
-      evidence: [{ photoUrl: i === 0 ? null : `/api/team/photos/e${i}` }],
-    })) as unknown as LikelyCat[];
+  it("toCheck is counts only", async () => {
+    const likely = Array.from({ length: 6 }, (_, i) => ({ catId: i, evidence: [] })) as unknown as LikelyCat[];
     const colour = [
       { catId: 1, group: "check", photoUrl: "/api/team/photos/c1" },
       { catId: 2, group: "check", photoUrl: null },
       { catId: 3, group: "not_described", photoUrl: "/api/team/photos/c3" },
     ] as unknown as ColourCheckCat[];
-    const d = await homeData(
-      NOW,
-      pure({ listLikelyForReview: async () => likely, listColourCheck: async () => colour }),
-    );
-    expect(d.toCheck.ok).toBe(true);
-    if (!d.toCheck.ok) return;
-    expect(d.toCheck.value.earClips).toEqual({
-      count: 6,
-      photos: ["/api/team/photos/e1/small", "/api/team/photos/e2/small", "/api/team/photos/e3/small", "/api/team/photos/e4/small"],
-    });
-    expect(d.toCheck.value.colour).toEqual({ count: 2, photos: ["/api/team/photos/c1/small"] });
+    const d = await homeData(NOW, pure({ listLikelyForReview: async () => likely, listColourCheck: async () => colour }));
+    expect(d.toCheck).toEqual({ ok: true, value: { earClips: 6, colour: 2 } });
   });
 });
 
-describe("Not seen lately and the headline", () => {
-  const DAY = 86_400_000;
-  it("lists street cats quiet for six weeks, most recently seen first, at most six", async () => {
-    const cats = [
-      ...Array.from({ length: 8 }, (_, i) =>
-        fakeCat({ id: 10 + i, lastSeenAt: new Date(NOW.getTime() - (43 + i) * DAY), colonyId: 7 }),
-      ),
-      fakeCat({ id: 30, lastSeenAt: new Date(NOW.getTime() - 41 * DAY) }),
-      fakeCat({ id: 31, lives: "homed", lastSeenAt: new Date(NOW.getTime() - 100 * DAY) }),
-    ];
-    const visible = { ids: null } as never;
+describe("Where to trap next", () => {
+  const visible = { ids: null } as never;
+
+  function fig(id: number, notSterilised: number, flags: ColonyFigures["flags"] = []): ColonyFigures {
+    return {
+      colonyId: id,
+      street: notSterilised,
+      split: { sterilised: 0, probably: 0, not_known: 0, not_sterilised: notSterilised },
+      confirmedPct: 0,
+      catCount: notSterilised,
+      latestSightingAt: null,
+      flags,
+      guardianNames: [],
+    };
+  }
+
+  it("trapNext reuses Home's loaded cats", async () => {
+    const cats = [fakeCat({ id: 1, colonyId: 7, mark: "not_sterilised" })];
+    let loads = 0;
+    let passed: unknown;
+    let island: unknown;
     const d = await homeData(
       NOW,
-      pure({ loadTeamCats: async () => cats, allColonyChoices: async () => [{ id: 7, name: "Harbour" }] }),
+      pure({
+        loadTeamCats: async () => ((loads += 1), cats),
+        colonyFigures: async (_v, opts) => ((passed = opts.cats), (island = opts.island), new Map([[7, fig(7, 1)]])),
+        allColonyChoices: async () => [{ id: 7, name: "Harbour" }],
+      }),
       visible,
     );
-    expect(d.notSeenLately.ok).toBe(true);
-    if (!d.notSeenLately.ok) return;
-    expect(d.notSeenLately.value.cats.map((c) => c.id)).toEqual([10, 11, 12, 13, 14, 15]);
-    expect(d.notSeenLately.value.total).toBe(8);
-    expect(d.notSeenLately.value.colonyNames).toEqual({ 7: "Harbour" });
+    expect(loads).toBe(1);
+    expect(passed).toBe(cats);
+    expect(island).toBe(true);
+    expect(d.trapNext.ok).toBe(true);
+    if (!d.trapNext.ok) return;
+    expect(d.trapNext.value.colonies.map((c) => [c.name, c.toDo])).toEqual([["Harbour", 1]]);
+    expect(d.trapNext.value.colonyCount).toBe(1);
   });
 
-  it("names no colony without the viewer's colonies (fails closed)", async () => {
+  it("trapNext for a viewer who isn't island-wide fails closed (the 300 m kittens rule reads exact positions)", async () => {
     let asked = false;
-    const d = await homeData(NOW, pure({ allColonyChoices: async () => ((asked = true), [{ id: 7, name: "Harbour" }]) }));
+    const d = await homeData(
+      NOW,
+      pure({ colonyFigures: async () => ((asked = true), new Map()) }),
+      { ids: [7] } as never,
+    );
+    expect(d.trapNext.ok).toBe(false);
     expect(asked).toBe(false);
-    expect(d.notSeenLately.ok && d.notSeenLately.value.colonyNames).toEqual({});
   });
 
+  it("trapNext without visible fails closed", async () => {
+    let asked = false;
+    const d = await homeData(NOW, pure({ colonyFigures: async () => ((asked = true), new Map()) }));
+    expect(d.trapNext.ok).toBe(false);
+    expect(asked).toBe(false);
+  });
+
+  it("trapNext noColony counts street cats with no colony that aren't sterilised", async () => {
+    const cats = [
+      fakeCat({ id: 1, colonyId: null, mark: "not_sterilised" }),
+      fakeCat({ id: 2, colonyId: null, mark: "probably" }),
+      fakeCat({ id: 3, colonyId: null, mark: "sterilised" }),
+      fakeCat({ id: 4, colonyId: null, mark: "not_known", lives: "homed" }),
+      fakeCat({ id: 5, colonyId: 7, mark: "not_sterilised" }),
+    ];
+    const d = await homeData(NOW, pure({ loadTeamCats: async () => cats }), visible);
+    expect(d.trapNext.ok && d.trapNext.value.noColony).toBe(2);
+  });
+
+  it("carries the standard price from Vet settings", async () => {
+    const d = await homeData(NOW, pure({ standardPriceNow: async () => 55 }), visible);
+    expect(d.trapNext.ok && d.trapNext.value.priceEur).toBe(55);
+  });
+
+  it("a failing colony read fails only Where to trap next", async () => {
+    const d = await homeData(
+      NOW,
+      pure({ colonyFigures: async () => { throw new Error("boom"); } }),
+      visible,
+    );
+    expect(d.trapNext.ok).toBe(false);
+    expect(d.needs.ok && d.headline.ok && d.toCheck.ok && d.month.ok).toBe(true);
+  });
+});
+
+describe("the headline", () => {
   it("the headline counts street cats, through countedCats", async () => {
     const cats = [
       fakeCat({ id: 1, mark: "sterilised" }),
@@ -386,13 +455,13 @@ describe("one failing figure doesn't take Home down (§13)", () => {
   it("a failing queue fails only Needs us now", async () => {
     const d = await homeData(NOW, pure({ listWelfareQueue: async () => { throw new Error("queue down"); } }));
     expect(d.needs).toEqual({ ok: false });
-    expect([d.toCheck.ok, d.notSeenLately.ok, d.headline.ok, d.month.ok]).toEqual([true, true, true, true]);
+    expect([d.toCheck.ok, d.headline.ok, d.month.ok]).toEqual([true, true, true]);
   });
 
   it("failing cats fail only the sections built on them", async () => {
-    const d = await homeData(NOW, pure({ loadTeamCats: async () => { throw new Error("cats down"); } }));
+    const d = await homeData(NOW, pure({ loadTeamCats: async () => { throw new Error("cats down"); } }), { ids: null } as never);
     expect([d.needs.ok, d.toCheck.ok]).toEqual([true, true]);
-    expect([d.notSeenLately.ok, d.headline.ok, d.month.ok]).toEqual([false, false, false]);
+    expect([d.trapNext.ok, d.headline.ok, d.month.ok]).toEqual([false, false, false]);
   });
 });
 

@@ -158,7 +158,8 @@ const FLAG_SHAPE: Record<ColonyFlag, string> = {
     '<path d="M2.5 13.5l11-11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
 };
 
-function flagChip({ w }: Words, f: ColonyFlag): string {
+/** A flag as a word and its icon. Home borrows it for Kittens reported (SYC-603). */
+export function flagChip({ w }: Words, f: ColonyFlag): string {
   return (
     `<span class="cflag cflag-${f}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">${FLAG_SHAPE[f]}</svg>` +
     `${w(FLAG_WORD[f])}</span>`
