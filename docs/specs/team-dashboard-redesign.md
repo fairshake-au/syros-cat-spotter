@@ -188,11 +188,11 @@ The Cats screen opens on **every active cat**, most recently seen first. It's a 
 
 **Who and what it's for.** It's for the team only, and sits on the Cats screen as **"Find from a photo"**. The team chooses or takes a photo, for example one a resident sent on WhatsApp, and narrows the search before it runs.
 
-**Narrowing.** The search compares the photo against a limited set of cats, so the team says where to look:
-- **Where:** "Anywhere on the island" (the first choice, and the one chosen when nothing else is), a named area, or a colony. With "Anywhere on the island" chosen, the form says: "Anywhere on the island compares every cat. If you know where the photo was taken, choosing the area is surer."
+**Where to look.** The team says where to look: anywhere on the island, a named area, or a colony.
+- **Where:** "Anywhere on the island" (the first choice, and the one chosen when nothing else is), a named area, or a colony. With "Anywhere on the island" chosen and 30 cats or fewer, the form says: "Anywhere on the island compares every cat. If you know where the photo was taken, choosing the area is surer." Over 30, it says only: "If you know where the photo was taken, choosing the area is surer."
 - **Strongly suggested:** one or more colour chips.
-- The page shows how many cats that leaves ("34 cats to compare", or "34 cats to compare across the island").
-- If more than 30 cats are left, it asks for a colour or a smaller area before it will run. On the island it says: "There are now too many cats to compare them all at once. Choose an area or a colony."
+- The page shows how many cats with a photo that leaves ("28 cats to compare", or "28 cats to compare across the island").
+- **Over 30 cats, the app shortlists** (`find-from-a-photo-whole-island.md` §3). The page says: "412 cats on the island. The app picks the 20 whose photos look most like yours, then compares those closely. This can take up to a minute." For a place, the first sentence names it ("45 cats in Ermoupoli.").
 
 **How it compares.** It uses the matching model the app uses for sightings. The app's matching compares a photo with at most 10 nearby cats in one go, so Find from a photo works through the narrowed cats **in groups of up to 10** (at most 3 groups). The best few from all the groups are then compared again together in one final round, so their scores can be ranked against each other.
 
@@ -201,7 +201,7 @@ The Cats screen opens on **every active cat**, most recently seen first. It's a 
 - **Possible:** from 0.5 up to 0.8;
 - **Unlikely:** below 0.5. These are folded away under "Show unlikely matches".
 
-**What the page says plainly.** "This is less sure than the app's matching, because it compares more cats at once and has no exact position. Check the photos yourself." The team always decides; the dashboard never does.
+**What the page says plainly.** "This is less sure than the app's matching, because it compares more cats at once and has no exact position. Check the photos yourself." When the shortlist was used: "This is less sure than the app's matching. It first picked the 20 cats whose photos look most like yours. A cat photographed in different light, from another angle or somewhere else can be missed. Check the photos yourself, and if you know where the photo was taken, try choosing the area." The results line then reads "Compared closely with the 20 of 412 cats whose photos look most like yours". The team always decides; the dashboard never does.
 
 **Afterwards.** From the results, the team can open a cat, or tie a welfare report to it when they came from the Queue. If nothing scores above Unlikely, the page says "No close match among these 34 cats" and offers to browse them as a grid.
 
@@ -212,7 +212,7 @@ The Cats screen opens on **every active cat**, most recently seen first. It's a 
 - This spec doesn't save it as a sighting. A sighting needs a phone behind it, and team-made sightings would be a separate change.
 
 **Cost.**
-- A search makes at most 4 AI requests (3 groups, plus the final comparison).
+- A search makes at most 4 AI requests (3 groups, plus the final comparison). A shortlisted search makes 3.
 - Searches are capped at 20 per team member per day, and 100 a day across the team. The page shows the cap once it's reached.
 - The cap is set after measuring the real cost per search in the first week.
 
@@ -660,7 +660,7 @@ These rules follow the data-visualisation method.
 |---|---|---|
 | Home | "No reports waiting." The headline and This month still show. | If a figure can't be worked out: "This figure isn't available right now", and the rest of Home still shows. |
 | Cats | No cats: "No cats recorded yet. Cats appear here once spotters send sightings." No match: §5.1. | — |
-| Find from a photo | No close match: §5.2. | AI service down or unreadable: §5.2. Over the daily cap: "You've used today's 20 searches. They reset at midnight." |
+| Find from a photo | No close match: §5.2; when shortlisted, "No close match among the 20 cats whose photos look most like yours. Try choosing an area, or browse the cats." Cats left out of a shortlist: "12 newer cats weren't included this time. Choose an area to include them." | AI service down or unreadable: §5.2. The looks-like index can't run: "Searching the whole island isn't working right now. Choose an area or a colony to search without it." (no search is used). Over the daily cap: "You've used today's 20 searches. They reset at midnight." |
 | Map | No cats match: the map shows, with "No cats match these filters" and "Clear filters". | Map pictures or script fail: §6.3. |
 | Colony planner | No to-do: "Every street cat here is sterilised." | — |
 | Reports | No data in the period: "Nothing recorded in this period", with the range shown and a link to "All time". | — |
@@ -698,6 +698,8 @@ This is a guide for the implementation plan, not a design in itself.
 **Vet visits** are a new kind of record, `vet_visit`. They're saved and undone together with the statements they create (§8.3).
 
 **Small photo versions:** §11.
+
+**The looks-like index** (Find from a photo over 30 cats; `find-from-a-photo-whole-island.md` §4–§7): a small open-source image model (DINOv2 small) runs on our own server, so no new company sees a photo. Each display photo's fingerprint is kept in an ordinary table, one row per photo. Database triggers delete it when the photo is hidden or removed. A nightly job, plus short top-ups during a search, makes the missing ones.
 
 ## 15. Build order
 
