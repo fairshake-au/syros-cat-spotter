@@ -104,9 +104,8 @@ main:focus{outline:none}
 background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100% no-repeat local,linear-gradient(to left,#fff 40%,rgba(255,255,255,0)) right/28px 100% no-repeat local,radial-gradient(farthest-side at 0 50%,rgba(29,29,27,.22),rgba(29,29,27,0)) left/12px 100% no-repeat scroll,radial-gradient(farthest-side at 100% 50%,rgba(29,29,27,.22),rgba(29,29,27,0)) right/12px 100% no-repeat scroll;background-color:#fff}
 .bar :focus-visible{outline-offset:-3px}
 .bar::-webkit-scrollbar{display:none}
-/* The menu starts where the page's text starts. */
-.bar{padding-inline:max(12px,calc((100% - 760px) / 2 + 12px))}
-.bar.wide{padding-inline:max(12px,calc((100% - 1120px) / 2 + 12px))}
+/* One width on every page, so the menu never jumps sideways (SYC-577). */
+.bar,.bar.wide{padding-inline:max(12px,calc((100% - 1120px) / 2 + 12px))}
 .bar>a,.bar>span{font:inherit;font-size:15px;padding:8px 2px;min-height:44px;min-width:44px;justify-content:center;display:inline-flex;align-items:center;flex:none}
 .bar .here{font-weight:700;color:#1d1d1b;border-bottom:3px solid #0b5c6b;text-decoration:none}
 .bar .off{color:#6b685f}
@@ -120,7 +119,8 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
    away: if the menu is too long for the screen (768–1000px), it slides
    under Sign out (adversarial review of PR 1.6). */
 @media (min-width:600px){.bar,.bar.wide{padding-right:0}.bar>form{position:sticky;right:0;z-index:1;background:#fff;padding:0 16px 0 10px;box-shadow:-8px 0 8px -6px rgba(29,29,27,.22)}.bar>.who{min-width:0}}
-@media (max-width:599px){.bar,.bar.wide{gap:0 6px;padding-inline:10px}.bar .long{display:none}.bar .short{display:inline}.bar>.who{max-width:none;flex:none}}
+/* On a phone the menu wraps onto more rows, so every link is in view with no script (SYC-522). */
+@media (max-width:599px){.bar,.bar.wide{gap:0 10px;padding-inline:10px;flex-wrap:wrap;overflow:visible;white-space:normal;background:#fff}.bar .long{display:none}.bar .short{display:inline}.bar>.who{max-width:none;flex:1 1 100%;order:1;margin-left:0;padding:4px 2px 0}.bar>form{order:2;margin-left:auto}}
 main{max-width:760px;margin:0 auto;padding:12px 12px 48px}
 main.wide{max-width:1120px}
 h1{font-size:22px;margin:12px 0 4px}
@@ -291,7 +291,8 @@ input[type=date]{max-width:220px}
 .fixes details[open]{padding-bottom:12px}
 .fixes form,.statement form{margin:4px 0 0}
 .fixes form.diedform{margin:20px 0 4px}
-.fixes form.diedform button{width:100%}
+.fixes form.diedform button{width:100%;background:#fff;color:#8c1d18;border:2px solid #8c1d18}
+.fixes form.diedform button:hover{background:#fbeaea}
 .photo.catmain.diedphoto{max-height:140px}
 fieldset{border:0;margin:0 0 8px;padding:0}
 legend{padding:0}
