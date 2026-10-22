@@ -272,13 +272,15 @@ describe("fillMissing", () => {
     model.onCall = () => {
       now += 10;
     };
-    // The first fill has budget for one photo (starts at 0; the next would
-    // start at 10). The second starts at 0 too, with budget 25, but waits
-    // for the first; by then 10 has passed, so it has time for two more.
-    const [first, second] = await Promise.all([fillMissing([a!, b!, c!], 5), fillMissing([a!, b!, c!], 25)]);
+    // The first fill has budget for one photo (it starts a at 0; b would
+    // start at 10, past its 5). The second is called at 0 too, with budget
+    // 15, and waits for the first. Its budget runs from its own call, so the
+    // 10 spent waiting counts: it starts b at 10 and stops before c at 20.
+    // (Timed from the end of the wait instead, it would do c as well.)
+    const [first, second] = await Promise.all([fillMissing([a!, b!, c!], 5), fillMissing([a!, b!, c!], 15)]);
     expect(first).toEqual({ made: 1, failed: 0, left: [b, c] });
-    expect(second).toEqual({ made: 2, failed: 0, left: [] });
-    expect(model.calls).toBe(3);
+    expect(second).toEqual({ made: 1, failed: 0, left: [c] });
+    expect(model.calls).toBe(2);
   });
 
   it("after a fill ends, even with every photo failed, the next fill runs", async () => {
