@@ -141,8 +141,12 @@ export interface QueueReport {
   contactLeft: boolean;
   /** What happened to the reporter's emails; null when they left no address. */
   emailToReporter: EmailToReporter | null;
-  /** SYC-515: what happens to the reporter if this closes. */
-  onClose: ReporterOnClose;
+  /**
+   * SYC-515: what happens to the reporter if this closes. Only when asked
+   * for (`{ onClose: true }`): the JSON routes show it, the pages don't, so
+   * the Queue and Home never work it out.
+   */
+  onClose?: ReporterOnClose;
   teamNote: string | null;
   teamNoteAt: string | null;
   teamNoteBy: TeamPerson | null;
@@ -257,7 +261,7 @@ async function onCloseFor(
   return out;
 }
 
-function toReport(r: Row, mail: Map<number, ReportMail>, onClose: ReporterOnClose): QueueReport {
+function toReport(r: Row, mail: Map<number, ReportMail>, onClose: ReporterOnClose | undefined): QueueReport {
   const status = r.photoState as PhotoStatus;
   const hasPhoto = status === "attached" && r.photoPublicId !== null;
   return {
@@ -281,7 +285,7 @@ function toReport(r: Row, mail: Map<number, ReportMail>, onClose: ReporterOnClos
     suggestedCat: suggestedCatOf(r),
     contactLeft: Boolean(mail.get(r.id)?.contact),
     emailToReporter: reporterState(mail.get(r.id)),
-    onClose,
+    ...(onClose === undefined ? {} : { onClose }),
     teamNote: r.teamNote,
     teamNoteAt: r.teamNoteAt?.toISOString() ?? null,
     teamNoteBy: person(r.notedByName, r.notedByLeftAt),
@@ -418,6 +422,7 @@ async function mailStatesFor(ids: number[]): Promise<Map<number, ReportMail>> {
  */
 export async function getQueueReport(
   publicId: string,
+  opts: { onClose?: boolean } = {},
 ): Promise<QueueReport | null> {
   const [row] = await reportsQuery(
     and(
@@ -427,7 +432,8 @@ export async function getQueueReport(
   );
   if (!row) return null;
   const mail = await mailStatesFor([row.id]);
-  return toReport(row, mail, (await onCloseFor([row.id], mail)).get(row.id)!);
+  const onClose = opts.onClose === true ? (await onCloseFor([row.id], mail)).get(row.id) : undefined;
+  return toReport(row, mail, onClose);
 }
 
 /**
@@ -443,6 +449,12 @@ export async function listWelfareQueue(
      * the four draft queries are skipped. The JSON route keeps them.
      */
     drafts?: boolean;
+    /**
+     * Work out each report's `onClose` (a query per report with an address
+     * on file). Only the JSON route asks; the Queue page and Home show it
+     * nowhere, so they leave it off.
+     */
+    onClose?: boolean;
   } = {},
 ): Promise<WelfareQueue> {
   const withDrafts = opts.drafts !== false;
@@ -528,10 +540,10 @@ export async function listWelfareQueue(
   const mailByReport = await mailStatesFor(
     [...openRows, ...closedRows, ...uncheckedRows].map((r) => r.id),
   );
-  const onClose = await onCloseFor(
-    [...openRows, ...closedRows, ...uncheckedRows].map((r) => r.id),
-    mailByReport,
-  );
+  const onClose =
+    opts.onClose === true
+      ? await onCloseFor([...openRows, ...closedRows, ...uncheckedRows].map((r) => r.id), mailByReport)
+      : new Map<number, ReporterOnClose>();
   const toDraft = (d: (typeof draftRows)[number]): QueueDraft => ({
     id: d.publicId,
     severity: d.severity as QueueDraft["severity"],
@@ -542,13 +554,13 @@ export async function listWelfareQueue(
   });
 
   return {
-    open: openRows.map((r) => toReport(r, mailByReport, onClose.get(r.id)!)),
-    closed: closedRows.map((r) => toReport(r, mailByReport, onClose.get(r.id)!)),
+    open: openRows.map((r) => toReport(r, mailByReport, onClose.get(r.id))),
+    closed: closedRows.map((r) => toReport(r, mailByReport, onClose.get(r.id))),
     closedTotal: Number(closedCount[0]?.n ?? 0),
     drafts: draftRows.map(toDraft),
     draftsTotal: Number(draftCount[0]?.n ?? 0),
     unchecked: {
-      reports: uncheckedRows.map((r) => toReport(r, mailByReport, onClose.get(r.id)!)),
+      reports: uncheckedRows.map((r) => toReport(r, mailByReport, onClose.get(r.id))),
       reportsTotal: Number(uncheckedCount[0]?.n ?? 0),
       drafts: uncheckedDraftRows.map(toDraft),
       draftsTotal: Number(uncheckedDraftCount[0]?.n ?? 0),

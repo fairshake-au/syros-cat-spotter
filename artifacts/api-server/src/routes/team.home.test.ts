@@ -159,7 +159,8 @@ describe("renderHomePage", () => {
     expect(html).not.toContain("x".repeat(81));
     expect(html).not.toContain("<b>");
     expect(html).toContain('<a class="hlink" href="/api/team">See all 9 in the Queue</a>');
-    expect(html).toContain('href="/api/team#unchecked">2 reports waiting for a check</a>');
+    expect(html).toContain('href="/api/team#unchecked">2 reports arrived while our spam check was down</a>');
+    expect(html).not.toContain("waiting for a check");
     expect(html).not.toContain("Started but not sent");
     expect(html).not.toContain("#d-");
     expect(html).not.toContain('id="d-');

@@ -25,11 +25,6 @@ import { firstWords } from "./noteWords";
 // report to someone, sets a deadline, or pages anybody. Test P1-6 pins the
 // words.
 
-const SEVERITY: Record<QueueReport["severity"], string> = {
-  urgent: "Urgent",
-  attention: "Needs attention",
-};
-
 const STATE: Record<QueueReport["state"], string> = {
   new: "New",
   looking: "Looking at it",
@@ -99,13 +94,11 @@ function photoBlock(r: QueueReport): string {
       `<img class="photo" src="${esc(r.photo.url)}" alt="Photo sent with this report" loading="lazy"></a>`
     );
   }
-  const text =
-    r.photo.status === "pending"
-      ? "Photo still uploading"
-      : r.photo.status === "failed"
-        ? "No photo: the photo could not be received"
-        : "No photo";
-  return `<div class="nophoto">${esc(text)}</div>`;
+  // Plain "no photo" is already the row line's tile: not said again inside.
+  // Still uploading, or not received, says why.
+  if (r.photo.status === "pending") return `<div class="nophoto">${esc("Photo still uploading")}</div>`;
+  if (r.photo.status === "failed") return `<div class="nophoto">${esc("No photo: the photo could not be received")}</div>`;
+  return "";
 }
 
 /**

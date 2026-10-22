@@ -1,5 +1,5 @@
 import { escapeHtml as esc } from "./escape";
-import { renderPage } from "./layout";
+import { renderPage, type NavKey } from "./layout";
 import { renderMap, type MapMarker } from "./map";
 import { place, position } from "./position";
 import { SITES_PATH, stampField } from "./sitePages";
@@ -75,12 +75,16 @@ export function renderPicker(o: {
   note?: string;
   legend?: string;
   below?: string;
+  /** Which menu item is lit; the sites by default (the colony and area pickers say their own). */
+  active?: NavKey | null;
 } & FormViewer): string {
   // A cat guardian reaches the add and move pages for her own sites (SYC-209
   // PR 4.2), so they are drawn in her language with her menu.
   const { w } = wordsIn(o.lang);
+  // The typed fallback is folded away (SYC-517, 517-B): for the rare case
+  // someone has numbers from a vet or a GPS.
   const typed =
-    `<h2>${w("new.typedTitle")}</h2>` +
+    `<details class="typedfold"><summary>${w("new.typedTitle")}</summary>` +
     `<form method="post" action="${esc(o.tapAction)}" class="typedpos">` +
     Object.entries(o.carry ?? {})
       .map(([k, v]) => hidden(k, v))
@@ -90,10 +94,10 @@ export function renderPicker(o: {
     `<input class="text" id="typed-lat" name="lat" type="text" inputmode="decimal" required autocomplete="off">` +
     `<label class="label" for="typed-lng">${w("new.lng")}</label>` +
     `<input class="text" id="typed-lng" name="lng" type="text" inputmode="decimal" required autocomplete="off">` +
-    `<button type="submit">${w("new.typedButton")}</button></form>`;
+    `<button type="submit">${w("new.typedButton")}</button></form></details>`;
   return renderPage({
     title: o.title,
-    active: "sites",
+    active: o.active === undefined ? "sites" : o.active,
     nav: o.island === false ? "guardian" : undefined,
     lang: o.lang,
     personName: o.personName,
@@ -128,7 +132,7 @@ export function renderPicker(o: {
  * `nudge` (a re-tap keeps the zoom instead of zooming in again). Nothing in
  * any address.
  */
-const smallMap = (
+export const smallMap = (
   spot: Position,
   zoom: number,
   markers: MapMarker[],

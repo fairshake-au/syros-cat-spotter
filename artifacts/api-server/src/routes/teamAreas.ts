@@ -5,10 +5,17 @@ import { formRoute } from "./teamCorrections";
 import { isIslandWide } from "../lib/guardianView";
 import { areaChanges, type AreaChange as AreaChangeLine } from "../lib/areas/areaHistory";
 import { AreaChangeRefused, changeArea, type AreaChange, type AreaField } from "../lib/areas/areaWrites";
-import { areasVersion, currentAreas, loadAreas } from "../lib/areas/namedAreas";
+import { areaByKey, areasVersion, currentAreas, loadAreas } from "../lib/areas/namedAreas";
 import { loadTeamCats } from "../lib/teamCatList";
 import { isActive } from "../lib/dashboard/countedCats";
 import { renderConfirmPage } from "../lib/teamPages/confirm";
+import { renderPage } from "../lib/teamPages/layout";
+import { applyMove } from "../lib/mapTiles/mapForms";
+import { viewAround, type View } from "../lib/mapTiles/geometry";
+import { renderPicker } from "../lib/teamPages/siteFormPages";
+import { renderCentreConfirm } from "../lib/teamPages/centrePages";
+import { readCentrePick } from "./centrePick";
+import { t } from "../lib/teamPages/words";
 import {
   AREAS_DONE,
   AREAS_PATH,
@@ -100,12 +107,15 @@ router.post("/team/areas", ...formRoute("edit_named_areas"), async (req: Request
     });
   };
 
+  // A move only ever comes from the map's confirmation (the page has no typed
+  // move box), so a position it can't use is "off Syros", never "type a number".
+  const offSyros = t("centre.off", undefined);
   let change: AreaChange;
   if (op === "add" || op === "move") {
     const lat = coordinate(values.lat);
     const lng = coordinate(values.lng);
-    if (lat === null) return refuse("lat", "Type the latitude as a number, like 37.44470.");
-    if (lng === null) return refuse("lng", "Type the longitude as a number, like 24.94170.");
+    if (lat === null) return refuse("lat", op === "move" ? offSyros : "Type the latitude as a number, like 37.44470.");
+    if (lng === null) return refuse("lng", op === "move" ? offSyros : "Type the longitude as a number, like 24.94170.");
     change = op === "add" ? { kind: "add", key, name: values.name, lat, lng } : { kind: "move", key, lat, lng };
   } else if (op === "rename") {
     change = { kind: "rename", key, name: values.name };
@@ -142,11 +152,124 @@ router.post("/team/areas", ...formRoute("edit_named_areas"), async (req: Request
   try {
     await changeArea(person, change);
   } catch (err) {
-    if (err instanceof AreaChangeRefused) return refuse(err.field, err.message);
+    if (err instanceof AreaChangeRefused) {
+      // The centre check's "Check the latitude" is for the Add form's typed boxes.
+      return refuse(err.field, change.kind === "move" && err.offSyros ? offSyros : err.message);
+    }
     throw err;
   }
   if (wantsJson(req)) return void res.json({ ok: true, version: areasVersion() });
   res.redirect(303, `${AREAS_PATH}?done=${DONE_OF[change.kind]}`);
+});
+
+// ── An area's centre, by tapping a map (SYC-517, 517-B) ────────────────────
+//
+// The same three steps as a colony's centre, for the team only. Nothing here
+// writes: the confirmation's button posts `op=move` to the form route above,
+// with the position in hidden fields. Never in an address.
+
+const KEY_RE = /^[a-z0-9-]{1,40}$/;
+const AREA_ZOOM = 14;
+
+/** The area these pages are for (as the database has it now), or null. */
+async function areaOf(req: Request): Promise<{ key: string; name: string; lat: number; lng: number } | null> {
+  const key = String(req.params["key"]);
+  if (!KEY_RE.test(key)) return null;
+  await loadAreas();
+  return areaByKey(key) ?? null;
+}
+
+const centreAreaStart = (a: { lat: number; lng: number }): View => viewAround(a, AREA_ZOOM);
+
+function noSuchArea(res: Response): void {
+  res
+    .status(404)
+    .type("html")
+    .send(
+      renderPage({
+        title: "No such area",
+        active: null,
+        personName: teamPerson(res).name,
+        body: `<p>There is no such area, or it has been retired.</p><p><a class="tap" href="${AREAS_PATH}">Back to the areas</a></p>`,
+      }),
+    );
+}
+
+function areaPickerPage(
+  res: Response,
+  status: number,
+  a: { key: string; name: string; lat: number; lng: number },
+  view: View,
+  note?: string,
+): void {
+  const base = `${AREAS_PATH}/${a.key}/centre`;
+  res
+    .status(status)
+    .type("html")
+    .send(
+      renderPicker({
+        personName: teamPerson(res).name,
+        active: null,
+        title: `Move the centre of ${a.name}`,
+        intro: "Tap where the centre of this area should be. You will see the spot before anything is saved.",
+        back: { href: AREAS_PATH, label: "Back to the areas" },
+        view,
+        markers: [{ lat: a.lat, lng: a.lng, label: "The centre now", look: "retired" }],
+        tapAction: `${base}/pick`,
+        moveAction: `${base}/map`,
+        note,
+      }),
+    );
+}
+
+router.get("/team/areas/:key/centre", requireTeam("edit_named_areas"), async (req: Request, res: Response) => {
+  setTeamHeaders(res);
+  const a = await areaOf(req);
+  if (!a) return noSuchArea(res);
+  areaPickerPage(res, 200, a, centreAreaStart(a));
+});
+
+router.post("/team/areas/:key/centre/map", ...formRoute("edit_named_areas"), async (req: Request, res: Response) => {
+  const a = await areaOf(req);
+  if (!a) return noSuchArea(res);
+  const view = applyMove(req.body);
+  if (!view) return void areaPickerPage(res, 400, a, centreAreaStart(a), "That didn't work, so the map is back on this area.");
+  areaPickerPage(res, 200, a, view);
+});
+
+router.post("/team/areas/:key/centre/pick", ...formRoute("edit_named_areas"), async (req: Request, res: Response) => {
+  const a = await areaOf(req);
+  if (!a) return noSuchArea(res);
+  const person = teamPerson(res);
+  const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, undefined, centreAreaStart(a), {
+    requireArea: false,
+  });
+  if (!picked.ok) {
+    if (wantsJson(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
+    return void areaPickerPage(res, picked.status, a, picked.view, picked.note);
+  }
+  if (wantsJson(req)) return void res.json(picked.spot);
+  const base = `${AREAS_PATH}/${a.key}/centre`;
+  res.type("html").send(
+    renderCentreConfirm({
+      personName: person.name,
+      island: isIslandWide(person),
+      active: null,
+      title: `Move the centre of ${a.name}`,
+      question: () => `Move the centre of ${a.name} here?`,
+      saveLabel: "Move the centre here",
+      spot: picked.spot,
+      zoom: picked.zoom,
+      now: a,
+      nowInWords: false,
+      nowLabel: "The centre now",
+      newLabel: "The new centre",
+      tapAction: `${base}/pick`,
+      saveAction: AREAS_PATH,
+      saveFields: { op: "move", key: a.key },
+      back: { href: `${base}`, label: "Start again on this area's map" },
+    }),
+  );
 });
 
 export default router;
