@@ -8,7 +8,9 @@
 //
 // The page comes back from the server as a new page. If the person returns
 // with the back button the browser may restore this page as it was left, so
-// "pageshow" puts the button back.
+// "pageshow" puts the button back. If they press Stop or the network drops,
+// no page ever arrives, so the button also comes back after 40 seconds (the
+// page says a search takes up to half a minute).
 (function () {
   "use strict";
 
@@ -21,6 +23,14 @@
   var label = button.textContent;
   var sent = false;
 
+  function reset() {
+    sent = false;
+    button.disabled = false;
+    button.textContent = label;
+    form.removeAttribute("aria-busy");
+    progress.hidden = true;
+  }
+
   form.addEventListener("submit", function (e) {
     if (sent) {
       e.preventDefault();
@@ -31,21 +41,8 @@
     button.textContent = "Comparing…";
     form.setAttribute("aria-busy", "true");
     progress.hidden = false;
-    // A search that never comes back (Stop pressed, a flaky connection that
-    // leaves this page showing) must not leave the button stuck: after a
-    // minute, let the person try again.
-    window.setTimeout(reset, 60000);
+    window.setTimeout(reset, 40000);
   });
 
-  function reset() {
-    sent = false;
-    button.disabled = false;
-    button.textContent = label;
-    form.removeAttribute("aria-busy");
-    progress.hidden = true;
-  }
-
-  window.addEventListener("pageshow", function (e) {
-    if (e.persisted) reset();
-  });
+  window.addEventListener("pageshow", reset);
 })();
