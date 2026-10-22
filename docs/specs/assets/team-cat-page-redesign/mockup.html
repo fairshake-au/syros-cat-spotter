@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mavros · mockup</title>
+<style>
+:root{--bg:#f6f4ef;--ink:#1d1d1b;--muted:#5b5a55;--line:#dedad0;--card:#fff;--teal:#0b5c6b;--teal-soft:#e4eef0;--s-yes:#0a4d59;--s-prob:#2f7884;--s-unk:#6a949b;--s-no:#a6540a;--red:#9b1c1c;--amber-soft:#fdf1d6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--teal)}
+.mock{background:#1d1d1b;color:#fff;font-size:13px;text-align:center;padding:6px 16px}
+nav.top{background:#fff;border-bottom:1px solid var(--line);display:flex;gap:18px;align-items:center;padding:12px 16px;overflow-x:auto;white-space:nowrap}
+nav.top a{text-decoration:underline;font-size:15px}
+nav.top a.on{font-weight:700;text-decoration:none;color:var(--ink);border-bottom:3px solid var(--teal);padding-bottom:4px}
+nav.top .me{margin-left:auto;font-size:14px;color:var(--muted)}
+main{max-width:1120px;margin:0 auto;padding:16px}
+.back{display:inline-block;margin:4px 0 14px;font-size:15px}
+/* ---------- summary ---------- */
+.summary{display:grid;gap:16px}
+.idline h1{margin:0;font-size:28px;line-height:1.15}
+.idline .syr{color:var(--muted);font-size:14px;margin-top:2px}
+.status{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:15px}
+.status span{display:inline-flex;align-items:center;gap:6px}
+.mark{width:14px;height:14px;border-radius:50%;display:inline-block;flex:none}
+.mark.yes{background:var(--s-yes)}
+.photo{border-radius:10px;overflow:hidden;background:#8a8f96;aspect-ratio:4/3}
+.photo svg,.thumb svg{display:block;width:100%;height:100%}
+.strip{display:flex;gap:6px;margin-top:6px}
+.strip .thumb{width:56px;height:56px;border-radius:6px;overflow:hidden;position:relative}
+.strip .thumb.hidden{opacity:.45}
+.strip .thumb.hidden::after{content:"Hidden";position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.65);color:#fff;font-size:12px;text-align:center}
+dl.facts{margin:0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:4px 14px}
+dl.facts>div{display:grid;grid-template-columns:118px 1fr;gap:10px;padding:10px 0;border-top:1px solid #efece5}
+dl.facts>div:first-child{border-top:0}
+dt{font-size:14px;color:var(--muted);font-weight:600}
+dd{margin:0}
+dd .how{display:block;font-size:14px;color:var(--muted)}
+.why summary{font-size:14px;color:var(--teal);cursor:pointer;margin-top:2px}.why p{font-size:14px;margin:6px 0 0;color:var(--ink)}
+.chip{display:inline-block;border:1px solid #b9b5ab;border-radius:999px;padding:0 9px;font-size:14px;margin-right:4px}
+.public{font-size:14px;color:var(--muted);margin:2px 2px 0}
+.actions{display:grid;gap:8px}
+.btn{display:flex;align-items:center;justify-content:center;min-height:46px;border-radius:8px;font-weight:600;font-size:16px;text-decoration:none;border:1.5px solid var(--teal);color:var(--teal);background:#fff;padding:0 14px;cursor:pointer;width:100%}
+.btn.main{background:var(--teal);color:#fff}
+.twobtn{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+details.menu>summary{list-style:none}
+details.menu>summary::-webkit-details-marker{display:none}
+details.update{background:#fff;border:1.5px solid var(--teal);border-radius:8px}
+details.update>summary{min-height:44px;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--teal);cursor:pointer}
+details.update[open]>summary{border-bottom:1px solid var(--line)}
+details.update ul{list-style:none;margin:0;padding:4px 0}
+details.update li a{display:flex;min-height:44px;align-items:center;padding:0 14px;text-decoration:none;font-weight:600}
+details.update li a.risky{color:var(--red)}
+details.update li+li{border-top:1px solid #efece5}
+.map{border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#cfe3ea;position:relative}
+.map svg{display:block;width:100%;height:auto}
+.map figcaption{background:#fff;font-size:14px;padding:8px 12px;display:flex;justify-content:space-between;gap:8px}
+/* ---------- section bar ---------- */
+.jump{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin:28px -16px 0;padding:10px 16px;display:flex;gap:8px;overflow-x:auto;white-space:nowrap}
+.jump a{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;background:#fff;border:1px solid var(--line);text-decoration:none;font-weight:600;font-size:15px;color:var(--ink)}
+.jump a.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+section.ev{padding-top:22px}
+section.ev h2{font-size:21px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 12px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.filters a{font-size:14px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;text-decoration:none;color:var(--ink);min-height:36px;display:inline-flex;align-items:center}
+.filters a.on{border-color:var(--teal);background:var(--teal-soft);color:var(--teal);font-weight:700}
+/* ---------- timeline ---------- */
+ol.tl{list-style:none;margin:0;padding:0;background:#fff;border:1px solid var(--line);border-radius:10px}
+ol.tl>li{display:grid;grid-template-columns:62px 1fr auto;gap:12px;padding:12px 12px;border-top:1px solid #efece5;align-items:start}
+ol.tl>li:first-child{border-top:0}
+.when{font-size:14px;color:var(--muted);line-height:1.25}
+.when b{display:block;color:var(--ink);font-size:15px}
+.what b{font-weight:650}
+.what .who{display:block;font-size:14px;color:var(--muted)}
+.what .thumbs{display:flex;gap:4px;margin-top:6px}
+.what .thumbs span{width:44px;height:44px;border-radius:5px;overflow:hidden;display:block}
+.tag{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:1px 8px;margin-left:4px;vertical-align:1px}
+.tag.vet{background:var(--teal-soft);color:var(--teal)}
+.tag.note{background:#efe9dc;color:#5b4a22}
+.tag.warn{background:var(--amber-soft);color:#6b4a00}
+li.vet{box-shadow:inset 4px 0 0 var(--teal)}
+li.group .what summary{cursor:pointer;color:var(--teal);font-weight:650}
+.dots{position:relative}
+.dots>summary{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted);cursor:pointer;line-height:1}
+.dots[open]>summary{background:#efece5}
+.dots ul{position:absolute;right:0;top:46px;z-index:3;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12);list-style:none;margin:0;padding:4px 0;min-width:220px}
+.dots li a{display:flex;align-items:center;min-height:44px;padding:0 14px;text-decoration:none;color:var(--ink)}
+.dots li a.risky{color:var(--red)}
+.more{display:block;text-align:center;padding:12px;font-weight:600}
+.howchanges{margin-top:10px;font-size:14px;color:var(--muted)}
+.howchanges summary{cursor:pointer;color:var(--teal);font-weight:600}
+/* ---------- photos ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.grid figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:visible;position:relative}
+.grid figure .img{aspect-ratio:1;border-radius:10px 10px 0 0;overflow:hidden}
+.grid figure.hidden .img{opacity:.45}
+.grid figcaption{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 2px 10px;font-size:13px;color:var(--muted)}
+.grid .hid{color:var(--red);font-weight:700}
+/* ---------- coat ---------- */
+details.fold{background:#fff;border:1px solid var(--line);border-radius:10px}
+details.fold>summary{padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+details.fold>summary b{font-size:17px}
+details.fold>summary span{font-size:14px;color:var(--muted)}
+.foldbody{padding:0 14px 14px;border-top:1px solid #efece5}
+.foldbody h3{font-size:16px;margin:14px 0 6px}
+.foldbody p{margin:4px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.evid{font-size:14px;color:var(--muted);margin:8px 0 0;padding-left:18px}
+/* ---------- desktop ---------- */
+@media (min-width:1000px){
+  main{padding:20px 32px}
+  .summary{grid-template-columns:340px 1fr 260px;grid-template-areas:"photo id id" "photo facts actions" "map facts actions" "map facts .";align-items:start;gap:16px 28px}
+  .col-photo{grid-area:photo}
+  .idline{grid-area:id}
+  .col-facts{grid-area:facts}
+  .col-actions{grid-area:actions}
+  .col-map{grid-area:map}
+  .jump{margin:32px 0 0;border-radius:0}
+  .evwrap{display:grid;grid-template-columns:1fr 360px;gap:28px;align-items:start}
+  .evwrap .side{position:sticky;top:76px}
+}
+</style>
+</head>
+<body>
+<div class="mock">Mockup only · sample cat · the links and buttons don't save anything</div>
+<nav class="top"><a href="#">Home</a><a class="on" href="#">Cats</a><a href="#">Map</a><a href="#">Queue</a><a href="#">Colonies</a><a href="#">Reports</a><span class="me">Signed in as Maria · <a href="#">Sign out</a></span></nav>
+<main>
+<a class="back" href="#">← Back to the cats you were looking at</a>
+
+<div class="summary">
+  <div class="idline">
+    <h1>Mavros</h1>
+    <div class="syr">SYR-0042 · on our records since 3 Apr 2026</div>
+    <div class="status">
+      <span><i class="mark yes"></i><b>Sterilised</b></span>
+      <span>· Lives on the street</span>
+      <span>· <a href="#">Ermoupoli harbour</a></span>
+      <span>· Last seen 4 days ago</span>
+    </div>
+  </div>
+
+  <div class="col-photo">
+    <div class="photo"><svg viewBox="0 0 800 600"><rect width="800" height="600" fill="#8a8f96"/><ellipse cx="400" cy="400" rx="170" ry="130" fill="#3b3e42"/><circle cx="400" cy="260" r="95" fill="#3b3e42"/><polygon points="320,210 335,130 375,190" fill="#3b3e42"/><polygon points="480,210 465,130 425,190" fill="#3b3e42"/><circle cx="370" cy="255" r="11" fill="#d9c35b"/><circle cx="430" cy="255" r="11" fill="#d9c35b"/></svg></div>
+    <div class="strip">
+      <span class="thumb"><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#6f7378"/><circle cx="5" cy="6" r="3" fill="#3b3e42"/></svg></span>
+      <span class="thumb"><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#9aa0a6"/><circle cx="5" cy="6" r="3" fill="#3b3e42"/></svg></span>
+      <span class="thumb hidden"><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#5e6266"/><circle cx="5" cy="6" r="3" fill="#3b3e42"/></svg></span>
+      <a class="thumb" href="#photos" style="display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--line);font-size:13px;text-decoration:none">All 4</a>
+    </div>
+  </div>
+
+  <div class="col-facts">
+    <dl class="facts">
+      <div><dt>Sterilised</dt><dd>Yes, confirmed by Syros Cats, 13 Aug 2026<details class="why"><summary>Why we think so</summary><p><b>Since</b> 13 Aug 2026<br><b>Why we think so:</b> <a href="#">vet visit at Syros Vet, logged by Maria</a>; <a href="#">ear tip seen clipped, 7 Oct</a><br><b>Says otherwise:</b> nothing</p></details></dd></div>
+      <div><dt>Lives</dt><dd>On the street<span class="how">Set by Maria, 14 Oct 2026</span></dd></div>
+      <div><dt>Colony</dt><dd><a href="#">Ermoupoli harbour</a></dd></div>
+      <div><dt>Coat</dt><dd><span class="chip">Grey tabby</span><span class="chip">White paws</span><span class="how">Read from the photo · Maria agreed</span></dd></div>
+      <div><dt>Last seen</dt><dd>4 days ago · Ermoupoli<span class="how">Seen 21 times since April</span></dd></div>
+      <div><dt>Vaccinated</dt><dd>Rabies, 13 Aug 2026</dd></div>
+      <div><dt>Health note</dt><dd>Slight limp on the back left leg. Watch for it.<span class="how">Maria, 2 Oct 2026 · team only</span></dd></div>
+    </dl>
+    <p class="public">What the public sees: Lives on the street · Sterilised</p>
+  </div>
+
+  <div class="col-actions actions">
+    <a class="btn main" href="#">Log a vet visit</a>
+    <details class="update menu">
+      <summary>Update this cat ▾</summary>
+      <ul>
+        <li><a href="#">Where the cat lives</a></li>
+        <li><a href="#">Whether sterilised</a></li>
+        <li><a href="#">Coat and markings</a></li>
+        <li><a href="#">Change the colony</a></li>
+        <li><a href="#">Rename the cat</a></li>
+      </ul>
+    </details>
+    <a class="btn" href="#">Add a note</a>
+    <a class="btn" href="#" style="border-color:var(--red);color:var(--red);font-weight:500;margin-top:10px">This cat has died</a>
+  </div>
+
+  <figure class="map col-map" style="margin:0">
+      <svg viewBox="0 0 360 200" role="img" aria-label="Small map of Mavros's sightings around the Ermoupoli harbour">
+        <rect width="360" height="200" fill="#cfe3ea"/>
+        <path d="M0 0H360V120C300 110 270 140 220 130C170 120 150 150 100 150C60 150 30 130 0 140Z" fill="#efe8d8"/>
+        <path d="M60 40H300M90 20V140M180 10V130M250 30V120" stroke="#fff" stroke-width="5"/>
+        <g font-size="12" font-weight="700" fill="#fff" text-anchor="middle">
+          <circle cx="170" cy="92" r="12" fill="#0b5c6b" stroke="#fff" stroke-width="2"/><text x="170" y="96">1</text>
+          <circle cx="196" cy="80" r="12" fill="#0b5c6b" stroke="#fff" stroke-width="2"/><text x="196" y="84">2–4</text>
+          <circle cx="146" cy="108" r="12" fill="#0b5c6b" stroke="#fff" stroke-width="2"/><text x="146" y="112">5</text>
+          <circle cx="214" cy="104" r="12" fill="#0b5c6b" stroke="#fff" stroke-width="2"/><text x="214" y="108">6</text>
+        </g>
+      </svg>
+      <figcaption><span>Usually near the harbour steps</span><a href="#">Open the map</a></figcaption>
+    </figure>
+</div>
+
+<nav class="jump" aria-label="Sections of this page">
+  <a href="#history">History (21)</a>
+  <a href="#photos">Photos (4)</a>
+  <a href="#coat">Coat and markings</a>
+</nav>
+
+<div class="evwrap">
+<section class="ev" id="history">
+  <h2>History</h2>
+  <p class="sub">Everything we know, newest first. Every change is saved with the person's name.</p>
+  <div class="filters"><a class="on" href="#">All 21</a><a href="#">Sightings 17</a><a href="#">Vet visits 1</a><a href="#">Changes and notes 3</a></div>
+  <ol class="tl">
+    <li>
+      <div class="when"><b>14 Oct</b>11:00</div>
+      <div class="what"><b>Lives on the street</b><span class="who">Maria changed this</span></div>
+      <details class="dots menu"><summary aria-label="More for this change">⋯</summary><ul><li><a href="#">Mark wrong</a></li></ul></details>
+    </li>
+    <li>
+      <div class="when"><b>13 Oct</b>11:00</div>
+      <div class="what"><b>Seen in Ermoupoli</b>, looking well<span class="who">A spotter · food and water were out</span>
+        <span class="thumbs"><span><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#6f7378"/><circle cx="5" cy="6" r="3" fill="#3b3e42"/></svg></span></span></div>
+      <details class="dots menu"><summary aria-label="More for this sighting">⋯</summary><ul><li><a href="#">Show on the map</a></li><li><a href="#">Make a feeding site here</a></li><li><a href="#">Mark wrong</a></li></ul></details>
+    </li>
+    <li>
+      <div class="when"><b>7 Oct</b>11:00</div>
+      <div class="what"><b>Seen in Ermoupoli: ear tip clipped, left ear</b><span class="who">A spotter</span>
+        <span class="thumbs"><span><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#9aa0a6"/><circle cx="5" cy="6" r="3" fill="#3b3e42"/></svg></span></span></div>
+      <details class="dots menu"><summary aria-label="More for this sighting">⋯</summary><ul><li><a href="#">Show on the map</a></li><li><a href="#">Make a feeding site here</a></li><li><a href="#">Mark wrong</a></li></ul></details>
+    </li>
+    <li>
+      <div class="when"><b>2 Oct</b>18:20</div>
+      <div class="what"><b>Note</b> <span class="tag note">team only</span><br>Slight limp on the back left leg. Watch for it.<span class="who">Maria</span></div>
+      <details class="dots menu"><summary aria-label="More for this note">⋯</summary><ul><li><a href="#">Mark wrong</a></li></ul></details>
+    </li>
+    <li class="group">
+      <div class="when"><b>10 Sep–<br>4 Oct</b></div>
+      <div class="what"><details><summary>Seen 9 times by spotters, looking well</summary><p class="who" style="margin:6px 0 0">Opens to the 9 sightings, each a row like the ones above.</p></details>
+        <span class="thumbs"><span><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#6f7378"/></svg></span><span><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#9aa0a6"/></svg></span><span><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#5e6266"/></svg></span></span></div>
+      <span></span>
+    </li>
+    <li>
+      <div class="when"><b>7 Sep</b>11:00</div>
+      <div class="what"><b>Seen in Ermoupoli</b> <span class="tag warn">may show more than one cat</span><span class="who">A spotter</span>
+        <span class="thumbs"><span><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#9aa0a6"/><circle cx="4" cy="6" r="2.4" fill="#3b3e42"/><circle cx="7" cy="6" r="2" fill="#7a6a50"/></svg></span></span></div>
+      <details class="dots menu"><summary aria-label="More for this sighting">⋯</summary><ul><li><a href="#">Show on the map</a></li><li><a href="#">Make a feeding site here</a></li><li><a href="#">Mark wrong</a></li></ul></details>
+    </li>
+    <li>
+      <div class="when"><b>6 Sep</b>11:00</div>
+      <div class="what"><b>Put in the colony Ermoupoli harbour</b><span class="who">Maria changed this</span></div>
+      <details class="dots menu"><summary aria-label="More for this change">⋯</summary><ul><li><a href="#">Mark wrong</a></li></ul></details>
+    </li>
+    <li class="vet">
+      <div class="when"><b>13 Aug</b></div>
+      <div class="what"><b>Vet visit: sterilised, vaccinated (rabies)</b> <span class="tag vet">vet</span><span class="who">Syros Vet · €55, paid by Syros Cats · logged by Maria</span></div>
+      <details class="dots menu"><summary aria-label="More for this vet visit">⋯</summary><ul><li><a class="risky" href="#">Mark the visit wrong</a></li></ul></details>
+    </li>
+  </ol>
+  <a class="more" href="#">Show all 21</a>
+  <details class="howchanges"><summary>How changes work</summary><p>Every change is saved with your name. Nothing is deleted. A change with an older date won't override a newer one. To undo a change, use Mark wrong on it in the history below.</p></details>
+</section>
+
+<div class="side">
+<section class="ev" id="photos">
+  <h2>Photos (4)</h2>
+  <p class="sub">The first one is the photo everyone sees.</p>
+  <div class="grid">
+    <figure><div class="img"><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#8a8f96"/><circle cx="5" cy="6" r="3" fill="#3b3e42"/></svg></div><figcaption>Main photo<details class="dots menu"><summary aria-label="More for this photo">⋯</summary><ul><li><a href="#">Open full size</a></li><li><a class="risky" href="#">Hide from the public…</a></li></ul></details></figcaption></figure>
+    <figure><div class="img"><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#6f7378"/><circle cx="5" cy="6" r="3" fill="#3b3e42"/></svg></div><figcaption>13 Oct<details class="dots menu"><summary aria-label="More for this photo">⋯</summary><ul><li><a href="#">Open full size</a></li><li><a class="risky" href="#">Hide from the public…</a></li></ul></details></figcaption></figure>
+    <figure><div class="img"><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#9aa0a6"/><circle cx="5" cy="6" r="3" fill="#3b3e42"/></svg></div><figcaption>7 Oct<details class="dots menu"><summary aria-label="More for this photo">⋯</summary><ul><li><a href="#">Open full size</a></li><li><a class="risky" href="#">Hide from the public…</a></li></ul></details></figcaption></figure>
+    <figure class="hidden"><div class="img"><svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#5e6266"/><circle cx="5" cy="6" r="3" fill="#3b3e42"/></svg></div><figcaption><span class="hid">Hidden · Maria, 3 Oct</span><details class="dots menu"><summary aria-label="More for this photo">⋯</summary><ul><li><a href="#">Show to the public again</a></li></ul></details></figcaption></figure>
+  </div>
+</section>
+
+<section class="ev" id="coat">
+  <h2>Coat and markings</h2>
+  <details class="fold">
+    <summary><b>Grey tabby, white paws</b><span>Read from the photo on 3 Apr · Maria agreed on 5 Apr</span></summary>
+    <div class="foldbody">
+      <h3>Coat: grey tabby</h3>
+      <p>Read from the photo on 3 Apr 2026. Maria agreed on 5 Apr.</p>
+      <h3>Markings: white paws</h3>
+      <p>A spotter said so on 3 Apr 2026. Nobody on the team has checked yet.</p>
+      <div class="row2"><a class="btn" href="#">Yes, the markings are right</a><a class="btn" href="#">Change the coat or markings</a></div>
+      <p class="evid">Older and replaced changes are in the timeline, with what replaced them.</p>
+    </div>
+  </details>
+</section>
+</div>
+</div>
+</main>
+</body>
+</html>
