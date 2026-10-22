@@ -299,7 +299,7 @@ async function findFormHtml(
   person: ReturnType<typeof teamPerson>,
   filters: FindFilters,
   tie: TieMode | undefined,
-  extra: Pick<FindFormOptions, "problem" | "capped"> = {},
+  extra: Pick<FindFormOptions, "problem" | "capped" | "scripted"> = {},
 ): Promise<string> {
   const now = new Date();
   const [count, capped, colonies] = await Promise.all([
@@ -318,6 +318,7 @@ async function findFormHtml(
     narrowing: narrowingOf(count, isWholeIsland(filters)),
     capped: capped === "ok" ? undefined : capped,
     problem: extra.problem,
+    scripted: extra.scripted,
   });
 }
 
@@ -334,8 +335,14 @@ router.get(
       person,
       filters,
       await tieFrom(req.query["tie"], person),
-      (await stalePlace(req.query, filters, person)) ? { problem: { field: "place", words: STALE_PLACE_WORDS } } : {},
+      {
+        scripted: true,
+        ...((await stalePlace(req.query, filters, person)) ? { problem: { field: "place" as const, words: STALE_PLACE_WORDS } } : {}),
+      },
     );
+    // Only now, with the page built: this form loads find-photo.js (SYC-522),
+    // which locks the button so one tap spends one search.
+    setTeamHeaders(res, { scripts: true });
     res.type("html").send(html);
   },
 );

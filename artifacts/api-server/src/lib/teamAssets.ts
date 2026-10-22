@@ -25,7 +25,7 @@ import { logger } from "./logger";
 // in a Map, never joined onto a folder path.
 
 /** The files pages may ask for. A new one is added here and to assets/ (or VENDOR). */
-export const ASSET_NAMES = ["dashboard-grid.js", "dashboard-map.js", "leaflet.js", "leaflet.css"] as const;
+export const ASSET_NAMES = ["dashboard-grid.js", "dashboard-map.js", "find-photo.js", "leaflet.js", "leaflet.css"] as const;
 
 /**
  * Files copied from a pinned npm package rather than kept in assets/

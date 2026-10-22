@@ -302,9 +302,9 @@ describe("P1-5: every dashboard response has the team headers", () => {
 });
 
 // SYC-396 PR 1.3.4: the one exemption, pinned exactly.
-describe("the wider header is the Cats grid's alone, and exactly this", () => {
+describe("the wider header is the Cats grid's and the Find from a photo form's alone, and exactly this", () => {
   it("the exemption names one route", () => {
-    expect([...WIDE_CSP_ROUTES]).toEqual(["GET /api/team/cats"]);
+    expect([...WIDE_CSP_ROUTES]).toEqual(["GET /api/team/cats", "GET /api/team/cats/find"]);
   });
 
   it("the Cats grid page carries exactly the wider header", async () => {
@@ -314,6 +314,21 @@ describe("the wider header is the Cats grid's alone, and exactly this", () => {
       "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
     );
     expect(res.headers["content-security-policy"]).toBe(WIDE_CSP);
+  });
+
+  it("the Find from a photo form carries exactly the wider header (SYC-522); a problem form the strict one", async () => {
+    const form = await request(app).get("/api/team/cats/find").set("Cookie", cookie).set("Accept", "text/html");
+    expect(form.status).toBe(200);
+    expect(form.headers["content-security-policy"]).toBe(WIDE_CSP);
+    expect(form.text).toContain("find-photo.");
+    const none = await request(app)
+      .post("/api/team/cats/find")
+      .set("Origin", TEAM)
+      .set("Cookie", cookie)
+      .field("area", "");
+    expect(none.status).toBe(400);
+    expect(none.headers["content-security-policy"]).toBe(STRICT_CSP);
+    expect(none.text).not.toContain("find-photo.");
   });
 
   it("its script rule is 'self' and nothing else", async () => {
