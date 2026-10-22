@@ -573,7 +573,21 @@ export default function CatDetailScreen() {
         />
       )}
       {askSheet !== null && (
-        <ClaimAskSheet mode={askSheet} catName={cat.name} onClose={closeAskSheet} />
+        <ClaimAskSheet
+          mode={askSheet}
+          catName={cat.name}
+          onClose={closeAskSheet}
+          // SYC-574 T2.6: the same push as "I've spotted {name}", once the
+          // sheet has gone (iOS won't navigate under a closing modal).
+          onSpotNow={
+            canSpotFromPage(cat.lifeStatus)
+              ? () => {
+                  setAskSheet(null);
+                  afterModalCloses(() => router.push(spotRouteFor(cat.id)));
+                }
+              : undefined
+          }
+        />
       )}
       {sheet !== null && (
         <ClaimCatSheet

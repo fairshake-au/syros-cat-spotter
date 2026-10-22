@@ -43,7 +43,7 @@ describe('ClaimAskSheet', () => {
       'If Agatha lives with you, first take a photo of Agatha with the Spot button. Then come back here and you can say Agatha lives with you.',
     );
     expect(screen.queryByTestId('claim-ask-mailto')).toBeNull();
-    // Part 2 adds "Spot Agatha now"; it must not render in Part 1.
+    // "Spot Agatha now" (SYC-574 T2.6) only renders when the page offers it.
     expect(screen.queryByText('Spot Agatha now')).toBeNull();
     fireEvent.click(screen.getByTestId('claim-ask-close'));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -86,5 +86,25 @@ describe('ClaimAskSheet', () => {
       expect(TRANSLATIONS[code].claimAskHomed).toContain(CONTACT_EMAIL);
       expect(TRANSLATIONS[code].claimAskHomed).toContain('{name}');
     }
+  });
+});
+
+describe('ClaimAskSheet: "Spot {name} now" (SYC-574 T2.6)', () => {
+  it('street mode shows it as the main button, and it calls onSpotNow', () => {
+    const onSpotNow = vi.fn();
+    const onClose = vi.fn();
+    render(<ClaimAskSheet mode="street" catName="Agatha" onClose={onClose} onSpotNow={onSpotNow} />);
+    const spot = screen.getByTestId('claim-ask-spot-now');
+    expect(spot.textContent).toBe('Spot Agatha now');
+    fireEvent.click(spot);
+    expect(onSpotNow).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    // OK still closes.
+    expect(screen.getByTestId('claim-ask-close')).toBeTruthy();
+  });
+
+  it('homed mode never shows it', () => {
+    render(<ClaimAskSheet mode="homed" catName="Agatha" onClose={() => {}} onSpotNow={() => {}} />);
+    expect(screen.queryByTestId('claim-ask-spot-now')).toBeNull();
   });
 });

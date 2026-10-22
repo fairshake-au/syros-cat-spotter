@@ -45,6 +45,10 @@ export type ClaimAskMode = 'street' | 'homed';
  * In "homed" mode the address inside the sentence is selectable text and a
  * mailto link, as on the Help tab. Who reads that inbox is unchecked (SYC-30).
  *
+ * SYC-574 T2.6: in "street" mode the sheet also offers "Spot {name} now"
+ * (`onSpotNow`), which opens the Spot tab with this cat as a hint, exactly
+ * as the page's "I've spotted {name}" button does.
+ *
  * Focus: the Modal covers the screen behind it (iOS `accessibilityViewIsModal`,
  * the web's `role="dialog"` + `aria-modal`, and react-native-web's own focus
  * trap), and the cat page returns focus to the link when it closes.
@@ -53,10 +57,13 @@ export function ClaimAskSheet({
   mode,
   catName,
   onClose,
+  onSpotNow,
 }: {
   mode: ClaimAskMode;
   catName: string;
   onClose: () => void;
+  /** Street mode only: "Spot {name} now". */
+  onSpotNow?: () => void;
 }) {
   const colors = useColors();
   const { t } = useLanguage();
@@ -121,6 +128,18 @@ export function ClaimAskSheet({
             {named('claimAskTitle')}
           </Text>
           {body}
+          {mode === 'street' && onSpotNow ? (
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              wrapLabel
+              testID="claim-ask-spot-now"
+              onPress={onSpotNow}
+            >
+              {named('claimAskSpotNow')}
+            </Button>
+          ) : null}
           <Button variant="secondary" size="lg" block testID="claim-ask-close" onPress={onClose}>
             {t('claimAskClose')}
           </Button>

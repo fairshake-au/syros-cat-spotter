@@ -64,3 +64,5 @@ Part 3 gate (full suites, typechecks), then Part 2.
     - success screen: shows the server's `ResolveResult` only (tested for Yes); a pick after No goes through the unchanged `confirm()`, so it is as before;
     - `openedOn` / `useResultNudge`: computed from the result alone; test checks the recorded screen is the result's own, before and after No, for all four results.
 - Next: T2.6.
+- [x] T2.6 `ClaimAskSheet` takes `onSpotNow`; in street mode (only) it renders "Spot {name} now" (`claimAskSpotNow`, primary, above OK). The cat page passes it for spottable cats: closes the sheet, then `afterModalCloses(() => router.push(spotRouteFor(cat.id)))` (iOS won't navigate under a closing modal; web/Android at once). Tests: `ClaimAskSheet.test.tsx` (+2: street shows and calls it, homed never), `CatPageSpotted.test.tsx` (+1: the page closes the sheet and pushes `/spot?for=7`). Part 1's "must not render in Part 1" comment reworded; its assertion (no button without `onSpotNow`) unchanged.
+- Next: T2.7 (second-pack rows, parity), then the full suite.

@@ -154,3 +154,14 @@ describe('"I\'ve spotted {name}" on the cat page', () => {
     expect(button).toBeLessThan(html.indexOf('data-testid="needs-help-stub"'));
   });
 });
+
+describe('"Spot {name} now" in the "lives with you?" sheet (T2.6)', () => {
+  it('closes the sheet and makes the same push as the page button', () => {
+    page(cat());
+    fireEvent.click(screen.getByTestId('claim-ask-link'));
+    fireEvent.click(screen.getByTestId('claim-ask-spot-now'));
+    expect(screen.queryByTestId('claim-ask-sheet')).toBeNull();
+    expect(r.push).toHaveBeenCalledTimes(1);
+    expect(r.push).toHaveBeenCalledWith({ pathname: '/spot', params: { for: '7' } });
+  });
+});
