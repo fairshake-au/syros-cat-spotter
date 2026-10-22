@@ -361,3 +361,47 @@ describe('the look-alike check result (SYC-503)', () => {
     });
   });
 });
+
+describe('SYC-574: the hint (design-review-fixes-oct22.md §2.4)', () => {
+  it('round-trips a cat id', () => {
+    const data = parseReviewParams(buildReviewParams({ sightingId: 5, hintCatId: 7 }).data);
+    expect(data?.hintCatId).toBe(7);
+  });
+
+  it('is absent when there is no hint', () => {
+    const raw = buildReviewParams({ sightingId: 5 }).data;
+    expect(JSON.parse(raw)).not.toHaveProperty('hintCatId');
+    expect(parseReviewParams(raw)).not.toHaveProperty('hintCatId');
+  });
+
+  it.each([0, -3, 1.5, Number.NaN, Number.POSITIVE_INFINITY, null])(
+    'the builder drops %s',
+    (bad) => {
+      const raw = buildReviewParams({ sightingId: 5, hintCatId: bad as number | null }).data;
+      expect(JSON.parse(raw)).not.toHaveProperty('hintCatId');
+    },
+  );
+
+  it.each(['7', 0, -1, 2.5, true, { id: 7 }, [7], null])(
+    'the parser drops a crafted %j',
+    (bad) => {
+      const raw = JSON.stringify({ sightingId: 5, candidates: [], hintCatId: bad });
+      expect(parseReviewParams(raw)).not.toHaveProperty('hintCatId');
+    },
+  );
+
+  it('survives the builder\'s never-throw fallback', () => {
+    const explosive: MatchCandidate[] = [];
+    Object.defineProperty(explosive, 0, {
+      get() {
+        throw new Error('boom');
+      },
+      enumerable: true,
+    });
+    explosive.length = 1;
+    const data = parseReviewParams(
+      buildReviewParams({ sightingId: 8, candidates: explosive, hintCatId: 7 }).data,
+    );
+    expect(data).toMatchObject({ candidates: [], hintCatId: 7 });
+  });
+});

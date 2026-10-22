@@ -4,6 +4,7 @@ import {
   classifySyncFailure,
   coverOf,
   extrasOf,
+  hintOf,
   markStaleItems,
   resetForRetry,
   MAX_QUEUE_AGE_MS,
@@ -310,5 +311,17 @@ describe('SYC-415: coverOf keeps the cover uri and base64 paired', () => {
     const item = makeItem({ photoUri: 'first-uri', photoBase64: 'FIRST', extraPhotos: [{ role: 'body', photoUri: 'b' }] });
     expect(coverOf(item)).toEqual({ uri: 'first-uri', base64: 'FIRST' });
     expect(coverOf(makeItem({ photoUri: 'x', photoBase64: undefined }))).toEqual({ uri: 'x', base64: undefined });
+  });
+});
+
+describe('SYC-574: hintOf, a queued item\'s hint', () => {
+  it('reads a positive whole cat id', () => {
+    expect(hintOf({ hintCatId: 7 })).toBe(7);
+  });
+  it.each([undefined, 0, -1, 2.5, '7', null])('ignores %j', (bad) => {
+    expect(hintOf({ hintCatId: bad })).toBeUndefined();
+  });
+  it('ignores a missing item', () => {
+    expect(hintOf(undefined)).toBeUndefined();
   });
 });
