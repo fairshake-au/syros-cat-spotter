@@ -7,7 +7,7 @@
  */
 
 /**
- * Which screen a hand pick came from. It only describes the phone's own screen: the server never uses it to decide whether a choice was a suggestion (choose-a-different-cat.md §4.6).
+ * Which screen a pick came from. It only describes the phone's own screen: the server never uses it to decide whether a choice was a suggestion (choose-a-different-cat.md §4.6). nearby, search and name_prompt are recorded on hand picks only; cat_page (the cat page's "I've spotted" question) is recorded on suggested picks too.
  */
 export type ResolveSightingRequestPickedFrom = typeof ResolveSightingRequestPickedFrom[keyof typeof ResolveSightingRequestPickedFrom];
 
@@ -16,4 +16,5 @@ export const ResolveSightingRequestPickedFrom = {
   nearby: 'nearby',
   search: 'search',
   name_prompt: 'name_prompt',
+  cat_page: 'cat_page',
 } as const;

@@ -25,6 +25,7 @@ import { useOffline } from '@/context/OfflineContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { OwnershipBanner } from '@/components/OwnershipBanner';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
+import { ClaimAskLink, ClaimAskSheet, type ClaimAskMode } from '@/components/ClaimAskSheet';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { ReportIssueLink } from '@/components/report/ReportIssueLink';
 import { ReportIssueSheet } from '@/components/report/ReportIssueSheet';
@@ -39,6 +40,7 @@ import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
 import { lifeLine, parseDateOnly, parsePublicDate, sterilisedLineKey } from '@/lib/catStatusLines';
 import { appearanceLine } from '@/lib/appearance';
 import { DEFAULT_CELL_M } from '@/lib/cellShape';
+import { canSpotFromPage, spotRouteFor } from '@/lib/spotHint';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, lineHeights } from '@/constants/theme';
 
@@ -67,6 +69,15 @@ export default function CatDetailScreen() {
   const { ownedCatIds, deviceId, isReady, startupError } = useDevice();
   const { notifications, markRead } = useNotifications();
   const [sheet, setSheet] = React.useState<'claim' | 'edit' | null>(null);
+  // "Does {name} live with you?" (design-review-fixes-oct22.md §1.1): which
+  // text the small sheet shows, and the link that gets focus back on close.
+  const [askSheet, setAskSheet] = React.useState<ClaimAskMode | null>(null);
+  const askLinkRef = React.useRef<View>(null);
+  const closeAskSheet = () => {
+    setAskSheet(null);
+    // Hand focus back to the link (web; native keeps its own place).
+    setTimeout(() => (askLinkRef.current as unknown as { focus?: () => void } | null)?.focus?.(), 0);
+  };
   // SYC-44 PR 6.1: the main photo opens full screen, but only once it has
   // loaded, so nothing changes offline (report-an-issue.md §4.2).
   const [heroLoaded, setHeroLoaded] = React.useState<string | null>(null);
@@ -281,6 +292,21 @@ export default function CatDetailScreen() {
                 {parsePublicDate(cat.lastSeenAt).toLocaleDateString()}
               </Text>
             </View>
+            {/* SYC-574 (design-review-fixes-oct22.md §2.1): the page's main
+                button. Hidden for a cat in care or one that has died. It
+                opens the Spot tab with this cat as a hint (§2.2). */}
+            {canSpotFromPage(cat.lifeStatus) ? (
+              <Button
+                variant="primary"
+                size="lg"
+                block
+                wrapLabel
+                testID="spotted-cat-button"
+                onPress={() => router.push(spotRouteFor(cat.id))}
+              >
+                {t('spottedCatButton').split('{name}').join(cat.name)}
+              </Button>
+            ) : null}
             {/* SYC-42: quiet, never the biggest thing on screen (spec §4.1). */}
             <NeedsHelpLink cat={{ id: cat.id, name: cat.name, photoUrl: cat.photoUrl }} />
             {/* SYC-44 PR 6.2: below "needs help" and never bigger (spec §3.1). */}
@@ -342,12 +368,15 @@ export default function CatDetailScreen() {
                 ownerName={cat.ownerName}
                 homeDescription={cat.homeDescription}
               />
-              {/* Claiming-a-cat.md §6: an owner on a new phone can't let go
-                  from it. Said quietly, under "Has a home". */}
+              {/* design-review-fixes-oct22.md §1.1 (reverses claiming-a-cat.md
+                  §6's always-on line): a quiet link, under "Has a home", for
+                  an owner on a new phone. Everyone but the owner sees it. */}
               {!isOwner && (
-                <Text style={[styles.quietLine, { color: colors.mutedForeground }]}>
-                  {t('claimNewPhone').split('{name}').join(cat.name)}
-                </Text>
+                <ClaimAskLink
+                  ref={askLinkRef}
+                  catName={cat.name}
+                  onPress={() => setAskSheet('homed')}
+                />
               )}
             </>
           ) : data.canClaim ? (
@@ -377,9 +406,11 @@ export default function CatDetailScreen() {
             /* During the 7-day cooldown this phone HAS spotted the cat, so
                "spot it first" would be false; the spec has no wording for
                the cooldown, so nothing is shown. */
-            <Text style={[styles.quietLine, { color: colors.mutedForeground }]}>
-              {t('claimNotMetHint').split('{name}').join(cat.name)}
-            </Text>
+            <ClaimAskLink
+              ref={askLinkRef}
+              catName={cat.name}
+              onPress={() => setAskSheet('street')}
+            />
           ) : null}
 
           <View style={styles.statsRow}>
@@ -539,6 +570,23 @@ export default function CatDetailScreen() {
           photoUrl={issueSheet.photoUrl}
           initialReason={issueSheet.initialReason}
           onClose={() => setIssueSheet(null)}
+        />
+      )}
+      {askSheet !== null && (
+        <ClaimAskSheet
+          mode={askSheet}
+          catName={cat.name}
+          onClose={closeAskSheet}
+          // SYC-574 T2.6: the same push as "I've spotted {name}", once the
+          // sheet has gone (iOS won't navigate under a closing modal).
+          onSpotNow={
+            canSpotFromPage(cat.lifeStatus)
+              ? () => {
+                  setAskSheet(null);
+                  afterModalCloses(() => router.push(spotRouteFor(cat.id)));
+                }
+              : undefined
+          }
         />
       )}
       {sheet !== null && (

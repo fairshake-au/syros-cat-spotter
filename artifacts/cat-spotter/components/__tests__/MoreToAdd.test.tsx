@@ -51,6 +51,7 @@ vi.mock('@workspace/api-client-react', async (orig) => {
 
 import { MoreToAdd } from '../MoreToAdd';
 import { TRANSLATIONS } from '@/lib/i18n';
+import { expectEarTipOrder } from './earTipOrder';
 
 const en = TRANSLATIONS.en;
 
@@ -106,6 +107,23 @@ describe('MoreToAdd', () => {
     state.isOnline = false;
     const { container } = renderCard();
     expect(container.querySelector('[data-testid="more-to-add"]')).toBeNull();
+  });
+
+  it('the ear-tip question explains itself in the same order here as on the review screen', () => {
+    state.data = {
+      earTip: { state: 'open' },
+      sightings: [
+        {
+          sightingId: 41,
+          takenAt: '2026-10-03T09:00:00.000Z',
+          photoUrl: '/api/photos/abc',
+          open: { earTip: true, foodAndWater: true, note: true },
+        },
+      ],
+    };
+    renderCard();
+    fireEvent.click(byText(en.moreToAddButton!));
+    expectEarTipOrder(document.body);
   });
 
   it('changing an earlier ear-tip answer is sent as a change, for that sighting', async () => {

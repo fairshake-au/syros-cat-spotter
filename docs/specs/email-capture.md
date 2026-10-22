@@ -140,7 +140,7 @@ The last onboarding step, after language and username. It leads with what the pe
 >
 > Add your email so you can get your spots, points and badges back if you lose or change your phone.
 >
-> Anyone who can open this inbox can open your collection, so use an address only you (or a parent) can read. **Under 15? Ask a parent to add theirs.**
+> Use an email only you, or a parent, can read. Anyone who can open it can get your spots back. **Under 15? Ask a parent to add theirs.**
 >
 > `[ your@email.com ]`
 >
@@ -463,7 +463,6 @@ And afterwards:
 
 > **Done.**
 > Nothing on this phone is linked to you any more, and we've no way to contact you. You can carry on spotting straight away — you'll start again from zero.
-> If you also asked us by email, that request is already finished; there's nothing left to wait for.
 
 ### 6.4 What we can tell someone who asks
 
@@ -545,7 +544,7 @@ A "keep my spots safe" address is a key: whoever can receive mail at it can take
 **2. "Keep my spots safe" (opt-in).**
 
 - **Where it's offered:** first and mainly at the end of onboarding (§3.0), where the screen leads with not losing your spots. It's always in Settings too. If someone skipped it at onboarding, it's offered once more, unprompted, when they first have something to lose (their first badge). Declining is one tap and it isn't asked again.
-- **The screen says:** *"Add an email so you can get your spots back if you lose or change your phone. Anyone who can open this inbox can open your collection, so use an address only you (or a parent) can read. Under 15? Ask a parent to add theirs."*
+- **The screen says:** *"Add an email so you can get your spots back if you lose or change your phone. Use an email only you, or a parent, can read. Anyone who can open it can get your spots back. Under 15? Ask a parent to add theirs."*
 - **Restoring:** on a new phone, onboarding offers *"Already a spotter? Get your spots back"*. You type the address and we send a link. Tapping it opens a page with one button, and pressing it moves the collection (points, badges, named cats, username) to the new phone.
 - **The old phone is told** it has been signed out: *"Your spots moved to a new phone."* It stops acting as that spotter at its next request.
 - **Safeguards,** the same as staff sign-in (`team-access-and-welfare-queue.md` §2.5–2.6): the link works once and expires in 15 minutes; it is used up only when the button is pressed, never just by opening the link, so email scanners can't burn it; requests are rate-limited; and the reply is identical whether or not the address is known.

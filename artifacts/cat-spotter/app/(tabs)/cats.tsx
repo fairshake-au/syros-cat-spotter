@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -40,6 +40,9 @@ import {
   useGetProfile,
   getGetProfileQueryKey,
 } from '@workspace/api-client-react';
+
+/** How long the search box must be still before the map refits (SYC-573). */
+export const MAP_SEARCH_SETTLE_MS = 400;
 
 // Cat-alog filters (`CatalogueFilter`). The design also shows "Needs vet" /
 // "Desexed" filters, but health status is not modelled on cats yet (tracked
@@ -109,16 +112,29 @@ export default function CatalogScreen() {
     search,
   });
 
-  const initialRegion = useMemo(
-    () => ({
-      latitude: coords?.latitude ?? SYROS_CENTER.latitude,
-      longitude: coords?.longitude ?? SYROS_CENTER.longitude,
-      latitudeDelta: 0.06,
-      longitudeDelta: 0.06,
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [coords === null],
-  );
+  // The map opens on the cats being shown, not on the phone (SYC-573): the
+  // phone's position is only the dot. So the starting view is the island and
+  // never depends on `coords`; the fit moves it once the cats are known.
+  const initialRegion = {
+    latitude: SYROS_CENTER.latitude,
+    longitude: SYROS_CENTER.longitude,
+    latitudeDelta: 0.06,
+    longitudeDelta: 0.06,
+  };
+
+  // Typing refits the map only once it has settled: each refit pulls a new set
+  // of tiles from openstreetmap.org.
+  const [settledSearch, setSettledSearch] = useState('');
+  useEffect(() => {
+    const id = setTimeout(() => setSettledSearch(search.trim().toLowerCase()), MAP_SEARCH_SETTLE_MS);
+    return () => clearTimeout(id);
+  }, [search]);
+  const fitKey = `${applied}|${settledSearch}`;
+
+  // Web only: tapping a square shared by several cats narrows the strip to
+  // them. It resets whenever the fit key changes (a chip or a settled search).
+  const [strip, setStrip] = useState<{ forKey: string; ids: number[] } | null>(null);
+  const stripIds = strip && strip.forKey === fitKey ? strip.ids : null;
 
   const filters: { key: CatalogueFilter; label: string }[] = [
     { key: 'all', label: t('filterAll') },
@@ -241,7 +257,7 @@ export default function CatalogScreen() {
             </View>
           )}
           <AppMap
-            key={coords ? 'located' : 'default'}
+            fitKey={fitKey}
             latitude={initialRegion.latitude}
             longitude={initialRegion.longitude}
             latitudeDelta={initialRegion.latitudeDelta}
@@ -251,22 +267,38 @@ export default function CatalogScreen() {
             // Data spine PR 6 (spec §6.2): each cat is somewhere in its
             // published cell, drawn as that cell. Cats sharing a cell share
             // one drawn area; tapping it opens the first of them.
-            areas={groupByCell(filtered).map((group) => ({
-              id: `${group[0]!.lat},${group[0]!.lng}`,
-              latitude: group[0]!.lat,
-              longitude: group[0]!.lng,
-              sizeMetres: group[0]!.locationCellM ?? DEFAULT_CELL_M,
-              onPress: () =>
-                router.push({
-                  pathname: '/cat/[id]',
-                  params: { id: String(group[0]!.id) },
-                }),
-            }))}
+            areas={groupByCell(filtered).map((group) => {
+              const shared = group.length > 1;
+              return {
+                id: `${group[0]!.lat},${group[0]!.lng}`,
+                latitude: group[0]!.lat,
+                longitude: group[0]!.lng,
+                sizeMetres: group[0]!.locationCellM ?? DEFAULT_CELL_M,
+                // "3 cats" on a shared square (decision D6); the map hides it
+                // while the square is narrower than 40 px.
+                label: shared ? t('catsInArea').replace('{n}', String(group.length)) : undefined,
+                accessibilityLabel: shared
+                  ? t('areaWithCats').replace('{n}', String(group.length))
+                  : t('areaOfCat').replace('{name}', group[0]!.name),
+                onPress: () => {
+                  if (shared && Platform.OS === 'web') {
+                    // D4: the web strip narrows to the cats in this square.
+                    setStrip({ forKey: fitKey, ids: group.map((c) => c.id) });
+                    return;
+                  }
+                  router.push({
+                    pathname: '/cat/[id]',
+                    params: { id: String(group[0]!.id) },
+                  });
+                },
+              };
+            })}
+            stripAction={stripIds ? { label: t('mapShowAll'), onPress: () => setStrip(null) } : undefined}
             // On web, markers are the tappable strip under the map. On native
             // they would be photo pins at the cell centre, which the cell
             // replaces (spec §10.7: "drawn as that cell, never as a pin";
             // review of #95, finding 6), so native shows the cells only.
-            markers={Platform.OS !== 'web' ? [] : filtered.map((cat) => ({
+            markers={Platform.OS !== 'web' ? [] : filtered.filter((cat) => !stripIds || stripIds.includes(cat.id)).map((cat) => ({
               id: String(cat.id),
               latitude: cat.lat,
               longitude: cat.lng,

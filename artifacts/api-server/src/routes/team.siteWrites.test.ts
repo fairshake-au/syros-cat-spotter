@@ -18,6 +18,7 @@ import { mintTileToken, readTileToken } from "../lib/mapTiles/tileToken";
 import { guardianOn, newColony } from "../test/roleKit";
 import { makePrivateIfPublic } from "../lib/teamSiteWrites";
 import { isOpaqueAddress } from "../test/opaqueAddress";
+import { expectMapNote } from "../test/mapNote";
 import { isOpenMapLink } from "../test/openMapLink";
 import { placeLabel } from "../lib/areas/placeLabel";
 
@@ -228,6 +229,10 @@ describe("adding a site: the map and the pick", () => {
     expect(res.text).not.toContain("No such feeding site");
     expect(res.text).not.toMatch(/<script/i);
     expectNoPositionInAddresses(res.text);
+  });
+
+  it("the new-site map says it is only for the team where it can be seen, and keeps the reason behind a link (22 Oct 2026)", async () => {
+    expectMapNote((await get("/api/team/sites/new")).text);
   });
 
   it("the typed position is folded under 'Type a position instead' (517-B)", async () => {

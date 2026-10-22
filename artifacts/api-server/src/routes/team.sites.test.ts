@@ -20,6 +20,7 @@ import { BANDS, viewAround } from "../lib/mapTiles/geometry";
 import { mintTileToken } from "../lib/mapTiles/tileToken";
 import * as teamSites from "../lib/teamSites";
 import { isOpaqueAddress } from "../test/opaqueAddress";
+import { expectMapNote } from "../test/mapNote";
 import { isOpenMapLink } from "../test/openMapLink";
 import { placeLabel } from "../lib/areas/placeLabel";
 
@@ -262,6 +263,10 @@ describe("the Feeding sites page: what is on it", () => {
 });
 
 describe("the map on the Feeding sites page", () => {
+  it("says the map is only for the team where it can be seen, and keeps the reason behind a link (22 Oct 2026)", async () => {
+    expectMapNote((await get("/api/team/sites")).text);
+  });
+
   it("has a link marker per site: filled for public, outlined for private, each to its own page", async () => {
     const pub = await makeSite({ isPublic: true });
     const priv = await makeSite();

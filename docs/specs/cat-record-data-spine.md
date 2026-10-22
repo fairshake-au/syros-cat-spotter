@@ -1068,7 +1068,7 @@ export const sightingMatchesTable = pgTable("sighting_matches", {
   //   suggested | hand_pick | new_cat | sent_to_team | unlabelled
   chosenCatId: integer("chosen_cat_id"),
   suggestedRank: integer("suggested_rank"),   // with "suggested" only
-  pickedFrom: text("picked_from"),             // nearby | search | name_prompt
+  pickedFrom: text("picked_from"),             // nearby | search | name_prompt | cat_page
   missKind: text("miss_kind"),                 // matcher_miss | distance_miss
   openedPicker: boolean("opened_picker"),      // with "new_cat"
   colourFilterOn: boolean("colour_filter_on"), // with "new_cat"; true when either the colour row or the pattern row had a chip picked (name unchanged, SYC-398)
@@ -1100,8 +1100,8 @@ export const sightingMatchesTable = pgTable("sighting_matches", {
 | Label | When |
 |---|---|
 | `new_cat`, with `openedPicker` and `colourFilterOn` | The spotter created a cat. This label applies whatever the row holds. Whether they opened "Find the cat yourself" first, and whether a colour or pattern chip was picked in either row of the filter, are weak evidence the cat really is new. |
-| `suggested`, with its rank | The chosen cat is in `suggested` **and** cleared the confidence threshold, so the spotter was actually shown it. A below-threshold candidate sits in the stored set but was never shown, so picking it is a hand pick. |
-| `hand_pick`, with `pickedFrom` and `missKind` | Any other existing cat. The miss is a `matcher_miss` if the cat is in `comparedCatIds`, and a `distance_miss` if it isn't. **When `matcherFailed` is set**, nothing was really compared, so `missKind` is null, never a distance miss. |
+| `suggested`, with its rank | The chosen cat is in `suggested` **and** cleared the confidence threshold, so the spotter was actually shown it. A below-threshold candidate sits in the stored set but was never shown, so picking it is a hand pick. `pickedFrom` is kept here only when it is `cat_page` (the "Is this {name}?" step reached from a cat's page, `design-review-fixes-oct22.md` §2.5), so answers primed by the page can be told apart; any other screen's word is dropped. |
+| `hand_pick`, with `pickedFrom` (`nearby`, `search`, `name_prompt` or `cat_page`) and `missKind` | Any other existing cat. The miss is a `matcher_miss` if the cat is in `comparedCatIds`, and a `distance_miss` if it isn't. **When `matcherFailed` is set**, nothing was really compared, so `missKind` is null, never a distance miss. |
 | `sent_to_team`, with `aliveClaim` | The spotter asked Syros Cats to match the photo. `aliveClaim` marks a request made from a deceased cat's card ("Think this cat is alive?", `choose-a-different-cat.md` §4.3). |
 | `unlabelled`, with `pickedFrom` | An existing cat was chosen, but the row has no stored set to compare with, because no match was recorded. The server doesn't guess. |
 

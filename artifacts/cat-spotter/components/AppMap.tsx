@@ -1,10 +1,15 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import MapView, { Marker, Polygon } from 'react-native-maps';
 import { Image, type ImageSource } from 'expo-image';
 import { OsmTiles } from './OsmTiles';
 import { useColors } from '@/hooks/useColors';
-import { roundedCellPolygon } from '@/lib/cellShape';
+import {
+  LABEL_MIN_PX,
+  cellWidthOnNativeMap,
+  fitRegion,
+  roundedCellPolygon,
+} from '@/lib/cellShape';
 
 export interface AppMapMarker {
   id: string;
@@ -27,8 +32,10 @@ export interface AppMapArea {
   longitude: number;
   /** The cell's side, the API's `locationCellM`. */
   sizeMetres: number;
-  /** Shown in the middle of the cell, e.g. "Somewhere in here". */
+  /** Shown in the middle of the cell, e.g. "Somewhere in here" or "3 cats". Hidden while the cell is under 40 px wide. */
   label?: string;
+  /** Spoken label, e.g. "Agatha's area" or "Area with 3 cats". */
+  accessibilityLabel?: string;
   onPress?: () => void;
 }
 
@@ -43,6 +50,14 @@ export interface AppMapProps {
   interactive?: boolean;
   markerBorderColor?: string;
   style?: object;
+  /**
+   * When this changes, the map moves to fit the areas it has at that moment
+   * (without remounting). New data, a location fix or a keystroke alone never
+   * move it. Leave it out to keep the given centre.
+   */
+  fitKey?: string | number;
+  /** Web only: a chip at the start of the cat strip, e.g. "Show all". */
+  stripAction?: { label: string; onPress: () => void };
 }
 
 export function AppMap({
@@ -56,12 +71,55 @@ export function AppMap({
   interactive = true,
   markerBorderColor,
   style,
+  fitKey,
 }: AppMapProps) {
   const colors = useColors();
   const resolvedMarkerBorderColor = markerBorderColor ?? colors.primary;
+  const mapRef = useRef<MapView>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const [lngDelta, setLngDelta] = useState(longitudeDelta);
+  const areasRef = useRef(areas);
+  areasRef.current = areas;
+  const fittedKey = useRef<string | number | null>(null);
+  const hasAreas = areas.length > 0;
+
+  // Fit once per key, once the map is measured and there is something to fit.
+  useEffect(() => {
+    if (fitKey === undefined || size.width <= 0 || !hasAreas) return;
+    if (fittedKey.current === fitKey) return;
+    const fit = fitRegion(
+      areasRef.current.map((a) => ({
+        latitude: a.latitude,
+        longitude: a.longitude,
+        sizeMetres: a.sizeMetres,
+      })),
+      size,
+    );
+    if (!fit) return;
+    const first = fittedKey.current === null;
+    fittedKey.current = fitKey;
+    setLngDelta(fit.longitudeDelta);
+    mapRef.current?.animateToRegion(
+      {
+        latitude: fit.latitude,
+        longitude: fit.longitude,
+        latitudeDelta: fit.latitudeDelta,
+        longitudeDelta: fit.longitudeDelta,
+      },
+      first ? 0 : 300,
+    );
+  }, [fitKey, size, hasAreas]);
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+  };
 
   return (
     <MapView
+      ref={mapRef}
+      onLayout={onLayout}
+      onRegionChangeComplete={(r) => setLngDelta(r.longitudeDelta)}
       style={[styles.map, style]}
       initialRegion={{ latitude, longitude, latitudeDelta, longitudeDelta }}
       showsUserLocation={showsUserLocation}
@@ -81,7 +139,11 @@ export function AppMap({
         />
       ))}
       {areas
-        .filter((a) => a.label)
+        .filter(
+          (a) =>
+            a.label &&
+            cellWidthOnNativeMap(a, a.sizeMetres, lngDelta, size.width || 1) >= LABEL_MIN_PX,
+        )
         .map((a) => (
           <Marker
             key={`area-label-${a.id}`}

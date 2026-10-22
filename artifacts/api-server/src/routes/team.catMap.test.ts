@@ -5,6 +5,7 @@ import { db, feedingSitesTable, pool, sightingsTable } from "@workspace/db";
 import app from "../app";
 import { assetUrl } from "../lib/teamAssets";
 import { isOpaqueAddress } from "../test/opaqueAddress";
+import { expectMapNote } from "../test/mapNote";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { removeTestPerson } from "../test/removeTestPerson";
 import { deleteTestSightings } from "../test/sightings";
@@ -95,6 +96,16 @@ describe("the island Map page", () => {
     expect(fallback).not.toContain('action="/api/team/map"');
     // The scripted part stays hidden until the script shows it.
     expect(res.text).toContain('<div id="mapscripted" hidden>');
+  });
+
+  it("says the map is only for the team where it can be seen, and keeps the reason behind a link (22 Oct 2026)", async () => {
+    expectMapNote((await page(`/api/team/cats?view=map&colony=${colony}`)).text);
+  });
+
+  it("the no-script cats map carries the same note", async () => {
+    // Without a script the page is the same HTML; the note sits outside <noscript> and the script's box.
+    const html = (await page(`/api/team/cats?view=map&colony=${colony}`)).text;
+    expect(html.indexOf("This map is only for the team.")).toBeGreaterThan(html.indexOf("</noscript>"));
   });
 
   it("is titled Map and keeps Grid/Map after the search and Filters, as the grid does (SYC-522)", async () => {

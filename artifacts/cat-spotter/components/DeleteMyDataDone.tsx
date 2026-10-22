@@ -36,7 +36,6 @@ export function DeleteMyDataDone() {
           {t('deleteDoneTitle')}
         </Text>
         <Text style={body}>{t('deleteDoneBody')}</Text>
-        <Text style={body}>{t('deleteDoneEmail')}</Text>
         <Button variant="primary" size="lg" block onPress={dismissDone}>
           {t('deleteDoneContinue')}
         </Button>

@@ -84,7 +84,7 @@ export function SightingQuestions({
             {t('earTipQuestion').replace('{name}', catName)}
           </Text>
           <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-            {t('earTipUsuallyLeft')}
+            {t('earTipWhy')}
           </Text>
 
           <View testID="ear-tip-example" style={styles.example}>

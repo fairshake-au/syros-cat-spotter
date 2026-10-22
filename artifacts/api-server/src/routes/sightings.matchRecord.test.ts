@@ -340,6 +340,66 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
     expect(row!.suggestedRank).toBe(1);
   });
 
+  // SYC-569 D3 (design-review-fixes-oct22.md §2.5): `cat_page` is recorded
+  // on every pick from the cat page's question, suggestion or not. Without
+  // it a primed "Yes" is lost silently: the row is written, just without
+  // the fact, so nothing errors.
+  it("cat_page is recorded on a suggested pick, and the label is still the stored set's", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-cat-page-suggested`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    const b = await seedCat(northOf(SEA, 0.2));
+    matcherReturns({ [a]: 0.9, [b]: 0.6 });
+    const sub = await submit(device, SEA);
+
+    const res = await resolve(sub.body.sightingId, device, { catId: b, pickedFrom: "cat_page" });
+    expect(res.status).toBe(200);
+    expect(res.body.pickedFrom).toBeUndefined();
+    expect(await record(sub.body.sightingId)).toMatchObject({
+      choice: "suggested",
+      chosenCatId: b,
+      suggestedRank: 2,
+      pickedFrom: "cat_page",
+      missKind: null,
+    });
+  });
+
+  it("cat_page is recorded on a hand pick, and it stays a hand pick", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-cat-page-hand`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    const low = await seedCat(northOf(SEA, 0.2));
+    // Compared but below the threshold: never shown, so a hand pick even
+    // though the cat page "suggested" it to the spotter.
+    matcherReturns({ [a]: 0.9, [low]: 0.02 });
+    const sub = await submit(device, SEA);
+
+    await resolve(sub.body.sightingId, device, { catId: low, pickedFrom: "cat_page" });
+    expect(await record(sub.body.sightingId)).toMatchObject({
+      choice: "hand_pick",
+      chosenCatId: low,
+      suggestedRank: null,
+      pickedFrom: "cat_page",
+      missKind: "matcher_miss",
+    });
+  });
+
+  it("every other screen's word is still dropped on a suggested pick", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-other-suggested`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    for (const pickedFrom of ["nearby", "search", "name_prompt"]) {
+      matcherReturns({ [a]: 0.9 });
+      const sub = await submit(device, SEA);
+      expect((await resolve(sub.body.sightingId, device, { catId: a, pickedFrom })).status).toBe(200);
+      expect(await record(sub.body.sightingId), pickedFrom).toMatchObject({
+        choice: "suggested",
+        suggestedRank: 1,
+        pickedFrom: null,
+      });
+    }
+  });
+
   it("a hand pick of a cat that was compared but scored too low is a matcher miss", async () => {
     const SEA = spot();
     const device = `${DEVICE}-matcher-miss`;

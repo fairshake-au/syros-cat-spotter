@@ -44,6 +44,13 @@ export interface ReviewRouteData {
   /** Where the photo was taken, as sent with the sighting. Both or neither. */
   lat?: number;
   lng?: number;
+  /**
+   * SYC-574 (design-review-fixes-oct22.md §2.4): the cat the spotter came to
+   * spot from its page, for an online send only (a queued spot keeps it on
+   * its queue item). Only ever asks "Is this {name}?"; never sent to the
+   * server with the sighting, and never changes the matcher's answer.
+   */
+  hintCatId?: number;
 }
 
 export interface ReviewRouteInput {
@@ -56,6 +63,7 @@ export interface ReviewRouteInput {
   photoRef?: string | null;
   lat?: number | null;
   lng?: number | null;
+  hintCatId?: number | null;
 }
 
 export const REASONING_MAX_LENGTH = 280;
@@ -128,6 +136,11 @@ function safeCandidate(candidate: unknown): MatchCandidate | null {
   };
 }
 
+/** SYC-574: a cat id is a positive whole number; anything else is no hint. */
+function safeCatId(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
+}
+
 /** SYC-503: only the exact word "failed" is a failure; anything else, or nothing, is "done". */
 function readMatchCheck(value: unknown): 'done' | 'failed' {
   return value === 'failed' ? 'failed' : 'done';
@@ -140,6 +153,9 @@ export function buildReviewParams(input: ReviewRouteInput): { data: string } {
   // reopen as "no look-alikes, you're the first to spot this cat".
   const matchCheck = readMatchCheck(input.matchCheck);
   const canRecheck = matchCheck === 'failed' && input.canRecheck === true;
+  // SYC-574: carried by the fallback too, so the question isn't lost with it.
+  const hintCatId = safeCatId(input.hintCatId);
+  const hint = hintCatId !== undefined ? { hintCatId } : {};
   try {
     const candidates = Array.isArray(input.candidates)
       ? input.candidates
@@ -156,12 +172,12 @@ export function buildReviewParams(input: ReviewRouteInput): { data: string } {
       data.lat = location.lat;
       data.lng = location.lng;
     }
-    return { data: JSON.stringify(data) };
+    return { data: JSON.stringify({ ...data, ...hint }) };
   } catch {
     // Never throw: a route to review the sighting, even without candidates,
     // beats a sighting that can never be reviewed.
     return {
-      data: JSON.stringify({ sightingId, isCatPhoto, candidates: [], matchCheck, canRecheck }),
+      data: JSON.stringify({ sightingId, isCatPhoto, candidates: [], matchCheck, canRecheck, ...hint }),
     };
   }
 }
@@ -182,6 +198,7 @@ export function parseReviewParams(raw: string | undefined): ReviewRouteData | nu
       localId: typeof value.localId === 'string' ? value.localId : undefined,
       photoRef: typeof value.photoRef === 'string' ? value.photoRef : undefined,
       ...(safeLocation(value.lat, value.lng) ?? {}),
+      ...(safeCatId(value.hintCatId) !== undefined ? { hintCatId: value.hintCatId } : {}),
     };
   } catch {
     return null;

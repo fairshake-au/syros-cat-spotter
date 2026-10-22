@@ -3,7 +3,7 @@
  * the cell"). The drawn area is the cell itself, never bigger, never a pin.
  */
 import { describe, expect, it } from 'vitest';
-import { CORNER_SHARE, cellBoxPixels, groupByCell, roundedCellPolygon } from '../cellShape';
+import { CORNER_SHARE, cellBoxPixels, fitRegion, groupByCell, roundedCellPolygon } from '../cellShape';
 import { parsePublicDate } from '../catStatusLines';
 
 const CENTRE = { latitude: 37.4448, longitude: 24.9425 };
@@ -69,5 +69,64 @@ describe('parsePublicDate', () => {
 
   it('still reads an older server\'s full timestamp', () => {
     expect(parsePublicDate('2026-10-06T10:00:00Z').toISOString()).toBe('2026-10-06T10:00:00.000Z');
+  });
+});
+
+describe('fitRegion', () => {
+  const box = { width: 390, height: 600 };
+  const cell = (latitude: number, longitude: number, sizeMetres = 250) => ({ latitude, longitude, sizeMetres });
+
+  it('returns null with no cells, or before the map is measured', () => {
+    expect(fitRegion([], box)).toBeNull();
+    expect(fitRegion([cell(37.44, 24.94)], { width: 0, height: 0 })).toBeNull();
+  });
+
+  it('opens one cell at the zoom cap, centred on it, never as a pin', () => {
+    const r = fitRegion([cell(37.44, 24.94)], box)!;
+    expect(r.zoom).toBe(16);
+    expect(r.latitude).toBeCloseTo(37.44, 6);
+    expect(r.longitude).toBeCloseTo(24.94, 6);
+    // A 250 m cell is about 160 px at zoom 16, so it fits with room to spare.
+    const px = cellBoxPixels({ latitude: 37.44, longitude: 24.94 }, 250, r, r.zoom, 390, 600);
+    expect(px.width).toBeGreaterThan(100);
+    expect(px.width).toBeLessThan(390 / 2);
+  });
+
+  it('zooms out to hold a spread, keeping a one-cell margin on every side', () => {
+    const cells = [cell(37.42, 24.92), cell(37.46, 24.97)];
+    const r = fitRegion(cells, box)!;
+    expect(r.zoom).toBeGreaterThanOrEqual(12);
+    expect(r.zoom).toBeLessThan(16);
+    for (const c of cells) {
+      const px = cellBoxPixels(c, c.sizeMetres, r, r.zoom, box.width, box.height);
+      const cellPx = px.width;
+      expect(px.left).toBeGreaterThanOrEqual(cellPx - 1);
+      expect(px.top).toBeGreaterThanOrEqual(cellPx - 1);
+      expect(box.width - (px.left + px.width)).toBeGreaterThanOrEqual(cellPx - 1);
+      expect(box.height - (px.top + px.height)).toBeGreaterThanOrEqual(cellPx - 1);
+    }
+  });
+
+  it('uses the longitude span too: a wide east-west spread in a short box', () => {
+    const cells = [cell(37.44, 24.90), cell(37.44, 24.99)];
+    const wide = fitRegion(cells, { width: 390, height: 200 })!;
+    const roomy = fitRegion(cells, { width: 1200, height: 200 })!;
+    expect(wide.zoom).toBeLessThan(roomy.zoom);
+    for (const c of cells) {
+      const px = cellBoxPixels(c, c.sizeMetres, wide, wide.zoom, 390, 200);
+      expect(px.left).toBeGreaterThanOrEqual(-1);
+      expect(px.left + px.width).toBeLessThanOrEqual(391);
+    }
+  });
+
+  it('never zooms out past the floor of 12, even for an island-wide spread', () => {
+    const r = fitRegion([cell(37.3, 24.8), cell(37.55, 25.1)], { width: 300, height: 300 })!;
+    expect(r.zoom).toBe(12);
+  });
+
+  it('gives native the deltas the chosen zoom shows', () => {
+    const r = fitRegion([cell(37.44, 24.94)], box)!;
+    expect(r.longitudeDelta).toBeCloseTo((390 / (256 * 2 ** 16)) * 360, 8);
+    expect(r.latitudeDelta).toBeGreaterThan(0);
   });
 });

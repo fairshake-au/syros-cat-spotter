@@ -67,6 +67,19 @@ export interface PendingSighting {
   matchCheck?: 'done' | 'failed';
   /** SYC-503: a failed check can be run again (false when the photo has gone). */
   canRecheck?: boolean;
+  /**
+   * SYC-574 (design-review-fixes-oct22.md §2.4): the cat the spotter came to
+   * spot from its page. Kept on the phone only: set on the item AFTER
+   * `queuedSighting` builds it, and never part of the replayed request body.
+   * Review reads it from here by `localId`. Read it through `hintOf`.
+   */
+  hintCatId?: number;
+}
+
+/** A queued item's hint, or undefined when it has none or it isn't a cat id. */
+export function hintOf(item: { hintCatId?: unknown } | null | undefined): number | undefined {
+  const v = item?.hintCatId;
+  return typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : undefined;
 }
 
 /** One stored extra photo of a queued spot (SYC-415). */

@@ -97,9 +97,9 @@ The server tells the app, for the phone looking (and only once it has proved who
 | Who is looking | What they see |
 |---|---|
 | A phone that may claim the cat | **"This is my cat"**, where the claim button has always been, styled as a secondary action rather than the page's most prominent button |
-| A phone that hasn't met it, when it lives on the street | No button. One quiet line: *"Is this your cat? Spot Agatha with the camera first, then you can say Agatha lives with you."* (D2) |
+| A phone that hasn't met it, when it lives on the street | No button. A small link, *"Does Agatha live with you?"*, which opens a sheet saying to spot Agatha with the camera first, then come back and say Agatha lives with you (D2; changed 22 Oct 2026, from a line shown to everyone: [design-review-fixes-oct22.md](design-review-fixes-oct22.md) §1.1-§1.2) |
 | A phone that has met it but let it go in the last 7 days, or that the team removed as owner in the last 30 | No button and no line |
-| Anyone, when the cat has a home | No button. One line under "Has a home": *"Got a new phone? Ask Syros Cats to remove the old owner, then you can say Agatha lives with you again."* (§6; kept on the page, Samuel, 14 Oct 2026) |
+| Anyone except the owner, when the cat has a home | No button. The same *"Does Agatha live with you?"* link under "Has a home"; its sheet says to email us if Agatha's yours and you've changed phone. This **reverses** the 14 Oct 2026 decision to keep "Got a new phone? Ask Syros Cats to remove the old owner…" on the page: on 22 Oct 2026 Samuel said that line didn't make sense to people it wasn't about (§6; [design-review-fixes-oct22.md](design-review-fixes-oct22.md) §1.1-§1.2) |
 | Anyone, when the cat is in care or has died | No button and no line |
 | The cat's owner | The owner's edit sheet as usual, with **"Agatha doesn't live with me any more"** at its foot (§6) |
 | Anyone with no connection | The button, if shown, is disabled, with *"You need a connection to do this."* |
@@ -190,7 +190,7 @@ Saying yes, in one transaction:
 
 On this phone the cat leaves the list of cats it owns straight away. The server's list is the one that counts whenever there's a connection, so a phone never keeps owner controls for a cat it no longer owns.
 
-**An owner on a new phone** has a new identity, so the app no longer knows them as the owner. They can't let go from the new phone. The copy on the cat's page and in the help says: *"Got a new phone? Ask Syros Cats to remove the old owner, then you can say Agatha lives with you again."*
+**An owner on a new phone** has a new identity, so the app no longer knows them as the owner. They can't let go from the new phone. The cat's page no longer carries a line about this on every homed cat (changed 22 Oct 2026, [design-review-fixes-oct22.md](design-review-fixes-oct22.md) §1.1). Instead, the quiet link *"Does Agatha live with you?"* under "Has a home" opens a sheet that says: *"Agatha already has a home on the app. If Agatha's yours and you've changed phone, email us at hello@catspotters.com and we'll help."* The team then uses "Remove owner" (§7).
 
 ---
 

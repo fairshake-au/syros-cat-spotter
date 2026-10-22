@@ -1,6 +1,7 @@
 import { escapeHtml as esc } from "./escape";
 import { renderPage, type NavKey } from "./layout";
 import { renderMap, type MapMarker } from "./map";
+import { mapPrivacyNote } from "./mapNote";
 import { place, position } from "./position";
 import { SITES_PATH, stampField } from "./sitePages";
 import { t, wordsIn, type WordKey } from "./words";
@@ -117,7 +118,7 @@ export function renderPicker(o: {
       }) +
       (o.note ? `<p class="warn">${esc(o.note)}</p>` : "") +
       (o.legend ? `<p class="hint">${esc(o.legend)}</p>` : "") +
-      `<p class="hint">${w("new.mapNote")}</p>` +
+      mapPrivacyNote(o.lang) +
       (o.below ?? "") +
       typed,
   });

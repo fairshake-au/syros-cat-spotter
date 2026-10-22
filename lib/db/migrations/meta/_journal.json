@@ -281,6 +281,13 @@
       "when": 1792641018560,
       "tag": "0039_photo_fingerprints",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792645101008,
+      "tag": "0040_picked_from_cat_page",
+      "breakpoints": true
     }
   ]
 }
