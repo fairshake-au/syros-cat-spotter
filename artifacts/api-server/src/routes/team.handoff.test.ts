@@ -98,7 +98,7 @@ describe("a good pass", () => {
     expect(cookie).toMatch(/; HttpOnly(;|$)/);
     expect(cookie).toMatch(/; Secure(;|$)/);
     expect(cookie).toMatch(/; SameSite=Lax(;|$)/);
-    expect(cookie).toMatch(/; Max-Age=2592000(;|$)/);
+    expect(cookie).toMatch(/; Max-Age=2678400(;|$)/);
     expect(cookie).not.toMatch(/Domain=/i);
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });

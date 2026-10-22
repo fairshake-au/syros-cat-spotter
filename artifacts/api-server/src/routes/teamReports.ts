@@ -322,7 +322,7 @@ const StateBody = z.object({
   // What that page said would happen to the reporter; checked again on press.
   expect: z.enum(REPORTER_ON_CLOSE).optional(),
 });
-const NoteBody = z.object({ note: z.string().max(NOTE_MAX) });
+export const NoteBody = z.object({ note: z.string().max(NOTE_MAX) });
 
 /** A browser form post gets a redirect; anything else gets JSON. */
 const isFormPost = (req: Request) =>

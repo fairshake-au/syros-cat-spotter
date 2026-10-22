@@ -7,6 +7,7 @@ import { covers } from "../lib/guardianView";
 import { catTarget, siteTarget } from "../lib/capabilityTargets";
 import { can, type CapabilityTarget } from "../lib/capabilities";
 import { formRoute } from "./teamCorrections";
+import { useHeldTyping } from "../lib/teamAuth/heldTyping";
 import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
 import {
   clampView,
@@ -284,7 +285,7 @@ const AddForm = z.object({
   lat: latField,
   lng: lngField,
 });
-const EditForm = z.object({
+export const EditForm = z.object({
   updatedAt: stampField,
   name: nameField.optional(),
   directions: optionalText(SITE_DIRECTIONS_MAX).optional(),
@@ -925,8 +926,12 @@ router.get(
     // it writes nothing.
     if (req.method !== "HEAD") await recordSitePageRead(person.id, site.id);
     if (wantsJson(req)) return void res.json(site);
+    const mayAct = can(person, "edit_feeding_site", { colonyId: site.colony?.id ?? null });
+    // Back after signing in again (SYC-516 C3): "Edit details" filled in.
+    const kept = mayAct ? await useHeldTyping(req, person, `site:${site.id}`) : null;
     res.type("html").send(
       renderSitePage({
+        kept: kept ?? undefined,
         site,
         personName: v.personName,
         lang: v.lang,
@@ -936,7 +941,7 @@ router.get(
         done: typeof req.query["done"] === "string" ? req.query["done"] : undefined,
         // Asked of can() against the site's own colony (SYC-209 PR 4.2): a cat
         // guardian edits, moves and retires her own sites, never "Change colony".
-        mayAct: can(person, "edit_feeding_site", { colonyId: site.colony?.id ?? null }),
+        mayAct,
         mayReassign: can(person, "reassign_feeding_site"),
       }),
     );

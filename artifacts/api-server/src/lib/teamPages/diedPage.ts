@@ -1,4 +1,5 @@
 import type { TeamCatView } from "../teamCatView";
+import { keptLine } from "./signedOutPage";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 
@@ -14,6 +15,8 @@ export interface DiedPageOptions {
   problem?: string;
   /** What was typed, kept when the page comes back. */
   fields?: { reason?: string; date?: string };
+  /** The fields came back after signing in again (SYC-516 C3): say so at the top. */
+  kept?: boolean;
 }
 
 export function renderDiedPage(view: TeamCatView, personName: string, opts: DiedPageOptions = {}): string {
@@ -41,6 +44,7 @@ export function renderDiedPage(view: TeamCatView, personName: string, opts: Died
     active: "cats",
     personName,
     body:
+      (opts.kept ? keptLine() : "") +
       photo +
       (opts.problem ? `<p class="notice" role="alert">${esc(opts.problem)} Nothing was changed.</p>` : "") +
       `<p>What will happen:</p><ul class="happens">${happens.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` +

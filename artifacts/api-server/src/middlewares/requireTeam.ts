@@ -3,10 +3,14 @@ import { findPersonById, type PersonWithScopes } from "@workspace/db";
 import { navContext } from "../lib/teamPages/layout";
 import { readSession } from "../lib/teamAuth/session";
 import {
+  isBrowserNavigation,
+  isFormPost,
   refuseAccessEnded,
   refuseForbidden,
   refuseNotSignedIn,
+  refuseSignedOutSave,
 } from "../lib/teamAuth/refuse";
+import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import {
   can,
   doorFor,
@@ -107,6 +111,18 @@ export function requireTeam(
       const session = readSession(req, Math.floor(Date.now() / 1000));
       if (!session) {
         req.log.info({ reason: "no_valid_session" }, "team request refused");
+        // SYC-516 C2 (spec 3.2): a browser form post from the dashboard
+        // itself whose sign-in lapsed gets the "signed out" page (and, C3,
+        // keeps what was typed). Everything else: today's 401, byte for byte.
+        if (
+          isBrowserNavigation(req) &&
+          req.method === "POST" &&
+          req.headers.origin === TEAM_ORIGIN &&
+          isFormPost(req)
+        ) {
+          await refuseSignedOutSave(req, res);
+          return;
+        }
         refuseNotSignedIn(req, res);
         return;
       }

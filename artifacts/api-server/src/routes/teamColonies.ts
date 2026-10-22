@@ -32,6 +32,7 @@ import { covers } from "../lib/guardianView";
 import { movedAwayNotices } from "../lib/movedAway";
 import { recentGuardianChanges } from "../lib/recentGuardianChanges";
 import { formRoute } from "./teamCorrections";
+import { useHeldTyping } from "../lib/teamAuth/heldTyping";
 import { coordinate, fieldsOf, lf, noNul, optionalText } from "../lib/teamForms";
 
 // The team's Colonies screens (SYC-209 PR 2.1; spec §2.6, §2.7, §11.2).
@@ -77,13 +78,13 @@ const nameField = z.preprocess(
     .refine((s) => foldName(s) !== ""),
 );
 
-const CreateForm = z.object({
+export const CreateForm = z.object({
   name: nameField,
   guardianName: optionalText(GUARDIAN_NAME_MAX).optional(),
   notes: optionalText(COLONY_NOTES_MAX).optional(),
 });
 
-const UpdateForm = z
+export const UpdateForm = z
   .object({
     name: nameField.optional(),
     guardianName: optionalText(GUARDIAN_NAME_MAX).optional(),
@@ -199,8 +200,11 @@ router.get(
       });
     }
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
+    // Back after signing in again (SYC-516 C3): "Create a colony" filled in.
+    const kept = can(person, "create_colony") ? await useHeldTyping(req, person, "colony:new") : null;
     res.type("html").send(
       renderColoniesPage({
+        kept: kept ?? undefined,
         query: shown,
         searched: unmatchable,
         colonies,
@@ -248,8 +252,13 @@ router.get(
     if (!view) return notFoundPage(req, res);
     if (wantsJson(req)) return void res.json(view);
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
+    // Back after signing in again (SYC-516 C3): the edit form filled in.
+    const kept = can(person, "edit_colony", { colonyId: view.id })
+      ? await useHeldTyping(req, person, `colony:${view.id}`)
+      : null;
     res.type("html").send(
       renderColonyPage(view, v.personName, {
+        kept: kept ?? undefined,
         // Asked against THIS colony, from the record (SYC-209 PR 4.2): a cat
         // guardian edits her own colony and its cats; renaming stays island-only.
         may: (c) => can(person, c, { colonyId: view.id }),

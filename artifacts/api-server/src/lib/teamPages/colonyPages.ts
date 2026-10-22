@@ -1,4 +1,5 @@
 import type { Capability } from "../capabilities";
+import { keptLine, type KeptFields } from "./signedOutPage";
 import { myCatPath } from "./guardianPages";
 import type { ColonyHistoryEntry, ColonyRow, ColonyView } from "../teamColonies";
 import { COLONY_NAME_MAX, COLONY_NOTES_MAX, GUARDIAN_NAME_MAX } from "../teamColonies";
@@ -231,22 +232,24 @@ function sortBar(W: Words, sort: ColonySort): string {
  * "Create a colony". A cat guardian's form has a name and notes only: she
  * becomes its guardian, under her own name (spec §2.7; SYC-209 PR 4.2).
  */
-function createForm(W: Words, island: boolean, open = false): string {
+function createForm(W: Words, island: boolean, open = false, kept?: KeptFields): string {
   const { w } = W;
+  const k = kept ?? {};
+  const value = (f: string) => (k[f] !== undefined ? ` value="${esc(k[f]!)}"` : "");
   // `#create` is where "Create a colony" on My colonies lands (SYC-439); it
   // starts open for a cat guardian who has no colony to see yet.
   return (
-    `<div class="fixes"><details id="create"${open ? " open" : ""}><summary>${w("create.open")}</summary>` +
+    `<div class="fixes"><details id="create"${open || kept ? " open" : ""}><summary>${w("create.open")}</summary>` +
     `<form method="post" action="/api/team/colonies">` +
     `<label class="label" for="new-name">${w("create.name")}</label>` +
     `<p class="hint">${w("create.nameHint")}</p>` +
-    `<input class="text" id="new-name" name="name" type="text" required maxlength="${COLONY_NAME_MAX}" autocomplete="off">` +
+    `<input class="text" id="new-name" name="name" type="text" required maxlength="${COLONY_NAME_MAX}" autocomplete="off"${value("name")}>` +
     (island
       ? `<label class="label" for="new-guardian">${w("create.guardian")}</label>` +
-        `<input class="text" id="new-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" autocomplete="off">`
+        `<input class="text" id="new-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" autocomplete="off"${value("guardianName")}>`
       : "") +
     `<label class="label" for="new-notes">${w(island ? "create.notes" : "colony.notesOwn")}</label>` +
-    `<textarea id="new-notes" name="notes" maxlength="${COLONY_NOTES_MAX}"></textarea>` +
+    `<textarea id="new-notes" name="notes" maxlength="${COLONY_NOTES_MAX}">${esc(k["notes"] ?? "")}</textarea>` +
     notesHint(W) +
     `<button type="submit">${w("create.button")}</button>` +
     `</form></details></div>`
@@ -261,6 +264,8 @@ export function renderColoniesPage(opts: ColonyViewer & {
   personName: string;
   done?: string;
   canCreate: boolean;
+  /** What was typed into "Create a colony" before the sign-in lapsed (SYC-516 C3). */
+  kept?: KeptFields;
   /**
    * "Recent changes by cat guardians" (SYC-209 PR 4.3): passed only when the
    * viewer holds `view_guardian_changes` (island-only, team-only). Left out,
@@ -311,6 +316,7 @@ export function renderColoniesPage(opts: ColonyViewer & {
     afterTitle:
       opts.island === false ? undefined : `<p><a class="tap" href="/api/team/sites">${w("colonies.sites")}</a></p>`,
     body:
+      (opts.kept && opts.canCreate ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
       (opts.recentChanges ? recentChangesSection(W, opts.recentChanges) : "") +
       `<form class="search" method="get" action="/api/team/colonies" role="search">` +
@@ -324,7 +330,7 @@ export function renderColoniesPage(opts: ColonyViewer & {
       figuresLine +
       list +
       (opts.canCreate
-        ? createForm(W, opts.island !== false, opts.island === false && opts.colonies.length === 0 && !searching)
+        ? createForm(W, opts.island !== false, opts.island === false && opts.colonies.length === 0 && !searching, opts.kept)
         : ""),
   });
 }
@@ -519,21 +525,22 @@ function catList(
   );
 }
 
-function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean, island: boolean): string {
+function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean, island: boolean, kept?: KeptFields): string {
   const { w } = W;
+  const k = kept ?? {};
   const rename = may("rename_colony")
     ? `<label class="label" for="edit-name">${w("colony.rename")}</label>` +
-      `<input class="text" id="edit-name" name="name" type="text" required maxlength="${COLONY_NAME_MAX}" value="${esc(v.name)}" autocomplete="off">`
+      `<input class="text" id="edit-name" name="name" type="text" required maxlength="${COLONY_NAME_MAX}" value="${esc(k["name"] ?? v.name)}" autocomplete="off">`
     : "";
   return (
-    `<div class="fixes"><details><summary>${w("colony.editTitle")}</summary>` +
+    `<div class="fixes"><details${kept ? " open" : ""}><summary>${w("colony.editTitle")}</summary>` +
     `<form method="post" action="${esc(colonyHref(v.id))}">` +
     rename +
     `<label class="label" for="edit-guardian">${w("create.guardian")}</label>` +
-    `<input class="text" id="edit-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" value="${esc(v.guardianName ?? "")}" autocomplete="off">` +
+    `<input class="text" id="edit-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" value="${esc(k["guardianName"] ?? v.guardianName ?? "")}" autocomplete="off">` +
     // Her own colony's notes are just "Notes" to a cat guardian (PR 4.1).
     `<label class="label" for="edit-notes">${w(island ? "create.notes" : "colony.notesOwn")}</label>` +
-    `<textarea id="edit-notes" name="notes" maxlength="${COLONY_NOTES_MAX}">${esc(v.notes ?? "")}</textarea>` +
+    `<textarea id="edit-notes" name="notes" maxlength="${COLONY_NOTES_MAX}">${esc(k["notes"] ?? v.notes ?? "")}</textarea>` +
     notesHint(W) +
     `<label class="label" for="edit-lat">${w("colony.centreLat")}</label>` +
     `<input class="text" id="edit-lat" name="lat" type="text" inputmode="decimal" value="${v.lat !== null ? esc(String(v.lat)) : ""}" autocomplete="off">` +
@@ -572,6 +579,8 @@ export function renderColonyPage(
     done?: string;
     /** Her cats that someone else moved to a colony that isn't hers (movedAwayNotices). */
     movedAway?: ReadonlyArray<{ catName: string; movedAt: Date }>;
+    /** What was typed into the edit form before the sign-in lapsed (SYC-516 C3). */
+    kept?: KeptFields;
   },
 ): string {
   const W = wordsIn(opts.lang);
@@ -604,9 +613,10 @@ export function renderColonyPage(
     personName,
     beforeTitle: `<p class="back"><a href="/api/team/colonies">${w("colony.back")}</a></p>`,
     body:
+      (opts.kept && opts.may("edit_colony") ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
       summary +
-      (opts.may("edit_colony") ? editForm(W, v, opts.may, island) : "") +
+      (opts.may("edit_colony") ? editForm(W, v, opts.may, island, opts.kept) : "") +
       `<h2>${w("colony.sitesTitle")}</h2>` +
       sites +
       // Opens the add page with this colony chosen. Only the colony's number

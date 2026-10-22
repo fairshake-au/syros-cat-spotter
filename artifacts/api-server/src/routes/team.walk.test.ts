@@ -13,6 +13,7 @@ import { ASSET_CACHE } from "./teamAssets";
 import { COMING_SOON } from "../lib/teamPages/homePage";
 import { invitePerson } from "@workspace/db";
 import { inviteCookieFor } from "../test/inviteKit";
+import { STRICT_CSP } from "../test/wideCsp";
 import {
   endPlacements,
   guardianOn,
@@ -584,6 +585,19 @@ describe("T1: the route walk", () => {
       for (const cookie of route.startsWith("GET ") ? [undefined, people.team.cookie] : [undefined]) {
         const res = await send(route, cookie);
         expect(res.headers["x-content-type-options"], `${route} (${cookie ? "team" : "no session"})`).toBe("nosniff");
+      }
+    }
+  });
+
+  it("SYC-516 C1 (SYC-339): an unmatched /api/team path carries the full team headers, JSON and page", async () => {
+    for (const route of ["GET /api/team/no-such-page", "POST /api/team/no/such/thing"]) {
+      for (const browser of [false, true]) {
+        const res = await send(route, undefined, browser);
+        const where = `${route} (${browser ? "browser" : "data"})`;
+        expect(res.status, where).toBe(404);
+        expect(res.headers["content-security-policy"], where).toBe(STRICT_CSP);
+        expect(res.headers["cache-control"], where).toBe("no-store");
+        expect(res.headers["referrer-policy"], where).toBe("same-origin");
       }
     }
   });

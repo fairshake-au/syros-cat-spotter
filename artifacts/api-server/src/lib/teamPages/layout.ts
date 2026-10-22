@@ -542,8 +542,12 @@ export interface PageOptions {
    * Colonies and Feeding sites only, in her language.
    */
   nav?: boolean | "guardian";
-  /** The signed-in person's name (escaped here). */
-  personName: string;
+  /**
+   * The signed-in person's name (escaped here). `null`: no person at all, so
+   * no "Signed in as", no Sign out and no bar (the error page, which never
+   * reads the session; SYC-516 C1).
+   */
+  personName: string | null;
   /**
    * The person's language, for guardian-facing pages only. Anything not live
    * yet is drawn in English (see strings/index.ts). Default English.
@@ -644,7 +648,9 @@ export function renderPage(opts: PageOptions): string {
   // welcome page) keeps the bar for them, but it's no <nav>: there's
   // nowhere to go.
   const who =
-    `<span class="who" title="${escapeHtml(opts.personName)}">${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</span>` +
+    opts.personName === null
+      ? ""
+      : `<span class="who" title="${escapeHtml(opts.personName)}">${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</span>` +
     `<form method="post" action="/api/team/signout"><button type="submit">${t("shell.signOut")}</button></form>`;
   const barClass = `bar${opts.mainClass === "wide" ? " wide" : ""}`;
   return (
@@ -667,7 +673,9 @@ export function renderPage(opts: PageOptions): string {
     `<a class="skip" href="#main">${t("shell.skip")}</a>` +
     (items
       ? `<nav class="${barClass}" aria-label="${t("shell.menu")}">${items}${who}</nav>`
-      : `<div class="${barClass}">${who}</div>`) +
+      : who
+        ? `<div class="${barClass}">${who}</div>`
+        : "") +
     // tabindex=-1: the skip link moves keyboard focus here, not just the view.
     `<main id="main" tabindex="-1"${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
     (opts.banner ?? "") +

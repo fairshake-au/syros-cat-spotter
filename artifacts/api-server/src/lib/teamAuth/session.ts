@@ -12,6 +12,13 @@ import { sessionKeys } from "./config";
 
 export const SESSION_COOKIE = "__Host-cs_team";
 export const SESSION_LIFETIME_SECONDS = 30 * 24 * 60 * 60;
+/**
+ * SYC-516 C2 (spec §3.2): the cookie stays in the browser a day longer than
+ * the session inside it. The server still refuses it everywhere once the
+ * signed `exp` passes (readSession); only a signed-out save reads whose it
+ * was (readExpiredSession), to keep what they typed.
+ */
+export const SESSION_COOKIE_GRACE_SECONDS = 86_400;
 
 export interface SessionPayload {
   pid: string;
@@ -68,7 +75,7 @@ export function issueSession(
   });
   res.cookie(SESSION_COOKIE, value, {
     ...COOKIE_OPTIONS,
-    maxAge: SESSION_LIFETIME_SECONDS * 1000,
+    maxAge: (SESSION_LIFETIME_SECONDS + SESSION_COOKIE_GRACE_SECONDS) * 1000,
   });
   return true;
 }
@@ -121,10 +128,16 @@ function sessionCookieValues(req: Request, name: string = SESSION_COOKIE): strin
   return values;
 }
 
+/**
+ * A genuine value, or null. Live only (`exp > now`) unless `expiredWithin` is
+ * given, and then expired only: `now - expiredWithin < exp <= now`, never a
+ * live one. Only readExpiredSession passes it.
+ */
 function verifyValue(
   value: string,
   keys: Buffer[],
   nowSeconds: number,
+  opts: { expiredWithin?: number } = {},
 ): SignedPayload | null {
   const parts = value.split(".");
   if (parts.length !== 2) return null;
@@ -156,7 +169,12 @@ function verifyValue(
   if (typeof pid !== "string" || !Number.isSafeInteger(sv)) return null;
   // No readable expiry means refused, never "never expires" (§8.1).
   if (!Number.isSafeInteger(exp)) return null;
-  if ((exp as number) <= nowSeconds) return null;
+  if (opts.expiredWithin === undefined) {
+    if ((exp as number) <= nowSeconds) return null;
+  } else {
+    if ((exp as number) > nowSeconds) return null;
+    if ((exp as number) <= nowSeconds - opts.expiredWithin) return null;
+  }
   if (k !== undefined && typeof k !== "string") return null;
   return { pid, sv: sv as number, exp: exp as number, ...(k === undefined ? {} : { k }) };
 }
@@ -175,6 +193,30 @@ export function readSession(
   if (!keys) return null;
   for (const value of sessionCookieValues(req)) {
     const payload = verifyValue(value, keys, nowSeconds);
+    if (payload && payload.k === undefined) {
+      return { pid: payload.pid, sv: payload.sv, exp: payload.exp };
+    }
+  }
+  return null;
+}
+
+/**
+ * SYC-516 C2: whose sign-in this WAS. A genuine team session (our signature,
+ * no kind) that expired within the last SESSION_COOKIE_GRACE_SECONDS; never
+ * a live one, never an invitee's. It opens nothing: its only reader is the
+ * signed-out save (refuseSignedOutSave), which keeps what was typed for that
+ * person after checking they are still on the list at that session version.
+ */
+export function readExpiredSession(
+  req: Request,
+  nowSeconds: number,
+): SessionPayload | null {
+  const keys = sessionKeys();
+  if (!keys) return null;
+  for (const value of sessionCookieValues(req)) {
+    const payload = verifyValue(value, keys, nowSeconds, {
+      expiredWithin: SESSION_COOKIE_GRACE_SECONDS,
+    });
     if (payload && payload.k === undefined) {
       return { pid: payload.pid, sv: payload.sv, exp: payload.exp };
     }

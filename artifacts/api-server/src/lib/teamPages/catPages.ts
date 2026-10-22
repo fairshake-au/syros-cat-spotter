@@ -1,4 +1,5 @@
 import type { DerivedCatStatus } from "../catHelpers";
+import { keptLine, type KeptFields } from "./signedOutPage";
 import type { Confidence, LifeStatusValue } from "../resolve";
 import type {
   TeamCatView,
@@ -253,9 +254,12 @@ const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/A
 
 const LIFE_ORDER: LifeStatusValue[] = ["street", "homed", "in_care", "deceased"];
 
-const reasonInput = (id: string, label = "Why") =>
+const reasonInput = (id: string, label = "Why", value?: string) =>
   `<label class="label" for="${id}">${esc(label)}</label>` +
-  `<input class="text" id="${id}" name="reason" required maxlength="500" autocomplete="off">`;
+  `<input class="text" id="${id}" name="reason" required maxlength="500" autocomplete="off"${value !== undefined ? ` value="${esc(value)}"` : ""}>`;
+
+/** A fold that starts open when its form was filled in again (SYC-516 C3). */
+const fold = (open: boolean) => `<details${open ? " open" : ""}>`;
 
 const dateInput = (id: string, label: string, hint: string) =>
   `<label class="label" for="${id}">${esc(label)} <span class="hint">${esc(hint)}</span></label>` +
@@ -275,9 +279,22 @@ const lifeChoices = (
     )
     .join("");
 
-/** "Mark wrong" under a standing statement (PR 4), when this person may. */
-function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
+/**
+ * The capability "Mark wrong" under this statement needs on this page, as
+ * wrongForm decides it; null when the page draws no such form here.
+ */
+function wrongFormNeeds(s: TeamStatement): Capability | null {
   const c = s.correction;
+  if (!c || c.kind === "appearance") return null;
+  if (c.kind === "ear_tip_clipped" || c.kind === "sterilised") return "set_sterilisation";
+  if (c.kind === "colony") return "assign_cat_to_colony";
+  return "set_life_status";
+}
+
+/** "Mark wrong" under a standing statement (PR 4), when this person may. */
+function wrongForm(s: TeamStatement, may: (c: Capability) => boolean, kept?: KeptFields): string {
+  const c = s.correction;
+  const why = kept?.["reason"];
   if (!c) return "";
   // Colour and markings are marked wrong in the Appearance section (one form
   // per statement on the page, SYC-2 PR 3.1).
@@ -287,10 +304,10 @@ function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
   if (c.kind === "ear_tip_clipped") {
     if (!may("set_sterilisation")) return "";
     return (
-      `<details><summary>Mark wrong</summary><form method="post" action="${action}">` +
+      `${fold(kept !== undefined)}<summary>Mark wrong</summary><form method="post" action="${action}">` +
       '<input type="hidden" name="choice" value="not_clipped">' +
       '<p class="hint">The cat goes back to Not known yet, unless something else says otherwise.</p>' +
-      reasonInput(`${id}-why`, "Why it isn't a clip") +
+      reasonInput(`${id}-why`, "Why it isn't a clip", why) +
       "<button type=\"submit\">Mark wrong: it's not a clip</button></form></details>"
     );
   }
@@ -298,10 +315,10 @@ function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
     if (!may("assign_cat_to_colony")) return "";
     // No choice to make: the server works out what stands instead.
     return (
-      `<details><summary>Mark wrong</summary><form method="post" action="${action}">` +
+      `${fold(kept !== undefined)}<summary>Mark wrong</summary><form method="post" action="${action}">` +
       '<input type="hidden" name="choice" value="colony_previous">' +
       '<p class="hint">The cat goes back to the colony it was in before this, or to no colony if there was none.</p>' +
-      reasonInput(`${id}-why`) +
+      reasonInput(`${id}-why`, undefined, why) +
       '<button type="submit">Mark wrong</button></form></details>'
     );
   }
@@ -310,21 +327,21 @@ function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
     const to = c.now === true ? "sterilised_no" : "sterilised_yes";
     const toText = c.now === true ? "Not sterilised" : "Sterilised";
     return (
-      `<details><summary>Mark wrong</summary><form method="post" action="${action}">` +
+      `${fold(kept !== undefined)}<summary>Mark wrong</summary><form method="post" action="${action}">` +
       `<input type="hidden" name="choice" value="${to}">` +
       `<p>It should say: <strong>${esc(toText)}</strong></p>` +
-      reasonInput(`${id}-why`) +
+      reasonInput(`${id}-why`, undefined, why) +
       '<button type="submit">Mark wrong</button></form></details>'
     );
   }
   if (!may("set_life_status")) return "";
   return (
-    `<details><summary>Mark wrong</summary><form method="post" action="${action}">` +
+    `${fold(kept !== undefined)}<summary>Mark wrong</summary><form method="post" action="${action}">` +
     '<fieldset><legend class="label">It should say</legend>' +
     lifeChoices("choice", `${id}-to`, c.now) +
     "</fieldset>" +
     dateInput(`${id}-date`, "Date it happened", "(needed for “No longer with us”)") +
-    reasonInput(`${id}-why`) +
+    reasonInput(`${id}-why`, undefined, why) +
     '<button type="submit">Mark wrong</button></form></details>'
   );
 }
@@ -335,6 +352,7 @@ function statementItem(
   shown: Shown,
   may: (c: Capability) => boolean = () => false,
   notice = "",
+  kept?: KeptFields,
 ): string {
   const replaced = s.replacedBy.length > 0;
   const said = replaced ? `<del>${esc(s.said)}</del>` : esc(s.said);
@@ -374,7 +392,7 @@ function statementItem(
     (s.photoUrl ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}">See the photo</a></p>` : "") +
     replacements +
     moved +
-    wrongForm(s, may) +
+    wrongForm(s, may, kept) +
     (s.ownerClaim
       ? '<p class="hint">This is the owner\'s own claim. To end this claim, use Remove owner under “Update this cat”.</p>'
       : "") +
@@ -450,6 +468,32 @@ export interface CatPageOptions {
    * Null or left out: no strip at all, not even its heading.
    */
   issues?: { reports: IssueReport[]; total: number } | null;
+  /**
+   * A form filled in again after signing in (SYC-516 C3): its key
+   * (`name:<cat>`, `life:<cat>`, `sterilised:<cat>`, `wrong:<statement>`)
+   * and what was typed.
+   */
+  kept?: { formKey: string; fields: KeptFields };
+}
+
+/** The form keys renderCatPage can fill in again for this cat (SYC-516 C3). */
+export function catPageFormKeys(
+  v: TeamCatView,
+  may: (c: Capability) => boolean,
+): (formKey: string) => boolean {
+  // Only the forms this page actually draws for this viewer (the same checks
+  // as correctionForms and wrongForm), so a row is never used up unseen.
+  const own = new Set<string>();
+  if (may("rename_cat")) own.add(`name:${v.cat.id}`);
+  if (may("set_life_status")) own.add(`life:${v.cat.id}`);
+  if (may("set_sterilisation")) own.add(`sterilised:${v.cat.id}`);
+  // A statement whose "Mark wrong" is in the history list (colour and
+  // markings have theirs in the Appearance section).
+  for (const s of v.history) {
+    const needs = wrongFormNeeds(s);
+    if (needs !== null && may(needs)) own.add(`wrong:${s.id}`);
+  }
+  return (k) => own.has(k);
 }
 
 const ISSUE_STATE: Record<IssueReport["state"], string> = {
@@ -567,8 +611,13 @@ function correctionForms(
   may: (c: Capability) => boolean,
   notice = "",
   colonies: { id: number; name: string }[] = [],
+  kept?: { formKey: string; fields: KeptFields },
 ): string {
   const base = `/api/team/cats/${v.cat.id}`;
+  const keptFor = (form: string) => (kept?.formKey === `${form}:${v.cat.id}` ? kept.fields : undefined);
+  const life = keptFor("life");
+  const ster = keptFor("sterilised");
+  const rename = keptFor("name");
   const forms: string[] = [];
   // Recorded as died and nothing disagrees: no "This cat has died" button,
   // and Remove owner offers only "Still no longer with us" (SYC-513, spec §7).
@@ -576,7 +625,7 @@ function correctionForms(
     v.records.lifeStatus.value === "deceased" && v.records.lifeStatus.conflictingStatementIds.length === 0;
   if (may("set_life_status")) {
     forms.push(
-      `<details><summary>Update where the cat lives</summary><form method="post" action="${base}/life-status">` +
+      `${fold(life !== undefined)}<summary>Update where the cat lives</summary><form method="post" action="${base}/life-status">` +
         '<fieldset><legend class="label">The cat…</legend>' +
         lifeChoices("status", "ls", null, ["street", "homed", "in_care"]) +
         "</fieldset>" +
@@ -586,13 +635,13 @@ function correctionForms(
           ? '<p class="hint">This cat has an owner. Saving anything but “Has a home” asks you first whether to remove the owner.</p>'
           : "") +
         dateInput("ls-date", "Date it happened", "(leave blank for today)") +
-        reasonInput("ls-why") +
+        reasonInput("ls-why", undefined, life?.["reason"]) +
         '<button type="submit">Save</button></form></details>',
     );
   }
   if (may("set_sterilisation")) {
     forms.push(
-      `<details><summary>Update whether sterilised</summary><form method="post" action="${base}/sterilisation">` +
+      `${fold(ster !== undefined)}<summary>Update whether sterilised</summary><form method="post" action="${base}/sterilisation">` +
         '<p class="warn">A clipped ear seen in a photo is never proof. Use this only when Syros Cats or a vet knows.</p>' +
         '<fieldset><legend class="label">The cat is…</legend>' +
         '<label class="choice" for="st-yes"><input type="radio" id="st-yes" name="sterilised" value="yes" required> Sterilised</label>' +
@@ -601,17 +650,17 @@ function correctionForms(
         dateInput("st-date", "When it was done", "(optional)") +
         '<label class="label" for="st-clinic">Clinic or vet <span class="hint">(optional)</span></label>' +
         '<input class="text" id="st-clinic" name="clinic" maxlength="100" autocomplete="off">' +
-        reasonInput("st-why", "How we know") +
+        reasonInput("st-why", "How we know", ster?.["reason"]) +
         '<button type="submit">Save</button></form></details>',
     );
   }
   if (may("assign_cat_to_colony")) forms.push(colonyForm(v, colonies));
   if (may("rename_cat")) {
     forms.push(
-      `<details><summary>Rename the cat</summary><form method="post" action="${base}/name">` +
+      `${fold(rename !== undefined)}<summary>Rename the cat</summary><form method="post" action="${base}/name">` +
         '<label class="label" for="rn-name">New name</label>' +
-        `<input class="text" id="rn-name" name="name" required maxlength="60" value="${esc(v.cat.name)}" autocomplete="off" spellcheck="false">` +
-        reasonInput("rn-why") +
+        `<input class="text" id="rn-name" name="name" required maxlength="60" value="${esc(rename?.["name"] ?? v.cat.name)}" autocomplete="off" spellcheck="false">` +
+        reasonInput("rn-why", undefined, rename?.["reason"]) +
         '<button type="submit">Rename</button></form></details>',
     );
   }
@@ -1031,8 +1080,9 @@ export function renderCatPage(
     ...records.sterilised.supportingStatementIds,
     ...records.sterilised.conflictingStatementIds,
   ]);
+  const keptWrong = (s: TeamStatement) => (opts.kept?.formKey === `wrong:${s.id}` ? opts.kept.fields : undefined);
   const item = (s: TeamStatement) =>
-    statementItem(s, byId, shown, may, atStatement && s.id === opts.at ? notice : "");
+    statementItem(s, byId, shown, may, atStatement && s.id === opts.at ? notice : "", keptWrong(s));
   const historyItems = groupHistory(shown === null ? v.history : newest)
     .map((part) => {
       if ("one" in part) return item(part.one);
@@ -1063,7 +1113,8 @@ export function renderCatPage(
     afterTitle: `<p class="syrline">${esc(cat.syr)}</p>`,
     mainClass: "wide",
     body:
-      summaryAndActions(summary, correctionForms(v, may, formsNotice, opts.colonies)) +
+      (opts.kept ? keptLine() : "") +
+      summaryAndActions(summary, correctionForms(v, may, formsNotice, opts.colonies, opts.kept)) +
       issueStrip(opts.issues) +
       known +
       renderAppearanceSection(v, may, opts.done) +
