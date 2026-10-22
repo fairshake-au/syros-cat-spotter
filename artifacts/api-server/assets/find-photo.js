@@ -31,14 +31,21 @@
     button.textContent = "Comparing…";
     form.setAttribute("aria-busy", "true");
     progress.hidden = false;
+    // A search that never comes back (Stop pressed, a flaky connection that
+    // leaves this page showing) must not leave the button stuck: after a
+    // minute, let the person try again.
+    window.setTimeout(reset, 60000);
   });
 
-  window.addEventListener("pageshow", function (e) {
-    if (!e.persisted) return;
+  function reset() {
     sent = false;
     button.disabled = false;
     button.textContent = label;
     form.removeAttribute("aria-busy");
     progress.hidden = true;
+  }
+
+  window.addEventListener("pageshow", function (e) {
+    if (e.persisted) reset();
   });
 })();

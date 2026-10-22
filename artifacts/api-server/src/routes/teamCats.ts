@@ -327,7 +327,8 @@ router.get(
   "/team/cats/find",
   requireTeam("find_cat_from_photo"),
   async (req: Request, res: Response) => {
-    // Strict header first, before any await: this page has no script.
+    // Strict header first, before any await; the page is upgraded to the
+    // script header below once it is built (find-photo.js, SYC-522).
     setTeamHeaders(res);
     const person = teamPerson(res);
     const filters = findFilters(req.query);

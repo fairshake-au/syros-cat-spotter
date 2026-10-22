@@ -278,7 +278,8 @@ export const fr: Record<StringKey, string> = {
   // ── Colonies and Feeding sites (SYC-209 PR 4.1).
   "colonies.title": "Colonies",
   "colonies.lead": "Une colonie est un groupe de chats des rues dont s’occupe un·e gardien·ne de chats, en général nourris au même endroit. Crée-en une pour commencer à noter ses chats.",
-  "colonies.empty": "Il n’y a pas encore de colonie. Une colonie est un groupe de chats des rues dont s’occupe un·e gardien·ne de chats, en général nourris au même endroit.",
+  "colonies.empty": "Il n’y a pas encore de colonie.",
+  "colonies.emptyTeam": "Il n’y a pas encore de colonie. Une colonie est un groupe de chats des rues dont s’occupe un·e gardien·ne de chats, en général nourris au même endroit.",
   "colonies.noMatch": "Aucune colonie n’a jamais porté un nom comme celui-ci.",
   "colonies.emptyOwn": "Les colonies dont tu t’occupes apparaissent ici.",
   "colonies.noMatchOwn": "Aucune de tes colonies ne porte un nom comme celui-ci.",
@@ -411,7 +412,7 @@ export const fr: Record<StringKey, string> = {
   "none.body": "Il n’y a pas de colonie avec ce numéro.",
 
   "sites.title": "Points de nourrissage",
-  "sites.empty": "Il n’y a pas encore de point de nourrissage. Un point de nourrissage est un endroit où l’on nourrit des chats des rues. En ajouter un montre à l’équipe sur la carte où les trouver.",
+  "sites.empty": "Il n’y a pas encore de point de nourrissage. Un point de nourrissage est un endroit où l’on nourrit des chats des rues. Les points de nourrissage apparaissent sur la carte, pour que l’équipe sache où trouver les chats.",
   "sites.showRetired": "Afficher les points fermés",
   "sites.update": "Mettre à jour",
   "sites.recentTitle": "Modifié récemment",

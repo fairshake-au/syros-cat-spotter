@@ -29,6 +29,19 @@ describe("Colonies with none yet (SYC-577)", () => {
     expect(html.indexOf("Recent changes by cat guardians")).toBeGreaterThan(html.indexOf("Create a colony"));
     expect(html.indexOf('role="search"')).toBeGreaterThan(html.indexOf("Create a colony"));
     expect(html.match(/id="create"/g)).toHaveLength(1);
+    // Said once, not again by the empty list under it (SYC-522 review).
+    expect(html.split(LEAD)).toHaveLength(2);
+  });
+
+  it("explains Growing only when a colony on the page is growing (SYC-522)", () => {
+    const row = (id: number) => ({ id, name: `C${id}`, guardianName: null, siteCount: 0, catCount: 4 });
+    const fig = (id: number, flags: ("growing" | "kittens")[]) =>
+      ({ colonyId: id, street: 4, split: { sterilised: 0, probably: 0, not_known: 4, not_sterilised: 0 }, confirmedPct: 0, catCount: 4, latestSightingAt: null, flags, guardianNames: [] }) as never;
+    const figures = new Map([[1, fig(1, ["growing"])], [2, fig(2, ["kittens"])]]);
+    const KEY = "Growing: 3 or more new cats in the last 90 days";
+    expect(colonies({ colonies: [row(1), row(2)], figures })).toContain(KEY);
+    // A search that leaves only the colony that isn't growing: no key.
+    expect(colonies({ colonies: [row(2)], figures, query: "C2" })).not.toContain(KEY);
   });
 
   it("is left out when the team cannot create, when searching, and for a cat guardian", () => {
