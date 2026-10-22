@@ -11,7 +11,7 @@ import {
   SterilisationForm,
   WrongForm,
 } from "../../routes/teamCorrections";
-import { isKeptLanding, KEEPABLE, keepableFor, mayOpenPath, typedFields } from "./heldTyping";
+import { isKeptLanding, KEEPABLE, keepableFor, LANDING_ONLY, landingOnlyFor, mayOpenPath, typedFields } from "./heldTyping";
 import type { CapabilityHolder } from "../capabilities";
 
 // SYC-516 C3: the fixed list of forms whose typed text may be kept, and the
@@ -122,7 +122,7 @@ describe("mayOpenPath", () => {
   it("the team may open every landing; a cat guardian none of the team's pages", () => {
     const team = island();
     const g = guardian(7);
-    for (const p of ["/api/team?open=x", "/api/team/cats/3", "/api/team/cats/3/died", "/api/team/likely"]) {
+    for (const p of ["/api/team?open=x", "/api/team/cats/3", "/api/team/cats/3/died", "/api/team/likely", "/api/team/areas"]) {
       expect(mayOpenPath(team, p), p).toBe(true);
       expect(mayOpenPath(g, p), p).toBe(false);
     }
@@ -132,5 +132,40 @@ describe("mayOpenPath", () => {
     expect(mayOpenPath(g, "/api/team/sites/7")).toBe(true);
     // Anything off the list: no.
     expect(mayOpenPath(team, "https://evil.example/")).toBe(false);
+  });
+});
+
+describe("LANDING_ONLY (final review, fix 2)", () => {
+  it("keeps no field, ever, and every landing is on the list", async () => {
+    for (const [route, entry] of Object.entries(LANDING_ONLY)) {
+      expect(entry.fields, route).toEqual([]);
+    }
+    const state = landingOnlyFor(post("/api/team/reports/vt-abc_1/state"))!;
+    expect(await state.entry.landing(state.m, {})).toBe("/api/team?open=vt-abc_1");
+    const tie = landingOnlyFor(post("/api/team/reports/vt-abc_1/cat"))!;
+    expect(await tie.entry.landing(tie.m, {})).toBe("/api/team?open=vt-abc_1");
+    // SYC-44 PR 7.1's Issues row buttons come back to that row too.
+    for (const action of ["keep-hidden", "restore", "hide"]) {
+      const issue = landingOnlyFor(post(`/api/team/issues/vt-abc_1/${action}`))!;
+      expect(issue, action).not.toBeNull();
+      expect(await issue.entry.landing(issue.m, {}), action).toBe("/api/team?open=vt-abc_1");
+      expect(issue.entry.formKey(issue.m), action).toBe(`issue:${action}:vt-abc_1`);
+    }
+    const areas = landingOnlyFor(post("/api/team/areas"))!;
+    expect(await areas.entry.landing(areas.m, { op: "move" })).toBe("/api/team/areas");
+    expect(await areas.entry.landing(areas.m, { op: "add" })).toBeNull();
+    expect(await areas.entry.landing(areas.m, { op: ["move"] })).toBeNull();
+    for (const l of ["/api/team?open=vt-abc_1", "/api/team/areas"]) expect(isKeptLanding(l), l).toBe(true);
+  });
+
+  it("matches the posted paths, and nothing else", () => {
+    expect(landingOnlyFor(post("/api/team/reports/x/state"))?.entry).toBe(LANDING_ONLY["POST /api/team/reports/:publicId/state"]);
+    expect(landingOnlyFor(post("/api/team/reports/x/note"))).toBeNull();
+    expect(landingOnlyFor(post("/api/team/reports/x/state/extra"))).toBeNull();
+    expect(landingOnlyFor(post("/api/team/areas/kini/centre/pick"))).toBeNull();
+    expect(landingOnlyFor(post("/api/team/issues/x/delete"))).toBeNull();
+    expect(landingOnlyFor(post("/api/team/issues/x/hide/extra"))).toBeNull();
+    expect(landingOnlyFor(post("/api/team/issues/x"))).toBeNull();
+    expect(landingOnlyFor({ method: "GET", originalUrl: "/api/team/areas", body: {} } as unknown as Request)).toBeNull();
   });
 });

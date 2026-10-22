@@ -95,6 +95,11 @@ export async function moveReportState(input: MoveInput): Promise<MoveOutcome> {
  * holds (SYC-44 PR 7.1: the Issues row's Keep hidden and Restore move the
  * report in the same transaction as the photo). The caller calls `onQueued`
  * with `queued` after its commit.
+ *
+ * Passing `expectReporter` (SYC-515) can throw the private
+ * `ReporterAnswerChanged` to roll the caller's transaction back; only
+ * {@link moveReportState} turns that into "changed". A caller that passes it
+ * here must catch it the same way. Issue rows never pass it.
  */
 export async function moveReportStateIn(
   tx: Tx,

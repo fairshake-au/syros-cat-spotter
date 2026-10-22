@@ -8,6 +8,7 @@ import {
   COLONY_NAME_MAX,
   COLONY_NOTES_MAX,
   GUARDIAN_NAME_MAX,
+  colonyCentreStart,
   colonyView,
   createColonyAs,
   listColonies,
@@ -33,6 +34,13 @@ import { movedAwayNotices } from "../lib/movedAway";
 import { recentGuardianChanges } from "../lib/recentGuardianChanges";
 import { formRoute } from "./teamCorrections";
 import { useHeldTyping } from "../lib/teamAuth/heldTyping";
+import { escapeHtml as esc } from "../lib/teamPages/escape";
+import { areaFor } from "../lib/areas/namedAreas";
+import { applyMove } from "../lib/mapTiles/mapForms";
+import { inIsland, viewAround, type View } from "../lib/mapTiles/geometry";
+import { renderPicker } from "../lib/teamPages/siteFormPages";
+import { renderCentreConfirm } from "../lib/teamPages/centrePages";
+import { CENTRE_ZOOM, ERMOUPOLI_VIEW, readCentrePick } from "./centrePick";
 import { coordinate, fieldsOf, lf, noNul, optionalText } from "../lib/teamForms";
 
 // The team's Colonies screens (SYC-209 PR 2.1; spec §2.6, §2.7, §11.2).
@@ -354,6 +362,13 @@ router.post(
     if (!parsed.success) return badForm(req, res, parsed.error, back);
 
     const { name, guardianName, notes, lat, lng } = parsed.data;
+    // A centre must be on Syros whichever way it arrives (the map picker checks
+    // the same): a hand-posted off-island pair is refused, nothing written.
+    if (typeof lat === "number" && typeof lng === "number" && (!inIsland({ lat, lng }) || areaFor(lat, lng).key === "off")) {
+      const v = pageViewer(res);
+      if (!isFormPost(req)) return void res.status(400).json({ error: "Invalid request", fields: ["lat", "lng"] });
+      return void res.status(400).type("html").send(renderColonyProblem(v.personName, t("centre.off", v.lang), back, v));
+    }
     const changes: ColonyChanges = {
       ...(name !== undefined ? { name } : {}),
       ...(guardianName !== undefined ? { guardianName } : {}),
@@ -385,6 +400,128 @@ router.post(
         if (isFormPost(req)) return void res.redirect(303, colonyPage(id, "saved"));
         return void res.json({ changed: outcome.events });
     }
+  },
+);
+
+// ── The centre, by tapping a map (SYC-517, 517-B) ──────────────────────────
+//
+// Three steps with no scripts: the map (GET), its zoom and pan (POST .../map),
+// and a tap or typed position (POST .../pick), which answers with a
+// confirmation page. Only that page's button saves, through the colony's own
+// POST above, with the position in hidden fields. Nothing here writes, and no
+// position is ever in an address. Checked against THIS colony, like the edit.
+
+type StartOfColony = NonNullable<Awaited<ReturnType<typeof colonyCentreStart>>>;
+
+const centreBase = (id: number) => `/api/team/colonies/${id}`;
+
+/** The colony's centre if set, else its sites' midpoint, else Ermoupoli. */
+const startView = (c: StartOfColony): View => {
+  const at = c.centre ?? c.sitesMidpoint;
+  return at ? viewAround(at, c.centre ? CENTRE_ZOOM : 15) : ERMOUPOLI_VIEW;
+};
+
+function centrePickerPage(res: Response, status: number, c: StartOfColony, view: View, note?: string): void {
+  const v = pageViewer(res);
+  const base = centreBase(c.id);
+  res
+    .status(status)
+    .type("html")
+    .send(
+      renderPicker({
+        personName: v.personName,
+        lang: v.lang,
+        island: v.island,
+        active: v.island ? "colonies" : "myColonies",
+        title: `${t("centre.title", v.lang)}: ${c.name}`,
+        intro: t("centre.intro", v.lang),
+        back: { href: base, label: t("problem.backToColony", v.lang) },
+        view,
+        markers: c.centre ? [{ ...c.centre, label: t("centre.now", v.lang), look: "retired" }] : [],
+        tapAction: `${base}/centre/pick`,
+        moveAction: `${base}/centre/map`,
+        note,
+        // A set centre can be cleared again: the colony's own save, with both
+        // numbers empty and nothing else sent, so nothing else changes.
+        below: c.centre
+          ? `<form method="post" action="${esc(base)}" class="clearcentre">` +
+            `<input type="hidden" name="lat" value=""><input type="hidden" name="lng" value="">` +
+            `<p class="hint">${esc(t("centre.clearHint", v.lang))}</p>` +
+            `<button type="submit" class="risky">${esc(t("centre.clear", v.lang))}</button></form>`
+          : undefined,
+      }),
+    );
+}
+
+/** The colony these pages are for, or the quiet not-found. */
+async function centreColony(req: Request, res: Response): Promise<StartOfColony | null> {
+  const raw = String(req.params["id"]);
+  const found = ID_RE.test(raw) ? await colonyCentreStart(pageViewer(res).visible, Number(raw)) : null;
+  if (!found) {
+    notFoundPage(req, res);
+    return null;
+  }
+  return found;
+}
+
+/** GET /api/team/colonies/:id/centre: the map, starting where the colony is. */
+router.get(
+  "/team/colonies/:id/centre",
+  requireTeam("edit_colony", { target: thisColony }),
+  async (req: Request, res: Response) => {
+    setTeamHeaders(res);
+    const c = await centreColony(req, res);
+    if (c) centrePickerPage(res, 200, c, startView(c));
+  },
+);
+
+/** POST /api/team/colonies/:id/centre/map: zoom, pan and the area buttons. */
+router.post(
+  "/team/colonies/:id/centre/map",
+  ...formRoute("edit_colony", { target: thisColony }),
+  async (req: Request, res: Response) => {
+    const c = await centreColony(req, res);
+    if (!c) return;
+    const view = applyMove(req.body);
+    if (!view) return void centrePickerPage(res, 400, c, startView(c), t("sites.moveNote", pageViewer(res).lang));
+    centrePickerPage(res, 200, c, view);
+  },
+);
+
+/** POST /api/team/colonies/:id/centre/pick: a tap or typed position; answers with the confirmation. Writes nothing. */
+router.post(
+  "/team/colonies/:id/centre/pick",
+  ...formRoute("edit_colony", { target: thisColony }),
+  async (req: Request, res: Response) => {
+    const c = await centreColony(req, res);
+    if (!c) return;
+    const v = pageViewer(res);
+    const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, v.lang, startView(c), { requireArea: true });
+    if (!picked.ok) {
+      if (!isFormPost(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
+      return void centrePickerPage(res, picked.status, c, picked.view, picked.note);
+    }
+    if (!isFormPost(req)) return void res.json(picked.spot);
+    const base = centreBase(c.id);
+    res.type("html").send(
+      renderCentreConfirm({
+        personName: v.personName,
+        lang: v.lang,
+        island: v.island,
+        active: v.island ? "colonies" : "myColonies",
+        title: `${t("centre.title", v.lang)}: ${c.name}`,
+        question: (place) => t("centre.confirm", v.lang, { place }),
+        saveLabel: t("centre.save", v.lang),
+        spot: picked.spot,
+        zoom: picked.zoom,
+        now: c.centre,
+        nowLabel: t("centre.now", v.lang),
+        newLabel: t("centre.new", v.lang),
+        tapAction: `${base}/centre/pick`,
+        saveAction: base,
+        back: { href: `${base}/centre`, label: t("centre.again", v.lang) },
+      }),
+    );
   },
 );
 

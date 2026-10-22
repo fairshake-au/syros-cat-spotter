@@ -63,7 +63,7 @@ function needsSection(s: HomeData["needs"], now: Date): string {
     parts.push(`<p><a class="hlink" href="${QUEUE}">See all ${n.reportsTotal} in the Queue</a></p>`);
   }
   if (n.unchecked > 0) {
-    parts.push(`<p><a class="hlink" href="${QUEUE}#unchecked">${esc(plural(n.unchecked, "report", "reports"))} waiting for a check</a></p>`);
+    parts.push(`<p><a class="hlink" href="${QUEUE}#unchecked">${esc(plural(n.unchecked, "report", "reports"))} arrived while our spam check was down</a></p>`);
   }
   if (n.issuesOpen > 0) parts.push(`<p>${countLink(`${QUEUE}#issues`, "Problems reported with photos or names", n.issuesOpen)}</p>`);
   // Nothing writes awaiting_team yet (plan Decision 2): hidden until something does.

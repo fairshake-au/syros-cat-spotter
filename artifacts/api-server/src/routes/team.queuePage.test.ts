@@ -209,6 +209,16 @@ describe("what each row shows", () => {
     expect(html).toContain("Photo still uploading");
     expect(html).toContain(">No photo<");
     expect(html).toContain("No photo: the photo could not be received");
+    // Final review, fix 6: a report with no photo says so once, on its line, not again inside.
+    const card = (id: string) => {
+      const at = html.indexOf(`id="r-${id}"`);
+      return html.slice(at, html.indexOf("</article>", at));
+    };
+    expect(card("no-photo").match(/No photo/g)).toHaveLength(1);
+    expect(card("no-photo")).not.toContain('class="nophoto"');
+    // Still uploading, or not received: the line's tile, and inside, why.
+    expect(card("no-photo-yet")).toContain('<div class="nophoto">Photo still uploading</div>');
+    expect(card("bad-photo")).toContain('<div class="nophoto">No photo: the photo could not be received</div>');
     expect(html).not.toContain("37.44412, 24.94123");
     expect(html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{5}/);
     expect(html).toContain(

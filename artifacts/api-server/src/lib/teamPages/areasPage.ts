@@ -3,7 +3,7 @@ import type { AreaField } from "../areas/areaWrites";
 import type { NamedArea } from "../areas/namedAreas";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { openMapLink, roundPos } from "./position";
+import { openMapLink } from "./position";
 
 // The Areas page (SYC-396 PR 2.4; dashboard §3.3). The team's named areas:
 // each one's centre and how many cats are nearest it, forms to add, rename,
@@ -123,23 +123,13 @@ function areaRow(a: AreaRow, o: AreasPageOptions): string {
       invalid: bad("rename", "name"),
     }) +
     `<button type="submit">Rename</button></form></details>`;
+  // The centre is moved by tapping a map (SYC-517, 517-B). A problem the save
+  // sent back still shows here, beside the link.
   const move =
-    `<details${isOpen(again, "move", k) ? " open" : ""}><summary>Move centre</summary>` +
-    `<form method="post" action="${AREAS_PATH}">` +
-    '<input type="hidden" name="op" value="move">' +
-    `<input type="hidden" name="key" value="${esc(k)}">` +
     problem(again, "move", k, "area") +
     problem(again, "move", k, "lat") +
-    input(`move-${k}-lat`, "Latitude", "lat", kept(again, "move", k, "lat", roundPos(a.lat)), {
-      invalid: bad("move", "lat"),
-      mode: "decimal",
-    }) +
     problem(again, "move", k, "lng") +
-    input(`move-${k}-lng`, "Longitude", "lng", kept(again, "move", k, "lng", roundPos(a.lng)), {
-      invalid: bad("move", "lng"),
-      mode: "decimal",
-    }) +
-    `<button type="submit">Move the centre</button></form></details>`;
+    `<p><a class="tap" href="${AREAS_PATH}/${encodeURIComponent(k)}/centre">Move centre on a map</a></p>`;
   const retire =
     problem(again, "retire", k, "area") +
     `<form method="post" action="${AREAS_PATH}" class="inline">` +

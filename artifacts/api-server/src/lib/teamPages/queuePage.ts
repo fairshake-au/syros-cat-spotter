@@ -25,11 +25,6 @@ import { firstWords } from "./noteWords";
 // report to someone, sets a deadline, or pages anybody. Test P1-6 pins the
 // words.
 
-const SEVERITY: Record<QueueReport["severity"], string> = {
-  urgent: "Urgent",
-  attention: "Needs attention",
-};
-
 const STATE: Record<QueueReport["state"], string> = {
   new: "New",
   looking: "Looking at it",
@@ -99,13 +94,11 @@ function photoBlock(r: QueueReport): string {
       `<img class="photo" src="${esc(r.photo.url)}" alt="Photo sent with this report" loading="lazy"></a>`
     );
   }
-  const text =
-    r.photo.status === "pending"
-      ? "Photo still uploading"
-      : r.photo.status === "failed"
-        ? "No photo: the photo could not be received"
-        : "No photo";
-  return `<div class="nophoto">${esc(text)}</div>`;
+  // Plain "no photo" is already the row line's tile: not said again inside.
+  // Still uploading, or not received, says why.
+  if (r.photo.status === "pending") return `<div class="nophoto">${esc("Photo still uploading")}</div>`;
+  if (r.photo.status === "failed") return `<div class="nophoto">${esc("No photo: the photo could not be received")}</div>`;
+  return "";
 }
 
 /**
@@ -417,7 +410,7 @@ const HIDE_SKIPPED: Record<NonNullable<IssueReport["hideSkipped"]>, string> = {
   restored_before: "Not hidden: the team restored this photo before, so a report can't hide it again",
   address_limit: "Not hidden: hide limit reached for the sender",
   brake: "Not hidden: daily brake (automatic hiding was paused for the day)",
-  unchecked: "Not hidden: unchecked (the safety check couldn't reach Cloudflare)",
+  unchecked: "Not hidden: our spam check couldn't be reached when this was sent",
 };
 
 function issuePhotoWords(i: IssueReport): string {
@@ -631,11 +624,15 @@ function mailBanner(mail: MailHealth): string {
 
 /**
  * The reports whose cards this page draws (each with its note form): open,
- * closed and unchecked. A kept note is used only for one of these (SYC-516
- * C3), so a row is never used up with no card to show it.
+ * closed and unchecked, and the Issues section's rows (SYC-44 PR 7.1). A kept
+ * note is used only for one of these (SYC-516 C3), so a row is never used up
+ * with no card to show it.
  */
-export function drawnReportIds(queue: WelfareQueue): Set<string> {
-  return new Set([...queue.open, ...queue.closed, ...queue.unchecked.reports].map((r) => r.id));
+export function drawnReportIds(queue: WelfareQueue, issues?: IssuesSection): Set<string> {
+  const issueRows = issues
+    ? [...issues.hidden, ...issues.needsPerson, ...issues.other, ...issues.unchecked, ...issues.closed]
+    : [];
+  return new Set([...queue.open, ...queue.closed, ...queue.unchecked.reports, ...issueRows].map((r) => r.id));
 }
 
 export function renderQueuePage(

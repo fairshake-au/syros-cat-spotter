@@ -542,13 +542,11 @@ function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean, isla
     `<label class="label" for="edit-notes">${w(island ? "create.notes" : "colony.notesOwn")}</label>` +
     `<textarea id="edit-notes" name="notes" maxlength="${COLONY_NOTES_MAX}">${esc(k["notes"] ?? v.notes ?? "")}</textarea>` +
     notesHint(W) +
-    `<label class="label" for="edit-lat">${w("colony.centreLat")}</label>` +
-    `<input class="text" id="edit-lat" name="lat" type="text" inputmode="decimal" value="${v.lat !== null ? esc(String(v.lat)) : ""}" autocomplete="off">` +
-    `<label class="label" for="edit-lng">${w("colony.centreLng")}</label>` +
-    `<input class="text" id="edit-lng" name="lng" type="text" inputmode="decimal" value="${v.lng !== null ? esc(String(v.lng)) : ""}" autocomplete="off">` +
-    `<p class="hint">${w("colony.centreHint")}</p>` +
     `<button type="submit">${w("colony.save")}</button>` +
-    `</form></details></div>`
+    `</form>` +
+    // The centre is set by tapping a map (SYC-517, 517-B), not by typing numbers.
+    `<p><a class="tap" href="${esc(colonyHref(v.id))}/centre">${w("centre.link")}</a></p>` +
+    `</details></div>`
   );
 }
 
