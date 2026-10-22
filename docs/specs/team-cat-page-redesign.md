@@ -1,6 +1,6 @@
 # The team cat page, redesigned
 
-**Status:** draft for Samuel's approval, 22 Oct 2026.
+**Status:** draft for Samuel's approval, 22 Oct 2026. D1 and D2 decided the same day (§6).
 **Covers:** the page the team sees for one cat in the dashboard (`/api/team/cats/:id`, `renderCatPage` in `artifacts/api-server/src/lib/teamPages/catPages.ts`).
 **Mockup:** [`assets/team-cat-page-redesign/mockup.html`](assets/team-cat-page-redesign/mockup.html). Open it in a browser and narrow the window to see the phone layout.
 **Builds on:** [team-dashboard-redesign.md](team-dashboard-redesign.md) §7 (the team cat page) and §12 (design rules). Where this document and §7 differ, this one wins. Everything else in that spec still stands.
@@ -144,11 +144,13 @@ The look stays the dashboard's own (§12.1): warm off-white background, dark ink
 - *Option A, one list (recommended).* Benefits: nothing is listed twice; the page is about a third shorter; a sighting and what it recorded are read together. Risks: someone who just wants "where has this cat been seen" uses the "Sightings" filter instead of scrolling to a section; sighting actions move into a ⋯ menu.
 - *Option B, keep three lists, just made compact.* Benefits: closest to today, so the team re-learns less. Risks: every visit still shows up two or three times, and the page stays around 2,800px on a phone.
 - *Recommendation: A.* The duplication is the main reason the page is long, and the filters cover the "just sightings" need.
+- **Decided by Samuel, 22 Oct 2026: A, one list.**
 
 **D2. On a phone, where do the buttons go?**
 - *Option A, straight after the facts (recommended).* Benefits: "Log a vet visit" is on the first or second screen, where the team needs it at a vet or a feeding round. Risk: the history starts a little lower.
 - *Option B, at the bottom, after History and Photos (SYC-363's idea).* Benefits: reading comes first. Risks: the main action of the page is several screens down, and you have to scroll past the whole history to change anything.
 - *Recommendation: A.* SYC-363 was raised when the buttons took eight rows; now they take three.
+- **Decided by Samuel, 22 Oct 2026: A, after the facts.**
 
 ## 7. Calls made in this design (check these while reading)
 
