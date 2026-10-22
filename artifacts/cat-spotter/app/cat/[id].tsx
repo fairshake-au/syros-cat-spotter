@@ -40,6 +40,7 @@ import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
 import { lifeLine, parseDateOnly, parsePublicDate, sterilisedLineKey } from '@/lib/catStatusLines';
 import { appearanceLine } from '@/lib/appearance';
 import { DEFAULT_CELL_M } from '@/lib/cellShape';
+import { canSpotFromPage, spotRouteFor } from '@/lib/spotHint';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, lineHeights } from '@/constants/theme';
 
@@ -291,6 +292,21 @@ export default function CatDetailScreen() {
                 {parsePublicDate(cat.lastSeenAt).toLocaleDateString()}
               </Text>
             </View>
+            {/* SYC-574 (design-review-fixes-oct22.md §2.1): the page's main
+                button. Hidden for a cat in care or one that has died. It
+                opens the Spot tab with this cat as a hint (§2.2). */}
+            {canSpotFromPage(cat.lifeStatus) ? (
+              <Button
+                variant="primary"
+                size="lg"
+                block
+                wrapLabel
+                testID="spotted-cat-button"
+                onPress={() => router.push(spotRouteFor(cat.id))}
+              >
+                {t('spottedCatButton').split('{name}').join(cat.name)}
+              </Button>
+            ) : null}
             {/* SYC-42: quiet, never the biggest thing on screen (spec §4.1). */}
             <NeedsHelpLink cat={{ id: cat.id, name: cat.name, photoUrl: cat.photoUrl }} />
             {/* SYC-44 PR 6.2: below "needs help" and never bigger (spec §3.1). */}
