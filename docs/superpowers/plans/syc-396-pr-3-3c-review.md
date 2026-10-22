@@ -90,7 +90,7 @@ State of the tree:
 
 ## How the findings were handled (builder, 22 Oct 2026)
 
-- **1, 2, 4:** each now has a pure test in `vetCosts.test.ts` ("cents", "noCost per cat", "Athens month edge"). M4 and M6 were re-run and now go red.
+- **1, 2, 4:** each now has a pure test in `vetCosts.test.ts` ("cents" with 0.29 + 0.57, which floating point gets wrong; "noCost per cat"; "Athens month edge"). M4 and M6 were re-run and both now go red. M7 stays unreachable (visits are dated midday UTC); the month-edge test pins the real boundary.
 - **2:** a comment in `vetCosts.ts` and the page hint now say the skip looks at visits on any date.
 - **3:** kept consistent with Home and the cat page. A test pins it, and dropping the filter in all three places is ticketed.
 - **5:** a new test checks that a successful `vet-visits.csv` writes its `report_downloads` row.
