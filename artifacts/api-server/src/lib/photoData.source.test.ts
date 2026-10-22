@@ -15,6 +15,7 @@ const ALLOWED = new Set([
   "lib/mail/outbox.ts", // R6: no attachment
   "lib/coatReading/sweep.ts", // R7: skipped
   "lib/spotPhotos.ts", // R8: the one writer
+  "scripts/smokeCheck.ts", // SYC-527 T4: read-only accuracy check; selects only photos with removed_at null and data not null (test: smokeCheck.test.ts); variantFor would write photo_variants, so it reads the bytes itself
 ]);
 
 const SRC = path.resolve(__dirname, "..");

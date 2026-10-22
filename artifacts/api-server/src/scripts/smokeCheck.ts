@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { catsTable, db, photosTable, pool, sightingsTable } from "@workspace/db";
 import { areaFor } from "../lib/areas/namedAreas";
 import { makeVariant } from "../lib/photoVariants";
@@ -73,7 +73,7 @@ interface SmokeInput {
 }
 
 async function jpegOf(photoId: number): Promise<Buffer | null> {
-  const [p] = await db.select({ data: photosTable.data }).from(photosTable).where(eq(photosTable.id, photoId));
+  const [p] = await db.select({ data: photosTable.data }).from(photosTable).where(and(eq(photosTable.id, photoId), isNull(photosTable.removedAt), isNotNull(photosTable.data)));
   if (!p || p.data === null) return null;
   try {
     return await makeVariant(Buffer.from(p.data, "base64"), "medium");

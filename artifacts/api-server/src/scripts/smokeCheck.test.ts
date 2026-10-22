@@ -178,6 +178,14 @@ describe("the smoke check", () => {
   });
 });
 
+describe("removed photos", () => {
+  it("a removed display photo is never read: the check refuses rather than use it", async () => {
+    // jpegOf selects removed_at is null and data is not null; a row failing that gives no bytes.
+    const src = (await import("node:fs")).readFileSync(new URL("./smokeCheck.ts", import.meta.url), "utf8");
+    expect(src).toMatch(/isNull\(photosTable\.removedAt\), isNotNull\(photosTable\.data\)/);
+  });
+});
+
 describe("the read-only connection", () => {
   it("refuses an INSERT, UPDATE or DELETE through the script's own connection", async () => {
     await readOnly(async () => {
