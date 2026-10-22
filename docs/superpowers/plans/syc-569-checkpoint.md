@@ -23,9 +23,10 @@ Part 1 gate: cat-spotter full vitest (172 files, 2236 tests) green; api-server t
   - Judgement: "N cats" only shows for 2 or more cats, so one plural form per language is enough (el γάτες, fr chats).
   - Native: react-native-maps Polygons take no accessibility label, so the spoken labels are web-only in effect.
   - Coordination: a second agent works on Part 2 server files in this worktree; I stage only my own files.
+- [x] T3.3 dashboard island map. The file is `artifacts/api-server/assets/dashboard-map.js` (not `src/assets/`). First answer only, no focus, no user move (non-programmatic `movestart` or "Go to"): `fitBounds(bounds.pad(0.15), {maxZoom: 16})`. Decision lives in `shouldFitToCats(...)`. Test: `src/lib/teamPages/dashboardMap.fit.test.ts` (runs the real script in jsdom with a recording Leaflet stub). Mutation-checked the once-only rule; the `programmatic` guard is defensive (the script's own moves can't affect a first answer that comes after them) so no test can tell it apart.
 
 ## Next
-T3.3 dashboard map, T3.4 second-pack rows, then Part 2.
+T3.4 second-pack rows, full gate, then Part 2.
 
 ## T2.1 (SYC-574, Part 2 server side)
 

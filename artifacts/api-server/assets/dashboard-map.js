@@ -124,6 +124,31 @@
       });
   }
 
+  // Moves this script makes itself, so a `movestart` can tell them from the
+  // person dragging, zooming or pressing "Go to" (SYC-573: the first answer
+  // fits the map to the cats only if the person hasn't moved it).
+  var programmatic = 0;
+  var userMoved = false;
+  var fittedOrSkipped = false;
+
+  /** Run a map move of our own, so it isn't mistaken for the person's. */
+  function ownMove(fn) {
+    programmatic++;
+    try {
+      fn();
+    } finally {
+      programmatic--;
+    }
+  }
+
+  /**
+   * Should the first positions answer fit the map to the cats? Only once, with
+   * cats to fit, no focused cat (its trail fit wins) and no move by the person.
+   */
+  function shouldFitToCats(count, hasFocus, moved, alreadyDone) {
+    return !alreadyDone && count > 0 && !hasFocus && !moved;
+  }
+
   var map;
   try {
     shell.hidden = false;
@@ -137,7 +162,12 @@
       keyboard: true,
     });
     L.control.zoom({ position: "bottomright" }).addTo(map);
-    map.fitBounds(ISLAND);
+    programmatic++;
+    try {
+      map.fitBounds(ISLAND);
+    } finally {
+      programmatic--;
+    }
   } catch (e) {
     fallBack();
     return;
@@ -523,6 +553,9 @@
     });
   }
   map.on("zoomend", drawCats);
+  map.on("movestart", function () {
+    if (programmatic === 0) userMoved = true;
+  });
 
   /** A cat as the server sent it, or null if anything about it is odd. */
   function cleanCat(c) {
@@ -617,6 +650,21 @@
         if (controller !== mine) return;
         var list = answer && Array.isArray(answer.cats) ? answer.cats : [];
         cats = list.map(cleanCat).filter(Boolean);
+        // The first answer only: open on the cats, not the whole island. Never
+        // again, so a filter change or typing doesn't jump the map and pull a
+        // new set of map pictures.
+        var firstAnswer = !fittedOrSkipped;
+        fittedOrSkipped = true;
+        if (shouldFitToCats(cats.length, !!focus, userMoved, !firstAnswer)) {
+          var catBounds = L.latLngBounds(
+            cats.map(function (c) {
+              return [c.lat, c.lng];
+            }),
+          );
+          ownMove(function () {
+            map.fitBounds(catBounds.pad(0.15), { maxZoom: 16 });
+          });
+        }
         drawCats();
         // Once rewritten, always rewritten (back to the drawn filters included).
         if (asked !== asDrawn || countRewritten) {
@@ -723,6 +771,7 @@
       if (!key) return;
       areas.forEach(function (a) {
         if (a && a.key === key && typeof a.lat === "number" && typeof a.lng === "number") {
+          userMoved = true;
           map.setView([a.lat, a.lng], Math.min(Number(a.zoom) || 15, map.getMaxZoom()));
         }
       });
@@ -761,8 +810,10 @@
         interactive: false,
       }).addTo(map);
     });
-    if (pts.length > 1) map.fitBounds(line.getBounds().pad(0.3), { maxZoom: 17 });
-    else map.setView([pts[0].lat, pts[0].lng], 16);
+    ownMove(function () {
+      if (pts.length > 1) map.fitBounds(line.getBounds().pad(0.3), { maxZoom: 17 });
+      else map.setView([pts[0].lat, pts[0].lng], 16);
+    });
   }
 
   // A phone starts with the key folded, so it doesn't sit over the cats.
