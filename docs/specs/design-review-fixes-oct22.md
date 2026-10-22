@@ -29,7 +29,7 @@
 
 | Who is looking | Before | After |
 |---|---|---|
-| A phone that may claim the cat | **"This is my cat"** button | Unchanged. Its wording is SYC-572. |
+| A phone that may claim the cat | **"This is my cat"** button | Wording changed in SYC-572: "{name} lives with me". |
 | A phone that hasn't met it, when it lives on the street | One line: *"Is this your cat? Spot Agatha with the camera first…"* | A small link: **"Does Agatha live with you?"** It opens the sheet in §1.2, showing the "street" text. |
 | A phone that has met it but is in a cooldown | Nothing | Unchanged. |
 | Anyone except the owner, when the cat has a home | One line under "Has a home": *"Got a new phone? …"* | The same link, under "Has a home". It opens the sheet with the "has a home" text. |

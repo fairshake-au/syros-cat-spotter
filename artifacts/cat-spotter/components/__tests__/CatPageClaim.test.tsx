@@ -114,7 +114,7 @@ const askLink = () => screen.queryByTestId('claim-ask-link');
 
 const claimButton = () =>
   Array.from(document.querySelectorAll('[role="button"], button')).find(
-    (e) => e.textContent?.trim() === 'This is my cat',
+    (e) => e.textContent?.trim() === 'Agatha lives with me',
   ) as HTMLElement | undefined;
 
 beforeEach(() => {
@@ -177,7 +177,7 @@ describe('the cat page and claiming (§4.1)', () => {
     expect(h.useGetCat.mock.calls[0]![1].request.headers['X-Device-Id']).toBe('dev-1');
   });
 
-  it('shows "This is my cat" when canClaim is true, and it opens the claim sheet', () => {
+  it('shows "{name} lives with me" when canClaim is true, and it opens the claim sheet', () => {
     page(cat(), true);
     expect(claimButton()).toBeTruthy();
     expect(askLink()).toBeNull();

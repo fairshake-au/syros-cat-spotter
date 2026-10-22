@@ -197,7 +197,7 @@ describe('"Your spots moved to a new phone"', () => {
     h.pending = [{ status: 'queued' }, { status: 'queued' }, { status: 'queued' }, { status: 'review' }];
     const { getByText, container } = render(<MovedScreen />);
     expect(container.textContent).toContain('Your spots moved to a new phone.');
-    expect(container.textContent).toContain('This phone isn’t signed in as Lili any more.');
+    expect(container.textContent).toContain('Your spots have moved to another phone, so this phone has stopped being Lili.');
     expect(container.textContent).toContain('3 spots saved on this phone will be sent when you start again.');
     await act(async () => {
       fireEvent.click(getByText(en.movedStartAgain));
@@ -264,7 +264,7 @@ describe('the /restore page', () => {
       ),
     );
     expect(getByTestId('restore-choice-keep').textContent).toContain(
-      'Nikos’s 2 spots stay on the map as “Discovered by Nikos”, but they won’t count towards your points. Nobody can use Nikos again, not even you, and you won’t be able to delete Nikos from the app later.',
+      'Nikos’s 2 spots stay on the map under that name and won’t count towards your points. Nobody can use Nikos again, not even you, and you can’t delete it from the app later.',
     );
     expect(getByTestId('restore-choice-delete').getAttribute('aria-checked')).toBe('false');
     expect(getByTestId('restore-choice-keep').getAttribute('aria-checked')).toBe('false');

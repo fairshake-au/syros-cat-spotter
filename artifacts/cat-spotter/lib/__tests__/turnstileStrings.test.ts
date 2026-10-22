@@ -20,7 +20,7 @@ describe('T1-12: the safety-check strings', () => {
 
   it('the English confirmation line is the one the plan gives', () => {
     expect(TRANSLATIONS.en.reportCheckUnavailable).toBe(
-      'We couldn’t run the safety check. Your report is still saved and we’ll try again.',
+      'We couldn’t check you’re a real person. Your report is saved and we’ll try again.',
     );
   });
 
@@ -30,7 +30,7 @@ describe('T1-12: the safety-check strings', () => {
       expect(TRANSLATIONS.fr[key]).not.toBe(TRANSLATIONS.en[key]);
       expect(TRANSLATIONS.fr[key]).not.toMatch(/\b(vous|votre|vos|veuillez)\b/i);
     }
-    expect(TRANSLATIONS.fr.turnstileTapLine).toContain('coche');
+    expect(TRANSLATIONS.fr.turnstileTapLine).toMatch(/coche/i);
   });
 
   it('shown in capitals, the Greek lines lose their accents', () => {

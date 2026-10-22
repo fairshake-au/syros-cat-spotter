@@ -99,7 +99,7 @@ describe('DeviceProvider startup failure (SYC-136)', () => {
     );
     expect(
       screen.getByText(
-        'This browser or app doesn’t support the secure setup Cat Spotters needs. Try updating your browser, or use a different one.',
+        'Try opening Cat Spotters in Chrome or Safari, or update your browser.',
       ),
     ).toBeTruthy();
 

@@ -172,7 +172,7 @@ The Cats screen opens on **every active cat**, most recently seen first. It's a 
 - **Sterilised:** Sterilised, Probably, Not sterilised, or Not known.
 - **Lives:** On the street, Has a home, In care, or No longer with us (which includes cats not seen for 3 years). The default is On the street, Has a home and In care.
 - **Last seen:** This week, This month, 1–3 months, Over 3 months, or Never seen since first recorded.
-- **Name or SYR number:** a search box, now just one filter among the others.
+- **Name or cat number:** a search box, now just one filter among the others.
 
 **How the filters behave:**
 - With interactivity, the grid updates as filters change. Without it, the filters are an ordinary form with a "Show cats" button, and the results are the same.

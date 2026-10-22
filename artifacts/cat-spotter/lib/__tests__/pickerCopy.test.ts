@@ -12,7 +12,7 @@ const SPEC_COPY: Record<string, string> = {
   findItInsteadLead: 'Seen this cat in the app before?',
   findItInsteadAction: 'Find it instead',
   pickerTitle: 'Which cat is it?',
-  pickerSearchPlaceholder: 'Name or SYR number',
+  pickerSearchPlaceholder: 'Name or cat number (like SYR-0012)',
   pickerListHeading: 'Cats known around here',
   pickerConfirm: 'Yes, this is the cat',
   pickerAddNewLead: 'Can\'t find it?',

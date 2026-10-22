@@ -141,9 +141,11 @@ These are drafts. Greek and French go to Johnny (SYC-283) on Thursday 22 October
 - **FR** Si on retire les chats d’un endroit où il y a à manger et un abri, d’autres arrivent souvent. Les stériliser vise plutôt une colonie stable qui cesse de grandir.
 
 **Fact 6 · What it costs** · *core* · *sign-off*
-- **EN** Sterilising one female cat costs Syros Cats €50–60. That one operation prevents every litter she would otherwise have had.
-- **EL** Η στείρωση μίας θηλυκής γάτας κοστίζει στις Syros Cats 50–60 €. Αυτή η μία επέμβαση αποτρέπει κάθε γέννα που θα έκανε διαφορετικά.
-- **FR** Stériliser une chatte coûte 50 à 60 € à Syros Cats. Cette seule opération évite toutes les portées qu’elle aurait eues.
+- **EN** Sterilising one cat costs Syros Cats €50–60. It stops that cat adding to the street-cat population.
+- **EL** Η στείρωση μίας γάτας κοστίζει στις Syros Cats 50–60 €. Έτσι η γάτα δεν προσθέτει άλλα γατάκια στον πληθυσμό των γατών του δρόμου.
+- **FR** Stériliser un chat coûte 50 à 60 € à Syros Cats. Ainsi, ce chat n’ajoute plus de chatons à la population des chats des rues.
+
+*Changed 22 Oct 2026 (SYC-572, Samuel: males cost the same, so "female" and "she" go). The claim itself changed, so Syros Cats must still sign it off.*
 
 ### Food, and being around a street cat (strand 4)
 
@@ -223,9 +225,9 @@ The fact names no button, because the spotter reads it during the wait, when "Th
 ### You're doing science (strand 6)
 
 **Fact 20 · "Can't tell" is a good answer** · *core*
-- **EN** "Can't tell" is a good answer. An honest "not sure" keeps the island's record true. A confident wrong guess can make a cat look sterilised when it isn't.
-- **EL** Το «Δεν μπορώ να πω» είναι καλή απάντηση. Μια ειλικρινής αμφιβολία κρατά σωστό το αρχείο του νησιού. Μια σίγουρη αλλά λάθος απάντηση μπορεί να κάνει μια γάτα να φαίνεται στειρωμένη ενώ δεν είναι.
-- **FR** « Je ne sais pas » est une bonne réponse : l’honnêteté garde le registre de l’île fiable. Une réponse sûre mais fausse peut faire croire qu’un chat est stérilisé alors qu’il ne l’est pas.
+- **EN** “Can’t tell” is a good answer. A wrong guess can make a cat look sterilised when it isn’t.
+- **EL** «Δεν μπορώ να πω» είναι καλή απάντηση. Μια λάθος εικασία μπορεί να κάνει μια γάτα να φαίνεται στειρωμένη ενώ δεν είναι.
+- **FR** « Je ne sais pas » est une bonne réponse. Une mauvaise supposition peut faire croire qu’un chat est stérilisé alors qu’il ne l’est pas.
 
 The quoted "Can't tell" matches the live answer labels (`earTipCantTell`: *Can’t tell*, *Δεν μπορώ να πω*, *Je ne sais pas*; checked on origin/main `f757c0d`). The live strings use a curly apostrophe; the shipped fact uses the same.
 

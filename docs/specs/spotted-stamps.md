@@ -123,7 +123,7 @@ Each cat card gets a label, so a screen reader says "Tigris. Spotted by you." or
 
 - What counts as spotted: a **finished** sighting by this phone, which is the list the app already receives. A sighting still waiting to send (offline queue) or waiting for "Which cat is it?" doesn't stamp the cat until it's finished, the same as every count in the app (`SPEC.md` §4: "Only resolved sightings count anywhere").
   - **A cat you discovered** is stamped: your first photo of it is a finished sighting.
-  - **A cat that lives with you** is stamped only if you've also spotted it with the camera. Saying "This is my cat" isn't a sighting.
+  - **A cat that lives with you** is stamped only if you've also spotted it with the camera. Saying "{name} lives with me" isn't a sighting.
 - Points, badges, streaks, the leaderboard and "of N cats spotted" after the first sighting.
 - The cat's own page, the map's photo strip and the picker.
 - **What gets downloaded.** The padlock was drawn on top of a photo the phone had already downloaded, so showing it costs no extra data. Photos the team has hidden or removed are already swapped out by the server before the list reaches the phone, so removing the padlock reveals nothing new.
