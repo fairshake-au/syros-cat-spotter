@@ -31,6 +31,7 @@ vi.mock('@/hooks/useColors', () => ({
 import { SightingQuestions } from '../SightingQuestions';
 import { NO_ANSWERS, type SightingAnswers } from '@/lib/sightingAnswers';
 import { TRANSLATIONS, type Language } from '@/lib/i18n';
+import { expectEarTipOrder } from './earTipOrder';
 
 afterEach(cleanup);
 
@@ -112,7 +113,19 @@ describe('SightingQuestions', () => {
     expect(en.earTipYes).toMatch(/clipped/i);
     expect(en.earTipQuestion).not.toMatch(/notch/i);
     expect(en.earTipYes).not.toMatch(/notch/i);
-    expect(en.earTipUsuallyLeft).toMatch(/left/i);
+    expect(en.earTipWhy).toMatch(/usually the left/i);
+  });
+
+  it('explains itself in order: question, why, example photo, caption, then the answers', () => {
+    const { container } = render(<Harness examplePhoto={{ uri: 'ear.jpg' }} />);
+    expectEarTipOrder(container);
+  });
+
+  it('no longer has the separate "usually the left ear" line', () => {
+    expect((en as Record<string, string>).earTipUsuallyLeft).toBeUndefined();
+    const { container } = render(<Harness />);
+    expect(container.textContent).not.toContain('It’s usually the left ear.');
+    expect(container.textContent).toContain(en.earTipWhy!);
   });
 
   it('asks which ear only after "Yes, clipped"', () => {
@@ -215,7 +228,7 @@ describe('Question copy in every language', () => {
   const langs = Object.keys(TRANSLATIONS) as Language[];
   const keys = [
     'earTipQuestion',
-    'earTipUsuallyLeft',
+    'earTipWhy',
     'earTipExampleCaption',
     'earTipYes',
     'earTipNo',
