@@ -105,7 +105,7 @@ export async function catsToCompare(filters: FindFilters, now: Date = new Date()
 export const isWholeIsland = (f: FindFilters): boolean => f.area === undefined && f.colony === undefined;
 
 /** Each cat's display photo id (the one the public sees); a cat with none is absent. */
-async function displayPhotoOf(catIds: number[]): Promise<Map<number, number>> {
+export async function displayPhotoOf(catIds: number[]): Promise<Map<number, number>> {
   const out = new Map<number, number>();
   if (catIds.length === 0) return out;
   const rows = await db
