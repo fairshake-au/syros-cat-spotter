@@ -268,6 +268,7 @@ export const fr: Record<StringKey, string> = {
   "appearance.drawnPatternNotKnown": "Motif inconnu",
 
   "colourCheck.title": "Vérification des couleurs",
+  "colourCheck.back": "← Retour à l'accueil",
   "colourCheck.intro": "Les chats dont la couleur ou les marques méritent un second regard. Faible priorité : quelques minutes par semaine.",
   "colourCheck.empty": "Rien à vérifier.",
   "colourCheck.toCheck": "À vérifier : {count}",

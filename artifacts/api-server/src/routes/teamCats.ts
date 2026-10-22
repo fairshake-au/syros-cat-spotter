@@ -25,7 +25,7 @@ import type { TieMode } from "../lib/teamPages/catPages";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
 import { allColonyChoices } from "../lib/colonyCats";
-import { catPageFormKeys, renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
+import { cameFromCats, catPageFormKeys, renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
 import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
 import { parseCatFilters } from "../lib/teamCatFilters";
 import { allTeamCats, catTrail, LIVES, listTeamCats, type CatListFilters } from "../lib/teamCatList";
@@ -544,6 +544,7 @@ router.get(
         colonies: can(person, "assign_cat_to_colony")
           ? await allColonyChoices(visibleColonyIds(person))
           : undefined,
+        back: cameFromCats(req.get("referer")),
         allHistory: req.query["history"] === "all",
         island: isIslandWide(person),
         // SYC-44 PR 7.1: its own check (view_welfare_queue), not this page's.

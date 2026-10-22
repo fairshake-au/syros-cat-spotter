@@ -299,6 +299,7 @@ export const en = {
   "appearance.drawnPatternNotKnown": "Pattern not known",
 
   "colourCheck.title": "Colour check",
+  "colourCheck.back": "← Back to Home",
   "colourCheck.intro": "Cats whose colour or markings are worth a second look. Low priority: a few minutes a week.",
   "colourCheck.empty": "Nothing to check.",
   "colourCheck.toCheck": "To check: {count}",

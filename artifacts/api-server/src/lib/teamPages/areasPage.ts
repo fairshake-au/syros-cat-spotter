@@ -212,6 +212,7 @@ export function renderAreasPage(o: AreasPageOptions): string {
     title: "Areas",
     active: null,
     personName: o.personName,
+    beforeTitle: '<p class="back"><a href="/api/team">&larr; Back to Home</a></p>',
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
       loose +

@@ -268,6 +268,7 @@ export const el: Record<StringKey, string> = {
   "appearance.drawnPatternNotKnown": "Σχέδιο άγνωστο",
 
   "colourCheck.title": "Έλεγχος χρώματος",
+  "colourCheck.back": "← Πίσω στην αρχική",
   "colourCheck.intro": "Γάτες των οποίων το χρώμα ή τα σημάδια αξίζουν μια δεύτερη ματιά. Χαμηλή προτεραιότητα: λίγα λεπτά την εβδομάδα.",
   "colourCheck.empty": "Τίποτα για έλεγχο.",
   "colourCheck.toCheck": "Για έλεγχο: {count}",
