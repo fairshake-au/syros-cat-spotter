@@ -7,6 +7,7 @@ import { CONTACT_EMAIL } from '@/lib/contactMail';
 import { registerModalOpen } from '@/lib/modalVisibility';
 import { Button } from '@/components/purropolis/Button';
 import { fonts, spacing } from '@/constants/theme';
+import { SHEET_MAX_WIDTH } from '@/lib/appColumn';
 
 /**
  * The quiet text link that opens the sheet (§1.1): the same style as "Report
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: {
     width: '100%',
-    maxWidth: 560,
+    maxWidth: SHEET_MAX_WIDTH,
     alignSelf: 'center',
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
