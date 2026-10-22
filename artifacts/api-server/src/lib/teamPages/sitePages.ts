@@ -6,6 +6,7 @@ import { escapeHtml as esc } from "./escape";
 import { dayIn } from "./colonyPages";
 import { renderPage } from "./layout";
 import { renderMap, type MapMarker } from "./map";
+import { mapPrivacyNote } from "./mapNote";
 import { place, position } from "./position";
 import { publicLabelOf } from "../areas/placeLabel";
 import { wordsIn, type WordKey, type Words } from "./words";
@@ -200,7 +201,7 @@ export function renderSitesPage(opts: SiteViewer & {
         : "") +
       `<h2>${w("sites.listTitle")}</h2>` +
       list +
-      `<p class="hint">${w("sites.mapHint")}</p>`,
+      mapPrivacyNote(opts.lang),
   });
 }
 

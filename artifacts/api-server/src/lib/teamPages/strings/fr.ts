@@ -421,8 +421,10 @@ export const fr: Record<StringKey, string> = {
   "sites.changed": "Dernière modification",
   "sites.legend":
     "Repère plein : public. Contour : privé. Gris : fermé. Touche un repère pour ouvrir le point.",
-  "sites.mapHint":
-    "Cette carte est réservée à l’équipe. Notre serveur récupère les images de la carte, donc ton navigateur ne dit jamais à une entreprise de cartographie où tu regardes.",
+  "map.teamOnly": "Cette carte est réservée à l’équipe.",
+  "map.whyTitle": "Pourquoi la carte fonctionne-t-elle ainsi ?",
+  "map.whyBody":
+    "Notre serveur récupère les images de la carte, donc ton navigateur ne dit jamais à une entreprise de cartographie où tu regardes.",
   "sites.moveNote": "Ça n’a pas marché, donc la carte est revenue sur toute l’île.",
 
   "sighting.makeSite": "Créer un point de nourrissage ici",
@@ -488,8 +490,6 @@ export const fr: Record<StringKey, string> = {
   "new.lat": "Latitude",
   "new.lng": "Longitude",
   "new.typedButton": "Utiliser cette position",
-  "new.mapNote":
-    "Notre serveur récupère les images de la carte, donc ton navigateur ne dit jamais à une entreprise de cartographie où tu regardes.",
 
   "confirm.title": "Vérifie l’endroit",
   "confirm.spot": "L’endroit",

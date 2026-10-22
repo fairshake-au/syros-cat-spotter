@@ -457,8 +457,10 @@ export const en = {
   "sites.retired": "Retired",
   "sites.changed": "Last changed",
   "sites.legend": "Filled marker: public. Outlined: private. Grey: retired. Tap a marker to open the site.",
-  "sites.mapHint":
-    "This map is only for the team. Our server fetches the map pictures, so your browser never tells a map company where you are looking.",
+  "map.teamOnly": "This map is only for the team.",
+  "map.whyTitle": "Why does the map work like this?",
+  "map.whyBody":
+    "Our server fetches the map pictures, so your browser never tells a map company where you are looking.",
   "sites.moveNote": "That didn't work, so the map is back at the whole island.",
 
   // Entry points (SYC-209 PR 3.4): from a cat's sighting, and from a colony.
@@ -524,7 +526,6 @@ export const en = {
   "new.lat": "Latitude",
   "new.lng": "Longitude",
   "new.typedButton": "Use this position",
-  "new.mapNote": "Our server fetches the map pictures, so your browser never tells a map company where you are looking.",
 
   "confirm.title": "Check the spot",
   "confirm.spot": "The spot",

@@ -8,6 +8,7 @@ import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { lastSeenWords } from "./lastSeen";
 import { renderMap, type MapMarker } from "./map";
+import { mapPrivacyNote } from "./mapNote";
 import { MARK_ORDER, MARK_WORD } from "./marks";
 
 // The island Map (SYC-396 PR 1.5; spec §6, §10, §12.2, §12.4, §13). Every
@@ -191,7 +192,7 @@ export function renderCatMapPage(o: CatMapOptions): string {
       active: "map",
       personName: o.personName,
       mainClass: "wide",
-      body: top + buttonMap(o) + teamOnlyHint(),
+      body: top + buttonMap(o) + mapPrivacyNote(),
     });
   }
 
@@ -235,15 +236,8 @@ export function renderCatMapPage(o: CatMapOptions): string {
     active: "map",
     personName: o.personName,
     mainClass: "wide",
-    body: top + scripted + `<noscript>${buttonMap(o)}</noscript>` + teamOnlyHint(),
+    body: top + scripted + `<noscript>${buttonMap(o)}</noscript>` + mapPrivacyNote(),
     styles: [assetUrl("leaflet.css")],
     script: [assetUrl("leaflet.js"), assetUrl("dashboard-map.js")],
   });
-}
-
-function teamOnlyHint(): string {
-  return (
-    '<p class="hint">This map is only for the team. Our server fetches the map pictures, so your browser ' +
-    "never tells a map company where you are looking.</p>"
-  );
 }
