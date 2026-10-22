@@ -10,7 +10,7 @@ import { safeError } from "../lib/logger";
  * (lib/internalAuth.ts). Called by .github/workflows/fingerprints-nightly.yml.
  *
  * - POST /api/internal/fingerprints/nightly: fingerprints every active cat's
- *   display photo that has none, oldest first, for at most FINGERPRINT_BUDGET_MS
+ *   display photo that has none, oldest first, for at most FINGERPRINT_BUDGET_MS (90 s, so the request stays under the proxy chain in front of the app)
  *   (it starts no new photo after that). Answers once the work is done, like
  *   the news check does: 200 {made, failed, left}, all COUNTS; never a photo
  *   id. Any failure is a 500.
@@ -24,7 +24,7 @@ import { safeError } from "../lib/logger";
 const router: IRouter = Router();
 
 /** The batch's time budget. The workflow's curl timeout is this plus headroom. */
-export const FINGERPRINT_BUDGET_MS = 4 * 60_000;
+export const FINGERPRINT_BUDGET_MS = 90_000;
 
 router.post("/internal/fingerprints/nightly", async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
