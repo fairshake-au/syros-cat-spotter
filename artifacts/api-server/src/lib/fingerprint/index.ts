@@ -112,13 +112,28 @@ let inFlight: Promise<FillResult> | undefined;
  * One fill at a time per process. A second caller waits for the running
  * fill, then re-reads what is still missing (usually nothing: the first fill
  * made it) and fills that. Its budget runs from its own call, so time spent
- * waiting counts: a search's whole wait stays within its limit.
+ * waiting counts: a search's whole wait stays within its limit. If the budget
+ * runs out while it waits (the nightly batch is long), it fills nothing:
+ * `made` is 0 and the photos still without a fingerprint come back in `left`,
+ * so the caller ranks what exists and counts the rest as left out.
  */
 export async function fillMissing(photoIds: number[], budgetMs: number): Promise<FillResult> {
   const startedAt = __fillClock.now();
   // A loop, not one await: with three callers, the second may start its fill
   // before the third wakes up.
-  while (inFlight) await inFlight.catch(() => undefined);
+  while (inFlight) {
+    const remaining = budgetMs - (__fillClock.now() - startedAt);
+    if (remaining <= 0) return skippedFill(photoIds);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const slept = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, remaining);
+    });
+    try {
+      await Promise.race([inFlight.catch(() => undefined), slept]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
   const run = fillNow(photoIds, budgetMs, startedAt);
   inFlight = run;
   try {
@@ -126,6 +141,13 @@ export async function fillMissing(photoIds: number[], budgetMs: number): Promise
   } finally {
     if (inFlight === run) inFlight = undefined;
   }
+}
+
+/** The budget ran out waiting for another fill: what that fill has committed so far is read, and the rest is `left`. */
+async function skippedFill(photoIds: number[]): Promise<FillResult> {
+  const unique = [...new Set(photoIds)].sort((a, b) => a - b);
+  const have = await fingerprintsFor(unique);
+  return { made: 0, failed: 0, left: unique.filter((id) => !have.has(id)) };
 }
 
 async function fillNow(photoIds: number[], budgetMs: number, startedAt: number): Promise<FillResult> {
