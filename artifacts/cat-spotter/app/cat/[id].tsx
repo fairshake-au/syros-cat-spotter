@@ -394,7 +394,7 @@ export default function CatDetailScreen() {
                 }
                 onPress={() => setSheet('claim')}
               >
-                {t('claimCat')}
+                {t('claimCat').split('{name}').join(cat.name)}
               </Button>
               {!isOnline && (
                 <Text style={[styles.quietLine, { color: colors.mutedForeground }]}>
@@ -431,7 +431,7 @@ export default function CatDetailScreen() {
           {careTimeline !== undefined && (
             <View style={{ gap: 11 }}>
               <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>
-                {t('careTimelineTitle')}
+                {t('careTimelineTitle').split('{name}').join(cat.name)}
               </Text>
               {careTimeline.map((event, index) => {
                 // An unknown type (older/newer server, or a leaked `sighting`

@@ -1156,7 +1156,7 @@ export default function ReviewScreen() {
 
         <View style={{ gap: 4 }}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            {data.candidates.length} {t("lookalikesFound")}
+            {t("lookalikesFound")}
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             {t("matchQuestion")}

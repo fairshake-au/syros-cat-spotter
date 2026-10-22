@@ -40,7 +40,7 @@ export function MovedScreen() {
           {t('movedTitle')}
         </Text>
         <Text style={[styles.text, { color: colors.foreground }]}>
-          {t('movedBody').replace('{username}', username ?? t('restorePageAnotherSpotter'))}
+          {username ? t('movedBody').replace('{username}', username) : t('movedBodyNoName')}
         </Text>
         {unsent > 0 ? (
           <Text testID="moved-unsent" style={[styles.text, { color: colors.mutedForeground }]}>
