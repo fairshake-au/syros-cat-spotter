@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { mapUrl, position, roundPos } from "./position";
+import { placeLabel, type PublicLabel } from "../areas/placeLabel";
+import { escapeHtml } from "./escape";
+import { mapUrl, place, position, roundPos } from "./position";
 
 describe("roundPos", () => {
   it("rounds to 5 places", () => {
@@ -42,5 +44,28 @@ describe("position", () => {
     expect(html).toContain("-1.50000, -2.25000");
     expect(html).toContain("?api=1&amp;query=");
     expect(html).not.toMatch(/\?api=1&query=/);
+  });
+});
+
+describe("place", () => {
+  it("prints words, no numbers, when no link is asked", () => {
+    const html = place(37.445, 24.942, { link: false });
+    expect(html).not.toMatch(/\d\.\d{3}/);
+    expect(html).toBe(escapeHtml(placeLabel({ lat: 37.445, lng: 24.942 })));
+    expect(html).not.toContain("<a");
+  });
+  it("adds Open map with the 5-decimal position in the href", () => {
+    const html = place(37.445, 24.942, { link: true });
+    expect(html.endsWith("Open map</a>")).toBe(true);
+    expect(html).toContain("query=37.44500%2C24.94200");
+    expect(html).toContain('rel="noopener noreferrer"');
+    expect(html.split("<a")[0]).not.toMatch(/\d\.\d{3}/);
+  });
+  it("reads Area, label when a public label is given, escaped", () => {
+    const label = "Harbour <b>steps</b>" as PublicLabel;
+    const html = place(37.445, 24.942, { link: false, label });
+    expect(html).toBe(escapeHtml(placeLabel({ lat: 37.445, lng: 24.942 }, label)));
+    expect(html).toContain(", Harbour &lt;b&gt;");
+    expect(html).not.toContain("<b>");
   });
 });

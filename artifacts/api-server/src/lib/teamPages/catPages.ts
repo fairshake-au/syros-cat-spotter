@@ -13,7 +13,7 @@ import type { IssueReport } from "../issues/queue";
 import { reasonLabel } from "../issues/alertEmail";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { position } from "./position";
+import { openMapLink, place } from "./position";
 import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
 import { coatPhraseOf, renderCatFacts, vaccineWord } from "./catFacts";
@@ -947,7 +947,7 @@ export function renderCatPage(
       ? row(
           v.owner.has ? "Where the owner says the cat lives" : "Where the cat lives, from a past owner",
           v.owner.homeDescription ? esc(v.owner.homeDescription) : "No note",
-        ) + (v.owner.homePin ? row("Home pin", position(v.owner.homePin.lat, v.owner.homePin.lng, { link: false })) : "")
+        ) + (v.owner.homePin ? row("Home pin", esc(`Pinned, in ${placeLabel(v.owner.homePin)}`)) : "")
       : "") +
     "</dl>" +
     "<h3>Colony</h3><dl>" +
@@ -960,7 +960,7 @@ export function renderCatPage(
     ) +
     "</dl>" +
     "<h3>First recorded</h3><dl>" +
-    row("Where", position(cat.lat, cat.lng, { link: island })) +
+    row("Where", place(cat.lat, cat.lng, { link: island })) +
     row("When", time(cat.createdAt)) +
     "</dl></details>";
 
@@ -982,7 +982,7 @@ export function renderCatPage(
               // SYC-415 spec §4.5: the matcher thought this spot's photos may be of more than one cat.
               (s.mixedCats ? '<br><span class="mixed">May show more than one cat</span>' : "") +
               rowMenu("More", `the sighting on ${when(s.at)}`, [
-                `<p class="meta">${position(s.lat, s.lng, { link: island })}</p>`,
+                ...(island ? [`<p class="meta">${openMapLink(s.lat, s.lng)}</p>`] : []),
                 ...sightingButtons(s.id, may),
               ]) +
               "</span></li>",

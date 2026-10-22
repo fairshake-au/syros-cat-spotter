@@ -9,6 +9,7 @@ import app from "../app";
 import { catTarget } from "../lib/capabilityTargets";
 import { writeObservation } from "../lib/observations";
 import { GUARDIAN_CAT_FIELDS } from "../lib/guardianCatView";
+import { placeLabel } from "../lib/areas/placeLabel";
 import { CATALOGUE } from "../lib/teamPages/strings";
 import { removeTestPerson } from "../test/removeTestPerson";
 import {
@@ -315,13 +316,14 @@ describe("T4: inside her colonies, exactly spec §2.2's fields", () => {
     expect(photo.status).toBe(200);
   });
 
-  it("her cat page prints the exact position, and no map link", async () => {
+  it("her cat page says where it was first seen in words, with no numbers and no map link", async () => {
     const res = await request(app)
       .get(`/api/team/my/cats/${mine.id}`)
       .set("Cookie", eleni.cookie)
       .set("Sec-Fetch-Mode", "navigate");
     expect(res.status).toBe(200);
-    expect(res.text).toContain("37.44500, 24.94200");
+    expect(res.text).toContain(`First seen in ${placeLabel({ lat: 37.445, lng: 24.942 })}`);
+    expect(res.text).not.toMatch(/\d{2}\.\d{5}/);
     expect(res.text).not.toMatch(/google\.com\/maps|maps\.apple|openstreetmap/);
     expect(res.text).not.toContain(SECRET_NOTE);
     expect(res.text).not.toContain(OWNER_NAME);
@@ -499,7 +501,7 @@ describe("SYC-416: her colony's feeding sites, and the colony page's cat links",
       const html = await request(app).get(path).set("Cookie", eleni.cookie).set("Sec-Fetch-Mode", "navigate");
       expect(html.text).toContain(SITE_A);
       expect(html.text).toContain(SITE_A_WAY);
-      expect(html.text).toContain("37.44611, 24.94377");
+      expect(html.text).not.toMatch(/\d{2}\.\d{5}/);
       expect(html.text).not.toContain(SITE_B);
     }
   });

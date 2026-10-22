@@ -8,7 +8,8 @@ import { ADD_SEARCH_LIMIT } from "../colonyCats";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { rowMenu } from "./rowMenu";
-import { position } from "./position";
+import { place } from "./position";
+import { placeLabel } from "../areas/placeLabel";
 import { formatDate, formatDateTime, pageLanguage } from "./strings";
 import { markBar } from "./marks";
 import type { ColonyFigures, ColonyFlag } from "../dashboard/colonyFigures";
@@ -390,12 +391,22 @@ const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
 const quoted = ({ t }: Words, v: string | null) =>
   v === null || v === "" ? esc(t("history.nobody")) : `“${esc(v)}”`;
 
-/** A centre from a history row, through position.ts (D9). Trusted HTML. */
-function centreText({ t }: Words, v: unknown, link: boolean): string {
+/** A centre from a history row, as the area it is in (no numbers). */
+const centreArea = (v: unknown): string | null => {
   const c = v as { lat?: unknown; lng?: unknown } | null | undefined;
   return c && typeof c.lat === "number" && typeof c.lng === "number"
-    ? position(c.lat, c.lng, { link })
-    : esc(t("colony.noCentre"));
+    ? placeLabel({ lat: c.lat, lng: c.lng })
+    : null;
+};
+
+/** The "centre moved" line: words only, escaped by w(). Trusted HTML. */
+function centreChange({ w }: Words, before: unknown, after: unknown): string {
+  const a = centreArea(before);
+  const b = centreArea(after);
+  if (a === null && b === null) return w("colony.noCentre");
+  if (a === null) return w("colony.centreSet", { area: b! });
+  if (b === null) return w("colony.centreCleared", { area: a });
+  return a === b ? w("colony.centreWithin", { area: b }) : w("colony.centreFromTo", { a, b });
 }
 
 /**
@@ -406,10 +417,9 @@ function centreText({ t }: Words, v: unknown, link: boolean): string {
 const mapLinks = (v: ColonyViewer) => v.island === true;
 
 /** What a history row says, as trusted HTML built from fixed words and esc. */
-function describe(W: Words, e: ColonyHistoryEntry, island: boolean, link: boolean): string {
+function describe(W: Words, e: ColonyHistoryEntry, island: boolean): string {
   const { w } = W;
   const quoted_ = (v: string | null) => quoted(W, v);
-  const centre = (v: unknown) => centreText(W, v, link);
   if (e.redacted) return w("history.removed");
   const b = e.before ?? {};
   const a = e.after ?? {};
@@ -423,7 +433,7 @@ function describe(W: Words, e: ColonyHistoryEntry, island: boolean, link: boolea
     case "colony_notes_changed":
       return w("history.notes");
     case "colony_centre_changed":
-      return `${w("history.centre")}: ${centre(b["centre"])} → ${centre(a["centre"])}`;
+      return centreChange(W, b["centre"], a["centre"]);
     case "cat_added":
     case "cat_taken_out":
     case "cat_moved_out": {
@@ -453,7 +463,7 @@ function describe(W: Words, e: ColonyHistoryEntry, island: boolean, link: boolea
   }
 }
 
-function historyList(W: Words, history: ColonyHistoryEntry[], island: boolean, link: boolean): string {
+function historyList(W: Words, history: ColonyHistoryEntry[], island: boolean): string {
   const { w } = W;
   if (history.length === 0) return `<p class="empty">${w("colony.noHistory")}</p>`;
   return (
@@ -461,7 +471,7 @@ function historyList(W: Words, history: ColonyHistoryEntry[], island: boolean, l
     history
       .map(
         (e) =>
-          `<li class="statement"><p>${describe(W, e, island, link)}</p>` +
+          `<li class="statement"><p>${describe(W, e, island)}</p>` +
           `<p class="meta">${w("history.by")} ${esc(e.by)} · <time datetime="${esc(e.at)}">${esc(dayIn(W.lang, e.at))}</time></p></li>`,
       )
       .join("") +
@@ -579,7 +589,7 @@ export function renderColonyPage(
     `<dt>${w("colonies.guardian")}</dt><dd>${v.guardianName ? esc(v.guardianName) : w("colonies.noGuardian")}</dd>` +
     `<dt>${w("colonies.sites")}</dt><dd>${esc(String(v.siteCount))}</dd>` +
     `<dt>${w("colonies.cats")}</dt><dd>${esc(String(v.catCount))}</dd>` +
-    `<dt>${w("colony.centre")}</dt><dd>${v.lat !== null && v.lng !== null ? position(v.lat, v.lng, { link }) : w("colony.noCentre")}</dd>` +
+    `<dt>${w("colony.centre")}</dt><dd>${v.lat !== null && v.lng !== null ? place(v.lat, v.lng, { link }) : w("colony.noCentre")}</dd>` +
     `</dl>`;
   // A cat guardian may read (and from PR 4.2 edit) her own colony's notes, so
   // to her they are just "Notes"; the team keeps "Team-only notes".
@@ -615,7 +625,7 @@ export function renderColonyPage(
       movedAwayList(W, opts.movedAway ?? []) +
       notes +
       `<h2>${w("colony.historyTitle")}</h2>` +
-      historyList(W, v.history, island, link),
+      historyList(W, v.history, island),
   });
 }
 

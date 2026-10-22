@@ -15,7 +15,7 @@ import { reasonLabel } from "../issues/alertEmail";
 import { ISSUE_OUTCOME_TEXT } from "../issues/teamActions";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { position } from "./position";
+import { place } from "./position";
 
 // The welfare queue page (SYC-43 part 2 plan, PR 1; spec §3.1, §4.2, §8.3).
 // Read-only. Server-drawn, no scripts. Every value goes through escapeHtml.
@@ -281,7 +281,7 @@ function reportCard(
     (r.id === noted ? '<p class="notice" role="status">Saved. The team note is updated.</p>' : "") +
     (closed ? "" : `<div class="head">${tags}</div>`) +
     "<dl>" +
-    row("Where", position(r.lat, r.lng, { link: island })) +
+    row("Where", place(r.lat, r.lng, { link: island })) +
     row(
       "What they said",
       r.note
@@ -321,7 +321,7 @@ function draftCard(d: QueueDraft, now: Date, island: boolean): string {
     '<div class="head">' +
     `<span class="tag ${d.severity === "urgent" ? "urgent" : "attention"}">${esc(SEVERITY[d.severity])}</span>` +
     `<span class="ago">started ${ago(d.startedAt, now)}</span></div>` +
-    `<dl>${row("Where", position(d.lat, d.lng, { link: island }))}</dl>${from}</article>`
+    `<dl>${row("Where", place(d.lat, d.lng, { link: island }))}</dl>${from}</article>`
   );
 }
 

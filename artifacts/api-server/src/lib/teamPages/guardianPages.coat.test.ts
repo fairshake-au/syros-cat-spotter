@@ -40,10 +40,10 @@ const page = (c: GuardianCat, language = "en", live?: readonly Language[]) =>
 /** The facts block, where the coat line sits. */
 const facts = (html: string) => html.slice(html.indexOf('<div class="gfacts">'), html.indexOf("</div>", html.indexOf('<div class="gfacts">')));
 
-/** The coat line: the plain line straight after the position line, or null for none. */
+/** The coat line: the plain line straight after the "First seen in" line, or null for none. */
 function coatLine(html: string): string | null {
-  const m = facts(html).match(/<p>[^<]*37\.44500, 24\.94200[^<]*<\/p>(?:<p>([^<]*)<\/p>)?/);
-  if (!m) throw new Error("no position line");
+  const m = facts(html).match(/<p>[^<]*(?:First seen in|Πρώτη φορά που εμφανίστηκε|Vu pour la première fois)[^<]*<\/p>(?:<p>([^<]*)<\/p>)?/);
+  if (!m) throw new Error("no first-seen line");
   return m[1] ?? null;
 }
 

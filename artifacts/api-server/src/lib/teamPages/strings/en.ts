@@ -50,8 +50,8 @@ export const en = {
   "welcome.invitedBy": "{inviter} from Syros Cats invited you as {role}.",
   "welcome.invited": "Syros Cats invited you as {role}.",
   "welcome.seeDo.title": "What you'll be able to see and do",
-  "welcome.seeDo.guardian": "For your own colonies only: exactly where each cat is, the colony's feeding sites, photos, and whether each cat is sterilised. You can say what you see happening to the cats there, check a cat's ear when you see one up close, decide which cats are in your colonies (adding them or taking them out), add feeding sites, and create a new colony. You can read the reports of cats in trouble about your colonies' cats, but not change them, and never the “Report an issue” reports.",
-  "welcome.seeDo.starting": "Create a colony for the cats you look after. Once it’s created, you’ll see exactly where each of its cats is, and you can add cats and feeding sites to it.",
+  "welcome.seeDo.guardian": "For your own colonies only: the area each cat was first seen in, the colony's feeding sites, photos, and whether each cat is sterilised. You can say what you see happening to the cats there, check a cat's ear when you see one up close, decide which cats are in your colonies (adding them or taking them out), add feeding sites, and create a new colony. You can read the reports of cats in trouble about your colonies' cats, but not change them, and never the “Report an issue” reports.",
+  "welcome.seeDo.starting": "Create a colony for the cats you look after. Once it’s created, you’ll see its cats and the area each was first seen in, and you can add cats and feeding sites to it.",
   "welcome.seeDo.team": "The whole island: the reports of cats in trouble, and every cat, colony and feeding site, with exact positions. You can record what you find, put records right, and look after the reports.",
   "welcome.seeDo.management": "As well as everything the team can do, you can invite people, change what they can do, take them off the list, sign anyone out everywhere, and act on requests to delete someone's data.",
   "welcome.ask.title": "What we ask of you",
@@ -143,7 +143,7 @@ export const en = {
   // SYC-53 PR 2.1: a cat guardian's colony and cat pages. Colour and
   // markings use the shared coat.*/mark.* words below (SYC-2 PR 3.1).
   "mycol.seeCats": "See the cats",
-  "gcol.intro": "Every cat in this colony. The position is where each cat was first recorded.",
+  "gcol.intro": "Every cat in this colony.",
   "gcol.none": "No cats are in this colony yet.",
   "gcol.notFound.title": "Not one of your colonies",
   "gcol.notFound.body": "That colony isn’t one of yours, or it doesn’t exist.",
@@ -151,7 +151,7 @@ export const en = {
   "gcat.notFound.body": "There’s no cat with that number.",
   "gcat.back": "Back to my colonies",
   "gcat.colony": "Colony: {name}",
-  "gcat.position": "First recorded at {position}",
+  "gcat.firstSeenIn": "First seen in {place}",
   "gcat.lastSeen": "Last seen {date}",
   "gcat.neverSeen": "No sightings yet",
   // SYC-396 PR 3.1a: a vet visit on her cat (dashboard §10.2). Never the
@@ -519,6 +519,7 @@ export const en = {
 
   "confirm.title": "Check the spot",
   "confirm.spot": "The spot",
+  "confirm.tappedIn": "You tapped a spot in",
   "confirm.legend": "The marker is the spot you picked.",
   "confirm.name": "Name of the site",
   "confirm.nameHint": "Use the place, not a person's name, like “Vaporia steps” or “Kini harbour”. Cat guardians change; the place doesn't.",
@@ -610,7 +611,10 @@ export const en = {
   "history.renamed": "Renamed",
   "history.guardian": "Cat guardian changed",
   "history.notes": "Team notes changed",
-  "history.centre": "Centre changed",
+  "colony.centreWithin": "Centre moved within {area}",
+  "colony.centreFromTo": "Centre moved from {a} to {b}",
+  "colony.centreSet": "Centre set in {area}",
+  "colony.centreCleared": "Centre cleared (it was in {area})",
   "history.catAdded": "Cat added",
   "history.catTakenOut": "Cat taken out",
   "history.catMovedOut": "Cat moved to another colony",

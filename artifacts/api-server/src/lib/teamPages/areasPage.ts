@@ -3,7 +3,7 @@ import type { AreaField } from "../areas/areaWrites";
 import type { NamedArea } from "../areas/namedAreas";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { position, roundPos } from "./position";
+import { openMapLink, roundPos } from "./position";
 
 // The Areas page (SYC-396 PR 2.4; dashboard §3.3). The team's named areas:
 // each one's centre and how many cats are nearest it, forms to add, rename,
@@ -88,6 +88,8 @@ const kept = (again: AreaFormAgain | undefined, op: string, key: string | undefi
 const isOpen = (again: AreaFormAgain | undefined, op: string, key?: string) =>
   again !== undefined && again.op === op && again.key === key;
 
+const NAME_HINT = "Area names are shown to cat guardians. Use the place's name, never a person's.";
+
 function input(
   id: string,
   label: string,
@@ -116,7 +118,10 @@ function areaRow(a: AreaRow, o: AreasPageOptions): string {
     `<input type="hidden" name="key" value="${esc(k)}">` +
     problem(again, "rename", k, "name") +
     problem(again, "rename", k, "area") +
-    input(`rename-${k}`, "New name", "name", kept(again, "rename", k, "name", a.name), { invalid: bad("rename", "name") }) +
+    input(`rename-${k}`, "New name", "name", kept(again, "rename", k, "name", a.name), {
+      hint: NAME_HINT,
+      invalid: bad("rename", "name"),
+    }) +
     `<button type="submit">Rename</button></form></details>`;
   const move =
     `<details${isOpen(again, "move", k) ? " open" : ""}><summary>Move centre</summary>` +
@@ -143,7 +148,7 @@ function areaRow(a: AreaRow, o: AreasPageOptions): string {
     `<button type="submit" class="risky">Retire</button></form>`;
   return (
     `<li class="statement"><h3>${esc(a.name)}</h3>` +
-    `<p class="meta">Centre: ${position(a.lat, a.lng, { link: o.link })}</p>` +
+    (o.link ? `<p class="meta">${openMapLink(a.lat, a.lng)}</p>` : "") +
     `<p class="meta">${a.cats === 1 ? "1 cat" : `${a.cats} cats`} nearest this centre</p>` +
     `<div class="fixes">${rename}${move}${retire}</div>` +
     "</li>"
@@ -158,7 +163,10 @@ function addForm(o: AreasPageOptions): string {
     `<form method="post" action="${AREAS_PATH}">` +
     '<input type="hidden" name="op" value="add">' +
     problem(again, "add", undefined, "name") +
-    input("add-name", "Name", "name", kept(again, "add", undefined, "name", ""), { invalid: bad("name") }) +
+    input("add-name", "Name", "name", kept(again, "add", undefined, "name", ""), {
+      hint: NAME_HINT,
+      invalid: bad("name"),
+    }) +
     problem(again, "add", undefined, "key") +
     input("add-key", "Short key", "key", kept(again, "add", undefined, "key", ""), {
       hint: "Used in the Cats filters' web address. Small letters, numbers and dashes, like mega-gialos. It can't be changed later.",
