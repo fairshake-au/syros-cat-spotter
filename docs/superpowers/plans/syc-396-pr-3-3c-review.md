@@ -97,3 +97,25 @@ State of the tree:
 - **6:** the hint now says "whoever paid". The count follows the plan.
 - **7:** the cost-per-sterilisation section now says "A visit that also vaccinated or treated the cat counts its whole cost."
 - **8:** left as it is, the same as Home.
+
+---
+
+## Ship review (second critic, Sonnet, own worktree, head `6f61435e`, 22 Oct 2026)
+
+**Verdict:** merge. No blocker and no major finding. Spend, purposes, no cost, undo, permissions and CSV escaping all hold up against the spec. Agreement with Home's `vetSpend` was checked by reading both code paths.
+
+**Mutations, each turning a named test red:**
+- dropping the payer check from spend fails "an owner-paid €60 visit…";
+- linking the list card for everyone fails "someone without view_vet_costs is refused…".
+
+**Counts:** typechecks clean; 40 tests pass across the three files.
+
+**Findings, and how each was handled:**
+1. Minor, objective. No test links the report's spend to Home's `vetSpend`. **Fixed:** a new DB test, "its month's spend is Home's vet spend for the same month", logs Syros Cats, donation, owner and undone visits.
+2. Minor, objective. Only the DB test caught an owner-paid visit being counted. **Fixed:** the pure "cents" test now has an owner-paid visit and a no-cost visit.
+3. Minor, judgment. A team "yes" later followed by an unlinked team "no" still counts in no cost. **Ticketed:** SYC-567.
+4. Minor, judgment. No cost counts cats off Syros and merged-away halves. **Ticketed:** SYC-567.
+5. Nit, objective. The months CSV wrote `2026-10`, which spreadsheets mangle. **Fixed:** it now writes the month's first day, `2026-10-01`.
+6. Nit, objective. A `vet_visit` row with no `did` would crash the whole report. **Fixed:** such rows are skipped, with a test.
+7. Nit, judgment. `costReason` is not in the accounts CSV. **Ticketed:** SYC-567.
+8. Nit. Screenshots add about 770 KB. **No change:** that matches what's already on main.

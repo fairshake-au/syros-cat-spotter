@@ -4,6 +4,7 @@ import { catsTable, db, observationsTable, pool, type Observation } from "@works
 import { like } from "drizzle-orm";
 import type { VetVisitValue } from "../observations";
 import { logVetVisit, undoVetVisit } from "../vetVisits";
+import { vetSpend } from "../dashboard/home";
 import { parseRange, type Range } from "./range";
 import { purposeOf, vetCostsFrom, vetCostsReport, type VetCostsReport } from "./vetCosts";
 
@@ -101,6 +102,20 @@ describe("vetCostsFrom", () => {
     );
     expect(two.perMonth[0]!.spendEur).toBe(0.86);
     expect(two.byPurpose.checked).toBe(0.86);
+    // An owner-paid visit and one with no cost are listed, never added.
+    const mixed = vetCostsFrom(
+      [
+        visitRow(1, "2026-10-02T12:00:00Z", visit(["sterilised"], { costEur: 0.29 })),
+        visitRow(2, "2026-10-03T12:00:00Z", visit(["sterilised"], { costEur: 60, paidBy: "owner" })),
+        visitRow(3, "2026-10-04T12:00:00Z", visit(["treated"], { costEur: null })),
+      ],
+      NAMES,
+      OCT,
+    );
+    expect(mixed.visits).toHaveLength(3);
+    expect(mixed.perMonth[0]!.spendEur).toBe(0.29);
+    expect(mixed.byPurpose).toEqual({ sterilised: 0.29, vaccinated: 0, treated: 0, checked: 0 });
+    expect(mixed.perSterilisation).toEqual({ avg: 0.29, min: 0.29, max: 0.29, n: 1 });
   });
 
   it("noCost counts a cat once, and not a cat a standing visit sterilised (on any date)", () => {
@@ -141,6 +156,13 @@ describe("vetCostsFrom", () => {
       range,
     );
     expect(r.perMonth.map((m) => [m.visits, m.spendEur])).toEqual([[1, 10], [1, 20]]);
+  });
+
+  it("skips a visit row with no list of what was done, rather than failing", () => {
+    const odd = visitRow(50, "2026-10-02T12:00:00Z", { clinicId: "symviosis", costEur: 10, paidBy: "syros_cats" } as unknown as VetVisitValue);
+    const r = vetCostsFrom([odd, visitRow(51, "2026-10-03T12:00:00Z", visit(["checked"], { costEur: 5 }))], NAMES, OCT);
+    expect(r.visits.map((v) => v.catId)).toEqual([51]);
+    expect(r.perMonth[0]!.spendEur).toBe(5);
   });
 
   it("leaves out a redacted visit, as Home's vet spend and the cat page do", () => {
@@ -239,6 +261,23 @@ describe("vetCostsReport", () => {
     expect(after.byPurpose).toEqual(before.byPurpose);
     expect(after.perSterilisation).toEqual(before.perSterilisation);
     expect(after.noCost).toBe(before.noCost);
+  });
+
+  it("its month's spend is Home's vet spend for the same month", async () => {
+    const range = month(10);
+    const before = await vetCostsReport(range, NOW);
+    const homeBefore = await vetSpend(range.from!, new Date(range.to.getTime() + 1));
+    expect(spend(before)).toBe(homeBefore);
+    const cats = [await insertCat(), await insertCat(), await insertCat(), await insertCat()];
+    await logVetVisit(STAFF, { catId: cats[0]!, date: "2004-10-04", value: visit(["sterilised"], { costEur: 0.29 }) }, NOW);
+    await logVetVisit(STAFF, { catId: cats[1]!, date: "2004-10-05", value: visit(["vaccinated"], { costEur: 0.57, paidBy: "donation" }) }, NOW);
+    await logVetVisit(STAFF, { catId: cats[2]!, date: "2004-10-06", value: visit(["checked"], { costEur: 40, paidBy: "owner" }) }, NOW);
+    const undone = await logVetVisit(STAFF, { catId: cats[3]!, date: "2004-10-07", value: visit(["sterilised"], { costEur: 60 }) }, NOW);
+    await undoVetVisit(STAFF, undone.visitId, "wrong cat", NOW);
+    const after = await vetCostsReport(range, NOW);
+    const home = await vetSpend(range.from!, new Date(range.to.getTime() + 1));
+    expect(spend(after)).toBe(home);
+    expect(Math.round((home - homeBefore) * 100)).toBe(86);
   });
 
   it("counts a visit by its date, not by when it was entered", async () => {

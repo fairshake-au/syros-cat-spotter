@@ -488,8 +488,8 @@ const VET_VISIT_COLUMNS: TableColumn[] = [
   { key: "paid", label: "Paid by" },
 ];
 
-/** "Oct 2026" on the page; "2026-10" in a spreadsheet. */
-const monthWords = (at: Date, forCsv: boolean) => (forCsv ? isoDay(at).slice(0, 7) : dayWords(at).replace(/^\d+ /, ""));
+/** "Oct 2026" on the page; the month's first day, "2026-10-01", in a spreadsheet (which reads it as a date, not text). */
+const monthWords = (at: Date, forCsv: boolean) => (forCsv ? isoDay(at) : dayWords(at).replace(/^\d+ /, ""));
 
 /** An amount: "€55.50" on the page, 55.5 in a spreadsheet. */
 const money = (eur: number, forCsv: boolean) => (forCsv ? eur : euroText(eur));

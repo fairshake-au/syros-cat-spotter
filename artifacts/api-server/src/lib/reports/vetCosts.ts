@@ -92,7 +92,11 @@ export function vetCostsFrom(
   const inRange = (o: Observation) => o.observedAt.getTime() >= from && o.observedAt.getTime() <= to;
 
   // Redacted visits are left out, as Home's vetSpend leaves them out.
-  const standingVisits = standingRows(observations, "vet_visit").filter((o) => !o.redactedAt);
+  // A row without a list of what was done can't be filed anywhere; the writer
+  // never makes one, but an odd old row mustn't take the whole report down.
+  const standingVisits = standingRows(observations, "vet_visit").filter(
+    (o) => !o.redactedAt && Array.isArray((o.value as Partial<VetVisitValue> | null)?.did),
+  );
   const visits = standingVisits.filter(inRange).sort((a, b) => b.observedAt.getTime() - a.observedAt.getTime() || b.id - a.id);
 
   const months = monthsIn(range, visits.reduce<Date>((m, o) => (o.observedAt < m ? o.observedAt : m), range.to));
