@@ -45,6 +45,19 @@ describe('the Spot screen map start', () => {
     expect(moved).toMatch(/setMapTouched\(true\)/);
   });
 
+  it('passes the touch to the rule, and re-runs it when a fix, the wait or a touch arrives', () => {
+    const effect = between('React.useEffect(() => {\n    if (!photo || !pickSource) return;', 'const onMapMoved = ');
+    expect(effect).toMatch(
+      /nextMapStart\(\s*mapStart,\s*resolveMapStart\(\{\s*source: pickSource,\s*phone: \{ coords, denied, loading: locating \},\s*waitedMs: mapWaitedMs,\s*\}\),\s*mapTouched,\s*\)/,
+    );
+    const deps = effect.match(/\}, \[([^\]]*)\]\);/);
+    expect(deps, 'the effect has no dependency array').not.toBeNull();
+    const names = deps![1].split(',').map((d) => d.trim());
+    for (const dep of ['photo', 'pickSource', 'coords', 'denied', 'locating', 'mapWaitedMs', 'mapStart', 'mapTouched']) {
+      expect(names, `the effect does not re-run on ${dep}`).toContain(dep);
+    }
+  });
+
   it('starts afresh on a new photo, a retake and a discard', () => {
     const reset = between('const resetMapStart = ', 'const setFirstPhoto = (');
     for (const step of [/setMapStart\(null\)/, /setMapWaitedMs\(0\)/, /setMapTouched\(false\)/, /setPickedCoords\(null\)/]) {
