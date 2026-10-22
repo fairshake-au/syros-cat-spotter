@@ -68,6 +68,7 @@ import { _resetClaimLimitForTests } from "../middlewares/rateLimit";
 import { blurPosition } from "../lib/blur";
 import { teamCatView } from "../lib/teamCatView";
 import { renderCatPage } from "../lib/teamPages/catPages";
+import { placeLabel } from "../lib/areas/placeLabel";
 
 const pushMock = vi.mocked(sendPushNotification);
 
@@ -925,9 +926,12 @@ describe("DELETE /api/me: a claimed cat keeps its home note and pin for the team
     const lacking = renderCatPage(noPin, "Vera", { may: () => false });
     expect(lacking).toContain(note);
     expect(lacking).not.toContain(String(pin.lat));
+    expect(lacking).not.toContain("Pinned, in");
     const full = renderCatPage(withPin, "Susan", { may: () => true });
     expect(full).toContain(note);
-    expect(full).toContain(`${pin.lat}, ${pin.lng}`);
+    // SYC-517: the pin is said in words, never numbers and never a map link.
+    expect(full).toContain(`Pinned, in ${placeLabel(pin)}`);
+    expect(full).not.toContain(String(pin.lat));
 
     // The cat still has a home, so another phone that met it is refused.
     const statusNow = detail.body.cat.lifeStatus;

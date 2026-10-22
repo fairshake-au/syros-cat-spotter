@@ -340,10 +340,11 @@ describe("P3-2 (team half): the team's cat page shows exact positions", () => {
     ]);
     expect([view.cat.lat, view.cat.lng]).toEqual([37.4451234, 24.9423456]);
     const html = await catHtml();
-    // The page prints positions to 5 decimal places, about 1 m (SYC-395, D9).
-    expect(html).toContain("37.44620, 24.94335");
-    expect(html).toContain("37.44471, 24.94188");
-    expect(html).toContain("37.44512, 24.94235");
+    // The page says where in words; no position prints as numbers (SYC-517).
+    const visible = html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ");
+    expect(visible).not.toMatch(/\d{2}\.\d{5}/);
+    expect(html).not.toContain("37.44620, 24.94335");
+    expect(html).not.toContain("37.44512, 24.94235");
   });
 
   it("SYC-395 (D9, reverses SYC-245 for outbound links): an island-wide team member gets an Open map link on every position, and nothing else leaves the dashboard", async () => {

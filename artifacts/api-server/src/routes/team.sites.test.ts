@@ -21,6 +21,7 @@ import { mintTileToken } from "../lib/mapTiles/tileToken";
 import * as teamSites from "../lib/teamSites";
 import { isOpaqueAddress } from "../test/opaqueAddress";
 import { isOpenMapLink } from "../test/openMapLink";
+import { placeLabel } from "../lib/areas/placeLabel";
 
 // The read insert is wrapped so one test can make it fail; every other call is real.
 vi.mock("../lib/teamSites", async (importOriginal) => {
@@ -85,6 +86,7 @@ async function makeSite(
     name?: string;
     colonyId?: number | null;
     isPublic?: boolean;
+    label?: string;
     retired?: boolean;
     notes?: string | null;
     directions?: string | null;
@@ -106,7 +108,7 @@ async function makeSite(
       ...(opts.isPublic
         ? {
             isPublic: true,
-            publicLabel: "A public place",
+            publicLabel: opts.label ?? "A public place",
             publicId: randomBytes(16).toString("hex"),
             madePublicBy: susan,
             madePublicAt: new Date("2026-09-01T10:00:00Z"),
@@ -418,14 +420,14 @@ describe("one site", () => {
       'data-actions="site"',
     ].map(at);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
-    // The history shows the position as plain text, for the team.
-    expect(html).toContain(`Site created: “${s.name}” · ${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}`);
+    // The history says where in words, for the team (SYC-517).
+    expect(html).toContain(`Site created: “${s.name}” · ${placeLabel(s)}`);
     expect(html).toContain("by Susan");
     // A small map, not the full set of buttons.
     expect(res.text).not.toContain(`class="mapmove"`);
   });
 
-  it("prints every position to five decimal places, never a raw float", async () => {
+  it("prints no position as numbers; only the Open map link carries 5 decimal places", async () => {
     const s = await makeSite();
     await event(s.id, "moved", susan, {
       before: { lat: 37.450100000000006, lng: 24.930000000000003 },
@@ -433,7 +435,8 @@ describe("one site", () => {
     });
     await event(s.id, "created", susan, { after: { name: s.name, lat: 37.450100000000006, lng: 24.930000000000003 } });
     const html = (await get(`/api/team/sites/${s.id}`)).text;
-    expect(html).toContain("37.45010, 24.93000");
+    expect(html).toContain("37.45010%2C24.93000");
+    expect(html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{5}/);
     // (The hidden `updatedAt` stamp is a time to the microsecond, not a position.)
     expect(html.replace(/name="updatedAt" value="[^"]*"/g, "")).not.toMatch(/\d+\.\d{6,}/);
   });
@@ -485,7 +488,9 @@ describe("one site", () => {
     expect(html.indexOf("Moved:")).toBeLessThan(html.indexOf("Site created"));
     // Each position carries the team's Open map link (SYC-395, D9).
     expect(html).toMatch(
-      /Moved: 37\.10000, 24\.10000 &middot; <a [^>]*>Open map<\/a> → 37\.20000, 24\.20000 &middot; <a [^>]*>Open map<\/a>/,
+      new RegExp(
+        `Moved: ${placeLabel({ lat: 37.1, lng: 24.1 })} &middot; <a [^>]*>Open map</a> → ${placeLabel({ lat: 37.2, lng: 24.2 })} &middot; <a [^>]*>Open map</a>`,
+      ),
     );
     expect(html).toContain("Reason: pin was on the wrong side of the road");
   });
@@ -670,6 +675,24 @@ describe("the colony page's sites list", () => {
 // island-wide team member gets Open map on the site's position. Nothing else
 // leaves the site, and no other map company is named. (Cat guardians: see
 // routes/team.guardianView.test.ts.)
+describe("the Where line names the area and a public site's label (SYC-517)", () => {
+  const whereLine = (html: string) => /<p class="syrline">([\s\S]*?)<\/p>/.exec(html)![1]!;
+  it("a public site with a label reads Area, label; the internal name never appears", async () => {
+    const s = await makeSite({ isPublic: true, label: "harbour steps", name: unique("Eleni's house") });
+    const line = whereLine((await get(`/api/team/sites/${s.id}`)).text);
+    expect(line).toContain(`${placeLabel(s)}, harbour steps &middot; <a `);
+    expect(line).not.toContain(s.name);
+  });
+  it("a private site, or a blank label, reads the area only", async () => {
+    const priv = await makeSite();
+    expect(whereLine((await get(`/api/team/sites/${priv.id}`)).text)).toMatch(new RegExp(`^${placeLabel(priv)} &middot; <a `));
+    const blank = await makeSite({ isPublic: true, label: "   " });
+    const line = whereLine((await get(`/api/team/sites/${blank.id}`)).text);
+    expect(line).toMatch(new RegExp(`^${placeLabel(blank)} &middot; <a `));
+    expect(line).not.toContain(blank.name);
+  });
+});
+
 describe("links out to a map company: Open map only", () => {
   it("the list has none; a site's page links its position once, with Open map", async () => {
     const s = await makeSite({ notes: "x" });

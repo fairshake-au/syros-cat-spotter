@@ -229,9 +229,9 @@ describe("the cat page: two buttons on each sighting", () => {
         `<form method="post" action="/api/team/sites/map-at-sighting#map" class="sightact"><input type="hidden" name="sightingId" value="${id}"><button type="submit">Show on our map</button></form>`,
       );
     }
-    // The positions still show as plain text for the team, and nowhere else.
-    // Printed to 5 places by position.ts (SYC-395).
-    expect(res.text).toContain(`${SPOT_A.lat.toFixed(5)}, ${SPOT_A.lng.toFixed(5)}`);
+    // The position is a link only (Open map, 5 places, by position.ts), never printed as numbers (SYC-517).
+    expect(res.text).toContain(encodeURIComponent(`${SPOT_A.lat.toFixed(5)},${SPOT_A.lng.toFixed(5)}`));
+    expect(res.text.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{5}/);
     expectNoPositionInAddresses(res.text);
   });
 

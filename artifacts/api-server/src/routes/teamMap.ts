@@ -8,7 +8,7 @@ import { formRoute } from "./teamCorrections";
 import { renderPage } from "../lib/teamPages/layout";
 import { ISLAND_CENTRE, renderMap, START_ZOOM, type MapMarker } from "../lib/teamPages/map";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
-import { position } from "../lib/teamPages/position";
+import { place } from "../lib/teamPages/position";
 import { isIslandWide } from "../lib/guardianView";
 import {
   clampView,
@@ -65,7 +65,7 @@ function mapPage(
     : [];
   const tapped = extra.tapped
     ? // Open map only for an island-wide viewer (D9, SYC-395).
-      `<p class="tapped">You tapped <strong>${position(extra.tapped.lat, extra.tapped.lng, { link: isIslandWide(teamPerson(res)) })}</strong>. ` +
+      `<p class="tapped">You tapped a spot in <strong>${place(extra.tapped.lat, extra.tapped.lng, { link: isIslandWide(teamPerson(res)) })}</strong>. ` +
       "The red ring marks the spot.</p>" +
       (extra.pictureNote
         ? `<details class="checkdetails"><summary>Details for checking the tap</summary><p class="meta">${esc(extra.pictureNote)}</p></details>`

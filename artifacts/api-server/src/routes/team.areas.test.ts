@@ -48,9 +48,24 @@ describe("the Areas page", () => {
     const res = await page(team.cookie);
     expect(res.status).toBe(200);
     expect(res.text).toContain("<h3>Kini</h3>");
-    expect(res.text).toContain("37.44360, 24.88890");
+    // Each area's lines say it in words; the only numbers on the page are the Add form's example hints.
+    const meta = [...res.text.matchAll(/<p class="meta">([\s\S]*?)<\/p>/g)].map((m) => m[1]!.replace(/<[^>]*>/g, " "));
+    expect(meta.length).toBeGreaterThan(0);
+    for (const m of meta) expect(m).not.toMatch(/\d{2}\.\d{5}/);
+    expect(res.text).not.toContain("Centre: ");
+    expect(res.text).toContain("37.44360%2C24.88890");
     expect(res.text).toMatch(/This is version \d+\./);
     expect(res.text).toContain("nearest this centre");
+  });
+
+  it("says under the name boxes that area names are shown to cat guardians", async () => {
+    const res = await page(team.cookie);
+    const hint = "Area names are shown to cat guardians. Use the place&#39;s name, never a person&#39;s.";
+    // Under the Add form's Name box and under each area's Rename box.
+    const count = res.text.split(hint).length - 1;
+    expect(count).toBeGreaterThan(1);
+    expect(res.text).toMatch(/id="add-name"[\s\S]*?<\/form>/);
+    expect(res.text.indexOf(hint)).toBeLessThan(res.text.indexOf('id="add-name"'));
   });
 
   it("a team member can add, rename, move and retire an area, and each change is in the history", async () => {

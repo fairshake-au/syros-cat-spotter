@@ -518,6 +518,10 @@ describe("test 11 (part): one history row per change, in the same transaction", 
     expect((await post(`/api/team/colonies/${id}`, { lat: "", lng: "" })).status).toBe(303);
     expect(await kinds()).toHaveLength(6);
     expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null });
+    // The history says so in words (no numbers).
+    const html = (await request(app).get(`/api/team/colonies/${id}`).set("Cookie", cookie)).text;
+    expect(html).toMatch(/Centre cleared \(it was in [^)\d]+\)/);
+    expect(html).toMatch(/Centre set in [^<\d]+/);
   });
 
   it("sending the form again with nothing different writes nothing", async () => {

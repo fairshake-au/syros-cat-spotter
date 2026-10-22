@@ -213,7 +213,8 @@ describe("what each row shows", () => {
     expect(html).toContain("Photo still uploading");
     expect(html).toContain(">No photo<");
     expect(html).toContain("No photo: the photo could not be received");
-    expect(html).toContain("37.44412, 24.94123");
+    expect(html).not.toContain("37.44412, 24.94123");
+    expect(html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{5}/);
     expect(html).toContain(
       "google.com/maps/search/?api=1&amp;query=37.44412%2C24.94123",
     );
@@ -425,7 +426,7 @@ describe("SYC-395 (D9): Open map on every position, near a feeding site or not",
       return html.slice(start, html.indexOf("</article>", start));
     };
     for (const id of ["r-near-report", "d-near-draft"]) {
-      expect(card(id)).toContain("37.44412, 24.94123");
+      expect(card(id).replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{5}/);
       expect(card(id)).toContain(OPEN_MAP);
       expect(card(id)).toContain(">Open map</a>");
     }

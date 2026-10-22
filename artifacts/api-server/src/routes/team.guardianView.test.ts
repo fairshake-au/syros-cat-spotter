@@ -5,6 +5,9 @@ import { addPerson, db, markLeft, observationsTable, pool, sightingsTable, welfa
 import { like } from "drizzle-orm";
 import { northOf } from "../test/feedingSites";
 import { tr } from "../lib/teamPages/strings";
+import { placeLabel } from "../lib/areas/placeLabel";
+import { areaByKey, areaFor } from "../lib/areas/namedAreas";
+import { changeArea } from "../lib/areas/areaWrites";
 import app from "../app";
 import router from "./index";
 import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
@@ -742,6 +745,8 @@ describe("SYC-395 (D9): Open map links by viewer", () => {
   const SIGHT_A = { lat: 37.44701, lng: 24.94321 };
   const HOME = { lat: 37.44, lng: 24.94 };
   const at = (p: { lat: number; lng: number }) => `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+  // SYC-517: team pages say where in words; a cat guardian's own site keeps the exact position.
+  const words = (p: { lat: number; lng: number }) => placeLabel(p);
   const openMap = (p: { lat: number; lng: number }) =>
     `https://www.google.com/maps/search/?api=1&amp;query=${encodeURIComponent(`${p.lat.toFixed(5)},${p.lng.toFixed(5)}`)}`;
   let homeCat: SeededCat;
@@ -763,7 +768,7 @@ describe("SYC-395 (D9): Open map links by viewer", () => {
   const hers = (): { label: string; send: () => request.Test; shows: { lat: number; lng: number } | null }[] => [
     { label: "her site", send: () => get(`/api/team/sites/${s1}`, eleni.cookie), shows: S1_POS },
     { label: "the site that joined her colony", send: () => get(`/api/team/sites/${sJ}`, eleni.cookie), shows: JOINED_POS },
-    { label: "her colony", send: () => get(`/api/team/colonies/${c1}`, eleni.cookie), shows: C1_CENTRE },
+    { label: "her colony", send: () => get(`/api/team/colonies/${c1}`, eleni.cookie), shows: null },
     {
       label: "Make a feeding site here, her cat",
       send: () => post("/api/team/sites/from-sighting", { sightingId: String(sightA) }, eleni.cookie),
@@ -785,35 +790,73 @@ describe("SYC-395 (D9): Open map links by viewer", () => {
     }
   });
 
-  it("her colony's history prints the old and new centres, with no link", async () => {
-    const res = await get(`/api/team/colonies/${c1}`, eleni.cookie);
-    const history = res.text.slice(res.text.indexOf('<ol class="history">'));
-    expect(history).toContain(`${at(C1_FIRST_CENTRE)} → ${at(C1_CENTRE)}`);
-    expect(history).not.toMatch(MAP_COMPANIES);
-    // The team's view of the same rows links each centre.
-    const team = (await get(`/api/team/colonies/${c1}`, staffCookie)).text;
-    const teamHistory = team.slice(team.indexOf('<ol class="history">'));
-    expect(teamHistory).toContain(openMap(C1_FIRST_CENTRE));
-    expect(teamHistory).toContain(openMap(C1_CENTRE));
+  // SYC-517 A3: a cat guardian's colony list and cat page say no numbers; the cat page says where in words.
+  it("her colony page and cat page print no position and no map link; the cat page says 'First seen in {area}'", async () => {
+    const colony = await get(`/api/team/my/colonies/${c1}`, eleni.cookie);
+    const cat = await get(`/api/team/my/cats/${catA.id}`, eleni.cookie);
+    for (const res of [colony, cat]) {
+      expect(res.status).toBe(200);
+      const visible = res.text.replace(/<[^>]*>/g, " ");
+      expect(visible).not.toMatch(/\d{2}\.\d{5}/);
+      expect(res.text).not.toMatch(MAP_COMPANIES);
+      expect(res.text).not.toContain("First recorded");
+    }
+    expect(cat.text).toContain(`First seen in ${placeLabel({ lat: 37.445, lng: 24.942 })}`);
+    expect(colony.text).not.toContain("First seen in");
   });
 
-  it("an island-wide team member gets Open map on the same pages, at 5 decimal places", async () => {
-    const team: { label: string; send: () => request.Test; shows: { lat: number; lng: number } }[] = [
-      { label: "the site", send: () => get(`/api/team/sites/${s1}`, staffCookie), shows: S1_POS },
-      { label: "the colony", send: () => get(`/api/team/colonies/${c1}`, staffCookie), shows: C1_CENTRE },
-      { label: "the cat", send: () => get(`/api/team/cats/${catA.id}`, staffCookie), shows: SIGHT_A },
+  it("an area name typed with markup is escaped on her cat page, with no link", async () => {
+    const key = areaFor(37.445, 24.942).key;
+    const before = areaByKey(key)!.name;
+    await changeArea({ id: staffId }, { kind: "rename", key, name: "<b>Kini</b>" });
+    try {
+      const res = await get(`/api/team/my/cats/${catA.id}`, eleni.cookie);
+      expect(res.text).toContain("First seen in &lt;b&gt;Kini&lt;/b&gt;");
+      expect(res.text).not.toContain("<b>Kini</b>");
+      expect(res.text).not.toMatch(MAP_COMPANIES);
+    } finally {
+      await changeArea({ id: staffId }, { kind: "rename", key, name: before });
+    }
+  });
+
+  it("her colony says its centre in words, with no numbers and no link", async () => {
+    const res = await get(`/api/team/colonies/${c1}`, eleni.cookie);
+    expect(res.text).toContain(`<dt>Centre of the colony</dt><dd>${words(C1_CENTRE)}</dd>`);
+    const history = res.text.slice(res.text.indexOf('<ol class="history">'));
+    const same = words(C1_FIRST_CENTRE) === words(C1_CENTRE);
+    expect(history).toContain(
+      same ? `Centre moved within ${words(C1_CENTRE)}` : `Centre moved from ${words(C1_FIRST_CENTRE)} to ${words(C1_CENTRE)}`,
+    );
+    expect(history).not.toMatch(/\d{2}\.\d{5}/);
+    expect(history).not.toMatch(MAP_COMPANIES);
+    // The team's view of the same rows says the same, in words.
+    const team = (await get(`/api/team/colonies/${c1}`, staffCookie)).text;
+    const teamHistory = team.slice(team.indexOf('<ol class="history">'));
+    expect(teamHistory).toContain("Centre moved");
+    expect(teamHistory).not.toMatch(/\d{2}\.\d{5}/);
+  });
+
+  it("an island-wide team member gets Open map on the same pages, in words with the 5 decimal places only in the link", async () => {
+    const withWords = (p: { lat: number; lng: number }) =>
+      `${words(p)} &middot; <a href="${openMap(p)}" rel="noopener noreferrer">Open map</a>`;
+    const team: { label: string; send: () => request.Test; expect: string }[] = [
+      { label: "the site", send: () => get(`/api/team/sites/${s1}`, staffCookie), expect: withWords(S1_POS) },
+      { label: "the colony", send: () => get(`/api/team/colonies/${c1}`, staffCookie), expect: withWords(C1_CENTRE) },
+      {
+        label: "the cat's More menu",
+        send: () => get(`/api/team/cats/${catA.id}`, staffCookie),
+        expect: `<p class="meta"><a href="${openMap(SIGHT_A)}" rel="noopener noreferrer">Open map</a></p>`,
+      },
       {
         label: "Make a feeding site here",
         send: () => post("/api/team/sites/from-sighting", { sightingId: String(sightA) }, staffCookie),
-        shows: SIGHT_A,
+        expect: withWords(SIGHT_A),
       },
     ];
     for (const page of team) {
       const res = await page.send();
       expect(res.status, `${page.label}: ${res.status}`).toBe(200);
-      expect(res.text, page.label).toContain(
-        `${at(page.shows)} &middot; <a href="${openMap(page.shows)}" rel="noopener noreferrer">Open map</a>`,
-      );
+      expect(res.text, page.label).toContain(page.expect);
       // No other map company, ever.
       expect(res.text).not.toMatch(/maps\.google\.|maps\.apple\.com|goo\.gl\/maps|geo:|waze\.com|openstreetmap\.org\/\?mlat/i);
     }
@@ -822,7 +865,7 @@ describe("SYC-395 (D9): Open map links by viewer", () => {
   it("an owner's home position never has a link, even for the team (D5)", async () => {
     const res = await get(`/api/team/cats/${homeCat.id}`, staffCookie);
     expect(res.status).toBe(200);
-    expect(res.text).toContain(`<dt>Home pin</dt><dd>${at(HOME)}</dd>`);
+    expect(res.text).toContain(`<dt>Home pin</dt><dd>Pinned, in ${words(HOME)}</dd>`);
     expect(res.text).not.toContain(encodeURIComponent(`${HOME.lat.toFixed(5)},${HOME.lng.toFixed(5)}`));
   });
 });
