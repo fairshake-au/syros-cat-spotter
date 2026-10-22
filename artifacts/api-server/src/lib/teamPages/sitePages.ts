@@ -1,4 +1,5 @@
 import type { SiteChange, SiteCounts, SiteHistoryEntry, SiteRow, SiteView } from "../teamSites";
+import { keptLine, type KeptFields } from "./signedOutPage";
 import type { Position, TileSize, View } from "../mapTiles/geometry";
 import { mintTileToken } from "../mapTiles/tileToken";
 import { escapeHtml as esc } from "./escape";
@@ -250,20 +251,23 @@ export function renderSiteActions(
   lang?: string,
   /** Draw "Change colony" (`reassign_feeding_site`, island-only: never for a cat guardian). Default: yes. */
   mayReassign = true,
+  /** What was typed into "Edit details" before the sign-in lapsed (SYC-516 C3). */
+  kept?: KeptFields,
 ): string {
+  const k = kept ?? {};
   const W = wordsIn(lang);
   const { w } = W;
   const base = esc(siteHref(s.id));
   const stamp = stampField(s.updatedAt);
   const retired = s.retiredAt !== null;
   const edit =
-    `<div class="fixes"><details><summary>${w("act.edit")}</summary>` +
+    `<div class="fixes"><details${kept ? " open" : ""}><summary>${w("act.edit")}</summary>` +
     `<form method="post" action="${base}">` +
     stamp +
-    textBox(W, "edit-name", "name", "confirm.name", s.name, SITE_NAME_MAX).replace(" maxlength=", " required maxlength=") +
-    textBox(W, "edit-directions", "directions", "site.directions", s.directions ?? "", SITE_DIRECTIONS_MAX, "confirm.directionsHint") +
+    textBox(W, "edit-name", "name", "confirm.name", k["name"] ?? s.name, SITE_NAME_MAX).replace(" maxlength=", " required maxlength=") +
+    textBox(W, "edit-directions", "directions", "site.directions", k["directions"] ?? s.directions ?? "", SITE_DIRECTIONS_MAX, "confirm.directionsHint") +
     `<label class="label" for="edit-notes">${w("site.notes")}</label>` +
-    `<textarea id="edit-notes" name="notes" maxlength="${SITE_NOTES_MAX}">${esc(s.notes ?? "")}</textarea>` +
+    `<textarea id="edit-notes" name="notes" maxlength="${SITE_NOTES_MAX}">${esc(k["notes"] ?? s.notes ?? "")}</textarea>` +
     `<p class="hint">${w("notes.hint")}</p>` +
     `<button type="submit">${w("act.save")}</button></form></details></div>`;
   const move =
@@ -387,6 +391,8 @@ export function renderSitePage(opts: SiteViewer & {
   mayAct?: boolean;
   /** Draw "Change colony" among them (island-only). Default: as `island`. */
   mayReassign?: boolean;
+  /** What was typed into "Edit details" before the sign-in lapsed (SYC-516 C3). */
+  kept?: KeptFields;
 }): string {
   const W = wordsIn(opts.lang);
   const { w } = W;
@@ -428,6 +434,7 @@ export function renderSitePage(opts: SiteViewer & {
     body:
       map +
       // Below the map, so nothing of variable height sits above it (see .mappage).
+      (opts.kept && mayAct ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
       retired +
       visibility +
@@ -455,7 +462,7 @@ export function renderSitePage(opts: SiteViewer & {
       historyList(W, s.history, mapLinks(opts)) +
       (mayAct
         ? `<h2>${w("act.title")}</h2>` +
-          `<div class="actions" data-actions="site">${renderSiteActions(s, opts.colonies, opts.lang, opts.mayReassign ?? opts.island !== false)}</div>`
+          `<div class="actions" data-actions="site">${renderSiteActions(s, opts.colonies, opts.lang, opts.mayReassign ?? opts.island !== false, mayAct ? opts.kept : undefined)}</div>`
         : ""),
   });
 }

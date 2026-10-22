@@ -647,6 +647,27 @@ export const en = {
   "map.goTo": "Go to",
   "map.attrib": "Map pictures ©",
   "map.attribLink": "OpenStreetMap contributors",
+  // SYC-516 C1: the dashboard's error pages (spec 3.1).
+  "error.notFound.title": "This page doesn't exist",
+  "error.notFound.line": "The link may be old or mistyped.",
+  "error.broken.title": "Something went wrong on our side",
+  "error.broken.afterSave": "Your change may not have been saved. Go back and check before trying again.",
+  "error.broken.retry": "Please try again in a minute.",
+  "error.bad.title": "We couldn't read that",
+  "error.home": "Go to the dashboard",
+  // SYC-516 C2/C3: signed out while saving (spec 3.2).
+  "signedOut.title": "You were signed out",
+  "signedOut.notSaved": "You were signed out, so this wasn't saved.",
+  "signedOut.kept": "We've kept what you typed for 30 minutes. Sign in again to carry on.",
+  "signedOut.copy": "Copy what you typed before you sign in again:",
+  "signedOut.signIn": "Sign in again",
+  "signedOut.field.note": "Team note",
+  "signedOut.field.name": "Name",
+  "signedOut.field.guardianName": "Cat guardian",
+  "signedOut.field.notes": "Notes",
+  "signedOut.field.directions": "How to find it",
+  "signedOut.field.reason": "How do you know?",
+  "kept.line": "You were signed out before this was saved. We kept what you typed. Check it and press Save.",
 } as const;
 
 export type StringKey = keyof typeof en;

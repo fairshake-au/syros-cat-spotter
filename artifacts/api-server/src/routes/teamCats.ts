@@ -1,4 +1,5 @@
 import { isIslandWide, visibleColonyIds } from "../lib/guardianView";
+import { useHeldTypingFor } from "../lib/teamAuth/heldTyping";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { searchTeamCats, teamCatView, teamPhotoUrl } from "../lib/teamCatView";
 import { getQueueReport } from "../lib/welfareQueue";
@@ -23,7 +24,7 @@ import type { TieMode } from "../lib/teamPages/catPages";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
 import { allColonyChoices } from "../lib/colonyCats";
-import { renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
+import { catPageFormKeys, renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
 import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
 import { parseCatFilters } from "../lib/teamCatFilters";
 import { allTeamCats, catTrail, LIVES, listTeamCats, type CatListFilters } from "../lib/teamCatList";
@@ -525,9 +526,12 @@ router.get(
     const p = req.query["p"];
     const photo = typeof p === "string" && PHOTO_ID_RE.test(p) ? p : undefined;
     const visits = await visitsFor(view.cat.id, { costs: can(person, "view_vet_costs") });
+    // Back after signing in again (SYC-516 C3): one of this page's forms filled in.
+    const kept = await useHeldTypingFor(req, person, catPageFormKeys(view, (c) => can(person, c)));
     res.type("html").send(
       renderCatPage(view, person.name, {
         visits,
+        kept: kept ?? undefined,
         may: (c) => can(person, c),
         done,
         at,

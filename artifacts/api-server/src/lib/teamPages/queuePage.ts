@@ -1,3 +1,4 @@
+import { keptLine } from "./signedOutPage";
 import type {
   EmailToReporter,
   EmailToTeam,
@@ -120,6 +121,8 @@ function actionForms(
    */
   offered: readonly (typeof REPORT_STATES)[number][] = REPORT_STATES,
   closeHint = "",
+  /** A team note kept while signed out (SYC-516 C3), filled in again. */
+  keptNote?: string,
 ): string {
   const base = `/api/team/reports/${encodeURIComponent(r.id)}`;
   const buttons = REPORT_STATES.filter((s) => s === r.state || offered.includes(s)).map((s) =>
@@ -142,11 +145,15 @@ function actionForms(
     '<span class="hint">Team only. Never shown to the reporter.</span></label>' +
     // The first newline after <textarea> is dropped by browsers, so one is
     // added to keep a note that starts with a blank line as written.
-    `<textarea id="${esc(noteId)}" name="note" rows="3" maxlength="${NOTE_MAX}">\n${esc(r.teamNote ?? "")}</textarea>` +
+    `<textarea id="${esc(noteId)}" name="note" rows="3" maxlength="${NOTE_MAX}">\n${esc(keptNote ?? r.teamNote ?? "")}</textarea>` +
     '<button type="submit" class="save">Save note</button></form></details>' +
     "</div>"
   );
 }
+
+/** A team note that wasn't saved because the sign-in lapsed (SYC-516 C3), for one report. */
+export type KeptNote = { id: string; note: string };
+
 
 /** What happened to a tie, by the fixed key the tie route sent back. */
 export type TiedNotice = { id: string; key: string };
@@ -223,6 +230,7 @@ function reportCard(
   island: boolean,
   canTie: boolean,
   noted?: string,
+  kept?: KeptNote,
 ): string {
   const classes = [
     "report",
@@ -232,8 +240,9 @@ function reportCard(
   ]
     .filter(Boolean)
     .join(" ");
+  const keptNote = kept !== undefined && r.id === kept.id ? kept.note : undefined;
   const landed =
-    r.id === changedId || r.id === noted || (tied !== undefined && r.id === tied.id);
+    r.id === changedId || r.id === noted || (tied !== undefined && r.id === tied.id) || keptNote !== undefined;
   const tags =
     `<span class="tag ${r.severity === "urgent" ? "urgent" : "attention"}">${esc(SEVERITY[r.severity])}</span>` +
     (r.isLitter ? '<span class="tag kittens">Kittens</span>' : "") +
@@ -286,7 +295,7 @@ function reportCard(
     moved +
     row("Email to Syros Cats", email) +
     "</dl>" +
-    actionForms(r, landed);
+    actionForms(r, landed, REPORT_STATES, "", keptNote);
   if (!closed) return `<article class="${classes}" id="r-${esc(r.id)}">${body}</article>`;
   // A closed report is one line until it's opened: open after an action on it.
   return (
@@ -326,11 +335,12 @@ function uncheckedSection(
   island: boolean,
   canTie: boolean,
   noted: string | undefined,
+  kept?: KeptNote,
 ): string {
   const { reports, reportsTotal, drafts, draftsTotal } = queue.unchecked;
   const list = reports.length
     ? '<p class="empty">These arrived while the safety check couldn\'t reach Cloudflare. Most will be real reports sent during an outage, but some may not be, so they are kept apart from the queue above.</p>' +
-      reports.map((r) => reportCard(r, now, false, changedId, tied, island, canTie, noted)).join("") +
+      reports.map((r) => reportCard(r, now, false, changedId, tied, island, canTie, noted, kept)).join("") +
       (reportsTotal > reports.length
         ? `<p class="empty">Showing the newest ${reports.length} of ${reportsTotal}.</p>`
         : "")
@@ -563,6 +573,15 @@ function mailBanner(mail: MailHealth): string {
   );
 }
 
+/**
+ * The reports whose cards this page draws (each with its note form): open,
+ * closed and unchecked. A kept note is used only for one of these (SYC-516
+ * C3), so a row is never used up with no card to show it.
+ */
+export function drawnReportIds(queue: WelfareQueue): Set<string> {
+  return new Set([...queue.open, ...queue.closed, ...queue.unchecked.reports].map((r) => r.id));
+}
+
 export function renderQueuePage(
   queue: WelfareQueue,
   personName: string,
@@ -574,12 +593,14 @@ export function renderQueuePage(
   noted?: string,
   /** May the viewer tie a report to a cat (`change_report_state`)? Shows "Yes, it's X". */
   canTie = false,
+  /** A team note kept while signed out (SYC-516 C3): that card opens with it filled in. */
+  kept?: KeptNote,
   /** SYC-44 PR 7.1: the Issues section, and what an Issues action just did (?issue=&r=). */
   issues?: IssuesSection,
   issueNotice?: IssueNotice,
 ): string {
   const open = queue.open.length
-    ? queue.open.map((r) => reportCard(r, now, false, changedId, tied, island, canTie, noted)).join("")
+    ? queue.open.map((r) => reportCard(r, now, false, changedId, tied, island, canTie, noted, kept)).join("")
     : '<p class="empty">No reports are waiting for the team.</p>';
   const drafts = queue.drafts.length
     ? "<h2>Started but not sent</h2>" +
@@ -591,7 +612,7 @@ export function renderQueuePage(
     : "";
   const closed = queue.closed.length
     ? `<h2>Closed (${queue.closedTotal})</h2>` +
-      queue.closed.map((r) => reportCard(r, now, true, changedId, tied, island, canTie, noted)).join("") +
+      queue.closed.map((r) => reportCard(r, now, true, changedId, tied, island, canTie, noted, kept)).join("") +
       (queue.closedTotal > queue.closed.length
         ? `<p class="empty">Showing the newest ${queue.closed.length} of ${queue.closedTotal}.</p>`
         : "")
@@ -605,8 +626,9 @@ export function renderQueuePage(
     banner: mailBanner(queue.mail),
     // The Issues section comes last: never above any welfare report (§5.3).
     body:
+      (kept ? keptLine() : "") +
       hiddenWaitingLine(issues) +
-      `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, island, canTie, noted)}` +
+      `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, island, canTie, noted, kept)}` +
       (issues ? issuesSection(issues, now, changedId, issueNotice, noted) : ""),
   });
 }
