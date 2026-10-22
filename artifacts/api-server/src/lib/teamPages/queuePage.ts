@@ -624,11 +624,15 @@ function mailBanner(mail: MailHealth): string {
 
 /**
  * The reports whose cards this page draws (each with its note form): open,
- * closed and unchecked. A kept note is used only for one of these (SYC-516
- * C3), so a row is never used up with no card to show it.
+ * closed and unchecked, and the Issues section's rows (SYC-44 PR 7.1). A kept
+ * note is used only for one of these (SYC-516 C3), so a row is never used up
+ * with no card to show it.
  */
-export function drawnReportIds(queue: WelfareQueue): Set<string> {
-  return new Set([...queue.open, ...queue.closed, ...queue.unchecked.reports].map((r) => r.id));
+export function drawnReportIds(queue: WelfareQueue, issues?: IssuesSection): Set<string> {
+  const issueRows = issues
+    ? [...issues.hidden, ...issues.needsPerson, ...issues.other, ...issues.unchecked, ...issues.closed]
+    : [];
+  return new Set([...queue.open, ...queue.closed, ...queue.unchecked.reports, ...issueRows].map((r) => r.id));
 }
 
 export function renderQueuePage(

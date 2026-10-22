@@ -144,6 +144,13 @@ describe("LANDING_ONLY (final review, fix 2)", () => {
     expect(await state.entry.landing(state.m, {})).toBe("/api/team?open=vt-abc_1");
     const tie = landingOnlyFor(post("/api/team/reports/vt-abc_1/cat"))!;
     expect(await tie.entry.landing(tie.m, {})).toBe("/api/team?open=vt-abc_1");
+    // SYC-44 PR 7.1's Issues row buttons come back to that row too.
+    for (const action of ["keep-hidden", "restore", "hide"]) {
+      const issue = landingOnlyFor(post(`/api/team/issues/vt-abc_1/${action}`))!;
+      expect(issue, action).not.toBeNull();
+      expect(await issue.entry.landing(issue.m, {}), action).toBe("/api/team?open=vt-abc_1");
+      expect(issue.entry.formKey(issue.m), action).toBe(`issue:${action}:vt-abc_1`);
+    }
     const areas = landingOnlyFor(post("/api/team/areas"))!;
     expect(await areas.entry.landing(areas.m, { op: "move" })).toBe("/api/team/areas");
     expect(await areas.entry.landing(areas.m, { op: "add" })).toBeNull();
@@ -156,6 +163,9 @@ describe("LANDING_ONLY (final review, fix 2)", () => {
     expect(landingOnlyFor(post("/api/team/reports/x/note"))).toBeNull();
     expect(landingOnlyFor(post("/api/team/reports/x/state/extra"))).toBeNull();
     expect(landingOnlyFor(post("/api/team/areas/kini/centre/pick"))).toBeNull();
+    expect(landingOnlyFor(post("/api/team/issues/x/delete"))).toBeNull();
+    expect(landingOnlyFor(post("/api/team/issues/x/hide/extra"))).toBeNull();
+    expect(landingOnlyFor(post("/api/team/issues/x"))).toBeNull();
     expect(landingOnlyFor({ method: "GET", originalUrl: "/api/team/areas", body: {} } as unknown as Request)).toBeNull();
   });
 });

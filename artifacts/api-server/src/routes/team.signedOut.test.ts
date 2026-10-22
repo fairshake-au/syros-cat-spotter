@@ -609,6 +609,36 @@ describe("landing only: saves with nothing typed come back to their page", () =>
     expect(JSON.stringify(rows[0])).not.toContain("She is at the vet");
   });
 
+  it("SYC-44 PR 7.1: an Issues row's Keep hidden, Restore and Hide come back to that row", async () => {
+    const posts: [string, Record<string, string>][] = [["keep-hidden", { from: "new" }], ["restore", { from: "new" }], ["hide", {}]];
+    for (const [action, body] of posts) {
+      await db.delete(heldTypingTable);
+      // The save never reaches the route (signed out), so the row needs no photo.
+      const { publicId } = await seedReport({ kind: "content", reason: "other" });
+      const { rows, location } = await landAfter(`/api/team/issues/${publicId}/${action}`, body);
+      expect(rows, action).toHaveLength(1);
+      expect(rows[0], action).toMatchObject({
+        personId: susanId,
+        formKey: `land:issue:${action}:${publicId}`,
+        landingPath: `/api/team?open=${publicId}`,
+        fields: {},
+      });
+      expect(location, action).toBe(`${TEAM_ORIGIN}/api/team?open=${publicId}#r-${publicId}`);
+    }
+  });
+
+  it("SYC-44 PR 7.1: a team note on an Issues row is kept and filled in on that row", async () => {
+    const { publicId } = await seedReport({ kind: "content", reason: "other" });
+    const { html } = await keepAndReturn(`/api/team/reports/${publicId}/note`, { note: "Asked the owner" });
+    expect(html).toContain(STATUS_LINE);
+    const start = html.indexOf(`id="r-${publicId}"`);
+    const row = html.slice(start, html.indexOf("</article>", start));
+    expect(row).toMatch(/^id="r-[^"]+"><details open>/);
+    expect(row).toContain(`<details class="notebox" open>`);
+    expect(row).toContain(`name="note" rows="3" maxlength="2000">\nAsked the owner</textarea>`);
+    expect(await heldRows()).toEqual([]);
+  });
+
   it("tying a cat comes back to that report", async () => {
     const { publicId } = await seedReport();
     const { location } = await landAfter(`/api/team/reports/${publicId}/cat`, { catId: "1", expectedCatId: "" });

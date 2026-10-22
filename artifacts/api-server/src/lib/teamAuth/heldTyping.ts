@@ -166,6 +166,13 @@ export const LANDING_ONLY: Record<string, Keepable> = {
     landing: (m) => `/api/team?open=${m[1]}`,
     fields: [],
   },
+  // SYC-44 PR 7.1: an Issues row's Keep hidden, Restore and Hide this photo.
+  "POST /api/team/issues/:publicId/(keep-hidden|restore|hide)": {
+    match: path(`/api/team/issues/${PUBLIC_ID}/(keep-hidden|restore|hide)`),
+    formKey: (m) => `issue:${m[2]}:${m[1]}`,
+    landing: (m) => `/api/team?open=${m[1]}`,
+    fields: [],
+  },
   // An area's centre, confirmed on the map (op=move). Other Areas forms carry a typed name: not these.
   "POST /api/team/areas": {
     match: path("/api/team/areas"),

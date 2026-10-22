@@ -242,7 +242,7 @@ router.get(
     // report's note; anything else is ignored.
     const open = typeof req.query["open"] === "string" && PUBLIC_ID_RE.test(req.query["open"]) ? req.query["open"] : undefined;
     // Only for a card this page draws: otherwise the row is left to expire.
-    const keptFields = open && drawnReportIds(queue).has(open) ? await useHeldTyping(req, person, `note:${open}`) : null;
+    const keptFields = open && drawnReportIds(queue, issues).has(open) ? await useHeldTyping(req, person, `note:${open}`) : null;
     const kept = open && keptFields?.["note"] !== undefined ? { id: open, note: keptFields["note"] } : undefined;
     res
       .type("html")
