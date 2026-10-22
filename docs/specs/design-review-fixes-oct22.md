@@ -2,7 +2,7 @@
 
 **Tickets:** SYC-571 (Part 1), SYC-574 (Part 2), SYC-573 (Part 3). Parent: SYC-569.
 **Source:** the design review of 22 Oct 2026 (artifact on SYC-569), checked on the live build `26c34656`.
-**Status:** revised after the adversarial review (`docs/reviews/design-review-fixes-oct22-adversarial-review.md`; all 17 findings addressed, see the [record](#review-record)). Waiting for Samuel's decisions D3 and D6, then his approval.
+**Status:** revised after the adversarial review (`docs/reviews/design-review-fixes-oct22-adversarial-review.md`; all 17 findings addressed, see the [record](#review-record)). All decisions made by Samuel on 22 Oct. Waiting for his approval of the spec.
 
 ## Contents
 
@@ -230,11 +230,11 @@ How it's built:
 - The spine accepted that averaging published points can locate a colony only "knowingly" (§6.2, lines 273-279).
 - Feeding sites are deliberately private (SYC-209).
 
-That makes this a decision for Samuel, and possibly Syros Cats, rather than a technical detail. If it's yes:
+**Samuel decided yes on 22 Oct**, knowing that it makes colonies easier to spot. So:
 - the label shows only when the square is at least 40px wide on screen, so labels don't overlap at low zoom;
 - it uses plural forms in el and fr.
 
-Either way, every square gets an accessibility label. Today it has none, because `accessibilityLabel={a.label}` is undefined (`AppMap.web.tsx:120`). The label is "{name}'s area" for one cat, and "Area with 3 cats" or the cat's name for a shared square, depending on D6.
+Either way, every square gets an accessibility label. Today it has none, because `accessibilityLabel={a.label}` is undefined (`AppMap.web.tsx:120`). The label is "{name}'s area" for one cat, and "Area with 3 cats" for a shared square.
 
 **Tapping a shared square (D4).** On web, tapping it filters the photo strip under the map to just those cats, with a **"Show all"** chip. On native, it opens the first cat as today. A native list sheet is a follow-up ticket, because the native app isn't in the stores yet (SYC-323).
 
@@ -272,13 +272,13 @@ The copy freeze for Johnny's pack (SYC-346) is today, 22 Oct. These strings go i
 | # | Question | Recommendation | Status |
 |---|---|---|---|
 | D0 | What replaces the "new phone" and "is this your cat" lines? | One link plus a sheet (B) | **Decided by Samuel, 22 Oct** |
-| D1 | Greek and French for these strings | Second pack after the freeze | Open, recommended |
-| D2 | Should "Is this {name}?" show even when the matcher didn't find that cat? | Always (the review confirmed it leaks nothing) | Open, recommended |
-| D3 | Record that a pick came from the cat page? | **R: record it, with a migration** | **Open: needs Samuel** |
-| D4 | Tapping a square with several cats | Web filters the strip now; native gets a ticket | Open, recommended |
-| D5 | Open the Cat-alogue map on the phone's position or on the cats? | On the cats | Open, recommended |
-| D6 | Label shared squares "3 cats"? | Samuel's call; it may need Syros Cats | **Open: needs Samuel** |
-| N1 | Is "email us and we'll help" a promise the team agrees to? | Samuel checks with Syros Cats | Open |
+| D1 | Greek and French for these strings | Second pack after the freeze | **Decided by Samuel, 22 Oct:** second pack |
+| D2 | Should "Is this {name}?" show even when the matcher didn't find that cat? | Always | **Decided by Samuel, 22 Oct:** always |
+| D3 | Record that a pick came from the cat page? | R: record it, with a migration | **Decided by Samuel, 22 Oct:** R |
+| D4 | Tapping a square with several cats | Web filters the strip now; native gets a ticket | **Decided by Samuel, 22 Oct:** as recommended |
+| D5 | Open the Cat-alogue map on the phone's position or on the cats? | On the cats | **Decided by Samuel, 22 Oct:** on the cats |
+| D6 | Label shared squares "3 cats"? | Claude recommended no, pending Syros Cats | **Decided by Samuel, 22 Oct:** yes, label them |
+| N1 | Is "email us and we'll help" a promise the team agrees to? | Ship it | **Decided by Samuel, 22 Oct:** ship it |
 | D7 | One PR for all three parts | — | **Decided by Samuel, 22 Oct** |
 
 <a id="tests"></a>
@@ -306,13 +306,13 @@ Each part is tested before its commit. The affected suites run locally (vitest w
 - The question shows whatever the result (except not-a-cat), and the order of the following list is unchanged.
 - **Mutation:** making the question depend on the candidates, or reordering them, must fail the leak test.
 - A refusal shows on the question step, with "Carry on" going to the right screen.
-- With D3 = R: the server accepts and records `cat_page` on both suggested and hand-picked rows. The migration and rollback run against a test database.
+- The server accepts and records `cat_page` on both suggested and hand-picked rows. The migration and rollback run against a test database.
 
 **Part 3**
 - `fitRegion`: one cell, a spread, a wide east–west spread in a short box, no cells, the zoom cap and the zoom floor.
 - The web map refits on a chip change and a settled search, but not on a keystroke, a refetch or a location fix.
 - Squares carry accessibility labels.
-- With D6 = yes: the label hides when the square is under 40px.
+- The "N cats" label hides when the square is under 40px wide.
 - Tapping a shared square on web filters the strip.
 - The dashboard map:
   - fits once on the first answer;
@@ -336,14 +336,13 @@ Each part is tested before its commit. The affected suites run locally (vitest w
 
 If the migration number has been taken by another branch by merge time, it's regenerated on rebase (`lib/db` migrations README).
 
-**With D3 = R, deploy follows migrate-before-republish (SYC-497):**
+**Deploy follows migrate-before-republish (SYC-497), because of D3:**
 1. Merge.
 2. Run `db-ops migrate` on production.
 3. Run `db-ops verify-history`.
 4. Run a `run_sql` check of the widened constraint.
 5. Only then does Samuel pull and republish. Claude says "don't republish yet" until step 4 passes.
 
-With D3 = N, it's a normal republish.
 
 <a id="review-record"></a>
 ## Review record
