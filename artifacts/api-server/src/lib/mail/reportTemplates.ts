@@ -205,14 +205,18 @@ export const reportAck: FixedTemplate = (params) => {
 // ── The outcome (§5.3(h)) ──────────────────────────────────────────────────
 
 /** Params: outcome ("done" | "nothing_needed"), deleteUrl, and on done only, an optional teamSentence. */
+/** The outcome email's two fixed sentences; the confirm page shows them word for word (SYC-515). */
+export const REPORT_OUTCOME_LEAD = "Syros Cats has looked into this and taken appropriate action in response to your report.";
+export const REPORT_OUTCOME_CLOSE = "Thank you for taking action to help the cats of Syros to thrive.";
+
 export const reportOutcome: FixedTemplate = (params) => {
   const outcome = oneOf(params, "outcome", ["done", "nothing_needed"] as const);
   const deleteUrl = url(params, "deleteUrl");
   // The team's sentence goes on Done only, appended to the fixed copy and
   // never replacing it (§5.3(h)).
   const sentence = outcome === "done" ? cleanTeamSentence(params["teamSentence"]) : null;
-  const lead = "Syros Cats has looked into this and taken appropriate action in response to your report.";
-  const close = "Thank you for taking action to help the cats of Syros to thrive.";
+  const lead = REPORT_OUTCOME_LEAD;
+  const close = REPORT_OUTCOME_CLOSE;
   const del = deleteLine(deleteUrl);
   return {
     subject: "About the cat you reported",

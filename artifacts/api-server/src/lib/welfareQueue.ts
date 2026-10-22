@@ -10,6 +10,7 @@ import { and, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { OVERDUE_MINUTES } from "./mail/outbox";
 import { teamPhotoUrl } from "./teamCatView";
+import { reporterOnClose, type ReporterOnClose } from "./welfare/reporterEmail";
 
 /**
  * The welfare queue's data (SYC-43 part 2 plan, PR 1; spec §3.1, §4.2).
@@ -140,6 +141,8 @@ export interface QueueReport {
   contactLeft: boolean;
   /** What happened to the reporter's emails; null when they left no address. */
   emailToReporter: EmailToReporter | null;
+  /** SYC-515: what happens to the reporter if this closes. */
+  onClose: ReporterOnClose;
   teamNote: string | null;
   teamNoteAt: string | null;
   teamNoteBy: TeamPerson | null;
@@ -236,7 +239,25 @@ function reporterState(m: ReportMail | undefined): EmailToReporter | null {
 
 type Row = Awaited<ReturnType<typeof reportsQuery>>[number];
 
-function toReport(r: Row, mail: Map<number, ReportMail>): QueueReport {
+/**
+ * SYC-515: each report's "what happens to the reporter if this closes?",
+ * from the same function the state route uses. A report with no address on
+ * file is "none" without asking.
+ */
+async function onCloseFor(
+  ids: number[],
+  mail: Map<number, ReportMail>,
+): Promise<Map<number, ReporterOnClose>> {
+  const out = new Map<number, ReporterOnClose>();
+  await Promise.all(
+    ids.map(async (id) => {
+      out.set(id, mail.get(id)?.contact ? await reporterOnClose(db, id) : "none");
+    }),
+  );
+  return out;
+}
+
+function toReport(r: Row, mail: Map<number, ReportMail>, onClose: ReporterOnClose): QueueReport {
   const status = r.photoState as PhotoStatus;
   const hasPhoto = status === "attached" && r.photoPublicId !== null;
   return {
@@ -260,6 +281,7 @@ function toReport(r: Row, mail: Map<number, ReportMail>): QueueReport {
     suggestedCat: suggestedCatOf(r),
     contactLeft: Boolean(mail.get(r.id)?.contact),
     emailToReporter: reporterState(mail.get(r.id)),
+    onClose,
     teamNote: r.teamNote,
     teamNoteAt: r.teamNoteAt?.toISOString() ?? null,
     teamNoteBy: person(r.notedByName, r.notedByLeftAt),
@@ -404,7 +426,8 @@ export async function getQueueReport(
     ),
   );
   if (!row) return null;
-  return toReport(row, await mailStatesFor([row.id]));
+  const mail = await mailStatesFor([row.id]);
+  return toReport(row, mail, (await onCloseFor([row.id], mail)).get(row.id)!);
 }
 
 /**
@@ -487,6 +510,10 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
   const mailByReport = await mailStatesFor(
     [...openRows, ...closedRows, ...uncheckedRows].map((r) => r.id),
   );
+  const onClose = await onCloseFor(
+    [...openRows, ...closedRows, ...uncheckedRows].map((r) => r.id),
+    mailByReport,
+  );
   const toDraft = (d: (typeof draftRows)[number]): QueueDraft => ({
     id: d.publicId,
     severity: d.severity as QueueDraft["severity"],
@@ -497,13 +524,13 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
   });
 
   return {
-    open: openRows.map((r) => toReport(r, mailByReport)),
-    closed: closedRows.map((r) => toReport(r, mailByReport)),
+    open: openRows.map((r) => toReport(r, mailByReport, onClose.get(r.id)!)),
+    closed: closedRows.map((r) => toReport(r, mailByReport, onClose.get(r.id)!)),
     closedTotal: Number(closedCount[0]?.n ?? 0),
     drafts: draftRows.map(toDraft),
     draftsTotal: Number(draftCount[0]?.n ?? 0),
     unchecked: {
-      reports: uncheckedRows.map((r) => toReport(r, mailByReport)),
+      reports: uncheckedRows.map((r) => toReport(r, mailByReport, onClose.get(r.id)!)),
       reportsTotal: Number(uncheckedCount[0]?.n ?? 0),
       drafts: uncheckedDraftRows.map(toDraft),
       draftsTotal: Number(uncheckedDraftCount[0]?.n ?? 0),

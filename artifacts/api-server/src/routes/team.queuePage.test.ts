@@ -468,9 +468,8 @@ describe("SYC-42 Slice 3: the reporter's email on the queue page", () => {
     await db.execute(sql`update email_contacts set status = 'confirmed', confirmed_at = now() where id = ${contact!.id}`);
     const after = await getPage();
     expect(after).toContain("Yes. They confirmed the address.");
-    expect(after).toContain("This goes to a member of the public");
-    // Only the report with a confirmed address gets the line box.
-    expect(after.split('name="reporterSentence"')).toHaveLength(2);
+    // SYC-515: the line box moved to the "Close and email?" page.
+    expect(after).not.toContain('name="reporterSentence"');
     expect(after).not.toContain(address);
     await db.execute(sql`update welfare_reports set reporter_contact_id = null where public_id = ${"with-contact"}`);
     await db.execute(sql`delete from email_contacts where id = ${contact!.id}`);

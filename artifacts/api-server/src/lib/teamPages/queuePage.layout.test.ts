@@ -22,6 +22,7 @@ const report = (id: string, over: Partial<QueueReport> = {}): QueueReport => ({
   suggestedCat: null,
   contactLeft: false,
   emailToReporter: null,
+  onClose: "none",
   teamNote: null,
   teamNoteAt: null,
   teamNoteBy: null,

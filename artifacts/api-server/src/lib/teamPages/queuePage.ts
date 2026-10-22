@@ -9,7 +9,6 @@ import type {
 } from "../welfareQueue";
 import { CHANGED_MESSAGE, NOTE_MAX, REPORT_STATES } from "../welfareActions";
 import { TIE_CHANGED_MESSAGE, TIE_SAME_MESSAGE } from "../welfareTie";
-import { TEAM_SENTENCE_MAX } from "../mail/reportTemplates";
 import type { IssueReport, IssuesSection } from "../issues/queue";
 import { reasonLabel } from "../issues/alertEmail";
 import { ISSUE_OUTCOME_TEXT } from "../issues/teamActions";
@@ -129,24 +128,12 @@ function actionForms(
       : `<button type="submit" name="to" value="${esc(s)}">${esc(STATE[s])}</button>`,
   ).join("");
   const noteId = `note-${r.id}`;
-  const sentenceId = `sentence-${r.id}`;
-  // SYC-42 Slice 3 (§5.3(h)): one optional line added to the reporter's
-  // fixed "Done" email. Only when they left an address and it can still go.
-  const sentence =
-    // Only once they've confirmed: a line written before that would never
-    // reach them (review of #181, finding 2).
-    r.contactLeft && r.emailToReporter !== "unconfirmed" && r.state !== "done"
-      ? `<label class="label" for="${esc(sentenceId)}">Add a line to the reporter's email (optional, sent with Done only) ` +
-        '<span class="hint">This goes to a member of the public, added to the fixed message. Keep it short.</span></label>' +
-        `<input id="${esc(sentenceId)}" name="reporterSentence" type="text" class="text" maxlength="${TEAM_SENTENCE_MAX}">`
-      : "";
   return (
     '<div class="actions">' +
     `<form method="post" action="${esc(base)}/state">` +
     `<input type="hidden" name="from" value="${esc(r.state)}">` +
     '<p class="label">Move this report to</p>' +
     closeHint +
-    sentence +
     `<div class="states">${buttons}</div></form>` +
     // Folded away so a phone isn't mostly empty note boxes.
     `<details class="notebox"${noteOpen ? " open" : ""}><summary>${r.teamNote ? "Change the team note" : "Add a team note"}</summary>` +

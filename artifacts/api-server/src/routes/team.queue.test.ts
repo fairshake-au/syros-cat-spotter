@@ -79,6 +79,8 @@ const EXPECTED_REPORT_KEYS = [
   "lat",
   "lng",
   "note",
+  // SYC-515: what closing would do for the reporter; a fixed word, never an address.
+  "onClose",
   "photo",
   "severity",
   "state",
