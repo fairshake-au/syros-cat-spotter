@@ -14,7 +14,9 @@ import { safeError } from "../logger";
  *   three-year rule is SYC-302's job, which doesn't exist yet.
  * - Only `done` and `nothing_needed`, counted from `state_changed_at`. A
  *   report moved back to `looking` is open again, and closing it again
- *   restarts the year.
+ *   restarts the year. Every real close stamps `state_changed_at`; a closed
+ *   row without one (only hand-written data) counts from when it was sent,
+ *   so it is cleared rather than kept for ever (PR 8.1 review, F2).
  * - Safe to run as often as you like. A row is updated only while it still
  *   holds something to clear, or has never been stamped, so a second run
  *   changes nothing and `note_cleared_at` keeps the first clearing's time.
@@ -35,7 +37,7 @@ export async function sweepIssueNotes(now: number = Date.now()): Promise<IssueRe
            note_cleared_at = to_timestamp(${now} / 1000.0)
      where kind = 'content'
        and state in ('done', 'nothing_needed')
-       and state_changed_at < to_timestamp(${now} / 1000.0) - interval '1 year'
+       and coalesce(state_changed_at, created_at) < to_timestamp(${now} / 1000.0) - interval '1 year'
        and (note is not null or team_note is not null or team_note_by is not null
             or team_note_at is not null or note_cleared_at is null)
   `);
@@ -55,6 +57,8 @@ export async function sweepIssueNotesIfDue(
   try {
     return await sweepIssueNotes(now);
   } catch (err) {
+    // Try again at the next drain rather than a day later (review, F3).
+    lastSweep = 0;
     log.error({ err: safeError(err) }, "issue note clean-up failed");
     return null;
   }

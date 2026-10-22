@@ -132,6 +132,23 @@ describe("the one-year clean-up of issue notes (SYC-44 PR 8.1)", () => {
     expect(await row(id)).toMatchObject({ team_note: null, team_note_by: null, team_note_at: null });
   });
 
+  it("a closed row with no state_changed_at counts from when it was sent (review F2)", async () => {
+    const { id } = await seedReport({ kind: "content", state: "done", teamNote: "Seen" });
+    await db.execute(sql`
+      update welfare_reports set state_changed_at = null, created_at = to_timestamp(${NOW} / 1000.0) - interval '2 years'
+       where id = ${id}
+    `);
+    expect(await sweepIssueNotes(NOW)).toEqual({ notesCleared: 1 });
+    expect(await row(id)).toMatchObject({ note: null, team_note: null });
+  });
+
+  it("a closed row with nothing written is stamped once, and only once", async () => {
+    const id = await seedAged({ kind: "content", state: "nothing_needed", note: null, teamNote: null, teamNoteBy: null }, "2 years");
+    expect(await sweepIssueNotes(NOW)).toEqual({ notesCleared: 1 });
+    expect(await sweepIssueNotes(NOW + 60_000)).toEqual({ notesCleared: 0 });
+    expect((await row(id)).note_cleared_at?.getTime()).toBe(NOW);
+  });
+
   it("rides on the mail drain at most once a day per server", async () => {
     const log = { error: () => {} };
     await seedAged({ kind: "content", state: "done" }, "3 years");
