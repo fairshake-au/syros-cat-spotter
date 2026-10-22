@@ -79,6 +79,41 @@ function findWrites(text: string): { at: number; match: string }[] {
   return out.sort((a, b) => a.at - b.at);
 }
 
+/**
+ * The source with line and block comments blanked to spaces (offsets and line
+ * breaks kept), so a lock or re-check reduced to a comment doesn't count.
+ * Quoted strings and template literals are walked over, not blanked: the
+ * `for share` lives in a sql template, and a `//` inside a string is no comment.
+ */
+function stripComments(src: string): string {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const c = src[i]!;
+    const n = src[i + 1];
+    if (c === "/" && n === "/") {
+      while (i < src.length && src[i] !== "\n") {
+        out += " ";
+        i += 1;
+      }
+    } else if (c === "/" && n === "*") {
+      const end = src.indexOf("*/", i + 2);
+      const stop = end < 0 ? src.length : end + 2;
+      out += src.slice(i, stop).replace(/[^\n]/g, " ");
+      i = stop;
+    } else if (c === '"' || c === "'" || c === "`") {
+      let j = i + 1;
+      while (j < src.length && src[j] !== c) j += src[j] === "\\" ? 2 : 1;
+      out += src.slice(i, j + 1);
+      i = j + 1;
+    } else {
+      out += c;
+      i += 1;
+    }
+  }
+  return out;
+}
+
 /** Why a write in the allowed file isn't guarded, or null if it is. */
 function unguarded(text: string, write: { at: number; match: string }): string | null {
   const before = text.slice(0, write.at);
@@ -116,7 +151,7 @@ describe("the only writer of photo_fingerprints is saveFingerprint, after the lo
   it("lib/fingerprint/index.ts writes only inside a transaction, after `for share` and hiddenPhotoIds", () => {
     const path = join(REPO, ALLOWED);
     if (!existsSync(path)) return; // Task 7 adds it.
-    const text = readFileSync(path, "utf8");
+    const text = stripComments(readFileSync(path, "utf8"));
     const problems = findWrites(text)
       .map((w) => [w, unguarded(text, w)] as const)
       .filter(([, why]) => why !== null)
@@ -143,6 +178,23 @@ describe("the only writer of photo_fingerprints is saveFingerprint, after the lo
       expect(writes("db.select().from(photoFingerprintsTable)")).toEqual([]);
       expect(writes("db.delete(photoFingerprintsTable)")).toEqual([]);
       expect(writes("photoFingerprintsTable.photoId")).toEqual([]);
+    });
+    it("a lock or re-check that is only in a comment doesn't count", () => {
+      const write = "await tx.insert(photoFingerprintsTable).values(row);";
+      const open = "return db.transaction(async (tx) => {";
+      const lock = "await tx.execute(sql`select id from photos where id = ${id} for share`);";
+      const recheck = "if ((await hiddenPhotoIds([id], tx)).has(id)) return;";
+      const why = (body: string) => {
+        const text = stripComments(body);
+        const [w] = findWrites(text);
+        return unguarded(text, w!);
+      };
+      expect(why([open, lock, recheck, write].join("\n"))).toBeNull();
+      expect(why([open, "// " + lock, recheck, write].join("\n"))).toMatch(/for share/);
+      expect(why([open, lock, "/* " + recheck + " */", write].join("\n"))).toMatch(/hiddenPhotoIds/);
+      expect(why([open, lock, "// " + recheck, write].join("\n"))).toMatch(/hiddenPhotoIds/);
+      expect(why([open, lock + " // for share", recheck, write].join("\n"))).toBeNull();
+      expect(stripComments("const u = 'https://x'; // gone\nnext")).toBe(`const u = 'https://x'; ${" ".repeat(7)}\nnext`);
     });
     it("accepts the locked re-check, and refuses each step missing or out of order", () => {
       const write = "await tx.insert(photoFingerprintsTable).values(row);";
