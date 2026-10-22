@@ -11,4 +11,9 @@ Updated after every task. Resume from the last commit plus this file.
 - [x] T1.3 `keepSafeWarning` (en/el/fr; email-capture.md lines 143 and 548 updated), `deleteDoneEmail` removed (component, 3 dictionaries, email-capture.md §6.3; new `DeleteMyDataDone.test.tsx`), `reportCheckBlocked` reworded.
   - Finding: in the 'blocked' state NEITHER `ReportIssueSheet` (state 'blocked' shows only the message and "Done") NOR `ReportConfirmation` shows any send or retry control. "Try again" appears only for 'failed'. The queue retries by itself with a backoff (`checkedSend.ts`). So the spec's "then send again" has nothing to point at. Wording used: "...Turn it off for this page and we'll try again. If that doesn't help, allow challenges.cloudflare.com." (same promise as `reportCheckUnavailable`). Domain stays last.
 - [x] T1.4 dashboard map note. New keys `map.teamOnly`, `map.whyTitle`, `map.whyBody` (en/el/fr) replace `sites.mapHint` and `new.mapNote`; one helper `lib/teamPages/mapNote.ts` (`mapPrivacyNote(lang)`) is used by the sites page, the new-site picker and the cats map (`teamOnlyHint()` deleted). Reuses the existing `.hownote` details style. Note: the new-site map had no "only for the team" line before; it now has the visible line too (consistent with the other two). Tests: shared `src/test/mapNote.ts` used in team.catMap, team.sites, team.siteWrites tests.
-- [ ] T1.5 second-pack table
+- [x] T1.5 `docs/superpowers/plans/syc-569-second-pack.md` written (Part 1 rows; drafted inline in the dictionaries as each task landed). Parts 2 and 3 append their rows (T2.7, T3.4).
+
+Part 1 gate: cat-spotter full vitest (172 files, 2236 tests) green; api-server team page and route tests green; cat-spotter and api-server typecheck green. Root `pnpm run typecheck` fails only in `artifacts/mockup-sandbox` (React types clash in `ui/calendar.tsx` and `ui/spinner.tsx`; untouched by this branch).
+
+## Next
+Part 3 (T3.1 `fitRegion` first), then Part 2.
