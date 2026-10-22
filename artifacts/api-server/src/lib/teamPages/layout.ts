@@ -278,6 +278,8 @@ ul.sightings li>a{padding:0}
 .refs a{padding:8px 0}
 a.catlink.tap,a.sublink.tap{display:flex}
 .syrline{margin:0 0 4px;color:#55524a;font-size:15px;font-variant-numeric:tabular-nums}
+.statusline{margin:0 0 12px;font-size:15px;color:#3b3930}
+.desc{font-size:15px;margin:8px 0}
 .photo.catmain{width:auto;max-width:100%;max-height:240px}
 .refs{margin:0;padding:0;list-style:none}
 .refs li{margin:0 0 6px}

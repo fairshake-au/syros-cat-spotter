@@ -16,7 +16,7 @@ import { renderPage } from "./layout";
 import { openMapLink, place } from "./position";
 import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
-import { byWhom, coatPhraseOf, renderCatFacts, statementHref, vaccineWord, type Shown } from "./catFacts";
+import { byWhom, coatPhraseOf, renderCatFacts, statementHref, statusLine, vaccineWord, type Shown } from "./catFacts";
 
 export type { Shown };
 import type { VisitLine } from "../vetVisits";
@@ -876,20 +876,17 @@ export function renderCatPage(
     (cat.mainPhotoUrl
       ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="${esc(`Photo of ${cat.name}${coat !== null ? `, ${coat}` : ""}`)}">`
       : '<div class="nophoto">No photo</div>') +
-    (mainHidden
-      ? '<p class="hiddenby">The main photo is hidden from the public. They see the newest photo of this cat that isn\'t hidden, or no photo if every one is. See <a href="#photos">All photos</a>.</p>'
-      : "") +
     photoStrip(v);
+  const hiddenNote = mainHidden
+    ? '<p class="hiddenby">The main photo is hidden from the public. They see the newest photo of this cat that isn\'t hidden, or no photo if every one is. See <a href="#photos">All photos</a>.</p>'
+    : "";
 
   // The answer first (spec §7.1): photo, the facts, the small map, and what
   // the public sees in one line.
   const summary =
     main +
-    (cat.description ? `<p>${esc(cat.description)}</p>` : "") +
-    (topDone ? notice : "") +
-    deathNotice(v, byId, shown) +
-    guardianMarkNotice(v, byId, shown) +
     renderCatFacts(v, now, { byId, shown, island }) +
+    (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
     sightingsMap(v) +
     `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`;
 
@@ -989,8 +986,15 @@ export function renderCatPage(
     title: cat.name,
     active: "cats",
     personName,
-    beforeTitle: backToCats(opts.back),
-    afterTitle: `<p class="syrline">${esc(cat.syr)}</p>`,
+    // Notices sit above the name, never inside a fold (spec 3.1).
+    beforeTitle:
+      backToCats(opts.back) +
+      (topDone ? notice : "") +
+      deathNotice(v, byId, shown) +
+      guardianMarkNotice(v, byId, shown) +
+      hiddenNote,
+    afterTitle:
+      `<p class="syrline">${esc(cat.syr)} · on our records since ${esc(day(cat.createdAt))}</p>` + statusLine(v, now),
     mainClass: "wide",
     body:
       (opts.kept ? keptLine() : "") +

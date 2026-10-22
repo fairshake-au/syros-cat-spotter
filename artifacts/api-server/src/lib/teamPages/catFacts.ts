@@ -4,7 +4,7 @@ import { markOf, type Lives } from "../teamCatList";
 import type { TeamCatView, TeamResolved, TeamStatement } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
 import { lastSeenWords } from "./lastSeen";
-import { markWithWords } from "./marks";
+import { markBadge, markWithWords } from "./marks";
 import { place } from "./position";
 import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
 
@@ -149,13 +149,37 @@ function sterilisedFact(v: TeamCatView): string {
   return markWithWords(m, esc(words));
 }
 
-function livesFact(v: TeamCatView): string {
+/** Where the cat lives, in the Cats grid's words; "Not known" when nothing says. */
+function livesWords(v: TeamCatView): string {
   const l = v.records.lifeStatus;
   const lives: Lives | null = l.presumedDeceased || l.value === "deceased" ? "gone" : l.value;
   // Presumed, not known: the records only say it hasn't been seen for years.
-  const words =
-    lives === null ? "Not known" : l.presumedDeceased && l.value !== "deceased" ? "Probably no longer with us" : LIVES_WORD[lives];
-  return esc(words) + (l.notSeenSince ? `<br><span class="meta">Not seen since ${esc(monthYear(l.notSeenSince))}</span>` : "");
+  return lives === null
+    ? "Not known"
+    : l.presumedDeceased && l.value !== "deceased"
+      ? "Probably no longer with us"
+      : LIVES_WORD[lives];
+}
+
+function livesFact(v: TeamCatView): string {
+  const l = v.records.lifeStatus;
+  return esc(livesWords(v)) + (l.notSeenSince ? `<br><span class="meta">Not seen since ${esc(monthYear(l.notSeenSince))}</span>` : "");
+}
+
+/**
+ * The one line under the cat's name (spec 3.1): the sterilisation mark and
+ * word, where it lives, its colony as a link (left out when it has none), and
+ * when it was last seen, in the Last seen fact's own words.
+ */
+export function statusLine(v: TeamCatView, now: Date): string {
+  const last = v.sightings[0] ?? null;
+  const parts = [
+    markBadge(markOf(v.records.sterilised)),
+    esc(livesWords(v)),
+    ...(v.colony ? [`<a href="/api/team/colonies/${v.colony.id}">${esc(v.colony.name)}</a>`] : []),
+    esc(lastSeenWords(last ? new Date(last.at) : null, now)),
+  ];
+  return `<p class="statusline">${parts.join(" · ")}</p>`;
 }
 
 /** Who the colours rest on (not the pattern): the machine, a person, or spotters. */
