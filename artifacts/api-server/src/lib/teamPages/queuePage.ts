@@ -410,7 +410,7 @@ const HIDE_SKIPPED: Record<NonNullable<IssueReport["hideSkipped"]>, string> = {
   restored_before: "Not hidden: the team restored this photo before, so a report can't hide it again",
   address_limit: "Not hidden: hide limit reached for the sender",
   brake: "Not hidden: daily brake (automatic hiding was paused for the day)",
-  unchecked: "Not hidden: unchecked (the safety check couldn't reach Cloudflare)",
+  unchecked: "Not hidden: our spam check couldn't be reached when this was sent",
 };
 
 function issuePhotoWords(i: IssueReport): string {
