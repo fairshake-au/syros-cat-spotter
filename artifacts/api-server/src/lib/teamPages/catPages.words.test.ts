@@ -140,6 +140,18 @@ describe("the team cat page's words (SYC-362 D3)", () => {
   });
 });
 
+describe("nothing known: no 1 Jan 1970 (SYC-270)", () => {
+  it("leaves out Since when the resolver has no date", () => {
+    const v = ownedCatView();
+    const epoch = new Date(0).toISOString();
+    v.records.sterilised = { ...v.records.sterilised, asOf: epoch, supportingStatementIds: [], conflictingStatementIds: [] };
+    v.records.lifeStatus = { ...v.records.lifeStatus, asOf: epoch, supportingStatementIds: [], conflictingStatementIds: [] };
+    const html = withoutStyle(renderCatPage(v, "Sam", { may: () => true }));
+    expect(html).not.toContain("1970");
+    expect(html).not.toContain("<dt>Since</dt>");
+  });
+});
+
 describe("the died page and the dead cat's page words (SYC-513)", () => {
   const dead = () => {
     const v = ownedCatView();

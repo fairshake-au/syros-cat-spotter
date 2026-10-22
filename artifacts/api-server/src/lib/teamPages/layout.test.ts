@@ -232,3 +232,13 @@ describe("the phone menu (SYC-374)", () => {
     expect(page()).toMatch(/@media \(max-width:599px\)\{\.bar,\.bar\.wide\{/);
   });
 });
+
+describe("the cat page's folded \"What we know\" is not a photo grid", () => {
+  it("only the Probably sterilised list's photo box is a grid (its class name is shared)", () => {
+    const html = renderPage({ title: "T", active: null, personName: "Sam", body: "" });
+    const css = /<style>([\s\S]*?)<\/style>/.exec(html)![1]!;
+    expect(css).toContain("div.evidence{display:grid");
+    expect(css).not.toMatch(/(^|[}\s,])\.evidence[\s{]/);
+    expect(css).not.toMatch(/(^|[}\s,])\.evidence (img|figure)/);
+  });
+});

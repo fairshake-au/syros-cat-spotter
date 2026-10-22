@@ -322,7 +322,7 @@ export const fr: Record<StringKey, string> = {
 
   "create.open": "Créer une colonie",
   "create.name": "Nom de la colonie",
-  "create.nameHint": "Un lieu et la personne qui s’en occupe, comme « Vaporia — Eleni's ».",
+  "create.nameHint": "Indiquez le lieu, pas le nom d’une personne, comme « Escaliers de Vaporia » ou « Port de Kini ». Les gardiens de chats changent ; le lieu reste.",
   "create.guardian": "Nom du gardien de chats (facultatif)",
   "create.notes": "Notes réservées à l’équipe (facultatif)",
   "create.button": "Créer la colonie",
@@ -486,7 +486,7 @@ export const fr: Record<StringKey, string> = {
   "confirm.spot": "L’endroit",
   "confirm.legend": "Le repère est l’endroit que tu as choisi.",
   "confirm.name": "Nom du point",
-  "confirm.nameHint": "Un lieu et la personne qui s’en occupe, comme « Vaporia — Eleni's ».",
+  "confirm.nameHint": "Indiquez le lieu, pas le nom d’une personne, comme « Escaliers de Vaporia » ou « Port de Kini ». Les gardiens de chats changent ; le lieu reste.",
   "confirm.colony": "Colonie (facultatif)",
   "confirm.noColony": "Pas encore de colonie",
   "confirm.directions": "Comment le trouver (facultatif)",
