@@ -15,5 +15,9 @@ Updated after every task. Resume from the last commit plus this file.
 
 Part 1 gate: cat-spotter full vitest (172 files, 2236 tests) green; api-server team page and route tests green; cat-spotter and api-server typecheck green. Root `pnpm run typecheck` fails only in `artifacts/mockup-sandbox` (React types clash in `ui/calendar.tsx` and `ui/spinner.tsx`; untouched by this branch).
 
+## Part 3 (SYC-573)
+
+- [x] T3.1 `fitRegion` in `lib/cellShape.ts` (returns null for no cells or an unmeasured map; whole-number zoom, deltas = what the map shows at that zoom). 6 tests in `lib/__tests__/cellShape.test.ts`.
+
 ## Next
-Part 3 (T3.1 `fitRegion` first), then Part 2.
+T3.2, T3.3, T3.4, then Part 2.
