@@ -18,7 +18,7 @@ vi.mock("../lib/capabilities", async (importOriginal) => {
   return {
     ...real,
     can: (...args: Parameters<typeof real.can>) =>
-      args[1] === "view_vet_costs" && args[0].id === denied.id ? false : real.can(...args),
+      args[1] === "view_vet_costs" && (args[0] as { id?: string }).id === denied.id ? false : real.can(...args),
   };
 });
 
