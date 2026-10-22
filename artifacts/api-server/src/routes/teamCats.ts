@@ -243,9 +243,22 @@ function findFilters(src: unknown): FindFilters {
  * the search into the whole island, so the find page refuses it. An empty
  * value still means the island.
  */
-async function stalePlace(src: unknown, f: FindFilters, person: ReturnType<typeof teamPerson>): Promise<boolean> {
-  const q = (typeof src === "object" && src !== null ? src : {}) as Record<string, unknown>;
+async function stalePlace(
+  src: unknown,
+  f: FindFilters,
+  person: ReturnType<typeof teamPerson>,
+  address?: unknown,
+): Promise<boolean> {
+  const asObject = (v: unknown) => (typeof v === "object" && v !== null ? v : {}) as Record<string, unknown>;
+  const q = asObject(src);
   const given = (v: unknown) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0);
+  // A place written some other way (`area[]`, `colony2`) is no place we read: refuse it.
+  const odd = (o: Record<string, unknown>) =>
+    Object.keys(o).some((k) => k !== "area" && k !== "colony" && /^(area|colony)/.test(k));
+  if (odd(q) || odd(asObject(address))) return true;
+  // The search's place travels in the body. One in its address is never read, so refuse it.
+  const a = asObject(address);
+  if (given(a["area"]) || given(a["colony"])) return true;
   if (given(q["area"]) && f.area === undefined) return true;
   if (!given(q["colony"])) return false;
   if (f.colony === undefined) return true;
@@ -349,7 +362,7 @@ router.post(
     const tie = await tieFrom(body["tie"], person);
     // Checked first: a stale place must never be redrawn as the island, even
     // when the upload also failed.
-    const stale = await stalePlace(body, filters, person);
+    const stale = await stalePlace(body, filters, person, req.query);
     if (uploadError !== null) {
       const tooBig = uploadError instanceof multer.MulterError && uploadError.code === "LIMIT_FILE_SIZE";
       req.log.info({ outcome: tooBig ? "too_big" : "bad_upload" }, "find from a photo");

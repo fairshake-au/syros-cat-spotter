@@ -432,6 +432,61 @@ describe("the search", () => {
     expect(await findPersonHits(team.id)).toBe(0);
   });
 
+  it("a place in the POST's address is refused, never ignored", async () => {
+    await island(12);
+    const team = await teamMember("addr");
+    const area = currentAreas()[0]!.key;
+    for (const q of ["?area=nope", `?area=${area}`, `?colony=${colony}`, "?colony=999999999"]) {
+      const res = await request(app)
+        .post(`/api/team/cats/find${q}`)
+        .set("Origin", TEAM_ORIGIN)
+        .set("Cookie", team.cookie)
+        .set("Accept", "text/html")
+        .attach("photo", photoBytes, { filename: "cat.jpg", contentType: "image/jpeg" });
+      expect(res.status, q).toBe(400);
+      expect(res.text, q).toContain(STALE_PLACE_WORDS.replace("isn't", "isn&#39;t"));
+    }
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await findTeamHits()).toBe(0);
+    expect(await findPersonHits(team.id)).toBe(0);
+  });
+
+  it("a place written as area[] or colony[] is a stale place, on the form and the search", async () => {
+    await island(12);
+    const team = await teamMember("brackets");
+    const page = await form(team.cookie, "?area[]=x");
+    expect(page.text).toContain(STALE_PLACE_WORDS.replace("isn't", "isn&#39;t"));
+    expect(page.text).not.toContain('type="file"');
+    const res = await search(team.cookie, { "colony[]": "1" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain(STALE_PLACE_WORDS.replace("isn't", "isn&#39;t"));
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await findTeamHits()).toBe(0);
+  });
+
+  it("every odd way of giving a place is refused: 400, no count, no search", async () => {
+    await island(12);
+    const team = await teamMember("odd");
+    const good = currentAreas()[0]!.key;
+    const cases: Record<string, string | string[]>[] = [
+      { area: [good, good] },
+      { area: [good, "nope"] },
+      { area: "   " },
+      { colony: "0" },
+      { colony: "-1" },
+      { colony: "1e3" },
+      { colony: [String(colony), String(colony)] },
+    ];
+    for (const fields of cases) {
+      const res = await search(team.cookie, fields);
+      expect([JSON.stringify(fields), res.status]).toEqual([JSON.stringify(fields), 400]);
+      expect(res.text, JSON.stringify(fields)).toContain(STALE_PLACE_WORDS.replace("isn't", "isn&#39;t"));
+    }
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await findTeamHits()).toBe(0);
+    expect(await findPersonHits(team.id)).toBe(0);
+  });
+
   it("an unrecognised area with a file over 10 MB is still 413, and still not read as the island", async () => {
     await island(12);
     const team = await teamMember("stalebig");
