@@ -172,6 +172,9 @@ export default function ReviewScreen() {
   const hintQuery = useGetCat(hintCatId ?? 0, {
     query: {
       enabled: hintCatId !== undefined,
+      // One retry, not react-query's three: a cat that won't load should fall
+      // back to no question quickly, not leave a bare spinner for ~7 s.
+      retry: 1,
       // The cat page's own key, so the page the spotter came from answers it.
       queryKey: [...getGetCatQueryKey(hintCatId ?? 0), deviceId],
     },
@@ -666,13 +669,21 @@ export default function ReviewScreen() {
           </Text>
           <View style={styles.compareRow}>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={[styles.photoLabel, { color: colors.mutedForeground }]}>
+              {/* One line each, so a long name can't push one photo below
+                  the other (seen with "Bartholomew Whiskerton" at 390px). */}
+              <Text
+                numberOfLines={1}
+                style={[styles.photoLabel, { color: colors.mutedForeground }]}
+              >
                 {t("yourPhoto")}
               </Text>
               {yourPhoto}
             </View>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={[styles.photoLabel, { color: colors.mutedForeground }]}>
+              <Text
+                numberOfLines={1}
+                style={[styles.photoLabel, { color: colors.mutedForeground }]}
+              >
                 {named("hintTheirPhoto")}
               </Text>
               <Image

@@ -117,6 +117,7 @@ The hint lives only on the phone. **It is never sent with `POST /api/sightings`*
 | Leaving the tab with no photo staged | The hint is dropped. |
 | Leaving the tab with a photo staged | The hint stays with the photo, as the staged photo does today. |
 | ✕, "Start again" or discarding the photo | The hint is dropped. |
+| "Retake photo" (same spot, new picture) | The hint stays, as the spot and its extra photos do. Claude's call while building, 22 Oct; flagged to Samuel in the PR. |
 | The spot is sent | The hint goes with it to review (online) or onto the queued item (offline), then the Spot screen clears it. |
 
 ### 2.3 After the photo: "Is this {name}?" is its own first step
@@ -207,7 +208,7 @@ So the real choice is between two options.
 
 **Opening view.** The map opens **fitted to the cats being shown**.
 - It is sized to the map's real on-screen size, measured with `onLayout`, and uses both latitude and longitude spans. Today's `zoomForDelta` uses latitude only, with no viewport size.
-- There's a margin of one cell around the cats.
+- There's a margin of half a cell on each side of the cats. Built and reviewed on 22 Oct: a full cell would push a single cat's square from zoom 16 to 15 on a 390px phone, against the zoom cap below.
 - **Zoom cap:** the closest it opens is zoom 16, where a 250m square is about 160px. A single cell never fills the screen and never reads as a pin.
 - **Zoom floor:** the existing `MIN_ZOOM` of 12 (`mapTiles.ts:11`). An island-wide spread opens at 12, as today. Only clusters change, and that's where the problem was.
 - With no cats, it shows the island view, as today.
@@ -220,7 +221,7 @@ So the real choice is between two options.
 **What does move it:** changing a filter chip, a settled search, or opening the map view.
 
 How it's built:
-- A pure function, `fitRegion(cells, { width, height, marginCells: 1, maxZoom: 16, minZoom: 12 })`, in `lib/cellShape.ts`, returns `{ latitude, longitude, zoom }`, plus the deltas for native.
+- A pure function, `fitRegion(cells, { width, height, marginCells: 1, maxZoom: 16, minZoom: 12 })` (where `marginCells: 1` means half a cell on each side), in `lib/cellShape.ts`, returns `{ latitude, longitude, zoom }`, plus the deltas for native.
 - `AppMap.web.tsx` gets a `fitKey` prop. When it changes, the map re-derives centre and zoom without remounting. It currently sets zoom only on mount.
 - Native uses the deltas in `initialRegion` and `animateToRegion` on a `fitKey` change.
 

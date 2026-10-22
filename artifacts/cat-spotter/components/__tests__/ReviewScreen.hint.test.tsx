@@ -152,6 +152,9 @@ const cand = (catId: number, name: string, confidence: number): MatchCandidate =
   ({ catId, name, photoUrl: `/api/photos/${catId}`, confidence, reasoning: `Looks like ${name}.` }) as MatchCandidate;
 const WITH_AGATHA = [cand(12, 'Krispy', 0.91), cand(11, 'Inky', 0.55), cand(7, 'Agatha', 0.42)];
 const WITHOUT_AGATHA = [cand(12, 'Krispy', 0.91), cand(11, 'Inky', 0.55)];
+// Review finding 1: the matcher confident it's Agatha, at the top and alone.
+const AGATHA_TOP = [cand(7, 'Agatha', 0.95), cand(12, 'Krispy', 0.6), cand(11, 'Inky', 0.45)];
+const AGATHA_ONLY = [cand(7, 'Agatha', 0.97)];
 
 type Scenario = {
   name: string;
@@ -161,6 +164,8 @@ type Scenario = {
 const SCENARIOS: Scenario[] = [
   { name: 'matches that include the hinted cat', over: { candidates: WITH_AGATHA }, opens: 'matches' },
   { name: 'matches without the hinted cat', over: { candidates: WITHOUT_AGATHA }, opens: 'matches' },
+  { name: 'the hinted cat as the confident top match', over: { candidates: AGATHA_TOP }, opens: 'matches' },
+  { name: 'the hinted cat as the only, confident match', over: { candidates: AGATHA_ONLY }, opens: 'matches' },
   { name: 'no candidates', over: { candidates: [] }, opens: 'naming' },
   { name: "a check that couldn't run", over: { candidates: [], matchCheck: 'failed', canRecheck: true }, opens: 'couldntCheck' },
 ];
