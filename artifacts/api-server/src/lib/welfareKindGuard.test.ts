@@ -53,6 +53,13 @@ const ALLOWLIST: Record<string, string> = {
     "content only (SYC-44 PR 5.1): inserts kind = 'content' on the (device, kind, clientRef) key; the duplicate, courtesy and upgrade reads all filter kind = 'content'",
   "artifacts/api-server/src/lib/issues/hide.ts":
     "content only: writes hidden_by_report / hide_skipped on the one report row it was handed, inside that report's own insert transaction",
+  // SYC-44 PR 7.1: the team's Issues section.
+  "artifacts/api-server/src/lib/issues/queue.ts":
+    "content only: every read (the section, one report, the cat page's strip, the others count) carries kind = 'content'; no reporter column is selected",
+  "artifacts/api-server/src/lib/issues/teamActions.ts":
+    "content only: Keep hidden, Restore and Hide lock a report with kind = 'content' and is_draft = false, or do nothing",
+  "artifacts/api-server/src/routes/teamReports.ts":
+    "content only: the reported-photo route finds the photo through a kind = 'content' report; every other read here goes through welfareQueue.ts or lib/issues",
   "artifacts/api-server/src/lib/welfare/reporterEmail.ts":
     "welfare only (SYC-42 Slice 3): every read of the table carries kind = 'welfare', so a content row never takes an address, an acknowledgement or an outcome",
   "artifacts/api-server/src/lib/severPerson.ts":

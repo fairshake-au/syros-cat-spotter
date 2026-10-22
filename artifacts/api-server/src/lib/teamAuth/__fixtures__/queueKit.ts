@@ -72,6 +72,10 @@ export interface SeedReport {
   reason?: string;
   /** Content rows only: the reported `photos.id`. */
   photoId?: number | null;
+  /** Content rows only: this report hid the photo (SYC-44 PR 7.1's group 1). */
+  hiddenByReport?: boolean;
+  /** Content rows only: why it didn't hide (`welfare_reports.hide_skipped`). */
+  hideSkipped?: string | null;
   /** The cat the row is tied to (`welfare_reports.cat_id`). */
   catId?: number | null;
   /** SYC-504: the cat the reporter sent it from (`reporter_cat_id`). */
@@ -125,6 +129,8 @@ export async function seedReport(
       kind,
       reason: content ? (o.reason ?? "other") : null,
       photoId: content ? (o.photoId ?? null) : null,
+      hiddenByReport: content ? (o.hiddenByReport ?? false) : false,
+      hideSkipped: content ? (o.hideSkipped ?? null) : null,
       catId: o.catId ?? null,
       reporterCatId: o.reporterCatId ?? null,
       severity: content ? "attention" : (o.severity ?? "attention"),

@@ -139,6 +139,15 @@ h2{font-size:18px;margin:28px 0 8px}
 .tag.unchecked{background:#fff;border:1px dashed #8a6d00;color:#5c4800}
 details.unchecked-drafts summary{cursor:pointer;font-weight:700;margin:8px 0}
 .tag.state{background:#fff;border:1px solid #8a877e}
+/* SYC-44 PR 7.1: the Issues section, in its own colour band, every row also labelled "Issue". */
+.issues{background:#eef2f9;border-top:6px solid #2f5d9e;border-radius:8px;padding:2px 12px 12px;margin:28px 0 12px}
+.issues h3{margin-top:20px}
+.report.issue{border-left-color:#2f5d9e}
+.tag.issue{background:#2f5d9e;color:#fff}
+.tag.hiddennow{background:#8c1d18;color:#fff}
+.issuelinks{display:flex;flex-wrap:wrap;gap:4px 16px;margin:8px 0}
+.issueacts form{margin:0}
+.issueacts button{width:100%}
 .ago{color:#55524a;font-size:14px}
 .report.closed>details>summary{cursor:pointer;min-height:44px;padding:4px 0}
 .report.closed>details>summary .head{display:inline-flex;margin:0;vertical-align:middle}

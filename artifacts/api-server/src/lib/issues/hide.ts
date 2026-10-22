@@ -65,6 +65,37 @@ const BRAKE_LOCK = 44_051;
 // of holding its pool connection for ever (review finding 1).
 const BRAKE_LOCK_TIMEOUT = "5s";
 
+/**
+ * How many photos reports have hidden since midnight Athens time, island-wide.
+ * **The brake's one count**: the hide above and the team's banner (SYC-44 PR
+ * 7.1) both read it, so the banner can't disagree with what a report meets.
+ */
+export async function reportHidesToday(q: Pick<typeof db, "execute"> = db): Promise<number> {
+  const now = nowSql();
+  const counted = await q.execute<{ n: number }>(sql`
+    select count(*)::int as n from photo_visibility_events
+     where action = 'hide'
+       and author like 'report:%'
+       and at >= date_trunc('day', ${now} at time zone 'Europe/Athens') at time zone 'Europe/Athens'
+       and at < (date_trunc('day', ${now} at time zone 'Europe/Athens') + interval '1 day') at time zone 'Europe/Athens'
+  `);
+  return Number(counted.rows[0]?.n ?? 0);
+}
+
+/**
+ * Whether the brake has tripped, given {@link reportHidesToday}: today's
+ * report-hides have reached the limit, so until midnight Athens time no report
+ * hides a photo. There is no resume. The hide and the banner both decide here.
+ */
+export function brakeTripped(hidesToday: number): boolean {
+  return hidesToday >= brakeLimit;
+}
+
+/** The brake's limit in force (the constant, unless a test raised it). */
+export function brakeLimitNow(): number {
+  return brakeLimit;
+}
+
 // ── The address hide limits (spec §8.1) ────────────────────────────────────
 
 export const ADDRESS_HIDES_PER_HOUR = 5;
@@ -209,14 +240,7 @@ async function decide(tx: Tx, input: HideInput & { photoId: number }): Promise<H
     return skip("brake");
   }
   const now = nowSql();
-  const counted = await tx.execute<{ n: number }>(sql`
-    select count(*)::int as n from photo_visibility_events
-     where action = 'hide'
-       and author like 'report:%'
-       and at >= date_trunc('day', ${now} at time zone 'Europe/Athens') at time zone 'Europe/Athens'
-       and at < (date_trunc('day', ${now} at time zone 'Europe/Athens') + interval '1 day') at time zone 'Europe/Athens'
-  `);
-  if ((counted.rows[0]?.n ?? 0) >= brakeLimit) return skip("brake");
+  if (brakeTripped(await reportHidesToday(tx))) return skip("brake");
 
   // 5. This address's hide limits, counted in this transaction (a savepoint,
   //    so a counter error can't poison the report). A report that rolls back

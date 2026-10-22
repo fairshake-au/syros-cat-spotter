@@ -10,6 +10,9 @@ import type {
 import { CHANGED_MESSAGE, NOTE_MAX, REPORT_STATES } from "../welfareActions";
 import { TIE_CHANGED_MESSAGE, TIE_SAME_MESSAGE } from "../welfareTie";
 import { TEAM_SENTENCE_MAX } from "../mail/reportTemplates";
+import type { IssueReport, IssuesSection } from "../issues/queue";
+import { reasonLabel } from "../issues/alertEmail";
+import { ISSUE_OUTCOME_TEXT } from "../issues/teamActions";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { position } from "./position";
@@ -108,9 +111,19 @@ function photoBlock(r: QueueReport): string {
  * forms posting to the routes in routes/teamReports.ts; the browser sends
  * the Origin the routes check. `from` is the state this page showed.
  */
-function actionForms(r: QueueReport, noteOpen: boolean): string {
+function actionForms(
+  r: Pick<QueueReport, "id" | "state" | "teamNote" | "contactLeft" | "emailToReporter">,
+  noteOpen: boolean,
+  /**
+   * The states offered (default all four). SYC-44 PR 7.1: an issue whose photo
+   * is still hidden is closed only by Keep hidden or Restore, so a plain
+   * "Nothing needed" can't leave a privacy photo hidden with nothing listing it.
+   */
+  offered: readonly (typeof REPORT_STATES)[number][] = REPORT_STATES,
+  closeHint = "",
+): string {
   const base = `/api/team/reports/${encodeURIComponent(r.id)}`;
-  const buttons = REPORT_STATES.map((s) =>
+  const buttons = REPORT_STATES.filter((s) => s === r.state || offered.includes(s)).map((s) =>
     s === r.state
       ? `<button type="button" class="here" disabled aria-current="true">${esc(STATE[s])} (current)</button>`
       : `<button type="submit" name="to" value="${esc(s)}">${esc(STATE[s])}</button>`,
@@ -132,6 +145,7 @@ function actionForms(r: QueueReport, noteOpen: boolean): string {
     `<form method="post" action="${esc(base)}/state">` +
     `<input type="hidden" name="from" value="${esc(r.state)}">` +
     '<p class="label">Move this report to</p>' +
+    closeHint +
     sentence +
     `<div class="states">${buttons}</div></form>` +
     // Folded away so a phone isn't mostly empty note boxes.
@@ -352,6 +366,201 @@ function uncheckedSection(
   );
 }
 
+// ── SYC-44 PR 7.1: the Issues section (spec §5.3, §5.4) ─────────────────────
+//
+// "Report an issue" reports, in their own section at the very bottom of the
+// page, so never above a welfare report (§5.3; T7-2): a colour band AND an
+// "Issue" text label on every row, so it never depends on colour alone. The
+// reporter is "a member of the public": nothing else about them exists here.
+// No "Which cat is this?" on these rows (PR 4.1: a tie writes evidence of life).
+
+/** `hide_skipped` in words (plan PR 4.1). */
+const HIDE_SKIPPED: Record<NonNullable<IssueReport["hideSkipped"]>, string> = {
+  already_hidden: "Already hidden when this was sent",
+  restored_before: "Not hidden: the team restored this photo before, so a report can't hide it again",
+  address_limit: "Not hidden: hide limit reached for the sender",
+  brake: "Not hidden: daily brake (automatic hiding was paused for the day)",
+  unchecked: "Not hidden: unchecked (the safety check couldn't reach Cloudflare)",
+};
+
+function issuePhotoWords(i: IssueReport): string {
+  if (!i.photo) return "Not about one photo";
+  if (i.photo.removed) return "Deleted for good";
+  if (!i.photo.hidden) return "Public";
+  return i.hiddenByReport ? "Hidden from the public by this report" : "Hidden from the public";
+}
+
+/** Plain links to the cat page's own forms (§5.4): rename, a death, marking a statement wrong. */
+function catLinks(i: IssueReport): string {
+  if (!i.cat) return "";
+  const page = `/api/team/cats/${i.cat.id}`;
+  const links = [`<a class="tap" href="${esc(page)}">Open the cat's page</a>`];
+  if (i.reason === "wrong_name") links.push(`<a class="tap sublink" href="${esc(page)}#corrections">Rename the cat</a>`);
+  if (i.reason === "cat_died") links.push(`<a class="tap sublink" href="${esc(page)}/died">Record that the cat has died</a>`);
+  if (i.reason === "wrong_info") links.push(`<a class="tap sublink" href="${esc(page)}#history">Mark something wrong</a>`);
+  return `<p class="issuelinks">${links.join("")}</p>`;
+}
+
+/**
+ * The photo buttons (§5.4), each a plain form posting to its own route, which
+ * checks the capability again. A photo hidden now: Keep hidden and Restore
+ * (Keep hidden only, once it's deleted for good). A public one: Hide this photo.
+ */
+function issueButtons(i: IssueReport): string {
+  if (!i.photo) return "";
+  const base = `/api/team/issues/${encodeURIComponent(i.id)}`;
+  const from = `<input type="hidden" name="from" value="${esc(i.state)}">`;
+  const button = (path: string, words: string, withFrom: boolean) =>
+    `<form method="post" action="${esc(base)}/${path}">${withFrom ? from : ""}<button type="submit">${esc(words)}</button></form>`;
+  const buttons = i.photo.hidden
+    ? button("keep-hidden", "Keep hidden (Done)", true) +
+      (i.photo.removed ? "" : button("restore", "Restore the photo (Nothing needed)", true))
+    : button("hide", "Hide this photo", false);
+  return `<div class="actions issueacts"><p class="label">The photo</p><div class="states">${buttons}</div></div>`;
+}
+
+/** What happened after an Issues action, by the fixed key the route sent back. */
+export type IssueNotice = { id: string; key: string };
+
+function issueCard(
+  i: IssueReport,
+  now: Date,
+  closed: boolean,
+  changedId: string | undefined,
+  issueNotice: IssueNotice | undefined,
+  noted: string | undefined,
+): string {
+  const landed = i.id === changedId || i.id === noted || i.id === issueNotice?.id;
+  const classes = ["report", "issue", closed ? "closed" : "", i.photo?.url && !closed ? "has-photo" : ""]
+    .filter(Boolean)
+    .join(" ");
+  const tags =
+    '<span class="tag issue">Issue</span>' +
+    (i.photo?.hidden ? '<span class="tag hiddennow">Photo hidden</span>' : "") +
+    (i.unchecked ? '<span class="tag unchecked">Unchecked</span>' : "") +
+    `<span class="tag state">${esc(STATE[i.state])}</span>` +
+    `<span class="ago">${ago(i.at, now)}</span>`;
+  const photo = i.photo?.url
+    ? `<a class="photolink" href="${esc(i.photo.url)}">` +
+      `<img class="photo" src="${esc(i.photo.url)}" alt="The reported photo" loading="lazy"></a>`
+    : i.photo?.removed
+      ? '<div class="nophoto">The photo was deleted for good</div>'
+      : "";
+  const outcome =
+    issueNotice && i.id === issueNotice.id && Object.hasOwn(ISSUE_OUTCOME_TEXT, issueNotice.key)
+      ? `<p class="notice" role="status">${esc(ISSUE_OUTCOME_TEXT[issueNotice.key as keyof typeof ISSUE_OUTCOME_TEXT])}</p>`
+      : "";
+  const note = i.teamNote
+    ? `<span class="note">${esc(i.teamNote)}</span>` +
+      (i.teamNoteBy && i.teamNoteAt ? ` <span class="ago">${esc(who(i.teamNoteBy))}, ${ago(i.teamNoteAt, now)}</span>` : "")
+    : '<span class="ago">None yet</span>';
+  const body =
+    photo +
+    (i.id === changedId ? `<p class="notice" role="status">${esc(CHANGED_MESSAGE)}</p>` : "") +
+    outcome +
+    (i.id === noted ? '<p class="notice" role="status">Saved. The team note is updated.</p>' : "") +
+    (closed ? "" : `<div class="head">${tags}</div>`) +
+    "<dl>" +
+    row("What's wrong", `<strong>${esc(reasonLabel(i.reason))}</strong>`) +
+    row("Which cat", i.cat ? `<a class="tap catlink" href="/api/team/cats/${i.cat.id}">${esc(i.cat.name)}</a>` : "Not known") +
+    row("The photo", esc(issuePhotoWords(i))) +
+    (i.hideSkipped ? row("Hiding", esc(HIDE_SKIPPED[i.hideSkipped])) : "") +
+    row("What they said", i.note ? `<span class="note">${esc(i.note)}</span>` : '<span class="ago">Nothing written</span>') +
+    row("Sent by", "A member of the public") +
+    row(
+      "Others",
+      i.others > 0
+        ? `<strong>${esc(i.others === 1 ? "1 other reported this" : `${i.others} others reported this`)}</strong>`
+        : '<span class="ago">No one else, among the open reports</span>',
+    ) +
+    row("Team note", note) +
+    (i.stateChangedAt && i.stateChangedBy ? row("Last moved", `${esc(who(i.stateChangedBy))}, ${ago(i.stateChangedAt, now)}`) : "") +
+    "</dl>" +
+    catLinks(i) +
+    (closed ? "" : issueButtons(i)) +
+    (i.photo?.hidden && !i.photo.removed && !closed
+      ? actionForms({ ...i, contactLeft: false, emailToReporter: null }, landed, ["new", "looking"],
+          '<p class="hint">To close it, keep the photo hidden or restore it, above.</p>')
+      : actionForms({ ...i, contactLeft: false, emailToReporter: null }, landed));
+  if (!closed) return `<article class="${classes}" id="r-${esc(i.id)}">${body}</article>`;
+  return (
+    `<article class="${classes}" id="r-${esc(i.id)}">` +
+    `<details${landed ? " open" : ""}><summary><span class="head">${tags}</span>` +
+    `<span class="said1">${esc(reasonLabel(i.reason))}${i.cat ? ` · ${esc(i.cat.name)}` : ""}</span></summary>` +
+    `<div${i.photo?.url ? ' class="has-photo"' : ""}>${body}</div></details></article>`
+  );
+}
+
+/** The brake banner (D3): shown while today's report-hides are at the limit. No resume, anywhere. */
+function brakeBanner(b: IssuesSection["brake"]): string {
+  if (!b.on) return "";
+  return (
+    // Its own class beside "banner": the page's mail-failure banner is the
+    // only plain "banner" (tests look for it), and this one lives in the section.
+    '<div class="banner brake" role="status">' +
+    "<strong>Automatic hiding is paused until midnight, Athens time.</strong> " +
+    `Reports hid ${b.hidesToday} ${b.hidesToday === 1 ? "photo" : "photos"} today, the most allowed in a day. ` +
+    "New reports are still saved and listed here, but they won't hide a photo. You can still hide a photo yourself." +
+    "</div>"
+  );
+}
+
+/** How many photos a report has hidden that wait for the team: the line at the top of the page. */
+export function hiddenWaitingLine(issues: IssuesSection | undefined): string {
+  const n = issues?.totals.hidden ?? 0;
+  if (n === 0) return "";
+  return (
+    `<p class="notice issuewait"><a href="#issues-hidden">${esc(
+      n === 1 ? "1 photo hidden by a report is waiting for you" : `${n} photos hidden by a report are waiting for you`,
+    )}</a></p>`
+  );
+}
+
+function issuesSection(
+  issues: IssuesSection,
+  now: Date,
+  changedId: string | undefined,
+  issueNotice: IssueNotice | undefined,
+  noted: string | undefined,
+): string {
+  const t = issues.totals;
+  const open = t.hidden + t.needsPerson + t.other + t.unchecked;
+  const group = (id: string, title: string, list: IssueReport[], total: number, empty: string, intro = "") =>
+    `<h3 id="${id}">${esc(title)} (${total})</h3>` +
+    intro +
+    (list.length
+      ? list.map((i) => issueCard(i, now, false, changedId, issueNotice, noted)).join("") +
+        (total > list.length ? `<p class="empty">Showing ${list.length} of ${total}.</p>` : "")
+      : `<p class="empty">${esc(empty)}</p>`);
+  const closed = issues.closed.length
+    ? `<h3 id="issues-closed">Closed issues (${issues.closedTotal})</h3>` +
+      issues.closed.map((i) => issueCard(i, now, true, changedId, issueNotice, noted)).join("") +
+      (issues.closedTotal > issues.closed.length
+        ? `<p class="empty">Showing the newest ${issues.closed.length} of ${issues.closedTotal}.</p>`
+        : "")
+    : "";
+  return (
+    `<section id="issues" class="issues"><h2>Issues (${open})</h2>` +
+    '<p class="hint">Problems the public reported with a photo, a name or what a cat\'s page says. Team only: a cat guardian never sees these.</p>' +
+    brakeBanner(issues.brake) +
+    group("issues-hidden", "Hidden, waiting for you", issues.hidden, t.hidden, "None. No photo hidden by a report is waiting.") +
+    group("issues-needs", "Location, and cats reported as died", issues.needsPerson, t.needsPerson, "None.") +
+    group("issues-other", "Everything else", issues.other, t.other, "None.") +
+    group(
+      "issues-unchecked",
+      "Unchecked (Cloudflare was unreachable)",
+      issues.unchecked,
+      t.unchecked,
+      "None.",
+      issues.unchecked.length
+        ? "<p class=\"empty\">These arrived while the safety check couldn't reach Cloudflare. None of them hid a photo.</p>"
+        : "",
+    ) +
+    closed +
+    "</section>"
+  );
+}
+
 function mailBanner(mail: MailHealth): string {
   if (mail.failed === 0 && mail.late === 0) return "";
   const problems = [
@@ -378,6 +587,9 @@ export function renderQueuePage(
   noted?: string,
   /** May the viewer tie a report to a cat (`change_report_state`)? Shows "Yes, it's X". */
   canTie = false,
+  /** SYC-44 PR 7.1: the Issues section, and what an Issues action just did (?issue=&r=). */
+  issues?: IssuesSection,
+  issueNotice?: IssueNotice,
 ): string {
   const open = queue.open.length
     ? queue.open.map((r) => reportCard(r, now, false, changedId, tied, island, canTie, noted)).join("")
@@ -404,6 +616,10 @@ export function renderQueuePage(
     mainClass: "wide",
     personName,
     banner: mailBanner(queue.mail),
-    body: `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, island, canTie, noted)}`,
+    // The Issues section comes last: never above any welfare report (§5.3).
+    body:
+      hiddenWaitingLine(issues) +
+      `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, island, canTie, noted)}` +
+      (issues ? issuesSection(issues, now, changedId, issueNotice, noted) : ""),
   });
 }

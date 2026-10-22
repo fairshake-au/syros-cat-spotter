@@ -36,14 +36,9 @@ export type MoveOutcome =
   /** No such sent report. A draft is "no such report" here: it can't be moved. */
   | "not_found";
 
-/**
- * Moves a sent report from `from` to `to`, as `person`. One transaction:
- * the UPDATE only matches while the report is still in the state the page
- * showed (`state = from`), so of two people moving it at once exactly one
- * matches, and only that one writes the event. Postgres makes the second
- * UPDATE wait for the first's row lock and then re-check the condition.
- */
-export async function moveReportState(input: {
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export type MoveInput = {
   publicId: string;
   from: ReportState;
   to: ReportState;
@@ -54,84 +49,109 @@ export async function moveReportState(input: {
   reporterSentence?: string | null;
   /** Called with the outcome email's outbox row, to send after the commit. */
   onQueued?: (outboxId: number) => void;
-}): Promise<MoveOutcome> {
-  const { publicId, from, to, person } = input;
-  const personId = person.id;
+};
+
+/**
+ * Moves a sent report from `from` to `to`, as `person`. One transaction:
+ * the UPDATE only matches while the report is still in the state the page
+ * showed (`state = from`), so of two people moving it at once exactly one
+ * matches, and only that one writes the event. Postgres makes the second
+ * UPDATE wait for the first's row lock and then re-check the condition.
+ */
+export async function moveReportState(input: MoveInput): Promise<MoveOutcome> {
   let queued: number | null = null;
-  const outcome = await db.transaction(async (tx): Promise<MoveOutcome> => {
-    const updated = await tx
-      .update(welfareReportsTable)
-      .set({ state: to, stateChangedAt: new Date(), stateChangedBy: personId })
-      .where(
-        and(
-          eq(welfareReportsTable.publicId, publicId),
-          eq(welfareReportsTable.state, from),
-          eq(welfareReportsTable.isDraft, false),
-        ),
-      )
-      .returning({
-        id: welfareReportsTable.id,
-        catId: welfareReportsTable.catId,
-        kind: welfareReportsTable.kind,
-      });
-    if (updated.length === 1) {
-      const [event] = await tx
-        .insert(reportStateEventsTable)
-        .values({
-          reportId: updated[0]!.id,
-          fromState: from,
-          toState: to,
-          personId,
-        })
-        .returning({ id: reportStateEventsTable.id });
-      const outboxId = await onReportStateChanged(tx, {
-        reportId: updated[0]!.id,
-        eventId: event!.id,
-        to,
-        teamSentence: to === "done" ? (input.reporterSentence ?? null) : null,
-      });
-      if (outboxId !== null) queued = outboxId;
-      // Closing a report that is tied to a cat leaves a mark on the cat's
-      // history (PR 5; spec §8.4): who closed it, and how. In this same
-      // transaction, so the move and its outcome stand or fall together.
-      // Reopening and closing again writes a second one: that is history.
-      // Nothing is emailed. `catId` comes from the UPDATE's own RETURNING,
-      // read through `tx`, so it is the cat the row had when it moved.
-      //
-      // SYC-44 PR 4.1 (spec §5.1): only a *welfare* report leaves that mark.
-      // A "Report an issue" row can carry a cat from the start, and a close
-      // on it is not an outcome for the cat (a `cat_died` report closed as
-      // done is not evidence the cat was seen).
-      const catId = updated[0]!.catId;
-      if (
-        updated[0]!.kind === "welfare" &&
-        catId !== null &&
-        (to === "done" || to === "nothing_needed")
-      ) {
-        await writeObservation(tx, {
-          catId,
-          kind: "welfare_outcome",
-          value: { state: to, reportId: updated[0]!.id },
-          accountId: personId,
-          roleAtTime: actingRole(person, "change_report_state", await catTarget(catId, tx)),
-          observedAt: new Date(),
-        });
-      }
-      return "moved";
-    }
-    const [exists] = await tx
-      .select({ id: welfareReportsTable.id })
-      .from(welfareReportsTable)
-      .where(
-        and(
-          eq(welfareReportsTable.publicId, publicId),
-          eq(welfareReportsTable.isDraft, false),
-        ),
-      );
-    return exists ? "changed" : "not_found";
+  const outcome = await db.transaction(async (tx) => {
+    const moved = await moveReportStateIn(tx, input);
+    queued = moved.queued;
+    return moved.outcome;
   });
   if (queued !== null) input.onQueued?.(queued);
   return outcome;
+}
+
+/**
+ * {@link moveReportState}'s work inside a transaction the caller already
+ * holds (SYC-44 PR 7.1: the Issues row's Keep hidden and Restore move the
+ * report in the same transaction as the photo). The caller calls `onQueued`
+ * with `queued` after its commit.
+ */
+export async function moveReportStateIn(
+  tx: Tx,
+  input: MoveInput,
+): Promise<{ outcome: MoveOutcome; queued: number | null }> {
+  const { publicId, from, to, person } = input;
+  const personId = person.id;
+  let queued: number | null = null;
+  const updated = await tx
+    .update(welfareReportsTable)
+    .set({ state: to, stateChangedAt: new Date(), stateChangedBy: personId })
+    .where(
+      and(
+        eq(welfareReportsTable.publicId, publicId),
+        eq(welfareReportsTable.state, from),
+        eq(welfareReportsTable.isDraft, false),
+      ),
+    )
+    .returning({
+      id: welfareReportsTable.id,
+      catId: welfareReportsTable.catId,
+      kind: welfareReportsTable.kind,
+    });
+  if (updated.length === 1) {
+    const [event] = await tx
+      .insert(reportStateEventsTable)
+      .values({
+        reportId: updated[0]!.id,
+        fromState: from,
+        toState: to,
+        personId,
+      })
+      .returning({ id: reportStateEventsTable.id });
+    const outboxId = await onReportStateChanged(tx, {
+      reportId: updated[0]!.id,
+      eventId: event!.id,
+      to,
+      teamSentence: to === "done" ? (input.reporterSentence ?? null) : null,
+    });
+    if (outboxId !== null) queued = outboxId;
+    // Closing a report that is tied to a cat leaves a mark on the cat's
+    // history (PR 5; spec §8.4): who closed it, and how. In this same
+    // transaction, so the move and its outcome stand or fall together.
+    // Reopening and closing again writes a second one: that is history.
+    // Nothing is emailed. `catId` comes from the UPDATE's own RETURNING,
+    // read through `tx`, so it is the cat the row had when it moved.
+    //
+    // SYC-44 PR 4.1 (spec §5.1): only a *welfare* report leaves that mark.
+    // A "Report an issue" row can carry a cat from the start, and a close
+    // on it is not an outcome for the cat (a `cat_died` report closed as
+    // done is not evidence the cat was seen).
+    const catId = updated[0]!.catId;
+    if (
+      updated[0]!.kind === "welfare" &&
+      catId !== null &&
+      (to === "done" || to === "nothing_needed")
+    ) {
+      await writeObservation(tx, {
+        catId,
+        kind: "welfare_outcome",
+        value: { state: to, reportId: updated[0]!.id },
+        accountId: personId,
+        roleAtTime: actingRole(person, "change_report_state", await catTarget(catId, tx)),
+        observedAt: new Date(),
+      });
+    }
+    return { outcome: "moved", queued };
+  }
+  const [exists] = await tx
+    .select({ id: welfareReportsTable.id })
+    .from(welfareReportsTable)
+    .where(
+      and(
+        eq(welfareReportsTable.publicId, publicId),
+        eq(welfareReportsTable.isDraft, false),
+      ),
+    );
+  return { outcome: exists ? "changed" : "not_found", queued };
 }
 
 /**
