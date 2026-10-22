@@ -39,9 +39,15 @@ describe("notSeenWords (SYC-485): worded from the one number, so the filter and 
 });
 
 describe("no page words the 'not seen lately' number by hand (SYC-485, SYC-442)", () => {
-  it.each(["homePage.ts", "catGridPage.ts"])("%s takes it from notSeenWords()", (file) => {
+  // Home no longer shows Not seen lately (SYC-603, D12); the Cats filter still does.
+  it.each(["catGridPage.ts"])("%s takes it from notSeenWords()", (file) => {
     const src = readFileSync(new URL(`./${file}`, import.meta.url), "utf8");
     expect(src).toContain("notSeenWords()");
     expect(src, "a hand-typed number of weeks goes stale when Syros Cats change it").not.toMatch(/\d+ (weeks?|days) or more/);
+  });
+
+  it("homePage.ts types no number of weeks by hand either", () => {
+    const src = readFileSync(new URL("./homePage.ts", import.meta.url), "utf8");
+    expect(src).not.toMatch(/\d+ (weeks?|days) or more/);
   });
 });
