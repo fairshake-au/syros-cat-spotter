@@ -539,8 +539,8 @@ export const MAP_SIGHTINGS = 30;
 
 /**
  * The cat's sightings on the same composed map picture as the rest of the
- * dashboard, numbered in time order (1 is the oldest shown), each marker a
- * link to its row in Sightings. No script; no position in any address.
+ * dashboard, numbered in time order (1 is the oldest shown), one marker per
+ * spot, linking to the newest sighting there. No script; no position in any address.
  */
 function sightingsMap(v: TeamCatView, island: boolean): string {
   if (v.sightings.length === 0) return "";

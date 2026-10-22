@@ -340,6 +340,7 @@ span.pin{pointer-events:none}
 .pin.seen{width:24px;height:24px;margin:-12px 0 0 -12px;border:1px solid #1d1d1b;background:#1d1d1b;box-shadow:0 0 0 2px #fff;display:flex;align-items:center;justify-content:center;text-decoration:none}
 /* A 44px tap area round each 24px marker (spec §12.4). */
 .pin.seen::after{content:"";position:absolute;inset:-10px}
+.pin.seen.multi{width:auto;min-width:24px;margin:0;padding:0 6px;border-radius:12px;white-space:nowrap;transform:translate(-50%,-50%)}
 .pinnum{color:#fff;font-size:12px;font-weight:700;line-height:1}
 .pin.sighting{border:3px dashed #1a56a6;border-radius:4px;background:transparent}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

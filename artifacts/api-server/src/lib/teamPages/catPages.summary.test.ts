@@ -118,6 +118,16 @@ describe("the small map's caption (SYC-602 Task 1.4)", () => {
     expect(html).toContain(`</time> · ${place}`);
   });
 
+  it("gives a merged marker the pill class, and a lone one not", () => {
+    const v = catView();
+    v.sightings = [sighting(3, 0, { lat: 37.4447, lng: 24.9418 }), sighting(2, 1, { lat: 37.4447, lng: 24.9418 }), sighting(1, 2, { lat: 37.4500, lng: 24.9500 })];
+    const html = renderCatPage(v, "Sam", { now: NOW });
+    expect(html).toMatch(/<a class="pin seen multi"[^>]*><span class="pinnum" aria-hidden="true">2–3<\/span>/);
+    expect(html).toMatch(/<a class="pin seen"[^>]*><span class="pinnum" aria-hidden="true">1<\/span>/);
+  });
+
+  // placeLabel is fixed vocabulary here (an area's name; no site label is passed),
+  // so no hostile place string can reach the caption; the caption is escaped anyway.
   it("escapes the place in the caption", () => {
     const v = catView();
     v.sightings = [sighting(2, 0), sighting(1, 3)];
@@ -151,7 +161,7 @@ describe("the small map's caption (SYC-602 Task 1.4)", () => {
       .reverse();
     const html = renderCatPage(v, "Sam", { now: NOW });
     const band = /<div class="mapband b179"[\s\S]*?<\/div>/.exec(html)![0];
-    const pins = [...band.matchAll(/<a class="pin seen"[^>]*href="#sg-(\d+)"[^>]*><span class="pinnum"[^>]*>([^<]*)<\/span>/g)].map((m) => [m[1], m[2]]);
+    const pins = [...band.matchAll(/<a class="pin seen(?: multi)?"[^>]*href="#sg-(\d+)"[^>]*><span class="pinnum"[^>]*>([^<]*)<\/span>/g)].map((m) => [m[1], m[2]]);
     expect(pins).toEqual([["904", "1, 5"], ["903", "2–4"]]);
   });
 });

@@ -262,7 +262,8 @@ function band(view: View, size: number, opts: MapOptions): string {
       if (!at) return "";
       const style = `left:${at.left}px;top:${at.top}px`;
       const label = esc(m.label);
-      const cls = "pin" + (m.look && Object.hasOwn(LOOKS, m.look) ? LOOKS[m.look] : "");
+      const cls =
+        "pin" + (m.look && Object.hasOwn(LOOKS, m.look) ? LOOKS[m.look] : "") + (m.look === "seen" && m.text ? " multi" : "");
       const inside = pinInside(m);
       return opts.mode === "view" && m.href
         ? `<a class="${cls}" style="${style}" href="${esc(m.href)}" title="${label}">${inside}<span class="sr">${label}</span></a>`
