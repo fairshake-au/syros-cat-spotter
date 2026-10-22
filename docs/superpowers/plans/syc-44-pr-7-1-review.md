@@ -73,3 +73,20 @@ Verified by reading all 20 tests; the builder's probes cover the headline guards
 - Brake: banner and hide use one function pair (`reportHidesToday`, `brakeTripped`), and the Athens-day window is the single copy in `hide.ts`; no resume route exists (T7-5 walk test).
 - Output: every dynamic value goes through `esc`; redirect target is built from a fixed enum plus `encodeURIComponent`; `issueNotice.key` is checked with `Object.hasOwn` before use and never echoed. Wording grep: no "snapper" or "colony carer" in the new files.
 - Plan items present: capability gating, photo route, four groups, "Issue" label plus colour band, rows' fields, banner, three actions, links to the cat page's own forms, no "Which cat is this?", the strip, T7-1 to T7-6, and the walk rows.
+
+---
+
+## What the builder did with each finding (21 Oct 2026)
+
+Each finding was checked against the code before acting on it.
+
+| # | Finding | Outcome |
+|---|---|---|
+| 1 | The waiting count is a line on the Queue page, above "Waiting for the team", not in the top bar | **Kept as built; menu badge filed as SYC-553.** The spec itself puts this number in the top bar, above everything; the "never above a welfare report" rule is about report rows, and no issue row or section sits above one (T7-2). A count in the menu on every page means a database read per page and a change to the shared menu, so it is SYC-553, for Samuel to decide. |
+| 2 | The plain Done / Nothing needed buttons can close a row whose photo is still hidden | **Fixed.** A row whose photo is still hidden (and not deleted) offers only New and Looking at it in the state form, with "To close it, keep the photo hidden or restore it, above." Test "finding 2"; probe P12 red. |
+| 3 | Keep hidden and Restore accept a closed `from` | **Fixed.** `from` must be `new` or `looking`, or the route answers 400 and writes nothing. Test "finding 3"; probe P11 red. |
+| 4 | Unchecked reports count among "N others" | **Kept, and pinned.** §5.3 counts every other open report; an unchecked one is open, and the count is a prompt to look, not a decision. Test "finding 4". |
+| 5 | No cap on the Issues lists | **Fixed.** At most 100 rows per open group, with the true count in the heading and "Showing 100 of N". Test "finding 5"; probe P13 red. |
+| 6 | Strip links land on a folded or undrawn card | **Fixed for folded cards.** Links carry `?issue=open&r=`, which opens the card (no notice is shown). A closed report older than the newest 50 is still not drawn; that is the same limit as the welfare queue's closed list. Test "finding 6". |
+| 7 | Test gaps | **Added:** hide_skipped words, `no_photo`, Hide on a photo deleted for good, a team Hide never counting toward the brake, and two simultaneous Keep hiddens closing once. **Not added:** a route-level strip test for a guardian (the team cat page refuses her today; the function-level test pins the strip's own check, and probe P1 is red); the `!can(hide_photo)` branch, which no role reaches today. |
+| Nits | Banner at the foot; re-hidden-by-hand rows still "waiting"; 11 positional arguments; `reasonLabel` from the email module; the lock-timeout brake skip | Left as they are. The banner sits at the top of the Issues section, where the rows it affects are. A report-hidden photo restored and then hidden again by hand is still hidden and still undecided, so "waiting" is right. The other three are style only. |
