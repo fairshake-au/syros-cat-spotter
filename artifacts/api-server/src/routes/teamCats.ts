@@ -6,14 +6,16 @@ import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import multer from "multer";
 import { safeError } from "../lib/logger";
-import { catsToCompare, findFromPhoto, hasPlace, type FindFilters } from "../lib/findFromPhoto";
+import { catsToCompare, findFromPhoto, isWholeIsland, type FindFilters } from "../lib/findFromPhoto";
 import { checkFindLimits, findLimitReached } from "../middlewares/rateLimit";
 import {
+  MATCHING_DOWN_ISLAND_WORDS,
   MATCHING_DOWN_WORDS,
   narrowingOf,
   renderFindForm,
   renderFindProblem,
   renderFindResults,
+  STALE_PLACE_WORDS,
   TOO_BIG_WORDS,
   type FindFormOptions,
 } from "../lib/teamPages/findPhotoPage";
@@ -244,6 +246,37 @@ function findFilters(src: unknown): FindFilters {
   return { area: f.area, colony: f.colony, colours: f.colours };
 }
 
+/**
+ * An area or colony that was given with a value but isn't recognised (a
+ * retired key, a typo). parseCatFilters drops it, which would quietly turn
+ * the search into the whole island, so the find page refuses it. An empty
+ * value still means the island.
+ */
+async function stalePlace(
+  src: unknown,
+  f: FindFilters,
+  person: ReturnType<typeof teamPerson>,
+  address?: unknown,
+): Promise<boolean> {
+  const asObject = (v: unknown) => (typeof v === "object" && v !== null ? v : {}) as Record<string, unknown>;
+  const q = asObject(src);
+  const given = (v: unknown) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0);
+  // A place written some other way (`area[]`, `colony2`) is no place we read: refuse it.
+  const odd = (o: Record<string, unknown>) =>
+    Object.keys(o).some((k) => k !== "area" && k !== "colony" && /^(area|colony)/.test(k));
+  if (odd(q) || odd(asObject(address))) return true;
+  // The search's place travels in the body. One in its address is never read, so refuse it.
+  const a = asObject(address);
+  if (given(a["area"]) || given(a["colony"])) return true;
+  if (given(q["area"]) && f.area === undefined) return true;
+  if (!given(q["colony"])) return false;
+  if (f.colony === undefined) return true;
+  // A well-formed number that is no colony (or none this person may see) is just as stale.
+  return !(await allColonyChoices(visibleColonyIds(person))).some((c) => c.id === f.colony);
+}
+
+const matchingDownWords = (f: FindFilters) => (isWholeIsland(f) ? MATCHING_DOWN_ISLAND_WORDS : MATCHING_DOWN_WORDS);
+
 /** ?tie= / a `tie` field: choosing a cat for that welfare report, as on the Cats page. */
 async function tieFrom(raw: unknown, person: ReturnType<typeof teamPerson>): Promise<TieMode | undefined> {
   if (typeof raw !== "string" || !TIE_ID_RE.test(raw)) return undefined;
@@ -268,7 +301,7 @@ async function findFormHtml(
 ): Promise<string> {
   const now = new Date();
   const [count, capped, colonies] = await Promise.all([
-    hasPlace(filters) ? catsToCompare(filters, now).then((c) => c.length) : Promise.resolve(null),
+    catsToCompare(filters, now).then((c) => c.length),
     // A notice only: if the counter can't be read, the form shows without
     // one, and the POST still enforces the caps (review finding 1).
     extra.capped ? Promise.resolve(extra.capped) : findLimitReached(person.id).catch(() => "ok" as const),
@@ -280,7 +313,7 @@ async function findFormHtml(
     colonies,
     tie,
     now,
-    narrowing: narrowingOf(count),
+    narrowing: narrowingOf(count, isWholeIsland(filters)),
     capped: capped === "ok" ? undefined : capped,
     problem: extra.problem,
   });
@@ -294,7 +327,13 @@ router.get(
     // Strict header first, before any await: this page has no script.
     setTeamHeaders(res);
     const person = teamPerson(res);
-    const html = await findFormHtml(person, findFilters(req.query), await tieFrom(req.query["tie"], person));
+    const filters = findFilters(req.query);
+    const html = await findFormHtml(
+      person,
+      filters,
+      await tieFrom(req.query["tie"], person),
+      (await stalePlace(req.query, filters, person)) ? { problem: { field: "place", words: STALE_PLACE_WORDS } } : {},
+    );
     res.type("html").send(html);
   },
 );
@@ -330,6 +369,9 @@ router.post(
     const body = typeof req.body === "object" && req.body !== null ? (req.body as Record<string, unknown>) : {};
     const filters = findFilters(body);
     const tie = await tieFrom(body["tie"], person);
+    // Checked first: a stale place must never be redrawn as the island, even
+    // when the upload also failed.
+    const stale = await stalePlace(body, filters, person, req.query);
     if (uploadError !== null) {
       const tooBig = uploadError instanceof multer.MulterError && uploadError.code === "LIMIT_FILE_SIZE";
       req.log.info({ outcome: tooBig ? "too_big" : "bad_upload" }, "find from a photo");
@@ -337,20 +379,24 @@ router.post(
       return void res
         .status(tooBig ? 413 : 400)
         .type("html")
-        .send(await findFormHtml(person, filters, tie, { problem: { field: "photo", words } }));
-    }
-    if (!hasPlace(filters)) {
-      req.log.info({ outcome: "no_place" }, "find from a photo");
-      return void res
-        .status(400)
-        .type("html")
-        .send(await findFormHtml(person, filters, tie, { problem: { field: "place", words: "Choose an area or a colony first." } }));
+        .send(
+          await findFormHtml(person, filters, tie, {
+            problem: stale ? { field: "place", words: STALE_PLACE_WORDS } : { field: "photo", words },
+          }),
+        );
     }
     // A report that doesn't exist: nothing to tie, so no search runs and none
     // is used (second review, finding 4).
     if (tie && !tie.report) {
       req.log.info({ outcome: "no_such_report" }, "find from a photo");
       return void res.status(404).type("html").send(await findFormHtml(person, filters, tie));
+    }
+    if (stale) {
+      req.log.info({ outcome: "stale_place" }, "find from a photo");
+      return void res
+        .status(400)
+        .type("html")
+        .send(await findFormHtml(person, filters, tie, { problem: { field: "place", words: STALE_PLACE_WORDS } }));
     }
     const file = req.file;
     if (!file || file.size === 0) {
@@ -401,8 +447,6 @@ router.post(
     const colonies = await allColonyChoices(visibleColonyIds(person));
     const common = { personName: person.name, filters, colonies, tie, now };
     switch (out.kind) {
-      case "no_place":
-        return void res.status(400).type("html").send(await findFormHtml(person, filters, tie, { problem: { field: "place", words: "Choose an area or a colony first." } }));
       case "too_many":
       case "none_to_compare":
         return void res.status(400).type("html").send(await findFormHtml(person, filters, tie));
@@ -422,7 +466,7 @@ router.post(
         );
       case "refused":
         if (out.reason === "counter_down") {
-          return void res.status(503).type("html").send(renderFindProblem({ ...common, words: MATCHING_DOWN_WORDS, gridLink: true }));
+          return void res.status(503).type("html").send(renderFindProblem({ ...common, words: matchingDownWords(filters), gridLink: true }));
         }
         return void res
           .status(429)
@@ -434,7 +478,7 @@ router.post(
           renderFindProblem({ ...common, words: "We couldn't see a cat in that photo. Try another photo of the cat.", gridLink: false }),
         );
       case "matching_down":
-        return void res.status(503).type("html").send(renderFindProblem({ ...common, words: MATCHING_DOWN_WORDS, gridLink: true }));
+        return void res.status(503).type("html").send(renderFindProblem({ ...common, words: matchingDownWords(filters), gridLink: true }));
       case "results": {
         const { cats } = await allTeamCats({ area: filters.area, colony: filters.colony, colours: filters.colours }, now);
         const cards = new Map(cats.map((c) => [c.id, c]));

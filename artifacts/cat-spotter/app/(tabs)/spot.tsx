@@ -115,6 +115,17 @@ import {
 } from '@/lib/extraPhotos';
 import { prepareExtraPhoto } from '@/lib/prepareExtraPhoto';
 import { extrasOf } from '@/lib/offlineQueue';
+import {
+  MAP_START_WAIT_MS,
+  canCheckForMatches,
+  isSpotterMove,
+  mapStartHintKey,
+  needsHelpCoords,
+  nextMapStart,
+  resolveMapStart,
+  type PickSource,
+  type ReadyMapStart,
+} from '@/lib/mapStart';
 
 /** A library photo that can't be used, said in a card with the library offered again. */
 type PhotoProblem =
@@ -367,11 +378,53 @@ export default function SpotScreen() {
   } | null>(null);
   const tiles = useOfflineTiles();
 
+  // SYC-166 slice 4: where the map starts (lib/mapStart.ts). A library photo
+  // with no usable phone position starts in Ermoupoli; the camera waits for
+  // the phone, as before.
+  const [pickSource, setPickSource] = useState<PickSource | null>(null);
+  const [mapStart, setMapStart] = useState<ReadyMapStart | null>(null);
+  // Bumped with every new start, so the map remounts there: it positions
+  // itself from its first coordinates only (LocationPicker.tsx).
+  const [mapStartKey, setMapStartKey] = useState(0);
+  // Whether the spotter has moved the map since it started. Until then an
+  // Ermoupoli start gives way to a late phone fix on Syros.
+  const [mapTouched, setMapTouched] = useState(false);
+  const [mapWaitedMs, setMapWaitedMs] = useState(0);
+  // Reset in resetMapStart (with the new photo), not here: an effect's reset
+  // would land a render late, after the start below had read the old value.
   React.useEffect(() => {
-    if (photo && coords && !pickedCoords) {
-      setPickedCoords({ latitude: coords.latitude, longitude: coords.longitude });
+    if (!photo) return;
+    const timer = setTimeout(() => setMapWaitedMs(MAP_START_WAIT_MS), MAP_START_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [photo]);
+  React.useEffect(() => {
+    if (!photo || !pickSource) return;
+    const next = nextMapStart(
+      mapStart,
+      resolveMapStart({
+        source: pickSource,
+        phone: { coords, denied, loading: locating },
+        waitedMs: mapWaitedMs,
+      }),
+      mapTouched,
+    );
+    if (next && next !== mapStart) {
+      setMapStart(next);
+      setMapStartKey((k) => k + 1);
+      setPickedCoords({ latitude: next.coords.latitude, longitude: next.coords.longitude });
     }
-  }, [photo, coords, pickedCoords]);
+  }, [photo, pickSource, coords, denied, locating, mapWaitedMs, mapStart, mapTouched]);
+  const onMapMoved = (next: { latitude: number; longitude: number }) => {
+    if (mapStart && isSpotterMove(mapStart.coords, next)) setMapTouched(true);
+    setPickedCoords(next);
+  };
+  /** A new photo, a retake or a discard: the map starts afresh. */
+  const resetMapStart = () => {
+    setMapStart(null);
+    setMapWaitedMs(0);
+    setMapTouched(false);
+    setPickedCoords(null);
+  };
 
   /**
    * SYC-415: the one way the first photo is set, by the picker and the live
@@ -386,6 +439,7 @@ export default function SpotScreen() {
     takenAtMs: number | null,
   ) => {
     spotGenerationRef.current += 1;
+    resetMapStart();
     setPhoto(next);
     setPhotoTime(timeInfo);
     photoFingerprintRef.current = fingerprint;
@@ -427,6 +481,8 @@ export default function SpotScreen() {
     setFirstTakenAtMs(null);
     setPhotoProblem(null);
     setPickedCoords(null);
+    resetMapStart();
+    setPickSource(null);
   };
 
   /** Discard the whole spot on screen (the back arrow, and after sending): extras too. */
@@ -530,6 +586,7 @@ export default function SpotScreen() {
     // A camera photo is taken now; a library photo has its own time, or none.
     const takenAtMs =
       timeInfo.kind === 'ok' ? timeInfo.instantMs : fromCamera ? Date.now() : null;
+    setPickSource(fromCamera ? 'camera' : 'library');
     setFirstPhoto(next, timeInfo, fingerprint, takenAtMs);
   };
 
@@ -571,6 +628,7 @@ export default function SpotScreen() {
             await shrink(directPhoto?.uri ?? capture.uri);
       if (directPhoto && picked !== directPhoto) releasePhotoUri(directPhoto.uri);
       setPhotoProblem(null);
+      setPickSource('live');
       setFirstPhoto(picked, { kind: 'unread' }, photoFingerprint(picked.base64), Date.now());
     } catch {
       // Same as a failed capture: fall back to the system camera and let the
@@ -1538,10 +1596,11 @@ export default function SpotScreen() {
               {/* SYC-48: the map is hidden while the waiting card shows. */}
               {waitChoice ? null : (
                 <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-                  {t('confirmLocationHint')}
+                  {t(mapStartHintKey(mapStart))}
                 </Text>
               )}
-              {denied && (
+              {/* Not once the map has a start (Ermoupoli): nothing is stuck. */}
+              {denied && !pickedCoords && (
                 <Pressable onPress={refresh}>
                   <Text style={[styles.denied, { color: colors.destructive }]}>
                     {t('locationDenied')}
@@ -1554,9 +1613,10 @@ export default function SpotScreen() {
                 <WaitingCard choice={waitChoice} t={t} />
               ) : pickedCoords && (
                 <LocationPicker
+                  key={mapStartKey}
                   latitude={pickedCoords.latitude}
                   longitude={pickedCoords.longitude}
-                  onChange={setPickedCoords}
+                  onChange={onMapMoved}
                   pinColor={colors.accent}
                   style={styles.locationPicker}
                 />
@@ -1575,7 +1635,7 @@ export default function SpotScreen() {
               variant="primary"
               size="lg"
               block
-              disabled={!pickedCoords || submitting || !deviceId}
+              disabled={!canCheckForMatches(mapStart) || !pickedCoords || submitting || !deviceId}
               onPress={submit}
               iconLeft={
                 submitting ? (
@@ -1594,7 +1654,7 @@ export default function SpotScreen() {
             {/* SYC-42: quiet, below the main action; reuses this photo and place. */}
             {photo && !submitting && (
               <NeedsHelpLink
-                handoff={{ photo, coords: pickedCoords ?? undefined }}
+                handoff={{ photo, coords: needsHelpCoords(mapStart, pickedCoords, mapTouched) }}
                 style={{ alignSelf: 'center' }}
               />
             )}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
+import { SYROS_RECT } from './island';
 
 /**
  * Offline map tiles for Syros.
@@ -16,7 +17,7 @@ const READY_KEY = 'cat-spotter/offline-tiles-ready-v1';
 const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 // Whole island of Syros
-const ISLAND = { minLat: 37.36, maxLat: 37.53, minLon: 24.85, maxLon: 25.01 };
+const ISLAND = SYROS_RECT;
 // Ermoupoli + Ano Syros — where most cats (and people) are
 const TOWN = { minLat: 37.42, maxLat: 37.47, minLon: 24.91, maxLon: 24.97 };
 
