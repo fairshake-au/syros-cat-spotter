@@ -13,6 +13,9 @@ if (!baseUrl) throw new Error("DATABASE_URL must be set to run these tests");
 const PHOTO_LINKS = [
   "cats.primary_photo_id", // P3: repointed
   "observations.photo_id", // P6: left pointing (append-only)
+  // SYC-527 §6.1: deleted. A trigger deletes the row when the photo is
+  // hidden or removed (migration 0039), and the cascade when the row goes.
+  "photo_fingerprints.photo_id",
   "photo_variants.photo_id", // P2: deleted
   "photo_visibility_events.photo_id", // P8: untouched
   "sighting_photos.photo_id", // P5: left in place
