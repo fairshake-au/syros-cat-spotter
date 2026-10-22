@@ -555,11 +555,12 @@ export function renderVetPage(r: VetCostsReport, o: { personName: string; range:
     (per === null
       ? '<p class="empty">No sterilisation with a cost paid by Syros Cats in this period.</p>'
       : `<p class="hbig">Average <strong>${esc(euroText(per.avg))}</strong></p>` +
-        `<p>From ${esc(euroText(per.min))} to ${esc(euroText(per.max))}, over ${esc(plural(per.n, "sterilisation", "sterilisations"))} Syros Cats paid for.</p>`) +
+        `<p>From ${esc(euroText(per.min))} to ${esc(euroText(per.max))}, over ${esc(plural(per.n, "sterilisation", "sterilisations"))} Syros Cats paid for.</p>` +
+        '<p class="hint">A visit that also vaccinated or treated the cat counts its whole cost.</p>') +
     "</section>" +
     '<section id="no-cost"><h2>Sterilisations with no cost recorded</h2>' +
     `<p class="hbig"><strong>${r.noCost}</strong> ${r.noCost === 1 ? "sterilisation" : "sterilisations"} with no cost recorded</p>` +
-    '<p class="hint">Cats marked sterilised with “Update this cat” rather than a vet visit, and vet visits saved without a cost. They aren\'t in the cost per sterilisation.</p>' +
+    '<p class="hint">Cats marked sterilised with “Update this cat” and never at a vet visit, and vet visits with Sterilised saved without a cost, whoever paid. They aren\'t in the cost per sterilisation.</p>' +
     "</section>" +
     '<section id="visits"><h2>Every visit</h2>' +
     (visits === 0

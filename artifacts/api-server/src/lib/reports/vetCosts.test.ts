@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomBytes } from "node:crypto";
-import { catsTable, db, observationsTable, pool } from "@workspace/db";
+import { catsTable, db, observationsTable, pool, type Observation } from "@workspace/db";
 import { like } from "drizzle-orm";
 import type { VetVisitValue } from "../observations";
 import { logVetVisit, undoVetVisit } from "../vetVisits";
 import { parseRange, type Range } from "./range";
-import { purposeOf, vetCostsReport, type VetCostsReport } from "./vetCosts";
+import { purposeOf, vetCostsFrom, vetCostsReport, type VetCostsReport } from "./vetCosts";
 
 // SYC-396 PR 3.3c, Task 3.3c.1 (spec §8.4, §9.3 report 5; plan Decision 14):
 // the vet report. Visits are written and undone with the real writer, so the
@@ -65,6 +65,86 @@ describe("purposeOf (Decision 14: each visit under its main purpose)", () => {
     expect(purposeOf(["treated", "vaccinated"])).toBe("vaccinated");
     expect(purposeOf(["treated"])).toBe("treated");
     expect(purposeOf(["checked"])).toBe("checked");
+  });
+});
+
+// ─── Pure: vetCostsFrom over hand-made rows (review of PR 3.3c) ──────────
+
+let nextId = 1_000_000;
+const row = (o: Partial<Observation> & Pick<Observation, "catId" | "kind" | "value" | "observedAt">): Observation =>
+  ({ id: nextId++, roleAtTime: "staff", authorityScope: "none", provenance: "volunteered", supersedesId: null, redactedAt: null, accountId: STAFF.id, deviceId: null, createdAt: o.observedAt, ...o }) as Observation;
+const visitRow = (catId: number, at: string, v: VetVisitValue, o: Partial<Observation> = {}) =>
+  row({ catId, kind: "vet_visit", value: v, observedAt: new Date(at), ...o });
+const teamYes = (catId: number, at: string) => row({ catId, kind: "sterilised", value: { sterilised: true }, observedAt: new Date(at) });
+const OCT = parseRange({ range: "custom", from: "2026-10-01", to: "2026-10-31" }, NOW);
+const NAMES = new Map<number, string>();
+
+describe("vetCostsFrom", () => {
+  it("adds money in cents: 0.1 + 0.2 is exactly 0.3, and the average rounds to the cent", () => {
+    const r = vetCostsFrom(
+      [
+        visitRow(1, "2026-10-02T12:00:00Z", visit(["sterilised"], { costEur: 0.1 })),
+        visitRow(2, "2026-10-03T12:00:00Z", visit(["sterilised"], { costEur: 0.2, paidBy: "donation" })),
+        visitRow(3, "2026-10-04T12:00:00Z", visit(["sterilised"], { costEur: 55.1 })),
+      ],
+      NAMES,
+      OCT,
+    );
+    expect(r.perMonth.map((m) => m.spendEur)).toEqual([55.4]);
+    expect(r.byPurpose.sterilised).toBe(55.4);
+    expect(r.perSterilisation).toEqual({ avg: 18.47, min: 0.1, max: 55.1, n: 3 });
+    const two = vetCostsFrom(
+      [visitRow(1, "2026-10-02T12:00:00Z", visit(["checked"], { costEur: 0.1 })), visitRow(2, "2026-10-03T12:00:00Z", visit(["checked"], { costEur: 0.2 }))],
+      NAMES,
+      OCT,
+    );
+    expect(two.perMonth[0]!.spendEur).toBe(0.3);
+  });
+
+  it("noCost counts a cat once, and not a cat a standing visit sterilised (on any date)", () => {
+    const r = vetCostsFrom(
+      [
+        // Two "Update this cat" yeses on one cat: one sterilisation.
+        teamYes(10, "2026-10-05T12:00:00Z"),
+        teamYes(10, "2026-10-06T12:00:00Z"),
+        // An update on a cat a visit in the range sterilised (with a cost): the visit's.
+        teamYes(11, "2026-10-07T12:00:00Z"),
+        visitRow(11, "2026-10-08T12:00:00Z", visit(["sterilised"])),
+        // An update on a cat a visit in August sterilised: still the visit's.
+        teamYes(12, "2026-10-09T12:00:00Z"),
+        visitRow(12, "2026-08-08T12:00:00Z", visit(["sterilised"])),
+        // A cat guardian's yes is not the team's "Update this cat".
+        row({ catId: 13, kind: "sterilised", value: { sterilised: true }, observedAt: new Date("2026-10-10T12:00:00Z"), roleAtTime: "guardian", authorityScope: "colony:1" }),
+      ],
+      NAMES,
+      OCT,
+    );
+    expect(r.noCost).toBe(1);
+  });
+
+  it("a Sterilised visit with no cost is no cost recorded whoever paid", () => {
+    const r = vetCostsFrom([visitRow(20, "2026-10-02T12:00:00Z", visit(["sterilised"], { costEur: null, paidBy: "owner" }))], NAMES, OCT);
+    expect(r.noCost).toBe(1);
+    expect(r.perSterilisation).toBeNull();
+  });
+
+  it("files a visit in its Syros month: 23:59 on 30 Sep is September, 00:30 on 1 Oct is October", () => {
+    const range = parseRange({ range: "custom", from: "2026-09-01", to: "2026-10-31" }, NOW);
+    const r = vetCostsFrom(
+      [
+        visitRow(30, "2026-09-30T20:59:00Z", visit(["checked"], { costEur: 10 })),
+        visitRow(31, "2026-09-30T21:30:00Z", visit(["checked"], { costEur: 20 })),
+      ],
+      NAMES,
+      range,
+    );
+    expect(r.perMonth.map((m) => [m.visits, m.spendEur])).toEqual([[1, 10], [1, 20]]);
+  });
+
+  it("leaves out a redacted visit, as Home's vet spend and the cat page do", () => {
+    const r = vetCostsFrom([visitRow(40, "2026-10-02T12:00:00Z", visit(["checked"], { costEur: 10 }), { redactedAt: new Date() })], NAMES, OCT);
+    expect(r.visits).toEqual([]);
+    expect(r.perMonth[0]!.spendEur).toBe(0);
   });
 });
 

@@ -301,6 +301,17 @@ describe("Vet visits and costs (PR 3.3c)", () => {
     expect(visits).not.toMatch(/(^|\r\n|,)=HYPERLINK/);
   });
 
+  it("a vet download is recorded (who, which file, which range) before it is sent", async () => {
+    const since = (await pool.query<{ n: number }>("select coalesce(max(id), 0)::int as n from report_downloads")).rows[0]!.n;
+    const csv = await get("/api/team/insights/vet-visits.csv?range=month");
+    expect(csv.status).toBe(200);
+    const rows = await pool.query<{ report: string; range: string }>(
+      "select report, range from report_downloads where person_id = $1 and id > $2",
+      [team.id, since],
+    );
+    expect(rows.rows).toEqual([{ report: "vet-visits", range: "range=month" }]);
+  });
+
   it("someone without view_vet_costs is refused the page and every file, and nothing is recorded", async () => {
     const since = (await pool.query<{ n: number }>("select coalesce(max(id), 0)::int as n from report_downloads")).rows[0]!.n;
     const page = await request(app).get("/api/team/insights/vet").set("Cookie", noCosts.cookie).set("Accept", "text/html");

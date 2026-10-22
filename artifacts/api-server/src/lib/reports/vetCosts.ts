@@ -126,7 +126,8 @@ export function vetCostsFrom(
   }
 
   // "Update this cat → whether sterilised": once per cat, and not for a cat a
-  // standing visit sterilised, whose sterilisation is the visit's.
+  // standing visit sterilised on any date, in the range or not, whose
+  // sterilisation (and its cost, or its lack of one) is the visit's.
   const sterilisedByVisit = new Set(standingVisits.filter((o) => (o.value as VetVisitValue).did.includes("sterilised")).map((o) => o.catId));
   const updated = new Set(
     standingRows(observations, "sterilised")
