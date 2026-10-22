@@ -7,7 +7,7 @@ const tr = (lang: "en" | "el" | "fr", key: "colonies.flag.growingKey" | "colonie
 describe("Colonies and Feeding sites say what they are for (SYC-522)", () => {
   it("the Growing chip is explained with the rule it uses", () => {
     expect(tr("en", "colonies.flag.growingKey")).toContain("3 or more new cats in the last 90 days");
-    for (const lang of ["el", "fr"]) {
+    for (const lang of ["el", "fr"] as const) {
       const words = tr(lang, "colonies.flag.growingKey");
       expect(words).not.toBe(tr("en", "colonies.flag.growingKey"));
       expect(words).toContain("90");
