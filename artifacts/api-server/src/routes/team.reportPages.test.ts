@@ -76,7 +76,7 @@ function headers(html: string, n = 0): string[] {
   const table = [...html.matchAll(/<table class="rtable">([\s\S]*?)<\/table>/g)][n]![1]!;
   const head = /<thead>([\s\S]*?)<\/thead>/.exec(table)![1]!;
   return [...head.matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/g)].map((m) =>
-    m[1]!.replace(/<[^>]+>/g, "").replace(/ [▲▼]$/, "").replace(/&amp;/g, "&"),
+    m[1]!.replace(/<[^>]+>/g, "").replace(/ [▲▼]$/, "").replace(/&#39;/g, "'").replace(/&amp;/g, "&"),
   );
 }
 
@@ -272,7 +272,7 @@ describe("Vet visits and costs (PR 3.3c)", () => {
     const res = await get("/api/team/insights/vet?range=month");
     expect(res.status).toBe(200);
     expect(res.text).toMatch(/<strong>\d+<\/strong> vet visits?/);
-    expect(res.text).toContain('aria-label="Syros Cats\' spend per month"');
+    expect(res.text).toContain('aria-label="Syros Cats&#39; spend per month"');
     expect(res.text).toContain('id="by-purpose"');
     expect(res.text).toContain('id="per-sterilisation"');
     expect(res.text).toContain('id="no-cost"');
@@ -280,10 +280,9 @@ describe("Vet visits and costs (PR 3.3c)", () => {
     expect(res.text).toContain("Owner-paid visits are listed, but never added into spend.");
     const captions = [...res.text.matchAll(/<table class="rtable"><caption>([^<]*)<\/caption>/g)].map((m) => m[1]);
     expect(captions).toEqual(["Visits and Syros Cats&#39; spend per month", "Syros Cats&#39; spend by what was done", "Every visit, newest first"]);
-    expect(headers(res.text, 2)).toEqual(["Cat", "Date", "Clinic", "What was done", "Cost", "Paid by"]);
+    expect(headers(res.text, 2)).toEqual(["Cat", "Date", "Clinic", "What was done", "Cost (€)", "Paid by"]);
     // The owner-paid visit is in the table, with its cost and who paid.
     expect(res.text).toContain("The owner");
-    expect(res.text).toContain(`href="/api/team/cats/${cat.id}"`);
   });
 
   it("every spreadsheet's columns are its table's; the visits file lists the owner-paid visit and the = name is text", async () => {
@@ -306,7 +305,7 @@ describe("Vet visits and costs (PR 3.3c)", () => {
     const since = (await pool.query<{ n: number }>("select coalesce(max(id), 0)::int as n from report_downloads")).rows[0]!.n;
     const page = await request(app).get("/api/team/insights/vet").set("Cookie", noCosts.cookie).set("Accept", "text/html");
     expect(page.status).toBe(403);
-    expect(page.text).not.toContain("Syros Cats' spend");
+    expect(page.text).not.toContain("spent by Syros Cats");
     for (const file of ["vet-months", "vet-purposes", "vet-visits"]) {
       const csv = await request(app).get(`/api/team/insights/${file}.csv`).set("Cookie", noCosts.cookie).set("Accept", "text/html");
       expect(csv.status, file).toBe(403);

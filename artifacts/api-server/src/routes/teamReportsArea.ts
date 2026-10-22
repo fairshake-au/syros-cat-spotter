@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { can } from "../lib/capabilities";
 import { visibleColonyIds } from "../lib/guardianView";
@@ -8,6 +8,7 @@ import { coverageReport } from "../lib/reports/coverage";
 import { recordDownload } from "../lib/reports/downloads";
 import { progressReport } from "../lib/reports/progress";
 import { parseRange, rangeQuery } from "../lib/reports/range";
+import { vetCostsReport } from "../lib/reports/vetCosts";
 import { welfarePatterns } from "../lib/reports/welfarePatterns";
 import {
   CSV_REPORTS,
@@ -21,7 +22,10 @@ import {
   renderHealthPage,
   renderProgressPage,
   renderReportsList,
+  renderVetPage,
   renderWelfarePage,
+  VET_CSV_REPORTS,
+  vetTables,
   welfareTables,
   type CsvReport,
 } from "../lib/teamPages/reportPages";
@@ -38,6 +42,10 @@ import {
 // **A download is recorded before it is sent.** If the record can't be
 // written, the answer is 503 and no file (team.reportsArea.test.ts, with a
 // mutation probe). No script on any page, so the strict security header stays.
+//
+// **Vet visits and costs needs view_vet_costs as well** (§8.4; PR 3.3c): the
+// page and its files refuse anyone without it before anything is worked out
+// or recorded.
 
 const router: IRouter = Router();
 
@@ -46,7 +54,8 @@ const UNAVAILABLE =
 
 router.get("/team/insights", requireTeam("view_reports"), (req: Request, res: Response) => {
   setTeamHeaders(res);
-  res.type("html").send(renderReportsList({ personName: teamPerson(res).name }));
+  const person = teamPerson(res);
+  res.type("html").send(renderReportsList({ personName: person.name, vetCosts: can(person, "view_vet_costs") }));
 });
 
 // Before /team/insights/:report, which would otherwise take "health.csv" as a report's name.
@@ -58,6 +67,8 @@ router.get("/team/insights/:report.csv", requireTeam("export_report"), async (re
   const person = teamPerson(res);
   const report = String(req.params["report"]);
   if (!(CSV_REPORTS as readonly string[]).includes(report)) return void res.status(404).json({ error: "Not found" });
+  const vet = VET_CSV_REPORTS.includes(report as CsvReport);
+  if (vet && !can(person, "view_vet_costs")) return refuseSignedIn(req, res);
   const now = new Date();
   const range = parseRange(req.query, now);
   let csv: string;
@@ -67,6 +78,9 @@ router.get("/team/insights/:report.csv", requireTeam("export_report"), async (re
   } else if (report === "coverage-weeks" || report === "coverage-areas") {
     const tables = coverageTables(await coverageReport(range, now), true);
     csv = csvOf(report === "coverage-weeks" ? tables.weeks : tables.areas);
+  } else if (vet) {
+    const tables = vetTables(await vetCostsReport(range, now), true);
+    csv = csvOf(report === "vet-months" ? tables.months : report === "vet-purposes" ? tables.purposes : tables.visits);
   } else if (report === "welfare-weeks" || report === "welfare-areas") {
     const tables = welfareTables(await welfarePatterns(range, now), true);
     csv = csvOf(report === "welfare-weeks" ? tables.weeks : tables.areas);
@@ -114,6 +128,12 @@ router.get("/team/insights/:report", requireTeam("view_reports"), async (req: Re
     const data = await welfarePatterns(range, now);
     req.log.info({ ms: Date.now() - started, report }, "report worked out");
     return void res.type("html").send(renderWelfarePage(data, { personName: person.name, range, canExport }));
+  }
+  if (report === "vet") {
+    if (!can(person, "view_vet_costs")) return refuseSignedIn(req, res);
+    const data = await vetCostsReport(range, now);
+    req.log.info({ ms: Date.now() - started, report }, "report worked out");
+    return void res.type("html").send(renderVetPage(data, { personName: person.name, range, canExport }));
   }
   res.status(404).json({ error: "Not found" });
 });

@@ -8,6 +8,10 @@ import type { WelfarePatterns } from "../reports/welfarePatterns";
 import { toCsv } from "../reports/csv";
 import { HEALTH_SORTS, sortHealth, type HealthReport, type HealthRow, type HealthSort, type SortDir } from "../reports/colonyHealth";
 import type { ProgressReport } from "../reports/progress";
+import { PURPOSE_ORDER, type VetCostsReport } from "../reports/vetCosts";
+import { euroText } from "../euros";
+import { visitDidWords } from "./catPages";
+import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
 import { dayWords, rangeQuery, type Range, type RangeKey } from "../reports/range";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
@@ -29,7 +33,7 @@ export const REPORTS: readonly { key: string; title: string; about: string; buil
   { key: "health", title: "Colony health", about: "Every colony in one table: cats, change, kittens, cat guardians and visits.", built: true },
   { key: "coverage", title: "Coverage and spotting", about: "Where spotters have looked, and where to send them next.", built: true },
   { key: "welfare", title: "Welfare patterns", about: "Welfare reports per week, by kind.", built: true },
-  { key: "vet", title: "Vet visits and costs", about: "Visits and Syros Cats' spend per month.", built: false },
+  { key: "vet", title: "Vet visits and costs", about: "Visits and Syros Cats' spend per month.", built: true },
   { key: "impact", title: "Impact report for funders", about: "What the work has achieved, to share with funders.", built: false },
   { key: "donations", title: "Donations", about: "Money received, and what it paid for.", built: false, pending: "Coming once donations are set up" },
 ];
@@ -56,12 +60,16 @@ const isoDay = (at: Date) => athensToday(at);
 
 // ─── The list ───────────────────────────────────────────────────────────
 
-export function renderReportsList(o: { personName: string }): string {
+/** Vet visits and costs needs view_vet_costs too (§8.4): without it the card isn't a link. */
+export const VET_COSTS_ONLY = "For team members who can see vet costs";
+
+export function renderReportsList(o: { personName: string; vetCosts: boolean }): string {
   const cards = REPORTS.map((r) => {
-    const head = r.built
+    const open = r.built && (r.key !== "vet" || o.vetCosts);
+    const head = open
       ? `<h2><a href="${INSIGHTS}/${r.key}">${esc(r.title)}</a></h2>`
       : `<h2>${esc(r.title)}</h2>`;
-    const status = r.built ? "" : `<p class="hint">${esc(r.pending ?? "Coming soon")}</p>`;
+    const status = open ? "" : `<p class="hint">${esc(r.built ? VET_COSTS_ONLY : (r.pending ?? "Coming soon"))}</p>`;
     return `<li class="card reportcard" id="report-${r.key}">${head}<p>${esc(r.about)}</p>${status}</li>`;
   }).join("");
   return renderPage({
@@ -107,14 +115,14 @@ function rangeBar(path: string, range: Range, extra = "", keep: Record<string, s
   );
 }
 
-/** The method lines (§9.3): when it was worked out, for what period, and the areas' version. */
-function methodNote(range: Range, workedOutAt: Date, areasVersion: number, lines: string[]): string {
+/** The method lines (§9.3): when it was worked out, for what period, and the areas' version (null: the report names no places). */
+function methodNote(range: Range, workedOutAt: Date, areasVersion: number | null, lines: string[]): string {
   return (
     '<div class="method">' +
     lines.map((l) => `<p class="hint">${esc(l)}.</p>`).join("") +
     `<p class="hint">${esc(CORRECTED)}.</p>` +
     `<p class="hint" id="worked-out">Worked out ${esc(stamp(workedOutAt))} · ${esc(lowerFirst(range.label))}</p>` +
-    `<p class="hint" id="areas-version">Place names from the named areas, version ${areasVersion}.</p>` +
+    (areasVersion === null ? "" : `<p class="hint" id="areas-version">Place names from the named areas, version ${areasVersion}.</p>`) +
     "</div>"
   );
 }
@@ -455,10 +463,131 @@ export function renderWelfarePage(r: WelfarePatterns, o: { personName: string; r
   return renderPage({ title: "Welfare patterns", active: "reports", personName: o.personName, beforeTitle: back, body, mainClass: "wide" });
 }
 
+// ─── Vet visits and costs ───────────────────────────────────────────────
+
+export const OWNER_PAID = "Owner-paid visits are listed, but never added into spend";
+
+const VET_MONTH_COLUMNS: TableColumn[] = [
+  { key: "month", label: "Month" },
+  { key: "visits", label: "Visits", numeric: true },
+  { key: "spend", label: "Syros Cats' spend (€)", numeric: true },
+];
+
+const VET_PURPOSE_COLUMNS: TableColumn[] = [
+  { key: "purpose", label: "What was done" },
+  { key: "visits", label: "Visits", numeric: true },
+  { key: "spend", label: "Syros Cats' spend (€)", numeric: true },
+];
+
+const VET_VISIT_COLUMNS: TableColumn[] = [
+  { key: "cat", label: "Cat" },
+  { key: "date", label: "Date" },
+  { key: "clinic", label: "Clinic" },
+  { key: "did", label: "What was done" },
+  { key: "cost", label: "Cost (€)", numeric: true },
+  { key: "paid", label: "Paid by" },
+];
+
+/** "Oct 2026" on the page; "2026-10" in a spreadsheet. */
+const monthWords = (at: Date, forCsv: boolean) => (forCsv ? isoDay(at).slice(0, 7) : dayWords(at).replace(/^\d+ /, ""));
+
+/** An amount: "€55.50" on the page, 55.5 in a spreadsheet. */
+const money = (eur: number, forCsv: boolean) => (forCsv ? eur : euroText(eur));
+
+/** The vet report's tables. `forCsv`: numbers stay numbers, dates are YYYY-MM-DD, no cost is empty. */
+export function vetTables(r: VetCostsReport, forCsv = false): { months: TableSpec; purposes: TableSpec; visits: TableSpec } {
+  return {
+    months: {
+      caption: "Visits and Syros Cats' spend per month",
+      columns: VET_MONTH_COLUMNS,
+      rows: r.perMonth.map((m) => ({ month: monthWords(m.at, forCsv), visits: m.visits, spend: money(m.spendEur, forCsv) })),
+    },
+    purposes: {
+      caption: "Syros Cats' spend by what was done",
+      columns: VET_PURPOSE_COLUMNS,
+      rows: PURPOSE_ORDER.map((p) => ({ purpose: DID_WORDS[p], visits: r.visitsByPurpose[p], spend: money(r.byPurpose[p], forCsv) })),
+    },
+    visits: {
+      caption: "Every visit, newest first",
+      columns: VET_VISIT_COLUMNS,
+      rows: r.visits.map((v) => ({
+        cat: v.catName,
+        date: forCsv ? isoDay(v.at) : dayWords(v.at),
+        clinic: v.clinic,
+        did: visitDidWords(v),
+        cost: v.costEur === null ? (forCsv ? "" : "Not recorded") : money(v.costEur, forCsv),
+        paid: PAID_WORDS[v.paidBy],
+      })),
+    },
+  };
+}
+
+export function renderVetPage(r: VetCostsReport, o: { personName: string; range: Range; canExport: boolean }): string {
+  const path = `${INSIGHTS}/vet`;
+  const t = vetTables(r);
+  const visits = r.visits.length;
+  const spend = r.perMonth.reduce((c, m) => c + Math.round(m.spendEur * 100), 0) / 100;
+  const per = r.perSterilisation;
+  const body =
+    rangeBar(path, o.range) +
+    (visits === 0 && r.noCost === 0 ? nothing(path) : "") +
+    '<section id="spend"><h2>Visits and spend per month</h2>' +
+    `<p class="hbig"><strong>${visits}</strong> vet ${visits === 1 ? "visit" : "visits"}, ` +
+    `<strong>${esc(euroText(spend))}</strong> spent by Syros Cats</p>` +
+    `<p class="hint">Spend is Syros Cats' money and donations given for a cat. ${esc(OWNER_PAID)}.</p>` +
+    (visits === 0
+      ? ""
+      : '<div class="chartbox">' +
+        barChart({
+          title: "Syros Cats' spend per month",
+          bars: r.perMonth.map((m) => ({ at: m.at, parts: [{ key: "spend", label: "Spend (€)", value: m.spendEur, colour: NEUTRAL_TOTAL }] })),
+        }) +
+        "</div>" +
+        tableFor(t.months) +
+        (o.canExport ? download("vet-months", o.range, "Download visits and spend per month as a spreadsheet (CSV)") : "")) +
+    "</section>" +
+    '<section id="by-purpose"><h2>Spend by what was done</h2>' +
+    '<p class="hint">Each visit is counted once, under its main purpose: Sterilised if ticked, else Vaccinated, else Treated, else Checked only.</p>' +
+    tableHtml(t.purposes) +
+    (o.canExport ? download("vet-purposes", o.range, "Download spend by what was done as a spreadsheet (CSV)") : "") +
+    "</section>" +
+    '<section id="per-sterilisation"><h2>Cost per sterilisation</h2>' +
+    (per === null
+      ? '<p class="empty">No sterilisation with a cost paid by Syros Cats in this period.</p>'
+      : `<p class="hbig">Average <strong>${esc(euroText(per.avg))}</strong></p>` +
+        `<p>From ${esc(euroText(per.min))} to ${esc(euroText(per.max))}, over ${esc(plural(per.n, "sterilisation", "sterilisations"))} Syros Cats paid for.</p>`) +
+    "</section>" +
+    '<section id="no-cost"><h2>Sterilisations with no cost recorded</h2>' +
+    `<p class="hbig"><strong>${r.noCost}</strong> ${r.noCost === 1 ? "sterilisation" : "sterilisations"} with no cost recorded</p>` +
+    '<p class="hint">Cats marked sterilised with “Update this cat” rather than a vet visit, and vet visits saved without a cost. They aren\'t in the cost per sterilisation.</p>' +
+    "</section>" +
+    '<section id="visits"><h2>Every visit</h2>' +
+    (visits === 0
+      ? '<p class="empty">No vet visits in this period.</p>'
+      : tableHtml(t.visits) + (o.canExport ? download("vet-visits", o.range, "Download every visit as a spreadsheet for the accounts (CSV)") : "")) +
+    "</section>" +
+    methodNote(o.range, r.workedOutAt, null, ["Counted by the date of the visit", "An undone visit isn't counted anywhere"]);
+  return renderPage({ title: "Vet visits and costs", active: "reports", personName: o.personName, beforeTitle: back, body, mainClass: "wide" });
+}
+
 // ─── The spreadsheet files ──────────────────────────────────────────────
 
 /** The downloads, by the name in their address. */
-export const CSV_REPORTS = ["progress-over", "progress-colonies", "health", "coverage-weeks", "coverage-areas", "welfare-weeks", "welfare-areas"] as const;
+export const CSV_REPORTS = [
+  "progress-over",
+  "progress-colonies",
+  "health",
+  "coverage-weeks",
+  "coverage-areas",
+  "welfare-weeks",
+  "welfare-areas",
+  "vet-months",
+  "vet-purposes",
+  "vet-visits",
+] as const;
+
+/** The vet report's files need view_vet_costs too (§8.4). */
+export const VET_CSV_REPORTS: readonly CsvReport[] = ["vet-months", "vet-purposes", "vet-visits"];
 export type CsvReport = (typeof CSV_REPORTS)[number];
 
 export const csvOf = (t: TableSpec): string => toCsv(t.columns, t.rows);
@@ -473,6 +602,9 @@ export function csvFilename(report: CsvReport, now: Date): string {
     "coverage-areas": "coverage-by-area",
     "welfare-weeks": "welfare-reports-per-week",
     "welfare-areas": "welfare-reports-by-area",
+    "vet-months": "vet-spend-per-month",
+    "vet-purposes": "vet-spend-by-what-was-done",
+    "vet-visits": "vet-visits",
   }[report];
   return `${name}-${isoDay(now)}.csv`;
 }
