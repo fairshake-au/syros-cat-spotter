@@ -180,7 +180,8 @@ function recordBlock<T>(
   return (
     `<h3>${esc(label)}</h3><dl>` +
     row("Status", esc(valueText)) +
-    row("Since", time(r.asOf, day(r.asOf))) +
+    // The resolver dates "nothing known" at the epoch (SYC-270): no date then.
+    (Date.parse(r.asOf) > 0 ? row("Since", time(r.asOf, day(r.asOf))) : "") +
     row("Why we think so", statementRefs(r.supportingStatementIds, byId, shown)) +
     (r.conflictingStatementIds.length
       ? row("Says otherwise", `<div class="bad">${statementRefs(r.conflictingStatementIds, byId, shown)}</div>`)

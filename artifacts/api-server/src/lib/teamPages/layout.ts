@@ -279,10 +279,10 @@ a.catlink.tap,a.sublink.tap{display:flex}
 .refs li{margin:0 0 6px}
 .hintlist{margin:0 0 8px;padding-left:20px}
 .hintlist li{margin:4px 0}
-.evidence{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:0 0 4px;max-width:520px}
-.evidence figure{margin:0}
-.evidence img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#ece8dc}
-.evidence figcaption{font-size:13px;color:#55524a;margin-top:2px}
+div.evidence{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:0 0 4px;max-width:520px}
+div.evidence figure{margin:0}
+div.evidence img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#ece8dc}
+div.evidence figcaption{font-size:13px;color:#55524a;margin-top:2px}
 .likelyactions form{margin:12px 0 0}
 .likelyactions .save{width:100%}
 input.text,input[type=date],select.text{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;margin:0 0 8px;background:#fff}

@@ -355,7 +355,7 @@ export const en = {
   "create.open": "Create a colony",
   "create.name": "Colony name",
   "create.nameHint":
-    "A place and the person who looks after it, like “Vaporia — Eleni's”.",
+    "Use the place, not a person's name, like “Vaporia steps” or “Kini harbour”. Cat guardians change; the place doesn't.",
   "create.guardian": "Cat guardian's name (optional)",
   "create.notes": "Team-only notes (optional)",
   "create.button": "Create the colony",
@@ -521,7 +521,7 @@ export const en = {
   "confirm.spot": "The spot",
   "confirm.legend": "The marker is the spot you picked.",
   "confirm.name": "Name of the site",
-  "confirm.nameHint": "A place and the person who looks after it, like “Vaporia — Eleni's”.",
+  "confirm.nameHint": "Use the place, not a person's name, like “Vaporia steps” or “Kini harbour”. Cat guardians change; the place doesn't.",
   "confirm.colony": "Colony (optional)",
   "confirm.noColony": "No colony yet",
   "confirm.directions": "How to find it (optional)",

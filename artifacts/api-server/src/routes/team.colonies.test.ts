@@ -270,7 +270,7 @@ describe("creating a colony", () => {
   it("the list shows the naming convention and the notes hint", async () => {
     const page = decoded((await get("/api/team/colonies")).text);
     expect(page).toContain("Create a colony");
-    expect(page).toContain("A place and the person who looks after it, like “Vaporia — Eleni's”.");
+    expect(page).toContain("Use the place, not a person's name, like “Vaporia steps” or “Kini harbour”.");
     expect(page).toContain("Don't write when people come and go.");
   });
 
