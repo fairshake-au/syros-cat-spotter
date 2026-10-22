@@ -80,7 +80,7 @@ const OCT = parseRange({ range: "custom", from: "2026-10-01", to: "2026-10-31" }
 const NAMES = new Map<number, string>();
 
 describe("vetCostsFrom", () => {
-  it("adds money in cents: 0.1 + 0.2 is exactly 0.3, and the average rounds to the cent", () => {
+  it("adds money in cents: 0.29 + 0.57 is exactly 0.86, and the average rounds to the cent", () => {
     const r = vetCostsFrom(
       [
         visitRow(1, "2026-10-02T12:00:00Z", visit(["sterilised"], { costEur: 0.1 })),
@@ -94,11 +94,13 @@ describe("vetCostsFrom", () => {
     expect(r.byPurpose.sterilised).toBe(55.4);
     expect(r.perSterilisation).toEqual({ avg: 18.47, min: 0.1, max: 55.1, n: 3 });
     const two = vetCostsFrom(
-      [visitRow(1, "2026-10-02T12:00:00Z", visit(["checked"], { costEur: 0.1 })), visitRow(2, "2026-10-03T12:00:00Z", visit(["checked"], { costEur: 0.2 }))],
+      // 0.29 × 100 and 0.57 × 100 aren't whole numbers in floating point.
+      [visitRow(1, "2026-10-02T12:00:00Z", visit(["checked"], { costEur: 0.29 })), visitRow(2, "2026-10-03T12:00:00Z", visit(["checked"], { costEur: 0.57 }))],
       NAMES,
       OCT,
     );
-    expect(two.perMonth[0]!.spendEur).toBe(0.3);
+    expect(two.perMonth[0]!.spendEur).toBe(0.86);
+    expect(two.byPurpose.checked).toBe(0.86);
   });
 
   it("noCost counts a cat once, and not a cat a standing visit sterilised (on any date)", () => {
