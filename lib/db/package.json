@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
     "./testDatabase": "./src/migrate/testDatabase.ts",
-    "./fold": "./src/fold.ts"
+    "./fold": "./src/fold.ts",
+    "./photoRemoval": "./src/photoRemoval/index.ts"
   },
   "scripts": {
     "generate": "drizzle-kit generate --config ./drizzle.config.ts",
@@ -20,7 +21,8 @@
     "switchover": "tsx ./src/switchover/cli.ts",
     "test": "vitest run",
     "people": "tsx ./src/people/cli.ts",
-    "settings": "tsx ./src/appSettings/cli.ts"
+    "settings": "tsx ./src/appSettings/cli.ts",
+    "photos": "tsx ./src/photoRemoval/cli.ts"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

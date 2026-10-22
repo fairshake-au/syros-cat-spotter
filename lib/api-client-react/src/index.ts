@@ -11,6 +11,7 @@ export {
   ApiError,
   RequestTimeoutError,
   USERNAME_REQUEST_TIMEOUT_MS,
+  RECHECK_REQUEST_TIMEOUT_MS,
   customFetch,
 } from "./custom-fetch";
 export type { AuthTokenGetter } from "./custom-fetch";

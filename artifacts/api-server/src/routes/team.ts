@@ -6,7 +6,7 @@ import {
   handoffPublicKeys,
   sessionKeys,
   SIGN_IN_ORIGIN,
-  SIGN_IN_PAGE,
+  SIGN_OUT_PAGE,
   TEAM_HOME,
   TEAM_ORIGIN,
 } from "../lib/teamAuth/config";
@@ -161,8 +161,8 @@ router.post(
     }
     req.log.info({ jti: claims.jti }, "team hand-off accepted");
     setTeamHeaders(res);
-    // The team lands on the welfare queue. Someone with no island row (a
-    // cat guardian) lands on her own page instead, never on the queue's 403
+    // The team lands on Home (SYC-396 PR 2.1). Someone with no island row (a
+    // cat guardian) lands on her own page instead, never on Home's 403
     // (roles spec §6.3: "straight to the dashboard"). PR 1.3 makes that page
     // "My colonies".
     res.redirect(
@@ -204,7 +204,16 @@ router.get(
     res
       .type("html")
       // Open map on each position only for an island-wide viewer (D9, SYC-395).
-      .send(renderQueuePage(queue, person.name, new Date(), changed, tied, isIslandWide(person), noted));
+      .send(renderQueuePage(
+          queue,
+          person.name,
+          new Date(),
+          changed,
+          tied,
+          isIslandWide(person),
+          noted,
+          can(person, "change_report_state"),
+        ));
   },
 );
 
@@ -236,8 +245,10 @@ router.post(
     clearSession(res);
     // An invitee's session too (SYC-53 PR 1.1): sign-out ends both kinds.
     clearInviteSession(res);
+    // A browser goes on through the sign-in site's own sign-out, which ends
+    // that session too and leaves it on the sign-in page.
     if (isBrowserNavigation(req)) {
-      res.redirect(303, SIGN_IN_PAGE);
+      res.redirect(303, SIGN_OUT_PAGE);
       return;
     }
     res.status(204).end();

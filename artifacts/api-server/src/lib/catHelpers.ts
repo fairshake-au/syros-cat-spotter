@@ -247,6 +247,18 @@ export interface PublicSighting {
    * it was before.
    */
   extraPhotos?: { role: "first" | "face" | "body"; photoUrl: string | null }[];
+  /**
+   * SYC-44 PR 6.1 (spec D4): true while the sighting's own photo is hidden,
+   * so the app can show "Photo hidden while Syros Cats take a look." where it
+   * was. It says only that: never why, nor by whom.
+   */
+  photoHidden: boolean;
+  /**
+   * SYC-462: present, and true, only when the sighting's own photo was removed
+   * for good, so the app says "Photo removed." rather than the hidden tile.
+   * LEFT OUT otherwise, so every other payload is byte-for-byte unchanged.
+   */
+  photoRemoved?: true;
   createdAt: string;
 }
 
@@ -262,6 +274,10 @@ export function serialiseSighting(s: {
   photoUrl: PublicPhotoUrl | null;
   /** Other photos of the same spot, built the same way. Omitted from the output when empty. */
   extraPhotos?: { role: "first" | "face" | "body"; photoUrl: PublicPhotoUrl | null }[];
+  /** Set from the same `hiddenPhotoIds` lookup that blanks `photoUrl`. */
+  photoHidden: boolean;
+  /** SYC-462: from `removedPhotoIds`. */
+  photoRemoved?: boolean;
 }): PublicSighting {
   return {
     catId: s.catId,
@@ -270,6 +286,8 @@ export function serialiseSighting(s: {
     spotterNickname: s.spotterNickname,
     photoUrl: s.photoUrl,
     ...(s.extraPhotos?.length ? { extraPhotos: s.extraPhotos } : {}),
+    photoHidden: s.photoHidden,
+    ...(s.photoRemoved ? { photoRemoved: true as const } : {}),
     createdAt: toPublicDay(s.createdAt),
   };
 }
@@ -635,8 +653,8 @@ export async function computeStreak(deviceId: string): Promise<number> {
 }
 
 /**
- * Cat ids this device has personally spotted — drives the design's
- * collected-vs-"Spot to unlock" treatment on the Home and Cat-alog grids.
+ * Cat ids this device has personally spotted — drives the cards' "Spotted"
+ * stamp and the "Not spotted yet" filter on Home and the Cat-alog.
  */
 export async function spottedCatIds(deviceId: string): Promise<number[]> {
   const rows = await db

@@ -4,12 +4,15 @@
 // cat-report alerts (SYC-42 layer 3) arrive hours late. Every 2 hours on a
 // reliable clock means a stuck alert is reported 1-3 hours after it stuck. The logic lives in drain.js.
 import { runTick } from "./drain.js";
+import { NEWS_CRON, runNewsTick } from "./news.js";
 
 const FROM = { email: "mail-drain@catspotters.com", name: "Syros Cat Spotter mail drain" };
 
 export default {
   async scheduled(controller, env, ctx) {
-    await runTick({
+    // SYC-45 Slice 1: the second cron is the nightly news check (news.js).
+    const tick = controller.cron === NEWS_CRON ? runNewsTick : runTick;
+    await tick({
       env,
       fetchImpl: (url, init) => fetch(url, init),
       sleep: (ms) => scheduler.wait(ms),

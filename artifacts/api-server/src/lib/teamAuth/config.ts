@@ -14,10 +14,22 @@ export const HANDOFF_AUDIENCE = "https://team.catspotters.com";
 export const SIGN_IN_ORIGIN = "https://admin.catspotters.com";
 /** The only Origin a dashboard POST may come from. */
 export const TEAM_ORIGIN = "https://team.catspotters.com";
-/** Where a signed-in person lands. */
-export const TEAM_HOME = "https://team.catspotters.com/api/team/";
+/** Where a signed-in team member lands: Home (SYC-396 PR 2.1). The Queue keeps /api/team. */
+export const TEAM_HOME = "https://team.catspotters.com/api/team/home";
 /** Where a refused browser is sent back to. */
 export const SIGN_IN_PAGE = "https://admin.catspotters.com/";
+/**
+ * The shared Syros Cats & Fair Shake workspace. admin.catspotters.com itself
+ * opens the dashboard for anyone who may use it, so the workspace has its own
+ * address, linked from the dashboard's menu.
+ */
+export const WORKSPACE_PAGE = "https://admin.catspotters.com/workspace";
+/**
+ * Where Sign out on the dashboard ends up: the sign-in site's own sign-out,
+ * which ends its session too. Sent to admin.catspotters.com itself, a person
+ * still signed in there would be taken straight back into the dashboard.
+ */
+export const SIGN_OUT_PAGE = "https://admin.catspotters.com/signout";
 
 const B64URL = /^[A-Za-z0-9_-]+$/;
 

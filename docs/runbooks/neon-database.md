@@ -24,7 +24,7 @@ gh run watch
 gh run view --log
 ```
 
-`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `verify-history`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`, `people-set-roles`, `people-mark-left`, `people-sign-out-everywhere`, `set-setting`, `list-settings`.
+`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `verify-history`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`, `people-set-roles`, `people-mark-left`, `people-sign-out-everywhere`, `set-setting`, `list-settings`, `photo-list`, `photo-hide`, `photo-restore`, `photo-remove` (SYC-462; `docs/runbooks/photo-removal.md`).
 
 ## The match-wait switches (`set-setting`, `list-settings`)
 
@@ -35,6 +35,8 @@ The feeding nudge's donation link and the starter facts that are switched off li
 | `feed_nudge_donate_url` | `"https://syroscats.com/donations"` (quotes included), or `""` | The page **Help feed a cat** opens. Empty switches the link **and** the €1/€30 figures off (the nudge's words-only form). https only. The migration seeds Syros Cats' page (Samuel's Decision 6) |
 | `starter_facts_hidden` | `["fact.earTip","fact.cost"]`, or `[]` | Facts the app must not show. With no row, the nine that need Syros Cats' yes are hidden. `[]` shows all twenty. Unknown ids are refused |
 | `feed_tap_count` | `true` or `false` | Whether a tap on **Help feed a cat** is counted (one number per day). No row means counted |
+| `photo_removal_on` | `true` or `false` | SYC-462: whether `photo-remove` may run on `production`. Set to `true` once, after the live build is confirmed to include SYC-462 (`docs/runbooks/photo-removal.md`, go-live). No row means off. The server doesn't read it |
+| `standard_sterilisation_price_eur` | `60`, a whole number from `1` to `500` | SYC-396 PR 2.3: the standard sterilisation price in euros, for the trapping planner's estimate and the vet-visit form's cost. No row means €60. Team-only: the app is never sent it. Change it on the team dashboard's **Vet settings** page (SYC-396 PR 3.1b), which keeps the history of who changed it and when. Use `set-setting` only as a fallback, when the page can't be used: a change made here leaves no history row, so the page's history won't show it |
 
 ```
 gh workflow run db-ops.yml --ref main -f target=production -f command=list-settings
@@ -163,6 +165,8 @@ If `migrate` refuses the Neon `development` branch ("cannot be adopted", or "the
 **Resetting `rehearsal` before re-running the switchover plan's Part D (added 30 Sep):** the plan's D.8 recovery drill ends with `rehearsal` in a "cut over" state that both copy commands refuse, and `rehearsal` (a child branch) can't be restored from a snapshot the way `production` can (see "Snapshots and restores only work on a root branch" below, under "Restoring to a point in time"). Before a re-run, reset it from `production` the same way as `development` above — Neon console → **Branches** → `rehearsal` → **Reset from parent**, or delete and recreate it. This discards `rehearsal`'s contents, so get Samuel's OK first, same as any other data-discarding step.
 
 ## Restoring to a point in time
+
+> **After any restore, snapshot swap or carry-back, re-apply photo removals (SYC-462).** For every row on the "Photo removals" ledger dated after the restore point, run `photo-hide` then `photo-remove` (`docs/runbooks/photo-removal.md`, "After any restore") before visitors reach the restored database. A restore brings back pictures removed since its moment.
 
 **Two different things are both called "restore" here — they behave differently, and this runbook used to blur them (corrected after the Fable review, 30 Sep):**
 

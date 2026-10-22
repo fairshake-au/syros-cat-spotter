@@ -55,10 +55,9 @@ describe('the waiting card on the New spot screen', () => {
 
   it('only a sent photo with a cat in it reaches a result, and only then is the record saved (spec tests 4 and 7)', () => {
     const settle = between('const waitOutcome: WaitOutcome =', 'noteSent();');
-    expect(settle).toMatch(/outcome\.kind === 'sent'/);
-    expect(settle).toMatch(/isCatPhoto/);
-    expect(settle).toMatch(/kind: 'notCat'/);
-    expect(settle).toMatch(/kind: 'failed'/);
+    // SYC-503: which outcome is decided by waitOutcomeForSend (unit-tested in
+    // waitingCard.test.ts): only a sent answer is passed, so anything else is "failed".
+    expect(settle).toMatch(/waitOutcomeForSend\(\s*outcome\.kind === 'sent' \? outcome\.result : null,?\s*\)/);
     expect(settle).toMatch(/waitOutcome\.kind === 'result'/);
     expect(settle).toMatch(/loadExistingWaitingRecord/);
   });

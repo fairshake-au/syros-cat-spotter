@@ -15,19 +15,15 @@ import {
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
 import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import {
-  getGetProfileQueryKey,
-  setBaseUrl,
-  setPrelaunchKey,
-  useGetProfile,
-} from '@workspace/api-client-react';
+import { setBaseUrl, setPrelaunchKey } from '@workspace/api-client-react';
 import { AppearanceProvider } from '@/context/AppearanceContext';
-import { LanguageProvider } from '@/context/LanguageContext';
+import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { AppSettingsProvider } from '@/context/AppSettingsContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { ReportQueueProvider } from '@/context/ReportQueueContext';
+import { IssueQueueProvider } from '@/context/IssueQueueContext';
 import { TurnstileHost } from '@/components/TurnstileHost';
 import {
   DeleteMyDataProvider,
@@ -35,10 +31,12 @@ import {
 } from '@/context/DeleteMyDataContext';
 import { DeleteMyDataDone } from '@/components/DeleteMyDataDone';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
+import { HeldNameSaver } from '@/hooks/useHeldNameSaver';
 import { StartupErrorScreen } from '@/components/StartupErrorScreen';
 import { BannerStack } from '@/components/BannerStack';
 import { KeepSafeScreen } from '@/components/keepSafe/KeepSafeScreen';
 import { MovedScreen } from '@/components/keepSafe/MovedScreen';
+import { FirstBadgeOffer } from '@/components/keepSafe/FirstBadgeOffer';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 import { apiOrigin } from '@/lib/urls';
 import { prelaunchKey } from '@/lib/prelaunch';
@@ -83,35 +81,16 @@ function RootLayoutNav() {
 }
 
 /**
- * SYC-3: "keep my spots safe" offered once more when a spotter who skipped it
- * at onboarding first has something to lose, their first badge
- * (email-capture.md §8.3). Declining is one tap, and it's never asked again.
- */
-function FirstBadgeOffer({ children }: { children: React.ReactNode }) {
-  const { deviceId, setKeepSafeOffer } = useDevice();
-  const { isOnline } = useOffline();
-  const profile = useGetProfile(deviceId ?? '', {
-    query: { enabled: !!deviceId && isOnline, queryKey: getGetProfileQueryKey(deviceId ?? '') },
-  });
-  const badges = profile.data?.badges;
-  if (Array.isArray(badges) && badges.length > 0) {
-    return (
-      <KeepSafeScreen
-        surface="first_badge"
-        onSaved={() => setKeepSafeOffer('done')}
-        onSkip={() => setKeepSafeOffer('done')}
-      />
-    );
-  }
-  return <>{children}</>;
-}
-
-/**
  * Shows the one-time landing screen until a username has been claimed, then
- * (SYC-3) "Don't lose your spots" once, before the app.
+ * (SYC-3) "Don't lose your spots" once, before the app. A spotter who skipped
+ * it is offered it once more at their first badge, on top of the app
+ * (FirstBadgeOffer, SYC-502).
  */
 function OnboardingGate() {
-  const { isReady, username, startupError, moved, keepSafeOffer, setKeepSafeOffer } = useDevice();
+  const { isReady, username, heldUsername, startupError, moved, keepSafeOffer, setKeepSafeOffer } = useDevice();
+  // SYC-155: the first screen waits for the stored language, so a phone that
+  // chose Greek or French never flashes English first.
+  const { isLanguageReady } = useLanguage();
   const pathname = usePathname();
   // Whether this phone already had a spotter when the app opened: a spotter
   // from before this version sees "keep my spots safe" once as a one-time
@@ -124,15 +103,17 @@ function OnboardingGate() {
   // surfaces it here instead of leaving isReady false and this app stuck
   // on a blank screen forever.
   if (startupError) return <StartupErrorScreen />;
-  if (!isReady) return null;
+  if (!isReady || !isLanguageReady) return null;
   // SYC-63: "Done" comes before the new spotter's first-run step.
   if (doneVisible) return <DeleteMyDataDone />;
   // SYC-3: this phone's spotter moved to a new phone.
   if (moved) return <MovedScreen />;
   // SYC-3: a restore link works on a phone that hasn't finished onboarding.
   if (pathname === '/restore') return <RootLayoutNav />;
-  if (!username) return <OnboardingFlow />;
-  if (keepSafeOffer === null) {
+  // SYC-506: a name held on the phone (chosen offline) is past onboarding;
+  // HeldNameSaver saves it once there's a connection.
+  if (!username && !heldUsername) return <OnboardingFlow />;
+  if (keepSafeOffer === null && username) {
     const onboarding = startedWithName.current === false;
     return (
       <KeepSafeScreen
@@ -143,14 +124,16 @@ function OnboardingGate() {
       />
     );
   }
-  const app = (
+  return (
     <>
       <OfflineTilesLoader />
+      {!username && <HeldNameSaver />}
       <RootLayoutNav />
       <BannerStack />
+      {/* SYC-506: only for a spotter whose name the server has saved. */}
+      {keepSafeOffer === 'skipped-onboarding' && username ? <FirstBadgeOffer /> : null}
     </>
   );
-  return keepSafeOffer === 'skipped-onboarding' ? <FirstBadgeOffer>{app}</FirstBadgeOffer> : app;
 }
 
 export default function RootLayout() {
@@ -184,16 +167,18 @@ export default function RootLayout() {
                 <OfflineProvider>
                   <AppSettingsProvider>
                     <ReportQueueProvider>
-                      <NotificationProvider>
-                        <DeleteMyDataProvider>
-                          <GestureHandlerRootView>
-                            <KeyboardProvider>
-                              <OnboardingGate />
-                              <TurnstileHost />
-                            </KeyboardProvider>
-                          </GestureHandlerRootView>
-                        </DeleteMyDataProvider>
-                      </NotificationProvider>
+                      <IssueQueueProvider>
+                        <NotificationProvider>
+                          <DeleteMyDataProvider>
+                            <GestureHandlerRootView>
+                              <KeyboardProvider>
+                                <OnboardingGate />
+                                <TurnstileHost />
+                              </KeyboardProvider>
+                            </GestureHandlerRootView>
+                          </DeleteMyDataProvider>
+                        </NotificationProvider>
+                      </IssueQueueProvider>
                     </ReportQueueProvider>
                   </AppSettingsProvider>
                 </OfflineProvider>

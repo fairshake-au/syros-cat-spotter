@@ -331,6 +331,8 @@ Each statement it creates points back to the visit.
 
 **When a guardian disagrees (D8).** Under Decision G, a cat guardian's standing "not sterilised" on the same cat would outrank a team statement. So the same save also marks that guardian statement wrong, with the reason "vet visit on 13 Aug 2026". It appears on the recent guardian changes list, so nobody is overruled silently. This mirrors the team's **Correct** on colour (DECISIONS, 13 Oct 2026). Undoing the visit restores the guardian's statement.
 
+**A visit that sterilised the cat always prevails** (Samuel, 21 Oct 2026, SYC-543: "a vet visit in which the cat was sterilised should always prevail"). While a visit with Sterilised ticked stands, the cat reads *Sterilised, confirmed*, whoever said "not sterilised" (the team, a cat guardian, anyone) and whenever they said it, including after the visit. Sterilisation can't be reversed, so a vet's record of doing it outweighs anyone's later "no". The only way back is to mark the visit wrong; the other answers then stand again exactly as before. A "not sterilised" the visit outweighs is never hidden: a guardian's is overruled visibly as above, and any other (a team member's, or one recorded after the visit) shows under *Says otherwise* on the cat page, so the team can see the clash and tidy it up. A visit logged on the wrong cat is fixed by marking the visit wrong.
+
 **Sterilisations recorded without a visit.** "Update this cat → whether sterilised" still works. The vet report counts those as "sterilised, no cost recorded".
 
 **Proof the cat was alive.** A vet visit also counts as proof the cat was alive on that date. This amends the data spine's list in §3.4.
@@ -374,7 +376,7 @@ The colony page leads with what a trapping round needs:
    - "Not sterilised" cats come first, then "Not known", then "Probably". Within each group, most recently seen comes first, because those cats are most likely to turn up.
    - Every cat is listed. The list is never cut short.
    - Each cat shows: photo, name, colour chips, the place label where it's usually seen (its feeding site's public label, or its area), last seen, and "ear clip seen" where that applies.
-2. **The estimate:** "N cats × €55 = €X", using the standard price from §8.2. The price is shown.
+2. **The estimate:** "N cats × €60 = €X", using the standard price from §8.2. The price is shown.
 3. **The colony's feeding sites,** on a small map.
 4. **A printable plan.** A clean one-page version for the round:
    - it shows photos, names, colours and place labels;
@@ -493,7 +495,7 @@ Once the donation route with James is settled, a Donations report will show:
 - money received per month, by source;
 - Syros Cats' vet spend per month (§8.4);
 - cats sterilised with money given for that cat;
-- a simple meter towards a fundraising goal the team sets, worded as "€X raised, enough for about N sterilisations at €55".
+- a simple meter towards a fundraising goal the team sets, worded as "€X raised, enough for about N sterilisations at €60".
 
 Until then, the Reports list shows Donations as "Coming once donations are set up". The data source will be decided with James. This spec fixes nothing about payment tools.
 
@@ -534,6 +536,7 @@ These are added to `roles-and-invites.md` §6.2 before anything is built:
 | `export_report` | island | team |
 | `edit_named_areas` | island | team |
 | `edit_vet_settings` (standard price; the vet list stays as team-access §5.7 sets it) | island | team |
+| `print_trapping_plan` (added by the phases 2–4 plan, Task 2.3.1, so the printable plan has its own permission) | island | team |
 
 Changes to named areas and to the standard price are kept in the same add-only history as site and colony changes.
 
@@ -712,13 +715,13 @@ Each phase is its own set of pull requests, reviewed and shipped before the next
 
 ## 16. Questions still open
 
-**Decided:** D8, when a vet visit and a cat guardian disagree (§8.3).
+**Decided:** D8, when a vet visit and a cat guardian disagree (§8.3); and a visit that sterilised the cat always prevails over any "not sterilised" (§8.3, SYC-543).
 
-**Questions for Syros Cats** (they don't block approval; the spec's assumptions stand until answered):
-1. **Standard sterilisation price.** Is there one price at the clinic Syros Cats use, or one per clinic? The spec assumes one standard price, which the team sets and can override per visit.
-2. **The named-area list.** We draft it. Syros Cats correct it.
-3. **The "Not seen lately" threshold.** The spec uses 6 weeks. Syros Cats may know better for street cats on Syros.
-4. **The impact report's smallest area.** The spec shows an area only with at least 5 cats. Is that enough?
+**Questions for Syros Cats: answered** (Samuel, 18 Oct 2026, SYC-442):
+1. **Standard sterilisation price:** **€60**, one standard price. The team can still change it per visit, and on the Vet settings page.
+2. **The named-area list:** the drafted list of 21 areas is right as it stands. The team can correct it later on the Areas page.
+3. **The "Not seen lately" threshold:** **6 weeks** stands.
+4. **The impact report's smallest area:** **5 cats** stands.
 
 ## 17. How the adversarial review was handled
 

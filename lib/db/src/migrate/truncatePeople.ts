@@ -20,6 +20,8 @@ const GUARDS: [table: string, trigger: string][] = [
   // SYC-298: sites and colonies refuse TRUNCATE too, and people reach them.
   ["feeding_sites", "feeding_sites_no_truncate"],
   ["colonies", "colonies_no_truncate"],
+  // SYC-396 PR 3.3a: who downloaded a report.
+  ["report_downloads", "report_downloads_no_truncate"],
 ];
 
 /** `truncate <tables> cascade` with the guards the cascade reaches off. */

@@ -19,6 +19,7 @@ const ALLOWED = new Set<string>([
   join("lib", "teamPages", "siteFormPages.ts"),
   join("lib", "teamPages", "sitePages.ts"),
   join("lib", "teamPages", "queuePage.ts"),
+  join("lib", "teamPages", "areasPage.ts"),
   join("routes", "teamMap.ts"),
   // A cat guardian's own pages: always link: false (positions.source.test.ts).
   join("lib", "teamPages", "guardianPages.ts"),

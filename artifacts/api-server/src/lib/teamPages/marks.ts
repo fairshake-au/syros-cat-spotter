@@ -1,4 +1,6 @@
+import type { Split } from "../dashboard/countedCats";
 import type { SterilisedMark } from "../teamCatList";
+import { escapeHtml as esc } from "./escape";
 
 // The four sterilisation marks (SYC-396 spec §12.2). They mean sterilisation
 // status and nothing else, and are always a shape AND a word, never colour
@@ -72,6 +74,66 @@ export function clusterRing(split: Partial<Record<SterilisedMark, number>>): str
 }
 
 /**
+ * Whole hundredths of a per cent for each count, summing to exactly 100%
+ * (largest remainder), so the bar never falls short or overflows by rounding.
+ */
+function hundredths(counts: readonly number[], total: number): number[] {
+  const exact = counts.map((n) => (n / total) * 10_000);
+  const out = exact.map(Math.floor);
+  let left = 10_000 - out.reduce((a, b) => a + b, 0);
+  const byRemainder = exact.map((v, i) => [v - Math.floor(v), i] as const).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  for (const [, i] of byRemainder) {
+    if (left <= 0) break;
+    out[i]! += 1;
+    left -= 1;
+  }
+  return out;
+}
+
+/**
+ * Trusted HTML: the four-part sterilisation bar (SYC-396 PR 2.0; spec §4,
+ * §12.2). One bar of up to four segments in MARK_ORDER, each as wide as its
+ * share, then a legend line giving every non-zero part its shape, number and
+ * word, so it is never colour alone. Built only from the fixed words, the
+ * fixed colours and the counts; `label` is escaped.
+ *
+ * `words` and `empty` let a cat guardian's page give the four words and the
+ * "no street cats" line in her language (SYC-396 PR 2.2); they are escaped
+ * too. Left out, the team's English words are used.
+ */
+export function markBar(
+  split: Split,
+  opts: { label?: string; words?: Record<SterilisedMark, string>; empty?: string } = {},
+): string {
+  const word = opts.words ?? MARK_WORD;
+  const emptyWords = opts.empty ?? "No street cats yet";
+  // Whole, finite, non-negative counts only: anything else counts as none.
+  const count = (v: number | undefined) => (Number.isFinite(v) ? Math.max(0, Math.floor(v!)) : 0);
+  const parts = MARK_ORDER.map((m) => ({ m, n: count(split[m]) })).filter((p) => p.n > 0);
+  const total = parts.reduce((t, p) => t + p.n, 0);
+  const words = total === 0 ? emptyWords : parts.map((p) => `${p.n} ${word[p.m]}`).join(", ");
+  const aria = esc(opts.label ? `${opts.label}: ${words}` : words);
+  if (total === 0) {
+    return (
+      `<div class="markbar"><div class="markbar-track markbar-empty" role="img" aria-label="${aria}"></div>` +
+      `<p class="markbar-legend">${esc(emptyWords)}</p></div>`
+    );
+  }
+  const widths = hundredths(parts.map((p) => p.n), total);
+  const segs = parts
+    .map((p, i) => `<span class="markbar-seg mark-${p.m}" style="flex:0 1 ${widths[i]! / 100}%;background:${MARK_COLOUR[p.m]}"></span>`)
+    .join("");
+  // The legend repeats the bar's label in sight, so screen readers hear it once.
+  const legend = parts
+    .map((p) => `<span class="mark mark-${p.m}">${icon(p.m)}<span class="mark-word">${p.n} ${esc(word[p.m])}</span></span>`)
+    .join('<span class="markbar-sep"> · </span>');
+  return (
+    `<div class="markbar"><div class="markbar-track" role="img" aria-label="${aria}">${segs}</div>` +
+    `<p class="markbar-legend" aria-hidden="true">${legend}</p></div>`
+  );
+}
+
+/**
  * The island map's dots (SYC-396 PR 1.5; spec §12.2, §12.4), for the
  * draggable map's markers and the button map's pins alike. A dot is the
  * badge's shape and shade at 16px, with a 2px light ring and a 1px dark
@@ -99,4 +161,11 @@ export const MARK_CSS =
   ".mark-icon{flex:none}" +
   (Object.keys(MARK_COLOUR) as SterilisedMark[])
     .map((m) => `.mark-${m} .mark-icon{color:${MARK_COLOUR[m]}}`)
-    .join("");
+    .join("") +
+  // The four-part bar: 2px gaps, rounded ends; an empty outline when there are no street cats.
+  ".markbar{margin:8px 0}" +
+  ".markbar-track{display:flex;gap:2px;height:16px;border-radius:8px;overflow:hidden}" +
+  ".markbar-seg{display:block;min-width:2px}" +
+  ".markbar-empty{border:2px solid rgba(29,29,27,.55);box-sizing:border-box}" +
+  ".markbar-legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:6px 0 0;font-size:14px;color:#1d1d1b}" +
+  ".markbar-sep{color:rgba(29,29,27,.55)}";

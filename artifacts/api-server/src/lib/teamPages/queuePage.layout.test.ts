@@ -19,6 +19,7 @@ const report = (id: string, over: Partial<QueueReport> = {}): QueueReport => ({
   stateChangedBy: null,
   photo: { status: "none", url: null },
   cat: null,
+  suggestedCat: null,
   contactLeft: false,
   emailToReporter: null,
   teamNote: null,
@@ -199,9 +200,10 @@ describe("after a team note is saved (?noted=)", () => {
 });
 
 describe("the phone menu", () => {
-  it("has a short label for Feeding sites, hidden on desktop by CSS; Queue is already short (SYC-396 PR 1.6)", () => {
+  it("is one short row: the long/short pair left with Feeding sites, and Queue is current (SYC-396 PR 2.1)", () => {
     const html = render(queue([report("a")]));
     expect(html).toContain('aria-current="page">Queue</a>');
-    expect(html).toContain('<span class="long">Feeding sites</span><span class="short">Sites</span>');
+    expect(html).not.toContain('class="long"');
+    expect(html).not.toContain("Feeding sites</a>");
   });
 });

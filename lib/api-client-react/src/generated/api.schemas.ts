@@ -407,7 +407,7 @@ export interface IssueReportRequest {
   clientRef: string;
   reason: IssueReportRequestReason;
   catId: number;
-  /** Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat; not allowed otherwise. */
+  /** Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat and other; not allowed otherwise. */
   photoPublicId?: string;
   /** @maxLength 1000 */
   note?: string;
@@ -473,6 +473,20 @@ export interface Sighting {
      * team hid has a null `photoUrl`.
      */
   extraPhotos?: SightingExtraPhoto[];
+  /**
+     * SYC-44 PR 6.1 (report-an-issue.md D4). True while this sighting's
+     * own photo is hidden from the public (then `photoUrl` is null), so
+     * the app shows "Photo hidden while Syros Cats take a look." in its
+     * place. It says only that a photo is hidden, never why or by whom.
+     */
+  photoHidden: boolean;
+  /**
+     * SYC-462. Present, and true, only when this sighting's own photo was
+     * removed for good (it is hidden too, so `photoUrl` is null and
+     * `photoHidden` is true); the app then shows "Photo removed." Left
+     * out otherwise.
+     */
+  photoRemoved?: boolean;
   /** A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
   createdAt: string;
 }
@@ -537,7 +551,7 @@ export const CampaignCurrency = {
 } as const;
 
 /**
- * Colony fundraising campaign shown on the Help tab. Server-side config, so
+ * Colony fundraising campaign shown on the Help & info page. Server-side config, so
  * figures can be corrected without an app release. There is no payments
  * backend: the app opens `donateUrl` externally and no money moves through
  * this API.
@@ -613,12 +627,35 @@ export interface MatchCandidate {
   reasoning: string;
 }
 
+/**
+ * SYC-503: whether the look-alike check worked. Read this FIRST: on "failed", candidates is empty and isCatPhoto is true only because nothing is known, never "no look-alikes" or "a cat". A stored answer without this field is read as "done".
+ */
+export type MatchResultMatchCheck = typeof MatchResultMatchCheck[keyof typeof MatchResultMatchCheck];
+
+
+export const MatchResultMatchCheck = {
+  done: 'done',
+  failed: 'failed',
+} as const;
+
 export interface MatchResult {
   sightingId: number;
   /** False when the AI could not find a cat in the photo */
   isCatPhoto: boolean;
   /** Candidates below the matcher's confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry. */
   candidates: MatchCandidate[];
+  /** SYC-503: whether the look-alike check worked. Read this FIRST: on "failed", candidates is empty and isCatPhoto is true only because nothing is known, never "no look-alikes" or "a cat". A stored answer without this field is read as "done". */
+  matchCheck: MatchResultMatchCheck;
+  /** SYC-503: true when a failed check can be run again with recheckSighting; false when the check worked, or when the photo has gone and there is nothing to check. */
+  canRecheck: boolean;
+}
+
+export interface RecheckSightingRequest {
+  /**
+     * Device credential of the sighting owner; must match the sighting
+     * @minLength 1
+     */
+  deviceId: string;
 }
 
 /**

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -15,7 +15,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
+  ApiError,
+  RequestTimeoutError,
   answerSightingQuestions,
+  recheckSighting,
   resolveSighting,
   suggestCatNames,
   type NameTakenCat,
@@ -51,7 +54,11 @@ import {
 } from "@/lib/sightingAnswers";
 import { reviewReportHandoff } from "@/lib/reportHandoff";
 import { deleteReviewPhoto } from "@/lib/pendingPhotos";
-import { parseReviewParams } from "@/lib/reviewParams";
+import {
+  buildReviewParams,
+  parseReviewParams,
+  type ReviewRouteData,
+} from "@/lib/reviewParams";
 import { linkRecentPhotoToCat } from "@/lib/recentPhotos";
 import { coverOf } from "@/lib/offlineQueue";
 import {
@@ -81,19 +88,64 @@ function confidenceTone(confidence: number): "success" | "warning" | "neutral" {
   return "neutral";
 }
 
+/** SYC-503: the part of a review a "Check again" can change. */
+type RecheckAnswer = Pick<
+  ReviewRouteData,
+  "isCatPhoto" | "candidates" | "matchCheck" | "canRecheck"
+>;
+type RecheckState =
+  | "idle"
+  | "checking"
+  | "stillFailed"
+  | "limit"
+  | "busy"
+  | "cantRecheck"
+  | "offline"
+  | "error";
+
+/** The code on a refused recheck (RESOLVED, CHECK_RUNNING, NOT_CHECKABLE). */
+function recheckCode(err: ApiError): string | undefined {
+  const code = (err.data as { code?: unknown } | null | undefined)?.code;
+  return typeof code === "string" ? code : undefined;
+}
+
+function answerOf(data: ReviewRouteData): RecheckAnswer {
+  return {
+    isCatPhoto: data.isCatPhoto,
+    candidates: data.candidates,
+    matchCheck: data.matchCheck,
+    canRecheck: data.canRecheck,
+  };
+}
+
 export default function ReviewScreen() {
   const colors = useColors();
   const { t, language } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { remove, pending, isOnline } = useOffline();
+  const { remove, pending, isOnline, updateReview } = useOffline();
   const { deviceId } = useDevice();
   const params = useLocalSearchParams<{ data?: string }>();
+  // SYC-503: the answer from a successful "Check again", which replaces the
+  // route's own answer for the rest of this screen.
+  const [rechecked, setRechecked] = useState<RecheckAnswer | null>(null);
+  const [recheckState, setRecheckState] = useState<RecheckState>("idle");
 
   // The route carries short names only (spec §3.4): a queued item's localId,
   // or photoRef for an online submission. Never the photo itself.
-  const data = useMemo(() => parseReviewParams(params.data), [params.data]);
+  const routeData = useMemo(() => parseReviewParams(params.data), [params.data]);
+  const data = routeData && rechecked ? { ...routeData, ...rechecked } : routeData;
+  // SYC-503: read before isCatPhoto and candidates, which mean nothing on a
+  // failed check (when-the-photo-check-fails.md §4).
+  const checkFailed = data?.matchCheck === "failed";
+  // A recheck's answer belongs to its own sighting only (review of SYC-503,
+  // finding 9): a different sighting in the same screen starts fresh.
+  const sightingId = routeData?.sightingId;
+  useEffect(() => {
+    setRechecked(null);
+    setRecheckState("idle");
+  }, [sightingId]);
   const queuedItem = data?.localId
     ? pending.find((p) => p.localId === data.localId)
     : undefined;
@@ -146,7 +198,13 @@ export default function ReviewScreen() {
   // SYC-36 (match-wait plan PR 2): the feeding nudge, or the visitor's daily
   // one-liner, on the screen this result OPENED on, below everything the
   // spotter acts on. Decided once; never for a queued sighting or no cat.
-  const openedOn = !data?.isCatPhoto ? "notCat" : data.candidates.length === 0 ? "naming" : "matches";
+  const openedOn = checkFailed
+    ? "couldntCheck"
+    : !data?.isCatPhoto
+      ? "notCat"
+      : data.candidates.length === 0
+        ? "naming"
+        : "matches";
   const { donateHost } = useAppSettings();
   const resultNudge = useResultNudge({
     deviceId,
@@ -231,6 +289,57 @@ export default function ReviewScreen() {
     setOpenedPicker(true);
     setPickerFilterOn(undefined);
     setShowPicker(true);
+  };
+
+  // SYC-503 §2: "Check again" re-runs a failed check on the photo already
+  // sent. Success lands on the screen the spotter would have seen first time.
+  const recheck = async () => {
+    if (!deviceId || !routeData) return;
+    setRecheckState("checking");
+    try {
+      // Ends after RECHECK_REQUEST_TIMEOUT_MS (custom-fetch.ts) with a
+      // RequestTimeoutError, never "Checking…" forever.
+      const res = await recheckSighting(routeData.sightingId, { deviceId });
+      const next: RecheckAnswer = {
+        isCatPhoto: res.isCatPhoto,
+        candidates: res.candidates,
+        matchCheck: res.matchCheck,
+        canRecheck: res.canRecheck,
+      };
+      setRechecked(next);
+      setRecheckState(
+        res.matchCheck === "done" ? "idle" : res.canRecheck ? "stillFailed" : "cantRecheck",
+      );
+      keepAnswer(next);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) setRecheckState("limit");
+      else if (err instanceof ApiError && err.status === 409 && recheckCode(err) === "CHECK_RUNNING") {
+        // An earlier tap is still being checked: try again in a moment.
+        setRecheckState("busy");
+      } else if (err instanceof ApiError && err.status === 409) {
+        // Resolved, or the failure was never recorded: not again from here.
+        setRecheckState("cantRecheck");
+        setRechecked((prev) => ({ ...(prev ?? answerOf(routeData)), canRecheck: false }));
+      } else if (
+        err instanceof RequestTimeoutError ||
+        (!(err instanceof ApiError) && err instanceof TypeError)
+      ) {
+        setRecheckState("offline");
+      }
+      else setRecheckState("error");
+    }
+  };
+
+  // The new answer outlives this screen: in the queue for a waiting spot, and
+  // in the route so a reload shows it. Neither failing blocks the spotter.
+  const keepAnswer = (next: RecheckAnswer) => {
+    if (!routeData) return;
+    if (routeData.localId) updateReview(routeData.localId, next).catch(() => {});
+    try {
+      router.setParams(buildReviewParams({ ...routeData, ...next }));
+    } catch {
+      // The screen already shows the new answer.
+    }
   };
 
   const registerNew = async () => {
@@ -418,7 +527,8 @@ export default function ReviewScreen() {
   }
 
   // ----- Not a cat -----
-  if (!data.isCatPhoto) {
+  // SYC-503: a failed check never looked at the photo, so never says this.
+  if (!checkFailed && !data.isCatPhoto) {
     // SYC-415 spec §3.2: the photo tips always show here, when someone most
     // needs them. A ScrollView, so the tips fit on a short screen.
     return (
@@ -555,6 +665,91 @@ export default function ReviewScreen() {
     );
   }
 
+  // ----- We couldn't check (SYC-503, when-the-photo-check-fails.md §2) -----
+  if (checkFailed && !showNewCat) {
+    const canRecheck = data.canRecheck && recheckState !== "cantRecheck";
+    const line =
+      recheckState === "stillFailed"
+        ? t("couldntCheckStill")
+        : recheckState === "limit"
+          ? t("couldntCheckLimit")
+          : recheckState === "busy"
+            ? t("couldntCheckBusy")
+          : recheckState === "cantRecheck" || !data.canRecheck
+            ? t("couldntCheckCant")
+            : recheckState === "offline"
+              ? t(noSignal)
+              : recheckState === "error"
+                ? t("error")
+                : null;
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <View style={{ width: 40 }} />
+          <Pressable onPress={close} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("extraPhotoClose")}>
+            <Feather name="x" size={20} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
+        <ScrollView
+          contentContainerStyle={[styles.couldntCheckBody, { paddingBottom: insets.bottom + 32 }]}
+          testID="couldnt-check"
+        >
+          <SightingPhoto
+            uri={cover ? cover.uri : data.photoRef}
+            base64={cover?.base64}
+            style={[styles.couldntCheckPhoto, { borderColor: colors.border }]}
+            contentFit="cover"
+          />
+          <Text style={[styles.couldntCheckTitle, { color: colors.foreground }]}>
+            {t("couldntCheckTitle")}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground, textAlign: "center" }]}>
+            {t("couldntCheckBody")}
+          </Text>
+          {line ? (
+            <Text
+              style={[styles.sendMessage, { color: colors.foreground, textAlign: "center" }]}
+              testID="couldnt-check-line"
+            >
+              {line}
+            </Text>
+          ) : null}
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            onPress={openPicker}
+            testID="couldnt-check-find"
+          >
+            {t("couldntCheckFind")}
+          </Button>
+          {canRecheck ? (
+            <Button
+              variant="secondary"
+              size="lg"
+              block
+              disabled={recheckState === "checking"}
+              onPress={recheck}
+              testID="couldnt-check-again"
+            >
+              {recheckState === "checking" ? t("couldntCheckChecking") : t("couldntCheckAgain")}
+            </Button>
+          ) : null}
+          <Pressable
+            onPress={() => setShowNewCat(true)}
+            accessibilityRole="button"
+            testID="couldnt-check-new"
+            style={styles.couldntCheckNew}
+          >
+            <Text style={[styles.findItInstead, { color: colors.primary, fontFamily: fonts.bodyBold }]}>
+              {t("couldntCheckNew")}
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
+
   // ----- ④ Name — a new furriend -----
   if (showNewCat || data.candidates.length === 0) {
     return (
@@ -564,10 +759,10 @@ export default function ReviewScreen() {
           style={[styles.celebrateHero, { paddingTop: insets.top + 8 }]}
         >
           <View style={styles.celebrateHeaderRow}>
-            {data.candidates.length > 0 ? (
+            {data.candidates.length > 0 || checkFailed ? (
               <IconButton
                 variant="ghost"
-                label={t("tryAgain")}
+                label={t("back")}
                 onPress={() => setShowNewCat(false)}
               >
                 <Feather name="chevron-left" size={22} color="#fff" />
@@ -581,11 +776,25 @@ export default function ReviewScreen() {
           </View>
           <View style={styles.celebrateBody}>
             <View style={styles.celebrateAvatar}>
-              <Text style={{ fontSize: 52 }}>🐈‍⬛</Text>
+              {/* The spotter names the cat they can see (SYC-503); the
+                  emoji only when this phone has no copy of the photo. */}
+              {cover || data.photoRef ? (
+                <SightingPhoto
+                  uri={cover ? cover.uri : data.photoRef}
+                  base64={cover?.base64}
+                  style={styles.celebratePhoto}
+                  contentFit="cover"
+                  testID="naming-photo"
+                />
+              ) : (
+                <Text style={{ fontSize: 52 }}>🐈‍⬛</Text>
+              )}
             </View>
             <Text style={styles.celebrateTitle}>{t("aNewFurriend")}</Text>
-            <Text style={styles.celebrateSubtitle}>
-              {t("newFurriendSubtitle")}
+            <Text style={styles.celebrateSubtitle} testID="naming-subtitle">
+              {/* SYC-503: whichever door led here, a failed check never
+                  claims "you're the first to spot this cat". */}
+              {checkFailed ? t("newFurriendSubtitleUnchecked") : t("newFurriendSubtitle")}
             </Text>
           </View>
         </LinearGradient>
@@ -1058,6 +1267,29 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 16,
   },
+  celebratePhoto: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
+  couldntCheckBody: {
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 24,
+    paddingTop: 8,
+  },
+  couldntCheckPhoto: {
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    borderWidth: 1,
+  },
+  couldntCheckTitle: {
+    fontSize: fontSizes.xl,
+    fontFamily: fonts.displayBold,
+    textAlign: "center",
+  },
+  couldntCheckNew: { paddingVertical: 8 },
   celebrateTitle: {
     fontSize: fontSizes.xl,
     fontFamily: fonts.displayBold,

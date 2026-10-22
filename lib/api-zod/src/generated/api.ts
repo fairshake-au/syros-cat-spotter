@@ -150,6 +150,8 @@ export const GetCatResponse = zod.object({
   "role": zod.enum(['first', 'face', 'body']),
   "photoUrl": zod.string().nullable()
 })).optional().describe('SYC-415. The spot\'s photos other than the one in `photoUrl`, in the\norder taken. Left out entirely when a sighting has none. A photo the\nteam hid has a null `photoUrl`.\n'),
+  "photoHidden": zod.boolean().describe('SYC-44 PR 6.1 (report-an-issue.md D4). True while this sighting\'s\nown photo is hidden from the public (then `photoUrl` is null), so\nthe app shows \"Photo hidden while Syros Cats take a look.\" in its\nplace. It says only that a photo is hidden, never why or by whom.\n'),
+  "photoRemoved": zod.boolean().optional().describe('SYC-462. Present, and true, only when this sighting\'s own photo was\nremoved for good (it is hidden too, so `photoUrl` is null and\n`photoHidden` is true); the app then shows \"Photo removed.\" Left\nout otherwise.\n'),
   "createdAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).')
 }).describe('A sighting in a cat\'s public history: photo, spotter and date. No\nposition and no sighting id, which would give away upload order\n(cat-record-data-spine.md §6.4).\n')),
   "fansCount": zod.number().describe('Distinct devices that have spotted this cat'),
@@ -412,7 +414,39 @@ export const CreateSightingResponse = zod.object({
   "photoUrl": zod.string().nullable(),
   "confidence": zod.number().describe('Match likelihood 0-1'),
   "reasoning": zod.string()
-})).describe('Candidates below the matcher\'s confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry.')
+})).describe('Candidates below the matcher\'s confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry.'),
+  "matchCheck": zod.enum(['done', 'failed']).describe('SYC-503: whether the look-alike check worked. Read this FIRST: on \"failed\", candidates is empty and isCatPhoto is true only because nothing is known, never \"no look-alikes\" or \"a cat\". A stored answer without this field is read as \"done\".'),
+  "canRecheck": zod.boolean().describe('SYC-503: true when a failed check can be run again with recheckSighting; false when the check worked, or when the photo has gone and there is nothing to check.')
+})
+
+
+/**
+ * Only the sighting's own device, and only while it is unresolved. After a stored failure it runs the check again on the photos and location already saved, counted against the same limits as sending a spot. A check that worked is final: asking again returns that check's answer (from the stored record, with empty reasoning) and runs nothing, so a phone that never heard a successful recheck still gets the look-alikes. Answers exactly as sending a spot does.
+ * @summary Run the look-alike check again after it failed (SYC-503)
+ */
+export const RecheckSightingParams = zod.object({
+  "sightingId": zod.coerce.number()
+})
+
+
+
+
+export const RecheckSightingBody = zod.object({
+  "deviceId": zod.string().min(1).describe('Device credential of the sighting owner; must match the sighting')
+})
+
+export const RecheckSightingResponse = zod.object({
+  "sightingId": zod.number(),
+  "isCatPhoto": zod.boolean().describe('False when the AI could not find a cat in the photo'),
+  "candidates": zod.array(zod.object({
+  "catId": zod.number(),
+  "name": zod.string(),
+  "photoUrl": zod.string().nullable(),
+  "confidence": zod.number().describe('Match likelihood 0-1'),
+  "reasoning": zod.string()
+})).describe('Candidates below the matcher\'s confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry.'),
+  "matchCheck": zod.enum(['done', 'failed']).describe('SYC-503: whether the look-alike check worked. Read this FIRST: on \"failed\", candidates is empty and isCatPhoto is true only because nothing is known, never \"no look-alikes\" or \"a cat\". A stored answer without this field is read as \"done\".'),
+  "canRecheck": zod.boolean().describe('SYC-503: true when a failed check can be run again with recheckSighting; false when the check worked, or when the photo has gone and there is nothing to check.')
 })
 
 
@@ -786,7 +820,7 @@ export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)
 
 
 /**
- * @summary The colony fundraising campaign shown on the Help tab
+ * @summary The colony fundraising campaign shown on the Help & info page
  */
 export const GetCampaignResponse = zod.object({
   "id": zod.string(),
@@ -800,7 +834,7 @@ export const GetCampaignResponse = zod.object({
   "endsAt": zod.string(),
   "donateUrl": zod.string().describe('Empty when no donation page is configured; the client hides the CTA'),
   "suggestedAmountsCents": zod.array(zod.number())
-}).describe('Colony fundraising campaign shown on the Help tab. Server-side config, so\nfigures can be corrected without an app release. There is no payments\nbackend: the app opens `donateUrl` externally and no money moves through\nthis API.\n')
+}).describe('Colony fundraising campaign shown on the Help & info page. Server-side config, so\nfigures can be corrected without an app release. There is no payments\nbackend: the app opens `donateUrl` externally and no money moves through\nthis API.\n')
 
 
 /**
@@ -836,6 +870,12 @@ export const GetSpotterSignalsResponse = zod.object({
  * @summary "Help feed a cat": counts the tap and forwards to the donation page. A browser link, not called by the client
  */
 export const GoFeedResponse = zod.unknown()
+
+
+/**
+ * @summary The Help & info page's give link: forwards to the donation page and counts nothing. A browser link, not called by the client
+ */
+export const GoGiveResponse = zod.unknown()
 
 
 /**
@@ -877,7 +917,7 @@ export const ReportIssueBody = zod.object({
   "clientRef": zod.string().min(reportIssueBodyClientRefMin).max(reportIssueBodyClientRefMax),
   "reason": zod.enum(['photo_private', 'photo_inappropriate', 'photo_not_cat', 'wrong_cat', 'wrong_name', 'wrong_info', 'location_revealing', 'cat_died', 'other']),
   "catId": zod.number(),
-  "photoPublicId": zod.string().optional().describe('Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat; not allowed otherwise.'),
+  "photoPublicId": zod.string().optional().describe('Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat and other; not allowed otherwise.'),
   "note": zod.string().max(reportIssueBodyNoteMax).optional(),
   "language": zod.enum(['en', 'el', 'fr']).optional(),
   "turnstileToken": zod.string().max(reportIssueBodyTurnstileTokenMax).optional()

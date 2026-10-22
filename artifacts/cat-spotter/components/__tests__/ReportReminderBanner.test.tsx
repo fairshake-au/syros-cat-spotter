@@ -20,9 +20,16 @@ const queue = vi.hoisted(() => ({
   retryFailed: vi.fn(async () => undefined),
 }));
 vi.mock('@/context/ReportQueueContext', () => ({ useReportQueue: () => queue }));
+// SYC-44 PR 6.2: the "Report an issue" list's own reminder, from its own list.
+const issues = vi.hoisted(() => ({
+  reminderVisible: true,
+  dismissReminder: vi.fn(),
+  retryFailed: vi.fn(async () => undefined),
+}));
+vi.mock('@/context/IssueQueueContext', () => ({ useIssueQueue: () => issues }));
 
 import { TRANSLATIONS } from '@/lib/i18n';
-import { ReportReminderBanner } from '../ReportReminderBanner';
+import { IssueReminderBanner, ReportReminderBanner } from '../ReportReminderBanner';
 
 afterEach(() => {
   cleanup();
@@ -37,5 +44,24 @@ describe('ReportReminderBanner', () => {
     await Promise.resolve();
     expect(queue.retryFailed).toHaveBeenCalledTimes(1);
     expect(queue.dismissReminder).toHaveBeenCalled();
+  });
+});
+
+describe('IssueReminderBanner (SYC-44 PR 6.2)', () => {
+  it('says a reported issue has not sent, and Try again retries the issue list only', async () => {
+    const { getByText } = render(<IssueReminderBanner />);
+    expect(getByText(TRANSLATIONS.en.issueReminder)).toBeTruthy();
+    fireEvent.click(getByText(TRANSLATIONS.en.reportTryAgain));
+    await Promise.resolve();
+    expect(issues.retryFailed).toHaveBeenCalledTimes(1);
+    expect(issues.dismissReminder).toHaveBeenCalled();
+    expect(queue.retryFailed).not.toHaveBeenCalled();
+  });
+
+  it('shows nothing when no issue report is overdue', () => {
+    issues.reminderVisible = false;
+    const { queryByText } = render(<IssueReminderBanner />);
+    expect(queryByText(TRANSLATIONS.en.issueReminder)).toBeNull();
+    issues.reminderVisible = true;
   });
 });

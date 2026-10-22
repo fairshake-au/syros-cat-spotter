@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -31,7 +31,14 @@ const MIN_LEN = 3;
  * button; editing reuses the landing-screen availability check and the
  * claim endpoint, with live feedback and duplicate blocking.
  */
-export function UsernameEditor({ currentUsername }: { currentUsername: string | null }) {
+export function UsernameEditor({
+  currentUsername,
+  editRequest = 0,
+}: {
+  currentUsername: string | null;
+  /** SYC-506: bump to open the editor (the rename note's "Change it"). */
+  editRequest?: number;
+}) {
   const colors = useColors();
   const { t } = useLanguage();
   const { deviceId, setUsername } = useDevice();
@@ -40,6 +47,18 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  // Review F10: open only for a new request, not again when the editor
+  // remounts (it unmounts offline) with an old one.
+  const handledEditRequest = useRef(editRequest);
+  useEffect(() => {
+    if (editRequest > handledEditRequest.current) {
+      handledEditRequest.current = editRequest;
+      setDraft(currentUsername ?? '');
+      setEditing(true);
+    }
+    // Only a new request opens it, not a changed name.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editRequest]);
   const [debounced, setDebounced] = useState('');
   const [saved, setSaved] = useState(false);
 

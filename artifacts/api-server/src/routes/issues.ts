@@ -83,8 +83,12 @@ export const ISSUE_REASONS = [
 ] as const;
 /** Reasons that are about one photo, so must name it (the database checks this too). */
 const PHOTO_REQUIRED: ReadonlySet<string> = new Set(["photo_private", "photo_inappropriate", "photo_not_cat"]);
-/** Offered from both the cat page and a photo. */
-const PHOTO_OPTIONAL: ReadonlySet<string> = new Set(["wrong_cat"]);
+/**
+ * Offered from both the cat page and a photo. "Something else" under a photo
+ * names that photo too, so the team knows which one (SYC-487, Samuel, 19 Oct).
+ * Neither ever hides a photo: only the two HIDING_REASONS do.
+ */
+const PHOTO_OPTIONAL: ReadonlySet<string> = new Set(["wrong_cat", "other"]);
 
 // Postgres refuses a NUL character in text, so one would be a 500 (review
 // finding 4). Refused here, as a 400, before anything is counted.

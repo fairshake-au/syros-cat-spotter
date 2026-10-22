@@ -31,6 +31,12 @@ const ALLOWLIST: Record<string, string> = {
     "the definition: kind check, content-row checks and the (device, kind, clientRef) key live here",
   "artifacts/api-server/src/lib/welfareQueue.ts":
     "the needs-help queue: every list, count and draft read carries kind = 'welfare'; mailHealth counts failed welfare_alert and issue_alert",
+  "artifacts/api-server/src/lib/dashboard/home.ts":
+    "Home: the needs-help list comes from listWelfareQueue (welfare only); countOpenIssues is the one query here and counts kind = 'content' only",
+  "artifacts/api-server/src/lib/dashboard/colonyFigures.ts":
+    "Colonies list's Kittens reported flag (SYC-396 PR 2.2): both its queries carry kind = 'welfare' and is_litter (countedLitter), so a content row never flags a colony",
+  "artifacts/api-server/src/lib/reports/welfarePatterns.ts":
+    "Welfare patterns (SYC-396 PR 3.3b): kind = 'welfare' rows feed the chart, the drafts count and the areas table; kind = 'content' rows are only counted, as \"Problems reported with photos or names\" (patternsFrom; welfarePatterns.test.ts seeds a content row)",
   "artifacts/api-server/src/lib/welfareActions.ts":
     "both kinds can move state and take a team note; a welfare_outcome is written only for kind = 'welfare'",
   "artifacts/api-server/src/lib/welfareTie.ts":
@@ -53,6 +59,15 @@ const ALLOWLIST: Record<string, string> = {
     "deliberately no kind filter: deletion clears the device from both kinds",
   "artifacts/api-server/src/lib/teamAuth/__fixtures__/queueKit.ts":
     "test fixture: seeds both kinds",
+  // SYC-462: removing a photo by hand. Read only; nothing here writes the table.
+  "lib/db/src/photoRemoval/eligibility.ts":
+    "content only: a kind = 'content' report with reason photo_private makes a photo hidden for privacy (Decision 3)",
+  "lib/db/src/photoRemoval/list.ts":
+    "content only: the same kind = 'content' photo_private read, for the list's 'hidden for privacy'",
+  "lib/db/src/photoRemoval/remove.ts":
+    "both kinds, on purpose: the dry run counts every report that names the photo (they all stay, linked to it)",
+  "lib/db/src/photoRemoval/__fixtures__/seed.ts":
+    "test fixture: seeds a kind = 'content' report",
 };
 
 const TERMS = [/\bwelfare_reports\b/, /\bwelfareReportsTable\b/, /\bWelfareReport\b/];

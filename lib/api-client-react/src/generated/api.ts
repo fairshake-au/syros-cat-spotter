@@ -47,6 +47,7 @@ import type {
   MatchResult,
   MyOpenSightings,
   Profile,
+  RecheckSightingRequest,
   RegisterPushToken200,
   RegisterPushTokenRequest,
   ResolveConflictBody,
@@ -708,6 +709,79 @@ export const useCreateSighting = <TError = ErrorType<CreateSightingError | ApiEr
         TContext
       > => {
       return useMutation(getCreateSightingMutationOptions(options));
+    }
+
+export const getRecheckSightingUrl = (sightingId: number,) => {
+
+
+
+
+  return `/api/sightings/${sightingId}/recheck`
+}
+
+/**
+ * Only the sighting's own device, and only while it is unresolved. After a stored failure it runs the check again on the photos and location already saved, counted against the same limits as sending a spot. A check that worked is final: asking again returns that check's answer (from the stored record, with empty reasoning) and runs nothing, so a phone that never heard a successful recheck still gets the look-alikes. Answers exactly as sending a spot does.
+ * @summary Run the look-alike check again after it failed (SYC-503)
+ */
+export const recheckSighting = async (sightingId: number,
+    recheckSightingRequest: RecheckSightingRequest, options?: RequestInit): Promise<MatchResult> => {
+
+  return customFetch<MatchResult>(getRecheckSightingUrl(sightingId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recheckSightingRequest)
+  }
+);}
+
+
+
+
+
+export const getRecheckSightingMutationOptions = <TError = ErrorType<void | ApiErrorBody>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recheckSighting>>, TError,{sightingId: number;data: BodyType<RecheckSightingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recheckSighting>>, TError,{sightingId: number;data: BodyType<RecheckSightingRequest>}, TContext> => {
+
+const mutationKey = ['recheckSighting'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recheckSighting>>, {sightingId: number;data: BodyType<RecheckSightingRequest>}> = (props) => {
+          const {sightingId,data} = props ?? {};
+
+          return  recheckSighting(sightingId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecheckSightingMutationResult = NonNullable<Awaited<ReturnType<typeof recheckSighting>>>
+    export type RecheckSightingMutationBody = BodyType<RecheckSightingRequest>
+    export type RecheckSightingMutationError = ErrorType<void | ApiErrorBody>
+
+    /**
+ * @summary Run the look-alike check again after it failed (SYC-503)
+ */
+export const useRecheckSighting = <TError = ErrorType<void | ApiErrorBody>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recheckSighting>>, TError,{sightingId: number;data: BodyType<RecheckSightingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recheckSighting>>,
+        TError,
+        {sightingId: number;data: BodyType<RecheckSightingRequest>},
+        TContext
+      > => {
+      return useMutation(getRecheckSightingMutationOptions(options));
     }
 
 export const getResolveSightingUrl = (sightingId: number,) => {
@@ -1919,7 +1993,7 @@ export const getGetCampaignUrl = () => {
 }
 
 /**
- * @summary The colony fundraising campaign shown on the Help tab
+ * @summary The colony fundraising campaign shown on the Help & info page
  */
 export const getCampaign = async ( options?: RequestInit): Promise<Campaign> => {
 
@@ -1966,7 +2040,7 @@ export type GetCampaignQueryError = ErrorType<unknown>
 
 
 /**
- * @summary The colony fundraising campaign shown on the Help tab
+ * @summary The colony fundraising campaign shown on the Help & info page
  */
 
 export function useGetCampaign<TData = Awaited<ReturnType<typeof getCampaign>>, TError = ErrorType<unknown>>(
@@ -2206,6 +2280,83 @@ export function useGoFeed<TData = Awaited<ReturnType<typeof goFeed>>, TError = E
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGoFeedQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGoGiveUrl = () => {
+
+
+
+
+  return `/api/go/give`
+}
+
+/**
+ * @summary The Help & info page's give link: forwards to the donation page and counts nothing. A browser link, not called by the client
+ */
+export const goGive = async ( options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getGoGiveUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGoGiveQueryKey = () => {
+    return [
+    `/api/go/give`
+    ] as const;
+    }
+
+
+export const getGoGiveQueryOptions = <TData = Awaited<ReturnType<typeof goGive>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof goGive>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGoGiveQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof goGive>>> = ({ signal }) => goGive({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof goGive>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GoGiveQueryResult = NonNullable<Awaited<ReturnType<typeof goGive>>>
+export type GoGiveQueryError = ErrorType<void>
+
+
+/**
+ * @summary The Help & info page's give link: forwards to the donation page and counts nothing. A browser link, not called by the client
+ */
+
+export function useGoGive<TData = Awaited<ReturnType<typeof goGive>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof goGive>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGoGiveQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

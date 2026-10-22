@@ -161,14 +161,50 @@ const TIED_TEXT: Record<string, string> = {
  * with a way to choose another, or a plain link into the cat search.
  * Plain links only: the search carries the report's public id and shows a
  * "This is the cat" form beside each result.
+ *
+ * SYC-504 (help-and-info spec §4.4): a report sent from a cat's page also
+ * carries that cat as a suggestion. Four states:
+ *   tied, suggestion same or none  -> as before
+ *   tied to a different cat        -> as before, plus a muted "Sent from" line
+ *   not tied, with a suggestion    -> the line, thumbnails side by side, and
+ *                                     "Yes, it's X" for those who may tie
+ *   not tied, no suggestion        -> as before
+ * The suggestion is never applied by itself: the tie writes history.
  */
-function catRow(r: QueueReport): string {
+function catRow(r: QueueReport, canTie: boolean): string {
   const search = `/api/team/cats?tie=${encodeURIComponent(r.id)}`;
+  const sg = r.suggestedCat;
+  const sentFrom = (c: NonNullable<QueueReport["suggestedCat"]>) =>
+    `Sent from <a class="catlink" href="/api/team/cats/${c.id}">${esc(c.name)}</a>'s page`;
   if (r.cat) {
+    const different = sg !== null && sg.id !== r.cat.id;
     return row(
       "Which cat",
       `<a class="tap catlink" href="/api/team/cats/${r.cat.id}">${esc(r.cat.name)}</a>` +
-        `<a class="tap sublink" href="${esc(search)}">Wrong cat? Choose another</a>`,
+        `<a class="tap sublink" href="${esc(search)}">Wrong cat? Choose another</a>` +
+        (different ? `<p class="muted">${sentFrom(sg)}</p>` : ""),
+    );
+  }
+  if (sg) {
+    const thumbs =
+      (r.photo.url
+        ? `<figure><img src="${esc(r.photo.url)}" alt="Photo sent with this report" loading="lazy" width="72" height="72"><figcaption>This report</figcaption></figure>`
+        : "") +
+      (sg.photoUrl
+        ? `<figure><img src="${esc(sg.photoUrl)}" alt="${esc(`Photo of ${sg.name}`)}" loading="lazy" width="72" height="72"><figcaption>${esc(sg.name)}</figcaption></figure>`
+        : "");
+    const yes = canTie
+      ? `<form method="post" action="/api/team/reports/${esc(encodeURIComponent(r.id))}/cat">` +
+        `<input type="hidden" name="catId" value="${sg.id}">` +
+        '<input type="hidden" name="expectedCatId" value="">' +
+        `<button type="submit" class="tiebtn">Yes, it's ${esc(sg.name)}</button></form>`
+      : "";
+    return row(
+      "Which cat",
+      `<p class="muted">${sentFrom(sg)}</p>` +
+        (thumbs ? `<div class="compare">${thumbs}</div>` : "") +
+        yes +
+        `<a class="tap sublink" href="${esc(search)}">Choose another cat</a>`,
     );
   }
   return row(
@@ -184,6 +220,7 @@ function reportCard(
   changedId: string | undefined,
   tied: TiedNotice | undefined,
   island: boolean,
+  canTie: boolean,
   noted?: string,
 ): string {
   const classes = [
@@ -237,7 +274,7 @@ function reportCard(
         ? `<span class="note">${esc(r.note)}</span>`
         : '<span class="ago">Nothing written</span>',
     ) +
-    catRow(r) +
+    catRow(r, canTie) +
     row(
       "Contact left",
       r.emailToReporter
@@ -260,12 +297,17 @@ function reportCard(
 }
 
 function draftCard(d: QueueDraft, now: Date, island: boolean): string {
+  // SYC-504: where the reporter began it from. A line only: the tie refuses
+  // drafts, so there are no buttons.
+  const from = d.suggestedCat
+    ? `<p class="muted">Sent from <a class="catlink" href="/api/team/cats/${d.suggestedCat.id}">${esc(d.suggestedCat.name)}</a>'s page</p>`
+    : "";
   return (
     `<article class="report draft${d.severity === "urgent" ? " urgent" : ""}" id="d-${esc(d.id)}">` +
     '<div class="head">' +
     `<span class="tag ${d.severity === "urgent" ? "urgent" : "attention"}">${esc(SEVERITY[d.severity])}</span>` +
     `<span class="ago">started ${ago(d.startedAt, now)}</span></div>` +
-    `<dl>${row("Where", position(d.lat, d.lng, { link: island }))}</dl></article>`
+    `<dl>${row("Where", position(d.lat, d.lng, { link: island }))}</dl>${from}</article>`
   );
 }
 
@@ -281,12 +323,13 @@ function uncheckedSection(
   changedId: string | undefined,
   tied: TiedNotice | undefined,
   island: boolean,
+  canTie: boolean,
   noted: string | undefined,
 ): string {
   const { reports, reportsTotal, drafts, draftsTotal } = queue.unchecked;
   const list = reports.length
     ? '<p class="empty">These arrived while the safety check couldn\'t reach Cloudflare. Most will be real reports sent during an outage, but some may not be, so they are kept apart from the queue above.</p>' +
-      reports.map((r) => reportCard(r, now, false, changedId, tied, island, noted)).join("") +
+      reports.map((r) => reportCard(r, now, false, changedId, tied, island, canTie, noted)).join("") +
       (reportsTotal > reports.length
         ? `<p class="empty">Showing the newest ${reports.length} of ${reportsTotal}.</p>`
         : "")
@@ -333,9 +376,11 @@ export function renderQueuePage(
   island: boolean,
   /** The report whose team note was just saved (?noted=). */
   noted?: string,
+  /** May the viewer tie a report to a cat (`change_report_state`)? Shows "Yes, it's X". */
+  canTie = false,
 ): string {
   const open = queue.open.length
-    ? queue.open.map((r) => reportCard(r, now, false, changedId, tied, island, noted)).join("")
+    ? queue.open.map((r) => reportCard(r, now, false, changedId, tied, island, canTie, noted)).join("")
     : '<p class="empty">No reports are waiting for the team.</p>';
   const drafts = queue.drafts.length
     ? "<h2>Started but not sent</h2>" +
@@ -347,17 +392,18 @@ export function renderQueuePage(
     : "";
   const closed = queue.closed.length
     ? `<h2>Closed (${queue.closedTotal})</h2>` +
-      queue.closed.map((r) => reportCard(r, now, true, changedId, tied, island, noted)).join("") +
+      queue.closed.map((r) => reportCard(r, now, true, changedId, tied, island, canTie, noted)).join("") +
       (queue.closedTotal > queue.closed.length
         ? `<p class="empty">Showing the newest ${queue.closed.length} of ${queue.closedTotal}.</p>`
         : "")
     : "";
   return renderPage({
-    title: "Welfare queue",
+    // Named as the menu names it (SYC-450).
+    title: "Queue",
     active: "queue",
     mainClass: "wide",
     personName,
     banner: mailBanner(queue.mail),
-    body: `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, island, noted)}`,
+    body: `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, island, canTie, noted)}`,
   });
 }

@@ -5,7 +5,7 @@ import { SignInRequiredBanner } from './SignInRequiredBanner';
 import { ReviewReadyBanner } from './ReviewReadyBanner';
 import { OwnershipNoticeBanner } from './OwnershipNoticeBanner';
 import { HomeScreenNudgeBanner } from './HomeScreenNudgeBanner';
-import { ReportReminderBanner } from './ReportReminderBanner';
+import { IssueReminderBanner, ReportReminderBanner } from './ReportReminderBanner';
 import { BANNER_AREA_TOP_GAP, setBannerAreaHeight } from '@/lib/bannerArea';
 
 /**
@@ -53,6 +53,7 @@ export function BannerStack() {
       >
         <SignInRequiredBanner />
         <ReportReminderBanner />
+        <IssueReminderBanner />
         <ReviewReadyBanner />
         <OwnershipNoticeBanner />
       </View>

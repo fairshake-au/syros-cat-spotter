@@ -9,6 +9,7 @@ import {
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
 import { removeTestPerson } from "../test/removeTestPerson";
+import { CAPABILITIES } from "../lib/capabilities";
 
 // The dashboard session (SYC-43 part 1 plan §6, tests 14–18; spec §8.6 #11).
 
@@ -79,7 +80,7 @@ describe("the session", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ name: "Susan <b>", email: EMAIL });
     // A team-only member: every island capability but management's two and the guardian-only request_site_public.
-    expect(res.body.capabilities).toHaveLength(32);
+    expect(res.body.capabilities).toHaveLength(CAPABILITIES.length - 3);
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
     expect(res.headers["cache-control"]).toBe("no-store");
   });
@@ -170,7 +171,7 @@ describe("the signed-in page", () => {
     const res = await request(app).get("/api/team/").set("Cookie", cookie);
     expect(res.status).toBe(200);
     expect(res.text).toContain("Signed in as Susan &lt;b&gt;");
-    expect(res.text).toContain("<h1>Welfare queue</h1>");
+    expect(res.text).toContain("<h1>Queue</h1>");
     expect(res.text).toContain('action="/api/team/signout"');
     expect(res.text).not.toMatch(/<script/i);
   });
@@ -215,13 +216,13 @@ describe("POST /api/team/signout", () => {
     expect(cookie).toMatch(/; HttpOnly/);
   });
 
-  it("sends a browser form post back to the sign-in page", async () => {
+  it("sends a browser on through the sign-in site's own sign-out, so it isn't taken straight back in", async () => {
     const res = await request(app)
       .post("/api/team/signout")
       .set("Origin", "https://team.catspotters.com")
       .set("Sec-Fetch-Mode", "navigate");
     expect(res.status).toBe(303);
-    expect(res.headers["location"]).toBe("https://admin.catspotters.com/");
+    expect(res.headers["location"]).toBe("https://admin.catspotters.com/signout");
   });
 });
 

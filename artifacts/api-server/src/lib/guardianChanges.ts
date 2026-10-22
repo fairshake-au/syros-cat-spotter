@@ -9,7 +9,7 @@ import {
   personEventsTable,
   type Observation,
 } from "@workspace/db";
-import { authorityLevel } from "./resolve";
+import { authorityLevel, supersedeChains } from "./resolve";
 import { readCoatValue } from "./appearance";
 
 // The team's "recent guardian changes" (SYC-53 plan, PR 2.2; roles spec §6.2
@@ -84,7 +84,16 @@ export type GuardianChange =
       by: ChangePerson | null;
       guardian: ChangePerson | null;
       cat: ChangeCat;
+      /**
+       * The overrule was itself undone, so her statement stands again: a vet
+       * visit marked wrong (SYC-396 PR 3.0, Decision 6). Shown as
+       * {@link PUT_BACK_WORDS}.
+       */
+      putBack: boolean;
     };
+
+/** How an overrule that was undone is shown (plan Task 3.0.2). */
+export const PUT_BACK_WORDS = "put back when the visit was undone";
 
 export const GUARDIAN_CHANGES_LIMIT = 200;
 
@@ -170,6 +179,8 @@ export function contradictsTeamRecord(
   );
 }
 
+const isRestorable = (kind: string) => kind === "sterilised" || kind === "vaccinated" || kind === "vet_visit";
+
 const colonyOfScope = (scope: string | null): number | null => {
   const m = /^colony:([1-9][0-9]*)$/.exec(scope ?? "");
   return m ? Number(m[1]) : null;
@@ -238,12 +249,45 @@ export async function listGuardianChanges(
           .where(
             and(
               inArray(observationsTable.catId, catIds),
-              inArray(observationsTable.kind, [...new Set(statements.map((s) => s.kind))].concat("_none")),
+              inArray(
+                observationsTable.kind,
+                [...new Set([...statements.map((s) => s.kind), ...overrules.map((o) => o.row.kind)])].concat("_none"),
+              ),
             ),
           );
-  const replaced = new Set(
-    sameKindRows.map((o) => o.supersedesId).filter((id): id is number => id != null),
-  );
+
+  const rowsByCatKind = new Map<string, Observation[]>();
+  for (const o of sameKindRows) {
+    const key = `${o.catId}:${o.kind}`;
+    const list = rowsByCatKind.get(key) ?? [];
+    list.push(o);
+    rowsByCatKind.set(key, list);
+  }
+  // What no longer stands. For the kinds a vet visit writes, by the
+  // resolver's restore rule (SYC-396 PR 3.0): her statement overruled by a
+  // visit stands again once the visit is undone, and the overruling row
+  // that was undone is `undone`. Every other kind: anything pointing at it.
+  const replaced = new Set<number>();
+  const undone = new Set<number>();
+  for (const o of sameKindRows) {
+    if (o.supersedesId != null && !isRestorable(o.kind)) replaced.add(o.supersedesId);
+  }
+  // Her statements a standing vet visit still overrules: with two visits
+  // overruling one "no", undoing one doesn't put it back (review F1). Only
+  // a visit's row counts here; a team correction after the undo is its own
+  // "overruled" entry, and the undone one was still put back.
+  const visitHeld = new Set<number>();
+  for (const kind of ["sterilised", "vaccinated", "vet_visit"] as const) {
+    const chains = supersedeChains(sameKindRows, kind);
+    for (const id of chains.displaced) replaced.add(id);
+    for (const id of chains.retracted) undone.add(id);
+    for (const o of sameKindRows) {
+      const v = o.value as { vetVisitId?: unknown } | null;
+      if (o.kind === kind && o.supersedesId != null && !chains.retracted.has(o.id) && typeof v?.vetVisitId === "number") {
+        visitHeld.add(o.supersedesId);
+      }
+    }
+  }
   const cats =
     catIds.length === 0
       ? []
@@ -291,14 +335,6 @@ export async function listGuardianChanges(
   const who = (id: string | null) => (id ? (personById.get(id) ?? null) : null);
   const catRef = (id: number): ChangeCat => catById.get(id) ?? { id, name: `#${id}` };
 
-  const rowsByCatKind = new Map<string, Observation[]>();
-  for (const o of sameKindRows) {
-    const key = `${o.catId}:${o.kind}`;
-    const list = rowsByCatKind.get(key) ?? [];
-    list.push(o);
-    rowsByCatKind.set(key, list);
-  }
-
   const out: GuardianChange[] = [
     ...statements.map(
       (s): GuardianChange => ({
@@ -328,6 +364,9 @@ export async function listGuardianChanges(
         by: who(row.accountId),
         guardian: who(targetAccount),
         cat: catRef(row.catId),
+        // Only when her statement really stands again: with two visits
+        // overruling it, undoing one leaves it overruled (review of 3.1a, F1).
+        putBack: undone.has(row.id) && !visitHeld.has(targetId),
       }),
     ),
     ...created.flatMap((c): GuardianChange[] => {

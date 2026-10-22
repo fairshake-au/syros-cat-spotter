@@ -10,7 +10,10 @@
   "compatibility_date": "2026-10-14",
   "workers_dev": false,
   "preview_urls": false,
-  "triggers": { "crons": ["0 */2 * * *"] },
+  // The second cron is the nightly news check (SYC-45, src/news.js): 00:30
+  // UTC is 03:30 in Athens in summer time and 02:30 in winter time, always
+  // the same Athens night. NEWS_JOB_TOKEN is a Worker secret too.
+  "triggers": { "crons": ["0 */2 * * *", "30 0 * * *"] },
   "vars": { "MAIL_DRAIN_BASE_URL": "https://apptest.catspotters.com", "ALARM_TO": "sam@fairshake.au" },
   // Remembers when each kind of alarm was last emailed, so a long outage
   // sends one email at every run (stuck alert) or every other run, about

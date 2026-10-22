@@ -309,7 +309,8 @@ describe("a cat guardian never sees the list", () => {
       expect(page.text).not.toContain("recent-guardian-changes");
       const json = await get("/api/team/colonies", g.cookie, "json");
       expect(json.status).toBe(200);
-      expect(Object.keys(json.body as object).sort()).toEqual(["colonies", "query"]);
+      // SYC-396 PR 2.2 added her own colonies' figures and the sort; never recentChanges.
+      expect(Object.keys(json.body as object).sort()).toEqual(["colonies", "figures", "query", "sort"]);
       const direct = await get("/api/team/guardian-changes", g.cookie, "json");
       expect([direct.status, direct.text]).toEqual([403, '{"error":"forbidden"}']);
       const directPage = await get("/api/team/guardian-changes", g.cookie);

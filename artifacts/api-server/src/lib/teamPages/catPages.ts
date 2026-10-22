@@ -14,7 +14,10 @@ import { renderPage } from "./layout";
 import { position } from "./position";
 import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
-import { coatPhraseOf, renderCatFacts } from "./catFacts";
+import { coatPhraseOf, renderCatFacts, vaccineWord } from "./catFacts";
+import type { VisitLine } from "../vetVisits";
+import { euroText } from "../euros";
+import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
 import { fitView, renderMap, type MapMarker } from "./map";
 import { BANDS, pointOnView } from "../mapTiles/geometry";
 import { rowMenu } from "./rowMenu";
@@ -219,6 +222,29 @@ function guardianMarkNotice(v: TeamCatView, byId: Map<number, TeamStatement>, sh
   );
 }
 
+/**
+ * "{name} has died" (SYC-513, spec §6): at the top of the summary when the
+ * cat's status is "No longer with us" and nothing disagrees. A cat guardian's
+ * mark in the last 30 days has its own notice instead, so the page never says
+ * the same thing twice.
+ */
+function deathNotice(v: TeamCatView, byId: Map<number, TeamStatement>, shown: Shown): string {
+  const life = v.records.lifeStatus;
+  if (life.value !== "deceased" || life.conflictingStatementIds.length > 0) return "";
+  if (v.recentGuardianMark?.status === "deceased") return "";
+  const id = life.supportingStatementIds[0];
+  const s = id === undefined ? undefined : byId.get(id);
+  if (!s) return "";
+  const happened = day(s.observedAt) !== day(s.createdAt) ? `, about ${time(s.observedAt, day(s.observedAt))}` : "";
+  return (
+    `<p class="notice" role="note"><strong>${esc(v.cat.name)} has died</strong>${happened}. ` +
+    `Recorded by ${esc(byWhom(s))} on ${time(s.createdAt, day(s.createdAt))}.` +
+    (s.reason ? ` How we know: ${esc(s.reason.trim().replace(/[.!?]+$/, ""))}.` : "") +
+    ` If this is a mistake, use <strong>Mark wrong</strong> on it in the history. ` +
+    `<a href="${statementHref(s.id, shown)}">Go to it</a></p>`
+  );
+}
+
 /** Today on Syros, for a date box's max. */
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
 
@@ -362,12 +388,25 @@ const DONE: Record<string, string> = {
   unchanged: "That is already the cat's name. Nothing was changed.",
   already: "Someone already corrected this. Here's what replaced it.",
   ownerRemoved: "Saved. The owner is removed and the cat's new status is in the history below. Nobody was told.",
+  ownerRemovedKept: "Saved. The owner is removed. The cat is still recorded as no longer with us. Nobody was told.",
   ownerGone: "This cat has no owner now, so there was nothing to remove. Nothing was changed.",
   lifeOwnerKept: "Saved. This cat still has an owner. Ask the team if the owner should be removed.",
   colony: "Saved. The colony is added to the history below.",
   colonyOut: "Saved. The cat is out of its colony. This is added to the history below.",
   colonyAlready: "The cat was already there, so nothing was changed.",
+  visit: "Saved. The vet visit is below, and what it recorded is in the history.",
+  visitWrong: "Saved. The vet visit and everything it recorded are marked wrong.",
+  visitAlready: "This visit was already undone. Nothing was changed.",
+  visitReason: "Say why the visit is wrong, in up to 500 characters. Nothing was changed.",
+  died: "Saved. The cat is recorded as no longer with us.",
+  diedAlready: "This cat is already recorded as no longer with us. Nothing was changed.",
 };
+
+/** The messages that sit at the top of the page, not in "Update this cat". */
+const TOP_DONE = new Set(["died", "diedAlready"]);
+
+/** The messages that sit beside the Vet visits list. */
+const VISIT_DONE = new Set(["visit", "visitWrong", "visitAlready", "visitReason"]);
 
 /** What the page says beside a photo after Hide or Restore (PR 6). */
 const PHOTO_DONE: Record<string, string> = {
@@ -397,6 +436,11 @@ export interface CatPageOptions {
   island?: boolean;
   /** "Now", for "3 days ago" and the history's dates; tests pin it. */
   now?: Date;
+  /**
+   * The cat's standing vet visits, newest first (SYC-396 PR 3.1a). Without
+   * `view_vet_costs` the caller leaves the cost and who paid out of each.
+   */
+  visits?: VisitLine[];
 }
 
 /**
@@ -478,18 +522,22 @@ function correctionForms(
 ): string {
   const base = `/api/team/cats/${v.cat.id}`;
   const forms: string[] = [];
+  // Recorded as died and nothing disagrees: no "This cat has died" button,
+  // and Remove owner offers only "Still no longer with us" (SYC-513, spec §7).
+  const dead =
+    v.records.lifeStatus.value === "deceased" && v.records.lifeStatus.conflictingStatementIds.length === 0;
   if (may("set_life_status")) {
     forms.push(
       `<details><summary>Update where the cat lives</summary><form method="post" action="${base}/life-status">` +
         '<fieldset><legend class="label">The cat…</legend>' +
-        lifeChoices("status", "ls", null) +
+        lifeChoices("status", "ls", null, ["street", "homed", "in_care"]) +
         "</fieldset>" +
         // Owned cat (spec §7, SYC-362 D2): no box. Saving anything but "has a
         // home" asks first, on its own page, before the owner is removed.
         ((v.owner.has || v.owner.orphanedHome) && may("remove_owner")
           ? '<p class="hint">This cat has an owner. Saving anything but “Has a home” asks you first whether to remove the owner.</p>'
           : "") +
-        dateInput("ls-date", "Date it happened", "(needed for “No longer with us”; leave blank for today)") +
+        dateInput("ls-date", "Date it happened", "(leave blank for today)") +
         reasonInput("ls-why") +
         '<button type="submit">Save</button></form></details>',
     );
@@ -523,18 +571,33 @@ function correctionForms(
     forms.push(
       `<details><summary>Remove owner</summary><form method="post" action="${base}/remove-owner">` +
         '<p class="hint">Ends this claim. The owner stops seeing the exact spot and getting alerts. Nobody is told.</p>' +
-        '<fieldset><legend class="label">The cat now…</legend>' +
-        lifeChoices("status", "ro", null, ["street", "in_care", "deceased"], "street") +
-        "</fieldset>" +
-        dateInput("ro-date", "Date it happened", "(needed for “No longer with us”)") +
+        (dead
+          ? '<fieldset><legend class="label">The cat now…</legend>' +
+            '<label class="choice" for="ro-keep"><input type="radio" id="ro-keep" name="status" value="keep" required checked> Still no longer with us</label>' +
+            "</fieldset>"
+          : '<fieldset><legend class="label">The cat now…</legend>' +
+            lifeChoices("status", "ro", null, ["street", "in_care"], "street") +
+            "</fieldset>" +
+            '<p class="hint">If the cat has died, use “This cat has died” instead.</p>' +
+            dateInput("ro-date", "Date it happened", "(leave blank for today)")) +
         reasonInput("ro-why") +
         '<button type="submit" class="risky">Remove owner</button></form></details>',
     );
   }
-  if (forms.length === 0) return notice;
+  if (may("set_life_status") && !dead) {
+    forms.push(
+      `<form method="get" action="${base}/died" class="diedform"><button type="submit">This cat has died</button></form>`,
+    );
+  }
+  // Log a vet visit (spec §7.2): the main action, full width, above the rest.
+  const vet = may("log_vet_visit")
+    ? `<form method="get" action="${base}/vet-visit" class="vetvisit"><button type="submit" class="primary wide">Log a vet visit</button></form>`
+    : "";
+  if (forms.length === 0) return vet ? '<h2 id="corrections">Update this cat</h2>' + notice + vet : notice;
   return (
     '<h2 id="corrections">Update this cat</h2>' +
     notice +
+    vet +
     `<div class="fixes">${forms.join("")}</div>` +
     // How changes work, folded into a short note you can open (spec §7.2), in #192's words.
     '<details class="hownote"><summary>How changes work</summary>' +
@@ -692,6 +755,44 @@ function photoStrip(v: TeamCatView): string {
   );
 }
 
+
+/** What a visit did, in words: "Sterilised, vaccinated (Rabies)". */
+export function visitDidWords(l: Pick<VisitLine, "did" | "vaccines" | "treatedNote">): string {
+  return l.did
+    .map((d, i) => {
+      const w = i === 0 ? DID_WORDS[d] : DID_WORDS[d].toLowerCase();
+      if (d === "vaccinated" && l.vaccines?.length) return `${w} (${l.vaccines.map(vaccineWord).join(", ")})`;
+      if (d === "treated" && l.treatedNote) return `${w} (${l.treatedNote})`;
+      return w;
+    })
+    .join(", ");
+}
+
+function visitItem(l: VisitLine, may: (c: Capability) => boolean): string {
+  const money =
+    "costEur" in l
+      ? `<br><span class="meta">${l.costEur == null ? "Cost not recorded" : esc(euroText(l.costEur))}` +
+        (l.paidBy ? ` · paid by ${esc(PAID_WORDS[l.paidBy].replace(/^A /, "a ").replace(/^The /, "the "))}` : "") +
+        (l.costReason ? `<br>Why the cost was different: ${esc(l.costReason)}` : "") +
+        "</span>"
+      : "";
+  const wrong = may("log_vet_visit")
+    ? `<details><summary>Mark the visit wrong</summary><form method="post" action="/api/team/vet-visits/${l.visitId}/wrong">` +
+      '<p class="hint">Everything this visit recorded is marked wrong with it.</p>' +
+      reasonInput(`vw${l.visitId}-why`) +
+      '<button type="submit">Mark the visit wrong</button></form></details>'
+    : "";
+  return (
+    `<li id="vv-${l.visitId}" class="statement">` +
+    `<strong>${time(l.date, day(l.date))}</strong>: ${esc(visitDidWords(l))}` +
+    `<br>${esc(l.clinicName)} · logged by ${esc(l.by)}` +
+    money +
+    (l.note ? `<br><span class="meta">${esc(l.note)}</span>` : "") +
+    wrong +
+    "</li>"
+  );
+}
+
 export function renderCatPage(
   v: TeamCatView,
   personName: string,
@@ -709,7 +810,9 @@ export function renderCatPage(
       ? `<p class="notice" role="status">${esc(DONE[opts.done]!)}</p>`
       : "";
   const atStatement = opts.at !== undefined && v.history.some((h) => h.id === opts.at);
-  const formsNotice = atStatement ? "" : notice;
+  const topDone = opts.done !== undefined && TOP_DONE.has(opts.done);
+  const visitDone = opts.done !== undefined && VISIT_DONE.has(opts.done);
+  const formsNotice = atStatement || topDone || visitDone ? "" : notice;
   const byId = new Map(v.history.map((s) => [s.id, s]));
   // The history is newest first. After a correction to an older statement
   // the page lands on it, so then every statement is shown.
@@ -737,6 +840,8 @@ export function renderCatPage(
   const summary =
     main +
     (cat.description ? `<p>${esc(cat.description)}</p>` : "") +
+    (topDone ? notice : "") +
+    deathNotice(v, byId, shown) +
     guardianMarkNotice(v, byId, shown) +
     renderCatFacts(v, now) +
     sightingsMap(v) +
@@ -837,6 +942,17 @@ export function renderCatPage(
           .join("") +
         "</ul>");
 
+  // Vet visits (spec §7.3): date, what was done, clinic and, for those who
+  // may see it, the cost. Each can be marked wrong, which undoes everything
+  // the visit recorded.
+  const visitList = opts.visits ?? [];
+  const visits =
+    `<h2 id="vet-visits">Vet visits (${visitList.length})</h2>` +
+    (visitDone ? notice : "") +
+    (visitList.length === 0
+      ? '<p class="empty">No vet visits recorded.</p>'
+      : '<ol class="history visits">' + visitList.map((l) => visitItem(l, may)).join("") + "</ol>");
+
   // After Hide or Restore, the message goes beside that photo (own keys only:
   // ?done=constructor must not reach Object.prototype).
   const photoNotice =
@@ -903,6 +1019,7 @@ export function renderCatPage(
       known +
       renderAppearanceSection(v, may, opts.done) +
       sightings +
+      visits +
       photos +
       history,
   });

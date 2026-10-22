@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, notExists, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { actingRole, can, type Capability } from "./capabilities";
@@ -19,9 +19,12 @@ import { orderColours, partsToValue, type CoatPattern } from "./appearance";
 import {
   appearanceAuthorityLevel,
   resolveCoatParts,
+  resolveLifeStatus,
   resolveMarkings,
   resolveSterilised,
   standingAboveTeam,
+  supersedeChains,
+  type RestorableKind,
 } from "./resolve";
 import { catNamed, isBlankName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
@@ -134,7 +137,8 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 /**
  * Locks one observation for the rest of the transaction and returns it,
  * refusing NOT_FOUND if there is no such row and ALREADY_SUPERSEDED if
- * something already points at it. The ONE place this shape lives: marking a
+ * something already points at it (for sterilised, vaccinated and vet_visit:
+ * something in effect, by `supersedeChains`). The ONE place this shape lives: marking a
  * statement wrong (supersedeStatement) and re-tying a welfare report to
  * another cat (lib/welfareTie.ts) both go through it.
  *
@@ -159,6 +163,20 @@ export async function lockActiveObservation(tx: Tx, id: number): Promise<Observa
     .where(eq(observationsTable.id, id));
   if (!original) throw notFound();
 
+  // The kinds a vet visit writes stand by the resolver's restore rule
+  // (SYC-396 PR 3.0): a statement put back by an undone visit stands again,
+  // so it can be marked wrong again; one replaced in effect cannot.
+  if (isRestorableKind(original.kind)) {
+    const sameKind = await tx
+      .select()
+      .from(observationsTable)
+      .where(or(and(eq(observationsTable.catId, original.catId), eq(observationsTable.kind, original.kind)), eq(observationsTable.supersedesId, id)));
+    if (supersedeChains(sameKind, original.kind).displaced.has(id)) {
+      throw new ObservationRefused("ALREADY_SUPERSEDED", "Already superseded");
+    }
+    return original;
+  }
+
   const [alreadySuperseded] = await tx
     .select({ id: observationsTable.id })
     .from(observationsTable)
@@ -168,6 +186,9 @@ export async function lockActiveObservation(tx: Tx, id: number): Promise<Observa
   }
   return original;
 }
+
+const isRestorableKind = (kind: string): kind is RestorableKind =>
+  kind === "sterilised" || kind === "vaccinated" || kind === "vet_visit";
 
 // ── A fresh statement: life status or sterilisation ───────────────────────
 
@@ -240,8 +261,12 @@ export async function recordTeamStatement(
 
 export interface RemoveOwnerInput {
   catId: number;
-  /** What the cat is now: the team's choice, "street" by default (the route). */
-  status: "street" | "in_care" | "deceased";
+  /**
+   * What the cat is now: the team's choice, "street" by default (the route).
+   * `keep` (SYC-513, spec §7): only for a cat recorded as died. The owner is
+   * removed and NO status is written, so the death and its date stand.
+   */
+  status: "street" | "in_care" | "deceased" | "keep";
   reason: string;
   observedAt?: Date;
 }
@@ -293,6 +318,15 @@ export async function removeOwnerAndSay(
       return { owner: "needs_confirm" as const, row: null, catName: cat!.name };
     }
 
+    // `keep` is only for a cat that is dead now, read under the lock: on a
+    // live cat it would remove the owner and leave the cat "homed" by nobody.
+    if (input.status === "keep") {
+      const rec = (await loadCatRecords([input.catId], tx)).get(input.catId);
+      const life = resolveLifeStatus(rec?.observations ?? [], rec?.evidenceOfLife ?? null, new Date());
+      if (life.value !== "deceased") {
+        throw new ObservationRefused("MALFORMED_VALUE", "Only a cat recorded as died can keep its status");
+      }
+    }
     const observedAt = input.observedAt ?? new Date();
     if (hasOwner) {
       // Each withdrawal supersedes the one found, so the next call finds the
@@ -314,6 +348,9 @@ export async function removeOwnerAndSay(
       }
       await clearOwner(tx, input.catId);
     }
+    if (input.status === "keep") {
+      return { owner: hasOwner ? ("removed" as const) : ("none" as const), row: null };
+    }
     const row = await recordTeamStatement(
       person,
       {
@@ -326,6 +363,80 @@ export async function removeOwnerAndSay(
       tx,
     );
     return { owner: hasOwner ? ("removed" as const) : ("none" as const), row };
+  });
+}
+
+// ── "This cat has died" (SYC-513, mark-a-cat-as-died.md §4–§5) ───────────
+
+export type DeathOutcome =
+  | { outcome: "recorded"; row: Observation }
+  /** Already recorded as died (and nothing disagrees): nothing written. */
+  | { outcome: "already" }
+  /** A sighting after `observedAt` would bring the cat straight back: nothing written. */
+  | { outcome: "sightedAfter"; at: Date }
+  /** A newer standing life status would win (the resolver's own order): nothing written. */
+  | { outcome: "newerStatus"; statement: Observation; ownerClaim: boolean };
+
+/**
+ * Records that a cat has died, as the island-wide team, in ONE transaction:
+ * the cat is locked, its record read, and the death written only if it will
+ * actually take effect. The owner is never touched (Samuel, 18 Oct 2026):
+ * this never calls {@link removeOwnerAndSay}. Tells nobody.
+ *
+ * "Will it take effect" is asked of the resolver itself: the death is tried
+ * on the record as it stands, so this can never disagree with what the page
+ * shows afterwards.
+ */
+export async function recordDeath(
+  person: Person,
+  input: { catId: number; reason: string; observedAt: Date },
+  now: Date = new Date(),
+): Promise<DeathOutcome> {
+  if (!can(person, "set_life_status")) throw notAuthorised();
+  return db.transaction(async (tx) => {
+    await lockCat(tx as Tx, input.catId);
+    const rec = (await loadCatRecords([input.catId], tx)).get(input.catId);
+    const observations = rec?.observations ?? [];
+    const evidence = rec?.evidenceOfLife ?? null;
+    const before = resolveLifeStatus(observations, evidence, now);
+    if (before.value === "deceased" && before.conflicts.length === 0) return { outcome: "already" as const };
+
+    // The death as it would be written, tried on the record as it stands.
+    // Only the fields the life-status resolver reads; the highest id wins a
+    // tie on observedAt, as the row about to be written would.
+    const trial = {
+      id: Number.MAX_SAFE_INTEGER,
+      catId: input.catId,
+      kind: "life_status",
+      value: { status: "deceased" },
+      observedAt: input.observedAt,
+      createdAt: now,
+      supersedesId: null,
+    } as unknown as Observation;
+    const after = resolveLifeStatus([...observations, trial], evidence, now);
+    if (after.value !== "deceased" || after.supportingObservationIds[0] !== trial.id) {
+      const sighted = evidence?.lastSightingAt ?? null;
+      if (sighted && sighted.getTime() > input.observedAt.getTime()) {
+        return { outcome: "sightedAfter" as const, at: sighted };
+      }
+      const winnerId = after.supportingObservationIds[0];
+      const statement = observations.find((o) => o.id === winnerId);
+      if (statement) {
+        return { outcome: "newerStatus" as const, statement, ownerClaim: isOwnerHomed(statement) };
+      }
+      // Unreachable by construction (the trial loses only to a later sighting,
+      // a newer standing row, or a death already standing, caught above as
+      // "already"). Kept so a future resolver rule refuses rather than writes
+      // a death that won't show.
+      throw new ObservationRefused("MALFORMED_VALUE", "The death would not take effect");
+    }
+
+    const row = await recordTeamStatement(
+      person,
+      { catId: input.catId, kind: "life_status", value: { status: "deceased" }, reason: input.reason, observedAt: input.observedAt },
+      tx,
+    );
+    return { outcome: "recorded" as const, row };
   });
 }
 
@@ -387,6 +498,17 @@ export interface SupersedeInput {
  * first, in the same order as Correct and Confirm (cat, then statement), so
  * none of them reads a colour another is halfway through changing.
  */
+/** What the generic Mark wrong says about a vet visit's statement (Decision 7). */
+export const FROM_VET_VISIT_WORDS = "This came from a vet visit. Mark the visit wrong instead.";
+
+/** A vet visit, or a statement one wrote (its value names the visit). */
+export function cameFromVisit(o: Pick<Observation, "kind" | "value">): boolean {
+  if (o.kind === "vet_visit") return true;
+  if (o.kind !== "sterilised" && o.kind !== "vaccinated") return false;
+  const v = o.value as Record<string, unknown> | null;
+  return v !== null && typeof v === "object" && typeof v["vetVisitId"] === "number";
+}
+
 export async function supersedeStatement(
   person: Person,
   input: SupersedeInput,
@@ -430,6 +552,15 @@ export async function supersedeStatement(
     // team path that ends a claim.
     if (isOwnerHomed(original)) {
       throw new ObservationRefused("MALFORMED_VALUE", "An owner's claim is ended with Remove owner");
+    }
+
+    // Decision 7 (SYC-396 PR 3.1a): a statement a vet visit wrote, and the
+    // visit itself, are undone only by marking the visit wrong, which takes
+    // all of them back together. Checked here, not in the routes, so no
+    // route that marks a statement wrong can skip it. There is no way
+    // round it: undoVetVisit writes its retractions itself.
+    if (cameFromVisit(original)) {
+      throw new ObservationRefused("FROM_VET_VISIT", FROM_VET_VISIT_WORDS);
     }
 
     const capability = capabilityFor(original.kind);

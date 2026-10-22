@@ -64,6 +64,13 @@ export const CATALOGUE = {
   // door never opens the workspace.
   use_workspace: { kind: "island", roles: TEAM },
   view_guardian_changes: { kind: "island", roles: TEAM },
+  // Vet costs and the trapping plan (SYC-396 PR 2.3; dashboard §8.4, §10.3).
+  // Never for a guardian: she sees that a visit happened, not what it cost.
+  view_vet_costs: { kind: "island", roles: TEAM },
+  print_trapping_plan: { kind: "island", roles: TEAM },
+  // Logging a vet visit on a cat (SYC-396 PR 3.1a; dashboard §8.1). The
+  // team only: a cat guardian keeps her "Say whether sterilised".
+  log_vet_visit: { kind: "island", roles: TEAM },
   // Saying what you saw or know
   record_field_check: { kind: "placed", roles: EVERYONE },
   set_life_status: { kind: "placed", roles: EVERYONE },
@@ -82,6 +89,20 @@ export const CATALOGUE = {
   edit_feeding_site: { kind: "placed", roles: EVERYONE },
   reassign_feeding_site: { kind: "island", roles: TEAM },
   set_site_public: { kind: "island", roles: TEAM },
+  // The named areas (SYC-396 PR 2.4; dashboard §3.3).
+  edit_named_areas: { kind: "island", roles: TEAM },
+  // Find from a photo (SYC-396 PR 2.5; dashboard §5.2, §10.3). Never for a
+  // guardian: matching anywhere stays reserved (match_cat_anywhere).
+  find_cat_from_photo: { kind: "island", roles: TEAM },
+  // The reports (SYC-396 PR 3.3a; dashboard §9.3). A cat guardian holds
+  // view_reports for her own colonies, but her reports arrive on 16 Nov
+  // (SYC-472): until then every report route is placed with no target, so it
+  // answers for island rows only and she gets the 403. Downloads are the team's.
+  view_reports: { kind: "placed", roles: EVERYONE },
+  export_report: { kind: "island", roles: TEAM },
+  // The Vet settings page (SYC-396 PR 3.1b; dashboard §10.3): the standard
+  // sterilisation price, with its history. Never for a guardian.
+  edit_vet_settings: { kind: "island", roles: TEAM },
   request_site_public: { kind: "placed", roles: ["guardian"] },
   review_hand_picks: { kind: "placed", roles: EVERYONE },
   // Reserved (§6.2 note 3): no screen uses it yet.

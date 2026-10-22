@@ -110,6 +110,30 @@ const RESPONSES: [string, () => request.Test, string?][] = [
     () => request(app).get("/api/team/photos/x"),
   ],
   [
+    "the Reports list (SYC-396 PR 3.3a: no script, so the strict header)",
+    () => request(app).get("/api/team/insights").set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/insights",
+  ],
+  [
+    "Sterilisation progress (charts are SVG drawn by the server, no script)",
+    () => request(app).get("/api/team/insights/progress?range=all").set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/insights/:report",
+  ],
+  [
+    "Colony health, sorted",
+    () => request(app).get("/api/team/insights/health?sort=cats&dir=desc").set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/insights/:report",
+  ],
+  [
+    "a report's spreadsheet",
+    () => request(app).get("/api/team/insights/health.csv").set("Cookie", cookie),
+    "GET /api/team/insights/:report.csv",
+  ],
+  [
+    "the Reports list, signed out",
+    () => request(app).get("/api/team/insights").set("Sec-Fetch-Mode", "navigate"),
+  ],
+  [
     "the Cats grid page",
     () => request(app).get("/api/team/cats").set("Cookie", cookie).set("Accept", "text/html"),
     "GET /api/team/cats",
@@ -128,6 +152,21 @@ const RESPONSES: [string, () => request.Test, string?][] = [
     "the Cats grid as JSON (the old search answer)",
     () => request(app).get("/api/team/cats?q=x").set("Cookie", cookie).set("Accept", "application/json"),
     "GET /api/team/cats",
+  ],
+  [
+    "Find from a photo's form (SYC-396 PR 2.5: no script, so the strict header)",
+    () => request(app).get("/api/team/cats/find?area=kini").set("Cookie", cookie).set("Accept", "text/html"),
+    "GET /api/team/cats/find",
+  ],
+  [
+    "Find from a photo's search with no photo",
+    () =>
+      request(app)
+        .post("/api/team/cats/find")
+        .set("Origin", TEAM)
+        .set("Cookie", cookie)
+        .field("area", "kini"),
+    "POST /api/team/cats/find",
   ],
   [
     "the Cats grid, signed out",

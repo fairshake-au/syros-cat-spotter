@@ -189,7 +189,9 @@ describe("the Feeding sites page: what is on it", () => {
     expect(res.headers["content-security-policy"]).toBe(EXPECTED_CSP);
     expect(res.headers["cache-control"]).toBe("no-store");
     expect(res.text).not.toMatch(/<script/i);
-    expect(res.text).toContain('aria-current="page"><span class="long">Feeding sites</span><span class="short">Sites</span></a>');
+    // Feeding sites left the menu (SYC-450): the page underlines its parent, Colonies.
+    expect(res.text).toContain('aria-current="page">Colonies</a>');
+    expect(res.text).not.toContain("Feeding sites</a>");
     // The menu's Map is the Cats page's map view (SYC-396 PR 1.6), never this tap-check page.
     expect(res.text).not.toContain('href="/api/team/map"');
     expect(res.text).toContain("Recently changed");
@@ -678,7 +680,9 @@ describe("links out to a map company: Open map only", () => {
         expect(html).not.toContain(c);
       }
     }
-    const external = (html: string) => [...html.matchAll(/href="(https?:[^"]*)"/g)].map((m) => m[1]!);
+    // Not the menu's Workspace link: our own sign-in site, with no position in it.
+    const external = (html: string) =>
+      [...html.matchAll(/href="(https?:[^"]*)"/g)].map((m) => m[1]!).filter((h) => h !== "https://admin.catspotters.com/workspace");
     expect(external(list)).toEqual(["https://www.openstreetmap.org/copyright"]);
     expect(external(page).filter((h) => !isOpenMapLink(h))).toEqual(["https://www.openstreetmap.org/copyright"]);
     expect(external(page).filter(isOpenMapLink)).toHaveLength(1);

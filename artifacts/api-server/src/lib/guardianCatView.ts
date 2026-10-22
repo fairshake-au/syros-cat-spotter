@@ -7,12 +7,14 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { deriveCatStatuses, toPublicDay } from "./catHelpers";
-import type { LegacyPublicCode, Mark } from "./appearance";
+import type { CoatColour, CoatPattern, LegacyPublicCode, Mark } from "./appearance";
 import { hiddenPhotoIds } from "./photoVisibility";
 import { loadCatRecords } from "./observations";
 import {
+  athensDay,
   resolveLifeStatus,
   resolveSterilised,
+  standingRows,
   type Confidence,
   type LifeStatusValue,
 } from "./resolve";
@@ -31,7 +33,9 @@ import { syrNumber, teamPhotoUrl } from "./teamCatView";
 //     (whose target is the photo's cat, so the route checks her again);
 //   - the sterilisation answer and how sure we are;
 //   - life status, and the day the cat was last seen;
-//   - colour and markings, as the public sees them.
+//   - colour and markings, as the public sees them (the colours and pattern
+//     the public wire carries; her page words them in the team's words,
+//     SYC-443 T1A).
 //
 // Never here, by construction (there is no field for them): welfare reports
 // and their notes, hidden photos or any photo sent privately, team members'
@@ -68,8 +72,43 @@ export interface GuardianCat {
   lifeStatus: LifeStatusValue | null;
   /** The day (UTC, YYYY-MM-DD) of the newest sighting, or null for none. */
   lastSeen: string | null;
+  /** The old public codes, kept for now (SYC-443 plan, PR 2); her page no longer reads them. */
   coat: LegacyPublicCode[];
+  /** The resolved colours (catHelpers status.coatColours); [] means not known. */
+  coatColours: CoatColour[];
+  /** The resolved pattern; null means not known. */
+  coatPattern: CoatPattern | null;
   markings: Mark[];
+  /**
+   * Her cat's vet visits, newest first (dashboard §10.2; SYC-396 PR 3.1a):
+   * the day (Syros, YYYY-MM-DD) and what was done, **never** "vaccinated",
+   * the cost, who paid, the clinic or a note. Built from those two fields
+   * alone, so nothing else can ride along.
+   */
+  vetVisits: GuardianVetVisit[];
+}
+
+export interface GuardianVetVisit {
+  date: string;
+  did: ("sterilised" | "treated" | "checked")[];
+}
+
+const GUARDIAN_DID: ReadonlySet<string> = new Set(["sterilised", "treated", "checked"]);
+
+/** The visits a guardian may see of, from the cat's own rows (§10.2). */
+function guardianVisits(observations: Parameters<typeof standingRows>[0]): GuardianVetVisit[] {
+  return standingRows(observations, "vet_visit")
+    .filter((o) => !o.redactedAt)
+    .sort((a, b) => b.observedAt.getTime() - a.observedAt.getTime() || b.id - a.id)
+    .map((o) => {
+      const did = (o.value as { did?: unknown }).did;
+      return {
+        date: athensDay(o.observedAt),
+        did: (Array.isArray(did) ? did : []).filter((d): d is GuardianVetVisit["did"][number] =>
+          typeof d === "string" && GUARDIAN_DID.has(d),
+        ),
+      };
+    });
 }
 
 /**
@@ -189,7 +228,10 @@ export async function guardianCats(
       lifeStatus: life.value,
       lastSeen: own[0] ? toPublicDay(own[0].createdAt) : null,
       coat: status ? [...status.coat] : [],
+      coatColours: status ? [...status.coatColours] : [],
+      coatPattern: status?.coatPattern ?? null,
       markings: status ? [...status.markings] : [],
+      vetVisits: guardianVisits(observations),
     });
   }
   return out;
@@ -220,5 +262,8 @@ export const GUARDIAN_CAT_FIELDS = [
   "lifeStatus",
   "lastSeen",
   "coat",
+  "coatColours",
+  "coatPattern",
   "markings",
+  "vetVisits",
 ] as const satisfies readonly (keyof GuardianCat)[];

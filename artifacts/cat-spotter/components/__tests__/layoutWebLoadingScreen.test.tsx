@@ -57,7 +57,10 @@ vi.mock('expo-splash-screen', () => ({
   hideAsync: () => Promise.resolve(true),
 }));
 vi.mock('@/context/AppearanceContext', () => ({ AppearanceProvider: stubComponent('AppearanceProvider') }));
-vi.mock('@/context/LanguageContext', () => ({ LanguageProvider: stubComponent('LanguageProvider') }));
+vi.mock('@/context/LanguageContext', () => ({
+  LanguageProvider: stubComponent('LanguageProvider'),
+  useLanguage: () => ({ isLanguageReady: true, t: (k: string) => k }),
+}));
 vi.mock('@/context/DeviceContext', () => ({
   DeviceProvider: stubComponent('DeviceProvider'),
   useDevice: () => ({}),
@@ -69,6 +72,7 @@ vi.mock('@/context/OfflineContext', () => ({
 vi.mock('@/context/NotificationContext', () => ({ NotificationProvider: stubComponent('NotificationProvider') }));
 // SYC-42: the cat-report queue's provider.
 vi.mock('@/context/ReportQueueContext', () => ({ ReportQueueProvider: stubComponent('ReportQueueProvider') }));
+vi.mock('@/context/IssueQueueContext', () => ({ IssueQueueProvider: stubComponent('IssueQueueProvider') }));
 vi.mock('@/context/AppSettingsContext', () => ({ AppSettingsProvider: stubComponent('AppSettingsProvider') }));
 vi.mock('@/context/DeleteMyDataContext', () => ({
   DeleteMyDataProvider: stubComponent('DeleteMyDataProvider'),
@@ -84,6 +88,7 @@ vi.mock('@/components/TurnstileHost', () => ({ TurnstileHost: stubComponent('Tur
 // SYC-3: the keep-safe step and the "moved" screen.
 vi.mock('@/components/keepSafe/KeepSafeScreen', () => ({ KeepSafeScreen: stubComponent('KeepSafeScreen') }));
 vi.mock('@/components/keepSafe/MovedScreen', () => ({ MovedScreen: stubComponent('MovedScreen') }));
+vi.mock('@/components/keepSafe/FirstBadgeOffer', () => ({ FirstBadgeOffer: stubComponent('FirstBadgeOffer') }));
 
 afterEach(cleanup);
 

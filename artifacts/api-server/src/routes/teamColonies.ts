@@ -14,7 +14,9 @@ import {
   updateColony,
   type ColonyChanges,
 } from "../lib/teamColonies";
+import { colonyFigures, type ColonyFigures } from "../lib/dashboard/colonyFigures";
 import {
+  colonySortOf,
   renderAddCatsPage,
   renderColoniesPage,
   renderColonyPage,
@@ -164,6 +166,21 @@ router.get(
     const unmatchable = q.includes(NUL);
     const shown = unmatchable ? "" : q;
     const colonies = unmatchable ? [] : await listColonies(v.visible, q);
+    const sort = colonySortOf(req.query["sort"]);
+    // Progress and flags (SYC-396 PR 2.2; spec §9.1), filtered by the same
+    // Visible. If they can't be worked out the list still draws, saying so.
+    const now = new Date();
+    let figures: Map<number, ColonyFigures> | null = new Map();
+    if (colonies.length > 0) {
+      const started = Date.now();
+      try {
+        figures = await colonyFigures(v.visible, { island: v.island }, now);
+        req.log.info({ ms: Date.now() - started, colonies: figures.size }, "colony figures worked out");
+      } catch (err) {
+        figures = null;
+        req.log.error({ err }, "colony figures failed");
+      }
+    }
     // "Recent changes by cat guardians" (PR 4.3): the team's alone
     // (`view_guardian_changes`, island-only). A cat guardian gets neither the
     // list nor the field.
@@ -171,7 +188,15 @@ router.get(
       ? await recentGuardianChanges()
       : undefined;
     if (wantsJson(req)) {
-      return void res.json({ query: shown, colonies, ...(recentChanges ? { recentChanges } : {}) });
+      return void res.json({
+        query: shown,
+        sort,
+        // One cat count per colony: the figures' (active, on Syros) when there are figures.
+        colonies: colonies.map((c) => ({ ...c, catCount: figures?.get(c.id)?.catCount ?? c.catCount })),
+        // The figures of the colonies in this answer only.
+        figures: figures === null ? null : colonies.flatMap((c) => figures.get(c.id) ?? []),
+        ...(recentChanges ? { recentChanges } : {}),
+      });
     }
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
     res.type("html").send(
@@ -186,6 +211,9 @@ router.get(
         // A cat guardian creates colonies too (spec §2.7; SYC-209 PR 4.2).
         canCreate: can(person, "create_colony"),
         recentChanges,
+        figures,
+        sort,
+        now,
       }),
     );
   },

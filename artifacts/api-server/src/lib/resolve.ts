@@ -60,6 +60,9 @@ export const EVIDENCE_SOURCES = [
   "sterilised",
   "ear_tip",
   "welfare_report",
+  // SYC-396 PR 3.0 (team-dashboard-redesign.md §8.3, amending spine §3.4):
+  // a vet visit that still stands.
+  "vet_visit",
   "import",
   "created",
 ] as const;
@@ -311,6 +314,83 @@ function isActive(o: Observation, all: readonly Observation[]): boolean {
   return !all.some((other) => other.supersedesId === o.id);
 }
 
+/** The kinds a vet visit writes, whose undo puts back what it replaced
+ * (SYC-396 PR 3.0; plan Decision 6). */
+export type RestorableKind = "sterilised" | "vaccinated" | "vet_visit";
+
+/** What {@link supersedeChains} works out for one kind. */
+export interface SupersedeChains {
+  /** The rows that stand: nothing standing in effect supersedes them, and
+   * they aren't retractions (a retraction asserts nothing). */
+  standing: Observation[];
+  /** Rows a supersession in effect points at: they no longer stand. A row
+   * whose only superseder was retracted is not here. */
+  displaced: ReadonlySet<number>;
+  /** Rows an effective retraction points at. Their own supersession is
+   * undone, and they are never evidence of anything. */
+  retracted: ReadonlySet<number>;
+}
+
+/**
+ * The supersede chains of one restorable kind, walked from their newest end
+ * (plan Task 3.0.2):
+ *
+ * - a row is **retracted** when a `{ retracted: true }` that is not itself
+ *   retracted supersedes it;
+ * - a row is **displaced** when any superseder that is not retracted points
+ *   at it: so a retracted row's own supersession stops counting, and the row
+ *   it had replaced stands again;
+ * - the rest, less the retractions, stand.
+ *
+ * G ← Y gives Y; G ← Y ← R gives G; G ← Y ← R ← R2 gives Y; G ← Y ← Y2 gives
+ * Y2. With no retraction among the rows, `displaced` is exactly "something
+ * points at it", `isActive`'s rule, so no history without one changes.
+ */
+export function supersedeChains(observations: readonly Observation[], kind: RestorableKind): SupersedeChains {
+  const rows = observations.filter((o) => o.kind === kind);
+  // Every row pointing at one of this kind, whatever its own kind: a row of
+  // another kind (no writer has made one since 13 Oct; older data unchecked)
+  // still stands its target down exactly as `isActive` did (review of PR
+  // 3.0, F3). Only a same-kind retraction undoes anything.
+  const supersededBy = new Map<number, Observation[]>();
+  for (const o of observations) {
+    if (o.supersedesId == null) continue;
+    supersededBy.set(o.supersedesId, [...(supersededBy.get(o.supersedesId) ?? []), o]);
+  }
+  const memo = new Map<number, boolean>();
+  // Ids grow along a chain (a row supersedes one already written), so the
+  // recursion ends; `memo` keeps each row to one visit.
+  const isRetracted = (id: number): boolean => {
+    const known = memo.get(id);
+    if (known !== undefined) return known;
+    memo.set(id, false);
+    const result = (supersededBy.get(id) ?? []).some(
+      (r) => r.kind === kind && isRetractionValue(r.value) && !isRetracted(r.id),
+    );
+    memo.set(id, result);
+    return result;
+  };
+  const displaced = new Set<number>();
+  const retracted = new Set<number>();
+  for (const o of rows) {
+    if (isRetracted(o.id)) retracted.add(o.id);
+    if ((supersededBy.get(o.id) ?? []).some((s) => s.kind !== kind || !isRetracted(s.id))) displaced.add(o.id);
+  }
+  return {
+    standing: rows.filter((o) => !displaced.has(o.id) && !isRetractionValue(o.value)),
+    displaced,
+    retracted,
+  };
+}
+
+/** For "sterilised" | "vaccinated" | "vet_visit". A row stands unless a standing row supersedes it.
+ * A `{ retracted: true }` row supersedes its target and asserts nothing itself;
+ * when the target it retracts had itself superseded an earlier row, that earlier row stands again.
+ * Computed by walking each supersede chain from its newest end. Every other kind keeps `isActive`. */
+export function standingRows(observations: readonly Observation[], kind: RestorableKind): Observation[] {
+  return supersedeChains(observations, kind).standing;
+}
+
 function toIso(d: Date | string): string {
   return typeof d === "string" ? new Date(d).toISOString() : d.toISOString();
 }
@@ -380,6 +460,11 @@ function parseEarTip(value: unknown): EarTipValueShape | null {
   return null;
 }
 
+/** A statement a vet visit wrote: its value names the visit (SYC-396 PR 3.1a). */
+function isFromVisit(value: unknown): boolean {
+  return typeof value === "object" && value !== null && typeof (value as { vetVisitId?: unknown }).vetVisitId === "number";
+}
+
 /** Before any date exists to derive from. Never shown; only a fallback for "nothing at all". */
 const EPOCH = new Date(0).toISOString();
 
@@ -394,6 +479,8 @@ const EPOCH = new Date(0).toISOString();
  *    newest by `observedAt` within it wins, whatever sign (Decision G),
  *    after setting aside every `false` that a `true` with standing is dated
  *    strictly later than (SYC-315 B: a newer "sterilised" always wins).
+ *    A standing statement from a vet visit (its value carries `vetVisitId`)
+ *    decides over all of that (SYC-543): see the rule in the fold.
  * 3. Otherwise, a photo-backed `ear_tip { clipped: true }` reaches *likely*,
  *    unless an authoritative `clipped: false` (§10.2 rule 3: never an
  *    import — see `earTipAuthorityLevel`) beats it: see `clipCountered`.
@@ -406,8 +493,8 @@ const EPOCH = new Date(0).toISOString();
  *
  * J2 (Samuel, flagged to the team): when an authoritative negative wins at
  * step 2 but a *newer* photo-backed clipped-tip observation also exists,
- * the public answer stays the authoritative negative (§4.6: nothing beats
- * an authoritative assertion except a newer authoritative one) — but that
+ * the public answer stays the authoritative negative (§4.6: only a newer or
+ * higher-ranked authoritative assertion, or a standing vet visit, beats it) — but that
  * newer clip is surfaced in `conflicts` so the team sees it rather than it
  * silently vanishing into "we already said no".
  */
@@ -415,7 +502,12 @@ export function resolveSterilised(
   observations: readonly Observation[],
   importRecords: readonly ImportRecord[] = [],
 ): Resolved<boolean> {
-  const active = observations.filter((o) => isActive(o, observations));
+  // Sterilisation statements stand by the restore rule (an undone vet visit
+  // puts back the statement it overruled); ear tips keep `isActive`.
+  const standingSterilised = new Set(standingRows(observations, "sterilised").map((o) => o.id));
+  const active = observations.filter((o) =>
+    o.kind === "sterilised" ? standingSterilised.has(o.id) : isActive(o, observations),
+  );
 
   // Step 2: authoritative sterilised assertions (phase 1: observations only;
   // importRecords is always [] today — see ImportRecord's doc comment).
@@ -429,13 +521,15 @@ export function resolveSterilised(
     at: Date;
     rank: Dated;
     observationId: number | null;
+    /** Written by a vet visit that stands (its value carries `vetVisitId`). */
+    fromVisit: boolean;
   };
   const authoritative: Candidate[] = active
     .filter((o) => o.kind === "sterilised" && authorityLevel(o) > 0)
     .flatMap((o) => {
       const parsed = parseSterilised(o.value);
       return parsed
-        ? [{ sterilised: parsed.sterilised, at: o.observedAt, rank: o, observationId: o.id }]
+        ? [{ sterilised: parsed.sterilised, at: o.observedAt, rank: o, observationId: o.id, fromVisit: isFromVisit(o.value) }]
         : [];
     });
   // A not-yet-linked import record ranks with the team (Decision G). Its
@@ -448,6 +542,7 @@ export function resolveSterilised(
       at,
       rank: { roleAtTime: "system", authorityScope: "none", provenance: "import", observedAt: at, id: 0 },
       observationId: null,
+      fromVisit: false,
     };
   });
   // SYC-315, option B (Samuel, 16 October 2026): a newer "sterilised" beats
@@ -470,7 +565,14 @@ export function resolveSterilised(
     // Decision G (§4.6), through the one ordering (`outranks`): the highest
     // level present decides, and within it the newest by observedAt wins,
     // whatever sign it carries; an exact tie goes to the later row.
-    const winner = candidates.reduce((best, candidate) =>
+    // SYC-543 (Samuel, 21 October 2026): "a vet visit in which the cat was
+    // sterilised should always prevail". While a visit's "yes" stands, it
+    // decides, whoever said "not sterilised" and whenever, even after the
+    // visit. Only standing rows reach here, so an undone visit decides
+    // nothing and the rest rank as before. Each "no" it outweighs stays a
+    // conflict, so the team sees it under "Says otherwise".
+    const visitYes = candidates.filter((c) => c.fromVisit && c.sterilised);
+    const winner = (visitYes.length > 0 ? visitYes : candidates).reduce((best, candidate) =>
       outranks(candidate.rank, best.rank) ? candidate : best,
     );
     const disagreeingConflicts = candidates
@@ -1494,14 +1596,15 @@ function parseVaccines(value: unknown): { vaccines: Vaccine[]; clinic: string | 
  * (`isTeamRole`, less `vet` until vets can sign in and hold
  * `set_vaccination`); a row from anyone else, including a public or
  * guardian row a writer should have refused, is ignored. A team row that
- * replaces another team row (a correction) removes it.
+ * replaces another team row (a correction) removes it, and an undone vet
+ * visit's retraction removes its record (`standingRows`): team rows first,
+ * then standing rows, so a stray row can't stand a team record down.
  */
 export function resolveVaccinated(observations: readonly Observation[]): VaccinationRecord[] {
   const teamRows = observations.filter(
     (o) => o.kind === "vaccinated" && isTeamRole(o.roleAtTime) && o.roleAtTime !== "vet",
   );
-  return teamRows
-    .filter((o) => isActive(o, teamRows))
+  return standingRows(teamRows, "vaccinated")
     .flatMap((o) => {
       const parsed = parseVaccines(o.value);
       return parsed ? [{ o, ...parsed }] : [];
@@ -1516,7 +1619,7 @@ export function resolveVaccinated(observations: readonly Observation[]): Vaccina
 }
 
 /** SYC-2's kinds, kept away from the life-status and sterilised resolvers. */
-const APPEARANCE_AND_HEALTH_KINDS: ReadonlySet<string> = new Set([
+export const APPEARANCE_AND_HEALTH_KINDS: ReadonlySet<string> = new Set([
   "coat",
   "markings",
   "vaccinated",

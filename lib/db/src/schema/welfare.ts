@@ -65,6 +65,10 @@ export const welfareReportsTable = pgTable(
       onDelete: "set null",
     }),
     catId: integer("cat_id"),
+    // SYC-504: the cat whose page the reporter sent this from. A suggestion
+    // only: the team confirms it with the tie, which is what sets cat_id.
+    // No foreign key and no index, matching cat_id.
+    reporterCatId: integer("reporter_cat_id"),
     // new | looking | done | nothing_needed (spec §3.1). Slice 2 moves it.
     state: text("state").notNull().default("new"),
     stateChangedAt: timestamp("state_changed_at", { withTimezone: true }),
@@ -92,7 +96,7 @@ export const welfareReportsTable = pgTable(
     // keys; non-null exactly when kind = 'content'.
     reason: text("reason"),
     // The catalogue photo the report is about (`photos.id`). Required for the
-    // three photo reasons; optional for wrong_cat.
+    // three photo reasons; optional for wrong_cat and other (SYC-487).
     photoId: integer("photo_id").references(() => photosTable.id),
     // True when this report hid the photo (so a restore can tell its own).
     hiddenByReport: boolean("hidden_by_report").notNull().default(false),

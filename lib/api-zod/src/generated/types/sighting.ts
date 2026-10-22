@@ -25,6 +25,20 @@ export interface Sighting {
      * team hid has a null `photoUrl`.
      */
   extraPhotos?: SightingExtraPhoto[];
+  /**
+     * SYC-44 PR 6.1 (report-an-issue.md D4). True while this sighting's
+     * own photo is hidden from the public (then `photoUrl` is null), so
+     * the app shows "Photo hidden while Syros Cats take a look." in its
+     * place. It says only that a photo is hidden, never why or by whom.
+     */
+  photoHidden: boolean;
+  /**
+     * SYC-462. Present, and true, only when this sighting's own photo was
+     * removed for good (it is hidden too, so `photoUrl` is null and
+     * `photoHidden` is true); the app then shows "Photo removed." Left
+     * out otherwise.
+     */
+  photoRemoved?: boolean;
   /** A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
   createdAt: string;
 }

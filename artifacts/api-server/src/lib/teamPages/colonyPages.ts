@@ -9,7 +9,10 @@ import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { rowMenu } from "./rowMenu";
 import { position } from "./position";
-import { formatDate, pageLanguage } from "./strings";
+import { formatDate, formatDateTime, pageLanguage } from "./strings";
+import { markBar } from "./marks";
+import type { ColonyFigures, ColonyFlag } from "../dashboard/colonyFigures";
+import type { SterilisedMark } from "../teamCatList";
 import { wordsIn, type WordKey, type Words } from "./words";
 
 // The team's Colonies screens (SYC-209 PR 2.1; spec §2.6, §2.7, §8).
@@ -87,23 +90,140 @@ function counted(
   return t(single ? one : many, { n: String(n) });
 }
 
-function colonyCard(W: Words, c: ColonyRow): string {
+// ── Progress and flags (SYC-396 PR 2.2; spec §9.1) ────────────────────────
+
+/** How the list is sorted: by name, fewest confirmed sterilised first, or latest activity first. */
+export const COLONY_SORTS = ["name", "fewest", "recent"] as const;
+export type ColonySort = (typeof COLONY_SORTS)[number];
+
+/** `?sort=`: one of the three, anything else (or nothing) is by name. */
+export const colonySortOf = (raw: unknown): ColonySort =>
+  typeof raw === "string" && (COLONY_SORTS as readonly string[]).includes(raw) ? (raw as ColonySort) : "name";
+
+const SORT_WORD: Record<ColonySort, WordKey> = {
+  name: "colonies.sort.name",
+  fewest: "colonies.sort.fewest",
+  recent: "colonies.sort.recent",
+};
+
+/**
+ * The colonies in the chosen order. They arrive in name order, and every
+ * sort is stable, so ties stay in name order. A colony with no figures (no
+ * street cats, never sighted, or figures not available) goes last.
+ */
+export function sortColonies(
+  colonies: readonly ColonyRow[],
+  figures: ReadonlyMap<number, ColonyFigures> | null,
+  sort: ColonySort,
+): ColonyRow[] {
+  const out = [...colonies];
+  if (sort === "name" || figures === null) return out;
+  const key = (c: ColonyRow): number | null => {
+    const f = figures.get(c.id);
+    if (!f) return null;
+    if (sort === "fewest") return f.confirmedPct;
+    return f.latestSightingAt === null ? null : -f.latestSightingAt.getTime();
+  };
+  return out.sort((a, b) => {
+    const ka = key(a);
+    const kb = key(b);
+    if (ka === null || kb === null) return (ka === null ? 1 : 0) - (kb === null ? 1 : 0);
+    return ka - kb;
+  });
+}
+
+const FLAG_WORD: Record<ColonyFlag, WordKey> = {
+  growing: "colonies.flag.growing",
+  kittens: "colonies.flag.kittens",
+  no_guardian: "colonies.flag.noGuardian",
+  not_visited: "colonies.flag.notVisited",
+};
+
+// 16px shapes in neutral ink, never the sterilisation colours (§12.2): an
+// arrow up, a paw, a clock, and a person with a slash. Each sits beside its
+// word, so a flag is never an icon alone.
+const FLAG_SHAPE: Record<ColonyFlag, string> = {
+  growing: '<path d="M8 13V3M4 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  kittens:
+    '<circle cx="4" cy="6" r="1.6" fill="currentColor"/><circle cx="8" cy="4" r="1.6" fill="currentColor"/>' +
+    '<circle cx="12" cy="6" r="1.6" fill="currentColor"/><ellipse cx="8" cy="11" rx="3.4" ry="2.8" fill="currentColor"/>',
+  not_visited:
+    '<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/>' +
+    '<path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  no_guardian:
+    '<circle cx="8" cy="5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/>' +
+    '<path d="M3.5 14c.5-3 2.3-4.5 4.5-4.5s4 1.5 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8"/>' +
+    '<path d="M2.5 13.5l11-11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+};
+
+function flagChip({ w }: Words, f: ColonyFlag): string {
+  return (
+    `<span class="cflag cflag-${f}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">${FLAG_SHAPE[f]}</svg>` +
+    `${w(FLAG_WORD[f])}</span>`
+  );
+}
+
+const BAR_WORD: Record<SterilisedMark, WordKey> = {
+  sterilised: "colonies.mark.sterilised",
+  probably: "colonies.mark.probably",
+  not_known: "colonies.mark.notKnown",
+  not_sterilised: "colonies.mark.notSterilised",
+};
+
+/** The bar, % confirmed sterilised, the latest sighting and the flags: trusted HTML. */
+function figuresBlock(W: Words, f: ColonyFigures): string {
+  const { t, w } = W;
+  const words = Object.fromEntries(
+    (Object.keys(BAR_WORD) as SterilisedMark[]).map((m) => [m, t(BAR_WORD[m])]),
+  ) as Record<SterilisedMark, string>;
+  const bar = markBar(f.split, { label: t("colonies.streetCats"), words, empty: t("colonies.noStreetCats") });
+  const pct =
+    f.confirmedPct === null
+      ? ""
+      : `<span class="status cpct">${w("colonies.confirmed", { pct: String(f.confirmedPct) })}</span>`;
+  const seen =
+    f.latestSightingAt === null
+      ? w("colonies.noSighting")
+      : w("colonies.latestSighting", { date: dayIn(W.lang, f.latestSightingAt.toISOString()) });
+  const flags = f.flags.length > 0 ? `<span class="cflags">${f.flags.map((x) => flagChip(W, x)).join("")}</span>` : "";
+  return bar + pct + `<span class="status">${seen}</span>` + flags;
+}
+
+function colonyCard(W: Words, c: ColonyRow, f: ColonyFigures | undefined): string {
   const { w } = W;
-  const guardian = c.guardianName
-    ? `${w("colonies.guardian")}: ${esc(c.guardianName)}`
-    : w("colonies.noGuardian");
+  // The typed name, else whoever is placed on it now; with neither, the
+  // "No cat guardian" flag says so (or, with no figures, the old line).
+  const names = c.guardianName?.trim() ? [c.guardianName] : (f?.guardianNames ?? []);
+  const guardian =
+    names.length > 0
+      ? `<span class="status">${w("colonies.guardian")}: ${esc(names.join(", "))}</span>`
+      : f
+        ? ""
+        : `<span class="status">${w("colonies.noGuardian")}</span>`;
   const formerly = c.matchedOldName
     ? `<span class="status">${w("colonies.formerly")}: ${esc(c.matchedOldName)}</span>`
     : "";
+  const cats = f ? f.catCount : c.catCount;
   return (
-    `<li><a class="catrow" href="${esc(colonyHref(c.id))}"><span>` +
+    `<li><a class="catrow colonycard" href="${esc(colonyHref(c.id))}"><span>` +
     `<strong>${esc(c.name)}</strong>` +
-    `<span class="status">${guardian}</span>` +
+    guardian +
     formerly +
+    (f ? figuresBlock(W, f) : "") +
     `<span class="status">${esc(counted(W, c.siteCount, "count.colonySite", "count.colonySites"))} · ` +
-    `${esc(counted(W, c.catCount, "count.colonyCat", "count.colonyCats"))}</span>` +
+    `${esc(counted(W, cats, "count.colonyCat", "count.colonyCats"))}</span>` +
     `</span></a></li>`
   );
+}
+
+/** Sort links: fixed words and fixed addresses only (no search, no name, no position). */
+function sortBar(W: Words, sort: ColonySort): string {
+  const { w } = W;
+  const links = COLONY_SORTS.map((s) => {
+    const href = s === "name" ? "/api/team/colonies" : `/api/team/colonies?sort=${s}`;
+    return `<a href="${href}"${s === sort ? ' aria-current="true"' : ""}>${w(SORT_WORD[s])}</a>`;
+  }).join("");
+  return `<nav class="sortbar" aria-label="${w("colonies.sortLabel")}"><span>${w("colonies.sortLabel")}:</span>${links}</nav>`;
 }
 
 /**
@@ -146,13 +266,28 @@ export function renderColoniesPage(opts: ColonyViewer & {
    * nothing is drawn.
    */
   recentChanges?: RecentGuardianChange[];
+  /**
+   * Each colony's progress and flags (SYC-396 PR 2.2). `null` when they
+   * couldn't be worked out: the list still draws, with a line saying so.
+   */
+  figures: ReadonlyMap<number, ColonyFigures> | null;
+  sort: ColonySort;
+  /** When the figures were worked out (§9.6). */
+  now: Date;
 }): string {
   const W = wordsIn(opts.lang);
   const { t, w } = W;
   const searching = opts.query.trim() !== "" || opts.searched === true;
+  const shown = sortColonies(opts.colonies, opts.figures, opts.sort);
+  const figuresLine =
+    opts.colonies.length === 0
+      ? ""
+      : opts.figures === null
+        ? `<p class="figat" role="status">${w("colonies.figuresUnavailable")}</p>`
+        : `<p class="figat">${w("colonies.figuresAt", { time: formatDateTime(opts.lang, opts.now) })}</p>`;
   const list =
     opts.colonies.length > 0
-      ? `<ul class="cats">${opts.colonies.map((c) => colonyCard(W, c)).join("")}</ul>`
+      ? `<ul class="cats colonylist">${shown.map((c) => colonyCard(W, c, opts.figures?.get(c.id))).join("")}</ul>`
       : // A cat guardian sees only her own colonies, so "there are none" would
         // be untrue from where she stands (SYC-439).
         `<p class="empty">${w(
@@ -170,14 +305,22 @@ export function renderColoniesPage(opts: ColonyViewer & {
     nav: navFor(opts),
     lang: opts.lang,
     personName: opts.personName,
+    // Feeding sites left the team's menu with Home (PR 2.1); its way in is
+    // here, for the team only (a guardian's own menu already has it).
+    afterTitle:
+      opts.island === false ? undefined : `<p><a class="tap" href="/api/team/sites">${w("colonies.sites")}</a></p>`,
     body:
       banner(W, opts.done) +
       (opts.recentChanges ? recentChangesSection(W, opts.recentChanges) : "") +
       `<form class="search" method="get" action="/api/team/colonies" role="search">` +
       `<label class="label" for="colony-q">${w("colonies.searchLabel")}</label>` +
       `<div class="searchrow"><input id="colony-q" name="q" type="search" value="${esc(opts.query)}" maxlength="200" autocomplete="off">` +
+      // Searching keeps the chosen order.
+      (opts.sort === "name" ? "" : `<input type="hidden" name="sort" value="${opts.sort}">`) +
       `<button type="submit">${w("colonies.searchButton")}</button></div></form>` +
       (searching ? `<p><a class="tap" href="/api/team/colonies">${w("colonies.showAll")}</a></p>` : "") +
+      (opts.colonies.length > 1 && opts.figures !== null ? sortBar(W, opts.sort) : "") +
+      figuresLine +
       list +
       (opts.canCreate
         ? createForm(W, opts.island !== false, opts.island === false && opts.colonies.length === 0 && !searching)

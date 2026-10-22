@@ -22,7 +22,8 @@ export { SIGN_OFF_FACT_IDS, STARTER_FACT_IDS, settingShapeProblem };
  *  - no donation link (the nudge's words-only form, `feeding-nudge.md` §5.2);
  *  - the nine facts that need Syros Cats' yes hidden (plan small call 3);
  *  - taps counted;
- *  - the extra-photo boxes hidden (SYC-415 plan Decision P1).
+ *  - the extra-photo boxes hidden (SYC-415 plan Decision P1);
+ *  - a standard sterilisation price of €60 (SYC-396 PR 2.3; Syros Cats' €50–60).
  */
 
 export interface AppSettings {
@@ -35,9 +36,16 @@ export interface AppSettings {
   /** SYC-415: whether the app shows the extra-photo boxes. The upload takes
    * extra photos either way; this only hides the boxes. */
   extraPhotosOn: boolean;
+  /** SYC-396 PR 2.3: the standard sterilisation price, in whole euros, for the
+   * trapping planner's estimate and the vet-visit form. Team-only: never sent
+   * to the app. */
+  sterilisationPriceEur: number;
 }
 
 const KNOWN_FACTS = new Set<string>(STARTER_FACT_IDS);
+
+/** The standard price until the team sets one (SYC-396 plan Task 2.3.1). */
+export const DEFAULT_STERILISATION_PRICE_EUR = 60;
 
 /** Turn the stored rows into settings. Pure, so it is tested without a
  * database. */
@@ -74,7 +82,13 @@ export function settingsFromRows(
 
   const extraPhotosOn = read<boolean>("extra_photos_on", false, (v) => v as boolean);
 
-  return { donateUrl, hiddenFacts, countTaps, extraPhotosOn };
+  const sterilisationPriceEur = read<number>(
+    "standard_sterilisation_price_eur",
+    DEFAULT_STERILISATION_PRICE_EUR,
+    (v) => v as number,
+  );
+
+  return { donateUrl, hiddenFacts, countTaps, extraPhotosOn, sterilisationPriceEur };
 }
 
 /** One answer per server for this long. A change reaches every server within
@@ -82,6 +96,9 @@ export function settingsFromRows(
 export const SETTINGS_CACHE_MS = 60_000;
 
 let cached: { at: number; settings: AppSettings } | null = null;
+/** Bumped by every clear, so a read that began before a clear can't put the
+ * old answer back into the cache when it finishes (review of PR 3.1b). */
+let generation = 0;
 
 /**
  * The current settings. A database failure serves the last answer if there is
@@ -90,12 +107,13 @@ let cached: { at: number; settings: AppSettings } | null = null;
  */
 export async function getAppSettings(now: number = Date.now()): Promise<AppSettings> {
   if (cached && now - cached.at < SETTINGS_CACHE_MS) return cached.settings;
+  const startedIn = generation;
   try {
     const rows = await db
       .select({ key: appSettingsTable.key, value: appSettingsTable.value })
       .from(appSettingsTable);
     const settings = settingsFromRows(rows);
-    cached = { at: now, settings };
+    if (startedIn === generation) cached = { at: now, settings };
     return settings;
   } catch (err) {
     logger.error({ err: safeError(err) }, "could not read app settings; using the last answer or defaults");
@@ -103,7 +121,18 @@ export async function getAppSettings(now: number = Date.now()): Promise<AppSetti
   }
 }
 
+/**
+ * Forget the cached answer, so the next read goes to the database. Called
+ * after a change made on this server (the Vet settings page, SYC-396 PR 3.1b),
+ * so this server uses it at once; other servers pick it up within
+ * SETTINGS_CACHE_MS.
+ */
+export function clearAppSettingsCache(): void {
+  generation += 1;
+  cached = null;
+}
+
 /** Tests only: forget the cached answer. */
 export function _resetAppSettingsCacheForTests(): void {
-  cached = null;
+  clearAppSettingsCache();
 }

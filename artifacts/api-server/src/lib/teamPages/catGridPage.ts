@@ -1,5 +1,6 @@
-import { NAMED_AREAS } from "../areas/namedAreas";
+import { currentAreas } from "../areas/namedAreas";
 import { filtersToQuery } from "../teamCatFilters";
+import { findAddress } from "./findPhotoPage";
 import {
   COLOUR_FILTERS,
   DEFAULT_LIVES,
@@ -17,7 +18,7 @@ import { assetUrl } from "../teamAssets";
 import type { TieMode } from "./catPages";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { lastSeenWords } from "./lastSeen";
+import { lastSeenWords, notSeenWords } from "./lastSeen";
 import { markBadge, MARK_WORD } from "./marks";
 import { timeAgo } from "./queuePage";
 import { tr, type StringKey } from "./strings";
@@ -47,6 +48,7 @@ const LAST_SEEN_WORD: Record<(typeof LAST_SEEN)[number], string> = {
   month: "This month",
   "1to3": "1–3 months",
   over3: "Over 3 months",
+  quiet: notSeenWords(),
   never: "Never seen since first recorded",
 };
 
@@ -135,7 +137,7 @@ export function activeChips(o: Pick<CatGridOptions, "filters" | "colonies" | "ti
     chips.push({ label: COLOUR_WORD(c), without: { ...f, colours: left.length ? left : undefined, page: undefined } });
   }
   if (f.area !== undefined) {
-    const a = NAMED_AREAS.find((x) => x.key === f.area);
+    const a = currentAreas().find((x) => x.key === f.area);
     chips.push({ label: a ? a.name : "Area", without: { ...f, area: undefined, page: undefined } });
   }
   if (f.colony !== undefined) {
@@ -183,7 +185,7 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
   ).join("");
   const areas =
     '<option value="">Anywhere</option>' +
-    NAMED_AREAS.map(
+    currentAreas().map(
       (a) => `<option value="${esc(a.key)}"${sel(f.area === a.key)}>${esc(a.name)}</option>`,
     ).join("");
   const colonies =
@@ -220,6 +222,8 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
     '<div class="fpanel">' +
     `<fieldset><legend>Look</legend><div class="choices">${colours}</div></fieldset>` +
     `<fieldset><legend>Where</legend><label class="flabel" for="f-area">Area</label><select class="text" id="f-area" name="area">${areas}</select>` +
+    // The list itself is the team's to correct (SYC-396 PR 2.4).
+    '<p class="hint"><a href="/api/team/areas">Change the areas</a></p>' +
     `<label class="flabel" for="f-colony">Colony</label><select class="text" id="f-colony" name="colony">${colonies}</select></fieldset>` +
     `<fieldset><legend>Sterilised</legend><div class="choices">${marks}</div></fieldset>` +
     `<fieldset><legend>Lives</legend><div class="choices">${lives}</div></fieldset>` +
@@ -278,6 +282,16 @@ function card(c: CatListItem, o: CatGridOptions): string {
   );
 }
 
+/**
+ * "Find from a photo" (SYC-396 PR 2.5; spec §5.2), carrying the place and
+ * colours chosen here, and the report being tied. Inside #catresults, so it
+ * follows the filters when the script swaps the results.
+ */
+function findLink(o: Pick<CatGridOptions, "filters" | "tie">): string {
+  const f = o.filters;
+  return `<p class="findentry"><a class="findentrylink" href="${esc(findAddress({ area: f.area, colony: f.colony, colours: f.colours }, o.tie?.publicId))}">Find from a photo</a></p>`;
+}
+
 export function renderCatGridPage(o: CatGridOptions): string {
   const { tie } = o;
   if (tie && !tie.report) {
@@ -328,7 +342,7 @@ export function renderCatGridPage(o: CatGridOptions): string {
   // choosing a cat for a report.
   const body =
     filterForm(o) +
-    `<div id="catresults">${tie ? "" : viewSwitch(o.filters, "grid")}${activeChips(o)}${results}</div>`;
+    `<div id="catresults">${tie ? "" : viewSwitch(o.filters, "grid")}${findLink(o)}${activeChips(o)}${results}</div>`;
   // The one page with our own script (SYC-396 PR 1.3.4). Its route sends the wider header.
   const script = assetUrl("dashboard-grid.js");
 

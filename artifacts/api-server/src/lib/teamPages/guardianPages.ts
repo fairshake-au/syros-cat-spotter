@@ -1,7 +1,8 @@
 import { renderPage, MY_COLONIES_PATH } from "./layout";
 import { escapeHtml as esc } from "./escape";
 import { position } from "./position";
-import { legacyPublicLine } from "./appearancePage";
+import { markShownWord } from "./appearancePage";
+import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
 import {
   LIVE_LANGUAGES,
   formatDate,
@@ -110,12 +111,39 @@ function lastSeenWords(day: string | null, lang: string, t: Say, live: readonly 
 }
 
 /**
- * Colour and markings as the public line words them ("Ginger · Tabby · One
- * eye"), through SYC-2's one builder (appearancePage.publicLine), so her page
- * and the team's never word a cat differently. Nothing when nothing is known.
+ * "Seen by a vet on 13 Aug 2026: sterilised", one line per visit (dashboard
+ * §10.2). The view carries only the day and what was done, never a
+ * vaccination, a cost or the clinic.
  */
-function appearanceLine(lang: string, cat: { coat: readonly string[]; markings: readonly string[] }): string {
-  const line = legacyPublicLine(lang, cat.coat, cat.markings);
+function vetVisitLines(cat: GuardianCat, lang: string, t: Say, live: readonly Language[]): string {
+  return cat.vetVisits
+    .map((v) => {
+      const date = formatDate(lang, new Date(`${v.date}T12:00:00Z`), live);
+      const line = v.did.length
+        ? t("gcat.vet.did", { date, did: v.did.map((d) => t(`gcat.vet.${d}` as StringKey)).join(", ") })
+        : t("gcat.vet.seen", { date });
+      return `<p>${esc(line)}</p>`;
+    })
+    .join("");
+}
+
+/**
+ * The coat in the team's words, then the marks as the public line words them
+ * ("Ginger tabby · White paws · One eye"; SYC-443 T1A, so her page and the
+ * team's never word a cat differently). In Greek or French, §2's words for the
+ * parts that are known (T4A). An unknown coat leaves only the marks; nothing
+ * when nothing is known.
+ */
+function appearanceLine(
+  lang: string,
+  cat: { coatColours: readonly string[]; coatPattern: string | null; markings: readonly string[] },
+  live: readonly Language[],
+): string {
+  const coat = { colours: cat.coatColours, pattern: cat.coatPattern };
+  const line = [
+    ...(coatIsUnknown(coat) ? [] : [coatWordsFor(lang, coat, { live })]),
+    ...cat.markings.map((m) => markShownWord(lang, m, live)),
+  ].join(" · ");
   return line ? `<p>${esc(line)}</p>` : "";
 }
 
@@ -291,8 +319,9 @@ export function renderGuardianCatPage(
     `<p>${esc(sterilisedWords(cat.sterilised, t))}</p>` +
     (cat.lifeStatus ? `<p>${esc(t(`gcat.life.${cat.lifeStatus}` as StringKey))}</p>` : "") +
     `<p>${esc(lastSeenWords(cat.lastSeen, lang, t, live))}</p>` +
+    vetVisitLines(cat, lang, t, live) +
     `<p>${esc(t("gcat.position", { position: exact(cat.lat, cat.lng) }))}</p>` +
-    appearanceLine(lang, cat) +
+    appearanceLine(lang, cat, live) +
     (cat.description ? `<p class="muted">${esc(cat.description)}</p>` : "") +
     "</div>" +
     (opts.mine ? sayBlock(cat, opts.mine, t) : "") +
@@ -323,7 +352,7 @@ export function renderPublicCatForGuardian(
     `<p>${esc(sterilisedWords(cat.sterilised, t))}</p>` +
     `<p>${esc(t(`gcat.life.${cat.lifeStatus}` as StringKey))}</p>` +
     `<p>${esc(lastSeenWords(cat.lastSeenAt, lang, t, live))}</p>` +
-    appearanceLine(lang, cat) +
+    appearanceLine(lang, cat, live) +
     "</div>" +
     `<p><a class="tap" href="${MY_COLONIES_PATH}">${esc(t("gcat.back"))}</a></p>`;
   return shell(who, cat.name, body, live);

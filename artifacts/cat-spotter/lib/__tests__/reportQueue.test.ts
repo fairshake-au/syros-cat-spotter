@@ -19,6 +19,7 @@ import {
   isPendingReport,
   isPermanentRefusal,
   newPendingReport,
+  reportCatId,
   syncReports,
   type PendingReport,
   type ReportApi,
@@ -533,6 +534,58 @@ describe('SYC-42 Slice 3: the reporter\'s address in the queue', () => {
     });
     expect('email' in bodies[0]!).toBe(false);
   });
+});
+
+describe('SYC-504: the cat in the queue', () => {
+  async function sendOne(r: PendingReport | Record<string, unknown>) {
+    const { store } = makeStore([r as PendingReport]);
+    await store.load();
+    const bodies: Record<string, unknown>[] = [];
+    await syncReports(store, {
+      api: api({ submit: vi.fn(async (body) => (bodies.push({ ...body }), { publicId: 'p' })) }),
+      deviceId: 'dev-1',
+      ...photos,
+    });
+    return bodies;
+  }
+
+  it('newPendingReport stores the cat id, or null', () => {
+    const base = { severity: 'urgent', isLitter: false, lat: 1, lng: 2, note: '', language: 'en', hasPhoto: false } as const;
+    expect(newPendingReport({ ...base, catId: 7 }).catId).toBe(7);
+    expect(newPendingReport({ ...base, catId: null }).catId).toBeNull();
+    expect(newPendingReport({ ...base }).catId).toBeNull();
+  });
+
+  it('the submit body carries catId as a number', async () => {
+    const bodies = await sendOne(report({ catId: 7 }));
+    expect(bodies[0]!['catId']).toBe(7);
+  });
+
+  it('a cleared cat sends catId: null (the key is present, so it overwrites a draft\'s suggestion)', async () => {
+    const bodies = await sendOne(report({ catId: null }));
+    expect('catId' in bodies[0]!).toBe(true);
+    expect(bodies[0]!['catId']).toBeNull();
+  });
+
+  it('an item queued in the old format (no catId at all) is still read, still sends, and sends null', async () => {
+    const { catId: _gone, ...old } = report();
+    expect('catId' in old).toBe(false);
+    expect(isPendingReport(old)).toBe(true);
+    const bodies = await sendOne(old);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]!['catId']).toBeNull();
+  });
+
+  it.each([['"7"', '7'], ['1.5', 1.5], ['-1', -1], ['0', 0], ['NaN-ish string', 'abc'], ['true', true]])(
+    'a stored catId that is not a positive integer (%s) is read as none and sent as null',
+    async (_label, bad) => {
+      const item = { ...report(), catId: bad };
+      expect(isPendingReport(item)).toBe(true);
+      expect(reportCatId(item as PendingReport)).toBeNull();
+      const bodies = await sendOne(item);
+      expect(bodies[0]!['catId']).toBeNull();
+    },
+  );
 });
 
 describe('confirmationState (item 1.12)', () => {

@@ -45,6 +45,10 @@ const reportQueue = vi.hoisted(() => ({ reports: [] as unknown[], ready: true })
 vi.mock('@/context/ReportQueueContext', () => ({
   useReportQueue: () => reportQueue,
 }));
+const issueQueue = vi.hoisted(() => ({ issues: [] as unknown[], ready: true }));
+vi.mock('@/context/IssueQueueContext', () => ({
+  useIssueQueue: () => issueQueue,
+}));
 const deleteNow = vi.hoisted(() => vi.fn(async () => 'failed'));
 vi.mock('@/context/DeleteMyDataContext', () => ({
   useDeleteMyData: () => ({ deleteNow }),
@@ -59,6 +63,8 @@ afterEach(() => {
   state.unsentCount = 0;
   reportQueue.reports = [];
   reportQueue.ready = true;
+  issueQueue.issues = [];
+  issueQueue.ready = true;
 });
 
 function deleteButton(utils: ReturnType<typeof render>) {
@@ -116,6 +122,24 @@ describe('Delete my data screen', () => {
     expect(utils.queryByLabelText(en.deleteConfirm!)).toBeNull();
     fireEvent.click(utils.getByLabelText(en.deleteSendReportsOne!));
     await waitFor(() => expect(deleteNow).toHaveBeenCalledWith('send'));
+  });
+
+  it('SYC-44 PR 6.2: a waiting "Report an issue" report alone still gets the choice; it is never wiped unasked', async () => {
+    issueQueue.issues = [{}];
+    const utils = render(<DeleteMyDataScreen />);
+    expect(utils.getByTestId('delete-reports-block').textContent).toBe(
+      en.deleteReportsOne! + en.deleteReportsExplainOne!,
+    );
+    expect(utils.queryByLabelText(en.deleteConfirm!)).toBeNull();
+    fireEvent.click(utils.getByLabelText(en.deleteSendReportsOne!));
+    await waitFor(() => expect(deleteNow).toHaveBeenCalledWith('send'));
+  });
+
+  it('SYC-44 PR 6.2: cat reports and issue reports are counted together', () => {
+    reportQueue.reports = [{}];
+    issueQueue.issues = [{}];
+    const utils = render(<DeleteMyDataScreen />);
+    expect(utils.getByText('You have 2 cat reports that haven’t been sent yet.')).toBeTruthy();
   });
 
   it('says nothing was deleted when a report would not send', async () => {

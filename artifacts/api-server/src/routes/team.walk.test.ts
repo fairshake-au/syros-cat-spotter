@@ -10,6 +10,7 @@ import { removeTestPerson } from "../test/removeTestPerson";
 import { expectedCsp } from "../test/wideCsp";
 import { assetUrl } from "../lib/teamAssets";
 import { ASSET_CACHE } from "./teamAssets";
+import { COMING_SOON } from "../lib/teamPages/homePage";
 import { invitePerson } from "@workspace/db";
 import { inviteCookieFor } from "../test/inviteKit";
 import {
@@ -181,6 +182,7 @@ interface Row {
  */
 const TABLE: Record<string, Row> = {
   "GET /api/team": { why: "the welfare queue: view_welfare_queue, island-only" },
+  "GET /api/team/home": { why: "Home (SYC-396 PR 2.1): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "GET /api/team/me": {
     why: "who is signed in: the dashboard door, no capability",
     except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" },
@@ -200,10 +202,17 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/reports/:publicId/note": { why: "add_team_note, island-only" },
   "POST /api/team/reports/:publicId/cat": { why: "change_report_state, island-only" },
   "GET /api/team/cats": { why: "the island-wide cat list: view_exact_location with no target, so island-only" },
+  "GET /api/team/cats/find": { why: "Find from a photo's form and count (SYC-396 PR 2.5): find_cat_from_photo, island-only, so every cat guardian gets the 403" },
+  "POST /api/team/cats/find": { why: "Find from a photo's search: find_cat_from_photo, island-only; the walk's form has no photo, so the team gets a 400 and no search runs" },
   "POST /api/team/cats/map": { why: "the island Map's button-map moves, for a browser with no script (SYC-396 PR 1.5): view_exact_location with no target" },
   "POST /api/team/cats/positions": { why: "the island map's cat positions (SYC-396 PR 1.5): view_exact_location with no target, so island-only" },
   "GET /api/team/cats/:id": { why: "the team's cat page: view_exact_location with no target (a guardian's own page is PR 2.1's)" },
   "POST /api/team/cats/:id/life-status": { why: "set_life_status with no target, island-only" },
+  "GET /api/team/cats/:id/died": { why: "the \"This cat has died\" page (SYC-513): set_life_status with no target, island-only" },
+  "POST /api/team/cats/:id/died": { why: "records a death (SYC-513): set_life_status with no target, island-only" },
+  "GET /api/team/cats/:id/vet-visit": { why: "the Log a vet visit form (SYC-396 PR 3.1a): log_vet_visit, island-only" },
+  "POST /api/team/cats/:id/vet-visit": { why: "logs a vet visit (SYC-396 PR 3.1a): log_vet_visit, island-only; the walk's empty form gets a 400 and nothing is written" },
+  "POST /api/team/vet-visits/:visitId/wrong": { why: "marks a vet visit wrong with everything it recorded (SYC-396 PR 3.1a): log_vet_visit, island-only; the walk's id is no visit, so the team gets a 404" },
   "POST /api/team/cats/:id/sterilisation": { why: "set_sterilisation with no target, island-only" },
   "POST /api/team/cats/:id/name": { why: "rename_cat, island-only" },
   "POST /api/team/cats/:id/remove-owner": { why: "remove_owner, island-only" },
@@ -237,6 +246,15 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony on the colony the cats go into (PR 4.2); a colony that isn't hers, or isn't one, is the same 403" },
   // SYC-209 PR 4.3: "Recent changes by cat guardians" on its own. Team-only.
   "GET /api/team/guardian-changes": { why: "view_guardian_changes: island-only, so every cat guardian gets the 403" },
+  // SYC-396 PR 2.4: the Areas page and its one form route. Team-only.
+  "GET /api/team/insights": { why: "the Reports list (SYC-396 PR 3.3a): view_reports with no target, so island rows only; every cat guardian gets the 403 until SYC-472" },
+  "GET /api/team/insights/:report": { why: "one report: view_reports with no target, island rows only; the walk's :report is no report, so the team gets a 404" },
+  "GET /api/team/insights/:report.csv": { why: "a report's spreadsheet: export_report, island-only; the walk's :report is no report, so the team gets a 404 and nothing is recorded" },
+  "GET /api/team/areas": { why: "edit_named_areas: island-only, so every cat guardian gets the 403" },
+  "POST /api/team/areas": { why: "edit_named_areas: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
+  // SYC-396 PR 3.1b: the Vet settings page and its one form route. Team-only.
+  "GET /api/team/vet-settings": { why: "edit_vet_settings: island-only, so every cat guardian gets the 403" },
+  "POST /api/team/vet-settings": { why: "edit_vet_settings: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony on the colony it goes into, or for a take-out the one it leaves, from the record (PR 4.2); an unreadable form has no colony" },
   // SYC-209 PR 3.1, the team map. Never the door's "any colony" check. The Map page and its
   // tap stay the team's; the picture route opens to anyone who sees a colony (PR 4.1: a
@@ -308,6 +326,9 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/my/welcome": { why: "the accept page: an invitee's own session only (requireInvitee)", except: ACCEPT_PAGE },
   "POST /api/team/my/accept": { why: "Yes, join: requireInvitee and the dashboard's Origin", except: ACCEPT_PAGE },
   "POST /api/team/my/decline": { why: "No, this isn't for me: requireInvitee and the dashboard's Origin", except: ACCEPT_PAGE },
+  // SYC-45 Slice 1: the nightly news check's review list. Staff only.
+  "GET /api/team/news-changes": { why: "use_workspace: island-only, so every cat guardian gets the 403 (teamNews.test.ts)" },
+  "POST /api/team/news-changes/:id/review": { why: "use_workspace: island-only, Origin checked (teamNews.test.ts)" },
 };
 
 /** Routes with their own checks instead of a person's session. */
@@ -318,6 +339,8 @@ const OWN_CHECKS: Record<string, string> = {
   "POST /api/internal/mail/drain": "the drain timer's bearer token (internalMail.test.ts)",
   "POST /api/internal/coat/sweep": "the drain timer's bearer token, SYC-161 Decision D1 (internalCoat.test.ts)",
   "POST /api/internal/resend/webhook": "Resend's signature, no token (reports.reporterEmail.test.ts, prelaunchGate.test.ts)",
+  "POST /api/internal/news/nightly": "the news check's own bearer token, SYC-45 (news/nightly.test.ts)",
+  "GET /api/internal/news/last-run": "the news check's own bearer token, SYC-45 (news/nightly.test.ts)",
 };
 
 /**
@@ -689,5 +712,18 @@ describe("T2: a person who may enter but lacks the capability gets the 403, neve
     expect(page.text).toContain('href="/api/team/my/colonies">Your colonies are here</a>');
     expect(page.text).not.toContain("Welfare queue");
     expect(page.text).toContain("Sign out");
+  });
+});
+
+describe("Home's Coming soon line (SYC-396 PR 2.1)", () => {
+  // A feature whose route is in the TABLE has arrived: the PR that built it
+  // must take it off Home's "Coming soon" line in the same change.
+  it("names no feature whose route already exists", () => {
+    const arrived = COMING_SOON.filter((f) => f.route in TABLE).map((f) => `${f.label} (${f.route})`);
+    expect(arrived, "remove these from COMING_SOON in lib/teamPages/homePage.ts").toEqual([]);
+  });
+
+  it("lists every route in the same form as the TABLE's keys", () => {
+    for (const f of COMING_SOON) expect(f.route).toMatch(/^(GET|POST) \/api\/team\//);
   });
 });

@@ -41,7 +41,7 @@ export function invitee(res: Response): Invitee {
   return found;
 }
 
-/** Where a joined person lands (team: the queue; placed roles only: her page). */
+/** Where a joined person lands (team: Home; placed roles only: her page). */
 export function homeFor(person: PersonWithScopes): string {
   return can(person, "view_welfare_queue") ? TEAM_HOME : `${TEAM_ORIGIN}${GUARDIAN_HOME_PATH}`;
 }

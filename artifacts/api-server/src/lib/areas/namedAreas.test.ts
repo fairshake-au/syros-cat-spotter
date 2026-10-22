@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { haversineKm } from "../catHelpers";
 import { AREAS as MAP_AREAS } from "../mapTiles/areas";
-import { areaFor, areaByKey, NAMED_AREAS, OFF_SYROS } from "./namedAreas";
+import { areaFor, areaByKey, SEED_AREAS, OFF_SYROS } from "./namedAreas";
 
 describe("named areas (spec §3.3)", () => {
   it("puts a point in the area whose centre is nearest", () => {
@@ -13,7 +13,7 @@ describe("named areas (spec §3.3)", () => {
     expect(areaFor(37.6, 24.94)).toBe(OFF_SYROS);
   });
   it("has unique keys made only of a-z and hyphens (they go in web addresses)", () => {
-    const keys = NAMED_AREAS.map((a) => a.key);
+    const keys = SEED_AREAS.map((a) => a.key);
     expect(new Set(keys).size).toBe(keys.length);
     for (const k of keys) expect(k).toMatch(/^[a-z-]+$/);
   });
@@ -56,7 +56,7 @@ describe("named areas (spec §3.3)", () => {
     });
   });
   it("maps every area's own centre to itself", () => {
-    for (const a of NAMED_AREAS) expect(areaFor(a.lat, a.lng).key).toBe(a.key);
+    for (const a of SEED_AREAS) expect(areaFor(a.lat, a.lng).key).toBe(a.key);
   });
   it.each(["ano-syros", "vari", "fabrika", "manna", "mega-gialos", "chroussa"])(
     "has %s, and its own centre maps to it",

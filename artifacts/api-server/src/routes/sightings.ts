@@ -1,7 +1,8 @@
-import { Router, type IRouter, type Request } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import {
   AnswerSightingQuestionsBody,
   CreateSightingBody,
+  RecheckSightingBody,
   ResolveSightingBody,
 } from "@workspace/api-zod";
 import {
@@ -16,7 +17,7 @@ import {
   type SightingPhotoRole,
   type SuggestedMatch,
 } from "@workspace/db";
-import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
@@ -250,7 +251,7 @@ async function computeMatchCandidates(
   photos: NewPhotoInput[],
   lat: number,
   lng: number,
-): Promise<{ isCatPhoto: boolean; candidates: Candidate[] }> {
+): Promise<MatchAnswer> {
   // SYC-39: only cats within 500 m (exact positions), nearest first — see
   // selectCandidateCats and DECISIONS.md Part 2h.
   const cats = await db.select().from(catsTable);
@@ -279,7 +280,9 @@ async function computeMatchCandidates(
         .select()
         .from(photosTable)
         .where(eq(photosTable.id, cat.primaryPhotoId));
-      if (p) {
+      // SYC-462 spec §6 item 3: a main photo removed for good (no picture) is
+      // never sent; that cat simply isn't compared.
+      if (p && p.data !== null) {
         candidateInputs.push({
           catId: cat.id,
           name: cat.name,
@@ -295,7 +298,8 @@ async function computeMatchCandidates(
     mixedCats = result.mixedCats === true;
     const byId = new Map(nearest.map((cat) => [cat.id, cat]));
     // Only a cat the matcher was actually sent can be suggested (review F5):
-    // a nearby cat whose photo row is gone was never compared.
+    // a nearby cat whose photo row is gone, or was removed for good (SYC-462),
+    // was never compared.
     const sent = new Set(candidateInputs.map((c) => c.catId));
     // Data spine PR 5 (§6.3 point 3; DECISIONS.md Part 2h): ranked by
     // confidence, ties broken by cat id — NEVER by true distance, and
@@ -334,10 +338,10 @@ async function computeMatchCandidates(
     });
   } catch (err) {
     matcherFailed = true;
-    req.log.error({ err }, "AI matching failed; returning no candidates");
+    req.log.error({ err }, "AI matching failed; telling the phone the check failed");
   }
 
-  await recordMatch(req, sightingId, {
+  const recorded = await recordMatch(req, sightingId, {
     // A failed call scored nothing, so nothing counts as compared (review
     // F1): a hand pick on it is then a distance miss, never a matcher miss.
     comparedCatIds: matcherFailed ? [] : candidateInputs.map((c) => c.catId),
@@ -352,7 +356,87 @@ async function computeMatchCandidates(
     mixedCats: matcherFailed ? null : mixedCats,
   });
 
-  return { isCatPhoto, candidates };
+  // SYC-503: a failed check is never "no look-alikes". The phone reads
+  // matchCheck first; isCatPhoto stays true only because nothing is known.
+  // A failure the server couldn't write down can't be re-checked: recheck
+  // only runs on a stored failure (review of SYC-503, finding 8).
+  return matcherFailed
+    ? { isCatPhoto: true, candidates: [], matchCheck: "failed", canRecheck: recorded }
+    : { isCatPhoto, candidates, matchCheck: "done", canRecheck: false };
+}
+
+/**
+ * SYC-503: what the phone is told after a check. `matchCheck` says whether
+ * the look-alike check worked at all; `canRecheck` says a failed one can be
+ * run again (false when the photo has gone and there is nothing to check).
+ */
+type MatchAnswer = {
+  isCatPhoto: boolean;
+  candidates: Candidate[];
+  matchCheck: "done" | "failed";
+  canRecheck: boolean;
+};
+
+/** SYC-503: the answer when the spot's photos have gone: nothing could be checked, and nothing can be re-checked. */
+const PHOTO_GONE: MatchAnswer = {
+  isCatPhoto: true,
+  candidates: [],
+  matchCheck: "failed",
+  canRecheck: false,
+};
+
+/**
+ * Every photo of a stored spot, in position order, for matching it again
+ * (the dedupe repeat, §3.6 of offline-queue-on-web.md, and SYC-503's
+ * recheck). A photo removed for good (SYC-462) is never sent; empty when
+ * nothing is left to match against.
+ */
+async function storedSpotPhotos(sighting: {
+  id: number;
+  photoId: number;
+}): Promise<NewPhotoInput[]> {
+  // SYC-415 (spec §6.1): matched again against ALL the spot's photos, in
+  // the same order. Nothing is re-validated or saved again.
+  const rows = await db
+    .select({
+      role: sightingPhotosTable.role,
+      data: photosTable.data,
+      mime: photosTable.mime,
+    })
+    .from(sightingPhotosTable)
+    .innerJoin(photosTable, eq(photosTable.id, sightingPhotosTable.photoId))
+    // SYC-462 spec §6 item 3: a photo removed for good is never re-sent.
+    .where(and(eq(sightingPhotosTable.sightingId, sighting.id), isNotNull(photosTable.data)))
+    .orderBy(asc(sightingPhotosTable.position));
+  const photos: NewPhotoInput[] = rows.map((r) => ({
+    role: r.role as SightingPhotoRole,
+    photoBase64: r.data!,
+    mime: r.mime,
+  }));
+  if (photos.length > 0) return photos;
+  // A sighting from before SYC-415, or one an older server made during a
+  // deploy: its one photo is sightings.photo_id.
+  const [only] = await db
+    .select()
+    .from(photosTable)
+    .where(eq(photosTable.id, sighting.photoId));
+  // A removed cover (SYC-462) leaves nothing to send.
+  return only && only.data !== null
+    ? [{ role: "first", photoBase64: only.data, mime: only.mime }]
+    : [];
+}
+
+/** SYC-151 (review F4) / SYC-503: store that nothing could be compared because the photo has gone. */
+async function recordPhotoGone(req: Request, sightingId: number): Promise<void> {
+  // No photo means nothing was compared, which data spine §10.9 records
+  // as matcherFailed, so it isn't read as "no cats nearby".
+  await recordMatch(req, sightingId, {
+    comparedCatIds: [],
+    suggested: [],
+    matcherFailed: true,
+    noCatInAnyPhoto: null,
+    mixedCats: null,
+  });
 }
 
 // SYC-151: store what was compared and suggested. The dedupe-hit path calls
@@ -370,19 +454,24 @@ async function recordMatch(
     noCatInAnyPhoto: boolean | null;
     mixedCats: boolean | null;
   },
-): Promise<void> {
+): Promise<boolean> {
   const values = { ...sets, matchedAt: new Date() };
   try {
-    await db
+    // True only when the row was really written: an update skipped because
+    // a choice was already made (setWhere) writes nothing.
+    const written = await db
       .insert(sightingMatchesTable)
       .values({ sightingId, ...values })
       .onConflictDoUpdate({
         target: sightingMatchesTable.sightingId,
         set: values,
         setWhere: isNull(sightingMatchesTable.chosenAt),
-      });
+      })
+      .returning({ sightingId: sightingMatchesTable.sightingId });
+    return written.length > 0;
   } catch (err) {
     req.log.error({ err, sightingId }, "Could not write the match record");
+    return false;
   }
 }
 
@@ -451,6 +540,50 @@ function labelChoice(input: {
   };
 }
 
+/**
+ * Data spine PR 5 (DECISIONS.md Part 2h, §6.3 point 2): the per-device
+ * budget for look-alike checks, shared by sending a spot and SYC-503's
+ * recheck. Call only once the device secret is proven. Answers the request
+ * itself (503 or 429) and returns false when the check must not run.
+ */
+async function withinDeviceMatchLimit(
+  req: Request,
+  res: Response,
+  deviceId: string,
+): Promise<boolean> {
+  let deviceWithinLimit: boolean;
+  try {
+    deviceWithinLimit = await checkDeviceMatchLimit(deviceId);
+  } catch (err) {
+    // Not a cat-in-trouble route, so a limit that cannot count fails closed.
+    req.log.error({ err: safeError(err) }, "device match limit counter failed");
+    res.setHeader("Retry-After", "5");
+    res.status(503).json({ error: "Please try again in a moment." });
+    return false;
+  }
+  if (!deviceWithinLimit) {
+    // Nit from review of PR #64: the per-IP aiLimiter sends RateLimit-* and
+    // Retry-After on a 429; this in-memory limiter had sent neither. A
+    // client (or a spotter's phone, eventually) can't tell how long to back
+    // off without one.
+    const resetAt = await deviceMatchResetAt(deviceId).catch(() => undefined);
+    const retryAfterSeconds = Math.max(
+      0,
+      Math.ceil(
+        (resetAt ?? Date.now() + DEVICE_MATCH_WINDOW_MS) / 1000 -
+          Date.now() / 1000,
+      ),
+    );
+    res.set("RateLimit-Limit", String(DEVICE_MATCH_LIMIT));
+    res.set("RateLimit-Remaining", "0");
+    res.set("RateLimit-Reset", String(retryAfterSeconds));
+    res.set("Retry-After", String(retryAfterSeconds));
+    res.status(429).json({ error: "Too many requests. Please try again later." });
+    return false;
+  }
+  return true;
+}
+
 // aiLimiter (per-IP cost ceiling) restored after review of PR #64 found it had
 // been dropped — see the comment on the per-device limiter in rateLimit.ts
 // for why this route needs both. Applied before body parsing, exactly as it
@@ -493,36 +626,7 @@ router.post("/sightings", aiLimiter, async (req, res) => {
   // retry — which still re-runs computeMatchCandidates below — counts
   // against the same budget as a fresh upload, exactly as the old per-IP
   // limiter counted every POST to this route.
-  let deviceWithinLimit: boolean;
-  try {
-    deviceWithinLimit = await checkDeviceMatchLimit(verifiedDeviceId);
-  } catch (err) {
-    // Not a cat-in-trouble route, so a limit that cannot count fails closed.
-    req.log.error({ err: safeError(err) }, "device match limit counter failed");
-    res.setHeader("Retry-After", "5");
-    res.status(503).json({ error: "Please try again in a moment." });
-    return;
-  }
-  if (!deviceWithinLimit) {
-    // Nit from review of PR #64: the per-IP aiLimiter sends RateLimit-* and
-    // Retry-After on a 429; this in-memory limiter had sent neither. A
-    // client (or a spotter's phone, eventually) can't tell how long to back
-    // off without one.
-    const resetAt = await deviceMatchResetAt(verifiedDeviceId).catch(() => undefined);
-    const retryAfterSeconds = Math.max(
-      0,
-      Math.ceil(
-        (resetAt ?? Date.now() + DEVICE_MATCH_WINDOW_MS) / 1000 -
-          Date.now() / 1000,
-      ),
-    );
-    res.set("RateLimit-Limit", String(DEVICE_MATCH_LIMIT));
-    res.set("RateLimit-Remaining", "0");
-    res.set("RateLimit-Reset", String(retryAfterSeconds));
-    res.set("Retry-After", String(retryAfterSeconds));
-    res.status(429).json({ error: "Too many requests. Please try again later." });
-    return;
-  }
+  if (!(await withinDeviceMatchLimit(req, res, verifiedDeviceId))) return;
 
   // When the client queued this offline, the spot happened before the sync.
   // Store the capture time (clamped) so streak day buckets reflect when the
@@ -552,53 +656,20 @@ router.post("/sightings", aiLimiter, async (req, res) => {
       ),
     );
   if (existing) {
-    // SYC-415 (spec §6.1): a repeat is matched again against ALL the spot's
-    // photos, in the same order. Nothing is re-validated or saved again.
-    const rows = await db
-      .select({
-        role: sightingPhotosTable.role,
-        data: photosTable.data,
-        mime: photosTable.mime,
-      })
-      .from(sightingPhotosTable)
-      .innerJoin(photosTable, eq(photosTable.id, sightingPhotosTable.photoId))
-      .where(eq(sightingPhotosTable.sightingId, existing.id))
-      .orderBy(asc(sightingPhotosTable.position));
-    let photos: NewPhotoInput[] = rows.map((r) => ({
-      role: r.role as SightingPhotoRole,
-      photoBase64: r.data,
-      mime: r.mime,
-    }));
-    if (photos.length === 0) {
-      // A sighting from before SYC-415, or one an older server made during a
-      // deploy: its one photo is sightings.photo_id.
-      const [only] = await db
-        .select()
-        .from(photosTable)
-        .where(eq(photosTable.id, existing.photoId));
-      if (only) photos = [{ role: "first", photoBase64: only.data, mime: only.mime }];
-    }
     // `sightings.photo_id` has no foreign key, and the approved deletion work
     // (DECISIONS.md F3) will remove photo bytes. A repeat for a sighting whose
     // photo has gone still returns that sighting rather than a 500 — just
-    // without fresh matches, since there is nothing left to match against.
-    const { isCatPhoto, candidates } =
-      photos.length > 0
-        ? await computeMatchCandidates(req, existing.id, photos, existing.lat, existing.lng)
-        : { isCatPhoto: true, candidates: [] };
-    if (photos.length === 0) {
-      // SYC-151 (review F4): store the empty set the phone is shown now.
-      // No photo means nothing was compared, which data spine §10.9 records
-      // as matcherFailed, so it isn't read as "no cats nearby".
-      await recordMatch(req, existing.id, {
-        comparedCatIds: [],
-        suggested: [],
-        matcherFailed: true,
-        noCatInAnyPhoto: null,
-        mixedCats: null,
-      });
+    // without fresh matches, since there is nothing left to match against,
+    // and (SYC-503) saying so: "failed", never "no look-alikes".
+    const photos = await storedSpotPhotos(existing);
+    let answer: MatchAnswer;
+    if (photos.length > 0) {
+      answer = await computeMatchCandidates(req, existing.id, photos, existing.lat, existing.lng);
+    } else {
+      await recordPhotoGone(req, existing.id);
+      answer = PHOTO_GONE;
     }
-    res.status(201).json({ sightingId: existing.id, isCatPhoto, candidates });
+    res.status(201).json({ sightingId: existing.id, ...answer });
     return;
   }
 
@@ -623,7 +694,7 @@ router.post("/sightings", aiLimiter, async (req, res) => {
     photos: validated.photos,
   });
 
-  const { isCatPhoto, candidates } = await computeMatchCandidates(
+  const answer = await computeMatchCandidates(
     req,
     saved.sightingId,
     saved.photos.map((p) => ({ role: p.role, photoBase64: p.base64, mime: p.mime })),
@@ -631,7 +702,140 @@ router.post("/sightings", aiLimiter, async (req, res) => {
     body.lng,
   );
 
-  res.status(201).json({ sightingId: saved.sightingId, isCatPhoto, candidates });
+  res.status(201).json({ sightingId: saved.sightingId, ...answer });
+});
+
+/**
+ * SYC-503: the answer a check that worked already gave, rebuilt from the
+ * team-only record without calling the matcher again. Used when the phone
+ * asks to check again but never heard that an earlier "Check again"
+ * worked (the app went to the background, or the signal dropped): it gets
+ * the look-alikes rather than a dead end (review of SYC-503, finding 1).
+ * Only what a send would have shown: candidates at or above the threshold,
+ * best first, with the photo the catalogue shows. The model's reasoning
+ * isn't stored, so it is empty.
+ */
+async function storedAnswer(stored: {
+  suggested: SuggestedMatch[] | null;
+  noCatInAnyPhoto: boolean | null;
+}): Promise<MatchAnswer> {
+  const shown = (stored.suggested ?? [])
+    .filter((m) => m.score >= CONFIDENCE_THRESHOLD)
+    .sort((a, b) => a.rank - b.rank);
+  const cats =
+    shown.length > 0
+      ? await db
+          .select()
+          .from(catsTable)
+          .where(inArray(catsTable.id, shown.map((m) => m.catId)))
+      : [];
+  const byId = new Map(cats.map((c) => [c.id, c]));
+  const present = shown.filter((m) => byId.has(m.catId));
+  const photos = await catDisplayPhotos(present.map((m) => byId.get(m.catId)!));
+  return {
+    isCatPhoto: stored.noCatInAnyPhoto !== true,
+    candidates: present.map((m) => ({
+      catId: m.catId,
+      name: byId.get(m.catId)!.name,
+      photoUrl: photos.get(m.catId) ?? null,
+      confidence: m.score,
+      reasoning: "",
+    })),
+    matchCheck: "done",
+    canRecheck: false,
+  };
+}
+
+/**
+ * SYC-503 (when-the-photo-check-fails.md §4): one look-alike check per
+ * sighting at a time. In-process is enough for one phone double-tapping;
+ * recordMatch's "only until a choice is made" guard still protects the record.
+ */
+const recheckInFlight = new Set<number>();
+
+// SYC-503 §4: run the look-alike check again, only after it failed. A check
+// that worked is final: re-running it until the look-alikes went away would
+// be a free re-roll of paid model calls. The per-IP cost ceiling (aiLimiter)
+// applies exactly as it does to sending a spot.
+router.post("/sightings/:sightingId/recheck", aiLimiter, async (req, res) => {
+  const sightingId = Number(req.params.sightingId);
+  const body = RecheckSightingBody.parse(req.body);
+
+  // Checked in the same order as resolve, so nobody can probe another
+  // phone's sighting: 404, then 403, then the device secret.
+  const [sighting] = Number.isInteger(sightingId)
+    ? await db.select().from(sightingsTable).where(eq(sightingsTable.id, sightingId))
+    : [];
+  if (!sighting) {
+    res.status(404).json({ error: "Sighting not found" });
+    return;
+  }
+  if (body.deviceId !== sighting.deviceId) {
+    res.status(403).json({ error: "Not your sighting" });
+    return;
+  }
+  if (!(await verifyDeviceSecret(req, res, sighting.deviceId))) return;
+  const deviceId: string = sighting.deviceId;
+
+  // The lock is taken before anything is read, so a check that finishes
+  // meanwhile can't be re-rolled (review of SYC-503, finding 5).
+  if (recheckInFlight.has(sightingId)) {
+    res.status(409).json({ error: "This photo is already being checked", code: "CHECK_RUNNING" });
+    return;
+  }
+  recheckInFlight.add(sightingId);
+  try {
+    const [current] = await db
+      .select({ status: sightingsTable.status })
+      .from(sightingsTable)
+      .where(eq(sightingsTable.id, sightingId));
+    if (current?.status === "resolved") {
+      res.status(409).json({ error: "Sighting already resolved", code: "RESOLVED" });
+      return;
+    }
+    const [stored] = await db
+      .select({
+        matcherFailed: sightingMatchesTable.matcherFailed,
+        suggested: sightingMatchesTable.suggested,
+        noCatInAnyPhoto: sightingMatchesTable.noCatInAnyPhoto,
+      })
+      .from(sightingMatchesTable)
+      .where(eq(sightingMatchesTable.sightingId, sightingId));
+    // No record at all: the failure was never written down, so the phone
+    // was told it can't recheck (computeMatchCandidates). Nothing to do.
+    if (!stored) {
+      res.status(409).json({ error: "This photo can't be checked again", code: "NOT_CHECKABLE" });
+      return;
+    }
+    // A check that worked is final: its answer again, never a new roll.
+    if (!stored.matcherFailed) {
+      res.json({ sightingId, ...(await storedAnswer(stored)) });
+      return;
+    }
+    const photos = await storedSpotPhotos(sighting);
+    if (photos.length === 0) {
+      // Nothing to send, so no model call and nothing counted.
+      res.json({ sightingId, ...PHOTO_GONE });
+      return;
+    }
+    if (!(await withinDeviceMatchLimit(req, res, deviceId))) return;
+    // Always the sighting's own stored location, never one from the phone
+    // (cat-record-data-spine.md §6.3: no nearest-cat oracle).
+    const answer = await computeMatchCandidates(req, sightingId, photos, sighting.lat, sighting.lng);
+    // The spotter may have chosen a cat while this ran (up to ~35 s): the
+    // answer is then moot, and saying so beats look-alikes for a done spot.
+    const [after] = await db
+      .select({ status: sightingsTable.status })
+      .from(sightingsTable)
+      .where(eq(sightingsTable.id, sightingId));
+    if (after?.status === "resolved") {
+      res.status(409).json({ error: "Sighting already resolved", code: "RESOLVED" });
+      return;
+    }
+    res.json({ sightingId, ...answer });
+  } finally {
+    recheckInFlight.delete(sightingId);
+  }
 });
 
 router.post("/sightings/:sightingId/resolve", async (req, res) => {
@@ -765,12 +969,18 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       const pointsAwarded = isNewCat ? POINTS_NEW_CAT : POINTS_CONFIRM;
 
       if (newCatName != null) {
+        // SYC-462 spec §6 item 4 (P9): a cover photo removed for good never
+        // becomes a new cat's main photo; the cat starts with none (0).
+        const [cover] = await tx
+          .select({ removedAt: photosTable.removedAt })
+          .from(photosTable)
+          .where(eq(photosTable.id, sighting.photoId));
         [cat] = await tx
           .insert(catsTable)
           .values({
             name: newCatName,
             description: "",
-            primaryPhotoId: sighting.photoId,
+            primaryPhotoId: cover && cover.removedAt === null ? sighting.photoId : 0,
             lat: sighting.lat,
             lng: sighting.lng,
             discovererDeviceId: sighting.deviceId,

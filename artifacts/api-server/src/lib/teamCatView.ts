@@ -14,7 +14,7 @@ import {
   type Observation,
   type SightingPhotoRole,
 } from "@workspace/db";
-import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, notInArray } from "drizzle-orm";
 import { currentColonyOf } from "./colonyMembership";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
@@ -32,6 +32,7 @@ import {
   resolveVaccinated,
   standingAboveTeam,
   standingAppearanceRows,
+  supersedeChains,
   type AppearanceCheckReason,
   type AppearanceResolved,
   type Confidence,
@@ -179,6 +180,8 @@ export function describeStatement(
           : "Owner removed by the team";
       return LIFE[v["status"] as LifeStatusValue] ?? "Life status (unreadable)";
     case "sterilised": {
+      // Undone with its vet visit (SYC-396 PR 3.0): says nothing in its place.
+      if (v["retracted"] === true) return "Marked wrong";
       const base =
         v["sterilised"] === true
           ? "Sterilised"
@@ -238,6 +241,24 @@ export function describeStatement(
           ? "Markings: nothing special"
           : `Markings: ${marks.map((m) => MARK[m as string] ?? "unknown").join(", ")}`;
       return typeof v["agreesWith"] === "number" ? `${text} (agrees with #${v["agreesWith"]})` : text;
+    }
+    // SYC-396 PR 3.0: a vet visit, and the undo of one. PR 3.1 words the
+    // visit in full on the cat page's Vet visits section.
+    case "vet_visit": {
+      if (v["retracted"] === true) return "Marked wrong";
+      const did = Array.isArray(v["did"]) ? (v["did"] as unknown[]).filter((d): d is string => typeof d === "string") : [];
+      const words: Record<string, string> = { sterilised: "sterilised", vaccinated: "vaccinated", treated: "treated", checked: "checked only" };
+      return did.length ? `Vet visit: ${did.map((d) => words[d] ?? d).join(", ")}` : "Vet visit";
+    }
+    case "vaccinated": {
+      if (v["retracted"] === true) return "Marked wrong";
+      const names: Record<string, string> = { rabies: "Rabies", cat_flu_enteritis: "Cat flu and enteritis" };
+      const list = Array.isArray(v["vaccines"])
+        ? (v["vaccines"] as unknown[])
+            .map((x) => (typeof x === "string" ? names[x] : x && typeof x === "object" ? str((x as Record<string, unknown>)["other"]) : null))
+            .filter((x): x is string => typeof x === "string")
+        : [];
+      return list.length ? `Vaccinated: ${list.join(", ")}` : "Vaccinated";
     }
     default:
       return `A “${kind}” statement`;
@@ -334,6 +355,10 @@ function correctionOf(o: Observation, replaced: boolean): StatementCorrection | 
   // owner, which it can't. To change the cat, say its status.
   if (isWithdrawal(o.kind as ObservationKind, o.value)) return null;
   const v = (o.value && typeof o.value === "object" ? o.value : {}) as Record<string, unknown>;
+  // An undone vet visit's retraction asserts nothing (SYC-396 PR 3.0).
+  if (v["retracted"] === true) return null;
+  // A statement a vet visit wrote is marked wrong with its visit (Decision 7).
+  if ((o.kind === "sterilised" || o.kind === "vaccinated") && typeof v["vetVisitId"] === "number") return null;
   if (o.kind === "life_status") {
     const now = v["status"];
     return {
@@ -580,7 +605,9 @@ async function photoPublicIds(ids: readonly number[]): Promise<Map<number, strin
   const rows = await db
     .select({ id: photosTable.id, publicId: photosTable.publicId })
     .from(photosTable)
-    .where(inArray(photosTable.id, unique));
+    // SYC-462 spec §6 item 8: a photo removed for good has no address, so
+    // the page draws no broken image (the gallery skips an id with none).
+    .where(and(inArray(photosTable.id, unique), isNull(photosTable.removedAt)));
   for (const r of rows) out.set(r.id, r.publicId);
   return out;
 }
@@ -831,9 +858,17 @@ export async function teamCatView(
     if (l.name !== null) colony = { id: standingColonyId, name: l.name, wasName: l.wasName };
   }
 
+  // For the kinds a vet visit writes, a superseder that was itself undone no
+  // longer replaces anything (the resolver's restore rule, SYC-396 PR 3.0):
+  // her statement overruled by an undone visit stands, and can be marked
+  // wrong again.
+  const undone = new Set<number>();
+  for (const kind of ["sterilised", "vaccinated", "vet_visit"] as const) {
+    for (const id of supersedeChains(observations, kind).retracted) undone.add(id);
+  }
   const replacedBy = new Map<number, number[]>();
   for (const o of observations) {
-    if (o.supersedesId == null) continue;
+    if (o.supersedesId == null || undone.has(o.id)) continue;
     replacedBy.set(o.supersedesId, [...(replacedBy.get(o.supersedesId) ?? []), o.id]);
   }
   for (const [oldId, moved] of crossCat.movedTo) {

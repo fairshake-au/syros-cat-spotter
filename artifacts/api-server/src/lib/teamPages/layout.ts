@@ -2,13 +2,15 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { escapeHtml } from "./escape";
 import { tr, pageLanguage, type Language } from "./strings";
 import { MAP_MARK_CSS, MARK_CSS } from "./marks";
+import { CHART_CSS } from "../reports/chartCss";
+import { WORKSPACE_PAGE } from "../teamAuth/config";
 
 // The one page shell for the staff dashboard (SYC-43 part 2 plan, PR 1).
 // Plain server-drawn HTML: no scripts, mobile first, styles in one <style>
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "queue" | "cats" | "map" | "colonies" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies";
+export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "reports" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies" | "workspace";
 
 interface NavItem {
   key: NavKey;
@@ -20,25 +22,36 @@ interface NavItem {
 }
 
 // The menu names the team's jobs (SYC-396 spec §3.1): Home · Cats · Map ·
-// Queue · Colonies · Reports · People. Items appear as their screens ship:
-// until Home does (phase 2), the Queue is the dashboard's first page, and
-// Feeding sites and the two work lists keep their menu entries, since Home is
-// where they move to and nothing else links to them yet.
+// Queue · Colonies · Reports · People. Items appear as their screens ship
+// (Reports came with PR 3.3a). Since Home (PR 2.1), the work lists live on Home:
+// Ear clips to check and Colour check are linked from there, and Feeding
+// sites from the Map and each colony (SYC-450).
 const NAV: NavItem[] = [
-  { key: "queue", label: "Queue", href: "/api/team" },
+  { key: "home", label: "Home", href: "/api/team/home" },
   { key: "cats", label: "Cats", href: "/api/team/cats" },
   // The Cats page's map view (SYC-396 PR 1.5). /api/team/map is the tap-check page.
   { key: "map", label: "Map", href: "/api/team/cats?view=map" },
+  { key: "queue", label: "Queue", href: "/api/team" },
   { key: "colonies", label: "Colonies", href: "/api/team/colonies" },
-  { key: "sites", label: "Feeding sites", short: "Sites", href: "/api/team/sites" },
-  { key: "likely", label: "Probably sterilised", href: "/api/team/likely" },
-  // SYC-2 PR 3.1: the team's low-priority list of cats whose colour or
-  // markings deserve a second look (spec §5.3).
-  { key: "colour", label: "Colour check", href: "/api/team/colour-check" },
+  // /insights, because /api/team/reports is the welfare queue's (PR 3.3a).
+  { key: "reports", label: "Reports", href: "/api/team/insights" },
 ];
+
+/**
+ * A page that has left the team's menu underlines its nearest parent there:
+ * the two work lists sit under Home, Feeding sites under Colonies. A cat
+ * guardian's own menu still has Feeding sites, so it's mapped for the team only.
+ */
+const TEAM_PARENT: Partial<Record<NavKey, NavKey>> = { likely: "home", colour: "home", sites: "colonies" };
 
 /** The People link: only for people who hold `manage_people` (SYC-53 PR 1.2). */
 const PEOPLE_NAV: NavItem = { key: "people", label: "People", href: "/api/team/people" };
+
+/**
+ * The shared workspace, on the sign-in site: only for people the workspace
+ * would let in (mayUseWorkspace), last in the menu, since it leaves the dashboard.
+ */
+const WORKSPACE_NAV: NavItem = { key: "workspace", label: "Workspace", href: WORKSPACE_PAGE };
 
 /**
  * Set by requireTeam for the rest of a request, so every page drawn for a
@@ -55,6 +68,8 @@ export const navContext = new AsyncLocalStorage<{
    * her own pages, not Feeding sites, which would refuse her.
    */
   starting?: boolean;
+  /** May use the shared workspace: the menu ends with a link to it. */
+  workspace?: boolean;
 }>();
 
 export const MY_PAGE_PATH = "/api/team/my";
@@ -97,8 +112,7 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
 .bar .off{color:#6b685f}
 .bar .short{display:none}
 /* The name and Sign out: at the right on a desktop, at the end of the row on a phone. */
-/* Until Home takes the work lists out of the menu, a long name may shorten
-   with "…" on a desktop; the whole name is in its title. */
+/* A very long name may still shorten with "…" on a desktop; the whole name is in its title. */
 .bar>.who{margin-left:auto;padding:8px 2px 8px 10px;color:#55524a;font-size:14px;line-height:28px;max-width:260px;display:block;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;min-width:120px}
 .bar>form{margin:0;flex:none}
 .bar button{font:inherit;font-size:15px;min-height:44px;min-width:44px;padding:8px 2px;background:none;border:0;color:#0b5c6b;text-decoration:underline;cursor:pointer}
@@ -176,6 +190,11 @@ form.takeout button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px
 .syr{color:#55524a;font-size:14px;font-variant-numeric:tabular-nums}
 .status{display:block;font-size:14px;color:#3b3930;margin-top:2px}
 .thumb{flex:none;width:72px;height:72px;object-fit:cover;border-radius:6px;background:#ece8dc}
+.compare{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 8px}
+.compare figure{margin:0;display:flex;flex-direction:column;gap:2px;font-size:13px;color:#55524a}
+.compare img{width:72px;height:72px;object-fit:cover;border-radius:6px;background:#ece8dc}
+.muted{color:#55524a;font-size:14px;margin:0}
+.report .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;margin:4px 0}
 .nothumb{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#55524a;text-align:center}
 .public{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:0;font-weight:700}
 form.sightact{margin:6px 0 0}
@@ -263,6 +282,9 @@ input[type=date]{max-width:220px}
 .fixes summary,.statement summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .fixes details[open]{padding-bottom:12px}
 .fixes form,.statement form{margin:4px 0 0}
+.fixes form.diedform{margin:20px 0 4px}
+.fixes form.diedform button{width:100%}
+.photo.catmain.diedphoto{max-height:140px}
 fieldset{border:0;margin:0 0 8px;padding:0}
 legend{padding:0}
 .choice{display:flex;align-items:center;gap:10px;min-height:44px;font-size:16px}
@@ -273,6 +295,7 @@ legend{padding:0}
 .fixes button,.statement button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
 .likelyactions button:not(.save){width:100%}
 a.catlink{display:block;font-weight:700}
+.muted a.catlink{display:inline}
 a.sublink{display:block;font-size:14px;padding-top:0}
 .tiecard{margin:8px 0}
 .tiecard .catrow{margin:0}
@@ -319,6 +342,9 @@ button.risky:hover{background:#fbeaea}
 /* "Are you sure?" (SYC-362): what will happen, then Yes or Cancel. */
 ul.sure{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #8c1d18;border-radius:8px;margin:12px 0 16px;padding:12px 12px 12px 32px}
 ul.sure li{margin:4px 0}
+ul.happens{background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:12px 0 16px;padding:12px 12px 12px 32px}
+ul.happens li{margin:4px 0}
+button.primary.wide{width:100%}
 form.sureform{margin:0 0 4px}
 form.sureform button{font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:10px 18px;border-radius:8px;cursor:pointer}
 /* A link that opens another page of actions looks like the action cards. */
@@ -338,6 +364,24 @@ main.mappage h1{line-height:28px}
 li.colourcheck{list-style:none}
 li.colourcheck .catrow{border:0;padding:0;margin:0 0 6px}
 details.notdescribed>summary{cursor:pointer;font-weight:700;padding:10px 0;color:#0b4553}
+/* Home (SYC-396 PR 2.1; spec §4). */
+ul.hlist,ul.hplain,ul.hfigs{list-style:none;margin:8px 0;padding:0}
+ul.hplain li,ul.hfigs li{margin:4px 0}
+a.hrow{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;color:inherit;text-decoration:none;min-height:44px;overflow-wrap:anywhere}
+a.hrow:hover{border-color:#0b5c6b}
+.hthumb{flex:none;width:56px;height:56px;object-fit:cover;border-radius:6px;background:#ece8dc}
+.hthumb.nothumb{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#55524a;text-align:center}
+.htext{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hwhere{font-size:15px}
+.hwhere strong{color:#0b5c6b;text-decoration:underline}
+.hnote{font-size:14px;color:#3b3930}
+a.hlink{display:inline-flex;align-items:center;min-height:44px;padding:0;font-weight:700}
+.hstrip{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.hstrip img{display:block;width:56px;height:56px;object-fit:cover;border-radius:4px;background:#ece8dc}
+.hbig{font-size:18px;margin:16px 0 8px}
+.hbig strong{font-size:40px;line-height:1;margin-right:4px;font-variant-numeric:tabular-nums}
+.hfig{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-right:2px}
+.hsoon{margin:32px 0 0;padding-top:12px;border-top:1px solid #e6e2d6;color:#55524a;font-size:14px}
 /* The Cats grid (SYC-396 PR 1.3). */
 ${MARK_CSS}
 .catfilters{margin:8px 0 8px}
@@ -367,8 +411,54 @@ a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;tex
 .catcard .hint{margin:0}
 .catcard .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;width:100%}
 .paging{margin:8px 0}
+/* The Colonies list's progress and flags (SYC-396 PR 2.2). */
+.colonylist .catrow>span{display:block;flex:1;min-width:0}
+.colonylist .markbar{max-width:480px}
+.cpct{font-weight:700;color:#1d1d1b}
+.cflags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.cflag{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border:1px solid rgba(29,29,27,.55);border-radius:999px;background:#f6f4ef;color:#1d1d1b;font-size:14px}
+.cflag svg{flex:none}
+.sortbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;font-size:15px}
+.sortbar a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #0b5c6b;border-radius:999px;background:#fff;color:#0b4553;text-decoration:none}
+.sortbar a[aria-current="true"]{background:#0b5c6b;color:#fff}
+.figat{font-size:14px;color:#55524a;margin:4px 0}
+/* Find from a photo (SYC-396 PR 2.5; spec §5.2). */
+.findwhere fieldset{border:0;padding:0;margin:8px 0 12px;min-width:0}
+.findwhere legend{font-weight:700;font-size:14px;padding:0 0 4px}
+button.secondary{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
+.findentry{margin:8px 0}
+a.findentrylink{display:inline-flex;align-items:center;min-height:44px;background:#fff;border:1px solid #0b5c6b;border-radius:8px;padding:0 16px;font-weight:700;color:#0b4553;text-decoration:none}
+a.findentrylink:hover{background:#e6f1f3}
+.findstep{margin:16px 0 0;padding-top:8px;border-top:1px solid #e6e2d6}
+input.filein{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 0;margin:0 0 8px}
+ul.findlist{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-columns:1fr;gap:12px}
+.findcard{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:start;overflow-wrap:anywhere}
+.findimg{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:6px;background:#ece8dc}
+.findfacts p{margin:0 0 4px}
+.findfacts form{margin:8px 0 0}
+.findfacts .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;width:100%}
+.findband{font-size:16px}
+.findband.very_likely strong{color:#0b5c6b}
+.findfacts .why{font-size:13px;color:#55524a}
+details.unlikely>summary{cursor:pointer;display:inline-flex;align-items:center;min-height:44px;font-weight:700;color:#0b4553}
+.findagain{display:flex;flex-wrap:wrap;gap:0 16px;margin:12px 0}
+/* Your photo stays in view while the matches scroll (SYC-491). */
+.findmine{position:sticky;top:0;z-index:2;background:#f6f4ef;padding:4px 0;border-bottom:1px solid #e6e2d6}
+figure.yourphoto{display:flex;align-items:center;gap:10px;margin:0}
+figure.yourphoto img{display:block;width:96px;height:96px;object-fit:cover;border-radius:6px;border:3px solid #0b5c6b;background:#ece8dc}
+figure.yourphoto figcaption{font-size:14px;font-weight:700;color:#0b4553}
+@media (min-width:700px){ul.findlist{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))}}
+@media (min-width:1000px){
+.findcompare{display:grid;grid-template-columns:300px minmax(0,1fr);gap:0 24px;align-items:start}
+.findmine{top:12px;border-bottom:0;padding:0}
+figure.yourphoto{flex-direction:column;align-items:stretch}
+figure.yourphoto img{width:300px;height:auto;aspect-ratio:1/1}
+ul.findlist{grid-template-columns:1fr}
+.findcard{grid-template-columns:300px minmax(0,1fr);gap:16px}
+}
 /* The island map (SYC-396 PR 1.5; spec §6, §12.4). */
 ${MAP_MARK_CSS}
+${CHART_CSS}
 .viewswitch{display:inline-flex;margin:8px 0;border:1px solid #0b5c6b;border-radius:8px;overflow:hidden}
 .viewswitch a{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;background:#fff;color:#0b4553;font-weight:700;text-decoration:none}
 .viewswitch a[aria-current="page"]{background:#0b5c6b;color:#fff}
@@ -473,6 +563,8 @@ export interface PageOptions {
   island?: boolean;
   /** Carry the signed-in person's own links, "My page" (default: whatever requireTeam set; false without it). */
   mine?: boolean;
+  /** End the menu with the Workspace link (default: whatever requireTeam set; false without it). */
+  workspace?: boolean;
   /**
    * Our own script for this page, from lib/teamAssets.ts assetUrl() only,
    * never anything a request supplied. The page's route must also send the
@@ -498,6 +590,8 @@ export function renderPage(opts: PageOptions): string {
   const showPeople = opts.showPeople ?? ctx?.people ?? false;
   const island = opts.island ?? ctx?.island ?? true;
   const mine = opts.mine ?? ctx?.mine ?? false;
+  // Not on a refusal page or a cat guardian's menu: only beside the team's own menu.
+  const workspace = (opts.workspace ?? ctx?.workspace ?? false) && island && opts.nav !== false && opts.nav !== "guardian";
   // The team's menu for the team (not for a refusal page); a cat guardian's
   // own two links; "My page" for everyone signed in. SYC-53 PR 1.3.
   const own: NavItem[] = mine
@@ -524,13 +618,14 @@ export function renderPage(opts: PageOptions): string {
           : showPeople
             ? [...NAV, PEOPLE_NAV]
             : NAV;
-  const items = [...team, ...own].map((n) => {
+  const teamActive = opts.active ? (TEAM_PARENT[opts.active] ?? opts.active) : null;
+  const items = [...team.map((n) => ({ n, active: opts.nav === "guardian" ? opts.active : teamActive })), ...own.map((n) => ({ n, active: opts.active })), ...(workspace ? [{ n: WORKSPACE_NAV, active: null }] : [])].map(({ n, active }) => {
     // On a phone "Feeding sites" shows as "Sites" (CSS picks one).
     const label = n.short
       ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`
       : escapeHtml(n.label);
     if (!n.href) return `<span class="off">${label}</span>`;
-    return n.key === opts.active
+    return n.key === active
       ? `<a class="here" href="${n.href}" aria-current="page">${label}</a>`
       : `<a href="${n.href}">${label}</a>`;
   }).join("");

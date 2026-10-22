@@ -225,6 +225,48 @@
       "when": 1792303693123,
       "tag": "0031_person_scopes_start_reach",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792343442441,
+      "tag": "0032_cat_news_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792367762892,
+      "tag": "0033_named_areas",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792371448680,
+      "tag": "0034_photo_removal",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792620231207,
+      "tag": "0035_report_downloads",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792623578723,
+      "tag": "0036_vet_settings_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792625955149,
+      "tag": "0037_report_suggested_cat",
+      "breakpoints": true
     }
   ]
 }

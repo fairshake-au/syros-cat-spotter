@@ -211,7 +211,9 @@ export async function sweepCoatReadings(opts: {
       .select({ data: photosTable.data, mime: photosTable.mime })
       .from(photosTable)
       .where(eq(photosTable.id, d.photoId));
-    if (!photo) {
+    // Missing, or removed for good (SYC-462; never chosen, since a removed
+    // photo is hidden, but checked again here as for a hide).
+    if (!photo || photo.data === null) {
       result.items.push({ ...item, status: "photo_gone" });
       continue;
     }
@@ -225,7 +227,7 @@ export async function sweepCoatReadings(opts: {
       break;
     }
     result.calls += 1;
-    const reading = await readCoatFromPhoto(photo);
+    const reading = await readCoatFromPhoto({ data: photo.data, mime: photo.mime });
     if (reading.kind === "failed") {
       // R6: a failed call writes nothing; the cat stays not known.
       result.items.push({ ...item, status: "failed", reason: reading.reason });

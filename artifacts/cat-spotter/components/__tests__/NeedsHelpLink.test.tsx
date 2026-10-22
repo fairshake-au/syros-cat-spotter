@@ -48,6 +48,31 @@ describe('NeedsHelpLink', () => {
     expect(takeReportHandoff()).toEqual(prepared);
   });
 
+  // SYC-504: on a cat's page the report opens "About {name}".
+  const tigris = { id: 7, name: 'Tigris', photoUrl: '/api/photos/ph-1' };
+
+  it('a cat prop lands in the handoff, then the report opens', () => {
+    const { getByText } = render(<NeedsHelpLink cat={tigris} />);
+    fireEvent.click(getByText(TRANSLATIONS.en.reportNeedsHelp));
+    expect(takeReportHandoff()).toEqual({ cat: tigris });
+    expect(push).toHaveBeenCalledWith('/report');
+  });
+
+  it('a cat merges with a ready handoff (both reach the report)', () => {
+    const { getByText } = render(
+      <NeedsHelpLink cat={tigris} handoff={{ coords: { latitude: 1, longitude: 2 } }} />,
+    );
+    fireEvent.click(getByText(TRANSLATIONS.en.reportNeedsHelp));
+    expect(takeReportHandoff()).toEqual({ coords: { latitude: 1, longitude: 2 }, cat: tigris });
+  });
+
+  it('without a cat prop, nothing about a cat is handed over', () => {
+    const { getByText } = render(<NeedsHelpLink />);
+    fireEvent.click(getByText(TRANSLATIONS.en.reportNeedsHelp));
+    expect(takeReportHandoff()?.cat).toBeUndefined();
+    expect(push).toHaveBeenCalledWith('/report');
+  });
+
   it('if preparing fails, the report still opens (nothing blocks a report)', async () => {
     const { getByText } = render(<NeedsHelpLink prepare={async () => { throw new Error('gone'); }} />);
     fireEvent.click(getByText(TRANSLATIONS.en.reportNeedsHelp));

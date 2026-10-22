@@ -188,8 +188,9 @@ describe('the review screen (review.tsx)', () => {
   it('uses coverOf wherever a queued photo uri and base64 travel together', () => {
     expect(review).not.toMatch(/queuedItem\.photoUri/);
     expect(review).not.toMatch(/queuedItem\?\.photoBase64/);
-    expect(review.match(/\bcover\.uri\b/g)?.length).toBe(3);
-    expect(review.match(/\bcover\?\.base64\b/g)?.length).toBe(3);
+    // SYC-503 added two: the "couldn't check" screen and the naming screen's photo.
+    expect(review.match(/\bcover\.uri\b/g)?.length).toBe(5);
+    expect(review.match(/\bcover\?\.base64\b/g)?.length).toBe(5);
     expect(review).toMatch(/const cover = queuedItem \? coverOf\(queuedItem\) : null;/);
   });
 

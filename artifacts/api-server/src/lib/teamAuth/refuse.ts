@@ -39,13 +39,26 @@ export const TEAM_CSP_WITH_SCRIPTS =
   "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 /**
+ * Find from a photo's results (SYC-396 PR 2.5; SYC-491, Samuel's option 2):
+ * TEAM_CSP plus `data:` pictures, and nothing else, so the team's own photo
+ * can sit beside the matches without being stored anywhere. Still no script.
+ * Only that one answer asks for it (test/wideCsp.ts PHOTO_CSP_ROUTES).
+ */
+export const TEAM_CSP_WITH_UPLOADED_PHOTO =
+  "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+
+/**
  * Headers for every dashboard response: never cached, never framed.
  * `scripts: true` is for a page that loads our own script; see
- * TEAM_CSP_WITH_SCRIPTS for who may pass it.
+ * TEAM_CSP_WITH_SCRIPTS for who may pass it. `uploadedPhoto: true` is for
+ * Find from a photo's results only; see TEAM_CSP_WITH_UPLOADED_PHOTO.
  */
-export function setTeamHeaders(res: Response, opts: { scripts?: boolean } = {}): void {
+export function setTeamHeaders(res: Response, opts: { scripts?: boolean; uploadedPhoto?: boolean } = {}): void {
   res.setHeader("Cache-Control", "no-store");
-  res.setHeader("Content-Security-Policy", opts.scripts === true ? TEAM_CSP_WITH_SCRIPTS : TEAM_CSP);
+  res.setHeader(
+    "Content-Security-Policy",
+    opts.scripts === true ? TEAM_CSP_WITH_SCRIPTS : opts.uploadedPhoto === true ? TEAM_CSP_WITH_UPLOADED_PHOTO : TEAM_CSP,
+  );
   // SYC-330: not "no-referrer". Under that policy a browser sends
   // `Origin: null` on a form post, even to the same site, and requireOrigin
   // refuses it, so every dashboard button failed. "same-origin" sends the
@@ -105,7 +118,7 @@ export const FORBIDDEN_JSON = { error: "forbidden" } as const;
  * Where "Your colonies are here" points. A team member's home is the
  * dashboard. A cat guardian's home is "My colonies" (SYC-53 PR 1.3).
  */
-export const TEAM_HOME_PATH = "/api/team/";
+export const TEAM_HOME_PATH = "/api/team/home";
 export const GUARDIAN_HOME_PATH = "/api/team/my/colonies";
 
 /** Who is being refused, as far as the page needs to know. */

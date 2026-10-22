@@ -1,5 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
-import { COAT_SWEEP_PATH, MAIL_DRAIN_PATH, checkMailDrainToken } from "../lib/internalAuth";
+import {
+  COAT_SWEEP_PATH,
+  MAIL_DRAIN_PATH,
+  NEWS_LAST_RUN_PATH,
+  NEWS_NIGHTLY_PATH,
+  checkMailDrainToken,
+  checkNewsJobToken,
+} from "../lib/internalAuth";
 import { RESEND_WEBHOOK_PATH } from "../lib/mail/resendWebhook";
 import {
   gateEnabled,
@@ -25,11 +32,17 @@ import {
  *    Decision 3, Samuel, 15 Oct 2026): "Help feed a cat" opens the phone's
  *    own browser, which carries no pass. The route only ever forwards to the
  *    one https donation page in the switches, so opening it reveals nothing.
+ *    GET or HEAD on exactly /api/go/give → next() (SYC-120, help-and-info
+ *    spec §3.7): the Help & info page's "Give" link, the same kind of route
+ *    for the same reason, and it counts nothing.
  *    Matched on the raw path exactly, so no other spelling gets through.
  * 3. Exactly POST /api/internal/mail/drain, or exactly POST
  *    /api/internal/coat/sweep (SYC-161, Decision D1) → only `Authorization:
  *    Bearer <MAIL_DRAIN_TOKEN>` (SYC-42: the scheduled drain's own narrow
  *    token).
+ *    Exactly POST /api/internal/news/nightly, or exactly GET or HEAD
+ *    /api/internal/news/last-run (SYC-45 Slice 1) → only `Authorization:
+ *    Bearer <NEWS_JOB_TOKEN>`, the nightly news check's own token.
  *    Any other /api/internal/* → only `Authorization: Bearer
  *    <INTERNAL_PEOPLE_TOKEN>`. Neither token opens the other's paths.
  *    Exactly POST /api/internal/resend/webhook → next(): Resend can't send
@@ -94,7 +107,9 @@ export function prelaunchGate(
   // Exactly this path and these methods. Nothing else is open.
   if (
     (req.method === "GET" || req.method === "HEAD") &&
-    (rawPath === "/api/healthz" || rawPath === "/api/go/feed")
+    (rawPath === "/api/healthz" ||
+      rawPath === "/api/go/feed" ||
+      rawPath === "/api/go/give")
   ) {
     next();
     return;
@@ -111,6 +126,19 @@ export function prelaunchGate(
     // Not configured → the same refusal as a wrong token (fails closed; the
     // route itself says not_configured when the gate is off).
     if (checkMailDrainToken(req.headers.authorization) === "ok") {
+      next();
+      return;
+    }
+    refuse(res);
+    return;
+  }
+
+  if (
+    (path === NEWS_NIGHTLY_PATH && req.method === "POST") ||
+    (path === NEWS_LAST_RUN_PATH && (req.method === "GET" || req.method === "HEAD"))
+  ) {
+    // SYC-45 Slice 1: the nightly news check's own token, and only it.
+    if (checkNewsJobToken(req.headers.authorization) === "ok") {
       next();
       return;
     }

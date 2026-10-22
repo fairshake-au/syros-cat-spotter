@@ -130,7 +130,8 @@ describe("home after the hand-off, and after accept", () => {
     second = await joined("my-second", ["staff", "management"]);
   });
 
-  it("a guardian's home is My colonies; a team member's is the queue", async () => {
+  it("a guardian's home is My colonies; a team member's is Home", async () => {
+    expect(TEAM_HOME).toBe("https://team.catspotters.com/api/team/home");
     const g = await guardian("my-home-g", [vaporia]);
     const t = await joined("my-home-t", ["staff"]);
     const gh = await handoff(g.id, 1);
@@ -139,7 +140,7 @@ describe("home after the hand-off, and after accept", () => {
     expect([th.status, th.headers["location"]]).toEqual([303, TEAM_HOME]);
   });
 
-  it("after accept: the same (a guardian to My colonies, the team to the queue)", async () => {
+  it("after accept: the same (a guardian to My colonies, the team to Home)", async () => {
     const g = await invited(second, "my-acc-g", [{ role: "guardian", colonyId: vaporia }]);
     const t = await invited(second, "my-acc-t", [{ role: "staff" }]);
     const ga = await post("/api/team/my/accept", inviteCookieFor(g.id, 1));

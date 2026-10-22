@@ -51,3 +51,14 @@ describe('the handoff itself', () => {
     expect(takeReportHandoff()).toBeNull();
   });
 });
+
+describe('SYC-504: the handoff carries the cat', () => {
+  it('a cat left in the handoff is taken once, and opens the flow about that cat', () => {
+    const cat = { id: 7, name: 'Tigris', photoUrl: null };
+    setReportHandoff({ cat });
+    const taken = takeReportHandoff();
+    expect(taken).toEqual({ cat });
+    expect(startFlow(taken).cat).toEqual(cat);
+    expect(takeReportHandoff()).toBeNull();
+  });
+});

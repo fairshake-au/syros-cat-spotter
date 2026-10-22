@@ -43,22 +43,33 @@ vi.mock('@expo/vector-icons', () => ({
   Feather: () => null,
 }));
 
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 vi.mock('expo-image', () => ({
+  // Every image "loads" at once, as one the phone already has: only a
+  // loaded photo opens full size (SYC-44 PR 6.1).
   Image: ({
     source,
     testID,
     accessibilityLabel,
+    onLoad,
   }: {
     source?: { uri?: string };
     testID?: string;
     accessibilityLabel?: string;
-  }) => (
-    <span
-      data-testid={testID ?? 'image'}
-      data-uri={source?.uri ?? ''}
-      aria-label={accessibilityLabel}
-    />
-  ),
+    onLoad?: () => void;
+  }) => {
+    React.useEffect(() => onLoad?.(), []);
+    return (
+      <span
+        data-testid={testID ?? 'image'}
+        data-uri={source?.uri ?? ''}
+        aria-label={accessibilityLabel}
+      />
+    );
+  },
 }));
 
 vi.mock('@/hooks/useColors', () => ({
@@ -90,6 +101,7 @@ describe('SightingPhotos', () => {
     const { container, queryAllByTestId } = render(
       <SightingPhotos
         createdAt={DAY}
+        byline="Maria"
         photoUrl={COVER}
         extraPhotos={[
           { role: 'first', photoUrl: null },
@@ -111,6 +123,7 @@ describe('SightingPhotos', () => {
     const { container } = render(
       <SightingPhotos
         createdAt={DAY}
+        byline="Maria"
         photoUrl={COVER}
         extraPhotos={[
           { role: 'first', photoUrl: FIRST },
@@ -125,7 +138,7 @@ describe('SightingPhotos', () => {
       `extraPhotoBodyLabel, ${WHEN}`,
     );
     const face = render(
-      <SightingPhotos createdAt={DAY} photoUrl={COVER} extraPhotos={[{ role: 'face', photoUrl: FIRST }]} />,
+      <SightingPhotos createdAt={DAY} byline="Maria" photoUrl={COVER} extraPhotos={[{ role: 'face', photoUrl: FIRST }]} />,
     );
     expect(face.container.querySelector('[data-testid="extra-photo-face"]')!.getAttribute('aria-label')).toBe(
       `extraPhotoFaceLabel, ${WHEN}`,
@@ -133,14 +146,14 @@ describe('SightingPhotos', () => {
   });
 
   it('a sighting with no extraPhotos key renders the cover only', () => {
-    const { container } = render(<SightingPhotos createdAt={DAY} photoUrl={COVER} />);
+    const { container } = render(<SightingPhotos createdAt={DAY} byline="Maria" photoUrl={COVER} />);
     expect(container.querySelector('[data-testid="sighting-cover"]')).not.toBeNull();
     expect(container.querySelectorAll('[data-testid^="extra-photo-"]')).toHaveLength(0);
   });
 
   it('tapping a thumbnail opens that photo full size, and tapping again closes it', () => {
     const { container } = render(
-      <SightingPhotos createdAt={DAY} photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
+      <SightingPhotos createdAt={DAY} byline="Maria" photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
     );
     expect(document.querySelector('[data-testid="sighting-photo-viewer"]')).toBeNull();
     fireEvent.click(container.querySelector('[data-testid="extra-photo-body"]')!);
@@ -153,7 +166,7 @@ describe('SightingPhotos', () => {
 
   it('the full-size photo carries the same label, with the date', () => {
     const { container } = render(
-      <SightingPhotos createdAt={DAY} photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
+      <SightingPhotos createdAt={DAY} byline="Maria" photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
     );
     fireEvent.click(container.querySelector('[data-testid="extra-photo-body"]')!);
     const img = document.querySelector('[data-testid="sighting-photo-viewer"] [data-uri$="extra-body"]');
@@ -162,7 +175,7 @@ describe('SightingPhotos', () => {
 
   it('Android back / Escape closes the full-size photo (the Modal\'s onRequestClose)', async () => {
     const { container } = render(
-      <SightingPhotos createdAt={DAY} photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
+      <SightingPhotos createdAt={DAY} byline="Maria" photoUrl={COVER} extraPhotos={[{ role: 'body', photoUrl: BODY }]} />,
     );
     fireEvent.click(container.querySelector('[data-testid="extra-photo-body"]')!);
     expect(document.querySelector('[data-testid="sighting-photo-viewer"]')).not.toBeNull();
@@ -175,7 +188,8 @@ describe('SightingPhotos', () => {
   // and keep a 44pt tap target through hitSlop.
   it('thumbnails shrink to fit the tile and keep a 44pt tap target', () => {
     const src = readFileSync(join(__dirname, '..', 'SightingPhotos.tsx'), 'utf8');
-    const thumb = src.slice(src.indexOf('thumb: {'), src.indexOf('backdrop:'));
+    const start = src.indexOf('thumb: {');
+    const thumb = src.slice(start, src.indexOf('},', start));
     expect(thumb).toMatch(/flex:\s*1/);
     expect(thumb).toMatch(/maxWidth:\s*48/);
     expect(thumb).toMatch(/aspectRatio:\s*1/);

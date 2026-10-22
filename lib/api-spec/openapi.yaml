@@ -298,6 +298,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
+  /sightings/{sightingId}/recheck:
+    post:
+      operationId: recheckSighting
+      tags: [sightings]
+      summary: Run the look-alike check again after it failed (SYC-503)
+      description: >-
+        Only the sighting's own device, and only while it is unresolved.
+        After a stored failure it runs the check again on the photos and
+        location already saved, counted against the same limits as sending
+        a spot. A check that worked is final: asking again returns that
+        check's answer (from the stored record, with empty reasoning) and runs
+        nothing, so a phone that never heard a successful recheck still gets
+        the look-alikes. Answers exactly as sending a spot does.
+      parameters:
+        - name: sightingId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecheckSightingRequest"
+      responses:
+        "200":
+          description: The check ran again (it may have failed again)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResult"
+        "403":
+          description: Not this device's sighting
+        "404":
+          description: Sighting not found
+        "409":
+          description: >-
+            Refused, with a code: RESOLVED (already resolved), CHECK_RUNNING
+            (a check for it is running now; try again in a moment), or
+            NOT_CHECKABLE (the failure was never recorded, so there is
+            nothing to re-run)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "429":
+          description: Too many checks; Retry-After says how long to wait
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
   /sightings/{sightingId}/resolve:
     post:
       operationId: resolveSighting
@@ -701,7 +752,7 @@ paths:
     get:
       operationId: getCampaign
       tags: [campaign]
-      summary: The colony fundraising campaign shown on the Help tab
+      summary: The colony fundraising campaign shown on the Help & info page
       responses:
         "200":
           description: Campaign configuration
@@ -744,6 +795,16 @@ paths:
       operationId: goFeed
       tags: [campaign]
       summary: "\"Help feed a cat\": counts the tap and forwards to the donation page. A browser link, not called by the client"
+      responses:
+        "302":
+          description: Forwarded to the donation page
+        "200":
+          description: The donation link is switched off; a plain page saying so
+  /go/give:
+    get:
+      operationId: goGive
+      tags: [campaign]
+      summary: "The Help & info page's give link: forwards to the donation page and counts nothing. A browser link, not called by the client"
       responses:
         "302":
           description: Forwarded to the donation page
@@ -1135,7 +1196,7 @@ components:
         catId: { type: integer }
         photoPublicId:
           type: string
-          description: Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat; not allowed otherwise.
+          description: Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat and other; not allowed otherwise.
         note: { type: string, maxLength: 1000 }
         language: { type: string, enum: [en, el, fr] }
         turnstileToken: { type: string, maxLength: 2048 }
@@ -1190,10 +1251,24 @@ components:
             team hid has a null `photoUrl`.
           items:
             $ref: "#/components/schemas/SightingExtraPhoto"
+        photoHidden:
+          type: boolean
+          description: |
+            SYC-44 PR 6.1 (report-an-issue.md D4). True while this sighting's
+            own photo is hidden from the public (then `photoUrl` is null), so
+            the app shows "Photo hidden while Syros Cats take a look." in its
+            place. It says only that a photo is hidden, never why or by whom.
+        photoRemoved:
+          type: boolean
+          description: |
+            SYC-462. Present, and true, only when this sighting's own photo was
+            removed for good (it is hidden too, so `photoUrl` is null and
+            `photoHidden` is true); the app then shows "Photo removed." Left
+            out otherwise.
         createdAt:
           type: string
           description: A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).
-      required: [spotterCode, photoUrl, createdAt]
+      required: [spotterCode, photoUrl, photoHidden, createdAt]
     SightingExtraPhoto:
       type: object
       properties:
@@ -1262,7 +1337,7 @@ components:
     Campaign:
       type: object
       description: |
-        Colony fundraising campaign shown on the Help tab. Server-side config, so
+        Colony fundraising campaign shown on the Help & info page. Server-side config, so
         figures can be corrected without an app release. There is no payments
         backend: the app opens `donateUrl` externally and no money moves through
         this API.
@@ -1372,7 +1447,29 @@ components:
             Candidates below the matcher's confidence threshold are omitted
             entirely — not included with blank or null fields. A weak match
             never names a cat, not even via an anonymous placeholder entry.
-      required: [sightingId, isCatPhoto, candidates]
+        matchCheck:
+          type: string
+          enum: [done, failed]
+          description: >-
+            SYC-503: whether the look-alike check worked. Read this FIRST: on
+            "failed", candidates is empty and isCatPhoto is true only because
+            nothing is known, never "no look-alikes" or "a cat". A stored
+            answer without this field is read as "done".
+        canRecheck:
+          type: boolean
+          description: >-
+            SYC-503: true when a failed check can be run again with
+            recheckSighting; false when the check worked, or when the photo
+            has gone and there is nothing to check.
+      required: [sightingId, isCatPhoto, candidates, matchCheck, canRecheck]
+    RecheckSightingRequest:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          minLength: 1
+          description: Device credential of the sighting owner; must match the sighting
+      required: [deviceId]
     ResolveSightingRequest:
       type: object
       properties:

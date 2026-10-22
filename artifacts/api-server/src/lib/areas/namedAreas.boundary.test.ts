@@ -5,12 +5,12 @@ import { describe, expect, it, vi } from "vitest";
 const km = vi.hoisted(() => ({ value: 0 }));
 vi.mock("../catHelpers", () => ({ haversineKm: () => km.value }));
 
-import { areaFor, NAMED_AREAS, OFF_SYROS } from "./namedAreas";
+import { areaFor, SEED_AREAS, OFF_SYROS } from "./namedAreas";
 
 describe("the 2 km rule at the boundary", () => {
   it("exactly 2.000 km from the nearest centre is still in the area", () => {
     km.value = 2;
-    expect(areaFor(0, 0)).toBe(NAMED_AREAS[0]);
+    expect(areaFor(0, 0)).toBe(SEED_AREAS[0]);
   });
   it("just over 2 km is Off Syros", () => {
     km.value = 2.000001;

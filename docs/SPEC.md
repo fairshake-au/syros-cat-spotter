@@ -134,11 +134,11 @@ Only **resolved** sightings count anywhere: statistics, catalogue counts, streak
 
 ### 5.1 Home
 
-Greeting, current streak, nearby cats, and a collection progress readout ("12 of 142"). Cats the device has personally spotted are shown collected; the rest render as **"spot to unlock"**.
+Greeting, current streak, nearby cats, and a collection progress readout ("12 of 142"). Every cat shows its photo; cats the device has personally spotted carry a passport-style **"Spotted"** stamp. Before a spotter's first sighting, the progress readout is replaced by a **"Spot your first cat"** button.
 
 ### 5.2 Cat-alog
 
-Searchable grid of every cat. Filters: all / near me / has a home. Same collected-vs-locked treatment. Sorted by distance when location is available, otherwise by most recently seen.
+Searchable grid of every cat. Filters: all / near me / has a home. Same photo-and-stamp treatment, plus a **Not spotted yet** filter. Sorted by distance when location is available, otherwise by most recently seen.
 
 ### 5.3 Cat detail
 
@@ -194,9 +194,9 @@ Ownership is remembered locally for a fast start and re-hydrated from the server
 
 Username (editable, with the same availability and moderation checks), optional nickname, language, points, streak, badges with descriptions, spotted/discovered counts, and the pending offline queue.
 
-### 5.8 Help tab — colony campaign
+### 5.8 Help & info page — colony campaign
 
-A fundraising card for the charity: title, plain-language blurb ("€10 covers a rabies vaccine. €50–60 desexes one cat."), progress toward a goal in EUR, cats helped, donor count, days remaining, and suggested chip-in amounts (€5 / €10 / €25 / €50).
+A fundraising card for the charity: title, plain-language blurb ("€10 covers a rabies vaccine. €50–60 sterilises one cat."), progress toward a goal in EUR, cats helped, donor count, days remaining, and suggested chip-in amounts (€5 / €10 / €25 / €50).
 
 **There is no payments backend.** The app opens an external `donateUrl` in a browser; no money moves through this codebase. The campaign is server-side configuration (environment variables) so figures can be corrected without shipping an App Store release. States exist for not-yet-open, no-donations-configured, offline, and error.
 
@@ -312,7 +312,7 @@ These are observations about the current build, not proposals. Each is a candida
 7. Only the first photo is ever a cat's primary photo; later sightings never update it, so a kitten stays a kitten in the catalogue forever.
 
 **Product**
-8. There is no payments path — the Help tab links out, and campaign figures are hand-maintained environment variables.
+8. There is no payments path — the Help & info page links out, and campaign figures are hand-maintained environment variables.
 9. There is no moderation or takedown path for a bad photo once uploaded.
 10. Anonymity means a lost device is a lost profile; the "restore" copy in onboarding is not backed by a mechanism.
 11. Photos are publicly enumerable by sequential integer id.

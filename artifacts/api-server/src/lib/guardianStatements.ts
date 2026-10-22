@@ -4,7 +4,7 @@ import { actingRole, can, type CapabilityHolder } from "./capabilities";
 import { canonicalCats, catTarget } from "./capabilityTargets";
 import { commitStatement, inStatementTransaction, type Tx } from "./commitStatement";
 import { loadCatRecords, ObservationRefused } from "./observations";
-import { resolveLifeStatus, type LifeStatusValue } from "./resolve";
+import { resolveLifeStatus, supersedeChains, type LifeStatusValue } from "./resolve";
 
 // What a cat guardian says about a cat in her own colonies (SYC-53 plan, PR
 // 2.2; roles spec §2.2, §7.2, Decision 5, Q3): "she is sterilised" or "she
@@ -259,8 +259,12 @@ export async function myStatementsOnCat(
       .map((o) => [o.id, o]),
   );
   const lookedAgain: MyStatements["lookedAgain"] = [];
+  // A team row that overruled her and was then undone with its vet visit no
+  // longer says anything: her statement stands again (SYC-396 PR 3.0).
+  const undone = supersedeChains(observations, "sterilised").retracted;
   for (const o of observations) {
     if (o.supersedesId == null || !mine.has(o.supersedesId)) continue;
+    if (undone.has(o.id)) continue;
     // Her own put-back is not someone looking again.
     if (o.accountId === personId) continue;
     if (now.getTime() - o.createdAt.getTime() > GUARDIAN_UNDO_DAYS * DAY_MS) continue;

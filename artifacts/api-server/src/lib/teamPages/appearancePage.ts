@@ -1,12 +1,12 @@
 import type { Capability } from "../capabilities";
 import type { ColourCheckCat, ColourCheckReason } from "../colourCheck";
 import { REASON_ORDER } from "../colourCheck";
-import { COAT_COLOURS, COAT_PATTERNS, LEGACY_COAT_CODES, MARKS } from "../appearance";
+import { COAT_COLOURS, COAT_PATTERNS, MARKS } from "../appearance";
 import type { TeamAppearance, TeamAppearanceStatement, TeamCatView } from "../teamCatView";
 import { colourSwatch, drawnCoatFigure } from "./coatDrawing";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { tr, type StringKey } from "./strings";
+import { tr, type Language, type StringKey } from "./strings";
 import { coatWordsFor, teamPatternWord, teamWordsApply, TEAM_PATTERN_LABELS } from "./teamCoatWords";
 
 // The Appearance section on the team cat page, and the Colour check list
@@ -20,12 +20,11 @@ import { coatWordsFor, teamPatternWord, teamWordsApply, TEAM_PATTERN_LABELS } fr
 /** The colours the team may state: the five (SYC-398 §2). Never Not sure (Samuel, 14 Oct 2026). */
 const TEAM_COLOURS: readonly string[] = COAT_COLOURS;
 
-/** The words for a coat code: the five colours and three patterns (SYC-398
- * §2), and the old public codes the guardian pages still send. */
+/** The words for a coat code: the five colours and three patterns (SYC-398 §2). */
 const coatWord = (lang: string | undefined, code: string) =>
   (COAT_PATTERNS as readonly string[]).includes(code)
     ? tr(lang, `pattern.${code}` as StringKey)
-    : TEAM_COLOURS.includes(code) || ((LEGACY_COAT_CODES as readonly string[]).includes(code) && code !== "not_sure")
+    : TEAM_COLOURS.includes(code)
       ? tr(lang, `coat.${code}` as StringKey)
       : code;
 
@@ -46,12 +45,15 @@ function coatOfCodes(codes: readonly string[]): { colours: string[] | null; patt
   };
 }
 
-const markWord = (lang: string | undefined, code: string) =>
-  (MARKS as readonly string[]).includes(code) ? tr(lang, `mark.${code}` as StringKey) : code;
+const markWord = (lang: string | undefined, code: string, live?: readonly Language[]) =>
+  (MARKS as readonly string[]).includes(code) ? tr(lang, `mark.${code}` as StringKey, undefined, live) : code;
 
-/** As the public line words a mark (spec §5.2): "One eye", the rest as on the chip. */
-const markShownWord = (lang: string | undefined, code: string) =>
-  code === "missing_eye" ? tr(lang, "markShown.missing_eye") : markWord(lang, code);
+/**
+ * As the public line words a mark (spec §5.2): "One eye", the rest as on the
+ * chip. `live` for the guardian pages, which take the languages switched on.
+ */
+export const markShownWord = (lang: string | undefined, code: string, live?: readonly Language[]) =>
+  code === "missing_eye" ? tr(lang, "markShown.missing_eye", undefined, live) : markWord(lang, code, live);
 
 const words = (lang: string | undefined, kind: "coat" | "markings", codes: readonly string[]) =>
   codes.map((c) => (kind === "coat" ? coatWord(lang, c) : markWord(lang, c))).join(" · ");
@@ -80,15 +82,6 @@ export function publicLine(
     ...(coat.pattern && coat.pattern !== "plain" ? [coatWord(lang, coat.pattern)] : []),
     ...markings.map((m) => markShownWord(lang, m)),
   ].join(" · ");
-}
-
-/**
- * The same line from the old public coat codes, for the guardian pages,
- * which keep the old field and words until they move to the new coat words
- * (SYC-398 plan, Coordination).
- */
-export function legacyPublicLine(lang: string | undefined, coat: readonly string[], markings: readonly string[]): string {
-  return [...coat.map((c) => coatWord(lang, c)), ...markings.map((m) => markShownWord(lang, m))].join(" · ");
 }
 
 const when = (iso: string) =>

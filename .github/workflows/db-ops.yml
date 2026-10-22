@@ -28,6 +28,10 @@ on:
             people-sign-out-everywhere,
             set-setting,
             list-settings,
+            photo-list,
+            photo-hide,
+            photo-restore,
+            photo-remove,
           ]
       people_role:
         # SYC-43: a fixed list, validated again by scripts/db-ops.sh, the
@@ -58,15 +62,39 @@ on:
       setting_key:
         # SYC-36 / SYC-48 (match-wait plan PR 1): the match-wait switches.
         # A fixed list, checked again by the settings CLI. SYC-415 adds
-        # extra_photos_on (the extra-photo boxes; true or false).
+        # extra_photos_on (the extra-photo boxes; true or false). SYC-396
+        # PR 2.3 adds standard_sterilisation_price_eur (whole euros, 1 to 500).
         type: choice
-        options: [feed_nudge_donate_url, starter_facts_hidden, feed_tap_count, extra_photos_on]
+        options: [feed_nudge_donate_url, starter_facts_hidden, feed_tap_count, extra_photos_on, photo_removal_on, standard_sterilisation_price_eur]
         required: false
         description: "For set-setting: which switch"
       setting_value:
         type: string
         required: false
-        description: 'For set-setting: the value as JSON, e.g. "https://syroscats.com/donations" (quotes included), "" to switch the link off, ["fact.earTip"], [] or false'
+        description: 'For set-setting: the value as JSON, e.g. "https://syroscats.com/donations" (quotes included), "" to switch the link off, ["fact.earTip"], [], false, or 60 for the price'
+      # SYC-462: removing a photo by hand (docs/runbooks/photo-removal.md).
+      # Inputs show on the public run page: ids and a request reference only,
+      # never a name, address or note. The photos CLI checks each again.
+      photo_id:
+        type: string
+        required: false
+        description: "For photo-hide/-restore/-remove: the photo's public id (from photo-list)"
+      photo_id_confirm:
+        type: string
+        required: false
+        description: "For photo-remove: the same id again"
+      photo_cat:
+        type: string
+        required: false
+        description: "For photo-list: the cat's number"
+      photo_by:
+        type: string
+        required: false
+        description: "For photo-hide/-restore/-remove: the approving team member's people id (from people-list)"
+      photo_ref:
+        type: string
+        required: false
+        description: "For photo-remove: SYC-<n> or 'hello YYYY-MM-DD #<n>'. Never a name"
       base_url:
         type: string
         required: false
@@ -74,7 +102,7 @@ on:
       confirm:
         type: string
         required: false
-        description: "Type APPLY for carry-back-apply; FORCE for the people break-glass (set-roles past a guard, or mark-left of the last manager)"
+        description: "Type APPLY for carry-back-apply; FORCE for the people break-glass (set-roles past a guard, or mark-left of the last manager); HIDE, RESTORE or REMOVE for photo-hide/-restore/-remove"
       fail_after:
         # The plan sketches this as `type: choice` with `""` as one of the
         # options, but actionlint refuses an empty choice option
@@ -143,6 +171,12 @@ jobs:
           PEOPLE_COLONY: ${{ inputs.people_colony }}
           SETTING_KEY: ${{ inputs.setting_key }}
           SETTING_VALUE: ${{ inputs.setting_value }}
+          # SYC-462: the photo commands' inputs (ids and a request reference only).
+          PHOTO_ID: ${{ inputs.photo_id }}
+          PHOTO_ID_CONFIRM: ${{ inputs.photo_id_confirm }}
+          PHOTO_CAT: ${{ inputs.photo_cat }}
+          PHOTO_BY: ${{ inputs.photo_by }}
+          PHOTO_REF: ${{ inputs.photo_ref }}
         run: bash scripts/db-ops.sh
       - name: Upload encrypted dump (copy-cutover only, if produced)
         if: always()

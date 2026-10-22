@@ -17,6 +17,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useDeleteMyData } from '@/context/DeleteMyDataContext';
 import { useReportQueue } from '@/context/ReportQueueContext';
+import { useIssueQueue } from '@/context/IssueQueueContext';
 import { Button } from '@/components/purropolis';
 import type { DeleteOutcome, ReportChoice } from '@/lib/deleteMyData';
 
@@ -39,8 +40,11 @@ export default function DeleteMyDataScreen() {
   // Not before the report store has loaded: a 0 that's really "not read
   // yet" would skip the question (#97 review, finding 9).
   const reportQueue = useReportQueue();
-  const reportCount = reportQueue.reports.length;
-  const reportsReady = reportQueue.ready;
+  // SYC-44 PR 6.2: a waiting "Report an issue" report is a report about a
+  // cat too, so it is counted in the same choice and follows it.
+  const issueQueue = useIssueQueue();
+  const reportCount = reportQueue.reports.length + issueQueue.issues.length;
+  const reportsReady = reportQueue.ready && issueQueue.ready;
   const many = reportCount > 1;
   const pick = (one: string, several: string) =>
     many ? t(several).replace('{n}', String(reportCount)) : t(one);
