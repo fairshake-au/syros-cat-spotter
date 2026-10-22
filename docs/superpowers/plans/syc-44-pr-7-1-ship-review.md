@@ -64,7 +64,7 @@ No way for a cat guardian to reach issue data, no reporter detail leak, no integ
 | # | Outcome |
 |---|---|
 | 1 | **Fixed (98feebed).** The state route refuses Done or Nothing needed on an issue whose photo is still hidden: a form goes back with "Nothing changed: the photo is still hidden…", JSON gets 409 `photo_hidden`. A welfare report, and a photo deleted for good, close as before. Tests "ship review finding 1"; probe P14 red. |
-| 2 | **Samuel's call** (asked in the /ship session). |
+| 2 | **Samuel decided, 22 Oct 2026: keep the line at the top of the Queue page** ("Keep it at the top"). The menu-bar version stays SYC-553. |
 | 3 | **Fixed.** The strip's heading counts every report about the cat, with "Showing the newest 50 of N". Test "finding 3"; probe P15 red. |
 | 4 | **Filed as SYC-556** (limit per group in SQL; only matters past 100 open reports in one group). |
 | 5 | **Comment added** on the second writer, saying why it exists and that both must change together. |
