@@ -10,6 +10,7 @@ import {
   keepHidden,
   ISSUE_OUTCOME_TEXT,
   restoreFromIssue,
+  type OpenState,
 } from "../lib/issues/teamActions";
 import {
   CHANGED_MESSAGE,
@@ -17,7 +18,6 @@ import {
   NOTE_MAX,
   REPORT_STATES,
   writeTeamNote,
-  type ReportState as ReportStateValue,
 } from "../lib/welfareActions";
 import { ObservationRefused } from "../lib/observations";
 import {
@@ -399,6 +399,21 @@ router.post(
     // "Move" to where it already is: nothing to record.
     if (from === to) return badRequest(req, res, ["to"], publicId);
     if (!PUBLIC_ID_RE.test(publicId)) return notFound(res);
+    // SYC-44 PR 7.1 (ship review, finding 1): an issue whose photo is still
+    // hidden is closed only by Keep hidden or Restore, never by a plain close
+    // (from a stale page, say), or the photo would stay hidden with nothing
+    // left listing it. The page doesn't offer it; this refuses it.
+    if (to === "done" || to === "nothing_needed") {
+      const issue = await getIssueReport(publicId);
+      if (issue?.photo?.hidden && !issue.photo.removed) {
+        if (isFormPost(req)) return void res.redirect(303, backToIssue(publicId, "photo_hidden"));
+        return void res.status(409).json({
+          error: "photo_hidden",
+          message: ISSUE_OUTCOME_TEXT.photo_hidden,
+          report: issue,
+        });
+      }
+    }
 
     const outcome = await moveReportState({
       publicId,
@@ -579,7 +594,7 @@ for (const [name, spec] of Object.entries(ISSUE_ACTIONS)) {
       setTeamHeaders(res);
       const person = teamPerson(res);
       const publicId = String(req.params["publicId"]);
-      let from: ReportStateValue | undefined;
+      let from: OpenState | undefined;
       if (spec.needsFrom) {
         const parsed = FromBody.safeParse(req.body ?? {});
         if (!parsed.success) return badRequest(req, res, fieldsOf(parsed.error), publicId);

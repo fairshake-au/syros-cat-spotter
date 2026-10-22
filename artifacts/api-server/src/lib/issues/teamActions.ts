@@ -27,6 +27,9 @@ import { reasonLabel } from "./alertEmail";
 
 type Person = CapabilityHolder & { id: string };
 
+/** Keep hidden and Restore close a report, so they start only from an open state. */
+export type OpenState = Extract<ReportState, "new" | "looking">;
+
 export type IssueActionOutcome =
   /** Keep hidden: closed as Done. */
   | "kept"
@@ -49,7 +52,10 @@ export type IssueActionOutcome =
   | "not_authorised";
 
 /** The fixed words each outcome is shown with on the queue (?issue=<key>). */
-export const ISSUE_OUTCOME_TEXT: Record<Exclude<IssueActionOutcome, "not_found" | "not_authorised">, string> = {
+export const ISSUE_OUTCOME_TEXT: Record<Exclude<IssueActionOutcome, "not_found" | "not_authorised"> | "photo_hidden", string> = {
+  // The state route's refusal (ship review, finding 1): an issue whose photo
+  // is still hidden closes only through Keep hidden or Restore.
+  photo_hidden: "Nothing changed: the photo is still hidden. Close this report with Keep hidden or Restore the photo.",
   kept: "Saved. The photo stays hidden, and this report is closed as Done.",
   restored: "Saved. The photo is public again, and this report is closed as Nothing needed.",
   hidden: "Saved. The photo is hidden from the public.",
@@ -92,7 +98,7 @@ async function lockPhoto(tx: Tx, photoId: number) {
 async function act(
   action: Action,
   person: Person,
-  input: { publicId: string; from?: ReportState },
+  input: { publicId: string; from?: OpenState },
   onQueued?: (outboxId: number) => void,
 ): Promise<IssueActionOutcome> {
   if (!can(person, CAPABILITY[action])) return "not_authorised";
@@ -132,6 +138,15 @@ async function act(
   return outcome;
 }
 
+/**
+ * Writes one visibility event. **A second writer beside setPhotoVisibility
+ * (photoVisibility.ts), on purpose:** these actions must lock the report row
+ * before the photo row, in the same transaction, and setPhotoVisibility opens
+ * its own. The rules match it: the caller has taken the photo lock, read the
+ * newest event under it, and refused a photo removed for good (the database's
+ * trigger also refuses an event on one). A change to either writer must be
+ * made to both; team.issues.test.ts pins this one's shape.
+ */
 async function writeEvent(tx: Tx, photoId: number, action: "hide" | "restore", person: Person, reason: string) {
   await tx.insert(photoVisibilityEventsTable).values({
     photoId,
@@ -145,11 +160,11 @@ async function writeEvent(tx: Tx, photoId: number, action: "hide" | "restore", p
 }
 
 /** Keep hidden: close as Done while the photo is still hidden. `from` is the state the page showed. */
-export const keepHidden = (person: Person, input: { publicId: string; from: ReportState }, onQueued?: (id: number) => void) =>
+export const keepHidden = (person: Person, input: { publicId: string; from: OpenState }, onQueued?: (id: number) => void) =>
   act("keep", person, input, onQueued);
 
 /** Restore: one restore event, and close as Nothing needed. `from` is the state the page showed. */
-export const restoreFromIssue = (person: Person, input: { publicId: string; from: ReportState }, onQueued?: (id: number) => void) =>
+export const restoreFromIssue = (person: Person, input: { publicId: string; from: OpenState }, onQueued?: (id: number) => void) =>
   act("restore", person, input, onQueued);
 
 /** Hide this photo: one hide event; the report stays as it is. */

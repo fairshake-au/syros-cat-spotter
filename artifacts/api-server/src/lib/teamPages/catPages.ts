@@ -448,7 +448,7 @@ export interface CatPageOptions {
    * issueStripFor, which answers null for anyone without `view_welfare_queue`.
    * Null or left out: no strip at all, not even its heading.
    */
-  issues?: IssueReport[] | null;
+  issues?: { reports: IssueReport[]; total: number } | null;
 }
 
 const ISSUE_STATE: Record<IssueReport["state"], string> = {
@@ -463,9 +463,9 @@ const ISSUE_STATE: Record<IssueReport["state"], string> = {
  * first, each linking to its row in the Queue. Team only, and drawn only when
  * there are some. The reporter is never named: there is nothing to name.
  */
-function issueStrip(issues: IssueReport[] | null | undefined): string {
-  if (!issues || issues.length === 0) return "";
-  const items = issues
+function issueStrip(strip: { reports: IssueReport[]; total: number } | null | undefined): string {
+  if (!strip || strip.total === 0) return "";
+  const items = strip.reports
     .map(
       (i) =>
         "<li>" +
@@ -480,9 +480,13 @@ function issueStrip(issues: IssueReport[] | null | undefined): string {
     )
     .join("");
   return (
-    `<section id="issue-strip" class="issues"><h2>Reports about this cat (${issues.length})</h2>` +
+    `<section id="issue-strip" class="issues"><h2>Reports about this cat (${strip.total})</h2>` +
     '<p class="hint">Problems the public reported with this cat\'s photos, name or page. Team only.</p>' +
-    `<ul class="hplain">${items}</ul></section>`
+    `<ul class="hplain">${items}</ul>` +
+    (strip.total > strip.reports.length
+      ? `<p class="empty">Showing the newest ${strip.reports.length} of ${strip.total}.</p>`
+      : "") +
+    "</section>"
   );
 }
 

@@ -165,7 +165,8 @@ describe("T7-1 (spec test 17): only view_welfare_queue sees an issue, anywhere",
     const r = await seedReport({ publicId: `vt-iss-${RUN}-strip`, kind: "content", reason: "wrong_name", catId: cat.id });
     expect(await issueStripFor({ scopes: [{ role: "guardian", colonyId: colony }] }, cat.id)).toBeNull();
     const strip = await issueStripFor({ scopes: [{ role: "staff", colonyId: null }] }, cat.id);
-    expect(strip?.map((i) => i.id)).toEqual([r.publicId]);
+    expect(strip?.reports.map((i) => i.id)).toEqual([r.publicId]);
+    expect(strip?.total).toBe(1);
   });
 
   it("the reported-photo route serves only a sent issue report's photo", async () => {
@@ -579,5 +580,52 @@ describe("review of 7.1: the critic's findings, pinned", () => {
     ]);
     expect(both.map((b) => b.body.outcome).sort()).toEqual(["changed", "kept"]);
     expect(await stateEvents(r.id)).toHaveLength(1);
+  });
+});
+
+describe("ship review of 7.1: findings pinned", () => {
+  it("finding 1: a plain close of an issue whose photo is still hidden is refused, form and JSON", async () => {
+    const r = await hiddenIssue({ publicId: `vt-iss-${RUN}-s1` });
+    for (const to of ["done", "nothing_needed"]) {
+      const viaForm = await form(`/api/team/reports/${r.publicId}/state`, { from: "new", to });
+      expect(viaForm.headers["location"]).toBe(`/api/team?issue=photo_hidden&r=${r.publicId}#r-${r.publicId}`);
+      const viaJson = await jsonPost(`/api/team/reports/${r.publicId}/state`, { from: "new", to });
+      expect([viaJson.status, viaJson.body.error]).toEqual([409, "photo_hidden"]);
+    }
+    expect((await reportRow(r.publicId)).state).toBe("new");
+    expect(await stateEvents(r.id)).toHaveLength(0);
+    // Looking at it is still fine, and so is closing once the photo is public.
+    expect((await form(`/api/team/reports/${r.publicId}/state`, { from: "new", to: "looking" })).status).toBe(303);
+    await form(`/api/team/photos/${r.photo.publicId}/restore`);
+    const closed = await jsonPost(`/api/team/reports/${r.publicId}/state`, { from: "looking", to: "done" });
+    expect(closed.status).toBe(200);
+    const page = (await get(`/api/team?issue=photo_hidden&r=${r.publicId}`)).text;
+    expect(page).toContain("Nothing changed: the photo is still hidden.");
+  });
+
+  it("finding 1: a welfare report and a photo deleted for good still close as before", async () => {
+    const w = await seedReport({ publicId: `vt-iss-${RUN}-s1w` });
+    expect((await jsonPost(`/api/team/reports/${w.publicId}/state`, { from: "new", to: "done" })).status).toBe(200);
+    const r = await hiddenIssue({ publicId: `vt-iss-${RUN}-s1r` });
+    await pool.query(
+      "update photos set data = null, removed_at = now(), removed_by = $1, removed_reason = 'vitest' where id = $2",
+      [team.id, r.photo.id],
+    );
+    expect((await jsonPost(`/api/team/reports/${r.publicId}/state`, { from: "new", to: "done" })).status).toBe(200);
+  });
+
+  it("finding 3: the strip's heading counts every report about the cat, not just those drawn", async () => {
+    const other = await seedCat(colony);
+    await pool.query(
+      `insert into welfare_reports (public_id, kind, reason, cat_id, severity, reporter_device, client_ref, photo_state, submitted_at)
+       select 'vt-iss-${RUN}-strip-' || g, 'content', 'other', $1, 'attention', 'dev-st-' || g, 'ref-st-' || g, 'none', now() - make_interval(mins => g)
+         from generate_series(1, 52) g`,
+      [other.id],
+    );
+    const strip = await issueStripFor({ scopes: [{ role: "staff", colonyId: null }] }, other.id);
+    expect([strip?.reports.length, strip?.total]).toEqual([50, 52]);
+    const page = (await get(`/api/team/cats/${other.id}`)).text;
+    expect(page).toContain("Reports about this cat (52)");
+    expect(page).toContain("Showing the newest 50 of 52.");
   });
 });
