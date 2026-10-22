@@ -3,6 +3,8 @@ import {
   BANDS,
   clampView,
   GRID,
+  latToTileY,
+  lngToTileX,
   MAX_ZOOM,
   MIN_ZOOM,
   pan,
@@ -55,6 +57,8 @@ export interface MapMarker extends Position {
   cluster?: { count: number; split: Partial<Record<SterilisedMark, number>> };
   /** A number drawn on the marker: the cat page's sightings, in time order (SYC-396 PR 1.4). */
   n?: number;
+  /** Drawn instead of `n` when set: a spot seen more than once ("2–4", "2, 5, 7"). */
+  text?: string;
 }
 
 const LOOKS: Record<NonNullable<MapMarker["look"]>, string> = {
@@ -85,6 +89,7 @@ function pinInside(m: MapMarker): string {
     return `<span class="catcluster" style="background:${clusterRing(m.cluster.split)}" aria-hidden="true"><span>${n}</span></span>`;
   }
   // One of a cat's own sightings on its page (SYC-396 PR 1.4): its number.
+  if (m.look === "seen" && m.text) return `<span class="pinnum" aria-hidden="true">${esc(m.text)}</span>`;
   if (m.look === "seen" && Number.isInteger(m.n)) return `<span class="pinnum" aria-hidden="true">${m.n}</span>`;
   return "";
 }
@@ -145,13 +150,21 @@ export function fitView(points: readonly Position[], maxZoom = 17): View {
       const at = pointOnView(v, size, p);
       return at !== null && Math.min(at.left, at.top, GRID * size - at.left, GRID * size - at.top) >= margin;
     });
+  const centreX = (z: number) => lngToTileX(centre.lng, z);
+  const centreY = (z: number) => latToTileY(centre.lat, z);
   for (let z = maxZoom; z >= MIN_ZOOM; z--) {
     const base = viewAround(centre, z);
-    // The view snaps to whole map pictures, so also try one picture over each way.
+    // The view snaps to whole map pictures, so also try one picture over each way,
+    // and keep the fitting view whose middle is nearest the points' middle.
+    let best: View | null = null;
+    let nearest = Infinity;
     for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
       const v = clampView({ z, x: base.x + dx, y: base.y + dy });
-      if (fits(v)) return v;
+      if (!fits(v)) continue;
+      const away = Math.hypot(v.x + GRID / 2 - centreX(z), v.y + GRID / 2 - centreY(z));
+      if (away < nearest) [best, nearest] = [v, away];
     }
+    if (best) return best;
   }
   // Too far apart for one picture: the widest view that shows the most of
   // them, and the page says how many didn't fit.
@@ -163,6 +176,60 @@ export function fitView(points: readonly Position[], maxZoom = 17): View {
     if (n > most) [best, most] = [v, n];
   }
   return best;
+}
+
+/** A spot's grouping key: the position rounded to 5 decimal places (never printed). */
+const spotKey = (m: Position) => `${Math.round(m.lat * 1e5)},${Math.round(m.lng * 1e5)}`;
+
+/** "2–4, 7": runs of consecutive numbers as a range, the rest comma-separated. */
+function numberRanges(ns: readonly number[]): string {
+  const sorted = [...new Set(ns)].sort((a, b) => a - b);
+  const parts: string[] = [];
+  for (let i = 0; i < sorted.length; ) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j]! + 1) j++;
+    parts.push(j > i ? `${sorted[i]}–${sorted[j]}` : String(sorted[i]));
+    i = j + 1;
+  }
+  return parts.join(", ");
+}
+
+/**
+ * One marker per spot (SYC-459 item 1): numbered markers at the same position
+ * (to 5 decimal places) become one, drawn with the range of their numbers,
+ * linking to the newest (highest number) and naming each in its label. Markers
+ * without a number, and a spot with one marker, are left as they were.
+ */
+export function mergeSameSpot(markers: MapMarker[]): MapMarker[] {
+  const groups = new Map<string, MapMarker[]>();
+  const out: (MapMarker | string)[] = [];
+  for (const m of markers) {
+    if (!Number.isInteger(m.n)) {
+      out.push(m);
+      continue;
+    }
+    const key = spotKey(m);
+    const g = groups.get(key);
+    if (g) g.push(m);
+    else {
+      groups.set(key, [m]);
+      out.push(key);
+    }
+  }
+  return out.map((o) => {
+    if (typeof o !== "string") return o;
+    const g = groups.get(o)!;
+    if (g.length === 1) return g[0]!;
+    const newest = g.reduce((a, b) => (b.n! > a.n! ? b : a));
+    const first = g[0]!;
+    return {
+      ...first,
+      n: newest.n,
+      text: numberRanges(g.map((m) => m.n!)),
+      label: [...g].sort((a, b) => a.n! - b.n!).map((m) => m.label).join("; "),
+      ...(newest.href !== undefined ? { href: newest.href } : {}),
+    };
+  });
 }
 
 /** The view a map option set describes, kept over the island. */

@@ -232,6 +232,7 @@ details.evidence[open]>summary::before,li.statement.routine>details[open]>summar
 .photostrip .more{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border:1px solid #d9d5ca;border-radius:4px;font-size:14px}
 .catmap{margin:8px 0}
 .catmap .hint{margin:4px 0 0}
+.catmap .mapcap{display:flex;justify-content:space-between;gap:8px;margin:4px 0 0;font-size:14px}
 details.evidence{margin:16px 0}
 details.evidence>summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
 details.evidence>summary h2{display:inline;margin:0}

@@ -22,7 +22,7 @@ export type { Shown };
 import type { VisitLine } from "../vetVisits";
 import { euroText } from "../euros";
 import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
-import { fitView, renderMap, type MapMarker } from "./map";
+import { fitView, mergeSameSpot, renderMap, type MapMarker } from "./map";
 import { BANDS, pointOnView } from "../mapTiles/geometry";
 import { rowMenu } from "./rowMenu";
 import { LIFE, dateInput, fold, lifeChoices, reasonInput, renderCatActions, summaryAndActions } from "./catActions";
@@ -542,17 +542,19 @@ export const MAP_SIGHTINGS = 30;
  * dashboard, numbered in time order (1 is the oldest shown), each marker a
  * link to its row in Sightings. No script; no position in any address.
  */
-function sightingsMap(v: TeamCatView): string {
+function sightingsMap(v: TeamCatView, island: boolean): string {
   if (v.sightings.length === 0) return "";
   const shown = v.sightings.slice(0, MAP_SIGHTINGS).reverse();
-  const markers: MapMarker[] = shown.map((s, i) => ({
-    lat: s.lat,
-    lng: s.lng,
-    n: i + 1,
-    look: "seen",
-    label: `Sighting ${i + 1}, ${when(s.at)}`,
-    href: `#sg-${s.id}`,
-  }));
+  const markers: MapMarker[] = mergeSameSpot(
+    shown.map((s, i) => ({
+      lat: s.lat,
+      lng: s.lng,
+      n: i + 1,
+      look: "seen",
+      label: `Sighting ${i + 1}, ${when(s.at)}`,
+      href: `#sg-${s.id}`,
+    })),
+  );
   const more = v.sightings.length > shown.length;
   const view = fitView(shown);
   let map: string;
@@ -566,21 +568,23 @@ function sightingsMap(v: TeamCatView): string {
   }
   // Sightings too far apart for one picture are said, never silently dropped.
   const drawn = shown.filter((s) => pointOnView(view, BANDS[0].size, s) !== null).length;
+  // The caption (spec §3.3): where the cat was last seen, in the same words as
+  // the Last seen fact, and how many of the sightings the map shows.
+  const place = esc(placeLabel(v.sightings[0]!));
+  const caption = more ? `${place} · Newest ${shown.length} of ${v.sightings.length}` : place;
   return (
     '<div class="catmap">' +
     map +
-    `<p class="hint">${
-      more
-        ? `The newest ${shown.length} of ${v.sightings.length} sightings, numbered oldest first.`
-        : `Sightings numbered oldest first.`
-    }${
-      drawn < shown.length
-        ? ` ${shown.length - drawn} ${shown.length - drawn === 1 ? "is" : "are"} too far from the others to fit on this map; see Sightings below.`
-        : ""
+    // The island Map, opened on this cat's numbered trail (PR 1.5), only for
+    // someone who may see the whole island (D9). Only the cat's number is in
+    // the address: never a position or a name.
+    `<p class="mapcap"><span>${caption}</span>${
+      island ? `<a class="tap" href="/api/team/cats?view=map&amp;focus=${v.cat.id}">Open the map</a>` : ""
     }</p>` +
-    // The island Map, opened on this cat's numbered trail (PR 1.5). Only the
-    // cat's number is in the address: never a position or a name.
-    `<p class="maplink"><a class="tap" href="/api/team/cats?view=map&amp;focus=${v.cat.id}">Open the full map</a></p></div>`
+    (drawn < shown.length
+      ? `<p class="hint">${shown.length - drawn} ${shown.length - drawn === 1 ? "is" : "are"} too far from the others to fit on this map; see Sightings below.</p>`
+      : "") +
+    "</div>"
   );
 }
 
@@ -717,7 +721,7 @@ export function renderCatPage(
     main +
     renderCatFacts(v, now, { byId, shown, island }) +
     (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
-    sightingsMap(v) +
+    sightingsMap(v, island) +
     `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`;
 
   // A compact list: date, place and thumbnail. The position, "Open map" and

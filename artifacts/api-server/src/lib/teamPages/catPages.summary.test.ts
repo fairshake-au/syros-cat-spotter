@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { placeLabel } from "../areas/placeLabel";
 import { renderCatPage } from "./catPages";
 import { bareCatView, catView, richCatView, statement } from "./__fixtures__/catView";
 
@@ -76,5 +77,81 @@ describe("the team cat page summary", () => {
     const d = html.indexOf('<p class="desc">');
     expect(d).toBeGreaterThan(html.indexOf('class="catfacts"'));
     expect(html).toContain('<p class="desc">Grey tabby with white paws, often by the harbour steps.</p>');
+  });
+});
+
+describe("the small map's caption (SYC-602 Task 1.4)", () => {
+  const KEY = "vitest-catmap-key-0123456789abcdef-0123456789";
+  let saved: string | undefined;
+  beforeAll(() => {
+    saved = process.env["TEAM_SESSION_KEYS"];
+    process.env["TEAM_SESSION_KEYS"] = KEY;
+  });
+  afterAll(() => {
+    if (saved === undefined) delete process.env["TEAM_SESSION_KEYS"];
+    else process.env["TEAM_SESSION_KEYS"] = saved;
+  });
+
+  const sighting = (id: number, i: number, over = {}) => ({
+    id,
+    lat: 37.4447 + (i % 5) * 0.0004,
+    lng: 24.9418 + (i % 7) * 0.0004,
+    at: new Date(Date.UTC(2026, 9, 16) - i * 86_400_000).toISOString(),
+    photoUrl: null,
+    extraPhotos: [],
+    mixedCats: false,
+    ...over,
+  });
+  const withSightings = (n: number, opts = {}) => {
+    const v = catView();
+    v.sightings = Array.from({ length: n }, (_, i) => sighting(500 + n - i, i));
+    return renderCatPage(v, "Sam", { now: NOW, ...opts });
+  };
+  const caption = (html: string) => /<p class="mapcap">[\s\S]*?<\/p>/.exec(html)![0];
+
+  it("starts with the newest sighting's place, the words Last seen uses", () => {
+    const v = catView();
+    v.sightings = [sighting(2, 0), sighting(1, 3)];
+    const html = renderCatPage(v, "Sam", { now: NOW });
+    const place = placeLabel(v.sightings[0]!);
+    expect(caption(html)).toMatch(new RegExp(`^<p class="mapcap"><span>${place}</span>`));
+    expect(html).toContain(`</time> · ${place}`);
+  });
+
+  it("escapes the place in the caption", () => {
+    const v = catView();
+    v.sightings = [sighting(2, 0), sighting(1, 3)];
+    v.sightings[0]!.lat = 0; // off the island: its place words come from placeLabel, never raw
+    const html = renderCatPage(v, "Sam", { now: NOW });
+    expect(caption(html)).not.toMatch(/<(?!\/?(p|span|a)\b)/);
+  });
+
+  it("adds Newest 30 of 41 when there are more sightings than the map shows", () => {
+    expect(caption(withSightings(41))).toContain(" · Newest 30 of 41");
+    expect(caption(withSightings(30))).not.toContain("Newest");
+  });
+
+  it("says Open the map, keeping the focus address, for people who may see the whole island", () => {
+    const html = withSightings(3, { island: true });
+    expect(caption(html)).toContain('<a class="tap" href="/api/team/cats?view=map&amp;focus=');
+    expect(caption(html)).toContain(">Open the map</a>");
+    expect(html).not.toContain("Open the full map");
+  });
+
+  it("leaves the link out for people who may not see the whole island", () => {
+    expect(caption(withSightings(3))).not.toContain("<a");
+  });
+
+  it("draws one marker per spot, with the range of its numbers, linking to the newest", () => {
+    const v = catView();
+    // Oldest first: 1 and 5 at one spot; 2, 3, 4 at another.
+    const spots = [[37.4447, 24.9418], [37.4451, 24.9421], [37.4451, 24.9421], [37.4451, 24.9421], [37.4447, 24.9418]] as const;
+    v.sightings = spots
+      .map(([lat, lng], i) => sighting(900 + i, 0, { lat, lng, at: new Date(Date.UTC(2026, 9, 1 + i)).toISOString() }))
+      .reverse();
+    const html = renderCatPage(v, "Sam", { now: NOW });
+    const band = /<div class="mapband b179"[\s\S]*?<\/div>/.exec(html)![0];
+    const pins = [...band.matchAll(/<a class="pin seen"[^>]*href="#sg-(\d+)"[^>]*><span class="pinnum"[^>]*>([^<]*)<\/span>/g)].map((m) => [m[1], m[2]]);
+    expect(pins).toEqual([["904", "1, 5"], ["903", "2–4"]]);
   });
 });
