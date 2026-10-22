@@ -1,9 +1,9 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { catsTable, db, photosTable, pool, sightingsTable } from "@workspace/db";
 import { areaFor } from "../lib/areas/namedAreas";
-import { catsToCompare } from "../lib/findFromPhoto";
 import { makeVariant } from "../lib/photoVariants";
 import { catDisplayPhotoIds, hiddenPhotoIds } from "../lib/photoVisibility";
+import { allTeamCats } from "../lib/teamCatList";
 import { hitRate, mostlyOne, pct, rankGallery, rankOf, type ModelName } from "./accuracyRules";
 import type { Embedder } from "./embedders";
 
@@ -84,7 +84,7 @@ async function jpegOf(photoId: number): Promise<Buffer | null> {
 
 /**
  * Pairs and gallery. The gallery is the display photo of every active cat
- * (the same cats as the team's Cats list, via catsToCompare with no filters).
+ * (the same cats as the team's Cats list with no filters).
  * A pair is a cat with a second photo that is confirmed (a resolved sighting
  * of that cat), visible (not hidden, not removed), and from a different Athens
  * calendar day than the display photo. One query photo per cat: the lowest
@@ -94,7 +94,10 @@ export async function runSmokeCheck(
   embedders: readonly Embedder[],
   opts: { onlyCats?: (c: { id: number; name: string }) => boolean } = {},
 ): Promise<SmokeResult> {
-  const active = (await catsToCompare({})).filter((c) => opts.onlyCats?.(c) ?? true);
+  // Exactly what catsToCompare({}) returns (findFromPhoto.ts): the team list with no
+  // filters, so only active cats. Not imported from there: that file pulls in the
+  // paid matching service, which needs its keys to even load.
+  const active = (await allTeamCats({})).cats.filter((c) => opts.onlyCats?.(c) ?? true);
   const rows = active.length
     ? await db
         .select({ id: catsTable.id, primaryPhotoId: catsTable.primaryPhotoId })

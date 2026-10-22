@@ -72,32 +72,39 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv, say: (l: stri
     return 0;
   }
 
-  const { makeReadOnly, runSmokeCheck, formatSmoke, smokePassesAt } = await import("./smokeCheck");
-  await makeReadOnly();
-  const r = await runSmokeCheck(models);
-  formatSmoke(r, names).forEach(say);
-  if (names.length === 2) {
-    const smoke = {
-      dino: smokePassesAt(r, "dinov2-small-q8", 10),
-      clip: smokePassesAt(r, "clip-b32-q8", 10),
-    };
-    say(`Smoke passes at top 10: dinov2-small-q8 ${smoke.dino}, clip-b32-q8 ${smoke.clip}. Apply the rules with check 2's rates (chooseWithSmoke) to pick the model and K.`);
-  } else {
-    say("With check 2 skipped the rules give: dinov2-small-q8, K = 20.");
-  }
-  // The pool keeps the process alive; end it so the script exits.
   const { pool } = await import("@workspace/db");
-  await pool.end();
+  try {
+    const { makeReadOnly, runSmokeCheck, formatSmoke, smokePassesAt } = await import("./smokeCheck");
+    await makeReadOnly();
+    const r = await runSmokeCheck(models);
+    formatSmoke(r, names).forEach(say);
+    if (names.length === 2) {
+      const smoke = {
+        dino: smokePassesAt(r, "dinov2-small-q8", 10),
+        clip: smokePassesAt(r, "clip-b32-q8", 10),
+      };
+      say(`Smoke passes at top 10: dinov2-small-q8 ${smoke.dino}, clip-b32-q8 ${smoke.clip}. Apply the rules with check 2's rates (chooseWithSmoke) to pick the model and K.`);
+    } else {
+      say(`Smoke passes at top 10 for dinov2-small-q8: ${smokePassesAt(r, "dinov2-small-q8", 10)}. The model and K come from check 2 with these results; if check 2 is skipped: dinov2-small-q8, K = 20.`);
+    }
+  } finally {
+    // The pool keeps the process alive; end it so the script exits.
+    await pool.end();
+  }
   return 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2), process.env, (l) => console.log(l)).then(
-    (code) => process.exit(code),
+    // Not process.exit(): the ONNX runtime can abort while the process is torn
+    // down that way ("mutex lock failed"), turning a good run into a failure.
+    (code) => {
+      process.exitCode = code;
+    },
     (err: unknown) => {
       // safeError: a database error's own message can carry a query and its values.
       console.error(`fingerprint-accuracy failed: ${JSON.stringify(safeError(err))}`);
-      process.exit(1);
+      process.exitCode = 1;
     },
   );
 }
