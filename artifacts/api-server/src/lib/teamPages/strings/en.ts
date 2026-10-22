@@ -308,7 +308,7 @@ export const en = {
   // ── Colonies and Feeding sites (SYC-209). Moved from ../words.ts in PR 4.1
   // so a cat guardian reads them in her language; the team reads English.
   "colonies.title": "Colonies",
-  "colonies.lead": "A colony is a group of street cats that one person looks after, usually fed at one place. Create one to start recording its cats.",
+  "colonies.lead": "A colony is a group of street cats looked after by a cat guardian, usually fed at one place. Create one to start recording its cats.",
   "colonies.empty": "There are no colonies yet.",
   "colonies.noMatch": "No colony has ever had a name like that.",
   "colonies.emptyOwn": "Colonies you look after appear here.",

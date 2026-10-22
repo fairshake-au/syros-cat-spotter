@@ -276,7 +276,7 @@ export const fr: Record<StringKey, string> = {
   "colourCheck.openCat": "Mettre à jour sur la page du chat",
   // ── Colonies and Feeding sites (SYC-209 PR 4.1).
   "colonies.title": "Colonies",
-  "colonies.lead": "Une colonie est un groupe de chats des rues dont une personne s’occupe, en général nourris au même endroit. Crée-en une pour commencer à noter ses chats.",
+  "colonies.lead": "Une colonie est un groupe de chats des rues dont s’occupe un·e gardien·ne de chats, en général nourris au même endroit. Crée-en une pour commencer à noter ses chats.",
   "colonies.empty": "Il n’y a pas encore de colonie.",
   "colonies.noMatch": "Aucune colonie n’a jamais porté un nom comme celui-ci.",
   "colonies.emptyOwn": "Les colonies dont tu t’occupes apparaissent ici.",
