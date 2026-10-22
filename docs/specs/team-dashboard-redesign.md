@@ -26,7 +26,7 @@ It turns the dashboard parts of PRODUCT-SPEC §2.6 and §3 (items 9, 12 and 13) 
 
 **Evidence:** `docs/reviews/team-dashboard-ux-review-2026-10-15.md`.
 **Review:** an adversarial review found 4 blockers, 13 major and 5 minor issues. Every finding is handled in this version, and the table at the end (§17) says where.
-**Status:** **Approved by Samuel, 15 October 2026.**
+**Status:** **Approved by Samuel, 15 October 2026.** §4 (Home) rewritten 22 October 2026 after D12, **awaiting approval**.
 
 ### What this document owns, and what it borrows
 
@@ -75,6 +75,7 @@ The dashboard stays fast on a phone in a street with weak signal. A few screens 
 | D10 | SYC-362's unfinished work | "Hand all of it to the redesign" (Samuel, 15 Oct 2026). It's tracked as SYC-395 and placed in §15. |
 | D11 | The Cats search text in the web address | **Allowed** (Samuel, 16 Oct 2026). The search box's own text appears in the address like any search, as the old Cats search did. Every other part of the address follows §10.4. Server logs already strip the query. |
 | D8 | A vet visit versus a cat guardian's earlier "not sterilised" | **The visit overrules, visibly.** Logging a visit with Sterilised also marks any standing guardian "not sterilised" on that cat wrong, with the reason "vet visit on [date]". The change appears on the recent guardian changes list. This works the same way as the team's **Correct** on colour. |
+| D12 | What Home is for | **Today, where to trap next, and how we're doing, in that order; no "Not seen lately"** (Samuel, 22 Oct 2026: "go with D, but remove the “not seen lately” part"). Chosen from four mockups. §4 is rewritten. |
 
 ## 3. How the dashboard is laid out
 
@@ -117,35 +118,90 @@ Filters, place labels and coverage need one shared idea of "where".
 - **Versions.** Each change to the list makes a new **version**, and every report names the version it used. That way, moving a centre doesn't silently rewrite last year's figures.
 - **First draft.** We draft the first list from the map's place list and the village names. Syros Cats correct it.
 
-## 4. Home: what needs us today
+## 4. Home: today, where to trap next, how we're doing
 
-Home is the first page after signing in. It reads top to bottom in order of urgency. A section only shows when it has something in it.
+**Redesigned 22 October 2026 (D12).** This replaces the 15 October version of this section, which read top to bottom by urgency and ended with figures. Mockup: [Dashboard Home Options](https://claude.ai/artifact/AcJLPG2dAW72caG4C8VHmn), option D. The mockup's names and figures are made up.
 
-1. **Needs us now.**
-   - Urgent welfare reports, then new ones. Each is one line: photo, place label, how long ago, and the first words of the report. Tap to open it in the Queue.
-   - "Started but not sent" reports from the last 24 hours.
-   - **Sightings waiting for a match** ("Ask Syros Cats to match it"), with a count. Spotters' points are held until the team acts.
-   - **Needs an OK:** guardians' requests waiting for a team decision.
-   - "Report an issue" reports (problems with photos or names), with a count.
-2. **Cats to check.** A count for each list and the first few photos:
-   - Ear clips to check;
-   - the Colour check list, using that list's own rules from `coat-markings-and-health.md` §5.3;
-   - Matched by hand, once SYC-152 exists.
+Home is the first page an island-wide team member sees after signing in. Cat guardians still go to My colonies, as now. Home is server-drawn and needs no scripts.
 
-   Each links to its list.
-3. **Not seen lately.** Active street cats (§9.5) that have been seen at least once, but not for 6 weeks or more. Each shows the photo, name, colony, and "last seen 9 weeks ago, Galissas". This is a prompt to ask the guardian, never a claim that a cat has died.
-4. **The headline.**
-   - One large figure: **"142 street cats known on Syros"**, counted as defined in §9.5.
-   - Under it, one bar split into four parts (confirmed sterilised, probably, not sterilised, not known), with each part's number beside it.
-   - "As of 15 Oct 2026, 16:40" and a link to Sterilisation progress.
-   - A smaller line for cats with homes and cats in care, counted separately.
-5. **This month.** Four small figures, each with last month in brackets:
-   - sightings;
-   - new cats;
-   - sterilisations, counted by the date of the operation;
-   - vet spend (Syros Cats' money only, §8.4).
+It has three parts, always in this order:
 
-Home never shows response times, league tables of people, or anything that reads as someone falling behind (D6).
+1. **Today:** what needs the team now (§4.1).
+2. **Where to trap next:** the three colonies where the sterilisation money does the most (§4.2).
+3. **How we're doing:** the island headline in brief (§4.3).
+
+**Layout.**
+- **On a phone** the three parts stack in that order.
+- **At 760 px wide and over** the page splits into two columns. Today is on the left. Where to trap next sits on the right, with How we're doing below it.
+- The split uses CSS only. Reading order, and so screen-reader order, stays Today → Where to trap next → How we're doing at every width.
+
+**Below the three parts,** the two settings links stay as they are: Areas, and Vet settings.
+
+**What Home no longer shows:**
+- **Not seen lately** (Samuel, 22 Oct 2026). The definition in §9.5 stays for the Cats screen's last-seen filter. Home doesn't link to it.
+- The photo strips under the check lists. The lists keep their photos on their own pages.
+- Sightings and new cats in "This month". Both stay in the Reports (§9.3).
+
+Home never shows response times, league tables of people, or anything that reads as someone falling behind (D6). It names no team member.
+
+### 4.1 Today
+
+1. **Urgent reports, in full.**
+   - Every open, checked urgent welfare report gets one line, newest first: photo, place label, how long ago, and the first words of the report. Each line has the red urgent band.
+   - At most 5 lines. If there are more, the next line reads "See all N urgent reports in the Queue".
+   - Tapping a line opens that report in the Queue (`?open=`).
+2. **The spam-check line.** "N reports arrived while our spam check was down" appears whenever that count is above zero. It sits under the urgent reports in the notice style, never as a tile, so it can't be skimmed past. It links to the Queue's unchecked section.
+3. **Count tiles.** Each tile is a large number and a few words, and the whole tile links to its list. A tile shows only when its count is above zero. In this order:
+
+   | Tile | Counts | Opens |
+   |---|---|---|
+   | **More reports** | Open, checked welfare reports that aren't urgent | The Queue |
+   | **Problems with photos or names** | Open "Report an issue" reports | The Queue's issues section |
+   | **Sightings to match** | Sightings waiting for the team to match them. Hidden while nothing writes this state (plan Decision 2). | The Cats screen, as now |
+   | **Ear clips to check** | That list's own count | Ear clips to check |
+   | **Colour check** | That list's own count, by its rules in `coat-markings-and-health.md` §5.3 | Colour check |
+   | **Matched by hand** | Once SYC-152 exists | Its list |
+
+   Tiles sit two to a row on a phone and four to a row from 560 px.
+4. **Nothing waiting.** When there are no urgent reports, no spam-check line and no tiles, Today shows one line: "Nothing waiting right now." The Today heading always shows.
+
+### 4.2 Where to trap next
+
+The three colonies with the most street cats still to sterilise. It uses the per-colony figures the Colonies list already works out (§9.1), so it doesn't wait for the trapping planner (§9.2).
+
+**Which colonies.**
+- Every colony, ranked by its **To do** count: street cats not known to be sterilised (Not sterilised, Not known or Probably, as §9.5 defines it).
+- **Ties** go to the colony with the Kittens reported flag first, then alphabetically by name.
+- A colony with nothing to do is never listed.
+- At most 3 colonies.
+
+**Each row shows:**
+- the colony's name, linking to its colony page (the trapping planner, once §9.2 ships);
+- "N to do", and for people with `view_vet_costs` the estimate "· €X", where X is N × the standard sterilisation price from Vet settings (§8.2, currently €60). Without that capability, the row shows the count only;
+- the colony's sterilisation bar of its street cats, split four ways with each part's number, the same as the Colonies list card;
+- "M street cats · K sterilised";
+- the **Kittens reported** flag, as a word and its icon, when §9.1's rule sets it. No other flag shows here.
+
+**Under the rows:**
+- One line saying what the numbers mean: "To do: street cats not sterilised, not known, or probably sterilised. At the standard price of €60 a cat." The price clause shows only with `view_vet_costs`.
+- If there are street cats to do outside any colony: "Plus N street cats to do that aren't in a colony." This is text only, because the Cats screen has no "No colony" filter.
+- The link **"See all colonies"** opens the Colonies list sorted by fewest confirmed sterilised.
+
+**Empty states.**
+- No colonies at all: "No colonies yet. Grouping cats into colonies lets you plan trapping rounds." The line links to creating one.
+- Colonies exist but none has anything to do: "Every colony's street cats are sterilised."
+
+### 4.3 How we're doing
+
+- **One large line:** "142 street cats · 43% sterilised". The count is the headline count from §9.5. The percentage is confirmed sterilised divided by that count, rounded down to a whole number, so it never rounds up to a milestone the island hasn't reached. With no street cats it reads "No street cats recorded yet" and nothing else shows.
+- **The island sterilisation bar:** four parts, each with its number and words (§12.2), as now.
+- **One line of this month:** "11 sterilisations this month (7 last month)". Sterilisations are counted by the date of the operation. People with `view_vet_costs` also see "· €605 vet spend (Syros Cats' money, §8.4)".
+- **Small print:** "As of 22 Oct 2026, 16:40", plus the cats with homes and in care line when that count is above zero.
+- **Link:** "See Sterilisation progress".
+
+### 4.4 When a part can't be worked out
+
+Each of the four data reads (Today's lists, the colony ranking, the headline and this month's figures) is worked out separately. If one fails, only its own part says "This figure isn't available right now". The rest of the page draws as normal (§13).
 
 ## 5. Cats: finding a cat without knowing its name
 
