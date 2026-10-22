@@ -17,6 +17,7 @@ import {
   moveReportState,
   NOTE_MAX,
   REPORT_STATES,
+  sentReportRef,
   writeTeamNote,
 } from "../lib/welfareActions";
 import { ObservationRefused } from "../lib/observations";
@@ -37,8 +38,15 @@ import { photoTargets } from "../lib/capabilityTargets";
 import { hiddenPhotoIds } from "../lib/photoVisibility";
 import { isVariantSize, variantFor } from "../lib/photoVariants";
 import { escapeHtml } from "../lib/teamPages/escape";
-import { cleanTeamSentence, TEAM_SENTENCE_MAX } from "../lib/mail/reportTemplates";
+import {
+  cleanTeamSentence,
+  REPORT_OUTCOME_CLOSE,
+  REPORT_OUTCOME_LEAD,
+  TEAM_SENTENCE_MAX,
+} from "../lib/mail/reportTemplates";
 import { kickRow } from "../lib/mail/outbox";
+import { REPORTER_ON_CLOSE, reporterOnClose } from "../lib/welfare/reporterEmail";
+import { renderConfirmPage } from "../lib/teamPages/confirm";
 
 // The welfare queue's data and photos for the staff dashboard (SYC-43 part 2
 // plan, PR 1 and PR 2). No CORS headers: app.ts skips /api/team/. The queue
@@ -309,6 +317,10 @@ const StateBody = z.object({
         return z.NEVER;
       }
     }),
+  // SYC-515: set by the "Close this report and email...?" page's button.
+  confirm: z.literal("1").optional(),
+  // What that page said would happen to the reporter; checked again on press.
+  expect: z.enum(REPORTER_ON_CLOSE).optional(),
 });
 const NoteBody = z.object({ note: z.string().max(NOTE_MAX) });
 
@@ -377,6 +389,49 @@ const fieldsOf = (err: z.ZodError) => [
 ];
 
 /**
+ * SYC-515: the "Close this report and email the person who sent it?" page.
+ * The email's two fixed sentences are the template's own constants; the
+ * extra-line box (Done only, and only when the email goes now) sits above
+ * the button. Everything printed is escaped.
+ */
+function reporterConfirmPage(o: {
+  publicId: string;
+  from: string;
+  to: string;
+  now: "will_send" | "held" | "may_not_arrive";
+  sentence: string | null | undefined;
+  personName: string;
+}): string {
+  const held = o.now === "held";
+  const lines = [REPORT_OUTCOME_LEAD, REPORT_OUTCOME_CLOSE];
+  if (held)
+    lines.push(
+      "They haven't confirmed their email yet. If they do while this report is still closed, they get the standard message.",
+    );
+  if (o.now === "may_not_arrive") lines.push("Our last email to them didn't arrive, so this one may not either.");
+  const box =
+    !held && o.to === "done"
+      ? `<label class="label" for="reporter-sentence">Add a line to the email (optional) ` +
+        '<span class="hint">This goes to a member of the public, added to the fixed message. Keep it short.</span></label>' +
+        `<input id="reporter-sentence" name="reporterSentence" type="text" class="text" maxlength="${TEAM_SENTENCE_MAX}"` +
+        (o.sentence ? ` value="${escapeHtml(o.sentence)}"` : "") +
+        ">"
+      : "";
+  return renderConfirmPage({
+    title: "Close this report and email the person who sent it?",
+    lines,
+    action: `/api/team/reports/${encodeURIComponent(o.publicId)}/state`,
+    fields: { from: o.from, to: o.to, expect: o.now },
+    extra: box,
+    yes: held ? "Close the report" : "Close and send the email",
+    cancelHref: `/api/team?open=${encodeURIComponent(o.publicId)}#r-${encodeURIComponent(o.publicId)}`,
+    cancelLabel: "Back to the Queue (nothing changed)",
+    personName: o.personName,
+    active: "queue",
+  });
+}
+
+/**
  * POST /api/team/reports/:publicId/state: move a sent report to one of the
  * four states. `from` is the state the page showed; if the report is no
  * longer there, someone else moved it first and nothing is written. A move
@@ -395,7 +450,7 @@ router.post(
     const parsed = StateBody.safeParse(req.body ?? {});
     if (!parsed.success)
       return badRequest(req, res, fieldsOf(parsed.error), publicId);
-    const { from, to, reporterSentence } = parsed.data;
+    const { from, to, reporterSentence, confirm, expect } = parsed.data;
     // "Move" to where it already is: nothing to record.
     if (from === to) return badRequest(req, res, ["to"], publicId);
     if (!PUBLIC_ID_RE.test(publicId)) return notFound(res);
@@ -415,12 +470,37 @@ router.post(
       }
     }
 
+    // SYC-515: a person closing a report whose reporter would be emailed (or
+    // would be, once they confirm) gets a second page first. The answer is
+    // worked out here from the record, never from the form. The data routes
+    // (JSON) act in one step, as every confirm page does.
+    // A confirm press always says what the page promised.
+    if (isFormPost(req) && confirm && expect === undefined)
+      return badRequest(req, res, ["expect"], publicId);
+    let expectReporter = expect;
+    if (isFormPost(req) && (to === "done" || to === "nothing_needed")) {
+      const row = await sentReportRef(publicId);
+      // Not there, or already moved by someone else: moveReportState answers.
+      if (row && row.state === from) {
+        const now = await reporterOnClose(db, row.id);
+        if (!confirm && (now === "will_send" || now === "held" || now === "may_not_arrive")) {
+          return void res
+            .status(200)
+            .type("html")
+            .send(reporterConfirmPage({ publicId, from, to, now, sentence: reporterSentence, personName: person.name }));
+        }
+        // One tap ("none", "already sent"): hold the move to that answer.
+        if (!confirm) expectReporter = now;
+      }
+    }
+
     const outcome = await moveReportState({
       publicId,
       from,
       to,
       person,
       reporterSentence,
+      expectReporter,
       onQueued: kickRow,
     });
     if (outcome === "not_found") return notFound(res);

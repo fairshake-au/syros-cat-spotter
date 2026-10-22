@@ -19,6 +19,11 @@ export interface ConfirmPageOptions {
   action: string;
   /** The form's fields, carried as they were sent. `confirm` is added. */
   fields: Record<string, string | undefined>;
+  /**
+   * Trusted HTML shown above the Yes button, inside the form (SYC-515: the
+   * reporter email's extra-line box). The caller escapes everything in it.
+   */
+  extra?: string;
   /** The Yes button's words, e.g. "Yes, remove the owner". */
   yes: string;
   /** Where Cancel goes, and its words. */
@@ -47,6 +52,7 @@ export function renderConfirmPage(o: ConfirmPageOptions): string {
       `<ul class="sure">${o.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` +
       `<form method="post" action="${esc(o.action)}" class="sureform">` +
       hidden +
+      (o.extra ?? "") +
       '<input type="hidden" name="confirm" value="1">' +
       `<button type="submit" class="risky">${esc(o.yes)}</button></form>` +
       `<p><a class="tap" href="${esc(o.cancelHref)}">${esc(o.cancelLabel)}</a></p>`,
