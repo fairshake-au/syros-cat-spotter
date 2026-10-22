@@ -22,6 +22,12 @@ import { brakeLimitNow, brakeTripped, reportHidesToday, type HideSkipped } from 
 
 export const TEAM_ISSUE_PHOTO_PREFIX = "/api/team/issue-photos/";
 const CLOSED_LIMIT = 50;
+/**
+ * Rows drawn per open group (review of 7.1, finding 5): a flood, of unchecked
+ * reports during an outage say, can't make the page enormous. The group's
+ * heading still counts them all (`totals`).
+ */
+export const ISSUE_GROUP_LIMIT = 100;
 const STRIP_LIMIT = 50;
 
 /** The two reasons that need a person to look (group 2). */
@@ -75,6 +81,8 @@ export interface IssuesSection {
   other: IssueReport[];
   /** 4. Unchecked, in their own list, never mixed into the order above. Newest first. */
   unchecked: IssueReport[];
+  /** How many open reports each group holds; each list above holds at most ISSUE_GROUP_LIMIT. */
+  totals: { hidden: number; needsPerson: number; other: number; unchecked: number };
   /** The newest closed ones; `closedTotal` counts them all. */
   closed: IssueReport[];
   closedTotal: number;
@@ -207,12 +215,21 @@ export async function listIssues(): Promise<IssuesSection> {
   ]);
   const issues = open.map(toIssue);
   const pick = (g: IssueGroup) => issues.filter((i) => i.group === g);
+  // Longest wait first (§5.3): the public is already safe from these.
+  const hidden = pick("hidden").sort((a, b) => at(a) - at(b));
+  const [needsPerson, other, unchecked] = [pick("needs_person"), pick("other"), pick("unchecked")];
+  const cap = (list: IssueReport[]) => list.slice(0, ISSUE_GROUP_LIMIT);
   return {
-    // Longest wait first (§5.3): the public is already safe from these.
-    hidden: pick("hidden").sort((a, b) => at(a) - at(b)),
-    needsPerson: pick("needs_person"),
-    other: pick("other"),
-    unchecked: pick("unchecked"),
+    hidden: cap(hidden),
+    needsPerson: cap(needsPerson),
+    other: cap(other),
+    unchecked: cap(unchecked),
+    totals: {
+      hidden: hidden.length,
+      needsPerson: needsPerson.length,
+      other: other.length,
+      unchecked: unchecked.length,
+    },
     closed: closed.map(toIssue),
     closedTotal: Number((closedCount.rows[0] as { n: number } | undefined)?.n ?? 0),
     brake: { on: brakeTripped(hidesToday), hidesToday, limit: brakeLimitNow() },

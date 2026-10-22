@@ -15,8 +15,8 @@ import app from "../app";
 import { clearWelfareTables, seedReport, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { guardianOn, newColony, seedCat, signedPerson, type SeededCat, type Signed } from "../test/roleKit";
 import { removeTestPerson } from "../test/removeTestPerson";
-import { issueStripFor, type IssuesSection } from "../lib/issues/queue";
-import { _setIssueClockForTests, REPORT_HIDES_PER_ATHENS_DAY } from "../lib/issues/hide";
+import { ISSUE_GROUP_LIMIT, issueStripFor, type IssuesSection } from "../lib/issues/queue";
+import { _setIssueClockForTests, REPORT_HIDES_PER_ATHENS_DAY, reportHidesToday } from "../lib/issues/hide";
 import { keepHidden } from "../lib/issues/teamActions";
 
 // SYC-44 PR 7.1 (plan Slice 7; spec §5.3, §5.4): the team's Issues section,
@@ -136,7 +136,7 @@ describe("T7-1 (spec test 17): only view_welfare_queue sees an issue, anywhere",
     const catPage = await get(`/api/team/cats/${cat.id}`);
     expect(catPage.status).toBe(200);
     expect(catPage.text).toContain("Reports about this cat (1)");
-    expect(catPage.text).toContain(`href="/api/team#r-${r.publicId}"`);
+    expect(catPage.text).toContain(`href="/api/team?issue=open&amp;r=${r.publicId}#r-${r.publicId}"`);
   });
 
   it("a cat guardian with that cat in her colony is refused the section, its JSON, the reported photo and the alert's link", async () => {
@@ -316,9 +316,9 @@ describe("T7-4: Keep hidden and Restore", () => {
     expect((await reportRow(r.publicId)).state).toBe("nothing_needed");
     expect(await stateEvents(r.id)).toHaveLength(1);
     expect(res.body.report).toMatchObject({ id: r.publicId, state: "nothing_needed", photo: { hidden: false } });
-    // And again: it's public now, so nothing more is written.
+    // And again on the closed report: refused before anything is read (finding 3).
     const again = await jsonPost(`/api/team/issues/${r.publicId}/restore`, { from: "nothing_needed" });
-    expect([again.status, again.body.outcome]).toEqual([409, "not_hidden"]);
+    expect(again.status).toBe(400);
     expect(await eventsFor(r.photo.id)).toHaveLength(before.length + 1);
   });
 
@@ -453,5 +453,131 @@ describe("the issue row's actions keep the welfare rules", () => {
     await jsonPost(`/api/team/issues/${r.publicId}/keep-hidden`, { from: "new" });
     const obs = await db.execute(sql`select 1 from observations where value->>'reportId' = ${String(r.id)}`);
     expect(obs.rows).toHaveLength(0);
+  });
+});
+
+describe("review of 7.1: the critic's findings, pinned", () => {
+  const card = (html: string, id: string) => {
+    const start = html.indexOf(`id="r-${id}"`);
+    expect(start, id).toBeGreaterThan(-1);
+    return html.slice(start, html.indexOf("</article>", start));
+  };
+
+  it("finding 2: a row whose photo is still hidden offers no plain Done or Nothing needed", async () => {
+    const hidden = await hiddenIssue({ publicId: `vt-iss-${RUN}-f2h` });
+    const pub = await seedReport({ publicId: `vt-iss-${RUN}-f2p`, kind: "content", reason: "wrong_cat", photoId: (await newPhoto()).id, catId: cat.id });
+    const html = (await get("/api/team")).text;
+    const h = card(html, hidden.publicId);
+    expect(h).not.toContain('name="to" value="done"');
+    expect(h).not.toContain('name="to" value="nothing_needed"');
+    expect(h).toContain('name="to" value="looking"');
+    expect(h).toContain("To close it, keep the photo hidden or restore it, above.");
+    expect(card(html, pub.publicId)).toContain('name="to" value="nothing_needed"');
+  });
+
+  it("finding 3: Keep hidden and Restore refuse a missing or closed `from`, and write nothing", async () => {
+    const r = await hiddenIssue({ publicId: `vt-iss-${RUN}-f3` });
+    const before = await eventsFor(r.photo.id);
+    for (const [path, body] of [
+      ["keep-hidden", {}],
+      ["keep-hidden", { from: "done" }],
+      ["restore", { from: "done" }],
+      ["restore", { from: "nothing_needed" }],
+      ["restore", { from: "bogus" }],
+    ] as const) {
+      const res = await jsonPost(`/api/team/issues/${r.publicId}/${path}`, body);
+      expect(res.status, `${path} ${JSON.stringify(body)}`).toBe(400);
+    }
+    expect(await eventsFor(r.photo.id)).toEqual(before);
+    expect(await stateEvents(r.id)).toHaveLength(0);
+  });
+
+  it("finding 4: an open unchecked report counts among the others (every open report does, §5.3)", async () => {
+    const photo = await newPhoto();
+    const checked = await seedReport({ kind: "content", reason: "photo_private", photoId: photo.id, catId: cat.id });
+    await seedReport({ kind: "content", reason: "photo_private", photoId: photo.id, catId: cat.id, tokenChecked: false });
+    const json = (await get("/api/team/issues")).body as IssuesSection;
+    expect(json.other.find((i) => i.id === checked.publicId)!.others).toBe(1);
+  });
+
+  it("finding 5: each group draws at most ISSUE_GROUP_LIMIT rows, and says how many there are", async () => {
+    await pool.query(
+      `insert into welfare_reports (public_id, kind, reason, cat_id, severity, reporter_device, client_ref, photo_state, submitted_at)
+       select 'vt-iss-${RUN}-many-' || g, 'content', 'other', $1, 'attention', 'dev-many-' || g, 'ref-many-' || g, 'none', now() - make_interval(mins => g)
+         from generate_series(1, $2::int) g`,
+      [cat.id, ISSUE_GROUP_LIMIT + 1],
+    );
+    const json = (await get("/api/team/issues")).body as IssuesSection;
+    expect(json.other).toHaveLength(ISSUE_GROUP_LIMIT);
+    expect(json.totals.other).toBe(ISSUE_GROUP_LIMIT + 1);
+    const html = (await get("/api/team")).text;
+    expect(html).toContain(`Everything else (${ISSUE_GROUP_LIMIT + 1})</h3>`);
+    expect(html).toContain(`Showing ${ISSUE_GROUP_LIMIT} of ${ISSUE_GROUP_LIMIT + 1}.`);
+    expect(html).toContain(`<h2>Issues (${ISSUE_GROUP_LIMIT + 1})</h2>`);
+  });
+
+  it("finding 6: the strip's link opens a folded, closed card", async () => {
+    const r = await seedReport({ publicId: `vt-iss-${RUN}-f6`, kind: "content", reason: "other", catId: cat.id, state: "done" });
+    const shut = card((await get("/api/team")).text, r.publicId);
+    expect(shut).toContain("<details>");
+    const opened = card((await get(`/api/team?issue=open&r=${r.publicId}`)).text, r.publicId);
+    expect(opened).toContain("<details open>");
+    expect(opened).not.toContain('class="notice"');
+  });
+
+  it("finding 7: hide_skipped is said in words", async () => {
+    const words: Record<string, string> = {
+      already_hidden: "Already hidden when this was sent",
+      restored_before: "Not hidden: the team restored this photo before, so a report can't hide it again",
+      address_limit: "Not hidden: hide limit reached for the sender",
+      brake: "Not hidden: daily brake (automatic hiding was paused for the day)",
+      unchecked: "Not hidden: unchecked (the safety check couldn't reach Cloudflare)",
+    };
+    for (const k of Object.keys(words)) {
+      await seedReport({ publicId: `vt-iss-${RUN}-skip-${k}`, kind: "content", reason: "photo_private", photoId: (await newPhoto()).id, catId: cat.id, hideSkipped: k });
+    }
+    const html = (await get("/api/team")).text;
+    for (const [k, w] of Object.entries(words)) {
+      expect(card(html, `vt-iss-${RUN}-skip-${k}`), k).toContain(w.replace(/'/g, "&#39;"));
+    }
+  });
+
+  it("finding 7: no_photo, and Hide on a photo deleted for good, write nothing", async () => {
+    const none = await seedReport({ publicId: `vt-iss-${RUN}-nophoto`, kind: "content", reason: "wrong_name", catId: cat.id });
+    const res = await jsonPost(`/api/team/issues/${none.publicId}/hide`);
+    expect([res.status, res.body.outcome]).toEqual([409, "no_photo"]);
+    const photo = await newPhoto();
+    const gone = await seedReport({ publicId: `vt-iss-${RUN}-gonehide`, kind: "content", reason: "photo_not_cat", photoId: photo.id, catId: cat.id });
+    await pool.query(
+      "update photos set data = null, removed_at = now(), removed_by = $1, removed_reason = 'vitest' where id = $2",
+      [team.id, photo.id],
+    );
+    const hide = await jsonPost(`/api/team/issues/${gone.publicId}/hide`);
+    expect([hide.status, hide.body.outcome]).toEqual([409, "already_hidden"]);
+    expect(await eventsFor(photo.id)).toHaveLength(0);
+  });
+
+  it("finding 7: a team member's Hide never counts toward the brake", async () => {
+    const DAY = Date.parse("2031-05-20T09:00:00Z");
+    _setIssueClockForTests(DAY);
+    const before = await reportHidesToday();
+    const r = await seedReport({ publicId: `vt-iss-${RUN}-teamhide`, kind: "content", reason: "photo_not_cat", photoId: (await newPhoto()).id, catId: cat.id });
+    // The hide's own time is the database clock; count "today" at that real day too.
+    _setIssueClockForTests(null);
+    const realBefore = await reportHidesToday();
+    expect((await jsonPost(`/api/team/issues/${r.publicId}/hide`)).body.outcome).toBe("hidden");
+    expect(await reportHidesToday()).toBe(realBefore);
+    _setIssueClockForTests(DAY);
+    expect(await reportHidesToday()).toBe(before);
+  });
+
+  it("finding 7: two people pressing Keep hidden at once close it once", async () => {
+    const r = await hiddenIssue({ publicId: `vt-iss-${RUN}-race` });
+    const both = await Promise.all([
+      jsonPost(`/api/team/issues/${r.publicId}/keep-hidden`, { from: "new" }),
+      jsonPost(`/api/team/issues/${r.publicId}/keep-hidden`, { from: "new" }),
+    ]);
+    expect(both.map((b) => b.body.outcome).sort()).toEqual(["changed", "kept"]);
+    expect(await stateEvents(r.id)).toHaveLength(1);
   });
 });

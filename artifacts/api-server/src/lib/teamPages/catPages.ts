@@ -469,7 +469,9 @@ function issueStrip(issues: IssueReport[] | null | undefined): string {
     .map(
       (i) =>
         "<li>" +
-        `<a href="/api/team#r-${esc(encodeURIComponent(i.id))}">${esc(reasonLabel(i.reason))}</a> ` +
+        // ?issue=open&r=: the Queue opens this card even when it's a folded,
+        // closed one (review of 7.1, finding 6); "open" shows no notice.
+        `<a href="/api/team?issue=open&amp;r=${esc(encodeURIComponent(i.id))}#r-${esc(encodeURIComponent(i.id))}">${esc(reasonLabel(i.reason))}</a> ` +
         `<span class="tag state">${esc(ISSUE_STATE[i.state])}</span>` +
         (i.photo?.hidden ? ' <span class="tag hiddennow">Photo hidden</span>' : "") +
         ` <span class="meta">${time(i.at)}</span>` +

@@ -114,9 +114,16 @@ function photoBlock(r: QueueReport): string {
 function actionForms(
   r: Pick<QueueReport, "id" | "state" | "teamNote" | "contactLeft" | "emailToReporter">,
   noteOpen: boolean,
+  /**
+   * The states offered (default all four). SYC-44 PR 7.1: an issue whose photo
+   * is still hidden is closed only by Keep hidden or Restore, so a plain
+   * "Nothing needed" can't leave a privacy photo hidden with nothing listing it.
+   */
+  offered: readonly (typeof REPORT_STATES)[number][] = REPORT_STATES,
+  closeHint = "",
 ): string {
   const base = `/api/team/reports/${encodeURIComponent(r.id)}`;
-  const buttons = REPORT_STATES.map((s) =>
+  const buttons = REPORT_STATES.filter((s) => s === r.state || offered.includes(s)).map((s) =>
     s === r.state
       ? `<button type="button" class="here" disabled aria-current="true">${esc(STATE[s])} (current)</button>`
       : `<button type="submit" name="to" value="${esc(s)}">${esc(STATE[s])}</button>`,
@@ -138,6 +145,7 @@ function actionForms(
     `<form method="post" action="${esc(base)}/state">` +
     `<input type="hidden" name="from" value="${esc(r.state)}">` +
     '<p class="label">Move this report to</p>' +
+    closeHint +
     sentence +
     `<div class="states">${buttons}</div></form>` +
     // Folded away so a phone isn't mostly empty note boxes.
@@ -470,7 +478,10 @@ function issueCard(
     "</dl>" +
     catLinks(i) +
     (closed ? "" : issueButtons(i)) +
-    actionForms({ ...i, contactLeft: false, emailToReporter: null }, landed);
+    (i.photo?.hidden && !i.photo.removed && !closed
+      ? actionForms({ ...i, contactLeft: false, emailToReporter: null }, landed, ["new", "looking"],
+          '<p class="hint">To close it, keep the photo hidden or restore it, above.</p>')
+      : actionForms({ ...i, contactLeft: false, emailToReporter: null }, landed));
   if (!closed) return `<article class="${classes}" id="r-${esc(i.id)}">${body}</article>`;
   return (
     `<article class="${classes}" id="r-${esc(i.id)}">` +
@@ -496,7 +507,7 @@ function brakeBanner(b: IssuesSection["brake"]): string {
 
 /** How many photos a report has hidden that wait for the team: the line at the top of the page. */
 export function hiddenWaitingLine(issues: IssuesSection | undefined): string {
-  const n = issues?.hidden.length ?? 0;
+  const n = issues?.totals.hidden ?? 0;
   if (n === 0) return "";
   return (
     `<p class="notice issuewait"><a href="#issues-hidden">${esc(
@@ -512,12 +523,14 @@ function issuesSection(
   issueNotice: IssueNotice | undefined,
   noted: string | undefined,
 ): string {
-  const open = issues.hidden.length + issues.needsPerson.length + issues.other.length + issues.unchecked.length;
-  const group = (id: string, title: string, list: IssueReport[], empty: string, intro = "") =>
-    `<h3 id="${id}">${esc(title)} (${list.length})</h3>` +
+  const t = issues.totals;
+  const open = t.hidden + t.needsPerson + t.other + t.unchecked;
+  const group = (id: string, title: string, list: IssueReport[], total: number, empty: string, intro = "") =>
+    `<h3 id="${id}">${esc(title)} (${total})</h3>` +
     intro +
     (list.length
-      ? list.map((i) => issueCard(i, now, false, changedId, issueNotice, noted)).join("")
+      ? list.map((i) => issueCard(i, now, false, changedId, issueNotice, noted)).join("") +
+        (total > list.length ? `<p class="empty">Showing ${list.length} of ${total}.</p>` : "")
       : `<p class="empty">${esc(empty)}</p>`);
   const closed = issues.closed.length
     ? `<h3 id="issues-closed">Closed issues (${issues.closedTotal})</h3>` +
@@ -530,13 +543,14 @@ function issuesSection(
     `<section id="issues" class="issues"><h2>Issues (${open})</h2>` +
     '<p class="hint">Problems the public reported with a photo, a name or what a cat\'s page says. Team only: a cat guardian never sees these.</p>' +
     brakeBanner(issues.brake) +
-    group("issues-hidden", "Hidden, waiting for you", issues.hidden, "None. No photo hidden by a report is waiting.") +
-    group("issues-needs", "Location, and cats reported as died", issues.needsPerson, "None.") +
-    group("issues-other", "Everything else", issues.other, "None.") +
+    group("issues-hidden", "Hidden, waiting for you", issues.hidden, t.hidden, "None. No photo hidden by a report is waiting.") +
+    group("issues-needs", "Location, and cats reported as died", issues.needsPerson, t.needsPerson, "None.") +
+    group("issues-other", "Everything else", issues.other, t.other, "None.") +
     group(
       "issues-unchecked",
       "Unchecked (Cloudflare was unreachable)",
       issues.unchecked,
+      t.unchecked,
       "None.",
       issues.unchecked.length
         ? "<p class=\"empty\">These arrived while the safety check couldn't reach Cloudflare. None of them hid a photo.</p>"

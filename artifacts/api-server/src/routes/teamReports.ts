@@ -549,7 +549,10 @@ router.post(
 
 // ── SYC-44 PR 7.1: the Issues row's actions (spec §5.4) ──────────────────
 
-const FromBody = z.object({ from: z.enum(REPORT_STATES) });
+// Only from an open state: Keep hidden and Restore close a report, so one
+// already closed is refused (review of 7.1, finding 3: a forged from=done
+// wrote a done -> done event and reclassified a closed report).
+const FromBody = z.object({ from: z.enum(["new", "looking"]) });
 
 /** Where a browser goes after an Issues action: the queue, this row, what happened. */
 const backToIssue = (publicId: string, outcome: string) =>
