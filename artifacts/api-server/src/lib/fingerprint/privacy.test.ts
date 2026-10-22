@@ -6,6 +6,7 @@ import { setPhotoVisibility } from "../photoVisibility";
 import { _setBrakeForTests, applyHideRules, prepareHide } from "../issues/hide";
 import { hideFromIssue } from "../issues/teamActions";
 import { markRemoved } from "../../test/removalKit";
+import { __fingerprintHooks, saveFingerprint } from "./index";
 
 // SYC-527 piece 3, spec docs/specs/find-from-a-photo-whole-island.md §6.2:
 // a hidden or removed photo has no fingerprint, ever. The two api-server
@@ -18,7 +19,9 @@ import { markRemoved } from "../../test/removalKit";
 //       The trigger covers it like the others; this proves it.
 // The two lib/db paths (the written procedure's hide and removal), the table's
 // own checks and the removal search are in lib/db/src/photoFingerprints.test.ts.
-// The only writer of fingerprints is guarded by fingerprint.source.test.ts.
+// The only writer of fingerprints is guarded by fingerprint.source.test.ts,
+// and the race between it and a hide is run for real at the end of this
+// file, both ways round, on two connections.
 //
 // Fingerprint rows are written straight into the table, to set up the state
 // a real writer would leave. Everything is seeded under this run's prefix,
@@ -162,4 +165,123 @@ describe("the app's removal reader (test kit), for completeness", () => {
     await markRemoved(a.id, staff.id);
     expect(await hasFingerprint(a.id)).toBe(false);
   });
+});
+
+// Spec §6.2: "a hide racing a fingerprint save leaves none either way round".
+// Two real connections. saveFingerprint holds the photo row FOR SHARE; every
+// hide path takes it FOR UPDATE; so one waits for the other. The save's test
+// hook sits after its lock and re-check, right before the write: the window
+// a missing lock would leave open.
+describe("the race: a hide and a fingerprint save at the same moment", () => {
+  const LIMIT_MS = 5_000;
+
+  function withTimeout<T>(p: Promise<T>, what: string): Promise<T> {
+    return Promise.race([
+      p,
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`timed out: ${what}`)), LIMIT_MS)),
+    ]);
+  }
+
+  /** Waits until some backend is blocked by `pid`, or gives up after 2 s. */
+  async function blockedBy(pid: number): Promise<boolean> {
+    const until = Date.now() + 2_000;
+    while (Date.now() < until) {
+      const r = await db.execute(
+        sql`select 1 from pg_stat_activity where ${pid}::int = any(pg_blocking_pids(pid))`,
+      );
+      if (r.rows.length > 0) return true;
+      await new Promise((res) => setTimeout(res, 25));
+    }
+    return false;
+  }
+
+  const vector = () => new Float32Array(384).fill(1 / Math.sqrt(384));
+
+  afterAll(() => {
+    __fingerprintHooks.beforeWrite = undefined;
+  });
+
+  it(
+    "save first: the hide waits for the save to commit, then its trigger deletes the new fingerprint",
+    async () => {
+      const a = await seedPhoto();
+      let release!: () => void;
+      const released = new Promise<void>((r) => (release = r));
+      let atHook!: (pid: number) => void;
+      const reachedHook = new Promise<number>((r) => (atHook = r));
+      __fingerprintHooks.beforeWrite = async (photoId, tx) => {
+        if (photoId !== a.id) return;
+        const r = await tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
+        atHook(r.rows[0]!.pid);
+        await released;
+      };
+      try {
+        const save = saveFingerprint(a.id, vector());
+        const savePid = await withTimeout(reachedHook, "the save reaching its hook");
+        let hideDone = false;
+        const hide = setPhotoVisibility(staff, { publicId: a.publicId, action: "hide" }).then((out) => {
+          hideDone = true;
+          return out;
+        });
+        // The hide must be stuck behind the save's lock, not finished.
+        const waited = await blockedBy(savePid);
+        expect({ waited, hideDone }).toEqual({ waited: true, hideDone: false });
+        release();
+        expect(await withTimeout(save, "the save")).toBe("saved");
+        expect((await withTimeout(hide, "the hide")).kind).toBe("changed");
+        expect(await hasFingerprint(a.id)).toBe(false);
+      } finally {
+        __fingerprintHooks.beforeWrite = undefined;
+        release();
+      }
+    },
+    15_000,
+  );
+
+  it("hide first, committed: the save sees it and writes nothing", async () => {
+    const a = await seedPhoto();
+    expect((await setPhotoVisibility(staff, { publicId: a.publicId, action: "hide" })).kind).toBe("changed");
+    expect(await withTimeout(saveFingerprint(a.id, vector()), "the save")).toBe("hidden_or_removed");
+    expect(await hasFingerprint(a.id)).toBe(false);
+  });
+
+  it(
+    "hide first, still open: the save waits for it, then sees it and writes nothing",
+    async () => {
+      const a = await seedPhoto();
+      // A hide held open mid-transaction, in the order every production hide
+      // path uses (task 6 report, lock order): the photo row FOR UPDATE,
+      // then the hide event (whose trigger deletes any fingerprint).
+      let release!: () => void;
+      const released = new Promise<void>((r) => (release = r));
+      let locked!: (pid: number) => void;
+      const holding = new Promise<number>((r) => (locked = r));
+      const hide = db.transaction(async (tx) => {
+        await tx.execute(sql`select id from photos where id = ${a.id} for update`);
+        await tx.execute(
+          sql`insert into photo_visibility_events (photo_id, action, author, person_id) values (${a.id}, 'hide', ${staff.id}, ${staff.id})`,
+        );
+        const r = await tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`);
+        locked(r.rows[0]!.pid);
+        await released;
+      });
+      try {
+        const hidePid = await withTimeout(holding, "the hide taking its lock");
+        let saveDone = false;
+        const save = saveFingerprint(a.id, vector()).then((out) => {
+          saveDone = true;
+          return out;
+        });
+        const waited = await blockedBy(hidePid);
+        expect({ waited, saveDone }).toEqual({ waited: true, saveDone: false });
+        release();
+        await withTimeout(hide, "the hide");
+        expect(await withTimeout(save, "the save")).toBe("hidden_or_removed");
+        expect(await hasFingerprint(a.id)).toBe(false);
+      } finally {
+        release();
+      }
+    },
+    15_000,
+  );
 });
