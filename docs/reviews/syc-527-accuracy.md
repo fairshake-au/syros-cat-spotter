@@ -1,6 +1,6 @@
 # SYC-527: the accuracy check (spec §8)
 
-**Status, 22 Oct 2026:** the model and the shortlist length are chosen by spec §8's rule for when the larger set isn't available. The production smoke test runs after this PR merges.
+**Status, 22 Oct 2026:** the model and the shortlist length are chosen by spec §8's rule for when the larger set isn't available. The production smoke test **passes** (run 39735126442).
 
 ## The choice
 
@@ -13,16 +13,22 @@ The candidate was Kaggle's "Cat Individual Images" (`timost1234/cat-individuals`
 
 So until SYC-56's launch-era set exists, **the only measure is the smoke test below**. The script can still run this check if a set arrives later: `fingerprintAccuracy.ts --dataset <folder> --clip-dir <CLIP folder>`, on the Mac only, never uploaded. If it's run on the Kaggle set, the results here must credit "Cat Individual Images" by timost1234 (CC BY 4.0).
 
-## Check 1 (the production smoke test): after merge
+## Check 1 (the production smoke test): passes
 
+- **Run:** db-ops `fingerprint-accuracy`, run 39735126442 on `main`, 22 Oct 2026. It ran against the live build `57d05b5f`, which contains #280's `558b1057`, and completed with success.
 - **Samuel's go:** "Go ahead (Recommended)", after a heads-up that it reads the live database, writes nothing and prints only ranks.
-- **Why it waits:** `db-ops.yml` always checks out `main`, so the new command exists there only after this PR merges.
-- **Command:** `gh workflow run db-ops.yml --ref main -f target=production -f command=fingerprint-accuracy`
-- **What it does:** the connection is read-only at the session level. Photos are re-encoded in memory (never through `variantFor`, which writes). The output is ranks and a pair index only.
-- **CLIP is not run** there, because the runner has no CLIP files. So this smoke result covers DINOv2 only.
-- **Passes if** every pair ranks in the top 10. The result goes on SYC-527 and in this file.
-- **If it fails,** the index stays unused (it only acts over 30 cats; the island has 28), and the options go back to Samuel.
+- **What it did:** the connection was read-only at the session level. Photos were re-encoded in memory (never through `variantFor`, which writes). The output was ranks and a pair index only.
+- **Pairs:** 4 cats have a second confirmed, visible photo from a different Athens day.
+- **CLIP was not run,** because the runner has no CLIP files. So this result covers DINOv2 only.
 
 | Pair | DINOv2 rank | Top 10 |
 |---|---|---|
-| _after merge_ | | |
+| 1 | 5 | yes |
+| 2 | 7 | yes |
+| 3 | 1 | yes |
+| 4 | 2 | yes |
+
+- **Result:** 4 of 4 in the top 10, and so in the top 20. The smoke test passes.
+- **What it shows:** by chance alone, a top 20 of 28 cats would include the right cat 71% of the time. So this shows the index isn't broken, not that it's good. SYC-56's launch-era set is the real measure.
+- **Background:** in all 4 searches, the top 20 was mostly cats from one area. Photos taken at the same spot look alike to the model (spec §8). The page's "if you know where the photo was taken, choosing the area is surer" line covers this.
+- **K stays 20.** The smoke test passes at 10, but spec §8 lowers K to 10 only on evidence from the larger set, and that set was skipped.
