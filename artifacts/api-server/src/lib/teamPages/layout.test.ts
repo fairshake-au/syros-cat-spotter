@@ -125,10 +125,13 @@ describe("Signed in as and Sign out sit in the menu bar (spec §3.2)", () => {
     expect(main.startsWith("<h1>T</h1>")).toBe(true);
   });
 
-  it("appears exactly once", () => {
+  it("appears once in each copy of the menu: the bar and the phone fold (SYC-619 §2.1)", () => {
     const html = page();
-    expect(html.match(/Signed in as/g)).toHaveLength(1);
-    expect(html.match(/\/api\/team\/signout/g)).toHaveLength(1);
+    expect(html.match(/Signed in as/g)).toHaveLength(2);
+    expect(html.match(/\/api\/team\/signout/g)).toHaveLength(2);
+    expect(bar(html).inner.match(/Signed in as/g)).toHaveLength(1);
+    // A page with no links has the one plain bar.
+    expect(page({ nav: false }).match(/Signed in as/g)).toHaveLength(1);
   });
 
   it("a page without the menu (a refusal) keeps the bar with the name and Sign out, and no <nav>", () => {
@@ -230,12 +233,89 @@ describe("the phone menu (SYC-374)", () => {
     expect(page()).not.toMatch(/mask-image/);
   });
 
-  it("the phone padding rule reaches the wide bar too", () => {
-    expect(page()).toMatch(/@media \(max-width:599px\)\{\.bar,\.bar\.wide\{/);
+  it("the phone padding rule reaches the wide phone bar too (SYC-619 §2.1)", () => {
+    expect(page()).toMatch(/@media \(max-width:599px\)\{[^]*\.phonebar/);
+    expect(page({ mainClass: "wide" })).toContain('<nav class="bar wide"');
+    expect(page({ mainClass: "wide" })).toContain('<nav class="phonebar wide"');
   });
 
-  it("wraps onto more rows on a phone instead of hiding links off the edge (SYC-522)", () => {
-    expect(page()).toMatch(/@media \(max-width:599px\)\{\.bar,\.bar\.wide\{[^}]*flex-wrap:wrap[^}]*overflow:visible/);
+  it("the phone bar is one row, with the links in a fold, so none is hidden off the edge (SYC-522, now SYC-619 §2.1)", () => {
+    expect(page()).toMatch(/\.phonebar\{[^}]*display:grid/);
+    expect(page()).toMatch(/\.menulinks a,\.menulinks button\{[^}]*display:flex[^}]*min-height:44px[^}]*width:100%/);
+  });
+});
+
+describe("phone menu (SYC-619 §2.1)", () => {
+  const css = (html: string) => /<style>([\s\S]*?)<\/style>/.exec(html)![1]!;
+  const phonebar = (html: string) => {
+    const m = /<nav class="phonebar[^"]*"[^>]*>([\s\S]*?)<\/nav>/.exec(html);
+    if (!m) throw new Error("no phonebar");
+    return m[1]!;
+  };
+  const hrefs = (s: string) => [...s.matchAll(/<a [^>]*href="([^"]+)"/g)].map((m) => m[1]!);
+  const full = () => page({ active: "cats", island: true, showPeople: true, mine: true, workspace: true });
+
+  it("draws .bar and .phonebar, each with every link once", () => {
+    const html = full();
+    const barHrefs = hrefs(bar(html).inner);
+    const pbHrefs = hrefs(phonebar(html));
+    expect(barHrefs.length).toBeGreaterThan(6);
+    expect(pbHrefs).toEqual(barHrefs);
+    const pb = phonebar(html);
+    expect(pb).toContain('<details class="menufold"><summary>Menu</summary>');
+    expect(pb.indexOf("Cats")).toBeGreaterThan(-1);
+    expect(pb.indexOf("Cats")).toBeLessThan(pb.indexOf("<details"));
+    expect(/<summary>[\s\S]*?<\/summary>/.exec(pb)![0]).not.toContain("Cats");
+    expect(pb).toContain('<span class="phonehere">Cats</span>');
+  });
+
+  it("one copy shows at a time", () => {
+    const c = css(full());
+    expect(c).toContain("@media (max-width:599px){.bar{display:none}");
+    const outside = c.replace(/@media \(max-width:599px\)\{(?:[^{}]*\{[^}]*\})*\}/g, "");
+    expect(outside).toContain(".phonebar{display:none}");
+  });
+
+  it("the fold ends with the name and Sign out", () => {
+    const pb = phonebar(full());
+    const links = /<div class="menulinks">([\s\S]*)<\/div><\/details>/.exec(pb)![1]!;
+    expect(links.endsWith('</a><span class="who" title="Maria &lt;b&gt;">Signed in as Maria &lt;b&gt;</span><form method="post" action="/api/team/signout"><button type="submit">Sign out</button></form>')).toBe(true);
+  });
+
+  it("aria-current stays on the current link inside the fold", () => {
+    const pb = phonebar(full());
+    expect(pb).toContain('<a class="here" href="/api/team/cats" aria-current="page">Cats</a>');
+    expect(pb.match(/aria-current/g)).toHaveLength(1);
+  });
+
+  it("a guardian's menu folds too", () => {
+    const html = page({ nav: "guardian", active: "colonies", island: false, mine: true });
+    const pb = phonebar(html);
+    expect(pb).toContain("<details");
+    expect(hrefs(pb)).toEqual(hrefs(bar(html).inner));
+    expect(hrefs(pb).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("null active: Menu with no page name", () => {
+    const pb = phonebar(page({ active: null }));
+    expect(pb).toContain('<span class="phonehere"></span>');
+    expect(pb).toContain("<summary>Menu</summary>");
+  });
+
+  it("refusal, welcome and error bars are unchanged", () => {
+    const welcome = page({ nav: false });
+    expect(welcome).not.toContain("<nav");
+    expect(welcome).toContain('<div class="bar">');
+    expect(page({ nav: false, personName: null })).not.toMatch(/<(nav|div) class="(phone)?bar/);
+    // A page with no links keeps today's plain bar (name and Sign out only).
+    expect(welcome).toContain('<div class="bar"><span class="who" title="Maria &lt;b&gt;">Signed in as Maria &lt;b&gt;</span>');
+  });
+
+  it("a long name wraps", () => {
+    const name = "Alexandra ".repeat(6).trim();
+    const html = page({ personName: name });
+    expect(phonebar(html)).toContain(name);
+    expect(css(html)).toMatch(/\.phonebar \.who\{[^}]*white-space:normal[^}]*overflow-wrap:anywhere/);
   });
 });
 

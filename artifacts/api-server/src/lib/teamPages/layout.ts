@@ -119,8 +119,22 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
    away: if the menu is too long for the screen (768–1000px), it slides
    under Sign out (adversarial review of PR 1.6). */
 @media (min-width:600px){.bar,.bar.wide{padding-right:0}.bar>form{position:sticky;right:0;z-index:1;background:#fff;padding:0 16px 0 10px;box-shadow:-8px 0 8px -6px rgba(29,29,27,.22)}.bar>.who{min-width:0}}
-/* On a phone the menu wraps onto more rows, so every link is in view with no script (SYC-522). */
-@media (max-width:599px){.bar,.bar.wide{gap:0 10px;padding-inline:10px;flex-wrap:wrap;overflow:visible;white-space:normal;background:#fff}.bar .long{display:none}.bar .short{display:inline}.bar>.who{max-width:none;flex:1 1 150px;min-width:0;margin-left:0;padding:8px 2px 8px 0;white-space:nowrap}.bar>form{margin-left:auto}}
+/* On a phone (SYC-619 §2.1) the bar is one row: the current page's name at the
+   left and a "Menu" fold at the right. The fold holds every link as a full-width
+   row, then the name and Sign out. One copy shows at a time; display:none also
+   hides the other from screen readers. Needs no script. */
+.phonebar{display:none}
+@media (max-width:599px){.bar{display:none}.phonebar{display:grid;grid-template-columns:1fr;padding:4px 10px;background:#fff;border-bottom:1px solid #d9d5ca}
+.phonebar>*{grid-area:1/1}
+.phonehere{align-self:start;z-index:1;display:flex;align-items:center;min-height:44px;max-width:calc(100% - 90px);font-weight:700;font-size:16px;overflow-wrap:anywhere;pointer-events:none}
+.menufold>summary{display:flex;align-items:center;justify-content:center;width:fit-content;margin-left:auto;min-height:44px;min-width:44px;padding:8px 14px;color:#0b5c6b;font-weight:700;cursor:pointer;list-style:none}
+.menufold>summary::-webkit-details-marker{display:none}
+.menulinks a,.menulinks button{display:flex;align-items:center;min-height:44px;width:100%;box-sizing:border-box;padding:8px 2px;font:inherit;font-size:16px;background:none;border:0;text-align:left;cursor:pointer}
+.menulinks button{color:#0b5c6b;text-decoration:underline}
+.menulinks .here{font-weight:700;color:#1d1d1b;text-decoration:underline;text-decoration-thickness:3px;text-decoration-color:#0b5c6b}
+.menulinks .off{display:flex;align-items:center;min-height:44px;color:#6b685f}
+.menulinks form{margin:0}
+.phonebar .who{display:block;padding:8px 2px;color:#55524a;font-size:14px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}}
 main{max-width:760px;margin:0 auto;padding:12px 12px 48px}
 main.wide{max-width:1120px}
 h1{font-size:22px;margin:12px 0 4px}
@@ -644,17 +658,28 @@ export function renderPage(opts: PageOptions): string {
             ? [...NAV, PEOPLE_NAV]
             : NAV;
   const teamActive = opts.active ? (TEAM_PARENT[opts.active] ?? opts.active) : null;
-  const items = [...team.map((n) => ({ n, active: opts.nav === "guardian" ? opts.active : teamActive })), ...own.map((n) => ({ n, active: opts.active })), ...(workspace ? [{ n: WORKSPACE_NAV, active: null }] : [])].map(({ n, active }) => {
-    // On a phone "Feeding sites" shows as "Sites" (CSS picks one).
-    const label = n.short
-      ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`
-      : escapeHtml(n.label);
-    if (!n.href) return `<span class="off">${label}</span>`;
-    return n.key === active
-      ? `<a class="here" href="${n.href}" aria-current="page">${label}</a>`
-      : `<a href="${n.href}">${label}</a>`;
-  }).join("");
-  const t = (key: "shell.signOut" | "shell.skip" | "shell.menu") => escapeHtml(tr(lang, key, undefined, opts.liveLanguages));
+  const entries = [...team.map((n) => ({ n, active: opts.nav === "guardian" ? opts.active : teamActive })), ...own.map((n) => ({ n, active: opts.active })), ...(workspace ? [{ n: WORKSPACE_NAV, active: null }] : [])];
+  // The same links twice: the desktop bar, and the phone's fold (SYC-619 §2.1).
+  // On a phone "Feeding sites" shows as "Sites" in the bar (CSS picks one); the
+  // fold has full-width rows, so it always uses the full word.
+  const renderItems = (phone: boolean) =>
+    entries
+      .map(({ n, active }) => {
+        const label =
+          n.short && !phone
+            ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`
+            : escapeHtml(n.label);
+        if (!n.href) return `<span class="off">${label}</span>`;
+        return n.key === active
+          ? `<a class="here" href="${n.href}" aria-current="page">${label}</a>`
+          : `<a href="${n.href}">${label}</a>`;
+      })
+      .join("");
+  const items = renderItems(false);
+  const phoneItems = renderItems(true);
+  // The current page's name, shown outside the fold; empty when none is current.
+  const here = entries.find(({ n, active }) => n.href && n.key === active);
+  const t = (key: "shell.signOut" | "shell.skip" | "shell.menu" | "shell.menuButton") => escapeHtml(tr(lang, key, undefined, opts.liveLanguages));
   // "Signed in as" and Sign out sit at the end of the bar (SYC-396 spec §3.2),
   // so the page's title comes first. A page with no links at all (the
   // welcome page) keeps the bar for them, but it's no <nav>: there's
@@ -684,7 +709,9 @@ export function renderPage(opts: PageOptions): string {
     // The first thing a keyboard reaches (SYC-366).
     `<a class="skip" href="#main">${t("shell.skip")}</a>` +
     (items
-      ? `<nav class="${barClass}" aria-label="${t("shell.menu")}">${items}${who}</nav>`
+      ? `<nav class="${barClass}" aria-label="${t("shell.menu")}">${items}${who}</nav>` +
+        `<nav class="phonebar${opts.mainClass === "wide" ? " wide" : ""}" aria-label="${t("shell.menu")}"><span class="phonehere">${here ? escapeHtml(here.n.label) : ""}</span>` +
+        `<details class="menufold"><summary>${t("shell.menuButton")}</summary><div class="menulinks">${phoneItems}${who}</div></details></nav>`
       : who
         ? `<div class="${barClass}">${who}</div>`
         : "") +

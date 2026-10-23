@@ -13,6 +13,7 @@ export const fr: Record<StringKey, string> = {
   // SYC-396 PR 1.6 (SYC-366): the skip link, and the menu's name for screen readers.
   "shell.skip": "Aller au contenu",
   "shell.menu": "Tableau de bord",
+  "shell.menuButton": "Menu",
 
   "refused.title": "Cette partie est réservée à l’équipe",
   "refused.titleManagement": "Cette partie est réservée à la direction",
