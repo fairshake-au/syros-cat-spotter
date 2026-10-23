@@ -10,3 +10,5 @@ Task 5: fold markers and methodFold() helper done (c059c0d1)
 Next: PR 1 close (browser checks at 390/1280px, draft PR, adversarial review)
 Task 5 fix 1: invite button inline-flex (d085b1d5)
 Next: PR 1 close
+Task fix wave: PR1 review items 1-8 done (357125e6)
+Next: controller pushes
