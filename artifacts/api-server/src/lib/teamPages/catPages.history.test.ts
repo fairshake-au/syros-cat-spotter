@@ -21,6 +21,7 @@ const statement = (id: number, over: Partial<TeamStatement> = {}): TeamStatement
   movedFrom: null,
   photoUrl: null,
   sightingId: null,
+  vetVisitId: null,
   correction: null,
   ...over,
 });
