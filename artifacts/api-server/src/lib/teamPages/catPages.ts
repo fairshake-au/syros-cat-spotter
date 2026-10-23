@@ -598,7 +598,7 @@ function photoStrip(v: TeamCatView): string {
       .slice(0, 8)
       .map(
         (p, i) =>
-          `<li><a href="#p-${esc(p.publicId)}"><img src="${esc(`${p.url}/small`)}" alt="${esc(`Other photo ${i + 1}`)}" loading="lazy" width="56" height="56"></a></li>`,
+          `<li${p.hidden ? ' class="hidden"' : ""}><a href="#p-${esc(p.publicId)}"><img src="${esc(`${p.url}/small`)}" alt="${esc(`Other photo ${i + 1}${p.hidden ? ", hidden from the public" : ""}`)}" loading="lazy" width="56" height="56"></a>${p.hidden ? '<span class="hiddentag">Hidden</span>' : ""}</li>`,
       )
       .join("") +
     (others.length > 8 ? `<li><a class="more" href="#photos">+${others.length - 8}</a></li>` : "") +
@@ -717,12 +717,22 @@ export function renderCatPage(
 
   // The answer first (spec §7.1): photo, the facts, the small map, and what
   // the public sees in one line.
-  const summary =
-    main +
-    renderCatFacts(v, now, { byId, shown, island }) +
-    (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
-    sightingsMap(v, island) +
-    `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`;
+  const summaryParts = {
+    photo: main,
+    facts:
+      renderCatFacts(v, now, { byId, shown, island }) +
+      (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
+      `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`,
+    map: sightingsMap(v, island),
+  };
+  const issueTotal = opts.issues?.total ?? 0;
+  const jump =
+    '<nav class="jump" aria-label="Sections of this page">' +
+    `<a href="#history">History (${v.history.length})</a>` +
+    `<a href="#photos">Photos (${v.photos.length})</a>` +
+    '<a href="#appearance">Coat and markings</a>' +
+    (issueTotal > 0 ? `<a href="#issue-strip">Reports (${issueTotal})</a>` : "") +
+    "</nav>";
 
   // A compact list: date, place and thumbnail. The position, "Open map" and
   // the two buttons fold into each sighting's "More" menu (spec §7.3).
@@ -833,9 +843,10 @@ export function renderCatPage(
     body:
       (opts.kept ? keptLine() : "") +
       summaryAndActions(
-        summary,
+        summaryParts,
         renderCatActions(v, may, { notice: formsNotice, colonies: opts.colonies ?? [], kept: opts.kept, done: opts.done }),
       ) +
+      jump +
       issueStrip(opts.issues) +
       renderAppearanceSection(v, may, opts.done) +
       sightings +

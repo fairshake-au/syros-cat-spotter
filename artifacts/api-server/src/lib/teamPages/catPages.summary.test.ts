@@ -165,3 +165,68 @@ describe("the small map's caption (SYC-602 Task 1.4)", () => {
     expect(pins).toEqual([["904", "1, 5"], ["903", "2–4"]]);
   });
 });
+
+describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
+  const photos = [
+    { source: "main", publicId: "p1", url: "/p1.jpg", hidden: null },
+    { source: "sighting", publicId: "p2", url: "/p2.jpg", hidden: null },
+    { source: "sighting", publicId: "p3", url: "/p3.jpg", hidden: { by: "Maria", at: "2026-10-01T09:00:00Z" } },
+  ];
+  const withPhotos = () => catView({ cat: { mainPhotoUrl: "/p1.jpg" }, photos, sightings: richCatView().sightings } as never);
+  const may = () => true;
+  let savedKey: string | undefined;
+  beforeAll(() => {
+    savedKey = process.env["TEAM_SESSION_KEYS"];
+    process.env["TEAM_SESSION_KEYS"] = "vitest-catmap-key-0123456789abcdef-0123456789";
+  });
+  afterAll(() => {
+    if (savedKey === undefined) delete process.env["TEAM_SESSION_KEYS"];
+    else process.env["TEAM_SESSION_KEYS"] = savedKey;
+  });
+
+  it("orders the summary for a phone", () => {
+    const html = page(withPhotos(), { may, colonies: [] });
+    const marks = ['class="photo catmain"', 'class="photostrip"', 'class="catfacts"', 'class="publicline"', 'id="corrections"', 'class="catmap"', '<nav class="jump"'];
+    const at = marks.map((m) => html.indexOf(m));
+    expect(at.every((i) => i > -1), JSON.stringify(at)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+  });
+
+  it("has jump links with counts, none marked as selected", () => {
+    const html = page(richCatView());
+    const nav = html.slice(html.indexOf('<nav class="jump"'), html.indexOf("</nav>", html.indexOf('<nav class="jump"')));
+    expect(nav).toContain('href="#history">History (2)</a>');
+    expect(nav).toContain('href="#photos">Photos (0)</a>');
+    expect(nav).toContain('href="#appearance">Coat and markings</a>');
+    expect(nav).not.toContain("#issue-strip");
+    expect(nav).not.toContain("aria-current");
+    for (const id of ["history", "photos", "appearance"]) expect(html, id).toContain(`id="${id}"`);
+  });
+
+  it("links to the reports only when there are some", () => {
+    const issues = {
+      total: 1,
+      reports: [{ id: "i1", reason: "wrong_cat", state: "new", at: "2026-10-10T09:00:00Z", others: 0, photo: null }],
+    };
+    const html = page(richCatView(), { issues });
+    expect(html).toContain('href="#issue-strip">Reports (1)</a>');
+    expect(html).toContain('id="issue-strip"');
+  });
+
+  it("dims hidden photos in the strip", () => {
+    const html = page(withPhotos());
+    const strip = html.slice(html.indexOf('class="photostrip"'));
+    const hiddenLi = /<li class="hidden">[\s\S]*?<\/li>/.exec(strip)?.[0] ?? "";
+    expect(hiddenLi).toContain("hidden from the public");
+    expect(hiddenLi).toContain('<span class="hiddentag">Hidden</span>');
+    expect(strip.slice(0, strip.indexOf("</ul>")).match(/class="hidden"/g)).toHaveLength(1);
+  });
+
+  it("leaves no heading with nothing under it on a bare cat", () => {
+    const html = page(bareCatView());
+    for (const m of html.matchAll(/<h2[^>]*>[^<]*<\/h2>\s*(<[^>]*>)/g)) {
+      expect(m[1], m[0]).not.toMatch(/^<\/(main|div|section)/);
+    }
+    expect(html).not.toMatch(/<h2[^>]*>[^<]*<\/h2>\s*<h2/);
+  });
+});

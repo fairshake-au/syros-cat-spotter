@@ -223,10 +223,20 @@ export function renderCatActions(
 }
 
 /**
- * The summary and the buttons side by side on a wide screen, one under the
- * other on a phone (spec §7.1–7.2). Without the buttons, the summary alone.
+ * The cat page's top block: photo, facts, the buttons and the small map.
+ * One column on a phone, in this source order; on a big screen the photo and
+ * map sit in the left column, the facts in the middle, the buttons on the
+ * right (spec section 4). Without the buttons the facts take their place.
  */
-export function summaryAndActions(summary: string, fixes: string): string {
-  if (!fixes.includes('class="fixes"')) return `<div class="catsummary"><div>${summary}</div></div>` + fixes;
-  return `<div class="catsummary"><div>${summary}</div><div class="catactions">${fixes}</div></div>`;
+export function summaryAndActions(parts: { photo: string; facts: string; map: string }, fixes: string): string {
+  const actions = fixes.includes('class="fixes"');
+  return (
+    `<div class="catsummary${actions ? "" : " noactions"}">` +
+    `<div class="col-photo">${parts.photo}</div>` +
+    `<div class="col-facts">${parts.facts}</div>` +
+    (actions ? `<div class="catactions">${fixes}</div>` : "") +
+    (parts.map ? `<div class="col-map">${parts.map}</div>` : "") +
+    "</div>" +
+    (actions ? "" : fixes)
+  );
 }

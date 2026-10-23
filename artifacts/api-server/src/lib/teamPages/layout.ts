@@ -224,18 +224,22 @@ form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12p
 .publicline{font-size:14px;color:#3b3930;margin:8px 0 16px}
 .publicline .public{display:inline;background:none;border:0;padding:0;font-weight:400}
 /* The folds this page adds show which way they open. */
-details.evidence>summary::before,li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}
-details.evidence>summary::-webkit-details-marker,li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
-details.evidence[open]>summary::before,li.statement.routine>details[open]>summary::before,.hownote[open]>summary::before{content:"▾"}
+li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}
+li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
+li.statement.routine>details[open]>summary::before,.hownote[open]>summary::before{content:"▾"}
 .photostrip{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.photostrip li{position:relative}
+.photostrip li.hidden img{opacity:.45}
+.photostrip .hiddentag{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.65);color:#fff;font-size:12px;line-height:1.3;text-align:center;border-radius:0 0 4px 4px;pointer-events:none}
 .photostrip img{display:block;width:56px;height:56px;object-fit:cover;border-radius:4px;background:#ece8dc}
 .photostrip .more{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border:1px solid #d9d5ca;border-radius:4px;font-size:14px}
+.catsummary{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.catsummary>div{min-width:0}
+.jump{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:#f6f4ef;border-bottom:1px solid #d9d5ca;margin:24px -12px 0;padding:8px 12px;display:flex;gap:8px;overflow-x:auto;white-space:nowrap}
+.jump a{display:inline-flex;align-items:center;flex:none;min-height:44px;padding:0 16px;border-radius:999px;background:#fff;border:1px solid #d9d5ca;text-decoration:none;font-weight:600;font-size:15px;color:#1d1d1b}
 .catmap{margin:8px 0}
 .catmap .hint{margin:4px 0 0}
 .catmap .mapcap{display:flex;justify-content:space-between;gap:8px;margin:4px 0 0;font-size:14px}
-details.evidence{margin:16px 0}
-details.evidence>summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
-details.evidence>summary h2{display:inline;margin:0}
 .hownote{margin:8px 0}
 .hownote summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:#0b4553}
 /* One "More" menu per row: a sighting's actions, or taking a cat out of a colony. */
@@ -548,11 +552,17 @@ details.filters>summary{display:none}
 .fpanel{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 24px;margin-top:0}
 }
 }
-/* A big screen: the cat page's summary beside "Update this cat"; the evidence below uses the full width (SYC-396 spec §7.3). */
+/* A big screen: the cat page's photo and map left, the facts in the middle, "Update this cat" right (spec section 4). The title above spans all three. */
 @media (min-width:1000px){
-.catsummary{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:0 32px;align-items:start}
-.catsummary>div>h2:first-child,.catsummary>div>:first-child{margin-top:12px}
+.catsummary{grid-template-columns:340px minmax(0,1fr) 260px;grid-template-areas:"photo facts actions" "map facts actions";align-items:start;gap:0 28px}
+.catsummary.noactions{grid-template-columns:340px minmax(0,1fr);grid-template-areas:"photo facts" "map facts"}
+.catsummary .col-photo{grid-area:photo}
+.catsummary .col-facts{grid-area:facts}
+.catsummary .catactions{grid-area:actions}
+.catsummary .col-map{grid-area:map}
+.catsummary .col-facts>:first-child,.catsummary .catactions>:first-child{margin-top:12px}
 .catfacts{grid-template-columns:repeat(2,minmax(0,1fr))}
+.jump{margin:32px 0 0;border-radius:0}
 }
 `;
 
