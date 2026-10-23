@@ -3,7 +3,7 @@
 **Ticket:** SYC-619 (parent: SYC-609, Team dashboard).
 **Source:** the design review of 22 Oct 2026 (artifact on SYC-619). It was checked on the live build `2394828e`, which was the same as main that day.
 **Scope:** every team dashboard page except Home (SYC-603, PR #292) and the team cat page (SYC-602).
-**Status:** revised after the adversarial review of 22 Oct. All 22 findings are addressed; see [the review record](#review-record). Waiting for Samuel's decisions (§10) and approval.
+**Status:** revised after the adversarial review of 22 Oct; all 22 findings are addressed (see [the review record](#review-record)). **Every decision is made** (Samuel, 22–23 Oct 2026, §10). Waiting for Samuel's approval of the spec.
 
 ## Contents
 
@@ -82,13 +82,25 @@ The look stays the same: the warm background, dark ink, teal links and buttons, 
 
 Options A and C are in §10.
 
-### 2.2 Workspace in the menu: management only (decided)
+### 2.2 Workspace: management only (decided)
 
-**Decided by Samuel, 22 Oct 2026 (option C):** the Workspace link shows in the menu only to people who hold the management role.
+**Decided by Samuel:**
+- **22 Oct 2026 (option C):** the Workspace link shows in the menu only to management.
+- **23 Oct 2026 (N1, "Management only"):** the workspace itself is limited to management too.
 
-- Today everyone with `use_workspace` gets the link. That capability is given to the whole team, staff and management (`capabilities.ts`, `use_workspace: { kind: "island", roles: TEAM }`).
-- **This spec changes only the menu link.** In `requireTeam.ts`, `navContext.workspace` becomes `mayUseWorkspace(person) && can(person, "manage_people")`. That second test is the one that already decides the People link (`navContext.people`). `manage_people` is management-only (`capabilities.ts:116`).
-- **Who can get into the workspace doesn't change.** A staff member with the workspace address can still open it. Whether staff should keep that access is note N1 in §10.
+**How it's done.** `use_workspace` becomes `{ kind: "island", roles: ["management"] }` in `capabilities.ts`. The menu link already follows that capability (`navContext.workspace = mayUseWorkspace(person)`, `requireTeam.ts:199`), so the link and the access change together. No second check is needed. `roles-and-invites.md` §6.2's row for `use_workspace` changes to match, in the same PR.
+
+**What else reads `use_workspace`, and what happens to each:**
+
+| Where | What it does | After the change |
+|---|---|---|
+| The sign-in Worker's question, `POST /api/internal/people/allowed` (`routes/internal.ts:98`) | Answers the workspace door at admin.catspotters.com | Management only. Staff are refused the workspace. |
+| The cat-news review list, `GET` and `POST /api/team/news-changes` (`routes/teamNews.ts:30`, `:66`) | Reuses `use_workspace` only because the roles catalogue had no news row | Moves to a new capability, `review_cat_news` (island, team), added to `capabilities.ts` and `roles-and-invites.md` §6.2. Staff keep it. |
+| People, "holds the workspace" warnings (`lib/people/screen.ts:239`, `:302`; `routes/teamPeople.ts:84`, `:162`; `peoplePages.ts:121`, `:172`) | Read the capability's roles list | Follow automatically; now they mean managers |
+
+**Before this ships:**
+1. **The Worker must be asking the new way.** If the sign-in Worker still asks the old way (no `version`), the app answers yes only to holders of the workspace door (`routes/internal.ts:20-33`). A staff member would then be refused the dashboard as well. The build checks which way the live Worker asks (the `catspotters-website` deploy, or the app's request log for `version: 2`) and says which source it used. If it can't tell, this change waits.
+2. **Who would lose access.** The build runs a read-only `run_sql` on production to list everyone with a staff role and no management role. The SYC-53 setup recorded exactly three managers, all three of whom also hold staff (`docs/runbooks/neon-database.md`, PR 0.5). If that's still so, nobody loses access today. If anyone would, Samuel is told before it merges.
 
 ### 2.3 The menu's Map and the Cats Grid/Map switch: both stay (decided)
 
@@ -548,9 +560,9 @@ Out of scope, because SYC-585 moves this page onto the new map, and `.mappage` p
 <a id="decisions"></a>
 ## 10. Decisions
 
-Each decision can be answered on its own. Samuel's answers will be recorded here and on SYC-619.
+Every decision below is made. Each option's reasons are kept for the record. The answers are also on SYC-619.
 
-**D1. The menu on a phone** (§2.1)
+**D1. The menu on a phone** (§2.1): **decided B** (Samuel, 22 Oct 2026)
 
 | | What it is | For | Against |
 |---|---|---|---|
@@ -558,7 +570,7 @@ Each decision can be answered on its own. Samuel's answers will be recorded here
 | **B (recommended)** | One row: the page name and a "Menu" fold | The title starts about 60px down. Nothing is cut off. No script. | Another page takes two taps instead of one. Sign out is behind the fold. |
 | C | Keep the wrap, but move "Signed in as" and Sign out to My page | Saves one row (about 44px). Links stay one tap away. | Still two rows of links. Sign out is a page away. |
 
-**D3. A colony's cat list** (§7.2)
+**D3. A colony's cat list** (§7.2): **decided B** (Samuel, 22 Oct 2026)
 
 | | What it is | For | Against |
 |---|---|---|---|
@@ -566,7 +578,7 @@ Each decision can be answered on its own. Samuel's answers will be recorded here
 | **B (recommended)** | Add the mark and last seen to each row now, in the planner's order; the planner follows on its own ticket | Small and useful at once; the planner drops in later | A little work the planner later replaces |
 | C | Leave the list as it is until the planner | No throwaway work | The team keeps opening each cat to see whether it's done |
 
-**D4. "Where spotters have looked"** (§8.4)
+**D4. "Where spotters have looked"** (§8.4): **decided B** (Samuel, 22 Oct 2026)
 
 | | What it is | For | Against |
 |---|---|---|---|
@@ -574,14 +586,14 @@ Each decision can be answered on its own. Samuel's answers will be recorded here
 | **B (recommended)** | The island's outline behind the squares, and names off the squares | Readable, server-drawn, no new service | Still no roads |
 | C | Drop the picture; show only the table | Simplest, and fully accessible | Loses the at-a-glance view of the gaps |
 
-**D5. Areas** (§4.2)
+**D5. Areas** (§4.2): **decided A** (Samuel, 22 Oct 2026)
 
 | | What it is | For | Against |
 |---|---|---|---|
 | **A (recommended)** | Folded rows, sorted by number of cats | A short page with the busy areas first | One tap to open a row before acting |
 | B | A table: name, cats and a "Change" link to a page for each area | The densest | A new page for each area to build and test |
 
-**D6. Card photos** (§5.2)
+**D6. Card photos** (§5.2): **decided B** (Samuel, 22 Oct 2026)
 
 | | What it is | For | Against |
 |---|---|---|---|
@@ -589,7 +601,7 @@ Each decision can be answered on its own. Samuel's answers will be recorded here
 | **B (recommended)** | Add a 360px `card` version | Sharp and still light | A migration, and a version to add to the remake and removal paths |
 | C | Leave `small` | No work | Soft photos on every phone |
 
-**D7. Find from a photo** (§9.4)
+**D7. Find from a photo** (§9.4): **decided A** (Samuel, 23 Oct 2026, "Add a shortcut")
 
 | | What it is | For | Against |
 |---|---|---|---|
@@ -597,9 +609,9 @@ Each decision can be answered on its own. Samuel's answers will be recorded here
 | B | One POST form: photo first, narrowing in a fold | The photo comes first, and there's one button fewer | The count, the over-30 words and the index-down fallback must all be rebuilt around a form that only reports after the upload. Three address-privacy tests are replaced, and an empty narrowing is found only after the photo is sent. |
 | C | Two forms, photo form first, with a script recounting as you narrow | Keeps the count | Without the script, narrowing after choosing a photo loses the photo |
 
-**Note N1. Workspace access.** §2.2 hides the menu link from staff, as decided. Staff keep access to the workspace itself, because `use_workspace` is given to the whole team. Should access also become management-only? Recommended: **no change in this spec**. It changes who can read the shared documents, and needs Syros Cats' view.
+**N1. Workspace access:** **decided, management only** (Samuel, 23 Oct 2026). See §2.2 for what it changes and what's checked first.
 
-**Decided already** (Samuel, 22 Oct 2026: "1C, 2C"):
+**Decided from the review** (Samuel, 22 Oct 2026: "1C, 2C"):
 - the Workspace link is management-only (§2.2);
 - both ways to the map stay (§2.3).
 
@@ -655,7 +667,12 @@ New keys are added in en, el and fr together. Greek and French aren't live yet (
 **Workspace (§2.2)**
 - A staff member's menu has no Workspace link; a manager's does.
 - A guardian's has none.
-- **Mutation:** dropping `can(person, "manage_people")` must fail the staff test.
+- `POST /api/internal/people/allowed`:
+  - with `version: 2`, a staff-only person gets `doors.workspace: false` and `doors.dashboard: true`; a manager gets both;
+  - without `version`, a staff-only person gets the fixed "no" body.
+- Updated on purpose: `capabilities.test.ts`, `internal.doors.future.test.ts`, `team.roles.test.ts` and `team.walk.test.ts`.
+- `team.walk.test.ts` gains `review_cat_news`. Staff still reach `/api/team/news-changes`, and a guardian still gets 403 there.
+- **Mutation:** putting `TEAM` back on `use_workspace` must fail the staff tests.
 
 **Widths (§2.4)**
 - At 1280px the title's left edge is the same on People, Reports, Cats and Areas.
@@ -761,7 +778,6 @@ New keys are added in en, el and fr together. Greek and French aren't live yet (
 - The wording of the sterilisation line (SYC-601).
 - Typing latitude and longitude to add an area (SYC-557).
 - The full trapping planner (redesign §9.2; a ticket is filed, §14).
-- Who can get into the workspace (N1).
 - Greek and French going live (SYC-283, SYC-291).
 - Map pictures with Latin-letter place names (SYC-288).
 
@@ -774,7 +790,7 @@ New keys are added in en, el and fr together. Greek and French aren't live yet (
 
 **Suggested split: four PRs.** Each is opened as a draft, with one commit per change and its tests.
 
-1. **The shell:** menu (§2.1), Workspace (§2.2), widths (§2.4), back links (§2.5), folds (§2.6), and the `methodNote` fold (§3).
+1. **The shell:** menu (§2.1), Workspace (§2.2, with its two checks before merge), widths (§2.4), back links (§2.5), folds (§2.6), and the `methodNote` fold (§3).
 2. **Lists:**
    - People (§4.1);
    - Areas (§4.2);
