@@ -552,10 +552,10 @@ details.filters>summary{display:none}
 .fpanel{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 24px;margin-top:0}
 }
 }
-/* A big screen: the cat page's photo and map left, the facts in the middle, "Update this cat" right (spec section 4). The title above spans all three. */
+/* A big screen: the cat page's photo, then the 512px map below (the map pictures come in fixed sizes, so it can't sit in the 340px photo column), the facts in the middle, "Update this cat" right (spec section 4). The title above spans all three. */
 @media (min-width:1000px){
-.catsummary{grid-template-columns:340px minmax(0,1fr) 260px;grid-template-areas:"photo facts actions" "map facts actions";align-items:start;gap:0 28px}
-.catsummary.noactions{grid-template-columns:340px minmax(0,1fr);grid-template-areas:"photo facts" "map facts"}
+.catsummary{grid-template-columns:340px minmax(0,1fr) 260px;grid-template-areas:"photo facts actions" "map map actions";align-items:start;gap:0 28px}
+.catsummary.noactions{grid-template-columns:340px minmax(0,1fr);grid-template-areas:"photo facts" "map map"}
 .catsummary .col-photo{grid-area:photo}
 .catsummary .col-facts{grid-area:facts}
 .catsummary .catactions{grid-area:actions}

@@ -1,0 +1,52 @@
+// Scratch render for PR 1 (SYC-602) screenshots. Never committed.
+import { writeFileSync } from "node:fs";
+import { renderCatPage } from "./src/lib/teamPages/catPages";
+import type { TeamCatView, TeamStatement } from "./src/lib/teamCatView";
+const OUT = process.env["OUT"]!;
+const NOW = new Date("2026-10-17T09:00:00Z");
+const st = (id: number, o: Partial<TeamStatement>): TeamStatement => ({
+  id, kind: "note", said: "", reason: null, author: { kind: "team", label: "Maria" },
+  observedAt: "2026-09-01T10:00:00Z", createdAt: "2026-09-01T10:00:00Z", asGuardian: false, replaces: null,
+  replacedBy: [], movedTo: null, ownerClaim: false, movedFrom: null, photoUrl: null, sightingId: null, correction: null, ...o,
+});
+const day = (d: number) => new Date(Date.UTC(2026, 9, 16, 8) - d * 86_400_000).toISOString();
+const routine: TeamStatement[] = Array.from({ length: 19 }, (_, i) => st(300 - i, {
+  kind: "food_and_water", said: "Food and water were out", author: { kind: "spotter", label: "a spotter" },
+  observedAt: day(3 + i * 3), createdAt: day(3 + i * 3), sightingId: 900 - i,
+}));
+const spots: [number, number][] = [[37.44395, 24.94282], [37.44412, 24.94301], [37.44378, 24.94255], [37.44431, 24.94322], [37.44366, 24.94310], [37.44402, 24.94240]];
+const v: TeamCatView = {
+  cat: { id: 42, syr: "SYR-0042", name: "Mavros", description: "Friendly, waits by the fish market at 8.", lat: 37.4439, lng: 24.9428, createdAt: "2026-04-03T09:12:00Z", mainPhotoUrl: "/api/team/photos/main" },
+  owner: { has: false, orphanedHome: false, homeDescription: null, homePin: null },
+  colony: { id: 4, name: "Ermoupoli harbour", wasName: null },
+  publicStatus: { hasHome: false, lifeStatus: "street", notSeenSince: null, sterilised: { value: true, confidence: "likely", clippedTipSightings: 3 }, coat: ["grey", "stripes"], coatColours: ["grey"], coatPattern: "stripes", markings: ["white_paws"] },
+  records: {
+    lifeStatus: { value: "street", confidence: "likely", asOf: day(3), supportingStatementIds: [301], conflictingStatementIds: [], presumedDeceased: false, notSeenSince: null },
+    sterilised: { value: true, confidence: "likely", asOf: day(10), supportingStatementIds: [298, 297], conflictingStatementIds: [], clippedTipSightings: 3 },
+    vaccinations: [{ observationId: 5, date: "2026-05-02T00:00:00Z", vaccines: ["rabies", "cat_flu_enteritis"], clinic: "Syros Vet" }],
+  },
+  appearance: {
+    coat: { value: ["grey", "stripes"], confidence: "likely", parts: { colours: { value: ["grey"], confidence: "likely" }, pattern: { value: "stripes", confidence: "likely" } }, checkReasons: [], statements: [{ id: 120, codes: ["grey", "stripes"], author: { kind: "system", label: "read automatically from the photo" }, source: "machine", prompted: false, agreesWith: null, createdAt: "2026-04-03T09:13:00Z", photoUrl: "/api/team/photos/s1", modelVersion: "coat-v2", counts: true, markable: true }], guardianDecides: false, aboveTeamIds: [], guardianDisagrees: false },
+    markings: { value: ["white_paws"], confidence: "reported", checkReasons: [], statements: [], guardianDecides: false, aboveTeamIds: [], guardianDisagrees: false },
+    handPick: false,
+  },
+  sightings: spots.map(([lat, lng], i) => ({ id: 900 - i * 3, lat, lng, at: day(3 + i * 9), photoUrl: `/api/team/photos/s${(i % 3) + 1}`, extraPhotos: [], mixedCats: i === 4 })),
+  photos: ["main", "s1", "s2", "s3", "s4"].map((n, i) => ({ url: `/api/team/photos/${n}`, publicId: n, source: i === 0 ? "main" : "sighting", hidden: n === "s3" ? { by: "Maria", at: "2026-10-01T09:00:00Z" } : null })),
+  history: [
+    st(301, { kind: "life_status", said: "Lives on the street", author: { kind: "team", label: "Maria" }, observedAt: day(2), createdAt: day(2), correction: { kind: "life_status", now: "street" } }),
+    ...routine.slice(0, 2),
+    st(299, { kind: "ear_tip", said: "Ear tip clipped, left ear", author: { kind: "spotter", label: "a spotter" }, observedAt: day(9), createdAt: day(9), sightingId: 897, correction: { kind: "ear_tip_clipped" } }),
+    ...routine.slice(3, 12),
+    st(250, { kind: "colony", said: "Put in the colony Ermoupoli harbour", author: { kind: "team", label: "Maria" }, observedAt: day(40), createdAt: day(40), correction: { kind: "colony" } }),
+    ...routine.slice(12),
+  ],
+  recentGuardianMark: null,
+};
+const may = () => true;
+process.env["TEAM_SESSION_KEYS"] ??= "screenshot-key-0123456789abcdef-0123456789";
+writeFileSync(`${OUT}/cat.html`, renderCatPage(v, "Maria", { may, island: true, now: NOW, colonies: [{ id: 4, name: "Ermoupoli harbour" }] }));
+const bare: TeamCatView = { ...v, sightings: [], history: [], colony: null, photos: [], cat: { ...v.cat, mainPhotoUrl: null, name: "Nea", description: "" },
+  records: { ...v.records, vaccinations: [], sterilised: { ...v.records.sterilised, value: null, confidence: "unknown", clippedTipSightings: 0, supportingStatementIds: [] } },
+  appearance: { ...v.appearance, coat: { ...v.appearance.coat, value: null, parts: undefined, statements: [] } } };
+writeFileSync(`${OUT}/bare.html`, renderCatPage(bare, "Maria", { now: NOW }));
+writeFileSync(`${OUT}/readonly.html`, renderCatPage(v, "Visitor", { now: NOW, issues: { total: 2, reports: [] } }));
