@@ -4,7 +4,6 @@ import type { Confidence, LifeStatusValue } from "../resolve";
 import type {
   TeamCatView,
   TeamPhoto,
-  TeamResolved,
   TeamStatement,
 } from "../teamCatView";
 import { EAR_TIP_NOT_CLIPPED, FOOD_AND_WATER_OUT } from "../teamCatView";
@@ -17,13 +16,17 @@ import { renderPage } from "./layout";
 import { openMapLink, place } from "./position";
 import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
-import { coatPhraseOf, renderCatFacts, vaccineWord } from "./catFacts";
+import { byWhom, coatPhraseOf, renderCatFacts, statementHref, statusLine, vaccineWord, type Shown } from "./catFacts";
+
+export type { Shown };
 import type { VisitLine } from "../vetVisits";
 import { euroText } from "../euros";
 import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
-import { fitView, renderMap, type MapMarker } from "./map";
+import { fitView, mergeSameSpot, renderMap, type MapMarker } from "./map";
 import { BANDS, pointOnView } from "../mapTiles/geometry";
 import { rowMenu } from "./rowMenu";
+import { LIFE, dateInput, fold, lifeChoices, reasonInput, renderCatActions, summaryAndActions } from "./catActions";
+export { LIFE };
 import { placeLabel } from "../areas/placeLabel";
 
 // The team's "Cats" screens (SYC-43 part 2 plan, PR 3): finding a cat, and
@@ -32,13 +35,6 @@ import { placeLabel } from "../areas/placeLabel";
 
 // The app's own English words (artifacts/cat-spotter/lib/i18n.ts), so the
 // team reads the public line exactly as a spotter does.
-export const LIFE: Record<LifeStatusValue, string> = {
-  street: "Lives on the street",
-  homed: "Has a home",
-  in_care: "In Syros Cats' care",
-  deceased: "No longer with us",
-};
-
 /** Dates on Syros: the team reads them in Greek time. */
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", {
@@ -80,9 +76,6 @@ const sightingButtons = (sightingId: number, may: (c: Capability) => boolean): s
     : "",
 ];
 
-const row = (label: string, value: string) =>
-  `<dt>${esc(label)}</dt><dd>${value}</dd>`;
-
 /**
  * The public sterilised line, word for word as the app shows it
  * (catStatusLines.ts's sterilisedLineKey): only confirmed and likely say
@@ -93,17 +86,6 @@ function publicSterilisedText(s: { value: boolean | null; confidence: Confidence
     return s.value ? "Sterilised — confirmed by Syros Cats" : "Not sterilised — Syros Cats' records";
   if (s.confidence === "likely") return "Probably sterilised — a clipped ear tip has been seen";
   return "Not known yet";
-}
-
-/** The records' own answer, short, its uncertainty in the words (spec §7.2: no tag beside it). */
-function sterilisedText(s: { value: boolean | null; confidence: Confidence }): string {
-  if (s.value === null || s.confidence === "unknown") return "Not known yet";
-  if (s.value) {
-    if (s.confidence === "likely") return "Probably sterilised";
-    if (s.confidence === "reported") return "Reported sterilised";
-    return "Sterilised";
-  }
-  return s.confidence === "reported" ? "Reported not sterilised" : "Not sterilised";
 }
 
 function publicStatusText(s: DerivedCatStatus): string {
@@ -133,81 +115,9 @@ export interface TieMode {
 /** How many statements the history shows before "Show all" (SYC-219). */
 export const HISTORY_SHOWN = 20;
 
-/**
- * The statements the history on this page shows; null when it shows every
- * one. A link to a statement left out reloads the page with the full list.
- */
-type Shown = ReadonlySet<number> | null;
-
-const statementHref = (id: number, shown: Shown) =>
-  shown === null || shown.has(id) ? `#s-${id}` : `?history=all#s-${id}`;
-
 const statementLink = (id: number, shown: Shown) =>
   `<a href="${statementHref(id, shown)}">#${id}</a>`;
 
-/** Who said it, as the history shows it: "Eleni, cat guardian" for a guardian's word (PR 2.2). */
-const byWhom = (s: TeamStatement) => (s.asGuardian ? `${s.author.label}, cat guardian` : s.author.label);
-
-/**
- * The statements an answer rests on, in words: what was said, by whom and
- * when, each linking to its place in the history below.
- */
-function statementRefs(ids: number[], byId: Map<number, TeamStatement>, shown: Shown): string {
-  if (ids.length === 0) return "Nothing yet";
-  return (
-    '<ul class="refs">' +
-    ids
-      .map((id) => {
-        const s = byId.get(id);
-        if (!s) return `<li>${statementLink(id, shown)}</li>`;
-        return (
-          `<li><a href="${statementHref(id, shown)}">${esc(s.said)}</a> ` +
-          `<span class="meta">(${esc(byWhom(s))}, ${time(s.createdAt, day(s.createdAt))})</span></li>`
-        );
-      })
-      .join("") +
-    "</ul>"
-  );
-}
-
-function recordBlock<T>(
-  label: string,
-  r: TeamResolved<T>,
-  valueText: string,
-  extra: string,
-  byId: Map<number, TeamStatement>,
-  shown: Shown,
-): string {
-  return (
-    `<h3>${esc(label)}</h3><dl>` +
-    row("Status", esc(valueText)) +
-    // The resolver dates "nothing known" at the epoch (SYC-270): no date then.
-    (Date.parse(r.asOf) > 0 ? row("Since", time(r.asOf, day(r.asOf))) : "") +
-    row("Why we think so", statementRefs(r.supportingStatementIds, byId, shown)) +
-    (r.conflictingStatementIds.length
-      ? row("Says otherwise", `<div class="bad">${statementRefs(r.conflictingStatementIds, byId, shown)}</div>`)
-      : "") +
-    extra +
-    "</dl>"
-  );
-}
-
-/**
- * "Confirmed by Eleni, cat guardian, 14 October" (SYC-53 PR 2.2; spec §7.2):
- * when a cat guardian's statement decides the sterilisation answer, the team
- * sees whose word it is, and *This is wrong* (Mark wrong) is on that
- * statement in the history.
- */
-function guardianConfirmed(r: TeamResolved<boolean>, byId: Map<number, TeamStatement>, shown: Shown): string {
-  if (r.confidence !== "confirmed") return "";
-  const s = byId.get(r.supportingStatementIds[0] ?? -1);
-  if (!s || !s.asGuardian) return "";
-  return row(
-    "Confirmed by",
-    `${esc(byWhom(s))}, ${time(s.createdAt, day(s.createdAt))} · ` +
-      `<a href="${statementHref(s.id, shown)}">This is wrong?</a>`,
-  );
-}
 
 /**
  * The 30-day flag (spec §2.2, §7.2): a cat a guardian marked homed or
@@ -222,7 +132,7 @@ function guardianMarkNotice(v: TeamCatView, byId: Map<number, TeamStatement>, sh
   return (
     `<p class="notice" role="note">Recently marked ${what} by the cat guardian` +
     (s ? `, ${esc(s.author.label)}` : "") +
-    ` (${time(m.at, day(m.at))}). <a href="${statementHref(m.statementId, shown)}">See the statement</a></p>`
+    ` (${time(m.at, day(m.at))}). <a href="${statementHref(m.statementId, shown)}">See the change</a></p>`
   );
 }
 
@@ -248,36 +158,6 @@ function deathNotice(v: TeamCatView, byId: Map<number, TeamStatement>, shown: Sh
     `<a href="${statementHref(s.id, shown)}">Go to it</a></p>`
   );
 }
-
-/** Today on Syros, for a date box's max. */
-const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
-
-const LIFE_ORDER: LifeStatusValue[] = ["street", "homed", "in_care", "deceased"];
-
-const reasonInput = (id: string, label = "Why", value?: string) =>
-  `<label class="label" for="${id}">${esc(label)}</label>` +
-  `<input class="text" id="${id}" name="reason" required maxlength="500" autocomplete="off"${value !== undefined ? ` value="${esc(value)}"` : ""}>`;
-
-/** A fold that starts open when its form was filled in again (SYC-516 C3). */
-const fold = (open: boolean) => `<details${open ? " open" : ""}>`;
-
-const dateInput = (id: string, label: string, hint: string) =>
-  `<label class="label" for="${id}">${esc(label)} <span class="hint">${esc(hint)}</span></label>` +
-  `<input id="${id}" name="date" type="date" max="${today()}">`;
-
-const lifeChoices = (
-  name: string,
-  idBase: string,
-  skip: LifeStatusValue | null,
-  allowed: readonly LifeStatusValue[] = LIFE_ORDER,
-  checked: LifeStatusValue | null = null,
-) =>
-  LIFE_ORDER.filter((l) => l !== skip && allowed.includes(l))
-    .map(
-      (l) =>
-        `<label class="choice" for="${idBase}-${l}"><input type="radio" id="${idBase}-${l}" name="${name}" value="${l}" required${l === checked ? " checked" : ""}> ${esc(LIFE[l])}</label>`,
-    )
-    .join("");
 
 /**
  * The capability "Mark wrong" under this statement needs on this page, as
@@ -581,141 +461,6 @@ function galleryItem(
   );
 }
 
-/** "Colony": pick one from the list of all colonies, or take the cat out of its colony. */
-function colonyForm(v: TeamCatView, colonies: { id: number; name: string }[]): string {
-  const base = `/api/team/cats/${v.cat.id}/colony`;
-  if (colonies.length === 0) {
-    return (
-      "<details><summary>Colony</summary>" +
-      '<p class="hint">There are no colonies yet. <a href="/api/team/colonies">Create one</a> first.</p></details>'
-    );
-  }
-  const options = colonies
-    .map(
-      (c) =>
-        `<option value="${c.id}"${c.id === v.colony?.id ? " selected" : ""}>${esc(c.name)}</option>`,
-    )
-    .join("");
-  return (
-    `<details><summary>Colony</summary><form method="post" action="${base}">` +
-    '<label class="label" for="co-pick">Put the cat in</label>' +
-    `<select class="text" id="co-pick" name="colonyId" required>${options}</select>` +
-    '<p class="hint">If the cat is in another colony now, it moves. Both are kept in the history below.</p>' +
-    '<button type="submit">Save</button></form>' +
-    (v.colony
-      ? `<form method="post" action="${base}"><input type="hidden" name="colonyId" value="none">` +
-        '<button type="submit" class="risky">Take out of this colony</button></form>'
-      : "") +
-    "</details>"
-  );
-}
-
-/** The four correction forms (PR 4), each shown only to someone who may. */
-function correctionForms(
-  v: TeamCatView,
-  may: (c: Capability) => boolean,
-  notice = "",
-  colonies: { id: number; name: string }[] = [],
-  kept?: { formKey: string; fields: KeptFields },
-): string {
-  const base = `/api/team/cats/${v.cat.id}`;
-  const keptFor = (form: string) => (kept?.formKey === `${form}:${v.cat.id}` ? kept.fields : undefined);
-  const life = keptFor("life");
-  const ster = keptFor("sterilised");
-  const rename = keptFor("name");
-  const forms: string[] = [];
-  // Recorded as died and nothing disagrees: no "This cat has died" button,
-  // and Remove owner offers only "Still no longer with us" (SYC-513, spec §7).
-  const dead =
-    v.records.lifeStatus.value === "deceased" && v.records.lifeStatus.conflictingStatementIds.length === 0;
-  if (may("set_life_status")) {
-    forms.push(
-      `${fold(life !== undefined)}<summary>Update where the cat lives</summary><form method="post" action="${base}/life-status">` +
-        '<fieldset><legend class="label">The cat…</legend>' +
-        lifeChoices("status", "ls", null, ["street", "homed", "in_care"]) +
-        "</fieldset>" +
-        // Owned cat (spec §7, SYC-362 D2): no box. Saving anything but "has a
-        // home" asks first, on its own page, before the owner is removed.
-        ((v.owner.has || v.owner.orphanedHome) && may("remove_owner")
-          ? '<p class="hint">This cat has an owner. Saving anything but “Has a home” asks you first whether to remove the owner.</p>'
-          : "") +
-        dateInput("ls-date", "Date it happened", "(leave blank for today)") +
-        reasonInput("ls-why", undefined, life?.["reason"]) +
-        '<button type="submit">Save</button></form></details>',
-    );
-  }
-  if (may("set_sterilisation")) {
-    forms.push(
-      `${fold(ster !== undefined)}<summary>Update whether sterilised</summary><form method="post" action="${base}/sterilisation">` +
-        '<p class="warn">A clipped ear seen in a photo is never proof. Use this only when Syros Cats or a vet knows.</p>' +
-        '<fieldset><legend class="label">The cat is…</legend>' +
-        '<label class="choice" for="st-yes"><input type="radio" id="st-yes" name="sterilised" value="yes" required> Sterilised</label>' +
-        '<label class="choice" for="st-no"><input type="radio" id="st-no" name="sterilised" value="no" required> Not sterilised</label>' +
-        "</fieldset>" +
-        dateInput("st-date", "When it was done", "(optional)") +
-        '<label class="label" for="st-clinic">Clinic or vet <span class="hint">(optional)</span></label>' +
-        '<input class="text" id="st-clinic" name="clinic" maxlength="100" autocomplete="off">' +
-        reasonInput("st-why", "How we know", ster?.["reason"]) +
-        '<button type="submit">Save</button></form></details>',
-    );
-  }
-  if (may("assign_cat_to_colony")) forms.push(colonyForm(v, colonies));
-  if (may("rename_cat")) {
-    forms.push(
-      `${fold(rename !== undefined)}<summary>Rename the cat</summary><form method="post" action="${base}/name">` +
-        '<label class="label" for="rn-name">New name</label>' +
-        `<input class="text" id="rn-name" name="name" required maxlength="60" value="${esc(rename?.["name"] ?? v.cat.name)}" autocomplete="off" spellcheck="false">` +
-        reasonInput("rn-why", undefined, rename?.["reason"]) +
-        '<button type="submit">Rename</button></form></details>',
-    );
-  }
-  if ((v.owner.has || v.owner.orphanedHome) && may("remove_owner") && may("set_life_status")) {
-    forms.push(
-      `<details><summary>Remove owner</summary><form method="post" action="${base}/remove-owner">` +
-        '<p class="hint">Ends this claim. The owner stops seeing the exact spot and getting alerts. Nobody is told.</p>' +
-        (dead
-          ? '<fieldset><legend class="label">The cat now…</legend>' +
-            '<label class="choice" for="ro-keep"><input type="radio" id="ro-keep" name="status" value="keep" required checked> Still no longer with us</label>' +
-            "</fieldset>"
-          : '<fieldset><legend class="label">The cat now…</legend>' +
-            lifeChoices("status", "ro", null, ["street", "in_care"], "street") +
-            "</fieldset>" +
-            '<p class="hint">If the cat has died, use “This cat has died” instead.</p>' +
-            dateInput("ro-date", "Date it happened", "(leave blank for today)")) +
-        reasonInput("ro-why") +
-        '<button type="submit" class="risky">Remove owner</button></form></details>',
-    );
-  }
-  if (may("set_life_status") && !dead) {
-    forms.push(
-      `<form method="get" action="${base}/died" class="diedform"><button type="submit">This cat has died</button></form>`,
-    );
-  }
-  // Log a vet visit (spec §7.2): the main action, full width, above the rest.
-  const vet = may("log_vet_visit")
-    ? `<form method="get" action="${base}/vet-visit" class="vetvisit"><button type="submit" class="primary wide">Log a vet visit</button></form>`
-    : "";
-  if (forms.length === 0) return vet ? '<h2 id="corrections">Update this cat</h2>' + notice + vet : notice;
-  return (
-    '<h2 id="corrections">Update this cat</h2>' +
-    notice +
-    vet +
-    `<div class="fixes">${forms.join("")}</div>` +
-    // How changes work, folded into a short note you can open (spec §7.2), in #192's words.
-    '<details class="hownote"><summary>How changes work</summary>' +
-    '<p class="hint">Every change is saved with your name. Nothing is deleted. A change with an older date won\'t override a newer one. To undo a change, use <strong>Mark wrong</strong> on it in the history below.</p></details>'
-  );
-}
-
-/**
- * The summary and "Update this cat" side by side on a wide screen, one under
- * the other on a phone (spec §7.1–7.2). Without the forms, the summary alone.
- */
-function summaryAndActions(summary: string, fixes: string): string {
-  if (!fixes.includes('id="corrections"')) return `<div class="catsummary"><div>${summary}</div></div>` + fixes;
-  return `<div class="catsummary"><div>${summary}</div><div class="catactions">${fixes}</div></div>`;
-}
-
 // ── The history's routine sightings (spec §7.3) ─────────────────────────────
 
 /**
@@ -794,20 +539,22 @@ export const MAP_SIGHTINGS = 30;
 
 /**
  * The cat's sightings on the same composed map picture as the rest of the
- * dashboard, numbered in time order (1 is the oldest shown), each marker a
- * link to its row in Sightings. No script; no position in any address.
+ * dashboard, numbered in time order (1 is the oldest shown), one marker per
+ * spot, linking to the newest sighting there. No script; no position in any address.
  */
-function sightingsMap(v: TeamCatView): string {
+function sightingsMap(v: TeamCatView, island: boolean): string {
   if (v.sightings.length === 0) return "";
   const shown = v.sightings.slice(0, MAP_SIGHTINGS).reverse();
-  const markers: MapMarker[] = shown.map((s, i) => ({
-    lat: s.lat,
-    lng: s.lng,
-    n: i + 1,
-    look: "seen",
-    label: `Sighting ${i + 1}, ${when(s.at)}`,
-    href: `#sg-${s.id}`,
-  }));
+  const markers: MapMarker[] = mergeSameSpot(
+    shown.map((s, i) => ({
+      lat: s.lat,
+      lng: s.lng,
+      n: i + 1,
+      look: "seen",
+      label: `Sighting ${i + 1}, ${when(s.at)}`,
+      href: `#sg-${s.id}`,
+    })),
+  );
   const more = v.sightings.length > shown.length;
   const view = fitView(shown);
   let map: string;
@@ -821,38 +568,40 @@ function sightingsMap(v: TeamCatView): string {
   }
   // Sightings too far apart for one picture are said, never silently dropped.
   const drawn = shown.filter((s) => pointOnView(view, BANDS[0].size, s) !== null).length;
+  // The caption (spec §3.3): where the cat was last seen, in the same words as
+  // the Last seen fact, and how many of the sightings the map shows.
+  const place = esc(placeLabel(v.sightings[0]!));
+  const caption = more ? `${place} · Newest ${shown.length} of ${v.sightings.length}` : place;
   return (
     '<div class="catmap">' +
     map +
-    `<p class="hint">${
-      more
-        ? `The newest ${shown.length} of ${v.sightings.length} sightings, numbered oldest first.`
-        : `Sightings numbered oldest first.`
-    }${
-      drawn < shown.length
-        ? ` ${shown.length - drawn} ${shown.length - drawn === 1 ? "is" : "are"} too far from the others to fit on this map; see Sightings below.`
-        : ""
+    // The island Map, opened on this cat's numbered trail (PR 1.5), only for
+    // someone who may see the whole island (D9). Only the cat's number is in
+    // the address: never a position or a name.
+    `<p class="mapcap"><span>${caption}</span>${
+      island ? `<a class="tap" href="/api/team/cats?view=map&amp;focus=${v.cat.id}">Open the map</a>` : ""
     }</p>` +
-    // The island Map, opened on this cat's numbered trail (PR 1.5). Only the
-    // cat's number is in the address: never a position or a name.
-    `<p class="maplink"><a class="tap" href="/api/team/cats?view=map&amp;focus=${v.cat.id}">Open the full map</a></p></div>`
+    (drawn < shown.length
+      ? `<p class="hint">${shown.length - drawn} ${shown.length - drawn === 1 ? "is" : "are"} too far from the others to fit on this map; see Sightings below.</p>`
+      : "") +
+    "</div>"
   );
 }
 
-/** Any other photos as a thin strip under the main one (spec §7.1). */
+/** Up to three more photos under the main one, then an "All N" tile to Photos (spec §3.1). */
 function photoStrip(v: TeamCatView): string {
   const others = v.photos.filter((p) => p.url !== v.cat.mainPhotoUrl);
   if (others.length === 0) return "";
   return (
     '<ul class="photostrip" aria-label="Other photos">' +
     others
-      .slice(0, 8)
+      .slice(0, 3)
       .map(
         (p, i) =>
-          `<li><a href="#p-${esc(p.publicId)}"><img src="${esc(`${p.url}/small`)}" alt="${esc(`Other photo ${i + 1}`)}" loading="lazy" width="56" height="56"></a></li>`,
+          `<li${p.hidden ? ' class="hidden"' : ""}><a href="#p-${esc(p.publicId)}"><img src="${esc(`${p.url}/small`)}" alt="${esc(`Other photo ${i + 1}${p.hidden ? ", hidden from the public" : ""}`)}" loading="lazy" width="56" height="56"></a>${p.hidden ? '<span class="hiddentag">Hidden</span>' : ""}</li>`,
       )
       .join("") +
-    (others.length > 8 ? `<li><a class="more" href="#photos">+${others.length - 8}</a></li>` : "") +
+    `<li><a class="more" href="#photos">All ${v.photos.length}</a></li>` +
     "</ul>"
   );
 }
@@ -961,92 +710,29 @@ export function renderCatPage(
     (cat.mainPhotoUrl
       ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="${esc(`Photo of ${cat.name}${coat !== null ? `, ${coat}` : ""}`)}">`
       : '<div class="nophoto">No photo</div>') +
-    (mainHidden
-      ? '<p class="hiddenby">The main photo is hidden from the public. They see the newest photo of this cat that isn\'t hidden, or no photo if every one is. See <a href="#photos">All photos</a>.</p>'
-      : "") +
     photoStrip(v);
-  const clipped = records.sterilised.clippedTipSightings;
+  const hiddenNote = mainHidden
+    ? '<p class="hiddenby">The main photo is hidden from the public. They see the newest photo of this cat that isn\'t hidden, or no photo if every one is. See <a href="#photos">All photos</a>.</p>'
+    : "";
 
   // The answer first (spec §7.1): photo, the facts, the small map, and what
   // the public sees in one line.
-  const summary =
-    main +
-    (cat.description ? `<p>${esc(cat.description)}</p>` : "") +
-    (topDone ? notice : "") +
-    deathNotice(v, byId, shown) +
-    guardianMarkNotice(v, byId, shown) +
-    renderCatFacts(v, now) +
-    sightingsMap(v) +
-    `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`;
-
-  // The evidence behind the facts, folded (spec §7.3). It opens by itself when
-  // something says otherwise, so a disagreement is never hidden.
-  const conflicts =
-    records.lifeStatus.conflictingStatementIds.length + records.sterilised.conflictingStatementIds.length > 0;
-  const known =
-    `<details class="evidence"${conflicts ? " open" : ""}><summary><h2>What we know about this cat</h2></summary>` +
-    '<p class="hint">Team only. How we got to what the public sees.</p>' +
-    recordBlock(
-      "Life",
-      records.lifeStatus,
-      records.lifeStatus.value ? LIFE[records.lifeStatus.value] : "Not known",
-      (records.lifeStatus.notSeenSince
-        ? row("Not seen since", time(records.lifeStatus.notSeenSince, day(records.lifeStatus.notSeenSince)))
-        : "") +
-        (records.lifeStatus.presumedDeceased
-          ? row(
-              "Note",
-              "Not seen for over three years. The public sees “Not seen since…”, never that it may have died.",
-            )
-          : ""),
-      byId,
-      shown,
-    ) +
-    recordBlock(
-      "Sterilised",
-      records.sterilised,
-      sterilisedText(records.sterilised),
-      guardianConfirmed(records.sterilised, byId, shown) +
-      row(
-        "Clipped ear",
-        clipped === 0
-          ? "Not seen in any sighting"
-          : esc(`Seen in ${clipped} sighting${clipped === 1 ? "" : "s"}`),
-      ),
-      byId,
-      shown,
-    ) +
-    "<h3>Owner</h3><dl>" +
-    row(
-      "Owner",
-      v.owner.has
-        ? "Has an owner"
-        : v.owner.orphanedHome
-          ? "Has a home, but the owner deleted their data"
-          : "No owner",
-    ) +
-    // D13: after an owner deletes their data the note and pin stay, with no
-    // owner link, so show them whenever they are stored.
-    (v.owner.has || v.owner.homeDescription || v.owner.homePin
-      ? row(
-          v.owner.has ? "Where the owner says the cat lives" : "Where the cat lives, from a past owner",
-          v.owner.homeDescription ? esc(v.owner.homeDescription) : "No note",
-        ) + (v.owner.homePin ? row("Home pin", esc(`Pinned, in ${placeLabel(v.owner.homePin)}`)) : "")
-      : "") +
-    "</dl>" +
-    "<h3>Colony</h3><dl>" +
-    row(
-      "Colony",
-      v.colony
-        ? `<a href="/api/team/colonies/${v.colony.id}">${esc(v.colony.name)}</a>` +
-            (v.colony.wasName ? ` <span class="meta">(was “${esc(v.colony.wasName)}”)</span>` : "")
-        : "Not in a colony",
-    ) +
-    "</dl>" +
-    "<h3>First recorded</h3><dl>" +
-    row("Where", place(cat.lat, cat.lng, { link: island })) +
-    row("When", time(cat.createdAt)) +
-    "</dl></details>";
+  const summaryParts = {
+    photo: main,
+    facts:
+      renderCatFacts(v, now, { byId, shown, island }) +
+      (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
+      `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`,
+    map: sightingsMap(v, island),
+  };
+  const issueTotal = opts.issues?.total ?? 0;
+  const jump =
+    '<nav class="jump" aria-label="Sections of this page">' +
+    `<a href="#history">History (${v.history.length})</a>` +
+    `<a href="#photos">Photos (${v.photos.length})</a>` +
+    '<a href="#appearance">Coat and markings</a>' +
+    (issueTotal > 0 ? `<a href="#issue-strip">Reports (${issueTotal})</a>` : "") +
+    "</nav>";
 
   // A compact list: date, place and thumbnail. The position, "Open map" and
   // the two buttons fold into each sighting's "More" menu (spec §7.3).
@@ -1144,14 +830,24 @@ export function renderCatPage(
     title: cat.name,
     active: "cats",
     personName,
-    beforeTitle: backToCats(opts.back),
-    afterTitle: `<p class="syrline">${esc(cat.syr)}</p>`,
+    // Notices sit above the name, never inside a fold (spec 3.1).
+    beforeTitle:
+      backToCats(opts.back) +
+      (topDone ? notice : "") +
+      deathNotice(v, byId, shown) +
+      guardianMarkNotice(v, byId, shown) +
+      hiddenNote,
+    afterTitle:
+      `<p class="syrline">${esc(cat.syr)} · on our records since ${esc(day(cat.createdAt))}</p>` + statusLine(v, now),
     mainClass: "wide",
     body:
       (opts.kept ? keptLine() : "") +
-      summaryAndActions(summary, correctionForms(v, may, formsNotice, opts.colonies, opts.kept)) +
+      summaryAndActions(
+        summaryParts,
+        renderCatActions(v, may, { notice: formsNotice, colonies: opts.colonies ?? [], kept: opts.kept, done: opts.done }),
+      ) +
+      jump +
       issueStrip(opts.issues) +
-      known +
       renderAppearanceSection(v, may, opts.done) +
       sightings +
       visits +

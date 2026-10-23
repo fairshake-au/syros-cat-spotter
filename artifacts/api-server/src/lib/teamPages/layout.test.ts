@@ -469,7 +469,7 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
   it("the cat page's existing marker rules are untouched", () => {
     const css = sheet();
     expect(css).toContain(
-      'details.evidence>summary::before,li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}',
+      'li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}',
     );
   });
 

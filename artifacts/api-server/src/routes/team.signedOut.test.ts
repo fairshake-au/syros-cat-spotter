@@ -533,10 +533,10 @@ describe("C3: every landing page fills its form in", () => {
     expect(rn.html).toContain('id="rn-name" name="name" required maxlength="60" value="Pipis"');
     expect(rn.html).toContain('id="rn-why" name="reason" required maxlength="500" autocomplete="off" value="The vet calls him that"');
     const ls = await keepAndReturn(`/api/team/cats/${cat.id}/life-status`, { status: "homed", reason: "Adopted by the baker" });
-    expect(ls.html).toContain("<details open><summary>Update where the cat lives</summary>");
+    expect(ls.html).toContain("<details open><summary>Where the cat lives</summary>");
     expect(ls.html).toContain('id="ls-why" name="reason" required maxlength="500" autocomplete="off" value="Adopted by the baker"');
     const st = await keepAndReturn(`/api/team/cats/${cat.id}/sterilisation`, { sterilised: "yes", reason: "Clinic record" });
-    expect(st.html).toContain("<details open><summary>Update whether sterilised</summary>");
+    expect(st.html).toContain("<details open><summary>Whether sterilised</summary>");
     expect(st.html).toContain('id="st-why" name="reason" required maxlength="500" autocomplete="off" value="Clinic record"');
   });
 

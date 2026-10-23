@@ -15,6 +15,8 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 // pages.
 const ALLOWED = new Set<string>([
   join("lib", "teamPages", "catPages.ts"),
+  // The cat page's facts panel: "First recorded in …" passes the viewer's island gate as `link`.
+  join("lib", "teamPages", "catFacts.ts"),
   join("lib", "teamPages", "colonyPages.ts"),
   join("lib", "teamPages", "siteFormPages.ts"),
   join("lib", "teamPages", "sitePages.ts"),
