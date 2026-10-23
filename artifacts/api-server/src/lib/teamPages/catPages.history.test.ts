@@ -571,10 +571,11 @@ describe("the small sightings map", () => {
 
 describe("the page's one History list (SYC-602 PR 2)", () => {
   const NOW2 = new Date("2026-10-23T08:00:00Z");
-  /** The words a person reads: no styles, no tags, entities as one character. */
+  /** The words a person reads: the page's <main> only (the styles sit in the
+   * head), no tags, entities as one character. */
   const text = (html: string) =>
     html
-      .replace(/<style[\s\S]*?<\/style>/g, "")
+      .slice(html.indexOf("<main"), html.lastIndexOf("</main>"))
       .replace(/<[^>]*>/g, " ")
       .replace(/&(?:#\d+|\w+);/g, "·");
   const visitLine = (visitId: number, date: string) => ({
