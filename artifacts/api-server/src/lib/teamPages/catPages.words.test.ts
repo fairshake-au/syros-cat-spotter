@@ -118,6 +118,7 @@ describe("the team cat page's words (SYC-362 D3)", () => {
     for (const word of [
       "What we know about this cat",
       "<summary>Update this cat</summary>",
+      "<dt>Status</dt>",
       "<dt>Since</dt>",
       "<dt>Why we think so</dt>",
       "<dt>Says otherwise</dt>",

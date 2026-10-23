@@ -32,6 +32,27 @@ describe("the team cat page summary", () => {
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 
+  it("never says statement in the guardian-mark notice", () => {
+    const v = catView({
+      recentGuardianMark: { statementId: 5, status: "homed", at: "2026-10-10T09:00:00Z" },
+      history: [statement(5)],
+    });
+    const html = page(v);
+    const notice = html.slice(html.indexOf("Recently marked"), html.indexOf("</p>", html.indexOf("Recently marked")));
+    expect(notice).toContain("See the change</a>");
+    expect(notice.replace(/<[^>]*>/g, " ").toLowerCase()).not.toContain("statement");
+  });
+
+  it("keeps each separator inside the part before it, so a wrapped line never starts with a dot", () => {
+    const html = page();
+    const line = html.slice(html.indexOf('class="statusline"'), html.indexOf("</p>", html.indexOf('class="statusline"')));
+    const parts = line.split('<span class="sl">').slice(1).map((p) => p.trim());
+    expect(parts.length).toBeGreaterThan(2);
+    parts.slice(0, -1).forEach((p) => expect(p).toMatch(/ ·<\/span>$/));
+    expect(parts[parts.length - 1]).not.toMatch(/·<\/span>$/);
+    expect(line).not.toMatch(/<span class="sl">\s*·/);
+  });
+
   it("leaves the colony out of the status line when the cat has none", () => {
     const html = page(bareCatView());
     const line = html.slice(html.indexOf('class="statusline"'));
@@ -220,6 +241,24 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
     expect(hiddenLi).toContain("hidden from the public");
     expect(hiddenLi).toContain('<span class="hiddentag">Hidden</span>');
     expect(strip.slice(0, strip.indexOf("</ul>")).match(/class="hidden"/g)).toHaveLength(1);
+  });
+
+  it("shows up to three more photos and an All N tile that jumps to Photos", () => {
+    const many = Array.from({ length: 6 }, (_, i) => ({
+      source: i === 0 ? "main" : "sighting",
+      publicId: `p${i + 1}`,
+      url: `/p${i + 1}.jpg`,
+      hidden: null,
+    }));
+    const v = catView({ cat: { mainPhotoUrl: "/p1.jpg" }, photos: many, sightings: richCatView().sightings } as never);
+    const html = page(v);
+    const strip = html.slice(html.indexOf('class="photostrip"'), html.indexOf("</ul>", html.indexOf('class="photostrip"')));
+    expect(strip.match(/<img /g)).toHaveLength(3);
+    expect(strip).toContain('<a class="more" href="#photos">All 6</a>');
+    expect(strip).not.toContain("+");
+    const few = catView({ cat: { mainPhotoUrl: "/p1.jpg" }, photos: many.slice(0, 3) } as never);
+    const f = page(few);
+    expect(f.slice(f.indexOf('class="photostrip"'))).toContain("All 3");
   });
 
   it("leaves no heading with nothing under it on a bare cat", () => {

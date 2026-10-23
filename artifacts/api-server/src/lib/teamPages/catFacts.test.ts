@@ -427,6 +427,41 @@ describe("the facts panel: sources, Owner and Why we think so (SYC-602 PR 1)", (
     expect(fact(v, "Lives")!.why).toContain("First recorded in ");
   });
 
+  it("gives the Sterilised and Lives folds the old Status row, in the old words", () => {
+    const cases: [boolean | null, "unknown" | "reported" | "likely" | "confirmed", string][] = [
+      [null, "unknown", "Not known yet"],
+      [true, "likely", "Probably sterilised"],
+      [true, "reported", "Reported sterilised"],
+      [true, "confirmed", "Sterilised"],
+      [false, "reported", "Reported not sterilised"],
+      [false, "confirmed", "Not sterilised"],
+    ];
+    for (const [value, confidence, words] of cases) {
+      const why = fact(view({ sterilised: { value, confidence } }), "Sterilised")!.why!;
+      expect(why, words).toContain(`<dt>Status</dt><dd>${words}</dd>`);
+    }
+    // The fact's own words are untouched: a bare report still reads Not known.
+    expect(facts(view({ sterilised: { value: true, confidence: "reported" } }))["Sterilised"]).toBe("Not known");
+    expect(fact(view({ life: { value: "homed" } }), "Lives")!.why).toContain("<dt>Status</dt><dd>Has a home</dd>");
+    expect(fact(view({ life: { value: null } }), "Lives")!.why).toContain("<dt>Status</dt><dd>Not known</dd>");
+  });
+
+  it("opens the Lives fold when the answer is disputed, and not otherwise", () => {
+    const disputed = view({
+      life: { value: "street", supportingStatementIds: [5], conflictingStatementIds: [6] },
+      history: [statement(5, { kind: "life_status" }), statement(6, { kind: "life_status", said: "Has a home" })],
+    });
+    expect(fact(disputed, "Lives")!.why).toContain('<details class="why" open>');
+    expect(fact(view(), "Lives")!.why).toContain('<details class="why">');
+  });
+
+  it("never says statement in the words of a link to a change left out of the history", () => {
+    const v = view({ life: { supportingStatementIds: [999] } });
+    const why = fact(v, "Lives")!.why!;
+    expect(why).toContain("An earlier change");
+    expect(why.replace(/<[^>]*>/g, " ").toLowerCase()).not.toContain("statement");
+  });
+
   it("renders each fact as a row, with its source and its Why we think so", () => {
     const v = richCatView();
     const html = renderCatFacts(v, NOW, optsFor(v));

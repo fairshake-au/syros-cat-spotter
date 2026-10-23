@@ -208,7 +208,7 @@ form.takeout button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px
 form.sightact{margin:6px 0 0}
 form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
 /* The cat page's summary (SYC-396 spec §7.1): the plain facts, the strip of photos, the small map. */
-.catfacts{display:block;grid-template-columns:none;margin:12px 0;background:#fff;border:1px solid #d9d5ca;border-radius:10px;padding:4px 14px}
+.catfacts{display:block;margin:12px 0;background:#fff;border:1px solid #d9d5ca;border-radius:10px;padding:4px 14px}
 .catfacts .fact{display:grid;grid-template-columns:118px minmax(0,1fr);gap:10px;padding:10px 0;border-top:1px solid #efece5}
 .catfacts .fact:first-child{border-top:0}
 .catfacts dt{margin:0;font-size:14px;font-weight:600;color:#55524a}
@@ -234,7 +234,7 @@ li.statement.routine>details[open]>summary::before,.hownote[open]>summary::befor
 .photostrip li.hidden img{opacity:.45}
 .photostrip .hiddentag{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.65);color:#fff;font-size:12px;line-height:1.3;text-align:center;border-radius:0 0 4px 4px;pointer-events:none}
 .photostrip img{display:block;width:56px;height:56px;object-fit:cover;border-radius:4px;background:#ece8dc}
-.photostrip .more{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border:1px solid #d9d5ca;border-radius:4px;font-size:14px}
+.photostrip .more{display:flex;align-items:center;justify-content:center;min-width:56px;height:56px;padding:0 8px;box-sizing:border-box;border:1px solid #d9d5ca;border-radius:4px;font-size:14px}
 .catsummary{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
 .catsummary>div{min-width:0}
 .jump{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:#f6f4ef;border-bottom:1px solid #d9d5ca;margin:24px -12px 0;padding:8px 12px;display:flex;gap:8px;overflow-x:auto;white-space:nowrap}
@@ -289,6 +289,7 @@ ul.sightings li>a{padding:0}
 a.catlink.tap,a.sublink.tap{display:flex}
 .syrline{margin:0 0 4px;color:#55524a;font-size:15px;font-variant-numeric:tabular-nums}
 .statusline{margin:0 0 12px;font-size:15px;color:#3b3930}
+.statusline .sl{display:inline-block}
 .desc{font-size:15px;margin:8px 0}
 .photo.catmain{width:auto;max-width:100%;max-height:240px}
 .refs{margin:0;padding:0;list-style:none}

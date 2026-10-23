@@ -132,7 +132,7 @@ function guardianMarkNotice(v: TeamCatView, byId: Map<number, TeamStatement>, sh
   return (
     `<p class="notice" role="note">Recently marked ${what} by the cat guardian` +
     (s ? `, ${esc(s.author.label)}` : "") +
-    ` (${time(m.at, day(m.at))}). <a href="${statementHref(m.statementId, shown)}">See the statement</a></p>`
+    ` (${time(m.at, day(m.at))}). <a href="${statementHref(m.statementId, shown)}">See the change</a></p>`
   );
 }
 
@@ -588,20 +588,20 @@ function sightingsMap(v: TeamCatView, island: boolean): string {
   );
 }
 
-/** Any other photos as a thin strip under the main one (spec §7.1). */
+/** Up to three more photos under the main one, then an "All N" tile to Photos (spec §3.1). */
 function photoStrip(v: TeamCatView): string {
   const others = v.photos.filter((p) => p.url !== v.cat.mainPhotoUrl);
   if (others.length === 0) return "";
   return (
     '<ul class="photostrip" aria-label="Other photos">' +
     others
-      .slice(0, 8)
+      .slice(0, 3)
       .map(
         (p, i) =>
           `<li${p.hidden ? ' class="hidden"' : ""}><a href="#p-${esc(p.publicId)}"><img src="${esc(`${p.url}/small`)}" alt="${esc(`Other photo ${i + 1}${p.hidden ? ", hidden from the public" : ""}`)}" loading="lazy" width="56" height="56"></a>${p.hidden ? '<span class="hiddentag">Hidden</span>' : ""}</li>`,
       )
       .join("") +
-    (others.length > 8 ? `<li><a class="more" href="#photos">+${others.length - 8}</a></li>` : "") +
+    `<li><a class="more" href="#photos">All ${v.photos.length}</a></li>` +
     "</ul>"
   );
 }

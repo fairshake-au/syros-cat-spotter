@@ -1,5 +1,6 @@
 import { placeLabel } from "../areas/placeLabel";
-import type { Vaccine } from "../resolve";
+import type { Confidence, Vaccine } from "../resolve";
+import { LIFE } from "./catActions";
 import { markOf, type Lives } from "../teamCatList";
 import type { TeamCatView, TeamResolved, TeamStatement } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
@@ -62,7 +63,7 @@ function statementRefs(ids: number[], byId: Map<number, TeamStatement>, shown: S
     ids
       .map((id) => {
         const s = byId.get(id);
-        if (!s) return `<li><a href="${statementHref(id, shown)}">An earlier statement</a></li>`;
+        if (!s) return `<li><a href="${statementHref(id, shown)}">An earlier change</a></li>`;
         return (
           `<li><a href="${statementHref(id, shown)}">${esc(s.said)}</a> ` +
           `<span class="meta">(${esc(byWhom(s))}, ${time(s.createdAt, day(s.createdAt))})</span></li>`
@@ -73,9 +74,21 @@ function statementRefs(ids: number[], byId: Map<number, TeamStatement>, shown: S
   );
 }
 
-/** "Since", "Why we think so" and "Says otherwise" for one answer, as rows. */
-function evidenceRows<T>(r: TeamResolved<T>, o: FactsOpts): string {
+/** The records' own answer, short, its uncertainty in the words (spec §7.2: no tag beside it). */
+function sterilisedText(s: { value: boolean | null; confidence: Confidence }): string {
+  if (s.value === null || s.confidence === "unknown") return "Not known yet";
+  if (s.value) {
+    if (s.confidence === "likely") return "Probably sterilised";
+    if (s.confidence === "reported") return "Reported sterilised";
+    return "Sterilised";
+  }
+  return s.confidence === "reported" ? "Reported not sterilised" : "Not sterilised";
+}
+
+/** "Status", "Since", "Why we think so" and "Says otherwise" for one answer, as rows. */
+function evidenceRows<T>(r: TeamResolved<T>, o: FactsOpts, status: string): string {
   return (
+    dd("Status", esc(status)) +
     // The resolver dates "nothing known" at the epoch (SYC-270): no date then.
     (Date.parse(r.asOf) > 0 ? dd("Since", time(r.asOf, day(r.asOf))) : "") +
     dd("Why we think so", statementRefs(r.supportingStatementIds, o.byId, o.shown)) +
@@ -179,7 +192,9 @@ export function statusLine(v: TeamCatView, now: Date): string {
     ...(v.colony ? [`<a href="/api/team/colonies/${v.colony.id}">${esc(v.colony.name)}</a>`] : []),
     esc(lastSeenWords(last ? new Date(last.at) : null, now)),
   ];
-  return `<p class="statusline">${parts.join(" · ")}</p>`;
+  // The separator belongs to the part before it, so a wrapped line never starts with a dot.
+  const spans = parts.map((p, i) => `<span class="sl">${p}${i < parts.length - 1 ? " ·" : ""}</span>`);
+  return `<p class="statusline">${spans.join(" ")}</p>`;
 }
 
 /** Who the colours rest on (not the pattern): the machine, a person, or spotters. */
@@ -298,7 +313,7 @@ export function catFacts(v: TeamCatView, now: Date, opts: FactsOpts): CatFact[] 
       label: "Sterilised",
       html: sterilisedFact(v),
       why: whyBlock(
-        evidenceRows(records.sterilised, opts) +
+        evidenceRows(records.sterilised, opts, sterilisedText(records.sterilised)) +
           guardianConfirmed(records.sterilised, opts) +
           dd(
             "Clipped ear",
@@ -313,7 +328,7 @@ export function catFacts(v: TeamCatView, now: Date, opts: FactsOpts): CatFact[] 
       html: livesFact(v),
       source: livesSource(v, opts),
       why: whyBlock(
-        evidenceRows(records.lifeStatus, opts) +
+        evidenceRows(records.lifeStatus, opts, records.lifeStatus.value ? LIFE[records.lifeStatus.value] : "Not known") +
           (records.lifeStatus.presumedDeceased
             ? dd("Note", "Not seen for over three years. The public sees “Not seen since…”, never that it may have died.")
             : ""),
