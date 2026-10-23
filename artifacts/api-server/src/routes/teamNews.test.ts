@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { addPerson, catNewsChangesTable, catsTable, db, photosTable, pool } from "@workspace/db";
@@ -8,7 +9,8 @@ import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queu
 import { guardianOn, newColony, type Signed } from "../test/roleKit";
 import { removeTestPerson } from "../test/removeTestPerson";
 
-// SYC-45 Slice 1: the nightly news check's review list (staff only). The
+// SYC-45 Slice 1: the nightly news check's review list (the team's:
+// review_cat_news, SYC-619 §2.2). The
 // route walk (team.walk.test.ts) checks who may call it; this checks what it
 // says and that a review is recorded.
 
@@ -106,5 +108,32 @@ describe("POST /api/team/news-changes/:id/review", () => {
     // A bad Origin is the not-signed-in 401 (requireOrigin), like every dashboard form.
     expect((await post(changeIds[0]!, {}, staffCookie, "https://evil.example")).status).toBe(401);
     expect((await post(changeIds[0]!, {}, guardian.cookie)).status).toBe(403);
+  });
+});
+
+describe("SYC-619 §2.2 (N1): the list has its own capability, review_cat_news", () => {
+  // The workspace became management's. This list must not go with it: a
+  // staff member with no management role still reads it and marks it.
+  it("staff still reach news-changes; a guardian gets 403", async () => {
+    const get = (cookie: string) =>
+      request(app).get("/api/team/news-changes").set("Cookie", cookie).set("Accept", "application/json");
+    const review = (cookie: string) =>
+      request(app)
+        .post(`/api/team/news-changes/${changeIds[1]}/review`)
+        .set("Origin", TEAM_ORIGIN)
+        .set("Cookie", cookie)
+        .set("Accept", "application/json")
+        .send({});
+    expect((await get(staffCookie)).status).toBe(200);
+    expect((await review(staffCookie)).status).toBe(200);
+    expect((await get(guardian.cookie)).status).toBe(403);
+    expect((await review(guardian.cookie)).status).toBe(403);
+  });
+
+  it("the routes ask for review_cat_news, not use_workspace", () => {
+    const src = readFileSync(new URL("./teamNews.ts", import.meta.url), "utf8");
+    expect(src).toContain('requireTeam("review_cat_news")');
+    expect(src).toContain('formRoute("review_cat_news")');
+    expect(src).not.toMatch(/(requireTeam|formRoute)\("use_workspace"\)/);
   });
 });

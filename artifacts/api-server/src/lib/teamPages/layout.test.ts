@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { accessEndedPage, forbiddenPage } from "../teamAuth/refuse";
+import { mayUseWorkspace } from "../capabilities";
 import { renderPage, type PageOptions } from "./layout";
 
 // The page shell (SYC-396 PR 1.6; spec §3.1, §3.2, §12.5): the menu names the
@@ -87,6 +88,17 @@ describe("the team's menu (spec §3.1)", () => {
       ["My page", "/api/team/my"],
       ["Workspace", "https://admin.catspotters.com/workspace"],
     ]);
+  });
+
+  it("a staff member's menu has no Workspace; a manager's does", () => {
+    // SYC-619 §2.2 (N1): the link follows the capability (requireTeam.ts sets
+    // navContext.workspace = mayUseWorkspace(person)), so it is asked the same way here.
+    const staff = { scopes: [{ role: "staff", colonyId: null, reach: "island" }] };
+    const manager = { scopes: [{ role: "management", colonyId: null, reach: "island" }] };
+    const menu = (who: typeof staff) =>
+      page({ island: true, showPeople: false, mine: true, workspace: mayUseWorkspace(who) });
+    expect(menu(staff)).not.toContain("admin.catspotters.com/workspace");
+    expect(links(menu(manager)).at(-1)).toEqual(["Workspace", "https://admin.catspotters.com/workspace"]);
   });
 
   it("has no Workspace link for anyone else, or on a refusal page or a cat guardian's menu", () => {

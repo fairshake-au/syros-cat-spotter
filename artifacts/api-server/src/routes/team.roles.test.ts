@@ -56,6 +56,17 @@ const ask = (email: string) =>
     .set("Authorization", `Bearer ${TOKEN}`)
     .send({ email });
 
+/**
+ * The live Worker's question (`version: 2`, checked 23 Oct 2026). Since
+ * SYC-619 §2.2 the old shape's yes means the workspace, management's alone,
+ * so a staff member is let in through the dashboard door of this shape.
+ */
+const askDoors = (email: string) =>
+  request(app)
+    .post("/api/internal/people/allowed")
+    .set("Authorization", `Bearer ${TOKEN}`)
+    .send({ email, version: 2 });
+
 const handoff = (id: string, sv: number) =>
   request(app)
     .post("/api/team/handoff")
@@ -116,11 +127,13 @@ async function expectKeptOut(id: string, sv: number, meStatus: 401 | 403) {
 }
 
 describe("SYC-188: only a role that grants something is let in", () => {
-  it("staff: the Worker hears yes, the hand-off gives a session, /me answers", async () => {
+  it("staff: the Worker hears yes (the dashboard door, not the workspace), the hand-off gives a session, /me answers", async () => {
     const p = await add(["staff"]);
-    const yes = await ask(EMAIL);
+    const yes = await askDoors(EMAIL);
     expect(yes.body).toEqual({
       allowed: true,
+      doors: { workspace: false, dashboard: true },
+      language: "en",
       personId: p.id,
       name: "Pat",
       sessionVersion: p.sessionVersion,
@@ -130,16 +143,19 @@ describe("SYC-188: only a role that grants something is let in", () => {
     expect(String(h.headers["set-cookie"])).toContain("__Host-cs_team=");
     const m = await me(p.id, p.sessionVersion);
     expect(m.status).toBe(200);
-    // Everything in the catalogue but the three a team-only member lacks
-    // (manage_people and action_deletion_request are management's;
-    // request_site_public is a guardian's), each island-wide.
-    expect(m.body.capabilities).toHaveLength(CAPABILITIES.length - 3);
+    // Everything in the catalogue but the four a team-only member lacks
+    // (manage_people, action_deletion_request and, since SYC-619 §2.2,
+    // use_workspace are management's; request_site_public is a guardian's),
+    // each island-wide.
+    expect(m.body.capabilities).toHaveLength(CAPABILITIES.length - 4);
+    expect(m.body.capabilities.map((c: { capability: string }) => c.capability)).not.toContain("use_workspace");
+    expect(m.body.capabilities.map((c: { capability: string }) => c.capability)).toContain("review_cat_news");
     for (const c of m.body.capabilities) expect(c.where).toBe("island");
   });
 
   it("staff who is also a guardian is still let in", async () => {
     const p = await add(["guardian", "staff"], await aColony());
-    expect((await ask(EMAIL)).body.allowed).toBe(true);
+    expect((await askDoors(EMAIL)).body.doors).toEqual({ workspace: false, dashboard: true });
     expect((await handoff(p.id, p.sessionVersion)).status).toBe(303);
     expect((await me(p.id, p.sessionVersion)).status).toBe(200);
   });
@@ -195,7 +211,7 @@ describe("SYC-188: only a role that grants something is let in", () => {
     await expectKeptOut(p.id, p.sessionVersion, 401);
     // Control: the same person, once accepted, is let in.
     await pool.query("update people set accepted_at = now() where id = $1", [p.id]);
-    expect((await ask(EMAIL)).body.allowed).toBe(true);
+    expect((await askDoors(EMAIL)).body.allowed).toBe(true);
     expect((await me(p.id, p.sessionVersion)).status).toBe(200);
   });
 

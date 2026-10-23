@@ -61,11 +61,14 @@ function cookieFor(pid: string, sv: number): string {
 const me = (cookie: string) =>
   request(app).get("/api/team/me").set("Cookie", cookie);
 
+// The live Worker's question (`version: 2`). Susan is staff only, and since
+// SYC-619 §2.2 the old shape's yes is the workspace, management's alone, so
+// she is let in (and, once left, refused) through this shape's dashboard door.
 const ask = (email: string) =>
   request(app)
     .post("/api/internal/people/allowed")
     .set("Authorization", `Bearer ${TOKEN}`)
-    .send({ email });
+    .send({ email, version: 2 });
 
 /** What a client can see of a response. */
 const seen = (res: request.Response) => ({
@@ -141,7 +144,7 @@ describe("P0-1: a person marked as left is refused by every reader", () => {
 
     const never = seen(await ask(NEVER_EMAIL));
     expect(never.status).toBe(200);
-    expect(JSON.parse(never.text)).toEqual({ allowed: false });
+    expect(JSON.parse(never.text)).toEqual({ allowed: false, doors: { workspace: false, dashboard: false } });
     expect(seen(await ask(EMAIL))).toEqual(never);
     expect(seen(await ask(" Vitest-Left-Susan@Example.com "))).toEqual(never);
   });

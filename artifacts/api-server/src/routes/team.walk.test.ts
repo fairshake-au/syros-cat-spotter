@@ -340,9 +340,10 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/my/welcome": { why: "the accept page: an invitee's own session only (requireInvitee)", except: ACCEPT_PAGE },
   "POST /api/team/my/accept": { why: "Yes, join: requireInvitee and the dashboard's Origin", except: ACCEPT_PAGE },
   "POST /api/team/my/decline": { why: "No, this isn't for me: requireInvitee and the dashboard's Origin", except: ACCEPT_PAGE },
-  // SYC-45 Slice 1: the nightly news check's review list. Staff only.
-  "GET /api/team/news-changes": { why: "use_workspace: island-only, so every cat guardian gets the 403 (teamNews.test.ts)" },
-  "POST /api/team/news-changes/:id/review": { why: "use_workspace: island-only, Origin checked (teamNews.test.ts)" },
+  // SYC-45 Slice 1: the nightly news check's review list. The team's (staff and
+  // management): its own capability since SYC-619 §2.2, when the workspace became management's.
+  "GET /api/team/news-changes": { why: "review_cat_news: island-only, so every cat guardian gets the 403 (teamNews.test.ts)" },
+  "POST /api/team/news-changes/:id/review": { why: "review_cat_news: island-only, Origin checked (teamNews.test.ts)" },
 };
 
 /** Routes with their own checks instead of a person's session. */

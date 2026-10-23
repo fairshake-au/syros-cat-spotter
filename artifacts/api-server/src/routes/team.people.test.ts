@@ -492,13 +492,21 @@ describe("the changes themselves, through the actions layer", () => {
     expect(res.text).not.toContain("<b>x");
   });
 
-  it("mark as left: the workspace reminder for a team member, the rename nudge for a guardian", async () => {
-    const t = await joined("left-team", ["staff"]);
+  it("mark as left: the workspace reminder for a manager, the rename nudge for a guardian", async () => {
+    // SYC-619 §2.2 (N1): the workspace is management's, so the reminder follows it.
+    const t = await joined("left-team", ["staff", "management"]);
     const res = await post(`/api/team/people/${t.id}/left`, susan);
     expect(res.status).toBe(303);
     expect(res.headers["location"]).toBe(`/api/team/people?done=left&p=${t.id}`);
     const html = (await get(res.headers["location"]!, susan)).text;
     expect(html).toContain("Change the shared document password today.");
+
+    const s = await joined("left-staff", ["staff"]);
+    const rs = await post(`/api/team/people/${s.id}/left`, susan);
+    const htmlS = (await get(rs.headers["location"]!, susan)).text;
+    const bannerS = htmlS.slice(htmlS.indexOf('class="okbox"'), htmlS.indexOf("</div>", htmlS.indexOf('class="okbox"')));
+    expect(bannerS).toContain("left-staff");
+    expect(bannerS).not.toContain("shared document password");
 
     const g = await joined("left-guard", ["guardian"], colony2);
     const r2 = await post(`/api/team/people/${g.id}/left`, susan);
@@ -565,7 +573,7 @@ describe("m1: a banner can't be forged from a link; it is rebuilt from the perso
   });
 
   it("the real banner's extras come from the event, and the banner expires after 10 minutes", async () => {
-    const t = await joined("forge-real", ["staff"]);
+    const t = await joined("forge-real", ["staff", "management"]);
     const res = await post(`/api/team/people/${t.id}/left`, susan);
     const loc = res.headers["location"]!;
     expect(banner((await get(loc, susan)).text)).toContain("Change the shared document password today.");

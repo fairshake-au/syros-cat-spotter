@@ -102,10 +102,9 @@ describe("a guardian with the dashboard door is still refused the workspace (T7,
     });
   });
 
-  it("staff still get both doors (control)", async () => {
-    expect((await ask({ email: STAFF })).body.allowed).toBe(true);
+  it("staff still get the dashboard door (control); the workspace is management's (SYC-619 §2.2)", async () => {
     expect((await ask({ email: STAFF, version: 2 })).body.doors).toEqual({
-      workspace: true,
+      workspace: false,
       dashboard: true,
     });
   });
