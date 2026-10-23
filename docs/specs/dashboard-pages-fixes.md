@@ -3,7 +3,7 @@
 **Ticket:** SYC-619 (parent: SYC-609, Team dashboard).
 **Source:** the design review of 22 Oct 2026 (artifact on SYC-619). It was checked on the live build `2394828e`, which was the same as main that day.
 **Scope:** every team dashboard page except Home (SYC-603, PR #292) and the team cat page (SYC-602).
-**Status:** revised after the adversarial review of 22 Oct; all 22 findings are addressed (see [the review record](#review-record)). **Every decision is made** (Samuel, 22–23 Oct 2026, §10). Waiting for Samuel's approval of the spec.
+**Status:** revised after the adversarial review of 22 Oct; all 22 findings are addressed (see [the review record](#review-record)). **Every decision is made** (Samuel, 22–23 Oct 2026, §10). **Approved by Samuel, 23 Oct 2026** ("approved, write the implementation plan"). Plan: `docs/superpowers/plans/syc-619-dashboard-pages-fixes.md`.
 
 ## Contents
 
