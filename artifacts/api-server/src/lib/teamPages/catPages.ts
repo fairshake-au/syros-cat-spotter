@@ -334,7 +334,7 @@ export const MAP_SIGHTINGS = 30;
  * dashboard, numbered in time order (1 is the oldest shown), one marker per
  * spot, linking to the newest sighting there. No script; no position in any address.
  */
-function sightingsMap(v: TeamCatView, island: boolean, drawn: Shown): string {
+function sightingsMap(v: TeamCatView, island: boolean, hrefOf: (sightingId: number) => string): string {
   if (v.sightings.length === 0) return "";
   const shown = v.sightings.slice(0, MAP_SIGHTINGS).reverse();
   const markers: MapMarker[] = mergeSameSpot(
@@ -344,8 +344,8 @@ function sightingsMap(v: TeamCatView, island: boolean, drawn: Shown): string {
       n: i + 1,
       look: "seen",
       label: `Sighting ${i + 1}, ${when(s.at)}`,
-      // Its row in History, or the full list when this view of History leaves it out.
-      href: drawn === null || drawn.has(s.id) ? `#sg-${s.id}` : `?history=all#sg-${s.id}`,
+      // Its row in History, the run line holding it, or the full list (historyShown).
+      href: hrefOf(s.id),
     })),
   );
   const more = v.sightings.length > shown.length;
@@ -476,7 +476,7 @@ export function renderCatPage(
       renderCatFacts(v, now, { byId, shown, island }) +
       (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
       `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`,
-    map: sightingsMap(v, island, drawn.sightings),
+    map: sightingsMap(v, island, drawn.sightingHref),
   };
   const issueTotal = opts.issues?.total ?? 0;
   const jump =

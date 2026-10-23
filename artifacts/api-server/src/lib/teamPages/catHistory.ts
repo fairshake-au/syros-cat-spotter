@@ -1,6 +1,6 @@
 import type { TeamCatView, TeamStatement } from "../teamCatView";
 import { EAR_TIP_NOT_CLIPPED, FOOD_AND_WATER_OUT } from "../teamCatView";
-import type { VisitLine } from "../vetVisits";
+import { VISIT_REASON, type VisitLine } from "../vetVisits";
 import type { Capability } from "../capabilities";
 import { placeLabel } from "../areas/placeLabel";
 import { euroText } from "../euros";
@@ -399,7 +399,7 @@ export interface HistoryOptions {
   /** A form filled in again after signing in (SYC-516 C3). */
   kept?: { formKey: string; fields: KeptFields };
   now: Date;
-  /** An island-wide viewer: a sighting's menu has "Show on the map" (D9). */
+  /** An island-wide viewer: a sighting's menu has "Open map" (D9). */
   island: boolean;
 }
 
@@ -410,9 +410,6 @@ function entryIdsOf(r: HistoryRow): number[] {
   return r.entries.map((e) => e.id);
 }
 
-const sightingIdsOf = (r: HistoryRow): number[] =>
-  r.type === "sighting" ? [r.sighting.id] : r.type === "run" ? r.rows.map((x) => x.sighting.id) : [];
-
 interface Layout {
   /** The filter in force: the one asked for, or "all" when the page lands on a row it leaves out. */
   show: HistoryShow;
@@ -421,8 +418,6 @@ interface Layout {
   drawn: HistoryRow[];
   /** Entry ids drawn, or null when every entry is. */
   shown: Shown;
-  /** Sighting ids drawn, or null when every sighting is. */
-  sightings: Shown;
   /** The entries the page lands on: `at`, and the one whose Mark wrong was filled in again. */
   targets: ReadonlySet<number>;
 }
@@ -454,23 +449,35 @@ function layout(
     rows,
     drawn,
     shown: whole ? null : new Set(drawn.flatMap(entryIdsOf)),
-    sightings: whole ? null : new Set(drawn.flatMap(sightingIdsOf)),
     targets,
   };
 }
 
 /**
- * Which entries and sightings History draws for these options, so a link
- * from above it ("Why we think so", a map marker) lands: `#s-<id>` when
- * drawn, else `?history=all#s-<id>`. Null means every one is.
+ * Which entries History draws for these options, so a link from above it
+ * ("Why we think so") lands: `#s-<id>` when drawn, else `?history=all#s-<id>`
+ * (null: every one is). `sightingHref` is where a map marker for a sighting
+ * goes: its row, or the run line holding it (a closed fold isn't a place to
+ * land), or the full, unfiltered list when this view leaves it out. Both come
+ * from the same layout the list is drawn from, so they can't drift.
  */
 export function historyShown(
   v: TeamCatView,
   visits: VisitLine[],
   o: Pick<HistoryOptions, "show" | "all" | "at" | "kept">,
-): { entries: Shown; sightings: Shown } {
+): { entries: Shown; sightingHref: (sightingId: number) => string } {
   const l = layout(v, visits, o);
-  return { entries: l.shown, sightings: l.sightings };
+  const here = sightingAnchors(l.drawn);
+  let full: Map<number, string> | null = null;
+  return {
+    entries: l.shown,
+    sightingHref: (id) => {
+      const a = here.get(id);
+      if (a !== undefined) return `#${a}`;
+      full ??= sightingAnchors(historyRows(v, visits, "all"));
+      return `?history=all#${full.get(id) ?? `sg-${id}`}`;
+    },
+  };
 }
 
 interface Ctx extends HistoryOptions {
@@ -489,7 +496,7 @@ function changeLink(id: number, c: Ctx): string {
 }
 
 /** What follows an entry's words: why, what it corrects, its photo, what replaced it, where it went. */
-function entryExtras(s: TeamStatement, c: Ctx): string {
+function entryExtras(s: TeamStatement, c: Ctx, skipWhy = false): string {
   const replacements = s.replacedBy
     .map((id) => c.byId.get(id))
     .filter((r): r is TeamStatement => r !== undefined)
@@ -513,7 +520,7 @@ function entryExtras(s: TeamStatement, c: Ctx): string {
       ? `<p class="meta">Corrects ${changeLink(s.replaces, c)}</p>`
       : "";
   return (
-    (s.reason ? `<p class="why">Why: ${esc(s.reason)}</p>` : "") +
+    (s.reason && !skipWhy ? `<p class="why">Why: ${esc(s.reason)}</p>` : "") +
     corrects +
     (s.photoUrl ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}">See the photo</a></p>` : "") +
     replacements +
@@ -588,7 +595,8 @@ function sightingRow(r: SightingRow, c: Ctx): string {
     dots(
       `the sighting on ${seen}`,
       [
-        ...(c.island ? [`<p class="meta">${openMapLink(s.lat, s.lng, "Show on the map")}</p>`] : []),
+        // D9's own word for the outbound link; "Show on the map" is the team map's button below.
+        ...(c.island ? [`<p class="meta">${openMapLink(s.lat, s.lng)}</p>`] : []),
         ...sightingButtons(s.id, c.may),
         ...r.entries.map((e) => wrongForm(e, c.may, keptFor(e, c), lowerFirst(e.said))),
       ],
@@ -643,7 +651,10 @@ function visitRow(r: Extract<HistoryRow, { type: "visit" }>, c: Ctx): string {
         recorded
           .map((e) => `<span id="s-${e.id}">${e.replacedBy.length > 0 ? `<del>${esc(e.said)}</del>` : esc(e.said)}</span>`)
           .join(" · ") +
-        "</p>"
+        "</p>" +
+        // What replaced each, its photo and its own reason (spec §3.5); the visit's
+        // own "vet visit" reason says nothing the row doesn't already.
+        recorded.map((e) => entryExtras(e, c, e.reason === VISIT_REASON)).join("")
       : "") +
     (undo
       ? `<p class="meta" id="s-${undo.id}">Marked wrong by ${esc(byWhom(undo))} on ${timeTag(undo.createdAt, fullDay(undo.createdAt))}` +
@@ -658,6 +669,19 @@ function visitRow(r: Extract<HistoryRow, { type: "visit" }>, c: Ctx): string {
     dots(`the vet visit on ${fullDay(date)}`, [wrong], ids.some((id) => c.targets.has(id))) +
     "</li>"
   );
+}
+
+/** A run's own anchor, from its newest sighting: what a map marker into a closed run lands on. */
+const runId = (r: Extract<HistoryRow, { type: "run" }>) => `run-${r.rows[0]!.sighting.id}`;
+
+/** Each drawn sighting's landing anchor: its own row, or the run line holding it. */
+function sightingAnchors(rows: HistoryRow[]): Map<number, string> {
+  const out = new Map<number, string>();
+  for (const r of rows) {
+    if (r.type === "sighting") out.set(r.sighting.id, `sg-${r.sighting.id}`);
+    if (r.type === "run") for (const x of r.rows) out.set(x.sighting.id, runId(r));
+  }
+  return out;
 }
 
 /** Routine sightings in a row: one line, with the dates and up to three photos; it opens to the rows. */
@@ -677,7 +701,7 @@ function runRow(r: Extract<HistoryRow, { type: "run" }>, c: Ctx): string {
     .map((x) => `<img class="hthumb" src="${esc(x.sighting.photoUrl!)}" alt="" loading="lazy" width="44" height="44">`)
     .join("");
   return (
-    `<li class="hgroup"><details${open ? " open" : ""}><summary>` +
+    `<li class="hgroup" id="${runId(r)}"><details${open ? " open" : ""}><summary>` +
     `<span class="when"><b>${from === to ? esc(to) : `${esc(from)}–<br>${esc(to)}`}</b></span>` +
     `<span class="what"><span class="runwords">${esc(sightingRunWords(r.rows, c.now))}</span>` +
     (thumbs ? `<span class="hthumbs">${thumbs}</span>` : "") +

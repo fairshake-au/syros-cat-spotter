@@ -349,9 +349,8 @@ describe("P3-2 (team half): the team's cat page shows exact positions", () => {
 
   it("SYC-395 (D9, reverses SYC-245 for outbound links): an island-wide team member gets an Open map link on every position, and nothing else leaves the dashboard", async () => {
     const html = await catHtml();
-    // First recorded; each of the two sightings says it as "Show on the map" in its ⋯ menu (SYC-602 PR 2).
-    expect(html.split(">Open map</a>")).toHaveLength(2);
-    expect(html.split(">Show on the map</a>")).toHaveLength(3);
+    // First recorded, and each of the two sightings.
+    expect(html.split(">Open map</a>")).toHaveLength(4);
     // The small sightings map's credit to OpenStreetMap is the one other
     // outbound link: the provider requires it, and it carries no position.
     const OSM_CREDIT = "https://www.openstreetmap.org/copyright";

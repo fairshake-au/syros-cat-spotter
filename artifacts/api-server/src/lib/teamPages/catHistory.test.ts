@@ -402,13 +402,15 @@ describe("renderHistory (spec §3.5)", () => {
     expect(row).toContain('src="/api/team/photos/p900"');
     const menu = menuOf(row);
     expect(menu).toContain("⋯");
-    expect(menu).toContain("Show on the map");
+    // D9's outbound "Open map" (island only) and the team map's "Show on the map" button.
+    expect(menu).toContain(">Open map</a>");
+    expect(menu).toContain(">Show on the map</button>");
     expect(menu).toContain("Make a feeding site here");
     expect(menu).toContain("Mark wrong: ear tip clipped");
     // One Mark wrong per markable entry: food and water has none.
     expect(menu.match(/<summary>Mark wrong:/g)).toHaveLength(1);
-    // Show on the map only for an island-wide viewer.
-    expect(menuOf(rowOf(draw(sightingCat(), [], { island: false }), "sg-900"))).not.toContain("Show on the map");
+    // Open map only for an island-wide viewer.
+    expect(menuOf(rowOf(draw(sightingCat(), [], { island: false }), "sg-900"))).not.toContain("Open map");
     // Nothing the person may not do.
     const none = menuOf(rowOf(draw(sightingCat(), [], { may: () => false, island: false }), "sg-900"));
     expect(none).not.toContain("<form");
@@ -470,6 +472,9 @@ describe("renderHistory (spec §3.5)", () => {
     expect(row).toContain("Marked wrong by Susan on");
     expect(row).toContain("Why: Wrong cat");
     for (const id of [40, 41, 60, 61]) expect(html.match(new RegExp(`id="s-${id}"`, "g")), String(id)).toHaveLength(1);
+    // The visit's own crossed-out change says what replaced it (spec §3.5).
+    expect(row).toContain("<del>Sterilised</del>");
+    expect(row).toMatch(/Replaced by <a href="#s-60">the change of 20 Aug 2026<\/a>: Marked wrong/);
     expect(row).not.toContain("Mark the visit wrong");
   });
 
@@ -543,7 +548,7 @@ describe("renderHistory (spec §3.5)", () => {
       history: [foodOut(23, 903, "2026-10-13T08:00:00Z"), foodOut(22, 902, "2026-10-12T08:00:00Z")],
     });
     const run = draw(v, [], { at: 22, notice });
-    expect(run).toMatch(/<li class="hgroup"><details open>/);
+    expect(run).toMatch(/<li class="hgroup" id="run-903"><details open>/);
     expect(rowOf(run, "sg-902")).toContain(notice);
     // Landing on a row the filter leaves out shows it anyway.
     expect(draw(sightingCat(), [], { show: "visits", at: 12, notice })).toContain('id="sg-900"');

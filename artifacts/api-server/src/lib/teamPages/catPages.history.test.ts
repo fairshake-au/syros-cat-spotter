@@ -259,7 +259,7 @@ const routineRun = (n: number, firstId = 100) =>
   });
 
 const groupLines = (html: string) =>
-  [...html.matchAll(/<li class="hgroup"><details[^>]*><summary>[\s\S]*?<span class="runwords">([^<]*)<\/span>/g)].map((m) => m[1]);
+  [...html.matchAll(/<li class="hgroup"[^>]*><details[^>]*><summary>[\s\S]*?<span class="runwords">([^<]*)<\/span>/g)].map((m) => m[1]);
 
 /**
  * History joins a sighting's rows into the sighting (SYC-602 PR 2), so each
@@ -276,7 +276,7 @@ describe("routine sightings in the history", () => {
   it("twenty in a row with no change between them are one line, and expanding it lists them", () => {
     const html = renderCatPage(seen(view(0, { history: routineRun(20) })), "Sam", { now: NOW });
     expect(groupLines(html)).toEqual(["Seen 20 times by spotters between 5 Sept and 24 Sept, looking well"]);
-    const group = /<li class="hgroup">[\s\S]*<\/details><\/li>/.exec(html)![0];
+    const group = /<li class="hgroup"[^>]*>[\s\S]*<\/details><\/li>/.exec(html)![0];
     expect(statementIds(group)).toHaveLength(20);
     // Every row is still there with its own anchor, so links to it work.
     expect(statementIds(html)).toHaveLength(20);
@@ -357,9 +357,9 @@ describe("routine sightings in the history", () => {
   it("opens a group that Why we think so links into (review finding 6)", () => {
     const rows = routineRun(4);
     const v = seen(view(0, { history: rows, sterilised: [rows[1]!.id] }));
-    expect(renderCatPage(v, "Sam", { now: NOW })).toContain('<li class="hgroup"><details open>');
-    expect(renderCatPage(seen(view(0, { history: rows })), "Sam", { now: NOW })).not.toContain(
-      '<li class="hgroup"><details open>',
+    expect(renderCatPage(v, "Sam", { now: NOW })).toMatch(/<li class="hgroup" id="run-\d+"><details open>/);
+    expect(renderCatPage(seen(view(0, { history: rows })), "Sam", { now: NOW })).not.toMatch(
+      /<li class="hgroup" id="run-\d+"><details open>/,
     );
   });
 
@@ -379,7 +379,7 @@ describe("routine sightings in the history", () => {
   it("opens the group the page lands on after a correction", () => {
     const rows = routineRun(5);
     const html = renderCatPage(seen(view(0, { history: rows })), "Sam", { now: NOW, at: rows[2]!.id, done: "wrong" });
-    expect(html).toContain('<li class="hgroup"><details open>');
+    expect(html).toMatch(/<li class="hgroup" id="run-\d+"><details open>/);
   });
 
   it("a run of 25 is one row: drawn whole, with its full count and no Show all (SYC-459 item 3)", () => {
@@ -402,7 +402,7 @@ describe("each sighting's More menu", () => {
     const li = /<li class="hrow sighting" id="sg-41">[\s\S]*?<\/li>/.exec(html)![0];
     const menu = /<details class="rowmenu dots">[\s\S]*<\/details>/.exec(li)![0];
     expect(menu).toContain('<summary><span aria-hidden="true">⋯</span><span class="sr">More for the sighting on');
-    for (const inside of ["/api/team/sites/from-sighting", "/api/team/sites/map-at-sighting#map", ">Show on the map</a>"]) {
+    for (const inside of ["/api/team/sites/from-sighting", "/api/team/sites/map-at-sighting#map", ">Open map</a>", ">Show on the map</button>"]) {
       expect(menu, inside).toContain(inside);
       // …and nowhere else on the row.
       expect(li.replace(menu, ""), inside).not.toContain(inside);
@@ -470,7 +470,8 @@ describe("the small sightings map", () => {
       at: new Date(Date.UTC(2026, 9, 16) - i * 86_400_000).toISOString(),
       photoUrl: null,
       extraPhotos: [],
-      mixedCats: false,
+      // Never grouped into a run (SYC-602 PR 2), so each marker lands on its own row.
+      mixedCats: true,
     }));
 
   const withSightings = (n: number) => {
@@ -482,7 +483,7 @@ describe("the small sightings map", () => {
   /** The markers drawn in one picture band (the page draws one band per screen width). */
   const pins = (html: string) => {
     const band = /<div class="mapband b179"[\s\S]*?<\/div>/.exec(html)![0];
-    return [...band.matchAll(/<a class="pin seen" style="[^"]*" href="#sg-(\d+)" title="([^"]*)"><span class="pinnum" aria-hidden="true">(\d+)<\/span>/g)].map(
+    return [...band.matchAll(/<a class="pin seen" style="[^"]*" href="(?:\?history=all)?#(?:sg|run)-(\d+)" title="([^"]*)"><span class="pinnum" aria-hidden="true">(\d+)<\/span>/g)].map(
       (m) => ({ id: Number(m[1]), title: m[2]!, n: Number(m[3]) }),
     );
   };
@@ -655,9 +656,60 @@ describe("the page's one History list (SYC-602 PR 2)", () => {
     expect(html).toContain('href="#history">History (24)</a>');
   });
 
-  it("lands each map marker on its sighting's row", () => {
-    const v = richCatView();
-    const html = renderCatPage(v, "Sam", { now: NOW2 });
-    for (const s of v.sightings) expect(html, String(s.id)).toContain(`id="sg-${s.id}"`);
+  describe("each map marker lands on something open", () => {
+    const KEY = "vitest-catmap-key-0123456789abcdef-0123456789";
+    let saved: string | undefined;
+    beforeAll(() => {
+      saved = process.env["TEAM_SESSION_KEYS"];
+      process.env["TEAM_SESSION_KEYS"] = KEY;
+    });
+    afterAll(() => {
+      if (saved === undefined) delete process.env["TEAM_SESSION_KEYS"];
+      else process.env["TEAM_SESSION_KEYS"] = saved;
+    });
+    /** Marker hrefs by sighting, from the picture's first band. */
+    const markers = (html: string) => {
+      const band = /<div class="mapband b179"[\s\S]*?<\/div>/.exec(html)![0];
+      return [...band.matchAll(/<a class="pin seen[^"]*"[^>]*href="([^"]*)"/g)].map((m) => m[1]!.replace(/&amp;/g, "&"));
+    };
+    /** Sightings 903 (a clipped ear: its own row) and 902, 901 (routine: one run). */
+    const cat = () => {
+      const v = richCatView();
+      const spots = [903, 902, 901].map((id, i) => ({
+        id,
+        lat: 37.4447 + i * 0.002,
+        lng: 24.9418 + i * 0.002,
+        at: `2026-10-${13 - i}T08:00:00Z`,
+        photoUrl: null,
+        extraPhotos: [],
+        mixedCats: false,
+      }));
+      v.sightings = spots;
+      v.history = [
+        statement(50, { kind: "ear_tip", said: "Ear tip clipped", author: { kind: "spotter", label: "a spotter" }, sightingId: 903, observedAt: spots[0]!.at, correction: { kind: "ear_tip_clipped" } }),
+        statement(301, { kind: "life_status", said: "Lives on the street", observedAt: "2026-09-01T09:00:00Z" }),
+      ];
+      return v;
+    };
+
+    it("a sighting drawn as its own row: #sg-<id>; one inside a run: the run line; one not drawn: the full list", () => {
+      const html = renderCatPage(cat(), "Sam", { now: NOW2 });
+      expect(html).toContain('<li class="hgroup" id="run-902">');
+      expect(html).toContain('<li class="hrow sighting" id="sg-903">');
+      // Markers are numbered oldest first: 901, 902, 903 (one per spot).
+      expect(markers(html).sort()).toEqual(["#run-902", "#run-902", "#sg-903"]);
+      // A filter that draws no sightings: each to its landing place in the full list.
+      const changes = renderCatPage(cat(), "Sam", { now: NOW2, show: "changes" });
+      expect(markers(changes).sort()).toEqual(["?history=all#run-902", "?history=all#run-902", "?history=all#sg-903"]);
+    });
+
+    it("a sighting past the cut goes to the full list too", () => {
+      const v = cat();
+      // 25 notes newer than every sighting push all three past the newest 20 rows.
+      v.history = [...Array.from({ length: 25 }, (_, i) => statement(600 - i, { observedAt: "2026-10-20T09:00:00Z" })), ...v.history];
+      const html = renderCatPage(v, "Sam", { now: NOW2 });
+      expect(html).not.toContain('id="sg-903"');
+      expect(markers(html).sort()).toEqual(["?history=all#run-902", "?history=all#run-902", "?history=all#sg-903"]);
+    });
   });
 });
