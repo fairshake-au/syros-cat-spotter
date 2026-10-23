@@ -456,6 +456,83 @@ describe("renderHistory (spec §3.5)", () => {
     expect(menuOf(rowOf(draw(v, [line], { may: (c) => c !== "log_vet_visit" }), "vv-40"))).not.toContain("Mark the visit wrong");
   });
 
+  it("draws a visit dated by day only with the date and no clock time; a sighting keeps its time", () => {
+    // Stored at midday UTC (15:00 on Syros): a time nobody entered.
+    const midday = "2026-08-13T12:00:00Z";
+    const v = catView({
+      sightings: [sighting(900, "2026-10-10T06:14:00Z")],
+      history: [
+        statement(41, { kind: "sterilised", said: "Sterilised", vetVisitId: 40, observedAt: midday }),
+        statement(40, { kind: "vet_visit", said: "Vet visit: sterilised", vetVisitId: 40, observedAt: midday }),
+        foodOut(11, 900, "2026-10-10T06:14:00Z"),
+      ],
+    });
+    const html = draw(v, [visitLine(40, midday)]);
+    const whenText = (row: string) => /<div class="when">([\s\S]*?)<\/div>/.exec(row)![1]!.replace(/<[^>]*>/g, " ");
+    const visitWhen = whenText(rowOf(html, "vv-40"));
+    expect(visitWhen).toContain("13 Aug");
+    expect(visitWhen).not.toMatch(/\d\d:\d\d/);
+    expect(visitWhen).not.toContain("about");
+    const sightingWhen = whenText(rowOf(html, "sg-900"));
+    expect(sightingWhen).toContain("09:14");
+  });
+
+  it("an undone visit is dated by day only too", () => {
+    const midday = "2026-08-13T12:00:00Z";
+    const v = catView({
+      history: [statement(40, { kind: "vet_visit", said: "Vet visit: sterilised", vetVisitId: 40, observedAt: midday, createdAt: "2026-08-20T09:00:00Z" })],
+    });
+    const when = /<div class="when">([\s\S]*?)<\/div>/.exec(rowOf(draw(v), "vv-40"))![1]!.replace(/<[^>]*>/g, " ");
+    expect(when).not.toMatch(/\d\d:\d\d/);
+  });
+
+  it("says cost words only when the line carries a cost (the view_vet_costs guard)", () => {
+    const v = catView({
+      history: [statement(40, { kind: "vet_visit", said: "Vet visit: sterilised", vetVisitId: 40, observedAt: at })],
+    });
+    const base = visitLine(40, at);
+    expect("costEur" in base).toBe(false);
+    const bare = rowOf(draw(v, [base]), "vv-40");
+    expect(bare).not.toContain("Cost");
+    expect(bare).not.toContain("€");
+    expect(bare).not.toContain("paid by");
+    const unrecorded = rowOf(draw(v, [{ ...base, costEur: null }]), "vv-40");
+    expect(unrecorded).toContain("Cost not recorded");
+    const priced = rowOf(draw(v, [{ ...base, costEur: 55, paidBy: "syros_cats" }]), "vv-40");
+    expect(priced).toContain("€55");
+    expect(priced).toContain("paid by Syros Cats");
+  });
+
+  it("says who changed a change, naturally: guardian, deleted author, system, plain", () => {
+    const whoOf = (id: number, over: Partial<TeamStatement>) =>
+      /<span class="who">([^<]*)/.exec(
+        rowOf(draw(catView({ history: [statement(id, { kind: "life_status", said: "Lives on the street", observedAt: at, createdAt: at, ...over })] })), `s-${id}`),
+      )![1];
+    expect(whoOf(60, {})).toBe("Changed by Maria");
+    expect(whoOf(61, { author: { kind: "team", label: "Eleni" }, asGuardian: true })).toBe("Changed by Eleni, cat guardian");
+    expect(whoOf(62, { author: { kind: "deleted", label: "someone who has since deleted their details" }, asGuardian: true })).toBe(
+      "Changed by someone who has since deleted their details",
+    );
+    expect(whoOf(63, { author: { kind: "deleted", label: "someone who has since deleted their details" } })).toBe(
+      "Changed by someone who has since deleted their details",
+    );
+    expect(whoOf(64, { author: { kind: "system", label: "imported" } })).toBe("Imported");
+    expect(whoOf(65, { kind: "note", said: "Shy" })).toBe("Maria");
+  });
+
+  it("a sighting recorded well after it was seen says when it was recorded", () => {
+    const seen = "2026-10-10T08:00:00Z";
+    const late = "2026-10-12T09:30:00Z";
+    const v = catView({
+      sightings: [sighting(900, seen)],
+      history: [foodOut(11, 900, seen), { ...foodOut(12, 900, seen), createdAt: late }],
+    });
+    const row = rowOf(draw(v), "sg-900");
+    expect(row).toMatch(/recorded <time datetime="2026-10-12T09:30:00Z">/);
+    const onTime = catView({ sightings: [sighting(901, seen)], history: [foodOut(13, 901, seen)] });
+    expect(rowOf(draw(onTime), "sg-901")).not.toContain("recorded");
+  });
+
   it("keeps an undone visit, crossed out, with who marked it wrong and when", () => {
     const undoneAt = "2026-08-20T09:00:00Z";
     const v = catView({

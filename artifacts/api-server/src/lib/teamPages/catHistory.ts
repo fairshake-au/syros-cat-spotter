@@ -269,23 +269,33 @@ const capFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** "Ear tip clipped" → "ear tip clipped", for words joined after "Seen in …:". */
 const lowerFirst = (s: string) => (/^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 
-/** The date column: the day (with the year when it isn't this year) and the time, or "about". */
-function whenCell(iso: string, now: Date, approx = false): string {
+/**
+ * The date column: the day (with the year when it isn't this year) and the time,
+ * "about" when it was recorded well after, or nothing when only the day is known.
+ * A vet visit is entered by day and stored at midday UTC, so a clock time would
+ * be one nobody entered; the old page drew visits by day only too.
+ */
+function whenCell(iso: string, now: Date, approx = false, dayOnly = false): string {
   const withYear = yearOf(iso) !== yearOf(now.toISOString());
   return (
     `<div class="when"><time datetime="${esc(iso)}"><b>${esc(dayMonth(iso, withYear))}</b>` +
-    `${esc(approx ? "about" : clock(iso))}</time></div>`
+    `${dayOnly ? "" : esc(approx ? "about" : clock(iso))}</time></div>`
   );
 }
 
-/** Kinds that change what the page says about the cat: "Maria changed this". */
+/** Kinds that change what the page says about the cat: "Changed by Maria". */
 const CHANGE_KINDS = new Set(["life_status", "sterilised", "colony", "name", "coat", "markings", "ear_tip"]);
 
-/** Who wrote an entry, as its row says it: "Maria changed this", "A spotter", "Imported". */
+/**
+ * Who wrote an entry, as its row says it: "Changed by Maria", "Changed by Eleni,
+ * cat guardian", "Changed by someone who has since deleted their details",
+ * "A spotter", "Imported".
+ */
 function whoWords(s: TeamStatement): string {
-  const who = capFirst(byWhom(s));
   const person = s.author.kind === "team" || s.author.kind === "unknown" || s.author.kind === "deleted";
-  return person && CHANGE_KINDS.has(s.kind) ? `${who} changed this` : who;
+  if (!person || !CHANGE_KINDS.has(s.kind)) return capFirst(byWhom(s));
+  // A deleted author's details are gone, and "guardian" with them.
+  return `Changed by ${s.author.kind === "deleted" ? s.author.label : byWhom(s)}`;
 }
 
 /** Was it recorded well after it was true? Then the date is "about", and the recording is said. */
@@ -576,6 +586,9 @@ function sightingRow(r: SightingRow, c: Ctx): string {
     .join(", ");
   const who = [...new Set(r.entries.map((e) => capFirst(byWhom(e))))];
   const seen = fullWhen(s.at);
+  // Recorded well after it was seen: say when, the way a change row does.
+  const lateEntry = r.entries.find(differs);
+  const recordedLate = lateEntry ? ` · recorded ${timeTag(lateEntry.createdAt, fullWhen(lateEntry.createdAt))}` : "";
   const thumb = s.photoUrl
     ? `<a class="hthumbs" href="${esc(s.photoUrl)}"><img class="hthumb" src="${esc(s.photoUrl)}" alt="${esc(`Photo from the sighting on ${seen}`)}" loading="lazy" width="56" height="56"></a>`
     : "";
@@ -588,7 +601,7 @@ function sightingRow(r: SightingRow, c: Ctx): string {
     // SYC-415 spec §4.5: the matcher thought this spot's photos may be of more than one cat.
     (s.mixedCats ? ' <span class="tag warn">May show more than one cat</span>' : "") +
     // Every sighting comes from a spotter's phone (sightings_attribution_ck).
-    `<span class="who">${esc(who.length > 0 ? who.join(", ") : "A spotter")}</span>` +
+    `<span class="who">${esc(who.length > 0 ? who.join(", ") : "A spotter")}${recordedLate}</span>` +
     r.entries.map((e) => entryExtras(e, c)).join("") +
     thumb +
     "</div>" +
@@ -639,7 +652,7 @@ function visitRow(r: Extract<HistoryRow, { type: "visit" }>, c: Ctx): string {
       : "";
   return (
     `<li class="hrow vet${undone ? " replaced" : ""}" id="vv-${visitId}">` +
-    whenCell(date, c.now, l === null && own !== undefined && differs(own)) +
+    whenCell(date, c.now, false, true) +
     '<div class="what">' +
     rowNotice(ids, c) +
     `<b${own ? ` id="s-${own.id}"` : ""}>${undone ? `<del>${esc(headline)}</del>` : esc(headline)}</b> <span class="tag vet">vet</span>` +
