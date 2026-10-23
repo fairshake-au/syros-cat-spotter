@@ -8,3 +8,5 @@ Task 4: back links (§2.5): one backLink helper, Home links to /api/team/home (A
 Next: controller reviews Task 4, then PR1 wrap-up (browser check of back links at 390px and desktop)
 Task 5: fold markers and methodFold() helper done (c059c0d1)
 Next: PR 1 close (browser checks at 390/1280px, draft PR, adversarial review)
+Task 5 fix 1: invite button inline-flex (d085b1d5)
+Next: PR 1 close
