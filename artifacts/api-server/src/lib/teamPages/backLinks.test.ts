@@ -16,7 +16,9 @@ import { parseRange } from "../reports/range";
 // SYC-619 PR1 Task 4: one kind of back link, going to the right place (spec §2.5).
 // Each row renders a page and reads its `p.back` link: the text and the href.
 
-const unescape = (s: string) => s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
+// One pass, so "&amp;lt;" becomes "&lt;" and is never unescaped twice.
+const ENTITIES: Record<string, string> = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"' };
+const unescape = (s: string) => s.replace(/&(?:amp|lt|gt|quot);/g, (e) => ENTITIES[e]!);
 
 function backOf(html: string): { href: string; label: string } | null {
   const m = html.match(/<p class="back"><a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a><\/p>/);
