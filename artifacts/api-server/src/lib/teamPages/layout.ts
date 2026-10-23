@@ -208,28 +208,43 @@ form.takeout button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px
 form.sightact{margin:6px 0 0}
 form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
 /* The cat page's summary (SYC-396 spec §7.1): the plain facts, the strip of photos, the small map. */
-.catfacts{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:12px 0}
-.catfacts .fact{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px 12px}
-.catfacts dt{margin:0;font-size:13px;font-weight:700;color:#55524a}
-.catfacts dd{margin:2px 0 0;font-size:16px;overflow-wrap:anywhere}
+.catfacts{display:block;margin:12px 0;background:#fff;border:1px solid #d9d5ca;border-radius:10px;padding:4px 14px}
+.catfacts .fact{display:grid;grid-template-columns:118px minmax(0,1fr);gap:10px;padding:10px 0;border-top:1px solid #efece5}
+.catfacts .fact:first-child{border-top:0}
+.catfacts dt{margin:0;font-size:14px;font-weight:600;color:#55524a}
+.catfacts dd{margin:0;font-size:16px;overflow-wrap:anywhere;min-width:0}
+@media (max-width:359px){.catfacts .fact{grid-template-columns:minmax(0,1fr);gap:2px}}
 .catfacts .mark{font-weight:400;align-items:flex-start}
 .catfacts .mark-icon{margin-top:3px}
+.catfacts .how{display:block;font-size:14px;color:#55524a}
+.catfacts .why summary{font-size:14px;color:#0b4553;cursor:pointer;min-height:44px;display:flex;align-items:center}
+.catfacts .why dl{margin:4px 0 8px;font-size:14px}
+.catfacts .why dt{font-weight:700;margin-top:6px}
+.catfacts .why dd{margin:0}
 .colourchip{display:inline-block;font-size:14px;border:1px solid #8a877e;border-radius:999px;padding:1px 10px;margin:0 2px 2px 0;color:#1d1d1b;background:#fff}
 .catfacts a:has(.colourchip){text-decoration:none}
 .publicline{font-size:14px;color:#3b3930;margin:8px 0 16px}
 .publicline .public{display:inline;background:none;border:0;padding:0;font-weight:400}
 /* The folds this page adds show which way they open. */
-details.evidence>summary::before,li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}
-details.evidence>summary::-webkit-details-marker,li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
-details.evidence[open]>summary::before,li.statement.routine>details[open]>summary::before,.hownote[open]>summary::before{content:"▾"}
+li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}
+li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
+li.statement.routine>details[open]>summary::before,.hownote[open]>summary::before{content:"▾"}
 .photostrip{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.photostrip li{position:relative}
+.photostrip li.hidden img{opacity:.45}
+.photostrip .hiddentag{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.65);color:#fff;font-size:12px;line-height:1.3;text-align:center;border-radius:0 0 4px 4px;pointer-events:none}
 .photostrip img{display:block;width:56px;height:56px;object-fit:cover;border-radius:4px;background:#ece8dc}
-.photostrip .more{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border:1px solid #d9d5ca;border-radius:4px;font-size:14px}
+.photostrip .more{display:flex;align-items:center;justify-content:center;min-width:56px;height:56px;padding:0 8px;box-sizing:border-box;border:1px solid #d9d5ca;border-radius:4px;font-size:14px}
+.catsummary{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.catsummary>div{min-width:0}
+.jump{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:#f6f4ef;border-bottom:1px solid #d9d5ca;margin:24px -12px 0;padding:8px 12px;display:flex;gap:8px;overflow-x:auto;white-space:nowrap}
+.jump a{display:inline-flex;align-items:center;flex:none;min-height:44px;padding:0 16px;border-radius:999px;background:#fff;border:1px solid #d9d5ca;text-decoration:none;font-weight:600;font-size:15px;color:#1d1d1b}
+.catsummary .photo.catmain{display:block;width:100%;max-width:none;max-height:none;aspect-ratio:4/3;object-fit:cover}
+.catsummary .photo.catmain.diedphoto{width:auto;max-width:100%;max-height:140px;aspect-ratio:auto}
+#history,#photos,#appearance,#issue-strip{scroll-margin-top:72px}
 .catmap{margin:8px 0}
 .catmap .hint{margin:4px 0 0}
-details.evidence{margin:16px 0}
-details.evidence>summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
-details.evidence>summary h2{display:inline;margin:0}
+.catmap .mapcap{display:flex;justify-content:space-between;gap:8px;margin:4px 0 0;font-size:14px}
 .hownote{margin:8px 0}
 .hownote summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:#0b4553}
 /* One "More" menu per row: a sighting's actions, or taking a cat out of a colony. */
@@ -273,6 +288,9 @@ ul.sightings li>a{padding:0}
 .refs a{padding:8px 0}
 a.catlink.tap,a.sublink.tap{display:flex}
 .syrline{margin:0 0 4px;color:#55524a;font-size:15px;font-variant-numeric:tabular-nums}
+.statusline{margin:0 0 12px;font-size:15px;color:#3b3930}
+.statusline .sl{display:inline-block}
+.desc{font-size:15px;margin:8px 0}
 .photo.catmain{width:auto;max-width:100%;max-height:240px}
 .refs{margin:0;padding:0;list-style:none}
 .refs li{margin:0 0 6px}
@@ -290,6 +308,10 @@ input[type=date]{max-width:220px}
 .fixes summary,.statement summary,.typedfold summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .fixes details[open]{padding-bottom:12px}
 .fixes form,.statement form{margin:4px 0 0}
+.fixes details.update>summary{border:2px solid #0b5c6b;border-radius:8px;justify-content:center;margin:8px 0}
+.fixes details.update{padding:0;border:0;background:none}
+.fixes summary.risky{color:#8c1d18}
+.fixes a.coatlink{display:flex;align-items:center;min-height:44px;font-weight:700;color:#0b4553}
 .fixes form.diedform{margin:20px 0 4px}
 .fixes form.diedform button{width:100%;background:#fff;color:#8c1d18;border:2px solid #8c1d18}
 .fixes form.diedform button:hover{background:#fbeaea}
@@ -328,6 +350,7 @@ span.pin{pointer-events:none}
 .pin.seen{width:24px;height:24px;margin:-12px 0 0 -12px;border:1px solid #1d1d1b;background:#1d1d1b;box-shadow:0 0 0 2px #fff;display:flex;align-items:center;justify-content:center;text-decoration:none}
 /* A 44px tap area round each 24px marker (spec §12.4). */
 .pin.seen::after{content:"";position:absolute;inset:-10px}
+.pin.seen.multi{width:auto;min-width:24px;margin:0;padding:0 6px;border-radius:12px;white-space:nowrap;transform:translate(-50%,-50%)}
 .pinnum{color:#fff;font-size:12px;font-weight:700;line-height:1}
 .pin.sighting{border:3px dashed #1a56a6;border-radius:4px;background:transparent}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -535,11 +558,18 @@ details.filters>summary{display:none}
 .fpanel{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 24px;margin-top:0}
 }
 }
-/* A big screen: the cat page's summary beside "Update this cat"; the evidence below uses the full width (SYC-396 spec §7.3). */
+/* A big screen: the cat page's photo, strip and map left (340px), the facts in the middle, "Update this cat" right (spec section 4). The title above spans all three. */
 @media (min-width:1000px){
-.catsummary{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:0 32px;align-items:start}
-.catsummary>div>h2:first-child,.catsummary>div>:first-child{margin-top:12px}
-.catfacts{grid-template-columns:repeat(2,minmax(0,1fr))}
+.catsummary{grid-template-columns:340px minmax(0,1fr) 260px;grid-template-areas:"photo facts actions" "map facts actions";align-items:start;gap:0 28px}
+.catsummary.noactions{grid-template-columns:340px minmax(0,1fr);grid-template-areas:"photo facts" "map facts"}
+.catsummary .col-photo{grid-area:photo}
+.catsummary .col-facts{grid-area:facts}
+.catsummary .catactions{grid-area:actions}
+.catsummary .col-map{grid-area:map}
+.catmap .mapband.b256{display:none}
+.catmap .mapband.b164{display:block}
+.catsummary .col-facts>:first-child,.catsummary .catactions>:first-child{margin-top:12px}
+.jump{margin:32px 0 0;border-radius:0}
 }
 `;
 

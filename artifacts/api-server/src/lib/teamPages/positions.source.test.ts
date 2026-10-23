@@ -129,7 +129,7 @@ describe("positions print only through position.ts (D9)", () => {
 
   // The owner's home pin is a sentence in words, never a link (D5).
   it("the cat page's home pin is words, with no link", () => {
-    const src = read("lib/teamPages/catPages.ts");
-    expect(src).toMatch(/row\("Home pin", esc\(`Pinned, in \$\{placeLabel\(v\.owner\.homePin\)\}`\)\)/);
+    const src = read("lib/teamPages/catFacts.ts");
+    expect(src).toMatch(/Home pin: \$\{esc\(`Pinned, in \$\{placeLabel\(o\.homePin\)\}`\)\}/);
   });
 });

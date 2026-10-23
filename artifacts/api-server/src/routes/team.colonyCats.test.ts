@@ -359,7 +359,7 @@ describe("test 15 (team half): the team's cat page and moving a cat", () => {
   it("a cat in no colony says so", async () => {
     const cat = await seedCat("Loner");
     const page = (await get(`/api/team/cats/${cat}`)).text;
-    expect(page).toContain("Not in a colony");
+    expect(page).toContain("<dt>Colony</dt><dd>No colony</dd>");
     expect(page).not.toContain("Take out of this colony");
   });
 
@@ -455,7 +455,7 @@ describe("test 15 (team half): taking a cat out of a colony", () => {
     expect((await currentColonyOf([cat])).has(cat)).toBe(false);
 
     const page = decoded((await get(`/api/team/cats/${cat}?done=colonyOut&s=${rows[1]!.id}`)).text);
-    expect(page).toContain("Not in a colony");
+    expect(page).toContain("<dt>Colony</dt><dd>No colony</dd>");
     expect(page).toContain(`Put in the colony “${P}Leaver`);
     expect(page).toContain("Taken out of its colony");
     expect(page).toContain("The cat is out of its colony");
@@ -559,7 +559,7 @@ describe("test 15 (team half): Mark wrong on a colony statement", () => {
     expect(rows[1]!.value).toEqual({ colonyId: null });
     expect(rows[1]!.supersedesId).toBe(only!.id);
     expect((await currentColonyOf([cat])).has(cat)).toBe(false);
-    expect(decoded((await get(`/api/team/cats/${cat}`)).text)).toContain("Not in a colony");
+    expect(decoded((await get(`/api/team/cats/${cat}`)).text)).toContain("<dt>Colony</dt><dd>No colony</dd>");
   });
 
   it("marking an older statement wrong leaves the newest standing; marking a take-out wrong restores the colony", async () => {
@@ -829,9 +829,9 @@ describe("test 12 (part): refusals", () => {
     const page = (await get(`/api/team/colonies/${colony}`)).text;
     expect(page).not.toContain(`/api/team/colonies/${colony}/cats`);
     const catPage = (await get(`/api/team/cats/${cat}`)).text;
-    expect(catPage).not.toContain("<summary>Colony</summary>");
+    expect(catPage).not.toContain("<summary>Change the colony</summary>");
     denied.cap = null;
-    expect((await get(`/api/team/cats/${cat}`)).text).toContain("<summary>Colony</summary>");
+    expect((await get(`/api/team/cats/${cat}`)).text).toContain("<summary>Change the colony</summary>");
     expect((await get(`/api/team/colonies/${colony}`)).text).toContain(`/api/team/colonies/${colony}/cats`);
   });
 

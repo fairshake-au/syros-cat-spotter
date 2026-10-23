@@ -192,19 +192,21 @@ describe("cat page layout", () => {
     const html = renderCatPage(view(1), "Sam", { may });
     expect(html).not.toContain("twocol");
     expect(html).toContain('<div class="catsummary">');
-    expect(html).toContain('<div class="catactions"><h2 id="corrections">');
-    // The facts first, then the forms; the evidence after both, full width.
+    expect(html).toContain('<div class="catactions"><div class="fixes" id="corrections">');
+    // The facts (headed "What we know about this cat") first, then the forms.
     const summary = html.indexOf('<div class="catsummary">');
     expect(html.indexOf('class="catfacts"')).toBeGreaterThan(summary);
     expect(html.indexOf('id="corrections"')).toBeGreaterThan(html.indexOf('class="catfacts"'));
-    expect(html.indexOf("What we know about this cat")).toBeGreaterThan(html.indexOf('id="corrections"'));
+    expect(html.indexOf("What we know about this cat")).toBeLessThan(html.indexOf('id="corrections"'));
   });
 
-  it("folds the evidence, and opens it by itself when something says otherwise", () => {
-    expect(renderCatPage(view(1), "Sam")).toContain('<details class="evidence"><summary><h2>What we know about this cat</h2>');
+  it("folds the evidence under each fact, and opens it by itself when something says otherwise", () => {
+    const quiet = renderCatPage(view(1), "Sam");
+    expect(quiet).toContain('<details class="why"><summary>Why we think so</summary>');
+    expect(quiet).not.toContain('<details class="evidence"');
     const v = view(3);
     v.records.sterilised.conflictingStatementIds = [2];
-    expect(renderCatPage(v, "Sam")).toContain('<details class="evidence" open>');
+    expect(renderCatPage(v, "Sam")).toContain('<details class="why" open>');
   });
 
   it("folds how changes work into a short note, in #192's words", () => {
@@ -489,8 +491,10 @@ describe("the small sightings map", () => {
   });
 
   it("links to the full island Map focused on this cat, by its number only (PR 1.5)", () => {
-    const html = withSightings(2);
-    expect(html).toContain('<p class="maplink"><a class="tap" href="/api/team/cats?view=map&amp;focus=7">Open the full map</a></p>');
+    const v = view(0);
+    v.sightings = sightings(2);
+    const html = renderCatPage(v, "Sam", { now: NOW, island: true });
+    expect(html).toContain('<a class="tap" href="/api/team/cats?view=map&amp;focus=7">Open the map</a>');
     // Under the picture, never around it: no link holds another.
     expect(html).not.toMatch(/<a\b[^>]*>(?:(?!<\/a>)[\s\S])*<a\b/);
   });
@@ -499,7 +503,7 @@ describe("the small sightings map", () => {
     const html = withSightings(34);
     expect(pins(html)).toHaveLength(30);
     expect(pins(html)[29]!.id).toBe(1034);
-    expect(html).toContain("The newest 30 of 34 sightings, numbered oldest first.");
+    expect(html).toContain("Newest 30 of 34");
   });
 
   it("sightings at both ends of Syros: every one is on the map, or the page says how many aren't (review finding 3)", () => {

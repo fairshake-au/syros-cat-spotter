@@ -117,14 +117,13 @@ describe("the team cat page's words (SYC-362 D3)", () => {
   it("uses the new headings and labels", () => {
     for (const word of [
       "What we know about this cat",
-      "Team only. How we got to what the public sees.",
-      ">Update this cat</h2>",
+      "<summary>Update this cat</summary>",
       "<dt>Status</dt>",
       "<dt>Since</dt>",
       "<dt>Why we think so</dt>",
       "<dt>Says otherwise</dt>",
-      "Update where the cat lives",
-      "Update whether sterilised",
+      "Where the cat lives",
+      "Whether sterilised",
       "Date it happened",
       "How we know",
       "History (3)",

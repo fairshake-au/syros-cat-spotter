@@ -662,7 +662,7 @@ describe("the tidied forms (spec §7)", () => {
     const { c } = await ownedCat("deadform");
     expect((await died(c.id)).status).toBe(303);
     const html = (await page(c.id)).text;
-    const start = html.indexOf("<summary>Remove owner</summary>");
+    const start = html.indexOf("<summary class=\"risky\">Remove owner</summary>");
     expect(start).toBeGreaterThan(-1);
     const form_ = html.slice(start, html.indexOf("</form>", start));
     expect(form_).toContain('id="ro-keep"');

@@ -227,7 +227,7 @@ describe("the team page shows an owner (spec §7)", () => {
     expect(res.text).toContain("Has an owner");
     expect(res.text).toContain(note);
     // The pin is words, never numbers (SYC-517).
-    expect(res.text).toMatch(/<dt>Home pin<\/dt><dd>Pinned, in [^<\d]+<\/dd>/);
+    expect(res.text).toMatch(/Home pin: Pinned, in [^<\d]+<\/span>/);
     expect(res.text).not.toContain(`${row.homeLat}, ${row.homeLng}`);
     expect(res.text).not.toContain(d.id);
     const json = await request(app).get(`/api/team/cats/${c.id}`).set("Cookie", cookie).set("Accept", "application/json");
@@ -243,7 +243,7 @@ describe("the team page shows an owner (spec §7)", () => {
   it("a cat with no owner says No owner, with no note or pin", async () => {
     const c = await streetCat();
     const res = await page(c.id);
-    expect(res.text).toContain("No owner");
+    expect(res.text).not.toContain("<dt>Owner</dt>");
     expect(res.text).not.toContain("Has an owner");
     expect(res.text).not.toContain("Home pin");
     const json = await request(app).get(`/api/team/cats/${c.id}`).set("Cookie", cookie).set("Accept", "application/json");
