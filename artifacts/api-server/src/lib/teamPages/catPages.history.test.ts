@@ -97,9 +97,9 @@ function view(
   };
 }
 
-const statementCount = (html: string) => (html.match(/<li class="statement/g) ?? []).length;
-const statementIds = (html: string) =>
-  [...html.matchAll(/<li class="statement[^"]*" id="s-(\d+)"/g)].map((m) => Number(m[1]));
+/** Every entry History draws, by its anchor: a row of its own, or joined into a sighting's row. */
+const statementIds = (html: string) => [...html.matchAll(/ id="s-(\d+)"/g)].map((m) => Number(m[1]));
+const statementCount = (html: string) => statementIds(html).length;
 const showAll = (html: string) => /Show all \d+/.exec(html)?.[0] ?? null;
 const may = () => true;
 const mayNot = () => false;
@@ -162,9 +162,9 @@ describe("cat page history cap", () => {
     h[1] = statement(24, { replacedBy: [1] });
     const html = renderCatPage(view(25, { history: h }), "Sam");
     // #24 (shown) is replaced by #1 (not shown).
-    expect(html).toContain('Replaced by <a href="?history=all#s-1">#1</a>');
+    expect(html).toContain('Replaced by <a href="?history=all#s-1">the change of 1 Mar 2026</a>');
     // #25 (shown) corrects #2 (not shown).
-    expect(html).toContain('Corrects <a href="?history=all#s-2">#2</a>');
+    expect(html).toContain('Corrects <a href="?history=all#s-2">the change of 1 Mar 2026</a>');
   });
 
   it("links Replaced by and Corrects straight to #s-<id> when every statement is shown", () => {
@@ -172,8 +172,8 @@ describe("cat page history cap", () => {
     h[0] = statement(5, { replaces: 2 });
     h[3] = statement(2, { replacedBy: [5] });
     const html = renderCatPage(view(5, { history: h }), "Sam");
-    expect(html).toContain('Replaced by <a href="#s-5">#5</a>');
-    expect(html).toContain('Corrects <a href="#s-2">#2</a>');
+    expect(html).toContain('Replaced by <a href="#s-5">the change of 1 Mar 2026</a>');
+    expect(html).toContain('Corrects <a href="#s-2">the change of 1 Mar 2026</a>');
     expect(html).not.toContain("history=all");
   });
 });
@@ -259,13 +259,24 @@ const routineRun = (n: number, firstId = 100) =>
   });
 
 const groupLines = (html: string) =>
-  [...html.matchAll(/<li class="statement routine"><details[^>]*><summary>([^<]*)<\/summary>/g)].map((m) => m[1]);
+  [...html.matchAll(/<li class="hgroup"><details[^>]*><summary>[\s\S]*?<span class="runwords">([^<]*)<\/span>/g)].map((m) => m[1]);
+
+/**
+ * History joins a sighting's rows into the sighting (SYC-602 PR 2), so each
+ * sightingId the rows name gets its sighting, seen when its first row says.
+ */
+function seen(v: TeamCatView): TeamCatView {
+  const at = new Map<number, string>();
+  for (const s of v.history) if (s.sightingId !== null && !at.has(s.sightingId)) at.set(s.sightingId, s.observedAt);
+  v.sightings = [...at].map(([id, iso]) => ({ id, lat: 37.4447, lng: 24.9418, at: iso, photoUrl: null, extraPhotos: [], mixedCats: false }));
+  return v;
+}
 
 describe("routine sightings in the history", () => {
   it("twenty in a row with no change between them are one line, and expanding it lists them", () => {
-    const html = renderCatPage(view(0, { history: routineRun(20) }), "Sam", { now: NOW });
+    const html = renderCatPage(seen(view(0, { history: routineRun(20) })), "Sam", { now: NOW });
     expect(groupLines(html)).toEqual(["Seen 20 times by spotters between 5 Sept and 24 Sept, looking well"]);
-    const group = /<li class="statement routine">[\s\S]*<\/details><\/li>/.exec(html)![0];
+    const group = /<li class="hgroup">[\s\S]*<\/details><\/li>/.exec(html)![0];
     expect(statementIds(group)).toHaveLength(20);
     // Every row is still there with its own anchor, so links to it work.
     expect(statementIds(html)).toHaveLength(20);
@@ -278,15 +289,20 @@ describe("routine sightings in the history", () => {
       routine(2, 77, iso, { kind: "ear_tip", said: "Ear tip not clipped" }),
       routine(1, 76, "2026-09-10T09:00:00Z"),
     ];
-    const html = renderCatPage(view(0, { history: rows }), "Sam", { now: NOW });
+    const html = renderCatPage(seen(view(0, { history: rows })), "Sam", { now: NOW });
     expect(groupLines(html)).toEqual(["Seen 2 times by spotters between 10 Sept and 20 Sept, looking well"]);
   });
 
   it("a colony change between two runs splits them into two groups", () => {
     const newer = routineRun(3, 200);
-    const older = routineRun(4, 100).map((s) => ({ ...s, sightingId: (s.sightingId ?? 0) - 100 }));
-    const colony = statement(150, { kind: "colony", said: "Put in the colony Vaporia" });
-    const html = renderCatPage(view(0, { history: [...newer, colony, ...older] }), "Sam", { now: NOW });
+    // History is in time order (SYC-602 PR 2): the older run ten days before, the colony change between.
+    const tenDays = 10 * 86_400_000;
+    const older = routineRun(4, 100).map((s) => {
+      const iso = new Date(Date.parse(s.observedAt) - tenDays).toISOString();
+      return { ...s, sightingId: (s.sightingId ?? 0) - 100, observedAt: iso, createdAt: iso };
+    });
+    const colony = statement(150, { kind: "colony", said: "Put in the colony Vaporia", observedAt: "2026-09-18T09:00:00Z", createdAt: "2026-09-18T09:00:00Z" });
+    const html = renderCatPage(seen(view(0, { history: [...newer, colony, ...older] })), "Sam", { now: NOW });
     expect(groupLines(html)).toHaveLength(2);
     expect(html.indexOf("Put in the colony Vaporia")).toBeGreaterThan(html.indexOf(groupLines(html)[0]!));
   });
@@ -306,7 +322,7 @@ describe("routine sightings in the history", () => {
       const rows = [1, 2, 3].map((i) =>
         statement(i, { author: { kind: "spotter", label: "a spotter" }, sightingId: i, ...over }),
       );
-      const html = renderCatPage(view(0, { history: rows }), "Sam", { now: NOW });
+      const html = renderCatPage(seen(view(0, { history: rows })), "Sam", { now: NOW });
       expect(groupLines(html), over.kind).toEqual([]);
       expect(statementIds(html), over.kind).toHaveLength(3);
     }
@@ -314,63 +330,63 @@ describe("routine sightings in the history", () => {
 
   it("never groups a team member's rows, or a row that was corrected", () => {
     const team = routineRun(3).map((s) => ({ ...s, author: { kind: "team" as const, label: "Maria" } }));
-    expect(groupLines(renderCatPage(view(0, { history: team }), "Sam", { now: NOW }))).toEqual([]);
+    expect(groupLines(renderCatPage(seen(view(0, { history: team })), "Sam", { now: NOW }))).toEqual([]);
     const fixed = routineRun(2).map((s) => ({ ...s, replacedBy: [999] }));
-    expect(groupLines(renderCatPage(view(0, { history: fixed }), "Sam", { now: NOW }))).toEqual([]);
+    expect(groupLines(renderCatPage(seen(view(0, { history: fixed })), "Sam", { now: NOW }))).toEqual([]);
   });
 
   it("never folds a worrying sighting under looking well: No food or water, Couldn't tell (review finding 1)", () => {
     for (const said of ["No food or water", "Couldn't tell about food and water"]) {
       const rows = [routine(3, 3, "2026-09-20T09:00:00Z", { said }), routine(2, 2, "2026-09-19T09:00:00Z", { said })];
-      expect(groupLines(renderCatPage(view(0, { history: rows }), "Sam", { now: NOW })), said).toEqual([]);
+      expect(groupLines(renderCatPage(seen(view(0, { history: rows })), "Sam", { now: NOW })), said).toEqual([]);
     }
     const ear = [1, 2].map((i) =>
       routine(i, i, "2026-09-20T09:00:00Z", { kind: "ear_tip", said: "Couldn't tell whether the ear is clipped" }),
     );
-    expect(groupLines(renderCatPage(view(0, { history: ear }), "Sam", { now: NOW }))).toEqual([]);
+    expect(groupLines(renderCatPage(seen(view(0, { history: ear })), "Sam", { now: NOW }))).toEqual([]);
   });
 
   it("dates run from the earliest seen to the latest, whatever order they were matched in (review finding 2)", () => {
     // Matched newest first, but the newer-matched one was seen earlier.
     const rows = [routine(2, 2, "2026-09-01T09:00:00Z"), routine(1, 1, "2026-09-10T09:00:00Z")];
-    expect(groupLines(renderCatPage(view(0, { history: rows }), "Sam", { now: NOW }))).toEqual([
+    expect(groupLines(renderCatPage(seen(view(0, { history: rows })), "Sam", { now: NOW }))).toEqual([
       "Seen 2 times by spotters between 1 Sept and 10 Sept, looking well",
     ]);
   });
 
   it("opens a group that Why we think so links into (review finding 6)", () => {
     const rows = routineRun(4);
-    const v = view(0, { history: rows, sterilised: [rows[1]!.id] });
-    expect(renderCatPage(v, "Sam", { now: NOW })).toContain('<li class="statement routine"><details open>');
-    expect(renderCatPage(view(0, { history: rows }), "Sam", { now: NOW })).not.toContain(
-      '<li class="statement routine"><details open>',
+    const v = seen(view(0, { history: rows, sterilised: [rows[1]!.id] }));
+    expect(renderCatPage(v, "Sam", { now: NOW })).toContain('<li class="hgroup"><details open>');
+    expect(renderCatPage(seen(view(0, { history: rows })), "Sam", { now: NOW })).not.toContain(
+      '<li class="hgroup"><details open>',
     );
   });
 
   it("a single routine row stays a row of its own", () => {
-    const html = renderCatPage(view(0, { history: routineRun(1) }), "Sam", { now: NOW });
+    const html = renderCatPage(seen(view(0, { history: routineRun(1) })), "Sam", { now: NOW });
     expect(groupLines(html)).toEqual([]);
     expect(statementIds(html)).toHaveLength(1);
   });
 
   it("adds the year when the run isn't all in this year", () => {
     const old = routineRun(2).map((s) => ({ ...s, observedAt: s.observedAt.replace("2026", "2025") }));
-    expect(groupLines(renderCatPage(view(0, { history: old }), "Sam", { now: NOW }))).toEqual([
+    expect(groupLines(renderCatPage(seen(view(0, { history: old })), "Sam", { now: NOW }))).toEqual([
       "Seen 2 times by spotters between 23 Sept 2025 and 24 Sept 2025, looking well",
     ]);
   });
 
   it("opens the group the page lands on after a correction", () => {
     const rows = routineRun(5);
-    const html = renderCatPage(view(0, { history: rows }), "Sam", { now: NOW, at: rows[2]!.id, done: "wrong" });
-    expect(html).toContain('<li class="statement routine"><details open>');
+    const html = renderCatPage(seen(view(0, { history: rows })), "Sam", { now: NOW, at: rows[2]!.id, done: "wrong" });
+    expect(html).toContain('<li class="hgroup"><details open>');
   });
 
-  it("groups within the newest 20, and Show all still counts every row", () => {
-    const html = renderCatPage(view(0, { history: routineRun(25) }), "Sam", { now: NOW });
-    expect(showAll(html)).toBe("Show all 25");
-    expect(statementIds(html)).toHaveLength(20);
-    expect(groupLines(html)).toEqual(["Seen 20 times by spotters between 5 Sept and 24 Sept, looking well"]);
+  it("a run of 25 is one row: drawn whole, with its full count and no Show all (SYC-459 item 3)", () => {
+    const html = renderCatPage(seen(view(0, { history: routineRun(25) })), "Sam", { now: NOW });
+    expect(showAll(html)).toBeNull();
+    expect(statementIds(html)).toHaveLength(25);
+    expect(groupLines(html)).toEqual(["Seen 25 times by spotters between 31 Aug and 24 Sept, looking well"]);
   });
 });
 
@@ -383,10 +399,10 @@ describe("each sighting's More menu", () => {
     const v = view(0);
     v.sightings = [sighting];
     const html = renderCatPage(v, "Sam", { may, island: true, now: NOW });
-    const li = /<li id="sg-41">[\s\S]*?<\/li>/.exec(html)![0];
-    const menu = /<details class="rowmenu">[\s\S]*?<\/details>/.exec(li)![0];
-    expect(menu).toContain("<summary>More");
-    for (const inside of ["/api/team/sites/from-sighting", "/api/team/sites/map-at-sighting#map", ">Open map</a>"]) {
+    const li = /<li class="hrow sighting" id="sg-41">[\s\S]*?<\/li>/.exec(html)![0];
+    const menu = /<details class="rowmenu dots">[\s\S]*<\/details>/.exec(li)![0];
+    expect(menu).toContain('<summary><span aria-hidden="true">⋯</span><span class="sr">More for the sighting on');
+    for (const inside of ["/api/team/sites/from-sighting", "/api/team/sites/map-at-sighting#map", ">Show on the map</a>"]) {
       expect(menu, inside).toContain(inside);
       // …and nowhere else on the row.
       expect(li.replace(menu, ""), inside).not.toContain(inside);
@@ -394,16 +410,17 @@ describe("each sighting's More menu", () => {
     // No numbers anywhere on the row or in the menu (SYC-517).
     expect(li.replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{4}/);
     // The row itself shows the date and the named area, not numbers.
-    expect(li.replace(menu, "")).toMatch(/<\/time><br>[A-Z][a-z]/);
+    expect(li.replace(menu, "")).toMatch(/<\/time><\/div><div class="what"><b>Seen in [A-Z][a-z]/);
   });
 
   it("shows no position and no Open map to someone who is not island-wide and may not use either button", () => {
     const v = view(0);
     v.sightings = [sighting];
     const html = renderCatPage(v, "Sam", { now: NOW });
-    const li = /<li id="sg-41">[\s\S]*?<\/li>/.exec(html)![0];
+    const li = /<li class="hrow sighting" id="sg-41">[\s\S]*?<\/li>/.exec(html)![0];
     expect(li.replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{4}/);
     expect(li).not.toContain("Open map");
+    expect(li).not.toContain("Show on the map");
     expect(li).not.toContain("<form");
   });
 });
@@ -479,7 +496,7 @@ describe("the small sightings map", () => {
       { id: 1003, title: expect.stringMatching(/^Sighting 3, /), n: 3 },
       { id: 1004, title: expect.stringMatching(/^Sighting 4, /), n: 4 },
     ]);
-    for (const p of pins(html)) expect(html).toContain(`<li id="sg-${p.id}">`);
+    for (const p of pins(html)) expect(html).toContain(`<li class="hrow sighting" id="sg-${p.id}">`);
   });
 
   it("is the server-joined map picture: no script, and no position in any address", () => {
@@ -530,7 +547,7 @@ describe("the small sightings map", () => {
     ];
     const html = renderCatPage(v, "Sam", { now: NOW });
     expect(pins(html).length).toBeLessThan(2);
-    expect(html).toContain("too far from the others to fit on this map; see Sightings below.");
+    expect(html).toContain("too far from the others to fit on this map; see History below.");
   });
 
   it("has no map with no sightings", () => {
@@ -542,7 +559,7 @@ describe("the small sightings map", () => {
     try {
       const html = withSightings(2);
       expect(html).toContain("The map isn't available right now. The sightings are listed below.");
-      expect(html).toContain('<li id="sg-1002">');
+      expect(html).toContain('<li class="hrow sighting" id="sg-1002">');
     } finally {
       process.env["TEAM_SESSION_KEYS"] = KEY;
     }
@@ -553,8 +570,12 @@ describe("the small sightings map", () => {
 
 describe("the page's one History list (SYC-602 PR 2)", () => {
   const NOW2 = new Date("2026-10-23T08:00:00Z");
-  /** The words a person reads: no styles, no tags. */
-  const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ");
+  /** The words a person reads: no styles, no tags, entities as one character. */
+  const text = (html: string) =>
+    html
+      .replace(/<style[\s\S]*?<\/style>/g, "")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/&(?:#\d+|\w+);/g, "·");
   const visitLine = (visitId: number, date: string) => ({
     visitId,
     date,

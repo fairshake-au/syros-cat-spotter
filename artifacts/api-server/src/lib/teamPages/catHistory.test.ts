@@ -183,6 +183,17 @@ describe("historyRows (spec §3.5)", () => {
     expect(historyCounts(v, [])).toEqual({ all: 2, sightings: 2, visits: 0, changes: 0 });
   });
 
+  it("never groups a sighting that may show more than one cat", () => {
+    const v = catView({
+      sightings: [
+        sighting(903, "2026-10-13T08:00:00Z"),
+        { ...sighting(902, "2026-10-12T08:00:00Z"), mixedCats: true },
+        sighting(901, "2026-10-11T08:00:00Z"),
+      ],
+    });
+    expect(shape(historyRows(v, [], "all"))).toEqual(["s903", "s902", "s901"]);
+  });
+
   it("a single routine sighting stays a row of its own", () => {
     const v = catView({ sightings: [sighting(901, "2026-10-11T08:00:00Z")], history: [foodOut(1, 901, "2026-10-11T08:00:00Z")] });
     expect(shape(historyRows(v, [], "all"))).toEqual(["s901"]);
@@ -395,7 +406,7 @@ describe("renderHistory (spec §3.5)", () => {
     expect(menu).toContain("Make a feeding site here");
     expect(menu).toContain("Mark wrong: ear tip clipped");
     // One Mark wrong per markable entry: food and water has none.
-    expect(menu.match(/Mark wrong:/g)).toHaveLength(1);
+    expect(menu.match(/<summary>Mark wrong:/g)).toHaveLength(1);
     // Show on the map only for an island-wide viewer.
     expect(menuOf(rowOf(draw(sightingCat(), [], { island: false }), "sg-900"))).not.toContain("Show on the map");
     // Nothing the person may not do.

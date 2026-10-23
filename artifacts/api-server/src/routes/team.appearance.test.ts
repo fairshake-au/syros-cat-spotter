@@ -1250,7 +1250,7 @@ describe("SYC-443: the team cat page says the coat in the team's words (§15.1)"
     expect(section).toContain("Pattern</dt><dd>Tabby");
     expect(section).toContain("Colours</dt><dd>Brown · Ginger");
     // The statement and the drawn cat.
-    expect(section).toContain("Brown and ginger tabby</p>");
+    expect(section).toMatch(/<p class="said"><span class="sid">#\d+<\/span> Brown and ginger tabby[ <]/);
     expect(section).toContain('aria-label="Brown and ginger tabby"');
     expect(section).toContain("<strong>Brown and ginger tabby</strong>");
     // The history, and the team JSON's `said` (changed on purpose, English only).

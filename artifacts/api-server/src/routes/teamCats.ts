@@ -26,6 +26,7 @@ import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
 import { allColonyChoices } from "../lib/colonyCats";
 import { cameFromCats, catPageFormKeys, renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
+import { historyShowOf } from "../lib/teamPages/catHistory";
 import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
 import { parseCatFilters } from "../lib/teamCatFilters";
 import { allTeamCats, catTrail, LIVES, listTeamCats, type CatListFilters } from "../lib/teamCatList";
@@ -554,6 +555,8 @@ router.get(
           : undefined,
         back: cameFromCats(req.get("referer")),
         allHistory: req.query["history"] === "all",
+        // History's filter (spec §3.5): sightings, visits or changes; anything else is all.
+        show: historyShowOf(req.query["show"]),
         island: isIslandWide(person),
         // SYC-44 PR 7.1: its own check (view_welfare_queue), not this page's.
         issues: await issueStripFor(person, view.cat.id),

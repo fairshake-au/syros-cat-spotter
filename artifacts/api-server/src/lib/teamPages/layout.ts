@@ -247,6 +247,52 @@ li.statement.routine>details[open]>summary::before,.hownote[open]>summary::befor
 .catmap .mapcap{display:flex;justify-content:space-between;gap:8px;margin:4px 0 0;font-size:14px}
 .hownote{margin:8px 0}
 .hownote summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:#0b4553}
+/* The cat page's History (SYC-602 PR 2, spec §3.5): filters, then one list; a date column, the words, a ⋯ menu. */
+.hfilters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.hfilters a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid #d9d5ca;background:#fff;text-decoration:none;color:#1d1d1b;font-size:14px}
+.hfilters a[aria-current]{border-color:#0b5c6b;background:#e4eef0;color:#0b4553;font-weight:700}
+ol.tl{list-style:none;margin:0;padding:0;background:#fff;border:1px solid #d9d5ca;border-radius:10px}
+ol.tl>li{border-top:1px solid #efece5}
+ol.tl>li:first-child{border-top:0}
+ol.tl [id],#vet-visits{scroll-margin-top:72px}
+li.hrow{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:12px;padding:12px;align-items:start;overflow-wrap:anywhere}
+li.hrow .when,li.hgroup .when{font-size:14px;color:#55524a;line-height:1.25}
+li.hrow .when b,li.hgroup .when b{display:block;color:#1d1d1b;font-size:15px}
+li.hrow .what{min-width:0}
+li.hrow .what p{margin:4px 0 0}
+li.hrow .what .notice{margin:0 0 6px}
+li.hrow .who{display:block;font-size:14px;color:#55524a}
+li.hrow.vet{box-shadow:inset 4px 0 0 #0b5c6b}
+li.hrow.replaced{background:#faf9f6}
+li.hrow del{color:#6b685f}
+li.hrow .tag{font-size:12px;padding:1px 8px;margin-left:4px;vertical-align:1px}
+.tag.vet{background:#e4eef0;color:#0b4553}
+.tag.note{background:#efe9dc;color:#5b4a22}
+.tag.warn{background:#fdf1d6;color:#5c4800}
+.hthumbs{display:flex;gap:4px;margin-top:6px}
+li.hrow a.hthumbs{padding:0;width:max-content}
+li.hgroup>details>summary{display:grid;grid-template-columns:62px minmax(0,1fr);gap:12px;padding:12px;cursor:pointer;list-style:none;min-height:44px}
+li.hgroup>details>summary::-webkit-details-marker{display:none}
+li.hgroup .runwords{color:#0b4553;font-weight:700}
+li.hgroup .runwords::before{content:"▸ "}
+li.hgroup>details[open] .runwords::before{content:"▾ "}
+li.hgroup .hthumb{width:44px;height:44px}
+li.hgroup ol.tl{border:0;border-top:1px solid #efece5;border-radius:0;background:#fbfaf7;margin:0 0 0 12px}
+.rowmenu.dots{position:relative;margin:0}
+.rowmenu.dots>summary{width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:8px;justify-content:center;font-size:22px;line-height:1;color:#55524a;background:transparent;list-style:none}
+.rowmenu.dots>summary::-webkit-details-marker{display:none}
+.rowmenu.dots[open]>summary{background:#efece5}
+.rowmenu.dots>.rowmenuitems{position:absolute;right:0;top:46px;z-index:3;background:#fff;border:1px solid #d9d5ca;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:6px 12px 10px;width:min(320px,calc(100vw - 48px));box-sizing:border-box}
+.rowmenu.dots .meta a{display:flex;align-items:center;min-height:44px;padding:0}
+.rowmenu.dots form.sightact{margin:6px 0}
+.rowmenu.dots form.sightact button{width:100%;text-align:left}
+.rowmenu.dots .rowmenuitems>a.tap{display:flex}
+.rowmenu.dots details{border-top:1px dashed #c9c4b6;margin-top:6px}
+.rowmenu.dots details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553;font-size:15px}
+.rowmenu.dots details>summary.risky{color:#8c1d18}
+.rowmenu.dots details form{margin:4px 0 0}
+.rowmenu.dots details button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
+.rowmenu.dots details button.risky{background:#fff;color:#8c1d18;border:2px solid #8c1d18}
 /* One "More" menu per row: a sighting's actions, or taking a cat out of a colony. */
 .rowmenu{margin:4px 0 0}
 .rowmenu>summary{cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid #0b5c6b;border-radius:8px;color:#0b4553;font-weight:700;background:#fff}

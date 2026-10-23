@@ -196,7 +196,8 @@ export function describeStatement(
         const side = v["side"] === "left" || v["side"] === "right" ? `, ${v["side"]} ear` : "";
         // "Looks right" on the Probably sterilised list (PR 4, Decision 6).
         if (typeof v["agreesWith"] === "number")
-          return `Agreed the ear tip is clipped${side}, in the photo of #${v["agreesWith"]}`;
+          // Never a record number on a team page (SYC-602 spec §3.5).
+          return `Agreed the ear tip is clipped${side}, in an earlier sighting's photo`;
         return `Ear tip clipped${side}`;
       }
       if (v["clipped"] === false) return EAR_TIP_NOT_CLIPPED;
@@ -230,7 +231,7 @@ export function describeStatement(
       // "Mark wrong" (SYC-2 PR 3.1): says nothing in its place.
       if (v["retracted"] === true) return "Marked wrong";
       const text = `Coat: ${coatHistoryText(readCoatValue(v))}`;
-      return typeof v["agreesWith"] === "number" ? `${text} (agrees with #${v["agreesWith"]})` : text;
+      return typeof v["agreesWith"] === "number" ? `${text} (agrees with an earlier change)` : text;
     }
     case "markings": {
       if (v["retracted"] === true) return "Marked wrong";
@@ -240,7 +241,7 @@ export function describeStatement(
         marks.length === 0
           ? "Markings: nothing special"
           : `Markings: ${marks.map((m) => MARK[m as string] ?? "unknown").join(", ")}`;
-      return typeof v["agreesWith"] === "number" ? `${text} (agrees with #${v["agreesWith"]})` : text;
+      return typeof v["agreesWith"] === "number" ? `${text} (agrees with an earlier change)` : text;
     }
     // SYC-396 PR 3.0: a vet visit, and the undo of one. PR 3.1 words the
     // visit in full on the cat page's Vet visits section.

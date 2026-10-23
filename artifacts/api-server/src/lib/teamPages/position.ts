@@ -28,7 +28,10 @@ export function place(lat: number, lng: number, opts: { link: boolean; label?: P
   return opts.link ? `${words} &middot; ${openMapLink(lat, lng)}` : words;
 }
 
-/** Just the "Open map" link, for a line that already says where (island-wide viewers only). */
-export function openMapLink(lat: number, lng: number): string {
-  return `<a href="${esc(mapUrl(lat, lng))}" rel="noopener noreferrer">Open map</a>`;
+/**
+ * Just the "Open map" link, for a line that already says where (island-wide
+ * viewers only). `words` is the link's fixed text, never a value.
+ */
+export function openMapLink(lat: number, lng: number, words = "Open map"): string {
+  return `<a href="${esc(mapUrl(lat, lng))}" rel="noopener noreferrer">${esc(words)}</a>`;
 }

@@ -653,7 +653,10 @@ describe("a statement corrected twice", () => {
     const page = await request(app).get(second.headers["location"]!).set("Cookie", cookie);
     expect(page.text).toContain("Someone already corrected this.");
     // Beside the statement the page lands on, not at the top out of sight.
-    expect(page.text).toContain(`id="s-${observation.id}"><p class="notice" role="status">Someone already corrected this.`);
+    // (SYC-602 PR 2: inside the History row that holds it.)
+    const from = page.text.lastIndexOf("<li", page.text.indexOf(`id="s-${observation.id}"`));
+    const row = page.text.slice(from, page.text.indexOf("</li>", from));
+    expect(row).toContain('<p class="notice" role="status">Someone already corrected this.');
     // Once only.
     expect(page.text.split("Someone already corrected this.")).toHaveLength(2);
     // The corrected statement offers no second correction.

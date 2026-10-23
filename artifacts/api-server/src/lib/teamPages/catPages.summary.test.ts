@@ -216,7 +216,8 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
   it("has jump links with counts, none marked as selected", () => {
     const html = page(richCatView());
     const nav = html.slice(html.indexOf('<nav class="jump"'), html.indexOf("</nav>", html.indexOf('<nav class="jump"')));
-    expect(nav).toContain('href="#history">History (2)</a>');
+    // Every History row (SYC-602 PR 2): 21 sightings and two changes.
+    expect(nav).toContain('href="#history">History (23)</a>');
     expect(nav).toContain('href="#photos">Photos (0)</a>');
     expect(nav).toContain('href="#appearance">Coat and markings</a>');
     expect(nav).not.toContain("#issue-strip");
