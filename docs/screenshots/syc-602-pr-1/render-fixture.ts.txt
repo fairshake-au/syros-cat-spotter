@@ -1,8 +1,16 @@
 // Scratch render for PR 1 (SYC-602) screenshots. Never committed.
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync as write } from "node:fs";
 import { renderCatPage } from "./src/lib/teamPages/catPages";
 import type { TeamCatView, TeamStatement } from "./src/lib/teamCatView";
 const OUT = process.env["OUT"]!;
+// Local placeholder pictures, so nothing shows a broken-image icon (no network is used).
+mkdirSync(`${OUT}/img`, { recursive: true });
+const hues: Record<string, number> = { main: 210, s1: 30, s2: 120, s3: 280, s4: 0 };
+for (const [n, h] of Object.entries(hues))
+  write(`${OUT}/img/${n}.svg`, `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="hsl(${h},35%,62%)"/><circle cx="400" cy="300" r="140" fill="hsl(${h},30%,40%)"/><text x="400" y="320" font-size="56" text-anchor="middle" fill="#fff" font-family="sans-serif">${n}</text></svg>`);
+write(`${OUT}/img/tile.svg`, `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#dfe8d8"/><path d="M0 120H400M0 280H400M130 0V400M290 0V400" stroke="#fff" stroke-width="14"/><path d="M0 330 Q200 250 400 350 V400 H0Z" fill="#b9d6e6"/></svg>`);
+const writeFileSync = (path: string, html: string) =>
+  write(path, html.replace(/src="\/api\/team\/photos\/(\w+)(?:\/small)?"/g, 'src="img/$1.svg"').replace(/src="\/api\/team\/map-tiles\/[^"]*"/g, 'src="img/tile.svg"'));
 const NOW = new Date("2026-10-17T09:00:00Z");
 const st = (id: number, o: Partial<TeamStatement>): TeamStatement => ({
   id, kind: "note", said: "", reason: null, author: { kind: "team", label: "Maria" },
