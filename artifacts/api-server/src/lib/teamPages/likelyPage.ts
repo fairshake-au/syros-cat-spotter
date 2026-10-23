@@ -2,6 +2,7 @@ import type { LikelyCat } from "../likelyReview";
 import { keptLine, type KeptFields } from "./signedOutPage";
 import { syrNumber } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
+import { backLink, HOME_PATH } from "./backLink";
 import { renderPage } from "./layout";
 
 // The Probably sterilised list (SYC-43 part 2 plan, PR 4; spec §4.5 point 3).
@@ -96,7 +97,7 @@ export function renderLikelyPage(
     title: "Ear clips to check",
     active: "likely",
     personName,
-    beforeTitle: '<p class="back"><a href="/api/team">&larr; Back to Home</a></p>',
+    beforeTitle: backLink(HOME_PATH, "Home"),
     body: notice + intro + body,
   });
 }

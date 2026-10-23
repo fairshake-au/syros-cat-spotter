@@ -17,6 +17,7 @@ import { QUERY_MAX, teamPhotoUrl } from "../teamCatView";
 import { assetUrl } from "../teamAssets";
 import type { TieMode } from "./catPages";
 import { escapeHtml as esc } from "./escape";
+import { backLink } from "./backLink";
 import { renderPage } from "./layout";
 import { lastSeenWords, notSeenWords } from "./lastSeen";
 import { markBadge, MARK_WORD } from "./marks";
@@ -362,7 +363,7 @@ export function renderCatGridPage(o: CatGridOptions): string {
     title: "Which cat is this?",
     active: "queue",
     personName: o.personName,
-    beforeTitle: `<p class="back"><a class="tap" href="${esc(`/api/team?open=${encodeURIComponent(tie.publicId)}#r-${encodeURIComponent(tie.publicId)}`)}">Back to the report</a></p>`,
+    beforeTitle: backLink(`/api/team?open=${encodeURIComponent(tie.publicId)}#r-${encodeURIComponent(tie.publicId)}`, "The report"),
     body: intro + body,
     mainClass: "wide",
     script,

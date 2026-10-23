@@ -271,7 +271,7 @@ export const fr: Record<StringKey, string> = {
   "appearance.drawnPatternNotKnown": "Motif inconnu",
 
   "colourCheck.title": "Vérification des couleurs",
-  "colourCheck.back": "← Retour à l'accueil",
+  "colourCheck.back": "← Accueil",
   "colourCheck.intro": "Les chats dont la couleur ou les marques méritent un second regard. Faible priorité : quelques minutes par semaine.",
   "colourCheck.empty": "Rien à vérifier.",
   "colourCheck.toCheck": "À vérifier : {count}",
@@ -336,7 +336,7 @@ export const fr: Record<StringKey, string> = {
 
   "notes.hint": "Merci de ne pas noter les allées et venues des gens.",
 
-  "colony.back": "Toutes les colonies",
+  "colony.back": "Colonies",
   "colony.notes": "Notes réservées à l’équipe",
   "colony.noNotes": "Aucune note.",
   "colony.centre": "Centre de la colonie",
@@ -381,7 +381,6 @@ export const fr: Record<StringKey, string> = {
   "add.noColony": "Aucune colonie",
   "add.in": "Dans",
   "add.already": "Déjà dans cette colonie",
-  "add.back": "Retour à la colonie",
 
   "done.created": "La colonie a été créée.",
   "done.saved": "Enregistré.",
@@ -539,7 +538,7 @@ export const fr: Record<StringKey, string> = {
   "act.colonyButton": "Changer la colonie",
   "act.colonyPublic": "Si ce point est public, changer sa colonie le rend de nouveau privé.",
 
-  "site.back": "Tous les points de nourrissage",
+  "site.back": "Points de nourrissage",
   "site.colony": "Colonie",
   "site.noColony": "Pas encore de colonie.",
   "site.privateSentence":

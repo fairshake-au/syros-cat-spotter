@@ -1,3 +1,4 @@
+import { backLink } from "./backLink";
 import { renderPage } from "./layout";
 import { escapeHtml as esc } from "./escape";
 import { LIVE_LANGUAGES } from "./strings";
@@ -330,7 +331,7 @@ export function renderRolesPage(o: {
       `<form class="pform" method="post" action="${PEOPLE}/${encodeURIComponent(o.person.id)}/roles">` +
       placementFields(o.colonies, o.pre) +
       `<button class="pbtn go" type="submit">Save</button></form>`,
-    `<p class="back"><a href="${PEOPLE}">All people</a></p>`,
+    backLink(PEOPLE, "People"),
   );
 }
 
@@ -358,7 +359,7 @@ export function renderBringBackPage(o: {
       placementFields(o.colonies) +
       `<label class="l" for="bb-lang">Language of the invitation</label><select id="bb-lang" name="language">${langOptions}</select>` +
       `<button class="pbtn go" type="submit">Bring them back</button></form>`,
-    `<p class="back"><a href="${PEOPLE}?tab=left">Left</a></p>`,
+    backLink(`${PEOPLE}?tab=left`, "People who left"),
   );
 }
 

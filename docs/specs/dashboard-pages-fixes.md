@@ -117,7 +117,7 @@ The review said the two light up different menu items. That was wrong (§15). Th
 
 **Change.**
 - `main` is 1120px wide on every page, the same frame the menu bar already uses (`layout.ts:108`).
-- A page without `mainClass: "wide"` gets one inner wrapper, `<div class="readcol">`, around everything `renderPage` puts in `main` (banner, back link, title and body). `.col` is 760px wide and starts at the frame's left edge.
+- A page without `mainClass: "wide"` gets one inner wrapper, `<div class="readcol">`, around everything `renderPage` puts in `main` (banner, back link, title and body). `.readcol` is 760px wide and starts at the frame's left edge.
 - `mainClass` stays a single value. `renderPage` adds the wrapper whenever the value isn't `wide`, so no page has to change.
 - **`.mappage`** keeps the map starting on a whole pixel (SYC-209 PR 3.1). Its margin rule, `round(down,(100% - 760px) / 2,1px)` at `layout.ts:364`, is rewritten for the 1120px frame and must still round to a whole pixel. The `.mappage` pages are Feeding sites, a site, the site forms, the centre pickers and the tap-check map (`sitePages.ts`, `siteFormPages.ts`, `centrePages.ts`, `routes/teamMap.ts`). The Cats map view is `wide`, not `mappage`.
 - At 390px nothing changes, because both widths are wider than the screen.
