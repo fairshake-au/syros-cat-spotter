@@ -134,7 +134,7 @@ describe("Signed in as and Sign out sit in the menu bar (spec §3.2)", () => {
     const main = /<main[^>]*>([\s\S]*)<\/main>/.exec(page())![1]!;
     expect(main).not.toContain("Signed in as");
     expect(main).not.toContain("/api/team/signout");
-    expect(main.startsWith("<h1>T</h1>")).toBe(true);
+    expect(main.replace(/^<div class="col">/, "").startsWith("<h1>T</h1>")).toBe(true);
   });
 
   it("appears once in each copy of the menu: the bar and the phone fold (SYC-619 §2.1)", () => {
@@ -352,5 +352,37 @@ describe("the cat page's folded \"What we know\" is not a photo grid", () => {
     expect(css).toContain("div.evidence{display:grid");
     expect(css).not.toMatch(/(^|[}\s,])\.evidence[\s{]/);
     expect(css).not.toMatch(/(^|[}\s,])\.evidence (img|figure)/);
+  });
+});
+
+describe("one left edge at every width (SYC-619 §2.4)", () => {
+  const styles = (html: string) => /<style>([\s\S]*?)<\/style>/.exec(html)![1]!;
+  const inner = (html: string) => /<main[^>]*>([\s\S]*)<\/main>/.exec(html)![1]!;
+
+  it("main is 1120px on every page", () => {
+    const css = styles(page());
+    expect(css).toMatch(/(^|\n)main\{max-width:1120px;margin:0 auto;/);
+    expect(css).not.toMatch(/main\{max-width:760px/);
+  });
+
+  it("a narrow page wraps its content in .col, 760px, left-aligned", () => {
+    for (const mainClass of [undefined, "mappage"] as const) {
+      const html = page({ mainClass, beforeTitle: "<a>back</a>", banner: "<p>b</p>", afterTitle: "<p>a</p>" });
+      const body = inner(html);
+      expect(body.startsWith('<div class="col"><p>b</p><a>back</a><h1>T</h1><p>a</p><p>x</p></div>')).toBe(true);
+      expect(body.endsWith("</div>")).toBe(true);
+    }
+    expect(styles(page())).toMatch(/\.col\{max-width:760px\}/);
+    expect(styles(page())).not.toMatch(/\.col\{[^}]*margin/);
+  });
+
+  it("wide pages have no .col", () => {
+    expect(inner(page({ mainClass: "wide" }))).not.toContain('class="col"');
+  });
+
+  it("the .mappage margin rule uses the 1120px frame and still rounds down to 1px", () => {
+    const css = styles(page({ mainClass: "mappage" }));
+    expect(css).toContain("round(down,(100% - 1120px) / 2,1px)");
+    expect(css).not.toContain("(100% - 760px) / 2,1px");
   });
 });

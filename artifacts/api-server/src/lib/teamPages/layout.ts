@@ -137,8 +137,8 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
 .menulinks .off{display:flex;align-items:center;min-height:44px;color:#6b685f}
 .menulinks form{margin:0}
 .phonebar .who{display:block;padding:8px 2px;color:#55524a;font-size:14px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}}
-main{max-width:760px;margin:0 auto;padding:12px 12px 48px}
-main.wide{max-width:1120px}
+main{max-width:1120px;margin:0 auto;padding:12px 12px 48px}
+.col{max-width:760px}
 h1{font-size:22px;margin:12px 0 4px}
 h2{font-size:18px;margin:28px 0 8px}
 .banner{background:#fff3cd;border:1px solid #c9a227;border-radius:8px;padding:10px 12px;margin:12px 0}
@@ -377,7 +377,7 @@ a.cardlink{display:flex;align-items:center;min-height:46px;background:#fff;borde
 a.cardlink:hover{border-color:#0b5c6b}
 main.mappage{line-height:22px}
 main.mappage h1{line-height:28px}
-@supports (margin-left:round(down,10.5px,1px)){main.mappage{margin-left:max(0px,round(down,(100% - 760px) / 2,1px));margin-right:0}}
+@supports (margin-left:round(down,10.5px,1px)){main.mappage{margin-left:max(0px,round(down,(100% - 1120px) / 2,1px));margin-right:0}}
 @media (min-width:360px){.mapband.b144{display:none}.mapband.b164{display:block}}
 @media (min-width:375px){.mapband.b164{display:none}.mapband.b171{display:block}}
 @media (min-width:390px){.mapband.b171{display:none}.mapband.b179{display:block}}
@@ -594,8 +594,8 @@ export interface PageOptions {
   /**
    * A class on <main>. `mappage`: everything above the map has a whole-pixel
    * height and the page sits on a whole pixel, so the map does too (SYC-209
-   * PR 3.1; see lib/teamPages/map.ts). `wide`: up to 1120px on a big
-   * screen, for a page laid out to use the room.
+   * PR 3.1; see lib/teamPages/map.ts). `wide`: no 760px reading column
+   * (`.col`), for a page laid out to use the whole 1120px frame.
    */
   mainClass?: "mappage" | "wide";
   /** Show the People link (default: whatever requireTeam set for this request). */
@@ -719,11 +719,15 @@ export function renderPage(opts: PageOptions): string {
         : "") +
     // tabindex=-1: the skip link moves keyboard focus here, not just the view.
     `<main id="main" tabindex="-1"${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
+    // One left edge (SYC-619 §2.4): main is 1120px everywhere; a page that isn't
+    // `wide` keeps a 760px reading column at the frame's left edge.
+    (opts.mainClass === "wide" ? "" : '<div class="col">') +
     (opts.banner ?? "") +
     (opts.beforeTitle ?? "") +
     `<h1>${escapeHtml(opts.title)}</h1>` +
     (opts.afterTitle ?? "") +
     opts.body +
+    (opts.mainClass === "wide" ? "" : "</div>") +
     "</main></body></html>"
   );
 }
