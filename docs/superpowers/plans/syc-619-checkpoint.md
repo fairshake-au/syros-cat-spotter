@@ -4,3 +4,5 @@ Task 2: use_workspace management-only, review_cat_news (team) on /api/team/news-
 Next: Task 3
 Task 3: main 1120px everywhere, .col 760px wrapper for non-wide pages, .mappage margin rewritten for 1120px frame; browser whole-pixel check left to controller (c90a3410)
 Next: controller runs Step 3 browser check, then PR1 wrap-up
+Task 4: back links (§2.5): one backLink helper, Home links to /api/team/home (Areas, Ear clips, Colour check, Vet settings), 11 pages relabelled per §2.5, backLinks.test.ts table (41a63955)
+Next: controller reviews Task 4, then PR1 wrap-up (browser check of back links at 390px and desktop)
