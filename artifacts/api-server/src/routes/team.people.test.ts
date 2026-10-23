@@ -187,6 +187,15 @@ describe("the chips follow the state table (spec §10.1), worked out when the pa
   });
 });
 
+describe("Invite someone is an outlined button (SYC-619 §2.6)", () => {
+  it("the summary is pbtn without go; Send the invitation stays filled", async () => {
+    const list = (await get("/api/team/people", susan)).text;
+    expect(list).toContain('<details class="invitefold"><summary class="pbtn">Invite someone</summary>');
+    expect(list).not.toMatch(/<summary class="pbtn go">Invite someone/);
+    expect(/<section id="invite">[\s\S]*?<\/section>/.exec(list)![0]).toMatch(/class="pbtn go"[^>]*>Send the invitation/);
+  });
+});
+
 describe("T6 on the screen: an end date of 25 October 2026 is Athens midnight across the clock change", () => {
   it("lands on 2026-10-25T22:00:00Z, and the screen shows the instant", async () => {
     // The date must be in the future for lib/db's own check; only Date is faked.

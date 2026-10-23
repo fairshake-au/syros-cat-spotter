@@ -268,7 +268,7 @@ function inviteForm(colonies: ColonyOption[]): string {
     })
     .join("");
   return (
-    `<section id="invite"><details class="invitefold"><summary class="pbtn go">Invite someone</summary>` +
+    `<section id="invite"><details class="invitefold"><summary class="pbtn">Invite someone</summary>` +
     `<form class="pform" method="post" action="${PEOPLE}/invite">` +
     `<label class="l" for="inv-email">Their email address</label>` +
     `<input id="inv-email" type="email" name="email" required autocomplete="off" maxlength="254">` +

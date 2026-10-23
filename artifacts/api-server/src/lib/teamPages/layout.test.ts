@@ -400,3 +400,76 @@ describe("the .readcol wrapper's name is the shell's alone (SYC-619 §2.4)", () 
     }
   });
 });
+
+describe("folds look like folds (SYC-619 §2.6)", () => {
+  const sheet = () => /<style>([\s\S]*?)<\/style>/.exec(page())![1]!;
+  const MARKED = [
+    ".fixes summary",
+    ".typedfold summary",
+    "details.hist>summary",
+    "details.notdescribed>summary",
+    "details.invitefold>summary",
+    "details.method>summary",
+  ];
+  const ruleFor = (css: string, tail: string) => {
+    const m = new RegExp(`(^|\\n)([^{}\\n]*${tail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^{}\\n]*)\\{([^}]*)\\}`).exec(css);
+    return m ? { selectors: m[2]!.split(",").map((s) => s.trim()), body: m[3]! } : null;
+  };
+
+  it("the marker rule lists exactly the six summaries", () => {
+    const r = ruleFor(sheet(), "::before");
+    const marker = sheet().split("\n").find((l) => l.includes('content:"▸" / ""'))!;
+    expect(marker).toBeTruthy();
+    const selectors = marker.slice(0, marker.indexOf("{")).split(",").map((s) => s.trim());
+    expect(selectors).toEqual(MARKED.map((s) => `${s}::before`));
+    expect(r).not.toBeNull();
+  });
+
+  it("closed shows ▸ and open shows ▾, both with empty alternative text", () => {
+    const css = sheet();
+    expect(css).toMatch(/::before\{content:"▸" \/ "";flex:none;width:1\.2em;color:#0b4553\}/);
+    const open = css.split("\n").find((l) => l.includes('content:"▾" / ""'))!;
+    expect(open).toBeTruthy();
+    const selectors = open.slice(0, open.indexOf("{")).split(",").map((s) => s.trim());
+    expect(selectors).toEqual([
+      ".fixes details[open]>summary::before",
+      ".typedfold[open]>summary::before",
+      "details.hist[open]>summary::before",
+      "details.notdescribed[open]>summary::before",
+      "details.invitefold[open]>summary::before",
+      "details.method[open]>summary::before",
+    ]);
+  });
+
+  it("each marked summary is a flex row and hides the browser's own triangle", () => {
+    const css = sheet();
+    const flex = css.split("\n").find((l) => /\{[^}]*display:flex[^}]*align-items:center[^}]*\}/.test(l) && MARKED.every((s) => l.split("{")[0]!.includes(s)))!;
+    expect(flex, "one rule gives every marked summary flex + centre").toBeTruthy();
+    expect(flex).toContain("list-style:none");
+    const hide = css.split("\n").find((l) => l.includes("::-webkit-details-marker{display:none}") && MARKED.every((s) => l.includes(`${s}::-webkit-details-marker`)))!;
+    expect(hide).toBeTruthy();
+  });
+
+  it("rows and buttons with their own look get no marker", () => {
+    const css = sheet();
+    const lines = css.split("\n").filter((l) => l.includes('content:"▸" / ""') || l.includes('content:"▾" / ""'));
+    expect(lines.length).toBe(2);
+    for (const l of lines) {
+      const sel = l.slice(0, l.indexOf("{"));
+      for (const no of ["summary.rowline", "details.filters", ".rowmenu", "details.confirm", ".menufold", "details.person", "details.arearow"]) {
+        expect(sel, no).not.toContain(no);
+      }
+    }
+  });
+
+  it("the cat page's existing marker rules are untouched", () => {
+    const css = sheet();
+    expect(css).toContain(
+      'details.evidence>summary::before,li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}',
+    );
+  });
+
+  it("the How this is worked out summary is 44px, bold and teal", () => {
+    expect(sheet()).toMatch(/details\.method>summary\{[^}]*min-height:44px[^}]*font-weight:700[^}]*color:#0b4553/);
+  });
+});
