@@ -1,4 +1,4 @@
-// Scratch render for PR 1 (SYC-602) screenshots. Never committed.
+// Scratch render for PR 1 (SYC-602) screenshots. Kept as a .txt so the test runner does not pick it up; copy it to src/tmp-render.test.ts (fix the import paths) to run it.
 import { mkdirSync, writeFileSync as write } from "node:fs";
 import { renderCatPage } from "./src/lib/teamPages/catPages";
 import type { TeamCatView, TeamStatement } from "./src/lib/teamCatView";
@@ -53,8 +53,11 @@ const v: TeamCatView = {
 const may = () => true;
 process.env["TEAM_SESSION_KEYS"] ??= "screenshot-key-0123456789abcdef-0123456789";
 writeFileSync(`${OUT}/cat.html`, renderCatPage(v, "Maria", { may, island: true, now: NOW, colonies: [{ id: 4, name: "Ermoupoli harbour" }] }));
-const bare: TeamCatView = { ...v, sightings: [], history: [], colony: null, photos: [], cat: { ...v.cat, mainPhotoUrl: null, name: "Nea", description: "" },
+const bare: TeamCatView = { ...v, publicStatus: { ...v.publicStatus, sterilised: { value: null, confidence: "unknown", clippedTipSightings: 0 } }, sightings: [], history: [], colony: null, photos: [], cat: { ...v.cat, mainPhotoUrl: null, name: "Nea", description: "" },
   records: { ...v.records, vaccinations: [], sterilised: { ...v.records.sterilised, value: null, confidence: "unknown", clippedTipSightings: 0, supportingStatementIds: [] } },
   appearance: { ...v.appearance, coat: { ...v.appearance.coat, value: null, parts: undefined, statements: [] } } };
 writeFileSync(`${OUT}/bare.html`, renderCatPage(bare, "Maria", { now: NOW }));
-writeFileSync(`${OUT}/readonly.html`, renderCatPage(v, "Visitor", { now: NOW, issues: { total: 2, reports: [] } }));
+writeFileSync(`${OUT}/readonly.html`, renderCatPage(v, "Visitor", { now: NOW, issues: { total: 2, reports: [
+  { id: "i1", reason: "wrong_cat", state: "new", at: "2026-10-14T09:00:00Z", others: 0, photo: null },
+  { id: "i2", reason: "wrong_cat", state: "new", at: "2026-10-12T09:00:00Z", others: 0, photo: null },
+] } }));
