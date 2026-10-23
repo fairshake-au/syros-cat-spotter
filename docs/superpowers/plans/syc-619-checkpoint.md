@@ -6,3 +6,5 @@ Task 3: main 1120px everywhere, .col 760px wrapper for non-wide pages, .mappage 
 Next: controller runs Step 3 browser check, then PR1 wrap-up
 Task 4: back links (§2.5): one backLink helper, Home links to /api/team/home (Areas, Ear clips, Colour check, Vet settings), 11 pages relabelled per §2.5, backLinks.test.ts table (41a63955)
 Next: controller reviews Task 4, then PR1 wrap-up (browser check of back links at 390px and desktop)
+Task 5: fold markers and methodFold() helper done (c059c0d1)
+Next: PR 1 close (browser checks at 390/1280px, draft PR, adversarial review)
