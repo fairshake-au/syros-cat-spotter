@@ -497,8 +497,7 @@ export function renderColourCheckPage(
     active: "colour",
     personName,
     lang,
-    // The label is already "← Home" in the catalogue, so this draws the link itself.
-    beforeTitle: `<p class="back"><a href="${HOME_PATH}">${esc(tr(lang, "colourCheck.back"))}</a></p>`,
+    beforeTitle: backLink(HOME_PATH, tr(lang, "colourCheck.back")),
     body,
   });
 }

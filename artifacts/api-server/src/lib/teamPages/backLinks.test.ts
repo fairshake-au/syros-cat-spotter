@@ -127,9 +127,9 @@ describe("the Colour check label in each language", () => {
   // Team pages draw English until a language goes live (strings/index.ts), so
   // Greek and French are checked in the catalogue itself.
   it("is Home in each catalogue", () => {
-    expect(CATALOGUE.en["colourCheck.back"]).toBe("← Home");
-    expect(CATALOGUE.el["colourCheck.back"]).toBe("← Αρχική");
-    expect(CATALOGUE.fr["colourCheck.back"]).toBe("← Accueil");
+    expect(CATALOGUE.en["colourCheck.back"]).toBe("Home");
+    expect(CATALOGUE.el["colourCheck.back"]).toBe("Αρχική");
+    expect(CATALOGUE.fr["colourCheck.back"]).toBe("Accueil");
   });
 });
 

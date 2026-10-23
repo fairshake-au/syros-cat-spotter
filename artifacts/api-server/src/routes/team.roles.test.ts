@@ -4,7 +4,6 @@ import request from "supertest";
 import {
   addPerson,
   db,
-  markLeft,
   personScopesTable,
   pool,
   } from "@workspace/db";
@@ -87,6 +86,17 @@ const seen = (res: request.Response) => ({
 
 const add = (roles: string[], colonyId?: number) =>
   addPerson({ email: EMAIL, name: "Pat", addedBy: "cli:vitest", roles, colonyId });
+
+/**
+ * A manager: the one role that holds the workspace (SYC-619 §2.2), so a
+ * refusal of left, pending or removed people proves the state, not the role.
+ * Management is written directly, as in the test below.
+ */
+const addManager = async () => {
+  const p = await add(["staff"]);
+  await pool.query("update person_scopes set role = 'management' where person_id = $1", [p.id]);
+  return p;
+};
 
 /** SYC-53 PR 0.3: a cat guardian is always placed on a colony. */
 const aColony = async () =>
@@ -206,7 +216,7 @@ describe("SYC-188: only a role that grants something is let in", () => {
   });
 
   it("a pending person (invited, not yet accepted) can't sign in: kept out at every door (SYC-53 PR 0.3, T9)", async () => {
-    const p = await add(["staff"]);
+    const p = await addManager();
     await pool.query("update people set accepted_at = null where id = $1", [p.id]);
     await expectKeptOut(p.id, p.sessionVersion, 401);
     // Control: the same person, once accepted, is let in.
@@ -224,13 +234,17 @@ describe("SYC-188: only a role that grants something is let in", () => {
   });
 
   it("staff who has left is kept out (left_at, at their current version)", async () => {
-    const p = await add(["staff"]);
-    const left = await markLeft(EMAIL, "cli:vitest");
-    await expectKeptOut(p.id, left!.sessionVersion, 401);
+    const p = await addManager();
+    // Written directly: markLeft refuses to remove the only manager.
+    const left = await pool.query<{ session_version: number }>(
+      "update people set left_at = now(), session_version = session_version + 1 where id = $1 returning session_version",
+      [p.id],
+    );
+    await expectKeptOut(p.id, left.rows[0]!.session_version, 401);
   });
 
   it("staff who was removed is kept out", async () => {
-    const p = await add(["staff"]);
+    const p = await addManager();
     expect(await removeTestPerson(EMAIL)).toBe(true);
     await expectKeptOut(p.id, p.sessionVersion, 401);
   });

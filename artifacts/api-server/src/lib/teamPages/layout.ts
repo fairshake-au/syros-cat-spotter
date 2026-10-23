@@ -128,7 +128,7 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
 @media (max-width:599px){div.bar,div.bar.wide{gap:0 10px;padding-inline:10px;flex-wrap:wrap;overflow:visible;white-space:normal;background:#fff}div.bar>.who{max-width:none;flex:1 1 150px;min-width:0;margin-left:0;padding:8px 2px 8px 0;white-space:normal;overflow-wrap:anywhere}div.bar>form{margin-left:auto}}
 @media (max-width:599px){nav.bar{display:none}.phonebar{display:grid;grid-template-columns:1fr;padding:4px 10px;background:#fff;border-bottom:1px solid #d9d5ca}
 .phonebar>*{grid-area:1/1}
-.phonehere{align-self:start;z-index:1;display:flex;align-items:center;min-height:44px;max-width:calc(100% - 90px);font-weight:700;font-size:16px;overflow-wrap:anywhere;pointer-events:none}
+.phonehere{align-self:start;z-index:1;display:flex;align-items:center;min-height:44px;max-width:calc(100% - 110px);padding-right:8px;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .menufold>summary{display:flex;align-items:center;justify-content:center;width:fit-content;margin-left:auto;min-height:44px;min-width:44px;box-sizing:border-box;padding:0 14px;border:1px solid #0b5c6b;border-radius:8px;background:#fff;color:#0b4553;font-weight:700;font-size:16px;cursor:pointer;list-style:none}
 .menufold>summary::-webkit-details-marker{display:none}
 .menulinks a,.menulinks button{display:flex;align-items:center;min-height:44px;width:100%;box-sizing:border-box;padding:8px 2px;font:inherit;font-size:16px;background:none;border:0;text-align:left;cursor:pointer}
@@ -138,7 +138,7 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
 .menulinks form{margin:0}
 .phonebar .who{display:block;padding:8px 2px;color:#55524a;font-size:14px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}}
 main{max-width:1120px;margin:0 auto;padding:12px 12px 48px}
-.readcol{max-width:760px}
+.readcol{max-width:736px}
 h1{font-size:22px;margin:12px 0 4px}
 h2{font-size:18px;margin:28px 0 8px}
 .banner{background:#fff3cd;border:1px solid #c9a227;border-radius:8px;padding:10px 12px;margin:12px 0}
@@ -250,6 +250,8 @@ li.statement.routine>details[open]>summary::before,.hownote[open]>summary::befor
 .fixes details[open]>summary::before,.typedfold[open]>summary::before,details.hist[open]>summary::before,details.notdescribed[open]>summary::before,details.invitefold[open]>summary::before,details.method[open]>summary::before{content:"▾" / ""}
 .fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary{display:flex;align-items:center;list-style:none}
 .fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker{display:none}
+/* Buttons with their own look keep no marker (SYC-619 §2.6). */
+.fixes details.update>summary::before,.fixes summary.risky::before{content:none}
 details.method>summary{cursor:pointer;min-height:44px;font-weight:700;color:#0b4553}
 details.invitefold>summary{display:inline-flex;width:fit-content}
 .photostrip{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
@@ -749,7 +751,7 @@ export function renderPage(opts: PageOptions): string {
     `<a class="skip" href="#main">${t("shell.skip")}</a>` +
     (items
       ? `<nav class="${barClass}" aria-label="${t("shell.menu")}">${items}${who}</nav>` +
-        `<nav class="phonebar${opts.mainClass === "wide" ? " wide" : ""}" aria-label="${t("shell.menu")}"><span class="phonehere">${here ? escapeHtml(here.n.label) : ""}</span>` +
+        `<nav class="phonebar" aria-label="${t("shell.menu")}"><span class="phonehere">${here ? escapeHtml(here.n.label) : ""}</span>` +
         `<details class="menufold"><summary>${t("shell.menuButton")}</summary><div class="menulinks">${phoneItems}${who}</div></details></nav>`
       : who
         ? `<div class="${barClass}">${who}</div>`

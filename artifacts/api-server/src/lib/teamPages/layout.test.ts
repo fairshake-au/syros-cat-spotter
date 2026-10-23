@@ -248,12 +248,6 @@ describe("the phone menu (SYC-374)", () => {
     expect(page()).not.toMatch(/mask-image/);
   });
 
-  it("the phone padding rule reaches the wide phone bar too (SYC-619 §2.1)", () => {
-    expect(page()).toMatch(/@media \(max-width:599px\)\{[^]*\.phonebar/);
-    expect(page({ mainClass: "wide" })).toContain('<nav class="bar wide"');
-    expect(page({ mainClass: "wide" })).toContain('<nav class="phonebar wide"');
-  });
-
   it("the phone bar is one row, with the links in a fold, so none is hidden off the edge (SYC-522, now SYC-619 §2.1)", () => {
     expect(page()).toMatch(/\.phonebar\{[^}]*display:grid/);
     expect(page()).toMatch(/\.menulinks a,\.menulinks button\{[^}]*display:flex[^}]*min-height:44px[^}]*width:100%/);
@@ -285,11 +279,30 @@ describe("phone menu (SYC-619 §2.1)", () => {
   });
 
   it("one copy shows at a time", () => {
-    const c = css(full());
-    expect(c).toContain("@media (max-width:599px){nav.bar{display:none}");
-    expect(c).not.toMatch(/(^|[^.\w-])\.bar\{display:none/);
-    const outside = c.replace(/@media \(max-width:599px\)\{(?:[^{}]*\{[^}]*\})*\}/g, "");
+    const c = css(full()).replace(/\/\*[\s\S]*?\*\//g, "");
+    const MQ = /@media \(max-width:599px\)\{((?:[^{}]*\{[^}]*\})*)\}/g;
+    const inside = [...c.matchAll(MQ)].map((m) => m[1]!).join("");
+    const outside = c.replace(MQ, "");
+    const rules = (sheet: string) => [...sheet.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1]!.trim(), body: m[2]! }));
+    // Outside the phone query, the only display any .phonebar rule sets is none.
+    for (const r of rules(outside).filter((x) => /\.phonebar\b/.test(x.sel))) {
+      const displays = [...r.body.matchAll(/(?:^|;)\s*display:([^;]+)/g)].map((m) => m[1]!.trim());
+      expect(displays.every((d) => d === "none"), `${r.sel}{${r.body}}`).toBe(true);
+    }
     expect(outside).toContain(".phonebar{display:none}");
+    // No rule outside it hides nav.bar.
+    for (const r of rules(outside).filter((x) => /\bnav\.bar\b/.test(x.sel))) {
+      expect(r.body, r.sel).not.toMatch(/display:none/);
+    }
+    expect(outside).not.toMatch(/(^|[^.\w-])\.bar\{display:none/);
+    // Inside it, the bar goes and the phone bar shows.
+    expect(rules(inside).some((r) => r.sel === "nav.bar" && /display:none/.test(r.body))).toBe(true);
+    expect(rules(inside).some((r) => r.sel === ".phonebar" && /display:grid/.test(r.body))).toBe(true);
+  });
+
+  it("a long page name stays on one line and never runs under the Menu button (SYC-619 §2.1)", () => {
+    expect(css(full())).toMatch(/\.phonehere\{[^}]*white-space:nowrap[^}]*overflow:hidden[^}]*text-overflow:ellipsis/);
+    expect(css(full())).toMatch(/\.phonehere\{[^}]*max-width:calc\(100% - 110px\)/);
   });
 
   it("the fold ends with the name and Sign out", () => {
@@ -368,14 +381,14 @@ describe("one left edge at every width (SYC-619 §2.4)", () => {
     expect(css).not.toMatch(/main\{max-width:760px/);
   });
 
-  it("a narrow page wraps its content in .readcol, 760px, left-aligned", () => {
+  it("a narrow page wraps its content in .readcol, 736px (today's reading width inside main's 12px padding), left-aligned", () => {
     for (const mainClass of [undefined, "mappage"] as const) {
       const html = page({ mainClass, beforeTitle: "<a>back</a>", banner: "<p>b</p>", afterTitle: "<p>a</p>" });
       const body = inner(html);
       expect(body.startsWith('<div class="readcol"><p>b</p><a>back</a><h1>T</h1><p>a</p><p>x</p></div>')).toBe(true);
       expect(body.endsWith("</div>")).toBe(true);
     }
-    expect(styles(page())).toMatch(/\.readcol\{max-width:760px\}/);
+    expect(styles(page())).toMatch(/\.readcol\{max-width:736px\}/);
     expect(styles(page())).not.toMatch(/\.readcol\{[^}]*margin/);
   });
 
@@ -439,6 +452,14 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
       "details.invitefold[open]>summary::before",
       "details.method[open]>summary::before",
     ]);
+  });
+
+  it("a button-styled summary keeps no marker: the override follows the marker rules (SYC-619 §2.6)", () => {
+    const css = sheet();
+    const override = ".fixes details.update>summary::before,.fixes summary.risky::before{content:none}";
+    expect(css).toContain(override);
+    expect(css.indexOf(override)).toBeGreaterThan(css.indexOf('content:"▸" / ""'));
+    expect(css.indexOf(override)).toBeGreaterThan(css.indexOf('content:"▾" / ""'));
   });
 
   it("each marked summary is a flex row and hides the browser's own triangle", () => {

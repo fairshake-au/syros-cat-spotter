@@ -96,11 +96,15 @@ beforeAll(async () => {
   await pool.query("delete from person_scopes where person_id = $1", [
     noRoles.id,
   ]);
-  await add(LEFT, ["staff"]);
+  // Managers, so the workspace would be theirs if they were here: the refusal
+  // is about having left or not having joined, not about the role.
+  const left = await add(LEFT, ["staff"]);
+  await pool.query("update person_scopes set role = 'management' where person_id = $1", [left.id]);
   await markLeft(LEFT, "cli:vitest");
-  // Invited, not yet accepted (spec §10.1). Staff, so the role isn't why
+  // Invited, not yet accepted (spec §10.1). A manager, so the role isn't why
   // they're refused: being pending is.
   const pending = await add(PENDING, ["staff"]);
+  await pool.query("update person_scopes set role = 'management' where person_id = $1", [pending.id]);
   await pool.query("update people set accepted_at = null where id = $1", [
     pending.id,
   ]);
@@ -232,11 +236,12 @@ describe("T8 (part), §14 case 13: every no is the same, byte for byte", () => {
       ids[PENDING]!.id,
     ]);
     try {
-      // Staff: the dashboard door (the workspace is management's, SYC-619 §2.2).
+      // A manager holds both doors, and is let in through the old shape too.
       expect((await askDoors(PENDING)).body.doors).toEqual({
-        workspace: false,
+        workspace: true,
         dashboard: true,
       });
+      expect((await askOld(PENDING)).body.allowed).toBe(true);
     } finally {
       await pool.query("update people set accepted_at = null where id = $1", [
         ids[PENDING]!.id,
