@@ -7,7 +7,8 @@ import { loadCatRecords, ObservationRefused, type VetVisitValue } from "./observ
 import { resolveSterilised, resolveVaccinated } from "./resolve";
 import { listGuardianChanges } from "./guardianChanges";
 import { ALREADY_UNDONE, logVetVisit, undoVetVisit, visitsFor } from "./vetVisits";
-import { supersedeStatement } from "./teamCorrections";
+import { recordTeamStatement, supersedeStatement } from "./teamCorrections";
+import { teamCatView } from "./teamCatView";
 
 // SYC-396 PR 3.1a, Task 3.1.1 (team-dashboard-redesign.md §8.3; plan
 // Decisions 5–7 and D8): writing a visit and undoing it, against the shared
@@ -332,5 +333,18 @@ describe("visitsFor", () => {
       NOW,
     );
     expect((await visitsFor(catId, { costs: false })).map((v) => v.visitId)).toEqual([newer.visitId, older.visitId]);
+  });
+
+  it("ties a visit's own entries to it by vetVisitId", async () => {
+    const catId = await insertCat();
+    const visit = await logVetVisit(STAFF, { catId, date: "2026-08-13", value: BOTH }, NOW);
+    const [line] = await visitsFor(catId, { costs: false });
+    expect(line!.visitId).toBe(visit.visitId);
+    await recordTeamStatement(STAFF, { catId, kind: "sterilised", value: { sterilised: true }, reason: "Clinic list" });
+
+    const view = await teamCatView(catId, NOW);
+    const tied = view!.history.filter((h) => h.vetVisitId === line!.visitId);
+    expect(tied.map((h) => h.kind).sort()).toEqual(["sterilised", "vaccinated", "vet_visit"]);
+    expect(view!.history.filter((h) => h.vetVisitId === null).map((h) => h.kind)).toEqual(["sterilised"]);
   });
 });

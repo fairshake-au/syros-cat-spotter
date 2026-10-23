@@ -318,6 +318,15 @@ export interface TeamStatement {
    */
   sightingId: number | null;
   /**
+   * The vet visit this entry belongs to, or null (SYC-602 PR 2). On a
+   * `vet_visit` entry it is that visit's own id (the `VisitLine.visitId`
+   * `visitsFor` gives); on the `sterilised` and `vaccinated` entries the visit
+   * wrote it is their `value.vetVisitId`. The page folds those into the
+   * visit's row. Kept on retracted entries too: an undone visit still
+   * draws its rows crossed out.
+   */
+  vetVisitId: number | null;
+  /**
    * How the team may mark it wrong (PR 4), or null. Only a standing
    * statement of a kind with a team capability: a life status, a
    * sterilisation, or a clipped ear tip ("That's not a clip").
@@ -333,6 +342,17 @@ export type StatementCorrection =
   | { kind: "colony" }
   /** A colour or markings statement: marked wrong by a retraction, from the Appearance section (SYC-2 PR 3.1). */
   | { kind: "appearance" };
+
+/** The visit an observation belongs to: a visit's own id, or the link its statements carry. */
+function vetVisitIdOf(o: Observation): number | null {
+  if (o.kind === "vet_visit") return o.id;
+  if (o.kind === "sterilised" || o.kind === "vaccinated") {
+    const v = o.value as Record<string, unknown> | null;
+    const id = v && typeof v === "object" ? v["vetVisitId"] : undefined;
+    return typeof id === "number" ? id : null;
+  }
+  return null;
+}
 
 /** An owner's "has a home" (claiming-a-cat.md §3): the claim itself. */
 export function isOwnerHomed(o: Observation, onlyCatId?: number): boolean {
@@ -900,6 +920,7 @@ export async function teamCatView(
       movedFrom: crossCat.movedFrom.get(o.id) ?? null,
       photoUrl: urlFor(o.photoId),
       sightingId: o.sightingId ?? null,
+      vetVisitId: vetVisitIdOf(o),
       correction: correctionOf(o, replacedBy.has(o.id)),
       // Only this cat's own claim: Remove owner is scoped to it. A merged-in
       // cat's claim is ended from that cat's page.
