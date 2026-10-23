@@ -462,6 +462,10 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     }
   });
 
+  it("Invite someone hugs its text: inline-flex, not a full-width row", () => {
+    expect(sheet()).toMatch(/\ndetails\.invitefold>summary\{[^}]*display:inline-flex[^}]*\}/);
+  });
+
   it("the cat page's existing marker rules are untouched", () => {
     const css = sheet();
     expect(css).toContain(

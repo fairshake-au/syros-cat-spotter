@@ -244,6 +244,7 @@ details.evidence[open]>summary::before,li.statement.routine>details[open]>summar
 .fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary{display:flex;align-items:center;list-style:none}
 .fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker{display:none}
 details.method>summary{cursor:pointer;min-height:44px;font-weight:700;color:#0b4553}
+details.invitefold>summary{display:inline-flex;width:fit-content}
 .photostrip{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .photostrip img{display:block;width:56px;height:56px;object-fit:cover;border-radius:4px;background:#ece8dc}
 .photostrip .more{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border:1px solid #d9d5ca;border-radius:4px;font-size:14px}
