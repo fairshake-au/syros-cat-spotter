@@ -271,7 +271,8 @@ describe("phone menu (SYC-619 §2.1)", () => {
 
   it("one copy shows at a time", () => {
     const c = css(full());
-    expect(c).toContain("@media (max-width:599px){.bar{display:none}");
+    expect(c).toContain("@media (max-width:599px){nav.bar{display:none}");
+    expect(c).not.toMatch(/(^|[^.\w-])\.bar\{display:none/);
     const outside = c.replace(/@media \(max-width:599px\)\{(?:[^{}]*\{[^}]*\})*\}/g, "");
     expect(outside).toContain(".phonebar{display:none}");
   });
@@ -309,6 +310,19 @@ describe("phone menu (SYC-619 §2.1)", () => {
     expect(page({ nav: false, personName: null })).not.toMatch(/<(nav|div) class="(phone)?bar/);
     // A page with no links keeps today's plain bar (name and Sign out only).
     expect(welcome).toContain('<div class="bar"><span class="who" title="Maria &lt;b&gt;">Signed in as Maria &lt;b&gt;</span>');
+  });
+
+  it("a page with no links keeps its div bar visible on a phone, with Sign out", () => {
+    const html = page({ nav: false });
+    expect(html).toContain('<div class="bar"><span class="who"');
+    expect(html).toContain('action="/api/team/signout"');
+    expect(css(html)).not.toMatch(/div\.bar[^{]*\{display:none/);
+    expect(css(html)).toMatch(/@media \(max-width:599px\)\{div\.bar,div\.bar\.wide\{[^}]*flex-wrap:wrap/);
+  });
+
+  it("Menu looks like a button: outlined, 44px, no marker", () => {
+    expect(css(page())).toMatch(/\.menufold>summary\{[^}]*min-height:44px[^}]*border:1px solid #0b5c6b[^}]*border-radius:8px[^}]*background:#fff/);
+    expect(css(page())).toContain(".menufold>summary::-webkit-details-marker{display:none}");
   });
 
   it("a long name wraps", () => {

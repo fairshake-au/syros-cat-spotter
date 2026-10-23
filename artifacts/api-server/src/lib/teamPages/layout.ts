@@ -95,11 +95,11 @@ a{color:#0b5c6b}
 /* A clear focus outline: the browser's own is faint on the beige (SYC-366). */
 :focus-visible{outline:3px solid #0b5c6b;outline-offset:2px}
 main:focus{outline:none}
-/* One row on a desktop (53px). On a phone (SYC-522) the menu wraps onto up to
-   three rows (about 141px at 390px) so no link is hidden. The person's name and
-   Sign out sit at its end (SYC-396 spec §3.2). When there's more to scroll to, a
-   soft shadow shows at that edge; the white "covers" scroll with the row and
-   hide the shadow once you reach the end, so no text is ever dimmed (SYC-374). */
+/* A desktop bar is one row (53px). The person's name and Sign out sit at its
+   end (SYC-396 spec §3.2). When there's more to scroll to, a soft shadow shows
+   at that edge; the white "covers" scroll with the row and hide the shadow once
+   you reach the end, so no text is ever dimmed (SYC-374). On a phone the menu is
+   the .phonebar below (SYC-619 §2.1): the page's name and a "Menu" fold. */
 .bar{border-bottom:1px solid #d9d5ca;padding:4px 12px;display:flex;flex-wrap:nowrap;gap:0 14px;align-items:center;overflow-x:auto;white-space:nowrap;scrollbar-width:none;
 background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100% no-repeat local,linear-gradient(to left,#fff 40%,rgba(255,255,255,0)) right/28px 100% no-repeat local,radial-gradient(farthest-side at 0 50%,rgba(29,29,27,.22),rgba(29,29,27,0)) left/12px 100% no-repeat scroll,radial-gradient(farthest-side at 100% 50%,rgba(29,29,27,.22),rgba(29,29,27,0)) right/12px 100% no-repeat scroll;background-color:#fff}
 .bar :focus-visible{outline-offset:-3px}
@@ -124,10 +124,12 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
    row, then the name and Sign out. One copy shows at a time; display:none also
    hides the other from screen readers. Needs no script. */
 .phonebar{display:none}
-@media (max-width:599px){.bar{display:none}.phonebar{display:grid;grid-template-columns:1fr;padding:4px 10px;background:#fff;border-bottom:1px solid #d9d5ca}
+/* A page with no links keeps its plain div bar on a phone: the name wraps, Sign out stays 44px. */
+@media (max-width:599px){div.bar,div.bar.wide{gap:0 10px;padding-inline:10px;flex-wrap:wrap;overflow:visible;white-space:normal;background:#fff}div.bar>.who{max-width:none;flex:1 1 150px;min-width:0;margin-left:0;padding:8px 2px 8px 0;white-space:normal;overflow-wrap:anywhere}div.bar>form{margin-left:auto}}
+@media (max-width:599px){nav.bar{display:none}.phonebar{display:grid;grid-template-columns:1fr;padding:4px 10px;background:#fff;border-bottom:1px solid #d9d5ca}
 .phonebar>*{grid-area:1/1}
 .phonehere{align-self:start;z-index:1;display:flex;align-items:center;min-height:44px;max-width:calc(100% - 90px);font-weight:700;font-size:16px;overflow-wrap:anywhere;pointer-events:none}
-.menufold>summary{display:flex;align-items:center;justify-content:center;width:fit-content;margin-left:auto;min-height:44px;min-width:44px;padding:8px 14px;color:#0b5c6b;font-weight:700;cursor:pointer;list-style:none}
+.menufold>summary{display:flex;align-items:center;justify-content:center;width:fit-content;margin-left:auto;min-height:44px;min-width:44px;box-sizing:border-box;padding:0 14px;border:1px solid #0b5c6b;border-radius:8px;background:#fff;color:#0b4553;font-weight:700;font-size:16px;cursor:pointer;list-style:none}
 .menufold>summary::-webkit-details-marker{display:none}
 .menulinks a,.menulinks button{display:flex;align-items:center;min-height:44px;width:100%;box-sizing:border-box;padding:8px 2px;font:inherit;font-size:16px;background:none;border:0;text-align:left;cursor:pointer}
 .menulinks button{color:#0b5c6b;text-decoration:underline}
