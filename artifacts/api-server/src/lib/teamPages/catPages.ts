@@ -6,7 +6,8 @@ import type {
   TeamPhoto,
   TeamStatement,
 } from "../teamCatView";
-import { EAR_TIP_NOT_CLIPPED, FOOD_AND_WATER_OUT } from "../teamCatView";
+import { groupHistory, isRoutine, runWords } from "./catHistory";
+export { groupHistory, isRoutine, runWords };
 import type { Capability } from "../capabilities";
 import type { QueueReport } from "../welfareQueue";
 import type { IssueReport } from "../issues/queue";
@@ -461,76 +462,8 @@ function galleryItem(
   );
 }
 
-// ── The history's routine sightings (spec §7.3) ─────────────────────────────
-
-/**
- * A routine row: something a spotter's sighting said that means all is well,
- * "Food and water were out" or "Ear tip not clipped". "No food or water" and
- * "Couldn't tell" are never folded under "looking well". Status, colony,
- * colour, name, notes, welfare reports and vet visits are never routine, nor
- * a clipped ear (it counts towards "Probably"), nor anything corrected or
- * correcting.
- */
-export function isRoutine(s: TeamStatement): boolean {
-  if (s.author.kind !== "spotter") return false;
-  if (s.replacedBy.length > 0 || s.replaces != null || s.movedTo || s.movedFrom) return false;
-  if (s.kind === "food_and_water") return s.said === FOOD_AND_WATER_OUT;
-  return s.kind === "ear_tip" && s.correction === null && s.said === EAR_TIP_NOT_CLIPPED;
-}
-
-type HistoryPart = { one: TeamStatement } | { run: TeamStatement[] };
-
-/** The history in order, with each run of two or more routine rows as one part. */
-export function groupHistory(rows: readonly TeamStatement[]): HistoryPart[] {
-  const parts: HistoryPart[] = [];
-  let run: TeamStatement[] = [];
-  const flush = () => {
-    if (run.length === 1) parts.push({ one: run[0]! });
-    else if (run.length > 1) parts.push({ run });
-    run = [];
-  };
-  for (const s of rows) {
-    if (isRoutine(s)) run.push(s);
-    else {
-      flush();
-      parts.push({ one: s });
-    }
-  }
-  flush();
-  return parts;
-}
-
-const dayMonth = (iso: string, withYear: boolean) =>
-  new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    ...(withYear ? { year: "numeric" } : {}),
-    timeZone: "Europe/Athens",
-  });
-
-const yearOf = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { year: "numeric", timeZone: "Europe/Athens" });
-
-/**
- * "Seen 19 times by spotters between 29 Jul and 24 Sep, looking well". Counted
- * by sighting: one sighting can say two routine things. The year is added
- * when the run isn't all in this year.
- */
-export function runWords(run: readonly TeamStatement[], now: Date): string {
-  const times = new Set(run.map((s) => (s.sightingId === null ? `row ${s.id}` : `sighting ${s.sightingId}`))).size;
-  // The earliest and latest dates seen. The history is in the order sightings
-  // were matched, which isn't always the order they were seen.
-  const seen = run.map((s) => s.observedAt).sort((a, b) => Date.parse(a) - Date.parse(b));
-  const first = seen[0]!;
-  const last = seen[seen.length - 1]!;
-  const thisYear = yearOf(now.toISOString());
-  const withYear = yearOf(first) !== thisYear || yearOf(last) !== thisYear;
-  const from = dayMonth(first, withYear);
-  const to = dayMonth(last, withYear);
-  if (times === 1) return `Seen once by a spotter on ${to}, looking well`;
-  return from === to
-    ? `Seen ${times} times by spotters on ${to}, looking well`
-    : `Seen ${times} times by spotters between ${from} and ${to}, looking well`;
-}
+// isRoutine, groupHistory and runWords live in catHistory.ts (SYC-602 PR 2),
+// re-exported above so existing imports keep working.
 
 // ── The small map of the cat's sightings (spec §7.1) ────────────────────────
 
