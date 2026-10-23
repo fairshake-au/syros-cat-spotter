@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { TeamCatView, TeamStatement } from "../teamCatView";
 import { HISTORY_SHOWN, renderCatPage } from "./catPages";
 import { renderPage } from "./layout";
+import { richCatView } from "./__fixtures__/catView";
 
 // Pure render tests for the cat page's history cap and wide layout (SYC-219).
 
@@ -545,5 +546,97 @@ describe("the small sightings map", () => {
     } finally {
       process.env["TEAM_SESSION_KEYS"] = KEY;
     }
+  });
+});
+
+// ── SYC-602 Task 2.3: one History list on the page (spec §3.5) ─────────────
+
+describe("the page's one History list (SYC-602 PR 2)", () => {
+  const NOW2 = new Date("2026-10-23T08:00:00Z");
+  /** The words a person reads: no styles, no tags. */
+  const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ");
+  const visitLine = (visitId: number, date: string) => ({
+    visitId,
+    date,
+    did: ["sterilised" as const],
+    clinicName: "Syros Vet",
+    by: "Maria",
+    costEur: 55,
+    paidBy: "syros_cats" as const,
+  });
+
+  /** The rich cat with a correction: 301 corrects 299 (14 Oct), and a visit wrote 298. */
+  const corrected = () => {
+    const v = richCatView();
+    v.history = [
+      statement(301, {
+        kind: "life_status",
+        said: "Lives on the street",
+        replaces: 299,
+        reason: "Seen at the steps",
+        observedAt: "2026-10-15T09:00:00Z",
+        createdAt: "2026-10-15T09:00:00Z",
+      }),
+      statement(299, {
+        kind: "life_status",
+        said: "In Syros Cats' care",
+        replacedBy: [301],
+        observedAt: "2026-10-14T09:00:00Z",
+        createdAt: "2026-10-14T09:00:00Z",
+      }),
+      statement(298, { kind: "sterilised", said: "Sterilised", vetVisitId: 297, observedAt: "2026-08-13T09:00:00Z" }),
+      statement(297, { kind: "vet_visit", said: "Vet visit: sterilised", vetVisitId: 297, observedAt: "2026-08-13T09:00:00Z" }),
+      statement(296, { kind: "ear_tip", said: "Ear tip clipped, left ear", author: { kind: "spotter", label: "a spotter" }, sightingId: 890, correction: { kind: "ear_tip_clipped" } }),
+    ];
+    return v;
+  };
+
+  it("never shows a record number", () => {
+    for (const [name, v] of [["rich", richCatView()], ["corrected", corrected()]] as const) {
+      const html = renderCatPage(v, "Sam", { may, island: true, now: NOW2, visits: [visitLine(297, "2026-08-13T09:00:00Z")] });
+      expect(text(html), name).not.toMatch(/#\d+/);
+    }
+    const html = renderCatPage(corrected(), "Sam", { may, now: NOW2 });
+    expect(text(html)).toMatch(/Corrects\s+the change of 14 Oct/);
+    expect(html).toContain('Corrects <a href="#s-299">the change of 14 Oct 2026</a>');
+    expect(html).toContain('Replaced by <a href="#s-301">the change of 15 Oct 2026</a>: Lives on the street');
+  });
+
+  it("links Why we think so to the full, unfiltered list when the entry isn't shown", () => {
+    const v = corrected();
+    v.records.sterilised.supportingStatementIds = [296];
+    const visits = [visitLine(297, "2026-08-13T09:00:00Z")];
+    const filtered = renderCatPage(v, "Sam", { may, now: NOW2, visits, show: "visits" });
+    expect(filtered).toContain('href="?history=all#s-296"');
+    expect(filtered).not.toContain('id="s-296"');
+    // Unfiltered and in full, it lands on the row itself.
+    const full = renderCatPage(v, "Sam", { may, now: NOW2, visits, allHistory: true });
+    expect(full).toContain('href="#s-296"');
+    expect(full).toContain('id="s-296"');
+  });
+
+  it("puts the visit notices at the top of History", () => {
+    const html = renderCatPage(corrected(), "Sam", { may, now: NOW2, done: "visit", visits: [visitLine(297, "2026-08-13T09:00:00Z")] });
+    const notice = html.indexOf("Saved. The vet visit is below");
+    expect(notice).toBeGreaterThan(html.indexOf('id="history"'));
+    expect(notice).toBeLessThan(html.indexOf("<li", html.indexOf('id="history"')));
+    expect(html.match(/Saved\. The vet visit is below/g)).toHaveLength(1);
+  });
+
+  it("has no Sightings or Vet visits sections, and How changes work sits at the foot of History", () => {
+    const html = renderCatPage(corrected(), "Sam", { may, now: NOW2, visits: [visitLine(297, "2026-08-13T09:00:00Z")] });
+    expect(html).not.toContain("<h2>Sightings");
+    expect(html).not.toContain('<h2 id="vet-visits">');
+    expect(html).toContain('<h2 id="history">History</h2>');
+    expect(html.indexOf("How changes work")).toBeGreaterThan(html.indexOf('id="history"'));
+    expect(html.match(/How changes work/g)).toHaveLength(1);
+    // The jump link counts every row: 21 sightings (one carries 296), the visit and two changes.
+    expect(html).toContain('href="#history">History (24)</a>');
+  });
+
+  it("lands each map marker on its sighting's row", () => {
+    const v = richCatView();
+    const html = renderCatPage(v, "Sam", { now: NOW2 });
+    for (const s of v.sightings) expect(html, String(s.id)).toContain(`id="sg-${s.id}"`);
   });
 });

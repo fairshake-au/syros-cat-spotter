@@ -557,3 +557,31 @@ describe("design review fixes (PR 3)", () => {
     await markLeft(`vitest-p3-eve-${RUN}@example.com`, "cli:vitest");
   });
 });
+
+describe("SYC-602 PR 2: History's filters (?show=)", () => {
+  const rowIds = (html: string) => [...html.matchAll(/<li class="hrow[^"]*" id="((?:sg|vv|s)-\d+)"/g)].map((m) => m[1]!);
+  const page = async (q: string) => {
+    const res = await request(app).get(`/api/team/cats/${mimi}${q}`).set("Cookie", cookie);
+    expect(res.status, q).toBe(200);
+    return res.text;
+  };
+
+  it("?show=visits draws only vet visit rows, and marks the filter", async () => {
+    const html = await page("?show=visits");
+    expect(rowIds(html).filter((id) => !id.startsWith("vv-"))).toEqual([]);
+    expect(html).toContain('<a href="?show=visits#history" aria-current="page">Vet visits 0</a>');
+    expect(html).not.toContain("<h2>Sightings");
+    expect(html).not.toContain('<h2 id="vet-visits">');
+  });
+
+  it("?show=sightings draws only the sightings, and ?show=nonsense is the same as all", async () => {
+    const sightings = rowIds(await page("?show=sightings"));
+    expect(sightings).toHaveLength(SIGHTINGS.length);
+    expect(sightings.every((id) => id.startsWith("sg-"))).toBe(true);
+    const all = rowIds(await page(""));
+    expect(rowIds(await page("?show=nonsense"))).toEqual(all);
+    expect(all.length).toBeGreaterThan(sightings.length);
+    // Other query keys keep working alongside it.
+    expect(rowIds(await page("?show=nonsense&history=all"))).toEqual(rowIds(await page("?history=all")));
+  });
+});

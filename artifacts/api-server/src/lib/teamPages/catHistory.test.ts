@@ -4,9 +4,12 @@ import { EAR_TIP_NOT_CLIPPED, FOOD_AND_WATER_OUT } from "../teamCatView";
 import type { VisitLine } from "../vetVisits";
 import * as catPages from "./catPages";
 import { bareCatView, catView, statement } from "./__fixtures__/catView";
+import { placeLabel } from "../areas/placeLabel";
 import {
+  HISTORY_SHOWN,
   historyCounts,
   historyRows,
+  renderHistory,
   isRoutine,
   groupHistory,
   runWords,
@@ -344,5 +347,209 @@ describe("the moved helpers", () => {
 
   it("isRoutine still reads a spotter's ear tip not clipped as routine", () => {
     expect(isRoutine(statement(1, { kind: "ear_tip", said: EAR_TIP_NOT_CLIPPED, author: spotter }))).toBe(true);
+  });
+});
+
+// ── Task 2.3: drawing the one History list (spec §3.5) ──────────────────────
+
+describe("renderHistory (spec §3.5)", () => {
+  const NOW = new Date("2026-10-23T08:00:00Z");
+  const yes = () => true;
+  const draw = (v: TeamCatView, visits: VisitLine[] = [], over: Partial<Parameters<typeof renderHistory>[2]> = {}) =>
+    renderHistory(v, visits, { show: "all", all: false, notice: "", may: yes, now: NOW, island: true, ...over });
+  /** One row by its id, up to the next row (rows hold no <li> of their own). */
+  const rowOf = (html: string, id: string) => {
+    const start = html.lastIndexOf("<li", html.indexOf(`id="${id}"`));
+    expect(start, id).toBeGreaterThanOrEqual(0);
+    return html.slice(start, html.indexOf("</li>", start) + 5);
+  };
+  const menuOf = (row: string) => /<details class="rowmenu[^"]*"[^>]*>[\s\S]*<\/details>/.exec(row)?.[0] ?? "";
+  const at = "2026-10-10T08:00:00Z";
+  const clipped = statement(12, {
+    kind: "ear_tip",
+    said: "Ear tip clipped, left ear",
+    author: spotter,
+    sightingId: 900,
+    observedAt: at,
+    createdAt: at,
+    correction: { kind: "ear_tip_clipped" },
+  });
+  const sightingCat = () =>
+    catView({
+      sightings: [{ ...sighting(900, at), photoUrl: "/api/team/photos/p900" }],
+      history: [clipped, foodOut(11, 900, at)],
+    });
+
+  it("draws a sighting row with its menu", () => {
+    const html = draw(sightingCat());
+    const row = rowOf(html, "sg-900");
+    expect(row).toContain(`Seen in ${placeLabel({ lat: 37.4447, lng: 24.9418 })}`);
+    // The joined words, each keeping its own anchor.
+    expect(row).toMatch(/id="s-12">ear tip clipped, left ear</);
+    expect(row).toMatch(/id="s-11">food and water were out</);
+    expect(row).toContain("A spotter");
+    expect(row).toContain('src="/api/team/photos/p900"');
+    const menu = menuOf(row);
+    expect(menu).toContain("⋯");
+    expect(menu).toContain("Show on the map");
+    expect(menu).toContain("Make a feeding site here");
+    expect(menu).toContain("Mark wrong: ear tip clipped");
+    // One Mark wrong per markable entry: food and water has none.
+    expect(menu.match(/Mark wrong:/g)).toHaveLength(1);
+    // Show on the map only for an island-wide viewer.
+    expect(menuOf(rowOf(draw(sightingCat(), [], { island: false }), "sg-900"))).not.toContain("Show on the map");
+    // Nothing the person may not do.
+    const none = menuOf(rowOf(draw(sightingCat(), [], { may: () => false, island: false }), "sg-900"));
+    expect(none).not.toContain("<form");
+    // SYC-459 item 4: no menu or form inside a <span>.
+    expect(html).not.toMatch(/<span\b[^>]*>(?:(?!<\/span>)[\s\S])*<(?:form|details)\b/);
+  });
+
+  it("keeps the amber tag on a sighting that may show more than one cat", () => {
+    const v = sightingCat();
+    v.sightings[0]!.mixedCats = true;
+    expect(rowOf(draw(v), "sg-900")).toContain("May show more than one cat");
+  });
+
+  it("says a sighting that recorded nothing else was seen, and who saw it", () => {
+    const v = catView({ sightings: [sighting(901, at)] });
+    const row = rowOf(draw(v), "sg-901");
+    expect(row).toContain(`<b>Seen in ${placeLabel({ lat: 37.4447, lng: 24.9418 })}</b>`);
+    expect(row).toContain("A spotter");
+  });
+
+  it("draws a visit row; cost only with view_vet_costs", () => {
+    const v = catView({
+      history: [
+        statement(41, { kind: "sterilised", said: "Sterilised", vetVisitId: 40, observedAt: at }),
+        statement(40, { kind: "vet_visit", said: "Vet visit: sterilised", vetVisitId: 40, observedAt: at }),
+      ],
+    });
+    const line: VisitLine = { visitId: 40, date: at, did: ["sterilised"], clinicName: "Syros Vet", by: "Maria" };
+    const priced = rowOf(draw(v, [{ ...line, costEur: 55, paidBy: "syros_cats" }]), "vv-40");
+    expect(priced).toContain("€55");
+    expect(priced).toContain("paid by Syros Cats");
+    const row = rowOf(draw(v, [line]), "vv-40");
+    expect(row).not.toContain("€");
+    expect(row).not.toContain("paid by");
+    expect(row).toContain("Syros Vet");
+    expect(row).toContain("logged by Maria");
+    // Its own changes are folded in, each keeping its anchor, never listed again.
+    expect(row).toContain('id="s-41"');
+    expect(draw(v, [line]).match(/id="s-41"/g)).toHaveLength(1);
+    const menu = menuOf(row);
+    expect(menu).toMatch(/<summary class="risky">Mark the visit wrong<\/summary>/);
+    expect(menu).toContain(`action="/api/team/vet-visits/40/wrong"`);
+    expect(menuOf(rowOf(draw(v, [line], { may: (c) => c !== "log_vet_visit" }), "vv-40"))).not.toContain("Mark the visit wrong");
+  });
+
+  it("keeps an undone visit, crossed out, with who marked it wrong and when", () => {
+    const undoneAt = "2026-08-20T09:00:00Z";
+    const v = catView({
+      history: [
+        statement(61, { kind: "vet_visit", said: "Marked wrong", reason: "Wrong cat", replaces: 40, vetVisitId: 40, author: { kind: "team", label: "Susan" }, observedAt: undoneAt, createdAt: undoneAt }),
+        statement(60, { kind: "sterilised", said: "Marked wrong", replaces: 41, vetVisitId: 40, observedAt: undoneAt, createdAt: undoneAt }),
+        statement(41, { kind: "sterilised", said: "Sterilised", vetVisitId: 40, replacedBy: [60], observedAt: "2026-08-13T12:00:00Z" }),
+        statement(40, { kind: "vet_visit", said: "Vet visit: sterilised", vetVisitId: 40, replacedBy: [61], observedAt: "2026-08-13T12:00:00Z" }),
+      ],
+    });
+    const html = draw(v);
+    const row = rowOf(html, "vv-40");
+    expect(row).toContain("<del>Vet visit: sterilised</del>");
+    expect(row).toContain("Marked wrong by Susan on");
+    expect(row).toContain("Why: Wrong cat");
+    for (const id of [40, 41, 60, 61]) expect(html.match(new RegExp(`id="s-${id}"`, "g")), String(id)).toHaveLength(1);
+    expect(row).not.toContain("Mark the visit wrong");
+  });
+
+  it("offers no Mark wrong on the system's own colony correction", () => {
+    const v = catView({
+      history: [
+        statement(70, { kind: "colony", said: "Put in the colony Vaporia", author: { kind: "system", label: "imported" }, correction: { kind: "colony" } }),
+        statement(71, { kind: "colony", said: "Put in the colony Agora", correction: { kind: "colony" }, observedAt: "2026-02-01T10:00:00Z" }),
+      ],
+    });
+    const html = draw(v);
+    expect(menuOf(rowOf(html, "s-70"))).not.toContain("Mark wrong");
+    expect(menuOf(rowOf(html, "s-71"))).toContain("Mark wrong");
+  });
+
+  it("links a coat change's menu to Coat and markings, where its Mark wrong stays", () => {
+    const v = catView({ history: [statement(80, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })] });
+    const menu = menuOf(rowOf(draw(v), "s-80"));
+    expect(menu).toContain('href="#appearance"');
+    expect(menu).not.toContain("<form");
+  });
+
+  it("counts the whole run even when the list is cut", () => {
+    // 19 notes, then five routine sightings in a row (one run), then three older notes.
+    const day = (d: number) => new Date(Date.UTC(2026, 8, 1 + d, 8)).toISOString();
+    const notes = Array.from({ length: 19 }, (_, i) => statement(300 - i, { observedAt: day(29 - i) }));
+    const sightings = Array.from({ length: 5 }, (_, i) => sighting(950 - i, day(9 - i)));
+    const routine = sightings.map((s, i) => foodOut(200 - i, s.id, s.at));
+    const older = Array.from({ length: 3 }, (_, i) => statement(100 - i, { observedAt: day(3 - i) }));
+    const v = catView({ sightings, history: [...notes, ...routine, ...older] });
+    expect(HISTORY_SHOWN).toBe(20);
+    const html = draw(v);
+    // The run is the 20th row: drawn whole, with its full count.
+    expect(html).toContain("Seen 5 times by spotters between");
+    for (const s of sightings) expect(html, String(s.id)).toContain(`id="sg-${s.id}"`);
+    for (const n of older) expect(html, String(n.id)).not.toContain(`id="s-${n.id}"`);
+    expect(html).toContain('<a class="tap" href="?history=all#history">Show all 27</a>');
+    // ?history=all draws everything, with no Show all.
+    const all = draw(v, [], { all: true });
+    for (const n of older) expect(all, String(n.id)).toContain(`id="s-${n.id}"`);
+    expect(all).not.toContain("Show all");
+    // Under a filter, Show all keeps the filter.
+    expect(draw(v, [], { show: "changes" })).toContain('href="?show=changes&amp;history=all#history">Show all 22</a>');
+  });
+
+  it("filters with links that say how many, the current one marked", () => {
+    const html = draw(sightingCat(), [], { show: "sightings" });
+    const filters = /<nav class="hfilters"[\s\S]*?<\/nav>/.exec(html)![0];
+    expect(filters).toContain('<a href="?show=all#history">All 1</a>');
+    expect(filters).toContain('<a href="?show=sightings#history" aria-current="page">Sightings 1</a>');
+    expect(filters).toContain('<a href="?show=visits#history">Vet visits 0</a>');
+    expect(filters).toContain('<a href="?show=changes#history">Changes and notes 0</a>');
+    expect(filters.match(/aria-current/g)).toHaveLength(1);
+  });
+
+  it("opens the row's menu and fold on landing", () => {
+    const notice = '<p class="notice" role="status">Saved.</p>';
+    const row = rowOf(draw(sightingCat(), [], { at: 12, notice }), "sg-900");
+    expect(row).toContain(notice);
+    expect(row).toMatch(/<details class="rowmenu dots" open>/);
+    // The notice is in the row, not inside the (closed or open) menu.
+    expect(row.indexOf(notice)).toBeLessThan(row.indexOf("<details"));
+    // Kept typing for that row's Mark wrong: the menu and the form's fold open, the words back.
+    const kept = rowOf(draw(sightingCat(), [], { kept: { formKey: "wrong:12", fields: { reason: "Not <b>a</b> clip" } } }), "sg-900");
+    expect(kept).toMatch(/<details class="rowmenu dots" open>/);
+    expect(kept).toMatch(/<details open><summary>Mark wrong: ear tip clipped/);
+    expect(kept).toContain('value="Not &lt;b&gt;a&lt;/b&gt; clip"');
+    // A routine row's run opens when the page lands inside it.
+    const v = catView({
+      sightings: [sighting(903, "2026-10-13T08:00:00Z"), sighting(902, "2026-10-12T08:00:00Z")],
+      history: [foodOut(23, 903, "2026-10-13T08:00:00Z"), foodOut(22, 902, "2026-10-12T08:00:00Z")],
+    });
+    const run = draw(v, [], { at: 22, notice });
+    expect(run).toMatch(/<li class="hgroup"><details open>/);
+    expect(rowOf(run, "sg-902")).toContain(notice);
+    // Landing on a row the filter leaves out shows it anyway.
+    expect(draw(sightingCat(), [], { show: "visits", at: 12, notice })).toContain('id="sg-900"');
+  });
+
+  it("puts the notice at the top of History when it isn't for a row", () => {
+    const notice = '<p class="notice" role="status">Saved. The vet visit is below.</p>';
+    const html = draw(sightingCat(), [], { notice });
+    expect(html.indexOf(notice)).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf(notice)).toBeLessThan(html.indexOf("<li"));
+  });
+
+  it("escapes what people wrote", () => {
+    const v = catView({ history: [statement(5, { said: "Note: “<script>x</script>”", reason: "<i>why</i>", author: { kind: "team", label: "<b>Eve</b>" } })] });
+    const html = draw(v);
+    expect(html).not.toContain("<script>x");
+    expect(html).not.toContain("<i>why");
+    expect(html).not.toContain("<b>Eve");
   });
 });
