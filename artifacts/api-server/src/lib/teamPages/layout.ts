@@ -251,7 +251,7 @@ li.statement.routine>details[open]>summary::before,.hownote[open]>summary::befor
 .fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary{display:flex;align-items:center;list-style:none}
 .fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker{display:none}
 /* Buttons with their own look keep no marker (SYC-619 §2.6). */
-.fixes details.update>summary::before,.fixes summary.risky::before{content:none}
+.fixes details>summary.risky::before,.fixes details[open]>summary.risky::before,.fixes details.update>summary::before,.fixes details.update[open]>summary::before{content:none}
 details.method>summary{cursor:pointer;min-height:44px;font-weight:700;color:#0b4553}
 details.invitefold>summary{display:inline-flex;width:fit-content}
 .photostrip{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
@@ -633,7 +633,7 @@ export interface PageOptions {
   /**
    * A class on <main>. `mappage`: everything above the map has a whole-pixel
    * height and the page sits on a whole pixel, so the map does too (SYC-209
-   * PR 3.1; see lib/teamPages/map.ts). `wide`: no 760px reading column
+   * PR 3.1; see lib/teamPages/map.ts). `wide`: no 736px reading column
    * (`.readcol`), for a page laid out to use the whole 1120px frame.
    */
   mainClass?: "mappage" | "wide";
@@ -759,7 +759,7 @@ export function renderPage(opts: PageOptions): string {
     // tabindex=-1: the skip link moves keyboard focus here, not just the view.
     `<main id="main" tabindex="-1"${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
     // One left edge (SYC-619 §2.4): main is 1120px everywhere; a page that isn't
-    // `wide` keeps a 760px reading column at the frame's left edge.
+    // `wide` keeps a 736px reading column at the frame's left edge.
     (opts.mainClass === "wide" ? "" : '<div class="readcol">') +
     (opts.banner ?? "") +
     (opts.beforeTitle ?? "") +

@@ -454,12 +454,31 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     ]);
   });
 
-  it("a button-styled summary keeps no marker: the override follows the marker rules (SYC-619 §2.6)", () => {
+  it("a button-styled summary keeps no marker, open or closed: the override out-ranks the open marker rule (SYC-619 §2.6)", () => {
     const css = sheet();
-    const override = ".fixes details.update>summary::before,.fixes summary.risky::before{content:none}";
-    expect(css).toContain(override);
-    expect(css.indexOf(override)).toBeGreaterThan(css.indexOf('content:"▸" / ""'));
-    expect(css.indexOf(override)).toBeGreaterThan(css.indexOf('content:"▾" / ""'));
+    // Specificity as [ids, classes/attributes, elements/pseudo-elements].
+    const spec = (sel: string): [number, number, number] => [
+      0,
+      (sel.match(/\.[\w-]+|\[[^\]]+\]/g) ?? []).length,
+      (sel.replace(/\.[\w-]+|\[[^\]]+\]/g, "").match(/[a-z]+|::before/g) ?? []).length,
+    ];
+    const cmp = (x: number[], y: number[]) => x[0]! - y[0]! || x[1]! - y[1]! || x[2]! - y[2]!;
+    const none = css.split("\n").find((l) => /\{content:none\}$/.test(l) && l.includes("summary.risky::before"))!;
+    expect(none).toBeTruthy();
+    const overrides = none.slice(0, none.indexOf("{")).split(",").map((x) => x.trim());
+    const openRule = css.split("\n").find((l) => l.includes('content:"▾" / ""'))!;
+    const openSel = ".fixes details[open]>summary::before";
+    expect(openRule).toContain(openSel);
+    // The open states of a risky summary and of the Update button each beat the open marker.
+    for (const sel of [".fixes details[open]>summary.risky::before", ".fixes details.update[open]>summary::before"]) {
+      expect(overrides, sel).toContain(sel);
+      expect(cmp(spec(sel), spec(openSel)), sel).toBeGreaterThan(0);
+    }
+    // The closed states match too, and the override comes after every marker rule.
+    expect(overrides).toContain(".fixes details>summary.risky::before");
+    expect(overrides).toContain(".fixes details.update>summary::before");
+    expect(css.indexOf(none)).toBeGreaterThan(css.indexOf('content:"▾" / ""'));
+    expect(css.indexOf(none)).toBeGreaterThan(css.indexOf('content:"▸" / ""'));
   });
 
   it("each marked summary is a flex row and hides the browser's own triangle", () => {
