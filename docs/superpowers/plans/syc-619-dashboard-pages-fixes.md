@@ -151,13 +151,13 @@ where p.left_at is null
 - Test: `lib/teamPages/layout.test.ts`
 
 **Interfaces:**
-- Produces: `<div class="col">` wrapping everything inside `<main>` when `mainClass !== "wide"`.
+- Produces: `<div class="readcol">` wrapping everything inside `<main>` when `mainClass !== "wide"`.
 - `mainClass` stays `"mappage" | "wide" | undefined`.
 
 - [ ] **Step 1: Write the failing tests.**
   - `"main is 1120px on every page"`.
-  - `"a narrow page wraps its content in .col, 760px, left-aligned"`.
-  - `"wide pages have no .col"`.
+  - `"a narrow page wraps its content in .readcol, 760px, left-aligned"`.
+  - `"wide pages have no .readcol"`.
   - `"the .mappage margin rule uses the 1120px frame and still rounds down to 1px"`: assert the CSS text `round(down,(100% - 1120px) / 2,1px)`, or its equivalent.
 - [ ] **Step 2: Run the tests and see them fail. Implement it. Run them and see them pass.**
 - [ ] **Step 3: Check the whole-pixel rule in the browser pane.**

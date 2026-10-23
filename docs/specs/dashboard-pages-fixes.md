@@ -117,7 +117,7 @@ The review said the two light up different menu items. That was wrong (§15). Th
 
 **Change.**
 - `main` is 1120px wide on every page, the same frame the menu bar already uses (`layout.ts:108`).
-- A page without `mainClass: "wide"` gets one inner wrapper, `<div class="col">`, around everything `renderPage` puts in `main` (banner, back link, title and body). `.col` is 760px wide and starts at the frame's left edge.
+- A page without `mainClass: "wide"` gets one inner wrapper, `<div class="readcol">`, around everything `renderPage` puts in `main` (banner, back link, title and body). `.col` is 760px wide and starts at the frame's left edge.
 - `mainClass` stays a single value. `renderPage` adds the wrapper whenever the value isn't `wide`, so no page has to change.
 - **`.mappage`** keeps the map starting on a whole pixel (SYC-209 PR 3.1). Its margin rule, `round(down,(100% - 760px) / 2,1px)` at `layout.ts:364`, is rewritten for the 1120px frame and must still round to a whole pixel. The `.mappage` pages are Feeding sites, a site, the site forms, the centre pickers and the tap-check map (`sitePages.ts`, `siteFormPages.ts`, `centrePages.ts`, `routes/teamMap.ts`). The Cats map view is `wide`, not `mappage`.
 - At 390px nothing changes, because both widths are wider than the screen.
@@ -800,7 +800,7 @@ New keys are added in en, el and fr together. Greek and French aren't live yet (
 4. **Reports and the rest:** §3's remaining pages, §8 and §9.
 
 **Order.**
-- PR 1 goes first, because the others use its fold marker, its back-link form and the `.col` wrapper.
+- PR 1 goes first, because the others use its fold marker, its back-link form and the `.readcol` wrapper.
 - PRs 2, 3 and 4 each touch `layout.ts` as well, so they go one at a time. Each is rebased onto main after the one before it merges, following the stacked-PR rule (one fix per PR, rebased after each squash merge).
 
 **The migration (D6 option B)** follows migrate-before-republish:
@@ -845,7 +845,7 @@ An adversarial review (Opus, read-only) of the first draft, commit `51b7e8c7`, r
 | 7 | Issue rows offer fewer states; "No photo" lived only in the tile | Should-fix | §6.1, §6.2 |
 | 8 | Not every fold should get the marker; `::before` can't take `aria-hidden` | Should-fix | §2.6 lists both sets; `content:"▸" / ""` |
 | 9 | `rowMenu()` is shared with the team cat page | Should-fix | §7.2: a `compact` option; the glyph is hidden from screen readers |
-| 10 | No test for the whole-pixel rule; `mainClass` is a single value | Should-fix | §2.4: one `.col` wrapper; §12 browser check |
+| 10 | No test for the whole-pixel rule; `mainClass` is a single value | Should-fix | §2.4: one `.readcol` wrapper; §12 browser check |
 | 11 | The "Home" back links go to the Queue; Feeding sites is out of scope; "Back to the report" broke the rule | Should-fix | §2.5 |
 | 12 | Fragment links don't open folds; `?done=` doesn't name a person; chips and short roles incomplete | Should-fix | §4.1 |
 | 13 | `roleSentence()` also writes emails; `placementFields()` is shared | Should-fix | §9.1: "Now:" left alone; same words on all three forms |
