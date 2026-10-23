@@ -104,32 +104,6 @@ export type HistoryRow =
 type SightingRow = Extract<HistoryRow, { type: "sighting" }>;
 type FlatRow = Exclude<HistoryRow, { type: "run" }>;
 
-const VISIT_KINDS = new Set(["vet_visit", "sterilised", "vaccinated"]);
-
-/**
- * The visit an entry belongs to, or null. Its own `vetVisitId`, except for
- * what undoing a visit writes: each retraction replaces one of the visit's
- * entries, and carries no link of its own (a `sterilised` or `vaccinated`
- * one has none; a `vet_visit` one's `vetVisitId` is its own id). So a
- * visit-kind entry that replaces a visit's entry belongs to that visit, and
- * the visit's row shows who marked it wrong, and when.
- */
-function visitOfEntry(byId: ReadonlyMap<number, TeamStatement>): (e: TeamStatement) => number | null {
-  const memo = new Map<number, number | null>();
-  const find = (e: TeamStatement, seen: Set<number>): number | null => {
-    if (memo.has(e.id)) return memo.get(e.id)!;
-    let out: number | null = e.kind === "vet_visit" ? null : e.vetVisitId;
-    if (out === null && VISIT_KINDS.has(e.kind) && e.replaces != null && !seen.has(e.replaces)) {
-      const replaced = byId.get(e.replaces);
-      if (replaced && replaced.kind === e.kind) out = find(replaced, new Set([...seen, e.id]));
-    }
-    if (out === null && e.kind === "vet_visit") out = e.vetVisitId;
-    memo.set(e.id, out);
-    return out;
-  };
-  return (e) => find(e, new Set([e.id]));
-}
-
 /** Rank for a tie in time: sightings, then visits, then changes. */
 const RANK: Record<FlatRow["type"], number> = { sighting: 0, visit: 1, entry: 2 };
 
@@ -139,8 +113,6 @@ const RANK: Record<FlatRow["type"], number> = { sighting: 0, visit: 1, entry: 2 
  * visit id, entry id) first.
  */
 function flatRows(v: TeamCatView, visits: readonly VisitLine[]): FlatRow[] {
-  const byId = new Map(v.history.map((e) => [e.id, e]));
-  const visitOf = visitOfEntry(byId);
   const sightingIds = new Set(v.sightings.map((s) => s.id));
   const lineOf = new Map(visits.map((l) => [l.visitId, l]));
 
@@ -148,7 +120,8 @@ function flatRows(v: TeamCatView, visits: readonly VisitLine[]): FlatRow[] {
   const ofVisit = new Map<number, TeamStatement[]>();
   const loose: TeamStatement[] = [];
   for (const e of v.history) {
-    const visitId = visitOf(e);
+    // An undo's retractions carry their visit's id too (teamCatView).
+    const visitId = e.vetVisitId;
     // A visit's own row wins over a sighting's.
     if (visitId !== null) ofVisit.set(visitId, [...(ofVisit.get(visitId) ?? []), e]);
     // A sighting no longer on this cat (moved to another): its entry stands alone.

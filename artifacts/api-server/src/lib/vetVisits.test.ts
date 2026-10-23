@@ -9,6 +9,7 @@ import { listGuardianChanges } from "./guardianChanges";
 import { ALREADY_UNDONE, logVetVisit, undoVetVisit, visitsFor } from "./vetVisits";
 import { recordTeamStatement, supersedeStatement } from "./teamCorrections";
 import { teamCatView } from "./teamCatView";
+import { historyRows } from "./teamPages/catHistory";
 
 // SYC-396 PR 3.1a, Task 3.1.1 (team-dashboard-redesign.md §8.3; plan
 // Decisions 5–7 and D8): writing a visit and undoing it, against the shared
@@ -346,5 +347,40 @@ describe("visitsFor", () => {
     const tied = view!.history.filter((h) => h.vetVisitId === line!.visitId);
     expect(tied.map((h) => h.kind).sort()).toEqual(["sterilised", "vaccinated", "vet_visit"]);
     expect(view!.history.filter((h) => h.vetVisitId === null).map((h) => h.kind)).toEqual(["sterilised"]);
+  });
+
+  it("ties an undone visit's retractions to it too, so History shows the visit once, crossed out (SYC-602 PR 2)", async () => {
+    const catId = await insertCat();
+    // D8: the visit's "yes" overrules a cat guardian's "no"; undoing it stands hers up again.
+    const no = await guardianSaysNo(catId, "2026-08-01");
+    const visit = await logVetVisit(STAFF, { catId, date: "2026-08-13", value: BOTH }, NOW);
+    const { retracted } = await undoVetVisit(STAFF, visit.visitId, "Wrong cat", NOW);
+    expect(retracted).toHaveLength(3);
+    const team = await recordTeamStatement(STAFF, { catId, kind: "sterilised", value: { sterilised: true }, reason: "Clinic list" });
+
+    const view = (await teamCatView(catId, NOW))!;
+    const of = (id: number) => view.history.find((h) => h.id === id)!;
+    // Every retraction row carries the visit's id, as do the rows it wrote.
+    for (const id of retracted) expect(of(id).vetVisitId).toBe(visit.visitId);
+    const tied = view.history.filter((h) => h.vetVisitId === visit.visitId).map((h) => h.id).sort((a, b) => a - b);
+    expect(tied).toEqual(
+      [visit.visitId, ...visit.sterilisedIds, visit.vaccinatedId!, ...retracted].sort((a, b) => a - b),
+    );
+    // The guardian's "no" and a plain team statement belong to no visit.
+    expect(of(no.id).vetVisitId).toBeNull();
+    expect(of(team.id).vetVisitId).toBeNull();
+
+    const lines = await visitsFor(catId, { costs: false });
+    expect(lines).toEqual([]);
+    const rows = historyRows(view, lines, "all");
+    const visitRows = rows.filter((r) => r.type === "visit");
+    expect(visitRows).toHaveLength(1);
+    const row = visitRows[0]!;
+    if (row.type !== "visit") throw new Error("not a visit row");
+    expect(row.visit).toBeNull();
+    expect(row.entries.map((e) => e.id).sort((a, b) => a - b)).toEqual(tied);
+    // No stray change rows: only the guardian's "no" and the team's statement.
+    const changes = rows.flatMap((r) => (r.type === "entry" ? [r.entry.id] : []));
+    expect(changes.sort((a, b) => a - b)).toEqual([no.id, team.id].sort((a, b) => a - b));
   });
 });

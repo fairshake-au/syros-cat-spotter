@@ -322,8 +322,9 @@ export interface TeamStatement {
    * `vet_visit` entry it is that visit's own id (the `VisitLine.visitId`
    * `visitsFor` gives); on the `sterilised` and `vaccinated` entries the visit
    * wrote it is their `value.vetVisitId`. The page folds those into the
-   * visit's row. Kept on retracted entries too: an undone visit still
-   * draws its rows crossed out.
+   * visit's row. Kept on retracted entries too, and an undo's retraction
+   * rows carry the visit they retract (`vetVisitIdsOf`): an undone visit
+   * still draws its rows crossed out, with who undid it and when.
    */
   vetVisitId: number | null;
   /**
@@ -343,15 +344,42 @@ export type StatementCorrection =
   /** A colour or markings statement: marked wrong by a retraction, from the Appearance section (SYC-2 PR 3.1). */
   | { kind: "appearance" };
 
-/** The visit an observation belongs to: a visit's own id, or the link its statements carry. */
-function vetVisitIdOf(o: Observation): number | null {
+/** The visit an observation itself names: a visit's own id, or the link its statements carry. */
+function ownVetVisitId(o: Observation): number | null {
+  const v = o.value && typeof o.value === "object" ? (o.value as Record<string, unknown>) : null;
+  // A retraction names no visit of its own: it belongs to what it retracts.
+  if (v?.["retracted"] === true) return null;
   if (o.kind === "vet_visit") return o.id;
   if (o.kind === "sterilised" || o.kind === "vaccinated") {
-    const v = o.value as Record<string, unknown> | null;
-    const id = v && typeof v === "object" ? v["vetVisitId"] : undefined;
+    const id = v?.["vetVisitId"];
     return typeof id === "number" ? id : null;
   }
   return null;
+}
+
+/**
+ * The visit each observation belongs to (SYC-602 PR 2). Its own link, except
+ * that a row replacing a visit's row belongs to that visit: undoing a visit
+ * writes a retraction of each of its rows (`{ retracted: true }`, which names
+ * no visit). Followed through replacements of replacements. Only an undo
+ * can replace a visit's rows today (Decision 7: they are marked wrong with
+ * the visit), and any replacement of one is drawn on the visit's row, beside
+ * what it crossed out. A visit's "yes" that overrules a guardian's "no" (D8) keeps its own
+ * visit: the guardian's row names none.
+ */
+function vetVisitIdsOf(observations: readonly Observation[]): (o: Observation) => number | null {
+  const byId = new Map(observations.map((o) => [o.id, o]));
+  const memo = new Map<number, number | null>();
+  const find = (o: Observation, seen: Set<number>): number | null => {
+    if (memo.has(o.id)) return memo.get(o.id)!;
+    const replaced = o.supersedesId == null || seen.has(o.supersedesId) ? undefined : byId.get(o.supersedesId);
+    seen.add(o.id);
+    // Its own link first: a visit's "yes" over a guardian's "no" is its own visit's.
+    const out = ownVetVisitId(o) ?? (replaced ? find(replaced, seen) : null);
+    memo.set(o.id, out);
+    return out;
+  };
+  return (o) => find(o, new Set());
 }
 
 /** An owner's "has a home" (claiming-a-cat.md §3): the claim itself. */
@@ -894,6 +922,7 @@ export async function teamCatView(
   for (const [oldId, moved] of crossCat.movedTo) {
     replacedBy.set(oldId, [...(replacedBy.get(oldId) ?? []), moved.statementId]);
   }
+  const vetVisitIdOf = vetVisitIdsOf(observations);
   const history: TeamStatement[] = [...observations]
     .sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,

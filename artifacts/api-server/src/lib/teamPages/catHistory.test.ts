@@ -143,15 +143,14 @@ describe("historyRows (spec §3.5)", () => {
   });
 
   it("keeps an undone visit, crossed out", () => {
-    // What undoVetVisit really writes: a retraction of each statement the
-    // visit wrote ({ retracted: true }, no vetVisitId), then of the visit
-    // itself (kind vet_visit, so its own vetVisitId is its own id).
+    // What undoVetVisit writes: a retraction of each statement the visit
+    // wrote, then of the visit itself; teamCatView ties each to the visit.
     const at = "2026-08-13T12:00:00Z";
     const undoneAt = "2026-08-20T09:00:00Z";
     const v = catView({
       history: [
-        statement(61, { kind: "vet_visit", said: "Marked wrong", replaces: 40, vetVisitId: 61, observedAt: undoneAt, createdAt: undoneAt }),
-        statement(60, { kind: "sterilised", said: "Marked wrong", replaces: 41, vetVisitId: null, observedAt: undoneAt, createdAt: undoneAt }),
+        statement(61, { kind: "vet_visit", said: "Marked wrong", replaces: 40, vetVisitId: 40, observedAt: undoneAt, createdAt: undoneAt }),
+        statement(60, { kind: "sterilised", said: "Marked wrong", replaces: 41, vetVisitId: 40, observedAt: undoneAt, createdAt: undoneAt }),
         statement(41, { kind: "sterilised", said: "Sterilised", vetVisitId: 40, replacedBy: [60], observedAt: at }),
         statement(40, { kind: "vet_visit", said: "Vet visit: sterilised", vetVisitId: 40, replacedBy: [61], observedAt: at }),
       ],
