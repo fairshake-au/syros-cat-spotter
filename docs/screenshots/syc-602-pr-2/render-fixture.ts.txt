@@ -1,0 +1,81 @@
+// Scratch render for PR 2 (SYC-602, one History list) screenshots. Kept as a .txt so the test runner does not pick it up; copy it to src/tmp-render.test.ts (fix the import paths) to run it.
+import { mkdirSync, writeFileSync as write } from "node:fs";
+import { renderCatPage } from "./src/lib/teamPages/catPages";
+import type { TeamCatView, TeamStatement } from "./src/lib/teamCatView";
+import type { VisitLine } from "./src/lib/vetVisits";
+const OUT = process.env["OUT"]!;
+// Local placeholder pictures, so nothing shows a broken-image icon (no network is used).
+mkdirSync(`${OUT}/img`, { recursive: true });
+const hues: Record<string, number> = { main: 210, s1: 30, s2: 120, s3: 280, s4: 0 };
+for (const [n, h] of Object.entries(hues))
+  write(`${OUT}/img/${n}.svg`, `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="hsl(${h},35%,62%)"/><circle cx="400" cy="300" r="140" fill="hsl(${h},30%,40%)"/><text x="400" y="320" font-size="56" text-anchor="middle" fill="#fff" font-family="sans-serif">${n}</text></svg>`);
+write(`${OUT}/img/tile.svg`, `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#dfe8d8"/><path d="M0 120H400M0 280H400M130 0V400M290 0V400" stroke="#fff" stroke-width="14"/><path d="M0 330 Q200 250 400 350 V400 H0Z" fill="#b9d6e6"/></svg>`);
+const writeFileSync = (path: string, html: string) =>
+  write(path, html.replace(/src="\/api\/team\/photos\/(\w+)(?:\/small)?"/g, 'src="img/$1.svg"').replace(/src="\/api\/team\/map-tiles\/[^"]*"/g, 'src="img/tile.svg"'));
+const NOW = new Date("2026-10-17T09:00:00Z");
+const st = (id: number, o: Partial<TeamStatement>): TeamStatement => ({
+  id, kind: "note", said: "", reason: null, author: { kind: "team", label: "Maria" },
+  observedAt: "2026-09-01T10:00:00Z", createdAt: "2026-09-01T10:00:00Z", asGuardian: false, replaces: null,
+  replacedBy: [], movedTo: null, ownerClaim: false, movedFrom: null, photoUrl: null, sightingId: null, vetVisitId: null, correction: null, ...o,
+});
+const day = (d: number) => new Date(Date.UTC(2026, 9, 16, 8) - d * 86_400_000).toISOString();
+const spotter = { kind: "spotter" as const, label: "a spotter" };
+// Sightings, newest first: 900 (clipped ear), a run of five routine ones (897–885), 882 (may show two cats), 879 (routine).
+const spots: [number, number][] = [[37.44395, 24.94282], [37.44412, 24.94301], [37.44378, 24.94255], [37.44431, 24.94322], [37.44366, 24.94310], [37.44402, 24.94240], [37.44395, 24.94282], [37.44412, 24.94301], [37.44378, 24.94255]];
+const sightingDays = [4, 6, 9, 12, 15, 18, 30, 44, 50];
+const sightingIds = sightingDays.map((_, i) => 900 - i * 3);
+const routine: TeamStatement[] = [1, 2, 3, 4, 5, 8].map((i) => st(400 - i, {
+  kind: "food_and_water", said: "Food and water were out", author: spotter,
+  observedAt: day(sightingDays[i]!), createdAt: day(sightingDays[i]!), sightingId: sightingIds[i]!,
+}));
+const visits: VisitLine[] = [{ visitId: 280, date: day(60), did: ["sterilised", "vaccinated"], vaccines: ["rabies"], clinicName: "Syros Vet", costEur: 55, paidBy: "syros_cats", by: "Maria" }];
+const v: TeamCatView = {
+  cat: { id: 42, syr: "SYR-0042", name: "Mavros", description: "Friendly, waits by the fish market at 8.", lat: 37.4439, lng: 24.9428, createdAt: "2026-04-03T09:12:00Z", mainPhotoUrl: "/api/team/photos/main" },
+  owner: { has: false, orphanedHome: false, homeDescription: null, homePin: null },
+  colony: { id: 4, name: "Ermoupoli harbour", wasName: null },
+  publicStatus: { hasHome: false, lifeStatus: "street", notSeenSince: null, sterilised: { value: true, confidence: "likely", clippedTipSightings: 3 }, coat: ["grey", "stripes"], coatColours: ["grey"], coatPattern: "stripes", markings: ["white_paws"] },
+  records: {
+    lifeStatus: { value: "street", confidence: "likely", asOf: day(3), supportingStatementIds: [301], conflictingStatementIds: [], presumedDeceased: false, notSeenSince: null },
+    sterilised: { value: true, confidence: "likely", asOf: day(10), supportingStatementIds: [281, 299], conflictingStatementIds: [], clippedTipSightings: 3 },
+    vaccinations: [{ observationId: 5, date: "2026-05-02T00:00:00Z", vaccines: ["rabies", "cat_flu_enteritis"], clinic: "Syros Vet" }],
+  },
+  appearance: {
+    coat: { value: ["grey", "stripes"], confidence: "likely", parts: { colours: { value: ["grey"], confidence: "likely" }, pattern: { value: "stripes", confidence: "likely" } }, checkReasons: [], statements: [{ id: 120, codes: ["grey", "stripes"], author: { kind: "system", label: "read automatically from the photo" }, source: "machine", prompted: false, agreesWith: null, createdAt: "2026-04-03T09:13:00Z", photoUrl: "/api/team/photos/s1", modelVersion: "coat-v2", counts: true, markable: true }], guardianDecides: false, aboveTeamIds: [], guardianDisagrees: false },
+    markings: { value: ["white_paws"], confidence: "reported", checkReasons: [], statements: [], guardianDecides: false, aboveTeamIds: [], guardianDisagrees: false },
+    handPick: false,
+  },
+  sightings: spots.map(([lat, lng], i) => ({ id: sightingIds[i]!, lat, lng, at: day(sightingDays[i]!), photoUrl: `/api/team/photos/s${(i % 3) + 1}`, extraPhotos: [], mixedCats: i === 6 })),
+  photos: ["main", "s1", "s2", "s3", "s4"].map((n, i) => ({ url: `/api/team/photos/${n}`, publicId: n, source: i === 0 ? "main" : "sighting", hidden: n === "s3" ? { by: "Maria", at: "2026-10-01T09:00:00Z" } : null })),
+  history: [
+    // A correction: Maria's "Lives on the street" replaces Eleni's "In Syros Cats' care".
+    st(301, { kind: "life_status", said: "Lives on the street", reason: "Back at the harbour steps every morning", replaces: 296, author: { kind: "team", label: "Maria" }, observedAt: day(2), createdAt: day(2), correction: { kind: "life_status", now: "street" } }),
+    st(296, { kind: "life_status", said: "In Syros Cats' care", replacedBy: [301], author: { kind: "team", label: "Eleni" }, observedAt: day(8), createdAt: day(8) }),
+    st(299, { kind: "ear_tip", said: "Ear tip clipped, left ear", author: spotter, observedAt: day(4), createdAt: day(4), sightingId: 900, correction: { kind: "ear_tip_clipped" } }),
+    ...routine,
+    st(270, { kind: "coat", said: "Coat: Grey tabby", author: { kind: "system", label: "read automatically from the photo" }, observedAt: day(20), createdAt: day(20), correction: { kind: "appearance" } }),
+    // The system's own colony correction (SYC-331): no Mark wrong.
+    st(250, { kind: "colony", said: "Put in the colony Ermoupoli harbour", author: { kind: "system", label: "imported" }, observedAt: day(40), createdAt: day(40), correction: { kind: "colony" } }),
+    st(281, { kind: "sterilised", said: "Sterilised", reason: "vet visit", vetVisitId: 280, observedAt: day(60), createdAt: day(60) }),
+    st(282, { kind: "vaccinated", said: "Vaccinated: Rabies", vetVisitId: 280, observedAt: day(60), createdAt: day(60) }),
+    st(280, { kind: "vet_visit", said: "Vet visit: sterilised, vaccinated", vetVisitId: 280, observedAt: day(60), createdAt: day(60) }),
+    // An undone visit: logged against the wrong cat, then marked wrong.
+    st(262, { kind: "vet_visit", said: "Marked wrong", reason: "Logged against the wrong cat", replaces: 260, vetVisitId: 260, author: { kind: "team", label: "Eleni" }, observedAt: day(68), createdAt: day(68) }),
+    st(261, { kind: "sterilised", said: "Marked wrong", replaces: 259, vetVisitId: 260, author: { kind: "team", label: "Eleni" }, observedAt: day(68), createdAt: day(68) }),
+    st(259, { kind: "sterilised", said: "Sterilised", replacedBy: [261], vetVisitId: 260, observedAt: day(70), createdAt: day(70) }),
+    st(260, { kind: "vet_visit", said: "Vet visit: sterilised", replacedBy: [262], vetVisitId: 260, observedAt: day(70), createdAt: day(70) }),
+  ],
+  recentGuardianMark: null,
+};
+const may = () => true;
+process.env["TEAM_SESSION_KEYS"] ??= "screenshot-key-0123456789abcdef-0123456789";
+const opts = { may, island: true, now: NOW, visits, colonies: [{ id: 4, name: "Ermoupoli harbour" }] };
+writeFileSync(`${OUT}/cat.html`, renderCatPage(v, "Maria", opts));
+writeFileSync(`${OUT}/visits.html`, renderCatPage(v, "Maria", { ...opts, show: "visits" }));
+const bare: TeamCatView = { ...v, publicStatus: { ...v.publicStatus, sterilised: { value: null, confidence: "unknown", clippedTipSightings: 0 } }, sightings: [], history: [], colony: null, photos: [], cat: { ...v.cat, mainPhotoUrl: null, name: "Nea", description: "" },
+  records: { ...v.records, vaccinations: [], sterilised: { ...v.records.sterilised, value: null, confidence: "unknown", clippedTipSightings: 0, supportingStatementIds: [] } },
+  appearance: { ...v.appearance, coat: { ...v.appearance.coat, value: null, parts: undefined, statements: [] } } };
+writeFileSync(`${OUT}/bare.html`, renderCatPage(bare, "Maria", { now: NOW }));
+writeFileSync(`${OUT}/readonly.html`, renderCatPage(v, "Visitor", { now: NOW, visits: visits.map(({ costEur: _c, paidBy: _p, ...l }) => l), issues: { total: 2, reports: [
+  { id: "i1", reason: "wrong_cat", state: "new", at: "2026-10-14T09:00:00Z", others: 0, photo: null },
+  { id: "i2", reason: "wrong_cat", state: "new", at: "2026-10-12T09:00:00Z", others: 0, photo: null },
+] } }));

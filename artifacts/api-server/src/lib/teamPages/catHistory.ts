@@ -620,7 +620,7 @@ function visitRow(r: Extract<HistoryRow, { type: "visit" }>, c: Ctx): string {
   const who = l
     ? `${esc(l.clinicName)}${money} · logged by ${esc(l.by)}`
     : own
-      ? esc(capFirst(byWhom(own)))
+      ? `Logged by ${esc(byWhom(own))}`
       : "";
   const wrong =
     l && c.may("log_vet_visit")

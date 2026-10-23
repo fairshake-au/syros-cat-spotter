@@ -843,9 +843,10 @@ describe("SYC-395 (D9): Open map links by viewer", () => {
       { label: "the site", send: () => get(`/api/team/sites/${s1}`, staffCookie), expect: withWords(S1_POS) },
       { label: "the colony", send: () => get(`/api/team/colonies/${c1}`, staffCookie), expect: withWords(C1_CENTRE) },
       {
+        // The sighting's ⋯ menu in History (SYC-602 PR 2) words the same link "Show on the map".
         label: "the cat's More menu",
         send: () => get(`/api/team/cats/${catA.id}`, staffCookie),
-        expect: `<p class="meta"><a href="${openMap(SIGHT_A)}" rel="noopener noreferrer">Open map</a></p>`,
+        expect: `<p class="meta"><a href="${openMap(SIGHT_A)}" rel="noopener noreferrer">Show on the map</a></p>`,
       },
       {
         label: "Make a feeding site here",
