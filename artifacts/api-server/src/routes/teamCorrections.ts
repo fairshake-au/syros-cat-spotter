@@ -763,14 +763,16 @@ router.post(
  */
 // eslint-disable-next-line no-control-regex
 const NOTE_STRIPPED = /[\u0001-\u0009\u000B-\u001F\u202A-\u202E\u2066-\u2069]/g;
-const noteChars = (v: unknown) => (typeof v === "string" ? lf(v).replace(NOTE_STRIPPED, "") : v);
+const noteChars = (v: unknown) => (typeof v === "string" ? String(lf(v)).replace(NOTE_STRIPPED, "") : v);
 // A lone surrogate passes zod but Postgres jsonb refuses it (a 500); say 400.
-const wellFormed = (s: string) => s.isWellFormed();
+// (The ES2024 isWellFormed is not in this project's lib, so the pairs are checked by pattern.)
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+const wellFormed = (s: string) => !LONE_SURROGATE.test(s);
 
 export const NoteForm = z.object({
   text: z.preprocess(
-    (v) => (typeof v === "string" && !wellFormed(v) ? v : noteChars(v)),
-    z.string().refine(wellFormed).pipe(z.string().trim().min(1).max(NOTE_MAX).refine(noNul)),
+    noteChars,
+    z.string().trim().min(1).max(NOTE_MAX).refine(wellFormed).refine(noNul),
   ),
 });
 
