@@ -368,6 +368,7 @@ export const el: Record<StringKey, string> = {
   "centre.clear": "Αφαίρεση του κέντρου",
   "centre.clearHint": "Η αποικία δεν θα έχει κέντρο μέχρι να ορίσετε ένα.",
   "colony.noPhoto": "Χωρίς φωτογραφία",
+  "cat.noNameYet": "Χωρίς όνομα ακόμα",
   "colony.addCats": "Προσθήκη γατών",
   "colony.takeOut": "Αφαίρεση από αυτή την αποικία",
   // The menu on each cat in a colony (SYC-396 PR 1.4).

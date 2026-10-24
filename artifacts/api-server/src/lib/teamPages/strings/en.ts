@@ -405,6 +405,7 @@ export const en = {
   "centre.clear": "Clear the centre",
   "centre.clearHint": "The colony will have no centre until you set one.",
   "colony.noPhoto": "No photo",
+  "cat.noNameYet": "No name yet",
   "colony.addCats": "Add cats",
   "colony.takeOut": "Take out of this colony",
   // The menu on each cat in a colony (SYC-396 PR 1.4).

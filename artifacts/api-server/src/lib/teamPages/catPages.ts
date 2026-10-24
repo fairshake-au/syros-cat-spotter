@@ -1,9 +1,10 @@
 import { keptLine, type KeptFields } from "./signedOutPage";
 import type { LifeStatusValue } from "../resolve";
-import type {
-  TeamCatView,
-  TeamPhoto,
-  TeamStatement,
+import {
+  headingName,
+  type TeamCatView,
+  type TeamPhoto,
+  type TeamStatement,
 } from "../teamCatView";
 import {
   groupHistory,
@@ -118,7 +119,7 @@ function deathNotice(v: TeamCatView, byId: Map<number, TeamStatement>, shown: Sh
   if (!s) return "";
   const happened = day(s.observedAt) !== day(s.createdAt) ? `, about ${time(s.observedAt, day(s.observedAt))}` : "";
   return (
-    `<p class="notice" role="note"><strong>${esc(v.cat.name)} has died</strong>${happened}. ` +
+    `<p class="notice" role="note"><strong>${esc(v.cat.namePending ? v.cat.syr : v.cat.name)} has died</strong>${happened}. ` +
     `Recorded by ${esc(byWhom(s))} on ${time(s.createdAt, day(s.createdAt))}.` +
     (s.reason ? ` How we know: ${esc(s.reason.trim().replace(/[.!?]+$/, ""))}.` : "") +
     ` If this is a mistake, use <strong>Mark wrong</strong> on it in the history. ` +
@@ -542,7 +543,7 @@ export function renderCatPage(
     { id: "photos", tab: `Photos (${v.photos.length})`, heading: `Photos (${v.photos.length})`, html: photos, anchors: ["photos"] },
   ];
   if (smallMap !== "") {
-    panels.push({ id: "map", tab: "Map", heading: `Where ${cat.name} has been seen`, html: smallMap, anchors: ["map"] });
+    panels.push({ id: "map", tab: "Map", heading: cat.namePending ? "Where this cat has been seen" : `Where ${cat.name} has been seen`, html: smallMap, anchors: ["map"] });
   }
   panels.push({ id: "coat", tab: "Coat and markings", heading: "Coat and markings", html: coat, anchors: ["appearance"] });
   if (issueTotal > 0) {
@@ -550,7 +551,7 @@ export function renderCatPage(
   }
 
   return renderPage({
-    title: cat.name,
+    title: headingName(cat),
     active: "cats",
     personName,
     // Notices sit above the card, never inside a tab (spec §2). A hide or

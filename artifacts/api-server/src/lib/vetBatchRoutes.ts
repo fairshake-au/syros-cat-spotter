@@ -87,12 +87,12 @@ export async function pageFor(res: Response, batch: Batch, extra: Partial<BatchP
   const lines = new Map<number, CatLine>();
   if (wanted.size) {
     const rows = await db
-      .select({ id: catsTable.id, name: catsTable.name, photo: photosTable.publicId })
+      .select({ id: catsTable.id, name: catsTable.name, namePending: catsTable.namePending, photo: photosTable.publicId })
       .from(catsTable)
       .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
       .where(inArray(catsTable.id, [...wanted]));
     for (const r of rows) {
-      lines.set(r.id, { name: r.name, syr: syrNumber(r.id), thumbUrl: r.photo ? `${teamPhotoUrl(r.photo)}/small` : null });
+      lines.set(r.id, { name: r.name, namePending: r.namePending, syr: syrNumber(r.id), thumbUrl: r.photo ? `${teamPhotoUrl(r.photo)}/small` : null });
     }
   }
   const [{ sterilisationPriceEur }, colonies, limit, colony] = await Promise.all([

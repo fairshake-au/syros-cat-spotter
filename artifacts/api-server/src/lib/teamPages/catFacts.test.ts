@@ -75,6 +75,7 @@ function factsView(o: Over = {}): TeamCatView {
       id: 7,
       syr: "SYR-0007",
       name: "Tiger",
+      namePending: false,
       description: "",
       // Ermoupoli's harbour.
       lat: 37.4447,

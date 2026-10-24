@@ -194,7 +194,7 @@ export function renderGuardianColonyPage(
               : '<span class="nothumb"></span>';
             return (
               `<li class="gcat">${thumb}<div>` +
-              `<a class="name" href="${myCatPath(c.id)}">${esc(c.name)}</a> <span class="muted">${esc(c.syr)}</span>` +
+              `<a class="name" href="${myCatPath(c.id)}">${esc(c.namePending ? t("cat.noNameYet") : c.name)}</a> <span class="muted">${esc(c.syr)}</span>` +
               `<p>${esc(sterilisedWords(c.sterilised, t))}</p>` +
               (c.lifeStatus ? `<p>${esc(t(`gcat.life.${c.lifeStatus}` as StringKey))}</p>` : "") +
               `<p class="muted">${esc(guardianLastSeenWords(c.lastSeen, lang, t, live))}</p>` +
@@ -287,7 +287,7 @@ export function renderGuardianCatPage(
   const lang = pageLanguage(who.language, live);
   const t: Say = (k, v) => tr(lang, k, v, live);
   const main = cat.mainPhotoUrl
-    ? `<img class="gmain" src="${esc(cat.mainPhotoUrl)}" alt="${esc(cat.name)}">`
+    ? `<img class="gmain" src="${esc(cat.mainPhotoUrl)}" alt="${esc(cat.namePending ? t("cat.noNameYet") : cat.name)}">`
     : "";
   const others = cat.photoUrls.filter((u) => u !== cat.mainPhotoUrl);
   const gallery =
@@ -326,7 +326,7 @@ export function renderGuardianCatPage(
     sitesBlock(sites, t) +
     gallery +
     `<p><a class="tap" href="${MY_COLONIES_PATH}">${esc(t("gcat.back"))}</a></p>`;
-  return shell(who, cat.name, body, live);
+  return shell(who, cat.namePending ? t("cat.noNameYet") : cat.name, body, live);
 }
 
 /**
@@ -353,7 +353,7 @@ export function renderPublicCatForGuardian(
     appearanceLine(lang, cat, live) +
     "</div>" +
     `<p><a class="tap" href="${MY_COLONIES_PATH}">${esc(t("gcat.back"))}</a></p>`;
-  return shell(who, cat.name, body, live);
+  return shell(who, cat.namePending ? t("cat.noNameYet") : cat.name, body, live);
 }
 
 /** A colony that isn't hers (or doesn't exist), or no such cat: the same plain page. */

@@ -43,6 +43,7 @@ export interface PlanCat extends TeamCat {
 export interface GuardianPlanCat {
   id: number;
   name: string;
+  namePending: boolean;
   syr: string;
   photoPublicId: string | null;
   coat: CoatColour[];
@@ -58,6 +59,7 @@ export function forGuardian(c: PlanCat): GuardianPlanCat {
   return {
     id: c.id,
     name: c.name,
+    namePending: c.namePending,
     syr: c.syr,
     photoPublicId: c.photoPublicId,
     coat: c.coat,
@@ -80,6 +82,7 @@ export type OtherWhy = Exclude<Lives, "street"> | "off_syros" | "merged";
 export interface OtherPlanCat {
   id: number;
   name: string;
+  namePending: boolean;
   syr: string;
   photoPublicId: string | null;
   why: OtherWhy;
@@ -187,6 +190,7 @@ export async function trappingPlan(
           .select({
             id: catsTable.id,
             name: catsTable.name,
+            namePending: catsTable.namePending,
             lat: catsTable.lat,
             lng: catsTable.lng,
             photoPublicId: photosTable.publicId,
@@ -218,13 +222,14 @@ export async function trappingPlan(
       .map((c) => ({
         id: c.id,
         name: c.name,
+        namePending: c.namePending,
         syr: c.syr,
         photoPublicId: c.photoPublicId,
         why: c.lives === "street" ? ("off_syros" as const) : c.lives,
       })),
     ...missing.flatMap((id) => {
       const r = found.get(id);
-      return r ? [{ id, name: r.name, syr: syrNumber(id), photoPublicId: r.photoPublicId, why: "merged" as const }] : [];
+      return r ? [{ id, name: r.name, namePending: r.namePending, syr: syrNumber(id), photoPublicId: r.photoPublicId, why: "merged" as const }] : [];
     }),
   ].sort(byName);
 

@@ -1,5 +1,6 @@
 import { PAID_BY } from "../observations";
 import type { CatToAdd } from "../colonyCats";
+import { shownName } from "../teamCatView";
 import type { Band } from "../findFromPhoto";
 import type { Batch, BatchCat, BatchShared } from "../vetBatches";
 import { BATCH_PHOTOS_MAX } from "../vetBatches";
@@ -292,6 +293,7 @@ export function readNewCat(
 
 export interface CatLine {
   name: string;
+  namePending: boolean;
   syr: string;
   thumbUrl: string | null;
 }
@@ -420,7 +422,7 @@ function scopeSelect(p: BatchPage, id: string): string {
 }
 
 const catChip = (line: CatLine | undefined, id: number) => {
-  const name = line?.name ?? `Cat ${id}`;
+  const name = line ? shownName(line) : `Cat ${id}`;
   const syr = line?.syr ?? "";
   return `${esc(name)}${syr ? ` <span class="syr">${esc(syr)}</span>` : ""}`;
 };
@@ -445,7 +447,7 @@ function suggestions(p: BatchPage, c: BatchCat, action: string): string {
     list
       .map((r) => {
         const line = p.cats.get(r.catId);
-        const pic = r.photoPublicId ? `<img class="thumb" src="${thumbUrl(r.photoPublicId)}" alt="${esc(`Photo of ${line?.name ?? "this cat"}`)}" loading="lazy">` : "";
+        const pic = r.photoPublicId ? `<img class="thumb" src="${thumbUrl(r.photoPublicId)}" alt="${esc(`Photo of ${line ? shownName(line) : "this cat"}`)}" loading="lazy">` : "";
         return (
           `<li class="catrow">${pic}<span><strong>${catChip(line, r.catId)}</strong><br>` +
           `<span class="findband ${r.band}"><strong>${esc(BAND_WORD[r.band])}</strong></span>` +
@@ -465,9 +467,9 @@ function lookupResults(results: CatToAdd[], action: string): string {
     '<ul class="batchsuggest">' +
     results
       .map((r) => {
-        const pic = r.thumbnailUrl ? `<img class="thumb" src="${esc(r.thumbnailUrl)}" alt="${esc(`Photo of ${r.name}`)}" loading="lazy">` : "";
+        const pic = r.thumbnailUrl ? `<img class="thumb" src="${esc(r.thumbnailUrl)}" alt="${esc(`Photo of ${shownName(r)}`)}" loading="lazy">` : "";
         return (
-          `<li class="catrow">${pic}<span><strong>${esc(r.name)}</strong> <span class="syr">${esc(r.syr)}</span>` +
+          `<li class="catrow">${pic}<span><strong>${esc(shownName(r))}</strong> <span class="syr">${esc(r.syr)}</span>` +
           (r.colony ? `<br><span class="meta">${esc(r.colony.name)}</span>` : "") +
           `</span><form method="post" action="${action}/confirm"><input type="hidden" name="catId" value="${r.id}">` +
           '<button type="submit" class="primary">This is the cat</button></form></li>'

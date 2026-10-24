@@ -4,7 +4,7 @@ import { reasonLabel } from "../issues/alertEmail";
 import type { IssueReport } from "../issues/queue";
 import type { Confidence } from "../resolve";
 import { markOf } from "../teamCatList";
-import type { TeamCatView, TeamStatement } from "../teamCatView";
+import { headingName, shownName, type TeamCatView, type TeamStatement } from "../teamCatView";
 import { LIFE } from "./catActions";
 import { coatPhraseOf, day, renderCatFacts, type Shown } from "./catFacts";
 import { escapeHtml as esc } from "./escape";
@@ -78,7 +78,7 @@ function cardPhoto(v: TeamCatView): string {
   const coat = coatPhraseOf(v);
   const mainHidden = v.photos.find((p) => p.source === "main")?.hidden ?? null;
   const picture = cat.mainPhotoUrl
-    ? `<img class="photo catmain${mainHidden ? " ishidden" : ""}" src="${esc(cat.mainPhotoUrl)}" alt="${esc(`Photo of ${cat.name}${coat !== null ? `, ${coat}` : ""}`)}">`
+    ? `<img class="photo catmain${mainHidden ? " ishidden" : ""}" src="${esc(cat.mainPhotoUrl)}" alt="${esc(`Photo of ${shownName(cat)}${coat !== null ? `, ${coat}` : ""}`)}">`
     : '<div class="nophoto">No photo</div>';
   const n = v.photos.length;
   if (n === 0 || (n === 1 && cat.mainPhotoUrl)) return picture;
@@ -96,7 +96,7 @@ export function renderCatCard(
   opts: CatCardOptions,
 ): { heading: string; card: string } {
   const { cat } = v;
-  const heading = `<div class="nameline"><h1>${esc(cat.name)}</h1>${markIconOnly(markOf(v.records.sterilised))}</div>`;
+  const heading = `<div class="nameline"><h1>${esc(headingName(cat))}</h1>${markIconOnly(markOf(v.records.sterilised))}</div>`;
   const card =
     `<div class="catcard${opts.actions ? "" : " noactions"}">` +
     openReportsBox(opts.issues, opts.now) +

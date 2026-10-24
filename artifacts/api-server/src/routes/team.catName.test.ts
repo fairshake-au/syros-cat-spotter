@@ -106,6 +106,14 @@ describe("No name yet", () => {
     expect(mine.text).toContain("No name yet");
   });
 
+  it("shows in the Add cats search", async () => {
+    const id = await pendingCat();
+    const res = await get(`/api/team/colonies/${colonyId}/cats?q=${syrNumber(id)}`);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("No name yet");
+    expect(res.text).toContain(syrNumber(id));
+  });
+
   it("a named cat shows its name, not the words", async () => {
     const id = await pendingCat();
     expect((await rename(id, `${NAME}Mimi`)).status).toBe(303);
