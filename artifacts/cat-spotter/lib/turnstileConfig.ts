@@ -5,14 +5,14 @@
  * not in a setting, and cannot be left unset. It is chosen by the page's own
  * host:
  *
- * - the production app host gets the production key;
+ * - the production app hosts (an exact list) get the production key;
  * - localhost, 127.0.0.1 and Replit's dev domains get Cloudflare's published
  *   "always passes" test key, so a developer's browser never needs a real
  *   challenge;
  * - any other host gets nothing (`null`): the production widget is locked to
- *   the production host, so it would only show an error elsewhere.
+ *   the production hosts, so it would only show an error elsewhere.
  *
- * The server's /_challenge page falls back to the same production constant
+ * The server's /_challenge page does not look at the host: it falls back to the same production constant
  * (server/challenge-page.js; a test keeps the two copies equal).
  *
  * Cloudflare's other two published test keys (always fails; forces a tap) can
@@ -21,7 +21,14 @@
  * the failure and tap paths are checked by hand. A production host ignores it.
  */
 
-export const PRODUCTION_APP_HOST = 'apptest.catspotters.com';
+/**
+ * The production hosts: an exact list (SYC-662). `apptest.catspotters.com` is
+ * where testers use the app today; `syros.catspotters.com` is the launch
+ * address (SYC-306). Never add `catspotters.com` itself and never match by
+ * suffix. The widget's hostname list and the API's TURNSTILE_HOSTNAMES must
+ * name the same addresses.
+ */
+export const PRODUCTION_APP_HOSTS: readonly string[] = ['apptest.catspotters.com', 'syros.catspotters.com'];
 export const PRODUCTION_SITEKEY = '0x4AAAAAAFXDA4oOu3qZurFj';
 
 export const TEST_SITEKEY_PASSES = '1x00000000000000000000AA';
@@ -49,7 +56,7 @@ export function isDevHost(host: string): boolean {
 }
 
 export function isProductionHost(host: string): boolean {
-  return bareHost(host) === PRODUCTION_APP_HOST;
+  return PRODUCTION_APP_HOSTS.includes(bareHost(host));
 }
 
 /**

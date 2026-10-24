@@ -25,6 +25,7 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { CatCard } from '@/components/CatCard';
 import { AppMap } from '@/components/AppMap';
 import { DEFAULT_CELL_M, groupByCell } from '@/lib/cellShape';
+import { useBannerAreaReserve } from '@/lib/bannerArea';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Chip } from '@/components/purropolis';
@@ -56,6 +57,7 @@ export default function CatalogScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bannerReserve = useBannerAreaReserve();
   const { coords } = useAppLocation();
   const { cats, isLoading, loadFailed, retry } = useCatsWithCache(
     coords?.latitude,
@@ -149,7 +151,7 @@ export default function CatalogScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + bannerReserve + 8 }]}>
         <View style={styles.headerRow}>
           <View style={styles.titleBlock}>
             <Text

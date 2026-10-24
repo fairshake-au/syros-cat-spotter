@@ -187,18 +187,18 @@ describe("cat page layout", () => {
     ];
     const html = renderCatPage(v, "Sam");
     expect(html).toContain('<main id="main" tabindex="-1" class="wide">');
-    expect(html).toContain('<h2 id="photos">Photos (2)</h2>');
+    expect(html).toContain('<h2 id="h-photos">Photos (2)</h2>');
   });
 
-  it("puts the summary beside the forms in catsummary when the person may correct (spec §7.1–7.2)", () => {
+  it("puts the buttons after the facts, in the header card (SYC-655 spec §2)", () => {
     const html = renderCatPage(view(1), "Sam", { may });
     expect(html).not.toContain("twocol");
-    expect(html).toContain('<div class="catsummary">');
+    expect(html).not.toContain("catsummary");
     expect(html).toContain('<div class="catactions"><div class="fixes" id="corrections">');
     // The facts (headed "What we know about this cat") first, then the forms.
-    const summary = html.indexOf('<div class="catsummary">');
-    expect(html.indexOf('class="catfacts"')).toBeGreaterThan(summary);
-    expect(html.indexOf('id="corrections"')).toBeGreaterThan(html.indexOf('class="catfacts"'));
+    const card = html.indexOf('<div class="catcard');
+    expect(html.indexOf('class="catfacts kf"')).toBeGreaterThan(card);
+    expect(html.indexOf('id="corrections"')).toBeGreaterThan(html.indexOf('class="catfacts kf"'));
     expect(html.indexOf("What we know about this cat")).toBeLessThan(html.indexOf('id="corrections"'));
   });
 
@@ -548,7 +548,7 @@ describe("the small sightings map", () => {
     ];
     const html = renderCatPage(v, "Sam", { now: NOW });
     expect(pins(html).length).toBeLessThan(2);
-    expect(html).toContain("too far from the others to fit on this map; see History below.");
+    expect(html).toContain("1 is too far from the others to fit on this map; it is in History.");
   });
 
   it("has no map with no sightings", () => {
@@ -559,7 +559,7 @@ describe("the small sightings map", () => {
     delete process.env["TEAM_SESSION_KEYS"];
     try {
       const html = withSightings(2);
-      expect(html).toContain("The map isn't available right now. The sightings are listed below.");
+      expect(html).toContain("The map isn't available right now. The sightings are in History.");
       expect(html).toContain('<li class="hrow sighting" id="sg-1002">');
     } finally {
       process.env["TEAM_SESSION_KEYS"] = KEY;
@@ -650,11 +650,11 @@ describe("the page's one History list (SYC-602 PR 2)", () => {
     const html = renderCatPage(corrected(), "Sam", { may, now: NOW2, visits: [visitLine(297, "2026-08-13T09:00:00Z")] });
     expect(html).not.toContain("<h2>Sightings");
     expect(html).not.toContain('<h2 id="vet-visits">');
-    expect(html).toContain('<h2 id="history">History</h2>');
+    expect(html).toContain('<h2 id="h-history">History</h2>');
     expect(html.indexOf("How changes work")).toBeGreaterThan(html.indexOf('id="history"'));
     expect(html.match(/How changes work/g)).toHaveLength(1);
-    // The jump link counts every row: 21 sightings (one carries 296), the visit and two changes.
-    expect(html).toContain('href="#history">History (24)</a>');
+    // The History tab counts every row: 21 sightings (one carries 296), the visit and two changes.
+    expect(html).toContain('href="#tab-history">History (24)</a>');
   });
 
   describe("each map marker lands on something open", () => {
@@ -712,5 +712,21 @@ describe("the page's one History list (SYC-602 PR 2)", () => {
       expect(html).not.toContain('id="sg-903"');
       expect(markers(html).sort()).toEqual(["?history=all#run-902", "?history=all#run-902", "?history=all#sg-903"]);
     });
+  });
+});
+
+describe("How changes work (final review M6)", () => {
+  it("sends coat and markings changes to the Coat and markings tab, not 'the history below'", () => {
+    const html = renderCatPage(richCatView(), "Sam", { now: new Date("2026-10-17T09:00:00Z"), may: () => true });
+    const note = /<details class="hownote">[\s\S]*?<\/details>/.exec(html)![0];
+    expect(note).not.toContain("history below");
+    expect(note).toContain("Coat and markings tab");
+    expect(note).not.toMatch(/statement/i);
+  });
+
+  it("the coat 'marked wrong' notice points at Past changes, which sits in the same tab", () => {
+    const html = renderCatPage(richCatView(), "Sam", { now: new Date("2026-10-17T09:00:00Z"), may: () => true, done: "a_wrong" } as never);
+    const coat = html.slice(html.indexOf('id="tab-coat"'));
+    expect(coat).toContain("That change no longer counts. It&#39;s listed under Past changes below.");
   });
 });

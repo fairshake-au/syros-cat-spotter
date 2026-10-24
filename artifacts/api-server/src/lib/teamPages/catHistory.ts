@@ -8,7 +8,6 @@ import { escapeHtml as esc } from "./escape";
 import { byWhom, statementHref, vaccineWord, type Shown } from "./catFacts";
 import { dateInput, fold, lifeChoices, reasonInput } from "./catActions";
 import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
-import { markWrongInFold } from "./appearancePage";
 import { rowMenu } from "./rowMenu";
 import { openMapLink } from "./position";
 import { t } from "./words";
@@ -508,19 +507,60 @@ interface Ctx extends HistoryOptions {
   targets: ReadonlySet<number>;
   /** Entries "Why we think so" or "Says otherwise" link to: a run holding one opens. */
   evidence: ReadonlySet<number>;
-  /** Coat and markings changes the fold lists a Mark wrong for (appearancePage.markWrongInFold). */
-  inFold: ReadonlySet<number>;
+  /** The changes the Coat and markings tab lists, each as `#a-<id>`. */
+  coatIds: ReadonlySet<number>;
 }
 
-/** "the change of 14 Oct 2026", linking to it; never its number. */
-function changeLink(id: number, c: Ctx): string {
+// ── Coat and markings changes (SYC-655 §5.3) ────────────────────────────────
+
+/**
+ * A coat or markings change: one line in History, in full in the Coat and
+ * markings tab. A "Marked wrong" retraction says nothing about a coat, so it
+ * stays a plain row.
+ */
+export const isCoatChange = (s: TeamStatement): boolean =>
+  (s.kind === "coat" || s.kind === "markings") && s.said !== "Marked wrong";
+
+/**
+ * The tab's own list of changes that count now, or are outvoted but can be
+ * marked wrong (appearancePage draws these from the appearance block, with
+ * their Mark wrong). Anything else is a past change.
+ */
+export const standsInCoatTab = (s: { counts: boolean; markable: boolean }): boolean => s.counts || s.markable;
+
+/**
+ * What the Coat and markings tab lists: the standing changes it draws from the
+ * appearance block, then every other coat or markings change in History
+ * (replaced, superseded or marked wrong) as a past change, newest first.
+ */
+export function coatListing(v: TeamCatView): { past: TeamStatement[]; listed: Set<number> } {
+  const standing = [...v.appearance.coat.statements, ...v.appearance.markings.statements].filter(standsInCoatTab);
+  const stands = new Set(standing.map((x) => x.id));
+  const past = v.history.filter((s) => isCoatChange(s) && !stands.has(s.id));
+  return { past, listed: new Set([...stands, ...past.map((s) => s.id)]) };
+}
+
+/** What the History line says: "Coat changed to grey tabby", "Markings changed to white paws". */
+function coatLine(s: TeamStatement): string {
+  const noun = s.kind === "coat" ? "Coat" : "Markings";
+  const prefix = `${noun}: `;
+  if (s.said.startsWith(prefix)) return `${noun} changed to ${lowerFirst(s.said.slice(prefix.length))}`;
+  return `${noun} changed: ${lowerFirst(s.said)}`;
+}
+
+/** What `entryExtras` needs of the page: the entries by id, which are drawn, which the Coat tab lists. */
+type ExtrasCtx = Pick<Ctx, "byId" | "shown" | "coatIds">;
+
+/** "the change of 14 Oct 2026", linking to it; never its number. A coat change links to its place in the Coat tab. */
+function changeLink(id: number, c: ExtrasCtx): string {
   const r = c.byId.get(id);
   const words = r ? `the change of ${fullDay(r.observedAt)}` : "an earlier change";
-  return `<a href="${statementHref(id, c.shown)}">${esc(words)}</a>`;
+  const href = c.coatIds.has(id) ? `#a-${id}` : statementHref(id, c.shown);
+  return `<a href="${href}">${esc(words)}</a>`;
 }
 
 /** What follows an entry's words: why, what it corrects, its photo, what replaced it, where it went. */
-function entryExtras(s: TeamStatement, c: Ctx, skipWhy = false): string {
+export function entryExtras(s: TeamStatement, c: ExtrasCtx, skipWhy = false): string {
   const replacements = s.replacedBy
     .map((id) => c.byId.get(id))
     .filter((r): r is TeamStatement => r !== undefined)
@@ -563,19 +603,36 @@ const dots = (forWhat: string, items: string[], open: boolean) => rowMenu("⋯",
 /** The saved notice, in the row the page lands on. */
 const rowNotice = (ids: number[], c: Ctx) => (c.at !== undefined && ids.includes(c.at) ? c.notice : "");
 
+/**
+ * A coat or markings change: one line that links to the change in the Coat and
+ * markings tab (spec §5.3). It keeps its `s-` id and counts like any row; its
+ * reason, photo, replacement and Mark wrong live in the tab.
+ */
+function coatLineRow(s: TeamStatement, c: Ctx): string {
+  const replaced = s.replacedBy.length > 0 || s.movedTo !== null;
+  const words = esc(coatLine(s));
+  const late = differs(s);
+  const href = c.coatIds.has(s.id) ? `#a-${s.id}` : "#appearance";
+  return (
+    `<li class="hrow${replaced ? " replaced" : ""}" id="s-${s.id}">` +
+    whenCell(s.observedAt, c.now, late) +
+    '<div class="what">' +
+    rowNotice([s.id], c) +
+    `<b><a class="tap" href="${href}">${replaced ? `<del>${words}</del>` : words}</a></b>` +
+    `<span class="who">${esc(whoWords(s))}${late ? ` · recorded ${timeTag(s.createdAt, fullWhen(s.createdAt))}` : ""}</span>` +
+    "</div></li>"
+  );
+}
+
 /** A change, a note, a welfare report: one row each. */
 function entryRow(s: TeamStatement, c: Ctx): string {
+  if (isCoatChange(s)) return coatLineRow(s, c);
   const replaced = s.replacedBy.length > 0 || s.movedTo !== null;
   // A note keeps its line breaks, as the Health note does: escaped first, then the breaks.
   const text = s.kind === "team_note" ? esc(s.said).replace(/\r?\n/g, "<br>") : esc(s.said);
   const said = replaced ? `<del>${text}</del>` : text;
   const late = differs(s);
   const tag = s.kind === "team_note" ? ' <span class="tag note">team only</span>' : "";
-  // Coat and markings keep their Mark wrong in that section (spec §3.7); the menu points there.
-  const coat =
-    s.correction?.kind === "appearance" && c.may("set_appearance") && c.inFold.has(s.id)
-      ? '<a class="tap" href="?open=coat#appearance">Mark wrong in Coat and markings</a>'
-      : "";
   return (
     `<li class="hrow${replaced ? " replaced" : ""}" id="s-${s.id}">` +
     whenCell(s.observedAt, c.now, late) +
@@ -585,8 +642,34 @@ function entryRow(s: TeamStatement, c: Ctx): string {
     `<span class="who">${esc(whoWords(s))}${late ? ` · recorded ${timeTag(s.createdAt, fullWhen(s.createdAt))}` : ""}</span>` +
     entryExtras(s, c) +
     "</div>" +
-    dots(`the change on ${fullWhen(s.observedAt)}`, [wrongForm(s, c.may, keptFor(s, c)), coat], c.targets.has(s.id)) +
+    dots(`the change on ${fullWhen(s.observedAt)}`, [wrongForm(s, c.may, keptFor(s, c))], c.targets.has(s.id)) +
     "</li>"
+  );
+}
+
+/**
+ * The Coat and markings tab's Past changes (spec §3, review A1): every coat
+ * or markings change that no longer counts, crossed out, with its reason, its
+ * photo and what replaced it, all from `entryExtras`. "" when there are none.
+ */
+export function renderPastChanges(v: TeamCatView, shown: Shown): string {
+  const { past, listed } = coatListing(v);
+  if (past.length === 0) return "";
+  const c: ExtrasCtx = { byId: new Map(v.history.map((s) => [s.id, s])), shown, coatIds: listed };
+  return (
+    "<h3>Past changes</h3>" +
+    '<ul class="history coatchanges">' +
+    past
+      .map(
+        (s) =>
+          `<li class="statement replaced" id="a-${s.id}">` +
+          `<p class="said"><del>${esc(s.said)}</del></p>` +
+          `<p class="meta">${esc(whoWords(s))} · ${timeTag(s.createdAt, fullDay(s.createdAt))}</p>` +
+          entryExtras(s, c) +
+          "</li>",
+      )
+      .join("") +
+    "</ul>"
   );
 }
 
@@ -760,9 +843,7 @@ export function renderHistory(v: TeamCatView, visits: VisitLine[], opts: History
     byId: new Map(v.history.map((s) => [s.id, s])),
     shown: l.shown,
     targets: l.targets,
-    inFold: new Set(
-      [...v.appearance.coat.statements, ...v.appearance.markings.statements].filter(markWrongInFold).map((x) => x.id),
-    ),
+    coatIds: coatListing(v).listed,
     evidence: new Set([
       ...r.lifeStatus.supportingStatementIds,
       ...r.lifeStatus.conflictingStatementIds,
@@ -775,7 +856,7 @@ export function renderHistory(v: TeamCatView, visits: VisitLine[], opts: History
     '<nav class="hfilters" aria-label="Show in History">' +
     SHOW_ORDER.map(
       (k) =>
-        `<a href="?show=${k}#history"${k === l.show ? ' aria-current="page"' : ""}>${esc(`${FILTER_WORDS[k]} ${counts[k]}`)}</a>`,
+        `<a href="?show=${k}#history"${k === l.show ? ' aria-current="page"' : ""}>${esc(k === "all" ? FILTER_WORDS[k] : `${FILTER_WORDS[k]} ${counts[k]}`)}</a>`,
     ).join("") +
     "</nav>";
   const more =
@@ -783,9 +864,9 @@ export function renderHistory(v: TeamCatView, visits: VisitLine[], opts: History
       ? `<p class="more"><a class="tap" href="${l.show === "all" ? "?history=all#history" : `?show=${l.show}&amp;history=all#history`}">Show all ${counts[l.show]}</a></p>`
       : "";
   return (
-    '<h2 id="history">History</h2>' +
-    // A vet visit's notices land here (#vet-visits), outside every fold.
-    `<div id="vet-visits">${inRow ? "" : opts.notice}</div>` +
+    // The History panel supplies the heading and the #history and #vet-visits anchors.
+    // A vet visit's notices land here, outside every fold.
+    `<div>${inRow ? "" : opts.notice}</div>` +
     '<p class="hint">Newest first. A change marked wrong stays here, crossed out, with what replaced it.</p>' +
     filters +
     (l.rows.length === 0
@@ -794,6 +875,6 @@ export function renderHistory(v: TeamCatView, visits: VisitLine[], opts: History
     more +
     // How changes work, folded into a short note you can open (spec §3.2), in #192's words.
     '<details class="hownote"><summary>How changes work</summary>' +
-    '<p class="hint">Every change is saved with your name. Nothing is deleted. A change with an older date won\'t override a newer one. To undo a change, use <strong>Mark wrong</strong> on it in the history below.</p></details>'
+    '<p class="hint">Every change is saved with your name. Nothing is deleted. A change with an older date won\'t override a newer one. To undo a change, use <strong>Mark wrong</strong> on it below. A change to the coat or markings is undone in the Coat and markings tab.</p></details>'
   );
 }

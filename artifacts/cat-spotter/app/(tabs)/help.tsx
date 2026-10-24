@@ -20,6 +20,7 @@ import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
 import { CONTACT_EMAIL, contactMailto } from '@/lib/contactMail';
 import { givingState } from '@/lib/helpGiving';
 import { notify } from '@/lib/notify';
+import { useBannerAreaReserve } from '@/lib/bannerArea';
 import { apiOrigin } from '@/lib/urls';
 import type { Language } from '@/lib/i18n';
 
@@ -34,6 +35,7 @@ export default function HelpScreen() {
   const colors = useColors();
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
+  const bannerReserve = useBannerAreaReserve();
   const router = useRouter();
   const { isOnline } = useOffline();
   const { donateHost } = useAppSettings();
@@ -75,7 +77,7 @@ export default function HelpScreen() {
       <OfflineBanner />
       <ScrollView
         contentContainerStyle={{
-          paddingTop: insets.top + spacing[4],
+          paddingTop: insets.top + bannerReserve + spacing[4],
           paddingHorizontal: spacing[4],
           paddingBottom: insets.bottom + (Platform.OS === 'web' ? 110 : 100),
           gap: spacing[6],

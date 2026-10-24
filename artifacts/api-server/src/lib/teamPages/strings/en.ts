@@ -289,7 +289,7 @@ export const en = {
   "appearance.done.overruled": "Saved. The cat guardian's changes are marked wrong, and the team's change is added.",
   "appearance.done.nothing": "There was nothing to confirm yet. Nothing was changed.",
   "appearance.done.changed": "This changed since you opened the page, so nothing was changed. Check it again.",
-  "appearance.done.markedWrong": "Saved. That change no longer counts. It stays in the history below.",
+  "appearance.done.markedWrong": "Saved. That change no longer counts. It's listed under Past changes below.",
   "appearance.recordsSay": "What we have now",
   "appearance.noPhoto": "No photo",
   // SYC-398 PR B: the pattern on the team's Correct, the error when it
