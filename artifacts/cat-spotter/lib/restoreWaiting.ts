@@ -70,18 +70,24 @@ export function noteRequest(now: number = Date.now()): RestoreWaiting {
   return next;
 }
 
-export function noteWrongTry(): RestoreWaiting {
-  const prev = readWaiting();
+// With nothing stored this starts a note on purpose: the app needs the count for the
+// "after five wrong tries, send another" message, even when this run never asked for an email.
+export function noteWrongTry(now: number = Date.now()): RestoreWaiting {
+  const prev = readWaiting(now);
   const next: RestoreWaiting = prev
     ? { ...prev, wrongTries: prev.wrongTries + 1 }
-    : { askedAt: Date.now(), requests: 0, wrongTries: 1 };
+    : { askedAt: now, requests: 0, wrongTries: 1 };
   write(next);
   return next;
 }
 
-export function setMovingHandle(handle: string | null): void {
-  const prev = readWaiting();
-  if (!prev) return;
+/** With no live note, a handle starts one (the "I already have a code" path never asked for an email). */
+export function setMovingHandle(handle: string | null, now: number = Date.now()): void {
+  const prev = readWaiting(now);
+  if (!prev) {
+    if (handle) write({ askedAt: now, requests: 0, wrongTries: 0, movingHandle: handle });
+    return;
+  }
   const { movingHandle: _drop, ...rest } = prev;
   write(handle ? { ...rest, movingHandle: handle } : rest);
 }

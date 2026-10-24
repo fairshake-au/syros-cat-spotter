@@ -53,7 +53,7 @@ describe('restoreWaiting', () => {
 
   it('starts again at 1 after the window, and a new request resets wrong tries', () => {
     noteRequest(T0);
-    noteWrongTry();
+    noteWrongTry(T0);
     expect(readWaiting(T0)?.wrongTries).toBe(1);
     expect(noteRequest(T0 + MIN).wrongTries).toBe(0);
     expect(noteRequest(T0 + 30 * MIN).requests).toBe(1);
@@ -61,12 +61,24 @@ describe('restoreWaiting', () => {
 
   it('keeps and clears the moving handle', () => {
     noteRequest(T0);
-    setMovingHandle('h1');
+    setMovingHandle('h1', T0);
     expect(readWaiting(T0)?.movingHandle).toBe('h1');
     setMovingHandle(null);
     expect(readWaiting(T0)?.movingHandle).toBeUndefined();
     clearWaiting();
     expect(readWaiting(T0)).toBeNull();
+  });
+
+  it('setMovingHandle with nothing stored starts a note; null with nothing stored does nothing', () => {
+    setMovingHandle(null, T0);
+    expect(readWaiting(T0)).toBeNull();
+    setMovingHandle('h2', T0);
+    expect(readWaiting(T0)).toEqual({ askedAt: T0, requests: 0, wrongTries: 0, movingHandle: 'h2' });
+  });
+
+  it('noteWrongTry with nothing stored starts a note at one wrong try (on purpose)', () => {
+    expect(noteWrongTry(T0)).toEqual({ askedAt: T0, requests: 0, wrongTries: 1 });
+    expect(readWaiting(T0)?.wrongTries).toBe(1);
   });
 
   it('survives storage that throws on every call', () => {
