@@ -716,6 +716,12 @@ export interface PageOptions {
   banner?: string;
   /** Trusted HTML above the heading (a back link). Fixed text and escapeHtml only. */
   beforeTitle?: string;
+  /**
+   * Trusted HTML that replaces the plain <h1>title</h1> (a cat's header card
+   * holds the <h1> itself). Fixed text and escapeHtml only, and it must carry
+   * exactly one <h1>. `title` still names the browser tab.
+   */
+  heading?: string;
   /** Trusted HTML right under the heading (a cat's SYR number). Same rule. */
   afterTitle?: string;
   /** Trusted HTML: built only from fixed text and escapeHtml. */
@@ -853,7 +859,7 @@ export function renderPage(opts: PageOptions): string {
     (opts.mainClass === "wide" ? "" : '<div class="readcol">') +
     (opts.banner ?? "") +
     (opts.beforeTitle ?? "") +
-    `<h1>${escapeHtml(opts.title)}</h1>` +
+    (opts.heading ?? `<h1>${escapeHtml(opts.title)}</h1>`) +
     (opts.afterTitle ?? "") +
     opts.body +
     (opts.mainClass === "wide" ? "" : "</div>") +

@@ -550,3 +550,21 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     expect(sheet()).toContain(".gallery figure:nth-child(even) .rowmenu.dots>.rowmenuitems{left:auto;right:0}");
   });
 });
+
+describe("the heading option (SYC-655 task 1)", () => {
+  it("draws the heading option instead of the plain h1", () => {
+    const heading = '<div class="x"><h1>Mavros</h1></div>';
+    const html = page({ title: "Mavros <1>", heading });
+    expect(html.split(heading)).toHaveLength(2);
+    expect(html.match(/<h1/g)).toHaveLength(1);
+    expect(html).toContain("<title>Mavros &lt;1&gt;");
+    expect(html).not.toContain("<h1>Mavros &lt;1&gt;</h1>");
+  });
+
+  it("keeps beforeTitle and afterTitle around the heading, and is unchanged without it", () => {
+    const plain = page({ title: "Mavros", beforeTitle: "<a>back</a>", afterTitle: "<p>SYR1</p>" });
+    expect(plain).toContain("<a>back</a><h1>Mavros</h1><p>SYR1</p><p>x</p>");
+    const custom = page({ title: "Mavros", heading: "<h1>H</h1>", beforeTitle: "<a>back</a>", afterTitle: "<p>SYR1</p>" });
+    expect(custom).toContain("<a>back</a><h1>H</h1><p>SYR1</p><p>x</p>");
+  });
+});
