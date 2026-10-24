@@ -35,6 +35,7 @@ type State =
   | { kind: 'in-app'; peek: RestorePeek }
   | { kind: 'confirm-different'; peek: RestorePeek }
   | { kind: 'copied'; peek: RestorePeek }
+  | { kind: 'use-icon'; peek: RestorePeek }
   | { kind: 'choose'; spotters: RestoreSpotter[] }
   | { kind: 'moving' }
   | { kind: 'not-valid' }
@@ -291,7 +292,7 @@ export function RestoreChooser({
               ? t('restoreDifferentQuestion').replace('{name}', onlyName(state.peek)!)
               : t('restoreDifferentQuestionYou')}
           </Text>
-          {/* The same size: neither answer is the "right" one to tap through. */}
+          {/* The same size: none of the three answers is the "right" one to tap through. */}
           <View style={styles.pair}>
             <View style={styles.pairItem}>
               <Button variant="primary" size="lg" block onPress={() => confirmDifferent(state.peek)}>
@@ -312,6 +313,11 @@ export function RestoreChooser({
                 {t('restoreDifferentNo')}
               </Button>
             </View>
+            <View style={styles.pairItem}>
+              <Button variant="secondary" size="lg" block onPress={() => setState({ kind: 'use-icon', peek: state.peek })}>
+                {t('restoreUseIcon')}
+              </Button>
+            </View>
           </View>
           {copyFailed ? (
             <Text testID="restore-copy-failed" style={[styles.text, { color: colors.foreground }]}>
@@ -327,6 +333,17 @@ export function RestoreChooser({
             {onlyName(state.peek)
               ? t('restoreDifferentCopied').replace('{name}', onlyName(state.peek)!)
               : t('restoreDifferentCopiedYou')}
+          </Text>
+          <Button variant="secondary" size="md" onPress={() => setState({ kind: 'confirm-different', peek: state.peek })}>
+            {t('back')}
+          </Button>
+        </View>
+      ) : null}
+
+      {state.kind === 'use-icon' ? (
+        <View style={styles.choices}>
+          <Text testID="restore-use-icon" style={[styles.text, { color: colors.foreground }]}>
+            {t('restoreUseIconAdvice')}
           </Text>
           <Button variant="secondary" size="md" onPress={() => setState({ kind: 'confirm-different', peek: state.peek })}>
             {t('back')}

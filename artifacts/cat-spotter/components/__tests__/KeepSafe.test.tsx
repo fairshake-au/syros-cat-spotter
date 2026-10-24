@@ -427,7 +427,33 @@ describe('the /restore page', () => {
       fireEvent.click(no);
     });
     expect(writeText).toHaveBeenCalledWith(`https://apptest.catspotters.com/restore#t=${TOKEN}`);
-    expect((await findByTestId('restore-copied')).textContent).toBe('Link copied. Paste it into the browser Lili uses for Cat Spotters.');
+    expect((await findByTestId('restore-copied')).textContent).toBe('Link copied. Paste it into the browser Lili uses for Cat Spotters, or type the code from the email into Cat Spotters.');
+    expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+  });
+
+  it('SYC-664 T9: "I use the Cat Spotters icon on my home screen" shows the advice, peeks again on nothing, and redeems nothing', async () => {
+    vi.mocked(keepSafe.peekRestore).mockResolvedValue({
+      spotters: [{ choice: 'choice-lili', username: 'Lili' }],
+      openedOnAskingPhone: false,
+      alreadyHere: null,
+    });
+    h.device = { deviceId: 'dev-other', username: null, isReady: true };
+    const { findByText, findByTestId, getByText, queryByText } = render(<RestorePage />);
+    const icon = await findByText(en.restoreUseIcon, undefined, { timeout: 3000 });
+    await act(async () => {
+      fireEvent.click(icon);
+    });
+    expect((await findByTestId('restore-use-icon')).textContent).toBe(en.restoreUseIconAdvice);
+    expect(en.restoreUseIconAdvice).toBe('Go back to Cat Spotters from your home screen and type the 8-digit code from this email there.');
+    expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+    expect(keepSafe.peekRestore).toHaveBeenCalledTimes(1);
+    // Back returns to the question, which still has its three answers.
+    await act(async () => {
+      fireEvent.click(getByText(en.back));
+    });
+    expect(queryByText(en.restoreUseIconAdvice)).toBeNull();
+    expect(getByText(en.restoreUseIcon)).toBeTruthy();
+    expect(getByText(en.restoreDifferentNo)).toBeTruthy();
     expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
   });
 
