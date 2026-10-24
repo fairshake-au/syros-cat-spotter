@@ -69,6 +69,16 @@ export function markWithWords(m: SterilisedMark, escapedWords: string): string {
   return `<span class="mark mark-${m}">${icon(m)}<span class="mark-text">${escapedWords}</span></span>`;
 }
 
+/**
+ * Trusted HTML: the shape alone, beside a cat's name (SYC-655). The word is
+ * still there for a screen reader (visually hidden) and for a mouse (title).
+ * Built only from the fixed words above.
+ */
+export function markIconOnly(m: SterilisedMark): string {
+  const word = esc(MARK_BAR_WORD[m]);
+  return `<span class="mark mark-${m}" title="${word}">${icon(m)}<span class="sr">${word}</span></span>`;
+}
+
 /** The marks in the order a legend, or a cluster's ring, lists them. */
 export const MARK_ORDER: readonly SterilisedMark[] = ["sterilised", "probably", "not_known", "not_sterilised"];
 

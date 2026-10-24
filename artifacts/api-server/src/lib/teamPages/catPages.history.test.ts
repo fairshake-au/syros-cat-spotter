@@ -197,8 +197,8 @@ describe("cat page layout", () => {
     expect(html).toContain('<div class="catactions"><div class="fixes" id="corrections">');
     // The facts (headed "What we know about this cat") first, then the forms.
     const summary = html.indexOf('<div class="catsummary">');
-    expect(html.indexOf('class="catfacts"')).toBeGreaterThan(summary);
-    expect(html.indexOf('id="corrections"')).toBeGreaterThan(html.indexOf('class="catfacts"'));
+    expect(html.indexOf('class="catfacts kf"')).toBeGreaterThan(summary);
+    expect(html.indexOf('id="corrections"')).toBeGreaterThan(html.indexOf('class="catfacts kf"'));
     expect(html.indexOf("What we know about this cat")).toBeLessThan(html.indexOf('id="corrections"'));
   });
 

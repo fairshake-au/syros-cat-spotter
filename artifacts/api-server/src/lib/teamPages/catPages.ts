@@ -1,6 +1,5 @@
-import type { DerivedCatStatus } from "../catHelpers";
 import { keptLine, type KeptFields } from "./signedOutPage";
-import type { Confidence, LifeStatusValue } from "../resolve";
+import type { LifeStatusValue } from "../resolve";
 import type {
   TeamCatView,
   TeamPhoto,
@@ -26,15 +25,15 @@ import type { IssueReport } from "../issues/queue";
 import { reasonLabel } from "../issues/alertEmail";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { timeAgo } from "./queuePage";
 import { rowMenu } from "./rowMenu";
 import { renderAppearanceSection } from "./appearancePage";
-import { byWhom, coatPhraseOf, renderCatFacts, statementHref, statusLine, type Shown } from "./catFacts";
+import { byWhom, statementHref, type Shown } from "./catFacts";
+import { renderCatCard, type IssueStrip } from "./catCard";
 
 export type { Shown };
 import { fitView, mergeSameSpot, renderMap, type MapMarker } from "./map";
 import { BANDS, pointOnView } from "../mapTiles/geometry";
-import { LIFE, renderCatActions, summaryAndActions } from "./catActions";
+import { LIFE, renderCatActions } from "./catActions";
 export { LIFE };
 import { placeLabel } from "../areas/placeLabel";
 
@@ -65,24 +64,6 @@ const day = (iso: string) =>
 
 const time = (iso: string, text = when(iso)) =>
   `<time datetime="${esc(iso)}">${esc(text)}</time>`;
-
-/**
- * The public sterilised line, word for word as the app shows it
- * (catStatusLines.ts's sterilisedLineKey): only confirmed and likely say
- * anything; everything else, "reported" included, is "Not known yet".
- */
-function publicSterilisedText(s: { value: boolean | null; confidence: Confidence }): string {
-  if (s.confidence === "confirmed")
-    return s.value ? "Sterilised — confirmed by Syros Cats" : "Not sterilised — Syros Cats' records";
-  if (s.confidence === "likely") return "Probably sterilised — a clipped ear tip has been seen";
-  return "Not known yet";
-}
-
-function publicStatusText(s: DerivedCatStatus): string {
-  const life = LIFE[s.lifeStatus];
-  const seen = s.notSeenSince ? ` · Not seen since ${day(s.notSeenSince)}` : "";
-  return `${life} · ${publicSterilisedText(s.sterilised)}${seen}`;
-}
 
 // ── Finding a cat ──────────────────────────────────────────────────────────
 
@@ -262,28 +243,6 @@ const ISSUE_STATE: Record<IssueReport["state"], string> = {
  * first, each linking to its row in the Queue. Team only, and drawn only when
  * there are some. The reporter is never named: there is nothing to name.
  */
-type IssueStrip = { reports: IssueReport[]; total: number; open?: number };
-
-/**
- * The amber box above the facts (spec §3.1): "1 open report: Looks injured ·
- * 2 days ago", linking to the newest open one in the Queue. Open means the
- * Queue's own open states, `new` and `looking`; `done` and `nothing_needed`
- * are closed. Nothing when none is open (the Reports section still lists the
- * closed ones). `open` counts them all; `reports` holds only the newest 50.
- */
-function openReportsBox(strip: IssueStrip | null | undefined, now: Date): string {
-  if (!strip) return "";
-  const open = strip.reports.filter((i) => i.state === "new" || i.state === "looking");
-  const newest = open[0];
-  if (!newest) return "";
-  const n = Math.max(strip.open ?? 0, open.length);
-  const id = esc(encodeURIComponent(newest.id));
-  return (
-    '<aside class="openreports" aria-label="Open reports">' +
-    `<a href="/api/team?open=${id}#r-${id}">${n === 1 ? "1 open report" : `${n} open reports`}: ${esc(reasonLabel(newest.reason))} · ` +
-    `${esc(timeAgo(newest.at, now))}</a></aside>`
-  );
-}
 
 function issueStrip(strip: IssueStrip | null | undefined): string {
   if (!strip || strip.total === 0) return "";
@@ -434,25 +393,6 @@ function sightingsMap(v: TeamCatView, island: boolean, hrefOf: (sightingId: numb
   );
 }
 
-/** Up to three more photos under the main one, then an "All N" tile to Photos (spec §3.1). */
-function photoStrip(v: TeamCatView): string {
-  const others = v.photos.filter((p) => p.url !== v.cat.mainPhotoUrl);
-  if (others.length === 0) return "";
-  return (
-    '<ul class="photostrip" aria-label="Other photos">' +
-    others
-      .slice(0, 3)
-      .map(
-        (p, i) =>
-          `<li${p.hidden ? ' class="hidden"' : ""}><a href="#p-${esc(p.publicId)}"><img src="${esc(`${p.url}/small`)}" alt="${esc(`Other photo ${i + 1}${p.hidden ? ", hidden from the public" : ""}`)}" loading="lazy" width="56" height="56"></a>${p.hidden ? '<span class="hiddentag">Hidden</span>' : ""}</li>`,
-      )
-      .join("") +
-    `<li><a class="more" href="#photos">All ${v.photos.length}</a></li>` +
-    "</ul>"
-  );
-}
-
-
 /**
  * Where "back" goes from a cat page: the Cats grid or Map the person just
  * left, with its filters (SYC-522). Takes the Referer header (the dashboard
@@ -521,27 +461,18 @@ export function renderCatPage(
   const drawn = historyShown(v, visitList, historyOpts);
   const shown = drawn.entries;
   const mainHidden = v.photos.find((p) => p.source === "main")?.hidden ?? null;
-  const coat = coatPhraseOf(v);
-  const main =
-    (cat.mainPhotoUrl
-      ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="${esc(`Photo of ${cat.name}${coat !== null ? `, ${coat}` : ""}`)}">`
-      : '<div class="nophoto">No photo</div>') +
-    photoStrip(v);
   const hiddenNote = mainHidden
     ? '<p class="hiddenby">The main photo is hidden from the public. They see the newest photo of this cat that isn\'t hidden, or no photo if every one is. See <a href="#photos">All photos</a>.</p>'
     : "";
-
-  // The answer first (spec §7.1): photo, the facts, the small map, and what
-  // the public sees in one line.
-  const summaryParts = {
-    photo: main,
-    facts:
-      openReportsBox(opts.issues, now) +
-      renderCatFacts(v, now, { byId, shown, island }) +
-      (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
-      `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`,
-    map: sightingsMap(v, island, drawn.sightingHref),
-  };
+  const { card } = renderCatCard(v, may, {
+    now,
+    byId,
+    shown,
+    island,
+    issues: opts.issues,
+    actions: renderCatActions(v, may, { notice: formsNotice, colonies: opts.colonies ?? [], kept: opts.kept, done: opts.done }),
+  });
+  const smallMap = sightingsMap(v, island, drawn.sightingHref);
   const issueTotal = opts.issues?.total ?? 0;
   const jump =
     '<nav class="jump" aria-label="Sections of this page">' +
@@ -562,7 +493,6 @@ export function renderCatPage(
   const hiddenCount = v.photos.filter((p) => p.hidden).length;
   const photos =
     `<h2 id="photos">Photos (${v.photos.length})</h2>` +
-    (landed ? "" : photoNotice) +
     (hiddenCount > 0
       ? `<p class="hint">${hiddenCount} hidden from the public. The team still sees ${hiddenCount === 1 ? "it" : "them"} here.</p>`
       : "") +
@@ -594,22 +524,23 @@ export function renderCatPage(
     title: cat.name,
     active: "cats",
     personName,
-    // Notices sit above the name, never inside a fold (spec 3.1).
+    // Notices sit above the card, never inside a tab (spec §2). A hide or
+    // restore notice shows here when its photo has left the page, since the
+    // photo's own place in Photos is gone (review A7).
     beforeTitle:
       backToCats(opts.back) +
       (topDone ? notice : "") +
       deathNotice(v, byId, shown) +
       guardianMarkNotice(v, byId, shown) +
-      hiddenNote,
-    afterTitle:
-      `<p class="syrline">${esc(cat.syr)} · on our records since ${esc(day(cat.createdAt))}</p>` + statusLine(v, now),
+      hiddenNote +
+      (landed ? "" : photoNotice) +
+      (opts.kept ? keptLine() : ""),
+    // The card holds the <h1> (the name and its mark), so it takes the heading's place.
+    heading: card,
     mainClass: "wide",
     body:
-      (opts.kept ? keptLine() : "") +
-      summaryAndActions(
-        summaryParts,
-        renderCatActions(v, may, { notice: formsNotice, colonies: opts.colonies ?? [], kept: opts.kept, done: opts.done }),
-      ) +
+      // Task 3 moves the map into its tab and replaces the rest with tabs.
+      smallMap +
       jump +
       // Below the summary: History left, the rest in a narrower right column
       // on a wide screen (spec §4). On a phone it is one column, in this order.

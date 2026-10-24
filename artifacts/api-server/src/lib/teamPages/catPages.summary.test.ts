@@ -96,7 +96,7 @@ describe("the team cat page summary", () => {
   it("keeps the description as one line under the facts", () => {
     const html = page();
     const d = html.indexOf('<p class="desc">');
-    expect(d).toBeGreaterThan(html.indexOf('class="catfacts"'));
+    expect(d).toBeGreaterThan(html.indexOf('class="catfacts kf"'));
     expect(html).toContain('<p class="desc">Grey tabby with white paws, often by the harbour steps.</p>');
   });
 });
@@ -208,7 +208,7 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
 
   it("orders the summary for a phone", () => {
     const html = page(withPhotos(), { may, colonies: [] });
-    const marks = ['class="photo catmain"', 'class="photostrip"', 'class="catfacts"', 'class="publicline"', 'id="corrections"', 'class="catmap"', '<nav class="jump"'];
+    const marks = ['class="photo catmain"', 'class="photostrip"', 'class="catfacts kf"', 'class="publicline"', 'id="corrections"', 'class="catmap"', '<nav class="jump"'];
     const at = marks.map((m) => html.indexOf(m));
     expect(at.every((i) => i > -1), JSON.stringify(at)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
@@ -263,7 +263,7 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
       const b = box(html);
       expect(stripTags(b)).toMatch(/^1 open report: .+ · 2 days ago$/);
       expect(b).toContain('href="/api/team?open=i1#r-i1"');
-      expect(html.indexOf('class="openreports"')).toBeLessThan(html.indexOf('class="catfacts"'));
+      expect(html.indexOf('class="openreports"')).toBeLessThan(html.indexOf('class="catfacts kf"'));
       expect(html.indexOf('class="openreports"')).toBeGreaterThan(html.indexOf('class="col-facts"'));
     });
 

@@ -266,9 +266,9 @@ describe("POST /api/team/cats/:id/note", () => {
   });
 });
 
-/** The facts panel of a cat page: its <dl class="catfacts"> up to its closing tag. */
+/** The facts panel of a cat page: its <dl class="catfacts kf"> up to its closing tag. */
 const factsOf = (html: string) => {
-  const start = html.indexOf('<dl class="catfacts">');
+  const start = html.indexOf('<dl class="catfacts kf">');
   return start < 0 ? "" : html.slice(start, html.indexOf("</div></dl>", start));
 };
 

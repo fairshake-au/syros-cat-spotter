@@ -241,22 +241,3 @@ function cutToNote(text: string): string {
   const cut = text.slice(0, NOTE_CHARS);
   return /[\ud800-\udbff]$/.test(cut) ? cut.slice(0, -1) : cut;
 }
-
-/**
- * The cat page's top block: photo, facts, the buttons and the small map.
- * One column on a phone, in this source order; on a big screen the photo and
- * map sit in the left column, the facts in the middle, the buttons on the
- * right (spec section 4). Without the buttons the facts take their place.
- */
-export function summaryAndActions(parts: { photo: string; facts: string; map: string }, fixes: string): string {
-  const actions = fixes.includes('class="fixes"');
-  return (
-    `<div class="catsummary${actions ? "" : " noactions"}">` +
-    `<div class="col-photo">${parts.photo}</div>` +
-    `<div class="col-facts">${parts.facts}</div>` +
-    (actions ? `<div class="catactions">${fixes}</div>` : "") +
-    (parts.map ? `<div class="col-map">${parts.map}</div>` : "") +
-    "</div>" +
-    (actions ? "" : fixes)
-  );
-}
