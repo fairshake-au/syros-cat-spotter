@@ -1,6 +1,6 @@
 # A cat's page, in four tabs
 
-Status: draft for review · 23 Oct 2026 · Samuel chose Option G ("Tabs") with emojis on the tabs, from the options board at https://claude.ai/artifact/AxVe5L1q4yztMwBMBXMkbT
+Status: approved by Samuel, 23 Oct 2026 · 23 Oct 2026 · Samuel chose Option G ("Tabs") with emojis on the tabs, from the options board at https://claude.ai/artifact/AxVe5L1q4yztMwBMBXMkbT
 
 ## Why
 
