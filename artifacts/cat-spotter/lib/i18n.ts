@@ -333,6 +333,11 @@ const en: Dict = {
   reportIssueLink: 'Something wrong on this page?',
   reportIssuePhotoLink: 'Something wrong with this photo?',
   backA11y: 'Back',
+  followCat: 'Follow',
+  followingCat: 'Following',
+  followA11y: 'Follow {name}',
+  followNeedsConnection: 'You need a connection to follow {name}.',
+  followFailed: 'Couldn’t update that. Try again.',
   justNow: 'now',
   tabHome: 'Home',
   tabCatalog: 'Cat-alogue',
@@ -1170,6 +1175,11 @@ const el: Dict = {
   reportIssueLink: 'Κάτι δεν πάει καλά σε αυτή τη σελίδα;', // SYC-4: draft
   reportIssuePhotoLink: 'Κάτι δεν πάει καλά με αυτή τη φωτογραφία;', // SYC-4: draft
   backA11y: 'Πίσω', // SYC-4: draft
+  followCat: 'Ακολούθησε', // SYC-4: draft
+  followingCat: 'Ακολουθείς', // SYC-4: draft
+  followA11y: 'Ακολούθησε: {name}', // SYC-4: draft
+  followNeedsConnection: 'Χρειάζεσαι σύνδεση για να ακολουθήσεις: {name}.', // SYC-4: draft
+  followFailed: 'Δεν ενημερώθηκε. Δοκίμασε ξανά.', // SYC-4: draft
   justNow: 'τώρα',
   tabHome: 'Αρχική',
   tabCatalog: 'Γατά-λογος',
@@ -1978,6 +1988,11 @@ const fr: Dict = {
   reportIssueLink: 'Un problème sur cette page ?', // SYC-4: draft
   reportIssuePhotoLink: 'Un problème avec cette photo ?', // SYC-4: draft
   backA11y: 'Retour', // SYC-4: draft
+  followCat: 'Suivre', // SYC-4: draft
+  followingCat: 'Suivi', // SYC-4: draft
+  followA11y: 'Suivre {name}', // SYC-4: draft
+  followNeedsConnection: 'Tu as besoin d’une connexion pour suivre {name}.', // SYC-4: draft
+  followFailed: 'Ça n’a pas marché. Réessaie.', // SYC-4: draft
   justNow: 'maintenant',
   tabHome: 'Accueil',
   tabCatalog: 'Cat-alogue',
