@@ -3,7 +3,7 @@
  *
  * Subset WOFF2 copies of the same Inter and Space Mono files the phone apps
  * use (about 165 KB in all, against 1.9 MB of full TTFs). Each holds Basic
- * Latin, Latin-1 and Latin Extended-A (English and French), Greek, and common
+ * Latin, Latin-1 and Latin Extended-A (English and French), Greek (with its accents), and common
  * punctuation, currency and arrows. Any other character falls back to the
  * system font. assets/fonts/README.md says how to regenerate them.
  */
