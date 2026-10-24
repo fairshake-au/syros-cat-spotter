@@ -169,6 +169,6 @@ describe("the App switches page", () => {
   it("is reachable: Settings links it", async () => {
     const settings = await request(app).get("/api/team/settings").set("Cookie", team.cookie).set("Accept", "text/html");
     expect(settings.status).toBe(200);
-    expect(settings.text).toContain(`<a href="${PATH}">App switches</a>`);
+    expect(settings.text).toContain(`<a href="${PATH}"><span class="name">App switches</span>`);
   });
 });

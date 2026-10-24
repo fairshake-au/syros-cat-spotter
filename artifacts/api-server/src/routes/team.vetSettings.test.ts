@@ -179,7 +179,7 @@ describe("the Vet settings page", () => {
     const settings = await request(app).get("/api/team/settings").set("Cookie", team.cookie).set("Accept", "text/html");
     expect(settings.status).toBe(200);
     const areas = settings.text.indexOf('href="/api/team/areas"');
-    const vet = settings.text.indexOf(`<a href="${PATH}">Vet settings</a>`);
+    const vet = settings.text.indexOf(`<a href="${PATH}"><span class="name">Vet settings</span>`);
     expect(areas).toBeGreaterThan(-1);
     expect(vet).toBeGreaterThan(areas);
   });
