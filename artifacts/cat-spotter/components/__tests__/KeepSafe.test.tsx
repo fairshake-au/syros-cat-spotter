@@ -957,6 +957,47 @@ describe('code screen', () => {
     });
   });
 
+  describe('code words on the code path (I3, I4)', () => {
+    it('says "checking your code" and, refused, "that code" with "Email me a new code" (I3)', async () => {
+      let refuse!: (e: unknown) => void;
+      vi.mocked(keepSafe.peekRestore).mockImplementationOnce(() => new Promise((_, rej) => { refuse = rej; }));
+      const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+      await act(async () => {
+        typeCode(utils.getByTestId('restore-code-input'), '48291376');
+      });
+      expect(utils.getByText(en.restoreCodeChecking)).toBeTruthy();
+      expect(utils.queryByText(en.restorePageChecking)).toBeNull();
+      await act(async () => {
+        refuse(new ApiError(new Response(null, { status: 401 }), { error: 'link_not_valid' }, { method: 'POST', url: '/api/restore/peek' }));
+      });
+      expect((await utils.findByTestId('restore-not-valid')).textContent).toBe(en.restoreCodeNotValid);
+      expect(utils.getByTestId('restore-ask-again').textContent).toBe(en.restoreCodeNewEmail);
+      expect(utils.queryByText(en.restorePageAskAgain)).toBeNull();
+    });
+
+    it('the placeholder has no digits (I4)', () => {
+      const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+      const placeholder = utils.getByTestId('restore-code-input').getAttribute('placeholder');
+      expect(placeholder).toBe(en.restoreCodePlaceholder);
+      expect(placeholder).not.toMatch(/[0-9]{2,}/);
+    });
+
+    it('the code-path strings exist in en, el and fr, with the ruled wording', () => {
+      expect(en.restoreCodeChecking).toBe('Checking your code…');
+      expect(en.restoreCodeNotValid).toBe('That code has expired or has already been used. Nothing has moved.');
+      expect(en.restoreCodeNewEmail).toBe('Email me a new code');
+      expect(en.restoreCodePlaceholder).toBe('8-digit code');
+      expect(TRANSLATIONS.el.restoreCodePlaceholder).toBe('8ψήφιος κωδικός');
+      expect(TRANSLATIONS.fr.restoreCodePlaceholder).toBe('Code à 8 chiffres');
+      for (const lang of ['el', 'fr'] as const) {
+        for (const k of ['restoreCodeChecking', 'restoreCodeNotValid']) {
+          expect(TRANSLATIONS[lang][k], `${lang}.${k}`).toBeTruthy();
+          expect(TRANSLATIONS[lang][k]).not.toBe(TRANSLATIONS.en[k]);
+        }
+      }
+    });
+  });
+
   it('every new string exists in en, el and fr, and restoreAskSent is gone', () => {
     const keys = ['restoreAskBody', 'restoreAskSend', 'restoreCodeTitle', 'restoreCodeBody', 'restoreCodeSubmit', 'restoreCodeResend', 'restoreHaveCode', 'restoreHaveCodeNote', 'restoreCodeRefused', 'restoreCodeDead', 'restoreCodeNewEmail', 'restoreTooManyTries', 'restoreAskedThrice', 'restoreCodeFailed'];
     for (const lang of ['en', 'el', 'fr'] as const) {

@@ -253,7 +253,9 @@ export function RestoreChooser({
         <View style={styles.row}>
           <ActivityIndicator color={colors.primary} />
           <Text style={[styles.text, { color: colors.mutedForeground }]}>
-            {state.kind === 'checking' ? t('restorePageChecking') : t('restorePageMoving')}
+            {state.kind === 'checking'
+              ? t(fromCode ? 'restoreCodeChecking' : 'restorePageChecking')
+              : t('restorePageMoving')}
           </Text>
         </View>
       ) : null}
@@ -390,7 +392,9 @@ export function RestoreChooser({
       {state.kind === 'not-valid' || state.kind === 'failed' ? (
         <View style={styles.choices}>
           <Text testID="restore-not-valid" style={[styles.text, { color: colors.foreground }]}>
-            {state.kind === 'not-valid' ? t('restorePageNotValid') : t('restorePageFailed')}
+            {state.kind === 'not-valid'
+              ? t(fromCode ? 'restoreCodeNotValid' : 'restorePageNotValid')
+              : t('restorePageFailed')}
           </Text>
           <View testID="restore-ask-again">
           <Button
@@ -401,7 +405,7 @@ export function RestoreChooser({
             // route would remount straight into this chooser (I2).
             onPress={() => (exitTo ? exitTo('address') : router.replace(username ? '/get-spots-back' : '/'))}
           >
-            {t('restorePageAskAgain')}
+            {t(fromCode ? 'restoreCodeNewEmail' : 'restorePageAskAgain')}
           </Button>
           </View>
         </View>

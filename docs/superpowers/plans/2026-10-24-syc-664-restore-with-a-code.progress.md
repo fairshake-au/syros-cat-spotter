@@ -10,3 +10,4 @@ T8 done: reopen on the code box after a reload (onboarding, /get-spots-back, gat
 T9 done: link page gets a third answer (use-icon state, same-size pair), copy strings add the code option in en/el/fr; password page shows the restore code hint on /restore; next: T10
 Final fix I1 done: pending move stored before redeem on the code path, resumed at start-up in DeviceContext within 60 s; next: I2-I4, minors
 Final fix I2 done: chooser Back on the code path, dead handle dropped on not-valid/failed/already-here, ask again goes to the address box; next: I3, I4
+Final fix I3, I4 done: code words on the code path's chooser (en/el/fr), digit-free placeholder; next: minors M6-M9, T5-T9

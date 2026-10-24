@@ -212,7 +212,7 @@ export function RestoreRequestScreen({
                   testID="restore-code-input"
                   value={code}
                   onChangeText={onCodeChange}
-                  placeholder="48291376"
+                  placeholder={t('restoreCodePlaceholder')}
                   placeholderTextColor={colors.mutedForeground}
                   keyboardType="number-pad"
                   inputMode="numeric"
