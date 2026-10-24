@@ -329,10 +329,10 @@ describe("Past changes (SYC-655 Task 4, review A1)", () => {
     expect(p).toContain("Why: Looked black in shade");
   });
 
-  it("says where the past changes are, and only when there are some", () => {
+  it("lists past changes under their own heading, with no hint repeating it, and only when there are some", () => {
     const f = fold(page(withPast()));
-    expect(f).toContain("Past changes are listed below.");
-    expect(f.indexOf("Past changes are listed below.")).toBeLessThan(f.indexOf("Past changes</h3>"));
+    expect(f).toContain("Past changes</h3>");
+    expect(f).not.toContain("Past changes are listed below.");
     expect(f).not.toContain("Older and replaced changes are in History");
     const none = fold(page());
     expect(none).not.toContain("Past changes");

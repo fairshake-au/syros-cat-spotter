@@ -558,7 +558,7 @@ function renderCoatSection(
         correctForm(lang, v.cat.id, "markings", a.markings.value, a.markings.aboveTeamIds, "cat", "ac-markings", undefined, true) +
         "</div></details>"
       : "") +
-    (past ? `<p class="hint">Past changes are listed below.</p>${past}` : "") +
+    past +
     "</section>"
   );
 }
