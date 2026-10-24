@@ -1756,7 +1756,7 @@ export default function SpotScreen() {
               variant="primary"
               size="lg"
               block
-              disabled={!canCheckForMatches(mapStart) || !pickedCoords || submitting || !deviceId}
+              disabled={!canCheckForMatches(mapStart, locationAsk) || !pickedCoords || submitting || !deviceId}
               onPress={submit}
               iconLeft={
                 submitting ? (

@@ -106,9 +106,13 @@ export function mapStartHintKey(start: ReadyMapStart | null): 'mapStartedInTown'
   return start?.origin === 'town' ? 'mapStartedInTown' : 'confirmLocationHint';
 }
 
-/** "Check for matches" needs a start (the other conditions stay on the screen). */
-export function canCheckForMatches(start: MapStart | null): boolean {
-  return start?.status === 'ready';
+/**
+ * "Check for matches" needs a start (the other conditions stay on the screen).
+ * SYC-524: never while the location view is held at 'card' (the card, or the
+ * automatic ask): the map and its pin are hidden then, so nothing unseen is sent.
+ */
+export function canCheckForMatches(start: MapStart | null, ask: LocationAskView = 'none'): boolean {
+  return ask !== 'card' && start?.status === 'ready';
 }
 
 /**
