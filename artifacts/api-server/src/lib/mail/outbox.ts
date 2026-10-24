@@ -408,12 +408,12 @@ const neverShedFirst = sql`(purpose in (${sql.join(
 )})) desc`;
 
 /**
- * The pick is a MATERIALIZED CTE, so the limited, locking select runs exactly
- * once whatever join the planner chooses (SYC-537). As a bare `id in (select …
- * limit n for update skip locked)` it can be re-run per outer row, and rows
- * this statement has already updated are skipped by the lock, so each re-run
- * would pick the next batch: a drain once claimed all 501 due rows for a limit
- * of 25 and would have sent a burst.
+ * The pick is a MATERIALIZED CTE so the limited, locking select runs exactly
+ * once, whatever join the planner chooses (SYC-537). Pinned defensively: CI once
+ * saw a drain of 25 claim all 501 due rows through the old bare
+ * `id in (select … limit n for update skip locked)`. The cause was never
+ * reproduced locally, so the plan-matrix test is a guard on the limit, not a proof.
+ * `exec` is only for the claim statement; the follow-up read always uses `db`.
  */
 export async function claimDue(
   limit: number,
