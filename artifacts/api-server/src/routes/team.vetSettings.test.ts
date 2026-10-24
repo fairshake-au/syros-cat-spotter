@@ -175,11 +175,11 @@ describe("the Vet settings page", () => {
     expect(Array.isArray(res.body.changes)).toBe(true);
   });
 
-  it("is reachable: Home links it, just under the Areas link", async () => {
-    const home = await request(app).get("/api/team/home").set("Cookie", team.cookie).set("Accept", "text/html");
-    expect(home.status).toBe(200);
-    const areas = home.text.indexOf('href="/api/team/areas"');
-    const vet = home.text.indexOf(`<a class="hlink" href="${PATH}">`);
+  it("is reachable: Settings links it, just under the Areas link (SYC-694)", async () => {
+    const settings = await request(app).get("/api/team/settings").set("Cookie", team.cookie).set("Accept", "text/html");
+    expect(settings.status).toBe(200);
+    const areas = settings.text.indexOf('href="/api/team/areas"');
+    const vet = settings.text.indexOf(`<a href="${PATH}"><span class="name">Vet settings</span>`);
     expect(areas).toBeGreaterThan(-1);
     expect(vet).toBeGreaterThan(areas);
   });

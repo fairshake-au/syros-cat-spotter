@@ -1,3 +1,4 @@
+import { renderConfirmPage } from "./confirm";
 import { renderPage, MY_COLONIES_PATH, MY_PAGE_PATH } from "./layout";
 import { escapeHtml as esc } from "./escape";
 import {
@@ -184,6 +185,27 @@ export function renderStopHelpingConfirm(
     `<a class="mbtn" href="${MY_PAGE_PATH}">${esc(refused ? t("my.back") : t("my.stop.confirm.no"))}</a>` +
     "</div>";
   return shell(person, "my.stop.confirm.title", body, live);
+}
+
+/** "Sign out everywhere?" on the shared confirm page (SYC-520). Yes posts back with confirm=1. */
+export function renderSignOutEverywhereConfirm(
+  person: Pick<MyPerson, "name" | "language">,
+  live: readonly Language[] = LIVE_LANGUAGES,
+): string {
+  const lang = pageLanguage(person.language, live);
+  const t = (key: StringKey) => tr(lang, key, undefined, live);
+  return renderConfirmPage({
+    title: t("my.signOut.confirm.title"),
+    lines: [t("my.signOut.confirm.body")],
+    action: MY_SIGN_OUT_EVERYWHERE_PATH,
+    fields: {},
+    yes: t("my.signOut.confirm.yes"),
+    cancelHref: MY_PAGE_PATH,
+    cancelLabel: t("my.signOut.confirm.no"),
+    personName: person.name,
+    active: "myPage",
+    lang,
+  });
 }
 
 /** A refusal in plain words, with a way back. Changed nothing. */

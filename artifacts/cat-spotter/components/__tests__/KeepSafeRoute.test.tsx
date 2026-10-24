@@ -88,3 +88,52 @@ describe('/keep-safe route (SYC-502)', () => {
     expect(h.setKeepSafeOffer).not.toHaveBeenCalled();
   });
 });
+
+describe('/get-spots-back route (SYC-664)', () => {
+  const h2 = vi.hoisted(() => ({ startOnCode: undefined as boolean | undefined }));
+
+  async function open() {
+    vi.resetModules();
+    vi.doMock('@/components/keepSafe/RestoreRequestScreen', () => ({
+      RestoreRequestScreen: (p: { startOnCode?: boolean }) => {
+        h2.startOnCode = p.startOnCode;
+        return null;
+      },
+    }));
+    vi.doMock('@/components/keepSafe/RestoreWarning', () => ({ RestoreWarning: () => null }));
+    vi.doMock('@/context/DeviceContext', () => ({ useDevice: () => ({ username: 'Lili' }) }));
+    const { default: Route } = await import('@/app/get-spots-back');
+    render(<Route />);
+  }
+
+  beforeEach(() => {
+    h2.startOnCode = undefined;
+    const mem = new Map<string, string>();
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k: string) => mem.get(k) ?? null,
+        setItem: (k: string, v: string) => void mem.set(k, v),
+        removeItem: (k: string) => void mem.delete(k),
+        clear: () => mem.clear(),
+      },
+    });
+  });
+
+  it('opens on the code box when a live note is stored', async () => {
+    window.localStorage.setItem('cat-spotter/restore-waiting', JSON.stringify({ askedAt: Date.now(), requests: 1, wrongTries: 0 }));
+    await open();
+    expect(h2.startOnCode).toBe(true);
+  });
+
+  it('a note with no request (a wrong try only) opens on the address box, like the automatic reopen', async () => {
+    window.localStorage.setItem('cat-spotter/restore-waiting', JSON.stringify({ askedAt: Date.now(), requests: 0, wrongTries: 1 }));
+    await open();
+    expect(h2.startOnCode).toBeFalsy();
+  });
+
+  it('opens on the address box when nothing is stored', async () => {
+    await open();
+    expect(h2.startOnCode).toBeFalsy();
+  });
+});

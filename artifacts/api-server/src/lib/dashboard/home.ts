@@ -36,7 +36,7 @@ export interface MonthFigures {
   vetSpendEur: number;
 }
 
-export interface HomeNeeds {
+export interface HomeReports {
   /**
    * Open, checked reports that are urgent or about kittens (§4.1): urgent
    * first, then newest, at most HOME_LINES_LIMIT. A report both urgent and
@@ -49,16 +49,25 @@ export interface HomeNeeds {
   otherOpen: number;
   /** Reports accepted while the bot check was down: never missed (§4, plan review finding 1). */
   unchecked: number;
-  /** "Report an issue" reports still open. */
-  issuesOpen: number;
-  /** Sightings held for the team to match ("Ask Syros Cats to match it"). 0 until something writes it. */
-  awaitingMatch: number;
 }
 
-/** The two check lists' counts (§4.1 tiles). Their photos stay on their own pages. */
+/**
+ * What needs the team now (§4.1). Each figure is its own section (SYC-484):
+ * one that can't be worked out is unavailable where it sits, and the others
+ * still draw.
+ */
+export interface HomeNeeds {
+  reports: Section<HomeReports>;
+  /** "Report an issue" reports still open. */
+  issuesOpen: Section<number>;
+  /** Sightings held for the team to match ("Ask Syros Cats to match it"). 0 until something writes it. */
+  awaitingMatch: Section<number>;
+}
+
+/** The two check lists' counts (§4.1 tiles). Their photos stay on their own pages. Each is its own section. */
 export interface HomeToCheck {
-  earClips: number;
-  colour: number;
+  earClips: Section<number>;
+  colour: Section<number>;
 }
 
 /** Where to trap next (§4.2). */
@@ -66,6 +75,8 @@ export interface TrapNext {
   colonies: TrapColony[];
   /** Every colony on the island, so the empty states can tell "none yet" from "all done". */
   colonyCount: number;
+  /** Street cats in all the colonies together, so "none yet" can be told from "all sterilised". */
+  colonyStreet: number;
   /** Street cats to do that aren't in any colony. */
   noColony: number;
   /** The standard sterilisation price from Vet settings (§8.2). */
@@ -76,8 +87,8 @@ export interface TrapNext {
 export type Section<T> = { ok: true; value: T } | { ok: false };
 
 export interface HomeData {
-  needs: Section<HomeNeeds>;
-  toCheck: Section<HomeToCheck>;
+  needs: HomeNeeds;
+  toCheck: HomeToCheck;
   trapNext: Section<TrapNext>;
   headline: Section<Headline>;
   month: Section<{ now: MonthFigures; last: MonthFigures }>;
@@ -225,41 +236,37 @@ export async function homeData(
   const catsOnce = d.loadTeamCats(now);
   catsOnce.catch(() => undefined); // read below inside each section's own try
 
-  const [needs, toCheck, trapNext, head, month] = await Promise.all([
-    section(async (): Promise<HomeNeeds> => {
-      const [queue, issuesOpen, awaitingMatch] = await Promise.all([
-        // Home no longer shows unfinished reports (SYC-519): skip reading them.
-        d.listWelfareQueue({ drafts: false }),
-        d.countOpenIssues(),
-        d.countAwaitingMatch(),
-      ]);
+  const [reports, issuesOpen, awaitingMatch, earClips, colour, trapNext, head, month] = await Promise.all([
+    section(async (): Promise<HomeReports> => {
+      // Home no longer shows unfinished reports (SYC-519): skip reading them.
+      const queue = await d.listWelfareQueue({ drafts: false });
       const lines = queue.open.filter(isLine).sort(lineOrder);
       return {
         lines: lines.slice(0, HOME_LINES_LIMIT),
         linesTotal: lines.length,
         otherOpen: queue.open.length - lines.length,
         unchecked: queue.unchecked.reportsTotal,
-        issuesOpen,
-        awaitingMatch,
       };
     }),
-    section(async (): Promise<HomeToCheck> => {
-      const [likely, colour] = await Promise.all([d.listLikelyForReview(now), d.listColourCheck(now)]);
-      return { earClips: likely.length, colour: colour.filter((c) => c.group === "check").length };
-    }),
+    section(() => d.countOpenIssues()),
+    section(() => d.countAwaitingMatch()),
+    section(async () => (await d.listLikelyForReview(now)).length),
+    section(async () => (await d.listColourCheck(now)).filter((c) => c.group === "check").length),
     section(async (): Promise<TrapNext> => {
       // Island-wide only: the 300 m kittens rule (island: true) reads exact
       // welfare positions, which only the island-wide team may see.
       if (!visible || visible.ids !== null) throw new Error("Where to trap next is island-wide only");
       const cats = await catsOnce;
       const [figures, colonies, priceEur] = await Promise.all([
-        d.colonyFigures(visible, { island: true, cats }, now),
+        // Home shows neither guardian names nor the Growing flag (SYC-620): skip them.
+        d.colonyFigures(visible, { island: true, cats, lean: true }, now),
         d.allColonyChoices(visible),
         d.standardPriceNow(),
       ]);
       return {
         colonies: rankTrapNext(figures, new Map(colonies.map((c) => [c.id, c.name]))),
         colonyCount: colonies.length,
+        colonyStreet: [...figures.values()].reduce((n, f) => n + f.street, 0),
         noColony: toDo(cats.filter((c) => c.colonyId === null)).length,
         priceEur,
       };
@@ -275,5 +282,12 @@ export async function homeData(
     }),
   ]);
 
-  return { needs, toCheck, trapNext, headline: head, month, at: now };
+  return {
+    needs: { reports, issuesOpen, awaitingMatch },
+    toCheck: { earClips, colour },
+    trapNext,
+    headline: head,
+    month,
+    at: now,
+  };
 }

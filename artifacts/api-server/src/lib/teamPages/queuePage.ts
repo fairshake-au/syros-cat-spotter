@@ -1,4 +1,5 @@
 import { keptLine } from "./signedOutPage";
+import { toPublicDay } from "../catHelpers";
 import type {
   EmailToReporter,
   EmailToTeam,
@@ -64,7 +65,8 @@ export function timeAgo(iso: string, now: Date): string {
   if (seconds < 3600) return plural(Math.floor(seconds / 60), "minute");
   if (seconds < 86_400) return plural(Math.floor(seconds / 3600), "hour");
   if (seconds < 30 * 86_400) return plural(Math.floor(seconds / 86_400), "day");
-  return new Date(iso).toLocaleDateString("en-GB", {
+  // The Syros day (SYC-637): at 22:30 UTC it is already tomorrow on the island.
+  return new Date(`${toPublicDay(iso)}T12:00:00Z`).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",

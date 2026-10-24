@@ -208,6 +208,9 @@ export type KeepSafePayload = {
   to?: string;
   token?: string;
   forgetToken?: string;
+  /** Restore email only: the 8-digit code and the Athens HH:MM it was asked at. Both gone once settled. */
+  code?: string;
+  askedAt?: string;
   cleared?: true;
 };
 
@@ -382,13 +385,15 @@ async function processUncheckedWaiting(row: MailOutboxRow): Promise<"sent" | "re
  */
 export async function enqueueKeepSafeMail(
   tx: Tx,
-  mail: { purpose: KeepSafeMail; to: string; token: string; forgetToken?: string; expiresAt: Date },
+  mail: { purpose: KeepSafeMail; to: string; token: string; forgetToken?: string; code?: string; askedAt?: string; expiresAt: Date },
 ): Promise<number> {
   const payload: KeepSafePayload = {
     expiresAt: mail.expiresAt.toISOString(),
     to: mail.to,
     token: mail.token,
     ...(mail.forgetToken ? { forgetToken: mail.forgetToken } : {}),
+    ...(mail.code ? { code: mail.code } : {}),
+    ...(mail.askedAt ? { askedAt: mail.askedAt } : {}),
   };
   const [row] = await tx
     .insert(mailOutboxTable)
@@ -407,21 +412,34 @@ const neverShedFirst = sql`(purpose in (${sql.join(
   sql`, `,
 )})) desc`;
 
-async function claimDue(limit: number, onlyId?: number): Promise<MailOutboxRow[]> {
-  const result = await db.execute(sql`
+/**
+ * The pick is a MATERIALIZED CTE so the limited, locking select runs exactly
+ * once, whatever join the planner chooses (SYC-537). Pinned defensively: CI once
+ * saw a drain of 25 claim all 501 due rows through the old bare
+ * `id in (select … limit n for update skip locked)`. The cause was never
+ * reproduced locally, so the plan-matrix test is a guard on the limit, not a proof.
+ * `exec` is only for the claim statement; the follow-up read always uses `db`.
+ */
+export async function claimDue(
+  limit: number,
+  onlyId?: number,
+  exec: Pick<typeof db, "execute"> = db,
+): Promise<MailOutboxRow[]> {
+  const result = await exec.execute(sql`
+    with picked as materialized (
+      select id from mail_outbox
+       where state in ('queued', 'sending')
+         and next_attempt_at <= now()
+         ${onlyId === undefined ? sql`` : sql`and id = ${onlyId}`}
+       order by ${neverShedFirst}, next_attempt_at
+       limit ${limit}
+         for update skip locked
+    )
     update mail_outbox
        set state = 'sending',
            attempts = attempts + 1,
            next_attempt_at = now() + ${LEASE}
-     where id in (
-       select id from mail_outbox
-        where state in ('queued', 'sending')
-          and next_attempt_at <= now()
-          ${onlyId === undefined ? sql`` : sql`and id = ${onlyId}`}
-        order by ${neverShedFirst}, next_attempt_at
-        limit ${limit}
-        for update skip locked
-     )
+     where id in (select id from picked)
     returning id
   `);
   const ids = (result.rows as { id: number }[]).map((r) => r.id);
@@ -522,7 +540,11 @@ async function processKeepSafe(row: MailOutboxRow, mail: KeepSafeMail): Promise<
   }
   let params: Record<string, string>;
   if (mail === "restore_link") {
-    params = { restoreUrl: restoreUrl(payload.token) };
+    if (!payload.code || !payload.askedAt) {
+      await giveUpKeepSafe(row, "nothing_to_send");
+      return "failed";
+    }
+    params = { restoreUrl: restoreUrl(payload.token), code: payload.code, askedAt: payload.askedAt };
   } else {
     if (!payload.forgetToken) {
       await giveUpKeepSafe(row, "nothing_to_send");
@@ -831,7 +853,7 @@ export async function clearExpiredKeepSafePayloads(): Promise<number> {
            last_error = case when state = 'sent' then last_error else 'token_expired' end,
            payload = jsonb_build_object('expiresAt', payload->>'expiresAt', 'cleared', true)
      where purpose in ('keep_safe_verify', 'restore_link')
-       and (payload ? 'to' or payload ? 'token' or payload ? 'forgetToken')
+       and (payload ? 'to' or payload ? 'token' or payload ? 'forgetToken' or payload ? 'code' or payload ? 'askedAt')
        and (payload->>'expiresAt')::timestamptz <= now()
   `);
   return result.rowCount ?? 0;

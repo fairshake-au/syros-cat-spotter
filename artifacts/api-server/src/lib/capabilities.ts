@@ -108,6 +108,9 @@ export const CATALOGUE = {
   // The Vet settings page (SYC-396 PR 3.1b; dashboard §10.3): the standard
   // sterilisation price, with its history. Never for a guardian.
   edit_vet_settings: { kind: "island", roles: TEAM },
+  // The App switches page (SYC-383): the Help feed a cat button's address and
+  // which starter facts the app shows. Never for a guardian.
+  edit_app_switches: { kind: "island", roles: TEAM },
   request_site_public: { kind: "placed", roles: ["guardian"] },
   review_hand_picks: { kind: "placed", roles: EVERYONE },
   // Reserved (§6.2 note 3): no screen uses it yet.

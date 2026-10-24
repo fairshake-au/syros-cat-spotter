@@ -1,95 +1,87 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { IconButton } from '@/components/purropolis/IconButton';
-import { spacing } from '@/constants/theme';
-import type { ShutterKind } from '@/lib/cameraMode';
+import { Button } from '@/components/purropolis/Button';
+import { palette } from '@/constants/colors';
+import { fonts, fontSizes, spacing } from '@/constants/theme';
 
 interface CaptureControlsProps {
-  /** Which shutter to show. See `shutterKindFor` — it is total on purpose. */
-  shutterKind: ShutterKind;
-  /** True while a live capture is in flight, to disable the shutter. */
-  capturing?: boolean;
+  /** Opens the phone's own camera. The one way to take a photo (SYC-575). */
+  onTakePhoto: () => void;
   onChooseFromLibrary: () => void;
-  /** Capture from the live preview. Only reachable when shutterKind is 'live'. */
-  onCaptureLive: () => void;
-  /** Hand off to the system camera app. Reachable in every other state. */
-  onCaptureWithPicker: () => void;
+  takePhotoLabel: string;
   libraryLabel: string;
-  shutterLabel: string;
 }
 
 /**
- * The row of capture controls over the viewfinder.
+ * The capture controls over the viewfinder: one labelled "Take a photo" button
+ * and a "Choose from your photos" link under it.
  *
- * Extracted from the Spot screen so the branch that decides WHICH shutter
- * renders is testable. It is the branch that matters: the first tester's bug
- * was a viewfinder with no camera button at all, and a test over the pure
- * state function cannot see a deleted JSX branch (SYC-72).
+ * Its own component so a test can render it and see that the button is there.
+ * The first tester's bug was a viewfinder with no camera button at all, and a
+ * test over a pure state function cannot see a deleted JSX branch (SYC-72).
  *
- * Invariant: exactly one shutter always renders, alongside the library button.
+ * Invariant: both controls always render. There is no live-view shutter any
+ * more (SYC-575): the button hands off to the phone's camera on every phone.
  */
 export function CaptureControls({
-  shutterKind,
-  capturing = false,
+  onTakePhoto,
   onChooseFromLibrary,
-  onCaptureLive,
-  onCaptureWithPicker,
+  takePhotoLabel,
   libraryLabel,
-  shutterLabel,
 }: CaptureControlsProps) {
   return (
-    <View style={styles.controlRow}>
-      <IconButton
-        label={libraryLabel}
-        onPress={onChooseFromLibrary}
-        style={styles.translucentIconBtn}
+    <View style={styles.controls}>
+      <Button
+        variant="primary"
+        size="lg"
+        block
+        wrapLabel
+        onPress={onTakePhoto}
+        // The viewfinder card is dark in light and dark mode alike, so the
+        // button keeps the light-mode blue: its white label is 4.7:1 on it,
+        // against 3.3:1 on the lighter dark-mode primary (SYC-509 rule).
+        style={styles.takePhotoButton}
+        testID="picker-camera-shutter"
+        accessibilityLabel={takePhotoLabel}
+        iconLeft={<Feather name="camera" size={20} color="#fff" />}
       >
-        <Feather name="image" size={20} color="#fff" />
-      </IconButton>
-      {shutterKind === 'live' ? (
-        <Pressable
-          onPress={onCaptureLive}
-          disabled={capturing}
-          accessibilityRole="button"
-          accessibilityLabel={shutterLabel}
-          testID="live-camera-shutter"
-          style={({ pressed }) => [
-            styles.shutter,
-            { opacity: pressed || capturing ? 0.65 : 1 },
-          ]}
-        />
-      ) : (
-        <Pressable
-          onPress={onCaptureWithPicker}
-          accessibilityRole="button"
-          accessibilityLabel={shutterLabel}
-          testID="picker-camera-shutter"
-          style={({ pressed }) => [
-            styles.shutter,
-            { opacity: pressed ? 0.85 : 1 },
-          ]}
-        />
-      )}
+        {takePhotoLabel}
+      </Button>
+      <Pressable
+        onPress={onChooseFromLibrary}
+        accessibilityRole="link"
+        accessibilityLabel={libraryLabel}
+        testID="choose-from-library"
+        style={({ pressed }) => [styles.libraryLink, { opacity: pressed ? 0.7 : 1 }]}
+      >
+        <Text style={styles.libraryLinkText}>{libraryLabel}</Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  controlRow: {
-    flexDirection: 'row',
+  controls: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: spacing[1],
+    paddingHorizontal: spacing[4],
+    paddingBottom: spacing[3],
+  },
+  takePhotoButton: { backgroundColor: palette.aegean600 },
+  // 44pt tall tap area, the SYC-509 minimum, around one line of text.
+  libraryLink: {
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[7],
-    paddingBottom: spacing[6],
+    paddingHorizontal: spacing[3],
   },
-  translucentIconBtn: { backgroundColor: 'rgba(255,255,255,0.2)' },
-  shutter: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    backgroundColor: '#fff',
-    borderWidth: 5,
-    borderColor: 'rgba(255,255,255,0.4)',
+  libraryLinkText: {
+    color: '#fff',
+    fontFamily: fonts.displaySemiBold,
+    fontSize: fontSizes.sm,
+    textDecorationLine: 'underline',
+    textAlign: 'center',
   },
 });

@@ -268,10 +268,18 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/areas/:key/centre": { why: "the area centre map: edit_named_areas: island-only, so every cat guardian gets the 403 (SYC-517, 517-B)" },
   "POST /api/team/areas/:key/centre/map": { why: "zoom, pan on the area centre map: edit_named_areas: island-only" },
   "POST /api/team/areas/:key/centre/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_named_areas: island-only" },
+  "POST /api/team/areas/new": { why: "name and key check, then the new area's map: edit_named_areas: island-only (SYC-557)" },
+  "POST /api/team/areas/new/map": { why: "zoom, pan on the new area's map: edit_named_areas: island-only (SYC-557)" },
+  "POST /api/team/areas/new/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_named_areas: island-only (SYC-557)" },
   "POST /api/team/areas": { why: "edit_named_areas: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   // SYC-396 PR 3.1b: the Vet settings page and its one form route. Team-only.
   "GET /api/team/vet-settings": { why: "edit_vet_settings: island-only, so every cat guardian gets the 403" },
   "POST /api/team/vet-settings": { why: "edit_vet_settings: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
+  // SYC-383: the App switches page and its two form routes. Team-only.
+  "GET /api/team/app-switches": { why: "edit_app_switches: island-only, so every cat guardian gets the 403" },
+  "POST /api/team/app-switches/donation": { why: "edit_app_switches: island-only; the walk's empty address is a 400 for the team, and changes nothing" },
+  "POST /api/team/app-switches/fact": { why: "edit_app_switches: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
+  "GET /api/team/settings": { why: "Settings (SYC-694): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony on the colony it goes into, or for a take-out the one it leaves, from the record (PR 4.2); an unreadable form has no colony" },
   // SYC-209 PR 3.1, the team map. Never the door's "any colony" check. The Map page and its
   // tap stay the team's; the picture route opens to anyone who sees a colony (PR 4.1: a
