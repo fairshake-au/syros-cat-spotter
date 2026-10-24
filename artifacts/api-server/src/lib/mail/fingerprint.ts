@@ -20,12 +20,13 @@ import { createHmac } from "node:crypto";
  * - `team`: the staff alert mailbox, for logs.
  * - `ip`: a requester's IP address, for the limits.
  * - `device`: the phone asking for a restore link, for the per-phone limit.
+ * - `restore_code`: the 8-digit restore code, keyed with the token row it belongs to.
  *
  * If the key is missing, nothing is fingerprinted: callers that need one fail
  * closed, and logs say `nokey` rather than fall back to an unkeyed hash.
  */
 
-export type FingerprintLabel = "keep_safe" | "report" | "news" | "all" | "team" | "ip" | "device";
+export type FingerprintLabel = "keep_safe" | "report" | "news" | "all" | "team" | "ip" | "device" | "restore_code";
 
 const MIN_KEY_LENGTH = 32;
 

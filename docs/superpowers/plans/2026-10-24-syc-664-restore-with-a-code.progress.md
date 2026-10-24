@@ -1,0 +1,1 @@
+T1 done: restore-code columns (code_hash, code_attempts, handle_hash + unique index) in migration 0043, newCode/codeHash/isCodeShaped helpers, restore_code fingerprint label; next: T2 request/outbox/template
