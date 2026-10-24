@@ -52,7 +52,7 @@ describe('location callers', () => {
 
   it('the report flow asks once, from a mount effect', () => {
     const src = read('app/report.tsx');
-    expect(src).toMatch(/useEffect\(\(\) => \{\s*void askAndLocate\(\);/);
+    expect(src).toMatch(/useEffect\(\(\) => \{\s*(setAsked\(true\);\s*)?void askAndLocate\(\);/);
     expect(src.match(/askAndLocate\(\)/g)?.length).toBe(1);
   });
 
