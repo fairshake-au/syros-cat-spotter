@@ -311,7 +311,7 @@ export const fr: Record<StringKey, string> = {
   "colonies.sort.recent": "Activité la plus récente",
   "colonies.mark.sterilised": "Stérilisé(s)",
   "colonies.mark.probably": "Probablement stérilisé(s)",
-  "colonies.mark.notKnown": "Pas encore connu",
+  "colonies.mark.notKnown": "Stérilisation : pas encore connue",
   "colonies.mark.notSterilised": "Non stérilisé(s)",
   "colonies.figuresAt": "Chiffres au {time}",
   "colonies.figuresUnavailable": "Les chiffres ne sont pas disponibles pour le moment.",

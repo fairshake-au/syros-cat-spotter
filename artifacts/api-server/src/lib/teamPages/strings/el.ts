@@ -311,7 +311,7 @@ export const el: Record<StringKey, string> = {
   "colonies.sort.recent": "Πιο πρόσφατη δραστηριότητα",
   "colonies.mark.sterilised": "Με στείρωση",
   "colonies.mark.probably": "Πιθανώς με στείρωση",
-  "colonies.mark.notKnown": "Δεν είναι γνωστό ακόμα",
+  "colonies.mark.notKnown": "Στείρωση: δεν είναι γνωστή ακόμη",
   "colonies.mark.notSterilised": "Χωρίς στείρωση",
   "colonies.figuresAt": "Στοιχεία στις {time}",
   "colonies.figuresUnavailable": "Τα στοιχεία δεν είναι διαθέσιμα αυτή τη στιγμή.",

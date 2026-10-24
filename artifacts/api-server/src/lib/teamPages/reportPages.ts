@@ -165,7 +165,7 @@ const COLONY_COLUMNS: TableColumn[] = [
   { key: "street", label: "Street cats", numeric: true },
   { key: "sterilised", label: "Sterilised", numeric: true },
   { key: "probably", label: "Probably sterilised", numeric: true },
-  { key: "not_known", label: "Not known yet", numeric: true },
+  { key: "not_known", label: "Sterilisation not known yet", csvLabel: "Not known yet", numeric: true },
   { key: "not_sterilised", label: "Not sterilised", numeric: true },
   { key: "pct", label: "% confirmed sterilised", numeric: true },
 ];
@@ -616,7 +616,8 @@ export const CSV_REPORTS = [
 export const VET_CSV_REPORTS: readonly CsvReport[] = ["vet-months", "vet-purposes", "vet-visits"];
 export type CsvReport = (typeof CSV_REPORTS)[number];
 
-export const csvOf = (t: TableSpec): string => toCsv(t.columns, t.rows);
+// The spreadsheet keeps its header words (SYC-601): other tools may read them.
+export const csvOf = (t: TableSpec): string => toCsv(t.columns.map((c) => ({ key: c.key, label: c.csvLabel ?? c.label })), t.rows);
 
 /** "sterilisation-progress-2026-10-18.csv": the report and the day, nothing else. */
 export function csvFilename(report: CsvReport, now: Date): string {

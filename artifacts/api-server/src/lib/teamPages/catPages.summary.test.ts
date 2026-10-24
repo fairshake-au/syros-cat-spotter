@@ -58,7 +58,7 @@ describe("the team cat page summary", () => {
     const line = html.slice(html.indexOf('class="statusline"'));
     const end = line.slice(0, line.indexOf("</p>"));
     expect(end).not.toMatch(/colon/i);
-    expect(end).toContain("Not known");
+    expect(end).toContain("Sterilised: not known yet");
   });
 
   it("puts notices above the name, never inside a fold", () => {

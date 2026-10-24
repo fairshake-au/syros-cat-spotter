@@ -69,13 +69,13 @@ const time = (iso: string, text = when(iso)) =>
 /**
  * The public sterilised line, word for word as the app shows it
  * (catStatusLines.ts's sterilisedLineKey): only confirmed and likely say
- * anything; everything else, "reported" included, is "Not known yet".
+ * anything; everything else, "reported" included, is "Sterilised: not known yet".
  */
 function publicSterilisedText(s: { value: boolean | null; confidence: Confidence }): string {
   if (s.confidence === "confirmed")
     return s.value ? "Sterilised — confirmed by Syros Cats" : "Not sterilised — Syros Cats' records";
   if (s.confidence === "likely") return "Probably sterilised — a clipped ear tip has been seen";
-  return "Not known yet";
+  return "Sterilised: not known yet";
 }
 
 function publicStatusText(s: DerivedCatStatus): string {

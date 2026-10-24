@@ -270,6 +270,8 @@ export function sortedBars(o: { rows: { label: string; split: Split; href?: stri
 export interface TableColumn {
   key: string;
   label: string;
+  /** The spreadsheet header, when it must stay as it was; the page uses `label`. */
+  csvLabel?: string;
   numeric?: true;
 }
 

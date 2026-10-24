@@ -349,7 +349,10 @@ describe("P4-2: the Probably sterilised list", () => {
     expect(after.sterilised.value).toBeNull();
     expect(await likelyIds()).not.toContain(catId);
     const page = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
-    expect(page.text).toContain("Not known yet");
+    expect(page.text).toContain("Lives on the street · Sterilised: not known yet");
+    const done = await request(app).get("/api/team/likely?done=not_clipped").set("Cookie", cookie);
+    expect(done.text).toContain("The cat now reads Sterilised: not known yet, and is off this list.");
+    expect(done.text).toContain("the cat goes back to Sterilised: not known yet.");
     // SYC-75: the public cat page drops back too, the moment the team says so.
     const pub = await request(app).get(`/api/cats/${catId}`);
     expect(pub.body.cat.sterilised.confidence).toBe("unknown");

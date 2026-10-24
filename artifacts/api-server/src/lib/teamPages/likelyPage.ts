@@ -26,7 +26,7 @@ const SIDE: Record<string, string> = {
 
 const DONE: Record<string, string> = {
   looks_right: "Saved. The cat stays Probably sterilised and is off this list.",
-  not_clipped: "Saved. The cat now reads Not known yet, and is off this list.",
+  not_clipped: "Saved. The cat now reads Sterilised: not known yet, and is off this list.",
   already: "Someone already dealt with that cat. The list below is up to date.",
 };
 
@@ -85,7 +85,7 @@ export function renderLikelyPage(
     "<p>These cats show as <strong>Probably sterilised</strong> only because a spotter said they saw a clipped ear. Look at each photo.</p>" +
     '<ul class="hintlist">' +
     "<li><strong>Looks right</strong>: the cat stays Probably sterilised, and leaves this list until a spotter sends a newer answer.</li>" +
-    "<li><strong>That's not a clip</strong>: the cat goes back to Not known yet.</li>" +
+    "<li><strong>That's not a clip</strong>: the cat goes back to Sterilised: not known yet.</li>" +
     "</ul>" +
     '<p class="hint">Neither makes it Sterilised. Only Syros Cats or a vet knowing does that, on the cat\'s own page.</p>';
   const body =

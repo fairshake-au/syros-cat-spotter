@@ -347,7 +347,7 @@ export function wrongForm(s: TeamStatement, may: (c: Capability) => boolean, kep
     return (
       head +
       '<input type="hidden" name="choice" value="not_clipped">' +
-      '<p class="hint">The cat goes back to Not known yet, unless something else says otherwise.</p>' +
+      '<p class="hint">The cat goes back to Sterilised: not known yet, unless something else says otherwise.</p>' +
       reasonInput(`${id}-why`, "Why it isn't a clip", why) +
       "<button type=\"submit\">Mark wrong: it's not a clip</button></form></details>"
     );
