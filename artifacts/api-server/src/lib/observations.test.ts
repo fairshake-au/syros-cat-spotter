@@ -629,6 +629,31 @@ describe("team_note validator", () => {
       );
     }
   });
+  it("refuses a guardian-role team_note and a public-role one (team-only kind)", async () => {
+    const cat = await insertCat();
+    for (const who of ["guardian", "public"] as const) {
+      await expect(
+        writeAs(cat.id, "team_note", { text: "x" }, who, { authorityScope: "colony:1" }),
+      ).rejects.toMatchObject(refused("ROLE_NOT_ALLOWED_FOR_KIND"));
+    }
+  });
+  it("refuses taking a note back across cats, and a guardian or public taking one back", async () => {
+    const cat = await insertCat();
+    const other = await insertCat();
+    const note = await writeAs(cat.id, "team_note", { text: "n" });
+    await expect(
+      writeAs(other.id, "team_note", { retracted: true }, "staff", { supersedesId: note.id }),
+    ).rejects.toMatchObject(refused("INVALID_RETRACTION"));
+    for (const who of ["guardian", "public"] as const) {
+      await expect(
+        writeAs(cat.id, "team_note", { retracted: true }, who, {
+          supersedesId: note.id,
+          authorityScope: "colony:1",
+        }),
+      ).rejects.toMatchObject({ code: expect.stringMatching(/^(INVALID_RETRACTION|ROLE_NOT_ALLOWED_FOR_KIND)$/) });
+    }
+    await writeAs(cat.id, "team_note", { retracted: true }, "staff", { supersedesId: note.id });
+  });
   it("refuses empty, blank and 2001-character text; accepts 2000", async () => {
     const cat = await insertCat();
     for (const text of ["", "   ", "x".repeat(2001)]) {
