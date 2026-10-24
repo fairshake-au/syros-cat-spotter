@@ -1,7 +1,7 @@
 # Map labels in your language
 
 Ticket: SYC-705. Revives the idea in SYC-288 (cancelled 22 Oct 2026, "serve our own Syros map tiles").
-Status: **draft v3, rewritten for MapLibre on every map** (24 Oct 2026). Samuel chose MapLibre and the adjusted style after seeing them side by side, then chose MapLibre for the dashboard too. Needs a fresh adversarial review, then approval. The v2 review (`reviews/map-labels-in-your-language-review.md`) covered the picture-based design; its points that still apply are carried over.
+Status: **draft v3, review findings folded in** (24 Oct 2026); awaiting Samuel's approval. Rewritten for MapLibre on every map. Samuel chose MapLibre and the adjusted style after seeing them side by side, then chose MapLibre for the dashboard too. Needs a fresh adversarial review, then approval. Reviews: `reviews/map-labels-in-your-language-review.md` (v2, the picture design; points that still apply are carried over) and `reviews/map-labels-in-your-language-review-v3.md` (v3: 5 blockers, 9 should-fix and 8 dashboard findings, all addressed).
 Decision behind it: on 24 Oct 2026 Samuel chose "a language-aware map" over "Google Maps everywhere" and "Google on phones only".
 
 ## The problem, as a spotter meets it
@@ -48,7 +48,7 @@ The phone and the browser download that file, or the parts of it they need, and 
 
 | Reader's language | Place names on the map |
 |---|---|
-| English | The English name where OpenStreetMap has one ("Ermoupoli", with "Ερμούπολη" underneath for towns and villages). Everything else is spelled in Latin letters ("Odos Ermou"). |
+| English | Towns and villages: the English name with the Greek underneath ("Ermoupoli / Ερμούπολη"). Streets, beaches, churches and landmarks: one line, the English name where OpenStreetMap has one, otherwise spelled in Latin letters ("Odos Ermou"). |
 | Greek | Greek, as today ("Ερμούπολη"). |
 | French | The English map (Decision A). Turning on a French version later only needs a small adjustment to the style and the same Latin-spelling step for French; it needs no new map file. |
 
@@ -86,8 +86,8 @@ The style is one file in the repo (`map-style/`), shared by the phone app, the w
 
 ### Offline, precisely
 
-- **Phone app (iPhone and Android).** After its first download, the phone holds the whole island's map data. With no signal, it shows the full map at any zoom, in the reader's language, with the cat markers the app already keeps. The download is one file of a few megabytes (estimate; the first build gives the real size). The fonts and symbols the map needs are downloaded with it.
-- **Before that first download finishes,** for example on a phone that has never had signal since installing, the map is blank. That's the same as today.
+- **Phone app (iPhone and Android).** Once its first download has finished, the phone holds the whole island's map data. With no signal, it shows the full map at any zoom, in the reader's language, with the cat markers the app already keeps. The download is one file of a few megabytes (estimate; the first build gives the real size). The fonts and symbols the map needs are downloaded with it.
+- **Before that first download finishes,** the phone shows the map from the internet when it has signal. On a phone that has had no signal since installing, the map is blank. Both are the same as today.
 - **Website:** no offline map (SYC-167, unchanged). The browser fetches only the parts of the file it needs as the spotter moves around.
 
 **Phones that already have the app** keep today's OpenStreetMap pictures until the new file has downloaded. Then those pictures are deleted, which frees space. **Phones that haven't updated the app** keep asking OpenStreetMap until they do, so the problem with OpenStreetMap's rules ends only as people update. Our map address must never change in a way that breaks app versions already using it.
@@ -115,8 +115,11 @@ A script in the repo (`scripts/map-data/`) is run by a manual GitHub Action call
    - A small script adds `name:en` to every feature that has a Greek name but no English one.
    - The spelling follows the standard Greek-to-Latin system used on Greek road signs.
    - Names OpenStreetMap already has in English are never replaced.
-   - Each added name is also tagged as generated (`name:en:auto=yes` inside the file only), so its spelling can be checked later.
+   - Every added name is listed in a side file, `names-added.csv` (Greek name, our spelling, kind of feature), so spellings can be checked and corrected later. The map file can't carry this flag: Protomaps' builder keeps only the tags it knows.
+   - The added names live only in our file. They are **never** uploaded to OpenStreetMap.
 3. **Build the file.**
+   - Protomaps' builder copies `name:en` through unchanged (checked in its source, `OsmNames.java`), so the names from step 2 reach the map.
+   - The builder also downloads Natural Earth and OpenStreetMap's water outlines for the sea and coast. Their versions are pinned too, and they are credited.
    - Run Protomaps' open-source map builder (`protomaps/basemaps`, built on Planetiler) over the extract.
    - That gives `syros.pmtiles`, with detail down to zoom 15. Closer zooms are drawn from the same data, so the map stays sharp.
 4. **Fonts and symbols.** The map's fonts (Noto Sans, which includes Greek) and symbols are built from Protomaps' published assets, pinned to a version and hosted with the file. Nothing is fetched from Protomaps' own site at run time.
@@ -129,11 +132,14 @@ A script in the repo (`scripts/map-data/`) is run by a manual GitHub Action call
   - `/v{N}/fonts/…` and `/v{N}/sprites/…`, the fonts and symbols;
   - `/v{N}/manifest.json`;
   - `/current.json` (`{"version": N}`).
-- **Browser access.** The bucket allows the website's address to read it (CORS) and supports reading part of a file (range requests), which is how browsers fetch only what they need.
-- **Caching.** Files under `/v{N}/` never change, so they carry a long cache lifetime. `current.json` carries a short one.
+- **Browser access.** The bucket supports reading part of a file (range requests), which is how browsers fetch only what they need. Its CORS rule:
+  - allows `GET` and `HEAD` with the `Range` and `If-Match` headers;
+  - exposes `ETag`, `Content-Range` and `Content-Length`;
+  - lists every website address: catspotters.com, www, the test site, localhost for development, and Replit preview addresses.
+- **Caching.** Files under `/v{N}/` never change, so they carry a long cache lifetime. `current.json` carries a short one. Cloudflare doesn't keep copies of `.pmtiles` files at its edge by default, so a Cache Rule turns that on for `tiles.catspotters.com/v*/`. Whether a part-of-file request fills Cloudflare's copy when it doesn't have one yet is **unchecked**, and is checked with curl in step 2.
 - **Old versions** stay for at least a year, because older app versions point at them.
 - **Who does it.** Claude creates the bucket, the domain, the DNS record and the CORS rule with the stored Cloudflare API token, after a one-line heads-up. Claude then checks with curl: a part-of-file request returns 206, and the CORS header is present.
-- **Cost.** A few megabytes of storage per version. Each phone downloads the file once per version. Browsers make a few hundred small part-of-file requests per visit, and Cloudflare's own copies at the edge serve most of them. That stays well inside R2's free allowance of 10 million reads a month. These figures are estimates and are checked after launch.
+- **Cost.** A few megabytes of storage per version. Each phone downloads the file once per version. Browsers make a few hundred small part-of-file requests per visit. With the Cache Rule, Cloudflare's own copies at the edge should serve most of them (to be confirmed in step 2). That stays well inside R2's free allowance of 10 million reads a month. These figures are estimates and are checked after launch.
 
 ### 3. Refreshing
 
@@ -145,64 +151,108 @@ A script in the repo (`scripts/map-data/`) is run by a manual GitHub Action call
 
 ### 4. App (iPhone and Android)
 
-- **Map engine.** Replace `react-native-maps` with `@maplibre/maplibre-react-native`. It has an Expo config plugin and works with the store builds made on EAS (Expo's build service).
-- **Rebuilt components.** `AppMap.tsx` (the cat markers and the rounded area squares) and `LocationPicker.tsx` (the pin) are rebuilt on MapLibre. `OsmTiles.tsx` and the picture download in `lib/offlineTiles.ts` are removed.
-- **Shared geometry.** `lib/cellShape.ts` keeps its geometry and drops the `react-native-maps` types.
-- **The offline file.** A new `lib/offlineMap.ts` downloads `syros.pmtiles`, the fonts and the symbols into the app's own storage. It records the version it holds, and the map reads the file from there.
-  - MapLibre on Android can read a PMTiles file from device storage (MapLibre Android 11.7 and later; maplibre.org/maplibre-native/android/examples/data/PMTiles).
-  - Whether `maplibre-react-native` passes this through on **both** iPhone and Android is **unchecked**, so PR 1 proves it first (see Rollout).
-- **Fallback.** If reading the file directly doesn't work on one platform, the fallback is MapLibre's own offline storage, filled from the same data. That would need a small Cloudflare Worker that hands out the file in pieces. Protomaps publishes one.
-- **Language.** The style takes the app's language. Changing language swaps the label field (`name:en` or `name:el`) without reloading the map.
+- **Map engine.** Replace `react-native-maps` with `@maplibre/maplibre-react-native`. It is at v11.5.0 (4 Oct 2026); it needs Expo 54 or later, React 19.1 or later and React Native 0.80 or later, and this app meets all three. It bundles MapLibre Android 13.6 and iOS 6.31. Its config plugin is added to `app.json`; without it, the iPhone build fails (library issue #1623).
+- **No more Expo Go.** The app can no longer run inside Expo Go. Development and the step 1 proof use a development build (`expo-dev-client`, using the `developmentClient` profile already in `eas.json`) or the preview build. The Expo Go bundle server (`server/serve.js`, `scripts/build.js`) is retired, or kept for the website only. Which of the two is settled in the plan.
+- **What the native map draws** (as today):
+  - the rounded area squares and their "N cats" labels. The phone app shows no individual cat markers today (`cats.tsx` passes none on native), and that stays.
+  - The squares become a GeoJSON source drawn as fill and outline layers. Taps come through the map's press event.
+  - Tilting the map (pitch) is off. The blue "you are here" dot uses MapLibre's `UserLocation`.
+- **The pin.** `LocationPicker.tsx` is rebuilt, including tap-to-centre. Rotation is off on the pin screen.
+- **Shared maths.**
+  - The map-projection maths in `lib/mapTiles.ts` (`toWorld`, `fromWorld`, `MIN_ZOOM`, `clampZoom`, `latLngAtOffset`) moves to a new `lib/mercator.ts`, because `lib/cellShape.ts` and the web map still need it. Only the picture code (`visibleTiles`, the picture address) is deleted.
+  - `lib/cellShape.ts` keeps its geometry and drops the `react-native-maps` types.
+- **Zoom numbers.** MapLibre counts zoom one lower than the picture maps do: its zoom 15 is today's zoom 16. All of today's numbers (the 12–19 limits, `fitRegion`, `zoomForDelta`, starting views) stay as they are. They are converted in one place where they're handed to MapLibre, and tests check that a fitted view is the same before and after.
+- **The offline file.** A new `lib/offlineMap.ts`:
+  - downloads `syros.pmtiles`, plus only the fonts and symbols the map needs (Latin, Greek, punctuation, and the ▲ and † marks), into `documentDirectory`, not the cache folder that iPhones may empty;
+  - downloads to a temporary name, checks the size and the checksum from `manifest.json`, then renames to a file named by version, so a half-finished download is never used;
+  - stores only the file name, never the full path, because iPhone app folders can move between updates;
+  - points the map at `pmtiles://file:///…/syros-v{N}.pmtiles`. Library issue #728 shows this working, and #618/#625 fixed iPhone address handling. Percent signs in font folder names ("Noto Sans Regular") are tested specifically (issue #647).
+- **Before the file is on the phone,** the map reads the same file over the internet (`pmtiles://https://tiles.catspotters.com/…`). So a first launch with signal shows the map straight away, as today. A first launch with no signal shows no map until signal returns, also as today.
+- **Fallback.** If reading the file from storage fails on either phone, the fallback is MapLibre's own offline storage. That needs map pieces at ordinary addresses, which means a small Cloudflare Worker that serves pieces of the file (Protomaps publishes one). MapLibre can't fill its offline storage from a PMTiles source directly (MapLibre Android docs).
+- **Language.** Changing language rewrites only the label fields of the label layers (`setLayoutProperty`-style updates on the style), not the whole style. The map doesn't flash or reload.
+- **Other files touched:** `app/_layout.tsx` (it starts the offline download today), `spot.tsx` (the `mapDownloading` notice and its en/el/fr text), and `noStrayApiCallers.test.ts` (its allowed-files list).
 - **No Google key.** `app.config.js` drops `GOOGLE_MAPS_ANDROID_API_KEY` and its build check.
 - **Credit.** The map shows "© OpenStreetMap contributors".
 
 ### 5. Website
 
-- **Map engine.** `AppMap.web.tsx` and `LocationPicker.web.tsx` are rebuilt on `maplibre-gl` with the `pmtiles` library, reading `tiles.catspotters.com/v{N}/syros.pmtiles`. `lib/mapTiles.ts` (today's picture-drawing code) is removed. Its tap-to-position maths is replaced by MapLibre's own.
-- **Size.** MapLibre adds roughly 250 KB (compressed) to the website. It loads only on screens with a map, so Home and other screens don't wait for it.
-- **Very old browsers.** MapLibre needs WebGL. Browsers without it see a plain box saying "The map can't show in this browser." What a spotter can do instead (for example, use the phone's own location) is settled in the plan.
+- **Separate web map files stay.** MapLibre's React Native library doesn't run on the web (library issue #1346), so the web keeps its own `AppMap.web.tsx` and `LocationPicker.web.tsx`, rebuilt on `maplibre-gl` with the `pmtiles` library. They read `tiles.catspotters.com/v{N}/syros.pmtiles` and use `lib/mercator.ts` (see §4).
+- **What stays the same on the web map:** the strip of cat chips, the cat markers (the web shows them, unlike the phone app), the zoom buttons, and the rounded area squares.
+- **Rotation** is off on the pin screen and allowed on the cats map.
+- **Size.** MapLibre makes the website bigger. Our estimate is about 250 KB compressed, which is **unchecked** until measured. The plan checks whether Expo's web build can load it only on map screens (code-splitting is **unchecked** for this build). If it can't, the size is measured and reported to Samuel before the website step ships.
+- **Browsers that can't draw the map** (too old, or 3D graphics switched off):
+  - The cats map shows "The map can't show in this browser" above the list of cats.
+  - The pin step offers "Use where I am now" (the browser's own location) instead of the map.
 - **No other website changes.** The website has no content-security header and no service worker (searched 24 Oct 2026), so the new address needs nothing else.
 
 ### 6. Dashboard
 
-The dashboard moves to MapLibre. Every map picture and the picture cache are removed.
+The dashboard moves to MapLibre. Every map picture and the picture cache are removed. It is built as its **own series of PRs**: it adds three new interactive pieces and removes working flows.
 
 - **The map engine.**
-  - MapLibre's strict-security build (`maplibre-gl-csp.js` and its worker file) is stored with the dashboard's other files, as Leaflet is today (`scripts/buildAssets.mjs`, `teamAssets.ts`). It replaces Leaflet.
-  - `assets/dashboard-map.js` is rewritten on MapLibre: cats, groups when zoomed out, a card on tap, and a feeding site's trail.
-  - A new small script does the drag-the-pin placing for feeding sites (SYC-585).
+  - MapLibre's strict-security build (`maplibre-gl-csp.js`, its worker file and its CSS) joins the dashboard's stored files in place of Leaflet, in both `teamAssets.ts` and `scripts/buildAssets.mjs`.
+  - `assets/dashboard-map.js` is rewritten on MapLibre: cats, groups when zoomed out, a card on tap, and a cat's trail.
+  - A new script does drag-the-pin placing.
+- **Every flow that uses the button map today moves to MapLibre:**
+  - the cats map (`/api/team/cats?view=map`) and `/team/map`;
+  - the feeding sites list, add, move and site page (SYC-585);
+  - "Show on our map" from a sighting (`map-at-sighting`);
+  - the colonies map steps;
+  - adding an area and setting its centre;
+  - the cat page map.
+- **Where a pin lands goes in the POST body,** never in an address (the "no position in any address" rule, spec §10.4).
 - **The map file, from the dashboard's own address.**
-  - `GET /api/team/map-data/v{N}/syros.pmtiles` returns the whole file. The server fetches it once from `tiles.catspotters.com`, keeps it on disk, and serves it with a long private cache lifetime.
-  - The fonts and symbols come the same way.
-  - The browser downloads the whole file, never pieces of it, so no request says which part of the island someone is looking at. The "no position in any address" rule (spec §10.4) still holds.
-  - Signed-in team members only, like the rest of the dashboard.
-- **Security header.** The map page gains `worker-src 'self'`, because MapLibre draws in a background worker loaded from our own address. Everything else stays `'self'`; nothing is loaded from another site.
+  - `GET /api/team/map-data/v{N}/syros.pmtiles` returns the whole file, signed-in team only. The fonts and symbols come by sibling routes with the right content types.
+  - The server keeps one copy of the file in Postgres, as a single row (a few MB), with a copy in memory. The server's disk on Replit doesn't survive restarts, so the dashboard keeps working after a restart even if `tiles.catspotters.com` is down.
+  - It's served with `Accept-Ranges: none`, so the browser always gets the whole file, never pieces. The browser keeps it between visits (Cache API) and hands it to MapLibre from memory. No request ever says which part of the island someone is looking at.
+  - The route gets its own rate limit.
+- **Security header.**
+  - No new rule is needed. MapLibre's worker is loaded from our own address, which `script-src 'self'` already allows; `worker-src` falls back to it. This is proved in Chromium and Safari before relying on it; Safari is **unchecked**. If it fails, `worker-src 'self'` is added, and the exact header strings in `refuse.ts` and `test/wideCsp.ts` change with it.
+  - Every page with a map is added to `WIDE_CSP_ROUTES` and `WIDE_CSP_FILES` (today only the cats grid and find-from-photo are there).
+  - The worker file itself is served without the page header, so its own fetches aren't blocked.
 - **Removed:**
   - the picture routes (`/api/team/map-squares`, `/api/team/map-square/:token`, the map-tiles route);
   - `tileToken.ts`, `tileCache.ts`, and the picture-joining code;
-  - the button-map forms (`mapForms.ts`, `POST /api/team/cats/map`);
+  - the button-map drawing in `mapForms.ts` and `POST /api/team/cats/map`;
   - Leaflet.
-- **The `map_tile_cache` table** is dropped in a later migration, after the new code is live. The old code still reads it until then.
-  - The migration reaches production only after Samuel has republished the new code.
+- **Kept:**
+  - `ISLAND_BOX` and `inIsland` from `geometry.ts`, which move to their own file. They're used by `sightingSpot.ts`, `teamSiteWrites.ts` and `areas.ts`.
+  - `readPick` in `teamSites.ts` (typed coordinates).
+- **When the map can't run** (JavaScript off, or a browser too old):
+  - Cats show as the grid.
+  - A feeding site, area centre or colony position can be set by choosing an area from a list (it takes the area's centre), or by typing coordinates, which already works today through `readPick`.
+  - A site placed by area is marked "position approximate" until someone places it on a map. That needs a new `position_approximate` yes/no column on feeding sites: an added column, so its migration reaches production **before** Samuel republishes.
+  - The pages reached after a form is posted carry the strict header with no script, so this no-map path must be complete on its own.
+- **Tests.**
+  - The Leaflet stub tests are replaced by tests of the page data and form handling.
+  - One Playwright check opens the cats map in headless Chromium, using software graphics, and sees it draw.
+  - About 12 existing tests that use the button map are updated or removed.
+- **The `map_tile_cache` table** is dropped in a later migration. Unusually, this happens **after** Samuel has republished the new code, because the old code reads the table until then.
+  - That change also updates `photoRemoval/catalogue.test.ts` and the schema export.
   - Its rollback block uses the "-- --" comment form, and the `lib/db` runner test is run before pushing.
-- **No map** (JavaScript off, or no WebGL): see "What the team sees".
-  - Areas already exist (`seedAreas.ts`). A site placed by area gets the area's centre and is flagged "position approximate".
-  - The exact wording, and where the flag shows, are settled in the plan.
-- **Logging.** The server never logs which part of the file was asked for, and with whole-file downloads there is nothing to log anyway.
+  - Dashboard tabs left open across the switch show blank map squares until they're reloaded (up to about a day).
 
 ### 7. Credits and licences
 
 - "© OpenStreetMap contributors" appears on every map, with a link to the copyright page where there's room.
-- NOTICE says the map is made by Cat Spotters from OpenStreetMap data (ODbL). It also names:
+- NOTICE says the map is made by Cat Spotters from OpenStreetMap data, and that the map file is offered under the same licence (ODbL). Whether a published map file counts as a "derivative database" under that licence is an **unchecked** legal question; offering it under ODbL covers either answer. NOTICE also names Natural Earth (public domain) and:
   - Protomaps' builder and style (BSD; the style's licence text is checked during the build);
   - MapLibre (BSD);
   - the Noto fonts (OFL).
 
 ### 8. Rollout order (Decision D, step by step)
 
-1. **Prove MapLibre on real phones** (a small throwaway test, not merged). A development build on a real iPhone and a real Android reads a downloaded `syros.pmtiles` with signal off and shows Greek and English labels. If either fails, use the fallback in §4 and say so before going on.
+1. **Prove MapLibre on real phones** (a small throwaway test, not merged). A development build on a real iPhone and a real Android:
+   - loads the **real adjusted style**: the two-line town names, the ▲ hill tops with heights, the † churches, the colours;
+   - reads a downloaded `syros.pmtiles` and its fonts from storage, with signal off;
+   - switches between English and Greek.
+   
+   If anything fails, say so to Samuel and use the fallback in §4 before going on.
 2. **The map file and its address.** The build script, the Action and `tiles.catspotters.com`. Check with curl and in the browser.
-3. **Dashboard.** The code first. Samuel pulls main in Replit and republishes. Then, in a later change, the migration that drops `map_tile_cache`.
+3. **Dashboard** (its own series of PRs):
+   - The `position_approximate` column goes to production first.
+   - Then the code; Samuel pulls main in Replit and republishes.
+   - Then, in a later change and only after that republish, the migration that drops `map_tile_cache`.
 4. **Website.** Samuel pulls main and republishes.
 5. **Phone apps.** A new store build. The offline download moves to our file from that build on.
 
@@ -241,6 +291,10 @@ Before each map goes live, there are before-and-after pictures of Ermoupoli's ce
   - SYC-287 and SYC-555 (the real-phone checks) are rerun.
 - **Rotation could confuse.** A two-finger twist turns the map, which today's map doesn't do. Mitigation: show the compass button, which turns the map back to north. If testers find rotation confusing, turn it off. That's one setting.
 - **Our map host becomes something every map depends on.** If `tiles.catspotters.com` breaks, the website's maps go blank. Phones keep their offline file, and the dashboard server keeps its own copy of the file. Mitigation: a daily check fetches `current.json` and part of the map file, and raises a Linear ticket if either fails.
+- **Most street and landmark names an English reader sees will be machine spellings.** That's 99% of streets and most landmarks. They follow the road-sign system, but some will differ from the actual sign ("Agios" where a sign says "Ayios"). Mitigation:
+  - `names-added.csv` lets anyone check them.
+  - Real English names always win.
+  - A wrong one is fixed by adding the right English name in OpenStreetMap, which the next rebuild picks up.
 - **Automatic spellings will sometimes be clumsy** ("Agios" where a sign says "Ayios"). Mitigation: real English names always win. Adding the right English name in OpenStreetMap fixes it for everyone at the next rebuild.
 - **The website gets heavier,** by about 250 KB on map screens. Mitigation: it loads only where there's a map.
 - **A team member with JavaScript off, or a very old browser, loses the map.** Mitigation: the grid and the area list still let them do the work. The team is small and uses ordinary phones and laptops.
