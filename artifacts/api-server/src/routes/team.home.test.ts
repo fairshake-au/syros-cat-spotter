@@ -7,7 +7,7 @@ import app from "../app";
 import { seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
 import { readFileSync } from "node:fs";
-import { homeData, type HomeData, type HomeDeps, type HomeNeeds } from "../lib/dashboard/home";
+import { homeData, type HomeData, type HomeDeps, type HomeNeeds, type HomeToCheck, type Section } from "../lib/dashboard/home";
 import type { TrapColony } from "../lib/dashboard/trapNext";
 import { NOTHING_WAITING, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
 import { firstWords } from "../lib/teamPages/noteWords";
@@ -84,26 +84,41 @@ const trapColony = (id: number, name: string, over: Partial<TrapColony> = {}): T
   ...over,
 });
 
+const ok = <T,>(value: T): Section<T> => ({ ok: true, value });
+interface FlatNeeds {
+  lines: QueueReport[];
+  linesTotal: number;
+  otherOpen: number;
+  unchecked: number;
+  issuesOpen: number;
+  awaitingMatch: number;
+}
+/** Today's figures, each its own section (SYC-484), from plain numbers. */
+const needsOf = (n: FlatNeeds): HomeNeeds => ({
+  reports: ok({ lines: n.lines, linesTotal: n.linesTotal, otherOpen: n.otherOpen, unchecked: n.unchecked }),
+  issuesOpen: ok(n.issuesOpen),
+  awaitingMatch: ok(n.awaitingMatch),
+});
+const checkOf = (earClips: number, colour: number): HomeToCheck => ({ earClips: ok(earClips), colour: ok(colour) });
+
 /** A full Home, built by hand: the headline is tested here, never by reading the shared island twice. */
 function full(over: Partial<HomeData> = {}): HomeData {
   return {
-    needs: {
-      ok: true,
-      value: {
-        lines: [report("r1", { severity: "urgent" }), report("r2", { isLitter: true, note: "x".repeat(120) + "<b>" })],
-        linesTotal: 2,
-        otherOpen: 7,
-        unchecked: 2,
-        issuesOpen: 3,
-        awaitingMatch: 0,
-      },
-    },
-    toCheck: { ok: true, value: { earClips: 4, colour: 2 } },
+    needs: needsOf({
+      lines: [report("r1", { severity: "urgent" }), report("r2", { isLitter: true, note: "x".repeat(120) + "<b>" })],
+      linesTotal: 2,
+      otherOpen: 7,
+      unchecked: 2,
+      issuesOpen: 3,
+      awaitingMatch: 0,
+    }),
+    toCheck: checkOf(4, 2),
     trapNext: {
       ok: true,
       value: {
         colonies: [trapColony(12, "Galissas beach", { kittens: true }), trapColony(13, "Kini harbour", { toDo: 8, street: 11, sterilised: 3 })],
         colonyCount: 5,
+        colonyStreet: 25,
         noColony: 0,
         priceEur: 60,
       },
@@ -124,7 +139,7 @@ function full(over: Partial<HomeData> = {}): HomeData {
 const page = (d: HomeData, costs = false) => renderHomePage(d, { personName: "Maria", now: NOW, costs });
 const between = (html: string, from: string, to?: string) =>
   html.slice(html.indexOf(`id="${from}"`), to ? html.indexOf(`id="${to}"`) : undefined);
-const noNeeds: HomeNeeds = { lines: [], linesTotal: 0, otherOpen: 0, unchecked: 0, issuesOpen: 0, awaitingMatch: 0 };
+const noNeeds: FlatNeeds = { lines: [], linesTotal: 0, otherOpen: 0, unchecked: 0, issuesOpen: 0, awaitingMatch: 0 };
 
 describe("GET /api/team/home", () => {
   it("a team member gets Home, with its parts in the spec's order", async () => {
@@ -178,12 +193,12 @@ describe("renderHomePage", () => {
 
   it("past five lines, says how many there are in all", () => {
     const d = full();
-    if (d.needs.ok) d.needs.value.linesTotal = 8;
+    if (d.needs.reports.ok) d.needs.reports.value.linesTotal = 8;
     expect(page(d)).toContain('<a class="hlink" href="/api/team">See all 8 urgent and kitten reports in the Queue</a>');
   });
 
   it("a report both urgent and kittens shows both words", () => {
-    const d = full({ needs: { ok: true, value: { ...noNeeds, lines: [report("b", { severity: "urgent", isLitter: true })], linesTotal: 1 } } });
+    const d = full({ needs: needsOf({ ...noNeeds, lines: [report("b", { severity: "urgent", isLitter: true })], linesTotal: 1 }) });
     const line = between(page(d), "today", "trap");
     expect(line).toContain('<span class="tag urgent">Urgent</span>');
     expect(line).toContain('<span class="tag kittens">Kittens</span>');
@@ -203,8 +218,9 @@ describe("renderHomePage", () => {
     expect(today).toContain('<a class="htile" href="/api/team/likely"><span class="hn">4</span> <span>ear clips to check</span></a>');
     expect(today).toContain('<a class="htile" href="/api/team/colour-check"><span class="hn">2</span> <span>cats for the colour check</span></a>');
     expect(today).not.toContain("sightings to match");
-    const d = full();
-    if (d.needs.ok) Object.assign(d.needs.value, { issuesOpen: 0, awaitingMatch: 1, otherOpen: 1 });
+    const d = full({
+      needs: needsOf({ ...noNeeds, lines: [report("r1", { severity: "urgent" })], linesTotal: 2, otherOpen: 1, unchecked: 2, issuesOpen: 0, awaitingMatch: 1 }),
+    });
     const one = page(d);
     expect(one).not.toContain("problems with");
     expect(one).toContain('<a class="htile" href="/api/team/cats"><span class="hn">1</span> <span>sighting to match</span></a>');
@@ -212,26 +228,48 @@ describe("renderHomePage", () => {
   });
 
   it("with no lines above, other reports are 'open reports', not 'more'", () => {
-    const d = full({ needs: { ok: true, value: { ...noNeeds, otherOpen: 3 } } });
+    const d = full({ needs: needsOf({ ...noNeeds, otherOpen: 3 }) });
     expect(page(d)).toContain('<span class="hn">3</span> <span>open reports</span>');
   });
 
   it("a failed Queue read never says nothing is waiting", () => {
-    const html = page(full({ needs: { ok: false }, toCheck: { ok: true, value: { earClips: 0, colour: 0 } } }));
+    const html = page(full({ needs: { ...needsOf(noNeeds), reports: { ok: false } }, toCheck: checkOf(0, 0) }));
     const today = between(html, "today", "trap");
     expect(today).toContain(UNAVAILABLE_HTML);
     expect(today).not.toContain(NOTHING_WAITING);
   });
 
   it("a failed check-list read never says nothing is waiting either", () => {
-    const html = page(full({ needs: { ok: true, value: noNeeds }, toCheck: { ok: false } }));
+    const html = page(full({ needs: needsOf(noNeeds), toCheck: { earClips: { ok: false }, colour: ok(0) } }));
     const today = between(html, "today", "trap");
     expect(today).toContain(UNAVAILABLE_HTML);
     expect(today).not.toContain(NOTHING_WAITING);
   });
 
+  it("each Today figure that fails is unavailable in its own place; the others still draw (SYC-484)", () => {
+    const bad = { ok: false } as const;
+    const cases: Array<[string, Partial<HomeNeeds>, Partial<HomeToCheck>, string]> = [
+      ["issues", { issuesOpen: bad }, {}, "ear clips to check"],
+      ["awaiting match", { awaitingMatch: bad }, {}, "ear clips to check"],
+      ["ear clips", {}, { earClips: bad }, "cats for the colour check"],
+      ["colour check", {}, { colour: bad }, "ear clips to check"],
+    ];
+    for (const [name, n, c, stillThere] of cases) {
+      const d = full({ needs: { ...needsOf(noNeeds), ...n }, toCheck: { ...checkOf(4, 2), ...c } });
+      const today = between(page(d), "today", "trap");
+      expect(today, name).toContain(UNAVAILABLE_HTML);
+      expect(today.split(UNAVAILABLE_HTML), name).toHaveLength(2); // exactly one figure is unavailable
+      expect(today, name).toContain(stillThere);
+      expect(today, name).not.toContain(NOTHING_WAITING);
+    }
+    // The Queue lines failing leaves the tiles.
+    const q = between(page(full({ needs: { ...needsOf(noNeeds), reports: bad } })), "today", "trap");
+    expect(q).toContain("ear clips to check");
+    expect(q).toContain(UNAVAILABLE_HTML);
+  });
+
   it("with nothing waiting, Today says so and the other parts still draw", () => {
-    const html = page(full({ needs: { ok: true, value: noNeeds }, toCheck: { ok: true, value: { earClips: 0, colour: 0 } } }));
+    const html = page(full({ needs: needsOf(noNeeds), toCheck: checkOf(0, 0) }));
     expect(between(html, "today", "trap")).toContain(NOTHING_WAITING);
     expect(html).toContain('id="trap"');
     expect(html).toContain('id="progress"');
@@ -269,12 +307,28 @@ describe("renderHomePage", () => {
     expect(page(d)).toContain("Plus 6 street cats to do that aren't in a colony.");
   });
 
+  it("wording (SYC-620): colonies with no street cats yet is not 'all sterilised'; 'Plus' only follows a list", () => {
+    const base = { colonies: [], priceEur: 60 };
+    const empty = full({ trapNext: { ok: true, value: { ...base, colonyCount: 3, colonyStreet: 0, noColony: 0 } } });
+    const t = between(page(empty), "trap", "progress");
+    expect(t).toContain("No street cats in any colony yet.");
+    expect(t).not.toContain("Every colony's street cats are sterilised.");
+    const noColonies = full({ trapNext: { ok: true, value: { ...base, colonyCount: 0, colonyStreet: 0, noColony: 4 } } });
+    const t2 = between(page(noColonies), "trap", "progress");
+    expect(t2).toContain("4 street cats to do that aren&#39;t in a colony.".replace("&#39;", "'"));
+    expect(t2).not.toContain("Plus");
+    const one = full({ trapNext: { ok: true, value: { ...base, colonyCount: 0, colonyStreet: 0, noColony: 1 } } });
+    expect(between(page(one), "trap", "progress")).toContain("1 street cat to do that isn't in a colony.");
+    const withList = between(page(full({ trapNext: { ok: true, value: { ...base, colonyCount: 2, colonyStreet: 9, noColony: 4 } } })), "trap", "progress");
+    expect(withList).toContain("Plus 4 street cats to do that aren't in a colony.");
+  });
+
   it("no colonies, and all done, each say so", () => {
-    const none = full({ trapNext: { ok: true, value: { colonies: [], colonyCount: 0, noColony: 0, priceEur: 60 } } });
+    const none = full({ trapNext: { ok: true, value: { colonies: [], colonyCount: 0, colonyStreet: 0, noColony: 0, priceEur: 60 } } });
     const t1 = between(page(none), "trap", "progress");
     expect(t1).toContain("No colonies yet. Grouping cats into colonies lets you plan trapping rounds.");
     expect(t1).toContain('href="/api/team/colonies#create">Create a colony</a>');
-    const done = full({ trapNext: { ok: true, value: { colonies: [], colonyCount: 4, noColony: 0, priceEur: 60 } } });
+    const done = full({ trapNext: { ok: true, value: { colonies: [], colonyCount: 4, colonyStreet: 12, noColony: 0, priceEur: 60 } } });
     expect(page(done)).toContain("Every colony's street cats are sterilised.");
   });
 
@@ -339,11 +393,8 @@ describe("everything typed by someone else is escaped (review of #243)", () => {
 
   it("a short note, a colony's name and a place never reach the page raw", () => {
     const d = full({
-      needs: {
-        ok: true,
-        value: { ...noNeeds, lines: [report("evil1", { severity: "urgent", note: EVIL, photo: { status: "attached", url: `/x"onerror="alert(1)` } })], linesTotal: 1 },
-      },
-      trapNext: { ok: true, value: { colonies: [trapColony(1, EVIL)], colonyCount: 1, noColony: 0, priceEur: 60 } },
+      needs: needsOf({ ...noNeeds, lines: [report("evil1", { severity: "urgent", note: EVIL, photo: { status: "attached", url: `/x"onerror="alert(1)` } })], linesTotal: 1 }),
+      trapNext: { ok: true, value: { colonies: [trapColony(1, EVIL)], colonyCount: 1, colonyStreet: 5, noColony: 0, priceEur: 60 } },
     });
     const html = page(d);
     expect(raw(html)).toBe(false);

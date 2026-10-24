@@ -4,6 +4,7 @@ import {
   photosTable,
   photoVisibilityEventsTable,
   sightingsTable,
+  welfareReportsTable,
   type PhotoVisibilityEvent,
 } from "@workspace/db";
 import { can } from "./capabilities";
@@ -83,6 +84,67 @@ export async function removedPhotoIds(ids: readonly number[], q: Queryable = db)
     .from(photosTable)
     .where(and(inArray(photosTable.id, unique), isNotNull(photosTable.removedAt)));
   return new Set(rows.map((r) => r.id));
+}
+
+/**
+ * Which of these photos are hidden for a privacy reason (SYC-303): hidden now,
+ * and either hidden with the reason `privacy` (the team's tick) or named by a
+ * `photo_private` report. Like SYC-462's `hiddenForPrivacy`
+ * (lib/db photoRemoval/eligibility.ts), except that eligibility counts a
+ * report even once the photo is public again. Here a photo the team has
+ * restored is public on purpose, so it is matched again: only a photo hidden
+ * right now can be in the set.
+ * Two batched queries.
+ */
+export async function privacyHiddenPhotoIds(
+  ids: readonly number[],
+  q: Queryable = db,
+): Promise<Set<number>> {
+  const hidden = [...(await hiddenPhotoIds(ids, q))];
+  const out = new Set<number>();
+  if (hidden.length === 0) return out;
+  // A photo hidden now has a hide as its newest event (or was removed for
+  // good); a hide after the last restore is exactly that newest event.
+  for (const [id, e] of await newestEvents(hidden, q)) {
+    if (e.action === "hide" && e.reason === "privacy") out.add(id);
+  }
+  const reported = await q
+    .select({ id: welfareReportsTable.photoId })
+    .from(welfareReportsTable)
+    .where(
+      and(
+        inArray(welfareReportsTable.photoId, hidden),
+        eq(welfareReportsTable.kind, "content"),
+        eq(welfareReportsTable.reason, "photo_private"),
+      ),
+    );
+  for (const r of reported) if (r.id !== null) out.add(r.id);
+  return out;
+}
+
+/**
+ * The photo each cat is compared by when a new spot is matched (SYC-303,
+ * Samuel's choice (b)): its main photo, unless that is hidden for a privacy
+ * reason; then the photo the public sees instead (the same stand-in rule as
+ * {@link catDisplayPhotoIds}), or null when there is none, and the cat is
+ * not compared. A main photo hidden for any other reason is still used.
+ * `cats.primary_photo_id` is never changed.
+ */
+export async function catMatchingPhotoIds(
+  cats: readonly { id: number; primaryPhotoId: number }[],
+  q: Queryable = db,
+): Promise<Map<number, number | null>> {
+  const out = new Map<number, number | null>();
+  const privateIds = await privacyHiddenPhotoIds(
+    cats.map((c) => c.primaryPhotoId).filter((id) => id > 0),
+    q,
+  );
+  const needStandIn = cats.filter((c) => privateIds.has(c.primaryPhotoId));
+  for (const c of cats) if (!privateIds.has(c.primaryPhotoId)) out.set(c.id, c.primaryPhotoId);
+  if (needStandIn.length > 0) {
+    for (const [catId, photoId] of await catDisplayPhotoIds(needStandIn, q)) out.set(catId, photoId);
+  }
+  return out;
 }
 
 /**

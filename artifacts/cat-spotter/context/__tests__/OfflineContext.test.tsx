@@ -133,8 +133,9 @@ vi.mock('@workspace/api-client-react', () => ({
   ApiError,
 }));
 
+const finishPendingMove = vi.hoisted(() => vi.fn(async (_opts?: unknown) => null));
 vi.mock('../DeviceContext', () => ({
-  useDevice: () => ({ deviceId: 'device-1' }),
+  useDevice: () => ({ deviceId: 'device-1', finishPendingMove }),
 }));
 
 import {
@@ -481,6 +482,22 @@ describe('syncNow', () => {
         sightingId: 3,
       }),
     );
+  });
+
+  it('SYC-664 ship F2: coming back online tries to finish a pending restore move', async () => {
+    const ctx = renderProvider();
+    await waitFor(() => expect(ctx.current).toBeTruthy());
+    finishPendingMove.mockClear();
+    await act(async () => {
+      netInfoListeners.forEach((cb) => cb({ isConnected: false }));
+    });
+    expect(finishPendingMove).not.toHaveBeenCalled();
+    await act(async () => {
+      netInfoListeners.forEach((cb) => cb({ isConnected: true }));
+    });
+    expect(finishPendingMove).toHaveBeenCalledTimes(1);
+    // N-1: background finishing is replay-only, and reloads on web if it adopts.
+    expect(finishPendingMove).toHaveBeenCalledWith({ background: true });
   });
 
   it('uses a smaller temporary photo when syncing over cellular data', async () => {

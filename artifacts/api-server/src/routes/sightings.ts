@@ -57,6 +57,7 @@ import { isNearby, publishedPosition } from "@workspace/geo";
 import {
   catDisplayPhoto,
   catDisplayPhotos,
+  catMatchingPhotoIds,
   hiddenPhotoIds,
   publicPhotoUrl,
   type PublicPhotoUrl,
@@ -275,11 +276,13 @@ async function computeMatchCandidates(
   let rankedForRecord: { catId: number; confidence: number }[] = [];
 
   try {
+    // SYC-303: a main photo hidden for a privacy reason is never sent; the
+    // cat is compared by the photo the public sees instead, or not at all.
+    const matchPhotoIds = await catMatchingPhotoIds(nearest);
     for (const cat of nearest) {
-      const [p] = await db
-        .select()
-        .from(photosTable)
-        .where(eq(photosTable.id, cat.primaryPhotoId));
+      const photoId = matchPhotoIds.get(cat.id) ?? null;
+      if (photoId === null) continue;
+      const [p] = await db.select().from(photosTable).where(eq(photosTable.id, photoId));
       // SYC-462 spec §6 item 3: a main photo removed for good (no picture) is
       // never sent; that cat simply isn't compared.
       if (p && p.data !== null) {

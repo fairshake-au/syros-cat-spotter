@@ -56,15 +56,24 @@ const tile = (href: string, n: number, one: string, many: string) =>
     ? `<li><a class="htile" href="${esc(href)}"><span class="hn">${n}</span> <span>${esc(plural(n, one, many))}</span></a></li>`
     : "";
 
-function todaySection(needs: Section<HomeNeeds>, toCheck: Section<HomeToCheck>, now: Date): string {
+/** A count tile for a figure of its own: the tile, nothing, or the "isn't available" line where it would sit. */
+const countTile = (s: Section<number>, href: string, one: string, many: string): { html: string; n: number } =>
+  s.ok
+    ? { html: tile(href, s.value, one, many), n: s.value }
+    : { html: `<li class="hwide">${unavailable}</li>`, n: 0 };
+
+function todaySection(needs: HomeNeeds, toCheck: HomeToCheck, now: Date): string {
   const parts: string[] = [];
   const tiles: string[] = [];
   let waiting = 0;
+  let allRead = true;
 
-  if (!needs.ok) {
+  const reports = needs.reports;
+  if (!reports.ok) {
+    allRead = false;
     parts.push(unavailable);
   } else {
-    const n = needs.value;
+    const n = reports.value;
     if (n.lines.length > 0) {
       parts.push(`<ul class="hlist">${n.lines.map((r) => reportLine(r, now)).join("")}</ul>`);
       if (n.linesTotal > n.lines.length) {
@@ -76,29 +85,26 @@ function todaySection(needs: Section<HomeNeeds>, toCheck: Section<HomeToCheck>, 
       parts.push(`<p class="notice"><a class="hlink" href="${QUEUE}#unchecked">${esc(words)}</a></p>`); // 44px tap (§12.5)
     }
     const more = n.lines.length > 0;
-    tiles.push(
-      tile(QUEUE, n.otherOpen, more ? "more report" : "open report", more ? "more reports" : "open reports"),
-      tile(`${QUEUE}#issues`, n.issuesOpen, "problem with a photo or name", "problems with photos or names"),
-      // Nothing writes awaiting_team yet (plan Decision 2): the tile stays hidden until something does.
-      tile("/api/team/cats", n.awaitingMatch, "sighting to match", "sightings to match"),
-    );
-    waiting += n.linesTotal + n.unchecked + n.otherOpen + n.issuesOpen + n.awaitingMatch;
+    tiles.push(tile(QUEUE, n.otherOpen, more ? "more report" : "open report", more ? "more reports" : "open reports"));
+    waiting += n.linesTotal + n.unchecked + n.otherOpen;
   }
 
-  if (!toCheck.ok) {
-    tiles.push(`<li class="hwide">${unavailable}</li>`);
-  } else {
-    const c = toCheck.value;
-    tiles.push(
-      tile("/api/team/likely", c.earClips, "ear clip to check", "ear clips to check"),
-      tile("/api/team/colour-check", c.colour, "cat for the colour check", "cats for the colour check"),
-    );
-    waiting += c.earClips + c.colour;
+  const figures = [
+    countTile(needs.issuesOpen, `${QUEUE}#issues`, "problem with a photo or name", "problems with photos or names"),
+    // Nothing writes awaiting_team yet (plan Decision 2): the tile stays hidden until something does.
+    countTile(needs.awaitingMatch, "/api/team/cats", "sighting to match", "sightings to match"),
+    countTile(toCheck.earClips, "/api/team/likely", "ear clip to check", "ear clips to check"),
+    countTile(toCheck.colour, "/api/team/colour-check", "cat for the colour check", "cats for the colour check"),
+  ];
+  for (const f of figures) {
+    tiles.push(f.html);
+    waiting += f.n;
   }
+  allRead &&= [needs.issuesOpen, needs.awaitingMatch, toCheck.earClips, toCheck.colour].every((x) => x.ok);
 
   const tileList = tiles.join("");
   if (tileList) parts.push(`<ul class="htiles">${tileList}</ul>`);
-  if (needs.ok && toCheck.ok && waiting === 0) parts.push(`<p class="empty" id="nothing">${esc(NOTHING_WAITING)}</p>`);
+  if (allRead && waiting === 0) parts.push(`<p class="empty" id="nothing">${esc(NOTHING_WAITING)}</p>`);
   return `<section id="today"><h2>Today</h2>${parts.join("")}</section>`;
 }
 
@@ -128,7 +134,12 @@ function trapSection(s: Section<TrapNext>): string {
         '<a class="hlink" href="/api/team/colonies#create">Create a colony</a></p>',
     );
   } else if (t.colonies.length === 0) {
-    parts.push("<p class=\"empty\">Every colony's street cats are sterilised.</p>");
+    // "All sterilised" is only true when some colony has street cats (SYC-620).
+    parts.push(
+      t.colonyStreet > 0
+        ? "<p class=\"empty\">Every colony's street cats are sterilised.</p>"
+        : '<p class="empty">No street cats in any colony yet.</p>',
+    );
   } else {
     parts.push(`<ul class="trap">${t.colonies.map((c) => trapRow(c, t.priceEur)).join("")}</ul>`);
     parts.push(
@@ -136,10 +147,13 @@ function trapSection(s: Section<TrapNext>): string {
     );
   }
   if (t.noColony > 0) {
-    const words =
+    // "Plus" only follows something above it: with no colonies, there is nothing to add to.
+    const lead = t.colonyCount === 0 ? "" : "Plus ";
+    const rest =
       t.noColony === 1
-        ? "Plus 1 street cat to do that isn't in a colony."
-        : `Plus ${t.noColony} street cats to do that aren't in a colony.`;
+        ? "1 street cat to do that isn't in a colony."
+        : `${t.noColony} street cats to do that aren't in a colony.`;
+    const words = t.colonyCount === 0 ? rest.charAt(0).toUpperCase() + rest.slice(1) : lead + rest;
     parts.push(`<p class="hint">${words}</p>`); // fixed words and a number only
   }
   if (t.colonyCount > 0) parts.push('<p><a class="hlink" href="/api/team/colonies">See all colonies</a></p>');
