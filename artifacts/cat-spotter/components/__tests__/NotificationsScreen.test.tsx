@@ -40,6 +40,13 @@ vi.mock('@/context/NotificationContext', () => ({
     markAllRead: vi.fn(),
   }),
 }));
+// #301 imports IconButton from the purropolis index, which pulls in native
+// modules; the real Button and IconButton render fine on their own.
+vi.mock('@/components/purropolis', async () => {
+  const { Button } = await import('@/components/purropolis/Button');
+  const { IconButton } = await import('@/components/purropolis/IconButton');
+  return { Button, IconButton };
+});
 vi.mock('@workspace/api-client-react', () => ({
   useGetProfile: () => ({ data: h.profile }),
   getGetProfileQueryKey: (id: string) => [`/api/profile/${id}`],
