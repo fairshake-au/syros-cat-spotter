@@ -592,6 +592,23 @@ describe("renderHistory (spec §3.5)", () => {
     expect(rowOf(without, "s-80")).toContain("team only");
   });
 
+  it("a team note's History row keeps its line breaks as <br>, escaped first", () => {
+    const v = catView({
+      history: [
+        statement(83, {
+          kind: "team_note",
+          said: "Note (team only): “Line <i>one</i>\r\nLine two\nLine three”",
+          noteText: "Line <i>one</i>\r\nLine two\nLine three",
+          correction: { kind: "team_note" },
+        }),
+      ],
+    });
+    const row = rowOf(draw(v), "s-83");
+    expect(row).toContain("Line &lt;i&gt;one&lt;/i&gt;<br>Line two<br>Line three");
+    expect(row).not.toContain("<i>one</i>");
+    expect(row).not.toContain("\n</b>");
+  });
+
   it("a note marked wrong is struck through and offers no second Mark wrong", () => {
     const v = catView({
       history: [
