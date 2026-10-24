@@ -10,6 +10,7 @@ import {
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
+import { formatInstant } from '@/lib/catPageDates';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { SightingQuestions } from '@/components/SightingQuestions';
@@ -30,7 +31,7 @@ import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
  */
 export function MoreToAdd({ catId, catName }: { catId: number; catName: string }) {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { deviceId } = useDevice();
   const { isOnline } = useOffline();
   const [openSighting, setOpenSighting] = useState<OpenSighting | null>(null);
@@ -67,7 +68,7 @@ export function MoreToAdd({ catId, catName }: { catId: number; catName: string }
             />
           ) : null}
           <Text style={[styles.date, { color: colors.mutedForeground }]}>
-            {new Date(s.takenAt).toLocaleDateString()}
+            {formatInstant(s.takenAt, language)}
           </Text>
           <Button variant="primary" size="sm" onPress={() => setOpenSighting(s)}>
             {t('moreToAddButton')}
@@ -104,7 +105,7 @@ function MoreToAddSheet({
   onClose: () => void;
 }) {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const [answers, setAnswers] = useState<SightingAnswers>(NO_ANSWERS);
   const [sending, setSending] = useState(false);
@@ -147,7 +148,7 @@ function MoreToAddSheet({
             <Text style={[styles.headline, { color: colors.foreground }]}>
               {t('moreToAddSheetTitle').replace(
                 '{date}',
-                new Date(sighting.takenAt).toLocaleDateString(),
+                formatInstant(sighting.takenAt, language),
               )}
             </Text>
             {sighting.photoUrl ? (

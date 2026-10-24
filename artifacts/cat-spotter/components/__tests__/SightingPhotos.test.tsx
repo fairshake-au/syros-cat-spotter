@@ -10,7 +10,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/context/LanguageContext', () => ({
-  useLanguage: () => ({ t: (k: string) => k }),
+  useLanguage: () => ({ t: (k: string) => k, language: 'en' }),
 }));
 
 // react-native-web only arms its Escape key once a fade-in has played, which
@@ -86,12 +86,12 @@ vi.mock('@/hooks/useColors', () => ({
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SightingPhotos } from '../SightingPhotos';
-import { parsePublicDate } from '@/lib/catStatusLines';
+import { formatPublicDate } from '@/lib/catPageDates';
 
 afterEach(cleanup);
 
 const DAY = '2026-10-16';
-const WHEN = parsePublicDate(DAY).toLocaleDateString();
+const WHEN = formatPublicDate(DAY, 'en');
 const COVER = '/api/photos/cover-face';
 const FIRST = '/api/photos/extra-first';
 const BODY = '/api/photos/extra-body';
