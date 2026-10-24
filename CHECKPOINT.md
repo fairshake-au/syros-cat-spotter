@@ -15,6 +15,7 @@ Worktree: .claude/worktrees/ecstatic-varahamihira-3050d5, branch claude/ecstatic
 
 ## Approved 24 Oct ("approved, go with A"). Build progress
 - [x] 1. LoadFailed + i18n keys + Button busy prop
+- [x] 2. useCatsWithCache loadFailed/retry + lib/loadTiming.ts (20s, retry 1, networkMode always)
 1. LoadFailed component + i18n keys (en/el/fr).
 2. useCatsWithCache: cacheChecked, loadFailed, awaitable refetch, timeout 20s, retry 1, networkMode always; never save empty list.
 3. Cat-alogue + Home strip; Home stats Try again; Home hide tiles at firstSpot.
