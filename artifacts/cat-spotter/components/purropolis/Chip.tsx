@@ -70,6 +70,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   pill: {
+    // Fills the tap area's width even when a caller centres or stretches it.
+    alignSelf: 'stretch',
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: radii.pill,
