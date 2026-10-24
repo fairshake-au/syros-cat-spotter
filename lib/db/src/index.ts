@@ -5,7 +5,33 @@ import { describeHost, resolveDatabaseUrl } from "./url";
 
 const { url, source } = resolveDatabaseUrl(process.env);
 export const databaseTarget = { source, host: describeHost(url) };
-export const pool = new pg.Pool({ connectionString: url });
+
+// SYC-407: a request that can't get a connection fails after this long, with
+// a logged error, instead of waiting for ever. Without it, one route that
+// holds a connection while asking for a second could hang every route
+// silently. 10 s is longer than any healthy checkout (normally milliseconds),
+// shorter than a phone's patience.
+export const POOL_CONNECTION_TIMEOUT_MS = 10_000;
+// A transaction left open and idle this long is killed by Postgres, freeing
+// its connection (and its locks). Nothing here waits 60 s between two
+// statements of one transaction. No statement_timeout is set: a long report
+// export or backfill could legitimately run for minutes (SYC-407 follow-up).
+export const IDLE_IN_TRANSACTION_TIMEOUT_MS = 60_000;
+
+export const pool = new pg.Pool({
+  connectionString: url,
+  connectionTimeoutMillis: POOL_CONNECTION_TIMEOUT_MS,
+});
+// Set per session rather than as a startup option: a pooled (pgbouncer)
+// Neon address rejects unknown startup parameters. pg queues this ahead of
+// the first query on the client.
+pool.on("connect", (client) => {
+  client
+    .query(`set idle_in_transaction_session_timeout = ${IDLE_IN_TRANSACTION_TIMEOUT_MS}`)
+    .catch((err: Error) =>
+      console.error(`database pool: could not set idle-in-transaction timeout: ${err.message}`),
+    );
+});
 // Neon closes idle connections when its compute suspends. Without a listener,
 // an idle client's 'error' event would crash the process.
 pool.on("error", (err) =>

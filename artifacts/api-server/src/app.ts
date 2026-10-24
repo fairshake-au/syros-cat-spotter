@@ -8,6 +8,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger, redactRequestUrl, safeError } from "./lib/logger";
 import { apiCors } from "./middlewares/apiCors";
+import { NUL_IN_BODY, NUL_MESSAGE, refuseNul } from "./middlewares/refuseNul";
 import { prelaunchGate } from "./middlewares/prelaunchGate";
 import { RESEND_WEBHOOK_PATH } from "./lib/mail/resendWebhook";
 import { opportunisticDrain } from "./lib/mail/outbox";
@@ -88,6 +89,9 @@ app.use(prelaunchGate);
 app.use(RESEND_WEBHOOK_PATH, express.raw({ type: "*/*", limit: "256kb" }));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
+// SYC-406: a NUL character anywhere in the body (or query) is a 400 here,
+// before any route hands it to Postgres, which would answer 500.
+app.use(refuseNul);
 
 // SYC-42 item 1.6, layer 2: after any API response, check for due mail.
 app.use("/api", opportunisticDrain);
@@ -171,6 +175,27 @@ export function jsonErrorHandler(
         : "This request is too large.",
     });
     return;
+  }
+  if (typeof err === "object" && err !== null && "type" in err && err.type === NUL_IN_BODY) {
+    // Never log the body: path only.
+    req.log?.warn({ path: req.path }, "request body contains a NUL character");
+    res.setHeader("Cache-Control", "no-store");
+    if (sendTeamErrorPage(req, res, 400, "bad_request")) return;
+    res.status(400).json({ error: NUL_MESSAGE });
+    return;
+  }
+  // SYC-407: the pool could not hand out a connection within its limit
+  // (lib/db POOL_CONNECTION_TIMEOUT_MS). Log it, and tell the caller to retry
+  // rather than leave it hanging or answer a generic 500.
+  if (err instanceof Error && /timeout exceeded when trying to connect/i.test(err.message)) {
+    req.log?.error({ err: safeError(err) }, "database pool: no connection available in time");
+    if (!res.headersSent) {
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Retry-After", "5");
+      if (sendTeamErrorPage(req, res, 503, "broken")) return;
+      res.status(503).json({ error: "We're busy right now. Please try again in a moment." });
+      return;
+    }
   }
   if (
     typeof err === "object" &&
