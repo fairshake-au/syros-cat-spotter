@@ -873,7 +873,7 @@ describe("the Appearance section on the team cat page", () => {
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
     expect(res.status).toBe(200);
     const html = res.text;
-    expect(html).toContain('<h2 id="h-coat">Coat and markings</h2><details class="fold" id="appearance"');
+    expect(html).toContain('<h2 id="h-coat">Coat and markings</h2><section id="appearance"');
     expect(html).toContain('<p class="public">Ginger · White paws · One eye</p>');
     expect(html).toContain(`id="a-${reading.id}"`);
     // SYC-602 §3.7: where it came from in plain words; no model names.
@@ -901,7 +901,7 @@ describe("the Appearance section on the team cat page", () => {
 
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
     const html = res.text;
-    const section = html.slice(html.indexOf('<details class="fold" id="appearance"'));
+    const section = html.slice(html.indexOf('<section id="appearance"'));
     // The public line keeps §2's words: the colours, then the pattern (Plain is never said).
     expect(section).toContain('<p class="public">Brown · Ginger · Stripes</p>');
     // SYC-602 §3.7: the fold says the coat in the team's words (SYC-443).
@@ -912,11 +912,11 @@ describe("the Appearance section on the team cat page", () => {
     for (const bad of ["Tortoiseshell or calico", "black_and_white", "undefined", "not_sure", "null"]) {
       expect(section, bad).not.toContain(bad);
     }
-    // The team's own phrase "Brown and ginger tabby" now heads the fold (heading and
-    // summary, SYC-602 §3.7); take out exactly those two and nothing else.
+    // The team's own phrase "Brown and ginger tabby" heads the section (heading and
+    // summary line, SYC-602 §3.7); take out exactly those two and nothing else.
     const withoutPhrase = withoutHints(section)
       .replace("<h3>Coat: brown and ginger tabby</h3>", "")
-      .replace(/<summary><b>[^<]*<\/b>/, "");
+      .replace(/<p class="coatsummary"><b>[^<]*<\/b>/, "");
     expect(withoutPhrase).not.toMatch(/tabby|calico|tortoiseshell/);
     // The Correct form offers the five colours, ticked as they stand.
     expect(section).toContain('name="colours" value="brown" checked');
@@ -927,9 +927,9 @@ describe("the Appearance section on the team cat page", () => {
     expect(section).toContain('name="expectedPattern" value="stripes"');
     // The history reads every coat through the one translation, in the team's
     // words (SYC-443): each statement says the part it left "not stated".
-    expect(html).toContain("Coat: Brown and ginger, pattern not stated");
-    expect(html).toContain("Coat: Tabby, colours not stated");
-    expect(html).toContain("Coat: Black and white, pattern not stated");
+    expect(html).toContain("Coat changed to brown and ginger, pattern not stated");
+    expect(html).toContain("Coat changed to tabby, colours not stated");
+    expect(html).toContain("Coat changed to black and white, pattern not stated");
     // (The fold's own heading says "Coat: brown and ginger tabby"; the history's rows never start lower-case.)
     expect(html.replace(/<h3>Coat:[^<]*<\/h3>/g, "")).not.toMatch(/Coat: (brown|stripes|black and white)/);
   });
@@ -983,14 +983,17 @@ describe("the Appearance section on the team cat page", () => {
     expect(row.slice(0, end)).toContain(`name="shownAbove" value="${g.id}"`);
   });
 
-  it("opens the fold at ?open=coat and leaves it closed otherwise (SYC-602 §3.7)", async () => {
+  it("draws a plain section and no longer reads ?open=coat (SYC-655 §6)", async () => {
     const catId = await newCat();
     await machine(catId, ["ginger"]);
     await team(catId, "coat", { value: { colours: ["ginger"], pattern: "plain" }, daysAgo: 1 });
     const get = async (qs: string) => (await request(app).get(`/api/team/cats/${catId}${qs}`).set("Cookie", cookie)).text;
-    expect(await get("")).toContain('<details class="fold" id="appearance">');
-    expect(await get("?open=coat")).toContain('<details class="fold" id="appearance" open>');
-    expect(await get("?open=other")).toContain('<details class="fold" id="appearance">');
+    const plain = await get("");
+    expect(plain).toContain('<section id="appearance">');
+    expect(plain).not.toContain('class="fold"');
+    const asked = await get("?open=coat");
+    expect(asked).toContain('<section id="appearance">');
+    expect(asked).not.toContain('class="fold"');
   });
 
   it("without set_appearance, the section shows but offers no forms", async () => {
@@ -998,7 +1001,7 @@ describe("the Appearance section on the team cat page", () => {
     const reading = await machine(catId, ["ginger"]);
     denied.cap = "set_appearance";
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
-    expect(res.text).toContain('<h2 id="h-coat">Coat and markings</h2><details class="fold" id="appearance"');
+    expect(res.text).toContain('<h2 id="h-coat">Coat and markings</h2><section id="appearance"');
     expect(res.text).not.toContain("/appearance/confirm");
     expect(res.text).not.toContain(`/api/team/statements/${reading.id}/wrong`);
   });
@@ -1140,7 +1143,7 @@ describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => 
     const catId = await newCat();
     await machine(catId, ["ginger", "tabby"]);
     const html = await page(catId);
-    const section = html.slice(html.indexOf('<details class="fold" id="appearance"'));
+    const section = html.slice(html.indexOf('<section id="appearance"'));
     for (const p of ["plain", "stripes", "patches"]) {
       expect(section).toContain(`type="radio" id="ac-coat-p-${p}" name="pattern" value="${p}">`);
     }
@@ -1168,7 +1171,7 @@ describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => 
       const done = new URL(res.headers["location"], "http://x").searchParams.get("done")!;
       expect(done).toBe("a_coat_corrected");
       const html = await page(catId, done);
-      const section = html.slice(html.indexOf('<details class="fold" id="appearance"'));
+      const section = html.slice(html.indexOf('<section id="appearance"'));
       expect(section, c.caption).toContain('<svg class="drawncat"');
       expect(section, c.caption).toContain(`aria-label="${c.caption}"`);
       expect(section, c.caption).toContain(`<strong>${c.caption}</strong>`);
@@ -1242,7 +1245,7 @@ describe("SYC-443: the team cat page says the coat in the team's words (§15.1)"
     (await request(app).get(`/api/team/cats/${catId}${done ? `?done=${done}` : ""}`).set("Cookie", cookie)).text;
   const correct = (catId: number, body: Record<string, unknown>) =>
     form(`/api/team/cats/${catId}/appearance/correct`).send({ reason: "Looked closely", ...body });
-  const sectionOf = (html: string) => html.slice(html.indexOf('<details class="fold" id="appearance"'));
+  const sectionOf = (html: string) => html.slice(html.indexOf('<section id="appearance"'));
 
   it("every place on the page: summary line, photo description, Appearance, drawn cat and history", async () => {
     const catId = await newCat();
@@ -1262,7 +1265,7 @@ describe("SYC-443: the team cat page says the coat in the team's words (§15.1)"
     expect(section).toContain('aria-label="Brown and ginger tabby"');
     expect(section).toContain("<strong>Brown and ginger tabby</strong>");
     // The history, and the team JSON's `said` (changed on purpose, English only).
-    expect(html).toContain("Coat: Brown and ginger tabby");
+    expect(html).toContain("Coat changed to brown and ginger tabby");
     const j = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie).set("Accept", "application/json");
     expect(j.body.history.find((h: { kind: string }) => h.kind === "coat").said).toBe("Coat: Brown and ginger tabby");
     for (const bad of ["undefined", "null", "NaN", "<script"]) expect(html, bad).not.toContain(bad);
@@ -1296,8 +1299,8 @@ describe("SYC-443: the team cat page says the coat in the team's words (§15.1)"
     const catId = await newCat();
     await correct(catId, { kind: "coat", pattern: "stripes" });
     const html = await page(catId);
-    // The history says it (SYC-602 §3.7: the fold no longer lists each change).
-    expect(html).toContain("Coat: Tabby, colours not stated");
+    // The history says it (SYC-655: one line, linking to the change in Coat and markings).
+    expect(html).toContain("Coat changed to tabby, colours not stated");
   });
 
   it("the pattern buttons show the team's words with their hints, and still post the codes", async () => {

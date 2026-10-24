@@ -160,7 +160,7 @@ export function renderCatActions(
   }
   // The coat form lives in the Coat and markings section (PR 3 opens it from here).
   if (may("set_appearance")) {
-    items.push('<a class="tap coatlink" href="?open=coat#appearance">Coat and markings</a>');
+    items.push('<a class="tap coatlink" href="#appearance">Coat and markings</a>');
   }
   if (may("assign_cat_to_colony")) {
     items.push(colonyForm(v, colonies));

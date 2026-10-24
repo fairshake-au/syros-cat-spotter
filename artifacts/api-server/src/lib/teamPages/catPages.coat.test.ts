@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { renderCatPage } from "./catPages";
 import { renderColourCheckPage } from "./appearancePage";
-import { catView } from "./__fixtures__/catView";
+import { catView, statement } from "./__fixtures__/catView";
 import type { TeamAppearance, TeamAppearanceStatement } from "../teamCatView";
 
-// SYC-602 Task 3.2 (spec §3.7): the Coat and markings fold.
+// SYC-602 Task 3.2 (spec §3.7), as SYC-655 Task 4 made it: the Coat and markings tab's plain section.
 
 const NOW = new Date("2026-10-17T09:00:00Z");
 
@@ -77,17 +77,17 @@ const view = (c: Partial<TeamAppearance> = {}, m: Partial<TeamAppearance> = {}) 
   } as never);
 
 const page = (v = view(), opts = {}) => renderCatPage(v, "Sam", { now: NOW, may: () => true, ...opts });
+/** The plain Coat and markings section (SYC-655 §6): from its opening tag to its closing one. */
 const fold = (html: string) => {
-  const at = html.indexOf('<details class="fold"');
+  const at = html.indexOf('<section id="appearance"');
   if (at === -1) return "";
   let depth = 0;
-  for (const m of html.slice(at).matchAll(/<details[\s>]|<\/details>/g)) {
-    depth += m[0] === "</details>" ? -1 : 1;
+  for (const m of html.slice(at).matchAll(/<section[\s>]|<\/section>/g)) {
+    depth += m[0] === "</section>" ? -1 : 1;
     if (depth === 0) return html.slice(at, at + m.index! + m[0].length);
   }
   return html.slice(at);
 };
-const foldOpening = (html: string) => html.slice(html.indexOf('<details class="fold"'), html.indexOf(">", html.indexOf('<details class="fold"')) + 1);
 /** The words a person reads: inside <main> when given a whole page (the
  * styles sit in the head), tags removed until none are left. */
 const text = (h: string) => {
@@ -96,39 +96,42 @@ const text = (h: string) => {
   return t.replace(/&#39;/g, "'").replace(/\s+/g, " ");
 };
 
-describe("the Coat and markings fold (SYC-602 Task 3.2)", () => {
-  it("folds the section with a one-line summary", () => {
+describe("the Coat and markings section (SYC-602 Task 3.2, SYC-655 Task 4)", () => {
+  it("is a plain section, not a fold", () => {
     const html = page();
-    expect(html).toContain('<details class="fold" id="appearance">');
-    const summary = html.slice(html.indexOf('<details class="fold"'), html.indexOf("</summary>", html.indexOf('<details class="fold"')));
-    expect(summary).toContain("Grey tabby, white paws");
-    expect(summary).toContain("Read from the photo on 3 Apr · Maria agreed on 5 Apr");
+    expect(html).toContain('<section id="appearance">');
+    expect(html).not.toContain("<details class=\"fold\"");
+    expect(html).not.toContain("foldbody");
+    const f = fold(html);
+    expect(f).toContain("Grey tabby, white paws");
+    expect(f).toContain("Read from the photo on 3 Apr · Maria agreed on 5 Apr");
+    // It sits in the Coat panel, under that panel's own heading.
+    const panel = html.slice(html.indexOf('id="tab-coat"'));
+    expect(panel.indexOf('<h2 id="h-coat">')).toBeLessThan(panel.indexOf('<section id="appearance"'));
+    expect((html.match(/id="appearance"/g) ?? []).length).toBe(1);
   });
 
-  it("leaves out a part of the summary that has no data", () => {
+  it("leaves out a part that has no data", () => {
     const onlyMachine = view({ statements: [stmt({})] });
-    const s1 = page(onlyMachine);
+    const s1 = fold(page(onlyMachine));
     expect(s1).toContain("Read from the photo on 3 Apr</span>");
     expect(s1).not.toContain("agreed on");
     const none = view({ statements: [], value: null, parts: undefined }, { statements: [] });
-    const s2 = page(none);
+    const s2 = fold(page(none));
     expect(s2).not.toContain("Read from the photo");
     expect(s2).not.toContain("agreed");
   });
 
-  it("opens by itself when it should", () => {
-    expect(foldOpening(page())).toBe('<details class="fold" id="appearance">');
-    for (const done of ["a_confirmed", "a_corrected", "a_wrong", "a_coat_corrected"]) {
-      expect(foldOpening(page(view(), { done })), done).toContain(" open");
+  it("is open whatever the state: no open attribute, no fold rules, and ?open=coat is no longer read", () => {
+    for (const done of [undefined, "a_confirmed", "a_corrected"]) {
+      const f = fold(page(view({ checkReasons: ["tied_camps"], guardianDisagrees: true }), { done }));
+      expect(f.startsWith('<section id="appearance">')).toBe(true);
+      expect(f).not.toContain("<details class=\"fold\"");
     }
-    expect(foldOpening(page(view({ checkReasons: ["tied_camps"] })))).toContain(" open");
-    expect(foldOpening(page(view({ guardianDisagrees: true })))).toContain(" open");
-    expect(foldOpening(page(view(), { openCoat: true }))).toContain(" open");
-    // Another notice does not open it.
-    expect(foldOpening(page(view(), { done: "visit" }))).not.toContain(" open");
+    expect(page(view(), { openCoat: true } as never)).toBe(page(view()));
   });
 
-  it("puts the notice inside the open fold", () => {
+  it("puts the notice inside the section", () => {
     const html = page(view(), { done: "a_confirmed" });
     const f = fold(html);
     expect(f).toContain("Saved. The team&#39;s agreement is added.");
@@ -236,24 +239,114 @@ describe("the Coat and markings fold (SYC-602 Task 3.2)", () => {
     expect(f).toContain("A cat guardian&#39;s change decides this");
   });
 
-  it("points the tab, the facts and History at the fold", () => {
+  it("points the tab at the panel, which has the one heading", () => {
     const html = page();
     expect(html).toContain('href="#tab-coat">Coat and markings</a>');
     expect(html).toContain('<h2 id="h-coat">Coat and markings</h2>');
-    expect((html.match(/id="appearance"/g) ?? []).length).toBe(1);
+    expect(fold(html)).not.toContain("<h2");
   });
 
-  it("the Colour check links open the fold", () => {
+  it("the Colour check links land on the section", () => {
     const cat = {
       catId: 7, name: "Tiger", syr: "SYR-0007", group: "check", reasons: ["tied_camps"], photoUrl: null,
       coatColours: ["grey"], coatPattern: "stripes", markings: [], above: { coat: [], markings: [] },
     };
     const html = renderColourCheckPage([cat] as never, "Sam");
-    expect(html.match(/href="\/api\/team\/cats\/7\?open=coat#appearance"/g)).toHaveLength(2);
-    expect(html).not.toContain('/cats/7#appearance');
+    expect(html.match(/href="\/api\/team\/cats\/7#appearance"/g)).toHaveLength(2);
+    expect(html).not.toContain("open=coat");
+  });
+});
+
+describe("Past changes (SYC-655 Task 4, review A1)", () => {
+  const who = { kind: "team" as const, label: "Maria" };
+  const entry = (id: number, over: Record<string, unknown>) =>
+    statement(id, { author: who, correction: null, observedAt: "2026-04-1" + (id % 9) + "T10:00:00Z", createdAt: "2026-04-1" + (id % 9) + "T10:00:00Z", ...over });
+  const history = [
+    // 605 marked 604 wrong; 603 replaced 601, which a photo showed black.
+    entry(605, { kind: "markings", said: "Marked wrong", replaces: 604, reason: "Not a mark" }),
+    entry(604, { kind: "markings", said: "Markings: White paws", replacedBy: [605], reason: "Seemed so", photoUrl: "/api/team/photos/m.jpg" }),
+    entry(603, { kind: "coat", said: "Coat: Grey tabby", replaces: 601, reason: "Better light", correction: { kind: "appearance" } }),
+    entry(601, { kind: "coat", said: "Coat: Black", replacedBy: [603], reason: "Looked black in shade", photoUrl: "/api/team/photos/old.jpg" }),
+  ];
+  const withPast = () =>
+    catView({
+      history,
+      appearance: {
+        coat: coat({ statements: [stmt({ id: 603, source: "team", author: who, photoUrl: null, modelVersion: null })] }),
+        markings: markings({ statements: [] }),
+      },
+      publicStatus: { markings: ["white_paws"] },
+    } as never);
+  const past = (html: string) => {
+    const f = fold(html);
+    const at = f.indexOf("Past changes</h3>");
+    return at === -1 ? "" : f.slice(at);
+  };
+
+  it("lists every change that no longer counts, crossed out, with its reason, photo and what replaced it", () => {
+    const p = past(page(withPast()));
+    expect(p).toContain("Past changes");
+    expect(p).toContain('id="a-601"');
+    expect(p).toContain("<del>Coat: Black</del>");
+    expect(p).toContain("Why: Looked black in shade");
+    expect(p).toContain('href="/api/team/photos/old.jpg"');
+    // Replaced by the change that stands, which is listed in this same tab.
+    expect(p).toContain('Replaced by <a href="#a-603">the change of');
+    expect(p).toContain("Grey tabby");
+    // A change marked wrong: its reason, photo, and the retraction (a row in History).
+    expect(p).toContain('id="a-604"');
+    expect(p).toContain("<del>Markings: White paws</del>");
+    expect(p).toContain("Why: Seemed so");
+    expect(p).toContain('href="/api/team/photos/m.jpg"');
+    expect(p).toContain('Replaced by <a href="#s-605">');
+    expect(p).toContain("Not a mark");
+    // The retraction itself is not a coat change, and the standing one is not "past".
+    expect(p).not.toContain('id="a-605"');
+    expect(p).not.toContain('id="a-603"');
   });
 
-  it("the page opened with openCoat has the fold open", () => {
-    expect(foldOpening(page(view(), { openCoat: true }))).toBe('<details class="fold" id="appearance" open>');
+  it("keeps Mark wrong on the change that counts and offers none on a past one", () => {
+    const f = fold(page(withPast()));
+    expect(f).toContain('action="/api/team/statements/603/wrong"');
+    expect(past(page(withPast()))).not.toContain("/wrong");
+    expect(f).toContain('id="a-603"');
+  });
+
+  it("shows past changes to a viewer who may not change the coat", () => {
+    const p = past(page(withPast(), { may: () => false }));
+    expect(p).toContain('id="a-601"');
+    expect(p).toContain("Why: Looked black in shade");
+  });
+
+  it("says where the past changes are, and only when there are some", () => {
+    const f = fold(page(withPast()));
+    expect(f).toContain("Past changes are listed below.");
+    expect(f.indexOf("Past changes are listed below.")).toBeLessThan(f.indexOf("Past changes</h3>"));
+    expect(f).not.toContain("Older and replaced changes are in History");
+    const none = fold(page());
+    expect(none).not.toContain("Past changes");
+    expect(none).not.toContain("Older and replaced changes are in History");
+  });
+
+  it("every change is listed in this tab once: a-<id> ids are unique and History links to them", () => {
+    const html = page(withPast());
+    const ids = [...html.matchAll(/ id="(a-\d+)"/g)].map((m) => m[1]);
+    expect(ids.sort()).toEqual(["a-601", "a-603", "a-604"]);
+    expect(html).toContain('<li class="hrow replaced" id="s-601"');
+    expect(html).toContain('href="#a-601"');
+    expect(html).toContain("Coat changed to grey tabby");
+    expect(html).toContain("Markings changed to white paws");
+  });
+
+  it("lists a standing change that was outvoted only once (under Also recorded, not counted)", () => {
+    const outvoted = stmt({ id: 610, codes: ["black"], source: "team", author: who, counts: false, markable: true, photoUrl: null, modelVersion: null });
+    const v = catView({
+      history: [entry(610, { kind: "coat", said: "Coat: Black", correction: { kind: "appearance" } })],
+      appearance: { coat: coat({ statements: [stmt({}), outvoted] }), markings: markings() },
+    } as never);
+    const html = page(v);
+    expect(html.match(/ id="a-610"/g)).toHaveLength(1);
+    expect(past(html)).toBe("");
+    expect(html).toContain('href="#a-610"');
   });
 });

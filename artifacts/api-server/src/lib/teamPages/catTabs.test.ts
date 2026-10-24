@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { JSDOM } from "jsdom";
 import { renderCatPage } from "./catPages";
 import { historyCounts } from "./catHistory";
-import { bareCatView, catView, richCatView } from "./__fixtures__/catView";
+import { bareCatView, catView, richCatView, statement } from "./__fixtures__/catView";
 
 // SYC-655 Task 3: the tab row and the panels under the header card.
 
@@ -126,6 +126,38 @@ describe("the panels", () => {
   });
 });
 
+describe("coat changes in the tabs (SYC-655 Task 4)", () => {
+  const coatStatement = (id: number, over: Record<string, unknown>) =>
+    statement(id, { kind: "coat", said: "Coat: Black", correction: null, ...over });
+  const withPast = () =>
+    catView({
+      ...richCatView(),
+      history: [
+        ...richCatView().history,
+        coatStatement(901, { said: "Coat: Grey", replaces: 900, correction: { kind: "appearance" } }),
+        coatStatement(900, { replacedBy: [901], reason: "Looked black" }),
+      ],
+    } as never);
+
+  it("every id stays unique with past changes listed, and each History line has its change in the Coat tab", () => {
+    const html = page(withPast(), { issues });
+    const doc = new JSDOM(html).window.document;
+    const ids = [...doc.querySelectorAll("[id]")].map((e) => e.id);
+    expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+    expect(doc.getElementById("a-900")!.closest("#tab-coat")).not.toBeNull();
+    expect(doc.getElementById("s-900")!.closest("#tab-history")).not.toBeNull();
+    expect(doc.getElementById("s-900")!.querySelector("a")!.getAttribute("href")).toBe("#a-900");
+  });
+
+  it("keeps the History count and 'Show all' as they were (the coat line is a normal row)", () => {
+    const v = withPast();
+    const n = historyCounts(v, []).all;
+    const html = page(v, { issues });
+    expect(html).toContain(`History (${n})`);
+    expect(html).toContain('aria-current="page">All</a>');
+  });
+});
+
 describe("the tab CSS", () => {
   const css = () => sheet(page());
 
@@ -158,10 +190,8 @@ describe("the tab CSS", () => {
 
   it("gives panels and anchored rows room under the sticky row", () => {
     const c = css();
-    const rule = /([^{}\n]*scroll-margin-top:72px)/g;
     const sels = [...c.matchAll(/([^{}\n]+)\{scroll-margin-top:72px\}/g)].map((m) => m[1]).join(",");
     for (const s of [".catpanel", '[id^="s-"]', '[id^="sg-"]', '[id^="p-"]', '[id^="vv-"]', '[id^="a-"]']) expect(sels, s).toContain(s);
-    expect(rule.test(c)).toBe(true);
     // A photo's own rule can't undo it.
     expect(c).not.toMatch(/\.gallery figure\{[^}]*scroll-margin-top:12px/);
   });

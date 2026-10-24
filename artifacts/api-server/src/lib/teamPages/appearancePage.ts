@@ -368,10 +368,10 @@ export function renderAppearanceSection(
   may: (c: Capability) => boolean,
   done?: string,
   lang?: string,
-  /** Only the team cat page passes `fold: true` (SYC-602 §3.7); everyone else gets the section as it was. */
-  opts: { fold?: boolean; open?: boolean; heading?: boolean } = {},
+  /** Only the team cat page passes `team: true` (SYC-655 §6); everyone else gets the section as it was. `past`: its Past changes, drawn by catHistory. */
+  opts: { team?: boolean; heading?: boolean; past?: string } = {},
 ): string {
-  if (opts.fold) return renderCoatFold(v, may, done, lang, opts.open === true, opts.heading !== false);
+  if (opts.team) return renderCoatSection(v, may, done, lang, opts.heading !== false, opts.past ?? "");
   const a = v.appearance;
   const mayChange = may("set_appearance");
   // The resolved parts the public payload carries from SYC-398 PR A2; never
@@ -511,25 +511,18 @@ function foldKind(
   );
 }
 
-function renderCoatFold(
+function renderCoatSection(
   v: TeamCatView,
   may: (c: Capability) => boolean,
   done: string | undefined,
   lang: string | undefined,
-  openCoat: boolean,
-  heading = true,
+  heading: boolean,
+  past: string,
 ): string {
   const a = v.appearance;
   const mayChange = may("set_appearance");
   const parts = a.coat.parts;
   const coatReasons: ColourCheckReason[] = [...a.coat.checkReasons, ...(a.handPick ? (["hand_pick"] as const) : [])];
-  const open =
-    openCoat ||
-    (done !== undefined && Object.hasOwn(APPEARANCE_DONE, done)) ||
-    coatReasons.length > 0 ||
-    a.markings.checkReasons.length > 0 ||
-    a.coat.guardianDisagrees ||
-    a.markings.guardianDisagrees;
 
   const coatWords = coatPhrase(lang, a.coat);
   const markWords = a.markings.value === null ? [] : a.markings.value.map((m) => lowerFirst(markShownWord(lang, m)));
@@ -549,9 +542,8 @@ function renderCoatFold(
   return (
     // The Coat panel on the cat page supplies its own heading.
     (heading ? "<h2>Coat and markings</h2>" : "") +
-    `<details class="fold" id="appearance"${open ? " open" : ""}>` +
-    `<summary><b>${esc(title)}</b>${origin ? `<span>${esc(origin)}</span>` : ""}</summary>` +
-    '<div class="foldbody">' +
+    '<section id="appearance">' +
+    `<p class="coatsummary"><b>${esc(title)}</b>${origin ? ` <span class="meta">${esc(origin)}</span>` : ""}</p>` +
     appearanceNotice(lang, done) +
     (done && DRAWN_AFTER.has(done) && parts
       ? drawnCoatFigure(lang, { colours: parts.colours.value, pattern: parts.pattern.value }, `cat${v.cat.id}`)
@@ -565,8 +557,8 @@ function renderCoatFold(
         correctForm(lang, v.cat.id, "markings", a.markings.value, a.markings.aboveTeamIds, "cat", "ac-markings", undefined, true) +
         "</div></details>"
       : "") +
-    '<p class="hint">Older and replaced changes are in History, with what replaced them.</p>' +
-    "</div></details>"
+    (past ? `<p class="hint">Past changes are listed below.</p>${past}` : "") +
+    "</section>"
   );
 }
 
@@ -631,12 +623,12 @@ function checkRow(lang: string | undefined, c: ColourCheckCat, inline: boolean):
     : "";
   return (
     `<li class="report colourcheck" id="c-${c.catId}">` +
-    `<a class="catrow" href="/api/team/cats/${c.catId}?open=coat#appearance">${thumb}` +
+    `<a class="catrow" href="/api/team/cats/${c.catId}#appearance">${thumb}` +
     `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span>` +
     `<span class="status">${esc(line)}</span></span></a>` +
     reasonList(lang, c.reasons) +
     `<div class="fixes appfix">${confirms}${corrects}</div>` +
-    `<p><a class="tap" href="/api/team/cats/${c.catId}?open=coat#appearance">${esc(tr(lang, "colourCheck.openCat"))}</a></p>` +
+    `<p><a class="tap" href="/api/team/cats/${c.catId}#appearance">${esc(tr(lang, "colourCheck.openCat"))}</a></p>` +
     "</li>"
   );
 }

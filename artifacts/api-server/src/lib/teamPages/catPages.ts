@@ -12,6 +12,7 @@ import {
   historyShown,
   isRoutine,
   renderHistory,
+  renderPastChanges,
   runWords,
   visitDidWords,
   wrongFormNeeds,
@@ -174,8 +175,6 @@ export interface CatPageOptions {
   photo?: string;
   /** Every colony, for the "Colony" list. Only asked for if the person may assign. */
   colonies?: { id: number; name: string }[];
-  /** ?open=coat: the Coat and markings fold opens (from "Update this cat"). */
-  openCoat?: boolean;
   /** ?history=all: show every row, not just the newest HISTORY_SHOWN. */
   allHistory?: boolean;
   /** ?show=: which of History's rows to show (spec §3.5). Left out: all of them. */
@@ -517,8 +516,12 @@ export function renderCatPage(
     island,
   });
 
-  const coat = renderAppearanceSection(v, may, opts.done, undefined, { fold: true, open: opts.openCoat === true, heading: false });
-  // Task 4 reshapes the Coat panel; for now it holds the section as it was.
+  // The Coat panel supplies the heading; the section lists past changes too (spec §3, review A1).
+  const coat = renderAppearanceSection(v, may, opts.done, undefined, {
+    team: true,
+    heading: false,
+    past: renderPastChanges(v, shown),
+  });
   const panels: CatPanel[] = [
     { id: "history", tab: `History (${historyCounts(v, visitList).all})`, heading: "History", html: history },
     { id: "photos", tab: `Photos (${v.photos.length})`, heading: `Photos (${v.photos.length})`, html: photos },
