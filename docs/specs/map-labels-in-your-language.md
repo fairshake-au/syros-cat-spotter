@@ -1,7 +1,7 @@
 # Map labels in your language
 
 Ticket: SYC-705. Revives the idea in SYC-288 (cancelled 22 Oct 2026, "serve our own Syros map tiles").
-Status: **draft v3, rewritten for MapLibre** (24 Oct 2026). Samuel chose MapLibre and the adjusted style after seeing them side by side. Needs a fresh adversarial review, then approval. The v2 review (`reviews/map-labels-in-your-language-review.md`) covered the picture-based design; its points that still apply are carried over.
+Status: **draft v3, rewritten for MapLibre on every map** (24 Oct 2026). Samuel chose MapLibre and the adjusted style after seeing them side by side, then chose MapLibre for the dashboard too. Needs a fresh adversarial review, then approval. The v2 review (`reviews/map-labels-in-your-language-review.md`) covered the picture-based design; its points that still apply are carried over.
 Decision behind it: on 24 Oct 2026 Samuel chose "a language-aware map" over "Google Maps everywhere" and "Google on phones only".
 
 ## The problem, as a spotter meets it
@@ -35,7 +35,7 @@ So the big places have English names. Ermoupoli and Ano Syros do, for example. A
 
 ## What we're building
 
-**The phone app and the website draw the map themselves with MapLibre, from one small file of Syros map data that we make and host. The team dashboard gets map pictures drawn from that same file. Every map uses the same adjusted look and shows names in the reader's language.**
+**Every map in Cat Spotters (the phone app, the website and the team dashboard) is drawn by MapLibre from one small file of Syros map data that we make and host. Every map uses the same adjusted look and shows names in the reader's language.**
 
 How the map gets made:
 
@@ -44,7 +44,7 @@ How the map gets made:
 3. Pack it into one map-data file, `syros.pmtiles`.
 4. Host that file at Cat Spotters' own address, `tiles.catspotters.com`.
 
-The phone and the browser download that file, or the parts of it they need, and draw the map on the spot. The dashboard's pictures are drawn from the same file by our build.
+The phone and the browser download that file, or the parts of it they need, and draw the map on the spot. Nothing draws or stores map pictures any more.
 
 | Reader's language | Place names on the map |
 |---|---|
@@ -74,7 +74,7 @@ We use the **adjusted style** Samuel saw on 24 Oct 2026. It starts from Protomap
 - To add: footpaths and hiking trails as dotted lines, like today's map.
 - Kept calm on purpose: only a few landmarks in town (theatre, post office, supermarket), not every shop and café, so the cat markers stand out.
 
-The style is one file in the repo (`map-style/`), shared by the phone app, the website and the dashboard pictures, so all three look the same.
+The style is one file in the repo (`map-style/`), shared by the phone app, the website and the dashboard, so all three look the same.
 
 ### What the spotter sees
 
@@ -94,7 +94,13 @@ The style is one file in the repo (`map-style/`), shared by the phone app, the w
 
 ### What the team sees
 
-The dashboard's maps keep working without JavaScript, as now. They show the adjusted look with labels in the viewer's language (English or Greek; the French dashboard uses English). The pictures still come from the dashboard's own address, so its security header doesn't change.
+- **Draggable maps everywhere.** The island map of cats and the feeding-site maps become draggable, pinchable MapLibre maps, in the adjusted look, with labels in the viewer's language (English or Greek; the French dashboard uses English). The feeding sites page gets the draggable map at last (SYC-585).
+- **Nothing about where you look leaves your browser.** The dashboard downloads the whole Syros map file (a few megabytes) from its own address, once per version, and the browser keeps it. Panning and zooming then happen entirely inside the browser.
+- **If the browser can't run the map** (JavaScript off, or a browser too old for MapLibre), there is no map (Samuel, 24 Oct 2026):
+  - Cats show as the usual grid.
+  - A feeding site is placed by choosing its area from a list, and it's marked "position approximate" until someone places it on a map.
+  - A short line says "The map needs a newer browser with JavaScript on."
+  - The old button maps (zoom, move and "Go to" buttons) are removed.
 
 ## How it works (for the build)
 
@@ -135,12 +141,12 @@ A script in the repo (`scripts/map-data/`) is run by a manual GitHub Action call
 - **How it rolls out.** Each rebuild makes a new `v{N}` and updates `current.json`.
 - **Phone app.** It reads `current.json` when it has signal. If there's a newer version, it downloads it in the background and switches over once it's complete.
 - **Website.** It reads `current.json` on each visit.
-- **Dashboard.** Its pictures are rebuilt from the new file, as part of the same Action.
+- **Dashboard.** It reads `current.json` through its own address, and its server fetches the new file once.
 
 ### 4. App (iPhone and Android)
 
 - **Map engine.** Replace `react-native-maps` with `@maplibre/maplibre-react-native`. It has an Expo config plugin and works with the store builds made on EAS (Expo's build service).
-- **Rebuilt components.** `AppMap.tsx` (the cat markers and the blurred-area shapes) and `LocationPicker.tsx` (the pin) are rebuilt on MapLibre. `OsmTiles.tsx` and the picture download in `lib/offlineTiles.ts` are removed.
+- **Rebuilt components.** `AppMap.tsx` (the cat markers and the rounded area squares) and `LocationPicker.tsx` (the pin) are rebuilt on MapLibre. `OsmTiles.tsx` and the picture download in `lib/offlineTiles.ts` are removed.
 - **Shared geometry.** `lib/cellShape.ts` keeps its geometry and drops the `react-native-maps` types.
 - **The offline file.** A new `lib/offlineMap.ts` downloads `syros.pmtiles`, the fonts and the symbols into the app's own storage. It records the version it holds, and the map reads the file from there.
   - MapLibre on Android can read a PMTiles file from device storage (MapLibre Android 11.7 and later; maplibre.org/maplibre-native/android/examples/data/PMTiles).
@@ -159,21 +165,30 @@ A script in the repo (`scripts/map-data/`) is run by a manual GitHub Action call
 
 ### 6. Dashboard
 
-The dashboard keeps ready-drawn pictures, because its maps must work without JavaScript.
+The dashboard moves to MapLibre. Every map picture and the picture cache are removed.
 
-- **Drawing the pictures.**
-  - The "Rebuild Syros map" Action draws them from `syros.pmtiles` with the same style.
-  - It runs MapLibre in headless Chromium through Playwright, which the repo already uses.
-  - It draws English and Greek, at zooms 12–19, over the padded box.
-  - It draws in large blocks and slices them, so labels aren't cut at the edges.
-- **Hosting.** The pictures go to `tiles.catspotters.com/v{N}/raster/{lang}/{z}/{x}/{y}.png`.
-- **The picture token.** `tileToken.ts` gains the language and version. Its own version number goes up, so cached pages, which last up to a day, simply ask again.
-- **The cache.** `map_tile_cache` gains `version` and `lang`, and its key becomes (version, language, z, x, y). The duplicate-handling and trimming code change to match.
-  - This is a database migration. It reaches production **before** Samuel republishes.
-  - The rollback block uses the "-- --" comment form, and the `lib/db` runner test is run before pushing.
-- **Fetching.** `tileCache.ts` fetches from our address instead of OpenStreetMap's. The cache stays, so the dashboard map survives a bad hour on our host.
-- **Logging.** The "nothing logs a picture's position" rule stays.
-- **The island map's page.** It keeps Leaflet, which only shows these pictures, so nothing changes there.
+- **The map engine.**
+  - MapLibre's strict-security build (`maplibre-gl-csp.js` and its worker file) is stored with the dashboard's other files, as Leaflet is today (`scripts/buildAssets.mjs`, `teamAssets.ts`). It replaces Leaflet.
+  - `assets/dashboard-map.js` is rewritten on MapLibre: cats, groups when zoomed out, a card on tap, and a feeding site's trail.
+  - A new small script does the drag-the-pin placing for feeding sites (SYC-585).
+- **The map file, from the dashboard's own address.**
+  - `GET /api/team/map-data/v{N}/syros.pmtiles` returns the whole file. The server fetches it once from `tiles.catspotters.com`, keeps it on disk, and serves it with a long private cache lifetime.
+  - The fonts and symbols come the same way.
+  - The browser downloads the whole file, never pieces of it, so no request says which part of the island someone is looking at. The "no position in any address" rule (spec §10.4) still holds.
+  - Signed-in team members only, like the rest of the dashboard.
+- **Security header.** The map page gains `worker-src 'self'`, because MapLibre draws in a background worker loaded from our own address. Everything else stays `'self'`; nothing is loaded from another site.
+- **Removed:**
+  - the picture routes (`/api/team/map-squares`, `/api/team/map-square/:token`, the map-tiles route);
+  - `tileToken.ts`, `tileCache.ts`, and the picture-joining code;
+  - the button-map forms (`mapForms.ts`, `POST /api/team/cats/map`);
+  - Leaflet.
+- **The `map_tile_cache` table** is dropped in a later migration, after the new code is live. The old code still reads it until then.
+  - The migration reaches production only after Samuel has republished the new code.
+  - Its rollback block uses the "-- --" comment form, and the `lib/db` runner test is run before pushing.
+- **No map** (JavaScript off, or no WebGL): see "What the team sees".
+  - Areas already exist (`seedAreas.ts`). A site placed by area gets the area's centre and is flagged "position approximate".
+  - The exact wording, and where the flag shows, are settled in the plan.
+- **Logging.** The server never logs which part of the file was asked for, and with whole-file downloads there is nothing to log anyway.
 
 ### 7. Credits and licences
 
@@ -187,7 +202,7 @@ The dashboard keeps ready-drawn pictures, because its maps must work without Jav
 
 1. **Prove MapLibre on real phones** (a small throwaway test, not merged). A development build on a real iPhone and a real Android reads a downloaded `syros.pmtiles` with signal off and shows Greek and English labels. If either fails, use the fallback in §4 and say so before going on.
 2. **The map file and its address.** The build script, the Action and `tiles.catspotters.com`. Check with curl and in the browser.
-3. **Dashboard.** Migration to production first, then the code. Samuel pulls main in Replit and republishes.
+3. **Dashboard.** The code first. Samuel pulls main in Replit and republishes. Then, in a later change, the migration that drops `map_tile_cache`.
 4. **Website.** Samuel pulls main and republishes.
 5. **Phone apps.** A new store build. The offline download moves to our file from that build on.
 
@@ -201,11 +216,12 @@ Before each map goes live, there are before-and-after pictures of Ermoupoli's ce
   - None fixes the 1% street-name problem.
   - Each brings a key, a monthly limit, and a company that sees where people look.
 - **Drawing our own map pictures for every map** (the previous version of this spec). It's the smaller change to the app, and it would look the same. But offline stays limited to pictures already stored, changing language means downloading the island again, and we'd draw and store about 360,000 pictures. Samuel chose MapLibre on 24 Oct 2026, after seeing both side by side.
-- **MapLibre on the dashboard too.** Its maps must work without JavaScript, so they'd still need pictures. It would add work without removing the picture step.
+- **Keeping the dashboard's no-JavaScript button map** on ready-drawn pictures. Nobody would ever lose the map, but it means building and storing about 360,000 pictures, plus a picture cache, for a backup few would use. Samuel chose no map with a plain fallback on 24 Oct 2026.
 
 ## Decisions (Samuel, 24 Oct 2026)
 
-- **Engine:** MapLibre for the phone app and website, with ready-drawn pictures for the dashboard. Samuel said "go with MapLibre and the adjusted style". Applying it to the app and website only, with dashboard pictures, follows the recommendation he was given and **needs his confirmation**.
+- **Engine:** MapLibre for every map. Samuel's words: "go with MapLibre and the adjusted style", then "dashboard on MapLibre too".
+- **Dashboard without JavaScript:** no map, with a plain fallback (grid, area list). Samuel chose this from the options he was given.
 - **Look:** the adjusted style shown to Samuel, with footpaths still to add (C).
 - **A. French readers:** they get the English map.
 - **B. Greek-only names:** spelled out automatically in Latin letters, the way Greek road signs do it.
@@ -220,10 +236,11 @@ Before each map goes live, there are before-and-after pictures of Ermoupoli's ce
 
 - **MapLibre on phones is unproven in this app.** It's a different map engine with different marker handling. Mitigation:
   - Step 1 of the rollout tests it on real phones before anything else is built.
-  - The markers, the pin and the blurred shapes get the same render tests as today.
+  - The markers, the pin and the rounded area squares get the same render tests as today.
   - SYC-287 and SYC-555 (the real-phone checks) are rerun.
 - **Rotation could confuse.** A two-finger twist turns the map, which today's map doesn't do. Mitigation: show the compass button, which turns the map back to north. If testers find rotation confusing, turn it off. That's one setting.
-- **Our map host becomes something every map depends on.** If `tiles.catspotters.com` breaks, the website's maps go blank. Phones keep their offline file, and the dashboard keeps its cache. Mitigation: a daily check fetches `current.json` and part of the map file, and raises a Linear ticket if either fails.
+- **Our map host becomes something every map depends on.** If `tiles.catspotters.com` breaks, the website's maps go blank. Phones keep their offline file, and the dashboard server keeps its own copy of the file. Mitigation: a daily check fetches `current.json` and part of the map file, and raises a Linear ticket if either fails.
 - **Automatic spellings will sometimes be clumsy** ("Agios" where a sign says "Ayios"). Mitigation: real English names always win. Adding the right English name in OpenStreetMap fixes it for everyone at the next rebuild.
 - **The website gets heavier,** by about 250 KB on map screens. Mitigation: it loads only where there's a map.
+- **A team member with JavaScript off, or a very old browser, loses the map.** Mitigation: the grid and the area list still let them do the work. The team is small and uses ordinary phones and laptops.
 - **The data goes stale between rebuilds,** so a new road appears weeks later than on openstreetmap.org. That's acceptable for this island.
