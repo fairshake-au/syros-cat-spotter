@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { db, observationsTable, peopleTable, type Observation } from "@workspace/db";
+import { catsTable, db, observationsTable, peopleTable, vetBatchesTable, vetVisitPhotosTable, type Observation } from "@workspace/db";
 import { getGuidance } from "@workspace/welfare-guidance";
 import { actingRole, can } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
@@ -8,6 +8,8 @@ import { loadCatRecords, ObservationRefused, type VetVisitValue } from "./observ
 import { authorityLevel, standingRows, supersedeChains, type Vaccine } from "./resolve";
 import { lockActiveObservation } from "./teamCorrections";
 import { athensToday } from "./athensTime";
+import { readVisitForm, type VisitField } from "./teamPages/vetVisitForm";
+import { getBatch, type BatchCat } from "./vetBatches";
 
 // Logging a vet visit, and undoing one (SYC-396 PR 3.1a; plan Task 3.1.1;
 // team-dashboard-redesign.md §8.3, Decisions 4–7 and D8).
@@ -391,5 +393,163 @@ export async function visitsFor(catId: number, opts: { costs: boolean }): Promis
       if (v.costReason) line.costReason = v.costReason;
     }
     return line;
+  });
+}
+
+/** The answer to a second save of the same batch (plan Review Focus 2). */
+export const ALREADY_SAVED = "This batch was already saved.";
+
+/** One thing that stops a batch saving: the entry it is about (null: the whole batch), the field, and what to say. */
+export type BatchProblem = { batchCatId: number | null; field: string; words: string };
+
+/** Fields that come from the batch, not the cat: said once, for the batch. */
+const SHARED_FIELDS = new Set<VisitField>(["date", "clinicId", "vaccines"]);
+
+/** "24 Oct", the same-day warning's date words. */
+const shortDay = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/Athens" });
+
+/**
+ * Saves a vet visit batch (SYC-677 Task 4), in ONE transaction:
+ *
+ * 1. The batch row is locked (`for update`), so two saves of the same batch
+ *    queue; the second then finds `saved_at` set and is told
+ *    {@link ALREADY_SAVED}, writing nothing.
+ * 2. Each cat is read through the single visit form's reader: the cat's own
+ *    cost if typed, else the batch price when Sterilised is ticked; the cat's
+ *    payer, else the batch's. "Checked only" is refused in a batch.
+ * 3. An unconfirmed cat, the same cat twice, a new cat (until Task 9) and a
+ *    cat that already has a visit on the batch's date (unless "also the same
+ *    day" is ticked) are refused, each naming its entry.
+ * 4. The cats are locked in ascending id order (as logRound does: cats are
+ *    only ever locked after the batch, never before, so no deadlock), then
+ *    each visit is written by writeVisit (D8 included), and every photo of
+ *    the entry is linked to it in vet_visit_photos (Ruling R7; R4 relies on
+ *    the link and the visit sharing this transaction).
+ * 5. `saved_at` is set.
+ *
+ * Any problem: nothing is written. Every read inside the transaction goes
+ * through `tx` (the batch, the cats' names, their visits and records).
+ */
+export async function saveBatch(
+  person: Person,
+  batchId: number,
+  now = new Date(),
+): Promise<{ ok: true; visits: SavedVisit[] } | { ok: false; problems: BatchProblem[] }> {
+  if (!can(person, "log_vet_visit")) throw notAuthorised();
+  const costs = can(person, "view_vet_costs");
+  const vaccinate = can(person, "set_vaccination");
+
+  return inStatementTransaction(async (tx, news) => {
+    const [locked] = await tx
+      .select({ id: vetBatchesTable.id, savedAt: vetBatchesTable.savedAt })
+      .from(vetBatchesTable)
+      .where(eq(vetBatchesTable.id, batchId))
+      .for("update");
+    if (!locked) throw notFound();
+    if (locked.savedAt) return { ok: false as const, problems: [{ batchCatId: null, field: "batch", words: ALREADY_SAVED }] };
+
+    const batch = (await getBatch(batchId, tx))!;
+    const { shared } = batch;
+    const problems: BatchProblem[] = [];
+    const sharedSaid = new Set<string>();
+    const add = (batchCatId: number | null, field: string, words: string) => {
+      if (batchCatId === null) {
+        if (sharedSaid.has(field)) return;
+        sharedSaid.add(field);
+      }
+      problems.push({ batchCatId, field, words });
+    };
+    if (batch.cats.length === 0) add(null, "cats", "Add at least one cat.");
+
+    const known = [...new Set(batch.cats.map((c) => c.catId).filter((id): id is number => id !== null))];
+    const names = new Map(
+      known.length
+        ? (await tx.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(inArray(catsTable.id, known))).map((c) => [c.id, c.name])
+        : [],
+    );
+    const nameOf = (catId: number) => names.get(catId) ?? `Cat ${catId}`;
+
+    const ready: { entry: BatchCat; catId: number; input: VisitInput }[] = [];
+    for (const entry of batch.cats) {
+      let fine = true;
+      if (entry.newCat) {
+        add(entry.id, "newCat", "New cats arrive in a later update");
+        fine = false;
+      } else if (!entry.confirmed || entry.catId === null) {
+        add(entry.id, "confirmed", "Confirm who this cat is.");
+        fine = false;
+      } else {
+        const others = batch.cats.flatMap((c, j) => (c.catId === entry.catId && !c.newCat ? [j + 1] : []));
+        if (others.length > 1) {
+          add(entry.id, "catId", `${nameOf(entry.catId)} is in this batch twice: entries ${others.join(" and ")}.`);
+          fine = false;
+        }
+      }
+
+      const checkedOnly = entry.did.includes("checked");
+      if (checkedOnly) {
+        add(entry.id, "did", "Tick Sterilised, Vaccinated or Treated.");
+        fine = false;
+      }
+      const ownCost = entry.costEur.trim();
+      const read = readVisitForm(
+        {
+          date: shared.date,
+          did: entry.did,
+          vaccines: shared.vaccines,
+          vaccineOther: shared.vaccineOther,
+          treatedNote: entry.treatedNote,
+          clinicId: shared.clinicId ?? "",
+          costEur: ownCost !== "" ? ownCost : entry.did.includes("sterilised") ? shared.priceEur : "",
+          paidBy: entry.paidBy.trim() !== "" ? entry.paidBy : shared.paidBy,
+          note: entry.note,
+          costReason: "",
+        },
+        { costs, vaccinate, now },
+      );
+      if (!read.ok) {
+        for (const [field, words] of Object.entries(read.problems) as [VisitField, string][]) {
+          if (field === "did" && checkedOnly) continue;
+          add(SHARED_FIELDS.has(field) ? null : entry.id, field, words);
+        }
+        fine = false;
+      }
+      if (fine && read.ok && entry.catId !== null) {
+        ready.push({ entry, catId: entry.catId, input: { catId: entry.catId, date: read.date, value: read.value } });
+      }
+    }
+    if (problems.length) return { ok: false as const, problems };
+
+    // Locked before the same-day check, so a visit saved elsewhere meanwhile can't slip past it.
+    for (const id of [...known].sort((a, b) => a - b)) await lockCat(tx, id);
+
+    const earlier = await tx
+      .select()
+      .from(observationsTable)
+      .where(and(inArray(observationsTable.catId, known), eq(observationsTable.kind, "vet_visit")));
+    for (const { entry, catId } of ready) {
+      if (entry.alsoSameDay) continue;
+      const sameDay = standingRows(
+        earlier.filter((o) => o.catId === catId),
+        "vet_visit",
+      ).some((o) => !o.redactedAt && athensToday(o.observedAt) === shared.date);
+      if (sameDay) add(entry.id, "alsoSameDay", `${nameOf(catId)} already has a vet visit on ${shortDay(shared.date)}.`);
+    }
+    if (problems.length) return { ok: false as const, problems };
+
+    const checked = ready.map((r) => ({ ...r, observedAt: checkVisit(person, r.input, now) }));
+    const visits: SavedVisit[] = [];
+    for (const { entry, catId, input, observedAt } of checked) {
+      const saved = await writeVisit(tx, news, person, input, observedAt, now);
+      visits.push(saved);
+      if (entry.photos.length) {
+        await tx
+          .insert(vetVisitPhotosTable)
+          .values(entry.photos.map((p) => ({ photoId: p.photoId, visitId: saved.visitId, catId })));
+      }
+    }
+    await tx.update(vetBatchesTable).set({ savedAt: now, updatedAt: now }).where(eq(vetBatchesTable.id, batchId));
+    return { ok: true as const, visits };
   });
 }

@@ -36,6 +36,9 @@ const NAME_PREFIX = `VitestVetBatch${RUN}`;
 const email = `vitest-vetbatchsave-${RUN}@example.com`;
 const NOW = new Date("2026-10-24T10:00:00Z");
 const CLINIC = getGuidance("en").vets[0]!.id;
+// Who saves: an account id only, so the batch's author (a real person row,
+// which vet_batches names) has no observations and can be removed afterwards.
+const STAFF = { id: `vitest-vb-staff-${RUN}`, scopes: [{ role: "staff", colonyId: null }] };
 let person: { id: string; scopes: { role: string; colonyId: number | null }[] };
 let n = 0;
 const batches: number[] = [];
@@ -134,7 +137,7 @@ describe("saveBatch", () => {
     ]);
     await updateCat(batch.cats[2]!.id, { treatedNote: "ear mites", costEur: "15" });
 
-    const result = await saveBatch(person, id, NOW);
+    const result = await saveBatch(STAFF, id, NOW);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.visits).toHaveLength(3);
@@ -154,7 +157,7 @@ describe("saveBatch", () => {
       { catId: a.id, photos: 3 },
       { catId: b.id, photos: 2 },
     ]);
-    const result = await saveBatch(person, id, NOW);
+    const result = await saveBatch(STAFF, id, NOW);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const kept = new Map((await keptFor(allPhotos(batch))).map((k) => [k.photoId, k]));
@@ -187,7 +190,7 @@ describe("saveBatch", () => {
       ),
     );
     const { id } = await makeBatch([{ catId: cat.id }]);
-    const result = await saveBatch(person, id, NOW);
+    const result = await saveBatch(STAFF, id, NOW);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.visits[0]!.overruled).toEqual([no.id]);
@@ -201,7 +204,7 @@ describe("saveBatch", () => {
   it("an unconfirmed cat saves nothing and is named", async () => {
     const [a, b] = [await insertCat(), await insertCat()];
     const { id, rows, batch } = await makeBatch([{ catId: a.id }, { catId: b.id, confirmed: false }]);
-    const result = await saveBatch(person, id, NOW);
+    const result = await saveBatch(STAFF, id, NOW);
     expect(result).toEqual({ ok: false, problems: [{ batchCatId: rows[1], field: "confirmed", words: "Confirm who this cat is." }] });
     expect(await visitRows([a.id, b.id])).toHaveLength(0);
     expect(await keptFor(allPhotos(batch))).toHaveLength(0);
@@ -212,7 +215,7 @@ describe("saveBatch", () => {
     const a = await insertCat("Mimi");
     const other = await insertCat();
     const { id, rows } = await makeBatch([{ catId: a.id }, { catId: other.id }, { catId: a.id }]);
-    const result = await saveBatch(person, id, NOW);
+    const result = await saveBatch(STAFF, id, NOW);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     const words = `${a.name} is in this batch twice: entries 1 and 3.`;
@@ -227,10 +230,10 @@ describe("saveBatch", () => {
   it("a same-day visit without also_same_day saves nothing and names the cat; with it, it saves", async () => {
     const mimi = await insertCat("Mimi");
     const other = await insertCat();
-    await logVetVisit(person, { catId: mimi.id, date: "2026-10-24", value: { did: ["checked"], clinicId: CLINIC, costEur: null, paidBy: "syros_cats" } }, NOW);
+    await logVetVisit(STAFF, { catId: mimi.id, date: "2026-10-24", value: { did: ["checked"], clinicId: CLINIC, costEur: null, paidBy: "syros_cats" } }, NOW);
     const { id, rows } = await makeBatch([{ catId: other.id }, { catId: mimi.id }]);
 
-    const refused = await saveBatch(person, id, NOW);
+    const refused = await saveBatch(STAFF, id, NOW);
     expect(refused).toEqual({
       ok: false,
       problems: [{ batchCatId: rows[1], field: "alsoSameDay", words: `${mimi.name} already has a vet visit on 24 Oct.` }],
@@ -239,7 +242,7 @@ describe("saveBatch", () => {
     expect(await visitRows([mimi.id])).toHaveLength(1);
 
     await updateCat(rows[1]!, { alsoSameDay: true });
-    const saved = await saveBatch(person, id, NOW);
+    const saved = await saveBatch(STAFF, id, NOW);
     expect(saved.ok).toBe(true);
     expect(await visitRows([mimi.id])).toHaveLength(2);
     expect(await visitRows([other.id])).toHaveLength(1);
@@ -253,7 +256,7 @@ describe("saveBatch", () => {
       { catId: b.id },
       { catId: null, newCat: { name: null, description: "" } },
     ]);
-    const result = await saveBatch(person, id, NOW);
+    const result = await saveBatch(STAFF, id, NOW);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.problems).toEqual([
@@ -266,8 +269,8 @@ describe("saveBatch", () => {
   it("saving twice, one after the other, gives one set of visits", async () => {
     const [a, b] = [await insertCat(), await insertCat()];
     const { id, batch } = await makeBatch([{ catId: a.id }, { catId: b.id }]);
-    expect((await saveBatch(person, id, NOW)).ok).toBe(true);
-    expect(await saveBatch(person, id, NOW)).toEqual({
+    expect((await saveBatch(STAFF, id, NOW)).ok).toBe(true);
+    expect(await saveBatch(STAFF, id, NOW)).toEqual({
       ok: false,
       problems: [{ batchCatId: null, field: "batch", words: ALREADY_SAVED }],
     });
@@ -279,7 +282,7 @@ describe("saveBatch", () => {
   it("two saves started together (Promise.all) give one set of visits; the other is told it was already saved", async () => {
     const [a, b, c] = [await insertCat(), await insertCat(), await insertCat()];
     const { id } = await makeBatch([{ catId: a.id }, { catId: b.id }, { catId: c.id }]);
-    const both = await Promise.all([saveBatch(person, id, NOW), saveBatch(person, id, NOW)]);
+    const both = await Promise.all([saveBatch(STAFF, id, NOW), saveBatch(STAFF, id, NOW)]);
     expect(both.filter((r) => r.ok)).toHaveLength(1);
     const loser = both.find((r) => !r.ok);
     expect(loser).toEqual({ ok: false, problems: [{ batchCatId: null, field: "batch", words: "This batch was already saved." }] });
@@ -294,7 +297,7 @@ describe("saveBatch", () => {
       { catId: c.id, photos: 1 },
     ]);
     failOn.visitN = 3;
-    await expect(saveBatch(person, id, NOW)).rejects.toThrow("vitest: this write fails");
+    await expect(saveBatch(STAFF, id, NOW)).rejects.toThrow("vitest: this write fails");
     expect(failOn.seen).toBe(3);
     expect(await visitRows([a.id, b.id, c.id])).toHaveLength(0);
     expect(await keptFor(allPhotos(batch))).toHaveLength(0);

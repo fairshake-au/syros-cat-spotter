@@ -122,17 +122,21 @@ export async function createBatch(
   return row!.id;
 }
 
-/** The batch, or null when it is absent (or has been removed). */
-export async function getBatch(id: number): Promise<Batch | null> {
-  const [b] = await db.select().from(vetBatchesTable).where(eq(vetBatchesTable.id, id));
+/**
+ * The batch, or null when it is absent (or has been removed). Inside a
+ * transaction, pass its `tx`: the read then never waits for a second pool
+ * connection (saveBatch reads the batch it has locked this way).
+ */
+export async function getBatch(id: number, q: typeof db | Tx = db): Promise<Batch | null> {
+  const [b] = await q.select().from(vetBatchesTable).where(eq(vetBatchesTable.id, id));
   if (!b) return null;
-  const cats = await db
+  const cats = await q
     .select()
     .from(vetBatchCatsTable)
     .where(eq(vetBatchCatsTable.batchId, id))
     .orderBy(asc(vetBatchCatsTable.position), asc(vetBatchCatsTable.id));
   const photos = cats.length
-    ? await db
+    ? await q
         .select({
           batchCatId: vetBatchPhotosTable.batchCatId,
           photoId: vetBatchPhotosTable.photoId,
