@@ -44,6 +44,16 @@ describe('the Spot screen has one way to take a photo (SYC-575)', () => {
   });
 });
 
+describe('when the phone camera is refused access', () => {
+  // The button is now the only way in, so a refusal must never be a dead tap.
+  it('says why, or offers Settings, instead of doing nothing', () => {
+    const pick = handler('choosePhoto', 'pickPhoto');
+    expect(pick).toMatch(/notify\(t\('cameraUnavailable'\), t\('cameraPermissionHint'\)\)/);
+    expect(pick).toMatch(/confirmChoice\([\s\S]*t\('cameraDeniedHint'\)/);
+    expect(pick).toMatch(/openCameraSettings\(\)/);
+  });
+});
+
 describe('when Settings cannot be opened', () => {
   it('explains how to turn camera access on, not to use the camera button', () => {
     // Only reached when access is off for good; the camera button needs the
