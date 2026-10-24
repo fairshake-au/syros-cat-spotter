@@ -676,7 +676,7 @@ describe("8. the form reveals nothing", () => {
       expect(t).toBeLessThan(1_300);
     }
     await settleOutbox();
-    expect(mailTo(kinds.known).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(1);
+    expect(mailTo(kinds.known).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(1);
   });
 
   it("8b. every limit is hit by known and unknown addresses alike; the replies stay identical; an unknown address uses up the per-IP limit (M)", async () => {
@@ -691,11 +691,11 @@ describe("8. the form reveals nothing", () => {
     const res = await ask(phone, known, ip);
     expect(fingerprint(res)).toBe(fingerprint(await ask(phone, newAddress(), ip)));
     await settleOutbox();
-    expect(mailTo(known).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(0);
+    expect(mailTo(known).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(0);
     // From a fresh IP it works.
     await ask(phone, known, freshIp());
     await settleOutbox();
-    expect(mailTo(known).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(1);
+    expect(mailTo(known).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(1);
   });
 
   it("8c. a stranger using up an address's three \"is this you?\" emails can't stop its restore link (M)", async () => {
@@ -786,7 +786,7 @@ describe("10. limits", () => {
     `);
     for (let i = 0; i < 3; i++) expect((await ask(phone, email)).status).toBe(202);
     await settleOutbox();
-    expect(mailTo(email).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(1);
+    expect(mailTo(email).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(1);
   });
 
   it("finding 2 (Samuel, 8 Oct: per phone): a stranger asking again and again can't stop the family's own phone getting its link (M)", async () => {
@@ -843,7 +843,7 @@ describe("10. limits", () => {
     await bind(phone);
     expect((await ask(phone, email)).status).toBe(202);
     await settleOutbox();
-    expect(mailTo(email).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(0);
+    expect(mailTo(email).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(0);
     expect(spies.logLines.some((l) => l.includes("global_ceiling") && l.includes('"level":50'))).toBe(true);
   });
 });
@@ -1192,7 +1192,7 @@ describe("Samuel's decisions, 8 Oct 2026", () => {
 });
 
 describe("adversarial review of #106: fixes", () => {
-  const links = (email: string) => mailTo(email).filter((m) => m.subject.startsWith("Get your spots back"));
+  const links = (email: string) => mailTo(email).filter((m) => m.subject.endsWith("is your Cat Spotters code"));
 
   it("finding 1: requests for made-up addresses can't use up the daily restore ceiling (M)", async () => {
     const [{ n: issued }] = (
@@ -1288,5 +1288,66 @@ describe("adversarial review of #106: fixes", () => {
     ).rows as { state: string; payload: Record<string, unknown> }[];
     expect(row!.state).toBe("failed");
     expect(row!.payload["to"]).toBeUndefined();
+  });
+});
+
+// ── SYC-664: a request issues a code ───────────────────────────────────────
+
+describe("SYC-664: asking for a restore issues a code", () => {
+  it("a known address gets a row with a code hash and a queued payload that carries the code; unknown addresses get neither", async () => {
+    const email = newAddress();
+    await keptSafe(email);
+    const phone = newPhone();
+    await bind(phone);
+    expect((await ask(phone, email)).status).toBe(202);
+    const hmac = addressFingerprint("keep_safe", normaliseAddress(email));
+    const rows = await db.select().from(mailTokensTable).where(eq(mailTokensTable.addressHmac, hmac));
+    const row = rows.find((r) => r.purpose === "restore")!;
+    expect(row.codeHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(row.codeAttempts).toBe(0);
+    await settleOutbox();
+    const mail = mailTo(email).at(-1)!;
+    const code = mail.subject.split(" ")[0]!;
+    expect(code).toMatch(/^\d{8}$/);
+    expect(mail.subject).toBe(`${code} is your Cat Spotters code`);
+    expect(mail.text).toMatch(/You asked for it at \d{2}:\d{2}\./);
+    const { codeHash } = await import("../lib/keepSafe/tokens");
+    expect(row.codeHash).toBe(codeHash(row.tokenHash, code));
+    // Nothing raw left behind after sending.
+    const left = await db.execute(sql`select count(*)::int as n from mail_outbox where payload::text like ${"%" + code + "%"}`);
+    expect((left.rows[0] as { n: number }).n).toBe(0);
+    // Unknown address: no token row at all.
+    const stranger = newAddress();
+    expect((await ask(phone, stranger)).status).toBe(202);
+    const none = await db.select().from(mailTokensTable).where(eq(mailTokensTable.addressHmac, addressFingerprint("keep_safe", normaliseAddress(stranger))));
+    expect(none).toHaveLength(0);
+  });
+
+  it("Decision B: the three-live-links cap is per asking phone, so a second phone's link never expires the first's", async () => {
+    __setRestorePadForTest(0);
+    const email = newAddress();
+    await keptSafe(email);
+    const hmac = addressFingerprint("keep_safe", normaliseAddress(email));
+    const a = newPhone();
+    const b = newPhone();
+    await bind(a);
+    await bind(b);
+    const live = async (deviceId: string) =>
+      (await db.select().from(mailTokensTable).where(eq(mailTokensTable.addressHmac, hmac)))
+        .filter((r) => r.purpose === "restore" && r.deviceId === deviceId && r.expiresAt > new Date())
+        .length;
+    // The per-phone request limit allows 3 in 15 minutes (a 4th is refused), so age A's
+    // requests to let a 4th through while its first three links are still live.
+    for (let i = 0; i < 3; i++) expect((await ask(a, email)).status).toBe(202);
+    expect(await live(a.id)).toBe(3);
+    await db.execute(sql`update mail_requests set created_at = created_at - interval '20 minutes' where address_hmac = ${hmac}`);
+    expect((await ask(a, email)).status).toBe(202);
+    // A's own oldest expired to make room: still three live, not four.
+    expect(await live(a.id)).toBe(3);
+    expect((await ask(b, email)).status).toBe(202);
+    expect(await live(b.id)).toBe(1);
+    // B's link did not cost A one.
+    expect(await live(a.id)).toBe(3);
+    await settleOutbox();
   });
 });

@@ -53,6 +53,7 @@ async function queue(purpose: "keep_safe_verify" | "restore_link", to: string, e
       to: normaliseAddress(to),
       token: randomBytes(32).toString("base64url"),
       forgetToken: purpose === "keep_safe_verify" ? randomBytes(32).toString("base64url") : undefined,
+      ...(purpose === "restore_link" ? { code: "48291376", askedAt: "14:32" } : {}),
       expiresAt: new Date(Date.now() + expiresInMs),
     }),
   );
@@ -121,13 +122,32 @@ describe("the fixed templates (test 14)", () => {
     expect(out.html).toContain(">Forget this address</a>");
   });
 
-  it("the restore link email is the appendix text", () => {
-    const out = restoreLink({ restoreUrl: "https://apptest.catspotters.com/restore?t=CCC" });
-    expect(out.subject).toBe("Get your spots back — Cat Spotters");
-    expect(out.text).toContain("Open this on the phone that's getting the spots back, then press the button. The link works once and lasts 15 minutes.");
-    // Decision 12 (and judgment call A): the link works on any phone, so the warning is stronger.
-    expect(out.text).toContain("Nothing moves until someone presses the button. Never send this link to anyone, even a friend.");
+  it("the restore email leads with the 8-digit code, then the link (SYC-664)", () => {
+    const out = restoreLink({ restoreUrl: "https://apptest.catspotters.com/restore?t=CCC", code: "48291376", askedAt: "14:32" });
+    expect(out.subject).toBe("48291376 is your Cat Spotters code");
+    for (const body of [out.text, out.html]) {
+      expect(body).toContain("48291376");
+      expect(body).toContain("You asked for it at 14:32.");
+      expect(body).toContain("Type it into Cat Spotters on the phone you asked from. It works once, for 15 minutes.");
+      expect(body).toContain("Only type this code in yourself, or give it to your own child for their phone.");
+      expect(body).toContain("If you didn");
+    }
+    expect(out.text).toContain(
+      "If anyone else asks you for this code, they're trying to take someone's spots. Don't give it to them.",
+    );
+    expect(out.text).toContain("Get my spots back: https://apptest.catspotters.com/restore?t=CCC");
+    expect(out.text).toContain("Nothing moves until someone types the code or presses the button.");
     expect(out.html).toContain(">Get my spots back</a>");
+    expect(out.html).toContain("font-family:monospace");
+  });
+
+  it("refuses a code or time that isn't one (nothing typed can reach the body)", () => {
+    const restoreUrl = "https://apptest.catspotters.com/restore?t=CCC";
+    expect(() => restoreLink({ restoreUrl, code: "4829137", askedAt: "14:32" })).toThrow();
+    expect(() => restoreLink({ restoreUrl, code: "<b>", askedAt: "14:32" })).toThrow();
+    expect(() => restoreLink({ restoreUrl, code: "482913761", askedAt: "14:32" })).toThrow();
+    expect(() => restoreLink({ restoreUrl, code: "48291376", askedAt: "<i>" })).toThrow();
+    expect(() => restoreLink({ restoreUrl, code: "48291376" })).toThrow();
   });
 
   it("refuses a link that isn't one (nothing typed can reach the body)", () => {
@@ -198,6 +218,55 @@ describe("the outbox's keep-safe rows (review A4, R1, R2; test 16b)", () => {
     expect(row.state).toBe("failed");
     expect(row.lastError).toBe("token_expired");
     expect(JSON.stringify(row.payload)).not.toContain("@");
+  });
+
+  it("the code is in the queued payload, and gone after a send, a give-up and the sweep (SYC-664)", async () => {
+    const hasCode = async (id: number) =>
+      (await db.execute(sql`select (payload ? 'code') as c, (payload ? 'askedAt') as a from mail_outbox where id = ${id}`)).rows[0] as { c: boolean; a: boolean };
+    // Queued: both there.
+    const queued = await queue("restore_link", address());
+    expect((await outboxRow(queued)).payload).toMatchObject({ code: "48291376", askedAt: "14:32" });
+    // Sent.
+    const to = address();
+    await confirmKeepSafe(normaliseAddress(to));
+    const sentId = await queue("restore_link", to);
+    kickRow(sentId);
+    await settleOutbox();
+    expect(sent[0]!.subject).toBe("48291376 is your Cat Spotters code");
+    expect((await outboxRow(sentId)).state).toBe("sent");
+    expect(await hasCode(sentId)).toEqual({ c: false, a: false });
+    // Given up (unconfirmed address).
+    const gaveUp = await queue("restore_link", address());
+    kickRow(gaveUp);
+    await settleOutbox();
+    expect((await outboxRow(gaveUp)).state).toBe("failed");
+    expect(await hasCode(gaveUp)).toEqual({ c: false, a: false });
+    // Swept.
+    const swept = await queue("restore_link", address(), -1_000);
+    expect(await hasCode(swept)).toEqual({ c: true, a: true });
+    await sweepKeepSafe();
+    expect(await hasCode(swept)).toEqual({ c: false, a: false });
+  });
+
+  it("a restore row missing its code or time is given up, not sent (SYC-664)", async () => {
+    const to = address();
+    await confirmKeepSafe(normaliseAddress(to));
+    const id = await db.transaction((tx) =>
+      enqueueKeepSafeMail(tx, {
+        purpose: "restore_link",
+        to: normaliseAddress(to),
+        token: randomBytes(32).toString("base64url"),
+        expiresAt: new Date(Date.now() + 15 * 60_000),
+      }),
+    );
+    outboxIds.push(id);
+    kickRow(id);
+    await settleOutbox();
+    expect(sent).toHaveLength(0);
+    const row = await outboxRow(id);
+    expect(row.state).toBe("failed");
+    expect(row.lastError).toBe("nothing_to_send");
+    expect(Object.keys(row.payload as object).sort()).toEqual(["cleared", "expiresAt"]);
   });
 
   it("the sweep clears an expired row no drain reached", async () => {
