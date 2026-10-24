@@ -32,3 +32,5 @@ Task 13: map loading outline + line, shared SYROS_OUTLINE (26097ffc)
 Next: Task 14
 Task 14: map merges bubbles closer than 44px (mergeClose, chain-linked, count-weighted average); mutation probe (call removed) went red on the real-drawCats test, restored (17f39359)
 Next: task 15
+Task 15: Queue next-step button, folded row without No photo tile, stripe only when it means something (see git log)
+Next: Task 15 review, then PR 3 close

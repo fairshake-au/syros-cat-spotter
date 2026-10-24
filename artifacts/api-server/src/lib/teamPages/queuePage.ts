@@ -94,11 +94,25 @@ function photoBlock(r: QueueReport): string {
       `<img class="photo" src="${esc(r.photo.url)}" alt="Photo sent with this report" loading="lazy"></a>`
     );
   }
-  // Plain "no photo" is already the row line's tile: not said again inside.
+  // Plain "no photo" has no tile on the row line (SYC-619 §6.2), so it is said here.
   // Still uploading, or not received, says why.
   if (r.photo.status === "pending") return `<div class="nophoto">${esc("Photo still uploading")}</div>`;
   if (r.photo.status === "failed") return `<div class="nophoto">${esc("No photo: the photo could not be received")}</div>`;
-  return "";
+  return `<div class="nophoto">${esc("No photo")}</div>`;
+}
+
+/**
+ * The usual next step, filled in so the team sees it (SYC-619 §6.1): New goes
+ * to Looking at it, and Looking at it to Done. Done and Nothing needed fill
+ * nothing, since reopening should be a choice. Null too when the step isn't
+ * among the states offered (an issue with a hidden photo can't offer Done).
+ */
+export function nextStep(
+  state: (typeof REPORT_STATES)[number],
+  offered: readonly (typeof REPORT_STATES)[number][],
+): (typeof REPORT_STATES)[number] | null {
+  const to = state === "new" ? "looking" : state === "looking" ? "done" : null;
+  return to && offered.includes(to) ? to : null;
 }
 
 /**
@@ -120,16 +134,16 @@ function actionForms(
   keptNote?: string,
 ): string {
   const base = `/api/team/reports/${encodeURIComponent(r.id)}`;
-  const buttons = REPORT_STATES.filter((s) => s === r.state || offered.includes(s)).map((s) =>
-    s === r.state
-      ? `<button type="button" class="here" disabled aria-current="true">${esc(STATE[s])} (current)</button>`
-      : `<button type="submit" name="to" value="${esc(s)}">${esc(STATE[s])}</button>`,
+  const next = nextStep(r.state, offered);
+  const buttons = REPORT_STATES.filter((s) => s !== r.state && offered.includes(s)).map((s) =>
+    `<button type="submit" name="to" value="${esc(s)}"${s === next ? ' class="go"' : ""}>${esc(STATE[s])}</button>`,
   ).join("");
   const noteId = `note-${r.id}`;
   return (
     '<div class="actions">' +
     `<form method="post" action="${esc(base)}/state">` +
     `<input type="hidden" name="from" value="${esc(r.state)}">` +
+    `<p class="now">Now: ${esc(STATE[r.state])}</p>` +
     '<p class="label">Move this report to</p>' +
     closeHint +
     `<div class="states">${buttons}</div></form>` +
@@ -265,7 +279,7 @@ export function reportRow(r: QueueReport | IssueReport, now: Date, opts: ReportR
   const classes = ["report", ...p.classes, opts.closed ? "closed" : ""].filter(Boolean).join(" ");
   const thumb = p.thumbUrl
     ? `<img class="hthumb" src="${esc(p.thumbUrl)}" alt="" loading="lazy" width="56" height="56">`
-    : '<span class="hthumb nothumb">No photo</span>';
+    : "";
   const line =
     `<summary class="rowline">${thumb}<span class="rtext">` +
     `<span class="rwhere"><strong>${esc(p.where)}</strong> · ${ago(r.at, now)}${p.tags ? ` ${p.tags}` : ""}</span>` +

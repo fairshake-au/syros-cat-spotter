@@ -195,6 +195,14 @@ dd{margin:0}
 .actions button{font:inherit;font-size:15px;min-height:44px;padding:8px 10px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
 .actions button:hover{background:#e8f3f5}
 .actions button.here{background:#eee9da;border-color:#c9c4b6;color:#3b3930;font-weight:700;cursor:default}
+/* SYC-619 §6: Queue cards only */
+article.report .actions button.go{background:#0b5c6b;color:#fff}
+article.report .actions button.go:hover{background:#0b4553}
+article.report .now{margin:0 0 6px;font-weight:700}
+article.report .said1{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+article.report details[open] .said1{display:none}
+article.report:not(.urgent):not(.issue):not(.closed):not(.likely){border-left-color:#d9d5ca}
+/* end SYC-619 §6 */
 .actions button.save{margin-top:8px;background:#0b5c6b;color:#fff}
 .actions button.save:hover{background:#0b4553}
 textarea{display:block;width:100%;font:inherit;font-size:16px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;resize:vertical;min-height:84px}
