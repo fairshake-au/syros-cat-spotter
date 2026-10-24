@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { areaByKey } from "./areas/namedAreas";
 import { QUERY_MAX } from "./teamCatView";
-import { COLOUR_FILTERS, LAST_SEEN, LIVES, MARKS, SORTS, type CatListFilters, type ColourFilter } from "./teamCatList";
+import { COLOUR_FILTERS, LAST_SEEN, LIVES, MARKS, PATTERN_FILTERS, SORTS, type CatListFilters, type ColourFilter, type PatternFilter } from "./teamCatList";
 
 // The Cats page's filters, read from and written to the web address (SYC-396
-// PR 1.3; spec §5.1). **An address only ever carries colour codes, an area's
+// PR 1.3; spec §5.1). **An address only ever carries colour and pattern codes, an area's
 // short key, a colony's number, statuses, the name box and a page number.**
 // Never a position, a colony's name or a person's name (plan, global
 // constraints). The one exception is the search box's own text (D11), carried
@@ -38,6 +38,9 @@ export function parseCatFilters(query: unknown): CatListFilters {
 
   const colours = subset<ColourFilter>(src["colours"], COLOUR_FILTERS);
   if (colours) f.colours = colours;
+
+  const patterns = subset<PatternFilter>(src["patterns"], PATTERN_FILTERS);
+  if (patterns) f.patterns = patterns;
 
   const area = single(src["area"]);
   if (area !== undefined && areaByKey(area)) f.area = area;
@@ -84,6 +87,7 @@ export function parseCatFilters(query: unknown): CatListFilters {
 export function filtersToQuery(f: CatListFilters): string {
   const p = new URLSearchParams();
   for (const c of f.colours ?? []) if ((COLOUR_FILTERS as readonly string[]).includes(c)) p.append("colours", c);
+  for (const x of f.patterns ?? []) if ((PATTERN_FILTERS as readonly string[]).includes(x)) p.append("patterns", x);
   if (f.area !== undefined && areaByKey(f.area)) p.set("area", f.area);
   if (f.colony !== undefined && Number.isInteger(f.colony) && f.colony > 0) p.set("colony", String(f.colony));
   for (const s of f.sterilised ?? []) if ((MARKS as readonly string[]).includes(s)) p.append("sterilised", s);

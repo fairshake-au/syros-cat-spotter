@@ -230,3 +230,22 @@ describe("a typed search (D11)", () => {
     expect(html).toContain('value="Mimi &quot;&lt;b&gt;&quot; &amp; 37.44471"');
   });
 });
+
+describe("the Pattern filter (SYC-435; coat spec §15.2)", () => {
+  it("offers Solid, Tabby, Patched and Not known, ticking the chosen ones", () => {
+    const html = render({ filters: { patterns: ["stripes"] } });
+    for (const w of ["Solid", "Tabby", "Patched", "Not known"]) {
+      expect(html).toMatch(new RegExp(`name="patterns" value="[a-z_]+"[^>]*> ${w}</label>`));
+    }
+    expect(html).toContain('name="patterns" value="stripes" checked> Tabby');
+    expect(html).toContain("Filters (1)");
+  });
+
+  it("shows a chip in the team's word that removes just that pattern, keeping the code in the address", () => {
+    const html = render({ filters: { patterns: ["stripes", "patches"], colours: ["black"] } });
+    expect(html).toContain("Tabby");
+    expect(html).toContain("Patched");
+    expect(html).toContain("patterns=patches");
+    expect(html).not.toContain("patterns=tabby");
+  });
+});

@@ -3,7 +3,7 @@ import { and, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
 import { currentColonyOf } from "./colonyMembership";
 import { areaFor } from "./areas/namedAreas";
 import { placeLabel } from "./areas/placeLabel";
-import { COAT_COLOURS, type CoatColour, type CoatPattern } from "./appearance";
+import { COAT_COLOURS, COAT_PATTERNS, type CoatColour, type CoatPattern } from "./appearance";
 import { loadCatRecords } from "./observations";
 import { resolveCat, type CatSnapshot } from "./resolve";
 import { QUERY_MAX, SYR_RE, syrNumber } from "./teamCatView";
@@ -38,8 +38,18 @@ export const MARKS: readonly SterilisedMark[] = ["sterilised", "probably", "not_
 export type ColourFilter = CoatColour | "not_sure";
 export const COLOUR_FILTERS: readonly ColourFilter[] = [...COAT_COLOURS, "not_sure"];
 
+/**
+ * The grid's pattern filter: the three patterns (SYC-398 §2), plus
+ * "not_known", the grid's own "pattern not known" choice, never a coat code.
+ * Like the colour filter, a cat with no pattern shows only when it is picked.
+ */
+export type PatternFilter = CoatPattern | "not_known";
+export const PATTERN_FILTERS: readonly PatternFilter[] = [...COAT_PATTERNS, "not_known"];
+
 export interface CatListFilters {
   colours?: ColourFilter[];
+  /** Any of these patterns (stored codes: plain, stripes, patches, not_known). */
+  patterns?: PatternFilter[];
   /** A named area's short key, never a position. */
   area?: string;
   /** A colony's number, never its name. */
@@ -282,6 +292,10 @@ async function matchTeamCats(
       const wantsUnsure = f.colours.includes("not_sure");
       const hit =
         (i.coat.length === 0 && wantsUnsure) || i.coat.some((c) => f.colours!.includes(c));
+      if (!hit) return false;
+    }
+    if (f.patterns?.length) {
+      const hit = i.pattern === null ? f.patterns.includes("not_known") : f.patterns.includes(i.pattern);
       if (!hit) return false;
     }
     if (f.area !== undefined && areaOf.get(i.id) !== f.area) return false;
