@@ -209,9 +209,12 @@ export function historyList(history: readonly AreaChange[], firstVersion: number
       `${esc(c.who ?? "Syros Cats (the first list)")} · ${esc(changeWords(c))}</li>`,
   );
   if (first.length > 0) {
+    // Newest first, and the seed's rows run from version 1 without gaps, so the
+    // newest one's version is how many were set up, even when the history's row
+    // limit has cut the older ones off.
     const at = first[first.length - 1]!.at;
     lines.push(
-      `<li class="meta"><time datetime="${esc(at.toISOString())}">${esc(`${first.length} areas set up by Syros Cats, ${day(at)}`)}</time></li>`,
+      `<li class="meta">${first[0]!.version} areas set up by Syros Cats, <time datetime="${esc(at.toISOString())}">${esc(day(at))}</time></li>`,
     );
   }
   return `<ol class="history">${lines.join("")}</ol>`;

@@ -11,6 +11,7 @@ import { mintTileToken } from "../lib/mapTiles/tileToken";
 import { renderAreasPage, type AreaRow } from "../lib/teamPages/areasPage";
 import type { AreaChange } from "../lib/areas/areaHistory";
 import { busiestFirst } from "./teamAreas";
+import { SEED_AREAS } from "../lib/areas/seedAreas";
 
 // SYC-396 PR 2.4 (plan Task 2.4.3; dashboard §3.3): the Areas page. Team-only
 // (edit_named_areas). Areas written here use this run's own keys and sit in
@@ -323,9 +324,30 @@ describe("the Areas page as short rows (SYC-619 §4.2)", () => {
     const first = Array.from({ length: 3 }, (_, i) => change({ version: i + 1 }));
     const later = change({ version: 4, at: new Date("2026-10-20T10:00:00Z"), kind: "area_moved", who: null });
     const html = render({ history: [later, ...first.reverse()] });
-    expect(html).toContain("3 areas set up by Syros Cats, 15 Oct 2026");
+    expect(html).toContain('3 areas set up by Syros Cats, <time datetime="2026-10-15T00:00:00.000Z">15 Oct 2026</time>');
     expect(html.match(/<li class="meta">/g)).toHaveLength(2);
     expect(html).toContain("Syros Cats (the first list) · moved X&#39;s centre");
+  });
+
+  it("the line still says how many were set up when the row limit has cut the oldest rows off", () => {
+    const html = render({ history: [change({ version: 3 }), change({ version: 2 })] });
+    expect(html).toContain("3 areas set up by Syros Cats,");
+  });
+
+  it("the seed has 21 areas: the route passes this as firstVersion, so it must match migration 0033_named_areas.sql", () => {
+    expect(SEED_AREAS.length).toBe(21);
+  });
+
+  it.each([
+    ["move", "lat"],
+    ["retire", "area"],
+  ] as const)("a %s form sent back with an error keeps its row open", (op, field) => {
+    const html = render({
+      areas: [area("a", "Alpha", 1), area("b", "Beta", 2)],
+      again: { op, key: "a", field, message: "Nope.", values: {} },
+    });
+    expect(html).toContain('<details class="arearow" open><summary><strong>Alpha</strong>');
+    expect(html).toContain('<details class="arearow"><summary><strong>Beta</strong>');
   });
 
   it("the intro and the footer are in the How this is worked out fold", () => {
@@ -337,7 +359,8 @@ describe("the Areas page as short rows (SYC-619 §4.2)", () => {
 
   it("the real page lists the seed's rows as one folded line", async () => {
     const res = await page(team.cookie);
-    expect(res.text).toMatch(/\d+ areas set up by Syros Cats, 15 Oct 2026/);
+    // 15 Oct 2026 is the migration's fixed seed timestamp (0033_named_areas.sql), not now().
+    expect(res.text).toMatch(/\d+ areas set up by Syros Cats, <time datetime="2026-10-15T00:00:00.000Z">15 Oct 2026<\/time>/);
     expect(res.text).not.toContain("Syros Cats (the first list) · added Kini");
   });
 });
