@@ -14,3 +14,5 @@ Task fix wave: PR1 review items 1-8 done (357125e6)
 Next: controller pushes
 Task 6: People as short rows that open (a86840f6)
 Next: Task 7 (Areas, spec 4.2)
+Task 7: Areas as short rows, busiest first (bda6ee3d)
+Next: Task 8 (not started by this agent)
