@@ -291,6 +291,25 @@ router.post("/team/vet-batches/:id/cats/:catRow/remove", ...formRoute("log_vet_v
   if (!batch) return;
   const cat = rowOf(req, res, batch);
   if (!cat) return;
+  // The staged photos go with the cat, so ask first (the confirm page posts back with confirm=1).
+  if (bodyOf(req)["confirm"] !== "1") {
+    return void res.type("html").send(
+      renderConfirmPage({
+        title: "Remove this cat and its photos from the batch?",
+        lines: [
+          `The cat's ${cat.photos.length === 1 ? "1 photo" : `${cat.photos.length} photos`} are deleted for good.`,
+          "The rest of the batch stays as it is. No cat's record changes.",
+        ],
+        action: `${batchPath(batch.id)}/cats/${cat.id}/remove`,
+        fields: {},
+        yes: "Yes, remove this cat",
+        cancelHref: `${batchPath(batch.id)}#bc-${cat.id}`,
+        cancelLabel: "No, go back (nothing changed)",
+        personName: teamPerson(res).name,
+        active: "colonies",
+      }),
+    );
+  }
   await guarded(res, batch, async () => {
     await removeCat(cat.id);
     res.redirect(303, `${batchPath(batch.id)}#cats`);

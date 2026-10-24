@@ -390,6 +390,7 @@ describe("a visit's kept photos (SYC-677 Task 8)", () => {
     const page = await get(`/api/team/cats/${cat.id}`);
     expect(page.text).toContain(`href="/api/team/photos/${photo.publicId}"`);
     expect(page.text).toContain(`src="/api/team/photos/${photo.publicId}/small"`);
+    expect(page.text).toContain('alt="Photo from the vet visit on 13 Aug 2026"');
     // A vet photo is never in the gallery, so no hide or restore form is drawn for it.
     expect(page.text).not.toContain(`/api/team/photos/${photo.publicId}/hide`);
     expect(page.text).not.toContain(`/api/team/photos/${photo.publicId}/restore`);

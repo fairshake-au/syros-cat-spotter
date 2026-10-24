@@ -501,9 +501,24 @@ describe("the cat cards", () => {
     await post(`/api/team/vet-batches/${batch}/cats/${row}/confirm`, { catId: "none" });
     const after = (await getBatch(batch))!.cats[0]!;
     expect([after.catId, after.confirmed]).toEqual([null, false]);
-    const removed = await post(`/api/team/vet-batches/${batch}/cats/${row}/remove`);
+    // Remove deletes the staged photos, so it asks first and removes nothing until confirmed.
+    const ask = await post(`/api/team/vet-batches/${batch}/cats/${row}/remove`);
+    expect(ask.status).toBe(200);
+    expect(ask.text).toContain("Remove this cat and its photos from the batch?");
+    expect(ask.text).toContain('name="confirm" value="1"');
+    expect((await getBatch(batch))!.cats).toHaveLength(1);
+    const removed = await post(`/api/team/vet-batches/${batch}/cats/${row}/remove`, { confirm: "1" });
     expect(removed.status).toBe(303);
     expect((await getBatch(batch))!.cats).toHaveLength(0);
+  });
+  it("the batch page has a back link to the batch list, and a matching outage does not claim no search was used", async () => {
+    const batch = await newBatch();
+    const page = await get(`/api/team/vet-batches/${batch}?said=matching_down&row=1`);
+    expect(page.text).toContain('<a href="/api/team/vet-batches">← Vet visit batches</a>');
+    const row = await addCatTo(batch);
+    const said = await get(`/api/team/vet-batches/${batch}?said=matching_down&row=${row}`);
+    expect(cardOf(said.text, row)).toContain("The matching service isn&#39;t working right now. Try again later");
+    expect(said.text).not.toContain("no search was used");
   });
   it("a made-up place for the search is told so and no search is spent", async () => {
     const batch = await newBatch();

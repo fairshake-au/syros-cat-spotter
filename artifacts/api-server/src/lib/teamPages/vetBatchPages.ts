@@ -5,6 +5,7 @@ import type { Batch, BatchCat, BatchShared } from "../vetBatches";
 import { BATCH_PHOTOS_MAX } from "../vetBatches";
 import { ROUND_MAX, type BatchProblem } from "../vetVisits";
 import { escapeHtml as esc } from "./escape";
+import { backLink } from "./backLink";
 import { renderPage } from "./layout";
 import { VACCINE } from "./catFacts";
 import {
@@ -48,7 +49,7 @@ export const SAID: Record<string, string> = {
   no_photos: "None of the cats there has a photo to compare with. No search was used.",
   not_a_cat: "We couldn't see a cat in that photo. Look the cat up by name or SYR number, or search again.",
   index_down: "The looks-like search isn't working just now, so no search was used. Look the cat up by name or SYR number.",
-  matching_down: "The matching service isn't working just now, so no search was used. Try again soon, or look the cat up by name.",
+  matching_down: "The matching service isn't working right now. Try again later, or look the cat up by name or SYR number.",
   counter_down: "The daily count isn't working just now, so no search was used. Look the cat up by name or SYR number.",
   capped_person:
     "You have reached your daily limit of photo searches in batches. Use “Look up by name or SYR number”, or try again tomorrow.",
@@ -198,11 +199,10 @@ export function cardValuesOf(c: BatchCat): CardValues {
 
 export function cardValuesFrom(raw: unknown): CardValues {
   const b = body(raw);
-  const cost = b["cost"];
   return {
     did: list(b["did"]),
     treatedNote: lf(str(b["treatedNote"])),
-    cost: typeof cost === "number" && Number.isFinite(cost) ? String(cost) : str(cost),
+    cost: str(b["cost"]),
     paidBy: str(b["paidBy"]),
     note: lf(str(b["note"])),
     alsoSameDay: b["alsoSameDay"] === "1",
@@ -217,9 +217,7 @@ export function readCard(
   const did = [...new Set(v.did)];
   if (!did.every((d) => (BATCH_DID as readonly string[]).includes(d))) problems.did = "Tick Sterilised, Vaccinated or Treated.";
   const treatedNote = v.treatedNote.trim();
-  if (did.includes("treated") && (treatedNote.length < 1 || treatedNote.length > TREATED_MAX || !noNul(treatedNote))) {
-    problems.treatedNote = `Say what was treated, in up to ${TREATED_MAX} characters.`;
-  } else if (treatedNote.length > TREATED_MAX || !noNul(treatedNote)) {
+  if ((did.includes("treated") && treatedNote.length < 1) || treatedNote.length > TREATED_MAX || !noNul(treatedNote)) {
     problems.treatedNote = `Say what was treated, in up to ${TREATED_MAX} characters.`;
   }
   let costEur = "";
@@ -353,13 +351,11 @@ function sharedSection(p: BatchPage): string {
 }
 
 function scopeSelect(p: BatchPage, id: string): string {
-  const b = p.batch.shared;
   const here = p.place ? `Where this batch is (${esc(p.place.name)})` : "Anywhere on the island";
   const batchOption = p.place ? `<option value="batch">${here}</option>` : "";
   const island = `<option value="island">Anywhere on the island</option>`;
   const colonies = p.scopes.colonies.map((c) => `<option value="colony:${c.id}">${esc(c.name)}</option>`).join("");
   const areas = p.scopes.areas.map((a) => `<option value="area:${esc(a.key)}">${esc(a.name)}</option>`).join("");
-  void b;
   return (
     `<select class="text" id="${id}" name="scope">${batchOption}${island}` +
     (areas ? `<optgroup label="Areas">${areas}</optgroup>` : "") +
@@ -408,8 +404,7 @@ function suggestions(p: BatchPage, c: BatchCat, action: string): string {
   );
 }
 
-function lookupResults(c: BatchCat, results: CatToAdd[], action: string): string {
-  void c;
+function lookupResults(results: CatToAdd[], action: string): string {
   if (results.length === 0) return '<p class="hint">No cat has that name or number. Try part of the name.</p>';
   return (
     '<ul class="batchsuggest">' +
@@ -460,7 +455,7 @@ function card(p: BatchPage, c: BatchCat, n: number): string {
           `<label class="label" for="${id("scope")}">Look in</label>${scopeSelect(p, id("scope"))}` +
           '<button type="submit" class="primary">Find this cat</button></form>'
         : `<p class="notice" role="status">${esc(SAID[p.limit === "person" ? "capped_person" : "capped_team"]!)}</p>`;
-    const lookupHere = p.lookup && p.lookup.row === c.id ? lookupResults(c, p.lookup.results, action) : "";
+    const lookupHere = p.lookup && p.lookup.row === c.id ? lookupResults(p.lookup.results, action) : "";
     finding =
       find +
       `<form method="post" action="${action}/lookup" class="batchlookup">` +
@@ -546,6 +541,7 @@ export function renderBatchPage(p: BatchPage): string {
     title: "Vet visit batch",
     active: "colonies",
     personName: p.personName,
+    beforeTitle: backLink(BASE, "Vet visit batches"),
     body:
       placeLine(p) +
       (p.problem ? `<p class="notice" role="alert">${esc(p.problem)} Nothing was saved.</p>` : "") +
