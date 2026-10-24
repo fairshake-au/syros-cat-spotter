@@ -813,6 +813,11 @@ router.patch("/cats/:catId", async (req, res) => {
       });
       return;
     }
+    // SYC-677 D: as when a spotter names a cat, a SYR number is not a name.
+    if (isSyrShapedName(newName)) {
+      res.status(400).json(SYR_SHAPED_NAME_BODY);
+      return;
+    }
     // SYC-101: one cat per folded name. Another cat holding it is refused,
     // naming that cat; the owner re-spelling their own cat's name (Mimi to
     // MIMI, say) is fine.

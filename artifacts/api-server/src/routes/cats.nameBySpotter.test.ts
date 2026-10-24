@@ -97,9 +97,12 @@ describe("POST /cats/:catId/name", () => {
     const catId = await namedCat(`${NAME}Listed`);
     const res = await request(app).get(`/api/cats/${catId}`);
     expect(res.body.cat.namePending).toBe(false);
-    const list = await request(app).get(`/api/cats?pageSize=500`);
-    const mine = (list.body.cats as Array<{ id: number; namePending: boolean }>).find((c) => c.id === catId);
-    if (mine) expect(mine.namePending).toBe(false);
+    // The list is capped, so this cat may not be on its first page: assert
+    // the field on every cat the page does carry, and that it carries some.
+    const list = await request(app).get(`/api/cats?pageSize=50`);
+    const cats = list.body.cats as Array<{ namePending: unknown }>;
+    expect(cats.length).toBeGreaterThan(0);
+    for (const c of cats) expect(typeof c.namePending).toBe("boolean");
   });
 
   it("names a pending cat once, with a name statement by this device; a second naming is 409 ALREADY_NAMED", async () => {
@@ -211,6 +214,20 @@ describe("POST /cats/:catId/name", () => {
     const catId = await pendingCat();
     const res = await nameIt(catId, TEAM_DESK_DEVICE, `${NAME}Desk`);
     expect(res.status).toBe(403);
+  });
+
+  it("an owner's rename refuses a SYR-shaped name with the same code and words, and writes nothing", async () => {
+    const catId = await namedCat(`${NAME}OwnerSyr`);
+    await db.update(catsTable).set({ ownerDeviceId: device("owner") }).where(eq(catsTable.id, catId));
+    const res = await request(app)
+      .patch(`/api/cats/${catId}`)
+      .set("X-Device-Secret", SECRET)
+      .send({ deviceId: device("owner"), name: "syr42" });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "That looks like a cat's SYR number. Choose a name.", code: "SYR_SHAPED_NAME" });
+    const [row] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+    expect(row!.name).toBe(`${NAME}OwnerSyr`);
+    expect(await nameStatements(catId)).toHaveLength(0);
   });
 
   it("an owner renaming a pending cat clears namePending, so no spotter can overwrite it", async () => {
