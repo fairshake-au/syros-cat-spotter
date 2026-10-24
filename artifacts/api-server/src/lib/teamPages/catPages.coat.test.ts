@@ -177,6 +177,56 @@ describe("the Coat and markings fold (SYC-602 Task 3.2)", () => {
     expect(fold(page(uncounted))).not.toContain("/statements/501/wrong");
   });
 
+  it("shows the counting changes and their photo to a viewer who may not change the coat, with no Mark wrong", () => {
+    const f = fold(page(view(), { may: () => false }));
+    expect(f).toContain("Read from the photo on 3 Apr");
+    expect(f).toContain('href="/api/team/photos/coat-1.jpg"');
+    expect(f).toContain('id="a-501"');
+    expect(f).not.toContain("/wrong");
+    const editor = fold(page(view(), { may: () => true }));
+    expect(editor).toContain('href="/api/team/photos/coat-1.jpg"');
+    expect(editor).toContain('action="/api/team/statements/501/wrong"');
+  });
+
+  it("lists an outvoted guardian statement under Also recorded, not counted, with Mark wrong", () => {
+    const outvoted = stmt({
+      id: 510,
+      codes: ["black"],
+      source: "guardian",
+      author: { kind: "team", label: "Eleni" },
+      photoUrl: "/api/team/photos/coat-2.jpg",
+      modelVersion: null,
+      counts: false,
+      markable: true,
+      createdAt: "2026-04-07T10:00:00Z",
+    });
+    const v = view({ guardianDisagrees: true, statements: [stmt({}), outvoted] });
+    const f = fold(page(v));
+    const at = f.indexOf("Also recorded, not counted");
+    expect(at).toBeGreaterThan(-1);
+    const rest = f.slice(at);
+    expect(rest).toContain("Eleni, cat guardian, said so on 7 Apr");
+    expect(rest).toContain('href="/api/team/photos/coat-2.jpg"');
+    expect(rest).toContain('action="/api/team/statements/510/wrong"');
+    expect(rest).toContain('id="a-510"');
+    // The counting one stays above the heading.
+    expect(f.indexOf('action="/api/team/statements/501/wrong"')).toBeLessThan(at);
+    // Read-only: listed, no form.
+    const ro = fold(page(v, { may: () => false }));
+    expect(ro).toContain("Also recorded, not counted");
+    expect(ro).toContain("Eleni, cat guardian, said so on 7 Apr");
+    expect(ro).not.toContain("/wrong");
+    // No heading when nothing is uncounted.
+    expect(fold(page())).not.toContain("Also recorded, not counted");
+  });
+
+  it("says where a value came from when no change counts for it", () => {
+    const v = view({}, { statements: [stmt({ id: 520, codes: ["white_paws"], source: "spotter", counts: false, markable: true, photoUrl: null })] });
+    const f = fold(page(v));
+    const mark = f.slice(f.indexOf("<h3>Markings"));
+    expect(mark).toContain("Not recorded yet");
+  });
+
   it("keeps Worth a second look and the guardian warning", () => {
     const f = fold(page(view({ checkReasons: ["tied_camps"], guardianDisagrees: true })));
     expect(f).toContain("Worth a second look");

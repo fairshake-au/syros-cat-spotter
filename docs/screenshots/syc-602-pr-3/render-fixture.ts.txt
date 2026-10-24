@@ -45,7 +45,7 @@ const v: TeamCatView = {
     handPick: false,
   },
   sightings: spots.map(([lat, lng], i) => ({ id: sightingIds[i]!, lat, lng, at: day(sightingDays[i]!), photoUrl: `/api/team/photos/s${(i % 3) + 1}`, extraPhotos: [], mixedCats: i === 6 })),
-  photos: ["main", "s1", "s2", "s3", "s4"].map((n, i) => ({ url: `/api/team/photos/${n}`, publicId: n, source: i === 0 ? "main" : "sighting", hidden: n === "s3" ? { by: "Maria", at: "2026-10-01T09:00:00Z" } : null })),
+  photos: ["main", "s1", "s2", "s3", "s4"].map((n, i) => ({ url: `/api/team/photos/${n}`, publicId: n, source: i === 0 ? "main" : "sighting", at: day(4 + i * 7), hidden: n === "s3" ? { by: "Maria", at: "2026-10-01T09:00:00Z" } : null })),
   history: [
     // A correction: Maria's "Lives on the street" replaces Eleni's "In Syros Cats' care".
     st(301, { kind: "life_status", said: "Lives on the street", reason: "Back at the harbour steps every morning", replaces: 296, author: { kind: "team", label: "Maria" }, observedAt: day(2), createdAt: day(2), correction: { kind: "life_status", now: "street" } }),

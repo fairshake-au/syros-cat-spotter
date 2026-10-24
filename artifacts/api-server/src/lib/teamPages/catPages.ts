@@ -323,7 +323,7 @@ const dayMonth = (iso: string, now: Date) => {
 };
 
 /**
- * One photo in the gallery (spec §3.6). The first is "Main photo", the others
+ * One photo in the gallery (spec §3.6). The one whose source is "main" is "Main photo", the others
  * carry their date; each has a ⋯ menu with Open full size and Hide from the
  * public (or Show to the public again): one tap in the menu, no "are you
  * sure?". Staff see hidden photos too, dimmed and labelled with who hid them.
@@ -358,7 +358,7 @@ function galleryItem(
   const menu = rowMenu("⋯", whichSr, [full, form], { dots: true, open: landed });
   const caption = p.hidden
     ? `<span class="hiddenby">Hidden · ${esc(p.hidden.by)}, <time datetime="${esc(p.hidden.at)}">${esc(dayMonth(p.hidden.at, now))}</time></span>`
-    : i === 0
+    : p.source === "main"
       ? "Main photo"
       : p.at
         ? `<time datetime="${esc(p.at)}">${esc(dayMonth(p.at, now))}</time>`
@@ -535,8 +535,8 @@ export function renderCatPage(
     '<nav class="jump" aria-label="Sections of this page">' +
     `<a href="#history">History (${historyCounts(v, visitList).all})</a>` +
     `<a href="#photos">Photos (${v.photos.length})</a>` +
-    '<a href="#appearance">Coat and markings</a>' +
     (issueTotal > 0 ? `<a href="#issue-strip">Reports (${issueTotal})</a>` : "") +
+    '<a href="#appearance">Coat and markings</a>' +
     "</nav>";
 
   // After Hide or Restore, the message goes beside that photo (own keys only:
@@ -545,7 +545,8 @@ export function renderCatPage(
     opts.done && Object.hasOwn(PHOTO_DONE, opts.done)
       ? `<p class="notice" role="status">${esc(PHOTO_DONE[opts.done]!)}</p>`
       : "";
-  const landed = v.photos.some((p) => p.publicId === opts.photo);
+  // The menu opens only when the page really came back from Hide or Restore on a photo we have.
+  const landed = photoNotice !== "" && v.photos.some((p) => p.publicId === opts.photo);
   const hiddenCount = v.photos.filter((p) => p.hidden).length;
   const photos =
     `<h2 id="photos">Photos (${v.photos.length})</h2>` +

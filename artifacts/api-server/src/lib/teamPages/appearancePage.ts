@@ -439,15 +439,14 @@ function coatPhrase(lang: string | undefined, a: TeamAppearance): string | null 
 }
 
 /**
- * The changes the fold lists a "Mark wrong" for. History's link to the fold
- * asks the same question, so it never points at a button that isn't there.
+ * The changes the fold offers a "Mark wrong" for: every one that stands and
+ * nothing points at (`markable`), whether or not it counts now. History's link
+ * to the fold asks the same question, so it never points at a button that
+ * isn't there. (Spec section 8: no Mark wrong is lost.)
  */
-export const markWrongInFold = (s: TeamAppearanceStatement) => s.counts && s.markable;
+export const markWrongInFold = (s: TeamAppearanceStatement) => s.markable;
 
-/** "Mark wrong" for each change that counts, with the photo it was read from. */
-function markableChanges(lang: string | undefined, a: TeamAppearance, mayChange: boolean): string {
-  const rows = mayChange ? a.statements.filter(markWrongInFold) : [];
-  if (rows.length === 0) return "";
+function changeRows(lang: string | undefined, rows: readonly TeamAppearanceStatement[], mayChange: boolean): string {
   return (
     '<ul class="history coatchanges">' +
     rows
@@ -457,11 +456,25 @@ function markableChanges(lang: string | undefined, a: TeamAppearance, mayChange:
           (s.photoUrl
             ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}"><img class="thumb" src="${esc(s.photoUrl)}" alt="${esc(tr(lang, "appearance.photo"))}" loading="lazy"></a></p>`
             : "") +
-          markWrongForm(lang, s) +
+          (mayChange && markWrongInFold(s) ? markWrongForm(lang, s) : "") +
           "</li>",
       )
       .join("") +
     "</ul>"
+  );
+}
+
+/**
+ * Each change that counts, with the photo it was read from (everyone sees
+ * these), then the standing ones that don't count under their own heading.
+ * Only the Mark wrong form needs the capability.
+ */
+function markableChanges(lang: string | undefined, a: TeamAppearance, mayChange: boolean): string {
+  const counting = a.statements.filter((s) => s.counts);
+  const notCounted = a.statements.filter((s) => !s.counts && markWrongInFold(s));
+  return (
+    (counting.length ? changeRows(lang, counting, mayChange) : "") +
+    (notCounted.length ? `<p class="label">Also recorded, not counted</p>${changeRows(lang, notCounted, mayChange)}` : "")
   );
 }
 
@@ -483,7 +496,8 @@ function foldKind(
   const coat = kind === "coat" && a.parts ? { colours: a.parts.colours.value, pattern: a.parts.pattern.value } : undefined;
   return (
     `<h3>${esc(heading)}</h3>` +
-    (origins.length ? `<p>${esc(origins.join(". "))}.</p>` : "") +
+    // A value with no counting change behind it still says so (spec 3.7: one sentence each).
+    (origins.length ? `<p>${esc(origins.join(". "))}.</p>` : phrase !== null ? "<p>Not recorded yet.</p>" : "") +
     (reasons.length
       ? `<p class="label">${esc(tr(lang, "appearance.checkTitle"))}</p>${reasonList(lang, reasons)}`
       : "") +

@@ -3,13 +3,13 @@ const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_CORE).hre
 const { HTML_DIR, OUT } = process.env;
 const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
 const report = [];
-for (const width of [390, 1280]) {
+for (const width of [390, 600, 1280]) {
   const phone = width < 600;
   const ctx = await b.newContext({ viewport: { width, height: phone ? 844 : 900 }, deviceScaleFactor: 2, hasTouch: phone, isMobile: phone });
   // Nothing leaves the machine: only file:// pages and pictures load.
   await ctx.route("**/*", (r) => (r.request().url().startsWith("file://") ? r.continue() : r.abort()));
   const p = await ctx.newPage();
-  for (const page of ["cat", "bare", "readonly"]) {
+  for (const page of width === 600 ? ["cat"] : ["cat", "bare", "readonly"]) {
     await p.goto(`file://${HTML_DIR}/${page}.html`);
     await p.waitForLoadState("load");
     await p.screenshot({ path: `${OUT}/${width}-${page}.png`, fullPage: page === "bare" || page === "readonly" });

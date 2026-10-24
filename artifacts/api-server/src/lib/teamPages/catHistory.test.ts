@@ -577,12 +577,20 @@ describe("renderHistory (spec §3.5)", () => {
     expect(menu).not.toContain("<form");
   });
 
-  it("offers no link to a Mark wrong the fold doesn't have", () => {
+  it("links an outvoted (not counting) but markable coat change to the fold too", () => {
     const v = catView({
-      history: [statement(81, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })],
+      history: [statement(81, { kind: "coat", said: "Coat: Black", correction: { kind: "appearance" } })],
       appearance: { coat: { statements: [{ id: 81, counts: false, markable: true }] } },
     } as never);
-    expect(menuOf(rowOf(draw(v), "s-81"))).not.toContain("appearance");
+    expect(menuOf(rowOf(draw(v), "s-81"))).toContain('href="?open=coat#appearance"');
+  });
+
+  it("offers no link to a Mark wrong the fold doesn't have", () => {
+    const v = catView({
+      history: [statement(82, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })],
+      appearance: { coat: { statements: [{ id: 82, counts: true, markable: false }] } },
+    } as never);
+    expect(menuOf(rowOf(draw(v), "s-82"))).not.toContain("appearance");
   });
 
   it("counts the whole run even when the list is cut", () => {

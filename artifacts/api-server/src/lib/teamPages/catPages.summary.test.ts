@@ -226,6 +226,21 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
     for (const id of ["history", "photos", "appearance"]) expect(html, id).toContain(`id="${id}"`);
   });
 
+  it("orders the jump links like the right-hand column: History, Photos, Reports, Coat and markings", () => {
+    const issues = {
+      total: 1,
+      reports: [{ id: "i1", reason: "wrong_cat", state: "new", at: "2026-10-10T09:00:00Z", others: 0, photo: null }],
+    };
+    const html = page(richCatView(), { issues });
+    const nav = html.slice(html.indexOf('<nav class="jump"'), html.indexOf("</nav>", html.indexOf('<nav class="jump"')));
+    const at = ["#history", "#photos", "#issue-strip", "#appearance"].map((h) => nav.indexOf(`href="${h}"`));
+    expect(at.every((n) => n > -1)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    const none = page(richCatView());
+    const n2 = none.slice(none.indexOf('<nav class="jump"'), none.indexOf("</nav>", none.indexOf('<nav class="jump"')));
+    expect(n2.indexOf("#photos")).toBeLessThan(n2.indexOf("#appearance"));
+  });
+
   it("links to the reports only when there are some", () => {
     const issues = {
       total: 1,
@@ -414,6 +429,23 @@ describe("the photos grid (SYC-602 Task 3.1)", () => {
     expect(insideDetails(html, html.indexOf("Hidden. The public no longer sees"))).toBe(false);
     expect(html.split("Hidden. The public no longer sees").length).toBe(2);
     expect(figure(html, "p2")).not.toContain(" open>");
+  });
+
+  it("opens a photo's menu only with a real done key and a found photo", () => {
+    expect(figure(page(four(), { may, photo: "p3" }), "p3")).not.toContain(" open>");
+    expect(figure(page(four(), { may, photo: "p3", done: "constructor" }), "p3")).not.toContain(" open>");
+    expect(figure(page(four(), { may, photo: "p3", done: "restored" }), "p3")).toContain(" open>");
+  });
+
+  it("labels Main photo by its source, not its position", () => {
+    const moved = catView({
+      photos: [photo(2), photo(1), photo(3)],
+    } as never);
+    const html = page(moved, { may });
+    expect(figure(html, "p1")).toContain("Main photo");
+    expect(figure(html, "p2")).not.toContain("Main photo");
+    const none = catView({ photos: [photo(2), photo(3)] } as never);
+    expect(page(none, { may })).not.toContain("Main photo");
   });
 
   it("keeps the notice at the top of Photos when the photo isn't found", () => {
