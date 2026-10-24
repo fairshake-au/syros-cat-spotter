@@ -57,6 +57,33 @@
   "sideways": false
  },
  {
+  "width": 600,
+  "page": "menus-off-screen",
+  "spill": [
+   false,
+   false,
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "width": 600,
+  "page": "cat",
+  "scrollW": 600,
+  "clientW": 600,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": true,
+  "sideSticky": "static",
+  "sideOnRight": false,
+  "mainPhotoLabels": [
+   "Main photo"
+  ],
+  "sideways": false
+ },
+ {
   "width": 1280,
   "page": "menus-off-screen",
   "spill": [
