@@ -28,7 +28,7 @@ const rows: Row[] = [
   ['camera', true, 'not-asked', 'shared', 'native', false, 'auto-ask'],
   ['camera', true, 'not-asked', 'map', 'native', false, 'link'],
   ['camera', true, 'denied-can-ask', 'map', 'native', false, 'link'],
-  ['camera', true, 'denied-can-ask', null, 'native', false, 'card'],
+  ['camera', true, 'denied-can-ask', null, 'native', false, 'link'],
   ['camera', true, 'denied-can-ask', 'shared', 'native', false, 'link'],
   ['camera', true, 'denied-final', null, 'native', false, 'off-native'],
   ['camera', true, 'denied-final', 'map', 'native', false, 'off-native'],
@@ -37,6 +37,8 @@ const rows: Row[] = [
   ['camera', true, 'denied-final', 'map', 'web', false, 'off-web'],
   ['camera', true, 'denied-final', 'shared', 'web', false, 'off-web'],
   ['camera', true, 'not-asked', null, 'native', true, 'link'],
+  ['camera', true, 'denied-final', null, 'native', true, 'off-native'],
+  ['camera', true, 'granted', null, 'native', true, 'none'],
 ];
 
 describe('locationAskView', () => {

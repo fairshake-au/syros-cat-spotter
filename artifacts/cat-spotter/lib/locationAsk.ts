@@ -35,7 +35,9 @@ export function locationAskView({
   if (!checked || !hasPhoto || source === null || source === 'library') return 'none';
   if (permission === 'granted') return 'none';
   if (permission === 'denied-final') return platform === 'web' ? 'off-web' : 'off-native';
-  if (answeredThisPhoto || choice === 'map') return 'link';
-  if (choice === 'shared') return permission === 'not-asked' ? 'auto-ask' : 'link';
+  // 'denied-can-ask' only follows a no in the phone's box: the small link,
+  // never the full card again, whatever was chosen.
+  if (permission === 'denied-can-ask' || answeredThisPhoto || choice === 'map') return 'link';
+  if (choice === 'shared') return 'auto-ask';
   return 'card';
 }
