@@ -313,7 +313,8 @@ const styles = StyleSheet.create({
   heroHello: {
     fontFamily: fonts.body,
     fontSize: fontSizes.sm,
-    color: 'rgba(255,255,255,0.82)',
+    // SYC-509: solid white; the faded white was 3.7–4.0:1 on Aegean blue.
+    color: palette.stone000,
   },
   heroName: {
     fontFamily: fonts.displayBold,
@@ -349,7 +350,8 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontFamily: fonts.body,
     fontSize: fontSizes.md,
-    color: 'rgba(255,255,255,0.88)',
+    // SYC-509: solid white; the faded white was 3.7–4.0:1 on Aegean blue.
+    color: palette.stone000,
     flexShrink: 1,
   },
   firstSpotLine: {

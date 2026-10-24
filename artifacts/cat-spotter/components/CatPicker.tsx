@@ -148,7 +148,7 @@ export function CatPicker({
       <Text style={[styles.title, { color: colors.foreground }]}>
         {t('pickerTitle')}
       </Text>
-      <View style={{ width: 40 }} />
+      <View style={{ width: 44 }} />
     </View>
   );
 
