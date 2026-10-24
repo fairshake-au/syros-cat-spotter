@@ -34,7 +34,6 @@ import { requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { spottedAgainMessage } from "../lib/sightingMessage";
 import { writeObservation, type DbOrTx } from "../lib/observations";
-import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto, type NewPhotoInput } from "../lib/matching";
 import { saveSpotWithPhotos, spotPhotoList, validateSpotPhotos } from "../lib/spotPhotos";
 import { containsOffensiveLanguage } from "../lib/moderation";
@@ -1033,10 +1032,17 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
           set: { points: sql`${profilesTable.points} + ${pointsAwarded}` },
         });
 
-      await tx
-        .insert(catSubscriptionsTable)
-        .values({ deviceId: spotterId, catId: cat!.id })
-        .onConflictDoNothing();
+      // SYC-624: a phone that unfollowed this cat stays unfollowed; only a
+      // fresh Follow tap (which clears its cat_unfollows row) brings it back.
+      await tx.execute(sql`
+        insert into cat_subscriptions (device_id, cat_id)
+        select ${spotterId}, ${cat!.id}
+        where not exists (
+          select 1 from cat_unfollows
+          where device_id = ${spotterId} and cat_id = ${cat!.id}
+        )
+        on conflict do nothing
+      `);
 
       return { cat: cat!, pointsAwarded, isNewCat };
     });
