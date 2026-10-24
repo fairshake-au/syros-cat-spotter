@@ -761,10 +761,23 @@ describe("test 19: logs", () => {
   });
 
   it("S1 (review of #55): a database error on a report route logs no note, coordinates or device id", async () => {
-    // A NUL byte can't be stored in Postgres text, so the insert fails and
-    // the driver's error message carries the whole query and its params.
+    // The insert fails, and the driver's error message carries the whole
+    // query and its params. (A NUL byte used to cause this; SYC-406 now
+    // refuses those with a 400 before the route, so the failure is forced.)
     spies.logLines.length = 0;
-    const res = await submit({ hasPhoto: false, note: "Bleeding by the bakery \u0000 door" });
+    const spy = vi
+      .spyOn(db, "transaction")
+      .mockRejectedValue(
+        new Error(
+          `Failed query: insert into "welfare_reports" ...\nparams: Bleeding by the bakery door,${LAT},${LNG},${DEVICE}`,
+        ),
+      );
+    let res;
+    try {
+      res = await submit({ hasPhoto: false, note: "Bleeding by the bakery door" });
+    } finally {
+      spy.mockRestore();
+    }
     expect(res.status).toBe(500);
     const log = spies.logLines.join("\n");
     expect(log).toContain("Unhandled route error");

@@ -395,11 +395,9 @@ describe("adding a site: saving", () => {
     const bad: Array<[Record<string, unknown>, string[]]> = [
       [{ ...spot, name: "   ", notes: secret }, ["name"]],
       [{ ...spot, name: "x".repeat(101) }, ["name"]],
-      [{ ...spot, name: `a${NUL}b` }, ["name"]],
       [{ ...spot, name: "ok", notes: "n".repeat(2001) }, ["notes"]],
       [{ ...spot, name: "ok", directions: "d".repeat(301) }, ["directions"]],
       [{ ...spot, name: "ok", colonyId: "abc" }, ["colonyId"]],
-      [{ ...spot, name: "ok", notes: `n${NUL}` }, ["notes"]],
       [{ lat: "0", lng: "0", name: "ok" }, ["lat", "lng"]],
     ];
     for (const [body, fields] of bad) {
@@ -408,6 +406,12 @@ describe("adding a site: saving", () => {
       expect(json.body.error).toBe("Invalid request");
       expect(json.body.fields).toEqual(expect.arrayContaining(fields.slice(0, 1)));
       expect(JSON.stringify(json.body)).not.toContain(secret);
+    }
+    // SYC-406: a NUL in a JSON body is refused app-wide, before this route.
+    for (const body of [{ ...spot, name: `a${NUL}b` }, { ...spot, name: "ok", notes: `n${NUL}` }]) {
+      const json = await postJson("/api/team/sites", body);
+      expect(json.status).toBe(400);
+      expect(json.body.error).toMatch(/character we can't accept/);
     }
     const form = await post("/api/team/sites", { ...spot, name: "   ", notes: secret });
     expect(form.status).toBe(400);
