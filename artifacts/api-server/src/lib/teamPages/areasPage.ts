@@ -23,7 +23,7 @@ export interface AreaRow extends NamedArea {
 
 /** A form sent back with a problem: what was typed, and which field is wrong. */
 export interface AreaFormAgain {
-  op: "add" | "rename" | "move" | "retire";
+  op: "add" | "rename" | "move" | "retire" | "restore";
   /** The area a rename or move was for. */
   key?: string;
   field: AreaField;
@@ -36,6 +36,8 @@ export interface AreasPageOptions {
   /** The viewer's island-wide gate, for the Open map links (D9). */
   link: boolean;
   areas: readonly AreaRow[];
+  /** Areas retired earlier, each with a "Bring back" button (SYC-482). */
+  retired?: readonly NamedArea[];
   version: number;
   /** The version the first list made: its rows fold into one line in the history. */
   firstVersion: number;
@@ -50,6 +52,7 @@ export const AREAS_DONE: Record<string, string> = {
   renamed: "The area was renamed.",
   moved: "The area's centre was moved.",
   retired: "The area was retired.",
+  restored: "The area is back on the list.",
 };
 
 const day = (d: Date) =>
@@ -77,6 +80,8 @@ function changeWords(c: AreaChange): string {
       return `moved ${before}'s centre`;
     case "area_retired":
       return `retired ${before}`;
+    case "restored":
+      return `brought back ${before}`;
     default:
       return "changed an area";
   }
@@ -166,8 +171,7 @@ function addForm(o: AreasPageOptions): string {
   const bad = (f: AreaField) => again?.op === "add" && again.field === f;
   return (
     `<div class="fixes"><details${isOpen(again, "add") ? " open" : ""}><summary>Add an area</summary>` +
-    `<form method="post" action="${AREAS_PATH}">` +
-    '<input type="hidden" name="op" value="add">' +
+    `<form method="post" action="${AREAS_PATH}/new">` +
     problem(again, "add", undefined, "name") +
     input("add-name", "Name", "name", kept(again, "add", undefined, "name", ""), {
       hint: NAME_HINT,
@@ -178,19 +182,35 @@ function addForm(o: AreasPageOptions): string {
       hint: "Used in the Cats filters' web address. Small letters, numbers and dashes, like mega-gialos. It can't be changed later.",
       invalid: bad("key"),
     }) +
+    // A centre that came back from the map's save and was refused shows here.
     problem(again, "add", undefined, "lat") +
-    input("add-lat", "Latitude of the centre", "lat", kept(again, "add", undefined, "lat", ""), {
-      hint: "Like 37.44470. The centre must be on Syros.",
-      invalid: bad("lat"),
-      mode: "decimal",
-    }) +
     problem(again, "add", undefined, "lng") +
-    input("add-lng", "Longitude of the centre", "lng", kept(again, "add", undefined, "lng", ""), {
-      hint: "Like 24.94170.",
-      invalid: bad("lng"),
-      mode: "decimal",
-    }) +
-    `<button type="submit">Add the area</button></form></details></div>`
+    `<p class="hint">Next you tap the area's centre on a map. You see the spot before anything is saved.</p>` +
+    `<button type="submit">Choose the centre on the map</button></form></details></div>`
+  );
+}
+
+/** Areas retired earlier, each with a button to bring it back. Empty: nothing. */
+function retiredList(o: AreasPageOptions): string {
+  const list = o.retired ?? [];
+  if (list.length === 0) return "";
+  const again = o.again;
+  return (
+    `<h2>Retired areas (${list.length})</h2>` +
+    `<ul class="cats">` +
+    list
+      .map(
+        (a) =>
+          `<li><span><strong>${esc(a.name)}</strong></span> ` +
+          `<form method="post" action="${AREAS_PATH}" class="inline">` +
+          '<input type="hidden" name="op" value="restore">' +
+          `<input type="hidden" name="key" value="${esc(a.key)}">` +
+          problem(again, "restore", a.key, "area") +
+          problem(again, "restore", a.key, "name") +
+          `<button type="submit">Bring back</button></form></li>`,
+      )
+      .join("") +
+    `</ul>`
   );
 }
 
@@ -229,6 +249,7 @@ function placed(o: AreasPageOptions): boolean {
   const again = o.again;
   if (!again) return true;
   if (again.op === "add") return again.field !== "area";
+  if (again.op === "restore") return (o.retired ?? []).some((a) => a.key === again.key);
   return o.areas.some((a) => a.key === again.key);
 }
 
@@ -247,6 +268,7 @@ export function renderAreasPage(o: AreasPageOptions): string {
       addForm(o) +
       `<h2>The areas (${o.areas.length})</h2>` +
       `<ul class="cats">${o.areas.map((a) => areaRow(a, o)).join("")}</ul>` +
+      retiredList(o) +
       '<h2 id="history">History</h2>' +
       historyList(o.history, o.firstVersion) +
       methodFold([

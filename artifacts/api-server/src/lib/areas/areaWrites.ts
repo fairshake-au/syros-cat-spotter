@@ -19,7 +19,8 @@ export type AreaChange =
   | { kind: "add"; key: string; name: string; lat: number; lng: number }
   | { kind: "rename"; key: string; name: string }
   | { kind: "move"; key: string; lat: number; lng: number }
-  | { kind: "retire"; key: string };
+  | { kind: "retire"; key: string }
+  | { kind: "restore"; key: string };
 
 /** Which form field a refusal is about, so the page can name it there. */
 export type AreaField = "key" | "name" | "lat" | "lng" | "area";
@@ -41,6 +42,8 @@ export const SYROS_BOX = { latMin: 37.36, latMax: 37.52, lngMin: 24.86, lngMax: 
 export const AREA_NAME_MIN = 2;
 export const AREA_NAME_MAX = 40;
 const KEY_RE = /^[a-z][a-z0-9-]{1,30}$/;
+/** Retire is refused when it would leave fewer areas than this (SYC-482): with none, every cat counts as Off Syros. */
+export const MIN_AREAS = 5;
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 interface Row {
@@ -88,7 +91,7 @@ function checkKey(key: string): void {
 }
 
 /** Refuses a name another area in use already has (any case). */
-async function nameFree(tx: Tx, name: string, exceptId: number | null): Promise<void> {
+async function nameFree(tx: Pick<typeof db, "select">, name: string, exceptId: number | null): Promise<void> {
   const [clash] = await tx
     .select({ name: namedAreasTable.name })
     .from(namedAreasTable)
@@ -100,6 +103,20 @@ async function nameFree(tx: Tx, name: string, exceptId: number | null): Promise<
       ),
     );
   if (clash) throw new AreaChangeRefused("name", `There is already an area called ${clash.name}.`);
+}
+
+/**
+ * Checks a new area's name and key without writing anything, for the Add
+ * form's first step (before the map). Throws {@link AreaChangeRefused}; the
+ * centre is checked when the area is saved.
+ */
+export async function checkNewArea(keyRaw: string, nameRaw: string): Promise<{ key: string; name: string }> {
+  checkKey(keyRaw);
+  const name = checkName(nameRaw);
+  await nameFree(db, name, null);
+  const [taken] = await db.select({ id: namedAreasTable.id }).from(namedAreasTable).where(eq(namedAreasTable.key, keyRaw));
+  if (taken) throw new AreaChangeRefused("key", "That short key is already used. Choose another.");
+  return { key: keyRaw, name };
 }
 
 async function lockArea(tx: Tx, key: string): Promise<Row> {
@@ -134,7 +151,12 @@ const isUniqueViolation = (err: unknown, constraint: string): boolean => {
  * Makes one change to the list, with its history row, in one transaction.
  * Throws {@link AreaChangeRefused} naming the field at fault.
  */
-export async function changeArea(person: { id: string }, change: AreaChange): Promise<void> {
+export async function changeArea(
+  person: { id: string },
+  change: AreaChange,
+  /** Tests only: the fewest areas a retire may leave (default MIN_AREAS). */
+  minAreas: number = MIN_AREAS,
+): Promise<void> {
   try {
     await db.transaction(async (tx) => {
       if (change.kind === "add") {
@@ -162,6 +184,32 @@ export async function changeArea(person: { id: string }, change: AreaChange): Pr
         return;
       }
 
+      if (change.kind === "restore") {
+        const [gone] = await tx
+          .select()
+          .from(namedAreasTable)
+          .where(eq(namedAreasTable.key, change.key))
+          .for("update");
+        if (!gone) throw new AreaChangeRefused("area", "There is no such area.");
+        if (gone.retiredAt === null) throw new AreaChangeRefused("area", `${gone.name} is already on the list.`);
+        // A name another live area took meanwhile would be two areas with one name.
+        await nameFree(tx, gone.name, gone.id);
+        const [back] = await tx
+          .update(namedAreasTable)
+          .set({ retiredAt: null })
+          .where(eq(namedAreasTable.id, gone.id))
+          .returning();
+        await recordMappingEvent(tx, {
+          personId: person.id,
+          subjectKind: "named_area",
+          subjectId: gone.id,
+          kind: "restored",
+          before: whole(gone),
+          after: whole(back!),
+        });
+        return;
+      }
+
       const row = await lockArea(tx, change.key);
       let next: Row;
       let kind: "area_renamed" | "area_moved" | "area_retired";
@@ -179,6 +227,18 @@ export async function changeArea(person: { id: string }, change: AreaChange): Pr
         next = { ...row, lat: change.lat, lng: change.lng };
         kind = "area_moved";
       } else {
+        // Lock every live area so two retires at once can't both pass the count.
+        const live = await tx
+          .select({ id: namedAreasTable.id })
+          .from(namedAreasTable)
+          .where(isNull(namedAreasTable.retiredAt))
+          .for("update");
+        if (live.length <= minAreas) {
+          throw new AreaChangeRefused(
+            "area",
+            `The island needs at least ${minAreas} areas, so ${row.name} can't be retired. Add another area first.`,
+          );
+        }
         next = row;
         kind = "area_retired";
       }

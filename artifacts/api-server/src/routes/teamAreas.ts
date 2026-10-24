@@ -4,9 +4,9 @@ import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
 import { isIslandWide } from "../lib/guardianView";
 import { areaChanges, type AreaChange as AreaChangeLine } from "../lib/areas/areaHistory";
-import { AreaChangeRefused, changeArea, type AreaChange, type AreaField } from "../lib/areas/areaWrites";
+import { AreaChangeRefused, changeArea, checkNewArea, type AreaChange, type AreaField } from "../lib/areas/areaWrites";
 import { SEED_AREAS } from "../lib/areas/seedAreas";
-import { areaByKey, areasVersion, currentAreas, loadAreas } from "../lib/areas/namedAreas";
+import { areaByKey, areasVersion, currentAreas, loadAreas, retiredAreas } from "../lib/areas/namedAreas";
 import { loadTeamCats } from "../lib/teamCatList";
 import { isActive } from "../lib/dashboard/countedCats";
 import { renderConfirmPage } from "../lib/teamPages/confirm";
@@ -15,7 +15,7 @@ import { applyMove } from "../lib/mapTiles/mapForms";
 import { viewAround, type View } from "../lib/mapTiles/geometry";
 import { renderPicker } from "../lib/teamPages/siteFormPages";
 import { renderCentreConfirm } from "../lib/teamPages/centrePages";
-import { readCentrePick } from "./centrePick";
+import { ERMOUPOLI_VIEW, readCentrePick } from "./centrePick";
 import { t } from "../lib/teamPages/words";
 import {
   AREAS_DONE,
@@ -71,6 +71,7 @@ async function page(
       personName: person.name,
       link: isIslandWide(person),
       areas,
+      retired: await retiredAreas(),
       version: areasVersion(),
       // The seed was the list's first version: its rows are the first SEED_AREAS.length changes.
       firstVersion: SEED_AREAS.length,
@@ -97,6 +98,7 @@ const DONE_OF: Record<AreaChange["kind"], string> = {
   rename: "renamed",
   move: "moved",
   retire: "retired",
+  restore: "restored",
 };
 
 router.post("/team/areas", ...formRoute("edit_named_areas"), async (req: Request, res: Response) => {
@@ -108,7 +110,7 @@ router.post("/team/areas", ...formRoute("edit_named_areas"), async (req: Request
 
   const refuse = async (field: AreaField, message: string) => {
     if (wantsJson(req)) return void res.status(400).json({ error: "bad_form", field, message });
-    const formOp = op === "add" || op === "rename" || op === "move" || op === "retire" ? op : "add";
+    const formOp = op === "add" || op === "rename" || op === "move" || op === "retire" || op === "restore" ? op : "add";
     await loadAreas();
     await page(res, 400, await areaChanges(), {
       again: { op: formOp, key: formOp === "add" ? undefined : key, field, message, values },
@@ -127,6 +129,8 @@ router.post("/team/areas", ...formRoute("edit_named_areas"), async (req: Request
     change = op === "add" ? { kind: "add", key, name: values.name, lat, lng } : { kind: "move", key, lat, lng };
   } else if (op === "rename") {
     change = { kind: "rename", key, name: values.name };
+  } else if (op === "restore") {
+    change = { kind: "restore", key };
   } else if (op === "retire") {
     if (str(body["confirm"]) !== "1" && !wantsJson(req)) {
       // Always ask first, from the list as the database has it now: this
@@ -168,6 +172,100 @@ router.post("/team/areas", ...formRoute("edit_named_areas"), async (req: Request
   }
   if (wantsJson(req)) return void res.json({ ok: true, version: areasVersion() });
   res.redirect(303, `${AREAS_PATH}?done=${DONE_OF[change.kind]}`);
+});
+
+// ── A new area, centre by tapping a map (SYC-557) ──────────────────────────
+//
+// Step 1 is the Add form's name and short key (checked here, nothing saved);
+// step 2 is the map; step 3 is the confirmation, whose button posts `op=add`
+// to the form route above with the position in hidden fields. The name and
+// key ride along in hidden fields; never a position in an address.
+
+const NEW_PATH = `${AREAS_PATH}/new`;
+
+/** The name and key the Add form sent, if they pass the checks. Otherwise the page goes back with the problem. */
+async function newAreaOf(
+  req: Request,
+  res: Response,
+): Promise<{ key: string; name: string } | null> {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const values = { name: str(body["name"]), key: str(body["key"]).trim() };
+  try {
+    return await checkNewArea(values.key, values.name);
+  } catch (err) {
+    if (!(err instanceof AreaChangeRefused)) throw err;
+    await loadAreas();
+    await page(res, 400, await areaChanges(), {
+      again: { op: "add", field: err.field, message: err.message, values },
+    });
+    return null;
+  }
+}
+
+function newAreaPickerPage(res: Response, status: number, a: { key: string; name: string }, view: View, note?: string): void {
+  res
+    .status(status)
+    .type("html")
+    .send(
+      renderPicker({
+        personName: teamPerson(res).name,
+        active: null,
+        title: `Where is ${a.name}?`,
+        intro: `Tap the centre of ${a.name}. You will see the spot before anything is saved.`,
+        back: { href: AREAS_PATH, label: "Back to the areas" },
+        view,
+        tapAction: `${NEW_PATH}/pick`,
+        moveAction: `${NEW_PATH}/map`,
+        carry: { name: a.name, key: a.key },
+        note,
+      }),
+    );
+}
+
+router.post("/team/areas/new", ...formRoute("edit_named_areas"), async (req: Request, res: Response) => {
+  const a = await newAreaOf(req, res);
+  if (a) newAreaPickerPage(res, 200, a, ERMOUPOLI_VIEW);
+});
+
+router.post("/team/areas/new/map", ...formRoute("edit_named_areas"), async (req: Request, res: Response) => {
+  const a = await newAreaOf(req, res);
+  if (!a) return;
+  const view = applyMove(req.body);
+  if (!view) return void newAreaPickerPage(res, 400, a, ERMOUPOLI_VIEW, "That didn't work, so the map is back at the start.");
+  newAreaPickerPage(res, 200, a, view);
+});
+
+router.post("/team/areas/new/pick", ...formRoute("edit_named_areas"), async (req: Request, res: Response) => {
+  const a = await newAreaOf(req, res);
+  if (!a) return;
+  const person = teamPerson(res);
+  const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, undefined, ERMOUPOLI_VIEW, {
+    requireArea: false,
+  });
+  if (!picked.ok) {
+    if (wantsJson(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
+    return void newAreaPickerPage(res, picked.status, a, picked.view, picked.note);
+  }
+  if (wantsJson(req)) return void res.json(picked.spot);
+  res.type("html").send(
+    renderCentreConfirm({
+      personName: person.name,
+      island: isIslandWide(person),
+      active: null,
+      title: `Where is ${a.name}?`,
+      question: () => `Make this the centre of ${a.name}?`,
+      saveLabel: "Add the area",
+      spot: picked.spot,
+      zoom: picked.zoom,
+      nowLabel: "",
+      newLabel: `The centre of ${a.name}`,
+      tapAction: `${NEW_PATH}/pick`,
+      carry: { name: a.name, key: a.key },
+      saveAction: AREAS_PATH,
+      saveFields: { op: "add", name: a.name, key: a.key },
+      back: { href: AREAS_PATH, label: "Back to the areas" },
+    }),
+  );
 });
 
 // ── An area's centre, by tapping a map (SYC-517, 517-B) ────────────────────

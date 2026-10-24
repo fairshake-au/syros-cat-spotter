@@ -139,7 +139,6 @@ describe("the Areas page", () => {
     expect(nameAt - errAt).toBeLessThan(300);
     expect(res.text).toContain('<details open><summary>Add an area</summary>');
     expect(res.text).toContain(`value="${k("empty")}"`);
-    expect(res.text).toContain('value="37.51500"');
     expect(areaByKey(k("empty"))).toBeUndefined();
   });
 
@@ -147,7 +146,7 @@ describe("the Areas page", () => {
     const res = await send(team.cookie, { op: "add", name: nm("Myk"), key: k("myk"), lat: "37.45", lng: "25.33" });
     expect(res.status).toBe(400);
     expect(res.text).toContain("That centre isn&#39;t on Syros. Check the longitude.");
-    expect(res.text).toContain('id="add-lng" name="lng" value="25.33" inputmode="decimal" aria-invalid="true"');
+    expect(res.text).toMatch(/role="alert" id="add-new-lng-err">That centre isn&#39;t on Syros/);
   });
 
   it("retire asks first even for an area this server's list hasn't seen yet (review F1)", async () => {
@@ -217,8 +216,11 @@ describe("moving an area's centre by map (517-B)", () => {
     expect(res.text).toContain('href="/api/team/areas/kini/centre"');
     expect(res.text).toContain("Move centre on a map");
     expect(res.text).not.toMatch(/id="move-[^"]*-lat"/);
-    // The Add form still takes typed numbers.
-    expect(res.text).toContain('id="add-lat"');
+    // The Add form no longer takes typed numbers: it goes on to a map (SYC-557).
+    expect(res.text).not.toContain('id="add-lat"');
+    expect(res.text).not.toContain('id="add-lng"');
+    expect(res.text).toContain('<form method="post" action="/api/team/areas/new">');
+    expect(res.text).toContain("Choose the centre on the map");
   });
 
   it("the map opens on the area, a tap asks first, and the button moves the centre", async () => {
@@ -281,6 +283,116 @@ describe("moving an area's centre by map (517-B)", () => {
       expect((await sendTo(path, guardian.cookie, tap().body)).status, path).toBe(403);
     }
     expect((await getPage("/api/team/areas/kini/centre", guardian.cookie)).status).toBe(403);
+  });
+});
+
+// SYC-557: "Add an area" takes the centre from a map, like moving one does.
+describe("adding an area by map (SYC-557)", () => {
+  const tap = () => {
+    const view = viewAround({ lat: 37.515, lng: 24.985 }, 16);
+    const spot = tapToPosition(view, 179, 190, 190)!;
+    return { spot, body: { view: mintTileToken({ ...view, size: 179 as const }), size: "179", x: "190", y: "190" } };
+  };
+  const hidden = (html: string, name: string) => new RegExp(`name="${name}" value="([^"]*)"`).exec(html)![1]!;
+  const sendTo = (path: string, cookie: string, body: Record<string, string>) =>
+    request(app).post(path).set("Origin", TEAM_ORIGIN).set("Cookie", cookie).set("Accept", "text/html").type("form").send(body);
+
+  it("name and key lead to a map, a tap to a confirmation, and the button adds the area", async () => {
+    const key = k("addmap");
+    const step1 = await sendTo("/api/team/areas/new", team.cookie, { name: nm("Addmap"), key });
+    expect(step1.status).toBe(200);
+    expect(step1.text).toContain('class="mappage"');
+    expect(step1.text).toContain(`Where is ${nm("Addmap")}?`);
+    expect(step1.text).toContain('action="/api/team/areas/new/pick"');
+    expect(step1.text).toContain("<summary>Type a position instead</summary>");
+    expect(hidden(step1.text, "key")).toBe(key);
+    expect(areaByKey(key)).toBeUndefined();
+
+    const { body, spot } = tap();
+    const pick = await sendTo("/api/team/areas/new/pick", team.cookie, { ...body, name: nm("Addmap"), key });
+    expect(pick.status).toBe(200);
+    expect(pick.text).toContain(`Make this the centre of ${nm("Addmap")}?`);
+    expect(areaByKey(key)).toBeUndefined();
+    for (const a of addresses(pick.text).filter((a) => !isOpenMapLink(a))) expect(a, a).not.toMatch(/\d+\.\d{4,}/);
+
+    const save = await sendTo("/api/team/areas", team.cookie, {
+      op: "add",
+      name: hidden(pick.text, "name"),
+      key: hidden(pick.text, "key"),
+      lat: hidden(pick.text, "lat"),
+      lng: hidden(pick.text, "lng"),
+    });
+    expect(save.headers["location"]).toBe("/api/team/areas?done=added");
+    expect(areaByKey(key)).toMatchObject({ name: nm("Addmap"), lat: spot.lat, lng: spot.lng });
+    await sendTo("/api/team/areas", team.cookie, { op: "retire", key, confirm: "1" });
+  });
+
+  it("a typed position (the folded fallback) goes to the same confirmation", async () => {
+    const key = k("addtyped");
+    const pick = await sendTo("/api/team/areas/new/pick", team.cookie, { name: nm("Addtyped"), key, ...SEA });
+    expect(pick.status).toBe(200);
+    expect(pick.text).toContain(`Make this the centre of ${nm("Addtyped")}?`);
+  });
+
+  it("a bad name or a used key is named before the map, and nothing is saved", async () => {
+    const shortName = await sendTo("/api/team/areas/new", team.cookie, { name: "a", key: k("short") });
+    expect(shortName.status).toBe(400);
+    expect(shortName.text).toContain("Give the area a name of 2 to 40 letters.");
+    expect(shortName.text).not.toContain('class="mappage"');
+    const used = await sendTo("/api/team/areas/new", team.cookie, { name: nm("Used"), key: "kini" });
+    expect(used.status).toBe(400);
+    expect(used.text).toContain("That short key is already used. Choose another.");
+    const dupe = await sendTo("/api/team/areas/new/pick", team.cookie, { name: "Kini", key: k("dupe"), ...SEA });
+    expect(dupe.status).toBe(400);
+    expect(dupe.text).toContain("There is already an area called Kini.");
+  });
+
+  it("a tap off the island is refused with the plain line, and the map keeps the name", async () => {
+    const res = await sendTo("/api/team/areas/new/pick", team.cookie, { name: nm("Far"), key: k("far"), lat: "38.5", lng: "26.0" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("That&#39;s off Syros. Tap a spot on the island.");
+    expect(hidden(res.text, "key")).toBe(k("far"));
+  });
+
+  it("a cat guardian gets 403 on all three steps", async () => {
+    for (const path of ["/api/team/areas/new", "/api/team/areas/new/map", "/api/team/areas/new/pick"]) {
+      expect((await sendTo(path, guardian.cookie, { name: nm("G"), key: k("g2"), ...SEA })).status, path).toBe(403);
+    }
+  });
+});
+
+// SYC-482: bring back a retired area, and keep a minimum of areas.
+describe("bringing an area back (SYC-482)", () => {
+  it("a retired area is listed with Bring back, and bringing it back puts it on the list and in the history", async () => {
+    const key = k("back");
+    await send(team.cookie, { op: "add", name: nm("Back"), key, ...SEA });
+    await send(team.cookie, { op: "retire", key, confirm: "1" });
+    expect(areaByKey(key)).toBeUndefined();
+    const listed = await page(team.cookie);
+    expect(listed.text).toMatch(/<h2>Retired areas \(\d+\)<\/h2>/);
+    expect(listed.text).toContain(nm("Back"));
+    const back = await send(team.cookie, { op: "restore", key });
+    expect(back.headers["location"]).toBe("/api/team/areas?done=restored");
+    expect(areaByKey(key)).toMatchObject({ name: nm("Back"), lat: NUM.lat, lng: NUM.lng });
+    const after = await request(app).get("/api/team/areas?done=restored").set("Cookie", team.cookie).set("Accept", "text/html");
+    expect(after.text).toContain(`Vt areas-team · brought back ${nm("Back")}`);
+    expect(after.text).toContain("The area is back on the list.");
+    expect(after.text).not.toMatch(new RegExp(`Retired areas[\\s\\S]*value="${key}"`));
+    await send(team.cookie, { op: "retire", key, confirm: "1" });
+  });
+
+  it("refuses to bring back an area whose name another area has taken, and one that is not retired", async () => {
+    const key = k("clash");
+    await send(team.cookie, { op: "add", name: nm("Clash"), key, ...SEA });
+    await send(team.cookie, { op: "retire", key, confirm: "1" });
+    await send(team.cookie, { op: "add", name: nm("Clash"), key: k("clash2"), ...SEA });
+    const res = await send(team.cookie, { op: "restore", key });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain(`There is already an area called ${nm("Clash")}.`);
+    const live = await send(team.cookie, { op: "restore", key: k("clash2") });
+    expect(live.status).toBe(400);
+    expect(live.text).toContain("is already on the list.");
+    await send(team.cookie, { op: "retire", key: k("clash2"), confirm: "1" });
   });
 });
 

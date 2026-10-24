@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db, mappingEventsTable, namedAreasTable, peopleTable, pool } from "@workspace/db";
 import { namedAreasAt } from "./areaHistory";
-import { AreaChangeRefused, changeArea } from "./areaWrites";
+import { AreaChangeRefused, changeArea, MIN_AREAS } from "./areaWrites";
 import { areaByKey, areaFor, areasVersion, currentAreas, loadAreas, SEED_AREAS } from "./namedAreas";
 
 // SYC-396 PR 2.4 (plan Task 2.4.2): changing the named areas, their history,
@@ -159,5 +159,41 @@ describe("changeArea", () => {
     expect(await refusal(changeArea(person, { kind: "add", key: "kini", name: name("K"), ...SEA }))).toBe("key");
     expect(await refusal(changeArea(person, { kind: "add", key: key("x"), name: " a ", ...SEA }))).toBe("name");
     expect(await refusal(changeArea(person, { kind: "move", key: key("nope"), ...SEA }))).toBe("area");
+  });
+});
+
+describe("changeArea: restore and the minimum (SYC-482)", () => {
+  it("brings a retired area back with a 'restored' history row holding the whole row, and namedAreasAt replays it", async () => {
+    const k = key("rest");
+    await changeArea(person, { kind: "add", key: k, name: name("Rest"), ...SEA });
+    await tick();
+    await changeArea(person, { kind: "retire", key: k });
+    await tick();
+    await changeArea(person, { kind: "restore", key: k });
+    expect(areaByKey(k)).toMatchObject({ name: name("Rest"), ...SEA });
+    const e = (await eventsOf(k)).at(-1)!;
+    expect(e.kind).toBe("restored");
+    expect(e.before).toEqual({ key: k, name: name("Rest"), ...SEA, retired: true });
+    expect(e.after).toEqual({ key: k, name: name("Rest"), ...SEA, retired: false });
+    expect((await namedAreasAt(e.at)).areas.some((a) => a.key === k)).toBe(true);
+    expect((await namedAreasAt(new Date(e.at.getTime() - 1))).areas.some((a) => a.key === k)).toBe(false);
+    // Already on the list: nothing to bring back.
+    expect(await refusal(changeArea(person, { kind: "restore", key: k }))).toBe("area");
+    await changeArea(person, { kind: "retire", key: k });
+  });
+
+  it("refuses to retire when that would leave fewer than the minimum, and changes nothing", async () => {
+    const k = key("min");
+    await changeArea(person, { kind: "add", key: k, name: name("Min"), ...SEA });
+    expect(MIN_AREAS).toBe(5);
+    expect(currentAreas().length).toBeGreaterThan(MIN_AREAS); // the seed has 21
+    const v = areasVersion();
+    // With the minimum set to today's count, retiring one more would go under it.
+    expect(await refusal(changeArea(person, { kind: "retire", key: k }, currentAreas().length))).toBe("area");
+    expect(areaByKey(k)).toBeDefined();
+    expect(areasVersion()).toBe(v);
+    // One below the count is fine.
+    await changeArea(person, { kind: "retire", key: k }, currentAreas().length - 1);
+    expect(areaByKey(k)).toBeUndefined();
   });
 });
