@@ -18,6 +18,7 @@ Worktree: .claude/worktrees/ecstatic-varahamihira-3050d5, branch claude/ecstatic
 - [x] 2. useCatsWithCache loadFailed/retry + lib/loadTiming.ts (20s, retry 1, networkMode always)
 - [x] 3. Cat-alogue + Home (strip line, stats Try again, tiles hidden at firstSpot, profile query timing)
 - [x] 4. Notifications: context loadFailed (pure fn in lib/notificationsEmpty.ts), screen failed + 3 empty lines + Spot a cat (lib/goToSpotTab.ts uses router.dismissTo — VERIFY in browser)
+- [x] 5. review.tsx: broken-link screen (back arrow + Go to the Spot tab), No cat found per D1 A (remove queued, delete sent photo, dismissTo /spot)
 1. LoadFailed component + i18n keys (en/el/fr).
 2. useCatsWithCache: cacheChecked, loadFailed, awaitable refetch, timeout 20s, retry 1, networkMode always; never save empty list.
 3. Cat-alogue + Home strip; Home stats Try again; Home hide tiles at firstSpot.
