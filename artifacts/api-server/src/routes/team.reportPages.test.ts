@@ -124,7 +124,10 @@ describe("Sterilisation progress", () => {
     const over = await get("/api/team/insights/progress-over.csv?range=3months");
     const cols = await get("/api/team/insights/progress-colonies.csv?range=3months");
     expect(csvHeader(over.text)).toEqual(headers(page, 0));
-    expect(csvHeader(cols.text)).toEqual(headers(page, 1));
+    // The one column the page words more fully keeps its old spreadsheet header (SYC-601).
+    expect(csvHeader(cols.text)).toEqual(
+      headers(page, 1).map((h) => (h === "Sterilisation not known yet" ? "Not known yet" : h)),
+    );
   });
 
   it("a colony name starting with = comes out as text in the spreadsheet", async () => {
