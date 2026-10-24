@@ -230,6 +230,7 @@ Before each map goes live, there are before-and-after pictures of Ermoupoli's ce
 ## Not changing
 
 - Where cats and feeding sites appear, how the pin works, the map zoom limits, and the rounded squares that show a cat's published area instead of an exact spot.
+- The cat page's Map tab (`components/catPage/MapTab.tsx`) stays pannable and zoomable in the MapLibre version. SYC-707 (PR #337, open on 24 Oct 2026) makes it so at Samuel's request, and the rebuild must not turn it back into a still map.
 - The website still has no offline map (SYC-167).
 
 ## Risks
