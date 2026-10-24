@@ -41,6 +41,7 @@ import {
   useGetProfile,
   getGetProfileQueryKey,
 } from '@workspace/api-client-react';
+import { decorative, spokenText } from '@/lib/a11yText';
 
 /** How long the search box must be still before the map refits (SYC-573). */
 export const MAP_SEARCH_SETTLE_MS = 400;
@@ -151,7 +152,11 @@ export default function CatalogScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerRow}>
           <View style={styles.titleBlock}>
-            <Text style={[styles.title, { color: colors.foreground }]}>
+            <Text
+              role="heading"
+              accessibilityLabel={spokenText(t('catalogTitle'))}
+              style={[styles.title, { color: colors.foreground }]}
+            >
               {t('catalogTitle')}
             </Text>
             {/* SYC-508: "0 cats on Syros" isn't true when nothing loaded. */}
@@ -203,6 +208,7 @@ export default function CatalogScreen() {
               onPress={() => setSearch('')}
               accessibilityRole="button"
               accessibilityLabel={t('clear')}
+              style={styles.clearHit}
             >
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </Pressable>
@@ -258,7 +264,7 @@ export default function CatalogScreen() {
               style={[styles.mapMessage, { backgroundColor: colors.card }]}
               pointerEvents="none"
             >
-              <Text style={styles.emptyIcon} allowFontScaling={false}>
+              <Text style={styles.emptyIcon} allowFontScaling={false} {...decorative}>
                 🐾
               </Text>
               <Text style={[styles.empty, { color: colors.mutedForeground }]}>
@@ -324,7 +330,7 @@ export default function CatalogScreen() {
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyIcon} allowFontScaling={false}>
+          <Text style={styles.emptyIcon} allowFontScaling={false} {...decorative}>
             🐾
           </Text>
           <Text style={[styles.empty, { color: colors.mutedForeground }]}>
@@ -356,6 +362,8 @@ export default function CatalogScreen() {
 }
 
 const styles = StyleSheet.create({
+  // SYC-509: 44pt tap area around a 16pt icon; the negative margins keep the row height without covering the text beside it.
+  clearHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -14, marginHorizontal: -4 },
   container: { flex: 1 },
   header: {
     paddingHorizontal: spacing[4],

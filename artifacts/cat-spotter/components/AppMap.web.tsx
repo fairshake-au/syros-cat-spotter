@@ -13,6 +13,7 @@ import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import type { AppMapProps } from './AppMap';
 import { useColors } from '@/hooks/useColors';
+import { useLanguage } from '@/context/LanguageContext';
 import { LABEL_MIN_PX, cellBoxPixels, fitRegion } from '@/lib/cellShape';
 import { clampZoom, latLngAtOffset, visibleTiles, type LatLng } from '@/lib/mapTiles';
 
@@ -45,6 +46,7 @@ export function AppMap({
   stripAction,
 }: AppMapProps) {
   const colors = useColors();
+  const { t } = useLanguage();
   const resolvedMarkerBorderColor = markerBorderColor ?? colors.primary;
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [zoom, setZoom] = useState(() => zoomForDelta(latitudeDelta));
@@ -173,8 +175,8 @@ export function AppMap({
       </View>
       {interactive && (
         <View style={styles.zoomControls}>
-          {zoomButton('plus', 1, 'Zoom in')}
-          {zoomButton('minus', -1, 'Zoom out')}
+          {zoomButton('plus', 1, t('mapZoomIn'))}
+          {zoomButton('minus', -1, t('mapZoomOut'))}
         </View>
       )}
       {markers.length > 0 && (
@@ -256,8 +258,8 @@ const styles = StyleSheet.create({
   areaLabelText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
   zoomControls: { position: 'absolute', right: 8, top: 8, gap: 4 },
   zoomBtn: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
