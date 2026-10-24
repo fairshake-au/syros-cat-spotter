@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MAX_TOKEN_LENGTH,
+  acceptedHostnames,
   SITEVERIFY_URL,
   turnstileHealth,
   turnstileMode,
@@ -136,6 +137,17 @@ describe("verifyTurnstile", () => {
     fakeSiteverify(good());
     expect((await verifyTurnstile(TOKEN, "welfare_report", "ref-1")).outcome).toBe("not_configured");
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("acceptedHostnames", () => {
+  it("SYC-662: with TURNSTILE_HOSTNAMES unset, the built-in list is exactly the two production hosts", () => {
+    expect(acceptedHostnames()).toEqual(["apptest.catspotters.com", "syros.catspotters.com"]);
+  });
+
+  it("the setting replaces the built-in list", () => {
+    process.env["TURNSTILE_HOSTNAMES"] = " Example.com ";
+    expect(acceptedHostnames()).toEqual(["example.com"]);
   });
 });
 
