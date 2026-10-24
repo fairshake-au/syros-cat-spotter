@@ -3,7 +3,7 @@ import { useDevice } from '@/context/DeviceContext';
 import type { Language } from '@/lib/i18n';
 import { addKeepSafe, isInvalidEmail, looksLikeEmail } from '@/lib/keepSafe';
 
-export type OnboardingEmailResult = 'none' | 'saved' | 'failed' | 'invalid' | 'stale';
+export type OnboardingEmailResult = 'none' | 'saved' | 'failed' | 'invalid' | 'stale' | 'busy';
 /** The i18n key of the line shown under the email box. */
 export type OnboardingEmailError = 'keepSafeInvalidEmail' | 'keepSafeSaveFailed';
 
@@ -91,7 +91,8 @@ export function useOnboardingEmail({
   }, [deviceId, identityGeneration]);
 
   const saveIfNeeded = useCallback(async (beforeSend?: () => void): Promise<OnboardingEmailResult> => {
-    if (busy.current) return 'failed';
+    // A save is already running: a no-op, not a failure (no error line is shown).
+    if (busy.current) return 'busy';
     const typed = emailRef.current.trim();
     if (typed && !looksLikeEmail(typed)) {
       setError('keepSafeInvalidEmail');

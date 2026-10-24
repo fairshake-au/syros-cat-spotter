@@ -267,7 +267,14 @@ export function NameStep({ onBack }: { onBack: () => void }) {
     } finally {
       submitting.current = false;
     }
-    if (emailResult === 'invalid' || emailResult === 'failed' || emailResult === 'stale') return;
+    if (
+      emailResult === 'invalid' ||
+      emailResult === 'failed' ||
+      emailResult === 'stale' ||
+      emailResult === 'busy'
+    ) {
+      return;
+    }
     if (identityGeneration() !== generation) return;
     if (emailResult === 'saved') setKeepSafeOffer('done');
     claimGeneration.current = generation;
