@@ -4,7 +4,7 @@ import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
 import { isIslandWide } from "../lib/guardianView";
 import { areaChanges, type AreaChange as AreaChangeLine } from "../lib/areas/areaHistory";
-import { AreaChangeRefused, changeArea, checkNewArea, type AreaChange, type AreaField } from "../lib/areas/areaWrites";
+import { AreaChangeRefused, changeArea, checkNewArea, MIN_AREAS, type AreaChange, type AreaField } from "../lib/areas/areaWrites";
 import { SEED_AREAS } from "../lib/areas/seedAreas";
 import { areaByKey, areasVersion, currentAreas, loadAreas, retiredAreas } from "../lib/areas/namedAreas";
 import { loadTeamCats } from "../lib/teamCatList";
@@ -120,12 +120,14 @@ router.post("/team/areas", ...formRoute("edit_named_areas"), async (req: Request
   // A move only ever comes from the map's confirmation (the page has no typed
   // move box), so a position it can't use is "off Syros", never "type a number".
   const offSyros = t("centre.off", undefined);
+  // An add's position also only comes from the map's confirmation now (SYC-557).
+  const mapped = op === "move" || op === "add";
   let change: AreaChange;
   if (op === "add" || op === "move") {
     const lat = coordinate(values.lat);
     const lng = coordinate(values.lng);
-    if (lat === null) return refuse("lat", op === "move" ? offSyros : "Type the latitude as a number, like 37.44470.");
-    if (lng === null) return refuse("lng", op === "move" ? offSyros : "Type the longitude as a number, like 24.94170.");
+    if (lat === null) return refuse("lat", mapped ? offSyros : "Type the latitude as a number, like 37.44470.");
+    if (lng === null) return refuse("lng", mapped ? offSyros : "Type the longitude as a number, like 24.94170.");
     change = op === "add" ? { kind: "add", key, name: values.name, lat, lng } : { kind: "move", key, lat, lng };
   } else if (op === "rename") {
     change = { kind: "rename", key, name: values.name };
@@ -139,6 +141,10 @@ router.post("/team/areas", ...formRoute("edit_named_areas"), async (req: Request
       await loadAreas();
       const area = currentAreas().find((a) => a.key === key);
       if (!area) return refuse("area", "There is no such area, or it has already been retired.");
+      // Say so before asking "Are you sure?", not after (the writer checks again under its lock).
+      if (currentAreas().length <= MIN_AREAS) {
+        return refuse("area", `The island needs at least ${MIN_AREAS} areas, so ${area.name} can't be retired. Add another area first.`);
+      }
       return void res.type("html").send(
         renderConfirmPage({
           title: `Retire ${area.name}?`,
@@ -166,7 +172,7 @@ router.post("/team/areas", ...formRoute("edit_named_areas"), async (req: Request
   } catch (err) {
     if (err instanceof AreaChangeRefused) {
       // The centre check's "Check the latitude" is for the Add form's typed boxes.
-      return refuse(err.field, change.kind === "move" && err.offSyros ? offSyros : err.message);
+      return refuse(err.field, (change.kind === "move" || change.kind === "add") && err.offSyros ? offSyros : err.message);
     }
     throw err;
   }

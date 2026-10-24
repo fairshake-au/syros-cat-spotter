@@ -146,7 +146,8 @@ describe("the Areas page", () => {
     const res = await send(team.cookie, { op: "add", name: nm("Myk"), key: k("myk"), lat: "37.45", lng: "25.33" });
     expect(res.status).toBe(400);
     expect(res.text).toContain("That centre isn&#39;t on Syros. Check the longitude.");
-    expect(res.text).toMatch(/role="alert" id="add-new-lng-err">That centre isn&#39;t on Syros/);
+    expect(res.text).toMatch(/role="alert" id="add-new-lng-err">That&#39;s off Syros\. Tap a spot on the island\./);
+    expect(res.text).not.toContain("Check the longitude");
   });
 
   it("retire asks first even for an area this server's list hasn't seen yet (review F1)", async () => {

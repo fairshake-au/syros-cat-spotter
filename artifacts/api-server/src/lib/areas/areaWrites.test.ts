@@ -192,6 +192,16 @@ describe("changeArea: restore and the minimum (SYC-482)", () => {
     expect(await refusal(changeArea(person, { kind: "retire", key: k }, currentAreas().length))).toBe("area");
     expect(areaByKey(k)).toBeDefined();
     expect(areasVersion()).toBe(v);
+    // The refusal names the minimum (SYC-482), and a retired or unknown key says so.
+    await expect(changeArea(person, { kind: "retire", key: k }, currentAreas().length)).rejects.toThrow(/at least \d+ areas/);
+    expect(await refusal(changeArea(person, { kind: "retire", key: key("nope") }))).toBe("area");
+    // Two retires at once don't deadlock.
+    const a = key("par-a");
+    const b = key("par-b");
+    await changeArea(person, { kind: "add", key: a, name: name("ParA"), ...SEA });
+    await changeArea(person, { kind: "add", key: b, name: name("ParB"), lat: 37.366, lng: 24.981 });
+    await Promise.all([changeArea(person, { kind: "retire", key: a }), changeArea(person, { kind: "retire", key: b })]);
+    expect([areaByKey(a), areaByKey(b)]).toEqual([undefined, undefined]);
     // One below the count is fine.
     await changeArea(person, { kind: "retire", key: k }, currentAreas().length - 1);
     expect(areaByKey(k)).toBeUndefined();

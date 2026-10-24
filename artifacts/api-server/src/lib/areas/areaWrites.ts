@@ -1,5 +1,5 @@
 import { db, namedAreasTable } from "@workspace/db";
-import { and, eq, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, ne, sql } from "drizzle-orm";
 import { recordMappingEvent } from "../mappingEvents";
 import { loadAreas } from "./namedAreas";
 
@@ -210,6 +210,26 @@ export async function changeArea(
         return;
       }
 
+      if (change.kind === "retire") {
+        // Lock the whole live list first, in id order, so two retires at once
+        // queue up instead of deadlocking (each holding its own row and waiting
+        // for the other's), and the count below is exact.
+        const live = await tx
+          .select({ key: namedAreasTable.key, name: namedAreasTable.name })
+          .from(namedAreasTable)
+          .where(isNull(namedAreasTable.retiredAt))
+          .orderBy(asc(namedAreasTable.id))
+          .for("update");
+        const target = live.find((a) => a.key === change.key);
+        // Not in the live list: lockArea below says whether it is retired or never existed.
+        if (target && live.length <= minAreas) {
+          throw new AreaChangeRefused(
+            "area",
+            `The island needs at least ${minAreas} areas, so ${target.name} can't be retired. Add another area first.`,
+          );
+        }
+      }
+
       const row = await lockArea(tx, change.key);
       let next: Row;
       let kind: "area_renamed" | "area_moved" | "area_retired";
@@ -227,18 +247,6 @@ export async function changeArea(
         next = { ...row, lat: change.lat, lng: change.lng };
         kind = "area_moved";
       } else {
-        // Lock every live area so two retires at once can't both pass the count.
-        const live = await tx
-          .select({ id: namedAreasTable.id })
-          .from(namedAreasTable)
-          .where(isNull(namedAreasTable.retiredAt))
-          .for("update");
-        if (live.length <= minAreas) {
-          throw new AreaChangeRefused(
-            "area",
-            `The island needs at least ${minAreas} areas, so ${row.name} can't be retired. Add another area first.`,
-          );
-        }
         next = row;
         kind = "area_retired";
       }
