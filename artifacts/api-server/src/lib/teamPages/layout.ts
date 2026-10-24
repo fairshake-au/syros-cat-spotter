@@ -154,6 +154,8 @@ h2{font-size:18px;margin:28px 0 8px}
 .tag.unchecked{background:#fff;border:1px dashed #8a6d00;color:#5c4800}
 .tag.state{background:#fff;border:1px solid #8a877e}
 /* SYC-44 PR 7.1: the Issues section, in its own colour band, every row also labelled "Issue". */
+.openreports{background:#fdf1d6;border:1px solid #c9a227;border-radius:6px;padding:0;margin:12px 0 0;font-weight:700}
+.openreports a{display:block;padding:12px;color:#5c4800;min-height:44px;box-sizing:border-box}
 .issues{background:#eef2f9;border-top:6px solid #2f5d9e;border-radius:8px;padding:2px 12px 12px;margin:28px 0 12px}
 .issues h3{margin-top:20px}
 .report.issue{border-left-color:#2f5d9e}
@@ -652,6 +654,9 @@ details.filters>summary{display:none}
 .catmap .mapband.b164{display:block}
 .catsummary .col-facts>:first-child,.catsummary .catactions>:first-child{margin-top:12px}
 .jump{margin:32px 0 0;border-radius:0}
+.catcols{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:0 28px;align-items:start}
+.catcols>div{min-width:0}
+.catside{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow-y:auto}
 }
 `;
 

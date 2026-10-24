@@ -26,6 +26,7 @@ import type { IssueReport } from "../issues/queue";
 import { reasonLabel } from "../issues/alertEmail";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
+import { timeAgo } from "./queuePage";
 import { rowMenu } from "./rowMenu";
 import { renderAppearanceSection } from "./appearancePage";
 import { byWhom, coatPhraseOf, renderCatFacts, statementHref, statusLine, type Shown } from "./catFacts";
@@ -259,7 +260,30 @@ const ISSUE_STATE: Record<IssueReport["state"], string> = {
  * first, each linking to its row in the Queue. Team only, and drawn only when
  * there are some. The reporter is never named: there is nothing to name.
  */
-function issueStrip(strip: { reports: IssueReport[]; total: number } | null | undefined): string {
+type IssueStrip = { reports: IssueReport[]; total: number; open?: number };
+
+/**
+ * The amber box above the facts (spec §3.1): "1 open report: Looks injured ·
+ * 2 days ago", linking to the newest open one in the Queue. Open means the
+ * Queue's own open states, `new` and `looking`; `done` and `nothing_needed`
+ * are closed. Nothing when none is open (the Reports section still lists the
+ * closed ones). `open` counts them all; `reports` holds only the newest 50.
+ */
+function openReportsBox(strip: IssueStrip | null | undefined, now: Date): string {
+  if (!strip) return "";
+  const open = strip.reports.filter((i) => i.state === "new" || i.state === "looking");
+  const newest = open[0];
+  if (!newest) return "";
+  const n = Math.max(strip.open ?? 0, open.length);
+  const id = esc(encodeURIComponent(newest.id));
+  return (
+    '<aside class="openreports" aria-label="Open reports">' +
+    `<a href="/api/team?open=${id}#r-${id}">${n === 1 ? "1 open report" : `${n} open reports`}: ${esc(reasonLabel(newest.reason))} · ` +
+    `${esc(timeAgo(newest.at, now))}</a></aside>`
+  );
+}
+
+function issueStrip(strip: IssueStrip | null | undefined): string {
   if (!strip || strip.total === 0) return "";
   const items = strip.reports
     .map(
@@ -276,7 +300,7 @@ function issueStrip(strip: { reports: IssueReport[]; total: number } | null | un
     )
     .join("");
   return (
-    `<section id="issue-strip" class="issues"><h2>Reports about this cat (${strip.total})</h2>` +
+    `<section id="issue-strip" class="issues"><h2>Reports (${strip.total})</h2>` +
     '<p class="hint">Problems the public reported with this cat\'s photos, name or page. Team only.</p>' +
     `<ul class="hplain">${items}</ul>` +
     (strip.total > strip.reports.length
@@ -500,6 +524,7 @@ export function renderCatPage(
   const summaryParts = {
     photo: main,
     facts:
+      openReportsBox(opts.issues, now) +
       renderCatFacts(v, now, { byId, shown, island }) +
       (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
       `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`,
@@ -573,10 +598,15 @@ export function renderCatPage(
         renderCatActions(v, may, { notice: formsNotice, colonies: opts.colonies ?? [], kept: opts.kept, done: opts.done }),
       ) +
       jump +
+      // Below the summary: History left, the rest in a narrower right column
+      // on a wide screen (spec §4). On a phone it is one column, in this order.
+      '<div class="catcols"><div class="catmain">' +
+      history +
+      '</div><div class="catside">' +
+      `<section>${photos}</section>` +
       issueStrip(opts.issues) +
       renderAppearanceSection(v, may, opts.done, undefined, { fold: true, open: opts.openCoat === true }) +
-      photos +
-      history,
+      "</div></div>",
   });
 }
 

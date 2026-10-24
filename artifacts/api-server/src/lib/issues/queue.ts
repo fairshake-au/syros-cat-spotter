@@ -251,14 +251,17 @@ export async function getIssueReport(publicId: string): Promise<IssueReport | nu
 export async function issueStripFor(
   viewer: CapabilityHolder,
   catId: number,
-): Promise<{ reports: IssueReport[]; total: number } | null> {
+): Promise<{ reports: IssueReport[]; total: number; open: number } | null> {
   if (!can(viewer, "view_welfare_queue")) return null;
   const [rows, count] = await Promise.all([
     issueRows(sql`r.cat_id = ${catId}`, sql`order by at desc, r.id desc limit ${STRIP_LIMIT}`),
     db.execute(sql`
-      select count(*)::int as n from welfare_reports
-       where kind = 'content' and is_draft = false and cat_id = ${catId}`),
+      select count(*)::int as n,
+              (count(*) filter (where state in ('new', 'looking')))::int as open
+         from welfare_reports
+        where kind = 'content' and is_draft = false and cat_id = ${catId}`),
   ]);
   // The heading counts them all, not just the newest STRIP_LIMIT drawn (ship review, finding 3).
-  return { reports: rows.map(toIssue), total: Number((count.rows[0] as { n: number } | undefined)?.n ?? 0) };
+  const c = count.rows[0] as { n: number; open: number } | undefined;
+  return { reports: rows.map(toIssue), total: Number(c?.n ?? 0), open: Number(c?.open ?? 0) };
 }
