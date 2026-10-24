@@ -604,6 +604,7 @@ const en: Dict = {
   howSafetyDistance: 'Keep a step or two back and let them come to you if they want to. A cat that stays a bit wary of people is a cat that stays out of the road and out of trouble — being careful around strangers is one of the things keeping it alive. Picking one up, or feeding it, does it no favours.',
   howSafetyLeaveBe: 'So: photograph them, admire them, leave them be.',
   howSafetyHurt: 'If you find a cat that is hurt or sick, that is different, and the app will tell you what to do.',
+  safetyDontFeedBody: 'Scraps make cats sick and draw them onto busy roads. More food also means more kittens than we can help.',
   campaignOpensAt: 'Opens {host} in your browser',
   statsUnavailable: 'Couldn\'t load your stats just now.',
   // SYC-508 (couldnt-load-try-again.md): the shared "Couldn't load" state.
@@ -1415,6 +1416,7 @@ const el: Dict = {
   howSafetyDistance: 'Κράτα ένα-δυο βήματα απόσταση και άσε τες να έρθουν σ\' εσένα, αν το θέλουν. Μια γάτα που κρατάει μια επιφύλαξη απέναντι στους ανθρώπους είναι μια γάτα που μένει μακριά από τον δρόμο και μακριά από τους μπελάδες — το να προσέχει με τους ξένους είναι ένα από τα πράγματα που την κρατούν ζωντανή. Το να τη σηκώσεις ή να την ταΐσεις δεν της κάνει κανένα καλό.',
   howSafetyLeaveBe: 'Λοιπόν: φωτογράφισέ τες, θαύμασέ τες, άσε τες ήσυχες.',
   howSafetyHurt: 'Αν βρεις μια γάτα τραυματισμένη ή άρρωστη, αυτό είναι διαφορετικό, και η εφαρμογή θα σου πει τι να κάνεις.',
+  safetyDontFeedBody: 'Τα αποφάγια αρρωσταίνουν τις γάτες και τις τραβούν σε πολυσύχναστους δρόμους. Περισσότερο φαγητό σημαίνει και περισσότερα γατάκια απ’ ό,τι μπορούμε να βοηθήσουμε.',
   campaignOpensAt: 'Ανοίγει το {host} στο πρόγραμμα περιήγησης',
   statsUnavailable: 'Δεν φορτώθηκαν τα στατιστικά σου αυτή τη στιγμή.',
   // SYC-508: drafts for Johnny's review pack (SYC-346).
@@ -2206,6 +2208,7 @@ const fr: Dict = {
   howSafetyDistance: 'Reste à un pas ou deux et laisse-les venir à toi s\'ils en ont envie. Un chat qui reste un peu méfiant envers les gens est un chat qui reste loin de la route et loin des ennuis — se méfier des inconnus fait partie de ce qui le garde en vie. Le prendre dans les bras, ou le nourrir, ne lui rend pas service.',
   howSafetyLeaveBe: 'Alors : photographie-les, admire-les, laisse-les tranquilles.',
   howSafetyHurt: 'Si tu trouves un chat blessé ou malade, c\'est différent, et l\'application te dira quoi faire.',
+  safetyDontFeedBody: 'Les restes rendent les chats malades et les attirent sur les routes passantes. Plus de nourriture, c’est aussi plus de chatons qu’on ne peut en aider.',
   campaignOpensAt: 'Ouvre {host} dans ton navigateur',
   statsUnavailable: 'Impossible de charger tes statistiques pour le moment.',
   // SYC-508: drafts for Johnny's review pack (SYC-346).
