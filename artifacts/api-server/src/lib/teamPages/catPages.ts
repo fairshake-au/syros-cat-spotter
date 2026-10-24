@@ -483,13 +483,23 @@ function backToCats(back: string | undefined): string {
   return `<p class="back"><a href="${esc(back)}">&larr; ${words}</a></p>`;
 }
 
+/**
+ * Only people who may add a team note see team notes (spec §3.2 item 3): the
+ * Health note and the history rows go from a view drawn for anyone else. The
+ * page is for island-wide team members today, and every one of them holds
+ * add_team_note, so this is the second lock, not the first.
+ */
+const withoutTeamNotes = (v: TeamCatView): TeamCatView =>
+  v.history.some((h) => h.kind === "team_note") ? { ...v, history: v.history.filter((h) => h.kind !== "team_note") } : v;
+
 export function renderCatPage(
-  v: TeamCatView,
+  view: TeamCatView,
   personName: string,
   opts: CatPageOptions = {},
 ): string {
-  const { cat, records } = v;
   const may = opts.may ?? (() => false);
+  const v = may("add_team_note") ? view : withoutTeamNotes(view);
+  const { cat, records } = v;
   const island = opts.island === true;
   const now = opts.now ?? new Date();
   // The message goes where the page lands: beside the statement after a

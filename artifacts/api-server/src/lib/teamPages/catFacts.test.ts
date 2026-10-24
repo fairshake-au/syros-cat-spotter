@@ -536,3 +536,29 @@ describe("the facts row: Health note (SYC-602 spec §3.1, §3.2 item 3)", () => 
     expect(renderCatFacts(v, NOW, optsFor(v))).toContain("<dt>Health note</dt>");
   });
 });
+
+describe("the page shows team notes only to someone who may add one (spec §3.2 item 3)", () => {
+  const withNote = view({
+    history: [
+      statement(2, {
+        kind: "team_note",
+        said: "Note (team only): “Secret health words”",
+        noteText: "Secret health words",
+      }),
+    ],
+  });
+
+  it("draws the Health note and the history row for add_team_note", () => {
+    const html = renderCatPage(withNote, "Maria", { now: NOW, may: (c) => c === "add_team_note" });
+    expect(html).toContain("<dt>Health note</dt>");
+    expect(html).toContain("Secret health words");
+  });
+
+  it("draws neither, anywhere, for a viewer without it", () => {
+    const html = renderCatPage(withNote, "Maria", { now: NOW, may: (c) => c !== "add_team_note" });
+    expect(html).not.toContain("Secret health words");
+    expect(html).not.toContain("Health note");
+    expect(html).not.toContain("team only");
+    expect(renderCatPage(withNote, "Maria", { now: NOW })).not.toContain("Secret health words");
+  });
+});
