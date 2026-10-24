@@ -34,8 +34,10 @@ export function FollowButton({ catId, catName, deviceId, isFollowing, isOnline }
   const queryClient = useQueryClient();
   const follow = useFollowCat({ mutation: { networkMode: 'always' } });
   const unfollow = useUnfollowCat({ mutation: { networkMode: 'always' } });
-  // What the tap just asked for, until the server answers.
-  const [pending, setPending] = React.useState<boolean | null>(null);
+  // What the button shows. Starts from the page's data; a later change to that
+  // data always wins over what a tap left here.
+  const [shown, setShown] = React.useState(isFollowing);
+  React.useEffect(() => setShown(isFollowing), [isFollowing]);
   const inFlight = React.useRef(false);
   const [failed, setFailed] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,14 +48,14 @@ export function FollowButton({ catId, catName, deviceId, isFollowing, isOnline }
     [],
   );
 
-  const shown = pending ?? isFollowing;
   const name = (key: string) => t(key).split('{name}').join(catName);
 
   const onPress = async () => {
     if (inFlight.current || !isOnline) return;
     inFlight.current = true;
-    const want = !isFollowing;
-    setPending(want);
+    const before = shown;
+    const want = !before;
+    setShown(want);
     setFailed(false);
     try {
       const state: FollowState = await (want ? follow : unfollow).mutateAsync({
@@ -68,22 +70,16 @@ export function FollowButton({ catId, catName, deviceId, isFollowing, isOnline }
             ? { ...prev, isFollowing: state.isFollowing, followersCount: state.followersCount }
             : prev,
       );
-      // Show the server's answer until the page's data carries it too.
-      setPending(state.isFollowing);
+      setShown(state.isFollowing);
     } catch {
       setFailed(true);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setFailed(false), FAILED_NOTE_MS);
-      setPending(null);
+      setShown(before);
     } finally {
       inFlight.current = false;
     }
   };
-
-  // After a success, keep the new look until the cache write has reached the prop.
-  React.useEffect(() => {
-    if (pending !== null && isFollowing === pending) setPending(null);
-  }, [isFollowing, pending]);
 
   const bg = shown ? colors.primary : colors.card;
   const fg = shown ? colors.primaryForeground : colors.primary;

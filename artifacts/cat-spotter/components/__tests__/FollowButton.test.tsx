@@ -62,6 +62,39 @@ describe('FollowButton', () => {
     expect(qc.getQueryData(['/api/cats/7', 'dev-1'])).toMatchObject({ isFollowing: true, followersCount: 10 });
   });
 
+  it('with no cached page to patch, shows the server answer and the next tap unfollows', async () => {
+    h.follow.mockResolvedValue({ isFollowing: true, followersCount: 10 });
+    h.unfollow.mockResolvedValue({ isFollowing: false, followersCount: 9 });
+    view();
+    await act(async () => {
+      fireEvent.click(button());
+    });
+    expect(button().textContent).toBe('Following');
+    await act(async () => {
+      fireEvent.click(button());
+    });
+    expect(h.follow).toHaveBeenCalledTimes(1);
+    expect(h.unfollow).toHaveBeenCalledTimes(1);
+    expect(button().textContent).toBe('Follow');
+  });
+
+  it('a later change to the page data (a refetch) updates the button', async () => {
+    h.follow.mockResolvedValue({ isFollowing: true, followersCount: 10 });
+    const ui = (f: boolean) => (
+      <QueryClientProvider client={qc}>
+        <FollowButton catId={7} catName="Agatha" deviceId="dev-1" isFollowing={f} isOnline />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(ui(false));
+    await act(async () => {
+      fireEvent.click(button());
+    });
+    expect(button().textContent).toBe('Following');
+    rerender(ui(true));
+    rerender(ui(false));
+    expect(button().textContent).toBe('Follow');
+  });
+
   it('flips at once, before the server answers', async () => {
     let done: (v: unknown) => void = () => {};
     h.follow.mockReturnValue(new Promise((r) => (done = r)));
