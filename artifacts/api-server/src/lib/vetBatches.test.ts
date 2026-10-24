@@ -219,7 +219,7 @@ describe("the batch store", () => {
     await db.update(vetBatchesTable).set({ updatedAt: at(-(BATCH_KEEP_DAYS * day + 60_000)) }).where(eq(vetBatchesTable.id, stale));
     await db.update(vetBatchesTable).set({ updatedAt: at(-(BATCH_KEEP_DAYS - 1) * day) }).where(eq(vetBatchesTable.id, fresh));
     await db.update(vetBatchesTable).set({ updatedAt: at(-30 * day), savedAt: at(-30 * day) }).where(eq(vetBatchesTable.id, saved));
-    expect(await removeStaleBatches(base)).toBeGreaterThanOrEqual(1);
+    expect((await removeStaleBatches(base)).removed).toBeGreaterThanOrEqual(1);
     expect(await getBatch(stale)).toBeNull();
     expect(await photoRows(staleIds)).toEqual([]);
     expect(await getBatch(fresh)).not.toBeNull();
@@ -272,7 +272,7 @@ describe("the batch store", () => {
     const sIds = (await getBatch(stale))!.cats[0]!.photos.map((p) => p.photoId);
     await hideEvent(sIds[0]!);
     await db.update(vetBatchesTable).set({ updatedAt: new Date(Date.now() - (BATCH_KEEP_DAYS * day + 60_000)) }).where(eq(vetBatchesTable.id, stale));
-    expect(await removeStaleBatches()).toBeGreaterThanOrEqual(1);
+    expect((await removeStaleBatches()).removed).toBeGreaterThanOrEqual(1);
     expect(await getBatch(stale)).toBeNull();
     expect(await removedState(sIds)).toEqual([true]);
   });
@@ -291,7 +291,7 @@ describe("the batch store", () => {
     await keepPhoto(badIds[0]!, cat.id);
     const old = new Date(Date.now() - (BATCH_KEEP_DAYS * day + 60_000));
     await db.update(vetBatchesTable).set({ updatedAt: old }).where(inArray(vetBatchesTable.id, [bad, good]));
-    expect(await removeStaleBatches()).toBeGreaterThanOrEqual(1);
+    expect((await removeStaleBatches()).removed).toBeGreaterThanOrEqual(1);
     expect(await getBatch(good)).toBeNull();
     expect(await photoRows(goodIds)).toEqual([]);
     expect(await getBatch(bad)).not.toBeNull();

@@ -351,8 +351,8 @@ export async function abandonBatch(id: number): Promise<void> {
   });
 }
 
-/** Removes every unsaved batch untouched for BATCH_KEEP_DAYS; how many. */
-export async function removeStaleBatches(now: Date = new Date()): Promise<number> {
+/** Removes every unsaved batch untouched for BATCH_KEEP_DAYS; how many went, and how many could not. */
+export async function removeStaleBatches(now: Date = new Date()): Promise<{ removed: number; failed: number }> {
   const cutoff = new Date(now.getTime() - BATCH_KEEP_DAYS * DAY_MS);
   const stale = await db
     .select({ id: vetBatchesTable.id })
@@ -382,5 +382,5 @@ export async function removeStaleBatches(now: Date = new Date()): Promise<number
     }
   }
   if (failed) logger.warn({ failed, removed }, "vet batch clean-up: some batches were left");
-  return removed;
+  return { removed, failed };
 }
