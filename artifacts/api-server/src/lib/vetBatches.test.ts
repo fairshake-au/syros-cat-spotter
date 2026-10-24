@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { addPerson, db, photosTable, pool, vetBatchesTable } from "@workspace/db";
+import { addPerson, db, photosTable, photoVisibilityEventsTable, pool, vetBatchesTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import {
   abandonBatch,
@@ -19,6 +19,8 @@ import { removeTestPerson } from "../test/removeTestPerson";
 import { getAppSettings } from "./appSettings";
 import { athensToday } from "./athensTime";
 import { ROUND_MAX } from "./vetVisits";
+import { hidePhoto, seedCat } from "../test/roleKit";
+import { cleanUpVetPhotos, keepPhoto } from "../test/vetPhotoKit";
 
 // SYC-677 Task 3: the batch store. A batch is a draft round of cats at the
 // vet; its photos are staged (hard-deleted if the draft goes).
@@ -51,6 +53,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await cleanUpVetPhotos();
   if (made.length) await db.delete(vetBatchesTable).where(inArray(vetBatchesTable.id, made));
   await removeTestPerson(email);
   await pool.end();
@@ -223,5 +226,75 @@ describe("the batch store", () => {
     expect((await photoRows(freshIds)).length).toBe(1);
     expect(await getBatch(saved)).not.toBeNull();
     expect((await photoRows(savedIds)).length).toBe(1);
+  });
+
+  // photo_visibility_events is append-only and references the photo, so a
+  // staged photo that has an event can't be deleted: it is marked removed.
+  async function hideEvent(photoId: number) {
+    await hidePhoto(photoId);
+  }
+  async function removedState(ids: number[]) {
+    return (await photoRows(ids)).map((r) => r.removedAt !== null);
+  }
+
+  // A photo marked removed names who removed it (removed_by, no cascade), so
+  // that person can never be deleted afterwards: this one is left in the
+  // shared test database on purpose, like other tests' people with history.
+  async function historyBatch() {
+    const p = await addPerson({ email: `vitest-vetbatch-hist-${RUN}-${made.length}@example.com`, name: "Vt hist", addedBy: "cli:vitest", roles: ["staff"] });
+    const id = await createBatch({ id: p.id }, {});
+    made.push(id);
+    return id;
+  }
+
+  it("a staged photo with a visibility event is still taken out by removeCat, abandonBatch and the sweep (marked removed)", async () => {
+    const day = 24 * 3600 * 1000;
+    const id = await historyBatch();
+    const a = await addCat(id, [await jpeg(41)]);
+    const b = await addCat(id, [await jpeg(42)]);
+    if (!a.ok || !b.ok) throw new Error("add failed");
+    const batch = (await getBatch(id))!;
+    const aIds = batch.cats[0]!.photos.map((p) => p.photoId);
+    const bIds = batch.cats[1]!.photos.map((p) => p.photoId);
+    await hideEvent(aIds[0]!);
+    await removeCat(a.batchCatId);
+    expect(await removedState(aIds)).toEqual([true]);
+    const [kept] = await db.select({ data: photosTable.data }).from(photosTable).where(eq(photosTable.id, aIds[0]!));
+    expect(kept!.data).toBeNull();
+    await hideEvent(bIds[0]!);
+    await abandonBatch(id);
+    expect(await getBatch(id)).toBeNull();
+    expect(await removedState(bIds)).toEqual([true]);
+
+    const stale = await historyBatch();
+    const s = await addCat(stale, [await jpeg(43)]);
+    if (!s.ok) throw new Error(s.reason);
+    const sIds = (await getBatch(stale))!.cats[0]!.photos.map((p) => p.photoId);
+    await hideEvent(sIds[0]!);
+    await db.update(vetBatchesTable).set({ updatedAt: new Date(Date.now() - (BATCH_KEEP_DAYS * day + 60_000)) }).where(eq(vetBatchesTable.id, stale));
+    expect(await removeStaleBatches()).toBeGreaterThanOrEqual(1);
+    expect(await getBatch(stale)).toBeNull();
+    expect(await removedState(sIds)).toEqual([true]);
+  });
+
+  it("a sweep with one failing batch still removes the others", async () => {
+    const day = 24 * 3600 * 1000;
+    const bad = await newBatch();
+    const good = await newBatch();
+    const bc = await addCat(bad, [await jpeg(51)]);
+    const gc = await addCat(good, [await jpeg(52)]);
+    if (!bc.ok || !gc.ok) throw new Error("add failed");
+    const badIds = (await getBatch(bad))!.cats[0]!.photos.map((p) => p.photoId);
+    const goodIds = (await getBatch(good))!.cats[0]!.photos.map((p) => p.photoId);
+    // A kept-visit link on the bad batch's photo blocks deleting the photo (FK).
+    const cat = await seedCat(null);
+    await keepPhoto(badIds[0]!, cat.id);
+    const old = new Date(Date.now() - (BATCH_KEEP_DAYS * day + 60_000));
+    await db.update(vetBatchesTable).set({ updatedAt: old }).where(inArray(vetBatchesTable.id, [bad, good]));
+    expect(await removeStaleBatches()).toBeGreaterThanOrEqual(1);
+    expect(await getBatch(good)).toBeNull();
+    expect(await photoRows(goodIds)).toEqual([]);
+    expect(await getBatch(bad)).not.toBeNull();
+    expect((await photoRows(badIds)).length).toBe(1);
   });
 });

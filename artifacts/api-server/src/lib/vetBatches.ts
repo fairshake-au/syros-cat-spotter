@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, lt, isNull, sql } from "drizzle-orm";
 import {
   db,
   photosTable,
+  photoVisibilityEventsTable,
   vetBatchCatsTable,
   vetBatchesTable,
   vetBatchPhotosTable,
@@ -9,6 +10,7 @@ import {
 import { athensToday } from "./athensTime";
 import { getAppSettings } from "./appSettings";
 import type { FindResult } from "./findFromPhoto";
+import { logger, safeError } from "./logger";
 import { validatePhotoBase64 } from "./imageValidation";
 import { ROUND_MAX } from "./vetVisits";
 
@@ -84,15 +86,15 @@ function priceOrNull(price: string): string | null {
 }
 
 /** Locks the batch row; null if it is gone; throws BatchSavedError if saved. */
-async function lockDraft(tx: Tx, id: number): Promise<{ id: number } | null> {
+async function lockDraft(tx: Tx, id: number): Promise<{ id: number; createdBy: string } | null> {
   const [row] = await tx
-    .select({ id: vetBatchesTable.id, savedAt: vetBatchesTable.savedAt })
+    .select({ id: vetBatchesTable.id, savedAt: vetBatchesTable.savedAt, createdBy: vetBatchesTable.createdBy })
     .from(vetBatchesTable)
     .where(eq(vetBatchesTable.id, id))
     .for("update");
   if (!row) return null;
   if (row.savedAt) throw new BatchSavedError();
-  return { id: row.id };
+  return { id: row.id, createdBy: row.createdBy };
 }
 
 const touch = (tx: Tx, id: number, now = new Date()) =>
@@ -277,8 +279,15 @@ export async function updateCat(
   });
 }
 
-/** Deletes these batch cats, their link rows and their staged photos. */
-async function deleteCats(tx: Tx, batchCatIds: number[]): Promise<void> {
+/**
+ * Deletes these batch cats, their link rows and their staged photos. A photo
+ * is hard-deleted (it was never published). One that has a visibility event
+ * can't be: photo_visibility_events is append-only (a trigger refuses
+ * deletes) and references the photo, so, per Ruling R2, it is marked removed
+ * instead (bytes nulled, removed_by the batch's author), in the same
+ * transaction.
+ */
+async function deleteCats(tx: Tx, batchCatIds: number[], removedBy: string): Promise<void> {
   if (batchCatIds.length === 0) return;
   const staged = await tx
     .select({ photoId: vetBatchPhotosTable.photoId })
@@ -286,13 +295,23 @@ async function deleteCats(tx: Tx, batchCatIds: number[]): Promise<void> {
     .where(inArray(vetBatchPhotosTable.batchCatId, batchCatIds));
   // The link rows go first (the cascade), then the photos they pointed at.
   await tx.delete(vetBatchCatsTable).where(inArray(vetBatchCatsTable.id, batchCatIds));
-  if (staged.length) {
-    await tx.delete(photosTable).where(
-      inArray(
-        photosTable.id,
-        staged.map((r) => r.photoId),
-      ),
-    );
+  if (staged.length === 0) return;
+  const ids = staged.map((r) => r.photoId);
+  const withEvents = new Set(
+    (
+      await tx
+        .select({ photoId: photoVisibilityEventsTable.photoId })
+        .from(photoVisibilityEventsTable)
+        .where(inArray(photoVisibilityEventsTable.photoId, ids))
+    ).map((r) => r.photoId),
+  );
+  const plain = ids.filter((id) => !withEvents.has(id));
+  if (plain.length) await tx.delete(photosTable).where(inArray(photosTable.id, plain));
+  if (withEvents.size) {
+    await tx
+      .update(photosTable)
+      .set({ data: null, removedAt: new Date(), removedBy, removedReason: "SYC-677 staged vet photo discarded" })
+      .where(and(inArray(photosTable.id, [...withEvents]), isNull(photosTable.removedAt)));
   }
 }
 
@@ -303,26 +322,28 @@ export async function removeCat(batchCatId: number): Promise<void> {
       .select({ batchId: vetBatchCatsTable.batchId })
       .from(vetBatchCatsTable)
       .where(eq(vetBatchCatsTable.id, batchCatId));
-    if (!cat || !(await lockDraft(tx, cat.batchId))) return;
-    await deleteCats(tx, [batchCatId]);
+    const locked = cat ? await lockDraft(tx, cat.batchId) : null;
+    if (!cat || !locked) return;
+    await deleteCats(tx, [batchCatId], locked.createdBy);
     await touch(tx, cat.batchId);
   });
 }
 
-async function deleteBatch(tx: Tx, id: number): Promise<void> {
+async function deleteBatch(tx: Tx, id: number, removedBy: string): Promise<void> {
   const cats = await tx
     .select({ id: vetBatchCatsTable.id })
     .from(vetBatchCatsTable)
     .where(eq(vetBatchCatsTable.batchId, id));
-  await deleteCats(tx, cats.map((c) => c.id));
+  await deleteCats(tx, cats.map((c) => c.id), removedBy);
   await tx.delete(vetBatchesTable).where(eq(vetBatchesTable.id, id));
 }
 
 /** Throws the draft away: the batch, its cats and their staged photos. */
 export async function abandonBatch(id: number): Promise<void> {
   await db.transaction(async (tx) => {
-    if (!(await lockDraft(tx, id))) return;
-    await deleteBatch(tx, id);
+    const locked = await lockDraft(tx, id);
+    if (!locked) return;
+    await deleteBatch(tx, id, locked.createdBy);
   });
 }
 
@@ -334,18 +355,28 @@ export async function removeStaleBatches(now: Date = new Date()): Promise<number
     .from(vetBatchesTable)
     .where(and(isNull(vetBatchesTable.savedAt), lt(vetBatchesTable.updatedAt, cutoff)));
   let removed = 0;
+  let failed = 0;
   for (const { id } of stale) {
-    await db.transaction(async (tx) => {
-      // Locked, then looked at again: it may have been touched or saved since.
-      const [row] = await tx
-        .select({ id: vetBatchesTable.id })
-        .from(vetBatchesTable)
-        .where(and(eq(vetBatchesTable.id, id), isNull(vetBatchesTable.savedAt), lt(vetBatchesTable.updatedAt, cutoff)))
-        .for("update");
-      if (!row) return;
-      await deleteBatch(tx, id);
-      removed++;
-    });
+    // One batch that can't be removed must not stop the others.
+    try {
+      const did = await db.transaction(async (tx) => {
+        // Locked, then looked at again: it may have been touched or saved since.
+        const [row] = await tx
+          .select({ id: vetBatchesTable.id, createdBy: vetBatchesTable.createdBy })
+          .from(vetBatchesTable)
+          .where(and(eq(vetBatchesTable.id, id), isNull(vetBatchesTable.savedAt), lt(vetBatchesTable.updatedAt, cutoff)))
+          .for("update");
+        if (!row) return false;
+        await deleteBatch(tx, id, row.createdBy);
+        return true;
+      });
+      if (did) removed++;
+    } catch (err) {
+      failed++;
+      // Never the batch, a person or a photo: the error's safe fields only.
+      logger.error({ err: safeError(err) }, "vet batch clean-up: one batch could not be removed");
+    }
   }
+  if (failed) logger.warn({ failed, removed }, "vet batch clean-up: some batches were left");
   return removed;
 }
