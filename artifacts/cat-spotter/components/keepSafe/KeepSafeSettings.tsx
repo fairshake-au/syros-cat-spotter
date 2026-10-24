@@ -106,6 +106,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   line: { flex: 1, fontFamily: fonts.bodyBold, fontSize: fontSizes.sm },
   actions: { flexDirection: 'row', gap: spacing[5], paddingLeft: 30 },
-  link: { paddingVertical: 2 },
+  // SYC-509: 44px tall, not ~30.
+  link: { minHeight: 44, justifyContent: 'center' },
   linkText: { fontFamily: fonts.displaySemiBold, fontSize: fontSizes.sm },
 });
