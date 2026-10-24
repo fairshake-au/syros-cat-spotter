@@ -311,16 +311,15 @@ const UNKNOWN_STERILISED: SterilisedStatus = {
 };
 
 /**
- * Truncates a full ISO timestamp to its UTC calendar date (YYYY-MM-DD) for
- * the public API, matching `lastSeenAt`'s own UTC-day convention (the
- * `to_char(... at time zone 'UTC', ...)` below). resolve.ts's `notSeenSince`
- * keeps full timestamp precision internally for its own month-threshold
- * math — only the value handed to the public Cat payload is truncated,
- * since the app only ever renders a date ("Not seen since 3 June 2023"),
- * never a time.
+ * Cuts a full ISO timestamp to its Syros (Europe/Athens) calendar date
+ * (YYYY-MM-DD) for the public API, the same day `toPublicDay` gives
+ * `lastSeenAt`. resolve.ts's `notSeenSince` keeps full timestamp precision
+ * internally for its own month-threshold math; only the value handed to the
+ * public Cat payload is cut, since the app only ever renders a date
+ * ("Not seen since 3 June 2023"), never a time.
  */
-function toPublicDate(iso: string | null): string | null {
-  return iso ? iso.slice(0, 10) : null;
+export function toPublicDate(iso: string | null): string | null {
+  return iso ? toPublicDay(iso) : null;
 }
 
 /**
@@ -509,7 +508,7 @@ export async function listCatsWithStats(
       id: catsTable.id,
       lat: catsTable.lat,
       lng: catsTable.lng,
-      lastSeenDay: sql<string>`to_char(coalesce(max(${sightingsTable.createdAt}), ${catsTable.createdAt}) at time zone 'UTC', 'YYYY-MM-DD')`,
+      lastSeenDay: sql<string>`to_char(coalesce(max(${sightingsTable.createdAt}), ${catsTable.createdAt}) at time zone 'Europe/Athens', 'YYYY-MM-DD')`,
     })
     .from(catsTable)
     .leftJoin(
