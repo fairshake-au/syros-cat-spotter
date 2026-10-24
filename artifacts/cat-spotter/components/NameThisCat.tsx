@@ -130,7 +130,12 @@ function NameThisCatSheet({
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t('extraPhotoClose')}
+        />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View
             style={[
@@ -181,8 +186,8 @@ function NameThisCatSheet({
             )}
             {error && (
               <View style={styles.errorRow} accessibilityRole="alert">
-                <Feather name="alert-circle" size={14} color={colors.destructive ?? '#c0392b'} />
-                <Text style={[styles.errorText, { color: colors.destructive ?? '#c0392b' }]}>
+                <Feather name="alert-circle" size={14} color={colors.destructive} />
+                <Text style={[styles.errorText, { color: colors.destructive }]}>
                   {error}
                 </Text>
               </View>
@@ -194,7 +199,7 @@ function NameThisCatSheet({
             )}
             <Button
               variant="secondary"
-              size="md"
+              size="lg"
               block
               disabled={!isOnline || suggesting}
               onPress={() => void suggest()}
@@ -300,10 +305,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1.5, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  chip: {
+    borderWidth: 1.5,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   chipText: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
   errorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   errorText: { flex: 1, fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-  cancelBtn: { alignItems: 'center', paddingVertical: 4 },
+  cancelBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 44 },
   cancelText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
 });
