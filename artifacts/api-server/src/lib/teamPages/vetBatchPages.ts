@@ -376,7 +376,7 @@ function suggestions(p: BatchPage, c: BatchCat, action: string): string {
         const pic = r.photoPublicId ? `<img class="thumb" src="${thumbUrl(r.photoPublicId)}" alt="${esc(`Photo of ${line?.name ?? "this cat"}`)}" loading="lazy">` : "";
         return (
           `<li class="catrow">${pic}<span><strong>${catChip(line, r.catId)}</strong><br>` +
-          `<span class="findband ${r.band}">${esc(BAND_WORD[r.band])}</span>` +
+          `<span class="findband ${r.band}"><strong>${esc(BAND_WORD[r.band])}</strong></span>` +
           (r.reasoning ? ` <span class="meta">${esc(r.reasoning)}</span>` : "") +
           `</span><form method="post" action="${action}/confirm"><input type="hidden" name="catId" value="${r.catId}">` +
           '<button type="submit" class="primary">This is the cat</button></form></li>'
