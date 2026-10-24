@@ -95,7 +95,12 @@ export const vetBatchPhotosTable = pgTable(
       .references(() => photosTable.id),
     position: integer("position").notNull(),
   },
-  (t) => [index("vet_batch_photos_cat_idx").on(t.batchCatId, t.position)],
+  (t) => [
+    index("vet_batch_photos_cat_idx").on(t.batchCatId, t.position),
+    // teamOnlyPhotoIds (api-server lib/teamOnlyPhotos.ts) looks photos up here
+    // by photo id on every public photo read.
+    index("vet_batch_photos_photo_idx").on(t.photoId),
+  ],
 );
 
 /** The kept photos of a saved visit. Add-only. */

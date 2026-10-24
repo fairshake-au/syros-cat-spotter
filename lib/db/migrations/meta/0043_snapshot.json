@@ -4874,6 +4874,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "vet_batch_photos_photo_idx": {
+          "name": "vet_batch_photos_photo_idx",
+          "columns": [
+            {
+              "expression": "photo_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {

@@ -55,7 +55,8 @@ ALTER TABLE "vet_batches" ADD CONSTRAINT "vet_batches_colony_id_colonies_id_fk" 
 ALTER TABLE "vet_visit_photos" ADD CONSTRAINT "vet_visit_photos_photo_id_photos_id_fk" FOREIGN KEY ("photo_id") REFERENCES "public"."photos"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "vet_visit_photos" ADD CONSTRAINT "vet_visit_photos_cat_id_cats_id_fk" FOREIGN KEY ("cat_id") REFERENCES "public"."cats"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "vet_batch_cats_batch_idx" ON "vet_batch_cats" USING btree ("batch_id","position");--> statement-breakpoint
-CREATE INDEX "vet_batch_photos_cat_idx" ON "vet_batch_photos" USING btree ("batch_cat_id","position");
+CREATE INDEX "vet_batch_photos_cat_idx" ON "vet_batch_photos" USING btree ("batch_cat_id","position");--> statement-breakpoint
+CREATE INDEX "vet_batch_photos_photo_idx" ON "vet_batch_photos" USING btree ("photo_id");
 -- rollback-begin
 -- DROP TABLE "vet_visit_photos";
 -- DROP TABLE "vet_batch_photos";

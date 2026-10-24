@@ -20,8 +20,11 @@ const PHOTO_LINKS = [
   "photo_visibility_events.photo_id", // P8: untouched
   "sighting_photos.photo_id", // P5: left in place
   "sightings.photo_id", // P4: left pointing (append-only)
-  "vet_batch_photos.photo_id", // SYC-677: a draft batch's staged photo; how a removal treats it is decided in SYC-677 PR A's removal task
-  "vet_visit_photos.photo_id", // SYC-677: a saved visit's kept photo (add-only); how a removal treats it is decided in SYC-677 PR A's removal task
+  // SYC-677: a draft batch's staged photo, and a saved visit's kept photo
+  // (add-only). Left in place: removal nulls the picture like any other
+  // photo's, and the link rows stay (remove.test.ts, "SYC-677").
+  "vet_batch_photos.photo_id",
+  "vet_visit_photos.photo_id",
   "welfare_reports.photo_id", // P7: left pointing
 ];
 
