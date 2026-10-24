@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   useGetProfile,
@@ -37,7 +37,12 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { deviceId, username, heldUsername, nameNote, setNameNote, keepSafeOffer } = useDevice();
   const { isOnline } = useOffline();
-  const [tab, setTab] = useState<ProfileTab>('me');
+  // "See all my badges" on the badge celebration opens this screen with ?tab=badges.
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<ProfileTab>(params.tab === 'badges' ? 'badges' : 'me');
+  useEffect(() => {
+    if (params.tab === 'badges') setTab('badges');
+  }, [params.tab]);
   // The tabs scroll with the header, so a new tab starts at the top: "See all"
   // sits at the bottom of Me and would otherwise land mid-list (review #1).
   const scrollRef = useRef<ScrollView>(null);

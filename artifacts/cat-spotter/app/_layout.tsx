@@ -10,6 +10,7 @@ import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl, setPrelaunchKey } from '@workspace/api-client-react';
 import { AppearanceProvider } from '@/context/AppearanceContext';
+import { CelebrationSettingsProvider } from '@/context/CelebrationSettingsContext';
 import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
@@ -176,6 +177,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <AppearanceProvider>
+          <CelebrationSettingsProvider>
           <ErrorBoundary>
             <LanguageProvider>
               <DeviceProvider>
@@ -204,6 +206,7 @@ export default function RootLayout() {
               </DeviceProvider>
             </LanguageProvider>
           </ErrorBoundary>
+          </CelebrationSettingsProvider>
         </AppearanceProvider>
       </QueryClientProvider>
     </SafeAreaProvider>

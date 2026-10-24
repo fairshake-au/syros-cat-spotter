@@ -30,7 +30,7 @@ vi.mock('@/hooks/useColors', () => ({
   useColors: () => new Proxy({}, { get: () => '#123456' }),
 }));
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
-vi.mock('expo-router', () => ({ router: { push: h.push } }));
+vi.mock('expo-router', () => ({ router: { push: h.push }, useLocalSearchParams: () => ({}) }));
 vi.mock('@/context/LanguageContext', async () => {
   const { TRANSLATIONS } = await import('@/lib/i18n');
   return {
