@@ -622,30 +622,75 @@ describe("renderHistory (spec §3.5)", () => {
     expect(menuOf(rowOf(html, "s-82"))).not.toContain("Mark wrong");
   });
 
-  it("links a coat change's menu to Coat and markings, opened, where its Mark wrong stays", () => {
+  const coatRow = (id: number, over: Partial<TeamStatement> = {}) =>
+    statement(id, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" }, ...over });
+
+  it("draws a coat change as one line that links to its change in Coat and markings", () => {
     const v = catView({
-      history: [statement(80, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })],
-      appearance: { coat: { statements: [{ id: 80, counts: true, markable: true }] } },
+      history: [coatRow(80), statement(81, { kind: "markings", said: "Markings: White paws", correction: { kind: "appearance" } })],
+      appearance: {
+        coat: { statements: [{ id: 80, counts: true, markable: true }] },
+        markings: { statements: [{ id: 81, counts: true, markable: true }] },
+      },
     } as never);
-    const menu = menuOf(rowOf(draw(v), "s-80"));
-    expect(menu).toContain('href="?open=coat#appearance"');
-    expect(menu).not.toContain("<form");
+    const html = draw(v);
+    const row = rowOf(html, "s-80");
+    expect(row).toContain('id="s-80"');
+    expect(row).toContain('href="#a-80"');
+    expect(row).toContain("Coat changed to grey tabby");
+    expect(row).toContain("Maria");
+    expect(row).not.toContain("<details");
+    expect(row).not.toContain("<form");
+    expect(row).not.toContain("Mark wrong");
+    expect(row).not.toContain("open=coat");
+    const marks = rowOf(html, "s-81");
+    expect(marks).toContain("Markings changed to white paws");
+    expect(marks).toContain('href="#a-81"');
   });
 
-  it("links an outvoted (not counting) but markable coat change to the fold too", () => {
+  it("draws a replaced coat change as one crossed-out line too, without its extras", () => {
     const v = catView({
-      history: [statement(81, { kind: "coat", said: "Coat: Black", correction: { kind: "appearance" } })],
-      appearance: { coat: { statements: [{ id: 81, counts: false, markable: true }] } },
+      history: [
+        statement(83, { kind: "coat", said: "Marked wrong", replaces: 82, reason: "Wrong cat" }),
+        coatRow(82, { replacedBy: [83], correction: null, reason: "Not grey", photoUrl: "/api/team/photos/c.jpg" }),
+      ],
+      appearance: { coat: { statements: [] } },
     } as never);
-    expect(menuOf(rowOf(draw(v), "s-81"))).toContain('href="?open=coat#appearance"');
+    const row = rowOf(draw(v), "s-82");
+    expect(row).toContain("<del>");
+    expect(row).toContain('href="#a-82"');
+    expect(row).not.toContain("Not grey");
+    expect(row).not.toContain("See the photo");
+    expect(row).not.toContain("Replaced by");
+    // The retraction itself says nothing about a coat and is a plain row.
+    expect(rowOf(draw(v), "s-83")).toContain("Marked wrong");
+    expect(rowOf(draw(v), "s-83")).not.toContain("changed to");
   });
 
-  it("offers no link to a Mark wrong the fold doesn't have", () => {
+  it("keeps the coat line in the counts and in the filters", () => {
+    const v = catView({ history: [coatRow(80), statement(90, { kind: "note", said: "Note: hi" })] });
+    expect(historyCounts(v, []).changes).toBe(2);
+    expect(historyCounts(v, []).all).toBe(2);
+    expect(draw(v, [], { show: "changes" })).toContain('id="s-80"');
+    expect(draw(v, [], { show: "sightings" })).not.toContain('id="s-80"');
+  });
+
+  it("points a 'Corrects the change of' link at a coat row's change in Coat and markings", () => {
     const v = catView({
-      history: [statement(82, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })],
-      appearance: { coat: { statements: [{ id: 82, counts: true, markable: false }] } },
-    } as never);
-    expect(menuOf(rowOf(draw(v), "s-82"))).not.toContain("appearance");
+      history: [
+        coatRow(85, { replaces: 84, observedAt: "2026-04-02T10:00:00Z" }),
+        statement(86, { kind: "life_status", said: "Corrects a coat row", replaces: 84 }),
+        coatRow(84, { replacedBy: [85, 86], correction: null, observedAt: "2026-04-01T10:00:00Z" }),
+      ],
+    });
+    expect(draw(v)).toContain('<a href="#a-84">the change of 1 Apr 2026</a>');
+  });
+
+  it("draws the first filter as All with no number, the others with theirs", () => {
+    const v = catView({ history: [coatRow(80), statement(90, { kind: "note", said: "Note: hi" })] });
+    const filters = /<nav class="hfilters"[\s\S]*?<\/nav>/.exec(draw(v))![0];
+    expect(filters).toContain('<a href="?show=all#history" aria-current="page">All</a>');
+    expect(filters).toContain(">Changes and notes 2</a>");
   });
 
   it("counts the whole run even when the list is cut", () => {
@@ -674,7 +719,7 @@ describe("renderHistory (spec §3.5)", () => {
   it("filters with links that say how many, the current one marked", () => {
     const html = draw(sightingCat(), [], { show: "sightings" });
     const filters = /<nav class="hfilters"[\s\S]*?<\/nav>/.exec(html)![0];
-    expect(filters).toContain('<a href="?show=all#history">All 1</a>');
+    expect(filters).toContain('<a href="?show=all#history">All</a>');
     expect(filters).toContain('<a href="?show=sightings#history" aria-current="page">Sightings 1</a>');
     expect(filters).toContain('<a href="?show=visits#history">Vet visits 0</a>');
     expect(filters).toContain('<a href="?show=changes#history">Changes and notes 0</a>');
