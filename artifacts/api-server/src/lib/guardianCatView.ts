@@ -256,6 +256,7 @@ export const GUARDIAN_CAT_FIELDS = [
   "id",
   "syr",
   "name",
+  "namePending",
   "description",
   "lat",
   "lng",
