@@ -319,10 +319,9 @@ export function renderPeoplePage(o: {
       inviteForm(o.colonies) +
       `<h2>Everyone</h2>` +
       (o.people.length === 0 ? `<p class="empty">Nobody is on the list.</p>` : o.people.map((p) => card(p, p.id === o.openId)).join("")) +
-      `<h2>Joined in the last 7 days</h2>` +
       (o.recent.length === 0
-        ? `<p class="empty">Nobody has joined in the last 7 days.</p>`
-        : `<ul class="joined7">${o.recent.map((p) => `<li><a href="${PEOPLE}?open=${esc(p.id)}#p-${esc(p.id)}">${esc(p.name)}</a> · ${esc(p.roles)}</li>`).join("")}</ul>`);
+        ? ""
+        : `<h2>Joined in the last 7 days</h2><ul class="joined7">${o.recent.map((p) => `<li><a href="${PEOPLE}?open=${esc(p.id)}#p-${esc(p.id)}">${esc(p.name)}</a> · ${esc(p.roles)}</li>`).join("")}</ul>`);
   }
   return page(o.viewer, "People", body);
 }

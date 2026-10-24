@@ -63,7 +63,6 @@ describe("People (SYC-577)", () => {
     expect(fold).not.toBeNull();
     expect(fold![1]).toContain('name="email"');
     expect(html.indexOf("Invite someone")).toBeLessThan(html.indexOf("<h2>Everyone</h2>"));
-    expect(html.indexOf("<h2>Everyone</h2>")).toBeLessThan(html.indexOf("Joined in the last 7 days"));
   });
 
   it("no longer says to type the address carefully", () => {
