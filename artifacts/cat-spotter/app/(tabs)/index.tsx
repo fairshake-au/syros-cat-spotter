@@ -144,7 +144,7 @@ export default function HomeScreen() {
             <View style={styles.heroGreeting}>
               <Text style={styles.heroHello}>{t('homeGreeting')}</Text>
               {/* SYC-509: the label keeps the wave emoji from being read aloud. */}
-              <Text style={styles.heroName} numberOfLines={1} accessibilityLabel={spokenText(displayName)}>
+              <Text style={styles.heroName} numberOfLines={1} accessibilityLabel={spokenText(displayName) || displayName}>
                 {displayName} 👋
               </Text>
             </View>

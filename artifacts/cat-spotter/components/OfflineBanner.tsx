@@ -15,8 +15,8 @@ export function OfflineBanner() {
   return (
     <View
       style={[styles.banner, { backgroundColor: colors.accent }]}
-      accessibilityRole="alert"
       accessibilityLiveRegion="polite"
+      aria-live="polite"
     >
       <Feather name="wifi-off" size={14} color={colors.accentForeground} aria-hidden />
       <Text style={[styles.text, { color: colors.accentForeground }]}>

@@ -76,6 +76,8 @@ export function LocationPicker({
   }, [latitude, longitude]);
 
   const commit = (next: LatLng) => {
+    // Update the ref now, so key repeats faster than a render still add up.
+    centerRef.current = next;
     setCenter(next);
     onChangeRef.current(next);
   };
@@ -168,6 +170,8 @@ export function LocationPicker({
         style={[styles.surface, webOnly.noTouchScroll]}
         {...panResponder.panHandlers}
         focusable
+        // "application" lets screen readers pass the arrow keys through to the map.
+        role="application"
         accessibilityLabel={t('mapPickerLabel')}
         // react-native-web passes keydown through on a focusable View.
         {...({ onKeyDown } as object)}

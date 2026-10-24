@@ -92,7 +92,7 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
             {seenText}
           </Text>
           {distanceText !== null && (
-            <>
+            <View style={styles.distance}>
               <Feather
                 name="map-pin"
                 size={12}
@@ -102,7 +102,7 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
               <Text style={[styles.meta, { color: colors.mutedForeground }]}>
                 {distanceText}
               </Text>
-            </>
+            </View>
           )}
         </View>
         {(
@@ -164,6 +164,8 @@ const styles = StyleSheet.create({
   // The discoverer line wraps (SYC-578), so pin the star to its first line.
   metaRowTop: { alignItems: 'flex-start', flexWrap: 'nowrap' },
   metaIcon: { marginTop: 2 },
+  // The pin and its distance wrap as one, never leaving the pin alone on a line.
+  distance: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaWrap: { flexShrink: 1 },
   meta: {
     fontSize: 12,

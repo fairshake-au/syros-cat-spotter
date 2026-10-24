@@ -187,8 +187,8 @@ export function HomeScreenNudgeBanner() {
 }
 
 const styles = StyleSheet.create({
-  // SYC-509: 44pt tap area around the 16pt close icon; the negative margin keeps the layout.
-  closeHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', margin: -14 },
+  // SYC-509: 44pt tap area around the 16pt close icon; the negative margins keep the row height without covering the text beside it.
+  closeHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -14, marginHorizontal: -4 },
   // Full-screen wrapper, clear of the tab bar and safe-area insets.
   // `box-none` so nothing except the card itself is tappable — no dimmed
   // backdrop, no blocking of the content behind it.

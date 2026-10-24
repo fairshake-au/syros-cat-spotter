@@ -28,6 +28,18 @@ describe('SYC-509: keyboard alternative to dragging the web map', () => {
     render(<LocationPicker {...START} onChange={() => {}} />);
     const surface = screen.getByLabelText('t:mapPickerLabel');
     expect(surface.getAttribute('tabindex')).toBe('0');
+    // Without a role, many screen readers ignore the label on a plain div.
+    expect(surface.getAttribute('role')).toBe('application');
+  });
+
+  it('adds up quick repeated key presses before a re-render', () => {
+    const onChange = vi.fn();
+    render(<LocationPicker {...START} onChange={onChange} />);
+    const surface = screen.getByLabelText('t:mapPickerLabel');
+    fireEvent.keyDown(surface, { key: 'ArrowUp' });
+    fireEvent.keyDown(surface, { key: 'ArrowUp' });
+    const [first, second] = onChange.mock.calls.map((c) => c[0].latitude);
+    expect(second).toBeGreaterThan(first);
   });
 
   it('arrow keys move the pin the way a drag would', () => {

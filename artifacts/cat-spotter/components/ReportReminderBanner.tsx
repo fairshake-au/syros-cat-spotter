@@ -69,9 +69,9 @@ function ReminderBanner({
 }
 
 const styles = StyleSheet.create({
-  // SYC-509: 44pt tap area around the 16pt close icon; the negative margin keeps the layout.
+  // SYC-509: 44pt tap area around the 16pt close icon; the negative margins keep the row height without covering the text beside it.
   actionHit: { minHeight: 44, justifyContent: 'center', marginVertical: -12 },
-  closeHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', margin: -14 },
+  closeHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -14, marginHorizontal: -4 },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',

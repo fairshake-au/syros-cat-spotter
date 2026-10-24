@@ -455,8 +455,8 @@ export function CatPicker({
 }
 
 const styles = StyleSheet.create({
-  // SYC-509: 44pt tap area around a 16pt icon; the negative margin keeps the layout.
-  clearHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', margin: -14 },
+  // SYC-509: 44pt tap area around a 16pt icon; the negative margins keep the row height without covering the text beside it.
+  clearHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -14, marginHorizontal: -4 },
   container: { flex: 1 },
   header: {
     flexDirection: 'row',
