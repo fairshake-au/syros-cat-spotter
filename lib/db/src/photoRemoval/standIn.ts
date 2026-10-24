@@ -4,8 +4,9 @@ import type pg from "pg";
  * SYC-462 spec §4.2: the photo the public already sees in place of a hidden
  * main photo, for the repoint. The newest cover photo of the cat's resolved
  * sightings that is neither hidden nor removed nor a vet visit's team-only
- * photo (SYC-677: kept in vet_visit_photos, or staged in a batch not yet
- * saved), newest by created_at, then id; or 0, "no photo". Mirrors
+ * photo (SYC-677, Ruling R8, fail closed: any photo linked in
+ * vet_visit_photos or vet_batch_photos, unless it is some cat's main photo),
+ * newest by created_at, then id; or 0, "no photo". Mirrors
  * displayPhotoRows in the api-server
  * (lib/photoVisibility.ts); the parity test there (T14) keeps the two the same.
  */
