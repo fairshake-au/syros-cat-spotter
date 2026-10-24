@@ -128,8 +128,14 @@ describe("Colony health with no colonies (§8.2)", () => {
   const html = renderHealthPage({ ...base, rows: [] } as HealthReport, { ...o, sort: "name", dir: "asc" });
   it("says there are no colonies and links to the Colonies page, not See all time", () => {
     expect(html.replace(/<[^>]+>/g, "")).toContain("No colonies yet. Colonies are set up on the Colonies page.");
-    expect(html).toContain('href="/api/team/colonies"');
+    const line = /<p class="empty" id="nothing">([\s\S]*?)<\/p>/.exec(html)![1]!;
+    expect(line).toContain('<a href="/api/team/colonies">');
+    expect(line.replace(/<[^>]+>/g, "")).toBe("No colonies yet. Colonies are set up on the Colonies page.");
     expect(html).not.toContain("See all time");
+  });
+  it("an empty report still has #worked-out outside the fold", () => {
+    expect(outsideFold(html)).toContain('id="worked-out"');
+    expect(foldOf(html)).not.toContain("worked-out");
   });
 });
 
