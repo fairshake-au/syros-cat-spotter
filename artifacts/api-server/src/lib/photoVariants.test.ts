@@ -1,8 +1,9 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { eq } from "drizzle-orm";
 import { db, photosTable, photoVariantsTable, pool } from "@workspace/db";
 import { clearVariants, makeVariant, variantFor } from "./photoVariants";
+import { logger } from "./logger";
 
 // SYC-396 PR 1.2 (spec §11): small, medium and card (360px) versions of a catalogue photo.
 
@@ -89,6 +90,26 @@ describe("variantFor", () => {
     const photo = await seedPhoto(Buffer.from("fake-jpeg"));
     expect(await variantFor(photo.id, "small")).toBeNull();
     expect(await rowsFor(photo.id)).toHaveLength(0);
+  });
+
+  it("still returns the bytes, and logs a warning, when saving the version throws", async () => {
+    // For example the old CHECK rejecting 'card' before migration 0041 has run.
+    const photo = await seedPhoto(await fixtureJpeg(800, 600));
+    const tx = vi.spyOn(db, "transaction").mockRejectedValueOnce(new Error("check constraint"));
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    try {
+      const out = await variantFor(photo.id, "card");
+      expect(out).not.toBeNull();
+      expect((await sharp(out!).metadata()).width).toBe(360);
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({ size: "card" }),
+        "photo version could not be saved",
+      );
+      expect(await rowsFor(photo.id)).toHaveLength(0);
+    } finally {
+      tx.mockRestore();
+      warn.mockRestore();
+    }
   });
 
   it("is removed with its photo (the cascade)", async () => {

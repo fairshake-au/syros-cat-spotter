@@ -61,14 +61,22 @@ export async function variantFor(photoId: number, size: VariantSize): Promise<Bu
   // UPDATE; once it commits, the re-checked `data is not null` fails and
   // nothing is saved (PR review F5: a bare INSERT … WHERE EXISTS read the old
   // snapshot and could still insert).
-  const saved = await db.transaction(async (tx) => {
-    const live = await tx.execute(
-      sql`select id from photos where id = ${photoId} and data is not null for key share`,
-    );
-    if ((live.rowCount ?? 0) === 0) return "removed" as const;
-    await tx.insert(photoVariantsTable).values({ photoId, size, bytes }).onConflictDoNothing();
-    return "saved" as const;
-  });
+  let saved: "removed" | "saved";
+  try {
+    saved = await db.transaction(async (tx) => {
+      const live = await tx.execute(
+        sql`select id from photos where id = ${photoId} and data is not null for key share`,
+      );
+      if ((live.rowCount ?? 0) === 0) return "removed" as const;
+      await tx.insert(photoVariantsTable).values({ photoId, size, bytes }).onConflictDoNothing();
+      return "saved" as const;
+    });
+  } catch (err) {
+    // For example the old CHECK rejecting 'card' before migration 0041 has run.
+    // The picture is still served, just not kept.
+    logger.warn({ err: safeError(err), size }, "photo version could not be saved");
+    return bytes;
+  }
   if (saved === "removed") return null;
   return bytes;
 }
