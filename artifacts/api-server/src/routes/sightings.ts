@@ -335,6 +335,7 @@ async function computeMatchCandidates(
       return {
         catId: cat.id,
         name: cat.name,
+        namePending: cat.namePending,
         photoUrl: shownPhotos.get(cat.id) ?? null,
         confidence: m.confidence,
         reasoning: m.reasoning,
@@ -748,6 +749,7 @@ async function storedAnswer(stored: {
     candidates: present.map((m) => ({
       catId: m.catId,
       name: byId.get(m.catId)!.name,
+      namePending: byId.get(m.catId)!.namePending,
       photoUrl: photos.get(m.catId) ?? null,
       confidence: m.score,
       reasoning: "",

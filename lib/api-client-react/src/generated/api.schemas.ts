@@ -382,7 +382,7 @@ export interface CatNaming {
   deviceId: string;
   /**
      * @minLength 1
-     * @maxLength 200
+     * @maxLength 60
      */
   name: string;
 }
@@ -660,6 +660,12 @@ export interface CreateSightingError {
 export interface MatchCandidate {
   catId: number;
   name: string;
+  /**
+     * True while Syros Cats has left this cat for spotters to name;
+     * `name` is then its SYR number and the app shows "No name yet".
+     * Optional so an older answer still reads.
+     */
+  namePending?: boolean;
   photoUrl: string | null;
   /** Match likelihood 0-1 */
   confidence: number;

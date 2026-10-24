@@ -1392,7 +1392,7 @@ components:
       description: A spotter's name for a cat left for spotters. The secret travels in X-Device-Secret.
       properties:
         deviceId: { type: string, minLength: 1 }
-        name: { type: string, minLength: 1, maxLength: 200 }
+        name: { type: string, minLength: 1, maxLength: 60 }
       required: [deviceId, name]
     IssueReportRequest:
       type: object
@@ -1664,6 +1664,12 @@ components:
       properties:
         catId: { type: integer }
         name: { type: string }
+        namePending:
+          type: boolean
+          description: |
+            True while Syros Cats has left this cat for spotters to name;
+            `name` is then its SYR number and the app shows "No name yet".
+            Optional so an older answer still reads.
         photoUrl:
           type: string
           nullable: true

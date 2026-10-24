@@ -328,7 +328,7 @@ export const NameCatParams = zod.object({
 })
 
 
-export const nameCatBodyNameMax = 200;
+export const nameCatBodyNameMax = 60;
 
 
 
@@ -534,6 +534,7 @@ export const CreateSightingResponse = zod.object({
   "candidates": zod.array(zod.object({
   "catId": zod.number(),
   "name": zod.string(),
+  "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name;\n`name` is then its SYR number and the app shows \"No name yet\".\nOptional so an older answer still reads.\n'),
   "photoUrl": zod.string().nullable(),
   "confidence": zod.number().describe('Match likelihood 0-1'),
   "reasoning": zod.string()
@@ -564,6 +565,7 @@ export const RecheckSightingResponse = zod.object({
   "candidates": zod.array(zod.object({
   "catId": zod.number(),
   "name": zod.string(),
+  "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name;\n`name` is then its SYR number and the app shows \"No name yet\".\nOptional so an older answer still reads.\n'),
   "photoUrl": zod.string().nullable(),
   "confidence": zod.number().describe('Match likelihood 0-1'),
   "reasoning": zod.string()
