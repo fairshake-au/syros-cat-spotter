@@ -39,6 +39,6 @@ export interface Sighting {
      * out otherwise.
      */
   photoRemoved?: boolean;
-  /** A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
+  /** A Syros (Europe/Athens) calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
   createdAt: string;
 }

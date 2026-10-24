@@ -26,6 +26,15 @@ const item = (over: Partial<CatListItem> = {}): CatListItem => ({
   ...over,
 });
 
+describe("the card photo (§5.2)", () => {
+  it("offers the 160px and 360px versions, with src kept on small", () => {
+    const html = render();
+    expect(html).toContain('src="/api/team/photos/ph7/small"');
+    expect(html).toContain('srcset="/api/team/photos/ph7/small 160w, /api/team/photos/ph7/card 360w"');
+    expect(html).toContain('sizes="(min-width:1000px) 200px, 45vw"');
+  });
+});
+
 const render = (o: Partial<Parameters<typeof renderCatGridPage>[0]> = {}) =>
   renderCatGridPage({
     items: [item()],
@@ -37,6 +46,24 @@ const render = (o: Partial<Parameters<typeof renderCatGridPage>[0]> = {}) =>
     colonies: [],
     ...o,
   });
+
+describe("one row for Grid/Map and Find from a photo (§5.3)", () => {
+  it("puts the switch and the photo link in one .viewrow inside #catresults, switch first", () => {
+    const html = render({ filters: { colours: ["black"] } });
+    const results = html.slice(html.indexOf('<div id="catresults">'));
+    const row = /<div class="viewrow">([\s\S]*?)<\/div>/.exec(results)![1]!;
+    expect(row).toContain('<nav class="viewswitch"');
+    expect(row).toContain('<a class="findentrylink" href="/api/team/cats/find?colours=black">Find from a photo</a>');
+    expect(row.indexOf("viewswitch")).toBeLessThan(row.indexOf("findentrylink"));
+    expect(html).not.toContain('class="findentry"');
+    expect(html.match(/class="viewrow"/g)).toHaveLength(1);
+  });
+
+  it("styles the row as wrapping flex, switch left and link right", () => {
+    const css = readFileSync(join(__dirname, "layout.ts"), "utf8");
+    expect(css).toMatch(/\.viewrow\{[^}]*display:flex[^}]*flex-wrap:wrap[^}]*\}/);
+  });
+});
 
 describe("the grid's links and styles", () => {
   it("uses its own class, so the colony page's 'Add cats' link keeps its look", () => {
@@ -79,9 +106,9 @@ describe("card contents", () => {
     expect(calico).toContain('<span class="cardfact">Calico</span>');
   });
 
-  it("SYC-443: a card with nothing known says Coat not known, and the description leaves the coat out", () => {
+  it("SYC-443 / SYC-619 §5.1: a card with nothing known leaves the coat line out, and the description leaves the coat out", () => {
     const none = render({ items: [item({ coat: [], pattern: null })] });
-    expect(none).toContain('<span class="cardfact">Coat not known</span>');
+    expect(none).not.toContain("Coat not known");
     expect(none).toContain('alt="Photo of Mimi &lt;b&gt;"');
     expect(none).not.toMatch(/Colour not known|undefined|null/);
   });
@@ -91,6 +118,66 @@ describe("card contents", () => {
     const late = render({ items: [item({ lastSeenAt: new Date("2026-08-31T21:30:00Z") })] });
     expect(late).toContain("Last seen on 1 Sept 2026");
     expect(render({ items: [item({ lastSeenAt: null })] })).toContain("Never seen since first recorded");
+  });
+});
+
+describe("SYC-619 §5.1: a card draws only what is known", () => {
+  const cardOf = (html: string, id: number) => {
+    const start = html.indexOf(`<li class="catcard"><a class="catcardlink" href="/api/team/cats/${id}"`);
+    expect(start).toBeGreaterThan(-1);
+    return html.slice(start, html.indexOf("</li>", start));
+  };
+
+  it("leaves out the coat and colony lines when neither is known; the mark line still shows", () => {
+    const card = cardOf(render({ items: [item({ id: 7, coat: [], pattern: null, colonyId: null })] }), 7);
+    expect(card).not.toContain("Coat not known");
+    expect(card).not.toContain("No colony");
+    expect(card).toContain('<span class="mark-word">Sterilised</span>');
+    expect(card).toContain('alt="Photo of Mimi &lt;b&gt;"');
+  });
+
+  it("shows the coat and the colony when both are known", () => {
+    const card = cardOf(
+      render({
+        items: [item({ id: 7, colonyId: 3 })],
+        colonies: [{ id: 3, name: "Ano Syros" }],
+      }),
+      7,
+    );
+    expect(card).toContain('<span class="cardfact">Ginger and white, pattern not known</span>');
+    expect(card).toContain('<span class="cardfact">Ano Syros</span>');
+  });
+
+  it("keeps the word Colony when the colony id is set but its name can't be found", () => {
+    const card = cardOf(render({ items: [item({ id: 7, colonyId: 9 })], colonies: [] }), 7);
+    expect(card).toContain('<span class="cardfact">Colony</span>');
+    expect(card).not.toContain("No colony");
+  });
+
+  it("draws the lines in the §5.1 order: name, coat, colony, mark, last seen, tag", () => {
+    const full = cardOf(
+      render({
+        items: [item({ id: 7, colonyId: 3, lives: "homed" })],
+        colonies: [{ id: 3, name: "Ano Syros" }],
+      }),
+      7,
+    );
+    // The alt text also names the coat, so look only at what is drawn.
+    const card = full.slice(full.indexOf('<span class="cardname">'));
+    const at = (s: string) => {
+      const i = card.indexOf(s);
+      expect(i).toBeGreaterThan(-1);
+      return i;
+    };
+    const order = [
+      at("<strong>Mimi &lt;b&gt;</strong>"),
+      at("Ginger and white"),
+      at("Ano Syros"),
+      at('<span class="mark-word">Sterilised</span>'),
+      at("Last seen"),
+      at("Has a home"),
+    ];
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 });
 

@@ -120,7 +120,8 @@ describe("the Cats grid", () => {
     };
     const g = card(ginger);
     expect(g).toContain("Ginger");
-    expect(g).toContain("No colony");
+    // §5.1: no colony, so no colony line (the word "No colony" is not drawn).
+    expect(g).not.toContain("No colony");
     expect(g).toContain('<span class="mark-word">Sterilised</span>');
     expect(g).toContain("Last seen");
     expect(g).toContain("3 days ago");

@@ -98,7 +98,7 @@ describe("T1: removes the photo from every place, and leaves another untouched",
     expect(rec.removed_at).toBeInstanceOf(Date);
 
     expect((await c.query(`select data from photos where id = $1`, [Q.photoId])).rows[0].data).toBe(qPic);
-    expect(await count(`select count(*)::int n from photo_variants where photo_id = $1`, [Q.photoId])).toBe(2);
+    expect(await count(`select count(*)::int n from photo_variants where photo_id = $1`, [Q.photoId])).toBe(3);
     expect((await c.query(`select primary_photo_id from cats where id = $1`, [Q.catId])).rows[0].primary_photo_id).toBe(
       Q.photoId,
     );
@@ -276,7 +276,7 @@ describe("dry run, T5 and T8", () => {
     expect(r.kind).toBe("plan");
     if (r.kind !== "plan") return;
     expect(r.plan.repoints).toEqual([{ catId: P.catId, to: P.standIn }]);
-    expect(r.plan.versions.sort()).toEqual(["medium", "small"]);
+    expect(r.plan.versions.sort()).toEqual(["card", "medium", "small"]);
     expect(r.plan.spotPhotos).toEqual([{ sightingId: P.sightingId, role: "first" }]);
     expect(r.plan.observations).toBe(1);
     expect(r.plan.reports).toBe(1);

@@ -15,8 +15,8 @@ import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
 // could contradict the value. Each value is trusted HTML: fixed words, and
 // data only through escapeHtml.
 //
-// Not shown yet, because nothing records them: "checked in person by the cat
-// guardian" (SYC-400) and the team's health note.
+// Not shown yet, because nothing records it: "checked in person by the cat
+// guardian" (SYC-400).
 
 export interface CatFact {
   label: string;
@@ -302,11 +302,36 @@ function ownerFact(v: TeamCatView): CatFact | null {
   };
 }
 
+/**
+ * The newest team note that still stands (SYC-602 spec §3.1): not marked wrong
+ * and not itself the "Marked wrong" row. A newer note wins; one marked wrong
+ * drops out and the next older shows. Null when there is none.
+ */
+export function healthNoteOf(v: TeamCatView): TeamStatement | null {
+  const standing = v.history.filter(
+    (h) => h.kind === "team_note" && h.replaces === null && h.replacedBy.length === 0 && h.noteText !== undefined,
+  );
+  if (standing.length === 0) return null;
+  return standing.reduce((best, h) => (Date.parse(h.createdAt) > Date.parse(best.createdAt) || (h.createdAt === best.createdAt && h.id > best.id) ? h : best));
+}
+
+function healthNoteFact(v: TeamCatView): CatFact | null {
+  const n = healthNoteOf(v);
+  if (!n || n.noteText === undefined) return null;
+  return {
+    label: "Health note",
+    // Escaped first, then the line breaks: the only markup is ours.
+    html: esc(n.noteText).replace(/\r?\n/g, "<br>"),
+    source: `${n.author.label}, ${day(n.createdAt)} · team only`,
+  };
+}
+
 export function catFacts(v: TeamCatView, now: Date, opts: FactsOpts): CatFact[] {
   const vaccinated = vaccinatedFact(v);
   const records = v.records;
   const clipped = records.sterilised.clippedTipSightings;
   const owner = ownerFact(v);
+  const health = healthNoteFact(v);
   const lastSource = seenSource(v, now);
   return [
     {
@@ -341,6 +366,7 @@ export function catFacts(v: TeamCatView, now: Date, opts: FactsOpts): CatFact[] 
     { label: "Colony", html: colonyFact(v) },
     { label: "Last seen", html: lastSeenFact(v, now), ...(lastSource ? { source: lastSource } : {}) },
     ...(vaccinated ? [{ label: "Vaccinated", html: vaccinated }] : []),
+    ...(health ? [health] : []),
   ];
 }
 
