@@ -1135,6 +1135,8 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     await deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }])
   ).get(cat.id)!;
   // A cat whose discoverer deleted their data has nobody to look up (SYC-63).
+  // A cat Syros Cats recorded is credited "Syros Cats" by serialiseCat itself
+  // (SYC-677 R22b), whatever this lookup finds.
   const [discoverer] =
     cat.discovererDeviceId === null
       ? []
