@@ -7,9 +7,8 @@ import { getGuidance } from "@workspace/welfare-guidance";
 import { commitStatement } from "./commitStatement";
 import { loadCatRecords } from "./observations";
 import { resolveSterilised } from "./resolve";
-import { listGuardianChanges } from "./guardianChanges";
 import { addCat, createBatch, getBatch, updateCat, updateShared } from "./vetBatches";
-import { ALREADY_SAVED, logVetVisit, saveBatch } from "./vetVisits";
+import { ALREADY_SAVED, logVetVisit, saveBatch, undoVetVisit } from "./vetVisits";
 import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-677 Task 4: saving a batch, one visit per cat, in ONE transaction.
@@ -220,9 +219,10 @@ describe("saveBatch", () => {
     expect(result.visits[0]!.overruled).toEqual([no.id]);
     const record = (await loadCatRecords([cat.id])).get(cat.id);
     expect(resolveSterilised(record?.observations ?? [], []).value).toBe(true);
-    const changes = await listGuardianChanges({ limit: 1000 });
-    const entry = changes.find((ch) => ch.type === "overruled" && ch.overruledId === no.id);
-    expect(entry).toMatchObject({ type: "overruled", reason: "vet visit on 24 Oct 2026" });
+    // The overruling row is on the cat's own records (not found by paging a shared, growing list).
+    const overruling = (record?.observations ?? []).find((o) => o.supersedesId === no.id);
+    expect(overruling).toMatchObject({ kind: "sterilised", supersedeReason: "vet visit on 24 Oct 2026" });
+    expect(overruling!.id).toBe(result.visits[0]!.sterilisedIds[0]);
   });
 
   it("an unconfirmed cat saves nothing and is named", async () => {
@@ -270,6 +270,15 @@ describe("saveBatch", () => {
     expect(saved.ok).toBe(true);
     expect(await visitRows([mimi.id])).toHaveLength(2);
     expect(await visitRows([other.id])).toHaveLength(1);
+  });
+
+  it("an undone same-day visit doesn't block the save", async () => {
+    const mimi = await insertCat("Mimi");
+    const logged = await logVetVisit(STAFF, { catId: mimi.id, date: "2026-10-24", value: { did: ["checked"], clinicId: CLINIC, costEur: null, paidBy: "syros_cats" } }, NOW);
+    await undoVetVisit(STAFF, logged.visitId, "logged by mistake", NOW);
+    const { id } = await makeBatch([{ catId: mimi.id }]);
+    const result = await saveBatch(STAFF, id, NOW);
+    expect(result.ok).toBe(true);
   });
 
   it("refuses 'Checked only' and a new cat, and saves nothing", async () => {
