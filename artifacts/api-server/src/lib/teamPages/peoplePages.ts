@@ -222,11 +222,17 @@ export interface Prefill {
   colonies: Map<number, { endDate: string | null; relationship: string | null }>;
 }
 
-function placementFields(colonies: ColonyOption[], pre?: Prefill): string {
+/** `form` makes the line ids unique when a page holds more than one set of boxes. */
+function placementFields(form: string, colonies: ColonyOption[], pre?: Prefill): string {
   const none = colonies.length === 0;
   const has = (r: string) => pre?.roles.includes(r) ?? false;
-  const roleBox = (value: string, label: string, disabled = false, note = "") =>
-    `<label class="choice${disabled ? " off" : ""}"><input type="checkbox" name="roles" value="${value}"${has(value) ? " checked" : ""}${disabled ? " disabled" : ""}> <span>${esc(label)}${note ? ` <em>${esc(note)}</em>` : ""}</span></label>`;
+  const roleBox = (value: string, label: string, line: string) => {
+    const id = `${form}-role-${value}`;
+    return (
+      `<label class="choice"><input type="checkbox" name="roles" value="${value}" aria-describedby="${id}"${has(value) ? " checked" : ""}> <span>${esc(label)}</span></label>` +
+      `<p class="hint roleline" id="${id}">${esc(line)}</p>`
+    );
+  };
   const rows = colonies
     .map((c) => {
       const cur = pre?.colonies.get(c.id);
@@ -250,11 +256,10 @@ function placementFields(colonies: ColonyOption[], pre?: Prefill): string {
     `<span>No colony yet: creates the first one <em>(a cat guardian with no other role)</em></span></label>`;
   return (
     `<fieldset><legend class="label">What will they be?</legend>` +
-    roleBox("staff", "A member of the Syros Cats team") +
-    roleBox("management", "A member of Syros Cats management") +
-    roleBox("guardian", "A cat guardian") +
-    // What the roles mean, in the words the invitee will be shown (SYC-522).
-    '<p class="hint">The team sees the whole island and records what they find. Management can do all of that and also invite people, change what they can do and sign anyone out. A cat guardian sees only the colonies they look after.</p>' +
+    // One line under each box, the words the invitee is shown (SYC-522, SYC-619 9.1).
+    roleBox("staff", "A member of the Syros Cats team", "Sees the whole island and records what they find.") +
+    roleBox("management", "A member of Syros Cats management", "Can also invite people, change what they can do and sign anyone out.") +
+    roleBox("guardian", "A cat guardian", "Sees only the colonies they look after.") +
     `</fieldset>` +
     `<fieldset><legend class="label">Colonies, for a cat guardian</legend>${startBox}${rows}</fieldset>` +
     (none
@@ -282,7 +287,7 @@ function inviteForm(colonies: ColonyOption[]): string {
     `<input id="inv-email" type="email" name="email" required autocomplete="off" maxlength="254">` +
     `<label class="l" for="inv-name">Their name</label>` +
     `<input id="inv-name" type="text" name="name" required maxlength="100" autocomplete="off">` +
-    placementFields(colonies) +
+    placementFields("inv", colonies) +
     `<label class="l" for="inv-lang">Language of the invitation</label>` +
     `<select id="inv-lang" name="language">${options}</select>` +
     `<p class="hint">The email says which colonies and what they are being asked to do. You cannot add a message of your own.</p>` +
@@ -338,7 +343,7 @@ export function renderRolesPage(o: {
     `<p>Now: ${esc(o.person.roles)}.</p>` +
       `<p class="hint">Tick what they should be from now on. Anything you leave unticked is taken away. The other managers are emailed.</p>` +
       `<form class="pform" method="post" action="${PEOPLE}/${encodeURIComponent(o.person.id)}/roles">` +
-      placementFields(o.colonies, o.pre) +
+      placementFields("roles", o.colonies, o.pre) +
       `<button class="pbtn go" type="submit">Save</button></form>`,
     backLink(PEOPLE, "People"),
   );
@@ -365,7 +370,7 @@ export function renderBringBackPage(o: {
     `<p>${esc(o.person.timing)}${o.held ? ` When they left they were ${esc(o.held)}.` : ""}</p>` +
       `<p class="hint">Nothing is restored automatically. Choose what they should be now. They will get a new invitation and read the promises again.</p>` +
       `<form class="pform" method="post" action="${PEOPLE}/${encodeURIComponent(o.person.id)}/bring-back">` +
-      placementFields(o.colonies) +
+      placementFields("back", o.colonies) +
       `<label class="l" for="bb-lang">Language of the invitation</label><select id="bb-lang" name="language">${langOptions}</select>` +
       `<button class="pbtn go" type="submit">Bring them back</button></form>`,
     backLink(`${PEOPLE}?tab=left`, "People who left"),
