@@ -26,6 +26,7 @@ export const statement = (id: number, over: Partial<TeamStatement> = {}): TeamSt
   movedFrom: null,
   photoUrl: null,
   sightingId: null,
+  vetVisitId: null,
   correction: null,
   ...over,
 });

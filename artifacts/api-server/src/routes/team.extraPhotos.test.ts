@@ -133,10 +133,15 @@ describe("the team's cat page", () => {
   it("marks the spot the matcher flagged, and only that one", () => {
     expect(html.split("May show more than one cat").length - 1).toBe(1);
     const chip = html.indexOf("May show more than one cat");
-    const faceThumb = html.indexOf(teamUrl(spot, "face"), html.indexOf("Sightings ("));
-    const plainThumb = html.indexOf(teamUrl(plain, "first"), html.indexOf("Sightings ("));
-    // The chip sits in the flagged sighting's row: after its thumbnail, before the next one's.
-    expect(chip).toBeGreaterThan(faceThumb);
+    const faceThumb = html.indexOf(teamUrl(spot, "face"), html.indexOf('<h2 id="history">'));
+    const plainThumb = html.indexOf(teamUrl(plain, "first"), html.indexOf('<h2 id="history">'));
+    // The chip sits in the flagged sighting's History row (beside its words, its
+    // thumbnail below them, SYC-602 PR 2), before the next one's thumbnail.
+    const row = html.indexOf(`id="sg-${spot.sightingId}"`);
+    expect(chip).toBeGreaterThan(row);
+    expect(chip).toBeLessThan(html.indexOf("</li>", row));
+    expect(faceThumb).toBeGreaterThan(chip);
+    expect(faceThumb).toBeLessThan(html.indexOf("</li>", row));
     expect(chip).toBeLessThan(plainThumb);
   });
 });

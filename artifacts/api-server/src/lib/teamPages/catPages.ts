@@ -6,26 +6,33 @@ import type {
   TeamPhoto,
   TeamStatement,
 } from "../teamCatView";
-import { EAR_TIP_NOT_CLIPPED, FOOD_AND_WATER_OUT } from "../teamCatView";
+import {
+  groupHistory,
+  HISTORY_SHOWN,
+  historyCounts,
+  historyShown,
+  isRoutine,
+  renderHistory,
+  runWords,
+  visitDidWords,
+  wrongFormNeeds,
+  type HistoryShow,
+} from "./catHistory";
+export { groupHistory, HISTORY_SHOWN, isRoutine, runWords, visitDidWords };
 import type { Capability } from "../capabilities";
+import type { VisitLine } from "../vetVisits";
 import type { QueueReport } from "../welfareQueue";
 import type { IssueReport } from "../issues/queue";
 import { reasonLabel } from "../issues/alertEmail";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { openMapLink, place } from "./position";
-import { t } from "./words";
 import { renderAppearanceSection } from "./appearancePage";
-import { byWhom, coatPhraseOf, renderCatFacts, statementHref, statusLine, vaccineWord, type Shown } from "./catFacts";
+import { byWhom, coatPhraseOf, renderCatFacts, statementHref, statusLine, type Shown } from "./catFacts";
 
 export type { Shown };
-import type { VisitLine } from "../vetVisits";
-import { euroText } from "../euros";
-import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
 import { fitView, mergeSameSpot, renderMap, type MapMarker } from "./map";
 import { BANDS, pointOnView } from "../mapTiles/geometry";
-import { rowMenu } from "./rowMenu";
-import { LIFE, dateInput, fold, lifeChoices, reasonInput, renderCatActions, summaryAndActions } from "./catActions";
+import { LIFE, renderCatActions, summaryAndActions } from "./catActions";
 export { LIFE };
 import { placeLabel } from "../areas/placeLabel";
 
@@ -56,25 +63,6 @@ const day = (iso: string) =>
 
 const time = (iso: string, text = when(iso)) =>
   `<time datetime="${esc(iso)}">${esc(text)}</time>`;
-
-// Positions print through position.ts (SYC-395, D9): 5 decimal places, with
-// an "Open map" link only for an island-wide viewer (`opts.island`). This
-// reverses SYC-245 / SYC-209 Decision 2B for outbound links only. The owner's
-// home pin never gets one (D5): it is printed with link: false.
-
-// Two buttons on each sighting (SYC-209 PR 3.4). Each is a POST form that
-// carries only the sighting's number: the server looks the position up, so no
-// position is ever in an address (K13). They replace the removed link to a map
-// company, and the page must never have both. Since SYC-396 PR 1.4 they sit in
-// the sighting's "More" menu (spec §7.3).
-const sightingButtons = (sightingId: number, may: (c: Capability) => boolean): string[] => [
-  may("add_feeding_site")
-    ? `<form method="post" action="/api/team/sites/from-sighting" class="sightact"><input type="hidden" name="sightingId" value="${sightingId}"><button type="submit">${esc(t("sighting.makeSite"))}</button></form>`
-    : "",
-  may("view_exact_location")
-    ? `<form method="post" action="/api/team/sites/map-at-sighting#map" class="sightact"><input type="hidden" name="sightingId" value="${sightingId}"><button type="submit">${esc(t("sighting.showOnMap"))}</button></form>`
-    : "",
-];
 
 /**
  * The public sterilised line, word for word as the app shows it
@@ -111,12 +99,6 @@ export interface TieMode {
 }
 
 // ── The team's cat page ────────────────────────────────────────────────────
-
-/** How many statements the history shows before "Show all" (SYC-219). */
-export const HISTORY_SHOWN = 20;
-
-const statementLink = (id: number, shown: Shown) =>
-  `<a href="${statementHref(id, shown)}">#${id}</a>`;
 
 
 /**
@@ -159,127 +141,6 @@ function deathNotice(v: TeamCatView, byId: Map<number, TeamStatement>, shown: Sh
   );
 }
 
-/**
- * The capability "Mark wrong" under this statement needs on this page, as
- * wrongForm decides it; null when the page draws no such form here.
- */
-function wrongFormNeeds(s: TeamStatement): Capability | null {
-  const c = s.correction;
-  if (!c || c.kind === "appearance") return null;
-  if (c.kind === "ear_tip_clipped" || c.kind === "sterilised") return "set_sterilisation";
-  if (c.kind === "colony") return "assign_cat_to_colony";
-  return "set_life_status";
-}
-
-/** "Mark wrong" under a standing statement (PR 4), when this person may. */
-function wrongForm(s: TeamStatement, may: (c: Capability) => boolean, kept?: KeptFields): string {
-  const c = s.correction;
-  const why = kept?.["reason"];
-  if (!c) return "";
-  // Colour and markings are marked wrong in the Appearance section (one form
-  // per statement on the page, SYC-2 PR 3.1).
-  if (c.kind === "appearance") return "";
-  const action = `/api/team/statements/${s.id}/wrong`;
-  const id = `w${s.id}`;
-  if (c.kind === "ear_tip_clipped") {
-    if (!may("set_sterilisation")) return "";
-    return (
-      `${fold(kept !== undefined)}<summary>Mark wrong</summary><form method="post" action="${action}">` +
-      '<input type="hidden" name="choice" value="not_clipped">' +
-      '<p class="hint">The cat goes back to Not known yet, unless something else says otherwise.</p>' +
-      reasonInput(`${id}-why`, "Why it isn't a clip", why) +
-      "<button type=\"submit\">Mark wrong: it's not a clip</button></form></details>"
-    );
-  }
-  if (c.kind === "colony") {
-    if (!may("assign_cat_to_colony")) return "";
-    // No choice to make: the server works out what stands instead.
-    return (
-      `${fold(kept !== undefined)}<summary>Mark wrong</summary><form method="post" action="${action}">` +
-      '<input type="hidden" name="choice" value="colony_previous">' +
-      '<p class="hint">The cat goes back to the colony it was in before this, or to no colony if there was none.</p>' +
-      reasonInput(`${id}-why`, undefined, why) +
-      '<button type="submit">Mark wrong</button></form></details>'
-    );
-  }
-  if (c.kind === "sterilised") {
-    if (!may("set_sterilisation")) return "";
-    const to = c.now === true ? "sterilised_no" : "sterilised_yes";
-    const toText = c.now === true ? "Not sterilised" : "Sterilised";
-    return (
-      `${fold(kept !== undefined)}<summary>Mark wrong</summary><form method="post" action="${action}">` +
-      `<input type="hidden" name="choice" value="${to}">` +
-      `<p>It should say: <strong>${esc(toText)}</strong></p>` +
-      reasonInput(`${id}-why`, undefined, why) +
-      '<button type="submit">Mark wrong</button></form></details>'
-    );
-  }
-  if (!may("set_life_status")) return "";
-  return (
-    `${fold(kept !== undefined)}<summary>Mark wrong</summary><form method="post" action="${action}">` +
-    '<fieldset><legend class="label">It should say</legend>' +
-    lifeChoices("choice", `${id}-to`, c.now) +
-    "</fieldset>" +
-    dateInput(`${id}-date`, "Date it happened", "(needed for “No longer with us”)") +
-    reasonInput(`${id}-why`, undefined, why) +
-    '<button type="submit">Mark wrong</button></form></details>'
-  );
-}
-
-function statementItem(
-  s: TeamStatement,
-  byId: Map<number, TeamStatement>,
-  shown: Shown,
-  may: (c: Capability) => boolean = () => false,
-  notice = "",
-  kept?: KeptFields,
-): string {
-  const replaced = s.replacedBy.length > 0;
-  const said = replaced ? `<del>${esc(s.said)}</del>` : esc(s.said);
-  const differs = Math.abs(Date.parse(s.observedAt) - Date.parse(s.createdAt)) > 60_000;
-  const meta =
-    `${esc(byWhom(s))} · ${time(s.createdAt)}` +
-    (differs ? ` · about ${time(s.observedAt)}` : "");
-  const replacements = s.replacedBy
-    .map((id) => byId.get(id))
-    .filter((r): r is TeamStatement => r !== undefined)
-    .map(
-      (r) =>
-        `<p class="replacement">Replaced by ${statementLink(r.id, shown)}: ${esc(r.said)}` +
-        (r.reason ? `. Why: ${esc(r.reason)}` : "") +
-        ` <span class="meta">(${esc(byWhom(r))}, ${time(r.createdAt)})</span></p>`,
-    )
-    .join("");
-  const moved = s.movedTo
-    ? `<p class="replacement">Moved to <a href="${esc(catHref(s.movedTo.cat.id))}">${esc(s.movedTo.cat.name)}</a> ` +
-      `<span class="syr">${esc(s.movedTo.cat.syr)}</span>` +
-      (s.movedTo.reason ? `. Why: ${esc(s.movedTo.reason)}` : "") +
-      ` <span class="meta">(${time(s.movedTo.at)})</span></p>`
-    : "";
-  const corrects = s.movedFrom
-    ? `<p class="meta">Moved here from <a href="${esc(catHref(s.movedFrom.cat.id))}">${esc(s.movedFrom.cat.name)}</a> ` +
-      `<span class="syr">${esc(s.movedFrom.cat.syr)}</span></p>`
-    : s.replaces != null
-      ? `<p class="meta">Corrects ${statementLink(s.replaces, shown)}</p>`
-      : "";
-  return (
-    `<li class="statement${replaced ? " replaced" : ""}" id="s-${s.id}">` +
-    notice +
-    `<p class="said"><span class="sid">#${s.id}</span> ${said}</p>` +
-    `<p class="meta">${meta}</p>` +
-    (s.reason ? `<p class="why">Why: ${esc(s.reason)}</p>` : "") +
-    corrects +
-    (s.photoUrl ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}">See the photo</a></p>` : "") +
-    replacements +
-    moved +
-    wrongForm(s, may, kept) +
-    (s.ownerClaim
-      ? '<p class="hint">This is the owner\'s own claim. To end this claim, use Remove owner under “Update this cat”.</p>'
-      : "") +
-    "</li>"
-  );
-}
-
 /** What the page says after a correction, by the `done` the form sent back. */
 const DONE: Record<string, string> = {
   life: "Saved. Where the cat lives is added to the history below.",
@@ -306,7 +167,7 @@ const DONE: Record<string, string> = {
 /** The messages that sit at the top of the page, not in "Update this cat". */
 const TOP_DONE = new Set(["died", "diedAlready"]);
 
-/** The messages that sit beside the Vet visits list. */
+/** The messages that sit at the top of History, where the vet visits are. */
 const VISIT_DONE = new Set(["visit", "visitWrong", "visitAlready", "visitReason"]);
 
 /** What the page says beside a photo after Hide or Restore (PR 6). */
@@ -328,8 +189,10 @@ export interface CatPageOptions {
   photo?: string;
   /** Every colony, for the "Colony" list. Only asked for if the person may assign. */
   colonies?: { id: number; name: string }[];
-  /** ?history=all: show every statement, not just the newest HISTORY_SHOWN. */
+  /** ?history=all: show every row, not just the newest HISTORY_SHOWN. */
   allHistory?: boolean;
+  /** ?show=: which of History's rows to show (spec §3.5). Left out: all of them. */
+  show?: HistoryShow;
   /**
    * Can the viewer see the whole island (`isIslandWide`)? Only then do
    * positions get an "Open map" link (D9). Left out means no link.
@@ -461,77 +324,6 @@ function galleryItem(
   );
 }
 
-// ── The history's routine sightings (spec §7.3) ─────────────────────────────
-
-/**
- * A routine row: something a spotter's sighting said that means all is well,
- * "Food and water were out" or "Ear tip not clipped". "No food or water" and
- * "Couldn't tell" are never folded under "looking well". Status, colony,
- * colour, name, notes, welfare reports and vet visits are never routine, nor
- * a clipped ear (it counts towards "Probably"), nor anything corrected or
- * correcting.
- */
-export function isRoutine(s: TeamStatement): boolean {
-  if (s.author.kind !== "spotter") return false;
-  if (s.replacedBy.length > 0 || s.replaces != null || s.movedTo || s.movedFrom) return false;
-  if (s.kind === "food_and_water") return s.said === FOOD_AND_WATER_OUT;
-  return s.kind === "ear_tip" && s.correction === null && s.said === EAR_TIP_NOT_CLIPPED;
-}
-
-type HistoryPart = { one: TeamStatement } | { run: TeamStatement[] };
-
-/** The history in order, with each run of two or more routine rows as one part. */
-export function groupHistory(rows: readonly TeamStatement[]): HistoryPart[] {
-  const parts: HistoryPart[] = [];
-  let run: TeamStatement[] = [];
-  const flush = () => {
-    if (run.length === 1) parts.push({ one: run[0]! });
-    else if (run.length > 1) parts.push({ run });
-    run = [];
-  };
-  for (const s of rows) {
-    if (isRoutine(s)) run.push(s);
-    else {
-      flush();
-      parts.push({ one: s });
-    }
-  }
-  flush();
-  return parts;
-}
-
-const dayMonth = (iso: string, withYear: boolean) =>
-  new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    ...(withYear ? { year: "numeric" } : {}),
-    timeZone: "Europe/Athens",
-  });
-
-const yearOf = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { year: "numeric", timeZone: "Europe/Athens" });
-
-/**
- * "Seen 19 times by spotters between 29 Jul and 24 Sep, looking well". Counted
- * by sighting: one sighting can say two routine things. The year is added
- * when the run isn't all in this year.
- */
-export function runWords(run: readonly TeamStatement[], now: Date): string {
-  const times = new Set(run.map((s) => (s.sightingId === null ? `row ${s.id}` : `sighting ${s.sightingId}`))).size;
-  // The earliest and latest dates seen. The history is in the order sightings
-  // were matched, which isn't always the order they were seen.
-  const seen = run.map((s) => s.observedAt).sort((a, b) => Date.parse(a) - Date.parse(b));
-  const first = seen[0]!;
-  const last = seen[seen.length - 1]!;
-  const thisYear = yearOf(now.toISOString());
-  const withYear = yearOf(first) !== thisYear || yearOf(last) !== thisYear;
-  const from = dayMonth(first, withYear);
-  const to = dayMonth(last, withYear);
-  if (times === 1) return `Seen once by a spotter on ${to}, looking well`;
-  return from === to
-    ? `Seen ${times} times by spotters on ${to}, looking well`
-    : `Seen ${times} times by spotters between ${from} and ${to}, looking well`;
-}
-
 // ── The small map of the cat's sightings (spec §7.1) ────────────────────────
 
 /** How many sightings the small map numbers: the newest, so it stays readable. */
@@ -542,7 +334,7 @@ export const MAP_SIGHTINGS = 30;
  * dashboard, numbered in time order (1 is the oldest shown), one marker per
  * spot, linking to the newest sighting there. No script; no position in any address.
  */
-function sightingsMap(v: TeamCatView, island: boolean): string {
+function sightingsMap(v: TeamCatView, island: boolean, hrefOf: (sightingId: number) => string): string {
   if (v.sightings.length === 0) return "";
   const shown = v.sightings.slice(0, MAP_SIGHTINGS).reverse();
   const markers: MapMarker[] = mergeSameSpot(
@@ -552,7 +344,8 @@ function sightingsMap(v: TeamCatView, island: boolean): string {
       n: i + 1,
       look: "seen",
       label: `Sighting ${i + 1}, ${when(s.at)}`,
-      href: `#sg-${s.id}`,
+      // Its row in History, the run line holding it, or the full list (historyShown).
+      href: hrefOf(s.id),
     })),
   );
   const more = v.sightings.length > shown.length;
@@ -567,7 +360,7 @@ function sightingsMap(v: TeamCatView, island: boolean): string {
     return '<p class="hint catmap">The map isn\'t available right now. The sightings are listed below.</p>';
   }
   // Sightings too far apart for one picture are said, never silently dropped.
-  const drawn = shown.filter((s) => pointOnView(view, BANDS[0].size, s) !== null).length;
+  const onMap = shown.filter((s) => pointOnView(view, BANDS[0].size, s) !== null).length;
   // The caption (spec §3.3): where the cat was last seen, in the same words as
   // the Last seen fact, and how many of the sightings the map shows.
   const place = esc(placeLabel(v.sightings[0]!));
@@ -581,8 +374,8 @@ function sightingsMap(v: TeamCatView, island: boolean): string {
     `<p class="mapcap"><span>${caption}</span>${
       island ? `<a class="tap" href="/api/team/cats?view=map&amp;focus=${v.cat.id}">Open the map</a>` : ""
     }</p>` +
-    (drawn < shown.length
-      ? `<p class="hint">${shown.length - drawn} ${shown.length - drawn === 1 ? "is" : "are"} too far from the others to fit on this map; see Sightings below.</p>`
+    (onMap < shown.length
+      ? `<p class="hint">${shown.length - onMap} ${shown.length - onMap === 1 ? "is" : "are"} too far from the others to fit on this map; see History below.</p>`
       : "") +
     "</div>"
   );
@@ -606,43 +399,6 @@ function photoStrip(v: TeamCatView): string {
   );
 }
 
-
-/** What a visit did, in words: "Sterilised, vaccinated (Rabies)". */
-export function visitDidWords(l: Pick<VisitLine, "did" | "vaccines" | "treatedNote">): string {
-  return l.did
-    .map((d, i) => {
-      const w = i === 0 ? DID_WORDS[d] : DID_WORDS[d].toLowerCase();
-      if (d === "vaccinated" && l.vaccines?.length) return `${w} (${l.vaccines.map(vaccineWord).join(", ")})`;
-      if (d === "treated" && l.treatedNote) return `${w} (${l.treatedNote})`;
-      return w;
-    })
-    .join(", ");
-}
-
-function visitItem(l: VisitLine, may: (c: Capability) => boolean): string {
-  const money =
-    "costEur" in l
-      ? `<br><span class="meta">${l.costEur == null ? "Cost not recorded" : esc(euroText(l.costEur))}` +
-        (l.paidBy ? ` · paid by ${esc(PAID_WORDS[l.paidBy].replace(/^A /, "a ").replace(/^The /, "the "))}` : "") +
-        (l.costReason ? `<br>Why the cost was different: ${esc(l.costReason)}` : "") +
-        "</span>"
-      : "";
-  const wrong = may("log_vet_visit")
-    ? `<details><summary>Mark the visit wrong</summary><form method="post" action="/api/team/vet-visits/${l.visitId}/wrong">` +
-      '<p class="hint">Everything this visit recorded is marked wrong with it.</p>' +
-      reasonInput(`vw${l.visitId}-why`) +
-      '<button type="submit">Mark the visit wrong</button></form></details>'
-    : "";
-  return (
-    `<li id="vv-${l.visitId}" class="statement">` +
-    `<strong>${time(l.date, day(l.date))}</strong>: ${esc(visitDidWords(l))}` +
-    `<br>${esc(l.clinicName)} · logged by ${esc(l.by)}` +
-    money +
-    (l.note ? `<br><span class="meta">${esc(l.note)}</span>` : "") +
-    wrong +
-    "</li>"
-  );
-}
 
 /**
  * Where "back" goes from a cat page: the Cats grid or Map the person just
@@ -695,15 +451,12 @@ export function renderCatPage(
   const visitDone = opts.done !== undefined && VISIT_DONE.has(opts.done);
   const formsNotice = atStatement || topDone || visitDone ? "" : notice;
   const byId = new Map(v.history.map((s) => [s.id, s]));
-  // The history is newest first. After a correction to an older statement
-  // the page lands on it, so then every statement is shown.
-  const newest = v.history.slice(0, HISTORY_SHOWN);
-  const shown: Shown =
-    opts.allHistory ||
-    v.history.length <= HISTORY_SHOWN ||
-    (atStatement && !newest.some((h) => h.id === opts.at))
-      ? null
-      : new Set(newest.map((h) => h.id));
+  const visitList = opts.visits ?? [];
+  // What History draws, so the links above it land on a row that is there
+  // (spec §3.5): "Why we think so", the notices and the map's markers.
+  const historyOpts = { show: opts.show ?? "all", all: opts.allHistory === true, at: opts.at, kept: opts.kept } as const;
+  const drawn = historyShown(v, visitList, historyOpts);
+  const shown = drawn.entries;
   const mainHidden = v.photos.find((p) => p.source === "main")?.hidden ?? null;
   const coat = coatPhraseOf(v);
   const main =
@@ -723,53 +476,16 @@ export function renderCatPage(
       renderCatFacts(v, now, { byId, shown, island }) +
       (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
       `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`,
-    map: sightingsMap(v, island),
+    map: sightingsMap(v, island, drawn.sightingHref),
   };
   const issueTotal = opts.issues?.total ?? 0;
   const jump =
     '<nav class="jump" aria-label="Sections of this page">' +
-    `<a href="#history">History (${v.history.length})</a>` +
+    `<a href="#history">History (${historyCounts(v, visitList).all})</a>` +
     `<a href="#photos">Photos (${v.photos.length})</a>` +
     '<a href="#appearance">Coat and markings</a>' +
     (issueTotal > 0 ? `<a href="#issue-strip">Reports (${issueTotal})</a>` : "") +
     "</nav>";
-
-  // A compact list: date, place and thumbnail. The position, "Open map" and
-  // the two buttons fold into each sighting's "More" menu (spec §7.3).
-  const sightings =
-    `<h2>Sightings (${v.sightings.length})</h2>` +
-    (v.sightings.length === 0
-      ? '<p class="empty">No sightings yet.</p>'
-      : '<ul class="sightings">' +
-        v.sightings
-          .map(
-            (s) =>
-              `<li id="sg-${s.id}">` +
-              (s.photoUrl
-                ? `<a href="${esc(s.photoUrl)}"><img class="thumb" src="${esc(s.photoUrl)}" alt="${esc(`Photo from the sighting on ${when(s.at)}`)}" loading="lazy"></a>`
-                : '<span class="thumb nothumb">No photo</span>') +
-              `<span class="sightwhat">${time(s.at)}<br>${esc(placeLabel(s))}` +
-              // SYC-415 spec §4.5: the matcher thought this spot's photos may be of more than one cat.
-              (s.mixedCats ? '<br><span class="mixed">May show more than one cat</span>' : "") +
-              rowMenu("More", `the sighting on ${when(s.at)}`, [
-                ...(island ? [`<p class="meta">${openMapLink(s.lat, s.lng)}</p>`] : []),
-                ...sightingButtons(s.id, may),
-              ]) +
-              "</span></li>",
-          )
-          .join("") +
-        "</ul>");
-
-  // Vet visits (spec §7.3): date, what was done, clinic and, for those who
-  // may see it, the cost. Each can be marked wrong, which undoes everything
-  // the visit recorded.
-  const visitList = opts.visits ?? [];
-  const visits =
-    `<h2 id="vet-visits">Vet visits (${visitList.length})</h2>` +
-    (visitDone ? notice : "") +
-    (visitList.length === 0
-      ? '<p class="empty">No vet visits recorded.</p>'
-      : '<ol class="history visits">' + visitList.map((l) => visitItem(l, may)).join("") + "</ol>");
 
   // After Hide or Restore, the message goes beside that photo (own keys only:
   // ?done=constructor must not reach Object.prototype).
@@ -795,36 +511,16 @@ export function renderCatPage(
           .join("") +
         "</div>");
 
-  const evidenceIds = new Set([
-    ...records.lifeStatus.supportingStatementIds,
-    ...records.lifeStatus.conflictingStatementIds,
-    ...records.sterilised.supportingStatementIds,
-    ...records.sterilised.conflictingStatementIds,
-  ]);
-  const keptWrong = (s: TeamStatement) => (opts.kept?.formKey === `wrong:${s.id}` ? opts.kept.fields : undefined);
-  const item = (s: TeamStatement) =>
-    statementItem(s, byId, shown, may, atStatement && s.id === opts.at ? notice : "", keptWrong(s));
-  const historyItems = groupHistory(shown === null ? v.history : newest)
-    .map((part) => {
-      if ("one" in part) return item(part.one);
-      // A run opens by itself when the page lands on one of its rows, or when
-      // "Why we think so" or "Says otherwise" above links to one of them.
-      const open = part.run.some((s) => (atStatement && s.id === opts.at) || evidenceIds.has(s.id));
-      return (
-        `<li class="statement routine"><details${open ? " open" : ""}><summary>${esc(runWords(part.run, now))}</summary>` +
-        `<ol class="history">${part.run.map(item).join("")}</ol></details></li>`
-      );
-    })
-    .join("");
-  const history =
-    `<h2 id="history">History (${v.history.length})</h2>` +
-    '<p class="hint">Newest first. A change marked wrong stays here, crossed out, with what replaced it.</p>' +
-    (v.history.length === 0
-      ? '<p class="empty">No changes yet.</p>'
-      : `<ol class="history">${historyItems}</ol>` +
-        (shown === null
-          ? ""
-          : `<p class="more"><a class="tap" href="?history=all#history">Show all ${v.history.length}</a></p>`));
+  // One list instead of three (spec §3.5): sightings, vet visits and changes.
+  const history = renderHistory(v, visitList, {
+    ...historyOpts,
+    // A correction's notice goes in its row; a vet visit's at the top of History.
+    notice: atStatement || visitDone ? notice : "",
+    may,
+    kept: opts.kept,
+    now,
+    island,
+  });
 
   return renderPage({
     title: cat.name,
@@ -849,8 +545,6 @@ export function renderCatPage(
       jump +
       issueStrip(opts.issues) +
       renderAppearanceSection(v, may, opts.done) +
-      sightings +
-      visits +
       photos +
       history,
   });

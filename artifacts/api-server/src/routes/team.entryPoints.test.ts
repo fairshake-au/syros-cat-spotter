@@ -226,7 +226,7 @@ describe("the cat page: two buttons on each sighting", () => {
         `<form method="post" action="/api/team/sites/from-sighting" class="sightact"><input type="hidden" name="sightingId" value="${id}"><button type="submit">Make a feeding site here</button></form>`,
       );
       expect(res.text).toContain(
-        `<form method="post" action="/api/team/sites/map-at-sighting#map" class="sightact"><input type="hidden" name="sightingId" value="${id}"><button type="submit">Show on our map</button></form>`,
+        `<form method="post" action="/api/team/sites/map-at-sighting#map" class="sightact"><input type="hidden" name="sightingId" value="${id}"><button type="submit">Show on the map</button></form>`,
       );
     }
     // The position is a link only (Open map, 5 places, by position.ts), never printed as numbers (SYC-517).

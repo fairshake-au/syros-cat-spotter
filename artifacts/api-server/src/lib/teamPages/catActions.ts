@@ -214,10 +214,7 @@ export function renderCatActions(
     vet +
     list +
     died +
-    // How changes work, folded into a short note you can open (spec §7.2), in #192's words.
-    // It moves to the History footer in PR 2.
-    '<details class="hownote"><summary>How changes work</summary>' +
-    '<p class="hint">Every change is saved with your name. Nothing is deleted. A change with an older date won\'t override a newer one. To undo a change, use <strong>Mark wrong</strong> on it in the history below.</p></details>' +
+    // "How changes work" is at the foot of History now (spec §3.2, SYC-602 PR 2).
     "</div>"
   );
 }

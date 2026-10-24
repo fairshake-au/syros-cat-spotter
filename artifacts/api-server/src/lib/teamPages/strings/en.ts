@@ -471,7 +471,7 @@ export const en = {
 
   // Entry points (SYC-209 PR 3.4): from a cat's sighting, and from a colony.
   "sighting.makeSite": "Make a feeding site here",
-  "sighting.showOnMap": "Show on our map",
+  "sighting.showOnMap": "Show on the map",
   "sites.sightingMarker": "Where the cat was seen",
   "sites.sightingLegend": "Dashed blue square: where the cat was seen.",
   "sproblem.sighting": "That sighting can't be found, or it isn't somewhere on Syros.",
