@@ -1,5 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { db, photosTable, vetBatchCatsTable, vetBatchPhotosTable } from "@workspace/db";
+import { logger, safeError } from "./logger";
 import { checkBatchFindLimits } from "../middlewares/rateLimit";
 import { findFromPhoto, type FindFilters, type FindOutcome, type FindResult } from "./findFromPhoto";
 import { BatchSavedError, getBatch, setSuggestions } from "./vetBatches";
@@ -61,8 +62,15 @@ export async function searchBatchCat(
 
   const outcome = await findFromPhoto(Buffer.from(first.data, "base64"), filtersFor(scope, batch.shared), now, {
     gate: async () => {
-      const limit = await checkBatchFindLimits(person.id, now.getTime());
-      return limit === "ok" ? null : limit;
+      try {
+        const limit = await checkBatchFindLimits(person.id, now.getTime());
+        return limit === "ok" ? null : limit;
+      } catch (err) {
+        // Fails closed, with the page and words, never the app's JSON 500
+        // (the same as the single-photo page, review finding 1).
+        logger.warn({ err: safeError(err) }, "vet batch find: the daily count failed");
+        return "counter_down";
+      }
     },
   });
   if (outcome.kind === "results") await setSuggestions(batchCatId, outcome.results.map(tidy));
