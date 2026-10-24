@@ -235,10 +235,14 @@ async function kittensNearSites(visible: Visible, now: Date): Promise<Set<number
  * `opts.asOf` (Colony health for a past range, SYC-396 PR 3.3a): the cats,
  * their sightings and colonies as they stood then (`loadTeamCats`'s asOf), so
  * the latest sighting and Not visited lately don't use later records.
+ * `opts.lean` (Home, SYC-620): for a caller that shows neither guardian names
+ * nor the Growing flag. It skips the placed-guardians query and the Growing
+ * check, so `guardianNames` is empty and `flags` never holds "growing" or
+ * "no_guardian". Every other figure is unchanged.
  */
 export async function colonyFigures(
   visible: Visible,
-  opts: { island: boolean; asOf?: Date; cats?: readonly TeamCat[] },
+  opts: { island: boolean; asOf?: Date; cats?: readonly TeamCat[]; lean?: boolean },
   now: Date = new Date(),
 ): Promise<Map<number, ColonyFigures>> {
   // `cats`: a caller that already loaded every cat (Home, SYC-603) passes them
@@ -253,11 +257,11 @@ export async function colonyFigures(
   const cats = all.filter((c) => c.colonyId !== null && covers(visible, c.colonyId));
 
   const [guardians, growing, tied, near] = await Promise.all([
-    placedGuardians(visible, now),
+    opts.lean ? Promise.resolve(new Map<number, string[]>()) : placedGuardians(visible, now),
     // Over every cat, so a cat new here that has since moved to a colony this
     // viewer can't see still counts here: the team and the colony's own cat
     // guardian read the same flag. Only the flags of visible colonies leave.
-    growingColonies(all, now),
+    opts.lean ? Promise.resolve(new Set<number>()) : growingColonies(all, now),
     kittensTiedToCats(cats, now),
     opts.island ? kittensNearSites(visible, now) : Promise.resolve(new Set<number>()),
   ]);
@@ -293,7 +297,7 @@ export async function colonyFigures(
     if (growing.has(colony.id)) flags.add("growing");
     if (tied.has(colony.id) || near.has(colony.id)) flags.add("kittens");
     // Decision 15: no placement in force AND no typed name.
-    if (names.length === 0 && blank(colony.guardianName)) flags.add("no_guardian");
+    if (!opts.lean && names.length === 0 && blank(colony.guardianName)) flags.add("no_guardian");
     if (streetCats.length > 0 && (streetLatest === null || streetLatest < notVisitedBefore)) flags.add("not_visited");
     out.set(colony.id, {
       colonyId: colony.id,

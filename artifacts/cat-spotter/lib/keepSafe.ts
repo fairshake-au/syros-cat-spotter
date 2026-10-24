@@ -77,20 +77,70 @@ export function peekRestore(deviceId: string, token: string): Promise<RestorePee
   });
 }
 
+/** Swaps the 8-digit emailed code for a handle that peek and redeem accept in place of the link token. */
+export function exchangeRestoreCode(deviceId: string, code: string): Promise<{ handle: string }> {
+  return customFetch(`/api/restore/code`, {
+    method: 'POST',
+    body: JSON.stringify({ deviceId, code }),
+    headers: { 'content-type': 'application/json' },
+    responseType: 'json',
+  });
+}
+
+/** What people paste or type: spaces and line breaks dropped. */
+export function normaliseCode(input: string): string {
+  return input.replace(/\s+/g, '');
+}
+
 export function redeemRestore(
   deviceId: string,
-  input: { token: string; choice: string; abandonCurrent: boolean; deleteCurrent?: boolean },
+  input: {
+    token: string;
+    choice: string;
+    abandonCurrent: boolean;
+    deleteCurrent?: boolean;
+    /** SYC-664 N-1: only the same phone's replay may answer; never a fresh move. */
+    replayOnly?: boolean;
+  },
+  options?: { timeoutMs?: number },
 ): Promise<{ deviceId: string; username: string | null }> {
   return customFetch(`/api/restore/redeem`, {
     method: 'POST',
     body: JSON.stringify({ deviceId, ...input }),
     headers: { 'content-type': 'application/json' },
     responseType: 'json',
+    ...(options?.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
   });
 }
 
+/**
+ * The link or handle can't be used. Never a 429 (SYC-664 ship review F1): the
+ * per-network limiter answers 429 with this same body, but "too many requests
+ * from this network" says nothing about the link, and a move may already have
+ * happened.
+ */
 export function isLinkNotValid(error: unknown): boolean {
-  return error instanceof ApiError && (error.data as { error?: unknown } | null)?.error === 'link_not_valid';
+  return (
+    error instanceof ApiError &&
+    error.status !== 429 &&
+    (error.data as { error?: unknown } | null)?.error === 'link_not_valid'
+  );
+}
+
+/**
+ * The server said no (a 4xx other than 429), as opposed to a 429, network
+ * error, timeout or 5xx, which may be worth asking again.
+ */
+export function isDefiniteRefusal(error: unknown): boolean {
+  return error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 429;
+}
+
+export function isCodeNotValid(error: unknown): boolean {
+  return error instanceof ApiError && (error.data as { error?: unknown } | null)?.error === 'code_not_valid';
+}
+
+export function isTooManyTries(error: unknown): boolean {
+  return error instanceof ApiError && (error.data as { error?: unknown } | null)?.error === 'too_many_tries';
 }
 
 export function isInvalidEmail(error: unknown): boolean {

@@ -28,6 +28,7 @@ import {
   type ReportChoice,
 } from '@/lib/deleteMyData';
 import { clearRecentPhotos } from '@/lib/recentPhotos';
+import { readPendingMove } from '@/lib/restoreWaiting';
 import { readStoredDeviceId, useDevice } from './DeviceContext';
 import { useOffline } from './OfflineContext';
 import { useReportQueue } from './ReportQueueContext';
@@ -173,6 +174,10 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
     setIdentityDeletedHandler(() => {
       const deviceId = deviceIdRef.current;
       if (!deviceId || busyRef.current || holdsRef.current > 0) return;
+      // SYC-664 N1: this phone's own move is pending (start-up couldn't reach
+      // the server). The 410 is the old id the move retired, not a deletion
+      // of this spotter: wipe nothing; the next start finishes the move.
+      if (readPendingMove()) return;
       busyRef.current = true;
       void (async () => {
         try {
@@ -183,6 +188,7 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
             // On the web every tab shares one saved identity. If another tab
             // already became a new spotter, wiping here would erase that
             // spotter's new spots and replace it: take it up instead.
+            if (readPendingMove()) return;
             const stored = await readStoredDeviceId();
             if (stored && stored !== deviceId) {
               if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.reload();
