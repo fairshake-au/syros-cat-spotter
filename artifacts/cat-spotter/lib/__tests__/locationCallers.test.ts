@@ -64,4 +64,11 @@ describe('location callers', () => {
     expect(src).toMatch(/useEffect\(\(\) => \{\s*setAsked\(true\);\s*void askAndLocate\(\);/);
     expect(src).toMatch(/gps=\{\{ coords, locating: locating \|\| !asked, denied \}\}/);
   });
+
+  // `loading` is true during the permission read itself; only a spotter who
+  // allowed location is actually waiting for a fix.
+  it('Spot shows "Getting your location" only when permission is granted', () => {
+    const src = read('app/(tabs)/spot.tsx');
+    expect(src).toMatch(/permission === 'granted' && locating && !coords && !photo/);
+  });
 });
