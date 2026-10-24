@@ -1,6 +1,8 @@
 import type { Capability } from "../capabilities";
 import { keptLine, type KeptFields } from "./signedOutPage";
-import { myCatPath } from "./guardianPages";
+import { myCatPath, guardianLastSeenWords } from "./guardianPages";
+import { lastSeenWords } from "./lastSeen";
+import type { ColonyCatRow } from "./colonyCatRows";
 import type { ColonyHistoryEntry, ColonyRow, ColonyView } from "../teamColonies";
 import { COLONY_NAME_MAX, COLONY_NOTES_MAX, GUARDIAN_NAME_MAX } from "../teamColonies";
 import type { CatToAdd } from "../colonyCats";
@@ -13,7 +15,7 @@ import { rowMenu } from "./rowMenu";
 import { place } from "./position";
 import { placeLabel } from "../areas/placeLabel";
 import { formatDate, formatDateTime, pageLanguage } from "./strings";
-import { markBar } from "./marks";
+import { markBadge, markBar } from "./marks";
 import type { ColonyFigures, ColonyFlag } from "../dashboard/colonyFigures";
 import type { SterilisedMark } from "../teamCatList";
 import { wordsIn, type WordKey, type Words } from "./words";
@@ -314,11 +316,14 @@ export function renderColoniesPage(opts: ColonyViewer & {
                 : "colonies.emptyTeam",
         )}</p>`;
   // The team's first visit with no colony yet (SYC-577): say what a colony is
-  // and offer "Create a colony" before "Recent changes" and the search.
+  // and offer "Create a colony" first.
   const leadCreate = opts.canCreate && opts.island !== false && opts.colonies.length === 0 && !searching;
   const create = opts.canCreate
     ? createForm(W, opts.island !== false, opts.island === false && opts.colonies.length === 0 && !searching, opts.kept)
     : "";
+  // SYC-619 §7.1: with no colony and no search there is nothing to search and
+  // nothing has changed, so the search form and Recent changes are left out.
+  const searchable = opts.colonies.length > 0 || searching;
   return renderPage({
     title: t("colonies.title"),
     active: "colonies",
@@ -335,19 +340,21 @@ export function renderColoniesPage(opts: ColonyViewer & {
       (leadCreate
         ? `<p>${w("colonies.lead")}</p>` + create
         : "") +
-      (opts.recentChanges ? recentChangesSection(W, opts.recentChanges) : "") +
-      `<form class="search" method="get" action="/api/team/colonies" role="search">` +
-      `<label class="label" for="colony-q">${w("colonies.searchLabel")}</label>` +
-      `<div class="searchrow"><input id="colony-q" name="q" type="search" value="${esc(opts.query)}" maxlength="200" autocomplete="off">` +
-      // Searching keeps the chosen order.
-      (opts.sort === "name" ? "" : `<input type="hidden" name="sort" value="${opts.sort}">`) +
-      `<button type="submit">${w("colonies.searchButton")}</button></div></form>` +
-      (searching ? `<p><a class="tap" href="/api/team/colonies">${w("colonies.showAll")}</a></p>` : "") +
+      (searchable
+        ? `<form class="search" method="get" action="/api/team/colonies" role="search">` +
+          `<label class="label" for="colony-q">${w("colonies.searchLabel")}</label>` +
+          `<div class="searchrow"><input id="colony-q" name="q" type="search" value="${esc(opts.query)}" maxlength="200" autocomplete="off">` +
+          // Searching keeps the chosen order.
+          (opts.sort === "name" ? "" : `<input type="hidden" name="sort" value="${opts.sort}">`) +
+          `<button type="submit">${w("colonies.searchButton")}</button></div></form>` +
+          (searching ? `<p><a class="tap" href="/api/team/colonies">${w("colonies.showAll")}</a></p>` : "")
+        : "") +
       (opts.colonies.length > 1 && opts.figures !== null ? sortBar(W, opts.sort) : "") +
       figuresLine +
       growingKey +
       list +
-      (leadCreate ? "" : create),
+      (leadCreate ? "" : create) +
+      (opts.recentChanges && searchable ? recentChangesSection(W, opts.recentChanges) : ""),
   });
 }
 
@@ -501,38 +508,64 @@ function historyList(W: Words, history: ColonyHistoryEntry[], island: boolean): 
   );
 }
 
+/**
+ * The colony's cats (SYC-619 spec §7.2, D3), already in the planner's order.
+ * Each row is a card: the cat's link fills it and the compact "⋯" sits at its
+ * right, beside the link (a fold can't go inside a link). Under the name, the
+ * mark and when it was last seen, never a place: the team reads the grid's
+ * words without its " · place"; a cat guardian reads the colony bar's mark
+ * words and the date only, in her language (redesign §10.2). A record with no
+ * mark (a merged-away half) keeps its row with neither line.
+ */
 function catList(
-  { w, t }: Words,
-  cats: ColonyView["cats"],
+  W: Words,
+  rows: readonly ColonyCatRow[],
   colonyId: number,
   mayTakeOut: boolean,
   island: boolean,
+  now: Date,
 ): string {
-  if (cats.length === 0) return `<p class="empty">${w("colony.noCats")}</p>`;
+  const { w, t } = W;
+  if (rows.length === 0) return `<p class="empty">${w("colony.noCats")}</p>`;
   return (
     `<ul class="cats">` +
-    cats
+    rows
       .map((c) => {
         const thumb = c.photoUrl
           ? `<img class="thumb" src="${esc(c.photoUrl)}" alt="" loading="lazy">`
           : `<span class="thumb nothumb">${w("colony.noPhoto")}</span>`;
+        // A cat guardian's own cat page (SYC-53 PR 2.1; SYC-416), built by
+        // guardianCatView only, never the team's (island-only) cat page.
+        const href = island ? `/api/team/cats/${c.id}` : myCatPath(c.id);
+        const lines =
+          c.mark === null
+            ? ""
+            : island
+              ? `<span class="status">${markBadge(c.mark)}</span>` +
+                `<span class="status">${esc(lastSeenWords(c.lastSeenAt, now))}</span>`
+              : `<span class="status">${markBadge(c.mark, t(BAR_WORD[c.mark]))}</span>` +
+                `<span class="status">${esc(
+                  guardianLastSeenWords(c.lastSeenAt ? c.lastSeenAt.toISOString().slice(0, 10) : null, W.lang, t),
+                )}</span>`;
         return (
-          (island
-            ? `<li><a class="catrow" href="/api/team/cats/${c.id}">${thumb}` +
-              `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span></a>`
-            : // A cat guardian's own cat page (SYC-53 PR 2.1; SYC-416), built by
-              // guardianCatView only, never the team's (island-only) cat page.
-              `<li><a class="catrow" href="${myCatPath(c.id)}">${thumb}` +
-              `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span></a>`) +
-          // In the cat's "More" menu, not a red button on every row (SYC-396 PR 1.4).
-          rowMenu(t("colony.more"), c.name, [
-            mayTakeOut
-              ? `<form class="takeout" method="post" action="/api/team/cats/${c.id}/colony">` +
-                `<input type="hidden" name="colonyId" value="none">` +
-                `<input type="hidden" name="from" value="${colonyId}">` +
-                `<button type="submit" class="risky">${w("colony.takeOut")}</button></form>`
-              : "",
-          ]) +
+          `<li class="colonycat"><a class="catrow" href="${href}">${thumb}` +
+          `<span class="catinfo"><span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
+          lines +
+          `</span></a>` +
+          // In the cat's own "⋯", not a red button on every row (SYC-396 PR 1.4; SYC-619 §7.2).
+          rowMenu(
+            t("colony.more"),
+            c.name,
+            [
+              mayTakeOut
+                ? `<form class="takeout" method="post" action="/api/team/cats/${c.id}/colony">` +
+                  `<input type="hidden" name="colonyId" value="none">` +
+                  `<input type="hidden" name="from" value="${colonyId}">` +
+                  `<button type="submit" class="risky">${w("colony.takeOut")}</button></form>`
+                : "",
+            ],
+            { compact: true },
+          ) +
           `</li>`
         );
       })
@@ -595,6 +628,10 @@ export function renderColonyPage(
     movedAway?: ReadonlyArray<{ catName: string; movedAt: Date }>;
     /** What was typed into the edit form before the sign-in lapsed (SYC-516 C3). */
     kept?: KeptFields;
+    /** The colony's cats with their marks, sorted for the planner (colonyCatRows; SYC-619 §7.2). */
+    rows: readonly ColonyCatRow[];
+    /** For "Last seen 3 days ago"; now unless a test says otherwise. */
+    now?: Date;
   },
 ): string {
   const W = wordsIn(opts.lang);
@@ -632,20 +669,21 @@ export function renderColonyPage(
       banner(W, opts.done) +
       summary +
       (opts.may("edit_colony") ? editForm(W, v, opts.may, island, opts.kept) : "") +
+      // The cats come before the feeding sites (SYC-619 spec §7.2, D3).
+      `<h2>${w("colony.catsTitle")}</h2>` +
+      catList(W, opts.rows, v.id, opts.may("assign_cat_to_colony"), island, opts.now ?? new Date()) +
+      (opts.rows.length > 0 && opts.may("assign_cat_to_colony")
+        ? `<p class="hint">${w("colony.takeOutNote")}</p>`
+        : "") +
+      (opts.may("assign_cat_to_colony")
+        ? `<p><a class="tap cardlink" href="${esc(colonyHref(v.id))}/cats">${w("colony.addCats")}</a></p>`
+        : "") +
       `<h2>${w("colony.sitesTitle")}</h2>` +
       sites +
       // Opens the add page with this colony chosen. Only the colony's number
       // is in the address, never a position (PR 3.4).
       (opts.may("add_feeding_site")
         ? `<p><a class="tap" href="/api/team/sites/new?colony=${v.id}">${w("colony.addSite")}</a></p>`
-        : "") +
-      `<h2>${w("colony.catsTitle")}</h2>` +
-      catList(W, v.cats, v.id, opts.may("assign_cat_to_colony"), island) +
-      (v.cats.length > 0 && opts.may("assign_cat_to_colony")
-        ? `<p class="hint">${w("colony.takeOutNote")}</p>`
-        : "") +
-      (opts.may("assign_cat_to_colony")
-        ? `<p><a class="tap cardlink" href="${esc(colonyHref(v.id))}/cats">${w("colony.addCats")}</a></p>`
         : "") +
       movedAwayList(W, opts.movedAway ?? []) +
       notes +

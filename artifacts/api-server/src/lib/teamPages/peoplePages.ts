@@ -18,9 +18,13 @@ const CSS = `<style>
 .tabs{display:flex;gap:8px;margin:8px 0 12px;flex-wrap:wrap}
 .tabs a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #0b5c6b;border-radius:8px;text-decoration:none;color:#0b4553;background:#fff}
 .tabs a.on{background:#0b5c6b;color:#fff;font-weight:700}
-.person{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #0b5c6b;border-radius:8px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
+.person{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #0b5c6b;border-radius:8px;margin:10px 0;overflow-wrap:anywhere}
 .person.left{border-left-color:#8a877e;background:#faf9f6}
-.person .head strong{font-size:17px}
+details.person>summary{cursor:pointer;min-height:56px;box-sizing:border-box;padding:6px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;list-style:none}
+details.person>summary::-webkit-details-marker{display:none}
+details.person>summary strong{font-size:17px}
+details.person .prole{color:#55524a;font-size:14px}
+details.person .pbody{padding:0 12px 12px}
 .chip{display:inline-block;font-size:13px;font-weight:700;border-radius:999px;padding:2px 10px;background:#eee9da;color:#3b3930}
 .chip.joined{background:#d7efe0;color:#14532d}
 .chip.invited{background:#d9ecf0;color:#0b4553}
@@ -73,6 +77,8 @@ export interface Done {
   kind: "invited" | "resent" | "withdrawn" | "roles" | "left" | "signedOut" | "broughtBack" | "nothing";
   /** The person it concerned, by name (from the record). */
   name?: string;
+  /** Their id, once the result is proved: the row to open on the list. */
+  personId?: string;
   /** Invitation will go in English although another language was chosen. */
   inEnglish?: boolean;
   /** Left: they held the workspace door. */
@@ -184,10 +190,12 @@ function actions(p: PersonView): string {
   );
 }
 
-function card(p: PersonView): string {
+function card(p: PersonView, open = false): string {
   return (
-    `<article class="person${p.state === "left" ? " left" : ""}" id="p-${esc(p.id)}">` +
-    `<div class="head"><strong>${esc(p.name)}</strong> <span class="chip ${p.state}">${esc(p.chip)}</span></div>` +
+    `<details class="person${p.state === "left" ? " left" : ""}" id="p-${esc(p.id)}"${open ? " open" : ""}>` +
+    `<summary><strong>${esc(p.name)}</strong> <span class="chip ${p.state}">${esc(p.chip)}</span>` +
+    (p.shortRoles ? ` <span class="prole">${esc(p.shortRoles)}</span>` : "") +
+    `</summary><div class="pbody">` +
     (p.email ? `<p class="meta">${esc(p.email)}</p>` : "") +
     (p.state !== "left" || p.roles !== "Nothing" ? `<p>${esc(p.roles)}</p>` : "") +
     placementList(p) +
@@ -195,7 +203,7 @@ function card(p: PersonView): string {
     actions(p) +
     `<details class="hist"><summary>History</summary><ol class="hist">` +
     p.history.map((h) => `<li><span class="when">${esc(h.when)}</span>${esc(h.text)}</li>`).join("") +
-    `</ol></details></article>`
+    `</ol></details></div></details>`
   );
 }
 
@@ -292,6 +300,8 @@ export function renderPeoplePage(o: {
   recent: PersonView[];
   colonies: ColonyOption[];
   done: Done | null;
+  /** The row to open: only ever a person's id, from a proven result or a checked `?open=`. */
+  openId?: string;
 }): string {
   const tabs =
     `<nav class="tabs" aria-label="People tabs">` +
@@ -303,16 +313,15 @@ export function renderPeoplePage(o: {
       (o.left.length === 0
         ? `<p class="empty">Nobody has left.</p>`
         : `<p class="hint">Bringing someone back sends a fresh invitation. You choose their roles again; nothing is restored for them.</p>` +
-          o.left.map(card).join(""));
+          o.left.map((p) => card(p)).join(""));
   } else {
     body +=
       inviteForm(o.colonies) +
       `<h2>Everyone</h2>` +
-      (o.people.length === 0 ? `<p class="empty">Nobody is on the list.</p>` : o.people.map(card).join("")) +
-      `<h2>Joined in the last 7 days</h2>` +
+      (o.people.length === 0 ? `<p class="empty">Nobody is on the list.</p>` : o.people.map((p) => card(p, p.id === o.openId)).join("")) +
       (o.recent.length === 0
-        ? `<p class="empty">Nobody has joined in the last 7 days.</p>`
-        : `<ul class="joined7">${o.recent.map((p) => `<li><a href="#p-${esc(p.id)}">${esc(p.name)}</a> · ${esc(p.roles)}</li>`).join("")}</ul>`);
+        ? ""
+        : `<h2>Joined in the last 7 days</h2><ul class="joined7">${o.recent.map((p) => `<li><a href="${PEOPLE}?open=${esc(p.id)}#p-${esc(p.id)}">${esc(p.name)}</a> · ${esc(p.roles)}</li>`).join("")}</ul>`);
   }
   return page(o.viewer, "People", body);
 }
