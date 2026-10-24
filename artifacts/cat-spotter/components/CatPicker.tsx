@@ -148,7 +148,7 @@ export function CatPicker({
       <Text style={[styles.title, { color: colors.foreground }]}>
         {t('pickerTitle')}
       </Text>
-      <View style={{ width: 40 }} />
+      <View style={{ width: 44 }} />
     </View>
   );
 
@@ -364,7 +364,7 @@ export function CatPicker({
               onPress={() => setQuery('')}
               accessibilityRole="button"
               accessibilityLabel={t('clear')}
-              hitSlop={8}
+              style={styles.clearHit}
             >
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </Pressable>
@@ -455,6 +455,8 @@ export function CatPicker({
 }
 
 const styles = StyleSheet.create({
+  // SYC-509: 44pt tap area around a 16pt icon; the negative margins keep the row height without covering the text beside it.
+  clearHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -14, marginHorizontal: -4 },
   container: { flex: 1 },
   header: {
     flexDirection: 'row',

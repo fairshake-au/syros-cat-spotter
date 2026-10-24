@@ -77,7 +77,9 @@ describe('photo tips wiring', () => {
     const end = review.indexOf('// -----', startBlock + 10);
     const block = review.slice(startBlock, end);
     expect(block).toContain('<PhotoTips');
-    expect(block.indexOf('<PhotoTips')).toBeLessThan(block.indexOf('tryAgain'));
+    // SYC-508 D1 A: the button is now "Take another photo"; the tips still come first.
+    expect(block.indexOf('notACatRetake')).toBeGreaterThan(-1);
+    expect(block.indexOf('<PhotoTips')).toBeLessThan(block.indexOf('notACatRetake'));
   });
 
   it('"Delete my data" clears the seen mark', () => {

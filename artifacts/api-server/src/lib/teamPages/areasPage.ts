@@ -3,6 +3,7 @@ import type { AreaField } from "../areas/areaWrites";
 import type { NamedArea } from "../areas/namedAreas";
 import { escapeHtml as esc } from "./escape";
 import { backLink, HOME_PATH } from "./backLink";
+import { methodFold } from "./methodFold";
 import { renderPage } from "./layout";
 import { openMapLink } from "./position";
 
@@ -36,6 +37,8 @@ export interface AreasPageOptions {
   link: boolean;
   areas: readonly AreaRow[];
   version: number;
+  /** The version the first list made: its rows fold into one line in the history. */
+  firstVersion: number;
   history: readonly AreaChange[];
   again?: AreaFormAgain;
   /** A change that just went through. */
@@ -48,6 +51,9 @@ export const AREAS_DONE: Record<string, string> = {
   moved: "The area's centre was moved.",
   retired: "The area was retired.",
 };
+
+const day = (d: Date) =>
+  d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Athens" });
 
 const when = (d: Date) =>
   d.toLocaleString("en-GB", {
@@ -108,6 +114,14 @@ function input(
   );
 }
 
+const CSS = `<style>
+details.arearow{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #0b5c6b;border-radius:8px;margin:8px 0;overflow-wrap:anywhere}
+details.arearow>summary{cursor:pointer;min-height:48px;box-sizing:border-box;padding:6px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;list-style:none}
+details.arearow>summary::-webkit-details-marker{display:none}
+details.arearow>summary strong{font-size:17px}
+details.arearow .arebody{padding:0 12px 12px}
+</style>`;
+
 function areaRow(a: AreaRow, o: AreasPageOptions): string {
   const k = a.key;
   const again = o.again;
@@ -138,11 +152,12 @@ function areaRow(a: AreaRow, o: AreasPageOptions): string {
     `<input type="hidden" name="key" value="${esc(k)}">` +
     `<button type="submit" class="risky">Retire</button></form>`;
   return (
-    `<li class="statement"><h3>${esc(a.name)}</h3>` +
+    `<li><details class="arearow"${isOpen(again, "rename", k) || isOpen(again, "move", k) || isOpen(again, "retire", k) ? " open" : ""}>` +
+    `<summary><strong>${esc(a.name)}</strong> <span class="meta">${a.cats === 1 ? "1 cat" : `${a.cats} cats`}</span></summary>` +
+    `<div class="arebody">` +
     (o.link ? `<p class="meta">${openMapLink(a.lat, a.lng)}</p>` : "") +
-    `<p class="meta">${a.cats === 1 ? "1 cat" : `${a.cats} cats`} nearest this centre</p>` +
-    `<div class="fixes">${rename}${move}${retire}</div>` +
-    "</li>"
+    `<div class="fixes">${rename}${move}${retire}</div></div>` +
+    "</details></li>"
   );
 }
 
@@ -179,19 +194,30 @@ function addForm(o: AreasPageOptions): string {
   );
 }
 
-function historyList(history: readonly AreaChange[]): string {
+/**
+ * The history, newest first. The rows the first list made fold into one line,
+ * chosen by version (never by "no name": a later change whose author was
+ * anonymised stays on its own line).
+ */
+export function historyList(history: readonly AreaChange[], firstVersion: number): string {
   if (history.length === 0) return '<p class="hint">No changes yet.</p>';
-  return (
-    '<ol class="history">' +
-    history
-      .map(
-        (c) =>
-          `<li class="meta"><time datetime="${esc(c.at.toISOString())}">${esc(when(c.at))}</time> · ` +
-          `${esc(c.who ?? "Syros Cats (the first list)")} · ${esc(changeWords(c))}</li>`,
-      )
-      .join("") +
-    "</ol>"
+  const first = history.filter((c) => c.version <= firstVersion);
+  const rest = history.filter((c) => c.version > firstVersion);
+  const lines = rest.map(
+    (c) =>
+      `<li class="meta"><time datetime="${esc(c.at.toISOString())}">${esc(when(c.at))}</time> · ` +
+      `${esc(c.who ?? "Syros Cats (the first list)")} · ${esc(changeWords(c))}</li>`,
   );
+  if (first.length > 0) {
+    // Newest first, and the seed's rows run from version 1 without gaps, so the
+    // newest one's version is how many were set up, even when the history's row
+    // limit has cut the older ones off.
+    const at = first[first.length - 1]!.at;
+    lines.push(
+      `<li class="meta">${first[0]!.version} ${first[0]!.version === 1 ? "area" : "areas"} set up by Syros Cats, <time datetime="${esc(at.toISOString())}">${esc(day(at))}</time></li>`,
+    );
+  }
+  return `<ol class="history">${lines.join("")}</ol>`;
 }
 
 /**
@@ -217,13 +243,16 @@ export function renderAreasPage(o: AreasPageOptions): string {
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
       loose +
-      '<p class="hint">A place belongs to the area whose centre is nearest. More than 2 km from every centre is Off Syros. ' +
-      "Place labels and the Cats filters use this list within a minute of a change.</p>" +
+      CSS +
       addForm(o) +
       `<h2>The areas (${o.areas.length})</h2>` +
       `<ul class="cats">${o.areas.map((a) => areaRow(a, o)).join("")}</ul>` +
       '<h2 id="history">History</h2>' +
-      historyList(o.history) +
-      `<p class="hint">Each change makes a new version. Reports name the version they used. This is version ${o.version}.</p>`,
+      historyList(o.history, o.firstVersion) +
+      methodFold([
+        "A place belongs to the area whose centre is nearest. More than 2 km from every centre is Off Syros. " +
+          "Place labels and the Cats filters use this list within a minute of a change.",
+        `Each change makes a new version. Reports name the version they used. This is version ${o.version}.`,
+      ]),
   });
 }

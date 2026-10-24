@@ -111,8 +111,9 @@ describe("test 21's last part: a cat guardian creates a colony", () => {
     expect(section).toContain(`<strong>${eleniName}</strong> created a colony`);
     expect(section).toContain(`<a href="/api/team/colonies/${made}">${name}</a>`);
     expect(section).toContain(`>${day(first!.at)}</time>`);
-    // At the top: before the search and the list.
-    expect(page.text.indexOf(TITLE)).toBeLessThan(page.text.indexOf('role="search"'));
+    // Last, after the search, the list and Create (SYC-619 §7.1).
+    expect(page.text.indexOf(TITLE)).toBeGreaterThan(page.text.indexOf('role="search"'));
+    expect(page.text.indexOf(TITLE)).toBeGreaterThan(page.text.indexOf('class="cats colonylist"'));
   });
 });
 

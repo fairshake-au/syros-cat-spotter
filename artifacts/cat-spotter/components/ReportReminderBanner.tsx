@@ -53,10 +53,15 @@ function ReminderBanner({
     >
       <Feather name="alert-circle" size={16} color={colors.accentForeground} />
       <Text style={[styles.text, { color: colors.accentForeground }]}>{text}</Text>
-      <Pressable onPress={tryAgain} hitSlop={8} accessibilityRole="button">
+      <Pressable onPress={tryAgain} accessibilityRole="button" style={styles.actionHit}>
         <Text style={[styles.action, { color: colors.accentForeground }]}>{t('reportTryAgain')}</Text>
       </Pressable>
-      <Pressable onPress={onDismiss} hitSlop={10} accessibilityLabel={t('homeScreenNudgeDismissLabel')}>
+      <Pressable
+        onPress={onDismiss}
+        accessibilityRole="button"
+        accessibilityLabel={t('homeScreenNudgeDismissLabel')}
+        style={styles.closeHit}
+      >
         <Feather name="x" size={16} color={colors.accentForeground} />
       </Pressable>
     </Pressable>
@@ -64,6 +69,9 @@ function ReminderBanner({
 }
 
 const styles = StyleSheet.create({
+  // SYC-509: 44pt tap area around the 16pt close icon; the negative margins keep the row height without covering the text beside it.
+  actionHit: { minHeight: 44, justifyContent: 'center', marginVertical: -12 },
+  closeHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -14, marginHorizontal: -4 },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',

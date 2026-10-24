@@ -1,5 +1,5 @@
 {
-  "id": "fe539148-f24d-4138-a7ba-011713480124",
+  "id": "054c70a8-b7e8-41b0-ab00-3dce707a8454",
   "prevId": "24ca7605-2a4a-43f7-a756-1df830a2b2c4",
   "version": "7",
   "dialect": "postgresql",
@@ -430,46 +430,6 @@
       "compositePrimaryKeys": {
         "cat_subscriptions_device_id_cat_id_pk": {
           "name": "cat_subscriptions_device_id_cat_id_pk",
-          "columns": [
-            "device_id",
-            "cat_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.cat_unfollows": {
-      "name": "cat_unfollows",
-      "schema": "",
-      "columns": {
-        "device_id": {
-          "name": "device_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cat_id": {
-          "name": "cat_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "cat_unfollows_device_id_cat_id_pk": {
-          "name": "cat_unfollows_device_id_cat_id_pk",
           "columns": [
             "device_id",
             "cat_id"
@@ -4131,7 +4091,7 @@
       "checkConstraints": {
         "photo_variants_size_ck": {
           "name": "photo_variants_size_ck",
-          "value": "\"photo_variants\".\"size\" in ('small','medium')"
+          "value": "\"photo_variants\".\"size\" in ('small','medium','card')"
         }
       },
       "isRLSEnabled": false

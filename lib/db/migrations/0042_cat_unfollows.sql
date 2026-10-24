@@ -5,6 +5,7 @@ CREATE TABLE "cat_unfollows" (
 	CONSTRAINT "cat_unfollows_device_id_cat_id_pk" PRIMARY KEY("device_id","cat_id")
 );
 
+
 --> statement-breakpoint
 -- Rollback drops only cat_unfollows: backfilled cat_subscriptions rows cannot be told apart from real follows.
 -- Backfill: everyone who has spotted a cat follows it, and every current owner follows their own cat. cat_unfollows is created

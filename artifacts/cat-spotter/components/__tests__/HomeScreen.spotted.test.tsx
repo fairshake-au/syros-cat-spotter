@@ -15,6 +15,9 @@ const h = vi.hoisted(() => ({
   cats: [] as Array<{ id: number; distanceKm?: number | null }>,
   profile: undefined as unknown,
   isError: false,
+  loadFailed: false,
+  retry: vi.fn(async () => {}),
+  refetch: vi.fn(async () => {}),
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -38,8 +41,9 @@ vi.mock('@/context/OfflineContext', () => ({
 }));
 vi.mock('@/hooks/useLocation', () => ({ useLocation: () => ({ coords: h.coords }) }));
 vi.mock('@/hooks/useCatsWithCache', () => ({
-  useCatsWithCache: () => ({ cats: h.cats, isLoading: false }),
+  useCatsWithCache: () => ({ cats: h.cats, isLoading: false, loadFailed: h.loadFailed, retry: h.retry }),
 }));
+vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
 vi.mock('@/lib/bannerArea', () => ({ useBannerAreaReserve: () => 0 }));
 vi.mock('@/lib/displayUpperCase', () => ({ displayUpperCase: (s: string) => s }));
 vi.mock('@/components/OfflineBanner', () => ({ OfflineBanner: () => null }));
@@ -55,11 +59,11 @@ vi.mock('@/components/purropolis', async () => {
     Button,
     Avatar: () => null,
     StatTile: () => null,
-    StatTileGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    StatTileGroup: ({ children }: { children: React.ReactNode }) => <div data-testid="stat-tiles">{children}</div>,
   };
 });
 vi.mock('@workspace/api-client-react', () => ({
-  useGetProfile: () => ({ data: h.profile, isError: h.isError }),
+  useGetProfile: () => ({ data: h.profile, isError: h.isError, refetch: h.refetch }),
   getGetProfileQueryKey: (id: string) => [`/api/profile/${id}`],
 }));
 
@@ -75,6 +79,9 @@ beforeEach(() => {
   h.cats = cats(4);
   h.profile = undefined;
   h.isError = false;
+  h.loadFailed = false;
+  h.retry.mockClear();
+  h.refetch.mockClear();
 });
 afterEach(cleanup);
 
@@ -175,5 +182,62 @@ describe('Home hero and strip (SYC-505)', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     expect(screen.queryByText('0')).toBeNull();
     expect(screen.queryByTestId('home-progress-fill')).toBeNull();
+  });
+});
+
+describe('SYC-508: Home when something fails to load, and before the first spot', () => {
+  it('before the first spot: no 0 / 0 / 0 tiles (SYC-578)', () => {
+    h.profile = { catsSpotted: 0, spottedCatIds: [], totalCats: 18 };
+    render(<HomeScreen />);
+    expect(screen.queryByTestId('stat-tiles')).toBeNull();
+  });
+
+  it('after a spot, and while unknown, the tiles show', () => {
+    h.profile = { catsSpotted: 2, spottedCatIds: [1, 2], totalCats: 19 };
+    render(<HomeScreen />);
+    expect(screen.getByTestId('stat-tiles')).toBeTruthy();
+    cleanup();
+    h.profile = undefined;
+    render(<HomeScreen />);
+    expect(screen.getByTestId('stat-tiles')).toBeTruthy();
+  });
+
+  it('stats failed online: the same line, now with Try again that reloads the profile', () => {
+    h.isError = true;
+    render(<HomeScreen />);
+    expect(screen.getByText('statsUnavailable')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('home-stats-failed-retry'));
+    expect(h.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('cats failed with nothing saved: the strip says so, never "noCats"', () => {
+    h.cats = [];
+    h.loadFailed = true;
+    render(<HomeScreen />);
+    expect(screen.queryByText('noCats')).toBeNull();
+    expect(screen.getByText('loadFailedTitle')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('home-cats-failed-retry'));
+    expect(h.retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('nothing known at all: no "of 0 cats spotted" line', () => {
+    h.cats = [];
+    h.loadFailed = true;
+    h.isError = true;
+    render(<HomeScreen />);
+    expect(screen.queryByText('homeOfNCats')).toBeNull();
+  });
+
+  it('still loading (nothing failed yet): the progress line stays, so Home does not jump', () => {
+    h.cats = [];
+    render(<HomeScreen />);
+    expect(screen.getByText('homeOfNCats')).toBeTruthy();
+  });
+
+  it('really no cats: still "noCats"', () => {
+    h.cats = [];
+    render(<HomeScreen />);
+    expect(screen.getByText('noCats')).toBeTruthy();
+    expect(screen.queryByText('loadFailedTitle')).toBeNull();
   });
 });

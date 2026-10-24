@@ -128,6 +128,7 @@ import {
   type PickSource,
   type ReadyMapStart,
 } from '@/lib/mapStart';
+import { spokenText } from '@/lib/a11yText';
 
 /** A library photo that can't be used, said in a card with the library offered again. */
 type PhotoProblem =
@@ -1443,7 +1444,9 @@ export default function SpotScreen() {
           ) : item.status === 'queued' ? (
             <Pressable
               onPress={() => changeQueue(() => remove(item.localId))}
-              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('discard')}
+              style={styles.clearHit}
             >
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </Pressable>
@@ -1746,7 +1749,10 @@ export default function SpotScreen() {
                 second hint here would give competing suggestions in two places
                 (Samuel's decision, 27 Sep). */}
             {!cameraPanel && (
-              <Text style={styles.captureHint}>
+              <Text
+                style={styles.captureHint}
+                accessibilityLabel={spokenText(liveCameraReady ? t('captureHint') : t('captureHintPicker'))}
+              >
                 {liveCameraReady ? t('captureHint') : t('captureHintPicker')}
               </Text>
             )}
@@ -1820,6 +1826,8 @@ export default function SpotScreen() {
 }
 
 const styles = StyleSheet.create({
+  // SYC-509: 44pt tap area around a 16pt icon; the negative margins keep the row height without covering the text beside it.
+  clearHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -14, marginHorizontal: -4 },
   container: { flex: 1 },
   header: { paddingHorizontal: spacing[4], paddingBottom: spacing[2], gap: spacing[1] },
   title: { fontSize: fontSizes.xl, fontFamily: fonts.displayBold },

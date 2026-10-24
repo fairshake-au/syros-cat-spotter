@@ -81,6 +81,8 @@ export async function namedAreasAt(at: Date): Promise<{ version: number; areas: 
 
 /** One line of the Areas page's history. */
 export interface AreaChange {
+  /** The list's version this change made: 1 for the first change ever, by order of entry. */
+  version: number;
   at: Date;
   kind: string;
   /** The person's name, or null for the app's own rows (the seed). */
@@ -93,6 +95,8 @@ export interface AreaChange {
 export async function areaChanges(limit = 50): Promise<AreaChange[]> {
   const rows = await db
     .select({
+      // Counted over every area row, before the limit, so an old row keeps its number.
+      version: sql<number>`(row_number() over (order by ${mappingEventsTable.id}))::int`,
       at: mappingEventsTable.at,
       kind: mappingEventsTable.kind,
       who: peopleTable.name,
@@ -105,6 +109,7 @@ export async function areaChanges(limit = 50): Promise<AreaChange[]> {
     .orderBy(desc(mappingEventsTable.id))
     .limit(limit);
   return rows.map((r) => ({
+    version: r.version,
     at: r.at,
     kind: r.kind,
     who: r.who ?? null,

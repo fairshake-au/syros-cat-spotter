@@ -873,12 +873,12 @@ describe("the Appearance section on the team cat page", () => {
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
     expect(res.status).toBe(200);
     const html = res.text;
-    expect(html).toContain('<h2 id="appearance">Appearance</h2>');
+    expect(html).toContain('<h2>Coat and markings</h2><details class="fold" id="appearance"');
     expect(html).toContain('<p class="public">Ginger · White paws · One eye</p>');
     expect(html).toContain(`id="a-${reading.id}"`);
-    expect(html).toContain("read automatically from the photo");
-    expect(html).toContain("model gpt-test-1");
-    expect(html).toContain("a spotter");
+    // SYC-602 §3.7: where it came from in plain words; no model names.
+    expect(html).toContain("Read from the photo on");
+    expect(html).not.toContain("model gpt-test-1");
     expect(html).toContain(`action="/api/team/cats/${catId}/appearance/confirm"`);
     expect(html).toContain(`action="/api/team/cats/${catId}/appearance/correct"`);
     expect(html).toContain(`action="/api/team/statements/${reading.id}/wrong"`);
@@ -901,23 +901,23 @@ describe("the Appearance section on the team cat page", () => {
 
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
     const html = res.text;
-    const section = html.slice(html.indexOf('<h2 id="appearance">'));
+    const section = html.slice(html.indexOf('<details class="fold" id="appearance"'));
     // The public line keeps §2's words: the colours, then the pattern (Plain is never said).
     expect(section).toContain('<p class="public">Brown · Ginger · Stripes</p>');
-    expect(section).toContain("Colours</dt><dd>Brown · Ginger");
-    // SYC-443: the pattern on its own in the team's word.
-    expect(section).toContain("Pattern</dt><dd>Tabby");
-    // The old reading and answer, each statement in the team's words (§15.2).
-    expect(section).toContain("Tabby, colours not stated");
-    expect(section).toContain("Black and white, pattern not stated");
-    expect(section).toContain("Brown and ginger, pattern not stated");
+    // SYC-602 §3.7: the fold says the coat in the team's words (SYC-443).
+    expect(section).toContain("<h3>Coat: brown and ginger tabby</h3>");
     // SYC-443: the team's words are allowed now; the old codes and the old
     // public word never are. Lower-case breeders' words appear only in the
     // Patched button's hint (T3A), so they are banned everywhere else.
     for (const bad of ["Tortoiseshell or calico", "black_and_white", "undefined", "not_sure", "null"]) {
       expect(section, bad).not.toContain(bad);
     }
-    expect(withoutHints(section)).not.toMatch(/tabby|calico|tortoiseshell/);
+    // The team's own phrase "Brown and ginger tabby" now heads the fold (heading and
+    // summary, SYC-602 §3.7); take out exactly those two and nothing else.
+    const withoutPhrase = withoutHints(section)
+      .replace("<h3>Coat: brown and ginger tabby</h3>", "")
+      .replace(/<summary><b>[^<]*<\/b>/, "");
+    expect(withoutPhrase).not.toMatch(/tabby|calico|tortoiseshell/);
     // The Correct form offers the five colours, ticked as they stand.
     expect(section).toContain('name="colours" value="brown" checked');
     expect(section).toContain('name="colours" value="ginger" checked');
@@ -930,7 +930,8 @@ describe("the Appearance section on the team cat page", () => {
     expect(html).toContain("Coat: Brown and ginger, pattern not stated");
     expect(html).toContain("Coat: Tabby, colours not stated");
     expect(html).toContain("Coat: Black and white, pattern not stated");
-    expect(html).not.toMatch(/Coat: (brown|stripes|black and white)/);
+    // (The fold's own heading says "Coat: brown and ginger tabby"; the history's rows never start lower-case.)
+    expect(html.replace(/<h3>Coat:[^<]*<\/h3>/g, "")).not.toMatch(/Coat: (brown|stripes|black and white)/);
   });
 
   it("shows a guardian–team disagreement, with Correct offered to overrule", async () => {
@@ -982,12 +983,22 @@ describe("the Appearance section on the team cat page", () => {
     expect(row.slice(0, end)).toContain(`name="shownAbove" value="${g.id}"`);
   });
 
+  it("opens the fold at ?open=coat and leaves it closed otherwise (SYC-602 §3.7)", async () => {
+    const catId = await newCat();
+    await machine(catId, ["ginger"]);
+    await team(catId, "coat", { value: { colours: ["ginger"], pattern: "plain" }, daysAgo: 1 });
+    const get = async (qs: string) => (await request(app).get(`/api/team/cats/${catId}${qs}`).set("Cookie", cookie)).text;
+    expect(await get("")).toContain('<details class="fold" id="appearance">');
+    expect(await get("?open=coat")).toContain('<details class="fold" id="appearance" open>');
+    expect(await get("?open=other")).toContain('<details class="fold" id="appearance">');
+  });
+
   it("without set_appearance, the section shows but offers no forms", async () => {
     const catId = await newCat();
     const reading = await machine(catId, ["ginger"]);
     denied.cap = "set_appearance";
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
-    expect(res.text).toContain('<h2 id="appearance">Appearance</h2>');
+    expect(res.text).toContain('<h2>Coat and markings</h2><details class="fold" id="appearance"');
     expect(res.text).not.toContain("/appearance/confirm");
     expect(res.text).not.toContain(`/api/team/statements/${reading.id}/wrong`);
   });
@@ -1129,7 +1140,7 @@ describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => 
     const catId = await newCat();
     await machine(catId, ["ginger", "tabby"]);
     const html = await page(catId);
-    const section = html.slice(html.indexOf('<h2 id="appearance">'));
+    const section = html.slice(html.indexOf('<details class="fold" id="appearance"'));
     for (const p of ["plain", "stripes", "patches"]) {
       expect(section).toContain(`type="radio" id="ac-coat-p-${p}" name="pattern" value="${p}">`);
     }
@@ -1157,7 +1168,7 @@ describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => 
       const done = new URL(res.headers["location"], "http://x").searchParams.get("done")!;
       expect(done).toBe("a_coat_corrected");
       const html = await page(catId, done);
-      const section = html.slice(html.indexOf('<h2 id="appearance">'));
+      const section = html.slice(html.indexOf('<details class="fold" id="appearance"'));
       expect(section, c.caption).toContain('<svg class="drawncat"');
       expect(section, c.caption).toContain(`aria-label="${c.caption}"`);
       expect(section, c.caption).toContain(`<strong>${c.caption}</strong>`);
@@ -1231,7 +1242,7 @@ describe("SYC-443: the team cat page says the coat in the team's words (§15.1)"
     (await request(app).get(`/api/team/cats/${catId}${done ? `?done=${done}` : ""}`).set("Cookie", cookie)).text;
   const correct = (catId: number, body: Record<string, unknown>) =>
     form(`/api/team/cats/${catId}/appearance/correct`).send({ reason: "Looked closely", ...body });
-  const sectionOf = (html: string) => html.slice(html.indexOf('<h2 id="appearance">'));
+  const sectionOf = (html: string) => html.slice(html.indexOf('<details class="fold" id="appearance"'));
 
   it("every place on the page: summary line, photo description, Appearance, drawn cat and history", async () => {
     const catId = await newCat();
@@ -1244,13 +1255,10 @@ describe("SYC-443: the team cat page says the coat in the team's words (§15.1)"
     // The main photo's description.
     expect(html).toMatch(new RegExp(`alt="Photo of ${name}\\d+, Brown and ginger tabby"`));
     const section = sectionOf(html);
-    // The heading, Confirm's hidden label and the pattern row.
-    expect(section).toContain("<h3>Coat</h3>");
-    expect(section).toContain('<span class="sr"> (Coat)</span>');
-    expect(section).toContain("Pattern</dt><dd>Tabby");
-    expect(section).toContain("Colours</dt><dd>Brown · Ginger");
-    // The statement and the drawn cat.
-    expect(section).toMatch(/<p class="said"><span class="sid">#\d+<\/span> Brown and ginger tabby[ <]/);
+    // SYC-602 §3.7: the heading says the coat; Confirm says what it agrees with.
+    expect(section).toContain("<h3>Coat: brown and ginger tabby</h3>");
+    expect(section).toContain("Yes, the coat is right");
+    // The drawn cat.
     expect(section).toContain('aria-label="Brown and ginger tabby"');
     expect(section).toContain("<strong>Brown and ginger tabby</strong>");
     // The history, and the team JSON's `said` (changed on purpose, English only).
@@ -1264,7 +1272,7 @@ describe("SYC-443: the team cat page says the coat in the team's words (§15.1)"
     const catId = await newCat();
     await correct(catId, { kind: "coat", colours: ["brown", "ginger"], pattern: "stripes" });
     const section = sectionOf(await page(catId));
-    expect(section).toContain('<h3>What the public sees</h3><p class="public">Brown · Ginger · Stripes</p>');
+    expect(section).toContain('<p class="public">Brown · Ginger · Stripes</p>');
   });
 
   it("an unknown pattern says ', pattern not known' on the summary line and in the photo description", async () => {
@@ -1273,7 +1281,7 @@ describe("SYC-443: the team cat page says the coat in the team's words (§15.1)"
     const html = await page(catId);
     expect(html).toContain('<span class="colourchip">Black and white, pattern not known</span>');
     expect(html).toMatch(/alt="Photo of [^"]+, Black and white, pattern not known"/);
-    expect(sectionOf(html)).toContain("Pattern</dt><dd>Not known");
+    expect(sectionOf(html)).toContain("<h3>Coat: black and white, pattern not known</h3>");
   });
 
   it("a cat with nothing known: Not known, and the photo description leaves the coat out", async () => {
@@ -1288,9 +1296,7 @@ describe("SYC-443: the team cat page says the coat in the team's words (§15.1)"
     const catId = await newCat();
     await correct(catId, { kind: "coat", pattern: "stripes" });
     const html = await page(catId);
-    // The statement in the Appearance section itself, not the history below it.
-    const [row] = await rowsFor(catId);
-    expect(html).toMatch(new RegExp(`<p class="said"><span class="sid">#${row!.id}</span> Tabby, colours not stated[ <]`));
+    // The history says it (SYC-602 §3.7: the fold no longer lists each change).
     expect(html).toContain("Coat: Tabby, colours not stated");
   });
 
@@ -1329,7 +1335,7 @@ describe("SYC-443: the Colour check list and the Cats grid", () => {
     expect(mine).not.toMatch(/Colour: |undefined|null/);
   });
 
-  it("the Cats grid card says the phrase, and Coat not known when nothing is", async () => {
+  it("the Cats grid card says the phrase, and leaves the coat line out when nothing is known (SYC-619 §5.1)", async () => {
     const tabby = await newCat();
     await team(tabby, "coat", { value: { colours: ["ginger"], pattern: "stripes" }, daysAgo: 1 });
     const blank = await newCat();
@@ -1341,7 +1347,7 @@ describe("SYC-443: the Colour check list and the Cats grid", () => {
     expect(tabbyHtml).toContain('<span class="cardfact">Ginger tabby</span>');
     expect(tabbyHtml).toContain(`alt="Photo of ${await nameOf(tabby)}, Ginger tabby"`);
     const blankHtml = await grid(blank);
-    expect(blankHtml).toContain('<span class="cardfact">Coat not known</span>');
+    expect(blankHtml).not.toContain("Coat not known");
     expect(blankHtml).toContain(`alt="Photo of ${await nameOf(blank)}"`);
   });
 });

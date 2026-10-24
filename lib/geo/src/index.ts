@@ -102,3 +102,5 @@ export function nearbyOrder<T extends LatLng & { id: number }>(
     .sort((a, b) => a.km - b.km || a.cat.id - b.cat.id)
     .map(({ cat }) => cat);
 }
+
+export { SYROS_OUTLINE } from "./syrosOutline";
