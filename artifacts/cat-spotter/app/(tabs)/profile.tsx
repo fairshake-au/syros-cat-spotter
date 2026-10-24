@@ -5,8 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   useGetProfile,
   useGetLeaderboard,
+  useGetLeaderboardWeek,
   getGetProfileQueryKey,
   getGetLeaderboardQueryKey,
+  getGetLeaderboardWeekQueryKey,
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { fonts, fontSizes, spacing } from '@/constants/theme';
@@ -71,6 +73,12 @@ export default function ProfileScreen() {
       queryKey: getGetLeaderboardQueryKey(),
     },
   });
+  const weekQuery = useGetLeaderboardWeek({
+    query: {
+      enabled: isOnline,
+      queryKey: getGetLeaderboardWeekQueryKey(),
+    },
+  });
   const keepSafe = useKeepSafeState();
 
   const profile = profileQuery.data;
@@ -84,6 +92,12 @@ export default function ProfileScreen() {
   const board = leaderboardView(
     leaderboardQuery.data,
     profile ? { spotterCode: profile.spotterCode, points: profile.points } : undefined,
+    (code) => `${t('spotter')} ${code}`,
+  );
+
+  const weekBoard = leaderboardView(
+    weekQuery.data?.entries,
+    profile ? { spotterCode: profile.spotterCode, points: profile.weekPoints } : undefined,
     (code) => `${t('spotter')} ${code}`,
   );
 
@@ -110,13 +124,10 @@ export default function ProfileScreen() {
       : profile === undefined && !isOnline
         ? 'offline'
         : 'unknown';
-  const spottersState = leaderboardQuery.data
-    ? 'ready'
-    : !isOnline
-      ? 'offline'
-      : leaderboardQuery.isError
-        ? 'error'
-        : 'loading';
+  const boardState = (q: { data?: unknown; isError: boolean }) =>
+    q.data ? 'ready' : !isOnline ? 'offline' : q.isError ? 'error' : 'loading';
+  const spottersState = boardState(leaderboardQuery);
+  const weekState = boardState(weekQuery);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -186,7 +197,16 @@ export default function ProfileScreen() {
             ))}
           {tab === 'badges' && <BadgesTab views={views} state={badgesState} />}
           {tab === 'spotters' && (
-            <SpottersTab rows={board.rows} summary={board.summary} state={spottersState} />
+            <SpottersTab
+              week={{
+                rows: weekBoard.rows,
+                summary: weekBoard.summary,
+                state: weekState,
+                endsAt: weekQuery.data?.endsAt,
+                lastWeek: weekQuery.data?.lastWeek ?? [],
+              }}
+              allTime={{ rows: board.rows, summary: board.summary, state: spottersState }}
+            />
           )}
         </View>
       </ScrollView>

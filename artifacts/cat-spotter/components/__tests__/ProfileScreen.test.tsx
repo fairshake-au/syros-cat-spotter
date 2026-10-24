@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   profileError: false,
   profileLoading: false,
   leaderboard: undefined as unknown,
+  week: undefined as unknown,
   keepSafe: undefined as { status: string } | undefined,
   keepSafeOffer: null as string | null,
   username: 'sam' as string | null,
@@ -80,6 +81,8 @@ vi.mock('@workspace/api-client-react', () => ({
   getGetProfileQueryKey: (id: string) => [`/api/profiles/${id}`],
   useGetLeaderboard: () => ({ data: h.leaderboard, isError: false, isLoading: false }),
   getGetLeaderboardQueryKey: () => ['/api/leaderboard'],
+  useGetLeaderboardWeek: () => ({ data: h.week, isError: false, isLoading: false }),
+  getGetLeaderboardWeekQueryKey: () => ['/api/leaderboard/week'],
 }));
 
 import ProfileScreen from '../../app/(tabs)/profile';
@@ -145,6 +148,21 @@ const profile = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+const weekBoard = (over: Record<string, unknown> = {}) => ({
+  weekStart: '2026-10-19',
+  endsAt: '2026-10-26T00:00:00+02:00',
+  entries: [
+    { spotterCode: 'W1', username: 'weekly_wren', points: 55, rank: 1, uniqueCatsDiscovered: 0 },
+    { spotterCode: 'ME01', username: 'harbourcat', points: 25, rank: 2, uniqueCatsDiscovered: 0 },
+  ],
+  lastWeek: [
+    { place: 1, name: 'Marco', points: 90 },
+    { place: 2, name: null, points: 60 },
+    { place: 3, name: 'Sophie', points: 40 },
+  ],
+  ...over,
+});
+
 const board = [
   { spotterCode: 'A', username: 'kalimera_kat', points: 310, rank: 1, uniqueCatsDiscovered: 4 },
   { spotterCode: 'B', username: 'vaporia_vee', points: 120, rank: 2, uniqueCatsDiscovered: 1 },
@@ -165,6 +183,7 @@ beforeEach(() => {
   h.profileError = false;
   h.profileLoading = false;
   h.leaderboard = board;
+  h.week = weekBoard();
   h.keepSafe = { status: 'none' };
   h.keepSafeOffer = null;
   h.username = 'sam';
@@ -285,6 +304,7 @@ describe('Profile tabs (SYC-628)', () => {
   it('Spotters tab: no 0-point rows, "You" highlighted, and how far to the next spotter', () => {
     render(<ProfileScreen />);
     fireEvent.click(screen.getByTestId('profile-tab-spotters'));
+    fireEvent.click(screen.getByTestId('spotters-period-all'));
     expect(screen.queryByTestId('leader-row-Z')).toBeNull();
     expect(screen.getByTestId('leader-row-me').textContent).toContain('You');
     const summary = screen.getByTestId('profile-rank-summary').textContent;
@@ -299,6 +319,7 @@ describe('Profile tabs (SYC-628)', () => {
     ];
     render(<ProfileScreen />);
     fireEvent.click(screen.getByTestId('profile-tab-spotters'));
+    fireEvent.click(screen.getByTestId('spotters-period-all'));
     const summary = screen.getByTestId('profile-rank-summary').textContent;
     expect(summary).toContain('You’re level with vaporia_vee on 85 points.');
     expect(summary).not.toContain('0 more');
@@ -359,8 +380,92 @@ describe('Profile tabs (SYC-628)', () => {
     ];
     render(<ProfileScreen />);
     fireEvent.click(screen.getByTestId('profile-tab-spotters'));
+    fireEvent.click(screen.getByTestId('spotters-period-all'));
     const summary = screen.getByTestId('profile-rank-summary').textContent;
     expect(summary).toContain('You’re level with vaporia_vee on 85 points.');
     expect(summary).not.toContain('top of the island');
+  });
+
+  describe('weekly Spotters board (SYC-706)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+    const openSpotters = () => {
+      render(<ProfileScreen />);
+      fireEvent.click(screen.getByTestId('profile-tab-spotters'));
+    };
+
+    it('opens on This week', () => {
+      h.profile = profile({ weekPoints: 25 });
+      openSpotters();
+      expect(screen.getByTestId('spotters-period-week').getAttribute('aria-selected')).toBe('true');
+      expect(screen.getByTestId('leader-row-W1')).toBeTruthy();
+      expect(screen.queryByTestId('leader-row-A')).toBeNull();
+      expect(screen.getByTestId('profile-rank-summary').textContent).toContain('You’re 2nd with 25 points');
+    });
+
+    it('switching to All time shows the all-time rows', () => {
+      openSpotters();
+      fireEvent.click(screen.getByTestId('spotters-period-all'));
+      expect(screen.getByTestId('leader-row-A')).toBeTruthy();
+      expect(screen.queryByTestId('leader-row-W1')).toBeNull();
+      expect(screen.queryByTestId('spotters-last-week')).toBeNull();
+    });
+
+    it('two people on equal points both show rank 1 and the next shows 3', () => {
+      h.week = weekBoard({
+        entries: [
+          { spotterCode: 'P1', username: 'one', points: 50, rank: 1, uniqueCatsDiscovered: 0 },
+          { spotterCode: 'P2', username: 'two', points: 50, rank: 1, uniqueCatsDiscovered: 0 },
+          { spotterCode: 'P3', username: 'three', points: 20, rank: 3, uniqueCatsDiscovered: 0 },
+        ],
+      });
+      openSpotters();
+      const rank = (code: string) => screen.getByTestId(`leader-row-${code}`).textContent;
+      expect(rank('P1')).toMatch(/^1one/);
+      expect(rank('P2')).toMatch(/^1two/);
+      expect(rank('P3')).toMatch(/^3three/);
+    });
+
+    it('empty week shows the friendly line and last week’s top three', () => {
+      h.week = weekBoard({ entries: [] });
+      openSpotters();
+      expect(screen.getByTestId('spotters-week-empty').textContent).toBe(
+        'A new week has started. Spot a cat to get on the board.',
+      );
+      expect(screen.getByTestId('spotters-last-week').textContent).toBe(
+        '🏆 Last week: Marco, a spotter, Sophie',
+      );
+    });
+
+    it('countdown says 3 days on Thursday evening and 5 hours on Sunday at 19:00 Athens', () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-22T19:00:00+03:00'));
+      openSpotters();
+      expect(screen.getByTestId('spotters-countdown').textContent).toBe('New week in 3 days');
+      cleanup();
+      vi.setSystemTime(new Date('2026-10-25T19:00:00+02:00'));
+      openSpotters();
+      expect(screen.getByTestId('spotters-countdown').textContent).toBe('New week in 5 hours');
+    });
+
+    it('outside top 20 this week shows the outside summary', () => {
+      h.profile = profile({ weekPoints: 5 });
+      h.week = weekBoard({
+        entries: [{ spotterCode: 'W1', username: 'weekly_wren', points: 55, rank: 1, uniqueCatsDiscovered: 0 }],
+      });
+      openSpotters();
+      expect(screen.getByTestId('profile-rank-summary').textContent).toContain('You have 5 points.');
+    });
+
+    it('offline shows the existing offline line on both tabs', () => {
+      h.isOnline = false;
+      h.week = undefined;
+      h.leaderboard = undefined;
+      openSpotters();
+      expect(screen.getByTestId('profile-spotters-offline')).toBeTruthy();
+      fireEvent.click(screen.getByTestId('spotters-period-all'));
+      expect(screen.getByTestId('profile-spotters-offline')).toBeTruthy();
+    });
   });
 });
