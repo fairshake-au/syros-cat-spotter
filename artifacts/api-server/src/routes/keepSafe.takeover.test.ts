@@ -314,6 +314,35 @@ describe("2. a replayed link", () => {
     expect(await storedHash(old.id)).toBe(hashAfter);
   });
 
+  it("SYC-664 ship N-1: replayOnly with no move behind it is refused and moves (or deletes) nothing; the link still works after (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const nikos = await keptSafe(newAddress());
+    const token = await askAndGetToken(nikos, email);
+    const r = await redeem(nikos, token, old.id, { replayOnly: true, abandonCurrent: true, deleteCurrent: true });
+    expect(r.status).toBe(401);
+    expect(r.body).toEqual({ error: "link_not_valid" });
+    expect(await storedHash(old.id)).toBe(hashSecret(old.secret));
+    expect(await storedHash(nikos.id)).toBe(hashSecret(nikos.secret));
+    const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.deviceId, nikos.id));
+    expect(profile?.username).toBe(nikos.username);
+    const [tok] = await db.select().from(mailTokensTable).where(eq(mailTokensTable.deviceId, nikos.id));
+    expect(tok?.usedAt ?? null).toBeNull();
+    // Not spent: the person can still move with it.
+    expect((await redeem(nikos, token, old.id, { abandonCurrent: true })).status).toBe(200);
+  });
+
+  it("SYC-664 ship N-1: replayOnly from the phone that made the move gets the same answer", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, token } = await newPhoneWithLink(email);
+    const first = await redeem(phone, token, old.id);
+    expect(first.status).toBe(200);
+    const again = await redeem(phone, token, old.id, { replayOnly: true });
+    expect(again.status).toBe(200);
+    expect(again.body).toEqual(first.body);
+  });
+
   it("SYC-664 ship F2: the same phone's retry is answered at 14 minutes and refused at 16 (the 15-minute replay window) (M)", async () => {
     const email = newAddress();
     const old = await keptSafe(email);

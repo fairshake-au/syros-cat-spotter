@@ -53,7 +53,8 @@ vi.mock('@/lib/keepSafe', async (importOriginal) => {
 
 import { ApiError } from '@workspace/api-client-react';
 import { DeviceProvider, RESUME_RETRY, useDevice } from '@/context/DeviceContext';
-import { RESTORE_PENDING_MOVE_KEY, notePendingMove, readPendingMove } from '@/lib/restoreWaiting';
+import { RESTORE_PENDING_MOVE_KEY, clearPendingMove, notePendingMove, readPendingMove } from '@/lib/restoreWaiting';
+import { finishPendingMove } from '@/lib/pendingMove';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => <DeviceProvider>{children}</DeviceProvider>;
 
@@ -111,7 +112,8 @@ describe('a reload mid-move (I1)', () => {
     expect(redeem).toHaveBeenCalledTimes(1);
     expect(redeem).toHaveBeenCalledWith(
       'dev-starter',
-      { token: 'handle-9', choice: 'choice-lili', abandonCurrent: true, deleteCurrent: true },
+      // N-1: start-up only ever asks for the replay; it never makes a fresh move.
+      { token: 'handle-9', choice: 'choice-lili', abandonCurrent: true, deleteCurrent: true, replayOnly: true },
       expect.anything(),
     );
     expect(result.current.deviceId).toBe('dev-lili');
@@ -252,7 +254,7 @@ describe('SYC-664 ship F2: finishing a pending move inside the session', () => {
     });
     expect(redeem).toHaveBeenCalledWith(
       'dev-starter',
-      { token: 'handle-9', choice: 'choice-lili', abandonCurrent: true },
+      { token: 'handle-9', choice: 'choice-lili', abandonCurrent: true, replayOnly: true },
       expect.anything(),
     );
     expect(outcome).toEqual({ deviceId: 'dev-lili', username: 'Lili' });
@@ -310,5 +312,86 @@ describe('SYC-664 ship F2: finishing a pending move inside the session', () => {
     });
     expect(readPendingMove()).toBeNull();
     expect(result.current.deviceId).toBe('dev-starter');
+  });
+});
+
+describe('SYC-664 ship N-1: background finishing is replay-only and drops stale answers', () => {
+  const started = async () => {
+    const hook = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(hook.result.current.isReady).toBe(true));
+    return hook;
+  };
+
+  it('the Nikos case: a "Move, delete Nikos" that never reached the server, backed out of, is not carried out when the phone comes back online', async () => {
+    const { result } = await started();
+    // The person chose "delete Nikos", the request failed before the server, and they backed out.
+    notePendingMove({ handle: 'handle-9', choice: 'choice-lili', abandonCurrent: true, deleteCurrent: true });
+    redeem.mockRejectedValueOnce(apiError(401, 'link_not_valid'));
+    await act(async () => {
+      await result.current.finishPendingMove({ background: true }).catch(() => {});
+    });
+    expect(redeem).toHaveBeenCalledTimes(1);
+    expect(redeem.mock.calls[0]![1]).toMatchObject({ replayOnly: true });
+    expect(readPendingMove()).toBeNull();
+    expect(result.current.deviceId).toBe('dev-starter');
+    expect(result.current.username).toBe('Nikos');
+  });
+
+  it('"Try again" (fullRedeem) may send the full move', async () => {
+    const { result } = await started();
+    notePendingMove({ handle: 'handle-9', choice: 'choice-lili', abandonCurrent: true });
+    redeem.mockResolvedValueOnce({ deviceId: 'dev-lili', username: 'Lili' });
+    await act(async () => {
+      await result.current.finishPendingMove({ fullRedeem: true });
+    });
+    expect(redeem.mock.calls[0]![1]).not.toHaveProperty('replayOnly');
+    expect(result.current.deviceId).toBe('dev-lili');
+  });
+
+  it('M-a: an answer that lands after the pending move was cleared is dropped, not adopted', async () => {
+    const { result } = await started();
+    notePendingMove({ handle: 'handle-9', choice: 'choice-lili', abandonCurrent: true });
+    redeem.mockImplementationOnce(async () => {
+      clearPendingMove(); // e.g. "Start again" or a new code meanwhile
+      return { deviceId: 'dev-lili', username: 'Lili' };
+    });
+    let outcome: unknown = 'unset';
+    await act(async () => {
+      outcome = await result.current.finishPendingMove({ background: true });
+    });
+    expect(outcome).toBeNull();
+    expect(result.current.deviceId).toBe('dev-starter');
+    expect(result.current.username).toBe('Nikos');
+  });
+
+  it('M-a: an answer for an id the phone no longer holds is dropped, not adopted', async () => {
+    notePendingMove({ handle: 'handle-9', choice: 'choice-lili', abandonCurrent: true });
+    const adopt = vi.fn(async () => {});
+    let current = 'dev-starter';
+    redeem.mockImplementationOnce(async () => {
+      current = 'dev-someone-new'; // the phone became a new spotter while the request was out
+      return { deviceId: 'dev-lili', username: 'Lili' };
+    });
+    const outcome = await finishPendingMove('dev-starter', adopt, 1, { replayOnly: true, currentId: () => current });
+    expect(outcome).toBeNull();
+    expect(adopt).not.toHaveBeenCalled();
+  });
+
+  it('point 5: a background finish that adopts reloads the web app at "/"', async () => {
+    const replace = vi.fn();
+    const saved = Object.getOwnPropertyDescriptor(window, 'location');
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...window.location, replace } });
+    try {
+      const { result } = await started();
+      notePendingMove({ handle: 'handle-9', choice: 'choice-lili', abandonCurrent: true });
+      redeem.mockResolvedValueOnce({ deviceId: 'dev-lili', username: 'Lili' });
+      await act(async () => {
+        await result.current.finishPendingMove({ background: true });
+      });
+      expect(storage.get('cat-spotter/device-id')).toBe('dev-lili');
+      expect(replace).toHaveBeenCalledWith('/');
+    } finally {
+      if (saved) Object.defineProperty(window, 'location', saved);
+    }
   });
 });

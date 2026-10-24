@@ -701,8 +701,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       if (online) {
         // SYC-664 ship review F2: a restore move whose answer was lost is
         // finished as soon as the phone is back (one at a time; nothing is
-        // sent when none is pending). A failure keeps it for the next go.
-        finishPendingMoveRef.current?.()?.catch(() => {});
+        // sent when none is pending). Replay only (N-1): a move that never
+        // reached the server is dropped, not made now. A network failure
+        // keeps it for the next go.
+        finishPendingMoveRef.current?.({ background: true })?.catch(() => {});
         void syncNow();
       }
     });

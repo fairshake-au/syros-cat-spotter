@@ -94,7 +94,14 @@ export function normaliseCode(input: string): string {
 
 export function redeemRestore(
   deviceId: string,
-  input: { token: string; choice: string; abandonCurrent: boolean; deleteCurrent?: boolean },
+  input: {
+    token: string;
+    choice: string;
+    abandonCurrent: boolean;
+    deleteCurrent?: boolean;
+    /** SYC-664 N-1: only the same phone's replay may answer; never a fresh move. */
+    replayOnly?: boolean;
+  },
   options?: { timeoutMs?: number },
 ): Promise<{ deviceId: string; username: string | null }> {
   return customFetch(`/api/restore/redeem`, {

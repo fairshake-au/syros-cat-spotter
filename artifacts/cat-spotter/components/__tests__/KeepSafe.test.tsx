@@ -110,7 +110,7 @@ vi.mock('@/lib/keepSafe', async (importOriginal) => {
 import { KeepSafeScreen } from '../keepSafe/KeepSafeScreen';
 import { MovedScreen } from '../keepSafe/MovedScreen';
 import { RestoreRequestScreen } from '../keepSafe/RestoreRequestScreen';
-import { readPendingMove, readWaiting, setMovingHandle, noteRequest, RESTORE_WAITING_KEY } from '@/lib/restoreWaiting';
+import { notePendingMove, readPendingMove, readWaiting, setMovingHandle, noteRequest, RESTORE_WAITING_KEY } from '@/lib/restoreWaiting';
 import { ApiError } from '@workspace/api-client-react';
 import RestorePage, { __resetHeldRestoreTokenForTests } from '../../app/restore';
 import { finishPendingMove } from '@/lib/pendingMove';
@@ -936,8 +936,13 @@ describe('code screen', () => {
     /** The real single-flight finisher, as DeviceContext wires it, adopting via the test's spy. */
     const withFinisher = (device: Record<string, unknown>) => ({
       ...device,
-      finishPendingMove: () =>
-        finishPendingMove(device.deviceId as string, device.adoptRestoredIdentity as (id: string, name: string | null) => Promise<void>),
+      finishPendingMove: (opts?: { fullRedeem?: boolean }) =>
+        finishPendingMove(
+          device.deviceId as string,
+          device.adoptRestoredIdentity as (id: string, name: string | null) => Promise<void>,
+          1,
+          { replayOnly: !opts?.fullRedeem },
+        ),
     });
     const moveKeep = async (utils: ReturnType<typeof render>) => {
       await act(async () => {
@@ -1024,9 +1029,43 @@ describe('code screen', () => {
         });
         await waitFor(() => expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili'));
         expect(vi.mocked(keepSafe.peekRestore).mock.calls.length).toBe(peeks);
+        // N-1: nobody tapped anything, so it only asks for the replay.
+        expect(vi.mocked(keepSafe.redeemRestore).mock.calls.at(-1)![1]).toMatchObject({ replayOnly: true });
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it('N-1: a pending move for another code (H1) is cleared on opening the chooser for H2, which peeks H2 and never redeems H1', async () => {
+      notePendingMove({ handle: 'handle-old-H1', choice: 'choice-lili', abandonCurrent: true, deleteCurrent: true });
+      const adopt = vi.fn(async () => {});
+      h.device = withFinisher({ deviceId: 'dev-nikos', username: 'Nikos', isReady: true, adoptRestoredIdentity: adopt });
+      const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+      await act(async () => {
+        typeCode(utils.getByTestId('restore-code-input'), '48291376');
+      });
+      await utils.findByTestId('restore-warning');
+      expect(keepSafe.peekRestore).toHaveBeenLastCalledWith('dev-nikos', 'handle-1');
+      expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+      expect(readPendingMove()).toBeNull();
+      expect(adopt).not.toHaveBeenCalled();
+    });
+
+    it('N-1: opening the chooser with a pending move for the same code asks only for the replay; refused (nothing moved), it peeks as normal', async () => {
+      setMovingHandle('handle-same');
+      notePendingMove({ handle: 'handle-same', choice: 'choice-lili', abandonCurrent: true, deleteCurrent: true });
+      vi.mocked(keepSafe.redeemRestore).mockRejectedValueOnce(
+        new ApiError(new Response(null, { status: 401 }), { error: 'link_not_valid' }, { method: 'POST', url: '/api/restore/redeem' }),
+      );
+      const adopt = vi.fn(async () => {});
+      h.device = withFinisher({ deviceId: 'dev-nikos', username: 'Nikos', isReady: true, adoptRestoredIdentity: adopt });
+      const utils = render(<RestoreRequestScreen onBack={() => {}} />);
+      await utils.findByTestId('restore-warning');
+      expect(keepSafe.redeemRestore).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(keepSafe.redeemRestore).mock.calls[0]![1]).toMatchObject({ replayOnly: true });
+      expect(keepSafe.peekRestore).toHaveBeenLastCalledWith('dev-nikos', 'handle-same');
+      expect(readPendingMove()).toBeNull();
+      expect(adopt).not.toHaveBeenCalled();
     });
 
     it('restoreMoveUnconfirmed exists in en, el and fr, with the ruled English', () => {

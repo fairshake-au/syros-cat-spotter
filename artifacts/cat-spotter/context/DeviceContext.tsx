@@ -273,10 +273,12 @@ interface DeviceContextValue {
   /**
    * SYC-664 ship review F2: finish this phone's own pending restore move inside
    * the session (back online, or "Try again"), adopting the spotter that came
-   * back. Null when nothing is pending; rejects when the move is still
-   * unconfirmed (kept) or was refused (cleared). One at a time.
+   * back. Null when nothing is pending or the answer was stale; rejects when
+   * the move is still unconfirmed (kept) or was refused (cleared). One at a
+   * time. Replay only unless `fullRedeem` (N-1: only "Try again", with the
+   * person there, may make a fresh move).
    */
-  finishPendingMove: () => Promise<Restored | null>;
+  finishPendingMove: (opts?: FinishPendingMoveOptions) => Promise<Restored | null>;
   /** SYC-3: whether "keep my spots safe" has been offered on this phone (lib/keepSafe.ts). */
   keepSafeOffer: KeepSafeOffer;
   setKeepSafeOffer: (value: Exclude<KeepSafeOffer, null>) => void;
@@ -287,6 +289,13 @@ interface DeviceContextValue {
    */
   resetIdentity: () => Promise<void>;
 }
+
+export type FinishPendingMoveOptions = {
+  /** "Try again" in the chooser, with the person there: a fresh move is allowed. */
+  fullRedeem?: boolean;
+  /** Back online (OfflineContext): on web, a full page load at "/" after adopting. */
+  background?: boolean;
+};
 
 const DeviceContext = createContext<DeviceContextValue>({
   deviceId: null,
@@ -353,8 +362,13 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
    */
   const resumePendingMove = async (storedId: string): Promise<Restored | null> => {
     if (!readPendingMove()) return null;
-    // Adopted by the caller below, before the id is visible.
-    return finishMove(storedId, async () => {}, RESUME_RETRY.attempts).catch(() => null);
+    // Adopted by the caller below, before the id is visible, so nothing for
+    // the old id is in memory yet and no reload is needed (N-1 point 5).
+    // Replay only (N-1): the person isn't here to stand behind a fresh move.
+    return finishMove(storedId, async () => {}, RESUME_RETRY.attempts, {
+      replayOnly: true,
+      currentId: () => storedId,
+    }).catch(() => null);
   };
 
   useEffect(() => {
@@ -544,11 +558,23 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     setMoved(false);
   }, []);
 
-  const finishPendingMove = useCallback((): Promise<Restored | null> => {
-    const id = deviceIdRef.current;
-    if (!id || !readPendingMove()) return Promise.resolve(null);
-    return finishMove(id, adoptRestoredIdentity);
-  }, [adoptRestoredIdentity]);
+  const finishPendingMove = useCallback(
+    async (opts: FinishPendingMoveOptions = {}): Promise<Restored | null> => {
+      const id = deviceIdRef.current;
+      if (!id || !readPendingMove()) return null;
+      const restored = await finishMove(id, adoptRestoredIdentity, 1, {
+        replayOnly: !opts.fullRedeem,
+        currentId: () => deviceIdRef.current,
+      });
+      // N-1 point 5: nothing the old id loaded stays in memory. On native,
+      // adoptRestoredIdentity's state reset is what there is.
+      if (restored && opts.background && Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.location.replace('/');
+      }
+      return restored;
+    },
+    [adoptRestoredIdentity],
+  );
 
   const resetIdentity = useCallback(async () => {
     generation.current++;

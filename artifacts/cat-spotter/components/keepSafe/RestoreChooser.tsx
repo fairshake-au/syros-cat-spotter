@@ -101,15 +101,36 @@ export function RestoreChooser({
       setState({ kind: 'offline' });
       return;
     }
-    // SYC-664 ship F2: a move on this screen whose answer was lost. Its code
-    // may be spent already, so never peek: finish the move (back online).
-    if (fromCode && readPendingMove()) {
-      void finishLostMove();
-      return;
-    }
+    // SYC-664 ship N-1: a pending move for some other code (an older handle)
+    // is stale. It is forgotten, never finished from here.
+    const pending = readPendingMove();
+    if (pending && pending.handle !== token.current) clearPendingMove();
     let cancelled = false;
     (async () => {
       const raw = token.current;
+      // SYC-664 F2 / N-1: a move with this same code whose answer was lost
+      // (back online, or the chooser opening again). Its code may be spent,
+      // so ask the server for the replay first, and only the replay: nobody
+      // tapped anything just now, so no fresh move is made here.
+      if (raw && pending && pending.handle === raw) {
+        setState({ kind: 'moving' });
+        try {
+          const restored = await holdIdentityDeleted(() => finishPendingMove());
+          if (restored) {
+            afterMove();
+            return;
+          }
+        } catch {
+          if (cancelled) return;
+          // Still unanswered (offline, 429, 5xx): kept, and "Try again" is offered.
+          if (readPendingMove()) {
+            setState({ kind: 'failed', unconfirmed: true });
+            return;
+          }
+          // Refused: nothing moved. Carry on as if freshly opened.
+        }
+        if (cancelled) return;
+      }
       try {
         if (!raw) throw new Error('no token');
         const peek = await peekRestore(deviceId, raw);
@@ -182,20 +203,21 @@ export function RestoreChooser({
   };
 
   /**
-   * SYC-664 ship F2: finish a move whose answer was lost ("Try again", or back
-   * online). One at a time with every other try (lib/pendingMove.ts); the
-   * server's replay answers for 15 minutes and moves nothing twice.
+   * SYC-664 ship F2: "Try again" on a move whose answer was lost. The person
+   * is here and it is the same code, so a full move may be sent (N-1 point 3).
+   * One at a time with every other try (lib/pendingMove.ts); the server's
+   * replay answers for 15 minutes and moves nothing twice.
    */
   const finishLostMove = async () => {
     setState({ kind: 'moving' });
     try {
       // A late 410 for the id being left must not wipe the phone mid-finish.
-      const restored = await holdIdentityDeleted(() => finishPendingMove());
+      const restored = await holdIdentityDeleted(() => finishPendingMove({ fullRedeem: true }));
       if (restored) {
         afterMove();
         return;
       }
-      // Nothing pending any more (its 15 minutes are up).
+      // Nothing pending any more (its 15 minutes are up), or a stale answer.
       setState({ kind: 'failed' });
     } catch (err) {
       setState(failedState(err));

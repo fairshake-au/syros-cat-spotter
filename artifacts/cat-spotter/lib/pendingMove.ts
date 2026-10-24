@@ -41,18 +41,36 @@ export function exclusiveMove(work: () => Promise<Restored | null>): Promise<Res
   return run;
 }
 
+export type FinishOptions = {
+  /**
+   * SYC-664 ship review N-1: ask only for the server's replay of a move that
+   * already happened, never a fresh one. Every path the person isn't present
+   * for (start-up, back online, the chooser opening) sets it, so a stale
+   * keep/delete choice is never carried out on its own. A "no" is a definite
+   * refusal: the pending move is cleared.
+   */
+  replayOnly?: boolean;
+  /**
+   * M-a: the id this phone holds now. An answer for any other id (the phone
+   * became someone else while the request was out) is dropped, not adopted.
+   */
+  currentId?: () => string | null;
+};
+
 /**
  * Ask again for the pending move, as `deviceId` (the id this phone still holds),
  * and on an answer call `adopt` before anyone waiting is told. Resolves to the
- * spotter that came back, or null when nothing is pending. Rejects with the
- * last error otherwise: after a definite refusal (a 4xx other than 429) the
- * pending move is cleared, after anything else it is kept for the next try
- * while it is inside its window.
+ * spotter that came back, or null when nothing is pending or the answer was
+ * stale (M-a: the pending move went, or changed, or the phone's id changed,
+ * while the request was out). Rejects with the last error otherwise: after a
+ * definite refusal (a 4xx other than 429) the pending move is cleared, after
+ * anything else it is kept for the next try while it is inside its window.
  */
 export function finishPendingMove(
   deviceId: string,
   adopt: (deviceId: string, username: string | null) => Promise<void>,
   attempts = 1,
+  opts: FinishOptions = {},
 ): Promise<Restored | null> {
   return exclusiveMove(async () => {
     let lastError: unknown = null;
@@ -72,6 +90,7 @@ export function finishPendingMove(
             choice: pending.choice,
             abandonCurrent: pending.abandonCurrent,
             ...(pending.deleteCurrent ? { deleteCurrent: true } : {}),
+            ...(opts.replayOnly ? { replayOnly: true } : {}),
           },
           { timeoutMs: RESUME_RETRY.timeoutMs },
         );
@@ -88,6 +107,15 @@ export function finishPendingMove(
         await new Promise((r) => setTimeout(r, RESUME_RETRY.delayMs));
         continue;
       }
+      // M-a: only adopt for the move and the id the request was sent for.
+      const still = readPendingMove();
+      const stale =
+        !still ||
+        still.handle !== pending.handle ||
+        still.choice !== pending.choice ||
+        still.at !== pending.at ||
+        (opts.currentId !== undefined && opts.currentId() !== deviceId);
+      if (stale) return null;
       // Outside the try: a failed write here is not a refused move (N2).
       await adopt(result.deviceId, result.username);
       return result;

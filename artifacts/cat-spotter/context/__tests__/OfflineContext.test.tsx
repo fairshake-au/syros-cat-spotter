@@ -133,7 +133,7 @@ vi.mock('@workspace/api-client-react', () => ({
   ApiError,
 }));
 
-const finishPendingMove = vi.hoisted(() => vi.fn(async () => null));
+const finishPendingMove = vi.hoisted(() => vi.fn(async (_opts?: unknown) => null));
 vi.mock('../DeviceContext', () => ({
   useDevice: () => ({ deviceId: 'device-1', finishPendingMove }),
 }));
@@ -496,6 +496,8 @@ describe('syncNow', () => {
       netInfoListeners.forEach((cb) => cb({ isConnected: true }));
     });
     expect(finishPendingMove).toHaveBeenCalledTimes(1);
+    // N-1: background finishing is replay-only, and reloads on web if it adopts.
+    expect(finishPendingMove).toHaveBeenCalledWith({ background: true });
   });
 
   it('uses a smaller temporary photo when syncing over cellular data', async () => {

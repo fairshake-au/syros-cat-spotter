@@ -235,6 +235,11 @@ function secretOf(req: Request): string {
  * ship review F1): a phone finishing its own move is never told 429. Only the
  * phone whose secret the moved spotter now holds gets an answer here; anything
  * else goes on to the limiter and the ordinary checks.
+ *
+ * `replayOnly: true` (SYC-664 ship review N-1): the app's background finishing
+ * (start-up, back online) only ever wants this answer. Without a move behind
+ * it, it gets the one refusal and nothing moves: a stale keep/delete choice is
+ * never carried out without the person there.
  */
 async function samePhoneReplay(req: Request, res: Response, next: NextFunction): Promise<void> {
   const body = (req.body ?? {}) as Record<string, unknown>;
@@ -248,6 +253,10 @@ async function samePhoneReplay(req: Request, res: Response, next: NextFunction):
       res.json({ deviceId: replay.deviceId, username: replay.username });
       return;
     }
+  }
+  if (body["replayOnly"] === true) {
+    noStore(res);
+    return refuseLink(req, res, "replay_only_no_move", raw);
   }
   next();
 }
