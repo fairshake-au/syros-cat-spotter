@@ -31,7 +31,11 @@ vi.mock("../lib/logger", async (importOriginal) => {
 
 const TOKEN = "vitest-internal-token-0123456789abcdef";
 const EMAIL = "vitest-internal-susan@example.com";
+// SYC-619 §2.2 (N1): the workspace is management's, so the old shape's yes
+// (which means the workspace) is a manager's. Susan is staff only.
+const MANAGER = "vitest-internal-maria@example.com";
 let personId: string;
+let managerId: string;
 
 beforeAll(async () => {
   await removeTestPerson(EMAIL);
@@ -41,6 +45,19 @@ beforeAll(async () => {
     addedBy: "cli:vitest",
   });
   personId = p.id;
+  await removeTestPerson(MANAGER);
+  const m = await addPerson({
+    email: MANAGER,
+    name: "Maria",
+    addedBy: "cli:vitest",
+  });
+  // Management is given by set-roles, never by add: written directly, as
+  // the other route tests do.
+  await pool.query(
+    "update person_scopes set role = 'management' where person_id = $1",
+    [m.id],
+  );
+  managerId = m.id;
 });
 
 afterEach(() => {
@@ -49,6 +66,7 @@ afterEach(() => {
 
 afterAll(async () => {
   await removeTestPerson(EMAIL);
+  await removeTestPerson(MANAGER);
   await pool.end();
 });
 
@@ -91,17 +109,54 @@ describe("POST /api/internal/people/allowed", () => {
     expect(res.body).toEqual({ allowed: false });
   });
 
-  it("answers allowed:true with the id and session version, for a listed address in capitals", async () => {
+  it("answers allowed:true with the id and session version, for a manager's address in capitals", async () => {
     process.env["INTERNAL_PEOPLE_TOKEN"] = TOKEN;
-    const res = await ask(`  ${EMAIL.toUpperCase()} `, `Bearer ${TOKEN}`);
+    const res = await ask(`  ${MANAGER.toUpperCase()} `, `Bearer ${TOKEN}`);
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toMatch(/^application\/json/);
     expect(res.body).toEqual({
       allowed: true,
+      personId: managerId,
+      name: "Maria",
+      sessionVersion: 1,
+    });
+  });
+
+  it("version 2: staff-only gets workspace false and dashboard true; a manager gets both", async () => {
+    process.env["INTERNAL_PEOPLE_TOKEN"] = TOKEN;
+    const askV2 = (email: string) =>
+      request(app)
+        .post("/api/internal/people/allowed")
+        .set("Authorization", `Bearer ${TOKEN}`)
+        .send({ email, version: 2 });
+    const staff = await askV2(EMAIL);
+    expect(staff.status).toBe(200);
+    expect(staff.body).toEqual({
+      allowed: true,
+      doors: { workspace: false, dashboard: true },
+      language: "en",
       personId,
       name: "Susan",
       sessionVersion: 1,
     });
+    const manager = await askV2(MANAGER);
+    expect(manager.body).toEqual({
+      allowed: true,
+      doors: { workspace: true, dashboard: true },
+      language: "en",
+      personId: managerId,
+      name: "Maria",
+      sessionVersion: 1,
+    });
+  });
+
+  it("no version: staff-only gets the fixed no body", async () => {
+    process.env["INTERNAL_PEOPLE_TOKEN"] = TOKEN;
+    const staff = await ask(EMAIL, `Bearer ${TOKEN}`);
+    const stranger = await ask("vitest-nobody@example.com", `Bearer ${TOKEN}`);
+    expect(staff.status).toBe(200);
+    expect(staff.body).toEqual({ allowed: false });
+    expect(staff.text).toBe(stranger.text);
   });
 
   it("refuses a body without a string address", async () => {
@@ -136,12 +191,14 @@ describe("POST /api/internal/people/allowed", () => {
     process.env["INTERNAL_PEOPLE_TOKEN"] = TOKEN;
     logLines.length = 0;
     await ask(EMAIL, `Bearer ${TOKEN}`);
+    await ask(MANAGER, `Bearer ${TOKEN}`);
     await ask("vitest-nobody@example.com", `Bearer ${TOKEN}`);
     expect(logLines.length).toBeGreaterThan(0);
     const all = logLines.join("\n").toLowerCase();
     expect(all).toContain('"outcome":"allowed"');
     expect(all).toContain('"outcome":"not_allowed"');
     expect(all).not.toContain("vitest-internal-susan");
+    expect(all).not.toContain("vitest-internal-maria");
     expect(all).not.toContain("vitest-nobody");
     expect(all).not.toContain(TOKEN);
   });

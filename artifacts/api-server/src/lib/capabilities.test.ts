@@ -69,14 +69,14 @@ describe("T15 (part): manage_people and action_deletion_request are management's
     }
   });
 
-  it("the team holds everything else that isn't a guardian's own ask", () => {
+  it("the team holds everything else that isn't a guardian's own ask, or the workspace (SYC-619 §2.2)", () => {
     for (const c of CAPABILITIES) {
-      const expected = !["manage_people", "action_deletion_request", "request_site_public"].includes(c);
+      const expected = !["manage_people", "action_deletion_request", "request_site_public", "use_workspace"].includes(c);
       expect(can(staff, c), c).toBe(expected);
     }
   });
 
-  it("management holds what the team holds, and the two management powers", () => {
+  it("management holds what the team holds, the two management powers, and the workspace", () => {
     for (const c of CAPABILITIES) {
       expect(can(management, c), c).toBe(c !== "request_site_public");
     }
@@ -232,10 +232,31 @@ describe("mayEnter(), the dashboard door", () => {
   });
 });
 
-describe("T27: the workspace door is the team's and management's only", () => {
-  it("is open to the team and management, and shut to a guardian who holds the dashboard door", () => {
-    expect(mayUseWorkspace(staff)).toBe(true);
+describe("SYC-619 §2.2 (N1): the workspace is management's; the cat-news list stays the team's", () => {
+  it("use_workspace is management only", () => {
+    expect(CATALOGUE.use_workspace).toEqual({ kind: "island", roles: ["management"] });
+    expect(can(management, "use_workspace")).toBe(true);
+    expect(can(staff, "use_workspace")).toBe(false);
+    // A manager who is also staff (all three managers today) keeps it.
+    expect(can({ scopes: [...staff.scopes, ...management.scopes] }, "use_workspace")).toBe(true);
+  });
+
+  it("review_cat_news is the team's", () => {
+    expect(CATALOGUE.review_cat_news).toEqual({ kind: "island", roles: ["staff", "management"] });
+    expect(can(staff, "review_cat_news")).toBe(true);
+    expect(can(management, "review_cat_news")).toBe(true);
+    for (const person of [guardian, guardianOnTwo, vet, nobody]) {
+      expect(can(person, "review_cat_news")).toBe(false);
+    }
+  });
+});
+
+describe("T27: the workspace door is management's only (SYC-619 §2.2, N1)", () => {
+  it("is open to management, and shut to staff and to a guardian who holds the dashboard door", () => {
     expect(mayUseWorkspace(management)).toBe(true);
+    // Staff keep the dashboard door, and lose the workspace one.
+    expect(mayEnter(staff)).toBe(true);
+    expect(mayUseWorkspace(staff)).toBe(false);
     for (const person of [guardian, guardianOnTwo, vet, nobody]) {
       expect(mayUseWorkspace(person)).toBe(false);
     }

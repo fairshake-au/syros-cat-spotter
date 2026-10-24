@@ -17,8 +17,9 @@ import { deleteTestRows } from "../test/deleteGuarded";
 // POST /api/internal/people/allowed answers two doors (SYC-53 plan PR 0.4;
 // roles spec §4.5, §6.3, §14 cases 11 and 13; SYC-222 points 1 and 2).
 //
-// T7: a cat guardian gets no from the old request shape (the Worker deployed
-// today gives the workspace to every yes) and no workspace door from the new.
+// T7: a cat guardian gets no from the old request shape (the first Worker
+// gave the workspace to every yes) and no workspace door from the new. Since
+// SYC-619 §2.2 (N1) the workspace is management's, so staff are refused it too.
 // T8 (part) and §14 case 13: unknown, left, pending and no-door addresses get
 // byte-identical answers, in each shape.
 
@@ -40,6 +41,7 @@ const RUN = randomBytes(3).toString("hex");
 const addr = (who: string) => `vitest-doors-${who}-${RUN}@example.com`;
 
 const STAFF = addr("staff");
+const MANAGER = addr("manager");
 const STAFF_GREEK = addr("staff-el");
 const GUARDIAN = addr("guardian");
 const VET = addr("vet");
@@ -47,7 +49,7 @@ const NO_ROLES = addr("noroles");
 const LEFT = addr("left");
 const PENDING = addr("pending");
 const NEVER = addr("never");
-const EVERYONE = [STAFF, STAFF_GREEK, GUARDIAN, VET, NO_ROLES, LEFT, PENDING];
+const EVERYONE = [STAFF, MANAGER, STAFF_GREEK, GUARDIAN, VET, NO_ROLES, LEFT, PENDING];
 
 const ids: Record<string, { id: string; sessionVersion: number }> = {};
 const colonyIds: number[] = [];
@@ -82,6 +84,10 @@ const add = async (
 beforeAll(async () => {
   for (const e of EVERYONE) await removeTestPerson(e);
   await add(STAFF, ["staff"]);
+  // SYC-619 §2.2 (N1): the workspace is management's. Management is given by
+  // set-roles, never by add: written directly, as the other route tests do.
+  const manager = await add(MANAGER, ["staff"]);
+  await pool.query("update person_scopes set role = 'management' where person_id = $1", [manager.id]);
   await add(STAFF_GREEK, ["staff"], { language: "el" });
   // T7: a cat guardian, placed on one colony.
   await add(GUARDIAN, ["guardian"], { colonyId: await aColony() });
@@ -90,11 +96,15 @@ beforeAll(async () => {
   await pool.query("delete from person_scopes where person_id = $1", [
     noRoles.id,
   ]);
-  await add(LEFT, ["staff"]);
+  // Managers, so the workspace would be theirs if they were here: the refusal
+  // is about having left or not having joined, not about the role.
+  const left = await add(LEFT, ["staff"]);
+  await pool.query("update person_scopes set role = 'management' where person_id = $1", [left.id]);
   await markLeft(LEFT, "cli:vitest");
-  // Invited, not yet accepted (spec §10.1). Staff, so the role isn't why
+  // Invited, not yet accepted (spec §10.1). A manager, so the role isn't why
   // they're refused: being pending is.
   const pending = await add(PENDING, ["staff"]);
+  await pool.query("update person_scopes set role = 'management' where person_id = $1", [pending.id]);
   await pool.query("update people set accepted_at = null where id = $1", [
     pending.id,
   ]);
@@ -150,28 +160,40 @@ describe("T7: the old request shape says yes only to the workspace door (§14 ca
     });
   });
 
-  it("a staff address gets yes from the old shape, unchanged for today's Worker", async () => {
-    const res = await askOld(STAFF);
+  it("a manager's address gets yes from the old shape; a staff-only address gets the stranger's no (SYC-619 §2.2)", async () => {
+    const res = await askOld(MANAGER);
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       allowed: true,
+      personId: ids[MANAGER]!.id,
+      name: "Pat",
+      sessionVersion: ids[MANAGER]!.sessionVersion,
+    });
+    const staff = await askOld(STAFF);
+    expect(staff.body).toEqual({ allowed: false });
+    expect(seen(staff)).toEqual(seen(await askOld(NEVER)));
+  });
+
+  it("a staff address gets the dashboard door only, the language and who they are from the new shape", async () => {
+    const res = await askDoors(STAFF);
+    expect(res.status).toBe(200);
+    expect(res.headers["cache-control"]).toBe("no-store");
+    expect(res.body).toEqual({
+      allowed: true,
+      doors: { workspace: false, dashboard: true },
+      language: "en",
       personId: ids[STAFF]!.id,
       name: "Pat",
       sessionVersion: ids[STAFF]!.sessionVersion,
     });
   });
 
-  it("a staff address gets both doors, the language and who they are from the new shape", async () => {
-    const res = await askDoors(STAFF);
-    expect(res.status).toBe(200);
-    expect(res.headers["cache-control"]).toBe("no-store");
-    expect(res.body).toEqual({
+  it("a manager's address gets both doors from the new shape", async () => {
+    const res = await askDoors(MANAGER);
+    expect(res.body).toMatchObject({
       allowed: true,
       doors: { workspace: true, dashboard: true },
-      language: "en",
-      personId: ids[STAFF]!.id,
-      name: "Pat",
-      sessionVersion: ids[STAFF]!.sessionVersion,
+      personId: ids[MANAGER]!.id,
     });
   });
 
@@ -214,11 +236,12 @@ describe("T8 (part), §14 case 13: every no is the same, byte for byte", () => {
       ids[PENDING]!.id,
     ]);
     try {
-      expect((await askOld(PENDING)).body.allowed).toBe(true);
+      // A manager holds both doors, and is let in through the old shape too.
       expect((await askDoors(PENDING)).body.doors).toEqual({
         workspace: true,
         dashboard: true,
       });
+      expect((await askOld(PENDING)).body.allowed).toBe(true);
     } finally {
       await pool.query("update people set accepted_at = null where id = $1", [
         ids[PENDING]!.id,

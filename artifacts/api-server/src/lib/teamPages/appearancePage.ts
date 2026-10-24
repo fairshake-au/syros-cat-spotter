@@ -5,6 +5,7 @@ import { COAT_COLOURS, COAT_PATTERNS, MARKS } from "../appearance";
 import type { TeamAppearance, TeamAppearanceStatement, TeamCatView } from "../teamCatView";
 import { colourSwatch, drawnCoatFigure } from "./coatDrawing";
 import { escapeHtml as esc } from "./escape";
+import { backLink, HOME_PATH } from "./backLink";
 import { renderPage } from "./layout";
 import { tr, type Language, type StringKey } from "./strings";
 import { coatIsUnknown, coatWordsFor, teamPatternWord, teamWordsApply, TEAM_PATTERN_LABELS } from "./teamCoatWords";
@@ -662,7 +663,7 @@ export function renderColourCheckPage(
     active: "colour",
     personName,
     lang,
-    beforeTitle: `<p class="back"><a href="/api/team">${tr(lang, "colourCheck.back")}</a></p>`,
+    beforeTitle: backLink(HOME_PATH, tr(lang, "colourCheck.back")),
     body,
   });
 }

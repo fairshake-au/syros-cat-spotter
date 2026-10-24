@@ -265,7 +265,8 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `view_health_notes` | Read team-only health notes on a cat (SYC-2) | Placed | All | All | Own |
 | `view_welfare_queue` | The welfare queue, welfare reports and reporters' photographs | Island-only | ✓ | ✓ | — |
 | `view_colony_welfare_reports` | Read the cat-in-trouble (welfare) reports **tied to a cat that is in a colony she guards**: the report, its photo and its location. Never the reporter's contact details or device, never the team's notes, never a "Report an issue" report, never a report tied to no cat or to a cat outside her colonies. **Read only**: she cannot change a report's state or add a note (those stay with `change_report_state` and `add_team_note`, island-only). The target is the report's cat's colony, read from the record at each request (Q2, answered 12 October 2026) | Placed | All | All | Own |
-| `use_workspace` | See the workspace documents and the shared document password (§6.3) | Island-only | ✓ | ✓ | — |
+| `use_workspace` | See the workspace documents and the shared document password (§6.3). Management only since 23 October 2026 (SYC-619, N1) | Island-only | — | ✓ | — |
+| `review_cat_news` | See and mark reviewed the nightly cat-news check's list | Island-only | ✓ | ✓ | — |
 | `view_guardian_changes` | The "recent guardian changes" list on the team's **Colonies page** (SYC-209 §2.6): every cat a guardian added to or took out of a colony, every sterilisation, life-status and colour statement she made, and every colony she created, with who and when (§7.4, §6.9) | Island-only | ✓ | ✓ | — |
 | `view_vet_costs` | See vet costs, who paid, and estimates (team-dashboard-redesign.md §8.4) | Island-only | ✓ | ✓ | — |
 | `print_trapping_plan` | Print a colony's trapping plan (team-dashboard-redesign.md §9.2) | Island-only | ✓ | ✓ | — |
@@ -327,7 +328,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 
 One yes from the sign-in page must not open two things at once: the workspace (shared documents, the document password, the lock switches) and the dashboard.
 
-- **The workspace is its own capability, `use_workspace`**, held by the team and management only. Decided through `can()` like everything else; never "has any capability".
+- **The workspace is its own capability, `use_workspace`**, held by management only (SYC-619, N1, 23 October 2026). Decided through `can()` like everything else; never "has any capability".
 - **The dashboard door** is open to an accepted person who holds at least one dashboard capability (`canSomewhere`, §6.4), and to a pending invitee heading for the accept page, who reaches that page and nothing else.
 - **The Worker is asked both questions** (§4.5) and issues the workspace session only for the first. A guardian who signs in at `admin.catspotters.com` never gets a workspace session at all, and goes straight to the dashboard.
 - **The break-glass row in `admins`** (`team-access-and-welfare-queue.md` §2.7) grants the workspace only.
@@ -1154,7 +1155,7 @@ Comments, not new tickets: SYC-104 (what the people screen must do: §8), SYC-21
 - **The capability catalogue in `roles-and-invites.md` §6.2 is the single list of capability names.** Other specs cite it and add none of their own. *(Decision 4, §6.7.)*
 - **A person is invited by management, who creates them as pending with their roles; they get a plain message with no secret (it may name the colony), sign in as the team does, and accept.** The address is typed once. Invitations expire after 14 days and can be withdrawn in one tap. No Clerk, no second sign-in mechanism. *(Decisions 2 and 7.)*
 - **One management member is enough for every access change**, including adding or removing team or management members. Every access change is in the history and the other managers are emailed. The `people` command stays as break-glass. *(Decision 11.)*
-- **The workspace documents are their own capability, `use_workspace`, held by the team and management only.** The sign-in check answers two doors, and answers the old request shape with yes only where the workspace is allowed. *(SYC-222 points 1 and 2.)*
+- **The workspace documents are their own capability, `use_workspace`, held by management only (SYC-619, 23 Oct 2026).** The sign-in check answers two doors, and answers the old request shape with yes only where the workspace is allowed. *(SYC-222 points 1 and 2.)*
 - **`can()` is strict; entry and menus use a separate `canSomewhere()`; guardians never hold an island-wide row; the welfare queue needs its own team-only capability.** A signed-in person who lacks a capability gets a 403 page, not the sign-in redirect. *(Decision 4.)*
 - **The team, vets, cat guardians and cat owners can confirm that a cat is sterilised, and their statement makes the cat Confirmed at once, recorded with who said it; the team can mark it wrong.** A clipped ear alone still never confirms. A guardian's look at an ear (a field check) also counts at once, with no team OK: the cat shows "Probably sterilised – checked in person", never Confirmed, and no "sterilised" email is sent. The team can mark either wrong. An owner's confirmation follows SYC-130; a vet's waits for SYC-24. *(Decision 5; amends the data spine §4.2 and Part 2k.)*
 - **A cat guardian decides alone which cats are in her colonies, adding and taking out, at once.** Every change is in the history and on the team's "recent guardian changes" list. A guardian can create a colony and is placed on it automatically. *(Decisions 6 and 14.)*

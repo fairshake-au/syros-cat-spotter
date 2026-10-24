@@ -61,8 +61,13 @@ export const CATALOGUE = {
   // The workspace on admin.catspotters.com: the shared documents, the
   // document password and the lock switches (§6.3; SYC-222). Not a dashboard
   // capability: holding it never opens the dashboard door, and the dashboard
-  // door never opens the workspace.
-  use_workspace: { kind: "island", roles: TEAM },
+  // door never opens the workspace. Management only (SYC-619 §2.2, N1;
+  // Samuel, 23 Oct 2026): staff keep the dashboard and lose the workspace.
+  use_workspace: { kind: "island", roles: ["management"] },
+  // The nightly cat-news check's review list (SYC-45; email-capture §10.1):
+  // see it, and mark a change reviewed. It used to borrow use_workspace;
+  // it stays the team's when the workspace became management's (SYC-619 §2.2).
+  review_cat_news: { kind: "island", roles: TEAM },
   view_guardian_changes: { kind: "island", roles: TEAM },
   // Vet costs and the trapping plan (SYC-396 PR 2.3; dashboard §8.4, §10.3).
   // Never for a guardian: she sees that a visit happened, not what it cost.
