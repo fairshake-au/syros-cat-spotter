@@ -8,6 +8,7 @@ import { loadCatRecords, ObservationRefused, type VetVisitValue } from "./observ
 import { authorityLevel, standingRows, supersedeChains, type Vaccine } from "./resolve";
 import { lockActiveObservation } from "./teamCorrections";
 import { athensToday } from "./athensTime";
+import { syrNumber, teamPhotoUrl } from "./teamCatView";
 
 // Logging a vet visit, and undoing one (SYC-396 PR 3.1a; plan Task 3.1.1;
 // team-dashboard-redesign.md §8.3, Decisions 4–7 and D8).
@@ -398,11 +399,17 @@ export async function visitsFor(catId: number, opts: { costs: boolean }): Promis
  * Cats added to a round from outside the colony's list (SYC-396 PR 3.2): name,
  * SYR number and main photo, by id. Ids that aren't cats are left out.
  */
-export async function roundCatsByIds(ids: readonly number[]): Promise<{ id: number; name: string; photoPublicId: string | null }[]> {
+export async function roundCatsByIds(ids: readonly number[]): Promise<{ id: number; name: string; syr: string; photoUrl: string | null }[]> {
   if (ids.length === 0) return [];
-  return db
+  const rows = await db
     .select({ id: catsTable.id, name: catsTable.name, photoPublicId: photosTable.publicId })
     .from(catsTable)
     .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
     .where(inArray(catsTable.id, [...ids]));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    syr: syrNumber(r.id),
+    photoUrl: r.photoPublicId ? teamPhotoUrl(r.photoPublicId) : null,
+  }));
 }

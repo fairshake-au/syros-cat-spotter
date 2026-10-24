@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { db, observationsTable } from "@workspace/db";
+import { db, markLeft, observationsTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 import { getGuidance } from "@workspace/welfare-guidance";
 import app from "../app";
@@ -55,7 +55,8 @@ beforeEach(() => {
 });
 afterAll(async () => {
   delete process.env["TEAM_SESSION_KEYS"];
-  await removeTestPerson(team.email);
+  // The team member wrote visits, so they leave rather than being removed.
+  await markLeft(team.email, "cli:vitest");
   await removeTestPerson(guardian.email);
 });
 
@@ -141,5 +142,39 @@ describe("Log this round's vet visits", () => {
     expect(await visitsOf([cats[3]!])).toHaveLength(0);
     // And her planner has no link to it.
     expect((await get(`/api/team/colonies/${colony}`, guardian)).text).not.toContain("/round\"");
+  });
+
+  it("Enter in a box saves rather than searching: the first submit button is Save", async () => {
+    const form = (await get(`/api/team/colonies/${colony}/round`, team)).text;
+    const first = /<button type="submit"[^>]*>/.exec(form.slice(form.indexOf(`action="/api/team/colonies/${colony}/round"`)))![0];
+    expect(first).toContain('value="save"');
+  });
+
+  it("an unknown colony is not found, and a post from elsewhere is refused", async () => {
+    expect((await get(`/api/team/colonies/1999999999/round`, team)).status).toBe(404);
+    const res = await request(app)
+      .post(`/api/team/colonies/${colony}/round`)
+      .type("form")
+      .set("Cookie", team.cookie)
+      .send(new URLSearchParams([...shared(), ["cat", String(cats[3])], [`did-${cats[3]}`, "sterilised"]]).toString());
+    // No Origin: refused before the session is read.
+    expect([401, 403]).toContain(res.status);
+    expect(await visitsOf([cats[3]!])).toHaveLength(0);
+  });
+
+  it("escapes what was typed, and refuses a ticked cat the form no longer lists", async () => {
+    const res = await post(`/api/team/colonies/${colony}/round`, team, [
+      ...shared(),
+      ["note", "<script>alert(1)</script>"],
+      ["q", "<b>x</b>"],
+      ["cat", String(stranger)],
+      [`did-${stranger}`, "sterilised"],
+      ["action", "save"],
+    ]);
+    expect(res.status).toBe(400);
+    expect(res.text).not.toContain("<script>alert(1)");
+    expect(res.text).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(res.text).not.toContain("<b>x</b>");
+    expect(res.text).toContain("no longer on this colony");
   });
 });

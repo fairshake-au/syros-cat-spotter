@@ -63,6 +63,8 @@ export interface RoundValues {
   cats: Record<number, RoundCatValues>;
   /** "Add a cat not on this list": what was typed into the search. */
   q: string;
+  /** Every cat id posted as ticked, listed or not. */
+  ticked: number[];
 }
 
 const today = (now: Date) => now.toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
@@ -84,6 +86,7 @@ export function blankRound(cats: readonly RoundCat[], standardPriceEur: number, 
       cats.map((c) => [c.id, { ticked: false, did: startingDid(c.mark), costEur: "", paidBy: "", treatedNote: "" }]),
     ),
     q: "",
+    ticked: [],
   };
 }
 
@@ -112,6 +115,7 @@ export function roundFrom(body: unknown, listed: readonly number[]): RoundValues
     note: lf(str(b["note"])),
     extra: ids(b["extra"]),
     q: str(b["q"]).slice(0, 200),
+    ticked: [...ticked],
     cats: Object.fromEntries(
       listed.map((id) => [
         id,
@@ -341,6 +345,8 @@ export function renderRoundForm(p: RoundPage): string {
         ? '<p class="notice" role="alert">Some answers need a look. Nothing was saved yet.</p>'
         : "") +
       `<form method="post" action="${base}/round" class="diedpage" novalidate>` +
+      // Enter in any box saves, not "Find": the first submit button is the default (review, finding 1).
+      '<button type="submit" name="action" value="save" class="sr" tabindex="-1" aria-hidden="true">Save</button>' +
       f.extra.map((id) => `<input type="hidden" name="extra" value="${id}">`).join("") +
       shared +
       `<h2 id="round-cats">The cats</h2>` +

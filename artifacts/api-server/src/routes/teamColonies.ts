@@ -21,7 +21,6 @@ import { renderPlanPrintPage } from "../lib/teamPages/planPrintPage";
 import { blankRound, readRound, renderRoundForm, roundFrom, type RoundCat } from "../lib/teamPages/roundForm";
 import { logRound, roundCatsByIds } from "../lib/vetVisits";
 import { getAppSettings } from "../lib/appSettings";
-import { syrNumber, teamPhotoUrl } from "../lib/teamCatView";
 import {
   colonySortOf,
   renderAddCatsPage,
@@ -402,7 +401,7 @@ router.post(
     const asked = roundFrom(body, []).extra;
     const extras = (await roundCatsByIds([...new Set([...asked, ...(addRaw === null ? [] : [addRaw])])].filter((id) => !own.has(id))))
       .sort((a, b) => a.id - b.id)
-      .map((c) => ({ id: c.id, name: c.name, syr: syrNumber(c.id), photoUrl: c.photoPublicId ? teamPhotoUrl(c.photoPublicId) : null, mark: null, where: "Added to this round" }));
+      .map((c) => ({ ...c, mark: null, where: "Added to this round" }));
     const cats = [...base.page.cats, ...extras];
     const values = roundFrom(body, cats.map((c) => c.id));
     values.extra = extras.map((c) => c.id);
@@ -429,7 +428,16 @@ router.post(
         })),
       });
     }
+    // A ticked cat the form no longer lists (it left the colony's street cats
+    // since the form was drawn) is never dropped quietly (review, finding 4).
+    const listed = new Set(cats.map((c) => c.id));
+    const gone = roundFrom(body, []).ticked.filter((id) => !listed.has(id));
     const read = readRound(values, { costs: page.costs, vaccinate: page.vaccinate });
+    if (gone.length > 0) {
+      const problems = read.ok ? { shared: {}, cats: {} } : read.problems;
+      problems.shared.cats = "A cat you ticked is no longer on this colony's list. Check the ticks and save again.";
+      return again(400, { problems });
+    }
     if (!read.ok) return again(400, { problems: read.problems });
     try {
       await logRound(base.person, { colonyId: page.colony.id, date: read.date, visits: read.visits });
