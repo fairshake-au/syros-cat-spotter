@@ -82,7 +82,7 @@ Samuel (24 Oct): new cats go **public straight away**, "but give Syros Cats the 
 - **Public at once.** The new cat appears in the public app like a cat a spotter found. Its first trapping photo is its main photo, so future photo searches can match it.
 - **Two ways to name it.** Syros Cats chooses one, per cat:
   - **Name it now:** the team types a name and, optionally, a short description. That is the cat's profile.
-  - **Leave it for spotters:** the cat is saved without a name the team chose, and spotters who spot it can name it as they name cats today. *Builder: check how the app handles a cat with no name yet (`cats.name` and the name-suggestion flow, `routes/cats.ts`) and use the existing path rather than inventing one.*
+  - **Leave it for spotters:** the cat is saved without a name, and spotters name it in the public app. See "Spotters naming a cat" below.
 - **Its place** is the batch's colony centre, else the batch's area centre, else an area the team picks. It's never a position typed as numbers. *My call:* the public map shows it with the same blurring as every cat, so a rough centre is no worse than a spotter's pin.
 - **Its colony** is the batch's colony, if one was chosen.
 - **Its SYR number** comes from its id, as for every cat.
@@ -116,6 +116,18 @@ Every photo in the batch is kept, tied to its visit (Samuel agreed, 24 Oct). The
 - for a cat already on record, **never shown to the public or to cat guardians**, and never chosen as its display photo or as a reference photo for photo searches (*my call*: the cat already has a public photo, and trap or vet shots stay private). Guardians see that a visit happened and what was done, as they do now (§10.2), without costs or vaccinations;
 - for a **new** cat, the exception: its first trapping photo becomes its main, public photo (Samuel, 24 Oct). Its other batch photos stay team-only;
 - stripped of EXIF and GPS data, and stored in the same photo store (`photos`), with the same size versions, as other photos. *My call:* they reuse `photos` with a team-only rule, rather than a store of their own. Every reader that picks display photos, reference photos, public galleries, guardian views, exports or fingerprints must leave them out, and a test proves it for each one.
+
+## Spotters naming a cat (added 24 Oct 2026, for approval with the plan)
+
+Samuel chose on 24 Oct to "Build it all in this plan". Today every cat gets its name when a spotter first records it, and only the cat's owner can rename it later (`routes/sightings.ts`, `routes/cats.ts`). So a cat Syros Cats leaves for spotters to name needs a new public feature. The calls below are mine, for Samuel to check with the plan.
+
+- **How it's stored.** A cat left for spotters is saved with `name_pending` set. Its stored name is its SYR number, so the "every cat has a unique name" rule still holds.
+- **What the public sees.** The app shows "No name yet" with the SYR number wherever the cat's name would be: its page, the map and lists. An older copy of the app shows just the SYR number.
+- **Who can name it.** Any spotter who opens the cat's page sees **Name this cat**. The first good name wins. The name goes through the same checks as naming a new cat today: not blank, nothing offensive (`containsOffensiveLanguage`), and not already another cat's name. "Suggest names" offers the existing AI name ideas.
+- **What's recorded.** The name is written as a `name` statement by that spotter's device, exactly as when a spotter names a new cat. `name_pending` is cleared in the same transaction, so two spotters naming at once can't both win.
+- **After that,** the name behaves like any other cat's name. There are no points for naming (*my call*).
+- **Words:** the new app words are drafted in Greek and French for Johnny's check (SYC-346 second pack).
+- **The team** sees "No name yet" on the dashboard until a spotter names the cat. The team can name it from the cat's page at any time, which also clears `name_pending`.
 
 ## Constraints the builder must respect
 
