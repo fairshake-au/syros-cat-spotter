@@ -77,6 +77,13 @@ describe('the Spot screen location card', () => {
     expect(source).toMatch(/view=\{locationAsk\}/);
   });
 
+  it('keeps "Check for matches" off while the view is held, so a hidden pin is never sent', () => {
+    const label = source.indexOf("t('checkForMatches')");
+    expect(label).toBeGreaterThan(-1);
+    const button = source.slice(source.lastIndexOf('<Button', label), label);
+    expect(button).toMatch(/disabled=\{!canCheckForMatches\(mapStart, locationAsk\)/);
+  });
+
   it('hides the map and its pin while the card shows (F3)', () => {
     expect(source).toMatch(/\) : pickedCoords && locationAsk !== 'card' && \(\s*<LocationPicker/);
   });

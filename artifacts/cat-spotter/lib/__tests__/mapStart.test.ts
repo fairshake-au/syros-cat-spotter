@@ -153,6 +153,14 @@ describe('the line under the map, and the button', () => {
     expect(canCheckForMatches(null)).toBe(false);
     expect(canCheckForMatches({ status: 'ready', coords: ERMOUPOLI, origin: 'town' })).toBe(true);
     expect(canCheckForMatches({ status: 'ready', coords: SYROS_FIX, origin: 'phone' })).toBe(true);
+    // SYC-524: never while the location card (or the automatic ask) holds the
+    // view, even with a ready start: the pin is hidden then, so it can't be sent.
+    expect(canCheckForMatches({ status: 'ready', coords: ERMOUPOLI, origin: 'town' }, 'card')).toBe(false);
+    expect(canCheckForMatches({ status: 'ready', coords: SYROS_FIX, origin: 'phone' }, 'card')).toBe(false);
+    for (const ask of ['none', 'link', 'off-native', 'off-web', 'auto-ask'] as const) {
+      expect(canCheckForMatches({ status: 'ready', coords: ERMOUPOLI, origin: 'town' }, ask), ask).toBe(true);
+    }
+    expect(canCheckForMatches({ status: 'waiting' }, 'link')).toBe(false);
   });
 });
 

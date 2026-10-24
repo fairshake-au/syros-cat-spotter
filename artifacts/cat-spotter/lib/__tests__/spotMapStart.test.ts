@@ -76,7 +76,8 @@ describe('the Spot screen map start', () => {
   });
 
   it('enables "Check for matches" only once the map has a start', () => {
-    expect(source).toMatch(/disabled=\{!canCheckForMatches\(mapStart\) \|\| !pickedCoords \|\| submitting \|\| !deviceId\}/);
+    // SYC-524: and never while the location card holds the view (hidden pin).
+    expect(source).toMatch(/disabled=\{!canCheckForMatches\(mapStart, locationAsk\) \|\| !pickedCoords \|\| submitting \|\| !deviceId\}/);
   });
 
   it('gives "This cat needs help" no place while the map sits on an unmoved Ermoupoli start (review M1)', () => {
