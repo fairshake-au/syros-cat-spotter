@@ -252,6 +252,17 @@ describe("the Coat and markings fold (SYC-602 Task 3.2)", () => {
     expect(html).not.toContain('/cats/7#appearance');
   });
 
+  it("the Not yet described fold opens only when there is nothing to check (SYC-619 §9.2)", () => {
+    const mk = (id: number, group: "check" | "not_described") => ({
+      catId: id, name: `Cat ${id}`, syr: `SYR-${id}`, group, reasons: group === "check" ? ["tied_camps"] : [],
+      photoUrl: null, coatColours: null, coatPattern: null, markings: null, above: { coat: [], markings: [] },
+    });
+    expect(renderColourCheckPage([mk(1, "not_described")] as never, "Sam")).toContain('<details class="notdescribed" open>');
+    const both = renderColourCheckPage([mk(1, "check"), mk(2, "not_described")] as never, "Sam");
+    expect(both).toContain('<details class="notdescribed">');
+    expect(both).not.toContain('<details class="notdescribed" open>');
+  });
+
   it("the page opened with openCoat has the fold open", () => {
     expect(foldOpening(page(view(), { openCoat: true }))).toBe('<details class="fold" id="appearance" open>');
   });
