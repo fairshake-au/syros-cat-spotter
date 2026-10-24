@@ -6,6 +6,7 @@ import {
   pool,
   catsTable,
   catSubscriptionsTable,
+  catUnfollowsTable,
   catUpdatesTable,
   deviceCredentialsTable,
   notificationsTable,
@@ -217,6 +218,10 @@ async function seedWorld() {
   await db
     .insert(catSubscriptionsTable)
     .values({ deviceId: P.deviceId, catId: discovered!.id });
+  // SYC-624 B7: P unfollowed another cat, so an unfollow record names P too.
+  await db
+    .insert(catUnfollowsTable)
+    .values({ deviceId: P.deviceId, catId: claimed!.id });
   const [update] = await db
     .insert(catUpdatesTable)
     .values({
@@ -544,6 +549,19 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       .from(welfareReportsTable)
       .where(eq(welfareReportsTable.reporterDevice, w.P.deviceId));
     expect(left).toEqual([]);
+  });
+
+  it("5a. removes P's follows and unfollow records (SYC-624 B7)", async () => {
+    const subs = await db
+      .select()
+      .from(catSubscriptionsTable)
+      .where(eq(catSubscriptionsTable.deviceId, w.P.deviceId));
+    const unfollows = await db
+      .select()
+      .from(catUnfollowsTable)
+      .where(eq(catUnfollowsTable.deviceId, w.P.deviceId));
+    expect(subs).toEqual([]);
+    expect(unfollows).toEqual([]);
   });
 
   it("5c. keeps P's consent records, with who they were about removed (SYC-3)", async () => {

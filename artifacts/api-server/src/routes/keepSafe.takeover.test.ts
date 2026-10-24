@@ -23,6 +23,8 @@ vi.mock("../lib/logger", async (importOriginal) => {
 
 import {
   db,
+  catSubscriptionsTable,
+  catUnfollowsTable,
   catsTable,
   deviceCredentialsTable,
   emailConsentEventsTable,
@@ -224,6 +226,29 @@ describe("the round trip", () => {
     // Still kept safe on the new phone.
     const ks = await request(app).get(`/api/keep-safe/${old.id}`).set("X-Device-Secret", phone.secret);
     expect(ks.body).toMatchObject({ status: "confirmed", addressMask: expect.stringMatching(/^p•••@example\.org$/) });
+  });
+  it("SYC-624 B7: follows and unfollow records made under the spotter's id still apply on the new phone, with no code", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const mk = async (name: string) =>
+      (await db.insert(catsTable).values({ name: `${P}-${name}`, primaryPhotoId: 0, lat: 37.4, lng: 24.9, discovererDeviceId: `${P}-other` }).returning())[0]!;
+    const followed = await mk("followed");
+    const unfollowed = await mk("unfollowed");
+    await db.insert(catSubscriptionsTable).values({ deviceId: old.id, catId: followed.id });
+    await db.insert(catUnfollowsTable).values({ deviceId: old.id, catId: unfollowed.id });
+    const { phone, token } = await newPhoneWithLink(email);
+    expect((await redeem(phone, token, old.id)).status).toBe(200);
+
+    const page = (catId: number, secret: string) =>
+      request(app).get(`/api/cats/${catId}`).set("X-Device-Id", old.id).set("X-Device-Secret", secret);
+    const a = await page(followed.id, phone.secret);
+    expect(a.status).toBe(200);
+    expect(a.body.isFollowing).toBe(true);
+    const b = await page(unfollowed.id, phone.secret);
+    expect(b.body.isFollowing).toBe(false);
+    // The unfollow record is still there, so spotting the cat again won't re-follow it.
+    const rows = await db.select().from(catUnfollowsTable).where(eq(catUnfollowsTable.deviceId, old.id));
+    expect(rows.map((r) => r.catId)).toEqual([unfollowed.id]);
   });
 });
 
