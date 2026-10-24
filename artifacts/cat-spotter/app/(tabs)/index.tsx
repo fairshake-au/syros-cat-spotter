@@ -31,6 +31,7 @@ import {
   useGetProfile,
   getGetProfileQueryKey,
 } from '@workspace/api-client-react';
+import { decorative, spokenText } from '@/lib/a11yText';
 
 /** How many nearby cats the "collect" strip shows before "see all". */
 const NEARBY_LIMIT = 4;
@@ -135,21 +136,25 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <Text style={styles.heroPaw} allowFontScaling={false}>
+          <Text style={styles.heroPaw} allowFontScaling={false} {...decorative}>
             🐾
           </Text>
           <View style={styles.heroRow}>
             <Avatar name={displayName} size="md" ring />
             <View style={styles.heroGreeting}>
               <Text style={styles.heroHello}>{t('homeGreeting')}</Text>
-              <Text style={styles.heroName} numberOfLines={1}>
+              {/* SYC-509: the label keeps the wave emoji from being read aloud. */}
+              <Text style={styles.heroName} numberOfLines={1} accessibilityLabel={spokenText(displayName) || displayName}>
                 {displayName} 👋
               </Text>
             </View>
             <View style={styles.heroActions}>
               {streak > 0 && (
                 <View style={styles.streakChip}>
-                  <Text style={styles.streakText}>
+                  <Text
+                    style={styles.streakText}
+                    accessibilityLabel={t('homeStreak').replace('{n}', String(streak))}
+                  >
                     🔥 {t('homeStreak').replace('{n}', String(streak))}
                   </Text>
                 </View>
@@ -250,7 +255,11 @@ export default function HomeScreen() {
                   so Greek drops its accents. */}
               {displayUpperCase(t(stripHeadingKey(!!coords, nearby)))}
             </Text>
-            <Pressable onPress={() => router.push('/cats')}>
+            <Pressable
+              onPress={() => router.push('/cats')}
+              accessibilityRole="button"
+              style={styles.seeAllHit}
+            >
               <Text style={[styles.seeAll, { color: colors.primary }]}>
                 {t('seeAll')}
               </Text>
@@ -304,7 +313,8 @@ const styles = StyleSheet.create({
   heroHello: {
     fontFamily: fonts.body,
     fontSize: fontSizes.sm,
-    color: 'rgba(255,255,255,0.82)',
+    // SYC-509: solid white; the faded white was 3.7–4.0:1 on Aegean blue.
+    color: palette.stone000,
   },
   heroName: {
     fontFamily: fonts.displayBold,
@@ -340,7 +350,8 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontFamily: fonts.body,
     fontSize: fontSizes.md,
-    color: 'rgba(255,255,255,0.88)',
+    // SYC-509: solid white; the faded white was 3.7–4.0:1 on Aegean blue.
+    color: palette.stone000,
     flexShrink: 1,
   },
   firstSpotLine: {
@@ -391,6 +402,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
   },
   seeAll: { fontFamily: fonts.bodyBold, fontSize: fontSizes.sm },
+  // SYC-509: 44pt tall tap area; the negative margin keeps the heading row's height.
+  seeAllHit: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'flex-end', marginVertical: -12 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
   gridItem: { width: '48%', position: 'relative' },
   center: { paddingVertical: spacing[5], alignItems: 'center' },

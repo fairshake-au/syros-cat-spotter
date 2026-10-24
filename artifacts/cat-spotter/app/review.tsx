@@ -73,6 +73,7 @@ import {
   Input,
 } from "@/components/purropolis";
 import { palette } from "@/constants/colors";
+import { decorative, spokenText } from "@/lib/a11yText";
 import {
   fonts,
   fontSizes,
@@ -647,15 +648,10 @@ export default function ReviewScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]} testID="hint-question">
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          <View style={{ width: 40 }} />
-          <Pressable
-            onPress={close}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t("extraPhotoClose")}
-          >
+          <View style={{ width: 44 }} />
+          <IconButton variant="ghost" label={t("extraPhotoClose")} onPress={close}>
             <Feather name="x" size={20} color={colors.mutedForeground} />
-          </Pressable>
+          </IconButton>
         </View>
         <ScrollView
           contentContainerStyle={[styles.nameTakenBody, { paddingBottom: insets.bottom + 32 }]}
@@ -790,7 +786,7 @@ export default function ReviewScreen() {
           >
             <Feather name="chevron-left" size={22} color={colors.mutedForeground} />
           </IconButton>
-          <View style={{ width: 40 }} />
+          <View style={{ width: 44 }} />
         </View>
         <ScrollView
           contentContainerStyle={[
@@ -878,10 +874,10 @@ export default function ReviewScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          <View style={{ width: 40 }} />
-          <Pressable onPress={close} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("extraPhotoClose")}>
+          <View style={{ width: 44 }} />
+          <IconButton variant="ghost" label={t("extraPhotoClose")} onPress={close}>
             <Feather name="x" size={20} color={colors.mutedForeground} />
-          </Pressable>
+          </IconButton>
         </View>
         <ScrollView
           contentContainerStyle={[styles.couldntCheckBody, { paddingBottom: insets.bottom + 32 }]}
@@ -961,11 +957,11 @@ export default function ReviewScreen() {
                 <Feather name="chevron-left" size={22} color="#fff" />
               </IconButton>
             ) : (
-              <View style={{ width: 40, height: 40 }} />
+              <View style={{ width: 44, height: 44 }} />
             )}
-            <Pressable onPress={close} hitSlop={8}>
+            <IconButton variant="ghost" label={t("extraPhotoClose")} onPress={close}>
               <Feather name="x" size={20} color="rgba(255,255,255,0.85)" />
-            </Pressable>
+            </IconButton>
           </View>
           <View style={styles.celebrateBody}>
             <View style={styles.celebrateAvatar}>
@@ -980,10 +976,10 @@ export default function ReviewScreen() {
                   testID="naming-photo"
                 />
               ) : (
-                <Text style={{ fontSize: 52 }}>🐈‍⬛</Text>
+                <Text style={{ fontSize: 52 }} {...decorative}>🐈‍⬛</Text>
               )}
             </View>
-            <Text style={styles.celebrateTitle}>{t("aNewFurriend")}</Text>
+            <Text style={styles.celebrateTitle} role="heading" accessibilityLabel={spokenText(t("aNewFurriend"))}>{t("aNewFurriend")}</Text>
             <Text style={styles.celebrateSubtitle} testID="naming-subtitle">
               {/* SYC-503: whichever door led here, a failed check never
                   claims "you're the first to spot this cat". */}
@@ -1096,6 +1092,7 @@ export default function ReviewScreen() {
             block
             disabled={busy || isBlankName(newName)}
             onPress={registerNew}
+            accessibilityLabel={busy ? undefined : spokenText(t("addToCatalogButton"))}
             style={{ marginTop: 8 }}
           >
             {busy ? (
@@ -1126,10 +1123,14 @@ export default function ReviewScreen() {
             color={colors.mutedForeground}
           />
         </IconButton>
-        <Text style={[styles.title, { color: colors.foreground }]}>
+        <Text
+          role="heading"
+          accessibilityLabel={spokenText(t("haveWeMetTitle"))}
+          style={[styles.title, { color: colors.foreground }]}
+        >
           {t("haveWeMetTitle")}
         </Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 44 }} />
       </View>
       <ScrollView
         contentContainerStyle={{
@@ -1224,6 +1225,9 @@ export default function ReviewScreen() {
                 block
                 disabled={busy}
                 onPress={() => confirm(c.catId)}
+                // SYC-509: every card's button reads "That's the one", so the
+                // label says which cat and how close the match is.
+                accessibilityLabel={`${t("thatsTheOne")}: ${c.name}, ${pct}% ${t("matchPill")}`}
               >
                 {busy ? (
                   <ActivityIndicator
@@ -1281,9 +1285,10 @@ export default function ReviewScreen() {
 
         <Pressable
           onPress={() => setShowNewCat(true)}
+          accessibilityRole="button"
           style={[styles.newCatCard, { backgroundColor: colors.secondary }]}
         >
-          <Text style={{ fontSize: 30 }}>✨</Text>
+          <Text style={{ fontSize: 30 }} {...decorative}>✨</Text>
           <Text
             style={[
               styles.newCatCardTitle,

@@ -41,7 +41,7 @@ describe('a failed live capture on the Spot screen', () => {
     // The failed state builds the centre panel, and the hint only renders
     // when there is no panel.
     expect(source).toMatch(/const cameraPanel = cameraFailed \? \(/);
-    expect(source).toMatch(/\{!cameraPanel && \(\s*<Text style=\{styles\.captureHint\}/);
+    expect(source).toMatch(/\{!cameraPanel && \(\s*<Text\s+style=\{styles\.captureHint\}/);
   });
 
   it('hides the bottom hint while asking for camera access, too', () => {
