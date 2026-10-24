@@ -33,6 +33,7 @@ const h = vi.hoisted(() => ({
   /** The stored offer at the moment each name was set. */
   offerWhenNamed: [] as (null | string)[],
   gen: 0,
+  deviceId: 'dev-1',
   online: true,
   availability: { data: { available: true } as any, isFetching: false, isError: false },
 }));
@@ -68,7 +69,7 @@ vi.mock('@/context/LanguageContext', () => ({
 }));
 vi.mock('@/context/DeviceContext', () => ({
   useDevice: () => ({
-    deviceId: 'dev-1',
+    deviceId: h.deviceId,
     keepSafeOffer: h.offer,
     identityGeneration: () => h.gen,
     setUsername: (name: string) => {
@@ -110,7 +111,7 @@ vi.mock('@/components/purropolis', () => ({
 import { ApiError } from '@workspace/api-client-react';
 import { NameStep } from '../onboarding/NameStep';
 import { resetUsernameClaimStateForTests } from '@/hooks/useUsernameClaim';
-import { resetOnboardingEmailForTests } from '../onboarding/useOnboardingEmail';
+import { ONBOARDING_EMAIL_TIMEOUT_MS, resetOnboardingEmailForTests } from '../onboarding/useOnboardingEmail';
 
 const never = () => new Promise<never>(() => {});
 async function tick(ms: number) { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); }
@@ -153,6 +154,7 @@ beforeEach(() => {
   h.offer = null;
   h.offerWhenNamed = [];
   h.gen = 0;
+  h.deviceId = 'dev-1';
   h.online = true;
   h.availability = { data: { available: true }, isFetching: false, isError: false };
 });
@@ -413,6 +415,71 @@ describe('NameStep: "Don\'t lose your spots" on the name screen (SYC-524)', () =
     const button = s.startBtn();
     await act(async () => { fireEvent.click(button); fireEvent.click(button); });
     expect(h.add).toHaveBeenCalledTimes(1);
+  });
+
+  it('a hung email request times out: the error shows and Start spotting and Back work again (review I1)', async () => {
+    // Behaves like the client: never answers, then fails when its timeoutMs runs out.
+    h.add.mockImplementation((_id: unknown, _input: unknown, options?: { timeoutMs?: number }) =>
+      new Promise((_res, reject) => {
+        if (options?.timeoutMs) setTimeout(() => reject(new Error('RequestTimeoutError')), options.timeoutMs);
+      }),
+    );
+    const onBack = vi.fn();
+    const view = render(<NameStep onBack={onBack} />);
+    await tick(0);
+    fireEvent.change(view.container.querySelector('input')!, { target: { value: 'SeaCat' } });
+    await tick(500);
+    fireEvent.change(view.container.querySelector('[data-testid="onboarding-email"]')!, { target: { value: 'sea@example.com' } });
+    const start = () => view.getAllByRole('button').find((b) => b.textContent === en.startSpotting) as HTMLButtonElement;
+    await act(async () => { fireEvent.click(start()); });
+    expect(ONBOARDING_EMAIL_TIMEOUT_MS).toBe(15_000);
+    expect(h.add.mock.calls[0][2]).toEqual({ timeoutMs: ONBOARDING_EMAIL_TIMEOUT_MS });
+    const back = view.getByRole('button', { name: en.back });
+    expect(back.getAttribute('aria-disabled')).toBe('true');
+
+    await tick(ONBOARDING_EMAIL_TIMEOUT_MS + 10);
+    expect(view.container.textContent).toContain(en.keepSafeSaveFailed);
+    expect(back.getAttribute('aria-disabled')).not.toBe('true');
+    expect(start().disabled).toBe(false);
+    expect(h.claim).not.toHaveBeenCalled();
+
+    // Start spotting works again: a retry resends.
+    h.add.mockResolvedValueOnce({ status: 'pending', addressMask: 's***@example.com' });
+    h.claim.mockResolvedValue({ username: 'SeaCat' });
+    await act(async () => { fireEvent.click(start()); });
+    await tick(10);
+    expect(h.add).toHaveBeenCalledTimes(2);
+    expect(h.setUsername).toHaveBeenCalledWith('SeaCat');
+    fireEvent.click(back);
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('a change of identity forgets the saved email, even if the old device id comes back (review I2)', async () => {
+    h.add.mockResolvedValue({ status: 'pending', addressMask: 's***@example.com' });
+    h.claim.mockImplementationOnce(() => Promise.reject({ status: 409 }));
+    const first = setup();
+    await tick(0);
+    await first.typeName('TakenName');
+    first.typeEmail('sea@example.com');
+    await first.tap();
+    expect(first.view.container.textContent).toContain(en.saved);
+    first.view.unmount();
+
+    // "Delete my data": a new identity and device id.
+    h.gen += 1;
+    h.deviceId = 'dev-2';
+    const fresh = setup();
+    await tick(0);
+    expect(fresh.emailInput()!.value).toBe('');
+    fresh.view.unmount();
+
+    // A restore link adopts the first device id again.
+    h.gen += 1;
+    h.deviceId = 'dev-1';
+    const back = setup();
+    await tick(0);
+    expect(back.emailInput()!.value).toBe('');
+    expect(back.view.container.textContent).not.toContain(en.saved);
   });
 
   it('late reconcile: with the email failed and the screen open, a recovered name finds the offer already skipped-onboarding', async () => {
