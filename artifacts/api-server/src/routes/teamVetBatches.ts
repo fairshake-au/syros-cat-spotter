@@ -32,7 +32,6 @@ import {
   readCard,
   readShared,
   renderBatchPage,
-  renderBatchProblem,
   SAID,
   sharedValuesFrom,
 } from "../lib/teamPages/vetBatchPages";
@@ -94,10 +93,8 @@ router.get("/team/vet-batches/new", requireTeam("log_vet_visit"), ...readChecks,
     if (!area) return notFound(res);
     id = await createBatch(person, { areaKey: area.key });
   } else {
-    return void res
-      .status(400)
-      .type("html")
-      .send(renderBatchProblem(person.name, "Start a batch from a colony or an area, so we know where the cats are from.", "/api/team/colonies"));
+    // No place yet (Ruling R14): it can be chosen on the page.
+    id = await createBatch(person, {});
   }
   res.redirect(303, batchPath(id));
 });
@@ -130,8 +127,23 @@ router.post("/team/vet-batches/:id", ...formRoute("log_vet_visit"), needsBatchCa
   if (!read.ok) {
     return void res.status(400).type("html").send(await pageFor(res, batch, { shared: { values, problems: read.problems } }));
   }
+  // Where the cats came from: only when the form carried the box (a crafted post without it leaves it be).
+  let place = { colonyId: batch.shared.colonyId, areaKey: batch.shared.areaKey };
+  if (values.place !== undefined) {
+    const col = /^colony:(\d{1,9})$/.exec(values.place);
+    const area = /^area:([a-z0-9_-]{1,40})$/.exec(values.place);
+    if (values.place === "") place = { colonyId: null, areaKey: null };
+    else if (col && (await colonyRef(pageViewer(res).visible, Number(col[1])))) place = { colonyId: Number(col[1]), areaKey: null };
+    else if (area && areaByKey(area[1])) place = { colonyId: null, areaKey: area[1]! };
+    else {
+      return void res
+        .status(400)
+        .type("html")
+        .send(await pageFor(res, batch, { shared: { values, problems: { place: "Choose where the cats came from from the list." } } }));
+    }
+  }
   await guarded(res, batch, async () => {
-    await updateShared(batch.id, { ...batch.shared, ...read.shared });
+    await updateShared(batch.id, { ...batch.shared, ...read.shared, ...place });
     res.redirect(303, `${batchPath(batch.id)}#shared`);
   });
 });

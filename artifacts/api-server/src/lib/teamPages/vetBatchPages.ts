@@ -63,6 +63,8 @@ const BAND_WORD: Record<Band, string> = { very_likely: "Very likely", possible: 
 
 /** The shared form as typed: every value a string, so a bad price comes back as it was typed. */
 export interface SharedValues {
+  /** "", "colony:N" or "area:key"; undefined when the form had no place box. */
+  place?: string;
   date: string;
   clinicId: string;
   price: string;
@@ -72,7 +74,7 @@ export interface SharedValues {
   note: string;
 }
 
-export type SharedField = "date" | "clinicId" | "price" | "paidBy" | "vaccines" | "note";
+export type SharedField = "place" | "date" | "clinicId" | "price" | "paidBy" | "vaccines" | "note";
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 const list = (v: unknown): string[] =>
@@ -90,6 +92,7 @@ const realDay = (s: string) => {
 
 export function sharedValuesOf(s: BatchShared): SharedValues {
   return {
+    place: s.colonyId !== null ? `colony:${s.colonyId}` : s.areaKey !== null ? `area:${s.areaKey}` : "",
     date: s.date,
     clinicId: s.clinicId ?? "",
     price: s.priceEur.trim() === "" ? "" : priceText(Number(s.priceEur)),
@@ -103,6 +106,7 @@ export function sharedValuesOf(s: BatchShared): SharedValues {
 export function sharedValuesFrom(raw: unknown): SharedValues {
   const b = body(raw);
   return {
+    place: typeof b["place"] === "string" ? b["place"] : undefined,
     date: str(b["date"]),
     clinicId: str(b["clinicId"]),
     price: str(b["price"]),
@@ -286,6 +290,15 @@ const describedBy = (id: string, words: string | undefined, extra = "") =>
     ? ` aria-describedby="${[extra, words ? id : ""].filter(Boolean).join(" ")}"${words ? ' aria-invalid="true"' : ""}`
     : "";
 
+function placeOptions(p: BatchPage, chosen: string): string {
+  const opt = (v: string, label: string) => `<option value="${esc(v)}"${chosen === v ? " selected" : ""}>${esc(label)}</option>`;
+  return (
+    opt("", "Not chosen") +
+    (p.scopes.areas.length ? `<optgroup label="Areas">${p.scopes.areas.map((a) => opt(`area:${a.key}`, a.name)).join("")}</optgroup>` : "") +
+    (p.scopes.colonies.length ? `<optgroup label="Colonies">${p.scopes.colonies.map((c) => opt(`colony:${c.id}`, c.name)).join("")}</optgroup>` : "")
+  );
+}
+
 function sharedSection(p: BatchPage): string {
   const b = p.batch;
   const typed = p.shared;
@@ -309,6 +322,9 @@ function sharedSection(p: BatchPage): string {
   return (
     '<section class="batchshared" id="shared"><h2>For every cat in this batch</h2>' +
     `<form method="post" action="${batchPath(b.id)}" novalidate>` +
+    '<label class="label" for="vb-place">Where the cats came from <span class="hint">(optional)</span></label>' +
+    errLine("vb-place-err", pr("place")) +
+    `<select class="text" id="vb-place" name="place"${describedBy("vb-place-err", pr("place"))}>${placeOptions(p, f.place ?? "")}</select>` +
     '<label class="label" for="vb-date">Date of the visit</label>' +
     errLine("vb-date-err", pr("date")) +
     `<input id="vb-date" name="date" type="date" required max="${today(p.now ?? new Date())}" value="${esc(f.date)}"${describedBy("vb-date-err", pr("date"))}>` +
@@ -513,7 +529,7 @@ function addSection(p: BatchPage): string {
 }
 
 function placeLine(p: BatchPage): string {
-  if (!p.place) return "";
+  if (!p.place) return `<p class="meta">Place: <strong>not chosen</strong></p>`;
   return `<p class="meta">${p.place.kind === "colony" ? "Colony" : "Area"}: <strong>${esc(p.place.name)}</strong></p>`;
 }
 
