@@ -16,6 +16,11 @@ describe("containsNul", () => {
     expect(containsNul({ a: { b: ["x", "y\u0000"] } })).toBe(true);
     expect(containsNul({ ["k\u0000"]: 1 })).toBe(true);
   });
+  it("fails closed when nesting is too deep to check", () => {
+    let deep: unknown = "x";
+    for (let i = 0; i < 70; i++) deep = { a: deep };
+    expect(containsNul(deep)).toBe(true);
+  });
   it("leaves ordinary bodies alone, including a literal backslash-u0000", () => {
     expect(containsNul({ a: "hello", n: 1, b: null, c: [true] })).toBe(false);
     expect(containsNul(JSON.parse('{"a":"\\\\u0000"}'))).toBe(false);
@@ -67,6 +72,7 @@ describe("a NUL character in a JSON body", () => {
       .set("Content-Type", "application/json")
       .send('{"note":"fine"}');
     // Whatever the route says about this body, it was not the NUL guard.
+    expect(res.status).not.toBe(500);
     expect(res.body).not.toEqual({ error: NUL_MESSAGE });
   });
 });

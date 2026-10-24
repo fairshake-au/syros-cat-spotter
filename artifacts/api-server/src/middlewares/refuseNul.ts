@@ -15,7 +15,9 @@ const MAX_DEPTH = 64;
 /** True if any string, or any key, anywhere in `value` contains a NUL. */
 export function containsNul(value: unknown, depth = 0): boolean {
   if (typeof value === "string") return value.includes("\u0000");
-  if (value === null || typeof value !== "object" || depth > MAX_DEPTH) return false;
+  if (value === null || typeof value !== "object") return false;
+  // Too deep to check: refuse rather than let a NUL hide at the bottom.
+  if (depth > MAX_DEPTH) return true;
   // The Resend webhook's raw Buffer is not a parsed body.
   if (Buffer.isBuffer(value)) return false;
   if (Array.isArray(value)) return value.some((v) => containsNul(v, depth + 1));

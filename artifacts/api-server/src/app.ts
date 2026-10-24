@@ -90,7 +90,7 @@ app.use(prelaunchGate);
 app.use(RESEND_WEBHOOK_PATH, express.raw({ type: "*/*", limit: "256kb" }));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
-// SYC-406: a NUL character anywhere in the body (or query) is a 400 here,
+// SYC-406: a NUL character anywhere in a JSON body is a 400 here,
 // before any route hands it to Postgres, which would answer 500.
 app.use(refuseNul);
 
