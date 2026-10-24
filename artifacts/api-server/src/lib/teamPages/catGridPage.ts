@@ -257,10 +257,11 @@ function card(c: CatListItem, o: CatGridOptions): string {
   const coat = coatPhrase(c);
   const alt = `Photo of ${c.name}${coat !== null ? `, ${coat}` : ""}`;
   const photo = c.photoPublicId
-    ? `<img class="cardimg" src="${esc(`${teamPhotoUrl(c.photoPublicId)}/small`)}" alt="${esc(alt)}" loading="lazy" width="180" height="180">`
+    ? `<img class="cardimg" src="${esc(`${teamPhotoUrl(c.photoPublicId)}/small`)}" srcset="${esc(`${teamPhotoUrl(c.photoPublicId)}/small 160w, ${teamPhotoUrl(c.photoPublicId)}/card 360w`)}" sizes="(min-width:1000px) 200px, 45vw" alt="${esc(alt)}" loading="lazy" width="180" height="180">`
     : '<span class="cardimg nothumb">No photo</span>';
-  const colour = coat !== null ? esc(coat) : "Coat not known";
-  const colony = c.colonyId === null ? "No colony" : (o.colonies.find((x) => x.id === c.colonyId)?.name ?? "Colony");
+  // §5.1: a line that says nothing is known is left out. The coat and colony
+  // lines are drawn only when they say something; the mark line always shows.
+  const colonyLine = c.colonyId === null ? "" : (o.colonies.find((x) => x.id === c.colonyId)?.name ?? "Colony");
   const words = esc(lastSeenWords(c.lastSeenAt, o.now));
   const seen = c.lastSeenAt ? `<time datetime="${esc(c.lastSeenAt.toISOString())}">${words}</time>` : words;
   let tag = "";
@@ -272,8 +273,8 @@ function card(c: CatListItem, o: CatGridOptions): string {
     '<li class="catcard">' +
     `<a class="catcardlink" href="${PATH}/${c.id}">${photo}` +
     `<span class="cardname"><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
-    `<span class="cardfact">${colour}</span>` +
-    `<span class="cardfact">${esc(colony)}</span>` +
+    (coat !== null ? `<span class="cardfact">${esc(coat)}</span>` : "") +
+    (colonyLine !== "" ? `<span class="cardfact">${esc(colonyLine)}</span>` : "") +
     `<span class="cardfact">${markBadge(c.mark)}</span>` +
     `<span class="cardfact">${seen} · ${esc(c.place)}</span>` +
     (tag ? `<span class="tag">${esc(tag)}</span>` : "") +
@@ -290,7 +291,16 @@ function card(c: CatListItem, o: CatGridOptions): string {
  */
 function findLink(o: Pick<CatGridOptions, "filters" | "tie">): string {
   const f = o.filters;
-  return `<p class="findentry"><a class="findentrylink" href="${esc(findAddress({ area: f.area, colony: f.colony, colours: f.colours }, o.tie?.publicId))}">Find from a photo</a></p>`;
+  return `<a class="findentrylink" href="${esc(findAddress({ area: f.area, colony: f.colony, colours: f.colours }, o.tie?.publicId))}">Find from a photo</a>`;
+}
+
+/**
+ * Grid/Map and "Find from a photo" on one row (§5.3): the switch at the left,
+ * the link at the right, wrapping under it on a very narrow screen. Both
+ * views draw it. No switch while choosing a cat for a report.
+ */
+export function viewRow(o: Pick<CatGridOptions, "filters" | "tie">, current: "grid" | "map"): string {
+  return `<div class="viewrow">${o.tie ? "" : viewSwitch(o.filters, current)}${findLink(o)}</div>`;
 }
 
 export function renderCatGridPage(o: CatGridOptions): string {
@@ -343,7 +353,7 @@ export function renderCatGridPage(o: CatGridOptions): string {
   // choosing a cat for a report.
   const body =
     filterForm(o) +
-    `<div id="catresults">${tie ? "" : viewSwitch(o.filters, "grid")}${findLink(o)}${activeChips(o)}${results}</div>`;
+    `<div id="catresults">${viewRow(o, "grid")}${activeChips(o)}${results}</div>`;
   // The one page with our own script (SYC-396 PR 1.3.4). Its route sends the wider header.
   const script = assetUrl("dashboard-grid.js");
 

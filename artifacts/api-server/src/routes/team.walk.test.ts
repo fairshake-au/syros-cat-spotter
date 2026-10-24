@@ -196,7 +196,7 @@ const TABLE: Record<string, Row> = {
     except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" },
   },
   "GET /api/team/photos/:publicId/:size": {
-    why: "a small or medium version of a catalogue photo: the photo route's checks, through the same helper (here a cat in colony A)",
+    why: "any stored size (small, medium or card) of a catalogue photo: the photo route's checks, through the same helper (here a cat in colony A)",
     except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" },
     mayCache: "private, no-cache",
   },
@@ -225,6 +225,7 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/vet-visits/:visitId/wrong": { why: "marks a vet visit wrong with everything it recorded (SYC-396 PR 3.1a): log_vet_visit, island-only; the walk's id is no visit, so the team gets a 404" },
   "POST /api/team/cats/:id/sterilisation": { why: "set_sterilisation with no target, island-only" },
   "POST /api/team/cats/:id/name": { why: "rename_cat, island-only" },
+  "POST /api/team/cats/:id/note": { why: "add_team_note, island-only" },
   "POST /api/team/cats/:id/remove-owner": { why: "remove_owner, island-only" },
   "POST /api/team/statements/:id/wrong": { why: "the door, then the statement kind's capability inside, island-only" },
   // SYC-2 PR 3.1: colour and markings. Island-only here; a cat guardian's own

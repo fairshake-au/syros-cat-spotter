@@ -37,7 +37,7 @@ export async function staffPerson(c: pg.ClientBase, label: string): Promise<stri
 
 /**
  * The photo as: a cat's main photo; a resolved sighting's cover and `first`
- * photo; small and medium versions; an observation; a `photo_private`
+ * photo; every stored size (small, medium and card); an observation; a `photo_private`
  * report; a privacy hide. `opts.hide` false leaves it public (for refusals).
  */
 export async function seedEverywhere(
@@ -79,8 +79,8 @@ export async function seedEverywhere(
     p.id,
   ]);
   await c.query(
-    `insert into photo_variants (photo_id, size, bytes) values ($1, 'small', $2), ($1, 'medium', $3)`,
-    [p.id, Buffer.from(`small-${p.id}`), Buffer.from(`medium-${p.id}`)],
+    `insert into photo_variants (photo_id, size, bytes) values ($1, 'small', $2), ($1, 'medium', $3), ($1, 'card', $4)`,
+    [p.id, Buffer.from(`small-${p.id}`), Buffer.from(`medium-${p.id}`), Buffer.from(`card-${p.id}`)],
   );
   await c.query(
     `insert into observations (cat_id, kind, value, observed_at, device_id, role_at_time, photo_id, sighting_id)

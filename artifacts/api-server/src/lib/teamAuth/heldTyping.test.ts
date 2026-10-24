@@ -7,6 +7,7 @@ import { EditForm } from "../../routes/teamSites";
 import {
   DiedForm,
   LifeStatusForm,
+  NoteForm,
   RenameForm,
   SterilisationForm,
   WrongForm,
@@ -24,6 +25,7 @@ const SCHEMAS: Record<keyof typeof KEEPABLE, z.ZodTypeAny> = {
   "POST /api/team/colonies/:id": UpdateForm,
   "POST /api/team/sites/:id": EditForm,
   "POST /api/team/cats/:id/name": RenameForm,
+  "POST /api/team/cats/:id/note": NoteForm,
   "POST /api/team/cats/:id/died": DiedForm,
   "POST /api/team/cats/:id/life-status": LifeStatusForm,
   "POST /api/team/cats/:id/sterilisation": SterilisationForm,
