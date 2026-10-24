@@ -89,9 +89,11 @@ export async function removedPhotoIds(ids: readonly number[], q: Queryable = db)
 /**
  * Which of these photos are hidden for a privacy reason (SYC-303): hidden now,
  * and either hidden with the reason `privacy` (the team's tick) or named by a
- * `photo_private` report. The same rule as SYC-462's `hiddenForPrivacy`
- * (lib/db photoRemoval/eligibility.ts). A hide that a restore has since
- * undone does not count: only a photo hidden right now can be in the set.
+ * `photo_private` report. Like SYC-462's `hiddenForPrivacy`
+ * (lib/db photoRemoval/eligibility.ts), except that eligibility counts a
+ * report even once the photo is public again. Here a photo the team has
+ * restored is public on purpose, so it is matched again: only a photo hidden
+ * right now can be in the set.
  * Two batched queries.
  */
 export async function privacyHiddenPhotoIds(

@@ -65,7 +65,7 @@ async function catWithMain(label: string, mainMarker: string) {
 }
 
 /** An older, resolved sighting of the cat: what the public page falls back to. */
-async function olderVisiblePhoto(catId: number, marker: string): Promise<number> {
+async function olderVisiblePhoto(catId: number, marker: string, daysAgo = 1): Promise<number> {
   const photoId = await photo(marker);
   await db.insert(sightingsTable).values({
     deviceId: `${PREFIX}seed`,
@@ -74,7 +74,7 @@ async function olderVisiblePhoto(catId: number, marker: string): Promise<number>
     lat: ORIGIN.lat,
     lng: ORIGIN.lng,
     status: "resolved",
-    createdAt: new Date(Date.now() - 86_400_000),
+    createdAt: new Date(Date.now() - daysAgo * 86_400_000),
   });
   return photoId;
 }
@@ -159,9 +159,30 @@ describe("SYC-303: a privacy-hidden main photo is not sent to the matcher", () =
     await submit("report");
     expect(sentFor(cat.id)).toEqual(["OLDER-VISIBLE-3"]);
   });
+  it("falls back to the NEWEST visible photo, skipping a newer one that is hidden", async () => {
+    const cat = await catWithMain("newest", "MAIN-PRIVATE-7");
+    await olderVisiblePhoto(cat.id, "OLDEST-VISIBLE-7", 3);
+    const hiddenNewer = await olderVisiblePhoto(cat.id, "NEWER-HIDDEN-7", 1);
+    await olderVisiblePhoto(cat.id, "NEWER-VISIBLE-7", 2);
+    await hide(hiddenNewer, "blurry");
+    await hide(cat.photoId, "privacy");
+    await submit("newest");
+    expect(sentFor(cat.id)).toEqual(["NEWER-VISIBLE-7"]);
+  });
 });
 
 describe("SYC-303: other hides and restores are unchanged", () => {
+  it("a reported-as-private photo the team has since restored is sent again", async () => {
+    const cat = await catWithMain("restored-report", "MAIN-RESTOREDREPORT-8");
+    await db.execute(sql`
+      insert into welfare_reports (public_id, severity, client_ref, kind, reason, photo_id, photo_state)
+      values (${`${PREFIX}report-${cat.photoId}`}, 'attention', ${`${PREFIX}report-${cat.photoId}`}, 'content', 'photo_private', ${cat.photoId}, 'none')`);
+    await hide(cat.photoId, "photo_private");
+    await restore(cat.photoId);
+    await submit("restored-report");
+    expect(sentFor(cat.id)).toEqual(["MAIN-RESTOREDREPORT-8"]);
+  });
+
   it("a main photo hidden for another reason is still sent", async () => {
     const cat = await catWithMain("other-reason", "MAIN-BLURRY-4");
     await hide(cat.photoId, "blurry");
