@@ -5,7 +5,8 @@
  * The map always has a start. A library photo whose phone has no usable
  * position (location refused, still searching after a few seconds, or the
  * phone is not on Syros) starts in Ermoupoli, so "Check for matches" is never
- * stuck. The camera is unchanged: it starts at the phone, and waits for it.
+ * stuck. SYC-308: the camera and live view do the same when location is
+ * refused or no position arrives in time; a phone fix off Syros stays the phone.
  *
  * Pure. Slice 5 adds the photo's own position as a first branch
  * (`photoPosition`), so the input carries the field already.
@@ -43,8 +44,11 @@ function town(): ReadyMapStart {
 export function resolveMapStart({ source, phone, waitedMs }: MapStartInput): MapStart {
   const { coords } = phone;
   if (source !== 'library') {
-    // The camera and the live camera: as before, the phone or nothing.
-    return coords ? { status: 'ready', coords, origin: 'phone' } : { status: 'waiting' };
+    // The camera and the live camera (SYC-308): the phone wherever it is, else
+    // Ermoupoli once location is refused or the wait is up, so the map is
+    // never stuck. Only the library checks isOnSyros.
+    if (coords) return { status: 'ready', coords, origin: 'phone' };
+    return phone.denied || waitedMs >= MAP_START_WAIT_MS ? town() : { status: 'waiting' };
   }
   if (coords) {
     return isOnSyros(coords.latitude, coords.longitude)

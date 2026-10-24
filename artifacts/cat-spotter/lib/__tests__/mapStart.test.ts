@@ -1,7 +1,7 @@
 /**
  * SYC-166 slice 4 (spec photo-location-from-library.md §9 test 5, plan
  * "Slice 4"): the map always has a start. A library photo with no usable phone
- * position starts in Ermoupoli; the camera is unchanged.
+ * position starts in Ermoupoli; SYC-308 gives the camera the same fallback.
  */
 import { describe, expect, it } from 'vitest';
 import { ERMOUPOLI } from '../island';
@@ -61,7 +61,7 @@ describe('resolveMapStart: a library photo', () => {
   });
 });
 
-describe('resolveMapStart: the camera is unchanged', () => {
+describe('resolveMapStart: the camera and live view (SYC-308)', () => {
   for (const source of ['camera', 'live'] as const) {
     it(`${source}: starts at the phone, wherever it is`, () => {
       expect(
@@ -72,13 +72,22 @@ describe('resolveMapStart: the camera is unchanged', () => {
       ).toEqual({ status: 'ready', coords: MUNICH, origin: 'phone' });
     });
 
-    it(`${source}: never falls back to Ermoupoli (denied, or searching for a long time)`, () => {
+    it(`${source}: refused location starts in Ermoupoli`, () => {
       expect(
-        resolveMapStart({ source, phone: phone({ denied: true, loading: false }), waitedMs: 60_000 }),
+        resolveMapStart({ source, phone: { coords: null, denied: true, loading: false }, waitedMs: 0 }),
+      ).toEqual({ status: 'ready', coords: ERMOUPOLI, origin: 'town' });
+    });
+
+    it(`${source}: still searching after the wait starts in Ermoupoli`, () => {
+      expect(
+        resolveMapStart({ source, phone: phone(), waitedMs: MAP_START_WAIT_MS }),
+      ).toEqual({ status: 'ready', coords: ERMOUPOLI, origin: 'town' });
+    });
+
+    it(`${source}: still searching before the wait waits`, () => {
+      expect(
+        resolveMapStart({ source, phone: phone({ denied: false }), waitedMs: 0 }),
       ).toEqual({ status: 'waiting' });
-      expect(resolveMapStart({ source, phone: phone(), waitedMs: 60_000 })).toEqual({
-        status: 'waiting',
-      });
     });
   }
 });
