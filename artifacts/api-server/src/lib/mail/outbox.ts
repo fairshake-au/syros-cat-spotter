@@ -208,6 +208,9 @@ export type KeepSafePayload = {
   to?: string;
   token?: string;
   forgetToken?: string;
+  /** Restore email only: the 8-digit code and the Athens HH:MM it was asked at. Both gone once settled. */
+  code?: string;
+  askedAt?: string;
   cleared?: true;
 };
 
@@ -382,13 +385,15 @@ async function processUncheckedWaiting(row: MailOutboxRow): Promise<"sent" | "re
  */
 export async function enqueueKeepSafeMail(
   tx: Tx,
-  mail: { purpose: KeepSafeMail; to: string; token: string; forgetToken?: string; expiresAt: Date },
+  mail: { purpose: KeepSafeMail; to: string; token: string; forgetToken?: string; code?: string; askedAt?: string; expiresAt: Date },
 ): Promise<number> {
   const payload: KeepSafePayload = {
     expiresAt: mail.expiresAt.toISOString(),
     to: mail.to,
     token: mail.token,
     ...(mail.forgetToken ? { forgetToken: mail.forgetToken } : {}),
+    ...(mail.code ? { code: mail.code } : {}),
+    ...(mail.askedAt ? { askedAt: mail.askedAt } : {}),
   };
   const [row] = await tx
     .insert(mailOutboxTable)
@@ -535,7 +540,11 @@ async function processKeepSafe(row: MailOutboxRow, mail: KeepSafeMail): Promise<
   }
   let params: Record<string, string>;
   if (mail === "restore_link") {
-    params = { restoreUrl: restoreUrl(payload.token) };
+    if (!payload.code || !payload.askedAt) {
+      await giveUpKeepSafe(row, "nothing_to_send");
+      return "failed";
+    }
+    params = { restoreUrl: restoreUrl(payload.token), code: payload.code, askedAt: payload.askedAt };
   } else {
     if (!payload.forgetToken) {
       await giveUpKeepSafe(row, "nothing_to_send");
@@ -844,7 +853,7 @@ export async function clearExpiredKeepSafePayloads(): Promise<number> {
            last_error = case when state = 'sent' then last_error else 'token_expired' end,
            payload = jsonb_build_object('expiresAt', payload->>'expiresAt', 'cleared', true)
      where purpose in ('keep_safe_verify', 'restore_link')
-       and (payload ? 'to' or payload ? 'token' or payload ? 'forgetToken')
+       and (payload ? 'to' or payload ? 'token' or payload ? 'forgetToken' or payload ? 'code' or payload ? 'askedAt')
        and (payload->>'expiresAt')::timestamptz <= now()
   `);
   return result.rowCount ?? 0;

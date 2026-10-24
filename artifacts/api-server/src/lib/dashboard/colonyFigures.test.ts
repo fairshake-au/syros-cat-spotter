@@ -196,6 +196,32 @@ describe("the bar's figures", () => {
   });
 });
 
+// SYC-620: Home asks for `lean` figures. Everything it shows is unchanged; only
+// the guardian names and the two flags built on guardians and growth are left out.
+describe("lean figures (Home)", () => {
+  it("are the same as the full figures except guardian names and the Growing / No guardian flags", async () => {
+    const c = await newColony("lean");
+    await person("lean", ["guardian"], c);
+    const when = daysAgo(10);
+    for (let i = 0; i < 3; i++) await into(await cat(when), c, when);
+    const full = (await colonyFigures(TEAM, { island: true }, NOW)).get(c)!;
+    const lean = (await colonyFigures(TEAM, { island: true, lean: true }, NOW)).get(c)!;
+    expect(full.flags).toContain("growing");
+    expect(full.guardianNames).toEqual(["Vt lean"]);
+    expect(lean.guardianNames).toEqual([]);
+    expect(lean.flags).not.toContain("growing");
+    expect(lean.flags).not.toContain("no_guardian");
+    expect({ ...lean, guardianNames: [], flags: [] }).toEqual({ ...full, guardianNames: [], flags: [] });
+  });
+
+  it("still flags Kittens and Not visited lately", async () => {
+    const c = await newColony("leankit");
+    await into(await cat(daysAgo(100)), c, daysAgo(100));
+    const lean = (await colonyFigures(TEAM, { island: true, lean: true }, NOW)).get(c)!;
+    expect(lean.flags).toContain("not_visited");
+  });
+});
+
 describe("Growing", () => {
   async function newCats(colonyId: number, n: number, created: Date) {
     for (let i = 0; i < n; i++) {

@@ -72,6 +72,7 @@ vi.mock('../IssueQueueContext', () => ({
 
 import { DeleteMyDataProvider, useDeleteMyData } from '../DeleteMyDataContext';
 import { LOCATION_CHOICE_KEY } from '@/lib/locationChoice';
+import { RESTORE_PENDING_MOVE_KEY } from '@/lib/restoreWaiting';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <DeleteMyDataProvider>{children}</DeleteMyDataProvider>
@@ -150,6 +151,35 @@ describe('DeleteMyDataProvider', () => {
     expect(h.getClaimedUsername).toHaveBeenCalledWith('dev-current');
     expect(h.offline.wipeQueue).toHaveBeenCalled();
     expect(result.current.doneVisible).toBe(true);
+  });
+
+  it('SYC-664 N1: wipes nothing on a 410 while the phone’s own move is pending (inside its window)', async () => {
+    const saved = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    const mem = new Map<string, string>();
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k: string) => mem.get(k) ?? null,
+        setItem: (k: string, v: string) => void mem.set(k, v),
+        removeItem: (k: string) => void mem.delete(k),
+      },
+    });
+    window.localStorage.setItem(
+      RESTORE_PENDING_MOVE_KEY,
+      JSON.stringify({ handle: 'h', choice: 'c', abandonCurrent: true, deleteCurrent: true, at: Date.now() }),
+    );
+    try {
+      h.getClaimedUsername.mockRejectedValue(gone);
+      renderHook(() => useDeleteMyData(), { wrapper });
+      act(() => h.handler!());
+      await new Promise((r) => setTimeout(r, 20));
+      expect(h.offline.wipeQueue).not.toHaveBeenCalled();
+      expect(h.resetIdentity).not.toHaveBeenCalled();
+    } finally {
+      if (saved) Object.defineProperty(window, 'localStorage', saved);
+      else delete (window as unknown as Record<string, unknown>).localStorage;
+      h.getClaimedUsername.mockReset();
+    }
   });
 
   it('ignores a late 410 about an old identity', async () => {

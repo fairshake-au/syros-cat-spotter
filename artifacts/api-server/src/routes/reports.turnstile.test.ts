@@ -169,7 +169,7 @@ async function expectNothingWritten(ref: string) {
 describe("T1-1: a token that isn't good is 428 and writes nothing (spec test 13)", () => {
   const cases: [string, (ref: string, action: string) => { token: unknown; reply: Siteverify }][] = [
     ["missing", () => ({ token: undefined, reply: timeout })],
-    ["malformed", () => ({ token: "not a token\u0000", reply: timeout })],
+    ["malformed", () => ({ token: "not a token\u0001", reply: timeout })],
     ["over 2,048 characters", () => ({ token: "x".repeat(2049), reply: timeout })],
     ["success: false", () => ({ token: TOKEN, reply: cf({ success: false, "error-codes": ["invalid-input-response"] }) })],
     ["the wrong action", (ref, action) => ({ token: TOKEN, reply: pass(ref, action === "welfare_report" ? "welfare_draft" : "welfare_report") })],

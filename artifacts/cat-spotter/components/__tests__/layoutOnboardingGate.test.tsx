@@ -52,6 +52,8 @@ vi.mock('@expo-google-fonts/space-mono', () => ({ SpaceMono_400Regular: 1, Space
 vi.mock('expo-router', () => ({
   Stack: Object.assign(stubComponent('Stack'), { Screen: stubComponent('Stack.Screen') }),
   usePathname: () => '/',
+  useRootNavigationState: () => ({ key: 'root' }),
+  router: { replace: vi.fn() },
 }));
 vi.mock('expo-splash-screen', () => ({
   preventAutoHideAsync: () => Promise.resolve(true),

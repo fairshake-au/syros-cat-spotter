@@ -1,5 +1,5 @@
 import { db, namedAreasTable } from "@workspace/db";
-import { asc, isNull } from "drizzle-orm";
+import { asc, isNotNull, isNull } from "drizzle-orm";
 import { haversineKm } from "../catHelpers";
 import { logger } from "../logger";
 import { areaEventCount } from "./areaHistory";
@@ -78,6 +78,15 @@ export async function loadAreas(): Promise<void> {
     // Try again after another TTL, not on every call.
     cache = cache ? { ...cache, loadedAt: Date.now() } : { areas: SEED_AREAS, version: 0, loadedAt: Date.now() };
   }
+}
+
+/** The retired areas, for the Areas page's "Bring back" list (SYC-482). Read fresh, not cached: it is only that page. */
+export async function retiredAreas(): Promise<NamedArea[]> {
+  return db
+    .select({ key: namedAreasTable.key, name: namedAreasTable.name, lat: namedAreasTable.lat, lng: namedAreasTable.lng })
+    .from(namedAreasTable)
+    .where(isNotNull(namedAreasTable.retiredAt))
+    .orderBy(asc(namedAreasTable.name));
 }
 
 /** Starts a background reload if the cache is stale and none is running. */

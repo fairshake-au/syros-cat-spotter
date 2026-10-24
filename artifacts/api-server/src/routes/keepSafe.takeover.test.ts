@@ -293,7 +293,7 @@ describe("1. a username restores nothing", () => {
 });
 
 describe("2. a replayed link", () => {
-  it("the same phone within 60 s gets the same answer and nothing moves twice; after 60 s it's refused (M)", async () => {
+  it("the same phone within the replay window gets the same answer and nothing moves twice; after it, it's refused (M)", async () => {
     const email = newAddress();
     const old = await keptSafe(email);
     const { phone, token } = await newPhoneWithLink(email);
@@ -307,14 +307,100 @@ describe("2. a replayed link", () => {
     const [tok] = await db.select().from(mailTokensTable).where(eq(mailTokensTable.restoredDeviceId, old.id));
     expect(tok!.replacedSecretHash).toBe(hashSecret(old.secret));
 
-    await db.execute(sql`update mail_tokens set used_at = now() - interval '61 seconds' where restored_device_id = ${old.id}`);
+    await db.execute(sql`update mail_tokens set used_at = now() - interval '15 minutes 1 second' where restored_device_id = ${old.id}`);
     const late = await redeem(phone, token, old.id);
     // Refused: the phone's starter id was retired by the move.
     expect([401, 403]).toContain(late.status);
     expect(await storedHash(old.id)).toBe(hashAfter);
   });
 
-  it("a used link can't move a second spotter, even within 60 s", async () => {
+  it("SYC-664 ship N-2: a generous per-network limit sits in front of the replay check: the 121st request in an hour gets too_many_tries; another network is unaffected (M)", async () => {
+    const ip = freshIp();
+    const junk = (from: string) =>
+      request(app)
+        .post("/api/restore/redeem")
+        .set("X-Device-Secret", "junk-secret-junk-secret")
+        .set("X-Forwarded-For", from)
+        .send({ deviceId: `${P}-junk`, token: "A".repeat(43), choice: "c".repeat(24), replayOnly: true });
+    for (let i = 0; i < 120; i++) {
+      const r = await junk(ip);
+      expect(r.body).not.toEqual({ error: "too_many_tries" });
+    }
+    const over = await junk(ip);
+    expect(over.status).toBe(429);
+    expect(over.body).toEqual({ error: "too_many_tries" });
+    const elsewhere = await junk(freshIp());
+    expect(elsewhere.status).toBe(401);
+    expect(elsewhere.body).toEqual({ error: "link_not_valid" });
+  });
+
+  it("SYC-664 ship N-1: replayOnly with no move behind it is refused and moves (or deletes) nothing; the link still works after (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const nikos = await keptSafe(newAddress());
+    const token = await askAndGetToken(nikos, email);
+    const r = await redeem(nikos, token, old.id, { replayOnly: true, abandonCurrent: true, deleteCurrent: true });
+    expect(r.status).toBe(401);
+    expect(r.body).toEqual({ error: "link_not_valid" });
+    expect(await storedHash(old.id)).toBe(hashSecret(old.secret));
+    expect(await storedHash(nikos.id)).toBe(hashSecret(nikos.secret));
+    const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.deviceId, nikos.id));
+    expect(profile?.username).toBe(nikos.username);
+    const [tok] = await db.select().from(mailTokensTable).where(eq(mailTokensTable.deviceId, nikos.id));
+    expect(tok?.usedAt ?? null).toBeNull();
+    // Not spent: the person can still move with it.
+    expect((await redeem(nikos, token, old.id, { abandonCurrent: true })).status).toBe(200);
+  });
+
+  it("SYC-664 ship N-1: replayOnly from the phone that made the move gets the same answer", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, token } = await newPhoneWithLink(email);
+    const first = await redeem(phone, token, old.id);
+    expect(first.status).toBe(200);
+    const again = await redeem(phone, token, old.id, { replayOnly: true });
+    expect(again.status).toBe(200);
+    expect(again.body).toEqual(first.body);
+  });
+
+  it("SYC-664 ship F2: the same phone's retry is answered at 14 minutes and refused at 16 (the 15-minute replay window) (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, token } = await newPhoneWithLink(email);
+    const first = await redeem(phone, token, old.id);
+    expect(first.status).toBe(200);
+    const hashAfter = await storedHash(old.id);
+
+    await db.execute(sql`update mail_tokens set used_at = now() - interval '14 minutes' where restored_device_id = ${old.id}`);
+    const at14 = await redeem(phone, token, old.id);
+    expect(at14.status).toBe(200);
+    expect(at14.body).toEqual(first.body);
+
+    await db.execute(sql`update mail_tokens set used_at = now() - interval '16 minutes' where restored_device_id = ${old.id}`);
+    const at16 = await redeem(phone, token, old.id);
+    expect([401, 403]).toContain(at16.status);
+    expect(await storedHash(old.id)).toBe(hashAfter);
+  });
+
+  it("SYC-664 ship F1: the same phone's retry is answered even when its network's redeem allowance is used up (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, token } = await newPhoneWithLink(email);
+    const ip = freshIp();
+    const fromIp = (body: Record<string, unknown>, secret = phone.secret) =>
+      request(app).post("/api/restore/redeem").set("X-Device-Secret", secret).set("X-Forwarded-For", ip).send(body);
+    const first = await fromIp({ deviceId: phone.id, token, spotterDeviceId: old.id });
+    expect(first.status).toBe(200);
+    // Use up the rest of this network's hour (30 a hour).
+    for (let i = 0; i < 30; i++) await fromIp({ deviceId: `${P}-junk`, token: "x" }, "junk-secret-junk-secret");
+    const blocked = await fromIp({ deviceId: `${P}-junk`, token: "x" }, "junk-secret-junk-secret");
+    expect(blocked.status).toBe(429);
+    const again = await fromIp({ deviceId: phone.id, token, spotterDeviceId: old.id });
+    expect(again.status).toBe(200);
+    expect(again.body).toEqual(first.body);
+  });
+
+  it("a used link can't move a second spotter, even within the replay window", async () => {
     const email = newAddress();
     const one = await keptSafe(email);
     const two = await keptSafe(email);
@@ -414,7 +500,7 @@ describe("3. the link on a second device (Decision 12, Samuel 11–12 Oct 2026)"
     expect(tok?.used_at ?? null).toBeNull();
   });
 
-  it("a third phone replaying a used link within 60 s gets link_not_valid and no name (M)", async () => {
+  it("a third phone replaying a used link within the replay window gets link_not_valid and no name (M)", async () => {
     const email = newAddress();
     const old = await keptSafe(email);
     const { phone, token } = await newPhoneWithLink(email);
@@ -482,6 +568,8 @@ const PROBES: Probe[] = [
   { name: "POST /restore/request", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/request").set("X-Device-Secret", s).send({ deviceId: id, email: "x@example.org" }) },
   { name: "POST /restore/peek", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/peek").set("X-Device-Secret", s).send({ deviceId: id, token: "A".repeat(43) }) },
   { name: "POST /restore/redeem", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/redeem").set("X-Device-Secret", s).send({ deviceId: id, token: "A".repeat(43), spotterDeviceId: "x" }) },
+  // SYC-664: the code box answers about the phone first, like every other route.
+  { name: "POST /restore/code", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/code").set("X-Device-Secret", s).send({ deviceId: id, code: "12345678" }) },
 ];
 
 describe("4. the old phone carrying on", () => {
@@ -676,7 +764,7 @@ describe("8. the form reveals nothing", () => {
       expect(t).toBeLessThan(1_300);
     }
     await settleOutbox();
-    expect(mailTo(kinds.known).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(1);
+    expect(mailTo(kinds.known).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(1);
   });
 
   it("8b. every limit is hit by known and unknown addresses alike; the replies stay identical; an unknown address uses up the per-IP limit (M)", async () => {
@@ -691,11 +779,11 @@ describe("8. the form reveals nothing", () => {
     const res = await ask(phone, known, ip);
     expect(fingerprint(res)).toBe(fingerprint(await ask(phone, newAddress(), ip)));
     await settleOutbox();
-    expect(mailTo(known).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(0);
+    expect(mailTo(known).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(0);
     // From a fresh IP it works.
     await ask(phone, known, freshIp());
     await settleOutbox();
-    expect(mailTo(known).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(1);
+    expect(mailTo(known).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(1);
   });
 
   it("8c. a stranger using up an address's three \"is this you?\" emails can't stop its restore link (M)", async () => {
@@ -786,7 +874,7 @@ describe("10. limits", () => {
     `);
     for (let i = 0; i < 3; i++) expect((await ask(phone, email)).status).toBe(202);
     await settleOutbox();
-    expect(mailTo(email).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(1);
+    expect(mailTo(email).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(1);
   });
 
   it("finding 2 (Samuel, 8 Oct: per phone): a stranger asking again and again can't stop the family's own phone getting its link (M)", async () => {
@@ -843,7 +931,7 @@ describe("10. limits", () => {
     await bind(phone);
     expect((await ask(phone, email)).status).toBe(202);
     await settleOutbox();
-    expect(mailTo(email).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(0);
+    expect(mailTo(email).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(0);
     expect(spies.logLines.some((l) => l.includes("global_ceiling") && l.includes('"level":50'))).toBe(true);
   });
 });
@@ -936,7 +1024,7 @@ describe("11b. \"Delete Nikos\" (SYC-266, Samuel 10 Oct 2026)", () => {
     expect(r.status).toBe(200);
     const stale = await request(app).get(`/api/profiles/${old.id}`).set("X-Device-Secret", old.secret);
     expect(stale.body).toEqual({ error: "device_moved" });
-    // A double tap within 60 s gets the same answer.
+    // A double tap within the replay window gets the same answer.
     const again = await redeemFrom(phone, token, old.id, { abandonCurrent: true, deleteCurrent: true });
     expect(again.status).toBe(200);
     expect(again.body.deviceId).toBe(old.id);
@@ -1192,7 +1280,7 @@ describe("Samuel's decisions, 8 Oct 2026", () => {
 });
 
 describe("adversarial review of #106: fixes", () => {
-  const links = (email: string) => mailTo(email).filter((m) => m.subject.startsWith("Get your spots back"));
+  const links = (email: string) => mailTo(email).filter((m) => m.subject.endsWith("is your Cat Spotters code"));
 
   it("finding 1: requests for made-up addresses can't use up the daily restore ceiling (M)", async () => {
     const [{ n: issued }] = (
@@ -1288,5 +1376,66 @@ describe("adversarial review of #106: fixes", () => {
     ).rows as { state: string; payload: Record<string, unknown> }[];
     expect(row!.state).toBe("failed");
     expect(row!.payload["to"]).toBeUndefined();
+  });
+});
+
+// ── SYC-664: a request issues a code ───────────────────────────────────────
+
+describe("SYC-664: asking for a restore issues a code", () => {
+  it("a known address gets a row with a code hash and a queued payload that carries the code; unknown addresses get neither", async () => {
+    const email = newAddress();
+    await keptSafe(email);
+    const phone = newPhone();
+    await bind(phone);
+    expect((await ask(phone, email)).status).toBe(202);
+    const hmac = addressFingerprint("keep_safe", normaliseAddress(email));
+    const rows = await db.select().from(mailTokensTable).where(eq(mailTokensTable.addressHmac, hmac));
+    const row = rows.find((r) => r.purpose === "restore")!;
+    expect(row.codeHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(row.codeAttempts).toBe(0);
+    await settleOutbox();
+    const mail = mailTo(email).at(-1)!;
+    const code = mail.subject.split(" ")[0]!;
+    expect(code).toMatch(/^\d{8}$/);
+    expect(mail.subject).toBe(`${code} is your Cat Spotters code`);
+    expect(mail.text).toMatch(/You asked for it at \d{2}:\d{2}\./);
+    const { codeHash } = await import("../lib/keepSafe/tokens");
+    expect(row.codeHash).toBe(codeHash(row.tokenHash, code));
+    // Nothing raw left behind after sending.
+    const left = await db.execute(sql`select count(*)::int as n from mail_outbox where payload::text like ${"%" + code + "%"}`);
+    expect((left.rows[0] as { n: number }).n).toBe(0);
+    // Unknown address: no token row at all.
+    const stranger = newAddress();
+    expect((await ask(phone, stranger)).status).toBe(202);
+    const none = await db.select().from(mailTokensTable).where(eq(mailTokensTable.addressHmac, addressFingerprint("keep_safe", normaliseAddress(stranger))));
+    expect(none).toHaveLength(0);
+  });
+
+  it("Decision B: the three-live-links cap is per asking phone, so a second phone's link never expires the first's", async () => {
+    __setRestorePadForTest(0);
+    const email = newAddress();
+    await keptSafe(email);
+    const hmac = addressFingerprint("keep_safe", normaliseAddress(email));
+    const a = newPhone();
+    const b = newPhone();
+    await bind(a);
+    await bind(b);
+    const live = async (deviceId: string) =>
+      (await db.select().from(mailTokensTable).where(eq(mailTokensTable.addressHmac, hmac)))
+        .filter((r) => r.purpose === "restore" && r.deviceId === deviceId && r.expiresAt > new Date())
+        .length;
+    // The per-phone request limit allows 3 in 15 minutes (a 4th is refused), so age A's
+    // requests to let a 4th through while its first three links are still live.
+    for (let i = 0; i < 3; i++) expect((await ask(a, email)).status).toBe(202);
+    expect(await live(a.id)).toBe(3);
+    await db.execute(sql`update mail_requests set created_at = created_at - interval '20 minutes' where address_hmac = ${hmac}`);
+    expect((await ask(a, email)).status).toBe(202);
+    // A's own oldest expired to make room: still three live, not four.
+    expect(await live(a.id)).toBe(3);
+    expect((await ask(b, email)).status).toBe(202);
+    expect(await live(b.id)).toBe(1);
+    // B's link did not cost A one.
+    expect(await live(a.id)).toBe(3);
+    await settleOutbox();
   });
 });

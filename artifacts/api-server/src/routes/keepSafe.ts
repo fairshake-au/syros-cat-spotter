@@ -1,5 +1,6 @@
-import { Router, type IRouter, type Request, type Response } from "express";
-import { sharedLimiter } from "../lib/limits";
+import { Router, type IRouter, type NextFunction, type Request, type Response } from "express";
+import { consume, declareLimit, sharedLimiter } from "../lib/limits";
+import { safeError } from "../lib/logger";
 import { hashSecret, requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
 import { fingerprintConfigured, ipFingerprint, looksLikeAddress } from "../lib/mail/fingerprint";
 import { kickRow } from "../lib/mail/outbox";
@@ -10,7 +11,8 @@ import {
   requestRestore,
 } from "../lib/keepSafe/service";
 import { peekRestore, redeemRestore, replayAfterMove } from "../lib/keepSafe/move";
-import { isTokenShaped, tokenLogId } from "../lib/keepSafe/tokens";
+import { isCodeShaped, isTokenShaped, tokenLogId } from "../lib/keepSafe/tokens";
+import { exchangeCode } from "../lib/keepSafe/code";
 
 /**
  * "Keep my spots safe" and "Get your spots back" for the app (SYC-3 plan,
@@ -26,6 +28,12 @@ const router: IRouter = Router();
 
 /** The one refusal for a link that can't be used, whatever the real reason. */
 export const LINK_NOT_VALID = { error: "link_not_valid" } as const;
+
+/** The one refusal for a code, whatever the real reason (spec §4). */
+export const CODE_NOT_VALID = { error: "code_not_valid" } as const;
+
+/** Ten codes an hour from one phone, for any addresses (spec §4). */
+export const TOO_MANY_TRIES = { error: "too_many_tries" } as const;
 
 /** The one reply to a restore request, known address or not. */
 export const SENT_IF_KNOWN = { status: "sent_if_known" } as const;
@@ -47,6 +55,30 @@ export function __setRestorePadForTest(ms: number | null): void {
   addPadMs = ms ?? 300;
 }
 
+// SYC-664: every /restore/code answer waits for one fixed deadline, so a phone
+// with live rows answers no faster or slower than one without.
+let codePadMs = 800;
+// The per-phone cap's real limit is what the bucket is registered with; a
+// test may raise only the point at which this route refuses (the 20-at-once
+// test needs only the row's own limit to stop it).
+const CODE_BUCKET = "keep_safe_code";
+const CODE_LIMIT = 10;
+const CODE_WINDOW_MS = 60 * 60 * 1000;
+declareLimit(CODE_BUCKET, CODE_LIMIT, CODE_WINDOW_MS);
+let codeCap = CODE_LIMIT;
+
+/** Tests only: the /restore/code deadline pad. */
+export function __setCodePadForTest(ms: number | null): void {
+  if (process.env["NODE_ENV"] !== "test") throw new Error("test only");
+  codePadMs = ms ?? 800;
+}
+
+/** Tests only: how many codes an hour one phone may send before 429. */
+export function __setCodeCapForTest(n: number | null): void {
+  if (process.env["NODE_ENV"] !== "test") throw new Error("test only");
+  codeCap = n ?? CODE_LIMIT;
+}
+
 async function padTo(started: number, ms: number): Promise<void> {
   await new Promise((r) => setTimeout(r, Math.max(0, ms - (Date.now() - started))));
 }
@@ -63,6 +95,29 @@ const linkLimiter = (bucket: string) =>
   });
 const peekLimiter = linkLimiter("keep_safe_peek");
 const redeemLimiter = linkLimiter("keep_safe_redeem");
+// SYC-664 ship review N-2: the same-phone replay (a database lookup) runs
+// before `redeemLimiter` so a phone finishing its own move is never told 429
+// by it. This separate, generous per-network cap sits in front of the replay,
+// so no request reaches the database unlimited. 120 an hour is four times
+// the redeem limit: a phone retrying its own move never gets near it. The app
+// treats any 429 as "try again later", never as a refusal.
+const replayLimiter = sharedLimiter({
+  bucket: "keep_safe_replay",
+  windowMs: 60 * 60 * 1000,
+  limit: 120,
+  message: TOO_MANY_TRIES,
+});
+// SYC-664: a per-network cap in front of /restore/code, on top of the
+// per-phone hour counted inside the handler (which needs the verified phone,
+// so it can't be a middleware). Sixty an hour: a whole family on one
+// connection never gets near it, and it trims what one network can guess.
+// It depends only on the network, so it says nothing about any address.
+const codeNetworkLimiter = sharedLimiter({
+  bucket: "keep_safe_code_ip",
+  windowMs: 60 * 60 * 1000,
+  limit: 60,
+  message: TOO_MANY_TRIES,
+});
 
 function notConfigured(res: Response): void {
   res.status(503).json({ error: "not_configured" });
@@ -173,26 +228,57 @@ router.post("/restore/peek", peekLimiter, async (req, res) => {
   });
 });
 
-router.post("/restore/redeem", redeemLimiter, async (req, res) => {
-  noStore(res);
-  const body = (req.body ?? {}) as Record<string, unknown>;
-  const raw = body["token"];
-  // The picker's opaque choice (Decision 12, review finding 9); a device id
-  // is still accepted from a page loaded before this change.
-  const pick = {
+/** The picker's opaque choice (Decision 12, review finding 9); a device id is still accepted from an older page. */
+function pickOf(body: Record<string, unknown>) {
+  return {
     choice: typeof body["choice"] === "string" ? body["choice"] : undefined,
     spotterDeviceId: typeof body["spotterDeviceId"] === "string" ? body["spotterDeviceId"] : undefined,
   };
+}
+
+function secretOf(req: Request): string {
   const header = req.headers["x-device-secret"];
-  const secret = typeof header === "string" ? header : "";
-  // The same phone's retry within 60 s (its starter id is retired by then).
+  return typeof header === "string" ? header : "";
+}
+
+/**
+ * The same phone's retry of a move that already happened (its starter id is
+ * retired by then), answered BEFORE the network's redeem allowance (SYC-664
+ * ship review F1): a phone finishing its own move is never told 429. Only the
+ * phone whose secret the moved spotter now holds gets an answer here; anything
+ * else goes on to the limiter and the ordinary checks.
+ *
+ * `replayOnly: true` (SYC-664 ship review N-1): the app's background finishing
+ * (start-up, back online) only ever wants this answer. Without a move behind
+ * it, it gets the one refusal and nothing moves: a stale keep/delete choice is
+ * never carried out without the person there.
+ */
+async function samePhoneReplay(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const raw = body["token"];
+  const pick = pickOf(body);
+  const secret = secretOf(req);
   if (isTokenShaped(raw) && secret.length >= 16 && secret.length <= 256 && (pick.choice || pick.spotterDeviceId)) {
     const replay = await replayAfterMove({ raw, callerSecretHash: hashSecret(secret), pick });
     if (replay?.ok) {
+      noStore(res);
       res.json({ deviceId: replay.deviceId, username: replay.username });
       return;
     }
   }
+  if (body["replayOnly"] === true) {
+    noStore(res);
+    return refuseLink(req, res, "replay_only_no_move", raw);
+  }
+  next();
+}
+
+router.post("/restore/redeem", replayLimiter, samePhoneReplay, redeemLimiter, async (req, res) => {
+  noStore(res);
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const raw = body["token"];
+  const pick = pickOf(body);
+  const secret = secretOf(req);
   const caller = await verifyDeviceSecret(req, res, String(body["deviceId"] ?? ""));
   if (!caller) return;
   if (!isTokenShaped(raw)) return refuseLink(req, res, "malformed", raw);
@@ -208,6 +294,62 @@ router.post("/restore/redeem", redeemLimiter, async (req, res) => {
   if (!result.ok) return refuseLink(req, res, result.reason, raw);
   req.log.info({ token: tokenLogId(raw) }, "restore: spotter moved to the phone that pressed the button");
   res.json({ deviceId: result.deviceId, username: result.username });
+});
+
+/**
+ * Swap a code for a handle (SYC-664). The device secret first (its own
+ * answers, about the phone, not the address), then one from the phone's hour
+ * (after auth, so nobody can spend another phone's hour with only its id),
+ * then the code. Every answer from here on (200, 401, 429, 503) waits for the
+ * same deadline. Neither the code nor the handle is ever logged.
+ */
+router.post("/restore/code", codeNetworkLimiter, async (req, res) => {
+  const started = Date.now();
+  noStore(res);
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const caller = await verifyDeviceSecret(req, res, String(body["deviceId"] ?? ""));
+  if (!caller) return;
+
+  let status: number;
+  let reply: object;
+  try {
+    if (!fingerprintConfigured()) {
+      [status, reply] = [503, { error: "not_configured" }];
+    } else {
+      // Fails closed: if the counter throws, the catch below answers 503.
+      const hour = await consume(CODE_BUCKET, caller, CODE_LIMIT, CODE_WINDOW_MS);
+      if (hour.hits > codeCap) {
+        req.log.warn({ hits: hour.hits }, "restore code: phone over its hourly cap");
+        [status, reply] = [429, TOO_MANY_TRIES];
+      } else {
+        const code = body["code"];
+        // Malformed codes still spent one of the hour's tries above, so the
+        // shape can't be probed for free. The app strips spaces before sending.
+        const result = isCodeShaped(code) ? await exchangeCode({ callerDeviceId: caller, code }) : null;
+        if (result?.ok) {
+          req.log.info({ token: result.tokenLogId }, "restore code accepted: handle issued");
+          [status, reply] = [200, { handle: result.handle }];
+        } else {
+          req.log.warn(
+            result ? { reason: "no_match", live: result.live, attempts: result.attempts } : { reason: "malformed" },
+            "restore code refused",
+          );
+          [status, reply] = [401, CODE_NOT_VALID];
+        }
+      }
+    }
+  } catch (err) {
+    req.log.error({ err: safeError(err) }, "restore code failed");
+    res.setHeader("Retry-After", "5");
+    [status, reply] = [503, { error: "Please try again in a moment." }];
+  }
+
+  const waited = Date.now() - started;
+  if (waited > codePadMs) {
+    req.log.warn({ waitedMs: waited, padMs: codePadMs }, "restore code outran its deadline pad");
+  }
+  await new Promise((r) => setTimeout(r, Math.max(0, codePadMs - waited)));
+  res.status(status).json(reply);
 });
 
 export default router;
