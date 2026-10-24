@@ -84,7 +84,12 @@ vi.mock('@workspace/api-client-react', () => ({
   getGetLeaderboardQueryKey: () => ['/api/leaderboard'],
   useGetLeaderboardWeek: () => ({ data: h.week, isError: false, isLoading: false }),
   getGetLeaderboardWeekQueryKey: () => ['/api/leaderboard/week'],
+  markBadgesSeen: vi.fn(async () => {}),
 }));
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn(async () => {}) }),
+}));
+vi.mock('@/components/celebration/BadgeCelebration', () => ({ BadgeCelebration: () => null }));
 
 import ProfileScreen from '../../app/(tabs)/profile';
 
