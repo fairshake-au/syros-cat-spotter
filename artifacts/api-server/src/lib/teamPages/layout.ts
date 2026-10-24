@@ -247,6 +247,14 @@ li.statement.routine>details[open]>summary::before,.hownote[open]>summary::befor
 .catmap .mapcap{display:flex;justify-content:space-between;gap:8px;margin:4px 0 0;font-size:14px}
 .hownote{margin:8px 0}
 .hownote summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:#0b4553}
+/* The cat page's Coat and markings fold (SYC-602 PR 3, spec §3.7). */
+details.fold{background:#fff;border:1px solid #d9d5ca;border-radius:10px;margin:8px 0}
+details.fold>summary{cursor:pointer;min-height:44px;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:8px 12px;font-size:16px}
+details.fold>summary>span{font-size:14px;color:#55524a}
+details.fold>.foldbody{padding:0 12px 12px}
+details.changecoat{margin:12px 0 0}
+details.changecoat>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
+.changepart{margin:0 0 16px}
 /* The cat page's History (SYC-602 PR 2, spec §3.5): filters, then one list; a date column, the words, a ⋯ menu. */
 .hfilters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
 .hfilters a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid #d9d5ca;background:#fff;text-decoration:none;color:#1d1d1b;font-size:14px}

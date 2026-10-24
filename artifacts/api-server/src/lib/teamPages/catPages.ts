@@ -190,6 +190,8 @@ export interface CatPageOptions {
   photo?: string;
   /** Every colony, for the "Colony" list. Only asked for if the person may assign. */
   colonies?: { id: number; name: string }[];
+  /** ?open=coat: the Coat and markings fold opens (from "Update this cat"). */
+  openCoat?: boolean;
   /** ?history=all: show every row, not just the newest HISTORY_SHOWN. */
   allHistory?: boolean;
   /** ?show=: which of History's rows to show (spec §3.5). Left out: all of them. */
@@ -572,7 +574,7 @@ export function renderCatPage(
       ) +
       jump +
       issueStrip(opts.issues) +
-      renderAppearanceSection(v, may, opts.done) +
+      renderAppearanceSection(v, may, opts.done, undefined, { fold: true, open: opts.openCoat === true }) +
       photos +
       history,
   });
