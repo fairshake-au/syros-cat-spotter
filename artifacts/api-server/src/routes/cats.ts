@@ -3,6 +3,7 @@ import {
   ClaimCatBody,
   FollowCatBody,
   LetGoCatBody,
+  NameCatBody,
   UpdateCatBody,
   SuggestCatNamesBody,
 } from "@workspace/api-zod";
@@ -14,6 +15,7 @@ import {
   catUpdatesTable,
   photosTable,
   sightingPhotosTable,
+  foldedNameEquals,
   type Cat,
 } from "@workspace/db";
 import { and, asc, eq, inArray, ne, desc, sql } from "drizzle-orm";
@@ -49,14 +51,17 @@ import {
   type ClaimRefusal,
 } from "../lib/claiming";
 import { logRouteDuration } from "../lib/requestTiming";
-import { catPayload, lookupDiscoverer } from "../lib/publicCat";
+import { catPayload, lookupDiscoverer, publicCatView } from "../lib/publicCat";
 import { isTeamDesk, TEAM_DESK_NAME } from "../lib/teamDesk";
 import {
   BLANK_NAME_BODY,
   catNamed,
   isBlankName,
+  isSyrShapedName,
   nameTakenBody,
   nullOnUniqueViolation,
+  OFFENSIVE_NAME_WORDS,
+  SYR_SHAPED_NAME_BODY,
 } from "../lib/catNames";
 
 const router: IRouter = Router();
@@ -666,6 +671,108 @@ const noStore: RequestHandler = (_req, res, next) => {
 router.post("/cats/:catId/follow", noStore, followBurstLimiter, followAddressLimiter, followHandler("follow"));
 router.post("/cats/:catId/unfollow", noStore, followBurstLimiter, followAddressLimiter, followHandler("unfollow"));
 
+/**
+ * SYC-677 D ("Spotters naming a cat", vet-visit-batches design): any spotter
+ * may name a cat Syros Cats left for spotters (`name_pending`), and the first
+ * good name wins. In this order:
+ * 1. the device secret, before anything about the cat (as on claim);
+ * 2. the name on its own: not blank, nothing offensive, not a SYR number;
+ * 3. in one transaction, the cat row locked: no such cat (or a redacted one)
+ *    is 404, a cat with a name is 409 ALREADY_NAMED, another cat with this
+ *    name is 409 NAME_TAKEN; then the name, `name_pending` cleared, and a
+ *    `name` statement by this device.
+ * The lock is what stops two spotters naming at once from both winning: the
+ * second waits, then reads the cleared flag. Shares the name-suggestions
+ * limiter (one budget per address for the naming flow). No points (design:
+ * "There are no points for naming").
+ */
+router.post("/cats/:catId/name", noStore, aiLimiter, async (req, res) => {
+  const catId = Number(req.params.catId);
+  if (!Number.isInteger(catId)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const parsed = NameCatBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+  const deviceId = await verifyDeviceSecret(req, res, parsed.data.deviceId);
+  if (!deviceId) return;
+
+  const name = parsed.data.name.trim().slice(0, 60);
+  if (isBlankName(name)) {
+    res.status(400).json(BLANK_NAME_BODY);
+    return;
+  }
+  if (containsOffensiveLanguage(name)) {
+    res.status(400).json({ error: OFFENSIVE_NAME_WORDS, code: "OFFENSIVE_NAME" });
+    return;
+  }
+  if (isSyrShapedName(name)) {
+    res.status(400).json(SYR_SHAPED_NAME_BODY);
+    return;
+  }
+
+  type Outcome =
+    | { ok: true }
+    | { ok: false; why: "NOT_FOUND" | "ALREADY_NAMED" }
+    | { ok: false; why: "NAME_TAKEN"; holderId: number };
+  const outcome: Outcome | null = await db
+    .transaction(async (tx): Promise<Outcome> => {
+      const locked = await tx.execute<{ id: number; name_pending: boolean; redacted_at: Date | null }>(
+        sql`select id, name_pending, redacted_at from cats where id = ${catId} for update`,
+      );
+      const cat = locked.rows[0];
+      if (!cat || cat.redacted_at !== null) return { ok: false, why: "NOT_FOUND" };
+      if (!cat.name_pending) return { ok: false, why: "ALREADY_NAMED" };
+      const [holder] = await tx
+        .select({ id: catsTable.id })
+        .from(catsTable)
+        .where(foldedNameEquals(name));
+      if (holder && holder.id !== catId) return { ok: false, why: "NAME_TAKEN", holderId: holder.id };
+      const [row] = await tx
+        .update(catsTable)
+        .set({ name, namePending: false })
+        .where(eq(catsTable.id, catId))
+        .returning();
+      // As when a spotter names a new cat (routes/sightings.ts).
+      await writeObservation(tx, {
+        catId,
+        kind: "name",
+        value: { name: row!.name, normalised: row!.normalisedName },
+        deviceId,
+        roleAtTime: "public",
+        authorityScope: "none",
+        observedAt: new Date(),
+      });
+      return { ok: true };
+    })
+    // Another cat took the name between the check and the write.
+    .catch(nullOnUniqueViolation);
+
+  if (outcome === null) {
+    res.status(409).json(await nameTakenBody(await catNamed(name)));
+    return;
+  }
+  if (!outcome.ok) {
+    if (outcome.why === "NOT_FOUND") {
+      res.status(404).json({ error: "Not found" });
+    } else if (outcome.why === "ALREADY_NAMED") {
+      res.status(409).json({ error: "This cat already has a name", code: "ALREADY_NAMED" });
+    } else {
+      res.status(409).json(await nameTakenBody(await catNamed(name)));
+    }
+    return;
+  }
+  const view = await publicCatView(catId);
+  if (!view) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json(view);
+});
+
 // Owner renames the cat or updates its home description.
 router.patch("/cats/:catId", async (req, res) => {
   res.setHeader("Cache-Control", PER_PHONE);
@@ -715,6 +822,8 @@ router.patch("/cats/:catId", async (req, res) => {
       return;
     }
     changes.name = newName;
+    // SYC-677: an owner naming a cat left for spotters gives it its name.
+    if (cat.namePending) changes.namePending = false;
   }
   if (body.homeDescription !== undefined) {
     // claiming-a-cat.md §11: the note is moderated at every edit, as at the

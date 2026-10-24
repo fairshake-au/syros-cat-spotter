@@ -1153,6 +1153,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       {
         id: cat.id,
         name: cat.name,
+        namePending: cat.namePending,
         description: cat.description,
         photoUrl: await catDisplayPhoto(cat),
         lat: cat.lat,

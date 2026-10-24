@@ -62,6 +62,7 @@ export async function catPayload(
     {
       id: cat.id,
       name: cat.name,
+      namePending: cat.namePending,
       description: cat.description,
       // The main photo, or the stand-in if the team hid it (PR 6, Decision 4).
       photoUrl: await catDisplayPhoto(cat),

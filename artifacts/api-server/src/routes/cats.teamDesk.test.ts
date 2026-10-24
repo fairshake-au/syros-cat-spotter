@@ -69,6 +69,7 @@ describe("a batch-made cat's public credit", () => {
       {
         id: cat!.id,
         name: cat!.name,
+        namePending: cat!.namePending,
         description: cat!.description,
         photoUrl: null,
         lat: cat!.lat,
