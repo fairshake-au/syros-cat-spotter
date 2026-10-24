@@ -207,7 +207,7 @@ describe('NameStep: "Don\'t lose your spots" on the name screen (SYC-524)', () =
     await s.typeName('SeaCat');
     s.typeEmail('  sea@example.com ');
     await s.tap();
-    expect(h.add).toHaveBeenCalledWith('dev-1', { email: 'sea@example.com', language: 'en', surface: 'onboarding' });
+    expect(h.add).toHaveBeenCalledWith('dev-1', { email: 'sea@example.com', language: 'en', surface: 'onboarding' }, { timeoutMs: ONBOARDING_EMAIL_TIMEOUT_MS });
     expect(h.log).toEqual(['offer:skipped-onboarding', 'addKeepSafe', 'offer:done', 'claim', 'setUsername:SeaCat']);
     expect(h.offerWhenNamed).toEqual(['done']);
   });
@@ -298,7 +298,7 @@ describe('NameStep: "Don\'t lose your spots" on the name screen (SYC-524)', () =
     await s.typeName('OtherName');
     await s.tap();
     expect(h.add).toHaveBeenCalledTimes(2);
-    expect(h.add).toHaveBeenLastCalledWith('dev-1', { email: 'cat@example.com', language: 'en', surface: 'onboarding' });
+    expect(h.add).toHaveBeenLastCalledWith('dev-1', { email: 'cat@example.com', language: 'en', surface: 'onboarding' }, { timeoutMs: ONBOARDING_EMAIL_TIMEOUT_MS });
   });
 
   it('an email saved here is not sent again after Back and return', async () => {

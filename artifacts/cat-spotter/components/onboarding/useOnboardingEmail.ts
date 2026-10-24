@@ -8,25 +8,36 @@ export type OnboardingEmailResult = 'none' | 'saved' | 'failed' | 'invalid' | 's
 export type OnboardingEmailError = 'keepSafeInvalidEmail' | 'keepSafeSaveFailed';
 
 /**
+ * Review I1: the email request gives up after this long (Android's fetch has
+ * no timeout of its own), so a bad connection can't lock the screen. A
+ * timeout is "That didn't save"; a retry may send it again.
+ */
+export const ONBOARDING_EMAIL_TIMEOUT_MS = 15_000;
+
+/**
  * What this phone typed and saved on the name screen, kept across Back and
  * return (spec "Screen state"): an address already added here is not sent
- * again. Tied to the device id, so a new identity starts empty.
+ * again. Tied to the identity (generation and device id), so "Delete my
+ * data" or a restore starts empty, even if a restore later brings the same
+ * device id back (review I2).
  */
-const memory = { deviceId: null as string | null, email: '', savedFor: null as string | null };
+type Memory = { generation: number; deviceId: string | null; email: string; savedFor: string | null };
+const EMPTY: Memory = { generation: -1, deviceId: null, email: '', savedFor: null };
+let memory: Memory = EMPTY;
 
-function remembered(deviceId: string | null) {
-  return memory.deviceId === deviceId ? memory : { email: '', savedFor: null };
+function remembered(generation: number, deviceId: string | null) {
+  if (memory.generation === generation && memory.deviceId === deviceId) return memory;
+  memory = EMPTY; // another identity's address is never kept
+  return memory;
 }
 
-function remember(deviceId: string | null, email: string, savedFor: string | null) {
-  memory.deviceId = deviceId;
-  memory.email = email;
-  memory.savedFor = savedFor;
+function remember(generation: number, deviceId: string | null, email: string, savedFor: string | null) {
+  memory = { generation, deviceId, email, savedFor };
 }
 
 /** Tests only: forget the screen's email, as a fresh app start would. */
 export function resetOnboardingEmailForTests() {
-  remember(null, '', null);
+  memory = EMPTY;
 }
 
 /**
@@ -55,8 +66,10 @@ export function useOnboardingEmail({
   language: Language;
 }) {
   const { identityGeneration } = useDevice();
-  const [email, setEmailState] = useState(() => remembered(deviceId).email);
-  const [savedFor, setSavedForState] = useState<string | null>(() => remembered(deviceId).savedFor);
+  const [email, setEmailState] = useState(() => remembered(identityGeneration(), deviceId).email);
+  const [savedFor, setSavedForState] = useState<string | null>(
+    () => remembered(identityGeneration(), deviceId).savedFor,
+  );
   const [error, setError] = useState<OnboardingEmailError | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -74,8 +87,8 @@ export function useOnboardingEmail({
       savedForRef.current = null;
       setSavedForState(null);
     }
-    remember(deviceId, value, savedForRef.current);
-  }, [deviceId]);
+    remember(identityGeneration(), deviceId, value, savedForRef.current);
+  }, [deviceId, identityGeneration]);
 
   const saveIfNeeded = useCallback(async (beforeSend?: () => void): Promise<OnboardingEmailResult> => {
     if (busy.current) return 'failed';
@@ -94,16 +107,27 @@ export function useOnboardingEmail({
     busy.current = true;
     setSaving(true);
     try {
-      await addKeepSafe(deviceId, { email: typed, language, surface: 'onboarding' });
-      if (identityGeneration() !== generation) return 'stale';
+      await addKeepSafe(
+        deviceId,
+        { email: typed, language, surface: 'onboarding' },
+        { timeoutMs: ONBOARDING_EMAIL_TIMEOUT_MS },
+      );
+      if (identityGeneration() !== generation) {
+        memory = EMPTY;
+        return 'stale';
+      }
       savedForRef.current = typed;
       setSavedForState(typed);
-      remember(deviceId, emailRef.current, typed);
+      remember(generation, deviceId, emailRef.current, typed);
       return 'saved';
     } catch (err) {
-      if (identityGeneration() !== generation) return 'stale';
+      if (identityGeneration() !== generation) {
+        memory = EMPTY;
+        return 'stale';
+      }
       // Spec "Server answers": anything but a refused address, including
-      // not_configured, is "That didn't save"; emptying the box gets past it.
+      // not_configured and a timeout, is "That didn't save"; emptying the box
+      // gets past it.
       if (isInvalidEmail(err)) {
         setError('keepSafeInvalidEmail');
         return 'invalid';

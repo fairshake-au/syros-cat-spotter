@@ -36,15 +36,21 @@ export function getKeepSafe(deviceId: string): Promise<KeepSafeState> {
   });
 }
 
+/**
+ * `options.timeoutMs` (SYC-524): a transport timeout for callers that must not
+ * hang (onboarding); without it the client's default applies.
+ */
 export function addKeepSafe(
   deviceId: string,
   input: { email: string; language: Language; surface: KeepSafeSurface },
+  options?: { timeoutMs?: number },
 ): Promise<KeepSafeState> {
   return customFetch<KeepSafeState>(`/api/keep-safe/${encodeURIComponent(deviceId)}`, {
     method: 'POST',
     body: JSON.stringify({ ...input, wordingVersion: KEEP_SAFE_WORDING_VERSION }),
     headers: { 'content-type': 'application/json' },
     responseType: 'json',
+    ...(options?.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
   });
 }
 
