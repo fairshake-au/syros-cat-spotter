@@ -298,7 +298,7 @@ export default function CatalogScreen() {
                 label: shared ? t('catsInArea').replace('{n}', String(group.length)) : undefined,
                 accessibilityLabel: shared
                   ? t('areaWithCats').replace('{n}', String(group.length))
-                  : t('areaOfCat').replace('{name}', group[0]!.name),
+                  : t('areaOfCat').replace('{name}', catDisplayName(group[0]!, t)),
                 onPress: () => {
                   if (shared && Platform.OS === 'web') {
                     // D4: the web strip narrows to the cats in this square.
