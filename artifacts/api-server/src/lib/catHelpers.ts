@@ -14,7 +14,6 @@ import {
   todayInStreakTimezone,
 } from "./streak";
 import { loadCatRecords, type DbOrTx } from "./observations";
-import { todayInStreakTimezone } from "./streak";
 import { resolveCat, type Confidence, type LifeStatusValue } from "./resolve";
 import {
   legacyCoatCodes,
