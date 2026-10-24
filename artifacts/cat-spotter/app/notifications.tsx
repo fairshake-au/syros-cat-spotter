@@ -144,15 +144,18 @@ export default function NotificationsScreen() {
 
     return (
       <Pressable
-        onPress={() =>
+        onPress={() => {
+          // A weekly result has no cat to open (SYC-706; Task 13 opens its
+          // celebration).
+          if (n.catId == null) return;
           router.push({
             pathname: '/cat/[id]',
             params: {
               id: String(n.catId),
               updateId: String(n.catUpdateId),
             },
-          })
-        }
+          });
+        }}
         accessibilityRole="button"
         accessibilityLabel={rowLabel}
         style={[

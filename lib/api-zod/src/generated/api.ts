@@ -860,15 +860,15 @@ export const ListNotificationsHeader = zod.object({
 
 export const ListNotificationsResponseItem = zod.object({
   "id": zod.number(),
-  "catId": zod.number(),
-  "catUpdateId": zod.number(),
-  "catName": zod.string(),
+  "catId": zod.number().nullable(),
+  "catUpdateId": zod.number().nullable(),
+  "catName": zod.string().nullable(),
   "catPhotoUrl": zod.string().nullable(),
   "updateType": zod.enum(['sighting', 'desexed', 'adopted', 'general']),
   "message": zod.string(),
   "read": zod.boolean(),
   "createdAt": zod.string()
-})
+}).describe('A bell entry. News about a cat has catId, catUpdateId and catName. A weekly result (a place in last week\'s top three) has no cat: those three and catPhotoUrl are null, updateType is general, and message never names an area or a place.')
 export const ListNotificationsResponse = zod.array(ListNotificationsResponseItem)
 
 

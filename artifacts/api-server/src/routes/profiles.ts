@@ -3,6 +3,7 @@ import { db, profilesTable } from "@workspace/db";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { profilePayload, spotterCode } from "../lib/catHelpers";
 import { competitionRanks } from "../lib/ranking";
+import { type BoardRow, uniqueCatsSql, weekBoardRows } from "../lib/weekBoard";
 import { nextWeekStartInstant, weekStartAthens, weekStartInstant } from "../lib/weeks";
 import { normalizeUsername, suggestUsernames } from "../lib/usernames";
 import { containsOffensiveLanguage } from "../lib/moderation";
@@ -252,16 +253,6 @@ router.post("/profiles/:deviceId/badges/seen", async (req, res) => {
   res.status(204).end();
 });
 
-/** One board row as the database hands it over, before it is made public. */
-type BoardRow = {
-  device_id: string;
-  username: string | null;
-  nickname: string | null;
-  points: number | string;
-  unique_cats: number | string;
-  tie_key: number | string | null;
-};
-
 /**
  * Turns database rows into the public shape. The device id is only used for
  * the opaque spotterCode (it is the profile credential, never exposed).
@@ -285,11 +276,6 @@ function publicBoard(rows: BoardRow[]) {
   );
   return competitionRanks(items, (r) => r.points).map(({ tie: _tie, ...r }) => r);
 }
-
-const uniqueCatsSql = sql`(
-  select count(*)::int from cats c
-  where c.discoverer_device_id = p.device_id
-)`;
 
 router.get("/leaderboard", async (_req, res) => {
   // Zero-point spotters are dropped in SQL so they can't fill the top 20.
@@ -317,21 +303,8 @@ router.get("/leaderboard/week", async (_req, res) => {
     new Date(weekStartInstant(weekStart).getTime() - 1),
   );
 
-  // Only scoring rows count: history rows carry 0 points and never show
-  // anyone on 0. Ties: whoever reached their total first.
-  const rows = await db.execute<BoardRow>(sql`
-    select p.device_id, p.username, p.nickname, w.points,
-      ${uniqueCatsSql} as unique_cats, w.tie_key
-    from (
-      select device_id, sum(points)::int as points,
-        extract(epoch from max(earned_at))::float8 as tie_key
-      from points_ledger
-      where week_start = ${weekStart}::date and points > 0 and device_id is not null
-      group by device_id
-    ) w
-    join profiles p on p.device_id = w.device_id
-    order by w.points desc, w.tie_key asc, p.device_id asc
-    limit 20`);
+  // The same rows and order the weekly close freezes (lib/weekBoard.ts).
+  const rows = await weekBoardRows(db, weekStart, 20);
 
   const last = await db.execute<{ place: number; display_name: string | null; points: number }>(sql`
     select place, display_name, points from weekly_results
@@ -342,7 +315,7 @@ router.get("/leaderboard/week", async (_req, res) => {
   res.json({
     weekStart,
     endsAt,
-    entries: publicBoard(rows.rows),
+    entries: publicBoard(rows),
     lastWeek: last.rows.map((r) => ({
       place: Number(r.place),
       name: r.display_name ?? null,

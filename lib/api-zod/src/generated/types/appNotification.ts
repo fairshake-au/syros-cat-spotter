@@ -7,11 +7,14 @@
  */
 import type { AppNotificationUpdateType } from './appNotificationUpdateType';
 
+/**
+ * A bell entry. News about a cat has catId, catUpdateId and catName. A weekly result (a place in last week's top three) has no cat: those three and catPhotoUrl are null, updateType is general, and message never names an area or a place.
+ */
 export interface AppNotification {
   id: number;
-  catId: number;
-  catUpdateId: number;
-  catName: string;
+  catId: number | null;
+  catUpdateId: number | null;
+  catName: string | null;
   catPhotoUrl: string | null;
   updateType: AppNotificationUpdateType;
   message: string;

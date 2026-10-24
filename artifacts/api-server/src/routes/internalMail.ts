@@ -7,6 +7,7 @@ import { sweepRateLimitsIfDue } from "../lib/limits";
 import { sweepIssueNotesIfDue } from "../lib/issues/retention";
 import { safeError } from "../lib/logger";
 import { backfillOnDrainEnabled, runBadgeBackfillOnce, type BackfillStatus } from "../lib/badges/backfill";
+import { runWeeklyClose, weeklyCloseOnDrainEnabled } from "../lib/weeklyClose";
 
 /**
  * POST /api/internal/mail/drain (SYC-42 plan, Slice 1 item 1.6, layer 3).
@@ -42,6 +43,11 @@ import { backfillOnDrainEnabled, runBadgeBackfillOnce, type BackfillStatus } fro
  * lib/badges/backfill.ts) until one run has finished; after that it is one
  * read per drain. A failure is logged, never changes the status, and the
  * next drain resumes the run.
+ *
+ * Then the weekly close and the Monday push (SYC-706, lib/weeklyClose.ts):
+ * last week's top three are frozen once, and pushed once on Monday between
+ * 08:00 and 20:00 Athens. Each is safe to run from every drain; a failure is
+ * logged and never changes the status.
  */
 const router: IRouter = Router();
 
@@ -86,6 +92,14 @@ router.post("/internal/mail/drain", async (req, res) => {
       badgeBackfill = "error";
     }
   }
+  let weeklyClose: string = "off";
+  let weeklyPush: string = "off";
+  if (weeklyCloseOnDrainEnabled()) {
+    // runWeeklyClose logs and reports its own failures, close and push apart.
+    const r = await runWeeklyClose();
+    weeklyClose = r.close;
+    weeklyPush = r.push;
+  }
   if (overdue > 0) {
     req.log.error(
       { overdue, ...result },
@@ -97,10 +111,19 @@ router.post("/internal/mail/drain", async (req, res) => {
       ...result,
       roundUp: roundUp.status,
       badgeBackfill,
+      weeklyClose,
+      weeklyPush,
     });
     return;
   }
-  res.status(200).json({ overdue: 0, ...result, roundUp: roundUp.status, badgeBackfill });
+  res.status(200).json({
+    overdue: 0,
+    ...result,
+    roundUp: roundUp.status,
+    badgeBackfill,
+    weeklyClose,
+    weeklyPush,
+  });
 });
 
 export default router;

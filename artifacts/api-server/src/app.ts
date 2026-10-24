@@ -14,6 +14,7 @@ import { prelaunchGate } from "./middlewares/prelaunchGate";
 import { RESEND_WEBHOOK_PATH } from "./lib/mail/resendWebhook";
 import { opportunisticDrain } from "./lib/mail/outbox";
 import { opportunisticRoundUp } from "./lib/sightingRoundUp";
+import { opportunisticWeeklyClose } from "./lib/weeklyClose";
 import { opportunisticHeldTypingTidy } from "./lib/teamAuth/heldTyping";
 import { setTeamHeaders } from "./lib/teamAuth/refuse";
 import { isTeamPath, preferredLanguage, renderTeamErrorPage, wantsTeamPage } from "./lib/teamPages/errorPage";
@@ -98,6 +99,8 @@ app.use(refuseNul);
 app.use("/api", opportunisticDrain);
 // data-spine.md PR 9: the evening sighting round-up's second trigger.
 app.use("/api", opportunisticRoundUp);
+// SYC-706: the weekly close and Monday push's second trigger, at any hour.
+app.use("/api", opportunisticWeeklyClose);
 // SYC-516 C3: kept typing older than 30 minutes, at most once a minute.
 app.use("/api", opportunisticHeldTypingTidy);
 app.use("/api", router);

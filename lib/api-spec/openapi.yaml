@@ -1162,11 +1162,22 @@ components:
       required: [id, catId, updateType, message, createdAt]
     AppNotification:
       type: object
+      description: >-
+        A bell entry. News about a cat has catId, catUpdateId and catName. A
+        weekly result (a place in last week's top three) has no cat: those
+        three and catPhotoUrl are null, updateType is general, and message
+        never names an area or a place.
       properties:
         id: { type: integer }
-        catId: { type: integer }
-        catUpdateId: { type: integer }
-        catName: { type: string }
+        catId:
+          type: integer
+          nullable: true
+        catUpdateId:
+          type: integer
+          nullable: true
+        catName:
+          type: string
+          nullable: true
         catPhotoUrl:
           type: string
           nullable: true
