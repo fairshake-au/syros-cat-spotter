@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   isOnline: true,
   profile: undefined as unknown,
   profileError: false,
+  profileLoading: false,
   leaderboard: undefined as unknown,
   keepSafe: undefined as { status: string } | undefined,
   keepSafeOffer: null as string | null,
@@ -68,7 +69,7 @@ vi.mock('@workspace/api-client-react', () => ({
   useGetProfile: () => ({
     data: h.profile,
     isError: h.profileError,
-    isLoading: false,
+    isLoading: h.profileLoading,
     refetch: h.refetch,
   }),
   getGetProfileQueryKey: (id: string) => [`/api/profiles/${id}`],
@@ -107,6 +108,7 @@ beforeEach(() => {
   h.isOnline = true;
   h.profile = profile();
   h.profileError = false;
+  h.profileLoading = false;
   h.leaderboard = board;
   h.keepSafe = { status: 'none' };
   h.keepSafeOffer = null;
@@ -247,5 +249,48 @@ describe('Profile tabs (SYC-628)', () => {
     fireEvent.click(screen.getByText(/Change/));
     expect(h.setNameNote).toHaveBeenCalledWith(null);
     expect(h.push).toHaveBeenCalledWith('/settings?editName=1');
+  });
+
+  it('goal reached but badge not given yet: "10 of 10", never "0 to go" (review #3)', () => {
+    h.profile = profile({ catsSpotted: 10 });
+    render(<ProfileScreen />);
+    const next = screen.getByTestId('profile-next-badge').textContent;
+    expect(next).toContain('10 of 10');
+    expect(next).not.toContain('0 to go');
+  });
+
+  it('the rename note shows while the profile is still loading (review #8)', () => {
+    h.profile = undefined;
+    h.profileLoading = true;
+    h.nameNote = { reason: 'taken', from: 'cat', to: 'cat-2' };
+    render(<ProfileScreen />);
+    expect(screen.getByTestId('name-note')).toBeTruthy();
+  });
+
+  it('"Not saved yet" only under a name held offline, not a loaded server name (review #9)', () => {
+    h.username = null;
+    h.heldUsername = 'held-name';
+    render(<ProfileScreen />);
+    expect(screen.getByTestId('profile-name').textContent).toBe('harbourcat');
+    expect(screen.queryByText(/not saved yet/i)).toBeNull();
+    cleanup();
+
+    h.profile = undefined;
+    h.isOnline = false;
+    render(<ProfileScreen />);
+    expect(screen.getByTestId('profile-name').textContent).toBe('held-name');
+    expect(screen.getByText(/not saved yet/i)).toBeTruthy();
+  });
+
+  it('first but level on points: says "level with", not "top of the island"', () => {
+    h.leaderboard = [
+      { spotterCode: 'ME01', username: 'harbourcat', points: 85, rank: 1, uniqueCatsDiscovered: 2 },
+      { spotterCode: 'B', username: 'vaporia_vee', points: 85, rank: 2, uniqueCatsDiscovered: 1 },
+    ];
+    render(<ProfileScreen />);
+    fireEvent.click(screen.getByTestId('profile-tab-spotters'));
+    const summary = screen.getByTestId('profile-rank-summary').textContent;
+    expect(summary).toContain('You’re level with vaporia_vee on 85 points.');
+    expect(summary).not.toContain('top of the island');
   });
 });

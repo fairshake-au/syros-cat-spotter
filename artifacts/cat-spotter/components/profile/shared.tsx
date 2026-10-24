@@ -85,11 +85,11 @@ export function NameNoteCard({
       </Text>
       <View style={styles.noteActions}>
         {isOnline && (
-          <Button variant="primary" size="sm" onPress={onChange}>
+          <Button variant="primary" size="sm" style={styles.tap} onPress={onChange}>
             {t('nameNoteChange')}
           </Button>
         )}
-        <Button variant="ghost" size="sm" onPress={onDismiss}>
+        <Button variant="ghost" size="sm" style={styles.tap} onPress={onDismiss}>
           {t('nameNoteDismiss')}
         </Button>
       </View>
@@ -120,4 +120,5 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 10 },
   noteText: { fontFamily: fonts.body, fontSize: fontSizes.sm, lineHeight: 20 },
   noteActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  tap: { minHeight: 44 },
 });

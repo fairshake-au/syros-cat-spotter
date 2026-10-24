@@ -49,6 +49,15 @@ export function leaderboardView(
     return { rows, myRank, summary: { kind: 'outside', points: me.points } };
   }
   if (myRow.rank === 1) {
+    // Never claim the top alone while someone else has the same points (§8.4).
+    const below = rows[myIndex + 1];
+    if (below && below.points === myRow.points) {
+      return {
+        rows,
+        myRank,
+        summary: { kind: 'level', rank: myRow.rank, points: myRow.points, name: below.name },
+      };
+    }
     return { rows, myRank, summary: { kind: 'top', points: myRow.points } };
   }
   const above = myIndex > 0 ? rows[myIndex - 1] : undefined;

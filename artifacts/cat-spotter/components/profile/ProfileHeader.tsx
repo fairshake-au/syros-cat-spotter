@@ -94,6 +94,8 @@ export function ProfileHeader({
                 { borderBottomColor: active ? palette.sun500 : 'transparent' },
               ]}
             >
+              {/* Shrink-to-fit works on phones only; react-native-web cuts long
+                  labels with "…" instead (SYC-628 review #6). */}
               <Text
                 numberOfLines={1}
                 adjustsFontSizeToFit

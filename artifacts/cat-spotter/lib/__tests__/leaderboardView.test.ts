@@ -72,9 +72,14 @@ describe('leaderboardView summary', () => {
     expect(r.summary).toEqual({ kind: 'level', rank: 2, points: 20, name: 'Bo' });
   });
 
-  it('a tie at the top is still top', () => {
-    const r = leaderboardView([e('A', 20, 1), e('B', 20, 1)], { spotterCode: 'B', points: 20 }, fb);
-    expect(r.summary).toEqual({ kind: 'top', points: 20 });
+  it('first but level with the next spotter: level, not top', () => {
+    const r = leaderboardView([e('A', 20, 1), e('B', 20, 2)], { spotterCode: 'A', points: 20 }, fb);
+    expect(r.summary).toEqual({ kind: 'level', rank: 1, points: 20, name: 'Spotter B' });
+  });
+
+  it('first and clear of the next spotter: top', () => {
+    const r = leaderboardView([e('A', 30, 1), e('B', 20, 2)], { spotterCode: 'A', points: 30 }, fb);
+    expect(r.summary).toEqual({ kind: 'top', points: 30 });
   });
 
   it('outside when not in the list but has points', () => {

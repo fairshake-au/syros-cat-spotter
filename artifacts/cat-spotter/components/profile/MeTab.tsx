@@ -85,7 +85,7 @@ export function MeTab({
           <Text style={[styles.nudgeText, { color: colors.foreground }]}>
             <Text style={styles.bold}>{t('profileSafeNudge')}</Text> {t('profileSafeNudgeBody')}
           </Text>
-          <Button variant="primary" size="sm" onPress={() => router.push('/keep-safe')}>
+          <Button variant="primary" size="sm" style={styles.tap} onPress={() => router.push('/keep-safe')}>
             {t('profileSafeNudgeAdd')}
           </Button>
         </View>
@@ -135,7 +135,14 @@ export function MeTab({
                 <Text style={[sharedStyles.body, { color: subtle }]}>
                   {next.value === null
                     ? t(`badge_${next.id}_desc`)
-                    : `${t(`badge_${next.id}_desc`)} · ${t('profileToGo').replace('{n}', String(next.goal - next.value))}`}
+                    : `${t(`badge_${next.id}_desc`)} · ${
+                        next.goal - next.value > 0
+                          ? t('profileToGo').replace('{n}', String(next.goal - next.value))
+                          : // Goal reached, badge not given yet: never "0 to go" (review #3).
+                            t('profileBadgeCount')
+                              .replace('{earned}', String(next.value))
+                              .replace('{total}', String(next.goal))
+                      }`}
                 </Text>
                 {next.value !== null && <ProgressBar value={next.value} max={next.goal} />}
               </View>
@@ -181,6 +188,8 @@ const styles = StyleSheet.create({
   },
   nudgeText: { flex: 1, fontFamily: fonts.body, fontSize: fontSizes.xs, lineHeight: 18 },
   bold: { fontFamily: fonts.bodyBold },
+  // SYC-509: 44px tap target for the small button.
+  tap: { minHeight: 44 },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
   streakIcon: {

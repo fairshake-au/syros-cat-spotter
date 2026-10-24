@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,6 +38,12 @@ export default function ProfileScreen() {
   const { deviceId, username, heldUsername, nameNote, setNameNote, keepSafeOffer } = useDevice();
   const { isOnline } = useOffline();
   const [tab, setTab] = useState<ProfileTab>('me');
+  // The tabs scroll with the header, so a new tab starts at the top: "See all"
+  // sits at the bottom of Me and would otherwise land mid-list (review #1).
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [tab]);
 
   // Both queries pause offline. React Query keeps the last payload in memory,
   // so a profile loaded earlier stays on screen offline, as on Home (§8.1).
@@ -104,13 +110,15 @@ export default function ProfileScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <OfflineBanner />
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{
           paddingBottom: insets.bottom + (Platform.OS === 'web' ? 110 : 100),
         }}
       >
         <ProfileHeader
           name={name}
-          nameNotSaved={!username && !!heldUsername}
+          // Only when the name on show is the one held offline (review #9).
+          nameNotSaved={!username && !!heldUsername && name === heldUsername}
           rankLine={rankLine}
           tab={tab}
           onTab={setTab}
@@ -121,13 +129,31 @@ export default function ProfileScreen() {
             <Text style={[styles.statsErrorText, { color: colors.foreground }]}>
               {t('statsUnavailable')}
             </Text>
-            <Button variant="secondary" size="sm" onPress={() => profileQuery.refetch()}>
+            <Button
+              variant="secondary"
+              size="sm"
+              style={styles.tap}
+              onPress={() => profileQuery.refetch()}
+            >
               {t('tryAgain')}
             </Button>
           </View>
         )}
 
-        <View accessibilityLabel={tabLabel(tab, t)}>
+        <View role="tabpanel" aria-label={tabLabel(tab, t)}>
+          {/* The rename note doesn't wait for the profile to load (review #8). */}
+          {tab === 'me' && !!nameNote && (
+            <View style={styles.note}>
+              <NameNoteCard
+                note={nameNote}
+                onChange={() => {
+                  setNameNote(null);
+                  router.push('/settings?editName=1');
+                }}
+                onDismiss={() => setNameNote(null)}
+              />
+            </View>
+          )}
           {tab === 'me' &&
             (loading ? (
               <View style={styles.loading}>
@@ -135,18 +161,6 @@ export default function ProfileScreen() {
               </View>
             ) : (
               <>
-                {!!nameNote && (
-                  <View style={styles.note}>
-                    <NameNoteCard
-                      note={nameNote}
-                      onChange={() => {
-                        setNameNote(null);
-                        router.push('/settings?editName=1');
-                      }}
-                      onDismiss={() => setNameNote(null)}
-                    />
-                  </View>
-                )}
                 <MeTab
                   firstSpot={hero === 'firstSpot'}
                   spotted={hero === 'unknown' ? undefined : profile?.catsSpotted}
@@ -188,4 +202,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing[4],
   },
   statsErrorText: { fontFamily: fonts.body, fontSize: fontSizes.xs },
+  // SYC-509: 44px tap target for the small button.
+  tap: { minHeight: 44 },
 });
