@@ -649,14 +649,9 @@ export default function ReviewScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]} testID="hint-question">
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <View style={{ width: 44 }} />
-          <Pressable
-            onPress={close}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t("extraPhotoClose")}
-          >
+          <IconButton variant="ghost" label={t("extraPhotoClose")} onPress={close}>
             <Feather name="x" size={20} color={colors.mutedForeground} />
-          </Pressable>
+          </IconButton>
         </View>
         <ScrollView
           contentContainerStyle={[styles.nameTakenBody, { paddingBottom: insets.bottom + 32 }]}
@@ -880,9 +875,9 @@ export default function ReviewScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <View style={{ width: 44 }} />
-          <Pressable onPress={close} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("extraPhotoClose")}>
+          <IconButton variant="ghost" label={t("extraPhotoClose")} onPress={close}>
             <Feather name="x" size={20} color={colors.mutedForeground} />
-          </Pressable>
+          </IconButton>
         </View>
         <ScrollView
           contentContainerStyle={[styles.couldntCheckBody, { paddingBottom: insets.bottom + 32 }]}
@@ -964,9 +959,9 @@ export default function ReviewScreen() {
             ) : (
               <View style={{ width: 44, height: 44 }} />
             )}
-            <Pressable onPress={close} hitSlop={8}>
+            <IconButton variant="ghost" label={t("extraPhotoClose")} onPress={close}>
               <Feather name="x" size={20} color="rgba(255,255,255,0.85)" />
-            </Pressable>
+            </IconButton>
           </View>
           <View style={styles.celebrateBody}>
             <View style={styles.celebrateAvatar}>
@@ -1230,6 +1225,9 @@ export default function ReviewScreen() {
                 block
                 disabled={busy}
                 onPress={() => confirm(c.catId)}
+                // SYC-509: every card's button reads "That's the one", so the
+                // label says which cat and how close the match is.
+                accessibilityLabel={`${t("thatsTheOne")}: ${c.name}, ${pct}% ${t("matchPill")}`}
               >
                 {busy ? (
                   <ActivityIndicator
@@ -1287,6 +1285,7 @@ export default function ReviewScreen() {
 
         <Pressable
           onPress={() => setShowNewCat(true)}
+          accessibilityRole="button"
           style={[styles.newCatCard, { backgroundColor: colors.secondary }]}
         >
           <Text style={{ fontSize: 30 }} {...decorative}>✨</Text>
