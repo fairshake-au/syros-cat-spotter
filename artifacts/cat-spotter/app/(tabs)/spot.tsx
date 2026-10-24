@@ -1444,7 +1444,9 @@ export default function SpotScreen() {
           ) : item.status === 'queued' ? (
             <Pressable
               onPress={() => changeQueue(() => remove(item.localId))}
-              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('discard')}
+              style={styles.clearHit}
             >
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </Pressable>
@@ -1824,6 +1826,8 @@ export default function SpotScreen() {
 }
 
 const styles = StyleSheet.create({
+  // SYC-509: 44pt tap area around a 16pt icon; the negative margin keeps the layout.
+  clearHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', margin: -14 },
   container: { flex: 1 },
   header: { paddingHorizontal: spacing[4], paddingBottom: spacing[2], gap: spacing[1] },
   title: { fontSize: fontSizes.xl, fontFamily: fonts.displayBold },

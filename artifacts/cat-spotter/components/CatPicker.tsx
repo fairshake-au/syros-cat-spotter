@@ -364,7 +364,7 @@ export function CatPicker({
               onPress={() => setQuery('')}
               accessibilityRole="button"
               accessibilityLabel={t('clear')}
-              hitSlop={8}
+              style={styles.clearHit}
             >
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </Pressable>
@@ -455,6 +455,8 @@ export function CatPicker({
 }
 
 const styles = StyleSheet.create({
+  // SYC-509: 44pt tap area around a 16pt icon; the negative margin keeps the layout.
+  clearHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', margin: -14 },
   container: { flex: 1 },
   header: {
     flexDirection: 'row',

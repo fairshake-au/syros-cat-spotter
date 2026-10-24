@@ -204,6 +204,7 @@ export default function CatalogScreen() {
               onPress={() => setSearch('')}
               accessibilityRole="button"
               accessibilityLabel={t('clear')}
+              style={styles.clearHit}
             >
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </Pressable>
@@ -351,6 +352,8 @@ export default function CatalogScreen() {
 }
 
 const styles = StyleSheet.create({
+  // SYC-509: 44pt tap area around a 16pt icon; the negative margin keeps the layout.
+  clearHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', margin: -14 },
   container: { flex: 1 },
   header: {
     paddingHorizontal: spacing[4],
