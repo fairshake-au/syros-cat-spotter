@@ -10,6 +10,7 @@ import {
   canAdvance,
   clearCat,
   draftReady,
+  screenAt,
   flowBack,
   flowNext,
   startFlow,
@@ -20,15 +21,28 @@ const here = { latitude: 37.444, longitude: 24.942 };
 const photo = { uri: 'file:///p.jpg', base64: 'AAAA' };
 
 describe('reportFlow', () => {
-  it('runs Where → How bad → Before you send', () => {
+  it('runs Where → How bad → Before you send for Needs attention', () => {
     let f: ReportFlow = { ...INITIAL_FLOW, coords: here };
     expect(f.step).toBe(1);
     f = flowNext(f);
     expect(f.step).toBe(2);
-    f = flowNext({ ...f, severity: 'urgent' });
+    f = flowNext({ ...f, severity: 'attention' });
     expect(f.step).toBe(3);
     // There is no step 4: Send is the last action.
     expect(flowNext(f).step).toBe(3);
+  });
+
+  it('SYC-570: Urgent runs Where → How bad → Call a vet now → Before you send', () => {
+    let f: ReportFlow = { ...INITIAL_FLOW, coords: here };
+    f = flowNext(flowNext(f));
+    f = flowNext({ ...f, severity: 'urgent' });
+    expect(screenAt(f.step, false, 'urgent')).toBe('callVet');
+    // The vet numbers never hold anyone up.
+    expect(canAdvance(f)).toBe(true);
+    f = flowNext(f);
+    expect(f.step).toBe(4);
+    expect(screenAt(f.step, false, 'urgent')).toBe('beforeSend');
+    expect(flowNext(f).step).toBe(4);
   });
 
   it('screen 1 needs a location before Next; screen 2 needs a severity', () => {
@@ -99,17 +113,24 @@ describe('SYC-42 Slice 3: reporterEmail', () => {
 
 describe('SYC-42 Slice 3: the email screen (Samuel, 15 Oct 2026)', () => {
   it('with it: where → how bad → email → before you send; the email screen never holds anyone up', async () => {
-    const { INITIAL_FLOW: F, flowNext: next, screenAt } = await import('../reportFlow');
+    const { INITIAL_FLOW: F, flowNext: next } = await import('../reportFlow');
     let f: ReportFlow = { ...F, coords: { latitude: 37.44, longitude: 24.94 } };
     expect(screenAt(f.step, true)).toBe('where');
     f = next(f, true);
     expect(screenAt(f.step, true)).toBe('howBad');
-    f = next({ ...f, severity: 'urgent' }, true);
-    expect(screenAt(f.step, true)).toBe('email');
+    f = next({ ...f, severity: 'attention' }, true);
+    expect(screenAt(f.step, true, 'attention')).toBe('email');
     f = next(f, true);
-    expect(screenAt(f.step, true)).toBe('beforeSend');
+    expect(screenAt(f.step, true, 'attention')).toBe('beforeSend');
     expect(f.step).toBe(4);
     expect(next(f, true).step).toBe(4);
+  });
+
+  it('SYC-570: with it and Urgent, the vets come before the email question (5 screens)', async () => {
+    const { reportScreens } = await import('../reportFlow');
+    expect(reportScreens(true, 'urgent')).toEqual(['where', 'howBad', 'callVet', 'email', 'beforeSend']);
+    expect(reportScreens(true, 'attention')).toEqual(['where', 'howBad', 'email', 'beforeSend']);
+    expect(reportScreens(false, null)).toEqual(['where', 'howBad', 'beforeSend']);
   });
 
   it('without it: the three screens, unchanged', async () => {

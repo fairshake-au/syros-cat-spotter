@@ -1,5 +1,5 @@
 {
-  "_source": "docs/specs/team-access-and-welfare-queue.md §5.7, from docs/specs/source/syros-vets-verified.md. Names and numbers are not translated. Coordinates are landmark-anchored (the petrol station opposite each clinic, good to about 50–100 m) until someone on Syros drops real door pins (SYC-68). Dermitzaki has no coordinates and uses interim map searches (plan Decision 3, Samuel 1 Oct 2026). The Greek and French landmark lines are Fair Shake drafts, pending a native check (SYC-172).",
+  "_source": "docs/specs/team-access-and-welfare-queue.md §5.7, from docs/specs/source/syros-vets-verified.md. Names and numbers are not translated. Coordinates are landmark-anchored (the petrol station opposite each clinic, good to about 50–100 m) until someone on Syros drops real door pins (SYC-68). Dermitzaki uses her own Google Maps place pin, supplied by Samuel on 24 Oct 2026 (SYC-570).",
   "clinics": [
     {
       "id": "symviosis",
@@ -36,10 +36,10 @@
         { "display": "+30 22813 06720", "tel": "+302281306720", "kind": "landline" },
         { "display": "+30 6986 705837", "tel": "+306986705837", "kind": "mobile" }
       ],
-      "coordinates": null,
-      "pin": "search",
-      "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Dermitzaki%20vet%20Livadia%20Manna%20Syros",
-      "appleMapsUrl": "https://maps.apple.com/?q=Dermitzaki%20Vet%20Livadia%20Manna%20Syros"
+      "coordinates": { "lat": 37.4288115, "lng": 24.940307 },
+      "pin": "place",
+      "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=37.4288115,24.940307",
+      "appleMapsUrl": "https://maps.apple.com/?ll=37.4288115,24.940307&q=Dermitzaki%20Vet%20Livadia"
     },
     {
       "id": "cyclades-vets",
