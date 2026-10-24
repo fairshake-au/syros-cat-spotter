@@ -59,13 +59,31 @@ describe('the Spot screen location card', () => {
   });
 
   it("asks straight away for a spotter who shared before ('auto-ask'), once per photo", () => {
-    const auto = effects().find((e) => /'auto-ask'/.test(e.body));
-    expect(auto, 'no effect handles auto-ask').toBeDefined();
+    const auto = effects().find((e) => /shouldAutoAsk\(/.test(e.body));
+    expect(auto, 'no effect calls shouldAutoAsk').toBeDefined();
+    expect(auto!.body).toMatch(/shouldAutoAsk\(rawLocationAsk, photo, autoAskedPhotoRef\.current\)/);
     expect(auto!.body).toMatch(/askAndLocate\(\)/);
-    expect(auto!.body).toMatch(/autoAskedPhotoRef\.current === photo/);
+    // F4: tracked as the automatic ask, so the map holds while the phone's box is up.
+    expect(auto!.body).toMatch(/trackAsk\('auto', askAndLocate\(\)\)/);
     expect(auto!.body).toMatch(/autoAskedPhotoRef\.current = photo/);
     expect(auto!.body).toMatch(/setAnsweredThisPhoto\(true\)/);
     expect(auto!.deps).toContain('photo');
+  });
+
+  it('holds the view through the helper, for the map start and the card alike (F1)', () => {
+    expect(source).toMatch(
+      /const locationAsk = effectiveLocationAsk\(\{\s*raw: rawLocationAsk,\s*askFrom,\s*hasCoords: !!coords,\s*\}\);/,
+    );
+    expect(source).toMatch(/view=\{locationAsk\}/);
+  });
+
+  it('hides the map and its pin while the card shows (F3)', () => {
+    expect(source).toMatch(/\) : pickedCoords && locationAsk !== 'card' && \(\s*<LocationPicker/);
+  });
+
+  it('shows no card UI during the automatic ask: the phone\'s box is the UI (F4)', () => {
+    const where = between("{t('whereDidYouSeeIt')}", '<LocationAskCard');
+    expect(where).toMatch(/askFrom !== 'auto'/);
   });
 
   it('tells the map start what the screen shows', () => {

@@ -2,7 +2,13 @@
  * SYC-524: what the Spot screen shows about location after a photo.
  */
 import { describe, expect, it } from 'vitest';
-import { locationAskView, type LocationAskView } from '../locationAsk';
+import {
+  effectiveLocationAsk,
+  locationAskView,
+  shouldAutoAsk,
+  type LocationAskView,
+} from '../locationAsk';
+import { resolveMapStart } from '../mapStart';
 import type { LocationChoice } from '../locationChoice';
 import type { LocationPermission } from '../locationPermission';
 import type { PickSource } from '../mapStart';
@@ -59,5 +65,63 @@ describe('locationAskView', () => {
     };
     expect(locationAskView({ ...input, checked: false })).toBe('none');
     expect(locationAskView({ ...input, checked: true })).toBe('card');
+  });
+});
+
+// SYC-524 Task 5 fix F1/F4: while an ask from the card (or the automatic one)
+// waits for the phone, the screen holds at 'card': no pin, no Ermoupoli start.
+describe('effectiveLocationAsk', () => {
+  type A = 'card' | 'link' | 'auto' | null;
+  const rows: [LocationAskView, A, boolean, LocationAskView][] = [
+    ['link', 'card', false, 'card'],
+    ['none', 'card', false, 'card'],
+    ['link', 'card', true, 'link'],
+    ['none', 'card', true, 'none'],
+    ['link', 'link', false, 'link'],
+    ['none', 'link', false, 'none'],
+    ['link', null, false, 'link'],
+    ['none', null, false, 'none'],
+    // A refusal beats the hold.
+    ['off-native', 'card', false, 'off-native'],
+    ['off-web', 'card', false, 'off-web'],
+    ['auto-ask', 'card', false, 'auto-ask'],
+    ['card', null, false, 'card'],
+    ['card', 'card', false, 'card'],
+    // The automatic ask holds the same way (the phone's box is the UI).
+    ['link', 'auto', false, 'card'],
+    ['none', 'auto', false, 'card'],
+    ['link', 'auto', true, 'link'],
+    ['off-web', 'auto', false, 'off-web'],
+  ];
+  it.each(rows)('raw %s, askFrom %s, coords %s -> %s', (raw, askFrom, hasCoords, expected) => {
+    expect(effectiveLocationAsk({ raw, askFrom, hasCoords })).toBe(expected);
+  });
+
+  it('a held ask places no pin, however long it takes', () => {
+    const ask = effectiveLocationAsk({ raw: 'link', askFrom: 'card', hasCoords: false });
+    expect(
+      resolveMapStart({
+        source: 'camera',
+        phone: { coords: null, denied: false, loading: true },
+        waitedMs: 60_000,
+        ask,
+      }),
+    ).toEqual({ status: 'waiting' });
+  });
+});
+
+describe('shouldAutoAsk', () => {
+  const a = { id: 'a' };
+  const b = { id: 'b' };
+  it.each<[LocationAskView, unknown, unknown, boolean]>([
+    ['auto-ask', b, a, true],
+    ['auto-ask', a, null, true],
+    ['auto-ask', a, a, false],
+    ['link', b, a, false],
+    ['card', b, a, false],
+    ['none', b, a, false],
+    ['auto-ask', null, a, false],
+  ])('raw %s -> %s', (raw, photo, last, expected) => {
+    expect(shouldAutoAsk(raw, photo, last)).toBe(expected);
   });
 });
