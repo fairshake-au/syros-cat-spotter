@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { POINTS_CONFIRM, POINTS_NEW_CAT } from "../routes/sightings";
+import { POINTS_CONFIRM, POINTS_NEW_CAT } from "./points";
 import { athensDay, weekStartAthens } from "./weeks";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

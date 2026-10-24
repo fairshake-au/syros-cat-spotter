@@ -65,8 +65,8 @@ import {
   type PublicPhotoUrl,
 } from "../lib/photoVisibility";
 
-export const POINTS_CONFIRM = 15;
-export const POINTS_NEW_CAT = 25;
+import { POINTS_CONFIRM, POINTS_NEW_CAT } from "../lib/points";
+export { POINTS_CONFIRM, POINTS_NEW_CAT };
 
 // SYC-119 (choose-a-different-cat.md §4.8): the one refusal for a pick of a
 // cat that isn't nearby. It is identical whatever the reason (too far, or no
