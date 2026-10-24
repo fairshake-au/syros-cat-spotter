@@ -79,9 +79,9 @@ describe("card contents", () => {
     expect(calico).toContain('<span class="cardfact">Calico</span>');
   });
 
-  it("SYC-443: a card with nothing known says Coat not known, and the description leaves the coat out", () => {
+  it("SYC-443 / SYC-619 §5.1: a card with nothing known leaves the coat line out, and the description leaves the coat out", () => {
     const none = render({ items: [item({ coat: [], pattern: null })] });
-    expect(none).toContain('<span class="cardfact">Coat not known</span>');
+    expect(none).not.toContain("Coat not known");
     expect(none).toContain('alt="Photo of Mimi &lt;b&gt;"');
     expect(none).not.toMatch(/Colour not known|undefined|null/);
   });
@@ -91,6 +91,66 @@ describe("card contents", () => {
     const late = render({ items: [item({ lastSeenAt: new Date("2026-08-31T21:30:00Z") })] });
     expect(late).toContain("Last seen on 1 Sept 2026");
     expect(render({ items: [item({ lastSeenAt: null })] })).toContain("Never seen since first recorded");
+  });
+});
+
+describe("SYC-619 §5.1: a card draws only what is known", () => {
+  const cardOf = (html: string, id: number) => {
+    const start = html.indexOf(`<li class="catcard"><a class="catcardlink" href="/api/team/cats/${id}"`);
+    expect(start).toBeGreaterThan(-1);
+    return html.slice(start, html.indexOf("</li>", start));
+  };
+
+  it("leaves out the coat and colony lines when neither is known; the mark line still shows", () => {
+    const card = cardOf(render({ items: [item({ id: 7, coat: [], pattern: null, colonyId: null })] }), 7);
+    expect(card).not.toContain("Coat not known");
+    expect(card).not.toContain("No colony");
+    expect(card).toContain('<span class="mark-word">Sterilised</span>');
+    expect(card).toContain('alt="Photo of Mimi &lt;b&gt;"');
+  });
+
+  it("shows the coat and the colony when both are known", () => {
+    const card = cardOf(
+      render({
+        items: [item({ id: 7, colonyId: 3 })],
+        colonies: [{ id: 3, name: "Ano Syros" }],
+      }),
+      7,
+    );
+    expect(card).toContain('<span class="cardfact">Ginger and white, pattern not known</span>');
+    expect(card).toContain('<span class="cardfact">Ano Syros</span>');
+  });
+
+  it("keeps the word Colony when the colony id is set but its name can't be found", () => {
+    const card = cardOf(render({ items: [item({ id: 7, colonyId: 9 })], colonies: [] }), 7);
+    expect(card).toContain('<span class="cardfact">Colony</span>');
+    expect(card).not.toContain("No colony");
+  });
+
+  it("draws the lines in the §5.1 order: name, coat, colony, mark, last seen, tag", () => {
+    const full = cardOf(
+      render({
+        items: [item({ id: 7, colonyId: 3, lives: "homed" })],
+        colonies: [{ id: 3, name: "Ano Syros" }],
+      }),
+      7,
+    );
+    // The alt text also names the coat, so look only at what is drawn.
+    const card = full.slice(full.indexOf('<span class="cardname">'));
+    const at = (s: string) => {
+      const i = card.indexOf(s);
+      expect(i).toBeGreaterThan(-1);
+      return i;
+    };
+    const order = [
+      at("<strong>Mimi &lt;b&gt;</strong>"),
+      at("Ginger and white"),
+      at("Ano Syros"),
+      at('<span class="mark-word">Sterilised</span>'),
+      at("Last seen"),
+      at("Has a home"),
+    ];
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 });
 

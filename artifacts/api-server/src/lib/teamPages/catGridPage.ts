@@ -259,8 +259,9 @@ function card(c: CatListItem, o: CatGridOptions): string {
   const photo = c.photoPublicId
     ? `<img class="cardimg" src="${esc(`${teamPhotoUrl(c.photoPublicId)}/small`)}" alt="${esc(alt)}" loading="lazy" width="180" height="180">`
     : '<span class="cardimg nothumb">No photo</span>';
-  const colour = coat !== null ? esc(coat) : "Coat not known";
-  const colony = c.colonyId === null ? "No colony" : (o.colonies.find((x) => x.id === c.colonyId)?.name ?? "Colony");
+  // §5.1: a line that says nothing is known is left out. The coat and colony
+  // lines are drawn only when they say something; the mark line always shows.
+  const colonyLine = c.colonyId === null ? "" : (o.colonies.find((x) => x.id === c.colonyId)?.name ?? "Colony");
   const words = esc(lastSeenWords(c.lastSeenAt, o.now));
   const seen = c.lastSeenAt ? `<time datetime="${esc(c.lastSeenAt.toISOString())}">${words}</time>` : words;
   let tag = "";
@@ -272,8 +273,8 @@ function card(c: CatListItem, o: CatGridOptions): string {
     '<li class="catcard">' +
     `<a class="catcardlink" href="${PATH}/${c.id}">${photo}` +
     `<span class="cardname"><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
-    `<span class="cardfact">${colour}</span>` +
-    `<span class="cardfact">${esc(colony)}</span>` +
+    (coat !== null ? `<span class="cardfact">${esc(coat)}</span>` : "") +
+    (colonyLine !== "" ? `<span class="cardfact">${esc(colonyLine)}</span>` : "") +
     `<span class="cardfact">${markBadge(c.mark)}</span>` +
     `<span class="cardfact">${seen} · ${esc(c.place)}</span>` +
     (tag ? `<span class="tag">${esc(tag)}</span>` : "") +
