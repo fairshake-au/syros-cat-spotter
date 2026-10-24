@@ -596,3 +596,33 @@ export function renderBatchProblem(personName: string, words: string, backHref: 
     body: `<p class="bad" role="alert">${esc(words)}</p><p><a class="tap" href="${esc(backHref)}">Back to the batch</a></p>`,
   });
 }
+
+export interface BatchListRow {
+  id: number;
+  date: string;
+  place: string;
+  cats: number;
+  startedBy: string;
+}
+
+/** The unsaved batches (SYC-677 Task 7): a way back into a round that was left half-done. */
+export function renderBatchList(personName: string, rows: BatchListRow[]): string {
+  const items = rows
+    .map(
+      (r) =>
+        `<li class="batchrow"><a class="hrow" href="${batchPath(r.id)}"><span class="htext"><strong>${esc(r.place)}</strong> ` +
+        `<span class="hint">${esc(`${r.date} · ${r.cats} ${r.cats === 1 ? "cat" : "cats"} · started by ${r.startedBy}`)}</span></span></a></li>`,
+    )
+    .join("");
+  return renderPage({
+    title: "Record vet visits",
+    active: "colonies",
+    personName,
+    body:
+      '<p><a class="tap" href="/api/team/vet-batches/new">Start a new batch</a></p>' +
+      "<h2>Batches not saved yet</h2>" +
+      (rows.length === 0
+        ? '<p class="empty">No unsaved batches.</p>'
+        : `<p class="hint">An unfinished batch is kept for 7 days after its last change.</p><ul class="hlist">${items}</ul>`),
+  });
+}

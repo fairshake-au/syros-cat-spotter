@@ -5,12 +5,14 @@ import { catsTable, db } from "@workspace/db";
 import { can } from "../lib/capabilities";
 import { colonyRef, searchCatsToAdd } from "../lib/colonyCats";
 import { areaByKey } from "../lib/areas/namedAreas";
+import { nameLabeller } from "../lib/guardianView";
 import { ObservationRefused } from "../lib/observations";
 import {
   abandonBatch,
   addCat,
   BATCH_PHOTOS_MAX,
   createBatch,
+  listUnsavedBatches,
   removeCat,
   updateCat,
   updateShared,
@@ -31,6 +33,7 @@ import {
   cardValuesFrom,
   readCard,
   readShared,
+  renderBatchList,
   renderBatchPage,
   SAID,
   sharedValuesFrom,
@@ -78,6 +81,23 @@ const strOf = (v: unknown) => (typeof v === "string" ? v : "");
 const bodyOf = (req: Request) => (typeof req.body === "object" && req.body !== null ? (req.body as Record<string, unknown>) : {});
 
 // ── Start, and see, a batch ────────────────────────────────────────────────
+
+router.get("/team/vet-batches", requireTeam("log_vet_visit"), ...readChecks, async (_req: Request, res: Response) => {
+  const batches = await listUnsavedBatches();
+  const label = await nameLabeller(pageViewer(res).visible, batches.map((b) => b.createdBy));
+  res.type("html").send(
+    renderBatchList(
+      teamPerson(res).name,
+      batches.map((b) => ({
+        id: b.id,
+        date: b.date,
+        place: b.colonyName ?? areaByKey(b.areaKey)?.name ?? "No place chosen yet",
+        cats: b.cats,
+        startedBy: label(b.createdBy),
+      })),
+    ),
+  );
+});
 
 router.get("/team/vet-batches/new", requireTeam("log_vet_visit"), ...readChecks, async (req: Request, res: Response) => {
   const person = teamPerson(res);

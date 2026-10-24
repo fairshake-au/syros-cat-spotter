@@ -129,6 +129,7 @@ const cardOf = (html: string, row: number) => {
 
 describe("the walk's rows exist for every batch route", () => {
   const ALL: [string, string][] = [
+    ["get", "/api/team/vet-batches"],
     ["get", "/api/team/vet-batches/new"],
     ["get", "/api/team/vet-batches/1"],
     ["post", "/api/team/vet-batches/1"],
@@ -487,5 +488,49 @@ describe("abandoning", () => {
     expect(done.headers["location"]).toBe(`/api/team/colonies/${colony}`);
     expect(await getBatch(batch)).toBeNull();
     expect((await get(`/api/team/vet-batches/${batch}`)).status).toBe(404);
+  });
+});
+
+describe("ways in (SYC-677 Task 7)", () => {
+  it("the planner links to a new batch for the team, and never for a cat guardian", async () => {
+    const team = await get(`/api/team/colonies/${colony}`);
+    expect(team.status).toBe(200);
+    expect(team.text).toContain(`href="/api/team/vet-batches/new?colony=${colony}"`);
+    expect(team.text).toContain("Record vet visits");
+    const g = await get(`/api/team/colonies/${colony}`, guardian);
+    expect(g.status).toBe(200);
+    expect(g.text).not.toContain("vet-batches");
+    denied.cap = "view_vet_costs";
+    expect((await get(`/api/team/colonies/${colony}`)).text).not.toContain("vet-batches");
+  });
+  it("Home links to the list, only for someone who holds the batch capabilities", async () => {
+    const home = await get("/api/team/home");
+    expect(home.status).toBe(200);
+    expect(home.text).toContain('href="/api/team/vet-batches"');
+    denied.cap = "find_cat_from_photo";
+    expect((await get("/api/team/home")).text).not.toContain("vet-batches");
+  });
+  it("the list shows an unsaved batch with its place, its cats and who started it, and not a saved one", async () => {
+    const open = await newBatch();
+    await addCatTo(open);
+    await addCatTo(open);
+    const done = await newBatch();
+    await db.update(vetBatchesTable).set({ savedAt: new Date() }).where(eq(vetBatchesTable.id, done));
+    const list = await get("/api/team/vet-batches");
+    expect(list.status).toBe(200);
+    expect(list.headers["cache-control"]).toBe("no-store");
+    expect(list.text).toContain(`href="/api/team/vet-batches/${open}"`);
+    expect(list.text).not.toContain(`href="/api/team/vet-batches/${done}"`);
+    expect(list.text).toContain('href="/api/team/vet-batches/new"');
+    expect(list.text).toContain("Start a new batch");
+    const row = list.text.slice(list.text.indexOf(`href="/api/team/vet-batches/${open}"`));
+    expect(row.slice(0, row.indexOf("</li>"))).toContain("2 cats");
+    expect(list.text).toContain("started by Vt vb-staff");
+  });
+  it("an empty list says so, and offers a new batch", async () => {
+    await db.delete(vetBatchesTable).where(eq(vetBatchesTable.createdBy, staff.id));
+    const list = await get("/api/team/vet-batches");
+    expect(list.text).toContain("No unsaved batches");
+    expect(list.text).toContain("Start a new batch");
   });
 });

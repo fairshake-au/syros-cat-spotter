@@ -197,11 +197,14 @@ export const VET_SETTINGS_LINE =
 export const APP_SWITCHES_LINE =
   '<p id="app-switches-link"><a class="hlink" href="/api/team/app-switches">App switches: the feed button and the starter facts</a></p>';
 
-export function renderHomePage(d: HomeData, o: { personName: string; now: Date; costs?: boolean }): string {
+/** Record vet visits (SYC-677): with the work links, for someone who holds the three capabilities a batch needs. */
+const BATCHES_LINE = '<p id="vet-batches-link"><a class="hlink" href="/api/team/vet-batches">Record vet visits</a></p>';
+
+export function renderHomePage(d: HomeData, o: { personName: string; now: Date; costs?: boolean; batches?: boolean }): string {
   const body =
     '<div class="hgrid">' +
     todaySection(d.needs, d.toCheck, o.now) +
-    `<div class="hside">${trapSection(d.trapNext)}${progressSection(d.headline, d.month, o.costs === true)}</div>` +
+    `<div class="hside">${trapSection(d.trapNext)}${o.batches === true ? BATCHES_LINE : ""}${progressSection(d.headline, d.month, o.costs === true)}</div>` +
     "</div>" +
     AREAS_LINE +
     VET_SETTINGS_LINE +

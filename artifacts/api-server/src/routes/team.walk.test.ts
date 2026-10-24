@@ -224,6 +224,7 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/cats/:id/vet-visit": { why: "logs a vet visit (SYC-396 PR 3.1a): log_vet_visit, island-only; the walk's empty form gets a 400 and nothing is written" },
   "POST /api/team/vet-visits/:visitId/wrong": { why: "marks a vet visit wrong with everything it recorded (SYC-396 PR 3.1a): log_vet_visit, island-only; the walk's id is no visit, so the team gets a 404" },
   // SYC-677 PR B Task 6: the vet visit batch pages. Every one needs log_vet_visit (island-only) plus view_vet_costs and find_cat_from_photo; a cat guardian gets the 403 on each. The walk's ids are no batch, so the team gets a 404 (or a 400 for a new batch with no place).
+  "GET /api/team/vet-batches": { why: "the unsaved batches list (SYC-677 Task 7): log_vet_visit, island-only; the team gets the page" },
   "GET /api/team/vet-batches/new": { why: "starts a batch, from a colony or area if named, else with the place not chosen (Ruling R14): log_vet_visit, island-only; the walk names no place, so the team gets a 303 to a new batch" },
   "GET /api/team/vet-batches/:id": { why: "the batch page: log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
   "POST /api/team/vet-batches/:id": { why: "saves the batch's shared fields: log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
