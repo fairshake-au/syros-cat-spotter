@@ -1,7 +1,7 @@
 # Map labels in your language
 
 Ticket: SYC-705. Revives the idea in SYC-288 (cancelled 22 Oct 2026, "serve our own Syros map tiles").
-Status: **draft, review findings folded in** (24 Oct 2026). Awaiting Samuel's decisions A–D and approval. Adversarial review: `reviews/map-labels-in-your-language-review.md` (4 blockers, 12 should-fix; all addressed below).
+Status: **draft, review findings folded in, decisions A–D made by Samuel** (24 Oct 2026); awaiting approval. Adversarial review: `reviews/map-labels-in-your-language-review.md` (4 blockers, 12 should-fix; all addressed below).
 Decision behind it: on 24 Oct 2026 Samuel chose "a language-aware map" over "Google Maps everywhere" and "Google on phones only".
 
 ## The problem, as a spotter meets it
@@ -49,7 +49,7 @@ Every map in the app, the website and the dashboard then uses them.
 |---|---|
 | English | The English name where OpenStreetMap has one (Ermoupoli). Otherwise see Decision B. |
 | Greek | Greek, as today (Ερμούπολη). |
-| French | See Decision A. |
+| French | The English map (Decision A). |
 
 What this gives us:
 
@@ -91,7 +91,7 @@ The dashboard's island map shows labels in the language of the person viewing it
 A script in the repo (`scripts/map-tiles/`) is run by a manual GitHub Action ("Rebuild Syros map"). The steps:
 
 1. **Cut out Syros.** Download Geofabrik's Greece extract and cut a box around the island with `osmium extract`. The box is `SYROS_RECT` padded by 0.03° (about 3 km) on every side. It's a few megabytes.
-2. **Fill in names** (Decision B). A small script adds a Latin-letter name to every feature that has a Greek name but no English (or French) one. It uses the standard Greek-to-Latin spelling found on Greek road signs, and writes the result to the extract. Names that OpenStreetMap already has in English are never replaced.
+2. **Fill in names** (Decision B). A small script adds a Latin-letter name to every feature that has a Greek name but no English one. It uses the standard Greek-to-Latin spelling found on Greek road signs, and writes the result to the extract. Names that OpenStreetMap already has in English are never replaced.
 3. **Make the map data.** Run Protomaps' open-source map builder (`protomaps/basemaps`, built on Planetiler) over the extract. This produces one map-data file (PMTiles). The data has full detail up to zoom 15; closer zooms are drawn from the same data, enlarged.
 4. **Draw the pictures**, once per language:
    - Use MapLibre's web map engine in headless Chromium, through Playwright, which the repo already uses. Each language gets its own Protomaps style.
@@ -101,7 +101,7 @@ A script in the repo (`scripts/map-tiles/`) is run by a manual GitHub Action ("R
    - All versions are pinned: the Greece extract date, the builder, the style and MapLibre.
 5. **Record the build.** A `manifest.json` per build lists the data date, every version used and the picture counts.
 
-**Size:** about 182,000 pictures per language over the padded box at zooms 11–19, and three languages. Most of those pictures are sea, which compresses to almost nothing. The estimate is a few gigabytes in all, which is about 10 cents a month in Cloudflare R2. Uploading is within R2's free monthly allowance. All of these are estimates; the first build gives real figures.
+**Size:** about 182,000 pictures per language over the padded box at zooms 11–19, and two copies (English and Greek; French readers use the English one). Most of those pictures are sea, which compresses to almost nothing. The estimate is a few gigabytes in all, which is about 10 cents a month in Cloudflare R2. Uploading is within R2's free monthly allowance. All of these are estimates; the first build gives real figures.
 
 ### 2. Storing and serving
 
@@ -143,7 +143,7 @@ Rebuild every three months, or sooner when the island's data has visibly changed
 
 ### 8. Rollout order
 
-1. Build the pictures and set up `tiles.catspotters.com`. Check sample pictures in all three languages with curl and by looking at them.
+1. Build the pictures and set up `tiles.catspotters.com`. Check sample pictures in both languages with curl and by looking at them.
 2. Dashboard: migration to production first, then the code. Samuel pulls main in Replit and republishes.
 3. Website: Samuel pulls main and republishes.
 4. Phone apps: a new store build. The app's offline download moves to our pictures only from that build on.
@@ -167,6 +167,7 @@ OpenStreetMap has French names for 20 of the 145 places on Syros, and for no str
 - *A French copy:* the big places read the French way (Ermoúpoli, Áno Sýros). Everything else uses the Latin-letter spelling from B. It looks nearly identical to the English map, and it's one more copy to build. That costs almost nothing.
 - *French readers get the English map:* simpler, and the names match the road signs, which are in Greek and English. A French tourist sees "Ermoupoli" instead of "Ermoúpoli".
 - **Recommendation: French readers get the English map.** Only 20 places differ, and those differ only by accent marks. A third copy doubles the checking work for very little gain. We can add a French copy later if Syros Cats ask.
+- **Decided (Samuel, 24 Oct 2026): French readers get the English map.** Two copies are built: English and Greek.
 
 **B. Streets and places with only a Greek name: what does an English reader see?**
 This affects most of the map: 99% of streets and over half the places.
@@ -174,16 +175,19 @@ This affects most of the map: 99% of streets and over half the places.
 - *Spell them out in Latin letters automatically* (Οδός Ερμού → Odos Ermou), using the same spelling as Greek road signs. Everything becomes readable, and a tourist can match a label to a sign. The cost is one more step in the build, and automatic spellings can look slightly odd (Agios vs the "Ayios" some signs use).
 - *Greek with Latin letters underneath:* everyone can read it. But every label takes two lines, so the map gets crowded, especially in Ermoupoli's narrow streets.
 - **Recommendation: spell them out in Latin letters automatically.** Without it, this fix mostly doesn't fix anything for streets.
+- **Decided (Samuel, 24 Oct 2026): spell them out in Latin letters automatically.**
 
 **C. How the map looks.**
 - *Protomaps' "light" style, adjusted* to stay close to today's colours: green parks, sandy beaches, white roads. It's clean and easy to read, but less familiar than openstreetmap.org.
 - *A copy of openstreetmap.org's own style.* It's familiar, but it's much harder to rebuild and maintain ourselves.
 - **Recommendation: Protomaps "light", adjusted.** Before anything ships, you'll see before-and-after pictures of Ermoupoli's centre, Ano Syros and Kini beach, on a phone and on a computer.
+- **Decided (Samuel, 24 Oct 2026): Protomaps "light", adjusted.**
 
 **D. Order of the work.**
 - *Everything in one change:* one round of testing, but a very large change to review.
 - *Step by step:* first build the map pictures and set up the map address. Then switch the dashboard, then the website, then the phone apps. Each step is small enough to check properly. The phone apps only get it with their next store update.
 - **Recommendation: step by step**, in that order (see "Rollout order" above).
+- **Decided (Samuel, 24 Oct 2026): step by step.**
 
 ## Not changing
 
