@@ -48,9 +48,9 @@ import {
  *   (SYC-154, SYC-172); safety-copy-translations.md §3 updated first.
  */
 const URGENT_BLOCK_SHA256: Record<GuidanceLanguage, string> = {
-  en: "d62719b9b755cf5359f3a5225afb11a5e008dfb8d38bc7d595bd845a9b9c9e76",
-  el: "024b8609a73086ffbb59874e24fdb26f098451e153fa73db5c8ee77f28b80bde",
-  fr: "c280ffaf842c6dd07f5e147c8111be710d06e36be48bda5744945cd0e2e002fa",
+  en: "d875bf006d2d474cb53692798913fa6d42759c8761cc4eff79ff88201b735c27",
+  el: "6265028705b8e094c75aeca4daeadf7fa82319239805111d28b3d91a44a93028",
+  fr: "0abbdb62bfc43623f293187c3ba00d1379fcb3eda92a62fcf2125e3a47a304ec",
 };
 
 function sha256(text: string): string {
@@ -107,11 +107,13 @@ const translationsDoc = readFileSync(
 );
 
 /**
- * The capacity paragraph Samuel approved on 1 Oct 2026, word for word (the
- * last paragraph of the urgent block, from Susan's standard reply).
+ * The capacity paragraph, word for word (the last paragraph of the urgent
+ * block, from Susan's standard reply). Samuel approved the three-sentence
+ * version on 1 Oct 2026 and cut it to these two sentences on 24 Oct 2026
+ * (SYC-570, mockup option 1); SYC-171's liability check still has to see it.
  */
 const APPROVED_CAPACITY_EN =
-  "Sending this report will also provide Syros Cats with a report about the cat and, in some circumstances, they may take action in response. However, Syros Cats is a private sanctuary and not an emergency service, so they are unable to provide immediate rescue or collection. Their small team is currently at full capacity caring for the cats already with them.";
+  "Syros Cats is a small private sanctuary, not an emergency service, and its team is at full capacity, so they can't rescue or collect a cat straight away. Your report still goes to them, and in some cases they may act on it.";
 
 const DOC_KEYS: Record<string, (u: GuidanceCopy["urgent"]) => string> = {
   "injured.intro": (u) => u.intro,
@@ -217,7 +219,7 @@ describe("the urgent block, in every language (review fix 5; tests 21–22)", ()
   }
 });
 
-describe("the approved capacity paragraph (Samuel, 1 Oct 2026)", () => {
+describe("the approved capacity paragraph (Samuel, 24 Oct 2026)", () => {
   it("English is word for word what Samuel approved", () => {
     expect(getGuidance("en").copy.urgent.capacity).toBe(APPROVED_CAPACITY_EN);
   });
