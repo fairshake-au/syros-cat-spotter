@@ -203,8 +203,13 @@ export function ClaimCatSheet({
     !!deviceId &&
     !isPending &&
     // The note is optional (spec §4.3): an owner who claimed without one can
-    // still rename the cat, and an emptied note saves as empty.
-    !isBlankName(trimmedCatName);
+    // still rename the cat, and an emptied note saves as empty. A cat nobody
+    // has named yet starts with an empty box, and the note may still be saved
+    // with it empty (SYC-677 D).
+    (cat.namePending ? trimmedCatName === '' || !isBlankName(trimmedCatName) : !isBlankName(trimmedCatName));
+  // Only a name the owner actually changed is sent: the server reads a name
+  // as a rename, and a pending cat's stored name is its SYR number.
+  const nameChanged = cat.namePending ? trimmedCatName !== '' : trimmedCatName !== cat.name;
   const canClaimNow = !!deviceId && !isPending && isOnline;
 
   const placePin = (coords: { latitude: number; longitude: number }) => {
@@ -251,7 +256,11 @@ export function ClaimCatSheet({
     setError(null);
     update.mutate({
       catId: cat.id,
-      data: { deviceId, name: trimmedCatName, homeDescription: trimmedHome },
+      data: {
+        deviceId,
+        ...(nameChanged ? { name: trimmedCatName } : {}),
+        homeDescription: trimmedHome,
+      },
     });
   };
 
