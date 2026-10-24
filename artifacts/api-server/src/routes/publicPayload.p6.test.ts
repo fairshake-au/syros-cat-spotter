@@ -25,6 +25,7 @@ vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
 }));
 
 import app from "../app";
+import { toPublicDay } from "../lib/catHelpers";
 
 // SYC-43 part 2 plan, PR 6: for a cat with NO hidden photos, every public
 // reader PR 6 touched sends exactly the bytes it sent before PR 6. The
@@ -147,7 +148,7 @@ afterAll(async () => {
  */
 function placeholders(text: string): string {
   expect(JSON.stringify(JSON.parse(text))).toBe(text);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toPublicDay(new Date());
   const walk = (v: unknown): unknown => {
     if (Array.isArray(v)) return v.map(walk);
     if (v === null || typeof v !== "object") return v;

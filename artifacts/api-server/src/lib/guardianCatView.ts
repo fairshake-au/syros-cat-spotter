@@ -70,7 +70,7 @@ export interface GuardianCat {
   photoUrls: string[];
   sterilised: { value: boolean | null; confidence: Confidence };
   lifeStatus: LifeStatusValue | null;
-  /** The day (UTC, YYYY-MM-DD) of the newest sighting, or null for none. */
+  /** The day (Syros / Europe/Athens, YYYY-MM-DD) of the newest sighting, or null for none. */
   lastSeen: string | null;
   /** The old public codes, kept for now (SYC-443 plan, PR 2); her page no longer reads them. */
   coat: LegacyPublicCode[];

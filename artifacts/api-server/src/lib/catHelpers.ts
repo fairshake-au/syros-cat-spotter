@@ -14,6 +14,7 @@ import {
   todayInStreakTimezone,
 } from "./streak";
 import { loadCatRecords, type DbOrTx } from "./observations";
+import { todayInStreakTimezone } from "./streak";
 import { resolveCat, type Confidence, type LifeStatusValue } from "./resolve";
 import {
   legacyCoatCodes,
@@ -105,7 +106,7 @@ export interface CatWithStats extends DerivedCatStatus {
   locationPrecision: "exact" | "approximate";
   locationCellM: number | null;
   sightingsCount: number;
-  /** A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4). */
+  /** A Syros (Europe/Athens) calendar date (YYYY-MM-DD), never a time (§6.4.4). */
   lastSeenAt: string;
   distanceKm?: number;
   // Null once the discoverer has deleted their data (SYC-63).
@@ -160,13 +161,6 @@ export interface CatSource {
   derived: DerivedCatStatus;
 }
 
-const SYROS_DAY = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Europe/Athens",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
 /**
  * An ISO timestamp or Date, cut to its Syros (Europe/Athens) calendar date,
  * so every viewer sees the same day wherever their phone is (SYC-624). A bare
@@ -174,7 +168,8 @@ const SYROS_DAY = new Intl.DateTimeFormat("en-CA", {
  */
 export function toPublicDay(at: Date | string): string {
   if (typeof at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(at)) return at;
-  return SYROS_DAY.format(typeof at === "string" ? new Date(at) : at);
+  // Throws a RangeError on an unparseable string: a bad timestamp is a bug, not a day.
+  return todayInStreakTimezone(typeof at === "string" ? new Date(at) : at);
 }
 
 /**

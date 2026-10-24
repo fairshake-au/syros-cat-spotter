@@ -18,6 +18,10 @@ describe("toPublicDay", () => {
     expect(toPublicDay(new Date(iso))).toBe(toPublicDay(iso));
   });
 
+  it("throws on unparseable input", () => {
+    expect(() => toPublicDay("garbage")).toThrow(RangeError);
+  });
+
   it("returns a bare YYYY-MM-DD unchanged", () => {
     expect(toPublicDay("2026-10-22")).toBe("2026-10-22");
   });
