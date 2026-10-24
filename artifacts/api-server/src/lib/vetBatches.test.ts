@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { addPerson, db, photosTable, photoVisibilityEventsTable, pool, vetBatchesTable } from "@workspace/db";
+import { addPerson, catsTable, db, photosTable, photoVisibilityEventsTable, pool, vetBatchCatsTable, vetBatchesTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import {
   abandonBatch,
@@ -112,7 +112,7 @@ describe("the batch store", () => {
     const id = await newBatch();
     const one = await jpeg(9);
     for (let i = 0; i < ROUND_MAX; i++) {
-      const r = await addCat(id, []);
+      const r = await addCat(id, [one]);
       expect(r.ok).toBe(true);
     }
     expect(await addCat(id, [one])).toEqual({ ok: false, reason: "batch_full" });
@@ -120,6 +120,41 @@ describe("the batch store", () => {
     const seven = await Promise.all(Array.from({ length: BATCH_PHOTOS_MAX + 1 }, (_, i) => jpeg(i)));
     expect(await addCat(id2, seven)).toEqual({ ok: false, reason: "too_many_photos" });
     expect((await getBatch(id2))!.cats).toEqual([]);
+  });
+
+  it("an entry with no photo is refused (no_photo) and stores nothing", async () => {
+    const id = await newBatch();
+    expect(await addCat(id, [])).toEqual({ ok: false, reason: "no_photo" });
+    expect((await getBatch(id))!.cats).toEqual([]);
+  });
+
+  it("changing who the cat is un-confirms it, unless confirmed is passed in the same call", async () => {
+    const id = await newBatch();
+    const r = await addCat(id, [await jpeg(41)]);
+    if (!r.ok) throw new Error(r.reason);
+    const cat = async () => (await getBatch(id))!.cats[0]!;
+    const [c1] = await db.insert(catsTable).values({ name: `VitestVetBatch${RUN}-who1`, description: "", primaryPhotoId: 0, lat: 37.44, lng: 24.9, discovererDeviceId: "vitest-vb" }).returning();
+    const [c2] = await db.insert(catsTable).values({ name: `VitestVetBatch${RUN}-who2`, description: "", primaryPhotoId: 0, lat: 37.44, lng: 24.9, discovererDeviceId: "vitest-vb" }).returning();
+    try {
+      await updateCat(r.batchCatId, { catId: c1!.id, confirmed: true });
+      expect(await cat()).toMatchObject({ catId: c1!.id, confirmed: true });
+      // Another cat: no longer confirmed.
+      await updateCat(r.batchCatId, { catId: c2!.id });
+      expect(await cat()).toMatchObject({ catId: c2!.id, confirmed: false });
+      // Confirmed again, then a new cat instead: no longer confirmed.
+      await updateCat(r.batchCatId, { confirmed: true });
+      await updateCat(r.batchCatId, { newCat: { name: "Tom", description: "" } });
+      expect(await cat()).toMatchObject({ catId: null, confirmed: false });
+      // Passed together, the explicit value wins.
+      await updateCat(r.batchCatId, { catId: c1!.id, confirmed: true });
+      expect(await cat()).toMatchObject({ catId: c1!.id, confirmed: true });
+      // Other fields leave it alone.
+      await updateCat(r.batchCatId, { note: "n" });
+      expect(await cat()).toMatchObject({ confirmed: true });
+    } finally {
+      await db.delete(vetBatchCatsTable).where(eq(vetBatchCatsTable.id, r.batchCatId));
+      await db.delete(catsTable).where(inArray(catsTable.id, [c1!.id, c2!.id]));
+    }
   });
 
   it("a non-image is bad_photo and stores nothing", async () => {
@@ -151,7 +186,7 @@ describe("the batch store", () => {
     if (!r.ok) throw new Error(r.reason);
     await db.update(vetBatchesTable).set({ savedAt: new Date() }).where(eq(vetBatchesTable.id, id));
     const b = (await getBatch(id))!;
-    expect(await addCat(id, [])).toEqual({ ok: false, reason: "saved" });
+    expect(await addCat(id, [await jpeg(8)])).toEqual({ ok: false, reason: "saved" });
     await expect(updateShared(id, b.shared)).rejects.toThrow(/saved/);
     await expect(updateCat(r.batchCatId, { note: "x" })).rejects.toThrow(/saved/);
     await expect(removeCat(r.batchCatId)).rejects.toThrow(/saved/);
@@ -165,7 +200,7 @@ describe("the batch store", () => {
     const stamp = async () => (await db.select().from(vetBatchesTable).where(eq(vetBatchesTable.id, id)))[0]!.updatedAt;
     const reset = () => db.update(vetBatchesTable).set({ updatedAt: old }).where(eq(vetBatchesTable.id, id));
     await reset();
-    const r = await addCat(id, []);
+    const r = await addCat(id, [await jpeg(6)]);
     if (!r.ok) throw new Error(r.reason);
     expect((await stamp()).getTime()).toBeGreaterThan(old.getTime());
     await reset();

@@ -209,9 +209,11 @@ export async function updateShared(id: number, shared: BatchShared): Promise<voi
 
 export type AddCatResult =
   | { ok: true; batchCatId: number }
-  | { ok: false; reason: "bad_photo" | "too_many_photos" | "batch_full" | "saved" };
+  | { ok: false; reason: "no_photo" | "bad_photo" | "too_many_photos" | "batch_full" | "saved" };
 
 export async function addCat(id: number, photos: Buffer[]): Promise<AddCatResult> {
+  // An entry is found by its photo (every entry has at least one).
+  if (photos.length === 0) return { ok: false, reason: "no_photo" };
   if (photos.length > BATCH_PHOTOS_MAX) return { ok: false, reason: "too_many_photos" };
   // Validate and re-encode before any write, so a bad photo stores nothing.
   const clean: { data: string; mime: string }[] = [];
@@ -256,7 +258,7 @@ export async function updateCat(
 ): Promise<void> {
   await db.transaction(async (tx) => {
     const [cat] = await tx
-      .select({ batchId: vetBatchCatsTable.batchId })
+      .select({ batchId: vetBatchCatsTable.batchId, catId: vetBatchCatsTable.catId, newCat: vetBatchCatsTable.newCat })
       .from(vetBatchCatsTable)
       .where(eq(vetBatchCatsTable.id, batchCatId));
     if (!cat || !(await lockDraft(tx, cat.batchId))) return;
@@ -278,6 +280,12 @@ export async function updateCat(
       set.newCat = fields.newCat;
       if (fields.newCat !== null && fields.catId === undefined) set.catId = null;
     }
+    // Who the cat is changed, so the person must confirm it again, unless
+    // this same call says otherwise.
+    const identityChanged =
+      (fields.catId !== undefined && fields.catId !== cat.catId) ||
+      (fields.newCat !== undefined && JSON.stringify(fields.newCat) !== JSON.stringify(cat.newCat));
+    if (identityChanged && fields.confirmed === undefined) set.confirmed = false;
     if (Object.keys(set).length) await tx.update(vetBatchCatsTable).set(set).where(eq(vetBatchCatsTable.id, batchCatId));
     await touch(tx, cat.batchId);
   });
