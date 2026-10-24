@@ -308,7 +308,25 @@ const en: Dict = {
   notificationsTitle: 'Notifications',
   markAllRead: 'Mark all read',
   catUpdateBanner: 'News about this cat',
-  noNotifications: 'No notifications yet. Spot a cat to follow its updates!',
+  noNotifications: 'No notifications yet. Spot or follow a cat to get its news.',
+  // SYC-624 C2: a cat's page in four tabs (tab labels, counts, link wording).
+  catTabAbout: 'About',
+  catTabPhotos: 'Photos',
+  catTabStory: 'Story',
+  catTabMap: 'Map',
+  catTabPhotosA11y: 'Photos, {n}',
+  catBannerSeePhotos: 'See photos',
+  catBannerSeeStory: 'See {name}’s story',
+  catSpottedTimesBy: 'Spotted {n} times by {s} spotters',
+  catSpottedTimesByOne: 'Spotted {n} times by 1 spotter',
+  catSpottedTimes: 'Spotted {n} times',
+  catSpottedOnce: 'Spotted once',
+  catFans: '{n} fans',
+  catFansOne: '1 fan',
+  reportNeedsHelpNamed: '{name} needs help',
+  reportIssueLink: 'Something wrong on this page?',
+  reportIssuePhotoLink: 'Something wrong with this photo?',
+  backA11y: 'Back',
   justNow: 'now',
   tabHome: 'Home',
   tabCatalog: 'Cat-alogue',
@@ -1074,7 +1092,25 @@ const el: Dict = {
   notificationsTitle: 'Ειδοποιήσεις',
   markAllRead: 'Όλα ως αναγνωσμένα',
   catUpdateBanner: 'Νέα για αυτή τη γάτα',
-  noNotifications: 'Καμία ειδοποίηση ακόμα. Εντοπίστε μια γάτα για να ακολουθήσετε τα νέα της!',
+  noNotifications: 'Καμία ειδοποίηση ακόμα. Εντόπισε ή ακολούθησε μια γάτα για να μαθαίνεις τα νέα της.', // SYC-4: draft
+  // SYC-624 C2: a cat's page in four tabs (tab labels, counts, link wording).
+  catTabAbout: 'Σχετικά', // SYC-4: draft
+  catTabPhotos: 'Φωτογραφίες', // SYC-4: draft
+  catTabStory: 'Ιστορία', // SYC-4: draft
+  catTabMap: 'Χάρτης', // SYC-4: draft
+  catTabPhotosA11y: 'Φωτογραφίες, {n}', // SYC-4: draft
+  catBannerSeePhotos: 'Δες τις φωτογραφίες', // SYC-4: draft
+  catBannerSeeStory: 'Δες την ιστορία της {name}', // SYC-4: draft
+  catSpottedTimesBy: 'Εντοπίστηκε {n} φορές από {s} spotters', // SYC-4: draft
+  catSpottedTimesByOne: 'Εντοπίστηκε {n} φορές από 1 spotter', // SYC-4: draft
+  catSpottedTimes: 'Εντοπίστηκε {n} φορές', // SYC-4: draft
+  catSpottedOnce: 'Εντοπίστηκε μία φορά', // SYC-4: draft
+  catFans: '{n} θαυμαστές', // SYC-4: draft
+  catFansOne: '1 θαυμαστής', // SYC-4: draft
+  reportNeedsHelpNamed: 'Η {name} χρειάζεται βοήθεια', // SYC-4: draft
+  reportIssueLink: 'Κάτι δεν πάει καλά σε αυτή τη σελίδα;', // SYC-4: draft
+  reportIssuePhotoLink: 'Κάτι δεν πάει καλά με αυτή τη φωτογραφία;', // SYC-4: draft
+  backA11y: 'Πίσω', // SYC-4: draft
   justNow: 'τώρα',
   tabHome: 'Αρχική',
   tabCatalog: 'Γατά-λογος',
@@ -1812,7 +1848,25 @@ const fr: Dict = {
   notificationsTitle: 'Notifications',
   markAllRead: 'Tout marquer comme lu',
   catUpdateBanner: 'Des nouvelles de ce chat',
-  noNotifications: 'Aucune notification pour le moment. Repère un chat pour suivre ses nouvelles !',
+  noNotifications: 'Aucune notification pour le moment. Repère ou suis un chat pour recevoir ses nouvelles.', // SYC-4: draft
+  // SYC-624 C2: a cat's page in four tabs (tab labels, counts, link wording).
+  catTabAbout: 'À propos', // SYC-4: draft
+  catTabPhotos: 'Photos', // SYC-4: draft
+  catTabStory: 'Histoire', // SYC-4: draft
+  catTabMap: 'Carte', // SYC-4: draft
+  catTabPhotosA11y: 'Photos, {n}', // SYC-4: draft
+  catBannerSeePhotos: 'Voir les photos', // SYC-4: draft
+  catBannerSeeStory: 'Voir l’histoire de {name}', // SYC-4: draft
+  catSpottedTimesBy: 'Repéré {n} fois par {s} spotters', // SYC-4: draft
+  catSpottedTimesByOne: 'Repéré {n} fois par 1 spotter', // SYC-4: draft
+  catSpottedTimes: 'Repéré {n} fois', // SYC-4: draft
+  catSpottedOnce: 'Repéré une fois', // SYC-4: draft
+  catFans: '{n} fans', // SYC-4: draft
+  catFansOne: '1 fan', // SYC-4: draft
+  reportNeedsHelpNamed: '{name} a besoin d’aide', // SYC-4: draft
+  reportIssueLink: 'Un problème sur cette page ?', // SYC-4: draft
+  reportIssuePhotoLink: 'Un problème avec cette photo ?', // SYC-4: draft
+  backA11y: 'Retour', // SYC-4: draft
   justNow: 'maintenant',
   tabHome: 'Accueil',
   tabCatalog: 'Cat-alogue',
