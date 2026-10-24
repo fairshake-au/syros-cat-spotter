@@ -85,8 +85,11 @@ BEGIN
   --   pending -> resolved          the spotter picks the cat (routes/sightings.ts)
   --   pending -> awaiting_team     "Ask Syros Cats to match it" (SYC-119)
   --   awaiting_team -> resolved    the team matches it on the spotter's behalf
+  -- A place already stamped stays as it is through a move.
   IF (to_jsonb(NEW) - move_exempt)::text = (to_jsonb(OLD) - move_exempt)::text
      AND OLD.cat_id IS NULL
+     AND (OLD.area_key IS NULL OR NEW.area_key IS NOT DISTINCT FROM OLD.area_key)
+     AND (OLD.on_island IS NULL OR NEW.on_island IS NOT DISTINCT FROM OLD.on_island)
      AND (
        (OLD.status IN ('pending', 'awaiting_team')
          AND NEW.status = 'resolved'
@@ -103,7 +106,9 @@ BEGIN
   -- has none yet (the history backfill), with nothing else changed.
   IF (to_jsonb(NEW) - stamp_exempt)::text = (to_jsonb(OLD) - stamp_exempt)::text
      AND OLD.area_key IS NULL
+     AND OLD.on_island IS NULL
      AND NEW.area_key IS NOT NULL
+     AND NEW.on_island IS NOT NULL
   THEN
     RETURN NEW;
   END IF;
