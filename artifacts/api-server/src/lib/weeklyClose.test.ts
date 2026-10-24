@@ -248,9 +248,9 @@ describe("closeWeekIfDue", () => {
       waiting = r.rows.length > 0;
       if (!waiting) await new Promise((r2) => setTimeout(r2, 50));
     }
-    expect(waiting).toBe(true);
-    release();
+    release(); // always, so a failing run can't leave the deletion open
     await deleting;
+    expect(waiting).toBe(true);
     expect(await closing).toBe("closed");
 
     expect(await results("2032-03-01")).toEqual([
