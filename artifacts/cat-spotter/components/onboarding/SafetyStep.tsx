@@ -8,6 +8,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { Button } from '@/components/purropolis';
 import { StepDots } from './StepDots';
 import { ONBOARDING_DOT_COUNT, stepIndex } from './steps';
+import { decorative } from '@/lib/a11yText';
 
 /**
  * SYC-35: keep-your-distance guidance, on its own screen straight after
@@ -42,7 +43,7 @@ export function SafetyStep({ onNext }: { onNext: () => void }) {
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.column}>
           <View style={[styles.icon, { backgroundColor: palette.terra100 }]}>
-            <Text style={styles.iconEmoji} allowFontScaling={false}>
+            <Text style={styles.iconEmoji} allowFontScaling={false} {...decorative}>
               🐾
             </Text>
           </View>

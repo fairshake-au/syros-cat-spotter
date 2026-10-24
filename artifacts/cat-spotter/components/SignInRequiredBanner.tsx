@@ -36,6 +36,7 @@ export function SignInRequiredBanner() {
   return (
     <Pressable
       onPress={openSignIn}
+      accessibilityRole="button"
       style={[
         styles.banner,
         {
