@@ -125,7 +125,10 @@ export async function sendDailyRoundUp(now: Date = new Date()): Promise<RoundUpR
 
     // Each (follower, cat) with a sighting in the window, its latest one.
     // Not the owner (they had it live), not the spotter who made it, and
-    // only followers who already followed the cat when it was seen.
+    // only followers who already followed before this window opened. A
+    // follow counts from the first round-up that starts after it, so the
+    // moment someone followed (staggered across phones) can never reveal
+    // when a cat was seen: a day, never a time.
     const result = await tx.execute(sql`
       select distinct on (cs.device_id, c.id)
              cs.device_id, pt.token, c.id as cat_id, c.name as cat_name,
@@ -133,7 +136,7 @@ export async function sendDailyRoundUp(now: Date = new Date()): Promise<RoundUpR
         from cat_updates cu
         join cats c on c.id = cu.cat_id
         join cat_subscriptions cs
-          on cs.cat_id = cu.cat_id and cs.created_at <= cu.created_at
+          on cs.cat_id = cu.cat_id and cs.created_at <= ${windowStart.toISOString()}
         left join sightings s on s.id = cu.trigger_sighting_id
         left join push_tokens pt on pt.device_id = cs.device_id
        where cu.update_type = 'sighting'

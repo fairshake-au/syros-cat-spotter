@@ -29,6 +29,18 @@ export const catSubscriptionsTable = pgTable(
   (t) => [primaryKey({ columns: [t.deviceId, t.catId] })],
 );
 
+export const catUnfollowsTable = pgTable(
+  "cat_unfollows",
+  {
+    deviceId: text("device_id").notNull(),
+    catId: integer("cat_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.deviceId, t.catId] })],
+);
+
 export const catUpdatesTable = pgTable("cat_updates", {
   id: serial("id").primaryKey(),
   catId: integer("cat_id").notNull(),
@@ -75,6 +87,7 @@ export const pushRoundupRunsTable = pgTable("push_roundup_runs", {
 });
 
 export type CatSubscription = typeof catSubscriptionsTable.$inferSelect;
+export type CatUnfollow = typeof catUnfollowsTable.$inferSelect;
 export type CatUpdate = typeof catUpdatesTable.$inferSelect;
 export type NotificationRow = typeof notificationsTable.$inferSelect;
 export type PushToken = typeof pushTokensTable.$inferSelect;
