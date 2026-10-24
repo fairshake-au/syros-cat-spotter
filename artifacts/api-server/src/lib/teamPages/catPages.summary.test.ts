@@ -271,3 +271,85 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
     expect(html).not.toMatch(/<h2[^>]*>[^<]*<\/h2>\s*<h2/);
   });
 });
+
+describe("the photos grid (SYC-602 Task 3.1)", () => {
+  const photo = (n: number, over: Record<string, unknown> = {}) => ({
+    source: n === 1 ? "main" : "sighting",
+    publicId: `p${n}`,
+    url: `/api/team/photos/p${n}`,
+    at: `2026-10-${String(20 - n).padStart(2, "0")}T09:00:00Z`,
+    hidden: null,
+    ...over,
+  });
+  const four = (over4: Record<string, unknown> = {}) =>
+    catView({ photos: [photo(1), photo(2), photo(3), photo(4, over4)] } as never);
+  const may = () => true;
+  const figure = (html: string, id: string) => {
+    const at = html.indexOf(`<figure id="p-${id}"`);
+    return html.slice(at, html.indexOf("</figure>", at));
+  };
+
+  it("heads the grid Photos (4) and calls the first Main photo, the others by date", () => {
+    const html = page(four(), { may });
+    expect(html).toContain('<h2 id="photos">Photos (4)</h2>');
+    expect(html).not.toContain("All photos");
+    expect(figure(html, "p1")).toContain("Main photo");
+    expect(figure(html, "p2")).toContain("18 Oct");
+    expect(figure(html, "p2")).not.toContain("Main photo");
+  });
+
+  it("puts Hide from the public in each photo's menu", () => {
+    const html = page(four(), { may });
+    for (const id of ["p1", "p2", "p3", "p4"]) {
+      const g = figure(html, id);
+      expect(g.indexOf("<form")).toBeGreaterThan(g.indexOf('<details class="rowmenu dots"'));
+      expect(g.indexOf("</details>")).toBeGreaterThan(g.indexOf("<form"));
+    }
+    const f = figure(html, "p2");
+    const menu = f.slice(f.indexOf('<details class="rowmenu dots"'));
+    expect(menu).toContain('href="/api/team/photos/p2">Open full size');
+    expect(menu).toContain("Open full size");
+    expect(menu).toContain('action="/api/team/photos/p2/hide"');
+    expect(menu).toMatch(/<input type="hidden" name="cat" value="\d+">/);
+    expect(menu).toMatch(/class="hide risky"[^>]*>Hide from the public<span class="sr"> \(photo 2 of 4\)<\/span>/);
+    expect(figure(html, "p4")).toContain("photo 4 of 4");
+  });
+
+  it("offers Show to the public again on a hidden photo, and no form when not allowed", () => {
+    const hidden = { by: "Maria", at: "2026-10-03T09:00:00Z", reason: null };
+    const html = page(four({ hidden }), { may });
+    const f = figure(html, "p4");
+    expect(f).toContain('action="/api/team/photos/p4/restore"');
+    expect(f).toContain("Show to the public again");
+    expect(f).not.toContain("Hide from the public");
+    const none = page(four(), { may: () => false });
+    expect(figure(none, "p2")).not.toContain("<form");
+    expect(figure(none, "p2")).toContain("Open full size");
+  });
+
+  it("labels a hidden photo with who and when", () => {
+    const hidden = { by: "Maria", at: "2026-10-03T09:00:00Z", reason: "Shows a child" };
+    const f = figure(page(four({ hidden }), { may }), "p4");
+    expect(f).toContain("Hidden · Maria, <time");
+    expect(f).toContain(">3 Oct</time>");
+    expect(f).toContain("Shows a child");
+    expect(f).toContain('class="ishidden"');
+  });
+
+  it("opens the photo's menu and shows the notice on landing", () => {
+    const html = page(four(), { may, photo: "p3", done: "hidden" });
+    const f = figure(html, "p3");
+    expect(f).toContain('<details class="rowmenu dots" open>');
+    expect(f).toContain("Hidden. The public no longer sees this photo.");
+    expect(insideDetails(html, html.indexOf("Hidden. The public no longer sees"))).toBe(false);
+    expect(html.split("Hidden. The public no longer sees").length).toBe(2);
+    expect(figure(html, "p2")).not.toContain(" open>");
+  });
+
+  it("keeps the notice at the top of Photos when the photo isn't found", () => {
+    const html = page(four(), { may, photo: "nope", done: "restored" });
+    const at = html.indexOf("Restored. The public sees this photo again.");
+    expect(at).toBeGreaterThan(html.indexOf('<h2 id="photos">'));
+    expect(at).toBeLessThan(html.indexOf('<figure id="p-p1"'));
+  });
+});

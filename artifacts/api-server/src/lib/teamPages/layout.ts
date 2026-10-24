@@ -307,6 +307,9 @@ ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:
 .gallery figure.ishidden img{opacity:.55;outline:3px solid #8c1d18;outline-offset:-3px}
 .gallery .notice{margin:0;font-size:14px}
 .gallery form{margin:0}
+.gallery figcaption{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:14px;min-height:44px}
+.gallery .capt{min-width:0;overflow-wrap:anywhere}
+.gallery .rowmenu.dots>.rowmenuitems{right:0;left:auto}
 .gallery button{font:inherit;font-size:15px;width:100%;min-height:44px;padding:8px 10px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
 .gallery button.restore{background:#0b5c6b;color:#fff}
 .gallery .role{margin:0;font-size:14px;font-weight:700;color:#3b3930}

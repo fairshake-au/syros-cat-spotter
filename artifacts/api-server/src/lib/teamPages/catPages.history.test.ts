@@ -179,7 +179,7 @@ describe("cat page history cap", () => {
 });
 
 describe("cat page layout", () => {
-  it("uses the wide page and names the gallery All photos (n)", () => {
+  it("uses the wide page and names the gallery Photos (n)", () => {
     const v = view(1);
     v.photos = [
       { url: "/api/team/photos/a", publicId: "a", source: "main", hidden: null },
@@ -187,7 +187,7 @@ describe("cat page layout", () => {
     ];
     const html = renderCatPage(v, "Sam");
     expect(html).toContain('<main id="main" tabindex="-1" class="wide">');
-    expect(html).toContain('<h2 id="photos">All photos (2)</h2>');
+    expect(html).toContain('<h2 id="photos">Photos (2)</h2>');
   });
 
   it("puts the summary beside the forms in catsummary when the person may correct (spec §7.1–7.2)", () => {
