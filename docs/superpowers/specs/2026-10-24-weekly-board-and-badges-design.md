@@ -1,6 +1,6 @@
-# A weekly Spotters board, and 13 new badges
+# A weekly Spotters board, and 15 new badges
 
-Status: reviewed (builder check and adversarial review folded in), waiting for Samuel's approval · 24 Oct 2026 · Samuel's choices are marked **(Samuel)**. Everything else is Claude's call and is listed at the end so it can be checked.
+Status: approved by Samuel, 24 Oct 2026 ("approved, write the plan"), then amended the same day to add the two remote-spot badges · reviewed by a builder check and an adversarial review · Samuel's choices are marked **(Samuel)**. Everything else is Claude's call and is listed at the end so it can be checked.
 
 ## Why
 
@@ -33,9 +33,9 @@ What Syros Cats most wants from spotters, beyond coming back, is **finding more 
 
 The mockup Samuel chose from is option B in `.superpowers/brainstorm/…/weekly-board.html`. The names and numbers in it were made up.
 
-### 2. Thirteen new badges
+### 2. Fifteen new badges
 
-All 13 were picked by Samuel from the full candidate list **(Samuel)**. Names and thresholds are first drafts and can be changed while reviewing this document. The 7 existing badges stay as they are, so there are **20** in all.
+Thirteen were picked by Samuel from the full candidate list, and he added two more for spots far from every named area **(Samuel)**. Names and thresholds are first drafts. The 7 existing badges stay as they are, so there are **22** in all.
 
 | Group | Badge | How you earn it |
 |---|---|---|
@@ -52,6 +52,8 @@ All 13 were picked by Samuel from the full candidate list **(Samuel)**. Names an
 | | **All of Syros** 🏝️ | Spot cats in every area of the island |
 | | **Pathfinder** 🔦 | Find a new cat in an area nobody has spotted a cat in for 30 days |
 | | **Trailblazer** 🚩 | Find the first cat ever known in an area |
+| | **Off the beaten track** 🥾 | Spot a cat on Syros more than 2 km from every area centre |
+| | **Wild Syros** 🌿 | Spot 5 different cats on Syros more than 2 km from every area centre |
 
 Not chosen: "Three good days" (3 days in one week) and "Hat-trick" (top 3 in three weeks).
 
@@ -59,15 +61,16 @@ What the words mean:
 
 - **"Spot a cat"** means a confirmed spot, either of a known cat or a new one, whether or not it earned points that day.
 - **"A week"** is the Monday-to-Monday Greek-time week above.
-- **"Area"** is one of the named areas the team keeps on the dashboard's Areas page (about 20 today: Ermoupoli, Kini, Galissas, Chalandriani, Grammata and so on). A spot is in the area whose centre is nearest, the same rule the dashboard uses, but only if it's within 2 km of that centre. Spots further than 2 km from every centre count as "Off Syros" and are in no area. Parts of Syros may fall in that gap. Before building, the builder counts how many real spots do, and if it's a meaningful share, raises it with the team so they can add areas. The area is **saved on each spot when it's made**, so later changes to the area list never move old spots around.
+- **"Area"** is one of the named areas the team keeps on the dashboard's Areas page (about 20 today: Ermoupoli, Kini, Galissas, Chalandriani, Grammata and so on). A spot is in the area whose centre is nearest, the same rule the dashboard uses, but only if it's within 2 km of that centre. Spots further than 2 km from every centre count as "Off Syros" and are in no area. Parts of Syros fall in that gap, and spotting there earns its own two badges (below) **(Samuel)**. Before building, the builder counts how many real spots fall in the gap and tells the team, who may still want to add areas. The area is **saved on each spot when it's made**, so later changes to the area list never move old spots around.
 - **All of Syros** means every area on the list at the moment of the spot that completes it. If the team adds an area later, people who already have the badge keep it; others now need the new area too.
+- **"Remote" spots (Off the beaten track, Wild Syros)** **(Samuel, 24 Oct)**: a confirmed spot that is on the island of Syros but more than 2 km from every area centre on the list at the time. Today the app can't tell remote Syros from somewhere else entirely (both are "Off Syros"), so this needs **a simple outline of the island** (for example a simplified coastline from OpenStreetMap), with a little margin for GPS error along the shore. A spot in Athens or on Tinos never counts. Wild Syros needs 5 *different* cats, so photographing one remote cat five times doesn't earn it. If the team later adds an area that covers a remote spot, badges already earned stay; the spot simply stops counting towards anything new as "remote".
 - **Pathfinder:** the new cat's area had no confirmed spot by anyone in the 30 days before this one, counted by when spots were confirmed.
 - **Trailblazer:** when the new cat was registered, no other cat was known in that area. If the team adds an area that already contains cats, nobody gets Trailblazer for it. Cats the team registered themselves count as "known" but earn nobody the badge.
-- **Badges are never taken away.** Once earned, a badge stays, even if areas are renamed, moved or retired, or the spot is later found to be a duplicate. This applies to the 7 existing badges too, so all 20 are saved once earned rather than worked out afresh. If the count behind a badge later falls (say a cat you found is merged into another), the progress bar shows the badge as complete, never "9 of 10" on a badge you hold.
+- **Badges are never taken away.** Once earned, a badge stays, even if areas are renamed, moved or retired, or the spot is later found to be a duplicate. This applies to the 7 existing badges too, so all 22 are saved once earned rather than worked out afresh. If the count behind a badge later falls (say a cat you found is merged into another), the progress bar shows the badge as complete, never "9 of 10" on a badge you hold.
 
 ### 3. Existing spotters, on the day this goes live
 
-- Badges that can be worked out from history are **awarded from history**: weeks spotted, areas spotted in (using today's areas), new cats found, Pathfinder, and Trailblazer. History has no record of when each spot was confirmed, so for history alone a spot's week is the date it was taken. Spots from launch day on use the confirmation date, as above.
+- Badges that can be worked out from history are **awarded from history**: weeks spotted, areas spotted in (using today's areas), new cats found, Pathfinder, Trailblazer, and the two remote-spot badges (using today's areas and the island outline). History has no record of when each spot was confirmed, so for history alone a spot's week is the date it was taken. Spots from launch day on use the confirmation date, as above.
 - Trailblazer from history follows the live rule: the first cat registered in an area only earns it if that area existed on the team's list at the time (the Areas page keeps that history).
 - Podium and Champion start with **the first full week after the new version is live in production** (a setting the builder adds, set on the day Samuel republishes). There are no weekly results from before, so no backdated podiums.
 - Badges given from history don't come with a push. The first time each spotter opens the updated app, they see **one** celebration screen for all of them together ("Your spots so far have earned you 4 new badges"), with the medals in a row, one sound and one buzz, rather than a dozen celebrations one after another. After that they carry the "New" marker on the Badges tab.
@@ -80,7 +83,7 @@ Today a new badge only shows as a small "New badge: …" pill with a plain award
 
 - It takes over the **whole screen**, in deep Aegean blue, with confetti in the app's colours.
 - The medal grows in with a small bounce and a shine runs across it. A **short, cheerful sound** plays and the **phone gives a buzz** at the same moment.
-- Under the medal: "New badge", the badge's name, and **one sentence saying what it means and why it helps the cats** ("You've spotted cats in 3 different parts of Syros. Every new area helps Syros Cats find the cats nobody knew about."). Each of the 20 badges gets its own sentence.
+- Under the medal: "New badge", the badge's name, and **one sentence saying what it means and why it helps the cats** ("You've spotted cats in 3 different parts of Syros. Every new area helps Syros Cats find the cats nobody knew about."). Each of the 22 badges gets its own sentence.
 - **What's next:** the next badge in the same group, with a progress bar ("Next: Roamer 🗺️ · 3 of 8 areas"). When it's the last badge in a group, this says so instead ("You've got every coverage badge").
 - One big button closes it ("Lovely!"), and a link goes to "See all my badges".
 - **Two or more badges at once** come one after the other, with "1 of 2" shown, and each gets its own medal, sound and buzz.
@@ -93,7 +96,7 @@ Today a new badge only shows as a small "New badge: …" pill with a plain award
 
 **How spotters hear about each badge:**
 
-- **The 18 badges a spot earns** (everything except Podium and Champion) get the celebration straight after that spot, as above.
+- **The 20 badges a spot earns** (everything except Podium and Champion) get the celebration straight after that spot, as above.
 - **Podium and Champion** are decided when the week closes, when the spotter usually isn't in the app. So:
   - **On Monday morning** every top-3 spotter with push notifications on gets a push **(Samuel: "tell them on Monday too")**: "🥉 You came 2nd on Syros last week. You've earned Podium!" (or "🏆 You were the top spotter on Syros last week…"). It's sent at about 08:00 Greek time, not at midnight. If the week closes late because the server was down, the push still goes out up to 20:00 that Monday, and is skipped after that (the celebration still plays when they next open the app). Tapping it opens the app to the celebration.
   - **The next time they open the app**, they get the full-screen celebration whether or not the push arrived, with a line about their week above the medal ("You came 2nd last week with 95 points"). It plays once.
@@ -135,7 +138,7 @@ Every new line (badge names, descriptions and "what it means" sentences, the tab
 - Points are kept as one running total per spotter (`profiles.points`). There's no dated record of when each point was earned, so the weekly board needs one, written at the moment points are awarded (`routes/sightings.ts`, where `pointsAwarded` is added). The builder decides its shape.
 - Badges are worked out fresh from four totals every time (`lib/badges.ts`) and aren't stored. Today the "new badges" list is a before-and-after comparison taken partly outside the transaction (`routes/sightings.ts` ~883 and ~1116), so two spots at once can celebrate twice or miss one. Saved badges should be written inside the spot's transaction. Podium, Champion, Pathfinder, Trailblazer and "never taken away" all need badges to be **stored once earned**.
 - The client's badge list, translations and progress goals (`lib/i18n.ts` BADGE_IDS, `lib/badgeProgress.ts`) are pinned to the server's list by a test. The new badges join both.
-- Areas come from `areaFor(lat, lng)` over the live named-areas list, which the team can change (at least 5 areas always remain).
+- Areas come from `areaFor(lat, lng)` over the live named-areas list, which the team can change (at least 5 areas always remain). There is no island outline anywhere in the code today; the remote badges need one added.
 - Deleting an account (`me.delete`, `severPerson`) must remove or unlink everything new that names the spotter: weekly points, stored badges, weekly results and pending cards.
 - "Keep my spots safe" keeps the spotter's id and swaps the phone's secret (`keepSafe/move.ts`), so new records keyed by spotter stay put. Two things to handle: it deletes push tokens, so the Monday push reaches the new phone only once it has registered again; and leaving a spotter behind (`abandonCurrent`) must clear the new records too. Each new table gets a deletion and an abandon test.
 - The weekly close must run once and only once per week, even if the server restarts or two copies run. The daily round-up's "claim the run first" pattern (`push_roundup_runs`) is the model.
@@ -150,9 +153,9 @@ Every new line (badge names, descriptions and "what it means" sentences, the tab
 - How the weekly close is triggered (an in-server schedule like the round-up, or the Cloudflare cron worker that already calls the mail drain).
 - The exact push time on Monday morning, within "morning, Greek time".
 - How the history backfill runs (a migration or a one-off job), as long as it's safe to run twice.
-- Medal artwork for the 13 new badges. Use the emoji above as the starting point, in the existing `BadgeMedal` style.
+- Medal artwork for the 15 new badges. Use the emoji above as the starting point, in the existing `BadgeMedal` style.
 - How the app learns which celebrations to play: a saved per-spotter list of unseen badge moments is the suggestion, since one list then serves the after-spot, Monday and launch-day cases and the "New" markers.
-- How the Badges tab groups 20 badges. Grouping by the four headings above is the suggestion.
+- How the Badges tab groups 22 badges. Grouping by the four headings above is the suggestion.
 
 ## Claude's calls (for Samuel to check)
 
@@ -172,7 +175,8 @@ Every new line (badge names, descriptions and "what it means" sentences, the tab
 14. A "New" marker on the Badges tab, and tapping an earned badge replays its celebration quietly.
 15. Each badge gets one sentence saying what it means and how it helps the cats.
 16. Finished weeks are frozen at close. A deleted spotter shows as "a spotter".
-17. The area is saved on each spot when it's made. Spots more than 2 km from every area centre count for no area, and the builder measures how many real spots that affects.
+17. The area is saved on each spot when it's made. Spots more than 2 km from every area centre count for no area (they earn the remote badges instead), and the builder measures how many real spots fall there.
+21. A remote spot needs to be inside an outline of Syros, with a small margin along the shore. Wild Syros counts different cats.
 18. All 20 badges, the existing 7 included, are saved once earned.
 19. If the server is down, the week closes late. The Monday push can go out until 20:00, and after that it's skipped.
 20. Pushes and bell entries never name a place.
