@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import {
   db,
@@ -14,7 +14,7 @@ import { followersCount } from "../lib/following";
 import { addressKey, consume } from "../lib/limits";
 import { writeObservation } from "../lib/observations";
 import { DELETED_SECRET_HASH, deletedMarkerKey } from "../lib/deviceAuth";
-import { FOLLOW_ADDRESS_LIMIT, FOLLOW_DEVICE_LIMIT } from "../middlewares/rateLimit";
+import { FOLLOW_ADDRESS_LIMIT, FOLLOW_BURST_LIMIT, FOLLOW_DEVICE_LIMIT, _resetFollowBurstForTests } from "../middlewares/rateLimit";
 
 // All fixtures share these prefixes so cleanup can never touch real data.
 const PREFIX = "vitest-follow-";
@@ -35,6 +35,8 @@ async function cleanup() {
 }
 
 beforeAll(cleanup);
+// The burst guard is in memory, so the per-test Postgres reset does not clear it.
+beforeEach(() => _resetFollowBurstForTests("::1"));
 afterAll(async () => {
   await cleanup();
   await pool.end();
@@ -156,9 +158,12 @@ describe("POST /api/cats/:catId/follow and /unfollow", () => {
   it("refuses the 51st follow or unfollow call in a day from one phone (a re-follow counts)", async () => {
     const cat = await insertCat("F");
     for (let i = 0; i < FOLLOW_DEVICE_LIMIT; i++) {
+      // Stay under the one-minute burst guard; this test is about the daily cap.
+      if (i % FOLLOW_BURST_LIMIT === 0) await _resetFollowBurstForTests("::1");
       const res = await post(i % 2 === 0 ? "follow" : "unfollow", cat.id, device("f1"));
       expect(res.status).toBe(200);
     }
+    await _resetFollowBurstForTests("::1");
     const res = await post("follow", cat.id, device("f1"));
     expect(res.status).toBe(429);
     // Another phone is unaffected.
@@ -180,6 +185,16 @@ describe("POST /api/cats/:catId/follow and /unfollow", () => {
     expect(res.headers["cache-control"]).toBe("private, no-store");
     expect((await post("follow", cat.id, device("h2"))).status).toBe(429);
     expect(await subRows(device("h1"), cat.id)).toHaveLength(0);
+  });
+
+  it("refuses the 31st call within a minute from one address (burst guard), with no-store", async () => {
+    const cat = await insertCat("I");
+    for (let i = 0; i < FOLLOW_BURST_LIMIT; i++) {
+      expect((await post("follow", cat.id, device("i1"))).status).toBe(200);
+    }
+    const res = await post("follow", cat.id, device("i1"));
+    expect(res.status).toBe(429);
+    expect(res.headers["cache-control"]).toBe("private, no-store");
   });
 
   it("followersCount ignores a deleted: row", async () => {

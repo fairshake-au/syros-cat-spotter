@@ -33,7 +33,7 @@ import {
 import { notifyCatFollowers } from "../lib/notifications";
 import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl, removedPhotoIds } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
-import { aiLimiter, checkClaimLimit, checkFollowLimit, followAddressLimiter } from "../middlewares/rateLimit";
+import { aiLimiter, checkClaimLimit, checkFollowLimit, followAddressLimiter, followBurstLimiter } from "../middlewares/rateLimit";
 import { follow, followersCount, isFollowing, unfollow } from "../lib/following";
 import { safeError } from "../lib/logger";
 import { containsOffensiveLanguage } from "../lib/moderation";
@@ -661,8 +661,8 @@ const noStore: RequestHandler = (_req, res, next) => {
   res.setHeader("Cache-Control", PER_PHONE);
   next();
 };
-router.post("/cats/:catId/follow", noStore, followAddressLimiter, followHandler("follow"));
-router.post("/cats/:catId/unfollow", noStore, followAddressLimiter, followHandler("unfollow"));
+router.post("/cats/:catId/follow", noStore, followBurstLimiter, followAddressLimiter, followHandler("follow"));
+router.post("/cats/:catId/unfollow", noStore, followBurstLimiter, followAddressLimiter, followHandler("unfollow"));
 
 // Owner renames the cat or updates its home description.
 router.patch("/cats/:catId", async (req, res) => {

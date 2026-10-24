@@ -1,5 +1,5 @@
 import rateLimit from "express-rate-limit";
-import { _resetBucketForTests, consume, declareLimit, peek, sharedLimiter } from "../lib/limits";
+import { _resetBucketForTests, addressKey, consume, declareLimit, peek, sharedLimiter } from "../lib/limits";
 import { teamPerson } from "./requireTeam";
 
 // Per-IP throttles for public, unauthenticated endpoints.
@@ -221,6 +221,20 @@ const FOLLOW_DEVICE_BUCKET = "follow_device";
 declareLimit(FOLLOW_DEVICE_BUCKET, FOLLOW_DEVICE_LIMIT, FOLLOW_WINDOW_MS, { sliding: true });
 
 /**
+ * A one-minute burst guard per address on both follow routes: 30 calls, well
+ * above anyone tapping a button. In memory per server, like photoLimiter (a
+ * burst cap protects nothing that must survive a restart); the daily caps
+ * below are the ones counted in Postgres. Uses express-rate-limit directly,
+ * which is the limiter CodeQL's "missing rate limiting" check recognises.
+ */
+export const FOLLOW_BURST_LIMIT = 30;
+export const followBurstLimiter = rateLimit({
+  ...common,
+  windowMs: 60_000,
+  limit: FOLLOW_BURST_LIMIT,
+});
+
+/**
  * The per-address half, as middleware on both follow routes (it runs before
  * the secret check, so it is keyed on the address alone). Fails closed: if
  * the counter breaks, sharedLimiter answers 503 with Retry-After: 5.
@@ -251,6 +265,11 @@ export async function checkFollowLimit(
 export async function _resetFollowLimitForTests(): Promise<void> {
   await _resetBucketForTests(FOLLOW_DEVICE_BUCKET);
   await _resetBucketForTests("follow_address");
+}
+
+/** Test-only: clears the burst count for one address (tests all come from ::1). */
+export async function _resetFollowBurstForTests(address: string): Promise<void> {
+  await followBurstLimiter.resetKey(addressKey(address));
 }
 
 // The team map's pictures, GET /api/team/map-tiles/:tile (SYC-209 PR 3.1).
