@@ -13,7 +13,7 @@ import {
   notificationsTable,
   pointsLedgerTable,
 } from "@workspace/db";
-import { asc, eq, ilike, inArray, like } from "drizzle-orm";
+import { asc, eq, ilike, inArray, like, sql } from "drizzle-orm";
 
 // The resolve flow never calls the AI matcher, but importing the app pulls it
 // in; keep it mocked so this suite stays fully offline.
@@ -314,5 +314,41 @@ describe("POST /api/sightings/:sightingId/resolve: points ledger (SYC-706)", () 
       areaKey: expected.areaKey,
       onIsland: true,
     });
+  });
+  it("profile points equal the sum of live ledger points plus pre-launch points", async () => {
+    // SYC-706 Task 10: profiles.points is the all-time total. Points from before
+    // the ledger existed live only there; every spot since adds a ledger row
+    // (live) and the same amount to the total, and a 0-point repeat adds neither.
+    const device = `${DEVICE}-sum`;
+    const PRE_LAUNCH = 120;
+    await db.insert(profilesTable).values({ deviceId: device, points: PRE_LAUNCH });
+    const catA = await seedCat(`${CAT_PREFIX}-SumA`);
+    const catB = await seedCat(`${CAT_PREFIX}-SumB`);
+    const spots = [
+      await insertSighting(device), // catA, 15
+      await insertSighting(device), // catA again, same day: 0
+      await insertSighting(device), // catB, 15
+      await insertSighting(device), // catA, next day: 15
+    ];
+
+    const bodies = [];
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-20T08:00:00Z"));
+    bodies.push(await resolve(device, spots[0]!, { catId: catA }));
+    bodies.push(await resolve(device, spots[1]!, { catId: catA }));
+    bodies.push(await resolve(device, spots[2]!, { catId: catB }));
+    vi.setSystemTime(new Date("2026-10-21T08:00:00Z"));
+    bodies.push(await resolve(device, spots[3]!, { catId: catA }));
+    vi.useRealTimers();
+    expect(bodies.map((r) => r.status)).toEqual([200, 200, 200, 200]);
+    expect(bodies.map((r) => r.body.pointsAwarded)).toEqual([15, 0, 15, 15]);
+
+    const live = await db.execute<{ n: number; rows: number }>(sql`
+      select coalesce(sum(points), 0)::int as n, count(*)::int as rows
+      from points_ledger where device_id = ${device} and source = 'live'`);
+    expect(Number(live.rows[0]!.rows)).toBe(4); // the repeat's 0-point row too
+    expect(Number(live.rows[0]!.n)).toBe(45);
+    expect(await profilePoints(device)).toBe(PRE_LAUNCH + Number(live.rows[0]!.n));
+    expect(bodies[3]!.body.profile.points).toBe(PRE_LAUNCH + 45);
   });
 });
