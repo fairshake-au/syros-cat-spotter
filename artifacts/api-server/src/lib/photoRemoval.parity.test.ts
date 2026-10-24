@@ -5,6 +5,7 @@ import { catDisplayPhotoIds } from "./photoVisibility";
 import { hidePhoto, seedCat } from "../test/roleKit";
 import { markRemoved } from "../test/removalKit";
 import { signedPerson } from "../test/roleKit";
+import { cleanUpVetPhotos, keepPhoto, stagePhoto } from "../test/vetPhotoKit";
 
 // SYC-462 spec §4.2, T14: the removal's repoint (lib/db standInFor, SQL)
 // picks exactly the photo the public already sees in place of a hidden main
@@ -12,6 +13,7 @@ import { signedPerson } from "../test/roleKit";
 // of one rule, pinned together.
 
 afterAll(async () => {
+  await cleanUpVetPhotos();
   delete process.env["TEAM_SESSION_KEYS"];
   await pool.end();
 });
@@ -67,6 +69,15 @@ describe("T14: the repoint and the public stand-in agree", () => {
     const cat = await seedCat(null);
     const next = await cover(cat.id, day(4));
     await cover(cat.id, day(7), { removedBy: staff.id });
+    await hidePhoto(cat.photoId);
+    expect(await bothAgree(cat)).toBe(next);
+  });
+
+  it("the newest two are a vet visit's team-only photos (kept, staged): the next one (SYC-677)", async () => {
+    const cat = await seedCat(null);
+    const next = await cover(cat.id, day(4));
+    await keepPhoto(await cover(cat.id, day(8)), cat.id);
+    await stagePhoto(await cover(cat.id, day(9)), cat.id);
     await hidePhoto(cat.photoId);
     expect(await bothAgree(cat)).toBe(next);
   });
