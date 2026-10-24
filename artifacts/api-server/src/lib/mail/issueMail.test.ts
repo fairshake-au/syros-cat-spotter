@@ -407,14 +407,18 @@ describe("T5-15: at most 10 Photo hidden alerts an hour, island-wide", () => {
 });
 
 describe("T5-16: the digest", () => {
+  // The digest counts open issue reports island-wide, and other files (me.delete
+  // leaves anonymised ones) share this database, so start from none (SYC-537).
+  beforeEach(async () => {
+    await db.execute(sql`delete from welfare_reports where kind = 'content' and state in ('new', 'looking')`);
+  });
+
   const athensToday = () =>
     new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Athens", year: "numeric", month: "2-digit", day: "2-digit" }).format(
       new Date(),
     );
 
   it("is queued only if there are open issue rows, and a quiet day claims nothing", async () => {
-    // TEMP SYC-537 diagnostic
-    console.log("STRAYS", JSON.stringify((await db.execute(sql`select reporter_device, reason, state, created_at, count(*)::int n from welfare_reports where kind = 'content' and state in ('new','looking') group by 1,2,3,4`)).rows));
     expect(await sendIssueDigestIfDue()).toBe("nothing_waiting");
     expect(await db.select().from(issueDigestRunsTable)).toHaveLength(0);
     await seedIssue({ state: "done" });
