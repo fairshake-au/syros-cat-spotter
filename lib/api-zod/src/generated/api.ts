@@ -952,6 +952,28 @@ export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)
 
 
 /**
+ * @summary This Athens week's board and last week's frozen result
+ */
+export const GetLeaderboardWeekResponse = zod.object({
+  "weekStart": zod.string().describe('The Athens Monday this week began, as YYYY-MM-DD'),
+  "endsAt": zod.coerce.date().describe('When this week closes (next Monday 00:00 Athens)'),
+  "entries": zod.array(zod.object({
+  "spotterCode": zod.string().describe('Opaque public spotter identifier (never the raw device id)'),
+  "username": zod.string().nullish(),
+  "nickname": zod.string().nullish(),
+  "points": zod.number(),
+  "uniqueCatsDiscovered": zod.number(),
+  "rank": zod.number()
+})),
+  "lastWeek": zod.array(zod.object({
+  "place": zod.number(),
+  "name": zod.string().nullable().describe('The frozen display name, or null for \"a spotter\"'),
+  "points": zod.number()
+})).describe('Last week\'s frozen result; empty until that week has closed')
+})
+
+
+/**
  * @summary The colony fundraising campaign shown on the Help & info page
  */
 export const GetCampaignResponse = zod.object({

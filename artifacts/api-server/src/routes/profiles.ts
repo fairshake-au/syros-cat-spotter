@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
-import { db, profilesTable, catsTable } from "@workspace/db";
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { db, profilesTable } from "@workspace/db";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { profilePayload, spotterCode } from "../lib/catHelpers";
+import { competitionRanks } from "../lib/ranking";
+import { nextWeekStartInstant, weekStartAthens, weekStartInstant } from "../lib/weeks";
 import { normalizeUsername, suggestUsernames } from "../lib/usernames";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import {
@@ -250,30 +252,103 @@ router.post("/profiles/:deviceId/badges/seen", async (req, res) => {
   res.status(204).end();
 });
 
-router.get("/leaderboard", async (_req, res) => {
-  const rows = await db
-    .select({
-      deviceId: profilesTable.deviceId,
-      username: profilesTable.username,
-      nickname: profilesTable.nickname,
-      points: profilesTable.points,
-      uniqueCatsDiscovered: sql<number>`(
-        select count(*)::int from ${catsTable}
-        where ${catsTable.discovererDeviceId} = ${profilesTable.deviceId}
-      )`,
-    })
-    .from(profilesTable)
-    .orderBy(desc(profilesTable.points))
-    .limit(20);
+/** One board row as the database hands it over, before it is made public. */
+type BoardRow = {
+  device_id: string;
+  username: string | null;
+  nickname: string | null;
+  points: number | string;
+  unique_cats: number | string;
+  tie_key: number | string | null;
+};
 
-  // Never expose raw device ids publicly — they are the profile credential.
-  res.json(
-    rows.map(({ deviceId, ...r }, i) => ({
-      ...r,
-      spotterCode: spotterCode(deviceId),
-      rank: i + 1,
-    })),
+/**
+ * Turns database rows into the public shape. The device id is only used for
+ * the opaque spotterCode (it is the profile credential, never exposed).
+ * Equal points share a place; within them, whoever got there first leads and
+ * the spotterCode settles anything still level.
+ */
+function publicBoard(rows: BoardRow[]) {
+  const items = rows.map((r) => ({
+    spotterCode: spotterCode(r.device_id),
+    username: r.username,
+    nickname: r.nickname,
+    points: Number(r.points),
+    uniqueCatsDiscovered: Number(r.unique_cats),
+    tie: r.tie_key == null ? Number.POSITIVE_INFINITY : Number(r.tie_key),
+  }));
+  items.sort(
+    (a, b) =>
+      b.points - a.points ||
+      a.tie - b.tie ||
+      (a.spotterCode < b.spotterCode ? -1 : a.spotterCode > b.spotterCode ? 1 : 0),
   );
+  return competitionRanks(items, (r) => r.points).map(({ tie: _tie, ...r }) => r);
+}
+
+const uniqueCatsSql = sql`(
+  select count(*)::int from cats c
+  where c.discoverer_device_id = p.device_id
+)`;
+
+router.get("/leaderboard", async (_req, res) => {
+  // Zero-point spotters are dropped in SQL so they can't fill the top 20.
+  // Ties: whoever last scored earliest, then whoever joined first.
+  const rows = await db.execute<BoardRow>(sql`
+    select p.device_id, p.username, p.nickname, p.points,
+      ${uniqueCatsSql} as unique_cats,
+      extract(epoch from coalesce(
+        (select max(l.earned_at) from points_ledger l
+          where l.device_id = p.device_id and l.points > 0),
+        p.created_at
+      ))::float8 as tie_key
+    from profiles p
+    where p.points > 0
+    order by p.points desc, tie_key asc, p.device_id asc
+    limit 20`);
+  res.json(publicBoard(rows.rows));
+});
+
+router.get("/leaderboard/week", async (_req, res) => {
+  const now = new Date();
+  const weekStart = weekStartAthens(now);
+  const endsAt = nextWeekStartInstant(now).toISOString();
+  const previousWeek = weekStartAthens(
+    new Date(weekStartInstant(weekStart).getTime() - 1),
+  );
+
+  // Only scoring rows count: history rows carry 0 points and never show
+  // anyone on 0. Ties: whoever reached their total first.
+  const rows = await db.execute<BoardRow>(sql`
+    select p.device_id, p.username, p.nickname, w.points,
+      ${uniqueCatsSql} as unique_cats, w.tie_key
+    from (
+      select device_id, sum(points)::int as points,
+        extract(epoch from max(earned_at))::float8 as tie_key
+      from points_ledger
+      where week_start = ${weekStart}::date and points > 0 and device_id is not null
+      group by device_id
+    ) w
+    join profiles p on p.device_id = w.device_id
+    order by w.points desc, w.tie_key asc, p.device_id asc
+    limit 20`);
+
+  const last = await db.execute<{ place: number; display_name: string | null; points: number }>(sql`
+    select place, display_name, points from weekly_results
+    where week_start = ${previousWeek}::date
+    order by place, id
+    limit 20`);
+
+  res.json({
+    weekStart,
+    endsAt,
+    entries: publicBoard(rows.rows),
+    lastWeek: last.rows.map((r) => ({
+      place: Number(r.place),
+      name: r.display_name ?? null,
+      points: Number(r.points),
+    })),
+  });
 });
 
 export default router;

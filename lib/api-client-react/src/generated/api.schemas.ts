@@ -982,6 +982,13 @@ export interface BadgeMoments {
   moments: BadgeMoment[];
 }
 
+export interface LastWeekEntry {
+  place: number;
+  /** The frozen display name, or null for "a spotter" */
+  name: string | null;
+  points: number;
+}
+
 export interface LeaderboardEntry {
   /** Opaque public spotter identifier (never the raw device id) */
   spotterCode: string;
@@ -990,6 +997,16 @@ export interface LeaderboardEntry {
   points: number;
   uniqueCatsDiscovered: number;
   rank: number;
+}
+
+export interface WeekBoard {
+  /** The Athens Monday this week began, as YYYY-MM-DD */
+  weekStart: string;
+  /** When this week closes (next Monday 00:00 Athens) */
+  endsAt: string;
+  entries: LeaderboardEntry[];
+  /** Last week's frozen result; empty until that week has closed */
+  lastWeek: LastWeekEntry[];
 }
 
 /**

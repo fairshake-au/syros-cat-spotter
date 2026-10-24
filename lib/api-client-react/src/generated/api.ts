@@ -63,7 +63,8 @@ import type {
   SuggestCatNamesResult,
   UpdateProfileRequest,
   UsernameAvailability,
-  UsernameSuggestions
+  UsernameSuggestions,
+  WeekBoard
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -2348,6 +2349,83 @@ export function useGetLeaderboard<TData = Awaited<ReturnType<typeof getLeaderboa
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetLeaderboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetLeaderboardWeekUrl = () => {
+
+
+
+
+  return `/api/leaderboard/week`
+}
+
+/**
+ * @summary This Athens week's board and last week's frozen result
+ */
+export const getLeaderboardWeek = async ( options?: RequestInit): Promise<WeekBoard> => {
+
+  return customFetch<WeekBoard>(getGetLeaderboardWeekUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLeaderboardWeekQueryKey = () => {
+    return [
+    `/api/leaderboard/week`
+    ] as const;
+    }
+
+
+export const getGetLeaderboardWeekQueryOptions = <TData = Awaited<ReturnType<typeof getLeaderboardWeek>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLeaderboardWeek>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLeaderboardWeekQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLeaderboardWeek>>> = ({ signal }) => getLeaderboardWeek({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLeaderboardWeek>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLeaderboardWeekQueryResult = NonNullable<Awaited<ReturnType<typeof getLeaderboardWeek>>>
+export type GetLeaderboardWeekQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary This Athens week's board and last week's frozen result
+ */
+
+export function useGetLeaderboardWeek<TData = Awaited<ReturnType<typeof getLeaderboardWeek>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLeaderboardWeek>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLeaderboardWeekQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

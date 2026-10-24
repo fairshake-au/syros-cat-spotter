@@ -944,6 +944,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
+  /leaderboard/week:
+    get:
+      operationId: getLeaderboardWeek
+      tags: [profiles]
+      summary: This Athens week's board and last week's frozen result
+      responses:
+        "200":
+          description: The weekly board
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeekBoard"
   /campaign:
     get:
       operationId: getCampaign
@@ -2040,6 +2052,36 @@ components:
           items:
             $ref: "#/components/schemas/BadgeMoment"
       required: [moments]
+    LastWeekEntry:
+      type: object
+      properties:
+        place: { type: integer }
+        name:
+          type: string
+          nullable: true
+          description: The frozen display name, or null for "a spotter"
+        points: { type: integer }
+      required: [place, name, points]
+    WeekBoard:
+      type: object
+      properties:
+        weekStart:
+          type: string
+          description: The Athens Monday this week began, as YYYY-MM-DD
+        endsAt:
+          type: string
+          format: date-time
+          description: When this week closes (next Monday 00:00 Athens)
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaderboardEntry"
+        lastWeek:
+          type: array
+          description: Last week's frozen result; empty until that week has closed
+          items:
+            $ref: "#/components/schemas/LastWeekEntry"
+      required: [weekStart, endsAt, entries, lastWeek]
     LeaderboardEntry:
       type: object
       properties:
