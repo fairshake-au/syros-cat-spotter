@@ -1165,7 +1165,7 @@ describe('code screen', () => {
       });
       expect(utils.getByTestId('restore-code-input')).toBeTruthy();
       expect((utils.getByTestId('restore-code-input') as HTMLInputElement).value).toBe('');
-      expect(readWaiting()?.movingHandle).toBeUndefined();
+      await waitFor(() => expect(readWaiting()?.movingHandle).toBeUndefined());
       expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
     });
 
@@ -1202,7 +1202,7 @@ describe('code screen', () => {
       vi.mocked(keepSafe.peekRestore).mockRejectedValueOnce(linkRefusal('/api/restore/peek'));
       const utils = render(<RestoreRequestScreen onBack={() => {}} />);
       await utils.findByTestId('restore-not-valid');
-      expect(readWaiting()?.movingHandle).toBeUndefined();
+      await waitFor(() => expect(readWaiting()?.movingHandle).toBeUndefined());
       await act(async () => {
         fireEvent.click(utils.getByTestId('restore-ask-again').querySelector('[role="button"]')!);
       });
@@ -1220,7 +1220,7 @@ describe('code screen', () => {
       vi.mocked(keepSafe.peekRestore).mockRejectedValueOnce(linkRefusal('/api/restore/peek'));
       const utils = render(<RestoreRequestScreen onBack={() => {}} />);
       await utils.findByTestId('restore-not-valid');
-      expect(readWaiting()?.movingHandle).toBeUndefined();
+      await waitFor(() => expect(readWaiting()?.movingHandle).toBeUndefined());
       await act(async () => {
         fireEvent.click(utils.getByTestId('restore-ask-again').querySelector('[role="button"]')!);
       });
@@ -1233,7 +1233,7 @@ describe('code screen', () => {
       vi.mocked(keepSafe.peekRestore).mockRejectedValueOnce(new Error('network'));
       const utils = render(<RestoreRequestScreen onBack={() => {}} />);
       await utils.findByTestId('restore-not-valid');
-      expect(readWaiting()?.movingHandle).toBeUndefined();
+      await waitFor(() => expect(readWaiting()?.movingHandle).toBeUndefined());
     });
 
     it('a refused move drops the handle', async () => {
@@ -1244,7 +1244,7 @@ describe('code screen', () => {
         fireEvent.click(await utils.findByText('Move Lili’s spots to this phone'));
       });
       await utils.findByTestId('restore-not-valid');
-      expect(readWaiting()?.movingHandle).toBeUndefined();
+      await waitFor(() => expect(readWaiting()?.movingHandle).toBeUndefined());
     });
 
     it('"already on this phone" forgets the whole note', async () => {
