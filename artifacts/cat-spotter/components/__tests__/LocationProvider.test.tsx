@@ -483,6 +483,31 @@ describe('LocationProvider (web)', () => {
     expect(result.current.denied).toBe(true);
   });
 
+  it('a fix means granted even when the browser still says prompt', async () => {
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    await settle();
+    await act(async () => {
+      await result.current.askAndLocate();
+    });
+    expect(permissionState).toBe('prompt');
+    expect(result.current.permission).toBe('granted');
+    expect(result.current.coords).toEqual(FIX.coords);
+  });
+
+  it('coming back to the page keeps a fix while the browser still says prompt', async () => {
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    await settle();
+    await act(async () => {
+      await result.current.askAndLocate();
+    });
+    // A browser answering 'prompt' must still not drop the fix.
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await settle();
+    expect(result.current.coords).toEqual(FIX.coords);
+  });
+
   it('position unavailable (code 2) counts as denied', async () => {
     getCurrentPosition.mockImplementation((_ok: unknown, fail: (e: unknown) => void) =>
       fail({ code: 2 }),
