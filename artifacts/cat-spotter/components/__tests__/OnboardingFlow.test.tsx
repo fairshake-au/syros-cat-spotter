@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 /**
- * SYC-35: onboarding is Welcome → How it works → Keep your distance →
- * Language & username. The safety screen can't be skipped silently: Skip on
- * "How it works" (which only skips the location prompt) lands on it, and it
- * has no Skip of its own. Back from Language & username returns to it.
+ * SYC-524: onboarding is Welcome → Keep your distance (SYC-35) → Name. The
+ * "How it works" screen and its location prompt are gone, so onboarding never
+ * touches expo-location. The safety screen has no Skip. Back from the name
+ * step returns to it.
  *
- * Welcome and Language & username are stubbed (they pull in the API client
- * and device storage); "How it works" and the safety screen are real, so
- * their progress dots are checked as rendered.
+ * Welcome and the name step are stubbed (they pull in the API client and
+ * device storage); the safety screen is real, so its progress dots are
+ * checked as rendered.
  */
 import React from 'react';
 import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
@@ -66,7 +66,7 @@ vi.mock('../onboarding/LanguageUsernameStep', async () => {
   const { Text } = await import('react-native');
   return {
     LanguageUsernameStep: ({ onBack }: { onBack: () => void }) => (
-      <Text onPress={onBack}>STUB_LANGUAGE_BACK</Text>
+      <Text onPress={onBack}>STUB_NAME_BACK</Text>
     ),
   };
 });
@@ -97,54 +97,34 @@ afterEach(() => {
   requestPermission.mockClear();
 });
 
-describe('onboarding step order (SYC-35)', () => {
-  it('lists the safety screen straight after How it works and before Language & username', () => {
-    expect(ONBOARDING_STEPS).toEqual(['welcome', 'how', 'safety', 'language', 'keepSafe']);
-    expect(ONBOARDING_DOT_COUNT).toBe(5);
-    expect(stepIndex('safety')).toBe(stepIndex('how') + 1);
-    expect(stepIndex('language')).toBe(stepIndex('safety') + 1);
+describe('onboarding step order (SYC-524)', () => {
+  it('is three steps: welcome, safety, name', () => {
+    expect(ONBOARDING_STEPS).toEqual(['welcome', 'safety', 'name']);
+    expect(ONBOARDING_DOT_COUNT).toBe(3);
+    expect(stepIndex('name')).toBe(stepIndex('safety') + 1);
   });
 
-  it('walks Welcome → How it works → safety → Language & username, with matching dots', async () => {
+  it('walks Welcome → safety → name, with matching dots and no location prompt', () => {
     const { getByText, queryByText, container } = render(<OnboardingFlow />);
 
     fireEvent.click(getByText('STUB_WELCOME'));
-    expect(getByText(en.howTitle)).toBeTruthy();
-    // Screen 2 is back to how it was: no safety box on it.
-    expect(queryByText(en.howSafetyTitle)).toBeNull();
-    expect(dots(container)).toEqual({ total: 5, active: 1 });
-
-    fireEvent.click(getByText(en.howAllowContinue));
-    await waitFor(() => expect(getByText(en.howSafetyTitle)).toBeTruthy());
-    expect(requestPermission).toHaveBeenCalledTimes(1);
-    expect(dots(container)).toEqual({ total: 5, active: 2 });
+    expect(getByText(en.howSafetyTitle)).toBeTruthy();
+    expect(dots(container)).toEqual({ total: 3, active: 1 });
+    // The safety screen offers no Skip of its own.
+    expect(queryByText(en.skip)).toBeNull();
 
     fireEvent.click(getByText(en.continue));
-    expect(getByText('STUB_LANGUAGE_BACK')).toBeTruthy();
+    expect(getByText('STUB_NAME_BACK')).toBeTruthy();
     expect(queryByText(en.howSafetyTitle)).toBeNull();
-  });
-
-  it('Skip on How it works lands on the safety screen, not past it', () => {
-    const { getByText, queryByText, container } = render(<OnboardingFlow />);
-    fireEvent.click(getByText('STUB_WELCOME'));
-
-    fireEvent.click(getByText(en.skip));
-    expect(getByText(en.howSafetyTitle)).toBeTruthy();
-    expect(queryByText('STUB_LANGUAGE_BACK')).toBeNull();
-    // Skip still skips only the location prompt, as before.
     expect(requestPermission).not.toHaveBeenCalled();
-    // And the safety screen offers no Skip of its own.
-    expect(queryByText(en.skip)).toBeNull();
-    expect(dots(container)).toEqual({ total: 5, active: 2 });
   });
 
-  it('Back from Language & username returns to the safety screen', () => {
+  it('Back from the name step returns to the safety screen', () => {
     const { getByText } = render(<OnboardingFlow />);
     fireEvent.click(getByText('STUB_WELCOME'));
-    fireEvent.click(getByText(en.skip));
     fireEvent.click(getByText(en.continue));
 
-    fireEvent.click(getByText('STUB_LANGUAGE_BACK'));
+    fireEvent.click(getByText('STUB_NAME_BACK'));
     expect(getByText(en.howSafetyTitle)).toBeTruthy();
   });
 });
