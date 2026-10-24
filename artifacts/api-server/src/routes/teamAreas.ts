@@ -215,7 +215,7 @@ function newAreaPickerPage(res: Response, status: number, a: { key: string; name
     .send(
       renderPicker({
         personName: teamPerson(res).name,
-        active: null,
+        active: "settings",
         title: `Where is ${a.name}?`,
         intro: `Tap the centre of ${a.name}. You will see the spot before anything is saved.`,
         back: { href: AREAS_PATH, label: "Back to the areas" },
@@ -257,7 +257,7 @@ router.post("/team/areas/new/pick", ...formRoute("edit_named_areas"), async (req
     renderCentreConfirm({
       personName: person.name,
       island: isIslandWide(person),
-      active: null,
+      active: "settings",
       title: `Where is ${a.name}?`,
       question: () => `Make this the centre of ${a.name}?`,
       saveLabel: "Add the area",
