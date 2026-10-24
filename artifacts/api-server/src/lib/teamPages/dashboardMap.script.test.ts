@@ -61,6 +61,14 @@ describe("the island map's script asks for fixed addresses only", () => {
     expect(src).not.toMatch(/[?&](?:lat|lng|z|x|y)=/);
   });
 
+  it("the 'Find from a photo' link is rebuilt from exactly colours, area and colony", () => {
+    // The keys the script copies from the filter form onto the link, as written.
+    const m = /var findParams = new URLSearchParams\(\);\s*(\[[^\]]*\])\.forEach/.exec(src);
+    expect(m, "the findParams key list").not.toBeNull();
+    const keys = [...m![1]!.matchAll(/"([^"]*)"/g)].map((k) => k[1]);
+    expect(keys).toEqual(["colours", "area", "colony"]);
+  });
+
   it("never builds HTML from strings", () => {
     expect(src).not.toMatch(/\.innerHTML\s*=|\.outerHTML\s*=|insertAdjacentHTML|document\.write/);
     // Leaflet's divIcon gets an element, never an HTML string.
