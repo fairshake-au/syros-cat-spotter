@@ -292,6 +292,22 @@ export async function updateCat(
 }
 
 /**
+ * Stores (or clears, with null) the photo-search suggestions for a batch cat.
+ * Takes the batch lock and refuses a saved batch, like every other writer.
+ */
+export async function setSuggestions(batchCatId: number, results: FindResult[] | null): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [cat] = await tx
+      .select({ batchId: vetBatchCatsTable.batchId })
+      .from(vetBatchCatsTable)
+      .where(eq(vetBatchCatsTable.id, batchCatId));
+    if (!cat || !(await lockDraft(tx, cat.batchId))) return;
+    await tx.update(vetBatchCatsTable).set({ suggestions: results }).where(eq(vetBatchCatsTable.id, batchCatId));
+    await touch(tx, cat.batchId);
+  });
+}
+
+/**
  * Deletes these batch cats, their link rows and their staged photos. A photo
  * is hard-deleted (it was never published). One that has a visibility event
  * can't be: photo_visibility_events is append-only (a trigger refuses
