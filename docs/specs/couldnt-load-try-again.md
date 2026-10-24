@@ -264,5 +264,5 @@ Under the button, a small link lets the spotter overrule the check and carry on 
 ## 8. Coordination
 
 - **SYC-509 accessibility chip:** it touches Notifications, Home and review too. It lands first, and this work rebases onto it.
-- **SYC-628 Profile redesign:** it gives Profile's stats line its own Try again. Whichever PR lands second either reuses `LoadFailed`'s line size or leaves Profile's own button as it is. That's agreed with that session before merging.
+- **SYC-628 Profile redesign (PR #296):** agreed with that session on 24 Oct. It doesn't touch Home or `statsUnavailable`, and its new keys are all prefixed `profile*` or `settings*`. It likely merges first. A follow-up, SYC-635, then switches Profile's inline Try again and the Spotters tab's error line to `LoadFailed`'s line size.
 - **`lib/i18n.ts`:** whoever merges second rebases.

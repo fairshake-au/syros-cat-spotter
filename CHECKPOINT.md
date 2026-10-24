@@ -8,7 +8,7 @@ Worktree: .claude/worktrees/ecstatic-varahamihira-3050d5, branch claude/ecstatic
 - Artifact for Samuel: https://claude.ai/artifact/PVMQeW7J5waaqXkwzcCqz7
 - Linear SYC-508 In Progress, artifact linked, status comment posted.
 - Follow-ups filed: SYC-629 (pull to refresh), SYC-630 (picker), SYC-631 (cat-alogue profile chip), SYC-632 (server no-cat guard), SYC-633 (cat page). Option B ticket only if Samuel picks A.
-- Messaged syc-509-a11y (it lands first, I rebase) and SYC-628 profile session (no reply yet).
+- Messaged syc-509-a11y (it lands first, I rebase) and SYC-628 profile session (both replied: a11y #? lands first, profile #296 lands first; follow-up SYC-635).
 
 ## Waiting on
 - Samuel: approve spec + pick D1 (recommended A).
