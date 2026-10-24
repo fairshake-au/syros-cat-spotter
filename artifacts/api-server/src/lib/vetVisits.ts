@@ -174,40 +174,6 @@ function checkVisit(person: Person, input: VisitInput, now: Date): Date {
 /** At most this many visits in one round (plan PR 3.2). */
 export const ROUND_MAX = 40;
 
-export interface RoundInput {
-  /** The colony whose planner the round was logged from; its cats stay where they are. */
-  colonyId: number;
-  /** YYYY-MM-DD, shared by every visit in the round. */
-  date: string;
-  visits: { catId: number; value: VetVisitValue }[];
-}
-
-/**
- * Logs a whole trapping round (SYC-396 PR 3.2; spec §8.5): one visit per cat,
- * each written exactly as `logVetVisit` writes it, all in ONE transaction, so
- * the round is saved whole or not at all. The cats are locked in ascending id
- * order, so two rounds over the same cats queue rather than deadlock. A cat
- * from another colony gets its visit and stays in its own colony: a visit
- * never writes a `colony` statement.
- */
-export async function logRound(person: Person, input: RoundInput, now = new Date()): Promise<SavedVisit[]> {
-  if (!can(person, "log_vet_visit")) throw notAuthorised();
-  if (input.visits.length === 0) throw new ObservationRefused("MALFORMED_VALUE", "Tick at least one cat");
-  if (input.visits.length > ROUND_MAX) throw new ObservationRefused("MALFORMED_VALUE", `Up to ${ROUND_MAX} cats in one round`);
-  const catIds = input.visits.map((v) => v.catId);
-  if (new Set(catIds).size !== catIds.length) throw new ObservationRefused("MALFORMED_VALUE", "Each cat once per round");
-  const checked = input.visits.map((v) => ({ v, observedAt: checkVisit(person, { ...v, date: input.date }, now) }));
-
-  return inStatementTransaction(async (tx, news) => {
-    for (const id of [...catIds].sort((a, b) => a - b)) await lockCat(tx, id);
-    const saved: SavedVisit[] = [];
-    for (const { v, observedAt } of checked) {
-      saved.push(await writeVisit(tx, news, person, { ...v, date: input.date }, observedAt, now));
-    }
-    return saved;
-  });
-}
-
 /**
  * The visit's rows, inside the caller's transaction, with its cat already
  * locked: the visit, then its `sterilised` row(s) (D8) and `vaccinated` row.
@@ -221,59 +187,57 @@ async function writeVisit(
   now: Date,
 ): Promise<SavedVisit> {
   const did = Array.isArray(input.value?.did) ? input.value.did : [];
-  {
-    const target = await catTarget(input.catId, tx);
-    const roleAtTime = actingRole(person, "log_vet_visit", target);
-    const base = { catId: input.catId, accountId: person.id, roleAtTime, observedAt };
+  const target = await catTarget(input.catId, tx);
+  const roleAtTime = actingRole(person, "log_vet_visit", target);
+  const base = { catId: input.catId, accountId: person.id, roleAtTime, observedAt };
 
-    const visit = await commitStatement(tx, { ...base, kind: "vet_visit", value: input.value }, news, now);
-    const clinic = clinicName(input.value.clinicId);
+  const visit = await commitStatement(tx, { ...base, kind: "vet_visit", value: input.value }, news, now);
+  const clinic = clinicName(input.value.clinicId);
 
-    const sterilisedIds: number[] = [];
-    const overruled: number[] = [];
-    if (did.includes("sterilised")) {
-      const value = { sterilised: true, clinic, vetVisitId: visit.id, reason: VISIT_REASON };
-      const observations = (await loadCatRecords([input.catId], tx)).get(input.catId)?.observations ?? [];
-      const above = notSterilisedToOverrule(observations);
-      if (above.length === 0) {
-        sterilisedIds.push((await commitStatement(tx, { ...base, kind: "sterilised", value, fromVisit: true }, news, now)).id);
-      }
-      const displaced = supersedeChains(observations, "sterilised").displaced;
-      for (const guardianNo of above) {
-        // Held to the end of the transaction: a second visit or a correction
-        // of the same statement queues behind this one. A row only other
-        // visits hold down isn't "active", so it is locked plainly.
-        if (displaced.has(guardianNo.id)) {
-          await tx.execute(sql`select id from observations where id = ${guardianNo.id} for update`);
-        } else {
-          await lockActiveObservation(tx, guardianNo.id);
-        }
-        const row = await commitStatement(
-          tx,
-          {
-            ...base,
-            kind: "sterilised",
-            value,
-            fromVisit: true,
-            supersedesId: guardianNo.id,
-            supersedeReason: overruleReason(observedAt),
-          },
-          news,
-          now,
-        );
-        sterilisedIds.push(row.id);
-        overruled.push(guardianNo.id);
-      }
+  const sterilisedIds: number[] = [];
+  const overruled: number[] = [];
+  if (did.includes("sterilised")) {
+    const value = { sterilised: true, clinic, vetVisitId: visit.id, reason: VISIT_REASON };
+    const observations = (await loadCatRecords([input.catId], tx)).get(input.catId)?.observations ?? [];
+    const above = notSterilisedToOverrule(observations);
+    if (above.length === 0) {
+      sterilisedIds.push((await commitStatement(tx, { ...base, kind: "sterilised", value, fromVisit: true }, news, now)).id);
     }
-
-    let vaccinatedId: number | null = null;
-    if (did.includes("vaccinated")) {
-      const value = { vaccines: input.value.vaccines, clinic, vetVisitId: visit.id };
-      vaccinatedId = (await commitStatement(tx, { ...base, kind: "vaccinated", value, fromVisit: true }, news, now)).id;
+    const displaced = supersedeChains(observations, "sterilised").displaced;
+    for (const guardianNo of above) {
+      // Held to the end of the transaction: a second visit or a correction
+      // of the same statement queues behind this one. A row only other
+      // visits hold down isn't "active", so it is locked plainly.
+      if (displaced.has(guardianNo.id)) {
+        await tx.execute(sql`select id from observations where id = ${guardianNo.id} for update`);
+      } else {
+        await lockActiveObservation(tx, guardianNo.id);
+      }
+      const row = await commitStatement(
+        tx,
+        {
+          ...base,
+          kind: "sterilised",
+          value,
+          fromVisit: true,
+          supersedesId: guardianNo.id,
+          supersedeReason: overruleReason(observedAt),
+        },
+        news,
+        now,
+      );
+      sterilisedIds.push(row.id);
+      overruled.push(guardianNo.id);
     }
-
-    return { visitId: visit.id, sterilisedIds, vaccinatedId, overruled };
   }
+
+  let vaccinatedId: number | null = null;
+  if (did.includes("vaccinated")) {
+    const value = { vaccines: input.value.vaccines, clinic, vetVisitId: visit.id };
+    vaccinatedId = (await commitStatement(tx, { ...base, kind: "vaccinated", value, fromVisit: true }, news, now)).id;
+  }
+
+  return { visitId: visit.id, sterilisedIds, vaccinatedId, overruled };
 }
 
 /**
@@ -421,8 +385,8 @@ const shortDay = (date: string) =>
  * 3. An unconfirmed cat, the same cat twice, a new cat (until Task 9) and a
  *    cat that already has a visit on the batch's date (unless "also the same
  *    day" is ticked) are refused, each naming its entry.
- * 4. The cats are locked in ascending id order (as logRound does: cats are
- *    only ever locked after the batch, never before, so no deadlock), then
+ * 4. The cats are locked in ascending id order (cats are only ever locked
+ *    after the batch, never before, so no deadlock), then
  *    each visit is written by writeVisit (D8 included), and every photo of
  *    the entry is linked to it in vet_visit_photos (Ruling R7; R4 relies on
  *    the link and the visit sharing this transaction).
