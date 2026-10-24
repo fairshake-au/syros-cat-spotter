@@ -8,6 +8,9 @@ import { guardianOn, newColony, RUN, signedPerson, type Signed } from "../test/r
 import { isOpenMapLink } from "../test/openMapLink";
 import { viewAround, tapToPosition } from "../lib/mapTiles/geometry";
 import { mintTileToken } from "../lib/mapTiles/tileToken";
+import { renderAreasPage, type AreaRow } from "../lib/teamPages/areasPage";
+import type { AreaChange } from "../lib/areas/areaHistory";
+import { busiestFirst } from "./teamAreas";
 
 // SYC-396 PR 2.4 (plan Task 2.4.3; dashboard §3.3): the Areas page. Team-only
 // (edit_named_areas). Areas written here use this run's own keys and sit in
@@ -49,7 +52,7 @@ describe("the Areas page", () => {
   it("lists every area with its centre, and says the version", async () => {
     const res = await page(team.cookie);
     expect(res.status).toBe(200);
-    expect(res.text).toContain("<h3>Kini</h3>");
+    expect(res.text).toContain("<summary><strong>Kini</strong>");
     // Each area's lines say it in words; the only numbers on the page are the Add form's example hints.
     const meta = [...res.text.matchAll(/<p class="meta">([\s\S]*?)<\/p>/g)].map((m) => m[1]!.replace(/<[^>]*>/g, " "));
     expect(meta.length).toBeGreaterThan(0);
@@ -57,7 +60,7 @@ describe("the Areas page", () => {
     expect(res.text).not.toContain("Centre: ");
     expect(res.text).toContain("37.44360%2C24.88890");
     expect(res.text).toMatch(/This is version \d+\./);
-    expect(res.text).toContain("nearest this centre");
+    expect(res.text).toMatch(/<span class="meta">\d+ cats?<\/span>/);
   });
 
   it("says under the name boxes that area names are shown to cat guardians", async () => {
@@ -96,7 +99,7 @@ describe("the Areas page", () => {
     expect(after.text).toContain(`Vt areas-team · renamed ${nm("Page")} to ${nm("Paged")}`);
     expect(after.text).toContain(`Vt areas-team · moved ${nm("Paged")}&#39;s centre`);
     expect(after.text).toContain(`Vt areas-team · retired ${nm("Paged")}`);
-    expect(after.text).not.toContain(`<h3>${nm("Paged")}</h3>`);
+    expect(after.text).not.toContain(`<summary><strong>${nm("Paged")}</strong>`);
   });
 
   it("a cat guardian gets 403 on the page and on the form", async () => {
@@ -275,5 +278,66 @@ describe("moving an area's centre by map (517-B)", () => {
       expect((await sendTo(path, guardian.cookie, tap().body)).status, path).toBe(403);
     }
     expect((await getPage("/api/team/areas/kini/centre", guardian.cookie)).status).toBe(403);
+  });
+});
+
+// SYC-619 PR 2 (spec §4.2, D5): the Areas page as short rows, busiest first.
+describe("the Areas page as short rows (SYC-619 §4.2)", () => {
+  const area = (key: string, name: string, cats: number): AreaRow => ({ key, name, lat: 37.4, lng: 24.9, cats });
+  const render = (o: { areas?: AreaRow[]; history?: AreaChange[]; again?: Parameters<typeof renderAreasPage>[0]["again"] }) =>
+    renderAreasPage({ personName: "T", link: true, areas: o.areas ?? [], version: 22, firstVersion: 3, history: o.history ?? [], again: o.again });
+  const change = (over: Partial<AreaChange> & { version: number }): AreaChange => ({
+    at: new Date("2026-10-15T00:00:00Z"),
+    kind: "area_added",
+    who: null,
+    before: null,
+    after: { key: "x", name: "X", lat: 1, lng: 2, retired: false },
+    ...over,
+  });
+
+  it("sorts cats most first, then name; two areas with no cats are both listed in name order", () => {
+    const sorted = busiestFirst([area("b", "Beta", 0), area("a", "Alpha", 0), area("c", "Cee", 3), area("d", "Dee", 5)]);
+    expect(sorted.map((a) => a.name)).toEqual(["Dee", "Cee", "Alpha", "Beta"]);
+    const html = render({ areas: sorted });
+    const names = [...html.matchAll(/<summary><strong>([^<]*)<\/strong>/g)].map((m) => m[1]);
+    expect(names).toEqual(["Dee", "Cee", "Alpha", "Beta"]);
+  });
+
+  it("the closed row is the name and its cats, with no fold marker class of its own", () => {
+    const html = render({ areas: [area("a", "Alpha", 1), area("b", "Beta", 2)] });
+    expect(html).toContain('<li><details class="arearow"><summary><strong>Alpha</strong> <span class="meta">1 cat</span></summary>');
+    expect(html).toContain('<span class="meta">2 cats</span></summary>');
+    expect(html).toContain("min-height:48px");
+  });
+
+  it("a form that comes back with an error keeps its row open", () => {
+    const html = render({
+      areas: [area("a", "Alpha", 1), area("b", "Beta", 2)],
+      again: { op: "rename", key: "a", field: "name", message: "Too short.", values: { name: "A" } },
+    });
+    expect(html).toContain('<details class="arearow" open><summary><strong>Alpha</strong>');
+    expect(html).toContain('<details class="arearow"><summary><strong>Beta</strong>');
+  });
+
+  it("the first version's rows fold into one line; a later row with no name stays on its own", () => {
+    const first = Array.from({ length: 3 }, (_, i) => change({ version: i + 1 }));
+    const later = change({ version: 4, at: new Date("2026-10-20T10:00:00Z"), kind: "area_moved", who: null });
+    const html = render({ history: [later, ...first.reverse()] });
+    expect(html).toContain("3 areas set up by Syros Cats, 15 Oct 2026");
+    expect(html.match(/<li class="meta">/g)).toHaveLength(2);
+    expect(html).toContain("Syros Cats (the first list) · moved X&#39;s centre");
+  });
+
+  it("the intro and the footer are in the How this is worked out fold", () => {
+    const html = render({});
+    const fold = html.slice(html.indexOf('<details class="method">'));
+    expect(fold).toContain("A place belongs to the area whose centre is nearest.");
+    expect(fold).toContain("This is version 22.");
+  });
+
+  it("the real page lists the seed's rows as one folded line", async () => {
+    const res = await page(team.cookie);
+    expect(res.text).toMatch(/\d+ areas set up by Syros Cats, 15 Oct 2026/);
+    expect(res.text).not.toContain("Syros Cats (the first list) · added Kini");
   });
 });
