@@ -34,7 +34,6 @@ import { requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { spottedAgainMessage } from "../lib/sightingMessage";
 import { writeObservation, type DbOrTx } from "../lib/observations";
-import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto, type NewPhotoInput } from "../lib/matching";
 import { saveSpotWithPhotos, spotPhotoList, validateSpotPhotos } from "../lib/spotPhotos";
 import { containsOffensiveLanguage } from "../lib/moderation";
@@ -1033,10 +1032,25 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
           set: { points: sql`${profilesTable.points} + ${pointsAwarded}` },
         });
 
-      await tx
-        .insert(catSubscriptionsTable)
-        .values({ deviceId: spotterId, catId: cat!.id })
-        .onConflictDoNothing();
+      // SYC-624: a phone that unfollowed this cat stays unfollowed; only a
+      // fresh Follow tap (which clears its cat_unfollows row) brings it back.
+      // Lock the cat row first (shared): follow and unfollow hold it for
+      // update, so a racing unfollow commits before this statement takes its
+      // snapshot and the guard below sees its cat_unfollows row. Lock order:
+      // this transaction holds the sighting row, then wants the cat row;
+      // follow/unfollow and claim take the cat row and never a sighting row,
+      // and severPerson updates sightings first, then cats (the same order
+      // as here), so no cycle can form.
+      await tx.execute(sql`select 1 from cats where id = ${cat!.id} for share`);
+      await tx.execute(sql`
+        insert into cat_subscriptions (device_id, cat_id)
+        select ${spotterId}, ${cat!.id}
+        where not exists (
+          select 1 from cat_unfollows
+          where device_id = ${spotterId} and cat_id = ${cat!.id}
+        )
+        on conflict do nothing
+      `);
 
       return { cat: cat!, pointsAwarded, isNewCat };
     });

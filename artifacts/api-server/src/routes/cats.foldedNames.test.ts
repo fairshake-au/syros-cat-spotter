@@ -33,7 +33,7 @@ vi.mock("../lib/catNames", async (importOriginal) => {
 
 vi.mock("../lib/notifications", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/notifications")>();
-  return { ...actual, notifyCatSpotters: vi.fn() };
+  return { ...actual, notifyCatFollowers: vi.fn() };
 });
 
 import app from "../app";
