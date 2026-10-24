@@ -30,13 +30,13 @@ interface Polygon {
   pts: unknown;
   opts: any;
   added: boolean;
-  tilesLoaded: number;
+  layerBuilt: boolean;
 }
 
 function setUp(
   opts: {
     outline?: string | null;
-    fetchMode?: "hang" | "tokens" | "reject";
+    fetchMode?: "hang" | "tokens" | "reject" | "empty";
   } = {},
 ) {
   const outlineAttr =
@@ -60,7 +60,7 @@ function setUp(
 
   const panes: Array<{ name: string; style: Record<string, string> }> = [];
   const polygons: Polygon[] = [];
-  let tilesLoaded = 0;
+  let layerBuilt = false;
   const tileLayerCtor: { layer?: any } = {};
   const note = () => w.document.getElementById("mapnote") as any;
 
@@ -83,13 +83,13 @@ function setUp(
     {
       map: () => map,
       polygon: (pts: unknown, o: any) => {
-        const poly: Polygon = { pts, opts: o, added: false, tilesLoaded: -1 };
+        const poly: Polygon = { pts, opts: o, added: false, layerBuilt: true };
         polygons.push(poly);
         const stub: any = new Proxy(
           {
             addTo: () => {
               poly.added = true;
-              poly.tilesLoaded = tilesLoaded;
+              poly.layerBuilt = layerBuilt;
               return stub;
             },
           } as Record<string, unknown>,
@@ -100,6 +100,7 @@ function setUp(
       GridLayer: {
         extend: (proto: any) => {
           return function () {
+            layerBuilt = true; // from here Leaflet can ask for pictures
             tileLayerCtor.layer = proto;
             return chain();
           };
@@ -121,6 +122,14 @@ function setUp(
       return Promise.reject(new Error("offline"));
     const b = JSON.parse(init.body);
     const tokens: Record<string, string> = {};
+    if (opts.fetchMode === "empty") {
+      return Promise.resolve({
+        ok: true,
+        redirected: false,
+        headers: { get: () => "application/json" },
+        json: async () => ({ tokens: {} }),
+      });
+    }
     for (let x = b.xMin; x <= b.xMax; x++)
       for (let y = b.yMin; y <= b.yMax; y++) tokens[`${b.z}/${x}/${y}`] = TOKEN;
     return Promise.resolve({
@@ -136,8 +145,7 @@ function setUp(
     w,
     panes,
     polygons,
-    loadingLine: () =>
-      w.document.getElementById("maploading") as any,
+    loadingLine: () => w.document.getElementById("maploading") as any,
     note,
     /** Ask the script's tile layer for n pictures, as Leaflet would. */
     async tiles(n: number) {
@@ -152,9 +160,6 @@ function setUp(
       await new Promise((r) => setTimeout(r, 20));
       return imgs;
     },
-    countLoaded: () => {
-      tilesLoaded++;
-    },
   };
 }
 
@@ -167,7 +172,7 @@ describe("the map while its pictures load (SYC-619 §5.4)", () => {
     const loading = t.polygons.find((p) => p.opts.pane === "outlineBelow");
     expect(loading).toBeDefined();
     expect(loading!.added).toBe(true);
-    expect(loading!.tilesLoaded).toBe(0);
+    expect(loading!.layerBuilt).toBe(false); // in place before any picture can be asked for
     expect(loading!.pts).toEqual(SYROS_OUTLINE.map((p) => [...p]));
     expect(loading!.opts).toMatchObject({
       stroke: true,
@@ -206,6 +211,30 @@ describe("the loading line goes with the first picture, or the failure note", ()
     const [img] = await t.tiles(1);
     expect(t.loadingLine()).not.toBeNull(); // asked for, not arrived
     img.onload();
+    expect(t.loadingLine()).toBeNull();
+  });
+
+  it("goes when the only picture fails for good, without a failure note", async () => {
+    const t = setUp({ fetchMode: "tokens" });
+    const [img] = await t.tiles(1);
+    img.onerror(); // first failure: asks for a new token
+    await new Promise((r) => setTimeout(r, 20));
+    expect(t.loadingLine()).not.toBeNull(); // still being retried
+    img.onerror(); // second failure is final
+    expect(t.loadingLine()).toBeNull();
+    expect(t.note().hidden).toBe(true);
+  });
+
+  it("goes when the token request itself fails", async () => {
+    const t = setUp({ fetchMode: "reject" });
+    await t.tiles(1);
+    expect(t.loadingLine()).toBeNull();
+    expect(t.note().hidden).toBe(true);
+  });
+
+  it("goes when every square in view is off the island (no token)", async () => {
+    const t = setUp({ fetchMode: "empty" });
+    await t.tiles(2);
     expect(t.loadingLine()).toBeNull();
   });
 

@@ -273,6 +273,7 @@
   function show(entry, token) {
     var img = entry.img;
     if (!token) {
+      loadingDone(); // nothing to wait for here
       entry.done(null, img); // off the island: a blank square
       return;
     }
@@ -293,6 +294,7 @@
         return;
       }
       failed++;
+      loadingDone(); // this request is settled, whatever tilesFailing decides
       tilesFailing();
       entry.done(new Error("map picture"), img);
     };
@@ -315,6 +317,7 @@
           failed++;
           e.done(new Error("map picture"), e.img);
         });
+        loadingDone();
         tilesFailing();
       });
   }
