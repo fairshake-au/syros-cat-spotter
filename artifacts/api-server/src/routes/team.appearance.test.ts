@@ -873,7 +873,7 @@ describe("the Appearance section on the team cat page", () => {
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
     expect(res.status).toBe(200);
     const html = res.text;
-    expect(html).toContain('<h2 id="h-coat">Coat and markings</h2><section id="appearance"');
+    expect(html).toContain('<span id="appearance"></span><h2 id="h-coat">Coat and markings</h2><section>');
     expect(html).toContain('<p class="public">Ginger · White paws · One eye</p>');
     expect(html).toContain(`id="a-${reading.id}"`);
     // SYC-602 §3.7: where it came from in plain words; no model names.
@@ -901,7 +901,7 @@ describe("the Appearance section on the team cat page", () => {
 
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
     const html = res.text;
-    const section = html.slice(html.indexOf('<section id="appearance"'));
+    const section = html.slice(html.indexOf("<section>", html.indexOf('id="tab-coat"')));
     // The public line keeps §2's words: the colours, then the pattern (Plain is never said).
     expect(section).toContain('<p class="public">Brown · Ginger · Stripes</p>');
     // SYC-602 §3.7: the fold says the coat in the team's words (SYC-443).
@@ -989,10 +989,10 @@ describe("the Appearance section on the team cat page", () => {
     await team(catId, "coat", { value: { colours: ["ginger"], pattern: "plain" }, daysAgo: 1 });
     const get = async (qs: string) => (await request(app).get(`/api/team/cats/${catId}${qs}`).set("Cookie", cookie)).text;
     const plain = await get("");
-    expect(plain).toContain('<section id="appearance">');
+    expect(plain).toContain('<span id="appearance"></span><h2 id="h-coat">');
     expect(plain).not.toContain('class="fold"');
     const asked = await get("?open=coat");
-    expect(asked).toContain('<section id="appearance">');
+    expect(asked).toContain('<span id="appearance"></span><h2 id="h-coat">');
     expect(asked).not.toContain('class="fold"');
   });
 
@@ -1001,7 +1001,7 @@ describe("the Appearance section on the team cat page", () => {
     const reading = await machine(catId, ["ginger"]);
     denied.cap = "set_appearance";
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
-    expect(res.text).toContain('<h2 id="h-coat">Coat and markings</h2><section id="appearance"');
+    expect(res.text).toContain('<span id="appearance"></span><h2 id="h-coat">Coat and markings</h2><section>');
     expect(res.text).not.toContain("/appearance/confirm");
     expect(res.text).not.toContain(`/api/team/statements/${reading.id}/wrong`);
   });
@@ -1143,7 +1143,7 @@ describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => 
     const catId = await newCat();
     await machine(catId, ["ginger", "tabby"]);
     const html = await page(catId);
-    const section = html.slice(html.indexOf('<section id="appearance"'));
+    const section = html.slice(html.indexOf("<section>", html.indexOf('id="tab-coat"')));
     for (const p of ["plain", "stripes", "patches"]) {
       expect(section).toContain(`type="radio" id="ac-coat-p-${p}" name="pattern" value="${p}">`);
     }
@@ -1171,7 +1171,7 @@ describe("SYC-398 PR B: the form and the drawn cat on the team cat page", () => 
       const done = new URL(res.headers["location"], "http://x").searchParams.get("done")!;
       expect(done).toBe("a_coat_corrected");
       const html = await page(catId, done);
-      const section = html.slice(html.indexOf('<section id="appearance"'));
+      const section = html.slice(html.indexOf("<section>", html.indexOf('id="tab-coat"')));
       expect(section, c.caption).toContain('<svg class="drawncat"');
       expect(section, c.caption).toContain(`aria-label="${c.caption}"`);
       expect(section, c.caption).toContain(`<strong>${c.caption}</strong>`);
@@ -1245,7 +1245,7 @@ describe("SYC-443: the team cat page says the coat in the team's words (§15.1)"
     (await request(app).get(`/api/team/cats/${catId}${done ? `?done=${done}` : ""}`).set("Cookie", cookie)).text;
   const correct = (catId: number, body: Record<string, unknown>) =>
     form(`/api/team/cats/${catId}/appearance/correct`).send({ reason: "Looked closely", ...body });
-  const sectionOf = (html: string) => html.slice(html.indexOf('<section id="appearance"'));
+  const sectionOf = (html: string) => html.slice(html.indexOf("<section>", html.indexOf('id="tab-coat"')));
 
   it("every place on the page: summary line, photo description, Appearance, drawn cat and history", async () => {
     const catId = await newCat();
