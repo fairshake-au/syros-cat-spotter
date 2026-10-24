@@ -69,6 +69,7 @@ export function RestoreRequestScreen({
   const [, setTick] = useState(0);
   const lastSent = useRef<string | null>(null);
   const inFlight = useRef(false);
+  const codeInput = useRef<TextInput>(null);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
   // Re-render each second on the code screen so "send another" wakes up after a minute.
@@ -122,7 +123,10 @@ export function RestoreRequestScreen({
       if (isCodeNotValid(err)) {
         const note = noteWrongTry();
         if (note.wrongTries >= MAX_WRONG_TRIES) setDead(true);
-        else setCodeProblem('refused');
+        else {
+          setCodeProblem('refused');
+          selectCode();
+        }
       } else if (isTooManyTries(err)) {
         lastSent.current = null;
         setCodeProblem('too-many');
@@ -136,6 +140,16 @@ export function RestoreRequestScreen({
     }
   };
 
+  /** M7: after a refusal the box keeps its focus, and the next typing replaces the code. */
+  const selectCode = () => {
+    const box = codeInput.current as unknown as {
+      select?: () => void;
+      setSelection?: (start: number, end: number) => void;
+    } | null;
+    if (box?.select) box.select();
+    else box?.setSelection?.(0, 10);
+  };
+
   const onCodeChange = (v: string) => {
     setCode(v);
     setCodeProblem(null);
@@ -144,8 +158,9 @@ export function RestoreRequestScreen({
     void submitCode(v);
   };
 
-  const askedAt = readWaiting()?.askedAt;
-  const canResend = askedAt === undefined || Date.now() - askedAt >= RESEND_AFTER_MS;
+  // Greyed only for a minute after a real request (M8): a wrong try alone makes a note too.
+  const live = readWaiting();
+  const canResend = !live || live.requests < 1 || Date.now() - live.askedAt >= RESEND_AFTER_MS;
   const backToAddress = () => {
     setCode('');
     setCodeProblem(null);
@@ -209,6 +224,7 @@ export function RestoreRequestScreen({
                 ]}
               >
                 <TextInput
+                  ref={codeInput}
                   testID="restore-code-input"
                   value={code}
                   onChangeText={onCodeChange}
@@ -221,7 +237,8 @@ export function RestoreRequestScreen({
                   maxLength={10}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  editable={!checking}
+                  // Stays editable while checking (M7): blurring would close the
+                  // keyboard on every check. The in-flight guard stops a second send.
                   accessibilityLabel={t('restoreCodeTitle')}
                   style={[styles.input, { color: colors.foreground }]}
                 />

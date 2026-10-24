@@ -57,7 +57,8 @@ export function readWaiting(now: number = Date.now()): RestoreWaiting | null {
   try { raw = store()?.getItem(RESTORE_WAITING_KEY) ?? null; } catch { return null; }
   const v = parse(raw);
   if (!v) return null;
-  if (now - v.askedAt > WINDOW_MS) {
+  // Also expired: stamped more than a minute ahead (the device clock moved back), or it would live for ever.
+  if (now - v.askedAt > WINDOW_MS || v.askedAt > now + 60_000) {
     // Only the note: a pending move keeps its own 60-second life.
     try { store()?.removeItem(RESTORE_WAITING_KEY); } catch { /* blocked storage */ }
     return null;

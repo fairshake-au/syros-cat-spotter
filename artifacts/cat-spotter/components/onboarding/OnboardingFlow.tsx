@@ -26,7 +26,8 @@ import type { OnboardingStep } from './steps';
 export function OnboardingFlow() {
   const { deviceId } = useDevice();
   // SYC-664: a reload while the person fetches their emailed code reopens on the code box.
-  const [waitingForCode] = useState(() => readWaiting() !== null);
+  // Only after a real request (M8): a wrong try alone also makes a note.
+  const [waitingForCode] = useState(() => (readWaiting()?.requests ?? 0) >= 1);
   const [step, setStep] = useState<OnboardingStep | 'restore'>(waitingForCode ? 'restore' : 'welcome');
 
   switch (step) {

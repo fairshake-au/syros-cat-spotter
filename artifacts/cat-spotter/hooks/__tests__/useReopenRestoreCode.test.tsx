@@ -69,6 +69,12 @@ describe('useReopenRestoreCode', () => {
     expect(replace).toHaveBeenCalledTimes(1);
   });
 
+  it('M8: a note with no request (a wrong try, or "I already have a code") reopens nothing', () => {
+    window.localStorage.setItem(RESTORE_WAITING_KEY, JSON.stringify({ askedAt: Date.now(), requests: 0, wrongTries: 1 }));
+    renderHook(() => useReopenRestoreCode(true, true, '/'));
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('does nothing without a live note, or with an expired one', () => {
     run(base);
     note(Date.now() - 16 * 60_000);

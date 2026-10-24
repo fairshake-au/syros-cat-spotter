@@ -17,7 +17,7 @@ const HINT_TEXT =
   'Use Cat Spotters from an icon on your home screen? Go back to it and type the 8-digit code from the email.';
 
 const HINT_EL =
-  'Χρησιμοποιείς το Cat Spotters από εικονίδιο στην αρχική οθόνη; Γύρνα εκεί και πληκτρολόγησε τον κωδικό 8 ψηφίων από το email.';
+  'Χρησιμοποιείς το Cat Spotters από εικονίδιο στην αρχική οθόνη; Γύρνα εκεί και πληκτρολόγησε τον 8ψήφιο αριθμό από το email.';
 
 const pageFor = (next: string) => passwordPage({ action: '/_gate/login', next });
 

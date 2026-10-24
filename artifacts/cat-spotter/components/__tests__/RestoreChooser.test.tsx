@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** SYC-664 T6: the shared chooser. The link page's own behaviour is pinned in KeepSafe.test.tsx. */
 import React from 'react';
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TRANSLATIONS } from '@/lib/i18n';
 
@@ -59,6 +59,28 @@ describe('RestoreChooser', () => {
     } finally {
       if (ua) Object.defineProperty(window.navigator, 'userAgent', ua);
       else delete (window.navigator as unknown as Record<string, unknown>).userAgent;
+    }
+  });
+
+  it('T6: fromCode never copies a link: the handle never reaches a URL', async () => {
+    const { peekRestore } = await import('@/lib/keepSafe');
+    vi.mocked(peekRestore).mockResolvedValueOnce({
+      spotters: [{ choice: 'choice-lili', username: 'Lili' }],
+      openedOnAskingPhone: false,
+      alreadyHere: null,
+    });
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: { writeText } });
+    try {
+      const { findByText, queryByTestId } = render(<RestoreChooser secret="handle-secret" fromCode />);
+      const no = await findByText(en.restoreDifferentNo);
+      await act(async () => {
+        fireEvent.click(no);
+      });
+      expect(writeText).not.toHaveBeenCalled();
+      expect(queryByTestId('restore-copied')).toBeNull();
+    } finally {
+      delete (window.navigator as unknown as Record<string, unknown>).clipboard;
     }
   });
 });

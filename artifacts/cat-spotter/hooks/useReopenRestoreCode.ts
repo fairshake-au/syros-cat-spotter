@@ -35,7 +35,11 @@ export function useReopenRestoreCode(ready: boolean, hasName: boolean, pathname:
     if (ready && !decided.current) {
       decided.current = true;
       go.current =
-        hasName && pathname !== '/get-spots-back' && pathname !== '/restore' && readWaiting() !== null;
+        hasName &&
+        pathname !== '/get-spots-back' &&
+        pathname !== '/restore' &&
+        // Only after a real request (M8): a wrong try or "I already have a code" alone makes a note too.
+        (readWaiting()?.requests ?? 0) >= 1;
     }
     if (go.current && !sent.current && navKey) {
       sent.current = true;

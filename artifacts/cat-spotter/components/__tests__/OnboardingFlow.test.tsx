@@ -159,6 +159,12 @@ describe('reopening on the code box (SYC-664)', () => {
     expect(getByText('STUB_WELCOME')).toBeTruthy();
   });
 
+  it('M8: a note with no request (a wrong try only) opens on Welcome', () => {
+    window.localStorage.setItem(RESTORE_WAITING_KEY, JSON.stringify({ askedAt: Date.now(), requests: 0, wrongTries: 1 }));
+    const { getByText } = render(<OnboardingFlow />);
+    expect(getByText('STUB_WELCOME')).toBeTruthy();
+  });
+
   it('with no note it opens on Welcome', () => {
     const { getByText } = render(<OnboardingFlow />);
     expect(getByText('STUB_WELCOME')).toBeTruthy();

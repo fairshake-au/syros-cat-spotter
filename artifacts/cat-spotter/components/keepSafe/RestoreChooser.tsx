@@ -198,6 +198,8 @@ export function RestoreChooser({
 
   /** The fragment form, like the email's (review finding 2): never `?t=`, which servers log. */
   const copyLink = async (): Promise<boolean> => {
+    // T6: a handle from a code never goes into a URL.
+    if (fromCode) return false;
     if (!token.current || Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.clipboard) {
       setCopyFailed(true);
       return false;
@@ -330,10 +332,10 @@ export function RestoreChooser({
               ? t('restoreDifferentQuestion').replace('{name}', onlyName(state.peek)!)
               : t('restoreDifferentQuestionYou')}
           </Text>
-          {/* The same size: none of the three answers is the "right" one to tap through. */}
+          {/* The same size and weight (T9): none of the three answers is the "right" one to tap through. */}
           <View style={styles.pair}>
             <View style={styles.pairItem}>
-              <Button variant="primary" size="lg" block onPress={() => confirmDifferent(state.peek)}>
+              <Button variant="secondary" size="lg" block onPress={() => confirmDifferent(state.peek)}>
                 {onlyName(state.peek)
                   ? t('restoreDifferentYes').replace('{name}', onlyName(state.peek)!)
                   : t('restoreDifferentYesYou')}

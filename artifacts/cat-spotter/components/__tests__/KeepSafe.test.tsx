@@ -10,7 +10,7 @@
  */
 import React from 'react';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TRANSLATIONS } from '@/lib/i18n';
 
 const h = vi.hoisted(() => ({
@@ -471,6 +471,24 @@ describe('the /restore page', () => {
     expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
   });
 
+  it('T9: the three answers to "is this the app or browser…" carry equal weight, all secondary', async () => {
+    vi.mocked(keepSafe.peekRestore).mockResolvedValue({
+      spotters: [{ choice: 'choice-lili', username: 'Lili' }],
+      openedOnAskingPhone: false,
+      alreadyHere: null,
+    });
+    h.device = { deviceId: 'dev-other', username: null, isReady: true };
+    const { findByText } = render(<RestorePage />);
+    await findByText(en.restoreUseIcon, undefined, { timeout: 3000 });
+    const labels = [en.restoreDifferentYes.replace('{name}', 'Lili'), en.restoreDifferentNo, en.restoreUseIcon];
+    const last = (label: string) => [...h.buttons].reverse().find((b) => b.label === label);
+    for (const label of labels) {
+      expect(last(label), label).toBeTruthy();
+      expect(last(label)!.variant, label).toBe('secondary');
+      expect(last(label)!.size, label).toBe('lg');
+    }
+  });
+
   it('Decision 12: the phone that asked gets no question, just the button', async () => {
     h.device = { deviceId: 'dev-new', username: null, isReady: true };
     const { findByText, queryByTestId } = render(<RestorePage />);
@@ -597,12 +615,19 @@ describe('the /restore page', () => {
   });
 });
 
+const beforeCodeBlock: { storage?: PropertyDescriptor; location?: PropertyDescriptor } = {};
+
 describe('code screen', () => {
   const refusal = (status: number, error: string) =>
     new ApiError(new Response(null, { status }), { error }, { method: 'POST', url: '/api/restore/code' });
   const typeCode = (el: HTMLElement, v: string) => fireEvent.change(el, { target: { value: v } });
 
+  // T7 hygiene: what this block replaces on window, put back after each test.
+  let savedStorage: PropertyDescriptor | undefined;
+  let savedLocation: PropertyDescriptor | undefined;
   beforeEach(() => {
+    savedStorage = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    savedLocation = Object.getOwnPropertyDescriptor(window, 'location');
     const mem = new Map<string, string>();
     Object.defineProperty(window, 'localStorage', {
       configurable: true,
@@ -622,6 +647,17 @@ describe('code screen', () => {
       alreadyHere: null,
     });
     Object.defineProperty(window, 'location', { configurable: true, value: { ...window.location, replace: vi.fn() } });
+  });
+  afterEach(() => {
+    cleanup();
+    for (const [key, saved] of [['localStorage', savedStorage], ['location', savedLocation]] as const) {
+      if (saved) Object.defineProperty(window, key, saved);
+      else delete (window as unknown as Record<string, unknown>)[key];
+    }
+  });
+  beforeAll(() => {
+    beforeCodeBlock.storage = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    beforeCodeBlock.location = Object.getOwnPropertyDescriptor(window, 'location');
   });
 
   const toCodeState = async (utils: ReturnType<typeof render>) => {
@@ -842,6 +878,35 @@ describe('code screen', () => {
     expect(readPendingMove()).toBeNull();
   });
 
+  it('M7: the box stays editable while a check runs, and after a refusal its contents are selected', async () => {
+    let refuse!: (e: unknown) => void;
+    vi.mocked(keepSafe.exchangeRestoreCode).mockImplementationOnce(() => new Promise((_, rej) => { refuse = rej; }));
+    const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    const input = utils.getByTestId('restore-code-input') as HTMLInputElement;
+    await act(async () => {
+      typeCode(input, '48291376');
+    });
+    expect(input.readOnly).toBe(false);
+    await act(async () => {
+      refuse(refusal(401, 'code_not_valid'));
+    });
+    await utils.findByTestId('restore-code-refused');
+    const box = utils.getByTestId('restore-code-input') as HTMLInputElement;
+    expect(box.selectionStart).toBe(0);
+    expect(box.selectionEnd).toBe('48291376'.length);
+  });
+
+  it('M8: "send another" is greyed only after a real request in the last minute', async () => {
+    // A wrong try with no request makes a note, but nothing was sent: send another is open.
+    window.localStorage.setItem(RESTORE_WAITING_KEY, JSON.stringify({ askedAt: Date.now(), requests: 0, wrongTries: 1 }));
+    const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    expect(utils.getByTestId('restore-code-resend').getAttribute('aria-disabled')).not.toBe('true');
+    cleanup();
+    noteRequest();
+    const again = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    expect(again.getByTestId('restore-code-resend').getAttribute('aria-disabled')).toBe('true');
+  });
+
   describe('leaving the chooser on the code path (I2)', () => {
     const linkRefusal = (url: string) =>
       new ApiError(new Response(null, { status: 401 }), { error: 'link_not_valid' }, { method: 'POST', url });
@@ -1004,5 +1069,12 @@ describe('code screen', () => {
       for (const k of keys) expect(TRANSLATIONS[lang][k], `${lang}.${k}`).toBeTruthy();
       expect(TRANSLATIONS[lang].restoreAskSent).toBeUndefined();
     }
+  });
+});
+
+describe('T7 hygiene', () => {
+  it('the code screen tests put window.localStorage and window.location back as they found them', () => {
+    expect(Object.getOwnPropertyDescriptor(window, 'localStorage')).toEqual(beforeCodeBlock.storage);
+    expect(Object.getOwnPropertyDescriptor(window, 'location')).toEqual(beforeCodeBlock.location);
   });
 });

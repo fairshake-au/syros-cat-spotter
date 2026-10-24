@@ -103,7 +103,7 @@ const RESTORE_CODE_HINT =
   'Use Cat Spotters from an icon on your home screen? Go back to it and type the 8-digit code from the email.';
 /** The Greek line, paired with the English one as the rest of the page is. */
 const RESTORE_CODE_HINT_EL =
-  'Χρησιμοποιείς το Cat Spotters από εικονίδιο στην αρχική οθόνη; Γύρνα εκεί και πληκτρολόγησε τον κωδικό 8 ψηφίων από το email.';
+  'Χρησιμοποιείς το Cat Spotters από εικονίδιο στην αρχική οθόνη; Γύρνα εκεί και πληκτρολόγησε τον 8ψήφιο αριθμό από το email.';
 
 /** True when the page being shown is /restore (or /restore/). `next` is the requested URL, so it is never built into HTML. */
 function isRestorePath(next) {

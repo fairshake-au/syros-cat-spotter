@@ -110,8 +110,8 @@ export const mailTokensTable = pgTable(
     replacedSecretHash: text("replaced_secret_hash"),
     attemptIpHash: text("attempt_ip_hash"),
     // restore only (SYC-664): keyed hash of the 8-digit code in the email, the
-    // wrong guesses so far, and the keyed hash of the opaque handle the app
-    // holds while it waits for the code.
+    // wrong guesses so far, and the plain (unkeyed) SHA-256 of the opaque
+    // 256-bit handle a right code returns, the same hash as token_hash.
     codeHash: text("code_hash"),
     codeAttempts: integer("code_attempts").notNull().default(0),
     handleHash: text("handle_hash"),

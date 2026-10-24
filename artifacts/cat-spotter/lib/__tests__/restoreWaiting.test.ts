@@ -45,6 +45,13 @@ describe('restoreWaiting', () => {
     expect(readWaiting(T0 + 1_000)).toBeNull(); // cleared on expiry
   });
 
+  it('T5 clamp: a note stamped more than a minute in the future (clock moved back) is expired', () => {
+    noteRequest(T0 + 2 * MIN);
+    expect(readWaiting(T0)).toBeNull();
+    noteRequest(T0 + 30_000);
+    expect(readWaiting(T0)).not.toBeNull();
+  });
+
   it('counts four requests within the window', () => {
     let w = noteRequest(T0);
     for (let i = 1; i < 4; i++) w = noteRequest(T0 + i * MIN);
