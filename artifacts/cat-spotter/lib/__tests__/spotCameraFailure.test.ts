@@ -1,9 +1,7 @@
 /**
- * Final review of PR #9, finding 6: when a live capture fails, the Spot screen
- * must switch to the failed state — which swaps in the phone-camera shutter
- * (`shutterKindFor`, covered in cameraMode.test.ts) and shows one message in
- * the centre panel. Putting back an alert on its own would leave a dead live
- * shutter, and the whole suite stayed green when that was tried.
+ * SYC-575: the Spot screen has one "Take a photo" button that opens the phone's
+ * camera, and a "Choose from your photos" link. The in-app live view was
+ * removed, so this guards that it doesn't creep back as a second path.
  *
  * `app/` is outside vitest's render paths, so this is a source scan, like the
  * route check in reviewRoutes.test.ts.
@@ -26,28 +24,23 @@ function handler(name: string, next: string): string {
   return source.slice(start, end);
 }
 
-describe('a failed live capture on the Spot screen', () => {
-  const capture = handler('captureLivePhoto', 'requestLiveCamera');
-
-  it('switches to the failed state on both the fallback and the error path', () => {
-    expect(capture.match(/setCameraFailed\(true\)/g)).toHaveLength(2);
+describe('the Spot screen has one way to take a photo (SYC-575)', () => {
+  it('has no live view: no in-app camera, permission prompt or live shutter', () => {
+    expect(source).not.toMatch(/\bCameraView\b/);
+    expect(source).not.toMatch(/useCameraPermissions/);
+    expect(source).not.toMatch(/captureLivePhoto|requestLiveCamera|retryLiveCamera/);
+    expect(source).not.toMatch(/live-camera|showLiveView/);
   });
 
-  it('does not put an alert over the failed state', () => {
-    expect(capture).not.toMatch(/\bnotify\(/);
+  it('wires the button to the phone camera and the link to the library', () => {
+    expect(source).toMatch(/onTakePhoto=\{\(\) => pickPhoto\(true\)\}/);
+    expect(source).toMatch(/onChooseFromLibrary=\{\(\) => pickPhoto\(false\)\}/);
   });
 
-  it('shows one message: the bottom hint is hidden while the camera has failed', () => {
-    // The failed state builds the centre panel, and the hint only renders
-    // when there is no panel.
-    expect(source).toMatch(/const cameraPanel = cameraFailed \? \(/);
-    expect(source).toMatch(/\{!cameraPanel && \(\s*<Text\s+style=\{styles\.captureHint\}/);
-  });
-
-  it('hides the bottom hint while asking for camera access, too', () => {
-    // "Tap the button to open your camera" contradicted the "Show live view"
-    // prompt and the two stacked on top of each other (seen 30 Sep).
-    expect(source).toMatch(/cameraState === 'request' \|\| cameraState === 'settings' \? \(/);
+  it('hides the Photo tips lightbulb glyph from screen readers', () => {
+    expect(source).toMatch(
+      /<MaterialCommunityIcons[\s\S]*?name="lightbulb-on-outline"[\s\S]*?aria-hidden[\s\S]*?\/>/,
+    );
   });
 });
 
@@ -55,7 +48,7 @@ describe('when Settings cannot be opened', () => {
   it('explains how to turn camera access on, not to use the camera button', () => {
     // Only reached when access is off for good; the camera button needs the
     // same permission, so pointing at it would send the user round in a loop.
-    const settings = handler('openCameraSettings', 'retryLiveCamera');
+    const settings = handler('openCameraSettings', 'reportSaveFailure');
     expect(settings).toMatch(/catch \{[\s\S]*t\('cameraDeniedHint'\)/);
     expect(settings).not.toMatch(/cameraUnavailableHint/);
   });

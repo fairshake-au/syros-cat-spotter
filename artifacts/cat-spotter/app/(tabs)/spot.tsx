@@ -14,11 +14,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import {
-  CameraView,
-  useCameraPermissions,
-  type CameraCapturedPicture,
-} from 'expo-camera';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -76,13 +71,6 @@ import { Button } from '@/components/purropolis/Button';
 import { Card } from '@/components/purropolis/Card';
 import { Badge } from '@/components/purropolis/Badge';
 import { fonts, fontSizes, radii, spacing, shadows } from '@/constants/theme';
-import {
-  cameraCaptureToPhoto,
-  captureLiveWithRetry,
-  getCameraMode,
-  shutterKindFor,
-} from '@/lib/cameraMode';
-import { createSequencedRunner } from '@/lib/sequencedCall';
 import {
   readPickedAsset,
   type PhotoTimeInfo,
@@ -287,34 +275,7 @@ export default function SpotScreen() {
   // One submit at a time, checked before any re-render could disable the
   // button: a double tap must not queue a sighting twice.
   const submitOnce = React.useRef(createSingleFlight()).current;
-  const cameraRef = React.useRef<CameraView>(null);
-  // `get: false` because we run the initial lookup ourselves: the hook's own
-  // effect calls getPermissionsAsync() with no catch, and expo-camera's web
-  // implementation *throws* when navigator.permissions.query is missing (older
-  // Safari, and Android in-app WebViews — which is how testers arriving from an
-  // email link get here). Unguarded, that leaves the permission null forever and
-  // pins the screen to a spinner with no way to take a photo.
-  const [
-    cameraPermission,
-    requestCameraPermission,
-    refreshCameraPermission,
-  ] = useCameraPermissions({ get: false });
-  const [permissionLookupFailed, setPermissionLookupFailed] = useState(false);
-  // expo-camera's web permission request always reports canAskAgain: true (an
-  // upstream bug), so once a web user has explicitly declined, asking again
-  // would just show the same dead-end pill forever. Sticky for the session.
-  const [webCameraDeclined, setWebCameraDeclined] = useState(false);
-  const [capturing, setCapturing] = useState(false);
-  const [cameraFailed, setCameraFailed] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
-  const cameraState = getCameraMode(
-    Platform.OS,
-    cameraPermission,
-    permissionLookupFailed,
-    webCameraDeclined,
-  );
-  const shutterKind = shutterKindFor(cameraState, cameraFailed, cameraActive);
-  const liveCameraReady = shutterKind === 'live';
 
   useFocusEffect(
     React.useCallback(() => {
@@ -363,39 +324,6 @@ export default function SpotScreen() {
     void markPhotoTipsSeen(AsyncStorage);
   };
 
-  // Self-healing: a lookup that succeeds CLEARS the flag. A one-way latch would
-  // mean a single transient rejection on resume (module not ready, activity
-  // recreated) permanently downgrades the screen to the picker — including for
-  // the user who just granted the permission in Settings and came back.
-  //
-  // Called from three places — mount, Android AppState resume, and retry —
-  // so overlapping calls are common; runPermissionLookup makes sure a stale
-  // completion can never overwrite a newer one (Cursor Bugbot finding: a
-  // slow failing lookup used to unmount a working live preview after a
-  // faster, more recent lookup had already succeeded).
-  const runPermissionLookup = React.useRef(createSequencedRunner<void>()).current;
-  const syncCameraPermission = React.useCallback(
-    () =>
-      runPermissionLookup(() => refreshCameraPermission().then(() => undefined)).then(
-        (result) => {
-          if (!result.applied) return;
-          setPermissionLookupFailed(Boolean(result.error));
-        },
-      ),
-    [refreshCameraPermission, runPermissionLookup],
-  );
-
-  React.useEffect(() => {
-    void syncCameraPermission();
-  }, [syncCameraPermission]);
-
-  React.useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void syncCameraPermission();
-    });
-    return () => subscription.remove();
-  }, [syncCameraPermission]);
   // The location the user confirms on the map (initialized from GPS).
   const [pickedCoords, setPickedCoords] = useState<{
     latitude: number;
@@ -680,72 +608,6 @@ export default function SpotScreen() {
     setFirstPhoto(next, timeInfo, fingerprint, takenAtMs);
   };
 
-  const captureLivePhoto = async () => {
-    if (!cameraRef.current || capturing) return;
-    setCapturing(true);
-    try {
-      // expo-camera's web takePicture throws ERR_CAMERA_NOT_READY until the
-      // <video> element has produced its first frame — a common race right
-      // after the preview mounts. That specific failure gets one retry;
-      // anything else, or a second failure, falls back to the system camera
-      // (the existing 'picker' shutter) instead of leaving a dead shutter.
-      const outcome = await captureLiveWithRetry<CameraCapturedPicture>(
-        () =>
-          cameraRef.current!.takePictureAsync({
-            quality: 1,
-            base64: true,
-          }),
-        (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-      );
-      if (outcome.kind === 'fallback') {
-        // Do NOT call launchCameraAsync here: browsers only open a file
-        // picker from a direct tap, and a programmatic open after an
-        // awaited failure may be silently blocked. Switch the shutter and
-        // let the user tap it themselves. The failed state's centre panel
-        // carries the one message; an alert on top of it gave two messages
-        // with different advice (Samuel's decision E, 27 Sep).
-        setCameraFailed(true);
-        return;
-      }
-      const capture = outcome.capture;
-      const directPhoto = cameraCaptureToPhoto(capture);
-      const picked =
-        directPhoto &&
-        directPhoto.base64.length * 0.75 <= MAX_UPLOAD_BYTES
-          ? directPhoto
-          : // Shrink from the normalised uri, not the raw capture: on web the
-            // raw one is the whole image inlined as a data URL.
-            await shrink(directPhoto?.uri ?? capture.uri);
-      if (directPhoto && picked !== directPhoto) releasePhotoUri(directPhoto.uri);
-      setPhotoProblem(null);
-      setPickSource('live');
-      setFirstPhoto(picked, { kind: 'unread' }, photoFingerprint(picked.base64), Date.now());
-    } catch {
-      // Same as a failed capture: fall back to the system camera and let the
-      // centre panel say so, rather than an alert over a still-live shutter.
-      setCameraFailed(true);
-    } finally {
-      setCapturing(false);
-    }
-  };
-
-  const requestLiveCamera = async () => {
-    try {
-      const result = await requestCameraPermission();
-      if (Platform.OS === 'web' && !result.granted) {
-        // The upstream canAskAgain: true bug means asking again would just
-        // show the same dead-end pill forever — stop showing it.
-        setWebCameraDeclined(true);
-      }
-    } catch {
-      // Native only in practice: expo-camera's web request never throws — a
-      // refusal resolves not-granted and is handled above. The picker shutter
-      // is already on screen in this state, so the user is not stranded; just
-      // say the live preview is not available.
-      notify(t('cameraUnavailable'), t('cameraUnavailableHint'));
-    }
-  };
-
   const openCameraSettings = async () => {
     if (Platform.OS === 'web') {
       notify(t('cameraUnavailable'), t('browserCameraSettings'));
@@ -759,14 +621,6 @@ export default function SpotScreen() {
       // the user round in a loop; say how to turn access on, or use a photo.
       notify(t('cameraUnavailable'), t('cameraDeniedHint'));
     }
-  };
-
-  // Re-reads the permission as well as clearing the failure: re-rendering an
-  // identical CameraView is what the previous version did, and it told a user
-  // with a persistent problem nothing new.
-  const retryLiveCamera = () => {
-    setCameraFailed(false);
-    void syncCameraPermission();
   };
 
   /** Say plainly that a save did not happen. The photo stays where it is. */
@@ -1537,40 +1391,6 @@ export default function SpotScreen() {
     </View>
   );
 
-  // The permission / camera-failed prompt shown in the viewfinder. Null when
-  // there is nothing to ask, which leaves the framing rectangle in place.
-  const cameraPanel = cameraFailed ? (
-    <View style={styles.cameraPermissionPanel}>
-      <Text style={styles.cameraPermissionText}>{t('cameraUnavailableHint')}</Text>
-      <Pressable
-        accessibilityRole="button"
-        onPress={retryLiveCamera}
-        style={styles.cameraPermissionButton}
-        testID="retry-live-camera"
-      >
-        <Text style={styles.cameraPermissionButtonText}>{t('tryAgain')}</Text>
-      </Pressable>
-    </View>
-  ) : cameraState === 'request' || cameraState === 'settings' ? (
-    <View style={styles.cameraPermissionPanel}>
-      <Text style={styles.cameraPermissionText}>
-        {cameraState === 'settings' ? t('cameraDeniedHint') : t('cameraPermissionHint')}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        onPress={cameraState === 'settings' ? openCameraSettings : requestLiveCamera}
-        style={styles.cameraPermissionButton}
-        testID={
-          cameraState === 'settings' ? 'open-camera-settings' : 'request-camera-permission'
-        }
-      >
-        <Text style={styles.cameraPermissionButtonText}>
-          {cameraState === 'settings' ? t('openSettings') : t('showLiveView')}
-        </Text>
-      </Pressable>
-    </View>
-  ) : null;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
@@ -1784,22 +1604,10 @@ export default function SpotScreen() {
           // ── Capture state: dark viewfinder treatment ──
           <>
           <View style={[styles.viewfinder, shadows.md]}>
-            {liveCameraReady ? (
-              <CameraView
-                ref={cameraRef}
-                facing="back"
-                mode="picture"
-                style={StyleSheet.absoluteFillObject}
-                testID="live-camera-view"
-                onCameraReady={() => setCameraFailed(false)}
-                onMountError={() => setCameraFailed(true)}
-              />
-            ) : (
-              <LinearGradient
-                colors={['#3a5266', '#1b2a38']}
-                style={StyleSheet.absoluteFillObject}
-              />
-            )}
+            <LinearGradient
+              colors={['#3a5266', '#1b2a38']}
+              style={StyleSheet.absoluteFillObject}
+            />
             <View style={styles.viewfinderTopRow}>
               <View style={styles.viewfinderSpacer} />
               {locationChipText ? (
@@ -1811,50 +1619,20 @@ export default function SpotScreen() {
               )}
               <View style={styles.viewfinderSpacer} />
             </View>
-            {cameraPanel ? (
-              // The panel takes the framing rectangle's slot in the column so it
-              // can never overlap the hint or the shutter row below it.
-              <View style={styles.viewfinderMiddle}>
-                <Text
-                  style={[styles.viewfinderEmoji, styles.viewfinderEmojiSmall]}
-                  pointerEvents="none"
-                >
-                  🐈‍⬛
-                </Text>
-                {cameraPanel}
-              </View>
-            ) : (
-              <View style={styles.framingRect} pointerEvents="none">
-                {/* textAlignVertical is Android-only, so centre with flexbox or
-                    the stand-in rides the top edge on iOS and web. */}
-                {cameraState === 'loading' ? (
-                  <ActivityIndicator color="#fff" size="large" />
-                ) : (
-                  cameraState !== 'ready' && (
-                    <Text style={styles.viewfinderEmoji}>🐈‍⬛</Text>
-                  )
-                )}
-              </View>
-            )}
-            {/* When the centre panel is showing, it carries the one message; a
-                second hint here would give competing suggestions in two places
-                (Samuel's decision, 27 Sep). */}
-            {!cameraPanel && (
-              <Text
-                style={styles.captureHint}
-                accessibilityLabel={spokenText(liveCameraReady ? t('captureHint') : t('captureHintPicker'))}
-              >
-                {liveCameraReady ? t('captureHint') : t('captureHintPicker')}
-              </Text>
-            )}
+            <View style={styles.framingRect} pointerEvents="none">
+              <Text style={styles.viewfinderEmoji}>🐈‍⬛</Text>
+            </View>
+            <Text
+              style={styles.captureHint}
+              accessibilityLabel={spokenText(t('captureHintPicker'))}
+            >
+              {t('captureHintPicker')}
+            </Text>
             <CaptureControls
-              shutterKind={shutterKind}
-              capturing={capturing}
+              onTakePhoto={() => pickPhoto(true)}
               onChooseFromLibrary={() => pickPhoto(false)}
-              onCaptureLive={captureLivePhoto}
-              onCaptureWithPicker={() => pickPhoto(true)}
+              takePhotoLabel={t('takePhoto')}
               libraryLabel={t('chooseFromLibrary')}
-              shutterLabel={t('takePhoto')}
             />
           </View>
           {/* SYC-415 spec §3.2: reopens the tips any time. Below the viewfinder,
@@ -1866,10 +1644,14 @@ export default function SpotScreen() {
             accessibilityLabel={t('photoTipsLink')}
             style={styles.photoTipsLink}
           >
+            {/* Decoration: the link's own label names it, so the icon-font glyph is hidden from screen readers (SYC-575). */}
             <MaterialCommunityIcons
               name="lightbulb-on-outline"
               size={18}
               color={colors.primary}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              aria-hidden
             />
             <Text style={[styles.photoTipsLinkText, { color: colors.primary }]}>
               {t('photoTipsLink')}
@@ -1928,39 +1710,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'space-between',
   },
-  viewfinderMiddle: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[3],
-    marginVertical: spacing[2],
-  },
   viewfinderEmoji: {
     textAlign: 'center',
     fontSize: 130,
-  },
-  viewfinderEmojiSmall: { fontSize: 64 },
-  cameraPermissionPanel: {
-    alignItems: 'center',
-    gap: spacing[3],
-    paddingHorizontal: spacing[6],
-  },
-  cameraPermissionText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontFamily: fonts.bodyBold,
-    fontSize: fontSizes.sm,
-  },
-  cameraPermissionButton: {
-    borderRadius: radii.pill,
-    backgroundColor: 'rgba(255,255,255,0.94)',
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[2],
-  },
-  cameraPermissionButtonText: {
-    color: '#1b2a38',
-    fontFamily: fonts.displayBold,
-    fontSize: fontSizes.xs,
   },
   viewfinderTopRow: {
     flexDirection: 'row',
