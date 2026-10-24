@@ -1,5 +1,6 @@
-import { and, asc, eq, inArray, lt, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, isNull, sql } from "drizzle-orm";
 import {
+  coloniesTable,
   db,
   photosTable,
   photoVisibilityEventsTable,
@@ -292,6 +293,23 @@ export async function updateCat(
 }
 
 /**
+ * Stores (or clears, with null) the photo-search suggestions for a batch cat.
+ * Takes the batch lock and refuses a saved batch, like every other writer.
+ */
+export async function setSuggestions(batchCatId: number, results: FindResult[] | null): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [cat] = await tx
+      .select({ batchId: vetBatchCatsTable.batchId })
+      .from(vetBatchCatsTable)
+      .where(eq(vetBatchCatsTable.id, batchCatId));
+    // A cat removed since the search began: nothing to store, and not an error.
+    if (!cat || !(await lockDraft(tx, cat.batchId))) return;
+    await tx.update(vetBatchCatsTable).set({ suggestions: results }).where(eq(vetBatchCatsTable.id, batchCatId));
+    await touch(tx, cat.batchId);
+  });
+}
+
+/**
  * Deletes these batch cats, their link rows and their staged photos. A photo
  * is hard-deleted (it was never published). One that has a visibility event
  * can't be: photo_visibility_events is append-only (a trigger refuses
@@ -391,4 +409,31 @@ export async function removeStaleBatches(now: Date = new Date()): Promise<{ remo
   }
   if (failed) logger.warn({ failed, removed }, "vet batch clean-up: some batches were left");
   return { removed, failed };
+}
+
+export interface UnsavedBatch {
+  id: number;
+  date: string;
+  createdBy: string;
+  colonyName: string | null;
+  areaKey: string | null;
+  cats: number;
+}
+
+/** The batches nobody has saved yet, newest first (the list page, SYC-677 Task 7). */
+export async function listUnsavedBatches(): Promise<UnsavedBatch[]> {
+  const rows = await db
+    .select({
+      id: vetBatchesTable.id,
+      date: vetBatchesTable.date,
+      createdBy: vetBatchesTable.createdBy,
+      colonyName: coloniesTable.name,
+      areaKey: vetBatchesTable.areaKey,
+      cats: sql<number>`(select count(*)::int from ${vetBatchCatsTable} where ${vetBatchCatsTable.batchId} = ${vetBatchesTable.id})`,
+    })
+    .from(vetBatchesTable)
+    .leftJoin(coloniesTable, eq(coloniesTable.id, vetBatchesTable.colonyId))
+    .where(isNull(vetBatchesTable.savedAt))
+    .orderBy(desc(vetBatchesTable.createdAt), desc(vetBatchesTable.id));
+  return rows;
 }

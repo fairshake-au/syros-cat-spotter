@@ -62,6 +62,8 @@ const FILTERED_MODULES = [
   "lib/teamSiteWrites.ts",
   // The Colonies list's figures and flags (SYC-396 PR 2.2).
   "lib/dashboard/colonyFigures.ts",
+  // A colony's trapping planner (SYC-396 PR 2.3; SYC-621).
+  "lib/dashboard/trappingPlan.ts",
 ];
 
 /**

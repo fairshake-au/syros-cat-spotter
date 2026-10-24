@@ -70,7 +70,7 @@ const ROWS: [string, () => string, string, string][] = [
       renderColonyPage(
         { id: 3, name: "Kalamos", guardianName: null, notes: null, lat: null, lng: null, siteCount: 0, catCount: 0, sites: [], cats: [], history: [] } as never,
         "Susan",
-        { may: () => true, rows: [] },
+        { may: () => true, plan: { colonyId: 3, toDo: [], done: [], other: [], estimate: null, sites: [] } },
       ),
     "← Colonies",
     "/api/team/colonies",

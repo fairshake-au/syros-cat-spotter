@@ -279,10 +279,10 @@ li.statement.routine>details>summary::before,.hownote>summary::before{content:"�
 li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
 li.statement.routine>details[open]>summary::before,.hownote[open]>summary::before{content:"▾"}
 /* Folds look like folds (SYC-619 §2.6): the same marker, with empty alternative text so a screen reader does not read the triangle. */
-.fixes summary::before,.typedfold summary::before,details.hist>summary::before,details.notdescribed>summary::before,details.invitefold>summary::before,details.method>summary::before{content:"▸" / "";flex:none;width:1.2em;color:#0b4553}
-.fixes details[open]>summary::before,.typedfold[open]>summary::before,details.hist[open]>summary::before,details.notdescribed[open]>summary::before,details.invitefold[open]>summary::before,details.method[open]>summary::before{content:"▾" / ""}
-.fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary{display:flex;align-items:center;list-style:none}
-.fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker{display:none}
+.fixes summary::before,.typedfold summary::before,details.hist>summary::before,details.notdescribed>summary::before,details.invitefold>summary::before,details.method>summary::before,details.planfold>summary::before{content:"▸" / "";flex:none;width:1.2em;color:#0b4553}
+.fixes details[open]>summary::before,.typedfold[open]>summary::before,details.hist[open]>summary::before,details.notdescribed[open]>summary::before,details.invitefold[open]>summary::before,details.method[open]>summary::before,details.planfold[open]>summary::before{content:"▾" / ""}
+.fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary,details.planfold>summary{display:flex;align-items:center;list-style:none}
+.fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker,details.planfold>summary::-webkit-details-marker{display:none}
 /* Buttons with their own look keep no marker (SYC-619 §2.6). */
 .fixes details>summary.risky::before,.fixes details[open]>summary.risky::before,.fixes details.update>summary::before,.fixes details.update[open]>summary::before,.fixes details.addnote>summary::before,.fixes details.addnote[open]>summary::before{content:none}
 details.method>summary{cursor:pointer;min-height:44px;font-weight:700;color:#0b4553}
@@ -312,6 +312,9 @@ li.hrow .what{min-width:0}
 li.hrow .what p{margin:4px 0 0}
 li.hrow .what .notice{margin:0 0 6px}
 li.hrow .who{display:block;font-size:14px;color:#55524a}
+li.hrow .vet-photos{display:flex;flex-wrap:wrap;gap:8px}
+li.hrow .vet-photos a{display:block;width:64px;height:64px;min-height:64px;padding:0;margin:0}
+li.hrow .vet-photos img{display:block;width:64px;height:64px;object-fit:cover;border-radius:6px}
 li.hrow.vet{box-shadow:inset 4px 0 0 #0b5c6b}
 li.hrow.replaced{background:#faf9f6}
 li.hrow del{color:#6b685f}
@@ -429,6 +432,19 @@ fieldset{border:0;margin:0 0 8px;padding:0}
 legend{padding:0}
 .choice{display:flex;align-items:center;gap:10px;min-height:44px;font-size:16px}
 .choice input{width:22px;height:22px;margin:0;flex:none}
+.batchcat{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:12px 0;overflow-wrap:anywhere}
+.batchcat h3{margin:0 0 4px}
+.batchstate{font-weight:700;margin:0 0 8px}
+.thumbs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.batchcat form{margin:0 0 10px}
+.batchcat .batchremove{margin:12px 0 0}
+.batchsuggest{list-style:none;margin:0 0 8px;padding:0}
+.batchsuggest .catrow{flex-wrap:wrap}
+.batchsuggest .catrow form{margin:0 0 0 auto}
+.batchshared,#cats,#add,#save{margin:0 0 16px}
+.batchabandon{margin-top:12px}
+.batchundo button,.batchremove button,.batchabandon button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;cursor:pointer}
+.batchundo button{border:1px solid #8a877e;background:#fff;color:#1d1d1b}
 .warn{background:#fff3cd;border:1px solid #c9a227;border-radius:6px;padding:8px 10px;margin:8px 0}
 .statement details{margin-top:6px;border-top:1px dashed #c9c4b6}
 .statement summary{font-size:15px}
@@ -462,6 +478,11 @@ span.pin{pointer-events:none}
 .pin.seen.multi{width:auto;min-width:24px;margin:0;padding:0 6px;border-radius:12px;white-space:nowrap;transform:translate(-50%,-50%)}
 .pinnum{color:#fff;font-size:12px;font-weight:700;line-height:1}
 .pin.sighting{border:3px dashed #1a56a6;border-radius:4px;background:transparent}
+/* A colony's trapping planner (SYC-396 PR 2.3; spec §9.2, §12): feeding sites are squares on its small map. */
+.planmap .pin.site-public,.planmap .pin.site-private{border-radius:3px}
+.estimate{font-size:18px;margin:16px 0 4px}
+details.planfold{margin:12px 0}
+details.planfold>summary{min-height:44px;cursor:pointer;font-weight:600}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .attrib{margin:4px 0 8px;font-size:12px;color:#55524a}
 .mapmove{margin:8px 0 0}

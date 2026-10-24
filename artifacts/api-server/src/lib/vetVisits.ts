@@ -1,5 +1,5 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
-import { catsTable, db, observationsTable, peopleTable, vetBatchesTable, vetVisitPhotosTable, type Observation } from "@workspace/db";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { catsTable, db, observationsTable, peopleTable, photosTable, vetBatchesTable, vetVisitPhotosTable, type Observation } from "@workspace/db";
 import { getGuidance } from "@workspace/welfare-guidance";
 import { actingRole, can } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
@@ -62,6 +62,8 @@ export interface VisitLine {
   /** Why a sterilisation's cost wasn't the standard price. Only with `costs: true`. */
   costReason?: string;
   note?: string;
+  /** The photos kept with the visit, oldest first. Only with `costs: true` (the team's page). */
+  photos?: { publicId: string }[];
   /** Who logged it: their name, with "(left)" if they have. */
   by: string;
 }
@@ -339,6 +341,24 @@ export async function visitsFor(catId: number, opts: { costs: boolean }): Promis
     : [];
   const nameOf = new Map(people.map((p) => [p.id, p.leftAt ? `${p.name} (left)` : p.name]));
 
+  // One query for every visit's kept photos (never one per visit).
+  const photosOf = new Map<number, { publicId: string }[]>();
+  if (opts.costs && standing.length > 0) {
+    const kept = await db
+      .select({ visitId: vetVisitPhotosTable.visitId, publicId: photosTable.publicId })
+      .from(vetVisitPhotosTable)
+      .innerJoin(photosTable, eq(photosTable.id, vetVisitPhotosTable.photoId))
+      .where(
+        and(
+          inArray(vetVisitPhotosTable.visitId, standing.map((o) => o.id)),
+          eq(vetVisitPhotosTable.catId, catId),
+          isNull(photosTable.removedAt),
+        ),
+      )
+      .orderBy(vetVisitPhotosTable.photoId);
+    for (const k of kept) photosOf.set(k.visitId, [...(photosOf.get(k.visitId) ?? []), { publicId: k.publicId }]);
+  }
+
   return standing.map((o) => {
     const v = o.value as VetVisitValue;
     const line: VisitLine = {
@@ -355,6 +375,8 @@ export async function visitsFor(catId: number, opts: { costs: boolean }): Promis
       line.costEur = v.costEur;
       line.paidBy = v.paidBy;
       if (v.costReason) line.costReason = v.costReason;
+      const photos = photosOf.get(o.id);
+      if (photos) line.photos = photos;
     }
     return line;
   });

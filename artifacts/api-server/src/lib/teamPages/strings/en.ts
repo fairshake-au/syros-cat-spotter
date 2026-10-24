@@ -408,6 +408,25 @@ export const en = {
   "colony.addCats": "Add cats",
   "colony.takeOut": "Take out of this colony",
   // The menu on each cat in a colony (SYC-396 PR 1.4).
+  // The trapping planner (SYC-396 PR 2.3; SYC-621). el and fr are drafts for Johnny (SYC-346, second pack).
+  "plan.toDoTitle": "To do ({n})",
+  "plan.toDoHint": "Street cats here that aren't known to be sterilised. Not sterilised first, then not known, then probably. Most recently seen first.",
+  "plan.allDone": "Every street cat here is sterilised.",
+  "plan.usual": "Usually seen: {place}",
+  "plan.earClip": "Ear clip seen",
+  "plan.estimate": "{n} cats × €{price} = €{total}",
+  "plan.estimateOne": "1 cat × €{price} = €{total}",
+  "plan.estimateHint": "The standard sterilisation price, from Vet settings.",
+  "plan.vetSettings": "Change it in Vet settings",
+  "colony.aboutTitle": "About this colony",
+  "plan.print": "Print the plan",
+  "plan.doneTitle": "Done: sterilised ({n})",
+  "plan.otherTitle": "Not on the street ({n})",
+  "plan.why.homed": "Has a home",
+  "plan.why.in_care": "In Syros Cats' care",
+  "plan.why.gone": "No longer with us",
+  "plan.why.off_syros": "Off Syros",
+  "plan.why.merged": "Merged into another cat's record",
   "colony.more": "More",
   "colony.takeOutNote": "The cat stays on the app. It just isn't in a colony.",
 
@@ -430,6 +449,7 @@ export const en = {
   "done.nothingNew": "Those cats were already in this colony. Nothing was changed.",
   "done.takenOut": "The cat is out of this colony.",
   "done.notThere": "That cat isn't in this colony any more, so nothing was changed.",
+  "done.batch": "The batch's vet visits are saved.",
 
   "problem.title": "That didn't save",
   "problem.nothingChanged": "Nothing was changed.",

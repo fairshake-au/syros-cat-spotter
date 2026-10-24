@@ -23,7 +23,11 @@ router.get(
     const data = await homeData(now, {}, visibleColonyIds(person));
     // Every figure is worked out on each request; each page records how long it took (§9.6).
     req.log.info({ ms: Date.now() - started }, "home figures worked out");
-    res.type("html").send(renderHomePage(data, { personName: person.name, now, costs: can(person, "view_vet_costs") }));
+    res.type("html").send(
+      renderHomePage(data, { personName: person.name, now, costs: can(person, "view_vet_costs"),
+        batches: can(person, "log_vet_visit") && can(person, "view_vet_costs") && can(person, "find_cat_from_photo"),
+      }),
+    );
   },
 );
 

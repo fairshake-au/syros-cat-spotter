@@ -423,13 +423,14 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     "details.notdescribed>summary",
     "details.invitefold>summary",
     "details.method>summary",
+    "details.planfold>summary",
   ];
   const ruleFor = (css: string, tail: string) => {
     const m = new RegExp(`(^|\\n)([^{}\\n]*${tail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^{}\\n]*)\\{([^}]*)\\}`).exec(css);
     return m ? { selectors: m[2]!.split(",").map((s) => s.trim()), body: m[3]! } : null;
   };
 
-  it("the marker rule lists exactly the six summaries", () => {
+  it("the marker rule lists exactly the seven summaries", () => {
     const r = ruleFor(sheet(), "::before");
     const marker = sheet().split("\n").find((l) => l.includes('content:"▸" / ""'))!;
     expect(marker).toBeTruthy();
@@ -451,6 +452,7 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
       "details.notdescribed[open]>summary::before",
       "details.invitefold[open]>summary::before",
       "details.method[open]>summary::before",
+      "details.planfold[open]>summary::before",
     ]);
   });
 
