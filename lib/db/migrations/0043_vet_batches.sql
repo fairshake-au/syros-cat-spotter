@@ -58,6 +58,10 @@ CREATE INDEX "vet_batch_cats_batch_idx" ON "vet_batch_cats" USING btree ("batch_
 CREATE INDEX "vet_batch_photos_cat_idx" ON "vet_batch_photos" USING btree ("batch_cat_id","position");--> statement-breakpoint
 CREATE INDEX "vet_batch_photos_photo_idx" ON "vet_batch_photos" USING btree ("photo_id");
 -- rollback-begin
+-- -- Run this only after the code that reads these tables is rolled back (app first, then database).
+-- -- vet_visit_photos holds the kept batch photos, and vet_batch_photos the staged ones. Dropping the
+-- -- tables drops those links, not the photos, so remove the vet photos you want gone from photos
+-- -- first, by hand. This rollback deliberately does not touch photos itself.
 -- DROP TABLE "vet_visit_photos";
 -- DROP TABLE "vet_batch_photos";
 -- DROP TABLE "vet_batch_cats";

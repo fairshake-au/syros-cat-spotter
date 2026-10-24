@@ -1,8 +1,10 @@
 name: vet-batches-cleanup
 # SYC-677: once a day, asks the API to remove unsaved vet visit batches that
 # have not been touched for 7 days, together with their staged photos. The
-# app answers with a count only ({"removed": N}), never a batch, a person or
-# a photo, and this run prints that answer and nothing more.
+# app answers with counts only ({"removed": N, "failed": M}), never a batch, a
+# person or a photo, and this run prints that answer and nothing more. If any
+# batch could not be removed the app answers 500, so the run fails and GitHub
+# emails.
 #
 # OFF until the rollout switches it on: set the repo variable
 # VET_BATCH_CLEANUP_ENABLED = true once the vet_batches migration is live.
@@ -46,6 +48,14 @@ jobs:
           fi
           # The token only ever goes to the app: a manual run's base_url must
           # be the production host or localhost.
+          # No user-info: "https://apptest.catspotters.com:pw@evil.example.com"
+          # would pass the host check below but send the token to evil.example.com.
+          case "${BASE_URL}" in
+            *@*)
+              echo "::error::base_url must not contain '@'"
+              exit 1
+              ;;
+          esac
           rest="${BASE_URL#*://}"
           scheme="${BASE_URL%%://*}"
           host="${rest%%/*}"
