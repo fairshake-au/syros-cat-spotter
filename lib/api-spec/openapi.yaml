@@ -191,6 +191,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
+  /cats/{catId}/name:
+    post:
+      operationId: nameCat
+      tags: [cats]
+      summary: A spotter names a cat Syros Cats left for spotters to name
+      description: |
+        Needs the device secret (checked first, as on claim). Only a cat
+        whose namePending is true can be named this way, and the first good
+        name wins: two spotters naming at once get one 200 and one 409
+        ALREADY_NAMED. The name goes through the same checks as naming a
+        new cat: not blank (400 EMPTY_NAME), nothing offensive (400
+        OFFENSIVE_NAME), not shaped like a SYR number (400
+        SYR_SHAPED_NAME), and not another cat's name (409 NAME_TAKEN, with
+        that cat). Shares the name-suggestions rate limit. Writes a `name`
+        statement by this device.
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CatNaming"
+      responses:
+        "200":
+          description: The cat, named. The public view.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cat"
+        "400":
+          description: Invalid request, EMPTY_NAME, OFFENSIVE_NAME or SYR_SHAPED_NAME
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: The device secret was refused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: Not found
+        "409":
+          description: ALREADY_NAMED (the cat has a name), or NAME_TAKEN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
   /cats/{catId}/let-go:
     post:
       operationId: letGoCat
@@ -1195,6 +1254,13 @@ components:
         discovererUsername:
           type: string
           nullable: true
+        namePending:
+          type: boolean
+          description: |
+            True while Syros Cats has left this cat for spotters to name.
+            `name` is then the cat's SYR number; the app shows "No name yet"
+            with it, and offers "Name this cat" (POST /cats/{catId}/name).
+            Always sent; optional so a copy cached by an older app still reads.
         ownerName:
           type: ["string", "null"]
           description: Display name of the cat's owner. Only in the owner's own view; null for everyone else (claiming-a-cat.md D9).
@@ -1321,6 +1387,13 @@ components:
           required: [lat, lng]
         homeNote: { type: string, maxLength: 200 }
       required: [deviceId, homePin]
+    CatNaming:
+      type: object
+      description: A spotter's name for a cat left for spotters. The secret travels in X-Device-Secret.
+      properties:
+        deviceId: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+      required: [deviceId, name]
     IssueReportRequest:
       type: object
       description: report-an-issue.md §2, §13. The secret travels in X-Device-Secret.

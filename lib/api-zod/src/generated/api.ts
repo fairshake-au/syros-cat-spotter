@@ -60,6 +60,7 @@ export const ListCatsResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
+  "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({
@@ -121,6 +122,7 @@ export const GetCatResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
+  "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({
@@ -207,6 +209,7 @@ export const UpdateCatResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
+  "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({
@@ -286,6 +289,7 @@ export const ClaimCatResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
+  "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({
@@ -301,6 +305,73 @@ export const ClaimCatResponse = zod.object({
   "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
 }).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly. Since SYC-75 \"likely\" (a clipped ear tip has been seen) is shown publicly too, now that Syros Cats can correct a wrong one (Q2). A missing clip is never shown as \"not sterilised\".'),
   "coat": zod.array(zod.enum(['black', 'white', 'ginger', 'grey', 'tabby', 'tortoiseshell_or_calico', 'black_and_white'])).max(claimCatResponseCoatMax).optional().describe('For older app versions, display only, worked out from coatColours\nand coatPattern (§6). Never filter on it.\n'),
+  "coatColours": zod.array(zod.enum(['black', 'grey', 'brown', 'ginger', 'white'])).optional().describe('The cat\'s resolved coat colours (coat-colours-and-pattern.md §6), in display order; [] when not known. Only the value.'),
+  "coatPattern": zod.enum(['plain', 'stripes', 'patches']).nullish().describe('The cat\'s resolved coat pattern (§6), or null when not known. Only the value.'),
+  "markings": zod.array(zod.enum(['white_paws', 'white_chest', 'white_face', 'colourpoint', 'long_fur', 'kinked_tail', 'torn_ear', 'short_tail', 'missing_eye', 'three_legs', 'odd_eyes'])).optional().describe('The cat\'s resolved markings (coat-markings-and-health.md §3.2,\n§10.4), `[]` when none are known. Only the list: never how sure,\nwho said it or how many people. Optional, as `coat`.\n')
+})
+
+
+/**
+ * Needs the device secret (checked first, as on claim). Only a cat
+ * whose namePending is true can be named this way, and the first good
+ * name wins: two spotters naming at once get one 200 and one 409
+ * ALREADY_NAMED. The name goes through the same checks as naming a
+ * new cat: not blank (400 EMPTY_NAME), nothing offensive (400
+ * OFFENSIVE_NAME), not shaped like a SYR number (400
+ * SYR_SHAPED_NAME), and not another cat's name (409 NAME_TAKEN, with
+ * that cat). Shares the name-suggestions rate limit. Writes a `name`
+ * statement by this device.
+ * @summary A spotter names a cat Syros Cats left for spotters to name
+ */
+export const NameCatParams = zod.object({
+  "catId": zod.coerce.number()
+})
+
+
+export const nameCatBodyNameMax = 200;
+
+
+
+export const NameCatBody = zod.object({
+  "deviceId": zod.string().min(1),
+  "name": zod.string().min(1).max(nameCatBodyNameMax)
+}).describe('A spotter\'s name for a cat left for spotters. The secret travels in X-Device-Secret.')
+
+export const nameCatResponseCoatMax = 2;
+
+
+
+export const NameCatResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "photoUrl": zod.string().nullable(),
+  "lat": zod.number().describe('Where this cat is. For \"approximate\", the centre of its cell, never a pin.'),
+  "lng": zod.number().describe('See lat.'),
+  "locationPrecision": zod.enum(['exact', 'approximate']).describe('\"approximate\" means lat\/lng are the centre of a cell of\nlocationCellM metres and must be drawn as that cell, never as a\npin (cat-record-data-spine.md §10.7). \"exact\" only ever reaches\na cat\'s own owner, on its detail page.\n'),
+  "locationCellM": zod.number().nullable().describe('The cell\'s side in metres when approximate; null when exact.'),
+  "sightingsCount": zod.number(),
+  "lastSeenAt": zod.string().describe('A Syros (Europe\/Athens) calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
+  "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
+  "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
+  "discovererNickname": zod.string().nullish(),
+  "discovererUsername": zod.string().nullish(),
+  "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
+  "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
+  "homePin": zod.object({
+  "lat": zod.number(),
+  "lng": zod.number()
+}).nullish().describe('Where the owner says the cat lives. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md §5, D9).'),
+  "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
+  "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
+  "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, Syros (Europe\/Athens) day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
+  "sterilised": zod.object({
+  "value": zod.boolean().nullable(),
+  "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
+  "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly. Since SYC-75 \"likely\" (a clipped ear tip has been seen) is shown publicly too, now that Syros Cats can correct a wrong one (Q2). A missing clip is never shown as \"not sterilised\".'),
+  "coat": zod.array(zod.enum(['black', 'white', 'ginger', 'grey', 'tabby', 'tortoiseshell_or_calico', 'black_and_white'])).max(nameCatResponseCoatMax).optional().describe('For older app versions, display only, worked out from coatColours\nand coatPattern (§6). Never filter on it.\n'),
   "coatColours": zod.array(zod.enum(['black', 'grey', 'brown', 'ginger', 'white'])).optional().describe('The cat\'s resolved coat colours (coat-colours-and-pattern.md §6), in display order; [] when not known. Only the value.'),
   "coatPattern": zod.enum(['plain', 'stripes', 'patches']).nullish().describe('The cat\'s resolved coat pattern (§6), or null when not known. Only the value.'),
   "markings": zod.array(zod.enum(['white_paws', 'white_chest', 'white_face', 'colourpoint', 'long_fur', 'kinked_tail', 'torn_ear', 'short_tail', 'missing_eye', 'three_legs', 'odd_eyes'])).optional().describe('The cat\'s resolved markings (coat-markings-and-health.md §3.2,\n§10.4), `[]` when none are known. Only the list: never how sure,\nwho said it or how many people. Optional, as `coat`.\n')
@@ -347,6 +418,7 @@ export const LetGoCatResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
+  "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({
@@ -537,6 +609,7 @@ export const ResolveSightingResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
+  "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({

@@ -28,6 +28,7 @@ export * from './catLetGo';
 export * from './catLifeStatus';
 export * from './catLocationPrecision';
 export * from './catMarkingsItem';
+export * from './catNaming';
 export * from './catOwnerUpdate';
 export * from './catPage';
 export * from './catSterilised';

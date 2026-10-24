@@ -20,7 +20,15 @@ import { catTarget } from "./capabilityTargets";
 import { commitStatement, inStatementTransaction, type PendingNews, type Tx } from "./commitStatement";
 import { loadCatRecords, ObservationRefused, writeObservation, type VetVisitValue } from "./observations";
 import { areaByKey } from "./areas/namedAreas";
-import { BLANK_NAME_BODY, isBlankName, isUniqueViolation, NAME_TAKEN_WORDS, OFFENSIVE_NAME_WORDS } from "./catNames";
+import {
+  BLANK_NAME_BODY,
+  isBlankName,
+  isSyrShapedName,
+  isUniqueViolation,
+  NAME_TAKEN_WORDS,
+  OFFENSIVE_NAME_WORDS,
+  SYR_SHAPED_NAME,
+} from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
 import { syrNumber } from "./teamCatView";
 import { TEAM_DESK_DEVICE } from "./teamDesk";
@@ -440,12 +448,12 @@ export function newCatNameProblem(name: string | null): string | null {
   if (containsOffensiveLanguage(name)) return OFFENSIVE_NAME_WORDS;
   // A typed SYR number would read as another cat's number, and could take the
   // name a cat left for spotters needs.
-  if (/^syr-?\d+$/i.test(foldName(name))) return SYR_SHAPED_NAME;
+  if (isSyrShapedName(name)) return SYR_SHAPED_NAME;
   return null;
 }
 
-/** A typed name that looks like a SYR number. */
-export const SYR_SHAPED_NAME = "That looks like a cat's SYR number. Choose a name.";
+/** A typed name that looks like a SYR number (the words live in catNames.ts). */
+export { SYR_SHAPED_NAME };
 /** A cat left for spotters couldn't take its SYR number as its name (another cat has it). */
 export const SYR_NAME_CLASH = "Couldn't give this cat its SYR number. Try saving again.";
 
