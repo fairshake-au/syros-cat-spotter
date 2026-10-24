@@ -6,7 +6,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { Card } from '@/components/purropolis/Card';
 import { Button } from '@/components/purropolis/Button';
 import { ProgressBar } from '@/components/purropolis/ProgressBar';
-import { Chip } from '@/components/purropolis/Chip';
+import { Chip, CHIP_TAP_PAD } from '@/components/purropolis/Chip';
 import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
 import { daysLeft, safeDonateUrl } from '@/lib/campaignDates';
 import { notify } from '@/lib/notify';
@@ -163,7 +163,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     textTransform: 'uppercase',
   },
-  amountRow: { flexDirection: 'row', gap: spacing[2] },
+  // Room for each chip's 5px tap area, given back by the negative margin (SYC-644).
+  amountRow: {
+    flexDirection: 'row',
+    gap: spacing[2],
+    paddingVertical: CHIP_TAP_PAD,
+    marginVertical: -CHIP_TAP_PAD,
+  },
   amountChip: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   blurbBox: { borderRadius: radii.md, padding: spacing[3] },
   blurbText: { fontFamily: fonts.body, fontSize: fontSizes.xs, lineHeight: fontSizes.xs * 1.5 },

@@ -114,14 +114,14 @@ beforeAll(async () => {
 
   // Ginger, sterilised, in the colony, seen 2 days ago at Kini.
   await cat("Ginger");
-  await say(ids["Ginger"]!, "coat", { colours: ["ginger"] });
+  await say(ids["Ginger"]!, "coat", { colours: ["ginger"], pattern: "stripes" });
   await say(ids["Ginger"]!, "sterilised", { sterilised: true });
   await putInColony(ids["Ginger"]!, colonyA);
   await sighted(ids["Ginger"]!, daysAgo(2), 37.4436, 24.8889);
 
   // Black, not sterilised, no colony, seen 20 days ago in Ermoupoli.
   await cat("Black");
-  await say(ids["Black"]!, "coat", { colours: ["black"] });
+  await say(ids["Black"]!, "coat", { colours: ["black"], pattern: "plain" });
   await say(ids["Black"]!, "sterilised", { sterilised: false });
   await sighted(ids["Black"]!, daysAgo(20), 37.4447, 24.9417);
 
@@ -188,6 +188,15 @@ describe("listTeamCats", () => {
     expect(names((await list({ colours: ["ginger"] })).items)).toEqual(["Ginger"]);
     expect(names((await list({ colours: ["ginger", "black"] })).items)).toEqual(["Ginger", "Black"]);
     expect(names((await list({ colours: ["not_sure"] })).items)).toEqual(["Mixed", "Tie", "Never"]);
+  });
+
+  it("filters by pattern (any chosen), and by 'not known' for a cat with no pattern known", async () => {
+    expect(names((await list({ patterns: ["stripes"] })).items)).toEqual(["Ginger"]);
+    expect(names((await list({ patterns: ["stripes", "plain"] })).items)).toEqual(["Ginger", "Black"]);
+    expect(names((await list({ patterns: ["patches"] })).items)).toEqual([]);
+    expect(names((await list({ patterns: ["not_known"] })).items)).toEqual(["Mixed", "Tie", "Never"]);
+    // Pattern and colour narrow together.
+    expect(names((await list({ patterns: ["stripes", "plain"], colours: ["black"] })).items)).toEqual(["Black"]);
   });
 
   it("filters by area using the last sighting, else where the cat was first found", async () => {

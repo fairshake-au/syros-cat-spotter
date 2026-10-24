@@ -3,7 +3,7 @@ import { and, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
 import { currentColonyOf } from "./colonyMembership";
 import { areaFor } from "./areas/namedAreas";
 import { placeLabel } from "./areas/placeLabel";
-import { COAT_COLOURS, type CoatColour, type CoatPattern } from "./appearance";
+import { COAT_COLOURS, COAT_PATTERNS, type CoatColour, type CoatPattern } from "./appearance";
 import { loadCatRecords } from "./observations";
 import { resolveCat, type CatSnapshot } from "./resolve";
 import { QUERY_MAX, SYR_RE, syrNumber } from "./teamCatView";
@@ -38,8 +38,30 @@ export const MARKS: readonly SterilisedMark[] = ["sterilised", "probably", "not_
 export type ColourFilter = CoatColour | "not_sure";
 export const COLOUR_FILTERS: readonly ColourFilter[] = [...COAT_COLOURS, "not_sure"];
 
+/**
+ * The grid's pattern filter: the three patterns (SYC-398 §2), plus
+ * "not_known", the grid's own "pattern not known" choice, never a coat code.
+ * Like the colour filter, a cat with no pattern shows only when it is picked.
+ */
+export type PatternFilter = CoatPattern | "not_known";
+export const PATTERN_FILTERS: readonly PatternFilter[] = [...COAT_PATTERNS, "not_known"];
+
+/**
+ * Solid and Patched are forgiving (coat spec §5, as "Find the cat"): Plain or
+ * Patches is a judgement call, so a cat with White among its colours and either
+ * of those two recorded shows under both. Tabby is exact.
+ */
+export function patternPicked(i: { coat: readonly CoatColour[]; pattern: CoatPattern | null }, picked: readonly PatternFilter[]): boolean {
+  if (i.pattern === null) return false;
+  if (picked.includes(i.pattern)) return true;
+  const flexible = i.pattern !== "stripes" && i.coat.includes("white");
+  return flexible && (picked.includes("plain") || picked.includes("patches"));
+}
+
 export interface CatListFilters {
   colours?: ColourFilter[];
+  /** Any of these patterns (stored codes: plain, stripes, patches, not_known). */
+  patterns?: PatternFilter[];
   /** A named area's short key, never a position. */
   area?: string;
   /** A colony's number, never its name. */
@@ -282,6 +304,10 @@ async function matchTeamCats(
       const wantsUnsure = f.colours.includes("not_sure");
       const hit =
         (i.coat.length === 0 && wantsUnsure) || i.coat.some((c) => f.colours!.includes(c));
+      if (!hit) return false;
+    }
+    if (f.patterns?.length) {
+      const hit = i.pattern === null ? f.patterns.includes("not_known") : patternPicked(i, f.patterns);
       if (!hit) return false;
     }
     if (f.area !== undefined && areaOf.get(i.id) !== f.area) return false;

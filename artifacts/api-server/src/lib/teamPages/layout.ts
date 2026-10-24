@@ -5,13 +5,14 @@ import { MAP_MARK_CSS, MARK_CSS } from "./marks";
 import { CAT_TABS_CSS } from "./catTabs";
 import { CHART_CSS } from "../reports/chartCss";
 import { WORKSPACE_PAGE } from "../teamAuth/config";
+import { SETTINGS_PATH } from "./backLink";
 
 // The one page shell for the staff dashboard (SYC-43 part 2 plan, PR 1).
 // Plain server-drawn HTML: no scripts, mobile first, styles in one <style>
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "reports" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies" | "workspace";
+export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "reports" | "sites" | "likely" | "colour" | "people" | "settings" | "myPage" | "myColonies" | "workspace";
 
 interface NavItem {
   key: NavKey;
@@ -23,7 +24,7 @@ interface NavItem {
 }
 
 // The menu names the team's jobs (SYC-396 spec §3.1): Home · Cats · Map ·
-// Queue · Colonies · Reports · People. Items appear as their screens ship
+// Queue · Colonies · Reports · People, then Settings (SYC-694). Items appear as their screens ship
 // (Reports came with PR 3.3a). Since Home (PR 2.1), the work lists live on Home:
 // Ear clips to check and Colour check are linked from there, and Feeding
 // sites from the Map and each colony (SYC-450).
@@ -47,6 +48,13 @@ const TEAM_PARENT: Partial<Record<NavKey, NavKey>> = { likely: "home", colour: "
 
 /** The People link: only for people who hold `manage_people` (SYC-53 PR 1.2). */
 const PEOPLE_NAV: NavItem = { key: "people", label: "People", href: "/api/team/people" };
+
+/**
+ * Settings (SYC-694): Areas, Vet settings and App switches. Last of the team's
+ * items, after People when that shows. All three are island-team pages, so
+ * everyone who gets the team's menu may open them.
+ */
+const SETTINGS_NAV: NavItem = { key: "settings", label: "Settings", href: SETTINGS_PATH };
 
 /**
  * The shared workspace, on the sign-in site: only for people the workspace
@@ -188,6 +196,9 @@ dd{margin:0}
 .note{white-space:pre-wrap}
 .bad{color:#8c1d18;font-weight:700}
 .notice{background:#fff3cd;border:1px solid #c9a227;border-radius:6px;padding:8px 10px;margin:0 0 8px;font-weight:700}
+.notice form.undo{display:block;margin:6px 0 0}
+.notice form.undo button{font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
+.gallery .notice form.undo button{width:100%}
 .actions{margin-top:12px;border-top:1px solid #e6e2d6;padding-top:4px}
 .actions form{margin:10px 0 0}
 .label{display:block;font-size:14px;font-weight:700;margin:0 0 6px}
@@ -785,9 +796,7 @@ export function renderPage(opts: PageOptions): string {
         ? guardianNav
         : !island
           ? []
-          : showPeople
-            ? [...NAV, PEOPLE_NAV]
-            : NAV;
+          : [...NAV, ...(showPeople ? [PEOPLE_NAV] : []), SETTINGS_NAV];
   const teamActive = opts.active ? (TEAM_PARENT[opts.active] ?? opts.active) : null;
   const entries = [...team.map((n) => ({ n, active: opts.nav === "guardian" ? opts.active : teamActive })), ...own.map((n) => ({ n, active: opts.active })), ...(workspace ? [{ n: WORKSPACE_NAV, active: null }] : [])];
   // The same links twice: the desktop bar, and the phone's fold (SYC-619 §2.1).

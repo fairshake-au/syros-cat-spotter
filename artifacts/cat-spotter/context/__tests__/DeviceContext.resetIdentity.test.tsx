@@ -13,6 +13,9 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
     setItem: async (key: string, value: string) => {
       storage.set(key, value);
     },
+    removeItem: async (key: string) => {
+      storage.delete(key);
+    },
     multiRemove: async (keys: string[]) => {
       for (const key of keys) storage.delete(key);
     },
@@ -30,12 +33,23 @@ vi.mock('@workspace/api-client-react', () => ({
 }));
 
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
+import { RESTORE_WAITING_KEY } from '@/lib/restoreWaiting';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <DeviceProvider>{children}</DeviceProvider>
 );
 
 beforeEach(() => {
+  const mem = new Map<string, string>();
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => void mem.set(k, v),
+      removeItem: (k: string) => void mem.delete(k),
+      clear: () => mem.clear(),
+    },
+  });
   storage.clear();
   vi.clearAllMocks();
 });
@@ -81,5 +95,41 @@ describe('resetIdentity', () => {
     // Requests from now on carry the new secret.
     const calls = setDeviceSecretGetter.mock.calls;
     expect(calls[calls.length - 1]![0]()).toBe(newSecret);
+  });
+});
+
+// SYC-664: the "waiting for a code" note belongs to the spotter who asked for it.
+describe('the waiting-for-a-code note (SYC-664)', () => {
+  const plant = () =>
+    window.localStorage.setItem(RESTORE_WAITING_KEY, JSON.stringify({ askedAt: Date.now(), requests: 1, wrongTries: 0 }));
+
+  async function ready() {
+    storage.set('cat-spotter/device-id', 'dev-old');
+    storage.set('cat-spotter/device-secret', 'old-secret-old-secret');
+    storage.set('cat-spotter/username', 'OldName');
+    const r = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(r.result.current.username).toBe('OldName'));
+    return r;
+  }
+
+  it('resetIdentity clears it', async () => {
+    const { result } = await ready();
+    plant();
+    await act(async () => { await result.current.resetIdentity(); });
+    expect(window.localStorage.getItem(RESTORE_WAITING_KEY)).toBeNull();
+  });
+
+  it('startAgain clears it', async () => {
+    const { result } = await ready();
+    plant();
+    await act(async () => { await result.current.startAgain(); });
+    expect(window.localStorage.getItem(RESTORE_WAITING_KEY)).toBeNull();
+  });
+
+  it('adoptRestoredIdentity clears it', async () => {
+    const { result } = await ready();
+    plant();
+    await act(async () => { await result.current.adoptRestoredIdentity('dev-restored', 'Lili'); });
+    expect(window.localStorage.getItem(RESTORE_WAITING_KEY)).toBeNull();
   });
 });

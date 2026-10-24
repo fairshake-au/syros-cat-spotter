@@ -158,7 +158,7 @@ const VISIT_DONE = new Set(["visit", "visitWrong", "visitAlready", "visitReason"
 
 /** What the page says beside a photo after Hide or Restore (PR 6). */
 const PHOTO_DONE: Record<string, string> = {
-  hidden: "Hidden. The public no longer sees this photo. Use the ⋯ menu on it to show it again.",
+  hidden: "Hidden. The public no longer sees this photo.",
   restored: "Restored. The public sees this photo again.",
   already_hidden: "Someone already hid this photo a moment ago. Nothing was changed.",
   already_public: "Someone already restored this photo a moment ago. Nothing was changed.",
@@ -283,6 +283,20 @@ const dayMonth = (iso: string, now: Date) => {
     ...opt,
   });
 };
+
+/**
+ * "Hidden. Undo" (SYC-520): Hide has no "are you sure?" by design (spec §3.3),
+ * so the notice after it carries one tap that puts the photo back. It lasts
+ * as long as the notice: until the page is next opened without `?done=hidden`.
+ */
+function undoHide(opts: Pick<CatPageOptions, "done" | "photo">, catId: number, may: (c: Capability) => boolean): string {
+  if (opts.done !== "hidden" || !opts.photo || !may("restore_photo")) return "";
+  return (
+    ` <form class="undo" method="post" action="/api/team/photos/${encodeURIComponent(opts.photo)}/restore">` +
+    `<input type="hidden" name="cat" value="${catId}">` +
+    '<button type="submit" class="restore">Undo</button></form>'
+  );
+}
 
 /**
  * One photo in the gallery (spec §3.6). The one whose source is "main" is "Main photo", the others
@@ -481,7 +495,7 @@ export function renderCatPage(
   // ?done=constructor must not reach Object.prototype).
   const photoNotice =
     opts.done && Object.hasOwn(PHOTO_DONE, opts.done)
-      ? `<p class="notice" role="status">${esc(PHOTO_DONE[opts.done]!)}</p>`
+      ? `<p class="notice" role="status">${esc(PHOTO_DONE[opts.done]!)}${undoHide(opts, v.cat.id, may)}</p>`
       : "";
   // The menu opens only when the page really came back from Hide or Restore on a photo we have.
   const landed = photoNotice !== "" && v.photos.some((p) => p.publicId === opts.photo);

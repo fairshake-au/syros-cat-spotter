@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBannerAreaReserve } from '@/lib/bannerArea';
 import {
   useGetCat,
   getGetCatQueryKey,
@@ -51,6 +52,7 @@ export default function CatDetailScreen() {
   const { t, language } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bannerReserve = useBannerAreaReserve();
   const params = useLocalSearchParams<{ id: string; updateId?: string; report?: string }>();
   const catId = Number(params.id);
   const updateId = Number(params.updateId);
@@ -153,7 +155,11 @@ export default function CatDetailScreen() {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Text style={{ color: colors.mutedForeground }}>{t('error')}</Text>
-        <Pressable onPress={close} style={{ marginTop: 12 }}>
+        <Pressable
+          onPress={close}
+          accessibilityRole="button"
+          style={{ marginTop: 12, minHeight: 44, minWidth: 44, paddingHorizontal: 12, justifyContent: 'center' }}
+        >
           <Text style={{ color: colors.primary }}>← {t('tabCatalog')}</Text>
         </Pressable>
       </View>
@@ -357,7 +363,7 @@ export default function CatDetailScreen() {
       </ScrollView>
       {/* Belongs to the photo: gone once the tab row is pinned (the phone's or browser's own back still works). */}
       {!stuck && (
-        <View style={[styles.backWrap, { top: insets.top + 8 }]}>
+        <View style={[styles.backWrap, { top: insets.top + bannerReserve + 8 }]}>
           <IconButton variant="solid" size="lg" label={t('backA11y')} onPress={close}>
             <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
           </IconButton>
@@ -365,7 +371,7 @@ export default function CatDetailScreen() {
       )}
       {/* Belongs to the photo: gone while the tab row is pinned, so it never covers the Map tab. */}
       {follow !== null && !stuck && (
-        <View style={[styles.followWrap, { top: insets.top + 8 }]}>
+        <View style={[styles.followWrap, { top: insets.top + bannerReserve + 8 }]}>
           <FollowButton
             catId={cat.id}
             catName={cat.name}

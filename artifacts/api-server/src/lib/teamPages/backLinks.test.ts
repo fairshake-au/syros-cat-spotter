@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { backLink, HOME_PATH } from "./backLink";
+import { backLink, HOME_PATH, SETTINGS_PATH } from "./backLink";
+import { renderAppSwitchesPage } from "./appSwitchesPage";
 import { renderAreasPage } from "./areasPage";
 import { renderLikelyPage } from "./likelyPage";
 import { renderColourCheckPage } from "./appearancePage";
@@ -60,10 +61,11 @@ afterAll(() => {
 });
 
 const ROWS: [string, () => string, string, string][] = [
-  ["Areas", () => renderAreasPage({ personName: "Susan", link: true, areas: [], version: 1, firstVersion: 1, history: [] }), "← Home", HOME_PATH],
+  ["Areas", () => renderAreasPage({ personName: "Susan", link: true, areas: [], version: 1, firstVersion: 1, history: [] }), "← Settings", SETTINGS_PATH],
   ["Ear clips to check", () => renderLikelyPage([], "Susan"), "← Home", HOME_PATH],
   ["Colour check", () => renderColourCheckPage([], "Susan"), "← Home", HOME_PATH],
-  ["Vet settings", () => renderVetSettingsPage({ personName: "Susan", priceEur: 55, history: [] }), "← Home", HOME_PATH],
+  ["Vet settings", () => renderVetSettingsPage({ personName: "Susan", priceEur: 55, history: [] }), "← Settings", SETTINGS_PATH],
+  ["App switches", () => renderAppSwitchesPage({ personName: "Susan", donateUrl: null, hidden: new Set() }), "← Settings", SETTINGS_PATH],
   [
     "A colony",
     () =>

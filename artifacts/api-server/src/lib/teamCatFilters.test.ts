@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { COAT_COLOURS } from "./appearance";
+import { COAT_COLOURS, COAT_PATTERNS } from "./appearance";
 import { SEED_AREAS } from "./areas/namedAreas";
 import { filtersToQuery, parseCatFilters } from "./teamCatFilters";
-import { LAST_SEEN, LIVES, MARKS, SORTS, type CatListFilters } from "./teamCatList";
+import { LAST_SEEN, LIVES, MARKS, PATTERN_FILTERS, SORTS, type CatListFilters } from "./teamCatList";
 
 // SYC-396 PR 1.3, Task 1.3.2: filters in the web address, safely.
 
@@ -21,6 +21,7 @@ describe("parseCatFilters and filtersToQuery", () => {
   it("round-trips every kind of filter", () => {
     const f: CatListFilters = {
       colours: ["brown", "ginger"],
+      patterns: ["stripes", "not_known"],
       area: "kini",
       colony: 7,
       sterilised: ["probably", "not_known"],
@@ -37,6 +38,7 @@ describe("parseCatFilters and filtersToQuery", () => {
     expect(
       parseCatFilters({
         colours: ["purple", "ginger", 5, {}],
+        patterns: ["tabby", "plain"],
         sterilised: "maybe",
         lives: ["flying"],
         lastSeen: "yesterday",
@@ -44,7 +46,7 @@ describe("parseCatFilters and filtersToQuery", () => {
         page: "0",
         colony: "0",
       }),
-    ).toEqual({ colours: ["ginger"] });
+    ).toEqual({ colours: ["ginger"], patterns: ["plain"] });
     expect(parseCatFilters(null)).toEqual({});
     expect(parseCatFilters("x")).toEqual({});
     expect(parseCatFilters({ q: ["a", "b"], area: ["kini"] })).toEqual({});
@@ -93,6 +95,7 @@ describe("parseCatFilters and filtersToQuery", () => {
       // q is left out: the search box's own text may be anything (D11).
       const f = {
         colours: some(COAT_COLOURS),
+        patterns: some(PATTERN_FILTERS),
         area: rnd() < 0.5 ? pick(SEED_AREAS).key : junk(),
         colony: rnd() < 0.5 ? Math.floor(rnd() * 500) : Number(lat()),
         sterilised: some(MARKS),

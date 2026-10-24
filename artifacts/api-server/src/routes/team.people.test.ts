@@ -58,6 +58,9 @@ function post(path: string, who: { cookie: string }, body: Record<string, unknow
   return t.type("form").send(body);
 }
 
+/** The "Yes" tap on the Are-you-sure page (SYC-520). */
+const YES = { confirm: "1" };
+
 const banner = (html: string) => {
   const i = html.indexOf('class="okbox"');
   return i < 0 ? "" : html.slice(i, html.indexOf("</div>", i));
@@ -245,7 +248,7 @@ describe("People are short rows that open (SYC-619 §4.1)", () => {
 
   it("a proven Done opens that person; a bare ?done= opens nobody", async () => {
     const t = await joined("row-done", ["staff"]);
-    const res = await post(`/api/team/people/${t.id}/sign-out`, susan);
+    const res = await post(`/api/team/people/${t.id}/sign-out`, susan, YES);
     expect(res.status).toBe(303);
     const after = (await get(res.headers["location"]!, susan)).text;
     expect(isOpen(after, t.id)).toBe(true);
@@ -354,7 +357,7 @@ describe("a manager can never change themselves through this screen (the server 
   });
   it("sign out everywhere", async () => {
     const before = (await personRow(susan.id)).session_version;
-    const res = await post(`/api/team/people/${susan.id}/sign-out`, susan);
+    const res = await post(`/api/team/people/${susan.id}/sign-out`, susan, YES);
     expect(res.status).toBe(409);
     expect((await personRow(susan.id)).session_version).toBe(before);
   });
@@ -528,7 +531,7 @@ describe("history is in words, with ids turned into names", () => {
     const r = await invited(susan, "hist-withdrawn");
     const before = (await get("/api/team/people", susan)).text;
     expect(card(before, r.id)).toContain("Vt pp-susan invited them as a member of the Syros Cats team.");
-    const w = await post(`/api/team/people/${r.id}/withdraw`, susan);
+    const w = await post(`/api/team/people/${r.id}/withdraw`, susan, YES);
     expect(w.status).toBe(303);
     const left = (await get("/api/team/people?tab=left", susan)).text;
     const c = card(left, r.id);
@@ -544,6 +547,31 @@ describe("history is in words, with ids turned into names", () => {
   });
 });
 
+describe("SYC-520: Withdraw and Sign out everywhere ask first", () => {
+  it("withdraw: the form post shows the confirm page and writes nothing; Yes withdraws", async () => {
+    const p = await pendingRow("ask-withdraw", susan.id);
+    const ask = await post(`/api/team/people/${p.id}/withdraw`, susan);
+    expect(ask.status).toBe(200);
+    expect(ask.text).toContain("Withdraw the invitation to");
+    expect(ask.text).toContain('name="confirm" value="1"');
+    expect(ask.text).toContain(`action="/api/team/people/${p.id}/withdraw"`);
+    const withdrawn = async () =>
+      (await pool.query(`select count(*)::int n from person_events where person_id = $1 and kind = 'invite_withdrawn'`, [p.id])).rows[0].n;
+    expect(await withdrawn()).toBe(0);
+    expect((await post(`/api/team/people/${p.id}/withdraw`, susan, YES)).status).toBe(303);
+    expect(await withdrawn()).toBe(1);
+  });
+
+  it("sign-out: the form post shows the confirm page and the session version does not rise", async () => {
+    const t = await joined("ask-signout", ["staff"]);
+    const before = (await pool.query(`select session_version from people where id = $1`, [t.id])).rows[0].session_version;
+    const ask = await post(`/api/team/people/${t.id}/sign-out`, susan);
+    expect(ask.status).toBe(200);
+    expect(ask.text).toContain("out everywhere?");
+    expect((await pool.query(`select session_version from people where id = $1`, [t.id])).rows[0].session_version).toBe(before);
+  });
+});
+
 describe("the changes themselves, through the actions layer", () => {
   it("resend and withdraw on a pending person; a second resend inside a day is refused in words", async () => {
     const p = await pendingRow("resend-me", susan.id);
@@ -554,7 +582,7 @@ describe("the changes themselves, through the actions layer", () => {
     const again = await post(`/api/team/people/${p.id}/resend`, susan);
     expect(again.status).toBe(409);
     expect(again.text).toContain("Nothing was changed.");
-    const w = await post(`/api/team/people/${p.id}/withdraw`, susan);
+    const w = await post(`/api/team/people/${p.id}/withdraw`, susan, YES);
     expect(w.headers["location"]).toContain("done=withdrawn");
   });
 
@@ -629,7 +657,7 @@ describe("the changes themselves, through the actions layer", () => {
 
   it("m6: withdrawing an invitation says so without the placeholder name", async () => {
     const p = await pendingRow("m6-w", susan.id);
-    const res = await post(`/api/team/people/${p.id}/withdraw`, susan);
+    const res = await post(`/api/team/people/${p.id}/withdraw`, susan, YES);
     const b = banner((await get(res.headers["location"]!, susan)).text);
     expect(b).toContain("The invitation was withdrawn.");
     expect(b).not.toContain("Withdrawn invitation");
@@ -685,7 +713,7 @@ describe("the changes themselves, through the actions layer", () => {
   it("sign out everywhere raises the session version of someone else", async () => {
     const t = await joined("signout-t", ["staff"]);
     const before = (await personRow(t.id)).session_version;
-    const res = await post(`/api/team/people/${t.id}/sign-out`, susan);
+    const res = await post(`/api/team/people/${t.id}/sign-out`, susan, YES);
     expect(res.status).toBe(303);
     expect((await personRow(t.id)).session_version).toBe(before + 1);
   });
@@ -759,8 +787,8 @@ describe("n1/n1b/n2: every banner is proved, and the bring-back page says nothin
     expect(withP).toContain("Nothing changed.");
     expect(withP).not.toContain("n1-nothing");
     const p = await pendingRow("n1-nothing-w", susan.id);
-    await post(`/api/team/people/${p.id}/withdraw`, susan);
-    const again = await post(`/api/team/people/${p.id}/withdraw`, susan);
+    await post(`/api/team/people/${p.id}/withdraw`, susan, YES);
+    const again = await post(`/api/team/people/${p.id}/withdraw`, susan, YES);
     expect(again.headers["location"] ?? "").not.toContain("p=");
   });
 

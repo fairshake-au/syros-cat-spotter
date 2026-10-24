@@ -9,6 +9,8 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearWaiting, readPendingMove } from '@/lib/restoreWaiting';
+import { finishPendingMove as finishMove, moveInFlight, RESUME_RETRY, type Restored } from '@/lib/pendingMove';
 import {
   getProfile,
   setDeviceMovedListener,
@@ -177,6 +179,33 @@ async function makeDeviceSecret(): Promise<string> {
   return base64UrlEncode(await getSecureRandomBytes(32));
 }
 
+/**
+ * Start-up's resume of a pending move (SYC-664 N1): each try waits up to
+ * `timeoutMs`; a 429, network error, timeout or 5xx is tried again after
+ * `delayMs`, up to `attempts` tries, while the move is inside its 15-minute
+ * window. Defined with the finisher (lib/pendingMove.ts); mutable for tests only.
+ */
+export { RESUME_RETRY };
+
+/**
+ * The phone's storage after a restore: it keeps its own secret (the server
+ * moved the spotter onto it) and takes the spotter's id and name.
+ */
+async function persistRestoredIdentity(restoredId: string, restoredName: string | null): Promise<void> {
+  await AsyncStorage.setItem(STORAGE_KEY, restoredId);
+  if (restoredName) await AsyncStorage.setItem(USERNAME_KEY, restoredName);
+  else await AsyncStorage.removeItem(USERNAME_KEY);
+  // SYC-506: a name held offline was never saved; the restored one replaces it.
+  await AsyncStorage.multiRemove([HELD_USERNAME_KEY, NAME_NOTE_KEY]);
+  // The server's list of owned cats replaces this phone's (hydrated below).
+  await AsyncStorage.removeItem(OWNED_CATS_KEY);
+  // The restored spotter is already kept safe.
+  await writeKeepSafeOffer('done');
+  // Only now (N2): if a write above failed, the pending move is still there
+  // for the next start to finish.
+  clearWaiting();
+}
+
 interface DeviceContextValue {
   deviceId: string | null;
   /**
@@ -241,6 +270,15 @@ interface DeviceContextValue {
    * (the server moved the spotter onto it) and takes the spotter's id and name.
    */
   adoptRestoredIdentity: (deviceId: string, username: string | null) => Promise<void>;
+  /**
+   * SYC-664 ship review F2: finish this phone's own pending restore move inside
+   * the session (back online, or "Try again"), adopting the spotter that came
+   * back. Null when nothing is pending or the answer was stale; rejects when
+   * the move is still unconfirmed (kept) or was refused (cleared). One at a
+   * time. Replay only unless `fullRedeem` (N-1: only "Try again", with the
+   * person there, may make a fresh move).
+   */
+  finishPendingMove: (opts?: FinishPendingMoveOptions) => Promise<Restored | null>;
   /** SYC-3: whether "keep my spots safe" has been offered on this phone (lib/keepSafe.ts). */
   keepSafeOffer: KeepSafeOffer;
   setKeepSafeOffer: (value: Exclude<KeepSafeOffer, null>) => void;
@@ -251,6 +289,13 @@ interface DeviceContextValue {
    */
   resetIdentity: () => Promise<void>;
 }
+
+export type FinishPendingMoveOptions = {
+  /** "Try again" in the chooser, with the person there: a fresh move is allowed. */
+  fullRedeem?: boolean;
+  /** Back online (OfflineContext): on web, a full page load at "/" after adopting. */
+  background?: boolean;
+};
 
 const DeviceContext = createContext<DeviceContextValue>({
   deviceId: null,
@@ -269,6 +314,7 @@ const DeviceContext = createContext<DeviceContextValue>({
   moved: false,
   startAgain: async () => {},
   adoptRestoredIdentity: async () => {},
+  finishPendingMove: async () => null,
   keepSafeOffer: null,
   setKeepSafeOffer: () => {},
   resetIdentity: async () => {},
@@ -286,11 +332,44 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   const [startupError, setStartupError] = useState<Error | null>(null);
   const [moved, setMoved] = useState(false);
   const [keepSafeOffer, setKeepSafeOfferState] = useState<KeepSafeOffer>(null);
+  // The id in-session finishing sends as (null until start-up is done).
+  const deviceIdRef = useRef<string | null>(null);
+  deviceIdRef.current = deviceId;
 
   useEffect(() => {
-    setDeviceMovedListener(() => setMoved(true));
+    setDeviceMovedListener(() => {
+      // Not while this phone's own move is pending or being finished (N1):
+      // the old id's refusal is about that move, not someone else's.
+      if (!moveInFlight() && !readPendingMove()) setMoved(true);
+    });
     return () => setDeviceMovedListener(null);
   }, []);
+
+  /**
+   * SYC-664 final review I1, "A reload mid-move": the code screen stored what
+   * it was about to redeem. Within 15 minutes, ask again with the same values
+   * before anything is sent as `storedId`: the server's replay (keyed by this
+   * phone's secret, before device auth and the redeem limiter) answers with the
+   * spotter that came back. If it moved nothing yet, this is the move the
+   * person already chose.
+   *
+   * N1: only a definite refusal (a 4xx other than 429) clears it; the person
+   * can ask for a new code. A 429, network error, timeout or 5xx is tried
+   * again while the move is inside its window. If the tries run out inside the
+   * window (offline), the move is kept and finished in the session (back
+   * online, or "Try again"), and meanwhile neither the moved screen nor the
+   * 410 wipe (DeleteMyDataContext) acts on the old id.
+   */
+  const resumePendingMove = async (storedId: string): Promise<Restored | null> => {
+    if (!readPendingMove()) return null;
+    // Adopted by the caller below, before the id is visible, so nothing for
+    // the old id is in memory yet and no reload is needed (N-1 point 5).
+    // Replay only (N-1): the person isn't here to stand behind a fresh move.
+    return finishMove(storedId, async () => {}, RESUME_RETRY.attempts, {
+      replayOnly: true,
+      currentId: () => storedId,
+    }).catch(() => null);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -311,6 +390,17 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
           await AsyncStorage.setItem(SECRET_KEY, secret);
         }
         setDeviceSecretGetter(() => secret);
+        // Before the id is visible to anything that sends requests (I1).
+        const resumed = storedId ? await resumePendingMove(storedId) : null;
+        if (resumed) {
+          generation.current++;
+          await persistRestoredIdentity(resumed.deviceId, resumed.username);
+          setDeviceId(resumed.deviceId);
+          setUsernameState(resumed.username);
+          setKeepSafeOfferState('done');
+          if (!cancelled) setIsReady(true);
+          return;
+        }
         if (storedOwned) {
           try {
             const parsed = JSON.parse(storedOwned);
@@ -435,6 +525,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
 
   const startAgain = useCallback(async () => {
     generation.current++;
+    clearWaiting();
     const [id, secret] = [await makeDeviceId(), await makeDeviceSecret()];
     await AsyncStorage.multiRemove([
       USERNAME_KEY,
@@ -457,15 +548,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
 
   const adoptRestoredIdentity = useCallback(async (restoredId: string, restoredName: string | null) => {
     generation.current++;
-    await AsyncStorage.setItem(STORAGE_KEY, restoredId);
-    if (restoredName) await AsyncStorage.setItem(USERNAME_KEY, restoredName);
-    else await AsyncStorage.removeItem(USERNAME_KEY);
-    // SYC-506: a name held offline was never saved; the restored one replaces it.
-    await AsyncStorage.multiRemove([HELD_USERNAME_KEY, NAME_NOTE_KEY]);
-    // The server's list of owned cats replaces this phone's (hydrated below).
-    await AsyncStorage.removeItem(OWNED_CATS_KEY);
-    // The restored spotter is already kept safe.
-    await writeKeepSafeOffer('done');
+    await persistRestoredIdentity(restoredId, restoredName);
     setOwnedCatIds([]);
     setKeepSafeOfferState('done');
     setDeviceId(restoredId);
@@ -475,8 +558,27 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     setMoved(false);
   }, []);
 
+  const finishPendingMove = useCallback(
+    async (opts: FinishPendingMoveOptions = {}): Promise<Restored | null> => {
+      const id = deviceIdRef.current;
+      if (!id || !readPendingMove()) return null;
+      const restored = await finishMove(id, adoptRestoredIdentity, 1, {
+        replayOnly: !opts.fullRedeem,
+        currentId: () => deviceIdRef.current,
+      });
+      // N-1 point 5: nothing the old id loaded stays in memory. On native,
+      // adoptRestoredIdentity's state reset is what there is.
+      if (restored && opts.background && Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.location.replace('/');
+      }
+      return restored;
+    },
+    [adoptRestoredIdentity],
+  );
+
   const resetIdentity = useCallback(async () => {
     generation.current++;
+    clearWaiting();
     // Removed first: if the app dies after this, the next launch makes a
     // fresh identity anyway. If it dies before, the old id gets 410 and the
     // wipe runs again (plan §6.4).
@@ -516,6 +618,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       moved,
       startAgain,
       adoptRestoredIdentity,
+      finishPendingMove,
       keepSafeOffer,
       setKeepSafeOffer,
       resetIdentity,
@@ -524,6 +627,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       moved,
       startAgain,
       adoptRestoredIdentity,
+      finishPendingMove,
       keepSafeOffer,
       setKeepSafeOffer,
       deviceId,

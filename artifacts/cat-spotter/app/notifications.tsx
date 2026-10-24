@@ -28,6 +28,7 @@ import { Button } from '@/components/purropolis/Button';
 import { LOAD_QUERY_OPTIONS, LOAD_TIMEOUT_MS } from '@/lib/loadTiming';
 import { notificationsEmptyKey } from '@/lib/notificationsEmpty';
 import { goToSpotTab } from '@/lib/goToSpotTab';
+import { useBannerAreaReserve } from '@/lib/bannerArea';
 
 function relativeTime(iso: string, t: (k: string) => string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -68,6 +69,7 @@ export default function NotificationsScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bannerReserve = useBannerAreaReserve();
   const { notifications, unreadCount, isLoading, loadFailed, refetch, markAllRead } =
     useNotifications();
   // SYC-508 §4.1: the profile Home already loads (same key), only to pick the
@@ -185,7 +187,7 @@ export default function NotificationsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + bannerReserve + 8 }]}>
         <IconButton variant="ghost" label={t('back')} onPress={close}>
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </IconButton>
