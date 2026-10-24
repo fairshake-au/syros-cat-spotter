@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   profileLoading: false,
   leaderboard: undefined as unknown,
   week: undefined as unknown,
+  lang: 'en' as 'en' | 'el',
   keepSafe: undefined as { status: string } | undefined,
   keepSafeOffer: null as string | null,
   username: 'sam' as string | null,
@@ -40,7 +41,7 @@ vi.mock('expo-router', () => ({
 vi.mock('@/context/LanguageContext', async () => {
   const { TRANSLATIONS } = await import('@/lib/i18n');
   return {
-    useLanguage: () => ({ t: (k: string) => TRANSLATIONS.en[k] ?? k, language: 'en' }),
+    useLanguage: () => ({ t: (k: string) => TRANSLATIONS[h.lang][k] ?? k, language: h.lang }),
   };
 });
 vi.mock('@/context/DeviceContext', () => ({
@@ -178,6 +179,7 @@ beforeEach(() => {
   h.setParams.mockReset().mockImplementation(() => {
     h.params = {};
   });
+  h.lang = 'en';
   h.isOnline = true;
   h.profile = profile();
   h.profileError = false;
@@ -404,6 +406,15 @@ describe('Profile tabs (SYC-628)', () => {
       const summary = screen.getByTestId('profile-rank-summary').textContent;
       expect(summary).toContain('You’re 2nd this week · 25 pts');
       expect(summary).toContain('30 more to pass weekly_wren.');
+    });
+
+    it('Greek week summary says "στη θέση" before the number', () => {
+      h.lang = 'el';
+      h.profile = profile({ weekPoints: 25 });
+      openSpotters();
+      expect(screen.getByTestId('profile-rank-summary').textContent).toContain(
+        'Είσαι στη θέση 2 αυτή την εβδομάδα · 25 πόντοι',
+      );
     });
 
     it('switching to All time shows the all-time rows', () => {
