@@ -10,6 +10,7 @@ const SAVED = { ...process.env };
 
 beforeEach(() => {
   process.env["MAIL_DRAIN_TOKEN"] = TOKEN;
+  process.env["INTERNAL_PEOPLE_TOKEN"] = randomBytes(24).toString("base64url");
 });
 afterEach(() => {
   process.env = { ...SAVED };
@@ -36,5 +37,19 @@ describe("POST /api/internal/vet-batches/cleanup", () => {
     expect(r.status).toBe(200);
     expect(Object.keys(r.body)).toEqual(["removed"]);
     expect(Number.isInteger(r.body.removed)).toBe(true);
+  });
+
+  it("the pre-launch gate lets this path through with the drain token, and with nothing else", async () => {
+    process.env["PRELAUNCH_GATE"] = "on";
+    process.env["PRELAUNCH_SESSION_KEYS"] = Buffer.alloc(32, 9).toString("base64url");
+    process.env["PRELAUNCH_TESTER_KEYS"] = "a-tester-key";
+    const PATH = "/api/internal/vet-batches/cleanup";
+    expect((await request(app).post(PATH).set("Authorization", `Bearer ${TOKEN}`)).status).toBe(200);
+    expect((await request(app).post(PATH)).status).toBe(401);
+    expect((await request(app).post(PATH).set("X-Prelaunch-Key", "a-tester-key")).status).toBe(401);
+    // Only POST, only exactly this path.
+    expect((await request(app).get(PATH).set("Authorization", `Bearer ${TOKEN}`)).status).toBe(401);
+    expect((await request(app).post(`${PATH}/x`).set("Authorization", `Bearer ${TOKEN}`)).status).toBe(401);
+    expect((await request(app).post("/api/internal/vet-batches").set("Authorization", `Bearer ${TOKEN}`)).status).toBe(401);
   });
 });
