@@ -180,9 +180,51 @@
   var failed = 0;
   var outline = null;
 
+  // While the pictures load (spec §5.4): a light outline of Syros in a pane
+  // below the picture pane (200), which the pictures cover as they arrive,
+  // and a "Loading the map…" line at the top. Both are the script's own, so a
+  // page whose script never runs shows neither. The points come from the page
+  // (data-outline, one source: lib/geo syrosOutline.ts); missing or invalid,
+  // there is just no outline.
+  var loadingLine = null;
+  function loadingDone() {
+    if (loadingLine && loadingLine.parentNode) loadingLine.parentNode.removeChild(loadingLine);
+    loadingLine = null;
+  }
+  try {
+    var loadingPoints = JSON.parse(mapEl.getAttribute("data-outline"));
+    var okPoints =
+      Array.isArray(loadingPoints) &&
+      loadingPoints.length >= 3 &&
+      loadingPoints.every(function (pt) {
+        return Array.isArray(pt) && pt.length === 2 && isFinite(pt[0]) && isFinite(pt[1]);
+      });
+    if (okPoints) {
+      map.createPane("outlineBelow").style.zIndex = "150";
+      L.polygon(loadingPoints, {
+        pane: "outlineBelow",
+        stroke: true,
+        weight: 1,
+        color: "#b8b3a6",
+        fillColor: "#e3dfd3",
+        fillOpacity: 1,
+        interactive: false,
+      }).addTo(map);
+    }
+  } catch (e) {
+    // No loading outline; the pictures and the cats are unaffected.
+  }
+  if (mapEl.parentNode) {
+    loadingLine = make("p", "maploading", "Loading the map\u2026");
+    loadingLine.id = "maploading";
+    loadingLine.setAttribute("role", "status");
+    mapEl.parentNode.insertBefore(loadingLine, mapEl.nextSibling);
+  }
+
   function tilesFailing() {
     if (!note) return;
     if (failed >= 3 && failed > loaded) {
+      loadingDone();
       note.hidden = false;
       mapEl.classList.add("tilesfailed");
       if (!outline) {
@@ -236,6 +278,7 @@
     }
     img.onload = function () {
       loaded++;
+      loadingDone();
       tilesFailing();
       entry.done(null, img);
     };

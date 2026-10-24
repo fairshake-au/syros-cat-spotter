@@ -619,6 +619,7 @@ ${CHART_CSS}
 .maplegend ul{list-style:none;margin:2px 0 6px;padding:0}
 .maplegend li{display:flex;align-items:center;gap:8px;margin:5px 0}
 .maplegend .catdot,.maplegend .sitesq{flex:none;margin:0 3px}
+.maploading{position:absolute;top:8px;left:8px;max-width:40%;z-index:1050;margin:0;background:#fff;color:#1d1d1b;border:1px solid #d9d5ca;border-radius:8px;padding:6px 12px;font-size:14px;line-height:1.3;pointer-events:none}
 .mapnote{position:absolute;left:8px;bottom:8px;z-index:1050;max-width:calc(100% - 16px);margin:0;background:#fff;border:1px solid #a6540a;border-radius:8px;padding:8px 10px;font-size:14px;line-height:1.3}
 .catsheet{position:absolute;z-index:1100;left:8px;right:8px;bottom:8px;max-height:75%;overflow:auto;background:#fff;border:1px solid #d9d5ca;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.2);padding:12px;line-height:1.4}
 .catsheet .sheethead{display:flex;gap:10px;align-items:flex-start}

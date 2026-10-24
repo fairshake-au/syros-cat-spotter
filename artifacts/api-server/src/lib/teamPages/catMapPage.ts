@@ -1,3 +1,4 @@
+import { SYROS_OUTLINE } from "@workspace/geo";
 import { filtersToQuery } from "../teamCatFilters";
 import type { CatListFilters, CatListItem, SterilisedMark } from "../teamCatList";
 import { assetUrl } from "../teamAssets";
@@ -222,6 +223,7 @@ export function renderCatMapPage(o: CatMapOptions): string {
     ` data-minzoom="${MIN_ZOOM}" data-maxzoom="${MAX_ZOOM}"` +
     dataAttr("sites", o.sites) +
     dataAttr("areas", areas) +
+    dataAttr("outline", SYROS_OUTLINE) +
     (focus ? dataAttr("focus", focus) : "") +
     "></div>" +
     legend() +
