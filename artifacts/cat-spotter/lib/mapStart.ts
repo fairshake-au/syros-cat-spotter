@@ -12,6 +12,7 @@
  * (`photoPosition`), so the input carries the field already.
  */
 import { ERMOUPOLI, isOnSyros } from './island';
+import type { LocationAskView } from './locationAsk';
 
 /** How long a library pick waits for the phone's position (plan Decision E1). */
 export const MAP_START_WAIT_MS = 4000;
@@ -32,6 +33,9 @@ export interface MapStartInput {
   waitedMs: number;
   /** Slice 5's. Nothing reads a photo's position yet. */
   photoPosition?: undefined;
+  /** SYC-524: what the Spot screen shows about location. Optional, treated as
+   * 'none', so a caller that doesn't pass it behaves as before. */
+  ask?: LocationAskView;
 }
 
 export type ReadyMapStart = { status: 'ready'; coords: MapStartCoords; origin: 'phone' | 'town' };
@@ -41,8 +45,16 @@ function town(): ReadyMapStart {
   return { status: 'ready', coords: { ...ERMOUPOLI }, origin: 'town' };
 }
 
-export function resolveMapStart({ source, phone, waitedMs }: MapStartInput): MapStart {
+export function resolveMapStart({ source, phone, waitedMs, ask = 'none' }: MapStartInput): MapStart {
   const { coords } = phone;
+  // SYC-524: no pin while the explain-first card shows, however long it takes.
+  if (ask === 'card') return { status: 'waiting' };
+  // Location is off, so there is nothing to wait for: the town, at once.
+  if (ask === 'off-native' || ask === 'off-web') return town();
+  // The spotter chose the map for this photo ('link'). resolveMapStart isn't
+  // told which photo they answered, so: town straight away unless the phone
+  // already has a position, in which case the phone wins.
+  if (ask === 'link' && !coords) return town();
   if (source !== 'library') {
     // The camera and the live camera (SYC-308): the phone wherever it is, else
     // Ermoupoli once location is refused or the wait is up, so the map is
