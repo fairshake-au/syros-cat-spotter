@@ -68,6 +68,7 @@ export function RestoreRequestScreen({
   const [dead, setDead] = useState(() => (readWaiting()?.wrongTries ?? 0) >= MAX_WRONG_TRIES);
   const [, setTick] = useState(0);
   const lastSent = useRef<string | null>(null);
+  const inFlight = useRef(false);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
   // Re-render each second on the code screen so "send another" wakes up after a minute.
@@ -106,8 +107,9 @@ export function RestoreRequestScreen({
 
   const submitCode = async (value: string) => {
     const norm = normaliseCode(value);
-    if (checking || dead || !deviceId || norm.length !== CODE_LENGTH || norm === lastSent.current) return;
+    if (inFlight.current || dead || !deviceId || norm.length !== CODE_LENGTH || norm === lastSent.current) return;
     lastSent.current = norm;
+    inFlight.current = true;
     setChecking(true);
     setCodeProblem(null);
     try {
@@ -122,12 +124,14 @@ export function RestoreRequestScreen({
         if (note.wrongTries >= MAX_WRONG_TRIES) setDead(true);
         else setCodeProblem('refused');
       } else if (isTooManyTries(err)) {
+        lastSent.current = null;
         setCodeProblem('too-many');
       } else {
         lastSent.current = null;
         setCodeProblem('failed');
       }
     } finally {
+      inFlight.current = false;
       if (alive.current) setChecking(false);
     }
   };
@@ -227,7 +231,7 @@ export function RestoreRequestScreen({
                 </Text>
               ) : null}
               {codeProblem === 'failed' ? (
-                <Text style={[styles.note, { color: danger }]}>{t('restoreAskFailed')}</Text>
+                <Text testID="restore-code-failed" style={[styles.note, { color: danger }]}>{t('restoreCodeFailed')}</Text>
               ) : null}
               <View testID="restore-code-submit">
                 <Button

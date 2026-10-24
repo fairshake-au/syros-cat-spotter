@@ -631,6 +631,43 @@ describe('code screen', () => {
     });
   });
 
+  it('two different 8-digit values in the same tick make one network call', async () => {
+    let release!: (v: { handle: string }) => void;
+    vi.mocked(keepSafe.exchangeRestoreCode).mockImplementationOnce(() => new Promise((r) => { release = r; }));
+    const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    const input = utils.getByTestId('restore-code-input');
+    await act(async () => {
+      typeCode(input, '11111111');
+      typeCode(input, '22222222');
+    });
+    expect(keepSafe.exchangeRestoreCode).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      release({ handle: 'h' });
+    });
+  });
+
+  it('after a 429 the same code can be sent again', async () => {
+    vi.mocked(keepSafe.exchangeRestoreCode).mockRejectedValueOnce(refusal(429, 'too_many_tries'));
+    const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    await act(async () => {
+      typeCode(utils.getByTestId('restore-code-input'), '48291376');
+    });
+    await utils.findByTestId('restore-too-many');
+    await act(async () => {
+      fireEvent.click(utils.getByText(en.restoreCodeSubmit));
+    });
+    expect(keepSafe.exchangeRestoreCode).toHaveBeenCalledTimes(2);
+  });
+
+  it('a network failure shows restoreCodeFailed', async () => {
+    vi.mocked(keepSafe.exchangeRestoreCode).mockRejectedValueOnce(new Error('network'));
+    const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    await act(async () => {
+      typeCode(utils.getByTestId('restore-code-input'), '48291376');
+    });
+    expect((await utils.findByTestId('restore-code-failed')).textContent).toBe(en.restoreCodeFailed);
+  });
+
   it('shows the have-a-code note only when opened with "I already have a code"', async () => {
     const utils = render(<RestoreRequestScreen onBack={() => {}} />);
     await act(async () => {
@@ -712,7 +749,7 @@ describe('code screen', () => {
   });
 
   it('every new string exists in en, el and fr, and restoreAskSent is gone', () => {
-    const keys = ['restoreAskBody', 'restoreAskSend', 'restoreCodeTitle', 'restoreCodeBody', 'restoreCodeSubmit', 'restoreCodeResend', 'restoreHaveCode', 'restoreHaveCodeNote', 'restoreCodeRefused', 'restoreCodeDead', 'restoreCodeNewEmail', 'restoreTooManyTries', 'restoreAskedThrice'];
+    const keys = ['restoreAskBody', 'restoreAskSend', 'restoreCodeTitle', 'restoreCodeBody', 'restoreCodeSubmit', 'restoreCodeResend', 'restoreHaveCode', 'restoreHaveCodeNote', 'restoreCodeRefused', 'restoreCodeDead', 'restoreCodeNewEmail', 'restoreTooManyTries', 'restoreAskedThrice', 'restoreCodeFailed'];
     for (const lang of ['en', 'el', 'fr'] as const) {
       for (const k of keys) expect(TRANSLATIONS[lang][k], `${lang}.${k}`).toBeTruthy();
       expect(TRANSLATIONS[lang].restoreAskSent).toBeUndefined();
