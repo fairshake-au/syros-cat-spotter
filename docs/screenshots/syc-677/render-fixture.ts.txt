@@ -50,3 +50,12 @@ save("failed", renderBatchPage(page(base([matched, unmatched, fresh]), {
 })));
 save("saved", renderBatchPage(page(base([matched, unmatched]), { said: { key: "shared_saved", row: null } })));
 save("cat-saved", renderBatchPage(page(base([matched, unmatched]), { said: { key: "cat_saved", row: 101 } })));
+// SYC-677 Task 9: "None of these: a cat we haven't recorded" on an unmatched card, the same form back with a bad
+// name (the route's 400), and two confirmed new cats (named now, and left for spotters) ready for their answers.
+save("new-cat-form", renderBatchPage(page(base([matched, unmatched]))));
+save("new-cat-bad-name", renderBatchPage(page(base([matched, unmatched]), {
+  newCat: { row: 102, values: { naming: "now", name: "Mavros", description: "Black, white tip on the tail" }, problems: { name: "Cat name already taken" } },
+})));
+const named = blank(104, 2, ["p5", "p6"], { newCat: { name: "Piperia", description: "Tabby, notch in the right ear" }, confirmed: true, did: ["sterilised"] });
+const forSpotters = blank(105, 3, ["p7"], { newCat: { name: null, description: "" }, confirmed: true, did: ["sterilised", "treated"], treatedNote: "Ear mites" });
+save("new-cat-ready", renderBatchPage(page(base([matched, named, forSpotters]))));
