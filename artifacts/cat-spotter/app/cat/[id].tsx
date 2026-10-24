@@ -44,8 +44,6 @@ import { fonts, fontSizes, lineHeights } from '@/constants/theme';
 
 /** The photo's height. The tab row and the first facts show on a 390 px phone without scrolling. */
 const HERO_H = 250;
-/** Room kept left of the tab row while it is pinned, for the back button over it. */
-const BACK_GUTTER = 52;
 
 export default function CatDetailScreen() {
   const colors = useColors();
@@ -294,7 +292,6 @@ export default function CatDetailScreen() {
           onSelect={selectTab}
           topInset={insets.top}
           stuck={stuck}
-          leftGutter={BACK_GUTTER}
         />
         <View
           key={shownTab}
@@ -342,12 +339,14 @@ export default function CatDetailScreen() {
           {shownTab === 'map' && <MapTab cat={cat} onReport={openReport} />}
         </View>
       </ScrollView>
-      {/* Stays on screen however far the page scrolls, over the tab row once it is pinned. */}
-      <View style={[styles.backWrap, { top: insets.top + 8 }]}>
-        <IconButton variant="solid" size="lg" label={t('backA11y')} onPress={close}>
-          <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
-        </IconButton>
-      </View>
+      {/* Belongs to the photo: gone once the tab row is pinned (the phone's or browser's own back still works). */}
+      {!stuck && (
+        <View style={[styles.backWrap, { top: insets.top + 8 }]}>
+          <IconButton variant="solid" size="lg" label={t('backA11y')} onPress={close}>
+            <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
+          </IconButton>
+        </View>
+      )}
       {heroOpenUrl !== null && heroOpenUrl === cat.photoUrl && heroCanOpen && heroCaption && (
         <PhotoViewer
           url={heroOpenUrl}

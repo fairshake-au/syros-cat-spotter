@@ -157,7 +157,6 @@ export function CatTabBar({
   onSelect,
   topInset = 0,
   stuck = false,
-  leftGutter = 0,
 }: {
   tabs: CatTabItem[];
   selected: CatTab;
@@ -166,8 +165,6 @@ export function CatTabBar({
   topInset?: number;
   /** True while the row is pinned to the top of the screen. */
   stuck?: boolean;
-  /** Room kept on the left while pinned, for the back button over the row. */
-  leftGutter?: number;
 }) {
   const colors = useColors();
   const [width, setWidth] = React.useState(0);
@@ -194,7 +191,7 @@ export function CatTabBar({
         role="tablist"
         accessibilityRole="tablist"
         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-        style={[styles.row, { backgroundColor: colors.muted }, stuck && leftGutter > 0 && { marginLeft: leftGutter }]}
+        style={[styles.row, { backgroundColor: colors.muted }]}
       >
         {tabs.map((item, index) => (
           <Tab

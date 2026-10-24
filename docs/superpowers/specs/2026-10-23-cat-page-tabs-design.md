@@ -53,13 +53,13 @@ About opens first, every time.
 - The main photo with the gradient and the name, as today. The `SYR-0042` number is no longer shown on the public cat page (decision 2 below).
 - Slightly shorter than today, so the tabs and the facts card's first lines show on a small phone without scrolling. **My call:** about 250 px tall, down from 300. Tune it on a 390 px-wide phone so the first screen also shows the "I've spotted" button.
 - Tap-to-open full screen, and the rule that it opens only once loaded (offline-safe): unchanged.
-- **The back button stays on screen** at the top left (below the safe area) however far you scroll, rather than scrolling away with the photo. **My call:** with a sticky tab row, a back button that scrolls away would leave only the system or browser back.
-- **The Follow button** sits at the top right, opposite the back button, and stays on screen the same way. See "Following a cat" below.
+- **The back button** sits at the top left of the photo (below the safe area) and hides while the tab row is pinned, so the pinned row can use the full width and the longest label fits. The phone's or browser's own back still works. **My call (changed 24 Oct after the Greek 360 px check).**
+- **The Follow button** sits at the top right, opposite the back button, and hides the same way. See "Following a cat" below.
 
 ### 2. The tab row
 
 - Four equal tabs in a segmented row. Each tab has the emoji on top and the label under it: `🐱 About`, `📷 Photos`, `📖 Story`, `🗺️ Map`.
-- **Sticky, on web and native:** when you scroll down, the tab row stays pinned to the top of the screen, below the safe area, with the back button beside or over its left end. This is decided, not left to the builder; how it's achieved on each platform is the builder's (for example `stickyHeaderIndices` with the hero and the tab row as separate direct children of the scroll content).
+- **Sticky, on web and native:** when you scroll down, the tab row stays pinned to the top of the screen, below the safe area, across the full width. This is decided, not left to the builder; how it's achieved on each platform is the builder's (for example `stickyHeaderIndices` with the hero and the tab row as separate direct children of the scroll content).
 - The selected tab looks raised (card colour, ink text). The others are muted. Built from Purropolis tokens; no new colours.
 - **Photos count:** a small count badge on the Photos tab's emoji, e.g. `14`. It counts the photos the grid actually shows people: each sighting's cover photo plus its extra photos, leaving out hidden and removed ones. It's worked out by the same function the grid uses, so the two can't drift. With no visible photos there is no badge. **My call:** a badge rather than "Photos · 14" in the label, so long Greek labels fit. The screen-reader label says "Photos, 14".
 - **Labels must fit.** Drafts: Greek `Σχετικά`, `Φωτογραφίες`, `Ιστορία`, `Χάρτης`; French `À propos`, `Photos`, `Histoire`, `Carte`. The longest, `Φωτογραφίες`, must fit a quarter-width tab at 360 px. The label may shrink to fit, down to 10 px, but is never cut off with an ellipsis and never breaks mid-word. Checked by screenshot in Greek at 360 px.

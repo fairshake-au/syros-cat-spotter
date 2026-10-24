@@ -283,6 +283,15 @@ describe('the four tabs', () => {
 describe('switching tabs while scrolled', () => {
   const scrollTo = (y: number) => act(() => h.onScroll!({ nativeEvent: { contentOffset: { y } } }));
 
+  it('the back button is there at the top and gone once the tab row is pinned', () => {
+    page();
+    expect(screen.getByLabelText('Back')).toBeTruthy();
+    scrollTo(600);
+    expect(screen.queryByLabelText('Back')).toBeNull();
+    scrollTo(0);
+    expect(screen.getByLabelText('Back')).toBeTruthy();
+  });
+
   it('scrolls the new tab to the pinned row only when the photo has scrolled away', () => {
     page();
     scrollTo(100);
