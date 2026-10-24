@@ -22,3 +22,6 @@ Worktree: heuristic-jones-f8c2f2 (branch claude/heuristic-jones-f8c2f2, from ori
   - D2 location: A auto at photo / B explain card at first photo, "Use where I am" + "I'll put the pin on the map" (REC) / C on Spot open / D own onboarding screen.
   - Sequencing: SYC-308 first, then SYC-524; SYC-575 keeps only camera buttons + glyph.
 - Next: AskUserQuestion D1 then D2, record on SYC-524, write spec.
+
+## 24 Oct, Samuel's steer on Decision 1 (quote): "let's combine the make it yours and don't lose your spots pages. I don't like the combined "how Syros Cat Spotters works" and "Look don't touch" page - give me some other options for combining these"
+- Building round 2: name+email one screen (agreed), and options for How it works + safety: O1 steps on Welcome, O2 safety as a card in How it works, O3 How it works moves to Help & info, O4 keep both separate.
