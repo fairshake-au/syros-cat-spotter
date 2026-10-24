@@ -1,7 +1,7 @@
 # Map labels in your language
 
 Ticket: SYC-705. Revives the idea in SYC-288 (cancelled 22 Oct 2026, "serve our own Syros map tiles").
-Status: **draft v3, review findings folded in** (24 Oct 2026); awaiting Samuel's approval. Rewritten for MapLibre on every map. Samuel chose MapLibre and the adjusted style after seeing them side by side, then chose MapLibre for the dashboard too. Needs a fresh adversarial review, then approval. Reviews: `reviews/map-labels-in-your-language-review.md` (v2, the picture design; points that still apply are carried over) and `reviews/map-labels-in-your-language-review-v3.md` (v3: 5 blockers, 9 should-fix and 8 dashboard findings, all addressed).
+Status: **approved by Samuel, 24 Oct 2026** ("approved, write the plan"). v3, review findings folded in. Rewritten for MapLibre on every map. Samuel chose MapLibre and the adjusted style after seeing them side by side, then chose MapLibre for the dashboard too. Needs a fresh adversarial review, then approval. Reviews: `reviews/map-labels-in-your-language-review.md` (v2, the picture design; points that still apply are carried over) and `reviews/map-labels-in-your-language-review-v3.md` (v3: 5 blockers, 9 should-fix and 8 dashboard findings, all addressed).
 Decision behind it: on 24 Oct 2026 Samuel chose "a language-aware map" over "Google Maps everywhere" and "Google on phones only".
 
 ## The problem, as a spotter meets it
