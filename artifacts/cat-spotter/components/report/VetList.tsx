@@ -160,7 +160,7 @@ function ReportVetCards({
                 >
                   {/* Never truncated: a number someone may dial by hand must be whole. */}
                   <Text style={[tight.number, { color: colors.primary }]}>
-                    <Feather name="phone" size={13} color={colors.primary} /> {phone.display}
+                    <Feather name="phone" size={12} color={colors.primary} /> {phone.display}
                   </Text>
                   <Text style={[tight.kind, { color: colors.mutedForeground }]}>{v.phoneKindsShort[phone.kind]}</Text>
                 </ExternalLink>
@@ -281,14 +281,14 @@ const tight = StyleSheet.create({
   phones: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   phone: {
     flexGrow: 1,
-    flexBasis: 150,
+    flexBasis: 156,
     minHeight: 48,
     borderRadius: radii.sm,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 6,
     justifyContent: 'center',
   },
-  number: { fontFamily: fonts.bodyBold, fontSize: 15, lineHeight: 19 },
+  number: { fontFamily: fonts.bodyBold, fontSize: 13, lineHeight: 18 },
   kind: { fontFamily: fonts.body, fontSize: 12, lineHeight: 15 },
   maps: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   mapButton: { borderWidth: 1, borderRadius: radii.pill, paddingHorizontal: 10, paddingVertical: 5, minHeight: 30, justifyContent: 'center' },
