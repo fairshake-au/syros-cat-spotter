@@ -19,6 +19,10 @@ export async function catNamed(name: string) {
   return cat;
 }
 
+/** The words every name check refuses with (the sightings route, and a vet batch's new cat). */
+export const NAME_TAKEN_WORDS = "Cat name already taken";
+export const OFFENSIVE_NAME_WORDS = "Cat name contains offensive language";
+
 // SYC-119 (choose-a-different-cat.md §3.1, §9): NAME_TAKEN names the cat that
 // has the name, so the phone can ask "Is this them?". Public details only:
 // the photo is the one the catalogue shows, so a main photo the team hid is
@@ -31,7 +35,7 @@ export async function nameTakenBody(
   code: "NAME_TAKEN";
   cat?: { id: number; name: string; photoUrl: PublicPhotoUrl | null };
 }> {
-  const body = { error: "Cat name already taken", code: "NAME_TAKEN" as const };
+  const body = { error: NAME_TAKEN_WORDS, code: "NAME_TAKEN" as const };
   if (!cat) return body;
   return {
     ...body,

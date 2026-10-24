@@ -52,6 +52,7 @@ import {
   isBlankName,
   isUniqueViolation,
   nameTakenBody,
+  OFFENSIVE_NAME_WORDS,
 } from "../lib/catNames";
 import { isNearby, publishedPosition } from "@workspace/geo";
 import {
@@ -955,7 +956,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     }
     if (containsOffensiveLanguage(name)) {
       res.status(400).json({
-        error: "Cat name contains offensive language",
+        error: OFFENSIVE_NAME_WORDS,
         code: "OFFENSIVE_NAME",
       });
       return;

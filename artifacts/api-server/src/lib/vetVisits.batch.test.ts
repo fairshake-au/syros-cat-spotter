@@ -281,7 +281,7 @@ describe("saveBatch", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("refuses 'Checked only' and a new cat, and saves nothing", async () => {
+  it("refuses 'Checked only', and a new cat in a batch with no place, and saves nothing", async () => {
     const a = await insertCat();
     const b = await insertCat();
     const { id, rows } = await makeBatch([
@@ -294,7 +294,8 @@ describe("saveBatch", () => {
     if (result.ok) return;
     expect(result.problems).toEqual([
       { batchCatId: rows[0], field: "did", words: "Tick Sterilised, Vaccinated or Treated." },
-      { batchCatId: rows[2], field: "newCat", words: "New cats arrive in a later update" },
+      // SYC-677 Task 9: a new cat needs the batch's colony or area to be placed.
+      { batchCatId: null, field: "place", words: "Choose a colony or an area for this batch" },
     ]);
     expect(await visitRows([a.id, b.id])).toHaveLength(0);
   });
