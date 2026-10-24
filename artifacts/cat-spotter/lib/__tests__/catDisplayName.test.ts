@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { TRANSLATIONS } from '../i18n';
 import { catDisplayName, catListName, catNameInSentence } from '../catDisplayName';
 
 const t = (k: string) => (k === 'noNameYet' ? 'No name yet' : k);
@@ -29,5 +32,17 @@ describe('catListName', () => {
   });
   it('is the name for a named cat', () => {
     expect(catListName({ name: 'Agatha' }, t)).toBe('Agatha');
+  });
+});
+
+describe('"No name yet" in Greek', () => {
+  it('is spelt the same in the app and on the team pages', () => {
+    const team = readFileSync(
+      join(__dirname, '..', '..', '..', 'api-server', 'src', 'lib', 'teamPages', 'strings', 'el.ts'),
+      'utf8',
+    );
+    const m = /"cat\.noNameYet": "([^"]+)"/.exec(team);
+    expect(m?.[1]).toBe(TRANSLATIONS.el.noNameYet);
+    expect(TRANSLATIONS.el.noNameYet).toBe('Χωρίς όνομα ακόμη');
   });
 });
