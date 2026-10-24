@@ -1,7 +1,7 @@
 # First run: three screens to the camera, and location asked at the first photo
 
 Ticket: SYC-524 (epic SYC-605, Spotting). Parent review: SYC-501 (18 Oct 2026). Related: SYC-35 (safety guidance), SYC-155 and SYC-506 (`first-run-language-and-offline-start.md`), SYC-502 (first-badge offer), SYC-308 and SYC-575 (Spot screen location), SYC-628 (Profile tab and Settings, `profile-tab-redesign.md`, merged in #296).
-Status: **draft for Samuel's approval.** Decisions made by Samuel on 24 Oct 2026 and recorded on SYC-524. Decision page with today's screens and every option mocked at 390px: https://claude.ai/artifact/5B1TXn8ACr71ZGRkRxiQ7b. Checked against `origin/main` at `d8e1c2e4` (after SYC-628, the Profile tab and its new Settings screen, merged).
+Status: **approved by Samuel, 24 Oct 2026** ("approved, write the plan"), after adversarial review (`reviews/onboarding-fewer-screens-review.md`). Decisions recorded on SYC-524 and in DECISIONS.md Part 2s. Decision page with today's screens and every option mocked at 390px: https://claude.ai/artifact/5B1TXn8ACr71ZGRkRxiQ7b.
 
 ## The problem, as a new spotter meets it
 
@@ -148,7 +148,7 @@ The location card adds new lines in three languages after the 22 Oct copy freeze
 1. **Screens before the camera.** Round 1: A keep all five, B fold "How it works" into "Look, don't touch", C B plus the email after the first sighting, D C plus an auto-picked name. Samuel asked for side-by-side mockups, then: *"let's combine the make it yours and don't lose your spots pages. I don't like the combined "how Syros Cat Spotters works" and "Look don't touch" page - give me some other options for combining these"*. Round 2: 1 the steps move onto Welcome, 2 safety becomes a card inside "How it works", 3 "How it works" moves to Help & info, 4 keep both screens. Samuel: *"1, but ensure that the "don't feed them" advice is included on the safety card too"*.
 2. **Where location is asked.** A the phone's box as the photo is taken, B explain at the first photo then ask, C on opening Spot, D its own onboarding screen. Samuel chose **B**.
 
-**Amends DECISIONS.md D5 (as amended 28 Sep 2026).** "Onboarding ends with an optional email step" becomes "onboarding's last screen offers an optional email alongside the name". Leading with not losing your spots, the warning, the under-15 line, one later offer after skipping, and the separate consent for the restore email are unchanged. The news box is still hidden until SYC-45. The equal-prominence "Save my spots" and "Skip" pair gives way to one **Start spotting** button with an optional box; leaving it empty is the skip. DECISIONS.md is updated when this spec is approved.
+**Amends DECISIONS.md D5 (as amended 28 Sep 2026).** "Onboarding ends with an optional email step" becomes "onboarding's last screen offers an optional email alongside the name". Leading with not losing your spots, the warning, the under-15 line, one later offer after skipping, and the separate consent for the restore email are unchanged. The news box is still hidden until SYC-45. The equal-prominence "Save my spots" and "Skip" pair gives way to one **Start spotting** button with an optional box; leaving it empty is the skip. Recorded in DECISIONS.md Part 2s.
 
 ## The rules underneath (for the plan; Samuel can skip this section)
 

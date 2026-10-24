@@ -405,6 +405,16 @@ Samuel **approved the spec on 15 October 2026**, with the four cartoons as drawn
 - **No photo is deleted on the matcher's guess.** Only a spot with no cat in any photo is turned away. (From the adversarial review; spec §5.3.)
 - **The implementation plan was approved on 15 October 2026** (`docs/superpowers/plans/syc-415-photo-tips-and-extra-photos.md`). Plan Decision P1 = A: Claude switches `extra_photos_on` on after the live checks pass, with a one-line heads-up to Samuel first. Each extra-photo box offers "Camera" and "Photos" as two buttons, not a pop-up (browsers only open a picker from a direct tap).
 
+## Part 2s — approval of `onboarding-fewer-screens.md` (SYC-524), 24 October 2026
+
+Samuel **approved the spec on 24 October 2026** ("approved, write the plan"). Where anything earlier says otherwise, these win.
+
+- **Three onboarding screens before the camera:** Welcome (now showing the three "how it works" steps), Look, don't touch (now with "Please don't feed them"), and one Make it yours screen that also offers "Don't lose your spots". "How it works" is no longer its own screen. (Decisions 1, both rounds.)
+- **D5 amended again:** "onboarding ends with an optional email step" becomes "onboarding's last screen offers an optional email alongside the name". One **Start spotting** button replaces the "Save my spots" / "Skip" pair; leaving the box empty is the skip. The lead with not losing your spots, the warning, the under-15 line, the one later offer after skipping, and the separate restore consent are unchanged.
+- **The don't-feed line drops "Local cat guardians feed them properly."** Samuel: "this is not necessarily true". The same kind of claim in the feeding reminder is SYC-645.
+- **Location is asked at the first camera photo, explained first** ("Use where I am" or "I'll put the pin on the map"). No screen asks for location just by opening. (Decision 2 = B.)
+- **An untouched Ermoupoli pin can be sent,** as for library photos under SYC-166 Decision 6. This was raised by the adversarial review and put to Samuel before approval.
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
