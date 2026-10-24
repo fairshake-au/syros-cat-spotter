@@ -154,13 +154,72 @@ async function lockCat(tx: Tx, catId: number): Promise<void> {
  * visit never steps around the vaccination rule.
  */
 export async function logVetVisit(person: Person, input: VisitInput, now = new Date()): Promise<SavedVisit> {
+  const observedAt = checkVisit(person, input, now);
+  return inStatementTransaction(async (tx, news) => {
+    await lockCat(tx, input.catId);
+    return writeVisit(tx, news, person, input, observedAt, now);
+  });
+}
+
+/** The checks every visit passes before any write: the capabilities, and its date. */
+function checkVisit(person: Person, input: VisitInput, now: Date): Date {
   if (!can(person, "log_vet_visit")) throw notAuthorised();
   const did = Array.isArray(input.value?.did) ? input.value.did : [];
   if (did.includes("vaccinated") && !can(person, "set_vaccination")) throw notAuthorised();
-  const observedAt = visitAt(input.date, now);
+  return visitAt(input.date, now);
+}
+
+/** At most this many visits in one round (plan PR 3.2). */
+export const ROUND_MAX = 40;
+
+export interface RoundInput {
+  /** The colony whose planner the round was logged from; its cats stay where they are. */
+  colonyId: number;
+  /** YYYY-MM-DD, shared by every visit in the round. */
+  date: string;
+  visits: { catId: number; value: VetVisitValue }[];
+}
+
+/**
+ * Logs a whole trapping round (SYC-396 PR 3.2; spec §8.5): one visit per cat,
+ * each written exactly as `logVetVisit` writes it, all in ONE transaction, so
+ * the round is saved whole or not at all. The cats are locked in ascending id
+ * order, so two rounds over the same cats queue rather than deadlock. A cat
+ * from another colony gets its visit and stays in its own colony: a visit
+ * never writes a `colony` statement.
+ */
+export async function logRound(person: Person, input: RoundInput, now = new Date()): Promise<SavedVisit[]> {
+  if (!can(person, "log_vet_visit")) throw notAuthorised();
+  if (input.visits.length === 0) throw new ObservationRefused("MALFORMED_VALUE", "Tick at least one cat");
+  if (input.visits.length > ROUND_MAX) throw new ObservationRefused("MALFORMED_VALUE", `Up to ${ROUND_MAX} cats in one round`);
+  const catIds = input.visits.map((v) => v.catId);
+  if (new Set(catIds).size !== catIds.length) throw new ObservationRefused("MALFORMED_VALUE", "Each cat once per round");
+  const checked = input.visits.map((v) => ({ v, observedAt: checkVisit(person, { ...v, date: input.date }, now) }));
 
   return inStatementTransaction(async (tx, news) => {
-    await lockCat(tx, input.catId);
+    for (const id of [...catIds].sort((a, b) => a - b)) await lockCat(tx, id);
+    const saved: SavedVisit[] = [];
+    for (const { v, observedAt } of checked) {
+      saved.push(await writeVisit(tx, news, person, { ...v, date: input.date }, observedAt, now));
+    }
+    return saved;
+  });
+}
+
+/**
+ * The visit's rows, inside the caller's transaction, with its cat already
+ * locked: the visit, then its `sterilised` row(s) (D8) and `vaccinated` row.
+ */
+async function writeVisit(
+  tx: Tx,
+  news: PendingNews[],
+  person: Person,
+  input: VisitInput,
+  observedAt: Date,
+  now: Date,
+): Promise<SavedVisit> {
+  const did = Array.isArray(input.value?.did) ? input.value.did : [];
+  {
     const target = await catTarget(input.catId, tx);
     const roleAtTime = actingRole(person, "log_vet_visit", target);
     const base = { catId: input.catId, accountId: person.id, roleAtTime, observedAt };
@@ -212,7 +271,7 @@ export async function logVetVisit(person: Person, input: VisitInput, now = new D
     }
 
     return { visitId: visit.id, sterilisedIds, vaccinatedId, overruled };
-  });
+  }
 }
 
 /**
