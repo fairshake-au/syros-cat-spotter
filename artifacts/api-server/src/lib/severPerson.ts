@@ -35,9 +35,13 @@ export async function severPerson(
   //    backfill, the weekly close), taken first. A close that has frozen a
   //    winner's result either finishes before this runs (and step 6 then
   //    blanks the name) or sees the profile gone and skips them; it can't
-  //    write a result naming a spotter deleted a moment ago. Callers hold
-  //    only device_credentials row locks by now, and no badge writer ever
-  //    waits for one of those, so the two orders can't meet in a circle.
+  //    write a result naming a spotter deleted a moment ago.
+  //    THE RULE: for one device, the badges lock is always taken before any
+  //    device_credentials row lock. So a caller that will end here, having
+  //    locked that device's credentials row first, must take the badges lock
+  //    before it (keepSafe/move.ts does when deleting the phone's old
+  //    spotter). Badge writers never lock a credentials row, and DELETE /me
+  //    takes no lock before this, so nothing waits in a circle.
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtext(${"badges:" + deviceId}))`,
   );

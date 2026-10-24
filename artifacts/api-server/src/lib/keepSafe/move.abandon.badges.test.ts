@@ -20,6 +20,7 @@ import app from "../../app";
 import { settleOutbox } from "../mail/outbox";
 import { normaliseAddress } from "../mail/fingerprint";
 import { __setRestorePadForTest } from "../../routes/keepSafe";
+import { __setMoveHookForTest } from "./move";
 import { installFakeResend, tokenFrom, type SentMail } from "../../test/fakeResend";
 
 const RUN = randomBytes(3).toString("hex");
@@ -45,6 +46,7 @@ beforeEach(() => {
 afterEach(async () => {
   await settleOutbox();
   __setRestorePadForTest(null);
+  __setMoveHookForTest(null);
   vi.unstubAllGlobals();
   process.env = { ...saved };
 });
@@ -148,5 +150,48 @@ describe("abandoning a spotter by getting your spots back", () => {
     expect(await db.select().from(weeklyResultsTable).where(eq(weeklyResultsTable.id, podium!.id))).toMatchObject([
       { deviceId: nikos.id, displayName: "Nikos" },
     ]);
+  });
+
+  it("\"Delete Nikos\" racing DELETE /me from the same phone: both finish, no deadlock", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const nikos = newPhone();
+    await bind(nikos);
+    await claim(nikos, `Nikos${RUN}${++n}`);
+    const token = await askAndGetToken(nikos, email);
+
+    // Hold the move once it has locked both credentials, then send the
+    // phone's own DELETE /me while it is held.
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let entered!: () => void;
+    const inMove = new Promise<void>((r) => (entered = r));
+    __setMoveHookForTest(async () => {
+      entered();
+      await gate;
+    });
+    const redeeming = request(app)
+      .post("/api/restore/redeem")
+      .set("X-Device-Secret", nikos.secret)
+      .set("X-Forwarded-For", freshIp())
+      .send({ deviceId: nikos.id, token, spotterDeviceId: old.id, abandonCurrent: true, deleteCurrent: true })
+      .then((r) => r);
+    await inMove;
+    const deleting = request(app)
+      .delete("/api/me")
+      .set("X-Device-Id", nikos.id)
+      .set("X-Device-Secret", nikos.secret)
+      .then((r) => r);
+    // Give the delete time to reach its first lock wait.
+    for (let i = 0; i < 40; i++) {
+      const w = await db.execute(sql`select 1 from pg_locks where not granted`);
+      if (w.rows.length > 0) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    release();
+    const [moved, deleted] = await Promise.all([redeeming, deleting]);
+    // A deadlock would abort one of them with 40P01 and a 500.
+    expect(moved.status).toBe(200);
+    expect(deleted.status).toBe(204);
   });
 });

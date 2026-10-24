@@ -234,6 +234,13 @@ export async function redeemRestore(input: {
   if (input.deleteCurrent && !input.abandonCurrent) return { ok: false, reason: "delete_without_abandon" };
   try {
     return await db.transaction(async (tx) => {
+      // "Delete Nikos" ends in severPerson, which takes the badges lock before
+      // any credentials row lock for a device (DELETE /me does the same). Take
+      // it here, before the credentials lock below, so one phone's move and
+      // delete can never wait on each other in a circle (40P01, a 500).
+      if (input.deleteCurrent) {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"badges:" + callerDeviceId}))`);
+      }
       // Lock the calling phone's credential first: two links redeemed by one
       // phone at the same moment queue up, and the second finds it retired
       // (review of #106).
