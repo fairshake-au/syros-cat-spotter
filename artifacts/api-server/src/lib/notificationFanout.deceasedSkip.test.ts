@@ -6,7 +6,7 @@
  * (`cat_subscriptions`) are kept; only the notification/push is skipped.
  *
  * Tests `fanOutNotifications` (the `createUpdateAndFanOut` path used by
- * resolve) and `notifyCatSpotters` (the claim/rename path) directly, by
+ * resolve) and `notifyCatFollowers` (the claim/rename path) directly, by
  * seeding a `deceased` observation unrelated to any sighting -- isolating
  * "is this cat currently recorded as dead" from the sighting-clears-it rule,
  * which `resolve.test.ts` and `sightings.deceasedGuard.test.ts` already
@@ -32,7 +32,7 @@ import { createUpdateAndFanOut } from "./notificationFanout";
 const sendPushNotificationMock = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("./push", () => ({ sendPushNotification: sendPushNotificationMock }));
 
-import { notifyCatSpotters } from "./notifications";
+import { notifyCatFollowers } from "./notifications";
 
 const NAME_PREFIX = "VitestFanoutDeceased";
 const SUBSCRIBER = "vitest-fanoutdeceased-subscriber";
@@ -151,7 +151,7 @@ describe("fan-out skips a cat recorded as deceased (§3.3)", () => {
     expect(await notificationCountFor(catId)).toBe(1);
   });
 
-  it("notifyCatSpotters (the claim/rename path) sends no push for a deceased cat, despite a real spotter and token", async () => {
+  it("notifyCatFollowers (the claim/rename path) sends no push for a deceased cat, despite a real follower and token", async () => {
     const catId = await seedSubscribedCat();
     const spotterDevice = `${SUBSCRIBER}-spotter`;
     const [photo] = await db.select().from(photosTable).limit(1);
@@ -166,9 +166,10 @@ describe("fan-out skips a cat recorded as deceased (§3.3)", () => {
     await db
       .insert(pushTokensTable)
       .values({ deviceId: spotterDevice, token: "ExponentPushToken[deceased-skip-test]" });
+    await db.insert(catSubscriptionsTable).values({ deviceId: spotterDevice, catId });
     await markDeceased(catId);
 
-    await notifyCatSpotters(catId, "someone-else", { title: "t", body: "b" });
+    await notifyCatFollowers(catId, "someone-else", { title: "t", body: "b" });
 
     expect(sendPushNotificationMock).not.toHaveBeenCalled();
   });
@@ -188,8 +189,9 @@ describe("fan-out skips a cat recorded as deceased (§3.3)", () => {
     await db
       .insert(pushTokensTable)
       .values({ deviceId: spotterDevice, token: "ExponentPushToken[deceased-skip-test-alive]" });
+    await db.insert(catSubscriptionsTable).values({ deviceId: spotterDevice, catId });
 
-    await notifyCatSpotters(catId, "someone-else", { title: "t", body: "b" });
+    await notifyCatFollowers(catId, "someone-else", { title: "t", body: "b" });
 
     expect(sendPushNotificationMock).toHaveBeenCalledTimes(1);
   });

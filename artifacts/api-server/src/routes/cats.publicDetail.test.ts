@@ -34,6 +34,9 @@ import app from "../app";
 // Regenerated again, on purpose, by SYC-44 PR 6.1: `,"photoHidden":false`
 // after each sighting's `photoUrl` (none of these photos is hidden;
 // report-an-issue.md D4). No other byte changed.
+// Regenerated again, on purpose, by SYC-624 B6: `"spottersCount":2,
+// "followersCount":0` right after `"fansCount"` (never `isFollowing`: no
+// proven phone asked). No other byte changed.
 //
 // Only the database's own serial ids are swapped for placeholders; every other
 // byte, including key order, is compared as sent.

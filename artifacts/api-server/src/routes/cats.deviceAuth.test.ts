@@ -25,13 +25,13 @@ import { eq, like } from "drizzle-orm";
 
 vi.mock("../lib/notifications", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/notifications")>();
-  return { ...actual, notifyCatSpotters: vi.fn() };
+  return { ...actual, notifyCatFollowers: vi.fn() };
 });
 
-import { notifyCatSpotters } from "../lib/notifications";
+import { notifyCatFollowers } from "../lib/notifications";
 import app from "../app";
 
-const notifyMock = vi.mocked(notifyCatSpotters);
+const notifyMock = vi.mocked(notifyCatFollowers);
 
 const PREFIX = "vitest-cats-auth-";
 const NAME_PREFIX = "VitestCatsAuth";

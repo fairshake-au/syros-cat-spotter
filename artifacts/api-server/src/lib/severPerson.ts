@@ -94,6 +94,10 @@ export async function severPerson(
   await tx.execute(
     sql`delete from cat_subscriptions where device_id = ${deviceId}`,
   );
+  // SYC-624: the "I stopped following" records are theirs too.
+  await tx.execute(
+    sql`delete from cat_unfollows where device_id = ${deviceId}`,
+  );
   await tx.execute(
     sql`delete from notifications where device_id = ${deviceId}`,
   );

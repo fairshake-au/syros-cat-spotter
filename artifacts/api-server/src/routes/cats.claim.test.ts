@@ -9,6 +9,7 @@ import {
   sightingsTable,
   deviceCredentialsTable,
   observationsTable,
+  catSubscriptionsTable,
 } from "@workspace/db";
 import { and, eq, like } from "drizzle-orm";
 import { writeObservation } from "../lib/observations";
@@ -28,16 +29,16 @@ vi.mock("../lib/notifications", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/notifications")>();
   return {
     ...actual,
-    notifyCatSpotters: vi.fn(actual.notifyCatSpotters),
+    notifyCatFollowers: vi.fn(actual.notifyCatFollowers),
   };
 });
 
 import { sendPushNotification } from "../lib/push";
-import { notifyCatSpotters } from "../lib/notifications";
+import { notifyCatFollowers } from "../lib/notifications";
 import app from "../app";
 
 const sendPushNotificationMock = vi.mocked(sendPushNotification);
-const notifyCatSpottersMock = vi.mocked(notifyCatSpotters);
+const notifyCatFollowersMock = vi.mocked(notifyCatFollowers);
 
 // All fixtures share these prefixes so cleanup can never touch real data.
 const PREFIX = "vitest-claim-";
@@ -53,6 +54,9 @@ const catName = (suffix: string) => `${NAME_PREFIX}${suffix}`;
 async function cleanup() {
   await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
   await db.delete(pushTokensTable).where(like(pushTokensTable.deviceId, `${PREFIX}%`));
+  await db
+    .delete(catSubscriptionsTable)
+    .where(like(catSubscriptionsTable.deviceId, `${PREFIX}%`));
   await db.delete(catsTable).where(like(catsTable.name, `${NAME_PREFIX}%`));
   await db
     .delete(deviceCredentialsTable)
@@ -66,7 +70,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  notifyCatSpottersMock.mockClear();
+  notifyCatFollowersMock.mockClear();
   sendPushNotificationMock.mockClear();
 });
 
@@ -99,6 +103,11 @@ async function insertResolvedSighting(catId: number, deviceSuffix: string) {
   await db
     .insert(pushTokensTable)
     .values({ deviceId, token: deviceId })
+    .onConflictDoNothing();
+  // SYC-624: the claim and edit pushes go to followers, so a spotter here follows.
+  await db
+    .insert(catSubscriptionsTable)
+    .values({ deviceId, catId })
     .onConflictDoNothing();
 }
 
@@ -134,7 +143,7 @@ describe("POST /api/cats/:catId/claim", () => {
     expect(res.body.hasHome).toBe(true);
     expect(res.body.homeDescription).toBe("Blue door near the port");
     expect(res.body.homePin).toEqual({ lat: 37.44, lng: 24.9 });
-    expect(notifyCatSpottersMock).toHaveBeenCalledWith(
+    expect(notifyCatFollowersMock).toHaveBeenCalledWith(
       cat.id,
       device("owner1"),
       expect.objectContaining({
@@ -169,7 +178,7 @@ describe("POST /api/cats/:catId/claim", () => {
     // Existing ownership details are preserved; the re-claim is a no-op.
     expect(res.body.ownerName).toBe("Nikos");
     expect(res.body.homeDescription).toBe("White house");
-    expect(notifyCatSpottersMock).not.toHaveBeenCalled();
+    expect(notifyCatFollowersMock).not.toHaveBeenCalled();
     expect(await observationsFor(cat.id, "life_status")).toHaveLength(0);
   });
 
@@ -196,7 +205,7 @@ describe("POST /api/cats/:catId/claim", () => {
       .send(claimBody(device("intruder"), ""));
     expect(res.status).toBe(409);
     expect(res.body.code).toBe("ALREADY_HOMED");
-    expect(notifyCatSpottersMock).not.toHaveBeenCalled();
+    expect(notifyCatFollowersMock).not.toHaveBeenCalled();
     expect(await observationsFor(cat.id, "life_status")).toHaveLength(1);
   });
 
@@ -294,7 +303,7 @@ describe("PATCH /api/cats/:catId", () => {
       .set("X-Device-Secret", DEVICE_SECRET)
       .send({ deviceId: device("stranger"), name: catName("Hijack") });
     expect(res.status).toBe(403);
-    expect(notifyCatSpottersMock).not.toHaveBeenCalled();
+    expect(notifyCatFollowersMock).not.toHaveBeenCalled();
 
     // Name unchanged.
     const detail = await request(app).get(`/api/cats/${cat.id}`);
@@ -340,7 +349,7 @@ describe("PATCH /api/cats/:catId", () => {
       .send({ deviceId: device("owner6"), name: catName("NotifyRenamed") });
     expect(res.status).toBe(200);
 
-    expect(notifyCatSpottersMock).toHaveBeenCalledWith(
+    expect(notifyCatFollowersMock).toHaveBeenCalledWith(
       cat.id,
       device("owner6"),
       expect.objectContaining({
@@ -364,7 +373,7 @@ describe("PATCH /api/cats/:catId", () => {
       .set("X-Device-Secret", DEVICE_SECRET)
       .send({ deviceId: device("owner7"), homeDescription: "Fresh description" });
     expect(res.status).toBe(200);
-    expect(notifyCatSpottersMock).toHaveBeenCalledWith(
+    expect(notifyCatFollowersMock).toHaveBeenCalledWith(
       cat.id,
       device("owner7"),
       expect.anything(),
@@ -383,6 +392,6 @@ describe("PATCH /api/cats/:catId", () => {
       .set("X-Device-Secret", DEVICE_SECRET)
       .send({ deviceId: device("owner8") });
     expect(res.status).toBe(200);
-    expect(notifyCatSpottersMock).not.toHaveBeenCalled();
+    expect(notifyCatFollowersMock).not.toHaveBeenCalled();
   });
 });

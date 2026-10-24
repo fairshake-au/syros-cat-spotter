@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { db, pool, profilesTable } from "@workspace/db";
-import { inArray, like } from "drizzle-orm";
+import { eq, inArray, like } from "drizzle-orm";
 import app from "../app";
 
 // All fixtures share this prefix so cleanup can never touch real data.
@@ -64,6 +64,11 @@ describe("POST /api/profiles/:deviceId/username", () => {
     const profile = await request(app).get(`/api/profiles/${id}`)
       .set("X-Device-Secret", secret);
     expect(profile.body.username).toBe(name("EditNew"));
+    // The leaderboard is the top 20 by points, and other test files leave
+    // more than 20 scored profiles in the shared database. Score this profile
+    // above any seed so the assertion only depends on the rename (SYC-334).
+    await db.update(profilesTable).set({ points: 2_000_000_000 })
+      .where(eq(profilesTable.deviceId, id));
     const leaderboard = await request(app).get("/api/leaderboard");
     expect(leaderboard.body.some((entry: { username: string }) => entry.username === name("EditNew"))).toBe(true);
   });
