@@ -11,8 +11,9 @@
  */
 import React from 'react';
 import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TRANSLATIONS } from '@/lib/i18n';
+import { RESTORE_WAITING_KEY } from '@/lib/restoreWaiting';
 
 const en = TRANSLATIONS.en;
 
@@ -75,8 +76,10 @@ vi.mock('../onboarding/NameStep', async () => {
 vi.mock('../keepSafe/RestoreRequestScreen', async () => {
   const { Text } = await import('react-native');
   return {
-    RestoreRequestScreen: ({ onBack }: { onBack: () => void }) => (
-      <Text onPress={onBack}>STUB_RESTORE_REQUEST</Text>
+    RestoreRequestScreen: ({ onBack, startOnCode }: { onBack: () => void; startOnCode?: boolean }) => (
+      <Text onPress={onBack} testID={startOnCode ? 'restore-code-input' : 'restore-address'}>
+        STUB_RESTORE_REQUEST
+      </Text>
     ),
   };
 });
@@ -91,6 +94,19 @@ function dots(container: HTMLElement) {
   const pips = Array.from(row.children) as HTMLElement[];
   return { total: pips.length, active: pips.findIndex((p) => p.style.width === '22px') };
 }
+
+beforeEach(() => {
+  const mem = new Map<string, string>();
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => void mem.set(k, v),
+      removeItem: (k: string) => void mem.delete(k),
+      clear: () => mem.clear(),
+    },
+  });
+});
 
 afterEach(() => {
   cleanup();
@@ -126,5 +142,25 @@ describe('onboarding step order (SYC-524)', () => {
 
     fireEvent.click(getByText('STUB_NAME_BACK'));
     expect(getByText(en.howSafetyTitle)).toBeTruthy();
+  });
+});
+
+describe('reopening on the code box (SYC-664)', () => {
+  it('a live waiting note opens the restore screen on the code box', () => {
+    window.localStorage.setItem(RESTORE_WAITING_KEY, JSON.stringify({ askedAt: Date.now(), requests: 1, wrongTries: 0 }));
+    const { getByTestId, queryByText } = render(<OnboardingFlow />);
+    expect(getByTestId('restore-code-input')).toBeTruthy();
+    expect(queryByText('STUB_WELCOME')).toBeNull();
+  });
+
+  it('an expired note opens on Welcome', () => {
+    window.localStorage.setItem(RESTORE_WAITING_KEY, JSON.stringify({ askedAt: Date.now() - 16 * 60_000, requests: 1, wrongTries: 0 }));
+    const { getByText } = render(<OnboardingFlow />);
+    expect(getByText('STUB_WELCOME')).toBeTruthy();
+  });
+
+  it('with no note it opens on Welcome', () => {
+    const { getByText } = render(<OnboardingFlow />);
+    expect(getByText('STUB_WELCOME')).toBeTruthy();
   });
 });

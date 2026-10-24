@@ -6,3 +6,4 @@ T5 done: exchangeRestoreCode + code guards in keepSafe.ts, restoreWaiting store 
 T6 done: RestoreChooser extracted from app/restore.tsx (fromCode skips in-app advice, onMoved prop); next: T7
 T7 done: code screen (address, code, chooser) with en/el/fr strings; next: T8
 T7 fix 1 done: guard ref, 429 resend, restoreCodeFailed, el wording; next: T8
+T8 done: reopen on the code box after a reload (onboarding, /get-spots-back, gate hook); waiting note cleared on startAgain/adopt/reset; next: T9

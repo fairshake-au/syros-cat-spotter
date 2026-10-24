@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearWaiting } from '@/lib/restoreWaiting';
 import {
   getProfile,
   setDeviceMovedListener,
@@ -435,6 +436,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
 
   const startAgain = useCallback(async () => {
     generation.current++;
+    clearWaiting();
     const [id, secret] = [await makeDeviceId(), await makeDeviceSecret()];
     await AsyncStorage.multiRemove([
       USERNAME_KEY,
@@ -457,6 +459,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
 
   const adoptRestoredIdentity = useCallback(async (restoredId: string, restoredName: string | null) => {
     generation.current++;
+    clearWaiting();
     await AsyncStorage.setItem(STORAGE_KEY, restoredId);
     if (restoredName) await AsyncStorage.setItem(USERNAME_KEY, restoredName);
     else await AsyncStorage.removeItem(USERNAME_KEY);
@@ -477,6 +480,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
 
   const resetIdentity = useCallback(async () => {
     generation.current++;
+    clearWaiting();
     // Removed first: if the app dies after this, the next launch makes a
     // fresh identity anyway. If it dies before, the old id gets 410 and the
     // wipe runs again (plan §6.4).
