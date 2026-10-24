@@ -135,7 +135,7 @@ describe("T7-1 (spec test 17): only view_welfare_queue sees an issue, anywhere",
     expect(photo.headers["cache-control"]).toBe("no-store");
     const catPage = await get(`/api/team/cats/${cat.id}`);
     expect(catPage.status).toBe(200);
-    expect(catPage.text).toContain("Reports about this cat (1)");
+    expect(catPage.text).toContain("Reports (1)");
     expect(catPage.text).toContain(`href="/api/team?open=${r.publicId}#r-${r.publicId}"`);
   });
 
@@ -629,7 +629,7 @@ describe("ship review of 7.1: findings pinned", () => {
     const strip = await issueStripFor({ scopes: [{ role: "staff", colonyId: null }] }, other.id);
     expect([strip?.reports.length, strip?.total]).toEqual([50, 52]);
     const page = (await get(`/api/team/cats/${other.id}`)).text;
-    expect(page).toContain("Reports about this cat (52)");
+    expect(page).toContain("Reports (52)");
     expect(page).toContain("Showing the newest 50 of 52.");
   });
 });

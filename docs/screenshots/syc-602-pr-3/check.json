@@ -1,0 +1,143 @@
+[
+ {
+  "width": 390,
+  "page": "menus-off-screen",
+  "spill": [
+   false,
+   false,
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "width": 390,
+  "page": "cat",
+  "scrollW": 390,
+  "clientW": 390,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": true,
+  "sideSticky": "static",
+  "sideOnRight": false,
+  "mainPhotoLabels": [
+   "Main photo"
+  ],
+  "sideways": false
+ },
+ {
+  "width": 390,
+  "page": "bare",
+  "scrollW": 390,
+  "clientW": 390,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": null,
+  "sideSticky": "static",
+  "sideOnRight": false,
+  "mainPhotoLabels": [],
+  "sideways": false
+ },
+ {
+  "width": 390,
+  "page": "readonly",
+  "scrollW": 390,
+  "clientW": 390,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": null,
+  "sideSticky": "static",
+  "sideOnRight": false,
+  "mainPhotoLabels": [
+   "Main photo"
+  ],
+  "sideways": false
+ },
+ {
+  "width": 600,
+  "page": "menus-off-screen",
+  "spill": [
+   false,
+   false,
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "width": 600,
+  "page": "cat",
+  "scrollW": 600,
+  "clientW": 600,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": true,
+  "sideSticky": "static",
+  "sideOnRight": false,
+  "mainPhotoLabels": [
+   "Main photo"
+  ],
+  "sideways": false
+ },
+ {
+  "width": 1280,
+  "page": "menus-off-screen",
+  "spill": [
+   false,
+   false,
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "width": 1280,
+  "page": "cat",
+  "scrollW": 1280,
+  "clientW": 1280,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": true,
+  "sideSticky": "sticky",
+  "sideOnRight": true,
+  "mainPhotoLabels": [
+   "Main photo"
+  ],
+  "sideways": false
+ },
+ {
+  "width": 1280,
+  "page": "bare",
+  "scrollW": 1280,
+  "clientW": 1280,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": null,
+  "sideSticky": "sticky",
+  "sideOnRight": true,
+  "mainPhotoLabels": [],
+  "sideways": false
+ },
+ {
+  "width": 1280,
+  "page": "readonly",
+  "scrollW": 1280,
+  "clientW": 1280,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": null,
+  "sideSticky": "sticky",
+  "sideOnRight": true,
+  "mainPhotoLabels": [
+   "Main photo"
+  ],
+  "sideways": false
+ }
+]
