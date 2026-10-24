@@ -28,7 +28,7 @@ import { DEFAULT_CELL_M, groupByCell } from '@/lib/cellShape';
 import { useBannerAreaReserve } from '@/lib/bannerArea';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { NotificationBell } from '@/components/NotificationBell';
-import { Chip, CHIP_TAP_PAD } from '@/components/purropolis';
+import { Chip } from '@/components/purropolis';
 import { photoSource, SYROS_CENTER } from '@/lib/urls';
 import {
   catalogueEmptyKey,
@@ -371,6 +371,10 @@ export default function CatalogScreen() {
     </View>
   );
 }
+
+// Extra tap area above and below the 35px chips and the Map/List button, so each is
+// 44pt to tap (SYC-644). Same value as Chip's own.
+const CHIP_TAP_PAD = 5;
 
 const styles = StyleSheet.create({
   // SYC-509: 44pt tap area around a 16pt icon; the negative margins keep the row height without covering the text beside it.
