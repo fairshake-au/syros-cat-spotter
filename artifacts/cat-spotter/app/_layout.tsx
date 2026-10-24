@@ -85,9 +85,10 @@ function RootLayoutNav() {
 
 /**
  * Shows the one-time landing screen until a username has been claimed, then
- * (SYC-3) "Don't lose your spots" once, before the app. A spotter who skipped
- * it is offered it once more at their first badge, on top of the app
- * (FirstBadgeOffer, SYC-502).
+ * the app. A new spotter is offered "Don't lose your spots" on the name
+ * screen (SYC-524) and once more at their first badge, on top of the app
+ * (FirstBadgeOffer, SYC-502). A spotter from before this version sees the
+ * full-screen offer (SYC-3) once, before the app.
  */
 function OnboardingGate() {
   const { isReady, username, heldUsername, startupError, moved, keepSafeOffer, setKeepSafeOffer } = useDevice();
@@ -97,9 +98,21 @@ function OnboardingGate() {
   const pathname = usePathname();
   // Whether this phone already had a spotter when the app opened: a spotter
   // from before this version sees "keep my spots safe" once as a one-time
-  // offer; a new one sees it as the last onboarding step.
+  // offer; a new one never sees that screen (SYC-524).
   const startedWithName = useRef<boolean | null>(null);
   if (isReady && startedWithName.current === null) startedWithName.current = Boolean(username);
+  // SYC-524: once the phone has no spotter at all ("Delete my data", "start
+  // again"), any name that arrives later belongs to a new spotter.
+  if (isReady && !username && !heldUsername) startedWithName.current = false;
+  // SYC-524 backstop: the name screen writes 'skipped-onboarding' before it
+  // saves anything, but a name can also arrive another way (recover-on-mount,
+  // a late reconcile, a relaunch after a claim landed). A new spotter's name
+  // with no offer state is treated as a skip, never as the old screen.
+  const newSpotterWithoutOffer =
+    isReady && keepSafeOffer === null && !!username && startedWithName.current === false;
+  useEffect(() => {
+    if (newSpotterWithoutOffer) setKeepSafeOffer('skipped-onboarding');
+  }, [newSpotterWithoutOffer, setKeepSafeOffer]);
   const { doneVisible } = useDeleteMyData();
   // SYC-136: a rejected promise inside DeviceProvider's setup effect isn't
   // caught by the top-level ErrorBoundary (render-only), so DeviceProvider
@@ -116,14 +129,13 @@ function OnboardingGate() {
   // SYC-506: a name held on the phone (chosen offline) is past onboarding;
   // HeldNameSaver saves it once there's a connection.
   if (!username && !heldUsername) return <OnboardingFlow />;
-  if (keepSafeOffer === null && username) {
-    const onboarding = startedWithName.current === false;
+  // SYC-3: the one-time offer, only for a spotter from before this version.
+  if (keepSafeOffer === null && username && startedWithName.current === true) {
     return (
       <KeepSafeScreen
-        surface={onboarding ? 'onboarding' : 'first_badge'}
-        showDots={onboarding}
+        surface="first_badge"
         onSaved={() => setKeepSafeOffer('done')}
-        onSkip={() => setKeepSafeOffer(onboarding ? 'skipped-onboarding' : 'done')}
+        onSkip={() => setKeepSafeOffer('done')}
       />
     );
   }

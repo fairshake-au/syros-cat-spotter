@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { palette } from '@/constants/colors';
-import { fonts, spacing } from '@/constants/theme';
+import { fonts, radii, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { Button } from '@/components/purropolis';
 import { StepDots } from './StepDots';
@@ -12,12 +12,12 @@ import { decorative } from '@/lib/a11yText';
 
 /**
  * SYC-35: keep-your-distance guidance, on its own screen straight after
- * "How it works". Syros Cats asked for it as health-and-safety cover
+ * Welcome. Syros Cats asked for it as health-and-safety cover
  * (PRODUCT-SPEC §2.2). The copy is `onboarding.healthy`
  * (docs/specs/source/safety-copy-translations.md), word for word.
  *
- * There is deliberately no Skip here: Skip on "How it works" lands on this
- * screen, so nobody passes the guidance without seeing it. It fits a
+ * There is deliberately no Skip here, so nobody passes the guidance without
+ * seeing it. It fits a
  * 390×844 screen without scrolling in all three languages; the ScrollView
  * is only a fallback for smaller phones and large text settings.
  */
@@ -60,6 +60,16 @@ export function SafetyStep({ onNext }: { onNext: () => void }) {
             <Text style={[styles.para, { color: colors.foreground }]}>
               {t('howSafetyLeaveBe')}
             </Text>
+            {/* SYC-524: the advice that was a card on the retired How it works screen. */}
+            <View style={[styles.feedBlock, { backgroundColor: palette.terra100 }]}>
+              <Text style={[styles.feedTitle, { color: colors.foreground }]}>
+                <Text {...decorative}>🚫 </Text>
+                {t('howStepDontFeed')}
+              </Text>
+              <Text style={[styles.para, { color: colors.foreground }]}>
+                {t('safetyDontFeedBody')}
+              </Text>
+            </View>
             {SHOW_HURT_LINE && (
               <Text style={[styles.para, styles.strong, { color: colors.foreground }]}>
                 {t('howSafetyHurt')}
@@ -106,6 +116,13 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.displayBold, fontSize: 26, lineHeight: 31 },
   body: { gap: spacing[3] },
   para: { fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
+  feedBlock: {
+    borderRadius: radii.md,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 4,
+  },
+  feedTitle: { fontFamily: fonts.bodyBold, fontSize: 15, lineHeight: 22 },
   strong: { fontFamily: fonts.bodyBold },
   footer: {
     width: '100%',

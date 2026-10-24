@@ -10,6 +10,7 @@ import React, {
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
+import { useDevice } from '@/context/DeviceContext';
 import {
   getLocationPermission,
   mapNativePermission,
@@ -111,6 +112,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [choice, setChoice] = useState<LocationChoice>(null);
   const [lastAskFailed, setLastAskFailed] = useState(false);
   const [checked, setChecked] = useState(false);
+  const { deviceId } = useDevice();
 
   const mounted = useRef(true);
   const choiceRef = useRef<LocationChoice>(null);
@@ -160,7 +162,9 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       if (!current()) return;
       setPermission(perm);
       if (perm !== 'granted') {
-        applyCoords(null);
+        // 'not-asked' keeps a fix: a browser can still say "prompt" after a
+        // successful ask. Only a refusal drops it.
+        if (perm !== 'not-asked') applyCoords(null);
         return;
       }
       if (coordsRef.current) return;
@@ -192,6 +196,21 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       mounted.current = false;
     };
   }, [applyChoice, sync]);
+
+  // SYC-524: "Delete my data" clears the stored choice and a restore keeps it;
+  // either way a new deviceId means the stored value may differ from what this
+  // provider holds, so read it again (the mount read covers the first value).
+  const lastDeviceId = useRef(deviceId);
+  useEffect(() => {
+    if (lastDeviceId.current === deviceId) return;
+    lastDeviceId.current = deviceId;
+    void (async () => {
+      const stored = await readLocationChoice(AsyncStorage);
+      if (!mounted.current) return;
+      applyChoice(stored);
+      await sync();
+    })();
+  }, [deviceId, applyChoice, sync]);
 
   // Coming back from the phone's Settings (or the browser's site settings)
   // the spotter may have changed the permission; pick that up without asking.
@@ -234,8 +253,9 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
           }
         }
         const perm = await readPermission(choiceRef.current);
-        // Older browsers can say "prompt" or nothing after a refusal.
-        if (current()) setPermission(refused ? 'denied-final' : perm);
+        // Older browsers can say "prompt" or nothing after a refusal, or after
+        // a fix; a fix means it was granted whatever the query answers.
+        if (current()) setPermission(pos ? 'granted' : refused ? 'denied-final' : perm);
       } else {
         const request = await Location.requestForegroundPermissionsAsync();
         const perm = mapNativePermission(request);

@@ -52,7 +52,23 @@ describe('location callers', () => {
 
   it('the report flow asks once, from a mount effect', () => {
     const src = read('app/report.tsx');
-    expect(src).toMatch(/useEffect\(\(\) => \{\s*void askAndLocate\(\);/);
+    expect(src).toMatch(/useEffect\(\(\) => \{\s*(setAsked\(true\);\s*)?void askAndLocate\(\);/);
     expect(src.match(/askAndLocate\(\)/g)?.length).toBe(1);
+  });
+
+  // First frame: the mount effect has not run yet, so "not asked yet" must read
+  // as locating or the wizard drops its fallback pin for one render.
+  it('the report flow counts "not asked yet" as locating', () => {
+    const src = read('app/report.tsx');
+    expect(src).toMatch(/const \[asked, setAsked\] = useState\(false\)/);
+    expect(src).toMatch(/useEffect\(\(\) => \{\s*setAsked\(true\);\s*void askAndLocate\(\);/);
+    expect(src).toMatch(/gps=\{\{ coords, locating: locating \|\| !asked, denied \}\}/);
+  });
+
+  // `loading` is true during the permission read itself; only a spotter who
+  // allowed location is actually waiting for a fix.
+  it('Spot shows "Getting your location" only when permission is granted', () => {
+    const src = read('app/(tabs)/spot.tsx');
+    expect(src).toMatch(/permission === 'granted' && locating && !coords && !photo/);
   });
 });

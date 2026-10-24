@@ -8,7 +8,7 @@
  * while the first request was still open, and if the first one landed last
  * the server held it while the phone showed the second.
  *
- * Scaffolding copied from LanguageUsernameStep.reconcile.test.tsx. The fake
+ * Scaffolding copied from NameStep.reconcile.test.tsx. The fake
  * server below applies each claim when it "lands", in landing order, as the
  * real one does (last write wins).
  */
@@ -38,7 +38,7 @@ vi.mock('@workspace/api-client-react', () => ({
 vi.mock('@/context/LanguageContext', () => ({
   useLanguage: () => ({ language: 'en', setLanguage: vi.fn(), t: (k: string) => (en as any)[k] ?? k }),
 }));
-vi.mock('@/context/DeviceContext', () => ({ useDevice: () => ({ deviceId: 'dev-1', setUsername: h.setUsername }) }));
+vi.mock('@/context/DeviceContext', () => ({ useDevice: () => ({ deviceId: 'dev-1', setUsername: h.setUsername, setKeepSafeOffer: () => {}, identityGeneration: () => 0 }) }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: true }) }));
 vi.mock('@/hooks/useColors', () => ({
   useColors: () => ({ background: '#fff', foreground: '#000', mutedForeground: '#666', card: '#fff', border: '#ddd', primary: '#123', primaryForeground: '#fff', destructive: '#f00' }),
@@ -47,7 +47,10 @@ vi.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ t
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
 vi.mock('@/components/KeyboardAwareScrollViewCompat', async () => {
   const { View } = await import('react-native');
-  return { KeyboardAwareScrollViewCompat: ({ children }: any) => <View>{children}</View> };
+  return {
+    KeyboardAwareScrollViewCompat: ({ children }: any) => <View>{children}</View>,
+    KeyboardStickyViewCompat: ({ children }: any) => <View>{children}</View>,
+  };
 });
 // A native <button> (not react-native-web's Text) so the `disabled`
 // property is directly and reliably queryable from the DOM.
@@ -58,7 +61,7 @@ vi.mock('@/components/purropolis', () => ({
   Tag: ({ children }: any) => <span>{children}</span>,
 }));
 
-import { LanguageUsernameStep } from '../onboarding/LanguageUsernameStep';
+import { NameStep } from '../onboarding/NameStep';
 import { resetUsernameClaimStateForTests } from '@/hooks/useUsernameClaim';
 
 const never = () => new Promise<never>(() => {});
@@ -85,10 +88,10 @@ function serverClaim(_deviceId: string, body: { username: string }) {
 }
 
 function mount() {
-  const view = render(<LanguageUsernameStep onBack={() => {}} />);
+  const view = render(<NameStep onBack={() => {}} />);
   const input = () => view.container.querySelector('input')!;
   const continueBtn = () =>
-    view.getAllByRole('button').find((b) => /Continue|Retry|Saving/.test(b.textContent ?? '')) as HTMLButtonElement;
+    view.getAllByRole('button').find((b) => /Start spotting|Retry|Saving/.test(b.textContent ?? '')) as HTMLButtonElement;
   return { view, input, continueBtn };
 }
 

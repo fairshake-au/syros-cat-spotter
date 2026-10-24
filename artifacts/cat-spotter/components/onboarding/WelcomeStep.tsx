@@ -2,12 +2,19 @@ import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { palette } from '@/constants/colors';
-import { fonts, fontSizes, spacing } from '@/constants/theme';
+import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { LANGUAGES } from '@/lib/i18n';
 import { Button } from '@/components/purropolis';
 import { FairShakeMark } from '@/components/FairShakeMark';
 import { decorative, spokenText } from '@/lib/a11yText';
+
+/** SYC-524: the old How it works screen, folded into Welcome. */
+const STEPS = [
+  { icon: '📍', title: 'howStepSpot', body: 'howStepSpotBody' },
+  { icon: '🐱', title: 'howStepCatalog', body: 'howStepCatalogBody' },
+  { icon: '❤️', title: 'howStepHelp', body: 'howStepHelpBody' },
+] as const;
 
 /**
  * First-run hero. Deliberately renders on the Aegean gradient rather than the
@@ -31,7 +38,7 @@ export function WelcomeStep({ onNext, onRestore }: { onNext: () => void; onResto
         </Text>
       </View>
 
-      {/* SYC-155: change language before "How it works" and the safety guidance. */}
+      {/* SYC-155: change language before the safety guidance. */}
       <View
         accessibilityRole="radiogroup"
         accessibilityLabel={t('language')}
@@ -70,6 +77,26 @@ export function WelcomeStep({ onNext, onRestore }: { onNext: () => void; onResto
         <Text style={styles.subtitle} accessibilityLabel={spokenText(t('welcomeSubtitle'))}>
           {t('welcomeSubtitle')}
         </Text>
+        <View style={styles.steps}>
+          {STEPS.map((step) => (
+            <View
+              key={step.title}
+              accessible
+              accessibilityLabel={`${t(step.title)}. ${t(step.body)}`}
+              style={styles.step}
+            >
+              <View style={styles.stepIcon} {...decorative}>
+                <Text style={styles.stepEmoji} allowFontScaling={false} {...decorative}>
+                  {step.icon}
+                </Text>
+              </View>
+              <View style={styles.stepText}>
+                <Text style={styles.stepTitle}>{t(step.title)}</Text>
+                <Text style={styles.stepBody}>{t(step.body)}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing[4] }]}>
@@ -126,15 +153,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[6],
   },
   mark: {
-    width: 132,
-    height: 132,
-    borderRadius: 66,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing[5],
   },
-  markEmoji: { fontSize: 74 },
+  markEmoji: { fontSize: 54 },
   title: {
     fontFamily: fonts.displayBold,
     fontSize: 32,
@@ -150,6 +177,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing[3],
     maxWidth: 290,
+  },
+  steps: { alignSelf: 'stretch', gap: spacing[2], marginTop: spacing[4] },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    padding: spacing[3],
+    borderRadius: radii.lg,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  stepIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepEmoji: { fontSize: 20 },
+  stepText: { flex: 1 },
+  stepTitle: { fontFamily: fonts.displayBold, fontSize: 14.5, color: '#fff' },
+  stepBody: {
+    fontFamily: fonts.body,
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: 'rgba(255,255,255,0.9)',
   },
   footer: { paddingHorizontal: spacing[5], gap: spacing[3] },
   restore: { paddingVertical: 6, alignItems: 'center' },

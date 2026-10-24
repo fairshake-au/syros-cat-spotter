@@ -1878,7 +1878,7 @@ export default function SpotScreen() {
           </>
         )}
 
-        {locating && !coords && !photo && (
+        {permission === 'granted' && locating && !coords && !photo && (
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             {t('locating')}
           </Text>

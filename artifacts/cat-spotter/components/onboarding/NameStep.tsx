@@ -17,7 +17,10 @@ import {
   checkUsernameAvailability,
   getClaimedUsername,
 } from '@workspace/api-client-react';
-import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
+import {
+  KeyboardAwareScrollViewCompat,
+  KeyboardStickyViewCompat,
+} from '@/components/KeyboardAwareScrollViewCompat';
 import { useColors } from '@/hooks/useColors';
 import { palette } from '@/constants/colors';
 import {
@@ -39,9 +42,12 @@ import { StepDots } from './StepDots';
 import { ONBOARDING_DOT_COUNT, stepIndex } from './steps';
 import { RECONCILE_WAIT_MS, withDeadline } from '@/lib/usernameClaim';
 import { useUsernameClaim } from '@/hooks/useUsernameClaim';
-import { spokenText } from '@/lib/a11yText';
+import { decorative, spokenText } from '@/lib/a11yText';
+import { useOnboardingEmail } from './useOnboardingEmail';
 
 const MIN_LEN = 3;
+/** How much of the pinned footer sits above the keyboard: the button and its padding. */
+const FOOTER_ABOVE_KEYBOARD = 48 + spacing[2] + spacing[4];
 
 /**
  * Final onboarding step: claim a unique username. Claim completion opens the
@@ -51,15 +57,44 @@ const MIN_LEN = 3;
  * SYC-506: offline, the phone suggests names and "Start spotting" keeps the
  * chosen one on the phone (DeviceContext `heldUsername`); the app opens and
  * saves it once there's a connection (hooks/useHeldNameSaver.ts).
+ *
+ * SYC-524: the same screen offers "Don't lose your spots", an optional email
+ * (docs/specs/onboarding-fewer-screens.md, Screen 3). **Start spotting**:
+ * (1) stops on an email that isn't one; (2) writes the offer as
+ * `skipped-onboarding`, so whichever way a name arrives the root gate never
+ * shows the keep-safe screen; (3) adds the email, if typed and not already
+ * added here, and upgrades the offer to `done`, or stops on failure; (4)
+ * claims the name, which opens the app. The email goes first because a saved
+ * name opens the app by itself. A change of identity mid-save drops the
+ * result. Offline, the email box gives way to a note and counts as skipped.
  */
-export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
+export function NameStep({ onBack }: { onBack: () => void }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { t } = useLanguage();
-  const { deviceId, setUsername, holdUsername, setKeepSafeOffer } = useDevice();
+  const { t, language } = useLanguage();
+  const {
+    deviceId,
+    setUsername,
+    holdUsername,
+    keepSafeOffer,
+    setKeepSafeOffer,
+    identityGeneration,
+  } = useDevice();
   const { isOnline } = useOffline();
+  const {
+    email,
+    setEmail,
+    savedFor,
+    error: emailError,
+    saving,
+    saveIfNeeded,
+  } = useOnboardingEmail({ deviceId, language });
 
   const tappedAt = useRef(0);
+  /** Which spotter this phone was when the claim was sent (spec "Identity changes mid-save"). */
+  const claimGeneration = useRef<number | null>(null);
+  /** A tap is between Start spotting and the claim (the email is being checked or added). */
+  const submitting = useRef(false);
 
   const {
     submit: claim,
@@ -75,6 +110,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
     t,
     finishOnClaim: true,
     onClaimed: (name) => {
+      if (claimGeneration.current !== null && identityGeneration() !== claimGeneration.current) return;
       if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('Username claim-to-navigation timing', { ms: Date.now() - tappedAt.current });
       setUsername(name);
     },
@@ -201,21 +237,47 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
     ? !!deviceId && !pending && !uncertainName && heldName !== null
     : !!deviceId &&
       !pending &&
+      !saving &&
       (uncertainName
         ? true
         : longEnough && !taken && !isRejectedName(trimmed));
 
-  const submit = () => {
-    if (!canSubmit) return;
+  // Written before anything is saved. An email added on an earlier tap
+  // already made it `done`; that is never taken back.
+  const markSkipped = () => {
+    if (keepSafeOffer !== 'done') setKeepSafeOffer('skipped-onboarding');
+  };
+
+  const submit = async () => {
+    if (!canSubmit || submitting.current) return;
     if (offline) {
       if (!heldName) return;
-      // "Don't lose your spots" needs a connection and a saved name. An
-      // offline start counts as skipping it here, which offers it again at
-      // the first badge (FirstBadgeOffer), never mid-visit.
-      setKeepSafeOffer('skipped-onboarding');
+      // "Don't lose your spots" needs a connection. An offline start counts
+      // as skipping it here, which offers it again at the first badge
+      // (FirstBadgeOffer), never mid-visit.
+      markSkipped();
       holdUsername(heldName);
       return;
     }
+    const generation = identityGeneration();
+    submitting.current = true;
+    let emailResult;
+    try {
+      emailResult = await saveIfNeeded(markSkipped);
+    } finally {
+      submitting.current = false;
+    }
+    if (
+      emailResult === 'invalid' ||
+      emailResult === 'failed' ||
+      emailResult === 'stale' ||
+      emailResult === 'busy'
+    ) {
+      return;
+    }
+    if (identityGeneration() !== generation) return;
+    if (emailResult === 'saved') setKeepSafeOffer('done');
+    claimGeneration.current = generation;
     tappedAt.current = Date.now();
     void claim(trimmed);
   };
@@ -232,21 +294,29 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
       <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
         <Pressable
           onPress={onBack}
+          disabled={saving}
           accessibilityRole="button"
           accessibilityLabel={t('back')}
+          accessibilityState={{ disabled: saving }}
           hitSlop={10}
         >
-          <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
+          <Feather
+            name="chevron-left"
+            size={24}
+            color={colors.mutedForeground}
+            style={saving ? styles.backDisabled : undefined}
+          />
         </Pressable>
-        <StepDots total={ONBOARDING_DOT_COUNT} active={stepIndex('language')} />
+        <StepDots total={ONBOARDING_DOT_COUNT} active={stepIndex('name')} />
         <View style={styles.topBarSpacer} />
       </View>
 
       <KeyboardAwareScrollViewCompat
+        bottomOffset={FOOTER_ABOVE_KEYBOARD + spacing[3]}
         contentContainerStyle={{
           paddingHorizontal: spacing[5],
           paddingTop: spacing[4],
-          paddingBottom: insets.bottom + spacing[5],
+          paddingBottom: spacing[5],
           gap: spacing[5],
         }}
       >
@@ -292,7 +362,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
             <TextInput
               value={draft}
               onChangeText={(v) => {
-                if (uncertainName || pending) return;
+                if (uncertainName || pending || saving) return;
                 setDraft(v);
                 setClaimError(null);
               }}
@@ -302,8 +372,8 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="done"
-              onSubmitEditing={submit}
-              editable={!pending && !uncertainName}
+              onSubmitEditing={() => void submit()}
+              editable={!pending && !uncertainName && !saving}
               style={[styles.input, { color: colors.foreground }]}
             />
           </View>
@@ -311,7 +381,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
           <View style={styles.suggestions}>
             <Pressable
               onPress={shuffle}
-              disabled={(!offline && suggestionsQuery.isFetching) || pending || !!uncertainName}
+              disabled={(!offline && suggestionsQuery.isFetching) || pending || !!uncertainName || saving}
               style={[styles.shuffle, { backgroundColor: palette.bougain500 }]}
               accessibilityRole="button"
             >
@@ -324,7 +394,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
                 <Pressable
                   key={name}
                   onPress={() => {
-                    if (pending || uncertainName) return;
+                    if (pending || uncertainName || saving) return;
                     setDraft(name);
                     setClaimError(null);
                   }}
@@ -350,22 +420,98 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
           </Text>
         )}
 
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        {/* SYC-524: "Don't lose your spots", optional (email-capture.md §3.0 words). */}
+        <View style={styles.field}>
+          <View style={styles.heading}>
+            <Text role="heading" style={[styles.emailTitle, { color: colors.foreground }]}>
+              <Text {...decorative}>🔒 </Text>
+              {t('keepSafeTitle')}
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              {t('keepSafeOptional')}
+            </Text>
+          </View>
+          <Text style={[styles.body, { color: colors.foreground }]}>{t('keepSafeBody')}</Text>
+          {isOnline ? (
+            <>
+              <View
+                style={[
+                  styles.inputWrap,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: emailError
+                      ? (colors.destructive ?? '#c0392b')
+                      : savedFor !== null
+                        ? colors.primary
+                        : colors.border,
+                  },
+                ]}
+              >
+                <TextInput
+                  testID="onboarding-email"
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder={t('keepSafePlaceholder')}
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  inputMode="email"
+                  returnKeyType="done"
+                  onSubmitEditing={() => void submit()}
+                  editable={!saving && !pending}
+                  accessibilityLabel={t('keepSafePlaceholder')}
+                  style={[styles.input, { color: colors.foreground }]}
+                />
+              </View>
+              {emailError ? (
+                <Text style={[styles.status, { color: colors.destructive ?? '#c0392b' }]}>
+                  {t(emailError)}
+                </Text>
+              ) : savedFor !== null ? (
+                <Text style={[styles.status, { color: colors.success ?? palette.olive600 }]}>
+                  ✓ {t('saved')}
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <Text style={[styles.status, { color: colors.mutedForeground }]}>
+              {t('keepSafeOffline')}
+            </Text>
+          )}
+          <Text style={[styles.body, { color: colors.mutedForeground }]}>
+            {t('keepSafeWarning')} <Text style={styles.strong}>{t('keepSafeUnder15')}</Text>
+          </Text>
+        </View>
+      </KeyboardAwareScrollViewCompat>
+
+      {/* Pinned outside the scroll, riding above the keyboard (spec: the
+          button never scrolls away). */}
+      <KeyboardStickyViewCompat
+        offset={{ closed: 0, opened: insets.bottom }}
+        style={[
+          styles.footer,
+          { paddingBottom: insets.bottom + spacing[4], backgroundColor: colors.background },
+        ]}
+      >
         <Button
           variant="primary"
           size="lg"
           block
+          busy={saving}
           disabled={!canSubmit}
-          onPress={submit}
+          onPress={() => void submit()}
         >
           {pending
             ? t('usernameClaiming')
             : uncertainName
               ? t('usernameRetryClaim')
-              : offline
-                ? t('startSpotting')
-                : t('continue')}
+              : t('startSpotting')}
         </Button>
-      </KeyboardAwareScrollViewCompat>
+      </KeyboardStickyViewCompat>
     </View>
   );
 }
@@ -380,6 +526,7 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   topBarSpacer: { width: 24 },
+  backDisabled: { opacity: 0.4 },
   heading: { gap: 6 },
   title: { fontFamily: fonts.displayBold, fontSize: 26, lineHeight: 30 },
   subtitle: { fontFamily: fonts.body, fontSize: fontSizes.sm },
@@ -411,6 +558,15 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   status: { fontFamily: fonts.bodyExtraBold, fontSize: fontSizes['2xs'] },
+  divider: { height: borderWidths.thin },
+  emailTitle: { fontFamily: fonts.displayBold, fontSize: fontSizes.lg, lineHeight: 24 },
+  body: { fontFamily: fonts.body, fontSize: fontSizes.sm, lineHeight: 21 },
+  strong: { fontFamily: fonts.bodyExtraBold },
+  footer: {
+    width: '100%',
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[2],
+  },
   suggestions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
