@@ -298,9 +298,25 @@
     mapEl.parentNode.insertBefore(loadingLine, mapEl.nextSibling);
   }
 
-  function tilesFailing() {
+  // Squares asked for and squares that have finished (loaded, failed for good,
+  // or blank because they are off the island). Spec §5.4: the loading line goes
+  // only with the first picture's onload or the failure note. So it can't stay
+  // forever, once every square asked for has finished with nothing loaded, a
+  // failure (even under 3) shows the note, and no failure at all (all off the
+  // island) just removes the line.
+  var requested = 0;
+  var settled = 0;
+  function settledOne() {
+    settled++;
+    if (settled >= requested && loaded === 0) {
+      if (failed > 0) tilesFailing(true);
+      else loadingDone();
+    }
+  }
+
+  function tilesFailing(force) {
     if (!note) return;
-    if (failed >= 3 && failed > loaded) {
+    if ((force || failed >= 3) && failed > loaded) {
       loadingDone();
       note.hidden = false;
       mapEl.classList.add("tilesfailed");
@@ -350,8 +366,8 @@
   function show(entry, token) {
     var img = entry.img;
     if (!token) {
-      loadingDone(); // nothing to wait for here
       entry.done(null, img); // off the island: a blank square
+      settledOne();
       return;
     }
     img.onload = function () {
@@ -359,6 +375,7 @@
       loadingDone();
       tilesFailing();
       entry.done(null, img);
+      settled++;
     };
     img.onerror = function () {
       // The token may have died (a server key change, say): forget it and
@@ -371,9 +388,9 @@
         return;
       }
       failed++;
-      loadingDone(); // this request is settled, whatever tilesFailing decides
       tilesFailing();
       entry.done(new Error("map picture"), img);
+      settledOne();
     };
     img.src = "/api/team/map-square/" + token;
   }
@@ -392,10 +409,12 @@
       .catch(function () {
         entries.forEach(function (e) {
           failed++;
-          e.done(new Error("map picture"), e.img);
         });
-        loadingDone();
         tilesFailing();
+        entries.forEach(function (e) {
+          e.done(new Error("map picture"), e.img);
+          settledOne();
+        });
       });
   }
 
@@ -438,6 +457,7 @@
       img.decoding = "async";
       var key = coords.z + "/" + coords.x + "/" + coords.y;
       var entry = { coords: coords, img: img, done: done, retried: false };
+      requested++;
       var kept = freshToken(key);
       if (kept) {
         window.setTimeout(function () {

@@ -36,7 +36,7 @@ interface Polygon {
 function setUp(
   opts: {
     outline?: string | null;
-    fetchMode?: "hang" | "tokens" | "reject" | "empty";
+    fetchMode?: "hang" | "tokens" | "reject" | "empty" | "mixed";
   } = {},
 ) {
   const outlineAttr =
@@ -131,7 +131,11 @@ function setUp(
       });
     }
     for (let x = b.xMin; x <= b.xMax; x++)
-      for (let y = b.yMin; y <= b.yMax; y++) tokens[`${b.z}/${x}/${y}`] = TOKEN;
+      for (let y = b.yMin; y <= b.yMax; y++) {
+        // "mixed": only the first square is on the island; the rest are blank.
+        if (opts.fetchMode === "mixed" && x !== b.xMin) continue;
+        tokens[`${b.z}/${x}/${y}`] = TOKEN;
+      }
     return Promise.resolve({
       ok: true,
       redirected: false,
@@ -214,28 +218,39 @@ describe("the loading line goes with the first picture, or the failure note", ()
     expect(t.loadingLine()).toBeNull();
   });
 
-  it("goes when the only picture fails for good, without a failure note", async () => {
+  it("shows the failure note, and the line is gone, when the only picture fails for good", async () => {
     const t = setUp({ fetchMode: "tokens" });
     const [img] = await t.tiles(1);
     img.onerror(); // first failure: asks for a new token
     await new Promise((r) => setTimeout(r, 20));
     expect(t.loadingLine()).not.toBeNull(); // still being retried
+    expect(t.note().hidden).toBe(true);
     img.onerror(); // second failure is final
     expect(t.loadingLine()).toBeNull();
-    expect(t.note().hidden).toBe(true);
+    expect(t.note().hidden).toBe(false);
   });
 
-  it("goes when the token request itself fails", async () => {
+  it("shows the failure note, and the line is gone, when the token request fails", async () => {
     const t = setUp({ fetchMode: "reject" });
     await t.tiles(1);
     expect(t.loadingLine()).toBeNull();
-    expect(t.note().hidden).toBe(true);
+    expect(t.note().hidden).toBe(false);
   });
 
-  it("goes when every square in view is off the island (no token)", async () => {
+  it("keeps the line while one square is off the island and the real picture is still loading", async () => {
+    const t = setUp({ fetchMode: "mixed" });
+    const [img] = await t.tiles(2);
+    expect(t.loadingLine()).not.toBeNull(); // the blank square must not clear it
+    expect(t.note().hidden).toBe(true);
+    img.onload();
+    expect(t.loadingLine()).toBeNull();
+  });
+
+  it("removes the line, with no note, when every square in view is off the island", async () => {
     const t = setUp({ fetchMode: "empty" });
     await t.tiles(2);
     expect(t.loadingLine()).toBeNull();
+    expect(t.note().hidden).toBe(true);
   });
 
   it("is replaced by the failure note, with its own outline, when pictures fail", async () => {
