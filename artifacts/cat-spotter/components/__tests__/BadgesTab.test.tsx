@@ -85,10 +85,17 @@ describe('BadgesTab (SYC-706)', () => {
     expect(screen.queryByTestId('badge-new-first_sighting')).toBeNull();
     await waitFor(() => expect(h.markSeen).toHaveBeenCalledWith('dev-1'));
     await waitFor(() => expect(h.invalidate).toHaveBeenCalledWith({ queryKey: ['/api/profiles/dev-1'] }));
-    // The refreshed profile no longer lists it as new; the chip goes and nothing is sent again.
+    // The refreshed profile no longer lists it as new, but the chip stays for this visit.
     rerender(<BadgesTab views={views(['podium', 'first_sighting'])} state="ready" />);
-    expect(screen.queryByTestId('badge-new-podium')).toBeNull();
+    expect(screen.getByTestId('badge-new-podium')).toBeTruthy();
     expect(h.markSeen).toHaveBeenCalledTimes(1);
+    // A badge that turns new while the tab is open gets its chip too.
+    rerender(<BadgesTab views={views(['podium', 'first_sighting', 'champion'], ['champion'])} state="ready" />);
+    expect(screen.getByTestId('badge-new-champion')).toBeTruthy();
+    // The next visit starts clean.
+    cleanup();
+    render(<BadgesTab views={views(['podium', 'first_sighting', 'champion'])} state="ready" />);
+    expect(screen.queryByTestId('badge-new-podium')).toBeNull();
   });
 
   it('only tells the server when online, signed in and something is new, once per visit', () => {

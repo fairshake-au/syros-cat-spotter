@@ -41,6 +41,16 @@ export function BadgesTab({
   // the "New" chips clear. Needs the badge list and a connection.
   const sentRef = useRef(false);
   const hasNew = !!views && views.some((v) => v.isNew);
+  // The "New" chips are kept for the whole visit: ids new at mount plus any that
+  // become new while the tab is open. The refetch after the seen call clears
+  // isNew on the server's side, but the chips only go on the next visit.
+  const [shownNew, setShownNew] = useState<ReadonlySet<string>>(
+    () => new Set((views ?? []).filter((v) => v.isNew).map((v) => v.id)),
+  );
+  useEffect(() => {
+    const fresh = (views ?? []).filter((v) => v.isNew && !shownNew.has(v.id)).map((v) => v.id);
+    if (fresh.length) setShownNew(new Set([...shownNew, ...fresh]));
+  }, [views, shownNew]);
   useEffect(() => {
     if (sentRef.current || !hasNew || !isOnline || !deviceId) return;
     sentRef.current = true;
@@ -102,7 +112,7 @@ export function BadgesTab({
                       <Text style={[styles.name, styles.flex, { color: colors.foreground }]}>
                         {t(`badge_${v.id}`)}
                       </Text>
-                      {v.isNew && (
+                      {(v.isNew || shownNew.has(v.id)) && (
                         <View
                           testID={`badge-new-${v.id}`}
                           style={[styles.newChip, { backgroundColor: colors.primary }]}
