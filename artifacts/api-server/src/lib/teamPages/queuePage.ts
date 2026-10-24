@@ -438,7 +438,9 @@ function issuePhotoWords(i: IssueReport): string {
 function catLinks(i: IssueReport): string {
   if (!i.cat) return "";
   const page = `/api/team/cats/${i.cat.id}`;
-  const links = [`<a class="tap" href="${esc(page)}">Open the cat's page</a>`];
+  // A photo report opens the Photos tab, so the photos are in front of you (SYC-655 §3.2).
+  const open = i.reason?.startsWith("photo_") ? `${page}#tab-photos` : page;
+  const links = [`<a class="tap" href="${esc(open)}">Open the cat's page</a>`];
   if (i.reason === "wrong_name") links.push(`<a class="tap sublink" href="${esc(page)}#corrections">Rename the cat</a>`);
   if (i.reason === "cat_died") links.push(`<a class="tap sublink" href="${esc(page)}/died">Record that the cat has died</a>`);
   if (i.reason === "wrong_info") links.push(`<a class="tap sublink" href="${esc(page)}#history">Mark something wrong</a>`);
