@@ -282,14 +282,17 @@ export default function ReviewScreen() {
         </View>
         <View style={styles.openFailed} testID="review-open-failed">
           <View accessibilityLiveRegion="polite" aria-live="polite" style={styles.openFailedText}>
-            <Text role="heading" style={[styles.successTitle, { color: colors.foreground }]}>
+            <Text
+              role="heading"
+              style={[styles.successTitle, { color: colors.foreground, textAlign: "center" }]}
+            >
               {t("reviewOpenFailedTitle")}
             </Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground, textAlign: "center" }]}>
               {t("reviewOpenFailedBody")}
             </Text>
           </View>
-          <Button variant="primary" size="lg" onPress={() => goToSpotTab(router)}>
+          <Button variant="primary" size="lg" wrapLabel style={{ maxWidth: "100%" }} onPress={() => goToSpotTab(router)}>
             {t("reviewOpenFailedCta")}
           </Button>
         </View>
@@ -641,7 +644,7 @@ export default function ReviewScreen() {
           {t("notACatNotAdded")}
         </Text>
         <PhotoTips compact />
-        <Button variant="primary" size="lg" onPress={retake}>
+        <Button variant="primary" size="lg" wrapLabel style={{ maxWidth: "100%" }} onPress={retake}>
           {t("notACatRetake")}
         </Button>
       </ScrollView>
@@ -1379,6 +1382,7 @@ const styles = StyleSheet.create({
   openFailed: {
     flex: 1,
     alignItems: "center",
+    alignSelf: "stretch",
     justifyContent: "center",
     gap: 12,
     padding: 20,

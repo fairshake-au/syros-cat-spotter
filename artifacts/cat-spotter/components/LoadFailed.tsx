@@ -68,6 +68,7 @@ export function LoadFailed({
           />
         ) : undefined
       }
+      wrapLabel
       style={styles.button}
       testID={testID ? `${testID}-retry` : undefined}
     >
@@ -138,5 +139,5 @@ const styles = StyleSheet.create({
   },
   lineText: { flexShrink: 1 },
   lineMessage: { fontFamily: fonts.body, fontSize: fontSizes.sm },
-  button: { minHeight: 44 },
+  button: { minHeight: 44, maxWidth: '100%' },
 });
