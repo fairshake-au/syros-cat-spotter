@@ -93,6 +93,8 @@ vi.mock('@/lib/keepSafe', async (importOriginal) => {
   return {
     ...actual,
     addKeepSafe: vi.fn(async () => ({ status: 'pending', addressMask: 'p•••@example.org' })),
+    requestRestore: vi.fn(async () => undefined),
+    exchangeRestoreCode: vi.fn(async () => ({ handle: 'handle-1' })),
     peekRestore: vi.fn(async () => ({
       spotters: [{ choice: 'choice-lili', username: 'Lili' }],
       openedOnAskingPhone: true,
@@ -107,6 +109,9 @@ vi.mock('@/lib/keepSafe', async (importOriginal) => {
 
 import { KeepSafeScreen } from '../keepSafe/KeepSafeScreen';
 import { MovedScreen } from '../keepSafe/MovedScreen';
+import { RestoreRequestScreen } from '../keepSafe/RestoreRequestScreen';
+import { readWaiting, setMovingHandle, noteRequest, RESTORE_WAITING_KEY } from '@/lib/restoreWaiting';
+import { ApiError } from '@workspace/api-client-react';
 import RestorePage, { __resetHeldRestoreTokenForTests } from '../../app/restore';
 import * as keepSafe from '@/lib/keepSafe';
 import { router } from 'expo-router';
@@ -549,5 +554,168 @@ describe('the /restore page', () => {
     await findByText('Move Lili’s spots to this phone');
     expect(keepSafe.peekRestore).toHaveBeenCalledWith('dev-new', TOKEN);
     expect(window.sessionStorage.getItem('cat-spotter/restore-token')).toBeNull();
+  });
+});
+
+describe('code screen', () => {
+  const refusal = (status: number, error: string) =>
+    new ApiError(new Response(null, { status }), { error }, { method: 'POST', url: '/api/restore/code' });
+  const typeCode = (el: HTMLElement, v: string) => fireEvent.change(el, { target: { value: v } });
+
+  beforeEach(() => {
+    const mem = new Map<string, string>();
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k: string) => mem.get(k) ?? null,
+        setItem: (k: string, v: string) => void mem.set(k, v),
+        removeItem: (k: string) => void mem.delete(k),
+        clear: () => mem.clear(),
+      },
+    });
+    vi.mocked(keepSafe.requestRestore).mockReset().mockResolvedValue(undefined as never);
+    vi.mocked(keepSafe.exchangeRestoreCode).mockReset().mockResolvedValue({ handle: 'handle-1' });
+    vi.mocked(keepSafe.peekRestore).mockResolvedValue({
+      spotters: [{ choice: 'choice-lili', username: 'Lili' }],
+      openedOnAskingPhone: true,
+      alreadyHere: null,
+    });
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...window.location, replace: vi.fn() } });
+  });
+
+  const toCodeState = async (utils: ReturnType<typeof render>) => {
+    typeCode(utils.getByTestId('restore-email'), 'a@b.co');
+    await act(async () => {
+      fireEvent.click(utils.getByText(en.restoreAskSend));
+    });
+    return utils.findByTestId('restore-code-input');
+  };
+
+  it('address then code: asks for a code, notes the request, and shows the code box', async () => {
+    const utils = render(<RestoreRequestScreen onBack={() => {}} />);
+    await toCodeState(utils);
+    expect(keepSafe.requestRestore).toHaveBeenCalledWith('dev-new', 'a@b.co');
+    expect(readWaiting()?.requests).toBe(1);
+    expect(utils.getByText(en.restoreCodeTitle)).toBeTruthy();
+    expect(utils.queryByText(en.restoreHaveCodeNote)).toBeNull();
+  });
+
+  it('a pasted "4829 1376" auto-submits once as 48291376', async () => {
+    const utils = render(<RestoreRequestScreen onBack={() => {}} />);
+    const input = await toCodeState(utils);
+    await act(async () => {
+      typeCode(input, '4829 1376');
+    });
+    await utils.findByText('Move Lili’s spots to this phone');
+    expect(keepSafe.exchangeRestoreCode).toHaveBeenCalledTimes(1);
+    expect(keepSafe.exchangeRestoreCode).toHaveBeenCalledWith('dev-new', '48291376');
+    expect(readWaiting()?.movingHandle).toBe('handle-1');
+    expect(keepSafe.peekRestore).toHaveBeenCalledWith('dev-new', 'handle-1');
+  });
+
+  it('is disabled while a check is running and never re-sends an unchanged code', async () => {
+    let release!: (v: { handle: string }) => void;
+    vi.mocked(keepSafe.exchangeRestoreCode).mockImplementationOnce(() => new Promise((r) => { release = r; }));
+    const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    const input = utils.getByTestId('restore-code-input');
+    await act(async () => {
+      typeCode(input, '48291376');
+    });
+    expect(utils.getByText(en.restoreCodeSubmit).getAttribute('aria-disabled')).toBe('true');
+    await act(async () => {
+      fireEvent.click(utils.getByText(en.restoreCodeSubmit));
+    });
+    expect(keepSafe.exchangeRestoreCode).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      release({ handle: 'h' });
+    });
+  });
+
+  it('shows the have-a-code note only when opened with "I already have a code"', async () => {
+    const utils = render(<RestoreRequestScreen onBack={() => {}} />);
+    await act(async () => {
+      fireEvent.click(utils.getByTestId('restore-have-code'));
+    });
+    expect(utils.getByTestId('restore-code-input')).toBeTruthy();
+    expect(utils.getByText(en.restoreHaveCodeNote)).toBeTruthy();
+    expect(keepSafe.requestRestore).not.toHaveBeenCalled();
+  });
+
+  it('five refusals end in "won\'t work any more" with a way to ask again', async () => {
+    vi.mocked(keepSafe.exchangeRestoreCode).mockRejectedValue(refusal(401, 'code_not_valid'));
+    const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    for (let i = 0; i < 5; i++) {
+      const input = utils.getByTestId('restore-code-input');
+      await act(async () => {
+        typeCode(input, `1234567${i}`);
+      });
+      if (i < 4) {
+        expect((await utils.findByTestId('restore-code-refused')).textContent).toBe(en.restoreCodeRefused);
+      }
+    }
+    expect((await utils.findByTestId('restore-code-dead')).textContent).toContain(en.restoreCodeDead);
+    expect(readWaiting()?.wrongTries).toBe(5);
+    await act(async () => {
+      fireEvent.click(utils.getByText(en.restoreCodeNewEmail));
+    });
+    expect(utils.getByTestId('restore-email')).toBeTruthy();
+  });
+
+  it('a 429 shows too-many-tries and is not a wrong try', async () => {
+    vi.mocked(keepSafe.exchangeRestoreCode).mockRejectedValue(refusal(429, 'too_many_tries'));
+    const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    await act(async () => {
+      typeCode(utils.getByTestId('restore-code-input'), '48291376');
+    });
+    expect((await utils.findByTestId('restore-too-many')).textContent).toBe(en.restoreTooManyTries);
+    expect(readWaiting()?.wrongTries ?? 0).toBe(0);
+  });
+
+  it('the fourth request in 15 minutes sends nothing and says so', async () => {
+    window.localStorage.setItem(RESTORE_WAITING_KEY, JSON.stringify({ askedAt: Date.now(), requests: 3, wrongTries: 0 }));
+    const utils = render(<RestoreRequestScreen onBack={() => {}} />);
+    typeCode(utils.getByTestId('restore-email'), 'a@b.co');
+    await act(async () => {
+      fireEvent.click(utils.getByText(en.restoreAskSend));
+    });
+    expect((await utils.findByTestId('restore-asked-thrice')).textContent).toBe(en.restoreAskedThrice);
+    expect(keepSafe.requestRestore).not.toHaveBeenCalled();
+  });
+
+  it('resend is disabled for a minute after asking, then goes back to the address box', async () => {
+    noteRequest();
+    const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    expect(utils.getByTestId('restore-code-resend').getAttribute('aria-disabled')).toBe('true');
+    window.localStorage.setItem(RESTORE_WAITING_KEY, JSON.stringify({ askedAt: Date.now() - 61_000, requests: 1, wrongTries: 0 }));
+    cleanup();
+    const again = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    expect(again.getByTestId('restore-code-resend').getAttribute('aria-disabled')).not.toBe('true');
+    await act(async () => {
+      fireEvent.click(again.getByTestId('restore-code-resend'));
+    });
+    expect(again.getByTestId('restore-email')).toBeTruthy();
+  });
+
+  it('mounting with a stored moving handle goes straight to the chooser and redeems with it', async () => {
+    setMovingHandle('handle-stored');
+    h.device = { deviceId: 'dev-new', username: null, isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
+    const utils = render(<RestoreRequestScreen onBack={() => {}} />);
+    const button = await utils.findByText('Move Lili’s spots to this phone');
+    expect(keepSafe.exchangeRestoreCode).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    await waitFor(() =>
+      expect(keepSafe.redeemRestore).toHaveBeenCalledWith('dev-new', expect.objectContaining({ token: 'handle-stored' })),
+    );
+    await waitFor(() => expect(readWaiting()).toBeNull());
+  });
+
+  it('every new string exists in en, el and fr, and restoreAskSent is gone', () => {
+    const keys = ['restoreAskBody', 'restoreAskSend', 'restoreCodeTitle', 'restoreCodeBody', 'restoreCodeSubmit', 'restoreCodeResend', 'restoreHaveCode', 'restoreHaveCodeNote', 'restoreCodeRefused', 'restoreCodeDead', 'restoreCodeNewEmail', 'restoreTooManyTries', 'restoreAskedThrice'];
+    for (const lang of ['en', 'el', 'fr'] as const) {
+      for (const k of keys) expect(TRANSLATIONS[lang][k], `${lang}.${k}`).toBeTruthy();
+      expect(TRANSLATIONS[lang].restoreAskSent).toBeUndefined();
+    }
   });
 });

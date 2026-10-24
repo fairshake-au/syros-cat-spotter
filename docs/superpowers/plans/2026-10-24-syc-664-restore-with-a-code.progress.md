@@ -4,3 +4,4 @@ T3 done: POST /api/restore/code (exchangeCode in lib/keepSafe/code.ts, per-phone
 T4 done: peek, redeem and the 60 s replay accept a handle (rowIs at all four mail_tokens lookups in move.ts); next: T5
 T5 done: exchangeRestoreCode + code guards in keepSafe.ts, restoreWaiting store (15 min, web localStorage); next: T6
 T6 done: RestoreChooser extracted from app/restore.tsx (fromCode skips in-app advice, onMoved prop); next: T7
+T7 done: code screen (address, code, chooser) with en/el/fr strings; next: T8
