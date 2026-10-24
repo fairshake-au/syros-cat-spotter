@@ -35,7 +35,7 @@ The mockup Samuel chose from is option B in `.superpowers/brainstorm/…/weekly-
 
 ### 2. Fifteen new badges
 
-Thirteen were picked by Samuel from the full candidate list, and he added two more for spots far from every named area **(Samuel)**. Names and thresholds are first drafts. The 7 existing badges stay as they are, so there are **22** in all.
+Thirteen were picked by Samuel from the full candidate list, and Samuel added two more for spots far from every named area **(Samuel)**. Names and thresholds are first drafts. The 7 existing badges stay as they are, so there are **22** in all.
 
 | Group | Badge | How you earn it |
 |---|---|---|
@@ -176,7 +176,7 @@ Every new line (badge names, descriptions and "what it means" sentences, the tab
 15. Each badge gets one sentence saying what it means and how it helps the cats.
 16. Finished weeks are frozen at close. A deleted spotter shows as "a spotter".
 17. The area is saved on each spot when it's made. Spots more than 2 km from every area centre count for no area (they earn the remote badges instead), and the builder measures how many real spots fall there.
-21. A remote spot needs to be inside an outline of Syros, with a small margin along the shore. Wild Syros counts different cats.
-18. All 20 badges, the existing 7 included, are saved once earned.
+18. All 22 badges, the existing 7 included, are saved once earned.
 19. If the server is down, the week closes late. The Monday push can go out until 20:00, and after that it's skipped.
 20. Pushes and bell entries never name a place.
+21. A remote spot needs to be inside an outline of Syros, with a small margin along the shore. Wild Syros counts different cats.
