@@ -94,8 +94,17 @@ export function sterilisedWords(
   return t("gcat.ster.unknown");
 }
 
-/** "Last seen 3 October 2026", or "No sightings yet". */
-function lastSeenWords(day: string | null, lang: string, t: Say, live: readonly Language[]): string {
+/**
+ * "Last seen 3 October 2026", or "No sightings yet": the date only, never a
+ * place (dashboard §10.2). Also a guardian's rows on a colony page (SYC-619
+ * spec §7.2). `day` is a UTC day, YYYY-MM-DD. Plain text: escape it.
+ */
+export function lastSeenWords(
+  day: string | null,
+  lang: string,
+  t: Say,
+  live: readonly Language[] = LIVE_LANGUAGES,
+): string {
   if (!day) return t("gcat.neverSeen");
   // A UTC day: noon UTC is the same day in Athens.
   return t("gcat.lastSeen", { date: formatDate(lang, new Date(`${day}T12:00:00Z`), live) });
