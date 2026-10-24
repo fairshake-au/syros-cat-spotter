@@ -95,6 +95,17 @@ const linkLimiter = (bucket: string) =>
   });
 const peekLimiter = linkLimiter("keep_safe_peek");
 const redeemLimiter = linkLimiter("keep_safe_redeem");
+// SYC-664: a per-network cap in front of /restore/code, on top of the
+// per-phone hour counted inside the handler (which needs the verified phone,
+// so it can't be a middleware). Sixty an hour: a whole family on one
+// connection never gets near it, and it trims what one network can guess.
+// It depends only on the network, so it says nothing about any address.
+const codeNetworkLimiter = sharedLimiter({
+  bucket: "keep_safe_code_ip",
+  windowMs: 60 * 60 * 1000,
+  limit: 60,
+  message: TOO_MANY_TRIES,
+});
 
 function notConfigured(res: Response): void {
   res.status(503).json({ error: "not_configured" });
@@ -249,7 +260,7 @@ router.post("/restore/redeem", redeemLimiter, async (req, res) => {
  * then the code. Every answer from here on (200, 401, 429, 503) waits for the
  * same deadline. Neither the code nor the handle is ever logged.
  */
-router.post("/restore/code", async (req, res) => {
+router.post("/restore/code", codeNetworkLimiter, async (req, res) => {
   const started = Date.now();
   noStore(res);
   const body = (req.body ?? {}) as Record<string, unknown>;

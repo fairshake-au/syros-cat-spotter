@@ -27,7 +27,7 @@ import { hashToken } from "../lib/keepSafe/tokens";
 import { __setCodeHookForTest, codeCheck } from "../lib/keepSafe/code";
 import { __setMoveHookForTest } from "../lib/keepSafe/move";
 import { hashSecret } from "../lib/deviceAuth";
-import { _resetBucketForTests } from "../lib/limits";
+import { _resetBucketForTests, addressKey, consume } from "../lib/limits";
 import { __setCodeCapForTest, __setCodePadForTest, __setRestorePadForTest } from "./keepSafe";
 import { installFakeResend, tokenFrom, type SentMail } from "../test/fakeResend";
 
@@ -336,6 +336,24 @@ describe("POST /api/restore/code", () => {
     const [row] = await rowsOf(phone.id);
     expect(row!.code_attempts).toBe(0);
     expect(row!.handle_hash).toBeNull();
+  });
+
+  it("network cap: the 61st code in an hour from one network is too_many_tries, before any device check", async () => {
+    const ip = "198.51.100.64";
+    await _resetBucketForTests("keep_safe_code_ip");
+    for (let i = 0; i < 60; i++) await consume("keep_safe_code_ip", addressKey(ip), 60, 60 * 60 * 1000);
+    const phone = newPhone();
+    await bind(phone);
+    const over = await request(app)
+      .post("/api/restore/code")
+      .set("X-Forwarded-For", ip)
+      .set("X-Device-Secret", phone.secret)
+      .send({ deviceId: phone.id, code: "11111111" });
+    expect(over.status).toBe(429);
+    expect(over.body).toEqual({ error: "too_many_tries" });
+    // Another network is unaffected.
+    expect((await sendCode(phone, "11111111")).status).toBe(401);
+    await _resetBucketForTests("keep_safe_code_ip");
   });
 
   it("cap: requests with the phone's id but no secret get 401 from device auth and spend nothing", async () => {
