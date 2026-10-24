@@ -77,6 +77,21 @@ export function peekRestore(deviceId: string, token: string): Promise<RestorePee
   });
 }
 
+/** Swaps the 8-digit emailed code for a handle that peek and redeem accept in place of the link token. */
+export function exchangeRestoreCode(deviceId: string, code: string): Promise<{ handle: string }> {
+  return customFetch(`/api/restore/code`, {
+    method: 'POST',
+    body: JSON.stringify({ deviceId, code }),
+    headers: { 'content-type': 'application/json' },
+    responseType: 'json',
+  });
+}
+
+/** What people paste or type: spaces and line breaks dropped. */
+export function normaliseCode(input: string): string {
+  return input.replace(/\s+/g, '');
+}
+
 export function redeemRestore(
   deviceId: string,
   input: { token: string; choice: string; abandonCurrent: boolean; deleteCurrent?: boolean },
@@ -91,6 +106,14 @@ export function redeemRestore(
 
 export function isLinkNotValid(error: unknown): boolean {
   return error instanceof ApiError && (error.data as { error?: unknown } | null)?.error === 'link_not_valid';
+}
+
+export function isCodeNotValid(error: unknown): boolean {
+  return error instanceof ApiError && (error.data as { error?: unknown } | null)?.error === 'code_not_valid';
+}
+
+export function isTooManyTries(error: unknown): boolean {
+  return error instanceof ApiError && (error.data as { error?: unknown } | null)?.error === 'too_many_tries';
 }
 
 export function isInvalidEmail(error: unknown): boolean {
