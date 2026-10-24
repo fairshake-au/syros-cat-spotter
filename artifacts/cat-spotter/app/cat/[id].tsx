@@ -245,10 +245,15 @@ export default function CatDetailScreen() {
   // SYC-624 D1: Follow needs a known phone and a server that answers
   // `isFollowing`; the owner can't unfollow; a dead cat's button stays only for
   // someone who already follows (so they can stop the news).
+  // The server calls a phone the owner whatever the cat's life status, and
+  // sends it the exact spot; a cat that died or went into care keeps its
+  // owner, who still can't unfollow. (`isOwner` above also needs `hasHome`,
+  // which is right for Edit and the pin: those belong to a homed cat.)
+  const ownsForFollow = isOnline ? cat.locationPrecision === 'exact' : ownedCatIds.includes(cat.id);
   const follow =
     data.isFollowing !== undefined &&
     deviceId !== null &&
-    !isOwner &&
+    !ownsForFollow &&
     (cat.lifeStatus !== 'deceased' || data.isFollowing)
       ? { deviceId, isFollowing: data.isFollowing }
       : null;

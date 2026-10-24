@@ -493,6 +493,13 @@ describe('the Follow button on the page', () => {
     page({ isFollowing: true, canClaim: false }, cat({ hasHome: true, lifeStatus: 'homed', locationPrecision: 'exact' }));
     expect(screen.queryByTestId('follow')).toBeNull();
   });
+  it('is absent for the owner of a cat that has since died or gone into care (the server still calls them owner)', () => {
+    page({ isFollowing: true }, cat({ hasHome: false, lifeStatus: 'deceased', locationPrecision: 'exact' }));
+    expect(screen.queryByTestId('follow')).toBeNull();
+    cleanup();
+    page({ isFollowing: true }, cat({ hasHome: false, lifeStatus: 'inCare', locationPrecision: 'exact' }));
+    expect(screen.queryByTestId('follow')).toBeNull();
+  });
   it('is absent on a cat that has died, for someone not following', () => {
     page({ isFollowing: false }, cat({ lifeStatus: 'deceased' }));
     expect(screen.queryByTestId('follow')).toBeNull();
