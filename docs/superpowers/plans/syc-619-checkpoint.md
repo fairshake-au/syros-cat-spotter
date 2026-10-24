@@ -30,3 +30,5 @@ Task 12: Grid/Map and photo link share one .viewrow on grid and map; map script 
 Next: review of task 12
 Task 13: map loading outline + line, shared SYROS_OUTLINE (26097ffc)
 Next: Task 14
+Task 14: map merges bubbles closer than 44px (mergeClose, chain-linked, count-weighted average); mutation probe (call removed) went red on the real-drawCats test, restored (17f39359)
+Next: task 15
