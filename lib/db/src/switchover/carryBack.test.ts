@@ -256,6 +256,8 @@ describe("carry-back, end to end (test 4)", () => {
         table: "sightings",
         columns: ["redacted_at", "redaction_reason", "area_key", "on_island"],
       },
+      // SYC-706's weekly-result bell entries (0045): Neon only too.
+      { table: "notifications", columns: ["kind", "message"] },
     ]);
     expect(dry.baseline).toEqual({ status: "ok", changedTables: [] });
     // The dry run changed nothing.
