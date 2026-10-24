@@ -190,6 +190,7 @@ describe("resolving a sighting and following", () => {
       await a.query("commit");
       expect((await resolving).status).toBe(200);
     } finally {
+      await a.query("rollback").catch(() => {});
       a.release();
     }
 
