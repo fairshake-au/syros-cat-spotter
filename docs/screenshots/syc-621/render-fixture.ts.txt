@@ -1,0 +1,57 @@
+// Scratch render for the SYC-621 browser check and screenshots (the trapping planner). Kept as a .txt so tsc and
+// vitest do not pick it up; copy it to artifacts/api-server/src/tmp-render.test.ts and run it with OUT=<dir> to write
+// team.html, guardian.html and plan.html (plus img/). No network and no database are used.
+import { it } from "vitest";
+it("renders the fixture pages", () => {});
+import { mkdirSync, writeFileSync as write } from "node:fs";
+import { renderColonyPage } from "./lib/teamPages/colonyPages";
+import { renderPlanPrintPage } from "./lib/teamPages/planPrintPage";
+import type { PlanCat, TrappingPlan, GuardianPlanCat } from "./lib/dashboard/trappingPlan";
+import { forGuardian } from "./lib/dashboard/trappingPlan";
+import type { ColonyView } from "./lib/teamColonies";
+import type { PublicLabel } from "./lib/areas/placeLabel";
+const OUT = process.env["OUT"]!;
+mkdirSync(`${OUT}/img`, { recursive: true });
+const names = ["Mavros", "Lemoni", "Kanela", "Pipera", "Asteri", "Tigris", "Mela", "Fistiki", "Zahari", "Bebe"];
+names.forEach((n, i) =>
+  write(`${OUT}/img/p${i}.svg`, `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="hsl(${i * 36},35%,62%)"/><circle cx="150" cy="150" r="70" fill="hsl(${i * 36},30%,40%)"/></svg>`),
+);
+write(`${OUT}/img/tile.svg`, `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#dfe8d8"/><path d="M0 120H400M0 280H400M130 0V400M290 0V400" stroke="#fff" stroke-width="14"/><path d="M0 330 Q200 250 400 350 V400 H0Z" fill="#b9d6e6"/></svg>`);
+const save = (path: string, html: string) =>
+  write(path, html.replace(/src="\/api\/team\/photos\/p(\d)(?:\/small)?"/g, 'src="img/p$1.svg"').replace(/src="\/api\/team\/map-tiles\/[^"]*"/g, 'src="img/tile.svg"'));
+const NOW = new Date("2026-10-24T09:00:00Z");
+const ago = (d: number | null) => (d === null ? null : new Date(NOW.getTime() - d * 86_400_000));
+const cat = (i: number, mark: PlanCat["mark"], seen: number | null, place: string, clip = false, coat: string[] = ["black"], pattern: PlanCat["pattern"] = "plain"): PlanCat =>
+  ({ id: 40 + i, name: names[i]!, syr: `SYR-00${40 + i}`, photoPublicId: `p${i}`, coat, pattern, mark, lastSeenAt: ago(seen), usualPlace: place, earClipSeen: clip }) as unknown as PlanCat;
+const toDo = [
+  cat(0, "not_sterilised", 2, "Ermoupoli, harbour steps"),
+  cat(1, "not_sterilised", 9, "Ermoupoli, harbour steps", false, ["ginger"], "stripes"),
+  cat(2, "not_known", 1, "Ermoupoli, harbour steps", false, ["ginger", "white"], "patches"),
+  cat(3, "not_known", 14, "Vaporia", false, ["grey"], "stripes"),
+  cat(4, "not_known", null, "Ermoupoli", false, [], null),
+  cat(5, "probably", 4, "Ermoupoli, harbour steps", true, ["grey", "white"], "patches"),
+];
+const done = [cat(6, "sterilised", 3, "Ermoupoli, harbour steps", true, ["white"]), cat(7, "sterilised", 20, "Vaporia")];
+const sites = [
+  { id: 7, lat: 37.4447, lng: 24.9417, publicLabel: "harbour steps" as PublicLabel },
+  { id: 8, lat: 37.4452, lng: 24.9446, publicLabel: null },
+];
+const team: TrappingPlan = {
+  colonyId: 4, toDo, done,
+  other: [{ id: 48, name: "Zahari", syr: "SYR-0048", photoPublicId: "p8", why: "homed" }, { id: 49, name: "Bebe", syr: "SYR-0049", photoPublicId: null, why: "merged" }],
+  estimate: { cats: 6, priceEur: 60, totalEur: 360 }, sites,
+};
+const guardian: TrappingPlan = { ...team, toDo: toDo.map(forGuardian) as GuardianPlanCat[], done: done.map(forGuardian) as GuardianPlanCat[], estimate: null };
+const v: ColonyView = {
+  id: 4, name: "Ermoupoli harbour", guardianName: "Eleni", notes: "Feeding at 8 every morning.", lat: 37.4449, lng: 24.943,
+  siteCount: 2, catCount: 10,
+  sites: [{ id: 7, name: "Harbour steps (Eleni)" }, { id: 8, name: "Behind the bakery" }],
+  cats: [...toDo, ...done].map((c) => ({ id: c.id, syr: c.syr, name: c.name, photoUrl: `/api/team/photos/${c.photoPublicId}` }))
+    .concat([{ id: 48, syr: "SYR-0048", name: "Zahari", photoUrl: "/api/team/photos/p8" }, { id: 49, syr: "SYR-0049", name: "Bebe", photoUrl: null }]),
+  history: [{ id: 1, kind: "colony_created", by: "Maria", at: "2026-06-01T09:00:00Z", before: null, after: { name: "Ermoupoli harbour" }, redacted: false }],
+};
+const all = () => true;
+save(`${OUT}/team.html`, renderColonyPage(v, "Maria", { may: all, island: true, plan: team, now: NOW }));
+const guardianMay = (c: string) => !["print_trapping_plan", "edit_vet_settings", "rename_colony"].includes(c);
+save(`${OUT}/guardian.html`, renderColonyPage(v, "Eleni", { may: guardianMay as never, island: false, lang: "en", plan: guardian, now: NOW }));
+save(`${OUT}/plan.html`, renderPlanPrintPage({ id: 4, name: "Ermoupoli harbour" }, team, NOW));
