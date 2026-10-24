@@ -13,3 +13,5 @@ fonttools (`pip install fonttools brotli`):
       --output-file=<name>.woff2
 
 If a new language or symbol is added to the app, add its range here.
+
+Licences: `Inter-OFL.txt` and `SpaceMono-OFL.txt` (SIL Open Font License) travel with the files.

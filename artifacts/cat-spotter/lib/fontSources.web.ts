@@ -4,8 +4,8 @@
  * Subset WOFF2 copies of the same Inter and Space Mono files the phone apps
  * use (about 165 KB in all, against 1.9 MB of full TTFs). Each holds Basic
  * Latin, Latin-1 and Latin Extended-A (English and French), Greek (with its accents), and common
- * punctuation, currency and arrows. Any other character falls back to the
- * system font. assets/fonts/README.md says how to regenerate them.
+ * punctuation, currency and arrows. A character outside that falls back to the
+ * stand-in faces below. assets/fonts/README.md says how to regenerate them.
  */
 export const fontSources = {
   Inter_400Regular: require('../assets/fonts/Inter_400Regular.woff2'),
@@ -18,11 +18,13 @@ export const fontSources = {
 };
 
 /**
- * Until a font file has arrived (or if it never does), draw with the visitor's
- * own sans-serif at the matching weight instead of the browser's default serif
- * (Times). The app names its fonts one family per weight ("Inter_700Bold"), so
- * each family gets a stand-in face made from fonts already on the device.
- * It is added first, so the real file wins as soon as it has loaded.
+ * If a font file fails or is too slow (expo-font gives up after about 6 s and
+ * the app draws anyway), or for a character the subset lacks, draw with the
+ * visitor's own sans-serif at the matching weight instead of the browser's
+ * default serif (Times). The app names its fonts one family per weight
+ * ("Inter_700Bold"), so each family gets a stand-in face made from fonts
+ * already on the device. It comes first in the page; expo-font's own face for
+ * the real file is added after it and takes over whenever it has loaded.
  */
 const SANS_REGULAR = ["'Helvetica Neue'", 'HelveticaNeue', 'Roboto', "'Segoe UI'", 'SegoeUI', 'Arial', 'ArialMT'];
 const SANS_MEDIUM = ["'Helvetica Neue Medium'", 'HelveticaNeue-Medium', 'Roboto-Medium', "'Roboto Medium'", "'Segoe UI Semibold'", ...SANS_REGULAR];

@@ -17,7 +17,7 @@ describe('font sources', () => {
   it('lists every font family the theme uses, on web and on native', () => {
     for (const family of families) {
       expect(webSource, `web: ${family}`).toContain(`${family}: require('../assets/fonts/${family}.woff2')`);
-      expect(nativeSource, `native: ${family}`).toMatch(new RegExp(`\\b${family}\\b`));
+      expect(nativeSource, `native: ${family}`).toMatch(new RegExp(`^  ${family},$`, 'm'));
     }
   });
 
