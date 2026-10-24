@@ -46,6 +46,8 @@ import {
 } from "../middlewares/rateLimit";
 import { safeError } from "../lib/logger";
 import { selectCandidateCats } from "../lib/candidateSelection";
+import { awardPoints } from "../lib/pointsLedger";
+import { placeFor } from "../lib/areas/placeFor";
 import {
   BLANK_NAME_BODY,
   catNamed,
@@ -976,7 +978,9 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     resolution = await db.transaction(async (tx) => {
       let cat = existingCat;
       const isNewCat = newCatName != null;
-      const pointsAwarded = isNewCat ? POINTS_NEW_CAT : POINTS_CONFIRM;
+      // SYC-706: the moment of the spot is the resolve, not the photo's
+      // capture time, for the once-a-day rule and the week it counts in.
+      const at = new Date();
 
       if (newCatName != null) {
         // SYC-462 spec §6 item 4 (P9): a cover photo removed for good never
@@ -1015,9 +1019,17 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       // Only a pending sighting resolves (review F6): two resolves sent at
       // once used to both succeed and award points twice. The loser's
       // transaction rolls back, a new cat included.
+      // SYC-706: the place is stamped in the same update. A row already
+      // stamped keeps its stamp (the trigger refuses to overwrite one).
+      const place = placeFor(sighting.lat, sighting.lng);
       const updated = await tx
         .update(sightingsTable)
-        .set({ catId: cat!.id, status: "resolved" })
+        .set({
+          catId: cat!.id,
+          status: "resolved",
+          areaKey: sql`coalesce(${sightingsTable.areaKey}, ${place.areaKey})`,
+          onIsland: sql`coalesce(${sightingsTable.onIsland}, ${place.onIsland})`,
+        })
         .where(
           and(
             eq(sightingsTable.id, sightingId),
@@ -1027,13 +1039,25 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         .returning({ id: sightingsTable.id });
       if (updated.length === 0) throw ALREADY_RESOLVED;
 
-      await tx
-        .insert(profilesTable)
-        .values({ deviceId: spotterId, points: pointsAwarded })
-        .onConflictDoUpdate({
-          target: profilesTable.deviceId,
-          set: { points: sql`${profilesTable.points} + ${pointsAwarded}` },
-        });
+      // SYC-706: a spotter earns for a given cat once per Athens day.
+      const award = await awardPoints(tx, {
+        deviceId: spotterId,
+        sightingId,
+        catId: cat!.id,
+        isNewCat,
+        at,
+      });
+      const pointsAwarded = award.points;
+      if (pointsAwarded > 0) {
+        await tx
+          .insert(profilesTable)
+          .values({ deviceId: spotterId, points: pointsAwarded })
+          .onConflictDoUpdate({
+            target: profilesTable.deviceId,
+            set: { points: sql`${profilesTable.points} + ${pointsAwarded}` },
+          });
+      }
+      const pointsReason = award.repeatToday ? ("repeat_today" as const) : null;
 
       // SYC-624: a phone that unfollowed this cat stays unfollowed; only a
       // fresh Follow tap (which clears its cat_unfollows row) brings it back.
@@ -1055,7 +1079,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         on conflict do nothing
       `);
 
-      return { cat: cat!, pointsAwarded, isNewCat };
+      return { cat: cat!, pointsAwarded, pointsReason, isNewCat };
     });
   } catch (err: any) {
     if (err === ALREADY_RESOLVED) {
@@ -1070,7 +1094,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     throw err;
   }
 
-  const { cat, pointsAwarded, isNewCat } = resolution;
+  const { cat, pointsAwarded, pointsReason, isNewCat } = resolution;
 
   // SYC-151: the server's own label for this choice (§4.6), decided from the
   // stored set and never from what the phone says. Team-only, and best
@@ -1169,6 +1193,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       PUBLIC_VIEWER,
     ),
     pointsAwarded,
+    pointsReason,
     isNewCat,
     newBadges,
     profile,

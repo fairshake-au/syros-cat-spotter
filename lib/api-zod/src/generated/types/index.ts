@@ -75,6 +75,7 @@ export * from './registerPushToken200';
 export * from './registerPushTokenRequest';
 export * from './resolveConflictBody';
 export * from './resolveResult';
+export * from './resolveResultPointsReason';
 export * from './resolveSightingRequest';
 export * from './resolveSightingRequestPickedFrom';
 export * from './sighting';

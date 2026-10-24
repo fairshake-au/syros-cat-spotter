@@ -1732,6 +1732,13 @@ components:
         cat:
           $ref: "#/components/schemas/Cat"
         pointsAwarded: { type: integer }
+        pointsReason:
+          type: string
+          nullable: true
+          enum: [repeat_today, null]
+          description: >-
+            Why pointsAwarded is 0: "repeat_today" when this spotter already
+            earned points for this cat today (Athens day). Null otherwise.
         isNewCat: { type: boolean }
         newBadges:
           type: array
@@ -1745,7 +1752,7 @@ components:
             False once this device has given any ear-tip answer for this cat
             ("clipped", "looks whole" or "can't tell"), so each spotter is
             asked once per cat (data spine plan, decision Q3 → B).
-      required: [cat, pointsAwarded, isNewCat, newBadges, profile, askEarTip]
+      required: [cat, pointsAwarded, pointsReason, isNewCat, newBadges, profile, askEarTip]
     SightingAnswersRequest:
       type: object
       properties:

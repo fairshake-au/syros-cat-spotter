@@ -755,6 +755,16 @@ export interface SuggestCatNamesResult {
   suggestions: string[];
 }
 
+/**
+ * Why pointsAwarded is 0: "repeat_today" when this spotter already earned points for this cat today (Athens day). Null otherwise.
+ */
+export type ResolveResultPointsReason = typeof ResolveResultPointsReason[keyof typeof ResolveResultPointsReason] | null;
+
+
+export const ResolveResultPointsReason = {
+  repeat_today: 'repeat_today',
+} as const;
+
 export interface Profile {
   deviceId: string;
   spotterCode: string;
@@ -778,6 +788,8 @@ export interface Profile {
 export interface ResolveResult {
   cat: Cat;
   pointsAwarded: number;
+  /** Why pointsAwarded is 0: "repeat_today" when this spotter already earned points for this cat today (Athens day). Null otherwise. */
+  pointsReason: ResolveResultPointsReason;
   isNewCat: boolean;
   newBadges: string[];
   profile: Profile;

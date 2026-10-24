@@ -557,6 +557,7 @@ export const ResolveSightingResponse = zod.object({
   "markings": zod.array(zod.enum(['white_paws', 'white_chest', 'white_face', 'colourpoint', 'long_fur', 'kinked_tail', 'torn_ear', 'short_tail', 'missing_eye', 'three_legs', 'odd_eyes'])).optional().describe('The cat\'s resolved markings (coat-markings-and-health.md §3.2,\n§10.4), `[]` when none are known. Only the list: never how sure,\nwho said it or how many people. Optional, as `coat`.\n')
 }),
   "pointsAwarded": zod.number(),
+  "pointsReason": zod.union([zod.literal('repeat_today'),zod.literal(null)]).nullable().describe('Why pointsAwarded is 0: \"repeat_today\" when this spotter already earned points for this cat today (Athens day). Null otherwise.'),
   "isNewCat": zod.boolean(),
   "newBadges": zod.array(zod.string()),
   "profile": zod.object({

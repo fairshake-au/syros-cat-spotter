@@ -7,10 +7,13 @@
  */
 import type { Cat } from './cat';
 import type { Profile } from './profile';
+import type { ResolveResultPointsReason } from './resolveResultPointsReason';
 
 export interface ResolveResult {
   cat: Cat;
   pointsAwarded: number;
+  /** Why pointsAwarded is 0: "repeat_today" when this spotter already earned points for this cat today (Athens day). Null otherwise. */
+  pointsReason: ResolveResultPointsReason;
   isNewCat: boolean;
   newBadges: string[];
   profile: Profile;
