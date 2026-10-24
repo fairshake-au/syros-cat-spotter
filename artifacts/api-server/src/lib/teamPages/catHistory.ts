@@ -758,6 +758,16 @@ function visitRow(r: Extract<HistoryRow, { type: "visit" }>, c: Ctx): string {
     (who ? `<span class="who">${who}</span>` : "") +
     (l && "costReason" in l && l.costReason ? `<p class="meta">Why the cost was different: ${esc(l.costReason)}</p>` : "") +
     (l?.note ? `<p class="meta">${esc(l.note)}</p>` : "") +
+    (l?.photos?.length
+      ? '<p class="meta vet-photos">' +
+        l.photos
+          .map(
+            (p) =>
+              `<a href="/api/team/photos/${encodeURIComponent(p.publicId)}"><img src="/api/team/photos/${encodeURIComponent(p.publicId)}/small" alt="Photo taken at the vet" width="64" height="64" loading="lazy"></a>`,
+          )
+          .join(" ") +
+        "</p>"
+      : "") +
     (recorded.length > 0
       ? '<p class="meta">Recorded: ' +
         recorded

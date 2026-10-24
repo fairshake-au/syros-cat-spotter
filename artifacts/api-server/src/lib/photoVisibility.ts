@@ -238,7 +238,9 @@ export type VisibilityOutcome =
   | { kind: "not_found" }
   | { kind: "not_authorised" }
   /** SYC-462: removed for good. It stays hidden and can't be restored. */
-  | { kind: "removed"; removedAt: Date };
+  | { kind: "removed"; removedAt: Date }
+  /** SYC-677: a vet visit's photo is only ever the team's; it is neither hidden nor restored. */
+  | { kind: "team_only" };
 
 const CAPABILITY = { hide: "hide_photo", restore: "restore_photo" } as const;
 
@@ -271,6 +273,7 @@ export async function setPhotoVisibility(
     if (removedAt !== null && input.action === "restore") {
       return { kind: "removed", removedAt: new Date(removedAt) } as const;
     }
+    if ((await teamOnlyPhotoIds([photoId], tx)).has(photoId)) return { kind: "team_only" } as const;
     const newest = (await newestEvents([photoId], tx)).get(photoId);
     const hiddenNow = newest?.action === "hide";
     if ((input.action === "hide") === hiddenNow) return { kind: "already" } as const;
