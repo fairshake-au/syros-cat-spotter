@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -113,7 +113,8 @@ export default function SettingsScreen() {
                   key={lang.code}
                   testID={`language-${lang.code}`}
                   accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
+                  accessibilityState={{ selected: active, checked: active }}
+                  aria-checked={active}
                   accessibilityLabel={lang.label}
                   onPress={() => setLanguage(lang.code)}
                   style={[styles.segmentBtn, { backgroundColor: active ? colors.primary : 'transparent' }]}
@@ -139,7 +140,8 @@ export default function SettingsScreen() {
                   key={option.key}
                   testID={`appearance-${option.key}`}
                   accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
+                  accessibilityState={{ selected: active, checked: active }}
+                  aria-checked={active}
                   accessibilityLabel={option.label}
                   onPress={() => setAppearance(option.key)}
                   style={[styles.segmentBtn, { backgroundColor: active ? colors.primary : 'transparent' }]}
