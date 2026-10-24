@@ -7,6 +7,7 @@ import { renderSignedOutPage } from "../teamPages/signedOutPage";
 import { preferredLanguage } from "../teamPages/errorPage";
 import { readExpiredSession } from "./session";
 import { keepableFor, keepTyping, typedFields } from "./heldTyping";
+import { safeError } from "../logger";
 
 // The refusals for the dashboard. **Not signed in** (team-access spec §2.4):
 // 401, a fixed body, nothing about which check failed. A browser page load gets the
@@ -110,7 +111,7 @@ export async function refuseSignedOutSave(req: Request, res: Response): Promise<
     kept = who === null ? null : await keepTyping(req, res, who);
   } catch (err) {
     // Keeping is a kindness, never a reason to fail: the copy-back page instead.
-    req.log.warn({ err }, "keeping typed text failed");
+    req.log.warn({ err: safeError(err) }, "keeping typed text failed");
     kept = null;
   }
   if (kept === "typed") {
