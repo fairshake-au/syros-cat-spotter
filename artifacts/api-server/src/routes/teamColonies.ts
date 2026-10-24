@@ -254,7 +254,10 @@ router.get(
  * (§10.2): no sighting or site position ever reaches her as numbers.
  */
 function planForJson(plan: TrappingPlan, island: boolean) {
-  return island ? plan : { ...plan, sites: plan.sites.map((s) => ({ id: s.id, publicLabel: s.publicLabel })) };
+  if (!island) return { ...plan, sites: plan.sites.map((s) => ({ id: s.id, publicLabel: s.publicLabel })) };
+  // The team's cats without the resolved snapshot, which is the cat page's to show (review, finding 2).
+  const lean = (cats: TrappingPlan["toDo"]) => cats.map((c) => ("snapshot" in c ? (({ snapshot: _s, ...rest }) => rest)(c) : c));
+  return { ...plan, toDo: lean(plan.toDo), done: lean(plan.done) };
 }
 
 /**

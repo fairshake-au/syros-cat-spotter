@@ -21,6 +21,7 @@ let team: Signed;
 let guardian: Signed;
 let colony: number;
 let empty: number;
+let homedOnly: number;
 let catIds: number[] = [];
 
 const say = (catId: number, kind: string, value: unknown) =>
@@ -55,6 +56,8 @@ beforeAll(async () => {
     status: "resolved",
     createdAt: new Date(Date.now() - 86_400_000),
   });
+  homedOnly = await newColony("plan-route-homed");
+  await say((await seedCat(homedOnly)).id, "life_status", { status: "homed" });
   const ster = await seedCat(empty);
   await say(ster.id, "sterilised", { sterilised: true });
   team = await signedPerson("plan-route-team", ["staff"]);
@@ -108,6 +111,21 @@ describe("the colony page", () => {
     const res = await page(`/api/team/colonies/${empty}`, team);
     expect(res.text).toContain("Every street cat here is sterilised.");
     expect(res.text).not.toContain('<p class="estimate">');
+  });
+
+  it("never says every street cat is sterilised when there are no street cats", async () => {
+    const res = await page(`/api/team/colonies/${homedOnly}`, team);
+    expect(res.text).not.toContain("Every street cat here is sterilised.");
+    expect(res.text).toContain("No street cats yet");
+    expect(res.text).toContain("<summary>Not on the street (1)</summary>");
+    const print = await page(`/api/team/colonies/${homedOnly}/plan`, team);
+    expect(print.text).not.toContain("Every street cat here is sterilised.");
+  });
+
+  it("the team's JSON plan leaves out each cat's snapshot", async () => {
+    const json = await request(app).get(`/api/team/colonies/${colony}`).set("Cookie", team.cookie).set("Accept", "application/json");
+    expect(json.body.plan.toDo).toHaveLength(3);
+    expect(JSON.stringify(json.body.plan)).not.toContain('"snapshot"');
   });
 });
 

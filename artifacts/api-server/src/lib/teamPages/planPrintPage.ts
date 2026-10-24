@@ -71,7 +71,7 @@ export function renderPlanPrintPage(colony: { id: number; name: string }, plan: 
   const title = `Trapping plan: ${colony.name}`;
   const list =
     toDo.length === 0
-      ? `<p class="empty">Every street cat here is sterilised.</p>`
+      ? `<p class="empty">${plan.done.length > 0 ? "Every street cat here is sterilised." : "No street cats yet."}</p>`
       : `<ol class="plan">${toDo.map((c) => catCard(c, now)).join("")}</ol>`;
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8">` +

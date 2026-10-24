@@ -702,7 +702,8 @@ export function renderColonyPage(
   const toDo =
     `<h2 id="todo">${w("plan.toDoTitle", { n: String(plan.toDo.length) })}</h2>` +
     (plan.toDo.length === 0
-      ? `<p class="empty">${w(plan.done.length + plan.other.length === 0 ? "colony.noCats" : "plan.allDone")}</p>`
+      ? // "All sterilised" only when there are sterilised street cats to say it of (review, finding 1).
+        `<p class="empty">${w(plan.done.length > 0 ? "plan.allDone" : plan.other.length > 0 ? "colonies.noStreetCats" : "colony.noCats")}</p>`
       : `<p class="hint">${w("plan.toDoHint")}</p>` + catList(W, planRows(plan.toDo), v.id, mayTakeOut, island));
   // A price estimate, not money spent: no view_vet_costs needed (§4.2, §9.2). Never for a cat guardian (§10.2).
   const estimate =
