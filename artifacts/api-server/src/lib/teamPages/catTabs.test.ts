@@ -182,7 +182,7 @@ describe("the tab CSS", () => {
   it("draws the open tab, and says ', open' for a screen reader", () => {
     const c = css();
     for (const id of ["history", "photos", "map", "coat", "reports"]) {
-      expect(c, id).toContain(`main:has(#tab-${id}:target,#tab-${id} :target) a[href="#tab-${id}"]`);
+      expect(c, id).toContain(`main:has(#tab-${id}:target,#tab-${id} :target) .cattabs a[href="#tab-${id}"]`);
     }
     expect(c).toContain('content:"" / ", open"');
     expect(c).toContain('main:not(:has(.catpanel:target,.catpanel :target)) a[href="#tab-history"]');
