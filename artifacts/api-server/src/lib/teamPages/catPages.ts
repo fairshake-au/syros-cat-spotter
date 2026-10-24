@@ -489,7 +489,7 @@ function backToCats(back: string | undefined): string {
  * page is for island-wide team members today, and every one of them holds
  * add_team_note, so this is the second lock, not the first.
  */
-const withoutTeamNotes = (v: TeamCatView): TeamCatView =>
+export const withoutTeamNotes = (v: TeamCatView): TeamCatView =>
   v.history.some((h) => h.kind === "team_note") ? { ...v, history: v.history.filter((h) => h.kind !== "team_note") } : v;
 
 export function renderCatPage(

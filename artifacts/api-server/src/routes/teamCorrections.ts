@@ -755,8 +755,23 @@ router.post(
 
 // ── Add a note ─────────────────────────────────────────────────────────────
 
+/**
+ * C0 controls other than the line break (CR is already a line break by `lf`),
+ * and the bidi overrides and isolates (U+202A to U+202E, U+2066 to U+2069) that
+ * can reorder the line a note is drawn beside. Dropped, not refused. NUL stays
+ * and is refused (noNul), as it always was.
+ */
+// eslint-disable-next-line no-control-regex
+const NOTE_STRIPPED = /[\u0001-\u0009\u000B-\u001F\u202A-\u202E\u2066-\u2069]/g;
+const noteChars = (v: unknown) => (typeof v === "string" ? lf(v).replace(NOTE_STRIPPED, "") : v);
+// A lone surrogate passes zod but Postgres jsonb refuses it (a 500); say 400.
+const wellFormed = (s: string) => s.isWellFormed();
+
 export const NoteForm = z.object({
-  text: z.preprocess(lf, z.string().trim().min(1).max(NOTE_MAX).refine(noNul)),
+  text: z.preprocess(
+    (v) => (typeof v === "string" && !wellFormed(v) ? v : noteChars(v)),
+    z.string().refine(wellFormed).pipe(z.string().trim().min(1).max(NOTE_MAX).refine(noNul)),
+  ),
 });
 
 /**

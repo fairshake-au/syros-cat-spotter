@@ -25,7 +25,7 @@ import type { TieMode } from "../lib/teamPages/catPages";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
 import { allColonyChoices } from "../lib/colonyCats";
-import { cameFromCats, catPageFormKeys, renderCatPage, renderNoSuchCat } from "../lib/teamPages/catPages";
+import { cameFromCats, catPageFormKeys, renderCatPage, renderNoSuchCat, withoutTeamNotes } from "../lib/teamPages/catPages";
 import { historyShowOf } from "../lib/teamPages/catHistory";
 import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
 import { parseCatFilters } from "../lib/teamCatFilters";
@@ -530,7 +530,8 @@ router.get(
       if (wantsJson(req)) return void res.status(404).json({ error: "Not found" });
       return void res.status(404).type("html").send(renderNoSuchCat(person.name));
     }
-    if (wantsJson(req)) return void res.json(view);
+    // Same second lock as the page: no notes for a person without add_team_note.
+    if (wantsJson(req)) return void res.json(can(person, "add_team_note") ? view : withoutTeamNotes(view));
     // After a correction (PR 4) the form comes back here with ?done=<key>.
     // Only a fixed key is shown, never the query text itself.
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
