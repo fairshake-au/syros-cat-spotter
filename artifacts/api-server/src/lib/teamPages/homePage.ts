@@ -186,26 +186,12 @@ function progressSection(h: Section<Headline>, month: Section<{ now: MonthFigure
   );
 }
 
-/** The team's named areas, to correct the list (SYC-396 PR 2.4). Home is island-only, so no other check. */
-export const AREAS_LINE = '<p id="areas-link"><a class="hlink" href="/api/team/areas">Areas: the place names used in labels and filters</a></p>';
-
-/** The standard sterilisation price and its history (SYC-396 PR 3.1b). Home is island-only, so no other check. */
-export const VET_SETTINGS_LINE =
-  '<p id="vet-settings-link"><a class="hlink" href="/api/team/vet-settings">Vet settings: the standard sterilisation price</a></p>';
-
-/** The Help feed a cat button and the starter facts (SYC-383). Home is island-only, so no other check. */
-export const APP_SWITCHES_LINE =
-  '<p id="app-switches-link"><a class="hlink" href="/api/team/app-switches">App switches: the feed button and the starter facts</a></p>';
-
 export function renderHomePage(d: HomeData, o: { personName: string; now: Date; costs?: boolean }): string {
   const body =
     '<div class="hgrid">' +
     todaySection(d.needs, d.toCheck, o.now) +
     `<div class="hside">${trapSection(d.trapNext)}${progressSection(d.headline, d.month, o.costs === true)}</div>` +
-    "</div>" +
-    AREAS_LINE +
-    VET_SETTINGS_LINE +
-    APP_SWITCHES_LINE;
+    "</div>";
   // Wide, as the Cats grid is: two columns from 1000px need more than the 760px reading column.
   return renderPage({ title: "Home", active: "home", personName: o.personName, body, mainClass: "wide" });
 }

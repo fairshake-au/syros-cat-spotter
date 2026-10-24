@@ -148,7 +148,7 @@ router.post("/team/areas", ...formRoute("edit_named_areas"), async (req: Request
           cancelHref: AREAS_PATH,
           cancelLabel: "Back to the areas",
           personName: person.name,
-          active: null,
+          active: "settings",
         }),
       );
     }
@@ -196,7 +196,7 @@ function noSuchArea(res: Response): void {
     .send(
       renderPage({
         title: "No such area",
-        active: null,
+        active: "settings",
         personName: teamPerson(res).name,
         body: `<p>There is no such area, or it has been retired.</p><p><a class="tap" href="${AREAS_PATH}">Back to the areas</a></p>`,
       }),
@@ -217,7 +217,7 @@ function areaPickerPage(
     .send(
       renderPicker({
         personName: teamPerson(res).name,
-        active: null,
+        active: "settings",
         title: `Move the centre of ${a.name}`,
         intro: "Tap where the centre of this area should be. You will see the spot before anything is saved.",
         back: { href: AREAS_PATH, label: "Back to the areas" },
@@ -262,7 +262,7 @@ router.post("/team/areas/:key/centre/pick", ...formRoute("edit_named_areas"), as
     renderCentreConfirm({
       personName: person.name,
       island: isIslandWide(person),
-      active: null,
+      active: "settings",
       title: `Move the centre of ${a.name}`,
       question: () => `Move the centre of ${a.name} here?`,
       saveLabel: "Move the centre here",
