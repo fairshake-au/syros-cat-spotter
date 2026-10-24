@@ -18,7 +18,10 @@ export interface IconButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const sizes: Record<IconButtonSize, number> = { sm: 32, md: 40, lg: 48 };
+// SYC-509: md is 44 so every back/close button meets the 44pt tap-target
+// minimum. sm stays 32 to look small, with hitSlop making up the difference.
+const sizes: Record<IconButtonSize, number> = { sm: 32, md: 44, lg: 48 };
+const MIN_TARGET = 44;
 
 export function IconButton({
   variant = 'soft',
@@ -31,6 +34,7 @@ export function IconButton({
 }: IconButtonProps) {
   const colors = useColors();
   const d = sizes[size];
+  const slop = Math.max(0, (MIN_TARGET - d) / 2);
 
   const variantStyle = (): { backgroundColor: string } => {
     switch (variant) {
@@ -50,6 +54,7 @@ export function IconButton({
     <Pressable
       onPress={disabled ? undefined : onPress}
       disabled={disabled}
+      hitSlop={slop || undefined}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
