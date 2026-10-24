@@ -69,6 +69,19 @@ describe("coverageMap", () => {
     }
   });
 
+  it("keeps every name off every square, a neighbouring area's too", () => {
+    const cells = [cell(0, 0, "South"), cell(0, 1, "South"), cell(1, 0, "South"), cell(1, 1, "South"),
+      cell(2, 0, "North"), cell(2, 1, "North"), cell(3, 0, "North"), cell(3, 1, "North")];
+    const labels = [{ name: "South", row: r0 + 1, col: c0 + 1 }, { name: "North", row: r0 + 3, col: c0 + 1 }];
+    const svg = run(cells, labels);
+    const ts = texts(svg);
+    expect(ts.map((t) => t.name).sort()).toEqual(["North", "South"]);
+    for (const t of ts) {
+      expect(t.box.y0, t.name).toBeGreaterThanOrEqual(0);
+      for (const r of rects(svg)) expect(hit(t.box, r.box), `${t.name} on a ${r.area} square`).toBe(false);
+    }
+  });
+
   it("never lets two names overlap, and draws no name for an area with no squares", () => {
     const labels = [
       { name: "Alpha", row: 0, col: 0 },
@@ -79,6 +92,15 @@ describe("coverageMap", () => {
     const ts = texts(run(cells, labels));
     expect(ts).toHaveLength(2);
     expect(hit(ts[0]!.box, ts[1]!.box)).toBe(false);
+  });
+
+  it("draws the outline with north up and east to the right", () => {
+    const outline: [number, number][] = [[37.5, 24.92], [37.4, 24.92], [37.45, 24.97], [37.45, 24.87]];
+    const svg = coverageMap({ cells: CELLS, labels: LABELS, title: "t", outline, toGrid });
+    const pts = /<polygon points="([^"]+)"/.exec(svg)![1]!.split(" ").map((p) => p.split(",").map(Number) as [number, number]);
+    const [north, south, east, west] = pts as [[number, number], [number, number], [number, number], [number, number]];
+    expect(north[1]).toBeLessThan(south[1]);
+    expect(east[0]).toBeGreaterThan(west[0]);
   });
 
   it("keeps the legend text", () => {

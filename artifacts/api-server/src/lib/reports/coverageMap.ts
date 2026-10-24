@@ -60,7 +60,7 @@ export function coverageMap(o: {
   // it. Worked out relative to the top of the squares (gy), so the picture
   // can make room above for the highest name. An area with no drawn squares
   // gets no name: there is nothing to label. A name that would overlap one
-  // already placed moves up a line (never down, which would land on squares).
+  // already placed, or on any square, moves up a line (never down, which would land on squares).
   const byArea = new Map<string, { rLo: number; rHi: number; cLo: number; cHi: number }>();
   for (const c of o.cells) {
     const b = byArea.get(c.area);
@@ -72,7 +72,13 @@ export function coverageMap(o: {
       b.cHi = Math.max(b.cHi, c.col);
     }
   }
-  const placed: { x0: number; x1: number; y0: number; y1: number }[] = [];
+  // Every drawn square is an obstacle too (in the same top-of-squares frame as
+  // the names), so a name also steps up past a neighbouring area's squares.
+  const placed: { x0: number; x1: number; y0: number; y1: number }[] = o.cells.map((c) => {
+    const x0 = ox + (c.col - cMin) * s;
+    const y0 = (rMax - c.row) * s;
+    return { x0, x1: x0 + s - 1, y0, y1: y0 + s - 1 };
+  });
   const named: { name: string; x: number; gy: number }[] = [];
   const seenNames = new Set<string>();
   for (const l of o.labels) {
@@ -83,7 +89,7 @@ export function coverageMap(o: {
     const cx = Math.round(ox + ((b.cLo + b.cHi + 1) / 2 - cMin) * s);
     const x = Math.min(VIEW_W - PAD - Math.ceil(w / 2), Math.max(PAD + Math.ceil(w / 2), cx));
     let gy = (rMax - b.rHi) * s - 4;
-    for (let tries = 0; tries < 12; tries++) {
+    for (let tries = 0; tries < 60; tries++) {
       const box = { x0: x - w / 2, x1: x + w / 2, y0: gy - FONT, y1: gy + 4 };
       if (!placed.some((q) => q.x0 < box.x1 && box.x0 < q.x1 && q.y0 < box.y1 && box.y0 < q.y1)) break;
       gy -= FONT + 2;
