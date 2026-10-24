@@ -33,17 +33,37 @@ function useFittedLabelSize(label: string, tabWidth: number) {
   const ref = React.useRef<Text>(null);
   React.useLayoutEffect(() => {
     if (Platform.OS !== 'web') return;
-    const el = ref.current as unknown as HTMLElement | null;
-    if (!el || typeof el.scrollWidth !== 'number') return;
-    // Measure at the largest size first, then step down until it fits.
-    let next = LABEL_MAX;
-    el.style.fontSize = `${next}px`;
-    while (next > LABEL_MIN && el.scrollWidth > el.clientWidth + 0.5) {
-      next -= 1;
+    const measure = () => {
+      const el = ref.current as unknown as HTMLElement | null;
+      if (!el || typeof el.scrollWidth !== 'number') return;
+      // Measure at the largest size first, then step down until it fits.
+      // react-native-web keeps the font size as an inline style, so put back
+      // what it had (clearing it would leave the label at the browser default
+      // when the fitted size equals the current state and nothing re-renders).
+      const previous = el.style.fontSize;
+      let next = LABEL_MAX;
       el.style.fontSize = `${next}px`;
-    }
-    el.style.fontSize = '';
-    setSize(next);
+      while (next > LABEL_MIN && el.scrollWidth > el.clientWidth + 0.5) {
+        next -= 1;
+        el.style.fontSize = `${next}px`;
+      }
+      el.style.fontSize = previous;
+      setSize(next);
+    };
+    measure();
+    // The first measure can run before the web font has loaded, with the
+    // fallback font's narrower letters; measure again once fonts are ready.
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+    let cancelled = false;
+    fonts?.ready?.then(() => {
+      if (!cancelled) measure();
+    });
+    const onLoaded = () => measure();
+    fonts?.addEventListener?.('loadingdone', onLoaded);
+    return () => {
+      cancelled = true;
+      fonts?.removeEventListener?.('loadingdone', onLoaded);
+    };
   }, [label, tabWidth]);
   return { size, ref };
 }

@@ -221,7 +221,8 @@ export function AboutTab({
       {/* SYC-117 part 2: "You spotted Agatha on 3 October. Anything to add?" */}
       <MoreToAdd catId={cat.id} catName={cat.name} />
 
-      {cat.hasHome && (
+      {/* The facts card already says "Has a home"; the banner only adds the owner's name or the home's description (the owner's view). */}
+      {cat.hasHome && (cat.ownerName || cat.homeDescription) && (
         <OwnershipBanner ownerName={cat.ownerName} homeDescription={cat.homeDescription} />
       )}
 

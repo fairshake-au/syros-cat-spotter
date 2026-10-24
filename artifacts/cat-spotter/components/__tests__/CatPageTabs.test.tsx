@@ -406,6 +406,17 @@ describe('the facts card and the cards under the main button', () => {
     expect(screen.getByTestId('lives-with-me-card')).toBeTruthy();
   });
 
+  it('does not repeat "Has a home" for a homed cat the public sees (no owner details)', () => {
+    page({}, cat({ hasHome: true, lifeStatus: 'homed' }));
+    expect(screen.getAllByText('Has a home')).toHaveLength(1);
+  });
+
+  it('shows the ownership banner when the owner name or home description is there', () => {
+    page({}, cat({ hasHome: true, lifeStatus: 'homed', ownerName: 'Eleni', homeDescription: 'Near the blue door' }));
+    expect(screen.getByText(/Lives with Eleni/)).toBeTruthy();
+    expect(screen.getByText(/Near the blue door/)).toBeTruthy();
+  });
+
   it('shows only the help card, full width, when the 🏠 card does not apply', () => {
     page({ claimCooldown: true });
     expect(screen.queryByTestId('lives-with-me-card')).toBeNull();
