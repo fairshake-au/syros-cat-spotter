@@ -54,7 +54,10 @@ export default function ReportScreen() {
   const { submitReport, sendDraft, reports, acceptedIds, syncing, retryFailed } = useReportQueue();
   const { coords, loading: locating, denied, askAndLocate } = useAppLocation();
   // SYC-524: the report flow is the one screen that asks for location on open.
+  // `asked` covers the first frame, before the effect has run.
+  const [asked, setAsked] = useState(false);
   useEffect(() => {
+    setAsked(true);
     void askAndLocate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -150,7 +153,7 @@ export default function ReportScreen() {
     <ReportWizard
       guidance={guidance}
       initial={initial}
-      gps={{ coords, locating, denied }}
+      gps={{ coords, locating: locating || !asked, denied }}
       onChoosePhoto={choosePhoto}
       onDraft={(flow) => {
         if (!flow.coords || !flow.severity) return;

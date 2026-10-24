@@ -55,4 +55,13 @@ describe('location callers', () => {
     expect(src).toMatch(/useEffect\(\(\) => \{\s*void askAndLocate\(\);/);
     expect(src.match(/askAndLocate\(\)/g)?.length).toBe(1);
   });
+
+  // First frame: the mount effect has not run yet, so "not asked yet" must read
+  // as locating or the wizard drops its fallback pin for one render.
+  it('the report flow counts "not asked yet" as locating', () => {
+    const src = read('app/report.tsx');
+    expect(src).toMatch(/const \[asked, setAsked\] = useState\(false\)/);
+    expect(src).toMatch(/useEffect\(\(\) => \{\s*setAsked\(true\);\s*void askAndLocate\(\);/);
+    expect(src).toMatch(/gps=\{\{ coords, locating: locating \|\| !asked, denied \}\}/);
+  });
 });
