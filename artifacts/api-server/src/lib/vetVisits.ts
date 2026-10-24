@@ -1,10 +1,29 @@
+import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
-import { catsTable, db, observationsTable, peopleTable, photosTable, vetBatchesTable, vetVisitPhotosTable, type Observation } from "@workspace/db";
+import {
+  catsTable,
+  coloniesTable,
+  db,
+  feedingSitesTable,
+  foldName,
+  foldedNameEquals,
+  observationsTable,
+  peopleTable,
+  photosTable,
+  vetBatchesTable,
+  vetVisitPhotosTable,
+  type Observation,
+} from "@workspace/db";
 import { getGuidance } from "@workspace/welfare-guidance";
 import { actingRole, can } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
 import { commitStatement, inStatementTransaction, type PendingNews, type Tx } from "./commitStatement";
-import { loadCatRecords, ObservationRefused, type VetVisitValue } from "./observations";
+import { loadCatRecords, ObservationRefused, writeObservation, type VetVisitValue } from "./observations";
+import { areaByKey } from "./areas/namedAreas";
+import { BLANK_NAME_BODY, isBlankName, isUniqueViolation, NAME_TAKEN_WORDS, OFFENSIVE_NAME_WORDS } from "./catNames";
+import { containsOffensiveLanguage } from "./moderation";
+import { syrNumber } from "./teamCatView";
+import { TEAM_DESK_DEVICE } from "./teamDesk";
 import { authorityLevel, standingRows, supersedeChains, type Vaccine } from "./resolve";
 import { lockActiveObservation } from "./teamCorrections";
 import { athensToday } from "./athensTime";
@@ -388,12 +407,123 @@ export const ALREADY_SAVED = "This batch was already saved.";
 /** One thing that stops a batch saving: the entry it is about (null: the whole batch), the field, and what to say. */
 export type BatchProblem = { batchCatId: number | null; field: string; words: string };
 
+/** The device a cat Syros Cats created is "discovered" by (SYC-677 Task 9; lib/teamDesk.ts). */
+export { TEAM_DESK_DEVICE };
+
+/** A new cat's name and description, at most (the sightings route's 60 for the name). */
+export const NEW_CAT_NAME_MAX = 60;
+export const NEW_CAT_DESCRIPTION_MAX = 300;
+
+/** A batch with a new cat needs somewhere to put it. */
+export const CHOOSE_PLACE = "Choose a colony or an area for this batch";
+/** Its colony has no centre and no open feeding site to put a new cat at (Ruling R20). */
+export const COLONY_HAS_NO_CENTRE =
+  "This batch's colony has no centre or feeding sites on the map yet, so a new cat can't be placed. Choose an area for this batch instead.";
+
 /** Fields that come from the batch, not the cat: said once, for the batch. */
 const SHARED_FIELDS = new Set<VisitField>(["date", "clinicId", "vaccines"]);
 
 /** "24 Oct", the same-day warning's date words. */
 const shortDay = (date: string) =>
   new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/Athens" });
+
+/**
+ * What is wrong with a new cat's name, before anything is read: the same
+ * checks, and the same words, as a spotter naming a new cat
+ * (routes/sightings.ts). Null: nothing (or no name: left for spotters).
+ * Whether another cat already has it is asked separately, in the save's
+ * transaction.
+ */
+export function newCatNameProblem(name: string | null): string | null {
+  if (name === null) return null;
+  if (isBlankName(name)) return BLANK_NAME_BODY.error;
+  if (containsOffensiveLanguage(name)) return OFFENSIVE_NAME_WORDS;
+  // A typed SYR number would read as another cat's number, and could take the
+  // name a cat left for spotters needs.
+  if (/^syr-?\d+$/i.test(foldName(name))) return SYR_SHAPED_NAME;
+  return null;
+}
+
+/** A typed name that looks like a SYR number. */
+export const SYR_SHAPED_NAME = "That looks like a cat's SYR number. Choose a name.";
+/** A cat left for spotters couldn't take its SYR number as its name (another cat has it). */
+export const SYR_NAME_CLASH = "Couldn't give this cat its SYR number. Try saving again.";
+
+/** What is wrong with a new cat's description (it is public), or null. */
+export function newCatDescriptionProblem(description: string): string | null {
+  if (description.length > NEW_CAT_DESCRIPTION_MAX || description.includes(String.fromCharCode(0))) {
+    return `A description can be up to ${NEW_CAT_DESCRIPTION_MAX} characters.`;
+  }
+  if (containsOffensiveLanguage(description)) return "The description contains offensive language";
+  return null;
+}
+
+/** A new cat's name as it is stored: trimmed, at most NEW_CAT_NAME_MAX, or null for "Leave it for spotters". */
+const storedName = (name: string | null) => (name === null ? null : name.trim().slice(0, NEW_CAT_NAME_MAX));
+
+/**
+ * Makes a batch's new cat (SYC-677 Task 9), inside the save's transaction,
+ * before its visit:
+ *
+ * - its main photo is its first batch photo, which the caller then does NOT
+ *   link in vet_visit_photos: being the cat's primary photo is what makes it
+ *   public (teamOnlyPhotos.ts), so future photo searches can match it;
+ * - it sits at `centre` (the colony's, else its open sites' midpoint, else the
+ *   area's), never a typed position;
+ * - Syros Cats is its discoverer (TEAM_DESK_DEVICE);
+ * - named now: a team `name` statement, as a spotter naming a new cat writes
+ *   one. Left for spotters: it is inserted under a temporary unique name, then
+ *   takes its SYR number as its name with `name_pending` set;
+ * - in the batch's colony: a `colony` statement.
+ */
+async function createBatchCat(
+  tx: Tx,
+  person: Person,
+  entry: BatchCat & { newCat: NonNullable<BatchCat["newCat"]> },
+  place: { centre: { lat: number; lng: number }; colonyId: number | null },
+  observedAt: Date,
+): Promise<number> {
+  const name = storedName(entry.newCat.name);
+  const first = entry.photos[0];
+  // Every batch cat has at least one photo (addCat refuses none); a cat
+  // without one would go public with no photo, so this is a bug, not a case.
+  if (!first) throw new Error("A batch's new cat has no photo");
+  const [cat] = await tx
+    .insert(catsTable)
+    .values({
+      name: name ?? `pending-${randomUUID()}`,
+      description: entry.newCat.description.trim(),
+      primaryPhotoId: first.photoId,
+      lat: place.centre.lat,
+      lng: place.centre.lng,
+      discovererDeviceId: TEAM_DESK_DEVICE,
+    })
+    .returning({ id: catsTable.id, name: catsTable.name, normalisedName: catsTable.normalisedName });
+  const target = { colonyId: place.colonyId };
+  if (name === null) {
+    await tx.update(catsTable).set({ name: syrNumber(cat!.id), namePending: true }).where(eq(catsTable.id, cat!.id));
+  } else {
+    await writeObservation(tx, {
+      catId: cat!.id,
+      kind: "name",
+      value: { name: cat!.name, normalised: cat!.normalisedName },
+      accountId: person.id,
+      roleAtTime: actingRole(person, "rename_cat", target),
+      observedAt,
+    });
+  }
+  if (place.colonyId !== null) {
+    await writeObservation(tx, {
+      catId: cat!.id,
+      kind: "colony",
+      value: { colonyId: place.colonyId },
+      accountId: person.id,
+      roleAtTime: actingRole(person, "assign_cat_to_colony", target),
+      observedAt,
+    });
+  }
+  return cat!.id;
+}
 
 /**
  * Saves a vet visit batch (SYC-677 Task 4), in ONE transaction:
@@ -404,24 +534,32 @@ const shortDay = (date: string) =>
  * 2. Each cat is read through the single visit form's reader: the cat's own
  *    cost if typed, else the batch price when Sterilised is ticked; the cat's
  *    payer, else the batch's. "Checked only" is refused in a batch.
- * 3. An unconfirmed cat, the same cat twice, a new cat (until Task 9) and a
- *    cat that already has a visit on the batch's date (unless "also the same
- *    day" is ticked) are refused, each naming its entry.
- * 4. The cats are locked in ascending id order (cats are only ever locked
- *    after the batch, never before, so no deadlock), then
- *    each visit is written by writeVisit (D8 included), and every photo of
- *    the entry is linked to it in vet_visit_photos (Ruling R7; R4 relies on
- *    the link and the visit sharing this transaction).
+ * 3. An unconfirmed cat, the same cat twice, a cat that already has a visit on
+ *    the batch's date (unless "also the same day" is ticked) are refused, each
+ *    naming its entry. A new cat (Task 9) is refused for a blank, offensive or
+ *    taken name (the sightings route's words), a name another new cat in the
+ *    batch has, and a batch with no place to put it.
+ * 4. The known cats are locked in ascending id order (cats are only ever
+ *    locked after the batch, never before, so no deadlock). Each new cat is
+ *    then made (createBatchCat; a new row nobody else can see yet), and each
+ *    visit is written by writeVisit (D8 included). Every photo of the entry
+ *    is linked to its visit in vet_visit_photos (Ruling R7; R4 relies on the
+ *    link and the visit sharing this transaction), except a new cat's first
+ *    photo, which is its public main photo.
  * 5. `saved_at` is set.
  *
- * Any problem: nothing is written. Every read inside the transaction goes
- * through `tx` (the batch, the cats' names, their visits and records).
+ * Any problem: nothing is written. A name taken by another save meanwhile
+ * (the unique index) rolls everything back and is named at its entry. Every
+ * read inside the transaction goes through `tx`.
  */
 export async function saveBatch(
   person: Person,
   batchId: number,
   now = new Date(),
-): Promise<{ ok: true; visits: SavedVisit[] } | { ok: false; problems: BatchProblem[] }> {
+): Promise<
+  | { ok: true; visits: SavedVisit[]; newCats: { batchCatId: number; catId: number }[] }
+  | { ok: false; problems: BatchProblem[] }
+> {
   // The batch screen shows costs and searches by photo, so saving it needs both
   // capabilities as well as log_vet_visit, before any read or write.
   if (!can(person, "log_vet_visit") || !can(person, "view_vet_costs") || !can(person, "find_cat_from_photo")) {
@@ -429,118 +567,213 @@ export async function saveBatch(
   }
   const costs = true;
   const vaccinate = can(person, "set_vaccination");
+  // The entry whose new cat is being written: a unique violation is its name
+  // (or, for a cat left for spotters, its SYR number).
+  let making: { batchCatId: number; unnamed: boolean } | null = null;
 
-  return inStatementTransaction(async (tx, news) => {
-    const [locked] = await tx
-      .select({ id: vetBatchesTable.id, savedAt: vetBatchesTable.savedAt })
-      .from(vetBatchesTable)
-      .where(eq(vetBatchesTable.id, batchId))
-      .for("update");
-    if (!locked) throw notFound();
-    if (locked.savedAt) return { ok: false as const, problems: [{ batchCatId: null, field: "batch", words: ALREADY_SAVED }] };
+  try {
+    return await inStatementTransaction(async (tx, news) => {
+      const [locked] = await tx
+        .select({ id: vetBatchesTable.id, savedAt: vetBatchesTable.savedAt })
+        .from(vetBatchesTable)
+        .where(eq(vetBatchesTable.id, batchId))
+        .for("update");
+      if (!locked) throw notFound();
+      if (locked.savedAt) return { ok: false as const, problems: [{ batchCatId: null, field: "batch", words: ALREADY_SAVED }] };
 
-    const batch = (await getBatch(batchId, tx))!;
-    const { shared } = batch;
-    const problems: BatchProblem[] = [];
-    const sharedSaid = new Set<string>();
-    const add = (batchCatId: number | null, field: string, words: string) => {
-      if (batchCatId === null) {
-        if (sharedSaid.has(field)) return;
-        sharedSaid.add(field);
-      }
-      problems.push({ batchCatId, field, words });
-    };
-    if (batch.cats.length === 0) add(null, "cats", "Add at least one cat.");
+      const batch = (await getBatch(batchId, tx))!;
+      const { shared } = batch;
+      const problems: BatchProblem[] = [];
+      const sharedSaid = new Set<string>();
+      const add = (batchCatId: number | null, field: string, words: string) => {
+        if (batchCatId === null) {
+          if (sharedSaid.has(field)) return;
+          sharedSaid.add(field);
+        }
+        problems.push({ batchCatId, field, words });
+      };
+      if (batch.cats.length === 0) add(null, "cats", "Add at least one cat.");
 
-    const known = [...new Set(batch.cats.map((c) => c.catId).filter((id): id is number => id !== null))];
-    const names = new Map(
-      known.length
-        ? (await tx.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(inArray(catsTable.id, known))).map((c) => [c.id, c.name])
-        : [],
-    );
-    const nameOf = (catId: number) => names.get(catId) ?? `Cat ${catId}`;
+      const known = [...new Set(batch.cats.map((c) => c.catId).filter((id): id is number => id !== null))];
+      const names = new Map(
+        known.length
+          ? (await tx.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(inArray(catsTable.id, known))).map((c) => [c.id, c.name])
+          : [],
+      );
+      const nameOf = (catId: number) => names.get(catId) ?? `Cat ${catId}`;
+      // New cats' names, folded, by the first entry (1-based) that gave each.
+      const newNames = new Map<string, number>();
 
-    const ready: { entry: BatchCat; catId: number; input: VisitInput }[] = [];
-    for (const entry of batch.cats) {
-      let fine = true;
-      if (entry.newCat) {
-        add(entry.id, "newCat", "New cats arrive in a later update");
-        fine = false;
-      } else if (!entry.confirmed || entry.catId === null) {
-        add(entry.id, "confirmed", "Confirm who this cat is.");
-        fine = false;
-      } else {
-        const others = batch.cats.flatMap((c, j) => (c.catId === entry.catId && !c.newCat ? [j + 1] : []));
-        if (others.length > 1) {
-          add(entry.id, "catId", `${nameOf(entry.catId)} is in this batch twice: entries ${others.join(" and ")}.`);
+      const ready: { entry: BatchCat; catId: number | null; input: VisitInput }[] = [];
+      for (const [i, entry] of batch.cats.entries()) {
+        let fine = true;
+        if (entry.newCat) {
+          const name = storedName(entry.newCat.name);
+          const nameProblem = newCatNameProblem(name);
+          const descriptionProblem = newCatDescriptionProblem(entry.newCat.description.trim());
+          if (!entry.confirmed) {
+            add(entry.id, "confirmed", "Confirm who this cat is.");
+            fine = false;
+          } else if (nameProblem) {
+            add(entry.id, "newCat", nameProblem);
+            fine = false;
+          } else if (descriptionProblem) {
+            add(entry.id, "newCatDescription", descriptionProblem);
+            fine = false;
+          } else if (name !== null) {
+            const folded = foldName(name);
+            const firstWith = newNames.get(folded);
+            if (firstWith !== undefined) {
+              add(entry.id, "newCat", `${NAME_TAKEN_WORDS}: entries ${firstWith} and ${i + 1} have the same name.`);
+              fine = false;
+            } else {
+              newNames.set(folded, i + 1);
+              const [holder] = await tx.select({ id: catsTable.id }).from(catsTable).where(foldedNameEquals(name));
+              if (holder) {
+                add(entry.id, "newCat", NAME_TAKEN_WORDS);
+                fine = false;
+              }
+            }
+          }
+        } else if (!entry.confirmed || entry.catId === null) {
+          add(entry.id, "confirmed", "Confirm who this cat is.");
+          fine = false;
+        } else {
+          const others = batch.cats.flatMap((c, j) => (c.catId === entry.catId && !c.newCat ? [j + 1] : []));
+          if (others.length > 1) {
+            add(entry.id, "catId", `${nameOf(entry.catId)} is in this batch twice: entries ${others.join(" and ")}.`);
+            fine = false;
+          }
+        }
+
+        const checkedOnly = entry.did.includes("checked");
+        if (checkedOnly) {
+          add(entry.id, "did", "Tick Sterilised, Vaccinated or Treated.");
           fine = false;
         }
-      }
-
-      const checkedOnly = entry.did.includes("checked");
-      if (checkedOnly) {
-        add(entry.id, "did", "Tick Sterilised, Vaccinated or Treated.");
-        fine = false;
-      }
-      const ownCost = entry.costEur.trim();
-      const read = readVisitForm(
-        {
-          date: shared.date,
-          did: entry.did,
-          vaccines: shared.vaccines,
-          vaccineOther: shared.vaccineOther,
-          treatedNote: entry.treatedNote,
-          clinicId: shared.clinicId ?? "",
-          costEur: ownCost !== "" ? ownCost : entry.did.includes("sterilised") ? shared.priceEur : "",
-          paidBy: entry.paidBy.trim() !== "" ? entry.paidBy : shared.paidBy,
-          // Ruling R10: the cat's own note, else the batch's shared note.
-          note: entry.note.trim() !== "" ? entry.note : shared.note,
-          costReason: "",
-        },
-        { costs, vaccinate, now },
-      );
-      if (!read.ok) {
-        for (const [field, words] of Object.entries(read.problems) as [VisitField, string][]) {
-          if (field === "did" && checkedOnly) continue;
-          add(SHARED_FIELDS.has(field) ? null : entry.id, field, words);
+        const ownCost = entry.costEur.trim();
+        const read = readVisitForm(
+          {
+            date: shared.date,
+            did: entry.did,
+            vaccines: shared.vaccines,
+            vaccineOther: shared.vaccineOther,
+            treatedNote: entry.treatedNote,
+            clinicId: shared.clinicId ?? "",
+            costEur: ownCost !== "" ? ownCost : entry.did.includes("sterilised") ? shared.priceEur : "",
+            paidBy: entry.paidBy.trim() !== "" ? entry.paidBy : shared.paidBy,
+            // Ruling R10: the cat's own note, else the batch's shared note.
+            note: entry.note.trim() !== "" ? entry.note : shared.note,
+            costReason: "",
+          },
+          { costs, vaccinate, now },
+        );
+        if (!read.ok) {
+          for (const [field, words] of Object.entries(read.problems) as [VisitField, string][]) {
+            if (field === "did" && checkedOnly) continue;
+            add(SHARED_FIELDS.has(field) ? null : entry.id, field, words);
+          }
+          fine = false;
         }
-        fine = false;
+        if (fine && read.ok && (entry.catId !== null || entry.newCat)) {
+          ready.push({ entry, catId: entry.catId, input: { catId: entry.catId ?? 0, date: read.date, value: read.value } });
+        }
       }
-      if (fine && read.ok && entry.catId !== null) {
-        ready.push({ entry, catId: entry.catId, input: { catId: entry.catId, date: read.date, value: read.value } });
+
+      // Where a new cat goes: the colony's centre (else its open sites' midpoint), else the area's. Never a typed position.
+      let centre: { lat: number; lng: number } | null = null;
+      if (batch.cats.some((c) => c.newCat)) {
+        if (shared.colonyId !== null) {
+          const [colony] = await tx
+            .select({ lat: coloniesTable.lat, lng: coloniesTable.lng })
+            .from(coloniesTable)
+            .where(eq(coloniesTable.id, shared.colonyId));
+          if (colony && colony.lat !== null && colony.lng !== null) centre = { lat: colony.lat, lng: colony.lng };
+          else {
+            // Ruling R20: no centre set, so the midpoint of its open feeding
+            // sites, the same rule as colonyCentreStart (teamColonies.ts).
+            const sites = await tx
+              .select({ lat: feedingSitesTable.lat, lng: feedingSitesTable.lng })
+              .from(feedingSitesTable)
+              .where(and(eq(feedingSitesTable.colonyId, shared.colonyId), isNull(feedingSitesTable.retiredAt)));
+            if (sites.length > 0) {
+              centre = {
+                lat: sites.reduce((a, b) => a + b.lat, 0) / sites.length,
+                lng: sites.reduce((a, b) => a + b.lng, 0) / sites.length,
+              };
+            } else add(null, "place", COLONY_HAS_NO_CENTRE);
+          }
+        } else {
+          const area = shared.areaKey !== null ? areaByKey(shared.areaKey) : undefined;
+          if (area) centre = { lat: area.lat, lng: area.lng };
+          else add(null, "place", CHOOSE_PLACE);
+        }
       }
-    }
-    if (problems.length) return { ok: false as const, problems };
+      if (problems.length) return { ok: false as const, problems };
 
-    // Locked before the same-day check, so a visit saved elsewhere meanwhile can't slip past it.
-    for (const id of [...known].sort((a, b) => a - b)) await lockCat(tx, id);
+      // Locked before the same-day check, so a visit saved elsewhere meanwhile can't slip past it.
+      for (const id of [...known].sort((a, b) => a - b)) await lockCat(tx, id);
 
-    const earlier = await tx
-      .select()
-      .from(observationsTable)
-      .where(and(inArray(observationsTable.catId, known), eq(observationsTable.kind, "vet_visit")));
-    for (const { entry, catId } of ready) {
-      if (entry.alsoSameDay) continue;
-      const sameDay = standingRows(
-        earlier.filter((o) => o.catId === catId),
-        "vet_visit",
-      ).some((o) => !o.redactedAt && athensToday(o.observedAt) === shared.date);
-      if (sameDay) add(entry.id, "alsoSameDay", `${nameOf(catId)} already has a vet visit on ${shortDay(shared.date)}.`);
-    }
-    if (problems.length) return { ok: false as const, problems };
-
-    const checked = ready.map((r) => ({ ...r, observedAt: checkVisit(person, r.input, now) }));
-    const visits: SavedVisit[] = [];
-    for (const { entry, catId, input, observedAt } of checked) {
-      const saved = await writeVisit(tx, news, person, input, observedAt, now);
-      visits.push(saved);
-      if (entry.photos.length) {
-        await tx
-          .insert(vetVisitPhotosTable)
-          .values(entry.photos.map((p) => ({ photoId: p.photoId, visitId: saved.visitId, catId })));
+      const earlier = known.length
+        ? await tx
+            .select()
+            .from(observationsTable)
+            .where(and(inArray(observationsTable.catId, known), eq(observationsTable.kind, "vet_visit")))
+        : [];
+      for (const { entry, catId } of ready) {
+        if (entry.alsoSameDay || catId === null) continue;
+        const sameDay = standingRows(
+          earlier.filter((o) => o.catId === catId),
+          "vet_visit",
+        ).some((o) => !o.redactedAt && athensToday(o.observedAt) === shared.date);
+        if (sameDay) add(entry.id, "alsoSameDay", `${nameOf(catId)} already has a vet visit on ${shortDay(shared.date)}.`);
       }
+      if (problems.length) return { ok: false as const, problems };
+
+      const checked = ready.map((r) => ({ ...r, observedAt: checkVisit(person, r.input, now) }));
+      // Making a cat names it and puts it in the colony: the capabilities those take, before any write.
+      if (checked.some((r) => r.entry.newCat)) {
+        const target = { colonyId: shared.colonyId };
+        if (checked.some((r) => r.entry.newCat?.name != null) && !can(person, "rename_cat", target)) throw notAuthorised();
+        if (shared.colonyId !== null && !can(person, "assign_cat_to_colony", target)) throw notAuthorised();
+      }
+
+      const newCats: { batchCatId: number; catId: number }[] = [];
+      for (const r of checked) {
+        if (!r.entry.newCat) continue;
+        making = { batchCatId: r.entry.id, unnamed: r.entry.newCat.name === null };
+        const catId = await createBatchCat(
+          tx,
+          person,
+          r.entry as BatchCat & { newCat: NonNullable<BatchCat["newCat"]> },
+          { centre: centre!, colonyId: shared.colonyId },
+          r.observedAt,
+        );
+        making = null;
+        r.catId = catId;
+        r.input = { ...r.input, catId };
+        newCats.push({ batchCatId: r.entry.id, catId });
+      }
+
+      const visits: SavedVisit[] = [];
+      for (const { entry, catId, input, observedAt } of checked) {
+        const saved = await writeVisit(tx, news, person, input, observedAt, now);
+        visits.push(saved);
+        // A new cat's first photo is its public main photo, so it is never a kept (team-only) one.
+        const keep = entry.newCat ? entry.photos.slice(1) : entry.photos;
+        if (keep.length) {
+          await tx.insert(vetVisitPhotosTable).values(keep.map((p) => ({ photoId: p.photoId, visitId: saved.visitId, catId: catId! })));
+        }
+      }
+      await tx.update(vetBatchesTable).set({ savedAt: now, updatedAt: now }).where(eq(vetBatchesTable.id, batchId));
+      return { ok: true as const, visits, newCats };
+    });
+  } catch (err) {
+    // Another save took the name between the check and the write: nothing was written.
+    if (making !== null && isUniqueViolation(err)) {
+      const { batchCatId, unnamed } = making;
+      return { ok: false, problems: [{ batchCatId, field: "newCat", words: unnamed ? SYR_NAME_CLASH : NAME_TAKEN_WORDS }] };
     }
-    await tx.update(vetBatchesTable).set({ savedAt: now, updatedAt: now }).where(eq(vetBatchesTable.id, batchId));
-    return { ok: true as const, visits };
-  });
+    throw err;
+  }
 }

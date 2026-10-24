@@ -7,6 +7,7 @@ import { colonyRef, searchCatsToAdd } from "../lib/colonyCats";
 import { areaByKey } from "../lib/areas/namedAreas";
 import { nameLabeller } from "../lib/guardianView";
 import { ObservationRefused } from "../lib/observations";
+import { catNamed, NAME_TAKEN_WORDS } from "../lib/catNames";
 import {
   abandonBatch,
   addCat,
@@ -32,7 +33,9 @@ import {
   afterBatch,
   batchPath,
   cardValuesFrom,
+  newCatValuesFrom,
   readCard,
+  readNewCat,
   readShared,
   renderBatchList,
   renderBatchPage,
@@ -257,7 +260,26 @@ router.post("/team/vet-batches/:id/cats/:catRow/confirm", ...formRoute("log_vet_
   const raw = strOf(bodyOf(req)["catId"]);
   await guarded(res, batch, async () => {
     if (raw === "none") {
-      await updateCat(cat.id, { catId: null, confirmed: false });
+      await updateCat(cat.id, { catId: null, newCat: null, confirmed: false });
+      return void res.redirect(303, backTo(batch.id, cat.id));
+    }
+    if (raw === "new") {
+      // "None of these: a cat we haven't recorded" (SYC-677 Task 9). Choosing it
+      // is the confirmation; the cat itself is made when the batch is saved.
+      const values = newCatValuesFrom(req.body);
+      const read = readNewCat(values);
+      const problems = !read.ok
+        ? read.problems
+        : read.newCat.name !== null && (await catNamed(read.newCat.name))
+          ? { name: NAME_TAKEN_WORDS }
+          : null;
+      if (problems || !read.ok) {
+        return void res
+          .status(400)
+          .type("html")
+          .send(await pageFor(res, batch, { newCat: { row: cat.id, values, problems: problems ?? {} } }));
+      }
+      await updateCat(cat.id, { newCat: read.newCat, confirmed: true });
       return void res.redirect(303, backTo(batch.id, cat.id));
     }
     const [found] = ID_RE.test(raw) ? await db.select({ id: catsTable.id }).from(catsTable).where(eq(catsTable.id, Number(raw))) : [];

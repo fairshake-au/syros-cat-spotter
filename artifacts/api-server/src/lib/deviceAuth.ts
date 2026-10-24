@@ -4,6 +4,7 @@ import { db, deviceCredentialsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { allowNewDevice, newDeviceResetAt } from "../middlewares/newDeviceLimit";
 import { logger, safeError } from "./logger";
+import { TEAM_DESK_DEVICE } from "./teamDesk";
 
 const MIN_SECRET_LENGTH = 16;
 const MAX_SECRET_LENGTH = 256;
@@ -113,6 +114,14 @@ export async function verifyDeviceSecret(
   // or not a secret came with it (plan §8.1 item 7).
   if (await isDeletedDevice(deviceId)) {
     sendIdentityDeleted(res);
+    return null;
+  }
+
+  // SYC-677 Ruling R22a: the team desk is nobody's phone. Its credential row
+  // (migration 0045) can't be matched; this refuses it by name as well, with
+  // the same answer as a wrong secret, so the id never binds.
+  if (deviceId === TEAM_DESK_DEVICE) {
+    res.status(403).json({ error: "Device secret does not match" });
     return null;
   }
 

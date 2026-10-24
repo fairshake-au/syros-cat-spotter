@@ -50,6 +50,7 @@ import {
 } from "../lib/claiming";
 import { logRouteDuration } from "../lib/requestTiming";
 import { catPayload, lookupDiscoverer } from "../lib/publicCat";
+import { isTeamDesk, TEAM_DESK_NAME } from "../lib/teamDesk";
 import {
   BLANK_NAME_BODY,
   catNamed,
@@ -298,8 +299,9 @@ router.get("/cats/:catId", async (req, res) => {
           discovererProfile?.username ??
           discovererProfile?.nickname ??
           // Null when the discoverer deleted their data: the app says "a
-          // spotter" in the reader's language (SYC-235).
-          spotterCode(cat.discovererDeviceId),
+          // spotter" in the reader's language (SYC-235). Never the team
+          // desk's code: lookupDiscoverer names it "Syros Cats" (SYC-677 R22b).
+          (isTeamDesk(cat.discovererDeviceId) ? TEAM_DESK_NAME : spotterCode(cat.discovererDeviceId)),
         // A date, never a time (§6.4.4): this is the first sighting's moment.
         at: toPublicDay(cat.createdAt),
       },

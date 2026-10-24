@@ -9,6 +9,7 @@ import {
   type Viewer,
 } from "./catHelpers";
 import { catDisplayPhoto } from "./photoVisibility";
+import { isTeamDesk, TEAM_DESK_NAME } from "./teamDesk";
 
 // A cat as the app sees it, through the one serialiser (catHelpers.serialiseCat,
 // data spine §10.6). Moved here from routes/cats.ts (SYC-53 PR 2.1) so that a
@@ -25,6 +26,8 @@ export async function lookupDiscoverer(
   discovererDeviceId: string | null,
 ): Promise<{ nickname: string | null; username: string | null } | undefined> {
   if (discovererDeviceId === null) return undefined;
+  // SYC-677 R22b: a cat Syros Cats recorded is credited to "Syros Cats".
+  if (isTeamDesk(discovererDeviceId)) return { nickname: TEAM_DESK_NAME, username: null };
   const [profile] = await db
     .select({
       nickname: profilesTable.nickname,

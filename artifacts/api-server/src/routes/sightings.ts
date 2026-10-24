@@ -52,6 +52,7 @@ import {
   isBlankName,
   isUniqueViolation,
   nameTakenBody,
+  OFFENSIVE_NAME_WORDS,
 } from "../lib/catNames";
 import { isNearby, publishedPosition } from "@workspace/geo";
 import {
@@ -955,7 +956,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     }
     if (containsOffensiveLanguage(name)) {
       res.status(400).json({
-        error: "Cat name contains offensive language",
+        error: OFFENSIVE_NAME_WORDS,
         code: "OFFENSIVE_NAME",
       });
       return;
@@ -1134,6 +1135,8 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     await deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }])
   ).get(cat.id)!;
   // A cat whose discoverer deleted their data has nobody to look up (SYC-63).
+  // A cat Syros Cats recorded is credited "Syros Cats" by serialiseCat itself
+  // (SYC-677 R22b), whatever this lookup finds.
   const [discoverer] =
     cat.discovererDeviceId === null
       ? []
