@@ -556,8 +556,6 @@ router.get(
           : undefined,
         back: cameFromCats(req.get("referer")),
         allHistory: req.query["history"] === "all",
-        // "Update this cat" > "Coat and markings" opens the fold (SYC-602 §3.7).
-        openCoat: req.query["open"] === "coat",
         // History's filter (spec §3.5): sightings, visits or changes; anything else is all.
         show: historyShowOf(req.query["show"]),
         island: isIslandWide(person),

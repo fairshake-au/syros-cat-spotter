@@ -67,7 +67,7 @@ describe("renderCatActions", () => {
     const order = [
       "Where the cat lives",
       "Whether sterilised",
-      'href="?open=coat#appearance">Coat and markings',
+      'href="#appearance">Coat and markings',
       "Change the colony",
       "Take out of this colony",
       "Rename the cat",

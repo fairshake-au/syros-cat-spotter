@@ -494,7 +494,8 @@ describe("design review fixes (PR 3)", () => {
     const html = await catHtml();
     const syr = `SYR-${String(mimi).padStart(4, "0")}`;
     expect(html.indexOf("Find another cat")).toBeLessThan(html.indexOf("<h1>"));
-    expect(html).toContain(`<h1>Μιμή</h1><p class="syrline">${syr} · on our records since `);
+    expect(html).toMatch(/<h1>Μιμή<\/h1>[\s\S]*?<\/div><p class="syrline">/);
+    expect(html.indexOf("<h1>")).toBeLessThan(html.indexOf(`<p class="syrline">${syr} · on our records since `));
   });
 
   it("goes back to the filtered list or the map the person came from (SYC-522)", async () => {

@@ -5,14 +5,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useFonts } from 'expo-font';
-import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-  Inter_800ExtraBold,
-} from '@expo-google-fonts/inter';
-import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
+import { fontSources } from '@/lib/fontSources';
 import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl, setPrelaunchKey } from '@workspace/api-client-react';
@@ -152,15 +145,7 @@ function OnboardingGate() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Inter_800ExtraBold,
-    SpaceMono_400Regular,
-    SpaceMono_700Bold,
-  });
+  const [fontsLoaded, fontError] = useFonts(fontSources);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
