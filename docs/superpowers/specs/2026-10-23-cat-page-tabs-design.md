@@ -257,7 +257,7 @@ The emojis are not part of the strings; they're added in code so translators can
   - Dates: a sighting at 22:30 UTC and 23:30 UTC (after midnight on Syros) shows the same day for "You spotted" and "Last seen", on a phone set to Athens, to London and to Pacific/Auckland.
   - The report sheet's heading still says "Report an issue" when opened from the new link.
 - **Database change order:** the new unfollow table and the backfill run on production before the new code is published. Say "don't republish yet" until they have.
-- Sticky behaviour, scroll on switching tabs, the fixed back button, and label fit can't be tested in vitest (the scroll view isn't simulated). They're checked by screenshot instead: 360 px, 390 px and desktop, in English and Greek, light and dark, before the PR leaves draft, plus one native check in the iOS simulator.
+- Sticky behaviour, scroll on switching tabs and label fit can't be fully tested in vitest (the scroll view isn't simulated). They're checked by screenshot instead: 360 px, 390 px and desktop, in English and Greek, light and dark, before the PR leaves draft, plus one native check in the iOS simulator.
 
 ## Left to the builder
 

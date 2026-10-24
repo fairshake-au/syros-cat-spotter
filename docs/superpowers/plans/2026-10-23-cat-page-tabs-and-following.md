@@ -310,7 +310,7 @@ All files under `artifacts/cat-spotter/` unless stated.
 - Facts-card icons and Story icons get `aria-hidden`.
 
 - [ ] **Step 1:** Implement.
-- [ ] **Step 2: Screenshots** in the browser pane: 360 px, 390 px and desktop; en and el; light and dark. Include the About, Photos, Story and Map tabs for a seeded cat, scrolled to show the sticky tab row and the fixed back button. Check that `Φωτογραφίες` fits at 360 px without clipping, and that the first screen at 390 px shows the photo, the name, the tab row and the start of the facts card. Save them to `docs/screenshots/syc-624-c/`.
+- [ ] **Step 2: Screenshots** in the browser pane: 360 px, 390 px and desktop; en and el; light and dark. Include the About, Photos, Story and Map tabs for a seeded cat, scrolled to show the sticky tab row (the back button hides while it's pinned). Check that `Φωτογραφίες` fits at 360 px without clipping, and that the first screen at 390 px shows the photo, the name, the tab row and the start of the facts card. Save them to `docs/screenshots/syc-624-c/`.
 - [ ] **Step 3: Commit** `SYC-624 C4: readable grey, question cards styling, screenshots`.
 
 PR C then: open the draft PR "SYC-624 C: a cat's page in four tabs", stacked on B, with the screenshots in the body. It stays a draft until B merges.
