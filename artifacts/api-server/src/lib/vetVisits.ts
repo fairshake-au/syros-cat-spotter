@@ -23,6 +23,7 @@ import { areaByKey } from "./areas/namedAreas";
 import { BLANK_NAME_BODY, isBlankName, isUniqueViolation, NAME_TAKEN_WORDS, OFFENSIVE_NAME_WORDS } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
 import { syrNumber } from "./teamCatView";
+import { TEAM_DESK_DEVICE } from "./teamDesk";
 import { authorityLevel, standingRows, supersedeChains, type Vaccine } from "./resolve";
 import { lockActiveObservation } from "./teamCorrections";
 import { athensToday } from "./athensTime";
@@ -406,8 +407,8 @@ export const ALREADY_SAVED = "This batch was already saved.";
 /** One thing that stops a batch saving: the entry it is about (null: the whole batch), the field, and what to say. */
 export type BatchProblem = { batchCatId: number | null; field: string; words: string };
 
-/** The device a cat Syros Cats created is "discovered" by (SYC-677 Task 9). */
-export const TEAM_DESK_DEVICE = "syros-cats-team";
+/** The device a cat Syros Cats created is "discovered" by (SYC-677 Task 9; lib/teamDesk.ts). */
+export { TEAM_DESK_DEVICE };
 
 /** A new cat's name and description, at most (the sightings route's 60 for the name). */
 export const NEW_CAT_NAME_MAX = 60;
