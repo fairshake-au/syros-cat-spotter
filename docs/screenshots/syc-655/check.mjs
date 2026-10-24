@@ -72,8 +72,17 @@ const measure = (hash) => {
     const shown = el.checkVisibility();
     const folds = [];
     for (let a = el.closest("details"); a; a = a.parentElement?.closest("details")) folds.push(a.open);
+    // A panel's address, or an old id that starts a panel: the panel's own heading must be in view, not under the tab row.
+    let headingVisible = null;
+    const panel = el.classList.contains("catpanel") ? el : el.closest(".catpanel");
+    const startsPanel = ["history", "photos", "appearance", "issue-strip", "map", "vet-visits"].includes(id) || id.startsWith("tab-");
+    if (panel && startsPanel) {
+      const h = panel.querySelector(":scope > h2");
+      const hr = h ? h.getBoundingClientRect() : null;
+      headingVisible = !!hr && h.checkVisibility() && hr.top >= tabsRect.bottom - 1 && hr.bottom <= vh;
+    }
     target = {
-      id, shown, top: Math.round(r.top), bottom: Math.round(r.bottom), tabsBottom: Math.round(tabsBottom),
+      headingVisible, id, shown, top: Math.round(r.top), bottom: Math.round(r.bottom), tabsBottom: Math.round(tabsBottom),
       inViewport: shown && r.bottom > 0 && r.top < vh,
       // Not hidden under the sticky row: the point just inside the target's top edge is not inside the row's current box.
       // (A target in the header card sits above the row, which is then still in its place further down.)
@@ -103,7 +112,7 @@ const verdict = (m, expected, hash) => {
   const matches = oneVisible && m.visible[0] === expected;
   const t = m.target;
   // A target is only judged when it has an element, is not a whole panel's header-card id, and sits in the page body.
-  const targetOk = !t || (t.inViewport && t.clearOfTabs);
+  const targetOk = !t || (t.inViewport && t.clearOfTabs && t.headingVisible !== false);
   return { exactlyOne: oneVisible, expected, isExpected: matches, targetOk, pass: matches && targetOk && m.selectedSaysOpen && m.otherLinksPlain && (hash === "" || !t || t.shown) };
 };
 

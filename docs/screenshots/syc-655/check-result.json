@@ -49,6 +49,7 @@
               ],
               "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 72,
@@ -93,6 +94,7 @@
               ],
               "scrollY": 1622,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 72,
@@ -137,6 +139,7 @@
               ],
               "scrollY": 2422,
               "target": {
+                "headingVisible": null,
                 "id": "s-398",
                 "shown": true,
                 "top": 72,
@@ -183,6 +186,7 @@
               ],
               "scrollY": 1781,
               "target": {
+                "headingVisible": null,
                 "id": "sg-900",
                 "shown": true,
                 "top": 72,
@@ -227,6 +231,7 @@
               ],
               "scrollY": 2408,
               "target": {
+                "headingVisible": null,
                 "id": "sg-894",
                 "shown": true,
                 "top": 72,
@@ -273,6 +278,7 @@
               ],
               "scrollY": 1476,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 330,
@@ -317,6 +323,7 @@
               ],
               "scrollY": 1476,
               "target": {
+                "headingVisible": null,
                 "id": "p-s3",
                 "shown": true,
                 "top": 330,
@@ -359,12 +366,13 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 1476,
+              "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "appearance",
                 "shown": true,
                 "top": 72,
-                "bottom": 1633,
+                "bottom": 72,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -405,6 +413,7 @@
               ],
               "scrollY": 1735,
               "target": {
+                "headingVisible": null,
                 "id": "a-603",
                 "shown": true,
                 "top": 72,
@@ -447,8 +456,9 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 2321,
+              "scrollY": 2301,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
                 "top": 485,
@@ -493,10 +503,11 @@
               ],
               "scrollY": 1005,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 555,
-                "bottom": 784,
+                "top": 501,
+                "bottom": 501,
                 "tabsBottom": 481,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -537,6 +548,7 @@
               ],
               "scrollY": 1144,
               "target": {
+                "headingVisible": null,
                 "id": "corrections",
                 "shown": true,
                 "top": 0,
@@ -614,8 +626,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 1468,
+              "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "history",
                 "shown": true,
                 "top": 72,
@@ -658,12 +671,13 @@
               "visible": [
                 "photos"
               ],
-              "scrollY": 1468,
+              "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "photos",
                 "shown": true,
                 "top": 72,
-                "bottom": 804,
+                "bottom": 72,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -704,10 +718,11 @@
               ],
               "scrollY": 1183,
               "target": {
+                "headingVisible": true,
                 "id": "map",
                 "shown": true,
-                "top": 357,
-                "bottom": 715,
+                "top": 323,
+                "bottom": 323,
                 "tabsBottom": 303,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -746,8 +761,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 1468,
+              "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "vet-visits",
                 "shown": true,
                 "top": 72,
@@ -792,6 +808,7 @@
               ],
               "scrollY": 3001,
               "target": {
+                "headingVisible": null,
                 "id": "vv-280",
                 "shown": true,
                 "top": 358,
@@ -838,6 +855,7 @@
               ],
               "scrollY": 1476,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 330,
@@ -882,6 +900,7 @@
               ],
               "scrollY": 1622,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 72,
@@ -924,8 +943,9 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 2321,
+              "scrollY": 2301,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
                 "top": 485,
@@ -970,10 +990,11 @@
               ],
               "scrollY": 1005,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 555,
-                "bottom": 784,
+                "top": 501,
+                "bottom": 501,
                 "tabsBottom": 481,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -1014,6 +1035,7 @@
               ],
               "scrollY": 1950,
               "target": {
+                "headingVisible": null,
                 "id": "s-399",
                 "shown": true,
                 "top": 72,
@@ -1060,6 +1082,7 @@
               ],
               "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 72,
@@ -1105,6 +1128,7 @@
               ],
               "scrollY": 1183,
               "target": {
+                "headingVisible": true,
                 "id": "tab-map",
                 "shown": true,
                 "top": 323,
@@ -1150,10 +1174,11 @@
               ],
               "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "tab-coat",
                 "shown": true,
                 "top": 72,
-                "bottom": 1675,
+                "bottom": 1655,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -1195,6 +1220,7 @@
               ],
               "scrollY": 1005,
               "target": {
+                "headingVisible": true,
                 "id": "tab-reports",
                 "shown": true,
                 "top": 501,
@@ -1240,6 +1266,7 @@
               ],
               "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "tab-history",
                 "shown": true,
                 "top": 72,
@@ -1406,6 +1433,7 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 72,
@@ -1450,6 +1478,7 @@
               ],
               "scrollY": 739,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 72,
@@ -1494,6 +1523,7 @@
               ],
               "scrollY": 1335,
               "target": {
+                "headingVisible": null,
                 "id": "s-398",
                 "shown": true,
                 "top": 72,
@@ -1540,6 +1570,7 @@
               ],
               "scrollY": 857,
               "target": {
+                "headingVisible": null,
                 "id": "sg-900",
                 "shown": true,
                 "top": 72,
@@ -1584,6 +1615,7 @@
               ],
               "scrollY": 1321,
               "target": {
+                "headingVisible": null,
                 "id": "sg-894",
                 "shown": true,
                 "top": 72,
@@ -1630,6 +1662,7 @@
               ],
               "scrollY": 1019,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 112,
@@ -1674,6 +1707,7 @@
               ],
               "scrollY": 1019,
               "target": {
+                "headingVisible": null,
                 "id": "p-s3",
                 "shown": true,
                 "top": 112,
@@ -1716,12 +1750,13 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 664,
+              "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "appearance",
                 "shown": true,
                 "top": 72,
-                "bottom": 1518,
+                "bottom": 72,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -1762,6 +1797,7 @@
               ],
               "scrollY": 900,
               "target": {
+                "headingVisible": null,
                 "id": "a-603",
                 "shown": true,
                 "top": 72,
@@ -1804,8 +1840,9 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 1338,
+              "scrollY": 1318,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
                 "top": 587,
@@ -1850,10 +1887,11 @@
               ],
               "scrollY": 47,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 701,
-                "bottom": 840,
+                "top": 647,
+                "bottom": 647,
                 "tabsBottom": 627,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -1894,6 +1932,7 @@
               ],
               "scrollY": 227,
               "target": {
+                "headingVisible": null,
                 "id": "corrections",
                 "shown": true,
                 "top": 0,
@@ -1971,8 +2010,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 656,
+              "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "history",
                 "shown": true,
                 "top": 72,
@@ -2015,12 +2055,13 @@
               "visible": [
                 "photos"
               ],
-              "scrollY": 656,
+              "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "photos",
                 "shown": true,
                 "top": 72,
-                "bottom": 1215,
+                "bottom": 72,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -2061,10 +2102,11 @@
               ],
               "scrollY": 469,
               "target": {
+                "headingVisible": true,
                 "id": "map",
                 "shown": true,
-                "top": 259,
-                "bottom": 771,
+                "top": 225,
+                "bottom": 225,
                 "tabsBottom": 205,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -2103,8 +2145,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 656,
+              "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "vet-visits",
                 "shown": true,
                 "top": 72,
@@ -2149,6 +2192,7 @@
               ],
               "scrollY": 1635,
               "target": {
+                "headingVisible": null,
                 "id": "vv-280",
                 "shown": true,
                 "top": 544,
@@ -2195,6 +2239,7 @@
               ],
               "scrollY": 1019,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 112,
@@ -2239,6 +2284,7 @@
               ],
               "scrollY": 739,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 72,
@@ -2281,8 +2327,9 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 1338,
+              "scrollY": 1318,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
                 "top": 587,
@@ -2327,10 +2374,11 @@
               ],
               "scrollY": 47,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 701,
-                "bottom": 840,
+                "top": 647,
+                "bottom": 647,
                 "tabsBottom": 627,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -2371,6 +2419,7 @@
               ],
               "scrollY": 1002,
               "target": {
+                "headingVisible": null,
                 "id": "s-399",
                 "shown": true,
                 "top": 72,
@@ -2417,6 +2466,7 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 72,
@@ -2462,6 +2512,7 @@
               ],
               "scrollY": 469,
               "target": {
+                "headingVisible": true,
                 "id": "tab-map",
                 "shown": true,
                 "top": 225,
@@ -2507,10 +2558,11 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-coat",
                 "shown": true,
                 "top": 72,
-                "bottom": 1560,
+                "bottom": 1540,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -2552,6 +2604,7 @@
               ],
               "scrollY": 47,
               "target": {
+                "headingVisible": true,
                 "id": "tab-reports",
                 "shown": true,
                 "top": 647,
@@ -2597,6 +2650,7 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-history",
                 "shown": true,
                 "top": 72,
@@ -2772,6 +2826,7 @@
               ],
               "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 72,
@@ -2816,6 +2871,7 @@
               ],
               "scrollY": 1621,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 72,
@@ -2860,6 +2916,7 @@
               ],
               "scrollY": 2422,
               "target": {
+                "headingVisible": null,
                 "id": "s-398",
                 "shown": true,
                 "top": 72,
@@ -2906,6 +2963,7 @@
               ],
               "scrollY": 1781,
               "target": {
+                "headingVisible": null,
                 "id": "sg-900",
                 "shown": true,
                 "top": 72,
@@ -2950,6 +3008,7 @@
               ],
               "scrollY": 2408,
               "target": {
+                "headingVisible": null,
                 "id": "sg-894",
                 "shown": true,
                 "top": 72,
@@ -2996,6 +3055,7 @@
               ],
               "scrollY": 1476,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 330,
@@ -3040,6 +3100,7 @@
               ],
               "scrollY": 1476,
               "target": {
+                "headingVisible": null,
                 "id": "p-s3",
                 "shown": true,
                 "top": 330,
@@ -3082,12 +3143,13 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 1476,
+              "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "appearance",
                 "shown": true,
                 "top": 72,
-                "bottom": 1633,
+                "bottom": 72,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -3128,6 +3190,7 @@
               ],
               "scrollY": 1735,
               "target": {
+                "headingVisible": null,
                 "id": "a-603",
                 "shown": true,
                 "top": 72,
@@ -3170,12 +3233,13 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 2321,
+              "scrollY": 2300,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
-                "top": 484,
-                "bottom": 708,
+                "top": 485,
+                "bottom": 709,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -3216,10 +3280,11 @@
               ],
               "scrollY": 1006,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 554,
-                "bottom": 784,
+                "top": 500,
+                "bottom": 500,
                 "tabsBottom": 480,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -3260,6 +3325,7 @@
               ],
               "scrollY": 1144,
               "target": {
+                "headingVisible": null,
                 "id": "corrections",
                 "shown": true,
                 "top": 0,
@@ -3337,8 +3403,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 1468,
+              "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "history",
                 "shown": true,
                 "top": 72,
@@ -3381,12 +3448,13 @@
               "visible": [
                 "photos"
               ],
-              "scrollY": 1468,
+              "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "photos",
                 "shown": true,
                 "top": 72,
-                "bottom": 804,
+                "bottom": 72,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -3427,10 +3495,11 @@
               ],
               "scrollY": 1183,
               "target": {
+                "headingVisible": true,
                 "id": "map",
                 "shown": true,
-                "top": 357,
-                "bottom": 715,
+                "top": 323,
+                "bottom": 323,
                 "tabsBottom": 303,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -3469,8 +3538,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 1468,
+              "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "vet-visits",
                 "shown": true,
                 "top": 72,
@@ -3515,6 +3585,7 @@
               ],
               "scrollY": 3000,
               "target": {
+                "headingVisible": null,
                 "id": "vv-280",
                 "shown": true,
                 "top": 359,
@@ -3561,6 +3632,7 @@
               ],
               "scrollY": 1476,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 330,
@@ -3605,6 +3677,7 @@
               ],
               "scrollY": 1621,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 72,
@@ -3647,12 +3720,13 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 2321,
+              "scrollY": 2300,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
-                "top": 484,
-                "bottom": 708,
+                "top": 485,
+                "bottom": 709,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -3693,10 +3767,11 @@
               ],
               "scrollY": 1006,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 554,
-                "bottom": 784,
+                "top": 500,
+                "bottom": 500,
                 "tabsBottom": 480,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -3737,6 +3812,7 @@
               ],
               "scrollY": 1949,
               "target": {
+                "headingVisible": null,
                 "id": "s-399",
                 "shown": true,
                 "top": 73,
@@ -3783,6 +3859,7 @@
               ],
               "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 72,
@@ -3828,6 +3905,7 @@
               ],
               "scrollY": 1183,
               "target": {
+                "headingVisible": true,
                 "id": "tab-map",
                 "shown": true,
                 "top": 323,
@@ -3873,10 +3951,11 @@
               ],
               "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "tab-coat",
                 "shown": true,
                 "top": 72,
-                "bottom": 1675,
+                "bottom": 1654,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -3918,6 +3997,7 @@
               ],
               "scrollY": 1006,
               "target": {
+                "headingVisible": true,
                 "id": "tab-reports",
                 "shown": true,
                 "top": 500,
@@ -3963,6 +4043,7 @@
               ],
               "scrollY": 1434,
               "target": {
+                "headingVisible": true,
                 "id": "tab-history",
                 "shown": true,
                 "top": 72,
@@ -4129,6 +4210,7 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 72,
@@ -4173,6 +4255,7 @@
               ],
               "scrollY": 739,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 72,
@@ -4217,6 +4300,7 @@
               ],
               "scrollY": 1335,
               "target": {
+                "headingVisible": null,
                 "id": "s-398",
                 "shown": true,
                 "top": 73,
@@ -4263,6 +4347,7 @@
               ],
               "scrollY": 857,
               "target": {
+                "headingVisible": null,
                 "id": "sg-900",
                 "shown": true,
                 "top": 72,
@@ -4307,6 +4392,7 @@
               ],
               "scrollY": 1321,
               "target": {
+                "headingVisible": null,
                 "id": "sg-894",
                 "shown": true,
                 "top": 72,
@@ -4353,6 +4439,7 @@
               ],
               "scrollY": 1019,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 112,
@@ -4397,6 +4484,7 @@
               ],
               "scrollY": 1019,
               "target": {
+                "headingVisible": null,
                 "id": "p-s3",
                 "shown": true,
                 "top": 112,
@@ -4439,12 +4527,13 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 664,
+              "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "appearance",
                 "shown": true,
                 "top": 72,
-                "bottom": 1517,
+                "bottom": 72,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -4485,6 +4574,7 @@
               ],
               "scrollY": 900,
               "target": {
+                "headingVisible": null,
                 "id": "a-603",
                 "shown": true,
                 "top": 72,
@@ -4527,11 +4617,12 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 1337,
+              "scrollY": 1317,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
-                "top": 588,
+                "top": 587,
                 "bottom": 765,
                 "tabsBottom": 61,
                 "inViewport": true,
@@ -4573,10 +4664,11 @@
               ],
               "scrollY": 47,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 701,
-                "bottom": 840,
+                "top": 647,
+                "bottom": 647,
                 "tabsBottom": 627,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -4617,6 +4709,7 @@
               ],
               "scrollY": 227,
               "target": {
+                "headingVisible": null,
                 "id": "corrections",
                 "shown": true,
                 "top": 0,
@@ -4694,8 +4787,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 656,
+              "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "history",
                 "shown": true,
                 "top": 72,
@@ -4738,12 +4832,13 @@
               "visible": [
                 "photos"
               ],
-              "scrollY": 656,
+              "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "photos",
                 "shown": true,
                 "top": 72,
-                "bottom": 1215,
+                "bottom": 72,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -4784,10 +4879,11 @@
               ],
               "scrollY": 469,
               "target": {
+                "headingVisible": true,
                 "id": "map",
                 "shown": true,
-                "top": 259,
-                "bottom": 771,
+                "top": 225,
+                "bottom": 225,
                 "tabsBottom": 205,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -4826,8 +4922,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 656,
+              "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "vet-visits",
                 "shown": true,
                 "top": 72,
@@ -4872,6 +4969,7 @@
               ],
               "scrollY": 1635,
               "target": {
+                "headingVisible": null,
                 "id": "vv-280",
                 "shown": true,
                 "top": 544,
@@ -4918,6 +5016,7 @@
               ],
               "scrollY": 1019,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 112,
@@ -4962,6 +5061,7 @@
               ],
               "scrollY": 739,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 72,
@@ -5004,11 +5104,12 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 1337,
+              "scrollY": 1317,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
-                "top": 588,
+                "top": 587,
                 "bottom": 765,
                 "tabsBottom": 61,
                 "inViewport": true,
@@ -5050,10 +5151,11 @@
               ],
               "scrollY": 47,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 701,
-                "bottom": 840,
+                "top": 647,
+                "bottom": 647,
                 "tabsBottom": 627,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -5094,6 +5196,7 @@
               ],
               "scrollY": 1002,
               "target": {
+                "headingVisible": null,
                 "id": "s-399",
                 "shown": true,
                 "top": 72,
@@ -5140,6 +5243,7 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 72,
@@ -5185,6 +5289,7 @@
               ],
               "scrollY": 469,
               "target": {
+                "headingVisible": true,
                 "id": "tab-map",
                 "shown": true,
                 "top": 225,
@@ -5230,10 +5335,11 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-coat",
                 "shown": true,
                 "top": 72,
-                "bottom": 1559,
+                "bottom": 1539,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -5275,6 +5381,7 @@
               ],
               "scrollY": 47,
               "target": {
+                "headingVisible": true,
                 "id": "tab-reports",
                 "shown": true,
                 "top": 647,
@@ -5320,6 +5427,7 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-history",
                 "shown": true,
                 "top": 72,
@@ -5495,6 +5603,7 @@
               ],
               "scrollY": 1453,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 73,
@@ -5539,6 +5648,7 @@
               ],
               "scrollY": 1641,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 73,
@@ -5583,6 +5693,7 @@
               ],
               "scrollY": 2440,
               "target": {
+                "headingVisible": null,
                 "id": "s-398",
                 "shown": true,
                 "top": 74,
@@ -5629,6 +5740,7 @@
               ],
               "scrollY": 1801,
               "target": {
+                "headingVisible": null,
                 "id": "sg-900",
                 "shown": true,
                 "top": 72,
@@ -5673,6 +5785,7 @@
               ],
               "scrollY": 2428,
               "target": {
+                "headingVisible": null,
                 "id": "sg-894",
                 "shown": true,
                 "top": 72,
@@ -5719,6 +5832,7 @@
               ],
               "scrollY": 1496,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 330,
@@ -5763,6 +5877,7 @@
               ],
               "scrollY": 1496,
               "target": {
+                "headingVisible": null,
                 "id": "p-s3",
                 "shown": true,
                 "top": 330,
@@ -5805,12 +5920,13 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 1496,
+              "scrollY": 1454,
               "target": {
+                "headingVisible": true,
                 "id": "appearance",
                 "shown": true,
                 "top": 72,
-                "bottom": 1633,
+                "bottom": 72,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -5851,6 +5967,7 @@
               ],
               "scrollY": 1755,
               "target": {
+                "headingVisible": null,
                 "id": "a-603",
                 "shown": true,
                 "top": 72,
@@ -5893,11 +6010,12 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 2341,
+              "scrollY": 2321,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
-                "top": 485,
+                "top": 484,
                 "bottom": 708,
                 "tabsBottom": 61,
                 "inViewport": true,
@@ -5939,10 +6057,11 @@
               ],
               "scrollY": 1026,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 554,
-                "bottom": 784,
+                "top": 500,
+                "bottom": 500,
                 "tabsBottom": 480,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -5983,6 +6102,7 @@
               ],
               "scrollY": 1163,
               "target": {
+                "headingVisible": null,
                 "id": "corrections",
                 "shown": true,
                 "top": 1,
@@ -6060,8 +6180,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 1487,
+              "scrollY": 1453,
               "target": {
+                "headingVisible": true,
                 "id": "history",
                 "shown": true,
                 "top": 73,
@@ -6104,12 +6225,13 @@
               "visible": [
                 "photos"
               ],
-              "scrollY": 1488,
+              "scrollY": 1453,
               "target": {
+                "headingVisible": true,
                 "id": "photos",
                 "shown": true,
-                "top": 72,
-                "bottom": 804,
+                "top": 73,
+                "bottom": 73,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -6150,10 +6272,11 @@
               ],
               "scrollY": 1203,
               "target": {
+                "headingVisible": true,
                 "id": "map",
                 "shown": true,
-                "top": 357,
-                "bottom": 715,
+                "top": 323,
+                "bottom": 323,
                 "tabsBottom": 303,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -6192,8 +6315,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 1487,
+              "scrollY": 1453,
               "target": {
+                "headingVisible": true,
                 "id": "vet-visits",
                 "shown": true,
                 "top": 73,
@@ -6238,6 +6362,7 @@
               ],
               "scrollY": 3023,
               "target": {
+                "headingVisible": null,
                 "id": "vv-280",
                 "shown": true,
                 "top": 359,
@@ -6284,6 +6409,7 @@
               ],
               "scrollY": 1496,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 330,
@@ -6328,6 +6454,7 @@
               ],
               "scrollY": 1642,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 72,
@@ -6370,11 +6497,12 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 2341,
+              "scrollY": 2321,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
-                "top": 485,
+                "top": 484,
                 "bottom": 708,
                 "tabsBottom": 61,
                 "inViewport": true,
@@ -6416,10 +6544,11 @@
               ],
               "scrollY": 1026,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 554,
-                "bottom": 784,
+                "top": 500,
+                "bottom": 500,
                 "tabsBottom": 480,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -6460,6 +6589,7 @@
               ],
               "scrollY": 1968,
               "target": {
+                "headingVisible": null,
                 "id": "s-399",
                 "shown": true,
                 "top": 73,
@@ -6506,6 +6636,7 @@
               ],
               "scrollY": 1454,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 72,
@@ -6551,6 +6682,7 @@
               ],
               "scrollY": 1203,
               "target": {
+                "headingVisible": true,
                 "id": "tab-map",
                 "shown": true,
                 "top": 323,
@@ -6596,10 +6728,11 @@
               ],
               "scrollY": 1454,
               "target": {
+                "headingVisible": true,
                 "id": "tab-coat",
                 "shown": true,
                 "top": 72,
-                "bottom": 1675,
+                "bottom": 1655,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -6641,6 +6774,7 @@
               ],
               "scrollY": 1026,
               "target": {
+                "headingVisible": true,
                 "id": "tab-reports",
                 "shown": true,
                 "top": 500,
@@ -6686,6 +6820,7 @@
               ],
               "scrollY": 1454,
               "target": {
+                "headingVisible": true,
                 "id": "tab-history",
                 "shown": true,
                 "top": 72,
@@ -6852,6 +6987,7 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 72,
@@ -6896,6 +7032,7 @@
               ],
               "scrollY": 739,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 72,
@@ -6940,6 +7077,7 @@
               ],
               "scrollY": 1333,
               "target": {
+                "headingVisible": null,
                 "id": "s-398",
                 "shown": true,
                 "top": 74,
@@ -6986,6 +7124,7 @@
               ],
               "scrollY": 856,
               "target": {
+                "headingVisible": null,
                 "id": "sg-900",
                 "shown": true,
                 "top": 73,
@@ -7030,6 +7169,7 @@
               ],
               "scrollY": 1321,
               "target": {
+                "headingVisible": null,
                 "id": "sg-894",
                 "shown": true,
                 "top": 73,
@@ -7076,6 +7216,7 @@
               ],
               "scrollY": 1019,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 112,
@@ -7120,6 +7261,7 @@
               ],
               "scrollY": 1019,
               "target": {
+                "headingVisible": null,
                 "id": "p-s3",
                 "shown": true,
                 "top": 112,
@@ -7162,12 +7304,13 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 664,
+              "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "appearance",
                 "shown": true,
                 "top": 72,
-                "bottom": 1518,
+                "bottom": 72,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -7208,6 +7351,7 @@
               ],
               "scrollY": 900,
               "target": {
+                "headingVisible": null,
                 "id": "a-603",
                 "shown": true,
                 "top": 72,
@@ -7250,12 +7394,13 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 1338,
+              "scrollY": 1317,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
                 "top": 587,
-                "bottom": 764,
+                "bottom": 765,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -7296,10 +7441,11 @@
               ],
               "scrollY": 47,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 701,
-                "bottom": 840,
+                "top": 647,
+                "bottom": 647,
                 "tabsBottom": 627,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -7340,6 +7486,7 @@
               ],
               "scrollY": 227,
               "target": {
+                "headingVisible": null,
                 "id": "corrections",
                 "shown": true,
                 "top": 0,
@@ -7417,8 +7564,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 655,
+              "scrollY": 621,
               "target": {
+                "headingVisible": true,
                 "id": "history",
                 "shown": true,
                 "top": 73,
@@ -7461,12 +7609,13 @@
               "visible": [
                 "photos"
               ],
-              "scrollY": 656,
+              "scrollY": 621,
               "target": {
+                "headingVisible": true,
                 "id": "photos",
                 "shown": true,
-                "top": 72,
-                "bottom": 1215,
+                "top": 73,
+                "bottom": 73,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -7507,10 +7656,11 @@
               ],
               "scrollY": 469,
               "target": {
+                "headingVisible": true,
                 "id": "map",
                 "shown": true,
-                "top": 259,
-                "bottom": 771,
+                "top": 225,
+                "bottom": 225,
                 "tabsBottom": 205,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -7549,8 +7699,9 @@
               "visible": [
                 "history"
               ],
-              "scrollY": 655,
+              "scrollY": 621,
               "target": {
+                "headingVisible": true,
                 "id": "vet-visits",
                 "shown": true,
                 "top": 73,
@@ -7595,6 +7746,7 @@
               ],
               "scrollY": 1635,
               "target": {
+                "headingVisible": null,
                 "id": "vv-280",
                 "shown": true,
                 "top": 545,
@@ -7641,6 +7793,7 @@
               ],
               "scrollY": 1019,
               "target": {
+                "headingVisible": null,
                 "id": "p-s2",
                 "shown": true,
                 "top": 112,
@@ -7685,6 +7838,7 @@
               ],
               "scrollY": 739,
               "target": {
+                "headingVisible": null,
                 "id": "s-301",
                 "shown": true,
                 "top": 72,
@@ -7727,12 +7881,13 @@
               "visible": [
                 "coat"
               ],
-              "scrollY": 1338,
+              "scrollY": 1317,
               "target": {
+                "headingVisible": null,
                 "id": "a-601",
                 "shown": true,
                 "top": 587,
-                "bottom": 764,
+                "bottom": 765,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -7773,10 +7928,11 @@
               ],
               "scrollY": 47,
               "target": {
+                "headingVisible": true,
                 "id": "issue-strip",
                 "shown": true,
-                "top": 701,
-                "bottom": 840,
+                "top": 647,
+                "bottom": 647,
                 "tabsBottom": 627,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -7817,6 +7973,7 @@
               ],
               "scrollY": 1000,
               "target": {
+                "headingVisible": null,
                 "id": "s-399",
                 "shown": true,
                 "top": 74,
@@ -7863,6 +8020,7 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-photos",
                 "shown": true,
                 "top": 72,
@@ -7908,6 +8066,7 @@
               ],
               "scrollY": 469,
               "target": {
+                "headingVisible": true,
                 "id": "tab-map",
                 "shown": true,
                 "top": 225,
@@ -7953,10 +8112,11 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-coat",
                 "shown": true,
                 "top": 72,
-                "bottom": 1560,
+                "bottom": 1540,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -7998,6 +8158,7 @@
               ],
               "scrollY": 47,
               "target": {
+                "headingVisible": true,
                 "id": "tab-reports",
                 "shown": true,
                 "top": 647,
@@ -8043,6 +8204,7 @@
               ],
               "scrollY": 622,
               "target": {
+                "headingVisible": true,
                 "id": "tab-history",
                 "shown": true,
                 "top": 72,
