@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import request from "supertest";
-import { catsTable, coloniesTable, db, observationsTable, pool, vetBatchesTable, vetVisitPhotosTable } from "@workspace/db";
+import { catsTable, coloniesTable, db, feedingSitesTable, observationsTable, pool, vetBatchesTable, vetVisitPhotosTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { getGuidance } from "@workspace/welfare-guidance";
 
@@ -15,7 +15,7 @@ import { currentColonyOf } from "./colonyMembership";
 import { syrNumber } from "./teamCatView";
 import { teamOnlyPhotoIds } from "./teamOnlyPhotos";
 import { addCat, createBatch, getBatch, updateCat, updateShared } from "./vetBatches";
-import { saveBatch, TEAM_DESK_DEVICE } from "./vetVisits";
+import { COLONY_HAS_NO_CENTRE, saveBatch, TEAM_DESK_DEVICE } from "./vetVisits";
 import { TEAM_ORIGIN } from "./teamAuth/__fixtures__/queueKit";
 import { newColony, signedPerson, type Signed } from "../test/roleKit";
 
@@ -208,6 +208,34 @@ describe("saveBatch: a new cat", () => {
     expect(out).toEqual({ ok: false, problems: [{ batchCatId: null, field: "place", words: "Choose a colony or an area for this batch" }] });
     expect(await catsNamed([name])).toHaveLength(0);
     expect(await visitsOf([known.id])).toHaveLength(0);
+  });
+
+  it("R20: a colony with no centre puts the cat at the midpoint of its open feeding sites", async () => {
+    const bare = await newColony(`nocentre-${RUN}`);
+    await db.insert(feedingSitesTable).values([
+      { name: `vt-nc-a-${RUN}`, colonyId: bare, lat: 37.44, lng: 24.94 },
+      { name: `vt-nc-b-${RUN}`, colonyId: bare, lat: 37.46, lng: 24.96 },
+      // A retired site doesn't count.
+      { name: `vt-nc-c-${RUN}`, colonyId: bare, lat: 37.9, lng: 25.5, retiredAt: NOW },
+    ]);
+    const { id } = await makeBatch([{ newCat: { name: `${PREFIX} Mid`, description: "" } }], { colonyId: bare });
+    const out = await saveBatch(STAFF, id, NOW);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    const cat = await catById(out.newCats[0]!.catId);
+    expect(cat.lat).toBeCloseTo(37.45, 9);
+    expect(cat.lng).toBeCloseTo(24.95, 9);
+    expect((await currentColonyOf([cat.id])).get(cat.id)).toBe(bare);
+  });
+
+  it("R20: a colony with no centre and no open sites is refused with the 'choose an area' words", async () => {
+    const bare = await newColony(`nosites-${RUN}`);
+    await db.insert(feedingSitesTable).values({ name: `vt-nc-r-${RUN}`, colonyId: bare, lat: 37.4, lng: 24.9, retiredAt: NOW });
+    const name = `${PREFIX} Nosites`;
+    const { id } = await makeBatch([{ newCat: { name, description: "" } }], { colonyId: bare });
+    const out = await saveBatch(STAFF, id, NOW);
+    expect(out).toEqual({ ok: false, problems: [{ batchCatId: null, field: "place", words: COLONY_HAS_NO_CENTRE }] });
+    expect(await catsNamed([name])).toHaveLength(0);
   });
 
   it("an unconfirmed new cat is not saved", async () => {

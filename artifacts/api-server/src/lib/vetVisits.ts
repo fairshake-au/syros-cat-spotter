@@ -4,6 +4,7 @@ import {
   catsTable,
   coloniesTable,
   db,
+  feedingSitesTable,
   foldName,
   foldedNameEquals,
   observationsTable,
@@ -414,9 +415,9 @@ export const NEW_CAT_DESCRIPTION_MAX = 300;
 
 /** A batch with a new cat needs somewhere to put it. */
 export const CHOOSE_PLACE = "Choose a colony or an area for this batch";
-/** Its colony has no centre to put a new cat at. */
+/** Its colony has no centre and no open feeding site to put a new cat at (Ruling R20). */
 export const COLONY_HAS_NO_CENTRE =
-  "This batch's colony has no centre on the map yet, so a new cat can't be placed. Choose an area for this batch instead.";
+  "This batch's colony has no centre or feeding sites on the map yet, so a new cat can't be placed. Choose an area for this batch instead.";
 
 /** Fields that come from the batch, not the cat: said once, for the batch. */
 const SHARED_FIELDS = new Set<VisitField>(["date", "clinicId", "vaccines"]);
@@ -458,7 +459,8 @@ const storedName = (name: string | null) => (name === null ? null : name.trim().
  * - its main photo is its first batch photo, which the caller then does NOT
  *   link in vet_visit_photos: being the cat's primary photo is what makes it
  *   public (teamOnlyPhotos.ts), so future photo searches can match it;
- * - it sits at `centre` (the colony's, else the area's), never a typed position;
+ * - it sits at `centre` (the colony's, else its open sites' midpoint, else the
+ *   area's), never a typed position;
  * - Syros Cats is its discoverer (TEAM_DESK_DEVICE);
  * - named now: a team `name` statement, as a spotter naming a new cat writes
  *   one. Left for spotters: it is inserted under a temporary unique name, then
@@ -665,7 +667,7 @@ export async function saveBatch(
         }
       }
 
-      // Where a new cat goes: the colony's centre, else the area's. Never a typed position.
+      // Where a new cat goes: the colony's centre (else its open sites' midpoint), else the area's. Never a typed position.
       let centre: { lat: number; lng: number } | null = null;
       if (batch.cats.some((c) => c.newCat)) {
         if (shared.colonyId !== null) {
@@ -674,7 +676,20 @@ export async function saveBatch(
             .from(coloniesTable)
             .where(eq(coloniesTable.id, shared.colonyId));
           if (colony && colony.lat !== null && colony.lng !== null) centre = { lat: colony.lat, lng: colony.lng };
-          else add(null, "place", COLONY_HAS_NO_CENTRE);
+          else {
+            // Ruling R20: no centre set, so the midpoint of its open feeding
+            // sites, the same rule as colonyCentreStart (teamColonies.ts).
+            const sites = await tx
+              .select({ lat: feedingSitesTable.lat, lng: feedingSitesTable.lng })
+              .from(feedingSitesTable)
+              .where(and(eq(feedingSitesTable.colonyId, shared.colonyId), isNull(feedingSitesTable.retiredAt)));
+            if (sites.length > 0) {
+              centre = {
+                lat: sites.reduce((a, b) => a + b.lat, 0) / sites.length,
+                lng: sites.reduce((a, b) => a + b.lng, 0) / sites.length,
+              };
+            } else add(null, "place", COLONY_HAS_NO_CENTRE);
+          }
         } else {
           const area = shared.areaKey !== null ? areaByKey(shared.areaKey) : undefined;
           if (area) centre = { lat: area.lat, lng: area.lng };
