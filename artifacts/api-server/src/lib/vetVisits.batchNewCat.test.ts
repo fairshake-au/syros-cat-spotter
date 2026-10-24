@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import request from "supertest";
-import { catsTable, coloniesTable, db, observationsTable, photosTable, pool, vetVisitPhotosTable } from "@workspace/db";
+import { catsTable, coloniesTable, db, observationsTable, pool, vetBatchesTable, vetVisitPhotosTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { getGuidance } from "@workspace/welfare-guidance";
 
@@ -91,6 +91,8 @@ beforeAll(async () => {
   await db.update(coloniesTable).set(CENTRE).where(eq(coloniesTable.id, colony));
 });
 afterAll(async () => {
+  // The unsaved-batches list is the whole team's: leave none of this run's behind.
+  await db.delete(vetBatchesTable).where(eq(vetBatchesTable.createdBy, author.id));
   await pool.end();
 });
 
@@ -283,7 +285,8 @@ describe("the batch page: a new cat", () => {
     expect(saved.headers["location"]).not.toContain(encodeURIComponent(name));
     const [cat] = await catsNamed([name]);
     expect(cat).toMatchObject({ lat: CENTRE.lat, lng: CENTRE.lng });
-    const after = await get(saved.headers["location"]!);
-    noPosition(after.text);
+    // The colony page it lands on shows the colony's own centre to the team,
+    // as it always has; nothing on the batch's way there printed one.
+    expect(saved.headers["location"]).toBe(`/api/team/colonies/${colony}?done=batch`);
   });
 });
