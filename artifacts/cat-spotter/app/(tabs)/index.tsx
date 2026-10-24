@@ -49,7 +49,8 @@ export default function HomeScreen() {
   const bannerReserve = useBannerAreaReserve();
   // SYC-143: on the narrowest phones (320px) three tiles leave the label
   // too little room, so tighten the tile padding and gaps there.
-  const compactTiles = useWindowDimensions().width < 360;
+  const { width } = useWindowDimensions();
+  const compactTiles = width < 360;
   const { deviceId, username, heldUsername } = useDevice();
   const { isOnline } = useOffline();
   const { coords } = useAppLocation();
@@ -117,6 +118,20 @@ export default function HomeScreen() {
   const displayName =
     profile?.nickname ?? profile?.username ?? username ?? heldUsername ?? t('homeFallbackName');
   const streak = profile?.currentStreakDays ?? 0;
+  // SYC-160: on the narrowest phones the chip would leave the greeting ~50px,
+  // so it drops onto its own line under the row instead.
+  const narrow = width < 360;
+  const streakChip =
+    streak > 0 ? (
+      <View style={[styles.streakChip, narrow && styles.streakChipNarrow]}>
+        <Text
+          style={styles.streakText}
+          accessibilityLabel={t('homeStreak').replace('{n}', String(streak))}
+        >
+          🔥 {t('homeStreak').replace('{n}', String(streak))}
+        </Text>
+      </View>
+    ) : null;
   const dash = '—';
   // A failed fetch while online is not the same as being offline — most likely
   // the device credential no longer matches. Say so instead of showing the same
@@ -157,19 +172,12 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View style={styles.heroActions}>
-              {streak > 0 && (
-                <View style={styles.streakChip}>
-                  <Text
-                    style={styles.streakText}
-                    accessibilityLabel={t('homeStreak').replace('{n}', String(streak))}
-                  >
-                    🔥 {t('homeStreak').replace('{n}', String(streak))}
-                  </Text>
-                </View>
-              )}
+              {streak > 0 && !narrow && streakChip}
               <NotificationBell />
             </View>
           </View>
+
+          {narrow && streakChip}
 
           {hero === 'firstSpot' ? (
             <View style={styles.progressBlock}>
@@ -363,6 +371,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
+  streakChipNarrow: { alignSelf: 'flex-start', marginTop: spacing[3] },
   streakText: {
     fontFamily: fonts.displayBold,
     fontSize: fontSizes.sm,
