@@ -567,6 +567,44 @@ describe("renderHistory (spec §3.5)", () => {
     expect(menuOf(rowOf(html, "s-71"))).toContain("Mark wrong");
   });
 
+  it("a team note's row carries the 'team only' tag, its text escaped, and a Mark wrong gated on add_team_note", () => {
+    const v = catView({
+      history: [
+        statement(80, {
+          kind: "team_note",
+          said: "Note (team only): “<b>Limping</b>”",
+          noteText: "<b>Limping</b>",
+          correction: { kind: "team_note" },
+        }),
+      ],
+    });
+    const row = rowOf(draw(v), "s-80");
+    expect(row).toContain('<span class="tag note">team only</span>');
+    expect(row).toContain("&lt;b&gt;Limping&lt;/b&gt;");
+    expect(row).not.toContain("<b>Limping</b>");
+    const menu = menuOf(row);
+    expect(menu).toContain("<summary>Mark wrong</summary>");
+    expect(menu).toContain('action="/api/team/statements/80/wrong"');
+    expect(menu).toContain('name="choice" value="retract"');
+    const without = draw(v, [], { may: (c) => c !== "add_team_note" });
+    expect(menuOf(rowOf(without, "s-80"))).not.toContain("Mark wrong");
+    // Even without the permission the page never draws its own tag differently.
+    expect(rowOf(without, "s-80")).toContain("team only");
+  });
+
+  it("a note marked wrong is struck through and offers no second Mark wrong", () => {
+    const v = catView({
+      history: [
+        statement(82, { kind: "team_note", said: "Marked wrong", replaces: 81 }),
+        statement(81, { kind: "team_note", said: "Note (team only): “Old”", replacedBy: [82], correction: null }),
+      ],
+    });
+    const html = draw(v);
+    expect(rowOf(html, "s-81")).toContain("<del>");
+    expect(menuOf(rowOf(html, "s-81"))).not.toContain("Mark wrong");
+    expect(menuOf(rowOf(html, "s-82"))).not.toContain("Mark wrong");
+  });
+
   it("links a coat change's menu to Coat and markings, opened, where its Mark wrong stays", () => {
     const v = catView({
       history: [statement(80, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })],

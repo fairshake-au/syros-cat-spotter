@@ -209,3 +209,114 @@ describe("POST /api/team/cats/:id/note", () => {
     expect(without.text).not.toContain(`/api/team/cats/${catId}/note`);
   });
 });
+
+/** The facts panel of a cat page: its <dl class="catfacts"> up to its closing tag. */
+const factsOf = (html: string) => {
+  const start = html.indexOf('<dl class="catfacts">');
+  return start < 0 ? "" : html.slice(start, html.indexOf("</div></dl>", start));
+};
+
+describe("the Health note fact and Mark wrong on a note (SYC-602 PR 4.2)", () => {
+  const write = (catId: number, text: string, c = cookie) => form(`/api/team/cats/${catId}/note`, c).send({ text });
+  const wrong = (id: number, c = cookie, extra: Record<string, string> = {}) =>
+    form(`/api/team/statements/${id}/wrong`, c).send({ choice: "retract", reason: "Written on the wrong cat", ...extra });
+
+  it("the cat page shows the newest standing note as the Health note, 'team only' under it", async () => {
+    const catId = await newCat();
+    await write(catId, "Older note");
+    await write(catId, "Newer <i>note</i>");
+    const page = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
+    const facts = factsOf(page.text);
+    expect(facts).toContain("<dt>Health note</dt>");
+    expect(facts).toContain("Newer &lt;i&gt;note&lt;/i&gt;");
+    expect(facts).not.toContain("Older note");
+    expect(facts).toMatch(/Susan, \d{1,2} \w{3} \d{4} · team only/);
+    expect(page.text).not.toContain("<i>note</i>");
+    expect(page.text).toContain('<span class="tag note">team only</span>');
+  });
+
+  it("Mark wrong takes a note back: a retraction is written, the older note shows again, the history keeps both", async () => {
+    const catId = await newCat();
+    await write(catId, "Older note");
+    await write(catId, "Newer note");
+    const [older, newer] = await notes(catId);
+    const res = await wrong(newer!.id);
+    expect(res.status).toBe(303);
+    const rows = await notes(catId);
+    expect(res.headers["location"]).toContain(`/api/team/cats/${catId}?done=wrong`);
+    expect(rows).toHaveLength(3);
+    expect(rows[2]).toMatchObject({
+      value: { retracted: true },
+      supersedesId: newer!.id,
+      supersedeReason: "Written on the wrong cat",
+      accountId: susanId,
+    });
+    const page = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
+    const facts = factsOf(page.text);
+    expect(facts).toContain("Older note");
+    expect(facts).not.toContain("Newer note");
+    expect(page.text).toContain("<del>Note (team only): “Newer note”</del>");
+    expect(older).toBeDefined();
+  });
+
+  it("with every note marked wrong the fact goes", async () => {
+    const catId = await newCat();
+    await write(catId, "Only note");
+    const [only] = await notes(catId);
+    expect((await wrong(only!.id)).status).toBe(303);
+    const page = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
+    expect(page.text).not.toContain("<dt>Health note</dt>");
+  });
+
+  it("a second Mark wrong of the same note says someone already corrected it, and writes nothing", async () => {
+    const catId = await newCat();
+    await write(catId, "Once");
+    const [n] = await notes(catId);
+    expect((await wrong(n!.id)).status).toBe(303);
+    const before = await allRows(catId);
+    const again = await wrong(n!.id);
+    expect(again.status).toBe(303);
+    expect(again.headers["location"]).toContain("done=already");
+    expect(await allRows(catId)).toEqual(before);
+  });
+
+  it("a cat guardian and a person with no capabilities get the 403; without add_team_note nobody takes a note back", async () => {
+    const catId = await newCat();
+    await write(catId, "Keep me");
+    const [n] = await notes(catId);
+    const before = await allRows(catId);
+    for (const c of [guardianCookie, veraCookie]) {
+      const res = await wrong(n!.id, c);
+      expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
+    }
+    denied.cap = "add_team_note";
+    const res = await wrong(n!.id);
+    expect(res.status).toBe(403);
+    expect(await allRows(catId)).toEqual(before);
+  });
+
+  it("the menu draws Mark wrong on a note only with add_team_note, and not on a note already marked wrong", async () => {
+    const catId = await newCat();
+    await write(catId, "Menu note");
+    const [n] = await notes(catId);
+    const page = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
+    expect(page.text).toContain(`action="/api/team/statements/${n!.id}/wrong"`);
+    denied.cap = "add_team_note";
+    const without = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
+    expect(without.text).not.toContain(`action="/api/team/statements/${n!.id}/wrong"`);
+    denied.cap = null;
+    await wrong(n!.id);
+    const after = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
+    expect(after.text).not.toContain(`action="/api/team/statements/${n!.id}/wrong"`);
+  });
+
+  it("the retraction is a retraction and nothing else: another value for a note is refused, nothing written", async () => {
+    const catId = await newCat();
+    await write(catId, "Stay");
+    const [n] = await notes(catId);
+    const before = await allRows(catId);
+    const res = await form(`/api/team/statements/${n!.id}/wrong`).send({ choice: "street", reason: "x" });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(await allRows(catId)).toEqual(before);
+  });
+});

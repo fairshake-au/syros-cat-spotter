@@ -324,6 +324,7 @@ const systemColony = (s: TeamStatement) => s.kind === "colony" && s.author.kind 
 export function wrongFormNeeds(s: TeamStatement): Capability | null {
   const c = s.correction;
   if (!c || c.kind === "appearance") return null;
+  if (c.kind === "team_note") return "add_team_note";
   if (c.kind === "ear_tip_clipped" || c.kind === "sterilised") return "set_sterilisation";
   if (c.kind === "colony") return systemColony(s) ? null : "assign_cat_to_colony";
   return "set_life_status";
@@ -349,6 +350,16 @@ export function wrongForm(s: TeamStatement, may: (c: Capability) => boolean, kep
       '<p class="hint">The cat goes back to Not known yet, unless something else says otherwise.</p>' +
       reasonInput(`${id}-why`, "Why it isn't a clip", why) +
       "<button type=\"submit\">Mark wrong: it's not a clip</button></form></details>"
+    );
+  }
+  if (c.kind === "team_note") {
+    // Nothing to choose: the note comes out, and the older standing one (if any) shows again.
+    return (
+      head +
+      '<input type="hidden" name="choice" value="retract">' +
+      '<p class="hint">The note stays in the history, crossed out, and no longer shows as the Health note.</p>' +
+      reasonInput(`${id}-why`, undefined, why) +
+      '<button type="submit">Mark wrong</button></form></details>'
     );
   }
   if (c.kind === "colony") {

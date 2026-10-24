@@ -212,6 +212,8 @@ export function describeStatement(
     case "note":
       return str(v["text"]) ? `Note: “${v["text"] as string}”` : "Note (text removed)";
     case "team_note":
+      // Marked wrong (SYC-602 PR 4): the retraction asserts nothing, so it says nothing in its place.
+      if (v["retracted"] === true) return "Marked wrong";
       return str(v["text"]) ? `Note (team only): “${v["text"] as string}”` : "Note (team only)";
     case "name":
       return str(v["name"]) ? `Named “${v["name"] as string}”` : "Named";
@@ -336,6 +338,12 @@ export interface TeamStatement {
    * sterilisation, or a clipped ear tip ("That's not a clip").
    */
   correction: StatementCorrection | null;
+  /**
+   * A team note's own words (SYC-602 PR 4), for the Health note fact. Set on a
+   * `team_note` that says something; absent on every other kind and on a note's
+   * "Marked wrong" retraction.
+   */
+  noteText?: string;
 }
 
 export type StatementCorrection =
@@ -345,7 +353,9 @@ export type StatementCorrection =
   /** A colony statement. The replacement is worked out on the server. */
   | { kind: "colony" }
   /** A colour or markings statement: marked wrong by a retraction, from the Appearance section (SYC-2 PR 3.1). */
-  | { kind: "appearance" };
+  | { kind: "appearance" }
+  /** A team note: marked wrong by a retraction, gated on `add_team_note` (SYC-602 PR 4). */
+  | { kind: "team_note" };
 
 /** The visit an observation itself names: a visit's own id, or the link its statements carry. */
 function ownVetVisitId(o: Observation): number | null {
@@ -398,6 +408,13 @@ export function isOwnerHomed(o: Observation, onlyCatId?: number): boolean {
   );
 }
 
+/** A team note's own words, for the Health note fact; nothing for any other kind or a retraction. */
+function noteTextOf(o: Observation): { noteText: string } | Record<string, never> {
+  if (o.kind !== "team_note") return {};
+  const text = (o.value as Record<string, unknown> | null)?.["text"];
+  return typeof text === "string" && text.trim() !== "" ? { noteText: text } : {};
+}
+
 function correctionOf(o: Observation, replaced: boolean): StatementCorrection | null {
   if (replaced) return null;
   if (isOwnerHomed(o)) return null;
@@ -425,6 +442,7 @@ function correctionOf(o: Observation, replaced: boolean): StatementCorrection | 
   }
   if (o.kind === "ear_tip" && v["clipped"] === true) return { kind: "ear_tip_clipped" };
   if (o.kind === "colony") return { kind: "colony" };
+  if (o.kind === "team_note") return { kind: "team_note" };
   // A retraction asserts nothing, so there is nothing to mark wrong.
   if ((o.kind === "coat" || o.kind === "markings") && v["retracted"] !== true) {
     return { kind: "appearance" };
@@ -956,6 +974,7 @@ export async function teamCatView(
       sightingId: o.sightingId ?? null,
       vetVisitId: vetVisitIdOf(o),
       correction: correctionOf(o, replacedBy.has(o.id)),
+      ...noteTextOf(o),
       // Only this cat's own claim: Remove owner is scoped to it. A merged-in
       // cat's claim is ended from that cat's page.
       ownerClaim: isOwnerHomed(o, cat.id) && !replacedBy.has(o.id),
