@@ -287,3 +287,38 @@ describe('T-cache: a catalogue saved by the build before SYC-2 still works', () 
     expect(RETIRED_CATS_CACHE_KEYS as readonly string[], 'v2 is not deleted unread').not.toContain(V2);
   });
 });
+
+describe('SYC-508: a catalogue request that never answers', () => {
+  afterEach(() => {
+    setBaseUrl(null);
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('gives up after LOAD_TIMEOUT_MS instead of waiting for ever', async () => {
+    const { LOAD_TIMEOUT_MS } = await import('../loadTiming');
+    vi.useFakeTimers();
+    setBaseUrl('https://apptest.example');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_input: unknown, init?: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+          }),
+      ),
+    );
+    const walk = fetchWholeCatalogue();
+    const settled = walk.then(
+      () => 'resolved',
+      (e: unknown) => (e as Error).name,
+    );
+    await vi.advanceTimersByTimeAsync(LOAD_TIMEOUT_MS - 1);
+    let early: string | null = null;
+    void settled.then((v) => (early = v));
+    await Promise.resolve();
+    expect(early).toBeNull();
+    await vi.advanceTimersByTimeAsync(2);
+    expect(await settled).toBe('RequestTimeoutError');
+  });
+});

@@ -20,6 +20,9 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useAppLocation } from '@/context/LocationContext';
 import { useCatsWithCache } from '@/hooks/useCatsWithCache';
+import { LoadFailed } from '@/components/LoadFailed';
+import { useStickyFailure } from '@/hooks/useStickyFailure';
+import { LOAD_QUERY_OPTIONS, LOAD_TIMEOUT_MS } from '@/lib/loadTiming';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CatCard } from '@/components/CatCard';
@@ -50,7 +53,7 @@ export default function HomeScreen() {
   const { deviceId, username, heldUsername } = useDevice();
   const { isOnline } = useOffline();
   const { coords } = useAppLocation();
-  const { cats, isLoading } = useCatsWithCache(
+  const { cats, isLoading, loadFailed, retry } = useCatsWithCache(
     coords?.latitude,
     coords?.longitude,
   );
@@ -59,7 +62,9 @@ export default function HomeScreen() {
     query: {
       enabled: !!deviceId && isOnline,
       queryKey: getGetProfileQueryKey(deviceId ?? ''),
+      ...LOAD_QUERY_OPTIONS, // SYC-508 §2.4
     },
+    request: { timeoutMs: LOAD_TIMEOUT_MS },
   });
   const profile = profileQuery.data;
   // The cats list is cached to AsyncStorage but the profile is not. Until a
@@ -116,7 +121,10 @@ export default function HomeScreen() {
   // A failed fetch while online is not the same as being offline — most likely
   // the device credential no longer matches. Say so instead of showing the same
   // empty state and letting the user assume their spots vanished.
-  const statsError = isOnline && profileQuery.isError && profile === undefined;
+  // Held through Try again (review of #302, finding 1), so the line and its
+  // spinner stay put instead of vanishing while it retries.
+  const statsFailed = useStickyFailure(profileQuery.isError, profile !== undefined);
+  const statsError = isOnline && statsFailed;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -178,7 +186,9 @@ export default function HomeScreen() {
                 {t('homeFirstSpotCta')}
               </Button>
             </View>
-          ) : (
+          ) : hero === 'unknown' && totalCats === 0 && (statsError || loadFailed) ? null : (
+            // SYC-508: once loading has failed, "— of 0 cats spotted" isn't
+            // true. While loading it stays, so Home doesn't jump (review of #302).
             <View style={styles.progressBlock}>
               <View style={styles.progressLine}>
                 <Text style={styles.progressValue}>{knownSpotted ?? dash}</Text>
@@ -206,42 +216,54 @@ export default function HomeScreen() {
 
         <OfflineBanner />
         {statsError && (
-          <Text style={[styles.statsError, { color: colors.mutedForeground }]}>
-            {t('statsUnavailable')}
-          </Text>
+          // SYC-508 §3.2: the same words, now with Try again.
+          <View style={styles.statsError}>
+            <LoadFailed
+              size="line"
+              message={t('statsUnavailable')}
+              retryLabel={`${t('tryAgain')}: ${t('statsUnavailable')}`}
+              onRetry={() => profileQuery.refetch()}
+              testID="home-stats-failed"
+            />
+          </View>
         )}
 
         {/* Stat tiles — every figure is server-derived. SYC-143: the group
             gives all three labels one size, stepped down only as far as the
             longest word (Greek "ΑΝΑΚΑΛΥΨΕΙΣ") needs to fit without breaking. */}
-        <StatTileGroup
-          style={[styles.tiles, compactTiles && styles.tilesCompact]}
-        >
-          <View style={styles.tile}>
-            <StatTile
-              value={knownSpotted ?? dash}
-              label={t('statSpotted')}
-              tone="aegean"
-              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
-            />
-          </View>
-          <View style={styles.tile}>
-            <StatTile
-              value={profile?.uniqueCatsDiscovered ?? dash}
-              label={t('statFirstFinds')}
-              tone="sun"
-              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
-            />
-          </View>
-          <View style={styles.tile}>
-            <StatTile
-              value={profile?.badges?.length ?? dash}
-              label={t('statBadges')}
-              tone="bougain"
-              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
-            />
-          </View>
-        </StatTileGroup>
+        {/* SYC-578 via SYC-508 §4.2: before the first spot the hero's own
+            line is the one friendly line, so no 0 / 0 / 0. Unknown still
+            shows dashes. */}
+        {hero !== 'firstSpot' && (
+          <StatTileGroup
+            style={[styles.tiles, compactTiles && styles.tilesCompact]}
+          >
+            <View style={styles.tile}>
+              <StatTile
+                value={knownSpotted ?? dash}
+                label={t('statSpotted')}
+                tone="aegean"
+                style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
+              />
+            </View>
+            <View style={styles.tile}>
+              <StatTile
+                value={profile?.uniqueCatsDiscovered ?? dash}
+                label={t('statFirstFinds')}
+                tone="sun"
+                style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
+              />
+            </View>
+            <View style={styles.tile}>
+              <StatTile
+                value={profile?.badges?.length ?? dash}
+                label={t('statBadges')}
+                tone="bougain"
+                style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
+              />
+            </View>
+          </StatTileGroup>
+        )}
 
         {/* Nearby to collect */}
         <View style={styles.section}>
@@ -270,6 +292,13 @@ export default function HomeScreen() {
             <View style={styles.center}>
               <ActivityIndicator color={colors.primary} />
             </View>
+          ) : loadFailed ? (
+            <LoadFailed
+              size="line"
+              onRetry={retry}
+              retryLabel={`${t('tryAgain')}: ${t(stripHeadingKey(!!coords, nearby))}`}
+              testID="home-cats-failed"
+            />
           ) : nearby.length === 0 ? (
             <Text style={[styles.empty, { color: colors.mutedForeground }]}>
               {t('noCats')}
@@ -377,9 +406,7 @@ const styles = StyleSheet.create({
   // StatTile carries a 120px minWidth for standalone use; three across at 375px
   // would overflow, so let them shrink here.
   statsError: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes['2xs'],
-    textAlign: 'center',
+    alignItems: 'center',
     paddingHorizontal: spacing[4],
     paddingTop: spacing[3],
   },
