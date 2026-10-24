@@ -131,6 +131,23 @@ describe("sightings: the place stamp (0044)", () => {
     expect(await row(id)).toMatchObject({ status: "resolved", area_key: "ermoupoli" });
   });
 
+  it("refuses a status move that stamps only one of the two", async () => {
+    const id = await sighting();
+    await expect(
+      c.query(
+        `update sightings set cat_id = 7, status = 'resolved', area_key = 'ermoupoli' where id = $1`,
+        [id],
+      ),
+    ).rejects.toThrow(/append-only/);
+    await expect(
+      c.query(
+        `update sightings set cat_id = 7, status = 'resolved', on_island = true where id = $1`,
+        [id],
+      ),
+    ).rejects.toThrow(/append-only/);
+    expect(await row(id)).toMatchObject({ status: "pending", area_key: null, on_island: null });
+  });
+
   it("refuses a stamp alongside another column", async () => {
     const id = await sighting();
     await expect(

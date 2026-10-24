@@ -90,6 +90,7 @@ BEGIN
      AND OLD.cat_id IS NULL
      AND (OLD.area_key IS NULL OR NEW.area_key IS NOT DISTINCT FROM OLD.area_key)
      AND (OLD.on_island IS NULL OR NEW.on_island IS NOT DISTINCT FROM OLD.on_island)
+     AND ((NEW.area_key IS NULL) = (NEW.on_island IS NULL))
      AND (
        (OLD.status IN ('pending', 'awaiting_team')
          AND NEW.status = 'resolved'
