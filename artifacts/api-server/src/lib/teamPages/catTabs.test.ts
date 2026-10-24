@@ -77,12 +77,37 @@ describe("the panels", () => {
       expect(sec, id).not.toBeNull();
       expect(sec.className).toBe("catpanel");
       expect(sec.getAttribute("aria-labelledby")).toBe(`h-${id}`);
-      expect(sec.firstElementChild!.tagName).toBe("H2");
-      expect(sec.firstElementChild!.id).toBe(`h-${id}`);
+      // Only empty anchors may come before the heading.
+      const lead = [...sec.children].find((c) => c.tagName !== "SPAN")!;
+      expect(lead.tagName).toBe("H2");
+      expect(lead.id).toBe(`h-${id}`);
     }
     expect(doc.getElementById("h-map")!.textContent).toBe(`Where ${richCatView().cat.name} has been seen`);
     expect(doc.getElementById("h-reports")!.textContent).toBe("Reports (3)");
     expect(doc.getElementById("h-photos")!.textContent).toBe("Photos (5)");
+  });
+
+  it("puts every legacy id that starts a panel before its heading, once, inside the right panel (final review I1)", () => {
+    const html = page(withFive(), { issues, done: undefined });
+    const doc = new JSDOM(html).window.document;
+    const owner: Record<string, string> = {
+      history: "history",
+      "vet-visits": "history",
+      photos: "photos",
+      map: "map",
+      appearance: "coat",
+      "issue-strip": "reports",
+    };
+    for (const [legacy, panel] of Object.entries(owner)) {
+      expect(html.split(`id="${legacy}"`).length - 1, legacy).toBe(1);
+      const el = doc.getElementById(legacy)!;
+      expect(el.parentElement!.id, legacy).toBe(`tab-${panel}`);
+      expect(el.nextElementSibling === doc.getElementById(`h-${panel}`) || el.nextElementSibling?.tagName === "SPAN", legacy).toBe(true);
+      expect(
+        el.compareDocumentPosition(doc.getElementById(`h-${panel}`)!) & 4 /* FOLLOWING */,
+        legacy,
+      ).toBeTruthy();
+    }
   });
 
   it("escapes the cat's name in the Map heading", () => {

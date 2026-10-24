@@ -79,7 +79,7 @@ const view = (c: Partial<TeamAppearance> = {}, m: Partial<TeamAppearance> = {}) 
 const page = (v = view(), opts = {}) => renderCatPage(v, "Sam", { now: NOW, may: () => true, ...opts });
 /** The plain Coat and markings section (SYC-655 §6): from its opening tag to its closing one. */
 const fold = (html: string) => {
-  const at = html.indexOf('<section id="appearance"');
+  const at = html.indexOf("<section>", Math.max(0, html.indexOf('id="tab-coat"')));
   if (at === -1) return "";
   let depth = 0;
   for (const m of html.slice(at).matchAll(/<section[\s>]|<\/section>/g)) {
@@ -99,7 +99,7 @@ const text = (h: string) => {
 describe("the Coat and markings section (SYC-602 Task 3.2, SYC-655 Task 4)", () => {
   it("is a plain section, not a fold", () => {
     const html = page();
-    expect(html).toContain('<section id="appearance">');
+    expect(html).toContain('<span id="appearance"></span><h2 id="h-coat">');
     expect(html).not.toContain("<details class=\"fold\"");
     expect(html).not.toContain("foldbody");
     const f = fold(html);
@@ -107,7 +107,7 @@ describe("the Coat and markings section (SYC-602 Task 3.2, SYC-655 Task 4)", () 
     expect(f).toContain("Read from the photo on 3 Apr · Maria agreed on 5 Apr");
     // It sits in the Coat panel, under that panel's own heading.
     const panel = html.slice(html.indexOf('id="tab-coat"'));
-    expect(panel.indexOf('<h2 id="h-coat">')).toBeLessThan(panel.indexOf('<section id="appearance"'));
+    expect(panel.indexOf('<h2 id="h-coat">')).toBeLessThan(panel.indexOf("<section>"));
     expect((html.match(/id="appearance"/g) ?? []).length).toBe(1);
   });
 
@@ -125,7 +125,7 @@ describe("the Coat and markings section (SYC-602 Task 3.2, SYC-655 Task 4)", () 
   it("is open whatever the state: no open attribute, no fold rules, and ?open=coat is no longer read", () => {
     for (const done of [undefined, "a_confirmed", "a_corrected"]) {
       const f = fold(page(view({ checkReasons: ["tied_camps"], guardianDisagrees: true }), { done }));
-      expect(f.startsWith('<section id="appearance">')).toBe(true);
+      expect(f.startsWith("<section>")).toBe(true);
       expect(f).not.toContain("<details class=\"fold\"");
     }
     expect(page(view(), { openCoat: true } as never)).toBe(page(view()));

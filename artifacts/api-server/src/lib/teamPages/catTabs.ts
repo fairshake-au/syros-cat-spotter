@@ -13,6 +13,12 @@ export interface CatPanel {
   heading: string;
   /** The panel's content, already drawn. */
   html: string;
+  /**
+   * Older addresses that land on this panel (`#history`, `#photos`...). Each is
+   * drawn as an empty anchor before the heading, so landing there shows the
+   * heading, not the content under it hidden behind the tab row.
+   */
+  anchors?: string[];
 }
 
 /** The tabs, in the order they are drawn. History is open when nothing else is targeted. */
@@ -28,6 +34,7 @@ export function renderCatTabs(panels: CatPanel[]): string {
       .map(
         (p) =>
           `<section class="catpanel" id="tab-${p.id}" aria-labelledby="h-${p.id}">` +
+          (p.anchors ?? []).map((a) => `<span id="${esc(a)}"></span>`).join("") +
           `<h2 id="h-${p.id}">${esc(p.heading)}</h2>` +
           p.html +
           "</section>",
@@ -48,7 +55,7 @@ const NONE_OPEN = ":not(:has(.catpanel:target,.catpanel :target))";
  */
 export const CAT_TABS_CSS = `.cattabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:#f6f4ef;border-bottom:1px solid #d9d5ca;margin:24px -12px 0;padding:8px 12px;display:flex;gap:8px;overflow-x:auto;white-space:nowrap}
 .cattabs a{display:inline-flex;align-items:center;flex:none;min-height:44px;padding:0 16px;border-radius:999px;background:#fff;border:1px solid #d9d5ca;text-decoration:none;font-weight:600;font-size:15px;color:#1d1d1b}
-.catpanel>h2:first-child{margin-top:20px}
+.catpanel>h2{margin-top:20px}
 #history,#photos,#appearance,#issue-strip,#map,#vet-visits,.catpanel,[id^="s-"],[id^="sg-"],[id^="p-"],[id^="vv-"],[id^="a-"]{scroll-margin-top:72px}
 @supports selector(:has(a)){
 .catpanel{display:none}

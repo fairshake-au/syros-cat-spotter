@@ -261,8 +261,8 @@ function issueStrip(strip: IssueStrip | null | undefined): string {
     )
     .join("");
   return (
-    // The Reports panel supplies the heading.
-    '<section id="issue-strip" class="issues">' +
+    // The Reports panel supplies the heading and the #issue-strip anchor.
+    '<section class="issues">' +
     '<p class="hint">Problems the public reported with this cat\'s photos, name or page. Team only.</p>' +
     `<ul class="hplain">${items}</ul>` +
     (strip.total > strip.reports.length
@@ -365,7 +365,8 @@ function sightingsMap(v: TeamCatView, island: boolean, hrefOf: (sightingId: numb
   const view = fitView(shown);
   let map: string;
   try {
-    map = renderMap({ mode: "view", view, markers, controls: false });
+    // The Map panel supplies the #map anchor before its heading, so the map keeps no id of its own.
+    map = renderMap({ mode: "view", view, markers, controls: false }).replace(' id="map"', "");
   } catch (e) {
     // Only a picture that can't be signed (no session key) is shown as "not
     // available", with the rest of the page (spec §13). Anything else is a bug.
@@ -485,9 +486,9 @@ export function renderCatPage(
   // The menu opens only when the page really came back from Hide or Restore on a photo we have.
   const landed = photoNotice !== "" && v.photos.some((p) => p.publicId === opts.photo);
   const hiddenCount = v.photos.filter((p) => p.hidden).length;
-  // The Photos panel supplies the heading; #photos stays as the anchor for the block.
+  // The Photos panel supplies the heading and the #photos anchor.
   const photos =
-    '<div id="photos">' +
+    "<div>" +
     (hiddenCount > 0
       ? `<p class="hint">${hiddenCount} hidden from the public. The team still sees ${hiddenCount === 1 ? "it" : "them"} here.</p>`
       : "") +
@@ -523,15 +524,15 @@ export function renderCatPage(
     past: renderPastChanges(v, shown),
   });
   const panels: CatPanel[] = [
-    { id: "history", tab: `History (${historyCounts(v, visitList).all})`, heading: "History", html: history },
-    { id: "photos", tab: `Photos (${v.photos.length})`, heading: `Photos (${v.photos.length})`, html: photos },
+    { id: "history", tab: `History (${historyCounts(v, visitList).all})`, heading: "History", html: history, anchors: ["history", "vet-visits"] },
+    { id: "photos", tab: `Photos (${v.photos.length})`, heading: `Photos (${v.photos.length})`, html: photos, anchors: ["photos"] },
   ];
   if (smallMap !== "") {
-    panels.push({ id: "map", tab: "Map", heading: `Where ${cat.name} has been seen`, html: smallMap });
+    panels.push({ id: "map", tab: "Map", heading: `Where ${cat.name} has been seen`, html: smallMap, anchors: ["map"] });
   }
-  panels.push({ id: "coat", tab: "Coat and markings", heading: "Coat and markings", html: coat });
+  panels.push({ id: "coat", tab: "Coat and markings", heading: "Coat and markings", html: coat, anchors: ["appearance"] });
   if (issueTotal > 0) {
-    panels.push({ id: "reports", tab: `Reports (${issueTotal})`, heading: `Reports (${issueTotal})`, html: issueStrip(opts.issues) });
+    panels.push({ id: "reports", tab: `Reports (${issueTotal})`, heading: `Reports (${issueTotal})`, html: issueStrip(opts.issues), anchors: ["issue-strip"] });
   }
 
   return renderPage({

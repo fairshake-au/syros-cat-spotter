@@ -542,7 +542,8 @@ function renderCoatSection(
   return (
     // The Coat panel on the cat page supplies its own heading.
     (heading ? "<h2>Coat and markings</h2>" : "") +
-    '<section id="appearance">' +
+    // On the cat page the Coat panel supplies the #appearance anchor before its heading.
+    (heading ? '<section id="appearance">' : "<section>") +
     `<p class="coatsummary"><b>${esc(title)}</b>${origin ? ` <span class="meta">${esc(origin)}</span>` : ""}</p>` +
     appearanceNotice(lang, done) +
     (done && DRAWN_AFTER.has(done) && parts

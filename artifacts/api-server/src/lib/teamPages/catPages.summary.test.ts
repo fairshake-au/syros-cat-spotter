@@ -249,7 +249,7 @@ describe("the layout, page order and tab row (SYC-602 Task 1.5, SYC-655)", () =>
 
     it("keeps the full list in its own Reports section after the photos", () => {
       const html = page(richCatView(), { issues: { total: 1, reports: [rep("i1", "new", "2026-10-15T09:00:00Z")] } });
-      const sec = html.indexOf('<section id="issue-strip"');
+      const sec = html.indexOf('<section class="issues"');
       expect(sec).toBeGreaterThan(html.indexOf('id="photos"'));
       expect(html).toContain('<h2 id="h-reports">Reports (1)</h2>');
     });
