@@ -256,10 +256,10 @@ form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12p
 .catfacts a:has(.colourchip){text-decoration:none}
 .publicline{font-size:14px;color:#3b3930;margin:8px 0 16px}
 .publicline .public{display:inline;background:none;border:0;padding:0;font-weight:400}
-/* The cat page's header card (SYC-655 spec §2): one column on a phone, in the page's order; three areas from 1000px. */
-.catcard{background:#fff;border:1px solid #d9d5ca;border-radius:14px;padding:16px;display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:12px 0 0}
-.catcard>*{min-width:0}
-.catcard .openreports{margin:0}
+/* The cat page's header card (SYC-655 spec §2). Scoped to div.catcard: the Cats grid cards are li.catcard. One column on a phone, in the page's order; three areas from 1000px. */
+div.catcard{background:#fff;border:1px solid #d9d5ca;border-radius:14px;padding:16px;display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:12px 0 0}
+div.catcard>*{min-width:0}
+div.catcard .openreports{margin:0}
 .cardphoto a.photo{position:relative;display:block;max-height:none;margin:0;background:none;text-decoration:none;color:inherit}
 .cardphoto img.photo.catmain{display:block;width:100%;max-width:none;max-height:none;aspect-ratio:4/3;object-fit:cover;margin:0;border-radius:10px}
 .cardphoto .nophoto{display:flex;align-items:center;justify-content:center;aspect-ratio:4/3;margin:0;border-radius:10px}
@@ -565,10 +565,10 @@ a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;tex
 .cardimg.nothumb{display:flex;align-items:center;justify-content:center}
 .cardname strong{color:#0b5c6b;text-decoration:underline;font-size:16px}
 .cardfact{display:block;font-size:14px;font-weight:400;text-align:left;color:#3b3930}
-.catcard .tag{align-self:flex-start;font-size:13px}
-.catcard form{margin:0}
-.catcard .hint{margin:0}
-.catcard .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;width:100%}
+li.catcard .tag{align-self:flex-start;font-size:13px}
+li.catcard form{margin:0}
+li.catcard .hint{margin:0}
+li.catcard .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;width:100%}
 .paging{margin:8px 0}
 /* The Colonies list's progress and flags (SYC-396 PR 2.2). */
 .colonylist .catrow>span{display:block;flex:1;min-width:0}
@@ -672,9 +672,9 @@ details.filters>summary{display:none}
 }
 /* A big screen: the cat page's header card has the photo (200px square), the cat and the buttons side by side; the open-reports box spans the top. */
 @media (min-width:1000px){
-.catcard{grid-template-columns:200px minmax(0,1fr) 260px;align-items:start;gap:16px 24px}
-.catcard.noactions{grid-template-columns:200px minmax(0,1fr)}
-.catcard>.openreports{grid-column:1/-1}
+div.catcard{grid-template-columns:200px minmax(0,1fr) 260px;align-items:start;gap:16px 24px}
+div.catcard.noactions{grid-template-columns:200px minmax(0,1fr)}
+div.catcard>.openreports{grid-column:1/-1}
 .cardphoto img.photo.catmain,.cardphoto .nophoto{width:200px;height:200px;aspect-ratio:1}
 .catfacts{grid-template-columns:repeat(3,minmax(0,1fr))}
 .catmap .mapband.b256{display:none}

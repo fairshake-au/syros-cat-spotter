@@ -20,7 +20,7 @@ const withPhotos = (photos = fivePhotos(), main: string | null = "/p1.jpg") =>
   catView({ cat: { mainPhotoUrl: main }, photos, sightings: richCatView().sightings } as never);
 /** The header card: from its opening tag to the first tab or the end of the actions. */
 const cardOf = (html: string) => {
-  const at = html.indexOf('<div class="catcard"');
+  const at = html.indexOf('<div class="catcard');
   expect(at, "no .catcard").toBeGreaterThan(-1);
   return html.slice(at, html.indexOf("</main>"));
 };
@@ -39,7 +39,9 @@ describe("the header card (SYC-655 Task 2)", () => {
   });
 
   it("orders the card: open reports, photo, name, SYR line, facts, description, public line, actions", () => {
-    const html = page(withPhotos(), { may, colonies: [], issues: { total: 1, reports: [report] } });
+    const v = withPhotos();
+    v.cat.description = "Grey tabby with white paws.";
+    const html = page(v, { may, colonies: [], issues: { total: 1, reports: [report] } });
     const card = cardOf(html);
     const marks = [
       'class="openreports"',
@@ -106,7 +108,7 @@ describe("the header card (SYC-655 Task 2)", () => {
       const card = cardOf(page(withPhotos(photos)));
       expect(card).toMatch(/<img class="photo catmain ishidden"/);
       const clear = cardOf(page(withPhotos()));
-      expect(clear).not.toContain("ishidden");
+      expect(clear).not.toMatch(/<img class="photo catmain ishidden"/);
     });
   });
 
@@ -139,7 +141,7 @@ describe("the header card (SYC-655 Task 2)", () => {
     const before = (html: string, needle: string) => {
       const n = html.indexOf(needle);
       expect(n, needle).toBeGreaterThan(-1);
-      expect(n, needle).toBeLessThan(html.indexOf('<div class="catcard"'));
+      expect(n, needle).toBeLessThan(html.indexOf('<div class="catcard'));
     };
 
     it("the death notice, the guardian mark and the hidden-main-photo note", () => {
@@ -166,7 +168,7 @@ describe("the header card (SYC-655 Task 2)", () => {
     it("keeps the photo notice beside its photo when the photo is on the page", () => {
       const html = page(withPhotos(), { may, done: "hidden", photo: "p2" });
       expect(html.match(/Hidden\. The public no longer sees this photo/g)).toHaveLength(1);
-      expect(html.indexOf("Hidden. The public no longer sees this photo")).toBeGreaterThan(html.indexOf('<div class="catcard"'));
+      expect(html.indexOf("Hidden. The public no longer sees this photo")).toBeGreaterThan(html.indexOf('<div class="catcard'));
     });
   });
 
@@ -189,7 +191,7 @@ describe("the header card (SYC-655 Task 2)", () => {
       actions: '<div class="fixes" id="corrections"></div>',
     });
     expect(out.heading).toMatch(/^<div class="nameline"><h1>Tiger<\/h1>/);
-    expect(out.card.startsWith('<div class="catcard"')).toBe(true);
+    expect(out.card.startsWith('<div class="catcard')).toBe(true);
     expect(out.card).toContain(out.heading);
     expect(out.card).toContain('<div class="catactions"><div class="fixes" id="corrections">');
   });

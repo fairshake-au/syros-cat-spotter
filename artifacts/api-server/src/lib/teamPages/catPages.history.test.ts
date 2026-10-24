@@ -190,14 +190,14 @@ describe("cat page layout", () => {
     expect(html).toContain('<h2 id="photos">Photos (2)</h2>');
   });
 
-  it("puts the summary beside the forms in catsummary when the person may correct (spec §7.1–7.2)", () => {
+  it("puts the buttons after the facts, in the header card (SYC-655 spec §2)", () => {
     const html = renderCatPage(view(1), "Sam", { may });
     expect(html).not.toContain("twocol");
-    expect(html).toContain('<div class="catsummary">');
+    expect(html).not.toContain("catsummary");
     expect(html).toContain('<div class="catactions"><div class="fixes" id="corrections">');
     // The facts (headed "What we know about this cat") first, then the forms.
-    const summary = html.indexOf('<div class="catsummary">');
-    expect(html.indexOf('class="catfacts kf"')).toBeGreaterThan(summary);
+    const card = html.indexOf('<div class="catcard');
+    expect(html.indexOf('class="catfacts kf"')).toBeGreaterThan(card);
     expect(html.indexOf('id="corrections"')).toBeGreaterThan(html.indexOf('class="catfacts kf"'));
     expect(html.indexOf("What we know about this cat")).toBeLessThan(html.indexOf('id="corrections"'));
   });
