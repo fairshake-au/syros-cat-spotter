@@ -912,7 +912,12 @@ describe("the Appearance section on the team cat page", () => {
     for (const bad of ["Tortoiseshell or calico", "black_and_white", "undefined", "not_sure", "null"]) {
       expect(section, bad).not.toContain(bad);
     }
-    expect(withoutHints(section).replace(/brown and ginger tabby/gi, "")).not.toMatch(/tabby|calico|tortoiseshell/);
+    // The team's own phrase "Brown and ginger tabby" now heads the fold (heading and
+    // summary, SYC-602 §3.7); take out exactly those two and nothing else.
+    const withoutPhrase = withoutHints(section)
+      .replace("<h3>Coat: brown and ginger tabby</h3>", "")
+      .replace(/<summary><b>[^<]*<\/b>/, "");
+    expect(withoutPhrase).not.toMatch(/tabby|calico|tortoiseshell/);
     // The Correct form offers the five colours, ticked as they stand.
     expect(section).toContain('name="colours" value="brown" checked');
     expect(section).toContain('name="colours" value="ginger" checked');

@@ -437,9 +437,15 @@ function coatPhrase(lang: string | undefined, a: TeamAppearance): string | null 
   return coatIsUnknown(coat) ? null : coatWordsFor(lang, coat);
 }
 
+/**
+ * The changes the fold lists a "Mark wrong" for. History's link to the fold
+ * asks the same question, so it never points at a button that isn't there.
+ */
+export const markWrongInFold = (s: TeamAppearanceStatement) => s.counts && s.markable;
+
 /** "Mark wrong" for each change that counts, with the photo it was read from. */
 function markableChanges(lang: string | undefined, a: TeamAppearance, mayChange: boolean): string {
-  const rows = mayChange ? a.statements.filter((s) => s.counts && s.markable) : [];
+  const rows = mayChange ? a.statements.filter(markWrongInFold) : [];
   if (rows.length === 0) return "";
   return (
     '<ul class="history coatchanges">' +
@@ -608,12 +614,12 @@ function checkRow(lang: string | undefined, c: ColourCheckCat, inline: boolean):
     : "";
   return (
     `<li class="report colourcheck" id="c-${c.catId}">` +
-    `<a class="catrow" href="/api/team/cats/${c.catId}#appearance">${thumb}` +
+    `<a class="catrow" href="/api/team/cats/${c.catId}?open=coat#appearance">${thumb}` +
     `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span>` +
     `<span class="status">${esc(line)}</span></span></a>` +
     reasonList(lang, c.reasons) +
     `<div class="fixes appfix">${confirms}${corrects}</div>` +
-    `<p><a class="tap" href="/api/team/cats/${c.catId}#appearance">${esc(tr(lang, "colourCheck.openCat"))}</a></p>` +
+    `<p><a class="tap" href="/api/team/cats/${c.catId}?open=coat#appearance">${esc(tr(lang, "colourCheck.openCat"))}</a></p>` +
     "</li>"
   );
 }

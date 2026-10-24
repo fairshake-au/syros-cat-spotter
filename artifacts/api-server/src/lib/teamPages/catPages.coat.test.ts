@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderCatPage } from "./catPages";
+import { renderColourCheckPage } from "./appearancePage";
 import { catView } from "./__fixtures__/catView";
 import type { TeamAppearance, TeamAppearanceStatement } from "../teamCatView";
 
@@ -181,5 +182,19 @@ describe("the Coat and markings fold (SYC-602 Task 3.2)", () => {
     const html = page();
     expect(html).toContain('href="#appearance">Coat and markings</a>');
     expect((html.match(/id="appearance"/g) ?? []).length).toBe(1);
+  });
+
+  it("the Colour check links open the fold", () => {
+    const cat = {
+      catId: 7, name: "Tiger", syr: "SYR-0007", group: "check", reasons: ["tied_camps"], photoUrl: null,
+      coatColours: ["grey"], coatPattern: "stripes", markings: [], above: { coat: [], markings: [] },
+    };
+    const html = renderColourCheckPage([cat] as never, "Sam");
+    expect(html.match(/href="\/api\/team\/cats\/7\?open=coat#appearance"/g)).toHaveLength(2);
+    expect(html).not.toContain('/cats/7#appearance');
+  });
+
+  it("the page opened with openCoat has the fold open", () => {
+    expect(foldOpening(page(view(), { openCoat: true }))).toBe('<details class="fold" id="appearance" open>');
   });
 });
