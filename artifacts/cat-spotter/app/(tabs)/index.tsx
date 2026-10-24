@@ -177,7 +177,8 @@ export default function HomeScreen() {
                 {t('homeFirstSpotCta')}
               </Button>
             </View>
-          ) : (
+          ) : hero === 'unknown' && totalCats === 0 ? null : (
+            // SYC-508: with nothing loaded, "— of 0 cats spotted" isn't true.
             <View style={styles.progressBlock}>
               <View style={styles.progressLine}>
                 <Text style={styles.progressValue}>{knownSpotted ?? dash}</Text>

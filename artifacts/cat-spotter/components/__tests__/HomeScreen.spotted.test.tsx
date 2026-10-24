@@ -220,6 +220,14 @@ describe('SYC-508: Home when something fails to load, and before the first spot'
     expect(h.retry).toHaveBeenCalledTimes(1);
   });
 
+  it('nothing known at all: no "of 0 cats spotted" line', () => {
+    h.cats = [];
+    h.loadFailed = true;
+    h.isError = true;
+    render(<HomeScreen />);
+    expect(screen.queryByText('homeOfNCats')).toBeNull();
+  });
+
   it('really no cats: still "noCats"', () => {
     h.cats = [];
     render(<HomeScreen />);
