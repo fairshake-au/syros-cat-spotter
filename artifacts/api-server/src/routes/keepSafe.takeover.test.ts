@@ -314,6 +314,26 @@ describe("2. a replayed link", () => {
     expect(await storedHash(old.id)).toBe(hashAfter);
   });
 
+  it("SYC-664 ship N-2: a generous per-network limit sits in front of the replay check: the 121st request in an hour gets too_many_tries; another network is unaffected (M)", async () => {
+    const ip = freshIp();
+    const junk = (from: string) =>
+      request(app)
+        .post("/api/restore/redeem")
+        .set("X-Device-Secret", "junk-secret-junk-secret")
+        .set("X-Forwarded-For", from)
+        .send({ deviceId: `${P}-junk`, token: "A".repeat(43), choice: "c".repeat(24), replayOnly: true });
+    for (let i = 0; i < 120; i++) {
+      const r = await junk(ip);
+      expect(r.body).not.toEqual({ error: "too_many_tries" });
+    }
+    const over = await junk(ip);
+    expect(over.status).toBe(429);
+    expect(over.body).toEqual({ error: "too_many_tries" });
+    const elsewhere = await junk(freshIp());
+    expect(elsewhere.status).toBe(401);
+    expect(elsewhere.body).toEqual({ error: "link_not_valid" });
+  });
+
   it("SYC-664 ship N-1: replayOnly with no move behind it is refused and moves (or deletes) nothing; the link still works after (M)", async () => {
     const email = newAddress();
     const old = await keptSafe(email);

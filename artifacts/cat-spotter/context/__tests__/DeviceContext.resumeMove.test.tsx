@@ -182,6 +182,17 @@ describe('a reload mid-move (I1)', () => {
     expect(result.current.moved).toBe(false);
   });
 
+  it('SYC-664 ship N-2: the replay limiter\'s 429 (too_many_tries) is retried like any 429, then adopts', async () => {
+    pending(5_000);
+    redeem
+      .mockRejectedValueOnce(apiError(429, 'too_many_tries'))
+      .mockResolvedValueOnce({ deviceId: 'dev-lili', username: 'Lili' });
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(redeem).toHaveBeenCalledTimes(2);
+    expect(result.current.deviceId).toBe('dev-lili');
+  });
+
   it('SYC-664 ship F1 (a): only 429s at start-up: the move is kept for the next try', async () => {
     pending(5_000);
     redeem.mockRejectedValue(apiError(429, 'link_not_valid'));

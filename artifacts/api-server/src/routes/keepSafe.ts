@@ -95,6 +95,18 @@ const linkLimiter = (bucket: string) =>
   });
 const peekLimiter = linkLimiter("keep_safe_peek");
 const redeemLimiter = linkLimiter("keep_safe_redeem");
+// SYC-664 ship review N-2: the same-phone replay (a database lookup) runs
+// before `redeemLimiter` so a phone finishing its own move is never told 429
+// by it. This separate, generous per-network cap sits in front of the replay,
+// so no request reaches the database unlimited. 120 an hour is four times
+// the redeem limit: a phone retrying its own move never gets near it. The app
+// treats any 429 as "try again later", never as a refusal.
+const replayLimiter = sharedLimiter({
+  bucket: "keep_safe_replay",
+  windowMs: 60 * 60 * 1000,
+  limit: 120,
+  message: TOO_MANY_TRIES,
+});
 // SYC-664: a per-network cap in front of /restore/code, on top of the
 // per-phone hour counted inside the handler (which needs the verified phone,
 // so it can't be a middleware). Sixty an hour: a whole family on one
@@ -261,7 +273,7 @@ async function samePhoneReplay(req: Request, res: Response, next: NextFunction):
   next();
 }
 
-router.post("/restore/redeem", samePhoneReplay, redeemLimiter, async (req, res) => {
+router.post("/restore/redeem", replayLimiter, samePhoneReplay, redeemLimiter, async (req, res) => {
   noStore(res);
   const body = (req.body ?? {}) as Record<string, unknown>;
   const raw = body["token"];
