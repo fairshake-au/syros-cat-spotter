@@ -125,10 +125,10 @@ const pure = (over: Partial<HomeDeps> = {}): Partial<HomeDeps> => ({
 
 describe("Needs us now", () => {
   it("an urgent report comes before a newer 'needs attention' one (the queue's own order)", async () => {
-    const before = (await homeData(NOW)).needs;
+    const before = (await homeData(NOW)).needs.reports;
     const urgent = await seedReport({ publicId: pid("urgent"), severity: "urgent", sentMinutesAgo: 60 });
     const newer = await seedReport({ publicId: pid("newer"), severity: "attention", sentMinutesAgo: 1 });
-    const after = (await homeData(NOW)).needs;
+    const after = (await homeData(NOW)).needs.reports;
     expect(before.ok && after.ok).toBe(true);
     if (!before.ok || !after.ok) return;
     const total = (n: typeof after.value) => n.linesTotal + n.otherOpen;
@@ -148,18 +148,18 @@ describe("Needs us now", () => {
       fakeReport("urgent-10", { severity: "urgent", at: at(10) }),
     ];
     const d = await homeData(NOW, pure({ listWelfareQueue: async () => fakeQueue({ open }) }));
-    expect(d.needs.ok).toBe(true);
-    if (!d.needs.ok) return;
-    expect(d.needs.value.lines.map((r) => r.id)).toEqual(["urgent-10", "urgent-09", "litter-11"]);
-    expect(d.needs.value.linesTotal).toBe(3);
-    expect(d.needs.value.otherOpen).toBe(1);
+    expect(d.needs.reports.ok).toBe(true);
+    if (!d.needs.reports.ok) return;
+    expect(d.needs.reports.value.lines.map((r) => r.id)).toEqual(["urgent-10", "urgent-09", "litter-11"]);
+    expect(d.needs.reports.value.linesTotal).toBe(3);
+    expect(d.needs.reports.value.otherOpen).toBe(1);
   });
 
   it("an urgent litter report is one line, counted once", async () => {
     const open = [fakeReport("both", { severity: "urgent", isLitter: true })];
     const d = await homeData(NOW, pure({ listWelfareQueue: async () => fakeQueue({ open }) }));
-    expect(d.needs.ok && d.needs.value.lines.map((r) => r.id)).toEqual(["both"]);
-    expect(d.needs.ok && [d.needs.value.linesTotal, d.needs.value.otherOpen]).toEqual([1, 0]);
+    expect(d.needs.reports.ok && d.needs.reports.value.lines.map((r) => r.id)).toEqual(["both"]);
+    expect(d.needs.reports.ok && [d.needs.reports.value.linesTotal, d.needs.reports.value.otherOpen]).toEqual([1, 0]);
   });
 
   it("seven lines of kind cap at five; linesTotal 7; otherOpen excludes them", async () => {
@@ -169,12 +169,12 @@ describe("Needs us now", () => {
       fakeReport("plain-b"),
     ];
     const d = await homeData(NOW, pure({ listWelfareQueue: async () => fakeQueue({ open }) }));
-    expect(d.needs.ok).toBe(true);
-    if (!d.needs.ok) return;
+    expect(d.needs.reports.ok).toBe(true);
+    if (!d.needs.reports.ok) return;
     expect(HOME_LINES_LIMIT).toBe(5);
-    expect(d.needs.value.lines.map((r) => r.id)).toEqual(["u0", "u1", "u2", "u3", "u4"]);
-    expect(d.needs.value.linesTotal).toBe(7);
-    expect(d.needs.value.otherOpen).toBe(2);
+    expect(d.needs.reports.value.lines.map((r) => r.id)).toEqual(["u0", "u1", "u2", "u3", "u4"]);
+    expect(d.needs.reports.value.linesTotal).toBe(7);
+    expect(d.needs.reports.value.otherOpen).toBe(2);
   });
 
   it("counts the reports waiting for a check apart: they are not in the open total", async () => {
@@ -183,10 +183,10 @@ describe("Needs us now", () => {
       unchecked: { reports: [], reportsTotal: 3, drafts: [], draftsTotal: 0 },
     });
     const d = await homeData(NOW, pure({ listWelfareQueue: async () => q }));
-    expect(d.needs.ok).toBe(true);
-    if (!d.needs.ok) return;
-    expect(d.needs.value.unchecked).toBe(3);
-    expect(d.needs.value.linesTotal + d.needs.value.otherOpen).toBe(2);
+    expect(d.needs.reports.ok).toBe(true);
+    if (!d.needs.reports.ok) return;
+    expect(d.needs.reports.value.unchecked).toBe(3);
+    expect(d.needs.reports.value.linesTotal + d.needs.reports.value.otherOpen).toBe(2);
   });
 
   it("SYC-519: Home asks the queue for no drafts and carries none", async () => {
@@ -201,10 +201,10 @@ describe("Needs us now", () => {
       }),
     );
     expect(asked).toEqual([{ drafts: false }]);
-    expect(d.needs.ok).toBe(true);
-    if (!d.needs.ok) return;
-    expect(d.needs.value).not.toHaveProperty("drafts");
-    expect(d.needs.value).not.toHaveProperty("draftsTotal");
+    expect(d.needs.reports.ok).toBe(true);
+    if (!d.needs.reports.ok) return;
+    expect(d.needs.reports.value).not.toHaveProperty("drafts");
+    expect(d.needs.reports.value).not.toHaveProperty("draftsTotal");
   });
 
   it("a 'Report an issue' row raises the open issues by one; a done one and a draft don't", async () => {
@@ -267,10 +267,8 @@ describe("Cats to check", () => {
     const d = await homeData(NOW);
     const likely = await listLikelyForReview(NOW);
     const colour = await listColourCheck(NOW);
-    expect(d.toCheck.ok).toBe(true);
-    if (!d.toCheck.ok) return;
-    expect(d.toCheck.value.earClips).toBe(likely.length);
-    expect(d.toCheck.value.colour).toBe(colour.filter((c) => c.group === "check").length);
+    expect(d.toCheck.earClips).toEqual({ ok: true, value: likely.length });
+    expect(d.toCheck.colour).toEqual({ ok: true, value: colour.filter((c) => c.group === "check").length });
   });
 
   it("toCheck is counts only", async () => {
@@ -281,7 +279,7 @@ describe("Cats to check", () => {
       { catId: 3, group: "not_described", photoUrl: "/api/team/photos/c3" },
     ] as unknown as ColourCheckCat[];
     const d = await homeData(NOW, pure({ listLikelyForReview: async () => likely, listColourCheck: async () => colour }));
-    expect(d.toCheck).toEqual({ ok: true, value: { earClips: 6, colour: 2 } });
+    expect(d.toCheck).toEqual({ earClips: { ok: true, value: 6 }, colour: { ok: true, value: 2 } });
   });
 });
 
@@ -366,7 +364,7 @@ describe("Where to trap next", () => {
       visible,
     );
     expect(d.trapNext.ok).toBe(false);
-    expect(d.needs.ok && d.headline.ok && d.toCheck.ok && d.month.ok).toBe(true);
+    expect(d.needs.reports.ok && d.headline.ok && d.toCheck.earClips.ok && d.month.ok).toBe(true);
   });
 });
 
@@ -452,15 +450,56 @@ describe("This month", () => {
 });
 
 describe("one failing figure doesn't take Home down (§13)", () => {
+  const boom = async () => {
+    throw new Error("down");
+  };
+  const states = (d: Awaited<ReturnType<typeof homeData>>) =>
+    [d.needs.reports, d.needs.issuesOpen, d.needs.awaitingMatch, d.toCheck.earClips, d.toCheck.colour].map((x) => x.ok);
+
+  // SYC-484: each Today figure has its own guard, so one that throws leaves the rest.
+  it.each([
+    ["the report lines", { listWelfareQueue: boom }, [false, true, true, true, true]],
+    ["open issues", { countOpenIssues: boom }, [true, false, true, true, true]],
+    ["sightings to match", { countAwaitingMatch: boom }, [true, true, false, true, true]],
+    ["ear clips", { listLikelyForReview: boom }, [true, true, true, false, true]],
+    ["the colour check", { listColourCheck: boom }, [true, true, true, true, false]],
+  ] as const)("a failing %s fails only itself", async (_name, over, expected) => {
+    const d = await homeData(NOW, pure(over as Partial<HomeDeps>));
+    expect(states(d)).toEqual(expected);
+    expect([d.headline.ok, d.month.ok]).toEqual([true, true]);
+  });
+
+  it("Where to trap next counts street cats across the colonies (SYC-620)", async () => {
+    const f = (id: number, street: number) => ({
+      colonyId: id, street, split: { sterilised: street, probably: 0, not_known: 0, not_sterilised: 0 },
+      confirmedPct: 100, catCount: street, latestSightingAt: null, flags: [], guardianNames: [],
+    });
+    const d = await homeData(
+      NOW,
+      pure({
+        colonyFigures: async () => new Map([[1, f(1, 4)], [2, f(2, 3)]]),
+        allColonyChoices: async () => [{ id: 1, name: "A" }, { id: 2, name: "B" }] as never,
+      }),
+      { ids: null } as never,
+    );
+    expect(d.trapNext.ok && [d.trapNext.value.colonyCount, d.trapNext.value.colonyStreet, d.trapNext.value.colonies.length]).toEqual([2, 7, 0]);
+  });
+
+  it("Home asks for the lean colony figures: no guardian names, no Growing check (SYC-620)", async () => {
+    const asked: unknown[] = [];
+    await homeData(NOW, pure({ colonyFigures: async (_v, opts) => (asked.push(opts.lean), new Map()) }), { ids: null } as never);
+    expect(asked).toEqual([true]);
+  });
+
   it("a failing queue fails only Needs us now", async () => {
     const d = await homeData(NOW, pure({ listWelfareQueue: async () => { throw new Error("queue down"); } }));
-    expect(d.needs).toEqual({ ok: false });
-    expect([d.toCheck.ok, d.headline.ok, d.month.ok]).toEqual([true, true, true]);
+    expect(d.needs.reports).toEqual({ ok: false });
+    expect([d.toCheck.earClips.ok, d.headline.ok, d.month.ok]).toEqual([true, true, true]);
   });
 
   it("failing cats fail only the sections built on them", async () => {
     const d = await homeData(NOW, pure({ loadTeamCats: async () => { throw new Error("cats down"); } }), { ids: null } as never);
-    expect([d.needs.ok, d.toCheck.ok]).toEqual([true, true]);
+    expect([d.needs.reports.ok, d.toCheck.earClips.ok]).toEqual([true, true]);
     expect([d.trapNext.ok, d.headline.ok, d.month.ok]).toEqual([false, false, false]);
   });
 });
