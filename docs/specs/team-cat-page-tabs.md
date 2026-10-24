@@ -21,16 +21,15 @@ One white card at the top of the page holds everything about who the cat is.
 
 **Inside the card, on a desktop (from 1000px), three areas side by side:**
 
-1. **The photo** (200px square) with the strip of up to four more under it. Hidden photos stay dimmed, as SYC-602 built.
+1. **The photo** (200px square), labelled "5 photos" and linking to the Photos tab (§5).
 2. **The cat:**
-   - the name;
+   - the name, with the sterilisation mark beside it;
    - the SYR line ("on our records since …");
-   - the status line;
    - then every fact from the facts panel, laid out as a grid of three columns. Each fact keeps its grey source line and its "Why we think so".
    Health note and Owner, when shown, each take a full row of the grid, because their text is long. Below the facts, still in the card, go the cat's description and the "What the public sees" line.
 3. **The actions:** Log a vet visit, Update this cat ▾, Add a note, and This cat has died, as SYC-602 built them. Under them goes the amber open-reports box, when there is one.
 
-**On a phone** the card is one column, in this order: photo and strip, name and status line, facts (one column), description and public line, buttons, open-reports box. That matches decision D2: the buttons come straight after the facts.
+**On a phone** the card is one column, in this order: photo, name, facts (one column), description and public line, buttons, open-reports box. That matches decision D2: the buttons come straight after the facts.
 
 **Notices stay above the card,** never inside a tab: the cat guardian's recent mark, the death notice, and the hidden-main-photo note.
 
@@ -82,7 +81,22 @@ There's no reload and no script. Every link that already points into this page k
 - Keyboard: tabs are reachable in order, and focus shows. Screen readers hear "History, current" for the open tab.
 - Screenshots at 390px and 1280px: the default page, each tab open, the read-only viewer, and the bare cat.
 
-## 5. Calls made here (check these while reading)
+## 5. Nothing shown twice (decided by Samuel, 24 Oct 2026)
+
+Samuel asked whether the new design shows anything twice, and chose to remove all four real duplications:
+
+1. **No status line.** The one-line summary under the name ("Probably sterilised · Lives on the street · colony · Last seen") goes. The facts grid right below says the same. The sterilisation mark moves beside the cat's name, so the most important fact still shows at a glance. This overrides §2's "the status line" and SYC-602 §3.1's status line.
+2. **No photo strip.** The main photo carries a "5 photos" label and links to the Photos tab. When the main photo is hidden, the hidden-main-photo notice still says so.
+3. **Coat changes live in Coat and markings.** History shows each coat or markings change as one line ("Coat changed to grey tabby · Maria") linking to `#appearance`, with no ⋯ menu of its own. The full entry, with its photo and its Mark wrong, is only in the Coat and markings tab. This replaces SYC-602 §3.5's "the row's ⋯ menu links there".
+4. **History's first filter says "All",** without repeating the count that's already on the tab.
+
+These stay on purpose, because they're a short summary at the top with the full record below:
+- **Reports:** the amber open-report box, and the Reports tab.
+- **The Health note fact,** and the note's entry in History.
+- **The Sterilised and Vaccinated facts,** and the vet visit in History.
+- **The coat chip in the facts,** and the Coat and markings tab.
+
+## 6. Calls made here (check these while reading)
 
 - **Tabs are links with CSS, not reloads.** Every existing link keeps working and lands on the right tab with no change on the server. The cost is that the whole page still loads at once, as today.
 - **The mockup's "Health and vet" tab is dropped.** The Health note is in the header facts, and History's "Vet visits" filter lists the visits. A separate tab would show the same things twice.
