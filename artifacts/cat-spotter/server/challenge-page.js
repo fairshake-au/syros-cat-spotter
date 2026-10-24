@@ -22,6 +22,9 @@ const TEST_SITEKEY = '1x00000000000000000000AA';
 // The production sitekey is public (it is sent to every browser), so it is
 // kept in code as the fallback: the same constant as lib/turnstileConfig.ts
 // (serve-web.test.ts keeps the two equal). TURNSTILE_SITEKEY still wins.
+// This page never looks at the host it was opened on, so it serves the same
+// key on apptest.catspotters.com and syros.catspotters.com (SYC-662); Cloudflare
+// itself checks the host against the widget's hostname list.
 const PRODUCTION_SITEKEY = '0x4AAAAAAFXDA4oOu3qZurFj';
 
 /** Returns {action, cdata} or null if the query is not acceptable. */

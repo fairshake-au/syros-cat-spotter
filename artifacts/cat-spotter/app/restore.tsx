@@ -313,6 +313,8 @@ export default function RestorePage() {
               variant="primary"
               size="lg"
               block
+              // A long name wraps instead of being cut off (SYC-290).
+              wrapLabel
               // Not until the person has said what happens to the spotter being left.
               disabled={Boolean(username) && !choice}
               onPress={() => move(s)}
