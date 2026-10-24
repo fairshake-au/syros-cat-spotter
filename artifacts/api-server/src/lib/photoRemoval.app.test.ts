@@ -121,6 +121,17 @@ describe("T10: restoring a removed photo is refused (spec §6 item 2)", () => {
     expect(await countEvents(cat.photoId)).toBe(before);
   });
 
+  it("form: the removal date is the Syros day, not the UTC day (SYC-637)", async () => {
+    const cat = await seedCat(null);
+    await markRemoved(cat.photoId, staff.id);
+    // 22:30 UTC on 10 Oct is already 11 Oct on the island.
+    await db.update(photosTable).set({ removedAt: new Date("2026-10-10T22:30:00Z") }).where(eq(photosTable.id, cat.photoId));
+    const r = await post(`/api/team/photos/${cat.photoPublicId}/restore`, staff.cookie)
+      .type("form")
+      .send({ cat: String(cat.id) });
+    expect(r.text).toContain("removed for good on 2026-10-11.");
+  });
+
   it("hiding a removed photo again writes nothing (it is hidden already)", async () => {
     const cat = await seedCat(null);
     await hidePhoto(cat.photoId);

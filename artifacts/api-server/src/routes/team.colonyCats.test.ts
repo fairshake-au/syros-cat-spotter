@@ -144,9 +144,16 @@ const allStatements = (catId: number) =>
     .where(eq(observationsTable.catId, catId))
     .orderBy(asc(observationsTable.id));
 
-/** Moves a cat with the form the cat page uses; returns the response. */
+/**
+ * Moves a cat with the form the cat page uses; returns the response. A take-out
+ * is sent as the "Yes" tap on the confirm page (SYC-520), i.e. with confirm=1.
+ */
 const moveCat = (catId: number, colonyId: number | "none", extra: Record<string, string> = {}) =>
-  post(`/api/team/cats/${catId}/colony`, { colonyId: String(colonyId), ...extra });
+  post(`/api/team/cats/${catId}/colony`, {
+    colonyId: String(colonyId),
+    ...(colonyId === "none" ? { confirm: "1" } : {}),
+    ...extra,
+  });
 
 const addCats = (colonyId: number, ids: number[]) =>
   post(`/api/team/colonies/${colonyId}/cats`, { catIds: ids.map(String) });
@@ -448,6 +455,24 @@ describe("test 15 (team half): the team's cat page and moving a cat", () => {
 });
 
 describe("test 15 (team half): taking a cat out of a colony", () => {
+  it("SYC-520: a form take-out asks 'Are you sure?' first and writes nothing; Yes then writes", async () => {
+    const colony = await makeColony(unique("Asker"));
+    const cat = await seedCat("Asker-cat");
+    await moveCat(cat, colony);
+    const ask = await post(`/api/team/cats/${cat}/colony`, { colonyId: "none", from: String(colony) });
+    expect(ask.status).toBe(200);
+    const page = decoded(ask.text);
+    expect(page).toContain("out of this colony?");
+    expect(page).toContain('name="confirm" value="1"');
+    expect(page).toContain(`name="from" value="${colony}"`);
+    expect(page).toContain(`href="/api/team/colonies/${colony}"`);
+    expect(await colonyStatements(cat)).toHaveLength(1);
+    // Yes posts the same fields with confirm=1.
+    const yes = await post(`/api/team/cats/${cat}/colony`, { colonyId: "none", from: String(colony), confirm: "1" });
+    expect(yes.status).toBe(303);
+    expect(await colonyStatements(cat)).toHaveLength(2);
+  });
+
   it("writes { colonyId: null }, and the earlier statement stays visible in the history", async () => {
     const colony = await makeColony(unique("Leaver"));
     const cat = await seedCat("Leaver-cat");
