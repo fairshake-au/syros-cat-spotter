@@ -250,7 +250,12 @@ describe("carry-back, end to end (test 4)", () => {
           "home_lng",
         ],
       },
-      { table: "sightings", columns: ["redacted_at", "redaction_reason"] },
+      // SYC-706's place stamp (0044): Neon only too. 0044's trigger lets a
+      // row with no stamp be stamped once later.
+      {
+        table: "sightings",
+        columns: ["redacted_at", "redaction_reason", "area_key", "on_island"],
+      },
     ]);
     expect(dry.baseline).toEqual({ status: "ok", changedTables: [] });
     // The dry run changed nothing.
