@@ -54,13 +54,13 @@ export const CAT_TABS_CSS = `.cattabs{position:sticky;top:env(safe-area-inset-to
 .catpanel{display:none}
 .catpanel:target,.catpanel:has(:target){display:block}
 main${NONE_OPEN} #tab-history{display:block}
-main:has(${open("history")}) a[href="#tab-history"],main${NONE_OPEN} a[href="#tab-history"]{background:#0b4553;border-color:#0b4553;color:#fff}
-main:has(${open("history")}) a[href="#tab-history"]::after,main${NONE_OPEN} a[href="#tab-history"]::after{content:"" / ", open"}
+main:has(${open("history")}) .cattabs a[href="#tab-history"],main${NONE_OPEN} .cattabs a[href="#tab-history"]{background:#0b4553;border-color:#0b4553;color:#fff}
+main:has(${open("history")}) .cattabs a[href="#tab-history"]::after,main${NONE_OPEN} .cattabs a[href="#tab-history"]::after{content:"" / ", open"}
 ${CAT_TAB_IDS.filter((id) => id !== "history")
   .map(
     (id) =>
-      `main:has(${open(id)}) a[href="#tab-${id}"]{background:#0b4553;border-color:#0b4553;color:#fff}\n` +
-      `main:has(${open(id)}) a[href="#tab-${id}"]::after{content:"" / ", open"}`,
+      `main:has(${open(id)}) .cattabs a[href="#tab-${id}"]{background:#0b4553;border-color:#0b4553;color:#fff}\n` +
+      `main:has(${open(id)}) .cattabs a[href="#tab-${id}"]::after{content:"" / ", open"}`,
   )
   .join("\n")}
 }`;

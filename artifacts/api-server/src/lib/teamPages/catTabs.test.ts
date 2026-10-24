@@ -205,3 +205,15 @@ describe("the tab CSS", () => {
     expect(css()).not.toContain(".catmap .mapband.b256{display:none}");
   });
 });
+
+describe("the selected tab's CSS", () => {
+  it("draws only the tab-row links as selected, never another link to the same panel", () => {
+    const css = sheet(page(withFive(), { issues }));
+    const rules = css.slice(css.indexOf("@supports selector(:has(a))"));
+    // Every rule that restyles a link to a panel, or adds ", open", names .cattabs.
+    const all = rules.match(/a\[href="#tab-/g) ?? [];
+    const scoped = rules.match(/\.cattabs a\[href="#tab-/g) ?? [];
+    expect(all.length).toBeGreaterThanOrEqual(10);
+    expect(scoped).toHaveLength(all.length);
+  });
+});
