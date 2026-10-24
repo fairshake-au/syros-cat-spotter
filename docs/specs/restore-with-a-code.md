@@ -1,7 +1,7 @@
 # Get your spots back with a code
 
 Ticket: SYC-664. Builds on SYC-3 ("Keep my spots safe", `email-capture.md` §8) and its Decision 12 (the link works on whichever phone opens it).
-Status: **draft, review findings folded in**, 24 Oct 2026. Adversarial review: `reviews/restore-with-a-code-review.md` (2 blockers, 8 should-fix, 9 nits; all addressed below, decisions listed at the end).
+Status: **draft, review findings folded in, decisions A–D made by Samuel** (24 Oct 2026); awaiting approval. Adversarial review: `reviews/restore-with-a-code-review.md` (2 blockers, 8 should-fix, 9 nits; all addressed below, decisions recorded at the end).
 Decision behind it: Samuel, 24 Oct 2026, chose "a short code in the email" over "a box to paste the link into" and "both".
 
 ## The problem, as a spotter meets it
@@ -24,7 +24,7 @@ The same dead end catches anyone whose email opens links somewhere other than wh
 
 ### 1. The email leads with a code
 
-> **Your Cat Spotters code is 482913**
+> **Your Cat Spotters code is 48291376**
 >
 > You asked for it at 14:32. Type it into Cat Spotters on the phone you asked from. It works once, for 15 minutes.
 >
@@ -34,9 +34,9 @@ The same dead end catches anyone whose email opens links somewhere other than wh
 >
 > If you didn't ask, ignore this email. Nothing moves until someone types the code or presses the button.
 
-- The code is shown large, in a fixed-width font, with spacing between digits made by styling, not by a space character. One unbroken number next to the word "code" gives the phone the best chance to offer it automatically.
+- The code is eight digits, shown large, in a fixed-width font, with spacing between digits made by styling, not by a space character. One unbroken number next to the word "code" gives the phone the best chance to offer it automatically.
 - The request time is in Greek time (the island's), so a family with several emails can tell which one they just asked for.
-- The subject stays "Get your spots back — Cat Spotters". Whether the code goes in the subject is Decision D below.
+- The subject carries the code: **"48291376 is your Cat Spotters code"** (Decision D). It will show on the lock screen; Samuel chose speed and automatic offering over hiding it.
 
 ### 2. The app waits for the code
 
@@ -44,17 +44,17 @@ After the address, the button reads **"Email me a code"**. The screen then becom
 
 > **Check your email**
 >
-> If that address is keeping a spotter safe, we've emailed it a 6-digit code. Use the newest email you asked for on this phone. Type the code here.
+> If that address is keeping a spotter safe, we've emailed it an 8-digit code. Use the newest email you asked for on this phone. Type the code here.
 >
-> `[ 482913 ]`
+> `[ 48291376 ]`
 >
 > [**Get my spots back**]
 >
 > Didn't get it? Check your spam folder, or **send another** (after a minute).
 
-- One box, not six. It takes digits only, shows the number keyboard, and accepts a pasted code with or without spaces.
+- One box, not eight. It takes digits only, shows the number keyboard, and accepts a pasted code with or without spaces.
 - The box is marked as a one-time code, so a phone that can offer codes from Mail above the keyboard may do so. Whether iPhone offers this in Safari or in a home-screen app is **unchecked**. Typing always works, and the spec claims nothing more until it has been tried on a real iPhone.
-- The code is checked as soon as the sixth digit goes in. The button is there too, but it is greyed out while a check is running, and the same code is never sent twice in a row. A quick tap after autofill can't use up two tries.
+- The code is checked as soon as the eighth digit goes in. The button is there too, but it is greyed out while a check is running, and the same code is never sent twice in a row. A quick tap after autofill can't use up two tries.
 
 **"I already have a code".** The address screen has a small link, "I already have a code", that opens the code box straight away. It's for anyone whose screen was lost: the app was closed, or they asked and then put the phone down. It only works on the phone that asked. That's said underneath: "Use the code from an email you asked for on this phone."
 
@@ -102,7 +102,7 @@ This is counted the same way whether or not the address is known, so it's safe t
 
 The link keeps working for people who use Cat Spotters in a browser, as today. Changes on the way:
 
-- **The test site's password page**, when it's guarding a "get your spots back" link, adds one line above the password box: *"Use Cat Spotters from an icon on your home screen? Go back to it and type the 6-digit code from the email."*
+- **The test site's password page**, when it's guarding a "get your spots back" link, adds one line above the password box: *"Use Cat Spotters from an icon on your home screen? Go back to it and type the 8-digit code from the email."*
 - **"Is this the app or browser you use for Cat Spotters?"** gets a third answer: **"I use the Cat Spotters icon on my home screen"**. It says: *"Go back to Cat Spotters from your home screen and type the code from this email there."* No spots move.
 - **"No, copy the link"** and the warning for links opened inside another app say "browser" only where a browser is really meant, and add: *"…or type the code from the email into Cat Spotters."*
 
@@ -125,39 +125,33 @@ All app words in English, Greek and French. The email stays English-only until S
 
 ## Safeguards for the code
 
-A six-digit code is far easier to guess than a link, so it gets rules the link doesn't need:
+An eight-digit code is far easier to guess than a link, so it gets rules the link doesn't need:
 
 1. **The code only works on the phone that asked for it.** The link can be opened anywhere (Decision 12). The code can't. Someone who sees it over a shoulder can't type it into their own phone. This does **not** stop the "read me the code" trick, where the person asking is the attacker. That's why the email names the trick (Decision C).
 2. **Five wrong tries per code, counted everywhere a code is checked.** There is exactly one place that checks codes (Technical notes), and the count goes up *before* the check, in a way that two checks at once can't both get past. Twenty tries at the same moment still get exactly five checks.
 3. **Ten wrong codes an hour per phone.**
 4. **Odds, honestly.** New phones are cheap: anyone can make 20 new "phones" an hour from one connection. So the per-phone limits don't hold back a determined attacker. The real limits are per network and across the whole service:
-   - **One network:** 20 codes an hour, 5 tries each, so 100 guesses an hour, about a **1 in 10,000** chance an hour.
-   - **Many networks, one family, worst case:** the daily ceiling of 200 restore emails, all aimed at one address, gives 1,000 guesses a day: about **1 in 1,000 a day**, roughly 3% over a month of non-stop effort. Meanwhile the family gets about 200 emails a day, and every other family's restore is off for the day.
-   - **That attack is loud, so the team must hear it.** This ticket adds an alert to the team when the restore ceiling is hit. Today it's only a log line nobody watches.
+   - **One network:** 20 codes an hour, 5 tries each, so 100 guesses an hour, about a **1 in a million** chance an hour.
+   - **Many networks, one family, worst case:** the daily ceiling of 200 restore emails, all aimed at one address, gives 1,000 guesses a day: about **1 in 100,000 a day**, roughly 1 in 3,000 over a month of non-stop effort. Meanwhile the family gets about 200 emails a day, and every other family's restore is off for the day.
+   - **That attack is loud, but nobody hears it today:** hitting the ceiling is only a log line. An alert to the team is its own ticket (Out of scope), because with eight digits it is no longer what keeps the odds down.
    - **IPv6.** The per-network count on restore requests uses the full address, so a client on IPv6 can count as a new network each time. Whether real clients reach the server over IPv6 is unchecked. Fixing it (grouping by network, as the other limiters already do) is its own small ticket, because it applies to adding an address too.
 5. **The code is never stored as itself.** The server keeps a keyed fingerprint of it. The code, like the link, is cleared from the outbox once the email is sent.
 6. **Nothing logged could rebuild a code.** Wrong tries are logged as a count against the request, never the digits.
 
-## Decisions for Samuel
+## Decisions (Samuel, 24 Oct 2026)
 
-**A. Is a six-digit code strong enough?**
-The worst case above is about 1 in 1,000 a day against one family, by someone using many connections. It's noisy: the family gets about 200 emails a day, and every other family is blocked from restoring that day.
-- *Six digits, plus the team alert (recommended).* Familiar, and easy for children to type after switching apps. A real attack gets noticed within the day. If the alert ever fires for real, moving to eight digits is a small change.
-- *Eight digits.* 100 times harder to guess (about 1 in 100,000 a day at worst), same number keyboard, no lockouts. Two more digits to carry between apps, and slightly more typos.
-- *Six digits, plus a lock on the address after too many wrong tries.* Caps guesses per family. But a stranger could lock a family out on purpose, and for home-screen families the link doesn't help, so they'd be completely stuck. Not recommended.
+**A. How strong is the code? — Decided: eight digits** (Samuel, 24 Oct 2026). About 1 in 100,000 a day at worst against one family; same number keyboard; no lockouts. Not chosen: six digits plus a team alert (recommended in review; about 1 in 1,000 a day at worst), and six digits plus an address lock (a stranger could lock a family out).
 
-**B. Can one person's request cancel another phone's code?**
+**B. Can one person's request cancel another phone's code? — Decided: no, "3 live" is counted per address per phone** (Samuel, 24 Oct 2026, as recommended). The options were:
 Today an address has at most 3 live links. A fourth request cancels the oldest, whichever phone asked. With codes tied to a phone, a stranger asking three times (or the family asking again from Safari) quietly kills the code the child is about to type, and the child sees "That code didn't work".
 - *Count "3 live" per address per phone (recommended).* Nobody else's request can cancel yours. The guessing odds don't change, because a code only works on the phone that asked. An address can have more live links at once, but each is still single-use, lasts 15 minutes, and can't be guessed.
 - *Keep "3 live per address".* No change, but a stranger can keep a home-screen family from ever getting their spots back. That's what the 8 Oct decision to count requests per asking phone was meant to prevent.
 
-**C. What does the email say about sharing the code?**
+**C. What does the email say about sharing the code? — Decided: name the trick** (Samuel, 24 Oct 2026, as recommended). The options were:
 - *"Only type this code in yourself, or give it to your own child for their phone. If anyone else asks you for it, they're trying to take someone's spots." (recommended, drafted above.)* Matches how families really use it, and names the trick.
 - *"Never share this code with anyone, even a friend."* Simpler, but parents share it with their children by design, so the warning teaches people to ignore it.
 
-**D. Should the code appear in the email's subject?**
-- *No (recommended).* The subject shows on the lock screen and in notification previews, where anyone nearby can read it. Opening the email is one more tap.
-- *Yes* ("482913 is your Cat Spotters code"). Faster, and a phone is more likely to offer it automatically. But it puts the key to a child's collection on a lock screen.
+**D. Should the code appear in the email's subject? — Decided: yes** (Samuel, 24 Oct 2026; the review recommended no). "48291376 is your Cat Spotters code": faster, and a phone is more likely to offer it automatically. Accepted cost: the code shows on the lock screen and in notification previews.
 
 ## Technical notes (skip if you're reading for the decision)
 
@@ -167,16 +161,15 @@ Today an address has at most 3 live links. A fourth request cancels the oldest, 
   2. `update mail_tokens set code_attempts = code_attempts + 1 where purpose = 'restore' and device_id = $caller and used_at is null and expires_at > now() and code_attempts < 5 returning id, code_hash`. This locks the rows and counts a try against every live row of this phone (it can't tell which one the person meant). A phone with live rows for two addresses tests both with one guess.
   3. Compare against only the returned rows. Exactly one match: undo that row's increment, return a handle for it, and give back the bucket token. No match: any row now at 5 gets `expires_at = now()` (code and link end together).
   4. Pad every answer from this endpoint to one fixed deadline. Every refusal is the same `401 {"error":"code_not_valid"}`, whether the phone has live rows or not.
-- **Storage.** `mail_tokens` gains `code_hash text`, `code_attempts int not null default 0`, `handle_hash text` (unique where not null). `code_hash = HMAC(fingerprint key, "restore_code:" + token_hash + ":" + code)`. Including the row's own hash means equal codes on different rows have different fingerprints in a database copy. The code comes from `crypto.randomInt(0, 1_000_000)`, zero-padded. The raw code joins the raw token in the outbox payload and is cleared with it (`outbox.ts`). An email still retrying after its code was killed arrives with a dead code. That's harmless, and the single refusal covers it.
+- **Storage.** `mail_tokens` gains `code_hash text`, `code_attempts int not null default 0`, `handle_hash text` (unique where not null). `code_hash = HMAC(fingerprint key, "restore_code:" + token_hash + ":" + code)`. Including the row's own hash means equal codes on different rows have different fingerprints in a database copy. The code comes from `crypto.randomInt(0, 100_000_000)`, zero-padded to eight digits. The raw code joins the raw token in the outbox payload and is cleared with it (`outbox.ts`). An email still retrying after its code was killed arrives with a dead code. That's harmless, and the single refusal covers it.
 - **Live-link cap per phone (if Decision B goes as recommended).** `requestRestore`'s "oldest expires to make room" query adds `and device_id = ${askingDeviceId}`.
-- **Ceiling alert.** When `requestRestore` hits the global ceiling, it queues one fixed email a day to the team address (hello@catspotters.com, through the transactional outbox, as a new fixed template), saying the restore ceiling was hit and how many requests were refused. It never names an address. There is no team-alert path in the server today (searched 24 Oct: no alert helper, and the other ceilings only log), so this is new and small.
-- **Email template.** `restoreLink` in `keepSafeTemplates.ts` gains `code` (validated as exactly six digits) and `askedAt` (a time our own code formats, validated as `HH:MM`). The template's rule that only our own values go in still holds.
+- **Email template.** `restoreLink` in `keepSafeTemplates.ts` gains `code` (validated as exactly eight digits, and used in both the subject and the body) and `askedAt` (a time our own code formats, validated as `HH:MM`). The template's rule that only our own values go in still holds.
 - **App: where the waiting flag is read.** The flag is `{askedAt}` in local storage, live for 15 minutes:
   - `OnboardingFlow` starts at the restore step, in its code state, when the flag is live;
   - `OnboardingGate` (`_layout.tsx`) sends a named phone with a live flag to `/get-spots-back`;
   - it's cleared on success, and in `adoptRestoredIdentity`, `startAgain` and `resetIdentity` (`DeviceContext.tsx`), because a new device id makes the code useless.
   - The app's own request count and wrong-try count live beside it, with the same lifetime.
-- **App: shared states.** The choose / warning / moving states move out of `app/restore.tsx` into a component used by both the link page and the code screen. The box is a single `TextInput` with `inputMode="numeric"`, `autoComplete="one-time-code"`, `textContentType="oneTimeCode"`, `maxLength` 7, spaces stripped.
+- **App: shared states.** The choose / warning / moving states move out of `app/restore.tsx` into a component used by both the link page and the code screen. The box is a single `TextInput` with `inputMode="numeric"`, `autoComplete="one-time-code"`, `textContentType="oneTimeCode"`, `maxLength` 10, spaces stripped.
 - **A reload mid-move.** Before redeem, the app stores "moving, handle H" with the same 15-minute life. If the app opens with that stored, it retries redeem with H. The 60-second replay answers with the spotter that came back, and the app adopts it. This also covers the existing gap in the link flow.
 - **Password page.** `server/prelaunch-page.js` shows the home-screen line when the requested path is `/restore`. It can't read the `#t=` fragment, so it keys on the path alone.
 - **Mobile networks.** Greek carriers put many phones behind one address, so the per-network limits are shared. Watch the `restore: no link sent` / `per_ip` log rate after launch. Not changed here.
@@ -193,9 +186,8 @@ Today an address has at most 3 live links. A fourth request cancels the oldest, 
 - Using the code (handle) spends the link, and using the link makes the code fail.
 - "Delete Nikos" through a code, with the first redeem response dropped: the retry is answered by the replay, and the phone ends up as the restored spotter, not wiped (S4).
 - If Decision B goes as recommended: a stranger's three requests don't expire this phone's code.
-- The ceiling alert goes once a day when the ceiling is hit, and names no address.
 - Neither the raw code nor the handle is in the database after sending or in any captured log line.
-- App: a reload with a live flag reopens the code box from first-run and from Settings. After 15 minutes, after "Delete my data", after "Start again" and after spots come back, it doesn't. "482 913" and "482913" both work. The fourth request shows the wait message. The fifth wrong try shows "send another". The "home screen icon" answer on the link page moves nothing. The password page on `/restore` shows the code line.
+- App: a reload with a live flag reopens the code box from first-run and from Settings. After 15 minutes, after "Delete my data", after "Start again" and after spots come back, it doesn't. "4829 1376" and "48291376" both work. The fourth request shows the wait message. The fifth wrong try shows "send another". The "home screen icon" answer on the link page moves nothing. The password page on `/restore` shows the code line.
 - Browser check at 390px and desktop: email → code → spots back, with the fake mail endpoint, from both entry points.
 - **On a real iPhone, from the home-screen icon** (Samuel, on the test site once it's live): ask, read the code in Mail, switch back, type it, spots back in the icon app. Also note whether "From Mail" offered the code, in the icon app and in Safari.
 
@@ -203,4 +195,5 @@ Today an address has at most 3 live links. A fourth request cancels the oldest, 
 
 - The native apps (SYC-137): their links can open the app directly. The code works there too, unchanged.
 - Translating the email (SYC-4).
-- Grouping IPv6 addresses by network in the keep-safe request limits (its own ticket, see Safeguards 4).
+- Grouping IPv6 addresses by network in the keep-safe request limits (SYC-667).
+- Telling the team when the daily restore ceiling is hit (its own ticket).
