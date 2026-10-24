@@ -193,11 +193,11 @@ function photoForm(o: FindFormOptions): string {
   const capWords = o.capped === "person" ? PERSON_CAP_WORDS : o.capped === "team" ? TEAM_CAP_WORDS : null;
   let inside: string;
   if (capWords) {
-    inside = `<p class="notice" role="status">${esc(capWords)}</p>`;
+    inside = `<p class="notice" id="find-photo" role="status">${esc(capWords)}</p>`;
   } else if (o.problem?.field === "place") {
-    inside = '<p class="hint">Choose where to look first, then choose the photo here.</p>';
+    inside = '<p class="hint" id="find-photo">Choose where to look first, then choose the photo here.</p>';
   } else if (o.narrowing.kind !== "ok") {
-    inside = '<p class="hint">Once there are cats to compare, choose the photo here.</p>';
+    inside = '<p class="hint" id="find-photo">Once there are cats to compare, choose the photo here.</p>';
   } else {
     const photoProblem =
       o.problem?.field === "photo" ? `<p class="warn" id="photo-error">${esc(o.problem.words)}</p>` : "";
