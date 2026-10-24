@@ -43,8 +43,11 @@ describe('location callers', () => {
     const src = read('app/(tabs)/spot.tsx');
     expect(src).toContain('useAppLocation()');
     expect(src).not.toMatch(/useEffect\(\(\) => \{\s*void askAndLocate\(\);/);
-    const mountEffects = src.match(/useEffect\(\(\) => \{[\s\S]*?\n\s*\}, \[\]\);/g) ?? [];
-    for (const e of mountEffects) expect(e).not.toMatch(/askAndLocate\(\)/);
+    // Each effect up to its own dependency list; a mount effect's is empty.
+    const re = /useEffect\(\(\) => \{([\s\S]*?)\n\s*\}, \[([^\]]*)\]\);/g;
+    for (let m = re.exec(src); m; m = re.exec(src)) {
+      if (m[2].trim() === '') expect(m[1]).not.toMatch(/askAndLocate\(\)/);
+    }
   });
 
   it('the report flow asks once, from a mount effect', () => {

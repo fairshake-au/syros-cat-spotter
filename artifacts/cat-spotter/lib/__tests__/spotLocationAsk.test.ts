@@ -69,7 +69,7 @@ describe('the Spot screen location card', () => {
   });
 
   it('tells the map start what the screen shows', () => {
-    expect(source).toMatch(/resolveMapStart\(\{[^}]*ask: locationAsk,/);
+    expect(between('resolveMapStart({', '}),')).toMatch(/ask: locationAsk,/);
   });
 
   it('forgets this photo\'s answer with each new photo', () => {

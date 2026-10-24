@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
@@ -129,6 +129,8 @@ import {
   type ReadyMapStart,
 } from '@/lib/mapStart';
 import { spokenText } from '@/lib/a11yText';
+import { locationAskView, type LocationAskView } from '@/lib/locationAsk';
+import { LocationAskCard } from '@/components/spot/LocationAskCard';
 
 /** A library photo that can't be used, said in a card with the library offered again. */
 type PhotoProblem =
@@ -187,12 +189,18 @@ export default function SpotScreen() {
     syncing,
   } =
     useOffline();
-  const { coords, denied, loading: locating, askAndLocate } = useAppLocation();
-  // SYC-524 Task 3: interim; Task 5 replaces this with the card.
-  useEffect(() => {
-    void askAndLocate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // SYC-524: Spot never asks on open. It asks from the location card after a
+  // camera photo, or straight after one for a spotter who shared before.
+  const {
+    coords,
+    denied,
+    loading: locating,
+    permission,
+    choice,
+    checked,
+    askAndLocate,
+    chooseMap,
+  } = useAppLocation();
   const [photo, setPhotoState] = useState<PickedPhoto | null>(null);
   // The on-screen photo's object URL, revoked when it is replaced or cleared.
   const photoUriRef = React.useRef<string | null>(null);
@@ -402,6 +410,63 @@ export default function SpotScreen() {
   // Ermoupoli start gives way to a late phone fix on Syros.
   const [mapTouched, setMapTouched] = useState(false);
   const [mapWaitedMs, setMapWaitedMs] = useState(0);
+  // SYC-524: whether the spotter answered the location card (either button,
+  // or the small link) for this photo. Reset in resetMapStart.
+  const [answeredThisPhoto, setAnsweredThisPhoto] = useState(false);
+  // Where a running ask started, so its button can say "Getting your
+  // location…". A token, so a stale ask finishing can't clear a newer one.
+  const [askFrom, setAskFrom] = useState<'card' | 'link' | null>(null);
+  const askTokenRef = React.useRef(0);
+  // The photo the 'auto-ask' already asked for: once per photo, never a loop.
+  const autoAskedPhotoRef = React.useRef<PickedPhoto | null>(null);
+  const rawLocationAsk = locationAskView({
+    source: pickSource,
+    hasPhoto: !!photo,
+    permission,
+    choice,
+    platform: Platform.OS === 'web' ? 'web' : 'native',
+    answeredThisPhoto,
+    checked,
+  });
+  // While "Use where I am" from the card waits for the phone, the card stays
+  // (busy) and no pin is placed: the fix, a refusal or the timeout ends it,
+  // and "I'll put the pin on the map" stays available throughout.
+  const locationAsk: LocationAskView =
+    askFrom === 'card' && !coords && (rawLocationAsk === 'link' || rawLocationAsk === 'none')
+      ? 'card'
+      : rawLocationAsk;
+  const trackAsk = React.useCallback((from: 'card' | 'link', ask: Promise<unknown>) => {
+    const token = ++askTokenRef.current;
+    setAskFrom(from);
+    void ask.finally(() => {
+      if (askTokenRef.current === token) setAskFrom(null);
+    });
+  }, []);
+  // A spotter who shared before ('auto-ask'): straight to the phone's box,
+  // once for this photo. Answering makes the view the small link meanwhile.
+  React.useEffect(() => {
+    if (!photo || rawLocationAsk !== 'auto-ask') return;
+    if (autoAskedPhotoRef.current === photo) return;
+    autoAskedPhotoRef.current = photo;
+    setAnsweredThisPhoto(true);
+    trackAsk('link', askAndLocate());
+  }, [photo, rawLocationAsk, askAndLocate, trackAsk]);
+  const onUseWhereIAm = () => {
+    setAnsweredThisPhoto(true);
+    trackAsk(locationAsk === 'card' ? 'card' : 'link', askAndLocate());
+  };
+  const onPutPinOnMap = () => {
+    // A running ask is left to finish: a late fix still moves an unmoved map
+    // (nextMapStart), but the card goes now.
+    askTokenRef.current += 1;
+    setAskFrom(null);
+    chooseMap();
+    setAnsweredThisPhoto(true);
+  };
+  const openLocationSettings = () => {
+    // Nothing better to offer if the phone can't open them: the map works.
+    Linking.openSettings().catch(() => {});
+  };
   // Reset in resetMapStart (with the new photo), not here: an effect's reset
   // would land a render late, after the start below had read the old value.
   React.useEffect(() => {
@@ -417,6 +482,7 @@ export default function SpotScreen() {
         source: pickSource,
         phone: { coords, denied, loading: locating },
         waitedMs: mapWaitedMs,
+        ask: locationAsk,
       }),
       mapTouched,
     );
@@ -425,7 +491,7 @@ export default function SpotScreen() {
       setMapStartKey((k) => k + 1);
       setPickedCoords({ latitude: next.coords.latitude, longitude: next.coords.longitude });
     }
-  }, [photo, pickSource, coords, denied, locating, mapWaitedMs, mapStart, mapTouched]);
+  }, [photo, pickSource, coords, denied, locating, mapWaitedMs, mapStart, mapTouched, locationAsk]);
   const onMapMoved = (next: { latitude: number; longitude: number }) => {
     if (mapStart && isSpotterMove(mapStart.coords, next)) setMapTouched(true);
     setPickedCoords(next);
@@ -436,6 +502,10 @@ export default function SpotScreen() {
     setMapWaitedMs(0);
     setMapTouched(false);
     setPickedCoords(null);
+    // SYC-524: each new photo gets its own answer to the location card.
+    setAnsweredThisPhoto(false);
+    askTokenRef.current += 1;
+    setAskFrom(null);
   };
 
   /**
@@ -1628,20 +1698,28 @@ export default function SpotScreen() {
                   </Text>
                 </View>
               )}
-              {/* SYC-48: the map is hidden while the waiting card shows. */}
-              {waitChoice ? null : (
+              {/* SYC-48: the map is hidden while the waiting card shows.
+                  SYC-524: so is the map's line while the location card asks. */}
+              {waitChoice || locationAsk === 'card' ? null : (
                 <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
                   {t(mapStartHintKey(mapStart))}
                 </Text>
               )}
-              {/* Not once the map has a start (Ermoupoli): nothing is stuck. */}
-              {denied && !pickedCoords && (
-                <Pressable onPress={() => void askAndLocate()}>
-                  <Text style={[styles.denied, { color: colors.destructive }]}>
-                    {t('locationDenied')}
-                  </Text>
-                </Pressable>
-              )}
+              {/* SYC-524: the explain-first card, the small link or the
+                  "location is off" line, above the map. */}
+              {!waitChoice &&
+                (locationAsk === 'card' ||
+                  locationAsk === 'link' ||
+                  locationAsk === 'off-native' ||
+                  locationAsk === 'off-web') && (
+                  <LocationAskCard
+                    view={locationAsk}
+                    busy={askFrom !== null && locating}
+                    onUse={onUseWhereIAm}
+                    onMap={onPutPinOnMap}
+                    onOpenSettings={openLocationSettings}
+                  />
+                )}
               {/* SYC-48: while a sighting is being sent, the waiting card takes
                   the map's place (starter-facts.md §3.1). The pin is kept. */}
               {shouldShowWaitingCard({ waiting: waitChoice !== null }) && waitChoice ? (
@@ -1792,13 +1870,6 @@ export default function SpotScreen() {
           </>
         )}
 
-        {denied && !photo && (
-          <Pressable onPress={() => void askAndLocate()}>
-            <Text style={[styles.denied, { color: colors.destructive }]}>
-              {t('locationDenied')}
-            </Text>
-          </Pressable>
-        )}
         {locating && !coords && !photo && (
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             {t('locating')}
@@ -1936,7 +2007,6 @@ const styles = StyleSheet.create({
   },
   locationFieldText: { fontFamily: fonts.bodySemiBold, fontSize: fontSizes.sm },
   locationPicker: { height: 220 },
-  denied: { fontSize: fontSizes.xs, fontFamily: fonts.bodyBold },
 
   // Pending list
   pendingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
