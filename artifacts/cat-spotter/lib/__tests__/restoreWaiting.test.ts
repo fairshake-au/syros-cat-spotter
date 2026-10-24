@@ -63,7 +63,7 @@ describe('restoreWaiting', () => {
     noteRequest(T0);
     setMovingHandle('h1', T0);
     expect(readWaiting(T0)?.movingHandle).toBe('h1');
-    setMovingHandle(null);
+    setMovingHandle(null, T0);
     expect(readWaiting(T0)?.movingHandle).toBeUndefined();
     clearWaiting();
     expect(readWaiting(T0)).toBeNull();
