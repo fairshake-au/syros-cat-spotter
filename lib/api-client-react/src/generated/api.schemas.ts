@@ -256,7 +256,7 @@ export interface Cat {
   /** The cell's side in metres when approximate; null when exact. */
   locationCellM: number | null;
   sightingsCount: number;
-  /** A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4). */
+  /** A Syros (Europe/Athens) calendar date (YYYY-MM-DD), never a time (§6.4.4). */
   lastSeenAt: string;
   /** To the cat's published cell centre, rounded to 0.1 km (§6.4.2). */
   distanceKm?: number | null;
@@ -290,7 +290,7 @@ export interface Cat {
      */
   lifeStatus: CatLifeStatus;
   /**
-     * A calendar date (YYYY-MM-DD, UTC day — the same convention
+     * A calendar date (YYYY-MM-DD, Syros (Europe/Athens) day — the same convention
      * lastSeenAt's server-side computation uses), set only when this
      * cat is presumed deceased (§3.4: no evidence of life for 36
      * months) — never alongside lifeStatus: "deceased", and never
@@ -487,7 +487,7 @@ export interface Sighting {
      * out otherwise.
      */
   photoRemoved?: boolean;
-  /** A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
+  /** A Syros (Europe/Athens) calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
   createdAt: string;
 }
 
@@ -515,7 +515,7 @@ export interface CareEvent {
   type: CareEventType;
   /** Null only on a `discovered` event whose discoverer deleted their data (SYC-63, SYC-235). The app shows "a spotter" in the reader's language. A blank, never a stand-in word, so no username can be mistaken for it. */
   message: string | null;
-  /** A UTC calendar date (YYYY-MM-DD). */
+  /** A Syros (Europe/Athens) calendar date (YYYY-MM-DD). */
   at: string;
 }
 
