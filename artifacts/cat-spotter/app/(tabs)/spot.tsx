@@ -26,6 +26,7 @@ import { NewSpotIntro } from '@/components/NewSpotIntro';
 import { ExtraPhotoBoxes } from '@/components/ExtraPhotoBoxes';
 import { PhotoTipsCard } from '@/components/photoTips/PhotoTipsCard';
 import { hasSeenPhotoTips, markPhotoTipsSeen, shouldOpenPhotoTips } from '@/lib/photoTipsSeen';
+import { useBannerAreaReserve } from '@/lib/bannerArea';
 import { notify, confirmChoice } from '@/lib/notify';
 import {
   createSingleFlight,
@@ -165,6 +166,8 @@ export default function SpotScreen() {
   const { t, language } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // Top banners float over every screen; 0 when none shows.
+  const bannerReserve = useBannerAreaReserve();
   const { deviceId } = useDevice();
   const {
     isOnline,
@@ -1393,7 +1396,7 @@ export default function SpotScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + bannerReserve + 8 }]}>
         {photo ? (
           <View style={styles.detailsHeaderRow}>
             <Pressable
