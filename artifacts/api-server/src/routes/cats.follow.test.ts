@@ -11,9 +11,10 @@ import {
 import { and, eq, like } from "drizzle-orm";
 import app from "../app";
 import { followersCount } from "../lib/following";
+import { addressKey, consume } from "../lib/limits";
 import { writeObservation } from "../lib/observations";
 import { DELETED_SECRET_HASH, deletedMarkerKey } from "../lib/deviceAuth";
-import { FOLLOW_DEVICE_LIMIT } from "../middlewares/rateLimit";
+import { FOLLOW_ADDRESS_LIMIT, FOLLOW_DEVICE_LIMIT } from "../middlewares/rateLimit";
 
 // All fixtures share these prefixes so cleanup can never touch real data.
 const PREFIX = "vitest-follow-";
@@ -162,6 +163,23 @@ describe("POST /api/cats/:catId/follow and /unfollow", () => {
     expect(res.status).toBe(429);
     // Another phone is unaffected.
     expect((await post("follow", cat.id, device("f2"))).status).toBe(200);
+  });
+
+  it("refuses the 301st call from one address, across different phones, with no-store", async () => {
+    const cat = await insertCat("H");
+    // Use up the address budget directly, as the middleware would (the test
+    // requests all come from one address, ::1).
+    const addr = addressKey("::1");
+    for (let i = 0; i < FOLLOW_ADDRESS_LIMIT; i++) {
+      await consume("follow_address", addr, FOLLOW_ADDRESS_LIMIT, 24 * 60 * 60 * 1000, undefined, Date.now(), {
+        sliding: true,
+      });
+    }
+    const res = await post("follow", cat.id, device("h1"));
+    expect(res.status).toBe(429);
+    expect(res.headers["cache-control"]).toBe("private, no-store");
+    expect((await post("follow", cat.id, device("h2"))).status).toBe(429);
+    expect(await subRows(device("h1"), cat.id)).toHaveLength(0);
   });
 
   it("followersCount ignores a deleted: row", async () => {
