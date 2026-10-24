@@ -19,7 +19,8 @@ What Syros Cats most wants from spotters, beyond coming back, is **finding more 
 
 - The board opens on **This week**. A switch at the top flips to **All time**, the table as it is today **(Samuel, option B)**.
 - A week runs from **Monday 00:00 to the next Monday 00:00, Greek time (Europe/Athens)**, including the clock changes.
-- **Points are earned exactly as now** **(Samuel)**: 25 for a new cat, 15 for spotting a known cat. No bonus for quiet areas; coverage is left to badges. A spot's points count in the week it **earned** them (the moment the spot was confirmed and points were added), not the week the photo was taken. This matters for spots saved offline and sent later, and for photos dated up to 30 days back.
+- **Points stay as they are** **(Samuel)**: 25 for a new cat, 15 for spotting a known cat. No bonus for quiet areas; coverage is left to badges.
+- **One change: a cat earns you points once a day** **(Samuel, 24 Oct)**. Your first spot of a given cat on a given day (Greek time) earns points. Later spots of the same cat that day are still saved for the cat's record but earn 0. This applies everywhere, so This week, All time and the profile always agree. It stops someone winning the week by photographing the same doorstep cat again and again. The "well done" screen for a +0 spot says kindly why ("You've already spotted Pixel today. Thanks for checking on them! Points come again tomorrow."). Points already earned are not changed. A spot's points count in the week it **earned** them (the moment the spot was confirmed and points were added), not the week the photo was taken. This matters for spots saved offline and sent later, and for photos dated up to 30 days back.
 - **This week** shows, as the current board does: people on 0 points this week are left out, "You" is highlighted, and the summary card says where you stand ("You're 4th this week · 55 pts" / "15 more to pass Eleni"). Under the summary: "New week in 3 days" (or "in 5 hours" on the last day).
 - Under the list: **Last week's top three** ("🏆 Last week: Marco, Eleni, Sophie").
 - On Monday morning the This week list is empty. It says so in a friendly way ("A new week has started. Spot a cat to get on the board."), and last week's top three still show.
@@ -27,6 +28,7 @@ What Syros Cats most wants from spotters, beyond coming back, is **finding more 
 - **Ties:** people on the same points share a place (two people on 120 are both 1st; the next person is 3rd). This is new for All time as well: today the server numbers people 1, 2, 3 by position even when their points are equal. People tied on points are listed in the order they reached that total.
 - Both tabs list the top 20 people **with points** (today, people on 0 can take up places in the 20 before the app hides them). If you're outside the top 20 this week, the summary card says so, as All time already does.
 - **Each finished week is frozen.** When the week closes, its top three, their names and points are saved as they stand and never recalculated. If one of them later deletes their account, they show as "a spotter", the way a cat's discoverer does after deletion.
+- **No minimum for a week** **(Samuel, 24 Oct)**. Any top-3 finish earns Podium and any 1st place earns Champion, however quiet the week. In a week with fewer than 3 people on the board, only those on it are placed.
 - **If the server is down on Monday,** the week closes as soon as it's back, using points earned up to Monday 00:00.
 
 The mockup Samuel chose from is option B in `.superpowers/brainstorm/…/weekly-board.html`. The names and numbers in it were made up.
@@ -55,7 +57,7 @@ Not chosen: "Three good days" (3 days in one week) and "Hat-trick" (top 3 in thr
 
 What the words mean:
 
-- **"Spot a cat"** means a spot that earned points: either confirmed as a known cat or registered as a new one.
+- **"Spot a cat"** means a confirmed spot, either of a known cat or a new one, whether or not it earned points that day.
 - **"A week"** is the Monday-to-Monday Greek-time week above.
 - **"Area"** is one of the named areas the team keeps on the dashboard's Areas page (about 20 today: Ermoupoli, Kini, Galissas, Chalandriani, Grammata and so on). A spot is in the area whose centre is nearest, the same rule the dashboard uses, but only if it's within 2 km of that centre. Spots further than 2 km from every centre count as "Off Syros" and are in no area. Parts of Syros may fall in that gap. Before building, the builder counts how many real spots do, and if it's a meaningful share, raises it with the team so they can add areas. The area is **saved on each spot when it's made**, so later changes to the area list never move old spots around.
 - **All of Syros** means every area on the list at the moment of the spot that completes it. If the team adds an area later, people who already have the badge keep it; others now need the new area too.
@@ -109,11 +111,11 @@ Every new line (badge names, descriptions and "what it means" sentences, the tab
 - A spotter who arrives in their third week on Syros can reach the weekly top 3.
 - A spotter can see which new badges they're close to, as the Badges tab already does for the current ones: "3 of 8 areas", "2 of 4 weeks".
 - Winning a week is a moment the spotter hears about, even if they're not in the app that Monday.
-- Every spotter's existing points, all-time rank and badges stay exactly as they are.
+- Every spotter's existing points and badges stay exactly as they are.
 
 ## Non-goals
 
-- No change to how many points a spot earns.
+- No change to how many points a spot earns, apart from the once-a-day-per-cat rule above.
 - No bonus points for quiet areas.
 - No new screens apart from the switch on the board, the badge celebration and the sounds setting.
 - No change to the team dashboard, apart from anything the builder needs in order to keep the Areas page and the badges in step.
