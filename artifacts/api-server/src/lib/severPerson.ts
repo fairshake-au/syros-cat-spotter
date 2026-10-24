@@ -102,6 +102,20 @@ export async function severPerson(
     sql`delete from notifications where device_id = ${deviceId}`,
   );
   await tx.execute(sql`delete from push_tokens where device_id = ${deviceId}`);
+  // SYC-706: badges and waiting celebrations go. Points and frozen weekly
+  // results stay as the cats' and the week's history, but name nobody: the
+  // points keep counting, and a podium place renders as "a spotter".
+  await tx.execute(sql`delete from spotter_badges where device_id = ${deviceId}`);
+  await tx.execute(sql`delete from badge_moments where device_id = ${deviceId}`);
+  await tx.execute(
+    sql`update points_ledger set device_id = null where device_id = ${deviceId}`,
+  );
+  await tx.execute(sql`
+    update weekly_results
+       set device_id = null,
+           display_name = null
+     where device_id = ${deviceId}
+  `);
   await tx.execute(sql`delete from profiles where device_id = ${deviceId}`);
   await tx.execute(
     sql`delete from device_credentials where device_id = ${deviceId}`,

@@ -309,6 +309,10 @@ export async function redeemRestore(input: {
       `);
       if (!retired.rows.length) throw new Refused("caller_has_no_credential");
       await tx.execute(sql`delete from push_tokens where device_id = ${callerDeviceId}`);
+      // SYC-706: the retired phone's badges and points stay (nothing can read
+      // them once the credential is retired), but a waiting celebration can
+      // never be played, so it goes.
+      await tx.execute(sql`delete from badge_moments where device_id = ${callerDeviceId}`);
 
       return { ok: true as const, deviceId: spotterDeviceId, username: chosen.username };
     });
