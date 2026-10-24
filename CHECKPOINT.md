@@ -1,5 +1,0 @@
-# SYC-570 checkpoint (24 Oct 2026, evening)
-Approved by Samuel (artifact https://claude.ai/artifact/R6PPtdfS7DZpWbNryw1uWY, section "What I will build"): own "Call a vet now" screen after How bad (Urgent only); tightened Help-tab card; vets kept on last screen; Needs attention shows vets; closest-to-phone-GPS first with a "Closest to you" tag in every report vet list (not Help tab); closing text option 1 (2 sentences).
-DONE + committed: reportFlow (callVet screen), lib/vetOrder.ts (+tests), closing text en/el/fr + pins + spec doc, i18n keys (5, en/el/fr), VetList ReportVetCards, UrgentAdvice/AttentionAdvice/ReportWizard wiring, ReportWizard tests updated.
-TODO: full cat-spotter + api-server welfare tests; browser check 320/390/desktop, light/dark, en/el; file SYC-346 strings; Dermitzaki coordinates (Samuel supplying, SYC-68): remove SITS_AFTER in lib/vetOrder.ts then; git rm CHECKPOINT.md; draft PR; tell syc-575/158 about lib/i18n.ts; Linear update.
-Preview: expo web port 8591 (pid file /private/tmp/claude-501/expo-570.pid). Next is disabled until geolocation granted. NOTE: docs/mockups/ is untracked scratch, do not commit.
