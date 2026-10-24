@@ -188,6 +188,9 @@ dd{margin:0}
 .note{white-space:pre-wrap}
 .bad{color:#8c1d18;font-weight:700}
 .notice{background:#fff3cd;border:1px solid #c9a227;border-radius:6px;padding:8px 10px;margin:0 0 8px;font-weight:700}
+.notice form.undo{display:block;margin:6px 0 0}
+.notice form.undo button{font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
+.gallery .notice form.undo button{width:100%}
 .actions{margin-top:12px;border-top:1px solid #e6e2d6;padding-top:4px}
 .actions form{margin:10px 0 0}
 .label{display:block;font-size:14px;font-weight:700;margin:0 0 6px}

@@ -302,6 +302,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `view_reports` | See the reports (cat guardians: their colonies' progress and health) | Placed | All | All | Own |
 | `export_report` | Download a report as a spreadsheet | Island-only | ✓ | ✓ | — |
 | `edit_vet_settings` | Change the standard sterilisation price (team-dashboard-redesign.md §10.3). Every change is kept in the history | Island-only | ✓ | ✓ | — |
+| `edit_app_switches` | Switch the Help feed a cat button on or off, change its donation address, and show or hide individual starter facts (the App switches page, SYC-383). No history is kept (Samuel, 24 October 2026) | Island-only | ✓ | ✓ | — |
 | `request_site_public` | Ask the team to make a site in her colony public. Changes nothing by itself (§6.7) | Placed | — | — | Own |
 | `review_hand_picks` | Check the "Matched by hand" list for cats in her colonies; she sees a hand-picked sighting's position only at the 250 m-square level | Placed | All | All | Own |
 | `match_cat_anywhere` | Pick a cat from anywhere on the island when matching a photo (published positions only). Reserved: see note 3 | Role-wide | ✓ | ✓ | ✓ |

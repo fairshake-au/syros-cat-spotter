@@ -942,6 +942,27 @@ router.post(
     const colonyId = parsed.data.colonyId === "none" ? null : Number(parsed.data.colonyId);
     // `from` only means something for a take-out; with a destination it is ignored.
     const from = colonyId !== null || parsed.data.from === undefined ? undefined : Number(parsed.data.from);
+    // A take-out from a form asks first (SYC-520); Yes posts again with confirm=1.
+    if (colonyId === null && isFormPost(req) && req.body?.["confirm"] !== "1") {
+      const state = await catOwnerState(catId);
+      if (!state) return notFound(req, res);
+      return void res.status(200).type("html").send(
+        renderConfirmPage({
+          title: `Take ${state.name} out of this colony?`,
+          lines: [
+            `${state.name} stays on the map and in the app. Only the link to the colony goes.`,
+            "You can put the cat back in a colony afterwards. The change is kept in the cat's history.",
+          ],
+          action: `/api/team/cats/${catId}/colony`,
+          fields: { colonyId: "none", from: from === undefined ? undefined : String(from) },
+          yes: `Yes, take ${state.name} out`,
+          cancelHref: from === undefined ? back : `/api/team/colonies/${from}`,
+          cancelLabel: "Cancel (nothing changed)",
+          personName: teamPerson(res).name,
+          active: "cats",
+        }),
+      );
+    }
     try {
       const out = await placeCats(
         teamPerson(res),
