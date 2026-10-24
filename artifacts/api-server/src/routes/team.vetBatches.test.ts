@@ -323,7 +323,7 @@ describe("the full round trip", () => {
 
     // Nothing typed or uploaded is in any address.
     for (const l of locations) {
-      expect(l).toMatch(/^\/api\/team\/(vet-batches\/\d+(#bc-\d+)?|colonies\/\d+\?done=batch)$/);
+      expect(l).toMatch(/^\/api\/team\/(vet-batches\/\d+(\?said=cat_saved&row=\d+)?(#bc-\d+)?|colonies\/\d+\?done=batch)$/);
       expect(l).not.toContain(syrNumber(other.id));
     }
   });
@@ -384,6 +384,80 @@ describe("the full round trip", () => {
     expect(res.status).toBe(422);
     expect(res.text.match(/Choose the clinic\./g)).toHaveLength(1);
     expect(cardOf(res.text, row)).not.toContain("Choose the clinic.");
+  });
+});
+
+describe("no lost input between the forms (Ruling R18)", () => {
+  async function readyBatch(): Promise<{ batch: number; row: number; cat: number }> {
+    const batch = await newBatch();
+    const row = await addCatTo(batch);
+    const cat = (await freshCat()).id;
+    expect((await post(`/api/team/vet-batches/${batch}/cats/${row}/confirm`, { catId: String(cat) })).status).toBe(303);
+    expect((await post(`/api/team/vet-batches/${batch}/cats/${row}`, { did: "sterilised" })).status).toBe(303);
+    return { batch, row, cat };
+  }
+
+  it("the shared form has its own 'Save the batch's visits' and the bottom one has the hint", async () => {
+    const batch = await newBatch();
+    const page = (await get(`/api/team/vet-batches/${batch}`)).text;
+    const shared = page.slice(page.indexOf('id="shared"'), page.indexOf('id="cats"'));
+    expect(shared).toContain("Save these details");
+    expect(shared).toMatch(/name="action" value="save"[^>]*>Save the batch's visits/);
+    expect(page).toContain("Press “Save this cat's answers” on any card you changed first.");
+  });
+
+  it("picking a clinic and pressing the shared form's Save the batch's visits saves the clinic and the batch", async () => {
+    const { batch, cat } = await readyBatch();
+    // No clinic stored yet: the shared form carries it.
+    expect((await getBatch(batch))!.shared.clinicId).toBeNull();
+    const res = await post(`/api/team/vet-batches/${batch}`, { ...SHARED, action: "save" });
+    expect(res.status).toBe(303);
+    expect(res.headers["location"]).toBe(`/api/team/colonies/${colony}?done=batch`);
+    const b = (await getBatch(batch))!;
+    expect(b.shared.clinicId).toBe("symviosis");
+    expect(b.savedAt).not.toBeNull();
+    const visits = await db
+      .select({ id: observationsTable.id })
+      .from(observationsTable)
+      .where(and(eq(observationsTable.catId, cat), eq(observationsTable.kind, "vet_visit")));
+    expect(visits).toHaveLength(1);
+  });
+
+  it("a bad shared field with action=save saves nothing and shows the problem", async () => {
+    const { batch, cat } = await readyBatch();
+    const res = await post(`/api/team/vet-batches/${batch}`, { ...SHARED, price: "9999", action: "save" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain('id="vb-price-err"');
+    const b = (await getBatch(batch))!;
+    expect(b.savedAt).toBeNull();
+    expect(b.shared.clinicId).toBeNull();
+    const visits = await db
+      .select({ id: observationsTable.id })
+      .from(observationsTable)
+      .where(and(eq(observationsTable.catId, cat), eq(observationsTable.kind, "vet_visit")));
+    expect(visits).toHaveLength(0);
+  });
+
+  it("a plain 'Save these details' does not save the batch, and says Saved. at the shared fields", async () => {
+    const { batch } = await readyBatch();
+    const res = await post(`/api/team/vet-batches/${batch}`, SHARED);
+    expect(res.status).toBe(303);
+    expect(res.headers["location"]).toBe(`/api/team/vet-batches/${batch}?said=shared_saved#shared`);
+    expect((await getBatch(batch))!.savedAt).toBeNull();
+    const page = (await get(res.headers["location"]!)).text;
+    const shared = page.slice(page.indexOf('id="shared"'), page.indexOf('id="cats"'));
+    expect(shared).toContain("Saved.");
+    expect(page.slice(page.indexOf('id="add"'), page.indexOf('id="save"'))).not.toContain("Saved.");
+  });
+
+  it("saving a cat's answers says Saved. on that card only", async () => {
+    const { batch, row } = await readyBatch();
+    const res = await post(`/api/team/vet-batches/${batch}/cats/${row}`, { did: "sterilised" });
+    expect(res.headers["location"]).toBe(`/api/team/vet-batches/${batch}?said=cat_saved&row=${row}#bc-${row}`);
+    const page = (await get(res.headers["location"]!)).text;
+    expect(cardOf(page, row)).toContain("Saved.");
+    const shared = page.slice(page.indexOf('id="shared"'), page.indexOf('id="cats"'));
+    expect(shared).not.toContain("Saved.");
   });
 });
 

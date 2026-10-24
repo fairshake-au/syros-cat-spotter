@@ -10,8 +10,10 @@ import { ObservationRefused } from "../lib/observations";
 import {
   abandonBatch,
   addCat,
+  type Batch,
   BATCH_PHOTOS_MAX,
   createBatch,
+  getBatch,
   listUnsavedBatches,
   removeCat,
   updateCat,
@@ -21,7 +23,6 @@ import { searchBatchCat, type BatchScope } from "../lib/vetBatchSearch";
 import { saveBatch, type BatchProblem } from "../lib/vetVisits";
 import { batchFindLimitReached } from "../middlewares/rateLimit";
 import { backTo, draftOf, guarded, notFound, pageFor, rowOf, saved } from "../lib/vetBatchRoutes";
-import { getBatch } from "../lib/vetBatches";
 import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { pageViewer } from "../middlewares/requireSeeing";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
@@ -162,9 +163,14 @@ router.post("/team/vet-batches/:id", ...formRoute("log_vet_visit"), needsBatchCa
         .send(await pageFor(res, batch, { shared: { values, problems: { place: "Choose where the cats came from from the list." } } }));
     }
   }
+  const saveToo = strOf(bodyOf(req)["action"]) === "save";
   await guarded(res, batch, async () => {
     await updateShared(batch.id, { ...batch.shared, ...read.shared, ...place });
-    res.redirect(303, `${batchPath(batch.id)}#shared`);
+    if (!saveToo) return void res.redirect(303, `${batchPath(batch.id)}?said=shared_saved#shared`);
+    // "Save the batch's visits" inside this form: the fields above are saved
+    // first (same checks), then the batch goes the same way as the bottom button.
+    const fresh = (await getBatch(batch.id)) ?? batch;
+    await saveBatchRoute(req, res, fresh);
   });
 });
 
@@ -276,7 +282,7 @@ router.post("/team/vet-batches/:id/cats/:catRow", ...formRoute("log_vet_visit"),
   }
   await guarded(res, batch, async () => {
     await updateCat(cat.id, read.fields);
-    res.redirect(303, backTo(batch.id, cat.id));
+    res.redirect(303, backTo(batch.id, cat.id, "cat_saved"));
   });
 });
 
@@ -293,12 +299,11 @@ router.post("/team/vet-batches/:id/cats/:catRow/remove", ...formRoute("log_vet_v
 
 // ── Save, or throw away ────────────────────────────────────────────────────
 
-router.post("/team/vet-batches/:id/save", ...formRoute("log_vet_visit"), needsBatchCaps, async (req: Request, res: Response) => {
-  const batch = await draftOf(req, res);
-  if (!batch) return;
+/** Saves the batch's visits and answers: the bottom button and the shared form's own save button both end here. */
+async function saveBatchRoute(req: Request, res: Response, batch: Batch): Promise<void> {
   const person = teamPerson(res);
   const problem = async (problems: BatchProblem[], sentence?: string) =>
-    res.status(422).type("html").send(await pageFor(res, batch, { problems, problem: sentence }));
+    void res.status(422).type("html").send(await pageFor(res, batch, { problems, problem: sentence }));
   try {
     const out = await saveBatch(person, batch.id);
     if (out.ok) {
@@ -309,16 +314,22 @@ router.post("/team/vet-batches/:id/save", ...formRoute("log_vet_visit"), needsBa
       );
     }
     if (out.problems.some((x) => x.batchCatId === null && x.field === "batch")) return saved(res, batch.shared.colonyId);
-    return void (await problem(out.problems));
+    return await problem(out.problems);
   } catch (err) {
     if (err instanceof ObservationRefused) {
       if (err.code === "NOT_AUTHORISED") return void refuseSignedIn(req, res);
       if (err.code === "NOT_FOUND") return notFound(res);
       req.log.info({ code: err.code }, "vet batch save refused");
-      return void (await problem([], "That batch couldn't be saved as it is. Check the answers and try again."));
+      return await problem([], "That batch couldn't be saved as it is. Check the answers and try again.");
     }
     throw err;
   }
+}
+
+router.post("/team/vet-batches/:id/save", ...formRoute("log_vet_visit"), needsBatchCaps, async (req: Request, res: Response) => {
+  const batch = await draftOf(req, res);
+  if (!batch) return;
+  await saveBatchRoute(req, res, batch);
 });
 
 router.post("/team/vet-batches/:id/abandon", ...formRoute("log_vet_visit"), needsBatchCaps, async (req: Request, res: Response) => {

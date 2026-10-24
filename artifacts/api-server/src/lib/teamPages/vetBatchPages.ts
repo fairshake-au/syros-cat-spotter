@@ -54,6 +54,8 @@ export const SAID: Record<string, string> = {
     "You have reached your daily limit of photo searches in batches. Use “Look up by name or SYR number”, or try again tomorrow.",
   capped_team:
     "The team has reached its daily limit of photo searches in batches. Use “Look up by name or SYR number”, or try again tomorrow.",
+  shared_saved: "Saved.",
+  cat_saved: "Saved.",
   no_matches: "No likely cat came back. Search somewhere else, or look the cat up by name or SYR number.",
 };
 
@@ -305,6 +307,7 @@ function sharedSection(p: BatchPage): string {
   const f = typed?.values ?? sharedValuesOf(b.shared);
   const saveProblems = (field: string) => p.problems?.find((x) => x.batchCatId === null && x.field === field)?.words;
   const pr = (field: SharedField) => typed?.problems[field] ?? saveProblems(field);
+  const sharedSaid = p.said?.key === "shared_saved" ? sentence("shared_saved") : undefined;
   const priceHint = `The standard sterilisation price is €${esc(priceText(p.standardPriceEur))}, set in Vet settings. Change it here if this batch cost something else.`;
   const clinicOptions =
     `<option value=""${f.clinicId === "" ? " selected" : ""}>Choose the clinic</option>` +
@@ -321,6 +324,7 @@ function sharedSection(p: BatchPage): string {
     : "";
   return (
     '<section class="batchshared" id="shared"><h2>For every cat in this batch</h2>' +
+    (sharedSaid ? `<p class="notice" role="status">${esc(sharedSaid)}</p>` : "") +
     `<form method="post" action="${batchPath(b.id)}" novalidate>` +
     '<label class="label" for="vb-place">Where the cats came from <span class="hint">(optional)</span></label>' +
     errLine("vb-place-err", pr("place")) +
@@ -343,7 +347,8 @@ function sharedSection(p: BatchPage): string {
     '<label class="label" for="vb-note">Note for every cat <span class="hint">(optional)</span></label>' +
     errLine("vb-note-err", pr("note")) +
     `<textarea id="vb-note" name="note" maxlength="${NOTE_MAX}"${describedBy("vb-note-err", pr("note"))}>${esc(f.note)}</textarea>` +
-    '<button type="submit" class="primary wide">Save these</button></form></section>'
+    '<button type="submit" class="primary wide">Save these details</button>' +
+    '<button type="submit" name="action" value="save" class="primary wide">Save the batch\'s visits</button></form></section>'
   );
 }
 
@@ -513,7 +518,7 @@ function card(p: BatchPage, c: BatchCat, n: number): string {
 }
 
 function addSection(p: BatchPage): string {
-  const said = p.said && p.said.row === null ? sentence(p.said.key) : undefined;
+  const said = p.said && p.said.row === null && p.said.key !== "shared_saved" ? sentence(p.said.key) : undefined;
   const full = p.batch.cats.length >= ROUND_MAX;
   return (
     '<section id="add"><h2>Add a cat</h2>' +
@@ -555,6 +560,7 @@ export function renderBatchPage(p: BatchPage): string {
       '<section id="save"><h2>Save the batch\'s visits</h2>' +
       wholeBatch.map((x) => `<p class="bad" role="alert">${esc(x.words)}</p>`).join("") +
       `<p class="hint">Each cat gets its own vet visit. Nothing is saved until every cat is matched and has something done.</p>` +
+      `<p class="hint">Press “Save this cat's answers” on any card you changed first.</p>` +
       `<form method="post" action="${batchPath(b.id)}/save"><button type="submit" class="primary wide">Save the batch's visits</button></form>` +
       `<form method="post" action="${batchPath(b.id)}/abandon" class="batchabandon"><button type="submit" class="risky">Throw this batch away</button></form>` +
       "</section>",
