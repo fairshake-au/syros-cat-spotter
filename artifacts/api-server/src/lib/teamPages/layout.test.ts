@@ -470,13 +470,18 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     const openSel = ".fixes details[open]>summary::before";
     expect(openRule).toContain(openSel);
     // The open states of a risky summary and of the Update button each beat the open marker.
-    for (const sel of [".fixes details[open]>summary.risky::before", ".fixes details.update[open]>summary::before"]) {
+    for (const sel of [
+      ".fixes details[open]>summary.risky::before",
+      ".fixes details.update[open]>summary::before",
+      ".fixes details.addnote[open]>summary::before",
+    ]) {
       expect(overrides, sel).toContain(sel);
       expect(cmp(spec(sel), spec(openSel)), sel).toBeGreaterThan(0);
     }
     // The closed states match too, and the override comes after every marker rule.
     expect(overrides).toContain(".fixes details>summary.risky::before");
     expect(overrides).toContain(".fixes details.update>summary::before");
+    expect(overrides).toContain(".fixes details.addnote>summary::before");
     expect(css.indexOf(none)).toBeGreaterThan(css.indexOf('content:"▾" / ""'));
     expect(css.indexOf(none)).toBeGreaterThan(css.indexOf('content:"▸" / ""'));
   });

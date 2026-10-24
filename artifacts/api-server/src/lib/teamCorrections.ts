@@ -1044,3 +1044,30 @@ export async function renameCat(
   }
   return { kind: "renamed", name: renamed };
 }
+
+// ── Add a note (SYC-602 PR 4, spec §3.2 item 3) ───────────────────────────
+
+/**
+ * A note on the cat page, for the team only: a `team_note` observation. It is
+ * not the owner's or public `note` kind, and not `add_health_note`; it never
+ * reaches a cat guardian or the public. The words are stored as given, so the
+ * route trims them and the observation writer refuses a blank or over-long
+ * one. Returns the new statement's id.
+ */
+export async function addTeamNote(
+  person: Person,
+  input: { catId: number; text: string },
+): Promise<{ statementId: number }> {
+  if (!can(person, "add_team_note")) throw notAuthorised();
+  const [cat] = await db.select({ id: catsTable.id }).from(catsTable).where(eq(catsTable.id, input.catId));
+  if (!cat) throw notFound();
+  const row = await writeObservation(db, {
+    catId: cat.id,
+    kind: "team_note",
+    value: { text: input.text },
+    accountId: person.id,
+    roleAtTime: actingRole(person, "add_team_note", await catTarget(cat.id)),
+    observedAt: new Date(),
+  });
+  return { statementId: row.id };
+}

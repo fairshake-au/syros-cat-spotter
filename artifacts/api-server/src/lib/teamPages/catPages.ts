@@ -163,6 +163,7 @@ const DONE: Record<string, string> = {
   visitAlready: "This visit was already undone. Nothing was changed.",
   visitReason: "Say why the visit is wrong, in up to 500 characters. Nothing was changed.",
   died: "Saved. The cat is recorded as no longer with us.",
+  note: "Saved. The note is in the history below.",
   diedAlready: "This cat is already recorded as no longer with us. Nothing was changed.",
 };
 
@@ -237,6 +238,7 @@ export function catPageFormKeys(
   // as correctionForms and wrongForm), so a row is never used up unseen.
   const own = new Set<string>();
   if (may("rename_cat")) own.add(`name:${v.cat.id}`);
+  if (may("add_team_note")) own.add(`note:${v.cat.id}`);
   if (may("set_life_status")) own.add(`life:${v.cat.id}`);
   if (may("set_sterilisation")) own.add(`sterilised:${v.cat.id}`);
   // A statement whose "Mark wrong" is in the history list (colour and

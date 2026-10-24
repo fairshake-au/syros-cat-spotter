@@ -211,6 +211,8 @@ export function describeStatement(
           : "Couldn't tell about food and water";
     case "note":
       return str(v["text"]) ? `Note: “${v["text"] as string}”` : "Note (text removed)";
+    case "team_note":
+      return str(v["text"]) ? `Note (team only): “${v["text"] as string}”` : "Note (team only)";
     case "name":
       return str(v["name"]) ? `Named “${v["name"] as string}”` : "Named";
     case "colony":

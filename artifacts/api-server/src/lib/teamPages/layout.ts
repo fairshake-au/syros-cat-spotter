@@ -253,7 +253,7 @@ li.statement.routine>details[open]>summary::before,.hownote[open]>summary::befor
 .fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary{display:flex;align-items:center;list-style:none}
 .fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker{display:none}
 /* Buttons with their own look keep no marker (SYC-619 §2.6). */
-.fixes details>summary.risky::before,.fixes details[open]>summary.risky::before,.fixes details.update>summary::before,.fixes details.update[open]>summary::before{content:none}
+.fixes details>summary.risky::before,.fixes details[open]>summary.risky::before,.fixes details.update>summary::before,.fixes details.update[open]>summary::before,.fixes details.addnote>summary::before,.fixes details.addnote[open]>summary::before{content:none}
 details.method>summary{cursor:pointer;min-height:44px;font-weight:700;color:#0b4553}
 details.invitefold>summary{display:inline-flex;width:fit-content}
 .photostrip{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
@@ -397,6 +397,9 @@ input[type=date]{max-width:220px}
 .fixes form,.statement form{margin:4px 0 0}
 .fixes details.update>summary{border:2px solid #0b5c6b;border-radius:8px;justify-content:center;margin:8px 0}
 .fixes details.update{padding:0;border:0;background:none}
+.fixes details.addnote{padding:0;border:0;background:none}
+.fixes details.addnote>summary{border:2px solid #0b5c6b;border-radius:8px;justify-content:center;margin:8px 0}
+.fixes details.addnote[open]>summary{margin-bottom:4px}
 .fixes summary.risky{color:#8c1d18}
 .fixes a.coatlink{display:flex;align-items:center;min-height:44px;font-weight:700;color:#0b4553}
 .fixes form.diedform{margin:20px 0 4px}

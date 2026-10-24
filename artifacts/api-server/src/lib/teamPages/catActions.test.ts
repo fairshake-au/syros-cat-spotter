@@ -16,15 +16,38 @@ const owned = () => catView({ owner: { has: true } });
 const UPDATE = '<details class="update"><summary>Update this cat</summary>';
 
 describe("renderCatActions", () => {
-  it("draws the four buttons in order", () => {
+  it("draws the buttons in order", () => {
     const html = draw();
     const vet = html.indexOf("Log a vet visit");
     const update = html.indexOf(UPDATE);
+    const note = html.indexOf("Add a note");
     const died = html.indexOf("This cat has died");
     expect(vet).toBeGreaterThan(-1);
     expect(update).toBeGreaterThan(vet);
-    expect(died).toBeGreaterThan(update);
-    expect(html).not.toContain("Add a note");
+    expect(note).toBeGreaterThan(html.indexOf("</details>", update));
+    expect(died).toBeGreaterThan(note);
+  });
+
+  it("Add a note is a team-only outlined button that opens a short form, drawn only with add_team_note", () => {
+    const html = draw(catView({ cat: { id: 42 } }));
+    expect(html).toContain('<details class="addnote"><summary>Add a note</summary><form method="post" action="/api/team/cats/42/note">');
+    expect(html).toMatch(/<textarea[^>]*name="text"[^>]*maxlength="2000"[^>]*required|<textarea[^>]*required[^>]*maxlength="2000"/);
+    expect(html).toContain("Save note");
+    expect(draw(catView({ cat: { id: 42 } }), (c) => c !== "add_team_note")).not.toContain("Add a note");
+    // Someone who may only add a note still gets the block.
+    expect(draw(catView({ cat: { id: 42 } }), (c) => c === "add_team_note")).toContain("Add a note");
+  });
+
+  it("Add a note comes back open with the typed text, and the saved notice sits at the top of the block", () => {
+    const v = catView({ cat: { id: 42 } });
+    const kept = draw(v, all, { kept: { formKey: "note:42", fields: { text: "limping <b>left</b>" } } });
+    expect(kept).toContain('<details class="addnote" open>');
+    expect(kept).toContain(">limping &lt;b&gt;left&lt;/b&gt;</textarea>");
+    expect(kept).not.toContain('<details class="update" open>');
+    const done = draw(v, all, { done: "note", notice: '<p class="notice" role="status">Saved.</p>' });
+    expect(done.indexOf('class="notice"')).toBeGreaterThan(-1);
+    expect(done.indexOf('class="notice"')).toBeLessThan(done.indexOf("Log a vet visit"));
+    expect(done).not.toContain('<details class="update" open>');
   });
 
   it("lists the forms in the spec's order and words", () => {

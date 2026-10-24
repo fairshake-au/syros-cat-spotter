@@ -24,6 +24,12 @@ describe("catPageFormKeys", () => {
     expect(catPageFormKeys(view, holding("rename_cat"))("name:5")).toBe(true);
   });
 
+  it("a note: row only for someone who may add a team note, and only for this cat", () => {
+    expect(catPageFormKeys(view, holding("rename_cat"))("note:5")).toBe(false);
+    expect(catPageFormKeys(view, holding("add_team_note"))("note:5")).toBe(true);
+    expect(catPageFormKeys(view, holding("add_team_note"))("note:6")).toBe(false);
+  });
+
   it("each form only for the capability that draws it", () => {
     const life = catPageFormKeys(view, holding("set_life_status"));
     expect(["life:5", "sterilised:5", "wrong:41", "wrong:42"].map(life)).toEqual([true, false, true, false]);
