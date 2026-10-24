@@ -12,7 +12,7 @@ export const MARK_WORD: Record<SterilisedMark, string> = {
   sterilised: "Sterilised",
   probably: "Probably",
   not_sterilised: "Not sterilised",
-  not_known: "Not known",
+  not_known: "Sterilised: not known yet",
 };
 
 /**
@@ -24,7 +24,7 @@ export const MARK_BAR_WORD: Record<SterilisedMark, string> = {
   sterilised: "Sterilised",
   probably: "Probably sterilised",
   not_sterilised: "Not sterilised",
-  not_known: "Sterilisation not known",
+  not_known: "Sterilisation not known yet",
 };
 
 /** The spec's colours for each mark (§12.2). */

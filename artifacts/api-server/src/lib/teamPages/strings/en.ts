@@ -343,7 +343,7 @@ export const en = {
   "colonies.sort.recent": "Latest activity",
   "colonies.mark.sterilised": "Sterilised",
   "colonies.mark.probably": "Probably sterilised",
-  "colonies.mark.notKnown": "Not known yet",
+  "colonies.mark.notKnown": "Sterilisation not known yet",
   "colonies.mark.notSterilised": "Not sterilised",
   "colonies.figuresAt": "Figures as of {time}",
   "colonies.figuresUnavailable": "The figures aren't available right now.",

@@ -143,7 +143,7 @@ describe("the island Map page", () => {
     for (const [mark, word] of [
       ["sterilised", "Sterilised"],
       ["probably", "Probably"],
-      ["not_known", "Not known"],
+      ["not_known", "Sterilised: not known yet"],
       ["not_sterilised", "Not sterilised"],
     ])
       expect(legend).toContain(`<span class="catdot mark-${mark}" aria-hidden="true"></span>${word}</li>`);

@@ -137,7 +137,7 @@
   var MARK_WORD = {
     sterilised: "Sterilised",
     probably: "Probably sterilised",
-    not_known: "Not known yet",
+    not_known: "Sterilised: not known yet",
     not_sterilised: "Not sterilised",
   };
   var MARK_COLOUR = {
