@@ -108,6 +108,8 @@ When the server fails but a saved copy exists, the saved cats show as they do no
 
 "Couldn't load" comes before every one of the Cat-alogue's empty messages ("No matches", "Turn on location…", "You've spotted them all"). None of those messages is true when nothing loaded.
 
+Found in the browser check and added during the build: the Cat-alogue header's "0 cats on Syros" is hidden while "Couldn't load" shows, and Home's top section drops "— of 0 cats spotted" when neither the spotter's figures nor the number of cats is known. Both were the same kind of untrue line.
+
 ### 3.2 Home's stats
 
 The existing line, "Couldn't load your stats just now.", gets a **Try again**. It uses the line size with its own message, and it reloads the profile. When the line shows doesn't change (`index.tsx:118`: online, the profile failed, and none has loaded before).
