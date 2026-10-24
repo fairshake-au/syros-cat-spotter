@@ -21,17 +21,6 @@ describe("the team cat page summary", () => {
     expect(page(v)).toContain("SYR-0042 · on our records since 3 Apr 2026");
   });
 
-  it("puts the status line under the name", () => {
-    const html = page();
-    const h1 = html.indexOf("<h1");
-    const line = html.indexOf('class="statusline"');
-    expect(line).toBeGreaterThan(h1);
-    const at = (needle: string) => html.indexOf(needle, line);
-    const order = [at("mark-sterilised"), at("Lives on the street"), at('href="/api/team/colonies/4"'), at("Last seen 4 days ago")];
-    expect(order.every((i) => i > line)).toBe(true);
-    expect([...order].sort((a, b) => a - b)).toEqual(order);
-  });
-
   it("never says statement in the guardian-mark notice", () => {
     const v = catView({
       recentGuardianMark: { statementId: 5, status: "homed", at: "2026-10-10T09:00:00Z" },
@@ -41,24 +30,6 @@ describe("the team cat page summary", () => {
     const notice = html.slice(html.indexOf("Recently marked"), html.indexOf("</p>", html.indexOf("Recently marked")));
     expect(notice).toContain("See the change</a>");
     expect(notice.replace(/<[^>]*>/g, " ").toLowerCase()).not.toContain("statement");
-  });
-
-  it("keeps each separator inside the part before it, so a wrapped line never starts with a dot", () => {
-    const html = page();
-    const line = html.slice(html.indexOf('class="statusline"'), html.indexOf("</p>", html.indexOf('class="statusline"')));
-    const parts = line.split('<span class="sl">').slice(1).map((p) => p.trim());
-    expect(parts.length).toBeGreaterThan(2);
-    parts.slice(0, -1).forEach((p) => expect(p).toMatch(/ ·<\/span>$/));
-    expect(parts[parts.length - 1]).not.toMatch(/·<\/span>$/);
-    expect(line).not.toMatch(/<span class="sl">\s*·/);
-  });
-
-  it("leaves the colony out of the status line when the cat has none", () => {
-    const html = page(bareCatView());
-    const line = html.slice(html.indexOf('class="statusline"'));
-    const end = line.slice(0, line.indexOf("</p>"));
-    expect(end).not.toMatch(/colon/i);
-    expect(end).toContain("Sterilised: not known yet");
   });
 
   it("puts notices above the name, never inside a fold", () => {
@@ -96,7 +67,7 @@ describe("the team cat page summary", () => {
   it("keeps the description as one line under the facts", () => {
     const html = page();
     const d = html.indexOf('<p class="desc">');
-    expect(d).toBeGreaterThan(html.indexOf('class="catfacts"'));
+    expect(d).toBeGreaterThan(html.indexOf('class="catfacts kf"'));
     expect(html).toContain('<p class="desc">Grey tabby with white paws, often by the harbour steps.</p>');
   });
 });
@@ -136,7 +107,7 @@ describe("the small map's caption (SYC-602 Task 1.4)", () => {
     const html = renderCatPage(v, "Sam", { now: NOW });
     const place = placeLabel(v.sightings[0]!);
     expect(caption(html)).toMatch(new RegExp(`^<p class="mapcap"><span>${place}</span>`));
-    expect(html).toContain(`</time> · ${place}`);
+    expect(html).toContain(`</time> · <a href="#tab-map">${place}</a>`);
   });
 
   it("gives a merged marker the pill class, and a lone one not", () => {
@@ -188,7 +159,7 @@ describe("the small map's caption (SYC-602 Task 1.4)", () => {
   });
 });
 
-describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
+describe("the layout, page order and tab row (SYC-602 Task 1.5, SYC-655)", () => {
   const photos = [
     { source: "main", publicId: "p1", url: "/p1.jpg", hidden: null },
     { source: "sighting", publicId: "p2", url: "/p2.jpg", hidden: null },
@@ -208,37 +179,22 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
 
   it("orders the summary for a phone", () => {
     const html = page(withPhotos(), { may, colonies: [] });
-    const marks = ['class="photo catmain"', 'class="photostrip"', 'class="catfacts"', 'class="publicline"', 'id="corrections"', 'class="catmap"', '<nav class="jump"'];
+    const marks = ['<div class="catcard', 'class="photo catmain"', 'class="catfacts kf"', 'class="publicline"', 'id="corrections"', '<nav class="cattabs"', 'class="catmap"'];
     const at = marks.map((m) => html.indexOf(m));
     expect(at.every((i) => i > -1), JSON.stringify(at)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
   });
 
-  it("has jump links with counts, none marked as selected", () => {
+  it("has tabs with counts, none marked as selected (the CSS draws the open one)", () => {
     const html = page(richCatView());
-    const nav = html.slice(html.indexOf('<nav class="jump"'), html.indexOf("</nav>", html.indexOf('<nav class="jump"')));
+    const nav = html.slice(html.indexOf('<nav class="cattabs"'), html.indexOf("</nav>", html.indexOf('<nav class="cattabs"')));
     // Every History row (SYC-602 PR 2): 21 sightings and two changes.
-    expect(nav).toContain('href="#history">History (23)</a>');
-    expect(nav).toContain('href="#photos">Photos (0)</a>');
-    expect(nav).toContain('href="#appearance">Coat and markings</a>');
-    expect(nav).not.toContain("#issue-strip");
+    expect(nav).toContain('href="#tab-history">History (23)</a>');
+    expect(nav).toContain('href="#tab-photos">Photos (0)</a>');
+    expect(nav).toContain('href="#tab-coat">Coat and markings</a>');
+    expect(nav).not.toContain("#tab-reports");
     expect(nav).not.toContain("aria-current");
     for (const id of ["history", "photos", "appearance"]) expect(html, id).toContain(`id="${id}"`);
-  });
-
-  it("orders the jump links like the right-hand column: History, Photos, Reports, Coat and markings", () => {
-    const issues = {
-      total: 1,
-      reports: [{ id: "i1", reason: "wrong_cat", state: "new", at: "2026-10-10T09:00:00Z", others: 0, photo: null }],
-    };
-    const html = page(richCatView(), { issues });
-    const nav = html.slice(html.indexOf('<nav class="jump"'), html.indexOf("</nav>", html.indexOf('<nav class="jump"')));
-    const at = ["#history", "#photos", "#issue-strip", "#appearance"].map((h) => nav.indexOf(`href="${h}"`));
-    expect(at.every((n) => n > -1)).toBe(true);
-    expect([...at].sort((a, b) => a - b)).toEqual(at);
-    const none = page(richCatView());
-    const n2 = none.slice(none.indexOf('<nav class="jump"'), none.indexOf("</nav>", none.indexOf('<nav class="jump"')));
-    expect(n2.indexOf("#photos")).toBeLessThan(n2.indexOf("#appearance"));
   });
 
   it("links to the reports only when there are some", () => {
@@ -247,7 +203,7 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
       reports: [{ id: "i1", reason: "wrong_cat", state: "new", at: "2026-10-10T09:00:00Z", others: 0, photo: null }],
     };
     const html = page(richCatView(), { issues });
-    expect(html).toContain('href="#issue-strip">Reports (1)</a>');
+    expect(html).toContain('href="#tab-reports">Reports (1)</a>');
     expect(html).toContain('id="issue-strip"');
   });
 
@@ -263,8 +219,10 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
       const b = box(html);
       expect(stripTags(b)).toMatch(/^1 open report: .+ · 2 days ago$/);
       expect(b).toContain('href="/api/team?open=i1#r-i1"');
-      expect(html.indexOf('class="openreports"')).toBeLessThan(html.indexOf('class="catfacts"'));
-      expect(html.indexOf('class="openreports"')).toBeGreaterThan(html.indexOf('class="col-facts"'));
+      expect(html.indexOf('class="openreports"')).toBeLessThan(html.indexOf('class="catfacts kf"'));
+      // Spec §2: the very top of the card, above the photo.
+      expect(html.indexOf('class="openreports"')).toBeGreaterThan(html.indexOf('<div class="catcard'));
+      expect(html.indexOf('class="openreports"')).toBeLessThan(html.indexOf('class="cardphoto"'));
     });
 
     it("says N open reports, names the newest open one, and counts looking as open", () => {
@@ -291,9 +249,9 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
 
     it("keeps the full list in its own Reports section after the photos", () => {
       const html = page(richCatView(), { issues: { total: 1, reports: [rep("i1", "new", "2026-10-15T09:00:00Z")] } });
-      const sec = html.indexOf('<section id="issue-strip"');
+      const sec = html.indexOf('<section class="issues"');
       expect(sec).toBeGreaterThan(html.indexOf('id="photos"'));
-      expect(html.slice(sec)).toContain("<h2>Reports (1)</h2>");
+      expect(html).toContain('<h2 id="h-reports">Reports (1)</h2>');
     });
 
     it("with only closed reports: no box, the section stays", () => {
@@ -308,44 +266,10 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
       expect(html).not.toContain('id="issue-strip"');
     });
 
-    it("lays History left and Photos, Reports, Coat right on a wide screen", () => {
+    it("puts the Reports panel last, after Coat and markings", () => {
       const html = page(richCatView(), { issues: { total: 1, reports: [rep("i1", "new", "2026-10-15T09:00:00Z")] } });
-      const cols = html.indexOf('class="catcols"');
-      expect(cols).toBeGreaterThan(-1);
-      const side = html.indexOf('class="catside"', cols);
-      const at = (n: string) => html.indexOf(n, cols);
-      expect(at('id="history"')).toBeLessThan(side);
-      for (const id of ['id="photos"', 'id="issue-strip"', 'id="appearance"']) expect(at(id), id).toBeGreaterThan(side);
-      expect(at('id="photos"')).toBeLessThan(at('id="issue-strip"'));
-      expect(at('id="issue-strip"')).toBeLessThan(at('id="appearance"'));
+      expect(html.indexOf('id="tab-coat"')).toBeLessThan(html.indexOf('id="tab-reports"'));
     });
-  });
-
-  it("dims hidden photos in the strip", () => {
-    const html = page(withPhotos());
-    const strip = html.slice(html.indexOf('class="photostrip"'));
-    const hiddenLi = /<li class="hidden">[\s\S]*?<\/li>/.exec(strip)?.[0] ?? "";
-    expect(hiddenLi).toContain("hidden from the public");
-    expect(hiddenLi).toContain('<span class="hiddentag">Hidden</span>');
-    expect(strip.slice(0, strip.indexOf("</ul>")).match(/class="hidden"/g)).toHaveLength(1);
-  });
-
-  it("shows up to three more photos and an All N tile that jumps to Photos", () => {
-    const many = Array.from({ length: 6 }, (_, i) => ({
-      source: i === 0 ? "main" : "sighting",
-      publicId: `p${i + 1}`,
-      url: `/p${i + 1}.jpg`,
-      hidden: null,
-    }));
-    const v = catView({ cat: { mainPhotoUrl: "/p1.jpg" }, photos: many, sightings: richCatView().sightings } as never);
-    const html = page(v);
-    const strip = html.slice(html.indexOf('class="photostrip"'), html.indexOf("</ul>", html.indexOf('class="photostrip"')));
-    expect(strip.match(/<img /g)).toHaveLength(3);
-    expect(strip).toContain('<a class="more" href="#photos">All 6</a>');
-    expect(strip).not.toContain("+");
-    const few = catView({ cat: { mainPhotoUrl: "/p1.jpg" }, photos: many.slice(0, 3) } as never);
-    const f = page(few);
-    expect(f.slice(f.indexOf('class="photostrip"'))).toContain("All 3");
   });
 
   it("leaves no heading with nothing under it on a bare cat", () => {
@@ -376,7 +300,7 @@ describe("the photos grid (SYC-602 Task 3.1)", () => {
 
   it("heads the grid Photos (4) and calls the first Main photo, the others by date", () => {
     const html = page(four(), { may });
-    expect(html).toContain('<h2 id="photos">Photos (4)</h2>');
+    expect(html).toContain('<h2 id="h-photos">Photos (4)</h2>');
     expect(html).not.toContain("All photos");
     expect(figure(html, "p1")).toContain("Main photo");
     expect(figure(html, "p2")).toContain("18 Oct");
@@ -448,10 +372,11 @@ describe("the photos grid (SYC-602 Task 3.1)", () => {
     expect(page(none, { may })).not.toContain("Main photo");
   });
 
-  it("keeps the notice at the top of Photos when the photo isn't found", () => {
+  it("puts the notice above the card when the photo isn't found (SYC-655 A7)", () => {
     const html = page(four(), { may, photo: "nope", done: "restored" });
     const at = html.indexOf("Restored. The public sees this photo again.");
-    expect(at).toBeGreaterThan(html.indexOf('<h2 id="photos">'));
-    expect(at).toBeLessThan(html.indexOf('<figure id="p-p1"'));
+    expect(at).toBeGreaterThan(-1);
+    expect(at).toBeLessThan(html.indexOf('<div class="catcard'));
+    expect(html.match(/Restored\. The public sees this photo again\./g)).toHaveLength(1);
   });
 });

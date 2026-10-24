@@ -1,0 +1,112 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mavros · tabs mockup</title><style>
+:root{--bg:#f6f4ef;--ink:#1d1d1b;--muted:#5b5a55;--line:#dedad0;--soft:#efece5;--card:#fff;--teal:#0b5c6b;--teal-soft:#e4eef0;
+--s-prob:#2f7884;--red:#9b1c1c;--amber:#fdf1d6;--amber-ink:#6b4a00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--teal)}
+.mock{background:#1d1d1b;color:#fff;font-size:12px;text-align:center;padding:5px 16px}
+nav.top{background:#fff;border-bottom:1px solid var(--line);display:flex;gap:18px;align-items:center;padding:12px 16px;overflow-x:auto;white-space:nowrap}
+nav.top a{font-size:15px}
+nav.top a.on{font-weight:700;text-decoration:none;color:var(--ink);border-bottom:3px solid var(--teal);padding-bottom:3px}
+nav.top .me{margin-left:auto;font-size:14px;color:var(--muted)}
+main{margin:0 auto;padding:16px}
+.back{display:inline-block;margin:2px 0 12px;font-size:14px}
+h1{margin:0;font-size:28px;line-height:1.1}
+.syr{color:var(--muted);font-size:14px;margin-top:3px}
+.status{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:15px;align-items:center}
+.half{width:13px;height:13px;border-radius:50%;border:2px solid var(--s-prob);background:linear-gradient(90deg,var(--s-prob) 50%,transparent 50%);display:inline-block;vertical-align:-1px;margin-right:5px}
+.ph{display:block;overflow:hidden;border-radius:8px}
+.ph svg{display:block;width:100%;height:100%}
+.ph.hid{opacity:.45;position:relative}
+.btn{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:8px;font-weight:600;font-size:15px;text-decoration:none;border:1.5px solid var(--teal);color:var(--teal);background:#fff;padding:0 14px;white-space:nowrap}
+.btn.main{background:var(--teal);color:#fff}
+.btn.died{border-color:var(--red);color:var(--red);font-weight:500}
+.btn.quiet{border-color:var(--line);color:var(--ink);font-weight:500}
+.report{background:var(--amber);border:1px solid #ecd9a8;border-radius:8px;padding:10px 12px;font-size:14px;color:var(--amber-ink)}
+.report a{color:var(--amber-ink);font-weight:700}
+dl.facts{margin:0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:2px 14px}
+dl.facts>div{display:grid;grid-template-columns:104px minmax(0,1fr);gap:10px;padding:9px 0;border-top:1px solid var(--soft)}
+dl.facts>div:first-child{border-top:0}
+dt{font-size:13px;color:var(--muted);font-weight:600;padding-top:2px}
+dd{margin:0}
+.how{display:block;font-size:13px;color:var(--muted)}
+.why{font-size:13px}
+.chip{display:inline-block;border:1px solid #b9b5ab;border-radius:999px;padding:0 8px;font-size:13px}
+.public{font-size:13px;color:var(--muted)}
+.map{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#e6eedc}
+.map svg{display:block;width:100%;height:100%}
+.mapcap{display:flex;justify-content:space-between;font-size:13px;padding:6px 10px;background:#fff;border-top:1px solid var(--line)}
+h2{font-size:19px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 10px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.filters a{font-size:13px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:#fff;text-decoration:none;color:var(--ink)}
+.filters a.on{border-color:var(--teal);background:var(--teal-soft);color:var(--teal);font-weight:700}
+ol.tl{list-style:none;margin:0;padding:0;background:#fff;border:1px solid var(--line);border-radius:10px}
+ol.tl>li{display:grid;grid-template-columns:62px minmax(0,1fr) 36px;gap:10px;padding:10px 12px;border-top:1px solid var(--soft)}
+ol.tl>li:first-child{border-top:0}
+.when{font-size:13px;color:var(--muted);line-height:1.25}.when b{display:block;color:var(--ink);font-size:14px}
+.what b{font-weight:650}.who{display:block;font-size:13px;color:var(--muted)}
+.thumbs{display:flex;gap:4px;margin-top:6px}.thumbs .ph{width:40px;height:40px;border-radius:5px}
+.dots{color:var(--muted);font-size:20px;text-align:center;line-height:1}
+.tag{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;margin-left:4px;vertical-align:1px}
+.tag.vet{background:var(--teal-soft);color:var(--teal)}.tag.note{background:#efe9dc;color:#5b4a22}
+li.vet{box-shadow:inset 3px 0 0 var(--teal)}li.run .what b{color:var(--teal)}
+.more{display:block;text-align:center;padding:10px;font-weight:600;font-size:14px}
+.grid{display:grid;gap:8px}
+.grid figure{margin:0}
+.grid figcaption{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:3px 2px}
+.grid .hidcap{color:var(--red);font-weight:700}
+.fold{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+.fold b{display:block}.fold span{font-size:13px;color:var(--muted)}
+ul.reports{list-style:none;margin:0;padding:0;background:#fff;border:1px solid var(--line);border-radius:10px}
+ul.reports li{padding:9px 12px;border-top:1px solid var(--soft);font-size:14px}ul.reports li:first-child{border-top:0}
+.state{font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;background:var(--soft);margin-left:4px}
+.state.new{background:var(--amber);color:var(--amber-ink)}
+.update{position:relative}
+
+main{max-width:1120px}
+.notice{background:#fff;border:1px solid var(--line);border-left:4px solid var(--teal);border-radius:8px;padding:9px 12px;font-size:14px;margin-bottom:12px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:16px}
+.photo{position:relative;display:block;text-decoration:none}
+.photo .ph{aspect-ratio:4/3;width:100%;border-radius:10px}
+.photo .count{position:absolute;right:8px;bottom:8px;background:rgba(29,29,27,.82);color:#fff;font-size:13px;font-weight:600;border-radius:999px;padding:3px 10px}
+.nameline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nameline .mk{display:inline-flex;align-items:center}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.mk .half{margin-right:0}
+.kf{display:grid;grid-template-columns:minmax(0,1fr);gap:12px 18px;margin:14px 0 0}
+.kf>div{min-width:0}
+.kf dt{margin-bottom:1px}
+.kf .wide{grid-column:1/-1;background:#faf8f3;border:1px solid var(--soft);border-radius:8px;padding:8px 10px}
+.about{margin-top:12px}
+.acts{display:grid;gap:10px;align-content:start}
+.tabs{position:sticky;top:0;z-index:4;background:var(--bg);display:flex;gap:2px;border-bottom:1px solid var(--line);margin:22px 0 16px;overflow-x:auto;white-space:nowrap;scrollbar-width:thin}
+.tabs a{padding:11px 14px;text-decoration:none;color:var(--muted);font-weight:600;font-size:15px;border-bottom:3px solid transparent;flex:none}
+.tabs a:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+/* CSS-only tabs: a panel shows when it is the target or holds the target; History when nothing in a panel is targeted. */
+.panel{display:none}
+.panel:target,.panel:has(:target){display:block}
+.panels:not(:has(.panel:target, .panel :target)) #tab-history{display:block}
+body:not(:has(.panel:target, .panel :target)) .tabs a[href="#tab-history"],
+body:has(#tab-history:target, #tab-history :target) .tabs a[href="#tab-history"],
+body:has(#tab-photos:target, #tab-photos :target) .tabs a[href="#tab-photos"],
+body:has(#tab-map:target, #tab-map :target) .tabs a[href="#tab-map"],
+body:has(#tab-coat:target, #tab-coat :target) .tabs a[href="#tab-coat"],
+body:has(#tab-reports:target, #tab-reports :target) .tabs a[href="#tab-reports"]{color:var(--ink);border-bottom-color:var(--teal)}
+.panel h2.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.coatline .what b{color:var(--teal)}
+.bigmap .map{max-width:512px}.bigmap .map>div{height:340px}
+.coatpanel .row{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.coatpanel h3{margin:0 0 4px;font-size:16px}
+.coatpanel p{margin:2px 0;font-size:14px}
+.coatpanel .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.change{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:10px;align-items:center;border-top:1px solid var(--soft);padding:8px 0;font-size:14px}
+.change .ph{width:56px;height:56px}
+@media(min-width:700px){.kf{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1000px){
+ .card{grid-template-columns:200px minmax(0,1fr) 240px;align-items:start}
+ .rep{grid-column:1/-1}
+ .photo .ph{aspect-ratio:1}
+ .kf{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+</style></head><body><div class="mock">Mockup · option B with tabs · the tabs work; nothing saves</div><nav class="top"><a href="#">Home</a><a class="on" href="#">Cats</a><a href="#">Map</a><a href="#">Queue</a><a href="#">Colonies</a><a href="#">Reports</a><span class="me">Signed in as Maria · <a href="#">Sign out</a></span></nav><main><a class="back" href="#">← Find another cat</a><div class="card"><div class="rep"><div class="report">⚑ <a href="#tab-reports">1 open report: “That’s a different cat”</a> · 2 days ago</div></div><a class="photo" href="#tab-photos" aria-label="See all 5 photos"><span class="ph"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#8a8f96"/><ellipse cx="50" cy="68" rx="24" ry="19" fill="#3b3e42"/><circle cx="50" cy="44" r="14" fill="#3b3e42"/><polygon points="39,37 41,24 47,33" fill="#3b3e42"/><polygon points="61,37 59,24 53,33" fill="#3b3e42"/><circle cx="45.5" cy="43" r="1.7" fill="#d9c35b"/><circle cx="54.5" cy="43" r="1.7" fill="#d9c35b"/></svg></span><span class="count">5 photos</span></a><div><div class="nameline"><h1>Mavros</h1><span class="mk" title="Probably sterilised"><i class="half" style="width:18px;height:18px"></i><span class="vh">Probably sterilised</span></span></div><div class="syr">SYR-0042 · on our records since 3 Apr 2026</div><dl class="kf"><div><dt>Sterilised</dt><dd><i class="half"></i>Probably: clipped ear seen in 3 photos<a class="why how" href="#">Why we think so</a></dd></div><div><dt>Lives</dt><dd>On the street<span class="how">Set by Maria, 14 Oct 2026</span></dd></div><div><dt>Coat</dt><dd><span class="chip">Grey tabby</span> <span class="how" style="display:inline">read from the photo</span></dd></div><div><dt>Colony</dt><dd><a href="#">Ermoupoli harbour</a></dd></div><div><dt>Last seen</dt><dd>5 days ago · <a href="#tab-map">Ermoupoli</a><span class="how">Seen 9 times since August</span></dd></div><div><dt>Vaccinated</dt><dd>Rabies, cat flu and enteritis, 2 May 2026</dd></div><div class="wide"><dt>Health note</dt><dd>Limping on the left back leg since Tuesday. Vet if still limping on Monday.<span class="how">Maria, 2 Oct 2026 · team only</span></dd></div></dl><p class="public about">Friendly, waits by the fish market at 8.<br>What the public sees: Lives on the street · Probably sterilised</p></div><div class="acts"><div style="display:grid;gap:8px"><a class="btn main" href="#">Log a vet visit</a><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><a class="btn" href="#">Update this cat ▾</a><a class="btn" href="#">Add a note</a></div><a class="btn died" href="#" style="min-height:38px;font-size:14px">This cat has died</a></div></div></div><nav class="tabs" aria-label="Sections of this cat's page"><a href="#tab-history">History (18)</a><a href="#tab-photos">Photos (5)</a><a href="#tab-map">Map</a><a href="#tab-coat">Coat and markings</a><a href="#tab-reports">Reports (3)</a></nav><div class="panels"><div class="panel" id="tab-history"><h2 class="sr">History</h2><section id="history"><p class="sub">Newest first. A change marked wrong stays here, crossed out, with what replaced it.</p><div class="filters"><a class="on" href="#">All</a><a href="#">Sightings 9</a><a href="#">Vet visits 2</a><a href="#">Changes and notes 7</a></div><ol class="tl"><li><div class="when"><b>14 Oct</b>11:00</div><div class="what"><b>Lives on the street</b><span class='who'>Changed by Maria · Why: back at the harbour steps every morning</span></div><div class="dots">⋯</div></li><li><div class="when"><b>12 Oct</b>11:00</div><div class="what"><b>Seen in Ermoupoli:</b> ear tip clipped, left ear<span class='who'>A spotter</span><span class="thumbs"><span class="ph"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#b89a74"/><ellipse cx="50" cy="68" rx="24" ry="19" fill="#3b3e42"/><circle cx="50" cy="44" r="14" fill="#3b3e42"/><polygon points="39,37 41,24 47,33" fill="#3b3e42"/><polygon points="61,37 59,24 53,33" fill="#3b3e42"/><circle cx="45.5" cy="43" r="1.7" fill="#d9c35b"/><circle cx="54.5" cy="43" r="1.7" fill="#d9c35b"/></svg></span></span></div><div class="dots">⋯</div></li><li><div class="when"><b>10 Oct</b>11:00</div><div class="what"><b>Seen in Ermoupoli:</b> food and water were out<span class='who'>A spotter</span><span class="thumbs"><span class="ph"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#7fae78"/><ellipse cx="50" cy="68" rx="24" ry="19" fill="#3b3e42"/><circle cx="50" cy="44" r="14" fill="#3b3e42"/><polygon points="39,37 41,24 47,33" fill="#3b3e42"/><polygon points="61,37 59,24 53,33" fill="#3b3e42"/><circle cx="45.5" cy="43" r="1.7" fill="#d9c35b"/><circle cx="54.5" cy="43" r="1.7" fill="#d9c35b"/></svg></span></span></div><div class="dots">⋯</div></li><li class="run"><div class="when"><b>4–7 Oct</b></div><div class="what"><b>Seen 2 times by spotters, looking well</b><span class="thumbs"><span class="ph"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#b6a3c4"/><ellipse cx="50" cy="68" rx="24" ry="19" fill="#3b3e42"/><circle cx="50" cy="44" r="14" fill="#3b3e42"/><polygon points="39,37 41,24 47,33" fill="#3b3e42"/><polygon points="61,37 59,24 53,33" fill="#3b3e42"/><circle cx="45.5" cy="43" r="1.7" fill="#d9c35b"/><circle cx="54.5" cy="43" r="1.7" fill="#d9c35b"/></svg></span><span class="ph"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#b89a74"/><ellipse cx="50" cy="68" rx="24" ry="19" fill="#3b3e42"/><circle cx="50" cy="44" r="14" fill="#3b3e42"/><polygon points="39,37 41,24 47,33" fill="#3b3e42"/><polygon points="61,37 59,24 53,33" fill="#3b3e42"/><circle cx="45.5" cy="43" r="1.7" fill="#d9c35b"/><circle cx="54.5" cy="43" r="1.7" fill="#d9c35b"/></svg></span></span></div><div class="dots"></div></li><li><div class="when"><b>2 Oct</b>18:20</div><div class="what"><b>Note</b> <span class='tag note'>team only</span><br>Limping on the left back leg since Tuesday.<span class='who'>Maria</span></div><div class="dots">⋯</div></li><li class="coatline"><div class="when"><b>26 Sept</b>11:00</div><div class="what"><a href="#appearance"><b>Coat changed to grey tabby</b></a><span class='who'>Read automatically from the photo · details and Mark wrong in Coat and markings</span></div><div class="dots"></div></li><li><div class="when"><b>6 Sept</b>11:00</div><div class="what"><b>Put in the colony Ermoupoli harbour</b><span class='who'>Imported</span></div><div class="dots"></div></li><li class="vet"><div class="when"><b>17 Aug</b></div><div class="what"><b>Vet visit: sterilised, vaccinated (rabies)</b> <span class='tag vet'>vet</span><span class='who'>Syros Vet · €55, paid by Syros Cats · logged by Maria</span></div><div class="dots">⋯</div></li></ol><a class="more" href="#">Show all 18</a></section></div><div class="panel" id="tab-photos"><section id="photos"><h2 class="sr">Photos (5)</h2><p class="sub">1 hidden from the public. The team still sees it.</p><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr))"><figure><span class="ph" style="aspect-ratio:1"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#8a8f96"/><ellipse cx="50" cy="68" rx="24" ry="19" fill="#3b3e42"/><circle cx="50" cy="44" r="14" fill="#3b3e42"/><polygon points="39,37 41,24 47,33" fill="#3b3e42"/><polygon points="61,37 59,24 53,33" fill="#3b3e42"/><circle cx="45.5" cy="43" r="1.7" fill="#d9c35b"/><circle cx="54.5" cy="43" r="1.7" fill="#d9c35b"/></svg></span><figcaption><span class="">Main photo</span><span>⋯</span></figcaption></figure><figure><span class="ph" style="aspect-ratio:1"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#b89a74"/><ellipse cx="50" cy="68" rx="24" ry="19" fill="#3b3e42"/><circle cx="50" cy="44" r="14" fill="#3b3e42"/><polygon points="39,37 41,24 47,33" fill="#3b3e42"/><polygon points="61,37 59,24 53,33" fill="#3b3e42"/><circle cx="45.5" cy="43" r="1.7" fill="#d9c35b"/><circle cx="54.5" cy="43" r="1.7" fill="#d9c35b"/></svg></span><figcaption><span class="">5 Oct</span><span>⋯</span></figcaption></figure><figure><span class="ph" style="aspect-ratio:1"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#7fae78"/><ellipse cx="50" cy="68" rx="24" ry="19" fill="#3b3e42"/><circle cx="50" cy="44" r="14" fill="#3b3e42"/><polygon points="39,37 41,24 47,33" fill="#3b3e42"/><polygon points="61,37 59,24 53,33" fill="#3b3e42"/><circle cx="45.5" cy="43" r="1.7" fill="#d9c35b"/><circle cx="54.5" cy="43" r="1.7" fill="#d9c35b"/></svg></span><figcaption><span class="">28 Sept</span><span>⋯</span></figcaption></figure><figure><span class="ph hid" style="aspect-ratio:1"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#b6a3c4"/><ellipse cx="50" cy="68" rx="24" ry="19" fill="#3b3e42"/><circle cx="50" cy="44" r="14" fill="#3b3e42"/><polygon points="39,37 41,24 47,33" fill="#3b3e42"/><polygon points="61,37 59,24 53,33" fill="#3b3e42"/><circle cx="45.5" cy="43" r="1.7" fill="#d9c35b"/><circle cx="54.5" cy="43" r="1.7" fill="#d9c35b"/></svg></span><figcaption><span class="hidcap">Hidden · Maria</span><span>⋯</span></figcaption></figure><figure><span class="ph" style="aspect-ratio:1"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#c48a86"/><ellipse cx="50" cy="68" rx="24" ry="19" fill="#3b3e42"/><circle cx="50" cy="44" r="14" fill="#3b3e42"/><polygon points="39,37 41,24 47,33" fill="#3b3e42"/><polygon points="61,37 59,24 53,33" fill="#3b3e42"/><circle cx="45.5" cy="43" r="1.7" fill="#d9c35b"/><circle cx="54.5" cy="43" r="1.7" fill="#d9c35b"/></svg></span><figcaption><span class="">14 Sept</span><span>⋯</span></figcaption></figure></div></section></div><div class="panel bigmap" id="tab-map"><h2 style="font-size:17px">Where Mavros has been seen</h2><div class="map"><div style="height:340px"><svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><rect width="400" height="200" fill="#e6eedc"/><path d="M0 150 C80 120 160 170 240 140 S360 150 400 135 V200 H0Z" fill="#bcd9e6"/><path d="M40 60H360M120 20V160M230 10V150M310 30V140" stroke="#fff" stroke-width="7"/><g font-size="11" font-weight="700" fill="#fff" text-anchor="middle"><circle cx="205" cy="105" r="11" fill="#1d1d1b"/><text x="205" y="109">1</text><rect x="214" y="80" width="40" height="20" rx="10" fill="#1d1d1b"/><text x="234" y="94">2–4</text><circle cx="186" cy="118" r="11" fill="#1d1d1b"/><text x="186" y="122">5</text><circle cx="246" cy="118" r="11" fill="#1d1d1b"/><text x="246" y="122">6</text></g></svg></div><div class="mapcap"><span>Ermoupoli · 6 sightings</span><a href="#">Open the map</a></div></div></div><div class="panel" id="tab-coat"><section id="appearance" class="coatpanel"><h2 class="sr">Coat and markings</h2><div class="row"><h3>Coat: grey tabby</h3><p>Read from the photo on 3 Apr 2026. Maria agreed on 5 Apr.</p><div class="btns"><a class="btn" href="#">Yes, the coat is right</a><a class="btn" href="#">Change the coat or markings</a></div></div><div class="row"><h3>Markings: white paws</h3><p>A spotter said so on 3 Apr 2026. Nobody on the team has checked yet.</p><div class="btns"><a class="btn" href="#">Yes, the markings are right</a></div></div><div class="row"><h3>Changes that count now</h3><div class="change"><span class="ph"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#8a8f96"/><ellipse cx="50" cy="68" rx="24" ry="19" fill="#3b3e42"/><circle cx="50" cy="44" r="14" fill="#3b3e42"/><polygon points="39,37 41,24 47,33" fill="#3b3e42"/><polygon points="61,37 59,24 53,33" fill="#3b3e42"/><circle cx="45.5" cy="43" r="1.7" fill="#d9c35b"/><circle cx="54.5" cy="43" r="1.7" fill="#d9c35b"/></svg></span><span>Coat: grey tabby · read automatically from the photo, 26 Sept</span><a href="#">Mark wrong</a></div><div class="change"><span class="ph" style="background:#eee"></span><span>Coat: grey tabby · agreed by Maria, 5 Apr</span><a href="#">Mark wrong</a></div></div><div class="row"><h3>Past changes</h3><div class="change"><span class="ph" style="background:#eee"></span><span><del>Coat: black</del> · read automatically from the photo, 3 Apr<br><span class="public">Replaced by Maria, 5 Apr. Why: the photo was taken at dusk</span></span><span></span></div></div></section></div><div class="panel" id="tab-reports"><section id="reports"><h2 class="sr">Reports (3)</h2><ul class="reports"><li><a href="#">That’s a different cat</a><span class="state new">New</span> <span class="public">· 2 days ago</span></li><li><a href="#">Photo shows a person</a><span class="state">Done</span> <span class="public">· 18 Sept · Photo hidden</span></li><li><a href="#">Wrong name</a><span class="state">Nothing needed</span> <span class="public">· 2 Sept</span></li></ul></section></div></div></main></body></html>
