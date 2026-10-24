@@ -1,7 +1,7 @@
 # "Couldn't load — Try again"
 
 **Ticket:** SYC-508 (epic SYC-605). **Also covers** two SYC-578 items: the empty Notifications "Spot a cat" button, and Home's one friendly line before the first spot.
-**Status:** draft for Samuel's approval, 24 Oct 2026. Revised after the adversarial review ([`reviews/couldnt-load-try-again-review.md`](./reviews/couldnt-load-try-again-review.md), all 15 findings accepted).
+**Status:** approved by Samuel, 24 Oct 2026, with D1 Option A ("approved, go with A"). Revised after the adversarial review ([`reviews/couldnt-load-try-again-review.md`](./reviews/couldnt-load-try-again-review.md), all 15 findings accepted).
 **Not covered:** the Profile tab and its new Settings screen (SYC-628 adds Profile's own Try again, per `profile-tab-redesign.md`'s mapping table), the team dashboard, and the public cat page (the cat-pages redesign session owns it).
 
 All file:line references were checked against `origin/main` at 356a32b5.
@@ -224,7 +224,7 @@ Under the button, a small link lets the spotter overrule the check and carry on 
 - On the Cat-alogue, when the profile fails, the "Not spotted yet" chip and the stamps quietly disappear, with no retry (`cats.tsx:68`).
 - The public cat page's own "Something went wrong" (`app/cat/[id].tsx:158`), for the cat-pages redesign.
 - The server should refuse to finish a spot marked "no cat found" (`sightings.ts` finish route).
-- Option B of D1, if Samuel picks A.
+- Option B of D1 (SYC-642).
 
 ## 7. Tests
 
