@@ -148,12 +148,15 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /** Re-reads the permission; when granted and there is no fix yet, reads one. No prompt. */
-  const sync = useCallback(async () => {
+  const sync = useCallback(async (onPermissionRead?: () => void) => {
     const gen = ++genRef.current;
     const current = () => mounted.current && gen === genRef.current;
     track(1);
     try {
       const perm = await readPermission(choiceRef.current);
+      // The mount read reports in as soon as the permission is known, even if
+      // a newer ask has made this sync stale, and before any GPS wait.
+      onPermissionRead?.();
       if (!current()) return;
       setPermission(perm);
       if (perm !== 'granted') {
@@ -181,8 +184,9 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     mounted.current = true;
     (async () => {
       applyChoice(await readLocationChoice(AsyncStorage));
-      await sync();
-      if (mounted.current) setChecked(true);
+      await sync(() => {
+        if (mounted.current) setChecked(true);
+      });
     })();
     return () => {
       mounted.current = false;

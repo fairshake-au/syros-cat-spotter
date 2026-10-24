@@ -325,6 +325,36 @@ describe('LocationProvider (native)', () => {
     expect(result.current.coords).toEqual(FIX.coords);
   });
 
+  it('checked turns true once permission is read, without waiting for the position', async () => {
+    h.getForegroundPermissionsAsync.mockResolvedValue(GRANTED);
+    h.getCurrentPositionAsync.mockReturnValue(new Promise(() => undefined));
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    await waitFor(() => expect(result.current.checked).toBe(true));
+    expect(result.current.permission).toBe('granted');
+    expect(result.current.coords).toBeNull();
+    expect(result.current.loading).toBe(true);
+  });
+
+  it('a stale mount read still leaves checked true', async () => {
+    let resolveStale!: (v: unknown) => void;
+    h.getForegroundPermissionsAsync.mockReturnValue(
+      new Promise((r) => {
+        resolveStale = r;
+      }),
+    );
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    await settle();
+    await act(async () => {
+      await result.current.askAndLocate();
+    });
+    expect(result.current.checked).toBe(false);
+    await act(async () => {
+      resolveStale(UNDETERMINED);
+    });
+    await waitFor(() => expect(result.current.checked).toBe(true));
+    expect(result.current.coords).toEqual(FIX.coords);
+  });
+
   it('ignores app state changes other than active', async () => {
     const { result } = renderHook(() => useAppLocation(), { wrapper });
     await settle();
