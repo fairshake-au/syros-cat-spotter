@@ -16,3 +16,5 @@ Task 6: People as short rows that open (a86840f6)
 Next: Task 7 (Areas, spec 4.2)
 Task 7: Areas as short rows, busiest first (bda6ee3d)
 Next: Task 8 (not started by this agent)
+Task 8: colony page done: cats above sites, mark + last seen rows in planner order, compact ⋯ in the row; guardian walk + Greek tests (eb57d644)
+Next: browser check of the colony page at 390px and desktop (team and guardian); then the remaining PR2 tasks
