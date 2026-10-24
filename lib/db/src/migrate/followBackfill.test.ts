@@ -7,9 +7,9 @@ import {
   readMigrations,
 } from "./runner";
 
-// SYC-624 B1: 0041 makes everyone who has spotted a cat, and every current
+// SYC-624 B1: 0042 makes everyone who has spotted a cat, and every current
 // owner, a follower of it. Runs on a throwaway database brought up to just
-// before 0041 and seeded, then migrates through it.
+// before 0042 and seeded, then migrates through it.
 
 const baseUrl = process.env.DATABASE_URL;
 if (!baseUrl) throw new Error("DATABASE_URL must be set to run these tests");
@@ -24,7 +24,7 @@ const admin = new pg.Client({ connectionString: url("postgres") });
 let c: pg.Client;
 
 const migrations = readMigrations(defaultMigrationsFolder());
-const TARGET = migrations.find((m) => m.tag === "0041_cat_unfollows")!;
+const TARGET = migrations.find((m) => m.tag === "0042_cat_unfollows")!;
 const BEFORE = migrations.find((m) => m.idx === TARGET.idx - 1)!.idx;
 
 beforeAll(async () => {
@@ -70,7 +70,7 @@ const followers = async (catId: number) =>
     )
   ).rows.map((r) => r.device_id);
 
-describe("0041 follow backfill", () => {
+describe("0042 follow backfill", () => {
   it("makes an owner with no sightings a follower", async () => {
     const cat = await seedCat("Owned", "owner-dev");
     await migrateUp(c, migrations, { throughIdx: TARGET.idx });
