@@ -3,6 +3,7 @@ import { WelcomeStep } from './WelcomeStep';
 import { SafetyStep } from './SafetyStep';
 import { NameStep } from './NameStep';
 import { RestoreRequestScreen } from '@/components/keepSafe/RestoreRequestScreen';
+import { useDevice } from '@/context/DeviceContext';
 import type { OnboardingStep } from './steps';
 
 /**
@@ -18,11 +19,11 @@ import type { OnboardingStep } from './steps';
  * A cold start mid-flow simply begins again at Welcome, which costs a few taps.
  *
  * SYC-3: Welcome's "Already a spotter? Get your spots back" opens the restore
- * request (not a numbered step). The last step, "Don't lose your spots",
- * shows from the root gate once the name is claimed (an offline start skips it
- * and is offered it later).
+ * request (not a numbered step). SYC-524: "Don't lose your spots" is part of
+ * the name screen (an offline start skips it and is offered it later).
  */
 export function OnboardingFlow() {
+  const { deviceId } = useDevice();
   const [step, setStep] = useState<OnboardingStep | 'restore'>('welcome');
 
   switch (step) {
@@ -33,6 +34,8 @@ export function OnboardingFlow() {
     case 'safety':
       return <SafetyStep onNext={() => setStep('name')} />;
     case 'name':
-      return <NameStep onBack={() => setStep('safety')} />;
+      // SYC-524: a new identity (a restore link, "Delete my data") gets a
+      // fresh name screen; the old one ignores its own late answers.
+      return <NameStep key={deviceId ?? ''} onBack={() => setStep('safety')} />;
   }
 }
