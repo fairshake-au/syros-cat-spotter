@@ -77,6 +77,7 @@ function RootLayoutNav() {
       <Stack.Screen name="keep-safe" options={{ headerShown: false }} />
       <Stack.Screen name="get-spots-back" options={{ headerShown: false }} />
       <Stack.Screen name="delete-my-data" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
     </Stack>
   );
 }

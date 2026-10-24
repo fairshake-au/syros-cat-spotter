@@ -213,6 +213,11 @@ form.takeout button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px
 .catrow input[type=checkbox]{width:24px;height:24px;margin:0;flex:none}
 .catrow input[type=checkbox]:disabled+.thumb{opacity:.6}
 .catrow strong{color:#0b5c6b;text-decoration:underline}
+/* A colony's cat row (SYC-619 §7.2): the <li> is the card, its link fills it, the "⋯" sits at the right. */
+li.colonycat{position:relative;background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:8px 0}
+li.colonycat:hover{border-color:#0b5c6b}
+li.colonycat>a.catrow{border:0;margin:0;background:transparent;padding-right:56px}
+.catinfo{display:block;flex:1;min-width:0}
 .syr{color:#55524a;font-size:14px;font-variant-numeric:tabular-nums}
 .status{display:block;font-size:14px;color:#3b3930;margin-top:2px}
 .thumb{flex:none;width:72px;height:72px;object-fit:cover;border-radius:6px;background:#ece8dc}
@@ -333,6 +338,12 @@ li.hgroup ol.tl{border:0;border-top:1px solid #efece5;border-radius:0;background
 .rowmenu>summary{cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid #0b5c6b;border-radius:8px;color:#0b4553;font-weight:700;background:#fff}
 .rowmenuitems{padding:6px 0 0}
 .rowmenuitems .meta{margin:0 0 4px}
+.rowmenu.compact{margin:0}
+.rowmenu.compact>summary{position:absolute;top:8px;right:4px;width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:8px;justify-content:center;font-size:22px;line-height:1;color:#55524a;background:transparent;list-style:none}
+.rowmenu.compact>summary::-webkit-details-marker{display:none}
+.rowmenu.compact[open]>summary{background:#efece5}
+.rowmenu.compact>.rowmenuitems{margin:0 8px;padding:4px 0 8px;border-top:1px dashed #c9c4b6}
+.rowmenu.compact form.takeout{margin:4px 0 0}
 li.statement.routine>details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 li.statement.routine ol.history{margin:4px 0 0}
 ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;font-size:15px;overflow-wrap:anywhere}

@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import sharp from "sharp";
-import { pool } from "@workspace/db";
+import { db, observationsTable, pool, sightingsTable } from "@workspace/db";
+import { areaFor } from "../lib/areas/namedAreas";
+import { formatDate, tr } from "../lib/teamPages/strings";
 import app from "../app";
 import router from "./index";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
@@ -746,6 +748,60 @@ describe("T2: a person who may enter but lacks the capability gets the 403, neve
     expect(page.text).toContain('href="/api/team/my/colonies">Your colonies are here</a>');
     expect(page.text).not.toContain("Welfare queue");
     expect(page.text).toContain("Sign out");
+  });
+});
+
+describe("§6.4 (SYC-619 §7.2): a cat guardian's own colony page shows each cat's mark and date, never a place", () => {
+  it("the mark in her words and the date only: no place label, no position, no map address", async () => {
+    const colony = await newColony("walk-rows");
+    const seenCat = await seedCat(colony);
+    const neverCat = await seedCat(colony);
+    // Sterilised (as the team says it), and seen on 3 Oct somewhere other than where it was found.
+    await db.insert(observationsTable).values({
+      catId: seenCat.id,
+      kind: "sterilised",
+      value: { sterilised: true },
+      deviceId: "vt-walk-rows",
+      roleAtTime: "staff",
+      observedAt: new Date("2026-09-20T10:00:00Z"),
+    });
+    await db.insert(sightingsTable).values({
+      catId: seenCat.id,
+      deviceId: "vt-walk-rows",
+      photoId: seenCat.photoId,
+      lat: 37.4402,
+      lng: 24.9381,
+      status: "resolved",
+      createdAt: new Date("2026-10-03T09:00:00Z"),
+    });
+    const g = await guardianOn("walk-rows-g", [colony]);
+    freshMade.push(g.email);
+
+    const res = await request(app).get(`/api/team/colonies/${colony}`).set("Cookie", g.cookie).set("Sec-Fetch-Mode", "navigate");
+    expect(res.status).toBe(200);
+    const html = res.text;
+    const list = /<ul class="cats">[\s\S]*?<\/ul>/.exec(html)?.[0] ?? "";
+    const row = (id: number) => [...list.matchAll(/<li class="colonycat">[\s\S]*?<\/li>/g)].map((m) => m[0]).find((r) => r.includes(`/api/team/my/cats/${id}"`))!;
+
+    // Not known first (the planner's order), then sterilised.
+    expect(list.indexOf(`/api/team/my/cats/${neverCat.id}"`)).toBeLessThan(list.indexOf(`/api/team/my/cats/${seenCat.id}"`));
+    // The colony bar's words for the mark, and the guardian pages' date words.
+    expect(row(seenCat.id)).toContain(`<span class="mark-word">${tr("en", "colonies.mark.sterilised")}</span>`);
+    expect(row(seenCat.id)).toContain(tr("en", "gcat.lastSeen", { date: formatDate("en", new Date("2026-10-03T12:00:00Z")) }));
+    expect(row(neverCat.id)).toContain(`<span class="mark-word">${tr("en", "colonies.mark.notKnown")}</span>`);
+    // Review focus 2: never seen reads gcat.neverSeen, not the team's words.
+    expect(row(neverCat.id)).toContain(tr("en", "gcat.neverSeen"));
+    expect(list).not.toContain("Never seen since first recorded");
+    expect(list).not.toMatch(/Last seen on |ago</);
+    // No place label, no position, no map company's address, anywhere on her page.
+    expect(list).not.toContain(" · ");
+    for (const where of [areaFor(37.4402, 24.9381).name, areaFor(37.445, 24.942).name]) {
+      expect(list, where).not.toContain(where);
+    }
+    expect(html).not.toMatch(/37\.44|24\.9[34]/);
+    expect(html).not.toMatch(/google\.com\/maps|openstreetmap|geo:/i);
+    // Her cats link to her own cat page, never the team's.
+    expect(list).not.toContain(`href="/api/team/cats/`);
   });
 });
 
