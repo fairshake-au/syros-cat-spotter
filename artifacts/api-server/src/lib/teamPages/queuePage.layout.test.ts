@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { QueueReport, WelfareQueue } from "../welfareQueue";
+import type { IssueReport, IssuesSection } from "../issues/queue";
+import type { ColourCheckCat } from "../colourCheck";
+import type { LikelyCat } from "../likelyReview";
+import { renderColourCheckPage } from "./appearancePage";
+import { renderLikelyPage } from "./likelyPage";
 import { placeLabel } from "../areas/placeLabel";
 import { nextStep, renderQueuePage } from "./queuePage";
 
@@ -353,5 +358,78 @@ describe("Queue: the next step, the folded row and the stripe (SYC-619 task 15, 
     const rules = block.split("\n").filter(Boolean);
     expect(rules.length).toBeGreaterThan(3);
     for (const l of rules) expect(l.startsWith("article.report")).toBe(true);
+  });
+
+  it("the Queue's new row rules never reach the Colour check or Ear clips pages", () => {
+    const colourCat = {
+      catId: 1,
+      syr: "SYR-1",
+      name: "Mimi",
+      photoUrl: null,
+      coatColours: null,
+      coatPattern: null,
+      markings: null,
+      reasons: ["hand_pick"],
+      above: { coat: [], markings: [] },
+      group: "check",
+      newestAt: "2026-10-01T10:00:00.000Z",
+    } as unknown as ColourCheckCat;
+    const clipCat: LikelyCat = {
+      catId: 2,
+      name: "Tiger",
+      sterilisedAsOf: "2026-10-01T10:00:00.000Z",
+      matchedByHand: false,
+      reviewObservationId: 22,
+      evidence: [],
+    };
+    const colour = renderColourCheckPage([colourCat], "Maria");
+    const likely = renderLikelyPage([clipCat], "Maria");
+    expect(colour).toContain("Mimi");
+    expect(likely).toContain("Tiger");
+    // The markup only: the shared stylesheet names the Queue's classes, but no card here uses them.
+    for (const page of [colour, likely]) {
+      const html = page.replace(/<style>[\s\S]*?<\/style>/, "");
+      expect(html).not.toContain("said1");
+      expect(html).not.toContain('class="go"');
+      expect(html).not.toContain('class="now"');
+    }
+  });
+
+  it("an Issues row whose hidden photo can't offer the next step has no go button", () => {
+    const issue = (state: IssueReport["state"]): IssueReport => ({
+      id: "i1",
+      reason: "privacy",
+      at: "2026-10-15T10:00:00Z",
+      note: "Shows my face",
+      state,
+      stateChangedAt: null,
+      stateChangedBy: null,
+      teamNote: null,
+      teamNoteAt: null,
+      teamNoteBy: null,
+      cat: null,
+      photo: { url: "/api/team/photos/p1", hidden: true, removed: false },
+      hiddenByReport: true,
+      hideSkipped: null,
+      others: 0,
+      unchecked: false,
+      group: "hidden",
+    });
+    const section = (i: IssueReport): IssuesSection => ({
+      hidden: [i],
+      needsPerson: [],
+      other: [],
+      unchecked: [],
+      totals: { hidden: 1, needsPerson: 0, other: 0, unchecked: 0 },
+      closed: [],
+      closedTotal: 0,
+      brake: { on: false, hidesToday: 0, limit: 10 },
+    });
+    const draw = (i: IssueReport) =>
+      renderQueuePage(queue([]), "Maria", NOW, undefined, undefined, true, undefined, false, undefined, undefined, section(i));
+    // Looking at it would go to Done, which a hidden photo can't offer: nothing is filled in.
+    expect(draw(issue("looking"))).not.toContain('class="go"');
+    // Control: New goes to Looking at it, which is offered, so the same row does fill it in.
+    expect(draw(issue("new"))).toContain('class="go"');
   });
 });
