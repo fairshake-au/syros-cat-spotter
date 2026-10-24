@@ -18,7 +18,7 @@ import { escapeHtml as esc } from "./escape";
 import { backLink } from "./backLink";
 import { renderPage } from "./layout";
 import { markBar } from "./marks";
-import { methodFold } from "./methodFold";
+import { foldLine, methodFold } from "./methodFold";
 
 // The Reports area and its first two reports (SYC-396 PR 3.3a; spec §9.3).
 // Server-drawn, no scripts: every chart is an SVG picture with its numbers in
@@ -130,7 +130,7 @@ function rangeBar(path: string, range: Range, extra = "", keep: Record<string, s
  */
 function methodNote(range: Range, workedOutAt: Date, areasVersion: number | null, lines: string[]): string {
   const areas =
-    areasVersion === null ? [] : [{ html: `<p class="hint" id="areas-version">${esc(`Place names from the named areas, version ${areasVersion}.`)}</p>` }];
+    areasVersion === null ? [] : [foldLine("areas-version", `Place names from the named areas, version ${areasVersion}.`)];
   return (
     `<p class="hint" id="worked-out">Worked out ${esc(stamp(workedOutAt))} Syros time · ${esc(lowerFirst(range.label))}</p>` +
     methodFold([...lines.map((l) => `${l}.`), `${CORRECTED}.`, ...areas])
@@ -316,7 +316,9 @@ export function renderHealthPage(
   const body =
     rangeBar(path, o.range, keep.replace(/&/g, "&amp;"), { sort: o.sort, dir: o.dir }) +
     (r.rows.length === 0
-      ? `<p class="empty" id="nothing">No colonies yet. Colonies are set up on the <a href="/api/team/colonies">Colonies page</a>.</p>`
+      ? !r.anyColonies
+        ? `<p class="empty" id="nothing">No colonies yet. Colonies are set up on the <a href="/api/team/colonies">Colonies page</a>.</p>`
+        : nothing(path)
       : '<p class="hint">Figures at the end of the range. Change over 90 days compares with the records as they stood 90 days before. Tap a column to sort by it.</p>' +
         tableHtml({ ...table, headers }) +
         (o.canExport ? download("health", o.range, "Download this table as a spreadsheet (CSV)", `&amp;sort=${o.sort}&amp;dir=${o.dir}`) : "")) +

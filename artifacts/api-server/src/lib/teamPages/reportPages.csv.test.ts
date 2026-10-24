@@ -33,6 +33,7 @@ const progress = {
 } as unknown as ProgressReport;
 
 const health: HealthReport = {
+  anyColonies: true,
   ...base,
   rows: [
     { colonyId: 1, name: "Kini", catsNow: 5, change: -2, kittens: true, notSeenLately: 1, guardian: false, lastVisit: d("2026-10-10"), flags: ["kittens", "no_guardian"] },

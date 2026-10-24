@@ -125,11 +125,16 @@ describe("Sterilisation progress (§8.3)", () => {
 });
 
 describe("Colony health with no colonies (§8.2)", () => {
-  const html = renderHealthPage({ ...base, rows: [] } as HealthReport, { ...o, sort: "name", dir: "asc" });
+  const html = renderHealthPage({ ...base, rows: [], anyColonies: false } as HealthReport, { ...o, sort: "name", dir: "asc" });
   it("says there are no colonies and links to the Colonies page, not See all time", () => {
     const line = /<p class="empty" id="nothing">([\s\S]*?)<\/p>/.exec(html)![1]!;
     expect(line).toBe('No colonies yet. Colonies are set up on the <a href="/api/team/colonies">Colonies page</a>.');
     expect(html).not.toContain("See all time");
+  });
+  it("colonies that exist but are none in range say Nothing recorded, with See all time", () => {
+    const some = renderHealthPage({ ...base, rows: [], anyColonies: true } as HealthReport, { ...o, sort: "name", dir: "asc" });
+    expect(some).toContain("See all time");
+    expect(some).not.toContain("No colonies yet");
   });
   it("an empty report still has #worked-out outside the fold", () => {
     expect(outsideFold(html)).toContain('id="worked-out"');
@@ -161,6 +166,21 @@ describe("Coverage and spotting (§8.2, §8.3)", () => {
   });
 });
 
+describe("Welfare patterns: counted separately without sent reports", () => {
+  it("total 0 with drafts shows the Counted separately section and is not empty", () => {
+    const html = renderWelfarePage({ ...welfare(0), drafts: 3 } as WelfarePatterns, o);
+    expect(html).toContain("Counted separately");
+    expect(html).toContain('id="drafts"><strong>3</strong>');
+    expect(html).not.toContain("Nothing recorded in this period");
+  });
+  it("total 0 with content reports shows the Counted separately section and is not empty", () => {
+    const html = renderWelfarePage({ ...welfare(0), contentReports: 2 } as WelfarePatterns, o);
+    expect(html).toContain("Counted separately");
+    expect(html).toContain('id="content"><strong>2</strong>');
+    expect(html).not.toContain("Nothing recorded in this period");
+  });
+});
+
 describe("Welfare patterns (§8.2, §8.3)", () => {
   const empty = renderWelfarePage(welfare(0), o);
   const full = renderWelfarePage(welfare(2), o);
@@ -180,6 +200,15 @@ describe("Welfare patterns (§8.2, §8.3)", () => {
     expect(foldOf(full)).toContain("Counted by the date each report was sent.");
     expect(outsideFold(full)).not.toContain("one kind only");
     expect(outsideFold(full)).not.toContain("Counted by the date");
+  });
+});
+
+describe("Vet: no visits but sterilisations with no cost", () => {
+  it("shows the no-cost section and is not treated as empty", () => {
+    const html = renderVetPage({ ...vet(0), noCost: 4 } as VetCostsReport, o);
+    expect(html).toContain('id="no-cost"');
+    expect(html).toContain("<strong>4</strong> sterilisations with no cost recorded");
+    expect(html).not.toContain("Nothing recorded in this period");
   });
 });
 
