@@ -46,6 +46,18 @@ export const COLOUR_FILTERS: readonly ColourFilter[] = [...COAT_COLOURS, "not_su
 export type PatternFilter = CoatPattern | "not_known";
 export const PATTERN_FILTERS: readonly PatternFilter[] = [...COAT_PATTERNS, "not_known"];
 
+/**
+ * Solid and Patched are forgiving (coat spec §5, as "Find the cat"): Plain or
+ * Patches is a judgement call, so a cat with White among its colours and either
+ * of those two recorded shows under both. Tabby is exact.
+ */
+export function patternPicked(i: { coat: readonly CoatColour[]; pattern: CoatPattern | null }, picked: readonly PatternFilter[]): boolean {
+  if (i.pattern === null) return false;
+  if (picked.includes(i.pattern)) return true;
+  const flexible = i.pattern !== "stripes" && i.coat.includes("white");
+  return flexible && (picked.includes("plain") || picked.includes("patches"));
+}
+
 export interface CatListFilters {
   colours?: ColourFilter[];
   /** Any of these patterns (stored codes: plain, stripes, patches, not_known). */
@@ -295,7 +307,7 @@ async function matchTeamCats(
       if (!hit) return false;
     }
     if (f.patterns?.length) {
-      const hit = i.pattern === null ? f.patterns.includes("not_known") : f.patterns.includes(i.pattern);
+      const hit = i.pattern === null ? f.patterns.includes("not_known") : patternPicked(i, f.patterns);
       if (!hit) return false;
     }
     if (f.area !== undefined && areaOf.get(i.id) !== f.area) return false;
