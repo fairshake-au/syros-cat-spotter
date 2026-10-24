@@ -66,8 +66,12 @@ const banner = (html: string) => {
 const card = (html: string, id: string): string => {
   const i = html.indexOf(`id="p-${id}"`);
   if (i < 0) throw new Error(`no card for ${id}`);
-  return html.slice(i, html.indexOf("</article>", i));
+  const start = html.lastIndexOf("<details", i);
+  return html.slice(start, html.indexOf("</div></details>", i) + "</div></details>".length);
 };
+
+/** The opening tag of one person's fold. */
+const foldTag = (html: string, id: string) => /<details[^>]*>/.exec(card(html, id))![0];
 
 /** Someone invited straight through lib/db, so no email is queued (the chip is then Not sent yet). */
 async function pendingRow(label: string, by: string, placements = [{ role: "staff" }] as { role: string; colonyId?: number }[]) {
@@ -182,8 +186,89 @@ describe("the chips follow the state table (spec §10.1), worked out when the pa
     await pool.query(`update people set accepted_at = now() - interval '8 days' where id = $1`, [old.id]);
     const html = (await get("/api/team/people", susan)).text;
     const section = html.slice(html.indexOf("Joined in the last 7 days"));
-    expect(section).toContain(`href="#p-${fresh.id}"`);
-    expect(section).not.toContain(`href="#p-${old.id}"`);
+    expect(section).toContain(`#p-${fresh.id}"`);
+    expect(section).not.toContain(`#p-${old.id}"`);
+  });
+});
+
+describe("People are short rows that open (SYC-619 §4.1)", () => {
+  const summaryOf = (html: string, id: string) => /<summary>([\s\S]*?)<\/summary>/.exec(card(html, id))![1]!;
+  const isOpen = (html: string, id: string) => /\sopen[\s>]/.test(foldTag(html, id));
+
+  it("each person is a closed fold; the summary has the name, the chip and the short role", async () => {
+    const m = await joined("row-mgmt", ["staff", "management"]);
+    const tg = await joined("row-teamg", ["staff", "guardian"], colony);
+    const g = await joined("row-guard", ["guardian"], colony);
+    const ns = await pendingRow("row-notsent", susan.id);
+    const html = (await get("/api/team/people", susan)).text;
+    for (const id of [m.id, tg.id, g.id, ns.id]) {
+      expect(foldTag(html, id)).toMatch(/^<details class="person" id="p-/);
+      expect(isOpen(html, id)).toBe(false);
+    }
+    expect(summaryOf(html, m.id)).toContain("Vt row-mgmt");
+    expect(summaryOf(html, m.id)).toContain(">Management<");
+    expect(summaryOf(html, tg.id)).toContain(">Team, cat guardian<");
+    expect(summaryOf(html, g.id)).toContain(">Cat guardian<");
+    expect(summaryOf(html, ns.id)).toContain('class="chip not_sent">Not sent yet<');
+    expect(summaryOf(html, m.id)).toContain('class="chip joined">Joined<');
+  });
+
+  it("no button sits outside an open fold, and none is in a summary", async () => {
+    const html = (await get("/api/team/people", susan)).text;
+    const listing = html.slice(html.indexOf("<h2>Everyone</h2>"), html.indexOf("Joined in the last 7 days"));
+    const closedBodies = listing.split(/<details class="person"(?! [^>]*open)/).slice(1);
+    expect(closedBodies.length).toBeGreaterThan(1);
+    for (const sum of listing.match(/<summary>[\s\S]*?<\/summary>/g)!) expect(sum).not.toContain("pbtn");
+    // a person fold with no open attribute is the only kind on a plain page
+    expect(listing).not.toMatch(/<details class="person"[^>]*\sopen/);
+  });
+
+  it("a proven Done opens that person; a bare ?done= opens nobody", async () => {
+    const t = await joined("row-done", ["staff"]);
+    const res = await post(`/api/team/people/${t.id}/sign-out`, susan);
+    expect(res.status).toBe(303);
+    const after = (await get(res.headers["location"]!, susan)).text;
+    expect(isOpen(after, t.id)).toBe(true);
+    expect((after.match(/<details class="person"[^>]*\sopen/g) ?? []).length).toBe(1);
+    const bare = (await get("/api/team/people?done=signedOut", susan)).text;
+    expect(bare).not.toMatch(/<details class="person"[^>]*\sopen/);
+    const unproved = (await get(`/api/team/people?done=signedOut&p=${t.id}`, jacky)).text;
+    expect(unproved).not.toMatch(/<details class="person"[^>]*\sopen/);
+  });
+
+  it("?open={id} opens that row; an unknown, malformed or Left-tab id opens nothing and answers 200", async () => {
+    const t = await joined("row-open", ["staff"]);
+    const leaver = await joined("row-leaver");
+    await dbMarkLeft(leaver.email, "cli:vitest");
+    const ok = await get(`/api/team/people?open=${t.id}`, susan);
+    expect(isOpen(ok.text, t.id)).toBe(true);
+    const upper = await get(`/api/team/people?open=${t.id.toUpperCase()}`, susan);
+    expect(isOpen(upper.text, t.id)).toBe(true);
+    for (const bad of [ANY_ID, "not-an-id", `${t.id}'"><b>`, ""]) {
+      const r = await get(`/api/team/people?open=${encodeURIComponent(bad)}`, susan);
+      expect(r.status, bad).toBe(200);
+      expect(r.text, bad).not.toMatch(/<details class="person"[^>]*\sopen/);
+    }
+    const onLeft = await get(`/api/team/people?tab=left&open=${leaver.id}`, susan);
+    expect(onLeft.status).toBe(200);
+    expect(onLeft.text).not.toMatch(/<details class="person[^"]*"[^>]*\sopen/);
+    const leftOnPeople = await get(`/api/team/people?open=${leaver.id}`, susan);
+    expect(leftOnPeople.status).toBe(200);
+    expect(leftOnPeople.text).not.toMatch(/<details class="person[^"]*"[^>]*\sopen/);
+  });
+
+  it("Joined in the last 7 days links to ?open={id}#p-{id}", async () => {
+    const fresh = await joined("row-recent");
+    const html = (await get("/api/team/people", susan)).text;
+    expect(html.slice(html.indexOf("Joined in the last 7 days"))).toContain(`href="/api/team/people?open=${fresh.id}#p-${fresh.id}"`);
+  });
+
+  it("a joined person's date line reads Since, not Joined", async () => {
+    const t = await joined("row-since");
+    await pool.query(`update people set accepted_at = '2026-10-03T09:00:00Z' where id = $1`, [t.id]);
+    const body = card((await get("/api/team/people", susan)).text, t.id);
+    expect(body).toContain("Since 3 October 2026.");
+    expect(body).not.toContain("Joined 3 October 2026");
   });
 });
 
