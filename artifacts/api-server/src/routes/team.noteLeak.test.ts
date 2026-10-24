@@ -121,6 +121,8 @@ describe("a team note is on the team's cat page, and nowhere else (Review Focus 
   });
 
   it("is on no guardian page that lists her cats, colonies or changes", async () => {
+    // Two team lists are not hers to open (the documented 403); every other page is a 200 she reads.
+    const refused = new Set(["/api/team/cats", "/api/team/guardian-changes"]);
     for (const path of [
       "/api/team/my",
       "/api/team/my/colonies",
@@ -132,12 +134,15 @@ describe("a team note is on the team's cat page, and nowhere else (Review Focus 
     ]) {
       for (const json of [false, true]) {
         const res = await get(path, eleni.cookie, json);
-        expect(res.text, `${path} ${json ? "json" : "html"} (${res.status})`).not.toContain(MARKER);
+        const label = `${path} ${json ? "json" : "html"} (${res.status})`;
+        expect(res.status, label).toBe(refused.has(path) ? 403 : 200);
+        expect(res.text, label).not.toContain(MARKER);
       }
     }
   });
 
   it("is on no other team page that lists cats, news, reports or colonies, even for the team", async () => {
+    // Every page is a 200 the team reads, but the guardian-changes page as HTML, which sends the team on (303); its JSON is the 200.
     for (const path of [
       "/api/team",
       "/api/team/home",
@@ -156,7 +161,9 @@ describe("a team note is on the team's cat page, and nowhere else (Review Focus 
     ]) {
       for (const json of [false, true]) {
         const res = await get(path, team.cookie, json);
-        expect(res.text, `${path} ${json ? "json" : "html"} (${res.status})`).not.toContain(MARKER);
+        const label = `${path} ${json ? "json" : "html"} (${res.status})`;
+        expect(res.status, label).toBe(path === "/api/team/guardian-changes" && !json ? 303 : 200);
+        expect(res.text, label).not.toContain(MARKER);
       }
     }
   });
