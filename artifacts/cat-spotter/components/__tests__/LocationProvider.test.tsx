@@ -214,6 +214,117 @@ describe('LocationProvider (native)', () => {
     expect(h.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
   });
 
+  it('checked is false on first render and true once the mount read finishes', async () => {
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    expect(result.current.checked).toBe(false);
+    await waitFor(() => expect(result.current.checked).toBe(true));
+    // And it stays true when the app is foregrounded again.
+    await act(async () => {
+      h.appStateListeners.forEach((cb) => cb('active'));
+    });
+    expect(result.current.checked).toBe(true);
+  });
+
+  it('a native position read that rejects (location services off) counts as denied', async () => {
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    await settle();
+    h.getCurrentPositionAsync.mockRejectedValue(new Error('location unavailable'));
+    let returned: unknown = 'unset';
+    await act(async () => {
+      returned = await result.current.askAndLocate();
+    });
+    expect(returned).toBeNull();
+    expect(result.current.permission).toBe('granted');
+    expect(result.current.denied).toBe(true);
+    expect(result.current.coords).toBeNull();
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('a later read that gets a fix clears denied', async () => {
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    await settle();
+    h.getCurrentPositionAsync.mockRejectedValue(new Error('location unavailable'));
+    await act(async () => {
+      await result.current.askAndLocate();
+    });
+    expect(result.current.denied).toBe(true);
+    // Location services come back on while the spotter is in Settings.
+    h.getForegroundPermissionsAsync.mockResolvedValue(GRANTED);
+    h.getCurrentPositionAsync.mockResolvedValue(FIX);
+    await act(async () => {
+      h.appStateListeners.forEach((cb) => cb('active'));
+    });
+    await waitFor(() => expect(result.current.coords).toEqual(FIX.coords));
+    expect(result.current.denied).toBe(false);
+  });
+
+  it('permission revoked on return to the app clears coords', async () => {
+    h.getForegroundPermissionsAsync.mockResolvedValue(GRANTED);
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    await waitFor(() => expect(result.current.coords).toEqual(FIX.coords));
+    h.getForegroundPermissionsAsync.mockResolvedValue(DENIED_FINAL);
+    await act(async () => {
+      h.appStateListeners.forEach((cb) => cb('active'));
+    });
+    await waitFor(() => expect(result.current.coords).toBeNull());
+    expect(result.current.permission).toBe('denied-final');
+    expect(result.current.denied).toBe(true);
+  });
+
+  it('a slow mount read that resolves after a completed ask does not overwrite it', async () => {
+    let resolveStale!: (v: unknown) => void;
+    h.getForegroundPermissionsAsync.mockReturnValue(
+      new Promise((r) => {
+        resolveStale = r;
+      }),
+    );
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    await settle();
+    await act(async () => {
+      await result.current.askAndLocate();
+    });
+    expect(result.current.coords).toEqual(FIX.coords);
+    await act(async () => {
+      resolveStale(UNDETERMINED);
+    });
+    await settle();
+    expect(result.current.coords).toEqual(FIX.coords);
+    expect(result.current.permission).toBe('granted');
+    expect(result.current.checked).toBe(true);
+  });
+
+  it('loading stays true while an ask runs even if an overlapping read finishes', async () => {
+    let resolveRead!: (v: unknown) => void;
+    h.getForegroundPermissionsAsync.mockReturnValue(
+      new Promise((r) => {
+        resolveRead = r;
+      }),
+    );
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    await settle();
+    let resolveFix!: (v: unknown) => void;
+    h.getCurrentPositionAsync.mockReturnValue(
+      new Promise((r) => {
+        resolveFix = r;
+      }),
+    );
+    let ask!: Promise<unknown>;
+    await act(async () => {
+      ask = result.current.askAndLocate();
+    });
+    expect(result.current.loading).toBe(true);
+    await act(async () => {
+      resolveRead(UNDETERMINED);
+    });
+    expect(result.current.loading).toBe(true);
+    await act(async () => {
+      resolveFix(FIX);
+      await ask;
+    });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.coords).toEqual(FIX.coords);
+  });
+
   it('ignores app state changes other than active', async () => {
     const { result } = renderHook(() => useAppLocation(), { wrapper });
     await settle();
@@ -300,6 +411,32 @@ describe('LocationProvider (web)', () => {
     });
     expect(result.current.denied).toBe(true);
     expect(h.storage.has(LOCATION_CHOICE_KEY)).toBe(false);
+  });
+
+  it('a refusal (code 1) is denied-final even when the browser still says prompt', async () => {
+    getCurrentPosition.mockImplementation((_ok: unknown, fail: (e: unknown) => void) =>
+      fail({ code: 1 }),
+    );
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    await settle();
+    await act(async () => {
+      await result.current.askAndLocate();
+    });
+    expect(permissionState).toBe('prompt');
+    expect(result.current.permission).toBe('denied-final');
+    expect(result.current.denied).toBe(true);
+  });
+
+  it('position unavailable (code 2) counts as denied', async () => {
+    getCurrentPosition.mockImplementation((_ok: unknown, fail: (e: unknown) => void) =>
+      fail({ code: 2 }),
+    );
+    const { result } = renderHook(() => useAppLocation(), { wrapper });
+    await settle();
+    await act(async () => {
+      await result.current.askAndLocate();
+    });
+    expect(result.current.denied).toBe(true);
   });
 
   it('re-reads permission when the page becomes visible again', async () => {

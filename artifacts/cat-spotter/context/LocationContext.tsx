@@ -31,9 +31,11 @@ interface LocationContextValue {
   coords: Coords | null;
   /** True only while a read or an ask is running. */
   loading: boolean;
-  /** Refused, refusable-but-declined, or the last ask timed out. */
+  /** Refused, declined, or the last ask ended without a fix. */
   denied: boolean;
   choice: LocationChoice;
+  /** False until the first permission read has finished; never goes back. */
+  checked: boolean;
   /** The single way to bring up the phone's / browser's location box. */
   askAndLocate(): Promise<Coords | null>;
   chooseMap(): void;
@@ -44,8 +46,8 @@ const LocationContext = createContext<LocationContextValue | null>(null);
 const WEB_TIMEOUT_MS = 10000;
 const NATIVE_TIMEOUT_MS = 15000;
 const CACHED_FIX_MAX_AGE_MS = 5 * 60 * 1000;
-// The browser's PositionError code for "timed out".
-const WEB_TIMEOUT_CODE = 3;
+// The browser's PositionError code for "permission denied".
+const WEB_DENIED_CODE = 1;
 
 async function getWebPosition(): Promise<Coords> {
   return new Promise((resolve, reject) => {
@@ -105,23 +107,35 @@ async function readNativePosition(onCached: (c: Coords) => void): Promise<Coords
 export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [permission, setPermission] = useState<LocationPermission>('not-asked');
   const [coords, setCoords] = useState<Coords | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [inFlight, setInFlight] = useState(0);
   const [choice, setChoice] = useState<LocationChoice>(null);
-  const [lastAskTimedOut, setLastAskTimedOut] = useState(false);
+  const [lastAskFailed, setLastAskFailed] = useState(false);
+  const [checked, setChecked] = useState(false);
 
   const mounted = useRef(true);
   const choiceRef = useRef<LocationChoice>(null);
   const coordsRef = useRef<Coords | null>(null);
-  const busyRef = useRef(false);
+  // Bumped by every sync and every ask: a sync is stale once anything newer
+  // has started. Asks are only made stale by a newer ask, so a permission
+  // re-read that happens mid-ask can't throw the ask's answer away.
+  const genRef = useRef(0);
+  const askGenRef = useRef(0);
 
   const applyCoords = useCallback((c: Coords | null) => {
     coordsRef.current = c;
-    if (mounted.current) setCoords(c);
+    if (!mounted.current) return;
+    setCoords(c);
+    // A valid fix and "the last ask failed" never show together.
+    if (c) setLastAskFailed(false);
   }, []);
 
   const applyChoice = useCallback((c: LocationChoice) => {
     choiceRef.current = c;
     if (mounted.current) setChoice(c);
+  }, []);
+
+  const track = useCallback((delta: 1 | -1) => {
+    if (mounted.current) setInFlight((n) => n + delta);
   }, []);
 
   const readPermission = useCallback(async (c: LocationChoice): Promise<LocationPermission> => {
@@ -135,35 +149,40 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
   /** Re-reads the permission; when granted and there is no fix yet, reads one. No prompt. */
   const sync = useCallback(async () => {
-    const perm = await readPermission(choiceRef.current);
-    if (!mounted.current) return;
-    setPermission(perm);
-    if (perm !== 'granted') {
-      applyCoords(null);
-      return;
-    }
-    if (coordsRef.current || busyRef.current) return;
-    busyRef.current = true;
-    setLoading(true);
+    const gen = ++genRef.current;
+    const current = () => mounted.current && gen === genRef.current;
+    track(1);
     try {
-      const pos =
-        Platform.OS === 'web'
-          ? await getWebPosition()
-          : await readNativePosition(applyCoords);
-      if (pos) applyCoords(pos);
-    } catch {
-      // Allowed but no fix right now: coords stay null, nothing is asked.
+      const perm = await readPermission(choiceRef.current);
+      if (!current()) return;
+      setPermission(perm);
+      if (perm !== 'granted') {
+        applyCoords(null);
+        return;
+      }
+      if (coordsRef.current) return;
+      try {
+        const pos =
+          Platform.OS === 'web'
+            ? await getWebPosition()
+            : await readNativePosition((c) => {
+                if (current()) applyCoords(c);
+              });
+        if (pos && current()) applyCoords(pos);
+      } catch {
+        // Allowed but no fix right now: coords stay null, nothing is asked.
+      }
     } finally {
-      busyRef.current = false;
-      if (mounted.current) setLoading(false);
+      track(-1);
     }
-  }, [applyCoords, readPermission]);
+  }, [applyCoords, readPermission, track]);
 
   useEffect(() => {
     mounted.current = true;
     (async () => {
       applyChoice(await readLocationChoice(AsyncStorage));
       await sync();
+      if (mounted.current) setChecked(true);
     })();
     return () => {
       mounted.current = false;
@@ -188,52 +207,58 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   }, [sync]);
 
   const askAndLocate = useCallback(async (): Promise<Coords | null> => {
-    setLoading(true);
-    setLastAskTimedOut(false);
-    busyRef.current = true;
+    ++genRef.current;
+    const askGen = ++askGenRef.current;
+    const current = () => mounted.current && askGen === askGenRef.current;
+    track(1);
+    setLastAskFailed(false);
     let pos: Coords | null = null;
-    let timedOut = false;
     try {
       if (Platform.OS === 'web') {
         // getCurrentPosition is what brings up the browser's box.
+        let refused = false;
         try {
           pos = await getWebPosition();
         } catch (e) {
-          timedOut = (e as { code?: number } | null)?.code === WEB_TIMEOUT_CODE;
+          refused = (e as { code?: number } | null)?.code === WEB_DENIED_CODE;
         }
         if (pos) {
           await writeLocationChoice(AsyncStorage, 'shared');
-          applyChoice('shared');
-          applyCoords(pos);
+          if (current()) {
+            applyChoice('shared');
+            applyCoords(pos);
+          }
         }
         const perm = await readPermission(choiceRef.current);
-        if (mounted.current) setPermission(perm);
+        // Older browsers can say "prompt" or nothing after a refusal.
+        if (current()) setPermission(refused ? 'denied-final' : perm);
       } else {
         const request = await Location.requestForegroundPermissionsAsync();
         const perm = mapNativePermission(request);
-        if (mounted.current) setPermission(perm);
+        if (current()) setPermission(perm);
         if (perm === 'granted') {
-          pos = await readNativePosition(applyCoords);
+          pos = await readNativePosition((c) => {
+            if (current()) applyCoords(c);
+          });
           if (pos) {
-            applyCoords(pos);
             await writeLocationChoice(AsyncStorage, 'shared');
-            applyChoice('shared');
-          } else {
-            timedOut = true;
+            if (current()) {
+              applyCoords(pos);
+              applyChoice('shared');
+            }
           }
         }
       }
     } catch {
       pos = null;
     } finally {
-      busyRef.current = false;
-      if (mounted.current) {
-        setLastAskTimedOut(timedOut);
-        setLoading(false);
-      }
+      track(-1);
     }
+    // Any ask that ends without a fix counts as a failure (timeout, location
+    // services off, refusal), as the old hook's `denied` did.
+    if (current() && !pos) setLastAskFailed(true);
     return pos;
-  }, [applyChoice, applyCoords, readPermission]);
+  }, [applyChoice, applyCoords, readPermission, track]);
 
   const chooseMap = useCallback(() => {
     applyChoice('map');
@@ -241,11 +266,12 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   }, [applyChoice]);
 
   const denied =
-    permission === 'denied-final' || permission === 'denied-can-ask' || lastAskTimedOut;
+    permission === 'denied-final' || permission === 'denied-can-ask' || lastAskFailed;
+  const loading = inFlight > 0;
 
   const value = useMemo(
-    () => ({ permission, coords, loading, denied, choice, askAndLocate, chooseMap }),
-    [permission, coords, loading, denied, choice, askAndLocate, chooseMap],
+    () => ({ permission, coords, loading, denied, choice, checked, askAndLocate, chooseMap }),
+    [permission, coords, loading, denied, choice, checked, askAndLocate, chooseMap],
   );
 
   return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;
