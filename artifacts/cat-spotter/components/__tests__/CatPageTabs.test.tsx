@@ -12,6 +12,7 @@ vi.mock('@expo/vector-icons', () => ({
   Feather: ({ name, ...rest }: { name: string; 'aria-hidden'?: boolean }) => (
     <i data-feather={name} aria-hidden={rest['aria-hidden'] ? 'true' : undefined} />
   ),
+  Ionicons: ({ name }: { name: string }) => <i data-icon={name} aria-hidden="true" />,
 }));
 vi.mock('expo-image', () => ({
   Image: ({ source, testID, onLoad }: { source?: { uri?: string }; testID?: string; onLoad?: () => void }) => (
@@ -71,6 +72,13 @@ vi.mock('@/components/purropolis', async () => {
     ),
   };
 });
+vi.mock('@/components/catPage/FollowButton', () => ({
+  FollowButton: (p: { isFollowing: boolean }) => (
+    <button type="button" data-testid="follow" aria-pressed={p.isFollowing}>
+      {p.isFollowing ? 'Following' : 'Follow'}
+    </button>
+  ),
+}));
 vi.mock('@/lib/urls', () => ({ photoSource: (p: string) => ({ uri: p }) }));
 
 const h = vi.hoisted(() => ({
@@ -469,5 +477,33 @@ describe('the facts card and the cards under the main button', () => {
   it('keeps the "Where" row: place bold, appearance quiet', () => {
     page();
     expect(screen.getByTestId('fact-where').textContent).toContain('By the harbour');
+  });
+});
+
+describe('the Follow button on the page', () => {
+  it('shows Follow for a known phone that does not follow', () => {
+    page({ isFollowing: false });
+    expect(screen.getByTestId('follow').textContent).toBe('Follow');
+  });
+  it('is absent when the server did not say (older server or unknown phone)', () => {
+    page({});
+    expect(screen.queryByTestId('follow')).toBeNull();
+  });
+  it('is absent for the owner', () => {
+    page({ isFollowing: true, canClaim: false }, cat({ hasHome: true, lifeStatus: 'homed', locationPrecision: 'exact' }));
+    expect(screen.queryByTestId('follow')).toBeNull();
+  });
+  it('is absent on a cat that has died, for someone not following', () => {
+    page({ isFollowing: false }, cat({ lifeStatus: 'deceased' }));
+    expect(screen.queryByTestId('follow')).toBeNull();
+  });
+  it('shows Following on a cat that has died, for someone who follows', () => {
+    page({ isFollowing: true }, cat({ lifeStatus: 'deceased' }));
+    expect(screen.getByTestId('follow').textContent).toBe('Following');
+  });
+  it('stays on screen on every tab', () => {
+    page({ isFollowing: false });
+    switchTab('Map');
+    expect(screen.getByTestId('follow')).toBeTruthy();
   });
 });
