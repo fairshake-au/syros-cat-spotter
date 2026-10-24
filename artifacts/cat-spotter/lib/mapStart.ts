@@ -26,7 +26,7 @@ export interface MapStartCoords {
 
 export interface MapStartInput {
   source: PickSource;
-  /** The phone's position, as useLocation gives it. `loading` is not read:
+  /** The phone's position, as useAppLocation gives it. `loading` is not read:
    * still searching and "nothing yet" both wait out MAP_START_WAIT_MS. */
   phone: { coords: MapStartCoords | null; denied: boolean; loading: boolean };
   /** Time since the photo was picked. */

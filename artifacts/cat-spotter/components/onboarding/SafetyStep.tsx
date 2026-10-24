@@ -12,12 +12,12 @@ import { decorative } from '@/lib/a11yText';
 
 /**
  * SYC-35: keep-your-distance guidance, on its own screen straight after
- * "How it works". Syros Cats asked for it as health-and-safety cover
+ * Welcome. Syros Cats asked for it as health-and-safety cover
  * (PRODUCT-SPEC §2.2). The copy is `onboarding.healthy`
  * (docs/specs/source/safety-copy-translations.md), word for word.
  *
- * There is deliberately no Skip here: Skip on "How it works" lands on this
- * screen, so nobody passes the guidance without seeing it. It fits a
+ * There is deliberately no Skip here, so nobody passes the guidance without
+ * seeing it. It fits a
  * 390×844 screen without scrolling in all three languages; the ScrollView
  * is only a fallback for smaller phones and large text settings.
  */

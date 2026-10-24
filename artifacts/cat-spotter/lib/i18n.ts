@@ -596,7 +596,7 @@ const en: Dict = {
   howStepHelp: 'Help them thrive',
   howStepHelpBody: 'Your spots help us sterilise and vaccinate street cats.',
   // SYC-35: keep-your-distance guidance, its own onboarding screen straight
-  // after "How it works" (components/onboarding/SafetyStep.tsx). Word for word
+  // after Welcome (components/onboarding/SafetyStep.tsx). Word for word
   // from docs/specs/source/safety-copy-translations.md `onboarding.healthy`
   // (canonical English: docs/specs/team-access-and-welfare-queue.md §5.3a).
   howSafetyTitle: 'Look, don\'t touch.',

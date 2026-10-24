@@ -9,10 +9,6 @@ import { Button } from '@/components/purropolis';
 import { FairShakeMark } from '@/components/FairShakeMark';
 import { decorative, spokenText } from '@/lib/a11yText';
 
-/**
- * First-run hero. Deliberately renders on the Aegean gradient rather than the
- * page surface — it is the one screen in the app that is pure brand.
- */
 /** SYC-524: the old How it works screen, folded into Welcome. */
 const STEPS = [
   { icon: '📍', title: 'howStepSpot', body: 'howStepSpotBody' },
@@ -20,6 +16,10 @@ const STEPS = [
   { icon: '❤️', title: 'howStepHelp', body: 'howStepHelpBody' },
 ] as const;
 
+/**
+ * First-run hero. Deliberately renders on the Aegean gradient rather than the
+ * page surface — it is the one screen in the app that is pure brand.
+ */
 export function WelcomeStep({ onNext, onRestore }: { onNext: () => void; onRestore: () => void }) {
   const insets = useSafeAreaInsets();
   const { t, language, setLanguage } = useLanguage();
@@ -38,7 +38,7 @@ export function WelcomeStep({ onNext, onRestore }: { onNext: () => void; onResto
         </Text>
       </View>
 
-      {/* SYC-155: change language before "How it works" and the safety guidance. */}
+      {/* SYC-155: change language before the safety guidance. */}
       <View
         accessibilityRole="radiogroup"
         accessibilityLabel={t('language')}
