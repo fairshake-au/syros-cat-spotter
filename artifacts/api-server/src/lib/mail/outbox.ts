@@ -407,21 +407,34 @@ const neverShedFirst = sql`(purpose in (${sql.join(
   sql`, `,
 )})) desc`;
 
-async function claimDue(limit: number, onlyId?: number): Promise<MailOutboxRow[]> {
-  const result = await db.execute(sql`
+/**
+ * The pick is a MATERIALIZED CTE, so the limited, locking select runs exactly
+ * once whatever join the planner chooses (SYC-537). As a bare `id in (select …
+ * limit n for update skip locked)` it can be re-run per outer row, and rows
+ * this statement has already updated are skipped by the lock, so each re-run
+ * would pick the next batch: a drain once claimed all 501 due rows for a limit
+ * of 25 and would have sent a burst.
+ */
+export async function claimDue(
+  limit: number,
+  onlyId?: number,
+  exec: Pick<typeof db, "execute"> = db,
+): Promise<MailOutboxRow[]> {
+  const result = await exec.execute(sql`
+    with picked as materialized (
+      select id from mail_outbox
+       where state in ('queued', 'sending')
+         and next_attempt_at <= now()
+         ${onlyId === undefined ? sql`` : sql`and id = ${onlyId}`}
+       order by ${neverShedFirst}, next_attempt_at
+       limit ${limit}
+         for update skip locked
+    )
     update mail_outbox
        set state = 'sending',
            attempts = attempts + 1,
            next_attempt_at = now() + ${LEASE}
-     where id in (
-       select id from mail_outbox
-        where state in ('queued', 'sending')
-          and next_attempt_at <= now()
-          ${onlyId === undefined ? sql`` : sql`and id = ${onlyId}`}
-        order by ${neverShedFirst}, next_attempt_at
-        limit ${limit}
-        for update skip locked
-     )
+     where id in (select id from picked)
     returning id
   `);
   const ids = (result.rows as { id: number }[]).map((r) => r.id);

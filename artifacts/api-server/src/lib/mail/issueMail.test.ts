@@ -39,6 +39,7 @@ vi.mock("../limits", async (importOriginal) => {
 import app from "../../app";
 import { buildIssueAlert, buildIssueDigest } from "../issues/alertEmail";
 import {
+  claimDue,
   drainDue,
   enqueueIssueAlert,
   ISSUE_ALERTS_PER_HOUR,
@@ -332,6 +333,42 @@ describe("T5-14: issue alerts never sit in front of a welfare alert", () => {
     expect(sent.some((m) => m.subject.startsWith("Urgent cat report"))).toBe(true);
     // The 24 other places in the batch went to issue alerts, oldest first.
     expect(sent.filter((m) => m.subject.startsWith("Photo hidden"))).toHaveLength(24);
+  });
+
+  // SYC-537. Postgres 16 always de-duplicates the limited subquery first, so
+  // no setting makes the old `id in (select … limit n for update skip locked)`
+  // over-claim here (tried: hash/merge join, material, hashagg, sort off, cost
+  // zeroing, generic plan). CI once saw 501 for a limit of 25, so the claim is
+  // pinned as a CTE and checked under every join shape the planner can be held to.
+  const PLANS = [
+    "",
+    "set local enable_hashjoin = off",
+    "set local enable_hashjoin = off; set local enable_mergejoin = off; set local enable_material = off",
+    "set local enable_hashjoin = off; set local enable_mergejoin = off; set local enable_hashagg = off; set local enable_sort = off",
+    "set local enable_nestloop = off",
+    "set local enable_seqscan = off; set local enable_indexscan = off",
+  ];
+  it.each(PLANS)("the claim never takes more than its limit, whatever the plan (%s)", async (settings) => {
+    const r = await seedIssue({ ageMinutes: 120 });
+    await db.insert(mailOutboxTable).values(
+      Array.from({ length: 500 }, (_, i) => ({
+        purpose: "issue_alert",
+        reportId: r.id,
+        recipientHash: "0000000000000000",
+        payload: { kind: "alert" },
+        nextAttemptAt: new Date(Date.now() - (200 - i / 10) * 60_000),
+      })),
+    );
+    const welfare = await seedWelfare();
+
+    const claimed = await db.transaction(async (tx) => {
+      for (const stmt of settings.split(";").filter((x) => x.trim())) await tx.execute(sql.raw(stmt));
+      return claimDue(25, undefined, tx);
+    });
+    expect(claimed).toHaveLength(25);
+    expect(claimed.some((row) => row.reportId === welfare.id)).toBe(true);
+    const leased = await db.select().from(mailOutboxTable).where(eq(mailOutboxTable.state, "sending"));
+    expect(leased).toHaveLength(25);
   });
 
   it("restore links are in the first group too, and the group is the never-shed list", () => {
