@@ -430,6 +430,33 @@ describe('the /restore page', () => {
     }
   });
 
+  it('SYC-664 ship N-1 follow-up: opening the link page leaves a code path\'s pending move untouched', async () => {
+    const saved = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    const mem = new Map<string, string>();
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k: string) => mem.get(k) ?? null,
+        setItem: (k: string, v: string) => void mem.set(k, v),
+        removeItem: (k: string) => void mem.delete(k),
+        clear: () => mem.clear(),
+      },
+    });
+    try {
+      notePendingMove({ handle: 'handle-from-code', choice: 'choice-lili', abandonCurrent: true, deleteCurrent: true });
+      const before = readPendingMove();
+      const utils = render(<RestorePage />);
+      await utils.findByText('Move Lili’s spots to this phone');
+      expect(keepSafe.peekRestore).toHaveBeenCalledWith('dev-new', TOKEN);
+      expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+      expect(readPendingMove()).toEqual(before);
+    } finally {
+      cleanup();
+      if (saved) Object.defineProperty(window, 'localStorage', saved);
+      else delete (window as unknown as Record<string, unknown>)['localStorage'];
+    }
+  });
+
   it('a link that is no longer valid says so, and moves nothing', async () => {
     const { ApiError } = await import('@workspace/api-client-react');
     vi.mocked(keepSafe.peekRestore).mockRejectedValueOnce(

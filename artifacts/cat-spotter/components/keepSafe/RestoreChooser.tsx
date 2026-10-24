@@ -101,9 +101,11 @@ export function RestoreChooser({
       setState({ kind: 'offline' });
       return;
     }
-    // SYC-664 ship N-1: a pending move for some other code (an older handle)
-    // is stale. It is forgotten, never finished from here.
-    const pending = readPendingMove();
+    // SYC-664 ship N-1: on the code path, a pending move for some other code
+    // (an older handle) is stale. It is forgotten, never finished from here.
+    // The link page never touches it: a link opened in the same browser must
+    // not wipe a code move whose answer start-up or back-online may yet collect.
+    const pending = fromCode ? readPendingMove() : null;
     if (pending && pending.handle !== token.current) clearPendingMove();
     let cancelled = false;
     (async () => {
