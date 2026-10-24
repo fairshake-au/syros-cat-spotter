@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { fonts, fontSizes, radii, spacing, borderWidths } from '@/constants/theme';
+import { catDisplayName } from '@/lib/catDisplayName';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
@@ -320,7 +321,7 @@ export default function CatalogScreen() {
               id: String(cat.id),
               latitude: cat.lat,
               longitude: cat.lng,
-              title: cat.name,
+              title: catDisplayName(cat, t),
               image: photoSource(cat.photoUrl),
               onPress: () =>
                 router.push({

@@ -23,6 +23,8 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
+import { NameThisCatCard } from '@/components/NameThisCat';
+import { catDisplayName } from '@/lib/catDisplayName';
 import { ClaimAskSheet, type ClaimAskMode } from '@/components/ClaimAskSheet';
 import { ReportIssueSheet } from '@/components/report/ReportIssueSheet';
 import type { IssueReason } from '@/lib/issueQueue';
@@ -171,6 +173,8 @@ export default function CatDetailScreen() {
   // "undefined" distinguishable from "really zero"/"really empty" all the
   // way to render.
   const { cat, sightings } = data;
+  // SYC-677 D: a cat nobody has named yet shows "No name yet" (its SYR number is on the naming card).
+  const shownName = catDisplayName(cat, t);
   const careTimeline = data.careTimeline;
   const isClaimed = cat.hasHome;
   // The server shows the exact spot only to the proven owner, so that is
@@ -279,7 +283,7 @@ export default function CatDetailScreen() {
             testID="cat-hero-open"
             role={cat.photoUrl ? 'button' : undefined}
             disabled={!heroCanOpen}
-            accessibilityLabel={cat.photoUrl ? cat.name : undefined}
+            accessibilityLabel={cat.photoUrl ? shownName : undefined}
             onPress={() => {
               if (heroCanOpen) setHeroOpenUrl(cat.photoUrl);
             }}
@@ -300,7 +304,7 @@ export default function CatDetailScreen() {
           </Pressable>
           <View style={styles.heroBottom} pointerEvents="none">
             <Text style={styles.heroName} numberOfLines={1}>
-              {cat.name}
+              {shownName}
             </Text>
           </View>
         </View>
@@ -318,6 +322,7 @@ export default function CatDetailScreen() {
           aria-labelledby={tabId(shownTab)}
           style={styles.panel}
         >
+          {shownTab === 'about' && <NameThisCatCard cat={cat} />}
           {shownTab === 'about' && (
             <AboutTab
               cat={cat}
@@ -380,7 +385,7 @@ export default function CatDetailScreen() {
       {heroOpenUrl !== null && heroOpenUrl === cat.photoUrl && heroCanOpen && heroCaption && (
         <PhotoViewer
           url={heroOpenUrl}
-          label={cat.name}
+          label={shownName}
           date={formatPublicDate(heroCaption.day, language)}
           byline={heroCaption.byline}
           onClose={() => setHeroOpenUrl(null)}

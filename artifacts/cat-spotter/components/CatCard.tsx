@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
 import type { Cat } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
+import { catDisplayName } from '@/lib/catDisplayName';
 import { useLanguage } from '@/context/LanguageContext';
 import { photoSource } from '@/lib/urls';
 import colorsConst from '@/constants/colors';
@@ -23,6 +24,7 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
         ? `${Math.round(cat.distanceKm * 1000)} m`
         : `${cat.distanceKm.toFixed(1)} ${t('kmAway')}`
       : null;
+  const shownName = catDisplayName(cat, t);
   const discovererText = `${t('discoveredBy')} ${
     cat.discovererUsername ??
     cat.discovererNickname ??
@@ -36,8 +38,8 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
   // Unknown is not zero: only say spotted / not spotted when we know.
   const lead =
     typeof spotted === 'boolean'
-      ? t(spotted ? 'catCardA11ySpotted' : 'catCardA11yNotSpotted').replace('{name}', cat.name)
-      : cat.name;
+      ? t(spotted ? 'catCardA11ySpotted' : 'catCardA11yNotSpotted').replace('{name}', shownName)
+      : shownName;
   // Join with a full stop, unless a part already ends its sentence ("Nefeli. Not spotted yet.").
   const a11yLabel = [lead, hasHomeText, seenText, distanceText, discovererText]
     .filter((part): part is string => Boolean(part))
@@ -85,7 +87,7 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
           style={[styles.name, { color: colors.foreground }]}
           numberOfLines={1}
         >
-          {cat.name}
+          {shownName}
         </Text>
         <View style={styles.metaRow}>
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>

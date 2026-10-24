@@ -38,6 +38,7 @@ import {
 } from '@workspace/api-client-react';
 import type { LatLng } from '@workspace/geo';
 import { useColors } from '@/hooks/useColors';
+import { catDisplayName } from '@/lib/catDisplayName';
 import { useLanguage } from '@/context/LanguageContext';
 import { Button, IconButton } from '@/components/purropolis';
 import { appearanceLine } from '@/lib/appearance';
@@ -258,7 +259,7 @@ export function CatPicker({
         // SYC-2: a screen reader hears the colour and markings line
         // too, since the label replaces the card's own text.
         accessibilityLabel={[
-          cat.name,
+          catDisplayName(cat, t),
           catCode(cat.id),
           appearance,
           isDeceased ? t('pickerDeceased') : null,
@@ -295,7 +296,7 @@ export function CatPicker({
             style={[styles.cardName, { color: colors.foreground }]}
             numberOfLines={1}
           >
-            {cat.name}
+            {catDisplayName(cat, t)}
           </Text>
           {/* SYC-2 (spec §7.2): the same line as the cat page,
               so a spotter can compare. Not a filter. */}
