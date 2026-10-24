@@ -1,6 +1,6 @@
 # The team cat page: a header card, then tabs
 
-**Status:** draft for Samuel's approval, 24 Oct 2026.
+**Status:** approved by Samuel, 24 Oct 2026 ("approved, write the plan then build").
 **Ticket:** SYC-655.
 **Amends:** [team-cat-page-redesign.md](team-cat-page-redesign.md) (SYC-602), §3.1 (status line, photo strip, open-reports box), §3.3, §3.4, §3.5 (coat rows), §3.7 (Coat and markings) and §4. Everything else in that spec stands: the content, the words, the buttons, History, Photos, Coat and markings, Reports, and every capability gate.
 **Mockups:** the three options at https://claude.ai/artifact/1xAc8E4MF7fM6hK6G7EXAC; the chosen design, with §5 applied, at https://claude.ai/artifact/464MUtBUmNmzMCriEoWquQ (source: [assets/team-cat-page-tabs/mockup.html](assets/team-cat-page-tabs/mockup.html)).
