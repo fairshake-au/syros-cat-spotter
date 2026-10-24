@@ -150,6 +150,7 @@ Ordinals ("4th") come from a small helper per language: English 1st/2nd/3rd/4th�
 
 | Situation | Me | Badges | Spotters | Header |
 |---|---|---|---|---|
+| Offline with a profile loaded earlier | Shows the last loaded figures, as Home does (§8.1) | Same | Last loaded list | As online |
 | Offline, no profile loaded yet | Dashes in the counts; no reminder, streak or badges panel | Offline line | Offline line | Name only, "Spotter" line |
 | Online, profile still loading | Spinner, as today | Spinner | List loads alone; no summary card | Name only |
 | Profile failed to load | The existing "Couldn't load your stats just now." line; dashes | Same line | List if it loaded; no summary | Name only |
@@ -184,7 +185,30 @@ A Linear sweep on 24 Oct 2026 found open tickets whose Profile or Settings parts
 
 Not folded in, because they are about other screens: SYC-212 (name-screen wording), SYC-507 (the page language for Greek), SYC-538 (server setting comments). The new Greek and French lines go on Johnny's review list (SYC-346).
 
-## 8. Open questions
+## 8. Decisions from the adversarial review (24 Oct 2026)
+
+A Sonnet reviewer checked this spec against the code and raised 10 must-fix and 8 nice-to-have points. Every one is taken. **Where this section and an earlier one differ, this section wins.**
+
+1. **Offline shows recent data, as Home does.** The app keeps the last profile and leaderboard it loaded in memory, so they stay visible offline (the offline banner is already on screen). The "offline" lines in §3.3, §3.4 and §5 show only when nothing was ever loaded. Delete today's comment that says the profile "is not cached".
+2. **First spot uses Home's rule.** The first-spot card shows when `homeHeroState(profile) === 'firstSpot'` (`lib/spotted.ts`). When that is `'unknown'`, the counts show dashes.
+3. **One set of words for counts and badges.** The tiles use `statSpotted`, `statFirstFinds` and `statBadges`, Home's own keys. The Badges tab label and the "Badges · 3 of 7" heading also use `statBadges`, so Greek says "Διακρίσεις" everywhere on this screen. The Badges count is the number of known badge ids the server lists (`BADGE_IDS` ∩ `badges`), which is what "3 of 7" needs.
+4. **Ties on the leaderboard.** Ranks are list positions from the server, and the server breaks ties in no fixed order. When the row above has the same points, the summary says "You're level with {name} on {points} points." Never "0 more points", never "tied for 3rd". A server tiebreaker goes to a follow-up ticket.
+5. **Register the screen.** Add `settings` to the `Stack` in `app/_layout.tsx` with `headerShown: false`, like the other pushed screens.
+6. **Leaving Settings.** Its back arrow does `router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')`. After a web refresh, Profile opens on Me.
+7. **The rename note and "Change it".** The note shows on the Me tab and at the top of Settings. Both read and clear the same `nameNote`. "Change it" on Me clears the note and opens `/settings?editName=1`. Settings reads that and asks the name editor to open, by bumping its own `editRequest` once the editor is mounted. "Change it" on Settings bumps it directly. "Dismiss" clears the note on both.
+8. **Exact rule for the safety reminder.** Show it only when online, keep-safe data has loaded without error, and `status === 'none'`. Also hide it while the first-badge offer is due (`keepSafeOffer === 'skipped-onboarding'`), so it never appears beside that sheet. **Add** opens `/keep-safe` with no extra parameters.
+9. **Name and "You".** The header name is `profile.nickname ?? profile.username ?? username ?? heldUsername ?? "Spotter"`, as Home does. The spotter's own leaderboard row is matched by `spotterCode`. When the profile has no `spotterCode`, there is no "You" row, no rank in the header and no summary card.
+10. **Missing counts.** When the count a badge needs is missing (an old server), its row shows only the "how to earn" line, with no number or bar. Shown progress is capped at the goal (`min(value, goal)`). Island Legend's row reads "85 of 500 points".
+11. **Reuse existing words where they already mean the same thing:** `you`, `seeAll`, `profileStreak` ("{n}-day streak"), `profileBadgeCount` ("{earned} of {total}"), `language`, `appearance`, `profileRole` (the header's "Spotter" line). Drop `profileYou`, `profileSeeAll` and `profileBadgeProgress`.
+12. **Rank wording is translated as a whole phrase,** with the number placed inside it by each language. English uses ordinals ("4th on the island", "You're 4th with 85 points"). Greek avoids gendered ordinals: "Θέση {n} στο νησί" and "Είσαι στη θέση {n} με {points} πόντους". French uses "{n}e sur l'île", with "1er" for 1. A small `formatRank(language, n)` helper does this and is tested.
+13. **Tabs fit in Greek and at large text sizes.** Each label stays on one line, can shrink to fit (`adjustsFontSizeToFit`, minimum 80%), and is at least 48px tall. The tabs sit inside the blue header, under its safe-area padding. On a 320px phone the Settings pill keeps its word, and the name gives way (one line, cut with "…").
+14. **Accessibility.** The tabs are `tablist` / `tab` with selected state, and the content below is labelled by the open tab. The Settings pill has the label "Settings". Each progress bar reports `min`, `max` and `now`. The row of seven circles is one button labelled "3 of 7 badges earned. See all badges."
+15. **Dark mode.** Every new colour comes from `useColors()` or the existing tone palette used by `StatTile`. Check the screen in dark mode before the PR.
+16. **Leaderboard edge cases.** When `profile.points` is missing, there is no summary card. When nobody has points, the tab shows "Nobody's on the board yet. Spot a cat to be first." Spotters with points keep their username, even leftover test names; deleting those accounts stays on SYC-578.
+17. **Navigation.** "Spot a cat" does `router.push('/spot')`, as Home does. "See all" and the circle row only switch the tab, without leaving the screen.
+18. **Problem-to-section map.** Each §1 problem is fixed in: 1 → §3.2 (2); 2 → §3.4; 3 → §3.2 (1) and this section (3); 4 → §3.3; 5 → §3.5.
+
+## 9. Open questions
 
 None blocking. Recorded assumptions:
 - Badges and Spotters tabs follow Option D because Samuel's message specified only Me.
