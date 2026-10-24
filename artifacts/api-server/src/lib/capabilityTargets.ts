@@ -6,6 +6,9 @@ import {
   photosTable,
   sightingPhotosTable,
   sightingsTable,
+  vetBatchCatsTable,
+  vetBatchPhotosTable,
+  vetVisitPhotosTable,
 } from "@workspace/db";
 import { eq, isNotNull, and, sql } from "drizzle-orm";
 import type { CapabilityTarget } from "./capabilities";
@@ -140,7 +143,7 @@ export async function catsOfPhoto(publicId: string): Promise<number[]> {
     .from(photosTable)
     .where(eq(photosTable.publicId, publicId));
   if (!photo) return [];
-  const [asMain, asSighting, asSpotPhoto, asStatement] = await Promise.all([
+  const [asMain, asSighting, asSpotPhoto, asStatement, asKept, asStaged] = await Promise.all([
     db
       .select({ catId: catsTable.id })
       .from(catsTable)
@@ -161,8 +164,21 @@ export async function catsOfPhoto(publicId: string): Promise<number[]> {
       .select({ catId: observationsTable.catId })
       .from(observationsTable)
       .where(eq(observationsTable.photoId, photo.id)),
+    // SYC-677: a vet visit's kept photo, and a batch's staged photo (of a cat
+    // already in the catalogue), belong to that cat. Both are team-only
+    // (teamOnlyPhotos.ts), so a cat guardian of that cat's colony passes
+    // this check and is then refused as for a hidden photo.
+    db
+      .select({ catId: vetVisitPhotosTable.catId })
+      .from(vetVisitPhotosTable)
+      .where(eq(vetVisitPhotosTable.photoId, photo.id)),
+    db
+      .select({ catId: vetBatchCatsTable.catId })
+      .from(vetBatchPhotosTable)
+      .innerJoin(vetBatchCatsTable, eq(vetBatchCatsTable.id, vetBatchPhotosTable.batchCatId))
+      .where(and(eq(vetBatchPhotosTable.photoId, photo.id), isNotNull(vetBatchCatsTable.catId))),
   ]);
-  return [...asMain, ...asSighting, ...asSpotPhoto, ...asStatement]
+  return [...asMain, ...asSighting, ...asSpotPhoto, ...asStatement, ...asKept, ...asStaged]
     .map((r) => r.catId)
     .filter((id): id is number => typeof id === "number");
 }

@@ -363,6 +363,7 @@ const OWN_CHECKS: Record<string, string> = {
   "POST /api/internal/people/allowed": "the sign-in Worker's bearer token (internal.people.test.ts)",
   "POST /api/internal/mail/drain": "the drain timer's bearer token (internalMail.test.ts)",
   "POST /api/internal/coat/sweep": "the drain timer's bearer token, SYC-161 Decision D1 (internalCoat.test.ts)",
+  "POST /api/internal/vet-batches/cleanup": "the drain timer's bearer token, SYC-677 (internalVetBatches.test.ts)",
   "POST /api/internal/resend/webhook": "Resend's signature, no token (reports.reporterEmail.test.ts, prelaunchGate.test.ts)",
   "POST /api/internal/news/nightly": "the news check's own bearer token, SYC-45 (news/nightly.test.ts)",
   "GET /api/internal/news/last-run": "the news check's own bearer token, SYC-45 (news/nightly.test.ts)",
