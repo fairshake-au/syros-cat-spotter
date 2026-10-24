@@ -74,4 +74,33 @@ describe('Welcome language switch (SYC-155)', () => {
     expect(setItem).toHaveBeenCalledWith('cat-spotter/language', 'el');
     expect(view.getByRole('radio', { name: 'Ελληνικά' }).getAttribute('aria-checked')).toBe('true');
   });
+  // SYC-524: the old How it works screen's three steps now live on Welcome.
+  it('shows the three steps under the subtitle, in order, each as one labelled element', () => {
+    const view = renderWelcome();
+    const t = TRANSLATIONS.fr;
+    const rows = [
+      [t.howStepSpot, t.howStepSpotBody],
+      [t.howStepCatalog, t.howStepCatalogBody],
+      [t.howStepHelp, t.howStepHelpBody],
+    ];
+    const text = view.container.textContent ?? '';
+    let last = -1;
+    for (const [title, body] of rows) {
+      const at = text.indexOf(title);
+      expect(at).toBeGreaterThan(last);
+      last = at;
+      expect(view.getByLabelText(`${title}. ${body}`)).toBeTruthy();
+    }
+  });
+
+  it('re-renders the steps in Greek when the language changes', async () => {
+    const view = renderWelcome();
+    fireEvent.click(view.getByRole('radio', { name: 'Ελληνικά' }));
+    const t = TRANSLATIONS.el;
+    await waitFor(() =>
+      expect(view.getByLabelText(`${t.howStepCatalog}. ${t.howStepCatalogBody}`)).toBeTruthy(),
+    );
+    expect(view.getByLabelText(`${t.howStepSpot}. ${t.howStepSpotBody}`)).toBeTruthy();
+    expect(view.getByLabelText(`${t.howStepHelp}. ${t.howStepHelpBody}`)).toBeTruthy();
+  });
 });
