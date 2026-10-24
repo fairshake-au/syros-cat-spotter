@@ -1335,7 +1335,7 @@ describe("SYC-443: the Colour check list and the Cats grid", () => {
     expect(mine).not.toMatch(/Colour: |undefined|null/);
   });
 
-  it("the Cats grid card says the phrase, and Coat not known when nothing is", async () => {
+  it("the Cats grid card says the phrase, and leaves the coat line out when nothing is known (SYC-619 §5.1)", async () => {
     const tabby = await newCat();
     await team(tabby, "coat", { value: { colours: ["ginger"], pattern: "stripes" }, daysAgo: 1 });
     const blank = await newCat();
@@ -1347,7 +1347,7 @@ describe("SYC-443: the Colour check list and the Cats grid", () => {
     expect(tabbyHtml).toContain('<span class="cardfact">Ginger tabby</span>');
     expect(tabbyHtml).toContain(`alt="Photo of ${await nameOf(tabby)}, Ginger tabby"`);
     const blankHtml = await grid(blank);
-    expect(blankHtml).toContain('<span class="cardfact">Coat not known</span>');
+    expect(blankHtml).not.toContain("Coat not known");
     expect(blankHtml).toContain(`alt="Photo of ${await nameOf(blank)}"`);
   });
 });

@@ -172,6 +172,15 @@ describe("the island Map page", () => {
     expect(res.text).toContain('<input type="hidden" name="view" value="map">');
   });
 
+  it("has the photo link beside the switch, in one .viewrow, carrying only area, colony and colours (§5.3)", async () => {
+    const res = await page(`/api/team/cats?view=map&colours=ginger&colony=${colony}&sterilised=not_known&q=Mimi`);
+    const row = /<div class="viewrow">([\s\S]*?)<\/div>/.exec(res.text)![1]!;
+    expect(row.indexOf('class="viewswitch"')).toBeGreaterThanOrEqual(0);
+    const href = /<a class="findentrylink" href="([^"]+)">Find from a photo<\/a>/.exec(row)![1]!.replace(/&amp;/g, "&");
+    expect(href).toBe(`/api/team/cats/find?colours=ginger&colony=${colony}`);
+    expect(row.indexOf("viewswitch")).toBeLessThan(row.indexOf("findentrylink"));
+  });
+
   it("a focus=<id> brings that cat's trail into the page data, oldest first", async () => {
     const res = await page(`/api/team/cats?view=map&focus=${cat.id}`);
     const focus = data(res.text, "focus") as { id: number; points: { lat: number; lng: number; at: string; first: boolean }[] };

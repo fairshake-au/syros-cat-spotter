@@ -1,9 +1,10 @@
+import { SYROS_OUTLINE } from "@workspace/geo";
 import { filtersToQuery } from "../teamCatFilters";
 import type { CatListFilters, CatListItem, SterilisedMark } from "../teamCatList";
 import { assetUrl } from "../teamAssets";
 import { AREAS } from "../mapTiles/areas";
 import { latToTileY, lngToTileX, MAX_ZOOM, MIN_ZOOM, type View } from "../mapTiles/geometry";
-import { activeChips, catsAddress, filterForm, viewSwitch } from "./catGridPage";
+import { activeChips, catsAddress, filterForm, viewRow } from "./catGridPage";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { lastSeenWords } from "./lastSeen";
@@ -184,7 +185,7 @@ export function renderCatMapPage(o: CatMapOptions): string {
     // Same order as the grid (search and Filters, then Grid/Map), so the
     // controls stay put when the person switches view (SYC-522).
     filterForm(o, true) +
-    viewSwitch(o.filters, "map") +
+    viewRow(o, "map") +
     `<div id="mapresults">${activeChips(o, true)}${countLine(o)}</div>` +
     (o.note ? `<p class="warn" role="status">${esc(o.note)}</p>` : "");
 
@@ -222,6 +223,7 @@ export function renderCatMapPage(o: CatMapOptions): string {
     ` data-minzoom="${MIN_ZOOM}" data-maxzoom="${MAX_ZOOM}"` +
     dataAttr("sites", o.sites) +
     dataAttr("areas", areas) +
+    dataAttr("outline", SYROS_OUTLINE) +
     (focus ? dataAttr("focus", focus) : "") +
     "></div>" +
     legend() +

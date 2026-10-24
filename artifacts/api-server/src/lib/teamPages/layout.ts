@@ -195,6 +195,14 @@ dd{margin:0}
 .actions button{font:inherit;font-size:15px;min-height:44px;padding:8px 10px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
 .actions button:hover{background:#e8f3f5}
 .actions button.here{background:#eee9da;border-color:#c9c4b6;color:#3b3930;font-weight:700;cursor:default}
+/* SYC-619 §6: Queue cards only */
+article.report .actions button.go{background:#0b5c6b;color:#fff}
+article.report .actions button.go:hover{background:#0b4553}
+article.report .now{margin:0 0 6px;font-weight:700}
+article.report .said1{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+article.report details[open] .said1{display:none}
+article.report:not(.urgent):not(.issue):not(.closed):not(.likely){border-left-color:#d9d5ca}
+/* end SYC-619 §6 */
 .actions button.save{margin-top:8px;background:#0b5c6b;color:#fff}
 .actions button.save:hover{background:#0b4553}
 textarea{display:block;width:100%;font:inherit;font-size:16px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;resize:vertical;min-height:84px}
@@ -575,7 +583,8 @@ a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;tex
 .findwhere fieldset{border:0;padding:0;margin:8px 0 12px;min-width:0}
 .findwhere legend{font-weight:700;font-size:14px;padding:0 0 4px}
 button.secondary{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
-.findentry{margin:8px 0}
+.viewrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0 12px}
+.viewrow .findentrylink{margin:8px 0}
 a.findentrylink{display:inline-flex;align-items:center;min-height:44px;background:#fff;border:1px solid #0b5c6b;border-radius:8px;padding:0 16px;font-weight:700;color:#0b4553;text-decoration:none}
 a.findentrylink:hover{background:#e6f1f3}
 .findstep{margin:16px 0 0;padding-top:8px;border-top:1px solid #e6e2d6}
@@ -621,6 +630,7 @@ ${CHART_CSS}
 .maplegend ul{list-style:none;margin:2px 0 6px;padding:0}
 .maplegend li{display:flex;align-items:center;gap:8px;margin:5px 0}
 .maplegend .catdot,.maplegend .sitesq{flex:none;margin:0 3px}
+.maploading{position:absolute;top:8px;left:8px;max-width:40%;z-index:1050;margin:0;background:#fff;color:#1d1d1b;border:1px solid #d9d5ca;border-radius:8px;padding:6px 12px;font-size:14px;line-height:1.3;pointer-events:none}
 .mapnote{position:absolute;left:8px;bottom:8px;z-index:1050;max-width:calc(100% - 16px);margin:0;background:#fff;border:1px solid #a6540a;border-radius:8px;padding:8px 10px;font-size:14px;line-height:1.3}
 .catsheet{position:absolute;z-index:1100;left:8px;right:8px;bottom:8px;max-height:75%;overflow:auto;background:#fff;border:1px solid #d9d5ca;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.2);padding:12px;line-height:1.4}
 .catsheet .sheethead{display:flex;gap:10px;align-items:flex-start}

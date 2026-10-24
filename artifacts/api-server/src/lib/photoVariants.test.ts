@@ -1,10 +1,11 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { eq } from "drizzle-orm";
 import { db, photosTable, photoVariantsTable, pool } from "@workspace/db";
 import { clearVariants, makeVariant, variantFor } from "./photoVariants";
+import { logger } from "./logger";
 
-// SYC-396 PR 1.2 (spec §11): small and medium versions of a catalogue photo.
+// SYC-396 PR 1.2 (spec §11): small, medium and card (360px) versions of a catalogue photo.
 
 const fixtureJpeg = (width: number, height: number) =>
   sharp({ create: { width, height, channels: 3, background: "#048" } })
@@ -42,6 +43,12 @@ describe("makeVariant", () => {
     expect(meta.width).toBe(640);
   });
 
+  it("makes the card size 360 wide", async () => {
+    const meta = await sharp(await makeVariant(await fixtureJpeg(1536, 1024), "card")).metadata();
+    expect(meta.format).toBe("jpeg");
+    expect(meta.width).toBe(360);
+  });
+
   it("puts a transparent PNG on white, not black", async () => {
     const png = await sharp({
       create: { width: 200, height: 200, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
@@ -67,11 +74,12 @@ describe("variantFor", () => {
     expect(await rowsFor(photo.id)).toHaveLength(1);
   });
 
-  it("keeps small and medium as separate rows", async () => {
+  it("keeps small, medium and card (360px) as separate rows", async () => {
     const photo = await seedPhoto(await fixtureJpeg(800, 600));
     await variantFor(photo.id, "small");
     await variantFor(photo.id, "medium");
-    expect(await rowsFor(photo.id)).toHaveLength(2);
+    await variantFor(photo.id, "card");
+    expect(await rowsFor(photo.id)).toHaveLength(3);
   });
 
   it("returns null for a photo that doesn't exist", async () => {
@@ -84,6 +92,26 @@ describe("variantFor", () => {
     expect(await rowsFor(photo.id)).toHaveLength(0);
   });
 
+  it("still returns the bytes, and logs a warning, when saving the version throws", async () => {
+    // For example the old CHECK rejecting 'card' before migration 0041 has run.
+    const photo = await seedPhoto(await fixtureJpeg(800, 600));
+    const tx = vi.spyOn(db, "transaction").mockRejectedValueOnce(new Error("check constraint"));
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    try {
+      const out = await variantFor(photo.id, "card");
+      expect(out).not.toBeNull();
+      expect((await sharp(out!).metadata()).width).toBe(360);
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({ size: "card" }),
+        "photo version could not be saved",
+      );
+      expect(await rowsFor(photo.id)).toHaveLength(0);
+    } finally {
+      tx.mockRestore();
+      warn.mockRestore();
+    }
+  });
+
   it("is removed with its photo (the cascade)", async () => {
     const photo = await seedPhoto(await fixtureJpeg(800, 600));
     await variantFor(photo.id, "small");
@@ -91,10 +119,12 @@ describe("variantFor", () => {
     expect(await rowsFor(photo.id)).toHaveLength(0);
   });
 
-  it("clearVariants removes both sizes so they are remade", async () => {
+  it("clearVariants removes every size, card included, so they are remade", async () => {
     const photo = await seedPhoto(await fixtureJpeg(800, 600));
     await variantFor(photo.id, "small");
     await variantFor(photo.id, "medium");
+    await variantFor(photo.id, "card");
+    expect(await rowsFor(photo.id)).toHaveLength(3);
     await clearVariants(photo.id);
     expect(await rowsFor(photo.id)).toHaveLength(0);
   });

@@ -10,7 +10,7 @@ The spec is `docs/superpowers/specs/syc-462-photo-removal-by-hand.md`, and its Â
 - Nobody types database commands by hand.
 
 **What "removed" means:**
-- the picture is deleted from the database, along with its small and medium versions;
+- the picture is deleted from the database, along with every stored size (small, medium and card);
 - it stops being the cat's main photo, which falls back to the photo the public already sees in its place;
 - matching stops using it.
 
