@@ -17,6 +17,8 @@ describe("donateAddressProblem", () => {
     ["syroscats.com/donations", "web address"],
     ["not an address", "web address"],
     ["https://localhost/donate", "website name"],
+    ["https://./", "website name"],
+    ["https://.com/x", "website name"],
     ["https://user:secret@syroscats.com/donations", "user name and password"],
     [`https://syroscats.com/${"a".repeat(300)}`, "too long"],
   ])("refuses %j", (typed, words) => {

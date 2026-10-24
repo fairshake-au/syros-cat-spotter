@@ -46,7 +46,7 @@ function donationSection(o: AppSwitchesPageOptions): string {
           ? `<p class="warn" role="status">This isn't ${esc(EXPECTED_DONATE_HOST)}. Check it is the page you mean.</p>`
           : "")
       : '<p class="hbig"><strong>Off</strong></p>' +
-        '<p class="hint">Visitors see the words about feeding, with no button and no figures.</p>') +
+        '<p class="hint">Visitors see the words about feeding, with no button and no figures. To turn it on again, check the address below and press the button.</p>') +
     `<form method="post" action="${APP_SWITCHES_PATH}/donation">` +
     '<label class="label" for="addr">Donation page address</label>' +
     '<p class="hint">It must start with https://</p>' +

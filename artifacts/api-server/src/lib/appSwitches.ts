@@ -44,7 +44,7 @@ export function donateAddressProblem(raw: string): { url: string } | { problem: 
     return { problem: "That doesn't look like a web address. It should look like https://syroscats.com/donations" };
   }
   if (parsed.protocol !== "https:") return { problem: "The address must start with https:// so the page is secure." };
-  if (!parsed.hostname.includes(".")) return { problem: "That address has no website name in it. Check it and try again." };
+  if (!parsed.hostname.includes(".") || !parsed.hostname.split(".").every(Boolean)) return { problem: "That address has no website name in it. Check it and try again." };
   if (parsed.username || parsed.password) return { problem: "Take the user name and password out of the address." };
   return { url: parsed.toString() };
 }
