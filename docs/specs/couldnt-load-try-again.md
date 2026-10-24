@@ -75,6 +75,8 @@ The three loads this spec touches are the cat-alogue, notifications and the prof
 
 - **stops waiting after 20 seconds per request**, using the API client's existing per-request `timeoutMs`. Today these requests have no time limit at all (`custom-fetch.ts:32-36`).
 - **retries once, not three times.** A failure then shows within about 40 seconds at worst, not never. It's usually much sooner, because a phone with no signal fails at once.
+  - The 20 seconds is per request. The cat-alogue arrives in pages of 200 cats, so while it fits in one page the 40-second bound holds; a longer cat-alogue would allow 20 seconds a page. An overall deadline is a follow-up (review of #302, finding 3).
+- **holds "Couldn't load" on screen while Try again is trying.** React-query puts a query that has never loaded back to "loading" while it retries, which would swap the message for a page spinner, so the screens remember the failure until data arrives (review of #302, finding 1).
 - **runs even when the phone reports it's offline.** In technical terms, react-query's `networkMode: 'always'`. Otherwise, on web, Try again would wait silently until the browser said it was back online.
 
 ## 3. Where it goes, and how each screen tells "failed" from "empty"
