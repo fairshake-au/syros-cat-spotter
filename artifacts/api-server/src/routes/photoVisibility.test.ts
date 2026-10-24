@@ -640,6 +640,10 @@ describe("P6-8: staff still see a hidden photo, labelled with who hid it and whe
     // The message lands beside the photo, once.
     expect(tile).toContain("Hidden. The public no longer sees this photo.");
     expect(page.text.split("Hidden. The public no longer sees this photo.")).toHaveLength(2);
+    // SYC-520: "Hidden. Undo": one tap puts it back, beside the message.
+    expect(tile).toMatch(/class="undo"[^>]*action="\/api\/team\/photos\/[^"]+\/restore"[\s\S]*>Undo<\/button>/);
+    const reopened = await request(app).get(`/api/team/cats/${cat.id}`).set("Cookie", cookie);
+    expect(reopened.text).not.toContain(">Undo</button>");
     // The overview says the public sees another photo instead.
     expect(page.text).toContain("The main photo is hidden from the public.");
 
