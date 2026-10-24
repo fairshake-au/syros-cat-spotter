@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getProfile } from '@workspace/api-client-react';
 import { Button } from '@/components/purropolis';
@@ -20,7 +21,7 @@ import {
   type RestoreSpotter,
 } from '@/lib/keepSafe';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
-import { clearPendingMove, notePendingMove } from '@/lib/restoreWaiting';
+import { clearPendingMove, clearWaiting, notePendingMove, setMovingHandle } from '@/lib/restoreWaiting';
 
 /**
  * The restore chooser, shared by the link page (app/restore.tsx) and the code
@@ -46,12 +47,18 @@ export function RestoreChooser({
   secret,
   fromCode,
   onMoved,
+  onExit,
 }: {
   secret: string;
   /** The secret is a handle from a typed code: the person is already in the app, so no in-app-browser advice. */
   fromCode?: boolean;
   /** Called once the spotter has moved, before the page reloads (the link page drops its held token). */
   onMoved?: () => void;
+  /**
+   * Code path only (SYC-664 I2): leave the chooser for the code screen's code
+   * box (Back) or its address box ("ask again"). The link page has neither.
+   */
+  onExit?: (to: 'code' | 'address') => void;
 }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -104,6 +111,16 @@ export function RestoreChooser({
     // `username` is read once: the warning names who this phone is now.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, deviceId, isOnline]);
+
+  // SYC-664 I2: on the code path a dead handle is never remembered, so a
+  // reload can't bring the person back to it. "Already here" needs no note at all.
+  useEffect(() => {
+    if (!fromCode) return;
+    if (state.kind === 'not-valid' || state.kind === 'failed') setMovingHandle(null);
+    else if (state.kind === 'already-here') clearWaiting();
+  }, [fromCode, state.kind]);
+
+  const exitTo = fromCode ? onExit : undefined;
 
   /** After any in-app-browser advice: the different-browser question, or straight to the spotters. */
   function afterInAppAdvice(peek: RestorePeek): State {
@@ -215,6 +232,19 @@ export function RestoreChooser({
         },
       ]}
     >
+      {exitTo && state.kind !== 'moving' ? (
+        <View style={styles.topBar}>
+          <Pressable
+            testID="restore-chooser-back"
+            onPress={() => exitTo('code')}
+            accessibilityRole="button"
+            accessibilityLabel={t('back')}
+            hitSlop={10}
+          >
+            <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
+      ) : null}
       <Text accessibilityRole="header" style={[styles.title, { color: colors.foreground }]}>
         {t('restoreAskTitle')}
       </Text>
@@ -362,14 +392,18 @@ export function RestoreChooser({
           <Text testID="restore-not-valid" style={[styles.text, { color: colors.foreground }]}>
             {state.kind === 'not-valid' ? t('restorePageNotValid') : t('restorePageFailed')}
           </Text>
+          <View testID="restore-ask-again">
           <Button
             variant="secondary"
             size="lg"
             block
-            onPress={() => router.replace(username ? '/get-spots-back' : '/')}
+            // The code path goes back to its own address box; replacing the
+            // route would remount straight into this chooser (I2).
+            onPress={() => (exitTo ? exitTo('address') : router.replace(username ? '/get-spots-back' : '/'))}
           >
             {t('restorePageAskAgain')}
           </Button>
+          </View>
         </View>
       ) : null}
     </View>
@@ -381,6 +415,7 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.displayBold, fontSize: 26, lineHeight: 30 },
   text: { fontFamily: fonts.body, fontSize: fontSizes.md, lineHeight: 23 },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: -spacing[2] },
   choices: { gap: spacing[3] },
   strong: { fontFamily: fonts.bodyBold },
   pair: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },

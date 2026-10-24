@@ -447,6 +447,32 @@ describe("a handle at peek, redeem and replay", () => {
     expect(linkPeek.body).toEqual({ error: "link_not_valid" });
   });
 
+  it("a superseded handle at peek: link_not_valid; only the newest handle works (final review I2)", async () => {
+    const { phone, code } = await phoneWithCode();
+    const first = await handleFor(phone, code);
+    const second = await handleFor(phone, code);
+    expect(second).not.toBe(first);
+    const old = await peek(phone, first);
+    expect(old.status).toBe(401);
+    expect(old.body).toEqual({ error: "link_not_valid" });
+    expect((await peek(phone, second)).status).toBe(200);
+  });
+
+  it("a spent handle at peek: link_not_valid, even for the phone it moved to (final review I2)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const phone = newPhone();
+    await bind(phone);
+    const { code } = await askForCode(phone, email);
+    const handle = await handleFor(phone, code);
+    const p = await peek(phone, handle);
+    expect((await redeem(phone, handle, p.body.spotters[0].choice)).status).toBe(200);
+    // The phone is now the restored spotter: its own secret under the spotter's id.
+    const again = await peek({ id: old.id, secret: phone.secret }, handle);
+    expect(again.status).toBe(401);
+    expect(again.body).toEqual({ error: "link_not_valid" });
+  });
+
   it("redeem with handle from another phone: allowed, like the link it stands in for (Decision 12)", async () => {
     // A handle is a link-equivalent secret that only the asking phone was
     // given, so another phone holding it is treated exactly as another phone

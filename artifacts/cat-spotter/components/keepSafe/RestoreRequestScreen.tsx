@@ -155,8 +155,17 @@ export function RestoreRequestScreen({
 
   const danger = colors.destructive ?? '#c0392b';
 
+  /** Out of the chooser (I2): the handle is forgotten, and the code box starts empty. */
+  const leaveChooser = (to: 'code' | 'address') => {
+    setMovingHandle(null);
+    setCode('');
+    setCodeProblem(null);
+    lastSent.current = null;
+    setStep(to === 'code' ? { kind: 'code', viaLink: !readWaiting()?.requests } : { kind: 'address' });
+  };
+
   if (step.kind === 'chooser') {
-    return <RestoreChooser secret={step.handle} fromCode onMoved={clearWaiting} />;
+    return <RestoreChooser secret={step.handle} fromCode onMoved={clearWaiting} onExit={leaveChooser} />;
   }
 
   return (

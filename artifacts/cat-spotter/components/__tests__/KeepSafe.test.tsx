@@ -256,6 +256,20 @@ describe('the /restore page', () => {
     expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili');
   });
 
+  it('the link page is unchanged by I2: no Back control, and "ask again" still replaces the route', async () => {
+    vi.mocked(keepSafe.peekRestore).mockRejectedValueOnce(
+      new ApiError(new Response(null, { status: 401 }), { error: 'link_not_valid' }, { method: 'POST', url: '/api/restore/peek' }),
+    );
+    const utils = render(<RestorePage />);
+    await utils.findByTestId('restore-not-valid');
+    expect(utils.queryByTestId('restore-chooser-back')).toBeNull();
+    expect(utils.getByText(en.restorePageNotValid)).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(utils.getByTestId('restore-ask-again').querySelector('[role="button"]')!);
+    });
+    expect(router.replace).toHaveBeenCalledWith('/');
+  });
+
   it('on a phone with a spotter, warns first (Decision 7) and asks what happens to it, neither chosen (SYC-266)', async () => {
     h.device = { deviceId: 'dev-new', username: 'Nikos', isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
     const { findByText, getByTestId } = render(<RestorePage />);
@@ -599,6 +613,7 @@ describe('code screen', () => {
         clear: () => mem.clear(),
       },
     });
+    vi.mocked(router.replace).mockClear();
     vi.mocked(keepSafe.requestRestore).mockReset().mockResolvedValue(undefined as never);
     vi.mocked(keepSafe.exchangeRestoreCode).mockReset().mockResolvedValue({ handle: 'handle-1' });
     vi.mocked(keepSafe.peekRestore).mockResolvedValue({
@@ -825,6 +840,121 @@ describe('code screen', () => {
     });
     await utils.findByTestId('restore-not-valid');
     expect(readPendingMove()).toBeNull();
+  });
+
+  describe('leaving the chooser on the code path (I2)', () => {
+    const linkRefusal = (url: string) =>
+      new ApiError(new Response(null, { status: 401 }), { error: 'link_not_valid' }, { method: 'POST', url });
+    const toChooser = async (utils: ReturnType<typeof render>) => {
+      await act(async () => {
+        typeCode(utils.getByTestId('restore-code-input'), '48291376');
+      });
+    };
+
+    it('Back from the chooser drops the handle and returns to the code box', async () => {
+      const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+      await toChooser(utils);
+      await utils.findByText('Move Lili’s spots to this phone');
+      expect(readWaiting()?.movingHandle).toBe('handle-1');
+      await act(async () => {
+        fireEvent.click(utils.getByTestId('restore-chooser-back'));
+      });
+      expect(utils.getByTestId('restore-code-input')).toBeTruthy();
+      expect((utils.getByTestId('restore-code-input') as HTMLInputElement).value).toBe('');
+      expect(readWaiting()?.movingHandle).toBeUndefined();
+      expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+    });
+
+    it('a person at the Keep or Delete warning can back out', async () => {
+      h.device = { deviceId: 'dev-nikos', username: 'Nikos', isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
+      const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+      await toChooser(utils);
+      await utils.findByTestId('restore-warning');
+      await act(async () => {
+        fireEvent.click(utils.getByTestId('restore-chooser-back'));
+      });
+      expect(utils.getByTestId('restore-code-input')).toBeTruthy();
+      expect(utils.queryByTestId('restore-warning')).toBeNull();
+    });
+
+    it('no Back while the move is being made', async () => {
+      let release!: (v: { deviceId: string; username: string | null }) => void;
+      vi.mocked(keepSafe.redeemRestore).mockImplementationOnce(() => new Promise((r) => { release = r; }));
+      h.device = { deviceId: 'dev-new', username: null, isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
+      const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+      await toChooser(utils);
+      await act(async () => {
+        fireEvent.click(await utils.findByText('Move Lili’s spots to this phone'));
+      });
+      expect(utils.queryByTestId('restore-chooser-back')).toBeNull();
+      await act(async () => {
+        release({ deviceId: 'dev-lili', username: 'Lili' });
+      });
+    });
+
+    it('a superseded handle at peek: not valid, the handle is dropped, and "ask again" goes to the address box', async () => {
+      // A newer code exchange replaced this handle on the server (only the newest works).
+      setMovingHandle('handle-superseded');
+      vi.mocked(keepSafe.peekRestore).mockRejectedValueOnce(linkRefusal('/api/restore/peek'));
+      const utils = render(<RestoreRequestScreen onBack={() => {}} />);
+      await utils.findByTestId('restore-not-valid');
+      expect(readWaiting()?.movingHandle).toBeUndefined();
+      await act(async () => {
+        fireEvent.click(utils.getByTestId('restore-ask-again').querySelector('[role="button"]')!);
+      });
+      expect(utils.getByTestId('restore-email')).toBeTruthy();
+      expect(router.replace).not.toHaveBeenCalled();
+      // A remount now opens the address box, not the dead chooser: no loop.
+      cleanup();
+      const again = render(<RestoreRequestScreen onBack={() => {}} />);
+      expect(again.getByTestId('restore-email')).toBeTruthy();
+    });
+
+    it('a spent handle at peek: the same, and the named phone is not sent round the same route', async () => {
+      h.device = { deviceId: 'dev-nikos', username: 'Nikos', isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
+      setMovingHandle('handle-spent');
+      vi.mocked(keepSafe.peekRestore).mockRejectedValueOnce(linkRefusal('/api/restore/peek'));
+      const utils = render(<RestoreRequestScreen onBack={() => {}} />);
+      await utils.findByTestId('restore-not-valid');
+      expect(readWaiting()?.movingHandle).toBeUndefined();
+      await act(async () => {
+        fireEvent.click(utils.getByTestId('restore-ask-again').querySelector('[role="button"]')!);
+      });
+      expect(router.replace).not.toHaveBeenCalledWith('/get-spots-back');
+      expect(utils.getByTestId('restore-email')).toBeTruthy();
+    });
+
+    it('a failed peek drops the handle too', async () => {
+      setMovingHandle('handle-x');
+      vi.mocked(keepSafe.peekRestore).mockRejectedValueOnce(new Error('network'));
+      const utils = render(<RestoreRequestScreen onBack={() => {}} />);
+      await utils.findByTestId('restore-not-valid');
+      expect(readWaiting()?.movingHandle).toBeUndefined();
+    });
+
+    it('a refused move drops the handle', async () => {
+      vi.mocked(keepSafe.redeemRestore).mockRejectedValueOnce(linkRefusal('/api/restore/redeem'));
+      const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+      await toChooser(utils);
+      await act(async () => {
+        fireEvent.click(await utils.findByText('Move Lili’s spots to this phone'));
+      });
+      await utils.findByTestId('restore-not-valid');
+      expect(readWaiting()?.movingHandle).toBeUndefined();
+    });
+
+    it('"already on this phone" forgets the whole note', async () => {
+      noteRequest();
+      vi.mocked(keepSafe.peekRestore).mockResolvedValueOnce({
+        spotters: [{ choice: 'choice-lili', username: 'Lili' }],
+        openedOnAskingPhone: true,
+        alreadyHere: { username: 'Lili' },
+      });
+      const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+      await toChooser(utils);
+      await utils.findByTestId('restore-already-here');
+      expect(readWaiting()).toBeNull();
+    });
   });
 
   it('every new string exists in en, el and fr, and restoreAskSent is gone', () => {
