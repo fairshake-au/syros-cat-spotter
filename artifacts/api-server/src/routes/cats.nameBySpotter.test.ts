@@ -243,4 +243,24 @@ describe("POST /cats/:catId/name", () => {
     expect(res.status).toBe(409);
     expect(res.body.code).toBe("ALREADY_NAMED");
   });
+
+  it("an older app's home-note save sends the stored SYR name back: it goes through and the cat stays pending", async () => {
+    const catId = await pendingCat();
+    await db.update(catsTable).set({ ownerDeviceId: device("owner") }).where(eq(catsTable.id, catId));
+    const [before] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+    for (const sent of [before!.name, before!.name.toLowerCase(), ` ${before!.name} `]) {
+      const res = await request(app)
+        .patch(`/api/cats/${catId}`)
+        .set("X-Device-Secret", SECRET)
+        .send({ deviceId: device("owner"), name: sent, homeDescription: "Green door" });
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(res.body.namePending).toBe(true);
+      expect(res.body.name).toBe(before!.name);
+    }
+    const [row] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+    expect(row!.namePending).toBe(true);
+    expect(row!.name).toBe(before!.name);
+    expect(row!.homeDescription).toBe("Green door");
+    expect(await nameStatements(catId)).toHaveLength(0);
+  });
 });

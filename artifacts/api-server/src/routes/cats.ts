@@ -16,6 +16,7 @@ import {
   photosTable,
   sightingPhotosTable,
   foldedNameEquals,
+  foldName,
   type Cat,
 } from "@workspace/db";
 import { and, asc, eq, inArray, ne, desc, sql } from "drizzle-orm";
@@ -800,8 +801,15 @@ router.patch("/cats/:catId", async (req, res) => {
   }
 
   const changes: Partial<typeof catsTable.$inferInsert> = {};
-  if (body.name !== undefined) {
-    const newName = body.name.trim().slice(0, 60);
+  const sentName = body.name === undefined ? undefined : body.name.trim().slice(0, 60);
+  // SYC-677 D: an app that sends the stored name back with a home-note save
+  // (a pending cat's is its SYR number) is not renaming. Equal once folded,
+  // nothing about the name is checked and a pending cat stays pending.
+  const nameUnchanged = sentName !== undefined && foldName(sentName) === foldName(cat.name);
+  if (sentName !== undefined && nameUnchanged) {
+    if (!cat.namePending && sentName !== cat.name) changes.name = sentName;
+  } else if (sentName !== undefined) {
+    const newName = sentName;
     if (isBlankName(newName)) {
       res.status(400).json(BLANK_NAME_BODY);
       return;
