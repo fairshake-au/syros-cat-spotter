@@ -1,5 +1,7 @@
 # Vet visit batches Implementation Plan (SYC-677)
 
+**Status:** **Approved by Samuel, 24 Oct 2026** ("approved, subagent-driven"), together with the design's "Spotters naming a cat" section.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. **Commit after every task, and keep `CHECKPOINT.md` in the worktree root (what's done, what's next). Never hold work only in memory. Do not sub-delegate.**
 
 **Goal:** Syros Cats records a batch of vet visits from the photos it received. Each cat is matched by photo or created new, each visit records what was done and what Syros Cats paid, the photos are kept, and spotters can name a new cat that Syros Cats left unnamed.
