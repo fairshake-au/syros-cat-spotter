@@ -659,7 +659,7 @@ export function renderColourCheckPage(
         `<ul class="cats">${check.map((c) => row(c, true)).join("")}</ul>`
       : "") +
     (notDescribed.length
-      ? `<details class="notdescribed"><summary>${esc(
+      ? `<details class="notdescribed"${check.length === 0 ? " open" : ""}><summary>${esc(
           notDescribed.length === 1
             ? tr(lang, "colourCheck.notDescribedOne")
             : tr(lang, "colourCheck.notDescribed", { count: String(notDescribed.length) }),

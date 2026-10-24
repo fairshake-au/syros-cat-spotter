@@ -67,7 +67,13 @@ const en: Dict = {
   retake: 'Retake',
   submitSighting: 'Submit sighting',
   locating: 'Getting your location…',
-  locationDenied: 'Location permission is needed to record where the cat was seen. You can enable it in Settings.',
+  // SYC-524: the explain-first location card on Spot, after a camera photo.
+  locAskTitle: "Use where you're standing?",
+  locAskBody: "We'll put the pin where you are now, so Syros Cats know where this cat lives. You can move it after.",
+  locAskUse: 'Use where I am',
+  locAskMap: "I'll put the pin on the map",
+  locOffNative: "Location is off for Cat Spotters. Move the pin yourself, or turn location on in your phone's Settings.",
+  locOffWeb: 'Your browser is blocking location for this site. Move the pin yourself, or allow location from the address bar.',
   submitting: 'Checking for matches…',
   optimizingPhoto: 'Preparing a smaller upload for this connection…',
   queuedOffline: 'You are offline. Your sighting was saved and will be matched when you are back online.',
@@ -314,7 +320,30 @@ const en: Dict = {
   mapPickerLabel: 'Map. Use the arrow keys to move the pin, or tap a spot to move the pin there.',
   markAllRead: 'Mark all read',
   catUpdateBanner: 'News about this cat',
-  noNotifications: 'No notifications yet. Spot a cat to follow its updates!',
+  noNotifications: 'No notifications yet. Spot or follow a cat to get its news.',
+  // SYC-624 C2: a cat's page in four tabs (tab labels, counts, link wording).
+  catTabAbout: 'About',
+  catTabPhotos: 'Photos',
+  catTabStory: 'Story',
+  catTabMap: 'Map',
+  catTabPhotosA11y: 'Photos, {n}',
+  catBannerSeePhotos: 'See photos',
+  catBannerSeeStory: 'See {name}’s story',
+  catSpottedTimesBy: 'Spotted {n} times by {s} spotters',
+  catSpottedTimesByOne: 'Spotted {n} times by 1 spotter',
+  catSpottedTimes: 'Spotted {n} times',
+  catSpottedOnce: 'Spotted once',
+  catFans: '{n} fans',
+  catFansOne: '1 fan',
+  reportNeedsHelpNamed: '{name} needs help',
+  reportIssueLink: 'Something wrong on this page?',
+  reportIssuePhotoLink: 'Something wrong with this photo?',
+  backA11y: 'Back',
+  followCat: 'Follow',
+  followingCat: 'Following',
+  followA11y: 'Follow {name}',
+  followNeedsConnection: 'You need a connection to follow {name}.',
+  followFailed: 'Couldn’t update that. Try again.',
   justNow: 'now',
   tabHome: 'Home',
   tabCatalog: 'Cat-alogue',
@@ -434,11 +463,6 @@ const en: Dict = {
   skip: 'Skip',
   back: 'Back',
   continue: 'Continue',
-  howTitle: 'How Syros Cat Spotter works',
-  howSubtitle: 'Everyone\'s welcome — kids, tourists, locals.',
-  howLocationTitle: 'Enable location',
-  howLocationBody: 'So we can show cats near you.',
-  howAllowContinue: 'Allow & continue',
   makeItYours: 'Make it yours 🐾',
   profileRole: 'Spotter',
   profileStreak: '{n}-day streak',
@@ -590,13 +614,12 @@ const en: Dict = {
   howStepSpot: 'Spot a cat',
   howStepSpotBody: 'Snap a photo when you meet a cat in the alleys.',
   howStepDontFeed: 'Please don\'t feed them',
-  howStepDontFeedBody: 'Scraps make cats sick and draw them onto busy roads. More food also means more kittens than we can help. Local cat guardians feed them properly.',
   howStepCatalog: 'Add it to the cat-alogue',
   howStepCatalogBody: 'We check if it’s a new cat or one we already know.',
   howStepHelp: 'Help them thrive',
   howStepHelpBody: 'Your spots help us sterilise and vaccinate street cats.',
   // SYC-35: keep-your-distance guidance, its own onboarding screen straight
-  // after "How it works" (components/onboarding/SafetyStep.tsx). Word for word
+  // after Welcome (components/onboarding/SafetyStep.tsx). Word for word
   // from docs/specs/source/safety-copy-translations.md `onboarding.healthy`
   // (canonical English: docs/specs/team-access-and-welfare-queue.md §5.3a).
   howSafetyTitle: 'Look, don\'t touch.',
@@ -604,6 +627,7 @@ const en: Dict = {
   howSafetyDistance: 'Keep a step or two back and let them come to you if they want to. A cat that stays a bit wary of people is a cat that stays out of the road and out of trouble — being careful around strangers is one of the things keeping it alive. Picking one up, or feeding it, does it no favours.',
   howSafetyLeaveBe: 'So: photograph them, admire them, leave them be.',
   howSafetyHurt: 'If you find a cat that is hurt or sick, that is different, and the app will tell you what to do.',
+  safetyDontFeedBody: 'Scraps make cats sick and draw them onto busy roads. More food also means more kittens than we can help.',
   campaignOpensAt: 'Opens {host} in your browser',
   statsUnavailable: 'Couldn\'t load your stats just now.',
   // SYC-508 (couldnt-load-try-again.md): the shared "Couldn't load" state.
@@ -894,7 +918,13 @@ const el: Dict = {
   retake: 'Ξανά',
   submitSighting: 'Υποβολή παρατήρησης',
   locating: 'Εντοπισμός τοποθεσίας…',
-  locationDenied: 'Απαιτείται άδεια τοποθεσίας για να καταγραφεί πού βρέθηκε η γάτα. Μπορείτε να την ενεργοποιήσετε στις Ρυθμίσεις.',
+  // SYC-524: the explain-first location card on Spot, after a camera photo.
+  locAskTitle: 'Να βάλουμε το σημείο όπου βρίσκεσαι;',
+  locAskBody: 'Θα βάλουμε την πινέζα εκεί που είσαι τώρα, για να ξέρει η Syros Cats πού ζει αυτή η γάτα. Μπορείς να τη μετακινήσεις μετά.',
+  locAskUse: 'Χρησιμοποίησε το σημείο μου',
+  locAskMap: 'Θα βάλω εγώ την πινέζα στον χάρτη',
+  locOffNative: 'Η τοποθεσία είναι κλειστή για το Cat Spotters. Μετακίνησε μόνος/η σου την πινέζα ή άνοιξε την τοποθεσία στις Ρυθμίσεις του κινητού σου.',
+  locOffWeb: 'Ο browser σου μπλοκάρει την τοποθεσία για αυτόν τον ιστότοπο. Μετακίνησε μόνος/η σου την πινέζα ή επίτρεψε την τοποθεσία από τη γραμμή διευθύνσεων.',
   submitting: 'Έλεγχος για αντιστοιχίσεις…',
   optimizingPhoto: 'Προετοιμασία μικρότερης φωτογραφίας για αυτή τη σύνδεση…',
   queuedOffline: 'Είσαι εκτός σύνδεσης. Η παρατήρηση αποθηκεύτηκε και θα ελεγχθεί όταν επανασυνδεθείς.',
@@ -1133,7 +1163,30 @@ const el: Dict = {
   mapPickerLabel: 'Χάρτης. Με τα βελάκια μετακινείς την πινέζα. Ή πάτα ένα σημείο για να πάει εκεί η πινέζα.',
   markAllRead: 'Όλα ως αναγνωσμένα',
   catUpdateBanner: 'Νέα για αυτή τη γάτα',
-  noNotifications: 'Καμία ειδοποίηση ακόμα. Εντοπίστε μια γάτα για να ακολουθήσετε τα νέα της!',
+  noNotifications: 'Καμία ειδοποίηση ακόμα. Εντόπισε ή ακολούθησε μια γάτα για να μαθαίνεις τα νέα της.', // SYC-4: draft
+  // SYC-624 C2: a cat's page in four tabs (tab labels, counts, link wording).
+  catTabAbout: 'Σχετικά', // SYC-4: draft
+  catTabPhotos: 'Φωτογραφίες', // SYC-4: draft
+  catTabStory: 'Ιστορία', // SYC-4: draft
+  catTabMap: 'Χάρτης', // SYC-4: draft
+  catTabPhotosA11y: 'Φωτογραφίες, {n}', // SYC-4: draft
+  catBannerSeePhotos: 'Δες τις φωτογραφίες', // SYC-4: draft
+  catBannerSeeStory: 'Δες την ιστορία της {name}', // SYC-4: draft
+  catSpottedTimesBy: 'Εντοπίστηκε {n} φορές από {s} spotters', // SYC-4: draft
+  catSpottedTimesByOne: 'Εντοπίστηκε {n} φορές από 1 spotter', // SYC-4: draft
+  catSpottedTimes: 'Εντοπίστηκε {n} φορές', // SYC-4: draft
+  catSpottedOnce: 'Εντοπίστηκε μία φορά', // SYC-4: draft
+  catFans: '{n} θαυμαστές', // SYC-4: draft
+  catFansOne: '1 θαυμαστής', // SYC-4: draft
+  reportNeedsHelpNamed: 'Η {name} χρειάζεται βοήθεια', // SYC-4: draft
+  reportIssueLink: 'Κάτι δεν πάει καλά σε αυτή τη σελίδα;', // SYC-4: draft
+  reportIssuePhotoLink: 'Κάτι δεν πάει καλά με αυτή τη φωτογραφία;', // SYC-4: draft
+  backA11y: 'Πίσω', // SYC-4: draft
+  followCat: 'Ακολούθησε', // SYC-4: draft
+  followingCat: 'Ακολουθείς', // SYC-4: draft
+  followA11y: 'Ακολούθησε: {name}', // SYC-4: draft
+  followNeedsConnection: 'Χρειάζεσαι σύνδεση για να ακολουθήσεις: {name}.', // SYC-4: draft
+  followFailed: 'Δεν ενημερώθηκε. Δοκίμασε ξανά.', // SYC-4: draft
   justNow: 'τώρα',
   tabHome: 'Αρχική',
   tabCatalog: 'Γατά-λογος',
@@ -1250,11 +1303,6 @@ const el: Dict = {
   skip: 'Παράλειψη',
   back: 'Πίσω',
   continue: 'Συνέχεια',
-  howTitle: 'Πώς λειτουργεί',
-  howSubtitle: 'Όλοι ευπρόσδεκτοι — παιδιά, τουρίστες, ντόπιοι.',
-  howLocationTitle: 'Ενεργοποίηση τοποθεσίας',
-  howLocationBody: 'Για να σου δείχνουμε γάτες κοντά σου.',
-  howAllowContinue: 'Αποδοχή & συνέχεια',
   makeItYours: 'Κάν\' το δικό σου 🐾',
   profileRole: 'Spotter',
   profileStreak: 'σερί {n} ημερών',
@@ -1403,7 +1451,6 @@ const el: Dict = {
   howStepSpot: 'Βρες μια γάτα',
   howStepSpotBody: 'Βγάλε φωτογραφία όταν συναντήσεις μια γάτα στα σοκάκια.',
   howStepDontFeed: 'Μην τις ταΐζεις',
-  howStepDontFeedBody: 'Τα αποφάγια αρρωσταίνουν τις γάτες και τις τραβούν σε πολυσύχναστους δρόμους. Περισσότερο φαγητό σημαίνει και περισσότερα γατάκια απ’ ό,τι μπορούμε να βοηθήσουμε. Οι ντόπιοι κηδεμόνες γατών τις ταΐζουν σωστά.',
   howStepCatalog: 'Πρόσθεσέ τη στον γατά-λογο',
   howStepCatalogBody: 'Ελέγχουμε αν είναι καινούρια γάτα ή μία που ήδη ξέρουμε.',
   howStepHelp: 'Βοήθησέ τες να ευημερήσουν',
@@ -1415,6 +1462,7 @@ const el: Dict = {
   howSafetyDistance: 'Κράτα ένα-δυο βήματα απόσταση και άσε τες να έρθουν σ\' εσένα, αν το θέλουν. Μια γάτα που κρατάει μια επιφύλαξη απέναντι στους ανθρώπους είναι μια γάτα που μένει μακριά από τον δρόμο και μακριά από τους μπελάδες — το να προσέχει με τους ξένους είναι ένα από τα πράγματα που την κρατούν ζωντανή. Το να τη σηκώσεις ή να την ταΐσεις δεν της κάνει κανένα καλό.',
   howSafetyLeaveBe: 'Λοιπόν: φωτογράφισέ τες, θαύμασέ τες, άσε τες ήσυχες.',
   howSafetyHurt: 'Αν βρεις μια γάτα τραυματισμένη ή άρρωστη, αυτό είναι διαφορετικό, και η εφαρμογή θα σου πει τι να κάνεις.',
+  safetyDontFeedBody: 'Τα αποφάγια αρρωσταίνουν τις γάτες και τις τραβούν σε πολυσύχναστους δρόμους. Περισσότερο φαγητό σημαίνει και περισσότερα γατάκια απ’ ό,τι μπορούμε να βοηθήσουμε.',
   campaignOpensAt: 'Ανοίγει το {host} στο πρόγραμμα περιήγησης',
   statsUnavailable: 'Δεν φορτώθηκαν τα στατιστικά σου αυτή τη στιγμή.',
   // SYC-508: drafts for Johnny's review pack (SYC-346).
@@ -1684,7 +1732,13 @@ const fr: Dict = {
   retake: 'Reprendre',
   submitSighting: 'Envoyer l\u2019observation',
   locating: 'Localisation en cours…',
-  locationDenied: 'L\u2019autorisation de localisation est nécessaire pour enregistrer où le chat a été vu. Active-la dans les Réglages.',
+  // SYC-524: the explain-first location card on Spot, after a camera photo.
+  locAskTitle: "On utilise l'endroit où tu es ?",
+  locAskBody: "On place l'épingle là où tu es maintenant, pour que Syros Cats sache où vit ce chat. Tu pourras la déplacer ensuite.",
+  locAskUse: 'Utiliser ma position',
+  locAskMap: "Je place l'épingle moi-même",
+  locOffNative: "La localisation est désactivée pour Cat Spotters. Déplace l'épingle toi-même, ou active la localisation dans les réglages de ton téléphone.",
+  locOffWeb: "Ton navigateur bloque la localisation pour ce site. Déplace l'épingle toi-même, ou autorise la localisation depuis la barre d'adresse.",
   submitting: 'Recherche de correspondances…',
   optimizingPhoto: 'Préparation d’un envoi plus léger pour cette connexion…',
   queuedOffline: 'Tu es hors ligne. Ton observation est enregistrée et sera vérifiée dès le retour de la connexion.',
@@ -1923,7 +1977,30 @@ const fr: Dict = {
   mapPickerLabel: 'Carte. Utilise les flèches pour déplacer l’épingle, ou touche un endroit pour y mettre l’épingle.',
   markAllRead: 'Tout marquer comme lu',
   catUpdateBanner: 'Des nouvelles de ce chat',
-  noNotifications: 'Aucune notification pour le moment. Repère un chat pour suivre ses nouvelles !',
+  noNotifications: 'Aucune notification pour le moment. Repère ou suis un chat pour recevoir ses nouvelles.', // SYC-4: draft
+  // SYC-624 C2: a cat's page in four tabs (tab labels, counts, link wording).
+  catTabAbout: 'À propos', // SYC-4: draft
+  catTabPhotos: 'Photos', // SYC-4: draft
+  catTabStory: 'Histoire', // SYC-4: draft
+  catTabMap: 'Carte', // SYC-4: draft
+  catTabPhotosA11y: 'Photos, {n}', // SYC-4: draft
+  catBannerSeePhotos: 'Voir les photos', // SYC-4: draft
+  catBannerSeeStory: 'Voir l’histoire de {name}', // SYC-4: draft
+  catSpottedTimesBy: 'Repéré {n} fois par {s} spotters', // SYC-4: draft
+  catSpottedTimesByOne: 'Repéré {n} fois par 1 spotter', // SYC-4: draft
+  catSpottedTimes: 'Repéré {n} fois', // SYC-4: draft
+  catSpottedOnce: 'Repéré une fois', // SYC-4: draft
+  catFans: '{n} fans', // SYC-4: draft
+  catFansOne: '1 fan', // SYC-4: draft
+  reportNeedsHelpNamed: '{name} a besoin d’aide', // SYC-4: draft
+  reportIssueLink: 'Un problème sur cette page ?', // SYC-4: draft
+  reportIssuePhotoLink: 'Un problème avec cette photo ?', // SYC-4: draft
+  backA11y: 'Retour', // SYC-4: draft
+  followCat: 'Suivre', // SYC-4: draft
+  followingCat: 'Suivi', // SYC-4: draft
+  followA11y: 'Suivre {name}', // SYC-4: draft
+  followNeedsConnection: 'Tu as besoin d’une connexion pour suivre {name}.', // SYC-4: draft
+  followFailed: 'Ça n’a pas marché. Réessaie.', // SYC-4: draft
   justNow: 'maintenant',
   tabHome: 'Accueil',
   tabCatalog: 'Cat-alogue',
@@ -2040,11 +2117,6 @@ const fr: Dict = {
   skip: 'Passer',
   back: 'Retour',
   continue: 'Continuer',
-  howTitle: 'Comment ça marche',
-  howSubtitle: 'Tout le monde est bienvenu — enfants, touristes, habitants.',
-  howLocationTitle: 'Activer la localisation',
-  howLocationBody: 'Pour te montrer les chats près de toi.',
-  howAllowContinue: 'Autoriser et continuer',
   makeItYours: 'Personnalise 🐾',
   profileRole: 'Spotter',
   profileStreak: 'série de {n} jours',
@@ -2193,7 +2265,6 @@ const fr: Dict = {
   howStepSpot: 'Repère un chat',
   howStepSpotBody: 'Prends une photo quand tu croises un chat dans les ruelles.',
   howStepDontFeed: 'Ne les nourris pas',
-  howStepDontFeedBody: 'Les restes rendent les chats malades et les attirent sur les routes passantes. Plus de nourriture, c’est aussi plus de chatons qu’on ne peut en aider. Les gardiens de chats locaux les nourrissent correctement.',
   howStepCatalog: 'Ajoute-le au cat-alogue',
   howStepCatalogBody: 'On vérifie si c’est un nouveau chat ou un chat qu’on connaît déjà.',
   howStepHelp: 'Aide-les à s\'épanouir',
@@ -2206,6 +2277,7 @@ const fr: Dict = {
   howSafetyDistance: 'Reste à un pas ou deux et laisse-les venir à toi s\'ils en ont envie. Un chat qui reste un peu méfiant envers les gens est un chat qui reste loin de la route et loin des ennuis — se méfier des inconnus fait partie de ce qui le garde en vie. Le prendre dans les bras, ou le nourrir, ne lui rend pas service.',
   howSafetyLeaveBe: 'Alors : photographie-les, admire-les, laisse-les tranquilles.',
   howSafetyHurt: 'Si tu trouves un chat blessé ou malade, c\'est différent, et l\'application te dira quoi faire.',
+  safetyDontFeedBody: 'Les restes rendent les chats malades et les attirent sur les routes passantes. Plus de nourriture, c’est aussi plus de chatons qu’on ne peut en aider.',
   campaignOpensAt: 'Ouvre {host} dans ton navigateur',
   statsUnavailable: 'Impossible de charger tes statistiques pour le moment.',
   // SYC-508: drafts for Johnny's review pack (SYC-346).

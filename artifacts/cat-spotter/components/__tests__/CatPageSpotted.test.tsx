@@ -27,7 +27,10 @@ vi.mock('expo-router', () => ({
 }));
 vi.mock('@/components/AppMap', () => ({ AppMap: () => null }));
 vi.mock('@/components/MoreToAdd', () => ({ MoreToAdd: () => null }));
-vi.mock('@/components/report/NeedsHelpLink', () => ({ NeedsHelpLink: () => <div data-testid="needs-help-stub" /> }));
+vi.mock('@/components/report/NeedsHelpLink', () => ({
+  NeedsHelpLink: () => null,
+  useOpenNeedsHelp: () => () => {},
+}));
 vi.mock('@/lib/modalVisibility', () => ({ registerModalOpen: () => () => {} }));
 vi.mock('@/components/ClaimCatSheet', () => ({
   ClaimCatSheet: (p: { mode: string }) => <div data-testid="sheet">{p.mode}</div>,
@@ -36,9 +39,9 @@ vi.mock('@/components/purropolis', async () => {
   const { Button } = await import('@/components/purropolis/Button');
   return {
     Button,
-    Tag: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
-    StatTile: () => null,
-    IconButton: () => null,
+    IconButton: ({ label, onPress }: { label: string; onPress?: () => void }) => (
+      <button type="button" aria-label={label} onClick={onPress} />
+    ),
   };
 });
 vi.mock('@/lib/urls', () => ({ photoSource: (p: string) => ({ uri: p }) }));
@@ -146,19 +149,19 @@ describe('"I\'ve spotted {name}" on the cat page', () => {
     expect(r.push).toHaveBeenCalledWith({ pathname: '/spot', params: { for: '7' } });
   });
 
-  it('sits under the status lines and above "This cat needs help"', () => {
+  it('sits under the status lines and above the "{name} needs help" card', () => {
     page(cat());
     const html = document.body.innerHTML;
     const button = html.indexOf('data-testid="spotted-cat-button"');
     expect(button).toBeGreaterThan(html.indexOf('Last seen'));
-    expect(button).toBeLessThan(html.indexOf('data-testid="needs-help-stub"'));
+    expect(button).toBeLessThan(html.indexOf('data-testid="needs-help-card"'));
   });
 });
 
 describe('"Spot {name} now" in the "lives with you?" sheet (T2.6)', () => {
   it('closes the sheet and makes the same push as the page button', () => {
     page(cat());
-    fireEvent.click(screen.getByTestId('claim-ask-link'));
+    fireEvent.click(screen.getByTestId('lives-with-me-card'));
     fireEvent.click(screen.getByTestId('claim-ask-spot-now'));
     expect(screen.queryByTestId('claim-ask-sheet')).toBeNull();
     expect(r.push).toHaveBeenCalledTimes(1);

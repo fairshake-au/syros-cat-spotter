@@ -4,8 +4,6 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { Button } from '@/components/purropolis';
-import { StepDots } from '@/components/onboarding/StepDots';
-import { ONBOARDING_DOT_COUNT, stepIndex } from '@/components/onboarding/steps';
 import { useColors } from '@/hooks/useColors';
 import { borderWidths, fonts, fontSizes, radii, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
@@ -30,13 +28,11 @@ export function KeepSafeScreen({
   onSaved,
   onSkip,
   onBack,
-  showDots = false,
 }: {
   surface: KeepSafeSurface;
   onSaved: () => void;
   onSkip: () => void;
   onBack?: () => void;
-  showDots?: boolean;
 }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -77,7 +73,6 @@ export function KeepSafeScreen({
         ) : (
           <View style={styles.topBarSpacer} />
         )}
-        {showDots ? <StepDots total={ONBOARDING_DOT_COUNT} active={stepIndex('keepSafe')} /> : null}
         <View style={styles.topBarSpacer} />
       </View>
 

@@ -12,55 +12,43 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppMap } from '@/components/AppMap';
 import {
   useGetCat,
   getGetCatQueryKey,
-  type CareEvent,
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useNotifications } from '@/context/NotificationContext';
-import { OwnershipBanner } from '@/components/OwnershipBanner';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
-import { ClaimAskLink, ClaimAskSheet, type ClaimAskMode } from '@/components/ClaimAskSheet';
-import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
-import { ReportIssueLink } from '@/components/report/ReportIssueLink';
+import { ClaimAskSheet, type ClaimAskMode } from '@/components/ClaimAskSheet';
 import { ReportIssueSheet } from '@/components/report/ReportIssueSheet';
 import type { IssueReason } from '@/lib/issueQueue';
 import { afterModalCloses } from '@/lib/modalHandoff';
-import { MoreToAdd } from '@/components/MoreToAdd';
-import { SightingPhotos } from '@/components/SightingPhotos';
 import { PhotoViewer } from '@/components/PhotoViewer';
-import { bylineFor, mainPhotoCaption, spotterName } from '@/lib/photoCaption';
+import { mainPhotoCaption } from '@/lib/photoCaption';
 import { photoSource } from '@/lib/urls';
-import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
-import { lifeLine, parseDateOnly, parsePublicDate, sterilisedLineKey } from '@/lib/catStatusLines';
+import { IconButton } from '@/components/purropolis';
+import { formatDay, formatPublicDate } from '@/lib/catPageDates';
+import { lifeLine, sterilisedLineKey } from '@/lib/catStatusLines';
 import { appearanceLine } from '@/lib/appearance';
-import { DEFAULT_CELL_M } from '@/lib/cellShape';
 import { canSpotFromPage, spotRouteFor } from '@/lib/spotHint';
-import { palette } from '@/constants/colors';
-import { fonts, fontSizes, radii, spacing, lineHeights } from '@/constants/theme';
+import { homeActionFor, seenQuietLine, visiblePhotoCount } from '@/lib/catPageFacts';
+import { CatTabBar, panelId, tabId, type CatTab, type CatTabItem } from '@/components/catPage/CatTabBar';
+import { AboutTab } from '@/components/catPage/AboutTab';
+import { PhotosTab } from '@/components/catPage/PhotosTab';
+import { StoryTab } from '@/components/catPage/StoryTab';
+import { MapTab } from '@/components/catPage/MapTab';
+import { FollowButton } from '@/components/catPage/FollowButton';
+import { fonts, fontSizes, lineHeights } from '@/constants/theme';
 
-function catCode(id: number): string {
-  return `SYR-${String(id).padStart(4, '0')}`;
-}
-
-const CARE_META: Record<
-  CareEvent['type'],
-  { icon: string; bg: string }
-> = {
-  desexed: { icon: '✂️', bg: palette.aegean100 },
-  adopted: { icon: '🏠', bg: palette.bougain100 },
-  general: { icon: '📣', bg: palette.olive100 },
-  discovered: { icon: '📍', bg: palette.sun100 },
-};
+/** The photo's height. The tab row and the first facts show on a 390 px phone without scrolling. */
+const HERO_H = 250;
 
 export default function CatDetailScreen() {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string; updateId?: string; report?: string }>();
@@ -72,12 +60,21 @@ export default function CatDetailScreen() {
   // "Does {name} live with you?" (design-review-fixes-oct22.md §1.1): which
   // text the small sheet shows, and the link that gets focus back on close.
   const [askSheet, setAskSheet] = React.useState<ClaimAskMode | null>(null);
-  const askLinkRef = React.useRef<View>(null);
+  const homeCardRef = React.useRef<View>(null);
+  // Hand focus back to the 🏠 card when its sheet closes (web; native keeps its own place).
+  const focusHomeCard = () =>
+    setTimeout(() => (homeCardRef.current as unknown as { focus?: () => void } | null)?.focus?.(), 0);
   const closeAskSheet = () => {
     setAskSheet(null);
-    // Hand focus back to the link (web; native keeps its own place).
-    setTimeout(() => (askLinkRef.current as unknown as { focus?: () => void } | null)?.focus?.(), 0);
+    focusHomeCard();
   };
+  // SYC-624: which tab is showing. Kept in the page, so a refetch of the cat
+  // never changes it; leaving the page and coming back opens About.
+  const [tab, setTab] = React.useState<CatTab>('about');
+  const scrollRef = React.useRef<ScrollView>(null);
+  const scrollY = React.useRef(0);
+  // True once the tab row has reached the top and is pinned.
+  const [stuck, setStuck] = React.useState(false);
   // SYC-44 PR 6.1: the main photo opens full screen, but only once it has
   // loaded, so nothing changes offline (report-an-issue.md §4.2).
   const [heroLoaded, setHeroLoaded] = React.useState<string | null>(null);
@@ -172,7 +169,6 @@ export default function CatDetailScreen() {
   // "undefined" distinguishable from "really zero"/"really empty" all the
   // way to render.
   const { cat, sightings } = data;
-  const fansCount = data.fansCount;
   const careTimeline = data.careTimeline;
   const isClaimed = cat.hasHome;
   // The server shows the exact spot only to the proven owner, so that is
@@ -182,8 +178,6 @@ export default function CatDetailScreen() {
   const isOwner =
     isClaimed &&
     (isOnline ? cat.locationPrecision === 'exact' : ownedCatIds.includes(cat.id));
-  const dash = '—';
-  const locationLabel = cat.description?.trim();
   // SYC-2 (spec §5.2): colour and markings beside the place, quietly. Null
   // for a cat nobody has described, and for an older server or cache.
   const appearance = appearanceLine(cat, t);
@@ -198,16 +192,87 @@ export default function CatDetailScreen() {
   const line = lifeLine(cat);
   const lifeLineText =
     line.key === 'notSeenSince'
-      ? t('notSeenSince').replace('{date}', parseDateOnly(line.date).toLocaleDateString())
+      ? t('notSeenSince').replace('{date}', formatDay(line.date, language))
       : t(line.key);
   const sterilisedLine = t(sterilisedLineKey(cat.sterilised));
   const heroCaption = mainPhotoCaption(cat, sightings, careTimeline, t);
   const heroCanOpen = !!cat.photoUrl && heroLoaded === cat.photoUrl && heroCaption !== null;
 
+  // SYC-624: no Story tab without a care timeline (an older server or cache),
+  // and a chosen Story tab that goes away falls back to About.
+  const storyAvailable = careTimeline !== undefined;
+  const shownTab: CatTab = tab === 'story' && !storyAvailable ? 'about' : tab;
+  const photoCount = visiblePhotoCount(sightings);
+  const tabs: CatTabItem[] = [
+    { key: 'about', emoji: '🐱', label: t('catTabAbout'), a11yLabel: t('catTabAbout') },
+    {
+      key: 'photos',
+      emoji: '📷',
+      label: t('catTabPhotos'),
+      badge: photoCount > 0 ? photoCount : undefined,
+      a11yLabel:
+        photoCount > 0
+          ? t('catTabPhotosA11y').split('{n}').join(String(photoCount))
+          : t('catTabPhotos'),
+    },
+    ...(storyAvailable
+      ? [{ key: 'story' as const, emoji: '📖', label: t('catTabStory'), a11yLabel: t('catTabStory') }]
+      : []),
+    { key: 'map', emoji: '🗺️', label: t('catTabMap'), a11yLabel: t('catTabMap') },
+  ];
+  // The row is pinned once the photo has scrolled away (its top reaches the screen top).
+  const stickAt = HERO_H - insets.top;
+  const selectTab = (next: CatTab) => {
+    setTab(next);
+    // Past the photo: show the start of the new tab under the pinned row.
+    // Not past it: the page doesn't move.
+    if (scrollY.current > stickAt) scrollRef.current?.scrollTo({ y: stickAt, animated: false });
+  };
+
+  const homeAction = homeActionFor({
+    isOwner,
+    canClaim: !isClaimed && data.canClaim === true,
+    claimCooldown: data.claimCooldown === true,
+    lifeStatus: cat.lifeStatus,
+    hasHome: isClaimed,
+  });
+  const onHome = () => {
+    if (homeAction === 'claim') setSheet('claim');
+    else if (homeAction === 'askStreet') setAskSheet('street');
+    else if (homeAction === 'askHomed') setAskSheet('homed');
+  };
+  const openReport = () => setIssueSheet({ photoUrl: null });
+  // SYC-624 D1: Follow needs a known phone and a server that answers
+  // `isFollowing`; the owner can't unfollow; a dead cat's button stays only for
+  // someone who already follows (so they can stop the news).
+  // The server calls a phone the owner whatever the cat's life status, and
+  // sends it the exact spot; a cat that died or went into care keeps its
+  // owner, who still can't unfollow. (`isOwner` above also needs `hasHome`,
+  // which is right for Edit and the pin: those belong to a homed cat.)
+  const ownsForFollow = isOnline ? cat.locationPrecision === 'exact' : ownedCatIds.includes(cat.id);
+  const follow =
+    data.isFollowing !== undefined &&
+    deviceId !== null &&
+    !ownsForFollow &&
+    (cat.lifeStatus !== 'deceased' || data.isFollowing)
+      ? { deviceId, isFollowing: data.isFollowing }
+      : null;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
-        <View>
+      <ScrollView
+        ref={scrollRef}
+        stickyHeaderIndices={[1]}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          const y = e.nativeEvent.contentOffset.y;
+          scrollY.current = y;
+          const nowStuck = y >= stickAt;
+          setStuck((was) => (was === nowStuck ? was : nowStuck));
+        }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+      >
+        <View style={{ marginBottom: -insets.top }}>
           <Pressable
             testID="cat-hero-open"
             role={cat.photoUrl ? 'button' : undefined}
@@ -231,328 +296,90 @@ export default function CatDetailScreen() {
               pointerEvents="none"
             />
           </Pressable>
-          <View style={[styles.heroTopRow, { top: insets.top + 8 }]}>
-            <IconButton variant="solid" label={t('tabCatalog')} onPress={close}>
-              <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
-            </IconButton>
-          </View>
           <View style={styles.heroBottom} pointerEvents="none">
-            <View style={styles.heroNameRow}>
-              <Text style={styles.heroName} numberOfLines={1}>
-                {cat.name}
-              </Text>
-              <Text style={styles.heroMonoId}>{catCode(cat.id)}</Text>
-            </View>
+            <Text style={styles.heroName} numberOfLines={1}>
+              {cat.name}
+            </Text>
           </View>
         </View>
-        <View style={{ padding: 16, gap: 16 }}>
-          <View style={{ gap: 10 }}>
-            {isOwner && (
-              <Pressable
-                onPress={() => setSheet('edit')}
-                hitSlop={8}
-                style={[
-                  styles.editBtn,
-                  { borderColor: colors.border, backgroundColor: colors.card },
-                ]}
-              >
-                <Feather name="edit-2" size={13} color={colors.primary} />
-                <Text style={[styles.editText, { color: colors.primary }]}>
-                  {t('editCat')}
-                </Text>
-              </Pressable>
-            )}
-
-            {locationLabel || appearance ? (
-              <View style={styles.badgeRow}>
-                {locationLabel ? <Tag tone="neutral">📍 {locationLabel}</Tag> : null}
-                {appearance ? <Tag tone="neutral">{appearance}</Tag> : null}
-              </View>
-            ) : null}
-
-            {/* Data spine PR 4: the life line and the sterilised line, where
-                the Desexed badge used to sit, right above "Last seen". */}
-            <View style={styles.metaRow}>
-              <Feather name="heart" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-                {lifeLineText}
-              </Text>
-            </View>
-            <View style={styles.metaRow}>
-              <Feather name="info" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-                {sterilisedLine}
-              </Text>
-            </View>
-
-            <View style={styles.metaRow}>
-              <Feather name="eye" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-                {cat.sightingsCount} · {t('lastSeen')}{' '}
-                {parsePublicDate(cat.lastSeenAt).toLocaleDateString()}
-              </Text>
-            </View>
-            {/* SYC-574 (design-review-fixes-oct22.md §2.1): the page's main
-                button. Hidden for a cat in care or one that has died. It
-                opens the Spot tab with this cat as a hint (§2.2). */}
-            {canSpotFromPage(cat.lifeStatus) ? (
-              <Button
-                variant="primary"
-                size="lg"
-                block
-                wrapLabel
-                testID="spotted-cat-button"
-                onPress={() => router.push(spotRouteFor(cat.id))}
-              >
-                {t('spottedCatButton').split('{name}').join(cat.name)}
-              </Button>
-            ) : null}
-            {/* SYC-42: quiet, never the biggest thing on screen (spec §4.1). */}
-            <NeedsHelpLink cat={{ id: cat.id, name: cat.name, photoUrl: cat.photoUrl }} />
-            {/* SYC-44 PR 6.2: below "needs help" and never bigger (spec §3.1). */}
-            <ReportIssueLink onPress={() => setIssueSheet({ photoUrl: null })} />
-            {(
-              <View style={styles.metaRow}>
-                <Feather name="star" size={14} color={colors.mutedForeground} />
-                <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-                  {t('discoveredBy')}{' '}
-                  {cat.discovererUsername ??
-                    cat.discovererNickname ??
-                    (cat.discovererSpotterCode
-                  ? `${t('spotter')} ${cat.discovererSpotterCode}`
-                  : t('aSpotter'))}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* SYC-117 part 2: "You spotted Agatha on 3 October. Anything to
-              add?" Only for this phone's own recent sightings of this cat. */}
-          <MoreToAdd catId={cat.id} catName={cat.name} />
-
-          {highlighted && (
-            <View
-              style={[
-                styles.updateBanner,
-                { backgroundColor: colors.card, borderColor: colors.primary },
-              ]}
-            >
-              <Feather
-                name={
-                  highlighted.updateType === 'adopted'
-                    ? 'home'
-                    : highlighted.updateType === 'desexed'
-                      ? 'heart'
-                      : highlighted.updateType === 'sighting'
-                        ? 'eye'
-                        : 'bell'
-                }
-                size={18}
-                color={colors.primary}
-              />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={[styles.updateLabel, { color: colors.primary }]}>
-                  {t('catUpdateBanner')} ·{' '}
-                  {new Date(highlighted.createdAt).toLocaleDateString()}
-                </Text>
-                <Text style={[styles.updateMessage, { color: colors.foreground }]}>
-                  {highlighted.message}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {isClaimed ? (
-            <>
-              <OwnershipBanner
-                ownerName={cat.ownerName}
-                homeDescription={cat.homeDescription}
-              />
-              {/* design-review-fixes-oct22.md §1.1 (reverses claiming-a-cat.md
-                  §6's always-on line): a quiet link, under "Has a home", for
-                  an owner on a new phone. Everyone but the owner sees it. */}
-              {!isOwner && (
-                <ClaimAskLink
-                  ref={askLinkRef}
-                  catName={cat.name}
-                  onPress={() => setAskSheet('homed')}
-                />
-              )}
-            </>
-          ) : data.canClaim ? (
-            /* Claiming-a-cat.md §4.1: only when the server says this phone
-               may claim; styled as a secondary action, never the page's most
-               prominent button. */
-            <View style={{ gap: 6 }}>
-              <Button
-                variant="secondary"
-                size="lg"
-                block
-                disabled={!isOnline}
-                iconLeft={
-                  <Feather name="home" size={16} color={colors.secondaryForeground} />
-                }
-                onPress={() => setSheet('claim')}
-              >
-                {t('claimCat').split('{name}').join(cat.name)}
-              </Button>
-              {!isOnline && (
-                <Text style={[styles.quietLine, { color: colors.mutedForeground }]}>
-                  {t('claimNeedsConnection')}
-                </Text>
-              )}
-            </View>
-          ) : cat.lifeStatus === 'street' && !data.claimCooldown ? (
-            /* During the 7-day cooldown this phone HAS spotted the cat, so
-               "spot it first" would be false; the spec has no wording for
-               the cooldown, so nothing is shown. */
-            <ClaimAskLink
-              ref={askLinkRef}
-              catName={cat.name}
-              onPress={() => setAskSheet('street')}
-            />
-          ) : null}
-
-          <View style={styles.statsRow}>
-            <StatTile
-              style={{ flex: 1 }}
-              value={cat.sightingsCount}
-              label={t('timesSpottedStat')}
-              tone="aegean"
-            />
-            <StatTile
-              style={{ flex: 1 }}
-              value={fansCount ?? dash}
-              label={t('fansStat')}
-              tone="bougain"
-            />
-          </View>
-
-          {careTimeline !== undefined && (
-            <View style={{ gap: 11 }}>
-              <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>
-                {t('careTimelineTitle').split('{name}').join(cat.name)}
-              </Text>
-              {careTimeline.map((event, index) => {
-                // An unknown type (older/newer server, or a leaked `sighting`
-                // row) must not take the whole screen down.
-                const meta = CARE_META[event.type] ?? CARE_META.general;
-                return (
-                  <View key={index} style={styles.careRow}>
-                    <View style={[styles.careIcon, { backgroundColor: meta.bg }]}>
-                      <Text style={{ fontSize: 14 }}>{meta.icon}</Text>
-                    </View>
-                    <Text style={[styles.careText, { color: colors.foreground }]}>
-                      {event.type === 'discovered' ? (
-                        <>
-                          <Text style={styles.careBold}>
-                            {t('careTypeDiscoveredPrefix')}
-                          </Text>{' '}
-                          {/* SYC-235: no name means the discoverer deleted
-                              their data. */}
-                          {event.message ?? t('aSpotter')}
-                        </>
-                      ) : (
-                        <>
-                          <Text style={styles.careBold}>
-                            {t(
-                              event.type === 'desexed'
-                                ? 'careTypeDesexed'
-                                : event.type === 'adopted'
-                                  ? 'careTypeAdopted'
-                                  : 'careTypeGeneral',
-                            )}
-                          </Text>{' '}
-                          · {event.message}
-                        </>
-                      )}
-                    </Text>
-                    <Text style={[styles.careDate, { color: colors.mutedForeground }]}>
-                      {parsePublicDate(event.at).toLocaleDateString(undefined, {
-                        month: 'short',
-                        year: '2-digit',
-                      })}
-                    </Text>
-                  </View>
-                );
+        <CatTabBar
+          tabs={tabs}
+          selected={shownTab}
+          onSelect={selectTab}
+          topInset={insets.top}
+          stuck={stuck}
+        />
+        <View
+          key={shownTab}
+          role="tabpanel"
+          id={panelId(shownTab)}
+          aria-labelledby={tabId(shownTab)}
+          style={styles.panel}
+        >
+          {shownTab === 'about' && (
+            <AboutTab
+              cat={cat}
+              isOwner={isOwner}
+              onEdit={() => setSheet('edit')}
+              update={highlighted}
+              onSeeTab={selectTab}
+              storyAvailable={storyAvailable}
+              lifeLineText={lifeLineText}
+              sterilisedLine={sterilisedLine}
+              seenQuiet={seenQuietLine(t, {
+                sightingsCount: cat.sightingsCount,
+                spottersCount: data.spottersCount,
+                followersCount: data.followersCount,
               })}
-            </View>
-          )}
-
-          <View style={[styles.mapWrap, { borderColor: colors.border }]}>
-            <AppMap
-              latitude={cat.lat}
-              longitude={cat.lng}
-              // Close enough that the 250 m cell fills most of the map, so
-              // "Somewhere in here" reads as an area, not a dot.
-              latitudeDelta={0.0035}
-              longitudeDelta={0.0035}
-              interactive={false}
-              markerBorderColor={colors.primary}
-              // Data spine PR 6 (spec §6.2, §6.6): the cat is somewhere in
-              // its published cell, drawn as that cell, never a pin. Only
-              // its owner gets the exact spot. Sightings carry no position.
-              markers={
-                cat.locationPrecision === 'exact'
-                  ? [{ id: 'cat', latitude: cat.lat, longitude: cat.lng }]
-                  : []
-              }
-              areas={
-                cat.locationPrecision === 'exact'
-                  ? []
-                  : [
-                      {
-                        id: 'cat',
-                        latitude: cat.lat,
-                        longitude: cat.lng,
-                        sizeMetres: cat.locationCellM ?? DEFAULT_CELL_M,
-                        label: t('somewhereInHere'),
-                      },
-                    ]
-              }
+              appearance={appearance}
+              canSpot={canSpotFromPage(cat.lifeStatus)}
+              onSpot={() => router.push(spotRouteFor(cat.id))}
+              homeAction={homeAction}
+              claimDisabled={homeAction === 'claim' && !isOnline}
+              onHome={onHome}
+              homeCardRef={homeCardRef}
+              offline={!isOnline}
+              onReport={openReport}
             />
-          </View>
-          <Text style={[styles.mapCaption, { color: colors.mutedForeground }]}>
-            {t(cat.locationPrecision === 'exact' ? 'firstSpottedHereOwner' : 'firstSpottedAroundHere')}
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            {t('sightingsHistory')}
-          </Text>
-          <View style={styles.sightingGrid}>
-            {sightings.map((s, i) => (
-              // Keyed by the photo's address: when a refetch hides a photo its
-              // key changes, so an open full-screen view of it closes rather
-              // than go on showing a hidden photo (review finding 7).
-              <View key={s.photoUrl ?? `sighting-${i}`} style={styles.sightingItem}>
-                <SightingPhotos
-                  photoUrl={s.photoUrl}
-                  photoHidden={s.photoHidden}
-                  photoRemoved={s.photoRemoved}
-                  extraPhotos={s.extraPhotos}
-                  createdAt={s.createdAt}
-                  byline={bylineFor(s, t)}
-                  onReportPhoto={(url) => afterModalCloses(() => setIssueSheet({ photoUrl: url }))}
-                />
-                <Text style={[styles.sightingDate, { color: colors.mutedForeground }]}>
-                  {parsePublicDate(s.createdAt).toLocaleDateString()}
-                </Text>
-                <Text
-                  style={[styles.sightingSpotter, { color: colors.mutedForeground }]}
-                  numberOfLines={1}
-                >
-                  {spotterName(s, t)}
-                </Text>
-              </View>
-            ))}
-          </View>
+          )}
+          {shownTab === 'photos' && (
+            <PhotosTab
+              sightings={sightings}
+              onReportPhoto={(url) => afterModalCloses(() => setIssueSheet({ photoUrl: url }))}
+              onReport={openReport}
+            />
+          )}
+          {shownTab === 'story' && careTimeline !== undefined && (
+            <StoryTab catName={cat.name} careTimeline={careTimeline} onReport={openReport} />
+          )}
+          {shownTab === 'map' && <MapTab cat={cat} onReport={openReport} />}
         </View>
       </ScrollView>
+      {/* Belongs to the photo: gone once the tab row is pinned (the phone's or browser's own back still works). */}
+      {!stuck && (
+        <View style={[styles.backWrap, { top: insets.top + 8 }]}>
+          <IconButton variant="solid" size="lg" label={t('backA11y')} onPress={close}>
+            <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
+          </IconButton>
+        </View>
+      )}
+      {/* Belongs to the photo: gone while the tab row is pinned, so it never covers the Map tab. */}
+      {follow !== null && !stuck && (
+        <View style={[styles.followWrap, { top: insets.top + 8 }]}>
+          <FollowButton
+            catId={cat.id}
+            catName={cat.name}
+            deviceId={follow.deviceId}
+            isFollowing={follow.isFollowing}
+            isOnline={isOnline}
+          />
+        </View>
+      )}
       {heroOpenUrl !== null && heroOpenUrl === cat.photoUrl && heroCanOpen && heroCaption && (
         <PhotoViewer
           url={heroOpenUrl}
           label={cat.name}
-          date={parsePublicDate(heroCaption.day).toLocaleDateString()}
+          date={formatPublicDate(heroCaption.day, language)}
           byline={heroCaption.byline}
           onClose={() => setHeroOpenUrl(null)}
           onReport={() => {
@@ -594,7 +421,11 @@ export default function CatDetailScreen() {
           visible
           mode={sheet}
           cat={cat}
-          onClose={() => setSheet(null)}
+          onClose={() => {
+            const wasClaim = sheet === 'claim';
+            setSheet(null);
+            if (wasClaim) focusHomeCard();
+          }}
         />
       )}
     </View>
@@ -604,99 +435,20 @@ export default function CatDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  hero: { width: '100%', aspectRatio: 1.3 },
-  heroTopRow: {
-    position: 'absolute',
-    left: 16,
-    flexDirection: 'row',
-  },
+  hero: { width: '100%', height: HERO_H },
+  backWrap: { position: 'absolute', left: 8, zIndex: 30 },
+  followWrap: { position: 'absolute', right: 8, zIndex: 30 },
   heroBottom: {
     position: 'absolute',
     left: 20,
     right: 20,
     bottom: 16,
   },
-  heroNameRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   heroName: {
     fontSize: fontSizes['2xl'],
     fontFamily: fonts.displayBold,
     color: '#fff',
     lineHeight: fontSizes['2xl'] * lineHeights.tight,
-    flexShrink: 1,
   },
-  heroMonoId: {
-    fontSize: fontSizes['2xs'],
-    fontFamily: fonts.mono,
-    color: 'rgba(255,255,255,0.85)',
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: radii.xs,
-    overflow: 'hidden',
-  },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  editText: { fontSize: 12, fontFamily: 'Inter_700Bold' },
-  updateBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1.5,
-    borderRadius: 14,
-    padding: 14,
-  },
-  updateLabel: { fontSize: 11, fontFamily: 'Inter_700Bold', textTransform: 'uppercase' },
-  updateMessage: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  meta: { fontSize: 13, fontFamily: 'Inter_400Regular' },
-  statsRow: { flexDirection: 'row', gap: 10 },
-  eyebrow: {
-    fontSize: fontSizes['2xs'],
-    fontFamily: fonts.bodyBold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  careRow: { flexDirection: 'row', gap: 11, alignItems: 'center' },
-  careIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  careText: {
-    flex: 1,
-    fontSize: fontSizes.xs + 0.5,
-    fontFamily: fonts.body,
-  },
-  careBold: {
-    fontFamily: fonts.bodyBold,
-  },
-  careDate: {
-    fontSize: fontSizes['3xs'],
-    fontFamily: fonts.mono,
-  },
-  mapWrap: {
-    borderRadius: 14,
-    borderWidth: 1,
-    overflow: 'hidden',
-    height: 180,
-  },
-  map: { flex: 1 },
-  quietLine: { fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 19 },
-  mapCaption: { fontSize: 12, fontFamily: 'Inter_500Medium', marginTop: -6 },
-  sectionTitle: { fontSize: 16, fontFamily: 'Inter_700Bold' },
-  sightingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  sightingItem: { width: '30.5%', gap: 4 },
-  sightingDate: { fontSize: 11, fontFamily: 'Inter_400Regular' },
-  sightingSpotter: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  panel: { padding: 16 },
 });

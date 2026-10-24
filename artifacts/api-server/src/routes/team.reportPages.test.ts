@@ -108,7 +108,7 @@ describe("Sterilisation progress", () => {
     const res = await get("/api/team/insights/progress?range=3months");
     expect(res.text).toContain("Each point shows the records as they stood on that date.");
     expect(res.text).toContain("Figures change as records are corrected.");
-    expect(res.text).toMatch(/Worked out \d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2} · last 3 months/);
+    expect(res.text).toMatch(/Worked out \d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2} Syros time · last 3 months/);
     expect(res.text).toMatch(/Place names from the named areas, version \d+\./);
   });
 

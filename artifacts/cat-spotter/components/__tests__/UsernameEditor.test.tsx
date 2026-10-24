@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 /**
- * SYC-211: same bugs as LanguageUsernameStep.test.tsx, for the Profile-tab
+ * SYC-211: same bugs as NameStep.test.tsx, for the Profile-tab
  * editor. See docs/reviews/username-claim-adversarial-review.md (branch
  * review/username-claim-2026-10-05) for F1/F5/F7.
  *
  * UsernameEditor's Save/Cancel are plain `Pressable`s with no
  * `accessibilityRole`, so they render as `<div>` with `aria-disabled`/
- * `tabindex` rather than a real `<button>` (unlike LanguageUsernameStep's
+ * `tabindex` rather than a real `<button>` (unlike NameStep's
  * Back, which sets `accessibilityRole="button"`). Query by text and check
  * the Pressable's own attributes, not `getByRole('button')`.
  */

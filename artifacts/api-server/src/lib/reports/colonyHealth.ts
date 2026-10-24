@@ -45,6 +45,8 @@ export type SortDir = "asc" | "desc";
 
 export interface HealthReport {
   rows: HealthRow[];
+  /** True if the team can see any colony at all, whatever the range (rows leaves out colonies made after it). */
+  anyColonies: boolean;
   areasVersion: number;
   workedOutAt: Date;
   ms: number;
@@ -100,7 +102,7 @@ export async function colonyHealthReport(visible: Visible, range: Range, now: Da
         flags,
       };
     });
-  return { rows, areasVersion: areas.version, workedOutAt: now, ms: Date.now() - started };
+  return { rows, anyColonies: colonies.length > 0, areasVersion: areas.version, workedOutAt: now, ms: Date.now() - started };
 }
 
 /** Sorted by one column (an allowed one; anything else is by name), ties by name. Pure. */

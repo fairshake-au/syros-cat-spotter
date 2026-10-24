@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   deleteMyData,
@@ -179,5 +181,25 @@ describe('deleteMyDataWithReports (SYC-234: the person chooses)', () => {
     expect(await deleteMyDataWithReports(r, 'none')).toBe('done');
     expect(r.sendReports).not.toHaveBeenCalled();
     expect(r.wipeReports).not.toHaveBeenCalled();
+  });
+});
+
+// SYC-524: "Get your spots back" moves the spotter's identity onto this phone
+// but keeps the phone's own location choice. The wipe that does clear it is
+// tested by value in context/__tests__/DeleteMyDataContext.test.tsx.
+describe('the remembered location choice', () => {
+  const read = (rel: string) => readFileSync(path.resolve(__dirname, '../..', rel), 'utf8');
+
+  it('is cleared by the phone wipe, next to the photo tips', () => {
+    const src = read('context/DeleteMyDataContext.tsx');
+    expect(src).toMatch(/await clearPhotoTipsSeen\(AsyncStorage\);\s*(\/\/[^\n]*\n\s*)*await clearLocationChoice\(AsyncStorage\);/);
+  });
+
+  it('is never touched by adoptRestoredIdentity', () => {
+    const src = read('context/DeviceContext.tsx');
+    const start = src.indexOf('const adoptRestoredIdentity = useCallback(');
+    expect(start).toBeGreaterThan(-1);
+    const body = src.slice(start, src.indexOf('}, []);', start));
+    expect(body).not.toMatch(/location|LOCATION_CHOICE_KEY|AsyncStorage\.clear/i);
   });
 });

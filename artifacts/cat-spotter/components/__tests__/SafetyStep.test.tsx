@@ -131,4 +131,37 @@ describe('SafetyStep keep-your-distance screen (SYC-35)', () => {
     fireEvent.click(getByText(TRANSLATIONS.en.continue));
     expect(onNext).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['en', 'el', 'fr'] as const)(
+    'orders the paragraphs LiveHere, Distance, LeaveBe, don\'t-feed block, Hurt in %s (SYC-524)',
+    (code) => {
+      lang.current = code;
+      const { container } = render(<SafetyStep onNext={() => {}} />);
+      const text = container.textContent ?? '';
+      const T = TRANSLATIONS[code];
+      expect(T.safetyDontFeedBody, `${code}.safetyDontFeedBody`).toBeTruthy();
+      const order = [
+        T.howSafetyLiveHere,
+        T.howSafetyDistance,
+        T.howSafetyLeaveBe,
+        T.howStepDontFeed,
+        T.safetyDontFeedBody,
+        T.howSafetyHurt,
+      ].map((copy) => text.indexOf(copy));
+      expect(order.every((i) => i >= 0)).toBe(true);
+      expect([...order].sort((a, b) => a - b)).toEqual(order);
+    },
+  );
+
+  it('no longer claims local cat guardians feed them properly, in any language (SYC-524)', () => {
+    for (const code of ['en', 'el', 'fr'] as const) {
+      lang.current = code;
+      const { container } = render(<SafetyStep onNext={() => {}} />);
+      const text = container.textContent ?? '';
+      expect(text).not.toContain('feed them properly');
+      expect(text).not.toContain('nourrissent correctement');
+      expect(text).not.toContain('ταΐζουν σωστά');
+      cleanup();
+    }
+  });
 });

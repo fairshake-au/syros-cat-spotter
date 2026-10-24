@@ -79,6 +79,7 @@ vi.mock('@/context/NotificationContext', () => ({ NotificationProvider: stubComp
 // SYC-42: the cat-report queue's provider.
 vi.mock('@/context/ReportQueueContext', () => ({ ReportQueueProvider: stubComponent('ReportQueueProvider') }));
 vi.mock('@/context/IssueQueueContext', () => ({ IssueQueueProvider: stubComponent('IssueQueueProvider') }));
+vi.mock('@/context/LocationContext', () => ({ LocationProvider: stubComponent('LocationProvider') }));
 vi.mock('@/context/AppSettingsContext', () => ({ AppSettingsProvider: stubComponent('AppSettingsProvider') }));
 vi.mock('@/context/DeleteMyDataContext', () => ({
   DeleteMyDataProvider: stubComponent('DeleteMyDataProvider'),
@@ -114,6 +115,25 @@ async function renderGate(device: Record<string, unknown>) {
   const { default: RootLayout } = await import('../../app/_layout');
   render(<RootLayout />);
   return events.filter((e) => e.startsWith('render:')).map((e) => e.slice(7));
+}
+
+/**
+ * SYC-524: one mount whose device state changes between renders, as when a
+ * name arrives (or the identity changes) while the app is open. The gate's
+ * startedWithName ref lives on the mounted component, so it must be one mount.
+ */
+async function renderSequence(steps: Record<string, unknown>[]) {
+  const { default: RootLayout } = await import('../../app/_layout');
+  let result: ReturnType<typeof render> | null = null;
+  let shown: string[] = [];
+  for (const step of steps) {
+    state.device = { ...base, ...step };
+    events.length = 0;
+    if (result) result.rerender(<RootLayout />);
+    else result = render(<RootLayout />);
+    shown = events.filter((e) => e.startsWith('render:')).map((e) => e.slice(7));
+  }
+  return shown;
 }
 
 describe('root gate (SYC-155, SYC-506)', () => {
@@ -157,5 +177,53 @@ describe('root gate (SYC-155, SYC-506)', () => {
     state.languageReady = false;
     const shown = await renderGate({ username: null, heldUsername: null, keepSafeOffer: null });
     expect(shown).not.toContain('OnboardingFlow');
+  });
+});
+
+describe('root gate keep-safe backstop (SYC-524)', () => {
+  beforeEach(() => { state.languageReady = true; });
+
+  it('a phone that started without a name: a name arriving with no offer state opens the app and records the skip', async () => {
+    const setKeepSafeOffer = vi.fn();
+    const shown = await renderSequence([
+      { username: null, heldUsername: null, keepSafeOffer: null, setKeepSafeOffer },
+      { username: 'SunnyTabby', heldUsername: null, keepSafeOffer: null, setKeepSafeOffer },
+    ]);
+    expect(shown).not.toContain('KeepSafeScreen');
+    expect(shown).toContain('Stack');
+    expect(setKeepSafeOffer).toHaveBeenCalledWith('skipped-onboarding');
+    expect(setKeepSafeOffer).not.toHaveBeenCalledWith('done');
+  });
+
+  it('a phone that started with a name and no offer state: the one-time offer, unchanged', async () => {
+    const setKeepSafeOffer = vi.fn();
+    const shown = await renderSequence([
+      { username: 'SunnyTabby', heldUsername: null, keepSafeOffer: null, setKeepSafeOffer },
+    ]);
+    expect(shown).toContain('KeepSafeScreen');
+    expect(setKeepSafeOffer).not.toHaveBeenCalled();
+  });
+
+  it('skipped-onboarding with a saved name: the first-badge offer is mounted, unchanged', async () => {
+    const shown = await renderSequence([
+      { username: 'SunnyTabby', heldUsername: null, keepSafeOffer: 'skipped-onboarding' },
+    ]);
+    expect(shown).toContain('FirstBadgeOffer');
+    expect(shown).not.toContain('KeepSafeScreen');
+  });
+
+  it('"Delete my data", then a new name arrives: a new spotter, so no old keep-safe screen', async () => {
+    const setKeepSafeOffer = vi.fn();
+    const shown = await renderSequence([
+      // An older spotter opened the app with a name...
+      { username: 'OldTabby', heldUsername: null, keepSafeOffer: 'done', setKeepSafeOffer },
+      // ...deleted their data (resetIdentity clears the name and the offer)...
+      { username: null, heldUsername: null, keepSafeOffer: null, setKeepSafeOffer },
+      // ...and onboarded again with a new name.
+      { username: 'NewTabby', heldUsername: null, keepSafeOffer: null, setKeepSafeOffer },
+    ]);
+    expect(shown).not.toContain('KeepSafeScreen');
+    expect(shown).toContain('Stack');
+    expect(setKeepSafeOffer).toHaveBeenCalledWith('skipped-onboarding');
   });
 });

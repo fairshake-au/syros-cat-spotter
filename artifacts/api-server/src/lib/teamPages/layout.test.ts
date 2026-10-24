@@ -548,6 +548,12 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     expect(sheet()).toContain(".gallery .rowmenu.dots>.rowmenuitems{top:calc(100% + 2px);left:0;right:auto}");
     expect(sheet()).toContain(".gallery figure:nth-child(even) .rowmenu.dots>.rowmenuitems{left:auto;right:0}");
   });
+
+  it("jumping to #find-photo keeps its heading and label in view, and only that id gets the margin (SYC-619 review)", () => {
+    const css = sheet();
+    expect(css).toContain("#find-photo{scroll-margin-top:6em}");
+    expect(css.match(/[^{}]*\{[^}]*scroll-margin-top:6em[^}]*\}/g)).toHaveLength(1);
+  });
 });
 
 describe("the heading option (SYC-655 task 1)", () => {
