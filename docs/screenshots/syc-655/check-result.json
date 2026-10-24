@@ -1,0 +1,5048 @@
+{
+  "origin": "localhost (ephemeral port)",
+  "engines": {
+    "chromium": {
+      "version": "156.0.8078.4",
+      "widths": {
+        "390": {
+          "addresses": [
+            {
+              "label": "none",
+              "hash": "",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#tab-photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1434,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 838,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id>",
+              "hash": "#s-301",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1622,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 72,
+                "bottom": 231,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id> inside a folded run",
+              "hash": "#s-398",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 2422,
+              "target": {
+                "id": "s-398",
+                "shown": true,
+                "top": 72,
+                "bottom": 114,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id>",
+              "hash": "#sg-900",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1781,
+              "target": {
+                "id": "sg-900",
+                "shown": true,
+                "top": 72,
+                "bottom": 226,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id> inside a folded run",
+              "hash": "#sg-894",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 2408,
+              "target": {
+                "id": "sg-894",
+                "shown": true,
+                "top": 72,
+                "bottom": 213,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id>",
+              "hash": "#p-s2",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1476,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 330,
+                "bottom": 558,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id> (the hidden photo)",
+              "hash": "#p-s3",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1476,
+              "target": {
+                "id": "p-s3",
+                "shown": true,
+                "top": 330,
+                "bottom": 558,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#appearance",
+              "hash": "#appearance",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1476,
+              "target": {
+                "id": "appearance",
+                "shown": true,
+                "top": 72,
+                "bottom": 1633,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id>",
+              "hash": "#a-603",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1735,
+              "target": {
+                "id": "a-603",
+                "shown": true,
+                "top": 72,
+                "bottom": 168,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id> (a past change)",
+              "hash": "#a-601",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 2321,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 485,
+                "bottom": 709,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#issue-strip",
+              "hash": "#issue-strip",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 1005,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 555,
+                "bottom": 784,
+                "tabsBottom": 481,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#corrections",
+              "hash": "#corrections",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1144,
+              "target": {
+                "id": "corrections",
+                "shown": true,
+                "top": 0,
+                "bottom": 236,
+                "tabsBottom": 342,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#nonsense",
+              "hash": "#nonsense",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#history",
+              "hash": "#history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1468,
+              "target": {
+                "id": "history",
+                "shown": true,
+                "top": 72,
+                "bottom": 72,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#photos",
+              "hash": "#photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1468,
+              "target": {
+                "id": "photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 804,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#map",
+              "hash": "#map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 1183,
+              "target": {
+                "id": "map",
+                "shown": true,
+                "top": 357,
+                "bottom": 715,
+                "tabsBottom": 303,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vet-visits",
+              "hash": "#vet-visits",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1468,
+              "target": {
+                "id": "vet-visits",
+                "shown": true,
+                "top": 72,
+                "bottom": 72,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vv-<id>",
+              "hash": "#vv-280",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 3001,
+              "target": {
+                "id": "vv-280",
+                "shown": true,
+                "top": 358,
+                "bottom": 515,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "hashchange": [
+            {
+              "hash": "#p-s2",
+              "noReload": true,
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1476,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 330,
+                "bottom": 558,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-301",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1622,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 72,
+                "bottom": 231,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#a-601",
+              "noReload": true,
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 2321,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 485,
+                "bottom": 709,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#issue-strip",
+              "noReload": true,
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 1005,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 555,
+                "bottom": 784,
+                "tabsBottom": 481,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-399",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1950,
+              "target": {
+                "id": "s-399",
+                "shown": true,
+                "top": 72,
+                "bottom": 113,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "tabClicks": [
+            {
+              "tab": "photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1434,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 838,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "map",
+              "hash": "#tab-map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 1183,
+              "target": {
+                "id": "tab-map",
+                "shown": true,
+                "top": 323,
+                "bottom": 788,
+                "tabsBottom": 303,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "coat",
+              "hash": "#tab-coat",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1434,
+              "target": {
+                "id": "tab-coat",
+                "shown": true,
+                "top": 72,
+                "bottom": 1675,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "reports",
+              "hash": "#tab-reports",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 1005,
+              "target": {
+                "id": "tab-reports",
+                "shown": true,
+                "top": 501,
+                "bottom": 784,
+                "tabsBottom": 481,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "history",
+              "hash": "#tab-history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1434,
+              "target": {
+                "id": "tab-history",
+                "shown": true,
+                "top": 72,
+                "bottom": 2355,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            }
+          ],
+          "keyboard": {
+            "key": "Tab",
+            "scrollerTabStops": 0,
+            "domOrder": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "reached": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "inOrder": true,
+            "focusShown": [
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            "detail": [
+              {
+                "href": "#tab-history",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-photos",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-map",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-coat",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-reports",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              }
+            ]
+          },
+          "noHas": {
+            "removedSupportsBlocks": 1,
+            "panels": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "shown": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "allShown": true
+          },
+          "consoleErrors": []
+        },
+        "1280": {
+          "addresses": [
+            {
+              "label": "none",
+              "hash": "",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#tab-photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 1249,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id>",
+              "hash": "#s-301",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 739,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 72,
+                "bottom": 190,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id> inside a folded run",
+              "hash": "#s-398",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1335,
+              "target": {
+                "id": "s-398",
+                "shown": true,
+                "top": 72,
+                "bottom": 90,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id>",
+              "hash": "#sg-900",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 857,
+              "target": {
+                "id": "sg-900",
+                "shown": true,
+                "top": 72,
+                "bottom": 202,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id> inside a folded run",
+              "hash": "#sg-894",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1321,
+              "target": {
+                "id": "sg-894",
+                "shown": true,
+                "top": 72,
+                "bottom": 190,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id>",
+              "hash": "#p-s2",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1019,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 112,
+                "bottom": 477,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id> (the hidden photo)",
+              "hash": "#p-s3",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1019,
+              "target": {
+                "id": "p-s3",
+                "shown": true,
+                "top": 112,
+                "bottom": 477,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#appearance",
+              "hash": "#appearance",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 664,
+              "target": {
+                "id": "appearance",
+                "shown": true,
+                "top": 72,
+                "bottom": 1518,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id>",
+              "hash": "#a-603",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 900,
+              "target": {
+                "id": "a-603",
+                "shown": true,
+                "top": 72,
+                "bottom": 167,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id> (a past change)",
+              "hash": "#a-601",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1338,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 587,
+                "bottom": 764,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#issue-strip",
+              "hash": "#issue-strip",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 47,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 701,
+                "bottom": 840,
+                "tabsBottom": 627,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#corrections",
+              "hash": "#corrections",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 227,
+              "target": {
+                "id": "corrections",
+                "shown": true,
+                "top": 0,
+                "bottom": 236,
+                "tabsBottom": 447,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#nonsense",
+              "hash": "#nonsense",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#history",
+              "hash": "#history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 656,
+              "target": {
+                "id": "history",
+                "shown": true,
+                "top": 72,
+                "bottom": 72,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#photos",
+              "hash": "#photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 656,
+              "target": {
+                "id": "photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 1215,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#map",
+              "hash": "#map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 469,
+              "target": {
+                "id": "map",
+                "shown": true,
+                "top": 259,
+                "bottom": 771,
+                "tabsBottom": 205,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vet-visits",
+              "hash": "#vet-visits",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 656,
+              "target": {
+                "id": "vet-visits",
+                "shown": true,
+                "top": 72,
+                "bottom": 72,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vv-<id>",
+              "hash": "#vv-280",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1635,
+              "target": {
+                "id": "vv-280",
+                "shown": true,
+                "top": 544,
+                "bottom": 637,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "hashchange": [
+            {
+              "hash": "#p-s2",
+              "noReload": true,
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1019,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 112,
+                "bottom": 477,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-301",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 739,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 72,
+                "bottom": 190,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#a-601",
+              "noReload": true,
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1338,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 587,
+                "bottom": 764,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#issue-strip",
+              "noReload": true,
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 47,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 701,
+                "bottom": 840,
+                "tabsBottom": 627,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-399",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1002,
+              "target": {
+                "id": "s-399",
+                "shown": true,
+                "top": 72,
+                "bottom": 90,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "tabClicks": [
+            {
+              "tab": "photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 1249,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "map",
+              "hash": "#tab-map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 469,
+              "target": {
+                "id": "tab-map",
+                "shown": true,
+                "top": 225,
+                "bottom": 844,
+                "tabsBottom": 205,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "coat",
+              "hash": "#tab-coat",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-coat",
+                "shown": true,
+                "top": 72,
+                "bottom": 1560,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "reports",
+              "hash": "#tab-reports",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 47,
+              "target": {
+                "id": "tab-reports",
+                "shown": true,
+                "top": 647,
+                "bottom": 840,
+                "tabsBottom": 627,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "history",
+              "hash": "#tab-history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-history",
+                "shown": true,
+                "top": 72,
+                "bottom": 1857,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            }
+          ],
+          "keyboard": {
+            "key": "Tab",
+            "scrollerTabStops": 0,
+            "domOrder": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "reached": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "inOrder": true,
+            "focusShown": [
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            "detail": [
+              {
+                "href": "#tab-history",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-photos",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-map",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-coat",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-reports",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              }
+            ]
+          },
+          "noHas": {
+            "removedSupportsBlocks": 1,
+            "panels": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "shown": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "allShown": true
+          },
+          "consoleErrors": []
+        }
+      },
+      "foldedRun": {
+        "s": "s-398",
+        "sg": "sg-894"
+      }
+    },
+    "webkit": {
+      "version": "26.6",
+      "widths": {
+        "390": {
+          "addresses": [
+            {
+              "label": "none",
+              "hash": "",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#tab-photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1434,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 838,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id>",
+              "hash": "#s-301",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1621,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 72,
+                "bottom": 232,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id> inside a folded run",
+              "hash": "#s-398",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 2422,
+              "target": {
+                "id": "s-398",
+                "shown": true,
+                "top": 72,
+                "bottom": 114,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id>",
+              "hash": "#sg-900",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1781,
+              "target": {
+                "id": "sg-900",
+                "shown": true,
+                "top": 72,
+                "bottom": 225,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id> inside a folded run",
+              "hash": "#sg-894",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 2408,
+              "target": {
+                "id": "sg-894",
+                "shown": true,
+                "top": 72,
+                "bottom": 213,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id>",
+              "hash": "#p-s2",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1476,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 330,
+                "bottom": 558,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id> (the hidden photo)",
+              "hash": "#p-s3",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1476,
+              "target": {
+                "id": "p-s3",
+                "shown": true,
+                "top": 330,
+                "bottom": 558,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#appearance",
+              "hash": "#appearance",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1476,
+              "target": {
+                "id": "appearance",
+                "shown": true,
+                "top": 72,
+                "bottom": 1633,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id>",
+              "hash": "#a-603",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1735,
+              "target": {
+                "id": "a-603",
+                "shown": true,
+                "top": 72,
+                "bottom": 167,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id> (a past change)",
+              "hash": "#a-601",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 2321,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 484,
+                "bottom": 708,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#issue-strip",
+              "hash": "#issue-strip",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 1006,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 554,
+                "bottom": 784,
+                "tabsBottom": 480,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#corrections",
+              "hash": "#corrections",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1144,
+              "target": {
+                "id": "corrections",
+                "shown": true,
+                "top": 0,
+                "bottom": 236,
+                "tabsBottom": 342,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#nonsense",
+              "hash": "#nonsense",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#history",
+              "hash": "#history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1468,
+              "target": {
+                "id": "history",
+                "shown": true,
+                "top": 72,
+                "bottom": 72,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#photos",
+              "hash": "#photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1468,
+              "target": {
+                "id": "photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 804,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#map",
+              "hash": "#map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 1183,
+              "target": {
+                "id": "map",
+                "shown": true,
+                "top": 357,
+                "bottom": 715,
+                "tabsBottom": 303,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vet-visits",
+              "hash": "#vet-visits",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1468,
+              "target": {
+                "id": "vet-visits",
+                "shown": true,
+                "top": 72,
+                "bottom": 72,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vv-<id>",
+              "hash": "#vv-280",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 3000,
+              "target": {
+                "id": "vv-280",
+                "shown": true,
+                "top": 359,
+                "bottom": 515,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "hashchange": [
+            {
+              "hash": "#p-s2",
+              "noReload": true,
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1476,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 330,
+                "bottom": 558,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-301",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1621,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 72,
+                "bottom": 232,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#a-601",
+              "noReload": true,
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 2321,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 484,
+                "bottom": 708,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#issue-strip",
+              "noReload": true,
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 1006,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 554,
+                "bottom": 784,
+                "tabsBottom": 480,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-399",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1949,
+              "target": {
+                "id": "s-399",
+                "shown": true,
+                "top": 73,
+                "bottom": 115,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "tabClicks": [
+            {
+              "tab": "photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1434,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 838,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "map",
+              "hash": "#tab-map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 1183,
+              "target": {
+                "id": "tab-map",
+                "shown": true,
+                "top": 323,
+                "bottom": 788,
+                "tabsBottom": 303,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "coat",
+              "hash": "#tab-coat",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1434,
+              "target": {
+                "id": "tab-coat",
+                "shown": true,
+                "top": 72,
+                "bottom": 1675,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "reports",
+              "hash": "#tab-reports",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 1006,
+              "target": {
+                "id": "tab-reports",
+                "shown": true,
+                "top": 500,
+                "bottom": 784,
+                "tabsBottom": 480,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "history",
+              "hash": "#tab-history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1434,
+              "target": {
+                "id": "tab-history",
+                "shown": true,
+                "top": 72,
+                "bottom": 2354,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            }
+          ],
+          "keyboard": {
+            "key": "Alt+Tab",
+            "scrollerTabStops": 0,
+            "domOrder": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "reached": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "inOrder": true,
+            "focusShown": [
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            "detail": [
+              {
+                "href": "#tab-history",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-photos",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-map",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-coat",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-reports",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              }
+            ]
+          },
+          "noHas": {
+            "removedSupportsBlocks": 1,
+            "panels": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "shown": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "allShown": true
+          },
+          "consoleErrors": []
+        },
+        "1280": {
+          "addresses": [
+            {
+              "label": "none",
+              "hash": "",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#tab-photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 1249,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id>",
+              "hash": "#s-301",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 739,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 72,
+                "bottom": 190,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id> inside a folded run",
+              "hash": "#s-398",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1335,
+              "target": {
+                "id": "s-398",
+                "shown": true,
+                "top": 73,
+                "bottom": 91,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id>",
+              "hash": "#sg-900",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 857,
+              "target": {
+                "id": "sg-900",
+                "shown": true,
+                "top": 72,
+                "bottom": 202,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id> inside a folded run",
+              "hash": "#sg-894",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1321,
+              "target": {
+                "id": "sg-894",
+                "shown": true,
+                "top": 72,
+                "bottom": 190,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id>",
+              "hash": "#p-s2",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1019,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 112,
+                "bottom": 477,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id> (the hidden photo)",
+              "hash": "#p-s3",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1019,
+              "target": {
+                "id": "p-s3",
+                "shown": true,
+                "top": 112,
+                "bottom": 477,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#appearance",
+              "hash": "#appearance",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 664,
+              "target": {
+                "id": "appearance",
+                "shown": true,
+                "top": 72,
+                "bottom": 1517,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id>",
+              "hash": "#a-603",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 900,
+              "target": {
+                "id": "a-603",
+                "shown": true,
+                "top": 72,
+                "bottom": 167,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id> (a past change)",
+              "hash": "#a-601",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1337,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 588,
+                "bottom": 765,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#issue-strip",
+              "hash": "#issue-strip",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 47,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 701,
+                "bottom": 840,
+                "tabsBottom": 627,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#corrections",
+              "hash": "#corrections",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 227,
+              "target": {
+                "id": "corrections",
+                "shown": true,
+                "top": 0,
+                "bottom": 236,
+                "tabsBottom": 447,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#nonsense",
+              "hash": "#nonsense",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#history",
+              "hash": "#history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 656,
+              "target": {
+                "id": "history",
+                "shown": true,
+                "top": 72,
+                "bottom": 72,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#photos",
+              "hash": "#photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 656,
+              "target": {
+                "id": "photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 1215,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#map",
+              "hash": "#map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 469,
+              "target": {
+                "id": "map",
+                "shown": true,
+                "top": 259,
+                "bottom": 771,
+                "tabsBottom": 205,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vet-visits",
+              "hash": "#vet-visits",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 656,
+              "target": {
+                "id": "vet-visits",
+                "shown": true,
+                "top": 72,
+                "bottom": 72,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vv-<id>",
+              "hash": "#vv-280",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1635,
+              "target": {
+                "id": "vv-280",
+                "shown": true,
+                "top": 544,
+                "bottom": 637,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "hashchange": [
+            {
+              "hash": "#p-s2",
+              "noReload": true,
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1019,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 112,
+                "bottom": 477,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-301",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 739,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 72,
+                "bottom": 190,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#a-601",
+              "noReload": true,
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1337,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 588,
+                "bottom": 765,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#issue-strip",
+              "noReload": true,
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 47,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 701,
+                "bottom": 840,
+                "tabsBottom": 627,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-399",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1002,
+              "target": {
+                "id": "s-399",
+                "shown": true,
+                "top": 72,
+                "bottom": 91,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "tabClicks": [
+            {
+              "tab": "photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 1249,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "map",
+              "hash": "#tab-map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 469,
+              "target": {
+                "id": "tab-map",
+                "shown": true,
+                "top": 225,
+                "bottom": 844,
+                "tabsBottom": 205,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "coat",
+              "hash": "#tab-coat",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-coat",
+                "shown": true,
+                "top": 72,
+                "bottom": 1559,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "reports",
+              "hash": "#tab-reports",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 47,
+              "target": {
+                "id": "tab-reports",
+                "shown": true,
+                "top": 647,
+                "bottom": 840,
+                "tabsBottom": 627,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "history",
+              "hash": "#tab-history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-history",
+                "shown": true,
+                "top": 72,
+                "bottom": 1857,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            }
+          ],
+          "keyboard": {
+            "key": "Alt+Tab",
+            "scrollerTabStops": 0,
+            "domOrder": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "reached": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "inOrder": true,
+            "focusShown": [
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            "detail": [
+              {
+                "href": "#tab-history",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-photos",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-map",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-coat",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-reports",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              }
+            ]
+          },
+          "noHas": {
+            "removedSupportsBlocks": 1,
+            "panels": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "shown": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "allShown": true
+          },
+          "consoleErrors": []
+        }
+      },
+      "foldedRun": {
+        "s": "s-398",
+        "sg": "sg-894"
+      }
+    },
+    "firefox": {
+      "version": "157.0",
+      "widths": {
+        "390": {
+          "addresses": [
+            {
+              "label": "none",
+              "hash": "",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#tab-photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1453,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 73,
+                "bottom": 839,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id>",
+              "hash": "#s-301",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1641,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 73,
+                "bottom": 232,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id> inside a folded run",
+              "hash": "#s-398",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 2440,
+              "target": {
+                "id": "s-398",
+                "shown": true,
+                "top": 74,
+                "bottom": 117,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id>",
+              "hash": "#sg-900",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1801,
+              "target": {
+                "id": "sg-900",
+                "shown": true,
+                "top": 72,
+                "bottom": 226,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id> inside a folded run",
+              "hash": "#sg-894",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 2428,
+              "target": {
+                "id": "sg-894",
+                "shown": true,
+                "top": 72,
+                "bottom": 213,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id>",
+              "hash": "#p-s2",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1496,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 330,
+                "bottom": 558,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id> (the hidden photo)",
+              "hash": "#p-s3",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1496,
+              "target": {
+                "id": "p-s3",
+                "shown": true,
+                "top": 330,
+                "bottom": 558,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#appearance",
+              "hash": "#appearance",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1496,
+              "target": {
+                "id": "appearance",
+                "shown": true,
+                "top": 72,
+                "bottom": 1633,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id>",
+              "hash": "#a-603",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1755,
+              "target": {
+                "id": "a-603",
+                "shown": true,
+                "top": 72,
+                "bottom": 168,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id> (a past change)",
+              "hash": "#a-601",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 2341,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 485,
+                "bottom": 708,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#issue-strip",
+              "hash": "#issue-strip",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 1026,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 554,
+                "bottom": 784,
+                "tabsBottom": 480,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#corrections",
+              "hash": "#corrections",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1163,
+              "target": {
+                "id": "corrections",
+                "shown": true,
+                "top": 1,
+                "bottom": 237,
+                "tabsBottom": 343,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#nonsense",
+              "hash": "#nonsense",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#history",
+              "hash": "#history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1487,
+              "target": {
+                "id": "history",
+                "shown": true,
+                "top": 73,
+                "bottom": 73,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#photos",
+              "hash": "#photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1487,
+              "target": {
+                "id": "photos",
+                "shown": true,
+                "top": 73,
+                "bottom": 805,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#map",
+              "hash": "#map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 1203,
+              "target": {
+                "id": "map",
+                "shown": true,
+                "top": 357,
+                "bottom": 715,
+                "tabsBottom": 303,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vet-visits",
+              "hash": "#vet-visits",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1487,
+              "target": {
+                "id": "vet-visits",
+                "shown": true,
+                "top": 73,
+                "bottom": 73,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vv-<id>",
+              "hash": "#vv-280",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 3023,
+              "target": {
+                "id": "vv-280",
+                "shown": true,
+                "top": 359,
+                "bottom": 515,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "hashchange": [
+            {
+              "hash": "#p-s2",
+              "noReload": true,
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1496,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 330,
+                "bottom": 558,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-301",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1642,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 72,
+                "bottom": 231,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#a-601",
+              "noReload": true,
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 2341,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 485,
+                "bottom": 708,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#issue-strip",
+              "noReload": true,
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 1026,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 554,
+                "bottom": 784,
+                "tabsBottom": 480,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-399",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1968,
+              "target": {
+                "id": "s-399",
+                "shown": true,
+                "top": 73,
+                "bottom": 117,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "tabClicks": [
+            {
+              "tab": "photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1454,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 838,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "map",
+              "hash": "#tab-map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 1203,
+              "target": {
+                "id": "tab-map",
+                "shown": true,
+                "top": 323,
+                "bottom": 788,
+                "tabsBottom": 303,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "coat",
+              "hash": "#tab-coat",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1454,
+              "target": {
+                "id": "tab-coat",
+                "shown": true,
+                "top": 72,
+                "bottom": 1675,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "reports",
+              "hash": "#tab-reports",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 1026,
+              "target": {
+                "id": "tab-reports",
+                "shown": true,
+                "top": 500,
+                "bottom": 784,
+                "tabsBottom": 480,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "history",
+              "hash": "#tab-history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1454,
+              "target": {
+                "id": "tab-history",
+                "shown": true,
+                "top": 72,
+                "bottom": 2358,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            }
+          ],
+          "keyboard": {
+            "key": "Tab",
+            "scrollerTabStops": 1,
+            "domOrder": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "reached": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "inOrder": true,
+            "focusShown": [
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            "detail": [
+              {
+                "href": "#tab-history",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-photos",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-map",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-coat",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-reports",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              }
+            ]
+          },
+          "noHas": {
+            "removedSupportsBlocks": 1,
+            "panels": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "shown": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "allShown": true
+          },
+          "consoleErrors": []
+        },
+        "1280": {
+          "addresses": [
+            {
+              "label": "none",
+              "hash": "",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#tab-photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 1249,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id>",
+              "hash": "#s-301",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 739,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 72,
+                "bottom": 190,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#s-<id> inside a folded run",
+              "hash": "#s-398",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1333,
+              "target": {
+                "id": "s-398",
+                "shown": true,
+                "top": 74,
+                "bottom": 94,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id>",
+              "hash": "#sg-900",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 856,
+              "target": {
+                "id": "sg-900",
+                "shown": true,
+                "top": 73,
+                "bottom": 203,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#sg-<id> inside a folded run",
+              "hash": "#sg-894",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1321,
+              "target": {
+                "id": "sg-894",
+                "shown": true,
+                "top": 73,
+                "bottom": 190,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": [
+                  true
+                ]
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id>",
+              "hash": "#p-s2",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1019,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 112,
+                "bottom": 477,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#p-<id> (the hidden photo)",
+              "hash": "#p-s3",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1019,
+              "target": {
+                "id": "p-s3",
+                "shown": true,
+                "top": 112,
+                "bottom": 477,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#appearance",
+              "hash": "#appearance",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 664,
+              "target": {
+                "id": "appearance",
+                "shown": true,
+                "top": 72,
+                "bottom": 1518,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id>",
+              "hash": "#a-603",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 900,
+              "target": {
+                "id": "a-603",
+                "shown": true,
+                "top": 72,
+                "bottom": 167,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#a-<id> (a past change)",
+              "hash": "#a-601",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1338,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 587,
+                "bottom": 764,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#issue-strip",
+              "hash": "#issue-strip",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 47,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 701,
+                "bottom": 840,
+                "tabsBottom": 627,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#corrections",
+              "hash": "#corrections",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 227,
+              "target": {
+                "id": "corrections",
+                "shown": true,
+                "top": 0,
+                "bottom": 236,
+                "tabsBottom": 447,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#nonsense",
+              "hash": "#nonsense",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 0,
+              "target": null,
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#history",
+              "hash": "#history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 655,
+              "target": {
+                "id": "history",
+                "shown": true,
+                "top": 73,
+                "bottom": 73,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#photos",
+              "hash": "#photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 656,
+              "target": {
+                "id": "photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 1215,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#map",
+              "hash": "#map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 469,
+              "target": {
+                "id": "map",
+                "shown": true,
+                "top": 259,
+                "bottom": 771,
+                "tabsBottom": 205,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vet-visits",
+              "hash": "#vet-visits",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 655,
+              "target": {
+                "id": "vet-visits",
+                "shown": true,
+                "top": 73,
+                "bottom": 73,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "label": "#vv-<id>",
+              "hash": "#vv-280",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1635,
+              "target": {
+                "id": "vv-280",
+                "shown": true,
+                "top": 545,
+                "bottom": 638,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "hashchange": [
+            {
+              "hash": "#p-s2",
+              "noReload": true,
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 1019,
+              "target": {
+                "id": "p-s2",
+                "shown": true,
+                "top": 112,
+                "bottom": 477,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-301",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 739,
+              "target": {
+                "id": "s-301",
+                "shown": true,
+                "top": 72,
+                "bottom": 190,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#a-601",
+              "noReload": true,
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 1338,
+              "target": {
+                "id": "a-601",
+                "shown": true,
+                "top": 587,
+                "bottom": 764,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#issue-strip",
+              "noReload": true,
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 47,
+              "target": {
+                "id": "issue-strip",
+                "shown": true,
+                "top": 701,
+                "bottom": 840,
+                "tabsBottom": 627,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            },
+            {
+              "hash": "#s-399",
+              "noReload": true,
+              "visible": [
+                "history"
+              ],
+              "scrollY": 1000,
+              "target": {
+                "id": "s-399",
+                "shown": true,
+                "top": 74,
+                "bottom": 94,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true
+            }
+          ],
+          "tabClicks": [
+            {
+              "tab": "photos",
+              "hash": "#tab-photos",
+              "visible": [
+                "photos"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-photos",
+                "shown": true,
+                "top": 72,
+                "bottom": 1249,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-photos"
+              ],
+              "exactlyOne": true,
+              "expected": "photos",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "map",
+              "hash": "#tab-map",
+              "visible": [
+                "map"
+              ],
+              "scrollY": 469,
+              "target": {
+                "id": "tab-map",
+                "shown": true,
+                "top": 225,
+                "bottom": 844,
+                "tabsBottom": 205,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-map"
+              ],
+              "exactlyOne": true,
+              "expected": "map",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "coat",
+              "hash": "#tab-coat",
+              "visible": [
+                "coat"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-coat",
+                "shown": true,
+                "top": 72,
+                "bottom": 1560,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-coat"
+              ],
+              "exactlyOne": true,
+              "expected": "coat",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "reports",
+              "hash": "#tab-reports",
+              "visible": [
+                "reports"
+              ],
+              "scrollY": 47,
+              "target": {
+                "id": "tab-reports",
+                "shown": true,
+                "top": 647,
+                "bottom": 840,
+                "tabsBottom": 627,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-reports"
+              ],
+              "exactlyOne": true,
+              "expected": "reports",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            },
+            {
+              "tab": "history",
+              "hash": "#tab-history",
+              "visible": [
+                "history"
+              ],
+              "scrollY": 622,
+              "target": {
+                "id": "tab-history",
+                "shown": true,
+                "top": 72,
+                "bottom": 1857,
+                "tabsBottom": 61,
+                "inViewport": true,
+                "clearOfTabs": true,
+                "openFoldsAbove": []
+              },
+              "selectedTabs": [
+                "#tab-history"
+              ],
+              "exactlyOne": true,
+              "expected": "history",
+              "isExpected": true,
+              "targetOk": true,
+              "pass": true,
+              "selectedIsClicked": true
+            }
+          ],
+          "keyboard": {
+            "key": "Tab",
+            "scrollerTabStops": 0,
+            "domOrder": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "reached": [
+              "#tab-history",
+              "#tab-photos",
+              "#tab-map",
+              "#tab-coat",
+              "#tab-reports"
+            ],
+            "inOrder": true,
+            "focusShown": [
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            "detail": [
+              {
+                "href": "#tab-history",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-photos",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-map",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-coat",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              },
+              {
+                "href": "#tab-reports",
+                "focusVisible": true,
+                "outlineStyle": "solid",
+                "outlineWidth": "3px",
+                "boxShadow": "none"
+              }
+            ]
+          },
+          "noHas": {
+            "removedSupportsBlocks": 1,
+            "panels": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "shown": [
+              "tab-history",
+              "tab-photos",
+              "tab-map",
+              "tab-coat",
+              "tab-reports"
+            ],
+            "allShown": true
+          },
+          "consoleErrors": []
+        }
+      },
+      "foldedRun": {
+        "s": "s-398",
+        "sg": "sg-894"
+      }
+    }
+  },
+  "aborted": [],
+  "failures": [],
+  "summary": {
+    "failureCount": 0,
+    "abortedRequests": 0
+  }
+}
