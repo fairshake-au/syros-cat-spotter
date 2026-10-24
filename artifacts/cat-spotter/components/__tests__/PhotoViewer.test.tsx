@@ -180,7 +180,7 @@ describe('"Report an issue with this photo" (spec §3.2)', () => {
       <PhotoViewer url={COVER} label="x" date={WHEN} byline="by Maria" onClose={onClose} onReport={onReport} />,
     );
     const link = getByTestId('photo-viewer-report');
-    expect(link.textContent).toBe('reportIssuePhoto');
+    expect(link.textContent).toBe('reportIssuePhotoLink');
     fireEvent.click(link);
     expect(onReport).toHaveBeenCalledTimes(1);
   });

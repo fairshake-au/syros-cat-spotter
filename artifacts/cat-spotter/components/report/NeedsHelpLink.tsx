@@ -12,15 +12,11 @@ import { setReportHandoff, takeReportHandoff, type ReportHandoff } from '@/lib/r
  * open it. Shared by the quiet link below and by the cat page's help card, so
  * the two can't drift apart.
  */
-export function useOpenNeedsHelp({
-  handoff,
-  prepare,
-  cat,
-}: {
-  handoff?: ReportHandoff;
-  cat?: ReportHandoff['cat'];
-  prepare?: () => Promise<ReportHandoff>;
-}) {
+export function useOpenNeedsHelp(
+  /** SYC-504: the cat whose page this is; the report opens "About {name}". */
+  cat?: ReportHandoff['cat'],
+  { handoff, prepare }: { handoff?: ReportHandoff; prepare?: () => Promise<ReportHandoff> } = {},
+) {
   const router = useRouter();
   return async () => {
     if (handoff) setReportHandoff(handoff);
@@ -54,7 +50,7 @@ export function NeedsHelpLink({
 }) {
   const colors = useColors();
   const { t } = useLanguage();
-  const open = useOpenNeedsHelp({ handoff, prepare, cat });
+  const open = useOpenNeedsHelp(cat, { handoff, prepare });
   return (
     <Pressable
       accessibilityRole="link"

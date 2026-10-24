@@ -65,7 +65,7 @@ export function QuestionCards({
   homeCardRef: React.Ref<View>;
 }) {
   const { t } = useLanguage();
-  const openNeedsHelp = useOpenNeedsHelp({ cat });
+  const openNeedsHelp = useOpenNeedsHelp(cat);
   const named = (key: string) => t(key).split('{name}').join(cat.name);
   return (
     <View style={styles.row}>

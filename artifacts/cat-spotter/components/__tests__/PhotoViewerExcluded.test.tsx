@@ -65,7 +65,7 @@ const CAT: Cat = {
 
 const noViewer = () => {
   expect(document.querySelector('[data-testid="sighting-photo-viewer"]')).toBeNull();
-  expect(document.body.textContent).not.toContain('reportIssuePhoto');
+  expect(document.body.textContent).not.toContain('reportIssuePhotoLink');
   expect(document.body.textContent).not.toContain('reportIssue');
 };
 

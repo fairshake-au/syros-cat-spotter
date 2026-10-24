@@ -27,10 +27,10 @@ function fontSize(file: string): number {
 }
 
 describe('ReportIssueLink', () => {
-  it('reads "Report an issue" and calls its handler', () => {
+  it('reads "Something wrong on this page?" and calls its handler', () => {
     const onPress = vi.fn();
     const { getByText } = render(<ReportIssueLink onPress={onPress} />);
-    fireEvent.click(getByText('Report an issue'));
+    fireEvent.click(getByText('Something wrong on this page?'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 

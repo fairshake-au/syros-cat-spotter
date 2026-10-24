@@ -37,11 +37,14 @@ vi.mock('expo-router', () => ({
 }));
 vi.mock('@/components/AppMap', () => ({ AppMap: () => null }));
 vi.mock('@/components/MoreToAdd', () => ({ MoreToAdd: () => null }));
-// SYC-504: the mock carries the cat it was given, so a test can check it.
+// SYC-504: the help card is given this cat; the mock keeps what it was given.
+const help = vi.hoisted(() => ({ cat: undefined as unknown, open: vi.fn() }));
 vi.mock('@/components/report/NeedsHelpLink', () => ({
-  NeedsHelpLink: ({ cat }: { cat?: unknown }) => (
-    <span data-testid="needs-help-link" data-cat={cat ? JSON.stringify(cat) : ''} />
-  ),
+  NeedsHelpLink: () => null,
+  useOpenNeedsHelp: (cat?: unknown) => {
+    help.cat = cat;
+    return help.open;
+  },
 }));
 // SYC-44 PR 6.2: the sheet is tested on its own (ReportIssueSheet.test.tsx);
 // here only what the page opens it with.
@@ -64,9 +67,9 @@ vi.mock('@/components/purropolis', async () => {
   const { Button } = await import('@/components/purropolis/Button');
   return {
     Button,
-    Tag: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
-    StatTile: () => null,
-    IconButton: () => null,
+    IconButton: ({ label, onPress }: { label: string; onPress?: () => void }) => (
+      <button type="button" aria-label={label} onClick={onPress} />
+    ),
   };
 });
 vi.mock('@/lib/urls', () => ({ photoSource: (p: string) => ({ uri: p }) }));
@@ -169,6 +172,13 @@ function page(c: Cat, sightings: Sighting[] = SIGHTINGS) {
 }
 
 
+const switchTab = (name: string) => {
+  const tab = Array.from(document.querySelectorAll('[role="tab"]')).find((e) =>
+    e.textContent?.includes(name),
+  );
+  fireEvent.click(tab!);
+};
+
 const viewer = () => document.querySelector('[data-testid="sighting-photo-viewer"]');
 
 beforeEach(() => {
@@ -247,6 +257,7 @@ describe('the cat page\'s photos (SYC-44 PR 6.1)', () => {
 
   it('a hidden sighting photo shows the tile, and the visible one stays a photo', () => {
     page(cat());
+    switchTab('Photos');
     const tiles = screen.getAllByTestId('photo-hidden-tile');
     expect(tiles).toHaveLength(1);
     expect(tiles[0]!.textContent).toBe('Photo hidden while Syros Cats take a look.');
@@ -255,6 +266,7 @@ describe('the cat page\'s photos (SYC-44 PR 6.1)', () => {
 
   it('a removed sighting photo says "Photo removed." and not the hidden tile (SYC-462)', () => {
     page(cat(), [{ ...SIGHTINGS[0]!, photoRemoved: true } as Sighting, SIGHTINGS[1]!]);
+    switchTab('Photos');
     const removed = screen.getAllByTestId('photo-removed-tile');
     expect(removed).toHaveLength(1);
     expect(removed[0]!.textContent).toBe('Photo removed.');
@@ -264,14 +276,14 @@ describe('the cat page\'s photos (SYC-44 PR 6.1)', () => {
 
 });
 
-describe('Report an issue on the cat page (SYC-44 PR 6.2; Samuel, 19 Oct: the links show with the sheet)', () => {
+describe('"Something wrong on this page?" on the cat page (SYC-44 PR 6.2; Samuel, 19 Oct: the links show with the sheet)', () => {
   const sheet = () => screen.queryByTestId('issue-sheet');
 
-  it('shows "Report an issue" below "This cat needs help", and it opens the sheet about the cat', () => {
+  it('shows "Something wrong on this page?" below the "{name} needs help" card, and it opens the sheet about the cat', () => {
     page(cat());
     const link = screen.getByTestId('report-issue-link');
-    expect(link.textContent).toBe(en.reportIssue);
-    const needsHelp = screen.getByTestId('needs-help-link');
+    expect(link.textContent).toContain(en.reportIssueLink);
+    const needsHelp = screen.getByTestId('needs-help-card');
     // Below it, in reading order.
     expect(needsHelp.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(sheet()).toBeNull();
@@ -282,13 +294,12 @@ describe('Report an issue on the cat page (SYC-44 PR 6.2; Samuel, 19 Oct: the li
     expect(sheet()).toBeNull();
   });
 
-  it('SYC-504: "This cat needs help" is given this cat (id, name and page photo)', () => {
+  it('SYC-504: the "{name} needs help" card is given this cat (id, name and page photo) and opens the help flow', () => {
     page(cat());
-    expect(JSON.parse(screen.getByTestId('needs-help-link').getAttribute('data-cat')!)).toEqual({
-      id: 7,
-      name: 'Agatha',
-      photoUrl: '/api/photos/7',
-    });
+    expect(screen.getByTestId('needs-help-card').textContent).toContain('Agatha needs help');
+    expect(help.cat).toEqual({ id: 7, name: 'Agatha', photoUrl: '/api/photos/7' });
+    fireEvent.click(screen.getByTestId('needs-help-card'));
+    expect(help.open).toHaveBeenCalledTimes(1);
   });
 
   it('the main photo\'s full-screen view reports that photo, closing the viewer first', () => {
@@ -304,6 +315,7 @@ describe('Report an issue on the cat page (SYC-44 PR 6.2; Samuel, 19 Oct: the li
 
   it('a sighting photo\'s full-screen view reports that photo', () => {
     page(cat({ photoUrl: '/api/photos/main' }));
+    switchTab('Photos');
     const cover = screen.getByTestId('sighting-cover');
     fireEvent.load(cover);
     fireEvent.click(screen.getByTestId('sighting-cover-open'));
