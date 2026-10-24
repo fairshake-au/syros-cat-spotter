@@ -39,7 +39,8 @@ export function MapTab({
           latitudeDelta={0.0035}
           longitudeDelta={0.0035}
           // Pan and zoom stay on so people can zoom out to see where on the
-          // island this is. Zooming in shows nothing more: it's still the cell.
+          // island this is. Safe for privacy: non-owners only ever get the cell
+          // centre from the server, so zooming in can't reveal a finer spot.
           markerBorderColor={colors.primary}
           // Data spine PR 6 (spec §6.2, §6.6): the cat is somewhere in its
           // published cell, drawn as that cell, never a pin. Only its owner
