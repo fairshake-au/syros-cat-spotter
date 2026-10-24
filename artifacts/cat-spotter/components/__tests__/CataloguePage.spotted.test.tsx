@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   coords: undefined as { latitude: number; longitude: number } | undefined,
   cats: [] as Array<Record<string, unknown>>,
   profile: undefined as unknown,
+  loadFailed: false,
+  retry: vi.fn(async () => {}),
 }));
 
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
@@ -36,7 +38,7 @@ vi.mock('@/context/OfflineContext', () => ({
 }));
 vi.mock('@/hooks/useLocation', () => ({ useLocation: () => ({ coords: h.coords }) }));
 vi.mock('@/hooks/useCatsWithCache', () => ({
-  useCatsWithCache: () => ({ cats: h.cats, isLoading: false }),
+  useCatsWithCache: () => ({ cats: h.cats, isLoading: false, loadFailed: h.loadFailed, retry: h.retry }),
 }));
 vi.mock('@/components/OfflineBanner', () => ({ OfflineBanner: () => null }));
 vi.mock('@/components/NotificationBell', () => ({ NotificationBell: () => null }));
@@ -82,6 +84,8 @@ beforeEach(() => {
   h.coords = undefined;
   h.cats = mkCats(4);
   h.profile = undefined;
+  h.loadFailed = false;
+  h.retry.mockClear();
 });
 afterEach(cleanup);
 
@@ -202,5 +206,47 @@ describe('Cat-alogue stamps and Not spotted yet filter (SYC-505)', () => {
     expect(screen.getByText('filterNotSpotted')).toBeTruthy();
     expect(screen.getByTestId('card-1').getAttribute('data-spotted')).toBe('true');
     noLocks();
+  });
+});
+
+describe('SYC-508: the Cat-alogue when nothing could be loaded', () => {
+  beforeEach(() => {
+    h.cats = [];
+    h.loadFailed = true;
+  });
+
+  it('says so instead of "noCats", with Try again', () => {
+    render(<CatalogScreen />);
+    expect(screen.queryByText('noCats')).toBeNull();
+    expect(screen.queryByText('catalogCount')).toBeNull();
+    expect(screen.getByText('loadFailedTitle')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('catalogue-load-failed-retry'));
+    expect(h.retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('comes before every filter empty message', () => {
+    h.profile = { spottedCatIds: [] };
+    render(<CatalogScreen />);
+    for (const chip of ['filterNearMe', 'filterHasHome', 'filterNotSpotted']) {
+      fireEvent.click(screen.getByText(chip));
+      expect(screen.getByText('loadFailedTitle')).toBeTruthy();
+      for (const key of ['noCats', 'noCatsSearch', 'filterNeedsLocation', 'filterNotSpottedAllDone']) {
+        expect(screen.queryByText(key)).toBeNull();
+      }
+    }
+  });
+
+  it('replaces the map too', () => {
+    render(<CatalogScreen />);
+    fireEvent.click(screen.getByLabelText('viewMap'));
+    expect(screen.queryByTestId('map')).toBeNull();
+    expect(screen.getByText('loadFailedTitle')).toBeTruthy();
+  });
+
+  it('really no cats: still "noCats"', () => {
+    h.loadFailed = false;
+    render(<CatalogScreen />);
+    expect(screen.getByText('noCats')).toBeTruthy();
+    expect(screen.queryByText('loadFailedTitle')).toBeNull();
   });
 });

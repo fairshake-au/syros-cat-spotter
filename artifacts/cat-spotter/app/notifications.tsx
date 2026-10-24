@@ -10,13 +10,24 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { AppNotification } from '@workspace/api-client-react';
+import {
+  getGetProfileQueryKey,
+  useGetProfile,
+  type AppNotification,
+} from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, spacing, tracking } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { IconButton } from '@/components/purropolis';
+import { useDevice } from '@/context/DeviceContext';
+import { useOffline } from '@/context/OfflineContext';
+import { LoadFailed } from '@/components/LoadFailed';
+import { Button } from '@/components/purropolis/Button';
+import { LOAD_QUERY_OPTIONS, LOAD_TIMEOUT_MS } from '@/lib/loadTiming';
+import { notificationsEmptyKey } from '@/lib/notificationsEmpty';
+import { goToSpotTab } from '@/lib/goToSpotTab';
 
 function relativeTime(iso: string, t: (k: string) => string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -57,8 +68,20 @@ export default function NotificationsScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { notifications, unreadCount, isLoading, refetch, markAllRead } =
+  const { notifications, unreadCount, isLoading, loadFailed, refetch, markAllRead } =
     useNotifications();
+  // SYC-508 §4.1: the profile Home already loads (same key), only to pick the
+  // empty line.
+  const { deviceId } = useDevice();
+  const { isOnline } = useOffline();
+  const profileQuery = useGetProfile(deviceId ?? '', {
+    query: {
+      enabled: !!deviceId && isOnline,
+      queryKey: getGetProfileQueryKey(deviceId ?? ''),
+      ...LOAD_QUERY_OPTIONS,
+    },
+    request: { timeoutMs: LOAD_TIMEOUT_MS },
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -192,12 +215,19 @@ export default function NotificationsScreen() {
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
+      ) : loadFailed ? (
+        // SYC-508 §3.3: a failed load is not an empty inbox.
+        <LoadFailed size="full" onRetry={refetch} testID="notifications-load-failed" />
       ) : notifications.length === 0 ? (
         <View style={styles.center}>
           <Feather name="bell-off" size={40} color={colors.mutedForeground} />
           <Text style={[styles.empty, { color: colors.mutedForeground }]}>
-            {t('noNotifications')}
+            {t(notificationsEmptyKey(profileQuery.data))}
           </Text>
+          {/* SYC-578: the empty inbox's way forward. */}
+          <Button variant="primary" size="lg" onPress={() => goToSpotTab(router)}>
+            {t('spotTitle')}
+          </Button>
         </View>
       ) : (
         <FlatList
