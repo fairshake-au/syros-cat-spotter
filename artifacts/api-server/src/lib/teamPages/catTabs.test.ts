@@ -185,7 +185,7 @@ describe("the tab CSS", () => {
       expect(c, id).toContain(`main:has(#tab-${id}:target,#tab-${id} :target) .cattabs a[href="#tab-${id}"]`);
     }
     expect(c).toContain('content:"" / ", open"');
-    expect(c).toContain('main:not(:has(.catpanel:target,.catpanel :target)) a[href="#tab-history"]');
+    expect(c).toContain('main:not(:has(.catpanel:target,.catpanel :target)) .cattabs a[href="#tab-history"]');
   });
 
   it("gives panels and anchored rows room under the sticky row", () => {
