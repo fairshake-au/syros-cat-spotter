@@ -516,4 +516,21 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
   it("the How this is worked out summary is 44px, bold and teal", () => {
     expect(sheet()).toMatch(/details\.method>summary\{[^}]*min-height:44px[^}]*font-weight:700[^}]*color:#0b4553/);
   });
+
+  it("the photo grid is exactly two columns at every width, so the menu anchoring fits (SYC-602 review)", () => {
+    const css = sheet();
+    expect(css).toContain(".gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px");
+    expect(css).not.toMatch(/\.gallery\{[^}]*auto-fill/);
+  });
+
+  it("the history list in the coat fold has no stray bullet, and the side column hints that it scrolls", () => {
+    const css = sheet();
+    expect(css).toMatch(/ul\.history\.coatchanges\{[^}]*list-style:none/);
+    expect(css).toMatch(/\.catside::after\{[^}]*position:sticky[^}]*linear-gradient[^}]*pointer-events:none/);
+  });
+
+  it("a photo's menu opens inside the screen: left-aligned under the left photo, right-aligned under the right one (SYC-602 3.3)", () => {
+    expect(sheet()).toContain(".gallery .rowmenu.dots>.rowmenuitems{top:calc(100% + 2px);left:0;right:auto}");
+    expect(sheet()).toContain(".gallery figure:nth-child(even) .rowmenu.dots>.rowmenuitems{left:auto;right:0}");
+  });
 });
