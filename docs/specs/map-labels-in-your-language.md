@@ -1,7 +1,7 @@
 # Map labels in your language
 
 Ticket: SYC-705. Revives the idea in SYC-288 (cancelled 22 Oct 2026, "serve our own Syros map tiles").
-Status: **draft, review findings folded in, decisions A–D made by Samuel** (24 Oct 2026); awaiting approval. Adversarial review: `reviews/map-labels-in-your-language-review.md` (4 blockers, 12 should-fix; all addressed below).
+Status: **draft v3, rewritten for MapLibre** (24 Oct 2026). Samuel chose MapLibre and the adjusted style after seeing them side by side. Needs a fresh adversarial review, then approval. The v2 review (`reviews/map-labels-in-your-language-review.md`) covered the picture-based design; its points that still apply are carried over.
 Decision behind it: on 24 Oct 2026 Samuel chose "a language-aware map" over "Google Maps everywhere" and "Google on phones only".
 
 ## The problem, as a spotter meets it
@@ -26,178 +26,204 @@ This happens on every map:
 | Beaches | 21 | 5 | 0 |
 | Everything else (shops, churches, bays…) | 1,114 | 138 (12%) | 3 |
 
-So the big places have English names. Ermoupoli and Ano Syros do, for example. Almost no streets do, so simply switching to "English names where they exist" would leave most of the map in Greek. That is why Decision B matters.
+So the big places have English names. Ermoupoli and Ano Syros do, for example. Almost no streets do, so simply switching to "English names where they exist" would leave most of the map in Greek. That is why Decision B (spelling Greek-only names in Latin letters) matters.
 
 **A second problem found on the way.** The app downloads the island's map pictures from OpenStreetMap when it first opens, so the map partly works without signal. OpenStreetMap's map-picture policy says "Offline use is not permitted on tile.openstreetmap.org" and forbids bulk downloading. Our server keeping copies for the dashboard is something the policy "does not recommend". (Source: operations.osmfoundation.org/policies/tiles, read 24 Oct 2026.) As the app grows, OpenStreetMap could block it, and the maps would go grey.
 
 **A third, smaller gap.** The phone app's map shows no "© OpenStreetMap contributors" credit. OpenStreetMap's licence requires one. The website and dashboard maps already show it.
 
+
 ## What we're building
 
-**We make our own map pictures of Syros, one copy per language, and serve them from Cat Spotters' own address.**
+**The phone app and the website draw the map themselves with MapLibre, from one small file of Syros map data that we make and host. The team dashboard gets map pictures drawn from that same file. Every map uses the same adjusted look and shows names in the reader's language.**
 
-The steps are:
+How the map gets made:
 
 1. Take OpenStreetMap's data for the island.
-2. Give every place, street and beach a readable name in each language.
-3. Draw the map pictures once per language.
-4. Store them at `tiles.catspotters.com`.
+2. Give every place, street and beach a readable Latin-letter name (Decision B).
+3. Pack it into one map-data file, `syros.pmtiles`.
+4. Host that file at Cat Spotters' own address, `tiles.catspotters.com`.
 
-Every map in the app, the website and the dashboard then uses them.
+The phone and the browser download that file, or the parts of it they need, and draw the map on the spot. The dashboard's pictures are drawn from the same file by our build.
 
 | Reader's language | Place names on the map |
 |---|---|
-| English | The English name where OpenStreetMap has one (Ermoupoli). Otherwise see Decision B. |
-| Greek | Greek, as today (Ερμούπολη). |
-| French | The English map (Decision A). |
+| English | The English name where OpenStreetMap has one ("Ermoupoli", with "Ερμούπολη" underneath for towns and villages). Everything else is spelled in Latin letters ("Odos Ermou"). |
+| Greek | Greek, as today ("Ερμούπολη"). |
+| French | The English map (Decision A). Turning on a French version later only needs a small adjustment to the style and the same Latin-spelling step for French; it needs no new map file. |
 
 What this gives us:
 
-- **English readers can read the map.** Greek readers see Greek, as now.
-- **The offline map keeps working as it does today, within the rules.** The app downloads our pictures, not OpenStreetMap's.
-- **No map company sees where anyone looks.** Today a spotter's phone or browser asks OpenStreetMap directly for the patch of map they're viewing. After this change it asks Cat Spotters. Our host, Cloudflare, carries the requests, as it already does for the rest of the site. We don't turn on logging of map requests.
-- **No keys, no monthly limits, and no outside map company to depend on.** The data is free to use under OpenStreetMap's licence, as long as we credit it.
+- **Everyone can read the map.** English readers see English or Latin-letter names. Greek readers see Greek, as now.
+- **A much better offline map on phones.** Today the phone stores pictures of the island and goes blurry past street level outside town. After this, the phone keeps the whole island's map data. With no signal, it shows full street detail anywhere on Syros, in either language. (Offline is still partial overall: see "Offline, precisely".)
+- **Instant language change.** All the names are in the one file, so switching language redraws the map straight away. Nothing is downloaded again.
+- **Sharper maps.** Labels stay crisp at every zoom and on every screen, and they don't block each other.
+- **No map company sees where anyone looks.** Phones and browsers fetch map data from Cat Spotters, not from OpenStreetMap. Cloudflare, our host, carries the requests, as it already does for the rest of the site. We don't turn on logging of map requests.
+- **We follow OpenStreetMap's rules.** We no longer bulk-download their map pictures.
+- **No keys, no monthly limits, no outside map company.** The phone app no longer needs a Google Maps key on Android.
+
+### The look
+
+We use the **adjusted style** Samuel saw on 24 Oct 2026. It starts from Protomaps' light style and is changed to look close to today's map:
+
+- Today's colours: cream land, light-green parks, darker-green woods, sandy beaches, blue sea.
+- Main roads in orange-tan and lanes in white.
+- Hill tops with a ▲, their name and height (Βούλιας 263 m).
+- Churches marked †, with their names when zoomed in close.
+- Beach names in italics.
+- To add: footpaths and hiking trails as dotted lines, like today's map.
+- Kept calm on purpose: only a few landmarks in town (theatre, post office, supermarket), not every shop and café, so the cat markers stand out.
+
+The style is one file in the repo (`map-style/`), shared by the phone app, the website and the dashboard pictures, so all three look the same.
 
 ### What the spotter sees
 
-- **The map follows the app's language.** Switch the app from English to Greek and the labels change too, including on a map that's already open. On phones the map layer is rebuilt when the language changes, because some phones don't redraw it otherwise.
-- **The map looks a little different.** We draw it ourselves in a clean, simple style. Roads, buildings, beaches, footpaths and names are all there, but the colours and road widths won't match openstreetmap.org exactly (Decision C).
-- **Sharper on modern phones.** The pictures are drawn at double size, so labels stay crisp on high-resolution screens.
-- **Credit line:** "© OpenStreetMap contributors" stays on the website and dashboard maps, and is added to the phone app's map.
-- **Outside the island:** the map shows nothing past a margin around Syros. That is what the dashboard already does, and Cat Spotters is only about Syros.
+- **The map follows the app's language,** and switching redraws at once, including a map already open.
+- **Same map, a little cleaner.** It's close to today's map, with fewer shop icons in town.
+- **The credit "© OpenStreetMap contributors"** stays on the website and is added to the phone app's map, which lacks it today.
+- **The map can be turned with two fingers.** The labels stay upright and a compass button turns it back to north. (Or rotation can be switched off: see Risks.)
+- **Outside Syros the map is empty sea.** Cat Spotters is only about Syros, and the file covers the island plus a margin of about 3 km.
 
 ### Offline, precisely
 
-This works the same as today, no more:
+- **Phone app (iPhone and Android).** After its first download, the phone holds the whole island's map data. With no signal, it shows the full map at any zoom, in the reader's language, with the cat markers the app already keeps. The download is one file of a few megabytes (estimate; the first build gives the real size). The fonts and symbols the map needs are downloaded with it.
+- **Before that first download finishes,** for example on a phone that has never had signal since installing, the map is blank. That's the same as today.
+- **Website:** no offline map (SYC-167, unchanged). The browser fetches only the parts of the file it needs as the spotter moves around.
 
-- The phone app (iPhone and Android) keeps the island's map on the phone. It stores the whole island at overview zooms, and street level around Ermoupoli and Ano Syros. That is zooms 11–16, about 1,700 pictures, roughly 20–40 MB per language. The size is an estimate; the first build gives the real figure.
-- Zooming closer than that with no signal shows a blurred map.
-- The website has no offline map (SYC-167, unchanged).
-
-**Changing language on a phone.** The app downloads the island again in the new language, in the background. Until that finishes, the map keeps showing the old pictures, so nothing goes grey. When the new copy is complete, the old one is deleted, so the phone only ever keeps one language. If the language changes again mid-download, the download switches to the newest choice.
-
-**Phones that already have the app.** They keep their current OpenStreetMap pictures until our copy has fully downloaded. Then those are deleted. Even the first launch after updating, with no signal, still shows a map.
-
-**Phones that haven't updated the app** keep asking OpenStreetMap until they do. So the problem with OpenStreetMap's rules ends only as people update. Our map address must therefore never change in a way that breaks older app versions that already use it.
+**Phones that already have the app** keep today's OpenStreetMap pictures until the new file has downloaded. Then those pictures are deleted, which frees space. **Phones that haven't updated the app** keep asking OpenStreetMap until they do, so the problem with OpenStreetMap's rules ends only as people update. Our map address must never change in a way that breaks app versions already using it.
 
 ### What the team sees
 
-The dashboard's island map shows labels in the language of the person viewing it, as the rest of the page already does. It's still drawn from the dashboard's own address, so its security header doesn't change.
+The dashboard's maps keep working without JavaScript, as now. They show the adjusted look with labels in the viewer's language (English or Greek; the French dashboard uses English). The pictures still come from the dashboard's own address, so its security header doesn't change.
 
 ## How it works (for the build)
 
-### 1. Building the pictures
+### 1. Making the map file
 
-A script in the repo (`scripts/map-tiles/`) is run by a manual GitHub Action ("Rebuild Syros map"). The steps:
+A script in the repo (`scripts/map-data/`) is run by a manual GitHub Action called "Rebuild Syros map":
 
-1. **Cut out Syros.** Download Geofabrik's Greece extract and cut a box around the island with `osmium extract`. The box is `SYROS_RECT` padded by 0.03° (about 3 km) on every side. It's a few megabytes.
-2. **Fill in names** (Decision B). A small script adds a Latin-letter name to every feature that has a Greek name but no English one. It uses the standard Greek-to-Latin spelling found on Greek road signs, and writes the result to the extract. Names that OpenStreetMap already has in English are never replaced.
-3. **Make the map data.** Run Protomaps' open-source map builder (`protomaps/basemaps`, built on Planetiler) over the extract. This produces one map-data file (PMTiles). The data has full detail up to zoom 15; closer zooms are drawn from the same data, enlarged.
-4. **Draw the pictures**, once per language:
-   - Use MapLibre's web map engine in headless Chromium, through Playwright, which the repo already uses. Each language gets its own Protomaps style.
-   - Draw in large blocks of 8×8 pictures and slice them up. That's quicker, and it stops labels being cut off at picture edges.
-   - The output is 512-pixel pictures shown at 256, at zooms 11–19, covering the padded box.
-   - The fonts (Noto Sans, which includes Greek) and the map symbols are kept with the build, not fetched from Protomaps' site.
-   - All versions are pinned: the Greece extract date, the builder, the style and MapLibre.
-5. **Record the build.** A `manifest.json` per build lists the data date, every version used and the picture counts.
+1. **Cut out Syros.**
+   - Download Geofabrik's Greece extract.
+   - Cut out a box with `osmium extract`. The box is `SYROS_RECT` padded by 0.03° (about 3 km) on every side.
+2. **Fill in names** (Decision B).
+   - A small script adds `name:en` to every feature that has a Greek name but no English one.
+   - The spelling follows the standard Greek-to-Latin system used on Greek road signs.
+   - Names OpenStreetMap already has in English are never replaced.
+   - Each added name is also tagged as generated (`name:en:auto=yes` inside the file only), so its spelling can be checked later.
+3. **Build the file.**
+   - Run Protomaps' open-source map builder (`protomaps/basemaps`, built on Planetiler) over the extract.
+   - That gives `syros.pmtiles`, with detail down to zoom 15. Closer zooms are drawn from the same data, so the map stays sharp.
+4. **Fonts and symbols.** The map's fonts (Noto Sans, which includes Greek) and symbols are built from Protomaps' published assets, pinned to a version and hosted with the file. Nothing is fetched from Protomaps' own site at run time.
+5. **Record it.** A `manifest.json` lists the data date, every tool version, the file size and the number of names added in step 2.
 
-**Size:** about 182,000 pictures per language over the padded box at zooms 11–19, and two copies (English and Greek; French readers use the English one). Most of those pictures are sea, which compresses to almost nothing. The estimate is a few gigabytes in all, which is about 10 cents a month in Cloudflare R2. Uploading is within R2's free monthly allowance. All of these are estimates; the first build gives real figures.
+### 2. Hosting
 
-### 2. Storing and serving
-
-- The pictures live in a Cloudflare R2 bucket, served on the custom domain `tiles.catspotters.com` at `/v{N}/{lang}/{z}/{x}/{y}.png`.
-- They carry a long cache lifetime, so Cloudflare's edge serves most requests and R2 reads stay within the free allowance. The free allowance is 10 million reads a month. A new phone downloading the island makes about 1,700 requests, so even thousands of installs a month fit.
-- `v{N}` changes on every rebuild. Old versions stay for at least a year, because older app versions and phones' offline copies point at them.
-- Inside the padded box every picture exists. Outside it the address answers "not found", and every map shows that as blank. The web maps hide the broken-image icon.
-- **Who does it:** Claude creates the bucket, the custom domain and the DNS record with the stored Cloudflare API token, after a one-line heads-up. Claude checks it afterwards by fetching a picture with curl.
+- **Where it lives.** A Cloudflare R2 bucket on the custom domain `tiles.catspotters.com` holds:
+  - `/v{N}/syros.pmtiles`, the map file;
+  - `/v{N}/fonts/…` and `/v{N}/sprites/…`, the fonts and symbols;
+  - `/v{N}/manifest.json`;
+  - `/current.json` (`{"version": N}`).
+- **Browser access.** The bucket allows the website's address to read it (CORS) and supports reading part of a file (range requests), which is how browsers fetch only what they need.
+- **Caching.** Files under `/v{N}/` never change, so they carry a long cache lifetime. `current.json` carries a short one.
+- **Old versions** stay for at least a year, because older app versions point at them.
+- **Who does it.** Claude creates the bucket, the domain, the DNS record and the CORS rule with the stored Cloudflare API token, after a one-line heads-up. Claude then checks with curl: a part-of-file request returns 206, and the CORS header is present.
+- **Cost.** A few megabytes of storage per version. Each phone downloads the file once per version. Browsers make a few hundred small part-of-file requests per visit, and Cloudflare's own copies at the edge serve most of them. That stays well inside R2's free allowance of 10 million reads a month. These figures are estimates and are checked after launch.
 
 ### 3. Refreshing
 
-Rebuild every three months, or sooner when the island's data has visibly changed. It's one button in GitHub Actions. Each rebuild is a new `v{N}`. Alongside it, the build writes a tiny `tiles.catspotters.com/current.json` (`{"version": N}`) with a short cache lifetime. The app, the website and the dashboard read that file to find the current version; no API change is needed. (The API has no settings call that could carry this: searched 24 Oct 2026.) If the file can't be read, each map keeps the version it last knew, and builds carry a fallback version.
+- **When.** Rebuild every three months, or sooner when the island's data has visibly changed. It's one button in GitHub Actions.
+- **How it rolls out.** Each rebuild makes a new `v{N}` and updates `current.json`.
+- **Phone app.** It reads `current.json` when it has signal. If there's a newer version, it downloads it in the background and switches over once it's complete.
+- **Website.** It reads `current.json` on each visit.
+- **Dashboard.** Its pictures are rebuilt from the new file, as part of the same Action.
 
 ### 4. App (iPhone and Android)
 
-- `OsmTiles` and `lib/offlineTiles.ts` take the current language and version.
-- `UrlTile` gets a `key` made from the language and version, so it redraws on a change. It is told the pictures are double size.
-- Offline pictures live in `tiles/v{N}/{lang}/`. The "ready" record stores the version and language it holds.
-- The old `tiles/` folder and the `offline-tiles-ready-v1` record are removed once the new copy is complete.
-- The map gets a small "© OpenStreetMap contributors" line, matching the website's.
+- **Map engine.** Replace `react-native-maps` with `@maplibre/maplibre-react-native`. It has an Expo config plugin and works with the store builds made on EAS (Expo's build service).
+- **Rebuilt components.** `AppMap.tsx` (the cat markers and the blurred-area shapes) and `LocationPicker.tsx` (the pin) are rebuilt on MapLibre. `OsmTiles.tsx` and the picture download in `lib/offlineTiles.ts` are removed.
+- **Shared geometry.** `lib/cellShape.ts` keeps its geometry and drops the `react-native-maps` types.
+- **The offline file.** A new `lib/offlineMap.ts` downloads `syros.pmtiles`, the fonts and the symbols into the app's own storage. It records the version it holds, and the map reads the file from there.
+  - MapLibre on Android can read a PMTiles file from device storage (MapLibre Android 11.7 and later; maplibre.org/maplibre-native/android/examples/data/PMTiles).
+  - Whether `maplibre-react-native` passes this through on **both** iPhone and Android is **unchecked**, so PR 1 proves it first (see Rollout).
+- **Fallback.** If reading the file directly doesn't work on one platform, the fallback is MapLibre's own offline storage, filled from the same data. That would need a small Cloudflare Worker that hands out the file in pieces. Protomaps publishes one.
+- **Language.** The style takes the app's language. Changing language swaps the label field (`name:en` or `name:el`) without reloading the map.
+- **No Google key.** `app.config.js` drops `GOOGLE_MAPS_ANDROID_API_KEY` and its build check.
+- **Credit.** The map shows "© OpenStreetMap contributors".
 
 ### 5. Website
 
-`lib/mapTiles.ts` builds addresses from our template plus the current language and version. The website has no content-security header and no service worker, so the new address needs nothing else. (Searched 24 Oct 2026; none found.) `mapTiles.test.ts` and the comment in `cats.tsx` that mention OpenStreetMap's address are updated. The `noStrayApiCallers` test lists allowed files, not addresses, so it needs no change unless a new file builds map addresses.
+- **Map engine.** `AppMap.web.tsx` and `LocationPicker.web.tsx` are rebuilt on `maplibre-gl` with the `pmtiles` library, reading `tiles.catspotters.com/v{N}/syros.pmtiles`. `lib/mapTiles.ts` (today's picture-drawing code) is removed. Its tap-to-position maths is replaced by MapLibre's own.
+- **Size.** MapLibre adds roughly 250 KB (compressed) to the website. It loads only on screens with a map, so Home and other screens don't wait for it.
+- **Very old browsers.** MapLibre needs WebGL. Browsers without it see a plain box saying "The map can't show in this browser." What a spotter can do instead (for example, use the phone's own location) is settled in the plan.
+- **No other website changes.** The website has no content-security header and no service worker (searched 24 Oct 2026), so the new address needs nothing else.
 
 ### 6. Dashboard
 
-- **The picture token** (`tileToken.ts`) gains the language and version. Its version number goes up, so pages cached before the change, which last up to a day, simply ask again.
-- **The cache** (`map_tile_cache`) gains `version` and `lang` columns. The key becomes (version, language, z, x, y), and the duplicate-handling and trimming code is changed to match. Old rows are cleared.
-  - This is a database migration. It goes to production **before** Samuel republishes.
-  - Its rollback block uses the "-- --" comment form. The `lib/db` runner test is run before pushing.
-- **Fetching** (`tileCache.ts`) asks `tiles.catspotters.com` instead of OpenStreetMap. The cache stays: it keeps the dashboard map working if our map host has a bad hour.
-- The rule "nothing logs a picture's position" stays.
+The dashboard keeps ready-drawn pictures, because its maps must work without JavaScript.
+
+- **Drawing the pictures.**
+  - The "Rebuild Syros map" Action draws them from `syros.pmtiles` with the same style.
+  - It runs MapLibre in headless Chromium through Playwright, which the repo already uses.
+  - It draws English and Greek, at zooms 12–19, over the padded box.
+  - It draws in large blocks and slices them, so labels aren't cut at the edges.
+- **Hosting.** The pictures go to `tiles.catspotters.com/v{N}/raster/{lang}/{z}/{x}/{y}.png`.
+- **The picture token.** `tileToken.ts` gains the language and version. Its own version number goes up, so cached pages, which last up to a day, simply ask again.
+- **The cache.** `map_tile_cache` gains `version` and `lang`, and its key becomes (version, language, z, x, y). The duplicate-handling and trimming code change to match.
+  - This is a database migration. It reaches production **before** Samuel republishes.
+  - The rollback block uses the "-- --" comment form, and the `lib/db` runner test is run before pushing.
+- **Fetching.** `tileCache.ts` fetches from our address instead of OpenStreetMap's. The cache stays, so the dashboard map survives a bad hour on our host.
+- **Logging.** The "nothing logs a picture's position" rule stays.
+- **The island map's page.** It keeps Leaflet, which only shows these pictures, so nothing changes there.
 
 ### 7. Credits and licences
 
-- "© OpenStreetMap contributors" stays on every map, with a link to the copyright page where there's room.
-- NOTICE says the map pictures are drawn by Cat Spotters from OpenStreetMap data (ODbL). It also names Protomaps' builder and style (BSD; the style's licence text is checked during the build) and the Noto fonts (OFL).
+- "© OpenStreetMap contributors" appears on every map, with a link to the copyright page where there's room.
+- NOTICE says the map is made by Cat Spotters from OpenStreetMap data (ODbL). It also names:
+  - Protomaps' builder and style (BSD; the style's licence text is checked during the build);
+  - MapLibre (BSD);
+  - the Noto fonts (OFL).
 
-### 8. Rollout order
+### 8. Rollout order (Decision D, step by step)
 
-1. Build the pictures and set up `tiles.catspotters.com`. Check sample pictures in both languages with curl and by looking at them.
-2. Dashboard: migration to production first, then the code. Samuel pulls main in Replit and republishes.
-3. Website: Samuel pulls main and republishes.
-4. Phone apps: a new store build. The app's offline download moves to our pictures only from that build on.
+1. **Prove MapLibre on real phones** (a small throwaway test, not merged). A development build on a real iPhone and a real Android reads a downloaded `syros.pmtiles` with signal off and shows Greek and English labels. If either fails, use the fallback in §4 and say so before going on.
+2. **The map file and its address.** The build script, the Action and `tiles.catspotters.com`. Check with curl and in the browser.
+3. **Dashboard.** Migration to production first, then the code. Samuel pulls main in Replit and republishes.
+4. **Website.** Samuel pulls main and republishes.
+5. **Phone apps.** A new store build. The offline download moves to our file from that build on.
+
+Before each map goes live, there are before-and-after pictures of Ermoupoli's centre, Ano Syros, Kini, Galissas beach and the whole island, at phone width and desktop width.
 
 ## What we looked at and didn't choose
 
-- **Google Maps** (Samuel, 24 Oct). As we understand Google's terms, its pictures can't be kept on the phone, so offline would go. The dashboard's privacy would go too, it needs Google keys and billing, and all four maps would be rebuilt.
-- **A paid map company with English labels.**
-  - MapTiler, Stadia, Thunderforest, Geoapify and Jawg document no choice of label language for picture-style maps. Geoapify says outright that its pictures can't be relabelled.
-  - Stadia forbids keeping copies on a server.
-  - CARTO is free for charities, but whether its labels are English is unchecked, and so are its offline terms.
-  - Tracestrack offers a language choice in its picture addresses, but its Greek support and terms are unchecked.
-  - None of them would fix the 1% street-name problem. Every one brings a key, a monthly limit, and a company that sees where people look.
-- **Switching every map to MapLibre "live-drawn" maps**, where the phone draws the map itself. It's the most flexible option, but it means swapping the map engine in the app and on the website, which is a much bigger job. Drawing the pictures ourselves gets the same labels with small changes to the app.
-- **The German OpenStreetMap server.** It prints Greek with Latin underneath (Ερμούπολη / Ermoupoli; checked on a sample picture). But its policy also asks offline apps not to bulk-download, and it only covers names it already knows.
+- **Google Maps** (Samuel, 24 Oct). As we understand Google's terms, the map couldn't be kept on the phone, and the dashboard's privacy would go. It also needs Google keys and billing.
+- **A paid map company.**
+  - None of those checked lets you choose the label language for map pictures.
+  - None fixes the 1% street-name problem.
+  - Each brings a key, a monthly limit, and a company that sees where people look.
+- **Drawing our own map pictures for every map** (the previous version of this spec). It's the smaller change to the app, and it would look the same. But offline stays limited to pictures already stored, changing language means downloading the island again, and we'd draw and store about 360,000 pictures. Samuel chose MapLibre on 24 Oct 2026, after seeing both side by side.
+- **MapLibre on the dashboard too.** Its maps must work without JavaScript, so they'd still need pictures. It would add work without removing the picture step.
 
-## Decisions for Samuel
+## Decisions (Samuel, 24 Oct 2026)
 
-**A. French readers: English or French labels?**
-OpenStreetMap has French names for 20 of the 145 places on Syros, and for no streets or beaches.
-- *A French copy:* the big places read the French way (Ermoúpoli, Áno Sýros). Everything else uses the Latin-letter spelling from B. It looks nearly identical to the English map, and it's one more copy to build. That costs almost nothing.
-- *French readers get the English map:* simpler, and the names match the road signs, which are in Greek and English. A French tourist sees "Ermoupoli" instead of "Ermoúpoli".
-- **Recommendation: French readers get the English map.** Only 20 places differ, and those differ only by accent marks. A third copy doubles the checking work for very little gain. We can add a French copy later if Syros Cats ask.
-- **Decided (Samuel, 24 Oct 2026): French readers get the English map.** Two copies are built: English and Greek.
-
-**B. Streets and places with only a Greek name: what does an English reader see?**
-This affects most of the map: 99% of streets and over half the places.
-- *Leave them in Greek:* honest and simple. But an English reader sees English town names on a map full of Greek streets, so most of the map stays unreadable to them.
-- *Spell them out in Latin letters automatically* (Οδός Ερμού → Odos Ermou), using the same spelling as Greek road signs. Everything becomes readable, and a tourist can match a label to a sign. The cost is one more step in the build, and automatic spellings can look slightly odd (Agios vs the "Ayios" some signs use).
-- *Greek with Latin letters underneath:* everyone can read it. But every label takes two lines, so the map gets crowded, especially in Ermoupoli's narrow streets.
-- **Recommendation: spell them out in Latin letters automatically.** Without it, this fix mostly doesn't fix anything for streets.
-- **Decided (Samuel, 24 Oct 2026): spell them out in Latin letters automatically.**
-
-**C. How the map looks.**
-- *Protomaps' "light" style, adjusted* to stay close to today's colours: green parks, sandy beaches, white roads. It's clean and easy to read, but less familiar than openstreetmap.org.
-- *A copy of openstreetmap.org's own style.* It's familiar, but it's much harder to rebuild and maintain ourselves.
-- **Recommendation: Protomaps "light", adjusted.** Before anything ships, you'll see before-and-after pictures of Ermoupoli's centre, Ano Syros and Kini beach, on a phone and on a computer.
-- **Decided (Samuel, 24 Oct 2026): Protomaps "light", adjusted.**
-
-**D. Order of the work.**
-- *Everything in one change:* one round of testing, but a very large change to review.
-- *Step by step:* first build the map pictures and set up the map address. Then switch the dashboard, then the website, then the phone apps. Each step is small enough to check properly. The phone apps only get it with their next store update.
-- **Recommendation: step by step**, in that order (see "Rollout order" above).
-- **Decided (Samuel, 24 Oct 2026): step by step.**
+- **Engine:** MapLibre for the phone app and website, with ready-drawn pictures for the dashboard. Samuel said "go with MapLibre and the adjusted style". Applying it to the app and website only, with dashboard pictures, follows the recommendation he was given and **needs his confirmation**.
+- **Look:** the adjusted style shown to Samuel, with footpaths still to add (C).
+- **A. French readers:** they get the English map.
+- **B. Greek-only names:** spelled out automatically in Latin letters, the way Greek road signs do it.
+- **D. Rollout:** step by step, in the order above, starting with the real-phone proof.
 
 ## Not changing
 
-- Where cats and feeding sites appear, how the pin works, and the map zoom limits.
+- Where cats and feeding sites appear, how the pin works, the map zoom limits, and the rounded squares that show a cat's published area instead of an exact spot.
 - The website still has no offline map (SYC-167).
 
 ## Risks
 
-- **Our map host becomes something every map depends on.** If `tiles.catspotters.com` breaks, the website maps go blank. Phones keep their offline copy, and the dashboard keeps its cached pictures. Mitigation: a daily uptime check fetches one picture per language and raises a Linear ticket if any fails.
-- **The drawn map could look worse in places.** Mitigation: before-and-after pictures at five spots, at street level and island-wide, before each map switches.
-- **Automatic spellings will sometimes be clumsy.** Mitigation: names OpenStreetMap already has in English always win. A clumsy name can be fixed for everyone by adding the right English name in OpenStreetMap, after which the next rebuild picks it up.
-- **The dashboard shrinks map pictures**, so its labels are smaller than on the website. Mitigation: the before-and-after pictures include the dashboard. If its labels are too small, the dashboard gets a slightly larger label size.
-- **The data goes stale between rebuilds.** A new road appears weeks later on our map than on openstreetmap.org. That's acceptable for an island where cats live on old streets.
+- **MapLibre on phones is unproven in this app.** It's a different map engine with different marker handling. Mitigation:
+  - Step 1 of the rollout tests it on real phones before anything else is built.
+  - The markers, the pin and the blurred shapes get the same render tests as today.
+  - SYC-287 and SYC-555 (the real-phone checks) are rerun.
+- **Rotation could confuse.** A two-finger twist turns the map, which today's map doesn't do. Mitigation: show the compass button, which turns the map back to north. If testers find rotation confusing, turn it off. That's one setting.
+- **Our map host becomes something every map depends on.** If `tiles.catspotters.com` breaks, the website's maps go blank. Phones keep their offline file, and the dashboard keeps its cache. Mitigation: a daily check fetches `current.json` and part of the map file, and raises a Linear ticket if either fails.
+- **Automatic spellings will sometimes be clumsy** ("Agios" where a sign says "Ayios"). Mitigation: real English names always win. Adding the right English name in OpenStreetMap fixes it for everyone at the next rebuild.
+- **The website gets heavier,** by about 250 KB on map screens. Mitigation: it loads only where there's a map.
+- **The data goes stale between rebuilds,** so a new road appears weeks later than on openstreetmap.org. That's acceptable for this island.
