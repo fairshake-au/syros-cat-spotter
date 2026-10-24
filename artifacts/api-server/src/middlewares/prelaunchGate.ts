@@ -3,6 +3,7 @@ import {
   COAT_SWEEP_PATH,
   FINGERPRINT_NIGHTLY_PATH,
   MAIL_DRAIN_PATH,
+  VET_BATCH_CLEANUP_PATH,
   NEWS_LAST_RUN_PATH,
   NEWS_NIGHTLY_PATH,
   checkFingerprintJobToken,
@@ -39,7 +40,8 @@ import {
  *    for the same reason, and it counts nothing.
  *    Matched on the raw path exactly, so no other spelling gets through.
  * 3. Exactly POST /api/internal/mail/drain, or exactly POST
- *    /api/internal/coat/sweep (SYC-161, Decision D1) → only `Authorization:
+ *    /api/internal/coat/sweep (SYC-161, Decision D1), or exactly POST
+ *    /api/internal/vet-batches/cleanup (SYC-677) → only `Authorization:
  *    Bearer <MAIL_DRAIN_TOKEN>` (SYC-42: the scheduled drain's own narrow
  *    token).
  *    Exactly POST /api/internal/news/nightly, or exactly GET or HEAD
@@ -127,7 +129,7 @@ export function prelaunchGate(
     return;
   }
 
-  if ((path === MAIL_DRAIN_PATH || path === COAT_SWEEP_PATH) && req.method === "POST") {
+  if ((path === MAIL_DRAIN_PATH || path === COAT_SWEEP_PATH || path === VET_BATCH_CLEANUP_PATH) && req.method === "POST") {
     // Not configured → the same refusal as a wrong token (fails closed; the
     // route itself says not_configured when the gate is off).
     if (checkMailDrainToken(req.headers.authorization) === "ok") {
