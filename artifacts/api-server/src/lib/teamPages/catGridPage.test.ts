@@ -243,9 +243,14 @@ describe("the Pattern filter (SYC-435; coat spec §15.2)", () => {
 
   it("shows a chip in the team's word that removes just that pattern, keeping the code in the address", () => {
     const html = render({ filters: { patterns: ["stripes", "patches"], colours: ["black"] } });
-    expect(html).toContain("Tabby");
-    expect(html).toContain("Patched");
-    expect(html).toContain("patterns=patches");
-    expect(html).not.toContain("patterns=tabby");
+    const chips = [...html.matchAll(/<a class="fchip" href="([^"]*)">([^<]*?) /g)].map((m) => ({ href: m[1]!, label: m[2]! }));
+    const tabby = chips.find((c) => c.label === "Tabby")!;
+    const patched = chips.find((c) => c.label === "Patched")!;
+    // Removing Tabby keeps Patched (and the colour); removing Patched keeps Tabby.
+    expect(tabby.href).toContain("patterns=patches");
+    expect(tabby.href).not.toContain("patterns=stripes");
+    expect(patched.href).toContain("patterns=stripes");
+    expect(patched.href).not.toContain("patterns=patches");
+    expect(tabby.href).toContain("colours=black");
   });
 });
