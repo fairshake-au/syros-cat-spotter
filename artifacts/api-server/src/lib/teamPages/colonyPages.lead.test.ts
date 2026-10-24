@@ -21,13 +21,13 @@ const colonies = (o: Partial<Parameters<typeof renderColoniesPage>[0]> = {}) =>
   });
 
 describe("Colonies with none yet (SYC-577)", () => {
-  it("says what a colony is, then Create a colony, before Recent changes and the search", () => {
+  it("says what a colony is, then Create a colony; no search and no Recent changes yet (SYC-619 §7.1)", () => {
     const html = colonies();
     const lead = html.indexOf(LEAD);
     expect(lead).toBeGreaterThan(-1);
     expect(html.indexOf("Create a colony")).toBeGreaterThan(lead);
-    expect(html.indexOf("Recent changes by cat guardians")).toBeGreaterThan(html.indexOf("Create a colony"));
-    expect(html.indexOf('role="search"')).toBeGreaterThan(html.indexOf("Create a colony"));
+    expect(html).not.toContain("Recent changes by cat guardians");
+    expect(html).not.toContain('role="search"');
     expect(html.match(/id="create"/g)).toHaveLength(1);
     // Said once, not again by the empty list under it (SYC-522 review).
     expect(html.split(LEAD)).toHaveLength(2);
@@ -52,6 +52,40 @@ describe("Colonies with none yet (SYC-577)", () => {
     expect(colonies({ query: "zzz" })).not.toContain(LEAD);
     expect(colonies({ searched: true })).not.toContain(LEAD);
     expect(colonies({ island: false })).not.toContain(LEAD);
+  });
+});
+
+describe("Colonies list order (SYC-619 §7.1)", () => {
+  const row = (id: number, name: string) => ({ id, name, guardianName: null, siteCount: 0, catCount: 4 });
+  const two = [row(1, "Alpha"), row(2, "Beta")];
+  const inOrder = (html: string, marks: string[]) => {
+    const at = marks.map((m) => html.indexOf(m));
+    at.forEach((i, n) => expect(i, marks[n]).toBeGreaterThan(-1));
+    expect(at).toEqual([...at].sort((a, b) => a - b));
+  };
+
+  it("with colonies: search, sort, figures, list, Create, then Recent changes last", () => {
+    const html = colonies({ colonies: two });
+    inOrder(html, [
+      'role="search"',
+      'class="sortbar"',
+      'class="figat"',
+      'class="cats colonylist"',
+      'id="create"',
+      "Recent changes by cat guardians",
+    ]);
+  });
+
+  it("searching with no matches keeps the search form, with Recent changes after it", () => {
+    const html = colonies({ query: "zzz" });
+    inOrder(html, ['role="search"', "Recent changes by cat guardians"]);
+  });
+
+  it("a cat guardian with no colony gets no search and no Recent changes, but her Create form", () => {
+    const html = colonies({ island: false });
+    expect(html).not.toContain('role="search"');
+    expect(html).not.toContain("Recent changes by cat guardians");
+    expect(html).toContain('id="create"');
   });
 });
 

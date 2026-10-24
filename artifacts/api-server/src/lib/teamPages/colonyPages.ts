@@ -316,11 +316,14 @@ export function renderColoniesPage(opts: ColonyViewer & {
                 : "colonies.emptyTeam",
         )}</p>`;
   // The team's first visit with no colony yet (SYC-577): say what a colony is
-  // and offer "Create a colony" before "Recent changes" and the search.
+  // and offer "Create a colony" first.
   const leadCreate = opts.canCreate && opts.island !== false && opts.colonies.length === 0 && !searching;
   const create = opts.canCreate
     ? createForm(W, opts.island !== false, opts.island === false && opts.colonies.length === 0 && !searching, opts.kept)
     : "";
+  // SYC-619 §7.1: with no colony and no search there is nothing to search and
+  // nothing has changed, so the search form and Recent changes are left out.
+  const searchable = opts.colonies.length > 0 || searching;
   return renderPage({
     title: t("colonies.title"),
     active: "colonies",
@@ -337,19 +340,21 @@ export function renderColoniesPage(opts: ColonyViewer & {
       (leadCreate
         ? `<p>${w("colonies.lead")}</p>` + create
         : "") +
-      (opts.recentChanges ? recentChangesSection(W, opts.recentChanges) : "") +
-      `<form class="search" method="get" action="/api/team/colonies" role="search">` +
-      `<label class="label" for="colony-q">${w("colonies.searchLabel")}</label>` +
-      `<div class="searchrow"><input id="colony-q" name="q" type="search" value="${esc(opts.query)}" maxlength="200" autocomplete="off">` +
-      // Searching keeps the chosen order.
-      (opts.sort === "name" ? "" : `<input type="hidden" name="sort" value="${opts.sort}">`) +
-      `<button type="submit">${w("colonies.searchButton")}</button></div></form>` +
-      (searching ? `<p><a class="tap" href="/api/team/colonies">${w("colonies.showAll")}</a></p>` : "") +
+      (searchable
+        ? `<form class="search" method="get" action="/api/team/colonies" role="search">` +
+          `<label class="label" for="colony-q">${w("colonies.searchLabel")}</label>` +
+          `<div class="searchrow"><input id="colony-q" name="q" type="search" value="${esc(opts.query)}" maxlength="200" autocomplete="off">` +
+          // Searching keeps the chosen order.
+          (opts.sort === "name" ? "" : `<input type="hidden" name="sort" value="${opts.sort}">`) +
+          `<button type="submit">${w("colonies.searchButton")}</button></div></form>` +
+          (searching ? `<p><a class="tap" href="/api/team/colonies">${w("colonies.showAll")}</a></p>` : "")
+        : "") +
       (opts.colonies.length > 1 && opts.figures !== null ? sortBar(W, opts.sort) : "") +
       figuresLine +
       growingKey +
       list +
-      (leadCreate ? "" : create),
+      (leadCreate ? "" : create) +
+      (opts.recentChanges && searchable ? recentChangesSection(W, opts.recentChanges) : ""),
   });
 }
 
