@@ -74,3 +74,18 @@ describe('LoadFailed', () => {
     expect(onRetry).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('LoadFailed for screen readers (SYC-509 rules)', () => {
+  it('announces itself as an alert and names what Try again reloads when asked', () => {
+    const { getByRole, getByLabelText } = render(
+      <LoadFailed size="line" onRetry={() => {}} retryLabel="Try again: your stats" />,
+    );
+    expect(getByRole('alert')).toBeTruthy();
+    expect(getByLabelText('Try again: your stats')).toBeTruthy();
+  });
+
+  it('full size: the title is a heading', () => {
+    const { getByRole } = render(<LoadFailed size="full" onRetry={() => {}} />);
+    expect(getByRole('heading').textContent).toBe(en.loadFailedTitle);
+  });
+});

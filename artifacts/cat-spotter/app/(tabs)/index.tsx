@@ -211,6 +211,7 @@ export default function HomeScreen() {
             <LoadFailed
               size="line"
               message={t('statsUnavailable')}
+              retryLabel={`${t('tryAgain')}: ${t('statsUnavailable')}`}
               onRetry={() => profileQuery.refetch()}
               testID="home-stats-failed"
             />
@@ -278,7 +279,12 @@ export default function HomeScreen() {
               <ActivityIndicator color={colors.primary} />
             </View>
           ) : loadFailed ? (
-            <LoadFailed size="line" onRetry={retry} testID="home-cats-failed" />
+            <LoadFailed
+              size="line"
+              onRetry={retry}
+              retryLabel={`${t('tryAgain')}: ${t(stripHeadingKey(!!coords, nearby))}`}
+              testID="home-cats-failed"
+            />
           ) : nearby.length === 0 ? (
             <Text style={[styles.empty, { color: colors.mutedForeground }]}>
               {t('noCats')}

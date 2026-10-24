@@ -21,11 +21,14 @@ export function LoadFailed({
   size,
   onRetry,
   message,
+  retryLabel,
   testID,
 }: {
   size: 'full' | 'line';
   onRetry: () => Promise<unknown> | void;
   message?: string;
+  /** What screen readers hear for Try again when a screen has more than one. */
+  retryLabel?: string;
   testID?: string;
 }) {
   const colors = useColors();
@@ -60,6 +63,7 @@ export function LoadFailed({
       size={size === 'full' ? 'lg' : 'md'}
       busy={busy}
       onPress={retry}
+      accessibilityLabel={retryLabel}
       iconLeft={
         busy ? (
           <ActivityIndicator
@@ -79,7 +83,7 @@ export function LoadFailed({
   if (size === 'line') {
     return (
       <View style={styles.line} testID={testID}>
-        <View accessibilityLiveRegion="polite" aria-live="polite" style={styles.lineText}>
+        <View accessibilityRole="alert" accessibilityLiveRegion="polite" aria-live="polite" style={styles.lineText}>
           <Text style={[styles.lineMessage, { color: colors.mutedForeground }]}>
             {message ?? t('loadFailedTitle')}
           </Text>
@@ -98,7 +102,7 @@ export function LoadFailed({
       >
         <Feather name="cloud-off" size={40} color={colors.mutedForeground} />
       </View>
-      <View accessibilityLiveRegion="polite" aria-live="polite" style={styles.fullText}>
+      <View accessibilityRole="alert" accessibilityLiveRegion="polite" aria-live="polite" style={styles.fullText}>
         <Text role="heading" style={[styles.title, { color: colors.foreground }]}>
           {message ?? t('loadFailedTitle')}
         </Text>
