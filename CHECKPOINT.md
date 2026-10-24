@@ -14,3 +14,11 @@ Worktree: heuristic-jones-f8c2f2 (branch claude/heuristic-jones-f8c2f2, from ori
 - Walk the flow at 390px in web preview (port 8124), screenshots to scratchpad.
 - Decision artifact with mocks per option → AskUserQuestion.
 - Spec docs/specs/onboarding-fewer-screens.md → Sonnet adversarial review → fold in → artifact → draft PR → Linear.
+
+## 24 Oct, milestone 2
+- Screenshots committed (docs/specs/assets/onboarding-fewer-screens/now-*.png). Found 6 steps incl. photo-tips sheet.
+- Decision page published: https://claude.ai/artifact/5B1TXn8ACr71ZGRkRxiQ7b (source in session scratchpad first-photo-sooner.html).
+  - D1 screens: A keep 5 / B fold How-it-works into safety / C = B + keep-safe after first sighting (REC, amends DECISIONS D5) / D = C + auto name.
+  - D2 location: A auto at photo / B explain card at first photo, "Use where I am" + "I'll put the pin on the map" (REC) / C on Spot open / D own onboarding screen.
+  - Sequencing: SYC-308 first, then SYC-524; SYC-575 keeps only camera buttons + glyph.
+- Next: AskUserQuestion D1 then D2, record on SYC-524, write spec.
