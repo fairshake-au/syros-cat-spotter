@@ -261,7 +261,7 @@ export function renderFindForm(o: FindFormOptions): string {
         ? `<p class="notice" role="alert">${esc(o.problem.words)} <a href="${o.problem.field === "place" ? "#find-area" : "#find-photo"}">Go to it</a></p>`
         : "") +
       tieIntro(o.tie, o.now) +
-      '<p class="hint">Compare a photo, for example one a resident sent, with the cats of the whole island, one area or one colony. You decide which cat it is; the page only says how close each one looks.</p>' +
+      '<p class="hint">Choose where to look, then add the photo below. <a href="#find-photo">Go to the photo</a></p>' +
       whereForm(o) +
       (o.problem?.field === "place" ? "" : countLine(o.narrowing, o.filters, o.colonies)) +
       photoForm(o),
