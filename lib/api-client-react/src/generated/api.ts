@@ -657,7 +657,7 @@ export const getUnfollowCatUrl = (catId: number,) => {
 /**
  * Needs the device secret. Idempotent. Records the choice, so spotting
  * the cat again does not follow it again. The cat's owner cannot
- * unfollow (403 NOT_OWNER_CANNOT_UNFOLLOW). Never cached. Shares the
+ * unfollow (403 OWNER_CANNOT_UNFOLLOW). Never cached. Shares the
  * courtesy cap with follow.
  * @summary Stop following a cat
  */

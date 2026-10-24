@@ -642,7 +642,7 @@ function followHandler(action: "follow" | "unfollow") {
       return;
     }
     if (result.kind === "owner") {
-      res.status(403).json({ error: "The cat's owner can't unfollow it", code: "NOT_OWNER_CANNOT_UNFOLLOW" });
+      res.status(403).json({ error: "The cat's owner can't unfollow it", code: "OWNER_CANNOT_UNFOLLOW" });
       return;
     }
     res.json({ isFollowing: action === "follow", followersCount: result.followersCount });

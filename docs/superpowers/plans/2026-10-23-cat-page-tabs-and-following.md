@@ -92,21 +92,21 @@ PR B also carries the spec and this plan: cherry-pick the docs commits from `cla
 ### Task B2: Follow and unfollow routes, with a courtesy cap
 
 **Files:**
-- Modify: `lib/api-spec/openapi.yaml`: paths `POST /cats/{catId}/follow` (operationId `followCat`) and `POST /cats/{catId}/unfollow` (operationId `unfollowCat`), body `FollowCatBody { deviceId: string }`, response `FollowState { isFollowing: boolean, followersCount: integer }`. Errors: 404 (no cat), 400, 401/403/410 (from `verifyDeviceSecret`), 403 `{ code: "NOT_OWNER_CANNOT_UNFOLLOW" }`, 429, 503. Run codegen.
+- Modify: `lib/api-spec/openapi.yaml`: paths `POST /cats/{catId}/follow` (operationId `followCat`) and `POST /cats/{catId}/unfollow` (operationId `unfollowCat`), body `FollowCatBody { deviceId: string }`, response `FollowState { isFollowing: boolean, followersCount: integer }`. Errors: 404 (no cat), 400, 401/403/410 (from `verifyDeviceSecret`), 403 `{ code: "OWNER_CANNOT_UNFOLLOW" }`, 429, 503. Run codegen.
 - Modify: `artifacts/api-server/src/middlewares/rateLimit.ts`: add `FOLLOW_DEVICE_LIMIT = 50`, `FOLLOW_ADDRESS_LIMIT = 300`, `FOLLOW_WINDOW_MS = 24*60*60*1000`; `declareLimit` both, sliding; `checkFollowLimit(deviceId: string, address: string, now = Date.now()): Promise<boolean>`; `_resetFollowLimitForTests()`. Copy `checkClaimLimit`; the address key comes from `addressKey`.
 - Create: `artifacts/api-server/src/lib/following.ts`:
   - `follow(tx, { deviceId, catId }): Promise<void>`: delete the `cat_unfollows` row, insert `cat_subscriptions` `on conflict do nothing`.
   - `unfollow(tx, { deviceId, catId }): Promise<void>`: delete the `cat_subscriptions` row, insert `cat_unfollows` `on conflict do nothing`.
   - `followersCount(catId: number, exec = db): Promise<number>`: `count(*)` from `cat_subscriptions` where `cat_id = catId and device_id not like 'deleted:%'`.
   - `isFollowing(deviceId: string, catId: number, exec = db): Promise<boolean>`.
-- Modify: `artifacts/api-server/src/routes/cats.ts`: two handlers modelled on `let-go` (`cats.ts:520`). In order: `PER_PHONE` header, catId check, zod `FollowCatBody`, `verifyDeviceSecret`, `checkFollowLimit` (try/catch → 503 with `Retry-After: 5`; refused → 429), then a transaction that locks the cat row (404 if missing). Unfollow refuses with 403 `NOT_OWNER_CANNOT_UNFOLLOW` when `cat.ownerDeviceId === deviceId`. Both answer `FollowState`.
+- Modify: `artifacts/api-server/src/routes/cats.ts`: two handlers modelled on `let-go` (`cats.ts:520`). In order: `PER_PHONE` header, catId check, zod `FollowCatBody`, `verifyDeviceSecret`, `checkFollowLimit` (try/catch → 503 with `Retry-After: 5`; refused → 429), then a transaction that locks the cat row (404 if missing). Unfollow refuses with 403 `OWNER_CANNOT_UNFOLLOW` when `cat.ownerDeviceId === deviceId`. Both answer `FollowState`.
 - Test: `artifacts/api-server/src/routes/cats.follow.test.ts` (new). Use the device/secret pattern from `cats.claim.test.ts`.
 
 - [ ] **Step 1: Write failing tests:**
   - follow adds a `cat_subscriptions` row and answers `{ isFollowing: true, followersCount: n+1 }`; following twice keeps one row (double tap).
   - unfollow removes the row, writes `cat_unfollows`, and answers `{ isFollowing: false }`.
   - follow after unfollow deletes the `cat_unfollows` row.
-  - The owner's unfollow → 403 `NOT_OWNER_CANNOT_UNFOLLOW`, and the row stays.
+  - The owner's unfollow → 403 `OWNER_CANNOT_UNFOLLOW`, and the row stays.
   - Missing cat → 404. No secret → 401. A `deleted:` id → 410.
   - The 51st follow-or-unfollow call in a day from one phone → 429. Re-follow counts as a call.
   - `followersCount` ignores a `deleted:%` row (insert one by hand).

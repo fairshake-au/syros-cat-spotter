@@ -112,7 +112,7 @@ describe("POST /api/cats/:catId/follow and /unfollow", () => {
     await post("follow", cat.id, device("owner"));
     const res = await post("unfollow", cat.id, device("owner"));
     expect(res.status).toBe(403);
-    expect(res.body.code).toBe("NOT_OWNER_CANNOT_UNFOLLOW");
+    expect(res.body.code).toBe("OWNER_CANNOT_UNFOLLOW");
     expect(await subRows(device("owner"), cat.id)).toHaveLength(1);
     expect(await unfollowRows(device("owner"), cat.id)).toHaveLength(0);
   });
