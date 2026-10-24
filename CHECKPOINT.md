@@ -25,3 +25,8 @@ Worktree: heuristic-jones-f8c2f2 (branch claude/heuristic-jones-f8c2f2, from ori
 
 ## 24 Oct, Samuel's steer on Decision 1 (quote): "let's combine the make it yours and don't lose your spots pages. I don't like the combined "how Syros Cat Spotters works" and "Look don't touch" page - give me some other options for combining these"
 - Building round 2: name+email one screen (agreed), and options for How it works + safety: O1 steps on Welcome, O2 safety as a card in How it works, O3 How it works moves to Help & info, O4 keep both separate.
+
+## Decision 1 DECIDED (Samuel, 24 Oct, quote): "1, but ensure that the "don't feed them" advice is included on the safety card too"
+- = Welcome carries the 3 steps (existing strings); safety screen alone + "Please don't feed them" block (existing howStepDontFeed/Body) ; one Make it yours + Don't lose your spots screen. 3 screens.
+- Fit measured at 390x844 on main: safety column 507px (el), 441 (fr), 419 (en) in a 744px scroll area → ~205px spare in Greek.
+- Next: ask Decision 2 (location).
