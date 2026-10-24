@@ -1,6 +1,6 @@
 # Recording a batch of vet visits from photos (SYC-677)
 
-**Status:** draft for Samuel's approval, 24 Oct 2026. This replaces §8.5 of `docs/specs/team-dashboard-redesign.md` ("Logging a whole trapping round"). It is the design for re-building PR #327, which is held as a draft.
+**Status:** **Approved by Samuel, 24 Oct 2026** ("approved, write the plan"). This replaces §8.5 of `docs/specs/team-dashboard-redesign.md` ("Logging a whole trapping round"). It is the design for re-building PR #327, which is held as a draft.
 
 **Linear:** SYC-677 (this design), SYC-621 (the planner, PR #326, unaffected), SYC-473 (adding a cat nobody has recorded yet, folded in here).
 
