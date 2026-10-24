@@ -444,6 +444,8 @@ const PROBES: Probe[] = [
   { name: "GET /profiles/:id/cats/:c/open-sightings", file: "sightings.ts", call: (id, s, c) => request(app).get(`/api/profiles/${id}/cats/${c.catId}/open-sightings`).set("X-Device-Secret", s) },
   { name: "POST /cats/:id/claim", file: "cats.ts", call: (id, s, c) => request(app).post(`/api/cats/${c.catId}/claim`).set("X-Device-Secret", s).send({ deviceId: id, livesOnSyros: true, livesInMyHome: true, homePin: { lat: 37.44, lng: 24.9 } }) },
   { name: "POST /cats/:id/let-go", file: "cats.ts", call: (id, s, c) => request(app).post(`/api/cats/${c.catId}/let-go`).set("X-Device-Secret", s).send({ deviceId: id }) },
+  // follow and unfollow share one handler, so one device-secret check and one probe.
+  { name: "POST /cats/:id/follow", file: "cats.ts", call: (id, s, c) => request(app).post(`/api/cats/${c.catId}/follow`).set("X-Device-Secret", s).send({ deviceId: id }) },
   { name: "PATCH /cats/:id", file: "cats.ts", call: (id, s, c) => request(app).patch(`/api/cats/${c.catId}`).set("X-Device-Secret", s).send({ deviceId: id, name: "Anything" }) },
   { name: "POST /reports/draft", file: "reports.ts", call: (id, s) => request(app).post("/api/reports/draft").set("X-Device-Secret", s).set("X-Forwarded-For", freshIp()).send({ deviceId: id, clientRef: `ref-${randomBytes(6).toString("hex")}`, severity: "attention", lat: 37.44, lng: 24.9, language: "en" }) },
   { name: "POST /issues", file: "issues.ts", call: (id, s, ctx) => request(app).post("/api/issues").set("X-Device-Secret", s).set("X-Forwarded-For", freshIp()).send({ deviceId: id, clientRef: `ref-${randomBytes(6).toString("hex")}`, reason: "cat_died", catId: ctx.catId, language: "en" }) },
