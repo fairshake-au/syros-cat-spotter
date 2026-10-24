@@ -39,7 +39,7 @@ export function distanceKm(a: LatLng, b: { lat: number; lng: number }): number {
 
 export function orderVets(vets: Clinic[], from: LatLng | null): OrderedVet[] {
   const fixed = vets.map((clinic) => ({ clinic, km: null, closest: false }));
-  if (!from) return fixed;
+  if (!from || !Number.isFinite(from.latitude) || !Number.isFinite(from.longitude)) return fixed;
 
   const measured = vets
     .filter((c) => c.coordinates)

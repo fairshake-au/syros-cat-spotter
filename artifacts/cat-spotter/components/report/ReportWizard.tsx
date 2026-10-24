@@ -199,7 +199,7 @@ export function ReportWizard({
         <IconButton variant="ghost" label={t('back')} onPress={back}>
           <Feather name="arrow-left" size={20} color={colors.foreground} />
         </IconButton>
-        <Text role="heading" style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
+        <Text role="heading" style={[styles.title, { color: colors.foreground }]} numberOfLines={2}>
           {title}
         </Text>
         <Text style={[styles.stepOf, { color: colors.mutedForeground }]} testID="report-step">
