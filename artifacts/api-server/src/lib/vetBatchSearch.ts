@@ -2,7 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { db, photosTable, vetBatchCatsTable, vetBatchPhotosTable } from "@workspace/db";
 import { checkBatchFindLimits } from "../middlewares/rateLimit";
 import { findFromPhoto, type FindFilters, type FindOutcome, type FindResult } from "./findFromPhoto";
-import { getBatch, setSuggestions } from "./vetBatches";
+import { BatchSavedError, getBatch, setSuggestions } from "./vetBatches";
 
 // Matching a batch cat by photo (SYC-677 Task 5). The cat's first staged photo
 // is compared with the cats in the chosen place, with the batch's own daily
@@ -31,7 +31,7 @@ const tidy = (r: FindResult): FindResult => ({
   catId: r.catId,
   score: Math.round(r.score * 100) / 100,
   band: r.band,
-  reasoning: r.reasoning,
+  reasoning: r.reasoning.slice(0, 300),
   photoPublicId: r.photoPublicId,
 });
 
@@ -48,6 +48,8 @@ export async function searchBatchCat(
   if (!cat) return NOTHING_TO_SEARCH;
   const batch = await getBatch(cat.batchId);
   if (!batch) return NOTHING_TO_SEARCH;
+  // A saved batch can't change: refuse before the gate, so no search is spent.
+  if (batch.savedAt) throw new BatchSavedError();
   const [first] = await db
     .select({ data: photosTable.data })
     .from(vetBatchPhotosTable)

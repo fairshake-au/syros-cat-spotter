@@ -301,6 +301,7 @@ export async function setSuggestions(batchCatId: number, results: FindResult[] |
       .select({ batchId: vetBatchCatsTable.batchId })
       .from(vetBatchCatsTable)
       .where(eq(vetBatchCatsTable.id, batchCatId));
+    // A cat removed since the search began: nothing to store, and not an error.
     if (!cat || !(await lockDraft(tx, cat.batchId))) return;
     await tx.update(vetBatchCatsTable).set({ suggestions: results }).where(eq(vetBatchCatsTable.id, batchCatId));
     await touch(tx, cat.batchId);

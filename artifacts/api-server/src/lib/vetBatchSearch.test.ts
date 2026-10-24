@@ -13,6 +13,7 @@ import {
   _resetBatchFindLimitsForTests,
   _resetFindLimitsForTests,
   BATCH_FIND_PERSON_LIMIT,
+  batchFindPersonHits,
   checkBatchFindLimits,
   findPersonHits,
 } from "../middlewares/rateLimit";
@@ -124,6 +125,16 @@ describe("searchBatchCat", () => {
     expect((await getBatch(batchId))!.cats[0]!.suggestions).toHaveLength(3);
   });
 
+  it("caps a stored reasoning at 300 characters", async () => {
+    const { batchId, batchCatId } = await newBatchWithCat();
+    matchMock.mockImplementation(async (_p, candidates: CandidateInput[]) => ({
+      isCatPhoto: true,
+      matches: candidates.map((c) => ({ catId: c.catId, confidence: 0.7, reasoning: "x".repeat(900) })),
+    }));
+    await searchBatchCat(person, batchCatId, "batch");
+    expect((await getBatch(batchId))!.cats[0]!.suggestions!.every((s) => s.reasoning.length <= 300)).toBe(true);
+  });
+
   it("a batch search doesn't touch the single-photo counters", async () => {
     const { batchCatId } = await newBatchWithCat();
     await searchBatchCat(person, batchCatId, "batch");
@@ -134,6 +145,8 @@ describe("searchBatchCat", () => {
     const { batchId, batchCatId } = await newBatchWithCat();
     await db.update(vetBatchesTable).set({ savedAt: new Date() }).where(eq(vetBatchesTable.id, batchId));
     await expect(searchBatchCat(person, batchCatId, "batch")).rejects.toThrow(/saved/);
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(await batchFindPersonHits(person.id)).toBe(0);
     expect((await getBatch(batchId))!.cats[0]!.suggestions).toBeNull();
   });
 });

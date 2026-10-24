@@ -460,6 +460,16 @@ export async function checkBatchFindLimits(personId: string, now: number = Date.
   return team.allowed ? "ok" : "team";
 }
 
+/** A person's batch-search count so far. For tests. */
+export async function batchFindPersonHits(personId: string, now: number = Date.now()): Promise<number> {
+  return (
+    await peek(BATCH_FIND_PERSON_BUCKET, `person:${personId}`, FIND_PHOTO_WINDOW_MS, undefined, now, {
+      sliding: true,
+      limit: BATCH_FIND_PERSON_LIMIT,
+    })
+  ).hits;
+}
+
 /** Whether a batch cap is already reached, without counting anything. */
 export async function batchFindLimitReached(personId: string, now: number = Date.now()): Promise<FindLimit> {
   const opts = (limit: number) => ({ sliding: true, limit });
