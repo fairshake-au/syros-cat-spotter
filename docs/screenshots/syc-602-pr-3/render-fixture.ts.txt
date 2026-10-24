@@ -41,7 +41,7 @@ const v: TeamCatView = {
   },
   appearance: {
     coat: { value: ["grey", "stripes"], confidence: "likely", parts: { colours: { value: ["grey"], confidence: "likely" }, pattern: { value: "stripes", confidence: "likely" } }, checkReasons: ["spotters_over_machine"], statements: [{ id: 120, codes: ["grey", "stripes"], author: { kind: "system", label: "read automatically from the photo" }, source: "machine", prompted: false, agreesWith: null, createdAt: "2026-04-03T09:13:00Z", photoUrl: "/api/team/photos/s1", modelVersion: "coat-v2", counts: true, markable: true }], guardianDecides: false, aboveTeamIds: [], guardianDisagrees: false },
-    markings: { value: ["white_paws"], confidence: "reported", checkReasons: [], statements: [], guardianDecides: false, aboveTeamIds: [], guardianDisagrees: false },
+    markings: { value: ["white_paws"], confidence: "reported", checkReasons: [], statements: [{ id: 121, codes: ["white_paws"], author: { kind: "system", label: "read automatically from the photo" }, source: "machine", prompted: false, agreesWith: null, createdAt: "2026-04-03T09:13:00Z", photoUrl: "/api/team/photos/s1", modelVersion: "coat-v2", counts: true, markable: true }, { id: 122, codes: ["white_paws"], author: { kind: "team", label: "Maria" }, source: "team", prompted: false, agreesWith: 121, createdAt: "2026-04-05T10:00:00Z", photoUrl: null, modelVersion: null, counts: true, markable: true }], guardianDecides: false, aboveTeamIds: [], guardianDisagrees: false },
     handPick: false,
   },
   sightings: spots.map(([lat, lng], i) => ({ id: sightingIds[i]!, lat, lng, at: day(sightingDays[i]!), photoUrl: `/api/team/photos/s${(i % 3) + 1}`, extraPhotos: [], mixedCats: i === 6 })),

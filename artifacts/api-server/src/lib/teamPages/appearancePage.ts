@@ -496,8 +496,8 @@ function foldKind(
   const coat = kind === "coat" && a.parts ? { colours: a.parts.colours.value, pattern: a.parts.pattern.value } : undefined;
   return (
     `<h3>${esc(heading)}</h3>` +
-    // A value with no counting change behind it still says so (spec 3.7: one sentence each).
-    (origins.length ? `<p>${esc(origins.join(". "))}.</p>` : phrase !== null ? "<p>Not recorded yet.</p>" : "") +
+    // No counting change means no sentence: real data cannot give a value without one.
+    (origins.length ? `<p>${esc(origins.join(". "))}.</p>` : "") +
     (reasons.length
       ? `<p class="label">${esc(tr(lang, "appearance.checkTitle"))}</p>${reasonList(lang, reasons)}`
       : "") +

@@ -220,11 +220,13 @@ describe("the Coat and markings fold (SYC-602 Task 3.2)", () => {
     expect(fold(page())).not.toContain("Also recorded, not counted");
   });
 
-  it("says where a value came from when no change counts for it", () => {
+  it("draws no origin sentence when no change counts for a value", () => {
     const v = view({}, { statements: [stmt({ id: 520, codes: ["white_paws"], source: "spotter", counts: false, markable: true, photoUrl: null })] });
     const f = fold(page(v));
     const mark = f.slice(f.indexOf("<h3>Markings"));
-    expect(mark).toContain("Not recorded yet");
+    expect(mark).not.toContain("Not recorded yet");
+    // Straight after the heading comes the uncounted-list label, not an origin sentence.
+    expect(mark.slice(mark.indexOf("</h3>") + 5).startsWith('<p class="label">Also recorded, not counted</p>')).toBe(true);
   });
 
   it("keeps Worth a second look and the guardian warning", () => {

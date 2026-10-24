@@ -658,9 +658,9 @@ details.filters>summary{display:none}
 .jump{margin:32px 0 0;border-radius:0}
 .catcols{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:0 28px;align-items:start}
 .catcols>div{min-width:0}
-.catside{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow-y:auto;padding-bottom:18px}
-/* A soft fade at the bottom edge hints there is more below; it takes no taps and the padding keeps the last line clear of it. */
-.catside::after{content:"";display:block;position:sticky;bottom:-18px;height:18px;margin-top:-18px;background:linear-gradient(to bottom,rgba(29,29,27,0),rgba(29,29,27,.16));pointer-events:none}
+.catside{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow-y:auto}
+/* A soft fade at the bottom edge hints there is more below; it takes no taps and at the end of the scroll it sits in its own 18px below the last item, so it never covers anything. */
+.catside::after{content:"";display:block;position:sticky;bottom:0;height:18px;background:linear-gradient(to bottom,rgba(29,29,27,0),rgba(29,29,27,.16));pointer-events:none}
 }
 `;
 
