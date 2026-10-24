@@ -36,6 +36,7 @@ export function FollowButton({ catId, catName, deviceId, isFollowing, isOnline }
   const unfollow = useUnfollowCat({ mutation: { networkMode: 'always' } });
   // What the tap just asked for, until the server answers.
   const [pending, setPending] = React.useState<boolean | null>(null);
+  const inFlight = React.useRef(false);
   const [failed, setFailed] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   React.useEffect(
@@ -49,7 +50,8 @@ export function FollowButton({ catId, catName, deviceId, isFollowing, isOnline }
   const name = (key: string) => t(key).split('{name}').join(catName);
 
   const onPress = async () => {
-    if (pending !== null || !isOnline) return;
+    if (inFlight.current || !isOnline) return;
+    inFlight.current = true;
     const want = !isFollowing;
     setPending(want);
     setFailed(false);
@@ -66,14 +68,22 @@ export function FollowButton({ catId, catName, deviceId, isFollowing, isOnline }
             ? { ...prev, isFollowing: state.isFollowing, followersCount: state.followersCount }
             : prev,
       );
+      // Show the server's answer until the page's data carries it too.
+      setPending(state.isFollowing);
     } catch {
       setFailed(true);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setFailed(false), FAILED_NOTE_MS);
-    } finally {
       setPending(null);
+    } finally {
+      inFlight.current = false;
     }
   };
+
+  // After a success, keep the new look until the cache write has reached the prop.
+  React.useEffect(() => {
+    if (pending !== null && isFollowing === pending) setPending(null);
+  }, [isFollowing, pending]);
 
   const bg = shown ? colors.primary : colors.card;
   const fg = shown ? colors.primaryForeground : colors.primary;
@@ -86,7 +96,8 @@ export function FollowButton({ catId, catName, deviceId, isFollowing, isOnline }
         aria-pressed={shown}
         aria-label={name('followA11y')}
         accessibilityLabel={name('followA11y')}
-        accessibilityState={{ selected: shown, disabled: !isOnline }}
+        accessibilityRole="togglebutton"
+        accessibilityState={{ checked: shown, disabled: !isOnline }}
         disabled={!isOnline}
         onPress={onPress}
         style={({ pressed }) => [

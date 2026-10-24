@@ -245,11 +245,13 @@ export default function CatDetailScreen() {
   // SYC-624 D1: Follow needs a known phone and a server that answers
   // `isFollowing`; the owner can't unfollow; a dead cat's button stays only for
   // someone who already follows (so they can stop the news).
-  const showFollow =
+  const follow =
     data.isFollowing !== undefined &&
     deviceId !== null &&
     !isOwner &&
-    (cat.lifeStatus !== 'deceased' || data.isFollowing);
+    (cat.lifeStatus !== 'deceased' || data.isFollowing)
+      ? { deviceId, isFollowing: data.isFollowing }
+      : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -356,13 +358,14 @@ export default function CatDetailScreen() {
           </IconButton>
         </View>
       )}
-      {showFollow && !stuck && deviceId !== null && data.isFollowing !== undefined && (
+      {/* Belongs to the photo: gone while the tab row is pinned, so it never covers the Map tab. */}
+      {follow !== null && !stuck && (
         <View style={[styles.followWrap, { top: insets.top + 8 }]}>
           <FollowButton
             catId={cat.id}
             catName={cat.name}
-            deviceId={deviceId}
-            isFollowing={data.isFollowing}
+            deviceId={follow.deviceId}
+            isFollowing={follow.isFollowing}
             isOnline={isOnline}
           />
         </View>

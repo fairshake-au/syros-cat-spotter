@@ -25,6 +25,7 @@ vi.mock('@workspace/api-client-react', () => ({
 }));
 
 import { FollowButton } from '../catPage/FollowButton';
+import { TRANSLATIONS } from '@/lib/i18n';
 
 let qc: QueryClient;
 function view(over: Partial<React.ComponentProps<typeof FollowButton>> = {}) {
@@ -86,7 +87,21 @@ describe('FollowButton', () => {
     expect(h.follow).not.toHaveBeenCalled();
   });
 
+  it('a second tap while the first is unanswered makes one call only', async () => {
+    let done: (v: unknown) => void = () => {};
+    h.follow.mockReturnValue(new Promise((r) => (done = r)));
+    view();
+    await act(async () => {
+      fireEvent.click(button());
+      fireEvent.click(button());
+    });
+    expect(h.follow).toHaveBeenCalledTimes(1);
+    expect(h.unfollow).not.toHaveBeenCalled();
+    await act(async () => done({ isFollowing: true, followersCount: 1 }));
+  });
+
   it('a refused call goes back and says so for 4 seconds', async () => {
+    qc.setQueryData(['/api/cats/7', 'dev-1'], { cat: {}, isFollowing: false, followersCount: 9 });
     h.follow.mockRejectedValue(new Error('429'));
     view();
     vi.useFakeTimers();
@@ -96,6 +111,7 @@ describe('FollowButton', () => {
     expect(button().textContent).toBe('Follow');
     expect(button().getAttribute('aria-pressed')).toBe('false');
     expect(screen.getByText(en('followFailed'))).toBeTruthy();
+    expect(qc.getQueryData(['/api/cats/7', 'dev-1'])).toMatchObject({ isFollowing: false, followersCount: 9 });
     act(() => {
       vi.advanceTimersByTime(4100);
     });
@@ -122,4 +138,3 @@ describe('FollowButton', () => {
 function en(k: string): string {
   return (TRANSLATIONS.en as Record<string, string>)[k]!;
 }
-import { TRANSLATIONS } from '@/lib/i18n';

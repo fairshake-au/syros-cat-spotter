@@ -506,4 +506,12 @@ describe('the Follow button on the page', () => {
     switchTab('Map');
     expect(screen.getByTestId('follow')).toBeTruthy();
   });
+  it('is gone while the tab row is pinned, and back when scrolled up (it would cover the Map tab)', () => {
+    page({ isFollowing: false });
+    const scrollTo = (y: number) => act(() => h.onScroll!({ nativeEvent: { contentOffset: { y } } }));
+    scrollTo(1000);
+    expect(screen.queryByTestId('follow')).toBeNull();
+    scrollTo(0);
+    expect(screen.getByTestId('follow')).toBeTruthy();
+  });
 });
