@@ -69,11 +69,11 @@ describe("logRound", () => {
 
   it("saves nothing when one visit is refused (all or nothing)", async () => {
     const cats = [await insertCat(), await insertCat(), await insertCat()];
-    // The third names a cat that doesn't exist: refused inside the transaction, after two visits were written.
+    // The third names a cat that doesn't exist: refused while the cats are locked, before any write.
     const visits = [...cats.slice(0, 2), 2_000_000_000].map((catId) => ({ catId, value: sterilise }));
     await expect(logRound(STAFF, { colonyId: 1, date: "2026-10-20", visits }, NOW)).rejects.toBeInstanceOf(ObservationRefused);
     expect(await visitRows(cats)).toHaveLength(0);
-    // A bad value on the third cat is refused too, and leaves nothing.
+    // A bad value on the third cat is refused inside the transaction, after two visits were written: nothing is left.
     const bad = [...cats.slice(0, 2).map((catId) => ({ catId, value: sterilise })), { catId: cats[2]!, value: { ...sterilise, clinicId: "" } }];
     await expect(logRound(STAFF, { colonyId: 1, date: "2026-10-20", visits: bad }, NOW)).rejects.toBeInstanceOf(ObservationRefused);
     expect(await visitRows(cats)).toHaveLength(0);
