@@ -96,9 +96,9 @@ export function BadgesTab({
                     <Text style={[styles.name, styles.flex, { color: colors.foreground }]}>
                       {t(`badge_${v.id}`)}
                     </Text>
-                    {v.value !== null && (
+                    {v.value !== null && v.goal !== null && (
                       <Text testID={`badge-progress-${v.id}`} style={[sharedStyles.body, { color: subtle }]}>
-                        {(v.stat === 'points' ? t('profileBadgeProgressPoints') : t('profileBadgeCount'))
+                        {(v.id === 'island_legend' ? t('profileBadgeProgressPoints') : t('profileBadgeCount'))
                           .replace('{value}', String(v.value))
                           .replace('{goal}', String(v.goal))
                           .replace('{earned}', String(v.value))
@@ -107,7 +107,7 @@ export function BadgesTab({
                     )}
                   </View>
                   <Text style={[sharedStyles.body, { color: subtle }]}>{t(`badge_${v.id}_desc`)}</Text>
-                  {v.value !== null && <ProgressBar value={v.value} max={v.goal} />}
+                  {v.value !== null && v.goal !== null && <ProgressBar value={v.value} max={v.goal} />}
                 </View>
               </View>
             ))}

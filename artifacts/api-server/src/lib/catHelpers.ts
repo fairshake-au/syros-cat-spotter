@@ -7,8 +7,7 @@ import {
   catUpdatesTable,
 } from "@workspace/db";
 import { eq, and, inArray, isNotNull, sql } from "drizzle-orm";
-import type { ProfileStats } from "./badges";
-import { BADGE_CATALOGUE, badgeProgress, thresholdBadges } from "./badges/catalogue";
+import { BADGE_CATALOGUE, badgeProgress, thresholdBadges, type ProfileStats } from "./badges/catalogue";
 import { computeBadgeStats } from "./badges/stats";
 import { backfillFinished } from "./badges/award";
 import { weekStartAthens } from "./weeks";

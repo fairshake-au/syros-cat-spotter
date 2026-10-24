@@ -1,4 +1,9 @@
-import type { ProfileStats } from "../badges";
+export interface ProfileStats {
+  points: number;
+  totalSightings: number;
+  uniqueCatsDiscovered: number;
+  catsSpotted: number;
+}
 
 export type BadgeGroup =
   | "first_steps"

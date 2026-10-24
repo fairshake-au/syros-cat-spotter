@@ -79,6 +79,46 @@ vi.mock('@workspace/api-client-react', () => ({
 
 import ProfileScreen from '../../app/(tabs)/profile';
 
+// The server's badgeProgress, in catalogue order: [id, group, stat, goal]. Pathfinder
+// and Trailblazer are event badges (null value and goal).
+const CATALOGUE: [string, string, string | null, number | null][] = [
+  ['first_sighting', 'first_steps', 'totalSightings', 1],
+  ['first_discovery', 'first_steps', 'uniqueCatsDiscovered', 1],
+  ['five_cats', 'first_steps', 'catsSpotted', 5],
+  ['ten_cats', 'first_steps', 'catsSpotted', 10],
+  ['explorer', 'first_steps', 'totalSightings', 25],
+  ['island_legend', 'first_steps', 'points', 500],
+  ['weeks_2', 'coming_back', null, 2],
+  ['weeks_4', 'coming_back', null, 4],
+  ['weeks_8', 'coming_back', null, 8],
+  ['podium', 'weekly', null, 1],
+  ['champion', 'weekly', null, 1],
+  ['ten_discoveries', 'finding', 'uniqueCatsDiscovered', 10],
+  ['discover_25', 'finding', 'uniqueCatsDiscovered', 25],
+  ['discover_50', 'finding', 'uniqueCatsDiscovered', 50],
+  ['discover_100', 'finding', 'uniqueCatsDiscovered', 100],
+  ['areas_3', 'covering', null, 3],
+  ['areas_8', 'covering', null, 8],
+  ['areas_all', 'covering', null, 20],
+  ['pathfinder', 'covering', null, null],
+  ['trailblazer', 'covering', null, null],
+  ['remote_1', 'covering', null, 1],
+  ['remote_5', 'covering', null, 5],
+];
+
+const progressFor = (stats: Record<string, number>, earned: string[]) =>
+  CATALOGUE.map(([id, group, stat, goal]) => {
+    const isEarned = earned.includes(id);
+    const raw = stat ? stats[stat] ?? 0 : 0;
+    return {
+      id,
+      group,
+      earned: isEarned,
+      value: goal === null ? null : isEarned ? goal : Math.min(raw, goal),
+      goal,
+    };
+  });
+
 const profile = (over: Record<string, unknown> = {}) => ({
   deviceId: 'dev-1',
   spotterCode: 'ME01',
@@ -91,6 +131,12 @@ const profile = (over: Record<string, unknown> = {}) => ({
   spottedCatIds: [1, 2, 3, 4, 5, 6, 7],
   currentStreakDays: 3,
   totalCats: 40,
+  badgeProgress: progressFor(
+    { totalSightings: 12, uniqueCatsDiscovered: 2, catsSpotted: 7, points: 85, ...over },
+    (over.badges as string[] | undefined) ?? ['first_sighting', 'first_discovery', 'five_cats'],
+  ),
+  newBadgeIds: [],
+  weekPoints: 0,
   ...over,
 });
 
@@ -191,7 +237,7 @@ describe('Profile tabs (SYC-628)', () => {
     expect(next.textContent).toContain('Cat Whisperer');
     expect(next.textContent).toContain('3 to go');
     fireEvent.click(screen.getByTestId('profile-badges-see-all'));
-    expect(screen.getByTestId('profile-badges-count').textContent).toBe('3 of 7 earned');
+    expect(screen.getByTestId('profile-badges-count').textContent).toBe('3 of 22 earned');
   });
 
   it('Badges tab: every badge says how to earn it; progress only for unearned ones', () => {
@@ -204,11 +250,11 @@ describe('Profile tabs (SYC-628)', () => {
     expect(screen.getByTestId('badge-row-ten_discoveries').textContent).toContain('Discover 10 new cats');
   });
 
-  it('Badges tab without a badge list (old server): no lists, a dash, not "0 of 7"', () => {
-    h.profile = profile({ badges: undefined });
+  it('Badges tab without a badge list (old server): no lists, a dash, not "0 of 22"', () => {
+    h.profile = profile({ badges: undefined, badgeProgress: undefined });
     render(<ProfileScreen />);
     fireEvent.click(screen.getByTestId('profile-tab-badges'));
-    expect(screen.getByTestId('profile-badges-unknown').textContent).toBe('— of 7 earned');
+    expect(screen.getByTestId('profile-badges-unknown').textContent).toBe('— of 22 earned');
     expect(screen.queryByTestId('badge-row-first_sighting')).toBeNull();
   });
 
