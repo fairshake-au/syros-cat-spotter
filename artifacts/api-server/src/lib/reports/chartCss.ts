@@ -42,12 +42,19 @@ export const CHART_CSS =
   "ul.reportlist>li h2{margin:0 0 4px;font-size:18px}" +
   "ul.reportlist>li p{margin:4px 0}" +
   "nav.rangebar{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}" +
-  "nav.rangebar a{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid #0b5c6b;border-radius:22px;background:#fff}" +
+  "nav.rangebar a{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid #0b5c6b;border-radius:22px;background:#fff;text-decoration:none}" +
   "nav.rangebar a.here{background:#0b5c6b;color:#fff;font-weight:700}" +
   "form.rangeform{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:end;margin:4px 0 8px}" +
   "form.rangeform label{display:flex;flex-direction:column;font-size:14px}" +
   "form.rangeform input{min-height:44px}" +
   ".method{margin:20px 0 0;border-top:1px solid #d9d5ca;padding-top:8px}" +
+  // The worked-out line sits above the fold; the fold follows it without a second rule.
+  "p#worked-out{margin:20px 0 0;border-top:1px solid #d9d5ca;padding-top:8px}" +
+  "p#worked-out+details.method{margin-top:0;border-top:0;padding-top:0}" +
+  // Reports that aren't open yet: muted words, and a grey chip for "Coming soon".
+  ".muted{color:#55524a}" +
+  "ul.reportlist h2.muted{font-weight:600}" +
+  ".chip{display:inline-block;font-size:14px;border:1px solid #8a877e;border-radius:999px;padding:1px 10px;color:#55524a;background:#ecebe6}" +
   ".method p{margin:2px 0}" +
   "@media print{nav.rangebar,details.astable>summary,form.rangeform,.bar,a.skip{display:none}details.astable{display:block}.chartbox,ol.sbars>li{break-inside:avoid}}";
 
