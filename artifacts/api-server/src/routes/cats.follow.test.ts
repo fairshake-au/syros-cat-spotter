@@ -11,6 +11,7 @@ import {
 import { and, eq, like } from "drizzle-orm";
 import app from "../app";
 import { followersCount } from "../lib/following";
+import { writeObservation } from "../lib/observations";
 import { DELETED_SECRET_HASH, deletedMarkerKey } from "../lib/deviceAuth";
 import { FOLLOW_DEVICE_LIMIT } from "../middlewares/rateLimit";
 
@@ -115,6 +116,26 @@ describe("POST /api/cats/:catId/follow and /unfollow", () => {
     expect(res.body.code).toBe("OWNER_CANNOT_UNFOLLOW");
     expect(await subRows(device("owner"), cat.id)).toHaveLength(1);
     expect(await unfollowRows(device("owner"), cat.id)).toHaveLength(0);
+  });
+
+  it("refuses a new follow of a deceased cat with 409 CAT_DECEASED; unfollow still works", async () => {
+    const cat = await insertCat("Dead");
+    await post("follow", cat.id, device("dead1"));
+    await writeObservation(db, {
+      catId: cat.id,
+      kind: "life_status",
+      value: { status: "deceased" },
+      accountId: "staff-vitest-follow",
+      roleAtTime: "staff",
+      observedAt: new Date(),
+    });
+    const refused = await post("follow", cat.id, device("dead2"));
+    expect(refused.status).toBe(409);
+    expect(refused.body.code).toBe("CAT_DECEASED");
+    expect(await subRows(device("dead2"), cat.id)).toHaveLength(0);
+    const out = await post("unfollow", cat.id, device("dead1"));
+    expect(out.status).toBe(200);
+    expect(await subRows(device("dead1"), cat.id)).toHaveLength(0);
   });
 
   it("answers 404 for a missing cat, 400 for a bad body, 401 without a secret, 410 for a deleted id", async () => {

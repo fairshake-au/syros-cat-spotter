@@ -288,6 +288,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
+        "409":
+          description: CAT_DECEASED, a cat recorded as dead can't be newly followed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
         "410":
           description: The device's data was deleted
           content:
