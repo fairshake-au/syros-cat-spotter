@@ -11,7 +11,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/context/LanguageContext', () => ({
-  useLanguage: () => ({ t: (k: string) => k }),
+  useLanguage: () => ({ t: (k: string) => k, language: 'en' }),
 }));
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -58,12 +58,12 @@ vi.mock('@/hooks/useColors', () => ({
 
 import { SightingPhotos } from '../SightingPhotos';
 import { PhotoViewer } from '../PhotoViewer';
-import { parsePublicDate } from '@/lib/catStatusLines';
+import { formatPublicDate } from '@/lib/catPageDates';
 
 afterEach(cleanup);
 
 const DAY = '2026-10-16';
-const WHEN = parsePublicDate(DAY).toLocaleDateString();
+const WHEN = formatPublicDate(DAY, 'en');
 const COVER = '/api/photos/cover-face';
 const BODY = '/api/photos/extra-body';
 const viewer = () => document.querySelector('[data-testid="sighting-photo-viewer"]');
@@ -180,7 +180,7 @@ describe('"Report an issue with this photo" (spec §3.2)', () => {
       <PhotoViewer url={COVER} label="x" date={WHEN} byline="by Maria" onClose={onClose} onReport={onReport} />,
     );
     const link = getByTestId('photo-viewer-report');
-    expect(link.textContent).toBe('reportIssuePhoto');
+    expect(link.textContent).toBe('reportIssuePhotoLink');
     fireEvent.click(link);
     expect(onReport).toHaveBeenCalledTimes(1);
   });
