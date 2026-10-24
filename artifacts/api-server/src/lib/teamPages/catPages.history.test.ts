@@ -714,3 +714,19 @@ describe("the page's one History list (SYC-602 PR 2)", () => {
     });
   });
 });
+
+describe("How changes work (final review M6)", () => {
+  it("sends coat and markings changes to the Coat and markings tab, not 'the history below'", () => {
+    const html = renderCatPage(richCatView(), "Sam", { now: new Date("2026-10-17T09:00:00Z"), may: () => true });
+    const note = /<details class="hownote">[\s\S]*?<\/details>/.exec(html)![0];
+    expect(note).not.toContain("history below");
+    expect(note).toContain("Coat and markings tab");
+    expect(note).not.toMatch(/statement/i);
+  });
+
+  it("the coat 'marked wrong' notice points at Past changes, which sits in the same tab", () => {
+    const html = renderCatPage(richCatView(), "Sam", { now: new Date("2026-10-17T09:00:00Z"), may: () => true, done: "a_wrong" } as never);
+    const coat = html.slice(html.indexOf('id="tab-coat"'));
+    expect(coat).toContain("That change no longer counts. It&#39;s listed under Past changes below.");
+  });
+});
