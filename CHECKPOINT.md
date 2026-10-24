@@ -11,9 +11,9 @@ PR A = plan PR 2.3. PR B = plan PR 3.2 (log the round), stacked on A.
 - [x] 2.3.2 lib/dashboard/trappingPlan.ts plus its test (11 pass; guardian mutation probe went red). Added to FILTERED_MODULES.
 
 ## Next
-- [ ] 2.3.3 the colony page as the planner (To do, estimate, small sites map, print link, Done fold, Not on the street fold, then summary/edit/sites/notes/history); JSON gains the plan (guardian: no site positions)
-- [ ] the printable plan, planPrintPage.ts, GET /team/colonies/:id/plan (print_trapping_plan); walk row
-- [ ] the guardian-visible words in strings en/el/fr
-- [ ] the estimate sentence back on Vet settings
+- [x] 2.3.3 the colony page as the planner (To do, estimate, small sites map, print link, Done fold, Not on the street fold, then summary/edit/sites/notes/history); JSON gains the plan (guardian: no site positions)
+- [x] the printable plan, planPrintPage.ts, GET /team/colonies/:id/plan (print_trapping_plan); walk row
+- [x] the guardian-visible words in strings en/el/fr
+- [x] the estimate sentence back on Vet settings
 - [ ] screenshots at 390 and 1280 and a print preview; full suite; adversarial review; draft PR A
 - [ ] PR B: logRound, roundForm, /colonies/:id/round
