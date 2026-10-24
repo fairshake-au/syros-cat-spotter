@@ -226,6 +226,21 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
     for (const id of ["history", "photos", "appearance"]) expect(html, id).toContain(`id="${id}"`);
   });
 
+  it("orders the jump links like the right-hand column: History, Photos, Reports, Coat and markings", () => {
+    const issues = {
+      total: 1,
+      reports: [{ id: "i1", reason: "wrong_cat", state: "new", at: "2026-10-10T09:00:00Z", others: 0, photo: null }],
+    };
+    const html = page(richCatView(), { issues });
+    const nav = html.slice(html.indexOf('<nav class="jump"'), html.indexOf("</nav>", html.indexOf('<nav class="jump"')));
+    const at = ["#history", "#photos", "#issue-strip", "#appearance"].map((h) => nav.indexOf(`href="${h}"`));
+    expect(at.every((n) => n > -1)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    const none = page(richCatView());
+    const n2 = none.slice(none.indexOf('<nav class="jump"'), none.indexOf("</nav>", none.indexOf('<nav class="jump"')));
+    expect(n2.indexOf("#photos")).toBeLessThan(n2.indexOf("#appearance"));
+  });
+
   it("links to the reports only when there are some", () => {
     const issues = {
       total: 1,
@@ -234,6 +249,76 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
     const html = page(richCatView(), { issues });
     expect(html).toContain('href="#issue-strip">Reports (1)</a>');
     expect(html).toContain('id="issue-strip"');
+  });
+
+  describe("the reports box and section (SYC-602 Task 3.3)", () => {
+    const rep = (id: string, state: string, at: string, reason = "wrong_cat") => ({ id, reason, state, at, others: 0, photo: null });
+    /** The words a person reads: each tag becomes a space (so no new tag can
+     * form), then spaces are squeezed. */
+    const stripTags = (h: string) => h.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    const box = (html: string) => /<aside class="openreports"[\s\S]*?<\/aside>/.exec(html)?.[0] ?? "";
+
+    it("draws an amber box above the facts for one open report, linking to it", () => {
+      const html = page(richCatView(), { issues: { total: 1, reports: [rep("i1", "new", "2026-10-15T09:00:00Z")] } });
+      const b = box(html);
+      expect(stripTags(b)).toMatch(/^1 open report: .+ · 2 days ago$/);
+      expect(b).toContain('href="/api/team?open=i1#r-i1"');
+      expect(html.indexOf('class="openreports"')).toBeLessThan(html.indexOf('class="catfacts"'));
+      expect(html.indexOf('class="openreports"')).toBeGreaterThan(html.indexOf('class="col-facts"'));
+    });
+
+    it("says N open reports, names the newest open one, and counts looking as open", () => {
+      const html = page(richCatView(), {
+        issues: {
+          total: 3,
+          reports: [
+            rep("c1", "done", "2026-10-16T09:00:00Z", "other"),
+            rep("o2", "looking", "2026-10-14T09:00:00Z"),
+            rep("o1", "new", "2026-10-10T09:00:00Z"),
+          ],
+        },
+      });
+      const b = box(html);
+      expect(b).toContain("2 open reports:");
+      expect(b).toContain('href="/api/team?open=o2#r-o2"');
+      expect(b).not.toContain("c1");
+    });
+
+    it("escapes the reason", () => {
+      const html = page(richCatView(), { issues: { total: 1, reports: [rep("i1", "new", "2026-10-15T09:00:00Z", "<b>x</b>")] } });
+      expect(box(html)).not.toContain("<b>x</b>");
+    });
+
+    it("keeps the full list in its own Reports section after the photos", () => {
+      const html = page(richCatView(), { issues: { total: 1, reports: [rep("i1", "new", "2026-10-15T09:00:00Z")] } });
+      const sec = html.indexOf('<section id="issue-strip"');
+      expect(sec).toBeGreaterThan(html.indexOf('id="photos"'));
+      expect(html.slice(sec)).toContain("<h2>Reports (1)</h2>");
+    });
+
+    it("with only closed reports: no box, the section stays", () => {
+      const html = page(richCatView(), { issues: { total: 1, reports: [rep("i1", "done", "2026-10-15T09:00:00Z")] } });
+      expect(html).not.toContain('class="openreports"');
+      expect(html).toContain('id="issue-strip"');
+    });
+
+    it("with issues null: neither", () => {
+      const html = page(richCatView(), { issues: null });
+      expect(html).not.toContain('class="openreports"');
+      expect(html).not.toContain('id="issue-strip"');
+    });
+
+    it("lays History left and Photos, Reports, Coat right on a wide screen", () => {
+      const html = page(richCatView(), { issues: { total: 1, reports: [rep("i1", "new", "2026-10-15T09:00:00Z")] } });
+      const cols = html.indexOf('class="catcols"');
+      expect(cols).toBeGreaterThan(-1);
+      const side = html.indexOf('class="catside"', cols);
+      const at = (n: string) => html.indexOf(n, cols);
+      expect(at('id="history"')).toBeLessThan(side);
+      for (const id of ['id="photos"', 'id="issue-strip"', 'id="appearance"']) expect(at(id), id).toBeGreaterThan(side);
+      expect(at('id="photos"')).toBeLessThan(at('id="issue-strip"'));
+      expect(at('id="issue-strip"')).toBeLessThan(at('id="appearance"'));
+    });
   });
 
   it("dims hidden photos in the strip", () => {
@@ -269,5 +354,104 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
       expect(m[1], m[0]).not.toMatch(/^<\/(main|div|section)/);
     }
     expect(html).not.toMatch(/<h2[^>]*>[^<]*<\/h2>\s*<h2/);
+  });
+});
+
+describe("the photos grid (SYC-602 Task 3.1)", () => {
+  const photo = (n: number, over: Record<string, unknown> = {}) => ({
+    source: n === 1 ? "main" : "sighting",
+    publicId: `p${n}`,
+    url: `/api/team/photos/p${n}`,
+    at: `2026-10-${String(20 - n).padStart(2, "0")}T09:00:00Z`,
+    hidden: null,
+    ...over,
+  });
+  const four = (over4: Record<string, unknown> = {}) =>
+    catView({ photos: [photo(1), photo(2), photo(3), photo(4, over4)] } as never);
+  const may = () => true;
+  const figure = (html: string, id: string) => {
+    const at = html.indexOf(`<figure id="p-${id}"`);
+    return html.slice(at, html.indexOf("</figure>", at));
+  };
+
+  it("heads the grid Photos (4) and calls the first Main photo, the others by date", () => {
+    const html = page(four(), { may });
+    expect(html).toContain('<h2 id="photos">Photos (4)</h2>');
+    expect(html).not.toContain("All photos");
+    expect(figure(html, "p1")).toContain("Main photo");
+    expect(figure(html, "p2")).toContain("18 Oct");
+    expect(figure(html, "p2")).not.toContain("Main photo");
+  });
+
+  it("puts Hide from the public in each photo's menu", () => {
+    const html = page(four(), { may });
+    for (const id of ["p1", "p2", "p3", "p4"]) {
+      const g = figure(html, id);
+      expect(g.indexOf("<form")).toBeGreaterThan(g.indexOf('<details class="rowmenu dots"'));
+      expect(g.indexOf("</details>")).toBeGreaterThan(g.indexOf("<form"));
+    }
+    const f = figure(html, "p2");
+    const menu = f.slice(f.indexOf('<details class="rowmenu dots"'));
+    expect(menu).toContain('href="/api/team/photos/p2">Open full size');
+    expect(menu).toContain("Open full size");
+    expect(menu).toContain('action="/api/team/photos/p2/hide"');
+    expect(menu).toMatch(/<input type="hidden" name="cat" value="\d+">/);
+    expect(menu).toMatch(/class="hide risky"[^>]*>Hide from the public<span class="sr"> \(photo 2 of 4\)<\/span>/);
+    expect(figure(html, "p4")).toContain("photo 4 of 4");
+  });
+
+  it("offers Show to the public again on a hidden photo, and no form when not allowed", () => {
+    const hidden = { by: "Maria", at: "2026-10-03T09:00:00Z", reason: null };
+    const html = page(four({ hidden }), { may });
+    const f = figure(html, "p4");
+    expect(f).toContain('action="/api/team/photos/p4/restore"');
+    expect(f).toContain("Show to the public again");
+    expect(f).not.toContain("Hide from the public");
+    const none = page(four(), { may: () => false });
+    expect(figure(none, "p2")).not.toContain("<form");
+    expect(figure(none, "p2")).toContain("Open full size");
+  });
+
+  it("labels a hidden photo with who and when", () => {
+    const hidden = { by: "Maria", at: "2026-10-03T09:00:00Z", reason: "Shows a child" };
+    const f = figure(page(four({ hidden }), { may }), "p4");
+    expect(f).toContain("Hidden · Maria, <time");
+    expect(f).toContain(">3 Oct</time>");
+    expect(f).toContain("Shows a child");
+    expect(f).toContain('class="ishidden"');
+  });
+
+  it("opens the photo's menu and shows the notice on landing", () => {
+    const html = page(four(), { may, photo: "p3", done: "hidden" });
+    const f = figure(html, "p3");
+    expect(f).toContain('<details class="rowmenu dots" open>');
+    expect(f).toContain("Hidden. The public no longer sees this photo.");
+    expect(insideDetails(html, html.indexOf("Hidden. The public no longer sees"))).toBe(false);
+    expect(html.split("Hidden. The public no longer sees").length).toBe(2);
+    expect(figure(html, "p2")).not.toContain(" open>");
+  });
+
+  it("opens a photo's menu only with a real done key and a found photo", () => {
+    expect(figure(page(four(), { may, photo: "p3" }), "p3")).not.toContain(" open>");
+    expect(figure(page(four(), { may, photo: "p3", done: "constructor" }), "p3")).not.toContain(" open>");
+    expect(figure(page(four(), { may, photo: "p3", done: "restored" }), "p3")).toContain(" open>");
+  });
+
+  it("labels Main photo by its source, not its position", () => {
+    const moved = catView({
+      photos: [photo(2), photo(1), photo(3)],
+    } as never);
+    const html = page(moved, { may });
+    expect(figure(html, "p1")).toContain("Main photo");
+    expect(figure(html, "p2")).not.toContain("Main photo");
+    const none = catView({ photos: [photo(2), photo(3)] } as never);
+    expect(page(none, { may })).not.toContain("Main photo");
+  });
+
+  it("keeps the notice at the top of Photos when the photo isn't found", () => {
+    const html = page(four(), { may, photo: "nope", done: "restored" });
+    const at = html.indexOf("Restored. The public sees this photo again.");
+    expect(at).toBeGreaterThan(html.indexOf('<h2 id="photos">'));
+    expect(at).toBeLessThan(html.indexOf('<figure id="p-p1"'));
   });
 });

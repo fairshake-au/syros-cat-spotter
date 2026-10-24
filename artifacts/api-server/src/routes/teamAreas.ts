@@ -5,6 +5,7 @@ import { formRoute } from "./teamCorrections";
 import { isIslandWide } from "../lib/guardianView";
 import { areaChanges, type AreaChange as AreaChangeLine } from "../lib/areas/areaHistory";
 import { AreaChangeRefused, changeArea, type AreaChange, type AreaField } from "../lib/areas/areaWrites";
+import { SEED_AREAS } from "../lib/areas/seedAreas";
 import { areaByKey, areasVersion, currentAreas, loadAreas } from "../lib/areas/namedAreas";
 import { loadTeamCats } from "../lib/teamCatList";
 import { isActive } from "../lib/dashboard/countedCats";
@@ -45,7 +46,12 @@ async function rows(): Promise<AreaRow[]> {
   const cats = (await loadTeamCats()).filter(isActive);
   const count = new Map<string, number>();
   for (const c of cats) count.set(c.areaKey, (count.get(c.areaKey) ?? 0) + 1);
-  return currentAreas().map((a) => ({ ...a, cats: count.get(a.key) ?? 0 }));
+  return busiestFirst(currentAreas().map((a) => ({ ...a, cats: count.get(a.key) ?? 0 })));
+}
+
+/** Most cats first, then by name (SYC-619 §4.2): the busy areas are at the top. */
+export function busiestFirst(areas: readonly AreaRow[]): AreaRow[] {
+  return [...areas].sort((a, b) => b.cats - a.cats || a.name.localeCompare(b.name, "en"));
 }
 
 /**
@@ -66,6 +72,8 @@ async function page(
       link: isIslandWide(person),
       areas,
       version: areasVersion(),
+      // The seed was the list's first version: its rows are the first SEED_AREAS.length changes.
+      firstVersion: SEED_AREAS.length,
       history,
       ...extra,
     }),

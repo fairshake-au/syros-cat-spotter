@@ -567,11 +567,30 @@ describe("renderHistory (spec §3.5)", () => {
     expect(menuOf(rowOf(html, "s-71"))).toContain("Mark wrong");
   });
 
-  it("links a coat change's menu to Coat and markings, where its Mark wrong stays", () => {
-    const v = catView({ history: [statement(80, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })] });
+  it("links a coat change's menu to Coat and markings, opened, where its Mark wrong stays", () => {
+    const v = catView({
+      history: [statement(80, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })],
+      appearance: { coat: { statements: [{ id: 80, counts: true, markable: true }] } },
+    } as never);
     const menu = menuOf(rowOf(draw(v), "s-80"));
-    expect(menu).toContain('href="#appearance"');
+    expect(menu).toContain('href="?open=coat#appearance"');
     expect(menu).not.toContain("<form");
+  });
+
+  it("links an outvoted (not counting) but markable coat change to the fold too", () => {
+    const v = catView({
+      history: [statement(81, { kind: "coat", said: "Coat: Black", correction: { kind: "appearance" } })],
+      appearance: { coat: { statements: [{ id: 81, counts: false, markable: true }] } },
+    } as never);
+    expect(menuOf(rowOf(draw(v), "s-81"))).toContain('href="?open=coat#appearance"');
+  });
+
+  it("offers no link to a Mark wrong the fold doesn't have", () => {
+    const v = catView({
+      history: [statement(82, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })],
+      appearance: { coat: { statements: [{ id: 82, counts: true, markable: false }] } },
+    } as never);
+    expect(menuOf(rowOf(draw(v), "s-82"))).not.toContain("appearance");
   });
 
   it("counts the whole run even when the list is cut", () => {

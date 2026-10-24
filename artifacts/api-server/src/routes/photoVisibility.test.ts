@@ -632,7 +632,10 @@ describe("P6-8: staff still see a hidden photo, labelled with who hid it and whe
     const figure = page.text.slice(page.text.indexOf(`id="p-${cat.main.publicId}"`));
     const tile = figure.slice(0, figure.indexOf("</figure>"));
     expect(tile).toContain(`src="/api/team/photos/${cat.main.publicId}"`);
-    expect(tile).toMatch(/Hidden from the public by Susan, <time datetime="[^"]+">\d{1,2} [A-Z][a-z]{2} \d{4}<\/time>/);
+    expect(tile).toMatch(/Hidden · Susan, <time datetime="[^"]+">\d{1,2} [A-Z][a-z]{2}( \d{4})?<\/time>/);
+    expect(tile).toContain("Show to the public again");
+    // The page came back from the hide: this photo's menu is open.
+    expect(tile).toContain('<details class="rowmenu dots" open>');
     expect(tile).toContain(`action="/api/team/photos/${cat.main.publicId}/restore"`);
     // The message lands beside the photo, once.
     expect(tile).toContain("Hidden. The public no longer sees this photo.");
@@ -659,14 +662,14 @@ describe("P6-8: staff still see a hidden photo, labelled with who hid it and whe
     expect((await hide(cat.main, cat.id, mariaCookie)).status).toBe(303);
     await markLeft(MARIA, "cli:vitest");
     const page = await request(app).get(`/api/team/cats/${cat.id}`).set("Cookie", cookie);
-    expect(page.text).toContain("Hidden from the public by Maria (left),");
+    expect(page.text).toContain("Hidden · Maria (left),");
   });
 
   it("a photo that isn't hidden has Hide, and no label", async () => {
     const cat = await seedCat(0);
     const page = await request(app).get(`/api/team/cats/${cat.id}`).set("Cookie", cookie);
     expect(page.text).toContain(`action="/api/team/photos/${cat.main.publicId}/hide"`);
-    expect(page.text).not.toContain("Hidden from the public by");
+    expect(page.text).not.toContain("Hidden · ");
   });
 
   it("?done= and ?p= never reach Object.prototype or echo", async () => {

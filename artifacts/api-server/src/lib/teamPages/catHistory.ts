@@ -8,6 +8,7 @@ import { escapeHtml as esc } from "./escape";
 import { byWhom, statementHref, vaccineWord, type Shown } from "./catFacts";
 import { dateInput, fold, lifeChoices, reasonInput } from "./catActions";
 import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
+import { markWrongInFold } from "./appearancePage";
 import { rowMenu } from "./rowMenu";
 import { openMapLink } from "./position";
 import { t } from "./words";
@@ -496,6 +497,8 @@ interface Ctx extends HistoryOptions {
   targets: ReadonlySet<number>;
   /** Entries "Why we think so" or "Says otherwise" link to: a run holding one opens. */
   evidence: ReadonlySet<number>;
+  /** Coat and markings changes the fold lists a Mark wrong for (appearancePage.markWrongInFold). */
+  inFold: ReadonlySet<number>;
 }
 
 /** "the change of 14 Oct 2026", linking to it; never its number. */
@@ -557,8 +560,8 @@ function entryRow(s: TeamStatement, c: Ctx): string {
   const tag = s.kind === "team_note" ? ' <span class="tag note">team only</span>' : "";
   // Coat and markings keep their Mark wrong in that section (spec §3.7); the menu points there.
   const coat =
-    s.correction?.kind === "appearance" && c.may("set_appearance")
-      ? '<a class="tap" href="#appearance">Mark wrong in Coat and markings</a>'
+    s.correction?.kind === "appearance" && c.may("set_appearance") && c.inFold.has(s.id)
+      ? '<a class="tap" href="?open=coat#appearance">Mark wrong in Coat and markings</a>'
       : "";
   return (
     `<li class="hrow${replaced ? " replaced" : ""}" id="s-${s.id}">` +
@@ -744,6 +747,9 @@ export function renderHistory(v: TeamCatView, visits: VisitLine[], opts: History
     byId: new Map(v.history.map((s) => [s.id, s])),
     shown: l.shown,
     targets: l.targets,
+    inFold: new Set(
+      [...v.appearance.coat.statements, ...v.appearance.markings.statements].filter(markWrongInFold).map((x) => x.id),
+    ),
     evidence: new Set([
       ...r.lifeStatus.supportingStatementIds,
       ...r.lifeStatus.conflictingStatementIds,
