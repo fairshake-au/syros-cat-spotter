@@ -105,9 +105,9 @@ Today a new badge only shows as a small "New badge: …" pill with a plain award
 - Push uses the app's existing push system (the one that sends the daily cat round-up). People on the web app, or who said no to notifications, get the card and the bell entry only.
 - A podium finish is celebrated every time it happens, not just the first: coming 2nd in a later week gets the push and card again, even though the Podium badge was already earned. The badge itself is earned once.
 
-### 5. Greek
+### 5. Languages
 
-Every new line (badge names, descriptions and "what it means" sentences, the tabs, the countdown, the empty week, last week's top three, the push, the celebration screen and the sounds setting) is written in English and Greek, like every other line in the app.
+Every new line (badge names, descriptions and "what it means" sentences, the tabs, the countdown, the empty week, last week's top three, the push, the celebration screen and the sounds setting) is written in English, Greek and French, like every other line in the app (`lib/i18n.ts` has all three, and a test keeps them in step). The Greek and French go to Johnny's review pack before launch.
 
 ## Goals
 
