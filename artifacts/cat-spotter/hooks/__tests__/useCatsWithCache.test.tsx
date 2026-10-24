@@ -127,4 +127,25 @@ describe('useCatsWithCache', () => {
     await waitFor(() => expect(result.current.cats).toEqual([tigris]));
     expect(result.current.loadFailed).toBe(false);
   });
+
+  it('stays "couldn\'t load" (no page spinner) while Try again is still trying', async () => {
+    h.fetch.mockRejectedValue(new Error('down'));
+    const { result } = renderHook(() => useCatsWithCache(), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.loadFailed).toBe(true));
+    let finish: (cats: unknown[]) => void = () => {};
+    h.fetch.mockImplementation(() => new Promise((resolve) => (finish = resolve)));
+    let retrying: Promise<void> = Promise.resolve();
+    act(() => {
+      retrying = result.current.retry();
+    });
+    await waitFor(() => expect(h.fetch).toHaveBeenCalledTimes(3));
+    expect(result.current.loadFailed).toBe(true);
+    expect(result.current.isLoading).toBe(false);
+    await act(async () => {
+      finish([tigris]);
+      await retrying;
+    });
+    await waitFor(() => expect(result.current.cats).toEqual([tigris]));
+    expect(result.current.loadFailed).toBe(false);
+  });
 });

@@ -228,6 +228,12 @@ describe('SYC-508: Home when something fails to load, and before the first spot'
     expect(screen.queryByText('homeOfNCats')).toBeNull();
   });
 
+  it('still loading (nothing failed yet): the progress line stays, so Home does not jump', () => {
+    h.cats = [];
+    render(<HomeScreen />);
+    expect(screen.getByText('homeOfNCats')).toBeTruthy();
+  });
+
   it('really no cats: still "noCats"', () => {
     h.cats = [];
     render(<HomeScreen />);

@@ -12,6 +12,8 @@ import Constants from 'expo-constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { LOAD_QUERY_OPTIONS, LOAD_TIMEOUT_MS } from '@/lib/loadTiming';
 import { notificationsLoadFailed } from '@/lib/notificationsEmpty';
+import { useStickyFailure } from '@/hooks/useStickyFailure';
+import { useOffline } from '@/context/OfflineContext';
 import {
   useListNotifications,
   getListNotificationsQueryKey,
@@ -99,7 +101,8 @@ export function NotificationProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { deviceId } = useDevice();
+  const { deviceId, isReady } = useDevice();
+  const { isOnline } = useOffline();
   const queryClient = useQueryClient();
   const registeredRef = useRef(false);
 
@@ -166,7 +169,10 @@ export function NotificationProvider({
     query: {
       enabled: !!deviceId,
       queryKey: getListNotificationsQueryKey(deviceId ?? ''),
-      refetchInterval: POLL_MS,
+      // No polling while offline (review of #302, finding 4): with
+      // networkMode 'always' each tick would wait out a timeout. Try again
+      // and coming back online still fetch.
+      refetchInterval: isOnline ? POLL_MS : false,
       ...LOAD_QUERY_OPTIONS, // SYC-508 §2.4
     },
     request: { timeoutMs: LOAD_TIMEOUT_MS },
@@ -221,9 +227,12 @@ export function NotificationProvider({
 
   // A reply that isn't a list (the captive portal above) is a failed load,
   // not an empty inbox.
-  const loadFailed = notificationsLoadFailed(query);
-  // No spotter ID yet: the query can't run, which is not "no notifications".
-  const isLoading = !deviceId || query.isLoading;
+  // Held through a retry, so Try again stays on screen with its own spinner.
+  const failed = useStickyFailure(query.isError, Array.isArray(query.data));
+  const loadFailed = notificationsLoadFailed({ data: query.data, isError: failed });
+  // The phone hasn't read its spotter ID yet: the query can't run, which is
+  // not "no notifications" (a startup failure shows its own screen).
+  const isLoading = !loadFailed && (!isReady || query.isLoading);
 
   const markAllRead = useCallback(() => {
     if (deviceId) markAllMutation.mutate({ deviceId });

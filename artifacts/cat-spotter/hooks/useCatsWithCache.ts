@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { type Cat } from '@workspace/api-client-react';
+import { listCats, type Cat } from '@workspace/api-client-react';
 import { useOffline } from '@/context/OfflineContext';
 import {
   CATALOGUE_QUERY_ROOT,
@@ -12,7 +12,8 @@ import {
   readCachedCatalogue,
   writeCachedCatalogue,
 } from '@/lib/catalogue';
-import { LOAD_QUERY_OPTIONS } from '@/lib/loadTiming';
+import { LOAD_QUERY_OPTIONS, LOAD_TIMEOUT_MS } from '@/lib/loadTiming';
+import { useStickyFailure } from './useStickyFailure';
 
 /**
  * The whole public cats list (every page, lib/catalogue.ts), backed by the
@@ -42,7 +43,12 @@ export function useCatsWithCache(lat?: number, lng?: number): {
 
   const query = useQuery({
     queryKey,
-    queryFn: () => fetchWholeCatalogue(params),
+    // react-query's signal stops the page walk when nobody needs it any more
+    // (review of #302, finding 3); each page still stops after LOAD_TIMEOUT_MS.
+    queryFn: ({ signal }) =>
+      fetchWholeCatalogue(params, (p) =>
+        listCats(p, { timeoutMs: LOAD_TIMEOUT_MS, signal } as RequestInit),
+      ),
     enabled: isOnline,
     staleTime: 30_000,
     ...LOAD_QUERY_OPTIONS,
@@ -91,13 +97,17 @@ export function useCatsWithCache(lat?: number, lng?: number): {
   }, [refetch, queryClient, keyHash]);
 
   const nothing = !query.data && cached === null;
+  // Held through a retry, so Try again stays on screen with its own spinner.
+  const failed = useStickyFailure(query.isError, query.data !== undefined);
+  const loadFailed = nothing && cacheChecked && (failed || !isOnline);
   return {
     cats: query.data ?? cached ?? [],
     // Until the saved copy has been read, nothing is decided: a spinner, never
     // a flash of "no cats" or "couldn't load".
-    isLoading: (isOnline && query.isLoading && !cached) || (nothing && !cacheChecked),
+    isLoading:
+      !loadFailed && ((isOnline && query.isLoading && !cached) || (nothing && !cacheChecked)),
     isOffline: !isOnline,
-    loadFailed: nothing && cacheChecked && (query.isError || !isOnline),
+    loadFailed,
     retry,
   };
 }

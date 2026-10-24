@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -219,6 +219,8 @@ export default function ReviewScreen() {
   const [answers, setAnswers] = useState<SightingAnswers>(NO_ANSWERS);
   const [sendingAnswers, setSendingAnswers] = useState(false);
   const [answersFailed, setAnswersFailed] = useState(false);
+  // SYC-508: one "Take another photo" at a time (review of #302, finding 6).
+  const retaking = useRef(false);
   // The public cat-alogue: fresh with signal, the phone's saved copy without.
   const { cats } = useCatsWithCache();
 
@@ -471,6 +473,8 @@ export default function ReviewScreen() {
   // sighting's own id, never the route's photoRef. No points are at stake:
   // they're only given when a spot is finished.
   const retake = async () => {
+    if (retaking.current) return;
+    retaking.current = true;
     if (data.localId) await remove(data.localId).catch(() => {});
     if (data.photoRef) deleteReviewPhoto(data.sightingId).catch(() => {});
     goToSpotTab(router);

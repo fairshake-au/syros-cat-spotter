@@ -122,6 +122,18 @@ describe('"No cat found" (D1 Option A)', () => {
   });
 });
 
+describe('"No cat found": one Take another photo at a time', () => {
+  it('a double tap navigates once', async () => {
+    open({ sightingId: 9, isCatPhoto: false, candidates: [], matchCheck: 'done', photoRef: 'review-9' });
+    const button = screen.getByText(en.notACatRetake!);
+    fireEvent.click(button);
+    fireEvent.click(button);
+    await waitFor(() => expect(m.dismissTo).toHaveBeenCalled());
+    expect(m.dismissTo).toHaveBeenCalledTimes(1);
+    expect(m.deleteReviewPhoto).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('a review opened from a broken link', () => {
   it('says so, with Go to the Spot tab and a back arrow, never "Something went wrong"', () => {
     m.params = { data: 'not json' };
