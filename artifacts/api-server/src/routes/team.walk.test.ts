@@ -196,7 +196,7 @@ const TABLE: Record<string, Row> = {
     except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" },
   },
   "GET /api/team/photos/:publicId/:size": {
-    why: "a small or medium version of a catalogue photo: the photo route's checks, through the same helper (here a cat in colony A)",
+    why: "any stored size (small, medium or card) of a catalogue photo: the photo route's checks, through the same helper (here a cat in colony A)",
     except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" },
     mayCache: "private, no-cache",
   },

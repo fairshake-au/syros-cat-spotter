@@ -11,12 +11,12 @@ import { bytea } from "./bytea";
 import { photosTable } from "./photos";
 
 /**
- * Small and medium copies of each catalogue photo (SYC-396 PR 1.2; team
+ * Smaller copies of each catalogue photo (SYC-396 PR 1.2; team
  * dashboard redesign spec §11). Lists and grids load these, never the
  * full-size photo, so they stay quick on island mobile data.
  *
  * One row per photo and size: "small" (about 160 px wide), "medium" (about
- * 640 px wide) and "card" (360 px wide), all JPEG with no location data. Made on first request and
+ * 640 px wide) and "card" (about 360 px wide, used by the Cats grid), all JPEG with no location data. Made on first request and
  * kept. Removing a photo removes its versions with it (the cascade). The
  * versions are only ever served through the visibility-checked team route.
  */
