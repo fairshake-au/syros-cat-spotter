@@ -9,6 +9,7 @@ import router from "./routes";
 import { logger, redactRequestUrl, safeError } from "./lib/logger";
 import { apiCors } from "./middlewares/apiCors";
 import { NUL_IN_BODY, NUL_MESSAGE, refuseNul } from "./middlewares/refuseNul";
+import { isPoolTimeout } from "./lib/poolTimeout";
 import { prelaunchGate } from "./middlewares/prelaunchGate";
 import { RESEND_WEBHOOK_PATH } from "./lib/mail/resendWebhook";
 import { opportunisticDrain } from "./lib/mail/outbox";
@@ -187,7 +188,7 @@ export function jsonErrorHandler(
   // SYC-407: the pool could not hand out a connection within its limit
   // (lib/db POOL_CONNECTION_TIMEOUT_MS). Log it, and tell the caller to retry
   // rather than leave it hanging or answer a generic 500.
-  if (err instanceof Error && /timeout exceeded when trying to connect/i.test(err.message)) {
+  if (isPoolTimeout(err)) {
     req.log?.error({ err: safeError(err) }, "database pool: no connection available in time");
     if (!res.headersSent) {
       res.setHeader("Cache-Control", "no-store");

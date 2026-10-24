@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, it } from "vitest";
 import request from "supertest";
-import { pool, POOL_CONNECTION_TIMEOUT_MS, IDLE_IN_TRANSACTION_TIMEOUT_MS } from "@workspace/db";
+import { pool, POOL_CONNECTION_TIMEOUT_MS } from "@workspace/db";
 import app from "./app";
+import { isPoolTimeout } from "./lib/poolTimeout";
 
 afterAll(async () => {
   await pool.end();
@@ -10,15 +11,11 @@ afterAll(async () => {
 // SYC-407: with every pool connection held, the next database call must fail
 // fast with a clear error rather than wait for ever.
 describe("the shared database pool", () => {
-  it("has a connection timeout and an idle-in-transaction timeout", async () => {
+  it("has a connection timeout", async () => {
     expect(POOL_CONNECTION_TIMEOUT_MS).toBe(10_000);
     expect((pool.options as { connectionTimeoutMillis?: number }).connectionTimeoutMillis).toBe(
       POOL_CONNECTION_TIMEOUT_MS,
     );
-    const { rows } = await pool.query("show idle_in_transaction_session_timeout");
-    // Postgres reports 60000 ms as "1min".
-    expect(rows[0].idle_in_transaction_session_timeout).toBe("1min");
-    expect(IDLE_IN_TRANSACTION_TIMEOUT_MS).toBe(60_000);
   });
 
   it("fails fast, with a clear error, when every connection is held", async () => {
@@ -57,7 +54,7 @@ describe("the shared database pool", () => {
       for (let i = 0; i < (opts.max ?? 10); i++) held.push(await pool.connect());
       opts.connectionTimeoutMillis = 300;
       expect(await allowNewDevice("203.0.113.9", Date.now(), { failOpen: true })).toBe(true);
-      await expect(allowNewDevice("203.0.113.9", Date.now())).rejects.toThrow(/timeout exceeded/i);
+      await expect(allowNewDevice("203.0.113.9", Date.now())).rejects.toSatisfy(isPoolTimeout);
     } finally {
       opts.connectionTimeoutMillis = original;
       for (const c of held) c.release();

@@ -12,25 +12,15 @@ export const databaseTarget = { source, host: describeHost(url) };
 // silently. 10 s is longer than any healthy checkout (normally milliseconds),
 // shorter than a phone's patience.
 export const POOL_CONNECTION_TIMEOUT_MS = 10_000;
-// A transaction left open and idle this long is killed by Postgres, freeing
-// its connection (and its locks). Nothing here waits 60 s between two
-// statements of one transaction. No statement_timeout is set: a long report
-// export or backfill could legitimately run for minutes (SYC-407 follow-up).
-export const IDLE_IN_TRANSACTION_TIMEOUT_MS = 60_000;
+// Deliberately NOT set here: idle_in_transaction_session_timeout and
+// statement_timeout. The live app uses Neon's pooled address (a
+// transaction-mode pooler), where a per-connection SET is unreliable, and a
+// statement timeout could cut a long report export. Both belong on the
+// database role instead (SYC-407 follow-up).
 
 export const pool = new pg.Pool({
   connectionString: url,
   connectionTimeoutMillis: POOL_CONNECTION_TIMEOUT_MS,
-});
-// Set per session rather than as a startup option: a pooled (pgbouncer)
-// Neon address rejects unknown startup parameters. pg queues this ahead of
-// the first query on the client.
-pool.on("connect", (client) => {
-  client
-    .query(`set idle_in_transaction_session_timeout = ${IDLE_IN_TRANSACTION_TIMEOUT_MS}`)
-    .catch((err: Error) =>
-      console.error(`database pool: could not set idle-in-transaction timeout: ${err.message}`),
-    );
 });
 // Neon closes idle connections when its compute suspends. Without a listener,
 // an idle client's 'error' event would crash the process.
