@@ -16,6 +16,6 @@ export interface CareEvent {
   type: CareEventType;
   /** Null only on a `discovered` event whose discoverer deleted their data (SYC-63, SYC-235). The app shows "a spotter" in the reader's language. A blank, never a stand-in word, so no username can be mistaken for it. */
   message: string | null;
-  /** A UTC calendar date (YYYY-MM-DD). */
+  /** A Syros (Europe/Athens) calendar date (YYYY-MM-DD). */
   at: string;
 }

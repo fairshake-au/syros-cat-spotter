@@ -66,11 +66,11 @@ describe("T9/T18: a removed photo is gone from every address", () => {
     expect(r.headers["cache-control"]).toBe("no-store");
   });
 
-  it("the team's full photo and both versions answer 410 no-store", async () => {
+  it("the team's full photo and every stored size (small, medium and card) answer 410 no-store", async () => {
     const cat = await seedCat(null);
     await hidePhoto(cat.photoId);
     await markRemoved(cat.photoId, staff.id);
-    for (const path of ["", "/small", "/medium"]) {
+    for (const path of ["", "/small", "/medium", "/card"]) {
       const r = await raw(`/api/team/photos/${cat.photoPublicId}${path}`, staff.cookie);
       expect(r.status, path || "full").toBe(410);
       expect(r.headers["cache-control"], path || "full").toContain("no-store");

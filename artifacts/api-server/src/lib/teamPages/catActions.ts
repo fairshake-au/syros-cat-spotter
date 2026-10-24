@@ -121,6 +121,7 @@ export function renderCatActions(
   const life = keptFor("life");
   const ster = keptFor("sterilised");
   const rename = keptFor("name");
+  const noteKept = keptFor("note");
   const items: string[] = [];
   // Recorded as died and nothing disagrees: no "This cat has died" button,
   // and Remove owner offers only "Still no longer with us" (SYC-513, spec §7).
@@ -199,7 +200,20 @@ export function renderCatActions(
   const vet = may("log_vet_visit")
     ? `<form method="get" action="${base}/vet-visit" class="vetvisit"><button type="submit" class="primary wide">Log a vet visit</button></form>`
     : "";
-  if (items.length === 0 && !died) return vet ? `<div class="fixes" id="corrections">${notice}${vet}</div>` : notice;
+  // Add a note (spec §3.2 item 3): the third button, an outlined one that
+  // opens a short form. Team only; its notice (done=note) sits at the top of
+  // the block, outside any closed fold, like the other notices not in the list.
+  // Held typing keeps up to 4000 characters; a note takes 2000 (UTF-16 units,
+  // as the textarea's maxlength counts), and a cut never splits an emoji.
+  const noteText = cutToNote(noteKept?.["text"] ?? "");
+  const note = may("add_team_note")
+    ? `<details class="addnote"${noteKept !== undefined ? " open" : ""}><summary>Add a note</summary>` +
+      `<form method="post" action="${base}/note">` +
+      '<label class="label" for="nt-text">Note <span class="hint">(team only: guardians and the public never see it)</span></label>' +
+      `<textarea class="text" id="nt-text" name="text" rows="4" required maxlength="${NOTE_CHARS}">${esc(noteText)}</textarea>` +
+      '<button type="submit">Save note</button></form></details>'
+    : "";
+  if (items.length === 0 && !died && !note) return vet ? `<div class="fixes" id="corrections">${notice}${vet}</div>` : notice;
   // The list opens by itself when a form in it was filled in again, or when
   // the page comes back from one of its saves (spec 3.2, "After a save").
   const inList = opts.done !== undefined && UPDATE_DONE.has(opts.done) && items.length > 0;
@@ -213,10 +227,19 @@ export function renderCatActions(
     (inList ? "" : notice) +
     vet +
     list +
+    note +
     died +
     // "How changes work" is at the foot of History now (spec §3.2, SYC-602 PR 2).
     "</div>"
   );
+}
+
+const NOTE_CHARS = 2000;
+
+function cutToNote(text: string): string {
+  if (text.length <= NOTE_CHARS) return text;
+  const cut = text.slice(0, NOTE_CHARS);
+  return /[\ud800-\udbff]$/.test(cut) ? cut.slice(0, -1) : cut;
 }
 
 /**

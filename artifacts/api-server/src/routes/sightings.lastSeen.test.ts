@@ -26,6 +26,7 @@ vi.mock("../lib/matching", () => ({
 }));
 
 import app from "../app";
+import { toPublicDay } from "../lib/catHelpers";
 
 const DEVICE = "vitest-lastseen-device";
 const CAT_PREFIX = "VitestLastSeenCat";
@@ -76,7 +77,7 @@ async function seedCat(name: string): Promise<number> {
   return c!.id;
 }
 
-const day = (at: Date) => at.toISOString().slice(0, 10);
+const day = (at: Date) => toPublicDay(at);
 
 async function cleanup() {
   const cats = await db

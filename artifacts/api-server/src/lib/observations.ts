@@ -103,7 +103,7 @@ const ROLES_REFUSED_FOR_KIND: Readonly<
   // No machine markings (SYC2-D4), so `system` is refused outright.
   markings: ["vet", "system"],
   vaccinated: ["public", "guardian", "system"],
-  team_note: ["public", "system"],
+  team_note: ["public", "guardian", "system"],
   // A vet visit is logged by the team (`log_vet_visit` is island-only).
   vet_visit: ["public", "guardian", "system"],
 };
@@ -306,6 +306,7 @@ function validateValue(
   if (
     kind !== "coat" &&
     kind !== "markings" &&
+    kind !== "team_note" &&
     !VISIT_KINDS.has(kind) &&
     isPlainObject(value) &&
     "retracted" in value
@@ -313,6 +314,7 @@ function validateValue(
     refuse("MALFORMED_VALUE", `${kind} does not accept a retracted key`);
   }
   if (isVisitRetraction(kind, value)) return;
+  if (isTeamNoteRetraction(kind, value)) return;
   switch (kind) {
     case "life_status": {
       const status = isPlainObject(value) ? value["status"] : undefined;
@@ -564,6 +566,24 @@ function validateValue(
       return;
     }
   }
+}
+
+/**
+ * A team note marked wrong (SYC-602 PR 4): exactly `{ retracted: true }`, the
+ * reason living in `supersedeReason`. False when `retracted` is absent or the
+ * kind is not `team_note`; refuses a `retracted` that is not exactly `true` or
+ * that carries anything else (a note that says something is a note, not a
+ * retraction).
+ */
+function isTeamNoteRetraction(kind: string, value: unknown): boolean {
+  if (kind !== "team_note" || !isPlainObject(value) || !("retracted" in value)) return false;
+  if (value["retracted"] !== true) {
+    refuse("MALFORMED_VALUE", "retracted, when present, must be exactly true");
+  }
+  if (Object.keys(value).length !== 1) {
+    refuse("MALFORMED_VALUE", "a team_note retraction carries only { retracted: true }");
+  }
+  return true;
 }
 
 /**
@@ -1088,7 +1108,8 @@ export async function writeObservation(
   // Supersession rules for coat and markings. The superseded row is loaded
   // once and shared between the retraction rule and the own-row rule (C2).
   const isAppearanceKind = input.kind === "coat" || input.kind === "markings";
-  const retracting = (isAppearanceKind && isRetraction(input.value)) || visitRetracting;
+  const teamNoteRetracting = isTeamNoteRetraction(input.kind, input.value);
+  const retracting = (isAppearanceKind && isRetraction(input.value)) || visitRetracting || teamNoteRetracting;
   const supersedesId = input.supersedesId ?? null;
   if (retracting && !RETRACTING_ROLES.has(input.roleAtTime)) {
     refuse(
@@ -1103,6 +1124,14 @@ export async function writeObservation(
     refuse(
       "INVALID_RETRACTION",
       `roleAtTime "${input.roleAtTime}" may not retract a ${input.kind}`,
+    );
+  }
+  // A team note is team-only, so only the team takes one back. Deliberately redundant behind
+  // ROLES_REFUSED_FOR_KIND (defence in depth); it can't be tested on its own.
+  if (teamNoteRetracting && !isTeamRole(input.roleAtTime)) {
+    refuse(
+      "INVALID_RETRACTION",
+      `roleAtTime "${input.roleAtTime}" may not retract a team_note`,
     );
   }
   if (retracting && supersedesId == null) {
@@ -1139,8 +1168,8 @@ export async function writeObservation(
     if (RANKED_KINDS.has(input.kind) && target.catId !== input.catId) {
       refuse(refusalCode, "a supersession of this kind must stay on the same cat");
     }
-    // A vet-visit retraction, too: undoing a visit never reaches another cat.
-    if (visitRetracting && target.catId !== input.catId) {
+    // A vet-visit retraction, too: undoing a visit never reaches another cat. Nor a team note's.
+    if ((visitRetracting || teamNoteRetracting) && target.catId !== input.catId) {
       refuse("INVALID_RETRACTION", "a retraction must stay on the same cat");
     }
     // And only a row that still stands (review of PR 3.0, F2): retracting a
@@ -1180,11 +1209,11 @@ export async function writeObservation(
     // Every role: a retraction removes only a row of a kind that has one.
     if (
       retracting &&
-      !(target.kind === "coat" || target.kind === "markings" || VISIT_KINDS.has(target.kind))
+      !(target.kind === "coat" || target.kind === "markings" || target.kind === "team_note" || VISIT_KINDS.has(target.kind))
     ) {
       refuse(
         "INVALID_RETRACTION",
-        "a retraction must supersede a row of the same kind (coat, markings, sterilised, vaccinated or vet_visit)",
+        "a retraction must supersede a row of the same kind (coat, markings, team_note, sterilised, vaccinated or vet_visit)",
       );
     }
     // A cat guardian corrects her own statements only (SYC-53 plan, PR 2.2:
