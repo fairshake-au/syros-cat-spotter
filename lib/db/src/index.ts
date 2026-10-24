@@ -5,7 +5,24 @@ import { describeHost, resolveDatabaseUrl } from "./url";
 
 const { url, source } = resolveDatabaseUrl(process.env);
 export const databaseTarget = { source, host: describeHost(url) };
-export const pool = new pg.Pool({ connectionString: url });
+
+// SYC-407: a request that can't get a connection fails after this long, with
+// a logged error, instead of waiting for ever. Without it, one route that
+// holds a connection while asking for a second could hang every route
+// silently. 10 s is longer than any healthy checkout (normally milliseconds),
+// shorter than a phone's patience. It also bounds opening a brand-new
+// connection, so a Neon cold start slower than this answers 503 (retry).
+export const POOL_CONNECTION_TIMEOUT_MS = 10_000;
+// Deliberately NOT set here: idle_in_transaction_session_timeout and
+// statement_timeout. The live app uses Neon's pooled address (a
+// transaction-mode pooler), where a per-connection SET is unreliable, and a
+// statement timeout could cut a long report export. Both belong on the
+// database role instead (SYC-407 follow-up).
+
+export const pool = new pg.Pool({
+  connectionString: url,
+  connectionTimeoutMillis: POOL_CONNECTION_TIMEOUT_MS,
+});
 // Neon closes idle connections when its compute suspends. Without a listener,
 // an idle client's 'error' event would crash the process.
 pool.on("error", (err) =>

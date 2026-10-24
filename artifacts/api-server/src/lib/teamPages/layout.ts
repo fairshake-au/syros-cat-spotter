@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { escapeHtml } from "./escape";
 import { tr, pageLanguage, type Language } from "./strings";
 import { MAP_MARK_CSS, MARK_CSS } from "./marks";
+import { CAT_TABS_CSS } from "./catTabs";
 import { CHART_CSS } from "../reports/chartCss";
 import { WORKSPACE_PAGE } from "../teamAuth/config";
 
@@ -187,6 +188,9 @@ dd{margin:0}
 .note{white-space:pre-wrap}
 .bad{color:#8c1d18;font-weight:700}
 .notice{background:#fff3cd;border:1px solid #c9a227;border-radius:6px;padding:8px 10px;margin:0 0 8px;font-weight:700}
+.notice form.undo{display:block;margin:6px 0 0}
+.notice form.undo button{font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
+.gallery .notice form.undo button{width:100%}
 .actions{margin-top:12px;border-top:1px solid #e6e2d6;padding-top:4px}
 .actions form{margin:10px 0 0}
 .label{display:block;font-size:14px;font-weight:700;margin:0 0 6px}
@@ -238,13 +242,13 @@ li.colonycat>a.catrow{border:0;margin:0;background:transparent;padding-right:56p
 .public{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:0;font-weight:700}
 form.sightact{margin:6px 0 0}
 form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
-/* The cat page's summary (SYC-396 spec §7.1): the plain facts, the strip of photos, the small map. */
-.catfacts{display:block;margin:12px 0;background:#fff;border:1px solid #d9d5ca;border-radius:10px;padding:4px 14px}
-.catfacts .fact{display:grid;grid-template-columns:118px minmax(0,1fr);gap:10px;padding:10px 0;border-top:1px solid #efece5}
-.catfacts .fact:first-child{border-top:0}
-.catfacts dt{margin:0;font-size:14px;font-weight:600;color:#55524a}
+/* The cat page's header card (SYC-655 spec §2): the facts grid; the card itself is further down. */
+.catfacts{display:grid;grid-template-columns:minmax(0,1fr);gap:12px 18px;margin:12px 0 0}
+.catfacts .fact{min-width:0}
+.catfacts dt{margin:0 0 1px;font-size:14px;font-weight:600;color:#55524a}
 .catfacts dd{margin:0;font-size:16px;overflow-wrap:anywhere;min-width:0}
-@media (max-width:359px){.catfacts .fact{grid-template-columns:minmax(0,1fr);gap:2px}}
+.catfacts .wide{grid-column:1/-1;background:#faf8f3;border:1px solid #efece5;border-radius:8px;padding:8px 10px}
+@media (min-width:700px){.catfacts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .catfacts .mark{font-weight:400;align-items:flex-start}
 .catfacts .mark-icon{margin-top:3px}
 .catfacts .how{display:block;font-size:14px;color:#55524a}
@@ -256,6 +260,20 @@ form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12p
 .catfacts a:has(.colourchip){text-decoration:none}
 .publicline{font-size:14px;color:#3b3930;margin:8px 0 16px}
 .publicline .public{display:inline;background:none;border:0;padding:0;font-weight:400}
+/* The cat page's header card (SYC-655 spec §2). Scoped to div.catcard: the Cats grid cards are li.catcard. One column on a phone, in the page's order; three areas from 1000px. */
+div.catcard{background:#fff;border:1px solid #d9d5ca;border-radius:14px;padding:16px;display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:12px 0 0}
+div.catcard>*{min-width:0}
+div.catcard .openreports{margin:0}
+.cardphoto a.photo{position:relative;display:block;max-height:none;margin:0;background:none;text-decoration:none;color:inherit}
+.cardphoto img.photo.catmain{display:block;width:100%;max-width:none;max-height:none;aspect-ratio:4/3;object-fit:cover;margin:0;border-radius:10px}
+.cardphoto .nophoto{display:flex;align-items:center;justify-content:center;aspect-ratio:4/3;margin:0;border-radius:10px}
+.cardphoto .ishidden{opacity:.45}
+.photocount{position:absolute;right:8px;bottom:8px;display:inline-flex;align-items:center;min-height:44px;box-sizing:border-box;padding:0 14px;border-radius:999px;background:rgba(29,29,27,.88);color:#fff;font-size:14px;font-weight:600}
+.nameline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nameline h1{margin:0}
+.nameline .mark-icon{width:20px;height:20px}
+.cardcat .syrline{margin:4px 0 0}
+.cardcat .publicline{margin:8px 0 0}
 /* The folds this page adds show which way they open. */
 li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}
 li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
@@ -269,29 +287,13 @@ li.statement.routine>details[open]>summary::before,.hownote[open]>summary::befor
 .fixes details>summary.risky::before,.fixes details[open]>summary.risky::before,.fixes details.update>summary::before,.fixes details.update[open]>summary::before,.fixes details.addnote>summary::before,.fixes details.addnote[open]>summary::before{content:none}
 details.method>summary{cursor:pointer;min-height:44px;font-weight:700;color:#0b4553}
 details.invitefold>summary{display:inline-flex;width:fit-content}
-.photostrip{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
-.photostrip li{position:relative}
-.photostrip li.hidden img{opacity:.45}
-.photostrip .hiddentag{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.65);color:#fff;font-size:12px;line-height:1.3;text-align:center;border-radius:0 0 4px 4px;pointer-events:none}
-.photostrip img{display:block;width:56px;height:56px;object-fit:cover;border-radius:4px;background:#ece8dc}
-.photostrip .more{display:flex;align-items:center;justify-content:center;min-width:56px;height:56px;padding:0 8px;box-sizing:border-box;border:1px solid #d9d5ca;border-radius:4px;font-size:14px}
-.catsummary{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
-.catsummary>div{min-width:0}
-.jump{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:#f6f4ef;border-bottom:1px solid #d9d5ca;margin:24px -12px 0;padding:8px 12px;display:flex;gap:8px;overflow-x:auto;white-space:nowrap}
-.jump a{display:inline-flex;align-items:center;flex:none;min-height:44px;padding:0 16px;border-radius:999px;background:#fff;border:1px solid #d9d5ca;text-decoration:none;font-weight:600;font-size:15px;color:#1d1d1b}
-.catsummary .photo.catmain{display:block;width:100%;max-width:none;max-height:none;aspect-ratio:4/3;object-fit:cover}
-.catsummary .photo.catmain.diedphoto{width:auto;max-width:100%;max-height:140px;aspect-ratio:auto}
-#history,#photos,#appearance,#issue-strip{scroll-margin-top:72px}
+${CAT_TABS_CSS}
 .catmap{margin:8px 0}
 .catmap .hint{margin:4px 0 0}
 .catmap .mapcap{display:flex;justify-content:space-between;gap:8px;margin:4px 0 0;font-size:14px}
 .hownote{margin:8px 0}
 .hownote summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:#0b4553}
-/* The cat page's Coat and markings fold (SYC-602 PR 3, spec §3.7). */
-details.fold{background:#fff;border:1px solid #d9d5ca;border-radius:10px;margin:8px 0}
-details.fold>summary{cursor:pointer;min-height:44px;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:8px 12px;font-size:16px}
-details.fold>summary>span{font-size:14px;color:#55524a}
-details.fold>.foldbody{padding:0 12px 12px}
+/* The cat page's Coat and markings section (SYC-602 PR 3, spec §3.7). */
 details.changecoat{margin:12px 0 0}
 details.changecoat>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .changepart{margin:0 0 16px}
@@ -356,7 +358,7 @@ li.statement.routine>details>summary{cursor:pointer;min-height:44px;display:flex
 li.statement.routine ol.history{margin:4px 0 0}
 ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;font-size:15px;overflow-wrap:anywhere}
 .gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px}
-.gallery figure{margin:0;display:flex;flex-direction:column;gap:6px;scroll-margin-top:12px}
+.gallery figure{margin:0;display:flex;flex-direction:column;gap:6px}
 .gallery img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#ece8dc}
 .gallery figure.ishidden img{opacity:.55;outline:3px solid #8c1d18;outline-offset:-3px}
 .gallery .notice{margin:0;font-size:14px}
@@ -394,8 +396,6 @@ ul.sightings li>a{padding:0}
 .refs a{padding:8px 0}
 a.catlink.tap,a.sublink.tap{display:flex}
 .syrline{margin:0 0 4px;color:#55524a;font-size:15px;font-variant-numeric:tabular-nums}
-.statusline{margin:0 0 12px;font-size:15px;color:#3b3930}
-.statusline .sl{display:inline-block}
 .desc{font-size:15px;margin:8px 0}
 .photo.catmain{width:auto;max-width:100%;max-height:240px}
 .refs{margin:0;padding:0;list-style:none}
@@ -563,10 +563,10 @@ a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;tex
 .cardimg.nothumb{display:flex;align-items:center;justify-content:center}
 .cardname strong{color:#0b5c6b;text-decoration:underline;font-size:16px}
 .cardfact{display:block;font-size:14px;font-weight:400;text-align:left;color:#3b3930}
-.catcard .tag{align-self:flex-start;font-size:13px}
-.catcard form{margin:0}
-.catcard .hint{margin:0}
-.catcard .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;width:100%}
+li.catcard .tag{align-self:flex-start;font-size:13px}
+li.catcard form{margin:0}
+li.catcard .hint{margin:0}
+li.catcard .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;width:100%}
 .paging{margin:8px 0}
 /* The Colonies list's progress and flags (SYC-396 PR 2.2). */
 .colonylist .catrow>span{display:block;flex:1;min-width:0}
@@ -669,23 +669,14 @@ details.filters>summary{display:none}
 .fpanel{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 24px;margin-top:0}
 }
 }
-/* A big screen: the cat page's photo, strip and map left (340px), the facts in the middle, "Update this cat" right (spec section 4). The title above spans all three. */
+/* A big screen: the cat page's header card has the photo (200px square), the cat and the buttons side by side; the open-reports box spans the top. */
 @media (min-width:1000px){
-.catsummary{grid-template-columns:340px minmax(0,1fr) 260px;grid-template-areas:"photo facts actions" "map facts actions";align-items:start;gap:0 28px}
-.catsummary.noactions{grid-template-columns:340px minmax(0,1fr);grid-template-areas:"photo facts" "map facts"}
-.catsummary .col-photo{grid-area:photo}
-.catsummary .col-facts{grid-area:facts}
-.catsummary .catactions{grid-area:actions}
-.catsummary .col-map{grid-area:map}
-.catmap .mapband.b256{display:none}
-.catmap .mapband.b164{display:block}
-.catsummary .col-facts>:first-child,.catsummary .catactions>:first-child{margin-top:12px}
-.jump{margin:32px 0 0;border-radius:0}
-.catcols{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:0 28px;align-items:start}
-.catcols>div{min-width:0}
-.catside{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow-y:auto}
-/* A soft fade at the bottom edge hints there is more below; it takes no taps and at the end of the scroll it sits in its own 18px below the last item, so it never covers anything. */
-.catside::after{content:"";display:block;position:sticky;bottom:0;height:18px;background:linear-gradient(to bottom,rgba(29,29,27,0),rgba(29,29,27,.16));pointer-events:none}
+div.catcard{grid-template-columns:200px minmax(0,1fr) 260px;align-items:start;gap:16px 24px}
+div.catcard.noactions{grid-template-columns:200px minmax(0,1fr)}
+div.catcard>.openreports{grid-column:1/-1}
+.cardphoto img.photo.catmain,.cardphoto .nophoto{width:200px;height:200px;aspect-ratio:1}
+.catfacts{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cattabs{margin:32px 0 0;border-radius:0}
 }
 `;
 
@@ -717,6 +708,12 @@ export interface PageOptions {
   banner?: string;
   /** Trusted HTML above the heading (a back link). Fixed text and escapeHtml only. */
   beforeTitle?: string;
+  /**
+   * Trusted HTML that replaces the plain <h1>title</h1> (a cat's header card
+   * holds the <h1> itself). Fixed text and escapeHtml only, and it must carry
+   * exactly one <h1>. `title` still names the browser tab.
+   */
+  heading?: string;
   /** Trusted HTML right under the heading (a cat's SYR number). Same rule. */
   afterTitle?: string;
   /** Trusted HTML: built only from fixed text and escapeHtml. */
@@ -854,7 +851,7 @@ export function renderPage(opts: PageOptions): string {
     (opts.mainClass === "wide" ? "" : '<div class="readcol">') +
     (opts.banner ?? "") +
     (opts.beforeTitle ?? "") +
-    `<h1>${escapeHtml(opts.title)}</h1>` +
+    (opts.heading ?? `<h1>${escapeHtml(opts.title)}</h1>`) +
     (opts.afterTitle ?? "") +
     opts.body +
     (opts.mainClass === "wide" ? "" : "</div>") +

@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { addressFingerprint, deviceFingerprint, ipFingerprint, maskAddress, normaliseAddress } from "../mail/fingerprint";
 import { enqueueKeepSafeMail } from "../mail/outbox";
 import { isKeepSafeSuppressed } from "../mail/suppression";
-import { hashToken, newToken, RESTORE_TOKEN_MINUTES, VERIFY_TOKEN_DAYS } from "./tokens";
+import { codeHash, hashToken, newCode, newToken, RESTORE_TOKEN_MINUTES, VERIFY_TOKEN_DAYS } from "./tokens";
 import { confirmReporterAddress, forgetReporterAddress } from "../welfare/reporterEmail";
 
 /**
@@ -400,6 +400,13 @@ export async function forgetAddress(raw: string): Promise<ForgetOutcome> {
  * asking phone and queue the link. Returns the outbox row to kick after the
  * response, if any. The caller answers identically either way.
  */
+const ATHENS_HHMM = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Athens",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
 export async function requestRestore(
   input: { askingDeviceId: string; email: string; ip: string },
   log: Log,
@@ -448,23 +455,31 @@ export async function requestRestore(
     `);
     if (issuedToday >= dailyCeilings().restore) return skip("global_ceiling", "error");
 
-    // At most three live links per address: the oldest expires to make room.
+    // At most three live links per address per asking phone (Decision B): the
+    // phone's own oldest expires to make room, so another phone's request can
+    // never cost this one its code.
     await tx.execute(sql`
       update mail_tokens set expires_at = now()
        where token_hash in (
          select token_hash from mail_tokens
           where purpose = 'restore' and address_hmac = ${hmac}
+            and device_id = ${input.askingDeviceId}
             and used_at is null and expires_at > now()
           order by created_at desc
           offset ${LIMITS.restoreLiveLinks - 1}
        )
     `);
     const token = newToken();
-    const expiresAt = new Date(Date.now() + RESTORE_TOKEN_MINUTES * 60 * 1000);
+    const code = newCode();
+    const tokenHash = hashToken(token);
+    const asked = new Date();
+    const expiresAt = new Date(asked.getTime() + RESTORE_TOKEN_MINUTES * 60 * 1000);
     await tx.execute(sql`
-      insert into mail_tokens (token_hash, purpose, address_hmac, device_id, expires_at)
-      values (${hashToken(token)}, 'restore', ${hmac}, ${input.askingDeviceId}, ${expiresAt})
+      insert into mail_tokens (token_hash, purpose, address_hmac, device_id, expires_at, code_hash)
+      values (${tokenHash}, 'restore', ${hmac}, ${input.askingDeviceId}, ${expiresAt}, ${codeHash(tokenHash, code)})
     `);
-    return enqueueKeepSafeMail(tx, { purpose: "restore_link", to, token, expiresAt });
+    // Greek time (the island's), so a family with several emails can tell which one they just asked for.
+    const askedAt = ATHENS_HHMM.format(asked);
+    return enqueueKeepSafeMail(tx, { purpose: "restore_link", to, token, code, askedAt, expiresAt });
   });
 }

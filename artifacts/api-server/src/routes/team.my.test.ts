@@ -84,6 +84,9 @@ const post = (path: string, cookie: string, body: Record<string, string> = {}, o
   return origin === null ? t : t.set("Origin", origin);
 };
 
+/** The "Yes" tap on the Are-you-sure page (SYC-520). */
+const YES = { confirm: "1" };
+
 /** Visible words only: no tags, no styles. */
 const words = (html: string) =>
   html
@@ -116,7 +119,7 @@ describe("the last manager is refused, plainly, and nothing changes", () => {
   it("Sign out everywhere: the same, and the session version does not rise", async () => {
     const before = await personRow(solo.id);
     const kinds = await eventKinds(solo.id);
-    const res = await post("/api/team/my/sign-out-everywhere", solo.cookie);
+    const res = await post("/api/team/my/sign-out-everywhere", solo.cookie, YES);
     expect(res.status).toBe(409);
     expect(words(res.text)).toContain("You’re the last person in Syros Cats management, so you can’t be signed out everywhere");
     expect((await personRow(solo.id)).session_version).toBe(before.session_version);
@@ -210,17 +213,28 @@ describe("Stop helping", () => {
 });
 
 describe("Sign out everywhere (yourself)", () => {
+  it("SYC-520: a form post asks 'Are you sure?' first and changes nothing", async () => {
+    const t = await joined("my-soe-ask", ["staff"]);
+    const before = (await personRow(t.id)).session_version;
+    const res = await post("/api/team/my/sign-out-everywhere", t.cookie);
+    expect(res.status).toBe(200);
+    expect(words(res.text)).toContain("Sign out everywhere?");
+    expect(res.text).toContain('name="confirm" value="1"');
+    expect((await personRow(t.id)).session_version).toBe(before);
+    expect((await request(app).get("/api/team/my").set("Cookie", t.cookie)).status).toBe(200);
+  });
+
   it("raises the session version, writes its event, and the old cookie is refused at the next request", async () => {
     const t = await joined("my-soe", ["staff"]);
     const before = (await personRow(t.id)).session_version;
-    const res = await post("/api/team/my/sign-out-everywhere", t.cookie);
+    const res = await post("/api/team/my/sign-out-everywhere", t.cookie, YES);
     expect([res.status, res.headers["location"]]).toEqual([303, "https://admin.catspotters.com/"]);
     expect((await personRow(t.id)).session_version).toBe(before + 1);
     const ev = (await pool.query(`select "by" from person_events where person_id = $1 and kind = 'signed_out_everywhere'`, [t.id])).rows;
     expect(ev).toEqual([{ by: t.id }]);
     expect((await request(app).get("/api/team/my").set("Cookie", t.cookie)).status).toBe(401);
     // Pressing it again with the dead cookie: refused, nothing more written.
-    expect((await post("/api/team/my/sign-out-everywhere", t.cookie)).status).toBe(401);
+    expect((await post("/api/team/my/sign-out-everywhere", t.cookie, YES)).status).toBe(401);
     expect((await pool.query(`select count(*)::int n from person_events where person_id = $1 and kind = 'signed_out_everywhere'`, [t.id])).rows[0].n).toBe(1);
   });
 });
@@ -447,14 +461,14 @@ describe("stopping helping, and signing yourself out: who is told", () => {
 
   it("a cat guardian's own sign-out everywhere emails nobody", async () => {
     const g = await guardian("my-n-g2", [vaporia]);
-    expect((await post("/api/team/my/sign-out-everywhere", g.cookie)).status).toBe(303);
+    expect((await post("/api/team/my/sign-out-everywhere", g.cookie, YES)).status).toBe(303);
     expect(await notices()).toEqual([]);
   });
 
   it("a team member's own sign-out everywhere emails the managers", async () => {
     const t = await joined("my-n-team2", ["staff"]);
     const expected = await otherManagerEmails(t.id);
-    expect((await post("/api/team/my/sign-out-everywhere", t.cookie)).status).toBe(303);
+    expect((await post("/api/team/my/sign-out-everywhere", t.cookie, YES)).status).toBe(303);
     const mails = await notices();
     expect(mails.map((m) => m.to).sort()).toEqual(expected);
     for (const m of mails) {
@@ -479,7 +493,7 @@ describe("stopping helping, and signing yourself out: who is told", () => {
 describe("minor 3: sign out everywhere answers a form post with a page redirect, not a blank 204", () => {
   it("a form POST without Sec-Fetch-Mode gets the 303 to sign-in; a plain JSON POST gets 204", async () => {
     const a = await joined("my-m3a", ["staff"]);
-    const form = await request(app).post("/api/team/my/sign-out-everywhere").type("form").send({}).set("Cookie", a.cookie).set("Origin", TEAM_ORIGIN);
+    const form = await request(app).post("/api/team/my/sign-out-everywhere").type("form").send(YES).set("Cookie", a.cookie).set("Origin", TEAM_ORIGIN);
     expect([form.status, form.headers["location"]]).toEqual([303, "https://admin.catspotters.com/"]);
     const b = await joined("my-m3b", ["staff"]);
     const json = await request(app).post("/api/team/my/sign-out-everywhere").send({}).set("Cookie", b.cookie).set("Origin", TEAM_ORIGIN);

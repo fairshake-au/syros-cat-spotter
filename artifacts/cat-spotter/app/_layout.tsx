@@ -5,14 +5,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useFonts } from 'expo-font';
-import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-  Inter_800ExtraBold,
-} from '@expo-google-fonts/inter';
-import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
+import { fontSources } from '@/lib/fontSources';
 import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl, setPrelaunchKey } from '@workspace/api-client-react';
@@ -42,6 +35,7 @@ import { FirstBadgeOffer } from '@/components/keepSafe/FirstBadgeOffer';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 import { apiOrigin } from '@/lib/urls';
 import { prelaunchKey } from '@/lib/prelaunch';
+import { restoreReopenReady, useReopenRestoreCode } from '@/hooks/useReopenRestoreCode';
 import { hideWebLoadingScreen } from '@/lib/webLoadingScreen';
 
 setBaseUrl(apiOrigin());
@@ -114,6 +108,20 @@ function OnboardingGate() {
     if (newSpotterWithoutOffer) setKeepSafeOffer('skipped-onboarding');
   }, [newSpotterWithoutOffer, setKeepSafeOffer]);
   const { doneVisible } = useDeleteMyData();
+  // SYC-664: a named phone that reloaded while fetching its code goes back to the code box.
+  const offerScreenShowing = keepSafeOffer === null && !!username && startedWithName.current === true;
+  useReopenRestoreCode(
+    restoreReopenReady({
+      isReady,
+      isLanguageReady,
+      startupError: Boolean(startupError),
+      doneVisible,
+      moved: Boolean(moved),
+      offerScreenShowing,
+    }),
+    !!username,
+    pathname,
+  );
   // SYC-136: a rejected promise inside DeviceProvider's setup effect isn't
   // caught by the top-level ErrorBoundary (render-only), so DeviceProvider
   // surfaces it here instead of leaving isReady false and this app stuck
@@ -152,15 +160,7 @@ function OnboardingGate() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Inter_800ExtraBold,
-    SpaceMono_400Regular,
-    SpaceMono_700Bold,
-  });
+  const [fontsLoaded, fontError] = useFonts(fontSources);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

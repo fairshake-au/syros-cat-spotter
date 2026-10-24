@@ -1,6 +1,5 @@
-import type { DerivedCatStatus } from "../catHelpers";
 import { keptLine, type KeptFields } from "./signedOutPage";
-import type { Confidence, LifeStatusValue } from "../resolve";
+import type { LifeStatusValue } from "../resolve";
 import type {
   TeamCatView,
   TeamPhoto,
@@ -13,6 +12,7 @@ import {
   historyShown,
   isRoutine,
   renderHistory,
+  renderPastChanges,
   runWords,
   visitDidWords,
   wrongFormNeeds,
@@ -26,15 +26,16 @@ import type { IssueReport } from "../issues/queue";
 import { reasonLabel } from "../issues/alertEmail";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { timeAgo } from "./queuePage";
 import { rowMenu } from "./rowMenu";
 import { renderAppearanceSection } from "./appearancePage";
-import { byWhom, coatPhraseOf, renderCatFacts, statementHref, statusLine, type Shown } from "./catFacts";
+import { byWhom, statementHref, type Shown } from "./catFacts";
+import { renderCatCard, type IssueStrip } from "./catCard";
+import { renderCatTabs, type CatPanel } from "./catTabs";
 
 export type { Shown };
 import { fitView, mergeSameSpot, renderMap, type MapMarker } from "./map";
 import { BANDS, pointOnView } from "../mapTiles/geometry";
-import { LIFE, renderCatActions, summaryAndActions } from "./catActions";
+import { LIFE, renderCatActions } from "./catActions";
 export { LIFE };
 import { placeLabel } from "../areas/placeLabel";
 
@@ -65,24 +66,6 @@ const day = (iso: string) =>
 
 const time = (iso: string, text = when(iso)) =>
   `<time datetime="${esc(iso)}">${esc(text)}</time>`;
-
-/**
- * The public sterilised line, word for word as the app shows it
- * (catStatusLines.ts's sterilisedLineKey): only confirmed and likely say
- * anything; everything else, "reported" included, is "Sterilised: not known yet".
- */
-function publicSterilisedText(s: { value: boolean | null; confidence: Confidence }): string {
-  if (s.confidence === "confirmed")
-    return s.value ? "Sterilised — confirmed by Syros Cats" : "Not sterilised — Syros Cats' records";
-  if (s.confidence === "likely") return "Probably sterilised — a clipped ear tip has been seen";
-  return "Sterilised: not known yet";
-}
-
-function publicStatusText(s: DerivedCatStatus): string {
-  const life = LIFE[s.lifeStatus];
-  const seen = s.notSeenSince ? ` · Not seen since ${day(s.notSeenSince)}` : "";
-  return `${life} · ${publicSterilisedText(s.sterilised)}${seen}`;
-}
 
 // ── Finding a cat ──────────────────────────────────────────────────────────
 
@@ -175,7 +158,7 @@ const VISIT_DONE = new Set(["visit", "visitWrong", "visitAlready", "visitReason"
 
 /** What the page says beside a photo after Hide or Restore (PR 6). */
 const PHOTO_DONE: Record<string, string> = {
-  hidden: "Hidden. The public no longer sees this photo. Use the ⋯ menu on it to show it again.",
+  hidden: "Hidden. The public no longer sees this photo.",
   restored: "Restored. The public sees this photo again.",
   already_hidden: "Someone already hid this photo a moment ago. Nothing was changed.",
   already_public: "Someone already restored this photo a moment ago. Nothing was changed.",
@@ -192,8 +175,6 @@ export interface CatPageOptions {
   photo?: string;
   /** Every colony, for the "Colony" list. Only asked for if the person may assign. */
   colonies?: { id: number; name: string }[];
-  /** ?open=coat: the Coat and markings fold opens (from "Update this cat"). */
-  openCoat?: boolean;
   /** ?history=all: show every row, not just the newest HISTORY_SHOWN. */
   allHistory?: boolean;
   /** ?show=: which of History's rows to show (spec §3.5). Left out: all of them. */
@@ -262,28 +243,6 @@ const ISSUE_STATE: Record<IssueReport["state"], string> = {
  * first, each linking to its row in the Queue. Team only, and drawn only when
  * there are some. The reporter is never named: there is nothing to name.
  */
-type IssueStrip = { reports: IssueReport[]; total: number; open?: number };
-
-/**
- * The amber box above the facts (spec §3.1): "1 open report: Looks injured ·
- * 2 days ago", linking to the newest open one in the Queue. Open means the
- * Queue's own open states, `new` and `looking`; `done` and `nothing_needed`
- * are closed. Nothing when none is open (the Reports section still lists the
- * closed ones). `open` counts them all; `reports` holds only the newest 50.
- */
-function openReportsBox(strip: IssueStrip | null | undefined, now: Date): string {
-  if (!strip) return "";
-  const open = strip.reports.filter((i) => i.state === "new" || i.state === "looking");
-  const newest = open[0];
-  if (!newest) return "";
-  const n = Math.max(strip.open ?? 0, open.length);
-  const id = esc(encodeURIComponent(newest.id));
-  return (
-    '<aside class="openreports" aria-label="Open reports">' +
-    `<a href="/api/team?open=${id}#r-${id}">${n === 1 ? "1 open report" : `${n} open reports`}: ${esc(reasonLabel(newest.reason))} · ` +
-    `${esc(timeAgo(newest.at, now))}</a></aside>`
-  );
-}
 
 function issueStrip(strip: IssueStrip | null | undefined): string {
   if (!strip || strip.total === 0) return "";
@@ -302,7 +261,8 @@ function issueStrip(strip: IssueStrip | null | undefined): string {
     )
     .join("");
   return (
-    `<section id="issue-strip" class="issues"><h2>Reports (${strip.total})</h2>` +
+    // The Reports panel supplies the heading and the #issue-strip anchor.
+    '<section class="issues">' +
     '<p class="hint">Problems the public reported with this cat\'s photos, name or page. Team only.</p>' +
     `<ul class="hplain">${items}</ul>` +
     (strip.total > strip.reports.length
@@ -323,6 +283,20 @@ const dayMonth = (iso: string, now: Date) => {
     ...opt,
   });
 };
+
+/**
+ * "Hidden. Undo" (SYC-520): Hide has no "are you sure?" by design (spec §3.3),
+ * so the notice after it carries one tap that puts the photo back. It lasts
+ * as long as the notice: until the page is next opened without `?done=hidden`.
+ */
+function undoHide(opts: Pick<CatPageOptions, "done" | "photo">, catId: number, may: (c: Capability) => boolean): string {
+  if (opts.done !== "hidden" || !opts.photo || !may("restore_photo")) return "";
+  return (
+    ` <form class="undo" method="post" action="/api/team/photos/${encodeURIComponent(opts.photo)}/restore">` +
+    `<input type="hidden" name="cat" value="${catId}">` +
+    '<button type="submit" class="restore">Undo</button></form>'
+  );
+}
 
 /**
  * One photo in the gallery (spec §3.6). The one whose source is "main" is "Main photo", the others
@@ -405,12 +379,13 @@ function sightingsMap(v: TeamCatView, island: boolean, hrefOf: (sightingId: numb
   const view = fitView(shown);
   let map: string;
   try {
-    map = renderMap({ mode: "view", view, markers, controls: false });
+    // The Map panel supplies the #map anchor before its heading, so the map keeps no id of its own.
+    map = renderMap({ mode: "view", view, markers, controls: false }).replace(' id="map"', "");
   } catch (e) {
     // Only a picture that can't be signed (no session key) is shown as "not
     // available", with the rest of the page (spec §13). Anything else is a bug.
     if (!(e instanceof Error && e.message.includes("TEAM_SESSION_KEYS"))) throw e;
-    return '<p class="hint catmap">The map isn\'t available right now. The sightings are listed below.</p>';
+    return '<p class="hint catmap">The map isn\'t available right now. The sightings are in History.</p>';
   }
   // Sightings too far apart for one picture are said, never silently dropped.
   const onMap = shown.filter((s) => pointOnView(view, BANDS[0].size, s) !== null).length;
@@ -428,30 +403,11 @@ function sightingsMap(v: TeamCatView, island: boolean, hrefOf: (sightingId: numb
       island ? `<a class="tap" href="/api/team/cats?view=map&amp;focus=${v.cat.id}">Open the map</a>` : ""
     }</p>` +
     (onMap < shown.length
-      ? `<p class="hint">${shown.length - onMap} ${shown.length - onMap === 1 ? "is" : "are"} too far from the others to fit on this map; see History below.</p>`
+      ? `<p class="hint">${shown.length - onMap} ${shown.length - onMap === 1 ? "is too far from the others to fit on this map; it is" : "are too far from the others to fit on this map; they are"} in History.</p>`
       : "") +
     "</div>"
   );
 }
-
-/** Up to three more photos under the main one, then an "All N" tile to Photos (spec §3.1). */
-function photoStrip(v: TeamCatView): string {
-  const others = v.photos.filter((p) => p.url !== v.cat.mainPhotoUrl);
-  if (others.length === 0) return "";
-  return (
-    '<ul class="photostrip" aria-label="Other photos">' +
-    others
-      .slice(0, 3)
-      .map(
-        (p, i) =>
-          `<li${p.hidden ? ' class="hidden"' : ""}><a href="#p-${esc(p.publicId)}"><img src="${esc(`${p.url}/small`)}" alt="${esc(`Other photo ${i + 1}${p.hidden ? ", hidden from the public" : ""}`)}" loading="lazy" width="56" height="56"></a>${p.hidden ? '<span class="hiddentag">Hidden</span>' : ""}</li>`,
-      )
-      .join("") +
-    `<li><a class="more" href="#photos">All ${v.photos.length}</a></li>` +
-    "</ul>"
-  );
-}
-
 
 /**
  * Where "back" goes from a cat page: the Cats grid or Map the person just
@@ -521,48 +477,32 @@ export function renderCatPage(
   const drawn = historyShown(v, visitList, historyOpts);
   const shown = drawn.entries;
   const mainHidden = v.photos.find((p) => p.source === "main")?.hidden ?? null;
-  const coat = coatPhraseOf(v);
-  const main =
-    (cat.mainPhotoUrl
-      ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="${esc(`Photo of ${cat.name}${coat !== null ? `, ${coat}` : ""}`)}">`
-      : '<div class="nophoto">No photo</div>') +
-    photoStrip(v);
   const hiddenNote = mainHidden
     ? '<p class="hiddenby">The main photo is hidden from the public. They see the newest photo of this cat that isn\'t hidden, or no photo if every one is. See <a href="#photos">All photos</a>.</p>'
     : "";
-
-  // The answer first (spec §7.1): photo, the facts, the small map, and what
-  // the public sees in one line.
-  const summaryParts = {
-    photo: main,
-    facts:
-      openReportsBox(opts.issues, now) +
-      renderCatFacts(v, now, { byId, shown, island }) +
-      (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
-      `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`,
-    map: sightingsMap(v, island, drawn.sightingHref),
-  };
+  const { card } = renderCatCard(v, may, {
+    now,
+    byId,
+    shown,
+    island,
+    issues: opts.issues,
+    actions: renderCatActions(v, may, { notice: formsNotice, colonies: opts.colonies ?? [], kept: opts.kept, done: opts.done }),
+  });
+  const smallMap = sightingsMap(v, island, drawn.sightingHref);
   const issueTotal = opts.issues?.total ?? 0;
-  const jump =
-    '<nav class="jump" aria-label="Sections of this page">' +
-    `<a href="#history">History (${historyCounts(v, visitList).all})</a>` +
-    `<a href="#photos">Photos (${v.photos.length})</a>` +
-    (issueTotal > 0 ? `<a href="#issue-strip">Reports (${issueTotal})</a>` : "") +
-    '<a href="#appearance">Coat and markings</a>' +
-    "</nav>";
 
   // After Hide or Restore, the message goes beside that photo (own keys only:
   // ?done=constructor must not reach Object.prototype).
   const photoNotice =
     opts.done && Object.hasOwn(PHOTO_DONE, opts.done)
-      ? `<p class="notice" role="status">${esc(PHOTO_DONE[opts.done]!)}</p>`
+      ? `<p class="notice" role="status">${esc(PHOTO_DONE[opts.done]!)}${undoHide(opts, v.cat.id, may)}</p>`
       : "";
   // The menu opens only when the page really came back from Hide or Restore on a photo we have.
   const landed = photoNotice !== "" && v.photos.some((p) => p.publicId === opts.photo);
   const hiddenCount = v.photos.filter((p) => p.hidden).length;
+  // The Photos panel supplies the heading and the #photos anchor.
   const photos =
-    `<h2 id="photos">Photos (${v.photos.length})</h2>` +
-    (landed ? "" : photoNotice) +
+    "<div>" +
     (hiddenCount > 0
       ? `<p class="hint">${hiddenCount} hidden from the public. The team still sees ${hiddenCount === 1 ? "it" : "them"} here.</p>`
       : "") +
@@ -577,7 +517,8 @@ export function renderCatPage(
             }
           )
           .join("") +
-        "</div>");
+        "</div>") +
+    "</div>";
 
   // One list instead of three (spec §3.5): sightings, vet visits and changes.
   const history = renderHistory(v, visitList, {
@@ -590,36 +531,43 @@ export function renderCatPage(
     island,
   });
 
+  // The Coat panel supplies the heading; the section lists past changes too (spec §3, review A1).
+  const coat = renderAppearanceSection(v, may, opts.done, undefined, {
+    team: true,
+    heading: false,
+    past: renderPastChanges(v, shown),
+  });
+  const panels: CatPanel[] = [
+    { id: "history", tab: `History (${historyCounts(v, visitList).all})`, heading: "History", html: history, anchors: ["history", "vet-visits"] },
+    { id: "photos", tab: `Photos (${v.photos.length})`, heading: `Photos (${v.photos.length})`, html: photos, anchors: ["photos"] },
+  ];
+  if (smallMap !== "") {
+    panels.push({ id: "map", tab: "Map", heading: `Where ${cat.name} has been seen`, html: smallMap, anchors: ["map"] });
+  }
+  panels.push({ id: "coat", tab: "Coat and markings", heading: "Coat and markings", html: coat, anchors: ["appearance"] });
+  if (issueTotal > 0) {
+    panels.push({ id: "reports", tab: `Reports (${issueTotal})`, heading: `Reports (${issueTotal})`, html: issueStrip(opts.issues), anchors: ["issue-strip"] });
+  }
+
   return renderPage({
     title: cat.name,
     active: "cats",
     personName,
-    // Notices sit above the name, never inside a fold (spec 3.1).
+    // Notices sit above the card, never inside a tab (spec §2). A hide or
+    // restore notice shows here when its photo has left the page, since the
+    // photo's own place in Photos is gone (review A7).
     beforeTitle:
       backToCats(opts.back) +
       (topDone ? notice : "") +
       deathNotice(v, byId, shown) +
       guardianMarkNotice(v, byId, shown) +
-      hiddenNote,
-    afterTitle:
-      `<p class="syrline">${esc(cat.syr)} · on our records since ${esc(day(cat.createdAt))}</p>` + statusLine(v, now),
+      hiddenNote +
+      (landed ? "" : photoNotice) +
+      (opts.kept ? keptLine() : ""),
+    // The card holds the <h1> (the name and its mark), so it takes the heading's place.
+    heading: card,
     mainClass: "wide",
-    body:
-      (opts.kept ? keptLine() : "") +
-      summaryAndActions(
-        summaryParts,
-        renderCatActions(v, may, { notice: formsNotice, colonies: opts.colonies ?? [], kept: opts.kept, done: opts.done }),
-      ) +
-      jump +
-      // Below the summary: History left, the rest in a narrower right column
-      // on a wide screen (spec §4). On a phone it is one column, in this order.
-      '<div class="catcols"><div class="catmain">' +
-      history +
-      '</div><div class="catside">' +
-      `<section>${photos}</section>` +
-      issueStrip(opts.issues) +
-      renderAppearanceSection(v, may, opts.done, undefined, { fold: true, open: opts.openCoat === true }) +
-      "</div></div>",
+    body: renderCatTabs(panels),
   });
 }
 

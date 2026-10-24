@@ -6,6 +6,7 @@ import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
 import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { renderPage } from "../lib/teamPages/layout";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
+import { toPublicDay } from "../lib/catHelpers";
 
 // Hiding and restoring a photo (SYC-43 part 2 plan, PR 6; spec §3.3: one tap,
 // reversible, no "are you sure?"). Two form routes behind the team cat page's
@@ -113,7 +114,7 @@ function route(action: VisibilityAction) {
                 active: "cats",
                 personName: teamPerson(res).name,
                 body:
-                  `<p>This photo was removed for good on ${esc(outcome.removedAt.toISOString().slice(0, 10))}. It can't be restored.</p>` +
+                  `<p>This photo was removed for good on ${esc(toPublicDay(outcome.removedAt))}. It can't be restored.</p>` +
                   `<p><a class="tap" href="${esc(backTo(cat, publicId, "none"))}">Back</a></p>`,
               }),
             );
