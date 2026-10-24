@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { db, photosTable, pool, sightingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { catsTable, db, photosTable, pool, sightingsTable } from "@workspace/db";
 import { standInFor } from "@workspace/db/photoRemoval";
 import { catDisplayPhotoIds } from "./photoVisibility";
 import { hidePhoto, seedCat } from "../test/roleKit";
@@ -80,6 +81,21 @@ describe("T14: the repoint and the public stand-in agree", () => {
     await stagePhoto(await cover(cat.id, day(9)), cat.id);
     await hidePhoto(cat.photoId);
     expect(await bothAgree(cat)).toBe(next);
+  });
+
+  it("a photo in a SAVED batch is skipped, and a kept photo that is some cat's primary is not (R8)", async () => {
+    const cat = await seedCat(null);
+    const next = await cover(cat.id, day(4));
+    await stagePhoto(await cover(cat.id, day(8)), cat.id, { saved: true });
+    await hidePhoto(cat.photoId);
+    expect(await bothAgree(cat)).toBe(next);
+    const other = await seedCat(null);
+    const exempt = await cover(other.id, day(9));
+    await keepPhoto(exempt, other.id);
+    await db.update(catsTable).set({ primaryPhotoId: exempt }).where(eq(catsTable.id, other.id));
+    await cover(other.id, day(3));
+    await hidePhoto(other.photoId);
+    expect(await bothAgree({ id: other.id, photoId: other.photoId })).toBe(exempt);
   });
 
   it("a tie on created_at: the higher id", async () => {

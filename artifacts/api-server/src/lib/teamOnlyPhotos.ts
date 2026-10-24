@@ -1,21 +1,18 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { union } from "drizzle-orm/pg-core";
 import {
   db,
-  vetBatchCatsTable,
-  vetBatchesTable,
+  catsTable,
   vetBatchPhotosTable,
   vetVisitPhotosTable,
 } from "@workspace/db";
 
 // SYC-677: a vet visit's photos are the team's only (Global Constraints:
-// "Kept batch photos are team-only"). A photo is team-only while it is
-//  - kept by a saved visit (a vet_visit_photos row), or
-//  - staged in a batch that isn't saved yet (a vet_batch_photos row whose
-//    batch has no saved_at).
-// The one exception, a NEW cat's first photo, becomes its public main photo:
-// saving doesn't link it in vet_visit_photos, and its batch is saved, so it
-// has neither.
+// "Kept batch photos are team-only"). The rule fails closed: a photo is
+// team-only if it has ANY vet_batch_photos row (staged or saved batch) or a
+// vet_visit_photos row, UNLESS it is some cat's primary photo. The one
+// exception, a NEW cat's first photo, becomes that cat's public main photo,
+// and so is a cat's primary_photo_id. Mirrored in SQL by lib/db standIn.ts.
 //
 // hiddenPhotoIds (photoVisibility.ts) counts every team-only photo as hidden,
 // the way it counts a removed one, so every public reader and every "hidden
@@ -33,7 +30,7 @@ export async function teamOnlyPhotoIds(
 ): Promise<Set<number>> {
   const unique = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
   if (unique.length === 0) return new Set();
-  const rows = await union(
+  const linked = await union(
     q
       .select({ photoId: vetVisitPhotosTable.photoId })
       .from(vetVisitPhotosTable)
@@ -41,9 +38,18 @@ export async function teamOnlyPhotoIds(
     q
       .select({ photoId: vetBatchPhotosTable.photoId })
       .from(vetBatchPhotosTable)
-      .innerJoin(vetBatchCatsTable, eq(vetBatchCatsTable.id, vetBatchPhotosTable.batchCatId))
-      .innerJoin(vetBatchesTable, eq(vetBatchesTable.id, vetBatchCatsTable.batchId))
-      .where(and(inArray(vetBatchPhotosTable.photoId, unique), isNull(vetBatchesTable.savedAt))),
+      .where(inArray(vetBatchPhotosTable.photoId, unique)),
   );
-  return new Set(rows.map((r) => r.photoId));
+  if (linked.length === 0) return new Set();
+  const primary = await q
+    .select({ photoId: catsTable.primaryPhotoId })
+    .from(catsTable)
+    .where(
+      inArray(
+        catsTable.primaryPhotoId,
+        linked.map((r) => r.photoId),
+      ),
+    );
+  const exempt = new Set(primary.map((r) => r.photoId));
+  return new Set(linked.map((r) => r.photoId).filter((id) => !exempt.has(id)));
 }

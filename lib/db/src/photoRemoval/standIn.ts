@@ -17,11 +17,11 @@ export async function standInFor(q: pg.ClientBase, catId: number, excludePhotoId
       where s.cat_id = $1 and s.status = 'resolved' and p.id <> $2 and p.removed_at is null
         and coalesce((select e.action from photo_visibility_events e
                        where e.photo_id = p.id order by e.id desc limit 1), 'restore') <> 'hide'
-        and not exists (select 1 from vet_visit_photos k where k.photo_id = p.id)
-        and not exists (select 1 from vet_batch_photos bp
-                          join vet_batch_cats bc on bc.id = bp.batch_cat_id
-                          join vet_batches b on b.id = bc.batch_id
-                         where bp.photo_id = p.id and b.saved_at is null)
+        and not (
+          (exists (select 1 from vet_visit_photos k where k.photo_id = p.id)
+            or exists (select 1 from vet_batch_photos bp where bp.photo_id = p.id))
+          and not exists (select 1 from cats c where c.primary_photo_id = p.id)
+        )
       order by s.created_at desc, s.id desc
       limit 1`,
     [catId, excludePhotoId],

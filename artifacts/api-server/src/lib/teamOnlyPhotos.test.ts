@@ -6,10 +6,9 @@ import { displayPhotoOf } from "./findFromPhoto";
 import { hidePhoto, seedCat } from "../test/roleKit";
 import { cleanUpVetPhotos, keepPhoto, newPhoto, stagePhoto } from "../test/vetPhotoKit";
 
-// SYC-677 Task 2: a vet visit's photos are the team's only. A photo is
-// team-only while it is staged in a batch that isn't saved, or kept by a
-// saved visit (vet_visit_photos). A new cat's first photo has neither link,
-// so it stays public. Every public reader asks through hiddenPhotoIds, which
+// SYC-677 Task 2: a vet visit's photos are the team's only. A photo with any
+// batch link or a kept link (vet_visit_photos) is team-only, unless it is a
+// cat's primary photo (a new cat's first photo), which stays public. Every public reader asks through hiddenPhotoIds, which
 // counts a team-only photo as hidden, as it does a removed one.
 
 afterAll(async () => {
@@ -39,10 +38,19 @@ describe("teamOnlyPhotoIds", () => {
     expect([...got].sort((a, b) => a - b)).toEqual([staged.id, keptPhoto.id].sort((a, b) => a - b));
   });
 
-  it("a photo staged in a saved batch, with no kept link (a new cat's first photo), is not team-only", async () => {
-    const first = await newPhoto();
-    await stagePhoto(first.id, null, { saved: true });
-    expect((await teamOnlyPhotoIds([first.id])).size).toBe(0);
+  it("a batch photo in a SAVED batch with no kept link is still team-only (fails closed)", async () => {
+    const p = await newPhoto();
+    await stagePhoto(p.id, null, { saved: true });
+    expect([...(await teamOnlyPhotoIds([p.id]))]).toEqual([p.id]);
+  });
+
+  it("a batch photo that is a cat's primary photo (a new cat's first photo) is not team-only", async () => {
+    const cat = await seedCat(null);
+    await stagePhoto(cat.photoId, cat.id, { saved: true });
+    expect((await teamOnlyPhotoIds([cat.photoId])).size).toBe(0);
+    const other = await seedCat(null);
+    await keepPhoto(other.photoId, other.id);
+    expect((await teamOnlyPhotoIds([other.photoId])).size).toBe(0);
   });
 
   it("a staged photo for a new cat (no cat yet) is team-only", async () => {
@@ -65,13 +73,13 @@ describe("teamOnlyPhotoIds", () => {
 });
 
 describe("the public's photo of a cat never is a team-only one", () => {
-  it("catDisplayPhotoIds: a kept photo as the main photo gives way to the newest public cover", async () => {
+  it("catDisplayPhotoIds: a team-only cover never shows, and a kept main photo (the exception) still does", async () => {
     const cat = await seedCat(null);
-    const older = await cover(cat.id, day(2));
+    await cover(cat.id, day(2));
     await keepPhoto(cat.photoId, cat.id);
     const rows = [{ id: cat.id, primaryPhotoId: cat.photoId }];
-    expect((await catDisplayPhotoIds(rows)).get(cat.id)).toBe(older);
-    expect((await catDisplayPhotos(rows)).get(cat.id)).not.toContain(cat.photoPublicId);
+    expect((await catDisplayPhotoIds(rows)).get(cat.id)).toBe(cat.photoId);
+    expect((await catDisplayPhotos(rows)).get(cat.id)).toContain(cat.photoPublicId);
   });
 
   it("catDisplayPhotoIds never picks a team-only photo, even when it is the cat's newest", async () => {
@@ -87,16 +95,19 @@ describe("the public's photo of a cat never is a team-only one", () => {
 
   it("catDisplayPhotoIds: only team-only photos to show gives none", async () => {
     const cat = await seedCat(null);
-    await keepPhoto(cat.photoId, cat.id);
+    await hidePhoto(cat.photoId);
+    await keepPhoto(await cover(cat.id, day(5)), cat.id);
     expect((await catDisplayPhotoIds([{ id: cat.id, primaryPhotoId: cat.photoId }])).get(cat.id)).toBeNull();
   });
 
   it("displayPhotoOf never uses a team-only photo as a Find reference", async () => {
     const lone = await seedCat(null);
-    await keepPhoto(lone.photoId, lone.id);
+    await hidePhoto(lone.photoId);
+    await keepPhoto(await cover(lone.id, day(6)), lone.id);
     const withCover = await seedCat(null);
+    await hidePhoto(withCover.photoId);
     const older = await cover(withCover.id, day(4));
-    await stagePhoto(withCover.photoId, withCover.id);
+    await stagePhoto(await cover(withCover.id, day(9)), withCover.id);
     const got = await displayPhotoOf([lone.id, withCover.id]);
     expect(got.has(lone.id)).toBe(false);
     expect(got.get(withCover.id)).toBe(older);
