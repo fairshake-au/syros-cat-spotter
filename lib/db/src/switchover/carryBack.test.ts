@@ -240,6 +240,7 @@ describe("carry-back, end to end (test 4)", () => {
       // column, and recomputes nothing it needs from it.
       // SYC-63's deletion stamps live on Neon only, like the sightings ones.
       // SYC-130's home pin: also Neon only.
+      // SYC-677's "left for spotters to name" flag: Neon only too.
       {
         table: "cats",
         columns: [
@@ -248,6 +249,7 @@ describe("carry-back, end to end (test 4)", () => {
           "redaction_reason",
           "home_lat",
           "home_lng",
+          "name_pending",
         ],
       },
       { table: "sightings", columns: ["redacted_at", "redaction_reason"] },
