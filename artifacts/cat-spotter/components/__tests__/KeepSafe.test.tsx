@@ -110,7 +110,7 @@ vi.mock('@/lib/keepSafe', async (importOriginal) => {
 import { KeepSafeScreen } from '../keepSafe/KeepSafeScreen';
 import { MovedScreen } from '../keepSafe/MovedScreen';
 import { RestoreRequestScreen } from '../keepSafe/RestoreRequestScreen';
-import { readWaiting, setMovingHandle, noteRequest, RESTORE_WAITING_KEY } from '@/lib/restoreWaiting';
+import { readPendingMove, readWaiting, setMovingHandle, noteRequest, RESTORE_WAITING_KEY } from '@/lib/restoreWaiting';
 import { ApiError } from '@workspace/api-client-react';
 import RestorePage, { __resetHeldRestoreTokenForTests } from '../../app/restore';
 import * as keepSafe from '@/lib/keepSafe';
@@ -759,12 +759,26 @@ describe('code screen', () => {
     expect(again.getByTestId('restore-email')).toBeTruthy();
   });
 
-  it('mounting with a stored moving handle goes straight to the chooser and redeems with it', async () => {
+  it('after a reload with a committed move, the stored handle is spent: peek refuses, nothing is redeemed, the handle is dropped (I1 c)', async () => {
+    // The move committed before the reload; start-up's resume (DeviceContext) has had
+    // its go. What is left on the code screen is a spent handle.
+    setMovingHandle('handle-stored');
+    vi.mocked(keepSafe.peekRestore).mockRejectedValueOnce(
+      new ApiError(new Response(null, { status: 401 }), { error: 'link_not_valid' }, { method: 'POST', url: '/api/restore/peek' }),
+    );
+    h.device = { deviceId: 'dev-new', username: null, isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
+    const utils = render(<RestoreRequestScreen onBack={() => {}} />);
+    await utils.findByTestId('restore-not-valid');
+    expect(keepSafe.peekRestore).toHaveBeenCalledWith('dev-new', 'handle-stored');
+    expect(keepSafe.exchangeRestoreCode).not.toHaveBeenCalled();
+    expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+  });
+
+  it('after a reload before the move was sent, the stored handle reopens the chooser and moves', async () => {
     setMovingHandle('handle-stored');
     h.device = { deviceId: 'dev-new', username: null, isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
     const utils = render(<RestoreRequestScreen onBack={() => {}} />);
     const button = await utils.findByText('Move Lili’s spots to this phone');
-    expect(keepSafe.exchangeRestoreCode).not.toHaveBeenCalled();
     await act(async () => {
       fireEvent.click(button);
     });
@@ -772,6 +786,45 @@ describe('code screen', () => {
       expect(keepSafe.redeemRestore).toHaveBeenCalledWith('dev-new', expect.objectContaining({ token: 'handle-stored' })),
     );
     await waitFor(() => expect(readWaiting()).toBeNull());
+  });
+
+  it('stores the pending move just before redeem, and clears it once moved (I1)', async () => {
+    let atRedeem: unknown = 'not called';
+    vi.mocked(keepSafe.redeemRestore).mockImplementationOnce(async () => {
+      atRedeem = readPendingMove();
+      return { deviceId: 'dev-lili', username: 'Lili' };
+    });
+    h.device = { deviceId: 'dev-nikos', username: 'Nikos', isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
+    const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    await act(async () => {
+      typeCode(utils.getByTestId('restore-code-input'), '48291376');
+    });
+    await utils.findByText('Move Lili’s spots to this phone');
+    expect(readPendingMove()).toBeNull(); // nothing stored until the person presses move
+    await act(async () => {
+      fireEvent.click(utils.getByTestId('restore-choice-delete'));
+    });
+    await act(async () => {
+      fireEvent.click(utils.getByText('Move Lili’s spots to this phone'));
+    });
+    await waitFor(() => expect(keepSafe.redeemRestore).toHaveBeenCalled());
+    expect(atRedeem).toEqual({ handle: 'handle-1', choice: 'choice-lili', abandonCurrent: true, deleteCurrent: true, at: expect.any(Number) });
+    await waitFor(() => expect(readPendingMove()).toBeNull());
+  });
+
+  it('a refused redeem clears the pending move (I1)', async () => {
+    vi.mocked(keepSafe.redeemRestore).mockRejectedValueOnce(
+      new ApiError(new Response(null, { status: 401 }), { error: 'link_not_valid' }, { method: 'POST', url: '/api/restore/redeem' }),
+    );
+    const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+    await act(async () => {
+      typeCode(utils.getByTestId('restore-code-input'), '48291376');
+    });
+    await act(async () => {
+      fireEvent.click(await utils.findByText('Move Lili’s spots to this phone'));
+    });
+    await utils.findByTestId('restore-not-valid');
+    expect(readPendingMove()).toBeNull();
   });
 
   it('every new string exists in en, el and fr, and restoreAskSent is gone', () => {

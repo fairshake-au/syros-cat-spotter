@@ -20,6 +20,7 @@ import {
   type RestoreSpotter,
 } from '@/lib/keepSafe';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
+import { clearPendingMove, notePendingMove } from '@/lib/restoreWaiting';
 
 /**
  * The restore chooser, shared by the link page (app/restore.tsx) and the code
@@ -135,13 +136,17 @@ export function RestoreChooser({
         // (as "Delete my data" pauses first: #110 review, F1).
         if (deleting) await pauseSync();
         try {
-          const request = () =>
-            redeemRestore(deviceId, {
-              token: raw,
-              choice: spotter.choice,
-              abandonCurrent: Boolean(username),
-              ...(deleting ? { deleteCurrent: true } : {}),
-            });
+          const input = {
+            token: raw,
+            choice: spotter.choice,
+            abandonCurrent: Boolean(username),
+            ...(deleting ? { deleteCurrent: true } : {}),
+          };
+          const request = () => redeemRestore(deviceId, input);
+          // SYC-664 I1: if the app reloads before the answer lands, start-up
+          // asks again with these values (DeviceContext). Cleared on success
+          // (adoptRestoredIdentity) or a definite refusal (below).
+          if (fromCode) notePendingMove({ handle: raw, choice: input.choice, abandonCurrent: input.abandonCurrent, deleteCurrent: deleting });
           let result: Awaited<ReturnType<typeof request>>;
           try {
             result = await request();
@@ -169,6 +174,7 @@ export function RestoreChooser({
         router.replace('/');
       }
     } catch (err) {
+      if (isLinkNotValid(err)) clearPendingMove();
       setState({ kind: isLinkNotValid(err) ? 'not-valid' : 'failed' });
     }
   };

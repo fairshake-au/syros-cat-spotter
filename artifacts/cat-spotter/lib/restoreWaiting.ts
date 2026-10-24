@@ -29,8 +29,10 @@ function write(value: RestoreWaiting): void {
   try { store()?.setItem(RESTORE_WAITING_KEY, JSON.stringify(value)); } catch { /* blocked storage: nothing remembered */ }
 }
 
+/** Forgets the waiting note and any pending move (a new identity makes both useless). */
 export function clearWaiting(): void {
   try { store()?.removeItem(RESTORE_WAITING_KEY); } catch { /* blocked storage */ }
+  clearPendingMove();
 }
 
 function parse(raw: string | null | undefined): RestoreWaiting | null {
@@ -56,7 +58,8 @@ export function readWaiting(now: number = Date.now()): RestoreWaiting | null {
   const v = parse(raw);
   if (!v) return null;
   if (now - v.askedAt > WINDOW_MS) {
-    clearWaiting();
+    // Only the note: a pending move keeps its own 60-second life.
+    try { store()?.removeItem(RESTORE_WAITING_KEY); } catch { /* blocked storage */ }
     return null;
   }
   return v;
@@ -90,4 +93,65 @@ export function setMovingHandle(handle: string | null, now: number = Date.now())
   }
   const { movingHandle: _drop, ...rest } = prev;
   write(handle ? { ...rest, movingHandle: handle } : rest);
+}
+
+/**
+ * SYC-664 final review I1, "A reload mid-move": what the code screen was about
+ * to redeem, stored just before the request goes out. If the app opens again
+ * within 60 seconds (the server's replay window), DeviceContext asks again with
+ * these values before anything is sent as this phone's old id. Its own key, so
+ * it outlives a waiting note that expires mid-move.
+ */
+export const RESTORE_PENDING_MOVE_KEY = 'cat-spotter/restore-pending-move';
+export const PENDING_MOVE_MS = 60_000;
+
+export type PendingMove = {
+  handle: string;
+  choice: string;
+  abandonCurrent: boolean;
+  deleteCurrent?: boolean;
+  at: number;
+};
+
+export function notePendingMove(move: Omit<PendingMove, 'at'>, now: number = Date.now()): void {
+  const value: PendingMove = {
+    handle: move.handle,
+    choice: move.choice,
+    abandonCurrent: move.abandonCurrent,
+    ...(move.deleteCurrent ? { deleteCurrent: true } : {}),
+    at: now,
+  };
+  try { store()?.setItem(RESTORE_PENDING_MOVE_KEY, JSON.stringify(value)); } catch { /* blocked storage */ }
+}
+
+export function clearPendingMove(): void {
+  try { store()?.removeItem(RESTORE_PENDING_MOVE_KEY); } catch { /* blocked storage */ }
+}
+
+/** The pending move, or null (and cleared) once 60 s have passed or if it is stamped in the future. */
+export function readPendingMove(now: number = Date.now()): PendingMove | null {
+  let raw: string | null = null;
+  try { raw = store()?.getItem(RESTORE_PENDING_MOVE_KEY) ?? null; } catch { return null; }
+  if (!raw) return null;
+  let v: Partial<PendingMove> | null = null;
+  try { v = JSON.parse(raw) as Partial<PendingMove> | null; } catch { v = null; }
+  const valid =
+    !!v &&
+    typeof v.handle === 'string' &&
+    typeof v.choice === 'string' &&
+    typeof v.abandonCurrent === 'boolean' &&
+    typeof v.at === 'number' &&
+    now - v.at <= PENDING_MOVE_MS &&
+    v.at <= now + PENDING_MOVE_MS;
+  if (!valid) {
+    clearPendingMove();
+    return null;
+  }
+  return {
+    handle: v!.handle!,
+    choice: v!.choice!,
+    abandonCurrent: v!.abandonCurrent!,
+    ...(v!.deleteCurrent === true ? { deleteCurrent: true } : {}),
+    at: v!.at!,
+  };
 }

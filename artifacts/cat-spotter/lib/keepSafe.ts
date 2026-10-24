@@ -95,12 +95,14 @@ export function normaliseCode(input: string): string {
 export function redeemRestore(
   deviceId: string,
   input: { token: string; choice: string; abandonCurrent: boolean; deleteCurrent?: boolean },
+  options?: { timeoutMs?: number },
 ): Promise<{ deviceId: string; username: string | null }> {
   return customFetch(`/api/restore/redeem`, {
     method: 'POST',
     body: JSON.stringify({ deviceId, ...input }),
     headers: { 'content-type': 'application/json' },
     responseType: 'json',
+    ...(options?.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
   });
 }
 

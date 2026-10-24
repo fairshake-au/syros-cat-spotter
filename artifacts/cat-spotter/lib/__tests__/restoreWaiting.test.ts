@@ -15,7 +15,8 @@ vi.mock('@react-native-async-storage/async-storage', () => ({ default: {} }));
 
 import { ApiError, customFetch } from '@workspace/api-client-react';
 import {
-  RESTORE_WAITING_MINUTES, clearWaiting, noteRequest, noteWrongTry, readWaiting, setMovingHandle,
+  RESTORE_WAITING_MINUTES, clearPendingMove, clearWaiting, notePendingMove, noteRequest, noteWrongTry,
+  readPendingMove, readWaiting, setMovingHandle,
 } from '../restoreWaiting';
 import { exchangeRestoreCode, isCodeNotValid, isTooManyTries, normaliseCode } from '../keepSafe';
 
@@ -96,6 +97,39 @@ describe('restoreWaiting', () => {
   it('treats junk in storage as nothing stored', () => {
     (globalThis as any).window.localStorage.setItem('cat-spotter/restore-waiting', '{nope');
     expect(readWaiting(T0)).toBeNull();
+  });
+});
+
+describe('pending move (SYC-664 final I1)', () => {
+  const move = { handle: 'h1', choice: 'c1', abandonCurrent: true, deleteCurrent: true };
+
+  it('is kept for 60 seconds, then cleared', () => {
+    notePendingMove(move, T0);
+    expect(readPendingMove(T0 + 59_000)).toEqual({ ...move, at: T0 });
+    expect(readPendingMove(T0 + 61_000)).toBeNull();
+    expect(readPendingMove(T0 + 1_000)).toBeNull(); // cleared on expiry
+  });
+
+  it('a move stamped in the future (clock moved back) is not trusted', () => {
+    notePendingMove(move, T0 + 5 * MIN);
+    expect(readPendingMove(T0)).toBeNull();
+  });
+
+  it('is its own key: it outlives the waiting note and clearWaiting clears it too', () => {
+    noteRequest(T0 - 15 * MIN + 1_000);
+    notePendingMove(move, T0);
+    expect(readWaiting(T0 + 2_000)).toBeNull();
+    expect(readPendingMove(T0 + 2_000)).not.toBeNull();
+    clearWaiting();
+    expect(readPendingMove(T0 + 2_000)).toBeNull();
+    notePendingMove(move, T0);
+    clearPendingMove();
+    expect(readPendingMove(T0)).toBeNull();
+  });
+
+  it('treats junk as nothing stored', () => {
+    (globalThis as any).window.localStorage.setItem('cat-spotter/restore-pending-move', '{"handle":1}');
+    expect(readPendingMove(T0)).toBeNull();
   });
 });
 

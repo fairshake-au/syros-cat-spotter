@@ -8,3 +8,4 @@ T7 done: code screen (address, code, chooser) with en/el/fr strings; next: T8
 T7 fix 1 done: guard ref, 429 resend, restoreCodeFailed, el wording; next: T8
 T8 done: reopen on the code box after a reload (onboarding, /get-spots-back, gate hook); waiting note cleared on startAgain/adopt/reset; next: T9
 T9 done: link page gets a third answer (use-icon state, same-size pair), copy strings add the code option in en/el/fr; password page shows the restore code hint on /restore; next: T10
+Final fix I1 done: pending move stored before redeem on the code path, resumed at start-up in DeviceContext within 60 s; next: I2-I4, minors
