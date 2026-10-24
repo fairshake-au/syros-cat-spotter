@@ -1,6 +1,7 @@
-import { Router, type IRouter, type Request } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import {
   ClaimCatBody,
+  FollowCatBody,
   LetGoCatBody,
   UpdateCatBody,
   SuggestCatNamesBody,
@@ -31,7 +32,8 @@ import {
 import { notifyCatSpotters } from "../lib/notifications";
 import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl, removedPhotoIds } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
-import { aiLimiter, checkClaimLimit } from "../middlewares/rateLimit";
+import { aiLimiter, checkClaimLimit, checkFollowLimit } from "../middlewares/rateLimit";
+import { follow, followersCount, unfollow } from "../lib/following";
 import { safeError } from "../lib/logger";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { deviceSecretMatches, verifyDeviceSecret } from "../lib/deviceAuth";
@@ -572,6 +574,71 @@ router.post("/cats/:catId/let-go", async (req, res) => {
   const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
   res.json(await catPayload(cat!, await sightingsCountFor(catId), new Date(), PUBLIC_VIEWER));
 });
+
+/**
+ * SYC-624: follow or unfollow a cat. Body and device secret first (every
+ * answer goes only to the phone itself), then the courtesy cap (before the
+ * transaction, so the counter never runs while the cat row is locked), then
+ * one transaction that locks the cat row. An owner can't unfollow their own
+ * cat: they always hear about it. Answers the phone's own follow state.
+ */
+function followHandler(action: "follow" | "unfollow") {
+  return async (req: Request, res: Response) => {
+    res.setHeader("Cache-Control", PER_PHONE);
+    const catId = Number(req.params["catId"]);
+    if (!Number.isInteger(catId)) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const parsed = FollowCatBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid request" });
+      return;
+    }
+    const deviceId = await verifyDeviceSecret(req, res, parsed.data.deviceId);
+    if (!deviceId) return;
+
+    let within: boolean;
+    try {
+      within = await checkFollowLimit(deviceId, req.ip ?? "unknown");
+    } catch (err) {
+      // A limit that cannot count fails closed (SYC-105).
+      req.log.error({ err: safeError(err) }, "follow limit counter failed");
+      res.setHeader("Retry-After", "5");
+      res.status(503).json({ error: "Please try again in a moment." });
+      return;
+    }
+    if (!within) {
+      res.status(429).json({ error: "Too many requests. Please try again later." });
+      return;
+    }
+
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`select id from cats where id = ${catId} for update`);
+      const [cat] = await tx
+        .select({ ownerDeviceId: catsTable.ownerDeviceId })
+        .from(catsTable)
+        .where(eq(catsTable.id, catId));
+      if (!cat) return { kind: "missing" as const };
+      if (action === "unfollow" && cat.ownerDeviceId === deviceId) return { kind: "owner" as const };
+      if (action === "follow") await follow(tx, { deviceId, catId });
+      else await unfollow(tx, { deviceId, catId });
+      return { kind: "ok" as const, followersCount: await followersCount(catId, tx) };
+    });
+    if (result.kind === "missing") {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    if (result.kind === "owner") {
+      res.status(403).json({ error: "The cat's owner can't unfollow it", code: "NOT_OWNER_CANNOT_UNFOLLOW" });
+      return;
+    }
+    res.json({ isFollowing: action === "follow", followersCount: result.followersCount });
+  };
+}
+
+router.post("/cats/:catId/follow", followHandler("follow"));
+router.post("/cats/:catId/unfollow", followHandler("unfollow"));
 
 // Owner renames the cat or updates its home description.
 router.patch("/cats/:catId", async (req, res) => {

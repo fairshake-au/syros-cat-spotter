@@ -1,5 +1,5 @@
 import rateLimit from "express-rate-limit";
-import { _resetBucketForTests, consume, declareLimit, peek, sharedLimiter } from "../lib/limits";
+import { _resetBucketForTests, addressKey, consume, declareLimit, peek, sharedLimiter } from "../lib/limits";
 import { teamPerson } from "./requireTeam";
 
 // Per-IP throttles for public, unauthenticated endpoints.
@@ -206,6 +206,51 @@ export async function checkClaimLimit(
 /** Test-only: clears every device's claim count. */
 export async function _resetClaimLimitForTests(): Promise<void> {
   await _resetBucketForTests(CLAIM_BUCKET);
+}
+
+// SYC-624: following and unfollowing a cat. A courtesy cap, not a security
+// control: 50 calls (follow or unfollow, a re-follow counts) per phone and
+// 300 per address in a rolling 24 hours, so a stuck button or a script
+// can't hammer the table. Keyed on a device id only AFTER the route's
+// verifyDeviceSecret has proved it. Counted in Postgres, sliding. Fails
+// closed (the route answers 503) if the counter breaks.
+export const FOLLOW_DEVICE_LIMIT = 50;
+export const FOLLOW_ADDRESS_LIMIT = 300;
+export const FOLLOW_WINDOW_MS = 24 * 60 * 60 * 1000;
+const FOLLOW_DEVICE_BUCKET = "follow_device";
+const FOLLOW_ADDRESS_BUCKET = "follow_address";
+declareLimit(FOLLOW_DEVICE_BUCKET, FOLLOW_DEVICE_LIMIT, FOLLOW_WINDOW_MS, { sliding: true });
+declareLimit(FOLLOW_ADDRESS_BUCKET, FOLLOW_ADDRESS_LIMIT, FOLLOW_WINDOW_MS, { sliding: true });
+
+/**
+ * Returns true if this phone (and its address) may make another follow or
+ * unfollow call now, and records that it did. Throws if the counter fails.
+ */
+export async function checkFollowLimit(
+  deviceId: string,
+  address: string,
+  now: number = Date.now(),
+): Promise<boolean> {
+  const device = await consume(FOLLOW_DEVICE_BUCKET, deviceId, FOLLOW_DEVICE_LIMIT, FOLLOW_WINDOW_MS, undefined, now, {
+    sliding: true,
+  });
+  if (!device.allowed) return false;
+  const addr = await consume(
+    FOLLOW_ADDRESS_BUCKET,
+    addressKey(address),
+    FOLLOW_ADDRESS_LIMIT,
+    FOLLOW_WINDOW_MS,
+    undefined,
+    now,
+    { sliding: true },
+  );
+  return addr.allowed;
+}
+
+/** Test-only: clears every phone's and address's follow count. */
+export async function _resetFollowLimitForTests(): Promise<void> {
+  await _resetBucketForTests(FOLLOW_DEVICE_BUCKET);
+  await _resetBucketForTests(FOLLOW_ADDRESS_BUCKET);
 }
 
 // The team map's pictures, GET /api/team/map-tiles/:tile (SYC-209 PR 3.1).

@@ -429,6 +429,19 @@ export interface CatLetGo {
   deviceId: string;
 }
 
+/**
+ * Only the device id; the secret travels in X-Device-Secret.
+ */
+export interface CatFollow {
+  /** @minLength 1 */
+  deviceId: string;
+}
+
+export interface FollowState {
+  isFollowing: boolean;
+  followersCount: number;
+}
+
 export interface CatOwnerUpdate {
   /** @minLength 1 */
   deviceId: string;

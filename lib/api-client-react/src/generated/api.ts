@@ -27,6 +27,7 @@ import type {
   Cat,
   CatClaim,
   CatDetail,
+  CatFollow,
   CatLetGo,
   CatOwnerUpdate,
   CatPage,
@@ -37,6 +38,7 @@ import type {
   CreateCatUpdateRequest,
   CreateSightingError,
   CreateSightingRequest,
+  FollowState,
   HealthStatus,
   IssueReportReply,
   IssueReportRequest,
@@ -566,6 +568,158 @@ export const useLetGoCat = <TError = ErrorType<ApiErrorBody | void>,
         TContext
       > => {
       return useMutation(getLetGoCatMutationOptions(options));
+    }
+
+export const getFollowCatUrl = (catId: number,) => {
+
+
+
+
+  return `/api/cats/${catId}/follow`
+}
+
+/**
+ * Needs the device secret. Idempotent: following twice keeps one row.
+ * Clears any earlier unfollow, so a phone that spots the cat again is
+ * followed again only by choice. Never cached. A courtesy cap of 50
+ * follow or unfollow calls per phone per day (300 per address) answers 429.
+ * @summary Follow a cat, so its updates reach this phone
+ */
+export const followCat = async (catId: number,
+    catFollow: CatFollow, options?: RequestInit): Promise<FollowState> => {
+
+  return customFetch<FollowState>(getFollowCatUrl(catId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(catFollow)
+  }
+);}
+
+
+
+
+
+export const getFollowCatMutationOptions = <TError = ErrorType<ApiErrorBody>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof followCat>>, TError,{catId: number;data: BodyType<CatFollow>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof followCat>>, TError,{catId: number;data: BodyType<CatFollow>}, TContext> => {
+
+const mutationKey = ['followCat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof followCat>>, {catId: number;data: BodyType<CatFollow>}> = (props) => {
+          const {catId,data} = props ?? {};
+
+          return  followCat(catId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FollowCatMutationResult = NonNullable<Awaited<ReturnType<typeof followCat>>>
+    export type FollowCatMutationBody = BodyType<CatFollow>
+    export type FollowCatMutationError = ErrorType<ApiErrorBody>
+
+    /**
+ * @summary Follow a cat, so its updates reach this phone
+ */
+export const useFollowCat = <TError = ErrorType<ApiErrorBody>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof followCat>>, TError,{catId: number;data: BodyType<CatFollow>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof followCat>>,
+        TError,
+        {catId: number;data: BodyType<CatFollow>},
+        TContext
+      > => {
+      return useMutation(getFollowCatMutationOptions(options));
+    }
+
+export const getUnfollowCatUrl = (catId: number,) => {
+
+
+
+
+  return `/api/cats/${catId}/unfollow`
+}
+
+/**
+ * Needs the device secret. Idempotent. Records the choice, so spotting
+ * the cat again does not follow it again. The cat's owner cannot
+ * unfollow (403 NOT_OWNER_CANNOT_UNFOLLOW). Never cached. Shares the
+ * courtesy cap with follow.
+ * @summary Stop following a cat
+ */
+export const unfollowCat = async (catId: number,
+    catFollow: CatFollow, options?: RequestInit): Promise<FollowState> => {
+
+  return customFetch<FollowState>(getUnfollowCatUrl(catId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(catFollow)
+  }
+);}
+
+
+
+
+
+export const getUnfollowCatMutationOptions = <TError = ErrorType<ApiErrorBody>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unfollowCat>>, TError,{catId: number;data: BodyType<CatFollow>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unfollowCat>>, TError,{catId: number;data: BodyType<CatFollow>}, TContext> => {
+
+const mutationKey = ['unfollowCat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unfollowCat>>, {catId: number;data: BodyType<CatFollow>}> = (props) => {
+          const {catId,data} = props ?? {};
+
+          return  unfollowCat(catId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnfollowCatMutationResult = NonNullable<Awaited<ReturnType<typeof unfollowCat>>>
+    export type UnfollowCatMutationBody = BodyType<CatFollow>
+    export type UnfollowCatMutationError = ErrorType<ApiErrorBody>
+
+    /**
+ * @summary Stop following a cat
+ */
+export const useUnfollowCat = <TError = ErrorType<ApiErrorBody>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unfollowCat>>, TError,{catId: number;data: BodyType<CatFollow>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unfollowCat>>,
+        TError,
+        {catId: number;data: BodyType<CatFollow>},
+        TContext
+      > => {
+      return useMutation(getUnfollowCatMutationOptions(options));
     }
 
 export const getCreateCatUpdateUrl = (catId: number,) => {

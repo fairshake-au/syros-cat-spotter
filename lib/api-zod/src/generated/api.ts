@@ -366,6 +366,54 @@ export const LetGoCatResponse = zod.object({
 
 
 /**
+ * Needs the device secret. Idempotent: following twice keeps one row.
+ * Clears any earlier unfollow, so a phone that spots the cat again is
+ * followed again only by choice. Never cached. A courtesy cap of 50
+ * follow or unfollow calls per phone per day (300 per address) answers 429.
+ * @summary Follow a cat, so its updates reach this phone
+ */
+export const FollowCatParams = zod.object({
+  "catId": zod.coerce.number()
+})
+
+
+
+
+export const FollowCatBody = zod.object({
+  "deviceId": zod.string().min(1)
+}).describe('Only the device id; the secret travels in X-Device-Secret.')
+
+export const FollowCatResponse = zod.object({
+  "isFollowing": zod.boolean(),
+  "followersCount": zod.number()
+})
+
+
+/**
+ * Needs the device secret. Idempotent. Records the choice, so spotting
+ * the cat again does not follow it again. The cat's owner cannot
+ * unfollow (403 NOT_OWNER_CANNOT_UNFOLLOW). Never cached. Shares the
+ * courtesy cap with follow.
+ * @summary Stop following a cat
+ */
+export const UnfollowCatParams = zod.object({
+  "catId": zod.coerce.number()
+})
+
+
+
+
+export const UnfollowCatBody = zod.object({
+  "deviceId": zod.string().min(1)
+}).describe('Only the device id; the secret travels in X-Device-Secret.')
+
+export const UnfollowCatResponse = zod.object({
+  "isFollowing": zod.boolean(),
+  "followersCount": zod.number()
+})
+
+
+/**
  * @summary Owner-only — broadcast an update about a cat to its subscribers
  */
 export const CreateCatUpdateParams = zod.object({
