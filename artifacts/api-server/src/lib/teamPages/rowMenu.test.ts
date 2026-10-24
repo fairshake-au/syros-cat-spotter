@@ -31,3 +31,16 @@ describe("rowMenu: the forms other pages use are unchanged", () => {
     expect(rowMenu("More", "Mimi", ["", ""])).toBe("");
   });
 });
+
+describe("rowMenu: the compact '⋯' form (a colony's cat rows, spec §7.2)", () => {
+  it("draws a hidden glyph and reads the label and the row's name", () => {
+    expect(rowMenu("More", "Mimi <b>", [ITEM], { compact: true })).toBe(
+      `<details class="rowmenu compact"><summary><span aria-hidden="true">⋯</span><span class="sr">More (Mimi &lt;b&gt;)</span></summary>` +
+        `<div class="rowmenuitems">${ITEM}</div></details>`,
+    );
+  });
+
+  it("no items, no menu, compact or not", () => {
+    expect(rowMenu("More", "Mimi", [""], { compact: true })).toBe("");
+  });
+});
