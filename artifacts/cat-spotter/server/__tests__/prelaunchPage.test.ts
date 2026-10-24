@@ -16,6 +16,9 @@ const HINT_ID = 'id="restore-code-hint"';
 const HINT_TEXT =
   'Use Cat Spotters from an icon on your home screen? Go back to it and type the 8-digit code from the email.';
 
+const HINT_EL =
+  'Χρησιμοποιείς το Cat Spotters από εικονίδιο στην αρχική οθόνη; Γύρνα εκεί και πληκτρολόγησε τον κωδικό 8 ψηφίων από το email.';
+
 const pageFor = (next: string) => passwordPage({ action: '/_gate/login', next });
 
 describe('password page: the restore code hint', () => {
@@ -23,6 +26,7 @@ describe('password page: the restore code hint', () => {
     const html = pageFor(next);
     expect(html).toContain(HINT_ID);
     expect(html).toContain(HINT_TEXT);
+    expect(html).toContain(HINT_EL);
     expect(html.indexOf(HINT_ID)).toBeLessThan(html.indexOf('<form'));
   });
 
@@ -30,5 +34,6 @@ describe('password page: the restore code hint', () => {
     const html = pageFor(next);
     expect(html).not.toContain(HINT_ID);
     expect(html).not.toContain('8-digit code');
+    expect(html).not.toContain(HINT_EL);
   });
 });

@@ -431,7 +431,7 @@ describe('the /restore page', () => {
     expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
   });
 
-  it('SYC-664 T9: "I use the Cat Spotters icon on my home screen" shows the advice, peeks again on nothing, and redeems nothing', async () => {
+  it('SYC-664 T9: "I use the Cat Spotters icon on my home screen" shows the advice, does not peek again, and redeems nothing', async () => {
     vi.mocked(keepSafe.peekRestore).mockResolvedValue({
       spotters: [{ choice: 'choice-lili', username: 'Lili' }],
       openedOnAskingPhone: false,
@@ -444,7 +444,7 @@ describe('the /restore page', () => {
       fireEvent.click(icon);
     });
     expect((await findByTestId('restore-use-icon')).textContent).toBe(en.restoreUseIconAdvice);
-    expect(en.restoreUseIconAdvice).toBe('Go back to Cat Spotters from your home screen and type the 8-digit code from this email there.');
+    expect(en.restoreUseIconAdvice).toBe('Go back to Cat Spotters from your home screen and type the code from this email there.');
     expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
     expect(keepSafe.peekRestore).toHaveBeenCalledTimes(1);
     // Back returns to the question, which still has its three answers.
