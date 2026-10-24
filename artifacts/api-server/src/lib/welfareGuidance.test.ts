@@ -46,6 +46,9 @@ import {
  * - 2026-10-02 fr: re-pinned. Samuel 2 Oct 2026: register change to tu, no
  *   change of meaning. Still a draft, not yet native-check approved
  *   (SYC-154, SYC-172); safety-copy-translations.md §3 updated first.
+ * - 2026-10-24 en, el, fr: re-pinned. Samuel (SYC-570) cut the closing
+ *   capacity paragraph to two sentences, same ideas; the el and fr are new
+ *   drafts for the native check (SYC-346). SYC-171 still has to see it.
  */
 const URGENT_BLOCK_SHA256: Record<GuidanceLanguage, string> = {
   en: "d875bf006d2d474cb53692798913fa6d42759c8761cc4eff79ff88201b735c27",

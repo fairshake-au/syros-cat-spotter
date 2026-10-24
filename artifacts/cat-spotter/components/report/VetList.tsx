@@ -3,6 +3,8 @@ import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-nati
 import { Feather } from '@expo/vector-icons';
 import { telHref, type WelfareGuidance } from '@workspace/welfare-guidance';
 import { useColors } from '@/hooks/useColors';
+import { useLanguage } from '@/context/LanguageContext';
+import { formatKm, orderVets, type LatLng } from '@/lib/vetOrder';
 import { fonts, radii, spacing } from '@/constants/theme';
 
 /**
@@ -90,63 +92,128 @@ export function MunicipalityCard({ guidance }: { guidance: WelfareGuidance }) {
 }
 
 /**
- * The compact cards for the "Before you send" screen (Samuel, 2 Oct 2026: the
- * advice must fit a 390x844 phone without scrolling). Every required piece is
- * still there: each labelled number tap-to-call (after-hours labelled as the
- * clinic's published number), both map links, and how accurate the pin is.
- * The Municipality sits in the "Costs, and the Municipality" fold instead.
+ * The vet cards inside the report (SYC-570; Samuel, 24 Oct 2026). The same
+ * card as the Help tab, tightened to about 150px so all three clinics fit one
+ * phone screen: name, area, each labelled number as a big tap-to-call button,
+ * both map links, and how accurate the pin is. Every required piece stays
+ * (after-hours labelled as the clinic's published number). The Municipality
+ * sits in the "Who pays, and who to call" fold instead.
+ *
+ * When the phone's position is known the nearest clinic comes first and says
+ * so ("Closest to you · about 1.2 km"); every other clinic shows its
+ * distance. With no position the fixed order is kept and nothing is tagged
+ * (lib/vetOrder.ts).
  */
-function CompactVetCards({ guidance }: { guidance: WelfareGuidance }) {
+function ReportVetCards({
+  guidance,
+  from,
+  heading,
+}: {
+  guidance: WelfareGuidance;
+  from: LatLng | null;
+  heading: string;
+}) {
   const colors = useColors();
+  const { t, language } = useLanguage();
   const v = guidance.copy.vetList;
+  const ordered = orderVets(guidance.vets, from);
+  const measured = ordered.some((o) => o.closest);
+  // Greek and French write the decimal with a comma.
+  const km = (n: number) => (language === 'en' ? formatKm(n) : formatKm(n).replace('.', ','));
   return (
-    <View style={compact.list}>
-      {guidance.vets.map((clinic) => (
-        <View key={clinic.id} style={[compact.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[compact.name, { color: colors.foreground }]}>{clinic.name}</Text>
-          <View style={compact.phones}>
-            {clinic.phones.map((phone) => (
+    <View style={tight.list}>
+      <Text role="heading" style={[tight.heading, { color: colors.foreground }]}>
+        {measured ? t('reportVetsClosest') : heading}
+      </Text>
+      {ordered.map(({ clinic, km: away, closest }) => {
+        const tag = [
+          closest ? t('reportClosestToYou') : null,
+          away !== null ? t('reportVetDistance').replace('{km}', km(away)) : null,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        return (
+          <View
+            key={clinic.id}
+            testID={closest ? 'vet-closest' : undefined}
+            style={[
+              tight.card,
+              { backgroundColor: colors.card, borderColor: closest ? colors.success : colors.border },
+              closest && { borderWidth: 2 },
+            ]}
+          >
+            {tag ? (
+              <View style={[tight.tag, { backgroundColor: closest ? colors.successSoft : colors.muted }]}>
+                <Text style={[tight.tagText, { color: closest ? colors.success : colors.mutedForeground }]}>{tag}</Text>
+              </View>
+            ) : null}
+            <Text style={[tight.name, { color: colors.foreground }]}>{clinic.name}</Text>
+            <Text style={[tight.meta, { color: colors.mutedForeground }]}>{clinic.area}</Text>
+            <View style={tight.phones}>
+              {clinic.phones.map((phone) => (
+                <ExternalLink
+                  key={phone.tel}
+                  block
+                  href={telHref(phone)}
+                  label={`${v.call} ${clinic.name}: ${phone.display} (${v.phoneKinds[phone.kind]})`}
+                  style={[tight.phone, { backgroundColor: colors.secondary }]}
+                >
+                  {/* Never truncated: a number someone may dial by hand must be whole. */}
+                  <Text style={[tight.number, { color: colors.primary }]}>
+                    <Feather name="phone" size={13} color={colors.primary} /> {phone.display}
+                  </Text>
+                  <Text style={[tight.kind, { color: colors.mutedForeground }]}>{v.phoneKindsShort[phone.kind]}</Text>
+                </ExternalLink>
+              ))}
+            </View>
+            <View style={tight.maps}>
               <ExternalLink
-                key={phone.tel}
-                block
-                href={telHref(phone)}
-                label={`${v.call} ${clinic.name}: ${phone.display} (${v.phoneKinds[phone.kind]})`}
-                style={compact.phone}
+                href={clinic.googleMapsUrl}
+                label={`${v.googleMaps}: ${clinic.name}`}
+                style={[tight.mapButton, { borderColor: colors.border }]}
               >
-                {/* Never truncated: a number someone may dial by hand must be whole. */}
-                <Text style={[compact.number, { color: colors.primary }]}>{phone.display}</Text>
-                <Text style={[compact.kind, { color: colors.mutedForeground }]} numberOfLines={1}>
-                  {v.phoneKindsShort[phone.kind]}
-                </Text>
+                <Text style={[tight.mapText, { color: colors.primary }]}>{v.googleMaps}</Text>
               </ExternalLink>
-            ))}
-            <View style={compact.maps}>
-              <ExternalLink href={clinic.googleMapsUrl} label={`${v.googleMaps}: ${clinic.name}`}>
-                <Text style={[compact.mapLink, { color: colors.primary }]}>{v.googleMaps}</Text>
-              </ExternalLink>
-              <ExternalLink href={clinic.appleMapsUrl} label={`${v.appleMaps}: ${clinic.name}`}>
-                <Text style={[compact.mapLink, { color: colors.primary }]}>{v.appleMaps}</Text>
+              <ExternalLink
+                href={clinic.appleMapsUrl}
+                label={`${v.appleMaps}: ${clinic.name}`}
+                style={[tight.mapButton, { borderColor: colors.border }]}
+              >
+                <Text style={[tight.mapText, { color: colors.primary }]}>{v.appleMaps}</Text>
               </ExternalLink>
             </View>
+            {/* Only the clinic without a landmark pin says so on its card. */}
+            {clinic.pin === 'search' && (
+              <Text style={[tight.note, { color: colors.mutedForeground }]}>{v.pinSearch}</Text>
+            )}
           </View>
-          {/* Only the clinic without a landmark pin says so on its card. */}
-          {clinic.pin === 'search' && (
-            <Text style={[compact.note, { color: colors.mutedForeground }]}>{v.pinSearch}</Text>
-          )}
-        </View>
-      ))}
-      <Text style={[compact.note, { color: colors.mutedForeground }]}>
+        );
+      })}
+      <Text style={[tight.note, { color: colors.mutedForeground }]}>
         {v.pinLandmark} {v.publishedNote}
       </Text>
     </View>
   );
 }
 
-export function VetList({ guidance, compact: isCompact = false }: { guidance: WelfareGuidance; compact?: boolean }) {
+export function VetList({
+  guidance,
+  compact: isCompact = false,
+  from = null,
+  heading,
+}: {
+  guidance: WelfareGuidance;
+  /** The tightened report cards (SYC-570), nearest first when `from` is known. */
+  compact?: boolean;
+  /** The phone's own position, for "closest first". The Help tab never passes it. */
+  from?: LatLng | null;
+  /** The list's heading (compact only); "closest first" replaces it when the phone's position is known. */
+  heading?: string;
+}) {
   const colors = useColors();
   const { copy, vets, language } = guidance;
   const v = copy.vetList;
-  if (isCompact) return <CompactVetCards guidance={guidance} />;
+  if (isCompact) return <ReportVetCards guidance={guidance} from={from} heading={heading ?? guidance.copy.urgent.vetListHeading} />;
 
   return (
     <View style={styles.list}>
@@ -202,17 +269,31 @@ export function VetList({ guidance, compact: isCompact = false }: { guidance: We
   );
 }
 
-const compact = StyleSheet.create({
-  list: { gap: 3 },
-  card: { borderWidth: 1, borderRadius: radii.sm, paddingHorizontal: 10, paddingVertical: 4, gap: 2 },
-  name: { fontFamily: fonts.bodyBold, fontSize: 13, lineHeight: 17 },
-  maps: { flexShrink: 0, alignItems: 'flex-end', justifyContent: 'center', gap: 1 },
-  mapLink: { fontFamily: fonts.bodySemiBold, fontSize: 10, lineHeight: 15, textDecorationLine: 'underline' },
-  phones: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  phone: { flexGrow: 1, flexShrink: 0, minHeight: 34, justifyContent: 'center' },
-  number: { fontFamily: fonts.bodyBold, fontSize: 13, lineHeight: 17, textDecorationLine: 'underline' },
-  kind: { fontFamily: fonts.body, fontSize: 11, lineHeight: 14 },
-  note: { fontFamily: fonts.body, fontSize: 10, lineHeight: 13 },
+const tight = StyleSheet.create({
+  list: { gap: 6 },
+  heading: { fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 18 },
+  card: { borderWidth: 1, borderRadius: radii.md, paddingHorizontal: 12, paddingVertical: 9, gap: 4 },
+  tag: { alignSelf: 'flex-start', borderRadius: radii.pill, paddingHorizontal: 10, paddingVertical: 2 },
+  tagText: { fontFamily: fonts.bodyBold, fontSize: 12, lineHeight: 16 },
+  name: { fontFamily: fonts.bodyBold, fontSize: 15, lineHeight: 20 },
+  meta: { fontFamily: fonts.body, fontSize: 13, lineHeight: 17 },
+  // Two big buttons side by side; on a 320px phone they stack so a number is never cut.
+  phones: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  phone: {
+    flexGrow: 1,
+    flexBasis: 150,
+    minHeight: 48,
+    borderRadius: radii.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    justifyContent: 'center',
+  },
+  number: { fontFamily: fonts.bodyBold, fontSize: 15, lineHeight: 19 },
+  kind: { fontFamily: fonts.body, fontSize: 12, lineHeight: 15 },
+  maps: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  mapButton: { borderWidth: 1, borderRadius: radii.pill, paddingHorizontal: 10, paddingVertical: 5, minHeight: 30, justifyContent: 'center' },
+  mapText: { fontFamily: fonts.bodySemiBold, fontSize: 12 },
+  note: { fontFamily: fonts.body, fontSize: 11, lineHeight: 14 },
 });
 
 const styles = StyleSheet.create({
