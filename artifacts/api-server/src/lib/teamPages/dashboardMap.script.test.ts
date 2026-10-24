@@ -57,7 +57,7 @@ describe("the island map's script asks for fixed addresses only", () => {
     for (const l of literals) expect(l, l).not.toContain("?");
     // The only "?" joined onto an address is the page's own, from query().
     const joins = [...src.matchAll(/\+\s*"\?"\s*\+\s*([\w.]+)/g)].map((m) => m[1]);
-    for (const j of joins) expect(["qs", "gridQs"]).toContain(j);
+    for (const j of joins) expect(["qs", "gridQs", "findQs"]).toContain(j);
     expect(src).not.toMatch(/[?&](?:lat|lng|z|x|y)=/);
   });
 

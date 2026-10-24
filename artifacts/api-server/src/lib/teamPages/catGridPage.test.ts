@@ -47,6 +47,24 @@ const render = (o: Partial<Parameters<typeof renderCatGridPage>[0]> = {}) =>
     ...o,
   });
 
+describe("one row for Grid/Map and Find from a photo (§5.3)", () => {
+  it("puts the switch and the photo link in one .viewrow inside #catresults, switch first", () => {
+    const html = render({ filters: { colours: ["black"] } });
+    const results = html.slice(html.indexOf('<div id="catresults">'));
+    const row = /<div class="viewrow">([\s\S]*?)<\/div>/.exec(results)![1]!;
+    expect(row).toContain('<nav class="viewswitch"');
+    expect(row).toContain('<a class="findentrylink" href="/api/team/cats/find?colours=black">Find from a photo</a>');
+    expect(row.indexOf("viewswitch")).toBeLessThan(row.indexOf("findentrylink"));
+    expect(html).not.toContain('class="findentry"');
+    expect(html.match(/class="viewrow"/g)).toHaveLength(1);
+  });
+
+  it("styles the row as wrapping flex, switch left and link right", () => {
+    const css = readFileSync(join(__dirname, "layout.ts"), "utf8");
+    expect(css).toMatch(/\.viewrow\{[^}]*display:flex[^}]*flex-wrap:wrap[^}]*\}/);
+  });
+});
+
 describe("the grid's links and styles", () => {
   it("uses its own class, so the colony page's 'Add cats' link keeps its look", () => {
     const html = render();

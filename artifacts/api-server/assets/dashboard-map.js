@@ -581,6 +581,7 @@
   var count = document.getElementById("mapcount");
   var gridLink = document.getElementById("view-grid");
   var mapLink = document.getElementById("view-map");
+  var findLink = document.querySelector(".viewrow .findentrylink");
   var controller = null;
   var typing = 0;
 
@@ -703,6 +704,18 @@
       .join("&");
     if (gridLink) gridLink.href = path + (gridQs ? "?" + gridQs : "");
     if (mapLink) mapLink.href = path + (qs ? "?" + qs : "");
+    // The photo link carries only the form's colours, area and colony (the
+    // server's findAddress), never the rest and never a position.
+    if (findLink) {
+      var findParams = new URLSearchParams();
+      ["colours", "area", "colony"].forEach(function (key) {
+        new FormData(form).getAll(key).forEach(function (value) {
+          if (typeof value === "string" && value !== "") findParams.append(key, value);
+        });
+      });
+      var findQs = findParams.toString();
+      findLink.href = "/api/team/cats/find" + (findQs ? "?" + findQs : "");
+    }
     // The chips under the filters describe the page as it was drawn; once
     // the filters change, the count line says what is shown.
     var chips = document.querySelector("#mapresults .fchips");

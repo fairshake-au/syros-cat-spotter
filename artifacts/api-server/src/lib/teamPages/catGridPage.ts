@@ -291,7 +291,16 @@ function card(c: CatListItem, o: CatGridOptions): string {
  */
 function findLink(o: Pick<CatGridOptions, "filters" | "tie">): string {
   const f = o.filters;
-  return `<p class="findentry"><a class="findentrylink" href="${esc(findAddress({ area: f.area, colony: f.colony, colours: f.colours }, o.tie?.publicId))}">Find from a photo</a></p>`;
+  return `<a class="findentrylink" href="${esc(findAddress({ area: f.area, colony: f.colony, colours: f.colours }, o.tie?.publicId))}">Find from a photo</a>`;
+}
+
+/**
+ * Grid/Map and "Find from a photo" on one row (§5.3): the switch at the left,
+ * the link at the right, wrapping under it on a very narrow screen. Both
+ * views draw it. No switch while choosing a cat for a report.
+ */
+export function viewRow(o: Pick<CatGridOptions, "filters" | "tie">, current: "grid" | "map"): string {
+  return `<div class="viewrow">${o.tie ? "" : viewSwitch(o.filters, current)}${findLink(o)}</div>`;
 }
 
 export function renderCatGridPage(o: CatGridOptions): string {
@@ -344,7 +353,7 @@ export function renderCatGridPage(o: CatGridOptions): string {
   // choosing a cat for a report.
   const body =
     filterForm(o) +
-    `<div id="catresults">${tie ? "" : viewSwitch(o.filters, "grid")}${findLink(o)}${activeChips(o)}${results}</div>`;
+    `<div id="catresults">${viewRow(o, "grid")}${activeChips(o)}${results}</div>`;
   // The one page with our own script (SYC-396 PR 1.3.4). Its route sends the wider header.
   const script = assetUrl("dashboard-grid.js");
 
