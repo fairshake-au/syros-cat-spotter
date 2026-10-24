@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
@@ -41,7 +41,7 @@ import {
 import {
   optimizePhotoForUpload,
 } from '@/lib/photoUpload';
-import { useLocation } from '@/hooks/useLocation';
+import { useAppLocation } from '@/context/LocationContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { LocationPicker } from '@/components/LocationPicker';
 import { WaitingCard } from '@/components/WaitingCard';
@@ -187,7 +187,12 @@ export default function SpotScreen() {
     syncing,
   } =
     useOffline();
-  const { coords, denied, loading: locating, refresh } = useLocation();
+  const { coords, denied, loading: locating, askAndLocate } = useAppLocation();
+  // SYC-524 Task 3: interim; Task 5 replaces this with the card.
+  useEffect(() => {
+    void askAndLocate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [photo, setPhotoState] = useState<PickedPhoto | null>(null);
   // The on-screen photo's object URL, revoked when it is replaced or cleared.
   const photoUriRef = React.useRef<string | null>(null);
@@ -1631,7 +1636,7 @@ export default function SpotScreen() {
               )}
               {/* Not once the map has a start (Ermoupoli): nothing is stuck. */}
               {denied && !pickedCoords && (
-                <Pressable onPress={refresh}>
+                <Pressable onPress={() => void askAndLocate()}>
                   <Text style={[styles.denied, { color: colors.destructive }]}>
                     {t('locationDenied')}
                   </Text>
@@ -1788,7 +1793,7 @@ export default function SpotScreen() {
         )}
 
         {denied && !photo && (
-          <Pressable onPress={refresh}>
+          <Pressable onPress={() => void askAndLocate()}>
             <Text style={[styles.denied, { color: colors.destructive }]}>
               {t('locationDenied')}
             </Text>

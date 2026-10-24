@@ -20,6 +20,7 @@ import { AppearanceProvider } from '@/context/AppearanceContext';
 import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
+import { LocationProvider } from '@/context/LocationContext';
 import { AppSettingsProvider } from '@/context/AppSettingsContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { ReportQueueProvider } from '@/context/ReportQueueContext';
@@ -167,24 +168,26 @@ export default function RootLayout() {
             <LanguageProvider>
               <DeviceProvider>
                 <OfflineProvider>
-                  <AppSettingsProvider>
-                    <ReportQueueProvider>
-                      <IssueQueueProvider>
-                        <NotificationProvider>
-                          <DeleteMyDataProvider>
-                            <GestureHandlerRootView>
-                              <KeyboardProvider>
-                                <AppColumn>
-                                  <OnboardingGate />
-                                </AppColumn>
-                                <TurnstileHost />
-                              </KeyboardProvider>
-                            </GestureHandlerRootView>
-                          </DeleteMyDataProvider>
-                        </NotificationProvider>
-                      </IssueQueueProvider>
-                    </ReportQueueProvider>
-                  </AppSettingsProvider>
+                  <LocationProvider>
+                    <AppSettingsProvider>
+                      <ReportQueueProvider>
+                        <IssueQueueProvider>
+                          <NotificationProvider>
+                            <DeleteMyDataProvider>
+                              <GestureHandlerRootView>
+                                <KeyboardProvider>
+                                  <AppColumn>
+                                    <OnboardingGate />
+                                  </AppColumn>
+                                  <TurnstileHost />
+                                </KeyboardProvider>
+                              </GestureHandlerRootView>
+                            </DeleteMyDataProvider>
+                          </NotificationProvider>
+                        </IssueQueueProvider>
+                      </ReportQueueProvider>
+                    </AppSettingsProvider>
+                  </LocationProvider>
                 </OfflineProvider>
               </DeviceProvider>
             </LanguageProvider>

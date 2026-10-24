@@ -39,7 +39,7 @@ vi.mock('@/context/DeviceContext', () => ({
 vi.mock('@/context/OfflineContext', () => ({
   useOffline: () => ({ isOnline: h.isOnline }),
 }));
-vi.mock('@/hooks/useLocation', () => ({ useLocation: () => ({ coords: h.coords }) }));
+vi.mock('@/context/LocationContext', () => ({ useAppLocation: () => ({ coords: h.coords }) }));
 vi.mock('@/hooks/useCatsWithCache', () => ({
   useCatsWithCache: () => ({ cats: h.cats, isLoading: false, loadFailed: h.loadFailed, retry: h.retry }),
 }));

@@ -18,7 +18,7 @@ import { fonts, fontSizes, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
-import { useLocation } from '@/hooks/useLocation';
+import { useAppLocation } from '@/context/LocationContext';
 import { useCatsWithCache } from '@/hooks/useCatsWithCache';
 import { LoadFailed } from '@/components/LoadFailed';
 import { useStickyFailure } from '@/hooks/useStickyFailure';
@@ -52,7 +52,7 @@ export default function HomeScreen() {
   const compactTiles = useWindowDimensions().width < 360;
   const { deviceId, username, heldUsername } = useDevice();
   const { isOnline } = useOffline();
-  const { coords } = useLocation();
+  const { coords } = useAppLocation();
   const { cats, isLoading, loadFailed, retry } = useCatsWithCache(
     coords?.latitude,
     coords?.longitude,
