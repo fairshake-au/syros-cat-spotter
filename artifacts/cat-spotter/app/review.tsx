@@ -83,6 +83,7 @@ import {
   spacing,
   lineHeights,
 } from "@/constants/theme";
+import { catDisplayName } from '@/lib/catDisplayName';
 
 function catCode(id: number): string {
   return `SYR-${String(id).padStart(4, "0")}`;
@@ -540,7 +541,7 @@ export default function ReviewScreen() {
           {result.isNewCat ? t("newCatRegistered") : t("matchConfirmed")}
         </Text>
         <Text style={[styles.successCat, { color: colors.primary }]}>
-          {result.cat.name}
+          {catDisplayName(result.cat, t)}
         </Text>
         <Text
           style={[
@@ -578,7 +579,7 @@ export default function ReviewScreen() {
             {t("questionsHeading")}
           </Text>
           <SightingQuestions
-            catName={result.cat.name}
+            catName={catDisplayName(result.cat, t)}
             askEarTip={result.askEarTip}
             answers={answers}
             onChange={(patch) => setAnswers((prev) => ({ ...prev, ...patch }))}
@@ -602,7 +603,7 @@ export default function ReviewScreen() {
             ? "…"
             : answersFailed
               ? t("answersSend")
-              : `${result.cat.name} →`}
+              : `${catDisplayName(result.cat, t)} →`}
         </Button>
         {answersFailed ? (
           <Button variant="ghost" size="md" onPress={openCat}>
@@ -671,7 +672,7 @@ export default function ReviewScreen() {
     );
   }
   if (hintCat && !hintAnswered) {
-    const named = (key: string) => t(key).split("{name}").join(hintCat.name);
+    const named = (key: string) => t(key).split("{name}").join(catDisplayName(hintCat, t));
     const sayYes = async () => {
       if (!deviceId) return;
       setHintBusy(true);
@@ -1252,7 +1253,7 @@ export default function ReviewScreen() {
                       ]}
                       numberOfLines={1}
                     >
-                      {c.name}
+                      {catDisplayName(c, t)}
                     </Text>
                     {/* The catalog code is deliberately absent here: when you're
                         picking between look-alikes the name and the match score
@@ -1284,7 +1285,7 @@ export default function ReviewScreen() {
                 onPress={() => confirm(c.catId)}
                 // SYC-509: every card's button reads "That's the one", so the
                 // label says which cat and how close the match is.
-                accessibilityLabel={`${t("thatsTheOne")}: ${c.name}, ${pct}% ${t("matchPill")}`}
+                accessibilityLabel={`${t("thatsTheOne")}: ${catDisplayName(c, t)}, ${pct}% ${t("matchPill")}`}
               >
                 {busy ? (
                   <ActivityIndicator

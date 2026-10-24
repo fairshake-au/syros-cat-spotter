@@ -186,7 +186,7 @@ export function CatPicker({
                 style={[styles.label, { color: colors.mutedForeground }]}
                 numberOfLines={1}
               >
-                {selected.name}
+                {catDisplayName(selected, t)}
               </Text>
               <Image
                 source={photoSource(selected.photoUrl)}
@@ -209,7 +209,7 @@ export function CatPicker({
           ) : null}
           <View style={styles.selectedName}>
             <Text style={[styles.cardName, { color: colors.foreground }]}>
-              {selected.name}
+              {catDisplayName(selected, t)}
             </Text>
             <Text
               style={[

@@ -34,6 +34,7 @@ import { claimRefusal, isNotOwnerError, pinMovedFrom, pinTooFar } from '@/lib/cl
 import { getCurrentCoords } from '@/lib/currentPosition';
 import { LocationPicker } from '@/components/LocationPicker';
 import { Button } from '@/components/purropolis/Button';
+import { catDisplayName } from '@/lib/catDisplayName';
 
 type Mode = 'claim' | 'edit';
 
@@ -66,7 +67,7 @@ export function ClaimCatSheet({
   const queryClient = useQueryClient();
 
   // Wording uses the cat's name, never "he" or "she" (spec §4.1).
-  const named = (key: string) => t(key).split('{name}').join(cat.name);
+  const named = (key: string) => t(key).split('{name}').join(catDisplayName(cat, t));
 
   const [step, setStep] = useState<1 | 2>(1);
   const [livesOnSyros, setLivesOnSyros] = useState(false);
@@ -91,7 +92,7 @@ export function ClaimCatSheet({
       setPickerKey((k) => k + 1);
       setConfirmingLetGo(false);
       setHomeDescription(cat.homeDescription ?? '');
-      setCatName(cat.name);
+      setCatName(cat.namePending ? '' : cat.name);
       setError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

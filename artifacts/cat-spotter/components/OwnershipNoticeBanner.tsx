@@ -10,6 +10,7 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
+import { catDisplayName } from '@/lib/catDisplayName';
 
 const SNAPSHOT_KEY = 'cat-spotter/ownership-snapshot';
 
@@ -94,7 +95,7 @@ export function OwnershipNoticeBanner() {
         const newlyClaimed = !beforeHasHome && cat.hasHome;
         const renamedWhileOwned = cat.hasHome && before.name !== cat.name;
         if (newlyClaimed || renamedWhileOwned) {
-          setNotice({ catId: cat.id, name: cat.name });
+          setNotice({ catId: cat.id, name: catDisplayName(cat, t) });
           return; // one banner at a time is enough
         }
       }

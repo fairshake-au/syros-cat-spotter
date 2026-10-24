@@ -357,7 +357,7 @@ export default function CatDetailScreen() {
             />
           )}
           {shownTab === 'story' && careTimeline !== undefined && (
-            <StoryTab catName={cat.name} careTimeline={careTimeline} onReport={openReport} />
+            <StoryTab catName={shownName} careTimeline={careTimeline} onReport={openReport} />
           )}
           {shownTab === 'map' && <MapTab cat={cat} onReport={openReport} />}
         </View>
@@ -375,7 +375,7 @@ export default function CatDetailScreen() {
         <View style={[styles.followWrap, { top: insets.top + bannerReserve + 8 }]}>
           <FollowButton
             catId={cat.id}
-            catName={cat.name}
+            catName={shownName}
             deviceId={follow.deviceId}
             isFollowing={follow.isFollowing}
             isOnline={isOnline}
@@ -400,7 +400,7 @@ export default function CatDetailScreen() {
       {issueSheet !== null && (
         <ReportIssueSheet
           catId={cat.id}
-          catName={cat.name}
+          catName={shownName}
           photoUrl={issueSheet.photoUrl}
           initialReason={issueSheet.initialReason}
           onClose={() => setIssueSheet(null)}
@@ -409,7 +409,7 @@ export default function CatDetailScreen() {
       {askSheet !== null && (
         <ClaimAskSheet
           mode={askSheet}
-          catName={cat.name}
+          catName={shownName}
           onClose={closeAskSheet}
           // SYC-574 T2.6: the same push as "I've spotted {name}", once the
           // sheet has gone (iOS won't navigate under a closing modal).

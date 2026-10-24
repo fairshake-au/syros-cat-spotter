@@ -5,6 +5,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useOpenNeedsHelp } from '@/components/report/NeedsHelpLink';
 import { fonts, fontSizes, radii } from '@/constants/theme';
 import type { HomeAction } from '@/lib/catPageFacts';
+import { catDisplayName } from '@/lib/catDisplayName';
 
 function QuestionCard({
   emoji,
@@ -66,7 +67,7 @@ export function QuestionCards({
 }) {
   const { t } = useLanguage();
   const openNeedsHelp = useOpenNeedsHelp(cat);
-  const named = (key: string) => t(key).split('{name}').join(cat.name);
+  const named = (key: string) => t(key).split('{name}').join(catDisplayName(cat, t));
   return (
     <View style={styles.row}>
       <QuestionCard
