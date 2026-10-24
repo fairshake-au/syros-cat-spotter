@@ -166,6 +166,8 @@ const PUBLIC_CAT_KEYS = [
   "locationPrecision",
   "markings",
   "name",
+  // SYC-677 D: whether the cat is waiting for a spotter to name it.
+  "namePending",
   "notSeenSince",
   "ownerName",
   "photoUrl",
