@@ -10,6 +10,10 @@ import {
   pushTokensTable,
   sightingMatchesTable,
   sightingsTable,
+  catSubscriptionsTable,
+  catUnfollowsTable,
+  catUpdatesTable,
+  notificationsTable,
 } from "@workspace/db";
 import { and, eq, like, sql } from "drizzle-orm";
 import { haversineKm } from "@workspace/geo";
@@ -72,6 +76,8 @@ import { notifyCatSpotters } from "../lib/notifications";
 import { claimEligibility, clearOwner } from "../lib/claiming";
 import { blurPosition } from "../lib/blur";
 import { WITHDRAWN, writeObservation } from "../lib/observations";
+import { follow, isFollowing, unfollow } from "../lib/following";
+import { fanOutNotifications, insertCatUpdate } from "../lib/notificationFanout";
 import { _resetClaimLimitForTests } from "../middlewares/rateLimit";
 
 const pushMock = vi.mocked(sendPushNotification);
@@ -727,6 +733,63 @@ describe("POST /api/cats/:catId/claim (SYC-130)", () => {
       expect(text).not.toContain(String(v));
       expect(text).not.toContain(v.toFixed(5));
     }
+  });
+});
+
+describe("claiming makes the claimer a follower (SYC-624 B4)", () => {
+  const unfollowRows = (deviceId: string, catId: number) =>
+    db
+      .select()
+      .from(catUnfollowsTable)
+      .where(and(eq(catUnfollowsTable.deviceId, deviceId), eq(catUnfollowsTable.catId, catId)));
+
+  it("claiming after unfollowing restores the follow", async () => {
+    const c = await streetCat();
+    const d = phone("refollow");
+    await met(c.id, d);
+    await follow(db, { deviceId: d.id, catId: c.id });
+    await unfollow(db, { deviceId: d.id, catId: c.id });
+    expect(await isFollowing(d.id, c.id)).toBe(false);
+    expect(await unfollowRows(d.id, c.id)).toHaveLength(1);
+    expect((await claim(c.id, d)).status).toBe(200);
+    expect(await isFollowing(d.id, c.id)).toBe(true);
+    expect(await unfollowRows(d.id, c.id)).toHaveLength(0);
+  });
+
+  it("an owner who lost the follow gets it back by claiming again", async () => {
+    const c = await streetCat();
+    const d = phone("lostrow");
+    await met(c.id, d);
+    expect((await claim(c.id, d)).status).toBe(200);
+    await db
+      .delete(catSubscriptionsTable)
+      .where(and(eq(catSubscriptionsTable.deviceId, d.id), eq(catSubscriptionsTable.catId, c.id)));
+    expect(await isFollowing(d.id, c.id)).toBe(false);
+    expect((await claim(c.id, d)).status).toBe(200);
+    expect(await isFollowing(d.id, c.id)).toBe(true);
+  });
+
+  it("the owner hears live sightings after an unfollow then a claim", async () => {
+    const c = await streetCat();
+    const d = phone("hears");
+    await met(c.id, d);
+    await follow(db, { deviceId: d.id, catId: c.id });
+    await unfollow(db, { deviceId: d.id, catId: c.id });
+    expect((await claim(c.id, d)).status).toBe(200);
+    const cat = await reload(c.id);
+    const update = await insertCatUpdate(db, {
+      cat,
+      updateType: "sighting",
+      message: `${cat.name} was spotted again!`,
+    });
+    await fanOutNotifications({ cat, update });
+    const rows = await db
+      .select()
+      .from(notificationsTable)
+      .where(and(eq(notificationsTable.deviceId, d.id), eq(notificationsTable.catUpdateId, update.id)));
+    expect(rows).toHaveLength(1);
+    await db.delete(notificationsTable).where(eq(notificationsTable.catUpdateId, update.id));
+    await db.delete(catUpdatesTable).where(eq(catUpdatesTable.id, update.id));
   });
 });
 

@@ -394,6 +394,8 @@ router.post("/cats/:catId/claim", async (req, res) => {
   // §3 rule 4: this proven phone already owns the cat. A retry succeeds
   // quietly, writes nothing, and never spends an attempt (critic L1).
   if (cat && cat.ownerDeviceId === deviceId) {
+    // SYC-624: an owner always follows; give back a row they somehow lost.
+    await follow(db, { deviceId, catId });
     res.json(await catPayload(cat, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }));
     return;
   }
@@ -477,6 +479,9 @@ router.post("/cats/:catId/claim", async (req, res) => {
       authorityScope: "owner_of_this_cat",
       observedAt: new Date(),
     });
+    // SYC-624: claiming makes the claimer a follower, undoing any earlier
+    // unfollow, so the owner hears about sightings.
+    await follow(tx, { deviceId, catId });
     return { ok: true as const, row: row!, firstEver };
   });
 
