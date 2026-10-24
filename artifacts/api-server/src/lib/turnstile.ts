@@ -43,7 +43,8 @@ import { gateEnabled } from "./prelaunch";
 export const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 export const MAX_TOKEN_LENGTH = 2048;
 export const SITEVERIFY_TIMEOUT_MS = 3000;
-const DEFAULT_HOSTNAMES = ["apptest.catspotters.com"];
+// Exact list, never catspotters.com itself (SYC-662: syros is the launch address).
+const DEFAULT_HOSTNAMES = ["apptest.catspotters.com", "syros.catspotters.com"];
 
 // Tokens are printable ASCII with no spaces. Anything else is malformed and
 // never sent to Cloudflare.
