@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: fonts.displayBold, fontSize: fontSizes.xl },
   content: { padding: spacing[4], gap: spacing[5] },
-  section: { gap: spacing[2] },
+  section: { gap: spacing[3] },
   segment: {
     flexDirection: 'row',
     gap: spacing[1],

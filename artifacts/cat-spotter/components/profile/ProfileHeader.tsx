@@ -62,7 +62,7 @@ export function ProfileHeader({
           {nameNotSaved && (
             <Text style={[styles.sub, { color: onPrimary }]}>{t('nameNotSavedYet')}</Text>
           )}
-          <Text testID="profile-rank-line" style={[styles.sub, { color: onPrimary }]} numberOfLines={1}>
+          <Text testID="profile-rank-line" style={[styles.sub, { color: onPrimary }]} numberOfLines={2}>
             {rankLine ? `${t('profileRole')} · ${rankLine}` : t('profileRole')}
           </Text>
         </View>
