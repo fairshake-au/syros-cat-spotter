@@ -98,6 +98,6 @@ export function renderLikelyPage(
     active: "likely",
     personName,
     beforeTitle: backLink(HOME_PATH, "Home"),
-    body: notice + intro + body,
+    body: notice + (cats.length === 0 ? "" : intro) + body,
   });
 }
