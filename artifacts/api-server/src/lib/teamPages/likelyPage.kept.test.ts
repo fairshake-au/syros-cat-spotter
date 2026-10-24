@@ -29,4 +29,16 @@ describe("Ear clips to check, kept typing", () => {
     expect(html).toContain("Someone already dealt with that cat.");
     expect(html).not.toContain("We kept what you typed");
   });
+
+  it("with no cats, only the one empty line follows the title (SYC-619 §3)", () => {
+    const html = renderLikelyPage([], "Susan");
+    expect(html).toContain('<p class="empty">Nothing to check. Every Probably sterilised cat has been looked at.</p>');
+    expect(html).not.toContain('<ul class="hintlist">');
+    expect(html).not.toContain("only because a spotter said");
+  });
+
+  it("with cats, the explanation stays", () => {
+    const html = renderLikelyPage([cat(1, 11)], "Susan");
+    expect(html).toContain('<ul class="hintlist">');
+  });
 });

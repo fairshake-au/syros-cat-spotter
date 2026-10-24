@@ -1,3 +1,4 @@
+import { CELL_LAT_DEG, CELL_LNG_DEG, SYROS_OUTLINE } from "@workspace/geo";
 import { athensToday } from "../athensTime";
 import { wholePct, type ColonyFlag } from "../dashboard/colonyFigures";
 import { WELFARE_COLOUR, WELFARE_ORDER, WELFARE_PATTERN, WELFARE_WORD } from "../dashboard/welfareKinds";
@@ -17,6 +18,7 @@ import { escapeHtml as esc } from "./escape";
 import { backLink } from "./backLink";
 import { renderPage } from "./layout";
 import { markBar } from "./marks";
+import { foldLine, methodFold } from "./methodFold";
 
 // The Reports area and its first two reports (SYC-396 PR 3.3a; spec §9.3).
 // Server-drawn, no scripts: every chart is an SVG picture with its numbers in
@@ -69,17 +71,22 @@ export function renderReportsList(o: { personName: string; vetCosts: boolean }):
     const open = r.built && (r.key !== "vet" || o.vetCosts);
     const head = open
       ? `<h2><a href="${INSIGHTS}/${r.key}">${esc(r.title)}</a></h2>`
-      : `<h2>${esc(r.title)}</h2>`;
-    const status = open ? "" : `<p class="hint">${esc(r.built ? VET_COSTS_ONLY : (r.pending ?? "Coming soon"))}</p>`;
-    return `<li class="card reportcard" id="report-${r.key}">${head}<p>${esc(r.about)}</p>${status}</li>`;
+      : `<h2 class="muted">${esc(r.title)}</h2>`;
+    // Not open: muted words. Only a report that isn't built and has no words of its own gets the grey chip (§8.1).
+    const status = open
+      ? ""
+      : r.built
+        ? `<p class="hint muted">${esc(VET_COSTS_ONLY)}</p>`
+        : r.pending
+          ? `<p class="hint muted">${esc(r.pending)}</p>`
+          : '<p class="hint"><span class="chip">Coming soon</span></p>';
+    return `<li class="card reportcard" id="report-${r.key}">${head}<p${open ? "" : ' class="muted"'}>${esc(r.about)}</p>${status}</li>`;
   }).join("");
   return renderPage({
     title: "Reports",
     active: "reports",
     personName: o.personName,
-    body:
-      '<p class="hint">Each report is worked out from the records when you open it, for the time range you choose.</p>' +
-      `<ul class="reportlist">${cards}</ul>`,
+    body: `<ul class="reportlist">${cards}</ul>`,
   });
 }
 
@@ -116,21 +123,24 @@ function rangeBar(path: string, range: Range, extra = "", keep: Record<string, s
   );
 }
 
-/** The method lines (§9.3): when it was worked out, for what period, and the areas' version (null: the report names no places). */
+/**
+ * The method lines (§9.3, SYC-619 §8.2): one visible line saying when it was
+ * worked out and for what period, then the rules in the "How this is worked
+ * out" fold, with the areas' version last (null: the report names no places).
+ */
 function methodNote(range: Range, workedOutAt: Date, areasVersion: number | null, lines: string[]): string {
+  const areas =
+    areasVersion === null ? [] : [foldLine("areas-version", `Place names from the named areas, version ${areasVersion}.`)];
   return (
-    '<div class="method">' +
-    lines.map((l) => `<p class="hint">${esc(l)}.</p>`).join("") +
-    `<p class="hint">${esc(CORRECTED)}.</p>` +
-    `<p class="hint" id="worked-out">Worked out ${esc(stamp(workedOutAt))} · ${esc(lowerFirst(range.label))}</p>` +
-    (areasVersion === null ? "" : `<p class="hint" id="areas-version">Place names from the named areas, version ${areasVersion}.</p>`) +
-    "</div>"
+    `<p class="hint" id="worked-out">Worked out ${esc(stamp(workedOutAt))} Syros time · ${esc(lowerFirst(range.label))}</p>` +
+    methodFold([...lines.map((l) => `${l}.`), `${CORRECTED}.`, ...areas])
   );
 }
 
 /** "Last 3 months" reads "last 3 months" mid-sentence; a date range starts with a number and keeps its months. */
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
+/** The empty line. `all` (see all time) is only offered when it would help. */
 function nothing(path: string): string {
   return `<p class="empty" id="nothing">${esc(NOTHING_IN_PERIOD)}. <a href="${path}?range=all">See all time</a></p>`;
 }
@@ -233,7 +243,7 @@ export function renderProgressPage(r: ProgressReport, o: { personName: string; r
           tableFor(t.colonies) +
           (o.canExport ? download("progress-colonies", o.range, "Download the colonies as a spreadsheet (CSV)") : "")) +
       "</section>" +
-      methodNote(o.range, r.workedOutAt, r.areasVersion, [AS_STOOD]);
+      methodNote(o.range, r.workedOutAt, r.areasVersion, []);
   return renderPage({ title: "Sterilisation progress", active: "reports", personName: o.personName, beforeTitle: back, body, mainClass: "wide" });
 }
 
@@ -306,7 +316,9 @@ export function renderHealthPage(
   const body =
     rangeBar(path, o.range, keep.replace(/&/g, "&amp;"), { sort: o.sort, dir: o.dir }) +
     (r.rows.length === 0
-      ? nothing(path)
+      ? !r.anyColonies
+        ? `<p class="empty" id="nothing">No colonies yet. Colonies are set up on the <a href="/api/team/colonies">Colonies page</a>.</p>`
+        : nothing(path)
       : '<p class="hint">Figures at the end of the range. Change over 90 days compares with the records as they stood 90 days before. Tap a column to sort by it.</p>' +
         tableHtml({ ...table, headers }) +
         (o.canExport ? download("health", o.range, "Download this table as a spreadsheet (CSV)", `&amp;sort=${o.sort}&amp;dir=${o.dir}`) : "")) +
@@ -354,16 +366,14 @@ export function renderCoveragePage(r: CoverageReport, o: { personName: string; r
   const t = coverageTables(r);
   const notLooked = r.cells.filter((c) => !c.seen).length;
   const seen = r.cells.length - notLooked;
-  const lines = ["Counted by the date each sighting was sent"];
+  const lines = ["Counted by the date each sighting was sent", NO_SPOTTER];
   const body =
     rangeBar(path, o.range) +
     (r.sightings === 0 ? nothing(path) : "") +
     '<section id="spotting"><h2>Spotting</h2>' +
     `<p class="hbig"><strong>${r.sightings}</strong> ${r.sightings === 1 ? "sighting" : "sightings"}, from ` +
     `<strong>${r.spotters}</strong> ${r.spotters === 1 ? "spotter" : "spotters"}</p>` +
-    '<p class="hint">Spotters are counted, never named.' +
-    (r.withoutSpotter > 0 ? ` ${esc(NO_SPOTTER)}.` : "") +
-    "</p>" +
+    '<p class="hint">Spotters are counted, never named.</p>' +
     (r.sightings === 0
       ? ""
       : '<div class="chartbox">' +
@@ -379,7 +389,7 @@ export function renderCoveragePage(r: CoverageReport, o: { personName: string; r
     `<p class="hint">Squares of about 250 m. ${esc(plural(seen, "square", "squares"))} with a sighting in this period; ` +
     `${esc(plural(notLooked, "square", "squares"))} within 500 m of an area's centre not looked at yet.</p>` +
     '<div class="chartbox">' +
-    coverageMap({ cells: r.cells, labels: r.labels, title: "Squares sighted in this period, and squares not looked at yet" }) +
+    coverageMap({ cells: r.cells, labels: r.labels, outline: SYROS_OUTLINE, toGrid: (lat, lng) => ({ row: lat / CELL_LAT_DEG, col: lng / CELL_LNG_DEG }), title: "Squares sighted in this period, and squares not looked at yet" }) +
     "</div>" +
     (r.offSyros > 0 ? `<p class="hint">Also ${esc(plural(r.offSyros, "sighting", "sightings"))} more than 2 km from every area, not drawn.</p>` : "") +
     tableFor(t.areas) +
@@ -390,6 +400,8 @@ export function renderCoveragePage(r: CoverageReport, o: { personName: string; r
 }
 
 // ─── Welfare patterns ───────────────────────────────────────────────────
+
+const WELFARE_PROMISE = "No response times and nothing about who sent or handled a report";
 
 export const DRAFTS = "Started, not sent";
 export const CONTENT = "Problems reported with photos or names";
@@ -429,14 +441,12 @@ export function renderWelfarePage(r: WelfarePatterns, o: { personName: string; r
   const t = welfareTables(r);
   const sums = Object.fromEntries(WELFARE_ORDER.map((k) => [k, r.perWeek.reduce((n, w) => n + w.counts[k], 0)]));
   const split = WELFARE_ORDER.map((k) => `${sums[k]} ${WELFARE_WORD[k].toLowerCase()}`).join(", ");
-  const body =
-    rangeBar(path, o.range) +
-    (r.total === 0 && r.drafts === 0 && r.contentReports === 0 ? nothing(path) : "") +
+  const empty = r.total === 0 && r.drafts === 0 && r.contentReports === 0;
+  const sections =
     '<section id="welfare"><h2>Welfare reports per week</h2>' +
     `<p class="hbig"><strong>${r.total}</strong> welfare ${r.total === 1 ? "report" : "reports"} sent` +
     (r.total === 0 ? "" : `: ${esc(split)}`) +
     "</p>" +
-    '<p class="hint">Each report is in one kind only: a report with kittens is Litter, however urgent.</p>' +
     (r.total === 0
       ? ""
       : '<div class="chartbox">' +
@@ -459,8 +469,16 @@ export function renderWelfarePage(r: WelfarePatterns, o: { personName: string; r
     (r.topAreas.length === 0
       ? '<p class="empty">No welfare reports in this period.</p>'
       : tableHtml(t.areas) + (o.canExport ? download("welfare-areas", o.range, "Download the areas as a spreadsheet (CSV)") : "")) +
-    "</section>" +
-    methodNote(o.range, r.workedOutAt, r.areasVersion, ["Counted by the date each report was sent", "No response times and nothing about who sent or handled a report"]);
+    "</section>";
+  // The promise is always said, empty or not (§3); the counting rules are in the fold.
+  const body =
+    rangeBar(path, o.range) +
+    (empty ? nothing(path) : sections) +
+    `<p class="hint">${esc(WELFARE_PROMISE)}.</p>` +
+    methodNote(o.range, r.workedOutAt, r.areasVersion, [
+      "Each report is in one kind only: a report with kittens is Litter, however urgent",
+      "Counted by the date each report was sent",
+    ]);
   return renderPage({ title: "Welfare patterns", active: "reports", personName: o.personName, beforeTitle: back, body, mainClass: "wide" });
 }
 
@@ -529,9 +547,29 @@ export function renderVetPage(r: VetCostsReport, o: { personName: string; range:
   const visits = r.visits.length;
   const spend = r.perMonth.reduce((c, m) => c + Math.round(m.spendEur * 100), 0) / 100;
   const per = r.perSterilisation;
+  const empty = visits === 0 && r.noCost === 0;
+  const lower =
+    '<section id="by-purpose"><h2>Spend by what was done</h2>' +
+    tableHtml(t.purposes) +
+    (o.canExport ? download("vet-purposes", o.range, "Download spend by what was done as a spreadsheet (CSV)") : "") +
+    "</section>" +
+    '<section id="per-sterilisation"><h2>Cost per sterilisation</h2>' +
+    (per === null
+      ? '<p class="empty">No sterilisation with a cost paid by Syros Cats in this period.</p>'
+      : `<p class="hbig">Average <strong>${esc(euroText(per.avg))}</strong></p>` +
+        `<p>From ${esc(euroText(per.min))} to ${esc(euroText(per.max))}, over ${esc(plural(per.n, "sterilisation", "sterilisations"))} Syros Cats paid for.</p>`) +
+    "</section>" +
+    '<section id="no-cost"><h2>Sterilisations with no cost recorded</h2>' +
+    `<p class="hbig"><strong>${r.noCost}</strong> ${r.noCost === 1 ? "sterilisation" : "sterilisations"} with no cost recorded</p>` +
+    "</section>" +
+    '<section id="visits"><h2>Every visit</h2>' +
+    (visits === 0
+      ? '<p class="empty">No vet visits in this period.</p>'
+      : tableHtml(t.visits) + (o.canExport ? download("vet-visits", o.range, "Download every visit as a spreadsheet for the accounts (CSV)") : "")) +
+    "</section>";
   const body =
     rangeBar(path, o.range) +
-    (visits === 0 && r.noCost === 0 ? nothing(path) : "") +
+    (empty ? nothing(path) : "") +
     '<section id="spend"><h2>Visits and spend per month</h2>' +
     `<p class="hbig"><strong>${visits}</strong> vet ${visits === 1 ? "visit" : "visits"}, ` +
     `<strong>${esc(euroText(spend))}</strong> spent by Syros Cats</p>` +
@@ -547,28 +585,14 @@ export function renderVetPage(r: VetCostsReport, o: { personName: string; range:
         tableFor(t.months) +
         (o.canExport ? download("vet-months", o.range, "Download visits and spend per month as a spreadsheet (CSV)") : "")) +
     "</section>" +
-    '<section id="by-purpose"><h2>Spend by what was done</h2>' +
-    '<p class="hint">Each visit is counted once, under its main purpose: Sterilised if ticked, else Vaccinated, else Treated, else Checked only.</p>' +
-    tableHtml(t.purposes) +
-    (o.canExport ? download("vet-purposes", o.range, "Download spend by what was done as a spreadsheet (CSV)") : "") +
-    "</section>" +
-    '<section id="per-sterilisation"><h2>Cost per sterilisation</h2>' +
-    (per === null
-      ? '<p class="empty">No sterilisation with a cost paid by Syros Cats in this period.</p>'
-      : `<p class="hbig">Average <strong>${esc(euroText(per.avg))}</strong></p>` +
-        `<p>From ${esc(euroText(per.min))} to ${esc(euroText(per.max))}, over ${esc(plural(per.n, "sterilisation", "sterilisations"))} Syros Cats paid for.</p>` +
-        '<p class="hint">A visit that also vaccinated or treated the cat counts its whole cost.</p>') +
-    "</section>" +
-    '<section id="no-cost"><h2>Sterilisations with no cost recorded</h2>' +
-    `<p class="hbig"><strong>${r.noCost}</strong> ${r.noCost === 1 ? "sterilisation" : "sterilisations"} with no cost recorded</p>` +
-    '<p class="hint">Cats marked sterilised with “Update this cat” and never at a vet visit, and vet visits with Sterilised saved without a cost, whoever paid. They aren\'t in the cost per sterilisation.</p>' +
-    "</section>" +
-    '<section id="visits"><h2>Every visit</h2>' +
-    (visits === 0
-      ? '<p class="empty">No vet visits in this period.</p>'
-      : tableHtml(t.visits) + (o.canExport ? download("vet-visits", o.range, "Download every visit as a spreadsheet for the accounts (CSV)") : "")) +
-    "</section>" +
-    methodNote(o.range, r.workedOutAt, null, ["Counted by the date of the visit", "An undone visit isn't counted anywhere"]);
+    (empty ? "" : lower) +
+    methodNote(o.range, r.workedOutAt, null, [
+      "Each visit is counted once, under its main purpose: Sterilised if ticked, else Vaccinated, else Treated, else Checked only",
+      "A visit that also vaccinated or treated the cat counts its whole cost",
+      "A sterilisation with no cost recorded is a cat marked sterilised with “Update this cat” and never at a vet visit, or a vet visit with Sterilised saved without a cost, whoever paid. These aren't in the cost per sterilisation",
+      "Counted by the date of the visit",
+      "An undone visit isn't counted anywhere",
+    ]);
   return renderPage({ title: "Vet visits and costs", active: "reports", personName: o.personName, beforeTitle: back, body, mainClass: "wide" });
 }
 

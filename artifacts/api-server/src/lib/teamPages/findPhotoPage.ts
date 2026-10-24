@@ -193,11 +193,11 @@ function photoForm(o: FindFormOptions): string {
   const capWords = o.capped === "person" ? PERSON_CAP_WORDS : o.capped === "team" ? TEAM_CAP_WORDS : null;
   let inside: string;
   if (capWords) {
-    inside = `<p class="notice" role="status">${esc(capWords)}</p>`;
+    inside = `<p class="notice" id="find-photo" role="status">${esc(capWords)}</p>`;
   } else if (o.problem?.field === "place") {
-    inside = '<p class="hint">Choose where to look first, then choose the photo here.</p>';
+    inside = '<p class="hint" id="find-photo">Choose where to look first, then choose the photo here.</p>';
   } else if (o.narrowing.kind !== "ok") {
-    inside = '<p class="hint">Once there are cats to compare, choose the photo here.</p>';
+    inside = '<p class="hint" id="find-photo">Once there are cats to compare, choose the photo here.</p>';
   } else {
     const photoProblem =
       o.problem?.field === "photo" ? `<p class="warn" id="photo-error">${esc(o.problem.words)}</p>` : "";
@@ -261,7 +261,7 @@ export function renderFindForm(o: FindFormOptions): string {
         ? `<p class="notice" role="alert">${esc(o.problem.words)} <a href="${o.problem.field === "place" ? "#find-area" : "#find-photo"}">Go to it</a></p>`
         : "") +
       tieIntro(o.tie, o.now) +
-      '<p class="hint">Compare a photo, for example one a resident sent, with the cats of the whole island, one area or one colony. You decide which cat it is; the page only says how close each one looks.</p>' +
+      '<p class="hint">Choose where to look, then add the photo below. <a href="#find-photo">Go to the photo</a></p>' +
       whereForm(o) +
       (o.problem?.field === "place" ? "" : countLine(o.narrowing, o.filters, o.colonies)) +
       photoForm(o),

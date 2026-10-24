@@ -7,6 +7,7 @@ import { bringBack, invite, changeRoles, resend } from "../people/actions";
 import { drainDue, settleOutbox } from "./outbox";
 import { sendMail, type PersonMailLookups } from "./send";
 import { renderAccessNotice, renderInvitation } from "./personTemplates";
+import { roleSentence } from "../people/words";
 
 // SYC-53 PR 1.1: the two people emails (roles-and-invites.md §4.1 step 2,
 // §8.3, §8.5; plan T22 and the delivery-time re-check, review M9). Nothing
@@ -419,4 +420,35 @@ describe("review M-2: a slow provider holds up nothing", () => {
     expect(results.reduce((n, r) => n + r.sent, 0)).toBe(12);
     for (const id of ids) expect((await personRow(id)).invite_sent_at).not.toBeNull();
   }, 60_000);
+});
+
+// SYC-619 task 18: the roles forms get a line under each box, but the "Now:"
+// sentence and the invitation emails must keep their exact words (spec 9.1).
+describe("role wording in emails and the Now line is locked", () => {
+  const roleSets = [["staff"], ["management"], ["guardian"], ["staff", "guardian"], ["management", "guardian"], []];
+  it("roleSentence, in each language, for every role mix", () => {
+    const out: Record<string, string> = {};
+    for (const lang of ["en", "el", "fr"] as const)
+      for (const roles of roleSets)
+        for (const cols of [[], ["Vaporia"], ["Vaporia", "Ano Syros"]])
+          out[`${lang} ${roles.join("+") || "none"} ${cols.join(",") || "no colonies"}`] = roleSentence(lang, roles, cols, (n) => n, ["en", "el", "fr"]);
+    out["en starting"] = roleSentence("en", ["guardian"], [], (n) => n, ["en"], true);
+    expect(out).toMatchSnapshot();
+  });
+  it("invitation emails, every role mix and language", () => {
+    const out: Record<string, unknown> = {};
+    for (const language of ["en", "el", "fr"])
+      for (const roles of roleSets)
+        out[`${language} ${roles.join("+") || "none"}`] = renderInvitation({ language, roles, colonies: roles.includes("guardian") ? ["Vaporia"] : [] }, ["en", "el", "fr"]);
+    out["en starting"] = renderInvitation({ language: "en", roles: ["guardian"], colonies: [], starting: true });
+    expect(out).toMatchSnapshot();
+  });
+  it("the access notice that carries the role sentence", () => {
+    const names = new Map([[7, "Vaporia"]]);
+    const base = { language: "en", actorName: "Susan", subjectName: "Eleni", colonyNames: names };
+    expect([
+      renderAccessNotice({ ...base, change: { kind: "invited", roles: ["management", "guardian"], colonyIds: [7] } }),
+      renderAccessNotice({ ...base, change: { kind: "roles_changed", before: ["staff"], after: ["management", "guardian:7"] } }),
+    ]).toMatchSnapshot();
+  });
 });
