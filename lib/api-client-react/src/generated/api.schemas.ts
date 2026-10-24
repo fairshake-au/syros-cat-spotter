@@ -765,6 +765,26 @@ export const ResolveResultPointsReason = {
   repeat_today: 'repeat_today',
 } as const;
 
+export type BadgeProgressGroup = typeof BadgeProgressGroup[keyof typeof BadgeProgressGroup];
+
+
+export const BadgeProgressGroup = {
+  first_steps: 'first_steps',
+  coming_back: 'coming_back',
+  weekly: 'weekly',
+  finding: 'finding',
+  covering: 'covering',
+} as const;
+
+export interface BadgeProgress {
+  id: string;
+  group: BadgeProgressGroup;
+  earned: boolean;
+  /** Progress towards the goal; null for badges earned at a moment (Pathfinder, Trailblazer). */
+  value: number | null;
+  goal: number | null;
+}
+
 export interface Profile {
   deviceId: string;
   spotterCode: string;
@@ -774,7 +794,14 @@ export interface Profile {
   totalSightings: number;
   uniqueCatsDiscovered: number;
   catsSpotted: number;
+  /** Every badge this spotter has earned. Badges are never taken away. */
   badges: string[];
+  /** Every badge in the catalogue, in display order, with progress. */
+  badgeProgress: BadgeProgress[];
+  /** Earned badges not yet seen on the Badges tab ("New"). */
+  newBadgeIds: string[];
+  /** Points earned this week (Monday to Monday, Europe/Athens). */
+  weekPoints: number;
   /** Ids of cats this device owns. Only returned on the device's own profile route (the deviceId path param is the credential); never exposed in public payloads. */
   ownedCatIds: number[];
   /** Consecutive days (Europe/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day. */
@@ -791,7 +818,10 @@ export interface ResolveResult {
   /** Why pointsAwarded is 0: "repeat_today" when this spotter already earned points for this cat today (Athens day). Null otherwise. */
   pointsReason: ResolveResultPointsReason;
   isNewCat: boolean;
+  /** Badges this spot earned, each reported by exactly one spot. */
   newBadges: string[];
+  /** The celebration moment queued for newBadges, or null when this spot earned no badge. */
+  momentId: number | null;
   profile: Profile;
   /** Whether to ask this spotter the ear-tip question about this cat. False once this device has given any ear-tip answer for this cat ("clipped", "looks whole" or "can't tell"), so each spotter is asked once per cat (data spine plan, decision Q3 → B). */
   askEarTip: boolean;
@@ -928,6 +958,28 @@ export interface ClaimUsernameRequest {
 export interface ClaimedUsername {
   /** @nullable */
   username: string | null;
+}
+
+export type BadgeMomentKind = typeof BadgeMomentKind[keyof typeof BadgeMomentKind];
+
+
+export const BadgeMomentKind = {
+  badges: 'badges',
+  week_result: 'week_result',
+  history: 'history',
+} as const;
+
+export interface BadgeMoment {
+  id: number;
+  kind: BadgeMomentKind;
+  badgeIds: string[];
+  weekStart: string | null;
+  place: number | null;
+  weekPoints: number | null;
+}
+
+export interface BadgeMoments {
+  moments: BadgeMoment[];
 }
 
 export interface LeaderboardEntry {

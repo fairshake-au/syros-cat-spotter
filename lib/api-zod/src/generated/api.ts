@@ -559,7 +559,8 @@ export const ResolveSightingResponse = zod.object({
   "pointsAwarded": zod.number(),
   "pointsReason": zod.union([zod.literal('repeat_today'),zod.literal(null)]).nullable().describe('Why pointsAwarded is 0: \"repeat_today\" when this spotter already earned points for this cat today (Athens day). Null otherwise.'),
   "isNewCat": zod.boolean(),
-  "newBadges": zod.array(zod.string()),
+  "newBadges": zod.array(zod.string()).describe('Badges this spot earned, each reported by exactly one spot.'),
+  "momentId": zod.number().nullable().describe('The celebration moment queued for newBadges, or null when this spot earned no badge.'),
   "profile": zod.object({
   "deviceId": zod.string(),
   "spotterCode": zod.string(),
@@ -569,7 +570,16 @@ export const ResolveSightingResponse = zod.object({
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
-  "badges": zod.array(zod.string()),
+  "badges": zod.array(zod.string()).describe('Every badge this spotter has earned. Badges are never taken away.'),
+  "badgeProgress": zod.array(zod.object({
+  "id": zod.string(),
+  "group": zod.enum(['first_steps', 'coming_back', 'weekly', 'finding', 'covering']),
+  "earned": zod.boolean(),
+  "value": zod.number().nullable().describe('Progress towards the goal; null for badges earned at a moment (Pathfinder, Trailblazer).'),
+  "goal": zod.number().nullable()
+})).describe('Every badge in the catalogue, in display order, with progress.'),
+  "newBadgeIds": zod.array(zod.string()).describe('Earned badges not yet seen on the Badges tab (\"New\").'),
+  "weekPoints": zod.number().describe('Points earned this week (Monday to Monday, Europe\/Athens).'),
   "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.'),
   "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
   "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
@@ -665,7 +675,16 @@ export const GetProfileResponse = zod.object({
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
-  "badges": zod.array(zod.string()),
+  "badges": zod.array(zod.string()).describe('Every badge this spotter has earned. Badges are never taken away.'),
+  "badgeProgress": zod.array(zod.object({
+  "id": zod.string(),
+  "group": zod.enum(['first_steps', 'coming_back', 'weekly', 'finding', 'covering']),
+  "earned": zod.boolean(),
+  "value": zod.number().nullable().describe('Progress towards the goal; null for badges earned at a moment (Pathfinder, Trailblazer).'),
+  "goal": zod.number().nullable()
+})).describe('Every badge in the catalogue, in display order, with progress.'),
+  "newBadgeIds": zod.array(zod.string()).describe('Earned badges not yet seen on the Badges tab (\"New\").'),
+  "weekPoints": zod.number().describe('Points earned this week (Monday to Monday, Europe\/Athens).'),
   "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.'),
   "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
   "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
@@ -697,7 +716,16 @@ export const UpdateProfileResponse = zod.object({
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
-  "badges": zod.array(zod.string()),
+  "badges": zod.array(zod.string()).describe('Every badge this spotter has earned. Badges are never taken away.'),
+  "badgeProgress": zod.array(zod.object({
+  "id": zod.string(),
+  "group": zod.enum(['first_steps', 'coming_back', 'weekly', 'finding', 'covering']),
+  "earned": zod.boolean(),
+  "value": zod.number().nullable().describe('Progress towards the goal; null for badges earned at a moment (Pathfinder, Trailblazer).'),
+  "goal": zod.number().nullable()
+})).describe('Every badge in the catalogue, in display order, with progress.'),
+  "newBadgeIds": zod.array(zod.string()).describe('Earned badges not yet seen on the Badges tab (\"New\").'),
+  "weekPoints": zod.number().describe('Points earned this week (Monday to Monday, Europe\/Athens).'),
   "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.'),
   "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
   "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
@@ -765,6 +793,58 @@ export const ClaimUsernameBody = zod.object({
 export const ClaimUsernameResponse = zod.object({
   "username": zod.string().nullable()
 })
+
+
+/**
+ * @summary Celebrations waiting to be played, oldest first, at most 10
+ */
+export const ListBadgeMomentsParams = zod.object({
+  "deviceId": zod.coerce.string()
+})
+
+export const ListBadgeMomentsHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
+export const ListBadgeMomentsResponse = zod.object({
+  "moments": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['badges', 'week_result', 'history']),
+  "badgeIds": zod.array(zod.string()),
+  "weekStart": zod.coerce.date().nullable(),
+  "place": zod.number().nullable(),
+  "weekPoints": zod.number().nullable()
+}))
+})
+
+
+/**
+ * @summary Mark one of this device's celebration moments as played
+ */
+export const MarkMomentCelebratedParams = zod.object({
+  "deviceId": zod.coerce.string(),
+  "id": zod.coerce.number()
+})
+
+export const MarkMomentCelebratedHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
+export const MarkMomentCelebratedResponse = zod.void()
+
+
+/**
+ * @summary Clear the "New" marker on every badge this device has
+ */
+export const MarkBadgesSeenParams = zod.object({
+  "deviceId": zod.coerce.string()
+})
+
+export const MarkBadgesSeenHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
+export const MarkBadgesSeenResponse = zod.void()
 
 
 /**

@@ -23,12 +23,13 @@ import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
   isResolvedDeceased,
-  getProfileStats,
   profilePayload,
   serialiseCat,
 } from "../lib/catHelpers";
 import { blurPosition } from "../lib/blur";
-import { badgesFor } from "../lib/badges";
+import { thresholdBadges } from "../lib/badges/catalogue";
+import { computeBadgeStats } from "../lib/badges/stats";
+import { awardBadges, eventBadgesForSpot, queueMoment } from "../lib/badges/award";
 import { clampCaptureTime } from "../lib/captureTime";
 import { requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
@@ -881,9 +882,6 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   // so no device id matches it and nobody can resolve it from the app.
   const spotterId: string = sighting.deviceId;
 
-  const statsBefore = await getProfileStats(spotterId);
-  const badgesBefore = badgesFor(statsBefore);
-
   let existingCat: typeof catsTable.$inferSelect | undefined;
   let newCatName: string | undefined;
 
@@ -982,6 +980,18 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       // capture time, for the once-a-day rule and the week it counts in.
       const at = new Date();
 
+      // SYC-706: badges are decided inside this transaction. One spotter's
+      // resolves take turns (all of their spots, not just one cat's), so the
+      // "before" below is exact and a badge is celebrated by one spot only.
+      // Lock order: this lock, then the sighting row, then awardPoints' lock.
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${"badges:" + spotterId}))`,
+      );
+      // What the spotter had met before this spot. Badges met already were
+      // earned by older spots: saved without a celebration, so an existing
+      // spotter's first spot after launch doesn't replay their whole history.
+      const badgesBefore = thresholdBadges(await computeBadgeStats(tx, spotterId));
+
       if (newCatName != null) {
         // SYC-462 spec §6 item 4 (P9): a cover photo removed for good never
         // becomes a new cat's main photo; the cat starts with none (0).
@@ -1036,7 +1046,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
             eq(sightingsTable.status, "pending"),
           ),
         )
-        .returning({ id: sightingsTable.id });
+        .returning({ id: sightingsTable.id, areaKey: sightingsTable.areaKey });
       if (updated.length === 0) throw ALREADY_RESOLVED;
 
       // SYC-706: a spotter earns for a given cat once per Athens day.
@@ -1079,7 +1089,26 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         on conflict do nothing
       `);
 
-      return { cat: cat!, pointsAwarded, pointsReason, isNewCat };
+      // SYC-706: the badges this spot crossed, plus the moment-of-the-spot
+      // ones, saved once. awardBadges returns only rows it inserted, so a
+      // badge another spot already saved is never celebrated twice.
+      const badgesAfter = thresholdBadges(await computeBadgeStats(tx, spotterId));
+      const crossed = badgesAfter.filter((b) => !badgesBefore.includes(b));
+      const events = await eventBadgesForSpot(tx, {
+        deviceId: spotterId,
+        catId: cat!.id,
+        isNewCat,
+        areaKey: updated[0]!.areaKey,
+        at,
+      });
+      await awardBadges(tx, spotterId, badgesBefore, "history");
+      const newBadges = await awardBadges(tx, spotterId, [...crossed, ...events], "live");
+      const momentId =
+        newBadges.length > 0
+          ? await queueMoment(tx, { deviceId: spotterId, kind: "badges", badgeIds: newBadges })
+          : null;
+
+      return { cat: cat!, pointsAwarded, pointsReason, isNewCat, newBadges, momentId };
     });
   } catch (err: any) {
     if (err === ALREADY_RESOLVED) {
@@ -1094,7 +1123,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     throw err;
   }
 
-  const { cat, pointsAwarded, pointsReason, isNewCat } = resolution;
+  const { cat, pointsAwarded, pointsReason, isNewCat, newBadges, momentId } = resolution;
 
   // SYC-151: the server's own label for this choice (§4.6), decided from the
   // stored set and never from what the phone says. Team-only, and best
@@ -1137,7 +1166,6 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   });
 
   const profile = await profilePayload(sighting.deviceId);
-  const newBadges = profile.badges.filter((b) => !badgesBefore.includes(b));
   const askEarTip = !(await hasAnsweredEarTip(db, sighting.deviceId, cat.id));
 
   // SYC-166 slice 3 (spec test 12): last seen is the cat's newest sighting,
@@ -1196,6 +1224,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     pointsReason,
     isNewCat,
     newBadges,
+    momentId,
     profile,
     askEarTip,
   });

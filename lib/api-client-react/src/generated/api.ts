@@ -23,6 +23,7 @@ import type {
   ApiErrorBody,
   AppNotification,
   AppSettings,
+  BadgeMoments,
   Campaign,
   Cat,
   CatClaim,
@@ -1694,6 +1695,227 @@ export const useClaimUsername = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getClaimUsernameMutationOptions(options));
+    }
+
+export const getListBadgeMomentsUrl = (deviceId: string,) => {
+
+
+
+
+  return `/api/profiles/${deviceId}/moments`
+}
+
+/**
+ * @summary Celebrations waiting to be played, oldest first, at most 10
+ */
+export const listBadgeMoments = async (deviceId: string, options?: RequestInit): Promise<BadgeMoments> => {
+
+  return customFetch<BadgeMoments>(getListBadgeMomentsUrl(deviceId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBadgeMomentsQueryKey = (deviceId: string,) => {
+    return [
+    `/api/profiles/${deviceId}/moments`
+    ] as const;
+    }
+
+
+export const getListBadgeMomentsQueryOptions = <TData = Awaited<ReturnType<typeof listBadgeMoments>>, TError = ErrorType<unknown>>(deviceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBadgeMoments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBadgeMomentsQueryKey(deviceId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBadgeMoments>>> = ({ signal }) => listBadgeMoments(deviceId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: deviceId !== null && deviceId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBadgeMoments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBadgeMomentsQueryResult = NonNullable<Awaited<ReturnType<typeof listBadgeMoments>>>
+export type ListBadgeMomentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Celebrations waiting to be played, oldest first, at most 10
+ */
+
+export function useListBadgeMoments<TData = Awaited<ReturnType<typeof listBadgeMoments>>, TError = ErrorType<unknown>>(
+ deviceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBadgeMoments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBadgeMomentsQueryOptions(deviceId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkMomentCelebratedUrl = (deviceId: string,
+    id: number,) => {
+
+
+
+
+  return `/api/profiles/${deviceId}/moments/${id}/celebrated`
+}
+
+/**
+ * @summary Mark one of this device's celebration moments as played
+ */
+export const markMomentCelebrated = async (deviceId: string,
+    id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getMarkMomentCelebratedUrl(deviceId,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkMomentCelebratedMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markMomentCelebrated>>, TError,{deviceId: string;id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markMomentCelebrated>>, TError,{deviceId: string;id: number}, TContext> => {
+
+const mutationKey = ['markMomentCelebrated'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markMomentCelebrated>>, {deviceId: string;id: number}> = (props) => {
+          const {deviceId,id} = props ?? {};
+
+          return  markMomentCelebrated(deviceId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkMomentCelebratedMutationResult = NonNullable<Awaited<ReturnType<typeof markMomentCelebrated>>>
+
+    export type MarkMomentCelebratedMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark one of this device's celebration moments as played
+ */
+export const useMarkMomentCelebrated = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markMomentCelebrated>>, TError,{deviceId: string;id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markMomentCelebrated>>,
+        TError,
+        {deviceId: string;id: number},
+        TContext
+      > => {
+      return useMutation(getMarkMomentCelebratedMutationOptions(options));
+    }
+
+export const getMarkBadgesSeenUrl = (deviceId: string,) => {
+
+
+
+
+  return `/api/profiles/${deviceId}/badges/seen`
+}
+
+/**
+ * @summary Clear the "New" marker on every badge this device has
+ */
+export const markBadgesSeen = async (deviceId: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getMarkBadgesSeenUrl(deviceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkBadgesSeenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markBadgesSeen>>, TError,{deviceId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markBadgesSeen>>, TError,{deviceId: string}, TContext> => {
+
+const mutationKey = ['markBadgesSeen'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markBadgesSeen>>, {deviceId: string}> = (props) => {
+          const {deviceId} = props ?? {};
+
+          return  markBadgesSeen(deviceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkBadgesSeenMutationResult = NonNullable<Awaited<ReturnType<typeof markBadgesSeen>>>
+
+    export type MarkBadgesSeenMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Clear the "New" marker on every badge this device has
+ */
+export const useMarkBadgesSeen = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markBadgesSeen>>, TError,{deviceId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markBadgesSeen>>,
+        TError,
+        {deviceId: string},
+        TContext
+      > => {
+      return useMutation(getMarkBadgesSeenMutationOptions(options));
     }
 
 export const getListNotificationsUrl = (deviceId: string,) => {

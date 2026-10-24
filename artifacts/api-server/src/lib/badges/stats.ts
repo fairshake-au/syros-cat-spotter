@@ -3,7 +3,8 @@ import { sql } from "drizzle-orm";
 import { currentAreas } from "../areas/namedAreas";
 import type { BadgeStats } from "./catalogue";
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+/** The database, or a transaction on it. */
+type Tx = Pick<typeof db, "execute">;
 
 /** Everything the badge catalogue reads, counted from the database. */
 export async function computeBadgeStats(

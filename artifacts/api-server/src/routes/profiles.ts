@@ -202,6 +202,54 @@ router.patch("/profiles/:deviceId", async (req, res) => {
   res.json(await profilePayload(deviceId));
 });
 
+// SYC-706: celebration moments and the "New" marker on badges. Private to
+// the device, so each needs its secret like the profile itself.
+
+/** Uncelebrated moments, oldest first, at most 10. */
+router.get("/profiles/:deviceId/moments", async (req, res) => {
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
+  const rows = await db.execute(sql`
+    select id, kind, badge_ids, week_start::text as week_start, place, week_points
+    from badge_moments
+    where device_id = ${deviceId} and celebrated_at is null
+    order by id
+    limit 10`);
+  res.json({
+    moments: rows.rows.map((r) => ({
+      id: Number(r.id),
+      kind: String(r.kind),
+      badgeIds: (r.badge_ids as string[]) ?? [],
+      weekStart: (r.week_start as string | null) ?? null,
+      place: r.place == null ? null : Number(r.place),
+      weekPoints: r.week_points == null ? null : Number(r.week_points),
+    })),
+  });
+});
+
+/** Marks one of this device's moments as played. Another device's id is a no-op. */
+router.post("/profiles/:deviceId/moments/:id/celebrated", async (req, res) => {
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
+  const id = Number(req.params.id);
+  if (Number.isInteger(id) && id > 0 && id <= 2_147_483_647) {
+    await db.execute(sql`
+      update badge_moments set celebrated_at = now()
+      where id = ${id} and device_id = ${deviceId} and celebrated_at is null`);
+  }
+  res.status(204).end();
+});
+
+/** Clears the "New" marker on every badge this device has. */
+router.post("/profiles/:deviceId/badges/seen", async (req, res) => {
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
+  await db.execute(sql`
+    update spotter_badges set seen_at = now()
+    where device_id = ${deviceId} and seen_at is null`);
+  res.status(204).end();
+});
+
 router.get("/leaderboard", async (_req, res) => {
   const rows = await db
     .select({

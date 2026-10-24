@@ -15,7 +15,10 @@ export interface ResolveResult {
   /** Why pointsAwarded is 0: "repeat_today" when this spotter already earned points for this cat today (Athens day). Null otherwise. */
   pointsReason: ResolveResultPointsReason;
   isNewCat: boolean;
+  /** Badges this spot earned, each reported by exactly one spot. */
   newBadges: string[];
+  /** The celebration moment queued for newBadges, or null when this spot earned no badge. */
+  momentId: number | null;
   profile: Profile;
   /** Whether to ask this spotter the ear-tip question about this cat. False once this device has given any ear-tip answer for this cat ("clipped", "looks whole" or "can't tell"), so each spotter is asked once per cat (data spine plan, decision Q3 → B). */
   askEarTip: boolean;

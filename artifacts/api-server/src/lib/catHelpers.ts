@@ -7,7 +7,11 @@ import {
   catUpdatesTable,
 } from "@workspace/db";
 import { eq, and, inArray, isNotNull, sql } from "drizzle-orm";
-import { badgesFor, type ProfileStats } from "./badges";
+import type { ProfileStats } from "./badges";
+import { BADGE_CATALOGUE, badgeProgress, thresholdBadges } from "./badges/catalogue";
+import { computeBadgeStats } from "./badges/stats";
+import { backfillFinished } from "./badges/award";
+import { weekStartAthens } from "./weeks";
 import {
   STREAK_TIMEZONE,
   streakFromDays,
@@ -704,6 +708,40 @@ export async function totalCatCount(): Promise<number> {
   return row?.n ?? 0;
 }
 
+/**
+ * SYC-706: the spotter's badges as saved (never worked out afresh, so none is
+ * ever taken away), each badge's progress, the ones not yet seen, and this
+ * week's points from the ledger.
+ *
+ * Until the history backfill has finished, saved badges are not yet the whole
+ * list, so what the totals already earn is added in: no existing spotter's
+ * badges disappear between the deploy and the backfill.
+ */
+async function profileBadges(deviceId: string) {
+  const stats = await computeBadgeStats(db, deviceId);
+  const stored = await db.execute(sql`
+    select badge_id, seen_at from spotter_badges where device_id = ${deviceId}`);
+  const earned = new Set(stored.rows.map((r) => String(r.badge_id)));
+  const unseen = new Set(
+    stored.rows.filter((r) => r.seen_at === null).map((r) => String(r.badge_id)),
+  );
+  if (!(await backfillFinished(db))) {
+    for (const id of thresholdBadges(stats)) earned.add(id);
+  }
+  const week = await db.execute(sql`
+    select coalesce(sum(points), 0)::int as n from points_ledger
+    where device_id = ${deviceId} and week_start = ${weekStartAthens(new Date())}::date`);
+  // Catalogue order, so the list reads the same every time.
+  const inOrder = (ids: Set<string>) =>
+    BADGE_CATALOGUE.map((d) => d.id).filter((id) => ids.has(id));
+  return {
+    badges: inOrder(earned),
+    badgeProgress: badgeProgress(stats, earned),
+    newBadgeIds: inOrder(unseen),
+    weekPoints: Number(week.rows[0]?.n ?? 0),
+  };
+}
+
 export async function profilePayload(deviceId: string) {
   const stats = await getProfileStats(deviceId);
   const [profile] = await db
@@ -719,10 +757,11 @@ export async function profilePayload(deviceId: string) {
     .select({ id: catsTable.id })
     .from(catsTable)
     .where(eq(catsTable.ownerDeviceId, deviceId));
-  const [currentStreakDays, spotted, totalCats] = await Promise.all([
+  const [currentStreakDays, spotted, totalCats, badges] = await Promise.all([
     computeStreak(deviceId),
     spottedCatIds(deviceId),
     totalCatCount(),
+    profileBadges(deviceId),
   ]);
   return {
     deviceId,
@@ -733,7 +772,10 @@ export async function profilePayload(deviceId: string) {
     totalSightings: stats.totalSightings,
     uniqueCatsDiscovered: stats.uniqueCatsDiscovered,
     catsSpotted: stats.catsSpotted,
-    badges: badgesFor(stats),
+    badges: badges.badges,
+    badgeProgress: badges.badgeProgress,
+    newBadgeIds: badges.newBadgeIds,
+    weekPoints: badges.weekPoints,
     ownedCatIds: ownedCats.map((c) => c.id),
     currentStreakDays,
     spottedCatIds: spotted,

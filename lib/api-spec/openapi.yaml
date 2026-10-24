@@ -764,6 +764,56 @@ paths:
           description: Invalid or offensive username
         "409":
           description: Username already taken
+  /profiles/{deviceId}/moments:
+    get:
+      operationId: listBadgeMoments
+      tags: [profiles]
+      summary: Celebrations waiting to be played, oldest first, at most 10
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/DeviceSecretHeader"
+      responses:
+        "200":
+          description: Uncelebrated moments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadgeMoments"
+  /profiles/{deviceId}/moments/{id}/celebrated:
+    post:
+      operationId: markMomentCelebrated
+      tags: [profiles]
+      summary: Mark one of this device's celebration moments as played
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - $ref: "#/components/parameters/DeviceSecretHeader"
+      responses:
+        "204":
+          description: Marked (a moment that isn't this device's is left alone)
+  /profiles/{deviceId}/badges/seen:
+    post:
+      operationId: markBadgesSeen
+      tags: [profiles]
+      summary: Clear the "New" marker on every badge this device has
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/DeviceSecretHeader"
+      responses:
+        "204":
+          description: Marked seen
   /notifications/{deviceId}:
     get:
       operationId: listNotifications
@@ -1743,6 +1793,13 @@ components:
         newBadges:
           type: array
           items: { type: string }
+          description: Badges this spot earned, each reported by exactly one spot.
+        momentId:
+          type: integer
+          nullable: true
+          description: >-
+            The celebration moment queued for newBadges, or null when this
+            spot earned no badge.
         profile:
           $ref: "#/components/schemas/Profile"
         askEarTip:
@@ -1752,7 +1809,7 @@ components:
             False once this device has given any ear-tip answer for this cat
             ("clipped", "looks whole" or "can't tell"), so each spotter is
             asked once per cat (data spine plan, decision Q3 → B).
-      required: [cat, pointsAwarded, pointsReason, isNewCat, newBadges, profile, askEarTip]
+      required: [cat, pointsAwarded, pointsReason, isNewCat, newBadges, momentId, profile, askEarTip]
     SightingAnswersRequest:
       type: object
       properties:
@@ -1885,6 +1942,19 @@ components:
         badges:
           type: array
           items: { type: string }
+          description: Every badge this spotter has earned. Badges are never taken away.
+        badgeProgress:
+          type: array
+          description: Every badge in the catalogue, in display order, with progress.
+          items:
+            $ref: "#/components/schemas/BadgeProgress"
+        newBadgeIds:
+          type: array
+          items: { type: string }
+          description: Earned badges not yet seen on the Badges tab ("New").
+        weekPoints:
+          type: integer
+          description: Points earned this week (Monday to Monday, Europe/Athens).
         ownedCatIds:
           type: array
           items: { type: integer }
@@ -1917,11 +1987,59 @@ components:
           uniqueCatsDiscovered,
           catsSpotted,
           badges,
+          badgeProgress,
+          newBadgeIds,
+          weekPoints,
           ownedCatIds,
           currentStreakDays,
           spottedCatIds,
           totalCats,
         ]
+    BadgeProgress:
+      type: object
+      properties:
+        id: { type: string }
+        group:
+          type: string
+          enum: [first_steps, coming_back, weekly, finding, covering]
+        earned: { type: boolean }
+        value:
+          type: integer
+          nullable: true
+          description: Progress towards the goal; null for badges earned at a moment (Pathfinder, Trailblazer).
+        goal:
+          type: integer
+          nullable: true
+      required: [id, group, earned, value, goal]
+    BadgeMoment:
+      type: object
+      properties:
+        id: { type: integer }
+        kind:
+          type: string
+          enum: [badges, week_result, history]
+        badgeIds:
+          type: array
+          items: { type: string }
+        weekStart:
+          type: string
+          format: date
+          nullable: true
+        place:
+          type: integer
+          nullable: true
+        weekPoints:
+          type: integer
+          nullable: true
+      required: [id, kind, badgeIds, weekStart, place, weekPoints]
+    BadgeMoments:
+      type: object
+      properties:
+        moments:
+          type: array
+          items:
+            $ref: "#/components/schemas/BadgeMoment"
+      required: [moments]
     LeaderboardEntry:
       type: object
       properties:
