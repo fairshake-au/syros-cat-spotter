@@ -20,6 +20,7 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useLocation } from '@/hooks/useLocation';
 import { useCatsWithCache } from '@/hooks/useCatsWithCache';
+import { LoadFailed } from '@/components/LoadFailed';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { CatCard } from '@/components/CatCard';
 import { AppMap } from '@/components/AppMap';
@@ -40,6 +41,7 @@ import {
   useGetProfile,
   getGetProfileQueryKey,
 } from '@workspace/api-client-react';
+import { decorative, spokenText } from '@/lib/a11yText';
 
 /** How long the search box must be still before the map refits (SYC-573). */
 export const MAP_SEARCH_SETTLE_MS = 400;
@@ -55,7 +57,7 @@ export default function CatalogScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { coords } = useLocation();
-  const { cats, isLoading } = useCatsWithCache(
+  const { cats, isLoading, loadFailed, retry } = useCatsWithCache(
     coords?.latitude,
     coords?.longitude,
   );
@@ -150,12 +152,19 @@ export default function CatalogScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerRow}>
           <View style={styles.titleBlock}>
-            <Text style={[styles.title, { color: colors.foreground }]}>
+            <Text
+              role="heading"
+              accessibilityLabel={spokenText(t('catalogTitle'))}
+              style={[styles.title, { color: colors.foreground }]}
+            >
               {t('catalogTitle')}
             </Text>
-            <Text style={[styles.count, { color: colors.mutedForeground }]}>
-              {t('catalogCount').replace('{n}', String(cats.length))}
-            </Text>
+            {/* SYC-508: "0 cats on Syros" isn't true when nothing loaded. */}
+            {!loadFailed && (
+              <Text style={[styles.count, { color: colors.mutedForeground }]}>
+                {t('catalogCount').replace('{n}', String(cats.length))}
+              </Text>
+            )}
           </View>
           <View style={styles.headerActions}>
             <Pressable
@@ -199,6 +208,7 @@ export default function CatalogScreen() {
               onPress={() => setSearch('')}
               accessibilityRole="button"
               accessibilityLabel={t('clear')}
+              style={styles.clearHit}
             >
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </Pressable>
@@ -234,6 +244,12 @@ export default function CatalogScreen() {
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
+      ) : loadFailed ? (
+        // SYC-508 §3.1: before every empty message and the map, none of which
+        // is true when nothing loaded.
+        <View style={{ flex: 1, paddingBottom: insets.bottom + (Platform.OS === 'web' ? 100 : 90) }}>
+          <LoadFailed size="full" onRetry={retry} testID="catalogue-load-failed" />
+        </View>
       ) : showMap ? (
         // AppMap pins its marker strip to the bottom of its own box, so the box
         // has to stop above the tab bar or the strip hides behind it.
@@ -248,7 +264,7 @@ export default function CatalogScreen() {
               style={[styles.mapMessage, { backgroundColor: colors.card }]}
               pointerEvents="none"
             >
-              <Text style={styles.emptyIcon} allowFontScaling={false}>
+              <Text style={styles.emptyIcon} allowFontScaling={false} {...decorative}>
                 🐾
               </Text>
               <Text style={[styles.empty, { color: colors.mutedForeground }]}>
@@ -314,7 +330,7 @@ export default function CatalogScreen() {
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyIcon} allowFontScaling={false}>
+          <Text style={styles.emptyIcon} allowFontScaling={false} {...decorative}>
             🐾
           </Text>
           <Text style={[styles.empty, { color: colors.mutedForeground }]}>
@@ -346,6 +362,8 @@ export default function CatalogScreen() {
 }
 
 const styles = StyleSheet.create({
+  // SYC-509: 44pt tap area around a 16pt icon; the negative margins keep the row height without covering the text beside it.
+  clearHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -14, marginHorizontal: -4 },
   container: { flex: 1 },
   header: {
     paddingHorizontal: spacing[4],
