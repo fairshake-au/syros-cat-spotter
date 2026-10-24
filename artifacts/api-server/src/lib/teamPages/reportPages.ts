@@ -14,6 +14,7 @@ import { visitDidWords } from "./catPages";
 import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
 import { dayWords, rangeQuery, type Range, type RangeKey } from "../reports/range";
 import { escapeHtml as esc } from "./escape";
+import { backLink } from "./backLink";
 import { renderPage } from "./layout";
 import { markBar } from "./marks";
 
@@ -138,7 +139,7 @@ function download(key: string, range: Range, words: string, extra = ""): string 
   return `<p><a class="tap" href="${INSIGHTS}/${key}.csv?${rangeQuery(range)}${extra}" download>${esc(words)}</a></p>`;
 }
 
-const back = `<p class="back"><a href="${INSIGHTS}">&larr; All reports</a></p>`;
+const back = backLink(INSIGHTS, "Reports");
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 // ─── Sterilisation progress ─────────────────────────────────────────────

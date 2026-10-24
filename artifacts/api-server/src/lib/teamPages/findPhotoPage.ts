@@ -6,6 +6,7 @@ import { teamPhotoUrl } from "../teamCatView";
 import type { TieMode } from "./catPages";
 import { escapeHtml as esc } from "./escape";
 import { assetUrl } from "../teamAssets";
+import { backLink } from "./backLink";
 import { renderPage } from "./layout";
 import { lastSeenWords } from "./lastSeen";
 import { markBadge } from "./marks";
@@ -228,11 +229,10 @@ function tieIntro(tie: TieMode | undefined, now: Date): string {
   );
 }
 
-function backLink(tie: TieMode | undefined, f: FindFilters): string {
-  if (tie) {
-    return `<p class="back"><a class="tap" href="${esc(`/api/team?open=${encodeURIComponent(tie.publicId)}#r-${encodeURIComponent(tie.publicId)}`)}">Back to the report</a></p>`;
-  }
-  return `<p class="back"><a class="tap" href="${esc(gridAddress(f))}">Back to Cats</a></p>`;
+/** Back to the report it was reached from, or else to the Cats grid. */
+function backFrom(tie: TieMode | undefined, f: FindFilters): string {
+  if (tie) return backLink(`/api/team?open=${encodeURIComponent(tie.publicId)}#r-${encodeURIComponent(tie.publicId)}`, "The report");
+  return backLink(gridAddress(f), "Cats");
 }
 
 /** A report that can't be found: nothing to tie, so nothing else is offered. */
@@ -253,7 +253,7 @@ export function renderFindForm(o: FindFormOptions): string {
     title: "Find from a photo",
     active: o.tie ? "queue" : "cats",
     personName: o.personName,
-    beforeTitle: backLink(o.tie, o.filters),
+    beforeTitle: backFrom(o.tie, o.filters),
     script: o.scripted ? assetUrl("find-photo.js") : undefined,
     body:
       // On a phone the field is well below the fold: say it at the top too.
@@ -363,7 +363,7 @@ export function renderFindResults(o: FindResultsOptions): string {
     title: "Find from a photo",
     active: o.tie ? "queue" : "cats",
     personName: o.personName,
-    beforeTitle: backLink(o.tie, o.filters),
+    beforeTitle: backFrom(o.tie, o.filters),
     body,
     mainClass: "wide",
   });
@@ -376,7 +376,7 @@ export function renderFindProblem(o: Common & { words: string; gridLink: boolean
     title: "Find from a photo",
     active: o.tie ? "queue" : "cats",
     personName: o.personName,
-    beforeTitle: backLink(o.tie, o.filters),
+    beforeTitle: backFrom(o.tie, o.filters),
     body:
       `<p class="notice" role="status">${esc(o.words)}</p>` +
       '<p class="findagain">' +

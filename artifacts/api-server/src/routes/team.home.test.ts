@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { like } from "drizzle-orm";
-import { db, welfareReportsTable } from "@workspace/db";
+import { db, pool, welfareReportsTable } from "@workspace/db";
 import app from "../app";
 import { seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
@@ -24,11 +24,14 @@ const KEY = "vitest-home-key-0123456789abcdef-0123456789ab";
 const NOW = new Date("2026-10-18T13:40:00Z"); // 16:40 on Syros
 
 let staff: Signed;
+let manager: Signed;
 let guardian: Signed;
 
 beforeAll(async () => {
   process.env["TEAM_SESSION_KEYS"] = KEY;
   staff = await signedPerson(`homepage-staff-${RUN}`, ["staff"]);
+  manager = await signedPerson(`homepage-mgmt-${RUN}`, ["staff"]);
+  await pool.query("update person_scopes set role = 'management' where person_id = $1", [manager.id]);
   guardian = await guardianOn(`homepage-guardian-${RUN}`, [await newColony(`homepage-${RUN}`)]);
   await seedReport({ publicId: `${PREFIX}urgent`, severity: "urgent", note: `${PREFIX} a cat by the steps` });
 });
@@ -411,10 +414,16 @@ describe("Home advertises nothing it cannot open (SYC-522)", () => {
 describe("the menu's Workspace link (admin.catspotters.com opens the dashboard first)", () => {
   const WORKSPACE_LINK = '<a href="https://admin.catspotters.com/workspace">Workspace</a>';
 
-  it("is there for the team, who may use the shared workspace", async () => {
-    const res = await get("/api/team/home", staff);
+  it("is there for management, who may use the shared workspace (SYC-619 §2.2, N1)", async () => {
+    const res = await get("/api/team/home", manager);
     expect(res.status).toBe(200);
     expect(res.text).toContain(WORKSPACE_LINK);
+  });
+
+  it("isn't there for a staff member without management, whom the workspace now refuses", async () => {
+    const res = await get("/api/team/home", staff);
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain("admin.catspotters.com/workspace");
   });
 
   it("isn't there for a cat guardian, whom the workspace would refuse", async () => {

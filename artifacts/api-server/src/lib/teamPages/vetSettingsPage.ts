@@ -1,5 +1,6 @@
 import type { PriceChange } from "../vetSettings";
 import { escapeHtml as esc } from "./escape";
+import { backLink, HOME_PATH } from "./backLink";
 import { renderPage } from "./layout";
 
 // The Vet settings page (SYC-396 PR 3.1b; dashboard §8.4, §10.3): the
@@ -76,6 +77,7 @@ export function renderVetSettingsPage(o: VetSettingsPageOptions): string {
     title: "Vet settings",
     active: null,
     personName: o.personName,
+    beforeTitle: backLink(HOME_PATH, "Home"),
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
       "<h2>Standard sterilisation price</h2>" +

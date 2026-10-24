@@ -18,6 +18,7 @@ export const en = {
   // SYC-396 PR 1.6 (SYC-366): the skip link, and the menu's name for screen readers.
   "shell.skip": "Skip to the page",
   "shell.menu": "Dashboard",
+  "shell.menuButton": "Menu",
 
   // The dashboard's refusals for a signed-in person (roles-and-invites.md
   // §6.4; SYC-53 PR 0.5).
@@ -301,7 +302,7 @@ export const en = {
   "appearance.drawnPatternNotKnown": "Pattern not known",
 
   "colourCheck.title": "Colour check",
-  "colourCheck.back": "← Back to Home",
+  "colourCheck.back": "Home",
   "colourCheck.intro": "Cats whose colour or markings are worth a second look. Low priority: a few minutes a week.",
   "colourCheck.empty": "Nothing to check.",
   "colourCheck.toCheck": "To check: {count}",
@@ -368,7 +369,7 @@ export const en = {
 
   "notes.hint": "Please don't note people's comings and goings.",
 
-  "colony.back": "All colonies",
+  "colony.back": "Colonies",
   "colony.notes": "Team-only notes",
   "colony.noNotes": "No notes.",
   "colony.centre": "Centre of the colony",
@@ -417,7 +418,6 @@ export const en = {
   "add.noColony": "No colony",
   "add.in": "In",
   "add.already": "Already in this colony",
-  "add.back": "Back to the colony",
 
   "done.created": "The colony was created.",
   "done.saved": "Saved.",
@@ -576,7 +576,7 @@ export const en = {
   "act.colonyButton": "Change the colony",
   "act.colonyPublic": "If this site is public, changing its colony makes it private again.",
 
-  "site.back": "All feeding sites",
+  "site.back": "Feeding sites",
   "site.colony": "Colony",
   "site.noColony": "No colony yet.",
   "site.privateSentence":

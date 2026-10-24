@@ -13,6 +13,7 @@ export const el: Record<StringKey, string> = {
   // SYC-396 PR 1.6 (SYC-366): the skip link, and the menu's name for screen readers.
   "shell.skip": "Μετάβαση στη σελίδα",
   "shell.menu": "Πίνακας ελέγχου",
+  "shell.menuButton": "Μενού",
 
   "refused.title": "Αυτή η ενότητα είναι για την ομάδα",
   "refused.titleManagement": "Αυτή η ενότητα είναι για τη διοίκηση",
@@ -270,7 +271,7 @@ export const el: Record<StringKey, string> = {
   "appearance.drawnPatternNotKnown": "Σχέδιο άγνωστο",
 
   "colourCheck.title": "Έλεγχος χρώματος",
-  "colourCheck.back": "← Πίσω στην αρχική",
+  "colourCheck.back": "Αρχική",
   "colourCheck.intro": "Γάτες των οποίων το χρώμα ή τα σημάδια αξίζουν μια δεύτερη ματιά. Χαμηλή προτεραιότητα: λίγα λεπτά την εβδομάδα.",
   "colourCheck.empty": "Τίποτα για έλεγχο.",
   "colourCheck.toCheck": "Για έλεγχο: {count}",
@@ -335,7 +336,7 @@ export const el: Record<StringKey, string> = {
 
   "notes.hint": "Παρακαλούμε μην σημειώνετε πότε έρχονται και φεύγουν οι άνθρωποι.",
 
-  "colony.back": "Όλες οι αποικίες",
+  "colony.back": "Αποικίες",
   "colony.notes": "Σημειώσεις μόνο για την ομάδα",
   "colony.noNotes": "Καμία σημείωση.",
   "colony.centre": "Κέντρο της αποικίας",
@@ -380,7 +381,6 @@ export const el: Record<StringKey, string> = {
   "add.noColony": "Σε καμία αποικία",
   "add.in": "Στην αποικία",
   "add.already": "Ήδη σε αυτή την αποικία",
-  "add.back": "Πίσω στην αποικία",
 
   "done.created": "Η αποικία δημιουργήθηκε.",
   "done.saved": "Αποθηκεύτηκε.",
@@ -538,7 +538,7 @@ export const el: Record<StringKey, string> = {
   "act.colonyButton": "Αλλαγή της αποικίας",
   "act.colonyPublic": "Αν αυτό το σημείο είναι δημόσιο, η αλλαγή αποικίας το κάνει ξανά ιδιωτικό.",
 
-  "site.back": "Όλα τα σημεία ταΐσματος",
+  "site.back": "Σημεία ταΐσματος",
   "site.colony": "Αποικία",
   "site.noColony": "Χωρίς αποικία ακόμα.",
   "site.privateSentence":

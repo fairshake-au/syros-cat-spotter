@@ -7,6 +7,7 @@ import type { CatToAdd } from "../colonyCats";
 import { RECENT_GUARDIAN_CHANGES, type RecentGuardianChange } from "../recentGuardianChanges";
 import { ADD_SEARCH_LIMIT } from "../colonyCats";
 import { escapeHtml as esc } from "./escape";
+import { backLink } from "./backLink";
 import { renderPage } from "./layout";
 import { rowMenu } from "./rowMenu";
 import { place } from "./position";
@@ -625,7 +626,7 @@ export function renderColonyPage(
     nav: navFor(opts),
     lang: opts.lang,
     personName,
-    beforeTitle: `<p class="back"><a href="/api/team/colonies">${w("colony.back")}</a></p>`,
+    beforeTitle: backLink("/api/team/colonies", w("colony.back")),
     body:
       (opts.kept && opts.may("edit_colony") ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
@@ -791,7 +792,7 @@ export function renderAddCatsPage(opts: ColonyViewer & {
     nav: navFor(opts),
     lang: opts.lang,
     personName: opts.personName,
-    beforeTitle: `<p class="back"><a href="${esc(colonyHref(colony.id))}">${w("add.back")}</a></p>`,
+    beforeTitle: backLink(colonyHref(colony.id), colony.name),
     body: search + body,
   });
 }

@@ -13,10 +13,10 @@ import { formRoute } from "./teamCorrections";
  * (email-capture.md §10.1 Risk 1). No dashboard page yet: JSON only, and
  * Claude reads the list to Samuel.
  *
- * Staff only: `use_workspace` is island-only, so a cat guardian gets the 403.
- * (The capability catalogue follows roles-and-invites.md §6.2, which has no
- * news row, so this reuses the island's own workspace capability rather
- * than adding one the spec doesn't name.)
+ * The team's: `review_cat_news` is island-only, so a cat guardian gets the
+ * 403. (It used to reuse `use_workspace`, for want of a §6.2 news row; when
+ * the workspace became management's, SYC-619 §2.2, the list got its own row
+ * in roles-and-invites.md §6.2 so staff keep it.)
  *
  * - GET /api/team/news-changes: the last 30 days of changes, newest first,
  *   with each cat's name and code. Never the devices that caused them.
@@ -27,7 +27,7 @@ const router: IRouter = Router();
 
 const WINDOW_DAYS = 30;
 
-router.get("/team/news-changes", requireTeam("use_workspace"), async (_req: Request, res: Response) => {
+router.get("/team/news-changes", requireTeam("review_cat_news"), async (_req: Request, res: Response) => {
   setTeamHeaders(res);
   const since = new Date(Date.now() - WINDOW_DAYS * 86_400_000);
   const rows = await db
@@ -63,7 +63,7 @@ const ReviewForm = z.object({
 
 router.post(
   "/team/news-changes/:id/review",
-  ...formRoute("use_workspace"),
+  ...formRoute("review_cat_news"),
   async (req: Request, res: Response) => {
     const raw = String(req.params["id"]);
     const id = /^[1-9][0-9]{0,9}$/.test(raw) ? Number(raw) : null;

@@ -95,11 +95,11 @@ a{color:#0b5c6b}
 /* A clear focus outline: the browser's own is faint on the beige (SYC-366). */
 :focus-visible{outline:3px solid #0b5c6b;outline-offset:2px}
 main:focus{outline:none}
-/* One row on a desktop (53px). On a phone (SYC-522) the menu wraps onto up to
-   three rows (about 141px at 390px) so no link is hidden. The person's name and
-   Sign out sit at its end (SYC-396 spec §3.2). When there's more to scroll to, a
-   soft shadow shows at that edge; the white "covers" scroll with the row and
-   hide the shadow once you reach the end, so no text is ever dimmed (SYC-374). */
+/* A desktop bar is one row (53px). The person's name and Sign out sit at its
+   end (SYC-396 spec §3.2). When there's more to scroll to, a soft shadow shows
+   at that edge; the white "covers" scroll with the row and hide the shadow once
+   you reach the end, so no text is ever dimmed (SYC-374). On a phone the menu is
+   the .phonebar below (SYC-619 §2.1): the page's name and a "Menu" fold. */
 .bar{border-bottom:1px solid #d9d5ca;padding:4px 12px;display:flex;flex-wrap:nowrap;gap:0 14px;align-items:center;overflow-x:auto;white-space:nowrap;scrollbar-width:none;
 background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100% no-repeat local,linear-gradient(to left,#fff 40%,rgba(255,255,255,0)) right/28px 100% no-repeat local,radial-gradient(farthest-side at 0 50%,rgba(29,29,27,.22),rgba(29,29,27,0)) left/12px 100% no-repeat scroll,radial-gradient(farthest-side at 100% 50%,rgba(29,29,27,.22),rgba(29,29,27,0)) right/12px 100% no-repeat scroll;background-color:#fff}
 .bar :focus-visible{outline-offset:-3px}
@@ -119,10 +119,26 @@ background:linear-gradient(to right,#fff 40%,rgba(255,255,255,0)) left/28px 100%
    away: if the menu is too long for the screen (768–1000px), it slides
    under Sign out (adversarial review of PR 1.6). */
 @media (min-width:600px){.bar,.bar.wide{padding-right:0}.bar>form{position:sticky;right:0;z-index:1;background:#fff;padding:0 16px 0 10px;box-shadow:-8px 0 8px -6px rgba(29,29,27,.22)}.bar>.who{min-width:0}}
-/* On a phone the menu wraps onto more rows, so every link is in view with no script (SYC-522). */
-@media (max-width:599px){.bar,.bar.wide{gap:0 10px;padding-inline:10px;flex-wrap:wrap;overflow:visible;white-space:normal;background:#fff}.bar .long{display:none}.bar .short{display:inline}.bar>.who{max-width:none;flex:1 1 150px;min-width:0;margin-left:0;padding:8px 2px 8px 0;white-space:nowrap}.bar>form{margin-left:auto}}
-main{max-width:760px;margin:0 auto;padding:12px 12px 48px}
-main.wide{max-width:1120px}
+/* On a phone (SYC-619 §2.1) the bar is one row: the current page's name at the
+   left and a "Menu" fold at the right. The fold holds every link as a full-width
+   row, then the name and Sign out. One copy shows at a time; display:none also
+   hides the other from screen readers. Needs no script. */
+.phonebar{display:none}
+/* A page with no links keeps its plain div bar on a phone: the name wraps, Sign out stays 44px. */
+@media (max-width:599px){div.bar,div.bar.wide{gap:0 10px;padding-inline:10px;flex-wrap:wrap;overflow:visible;white-space:normal;background:#fff}div.bar>.who{max-width:none;flex:1 1 150px;min-width:0;margin-left:0;padding:8px 2px 8px 0;white-space:normal;overflow-wrap:anywhere}div.bar>form{margin-left:auto}}
+@media (max-width:599px){nav.bar{display:none}.phonebar{display:grid;grid-template-columns:1fr;padding:4px 10px;background:#fff;border-bottom:1px solid #d9d5ca}
+.phonebar>*{grid-area:1/1}
+.phonehere{align-self:start;z-index:1;display:flex;align-items:center;min-height:44px;max-width:calc(100% - 110px);padding-right:8px;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.menufold>summary{display:flex;align-items:center;justify-content:center;width:fit-content;margin-left:auto;min-height:44px;min-width:44px;box-sizing:border-box;padding:0 14px;border:1px solid #0b5c6b;border-radius:8px;background:#fff;color:#0b4553;font-weight:700;font-size:16px;cursor:pointer;list-style:none}
+.menufold>summary::-webkit-details-marker{display:none}
+.menulinks a,.menulinks button{display:flex;align-items:center;min-height:44px;width:100%;box-sizing:border-box;padding:8px 2px;font:inherit;font-size:16px;background:none;border:0;text-align:left;cursor:pointer}
+.menulinks button{color:#0b5c6b;text-decoration:underline}
+.menulinks .here{font-weight:700;color:#1d1d1b;text-decoration:underline;text-decoration-thickness:3px;text-decoration-color:#0b5c6b}
+.menulinks .off{display:flex;align-items:center;min-height:44px;color:#6b685f}
+.menulinks form{margin:0}
+.phonebar .who{display:block;padding:8px 2px;color:#55524a;font-size:14px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}}
+main{max-width:1120px;margin:0 auto;padding:12px 12px 48px}
+.readcol{max-width:736px}
 h1{font-size:22px;margin:12px 0 4px}
 h2{font-size:18px;margin:28px 0 8px}
 .banner{background:#fff3cd;border:1px solid #c9a227;border-radius:8px;padding:10px 12px;margin:12px 0}
@@ -229,6 +245,15 @@ form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12p
 li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}
 li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
 li.statement.routine>details[open]>summary::before,.hownote[open]>summary::before{content:"▾"}
+/* Folds look like folds (SYC-619 §2.6): the same marker, with empty alternative text so a screen reader does not read the triangle. */
+.fixes summary::before,.typedfold summary::before,details.hist>summary::before,details.notdescribed>summary::before,details.invitefold>summary::before,details.method>summary::before{content:"▸" / "";flex:none;width:1.2em;color:#0b4553}
+.fixes details[open]>summary::before,.typedfold[open]>summary::before,details.hist[open]>summary::before,details.notdescribed[open]>summary::before,details.invitefold[open]>summary::before,details.method[open]>summary::before{content:"▾" / ""}
+.fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary{display:flex;align-items:center;list-style:none}
+.fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker{display:none}
+/* Buttons with their own look keep no marker (SYC-619 §2.6). */
+.fixes details>summary.risky::before,.fixes details[open]>summary.risky::before,.fixes details.update>summary::before,.fixes details.update[open]>summary::before{content:none}
+details.method>summary{cursor:pointer;min-height:44px;font-weight:700;color:#0b4553}
+details.invitefold>summary{display:inline-flex;width:fit-content}
 .photostrip{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .photostrip li{position:relative}
 .photostrip li.hidden img{opacity:.45}
@@ -430,7 +455,7 @@ a.cardlink{display:flex;align-items:center;min-height:46px;background:#fff;borde
 a.cardlink:hover{border-color:#0b5c6b}
 main.mappage{line-height:22px}
 main.mappage h1{line-height:28px}
-@supports (margin-left:round(down,10.5px,1px)){main.mappage{margin-left:max(0px,round(down,(100% - 760px) / 2,1px));margin-right:0}}
+@supports (margin-left:round(down,10.5px,1px)){main.mappage{margin-left:max(0px,round(down,(100% - 1120px) / 2,1px));margin-right:0}}
 @media (min-width:360px){.mapband.b144{display:none}.mapband.b164{display:block}}
 @media (min-width:375px){.mapband.b164{display:none}.mapband.b171{display:block}}
 @media (min-width:390px){.mapband.b171{display:none}.mapband.b179{display:block}}
@@ -654,8 +679,8 @@ export interface PageOptions {
   /**
    * A class on <main>. `mappage`: everything above the map has a whole-pixel
    * height and the page sits on a whole pixel, so the map does too (SYC-209
-   * PR 3.1; see lib/teamPages/map.ts). `wide`: up to 1120px on a big
-   * screen, for a page laid out to use the room.
+   * PR 3.1; see lib/teamPages/map.ts). `wide`: no 736px reading column
+   * (`.readcol`), for a page laid out to use the whole 1120px frame.
    */
   mainClass?: "mappage" | "wide";
   /** Show the People link (default: whatever requireTeam set for this request). */
@@ -720,17 +745,28 @@ export function renderPage(opts: PageOptions): string {
             ? [...NAV, PEOPLE_NAV]
             : NAV;
   const teamActive = opts.active ? (TEAM_PARENT[opts.active] ?? opts.active) : null;
-  const items = [...team.map((n) => ({ n, active: opts.nav === "guardian" ? opts.active : teamActive })), ...own.map((n) => ({ n, active: opts.active })), ...(workspace ? [{ n: WORKSPACE_NAV, active: null }] : [])].map(({ n, active }) => {
-    // On a phone "Feeding sites" shows as "Sites" (CSS picks one).
-    const label = n.short
-      ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`
-      : escapeHtml(n.label);
-    if (!n.href) return `<span class="off">${label}</span>`;
-    return n.key === active
-      ? `<a class="here" href="${n.href}" aria-current="page">${label}</a>`
-      : `<a href="${n.href}">${label}</a>`;
-  }).join("");
-  const t = (key: "shell.signOut" | "shell.skip" | "shell.menu") => escapeHtml(tr(lang, key, undefined, opts.liveLanguages));
+  const entries = [...team.map((n) => ({ n, active: opts.nav === "guardian" ? opts.active : teamActive })), ...own.map((n) => ({ n, active: opts.active })), ...(workspace ? [{ n: WORKSPACE_NAV, active: null }] : [])];
+  // The same links twice: the desktop bar, and the phone's fold (SYC-619 §2.1).
+  // On a phone "Feeding sites" shows as "Sites" in the bar (CSS picks one); the
+  // fold has full-width rows, so it always uses the full word.
+  const renderItems = (phone: boolean) =>
+    entries
+      .map(({ n, active }) => {
+        const label =
+          n.short && !phone
+            ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`
+            : escapeHtml(n.label);
+        if (!n.href) return `<span class="off">${label}</span>`;
+        return n.key === active
+          ? `<a class="here" href="${n.href}" aria-current="page">${label}</a>`
+          : `<a href="${n.href}">${label}</a>`;
+      })
+      .join("");
+  const items = renderItems(false);
+  const phoneItems = renderItems(true);
+  // The current page's name, shown outside the fold; empty when none is current.
+  const here = entries.find(({ n, active }) => n.href && n.key === active);
+  const t = (key: "shell.signOut" | "shell.skip" | "shell.menu" | "shell.menuButton") => escapeHtml(tr(lang, key, undefined, opts.liveLanguages));
   // "Signed in as" and Sign out sit at the end of the bar (SYC-396 spec §3.2),
   // so the page's title comes first. A page with no links at all (the
   // welcome page) keeps the bar for them, but it's no <nav>: there's
@@ -760,17 +796,23 @@ export function renderPage(opts: PageOptions): string {
     // The first thing a keyboard reaches (SYC-366).
     `<a class="skip" href="#main">${t("shell.skip")}</a>` +
     (items
-      ? `<nav class="${barClass}" aria-label="${t("shell.menu")}">${items}${who}</nav>`
+      ? `<nav class="${barClass}" aria-label="${t("shell.menu")}">${items}${who}</nav>` +
+        `<nav class="phonebar" aria-label="${t("shell.menu")}"><span class="phonehere">${here ? escapeHtml(here.n.label) : ""}</span>` +
+        `<details class="menufold"><summary>${t("shell.menuButton")}</summary><div class="menulinks">${phoneItems}${who}</div></details></nav>`
       : who
         ? `<div class="${barClass}">${who}</div>`
         : "") +
     // tabindex=-1: the skip link moves keyboard focus here, not just the view.
     `<main id="main" tabindex="-1"${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
+    // One left edge (SYC-619 §2.4): main is 1120px everywhere; a page that isn't
+    // `wide` keeps a 736px reading column at the frame's left edge.
+    (opts.mainClass === "wide" ? "" : '<div class="readcol">') +
     (opts.banner ?? "") +
     (opts.beforeTitle ?? "") +
     `<h1>${escapeHtml(opts.title)}</h1>` +
     (opts.afterTitle ?? "") +
     opts.body +
+    (opts.mainClass === "wide" ? "" : "</div>") +
     "</main></body></html>"
   );
 }

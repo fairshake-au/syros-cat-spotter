@@ -2,6 +2,7 @@ import type { AreaChange } from "../areas/areaHistory";
 import type { AreaField } from "../areas/areaWrites";
 import type { NamedArea } from "../areas/namedAreas";
 import { escapeHtml as esc } from "./escape";
+import { backLink, HOME_PATH } from "./backLink";
 import { renderPage } from "./layout";
 import { openMapLink } from "./position";
 
@@ -212,7 +213,7 @@ export function renderAreasPage(o: AreasPageOptions): string {
     title: "Areas",
     active: null,
     personName: o.personName,
-    beforeTitle: '<p class="back"><a href="/api/team">&larr; Back to Home</a></p>',
+    beforeTitle: backLink(HOME_PATH, "Home"),
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
       loose +

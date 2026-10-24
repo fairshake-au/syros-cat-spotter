@@ -22,11 +22,12 @@ import { maySignIn, mayUseWorkspace } from "../lib/capabilities";
 // Two doors, two request shapes (roles spec §4.5, §6.3, §14 cases 11 and
 // 13; SYC-53 plan PR 0.4):
 //
-// - The old shape (no `version`) is what the Worker deployed today sends.
-//   That Worker gives the workspace to everyone it hears `allowed: true`
-//   for, so the old shape says yes ONLY to someone who holds the workspace
-//   door (mayUseWorkspace). A cat guardian gets no; she can't sign in until
-//   the new Worker ships, which fails safe.
+// - The old shape (no `version`) is what the first sign-in Worker sent; the
+//   live Worker asks with `version: 2` (checked 23 Oct 2026, SYC-619). The
+//   old Worker gave the workspace to everyone it heard `allowed: true` for,
+//   so the old shape says yes ONLY to someone who holds the workspace door
+//   (mayUseWorkspace): since SYC-619 §2.2, management only. Anyone else,
+//   staff and cat guardians included, gets no, which fails safe.
 // - `version: 2` gets both doors: `{ allowed, doors: { workspace, dashboard
 //   }, language, personId, name, sessionVersion }`. The Worker issues a
 //   workspace session only when `doors.workspace` is true.

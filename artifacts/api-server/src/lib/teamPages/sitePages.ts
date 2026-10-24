@@ -4,6 +4,7 @@ import type { Position, TileSize, View } from "../mapTiles/geometry";
 import { mintTileToken } from "../mapTiles/tileToken";
 import { escapeHtml as esc } from "./escape";
 import { dayIn } from "./colonyPages";
+import { backLink } from "./backLink";
 import { renderPage } from "./layout";
 import { renderMap, type MapMarker } from "./map";
 import { mapPrivacyNote } from "./mapNote";
@@ -431,7 +432,7 @@ export function renderSitePage(opts: SiteViewer & {
     lang: opts.lang,
     personName: opts.personName,
     mainClass: "mappage",
-    beforeTitle: `<p class="back"><a href="${SITES_PATH}">${w("site.back")}</a></p>`,
+    beforeTitle: backLink(SITES_PATH, w("site.back")),
     body:
       map +
       // Below the map, so nothing of variable height sits above it (see .mappage).

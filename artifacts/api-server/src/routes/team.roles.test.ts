@@ -4,7 +4,6 @@ import request from "supertest";
 import {
   addPerson,
   db,
-  markLeft,
   personScopesTable,
   pool,
   } from "@workspace/db";
@@ -56,6 +55,17 @@ const ask = (email: string) =>
     .set("Authorization", `Bearer ${TOKEN}`)
     .send({ email });
 
+/**
+ * The live Worker's question (`version: 2`, checked 23 Oct 2026). Since
+ * SYC-619 §2.2 the old shape's yes means the workspace, management's alone,
+ * so a staff member is let in through the dashboard door of this shape.
+ */
+const askDoors = (email: string) =>
+  request(app)
+    .post("/api/internal/people/allowed")
+    .set("Authorization", `Bearer ${TOKEN}`)
+    .send({ email, version: 2 });
+
 const handoff = (id: string, sv: number) =>
   request(app)
     .post("/api/team/handoff")
@@ -76,6 +86,17 @@ const seen = (res: request.Response) => ({
 
 const add = (roles: string[], colonyId?: number) =>
   addPerson({ email: EMAIL, name: "Pat", addedBy: "cli:vitest", roles, colonyId });
+
+/**
+ * A manager: the one role that holds the workspace (SYC-619 §2.2), so a
+ * refusal of left, pending or removed people proves the state, not the role.
+ * Management is written directly, as in the test below.
+ */
+const addManager = async () => {
+  const p = await add(["staff"]);
+  await pool.query("update person_scopes set role = 'management' where person_id = $1", [p.id]);
+  return p;
+};
 
 /** SYC-53 PR 0.3: a cat guardian is always placed on a colony. */
 const aColony = async () =>
@@ -116,11 +137,13 @@ async function expectKeptOut(id: string, sv: number, meStatus: 401 | 403) {
 }
 
 describe("SYC-188: only a role that grants something is let in", () => {
-  it("staff: the Worker hears yes, the hand-off gives a session, /me answers", async () => {
+  it("staff: the Worker hears yes (the dashboard door, not the workspace), the hand-off gives a session, /me answers", async () => {
     const p = await add(["staff"]);
-    const yes = await ask(EMAIL);
+    const yes = await askDoors(EMAIL);
     expect(yes.body).toEqual({
       allowed: true,
+      doors: { workspace: false, dashboard: true },
+      language: "en",
       personId: p.id,
       name: "Pat",
       sessionVersion: p.sessionVersion,
@@ -130,16 +153,19 @@ describe("SYC-188: only a role that grants something is let in", () => {
     expect(String(h.headers["set-cookie"])).toContain("__Host-cs_team=");
     const m = await me(p.id, p.sessionVersion);
     expect(m.status).toBe(200);
-    // Everything in the catalogue but the three a team-only member lacks
-    // (manage_people and action_deletion_request are management's;
-    // request_site_public is a guardian's), each island-wide.
-    expect(m.body.capabilities).toHaveLength(CAPABILITIES.length - 3);
+    // Everything in the catalogue but the four a team-only member lacks
+    // (manage_people, action_deletion_request and, since SYC-619 §2.2,
+    // use_workspace are management's; request_site_public is a guardian's),
+    // each island-wide.
+    expect(m.body.capabilities).toHaveLength(CAPABILITIES.length - 4);
+    expect(m.body.capabilities.map((c: { capability: string }) => c.capability)).not.toContain("use_workspace");
+    expect(m.body.capabilities.map((c: { capability: string }) => c.capability)).toContain("review_cat_news");
     for (const c of m.body.capabilities) expect(c.where).toBe("island");
   });
 
   it("staff who is also a guardian is still let in", async () => {
     const p = await add(["guardian", "staff"], await aColony());
-    expect((await ask(EMAIL)).body.allowed).toBe(true);
+    expect((await askDoors(EMAIL)).body.doors).toEqual({ workspace: false, dashboard: true });
     expect((await handoff(p.id, p.sessionVersion)).status).toBe(303);
     expect((await me(p.id, p.sessionVersion)).status).toBe(200);
   });
@@ -190,12 +216,12 @@ describe("SYC-188: only a role that grants something is let in", () => {
   });
 
   it("a pending person (invited, not yet accepted) can't sign in: kept out at every door (SYC-53 PR 0.3, T9)", async () => {
-    const p = await add(["staff"]);
+    const p = await addManager();
     await pool.query("update people set accepted_at = null where id = $1", [p.id]);
     await expectKeptOut(p.id, p.sessionVersion, 401);
     // Control: the same person, once accepted, is let in.
     await pool.query("update people set accepted_at = now() where id = $1", [p.id]);
-    expect((await ask(EMAIL)).body.allowed).toBe(true);
+    expect((await askDoors(EMAIL)).body.allowed).toBe(true);
     expect((await me(p.id, p.sessionVersion)).status).toBe(200);
   });
 
@@ -208,13 +234,17 @@ describe("SYC-188: only a role that grants something is let in", () => {
   });
 
   it("staff who has left is kept out (left_at, at their current version)", async () => {
-    const p = await add(["staff"]);
-    const left = await markLeft(EMAIL, "cli:vitest");
-    await expectKeptOut(p.id, left!.sessionVersion, 401);
+    const p = await addManager();
+    // Written directly: markLeft refuses to remove the only manager.
+    const left = await pool.query<{ session_version: number }>(
+      "update people set left_at = now(), session_version = session_version + 1 where id = $1 returning session_version",
+      [p.id],
+    );
+    await expectKeptOut(p.id, left.rows[0]!.session_version, 401);
   });
 
   it("staff who was removed is kept out", async () => {
-    const p = await add(["staff"]);
+    const p = await addManager();
     expect(await removeTestPerson(EMAIL)).toBe(true);
     await expectKeptOut(p.id, p.sessionVersion, 401);
   });
