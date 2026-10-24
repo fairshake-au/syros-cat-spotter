@@ -13,8 +13,12 @@ export function OfflineBanner() {
   if (isOnline) return null;
 
   return (
-    <View style={[styles.banner, { backgroundColor: colors.accent }]}>
-      <Feather name="wifi-off" size={14} color={colors.accentForeground} />
+    <View
+      style={[styles.banner, { backgroundColor: colors.accent }]}
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+    >
+      <Feather name="wifi-off" size={14} color={colors.accentForeground} aria-hidden />
       <Text style={[styles.text, { color: colors.accentForeground }]}>
         {t('offlineBanner')}
       </Text>

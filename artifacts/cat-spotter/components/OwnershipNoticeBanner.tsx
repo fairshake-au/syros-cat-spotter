@@ -112,6 +112,7 @@ export function OwnershipNoticeBanner() {
   return (
     <Pressable
       onPress={open}
+      accessibilityRole="button"
       style={[
         styles.banner,
         {
@@ -124,7 +125,12 @@ export function OwnershipNoticeBanner() {
       <Text style={[styles.text, { color: colors.primaryForeground }]}>
         {t('hasHomeToast').replace('{name}', notice.name)}
       </Text>
-      <Pressable onPress={() => setNotice(null)} hitSlop={10}>
+      <Pressable
+        onPress={() => setNotice(null)}
+        accessibilityRole="button"
+        accessibilityLabel={t('homeScreenNudgeDismissLabel')}
+        style={styles.closeHit}
+      >
         <Feather name="x" size={16} color={colors.primaryForeground} />
       </Pressable>
     </Pressable>
@@ -132,6 +138,8 @@ export function OwnershipNoticeBanner() {
 }
 
 const styles = StyleSheet.create({
+  // SYC-509: 44pt tap area around the 16pt close icon; the negative margin keeps the layout.
+  closeHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', margin: -14 },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',

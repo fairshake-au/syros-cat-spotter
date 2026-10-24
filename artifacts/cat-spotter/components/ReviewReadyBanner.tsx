@@ -53,6 +53,7 @@ export function ReviewReadyBanner() {
   return (
     <Pressable
       onPress={openReview}
+      accessibilityRole="button"
       style={[
         styles.banner,
         {
@@ -65,7 +66,12 @@ export function ReviewReadyBanner() {
       <Text style={[styles.text, { color: colors.accentForeground }]}>
         {message}
       </Text>
-      <Pressable onPress={dismissReviewPrompt} hitSlop={10}>
+      <Pressable
+        onPress={dismissReviewPrompt}
+        accessibilityRole="button"
+        accessibilityLabel={t('homeScreenNudgeDismissLabel')}
+        style={styles.closeHit}
+      >
         <Feather name="x" size={16} color={colors.accentForeground} />
       </Pressable>
     </Pressable>
@@ -73,6 +79,8 @@ export function ReviewReadyBanner() {
 }
 
 const styles = StyleSheet.create({
+  // SYC-509: 44pt tap area around the 16pt close icon; the negative margin keeps the layout.
+  closeHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', margin: -14 },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
