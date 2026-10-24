@@ -8,6 +8,7 @@ import {
   catUpdatesTable,
   deviceCredentialsTable,
   notificationsTable,
+  catSubscriptionsTable,
   observationsTable,
   pushTokensTable,
   sightingMatchesTable,
@@ -40,7 +41,7 @@ vi.mock("../lib/push", () => ({
 
 vi.mock("../lib/notifications", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/notifications")>();
-  return { ...actual, notifyCatSpotters: vi.fn(actual.notifyCatSpotters) };
+  return { ...actual, notifyCatFollowers: vi.fn(actual.notifyCatFollowers) };
 });
 
 // Wrapped, so a test can see the withdrawal goes through writeObservation,
@@ -60,14 +61,14 @@ vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
 
 import app from "../app";
 import { sendPushNotification } from "../lib/push";
-import { notifyCatSpotters } from "../lib/notifications";
+import { notifyCatFollowers } from "../lib/notifications";
 import { WITHDRAWN, writeObservation } from "../lib/observations";
 import { clearOwner } from "../lib/claiming";
 import { blurPosition } from "../lib/blur";
 import { _resetClaimLimitForTests } from "../middlewares/rateLimit";
 
 const pushMock = vi.mocked(sendPushNotification);
-const notifyMock = vi.mocked(notifyCatSpotters);
+const notifyMock = vi.mocked(notifyCatFollowers);
 const writeMock = vi.mocked(writeObservation);
 
 const PREFIX = "vitest-letgo-";
@@ -79,6 +80,7 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 async function cleanup() {
   await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
   await db.delete(pushTokensTable).where(like(pushTokensTable.deviceId, `${PREFIX}%`));
+  await db.delete(catSubscriptionsTable).where(like(catSubscriptionsTable.deviceId, `${PREFIX}%`));
   await db.delete(catsTable).where(like(catsTable.name, `${NAME_PREFIX}%`));
   await db.delete(deviceCredentialsTable).where(like(deviceCredentialsTable.deviceId, `${PREFIX}%`));
 }
@@ -133,6 +135,8 @@ async function met(catId: number, p: Phone) {
     suggestedRank: 1,
   });
   await db.insert(pushTokensTable).values({ deviceId: p.id, token: `tok-${p.id}` }).onConflictDoNothing();
+  // SYC-624: the claim and edit pushes go to followers, so a phone that met the cat follows it.
+  await db.insert(catSubscriptionsTable).values({ deviceId: p.id, catId }).onConflictDoNothing();
 }
 
 const NOTE = () => `Blue door ${safeTag()}`;

@@ -10,6 +10,10 @@ import {
   pushTokensTable,
   sightingMatchesTable,
   sightingsTable,
+  catSubscriptionsTable,
+  catUnfollowsTable,
+  catUpdatesTable,
+  notificationsTable,
 } from "@workspace/db";
 import { and, eq, like, sql } from "drizzle-orm";
 import { haversineKm } from "@workspace/geo";
@@ -47,7 +51,7 @@ vi.mock("../lib/push", () => ({
 
 vi.mock("../lib/notifications", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/notifications")>();
-  return { ...actual, notifyCatSpotters: vi.fn(actual.notifyCatSpotters) };
+  return { ...actual, notifyCatFollowers: vi.fn(actual.notifyCatFollowers) };
 });
 
 // Wrapped, so a test can see which executor the claim read the status
@@ -68,14 +72,16 @@ vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
 
 import app from "../app";
 import { sendPushNotification } from "../lib/push";
-import { notifyCatSpotters } from "../lib/notifications";
+import { notifyCatFollowers } from "../lib/notifications";
 import { claimEligibility, clearOwner } from "../lib/claiming";
 import { blurPosition } from "../lib/blur";
 import { WITHDRAWN, writeObservation } from "../lib/observations";
+import { follow, isFollowing, unfollow } from "../lib/following";
+import { fanOutNotifications, insertCatUpdate } from "../lib/notificationFanout";
 import { _resetClaimLimitForTests } from "../middlewares/rateLimit";
 
 const pushMock = vi.mocked(sendPushNotification);
-const notifyMock = vi.mocked(notifyCatSpotters);
+const notifyMock = vi.mocked(notifyCatFollowers);
 const eligibilityMock = vi.mocked(claimEligibility);
 
 const PREFIX = "vitest-claimv2-";
@@ -157,6 +163,8 @@ async function met(catId: number, p: Phone) {
     suggestedRank: 1,
   });
   await db.insert(pushTokensTable).values({ deviceId: p.id, token: `tok-${p.id}` }).onConflictDoNothing();
+  // SYC-624: the claim and edit pushes go to followers, so a phone that met the cat follows it.
+  await db.insert(catSubscriptionsTable).values({ deviceId: p.id, catId }).onConflictDoNothing();
 }
 
 const NOTE = () => `Blue door ${safeTag()}`;
@@ -730,6 +738,63 @@ describe("POST /api/cats/:catId/claim (SYC-130)", () => {
   });
 });
 
+describe("claiming makes the claimer a follower (SYC-624 B4)", () => {
+  const unfollowRows = (deviceId: string, catId: number) =>
+    db
+      .select()
+      .from(catUnfollowsTable)
+      .where(and(eq(catUnfollowsTable.deviceId, deviceId), eq(catUnfollowsTable.catId, catId)));
+
+  it("claiming after unfollowing restores the follow", async () => {
+    const c = await streetCat();
+    const d = phone("refollow");
+    await met(c.id, d);
+    await follow(db, { deviceId: d.id, catId: c.id });
+    await unfollow(db, { deviceId: d.id, catId: c.id });
+    expect(await isFollowing(d.id, c.id)).toBe(false);
+    expect(await unfollowRows(d.id, c.id)).toHaveLength(1);
+    expect((await claim(c.id, d)).status).toBe(200);
+    expect(await isFollowing(d.id, c.id)).toBe(true);
+    expect(await unfollowRows(d.id, c.id)).toHaveLength(0);
+  });
+
+  it("an owner who lost the follow gets it back by claiming again", async () => {
+    const c = await streetCat();
+    const d = phone("lostrow");
+    await met(c.id, d);
+    expect((await claim(c.id, d)).status).toBe(200);
+    await db
+      .delete(catSubscriptionsTable)
+      .where(and(eq(catSubscriptionsTable.deviceId, d.id), eq(catSubscriptionsTable.catId, c.id)));
+    expect(await isFollowing(d.id, c.id)).toBe(false);
+    expect((await claim(c.id, d)).status).toBe(200);
+    expect(await isFollowing(d.id, c.id)).toBe(true);
+  });
+
+  it("the owner hears live sightings after an unfollow then a claim", async () => {
+    const c = await streetCat();
+    const d = phone("hears");
+    await met(c.id, d);
+    await follow(db, { deviceId: d.id, catId: c.id });
+    await unfollow(db, { deviceId: d.id, catId: c.id });
+    expect((await claim(c.id, d)).status).toBe(200);
+    const cat = await reload(c.id);
+    const update = await insertCatUpdate(db, {
+      cat,
+      updateType: "sighting",
+      message: `${cat.name} was spotted again!`,
+    });
+    await fanOutNotifications({ cat, update });
+    const rows = await db
+      .select()
+      .from(notificationsTable)
+      .where(and(eq(notificationsTable.deviceId, d.id), eq(notificationsTable.catUpdateId, update.id)));
+    expect(rows).toHaveLength(1);
+    await db.delete(notificationsTable).where(eq(notificationsTable.catUpdateId, update.id));
+    await db.delete(catUpdatesTable).where(eq(catUpdatesTable.id, update.id));
+  });
+});
+
 describe("the home note and pin never leave the owner (D9)", () => {
   async function ownedCat() {
     const c = await streetCat({ ownerName: "Maria" });
@@ -968,5 +1033,62 @@ describe("POST /api/cats (removed, D7)", () => {
         lng: 24.9,
       });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("the cat page says who follows (SYC-624 B6)", () => {
+  it("the public request has the counts but never isFollowing", async () => {
+    const c = await streetCat();
+    const res = await detail(c.id);
+    expect(res.status).toBe(200);
+    expect(res.body.spottersCount).toBe(0);
+    expect(res.body.followersCount).toBe(0);
+    expect(res.body).not.toHaveProperty("isFollowing");
+  });
+
+  it("a phone that sent an id without its secret is still public", async () => {
+    const c = await streetCat();
+    const d = phone("unproven");
+    await met(c.id, d);
+    const res = await detail(c.id, d);
+    expect(res.body).not.toHaveProperty("isFollowing");
+  });
+
+  it("a proven follower gets true, a proven non-follower false", async () => {
+    const c = await streetCat();
+    const f = phone("fol");
+    const n = phone("nonfol");
+    await met(c.id, f);
+    await bind(f);
+    await bind(n);
+    expect((await detail(c.id, f, f.secret)).body.isFollowing).toBe(true);
+    expect((await detail(c.id, n, n.secret)).body.isFollowing).toBe(false);
+  });
+
+  it("the owner gets true", async () => {
+    const c = await streetCat();
+    const d = phone("own");
+    await met(c.id, d);
+    expect((await claim(c.id, d)).status).toBe(200);
+    expect((await detail(c.id, d, d.secret)).body.isFollowing).toBe(true);
+  });
+
+  it("spottersCount equals fansCount", async () => {
+    const c = await streetCat();
+    await met(c.id, phone("a"));
+    await met(c.id, phone("b"));
+    const res = await detail(c.id);
+    expect(res.body.fansCount).toBe(2);
+    expect(res.body.spottersCount).toBe(res.body.fansCount);
+  });
+
+  it("followersCount counts follows of phones that never spotted the cat", async () => {
+    const c = await streetCat();
+    await met(c.id, phone("spotter"));
+    const watcher = phone("watcher");
+    await follow(db, { deviceId: watcher.id, catId: c.id });
+    const res = await detail(c.id);
+    expect(res.body.spottersCount).toBe(1);
+    expect(res.body.followersCount).toBe(2);
   });
 });

@@ -55,7 +55,7 @@ vi.mock("../lib/push", () => ({
 }));
 vi.mock("../lib/notifications", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/notifications")>();
-  return { ...actual, notifyCatSpotters: vi.fn(actual.notifyCatSpotters) };
+  return { ...actual, notifyCatFollowers: vi.fn(actual.notifyCatFollowers) };
 });
 vi.mock("../lib/matching", () => ({
   matchCatPhoto: vi.fn(async () => ({ isCatPhoto: true, matches: [] })),
@@ -67,7 +67,7 @@ vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
 
 import app from "../app";
 import { sendPushNotification } from "../lib/push";
-import { notifyCatSpotters } from "../lib/notifications";
+import { notifyCatFollowers } from "../lib/notifications";
 import { writeObservation } from "../lib/observations";
 import { blurPosition } from "../lib/blur";
 import { _resetClaimLimitForTests } from "../middlewares/rateLimit";
@@ -76,7 +76,7 @@ import { renderCatPage } from "../lib/teamPages/catPages";
 import { CAPABILITIES, CATALOGUE } from "../lib/capabilities";
 
 const pushMock = vi.mocked(sendPushNotification);
-const notifyMock = vi.mocked(notifyCatSpotters);
+const notifyMock = vi.mocked(notifyCatFollowers);
 
 const RUN = randomBytes(3).toString("hex");
 const PREFIX = `vt-died-${RUN}-`;

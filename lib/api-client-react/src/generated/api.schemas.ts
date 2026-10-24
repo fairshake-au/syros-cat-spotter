@@ -429,6 +429,19 @@ export interface CatLetGo {
   deviceId: string;
 }
 
+/**
+ * Only the device id; the secret travels in X-Device-Secret.
+ */
+export interface CatFollow {
+  /** @minLength 1 */
+  deviceId: string;
+}
+
+export interface FollowState {
+  isFollowing: boolean;
+  followersCount: number;
+}
+
 export interface CatOwnerUpdate {
   /** @minLength 1 */
   deviceId: string;
@@ -522,8 +535,14 @@ export interface CareEvent {
 export interface CatDetail {
   cat: Cat;
   sightings: Sighting[];
-  /** Distinct devices that have spotted this cat */
+  /** Deprecated: distinct spotting phones, kept for older app versions; same as spottersCount */
   fansCount: number;
+  /** Distinct phones with a confirmed sighting */
+  spottersCount?: number;
+  /** Phones following this cat now */
+  followersCount?: number;
+  /** This phone follows this cat; absent unless the phone proved its id */
+  isFollowing?: boolean;
   /** Care history, newest first, oldest entry always `discovered` */
   careTimeline: CareEvent[];
   /**

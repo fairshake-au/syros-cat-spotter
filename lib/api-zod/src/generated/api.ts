@@ -154,7 +154,10 @@ export const GetCatResponse = zod.object({
   "photoRemoved": zod.boolean().optional().describe('SYC-462. Present, and true, only when this sighting\'s own photo was\nremoved for good (it is hidden too, so `photoUrl` is null and\n`photoHidden` is true); the app then shows \"Photo removed.\" Left\nout otherwise.\n'),
   "createdAt": zod.string().describe('A Syros (Europe\/Athens) calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).')
 }).describe('A sighting in a cat\'s public history: photo, spotter and date. No\nposition and no sighting id, which would give away upload order\n(cat-record-data-spine.md §6.4).\n')),
-  "fansCount": zod.number().describe('Distinct devices that have spotted this cat'),
+  "fansCount": zod.number().describe('Deprecated: distinct spotting phones, kept for older app versions; same as spottersCount'),
+  "spottersCount": zod.number().optional().describe('Distinct phones with a confirmed sighting'),
+  "followersCount": zod.number().optional().describe('Phones following this cat now'),
+  "isFollowing": zod.boolean().optional().describe('This phone follows this cat; absent unless the phone proved its id'),
   "careTimeline": zod.array(zod.object({
   "type": zod.enum(['desexed', 'adopted', 'general', 'discovered']).describe('Care events recorded against the cat. `discovered` is synthesised\nfrom the cat\'s own creation, and its `message` is the discoverer\'s\ndisplay name rather than free text.\n'),
   "message": zod.string().nullable().describe('Null only on a `discovered` event whose discoverer deleted their data (SYC-63, SYC-235). The app shows \"a spotter\" in the reader\'s language. A blank, never a stand-in word, so no username can be mistaken for it.'),
@@ -362,6 +365,54 @@ export const LetGoCatResponse = zod.object({
   "coatColours": zod.array(zod.enum(['black', 'grey', 'brown', 'ginger', 'white'])).optional().describe('The cat\'s resolved coat colours (coat-colours-and-pattern.md §6), in display order; [] when not known. Only the value.'),
   "coatPattern": zod.enum(['plain', 'stripes', 'patches']).nullish().describe('The cat\'s resolved coat pattern (§6), or null when not known. Only the value.'),
   "markings": zod.array(zod.enum(['white_paws', 'white_chest', 'white_face', 'colourpoint', 'long_fur', 'kinked_tail', 'torn_ear', 'short_tail', 'missing_eye', 'three_legs', 'odd_eyes'])).optional().describe('The cat\'s resolved markings (coat-markings-and-health.md §3.2,\n§10.4), `[]` when none are known. Only the list: never how sure,\nwho said it or how many people. Optional, as `coat`.\n')
+})
+
+
+/**
+ * Needs the device secret. Idempotent: following twice keeps one row.
+ * Clears any earlier unfollow, so a phone that spots the cat again is
+ * followed again only by choice. Never cached. A courtesy cap of 50
+ * follow or unfollow calls per phone per day (300 per address) answers 429.
+ * @summary Follow a cat, so its updates reach this phone
+ */
+export const FollowCatParams = zod.object({
+  "catId": zod.coerce.number()
+})
+
+
+
+
+export const FollowCatBody = zod.object({
+  "deviceId": zod.string().min(1)
+}).describe('Only the device id; the secret travels in X-Device-Secret.')
+
+export const FollowCatResponse = zod.object({
+  "isFollowing": zod.boolean(),
+  "followersCount": zod.number()
+})
+
+
+/**
+ * Needs the device secret. Idempotent. Records the choice, so spotting
+ * the cat again does not follow it again. The cat's owner cannot
+ * unfollow (403 OWNER_CANNOT_UNFOLLOW). Never cached. Shares the
+ * courtesy cap with follow.
+ * @summary Stop following a cat
+ */
+export const UnfollowCatParams = zod.object({
+  "catId": zod.coerce.number()
+})
+
+
+
+
+export const UnfollowCatBody = zod.object({
+  "deviceId": zod.string().min(1)
+}).describe('Only the device id; the secret travels in X-Device-Secret.')
+
+export const UnfollowCatResponse = zod.object({
+  "isFollowing": zod.boolean(),
+  "followersCount": zod.number()
 })
 
 

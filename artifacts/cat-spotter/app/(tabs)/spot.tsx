@@ -391,8 +391,8 @@ export default function SpotScreen() {
   const tiles = useOfflineTiles();
 
   // SYC-166 slice 4: where the map starts (lib/mapStart.ts). A library photo
-  // with no usable phone position starts in Ermoupoli; the camera waits for
-  // the phone, as before.
+  // with no usable phone position starts in Ermoupoli; SYC-308 gives the
+  // camera and live view the same fallback when location is refused or slow.
   const [pickSource, setPickSource] = useState<PickSource | null>(null);
   const [mapStart, setMapStart] = useState<ReadyMapStart | null>(null);
   // Bumped with every new start, so the map remounts there: it positions

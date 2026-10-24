@@ -373,6 +373,24 @@ describe("the evening round-up", () => {
     expect(await inAppRows(watcher)).toHaveLength(1);
   });
 
+  it("a follow counts only from the first round-up that starts after it: staggered follows reveal nothing about when a cat was seen", async () => {
+    const early = device("early");
+    const staggered = device("staggered");
+    const cat = await seedCat();
+    // `early` followed long before tonight's window opened (default since);
+    // `staggered` followed inside the window, before the sighting.
+    await follow(early, cat.id);
+    await follow(staggered, cat.id, { since: athens("06-09", "10:00") });
+    await sighting(cat, athens("06-09", "14:00"));
+
+    await sendDailyRoundUp(athens("06-10", "20:30"));
+
+    expect(pushesTo(early)).toHaveLength(1);
+    expect(await inAppRows(early)).toHaveLength(1);
+    expect(pushesTo(staggered)).toHaveLength(0);
+    expect(await inAppRows(staggered)).toHaveLength(0);
+  });
+
   it("a sighting after tonight's round-up waits for tomorrow's; one already sent isn't repeated", async () => {
     const watcher = device("watcher");
     const cat = await seedCat();

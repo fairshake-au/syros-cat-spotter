@@ -46,6 +46,9 @@ import { toPublicDay } from "../lib/catHelpers";
 // Regenerated again, on purpose, by SYC-44 PR 6.1: `,"photoHidden":false`
 // after each sighting's `photoUrl` (none of these photos is hidden;
 // report-an-issue.md D4). No other byte changed.
+// Regenerated again, on purpose, by SYC-624 B6: `"spottersCount":2,
+// "followersCount":0` right after `"fansCount"` on the cat's page (never
+// `isFollowing`: no proven phone asked). No other byte changed.
 //
 // Only values the database or the clock hand out (serial ids, the upload's
 // random public id, today's date) are swapped for placeholders; every other

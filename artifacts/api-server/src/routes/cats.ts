@@ -1,6 +1,7 @@
-import { Router, type IRouter, type Request } from "express";
+import { Router, type IRouter, type Request, type RequestHandler, type Response } from "express";
 import {
   ClaimCatBody,
+  FollowCatBody,
   LetGoCatBody,
   UpdateCatBody,
   SuggestCatNamesBody,
@@ -20,6 +21,7 @@ import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
   fansCount,
+  isResolvedDeceased,
   listCatsWithStats,
   serialiseCat,
   serialiseSighting,
@@ -28,10 +30,11 @@ import {
   type DerivedCatStatus,
   type Viewer,
 } from "../lib/catHelpers";
-import { notifyCatSpotters } from "../lib/notifications";
+import { notifyCatFollowers } from "../lib/notifications";
 import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl, removedPhotoIds } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
-import { aiLimiter, checkClaimLimit } from "../middlewares/rateLimit";
+import { aiLimiter, checkClaimLimit, checkFollowLimit, followAddressLimiter, followBurstLimiter } from "../middlewares/rateLimit";
+import { follow, followersCount, isFollowing, unfollow } from "../lib/following";
 import { safeError } from "../lib/logger";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { deviceSecretMatches, verifyDeviceSecret } from "../lib/deviceAuth";
@@ -96,13 +99,16 @@ async function inClaimCooldown(catId: number, deviceId: string): Promise<boolean
 async function detailViewer(
   req: Request,
   cat: Cat,
-): Promise<{ viewer: Viewer; canClaim: boolean; claimCooldown: boolean }> {
+): Promise<{ viewer: Viewer; canClaim: boolean; claimCooldown: boolean; isFollowing: boolean | undefined }> {
   const header = req.headers["x-device-id"];
   const deviceId = typeof header === "string" ? header : "";
   const proven = deviceId !== "" && (await deviceSecretMatches(req, deviceId));
-  if (!proven) return { viewer: PUBLIC_VIEWER, canClaim: false, claimCooldown: false };
+  // SYC-624: `isFollowing` is the phone's own fact, so it is only said to a
+  // phone that proved its id; `undefined` leaves it out of the JSON.
+  if (!proven) return { viewer: PUBLIC_VIEWER, canClaim: false, claimCooldown: false, isFollowing: undefined };
   if (cat.ownerDeviceId === deviceId) {
-    return { viewer: { tier: "owner", deviceId }, canClaim: false, claimCooldown: false };
+    // An owner always follows the cat.
+    return { viewer: { tier: "owner", deviceId }, canClaim: false, claimCooldown: false, isFollowing: true };
   }
   // claiming-a-cat.md §4.1, §11: "may claim" comes from the same function
   // the claim uses, and only for a phone that has proved it is that device.
@@ -118,7 +124,7 @@ async function detailViewer(
     cat.ownerDeviceId === null &&
     (await claimEligibility(db, { catId: cat.id, deviceId })).ok === true &&
     !claimCooldown;
-  return { viewer: PUBLIC_VIEWER, canClaim, claimCooldown };
+  return { viewer: PUBLIC_VIEWER, canClaim, claimCooldown, isFollowing: await isFollowing(deviceId, cat.id) };
 }
 
 /**
@@ -259,12 +265,13 @@ router.get("/cats/:catId", async (req, res) => {
     )
     .orderBy(desc(catUpdatesTable.createdAt));
 
-  const [fans, discovererProfile] = await Promise.all([
+  const [fans, followers, discovererProfile] = await Promise.all([
     fansCount(catId),
+    followersCount(catId),
     lookupDiscoverer(cat.discovererDeviceId),
   ]);
 
-  const { viewer, canClaim, claimCooldown } = await detailViewer(req, cat);
+  const { viewer, canClaim, claimCooldown, isFollowing: following } = await detailViewer(req, cat);
   const catBody = await catPayload(
     cat,
     sightings.length,
@@ -275,6 +282,9 @@ router.get("/cats/:catId", async (req, res) => {
   res.json({
     cat: catBody,
     fansCount: fans,
+    spottersCount: fans,
+    followersCount: followers,
+    ...(following === undefined ? {} : { isFollowing: following }),
     careTimeline: [
       ...updates.map((u) => ({
         type: u.updateType,
@@ -392,6 +402,8 @@ router.post("/cats/:catId/claim", async (req, res) => {
   // §3 rule 4: this proven phone already owns the cat. A retry succeeds
   // quietly, writes nothing, and never spends an attempt (critic L1).
   if (cat && cat.ownerDeviceId === deviceId) {
+    // SYC-624: an owner always follows; give back a row they somehow lost.
+    await follow(db, { deviceId, catId });
     res.json(await catPayload(cat, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }));
     return;
   }
@@ -475,6 +487,9 @@ router.post("/cats/:catId/claim", async (req, res) => {
       authorityScope: "owner_of_this_cat",
       observedAt: new Date(),
     });
+    // SYC-624: claiming makes the claimer a follower, undoing any earlier
+    // unfollow, so the owner hears about sightings.
+    await follow(tx, { deviceId, catId });
     return { ok: true as const, row: row!, firstEver };
   });
 
@@ -490,7 +505,7 @@ router.post("/cats/:catId/claim", async (req, res) => {
   }
   if (result.firstEver) {
     // Fire-and-forget. Never the note or the pin (§8, SYC-232).
-    void notifyCatSpotters(catId, deviceId, {
+    void notifyCatFollowers(catId, deviceId, {
       title: `${result.row.name} has a home!`,
       body: `${result.row.name} now has a home.`,
       data: { type: "cat_claimed", catId },
@@ -572,6 +587,82 @@ router.post("/cats/:catId/let-go", async (req, res) => {
   const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
   res.json(await catPayload(cat!, await sightingsCountFor(catId), new Date(), PUBLIC_VIEWER));
 });
+
+/**
+ * SYC-624: follow or unfollow a cat. Body and device secret first (every
+ * answer goes only to the phone itself), then the courtesy cap (before the
+ * transaction, so the counter never runs while the cat row is locked), then
+ * one transaction that locks the cat row. An owner can't unfollow their own
+ * cat: they always hear about it. Answers the phone's own follow state.
+ */
+function followHandler(action: "follow" | "unfollow") {
+  return async (req: Request, res: Response) => {
+    res.setHeader("Cache-Control", PER_PHONE);
+    const catId = Number(req.params["catId"]);
+    if (!Number.isInteger(catId)) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const parsed = FollowCatBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid request" });
+      return;
+    }
+    const deviceId = await verifyDeviceSecret(req, res, parsed.data.deviceId);
+    if (!deviceId) return;
+
+    let within: boolean;
+    try {
+      within = await checkFollowLimit(deviceId);
+    } catch (err) {
+      // A limit that cannot count fails closed (SYC-105).
+      req.log.error({ err: safeError(err) }, "follow limit counter failed");
+      res.setHeader("Retry-After", "5");
+      res.status(503).json({ error: "Please try again in a moment." });
+      return;
+    }
+    if (!within) {
+      res.status(429).json({ error: "Too many requests. Please try again later." });
+      return;
+    }
+
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`select id from cats where id = ${catId} for update`);
+      const [cat] = await tx
+        .select({ ownerDeviceId: catsTable.ownerDeviceId })
+        .from(catsTable)
+        .where(eq(catsTable.id, catId));
+      if (!cat) return { kind: "missing" as const };
+      if (action === "unfollow" && cat.ownerDeviceId === deviceId) return { kind: "owner" as const };
+      // A cat recorded as dead can't be newly followed; unfollowing still works.
+      if (action === "follow" && (await isResolvedDeceased(catId, tx))) return { kind: "deceased" as const };
+      if (action === "follow") await follow(tx, { deviceId, catId });
+      else await unfollow(tx, { deviceId, catId });
+      return { kind: "ok" as const, followersCount: await followersCount(catId, tx) };
+    });
+    if (result.kind === "missing") {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    if (result.kind === "deceased") {
+      res.status(409).json({ error: "This cat has died, so it can't be followed", code: "CAT_DECEASED" });
+      return;
+    }
+    if (result.kind === "owner") {
+      res.status(403).json({ error: "The cat's owner can't unfollow it", code: "OWNER_CANNOT_UNFOLLOW" });
+      return;
+    }
+    res.json({ isFollowing: action === "follow", followersCount: result.followersCount });
+  };
+}
+
+// The 429 and 503 from the address limiter answer a single phone too: no cache.
+const noStore: RequestHandler = (_req, res, next) => {
+  res.setHeader("Cache-Control", PER_PHONE);
+  next();
+};
+router.post("/cats/:catId/follow", noStore, followBurstLimiter, followAddressLimiter, followHandler("follow"));
+router.post("/cats/:catId/unfollow", noStore, followBurstLimiter, followAddressLimiter, followHandler("unfollow"));
 
 // Owner renames the cat or updates its home description.
 router.patch("/cats/:catId", async (req, res) => {
@@ -666,7 +757,7 @@ router.patch("/cats/:catId", async (req, res) => {
       return;
     }
     updated = written;
-    void notifyCatSpotters(catId, body.deviceId, {
+    void notifyCatFollowers(catId, body.deviceId, {
       title: renamed
         ? `${cat.name} is now ${updated.name}!`
         : `${updated.name} has an update`,
