@@ -158,4 +158,37 @@ describe("resolving a sighting and following", () => {
     expect(res.status).toBe(200);
     expect(await subRows(device, catId)).toHaveLength(1);
   });
+
+  it("an unfollow still in flight when a resolve starts is not undone by it", async () => {
+    const catId = await seedCat(`${CAT_PREFIX}-Race`);
+    const device = `${DEVICE}-racer`;
+    expect((await resolve(await insertSighting(device), device, catId)).status).toBe(200);
+    expect(await subRows(device, catId)).toHaveLength(1);
+    const pending = await insertSighting(device);
+
+    // Connection A: the unfollow transaction (same steps as the route:
+    // lock the cat row, drop the subscription, record the choice), held open.
+    const a = await pool.connect();
+    try {
+      await a.query("begin");
+      await a.query("select id from cats where id = $1 for update", [catId]);
+      await a.query("delete from cat_subscriptions where device_id = $1 and cat_id = $2", [device, catId]);
+      await a.query("insert into cat_unfollows (device_id, cat_id) values ($1, $2)", [device, catId]);
+
+      // Connection B: the resolve starts while the unfollow is uncommitted.
+      const resolving = resolve(pending, device, catId).then((r) => r);
+      await new Promise((r) => setTimeout(r, 400));
+      await a.query("commit");
+      expect((await resolving).status).toBe(200);
+    } finally {
+      a.release();
+    }
+
+    expect(await subRows(device, catId)).toHaveLength(0);
+    const unfollows = await db
+      .select()
+      .from(catUnfollowsTable)
+      .where(and(eq(catUnfollowsTable.deviceId, device), eq(catUnfollowsTable.catId, catId)));
+    expect(unfollows).toHaveLength(1);
+  });
 });

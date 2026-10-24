@@ -1034,6 +1034,13 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
 
       // SYC-624: a phone that unfollowed this cat stays unfollowed; only a
       // fresh Follow tap (which clears its cat_unfollows row) brings it back.
+      // Lock the cat row first (shared): follow and unfollow hold it for
+      // update, so a racing unfollow commits before this statement takes its
+      // snapshot and the guard below sees its cat_unfollows row. Lock order:
+      // this transaction holds the sighting row, then wants the cat row;
+      // follow/unfollow and claim take the cat row and never a sighting row,
+      // so no cycle can form.
+      await tx.execute(sql`select 1 from cats where id = ${cat!.id} for share`);
       await tx.execute(sql`
         insert into cat_subscriptions (device_id, cat_id)
         select ${spotterId}, ${cat!.id}
