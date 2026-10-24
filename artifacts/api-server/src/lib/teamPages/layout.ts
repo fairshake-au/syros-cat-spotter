@@ -212,9 +212,9 @@ form.takeout button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px
 .catrow input[type=checkbox]:disabled+.thumb{opacity:.6}
 .catrow strong{color:#0b5c6b;text-decoration:underline}
 /* A colony's cat row (SYC-619 §7.2): the <li> is the card, its link fills it, the "⋯" sits at the right. */
-li.catcard{position:relative;background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:8px 0}
-li.catcard:hover{border-color:#0b5c6b}
-li.catcard>a.catrow{border:0;margin:0;background:transparent;padding-right:56px}
+li.colonycat{position:relative;background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:8px 0}
+li.colonycat:hover{border-color:#0b5c6b}
+li.colonycat>a.catrow{border:0;margin:0;background:transparent;padding-right:56px}
 .catinfo{display:block;flex:1;min-width:0}
 .syr{color:#55524a;font-size:14px;font-variant-numeric:tabular-nums}
 .status{display:block;font-size:14px;color:#3b3930;margin-top:2px}

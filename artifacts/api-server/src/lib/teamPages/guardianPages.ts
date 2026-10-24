@@ -99,7 +99,7 @@ export function sterilisedWords(
  * place (dashboard §10.2). Also a guardian's rows on a colony page (SYC-619
  * spec §7.2). `day` is a UTC day, YYYY-MM-DD. Plain text: escape it.
  */
-export function lastSeenWords(
+export function guardianLastSeenWords(
   day: string | null,
   lang: string,
   t: Say,
@@ -197,7 +197,7 @@ export function renderGuardianColonyPage(
               `<a class="name" href="${myCatPath(c.id)}">${esc(c.name)}</a> <span class="muted">${esc(c.syr)}</span>` +
               `<p>${esc(sterilisedWords(c.sterilised, t))}</p>` +
               (c.lifeStatus ? `<p>${esc(t(`gcat.life.${c.lifeStatus}` as StringKey))}</p>` : "") +
-              `<p class="muted">${esc(lastSeenWords(c.lastSeen, lang, t, live))}</p>` +
+              `<p class="muted">${esc(guardianLastSeenWords(c.lastSeen, lang, t, live))}</p>` +
               "</div></li>"
             );
           })
@@ -316,7 +316,7 @@ export function renderGuardianCatPage(
       : "") +
     `<p>${esc(sterilisedWords(cat.sterilised, t))}</p>` +
     (cat.lifeStatus ? `<p>${esc(t(`gcat.life.${cat.lifeStatus}` as StringKey))}</p>` : "") +
-    `<p>${esc(lastSeenWords(cat.lastSeen, lang, t, live))}</p>` +
+    `<p>${esc(guardianLastSeenWords(cat.lastSeen, lang, t, live))}</p>` +
     vetVisitLines(cat, lang, t, live) +
     `<p>${esc(t("gcat.firstSeenIn", { place: placeLabel({ lat: cat.lat, lng: cat.lng }) }))}</p>` +
     appearanceLine(lang, cat, live) +
@@ -349,7 +349,7 @@ export function renderPublicCatForGuardian(
     '<div class="gfacts">' +
     `<p>${esc(sterilisedWords(cat.sterilised, t))}</p>` +
     `<p>${esc(t(`gcat.life.${cat.lifeStatus}` as StringKey))}</p>` +
-    `<p>${esc(lastSeenWords(cat.lastSeenAt, lang, t, live))}</p>` +
+    `<p>${esc(guardianLastSeenWords(cat.lastSeenAt, lang, t, live))}</p>` +
     appearanceLine(lang, cat, live) +
     "</div>" +
     `<p><a class="tap" href="${MY_COLONIES_PATH}">${esc(t("gcat.back"))}</a></p>`;

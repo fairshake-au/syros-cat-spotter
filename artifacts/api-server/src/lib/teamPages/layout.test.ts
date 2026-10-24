@@ -516,4 +516,15 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
   it("the How this is worked out summary is 44px, bold and teal", () => {
     expect(sheet()).toMatch(/details\.method>summary\{[^}]*min-height:44px[^}]*font-weight:700[^}]*color:#0b4553/);
   });
+  it("a colony's cat rows have their own class: no li.catcard rule, and nothing styled colonycat touches the Cats grid", () => {
+    const css = sheet();
+    expect(css).not.toContain("li.catcard{");
+    const rules = [...css.matchAll(/([^{}]+)\{[^}]*\}/g)].map((m) => m[1]!.trim()).filter((sel) => sel.includes("colonycat"));
+    expect(rules.length).toBeGreaterThan(0);
+    for (const sel of rules) expect(sel).not.toMatch(/\.catgrid|\.catcard(?!link)/);
+    // The grid's own card rule keeps its box: no margin.
+    const grid = /\n\.catcard\{([^}]*)\}/.exec(css);
+    expect(grid).not.toBeNull();
+    expect(grid![1]).not.toContain("margin");
+  });
 });

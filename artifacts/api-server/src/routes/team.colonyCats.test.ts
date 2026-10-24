@@ -1034,7 +1034,7 @@ describe("SYC-619 §7.2 (D3): a colony's page", () => {
   /** The colony's cat list, and each row's <li> by cat id. */
   const catsOf = (html: string) => {
     const list = /<ul class="cats">[\s\S]*?<\/ul>/.exec(html)?.[0] ?? "";
-    const rows = [...list.matchAll(/<li class="catcard">[\s\S]*?<\/li>/g)].map((m) => m[0]);
+    const rows = [...list.matchAll(/<li class="colonycat">[\s\S]*?<\/li>/g)].map((m) => m[0]);
     return { list, rows };
   };
 

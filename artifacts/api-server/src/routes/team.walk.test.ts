@@ -780,7 +780,7 @@ describe("§6.4 (SYC-619 §7.2): a cat guardian's own colony page shows each cat
     expect(res.status).toBe(200);
     const html = res.text;
     const list = /<ul class="cats">[\s\S]*?<\/ul>/.exec(html)?.[0] ?? "";
-    const row = (id: number) => [...list.matchAll(/<li class="catcard">[\s\S]*?<\/li>/g)].map((m) => m[0]).find((r) => r.includes(`/api/team/my/cats/${id}"`))!;
+    const row = (id: number) => [...list.matchAll(/<li class="colonycat">[\s\S]*?<\/li>/g)].map((m) => m[0]).find((r) => r.includes(`/api/team/my/cats/${id}"`))!;
 
     // Not known first (the planner's order), then sterilised.
     expect(list.indexOf(`/api/team/my/cats/${neverCat.id}"`)).toBeLessThan(list.indexOf(`/api/team/my/cats/${seenCat.id}"`));

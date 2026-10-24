@@ -1,6 +1,6 @@
 import type { Capability } from "../capabilities";
 import { keptLine, type KeptFields } from "./signedOutPage";
-import { myCatPath, lastSeenWords as guardianLastSeen } from "./guardianPages";
+import { myCatPath, guardianLastSeenWords } from "./guardianPages";
 import { lastSeenWords } from "./lastSeen";
 import type { ColonyCatRow } from "./colonyCatRows";
 import type { ColonyHistoryEntry, ColonyRow, ColonyView } from "../teamColonies";
@@ -545,10 +545,10 @@ function catList(
                 `<span class="status">${esc(lastSeenWords(c.lastSeenAt, now))}</span>`
               : `<span class="status">${markBadge(c.mark, t(BAR_WORD[c.mark]))}</span>` +
                 `<span class="status">${esc(
-                  guardianLastSeen(c.lastSeenAt ? c.lastSeenAt.toISOString().slice(0, 10) : null, W.lang, t),
+                  guardianLastSeenWords(c.lastSeenAt ? c.lastSeenAt.toISOString().slice(0, 10) : null, W.lang, t),
                 )}</span>`;
         return (
-          `<li class="catcard"><a class="catrow" href="${href}">${thumb}` +
+          `<li class="colonycat"><a class="catrow" href="${href}">${thumb}` +
           `<span class="catinfo"><span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
           lines +
           `</span></a>` +
