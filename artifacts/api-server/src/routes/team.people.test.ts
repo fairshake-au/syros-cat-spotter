@@ -452,12 +452,53 @@ describe("colony names are drawn whole", () => {
   });
 });
 
-describe("the roles are explained (SYC-522)", () => {
-  it("says what the team, management and a cat guardian can do, beside the role boxes", async () => {
-    const html = (await get("/api/team/people", susan)).text;
-    expect(html).toContain("The team sees the whole island and records what they find.");
-    expect(html).toContain("Management can do all of that and also invite people");
-    expect(html).toContain("A cat guardian sees only the colonies they look after.");
+describe("the roles are explained, one line under each box (SYC-619 task 18)", () => {
+  const LINES: [string, string, string][] = [
+    ["staff", "A member of the Syros Cats team", "Sees the whole island and records what they find."],
+    ["management", "A member of Syros Cats management", "Can also invite people, change what they can do and sign anyone out."],
+    ["guardian", "A cat guardian", "Sees only the colonies they look after."],
+  ];
+  const check = (form: string) => {
+    const ids = new Set<string>();
+    for (const [value, label, line] of LINES) {
+      const box = form.match(new RegExp(`<input type="checkbox" name="roles" value="${value}"[^>]*>`))?.[0] ?? "";
+      expect(box).not.toBe("");
+      const id = box.match(/aria-describedby="([^"]+)"/)?.[1];
+      expect(id, `${value} box points at its line`).toBeTruthy();
+      ids.add(id!);
+      expect(form).toContain(`<p class="hint roleline" id="${id}">${line}</p>`);
+      // the line sits directly under its own label, before the next box
+      const at = form.indexOf(box);
+      expect(form.indexOf(label, at)).toBeGreaterThan(at);
+      const lineAt = form.indexOf(line, at);
+      expect(lineAt).toBeGreaterThan(at);
+      const next = form.indexOf('name="roles"', at + box.length);
+      if (next > 0) expect(lineAt).toBeLessThan(next);
+    }
+    expect(ids.size).toBe(3);
+    expect(form).not.toContain("The team sees the whole island");
+    expect(form).not.toContain("Management can do all of that");
+    return [...ids];
+  };
+  const idsIn = (html: string) => [...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);
+
+  it("Invite, Change roles and Bring back each carry the three lines, with ids unique within the page", async () => {
+    const invite = (await get("/api/team/people", susan)).text;
+    check(invite.slice(invite.indexOf('id="invite"'), invite.indexOf("</section>", invite.indexOf('id="invite"'))));
+    const change = (await get(`/api/team/people/${team.id}/roles`, susan)).text;
+    check(change);
+    const gone = await joined("lines-gone", ["staff"]);
+    expect((await post(`/api/team/people/${gone.id}/left`, susan)).status).toBe(303);
+    const back = (await get(`/api/team/people/${gone.id}/bring-back`, susan)).text;
+    check(back);
+    for (const html of [invite, change, back]) {
+      const all = idsIn(html);
+      expect(new Set(all).size).toBe(all.length);
+    }
+    // the same lines on different forms never share an id
+    const a = check(change.slice(change.indexOf("<form")));
+    const b = check(back.slice(back.indexOf("<form")));
+    expect(a.filter((x) => b.includes(x))).toEqual([]);
   });
 });
 

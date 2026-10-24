@@ -40,6 +40,7 @@ import { AboutTab } from '@/components/catPage/AboutTab';
 import { PhotosTab } from '@/components/catPage/PhotosTab';
 import { StoryTab } from '@/components/catPage/StoryTab';
 import { MapTab } from '@/components/catPage/MapTab';
+import { FollowButton } from '@/components/catPage/FollowButton';
 import { fonts, fontSizes, lineHeights } from '@/constants/theme';
 
 /** The photo's height. The tab row and the first facts show on a 390 px phone without scrolling. */
@@ -241,6 +242,21 @@ export default function CatDetailScreen() {
     else if (homeAction === 'askHomed') setAskSheet('homed');
   };
   const openReport = () => setIssueSheet({ photoUrl: null });
+  // SYC-624 D1: Follow needs a known phone and a server that answers
+  // `isFollowing`; the owner can't unfollow; a dead cat's button stays only for
+  // someone who already follows (so they can stop the news).
+  // The server calls a phone the owner whatever the cat's life status, and
+  // sends it the exact spot; a cat that died or went into care keeps its
+  // owner, who still can't unfollow. (`isOwner` above also needs `hasHome`,
+  // which is right for Edit and the pin: those belong to a homed cat.)
+  const ownsForFollow = isOnline ? cat.locationPrecision === 'exact' : ownedCatIds.includes(cat.id);
+  const follow =
+    data.isFollowing !== undefined &&
+    deviceId !== null &&
+    !ownsForFollow &&
+    (cat.lifeStatus !== 'deceased' || data.isFollowing)
+      ? { deviceId, isFollowing: data.isFollowing }
+      : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -347,6 +363,18 @@ export default function CatDetailScreen() {
           </IconButton>
         </View>
       )}
+      {/* Belongs to the photo: gone while the tab row is pinned, so it never covers the Map tab. */}
+      {follow !== null && !stuck && (
+        <View style={[styles.followWrap, { top: insets.top + 8 }]}>
+          <FollowButton
+            catId={cat.id}
+            catName={cat.name}
+            deviceId={follow.deviceId}
+            isFollowing={follow.isFollowing}
+            isOnline={isOnline}
+          />
+        </View>
+      )}
       {heroOpenUrl !== null && heroOpenUrl === cat.photoUrl && heroCanOpen && heroCaption && (
         <PhotoViewer
           url={heroOpenUrl}
@@ -409,6 +437,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { width: '100%', height: HERO_H },
   backWrap: { position: 'absolute', left: 8, zIndex: 30 },
+  followWrap: { position: 'absolute', right: 8, zIndex: 30 },
   heroBottom: {
     position: 'absolute',
     left: 20,

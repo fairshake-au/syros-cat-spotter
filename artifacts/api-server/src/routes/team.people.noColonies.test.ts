@@ -31,7 +31,7 @@ describe("no colonies exist yet", () => {
     const res = await request(app).get("/api/team/people").set("Cookie", susan.cookie).set("Sec-Fetch-Mode", "navigate");
     expect(res.status).toBe(200);
     expect(res.text).toContain("No colonies exist yet");
-    expect(res.text).toMatch(/<input type="checkbox" name="roles" value="guardian">/);
+    expect(res.text).toMatch(/<input type="checkbox" name="roles" value="guardian"(?![^>]*checked)[^>]*>/);
     expect(res.text).toMatch(/<input type="checkbox" name="no_colony" value="1">/);
   });
 

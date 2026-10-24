@@ -1,6 +1,6 @@
 # A cat's page, in four tabs
 
-Status: draft for review · 23 Oct 2026 · Samuel chose Option G ("Tabs") with emojis on the tabs, from the options board at https://claude.ai/artifact/AxVe5L1q4yztMwBMBXMkbT
+Status: approved by Samuel, 23 Oct 2026 · 23 Oct 2026 · Samuel chose Option G ("Tabs") with emojis on the tabs, from the options board at https://claude.ai/artifact/AxVe5L1q4yztMwBMBXMkbT
 
 ## Why
 
@@ -54,7 +54,7 @@ About opens first, every time.
 - Slightly shorter than today, so the tabs and the facts card's first lines show on a small phone without scrolling. **My call:** about 250 px tall, down from 300. Tune it on a 390 px-wide phone so the first screen also shows the "I've spotted" button.
 - Tap-to-open full screen, and the rule that it opens only once loaded (offline-safe): unchanged.
 - **The back button** sits at the top left of the photo (below the safe area) and hides while the tab row is pinned, so the pinned row can use the full width and the longest label fits. The phone's or browser's own back still works. **My call (changed 24 Oct after the Greek 360 px check).**
-- **The Follow button** sits at the top right, opposite the back button, and hides the same way. See "Following a cat" below.
+- **The Follow button** sits at the top right of the photo, opposite the back button, on every tab, and hides the same way (while the tab row is pinned), so it never covers the Map tab. It returns when you scroll back up. See "Following a cat" below.
 
 ### 2. The tab row
 
@@ -150,7 +150,7 @@ Samuel, 23 Oct: split "fans" into spotters and fans; a fan gets the same news a 
 
 ### What changes
 
-- **A Follow button** on the cat page, top right of the photo, on every tab. It reads `♡ Follow` when you don't follow the cat and `♥ Following` when you do, with the state spoken as a toggle ("Follow Agatha, not following" / "following"). Tapping Follow adds this phone to the cat's follower list. Tapping Following removes it straight away, with no "are you sure?". Tapping Follow again undoes it. **My call:** the hearts are drawn icons, hidden from screen readers.
+- **A Follow button** on the cat page, top right of the photo, on every tab, hidden while the tab row is pinned. It reads `♡ Follow` when you don't follow the cat and `♥ Following` when you do, with the state spoken as a toggle ("Follow Agatha, not following" / "following"). Tapping Follow adds this phone to the cat's follower list. Tapping Following removes it straight away, with no "are you sure?". Tapping Follow again undoes it. **My call:** the hearts are drawn icons, hidden from screen readers.
 - **A fan gets exactly what a spotter gets** (Samuel): care updates straight away and sightings in the evening round-up, in the app and by push. They get sighting round-ups only from the first round-up that starts after they followed, so the time they followed reveals nothing about when a cat was seen.
 - **Following never asks for an email address** (Samuel, 23 Oct). Tapping Follow gives in-app news only (and push, if the phone allows it). Emails come only to someone who has separately given and confirmed an address through the email sign-up (SYC-45), exactly as for spotters today. The Follow button opens no sheet and no prompt.
 - **Unfollowing stops all of this cat's news** for this phone, emails included. Spots and points are kept. **My call.**

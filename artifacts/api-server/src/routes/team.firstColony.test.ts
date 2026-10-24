@@ -220,7 +220,7 @@ describe("Change roles keeps 'No colony yet' when saved unchanged (review R5)", 
     const form = await get(`/api/team/people/${zoe.id}/roles`, cookie);
     expect(form.status).toBe(200);
     expect(form.text).toMatch(/<input type="checkbox" name="no_colony" value="1" checked>/);
-    expect(form.text).toMatch(/<input type="checkbox" name="roles" value="guardian" checked>/);
+    expect(form.text).toMatch(/<input type="checkbox" name="roles" value="guardian"[^>]* checked>/);
     const saved = await postForm(`/api/team/people/${zoe.id}/roles`, { roles: "guardian", no_colony: "1" }, cookie);
     expect(saved.status).toBe(409);
     expect(saved.text).toContain("already hold exactly that");
