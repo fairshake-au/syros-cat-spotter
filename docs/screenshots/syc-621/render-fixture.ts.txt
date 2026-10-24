@@ -55,3 +55,21 @@ save(`${OUT}/team.html`, renderColonyPage(v, "Maria", { may: all, island: true, 
 const guardianMay = (c: string) => !["print_trapping_plan", "edit_vet_settings", "rename_colony"].includes(c);
 save(`${OUT}/guardian.html`, renderColonyPage(v, "Eleni", { may: guardianMay as never, island: false, lang: "en", plan: guardian, now: NOW }));
 save(`${OUT}/plan.html`, renderPlanPrintPage({ id: 4, name: "Ermoupoli harbour" }, team, NOW));
+
+// PR 3.2: the round form, blank, and after a failed save with one cat added from outside.
+import { blankRound, renderRoundForm, type RoundCat } from "./lib/teamPages/roundForm";
+const roundCats: RoundCat[] = [...toDo, ...done].map((c) => ({ id: c.id, name: c.name, syr: c.syr, photoUrl: `/api/team/photos/${c.photoPublicId}`, mark: c.mark }));
+const blank = blankRound(roundCats, 60, NOW);
+save(`${OUT}/round.html`, renderRoundForm({ colony: { id: 4, name: "Ermoupoli harbour" }, personName: "Maria", cats: roundCats, values: blank, costs: true, vaccinate: true, standardPriceEur: 60, now: NOW }));
+const withExtra = [...roundCats, { id: 77, name: "Kokkini", syr: "SYR-0077", photoUrl: null, mark: null, where: "Added to this round" }];
+const typed = blankRound(withExtra, 60, NOW);
+typed.clinicId = "";
+typed.extra = [77];
+typed.cats[40]!.ticked = true;
+typed.cats[41]!.ticked = true;
+typed.cats[41]!.did = ["treated"];
+typed.cats[77]!.ticked = true;
+save(`${OUT}/round-problems.html`, renderRoundForm({
+  colony: { id: 4, name: "Ermoupoli harbour" }, personName: "Maria", cats: withExtra, values: typed, costs: true, vaccinate: true, standardPriceEur: 60, now: NOW,
+  problems: { shared: { clinicId: "Choose the clinic." }, cats: { 41: { treatedNote: "Say what was treated, in up to 200 characters." } } },
+}));

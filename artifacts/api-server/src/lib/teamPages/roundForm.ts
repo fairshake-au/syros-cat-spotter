@@ -276,7 +276,7 @@ export function renderRoundForm(p: RoundPage): string {
       : `<span class="thumb nothumb">No photo</span>`;
     const opened = Object.keys(own).length > 0 || v.costEur !== "" || v.paidBy !== "" || v.treatedNote !== "";
     return (
-      `<li class="roundcat${Object.keys(own).length ? " bad" : ""}">` +
+      `<li class="roundcat${Object.keys(own).length ? " needs" : ""}">` +
       `<label class="catrow" for="${id}"><input type="checkbox" id="${id}" name="cat" value="${c.id}"${v.ticked ? " checked" : ""}>${thumb}` +
       `<span class="catinfo"><span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
       (c.mark ? `<span class="status">${markBadge(c.mark)}</span>` : "") +

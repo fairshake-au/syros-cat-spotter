@@ -27,7 +27,7 @@ for (const [w, h] of [[390, 844], [1280, 900]]) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h } });
   await ctx.route((u) => !u.href.startsWith(ORIGIN), (r) => { result.blocked.push(r.request().url()); return r.abort(); });
   const page = await ctx.newPage();
-  for (const name of ["team", "guardian", "plan"]) {
+  for (const name of ["team", "guardian", "plan", "round", "round-problems"]) {
     await page.goto(`${ORIGIN}/${name}.html`);
     // Open the folds for a second shot.
     const m = await page.evaluate(() => ({
@@ -37,7 +37,7 @@ for (const [w, h] of [[390, 844], [1280, 900]]) {
     }));
     result.pages[`${name}-${w}`] = m;
     await page.screenshot({ path: `${OUT}/${w}-${name}.png`, fullPage: true });
-    if (name !== "plan") {
+    if (name === "team" || name === "guardian") {
       await page.evaluate(() => document.querySelectorAll("details.planfold").forEach((d) => (d.open = true)));
       await page.screenshot({ path: `${OUT}/${w}-${name}-folds-open.png`, fullPage: true });
     }

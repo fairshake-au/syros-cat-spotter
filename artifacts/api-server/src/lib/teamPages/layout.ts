@@ -464,6 +464,11 @@ span.pin{pointer-events:none}
 .estimate{font-size:18px;margin:16px 0 4px}
 details.planfold{margin:12px 0}
 details.planfold>summary{min-height:44px;cursor:pointer;font-weight:600}
+/* A round's cats (SYC-396 PR 3.2): one card each; a card with a problem gets a red edge, its words stay as they are. */
+li.roundcat{list-style:none;background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:8px 0;padding:8px 12px}
+li.roundcat.needs{border:2px solid #8c1d18}
+li.roundcat>label.catrow{border:0;margin:0;padding:0;background:transparent}
+@media (min-width:600px){fieldset.rounddid>label.choice{display:inline-flex;margin-right:20px}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .attrib{margin:4px 0 8px;font-size:12px;color:#55524a}
 .mapmove{margin:8px 0 0}

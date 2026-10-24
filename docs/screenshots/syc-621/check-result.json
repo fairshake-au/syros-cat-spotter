@@ -16,6 +16,16 @@
       "innerW": 390,
       "smallText": []
     },
+    "round-390": {
+      "scrollW": 390,
+      "innerW": 390,
+      "smallText": []
+    },
+    "round-problems-390": {
+      "scrollW": 390,
+      "innerW": 390,
+      "smallText": []
+    },
     "team-1280": {
       "scrollW": 1280,
       "innerW": 1280,
@@ -27,6 +37,16 @@
       "smallText": []
     },
     "plan-1280": {
+      "scrollW": 1280,
+      "innerW": 1280,
+      "smallText": []
+    },
+    "round-1280": {
+      "scrollW": 1280,
+      "innerW": 1280,
+      "smallText": []
+    },
+    "round-problems-1280": {
       "scrollW": 1280,
       "innerW": 1280,
       "smallText": []

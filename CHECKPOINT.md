@@ -16,4 +16,4 @@ PR A = plan PR 2.3: draft #326 on claude/charming-ellis-652021. PR B on claude/s
 - [x] the guardian-visible words in strings en/el/fr
 - [x] the estimate sentence back on Vet settings
 - [x] screenshots at 390 and 1280 and a print preview; full suite; adversarial review; draft PR A
-- [ ] PR B: logRound, roundForm, /colonies/:id/round
+- [x] PR B built: logRound + test, roundForm, routes + test, screenshots. Next: full suite, review, draft PR
