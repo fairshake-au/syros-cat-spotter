@@ -42,7 +42,7 @@ import { FirstBadgeOffer } from '@/components/keepSafe/FirstBadgeOffer';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 import { apiOrigin } from '@/lib/urls';
 import { prelaunchKey } from '@/lib/prelaunch';
-import { useReopenRestoreCode } from '@/hooks/useReopenRestoreCode';
+import { restoreReopenReady, useReopenRestoreCode } from '@/hooks/useReopenRestoreCode';
 import { hideWebLoadingScreen } from '@/lib/webLoadingScreen';
 
 setBaseUrl(apiOrigin());
@@ -118,7 +118,15 @@ function OnboardingGate() {
   // SYC-664: a named phone that reloaded while fetching its code goes back to the code box.
   const offerScreenShowing = keepSafeOffer === null && !!username && startedWithName.current === true;
   useReopenRestoreCode(
-    isReady && isLanguageReady && !startupError && !doneVisible && !moved && !!username && !offerScreenShowing,
+    restoreReopenReady({
+      isReady,
+      isLanguageReady,
+      startupError: Boolean(startupError),
+      doneVisible,
+      moved: Boolean(moved),
+      offerScreenShowing,
+    }),
+    !!username,
     pathname,
   );
   // SYC-136: a rejected promise inside DeviceProvider's setup effect isn't
