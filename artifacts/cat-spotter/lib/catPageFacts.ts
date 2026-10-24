@@ -1,4 +1,5 @@
 import type { Sighting } from '@workspace/api-client-react';
+import { visiblePhotosOf } from '@/lib/sightingPhotos';
 
 type T = (key: string) => string;
 
@@ -34,16 +35,12 @@ export function seenQuietLine(
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
-/**
- * The number on the Photos tab: each sighting's cover (unless hidden or
- * removed) plus its extra photos that have an address. The same visibility
- * rule SightingPhotos draws by.
- */
+/** The number on the Photos tab: the photos the grid draws (`visiblePhotosOf`). */
 export function visiblePhotoCount(sightings: Sighting[]): number {
   let total = 0;
   for (const s of sightings) {
-    if (s.photoUrl && !s.photoHidden && !s.photoRemoved) total += 1;
-    total += (s.extraPhotos ?? []).filter((e) => !!e.photoUrl).length;
+    const { cover, extras } = visiblePhotosOf(s);
+    total += (cover ? 1 : 0) + extras.length;
   }
   return total;
 }

@@ -9,6 +9,10 @@ import { photoSource } from '@/lib/urls';
 import { PhotoViewer } from '@/components/PhotoViewer';
 import { fonts, radii } from '@/constants/theme';
 
+import { visiblePhotosOf } from '@/lib/sightingPhotos';
+
+export { visiblePhotosOf };
+
 type ExtraPhoto = NonNullable<Sighting['extraPhotos']>[number];
 
 const LABEL_KEY = {
@@ -61,9 +65,7 @@ export function SightingPhotos({
   };
   const coverLabel = `${t('extraPhotoFirstLabel')}, ${when}`;
   const coverCanOpen = !!photoUrl && loaded.has(photoUrl);
-  const visible = (extraPhotos ?? []).filter(
-    (e): e is ExtraPhoto & { photoUrl: string } => !!e.photoUrl,
-  );
+  const { extras: visible } = visiblePhotosOf({ photoUrl, photoHidden, photoRemoved, extraPhotos });
 
   return (
     <View style={styles.wrap}>
@@ -104,7 +106,7 @@ export function SightingPhotos({
       )}
       {visible.length > 0 ? (
         <View style={styles.thumbs}>
-          {visible.slice(0, 2).map((e) => {
+          {visible.map((e) => {
             const label = `${t(LABEL_KEY[e.role])}, ${when}`;
             return (
             // Up to 48pt, shrinking to fit a narrow tile; hitSlop keeps the tap target at 44pt.

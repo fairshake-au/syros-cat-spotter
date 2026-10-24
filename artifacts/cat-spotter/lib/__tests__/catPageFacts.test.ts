@@ -30,6 +30,10 @@ describe('visiblePhotoCount', () => {
     ] as unknown as Sighting[];
     expect(visiblePhotoCount(sightings)).toBe(3);
   });
+  it('counts only the extras the grid draws (two per sighting)', () => {
+    const three = [{ role: 'face', photoUrl: '/p/2' }, { role: 'ears', photoUrl: '/p/3' }, { role: 'body', photoUrl: '/p/4' }];
+    expect(visiblePhotoCount([{ ...base, photoUrl: '/p/1', extraPhotos: three }] as unknown as Sighting[])).toBe(3);
+  });
   it('a sighting with no photo at all counts nothing', () =>
     expect(visiblePhotoCount([{ ...base, photoUrl: null }] as unknown as Sighting[])).toBe(0));
 });
