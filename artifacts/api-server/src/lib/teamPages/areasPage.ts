@@ -214,7 +214,7 @@ export function historyList(history: readonly AreaChange[], firstVersion: number
     // limit has cut the older ones off.
     const at = first[first.length - 1]!.at;
     lines.push(
-      `<li class="meta">${first[0]!.version} areas set up by Syros Cats, <time datetime="${esc(at.toISOString())}">${esc(day(at))}</time></li>`,
+      `<li class="meta">${first[0]!.version} ${first[0]!.version === 1 ? "area" : "areas"} set up by Syros Cats, <time datetime="${esc(at.toISOString())}">${esc(day(at))}</time></li>`,
     );
   }
   return `<ol class="history">${lines.join("")}</ol>`;

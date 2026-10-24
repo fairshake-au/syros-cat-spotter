@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { pool } from "@workspace/db";
 import app from "../app";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
@@ -334,8 +336,21 @@ describe("the Areas page as short rows (SYC-619 §4.2)", () => {
     expect(html).toContain("3 areas set up by Syros Cats,");
   });
 
-  it("the seed has 21 areas: the route passes this as firstVersion, so it must match migration 0033_named_areas.sql", () => {
-    expect(SEED_AREAS.length).toBe(21);
+  it("the seed has as many areas as migration 0033_named_areas.sql inserts: the route passes this as firstVersion", () => {
+    const sql = readFileSync(join(__dirname, "../../../../lib/db/migrations/0033_named_areas.sql"), "utf8");
+    const insert = /INSERT INTO "named_areas"[^;]*;/.exec(sql);
+    expect(insert).not.toBeNull();
+    // One value tuple per line: ('key', 'Name', lat, lng, 'created_at'),
+    const tuples = insert![0].match(/^\s*\('[a-z0-9-]+',/gm) ?? [];
+    expect(tuples.length).toBeGreaterThan(0);
+    expect(SEED_AREAS.length).toBe(tuples.length);
+    expect(SEED_AREAS.map((a) => a.key)).toEqual(tuples.map((t) => /'([^']+)'/.exec(t)![1]));
+  });
+
+  it("the fold line is singular for one area", () => {
+    const html = render({ history: [change({ version: 1 })] });
+    expect(html).toContain('1 area set up by Syros Cats, <time datetime="2026-10-15T00:00:00.000Z">15 Oct 2026</time>');
+    expect(html).not.toContain("1 areas");
   });
 
   it.each([
@@ -360,7 +375,7 @@ describe("the Areas page as short rows (SYC-619 §4.2)", () => {
   it("the real page lists the seed's rows as one folded line", async () => {
     const res = await page(team.cookie);
     // 15 Oct 2026 is the migration's fixed seed timestamp (0033_named_areas.sql), not now().
-    expect(res.text).toMatch(/\d+ areas set up by Syros Cats, <time datetime="2026-10-15T00:00:00.000Z">15 Oct 2026<\/time>/);
+    expect(res.text).toMatch(/21 areas set up by Syros Cats, <time datetime="2026-10-15T00:00:00.000Z">15 Oct 2026<\/time>/);
     expect(res.text).not.toContain("Syros Cats (the first list) · added Kini");
   });
 });
