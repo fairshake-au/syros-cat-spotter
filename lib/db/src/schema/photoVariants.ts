@@ -15,8 +15,8 @@ import { photosTable } from "./photos";
  * dashboard redesign spec §11). Lists and grids load these, never the
  * full-size photo, so they stay quick on island mobile data.
  *
- * One row per photo and size: "small" (about 160 px wide) and "medium" (about
- * 640 px wide), both JPEG with no location data. Made on first request and
+ * One row per photo and size: "small" (about 160 px wide), "medium" (about
+ * 640 px wide) and "card" (360 px wide), all JPEG with no location data. Made on first request and
  * kept. Removing a photo removes its versions with it (the cascade). The
  * versions are only ever served through the visibility-checked team route.
  */

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db, photosTable, photoVariantsTable, pool } from "@workspace/db";
 import { clearVariants, makeVariant, variantFor } from "./photoVariants";
 
-// SYC-396 PR 1.2 (spec §11): small and medium versions of a catalogue photo.
+// SYC-396 PR 1.2 (spec §11): small, medium and card (360px) versions of a catalogue photo.
 
 const fixtureJpeg = (width: number, height: number) =>
   sharp({ create: { width, height, channels: 3, background: "#048" } })
@@ -73,11 +73,12 @@ describe("variantFor", () => {
     expect(await rowsFor(photo.id)).toHaveLength(1);
   });
 
-  it("keeps small and medium as separate rows", async () => {
+  it("keeps small, medium and card (360px) as separate rows", async () => {
     const photo = await seedPhoto(await fixtureJpeg(800, 600));
     await variantFor(photo.id, "small");
     await variantFor(photo.id, "medium");
-    expect(await rowsFor(photo.id)).toHaveLength(2);
+    await variantFor(photo.id, "card");
+    expect(await rowsFor(photo.id)).toHaveLength(3);
   });
 
   it("returns null for a photo that doesn't exist", async () => {

@@ -70,7 +70,7 @@ describe("T9/T18: a removed photo is gone from every address", () => {
     const cat = await seedCat(null);
     await hidePhoto(cat.photoId);
     await markRemoved(cat.photoId, staff.id);
-    for (const path of ["", "/small", "/medium"]) {
+    for (const path of ["", "/small", "/medium", "/card"]) {
       const r = await raw(`/api/team/photos/${cat.photoPublicId}${path}`, staff.cookie);
       expect(r.status, path || "full").toBe(410);
       expect(r.headers["cache-control"], path || "full").toContain("no-store");

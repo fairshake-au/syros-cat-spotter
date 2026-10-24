@@ -19,7 +19,7 @@ import {
 
 // SYC-396 PR 1.2 (spec §11): GET /api/team/photos/:publicId/:size has exactly
 // the checks of GET /api/team/photos/:publicId (one shared helper), and
-// serves a small or medium JPEG that the browser may keep privately.
+// serves a small, medium or card (360px) JPEG that the browser may keep privately.
 
 const KEY = "vitest-photovariants-key-0123456789abcdef-0123456789";
 const FORBIDDEN = [403, '{"error":"forbidden"}'];
