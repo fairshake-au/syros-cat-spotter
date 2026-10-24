@@ -29,6 +29,9 @@ vi.mock('@/context/LanguageContext', () => {
   const strings: Record<string, string> = {
     catCardA11ySpotted: '{name}. Spotted by you.',
     catCardA11yNotSpotted: '{name}. Not spotted yet.',
+    catCardSeenOnce: 'Seen once',
+    catCardSeenTimes: 'Seen {n} times',
+    filterHasHome: 'Has a home',
   };
   return {
     useLanguage: () => ({ t: (key: string) => strings[key] ?? key, language: 'en' }),
@@ -81,20 +84,20 @@ describe('SYC-505: spotted stamp on the cat card', () => {
     let card = spotted.container.firstElementChild!;
     expect(card.getAttribute('role')).toBe('button');
     expect(card.getAttribute('aria-label')).toBe(
-      'Agatha. Spotted by you. 100 m. discoveredBy aSpotter',
+      'Agatha. Spotted by you. Seen once. 100 m. discoveredBy aSpotter',
     );
     spotted.unmount();
 
     const notSpotted = render(<CatCard cat={CAT} spotted={false} />);
     card = notSpotted.container.firstElementChild!;
     expect(card.getAttribute('aria-label')).toBe(
-      'Agatha. Not spotted yet. 100 m. discoveredBy aSpotter',
+      'Agatha. Not spotted yet. Seen once. 100 m. discoveredBy aSpotter',
     );
     notSpotted.unmount();
 
     const unknown = render(<CatCard cat={CAT} />);
     card = unknown.container.firstElementChild!;
-    expect(card.getAttribute('aria-label')).toBe('Agatha. 100 m. discoveredBy aSpotter');
+    expect(card.getAttribute('aria-label')).toBe('Agatha. Seen once. 100 m. discoveredBy aSpotter');
   });
 
   it('never doubles a full stop, with or without a distance', () => {
@@ -102,7 +105,7 @@ describe('SYC-505: spotted stamp on the cat card', () => {
       <CatCard cat={{ ...CAT, distanceKm: null, discovererUsername: 'BrightTabby' }} spotted={false} />,
     );
     expect(container.firstElementChild!.getAttribute('aria-label')).toBe(
-      'Agatha. Not spotted yet. discoveredBy BrightTabby',
+      'Agatha. Not spotted yet. Seen once. discoveredBy BrightTabby',
     );
   });
 
@@ -110,5 +113,31 @@ describe('SYC-505: spotted stamp on the cat card', () => {
     const { container } = render(<CatCard cat={CAT} spotted />);
     fireEvent.click(container.firstElementChild!);
     expect(push).toHaveBeenCalledWith({ pathname: '/cat/[id]', params: { id: '42' } });
+  });
+});
+
+describe('SYC-578: cat card says what its numbers and badges mean', () => {
+  it('says "Seen N times" in words, not a bare number', () => {
+    const one = render(<CatCard cat={CAT} />);
+    expect(one.container.textContent).toContain('Seen once');
+    one.unmount();
+    const many = render(<CatCard cat={{ ...CAT, sightingsCount: 2 }} />);
+    expect(many.container.textContent).toContain('Seen 2 times');
+  });
+
+  it('writes "Has a home" on the badge and in the label', () => {
+    const { container } = render(<CatCard cat={{ ...CAT, hasHome: true }} />);
+    expect(container.textContent).toContain('Has a home');
+    expect(container.firstElementChild!.getAttribute('aria-label')).toBe(
+      'Agatha. Has a home. Seen once. 100 m. discoveredBy aSpotter',
+    );
+  });
+
+  it('lets a long discoverer name wrap instead of cutting it off', () => {
+    const long = 'lilacsapphirewhiskers';
+    const { getByText } = render(<CatCard cat={{ ...CAT, discovererUsername: long }} />);
+    // numberOfLines renders as a line clamp on web; the discoverer line has none.
+    const el = getByText(`discoveredBy ${long}`);
+    expect(el.getAttribute('style') ?? '').not.toMatch(/line-clamp|text-overflow/);
   });
 });
