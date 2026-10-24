@@ -7,8 +7,8 @@
  * published pin (the petrol station opposite, good to about 100 m). Rules:
  *  - no fix, or a fix nowhere near Syros (someone setting the app up at home):
  *    the list keeps its fixed order and nothing is tagged or measured;
- *  - a clinic with no coordinates can't be measured, so it sits straight after
- *    the clinic it shares an area with (see SITS_AFTER) and shows no distance;
+ *  - a clinic with no coordinates can't be measured, so it goes last and shows
+ *    no distance (none today: all three clinics have a pin);
  *  - only a measured clinic is ever tagged "closest".
  */
 import type { Clinic } from '@workspace/welfare-guidance';
@@ -29,13 +29,6 @@ export interface OrderedVet {
 /** A fix further than this from every clinic isn't "here": keep the fixed order. */
 export const FAR_AWAY_KM = 50;
 
-/**
- * Dr Dermitzaki has no coordinates yet (SYC-68, Samuel is supplying them).
- * Until then she sits straight after Cyclades Vets: both are in Livadia /
- * Manna. Delete this entry when her pin lands.
- */
-const SITS_AFTER: Record<string, string> = { dermitzaki: 'cyclades-vets' };
-
 export function distanceKm(a: LatLng, b: { lat: number; lng: number }): number {
   const rad = (d: number) => (d * Math.PI) / 180;
   const dLat = rad(b.lat - a.latitude);
@@ -55,14 +48,8 @@ export function orderVets(vets: Clinic[], from: LatLng | null): OrderedVet[] {
   if (measured.length === 0 || measured[0]!.km > FAR_AWAY_KM) return fixed;
   measured[0]!.closest = true;
 
-  const ordered: OrderedVet[] = [...measured];
-  for (const clinic of vets.filter((c) => !c.coordinates)) {
-    const after = ordered.findIndex((o) => o.clinic.id === SITS_AFTER[clinic.id]);
-    const entry = { clinic, km: null, closest: false };
-    if (after === -1) ordered.push(entry);
-    else ordered.splice(after + 1, 0, entry);
-  }
-  return ordered;
+  const unmeasured = vets.filter((c) => !c.coordinates).map((clinic) => ({ clinic, km: null, closest: false }));
+  return [...measured, ...unmeasured];
 }
 
 /** "0.8", "1.2", "12": one decimal under 10 km, whole kilometres above. */

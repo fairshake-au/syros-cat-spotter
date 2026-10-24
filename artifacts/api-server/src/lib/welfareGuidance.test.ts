@@ -292,14 +292,12 @@ describe("vet list (test 4, spec §5.7, Decision 3)", () => {
     }
   });
 
-  it("Dermitzaki has no coordinates and the interim search links, never the old Lazareta pin", () => {
+  it("Dermitzaki uses her own Google Maps place pin (Samuel, 24 Oct 2026), never the old Lazareta pin", () => {
     const d = vets.find((v) => v.id === "dermitzaki")!;
-    expect(d.coordinates).toBeNull();
-    expect(d.pin).toBe("search");
-    expect(d.googleMapsUrl).toBe(
-      "https://www.google.com/maps/search/?api=1&query=Dermitzaki%20vet%20Livadia%20Manna%20Syros",
-    );
-    expect(d.appleMapsUrl).toBe("https://maps.apple.com/?q=Dermitzaki%20Vet%20Livadia%20Manna%20Syros");
+    expect(d.pin).toBe("place");
+    expect(d.coordinates).toEqual({ lat: 37.4288115, lng: 24.940307 });
+    expect(d.googleMapsUrl).toBe("https://www.google.com/maps/search/?api=1&query=37.4288115,24.940307");
+    expect(d.appleMapsUrl).toContain("ll=37.4288115,24.940307");
     expect(JSON.stringify(d)).not.toContain("37.43037");
     expect(JSON.stringify(d)).not.toMatch(/Lazaret/i);
   });

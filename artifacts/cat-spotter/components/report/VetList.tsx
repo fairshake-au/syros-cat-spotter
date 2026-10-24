@@ -260,7 +260,7 @@ export function VetList({
             </ExternalLink>
           </View>
           <Text style={[styles.pin, { color: colors.mutedForeground }]}>
-            {clinic.pin === 'landmark' ? v.pinLandmark : v.pinSearch}
+            {clinic.pin === 'search' ? v.pinSearch : v.pinLandmark}
           </Text>
         </View>
       ))}

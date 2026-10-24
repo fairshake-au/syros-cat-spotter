@@ -39,13 +39,14 @@ describe('orderVets', () => {
     expect(kms).toEqual([...kms].sort((a, b) => a - b));
   });
 
-  it('puts a clinic with no coordinates straight after the one in its area, unmeasured and never closest', () => {
+  it('measures all three clinics now that Dr Dermitzaki has a pin, and puts one with no pin last', () => {
     const list = orderVets(vets, at('cyclades-vets'));
-    const i = ids(list).indexOf('cyclades-vets');
-    expect(ids(list)[i + 1]).toBe('dermitzaki');
-    const d = list.find((o) => o.clinic.id === 'dermitzaki')!;
-    expect(d.km).toBeNull();
-    expect(d.closest).toBe(false);
+    expect(list.every((o) => o.km !== null)).toBe(true);
+    const noPin = { ...clinic('dermitzaki'), id: 'nopin', coordinates: null };
+    const withNoPin = orderVets([noPin, ...vets.filter((v) => v.id !== 'dermitzaki')], at('symviosis'));
+    expect(withNoPin[withNoPin.length - 1]).toMatchObject({ km: null, closest: false });
+    expect(withNoPin[withNoPin.length - 1]!.clinic.id).toBe('nopin');
+    expect(withNoPin[0]!.closest).toBe(true);
   });
 
   it('keeps the fixed order when the fix is nowhere near Syros', () => {
