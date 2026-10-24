@@ -84,7 +84,7 @@ export function PhotoViewer({
               hitSlop={8}
               style={styles.report}
             >
-              <Text style={styles.reportText}>{t('reportIssuePhoto')}</Text>
+              <Text style={styles.reportText}>{t('reportIssuePhotoLink')}</Text>
             </Pressable>
           ) : null}
         </View>

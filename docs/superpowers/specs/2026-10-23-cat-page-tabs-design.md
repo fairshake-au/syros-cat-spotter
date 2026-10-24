@@ -53,13 +53,13 @@ About opens first, every time.
 - The main photo with the gradient and the name, as today. The `SYR-0042` number is no longer shown on the public cat page (decision 2 below).
 - Slightly shorter than today, so the tabs and the facts card's first lines show on a small phone without scrolling. **My call:** about 250 px tall, down from 300. Tune it on a 390 px-wide phone so the first screen also shows the "I've spotted" button.
 - Tap-to-open full screen, and the rule that it opens only once loaded (offline-safe): unchanged.
-- **The back button stays on screen** at the top left (below the safe area) however far you scroll, rather than scrolling away with the photo. **My call:** with a sticky tab row, a back button that scrolls away would leave only the system or browser back.
-- **The Follow button** sits at the top right, opposite the back button, and stays on screen the same way. See "Following a cat" below.
+- **The back button** sits at the top left of the photo (below the safe area) and hides while the tab row is pinned, so the pinned row can use the full width and the longest label fits. The phone's or browser's own back still works. **My call (changed 24 Oct after the Greek 360 px check).**
+- **The Follow button** sits at the top right, opposite the back button, and hides the same way. See "Following a cat" below.
 
 ### 2. The tab row
 
 - Four equal tabs in a segmented row. Each tab has the emoji on top and the label under it: `🐱 About`, `📷 Photos`, `📖 Story`, `🗺️ Map`.
-- **Sticky, on web and native:** when you scroll down, the tab row stays pinned to the top of the screen, below the safe area, with the back button beside or over its left end. This is decided, not left to the builder; how it's achieved on each platform is the builder's (for example `stickyHeaderIndices` with the hero and the tab row as separate direct children of the scroll content).
+- **Sticky, on web and native:** when you scroll down, the tab row stays pinned to the top of the screen, below the safe area, across the full width. This is decided, not left to the builder; how it's achieved on each platform is the builder's (for example `stickyHeaderIndices` with the hero and the tab row as separate direct children of the scroll content).
 - The selected tab looks raised (card colour, ink text). The others are muted. Built from Purropolis tokens; no new colours.
 - **Photos count:** a small count badge on the Photos tab's emoji, e.g. `14`. It counts the photos the grid actually shows people: each sighting's cover photo plus its extra photos, leaving out hidden and removed ones. It's worked out by the same function the grid uses, so the two can't drift. With no visible photos there is no badge. **My call:** a badge rather than "Photos · 14" in the label, so long Greek labels fit. The screen-reader label says "Photos, 14".
 - **Labels must fit.** Drafts: Greek `Σχετικά`, `Φωτογραφίες`, `Ιστορία`, `Χάρτης`; French `À propos`, `Photos`, `Histoire`, `Carte`. The longest, `Φωτογραφίες`, must fit a quarter-width tab at 360 px. The label may shrink to fit, down to 10 px, but is never cut off with an ellipsis and never breaks mid-word. Checked by screenshot in Greek at 360 px.
@@ -91,7 +91,7 @@ In this order:
      - this phone may claim (`canClaim`): opens the claim sheet (`ClaimCatSheet`). Offline, the card is disabled and shows the existing "You need a connection to do this." line under the pair.
      - a street cat this phone can't claim yet, outside the cooldown: opens the "Does {name} live with you?" sheet in street mode, with its "Spot {name} now" button, as today's link does.
      - a homed cat, for everyone but the owner: opens that sheet in homed mode, as today's link under "Has a home" does.
-     - the owner, a cat in care, a cat that has died, or a phone in the 7-day cooldown: no card (help takes the full width).
+     - the owner, a cat in care, a cat that has died: no card; a street cat while this phone is in the 7-day cooldown: no card (help takes the full width).
    - When a sheet opened from a card closes, focus goes back to that card.
    - **Claiming stays secondary.** The card is never styled as a primary button and never bigger than the main button (`claiming-a-cat.md` §4.1). The claim sheet's own guards (spot first, cooldown, limits) are unchanged, and they are what stop accidental claims.
 6. **"You spotted {name} on {date}. Anything to add?"** (`MoreToAdd`), as today. When it has nothing to show, it takes no space. It now sits below the cards, so "{name} lives with me" is never straight under "You spotted {name}…" ([SYC-512](https://linear.app/fair-shake/issue/SYC-512)).
@@ -234,7 +234,7 @@ The emojis are not part of the strings; they're added in code so translators can
 - New checks, at least:
   - About opens first, and only the selected tab's content is rendered.
   - The cat page shows the two cards "Agatha needs help" and "Agatha lives with me" right under the spot button; the other screens still say "This cat needs help".
-  - The 🏠 card's four cases: canClaim opens the claim sheet (disabled offline with the note); street cat without canClaim opens the street sheet; homed cat (not owner) opens the homed sheet; owner / in care / died / cooldown shows no card and the help card is full width. Focus returns to the card when a sheet closes.
+  - The 🏠 card's four cases: canClaim opens the claim sheet (disabled offline with the note); street cat without canClaim opens the street sheet; homed cat (not owner) opens the homed sheet; owner / in care / died / a street cat in the cooldown shows no card and the help card is full width. Focus returns to the card when a sheet closes.
   - "Something wrong on this page?" with its flag is the last item on every tab.
   - The "I've spotted" button has its icon, and the icon is hidden from screen readers.
   - Each tab shows its own content.
@@ -257,7 +257,7 @@ The emojis are not part of the strings; they're added in code so translators can
   - Dates: a sighting at 22:30 UTC and 23:30 UTC (after midnight on Syros) shows the same day for "You spotted" and "Last seen", on a phone set to Athens, to London and to Pacific/Auckland.
   - The report sheet's heading still says "Report an issue" when opened from the new link.
 - **Database change order:** the new unfollow table and the backfill run on production before the new code is published. Say "don't republish yet" until they have.
-- Sticky behaviour, scroll on switching tabs, the fixed back button, and label fit can't be tested in vitest (the scroll view isn't simulated). They're checked by screenshot instead: 360 px, 390 px and desktop, in English and Greek, light and dark, before the PR leaves draft, plus one native check in the iOS simulator.
+- Sticky behaviour, scroll on switching tabs and label fit can't be fully tested in vitest (the scroll view isn't simulated). They're checked by screenshot instead: 360 px, 390 px and desktop, in English and Greek, light and dark, before the PR leaves draft, plus one native check in the iOS simulator.
 
 ## Left to the builder
 

@@ -20,7 +20,7 @@
 - Placeholders are filled with `.split('{name}').join(name)` / `.replace('{n}', …)`, as the page does today.
 - The map shows the cell, never a pin, except to the owner. Unchanged.
 - "{name} lives with me" stays `variant="secondary"`. The needs-help link is never bigger than the main button. "Something wrong on this page?" is never bigger than the needs-help link and always below it.
-- Migration **0042** runs on production **before** Samuel republishes. Tell him "don't republish yet" until it has (memory: migrate-before-republish). Neon writes need Samuel to switch the session to "ask" mode.
+- Migration **0041** runs on production **before** Samuel republishes. Tell him "don't republish yet" until it has (memory: migrate-before-republish). Neon writes need Samuel to switch the session to "ask" mode.
 
 ## Review Focus
 
@@ -66,18 +66,18 @@ PR A then: full api-server suite, draft PR "SYC-624 A: public days are Syros day
 
 PR B also carries the spec and this plan: cherry-pick the docs commits from `claude/redesign-individual-cats-pages-115a22` as its first commit.
 
-### Task B1: `cat_unfollows` table, migration 0042 with backfill
+### Task B1: `cat_unfollows` table, migration 0041 with backfill
 
 **Files:**
 - Modify: `lib/db/src/schema/notifications.ts`: add `catUnfollowsTable` beside `catSubscriptionsTable`; export the type `CatUnfollow`. Export through `schema/index.ts` if it doesn't re-export the whole file.
-- Create: `lib/db/migrations/0042_cat_unfollows.sql` via `pnpm --filter @workspace/db run generate --name cat_unfollows`. Append the backfill SQL and a commented `-- rollback-begin … -- rollback-end` block, per `lib/db/migrations/README.md`.
+- Create: `lib/db/migrations/0041_cat_unfollows.sql` via `pnpm --filter @workspace/db run generate --name cat_unfollows`. Append the backfill SQL and a commented `-- rollback-begin … -- rollback-end` block, per `lib/db/migrations/README.md`.
 - Test: `lib/db` tests (`pnpm --filter @workspace/db test`) and `migrate:check`.
 
 **Interfaces:**
 - Produces: `catUnfollowsTable = pgTable("cat_unfollows", { deviceId: text("device_id").notNull(), catId: integer("cat_id").notNull(), createdAt: timestamp(..., { withTimezone: true }).notNull().defaultNow() }, (t) => [primaryKey({ columns: [t.deviceId, t.catId] })])`.
 
 - [ ] **Step 1:** Add the table to the schema and generate the migration.
-- [ ] **Step 2:** Append the backfill to `0042`:
+- [ ] **Step 2:** Append the backfill to `0041`:
   ```sql
   insert into cat_subscriptions (device_id, cat_id)
   select distinct s.device_id, s.cat_id from sightings s
@@ -87,7 +87,7 @@ PR B also carries the spec and this plan: cherry-pick the docs commits from `cla
   ```
   No unfollow records exist yet, so the backfill needs no `not exists`. Say so in a comment.
 - [ ] **Step 3:** Run `migrate`, `migrate:check` and `pnpm --filter @workspace/db test` against local Postgres. Expect all green.
-- [ ] **Step 4: Commit** `SYC-624 B1: cat_unfollows table and spotter backfill (migration 0042)`.
+- [ ] **Step 4: Commit** `SYC-624 B1: cat_unfollows table and spotter backfill (migration 0041)`.
 
 ### Task B2: Follow and unfollow routes, with a courtesy cap
 
@@ -204,7 +204,7 @@ PR B then:
   - `severPerson`: B7.
   - Keep-safe move: B7, no code.
   - Merge: none exists (SYC-59 comment).
-- The body also includes the line "Migration 0042: don't republish until it's on production".
+- The body also includes the line "Migration 0041: don't republish until it's on production".
 
 ---
 
@@ -310,7 +310,7 @@ All files under `artifacts/cat-spotter/` unless stated.
 - Facts-card icons and Story icons get `aria-hidden`.
 
 - [ ] **Step 1:** Implement.
-- [ ] **Step 2: Screenshots** in the browser pane: 360 px, 390 px and desktop; en and el; light and dark. Include the About, Photos, Story and Map tabs for a seeded cat, scrolled to show the sticky tab row and the fixed back button. Check that `Φωτογραφίες` fits at 360 px without clipping, and that the first screen at 390 px shows the photo, the name, the tab row and the start of the facts card. Save them to `docs/screenshots/syc-624-c/`.
+- [ ] **Step 2: Screenshots** in the browser pane: 360 px, 390 px and desktop; en and el; light and dark. Include the About, Photos, Story and Map tabs for a seeded cat, scrolled to show the sticky tab row (the back button hides while it's pinned). Check that `Φωτογραφίες` fits at 360 px without clipping, and that the first screen at 390 px shows the photo, the name, the tab row and the start of the facts card. Save them to `docs/screenshots/syc-624-c/`.
 - [ ] **Step 3: Commit** `SYC-624 C4: readable grey, question cards styling, screenshots`.
 
 PR C then: open the draft PR "SYC-624 C: a cat's page in four tabs", stacked on B, with the screenshots in the body. It stays a draft until B merges.
@@ -358,7 +358,7 @@ PR D then: open the draft PR "SYC-624 D: follow a cat", stacked on C.
 - Comment on SYC-59: merge must move `cat_subscriptions` and `cat_unfollows` to the surviving cat.
 - Comment on SYC-66: the privacy policy must cover follows of cats a phone never spotted and unfollow records (spec "Privacy").
 - Comment on SYC-510: the cat-page parts are done; the picker and match screen SYR numbers are still open.
-- Run migration 0042 on production (db-ops workflow, Neon snapshot first, "ask" mode) **before** Samuel republishes. Then `/api/healthz` shows the new commit, then smoke-test following on the test site.
+- Run migration 0041 on production (db-ops workflow, Neon snapshot first, "ask" mode) **before** Samuel republishes. Then `/api/healthz` shows the new commit, then smoke-test following on the test site.
 - New Greek and French strings go into the SYC-4 / SYC-346 review pack.
 
 ## Model delegation

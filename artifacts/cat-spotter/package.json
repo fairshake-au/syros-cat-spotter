@@ -10,6 +10,7 @@
     "typecheck": "pnpm run typecheck:form-controls && tsc -p tsconfig.json --noEmit",
     "typecheck:form-controls": "tsc -p tsconfig.form-controls.json --noEmit",
     "test": "vitest run",
+    "test:zones": "TZ=Pacific/Auckland vitest run lib/__tests__/catPageDates.test.ts && TZ=America/Los_Angeles vitest run lib/__tests__/catPageDates.test.ts",
     "build:web": "node scripts/check-web-env.js before && expo export --platform web --output-dir dist && node scripts/check-web-env.js after && node scripts/precompress-web.js",
     "serve:web": "node server/serve-web.js"
   },

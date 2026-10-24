@@ -4,10 +4,14 @@ import { Image } from 'expo-image';
 import type { Sighting } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
-import { parsePublicDate } from '@/lib/catStatusLines';
+import { formatPublicDate } from '@/lib/catPageDates';
 import { photoSource } from '@/lib/urls';
 import { PhotoViewer } from '@/components/PhotoViewer';
 import { fonts, radii } from '@/constants/theme';
+
+import { visiblePhotosOf } from '@/lib/sightingPhotos';
+
+export { visiblePhotosOf };
 
 type ExtraPhoto = NonNullable<Sighting['extraPhotos']>[number];
 
@@ -50,9 +54,9 @@ export function SightingPhotos({
   onReportPhoto?: (photoUrl: string) => void;
 }) {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [open, setOpen] = useState<{ url: string; label: string } | null>(null);
-  const when = parsePublicDate(createdAt).toLocaleDateString();
+  const when = formatPublicDate(createdAt, language);
   // Addresses whose image has loaded: only those open full screen, so
   // nothing changes offline (spec §4.2; review finding 2).
   const [loaded, setLoaded] = useState<ReadonlySet<string>>(new Set());
@@ -61,9 +65,7 @@ export function SightingPhotos({
   };
   const coverLabel = `${t('extraPhotoFirstLabel')}, ${when}`;
   const coverCanOpen = !!photoUrl && loaded.has(photoUrl);
-  const visible = (extraPhotos ?? []).filter(
-    (e): e is ExtraPhoto & { photoUrl: string } => !!e.photoUrl,
-  );
+  const { extras: visible } = visiblePhotosOf({ photoUrl, photoHidden, photoRemoved, extraPhotos });
 
   return (
     <View style={styles.wrap}>
@@ -104,7 +106,7 @@ export function SightingPhotos({
       )}
       {visible.length > 0 ? (
         <View style={styles.thumbs}>
-          {visible.slice(0, 2).map((e) => {
+          {visible.map((e) => {
             const label = `${t(LABEL_KEY[e.role])}, ${when}`;
             return (
             // Up to 48pt, shrinking to fit a narrow tile; hitSlop keeps the tap target at 44pt.

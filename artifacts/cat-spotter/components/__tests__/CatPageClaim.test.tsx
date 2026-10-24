@@ -25,18 +25,26 @@ vi.mock('expo-router', () => ({
 }));
 vi.mock('@/components/AppMap', () => ({ AppMap: () => null }));
 vi.mock('@/components/MoreToAdd', () => ({ MoreToAdd: () => null }));
-vi.mock('@/components/report/NeedsHelpLink', () => ({ NeedsHelpLink: () => null }));
+vi.mock('@/components/report/NeedsHelpLink', () => ({
+  NeedsHelpLink: () => null,
+  useOpenNeedsHelp: () => () => {},
+}));
 vi.mock('@/lib/modalVisibility', () => ({ registerModalOpen: () => () => {} }));
 vi.mock('@/components/ClaimCatSheet', () => ({
-  ClaimCatSheet: (p: { mode: string }) => <div data-testid="sheet">{p.mode}</div>,
+  ClaimCatSheet: (p: { mode: string; onClose: () => void }) => (
+    <div data-testid="sheet">
+      {p.mode}
+      <button data-testid="sheet-close" onClick={p.onClose} />
+    </div>
+  ),
 }));
 vi.mock('@/components/purropolis', async () => {
   const { Button } = await import('@/components/purropolis/Button');
   return {
     Button,
-    Tag: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
-    StatTile: () => null,
-    IconButton: () => null,
+    IconButton: ({ label, onPress }: { label: string; onPress?: () => void }) => (
+      <button type="button" aria-label={label} onClick={onPress} />
+    ),
   };
 });
 vi.mock('@/lib/urls', () => ({ photoSource: (p: string) => ({ uri: p }) }));
@@ -110,12 +118,9 @@ function page(c: Cat, canClaim: boolean, claimCooldown = false) {
   return render(<CatDetailScreen />);
 }
 
-const askLink = () => screen.queryByTestId('claim-ask-link');
-
-const claimButton = () =>
-  Array.from(document.querySelectorAll('[role="button"], button')).find(
-    (e) => e.textContent?.trim() === 'Agatha lives with me',
-  ) as HTMLElement | undefined;
+// The 🏠 "{name} lives with me" card replaced both the claim button and the
+// "Does {name} live with you?" link (SYC-624): one card, three behaviours.
+const card = () => screen.queryByTestId('lives-with-me-card') as HTMLElement | null;
 
 beforeEach(() => {
   h.isOnline = true;
@@ -177,65 +182,77 @@ describe('the cat page and claiming (§4.1)', () => {
     expect(h.useGetCat.mock.calls[0]![1].request.headers['X-Device-Id']).toBe('dev-1');
   });
 
-  it('shows "{name} lives with me" when canClaim is true, and it opens the claim sheet', () => {
+  it('shows the "{name} lives with me" card when canClaim is true, and it opens the claim sheet', () => {
     page(cat(), true);
-    expect(claimButton()).toBeTruthy();
-    expect(askLink()).toBeNull();
-    fireEvent.click(claimButton()!);
+    expect(card()!.textContent).toContain('Agatha lives with me');
+    expect(screen.queryByTestId('claim-ask-sheet')).toBeNull();
+    fireEvent.click(card()!);
     expect(screen.getByTestId('sheet').textContent).toBe('claim');
-  });
-
-  it('a street cat this phone has not met gets the "lives with you?" link, not the old hint, and no button', () => {
-    page(cat(), false);
-    expect(claimButton()).toBeUndefined();
-    expect(askLink()!.textContent).toBe('Does Agatha live with you?');
-    expect(askLink()!.getAttribute('role')).toBe('button');
-    expect(askLink()!.getAttribute('aria-label')).toBe('Does Agatha live with you?');
-    expect(screen.queryByText(/Spot Agatha with the camera first/)).toBeNull();
     expect(screen.queryByTestId('claim-ask-sheet')).toBeNull();
   });
 
-  it('the link keeps a 44pt tap height', () => {
+  it('a street cat this phone has not met gets the card, and it opens the "lives with you?" sheet, not the claim sheet', () => {
     page(cat(), false);
-    expect(getComputedStyle(askLink()!).minHeight).toBe('44px');
+    expect(card()!.textContent).toContain('Agatha lives with me');
+    expect(screen.queryByText(/Spot Agatha with the camera first/)).toBeNull();
+    expect(screen.queryByTestId('claim-ask-sheet')).toBeNull();
+    fireEvent.click(card()!);
+    expect(screen.queryByTestId('sheet')).toBeNull();
+    expect(screen.getByTestId('claim-ask-body').textContent).toBe(say('claimAskStreet'));
   });
 
-  it('during the 7-day cooldown there is no button and no link, because this phone has spotted it', () => {
+  it('the card is a button with its words as its label, and keeps a 44pt tap height', () => {
+    page(cat(), false);
+    expect(card()!.getAttribute('role')).toBe('button');
+    expect(card()!.getAttribute('aria-label')).toBe('Agatha lives with me');
+    expect(getComputedStyle(card()!).minHeight).toBe('44px');
+  });
+
+  it('"Does {name} live with you?" is no longer a link on the page', () => {
+    page(cat(), false);
+    expect(screen.queryByTestId('claim-ask-link')).toBeNull();
+    expect(screen.queryByText('Does Agatha live with you?')).toBeNull();
+  });
+
+  it('during the 7-day cooldown there is no card, because this phone has spotted it', () => {
     page(cat(), false, true);
-    expect(claimButton()).toBeUndefined();
-    expect(askLink()).toBeNull();
+    expect(card()).toBeNull();
+    expect(screen.getByTestId('needs-help-card')).toBeTruthy();
   });
 
-  it('an older server that sends no claimCooldown still shows the link', () => {
+  it('an older server that sends no claimCooldown still shows the card', () => {
     h.data = { cat: cat(), sightings: [], fansCount: 1, careTimeline: [], canClaim: false };
     render(<CatDetailScreen />);
-    expect(askLink()).toBeTruthy();
+    expect(card()).toBeTruthy();
   });
 
-  it('never shows the button from hasHome alone: a cat with no home but canClaim false has none', () => {
+  it('a cat with no home that this phone may not claim opens the street sheet, never the claim sheet (not from hasHome alone)', () => {
     page(cat({ hasHome: false }), false);
-    expect(claimButton()).toBeUndefined();
+    fireEvent.click(card()!);
+    expect(screen.queryByTestId('sheet')).toBeNull();
   });
 
-  it('a cat with a home shows no button, but the link under "Has a home"', () => {
+  it('a cat with a home shows the card for everyone but the owner, and it opens the "email us" sheet', () => {
     page(cat({ hasHome: true, lifeStatus: 'homed' }), false);
-    expect(claimButton()).toBeUndefined();
-    expect(askLink()!.textContent).toBe('Does Agatha live with you?');
+    expect(card()).toBeTruthy();
+    fireEvent.click(card()!);
+    expect(screen.queryByTestId('sheet')).toBeNull();
+    expect(screen.getByTestId('claim-ask-body').textContent).toBe(say('claimAskHomed'));
   });
 
-  it('a cat in care or deceased shows neither the button nor the link', () => {
+  it('a cat in care or deceased shows no card, and the help card takes the whole row', () => {
     for (const lifeStatus of ['in_care', 'deceased'] as const) {
       cleanup();
       page(cat({ lifeStatus }), false);
-      expect(claimButton()).toBeUndefined();
-      expect(askLink()).toBeNull();
+      expect(card()).toBeNull();
+      expect(screen.getByTestId('needs-help-card')).toBeTruthy();
     }
   });
 
-  it('offline, the button is disabled with the connection line', () => {
+  it('offline, the card is disabled with the connection line', () => {
     h.isOnline = false;
     page(cat(), true);
-    expect(claimButton()!.getAttribute('aria-disabled')).toBe('true');
+    expect(card()!.getAttribute('aria-disabled')).toBe('true');
     expect(screen.getByText('You need a connection to do this.')).toBeTruthy();
   });
 
@@ -247,21 +264,35 @@ describe('the cat page and claiming (§4.1)', () => {
     expect(screen.queryByText(/Is this your cat\?/)).toBeNull();
   });
 
-  it('a street cat: the link opens the sheet with the street text, OK closes it and returns focus to the link', async () => {
+  it('a street cat: the card opens the sheet with the street text, OK closes it and returns focus to the card', async () => {
     page(cat(), false);
-    fireEvent.click(askLink()!);
+    fireEvent.click(card()!);
     const body = screen.getByTestId('claim-ask-body');
     expect(body.textContent).toBe(say('claimAskStreet'));
     expect(screen.queryByTestId('claim-ask-mailto')).toBeNull();
     fireEvent.click(screen.getByTestId('claim-ask-close'));
     expect(screen.queryByTestId('claim-ask-sheet')).toBeNull();
     await new Promise((r) => setTimeout(r, 10));
-    expect(document.activeElement).toBe(askLink());
+    expect(document.activeElement).toBe(card());
   });
 
-  it('a cat with a home: the link opens the sheet with the "email us" text', () => {
+  it('closing the claim sheet returns focus to the card', async () => {
+    page(cat(), true);
+    fireEvent.click(card()!);
+    fireEvent.click(screen.getByTestId('sheet-close'));
+    expect(screen.queryByTestId('sheet')).toBeNull();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(document.activeElement).toBe(card());
+  });
+
+  it('a homed cat keeps its card during the cooldown', () => {
+    page(cat({ hasHome: true, lifeStatus: 'homed' }), false, true);
+    expect(card()).toBeTruthy();
+  });
+
+  it('a cat with a home: the card opens the sheet with the "email us" text', () => {
     page(cat({ hasHome: true, lifeStatus: 'homed' }), false);
-    fireEvent.click(askLink()!);
+    fireEvent.click(card()!);
     expect(screen.getByTestId('claim-ask-body').textContent).toBe(say('claimAskHomed'));
     expect(screen.getByTestId('claim-ask-mailto').textContent).toBe('hello@catspotters.com');
   });
@@ -281,11 +312,11 @@ describe('the cat page and claiming (§4.1)', () => {
     expect(screen.getByText('Edit')).toBeTruthy();
   });
 
-  it('the owner sees their edit button and no "lives with you?" link', () => {
+  it('the owner sees their edit button and no 🏠 card', () => {
     h.ownedCatIds = [7];
     page(cat({ hasHome: true, lifeStatus: 'homed', ownerName: 'Eleni', locationPrecision: 'exact' }), false);
     expect(screen.getByText('Edit')).toBeTruthy();
-    expect(askLink()).toBeNull();
+    expect(card()).toBeNull();
     fireEvent.click(screen.getByText('Edit'));
     expect(screen.getByTestId('sheet').textContent).toBe('edit');
   });
