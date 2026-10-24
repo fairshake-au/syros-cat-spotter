@@ -48,3 +48,5 @@ save("failed", renderBatchPage(page(base([matched, unmatched, fresh]), {
     { batchCatId: null, field: "clinicId", words: "Choose the clinic." },
   ],
 })));
+save("saved", renderBatchPage(page(base([matched, unmatched]), { said: { key: "shared_saved", row: null } })));
+save("cat-saved", renderBatchPage(page(base([matched, unmatched]), { said: { key: "cat_saved", row: 101 } })));

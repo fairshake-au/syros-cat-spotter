@@ -27,7 +27,7 @@ for (const [w, h] of [[390, 844], [1280, 900]]) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h } });
   await ctx.route((u) => !u.href.startsWith(ORIGIN), (r) => { result.blocked.push(r.request().url()); return r.abort(); });
   const page = await ctx.newPage();
-  for (const name of ["empty", "mixed", "failed"]) {
+  for (const name of ["empty", "mixed", "failed", "saved", "cat-saved"]) {
     await page.goto(`${ORIGIN}/${name}.html`);
     // Open the folds for a second shot.
     const m = await page.evaluate(() => ({
