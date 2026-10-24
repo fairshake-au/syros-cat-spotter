@@ -16,8 +16,8 @@ import {
   type ColonyChanges,
 } from "../lib/teamColonies";
 import { colonyFigures, type ColonyFigures } from "../lib/dashboard/colonyFigures";
-import { loadTeamCats } from "../lib/teamCatList";
-import { colonyCatRows } from "../lib/teamPages/colonyCatRows";
+import { trappingPlan, type TrappingPlan } from "../lib/dashboard/trappingPlan";
+import { renderPlanPrintPage } from "../lib/teamPages/planPrintPage";
 import {
   colonySortOf,
   renderAddCatsPage,
@@ -248,7 +248,21 @@ router.get(
   },
 );
 
-/** GET /api/team/colonies/:id: one colony. */
+/**
+ * The plan as the JSON variant sends it. A cat guardian's sites are numbers
+ * only for her page's map picture, so her JSON leaves the positions out
+ * (§10.2): no sighting or site position ever reaches her as numbers.
+ */
+function planForJson(plan: TrappingPlan, island: boolean) {
+  return island ? plan : { ...plan, sites: plan.sites.map((s) => ({ id: s.id, publicLabel: s.publicLabel })) };
+}
+
+/**
+ * GET /api/team/colonies/:id: one colony, led by its trapping planner
+ * (SYC-396 PR 2.3; spec §9.2). Every cat is resolved once (`loadTeamCats`
+ * inside `trappingPlan`), never a query per cat. A cat guardian reaches it
+ * for her own colony: her plan has no estimate and no sighting positions.
+ */
 router.get(
   "/team/colonies/:id",
   ...requireSeeing(),
@@ -257,21 +271,21 @@ router.get(
     const v = pageViewer(res);
     setTeamHeaders(res);
     const raw = String(req.params["id"]);
-    // Filtered in the query: another colony is simply not found.
-    const view = ID_RE.test(raw) ? await colonyView(v.visible, Number(raw)) : null;
-    if (!view) return notFoundPage(req, res);
-    if (wantsJson(req)) return void res.json(view);
+    const now = new Date();
+    // Both filtered in the query: another colony is simply not found.
+    const [view, plan] = ID_RE.test(raw)
+      ? await Promise.all([
+          colonyView(v.visible, Number(raw)),
+          trappingPlan(v.visible, Number(raw), { island: v.island }, now),
+        ])
+      : [null, null];
+    if (!view || !plan) return notFoundPage(req, res);
+    if (wantsJson(req)) return void res.json({ ...view, plan: planForJson(plan, v.island) });
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
     // Back after signing in again (SYC-516 C3): the edit form filled in.
     const kept = can(person, "edit_colony", { colonyId: view.id })
       ? await useHeldTyping(req, person, `colony:${view.id}`)
       : null;
-    // Each cat's mark and last seen (SYC-619 §7.2): every cat resolved once
-    // and joined on id, never a query per cat. The same rows for a cat
-    // guardian, who reaches this route for her own colony; the page draws
-    // her the date only, never a place.
-    const now = new Date();
-    const rows = colonyCatRows(view.cats, await loadTeamCats(now));
     res.type("html").send(
       renderColonyPage(view, v.personName, {
         kept: kept ?? undefined,
@@ -283,10 +297,34 @@ router.get(
         movedAway: (await movedAwayNotices(person)).filter((n) => n.fromColonyId === view.id),
         lang: v.lang,
         island: v.island,
-        rows,
+        plan,
         now,
       }),
     );
+  },
+);
+
+/**
+ * GET /api/team/colonies/:id/plan: the printable trapping plan (SYC-396 PR
+ * 2.3; spec §9.2 item 4). Team only (`print_trapping_plan`, island-only), so
+ * a cat guardian gets the 403. Only the colony's number is in the address.
+ */
+router.get(
+  "/team/colonies/:id/plan",
+  requireTeam("print_trapping_plan"),
+  async (req: Request, res: Response) => {
+    setTeamHeaders(res);
+    const v = pageViewer(res);
+    const raw = String(req.params["id"]);
+    const now = new Date();
+    const [view, plan] = ID_RE.test(raw)
+      ? await Promise.all([
+          colonyView(v.visible, Number(raw)),
+          trappingPlan(v.visible, Number(raw), { island: true }, now),
+        ])
+      : [null, null];
+    if (!view || !plan) return notFoundPage(req, res);
+    res.type("html").send(renderPlanPrintPage({ id: view.id, name: view.name }, plan, now));
   },
 );
 

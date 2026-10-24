@@ -71,15 +71,18 @@ export function forGuardian(c: PlanCat): GuardianPlanCat {
 
 /**
  * A cat placed in the colony that's on neither list: homed, in care, no
- * longer with us (`lives`), or a merged-away half that `loadTeamCats` leaves
- * out (`lives: null`). No mark, no place: it isn't part of the round.
+ * longer with us, a street cat off Syros (never counted, §3.3), or a
+ * merged-away half that `loadTeamCats` leaves out. No mark, no place: it
+ * isn't part of the round.
  */
+export type OtherWhy = Exclude<Lives, "street"> | "off_syros" | "merged";
+
 export interface OtherPlanCat {
   id: number;
   name: string;
   syr: string;
   photoPublicId: string | null;
-  lives: Exclude<Lives, "street"> | null;
+  why: OtherWhy;
 }
 
 export interface PlanSite {
@@ -217,12 +220,11 @@ export async function trappingPlan(
         name: c.name,
         syr: c.syr,
         photoPublicId: c.photoPublicId,
-        // A street cat off Syros isn't counted (§3.3): it reads as no status here.
-        lives: c.lives === "street" ? null : c.lives,
+        why: c.lives === "street" ? ("off_syros" as const) : c.lives,
       })),
     ...missing.flatMap((id) => {
       const r = found.get(id);
-      return r ? [{ id, name: r.name, syr: syrNumber(id), photoPublicId: r.photoPublicId, lives: null }] : [];
+      return r ? [{ id, name: r.name, syr: syrNumber(id), photoPublicId: r.photoPublicId, why: "merged" as const }] : [];
     }),
   ].sort(byName);
 

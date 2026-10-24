@@ -2,7 +2,10 @@ import type { Capability } from "../capabilities";
 import { keptLine, type KeptFields } from "./signedOutPage";
 import { myCatPath, guardianLastSeenWords } from "./guardianPages";
 import { lastSeenWords } from "./lastSeen";
-import type { ColonyCatRow } from "./colonyCatRows";
+import type { GuardianPlanCat, OtherWhy, PlanCat, TrappingPlan } from "../dashboard/trappingPlan";
+import { fitView, renderMap, type MapMarker } from "./map";
+import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
+import { teamPhotoUrl } from "../teamCatView";
 import type { ColonyHistoryEntry, ColonyRow, ColonyView } from "../teamColonies";
 import { COLONY_NAME_MAX, COLONY_NOTES_MAX, GUARDIAN_NAME_MAX } from "../teamColonies";
 import type { CatToAdd } from "../colonyCats";
@@ -508,25 +511,23 @@ function historyList(W: Words, history: ColonyHistoryEntry[], island: boolean): 
   );
 }
 
+/** One cat's row, as a card: what the plan says about it, already trusted HTML. */
+interface PlanRow {
+  id: number;
+  name: string;
+  syr: string;
+  photoUrl: string | null;
+  lines: string;
+}
+
 /**
- * The colony's cats (SYC-619 spec §7.2, D3), already in the planner's order.
- * Each row is a card: the cat's link fills it and the compact "⋯" sits at its
- * right, beside the link (a fold can't go inside a link). Under the name, the
- * mark and when it was last seen, never a place: the team reads the grid's
- * words without its " · place"; a cat guardian reads the colony bar's mark
- * words and the date only, in her language (redesign §10.2). A record with no
- * mark (a merged-away half) keeps its row with neither line.
+ * A list of the colony's cats (SYC-619 spec §7.2; SYC-396 PR 2.3). Each row
+ * is a card: the cat's link fills it and the compact "⋯" sits at its right,
+ * beside the link (a fold can't go inside a link). "Take out of this colony"
+ * lives in that "⋯", so a risky action isn't repeated down the page (§9.2).
  */
-function catList(
-  W: Words,
-  rows: readonly ColonyCatRow[],
-  colonyId: number,
-  mayTakeOut: boolean,
-  island: boolean,
-  now: Date,
-): string {
+function catList(W: Words, rows: readonly PlanRow[], colonyId: number, mayTakeOut: boolean, island: boolean): string {
   const { w, t } = W;
-  if (rows.length === 0) return `<p class="empty">${w("colony.noCats")}</p>`;
   return (
     `<ul class="cats">` +
     rows
@@ -537,22 +538,11 @@ function catList(
         // A cat guardian's own cat page (SYC-53 PR 2.1; SYC-416), built by
         // guardianCatView only, never the team's (island-only) cat page.
         const href = island ? `/api/team/cats/${c.id}` : myCatPath(c.id);
-        const lines =
-          c.mark === null
-            ? ""
-            : island
-              ? `<span class="status">${markBadge(c.mark)}</span>` +
-                `<span class="status">${esc(lastSeenWords(c.lastSeenAt, now))}</span>`
-              : `<span class="status">${markBadge(c.mark, t(BAR_WORD[c.mark]))}</span>` +
-                `<span class="status">${esc(
-                  guardianLastSeenWords(c.lastSeenAt ? c.lastSeenAt.toISOString().slice(0, 10) : null, W.lang, t),
-                )}</span>`;
         return (
           `<li class="colonycat"><a class="catrow" href="${href}">${thumb}` +
           `<span class="catinfo"><span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
-          lines +
+          c.lines +
           `</span></a>` +
-          // In the cat's own "⋯", not a red button on every row (SYC-396 PR 1.4; SYC-619 §7.2).
           rowMenu(
             t("colony.more"),
             c.name,
@@ -572,6 +562,58 @@ function catList(
       .join("") +
     `</ul>`
   );
+}
+
+/**
+ * What a To do or Done row says under the name: the mark, the colours, where
+ * it's usually seen (words, never a position), when it was last seen, and
+ * "Ear clip seen". The team reads the grid's words; a cat guardian reads the
+ * colony bar's mark words and the date only, in her language (§10.2).
+ */
+function planLines(W: Words, c: PlanCat | GuardianPlanCat, island: boolean, now: Date): string {
+  const { t, w } = W;
+  const coat = { colours: c.coat, pattern: c.pattern };
+  const line = (html: string) => `<span class="status">${html}</span>`;
+  return (
+    line(island ? markBadge(c.mark) : markBadge(c.mark, t(BAR_WORD[c.mark]))) +
+    (coatIsUnknown(coat) ? "" : line(esc(coatWordsFor(W.lang, coat)))) +
+    line(w("plan.usual", { place: c.usualPlace })) +
+    line(
+      esc(
+        island
+          ? lastSeenWords(c.lastSeenAt, now)
+          : guardianLastSeenWords(c.lastSeenAt ? c.lastSeenAt.toISOString().slice(0, 10) : null, W.lang, t),
+      ),
+    ) +
+    (c.earClipSeen ? line(w("plan.earClip")) : "")
+  );
+}
+
+const WHY_WORD: Record<OtherWhy, WordKey> = {
+  homed: "plan.why.homed",
+  in_care: "plan.why.in_care",
+  gone: "plan.why.gone",
+  off_syros: "plan.why.off_syros",
+  merged: "plan.why.merged",
+};
+
+/** "7 cats × €60 = €420", priced from Vet settings (§9.2, §8.2). Team only. */
+export function estimateLine({ w }: Words, e: NonNullable<TrappingPlan["estimate"]>): string {
+  const vars = { n: String(e.cats), price: String(e.priceEur), total: String(e.totalEur) };
+  return w(e.cats === 1 ? "plan.estimateOne" : "plan.estimate", vars);
+}
+
+/** The colony's feeding sites on a small map, as squares (§12), with no controls. */
+function sitesMap(W: Words, plan: TrappingPlan, names: ReadonlyMap<number, string>): string {
+  if (plan.sites.length === 0) return "";
+  const markers: MapMarker[] = plan.sites.map((s) => ({
+    lat: s.lat,
+    lng: s.lng,
+    label: names.get(s.id) ?? W.t("colony.sitesTitle"),
+    href: `/api/team/sites/${s.id}`,
+    look: s.publicLabel ? "public" : "private",
+  }));
+  return `<div class="planmap">${renderMap({ mode: "view", view: fitView(plan.sites), markers, controls: false, lang: W.lang })}</div>`;
 }
 
 function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean, island: boolean, kept?: KeptFields): string {
@@ -628,8 +670,8 @@ export function renderColonyPage(
     movedAway?: ReadonlyArray<{ catName: string; movedAt: Date }>;
     /** What was typed into the edit form before the sign-in lapsed (SYC-516 C3). */
     kept?: KeptFields;
-    /** The colony's cats with their marks, sorted for the planner (colonyCatRows; SYC-619 §7.2). */
-    rows: readonly ColonyCatRow[];
+    /** The colony's trapping plan (SYC-396 PR 2.3): To do, Done, Not on the street, the estimate and the sites. */
+    plan: TrappingPlan;
     /** For "Last seen 3 days ago"; now unless a test says otherwise. */
     now?: Date;
   },
@@ -638,12 +680,62 @@ export function renderColonyPage(
   const { w } = W;
   const island = opts.island !== false;
   const link = mapLinks(opts);
+  const now = opts.now ?? new Date();
+  const { plan } = opts;
+  const mayTakeOut = opts.may("assign_cat_to_colony");
+
+  // The photos come from the colony's own list; the plan says the rest.
+  const photo = new Map(v.cats.map((c) => [c.id, c.photoUrl]));
+  const photoOf = (c: { id: number; photoPublicId: string | null }) =>
+    photo.get(c.id) ?? (c.photoPublicId ? teamPhotoUrl(c.photoPublicId) : null);
+  const planRows = (cats: ReadonlyArray<PlanCat | GuardianPlanCat>): PlanRow[] =>
+    cats.map((c) => ({ id: c.id, name: c.name, syr: c.syr, photoUrl: photoOf(c), lines: planLines(W, c, island, now) }));
+  const otherRows: PlanRow[] = plan.other.map((c) => ({
+    id: c.id,
+    name: c.name,
+    syr: c.syr,
+    photoUrl: photoOf(c),
+    lines: `<span class="status">${w(WHY_WORD[c.why])}</span>`,
+  }));
+
+  // ── The plan (§9.2): To do, the estimate, the sites, the print, then Done.
+  const toDo =
+    `<h2 id="todo">${w("plan.toDoTitle", { n: String(plan.toDo.length) })}</h2>` +
+    (plan.toDo.length === 0
+      ? `<p class="empty">${w(plan.done.length + plan.other.length === 0 ? "colony.noCats" : "plan.allDone")}</p>`
+      : `<p class="hint">${w("plan.toDoHint")}</p>` + catList(W, planRows(plan.toDo), v.id, mayTakeOut, island));
+  // A price estimate, not money spent: no view_vet_costs needed (§4.2, §9.2). Never for a cat guardian (§10.2).
+  const estimate =
+    island && plan.estimate && plan.estimate.cats > 0
+      ? `<p class="estimate"><strong>${estimateLine(W, plan.estimate)}</strong></p>` +
+        `<p class="hint">${w("plan.estimateHint")}` +
+        (opts.may("edit_vet_settings") ? ` <a href="/api/team/vet-settings">${w("plan.vetSettings")}</a>` : "") +
+        `</p>`
+      : "";
+  const print =
+    island && opts.may("print_trapping_plan")
+      ? `<p><a class="tap" href="${esc(colonyHref(v.id))}/plan">${w("plan.print")}</a></p>`
+      : "";
+  const names = new Map(v.sites.map((s) => [s.id, s.name]));
   const sites =
-    v.sites.length === 0
+    `<h2>${w("colony.sitesTitle")}</h2>` +
+    (v.sites.length === 0
       ? `<p class="empty">${w("colony.noSites")}</p>`
-      : `<ul class="refs">${v.sites
-          .map((s) => `<li><a href="/api/team/sites/${s.id}">${esc(s.name)}</a></li>`)
-          .join("")}</ul>`;
+      : sitesMap(W, plan, names) +
+        `<ul class="refs">${v.sites.map((s) => `<li><a href="/api/team/sites/${s.id}">${esc(s.name)}</a></li>`).join("")}</ul>`) +
+    // Opens the add page with this colony chosen. Only the colony's number
+    // is in the address, never a position (PR 3.4).
+    (opts.may("add_feeding_site")
+      ? `<p><a class="tap" href="/api/team/sites/new?colony=${v.id}">${w("colony.addSite")}</a></p>`
+      : "");
+  const folded = (title: string, rows: PlanRow[]) =>
+    rows.length === 0
+      ? ""
+      : `<details class="planfold"><summary>${title}</summary>${catList(W, rows, v.id, mayTakeOut, island)}</details>`;
+  const done =
+    folded(w("plan.doneTitle", { n: String(plan.done.length) }), planRows(plan.done)) +
+    folded(w("plan.otherTitle", { n: String(plan.other.length) }), otherRows);
+
   const summary =
     `<dl>` +
     `<dt>${w("colonies.guardian")}</dt><dd>${v.guardianName ? esc(v.guardianName) : w("colonies.noGuardian")}</dd>` +
@@ -667,24 +759,20 @@ export function renderColonyPage(
     body:
       (opts.kept && opts.may("edit_colony") ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
-      summary +
-      (opts.may("edit_colony") ? editForm(W, v, opts.may, island, opts.kept) : "") +
-      // The cats come before the feeding sites (SYC-619 spec §7.2, D3).
-      `<h2>${w("colony.catsTitle")}</h2>` +
-      catList(W, opts.rows, v.id, opts.may("assign_cat_to_colony"), island, opts.now ?? new Date()) +
-      (opts.rows.length > 0 && opts.may("assign_cat_to_colony")
+      // The page leads with what a trapping round needs (§9.2).
+      toDo +
+      estimate +
+      sites +
+      print +
+      done +
+      (plan.toDo.length + plan.done.length + plan.other.length > 0 && mayTakeOut
         ? `<p class="hint">${w("colony.takeOutNote")}</p>`
         : "") +
-      (opts.may("assign_cat_to_colony")
-        ? `<p><a class="tap cardlink" href="${esc(colonyHref(v.id))}/cats">${w("colony.addCats")}</a></p>`
-        : "") +
-      `<h2>${w("colony.sitesTitle")}</h2>` +
-      sites +
-      // Opens the add page with this colony chosen. Only the colony's number
-      // is in the address, never a position (PR 3.4).
-      (opts.may("add_feeding_site")
-        ? `<p><a class="tap" href="/api/team/sites/new?colony=${v.id}">${w("colony.addSite")}</a></p>`
-        : "") +
+      (mayTakeOut ? `<p><a class="tap cardlink" href="${esc(colonyHref(v.id))}/cats">${w("colony.addCats")}</a></p>` : "") +
+      // Then the guardian, notes and history, as before (§9.2 item 7).
+      `<h2>${w("colony.aboutTitle")}</h2>` +
+      summary +
+      (opts.may("edit_colony") ? editForm(W, v, opts.may, island, opts.kept) : "") +
       movedAwayList(W, opts.movedAway ?? []) +
       notes +
       `<h2>${w("colony.historyTitle")}</h2>` +

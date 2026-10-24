@@ -276,10 +276,10 @@ li.statement.routine>details>summary::before,.hownote>summary::before{content:"�
 li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
 li.statement.routine>details[open]>summary::before,.hownote[open]>summary::before{content:"▾"}
 /* Folds look like folds (SYC-619 §2.6): the same marker, with empty alternative text so a screen reader does not read the triangle. */
-.fixes summary::before,.typedfold summary::before,details.hist>summary::before,details.notdescribed>summary::before,details.invitefold>summary::before,details.method>summary::before{content:"▸" / "";flex:none;width:1.2em;color:#0b4553}
-.fixes details[open]>summary::before,.typedfold[open]>summary::before,details.hist[open]>summary::before,details.notdescribed[open]>summary::before,details.invitefold[open]>summary::before,details.method[open]>summary::before{content:"▾" / ""}
-.fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary{display:flex;align-items:center;list-style:none}
-.fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker{display:none}
+.fixes summary::before,.typedfold summary::before,details.hist>summary::before,details.notdescribed>summary::before,details.invitefold>summary::before,details.method>summary::before,details.planfold>summary::before{content:"▸" / "";flex:none;width:1.2em;color:#0b4553}
+.fixes details[open]>summary::before,.typedfold[open]>summary::before,details.hist[open]>summary::before,details.notdescribed[open]>summary::before,details.invitefold[open]>summary::before,details.method[open]>summary::before,details.planfold[open]>summary::before{content:"▾" / ""}
+.fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary,details.planfold>summary{display:flex;align-items:center;list-style:none}
+.fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker,details.planfold>summary::-webkit-details-marker{display:none}
 /* Buttons with their own look keep no marker (SYC-619 §2.6). */
 .fixes details>summary.risky::before,.fixes details[open]>summary.risky::before,.fixes details.update>summary::before,.fixes details.update[open]>summary::before,.fixes details.addnote>summary::before,.fixes details.addnote[open]>summary::before{content:none}
 details.method>summary{cursor:pointer;min-height:44px;font-weight:700;color:#0b4553}
@@ -459,6 +459,11 @@ span.pin{pointer-events:none}
 .pin.seen.multi{width:auto;min-width:24px;margin:0;padding:0 6px;border-radius:12px;white-space:nowrap;transform:translate(-50%,-50%)}
 .pinnum{color:#fff;font-size:12px;font-weight:700;line-height:1}
 .pin.sighting{border:3px dashed #1a56a6;border-radius:4px;background:transparent}
+/* A colony's trapping planner (SYC-396 PR 2.3; spec §9.2, §12): feeding sites are squares on its small map. */
+.planmap .pin.site-public,.planmap .pin.site-private{border-radius:3px}
+.estimate{font-size:18px;margin:16px 0 4px}
+details.planfold{margin:12px 0}
+details.planfold>summary{min-height:44px;cursor:pointer;font-weight:600}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .attrib{margin:4px 0 8px;font-size:12px;color:#55524a}
 .mapmove{margin:8px 0 0}

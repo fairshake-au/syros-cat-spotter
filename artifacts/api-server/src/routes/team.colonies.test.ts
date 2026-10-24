@@ -667,7 +667,7 @@ describe("the list and a colony's page", () => {
     const page = (await get(`/api/team/colonies/${a}`)).text;
     // The cats listed now. (The history, further down, also names cats that
     // have since left, from PR 2.2, so only the Cats section is looked at.)
-    const catsSection = page.slice(page.indexOf("<h2>Cats</h2>"), page.indexOf("<h2>Team-only notes</h2>"));
+    const catsSection = page.slice(page.indexOf('<h2 id="todo">'), page.indexOf("<h2>History</h2>"));
     expect(catsSection).toContain(`href="/api/team/cats/${stays.id}"`);
     expect(page).toContain(`src="/api/team/photos/${stays.photoPublicId}"`);
     expect(catsSection).not.toContain(`/api/team/cats/${moved.id}"`);

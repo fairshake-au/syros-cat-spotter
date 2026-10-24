@@ -153,7 +153,7 @@ describe("To do, Done and Not on the street", () => {
     const plan = (await trappingPlan(TEAM, c, { island: true }, NOW))!;
     expect(ids(plan.toDo)).toEqual([street]);
     expect(plan.done).toEqual([]);
-    expect(new Map(plan.other.map((o) => [o.id, o.lives]))).toEqual(
+    expect(new Map(plan.other.map((o) => [o.id, o.why]))).toEqual(
       new Map([
         [homed, "homed"],
         [care, "in_care"],
@@ -162,7 +162,7 @@ describe("To do, Done and Not on the street", () => {
     );
   });
 
-  it("keeps a merged-away half in the colony as Not on the street, with no status", async () => {
+  it("keeps a merged-away half in the colony as Not on the street", async () => {
     const c = await newColony("plan-merged");
     const keep = await cat();
     await into(keep, c);
@@ -171,7 +171,7 @@ describe("To do, Done and Not on the street", () => {
     await db.insert(catIdentityTable).values({ catId: half, canonicalCatId: keep, createdBy: "vitest-plan" });
     const plan = (await trappingPlan(TEAM, c, { island: true }, NOW))!;
     expect(ids(plan.toDo)).toEqual([keep]);
-    expect(plan.other).toEqual([expect.objectContaining({ id: half, lives: null })]);
+    expect(plan.other).toEqual([expect.objectContaining({ id: half, why: "merged" })]);
   });
 
   it("never cuts the list short", async () => {
