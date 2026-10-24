@@ -25,6 +25,8 @@ import { settleOutbox } from "../lib/mail/outbox";
 import { normaliseAddress } from "../lib/mail/fingerprint";
 import { hashToken } from "../lib/keepSafe/tokens";
 import { __setCodeHookForTest, codeCheck } from "../lib/keepSafe/code";
+import { __setMoveHookForTest } from "../lib/keepSafe/move";
+import { hashSecret } from "../lib/deviceAuth";
 import { _resetBucketForTests } from "../lib/limits";
 import { __setCodeCapForTest, __setCodePadForTest, __setRestorePadForTest } from "./keepSafe";
 import { installFakeResend, tokenFrom, type SentMail } from "../test/fakeResend";
@@ -59,6 +61,7 @@ afterEach(async () => {
   __setCodePadForTest(null);
   __setCodeCapForTest(null);
   __setCodeHookForTest(null);
+  __setMoveHookForTest(null);
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   process.env = { ...saved };
@@ -86,13 +89,14 @@ async function bind(phone: Phone) {
 const mailTo = (email: string) => sent.filter((m) => m.to === normaliseAddress(email));
 
 /** A spotter with a username and a confirmed keep-safe address. */
-async function keptSafe(email: string) {
+async function keptSafe(email: string): Promise<Phone & { username: string }> {
   const phone = newPhone();
   await bind(phone);
+  const username = `Kc${RUN}${++n}`;
   const claim = await request(app)
     .post(`/api/profiles/${phone.id}/username`)
     .set("X-Device-Secret", phone.secret)
-    .send({ username: `Kc${RUN}${++n}` });
+    .send({ username });
   expect(claim.status).toBe(200);
   await ageVerifyEmails();
   const add = await request(app)
@@ -108,7 +112,7 @@ async function keptSafe(email: string) {
     .type("form")
     .send({ t: tokenFrom(mailTo(email).at(-1)!, "/api/mail/confirm") });
   expect(confirm.status).toBe(200);
-  return phone;
+  return { ...phone, username };
 }
 
 /** `phone` asks for a restore email for `email`; returns its code and link token. */
@@ -142,6 +146,35 @@ function sendCode(phone: Phone, code: unknown, secret: string | null = phone.sec
   const req = request(app).post("/api/restore/code").set("X-Forwarded-For", freshIp());
   if (secret !== null) req.set("X-Device-Secret", secret);
   return req.send({ deviceId: phone.id, code });
+}
+
+/** Swap the phone's code for a handle (Task 3). */
+async function handleFor(phone: Phone, code: string): Promise<string> {
+  const res = await sendCode(phone, code);
+  expect(res.status).toBe(200);
+  return res.body.handle as string;
+}
+
+// Each from its own address: peek and redeem are limited per IP per hour.
+function peek(phone: Phone, token: string) {
+  return request(app)
+    .post("/api/restore/peek")
+    .set("X-Device-Secret", phone.secret)
+    .set("X-Forwarded-For", freshIp())
+    .send({ deviceId: phone.id, token });
+}
+
+function redeem(phone: Phone, token: string, choice: string, extra: Record<string, unknown> = {}) {
+  return request(app)
+    .post("/api/restore/redeem")
+    .set("X-Device-Secret", phone.secret)
+    .set("X-Forwarded-For", freshIp())
+    .send({ deviceId: phone.id, token, choice, ...extra });
+}
+
+async function storedHash(deviceId: string) {
+  const res = await db.execute(sql`select secret_hash from device_credentials where device_id = ${deviceId}`);
+  return (res.rows[0] as { secret_hash: string } | undefined)?.secret_hash;
 }
 
 const wrongFor = (code: string, i = 1) => String((Number(code) + i) % 100_000_000).padStart(8, "0");
@@ -366,5 +399,110 @@ describe("POST /api/restore/code", () => {
     } finally {
       process.env["NODE_ENV"] = env;
     }
+  });
+});
+
+// SYC-664 Task 4: the handle stands in for the link's token at peek, redeem
+// and the 60-second replay.
+describe("a handle at peek, redeem and replay", () => {
+  it("peek with handle: openedOnAskingPhone, and the same spotters as the link gives", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const phone = newPhone();
+    await bind(phone);
+    const { code, token } = await askForCode(phone, email);
+    const handle = await handleFor(phone, code);
+    const byHandle = await peek(phone, handle);
+    expect(byHandle.status).toBe(200);
+    expect(byHandle.body.openedOnAskingPhone).toBe(true);
+    expect(byHandle.body.alreadyHere).toBeNull();
+    const byLink = await peek(phone, token);
+    expect(byLink.status).toBe(200);
+    const names = (b: { spotters: { username: string | null }[] }) => b.spotters.map((s) => s.username);
+    expect(names(byHandle.body)).toEqual([old.username]);
+    expect(names(byHandle.body)).toEqual(names(byLink.body));
+  });
+
+  it("redeem with handle moves the spots, and the link's token then answers link_not_valid at peek", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const phone = newPhone();
+    await bind(phone);
+    const { code, token } = await askForCode(phone, email);
+    const handle = await handleFor(phone, code);
+    const p = await peek(phone, handle);
+    const r = await redeem(phone, handle, p.body.spotters[0].choice);
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ deviceId: old.id, username: old.username });
+    expect(await storedHash(old.id)).toBe(hashSecret(phone.secret));
+    // The old phone is told it moved: replaced_secret_hash was written on the row.
+    const stale = await request(app).get(`/api/profiles/${old.id}`).set("X-Device-Secret", old.secret);
+    expect(stale.body).toEqual({ error: "device_moved" });
+    // One row, one spend: the link is used up too (peeked from a fresh phone,
+    // since the old one now answers device_moved and the new one is retired).
+    const third = newPhone();
+    await bind(third);
+    const linkPeek = await peek(third, token);
+    expect(linkPeek.status).toBe(401);
+    expect(linkPeek.body).toEqual({ error: "link_not_valid" });
+  });
+
+  it("redeem with handle from another phone: allowed, like the link it stands in for (Decision 12)", async () => {
+    // A handle is a link-equivalent secret that only the asking phone was
+    // given, so another phone holding it is treated exactly as another phone
+    // opening the link: the spots go to the phone that presses.
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const asker = newPhone();
+    await bind(asker);
+    const { code } = await askForCode(asker, email);
+    const handle = await handleFor(asker, code);
+    const other = newPhone();
+    await bind(other);
+    const p = await peek(other, handle);
+    expect(p.status).toBe(200);
+    expect(p.body.openedOnAskingPhone).toBe(false);
+    const r = await redeem(other, handle, p.body.spotters[0].choice);
+    expect(r.status).toBe(200);
+    expect(r.body.deviceId).toBe(old.id);
+    expect(await storedHash(old.id)).toBe(hashSecret(other.secret));
+    expect(await storedHash(asker.id)).toBe(hashSecret(asker.secret));
+  });
+
+  it("Delete Nikos via handle, first reply dropped: the retry 1.5 s later is replayed and the phone is the restored spotter (not 410)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const phone = newPhone();
+    await bind(phone);
+    const nikos = `Nikos${RUN}${++n}`;
+    const claim = await request(app)
+      .post(`/api/profiles/${phone.id}/username`)
+      .set("X-Device-Secret", phone.secret)
+      .send({ username: nikos });
+    expect(claim.status).toBe(200);
+    const { code } = await askForCode(phone, email);
+    const handle = await handleFor(phone, code);
+    const p = await peek(phone, handle);
+    expect(p.status).toBe(200);
+    const choice: string = p.body.spotters[0].choice;
+
+    let moves = 0;
+    __setMoveHookForTest(async () => {
+      moves++;
+    });
+    // The first redeem succeeds on the server; the phone never sees the reply.
+    const lost = await redeem(phone, handle, choice, { abandonCurrent: true, deleteCurrent: true });
+    expect(lost.status).toBe(200);
+    expect(moves).toBe(1);
+    await new Promise((r) => setTimeout(r, 1500));
+
+    const retry = await redeem(phone, handle, choice, { abandonCurrent: true, deleteCurrent: true });
+    expect(retry.status).toBe(200);
+    expect(retry.body).toEqual({ deviceId: old.id, username: old.username });
+    expect(moves).toBe(1); // nothing moved twice
+    expect(await storedHash(old.id)).toBe(hashSecret(phone.secret));
+    // Acting as the restored spotter works with the phone's own secret.
+    const me = await request(app).get(`/api/profiles/${old.id}`).set("X-Device-Secret", phone.secret);
+    expect(me.status).toBe(200);
   });
 });

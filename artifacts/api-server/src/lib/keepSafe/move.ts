@@ -63,12 +63,29 @@ type TokenRow = {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+/**
+ * The restore row for whatever secret the client holds: the link's token, or
+ * the handle `POST /api/restore/code` swapped a right code for (SYC-664). A
+ * handle is token-shaped and link-equivalent, so every site that finds the
+ * row from the client's secret (peek, the spend, the replaced-secret write
+ * and the 60-second replay) must use this, or a handle works in one place and
+ * not the next. `handle_hash` is null on rows without one, and `= h` never
+ * matches null. Only the latest handle for a row matches (it's overwritten).
+ *
+ * Bare column names: callers that alias the table must not join another
+ * table that has `token_hash` or `handle_hash`.
+ */
+function rowIs(raw: string) {
+  const h = hashToken(raw);
+  return sql`(token_hash = ${h} or handle_hash = ${h})`;
+}
+
 async function readToken(tx: Tx | typeof db, raw: string): Promise<TokenRow | undefined> {
   const result = await tx.execute(sql`
     select purpose, device_id, address_hmac, used_at, restored_device_id,
            expires_at <= now() as expired,
            extract(epoch from now() - used_at)::float as used_seconds_ago
-      from mail_tokens where token_hash = ${hashToken(raw)}
+      from mail_tokens where ${rowIs(raw)}
   `);
   return result.rows[0] as TokenRow | undefined;
 }
@@ -168,7 +185,7 @@ export async function replayAfterMove(input: {
       from mail_tokens t
       join device_credentials c on c.device_id = t.restored_device_id
       left join profiles p on p.device_id = t.restored_device_id
-     where t.token_hash = ${hashToken(input.raw)}
+     where ${rowIs(input.raw)}
        and t.purpose = 'restore'
        and t.used_at > now() - make_interval(secs => ${SAME_ANSWER_SECONDS})
        and c.secret_hash = ${input.callerSecretHash}
@@ -223,6 +240,9 @@ export async function redeemRestore(input: {
       if (token.purpose !== "restore") throw new Refused("wrong_purpose");
       // Decision 12: any phone that opens the link may press the button; the
       // spots go to the phone that presses it, never to the phone that asked.
+      // The same holds for a handle (SYC-664): it is a link-equivalent secret
+      // that only the asking phone was given, so another phone presenting it
+      // is treated exactly like another phone opening the link.
 
       const chosen = (await keptSafeBy(tx, token.address_hmac)).find((s) => matchesPick(raw, s.device_id, input.pick));
       if (!chosen) throw new Refused("spotter_not_kept_safe_by_this_address");
@@ -233,7 +253,7 @@ export async function redeemRestore(input: {
       const spent = await tx.execute(sql`
         update mail_tokens
            set used_at = now(), restored_device_id = ${spotterDeviceId}, attempt_ip_hash = ${input.ipHash}
-         where token_hash = ${hashToken(raw)} and purpose = 'restore'
+         where ${rowIs(raw)} and purpose = 'restore'
            and used_at is null and expires_at > now()
         returning token_hash
       `);
@@ -261,7 +281,7 @@ export async function redeemRestore(input: {
       `);
       if (moveHook) await moveHook();
       await tx.execute(sql`
-        update mail_tokens set replaced_secret_hash = ${old.secret_hash} where token_hash = ${hashToken(raw)}
+        update mail_tokens set replaced_secret_hash = ${old.secret_hash} where ${rowIs(raw)}
       `);
       await tx.execute(sql`delete from push_tokens where device_id = ${spotterDeviceId}`);
 
