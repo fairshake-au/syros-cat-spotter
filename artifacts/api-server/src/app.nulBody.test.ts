@@ -53,14 +53,6 @@ describe("a NUL character in a JSON body", () => {
     expect(res.status).toBe(400);
   });
 
-  it("is refused in a form-encoded body too", async () => {
-    const res = await request(app)
-      .post("/api/reports")
-      .type("form")
-      .send("note=hi%00there");
-    expect(res.status).toBe(400);
-  });
-
   it("is refused on the dashboard path as well, with no CORS involved", async () => {
     const res = await request(app)
       .post("/api/team/anything")

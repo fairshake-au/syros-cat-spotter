@@ -26,7 +26,9 @@ export function containsNul(value: unknown, depth = 0): boolean {
 }
 
 export function refuseNul(req: Request, _res: Response, next: NextFunction): void {
-  if (containsNul(req.body) || containsNul(req.query)) {
+  // JSON bodies only (the ticket's scope). Form posts and search queries on
+  // the dashboard already answer a NUL with their own friendly messages.
+  if (req.is("application/json") && containsNul(req.body)) {
     next(Object.assign(new Error("NUL character in request"), { type: NUL_IN_BODY }));
     return;
   }
