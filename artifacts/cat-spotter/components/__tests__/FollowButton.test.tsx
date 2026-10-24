@@ -17,8 +17,19 @@ vi.mock('@/context/LanguageContext', async () => {
   const { TRANSLATIONS } = await import('@/lib/i18n');
   return { useLanguage: () => ({ t: (k: string) => TRANSLATIONS.en[k] ?? k, language: 'en' }) };
 });
-const h = vi.hoisted(() => ({ follow: vi.fn(), unfollow: vi.fn() }));
+const h = vi.hoisted(() => {
+  class ApiError extends Error {
+    constructor(
+      public status: number,
+      public data: unknown,
+    ) {
+      super('api');
+    }
+  }
+  return { follow: vi.fn(), unfollow: vi.fn(), ApiError };
+});
 vi.mock('@workspace/api-client-react', () => ({
+  ApiError: h.ApiError,
   getGetCatQueryKey: (id: number) => [`/api/cats/${id}`],
   useFollowCat: () => ({ mutateAsync: h.follow }),
   useUnfollowCat: () => ({ mutateAsync: h.unfollow }),
@@ -149,6 +160,38 @@ describe('FollowButton', () => {
       vi.advanceTimersByTime(4100);
     });
     expect(screen.queryByText(en('followFailed'))).toBeNull();
+  });
+
+  it.each([
+    [403, 'OWNER_CANNOT_UNFOLLOW'],
+    [409, 'CAT_DECEASED'],
+  ])('a %i %s refusal refetches the page and shows no retry note', async (status, code) => {
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    h.follow.mockRejectedValue(new h.ApiError(status, { code }));
+    view();
+    await act(async () => {
+      fireEvent.click(button());
+    });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['/api/cats/7'] });
+    expect(screen.queryByText(en('followFailed'))).toBeNull();
+    expect(button().textContent).toBe('Follow');
+  });
+
+  it('after a refused tap it goes back to the latest page data, not the value at tap time', async () => {
+    let fail: (e: unknown) => void = () => {};
+    h.follow.mockReturnValue(new Promise((_, rej) => (fail = rej)));
+    const ui = (f: boolean) => (
+      <QueryClientProvider client={qc}>
+        <FollowButton catId={7} catName="Agatha" deviceId="dev-1" isFollowing={f} isOnline />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(ui(false));
+    await act(async () => {
+      fireEvent.click(button());
+    });
+    rerender(ui(true));
+    await act(async () => fail(new Error('boom')));
+    expect(button().textContent).toBe('Following');
   });
 
   it('offline: disabled, with the connection note, and a tap does nothing', () => {
