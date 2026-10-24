@@ -1,4 +1,4 @@
-# CHECKPOINT (SYC-345 launch-day runbook)
+# CHECKPOINT (SYC-345)
 
-Done: read Linear tickets, plan, DEPLOYMENT.md, turnstile.ts.
-Next: live probes, write docs/runbooks/launch-day.md, draft PR, artifact.
+Done: runbook written (docs/runbooks/launch-day.md), tickets SYC-662 (sitekey host) and SYC-663 (CF token/Turnstile) filed.
+Next: commit, draft PR, link on SYC-345, render Artifact, notify, git rm CHECKPOINT.md before PR.
