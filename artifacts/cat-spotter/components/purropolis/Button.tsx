@@ -14,6 +14,8 @@ export interface ButtonProps {
   /** Stretch to fill the width of its container. */
   block?: boolean;
   disabled?: boolean;
+  /** Working on it (SYC-508): pressing does nothing, and screen readers hear "busy". */
+  busy?: boolean;
   iconLeft?: ReactNode;
   iconRight?: ReactNode;
   children?: ReactNode;
@@ -39,6 +41,7 @@ export function Button({
   size = 'md',
   block = false,
   disabled = false,
+  busy = false,
   iconLeft,
   iconRight,
   children,
@@ -67,12 +70,12 @@ export function Button({
 
   return (
     <Pressable
-      onPress={disabled ? undefined : onPress}
-      disabled={disabled}
+      onPress={disabled || busy ? undefined : onPress}
+      disabled={disabled || busy}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       testID={testID}
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled, busy }}
       style={({ pressed }) => [
         styles.base,
         variant === 'ghost' ? undefined : shadows.sm,
