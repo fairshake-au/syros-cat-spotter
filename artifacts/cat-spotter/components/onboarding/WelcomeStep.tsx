@@ -7,6 +7,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { LANGUAGES } from '@/lib/i18n';
 import { Button } from '@/components/purropolis';
 import { FairShakeMark } from '@/components/FairShakeMark';
+import { decorative, spokenText } from '@/lib/a11yText';
 
 /**
  * First-run hero. Deliberately renders on the Aegean gradient rather than the
@@ -18,7 +19,7 @@ export function WelcomeStep({ onNext, onRestore }: { onNext: () => void; onResto
 
   return (
     <View style={[styles.container, { backgroundColor: palette.aegean600 }]}>
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <View pointerEvents="none" style={StyleSheet.absoluteFill} {...decorative}>
         <Text style={[styles.paw, styles.paw1]} allowFontScaling={false}>
           🐾
         </Text>
@@ -66,7 +67,9 @@ export function WelcomeStep({ onNext, onRestore }: { onNext: () => void; onResto
           </Text>
         </View>
         <Text style={styles.title}>{t('welcomeTitle')}</Text>
-        <Text style={styles.subtitle}>{t('welcomeSubtitle')}</Text>
+        <Text style={styles.subtitle} accessibilityLabel={spokenText(t('welcomeSubtitle'))}>
+          {t('welcomeSubtitle')}
+        </Text>
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing[4] }]}>

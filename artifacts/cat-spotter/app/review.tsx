@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -56,6 +56,7 @@ import {
 } from "@/lib/sightingAnswers";
 import { reviewReportHandoff } from "@/lib/reportHandoff";
 import { deleteReviewPhoto } from "@/lib/pendingPhotos";
+import { goToSpotTab } from "@/lib/goToSpotTab";
 import {
   buildReviewParams,
   parseReviewParams,
@@ -73,6 +74,7 @@ import {
   Input,
 } from "@/components/purropolis";
 import { palette } from "@/constants/colors";
+import { decorative, spokenText } from "@/lib/a11yText";
 import {
   fonts,
   fontSizes,
@@ -217,6 +219,8 @@ export default function ReviewScreen() {
   const [answers, setAnswers] = useState<SightingAnswers>(NO_ANSWERS);
   const [sendingAnswers, setSendingAnswers] = useState(false);
   const [answersFailed, setAnswersFailed] = useState(false);
+  // SYC-508: one "Take another photo" at a time (review of #302, finding 6).
+  const retaking = useRef(false);
   // The public cat-alogue: fresh with signal, the phone's saved copy without.
   const { cats } = useCatsWithCache();
 
@@ -261,10 +265,40 @@ export default function ReviewScreen() {
     />
   ) : null;
 
+  // SYC-508 §3.4: only a broken, typed or out-of-date link gets here
+  // (parseReviewParams). Trying again can't fix that, so it says where saved
+  // spots are and offers the way there, with a back arrow like the other steps.
   if (!data) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.mutedForeground }}>{t("error")}</Text>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <IconButton
+            variant="ghost"
+            label={t("back")}
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace("/(tabs)");
+            }}
+          >
+            <Feather name="chevron-left" size={22} color={colors.mutedForeground} />
+          </IconButton>
+        </View>
+        <View style={styles.openFailed} testID="review-open-failed">
+          <View accessibilityLiveRegion="polite" aria-live="polite" style={styles.openFailedText}>
+            <Text
+              role="heading"
+              style={[styles.successTitle, { color: colors.foreground, textAlign: "center" }]}
+            >
+              {t("reviewOpenFailedTitle")}
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground, textAlign: "center" }]}>
+              {t("reviewOpenFailedBody")}
+            </Text>
+          </View>
+          <Button variant="primary" size="lg" wrapLabel style={{ maxWidth: "100%" }} onPress={() => goToSpotTab(router)}>
+            {t("reviewOpenFailedCta")}
+          </Button>
+        </View>
       </View>
     );
   }
@@ -433,6 +467,19 @@ export default function ReviewScreen() {
     else router.replace("/(tabs)");
   };
 
+  // SYC-508 §5, D1 Option A: "No cat found" → Take another photo. A spot
+  // saved for later leaves the review list (and its photos the phone), so
+  // this screen stops coming back; a sent spot's 7-day photo goes too, by the
+  // sighting's own id, never the route's photoRef. No points are at stake:
+  // they're only given when a spot is finished.
+  const retake = async () => {
+    if (retaking.current) return;
+    retaking.current = true;
+    if (data.localId) await remove(data.localId).catch(() => {});
+    if (data.photoRef) deleteReviewPhoto(data.sightingId).catch(() => {});
+    goToSpotTab(router);
+  };
+
   const yourPhoto = (
     <SightingPhoto
       uri={cover ? cover.uri : data.photoRef}
@@ -592,9 +639,18 @@ export default function ReviewScreen() {
         >
           {t("notACatMsg")}
         </Text>
+        {/* SYC-508 §5, D1 Option A (Samuel, 24 Oct): say what happens. */}
+        <Text
+          style={[
+            styles.subtitle,
+            { color: colors.foreground, textAlign: "center" },
+          ]}
+        >
+          {t("notACatNotAdded")}
+        </Text>
         <PhotoTips compact />
-        <Button variant="primary" size="lg" onPress={close}>
-          {t("tryAgain")}
+        <Button variant="primary" size="lg" wrapLabel style={{ maxWidth: "100%" }} onPress={retake}>
+          {t("notACatRetake")}
         </Button>
       </ScrollView>
     );
@@ -647,15 +703,10 @@ export default function ReviewScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]} testID="hint-question">
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          <View style={{ width: 40 }} />
-          <Pressable
-            onPress={close}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t("extraPhotoClose")}
-          >
+          <View style={{ width: 44 }} />
+          <IconButton variant="ghost" label={t("extraPhotoClose")} onPress={close}>
             <Feather name="x" size={20} color={colors.mutedForeground} />
-          </Pressable>
+          </IconButton>
         </View>
         <ScrollView
           contentContainerStyle={[styles.nameTakenBody, { paddingBottom: insets.bottom + 32 }]}
@@ -790,7 +841,7 @@ export default function ReviewScreen() {
           >
             <Feather name="chevron-left" size={22} color={colors.mutedForeground} />
           </IconButton>
-          <View style={{ width: 40 }} />
+          <View style={{ width: 44 }} />
         </View>
         <ScrollView
           contentContainerStyle={[
@@ -878,10 +929,10 @@ export default function ReviewScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          <View style={{ width: 40 }} />
-          <Pressable onPress={close} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("extraPhotoClose")}>
+          <View style={{ width: 44 }} />
+          <IconButton variant="ghost" label={t("extraPhotoClose")} onPress={close}>
             <Feather name="x" size={20} color={colors.mutedForeground} />
-          </Pressable>
+          </IconButton>
         </View>
         <ScrollView
           contentContainerStyle={[styles.couldntCheckBody, { paddingBottom: insets.bottom + 32 }]}
@@ -961,11 +1012,11 @@ export default function ReviewScreen() {
                 <Feather name="chevron-left" size={22} color="#fff" />
               </IconButton>
             ) : (
-              <View style={{ width: 40, height: 40 }} />
+              <View style={{ width: 44, height: 44 }} />
             )}
-            <Pressable onPress={close} hitSlop={8}>
+            <IconButton variant="ghost" label={t("extraPhotoClose")} onPress={close}>
               <Feather name="x" size={20} color="rgba(255,255,255,0.85)" />
-            </Pressable>
+            </IconButton>
           </View>
           <View style={styles.celebrateBody}>
             <View style={styles.celebrateAvatar}>
@@ -980,10 +1031,10 @@ export default function ReviewScreen() {
                   testID="naming-photo"
                 />
               ) : (
-                <Text style={{ fontSize: 52 }}>🐈‍⬛</Text>
+                <Text style={{ fontSize: 52 }} {...decorative}>🐈‍⬛</Text>
               )}
             </View>
-            <Text style={styles.celebrateTitle}>{t("aNewFurriend")}</Text>
+            <Text style={styles.celebrateTitle} role="heading" accessibilityLabel={spokenText(t("aNewFurriend"))}>{t("aNewFurriend")}</Text>
             <Text style={styles.celebrateSubtitle} testID="naming-subtitle">
               {/* SYC-503: whichever door led here, a failed check never
                   claims "you're the first to spot this cat". */}
@@ -1096,6 +1147,7 @@ export default function ReviewScreen() {
             block
             disabled={busy || isBlankName(newName)}
             onPress={registerNew}
+            accessibilityLabel={busy ? undefined : spokenText(t("addToCatalogButton"))}
             style={{ marginTop: 8 }}
           >
             {busy ? (
@@ -1126,10 +1178,14 @@ export default function ReviewScreen() {
             color={colors.mutedForeground}
           />
         </IconButton>
-        <Text style={[styles.title, { color: colors.foreground }]}>
+        <Text
+          role="heading"
+          accessibilityLabel={spokenText(t("haveWeMetTitle"))}
+          style={[styles.title, { color: colors.foreground }]}
+        >
           {t("haveWeMetTitle")}
         </Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 44 }} />
       </View>
       <ScrollView
         contentContainerStyle={{
@@ -1224,6 +1280,9 @@ export default function ReviewScreen() {
                 block
                 disabled={busy}
                 onPress={() => confirm(c.catId)}
+                // SYC-509: every card's button reads "That's the one", so the
+                // label says which cat and how close the match is.
+                accessibilityLabel={`${t("thatsTheOne")}: ${c.name}, ${pct}% ${t("matchPill")}`}
               >
                 {busy ? (
                   <ActivityIndicator
@@ -1281,9 +1340,10 @@ export default function ReviewScreen() {
 
         <Pressable
           onPress={() => setShowNewCat(true)}
+          accessibilityRole="button"
           style={[styles.newCatCard, { backgroundColor: colors.secondary }]}
         >
-          <Text style={{ fontSize: 30 }}>✨</Text>
+          <Text style={{ fontSize: 30 }} {...decorative}>✨</Text>
           <Text
             style={[
               styles.newCatCardTitle,
@@ -1327,6 +1387,16 @@ export default function ReviewScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  // SYC-508 §3.4: LoadFailed's full-size layout, with its own words.
+  openFailed: {
+    flex: 1,
+    alignItems: "center",
+    alignSelf: "stretch",
+    justifyContent: "center",
+    gap: 12,
+    padding: 20,
+  },
+  openFailedText: { alignItems: "center", gap: 8, maxWidth: 320 },
   successScroll: {
     alignItems: "center",
     gap: 14,

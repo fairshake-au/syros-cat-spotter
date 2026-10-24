@@ -28,13 +28,18 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
     cat.discovererNickname ??
     (cat.discovererSpotterCode ? `${t('spotter')} ${cat.discovererSpotterCode}` : t('aSpotter'))
   }`;
+  const seenText =
+    cat.sightingsCount === 1
+      ? t('catCardSeenOnce')
+      : t('catCardSeenTimes').replace('{n}', String(cat.sightingsCount));
+  const hasHomeText = cat.hasHome ? t('filterHasHome') : null;
   // Unknown is not zero: only say spotted / not spotted when we know.
   const lead =
     typeof spotted === 'boolean'
       ? t(spotted ? 'catCardA11ySpotted' : 'catCardA11yNotSpotted').replace('{name}', cat.name)
       : cat.name;
   // Join with a full stop, unless a part already ends its sentence ("Nefeli. Not spotted yet.").
-  const a11yLabel = [lead, distanceText, discovererText]
+  const a11yLabel = [lead, hasHomeText, seenText, distanceText, discovererText]
     .filter((part): part is string => Boolean(part))
     .reduce((acc, part) => (/[.!?;]$/.test(acc) ? `${acc} ${part}` : `${acc}. ${part}`));
 
@@ -65,6 +70,12 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
         {cat.hasHome && (
           <View style={[styles.homeBadge, { backgroundColor: colors.primary }]}>
             <Feather name="home" size={12} color={colors.primaryForeground} />
+            <Text
+              style={[styles.homeBadgeText, { color: colors.primaryForeground }]}
+              numberOfLines={1}
+            >
+              {hasHomeText}
+            </Text>
           </View>
         )}
         {spotted === true && <SpottedStamp />}
@@ -77,31 +88,27 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
           {cat.name}
         </Text>
         <View style={styles.metaRow}>
-          <Feather name="eye" size={12} color={colors.mutedForeground} />
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-            {cat.sightingsCount}
+            {seenText}
           </Text>
           {distanceText !== null && (
-            <>
+            <View style={styles.distance}>
               <Feather
                 name="map-pin"
                 size={12}
                 color={colors.mutedForeground}
-                style={{ marginLeft: 8 }}
+                style={{ marginLeft: 4 }}
               />
               <Text style={[styles.meta, { color: colors.mutedForeground }]}>
                 {distanceText}
               </Text>
-            </>
+            </View>
           )}
         </View>
         {(
-          <View style={styles.metaRow}>
-            <Feather name="star" size={12} color={colors.mutedForeground} />
-            <Text
-              style={[styles.meta, { color: colors.mutedForeground }]}
-              numberOfLines={1}
-            >
+          <View style={[styles.metaRow, styles.metaRowTop]}>
+            <Feather name="star" size={12} color={colors.mutedForeground} style={styles.metaIcon} />
+            <Text style={[styles.meta, styles.metaWrap, { color: colors.mutedForeground }]}>
               {discovererText}
             </Text>
           </View>
@@ -126,12 +133,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 24,
+    maxWidth: '85%',
     height: 24,
     borderRadius: 12,
+    paddingHorizontal: 8,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
     opacity: 0.95,
+  },
+  homeBadgeText: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    flexShrink: 1,
   },
   info: {
     padding: 10,
@@ -143,9 +157,16 @@ const styles = StyleSheet.create({
   },
   metaRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 4,
   },
+  // The discoverer line wraps (SYC-578), so pin the star to its first line.
+  metaRowTop: { alignItems: 'flex-start', flexWrap: 'nowrap' },
+  metaIcon: { marginTop: 2 },
+  // The pin and its distance wrap as one, never leaving the pin alone on a line.
+  distance: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaWrap: { flexShrink: 1 },
   meta: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',

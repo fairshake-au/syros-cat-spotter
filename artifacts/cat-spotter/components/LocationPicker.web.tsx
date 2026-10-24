@@ -11,6 +11,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import type { LocationPickerProps } from './LocationPicker';
 import { useColors } from '@/hooks/useColors';
+import { useLanguage } from '@/context/LanguageContext';
 import {
   clampZoom,
   latLngAtOffset,
@@ -21,6 +22,8 @@ import {
 const START_ZOOM = 17;
 // Movement under this many pixels is a tap, not a drag.
 const TAP_SLOP = 6;
+// SYC-509: one arrow-key press moves the map this many pixels (Shift: 4x).
+const KEY_STEP = 32;
 // Tiles drawn beyond each edge, so a long drag doesn't show grey gaps before
 // the map recentres on release.
 const DRAG_MARGIN = 384;
@@ -41,6 +44,7 @@ export function LocationPicker({
   style,
 }: LocationPickerProps) {
   const colors = useColors();
+  const { t } = useLanguage();
   const resolvedPinColor = pinColor ?? colors.accent;
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [zoom, setZoom] = useState(START_ZOOM);
@@ -72,6 +76,8 @@ export function LocationPicker({
   }, [latitude, longitude]);
 
   const commit = (next: LatLng) => {
+    // Update the ref now, so key repeats faster than a render still add up.
+    centerRef.current = next;
     setCenter(next);
     onChangeRef.current(next);
   };
@@ -116,6 +122,29 @@ export function LocationPicker({
     [],
   );
 
+  // SYC-509: a non-drag way to place the pin for keyboard users. Arrow keys
+  // move the map under the fixed pin, as a drag would; + and - zoom.
+  const onKeyDown = (e: { key: string; shiftKey?: boolean; preventDefault: () => void }) => {
+    const step = e.shiftKey ? KEY_STEP * 4 : KEY_STEP;
+    const moves: Record<string, [number, number]> = {
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+    };
+    const move = moves[e.key];
+    if (move) {
+      e.preventDefault();
+      commit(latLngAtOffset(centerRef.current, zoomRef.current, move[0], move[1]));
+    } else if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      setZoom((z) => clampZoom(z + 1));
+    } else if (e.key === '-') {
+      e.preventDefault();
+      setZoom((z) => clampZoom(z - 1));
+    }
+  };
+
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setSize({ width, height });
@@ -140,7 +169,12 @@ export function LocationPicker({
         ref={surfaceRef}
         style={[styles.surface, webOnly.noTouchScroll]}
         {...panResponder.panHandlers}
-        accessibilityLabel="location picker"
+        focusable
+        // "application" lets screen readers pass the arrow keys through to the map.
+        role="application"
+        accessibilityLabel={t('mapPickerLabel')}
+        // react-native-web passes keydown through on a focusable View.
+        {...({ onKeyDown } as object)}
       >
         {/* Tiles ignore the pointer so the browser never starts dragging an
             image, and every touch lands on the surface that owns the gesture. */}
@@ -162,8 +196,8 @@ export function LocationPicker({
         <Feather name="map-pin" size={36} color={resolvedPinColor} style={styles.pin} />
       </View>
       <View style={styles.zoomControls}>
-        {zoomButton('plus', 1, 'Zoom in')}
-        {zoomButton('minus', -1, 'Zoom out')}
+        {zoomButton('plus', 1, t('mapZoomIn'))}
+        {zoomButton('minus', -1, t('mapZoomOut'))}
       </View>
       <Text
         style={[styles.coords, { backgroundColor: colors.card, color: colors.cardForeground }]}
@@ -195,8 +229,8 @@ const styles = StyleSheet.create({
   pin: { marginBottom: 32, textShadowColor: 'rgba(0,0,0,0.3)', textShadowRadius: 4 },
   zoomControls: { position: 'absolute', right: 8, top: 8, gap: 4 },
   zoomBtn: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
