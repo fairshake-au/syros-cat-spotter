@@ -42,11 +42,14 @@ The safety screen keeps its four paragraphs from Syros Cats word for word (`howS
 Between "So: photograph them, admire them, leave them be." and the bold line about hurt or sick cats, it now has a **"Please don't feed them"** block, the advice that used to be card 2 of "How it works":
 
 > 🚫 **Please don't feed them**
-> Scraps make cats sick and draw them onto busy roads. More food also means more kittens than we can help. Local cat guardians feed them properly.
+> Scraps make cats sick and draw them onto busy roads. More food also means more kittens than we can help.
 
-- The words are the existing `howStepDontFeed` and `howStepDontFeedBody`, already translated, so nothing new goes to Johnny.
+- The title is the existing `howStepDontFeed`. The line is today's `howStepDontFeedBody` **without its last sentence**, "Local cat guardians feed them properly.", which isn't necessarily true (Samuel, 24 Oct). It becomes a new key, `safetyDontFeedBody`, cut from the existing translations:
+  - el: "Τα αποφάγια αρρωσταίνουν τις γάτες και τις τραβούν σε πολυσύχναστους δρόμους. Περισσότερο φαγητό σημαίνει και περισσότερα γατάκια απ’ ό,τι μπορούμε να βοηθήσουμε."
+  - fr: "Les restes rendent les chats malades et les attirent sur les routes passantes. Plus de nourriture, c’est aussi plus de chatons qu’on ne peut en aider."
+  Nothing is reworded, so Johnny only needs to glance at it with the rest of the pack. `howStepDontFeedBody` is retired with "How it works".
 - It is set off as a soft terracotta panel with the 🚫 icon (the colour of today's "don't feed" card), so it reads as its own piece of advice and not part of Syros Cats' paragraphs.
-- **Fit:** measured on main at 390×844, today's safety text leaves about 205px spare in Greek, 270px in French and 290px in English. The block needs about 190px in Greek. The screen must fit without scrolling in all three languages at 390×844. On smaller phones or with large text it scrolls, as now, with **Continue** always visible at the bottom.
+- **Fit:** measured on main at 390×844, today's safety text leaves about 205px spare in Greek, 270px in French and 290px in English. The block needs about 170px in Greek. The screen must fit without scrolling in all three languages at 390×844. On smaller phones or with large text it scrolls, as now, with **Continue** always visible at the bottom.
 
 #### Screen 3: Make it yours, with "Don't lose your spots" on the same screen
 
@@ -163,7 +166,7 @@ The location card adds new lines in three languages after the 22 Oct copy freeze
   - The report flow ("This cat needs help") keeps asking on open by calling `askAndLocate()` on mount.
 - **Remembered choice.** `cat-spotter/location-choice`: `'map'` after "I'll put the pin on the map", `'shared'` after any successful position from **Use where I am**. `'map'` means later photos get the small link; `'shared'` means the card is skipped and `askAndLocate()` runs straight after the photo when permission has reset. It is a phone preference, not part of the spotter's identity: cleared by "Delete my data" (next to the photo-tips key in the phone wipe), kept by "Get your spots back".
 - **Map start.** `resolveMapStart` gains the permission state and the remembered choice. The camera and live paths: `granted` → wait for the phone as today, then Ermoupoli after the wait (SYC-308); chose the map, refused or timed out → Ermoupoli; `not-asked` with no choice → no start yet (the card shows instead of the map; **Check for matches** stays disabled). The library path is unchanged. `nextMapStart` (an Ermoupoli start gives way to a late phone fix until the spotter moves the map) still applies.
-- **Retire** `howTitle`, `howSubtitle`, `howLocationTitle`, `howLocationBody`, `howAllowContinue`, and `locationDenied` (its two uses on Spot are replaced), if nothing else uses them. `howStep*` and `howSafety*` stay.
+- **Retire** `howStepDontFeedBody`, `howTitle`, `howSubtitle`, `howLocationTitle`, `howLocationBody`, `howAllowContinue`, and `locationDenied` (its two uses on Spot are replaced), if nothing else uses them. The other `howStep*` keys and all `howSafety*` keys stay.
 - **iPhone purpose string.** `app.json`'s `locationWhenInUsePermission` stays English-only for now (the phone's box shows it). Localising it needs a new app build; see follow-ups.
 
 ## Copy
@@ -174,6 +177,7 @@ New (English; Greek and French drafted in the plan for Johnny's pack, SYC-346; F
 
 | Where | English |
 |---|---|
+| Safety screen, don't-feed line (`safetyDontFeedBody`) | Scraps make cats sick and draw them onto busy roads. More food also means more kittens than we can help. *(existing words, last sentence dropped)* |
 | Location card heading | Use where you're standing? |
 | Location card line | We'll put the pin where you are now, so Syros Cats know where this cat lives. You can move it after. |
 | Location card button, and the small link on later photos | Use where I am |
@@ -182,6 +186,8 @@ New (English; Greek and French drafted in the plan for Johnny's pack, SYC-346; F
 | Browser blocking location (website) | Your browser is blocking location for this site. Move the pin yourself, or allow location from the address bar. |
 
 ## Out of scope
+
+- **The feeding reminder's "Syros Cats and local cat guardians feed colonies the right food, in the right places, all year round."** (`feedNudgeInstead`) makes a similar claim to the sentence dropped above. Not changed here; filed for Samuel to decide.
 
 - **The photo tips sheet** on the first visit to Spot. It stays: it appears at the camera, where it helps.
 - **SYC-575's camera buttons** and the stray glyph (stay on SYC-575).
