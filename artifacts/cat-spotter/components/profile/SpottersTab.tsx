@@ -100,7 +100,7 @@ export function SpottersTab({
                     row.isMe && styles.bold,
                   ]}
                 >
-                  {row.isMe ? t('you') : row.name}
+                  {row.isMe ? t('profileYou') : row.name}
                 </Text>
                 <Text style={[styles.points, { color: row.isMe ? colors.secondaryForeground : colors.primary }]}>
                   {row.points}

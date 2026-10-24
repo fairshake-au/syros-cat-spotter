@@ -436,6 +436,7 @@ const en: Dict = {
   // SYC-628: Profile tabs and Settings screen (docs/specs/profile-tab-redesign.md).
   profileTabMe: 'Me',
   profileTabSpotters: 'Spotters',
+  profileYou: 'You',  // informal, matching the rank lines (SYC-628 review)
   profileSettingsButton: 'Settings',
   profileRankLine: '{rank} on the island',
   profileFirstSpotTitle: 'Your first spot is waiting',
@@ -1234,6 +1235,7 @@ const el: Dict = {
   // SYC-628: Profile tabs and Settings screen (docs/specs/profile-tab-redesign.md).
   profileTabMe: 'Εγώ',
   profileTabSpotters: 'Spotters',
+  profileYou: 'Εσύ',  // informal, matching the rank lines (SYC-628 review)
   profileSettingsButton: 'Ρυθμίσεις',
   profileRankLine: 'Θέση {rank} στο νησί',
   profileFirstSpotTitle: 'Η πρώτη σου παρατήρηση σε περιμένει',
@@ -2006,6 +2008,7 @@ const fr: Dict = {
   // SYC-628: Profile tabs and Settings screen (docs/specs/profile-tab-redesign.md).
   profileTabMe: 'Moi',
   profileTabSpotters: 'Spotters',
+  profileYou: 'Toi',  // informal, matching the rank lines (SYC-628 review)
   profileSettingsButton: 'Réglages',
   profileRankLine: '{rank} sur l’île',
   profileFirstSpotTitle: 'Ta première observation t’attend',
@@ -2026,7 +2029,7 @@ const fr: Dict = {
   profileBadgesRowLabel: '{earned} badges gagnés sur {total}. Voir tous les badges.',
   profileRankSummary: 'Tu es {rank} avec {points} points',
   profileRankPass: 'Encore {n} points pour dépasser {name}.',
-  profileRankLevel: 'Tu es à égalité avec {name} avec {points} points.',
+  profileRankLevel: 'Tu es à égalité avec {name}, à {points} points.',
   profileRankTop: 'Tu es en tête de l’île avec {points} points.',
   profileRankOutside: 'Tu as {points} points.',
   profileRankOutsideBody: 'Les 20 meilleurs spotters s’affichent ici.',
