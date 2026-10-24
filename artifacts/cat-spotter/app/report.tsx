@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -8,7 +8,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useReportQueue } from '@/context/ReportQueueContext';
-import { useLocation } from '@/hooks/useLocation';
+import { useAppLocation } from '@/context/LocationContext';
 import { useWelfareGuidance } from '@/hooks/useWelfareGuidance';
 import { useReporterEmailOn } from '@/hooks/useReporterEmailOn';
 import { IconButton } from '@/components/purropolis';
@@ -52,7 +52,12 @@ export default function ReportScreen() {
   const insets = useSafeAreaInsets();
   const guidance = useWelfareGuidance();
   const { submitReport, sendDraft, reports, acceptedIds, syncing, retryFailed } = useReportQueue();
-  const { coords, loading: locating, denied } = useLocation();
+  const { coords, loading: locating, denied, askAndLocate } = useAppLocation();
+  // SYC-524: the report flow is the one screen that asks for location on open.
+  useEffect(() => {
+    void askAndLocate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const initial = useRef(startFlow(takeReportHandoff())).current;
   const clientRef = useRef(newClientRef()).current;

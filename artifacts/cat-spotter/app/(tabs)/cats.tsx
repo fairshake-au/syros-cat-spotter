@@ -18,7 +18,7 @@ import { fonts, fontSizes, radii, spacing, borderWidths } from '@/constants/them
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
-import { useLocation } from '@/hooks/useLocation';
+import { useAppLocation } from '@/context/LocationContext';
 import { useCatsWithCache } from '@/hooks/useCatsWithCache';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { CatCard } from '@/components/CatCard';
@@ -55,7 +55,7 @@ export default function CatalogScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { coords } = useLocation();
+  const { coords } = useAppLocation();
   const { cats, isLoading } = useCatsWithCache(
     coords?.latitude,
     coords?.longitude,
