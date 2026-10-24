@@ -29,7 +29,7 @@ import {
   type DerivedCatStatus,
   type Viewer,
 } from "../lib/catHelpers";
-import { notifyCatSpotters } from "../lib/notifications";
+import { notifyCatFollowers } from "../lib/notifications";
 import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl, removedPhotoIds } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter, checkClaimLimit, checkFollowLimit } from "../middlewares/rateLimit";
@@ -497,7 +497,7 @@ router.post("/cats/:catId/claim", async (req, res) => {
   }
   if (result.firstEver) {
     // Fire-and-forget. Never the note or the pin (§8, SYC-232).
-    void notifyCatSpotters(catId, deviceId, {
+    void notifyCatFollowers(catId, deviceId, {
       title: `${result.row.name} has a home!`,
       body: `${result.row.name} now has a home.`,
       data: { type: "cat_claimed", catId },
@@ -738,7 +738,7 @@ router.patch("/cats/:catId", async (req, res) => {
       return;
     }
     updated = written;
-    void notifyCatSpotters(catId, body.deviceId, {
+    void notifyCatFollowers(catId, body.deviceId, {
       title: renamed
         ? `${cat.name} is now ${updated.name}!`
         : `${updated.name} has an update`,

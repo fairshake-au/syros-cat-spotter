@@ -40,7 +40,7 @@ vi.mock("../lib/push", () => ({
 
 vi.mock("../lib/notifications", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/notifications")>();
-  return { ...actual, notifyCatSpotters: vi.fn(actual.notifyCatSpotters) };
+  return { ...actual, notifyCatFollowers: vi.fn(actual.notifyCatFollowers) };
 });
 
 // Wrapped, so a test can see the withdrawal goes through writeObservation,
@@ -60,14 +60,14 @@ vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
 
 import app from "../app";
 import { sendPushNotification } from "../lib/push";
-import { notifyCatSpotters } from "../lib/notifications";
+import { notifyCatFollowers } from "../lib/notifications";
 import { WITHDRAWN, writeObservation } from "../lib/observations";
 import { clearOwner } from "../lib/claiming";
 import { blurPosition } from "../lib/blur";
 import { _resetClaimLimitForTests } from "../middlewares/rateLimit";
 
 const pushMock = vi.mocked(sendPushNotification);
-const notifyMock = vi.mocked(notifyCatSpotters);
+const notifyMock = vi.mocked(notifyCatFollowers);
 const writeMock = vi.mocked(writeObservation);
 
 const PREFIX = "vitest-letgo-";

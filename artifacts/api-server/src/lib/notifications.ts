@@ -1,5 +1,5 @@
-import { db, pushTokensTable, sightingsTable } from "@workspace/db";
-import { and, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { db, pushTokensTable, catSubscriptionsTable } from "@workspace/db";
+import { and, eq, inArray, ne, notLike } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendPushNotification } from "./push";
 import { isResolvedDeceased } from "./catHelpers";
@@ -52,10 +52,11 @@ export async function notifyDevices(
 }
 
 /**
- * Notify every distinct device with a resolved sighting of this cat,
- * excluding the acting device. Fire-and-forget: never throws.
+ * Notify every follower of this cat (SYC-624), excluding the acting device.
+ * A phone that unfollowed has no row, so it hears nothing; a follower who
+ * never spotted the cat does hear. Fire-and-forget: never throws.
  */
-export async function notifyCatSpotters(
+export async function notifyCatFollowers(
   catId: number,
   actingDeviceId: string,
   notification: CatNotification,
@@ -65,20 +66,18 @@ export async function notifyCatSpotters(
     // (same rule as fanOutNotifications — see its doc comment). Follows
     // stay; a later sighting that clears the status resumes them.
     if (await isResolvedDeceased(catId)) {
-      logger.info({ catId }, "notifyCatSpotters skipped: cat is recorded as deceased");
+      logger.info({ catId }, "notifyCatFollowers skipped: cat is recorded as deceased");
       return;
     }
     const rows = await db
-      .select({ deviceId: sql<string>`distinct ${sightingsTable.deviceId}` })
-      .from(sightingsTable)
+      .select({ deviceId: catSubscriptionsTable.deviceId })
+      .from(catSubscriptionsTable)
       .where(
         and(
-          eq(sightingsTable.catId, catId),
-          eq(sightingsTable.status, "resolved"),
-          // A spotter who deleted their data (SYC-63) is never sent
-          // anything: their sightings stay, but with nobody on them.
-          isNotNull(sightingsTable.deviceId),
-          ne(sightingsTable.deviceId, actingDeviceId),
+          eq(catSubscriptionsTable.catId, catId),
+          ne(catSubscriptionsTable.deviceId, actingDeviceId),
+          // A phone that deleted its data (SYC-63) is never sent anything.
+          notLike(catSubscriptionsTable.deviceId, "deleted:%"),
         ),
       );
     await notifyDevices(
@@ -86,6 +85,6 @@ export async function notifyCatSpotters(
       notification,
     );
   } catch (err) {
-    console.error("[notifications] failed to notify cat spotters", err);
+    console.error("[notifications] failed to notify cat followers", err);
   }
 }

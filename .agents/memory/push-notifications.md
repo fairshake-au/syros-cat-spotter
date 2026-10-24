@@ -3,7 +3,7 @@ name: Push notification dispatch point
 description: Where cat-related push notifications are dispatched in the API server.
 ---
 
-All spotter push notifications route through two api-server dispatch points that now do real Expo push delivery via the shared `sendPushNotification` helper (Expo push HTTP API): `notifyDevices`/`notifyCatSpotters` in `src/lib/notifications.ts` (ownership claim/rename) and `createUpdateAndFanOut` in `src/lib/notificationFanout.ts` (cat updates).
+All spotter push notifications route through two api-server dispatch points that now do real Expo push delivery via the shared `sendPushNotification` helper (Expo push HTTP API): `notifyDevices`/`notifyCatFollowers` in `src/lib/notifications.ts` (ownership claim/rename) and `createUpdateAndFanOut` in `src/lib/notificationFanout.ts` (cat updates).
 
 **Why:** Devices register Expo push tokens per deviceId (`push_tokens` table, one token per device). Delivery is best-effort and fire-and-forget everywhere — callers use `void` + internal try/catch so push failures never affect HTTP responses.
 

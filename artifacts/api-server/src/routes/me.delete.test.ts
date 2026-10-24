@@ -58,7 +58,7 @@ vi.mock("../lib/matching", () => ({
 
 import app from "../app";
 import { sendPushNotification } from "../lib/push";
-import { notifyCatSpotters } from "../lib/notifications";
+import { notifyCatFollowers } from "../lib/notifications";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { deletedMarkerKey } from "../lib/deviceAuth";
 import { enqueueKeepSafeMail } from "../lib/mail/outbox";
@@ -711,7 +711,7 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       updateType: "general",
       message: "Spotted again",
     });
-    await notifyCatSpotters(w.discovered.id, "someone-else", {
+    await notifyCatFollowers(w.discovered.id, "someone-else", {
       title: "t",
       body: "b",
     });
