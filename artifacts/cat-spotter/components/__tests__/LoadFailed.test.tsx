@@ -75,12 +75,13 @@ describe('LoadFailed', () => {
   });
 });
 
-describe('LoadFailed for screen readers (SYC-509 rules)', () => {
-  it('announces itself as an alert and names what Try again reloads when asked', () => {
-    const { getByRole, getByLabelText } = render(
+describe('LoadFailed for screen readers (SYC-509 rules; no alert role, per its review)', () => {
+  it('announces politely (never an interrupting alert) and names what Try again reloads', () => {
+    const { container, queryByRole, getByLabelText } = render(
       <LoadFailed size="line" onRetry={() => {}} retryLabel="Try again: your stats" />,
     );
-    expect(getByRole('alert')).toBeTruthy();
+    expect(queryByRole('alert')).toBeNull();
+    expect(container.querySelector('[aria-live="polite"]')).not.toBeNull();
     expect(getByLabelText('Try again: your stats')).toBeTruthy();
   });
 

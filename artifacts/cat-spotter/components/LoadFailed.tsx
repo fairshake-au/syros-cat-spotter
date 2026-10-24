@@ -83,7 +83,7 @@ export function LoadFailed({
   if (size === 'line') {
     return (
       <View style={styles.line} testID={testID}>
-        <View accessibilityRole="alert" accessibilityLiveRegion="polite" aria-live="polite" style={styles.lineText}>
+        <View accessibilityLiveRegion="polite" aria-live="polite" style={styles.lineText}>
           <Text style={[styles.lineMessage, { color: colors.mutedForeground }]}>
             {message ?? t('loadFailedTitle')}
           </Text>
@@ -102,7 +102,7 @@ export function LoadFailed({
       >
         <Feather name="cloud-off" size={40} color={colors.mutedForeground} />
       </View>
-      <View accessibilityRole="alert" accessibilityLiveRegion="polite" aria-live="polite" style={styles.fullText}>
+      <View accessibilityLiveRegion="polite" aria-live="polite" style={styles.fullText}>
         <Text role="heading" style={[styles.title, { color: colors.foreground }]}>
           {message ?? t('loadFailedTitle')}
         </Text>
