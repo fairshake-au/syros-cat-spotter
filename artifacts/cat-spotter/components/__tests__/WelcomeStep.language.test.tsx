@@ -33,10 +33,10 @@ vi.mock('@/components/purropolis', async () => {
 import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
 import { WelcomeStep } from '../onboarding/WelcomeStep';
 
-/** Stands in for "How it works": any later screen reading the context. */
+/** Stands in for a later screen: any later screen reading the context. */
 function NextScreen() {
   const { t } = useLanguage();
-  return <>{t('howStepSpot')}</>;
+  return <>{t('keepSafeTitle')}</>;
 }
 
 function renderWelcome() {
@@ -70,7 +70,7 @@ describe('Welcome language switch (SYC-155)', () => {
     const view = renderWelcome();
     fireEvent.click(view.getByRole('radio', { name: 'Ελληνικά' }));
     await waitFor(() => expect(view.getByText(TRANSLATIONS.el.welcomeCta)).toBeTruthy());
-    expect(view.getByText(TRANSLATIONS.el.howStepSpot)).toBeTruthy();
+    expect(view.getByText(TRANSLATIONS.el.keepSafeTitle)).toBeTruthy();
     expect(setItem).toHaveBeenCalledWith('cat-spotter/language', 'el');
     expect(view.getByRole('radio', { name: 'Ελληνικά' }).getAttribute('aria-checked')).toBe('true');
   });
