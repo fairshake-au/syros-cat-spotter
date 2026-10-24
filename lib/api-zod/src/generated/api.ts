@@ -154,7 +154,10 @@ export const GetCatResponse = zod.object({
   "photoRemoved": zod.boolean().optional().describe('SYC-462. Present, and true, only when this sighting\'s own photo was\nremoved for good (it is hidden too, so `photoUrl` is null and\n`photoHidden` is true); the app then shows \"Photo removed.\" Left\nout otherwise.\n'),
   "createdAt": zod.string().describe('A Syros (Europe\/Athens) calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).')
 }).describe('A sighting in a cat\'s public history: photo, spotter and date. No\nposition and no sighting id, which would give away upload order\n(cat-record-data-spine.md §6.4).\n')),
-  "fansCount": zod.number().describe('Distinct devices that have spotted this cat'),
+  "fansCount": zod.number().describe('Deprecated: distinct spotting phones, kept for older app versions; same as spottersCount'),
+  "spottersCount": zod.number().optional().describe('Distinct phones with a confirmed sighting'),
+  "followersCount": zod.number().optional().describe('Phones following this cat now'),
+  "isFollowing": zod.boolean().optional().describe('This phone follows this cat; absent unless the phone proved its id'),
   "careTimeline": zod.array(zod.object({
   "type": zod.enum(['desexed', 'adopted', 'general', 'discovered']).describe('Care events recorded against the cat. `discovered` is synthesised\nfrom the cat\'s own creation, and its `message` is the discoverer\'s\ndisplay name rather than free text.\n'),
   "message": zod.string().nullable().describe('Null only on a `discovered` event whose discoverer deleted their data (SYC-63, SYC-235). The app shows \"a spotter\" in the reader\'s language. A blank, never a stand-in word, so no username can be mistaken for it.'),

@@ -1464,7 +1464,16 @@ components:
             $ref: "#/components/schemas/Sighting"
         fansCount:
           type: integer
-          description: Distinct devices that have spotted this cat
+          description: "Deprecated: distinct spotting phones, kept for older app versions; same as spottersCount"
+        spottersCount:
+          type: integer
+          description: Distinct phones with a confirmed sighting
+        followersCount:
+          type: integer
+          description: Phones following this cat now
+        isFollowing:
+          type: boolean
+          description: This phone follows this cat; absent unless the phone proved its id
         careTimeline:
           type: array
           description: Care history, newest first, oldest entry always `discovered`

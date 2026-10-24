@@ -352,6 +352,8 @@ async function catPage(catId: number) {
   return res.body as {
     cat: Record<string, unknown>;
     fansCount: number;
+    spottersCount: number;
+    followersCount: number;
     careTimeline: { type: string; message: string }[];
     sightings: { spotterCode: string | null; spotterUsername: string | null }[];
   };
@@ -508,6 +510,8 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
     );
     // Decision C: P stops counting.
     expect(page.fansCount).toBe(before.discovered.fansCount - 1);
+    expect(page.spottersCount).toBe(before.discovered.spottersCount - 1);
+    expect(page.followersCount).toBe(before.discovered.followersCount - 1);
     const board = await request(app).get("/api/leaderboard");
     expect(JSON.stringify(board.body)).not.toContain(w.P.username);
   });

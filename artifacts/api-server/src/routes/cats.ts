@@ -33,7 +33,7 @@ import { notifyCatFollowers } from "../lib/notifications";
 import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl, removedPhotoIds } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter, checkClaimLimit, checkFollowLimit } from "../middlewares/rateLimit";
-import { follow, followersCount, unfollow } from "../lib/following";
+import { follow, followersCount, isFollowing, unfollow } from "../lib/following";
 import { safeError } from "../lib/logger";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { deviceSecretMatches, verifyDeviceSecret } from "../lib/deviceAuth";
@@ -98,13 +98,16 @@ async function inClaimCooldown(catId: number, deviceId: string): Promise<boolean
 async function detailViewer(
   req: Request,
   cat: Cat,
-): Promise<{ viewer: Viewer; canClaim: boolean; claimCooldown: boolean }> {
+): Promise<{ viewer: Viewer; canClaim: boolean; claimCooldown: boolean; isFollowing: boolean | undefined }> {
   const header = req.headers["x-device-id"];
   const deviceId = typeof header === "string" ? header : "";
   const proven = deviceId !== "" && (await deviceSecretMatches(req, deviceId));
-  if (!proven) return { viewer: PUBLIC_VIEWER, canClaim: false, claimCooldown: false };
+  // SYC-624: `isFollowing` is the phone's own fact, so it is only said to a
+  // phone that proved its id; `undefined` leaves it out of the JSON.
+  if (!proven) return { viewer: PUBLIC_VIEWER, canClaim: false, claimCooldown: false, isFollowing: undefined };
   if (cat.ownerDeviceId === deviceId) {
-    return { viewer: { tier: "owner", deviceId }, canClaim: false, claimCooldown: false };
+    // An owner always follows the cat.
+    return { viewer: { tier: "owner", deviceId }, canClaim: false, claimCooldown: false, isFollowing: true };
   }
   // claiming-a-cat.md §4.1, §11: "may claim" comes from the same function
   // the claim uses, and only for a phone that has proved it is that device.
@@ -120,7 +123,7 @@ async function detailViewer(
     cat.ownerDeviceId === null &&
     (await claimEligibility(db, { catId: cat.id, deviceId })).ok === true &&
     !claimCooldown;
-  return { viewer: PUBLIC_VIEWER, canClaim, claimCooldown };
+  return { viewer: PUBLIC_VIEWER, canClaim, claimCooldown, isFollowing: await isFollowing(deviceId, cat.id) };
 }
 
 /**
@@ -261,12 +264,13 @@ router.get("/cats/:catId", async (req, res) => {
     )
     .orderBy(desc(catUpdatesTable.createdAt));
 
-  const [fans, discovererProfile] = await Promise.all([
+  const [fans, followers, discovererProfile] = await Promise.all([
     fansCount(catId),
+    followersCount(catId),
     lookupDiscoverer(cat.discovererDeviceId),
   ]);
 
-  const { viewer, canClaim, claimCooldown } = await detailViewer(req, cat);
+  const { viewer, canClaim, claimCooldown, isFollowing: following } = await detailViewer(req, cat);
   const catBody = await catPayload(
     cat,
     sightings.length,
@@ -277,6 +281,9 @@ router.get("/cats/:catId", async (req, res) => {
   res.json({
     cat: catBody,
     fansCount: fans,
+    spottersCount: fans,
+    followersCount: followers,
+    ...(following === undefined ? {} : { isFollowing: following }),
     careTimeline: [
       ...updates.map((u) => ({
         type: u.updateType,

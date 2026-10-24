@@ -1035,3 +1035,60 @@ describe("POST /api/cats (removed, D7)", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("the cat page says who follows (SYC-624 B6)", () => {
+  it("the public request has the counts but never isFollowing", async () => {
+    const c = await streetCat();
+    const res = await detail(c.id);
+    expect(res.status).toBe(200);
+    expect(res.body.spottersCount).toBe(0);
+    expect(res.body.followersCount).toBe(0);
+    expect(res.body).not.toHaveProperty("isFollowing");
+  });
+
+  it("a phone that sent an id without its secret is still public", async () => {
+    const c = await streetCat();
+    const d = phone("unproven");
+    await met(c.id, d);
+    const res = await detail(c.id, d);
+    expect(res.body).not.toHaveProperty("isFollowing");
+  });
+
+  it("a proven follower gets true, a proven non-follower false", async () => {
+    const c = await streetCat();
+    const f = phone("fol");
+    const n = phone("nonfol");
+    await met(c.id, f);
+    await bind(f);
+    await bind(n);
+    expect((await detail(c.id, f, f.secret)).body.isFollowing).toBe(true);
+    expect((await detail(c.id, n, n.secret)).body.isFollowing).toBe(false);
+  });
+
+  it("the owner gets true", async () => {
+    const c = await streetCat();
+    const d = phone("own");
+    await met(c.id, d);
+    expect((await claim(c.id, d)).status).toBe(200);
+    expect((await detail(c.id, d, d.secret)).body.isFollowing).toBe(true);
+  });
+
+  it("spottersCount equals fansCount", async () => {
+    const c = await streetCat();
+    await met(c.id, phone("a"));
+    await met(c.id, phone("b"));
+    const res = await detail(c.id);
+    expect(res.body.fansCount).toBe(2);
+    expect(res.body.spottersCount).toBe(res.body.fansCount);
+  });
+
+  it("followersCount counts follows of phones that never spotted the cat", async () => {
+    const c = await streetCat();
+    await met(c.id, phone("spotter"));
+    const watcher = phone("watcher");
+    await follow(db, { deviceId: watcher.id, catId: c.id });
+    const res = await detail(c.id);
+    expect(res.body.spottersCount).toBe(1);
+    expect(res.body.followersCount).toBe(2);
+  });
+});
