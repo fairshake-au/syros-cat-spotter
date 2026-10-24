@@ -254,6 +254,16 @@ describe("the form", () => {
     expect(res.text).toContain(`<a class="findentrylink" href="/api/team/cats/find?colours=black&amp;colony=${colony}">Find from a photo</a>`);
   });
 
+  it("opens with one line and a jump link to the photo (SYC-619 §9.4)", async () => {
+    const team = await teamMember("intro");
+    const res = await form(team.cookie, `?colony=${colony}`);
+    expect(res.text).toContain(
+      '<p class="hint">Choose where to look, then add the photo below. <a href="#find-photo">Go to the photo</a></p>',
+    );
+    expect(res.text).not.toContain("Compare a photo, for example");
+    expect(res.text).toContain('id="find-photo"');
+  });
+
   it("counts the cats a colony leaves, and offers the photo form", async () => {
     const team = await teamMember("form");
     const res = await form(team.cookie, `?colony=${colony}`);

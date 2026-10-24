@@ -588,6 +588,7 @@ button.secondary{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;bo
 a.findentrylink{display:inline-flex;align-items:center;min-height:44px;background:#fff;border:1px solid #0b5c6b;border-radius:8px;padding:0 16px;font-weight:700;color:#0b4553;text-decoration:none}
 a.findentrylink:hover{background:#e6f1f3}
 .findstep{margin:16px 0 0;padding-top:8px;border-top:1px solid #e6e2d6}
+#find-photo{scroll-margin-top:6em}
 input.filein{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 0;margin:0 0 8px}
 ul.findlist{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-columns:1fr;gap:12px}
 .findcard{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:start;overflow-wrap:anywhere}

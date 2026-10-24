@@ -82,8 +82,7 @@ export function renderVetSettingsPage(o: VetSettingsPageOptions): string {
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
       "<h2>Standard sterilisation price</h2>" +
       `<p class="hbig"><strong>€${o.priceEur}</strong> per cat</p>` +
-      '<p class="hint">The trapping planner\'s estimate uses it, and a vet visit with Sterilised ticked starts with it as the cost. ' +
-      "The cost of each visit can still be changed. A new price is used everywhere within a minute.</p>" +
+      "<p class=\"hint\">A vet visit with Sterilised ticked starts with this price as its cost. Each visit's cost can still be changed.</p>" +
       priceForm(o) +
       '<h2 id="history">History</h2>' +
       historyList(o.history),

@@ -1,0 +1,68 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`CSV output is locked (SYC-619 task 16) > coverage-areas 1`] = `
+"﻿Area,Squares not looked at yet,Squares with a sighting,Sightings
+Kini,4,2,3
+"
+`;
+
+exports[`CSV output is locked (SYC-619 task 16) > coverage-weeks 1`] = `
+"﻿Week starting,Sightings
+2026-10-05,3
+"
+`;
+
+exports[`CSV output is locked (SYC-619 task 16) > health 1`] = `
+"﻿Colony,Cats now,Change over 90 days,Kittens reported,Not seen lately,Cat guardian,Last visit,Flags
+Azolimnos,3,4,No,0,Yes,,
+Kini,5,-2,Yes,1,No,2026-10-10,Kittens reported; No cat guardian
+"
+`;
+
+exports[`CSV output is locked (SYC-619 task 16) > progress-colonies 1`] = `
+"﻿Colony,Street cats,Sterilised,Probably sterilised,Not known yet,Not sterilised,% confirmed sterilised
+"'=Harbour, east",4,1,0,1,2,25
+Empty,0,0,0,0,0,
+"
+`;
+
+exports[`CSV output is locked (SYC-619 task 16) > progress-over 1`] = `
+"﻿Date,Confirmed sterilised,All street cats known
+2026-09-01,2,8
+2026-10-01,4,10
+"
+`;
+
+exports[`CSV output is locked (SYC-619 task 16) > vet-months 1`] = `
+"﻿Month,Visits,Syros Cats' spend (€)
+2026-10-01,2,60.5
+"
+`;
+
+exports[`CSV output is locked (SYC-619 task 16) > vet-purposes 1`] = `
+"﻿What was done,Visits,Syros Cats' spend (€)
+Sterilised,1,60.5
+Vaccinated,0,0
+Treated,0,0
+Checked only,1,0
+"
+`;
+
+exports[`CSV output is locked (SYC-619 task 16) > vet-visits 1`] = `
+"﻿Cat,Date,Clinic,What was done,Cost (€),Paid by
+'=Tom,2026-10-10,Symviosis,Sterilised,60.5,Syros Cats
+Ada,2026-10-11,Symviosis,Checked only,,The owner
+"
+`;
+
+exports[`CSV output is locked (SYC-619 task 16) > welfare-areas 1`] = `
+"﻿Area,Welfare reports
+Kini,3
+"
+`;
+
+exports[`CSV output is locked (SYC-619 task 16) > welfare-weeks 1`] = `
+"﻿Week starting,Urgent,Needs attention,Litter,All welfare reports
+2026-10-05,1,2,0,3
+"
+`;

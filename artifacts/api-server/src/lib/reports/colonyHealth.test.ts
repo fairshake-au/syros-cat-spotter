@@ -95,6 +95,8 @@ describe("a colony's row", () => {
   it("a colony created after the range ends isn't in it", async () => {
     const r = await colonyHealthReport(TEAM, parseRange({ range: "custom", from: "2026-01-01", to: "2026-01-31" }, NOW), NOW);
     expect(r.rows.find((x) => x.colonyId === colonyId)).toBeUndefined();
+    // It still exists, so the page must not say there are no colonies.
+    expect(r.anyColonies).toBe(true);
   });
 });
 
