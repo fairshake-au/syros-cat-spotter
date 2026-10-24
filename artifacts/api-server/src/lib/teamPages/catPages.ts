@@ -26,6 +26,8 @@ import type { IssueReport } from "../issues/queue";
 import { reasonLabel } from "../issues/alertEmail";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
+import { timeAgo } from "./queuePage";
+import { rowMenu } from "./rowMenu";
 import { renderAppearanceSection } from "./appearancePage";
 import { byWhom, coatPhraseOf, renderCatFacts, statementHref, statusLine, type Shown } from "./catFacts";
 
@@ -161,6 +163,7 @@ const DONE: Record<string, string> = {
   visitAlready: "This visit was already undone. Nothing was changed.",
   visitReason: "Say why the visit is wrong, in up to 500 characters. Nothing was changed.",
   died: "Saved. The cat is recorded as no longer with us.",
+  note: "Saved. The note is in the history below.",
   diedAlready: "This cat is already recorded as no longer with us. Nothing was changed.",
 };
 
@@ -172,7 +175,7 @@ const VISIT_DONE = new Set(["visit", "visitWrong", "visitAlready", "visitReason"
 
 /** What the page says beside a photo after Hide or Restore (PR 6). */
 const PHOTO_DONE: Record<string, string> = {
-  hidden: "Hidden. The public no longer sees this photo. Tap Restore to bring it back.",
+  hidden: "Hidden. The public no longer sees this photo. Use the ⋯ menu on it to show it again.",
   restored: "Restored. The public sees this photo again.",
   already_hidden: "Someone already hid this photo a moment ago. Nothing was changed.",
   already_public: "Someone already restored this photo a moment ago. Nothing was changed.",
@@ -189,6 +192,8 @@ export interface CatPageOptions {
   photo?: string;
   /** Every colony, for the "Colony" list. Only asked for if the person may assign. */
   colonies?: { id: number; name: string }[];
+  /** ?open=coat: the Coat and markings fold opens (from "Update this cat"). */
+  openCoat?: boolean;
   /** ?history=all: show every row, not just the newest HISTORY_SHOWN. */
   allHistory?: boolean;
   /** ?show=: which of History's rows to show (spec §3.5). Left out: all of them. */
@@ -233,6 +238,7 @@ export function catPageFormKeys(
   // as correctionForms and wrongForm), so a row is never used up unseen.
   const own = new Set<string>();
   if (may("rename_cat")) own.add(`name:${v.cat.id}`);
+  if (may("add_team_note")) own.add(`note:${v.cat.id}`);
   if (may("set_life_status")) own.add(`life:${v.cat.id}`);
   if (may("set_sterilisation")) own.add(`sterilised:${v.cat.id}`);
   // A statement whose "Mark wrong" is in the history list (colour and
@@ -256,7 +262,30 @@ const ISSUE_STATE: Record<IssueReport["state"], string> = {
  * first, each linking to its row in the Queue. Team only, and drawn only when
  * there are some. The reporter is never named: there is nothing to name.
  */
-function issueStrip(strip: { reports: IssueReport[]; total: number } | null | undefined): string {
+type IssueStrip = { reports: IssueReport[]; total: number; open?: number };
+
+/**
+ * The amber box above the facts (spec §3.1): "1 open report: Looks injured ·
+ * 2 days ago", linking to the newest open one in the Queue. Open means the
+ * Queue's own open states, `new` and `looking`; `done` and `nothing_needed`
+ * are closed. Nothing when none is open (the Reports section still lists the
+ * closed ones). `open` counts them all; `reports` holds only the newest 50.
+ */
+function openReportsBox(strip: IssueStrip | null | undefined, now: Date): string {
+  if (!strip) return "";
+  const open = strip.reports.filter((i) => i.state === "new" || i.state === "looking");
+  const newest = open[0];
+  if (!newest) return "";
+  const n = Math.max(strip.open ?? 0, open.length);
+  const id = esc(encodeURIComponent(newest.id));
+  return (
+    '<aside class="openreports" aria-label="Open reports">' +
+    `<a href="/api/team?open=${id}#r-${id}">${n === 1 ? "1 open report" : `${n} open reports`}: ${esc(reasonLabel(newest.reason))} · ` +
+    `${esc(timeAgo(newest.at, now))}</a></aside>`
+  );
+}
+
+function issueStrip(strip: IssueStrip | null | undefined): string {
   if (!strip || strip.total === 0) return "";
   const items = strip.reports
     .map(
@@ -273,7 +302,7 @@ function issueStrip(strip: { reports: IssueReport[]; total: number } | null | un
     )
     .join("");
   return (
-    `<section id="issue-strip" class="issues"><h2>Reports about this cat (${strip.total})</h2>` +
+    `<section id="issue-strip" class="issues"><h2>Reports (${strip.total})</h2>` +
     '<p class="hint">Problems the public reported with this cat\'s photos, name or page. Team only.</p>' +
     `<ul class="hplain">${items}</ul>` +
     (strip.total > strip.reports.length
@@ -283,9 +312,25 @@ function issueStrip(strip: { reports: IssueReport[]; total: number } | null | un
   );
 }
 
+/** "3 Oct", or "3 Oct 2025" when it isn't this year. */
+const dayMonth = (iso: string, now: Date) => {
+  const opt = { timeZone: "Europe/Athens" } as const;
+  const year = (d: Date) => d.toLocaleDateString("en-GB", { year: "numeric", ...opt });
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    ...(year(new Date(iso)) === year(now) ? {} : { year: "numeric" }),
+    ...opt,
+  });
+};
+
 /**
- * One photo in the gallery. Staff see hidden photos too, labelled with who
- * hid them and when, with Hide or Restore: one tap, no "are you sure?" (§3.3).
+ * One photo in the gallery (spec §3.6). The one whose source is "main" is "Main photo", the others
+ * carry their date; each has a ⋯ menu with Open full size and Hide from the
+ * public (or Show to the public again): one tap in the menu, no "are you
+ * sure?". Staff see hidden photos too, dimmed and labelled with who hid them.
+ * `landed`: the page came back from Hide or Restore on this photo, so its menu
+ * is open and its notice sits inside the figure.
  */
 function galleryItem(
   p: TeamPhoto,
@@ -294,6 +339,8 @@ function galleryItem(
   catId: number,
   may: (c: Capability) => boolean,
   notice: string,
+  landed: boolean,
+  now: Date,
 ): string {
   const action = p.hidden ? "restore" : "hide";
   const allowed = may(p.hidden ? "restore_photo" : "hide_photo");
@@ -301,25 +348,31 @@ function galleryItem(
   // screen reader. The first photo and the main photo carry no label.
   const roleWords = p.role === "face" ? "Face photo" : p.role === "body" ? "Whole body photo" : null;
   const roleSr = roleWords ? `${roleWords.toLowerCase()}, ` : "";
+  const whichSr = `${roleSr}photo ${i + 1} of ${total}`;
   const form = allowed
     ? `<form method="post" action="/api/team/photos/${encodeURIComponent(p.publicId)}/${action}">` +
       `<input type="hidden" name="cat" value="${catId}">` +
-      `<button type="submit" class="${p.hidden ? "restore" : "hide risky"}">${p.hidden ? "Restore" : "Hide from the public"}` +
+      `<button type="submit" class="${p.hidden ? "restore" : "hide risky"}">${p.hidden ? "Show to the public again" : "Hide from the public"}` +
       // Which photo, for a screen reader: every button says the same words.
-      `<span class="sr"> (${roleSr}photo ${i + 1} of ${total})</span></button></form>`
+      `<span class="sr"> (${whichSr})</span></button></form>`
     : "";
-  const label = p.hidden
-    ? `<p class="hiddenby">Hidden from the public by ${esc(p.hidden.by)}, ${time(p.hidden.at, day(p.hidden.at))}` +
-      (p.hidden.reason ? `<br><span class="why">${esc(p.hidden.reason)}</span>` : "") +
-      "</p>"
-    : "";
+  const full = `<a class="tap" href="${esc(p.url)}">Open full size<span class="sr"> (${whichSr})</span></a>`;
+  const menu = rowMenu("⋯", whichSr, [full, form], { dots: true, open: landed });
+  const caption = p.hidden
+    ? `<span class="hiddenby">Hidden · ${esc(p.hidden.by)}, <time datetime="${esc(p.hidden.at)}">${esc(dayMonth(p.hidden.at, now))}</time></span>`
+    : p.source === "main"
+      ? "Main photo"
+      : p.at
+        ? `<time datetime="${esc(p.at)}">${esc(dayMonth(p.at, now))}</time>`
+        : "Photo";
+  const why = p.hidden?.reason ? `<p class="hiddenby"><span class="why">${esc(p.hidden.reason)}</span></p>` : "";
   return (
     `<figure id="p-${esc(p.publicId)}"${p.hidden ? ' class="ishidden"' : ""}>` +
     `<a href="${esc(p.url)}"><img src="${esc(p.url)}" alt="${esc(`Photo ${i + 1} of ${total}${p.hidden ? ", hidden from the public" : ""}`)}" loading="lazy"></a>` +
+    `<figcaption><span class="capt">${caption}</span>${menu}</figcaption>` +
     (roleWords ? `<p class="role">${roleWords}</p>` : "") +
+    why +
     notice +
-    label +
-    form +
     "</figure>"
   );
 }
@@ -430,13 +483,23 @@ function backToCats(back: string | undefined): string {
   return `<p class="back"><a href="${esc(back)}">&larr; ${words}</a></p>`;
 }
 
+/**
+ * Only people who may add a team note see team notes (spec §3.2 item 3): the
+ * Health note and the history rows go from a view drawn for anyone else. The
+ * page is for island-wide team members today, and every one of them holds
+ * add_team_note, so this is the second lock, not the first.
+ */
+export const withoutTeamNotes = (v: TeamCatView): TeamCatView =>
+  v.history.some((h) => h.kind === "team_note") ? { ...v, history: v.history.filter((h) => h.kind !== "team_note") } : v;
+
 export function renderCatPage(
-  v: TeamCatView,
+  view: TeamCatView,
   personName: string,
   opts: CatPageOptions = {},
 ): string {
-  const { cat, records } = v;
   const may = opts.may ?? (() => false);
+  const v = may("add_team_note") ? view : withoutTeamNotes(view);
+  const { cat, records } = v;
   const island = opts.island === true;
   const now = opts.now ?? new Date();
   // The message goes where the page lands: beside the statement after a
@@ -473,6 +536,7 @@ export function renderCatPage(
   const summaryParts = {
     photo: main,
     facts:
+      openReportsBox(opts.issues, now) +
       renderCatFacts(v, now, { byId, shown, island }) +
       (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
       `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>`,
@@ -483,8 +547,8 @@ export function renderCatPage(
     '<nav class="jump" aria-label="Sections of this page">' +
     `<a href="#history">History (${historyCounts(v, visitList).all})</a>` +
     `<a href="#photos">Photos (${v.photos.length})</a>` +
-    '<a href="#appearance">Coat and markings</a>' +
     (issueTotal > 0 ? `<a href="#issue-strip">Reports (${issueTotal})</a>` : "") +
+    '<a href="#appearance">Coat and markings</a>' +
     "</nav>";
 
   // After Hide or Restore, the message goes beside that photo (own keys only:
@@ -493,10 +557,11 @@ export function renderCatPage(
     opts.done && Object.hasOwn(PHOTO_DONE, opts.done)
       ? `<p class="notice" role="status">${esc(PHOTO_DONE[opts.done]!)}</p>`
       : "";
-  const landed = v.photos.some((p) => p.publicId === opts.photo);
+  // The menu opens only when the page really came back from Hide or Restore on a photo we have.
+  const landed = photoNotice !== "" && v.photos.some((p) => p.publicId === opts.photo);
   const hiddenCount = v.photos.filter((p) => p.hidden).length;
   const photos =
-    `<h2 id="photos">All photos (${v.photos.length})</h2>` +
+    `<h2 id="photos">Photos (${v.photos.length})</h2>` +
     (landed ? "" : photoNotice) +
     (hiddenCount > 0
       ? `<p class="hint">${hiddenCount} hidden from the public. The team still sees ${hiddenCount === 1 ? "it" : "them"} here.</p>`
@@ -506,7 +571,10 @@ export function renderCatPage(
       : '<div class="gallery">' +
         v.photos
           .map((p, i) =>
-            galleryItem(p, i, v.photos.length, cat.id, may, landed && p.publicId === opts.photo ? photoNotice : ""),
+            {
+              const here = landed && p.publicId === opts.photo;
+              return galleryItem(p, i, v.photos.length, cat.id, may, here ? photoNotice : "", here, now);
+            }
           )
           .join("") +
         "</div>");
@@ -543,10 +611,15 @@ export function renderCatPage(
         renderCatActions(v, may, { notice: formsNotice, colonies: opts.colonies ?? [], kept: opts.kept, done: opts.done }),
       ) +
       jump +
+      // Below the summary: History left, the rest in a narrower right column
+      // on a wide screen (spec §4). On a phone it is one column, in this order.
+      '<div class="catcols"><div class="catmain">' +
+      history +
+      '</div><div class="catside">' +
+      `<section>${photos}</section>` +
       issueStrip(opts.issues) +
-      renderAppearanceSection(v, may, opts.done) +
-      photos +
-      history,
+      renderAppearanceSection(v, may, opts.done, undefined, { fold: true, open: opts.openCoat === true }) +
+      "</div></div>",
   });
 }
 

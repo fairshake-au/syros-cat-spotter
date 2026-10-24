@@ -134,6 +134,7 @@ async function doneFrom(req: Request, viewerId: string): Promise<Done | null> {
   const name = (await peopleNames(db, [pid])).get(pid);
   const done: Done = {
     kind: k,
+    personId: pid,
     // A withdrawn, anonymised invitation has no name to say.
     name: name && name !== ANONYMISED_NAME ? [...name].slice(0, 60).join("") : undefined,
   };
@@ -201,12 +202,18 @@ router.get("/team/people", requireTeam("manage_people"), async (req: Request, re
       joinedLast7Days: recent.map(jsonOf),
     });
   }
+  const done = await doneFrom(req, me.id);
+  // The row to open: the person a proven result acted on, else a checked ?open=.
+  // Both are ids of the shape /people/:id/roles accepts; the page opens a row
+  // only if that person is on the list it draws.
+  const asked = typeof req.query["open"] === "string" && isPersonId(req.query["open"]) ? req.query["open"].toLowerCase() : null;
   res.type("html").send(
     renderPeoplePage({
       viewer: me.name,
       ...body,
       colonies: await colonyOptions(res),
-      done: await doneFrom(req, me.id),
+      done,
+      openId: done?.personId ?? asked ?? undefined,
     }),
   );
 });

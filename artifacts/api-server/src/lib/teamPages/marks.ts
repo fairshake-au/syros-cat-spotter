@@ -51,9 +51,13 @@ const SHAPE: Record<SterilisedMark, string> = {
 const icon = (m: SterilisedMark) =>
   `<svg class="mark-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">${SHAPE[m]}</svg>`;
 
-/** Trusted HTML: a small shape and the word. Built only from the fixed text above. */
-export function markBadge(m: SterilisedMark): string {
-  return `<span class="mark mark-${m}">${icon(m)}<span class="mark-word">${MARK_WORD[m]}</span></span>`;
+/**
+ * Trusted HTML: a small shape and the word. Built only from the fixed text
+ * above, or from `word` (a cat guardian's own language, from the catalogue:
+ * a colony's cat rows, SYC-619 spec §7.2), which is escaped.
+ */
+export function markBadge(m: SterilisedMark, word: string = MARK_WORD[m]): string {
+  return `<span class="mark mark-${m}">${icon(m)}<span class="mark-word">${esc(word)}</span></span>`;
 }
 
 /**

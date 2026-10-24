@@ -8,7 +8,7 @@ import { escapeHtml as esc } from "./escape";
 import { backLink, HOME_PATH } from "./backLink";
 import { renderPage } from "./layout";
 import { tr, type Language, type StringKey } from "./strings";
-import { coatWordsFor, teamPatternWord, teamWordsApply, TEAM_PATTERN_LABELS } from "./teamCoatWords";
+import { coatIsUnknown, coatWordsFor, teamPatternWord, teamWordsApply, TEAM_PATTERN_LABELS } from "./teamCoatWords";
 
 // The Appearance section on the team cat page, and the Colour check list
 // (SYC-2 PR 3.1; coat-markings-and-health.md §4.4, §5.3). Server-drawn, no
@@ -153,12 +153,16 @@ function confirmForm(
   guardianDecides: boolean,
   back: AppearanceBack,
   coat?: CoatShown,
+  /** The team cat page's fold says what it agrees with, in its own words. */
+  buttonLabel?: string,
 ): string {
   const which = tr(lang, kind === "coat" ? "appearance.colour" : "appearance.markings");
   // On the Colour check list two of these sit together, so the button says
   // which; on the cat page it sits under its own heading.
   const label =
-    back === "colour"
+    buttonLabel !== undefined
+      ? esc(buttonLabel)
+      : back === "colour"
       ? esc(tr(lang, "appearance.confirmWhich", { what: which.toLowerCase() }))
       : `${esc(tr(lang, "appearance.confirm"))}<span class="sr"> (${esc(which)})</span>`;
   return (
@@ -209,6 +213,8 @@ function correctForm(
   idBase: string,
   /** Shown again after a refusal: open, with its error and the reason kept. */
   again?: { error: string; reason: string },
+  /** The fold's "Change the coat or markings" holds both forms open, with no summary of their own. */
+  bare = false,
 ): string {
   const codes: readonly string[] = kind === "coat" ? TEAM_COLOURS : MARKS;
   const field = kind === "coat" ? "colours" : "marks";
@@ -223,7 +229,9 @@ function correctForm(
     )
     .join("");
   return (
-    `<details${again ? " open" : ""}><summary>${esc(tr(lang, kind === "coat" ? "appearance.correctColour" : "appearance.correctMarkings"))}</summary>` +
+    (bare
+      ? '<div class="changepart">'
+      : `<details${again ? " open" : ""}><summary>${esc(tr(lang, kind === "coat" ? "appearance.correctColour" : "appearance.correctMarkings"))}</summary>`) +
     (again ? `<p class="warn" role="alert">${esc(again.error)}</p>` : "") +
     `<form method="post" action="/api/team/cats/${catId}/appearance/correct">` +
     `<input type="hidden" name="kind" value="${kind}">` +
@@ -236,7 +244,8 @@ function correctForm(
     `<div class="chips">${boxes}</div></fieldset>` +
     (kind === "coat" ? patternRadios(lang, idBase) : "") +
     reasonInput(lang, `${idBase}-why`, again?.reason) +
-    `<button type="submit">${esc(tr(lang, "appearance.save"))}</button></form></details>`
+    `<button type="submit">${esc(tr(lang, "appearance.save"))}</button></form>` +
+    (bare ? "</div>" : "</details>")
   );
 }
 
@@ -359,7 +368,10 @@ export function renderAppearanceSection(
   may: (c: Capability) => boolean,
   done?: string,
   lang?: string,
+  /** Only the team cat page passes `fold: true` (SYC-602 §3.7); everyone else gets the section as it was. */
+  opts: { fold?: boolean; open?: boolean } = {},
 ): string {
+  if (opts.fold) return renderCoatFold(v, may, done, lang, opts.open === true);
   const a = v.appearance;
   const mayChange = may("set_appearance");
   // The resolved parts the public payload carries from SYC-398 PR A2; never
@@ -385,6 +397,174 @@ export function renderAppearanceSection(
     kindBlock(lang, v.cat.id, "coat", a.coat, coatReasons, mayChange) +
     kindBlock(lang, v.cat.id, "markings", a.markings, a.markings.checkReasons, mayChange) +
     `<p class="hint">${esc(tr(lang, "appearance.historyHint"))}</p>`
+  );
+}
+
+// ── The Coat and markings fold on the team cat page (SYC-602 Task 3.2, spec §3.7) ──
+// English only (Decision 12): team pages take no language, so these words are
+// written here. No confidence tags, record numbers or model names (SYC-521).
+
+const shortDay = (iso: string, withYear: boolean) =>
+  new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    ...(withYear ? { year: "numeric" as const } : {}),
+    timeZone: "Europe/Athens",
+  });
+
+/** Who said it, for a sentence: the name, or "The team" when the account is gone. */
+const whoOf = (s: TeamAppearanceStatement) => (s.author.kind === "deleted" ? "The team" : s.author.label);
+
+/** One counting change in a sentence: "Read from the photo on 3 Apr", "Maria agreed on 5 Apr". */
+function originOf(s: TeamAppearanceStatement, withYear: boolean): string {
+  const day = shortDay(s.createdAt, withYear);
+  if (s.source === "machine") return `Read from the photo on ${day}`;
+  if (s.source === "spotter") return `A spotter said so on ${day}`;
+  const who = s.source === "guardian" ? `${whoOf(s)}, cat guardian,` : whoOf(s);
+  return s.agreesWith !== null ? `${who} agreed on ${day}` : `${who} said so on ${day}`;
+}
+
+/** Where a value came from: the changes that count now, oldest first, none said twice. */
+function originsOf(a: TeamAppearance, withYear: boolean, max: number): string[] {
+  const seen = new Set<string>();
+  for (const s of [...a.statements].filter((x) => x.counts).reverse()) seen.add(originOf(s, withYear));
+  return [...seen].slice(0, max);
+}
+
+const lowerFirst = (t: string) => (t ? t[0]!.toLowerCase() + t.slice(1) : t);
+
+function coatPhrase(lang: string | undefined, a: TeamAppearance): string | null {
+  const coat = { colours: a.parts?.colours.value ?? null, pattern: a.parts?.pattern.value ?? null };
+  return coatIsUnknown(coat) ? null : coatWordsFor(lang, coat);
+}
+
+/**
+ * The changes the fold offers a "Mark wrong" for: every one that stands and
+ * nothing points at (`markable`), whether or not it counts now. History's link
+ * to the fold asks the same question, so it never points at a button that
+ * isn't there. (Spec section 8: no Mark wrong is lost.)
+ */
+export const markWrongInFold = (s: TeamAppearanceStatement) => s.markable;
+
+function changeRows(lang: string | undefined, rows: readonly TeamAppearanceStatement[], mayChange: boolean): string {
+  return (
+    '<ul class="history coatchanges">' +
+    rows
+      .map(
+        (s) =>
+          `<li class="statement" id="a-${s.id}"><p class="meta">${esc(originOf(s, true))}</p>` +
+          (s.photoUrl
+            ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}"><img class="thumb" src="${esc(s.photoUrl)}" alt="${esc(tr(lang, "appearance.photo"))}" loading="lazy"></a></p>`
+            : "") +
+          (mayChange && markWrongInFold(s) ? markWrongForm(lang, s) : "") +
+          "</li>",
+      )
+      .join("") +
+    "</ul>"
+  );
+}
+
+/**
+ * Each change that counts, with the photo it was read from (everyone sees
+ * these), then the standing ones that don't count under their own heading.
+ * Only the Mark wrong form needs the capability.
+ */
+function markableChanges(lang: string | undefined, a: TeamAppearance, mayChange: boolean): string {
+  const counting = a.statements.filter((s) => s.counts);
+  const notCounted = a.statements.filter((s) => !s.counts && markWrongInFold(s));
+  return (
+    (counting.length ? changeRows(lang, counting, mayChange) : "") +
+    (notCounted.length ? `<p class="label">Also recorded, not counted</p>${changeRows(lang, notCounted, mayChange)}` : "")
+  );
+}
+
+function foldKind(
+  lang: string | undefined,
+  catId: number,
+  kind: "coat" | "markings",
+  a: TeamAppearance,
+  reasons: readonly ColourCheckReason[],
+  mayChange: boolean,
+): string {
+  const phrase = kind === "coat" ? coatPhrase(lang, a) : a.value === null ? null : valueText(lang, "markings", a.value);
+  const heading =
+    kind === "coat"
+      ? `Coat: ${phrase !== null ? lowerFirst(phrase) : "not known yet"}`
+      : `Markings: ${phrase !== null ? lowerFirst(phrase) : "not known yet"}`;
+  const origins = originsOf(a, true, 4);
+  const canConfirm = a.value !== null && (kind === "markings" || a.value.length > 0);
+  const coat = kind === "coat" && a.parts ? { colours: a.parts.colours.value, pattern: a.parts.pattern.value } : undefined;
+  return (
+    `<h3>${esc(heading)}</h3>` +
+    // No counting change means no sentence: real data cannot give a value without one.
+    (origins.length ? `<p>${esc(origins.join(". "))}.</p>` : "") +
+    (reasons.length
+      ? `<p class="label">${esc(tr(lang, "appearance.checkTitle"))}</p>${reasonList(lang, reasons)}`
+      : "") +
+    (a.guardianDisagrees ? `<p class="warn">${esc(tr(lang, "appearance.guardianDisagrees"))}</p>` : "") +
+    markableChanges(lang, a, mayChange) +
+    (mayChange && canConfirm
+      ? '<div class="fixes appfix">' +
+        confirmForm(lang, catId, kind, a.value!, a.guardianDecides, "cat", coat, `Yes, the ${kind === "coat" ? "coat is" : "markings are"} right`) +
+        "</div>"
+      : "")
+  );
+}
+
+function renderCoatFold(
+  v: TeamCatView,
+  may: (c: Capability) => boolean,
+  done: string | undefined,
+  lang: string | undefined,
+  openCoat: boolean,
+): string {
+  const a = v.appearance;
+  const mayChange = may("set_appearance");
+  const parts = a.coat.parts;
+  const coatReasons: ColourCheckReason[] = [...a.coat.checkReasons, ...(a.handPick ? (["hand_pick"] as const) : [])];
+  const open =
+    openCoat ||
+    (done !== undefined && Object.hasOwn(APPEARANCE_DONE, done)) ||
+    coatReasons.length > 0 ||
+    a.markings.checkReasons.length > 0 ||
+    a.coat.guardianDisagrees ||
+    a.markings.guardianDisagrees;
+
+  const coatWords = coatPhrase(lang, a.coat);
+  const markWords = a.markings.value === null ? [] : a.markings.value.map((m) => lowerFirst(markShownWord(lang, m)));
+  const title =
+    coatWords !== null
+      ? [coatWords, ...markWords].join(", ")
+      : markWords.length > 0
+        ? `Coat not known, ${markWords.join(", ")}`
+        : "Coat and markings not known yet";
+  const origin = originsOf(a.coat, false, 3).join(" · ");
+
+  const line = publicLine(
+    lang,
+    { colours: parts?.colours.value ?? null, pattern: parts?.pattern.value ?? null },
+    v.publicStatus.markings,
+  );
+  return (
+    "<h2>Coat and markings</h2>" +
+    `<details class="fold" id="appearance"${open ? " open" : ""}>` +
+    `<summary><b>${esc(title)}</b>${origin ? `<span>${esc(origin)}</span>` : ""}</summary>` +
+    '<div class="foldbody">' +
+    appearanceNotice(lang, done) +
+    (done && DRAWN_AFTER.has(done) && parts
+      ? drawnCoatFigure(lang, { colours: parts.colours.value, pattern: parts.pattern.value }, `cat${v.cat.id}`)
+      : "") +
+    `<p class="public">${esc(line || tr(lang, "appearance.publicNothing"))}</p>` +
+    foldKind(lang, v.cat.id, "coat", a.coat, coatReasons, mayChange) +
+    foldKind(lang, v.cat.id, "markings", a.markings, a.markings.checkReasons, mayChange) +
+    (mayChange
+      ? '<details class="changecoat"><summary>Change the coat or markings</summary><div class="fixes appfix">' +
+        correctForm(lang, v.cat.id, "coat", a.coat.value, a.coat.aboveTeamIds, "cat", "ac-coat", undefined, true) +
+        correctForm(lang, v.cat.id, "markings", a.markings.value, a.markings.aboveTeamIds, "cat", "ac-markings", undefined, true) +
+        "</div></details>"
+      : "") +
+    '<p class="hint">Older and replaced changes are in History, with what replaced them.</p>' +
+    "</div></details>"
   );
 }
 
@@ -449,12 +629,12 @@ function checkRow(lang: string | undefined, c: ColourCheckCat, inline: boolean):
     : "";
   return (
     `<li class="report colourcheck" id="c-${c.catId}">` +
-    `<a class="catrow" href="/api/team/cats/${c.catId}#appearance">${thumb}` +
+    `<a class="catrow" href="/api/team/cats/${c.catId}?open=coat#appearance">${thumb}` +
     `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span>` +
     `<span class="status">${esc(line)}</span></span></a>` +
     reasonList(lang, c.reasons) +
     `<div class="fixes appfix">${confirms}${corrects}</div>` +
-    `<p><a class="tap" href="/api/team/cats/${c.catId}#appearance">${esc(tr(lang, "colourCheck.openCat"))}</a></p>` +
+    `<p><a class="tap" href="/api/team/cats/${c.catId}?open=coat#appearance">${esc(tr(lang, "colourCheck.openCat"))}</a></p>` +
     "</li>"
   );
 }

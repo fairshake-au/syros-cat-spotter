@@ -60,7 +60,7 @@ afterAll(() => {
 });
 
 const ROWS: [string, () => string, string, string][] = [
-  ["Areas", () => renderAreasPage({ personName: "Susan", link: true, areas: [], version: 1, history: [] }), "← Home", HOME_PATH],
+  ["Areas", () => renderAreasPage({ personName: "Susan", link: true, areas: [], version: 1, firstVersion: 1, history: [] }), "← Home", HOME_PATH],
   ["Ear clips to check", () => renderLikelyPage([], "Susan"), "← Home", HOME_PATH],
   ["Colour check", () => renderColourCheckPage([], "Susan"), "← Home", HOME_PATH],
   ["Vet settings", () => renderVetSettingsPage({ personName: "Susan", priceEur: 55, history: [] }), "← Home", HOME_PATH],
@@ -70,7 +70,7 @@ const ROWS: [string, () => string, string, string][] = [
       renderColonyPage(
         { id: 3, name: "Kalamos", guardianName: null, notes: null, lat: null, lng: null, siteCount: 0, catCount: 0, sites: [], cats: [], history: [] } as never,
         "Susan",
-        { may: () => true },
+        { may: () => true, rows: [] },
       ),
     "← Colonies",
     "/api/team/colonies",

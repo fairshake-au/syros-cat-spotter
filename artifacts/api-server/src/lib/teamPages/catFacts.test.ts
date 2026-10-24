@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TeamAppearance, TeamAppearanceStatement, TeamCatView, TeamStatement } from "../teamCatView";
-import { catFacts, renderCatFacts, type Shown } from "./catFacts";
+import { catFacts, healthNoteOf, renderCatFacts, type Shown } from "./catFacts";
 import { catView, richCatView, statement } from "./__fixtures__/catView";
 import { renderCatPage } from "./catPages";
 
@@ -470,5 +470,95 @@ describe("the facts panel: sources, Owner and Why we think so (SYC-602 PR 1)", (
     expect(html).toContain('<span class="how">Seen 21 times since April</span>');
     expect(html).toContain('<details class="why"><summary>Why we think so</summary>');
     expect(html).not.toContain("<script");
+  });
+});
+
+describe("the facts row: Health note (SYC-602 spec §3.1, §3.2 item 3)", () => {
+  const note = (id: number, text: string, over: Partial<TeamStatement> = {}) =>
+    statement(id, {
+      kind: "team_note",
+      said: `Note (team only): “${text}”`,
+      noteText: text,
+      createdAt: `2026-10-0${id}T10:00:00Z`,
+      observedAt: `2026-10-0${id}T10:00:00Z`,
+      ...over,
+    });
+
+  it("is left out when the cat has no standing note", () => {
+    expect(facts(view())["Health note"]).toBeUndefined();
+    expect(healthNoteOf(view())).toBeNull();
+  });
+
+  it("shows the note's text, with 'Maria, 2 Oct 2026 · team only' under it", () => {
+    const v = view({ history: [note(2, "Limping on the left.")] });
+    expect(facts(v)["Health note"]).toBe("Limping on the left.");
+    const fact = catFacts(v, NOW, optsFor(v)).find((f) => f.label === "Health note");
+    expect(fact?.source).toBe("Maria, 2 Oct 2026 · team only");
+  });
+
+  it("the newest standing note wins", () => {
+    const v = view({ history: [note(3, "Newer"), note(2, "Older")] });
+    expect(healthNoteOf(v)?.id).toBe(3);
+    expect(facts(v)["Health note"]).toBe("Newer");
+  });
+
+  it("a note marked wrong drops out and the next older standing one shows", () => {
+    const retraction = note(4, "", { said: "Marked wrong", noteText: undefined, replaces: 3 });
+    const v = view({ history: [retraction, note(3, "Newer", { replacedBy: [4] }), note(2, "Older")] });
+    expect(healthNoteOf(v)?.id).toBe(2);
+    expect(facts(v)["Health note"]).toBe("Older");
+  });
+
+  it("a retraction row is never the note, and with every note marked wrong the fact goes", () => {
+    const retraction = note(3, "", { said: "Marked wrong", noteText: undefined, replaces: 2 });
+    const v = view({ history: [retraction, note(2, "Gone", { replacedBy: [3] })] });
+    expect(healthNoteOf(v)).toBeNull();
+    expect(facts(v)["Health note"]).toBeUndefined();
+  });
+
+  it("escapes the text everywhere, and keeps line breaks", () => {
+    const v = view({ history: [note(2, '<script>alert("x")</script> & more\nsecond line')] });
+    const html = renderCatFacts(v, NOW, optsFor(v));
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).toContain("&amp; more<br>second line");
+  });
+
+  it("an author who has left, or is a deleted person, is named as the history names them", () => {
+    const v = view({ history: [note(2, "Hi", { author: { kind: "team", label: "Maria (left)" } })] });
+    expect(catFacts(v, NOW, optsFor(v)).find((f) => f.label === "Health note")?.source).toBe(
+      "Maria (left), 2 Oct 2026 · team only",
+    );
+  });
+
+  it("the page draws it in the facts panel", () => {
+    const v = view({ history: [note(2, "Limping on the left.")] });
+    expect(renderCatFacts(v, NOW, optsFor(v))).toContain("<dt>Health note</dt>");
+  });
+});
+
+describe("the page shows team notes only to someone who may add one (spec §3.2 item 3)", () => {
+  const withNote = view({
+    history: [
+      statement(2, {
+        kind: "team_note",
+        said: "Note (team only): “Secret health words”",
+        noteText: "Secret health words",
+      }),
+    ],
+  });
+
+  it("draws the Health note and the history row for add_team_note", () => {
+    const html = renderCatPage(withNote, "Maria", { now: NOW, may: (c) => c === "add_team_note" });
+    expect(html).toContain("<dt>Health note</dt>");
+    expect(html).toContain("Secret health words");
+  });
+
+  it("draws neither, anywhere, for a viewer without it", () => {
+    const html = renderCatPage(withNote, "Maria", { now: NOW, may: (c) => c !== "add_team_note" });
+    expect(html).not.toContain("Secret health words");
+    expect(html).not.toContain("Health note");
+    expect(html).not.toContain("team only");
+    expect(renderCatPage(withNote, "Maria", { now: NOW })).not.toContain("Secret health words");
   });
 });

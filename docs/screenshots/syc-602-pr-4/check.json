@@ -1,0 +1,321 @@
+[
+ {
+  "width": 390,
+  "page": "add-a-note",
+  "noteOpen": {
+   "summaryText": "Add a note",
+   "listStyle": "none",
+   "display": "flex",
+   "beforeContent": "none",
+   "markerContent": "normal",
+   "height": 44,
+   "hasTextarea": true
+  }
+ },
+ {
+  "width": 390,
+  "page": "menus-off-screen",
+  "spill": [
+   false,
+   false,
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "width": 390,
+  "page": "cat",
+  "healthNote": {
+   "value": "Limping on the left back leg since Tuesday. Keep an eye on it; vet if still limping on Monday.",
+   "source": "Maria, 2 Oct 2026 · team only"
+  },
+  "noteRows": [
+   {
+    "id": "s-310",
+    "tag": "team only",
+    "struck": false,
+    "markWrong": true
+   },
+   {
+    "id": "s-305",
+    "tag": "team only",
+    "struck": true,
+    "markWrong": false
+   },
+   {
+    "id": "s-309",
+    "tag": "team only",
+    "struck": false,
+    "markWrong": false
+   }
+  ],
+  "addNoteButton": true,
+  "scrollW": 390,
+  "clientW": 390,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": true,
+  "sideSticky": "static",
+  "sideOnRight": false,
+  "mainPhotoLabels": [
+   "Main photo"
+  ],
+  "sideways": false
+ },
+ {
+  "width": 390,
+  "page": "bare",
+  "healthNote": null,
+  "noteRows": [
+   {
+    "id": "s-310",
+    "missing": true
+   },
+   {
+    "id": "s-305",
+    "missing": true
+   },
+   {
+    "id": "s-309",
+    "missing": true
+   }
+  ],
+  "addNoteButton": false,
+  "scrollW": 390,
+  "clientW": 390,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": null,
+  "sideSticky": "static",
+  "sideOnRight": false,
+  "mainPhotoLabels": [],
+  "sideways": false
+ },
+ {
+  "width": 390,
+  "page": "readonly",
+  "healthNote": null,
+  "noteRows": [
+   {
+    "id": "s-310",
+    "missing": true
+   },
+   {
+    "id": "s-305",
+    "missing": true
+   },
+   {
+    "id": "s-309",
+    "missing": true
+   }
+  ],
+  "addNoteButton": false,
+  "scrollW": 390,
+  "clientW": 390,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": null,
+  "sideSticky": "static",
+  "sideOnRight": false,
+  "mainPhotoLabels": [
+   "Main photo"
+  ],
+  "sideways": false
+ },
+ {
+  "width": 600,
+  "page": "add-a-note",
+  "noteOpen": {
+   "summaryText": "Add a note",
+   "listStyle": "none",
+   "display": "flex",
+   "beforeContent": "none",
+   "markerContent": "normal",
+   "height": 44,
+   "hasTextarea": true
+  }
+ },
+ {
+  "width": 600,
+  "page": "menus-off-screen",
+  "spill": [
+   false,
+   false,
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "width": 600,
+  "page": "cat",
+  "healthNote": {
+   "value": "Limping on the left back leg since Tuesday. Keep an eye on it; vet if still limping on Monday.",
+   "source": "Maria, 2 Oct 2026 · team only"
+  },
+  "noteRows": [
+   {
+    "id": "s-310",
+    "tag": "team only",
+    "struck": false,
+    "markWrong": true
+   },
+   {
+    "id": "s-305",
+    "tag": "team only",
+    "struck": true,
+    "markWrong": false
+   },
+   {
+    "id": "s-309",
+    "tag": "team only",
+    "struck": false,
+    "markWrong": false
+   }
+  ],
+  "addNoteButton": true,
+  "scrollW": 600,
+  "clientW": 600,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": true,
+  "sideSticky": "static",
+  "sideOnRight": false,
+  "mainPhotoLabels": [
+   "Main photo"
+  ],
+  "sideways": false
+ },
+ {
+  "width": 1280,
+  "page": "add-a-note",
+  "noteOpen": {
+   "summaryText": "Add a note",
+   "listStyle": "none",
+   "display": "flex",
+   "beforeContent": "none",
+   "markerContent": "normal",
+   "height": 44,
+   "hasTextarea": true
+  }
+ },
+ {
+  "width": 1280,
+  "page": "menus-off-screen",
+  "spill": [
+   false,
+   false,
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "width": 1280,
+  "page": "cat",
+  "healthNote": {
+   "value": "Limping on the left back leg since Tuesday. Keep an eye on it; vet if still limping on Monday.",
+   "source": "Maria, 2 Oct 2026 · team only"
+  },
+  "noteRows": [
+   {
+    "id": "s-310",
+    "tag": "team only",
+    "struck": false,
+    "markWrong": true
+   },
+   {
+    "id": "s-305",
+    "tag": "team only",
+    "struck": true,
+    "markWrong": false
+   },
+   {
+    "id": "s-309",
+    "tag": "team only",
+    "struck": false,
+    "markWrong": false
+   }
+  ],
+  "addNoteButton": true,
+  "scrollW": 1280,
+  "clientW": 1280,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": true,
+  "sideSticky": "sticky",
+  "sideOnRight": true,
+  "mainPhotoLabels": [
+   "Main photo"
+  ],
+  "sideways": false
+ },
+ {
+  "width": 1280,
+  "page": "bare",
+  "healthNote": null,
+  "noteRows": [
+   {
+    "id": "s-310",
+    "missing": true
+   },
+   {
+    "id": "s-305",
+    "missing": true
+   },
+   {
+    "id": "s-309",
+    "missing": true
+   }
+  ],
+  "addNoteButton": false,
+  "scrollW": 1280,
+  "clientW": 1280,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": null,
+  "sideSticky": "sticky",
+  "sideOnRight": true,
+  "mainPhotoLabels": [],
+  "sideways": false
+ },
+ {
+  "width": 1280,
+  "page": "readonly",
+  "healthNote": null,
+  "noteRows": [
+   {
+    "id": "s-310",
+    "missing": true
+   },
+   {
+    "id": "s-305",
+    "missing": true
+   },
+   {
+    "id": "s-309",
+    "missing": true
+   }
+  ],
+  "addNoteButton": false,
+  "scrollW": 1280,
+  "clientW": 1280,
+  "tinyText": [],
+  "shortTargets": [],
+  "recordNumbersInHistory": [],
+  "reportsBoxAboveFacts": null,
+  "sideSticky": "sticky",
+  "sideOnRight": true,
+  "mainPhotoLabels": [
+   "Main photo"
+  ],
+  "sideways": false
+ }
+]

@@ -21,7 +21,9 @@ export const palette = {
   stone900: '#1b2a38', // ink
   stone800: '#2c3e4f',
   stone700: '#47596a',
-  stone600: '#667889',
+  // SYC-509: was #667889 (4.07:1 on the page). #5a6b7c is 4.9:1 on the page,
+  // 5.35:1 on cards and 4.66:1 on the sunk surface, so small muted text passes AA.
+  stone600: '#5a6b7c',
   stone500: '#8c9caa',
   stone400: '#b6c2cc',
   stone300: '#d7dee4',

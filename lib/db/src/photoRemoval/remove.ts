@@ -9,8 +9,8 @@ import { standInFor } from "./standIn";
 //
 // One transaction, holding the same photo-row lock that hiding takes:
 // check the rules again, delete the picture and record who/when/why (one
-// statement; photos_removed_ck makes the two inseparable), delete its small
-// and medium versions, repoint every cat using it to what the public already
+// statement; photos_removed_ck makes the two inseparable), delete every stored size
+// (small, medium and card), repoint every cat using it to what the public already
 // sees, and scan every column for the picture's bytes before committing, so
 // the fingerprint can't be lost. Then the read-only checks, after commit.
 

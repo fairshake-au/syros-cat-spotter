@@ -18,6 +18,83 @@
 (function () {
   "use strict";
 
+  /**
+   * Merge markers closer than minPx (screen pixels) until no two are. Each
+   * marker is { x, y, cats }; a merged one sits at the average of its cats'
+   * points (each marker's x, y weighted by how many cats it holds). Returns
+   * new markers; the input is left alone. A grid of minPx squares means each
+   * marker is only compared with its neighbours, so thousands stay fast.
+   */
+  function mergeClose(markers, minPx) {
+    var cur = markers.map(function (m) {
+      return { x: m.x, y: m.y, cats: m.cats.slice() };
+    });
+    var limit = minPx * minPx;
+    for (;;) {
+      // One pass: every chain of markers each closer than minPx to the next
+      // becomes one (union-find over neighbours in a grid of minPx squares).
+      var grid = {};
+      var parent = cur.map(function (_m, i) {
+        return i;
+      });
+      var root = function (i) {
+        while (parent[i] !== i) {
+          parent[i] = parent[parent[i]];
+          i = parent[i];
+        }
+        return i;
+      };
+      cur.forEach(function (m, i) {
+        var key = Math.floor(m.x / minPx) + ":" + Math.floor(m.y / minPx);
+        (grid[key] || (grid[key] = [])).push(i);
+      });
+      var merged = false;
+      cur.forEach(function (m, i) {
+        var cx = Math.floor(m.x / minPx);
+        var cy = Math.floor(m.y / minPx);
+        for (var dx = -1; dx <= 1; dx++) {
+          for (var dy = -1; dy <= 1; dy++) {
+            var bucket = grid[cx + dx + ":" + (cy + dy)];
+            if (!bucket) continue;
+            for (var k = 0; k < bucket.length; k++) {
+              var j = bucket[k];
+              if (j <= i) continue;
+              var ddx = cur[j].x - m.x;
+              var ddy = cur[j].y - m.y;
+              if (ddx * ddx + ddy * ddy >= limit) continue;
+              var ri = root(i);
+              var rj = root(j);
+              if (ri !== rj) {
+                parent[rj] = ri;
+                merged = true;
+              }
+            }
+          }
+        }
+      });
+      if (!merged) return cur;
+      var sums = {};
+      var order = [];
+      cur.forEach(function (m, i) {
+        var r = root(i);
+        var n = m.cats.length;
+        var s = sums[r];
+        if (!s) {
+          s = sums[r] = { x: 0, y: 0, cats: [] };
+          order.push(r);
+        }
+        s.x += m.x * n;
+        s.y += m.y * n;
+        s.cats = s.cats.concat(m.cats);
+      });
+      cur = order.map(function (r) {
+        var s = sums[r];
+        return { x: s.x / s.cats.length, y: s.y / s.cats.length, cats: s.cats };
+      });
+    }
+  }
+  if (window.__dashboardMapTest === true) window.__dashboardMapInternals = { mergeClose: mergeClose };
+
   var mapEl = document.getElementById("island-map");
   var shell = document.getElementById("mapscripted");
   var form = document.getElementById("catfilters");
@@ -180,9 +257,67 @@
   var failed = 0;
   var outline = null;
 
-  function tilesFailing() {
+  // While the pictures load (spec §5.4): a light outline of Syros in a pane
+  // below the picture pane (200), which the pictures cover as they arrive,
+  // and a "Loading the map…" line at the top. Both are the script's own, so a
+  // page whose script never runs shows neither. The points come from the page
+  // (data-outline, one source: lib/geo syrosOutline.ts); missing or invalid,
+  // there is just no outline.
+  var loadingLine = null;
+  function loadingDone() {
+    if (loadingLine && loadingLine.parentNode) loadingLine.parentNode.removeChild(loadingLine);
+    loadingLine = null;
+  }
+  try {
+    var loadingPoints = JSON.parse(mapEl.getAttribute("data-outline"));
+    var okPoints =
+      Array.isArray(loadingPoints) &&
+      loadingPoints.length >= 3 &&
+      loadingPoints.every(function (pt) {
+        return Array.isArray(pt) && pt.length === 2 && isFinite(pt[0]) && isFinite(pt[1]);
+      });
+    if (okPoints) {
+      map.createPane("outlineBelow").style.zIndex = "150";
+      L.polygon(loadingPoints, {
+        pane: "outlineBelow",
+        stroke: true,
+        weight: 1,
+        color: "#b8b3a6",
+        fillColor: "#e3dfd3",
+        fillOpacity: 1,
+        interactive: false,
+      }).addTo(map);
+    }
+  } catch (e) {
+    // No loading outline; the pictures and the cats are unaffected.
+  }
+  if (mapEl.parentNode) {
+    loadingLine = make("p", "maploading", "Loading the map\u2026");
+    loadingLine.id = "maploading";
+    loadingLine.setAttribute("role", "status");
+    mapEl.parentNode.insertBefore(loadingLine, mapEl.nextSibling);
+  }
+
+  // Squares asked for and squares that have finished (loaded, failed for good,
+  // or blank because they are off the island). Spec §5.4: the loading line goes
+  // only with the first picture's onload or the failure note. So it can't stay
+  // forever, once every square asked for has finished with nothing loaded, a
+  // failure (even under 3) shows the note, and no failure at all (all off the
+  // island) just removes the line.
+  var requested = 0;
+  var settled = 0;
+  function settledOne() {
+    settled++;
+    if (settled >= requested && loaded === 0) {
+      if (failed > 0) tilesFailing(true);
+      else loadingDone();
+    }
+  }
+
+  function tilesFailing(force) {
     if (!note) return;
-    if (failed >= 3 && failed > loaded) {
+    if ((force || failed >= 3) && failed > loaded) {
+      loadingDone();
       note.hidden = false;
       mapEl.classList.add("tilesfailed");
       if (!outline) {
@@ -232,12 +367,15 @@
     var img = entry.img;
     if (!token) {
       entry.done(null, img); // off the island: a blank square
+      settledOne();
       return;
     }
     img.onload = function () {
       loaded++;
+      loadingDone();
       tilesFailing();
       entry.done(null, img);
+      settled++;
     };
     img.onerror = function () {
       // The token may have died (a server key change, say): forget it and
@@ -252,6 +390,7 @@
       failed++;
       tilesFailing();
       entry.done(new Error("map picture"), img);
+      settledOne();
     };
     img.src = "/api/team/map-square/" + token;
   }
@@ -270,9 +409,12 @@
       .catch(function () {
         entries.forEach(function (e) {
           failed++;
-          e.done(new Error("map picture"), e.img);
         });
         tilesFailing();
+        entries.forEach(function (e) {
+          e.done(new Error("map picture"), e.img);
+          settledOne();
+        });
       });
   }
 
@@ -315,6 +457,7 @@
       img.decoding = "async";
       var key = coords.z + "/" + coords.x + "/" + coords.y;
       var entry = { coords: coords, img: img, done: done, retried: false };
+      requested++;
       var kept = freshToken(key);
       if (kept) {
         window.setTimeout(function () {
@@ -532,7 +675,7 @@
     return m;
   }
 
-  /** Our own grouping: cats in the same CELL-pixel square at this zoom are one group. */
+  /** Our own grouping: cats in the same CELL-pixel square at this zoom are one group, then groups closer than CELL are merged. */
   function drawCats() {
     catsLayer.clearLayers();
     var z = map.getZoom();
@@ -542,13 +685,21 @@
       var p = map.project([c.lat, c.lng], z);
       var key = Math.floor(p.x / CELL) + ":" + Math.floor(p.y / CELL);
       if (!cells[key]) {
-        cells[key] = [];
+        cells[key] = { x: 0, y: 0, cats: [] };
         order.push(key);
       }
-      cells[key].push(c);
+      var cell = cells[key];
+      cell.x += p.x;
+      cell.y += p.y;
+      cell.cats.push(c);
     });
-    order.forEach(function (key) {
-      var group = cells[key];
+    var markers = order.map(function (key) {
+      var cell = cells[key];
+      return { x: cell.x / cell.cats.length, y: cell.y / cell.cats.length, cats: cell.cats };
+    });
+    // Cats either side of a grid line can land in two bubbles that nearly touch.
+    mergeClose(markers, CELL).forEach(function (m) {
+      var group = m.cats;
       catsLayer.addLayer(group.length === 1 ? catMarker(group[0]) : groupMarker(group));
     });
   }
@@ -581,6 +732,7 @@
   var count = document.getElementById("mapcount");
   var gridLink = document.getElementById("view-grid");
   var mapLink = document.getElementById("view-map");
+  var findLink = document.querySelector(".viewrow .findentrylink");
   var controller = null;
   var typing = 0;
 
@@ -703,6 +855,18 @@
       .join("&");
     if (gridLink) gridLink.href = path + (gridQs ? "?" + gridQs : "");
     if (mapLink) mapLink.href = path + (qs ? "?" + qs : "");
+    // The photo link carries only the form's colours, area and colony (the
+    // server's findAddress), never the rest and never a position.
+    if (findLink) {
+      var findParams = new URLSearchParams();
+      ["colours", "area", "colony"].forEach(function (key) {
+        new FormData(form).getAll(key).forEach(function (value) {
+          if (typeof value === "string" && value !== "") findParams.append(key, value);
+        });
+      });
+      var findQs = findParams.toString();
+      findLink.href = "/api/team/cats/find" + (findQs ? "?" + findQs : "");
+    }
     // The chips under the filters describe the page as it was drawn; once
     // the filters change, the count line says what is shown.
     var chips = document.querySelector("#mapresults .fchips");
