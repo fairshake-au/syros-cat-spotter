@@ -125,6 +125,8 @@ details.arearow>summary{cursor:pointer;min-height:48px;box-sizing:border-box;pad
 details.arearow>summary::-webkit-details-marker{display:none}
 details.arearow>summary strong{font-size:17px}
 details.arearow .arebody{padding:0 12px 12px}
+ul.retired li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin:8px 0}
+ul.retired button{min-height:44px;padding:0 16px}
 </style>`;
 
 function areaRow(a: AreaRow, o: AreasPageOptions): string {
@@ -197,7 +199,7 @@ function retiredList(o: AreasPageOptions): string {
   const again = o.again;
   return (
     `<h2>Retired areas (${list.length})</h2>` +
-    `<ul class="cats">` +
+    `<ul class="retired">` +
     list
       .map(
         (a) =>
