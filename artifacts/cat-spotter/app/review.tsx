@@ -825,7 +825,7 @@ export default function ReviewScreen() {
           setShowNewCat(true);
         }}
         onClose={() => setShowPicker(false)}
-        insetTop={insets.top}
+        insetTop={insets.top + bannerReserve}
         insetBottom={insets.bottom}
       />
     );
