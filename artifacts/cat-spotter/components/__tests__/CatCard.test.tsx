@@ -136,8 +136,12 @@ describe('SYC-578: cat card says what its numbers and badges mean', () => {
   it('lets a long discoverer name wrap instead of cutting it off', () => {
     const long = 'lilacsapphirewhiskers';
     const { getByText } = render(<CatCard cat={{ ...CAT, discovererUsername: long }} />);
-    // numberOfLines renders as a line clamp on web; the discoverer line has none.
+    // react-native-web turns numberOfLines into an ellipsis/line clamp.
     const el = getByText(`discoveredBy ${long}`);
-    expect(el.getAttribute('style') ?? '').not.toMatch(/line-clamp|text-overflow/);
+    const css = window.getComputedStyle(el);
+    expect(css.textOverflow).not.toBe('ellipsis');
+    expect(css.getPropertyValue('-webkit-line-clamp')).toBe('');
+    // The name itself still truncates, so the clamp is detectable here.
+    expect(window.getComputedStyle(getByText('Agatha')).textOverflow).toBe('ellipsis');
   });
 });
