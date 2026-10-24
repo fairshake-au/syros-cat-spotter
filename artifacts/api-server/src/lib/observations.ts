@@ -103,7 +103,7 @@ const ROLES_REFUSED_FOR_KIND: Readonly<
   // No machine markings (SYC2-D4), so `system` is refused outright.
   markings: ["vet", "system"],
   vaccinated: ["public", "guardian", "system"],
-  team_note: ["public", "system"],
+  team_note: ["public", "guardian", "system"],
   // A vet visit is logged by the team (`log_vet_visit` is island-only).
   vet_visit: ["public", "guardian", "system"],
 };
