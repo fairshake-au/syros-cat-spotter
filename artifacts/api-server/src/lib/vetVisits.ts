@@ -438,8 +438,16 @@ export function newCatNameProblem(name: string | null): string | null {
   if (name === null) return null;
   if (isBlankName(name)) return BLANK_NAME_BODY.error;
   if (containsOffensiveLanguage(name)) return OFFENSIVE_NAME_WORDS;
+  // A typed SYR number would read as another cat's number, and could take the
+  // name a cat left for spotters needs.
+  if (/^syr-?\d+$/i.test(foldName(name))) return SYR_SHAPED_NAME;
   return null;
 }
+
+/** A typed name that looks like a SYR number. */
+export const SYR_SHAPED_NAME = "That looks like a cat's SYR number. Choose a name.";
+/** A cat left for spotters couldn't take its SYR number as its name (another cat has it). */
+export const SYR_NAME_CLASH = "Couldn't give this cat its SYR number. Try saving again.";
 
 /** What is wrong with a new cat's description (it is public), or null. */
 export function newCatDescriptionProblem(description: string): string | null {
@@ -477,12 +485,15 @@ async function createBatchCat(
 ): Promise<number> {
   const name = storedName(entry.newCat.name);
   const first = entry.photos[0];
+  // Every batch cat has at least one photo (addCat refuses none); a cat
+  // without one would go public with no photo, so this is a bug, not a case.
+  if (!first) throw new Error("A batch's new cat has no photo");
   const [cat] = await tx
     .insert(catsTable)
     .values({
       name: name ?? `pending-${randomUUID()}`,
       description: entry.newCat.description.trim(),
-      primaryPhotoId: first?.photoId ?? 0,
+      primaryPhotoId: first.photoId,
       lat: place.centre.lat,
       lng: place.centre.lng,
       discovererDeviceId: TEAM_DESK_DEVICE,
@@ -556,8 +567,9 @@ export async function saveBatch(
   }
   const costs = true;
   const vaccinate = can(person, "set_vaccination");
-  // The entry whose new cat is being written: a unique violation is its name.
-  let making: number | null = null;
+  // The entry whose new cat is being written: a unique violation is its name
+  // (or, for a cat left for spotters, its SYR number).
+  let making: { batchCatId: number; unnamed: boolean } | null = null;
 
   try {
     return await inStatementTransaction(async (tx, news) => {
@@ -729,7 +741,7 @@ export async function saveBatch(
       const newCats: { batchCatId: number; catId: number }[] = [];
       for (const r of checked) {
         if (!r.entry.newCat) continue;
-        making = r.entry.id;
+        making = { batchCatId: r.entry.id, unnamed: r.entry.newCat.name === null };
         const catId = await createBatchCat(
           tx,
           person,
@@ -759,7 +771,8 @@ export async function saveBatch(
   } catch (err) {
     // Another save took the name between the check and the write: nothing was written.
     if (making !== null && isUniqueViolation(err)) {
-      return { ok: false, problems: [{ batchCatId: making, field: "newCat", words: NAME_TAKEN_WORDS }] };
+      const { batchCatId, unnamed } = making;
+      return { ok: false, problems: [{ batchCatId, field: "newCat", words: unnamed ? SYR_NAME_CLASH : NAME_TAKEN_WORDS }] };
     }
     throw err;
   }

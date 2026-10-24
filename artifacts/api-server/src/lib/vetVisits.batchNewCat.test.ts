@@ -1,11 +1,20 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import request from "supertest";
 import { catsTable, coloniesTable, db, feedingSitesTable, observationsTable, pool, vetBatchesTable, vetVisitPhotosTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { getGuidance } from "@workspace/welfare-guidance";
 
+// `denied.cap` is refused to everyone (the vetVisits.test.ts pattern).
+const denied = vi.hoisted(() => ({ cap: null as string | null }));
+vi.mock("./capabilities", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./capabilities")>();
+  return {
+    ...real,
+    can: (...args: Parameters<typeof real.can>) => (args[1] === denied.cap ? false : real.can(...args)),
+  };
+});
 vi.mock("./push", () => ({ sendPushNotification: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("./matching", () => ({ matchCatPhoto: vi.fn() }));
 
@@ -89,6 +98,9 @@ beforeAll(async () => {
   author = await signedPerson(`nc-${RUN}`, ["staff"]);
   colony = await newColony(`newcat-${RUN}`);
   await db.update(coloniesTable).set(CENTRE).where(eq(coloniesTable.id, colony));
+});
+beforeEach(() => {
+  denied.cap = null;
 });
 afterAll(async () => {
   // The unsaved-batches list is the whole team's: leave none of this run's behind.
@@ -236,6 +248,47 @@ describe("saveBatch: a new cat", () => {
     const out = await saveBatch(STAFF, id, NOW);
     expect(out).toEqual({ ok: false, problems: [{ batchCatId: null, field: "place", words: COLONY_HAS_NO_CENTRE }] });
     expect(await catsNamed([name])).toHaveLength(0);
+  });
+
+  it("a name shaped like a SYR number is refused", async () => {
+    for (const name of ["SYR-0042", "syr42", " Syr-7 "]) {
+      const { id, rows } = await makeBatch([{ newCat: { name, description: "" } }], { colonyId: colony });
+      expect(await saveBatch(STAFF, id, NOW)).toEqual({
+        ok: false,
+        problems: [{ batchCatId: rows[0], field: "newCat", words: "That looks like a cat's SYR number. Choose a name." }],
+      });
+    }
+  });
+
+  it("an unnamed cat whose SYR number another cat already has as its name: the save rolls back and says so", async () => {
+    const known = await knownCat();
+    const { id, rows } = await makeBatch([{ catId: known.id }, { newCat: { name: null, description: "" } }], { colonyId: colony });
+    // The next cat id is k + 2: a squatter (written straight to the table) takes k + 1 and the new cat's SYR number.
+    const k = Number((await db.execute<{ k: string }>(sql`select nextval('cats_id_seq') as k`)).rows[0]!.k);
+    const [squatter] = await db
+      .insert(catsTable)
+      .values({ name: syrNumber(k + 2), description: "", primaryPhotoId: 0, lat: 37.44, lng: 24.9, discovererDeviceId: "vitest-nc" })
+      .returning({ id: catsTable.id });
+    expect(squatter!.id).toBe(k + 1);
+    const out = await saveBatch(STAFF, id, NOW);
+    expect(out).toEqual({
+      ok: false,
+      problems: [{ batchCatId: rows[1], field: "newCat", words: "Couldn't give this cat its SYR number. Try saving again." }],
+    });
+    expect(await visitsOf([known.id])).toHaveLength(0);
+  });
+
+  it.each([
+    ["rename_cat", { name: `${PREFIX} NoRename`, description: "" }],
+    ["assign_cat_to_colony", { name: null, description: "" }],
+  ] as const)("a person without %s can't make the cat, and nothing is saved", async (cap, newCat) => {
+    const known = await knownCat();
+    const { id } = await makeBatch([{ catId: known.id }, { newCat }], { colonyId: colony });
+    denied.cap = cap;
+    await expect(saveBatch(STAFF, id, NOW)).rejects.toMatchObject({ code: "NOT_AUTHORISED" });
+    denied.cap = null;
+    expect(await visitsOf([known.id])).toHaveLength(0);
+    if (newCat.name) expect(await catsNamed([newCat.name])).toHaveLength(0);
   });
 
   it("an unconfirmed new cat is not saved", async () => {
