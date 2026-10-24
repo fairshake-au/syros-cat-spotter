@@ -167,6 +167,48 @@ describe("POST /api/team/cats/:id/note", () => {
     expect(await allRows(catId)).toEqual(before);
   });
 
+  it("the capability gate runs before the body is read: no add_team_note and a malformed body is a 403, not a 400", async () => {
+    const catId = await newCat();
+    denied.cap = "add_team_note";
+    for (const body of [{}, { text: "" }, { text: "x".repeat(2001) }, { text: "a\ud800b" }]) {
+      const res = await form(`/api/team/cats/${catId}/note`).send(body);
+      expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
+    }
+    const json = await request(app)
+      .post(`/api/team/cats/${catId}/note`)
+      .set("Origin", TEAM_ORIGIN)
+      .set("Cookie", cookie)
+      .send({ text: ["not", "a", "string"] });
+    expect(json.status).toBe(403);
+    expect(await notes(catId)).toEqual([]);
+  });
+
+  it("text that is not well formed (a lone surrogate) is a 400, never a 500, and nothing is written", async () => {
+    const catId = await newCat();
+    const json = await request(app)
+      .post(`/api/team/cats/${catId}/note`)
+      .set("Origin", TEAM_ORIGIN)
+      .set("Cookie", cookie)
+      .set("Content-Type", "application/json")
+      .send('{"text":"a\\ud800b"}');
+    expect(json.status).toBe(400);
+    expect(json.body).toEqual({ error: "Invalid request", fields: ["text"] });
+    expect(await notes(catId)).toEqual([]);
+  });
+
+  it("control characters and bidi overrides are dropped before the note is stored; what is empty afterwards is refused", async () => {
+    const catId = await newCat();
+    const ok = await form(`/api/team/cats/${catId}/note`).send({ text: "a\u202Eb\u0007c\u2066d\u2069e\u001Ff\nline two\ttab" });
+    expect(ok.status).toBe(303);
+    expect((await notes(catId))[0]!.value).toEqual({ text: "abcdef\nline twotab" });
+    const before = await allRows(catId);
+    for (const text of ["\u202E\u2066\u0007", " \u202A \u0001 "]) {
+      const res = await form(`/api/team/cats/${catId}/note`).send({ text });
+      expect(res.status, JSON.stringify(text)).toBe(400);
+    }
+    expect(await allRows(catId)).toEqual(before);
+  });
+
   it("another Origin, or none, is refused before anything is read", async () => {
     const catId = await newCat();
     const before = await allRows(catId);
@@ -187,6 +229,20 @@ describe("POST /api/team/cats/:id/note", () => {
     const res = await request(app).post(`/api/team/cats/${catId}/note`).set("Origin", TEAM_ORIGIN).type("form").send({ text: "hello" });
     expect(res.status).toBe(401);
     expect(await allRows(catId)).toEqual([]);
+  });
+
+  it("the team cat JSON carries the notes only for a person who holds add_team_note", async () => {
+    const catId = await newCat();
+    await form(`/api/team/cats/${catId}/note`).send({ text: "JSON note text" });
+    const get = () => request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie).set("Accept", "application/json");
+    const withCap = await get();
+    expect(withCap.status).toBe(200);
+    expect(JSON.stringify(withCap.body)).toContain("JSON note text");
+    denied.cap = "add_team_note";
+    const without = await get();
+    expect(without.status).toBe(200);
+    expect(JSON.stringify(without.body)).not.toContain("JSON note text");
+    expect(without.body.history.some((h: { kind: string }) => h.kind === "team_note")).toBe(false);
   });
 
   it("a cat that doesn't exist is a 404, and a bad id too; nothing is written", async () => {
