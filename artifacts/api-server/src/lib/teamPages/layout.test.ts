@@ -516,4 +516,9 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
   it("the How this is worked out summary is 44px, bold and teal", () => {
     expect(sheet()).toMatch(/details\.method>summary\{[^}]*min-height:44px[^}]*font-weight:700[^}]*color:#0b4553/);
   });
+
+  it("a photo's menu opens inside the screen: left-aligned under the left photo, right-aligned under the right one (SYC-602 3.3)", () => {
+    expect(sheet()).toContain(".gallery .rowmenu.dots>.rowmenuitems{top:calc(100% + 2px);left:0;right:auto}");
+    expect(sheet()).toContain(".gallery figure:nth-child(even) .rowmenu.dots>.rowmenuitems{left:auto;right:0}");
+  });
 });
