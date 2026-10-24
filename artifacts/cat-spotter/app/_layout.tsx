@@ -35,6 +35,7 @@ import { FirstBadgeOffer } from '@/components/keepSafe/FirstBadgeOffer';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 import { apiOrigin } from '@/lib/urls';
 import { prelaunchKey } from '@/lib/prelaunch';
+import { restoreReopenReady, useReopenRestoreCode } from '@/hooks/useReopenRestoreCode';
 import { hideWebLoadingScreen } from '@/lib/webLoadingScreen';
 
 setBaseUrl(apiOrigin());
@@ -107,6 +108,20 @@ function OnboardingGate() {
     if (newSpotterWithoutOffer) setKeepSafeOffer('skipped-onboarding');
   }, [newSpotterWithoutOffer, setKeepSafeOffer]);
   const { doneVisible } = useDeleteMyData();
+  // SYC-664: a named phone that reloaded while fetching its code goes back to the code box.
+  const offerScreenShowing = keepSafeOffer === null && !!username && startedWithName.current === true;
+  useReopenRestoreCode(
+    restoreReopenReady({
+      isReady,
+      isLanguageReady,
+      startupError: Boolean(startupError),
+      doneVisible,
+      moved: Boolean(moved),
+      offerScreenShowing,
+    }),
+    !!username,
+    pathname,
+  );
   // SYC-136: a rejected promise inside DeviceProvider's setup effect isn't
   // caught by the top-level ErrorBoundary (render-only), so DeviceProvider
   // surfaces it here instead of leaving isReady false and this app stuck

@@ -109,6 +109,12 @@ export const mailTokensTable = pgTable(
     restoredDeviceId: text("restored_device_id"),
     replacedSecretHash: text("replaced_secret_hash"),
     attemptIpHash: text("attempt_ip_hash"),
+    // restore only (SYC-664): keyed hash of the 8-digit code in the email, the
+    // wrong guesses so far, and the plain (unkeyed) SHA-256 of the opaque
+    // 256-bit handle a right code returns, the same hash as token_hash.
+    codeHash: text("code_hash"),
+    codeAttempts: integer("code_attempts").notNull().default(0),
+    handleHash: text("handle_hash"),
   },
   (t) => [
     check("mail_tokens_purpose_ck", sql`${t.purpose} in (${sqlList(MAIL_TOKEN_PURPOSES)})`),
@@ -116,6 +122,9 @@ export const mailTokensTable = pgTable(
     index("mail_tokens_replaced_idx")
       .on(t.replacedSecretHash)
       .where(sql`${t.replacedSecretHash} is not null`),
+    uniqueIndex("mail_tokens_handle_hash_idx")
+      .on(t.handleHash)
+      .where(sql`${t.handleHash} is not null`),
   ],
 );
 

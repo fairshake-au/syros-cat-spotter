@@ -1,7 +1,7 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
-import { hashToken } from "./tokens";
+import { hashToken, RESTORE_TOKEN_MINUTES } from "./tokens";
 import { DELETED_BY_THE_PERSON, severPerson } from "../severPerson";
 
 /**
@@ -36,7 +36,7 @@ import { DELETED_BY_THE_PERSON, severPerson } from "../severPerson";
  *    my data" would (SYC-63 `severPerson`), in this same transaction. If the
  *    abandoned id also asked for this link, `severKeepSafe` swaps it on the
  *    spent link for its one-way `deleted:` key rather than deleting the link,
- *    so the old phone's `device_moved` and the 60-second replay still work,
+ *    so the old phone's `device_moved` and the same-phone replay still work,
  *    without keeping the raw id.
  *
  * A deleted spotter (SYC-63) has no credential row under its id, so step 5
@@ -46,7 +46,13 @@ import { DELETED_BY_THE_PERSON, severPerson } from "../severPerson";
 /** Not hex, so it can never equal a secret's sha256 (deviceAuth.hashesMatch). */
 export const RETIRED_SECRET_HASH = "retired";
 
-export const SAME_ANSWER_SECONDS = 60;
+/**
+ * How long after a move the phone that made it can ask again and get the same
+ * answer (SYC-664 ship review F2, Samuel 24 Oct 2026): as long as the link or
+ * code lives, so a reply lost to a bad connection can still be finished on the
+ * same phone. Keyed by that phone's own secret, so no other phone can use it.
+ */
+export const REPLAY_WINDOW_SECONDS = RESTORE_TOKEN_MINUTES * 60;
 
 export type MoveRefusal = { ok: false; reason: string };
 export type MoveResult = { ok: true; deviceId: string; username: string | null } | MoveRefusal;
@@ -63,12 +69,29 @@ type TokenRow = {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+/**
+ * The restore row for whatever secret the client holds: the link's token, or
+ * the handle `POST /api/restore/code` swapped a right code for (SYC-664). A
+ * handle is token-shaped and link-equivalent, so every site that finds the
+ * row from the client's secret (peek, the spend, the replaced-secret write
+ * and the same-phone replay) must use this, or a handle works in one place and
+ * not the next. `handle_hash` is null on rows without one, and `= h` never
+ * matches null. Only the latest handle for a row matches (it's overwritten).
+ *
+ * Bare column names: callers that alias the table must not join another
+ * table that has `token_hash` or `handle_hash`.
+ */
+function rowIs(raw: string) {
+  const h = hashToken(raw);
+  return sql`(token_hash = ${h} or handle_hash = ${h})`;
+}
+
 async function readToken(tx: Tx | typeof db, raw: string): Promise<TokenRow | undefined> {
   const result = await tx.execute(sql`
     select purpose, device_id, address_hmac, used_at, restored_device_id,
            expires_at <= now() as expired,
            extract(epoch from now() - used_at)::float as used_seconds_ago
-      from mail_tokens where token_hash = ${hashToken(raw)}
+      from mail_tokens where ${rowIs(raw)}
   `);
   return result.rows[0] as TokenRow | undefined;
 }
@@ -148,8 +171,8 @@ function matchesPick(raw: string, deviceId: string, pick: SpotterPick): boolean 
 
 /**
  * A double tap or a back button (plan step 6): the same phone, asking for the
- * same spotter, within 60 seconds of the move, gets the same answer, and
- * nothing moves twice.
+ * same spotter, within 15 minutes of the move (`REPLAY_WINDOW_SECONDS`), gets
+ * the same answer, and nothing moves twice.
  *
  * By then the phone's starter id is retired (or deleted), so it can't pass the
  * ordinary device check. "The same phone" is proved by its secret alone: the
@@ -168,9 +191,9 @@ export async function replayAfterMove(input: {
       from mail_tokens t
       join device_credentials c on c.device_id = t.restored_device_id
       left join profiles p on p.device_id = t.restored_device_id
-     where t.token_hash = ${hashToken(input.raw)}
+     where ${rowIs(input.raw)}
        and t.purpose = 'restore'
-       and t.used_at > now() - make_interval(secs => ${SAME_ANSWER_SECONDS})
+       and t.used_at > now() - make_interval(secs => ${REPLAY_WINDOW_SECONDS})
        and c.secret_hash = ${input.callerSecretHash}
   `);
   const row = result.rows[0] as { restored_device_id: string; username: string | null } | undefined;
@@ -223,6 +246,9 @@ export async function redeemRestore(input: {
       if (token.purpose !== "restore") throw new Refused("wrong_purpose");
       // Decision 12: any phone that opens the link may press the button; the
       // spots go to the phone that presses it, never to the phone that asked.
+      // The same holds for a handle (SYC-664): it is a link-equivalent secret
+      // that only the asking phone was given, so another phone presenting it
+      // is treated exactly like another phone opening the link.
 
       const chosen = (await keptSafeBy(tx, token.address_hmac)).find((s) => matchesPick(raw, s.device_id, input.pick));
       if (!chosen) throw new Refused("spotter_not_kept_safe_by_this_address");
@@ -233,7 +259,7 @@ export async function redeemRestore(input: {
       const spent = await tx.execute(sql`
         update mail_tokens
            set used_at = now(), restored_device_id = ${spotterDeviceId}, attempt_ip_hash = ${input.ipHash}
-         where token_hash = ${hashToken(raw)} and purpose = 'restore'
+         where ${rowIs(raw)} and purpose = 'restore'
            and used_at is null and expires_at > now()
         returning token_hash
       `);
@@ -261,7 +287,7 @@ export async function redeemRestore(input: {
       `);
       if (moveHook) await moveHook();
       await tx.execute(sql`
-        update mail_tokens set replaced_secret_hash = ${old.secret_hash} where token_hash = ${hashToken(raw)}
+        update mail_tokens set replaced_secret_hash = ${old.secret_hash} where ${rowIs(raw)}
       `);
       await tx.execute(sql`delete from push_tokens where device_id = ${spotterDeviceId}`);
 
