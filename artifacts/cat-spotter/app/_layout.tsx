@@ -16,6 +16,7 @@ import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { LocationProvider } from '@/context/LocationContext';
 import { AppSettingsProvider } from '@/context/AppSettingsContext';
+import { CelebrationProvider } from '@/context/CelebrationContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { ReportQueueProvider } from '@/context/ReportQueueContext';
 import { IssueQueueProvider } from '@/context/IssueQueueContext';
@@ -149,14 +150,14 @@ function OnboardingGate() {
     );
   }
   return (
-    <>
+    <CelebrationProvider>
       <OfflineTilesLoader />
       {!username && <HeldNameSaver />}
       <RootLayoutNav />
       <BannerStack />
       {/* SYC-506: only for a spotter whose name the server has saved. */}
       {keepSafeOffer === 'skipped-onboarding' && username ? <FirstBadgeOffer /> : null}
-    </>
+    </CelebrationProvider>
   );
 }
 

@@ -56,6 +56,10 @@ vi.mock('@/context/DeviceContext', () => ({
   DeviceProvider: stubComponent('DeviceProvider'),
   useDevice: () => ({}),
 }));
+// SYC-706: the celebration provider only wraps the app here.
+vi.mock('@/context/CelebrationContext', () => ({
+  CelebrationProvider: ({ children }: { children?: unknown }) => (children ?? null) as never,
+}));
 vi.mock('@/context/OfflineContext', () => ({
   OfflineProvider: stubComponent('OfflineProvider'),
   useOffline: () => ({ isOnline: true }),

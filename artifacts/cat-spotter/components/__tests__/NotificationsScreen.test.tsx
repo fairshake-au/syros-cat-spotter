@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   loadFailed: false,
   refetch: vi.fn(async () => {}),
   profile: undefined as unknown,
+  push: vi.fn(),
+  openWeekly: vi.fn(),
 }));
 
 vi.mock('@expo/vector-icons', () => ({ Feather: Object.assign(() => null, { glyphMap: {} }) }));
@@ -24,9 +26,10 @@ vi.mock('@/hooks/useColors', () => ({
   useColors: () => new Proxy({}, { get: () => '#123456' }),
 }));
 vi.mock('expo-router', () => ({
-  useRouter: () => ({ dismissTo: h.dismissTo, canGoBack: () => true, back: vi.fn(), push: vi.fn() }),
+  useRouter: () => ({ dismissTo: h.dismissTo, canGoBack: () => true, back: vi.fn(), push: h.push }),
   useFocusEffect: () => {},
 }));
+vi.mock('@/lib/celebrationBus', () => ({ openWeeklyResult: h.openWeekly }));
 vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
 vi.mock('@/context/DeviceContext', () => ({ useDevice: () => ({ deviceId: 'dev-1' }) }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: true }) }));
@@ -101,5 +104,15 @@ describe('Notifications screen (SYC-508)', () => {
     render(<NotificationsScreen />);
     expect(screen.queryByText('loadFailedTitle')).toBeNull();
     expect(screen.queryByText('noNotificationsYet')).toBeNull();
+  });
+
+  it('a weekly-result row has no cat: it asks for the celebration, never opens a cat', () => {
+    h.notifications = [
+      { id: 5, catId: null, catUpdateId: null, updateType: 'general', message: 'You came 2nd', read: false, createdAt: new Date().toISOString() },
+    ];
+    render(<NotificationsScreen />);
+    fireEvent.click(screen.getByRole('button', { name: /You came 2nd/ }));
+    expect(h.openWeekly).toHaveBeenCalledTimes(1);
+    expect(h.push).not.toHaveBeenCalled();
   });
 });

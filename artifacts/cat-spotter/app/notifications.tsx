@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { openWeeklyResult } from '@/lib/celebrationBus';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getGetProfileQueryKey,
@@ -145,9 +146,12 @@ export default function NotificationsScreen() {
     return (
       <Pressable
         onPress={() => {
-          // A weekly result has no cat to open (SYC-706; Task 13 opens its
-          // celebration).
-          if (n.catId == null) return;
+          // A weekly result has no cat: it opens its celebration while one is
+          // still queued, and otherwise the Spotters board (SYC-706).
+          if (n.catId == null) {
+            void openWeeklyResult(router);
+            return;
+          }
           router.push({
             pathname: '/cat/[id]',
             params: {

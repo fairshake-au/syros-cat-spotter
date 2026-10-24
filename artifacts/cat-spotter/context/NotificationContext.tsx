@@ -25,6 +25,7 @@ import {
 import { router } from 'expo-router';
 import { getCat } from '@workspace/api-client-react';
 import { useDevice } from './DeviceContext';
+import { openWeeklyResult } from '@/lib/celebrationBus';
 
 /**
  * Navigate to the cat referenced by a tapped push notification, or fall
@@ -37,6 +38,11 @@ async function handleNotificationResponse(
   const data = response.notification.request.content.data as
     | Record<string, unknown>
     | undefined;
+  // SYC-706: a weekly result has no cat. Open its celebration, or the board.
+  if (data?.type === 'weekly_result') {
+    await openWeeklyResult(router);
+    return;
+  }
   const catId = Number(data?.catId);
   const catUpdateId = Number(data?.catUpdateId);
   if (Number.isFinite(catId) && catId > 0) {

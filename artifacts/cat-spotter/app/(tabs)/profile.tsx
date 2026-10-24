@@ -39,12 +39,14 @@ export default function ProfileScreen() {
   const { isOnline } = useOffline();
   // "See all my badges" on the badge celebration opens this screen with ?tab=badges.
   const params = useLocalSearchParams<{ tab?: string }>();
-  const [tab, setTab] = useState<ProfileTab>(params.tab === 'badges' ? 'badges' : 'me');
+  const [tab, setTab] = useState<ProfileTab>(
+    params.tab === 'badges' || params.tab === 'spotters' ? params.tab : 'me',
+  );
   // Tab screens stay mounted and the param sticks, so it is used up once applied;
   // otherwise a second "See all my badges" would not change it and nothing would happen.
   useEffect(() => {
-    if (params.tab === 'badges') {
-      setTab('badges');
+    if (params.tab === 'badges' || params.tab === 'spotters') {
+      setTab(params.tab);
       router.setParams({ tab: undefined });
     }
   }, [params.tab]);
