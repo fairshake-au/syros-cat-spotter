@@ -18,6 +18,83 @@
 (function () {
   "use strict";
 
+  /**
+   * Merge markers closer than minPx (screen pixels) until no two are. Each
+   * marker is { x, y, cats }; a merged one sits at the average of its cats'
+   * points (each marker's x, y weighted by how many cats it holds). Returns
+   * new markers; the input is left alone. A grid of minPx squares means each
+   * marker is only compared with its neighbours, so thousands stay fast.
+   */
+  function mergeClose(markers, minPx) {
+    var cur = markers.map(function (m) {
+      return { x: m.x, y: m.y, cats: m.cats.slice() };
+    });
+    var limit = minPx * minPx;
+    for (;;) {
+      // One pass: every chain of markers each closer than minPx to the next
+      // becomes one (union-find over neighbours in a grid of minPx squares).
+      var grid = {};
+      var parent = cur.map(function (_m, i) {
+        return i;
+      });
+      var root = function (i) {
+        while (parent[i] !== i) {
+          parent[i] = parent[parent[i]];
+          i = parent[i];
+        }
+        return i;
+      };
+      cur.forEach(function (m, i) {
+        var key = Math.floor(m.x / minPx) + ":" + Math.floor(m.y / minPx);
+        (grid[key] || (grid[key] = [])).push(i);
+      });
+      var merged = false;
+      cur.forEach(function (m, i) {
+        var cx = Math.floor(m.x / minPx);
+        var cy = Math.floor(m.y / minPx);
+        for (var dx = -1; dx <= 1; dx++) {
+          for (var dy = -1; dy <= 1; dy++) {
+            var bucket = grid[cx + dx + ":" + (cy + dy)];
+            if (!bucket) continue;
+            for (var k = 0; k < bucket.length; k++) {
+              var j = bucket[k];
+              if (j <= i) continue;
+              var ddx = cur[j].x - m.x;
+              var ddy = cur[j].y - m.y;
+              if (ddx * ddx + ddy * ddy >= limit) continue;
+              var ri = root(i);
+              var rj = root(j);
+              if (ri !== rj) {
+                parent[rj] = ri;
+                merged = true;
+              }
+            }
+          }
+        }
+      });
+      if (!merged) return cur;
+      var sums = {};
+      var order = [];
+      cur.forEach(function (m, i) {
+        var r = root(i);
+        var n = m.cats.length;
+        var s = sums[r];
+        if (!s) {
+          s = sums[r] = { x: 0, y: 0, cats: [] };
+          order.push(r);
+        }
+        s.x += m.x * n;
+        s.y += m.y * n;
+        s.cats = s.cats.concat(m.cats);
+      });
+      cur = order.map(function (r) {
+        var s = sums[r];
+        return { x: s.x / s.cats.length, y: s.y / s.cats.length, cats: s.cats };
+      });
+    }
+  }
+  if (window.__dashboardMapTest === true) window.__dashboardMapInternals = { mergeClose: mergeClose };
+
   var mapEl = document.getElementById("island-map");
   var shell = document.getElementById("mapscripted");
   var form = document.getElementById("catfilters");
@@ -578,7 +655,7 @@
     return m;
   }
 
-  /** Our own grouping: cats in the same CELL-pixel square at this zoom are one group. */
+  /** Our own grouping: cats in the same CELL-pixel square at this zoom are one group, then groups closer than CELL are merged. */
   function drawCats() {
     catsLayer.clearLayers();
     var z = map.getZoom();
@@ -588,13 +665,21 @@
       var p = map.project([c.lat, c.lng], z);
       var key = Math.floor(p.x / CELL) + ":" + Math.floor(p.y / CELL);
       if (!cells[key]) {
-        cells[key] = [];
+        cells[key] = { x: 0, y: 0, cats: [] };
         order.push(key);
       }
-      cells[key].push(c);
+      var cell = cells[key];
+      cell.x += p.x;
+      cell.y += p.y;
+      cell.cats.push(c);
     });
-    order.forEach(function (key) {
-      var group = cells[key];
+    var markers = order.map(function (key) {
+      var cell = cells[key];
+      return { x: cell.x / cell.cats.length, y: cell.y / cell.cats.length, cats: cell.cats };
+    });
+    // Cats either side of a grid line can land in two bubbles that nearly touch.
+    mergeClose(markers, CELL).forEach(function (m) {
+      var group = m.cats;
       catsLayer.addLayer(group.length === 1 ? catMarker(group[0]) : groupMarker(group));
     });
   }
