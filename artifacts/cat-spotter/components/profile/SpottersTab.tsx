@@ -102,7 +102,7 @@ export function SpottersTab({
 
   const weekEmpty = isWeek && rows.length === 0;
   const summaryLines =
-    summary && !weekEmpty ? summaryText(summary, t, (n) => formatRank(language, n)) : null;
+    summary && !weekEmpty ? summaryText(summary, t, (n) => formatRank(language, n), isWeek) : null;
   const countdown = isWeek && week.endsAt ? countdownText(week.endsAt, now ?? new Date(), t) : null;
   const lastWeekNames = week.lastWeek.map((w) => w.name ?? t('aSpotter')).join(', ');
 
@@ -202,7 +202,28 @@ export function summaryText(
   summary: RankSummary,
   t: (key: string) => string,
   rank: (n: number) => string,
+  week = false,
 ): [string, string | null] {
+  if (week) {
+    switch (summary.kind) {
+      case 'top':
+        return [t('spottersWeekTop').replace('{points}', String(summary.points)), null];
+      case 'level':
+        return [
+          t('spottersWeekRank').replace('{rank}', rank(summary.rank)).replace('{points}', String(summary.points)),
+          t('spottersWeekLevel').replace('{name}', summary.name).replace('{points}', String(summary.points)),
+        ];
+      case 'behind':
+        return [
+          t('spottersWeekRank').replace('{rank}', rank(summary.rank)).replace('{points}', String(summary.points)),
+          t('spottersWeekPass').replace('{n}', String(summary.gap)).replace('{name}', summary.name),
+        ];
+      case 'outside':
+        return [t('spottersWeekOutside').replace('{points}', String(summary.points)), t('profileRankOutsideBody')];
+      case 'zero':
+        return [t('profileRankZero'), null];
+    }
+  }
   switch (summary.kind) {
     case 'top':
       return [t('profileRankTop').replace('{points}', String(summary.points)), null];

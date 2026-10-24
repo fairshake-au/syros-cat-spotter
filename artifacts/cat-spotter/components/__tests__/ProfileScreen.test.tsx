@@ -401,7 +401,9 @@ describe('Profile tabs (SYC-628)', () => {
       expect(screen.getByTestId('spotters-period-week').getAttribute('aria-selected')).toBe('true');
       expect(screen.getByTestId('leader-row-W1')).toBeTruthy();
       expect(screen.queryByTestId('leader-row-A')).toBeNull();
-      expect(screen.getByTestId('profile-rank-summary').textContent).toContain('You’re 2nd with 25 points');
+      const summary = screen.getByTestId('profile-rank-summary').textContent;
+      expect(summary).toContain('You’re 2nd this week · 25 pts');
+      expect(summary).toContain('30 more to pass weekly_wren.');
     });
 
     it('switching to All time shows the all-time rows', () => {
@@ -455,7 +457,7 @@ describe('Profile tabs (SYC-628)', () => {
         entries: [{ spotterCode: 'W1', username: 'weekly_wren', points: 55, rank: 1, uniqueCatsDiscovered: 0 }],
       });
       openSpotters();
-      expect(screen.getByTestId('profile-rank-summary').textContent).toContain('You have 5 points.');
+      expect(screen.getByTestId('profile-rank-summary').textContent).toContain('You have 5 pts this week.');
     });
 
     it('offline shows the existing offline line on both tabs', () => {
