@@ -32,9 +32,11 @@ const ALLOWED: Record<string, Allow[]> = {
     { includes: 'name: cat.name, namePending: cat.namePending', why: 'handed on whole; QuestionCards picks the sentence name' },
   ],
   'components/ClaimCatSheet.tsx': [
+    { includes: 'const nameChanged =', why: 'compares the typed name with the stored one; never drawn' },
     { includes: 'setCatName(cat.namePending', why: 'rename box prefill; empty for a pending cat' },
   ],
   'components/NameThisCat.tsx': [
+    { includes: 'onSaved(updated.name)', why: 'the name the spotter just gave, named in the thank-you; the cat is no longer pending' },
     { includes: ".join(cat.name)", why: 'shows the SYR number on purpose, as "Its number is ..."' },
   ],
   'components/OwnershipNoticeBanner.tsx': [

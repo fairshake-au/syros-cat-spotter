@@ -90,7 +90,7 @@ describe('naming a new cat with a SYR number', () => {
     const { ApiError } = await import('@workspace/api-client-react');
     m.cats = [];
     m.params = buildReviewParams({ sightingId: 602, isCatPhoto: true, candidates: [], photoRef: 'review-602', ...FROM });
-    m.resolveSighting.mockRejectedValue(Object.assign(new ApiError(), { data: { error: 'x', code: 'SYR_SHAPED_NAME' } }));
+    m.resolveSighting.mockRejectedValue(Object.assign(new (ApiError as unknown as new () => Error)(), { data: { error: 'x', code: 'SYR_SHAPED_NAME' } }));
     const { getByPlaceholderText, getByText, findByText, container } = render(<ReviewScreen />);
     if (!container.textContent!.includes('Add to the cat-alogue')) {
       fireEvent.click(getByText(/None of these/));
