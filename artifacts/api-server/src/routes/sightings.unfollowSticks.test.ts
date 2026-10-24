@@ -177,7 +177,16 @@ describe("resolving a sighting and following", () => {
 
       // Connection B: the resolve starts while the unfollow is uncommitted.
       const resolving = resolve(pending, device, catId).then((r) => r);
-      await new Promise((r) => setTimeout(r, 400));
+      // Commit only once the resolve is really queued behind the lock.
+      const deadline = Date.now() + 5000;
+      for (;;) {
+        const waiting = await pool.query(
+          "select 1 from pg_stat_activity where wait_event_type = 'Lock' and query like '%from cats%' and pid <> pg_backend_pid() and datname = current_database()",
+        );
+        if (waiting.rowCount) break;
+        if (Date.now() > deadline) throw new Error("the resolve never waited on the lock");
+        await new Promise((r) => setTimeout(r, 20));
+      }
       await a.query("commit");
       expect((await resolving).status).toBe(200);
     } finally {
