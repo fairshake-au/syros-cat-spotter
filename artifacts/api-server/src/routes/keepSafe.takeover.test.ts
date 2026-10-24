@@ -293,7 +293,7 @@ describe("1. a username restores nothing", () => {
 });
 
 describe("2. a replayed link", () => {
-  it("the same phone within 60 s gets the same answer and nothing moves twice; after 60 s it's refused (M)", async () => {
+  it("the same phone within the replay window gets the same answer and nothing moves twice; after it, it's refused (M)", async () => {
     const email = newAddress();
     const old = await keptSafe(email);
     const { phone, token } = await newPhoneWithLink(email);
@@ -307,10 +307,29 @@ describe("2. a replayed link", () => {
     const [tok] = await db.select().from(mailTokensTable).where(eq(mailTokensTable.restoredDeviceId, old.id));
     expect(tok!.replacedSecretHash).toBe(hashSecret(old.secret));
 
-    await db.execute(sql`update mail_tokens set used_at = now() - interval '61 seconds' where restored_device_id = ${old.id}`);
+    await db.execute(sql`update mail_tokens set used_at = now() - interval '15 minutes 1 second' where restored_device_id = ${old.id}`);
     const late = await redeem(phone, token, old.id);
     // Refused: the phone's starter id was retired by the move.
     expect([401, 403]).toContain(late.status);
+    expect(await storedHash(old.id)).toBe(hashAfter);
+  });
+
+  it("SYC-664 ship F2: the same phone's retry is answered at 14 minutes and refused at 16 (the 15-minute replay window) (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, token } = await newPhoneWithLink(email);
+    const first = await redeem(phone, token, old.id);
+    expect(first.status).toBe(200);
+    const hashAfter = await storedHash(old.id);
+
+    await db.execute(sql`update mail_tokens set used_at = now() - interval '14 minutes' where restored_device_id = ${old.id}`);
+    const at14 = await redeem(phone, token, old.id);
+    expect(at14.status).toBe(200);
+    expect(at14.body).toEqual(first.body);
+
+    await db.execute(sql`update mail_tokens set used_at = now() - interval '16 minutes' where restored_device_id = ${old.id}`);
+    const at16 = await redeem(phone, token, old.id);
+    expect([401, 403]).toContain(at16.status);
     expect(await storedHash(old.id)).toBe(hashAfter);
   });
 
@@ -332,7 +351,7 @@ describe("2. a replayed link", () => {
     expect(again.body).toEqual(first.body);
   });
 
-  it("a used link can't move a second spotter, even within 60 s", async () => {
+  it("a used link can't move a second spotter, even within the replay window", async () => {
     const email = newAddress();
     const one = await keptSafe(email);
     const two = await keptSafe(email);
@@ -432,7 +451,7 @@ describe("3. the link on a second device (Decision 12, Samuel 11–12 Oct 2026)"
     expect(tok?.used_at ?? null).toBeNull();
   });
 
-  it("a third phone replaying a used link within 60 s gets link_not_valid and no name (M)", async () => {
+  it("a third phone replaying a used link within the replay window gets link_not_valid and no name (M)", async () => {
     const email = newAddress();
     const old = await keptSafe(email);
     const { phone, token } = await newPhoneWithLink(email);
@@ -956,7 +975,7 @@ describe("11b. \"Delete Nikos\" (SYC-266, Samuel 10 Oct 2026)", () => {
     expect(r.status).toBe(200);
     const stale = await request(app).get(`/api/profiles/${old.id}`).set("X-Device-Secret", old.secret);
     expect(stale.body).toEqual({ error: "device_moved" });
-    // A double tap within 60 s gets the same answer.
+    // A double tap within the replay window gets the same answer.
     const again = await redeemFrom(phone, token, old.id, { abandonCurrent: true, deleteCurrent: true });
     expect(again.status).toBe(200);
     expect(again.body.deviceId).toBe(old.id);

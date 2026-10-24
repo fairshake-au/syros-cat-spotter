@@ -421,7 +421,7 @@ describe("POST /api/restore/code", () => {
 });
 
 // SYC-664 Task 4: the handle stands in for the link's token at peek, redeem
-// and the 60-second replay.
+// and the same-phone replay.
 describe("a handle at peek, redeem and replay", () => {
   it("peek with handle: openedOnAskingPhone, and the same spotters as the link gives", async () => {
     const email = newAddress();

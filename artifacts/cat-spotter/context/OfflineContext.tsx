@@ -387,7 +387,9 @@ function keepInlineUnlessBroken(saved: SavePhotoResult): SavePhotoResult {
 }
 
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
-  const { deviceId, username, moved } = useDevice();
+  const { deviceId, username, moved, finishPendingMove } = useDevice();
+  const finishPendingMoveRef = useRef(finishPendingMove);
+  finishPendingMoveRef.current = finishPendingMove;
   const [isOnline, setIsOnline] = useState(true);
   const [networkState, setNetworkState] = useState<UploadNetworkState | null>(
     null,
@@ -697,6 +699,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       const online = !!state.isConnected;
       setIsOnline(online);
       if (online) {
+        // SYC-664 ship review F2: a restore move whose answer was lost is
+        // finished as soon as the phone is back (one at a time; nothing is
+        // sent when none is pending). A failure keeps it for the next go.
+        finishPendingMoveRef.current?.()?.catch(() => {});
         void syncNow();
       }
     });

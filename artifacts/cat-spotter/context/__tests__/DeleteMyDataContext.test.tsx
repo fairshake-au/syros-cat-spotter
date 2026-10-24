@@ -153,7 +153,7 @@ describe('DeleteMyDataProvider', () => {
     expect(result.current.doneVisible).toBe(true);
   });
 
-  it('SYC-664 N1: wipes nothing on a 410 while the phone’s own move is pending (inside its 60 s)', async () => {
+  it('SYC-664 N1: wipes nothing on a 410 while the phone’s own move is pending (inside its window)', async () => {
     const saved = Object.getOwnPropertyDescriptor(window, 'localStorage');
     const mem = new Map<string, string>();
     Object.defineProperty(window, 'localStorage', {

@@ -113,6 +113,7 @@ import { RestoreRequestScreen } from '../keepSafe/RestoreRequestScreen';
 import { readPendingMove, readWaiting, setMovingHandle, noteRequest, RESTORE_WAITING_KEY } from '@/lib/restoreWaiting';
 import { ApiError } from '@workspace/api-client-react';
 import RestorePage, { __resetHeldRestoreTokenForTests } from '../../app/restore';
+import { finishPendingMove } from '@/lib/pendingMove';
 import * as keepSafe from '@/lib/keepSafe';
 import { router } from 'expo-router';
 
@@ -376,7 +377,7 @@ describe('the /restore page', () => {
   });
 
   // F2: a lost answer after the Delete committed is asked for again (the
-  // server's 60-second replay answers it), not left to the 410 wipe.
+  // server's same-phone replay answers it), not left to the 410 wipe.
   it('"Delete Nikos" asks again once when the answer is lost, then becomes the spotter', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
@@ -399,6 +400,31 @@ describe('the /restore page', () => {
       await waitFor(() => expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili'));
       expect(keepSafe.redeemRestore).toHaveBeenCalledTimes(2);
       expect(h.holds).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('SYC-664 ship F2: the "not confirmed" words show only while a pending move exists: a failed link-page move says "Nothing has moved"', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      // The link page stores no pending move.
+      vi.mocked(keepSafe.redeemRestore)
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+      h.device = { deviceId: 'dev-new', username: null, isReady: true, adoptRestoredIdentity: vi.fn(async () => {}), finishPendingMove: vi.fn(async () => null) };
+      const utils = render(<RestorePage />);
+      const button = await utils.findByText('Move Lili’s spots to this phone');
+      await act(async () => {
+        fireEvent.click(button);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      await utils.findByText(en.restorePageFailed);
+      expect(readPendingMove()).toBeNull();
+      expect(utils.queryByText(en.restoreMoveUnconfirmed)).toBeNull();
+      expect(utils.queryByTestId('restore-try-again')).toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -903,6 +929,111 @@ describe('code screen', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe('SYC-664 ship F2: a move whose answer was lost', () => {
+    const lost = () => new TypeError('Failed to fetch');
+    /** The real single-flight finisher, as DeviceContext wires it, adopting via the test's spy. */
+    const withFinisher = (device: Record<string, unknown>) => ({
+      ...device,
+      finishPendingMove: () =>
+        finishPendingMove(device.deviceId as string, device.adoptRestoredIdentity as (id: string, name: string | null) => Promise<void>),
+    });
+    const moveKeep = async (utils: ReturnType<typeof render>) => {
+      await act(async () => {
+        typeCode(utils.getByTestId('restore-code-input'), '48291376');
+      });
+      await utils.findByText('Move Lili’s spots to this phone');
+      await act(async () => {
+        fireEvent.click(utils.getByTestId('restore-choice-keep'));
+      });
+      await act(async () => {
+        fireEvent.click(utils.getByText('Move Lili’s spots to this phone'));
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+    };
+
+    it('a Keep move is asked for again once, like a Delete move, and then becomes the spotter', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        vi.mocked(keepSafe.redeemRestore).mockRejectedValueOnce(lost()).mockResolvedValueOnce({ deviceId: 'dev-lili', username: 'Lili' });
+        const adopt = vi.fn(async () => {});
+        h.device = withFinisher({ deviceId: 'dev-nikos', username: 'Nikos', isReady: true, adoptRestoredIdentity: adopt });
+        const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+        await moveKeep(utils);
+        await waitFor(() => expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili'));
+        expect(keepSafe.redeemRestore).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('still unanswered: says the move is not confirmed yet (never "Nothing has moved"); "Try again" finishes it and adopts', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        vi.mocked(keepSafe.redeemRestore)
+          .mockRejectedValueOnce(lost())
+          .mockRejectedValueOnce(lost())
+          .mockResolvedValueOnce({ deviceId: 'dev-lili', username: 'Lili' });
+        const adopt = vi.fn(async () => {});
+        h.device = withFinisher({ deviceId: 'dev-nikos', username: 'Nikos', isReady: true, adoptRestoredIdentity: adopt });
+        const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+        await moveKeep(utils);
+        await utils.findByText(en.restoreMoveUnconfirmed);
+        expect(utils.queryByText(en.restorePageFailed)).toBeNull();
+        expect(readPendingMove()).not.toBeNull();
+        expect(adopt).not.toHaveBeenCalled();
+        // Back stays.
+        expect(utils.getByTestId('restore-chooser-back')).toBeTruthy();
+        await act(async () => {
+          fireEvent.click(utils.getByTestId('restore-try-again').querySelector('[role="button"]')!);
+        });
+        await waitFor(() => expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili'));
+        expect(keepSafe.redeemRestore).toHaveBeenCalledTimes(3);
+        expect(keepSafe.redeemRestore).toHaveBeenLastCalledWith(
+          'dev-nikos',
+          { token: 'handle-1', choice: 'choice-lili', abandonCurrent: true },
+          expect.anything(),
+        );
+        await waitFor(() => expect(window.location.replace).toHaveBeenCalledWith('/'));
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('back online on the "not confirmed" screen: finishes the move instead of peeking at a spent code', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        vi.mocked(keepSafe.redeemRestore)
+          .mockRejectedValueOnce(lost())
+          .mockRejectedValueOnce(lost())
+          .mockResolvedValueOnce({ deviceId: 'dev-lili', username: 'Lili' });
+        const adopt = vi.fn(async () => {});
+        h.device = withFinisher({ deviceId: 'dev-nikos', username: 'Nikos', isReady: true, adoptRestoredIdentity: adopt });
+        const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+        await moveKeep(utils);
+        await utils.findByText(en.restoreMoveUnconfirmed);
+        const peeks = vi.mocked(keepSafe.peekRestore).mock.calls.length;
+        h.online = false;
+        utils.rerender(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+        h.online = true;
+        await act(async () => {
+          utils.rerender(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+        });
+        await waitFor(() => expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili'));
+        expect(vi.mocked(keepSafe.peekRestore).mock.calls.length).toBe(peeks);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('restoreMoveUnconfirmed exists in en, el and fr, with the ruled English', () => {
+      expect(en.restoreMoveUnconfirmed).toBe('We couldn’t confirm the move yet. Check your connection and try again. Your spots are safe.');
+      expect(TRANSLATIONS.el.restoreMoveUnconfirmed).toBeTruthy();
+      expect(TRANSLATIONS.fr.restoreMoveUnconfirmed).toBeTruthy();
+    });
   });
 
   it('a refused redeem clears the pending move (I1)', async () => {

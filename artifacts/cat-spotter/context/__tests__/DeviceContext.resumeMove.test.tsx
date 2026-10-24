@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * SYC-664 final review I1: "A reload mid-move" (spec, Technical notes). The app
- * stored a pending move just before redeem. If it opens again within 60 s, it
+ * stored a pending move just before redeem. If it opens again within 15 minutes, it
  * asks again with the same values BEFORE any request goes out as the old id;
  * the server's replay answers, and the phone becomes the spotter that came back.
  */
@@ -53,7 +53,7 @@ vi.mock('@/lib/keepSafe', async (importOriginal) => {
 
 import { ApiError } from '@workspace/api-client-react';
 import { DeviceProvider, RESUME_RETRY, useDevice } from '@/context/DeviceContext';
-import { RESTORE_PENDING_MOVE_KEY, readPendingMove } from '@/lib/restoreWaiting';
+import { RESTORE_PENDING_MOVE_KEY, notePendingMove, readPendingMove } from '@/lib/restoreWaiting';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => <DeviceProvider>{children}</DeviceProvider>;
 
@@ -90,7 +90,7 @@ const apiError = (status: number, error: string) =>
 const offline = () => new TypeError('Failed to fetch');
 
 describe('a reload mid-move (I1)', () => {
-  it('(a) a pending move under 60 s: the replay answers, the phone adopts the restored id and never shows "moved"', async () => {
+  it('(a) a pending move under 15 minutes: the replay answers, the phone adopts the restored id and never shows "moved"', async () => {
     pending(5_000);
     redeem.mockImplementation(async () => {
       // As customFetch would, if anything answered device_moved meanwhile.
@@ -129,8 +129,8 @@ describe('a reload mid-move (I1)', () => {
     expect(readPendingMove()).toBeNull();
   });
 
-  it('(b) a pending move older than 60 s: cleared, nothing sent, a normal start', async () => {
-    pending(61_000);
+  it('(b) a pending move older than 15 minutes: cleared, nothing sent, a normal start', async () => {
+    pending(15 * 60_000 + 1_000);
     const { result } = renderHook(() => useDevice(), { wrapper });
     await waitFor(() => expect(result.current.isReady).toBe(true));
     expect(redeem).not.toHaveBeenCalled();
@@ -205,7 +205,7 @@ describe('a reload mid-move (I1)', () => {
   });
 
   it('N1: retries stop once the window has passed, and the move is cleared', async () => {
-    pending(59_990);
+    pending(15 * 60_000 - 10);
     redeem.mockImplementation(async () => {
       await new Promise((r) => setTimeout(r, 20));
       throw offline();
@@ -231,5 +231,84 @@ describe('a reload mid-move (I1)', () => {
     expect(redeem).not.toHaveBeenCalled();
     api.movedListener?.();
     await waitFor(() => expect(result.current.moved).toBe(true));
+  });
+});
+
+describe('SYC-664 ship F2: finishing a pending move inside the session', () => {
+  const started = async () => {
+    const hook = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(hook.result.current.isReady).toBe(true));
+    return hook;
+  };
+  const noteKeep = () => notePendingMove({ handle: 'handle-9', choice: 'choice-lili', abandonCurrent: true });
+
+  it('a pending Keep move is asked for again as the current id, and the phone adopts the spotter that came back', async () => {
+    const { result } = await started();
+    noteKeep();
+    redeem.mockResolvedValueOnce({ deviceId: 'dev-lili', username: 'Lili' });
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.finishPendingMove();
+    });
+    expect(redeem).toHaveBeenCalledWith(
+      'dev-starter',
+      { token: 'handle-9', choice: 'choice-lili', abandonCurrent: true },
+      expect.anything(),
+    );
+    expect(outcome).toEqual({ deviceId: 'dev-lili', username: 'Lili' });
+    expect(result.current.deviceId).toBe('dev-lili');
+    expect(result.current.username).toBe('Lili');
+    expect(readPendingMove()).toBeNull();
+  });
+
+  it('nothing pending: sends nothing', async () => {
+    const { result } = await started();
+    let outcome: unknown = 'unset';
+    await act(async () => {
+      outcome = await result.current.finishPendingMove();
+    });
+    expect(outcome).toBeNull();
+    expect(redeem).not.toHaveBeenCalled();
+  });
+
+  it('one at a time: a second try while one is in flight waits for it and sends nothing more', async () => {
+    const { result } = await started();
+    noteKeep();
+    let answer!: (v: { deviceId: string; username: string | null }) => void;
+    redeem.mockImplementationOnce(() => new Promise((r) => { answer = r; }));
+    let a!: Promise<unknown>;
+    let b!: Promise<unknown>;
+    await act(async () => {
+      a = result.current.finishPendingMove();
+      b = result.current.finishPendingMove();
+    });
+    await act(async () => {
+      answer({ deviceId: 'dev-lili', username: 'Lili' });
+      await Promise.all([a, b]);
+    });
+    expect(redeem).toHaveBeenCalledTimes(1);
+    await expect(b).resolves.toEqual({ deviceId: 'dev-lili', username: 'Lili' });
+    expect(result.current.deviceId).toBe('dev-lili');
+  });
+
+  it('a network error or 429 keeps the move for the next try; a definite refusal clears it', async () => {
+    const { result } = await started();
+    noteKeep();
+    redeem.mockRejectedValueOnce(offline());
+    await act(async () => {
+      await expect(result.current.finishPendingMove()).rejects.toBeTruthy();
+    });
+    expect(readPendingMove()).not.toBeNull();
+    redeem.mockRejectedValueOnce(apiError(429, 'link_not_valid'));
+    await act(async () => {
+      await expect(result.current.finishPendingMove()).rejects.toBeTruthy();
+    });
+    expect(readPendingMove()).not.toBeNull();
+    redeem.mockRejectedValueOnce(apiError(401, 'link_not_valid'));
+    await act(async () => {
+      await expect(result.current.finishPendingMove()).rejects.toBeTruthy();
+    });
+    expect(readPendingMove()).toBeNull();
+    expect(result.current.deviceId).toBe('dev-starter');
   });
 });

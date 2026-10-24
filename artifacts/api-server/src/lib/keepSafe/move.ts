@@ -1,7 +1,7 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
-import { hashToken } from "./tokens";
+import { hashToken, RESTORE_TOKEN_MINUTES } from "./tokens";
 import { DELETED_BY_THE_PERSON, severPerson } from "../severPerson";
 
 /**
@@ -36,7 +36,7 @@ import { DELETED_BY_THE_PERSON, severPerson } from "../severPerson";
  *    my data" would (SYC-63 `severPerson`), in this same transaction. If the
  *    abandoned id also asked for this link, `severKeepSafe` swaps it on the
  *    spent link for its one-way `deleted:` key rather than deleting the link,
- *    so the old phone's `device_moved` and the 60-second replay still work,
+ *    so the old phone's `device_moved` and the same-phone replay still work,
  *    without keeping the raw id.
  *
  * A deleted spotter (SYC-63) has no credential row under its id, so step 5
@@ -46,7 +46,13 @@ import { DELETED_BY_THE_PERSON, severPerson } from "../severPerson";
 /** Not hex, so it can never equal a secret's sha256 (deviceAuth.hashesMatch). */
 export const RETIRED_SECRET_HASH = "retired";
 
-export const SAME_ANSWER_SECONDS = 60;
+/**
+ * How long after a move the phone that made it can ask again and get the same
+ * answer (SYC-664 ship review F2, Samuel 24 Oct 2026): as long as the link or
+ * code lives, so a reply lost to a bad connection can still be finished on the
+ * same phone. Keyed by that phone's own secret, so no other phone can use it.
+ */
+export const REPLAY_WINDOW_SECONDS = RESTORE_TOKEN_MINUTES * 60;
 
 export type MoveRefusal = { ok: false; reason: string };
 export type MoveResult = { ok: true; deviceId: string; username: string | null } | MoveRefusal;
@@ -68,7 +74,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
  * the handle `POST /api/restore/code` swapped a right code for (SYC-664). A
  * handle is token-shaped and link-equivalent, so every site that finds the
  * row from the client's secret (peek, the spend, the replaced-secret write
- * and the 60-second replay) must use this, or a handle works in one place and
+ * and the same-phone replay) must use this, or a handle works in one place and
  * not the next. `handle_hash` is null on rows without one, and `= h` never
  * matches null. Only the latest handle for a row matches (it's overwritten).
  *
@@ -165,8 +171,8 @@ function matchesPick(raw: string, deviceId: string, pick: SpotterPick): boolean 
 
 /**
  * A double tap or a back button (plan step 6): the same phone, asking for the
- * same spotter, within 60 seconds of the move, gets the same answer, and
- * nothing moves twice.
+ * same spotter, within 15 minutes of the move (`REPLAY_WINDOW_SECONDS`), gets
+ * the same answer, and nothing moves twice.
  *
  * By then the phone's starter id is retired (or deleted), so it can't pass the
  * ordinary device check. "The same phone" is proved by its secret alone: the
@@ -187,7 +193,7 @@ export async function replayAfterMove(input: {
       left join profiles p on p.device_id = t.restored_device_id
      where ${rowIs(input.raw)}
        and t.purpose = 'restore'
-       and t.used_at > now() - make_interval(secs => ${SAME_ANSWER_SECONDS})
+       and t.used_at > now() - make_interval(secs => ${REPLAY_WINDOW_SECONDS})
        and c.secret_hash = ${input.callerSecretHash}
   `);
   const row = result.rows[0] as { restored_device_id: string; username: string | null } | undefined;

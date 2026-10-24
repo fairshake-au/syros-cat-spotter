@@ -59,7 +59,7 @@ export function readWaiting(now: number = Date.now()): RestoreWaiting | null {
   if (!v) return null;
   // Also expired: stamped more than a minute ahead (the device clock moved back), or it would live for ever.
   if (now - v.askedAt > WINDOW_MS || v.askedAt > now + 60_000) {
-    // Only the note: a pending move keeps its own 60-second life.
+    // Only the note: a pending move keeps its own life, counted from the move.
     try { store()?.removeItem(RESTORE_WAITING_KEY); } catch { /* blocked storage */ }
     return null;
   }
@@ -98,13 +98,15 @@ export function setMovingHandle(handle: string | null, now: number = Date.now())
 
 /**
  * SYC-664 final review I1, "A reload mid-move": what the code screen was about
- * to redeem, stored just before the request goes out. If the app opens again
- * within 60 seconds (the server's replay window), DeviceContext asks again with
- * these values before anything is sent as this phone's old id. Its own key, so
- * it outlives a waiting note that expires mid-move.
+ * to redeem, stored just before the request goes out. For 15 minutes (the
+ * server's replay window, SYC-664 ship review F2) the app asks again with these
+ * values: at start-up before anything is sent as this phone's old id, and in
+ * the session when the phone comes back online or the person taps "Try again"
+ * (lib/pendingMove.ts). Its own key, so it outlives a waiting note that expires
+ * mid-move.
  */
 export const RESTORE_PENDING_MOVE_KEY = 'cat-spotter/restore-pending-move';
-export const PENDING_MOVE_MS = 60_000;
+export const PENDING_MOVE_MS = RESTORE_WAITING_MINUTES * 60_000;
 
 export type PendingMove = {
   handle: string;
@@ -129,7 +131,11 @@ export function clearPendingMove(): void {
   try { store()?.removeItem(RESTORE_PENDING_MOVE_KEY); } catch { /* blocked storage */ }
 }
 
-/** The pending move, or null (and cleared) once 60 s have passed or if it is stamped in the future. */
+/**
+ * The pending move, or null (and cleared) once 15 minutes have passed, or if it
+ * is stamped more than 15 minutes in the future (the clock moved back), so it
+ * can never live more than about 30 minutes.
+ */
 export function readPendingMove(now: number = Date.now()): PendingMove | null {
   let raw: string | null = null;
   try { raw = store()?.getItem(RESTORE_PENDING_MOVE_KEY) ?? null; } catch { return null; }

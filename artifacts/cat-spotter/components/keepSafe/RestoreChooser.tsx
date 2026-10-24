@@ -14,6 +14,7 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { waitForUsernameClaimToSettle } from '@/hooks/useUsernameClaim';
 import {
+  isDefiniteRefusal,
   isLinkNotValid,
   peekRestore,
   redeemRestore,
@@ -21,7 +22,8 @@ import {
   type RestoreSpotter,
 } from '@/lib/keepSafe';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
-import { clearPendingMove, clearWaiting, notePendingMove, setMovingHandle } from '@/lib/restoreWaiting';
+import { clearPendingMove, clearWaiting, notePendingMove, readPendingMove, setMovingHandle } from '@/lib/restoreWaiting';
+import { exclusiveMove } from '@/lib/pendingMove';
 
 /**
  * The restore chooser, shared by the link page (app/restore.tsx) and the code
@@ -41,7 +43,12 @@ type State =
   | { kind: 'choose'; spotters: RestoreSpotter[] }
   | { kind: 'moving' }
   | { kind: 'not-valid' }
-  | { kind: 'failed' };
+  /**
+   * `unconfirmed`: this phone's move may have happened but its answer never
+   * came, and the pending move is still stored (SYC-664 ship review F2). Never
+   * "Nothing has moved" then; "Try again" finishes it.
+   */
+  | { kind: 'failed'; unconfirmed?: boolean };
 
 export function RestoreChooser({
   secret,
@@ -63,7 +70,7 @@ export function RestoreChooser({
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { deviceId, username, isReady, adoptRestoredIdentity } = useDevice();
+  const { deviceId, username, isReady, adoptRestoredIdentity, finishPendingMove } = useDevice();
   const { isOnline, pauseSync, resumeSync } = useOffline();
   const token = useRef<string | null>(secret || null);
   token.current = secret || null;
@@ -76,10 +83,28 @@ export function RestoreChooser({
   // Some in-app browsers refuse the clipboard: never claim a copy that didn't happen.
   const [copyFailed, setCopyFailed] = useState(false);
 
+  // Set once this phone has become the restored spotter: nothing more to check.
+  const moved = useRef(false);
+  // The id this phone had when the chooser opened.
+  const startedAs = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!isReady || !deviceId) return;
+    if (!isReady || !deviceId || moved.current) return;
+    startedAs.current ??= deviceId;
+    // The phone became another spotter meanwhile: a move finished elsewhere
+    // (back online, SYC-664 ship F2). This secret is spent; leave for the app.
+    if (deviceId !== startedAs.current) {
+      afterMove();
+      return;
+    }
     if (!isOnline) {
       setState({ kind: 'offline' });
+      return;
+    }
+    // SYC-664 ship F2: a move on this screen whose answer was lost. Its code
+    // may be spent already, so never peek: finish the move (back online).
+    if (fromCode && readPendingMove()) {
+      void finishLostMove();
       return;
     }
     let cancelled = false;
@@ -136,6 +161,47 @@ export function RestoreChooser({
     setState({ kind: 'choose', spotters: peek.spotters });
   };
 
+  /** The phone is the restored spotter now: leave for the app. */
+  const afterMove = () => {
+    if (moved.current) return;
+    moved.current = true;
+    onMoved?.();
+    token.current = null;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      // A fresh page load: the app starts as the restored spotter.
+      window.location.replace('/');
+    } else {
+      router.replace('/');
+    }
+  };
+
+  /** What a failed move shows: "not valid", "not confirmed yet" while a pending move lives, or a plain failure. */
+  const failedState = (err: unknown): State => {
+    if (isLinkNotValid(err)) return { kind: 'not-valid' };
+    return { kind: 'failed', unconfirmed: Boolean(fromCode) && readPendingMove() !== null };
+  };
+
+  /**
+   * SYC-664 ship F2: finish a move whose answer was lost ("Try again", or back
+   * online). One at a time with every other try (lib/pendingMove.ts); the
+   * server's replay answers for 15 minutes and moves nothing twice.
+   */
+  const finishLostMove = async () => {
+    setState({ kind: 'moving' });
+    try {
+      // A late 410 for the id being left must not wipe the phone mid-finish.
+      const restored = await holdIdentityDeleted(() => finishPendingMove());
+      if (restored) {
+        afterMove();
+        return;
+      }
+      // Nothing pending any more (its 15 minutes are up).
+      setState({ kind: 'failed' });
+    } catch (err) {
+      setState(failedState(err));
+    }
+  };
+
   const move = async (spotter: RestoreSpotter) => {
     const raw = token.current;
     if (!raw || !deviceId) return;
@@ -160,39 +226,38 @@ export function RestoreChooser({
             ...(deleting ? { deleteCurrent: true } : {}),
           };
           const request = () => redeemRestore(deviceId, input);
-          // SYC-664 I1: if the app reloads before the answer lands, start-up
-          // asks again with these values (DeviceContext). Cleared on success
-          // (adoptRestoredIdentity) or a definite refusal (below).
-          if (fromCode) notePendingMove({ handle: raw, choice: input.choice, abandonCurrent: input.abandonCurrent, deleteCurrent: deleting });
-          let result: Awaited<ReturnType<typeof request>>;
-          try {
-            result = await request();
-          } catch (err) {
-            // A lost answer after a Delete has committed would leave this
-            // phone on Nikos's deleted id: the next 410 would wipe it and the
-            // spotter coming back would be lost. Ask again: within 60 s the
-            // server gives the same answer and moves nothing twice (#110
-            // review, F2).
-            if (!deleting || isLinkNotValid(err)) throw err;
-            await new Promise((r) => setTimeout(r, 1500));
-            result = await request();
-          }
-          await adoptRestoredIdentity(result.deviceId, result.username);
+          // One at a time with the back-online retry (SYC-664 ship F2).
+          await exclusiveMove(async () => {
+            // SYC-664 I1: if the answer never lands (a reload, a dropped
+            // connection), the app asks again with these values: at start-up,
+            // back online, or "Try again". Cleared on success
+            // (adoptRestoredIdentity) or a definite refusal (below).
+            if (fromCode) notePendingMove({ handle: raw, choice: input.choice, abandonCurrent: input.abandonCurrent, deleteCurrent: deleting });
+            let result: Awaited<ReturnType<typeof request>>;
+            try {
+              result = await request();
+            } catch (err) {
+              // A lost answer after the move committed: after a Delete the
+              // next 410 would wipe this phone and lose the spotter coming
+              // back (#110 review, F2); after a Keep this phone would sit on a
+              // retired id (SYC-664 ship F2). Ask again, either way: within 15
+              // minutes the server gives the same answer and moves nothing twice.
+              if (isLinkNotValid(err)) throw err;
+              await new Promise((r) => setTimeout(r, 1500));
+              result = await request();
+            }
+            await adoptRestoredIdentity(result.deviceId, result.username);
+            return result;
+          });
         } finally {
           if (deleting) resumeSync();
         }
       });
-      onMoved?.();
-      token.current = null;
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        // A fresh page load: the app starts as the restored spotter.
-        window.location.replace('/');
-      } else {
-        router.replace('/');
-      }
+      afterMove();
     } catch (err) {
-      if (isLinkNotValid(err)) clearPendingMove();
-      setState({ kind: isLinkNotValid(err) ? 'not-valid' : 'failed' });
+      // The server said no (not a 429): nothing moved, so nothing to finish.
+      if (isLinkNotValid(err) || isDefiniteRefusal(err)) clearPendingMove();
+      setState(failedState(err));
     }
   };
 
@@ -393,7 +458,20 @@ export function RestoreChooser({
         </View>
       ) : null}
 
-      {state.kind === 'not-valid' || state.kind === 'failed' ? (
+      {state.kind === 'failed' && state.unconfirmed ? (
+        <View style={styles.choices}>
+          <Text testID="restore-not-valid" style={[styles.text, { color: colors.foreground }]}>
+            {t('restoreMoveUnconfirmed')}
+          </Text>
+          <View testID="restore-try-again">
+            <Button variant="primary" size="lg" block onPress={() => void finishLostMove()}>
+              {t('tryAgain')}
+            </Button>
+          </View>
+        </View>
+      ) : null}
+
+      {state.kind === 'not-valid' || (state.kind === 'failed' && !state.unconfirmed) ? (
         <View style={styles.choices}>
           <Text testID="restore-not-valid" style={[styles.text, { color: colors.foreground }]}>
             {state.kind === 'not-valid'

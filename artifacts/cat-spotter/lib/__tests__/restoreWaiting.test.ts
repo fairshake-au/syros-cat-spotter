@@ -15,7 +15,7 @@ vi.mock('@react-native-async-storage/async-storage', () => ({ default: {} }));
 
 import { ApiError, customFetch } from '@workspace/api-client-react';
 import {
-  RESTORE_WAITING_MINUTES, clearPendingMove, clearWaiting, notePendingMove, noteRequest, noteWrongTry,
+  PENDING_MOVE_MS, RESTORE_WAITING_MINUTES, clearPendingMove, clearWaiting, notePendingMove, noteRequest, noteWrongTry,
   readPendingMove, readWaiting, setMovingHandle,
 } from '../restoreWaiting';
 import { exchangeRestoreCode, isCodeNotValid, isTooManyTries, normaliseCode } from '../keepSafe';
@@ -110,16 +110,21 @@ describe('restoreWaiting', () => {
 describe('pending move (SYC-664 final I1)', () => {
   const move = { handle: 'h1', choice: 'c1', abandonCurrent: true, deleteCurrent: true };
 
-  it('is kept for 60 seconds, then cleared', () => {
+  it('SYC-664 ship F2: is kept for 15 minutes (it survives 14), then cleared', () => {
+    expect(PENDING_MOVE_MS).toBe(15 * MIN);
     notePendingMove(move, T0);
-    expect(readPendingMove(T0 + 59_000)).toEqual({ ...move, at: T0 });
-    expect(readPendingMove(T0 + 61_000)).toBeNull();
+    expect(readPendingMove(T0 + 14 * MIN)).toEqual({ ...move, at: T0 });
+    expect(readPendingMove(T0 + 15 * MIN)).toEqual({ ...move, at: T0 });
+    expect(readPendingMove(T0 + 15 * MIN + 1_000)).toBeNull();
     expect(readPendingMove(T0 + 1_000)).toBeNull(); // cleared on expiry
   });
 
-  it('a move stamped in the future (clock moved back) is not trusted', () => {
-    notePendingMove(move, T0 + 5 * MIN);
+  it('a move stamped further in the future than its own life (clock moved back) is not trusted', () => {
+    notePendingMove(move, T0 + 16 * MIN);
     expect(readPendingMove(T0)).toBeNull();
+    // Within the clamp it is kept, so at most about 30 minutes in all.
+    notePendingMove(move, T0 + 14 * MIN);
+    expect(readPendingMove(T0)).not.toBeNull();
   });
 
   it('is its own key: it outlives the waiting note and clearWaiting clears it too', () => {
