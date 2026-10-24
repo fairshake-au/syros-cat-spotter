@@ -48,9 +48,25 @@ export interface SpotEvent {
  * Pathfinder and Trailblazer. Empty until the history backfill has finished.
  */
 export async function eventBadgesForSpot(tx: DbOrTx, spot: SpotEvent): Promise<string[]> {
+  if (!spot.isNewCat || !spot.areaKey || spot.areaKey === OFF_SYROS.key) return [];
+  if (!(await backfillFinished(tx))) return [];
+  return eventBadgesUngated(tx, spot);
+}
+
+/**
+ * The same rules without the backfill gate, for the history backfill
+ * (Task 7), which runs before the gate opens. With `registeredBefore`, only
+ * cats registered before this one count as known for Trailblazer: history
+ * replays spots after later cats exist, while a live spot is always the
+ * latest.
+ */
+export async function eventBadgesUngated(
+  tx: DbOrTx,
+  spot: SpotEvent,
+  opts: { registeredBefore?: boolean } = {},
+): Promise<string[]> {
   const { catId, isNewCat, areaKey, at } = spot;
   if (!isNewCat || !areaKey || areaKey === OFF_SYROS.key) return [];
-  if (!(await backfillFinished(tx))) return [];
 
   const earned: string[] = [];
 
@@ -71,7 +87,9 @@ export async function eventBadgesForSpot(tx: DbOrTx, spot: SpotEvent): Promise<s
   `);
   if (recent.rows.length === 0) earned.push("pathfinder");
 
-  if (await isFirstCatInArea(tx, catId, areaKey, at)) earned.push("trailblazer");
+  if (await isFirstCatInArea(tx, catId, areaKey, at, opts.registeredBefore === true)) {
+    earned.push("trailblazer");
+  }
   return earned;
 }
 
@@ -86,17 +104,24 @@ export async function eventBadgesForSpot(tx: DbOrTx, spot: SpotEvent): Promise<s
  *    spots were stamped before the area existed, so the stamp alone would
  *    hand the badge to the next new cat there (spec §2: nobody gets it).
  * Cats the team registered themselves count as known. Removed (redacted)
- * cats do not.
+ * cats do not. With `registeredBefore`, a cat counts only if it was
+ * registered before this one (by created_at, then id).
  */
 async function isFirstCatInArea(
   tx: DbOrTx,
   catId: number,
   areaKey: string,
   at: Date,
+  registeredBefore: boolean,
 ): Promise<boolean> {
   const { areas } = await namedAreasAt(at, tx);
   const area = areas.find((a) => a.key === areaKey);
   if (!area) return false;
+  const earlier = (alias: string) =>
+    registeredBefore
+      ? sql`and (${sql.raw(alias)}.created_at, ${sql.raw(alias)}.id) <
+              (select created_at, id from cats where id = ${catId})`
+      : sql``;
 
   const stamped = await tx.execute(sql`
     select 1
@@ -106,6 +131,7 @@ async function isFirstCatInArea(
       and s.status = 'resolved'
       and s.cat_id <> ${catId}
       and c.redacted_at is null
+      ${earlier("c")}
       and not exists (
         select 1 from sightings e
         where e.cat_id = s.cat_id and e.status = 'resolved' and e.id < s.id
@@ -118,6 +144,7 @@ async function isFirstCatInArea(
     select lat, lng from cats
     where id <> ${catId}
       and redacted_at is null
+      ${earlier("cats")}
       and lat between ${area.lat - NEAR_DEG} and ${area.lat + NEAR_DEG}
       and lng between ${area.lng - NEAR_DEG} and ${area.lng + NEAR_DEG}
   `);

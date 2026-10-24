@@ -6,6 +6,7 @@ import { sweepKeepSafeIfDue } from "../lib/keepSafe/sweep";
 import { sweepRateLimitsIfDue } from "../lib/limits";
 import { sweepIssueNotesIfDue } from "../lib/issues/retention";
 import { safeError } from "../lib/logger";
+import { backfillOnDrainEnabled, runBadgeBackfillOnce, type BackfillStatus } from "../lib/badges/backfill";
 
 /**
  * POST /api/internal/mail/drain (SYC-42 plan, Slice 1 item 1.6, layer 3).
@@ -36,6 +37,11 @@ import { safeError } from "../lib/logger";
  * Once a day per server it also clears the notes on issue reports closed over
  * a year ago (SYC-44 PR 8.1, lib/issues/retention.ts). A sweep failure is
  * logged and never changes the status.
+ *
+ * After the round-up it runs the badge history backfill (SYC-706,
+ * lib/badges/backfill.ts) until one run has finished; after that it is one
+ * read per drain. A failure is logged, never changes the status, and the
+ * next drain resumes the run.
  */
 const router: IRouter = Router();
 
@@ -71,15 +77,30 @@ router.post("/internal/mail/drain", async (req, res) => {
     req.log.error({ err: safeError(err) }, "sighting round-up failed");
     roundUp = { status: "error" };
   }
+  let badgeBackfill: BackfillStatus | "off" | "error" = "off";
+  if (backfillOnDrainEnabled()) {
+    try {
+      badgeBackfill = await runBadgeBackfillOnce();
+    } catch (err) {
+      req.log.error({ err: safeError(err) }, "badge history backfill failed");
+      badgeBackfill = "error";
+    }
+  }
   if (overdue > 0) {
     req.log.error(
       { overdue, ...result },
       `mail drain: ${overdue} welfare alert(s) unsent for over ${OVERDUE_MINUTES} minutes`,
     );
-    res.status(500).json({ error: "welfare_alert_overdue", overdue, ...result, roundUp: roundUp.status });
+    res.status(500).json({
+      error: "welfare_alert_overdue",
+      overdue,
+      ...result,
+      roundUp: roundUp.status,
+      badgeBackfill,
+    });
     return;
   }
-  res.status(200).json({ overdue: 0, ...result, roundUp: roundUp.status });
+  res.status(200).json({ overdue: 0, ...result, roundUp: roundUp.status, badgeBackfill });
 });
 
 export default router;
