@@ -1,3 +1,4 @@
+import { CELL_LAT_DEG, CELL_LNG_DEG, SYROS_OUTLINE } from "@workspace/geo";
 import { athensToday } from "../athensTime";
 import { wholePct, type ColonyFlag } from "../dashboard/colonyFigures";
 import { WELFARE_COLOUR, WELFARE_ORDER, WELFARE_PATTERN, WELFARE_WORD } from "../dashboard/welfareKinds";
@@ -386,7 +387,7 @@ export function renderCoveragePage(r: CoverageReport, o: { personName: string; r
     `<p class="hint">Squares of about 250 m. ${esc(plural(seen, "square", "squares"))} with a sighting in this period; ` +
     `${esc(plural(notLooked, "square", "squares"))} within 500 m of an area's centre not looked at yet.</p>` +
     '<div class="chartbox">' +
-    coverageMap({ cells: r.cells, labels: r.labels, title: "Squares sighted in this period, and squares not looked at yet" }) +
+    coverageMap({ cells: r.cells, labels: r.labels, outline: SYROS_OUTLINE, toGrid: (lat, lng) => ({ row: lat / CELL_LAT_DEG, col: lng / CELL_LNG_DEG }), title: "Squares sighted in this period, and squares not looked at yet" }) +
     "</div>" +
     (r.offSyros > 0 ? `<p class="hint">Also ${esc(plural(r.offSyros, "sighting", "sightings"))} more than 2 km from every area, not drawn.</p>` : "") +
     tableFor(t.areas) +

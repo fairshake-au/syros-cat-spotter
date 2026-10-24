@@ -35,7 +35,15 @@ export const swatch = (seen: boolean) =>
     : `<rect x="1.5" y="1.5" width="11" height="11" fill="#fff" stroke="${INK}" stroke-width="1.5" stroke-dasharray="3 2"/>`) +
   "</svg>";
 
-export function coverageMap(o: { cells: readonly MapCell[]; labels: readonly { name: string; row: number; col: number }[]; title: string }): string {
+export function coverageMap(o: {
+  cells: readonly MapCell[];
+  labels: readonly { name: string; row: number; col: number }[];
+  title: string;
+  /** The island's outline as [lat, lng] points (lib/geo SYROS_OUTLINE). */
+  outline: readonly (readonly [number, number])[];
+  /** Maps a point onto the same grid the squares use (fractional row and column, not floored). */
+  toGrid: (lat: number, lng: number) => { row: number; col: number };
+}): string {
   if (o.cells.length === 0) return "";
   const rows = o.cells.map((c) => c.row);
   const cols = o.cells.map((c) => c.col);
@@ -47,8 +55,52 @@ export function coverageMap(o: { cells: readonly MapCell[]; labels: readonly { n
   const nCols = cMax - cMin + 1;
   const s = Math.max(4, Math.min(Math.floor((VIEW_W - 2 * PAD) / nCols), Math.floor(MAX_H / nRows)));
   const ox = Math.floor((VIEW_W - nCols * s) / 2);
-  const oy = PAD;
+
+  // Area names sit just above the box round that area's squares, centred on
+  // it. Worked out relative to the top of the squares (gy), so the picture
+  // can make room above for the highest name. An area with no drawn squares
+  // gets no name: there is nothing to label. A name that would overlap one
+  // already placed moves up a line (never down, which would land on squares).
+  const byArea = new Map<string, { rLo: number; rHi: number; cLo: number; cHi: number }>();
+  for (const c of o.cells) {
+    const b = byArea.get(c.area);
+    if (!b) byArea.set(c.area, { rLo: c.row, rHi: c.row, cLo: c.col, cHi: c.col });
+    else {
+      b.rLo = Math.min(b.rLo, c.row);
+      b.rHi = Math.max(b.rHi, c.row);
+      b.cLo = Math.min(b.cLo, c.col);
+      b.cHi = Math.max(b.cHi, c.col);
+    }
+  }
+  const placed: { x0: number; x1: number; y0: number; y1: number }[] = [];
+  const named: { name: string; x: number; gy: number }[] = [];
+  const seenNames = new Set<string>();
+  for (const l of o.labels) {
+    const b = byArea.get(l.name);
+    if (!b || seenNames.has(l.name)) continue;
+    seenNames.add(l.name);
+    const w = Math.ceil(l.name.length * FONT * 0.56);
+    const cx = Math.round(ox + ((b.cLo + b.cHi + 1) / 2 - cMin) * s);
+    const x = Math.min(VIEW_W - PAD - Math.ceil(w / 2), Math.max(PAD + Math.ceil(w / 2), cx));
+    let gy = (rMax - b.rHi) * s - 4;
+    for (let tries = 0; tries < 12; tries++) {
+      const box = { x0: x - w / 2, x1: x + w / 2, y0: gy - FONT, y1: gy + 4 };
+      if (!placed.some((q) => q.x0 < box.x1 && box.x0 < q.x1 && q.y0 < box.y1 && box.y0 < q.y1)) break;
+      gy -= FONT + 2;
+    }
+    placed.push({ x0: x - w / 2, x1: x + w / 2, y0: gy - FONT, y1: gy + 4 });
+    named.push({ name: l.name, x, gy });
+  }
+  const oy = PAD + Math.max(0, ...named.map((n) => FONT - n.gy));
   const H = oy + nRows * s + PAD;
+
+  const pt = (lat: number, lng: number) => {
+    const g = o.toGrid(lat, lng);
+    return `${Math.round(ox + (g.col - cMin) * s)},${Math.round(oy + (rMax + 1 - g.row) * s)}`;
+  };
+  const island =
+    `<polygon points="${o.outline.map(([lat, lng]) => pt(lat, lng)).join(" ")}" fill="#e9e5da" stroke="#cfc9ba" stroke-width="1" ` +
+    `vector-effect="non-scaling-stroke" stroke-linejoin="round" aria-hidden="true"/>`;
 
   const squares = o.cells
     .map((c) => {
@@ -62,32 +114,17 @@ export function coverageMap(o: { cells: readonly MapCell[]; labels: readonly { n
     })
     .join("");
 
-  // Area names at their centres; a name that would overlap one already
-  // written moves down a line, so names never sit on top of each other.
-  const placed: { x0: number; x1: number; y0: number; y1: number }[] = [];
-  const names = o.labels
-    .filter((l) => l.row >= rMin && l.row <= rMax + 1 && l.col >= cMin && l.col <= cMax + 1)
-    .map((l) => {
-      const w = Math.ceil(l.name.length * FONT * 0.56);
-      const cx = Math.round(ox + (l.col - cMin) * s);
-      const x = Math.min(VIEW_W - PAD - Math.ceil(w / 2), Math.max(PAD + Math.ceil(w / 2), cx));
-      let y = Math.round(oy + (rMax + 1 - l.row) * s + FONT * 0.35);
-      for (let tries = 0; tries < 6; tries++) {
-        const box = { x0: x - w / 2, x1: x + w / 2, y0: y - FONT, y1: y + 4 };
-        if (!placed.some((b) => b.x0 < box.x1 && box.x0 < b.x1 && b.y0 < box.y1 && box.y0 < b.y1)) break;
-        y += FONT + 2;
-      }
-      y = Math.min(H - 2, y);
-      placed.push({ x0: x - w / 2, x1: x + w / 2, y0: y - FONT, y1: y + 4 });
-      return (
-        `<text x="${x}" y="${y}" font-size="${FONT}" text-anchor="middle" fill="${INK}" font-weight="700" ` +
-        `stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">${esc(l.name)}</text>`
-      );
-    })
+  const names = named
+    .map(
+      (n) =>
+        `<text x="${n.x}" y="${oy + n.gy}" font-size="${FONT}" text-anchor="middle" fill="${INK}" font-weight="700" ` +
+        `stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">${esc(n.name)}</text>`,
+    )
     .join("");
 
   return (
     `<svg class="chart" viewBox="0 0 ${VIEW_W} ${H}" role="img" aria-label="${esc(o.title)}" xmlns="http://www.w3.org/2000/svg">` +
+    island +
     squares +
     names +
     "</svg>" +
