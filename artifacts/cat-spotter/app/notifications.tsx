@@ -10,12 +10,24 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { AppNotification } from '@workspace/api-client-react';
+import {
+  getGetProfileQueryKey,
+  useGetProfile,
+  type AppNotification,
+} from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, spacing, tracking } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { useNotifications } from '@/context/NotificationContext';
+import { IconButton } from '@/components/purropolis';
+import { useDevice } from '@/context/DeviceContext';
+import { useOffline } from '@/context/OfflineContext';
+import { LoadFailed } from '@/components/LoadFailed';
+import { Button } from '@/components/purropolis/Button';
+import { LOAD_QUERY_OPTIONS, LOAD_TIMEOUT_MS } from '@/lib/loadTiming';
+import { notificationsEmptyKey } from '@/lib/notificationsEmpty';
+import { goToSpotTab } from '@/lib/goToSpotTab';
 
 function relativeTime(iso: string, t: (k: string) => string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -56,8 +68,20 @@ export default function NotificationsScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { notifications, unreadCount, isLoading, refetch, markAllRead } =
+  const { notifications, unreadCount, isLoading, loadFailed, refetch, markAllRead } =
     useNotifications();
+  // SYC-508 §4.1: the profile Home already loads (same key), only to pick the
+  // empty line.
+  const { deviceId } = useDevice();
+  const { isOnline } = useOffline();
+  const profileQuery = useGetProfile(deviceId ?? '', {
+    query: {
+      enabled: !!deviceId && isOnline,
+      queryKey: getGetProfileQueryKey(deviceId ?? ''),
+      ...LOAD_QUERY_OPTIONS,
+    },
+    request: { timeoutMs: LOAD_TIMEOUT_MS },
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -111,6 +135,10 @@ export default function NotificationsScreen() {
 
     const n = item.notification;
     const iconStyle = UPDATE_STYLE[n.updateType] ?? UPDATE_STYLE.general;
+    const time = relativeTime(n.createdAt, t);
+    const rowLabel = [n.read ? null : t('notificationUnread'), n.message, time]
+      .filter(Boolean)
+      .join('. ');
 
     return (
       <Pressable
@@ -123,6 +151,8 @@ export default function NotificationsScreen() {
             },
           })
         }
+        accessibilityRole="button"
+        accessibilityLabel={rowLabel}
         style={[
           styles.row,
           { backgroundColor: n.read ? 'transparent' : colors.secondary },
@@ -146,7 +176,7 @@ export default function NotificationsScreen() {
             {n.message}
           </Text>
           <Text style={[styles.time, { color: colors.mutedForeground }]}>
-            {relativeTime(n.createdAt, t)}
+            {time}
           </Text>
         </View>
       </Pressable>
@@ -156,32 +186,48 @@ export default function NotificationsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={close} hitSlop={8}>
+        <IconButton variant="ghost" label={t('back')} onPress={close}>
           <Feather name="arrow-left" size={22} color={colors.foreground} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>
+        </IconButton>
+        {/* The bell emoji is decoration: the label keeps it from being read aloud. */}
+        <Text
+          role="heading"
+          accessibilityLabel={t('notificationsTitle')}
+          style={[styles.title, { color: colors.foreground }]}
+        >
           {t('notificationsTitle')} 🔔
         </Text>
         {unreadCount > 0 ? (
-          <Pressable onPress={markAllRead} hitSlop={8}>
+          <Pressable
+            onPress={markAllRead}
+            accessibilityRole="button"
+            style={styles.markAllHit}
+          >
             <Text style={[styles.markAll, { color: colors.primary }]}>
               {t('markAllRead')}
             </Text>
           </Pressable>
         ) : (
-          <View style={{ width: 22 }} />
+          <View style={{ width: 44 }} />
         )}
       </View>
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
+      ) : loadFailed ? (
+        // SYC-508 §3.3: a failed load is not an empty inbox.
+        <LoadFailed size="full" onRetry={refetch} testID="notifications-load-failed" />
       ) : notifications.length === 0 ? (
         <View style={styles.center}>
           <Feather name="bell-off" size={40} color={colors.mutedForeground} />
           <Text style={[styles.empty, { color: colors.mutedForeground }]}>
-            {t('noNotifications')}
+            {t(notificationsEmptyKey(profileQuery.data))}
           </Text>
+          {/* SYC-578: the empty inbox's way forward. */}
+          <Button variant="primary" size="lg" onPress={() => goToSpotTab(router)}>
+            {t('spotTitle')}
+          </Button>
         </View>
       ) : (
         <FlatList
@@ -199,7 +245,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing[4],
     paddingBottom: spacing[3],
@@ -207,6 +253,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: fontSizes.xl, fontFamily: fonts.displayBold, flex: 1 },
   markAll: { fontSize: fontSizes.xs, fontFamily: fonts.bodyBold },
+  markAllHit: { minHeight: 44, justifyContent: 'center' },
   center: {
     flex: 1,
     alignItems: 'center',

@@ -14,6 +14,9 @@ vi.mock('expo-image', () => ({ Image: () => null }));
 vi.mock('@/hooks/useColors', () => ({
   useColors: () => new Proxy({}, { get: () => '#123456' }),
 }));
+vi.mock('@/context/LanguageContext', () => ({
+  useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
+}));
 
 import { AppMap } from '../AppMap.web';
 

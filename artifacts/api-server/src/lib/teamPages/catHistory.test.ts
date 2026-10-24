@@ -567,11 +567,85 @@ describe("renderHistory (spec §3.5)", () => {
     expect(menuOf(rowOf(html, "s-71"))).toContain("Mark wrong");
   });
 
-  it("links a coat change's menu to Coat and markings, where its Mark wrong stays", () => {
-    const v = catView({ history: [statement(80, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })] });
+  it("a team note's row carries the 'team only' tag, its text escaped, and a Mark wrong gated on add_team_note", () => {
+    const v = catView({
+      history: [
+        statement(80, {
+          kind: "team_note",
+          said: "Note (team only): “<b>Limping</b>”",
+          noteText: "<b>Limping</b>",
+          correction: { kind: "team_note" },
+        }),
+      ],
+    });
+    const row = rowOf(draw(v), "s-80");
+    expect(row).toContain('<span class="tag note">team only</span>');
+    expect(row).toContain("&lt;b&gt;Limping&lt;/b&gt;");
+    expect(row).not.toContain("<b>Limping</b>");
+    const menu = menuOf(row);
+    expect(menu).toContain("<summary>Mark wrong</summary>");
+    expect(menu).toContain('action="/api/team/statements/80/wrong"');
+    expect(menu).toContain('name="choice" value="retract"');
+    const without = draw(v, [], { may: (c) => c !== "add_team_note" });
+    expect(menuOf(rowOf(without, "s-80"))).not.toContain("Mark wrong");
+    // Even without the permission the page never draws its own tag differently.
+    expect(rowOf(without, "s-80")).toContain("team only");
+  });
+
+  it("a team note's History row keeps its line breaks as <br>, escaped first", () => {
+    const v = catView({
+      history: [
+        statement(83, {
+          kind: "team_note",
+          said: "Note (team only): “Line <i>one</i>\r\nLine two\nLine three”",
+          noteText: "Line <i>one</i>\r\nLine two\nLine three",
+          correction: { kind: "team_note" },
+        }),
+      ],
+    });
+    const row = rowOf(draw(v), "s-83");
+    expect(row).toContain("Line &lt;i&gt;one&lt;/i&gt;<br>Line two<br>Line three");
+    expect(row).not.toContain("<i>one</i>");
+    expect(row).not.toContain("\n</b>");
+  });
+
+  it("a note marked wrong is struck through and offers no second Mark wrong", () => {
+    const v = catView({
+      history: [
+        statement(82, { kind: "team_note", said: "Marked wrong", replaces: 81 }),
+        statement(81, { kind: "team_note", said: "Note (team only): “Old”", replacedBy: [82], correction: null }),
+      ],
+    });
+    const html = draw(v);
+    expect(rowOf(html, "s-81")).toContain("<del>");
+    expect(menuOf(rowOf(html, "s-81"))).not.toContain("Mark wrong");
+    expect(menuOf(rowOf(html, "s-82"))).not.toContain("Mark wrong");
+  });
+
+  it("links a coat change's menu to Coat and markings, opened, where its Mark wrong stays", () => {
+    const v = catView({
+      history: [statement(80, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })],
+      appearance: { coat: { statements: [{ id: 80, counts: true, markable: true }] } },
+    } as never);
     const menu = menuOf(rowOf(draw(v), "s-80"));
-    expect(menu).toContain('href="#appearance"');
+    expect(menu).toContain('href="?open=coat#appearance"');
     expect(menu).not.toContain("<form");
+  });
+
+  it("links an outvoted (not counting) but markable coat change to the fold too", () => {
+    const v = catView({
+      history: [statement(81, { kind: "coat", said: "Coat: Black", correction: { kind: "appearance" } })],
+      appearance: { coat: { statements: [{ id: 81, counts: false, markable: true }] } },
+    } as never);
+    expect(menuOf(rowOf(draw(v), "s-81"))).toContain('href="?open=coat#appearance"');
+  });
+
+  it("offers no link to a Mark wrong the fold doesn't have", () => {
+    const v = catView({
+      history: [statement(82, { kind: "coat", said: "Coat: Grey tabby", correction: { kind: "appearance" } })],
+      appearance: { coat: { statements: [{ id: 82, counts: true, markable: false }] } },
+    } as never);
+    expect(menuOf(rowOf(draw(v), "s-82"))).not.toContain("appearance");
   });
 
   it("counts the whole run even when the list is cut", () => {

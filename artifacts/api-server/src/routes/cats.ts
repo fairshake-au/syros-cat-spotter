@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request, type RequestHandler, type Response } from "express";
 import {
   ClaimCatBody,
   FollowCatBody,
@@ -33,7 +33,7 @@ import {
 import { notifyCatFollowers } from "../lib/notifications";
 import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl, removedPhotoIds } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
-import { aiLimiter, checkClaimLimit, checkFollowLimit } from "../middlewares/rateLimit";
+import { aiLimiter, checkClaimLimit, checkFollowLimit, followAddressLimiter, followBurstLimiter } from "../middlewares/rateLimit";
 import { follow, followersCount, isFollowing, unfollow } from "../lib/following";
 import { safeError } from "../lib/logger";
 import { containsOffensiveLanguage } from "../lib/moderation";
@@ -613,7 +613,7 @@ function followHandler(action: "follow" | "unfollow") {
 
     let within: boolean;
     try {
-      within = await checkFollowLimit(deviceId, req.ip ?? "unknown");
+      within = await checkFollowLimit(deviceId);
     } catch (err) {
       // A limit that cannot count fails closed (SYC-105).
       req.log.error({ err: safeError(err) }, "follow limit counter failed");
@@ -656,8 +656,13 @@ function followHandler(action: "follow" | "unfollow") {
   };
 }
 
-router.post("/cats/:catId/follow", followHandler("follow"));
-router.post("/cats/:catId/unfollow", followHandler("unfollow"));
+// The 429 and 503 from the address limiter answer a single phone too: no cache.
+const noStore: RequestHandler = (_req, res, next) => {
+  res.setHeader("Cache-Control", PER_PHONE);
+  next();
+};
+router.post("/cats/:catId/follow", noStore, followBurstLimiter, followAddressLimiter, followHandler("follow"));
+router.post("/cats/:catId/unfollow", noStore, followBurstLimiter, followAddressLimiter, followHandler("unfollow"));
 
 // Owner renames the cat or updates its home description.
 router.patch("/cats/:catId", async (req, res) => {

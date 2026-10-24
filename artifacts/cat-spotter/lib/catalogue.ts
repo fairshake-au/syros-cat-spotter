@@ -12,6 +12,7 @@
  */
 import { listCats, type Cat, type ListCatsParams } from '@workspace/api-client-react';
 import { roundForRoute } from './reviewParams';
+import { LOAD_TIMEOUT_MS } from './loadTiming';
 
 /** Never used by any earlier build. */
 export const CATS_CACHE_KEY = 'cat-spotter/cats-cache/public/v2';
@@ -60,7 +61,9 @@ export function catalogueQueryKey(params?: Position) {
  */
 export async function fetchWholeCatalogue(
   params?: Position,
-  fetchPage: (p: ListCatsParams) => ReturnType<typeof listCats> = (p) => listCats(p),
+  // SYC-508: each page stops waiting after LOAD_TIMEOUT_MS (custom-fetch's timeoutMs).
+  fetchPage: (p: ListCatsParams) => ReturnType<typeof listCats> = (p) =>
+    listCats(p, { timeoutMs: LOAD_TIMEOUT_MS } as RequestInit),
 ): Promise<Cat[]> {
   // Rounded here too, so no caller can send an exact position (SYC-317).
   const position = roundedPosition(params);

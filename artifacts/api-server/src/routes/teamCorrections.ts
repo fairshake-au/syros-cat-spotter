@@ -4,6 +4,7 @@ import { z } from "zod";
 import { COAT_COLOURS, COAT_PATTERNS, MARKS, ObservationRefused } from "../lib/observations";
 import { orderColours, readCoatValue } from "../lib/appearance";
 import {
+  addTeamNote,
   agreeWithClip,
   catIdOfStatement,
   confirmAppearance,
@@ -61,6 +62,7 @@ const router: IRouter = Router();
 
 const CAT_ID_RE = /^\d{1,9}$/;
 const REASON_MAX = 500;
+const NOTE_MAX = 2000;
 
 const isFormPost = (req: Request) =>
   Boolean(req.is("application/x-www-form-urlencoded"));
@@ -160,6 +162,7 @@ const FIELD_WORDS: Record<string, string> = {
   clinic: "The clinic name is too long",
   choice: "Choose what it should say",
   name: `A name can be up to ${NAME_MAX} characters`,
+  text: `Write a note of 1 to ${NOTE_MAX} characters`,
   kind: "Choose colour or markings",
   colours: "Tick at least one colour or choose a pattern",
   pattern: "Choose plain, stripes, patches or not stated",
@@ -746,6 +749,56 @@ router.post(
         );
       }
       refusalFor(req, res, err, back, active);
+    }
+  },
+);
+
+// ── Add a note ─────────────────────────────────────────────────────────────
+
+/**
+ * C0 controls other than the line break (CR is already a line break by `lf`),
+ * and the bidi overrides and isolates (U+202A to U+202E, U+2066 to U+2069) that
+ * can reorder the line a note is drawn beside. A Tab becomes one space (it must not glue words). Dropped, not refused. NUL stays
+ * and is refused (noNul), as it always was.
+ */
+// eslint-disable-next-line no-control-regex
+const NOTE_STRIPPED = /[\u0001-\u0008\u000B-\u001F\u202A-\u202E\u2066-\u2069]/g;
+const noteChars = (v: unknown) => (typeof v === "string" ? String(lf(v)).replace(/\t/g, " ").replace(NOTE_STRIPPED, "") : v);
+// A lone surrogate passes zod but Postgres jsonb refuses it (a 500); say 400.
+// (The ES2024 isWellFormed is not in this project's lib, so the pairs are checked by pattern.)
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+const wellFormed = (s: string) => !LONE_SURROGATE.test(s);
+
+export const NoteForm = z.object({
+  text: z.preprocess(
+    noteChars,
+    z.string().trim().min(1).max(NOTE_MAX).refine(wellFormed).refine(noNul),
+  ),
+});
+
+/**
+ * POST /api/team/cats/:id/note (SYC-602 PR 4, spec §3.2). A team-only
+ * `team_note` on the cat, written as the person who typed it. Needs
+ * `add_team_note`; a cat guardian does not hold it.
+ */
+router.post(
+  "/team/cats/:id/note",
+  ...formRoute("add_team_note"),
+  async (req: Request, res: Response) => {
+    const catId = catIdOf(req);
+    if (catId === null) return notFound(req, res);
+    const back = catPage(catId);
+    const parsed = NoteForm.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      const fields = fieldsOf(parsed.error);
+      return formProblem(req, res, 400, { fields, message: problemFor(fields), back, backLabel: "Back to the cat" });
+    }
+    try {
+      const { statementId } = await addTeamNote(teamPerson(res), { catId, text: parsed.data.text });
+      if (isFormPost(req)) return void res.redirect(303, catPage(catId, "note"));
+      return void res.json({ statementId });
+    } catch (err) {
+      refusalFor(req, res, err, back);
     }
   },
 );

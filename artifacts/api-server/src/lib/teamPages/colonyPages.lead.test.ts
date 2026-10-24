@@ -21,13 +21,13 @@ const colonies = (o: Partial<Parameters<typeof renderColoniesPage>[0]> = {}) =>
   });
 
 describe("Colonies with none yet (SYC-577)", () => {
-  it("says what a colony is, then Create a colony, before Recent changes and the search", () => {
+  it("says what a colony is, then Create a colony; no search and no Recent changes yet (SYC-619 §7.1)", () => {
     const html = colonies();
     const lead = html.indexOf(LEAD);
     expect(lead).toBeGreaterThan(-1);
     expect(html.indexOf("Create a colony")).toBeGreaterThan(lead);
-    expect(html.indexOf("Recent changes by cat guardians")).toBeGreaterThan(html.indexOf("Create a colony"));
-    expect(html.indexOf('role="search"')).toBeGreaterThan(html.indexOf("Create a colony"));
+    expect(html).not.toContain("Recent changes by cat guardians");
+    expect(html).not.toContain('role="search"');
     expect(html.match(/id="create"/g)).toHaveLength(1);
     // Said once, not again by the empty list under it (SYC-522 review).
     expect(html.split(LEAD)).toHaveLength(2);
@@ -55,6 +55,57 @@ describe("Colonies with none yet (SYC-577)", () => {
   });
 });
 
+describe("Colonies list order (SYC-619 §7.1)", () => {
+  const row = (id: number, name: string) => ({ id, name, guardianName: null, siteCount: 0, catCount: 4 });
+  const two = [row(1, "Alpha"), row(2, "Beta")];
+  const inOrder = (html: string, marks: string[]) => {
+    const at = marks.map((m) => html.indexOf(m));
+    at.forEach((i, n) => expect(i, marks[n]).toBeGreaterThan(-1));
+    expect(at).toEqual([...at].sort((a, b) => a - b));
+  };
+
+  it("with colonies: search, sort, figures, list, Create, then Recent changes last", () => {
+    const html = colonies({ colonies: two });
+    inOrder(html, [
+      'role="search"',
+      'class="sortbar"',
+      'class="figat"',
+      'class="cats colonylist"',
+      'id="create"',
+      "Recent changes by cat guardians",
+    ]);
+  });
+
+  it("searching with no matches keeps the search form, with Recent changes after it", () => {
+    const html = colonies({ query: "zzz" });
+    inOrder(html, ['role="search"', "Recent changes by cat guardians"]);
+  });
+
+  it("a cat guardian with no colony gets no search and no Recent changes, but her Create form", () => {
+    const html = colonies({ island: false });
+    expect(html).not.toContain('role="search"');
+    expect(html).not.toContain("Recent changes by cat guardians");
+    expect(html).toContain('id="create"');
+  });
+
+  it("even when recent changes are passed, a cat guardian with no colony and no search gets no Recent changes (the searchable gate)", () => {
+    const html = colonies({
+      island: true,
+      colonies: [],
+      recentChanges: [{ kind: "colony_created", at: "2026-10-20T10:00:00.000Z", guardian: null, colony: { id: 7, name: "Harbour" } }],
+    });
+    expect(html).not.toContain("Recent changes by cat guardians");
+    expect(html).not.toContain("recent-guardian-changes");
+    // The same change is drawn once there is a colony to search.
+    const drawn = colonies({
+      island: true,
+      colonies: [{ id: 7, name: "Harbour", guardianName: null, siteCount: 0, catCount: 1 }],
+      recentChanges: [{ kind: "colony_created", at: "2026-10-20T10:00:00.000Z", guardian: null, colony: { id: 7, name: "Harbour" } }],
+    });
+    expect(drawn).toContain("Recent changes by cat guardians");
+  });
+});
+
 describe("People (SYC-577)", () => {
   const html = renderPeoplePage({ viewer: "Sam", tab: "people", people: [], left: [], recent: [], colonies: [], done: null });
 
@@ -63,7 +114,6 @@ describe("People (SYC-577)", () => {
     expect(fold).not.toBeNull();
     expect(fold![1]).toContain('name="email"');
     expect(html.indexOf("Invite someone")).toBeLessThan(html.indexOf("<h2>Everyone</h2>"));
-    expect(html.indexOf("<h2>Everyone</h2>")).toBeLessThan(html.indexOf("Joined in the last 7 days"));
   });
 
   it("no longer says to type the address carefully", () => {

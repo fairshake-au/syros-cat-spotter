@@ -1,13 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import request from "supertest";
-import { addPerson, pool } from "@workspace/db";
+import { addPerson, db, observationsTable, pool, sightingsTable } from "@workspace/db";
 import app from "../app";
 import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { fr } from "../lib/teamPages/strings/fr";
 import { createColony } from "../lib/teamColonies";
 import { addSite } from "../lib/teamSiteWrites";
-import { guardianOn, type Signed } from "../test/roleKit";
+import { guardianOn, newColony, seedCat, type Signed } from "../test/roleKit";
+import { formatDate } from "../lib/teamPages/strings";
 import { removeTestPerson } from "../test/removeTestPerson";
 import { el } from "../lib/teamPages/strings/el";
 import { en } from "../lib/teamPages/strings/en";
@@ -168,5 +169,48 @@ describe("her colony page and the Colonies list (browser check)", () => {
     expect(team).toContain("1 feeding site · 0 cats");
     expect(team).not.toContain("1 feeding sites");
     expect(fr["count.colonyCat"].replace("{n}", "1")).toBe("1 chat");
+  });
+});
+
+describe("SYC-619 §7.2: her colony's cat rows are in her language, the date only", () => {
+  it("Greek mark words and the Greek date for a guardian whose language is Greek; English for the team", async () => {
+    const own = await newColony(`glang-rows-${RUN}`);
+    const cat = await seedCat(own);
+    const never = await seedCat(own);
+    await db.insert(observationsTable).values({
+      catId: cat.id,
+      kind: "sterilised",
+      value: { sterilised: false },
+      deviceId: `vt-glang-${RUN}`,
+      roleAtTime: "staff",
+      observedAt: new Date("2026-09-20T10:00:00Z"),
+    });
+    await db.insert(sightingsTable).values({
+      catId: cat.id,
+      deviceId: `vt-glang-${RUN}`,
+      photoId: cat.photoId,
+      lat: 37.4402,
+      lng: 24.9381,
+      status: "resolved",
+      createdAt: new Date("2026-10-03T09:00:00Z"),
+    });
+    const g = await guardianOn(`glang-rows-${RUN}`, [own]);
+    try {
+      await pool.query("update people set language = 'el' where id = $1", [g.id]);
+      const hers = unescape((await page(`/api/team/colonies/${own}`, g.cookie)).text);
+      const list = /<ul class="cats">[\s\S]*?<\/ul>/.exec(hers)?.[0] ?? "";
+      expect(list).toContain(el["colonies.mark.notSterilised"]);
+      expect(list).toContain(el["colonies.mark.notKnown"]);
+      expect(list).toContain(el["gcat.lastSeen"].replace("{date}", formatDate("el", new Date("2026-10-03T12:00:00Z"))));
+      expect(list).toContain(el["gcat.neverSeen"]);
+      for (const english of [en["colonies.mark.notSterilised"], en["gcat.neverSeen"], "Last seen", "Not known"]) {
+        expect(list, english).not.toContain(english);
+      }
+      const team = unescape((await page(`/api/team/colonies/${own}`, staffCookie)).text);
+      expect(team).toContain(">Not sterilised</span>");
+      expect(team).toContain("Never seen since first recorded");
+    } finally {
+      await removeTestPerson(g.email).catch(() => undefined);
+    }
   });
 });

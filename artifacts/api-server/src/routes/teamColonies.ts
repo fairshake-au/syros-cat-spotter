@@ -16,6 +16,8 @@ import {
   type ColonyChanges,
 } from "../lib/teamColonies";
 import { colonyFigures, type ColonyFigures } from "../lib/dashboard/colonyFigures";
+import { loadTeamCats } from "../lib/teamCatList";
+import { colonyCatRows } from "../lib/teamPages/colonyCatRows";
 import {
   colonySortOf,
   renderAddCatsPage,
@@ -264,6 +266,12 @@ router.get(
     const kept = can(person, "edit_colony", { colonyId: view.id })
       ? await useHeldTyping(req, person, `colony:${view.id}`)
       : null;
+    // Each cat's mark and last seen (SYC-619 §7.2): every cat resolved once
+    // and joined on id, never a query per cat. The same rows for a cat
+    // guardian, who reaches this route for her own colony; the page draws
+    // her the date only, never a place.
+    const now = new Date();
+    const rows = colonyCatRows(view.cats, await loadTeamCats(now));
     res.type("html").send(
       renderColonyPage(view, v.personName, {
         kept: kept ?? undefined,
@@ -275,6 +283,8 @@ router.get(
         movedAway: (await movedAwayNotices(person)).filter((n) => n.fromColonyId === view.id),
         lang: v.lang,
         island: v.island,
+        rows,
+        now,
       }),
     );
   },

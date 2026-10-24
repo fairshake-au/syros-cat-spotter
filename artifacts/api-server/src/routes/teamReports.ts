@@ -265,8 +265,8 @@ router.get("/team/photos/:publicId", photoAccess, async (req: Request, res: Resp
 });
 
 /**
- * GET /api/team/photos/:publicId/:size: the small (160 px) or medium (640 px)
- * version of a catalogue photo, for lists and grids (SYC-396 PR 1.2; spec
+ * GET /api/team/photos/:publicId/:size: the small (160 px), card (360 px) or
+ * medium (640 px) version of a catalogue photo, for lists and grids (SYC-396 PR 1.2; spec
  * §11). Exactly the photo route's checks (`photoAccess` and `servablePhoto`),
  * so a hidden photo's versions are hidden too. A JPEG with no location data,
  * kept by the browser privately but revalidated on every view (ETag), never in a shared cache.

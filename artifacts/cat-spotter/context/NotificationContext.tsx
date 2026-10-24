@@ -10,6 +10,10 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { useQueryClient } from '@tanstack/react-query';
+import { LOAD_QUERY_OPTIONS, LOAD_TIMEOUT_MS } from '@/lib/loadTiming';
+import { notificationsLoadFailed } from '@/lib/notificationsEmpty';
+import { useStickyFailure } from '@/hooks/useStickyFailure';
+import { useOffline } from '@/context/OfflineContext';
 import {
   useListNotifications,
   getListNotificationsQueryKey,
@@ -70,7 +74,14 @@ interface NotificationContextValue {
   notifications: AppNotification[];
   unreadCount: number;
   isLoading: boolean;
-  refetch: () => void;
+  /**
+   * SYC-508 (couldnt-load-try-again.md §3.3): nothing usable has ever loaded
+   * and the last try failed, or the reply wasn't a list. A failed poll after
+   * a good load never sets it.
+   */
+  loadFailed: boolean;
+  /** Settles when the request ends, either way (for Try again). */
+  refetch: () => Promise<unknown>;
   markAllRead: () => void;
   markRead: (notificationId: number) => void;
 }
@@ -79,7 +90,8 @@ const NotificationContext = createContext<NotificationContextValue>({
   notifications: [],
   unreadCount: 0,
   isLoading: false,
-  refetch: () => {},
+  loadFailed: false,
+  refetch: async () => {},
   markAllRead: () => {},
   markRead: () => {},
 });
@@ -89,7 +101,8 @@ export function NotificationProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { deviceId } = useDevice();
+  const { deviceId, isReady } = useDevice();
+  const { isOnline } = useOffline();
   const queryClient = useQueryClient();
   const registeredRef = useRef(false);
 
@@ -156,8 +169,13 @@ export function NotificationProvider({
     query: {
       enabled: !!deviceId,
       queryKey: getListNotificationsQueryKey(deviceId ?? ''),
-      refetchInterval: POLL_MS,
+      // No polling while offline (review of #302, finding 4): with
+      // networkMode 'always' each tick would wait out a timeout. Try again
+      // and coming back online still fetch.
+      refetchInterval: isOnline ? POLL_MS : false,
+      ...LOAD_QUERY_OPTIONS, // SYC-508 §2.4
     },
+    request: { timeoutMs: LOAD_TIMEOUT_MS },
   });
 
   const markAllMutation = useMarkAllNotificationsRead({
@@ -201,10 +219,20 @@ export function NotificationProvider({
     Notifications.setBadgeCountAsync(unreadCount).catch(() => {});
   }, [unreadCount]);
 
-  const refetch = useCallback(() => {
-    query.refetch();
+  const refetch = useCallback(
+    () => query.refetch(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.refetch]);
+    [query.refetch],
+  );
+
+  // A reply that isn't a list (the captive portal above) is a failed load,
+  // not an empty inbox.
+  // Held through a retry, so Try again stays on screen with its own spinner.
+  const failed = useStickyFailure(query.isError, Array.isArray(query.data));
+  const loadFailed = notificationsLoadFailed({ data: query.data, isError: failed });
+  // The phone hasn't read its spotter ID yet: the query can't run, which is
+  // not "no notifications" (a startup failure shows its own screen).
+  const isLoading = !loadFailed && (!isReady || query.isLoading);
 
   const markAllRead = useCallback(() => {
     if (deviceId) markAllMutation.mutate({ deviceId });
@@ -223,12 +251,13 @@ export function NotificationProvider({
     () => ({
       notifications,
       unreadCount,
-      isLoading: query.isLoading,
+      isLoading,
+      loadFailed,
       refetch,
       markAllRead,
       markRead,
     }),
-    [notifications, unreadCount, query.isLoading, refetch, markAllRead, markRead],
+    [notifications, unreadCount, isLoading, loadFailed, refetch, markAllRead, markRead],
   );
 
   return (
