@@ -31,6 +31,7 @@ import {
   useGetProfile,
   getGetProfileQueryKey,
 } from '@workspace/api-client-react';
+import { decorative, spokenText } from '@/lib/a11yText';
 
 /** How many nearby cats the "collect" strip shows before "see all". */
 const NEARBY_LIMIT = 4;
@@ -135,7 +136,7 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <Text style={styles.heroPaw} allowFontScaling={false}>
+          <Text style={styles.heroPaw} allowFontScaling={false} {...decorative}>
             🐾
           </Text>
           <View style={styles.heroRow}>
@@ -143,7 +144,7 @@ export default function HomeScreen() {
             <View style={styles.heroGreeting}>
               <Text style={styles.heroHello}>{t('homeGreeting')}</Text>
               {/* SYC-509: the label keeps the wave emoji from being read aloud. */}
-              <Text style={styles.heroName} numberOfLines={1} accessibilityLabel={displayName}>
+              <Text style={styles.heroName} numberOfLines={1} accessibilityLabel={spokenText(displayName)}>
                 {displayName} 👋
               </Text>
             </View>

@@ -39,6 +39,7 @@ import { StepDots } from './StepDots';
 import { ONBOARDING_DOT_COUNT, stepIndex } from './steps';
 import { RECONCILE_WAIT_MS, withDeadline } from '@/lib/usernameClaim';
 import { useUsernameClaim } from '@/hooks/useUsernameClaim';
+import { spokenText } from '@/lib/a11yText';
 
 const MIN_LEN = 3;
 
@@ -250,7 +251,11 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
         }}
       >
         <View style={styles.heading}>
-          <Text style={[styles.title, { color: colors.foreground }]}>
+          <Text
+            role="heading"
+            accessibilityLabel={spokenText(t('makeItYours'))}
+            style={[styles.title, { color: colors.foreground }]}
+          >
             {t('makeItYours')}
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>

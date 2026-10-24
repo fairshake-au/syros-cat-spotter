@@ -40,6 +40,7 @@ import {
   useGetProfile,
   getGetProfileQueryKey,
 } from '@workspace/api-client-react';
+import { decorative, spokenText } from '@/lib/a11yText';
 
 /** How long the search box must be still before the map refits (SYC-573). */
 export const MAP_SEARCH_SETTLE_MS = 400;
@@ -150,7 +151,11 @@ export default function CatalogScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerRow}>
           <View style={styles.titleBlock}>
-            <Text style={[styles.title, { color: colors.foreground }]}>
+            <Text
+              role="heading"
+              accessibilityLabel={spokenText(t('catalogTitle'))}
+              style={[styles.title, { color: colors.foreground }]}
+            >
               {t('catalogTitle')}
             </Text>
             <Text style={[styles.count, { color: colors.mutedForeground }]}>
@@ -248,7 +253,7 @@ export default function CatalogScreen() {
               style={[styles.mapMessage, { backgroundColor: colors.card }]}
               pointerEvents="none"
             >
-              <Text style={styles.emptyIcon} allowFontScaling={false}>
+              <Text style={styles.emptyIcon} allowFontScaling={false} {...decorative}>
                 🐾
               </Text>
               <Text style={[styles.empty, { color: colors.mutedForeground }]}>
@@ -314,7 +319,7 @@ export default function CatalogScreen() {
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyIcon} allowFontScaling={false}>
+          <Text style={styles.emptyIcon} allowFontScaling={false} {...decorative}>
             🐾
           </Text>
           <Text style={[styles.empty, { color: colors.mutedForeground }]}>

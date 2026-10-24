@@ -128,6 +128,7 @@ import {
   type PickSource,
   type ReadyMapStart,
 } from '@/lib/mapStart';
+import { spokenText } from '@/lib/a11yText';
 
 /** A library photo that can't be used, said in a card with the library offered again. */
 type PhotoProblem =
@@ -1746,7 +1747,10 @@ export default function SpotScreen() {
                 second hint here would give competing suggestions in two places
                 (Samuel's decision, 27 Sep). */}
             {!cameraPanel && (
-              <Text style={styles.captureHint}>
+              <Text
+                style={styles.captureHint}
+                accessibilityLabel={spokenText(liveCameraReady ? t('captureHint') : t('captureHintPicker'))}
+              >
                 {liveCameraReady ? t('captureHint') : t('captureHintPicker')}
               </Text>
             )}
