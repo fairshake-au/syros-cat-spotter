@@ -105,7 +105,7 @@ export interface CatWithStats extends DerivedCatStatus {
   locationPrecision: "exact" | "approximate";
   locationCellM: number | null;
   sightingsCount: number;
-  /** A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4). */
+  /** A Syros (Europe/Athens) calendar date (YYYY-MM-DD), never a time (§6.4.4). */
   lastSeenAt: string;
   distanceKm?: number;
   // Null once the discoverer has deleted their data (SYC-63).
@@ -160,9 +160,15 @@ export interface CatSource {
   derived: DerivedCatStatus;
 }
 
-/** An ISO timestamp or Date, cut to its UTC calendar date. */
+/**
+ * An ISO timestamp or Date, cut to its Syros (Europe/Athens) calendar date,
+ * so every viewer sees the same day wherever their phone is (SYC-624). A bare
+ * YYYY-MM-DD is already a date and passes through untouched.
+ */
 export function toPublicDay(at: Date | string): string {
-  return (typeof at === "string" ? at : at.toISOString()).slice(0, 10);
+  if (typeof at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(at)) return at;
+  // Throws a RangeError on an unparseable string: a bad timestamp is a bug, not a day.
+  return todayInStreakTimezone(typeof at === "string" ? new Date(at) : at);
 }
 
 /**
@@ -299,16 +305,15 @@ const UNKNOWN_STERILISED: SterilisedStatus = {
 };
 
 /**
- * Truncates a full ISO timestamp to its UTC calendar date (YYYY-MM-DD) for
- * the public API, matching `lastSeenAt`'s own UTC-day convention (the
- * `to_char(... at time zone 'UTC', ...)` below). resolve.ts's `notSeenSince`
- * keeps full timestamp precision internally for its own month-threshold
- * math — only the value handed to the public Cat payload is truncated,
- * since the app only ever renders a date ("Not seen since 3 June 2023"),
- * never a time.
+ * Cuts a full ISO timestamp to its Syros (Europe/Athens) calendar date
+ * (YYYY-MM-DD) for the public API, the same day `toPublicDay` gives
+ * `lastSeenAt`. resolve.ts's `notSeenSince` keeps full timestamp precision
+ * internally for its own month-threshold math; only the value handed to the
+ * public Cat payload is cut, since the app only ever renders a date
+ * ("Not seen since 3 June 2023"), never a time.
  */
-function toPublicDate(iso: string | null): string | null {
-  return iso ? iso.slice(0, 10) : null;
+export function toPublicDate(iso: string | null): string | null {
+  return iso ? toPublicDay(iso) : null;
 }
 
 /**
@@ -497,7 +502,7 @@ export async function listCatsWithStats(
       id: catsTable.id,
       lat: catsTable.lat,
       lng: catsTable.lng,
-      lastSeenDay: sql<string>`to_char(coalesce(max(${sightingsTable.createdAt}), ${catsTable.createdAt}) at time zone 'UTC', 'YYYY-MM-DD')`,
+      lastSeenDay: sql<string>`to_char(coalesce(max(${sightingsTable.createdAt}), ${catsTable.createdAt}) at time zone 'Europe/Athens', 'YYYY-MM-DD')`,
     })
     .from(catsTable)
     .leftJoin(

@@ -11,13 +11,13 @@ import { describe, expect, it } from "vitest";
 
 const SRC = readFileSync(join(__dirname, "../../../assets/dashboard-grid.js"), "utf8");
 
-const page = (shown: string) =>
+const page = (shown: string, find = "/api/team/cats/find") =>
   "<!doctype html><html><body>" +
   '<form id="catfilters" action="/api/team/cats"><details><summary>Filters (0)</summary>' +
   '<input type="checkbox" name="colours" value="ginger">' +
   '<input type="checkbox" name="colours" value="black">' +
   "</details></form>" +
-  `<div id="catresults">${shown}</div></body></html>`;
+  `<div id="catresults"><div class="viewrow"><nav class="viewswitch"></nav><a class="findentrylink" href="${find}"></a></div>${shown}</div></body></html>`;
 
 interface Held {
   url: string;
@@ -40,7 +40,7 @@ function setUp() {
             ok: true,
             redirected: false,
             headers: { get: () => "text/html; charset=utf-8" },
-            text: async () => page(`RESULTS FOR ${url}`),
+            text: async () => page(`RESULTS FOR ${url}`, `/api/team/cats/find${url.slice(url.indexOf("?"))}`),
           }),
       };
       opts.signal.addEventListener("abort", () => {
@@ -63,6 +63,16 @@ function setUp() {
 const settle = () => new Promise((r) => setTimeout(r, 20));
 
 describe("dashboard-grid.js never shows an answer the form has moved on from", () => {
+  it("the photo link, inside #catresults, comes back from the server with the new filters", async () => {
+    const t = setUp();
+    const link = () => t.w.document.querySelector("#catresults .viewrow .findentrylink")!.getAttribute("href");
+    expect(link()).toBe("/api/team/cats/find");
+    t.toggle("ginger");
+    t.held[0]!.answer();
+    await settle();
+    expect(link()).toBe("/api/team/cats/find?colours=ginger");
+  });
+
   it("one tap applies: the answer swaps in and the address follows", async () => {
     const t = setUp();
     t.toggle("ginger");

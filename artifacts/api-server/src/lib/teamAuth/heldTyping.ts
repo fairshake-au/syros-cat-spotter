@@ -115,6 +115,12 @@ export const KEEPABLE: Record<string, Keepable> = {
     landing: (m) => `/api/team/cats/${m[1]}`,
     fields: ["name", "reason"],
   },
+  "POST /api/team/cats/:id/note": {
+    match: path(`/api/team/cats/${ID}/note`),
+    formKey: (m) => `note:${m[1]}`,
+    landing: (m) => `/api/team/cats/${m[1]}`,
+    fields: ["text"],
+  },
   "POST /api/team/cats/:id/died": {
     match: path(`/api/team/cats/${ID}/died`),
     formKey: (m) => `died:${m[1]}`,

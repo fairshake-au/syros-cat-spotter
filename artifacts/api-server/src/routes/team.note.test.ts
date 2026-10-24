@@ -272,15 +272,15 @@ describe("the forms on the queue page", () => {
       for (const s of enabled) {
         expect(c).toContain(`name="to" value="${s}"`);
       }
-      // The state it is in has no button that submits.
+      // The state it is in is said in words, with no button at all (SYC-619 §6.1).
       expect(c).not.toContain(`name="to" value="${state}"`);
-      expect(c).toContain(">Looking at it");
+      expect(c).toContain(`Now: ${state === "looking" ? "Looking at it" : "Done"}`);
       expect(c).toContain(`action="/api/team/reports/${id}/note"`);
       expect(c).toContain("Team only. Never shown to the reporter.");
       expect(c).toContain('<label class="label" for="note-' + id + '"');
       expect(c).toContain('maxlength="2000"');
     }
-    expect(card(html, "open-1")).toContain(">Looking at it (current)");
+    expect(card(html, "open-1")).toContain("Now: Looking at it");
     expect(html).not.toContain('id="d-');
     expect(html).not.toContain("<script");
   });
@@ -333,7 +333,7 @@ describe("the forms on the queue page", () => {
       .get(res.headers["location"]!.split("#")[0]!)
       .set("Cookie", susanCookie);
     expect(card(next.text, publicId)).toContain("Someone else changed");
-    expect(card(next.text, publicId)).toContain(">Done (current)");
+    expect(card(next.text, publicId)).toContain("Now: Done");
   });
 });
 

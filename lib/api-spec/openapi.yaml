@@ -1034,7 +1034,7 @@ components:
         sightingsCount: { type: integer }
         lastSeenAt:
           type: string
-          description: A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).
+          description: A Syros (Europe/Athens) calendar date (YYYY-MM-DD), never a time (§6.4.4).
         distanceKm:
           type: number
           nullable: true
@@ -1081,7 +1081,7 @@ components:
           type: string
           nullable: true
           description: |
-            A calendar date (YYYY-MM-DD, UTC day — the same convention
+            A calendar date (YYYY-MM-DD, Syros (Europe/Athens) day — the same convention
             lastSeenAt's server-side computation uses), set only when this
             cat is presumed deceased (§3.4: no evidence of life for 36
             months) — never alongside lifeStatus: "deceased", and never
@@ -1267,7 +1267,7 @@ components:
             out otherwise.
         createdAt:
           type: string
-          description: A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).
+          description: A Syros (Europe/Athens) calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).
       required: [spotterCode, photoUrl, photoHidden, createdAt]
     SightingExtraPhoto:
       type: object
@@ -1299,7 +1299,7 @@ components:
             mistaken for it.
         at:
           type: string
-          description: A UTC calendar date (YYYY-MM-DD).
+          description: A Syros (Europe/Athens) calendar date (YYYY-MM-DD).
       required: [type, message, at]
     CatDetail:
       type: object
