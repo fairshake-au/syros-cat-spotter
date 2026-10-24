@@ -79,6 +79,7 @@ const h = vi.hoisted(() => ({
   notifications: [] as unknown[],
   data: undefined as unknown,
   scrollTo: vi.fn(),
+  markRead: vi.fn(),
   onScroll: undefined as undefined | ((e: unknown) => void),
 }));
 vi.mock('@/context/DeviceContext', () => ({
@@ -86,7 +87,7 @@ vi.mock('@/context/DeviceContext', () => ({
 }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: h.isOnline }) }));
 vi.mock('@/context/NotificationContext', () => ({
-  useNotifications: () => ({ notifications: h.notifications, markRead: () => {} }),
+  useNotifications: () => ({ notifications: h.notifications, markRead: (id: number) => h.markRead(id) }),
 }));
 vi.mock('@/context/LanguageContext', async () => {
   const { TRANSLATIONS } = await import('@/lib/i18n');
@@ -341,6 +342,23 @@ describe('the update banner from a notification', () => {
     expect(tabNamed('Photos').getAttribute('aria-selected')).toBe('true');
   });
 
+  it('marks the notification read once, however often the page re-renders', () => {
+    h.params = { id: '7', updateId: '5' };
+    h.notifications = [{ ...note('sighting'), read: false }];
+    const view = page();
+    view.rerender(<CatDetailScreen />);
+    view.rerender(<CatDetailScreen />);
+    expect(h.markRead).toHaveBeenCalledTimes(1);
+    expect(h.markRead).toHaveBeenCalledWith(1);
+  });
+
+  it('the banner link is at least 44px tall', () => {
+    h.params = { id: '7', updateId: '5' };
+    h.notifications = [note('sighting')];
+    page();
+    expect(getComputedStyle(screen.getByTestId('update-banner-link')).minHeight).toBe('44px');
+  });
+
   it('for a sterilised, adopted or general update its link selects Story', () => {
     for (const type of ['desexed', 'adopted', 'general']) {
       cleanup();
@@ -369,6 +387,13 @@ describe('the update banner from a notification', () => {
     expect(tabNamed('Map').getAttribute('aria-selected')).toBe('true');
     switchTab('About');
     expect(screen.getByTestId('update-banner')).toBeTruthy();
+  });
+});
+
+describe('the Edit button', () => {
+  it('is at least 44px tall for the owner', () => {
+    page({}, cat({ hasHome: true, lifeStatus: 'homed', locationPrecision: 'exact' }));
+    expect(getComputedStyle(screen.getByTestId('edit-cat-button')).minHeight).toBe('44px');
   });
 });
 

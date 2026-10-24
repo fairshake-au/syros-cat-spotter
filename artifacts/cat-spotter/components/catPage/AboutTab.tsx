@@ -123,6 +123,7 @@ export function AboutTab({
       {isOwner && (
         <Pressable
           onPress={onEdit}
+          testID="edit-cat-button"
           hitSlop={8}
           style={[styles.editBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
         >
@@ -240,8 +241,9 @@ const styles = StyleSheet.create({
     gap: 6,
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   editText: { fontSize: 12, fontFamily: 'Inter_700Bold' },
   updateBanner: {
@@ -254,7 +256,7 @@ const styles = StyleSheet.create({
   },
   updateLabel: { fontSize: 11, fontFamily: 'Inter_700Bold', textTransform: 'uppercase' },
   updateMessage: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-  bannerLink: { alignSelf: 'flex-start', minHeight: 32, justifyContent: 'center' },
+  bannerLink: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   bannerLinkText: { fontSize: 13, fontFamily: fonts.bodySemiBold, textDecorationLine: 'underline' },
   factsCard: { borderWidth: 1, borderRadius: radii.md, paddingHorizontal: 12 },
   factRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
