@@ -1,6 +1,6 @@
 # A weekly Spotters board, and 13 new badges
 
-Status: draft for Samuel's review · 24 Oct 2026 · Samuel's choices are marked **(Samuel)**. Everything else is Claude's call and is listed at the end so it can be checked.
+Status: reviewed (builder check and adversarial review folded in), waiting for Samuel's approval · 24 Oct 2026 · Samuel's choices are marked **(Samuel)**. Everything else is Claude's call and is listed at the end so it can be checked.
 
 ## Why
 
