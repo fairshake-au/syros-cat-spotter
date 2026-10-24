@@ -8,6 +8,7 @@ import {
   catUpdatesTable,
   deviceCredentialsTable,
   notificationsTable,
+  catSubscriptionsTable,
   observationsTable,
   pushTokensTable,
   sightingMatchesTable,
@@ -79,6 +80,7 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 async function cleanup() {
   await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
   await db.delete(pushTokensTable).where(like(pushTokensTable.deviceId, `${PREFIX}%`));
+  await db.delete(catSubscriptionsTable).where(like(catSubscriptionsTable.deviceId, `${PREFIX}%`));
   await db.delete(catsTable).where(like(catsTable.name, `${NAME_PREFIX}%`));
   await db.delete(deviceCredentialsTable).where(like(deviceCredentialsTable.deviceId, `${PREFIX}%`));
 }
@@ -133,6 +135,8 @@ async function met(catId: number, p: Phone) {
     suggestedRank: 1,
   });
   await db.insert(pushTokensTable).values({ deviceId: p.id, token: `tok-${p.id}` }).onConflictDoNothing();
+  // SYC-624: the claim and edit pushes go to followers, so a phone that met the cat follows it.
+  await db.insert(catSubscriptionsTable).values({ deviceId: p.id, catId }).onConflictDoNothing();
 }
 
 const NOTE = () => `Blue door ${safeTag()}`;

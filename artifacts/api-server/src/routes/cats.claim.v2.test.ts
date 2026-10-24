@@ -163,6 +163,8 @@ async function met(catId: number, p: Phone) {
     suggestedRank: 1,
   });
   await db.insert(pushTokensTable).values({ deviceId: p.id, token: `tok-${p.id}` }).onConflictDoNothing();
+  // SYC-624: the claim and edit pushes go to followers, so a phone that met the cat follows it.
+  await db.insert(catSubscriptionsTable).values({ deviceId: p.id, catId }).onConflictDoNothing();
 }
 
 const NOTE = () => `Blue door ${safeTag()}`;
