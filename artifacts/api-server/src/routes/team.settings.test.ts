@@ -63,7 +63,10 @@ describe("the Settings page (SYC-694)", () => {
   it.each(["/api/team/my", "/api/team/my/colonies"])("a cat guardian's own page %s has no Settings link (SYC-698)", async (path) => {
     const res = await get(path, guardian.cookie);
     expect(res.status).toBe(200);
-    expect(res.text).toContain("<nav");
+    // Her own menu is drawn (both her links), so the absence below means something.
+    const nav = res.text.slice(res.text.indexOf("<nav"), res.text.indexOf("</nav>"));
+    expect(nav).toContain('href="/api/team/my/colonies"');
+    expect(nav).toContain('href="/api/team/my"');
     expect(res.text).not.toContain(PATH);
     expect(res.text).not.toContain(">Settings<");
   });
