@@ -1,7 +1,7 @@
 # First run: three screens to the camera, and location asked at the first photo
 
-Ticket: SYC-524 (epic SYC-605, Spotting). Parent review: SYC-501 (18 Oct 2026). Related: SYC-35 (safety guidance), SYC-155 and SYC-506 (`first-run-language-and-offline-start.md`), SYC-502 (first-badge offer), SYC-308 and SYC-575 (Spot screen location), SYC-628 (Profile tab, `profile-tab-redesign.md` on its own branch).
-Status: **draft for Samuel's approval.** Decisions made by Samuel on 24 Oct 2026 and recorded on SYC-524. Decision page with today's screens and every option mocked at 390px: https://claude.ai/artifact/5B1TXn8ACr71ZGRkRxiQ7b. Checked against `origin/main` at `356a32b5`.
+Ticket: SYC-524 (epic SYC-605, Spotting). Parent review: SYC-501 (18 Oct 2026). Related: SYC-35 (safety guidance), SYC-155 and SYC-506 (`first-run-language-and-offline-start.md`), SYC-502 (first-badge offer), SYC-308 and SYC-575 (Spot screen location), SYC-628 (Profile tab and Settings, `profile-tab-redesign.md`, merged in #296).
+Status: **draft for Samuel's approval.** Decisions made by Samuel on 24 Oct 2026 and recorded on SYC-524. Decision page with today's screens and every option mocked at 390px: https://claude.ai/artifact/5B1TXn8ACr71ZGRkRxiQ7b. Checked against `origin/main` at `d8e1c2e4` (after SYC-628, the Profile tab and its new Settings screen, merged).
 
 ## The problem, as a new spotter meets it
 
@@ -60,18 +60,23 @@ One screen asks for the name and, optionally, an email.
 - "Add your email so you can get your spots, points and badges back if you lose or change your phone." (`keepSafeBody`)
 - the email box, placeholder "your@email.com" (`keepSafePlaceholder`)
 - "Use an email only you, or a parent, can read. Anyone who can open it can get your spots back. **Under 15? Ask a parent to add theirs.**" (`keepSafeWarning`, `keepSafeUnder15`)
-- "This is optional." (`keepSafeOptional`), next to the heading or under the box.
+- "This is optional." (`keepSafeOptional`), next to the heading or under the box. (`keepSafeOptionalRest`, "…add it later in Settings", is not shown here: the screen already makes the email optional.)
 
-**One button: Start spotting** (`startSpotting`). What it does:
+**One button: Start spotting** (`startSpotting`), pinned at the bottom of the screen like the safety screen's Continue, and still visible with the keyboard open. The screen itself may scroll on a small phone; the button never scrolls away. What it does:
 
 | The spotter… | What happens |
 |---|---|
 | leaves the email empty | The name is saved and the app opens. This counts as skipping the email: the app offers it once more after their first badge, as it does today (`FirstBadgeOffer`; Samuel's 28 Sep rule that skipping doesn't use up a later ask). |
-| types something that isn't an email | Nothing is saved yet. "That doesn't look like an email address." (`keepSafeInvalidEmail`) shows under the box. |
-| types an email | The name is saved first. Then the email is added, exactly as "Save my spots" does today: same confirmation email, same safeguards, recorded as coming from onboarding. Then the app opens. |
-| types an email, the name saves, but the email doesn't | They stay on the screen with the name now saved and shown as theirs. "That didn't save. Check your connection and try again." (`keepSafeSaveFailed`) shows under the box. **Start spotting** tries the email again; emptying the box and tapping it opens the app without one (counted as skipped). |
+| types something that isn't an email | Nothing is saved. "That doesn't look like an email address." (`keepSafeInvalidEmail`) shows under the box. |
+| types an email | **The email is added first,** exactly as "Save my spots" does today: same confirmation email, same safeguards, recorded as coming from onboarding. Then the name is saved, and the app opens. |
+| types an email, and the email doesn't save | Nothing else happens yet: no name is saved. "That didn't save. Check your connection and try again." (`keepSafeSaveFailed`) shows under the box. **Start spotting** tries again; emptying the box and tapping it saves just the name and opens the app (counted as skipped). |
+| types an email that saves, then the name is taken or refused | The email box shows "✓ Saved" and isn't sent again. The name shows today's "taken" or "can't use" message; they pick another and tap **Start spotting**. |
 
-**Offline:** the name works as SYC-506 built it (suggested names made on the phone, the name held until there's a connection). The email box is replaced by "You're offline. You can add this later in Settings." (`keepSafeOffline`), because adding an email needs a connection and a saved name. The app counts this as skipped, so the first-badge offer follows once the name is saved and the first badge arrives.
+Why the email goes first: once a name is saved, the app opens by itself (the name is what moves the app past onboarding), so an email step after the name could be cut off half way. Adding the email needs only the phone's own identity, not a name, and the "Don't lose your spots" emails never mention a name.
+
+While saving, **Start spotting** shows it is working and Back is disabled.
+
+**Offline:** the name works as SYC-506 built it (suggested names made on the phone, the name held until there's a connection). The email box is replaced by "You're offline. You can add this later in Settings." (`keepSafeOffline`; "Settings" is the app's own Settings screen, where "Keep my spots safe" lives). The app counts this as skipped, so the first-badge offer follows once the name is saved and the first badge arrives. If the connection comes back while the screen is open, the email box returns, keeping anything already typed.
 
 **What goes away:** the separate "Don't lose your spots" screen for new spotters. The same screen stays where it is used today: Settings' "Keep my spots safe", the one-time offer after the first badge, and the one-time offer for spotters who had a name before "keep my spots safe" existed.
 
@@ -85,31 +90,35 @@ Home, the Cat-alogue, Spot (before a photo) and onboarding never bring up the ph
 - **The Cat-alogue** lists and maps cats without "near you" sorting, as it does today without location.
 - **Spot** shows no orange "Location permission is needed…" line before a photo is taken.
 
-On the website, the app checks whether the browser already allows location without asking (`navigator.permissions`, where the browser has it; where it doesn't, the app treats location as not yet asked).
+On the website, the app checks whether the browser already allows location without asking (`navigator.permissions`, where the browser has it). Where the browser can't say, the app remembers on the phone that the spotter shared their location before, and only then reads it on Home and the Cat-alogue.
+
+The moment the spotter allows location (on the Spot card or in the phone's Settings), Home and the Cat-alogue start showing distances without the app being restarted.
 
 #### The first camera photo
 
-After the spotter takes a photo with the camera, under "Where did you see it?", and only if they haven't answered yet, a card appears in their language:
+After the spotter takes a photo with the camera (the phone's camera or the in-app live view), under "Where did you see it?", and only if they haven't answered yet, a card appears in their language:
 
 > 📍 **Use where you're standing?**
 > We'll put the pin where you are now, so Syros Cats know where this cat lives. You can move it after.
 > [ **Use where I am** ]  [ I'll put the pin on the map ]
 
-- **Use where I am** brings up the phone's (or browser's) own box.
-  - **Allowed:** the pin goes where they're standing and the map appears, as today. Every later photo fills in the location by itself; the card never shows again.
-  - **Not allowed, or no position within 15 seconds:** the map appears, starting in Ermoupoli, with "We've started the map in Ermoupoli. Drag it to where you saw the cat." (`mapStartedInTown`). **Check for matches** works.
+- **Use where I am** brings up the phone's (or browser's) own box. While the app waits for a position, the button shows "Getting your location…" (`locating`) and **I'll put the pin on the map** stays available.
+  - **Allowed:** the pin goes where they're standing and the map appears, as today. A position the phone found in the last 5 minutes counts, as today. Later photos fill in the location by themselves, with no card, for as long as location stays allowed.
+  - **Not allowed, or no position in time** (15 seconds on iPhone and Android, 10 on the website, as today): the map appears, starting in Ermoupoli, with "We've started the map in Ermoupoli. Drag it to where you saw the cat." (`mapStartedInTown`).
 - **I'll put the pin on the map** shows the map straight away, starting in Ermoupoli with the same line. The phone's box is not shown, so the one ask is kept for later.
-- **No pin is placed until they choose,** so a cat seen in Ano Syros isn't sent with a default pin in Ermoupoli by someone who didn't notice it.
+- **No pin is placed while the card is showing.** Once the map shows, it behaves as library photos do since SYC-166 (Samuel's Decision 6 there): **Check for matches** is available straight away, and the line asks the spotter to drag the map to where they saw the cat. A spotter could still send an Ermoupoli pin without moving it, as with library photos today.
 
 #### Later photos
 
 - **Location allowed:** the pin goes where they're standing, as today. No card.
+- **Allowed "once" last time** (iPhone's "Allow Once", Android's "Only this time"): the phone forgets the answer when the app closes. Because the spotter chose to share before, the app skips the card and goes straight to the phone's box after the photo.
 - **They chose "I'll put the pin on the map" before:** the map shows straight away, starting in Ermoupoli, with a small **Use where I am** link above it. The full card doesn't come back.
-- **They said no in the phone's box, and the phone will ask again** (Android's second chance): the same small link; tapping it shows the phone's box once more.
-- **They said no and the phone won't ask again:**
-  - on iPhone and Android, a line above the map: "Location is off for Cat Spotters. Move the pin yourself, or turn location on in Settings." with **Open Settings** (`openSettings`, which opens the phone's settings for the app);
+- **They said no in the phone's box, and the phone will ask again** (Android only: it allows one more ask; iPhone never does): the same small link; tapping it shows the phone's box once more.
+- **They said no and the phone won't ask again** (iPhone after any "Don't Allow"; Android after the second no):
+  - on iPhone and Android, a line above the map: "Location is off for Cat Spotters. Move the pin yourself, or turn location on in your phone's Settings." with **Open Settings** (`openSettings`, which opens the phone's settings for the app);
   - on the website: "Your browser is blocking location for this site. Move the pin yourself, or allow location from the address bar."
   In both cases the map starts in Ermoupoli and **Check for matches** works.
+- **Android "approximate location":** the pin starts at the rough position and the usual "check the pin" line shows (`confirmLocationHint`).
 
 #### Photos from the library
 
@@ -122,7 +131,7 @@ Choosing a photo from the library never shows the card and never brings up the p
 
 ## How this fits with SYC-308 and SYC-575, and what goes first
 
-1. **SYC-308 first, as its own small change.** Today, with location refused, a camera photo can't be sent at all: the map waits for a position that never comes and **Check for matches** stays grey (`lib/mapStart.ts`: the camera starts at the phone or nothing). SYC-308 makes the camera path start in Ermoupoli when there's no position, like the library path. It needs no new words (it reuses `mapStartedInTown`), so it can still make the 26 Oct store build. Section 2 above depends on it: asking later is only safe once a "no" can't strand a sighting.
+1. **SYC-308 first, as its own small change.** Today, with location refused, a camera photo can't be sent at all: the map waits for a position that never comes and **Check for matches** stays grey (`lib/mapStart.ts`: the camera starts at the phone or nothing). SYC-308 makes the camera path start in Ermoupoli when there's no position, like the library path. It needs no new words (it reuses `mapStartedInTown`), so it can still make the 26 Oct store build. Section 2 above depends on it: asking later is only safe once a "no" can't strand a sighting. With SYC-308 on its own, a camera photo whose GPS is slow gets the Ermoupoli start after 4 seconds, which then gives way to the phone's position when it arrives, as long as the spotter hasn't moved the map (`nextMapStart`), exactly as library photos behave today.
 2. **Then SYC-524**, this spec: the three onboarding screens, the screens that stop asking by themselves, and the location card.
 3. **SYC-575 shrinks.** Its location half ("a warning before anything happens", "ask for location when the photo is taken") is done by section 2. What stays on SYC-575: the two unexplained ways to take a photo ("Show live view" and the unlabelled white circle), and the stray icon-font glyph next to "Photo tips". Its ticket is updated to say so.
 
@@ -140,21 +149,28 @@ The location card adds new lines in three languages after the 22 Oct copy freeze
 ## The rules underneath (for the plan; Samuel can skip this section)
 
 - **Steps.** `ONBOARDING_STEPS` becomes `welcome`, `safety`, `name`. `HowItWorksStep` is deleted, and with it the onboarding's only `requestForegroundPermissionsAsync` call. `keepSafe` leaves the step list; `KeepSafeScreen`'s `showDots` path and `stepIndex('keepSafe')` go.
-- **Offer state, set with the name.** Today the root gate (`app/_layout.tsx`, `OnboardingGate`) shows `KeepSafeScreen` when `keepSafeOffer === null && username`. A new spotter must never see it after the combined screen, so the screen sets `keepSafeOffer` (`'done'` when the email was added, `'skipped-onboarding'` otherwise) **before** the name is stored, in the same way the offline path already does (`LanguageUsernameStep.tsx`, `submit`). Spotters who had a name before this version (`startedWithName`) keep the one-time offer.
-- **Order of saves.** Validate the email's shape first. Then claim the name (the SYC-211/214 claim machinery and lock, unchanged). Only after a confirmed claim, call `addKeepSafe(deviceId, { email, language, surface: 'onboarding' })`. A claim that is uncertain keeps today's same-name retry and doesn't try the email. If `addKeepSafe` fails after a confirmed claim, the screen must not let the gate open the app: the name is held in local state until the spotter taps again or empties the box. The plan says how (for example, store the name only after the email step finishes, keeping the claimed name in the screen meanwhile).
-- **Profile reminder.** `profile-tab-redesign.md` rule 8 hides "Your spots are only on this phone" while `keepSafeOffer === 'skipped-onboarding'`. That still holds: skipping on the combined screen sets the same value. The Profile session is told.
-- **Location permission without asking.** A small `lib/locationPermission.ts`: `getLocationPermission(): 'granted' | 'denied-can-ask' | 'denied-final' | 'not-asked' | 'unknown'`. Native uses `Location.getForegroundPermissionsAsync()` (`status`, `canAskAgain`). Web uses `navigator.permissions.query({ name: 'geolocation' })` where present (`granted`/`denied`/`prompt`), else `'unknown'`, treated like `'not-asked'`. Never prompts.
-- **`useLocation` splits.** Screens that only use location if allowed (Home, Cat-alogue, Spot before a photo) call a non-asking version that reads the position only when permission is `'granted'`. Asking happens only from the card's **Use where I am**, the small link, or the report flow. On the web, `getCurrentPosition` is only called after permission is `'granted'` or after the tap.
-- **Remembered choice.** "I'll put the pin on the map" is stored on the phone (`cat-spotter/location-choice = 'map'`), so later photos show the small link, not the card. Cleared by "Delete my data".
-- **Map start.** The camera path uses SYC-308's Ermoupoli start for "not asked yet and chose the map", "refused" and "timed out". While the card is showing, there is no pin and **Check for matches** stays disabled; the card replaces the map until a choice is made. The existing rule that an Ermoupoli start gives way to a late phone fix until the spotter moves the map (`nextMapStart`) still applies after "Use where I am".
+- **Offer state, set before anything is saved.** Today the root gate (`app/_layout.tsx`, `OnboardingGate`) shows `KeepSafeScreen` when `keepSafeOffer === null && username`. A new spotter must never see it. So when **Start spotting** is tapped, the screen first writes `keepSafeOffer = 'skipped-onboarding'` (persisted), and upgrades it to `'done'` once the email is added. This covers every way a name can arrive: the screen's own claim, a late reconcile from an uncertain claim (`useUsernameClaim`), the screen's recover-on-mount effect, and a relaunch after a claim landed but before the app noticed. As a backstop, the gate never renders `KeepSafeScreen` for a spotter with `startedWithName === false`: a name that arrives with `keepSafeOffer === null` on a phone that started without one is treated as `'skipped-onboarding'`. Spotters who had a name before this version keep the one-time offer.
+- **Order of saves.** (1) Check the email's shape. (2) Write `skipped-onboarding`. (3) If an email was typed and not already saved on this screen, call `addKeepSafe(deviceId, { email, language, surface: 'onboarding' })`; on success set `'done'` and mark the box "Saved"; on failure stop and show the error. (4) Claim the name with the SYC-211/214 machinery and lock, unchanged (an uncertain claim keeps today's same-name retry). The claim storing the name is what opens the app. The plan confirms that `POST /keep-safe/:deviceId` works for a device with no name yet (the route needs only device auth; `keepSafeTemplates.ts` mentions no username), and what a restore returns for a device that saved an email but never got a name (expected: the new phone goes through onboarding to pick one).
+- **Identity changes mid-save.** If "Delete my data", "Get your spots back" or a restore link (allowed during onboarding, `_layout.tsx`) changes the phone's identity while the email or claim request is in flight, its result is ignored. Use `identityGeneration()` from `DeviceContext`, as `useHeldNameSaver` does.
+- **Screen state.** The email text lives in the screen's own state, so it survives the box being hidden offline and shown again. Back is disabled while a save is running. An email already saved on this screen is not sent again if the spotter goes Back and returns (keep a "saved" flag with the address, cleared if they change the address).
+- **Server answers.** `POST /keep-safe` answers success for any well-formed address, including one already used by another phone (that is the restore design). A `not_configured` answer (test site without mail) is shown as `keepSafeSaveFailed`; emptying the box gets past it.
+- **Profile reminder.** On main, Profile hides "Your spots are only on this phone" while `keepSafeOffer === 'skipped-onboarding'` (`app/(tabs)/profile.tsx`, `profile-tab-redesign.md` rule 8). Skipping on the combined screen sets the same value, so this keeps working; a test covers it.
+- **One shared location state.** Today four screens each hold their own `useLocation()` (`index.tsx`, `cats.tsx`, `spot.tsx`, `report.tsx`), and each asks on mount. Replace them with one `LocationProvider` in `app/_layout.tsx` exposing `{ permission, coords, loading, askAndLocate() }`:
+  - `permission`: `'granted' | 'denied-can-ask' | 'denied-final' | 'not-asked'`, read without asking (`lib/locationPermission.ts`). Native: `Location.getForegroundPermissionsAsync()` (`granted`; `undetermined` → not-asked; `denied` with `canAskAgain` → denied-can-ask, else denied-final). Web: `navigator.permissions.query({ name: 'geolocation' })` in a try/catch (`granted`, `denied` → denied-final, `prompt` → not-asked); if it is missing or throws, `granted` when the remembered choice is `'shared'`, else not-asked.
+  - When `permission === 'granted'`, the provider reads the position (as `useLocation` does today: cached fix up to 5 minutes, then a fresh one; 15 s native, 10 s web). Otherwise `coords = null` and `loading = false`, so nothing shows "Getting your location…" forever.
+  - `askAndLocate()` is the only thing that brings up the phone's box (apart from the report flow and claim's "Use where I am now"). After it, `permission` and `coords` update for every screen.
+  - Re-read `permission` when the app comes back to the foreground (the spotter may have changed it in Settings) and when the web page becomes visible again.
+  - The report flow ("This cat needs help") keeps asking on open by calling `askAndLocate()` on mount.
+- **Remembered choice.** `cat-spotter/location-choice`: `'map'` after "I'll put the pin on the map", `'shared'` after any successful position from **Use where I am**. `'map'` means later photos get the small link; `'shared'` means the card is skipped and `askAndLocate()` runs straight after the photo when permission has reset. It is a phone preference, not part of the spotter's identity: cleared by "Delete my data" (next to the photo-tips key in the phone wipe), kept by "Get your spots back".
+- **Map start.** `resolveMapStart` gains the permission state and the remembered choice. The camera and live paths: `granted` → wait for the phone as today, then Ermoupoli after the wait (SYC-308); chose the map, refused or timed out → Ermoupoli; `not-asked` with no choice → no start yet (the card shows instead of the map; **Check for matches** stays disabled). The library path is unchanged. `nextMapStart` (an Ermoupoli start gives way to a late phone fix until the spotter moves the map) still applies.
 - **Retire** `howTitle`, `howSubtitle`, `howLocationTitle`, `howLocationBody`, `howAllowContinue`, and `locationDenied` (its two uses on Spot are replaced), if nothing else uses them. `howStep*` and `howSafety*` stay.
 - **iPhone purpose string.** `app.json`'s `locationWhenInUsePermission` stays English-only for now (the phone's box shows it). Localising it needs a new app build; see follow-ups.
 
 ## Copy
 
-Reused, already translated: everything on the three onboarding screens (listed above by key), `mapStartedInTown`, `openSettings`, `startSpotting`, all `keepSafe*` lines.
+Reused, already translated: everything on the three onboarding screens (listed above by key), `mapStartedInTown`, `confirmLocationHint`, `locating`, `openSettings`, `startSpotting`, all `keepSafe*` lines.
 
-New (English; Greek and French drafted for Johnny's pack, SYC-346; French uses *tu*):
+New (English; Greek and French drafted in the plan for Johnny's pack, SYC-346; French uses *tu*; the wording guard test that rejects "snapper" and "colony carer" covers the new keys):
 
 | Where | English |
 |---|---|
@@ -162,7 +178,7 @@ New (English; Greek and French drafted for Johnny's pack, SYC-346; French uses *
 | Location card line | We'll put the pin where you are now, so Syros Cats know where this cat lives. You can move it after. |
 | Location card button, and the small link on later photos | Use where I am |
 | Location card second button | I'll put the pin on the map |
-| Phone won't ask again (iPhone, Android) | Location is off for Cat Spotters. Move the pin yourself, or turn location on in Settings. |
+| Phone won't ask again (iPhone, Android) | Location is off for Cat Spotters. Move the pin yourself, or turn location on in your phone's Settings. |
 | Browser blocking location (website) | Your browser is blocking location for this site. Move the pin yourself, or allow location from the address bar. |
 
 ## Out of scope
@@ -175,14 +191,43 @@ New (English; Greek and French drafted for Johnny's pack, SYC-346; French uses *
 
 ## How we'll know it works
 
-- **Unit tests:** `getLocationPermission` for each native status and `canAskAgain`, web `granted`/`denied`/`prompt`, and no `navigator.permissions`; the remembered map choice, including after "Delete my data"; the step list and dot count (3).
+- **Unit tests:**
+  - `lib/locationPermission.ts`: each native status with and without `canAskAgain`; web `granted`, `denied`, `prompt`; `navigator.permissions` missing and throwing, with and without the remembered `'shared'` choice.
+  - `resolveMapStart` with the new inputs: camera and live for each permission state and remembered choice; library unchanged.
+  - The remembered choice: set by each button, cleared by "Delete my data", kept by a restore.
+  - The step list and dot count (3).
 - **Component tests:**
   - Welcome shows the three steps and changes them with the language switch.
   - The safety screen has the don't-feed block between "leave them be" and the hurt line, and no Skip.
-  - The combined screen covers: empty email (name saved, `skipped-onboarding`, app opens, no separate keep-safe screen); invalid email (nothing saved); valid email (claim, then `addKeepSafe` with `surface: 'onboarding'`, then `done`); email failure after a claim (stays on the screen with the error, retry works, emptying the box continues); offline (`keepSafeOffline` line, held name, `skipped-onboarding`).
-  - Home, the Cat-alogue and Spot never call the asking function on mount.
-  - The Spot card: both buttons; allowed; refused; timed out; and later photos for each remembered state.
-  - A library photo never shows the card.
-- **Gate test:** a new spotter never sees `KeepSafeScreen` after the combined screen; a spotter with a name from before still gets the one-time offer.
-- **In the browser** at 390px and desktop, in English, Greek and French: a full first run from a cleared browser to a sent sighting with location allowed, refused, and "I'll put the pin on the map". Welcome and the safety screen fit without scrolling at 390×844 in all three languages. The first badge offers the email for a spotter who skipped it. Browser location blocked shows the address-bar line.
-- **On a phone (iPhone and Android test builds) before the store build after this one:** the phone's box appears only after **Use where I am**, and "Open Settings" opens the app's settings.
+  - The combined screen: empty email (`skipped-onboarding` written before the claim, name saved, app opens); invalid email (nothing saved); valid email (`addKeepSafe` with `surface: 'onboarding'` before the claim, then `done`, then the claim); email fails (no claim, error shown, retry works, emptying the box continues); email saved then name taken (email not re-sent, pick another name); offline (`keepSafeOffline` line, held name, `skipped-onboarding`); back online mid-screen keeps the typed email; identity changed by "Delete my data" or a restore link mid-save (result ignored); Back disabled while saving; **Start spotting** visible with the keyboard open.
+  - Home, the Cat-alogue and Spot never bring up the phone's box on mount; after `askAndLocate()` succeeds on Spot, Home shows distances without a restart.
+  - The Spot card: both buttons; "Getting your location…" with the map button still available; allowed; refused; timed out; live view as well as the camera; later photos for each remembered choice and permission state, including a reset "Allow Once" with `'shared'` remembered; a library photo never shows the card.
+  - Profile still hides "Your spots are only on this phone" for `skipped-onboarding`.
+- **Gate tests:** a new spotter never sees `KeepSafeScreen`, including a name arriving by late reconcile and a relaunch after a claim; a spotter with a name from before still gets the one-time offer.
+- **In the browser** at 390px and desktop, in English, Greek and French:
+  - a full first run from a cleared browser to a sent sighting, three times: location allowed, refused, and "I'll put the pin on the map";
+  - Welcome and the safety screen fit without scrolling at 390×844 in all three languages (measured, as on 24 Oct);
+  - the first badge offers the email to a spotter who skipped it;
+  - browser location blocked shows the address-bar line.
+- **On a phone** (iPhone and Android test builds) before the store build that carries this: the phone's box appears only after **Use where I am**; "Open Settings" opens the app's settings; "Allow Once" then a relaunch goes straight to the phone's box after the photo.
+
+## Review findings and how they're handled
+
+Independent adversarial review, 24 Oct 2026 (`reviews/onboarding-fewer-screens-review.md`).
+
+| Finding | Handled |
+|---|---|
+| 1 Spec stale; Profile/Settings already merged | Re-checked on `d8e1c2e4`; Profile reminder rule kept, with a test |
+| 2 Name can arrive before the offer is set; keep-safe screen flashes | Offer written before anything is saved; email added before the name; gate backstop for new spotters; relaunch covered |
+| 3 "No default pin" contradicts the Ermoupoli start | Reworded: no pin while the card shows; after that, same as library photos under SYC-166 Decision 6 |
+| 4 Non-asking location under-specified; stale screens after a grant | One shared `LocationProvider` with defined states; screens update on grant and on return to the app |
+| 5 Web browsers without `navigator.permissions` | Remembered `'shared'` choice; query wrapped in try/catch |
+| 6 iOS "Allow Once", Android second ask, approximate location | Each case stated; card skipped when the spotter shared before |
+| 7 Live view, timeouts, waiting state | Live view included; 15 s native, 10 s web; "Getting your location…" with the map still available |
+| 8 Combined screen gaps (offline flip, Back, identity change, server answers) | Rules for each under "The rules underneath" |
+| 9 Button may scroll away with the keyboard | Pinned footer, tested |
+| 10 "Settings" ambiguous | "your phone's Settings" in the location line; `keepSafeOffline`'s Settings is the app's, which now exists |
+| 11 SYC-308 alone and slow GPS | Stated: behaves like library photos, gives way to a late fix |
+| 12 `resolveMapStart` inputs | Listed under "Map start", with tests |
+| 13 Where the remembered choice is cleared | Phone wipe next to photo tips; kept by restore |
+| 14 Copy and test gaps | `keepSafeOptionalRest` not shown; wording guard covers new keys; fit is a browser acceptance check |

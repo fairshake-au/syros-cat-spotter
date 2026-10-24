@@ -31,3 +31,8 @@ Worktree: heuristic-jones-f8c2f2 (branch claude/heuristic-jones-f8c2f2, from ori
 - Fit measured at 390x844 on main: safety column 507px (el), 441 (fr), 419 (en) in a 744px scroll area → ~205px spare in Greek.
 - Decision 2 DECIDED: B (explain at first photo). Recorded on SYC-524 (comment 24 Oct).
 - Spec drafted: docs/specs/onboarding-fewer-screens.md. Next: Sonnet adversarial review → fold in → artifact → draft PR.
+
+## Review folded in (24 Oct)
+- Merged origin/main (d8e1c2e4, SYC-628 Settings) via sync tool.
+- Sonnet review saved at docs/specs/reviews/onboarding-fewer-screens-review.md; all 14 findings handled in spec (email-first order, LocationProvider, Allow Once, etc.).
+- Next: render spec as artifact, open draft PR, link on SYC-524, update SYC-575, file follow-ups (iOS purpose string localisation; DECISIONS D5 amend on approval), message sessions, ask approval.
