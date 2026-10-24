@@ -17,6 +17,7 @@ import {
 } from '@workspace/api-client-react';
 import {
   KEEP_SAFE_OFFER_KEY,
+  isDefiniteRefusal,
   readKeepSafeOffer,
   redeemRestore,
   writeKeepSafeOffer,
@@ -179,15 +180,19 @@ async function makeDeviceSecret(): Promise<string> {
   return base64UrlEncode(await getSecureRandomBytes(32));
 }
 
-/** How long start-up waits for a resumed move's answer before carrying on as before. */
-const RESUME_MOVE_TIMEOUT_MS = 10_000;
+/**
+ * Start-up's resume of a pending move (SYC-664 N1): each try waits up to
+ * `timeoutMs`; a network error, timeout or 5xx is tried again after `delayMs`,
+ * up to `attempts` tries, while the move is inside its 60 s window. Mutable
+ * for tests only.
+ */
+export const RESUME_RETRY = { attempts: 4, delayMs: 1_500, timeoutMs: 5_000 };
 
 /**
  * The phone's storage after a restore: it keeps its own secret (the server
  * moved the spotter onto it) and takes the spotter's id and name.
  */
 async function persistRestoredIdentity(restoredId: string, restoredName: string | null): Promise<void> {
-  clearWaiting();
   await AsyncStorage.setItem(STORAGE_KEY, restoredId);
   if (restoredName) await AsyncStorage.setItem(USERNAME_KEY, restoredName);
   else await AsyncStorage.removeItem(USERNAME_KEY);
@@ -197,6 +202,9 @@ async function persistRestoredIdentity(restoredId: string, restoredName: string 
   await AsyncStorage.removeItem(OWNED_CATS_KEY);
   // The restored spotter is already kept safe.
   await writeKeepSafeOffer('done');
+  // Only now (N2): if a write above failed, the pending move is still there
+  // for the next start to finish.
+  clearWaiting();
 }
 
 interface DeviceContextValue {
@@ -314,7 +322,9 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setDeviceMovedListener(() => {
-      if (!resumingMove.current) setMoved(true);
+      // Not while this phone's own move is pending (N1): the old id's
+      // refusal is about the move we are finishing, not someone else's.
+      if (!resumingMove.current && !readPendingMove()) setMoved(true);
     });
     return () => setDeviceMovedListener(null);
   }, []);
@@ -324,30 +334,48 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
    * it was about to redeem. Within 60 s, ask again with the same values before
    * anything is sent as `storedId`: the server's replay (keyed by this phone's
    * secret, before device auth) answers with the spotter that came back. If it
-   * moved nothing yet, this is the move the person already chose. Any refusal
-   * just clears it; the person can ask for a new code.
+   * moved nothing yet, this is the move the person already chose.
+   *
+   * N1: only a definite refusal (a 4xx) clears it; the person can ask for a
+   * new code. A network error, timeout or 5xx is tried again while the move is
+   * inside its window. If the tries run out inside the window (offline), the
+   * move is kept for the next start, and meanwhile neither the moved screen
+   * nor the 410 wipe (DeleteMyDataContext) acts on the old id.
    */
   const resumePendingMove = async (
     storedId: string,
   ): Promise<{ deviceId: string; username: string | null } | null> => {
-    const pending = readPendingMove();
-    if (!pending) return null;
+    if (!readPendingMove()) return null;
     resumingMove.current = true;
     try {
-      return await redeemRestore(
-        storedId,
-        {
-          token: pending.handle,
-          choice: pending.choice,
-          abandonCurrent: pending.abandonCurrent,
-          ...(pending.deleteCurrent ? { deleteCurrent: true } : {}),
-        },
-        { timeoutMs: RESUME_MOVE_TIMEOUT_MS },
-      );
-    } catch {
-      return null;
+      for (let attempt = 1; ; attempt++) {
+        // Read afresh each time: once the window has passed this clears it.
+        const pending = readPendingMove();
+        if (!pending) return null;
+        try {
+          return await redeemRestore(
+            storedId,
+            {
+              token: pending.handle,
+              choice: pending.choice,
+              abandonCurrent: pending.abandonCurrent,
+              ...(pending.deleteCurrent ? { deleteCurrent: true } : {}),
+            },
+            { timeoutMs: RESUME_RETRY.timeoutMs },
+          );
+        } catch (err) {
+          if (isDefiniteRefusal(err)) {
+            clearPendingMove();
+            return null;
+          }
+          if (attempt >= RESUME_RETRY.attempts) {
+            readPendingMove(); // kept inside the window, cleared after it
+            return null;
+          }
+          await new Promise((r) => setTimeout(r, RESUME_RETRY.delayMs));
+        }
+      }
     } finally {
-      clearPendingMove();
       resumingMove.current = false;
     }
   };

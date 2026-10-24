@@ -126,6 +126,12 @@ describe('/get-spots-back route (SYC-664)', () => {
     expect(h2.startOnCode).toBe(true);
   });
 
+  it('a note with no request (a wrong try only) opens on the address box, like the automatic reopen', async () => {
+    window.localStorage.setItem('cat-spotter/restore-waiting', JSON.stringify({ askedAt: Date.now(), requests: 0, wrongTries: 1 }));
+    await open();
+    expect(h2.startOnCode).toBeFalsy();
+  });
+
   it('opens on the address box when nothing is stored', async () => {
     await open();
     expect(h2.startOnCode).toBeFalsy();

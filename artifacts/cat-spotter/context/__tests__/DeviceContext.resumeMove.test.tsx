@@ -10,12 +10,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * the server's replay answers, and the phone becomes the spotter that came back.
  */
 
-const { storage } = vi.hoisted(() => ({ storage: new Map<string, string>() }));
+const { storage, failWrite } = vi.hoisted(() => ({
+  storage: new Map<string, string>(),
+  failWrite: { key: null as string | null },
+}));
 
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: {
     getItem: async (key: string) => storage.get(key) ?? null,
     setItem: async (key: string, value: string) => {
+      if (key === failWrite.key) throw new Error('storage full');
       storage.set(key, value);
     },
     removeItem: async (key: string) => {
@@ -32,7 +36,8 @@ const api = vi.hoisted(() => ({
   getProfile: vi.fn(async (_id: string) => ({ ownedCatIds: [3] })),
 }));
 
-vi.mock('@workspace/api-client-react', () => ({
+vi.mock('@workspace/api-client-react', async (importOriginal) => ({
+  ApiError: (await importOriginal<typeof import('@workspace/api-client-react')>()).ApiError,
   setDeviceSecretGetter: vi.fn(),
   setDeviceMovedListener: (l: null | (() => void)) => {
     api.movedListener = l;
@@ -46,7 +51,8 @@ vi.mock('@/lib/keepSafe', async (importOriginal) => {
   return { ...actual, redeemRestore: redeem };
 });
 
-import { DeviceProvider, useDevice } from '@/context/DeviceContext';
+import { ApiError } from '@workspace/api-client-react';
+import { DeviceProvider, RESUME_RETRY, useDevice } from '@/context/DeviceContext';
 import { RESTORE_PENDING_MOVE_KEY, readPendingMove } from '@/lib/restoreWaiting';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => <DeviceProvider>{children}</DeviceProvider>;
@@ -75,7 +81,13 @@ beforeEach(() => {
   storage.set('cat-spotter/owned-cat-ids', '[1]');
   vi.clearAllMocks();
   redeem.mockReset();
+  failWrite.key = null;
+  RESUME_RETRY.delayMs = 5;
 });
+
+const apiError = (status: number, error: string) =>
+  new ApiError(new Response(null, { status }), { error }, { method: 'POST', url: '/api/restore/redeem' });
+const offline = () => new TypeError('Failed to fetch');
 
 describe('a reload mid-move (I1)', () => {
   it('(a) a pending move under 60 s: the replay answers, the phone adopts the restored id and never shows "moved"', async () => {
@@ -127,11 +139,25 @@ describe('a reload mid-move (I1)', () => {
     expect(window.localStorage.getItem(RESTORE_PENDING_MOVE_KEY)).toBeNull();
   });
 
-  it('a refused replay: cleared, a normal start, and our own move never shows "moved"', async () => {
+  it('N1 (a) a network error, then a 503, then success on retry: adopts', async () => {
+    pending(5_000);
+    redeem
+      .mockRejectedValueOnce(offline())
+      .mockRejectedValueOnce(apiError(503, 'Please try again in a moment.'))
+      .mockResolvedValueOnce({ deviceId: 'dev-lili', username: 'Lili' });
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(redeem).toHaveBeenCalledTimes(3);
+    expect(result.current.deviceId).toBe('dev-lili');
+    expect(result.current.moved).toBe(false);
+    expect(readPendingMove()).toBeNull();
+  });
+
+  it('N1 (b) a 4xx is a definite refusal: cleared, no retry, a normal start, never "moved"', async () => {
     pending(5_000);
     redeem.mockImplementation(async () => {
       api.movedListener?.();
-      throw new Error('403 device_moved');
+      throw apiError(403, 'Device secret does not match');
     });
     const { result } = renderHook(() => useDevice(), { wrapper });
     await waitFor(() => expect(result.current.isReady).toBe(true));
@@ -140,6 +166,41 @@ describe('a reload mid-move (I1)', () => {
     expect(result.current.username).toBe('Nikos');
     expect(result.current.moved).toBe(false);
     expect(readPendingMove()).toBeNull();
+  });
+
+  it('N1 (c) always a network error, inside the window: the move is kept, and no "moved" screen while it is', async () => {
+    pending(5_000);
+    redeem.mockRejectedValue(offline());
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(redeem).toHaveBeenCalledTimes(RESUME_RETRY.attempts);
+    expect(result.current.deviceId).toBe('dev-starter');
+    expect(readPendingMove()).not.toBeNull();
+    // The old id's device_moved, while our own move is pending, is not shown.
+    api.movedListener?.();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(result.current.moved).toBe(false);
+  });
+
+  it('N1: retries stop once the window has passed, and the move is cleared', async () => {
+    pending(59_990);
+    redeem.mockImplementation(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+      throw offline();
+    });
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(redeem).toHaveBeenCalledTimes(1);
+    expect(readPendingMove()).toBeNull();
+  });
+
+  it('N2: if writing the restored identity fails, the pending move survives for the next start', async () => {
+    pending(5_000);
+    redeem.mockResolvedValue({ deviceId: 'dev-lili', username: 'Lili' });
+    failWrite.key = 'cat-spotter/device-id';
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(result.current.startupError).not.toBeNull());
+    expect(readPendingMove()).not.toBeNull();
   });
 
   it('a device_moved after the resume is still shown', async () => {

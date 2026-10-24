@@ -12,3 +12,4 @@ Final fix I1 done: pending move stored before redeem on the code path, resumed a
 Final fix I2 done: chooser Back on the code path, dead handle dropped on not-valid/failed/already-here, ask again goes to the address box; next: I3, I4
 Final fix I3, I4 done: code words on the code path's chooser (en/el/fr), digit-free placeholder; next: minors M6-M9, T5-T9
 Final fix minors done: M6 comment, M7 editable box + select on refusal, M8 reopen/resend need a request, M9 Greek hint, T5 clamp, T6 no copy from code, T9 equal weight, T7 test hygiene; next: full suite, tsc, migrate:check, report
+Final fix N1, N2 done: start-up resume retries network/5xx, keeps the move offline and guards moved/410 meanwhile; identity written before the move is cleared; get-spots-back uses requests >= 1; next: report
