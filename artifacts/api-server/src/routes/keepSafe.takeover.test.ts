@@ -314,6 +314,24 @@ describe("2. a replayed link", () => {
     expect(await storedHash(old.id)).toBe(hashAfter);
   });
 
+  it("SYC-664 ship F1: the same phone's retry is answered even when its network's redeem allowance is used up (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, token } = await newPhoneWithLink(email);
+    const ip = freshIp();
+    const fromIp = (body: Record<string, unknown>, secret = phone.secret) =>
+      request(app).post("/api/restore/redeem").set("X-Device-Secret", secret).set("X-Forwarded-For", ip).send(body);
+    const first = await fromIp({ deviceId: phone.id, token, spotterDeviceId: old.id });
+    expect(first.status).toBe(200);
+    // Use up the rest of this network's hour (30 a hour).
+    for (let i = 0; i < 30; i++) await fromIp({ deviceId: `${P}-junk`, token: "x" }, "junk-secret-junk-secret");
+    const blocked = await fromIp({ deviceId: `${P}-junk`, token: "x" }, "junk-secret-junk-secret");
+    expect(blocked.status).toBe(429);
+    const again = await fromIp({ deviceId: phone.id, token, spotterDeviceId: old.id });
+    expect(again.status).toBe(200);
+    expect(again.body).toEqual(first.body);
+  });
+
   it("a used link can't move a second spotter, even within 60 s", async () => {
     const email = newAddress();
     const one = await keptSafe(email);

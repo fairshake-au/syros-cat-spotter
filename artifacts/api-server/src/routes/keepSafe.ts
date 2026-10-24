@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type NextFunction, type Request, type Response } from "express";
 import { consume, declareLimit, sharedLimiter } from "../lib/limits";
 import { safeError } from "../lib/logger";
 import { hashSecret, requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
@@ -216,26 +216,48 @@ router.post("/restore/peek", peekLimiter, async (req, res) => {
   });
 });
 
-router.post("/restore/redeem", redeemLimiter, async (req, res) => {
-  noStore(res);
-  const body = (req.body ?? {}) as Record<string, unknown>;
-  const raw = body["token"];
-  // The picker's opaque choice (Decision 12, review finding 9); a device id
-  // is still accepted from a page loaded before this change.
-  const pick = {
+/** The picker's opaque choice (Decision 12, review finding 9); a device id is still accepted from an older page. */
+function pickOf(body: Record<string, unknown>) {
+  return {
     choice: typeof body["choice"] === "string" ? body["choice"] : undefined,
     spotterDeviceId: typeof body["spotterDeviceId"] === "string" ? body["spotterDeviceId"] : undefined,
   };
+}
+
+function secretOf(req: Request): string {
   const header = req.headers["x-device-secret"];
-  const secret = typeof header === "string" ? header : "";
-  // The same phone's retry within 60 s (its starter id is retired by then).
+  return typeof header === "string" ? header : "";
+}
+
+/**
+ * The same phone's retry of a move that already happened (its starter id is
+ * retired by then), answered BEFORE the network's redeem allowance (SYC-664
+ * ship review F1): a phone finishing its own move is never told 429. Only the
+ * phone whose secret the moved spotter now holds gets an answer here; anything
+ * else goes on to the limiter and the ordinary checks.
+ */
+async function samePhoneReplay(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const raw = body["token"];
+  const pick = pickOf(body);
+  const secret = secretOf(req);
   if (isTokenShaped(raw) && secret.length >= 16 && secret.length <= 256 && (pick.choice || pick.spotterDeviceId)) {
     const replay = await replayAfterMove({ raw, callerSecretHash: hashSecret(secret), pick });
     if (replay?.ok) {
+      noStore(res);
       res.json({ deviceId: replay.deviceId, username: replay.username });
       return;
     }
   }
+  next();
+}
+
+router.post("/restore/redeem", samePhoneReplay, redeemLimiter, async (req, res) => {
+  noStore(res);
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const raw = body["token"];
+  const pick = pickOf(body);
+  const secret = secretOf(req);
   const caller = await verifyDeviceSecret(req, res, String(body["deviceId"] ?? ""));
   if (!caller) return;
   if (!isTokenShaped(raw)) return refuseLink(req, res, "malformed", raw);

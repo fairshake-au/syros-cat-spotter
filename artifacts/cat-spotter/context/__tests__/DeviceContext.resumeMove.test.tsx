@@ -168,6 +168,28 @@ describe('a reload mid-move (I1)', () => {
     expect(readPendingMove()).toBeNull();
   });
 
+  it('SYC-664 ship F1 (a): a 429 at start-up is not a refusal: the move is kept and tried again, then adopts', async () => {
+    pending(5_000);
+    redeem
+      .mockRejectedValueOnce(apiError(429, 'link_not_valid'))
+      .mockResolvedValueOnce({ deviceId: 'dev-lili', username: 'Lili' });
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(redeem).toHaveBeenCalledTimes(2);
+    expect(result.current.deviceId).toBe('dev-lili');
+    expect(result.current.moved).toBe(false);
+  });
+
+  it('SYC-664 ship F1 (a): only 429s at start-up: the move is kept for the next try', async () => {
+    pending(5_000);
+    redeem.mockRejectedValue(apiError(429, 'link_not_valid'));
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(redeem).toHaveBeenCalledTimes(RESUME_RETRY.attempts);
+    expect(result.current.deviceId).toBe('dev-starter');
+    expect(readPendingMove()).not.toBeNull();
+  });
+
   it('N1 (c) always a network error, inside the window: the move is kept, and no "moved" screen while it is', async () => {
     pending(5_000);
     redeem.mockRejectedValue(offline());

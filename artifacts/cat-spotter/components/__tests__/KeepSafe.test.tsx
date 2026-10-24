@@ -270,6 +270,16 @@ describe('the /restore page', () => {
     expect(router.replace).toHaveBeenCalledWith('/');
   });
 
+  it('SYC-664 ship F1: a 429 at peek is a plain failure, never "this link has expired"', async () => {
+    vi.mocked(keepSafe.peekRestore).mockRejectedValueOnce(
+      new ApiError(new Response(null, { status: 429 }), { error: 'link_not_valid' }, { method: 'POST', url: '/api/restore/peek' }),
+    );
+    const utils = render(<RestorePage />);
+    await utils.findByTestId('restore-not-valid');
+    expect(utils.queryByText(en.restorePageNotValid)).toBeNull();
+    expect(utils.getByText(en.restorePageFailed)).toBeTruthy();
+  });
+
   it('on a phone with a spotter, warns first (Decision 7) and asks what happens to it, neither chosen (SYC-266)', async () => {
     h.device = { deviceId: 'dev-new', username: 'Nikos', isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
     const { findByText, getByTestId } = render(<RestorePage />);
@@ -861,6 +871,38 @@ describe('code screen', () => {
     await waitFor(() => expect(keepSafe.redeemRestore).toHaveBeenCalled());
     expect(atRedeem).toEqual({ handle: 'handle-1', choice: 'choice-lili', abandonCurrent: true, deleteCurrent: true, at: expect.any(Number) });
     await waitFor(() => expect(readPendingMove()).toBeNull());
+  });
+
+  it('SYC-664 ship F1 (b): a 429 on the Delete retry is not "link not valid": the pending move is kept', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(keepSafe.redeemRestore)
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockRejectedValueOnce(
+          new ApiError(new Response(null, { status: 429 }), { error: 'link_not_valid' }, { method: 'POST', url: '/api/restore/redeem' }),
+        );
+      h.device = { deviceId: 'dev-nikos', username: 'Nikos', isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
+      const utils = render(<RestoreRequestScreen onBack={() => {}} startOnCode />);
+      await act(async () => {
+        typeCode(utils.getByTestId('restore-code-input'), '48291376');
+      });
+      await utils.findByText('Move Lili’s spots to this phone');
+      await act(async () => {
+        fireEvent.click(utils.getByTestId('restore-choice-delete'));
+      });
+      await act(async () => {
+        fireEvent.click(utils.getByText('Move Lili’s spots to this phone'));
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      await utils.findByTestId('restore-not-valid');
+      expect(keepSafe.redeemRestore).toHaveBeenCalledTimes(2);
+      expect(readPendingMove()).not.toBeNull();
+      expect(utils.queryByText(en.restoreCodeNotValid)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('a refused redeem clears the pending move (I1)', async () => {

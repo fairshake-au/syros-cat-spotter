@@ -106,13 +106,26 @@ export function redeemRestore(
   });
 }
 
+/**
+ * The link or handle can't be used. Never a 429 (SYC-664 ship review F1): the
+ * per-network limiter answers 429 with this same body, but "too many requests
+ * from this network" says nothing about the link, and a move may already have
+ * happened.
+ */
 export function isLinkNotValid(error: unknown): boolean {
-  return error instanceof ApiError && (error.data as { error?: unknown } | null)?.error === 'link_not_valid';
+  return (
+    error instanceof ApiError &&
+    error.status !== 429 &&
+    (error.data as { error?: unknown } | null)?.error === 'link_not_valid'
+  );
 }
 
-/** The server said no (any 4xx), as opposed to a network error, timeout or 5xx, which may be worth asking again. */
+/**
+ * The server said no (a 4xx other than 429), as opposed to a 429, network
+ * error, timeout or 5xx, which may be worth asking again.
+ */
 export function isDefiniteRefusal(error: unknown): boolean {
-  return error instanceof ApiError && error.status >= 400 && error.status < 500;
+  return error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 429;
 }
 
 export function isCodeNotValid(error: unknown): boolean {
