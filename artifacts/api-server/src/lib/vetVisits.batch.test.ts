@@ -171,6 +171,19 @@ describe("saveBatch", () => {
     }
   });
 
+  it("R10: the batch note lands on every visit whose cat has no note; a cat's own note wins", async () => {
+    const [a, b, c] = [await insertCat(), await insertCat(), await insertCat()];
+    const { id, batch } = await makeBatch([{ catId: a.id }, { catId: b.id }, { catId: c.id }]);
+    await updateShared(id, { ...batch.shared, clinicId: CLINIC, note: "Trapped at the harbour" });
+    await updateCat(batch.cats[1]!.id, { note: "Bit the vet" });
+    await updateCat(batch.cats[2]!.id, { note: "   " });
+    expect((await saveBatch(STAFF, id, NOW)).ok).toBe(true);
+    const noteOf = new Map((await visitRows([a.id, b.id, c.id])).map((o) => [o.catId, (o.value as { note?: string }).note]));
+    expect(noteOf.get(a.id)).toBe("Trapped at the harbour");
+    expect(noteOf.get(b.id)).toBe("Bit the vet");
+    expect(noteOf.get(c.id)).toBe("Trapped at the harbour");
+  });
+
   it("D8: a guardian's 'not sterilised' is overruled, with the reason 'vet visit on 24 Oct 2026'", async () => {
     const cat = await insertCat();
     const no = await db.transaction((tx) =>

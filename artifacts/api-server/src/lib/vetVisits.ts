@@ -503,7 +503,8 @@ export async function saveBatch(
           clinicId: shared.clinicId ?? "",
           costEur: ownCost !== "" ? ownCost : entry.did.includes("sterilised") ? shared.priceEur : "",
           paidBy: entry.paidBy.trim() !== "" ? entry.paidBy : shared.paidBy,
-          note: entry.note,
+          // Ruling R10: the cat's own note, else the batch's shared note.
+          note: entry.note.trim() !== "" ? entry.note : shared.note,
           costReason: "",
         },
         { costs, vaccinate, now },
