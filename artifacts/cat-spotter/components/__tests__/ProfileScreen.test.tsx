@@ -21,6 +21,8 @@ const h = vi.hoisted(() => ({
   heldUsername: null as string | null,
   nameNote: null as unknown,
   setNameNote: vi.fn(),
+  params: {} as { tab?: string },
+  setParams: vi.fn(),
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -30,7 +32,10 @@ vi.mock('@/hooks/useColors', () => ({
   useColors: () => new Proxy({}, { get: () => '#123456' }),
 }));
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
-vi.mock('expo-router', () => ({ router: { push: h.push }, useLocalSearchParams: () => ({}) }));
+vi.mock('expo-router', () => ({
+  router: { push: h.push, setParams: h.setParams },
+  useLocalSearchParams: () => h.params,
+}));
 vi.mock('@/context/LanguageContext', async () => {
   const { TRANSLATIONS } = await import('@/lib/i18n');
   return {
@@ -151,6 +156,10 @@ beforeEach(() => {
   h.push.mockReset();
   h.refetch.mockReset();
   h.setNameNote.mockReset();
+  h.params = {};
+  h.setParams.mockReset().mockImplementation(() => {
+    h.params = {};
+  });
   h.isOnline = true;
   h.profile = profile();
   h.profileError = false;
@@ -165,6 +174,21 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Profile tabs (SYC-628)', () => {
+  it('?tab=badges opens the Badges tab and is used up, so a second visit works too', () => {
+    h.params = { tab: 'badges' };
+    const { rerender } = render(<ProfileScreen />);
+    expect(screen.getByTestId('badge-row-first_sighting')).toBeTruthy();
+    expect(h.setParams).toHaveBeenCalledWith({ tab: undefined });
+    rerender(<ProfileScreen />); // the param is now gone
+    fireEvent.click(screen.getByTestId('profile-tab-me'));
+    expect(screen.queryByTestId('badge-row-first_sighting')).toBeNull();
+    // A later celebration's "See all my badges" sets the param again.
+    h.params = { tab: 'badges' };
+    rerender(<ProfileScreen />);
+    expect(screen.getByTestId('badge-row-first_sighting')).toBeTruthy();
+    expect(h.setParams).toHaveBeenCalledTimes(2);
+  });
+
   it('opens on Me with Home’s three counts and the first-finds caption tucked under them', () => {
     render(<ProfileScreen />);
     expect(screen.getByTestId('tile-Spotted').textContent).toBe('7');

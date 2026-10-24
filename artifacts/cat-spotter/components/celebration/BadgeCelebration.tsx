@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     color: palette.stone000,
     fontFamily: fonts.body,
     fontSize: fontSizes.md,
-    lineHeight: 22,
+    lineHeight: Math.round(fontSizes.md * 1.4),
     textAlign: 'center',
     opacity: 0.92,
   },

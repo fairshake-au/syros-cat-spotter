@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
   soundsOn: true,
+  hydrated: true,
   reduced: false,
   push: vi.fn(),
   play: vi.fn(),
@@ -37,7 +38,7 @@ vi.mock('react-native-svg', () => {
   return { __esModule: true, default: make('Svg'), ...Object.fromEntries(names.map((n) => [n, make(n)])) };
 });
 vi.mock('@/context/CelebrationSettingsContext', () => ({
-  useCelebrationSettings: () => ({ soundsOn: h.soundsOn, isHydrated: true, setSoundsOn: vi.fn() }),
+  useCelebrationSettings: () => ({ soundsOn: h.soundsOn, isHydrated: h.hydrated, setSoundsOn: vi.fn() }),
 }));
 vi.mock('@/context/LanguageContext', async () => {
   const { TRANSLATIONS } = await import('@/lib/i18n');
@@ -69,9 +70,11 @@ const views: BadgeView[] = [
 describe('BadgeCelebration', () => {
   beforeEach(() => {
     h.soundsOn = true;
+    h.hydrated = true;
     h.reduced = false;
     h.createAudioPlayer.mockReset().mockReturnValue({ play: h.play, remove: h.remove });
     h.play.mockReset();
+    h.remove.mockReset();
     h.notificationAsync.mockReset().mockResolvedValue(undefined);
     h.push.mockReset();
     // Tests run on react-native-web; the buzz is native only, so act as a phone.
@@ -156,6 +159,29 @@ describe('BadgeCelebration', () => {
     render(<BadgeCelebration moment={{ kind: 'badges', badgeIds: ['areas_3'] }} views={views} onDone={vi.fn()} />);
     expect(h.play).toHaveBeenCalledTimes(1);
     expect(h.notificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('no chime until the sound setting has loaded, but the buzz still fires', () => {
+    h.hydrated = false;
+    render(<BadgeCelebration moment={{ kind: 'badges', badgeIds: ['areas_3'] }} views={views} onDone={vi.fn()} />);
+    expect(h.createAudioPlayer).not.toHaveBeenCalled();
+    expect(h.notificationAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the audio player on unmount, and after 3 s if still mounted', () => {
+    vi.useFakeTimers();
+    try {
+      const first = render(<BadgeCelebration moment={{ kind: 'badges', badgeIds: ['areas_3'] }} views={views} onDone={vi.fn()} />);
+      expect(h.remove).not.toHaveBeenCalled();
+      first.unmount();
+      expect(h.remove).toHaveBeenCalledTimes(1);
+      h.remove.mockClear();
+      render(<BadgeCelebration moment={{ kind: 'badges', badgeIds: ['areas_3'] }} views={views} onDone={vi.fn()} />);
+      vi.advanceTimersByTime(3000);
+      expect(h.remove).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('a sound that fails to play does not break the screen', () => {

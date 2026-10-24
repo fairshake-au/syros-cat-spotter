@@ -40,8 +40,13 @@ export default function ProfileScreen() {
   // "See all my badges" on the badge celebration opens this screen with ?tab=badges.
   const params = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<ProfileTab>(params.tab === 'badges' ? 'badges' : 'me');
+  // Tab screens stay mounted and the param sticks, so it is used up once applied;
+  // otherwise a second "See all my badges" would not change it and nothing would happen.
   useEffect(() => {
-    if (params.tab === 'badges') setTab('badges');
+    if (params.tab === 'badges') {
+      setTab('badges');
+      router.setParams({ tab: undefined });
+    }
   }, [params.tab]);
   // The tabs scroll with the header, so a new tab starts at the top: "See all"
   // sits at the bottom of Me and would otherwise land mid-list (review #1).
