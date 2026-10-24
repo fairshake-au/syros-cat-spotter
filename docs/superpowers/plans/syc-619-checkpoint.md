@@ -28,3 +28,5 @@ Task 11: 360px card photo version, migration 0041, grid srcset (5c2128ad)
 Next: Task 12 onward
 Task 12: Grid/Map and photo link share one .viewrow on grid and map; map script keeps the link's href in step (7fe68c1f)
 Next: review of task 12
+Task 13: map loading outline + line, shared SYROS_OUTLINE (26097ffc)
+Next: Task 14
