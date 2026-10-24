@@ -414,6 +414,11 @@ describe("timeAgo", () => {
     expect(timeAgo(ago(45 * 86_400_000), now)).toBe("22 Aug 2026");
     expect(timeAgo(ago(-5000), now)).toBe("just now");
   });
+  it("cuts an older date at the Syros day, not the UTC day (SYC-637)", () => {
+    // 22:30 UTC on 27 Aug is already 28 Aug on the island (UTC+3 in summer).
+    expect(timeAgo("2026-08-27T22:30:00Z", now)).toBe("28 Aug 2026");
+    expect(timeAgo("2026-08-27T20:30:00Z", now)).toBe("27 Aug 2026");
+  });
 });
 
 describe("SYC-519: drafts are not on the Queue, however many", () => {

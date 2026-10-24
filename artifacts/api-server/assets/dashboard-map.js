@@ -753,7 +753,7 @@
       if (Object.prototype.hasOwnProperty.call(body, key)) {
         body[key] = [].concat(body[key], value);
       } else {
-        body[key] = key === "colours" || key === "sterilised" || key === "lives" ? [value] : value;
+        body[key] = key === "colours" || key === "patterns" || key === "sterilised" || key === "lives" ? [value] : value;
       }
     });
     return body;

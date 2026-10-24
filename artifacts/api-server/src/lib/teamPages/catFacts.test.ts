@@ -304,13 +304,13 @@ describe("the facts row on the page", () => {
   const html = renderCatPage(v, "Sam", { may: () => true, now: NOW });
 
   it("is headed by What we know about this cat, with no separate evidence section", () => {
-    expect(html.indexOf('class="catfacts"')).toBeGreaterThan(-1);
+    expect(html.indexOf('class="catfacts kf"')).toBeGreaterThan(-1);
     expect(html).toContain('<h2 class="sr">What we know about this cat</h2>');
     expect(html).not.toContain('<details class="evidence"');
   });
 
   it("no confidence pill sits beside a sterilised or life value anywhere on the page", () => {
-    const row = /<dl class="catfacts">[\s\S]*?<\/dl>/.exec(html)![0];
+    const row = /<dl class="catfacts kf">[\s\S]*?<\/dl>/.exec(html)![0];
     expect(row).not.toContain('class="tag"');
     // (The Appearance section, SYC-398's, keeps its own levels.)
   });
@@ -321,7 +321,7 @@ describe("the facts row on the page", () => {
   });
 
   it("What the public sees is one line under the facts", () => {
-    expect(html.indexOf('class="publicline"')).toBeGreaterThan(html.indexOf('class="catfacts"'));
+    expect(html.indexOf('class="publicline"')).toBeGreaterThan(html.indexOf('class="catfacts kf"'));
     expect(html).not.toContain("<h2>What the public sees</h2>");
   });
 });
@@ -466,7 +466,7 @@ describe("the facts panel: sources, Owner and Why we think so (SYC-602 PR 1)", (
     const v = richCatView();
     const html = renderCatFacts(v, NOW, optsFor(v));
     expect(html).toContain('<h2 class="sr">What we know about this cat</h2>');
-    expect(html).toContain('<dl class="catfacts">');
+    expect(html).toContain('<dl class="catfacts kf">');
     expect(html).toContain('<span class="how">Seen 21 times since April</span>');
     expect(html).toContain('<details class="why"><summary>Why we think so</summary>');
     expect(html).not.toContain("<script");

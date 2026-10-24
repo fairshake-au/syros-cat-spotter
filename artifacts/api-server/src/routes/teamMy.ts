@@ -22,6 +22,7 @@ import {
   renderMyColoniesPage,
   renderMyPage,
   renderMyProblem,
+  renderSignOutEverywhereConfirm,
   renderStopHelpingConfirm,
   renderStoppedPage,
   MY_STOP_PATH,
@@ -294,6 +295,11 @@ router.post("/team/my/language", ...formRoute(undefined, OWN), async (req: Reque
  */
 router.post("/team/my/sign-out-everywhere", ...formRoute(undefined, OWN), async (req: Request, res: Response) => {
   const person = teamPerson(res);
+  // A form asks first (SYC-520); Yes posts again with confirm=1. The JSON route acts in one step.
+  if (req.is("application/x-www-form-urlencoded") && req.body?.["confirm"] !== "1") {
+    setTeamHeaders(res);
+    return void res.type("html").send(renderSignOutEverywhereConfirm({ name: person.name, language: person.language }));
+  }
   try {
     await signOutEverywhere(person, person.id);
   } catch (err) {

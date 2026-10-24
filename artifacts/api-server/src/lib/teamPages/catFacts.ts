@@ -5,7 +5,7 @@ import { markOf, type Lives } from "../teamCatList";
 import type { TeamCatView, TeamResolved, TeamStatement } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
 import { lastSeenWords } from "./lastSeen";
-import { markBadge, markWithWords } from "./marks";
+import { markWithWords } from "./marks";
 import { place } from "./position";
 import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
 
@@ -26,6 +26,8 @@ export interface CatFact {
   source?: string;
   /** The folded "Why we think so", trusted HTML (a `<details>`). */
   why?: string;
+  /** Long text: takes a full row of the card's facts grid. */
+  wide?: boolean;
 }
 
 /**
@@ -120,7 +122,7 @@ function guardianConfirmed(r: TeamResolved<boolean>, o: FactsOpts): string {
 }
 
 /** Dates on Syros, in Greek time: "13 Aug 2026". */
-const day = (iso: string) =>
+export const day = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -179,24 +181,6 @@ function livesFact(v: TeamCatView): string {
   return esc(livesWords(v)) + (l.notSeenSince ? `<br><span class="meta">Not seen since ${esc(monthYear(l.notSeenSince))}</span>` : "");
 }
 
-/**
- * The one line under the cat's name (spec 3.1): the sterilisation mark and
- * word, where it lives, its colony as a link (left out when it has none), and
- * when it was last seen, in the Last seen fact's own words.
- */
-export function statusLine(v: TeamCatView, now: Date): string {
-  const last = v.sightings[0] ?? null;
-  const parts = [
-    markBadge(markOf(v.records.sterilised)),
-    esc(livesWords(v) === LIVES_WORD.street ? "Lives on the street" : livesWords(v)),
-    ...(v.colony ? [`<a href="/api/team/colonies/${v.colony.id}">${esc(v.colony.name)}</a>`] : []),
-    esc(lastSeenWords(last ? new Date(last.at) : null, now)),
-  ];
-  // The separator belongs to the part before it, so a wrapped line never starts with a dot.
-  const spans = parts.map((p, i) => `<span class="sl">${p}${i < parts.length - 1 ? " ·" : ""}</span>`);
-  return `<p class="statusline">${spans.join(" ")}</p>`;
-}
-
 /** Who the colours rest on (not the pattern): the machine, a person, or spotters. */
 function colourSource(v: TeamCatView): string | null {
   const ids = v.appearance.coat.parts?.colours.supportingStatementIds;
@@ -243,7 +227,9 @@ function lastSeenFact(v: TeamCatView, now: Date): string {
     .replace(/^Last seen (on )?/, "")
     .replace(/^./, (c) => c.toUpperCase());
   const when = last ? `<time datetime="${esc(last.at)}">${esc(words)}</time>` : esc(words);
-  return `${when} · ${esc(placeLabel(where))}`;
+  // With sightings, the place opens the cat's Map tab (SYC-655); without, it's plain text.
+  const place = esc(placeLabel(where));
+  return `${when} · ${last ? `<a href="#tab-map">${place}</a>` : place}`;
 }
 
 export const VACCINE: Record<Exclude<Vaccine, { other: string }>, string> = {
@@ -295,6 +281,7 @@ function ownerFact(v: TeamCatView): CatFact | null {
   const pin = o.homePin ? `<br><span class="meta">Home pin: ${esc(`Pinned, in ${placeLabel(o.homePin)}`)}</span>` : "";
   return {
     label: "Owner",
+    wide: true,
     html:
       esc(o.has ? "Has an owner" : o.orphanedHome ? "Has a home, but the owner deleted their data" : "Has a home, no owner on record") +
       note +
@@ -320,6 +307,7 @@ function healthNoteFact(v: TeamCatView): CatFact | null {
   if (!n || n.noteText === undefined) return null;
   return {
     label: "Health note",
+    wide: true,
     // Escaped first, then the line breaks: the only markup is ours.
     html: esc(n.noteText).replace(/\r?\n/g, "<br>"),
     source: `${n.author.label}, ${day(n.createdAt)} · team only`,
@@ -373,11 +361,11 @@ export function catFacts(v: TeamCatView, now: Date, opts: FactsOpts): CatFact[] 
 /** The facts panel as HTML: a row per fact, its source under the value, its evidence folded. */
 export function renderCatFacts(v: TeamCatView, now: Date, opts: FactsOpts): string {
   return (
-    '<h2 class="sr">What we know about this cat</h2><dl class="catfacts">' +
+    '<h2 class="sr">What we know about this cat</h2><dl class="catfacts kf">' +
     catFacts(v, now, opts)
       .map(
         (f) =>
-          `<div class="fact"><dt>${esc(f.label)}</dt><dd>${f.html}` +
+          `<div class="fact${f.wide ? " wide" : ""}"><dt>${esc(f.label)}</dt><dd>${f.html}` +
           (f.source ? `<span class="how">${esc(f.source)}</span>` : "") +
           (f.why ?? "") +
           "</dd></div>",

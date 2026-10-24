@@ -48,7 +48,7 @@ describe("sterilisation not known, in words that say what isn't known", () => {
   });
 
   it("leaves no bare 'Not known yet' for sterilisation in the team pages' source", () => {
-    for (const f of ["likelyPage.ts", "catHistory.ts", "catPages.ts"]) {
+    for (const f of ["likelyPage.ts", "catHistory.ts", "catPages.ts", "catCard.ts"]) {
       expect(/\bNot known yet\b/.test(read(f)), f).toBe(false);
     }
   });

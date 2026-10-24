@@ -42,6 +42,7 @@ import {
 } from "../lib/teamPages/peoplePages";
 import { CATALOGUE } from "../lib/capabilities";
 import { clip, roleSentence } from "../lib/people/words";
+import { renderConfirmPage } from "../lib/teamPages/confirm";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
@@ -337,6 +338,38 @@ async function answer(req: Request, res: Response, change: () => Promise<string>
   }
 }
 
+/**
+ * A form post asks first (SYC-520); Yes posts again with confirm=1. Returns true
+ * when it answered with the "Are you sure?" page. The JSON route acts in one step.
+ */
+async function askFirst(
+  req: Request,
+  res: Response,
+  id: string,
+  verb: "withdraw" | "sign-out",
+  what: (name: string) => { title: string; lines: string[]; yes: string },
+): Promise<boolean> {
+  if (!isFormPost(req) || bodyOf(req)["confirm"] === "1") return false;
+  const me = teamPerson(res);
+  const found = await viewOf(res, id);
+  if (!found) {
+    res.status(404).type("html").send(renderNoSuchPerson(me.name));
+    return true;
+  }
+  res.status(200).type("html").send(
+    renderConfirmPage({
+      ...what(found.view.name),
+      action: `${PEOPLE}/${id}/${verb}`,
+      fields: {},
+      cancelHref: `${PEOPLE}#p-${encodeURIComponent(id)}`,
+      cancelLabel: "Cancel (nothing changed)",
+      personName: me.name,
+      active: "people",
+    }),
+  );
+  return true;
+}
+
 const MYSELF = "You can't do that to yourself here. Use the buttons on your own page.";
 
 function personIdOf(req: Request, res: Response): string | null {
@@ -387,6 +420,14 @@ router.post("/team/people/:id/resend", ...formRoute("manage_people"), async (req
 router.post("/team/people/:id/withdraw", ...formRoute("manage_people"), async (req: Request, res: Response) => {
   const id = personIdOf(req, res);
   if (!id) return;
+  if (
+    await askFirst(req, res, id, "withdraw", (name) => ({
+      title: `Withdraw the invitation to ${name}?`,
+      lines: ["The invitation link stops working at once.", "They are not told. You can invite them again later."],
+      yes: "Yes, withdraw the invitation",
+    }))
+  )
+    return;
   await answer(req, res, async () => {
     const r = await withdraw(teamPerson(res), id);
     return r.withdrawn ? location("withdrawn", { p: id }) : location("nothing");
@@ -434,6 +475,15 @@ router.post("/team/people/:id/sign-out", ...formRoute("manage_people"), async (r
   const id = personIdOf(req, res);
   if (!id) return;
   const me = teamPerson(res);
+  if (
+    id !== me.id &&
+    (await askFirst(req, res, id, "sign-out", (name) => ({
+      title: `Sign ${name} out everywhere?`,
+      lines: [`${name} is signed out of every phone and computer at once.`, "They can sign in again later. They are not told."],
+      yes: `Yes, sign ${name} out`,
+    })))
+  )
+    return;
   await answer(req, res, async () => {
     if (id === me.id) throw new ActionRefused("refused", MYSELF);
     await signOutEverywhere(me, id);

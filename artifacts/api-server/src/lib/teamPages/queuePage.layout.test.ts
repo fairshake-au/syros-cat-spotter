@@ -432,4 +432,46 @@ describe("Queue: the next step, the folded row and the stripe (SYC-619 task 15, 
     // Control: New goes to Looking at it, which is offered, so the same row does fill it in.
     expect(draw(issue("new"))).toContain('class="go"');
   });
+  // SYC-655 §3.2 and final review M1: a report that carries a photo opens the cat's Photos tab; one without keeps the plain page.
+  it("an Issues row that carries a photo links to the cat's Photos tab", () => {
+    const issue = (reason: string, withPhoto = true): IssueReport => ({
+      id: "i1",
+      reason,
+      at: "2026-10-15T10:00:00Z",
+      note: null,
+      state: "new",
+      stateChangedAt: null,
+      stateChangedBy: null,
+      teamNote: null,
+      teamNoteAt: null,
+      teamNoteBy: null,
+      cat: { id: 42, name: "Mittens" },
+      photo: withPhoto ? { url: "/api/team/photos/p1", hidden: false, removed: false } : null,
+      hiddenByReport: false,
+      hideSkipped: null,
+      others: 0,
+      unchecked: false,
+      group: "other",
+    });
+    const draw = (i: IssueReport) =>
+      renderQueuePage(queue([]), "Maria", NOW, undefined, undefined, true, undefined, false, undefined, undefined, {
+        hidden: [],
+        needsPerson: [],
+        other: [i],
+        unchecked: [],
+        totals: { hidden: 0, needsPerson: 0, other: 1, unchecked: 0 },
+        closed: [],
+        closedTotal: 0,
+        brake: { on: false, hidesToday: 0, limit: 10 },
+      });
+    for (const reason of ["photo_private", "photo_inappropriate", "photo_not_cat", "wrong_cat", "other"]) {
+      expect(draw(issue(reason)), reason).toContain(`href="/api/team/cats/42#tab-photos">Open the cat's page</a>`);
+    }
+    // A "different cat" report with no photo opens the plain page.
+    for (const reason of ["wrong_cat", "wrong_name", "other"]) {
+      const plain = draw(issue(reason, false));
+      expect(plain, reason).toContain(`href="/api/team/cats/42">Open the cat's page</a>`);
+      expect(plain, reason).not.toContain("cats/42#tab-photos");
+    }
+  });
 });

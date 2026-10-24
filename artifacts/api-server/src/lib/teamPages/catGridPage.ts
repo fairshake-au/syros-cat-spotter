@@ -8,6 +8,7 @@ import {
   LIVES,
   MARKS,
   PAGE_SIZE,
+  PATTERN_FILTERS,
   SORTS,
   type CatListFilters,
   type CatListItem,
@@ -23,7 +24,7 @@ import { lastSeenWords, notSeenWords } from "./lastSeen";
 import { markBadge, MARK_WORD } from "./marks";
 import { timeAgo } from "./queuePage";
 import { tr, type StringKey } from "./strings";
-import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
+import { coatIsUnknown, coatWordsFor, teamPatternWord } from "./teamCoatWords";
 
 // The Cats page: every cat as a photo grid with filters (SYC-396 PR 1.3; spec
 // §5.1). An ordinary GET form that works with no script. The filters live in
@@ -36,6 +37,10 @@ const COLOUR_WORD = (c: string) =>
   c === "not_sure" ? "Not sure" : tr(undefined, `coat.${c}` as StringKey);
 // "Not sure" is a look filter only: the team never states it (see appearancePage).
 const COLOURS = [...COLOUR_FILTERS];
+
+// The pattern filter says the team's words (coat spec §15.2): Solid, Tabby,
+// Patched. The address carries the stored codes (plain, stripes, patches).
+const PATTERN_WORD = (p: string) => (p === "not_known" ? "Not known" : teamPatternWord(p));
 
 const LIVES_WORD: Record<Lives, string> = {
   street: "On the street",
@@ -93,6 +98,7 @@ const monthYear = (iso: string) =>
 export function activeFilterCount(f: CatListFilters): number {
   return (
     (f.colours?.length ? 1 : 0) +
+    (f.patterns?.length ? 1 : 0) +
     (f.area !== undefined ? 1 : 0) +
     (f.colony !== undefined ? 1 : 0) +
     (f.sterilised?.length ? 1 : 0) +
@@ -136,6 +142,10 @@ export function activeChips(o: Pick<CatGridOptions, "filters" | "colonies" | "ti
   for (const c of f.colours ?? []) {
     const left = f.colours!.filter((x) => x !== c);
     chips.push({ label: COLOUR_WORD(c), without: { ...f, colours: left.length ? left : undefined, page: undefined } });
+  }
+  for (const p of f.patterns ?? []) {
+    const left = f.patterns!.filter((x) => x !== p);
+    chips.push({ label: PATTERN_WORD(p), without: { ...f, patterns: left.length ? left : undefined, page: undefined } });
   }
   if (f.area !== undefined) {
     const a = currentAreas().find((x) => x.key === f.area);
@@ -184,6 +194,10 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
     (c) =>
       `<label class="choicechip"><input type="checkbox" name="colours" value="${esc(c)}"${checked(f.colours?.includes(c) ?? false)}> ${esc(COLOUR_WORD(c))}</label>`,
   ).join("");
+  const patterns = PATTERN_FILTERS.map(
+    (p) =>
+      `<label class="choicechip"><input type="checkbox" name="patterns" value="${esc(p)}"${checked(f.patterns?.includes(p) ?? false)}> ${esc(PATTERN_WORD(p))}</label>`,
+  ).join("");
   const areas =
     '<option value="">Anywhere</option>' +
     currentAreas().map(
@@ -221,7 +235,8 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
     '<button type="submit">Show cats</button></div>' +
     `<details class="filters"><summary>Filters (${n})</summary>` +
     '<div class="fpanel">' +
-    `<fieldset><legend>Look</legend><div class="choices">${colours}</div></fieldset>` +
+    `<fieldset><legend>Look</legend><div class="choices">${colours}</div>` +
+    `<p class="flabel">Pattern</p><div class="choices">${patterns}</div></fieldset>` +
     `<fieldset><legend>Where</legend><label class="flabel" for="f-area">Area</label><select class="text" id="f-area" name="area">${areas}</select>` +
     // The list itself is the team's to correct (SYC-396 PR 2.4).
     '<p class="hint"><a href="/api/team/areas">Change the areas</a></p>' +
