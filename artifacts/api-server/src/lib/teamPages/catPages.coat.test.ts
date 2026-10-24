@@ -88,7 +88,13 @@ const fold = (html: string) => {
   return html.slice(at);
 };
 const foldOpening = (html: string) => html.slice(html.indexOf('<details class="fold"'), html.indexOf(">", html.indexOf('<details class="fold"')) + 1);
-const text = (h: string) => h.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ").replace(/&#39;/g, "'").replace(/\s+/g, " ");
+/** The words a person reads: inside <main> when given a whole page (the
+ * styles sit in the head), tags removed until none are left. */
+const text = (h: string) => {
+  let t = h.includes("<main") ? h.slice(h.indexOf("<main"), h.lastIndexOf("</main>")) : h;
+  for (let prev = ""; prev !== t; ) [prev, t] = [t, t.replace(/<[^>]*>/g, " ")];
+  return t.replace(/&#39;/g, "'").replace(/\s+/g, " ");
+};
 
 describe("the Coat and markings fold (SYC-602 Task 3.2)", () => {
   it("folds the section with a one-line summary", () => {

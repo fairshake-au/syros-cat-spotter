@@ -238,12 +238,17 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
 
   describe("the reports box and section (SYC-602 Task 3.3)", () => {
     const rep = (id: string, state: string, at: string, reason = "wrong_cat") => ({ id, reason, state, at, others: 0, photo: null });
+    /** Tags removed until none are left. */
+    const stripTags = (h: string) => {
+      for (let prev = ""; prev !== h; ) [prev, h] = [h, h.replace(/<[^>]*>/g, "")];
+      return h;
+    };
     const box = (html: string) => /<aside class="openreports"[\s\S]*?<\/aside>/.exec(html)?.[0] ?? "";
 
     it("draws an amber box above the facts for one open report, linking to it", () => {
       const html = page(richCatView(), { issues: { total: 1, reports: [rep("i1", "new", "2026-10-15T09:00:00Z")] } });
       const b = box(html);
-      expect(b.replace(/<[^>]*>/g, "")).toMatch(/^1 open report: .+ · 2 days ago$/);
+      expect(stripTags(b)).toMatch(/^1 open report: .+ · 2 days ago$/);
       expect(b).toContain('href="/api/team?open=i1#r-i1"');
       expect(html.indexOf('class="openreports"')).toBeLessThan(html.indexOf('class="catfacts"'));
       expect(html.indexOf('class="openreports"')).toBeGreaterThan(html.indexOf('class="col-facts"'));
