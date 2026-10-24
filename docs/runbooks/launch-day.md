@@ -116,7 +116,7 @@ for ip in none 10.1.1.1 10.2.2.2 none 10.3.3.3 10.4.4.4 none 10.5.5.5 10.6.6.6 n
 
 This is a plain list of addresses, not a secret value, so Claude can read it back with Samuel, but it only takes effect on the next publish.
 
-**B6. Claude: the build containing SYC-662 (#319) is live, and the "keep my spots safe" links follow the decision.** `PUBLIC_APP_ORIGIN` (`artifacts/api-server/src/lib/keepSafe/links.ts`) defaults to `apptest`. Saved spots live in each address's own browser storage, so a link to a different address than the visitor used would open an empty app. **Decided by Samuel, 24 Oct (his words to the SYC-662 session: "go with option 2")**: set `PUBLIC_APP_ORIGIN=https://syros.catspotters.com` in Replit when the pass comes off (**Samuel's step**, no code change), keep `apptest` answering so old emails still work, and Claude checks that a restore link made on `syros` opens on `syros` with the spots intact. **Unchecked:** whether `PUBLIC_APP_ORIGIN` is set in Replit today.
+**B6. Claude: the build containing SYC-662 (#319) is live, and the "keep my spots safe" links follow the decision.** `PUBLIC_APP_ORIGIN` (`artifacts/api-server/src/lib/keepSafe/links.ts`) defaults to `apptest`. Saved spots live in each address's own browser storage, so a link to a different address than the visitor used would open an empty app. **Decided by Samuel, 24 Oct (his words to the SYC-662 session: "go with option 2")**: set `PUBLIC_APP_ORIGIN=https://syros.catspotters.com` in Replit when the pass comes off (**Samuel's step**, no code change), keep `apptest` answering so old emails still work, and Claude checks that a restore link made on `syros` opens on `syros` with the spots intact. The step is ticketed as [SYC-675](https://linear.app/fair-shake/issue/SYC-675). **Unchecked:** whether `PUBLIC_APP_ORIGIN` is set in Replit today.
 
 **B7. Claude: SYC-191.** Read the sign-in Worker's `PEOPLE_API_ORIGIN` in the website repo, confirm it still points at `apptest`, and confirm `apptest` is staying up. If either is not true, do SYC-191's steps in order (attach the new address, change the setting, `wrangler deploy` the admin Worker, probe a real sign-in, only then retire `apptest`).
 
@@ -141,6 +141,8 @@ Nothing else changes. (Unset or any other value means **on**, so a typo cannot o
 If `main` has changed since the last publish and the Replit workspace is behind, **Samuel pulls `main` in Replit's Git pane first** (one click). Claude checks it with the Replit connector before publishing.
 
 ### S3. Claude: publish, then wait
+
+**First, any database change goes out before the code that needs it.** Before every publish (the one for the switch, and any publish on the days before), Claude lists the migrations on `main` that production doesn't have yet and applies them first, with a Neon snapshot, using the `db-ops` workflow in the order in `docs/DEPLOYMENT.md` §C. Writing to production needs Samuel to switch Claude's session to "ask" mode first. On 24 Oct, migration `0043_restore_codes` (SYC-664, PR #328) was about to merge; whether it is applied to production is **unchecked**, and a publish that reads it before it exists breaks the pages that use it. Say "don't republish yet" until that check is done.
 
 Claude publishes from chat (`publish_app`, Syros-Cat-Spotter-EU) and watches `get_publish_status` every 30 seconds. **How long:** about 4 minutes on each of three publishes on 15 Oct. The deploy can sit in "promoting" for a while; allow up to 10 minutes before calling it stuck, and don't start a second publish while it says "busy".
 
