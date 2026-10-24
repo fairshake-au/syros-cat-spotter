@@ -154,9 +154,12 @@ export default function CatalogScreen() {
             <Text style={[styles.title, { color: colors.foreground }]}>
               {t('catalogTitle')}
             </Text>
-            <Text style={[styles.count, { color: colors.mutedForeground }]}>
-              {t('catalogCount').replace('{n}', String(cats.length))}
-            </Text>
+            {/* SYC-508: "0 cats on Syros" isn't true when nothing loaded. */}
+            {!loadFailed && (
+              <Text style={[styles.count, { color: colors.mutedForeground }]}>
+                {t('catalogCount').replace('{n}', String(cats.length))}
+              </Text>
+            )}
           </View>
           <View style={styles.headerActions}>
             <Pressable

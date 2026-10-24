@@ -218,6 +218,7 @@ describe('SYC-508: the Cat-alogue when nothing could be loaded', () => {
   it('says so instead of "noCats", with Try again', () => {
     render(<CatalogScreen />);
     expect(screen.queryByText('noCats')).toBeNull();
+    expect(screen.queryByText('catalogCount')).toBeNull();
     expect(screen.getByText('loadFailedTitle')).toBeTruthy();
     fireEvent.click(screen.getByTestId('catalogue-load-failed-retry'));
     expect(h.retry).toHaveBeenCalledTimes(1);
