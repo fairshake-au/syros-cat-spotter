@@ -20,3 +20,5 @@ Task 8: colony page done: cats above sites, mark + last seen rows in planner ord
 Next: browser check of the colony page at 390px and desktop (team and guardian); then the remaining PR2 tasks
 Task 9: Colonies list order: search, sort, figures, list, Create, then Recent changes; no search or Recent changes with no colony (24db3568)
 Next: PR 2 close: browser checks (People with 3 people, Areas with 21, a colony with 8 cats as team and as guardian) at 390px and desktop; then open the PR as a draft
+PR2 fix wave: items 1-6 done (colonycat class, seed tied to migration, singular area, people outside-fold test, searchable gate test, guardianLastSeenWords rename).
+Next: full teamPages + routes run, typecheck, then PR2 ready.
