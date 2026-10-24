@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { db, observationsTable, peopleTable, type Observation } from "@workspace/db";
+import { catsTable, db, observationsTable, peopleTable, photosTable, type Observation } from "@workspace/db";
 import { getGuidance } from "@workspace/welfare-guidance";
 import { actingRole, can } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
@@ -392,4 +392,17 @@ export async function visitsFor(catId: number, opts: { costs: boolean }): Promis
     }
     return line;
   });
+}
+
+/**
+ * Cats added to a round from outside the colony's list (SYC-396 PR 3.2): name,
+ * SYR number and main photo, by id. Ids that aren't cats are left out.
+ */
+export async function roundCatsByIds(ids: readonly number[]): Promise<{ id: number; name: string; photoPublicId: string | null }[]> {
+  if (ids.length === 0) return [];
+  return db
+    .select({ id: catsTable.id, name: catsTable.name, photoPublicId: photosTable.publicId })
+    .from(catsTable)
+    .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
+    .where(inArray(catsTable.id, [...ids]));
 }

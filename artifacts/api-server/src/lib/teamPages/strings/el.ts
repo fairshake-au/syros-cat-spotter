@@ -378,6 +378,8 @@ export const el: Record<StringKey, string> = {
   "plan.estimateHint": "Η κανονική τιμή στείρωσης, από τις Ρυθμίσεις κτηνιάτρου.",
   "plan.vetSettings": "Αλλάξτε την στις Ρυθμίσεις κτηνιάτρου",
   "colony.aboutTitle": "Για αυτή την αποικία",
+  "plan.logRound": "Καταγραφή των επισκέψεων στον κτηνίατρο αυτού του γύρου",
+  "done.round": "Οι επισκέψεις του γύρου αποθηκεύτηκαν.",
   "plan.print": "Εκτύπωση του σχεδίου",
   "plan.doneTitle": "Έγιναν: στειρωμένες ({n})",
   "plan.otherTitle": "Όχι στον δρόμο ({n})",

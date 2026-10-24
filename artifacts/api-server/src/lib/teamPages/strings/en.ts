@@ -415,6 +415,8 @@ export const en = {
   "plan.estimateHint": "The standard sterilisation price, from Vet settings.",
   "plan.vetSettings": "Change it in Vet settings",
   "colony.aboutTitle": "About this colony",
+  "plan.logRound": "Log this round's vet visits",
+  "done.round": "The round's vet visits are saved.",
   "plan.print": "Print the plan",
   "plan.doneTitle": "Done: sterilised ({n})",
   "plan.otherTitle": "Not on the street ({n})",

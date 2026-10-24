@@ -18,6 +18,10 @@ import {
 import { colonyFigures, type ColonyFigures } from "../lib/dashboard/colonyFigures";
 import { trappingPlan, type TrappingPlan } from "../lib/dashboard/trappingPlan";
 import { renderPlanPrintPage } from "../lib/teamPages/planPrintPage";
+import { blankRound, readRound, renderRoundForm, roundFrom, type RoundCat } from "../lib/teamPages/roundForm";
+import { logRound, roundCatsByIds } from "../lib/vetVisits";
+import { getAppSettings } from "../lib/appSettings";
+import { syrNumber, teamPhotoUrl } from "../lib/teamCatView";
 import {
   colonySortOf,
   renderAddCatsPage,
@@ -328,6 +332,114 @@ router.get(
       : [null, null];
     if (!view || !plan) return notFoundPage(req, res);
     res.type("html").send(renderPlanPrintPage({ id: view.id, name: view.name }, plan, now));
+  },
+);
+
+// ── Logging a whole round (SYC-396 PR 3.2; spec §8.5) ─────────────────────
+
+/** The round form's base: the colony, its street cats (To do, then Done), and what the person may do. */
+async function roundBase(res: Response, raw: string) {
+  const v = pageViewer(res);
+  const person = teamPerson(res);
+  if (!ID_RE.test(raw)) return null;
+  const now = new Date();
+  const [view, plan, settings] = await Promise.all([
+    colonyView(v.visible, Number(raw)),
+    trappingPlan(v.visible, Number(raw), { island: true }, now),
+    getAppSettings(),
+  ]);
+  if (!view || !plan) return null;
+  const photo = new Map(view.cats.map((c) => [c.id, c.photoUrl]));
+  const cats: RoundCat[] = [...plan.toDo, ...plan.done].map((c) => ({
+    id: c.id,
+    name: c.name,
+    syr: c.syr,
+    photoUrl: photo.get(c.id) ?? null,
+    mark: c.mark,
+  }));
+  return {
+    person,
+    page: {
+      colony: { id: view.id, name: view.name },
+      personName: v.personName,
+      cats,
+      costs: can(person, "view_vet_costs"),
+      vaccinate: can(person, "set_vaccination"),
+      standardPriceEur: settings.sterilisationPriceEur,
+    },
+  };
+}
+
+/** GET /api/team/colonies/:id/round: the form, nothing ticked, the shared price filled in. */
+router.get(
+  "/team/colonies/:id/round",
+  requireTeam("log_vet_visit"),
+  async (req: Request, res: Response) => {
+    setTeamHeaders(res);
+    const base = await roundBase(res, String(req.params["id"]));
+    if (!base) return notFoundPage(req, res);
+    res.type("html").send(renderRoundForm({ ...base.page, values: blankRound(base.page.cats, base.page.standardPriceEur) }));
+  },
+);
+
+/**
+ * POST /api/team/colonies/:id/round. Three buttons on one form, so whatever
+ * was typed is kept and nothing typed goes in the address:
+ * - `action=find`: "Add a cat not on this list" searches by name or SYR number;
+ * - `add=<id>`: adds that cat to the round, ticked;
+ * - otherwise saves one visit per ticked cat, all together or not at all
+ *   (`logRound`), and goes back to the colony.
+ */
+router.post(
+  "/team/colonies/:id/round",
+  ...formRoute("log_vet_visit"),
+  async (req: Request, res: Response) => {
+    const base = await roundBase(res, String(req.params["id"]));
+    if (!base) return notFoundPage(req, res);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const own = new Set(base.page.cats.map((c) => c.id));
+    const addRaw = typeof body["add"] === "string" && ID_RE.test(body["add"]) ? Number(body["add"]) : null;
+    const asked = roundFrom(body, []).extra;
+    const extras = (await roundCatsByIds([...new Set([...asked, ...(addRaw === null ? [] : [addRaw])])].filter((id) => !own.has(id))))
+      .sort((a, b) => a.id - b.id)
+      .map((c) => ({ id: c.id, name: c.name, syr: syrNumber(c.id), photoUrl: c.photoPublicId ? teamPhotoUrl(c.photoPublicId) : null, mark: null, where: "Added to this round" }));
+    const cats = [...base.page.cats, ...extras];
+    const values = roundFrom(body, cats.map((c) => c.id));
+    values.extra = extras.map((c) => c.id);
+    const page = { ...base.page, cats, values };
+    const again = (status: number, more: Partial<Parameters<typeof renderRoundForm>[0]>) =>
+      res.status(status).type("html").send(renderRoundForm({ ...page, ...more }));
+
+    if (addRaw !== null) {
+      const added = values.cats[addRaw];
+      if (added) added.ticked = true;
+      return again(200, {});
+    }
+    if (body["action"] === "find") {
+      const q = values.q.trim();
+      const found = q === "" ? [] : await searchCatsToAdd(pageViewer(res).visible, q);
+      return again(200, {
+        found: found.map((c) => ({
+          id: c.id,
+          name: c.name,
+          syr: c.syr,
+          photoUrl: c.thumbnailUrl,
+          mark: null,
+          where: c.colony ? `In ${c.colony.name}` : c.elsewhere ? "In another colony" : "Not in a colony",
+        })),
+      });
+    }
+    const read = readRound(values, { costs: page.costs, vaccinate: page.vaccinate });
+    if (!read.ok) return again(400, { problems: read.problems });
+    try {
+      await logRound(base.person, { colonyId: page.colony.id, date: read.date, visits: read.visits });
+    } catch (err) {
+      if (!(err instanceof ObservationRefused)) throw err;
+      if (err.code === "NOT_AUTHORISED") return refuseSignedIn(req, res);
+      req.log.info({ code: err.code }, "vet round refused");
+      return again(400, { problem: "The round couldn't be saved as it is. Check the answers and try again." });
+    }
+    res.redirect(303, colonyPage(page.colony.id, "round") + "#todo");
   },
 );
 

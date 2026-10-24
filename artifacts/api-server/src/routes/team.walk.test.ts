@@ -256,6 +256,8 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/colonies/:id/centre": { why: "the centre map: edit_colony on that colony (SYC-517, 517-B); a colony that isn't hers, or isn't one, is the same 403" },
   "POST /api/team/colonies/:id/centre/map": { why: "zoom, pan, areas on the centre map: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
   "POST /api/team/colonies/:id/centre/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
+  "GET /api/team/colonies/:id/round": { why: "log this round's vet visits (SYC-396 PR 3.2): log_vet_visit, island-only, so every cat guardian gets the 403" },
+  "POST /api/team/colonies/:id/round": { why: "saves a round's vet visits, or finds or adds a cat to it: log_vet_visit, island-only" },
   "GET /api/team/colonies/:id/plan": { why: "the printable trapping plan (SYC-396 PR 2.3): print_trapping_plan, island-only, so every cat guardian gets the 403" },
   "GET /api/team/colonies/:id/cats": { why: "the Add cats search: sees some colony, then assign_cat_to_colony on the colony read from the record", except: SEEING },
   "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony on the colony the cats go into (PR 4.2); a colony that isn't hers, or isn't one, is the same 403" },

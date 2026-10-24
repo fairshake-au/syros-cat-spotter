@@ -70,6 +70,7 @@ const DONE: Record<string, WordKey> = {
   added: "done.added",
   nothingNew: "done.nothingNew",
   takenOut: "done.takenOut",
+  round: "done.round",
   notThere: "done.notThere",
 };
 
@@ -714,9 +715,13 @@ export function renderColonyPage(
         `</p>`
       : "";
   const print =
-    island && opts.may("print_trapping_plan")
+    (island && opts.may("print_trapping_plan")
       ? `<p><a class="tap" href="${esc(colonyHref(v.id))}/plan">${w("plan.print")}</a></p>`
-      : "";
+      : "") +
+    // Logging the round's vet visits (§8.5, plan PR 3.2): the team's only (§10.2).
+    (island && opts.may("log_vet_visit")
+      ? `<p><a class="tap cardlink" href="${esc(colonyHref(v.id))}/round">${w("plan.logRound")}</a></p>`
+      : "");
   const names = new Map(v.sites.map((s) => [s.id, s.name]));
   const sites =
     `<h2>${w("colony.sitesTitle")}</h2>` +

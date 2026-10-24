@@ -378,6 +378,8 @@ export const fr: Record<StringKey, string> = {
   "plan.estimateHint": "Le prix standard de stérilisation, dans les Réglages vétérinaire.",
   "plan.vetSettings": "Le modifier dans les Réglages vétérinaire",
   "colony.aboutTitle": "À propos de cette colonie",
+  "plan.logRound": "Enregistrer les visites vétérinaires de cette tournée",
+  "done.round": "Les visites de la tournée sont enregistrées.",
   "plan.print": "Imprimer le plan",
   "plan.doneTitle": "Fait : stérilisés ({n})",
   "plan.otherTitle": "Pas dans la rue ({n})",
