@@ -27,7 +27,7 @@ describe('Chip tap area (SYC-644)', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the selected state on the button and ignores a tap when disabled', () => {
+  it('ignores a tap when disabled', () => {
     const onPress = vi.fn();
     const view = render(<Chip label="All" active disabled onPress={onPress} />);
     const button = view.getByRole('button', { name: 'All' });

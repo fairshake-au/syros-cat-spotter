@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'rea
 import { Image } from 'expo-image';
 import { useColors } from '@/hooks/useColors';
 import { Chip, Input } from '@/components/purropolis';
+import { CHIP_TAP_PAD } from '@/components/purropolis/Chip';
 import { EAR_TIP_EXAMPLE_PHOTO } from '@/lib/earTipExample';
 import { NOTE_MAX_LENGTH, type SightingAnswers } from '@/lib/sightingAnswers';
 import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
@@ -241,7 +242,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     lineHeight: fontSizes.xs * 1.45,
   },
-  choices: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  // Room for each chip's 5px tap area, given back by the negative margin (SYC-644).
+  choices: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[2],
+    paddingVertical: CHIP_TAP_PAD,
+    marginVertical: -CHIP_TAP_PAD,
+  },
   subQuestion: { gap: spacing[1] },
   subLabel: { fontSize: fontSizes.xs, fontFamily: fonts.bodyBold },
   skip: { alignSelf: 'flex-start', paddingVertical: spacing[1] },
