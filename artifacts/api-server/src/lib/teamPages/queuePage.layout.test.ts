@@ -322,7 +322,7 @@ describe("Queue: the next step, the folded row and the stripe (SYC-619 task 15, 
   });
 
   it("a report with a photo still has its 56px thumbnail", () => {
-    const a = article(render(queue([report("a", { photo: { status: "ok", url: "/p/1" } })])), "a");
+    const a = article(render(queue([report("a", { photo: { status: "attached", url: "/p/1" } })])), "a");
     expect(a).toContain('class="hthumb"');
     expect(a).not.toContain("No photo");
   });
