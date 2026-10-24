@@ -232,11 +232,20 @@ export interface PersonView {
   isSelf: boolean;
   /** A cat guardian with no colony yet, in force (SYC-439). */
   starting: boolean;
+  /** "Management", "Team", "Cat guardian", or two joined: "Team, cat guardian". */
+  shortRoles: string;
 }
 
 const capitalise = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s);
 
 const WORKSPACE_ROLES: readonly string[] = CATALOGUE.use_workspace.roles;
+
+/** The closed People row's role words, from the roles in force. Management wins over team. */
+export function shortRolesOf(roles: readonly string[]): string {
+  const island = roles.includes("management") ? "Management" : roles.includes("staff") ? "Team" : "";
+  const parts = [island, roles.includes("guardian") ? (island ? "cat guardian" : "Cat guardian") : ""];
+  return parts.filter(Boolean).join(", ");
+}
 
 export function buildView(p: ScreenPerson, now: Date, lk: Lookups, selfId: string): PersonView {
   const state = personState(p, now);
@@ -279,7 +288,7 @@ export function buildView(p: ScreenPerson, now: Date, lk: Lookups, selfId: strin
       timing = `Invitation sent ${athensDate(p.inviteSentAt!)}. It ran out on ${athensDate(p.inviteExpiresAt!)}. Resend it to give a fresh 14 days.`;
       break;
     case "joined":
-      timing = p.acceptedAt ? `Joined ${athensDate(p.acceptedAt)}.` : "";
+      timing = p.acceptedAt ? `Since ${athensDate(p.acceptedAt)}.` : "";
       break;
     case "left":
       timing = p.leftAt ? `Left ${athensDate(p.leftAt)}.` : "";
@@ -304,6 +313,7 @@ export function buildView(p: ScreenPerson, now: Date, lk: Lookups, selfId: strin
     history: p.history.map((e) => ({ when: athensDateTime(e.at), text: describeEvent(e, lk) })),
     isSelf: p.id === selfId,
     starting,
+    shortRoles: shortRolesOf(roles),
   };
 }
 

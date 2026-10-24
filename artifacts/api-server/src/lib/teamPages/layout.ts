@@ -154,6 +154,8 @@ h2{font-size:18px;margin:28px 0 8px}
 .tag.unchecked{background:#fff;border:1px dashed #8a6d00;color:#5c4800}
 .tag.state{background:#fff;border:1px solid #8a877e}
 /* SYC-44 PR 7.1: the Issues section, in its own colour band, every row also labelled "Issue". */
+.openreports{background:#fdf1d6;border:1px solid #c9a227;border-radius:6px;padding:0;margin:12px 0 0;font-weight:700}
+.openreports a{display:block;padding:12px;color:#5c4800;min-height:44px;box-sizing:border-box}
 .issues{background:#eef2f9;border-top:6px solid #2f5d9e;border-radius:8px;padding:2px 12px 12px;margin:28px 0 12px}
 .issues h3{margin-top:20px}
 .report.issue{border-left-color:#2f5d9e}
@@ -203,7 +205,7 @@ h3{font-size:16px;margin:16px 0 4px}
 .searchrow input{flex:1;min-width:0;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px}
 button.primary{margin-top:8px}
 button.primary,.searchrow button,.search button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
-ul.cats,ul.sightings,ol.history{list-style:none;margin:0;padding:0}
+ul.cats,ul.sightings,ol.history,ul.history.coatchanges{list-style:none;margin:0;padding:0}
 .catrow{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;color:inherit;text-decoration:none;overflow-wrap:anywhere}
 .catrow:hover{border-color:#0b5c6b}
 form.takeout{margin:-4px 0 8px}
@@ -211,6 +213,11 @@ form.takeout button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px
 .catrow input[type=checkbox]{width:24px;height:24px;margin:0;flex:none}
 .catrow input[type=checkbox]:disabled+.thumb{opacity:.6}
 .catrow strong{color:#0b5c6b;text-decoration:underline}
+/* A colony's cat row (SYC-619 §7.2): the <li> is the card, its link fills it, the "⋯" sits at the right. */
+li.colonycat{position:relative;background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:8px 0}
+li.colonycat:hover{border-color:#0b5c6b}
+li.colonycat>a.catrow{border:0;margin:0;background:transparent;padding-right:56px}
+.catinfo{display:block;flex:1;min-width:0}
 .syr{color:#55524a;font-size:14px;font-variant-numeric:tabular-nums}
 .status{display:block;font-size:14px;color:#3b3930;margin-top:2px}
 .thumb{flex:none;width:72px;height:72px;object-fit:cover;border-radius:6px;background:#ece8dc}
@@ -272,6 +279,14 @@ details.invitefold>summary{display:inline-flex;width:fit-content}
 .catmap .mapcap{display:flex;justify-content:space-between;gap:8px;margin:4px 0 0;font-size:14px}
 .hownote{margin:8px 0}
 .hownote summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:#0b4553}
+/* The cat page's Coat and markings fold (SYC-602 PR 3, spec §3.7). */
+details.fold{background:#fff;border:1px solid #d9d5ca;border-radius:10px;margin:8px 0}
+details.fold>summary{cursor:pointer;min-height:44px;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:8px 12px;font-size:16px}
+details.fold>summary>span{font-size:14px;color:#55524a}
+details.fold>.foldbody{padding:0 12px 12px}
+details.changecoat{margin:12px 0 0}
+details.changecoat>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
+.changepart{margin:0 0 16px}
 /* The cat page's History (SYC-602 PR 2, spec §3.5): filters, then one list; a date column, the words, a ⋯ menu. */
 .hfilters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
 .hfilters a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid #d9d5ca;background:#fff;text-decoration:none;color:#1d1d1b;font-size:14px}
@@ -323,15 +338,27 @@ li.hgroup ol.tl{border:0;border-top:1px solid #efece5;border-radius:0;background
 .rowmenu>summary{cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid #0b5c6b;border-radius:8px;color:#0b4553;font-weight:700;background:#fff}
 .rowmenuitems{padding:6px 0 0}
 .rowmenuitems .meta{margin:0 0 4px}
+.rowmenu.compact{margin:0}
+.rowmenu.compact>summary{position:absolute;top:8px;right:4px;width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:8px;justify-content:center;font-size:22px;line-height:1;color:#55524a;background:transparent;list-style:none}
+.rowmenu.compact>summary::-webkit-details-marker{display:none}
+.rowmenu.compact[open]>summary{background:#efece5}
+.rowmenu.compact>.rowmenuitems{margin:0 8px;padding:4px 0 8px;border-top:1px dashed #c9c4b6}
+.rowmenu.compact form.takeout{margin:4px 0 0}
 li.statement.routine>details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 li.statement.routine ol.history{margin:4px 0 0}
 ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;font-size:15px;overflow-wrap:anywhere}
-.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px}
 .gallery figure{margin:0;display:flex;flex-direction:column;gap:6px;scroll-margin-top:12px}
 .gallery img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#ece8dc}
 .gallery figure.ishidden img{opacity:.55;outline:3px solid #8c1d18;outline-offset:-3px}
 .gallery .notice{margin:0;font-size:14px}
 .gallery form{margin:0}
+.gallery figcaption{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:14px;min-height:44px}
+.gallery .capt{min-width:0;overflow-wrap:anywhere}
+.gallery figure{position:relative}
+.gallery .rowmenu.dots{position:static}
+.gallery .rowmenu.dots>.rowmenuitems{top:calc(100% + 2px);left:0;right:auto}
+.gallery figure:nth-child(even) .rowmenu.dots>.rowmenuitems{left:auto;right:0}
 .gallery button{font:inherit;font-size:15px;width:100%;min-height:44px;padding:8px 10px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
 .gallery button.restore{background:#0b5c6b;color:#fff}
 .gallery .role{margin:0;font-size:14px;font-weight:700;color:#3b3930}
@@ -618,7 +645,6 @@ dl{grid-template-columns:150px 1fr;gap:4px 12px}
 dt{margin-top:0}
 .thumb{width:96px;height:96px}
 .photo.catmain{max-height:320px}
-.gallery{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
 .catgrid{grid-template-columns:repeat(auto-fill,minmax(176px,1fr))}
 }
 /* A wide screen shows the filters in the open, without the Filters button. */
@@ -641,6 +667,11 @@ details.filters>summary{display:none}
 .catmap .mapband.b164{display:block}
 .catsummary .col-facts>:first-child,.catsummary .catactions>:first-child{margin-top:12px}
 .jump{margin:32px 0 0;border-radius:0}
+.catcols{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:0 28px;align-items:start}
+.catcols>div{min-width:0}
+.catside{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow-y:auto}
+/* A soft fade at the bottom edge hints there is more below; it takes no taps and at the end of the scroll it sits in its own 18px below the last item, so it never covers anything. */
+.catside::after{content:"";display:block;position:sticky;bottom:0;height:18px;background:linear-gradient(to bottom,rgba(29,29,27,0),rgba(29,29,27,.16));pointer-events:none}
 }
 `;
 

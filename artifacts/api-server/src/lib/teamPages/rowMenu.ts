@@ -11,20 +11,26 @@ import { escapeHtml as esc } from "./escape";
  * No items, no menu. `dots` (the cat page's History, SYC-602): the label is
  * a "⋯" a screen reader skips, and it reads "More for <forWhat>" instead.
  * `open`: drawn open, as after a save that landed on its row.
+ * `compact` (a colony's cat rows, SYC-619 spec §7.2): a 44px "⋯" at the
+ * row's right edge; the glyph is hidden from a screen reader, which hears
+ * "<label> (<forWhat>)", the same words as the plain form.
  */
 export function rowMenu(
   label: string,
   forWhat: string,
   items: readonly string[],
-  opts: { dots?: boolean; open?: boolean } = {},
+  opts: { dots?: boolean; open?: boolean; compact?: boolean } = {},
 ): string {
   const shown = items.filter((i) => i !== "");
   if (shown.length === 0) return "";
   const summary = opts.dots
     ? `<span aria-hidden="true">${esc(label)}</span><span class="sr">More for ${esc(forWhat)}</span>`
-    : `${esc(label)}<span class="sr"> (${esc(forWhat)})</span>`;
+    : opts.compact
+      ? `<span aria-hidden="true">⋯</span><span class="sr">${esc(label)} (${esc(forWhat)})</span>`
+      : `${esc(label)}<span class="sr"> (${esc(forWhat)})</span>`;
+  const kind = opts.dots ? " dots" : opts.compact ? " compact" : "";
   return (
-    `<details class="rowmenu${opts.dots ? " dots" : ""}"${opts.open ? " open" : ""}><summary>${summary}</summary>` +
+    `<details class="rowmenu${kind}"${opts.open ? " open" : ""}><summary>${summary}</summary>` +
     `<div class="rowmenuitems">${shown.join("")}</div></details>`
   );
 }
