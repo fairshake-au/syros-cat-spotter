@@ -67,12 +67,26 @@ For each cat the app runs **Find from a photo** on its first photo, narrowed by 
 
 - **This is the cat**: one of the matches.
 - **Search somewhere else**: widen the search, or look up a cat by name or SYR number.
-- **None of these: a cat we haven't recorded**: makes a new cat record from these photos (SYC-473, brought forward). The new cat needs:
-  - a name, which the team types (*my call:* required, as for every cat today);
-  - a place. *My call:* the batch's colony centre or area centre, else the team picks an area. It is never a position typed as numbers.
-  - membership of the batch's colony, if one was chosen.
+- **None of these: a cat we haven't recorded**: makes a new cat record from these photos (SYC-473, brought forward). See "A new cat" below.
 
 A cat isn't ready to save until it has been confirmed.
+
+- **The same cat twice in one batch** is refused, naming both entries.
+- **A cat that already has a visit on the batch's date** gets a warning: "Mimi already has a vet visit on 24 Oct." It is saved only if the team ticks "Record this visit as well". That stops a retried or doubled batch from counting a cost twice (*my call*).
+- **Two "new" cats in one batch that are really the same cat** can't be caught automatically. The team merges them afterwards, as today.
+
+### A new cat
+
+Samuel (24 Oct): new cats go **public straight away**, "but give Syros Cats the option to create a profile incl name the cat, or allow the public to spot and name the cat".
+
+- **Public at once.** The new cat appears in the public app like a cat a spotter found. Its first trapping photo is its main photo, so future photo searches can match it.
+- **Two ways to name it.** Syros Cats chooses one, per cat:
+  - **Name it now:** the team types a name and, optionally, a short description. That is the cat's profile.
+  - **Leave it for spotters:** the cat is saved without a name the team chose, and spotters who spot it can name it as they name cats today. *Builder: check how the app handles a cat with no name yet (`cats.name` and the name-suggestion flow, `routes/cats.ts`) and use the existing path rather than inventing one.*
+- **Its place** is the batch's colony centre, else the batch's area centre, else an area the team picks. It's never a position typed as numbers. *My call:* the public map shows it with the same blurring as every cat, so a rough centre is no worse than a spotter's pin.
+- **Its colony** is the batch's colony, if one was chosen.
+- **Its SYR number** comes from its id, as for every cat.
+- It's created in the same transaction as its visit.
 
 *My call:* only the first photo is searched, so a cat costs one search. The other photos come along as extra evidence and are kept.
 
@@ -80,10 +94,11 @@ A cat isn't ready to save until it has been confirmed.
 
 Each cat has:
 
-- **what was done**: one or more of **Sterilised**, **Vaccinated** and **Treated**. There is no "Checked only" in a batch (Samuel, 24 Oct);
+- **what was done**: one or more of **Sterilised**, **Vaccinated** and **Treated**. There is no "Checked only" in a batch (Samuel, 24 Oct). "Checked only" stays on the single-visit form; the stored value doesn't change.
   - Vaccinated asks which vaccines, which can be the same for the whole batch;
-  - Treated asks what for;
-- **the cost Syros Cats approved and paid**. It starts at the batch's price when Sterilised is ticked and can be changed for this cat;
+  - Treated asks what for.
+  - These are the existing `VetVisitValue` fields (`did`, `vaccines`, `treatedNote`, `clinicId`, `costEur`, `paidBy`, `note`, `costReason` in `lib/observations.ts`). The visit needs no new fields and no migration.
+- **the cost Syros Cats approved and paid**. It starts at the batch's price when Sterilised is ticked and can be changed for this cat. A blank cost saves as "not known" (`costEur: null`), as on the single-visit form. A batch for Vaccinated or Treated only starts blank;
 - **who paid**, if it differs from the batch;
 - an optional note.
 
@@ -98,16 +113,23 @@ If anything is refused, nothing is saved, and the batch comes back with everythi
 Every photo in the batch is kept, tied to its visit (Samuel agreed, 24 Oct). These photos are:
 
 - shown to the team on the cat's page, in its vet visit;
-- never shown to the public or to cat guardians. Guardians see that a visit happened and what was done, as they do now (§10.2), without costs or vaccinations;
-- not made the cat's main photo automatically (*my call*);
-- stripped of EXIF and GPS data, and stored in the same photo store, with the same size versions, as other photos.
+- for a cat already on record, **never shown to the public or to cat guardians**, and never chosen as its display photo or as a reference photo for photo searches (*my call*: the cat already has a public photo, and trap or vet shots stay private). Guardians see that a visit happened and what was done, as they do now (§10.2), without costs or vaccinations;
+- for a **new** cat, the exception: its first trapping photo becomes its main, public photo (Samuel, 24 Oct). Its other batch photos stay team-only;
+- stripped of EXIF and GPS data, and stored in the same photo store (`photos`), with the same size versions, as other photos. *My call:* they reuse `photos` with a team-only rule, rather than a store of their own. Every reader that picks display photos, reference photos, public galleries, guardian views, exports or fingerprints must leave them out, and a test proves it for each one.
 
 ## Constraints the builder must respect
 
-- **Search limits.** Find from a photo allows 20 searches per person a day and 100 for the team (`findPhotoPage.ts`). A batch of 15 cats uses 15 searches at most, since only the first photo of each cat is searched. *My call:* batch searches count towards the same limits. If a limit is reached mid-batch, the remaining cats can still be identified by name or SYR number, and nothing already done is lost. Raising the limits is for Samuel to decide, not the builder.
-- **Who can use it:** the team only. That means `log_vet_visit`, plus `find_cat_from_photo` for the search. Vaccinations need `set_vaccination`, and cost and payer fields appear only with `view_vet_costs`, as on the single-visit form. A cat guardian gets 403 on every batch route.
+- **Search limits.** Find from a photo allows 20 searches per person a day and 100 for the team (`findPhotoPage.ts`). Samuel (24 Oct): batches get **a bigger limit of their own**.
+  - *My call, for Samuel to confirm:* 60 batch searches per person a day and 200 for the team, kept apart from the single-photo page's 20 and 100.
+  - "Search somewhere else" is another search. Looking a cat up by name or SYR number isn't a search.
+  - If a limit is reached mid-batch, the remaining cats can still be identified by name or SYR number, and nothing already done is lost.
+- **The search engine:** the batch reuses `findFromPhoto` and draws its own results inside the batch. It searches from the batch's staged copy of the photo, so nothing is uploaded twice.
+- **Who can use it:** the team only. *My call:* a batch needs `log_vet_visit`, `find_cat_from_photo` and `view_vet_costs`, because recording what Syros Cats paid is its purpose. Vaccinations also need `set_vaccination`, as on the single-visit form. Anyone missing one of these gets the 403 (today every team member holds all four). A cat guardian gets 403 on every batch route.
 - **Batch size:** at most 40 cats (`ROUND_MAX`, as in #327).
-- **Unfinished batches:** they live only until saved or abandoned. *My call:* the builder decides how an unfinished batch survives a page reload or a lapsed sign-in. The repo's held-typing pattern (SYC-516) is the model, and photos already uploaded must not need uploading again.
+- **Unfinished batches:** an unfinished batch and its uploaded photos are held on the server, so a reload or a lapsed sign-in loses nothing and no photo is uploaded twice.
+  - *My call:* the batch is kept for 7 days from its last change, then removed with its staged photos by a cleanup job.
+  - Staged photos are team-only and attached to nothing until the batch is saved.
+  - The held-typing store (SYC-516) holds text only, so the batch needs a store of its own. That means a migration.
 - **No script required:** the dashboard is server-drawn with no scripts. The batch must work that way too. Uploading several photos at once uses a plain file input with `multiple`.
 - **Words:** "cat guardian", never "colony carer"; "spotter"; plain English; no text below 12px. Team pages are English only (Decision 12).
 - **Process:** each PR is a draft until reviewed. Run the full api-server suite before `gh pr ready`. Screenshots at 390px and 1280px.
@@ -118,6 +140,18 @@ Every photo in the batch is kept, tied to its visit (Samuel agreed, 24 Oct). The
 - **PR #327 (the old round form):** closed when this design is approved. Its `logRound` (one transaction, ascending locks, the shared writer) and its tests carry over into the new build. Its tick-off-a-list form doesn't.
 - **SYC-473** (add a new cat from the round form, 16 Nov) is absorbed by step 3. Close it as a duplicate of SYC-677 on approval.
 - **The single-visit form** on a cat's page stays as it is, for a cat the team already knows.
+
+## Calls made in this document (for Samuel to check)
+
+- A batch's "place" is a named area, not a tapped map point.
+- Only a cat's first photo is searched.
+- A cat that already has a visit on the same date is saved only if the team ticks "Record this visit as well".
+- Batch photos of known cats are team-only and never used as display or reference photos.
+- Batch photos are stored in `photos`, with a team-only rule.
+- The batch search limits are 60 per person a day and 200 for the team.
+- A batch needs `log_vet_visit`, `find_cat_from_photo` and `view_vet_costs`.
+- An unfinished batch is kept for 7 days.
+- A new cat's place is shown with the same blurring as every cat.
 
 ## Left to the builder
 
