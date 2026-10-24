@@ -248,6 +248,17 @@ describe("the outbox's keep-safe rows (review A4, R1, R2; test 16b)", () => {
     expect(await hasCode(swept)).toEqual({ c: false, a: false });
   });
 
+  it("the sweep clears a payload even when the code is the only secret left in it (SYC-664)", async () => {
+    const past = new Date(Date.now() - 1_000).toISOString();
+    const [row] = await db
+      .insert(mailOutboxTable)
+      .values({ purpose: "restore_link", recipientHash: "sweep-code-only-" + randomBytes(4).toString("hex"), payload: { expiresAt: past, code: "48291376" } })
+      .returning({ id: mailOutboxTable.id });
+    outboxIds.push(row!.id);
+    await sweepKeepSafe();
+    expect(Object.keys((await outboxRow(row!.id)).payload as object).sort()).toEqual(["cleared", "expiresAt"]);
+  });
+
   it("a restore row missing its code or time is given up, not sent (SYC-664)", async () => {
     const to = address();
     await confirmKeepSafe(normaliseAddress(to));
