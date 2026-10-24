@@ -272,6 +272,28 @@ describe("POST /api/sightings/:sightingId/resolve: points ledger (SYC-706)", () 
     expect(ledger.reduce((sum, l) => sum + l.points, 0)).toBe(15);
   });
 
+  it("the ledger refuses a second points-earning row for the same spotter, cat and day", async () => {
+    const device = `${DEVICE}-index`;
+    const catId = await seedCat(`${CAT_PREFIX}-Index`);
+    const row = (sightingId: number, points: number) => ({
+      deviceId: device,
+      sightingId,
+      catId,
+      points,
+      athensDay: "2026-10-20",
+      weekStart: "2026-10-19",
+      source: "live",
+    });
+    // Sighting ids here only need to be unique; no sighting row is read.
+    await db.insert(pointsLedgerTable).values(row(-9001, 15));
+    await db.insert(pointsLedgerTable).values(row(-9002, 0));
+    const err: any = await db
+      .insert(pointsLedgerTable)
+      .values(row(-9003, 15))
+      .then(() => null, (e: unknown) => e);
+    expect(err?.cause?.constraint ?? err?.constraint).toBe("points_ledger_once_a_day_uq");
+  });
+
   it("the resolved sighting has areaKey and onIsland stamped", async () => {
     const device = `${DEVICE}-stamp`;
     const catId = await seedCat(`${CAT_PREFIX}-Stamp`);
