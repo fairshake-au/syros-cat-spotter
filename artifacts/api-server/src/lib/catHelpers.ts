@@ -160,9 +160,21 @@ export interface CatSource {
   derived: DerivedCatStatus;
 }
 
-/** An ISO timestamp or Date, cut to its UTC calendar date. */
+const SYROS_DAY = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Athens",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/**
+ * An ISO timestamp or Date, cut to its Syros (Europe/Athens) calendar date,
+ * so every viewer sees the same day wherever their phone is (SYC-624). A bare
+ * YYYY-MM-DD is already a date and passes through untouched.
+ */
 export function toPublicDay(at: Date | string): string {
-  return (typeof at === "string" ? at : at.toISOString()).slice(0, 10);
+  if (typeof at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(at)) return at;
+  return SYROS_DAY.format(typeof at === "string" ? new Date(at) : at);
 }
 
 /**
