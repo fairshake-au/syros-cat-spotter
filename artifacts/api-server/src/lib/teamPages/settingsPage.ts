@@ -3,13 +3,10 @@ import { renderPage } from "./layout";
 import { AREAS_PATH } from "./areasPage";
 import { VET_SETTINGS_PATH } from "./vetSettingsPage";
 import { APP_SWITCHES_PATH } from "./appSwitchesPage";
-import { SETTINGS_PATH } from "./backLink";
 
 // Settings (SYC-694): the team menu's way in to the pages that set how the
 // app and dashboard behave. Each keeps its own screen; this lists them, in
 // one place, instead of the links that sat at the foot of Home.
-
-export { SETTINGS_PATH };
 
 export interface SettingsEntry {
   id: "areas" | "vet-settings" | "app-switches";

@@ -24,7 +24,7 @@ interface NavItem {
 }
 
 // The menu names the team's jobs (SYC-396 spec §3.1): Home · Cats · Map ·
-// Queue · Colonies · Reports · People. Items appear as their screens ship
+// Queue · Colonies · Reports · People, then Settings (SYC-694). Items appear as their screens ship
 // (Reports came with PR 3.3a). Since Home (PR 2.1), the work lists live on Home:
 // Ear clips to check and Colour check are linked from there, and Feeding
 // sites from the Map and each colony (SYC-450).

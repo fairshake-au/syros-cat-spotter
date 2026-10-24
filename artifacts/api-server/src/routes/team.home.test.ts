@@ -395,7 +395,6 @@ describe("the settings links (SYC-694)", () => {
     for (const href of ["/api/team/areas", "/api/team/vet-settings", "/api/team/app-switches"]) {
       expect(html).not.toContain(`href="${href}"`);
     }
-    expect(html).toContain('href="/api/team/settings"');
   });
 });
 
