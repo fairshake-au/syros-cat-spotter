@@ -95,7 +95,7 @@ vi.mock('@/context/NotificationContext', () => ({
 }));
 vi.mock('@/context/LanguageContext', async () => {
   const { TRANSLATIONS } = await import('@/lib/i18n');
-  return { useLanguage: () => ({ t: (k: string) => TRANSLATIONS.en[k] ?? k }) };
+  return { useLanguage: () => ({ t: (k: string) => TRANSLATIONS.en[k] ?? k, language: 'en' }) };
 });
 vi.mock('@workspace/api-client-react', async (orig) => {
   const real = await orig<Record<string, unknown>>();
@@ -111,6 +111,7 @@ vi.mock('@workspace/api-client-react', async (orig) => {
 
 import CatDetailScreen from '../../app/cat/[id]';
 import { TRANSLATIONS } from '@/lib/i18n';
+import { formatDay } from '@/lib/catPageDates';
 
 const en = TRANSLATIONS.en;
 
@@ -193,7 +194,7 @@ describe('the cat page\'s photos (SYC-44 PR 6.1)', () => {
     fireEvent.load(hero.querySelector('img')!);
     fireEvent.click(hero);
     expect(viewer()).not.toBeNull();
-    expect(screen.getByTestId('photo-viewer-date').textContent).toBe(new Date(2026, 8, 1).toLocaleDateString());
+    expect(screen.getByTestId('photo-viewer-date').textContent).toBe(formatDay('2026-09-01', 'en'));
     expect(screen.getByTestId('photo-viewer-spotter').textContent).toBe('Spotted by maria');
     expect(screen.getByTestId('sighting-photo-viewer-close').textContent).toBe(en.extraPhotoClose);
     fireEvent.click(screen.getByTestId('sighting-photo-viewer-close'));

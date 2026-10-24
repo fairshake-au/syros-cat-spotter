@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import type { Sighting } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
-import { parsePublicDate } from '@/lib/catStatusLines';
+import { formatPublicDate } from '@/lib/catPageDates';
 import { photoSource } from '@/lib/urls';
 import { PhotoViewer } from '@/components/PhotoViewer';
 import { fonts, radii } from '@/constants/theme';
@@ -50,9 +50,9 @@ export function SightingPhotos({
   onReportPhoto?: (photoUrl: string) => void;
 }) {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [open, setOpen] = useState<{ url: string; label: string } | null>(null);
-  const when = parsePublicDate(createdAt).toLocaleDateString();
+  const when = formatPublicDate(createdAt, language);
   // Addresses whose image has loaded: only those open full screen, so
   // nothing changes offline (spec §4.2; review finding 2).
   const [loaded, setLoaded] = useState<ReadonlySet<string>>(new Set());

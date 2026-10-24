@@ -37,7 +37,8 @@ import { PhotoViewer } from '@/components/PhotoViewer';
 import { bylineFor, mainPhotoCaption, spotterName } from '@/lib/photoCaption';
 import { photoSource } from '@/lib/urls';
 import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
-import { lifeLine, parseDateOnly, parsePublicDate, sterilisedLineKey } from '@/lib/catStatusLines';
+import { formatDay, formatInstant, formatMonthYear, formatPublicDate } from '@/lib/catPageDates';
+import { lifeLine, sterilisedLineKey } from '@/lib/catStatusLines';
 import { appearanceLine } from '@/lib/appearance';
 import { DEFAULT_CELL_M } from '@/lib/cellShape';
 import { canSpotFromPage, spotRouteFor } from '@/lib/spotHint';
@@ -60,7 +61,7 @@ const CARE_META: Record<
 
 export default function CatDetailScreen() {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string; updateId?: string; report?: string }>();
@@ -198,7 +199,7 @@ export default function CatDetailScreen() {
   const line = lifeLine(cat);
   const lifeLineText =
     line.key === 'notSeenSince'
-      ? t('notSeenSince').replace('{date}', parseDateOnly(line.date).toLocaleDateString())
+      ? t('notSeenSince').replace('{date}', formatDay(line.date, language))
       : t(line.key);
   const sterilisedLine = t(sterilisedLineKey(cat.sterilised));
   const heroCaption = mainPhotoCaption(cat, sightings, careTimeline, t);
@@ -289,7 +290,7 @@ export default function CatDetailScreen() {
               <Feather name="eye" size={14} color={colors.mutedForeground} />
               <Text style={[styles.meta, { color: colors.mutedForeground }]}>
                 {cat.sightingsCount} · {t('lastSeen')}{' '}
-                {parsePublicDate(cat.lastSeenAt).toLocaleDateString()}
+                {formatPublicDate(cat.lastSeenAt, language)}
               </Text>
             </View>
             {/* SYC-574 (design-review-fixes-oct22.md §2.1): the page's main
@@ -353,7 +354,7 @@ export default function CatDetailScreen() {
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={[styles.updateLabel, { color: colors.primary }]}>
                   {t('catUpdateBanner')} ·{' '}
-                  {new Date(highlighted.createdAt).toLocaleDateString()}
+                  {formatInstant(highlighted.createdAt, language)}
                 </Text>
                 <Text style={[styles.updateMessage, { color: colors.foreground }]}>
                   {highlighted.message}
@@ -468,10 +469,7 @@ export default function CatDetailScreen() {
                       )}
                     </Text>
                     <Text style={[styles.careDate, { color: colors.mutedForeground }]}>
-                      {parsePublicDate(event.at).toLocaleDateString(undefined, {
-                        month: 'short',
-                        year: '2-digit',
-                      })}
+                      {formatMonthYear(event.at, language)}
                     </Text>
                   </View>
                 );
@@ -535,7 +533,7 @@ export default function CatDetailScreen() {
                   onReportPhoto={(url) => afterModalCloses(() => setIssueSheet({ photoUrl: url }))}
                 />
                 <Text style={[styles.sightingDate, { color: colors.mutedForeground }]}>
-                  {parsePublicDate(s.createdAt).toLocaleDateString()}
+                  {formatPublicDate(s.createdAt, language)}
                 </Text>
                 <Text
                   style={[styles.sightingSpotter, { color: colors.mutedForeground }]}
@@ -552,7 +550,7 @@ export default function CatDetailScreen() {
         <PhotoViewer
           url={heroOpenUrl}
           label={cat.name}
-          date={parsePublicDate(heroCaption.day).toLocaleDateString()}
+          date={formatPublicDate(heroCaption.day, language)}
           byline={heroCaption.byline}
           onClose={() => setHeroOpenUrl(null)}
           onReport={() => {
