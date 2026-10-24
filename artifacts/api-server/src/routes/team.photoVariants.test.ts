@@ -87,6 +87,7 @@ describe("the photo version route", () => {
     for (const [size, width] of [
       ["small", 160],
       ["medium", 640],
+      ["card", 360],
     ] as const) {
       const res = await version(catA.photoPublicId, size, staff.cookie);
       expect(res.status, size).toBe(200);
@@ -172,7 +173,7 @@ describe("the photo version route", () => {
   });
 
   it("a hidden photo's versions go only to a holder of hide_photo: the team, never a guardian", async () => {
-    for (const size of ["small", "medium"]) {
+    for (const size of ["small", "medium", "card"]) {
       const refused = await version(hiddenA.photoPublicId, size, eleni.cookie);
       expect(said(refused), size).toEqual(FORBIDDEN);
       expect((await version(hiddenA.photoPublicId, size, staff.cookie)).status, size).toBe(200);
@@ -182,7 +183,7 @@ describe("the photo version route", () => {
   it("a guardian gets her own colony's cat, never another colony's or a cat in none", async () => {
     expect((await version(catA.photoPublicId, "small", eleni.cookie)).status).toBe(200);
     for (const cat of [catB, catNowhere]) {
-      for (const size of ["small", "medium"]) {
+      for (const size of ["small", "medium", "card"]) {
         const res = await version(cat.photoPublicId, size, eleni.cookie);
         expect(said(res), `${cat.id} ${size}`).toEqual(FORBIDDEN);
       }

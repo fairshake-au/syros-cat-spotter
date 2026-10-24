@@ -35,6 +35,6 @@ export const photoVariantsTable = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.photoId, t.size] }),
-    check("photo_variants_size_ck", sql`${t.size} in ('small','medium')`),
+    check("photo_variants_size_ck", sql`${t.size} in ('small','medium','card')`),
   ],
 );

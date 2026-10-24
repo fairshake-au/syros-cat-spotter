@@ -257,7 +257,7 @@ function card(c: CatListItem, o: CatGridOptions): string {
   const coat = coatPhrase(c);
   const alt = `Photo of ${c.name}${coat !== null ? `, ${coat}` : ""}`;
   const photo = c.photoPublicId
-    ? `<img class="cardimg" src="${esc(`${teamPhotoUrl(c.photoPublicId)}/small`)}" alt="${esc(alt)}" loading="lazy" width="180" height="180">`
+    ? `<img class="cardimg" src="${esc(`${teamPhotoUrl(c.photoPublicId)}/small`)}" srcset="${esc(`${teamPhotoUrl(c.photoPublicId)}/small 160w, ${teamPhotoUrl(c.photoPublicId)}/card 360w`)}" sizes="(min-width:1000px) 200px, 45vw" alt="${esc(alt)}" loading="lazy" width="180" height="180">`
     : '<span class="cardimg nothumb">No photo</span>';
   // §5.1: a line that says nothing is known is left out. The coat and colony
   // lines are drawn only when they say something; the mark line always shows.

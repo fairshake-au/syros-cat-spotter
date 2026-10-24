@@ -26,6 +26,15 @@ const item = (over: Partial<CatListItem> = {}): CatListItem => ({
   ...over,
 });
 
+describe("the card photo (§5.2)", () => {
+  it("offers the 160px and 360px versions, with src kept on small", () => {
+    const html = render();
+    expect(html).toContain('src="/api/team/photos/ph7/small"');
+    expect(html).toContain('srcset="/api/team/photos/ph7/small 160w, /api/team/photos/ph7/card 360w"');
+    expect(html).toContain('sizes="(min-width:1000px) 200px, 45vw"');
+  });
+});
+
 const render = (o: Partial<Parameters<typeof renderCatGridPage>[0]> = {}) =>
   renderCatGridPage({
     items: [item()],

@@ -30,7 +30,7 @@ describe("photo versions carry no location data", () => {
     expect((await sharp(await jpegWithGpsExif()).metadata()).exif).toBeDefined();
   });
 
-  for (const size of ["small", "medium"] as VariantSize[]) {
+  for (const size of ["small", "medium", "card"] as VariantSize[]) {
     it(`the ${size} version has no EXIF block at all`, async () => {
       const out = await makeVariant(await jpegWithGpsExif(), size);
       expect((await sharp(out).metadata()).exif).toBeUndefined();

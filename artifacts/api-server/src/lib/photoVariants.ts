@@ -3,13 +3,13 @@ import { and, eq, sql } from "drizzle-orm";
 import { db, photosTable, photoVariantsTable } from "@workspace/db";
 import { logger, safeError } from "./logger";
 
-// Small and medium versions of a catalogue photo (SYC-396 PR 1.2; team
-// dashboard redesign spec §11). Lists and grids load these, never the
+// Small, medium and card (360px, SYC-619 §5.2) versions of a catalogue photo
+// (SYC-396 PR 1.2; team dashboard redesign spec §11). Lists and grids load these, never the
 // full-size photo. They are made on first request and kept in
 // photo_variants. They are served only by the visibility-checked team photo
 // route (routes/teamReports.ts), so a hidden photo's versions are hidden too.
 
-export const VARIANT_WIDTH = { small: 160, medium: 640 } as const;
+export const VARIANT_WIDTH = { small: 160, medium: 640, card: 360 } as const;
 export type VariantSize = keyof typeof VARIANT_WIDTH;
 
 export function isVariantSize(s: string): s is VariantSize {

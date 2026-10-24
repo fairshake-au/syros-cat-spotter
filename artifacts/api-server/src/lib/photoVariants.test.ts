@@ -42,6 +42,12 @@ describe("makeVariant", () => {
     expect(meta.width).toBe(640);
   });
 
+  it("makes the card size 360 wide", async () => {
+    const meta = await sharp(await makeVariant(await fixtureJpeg(1536, 1024), "card")).metadata();
+    expect(meta.format).toBe("jpeg");
+    expect(meta.width).toBe(360);
+  });
+
   it("puts a transparent PNG on white, not black", async () => {
     const png = await sharp({
       create: { width: 200, height: 200, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
@@ -91,10 +97,12 @@ describe("variantFor", () => {
     expect(await rowsFor(photo.id)).toHaveLength(0);
   });
 
-  it("clearVariants removes both sizes so they are remade", async () => {
+  it("clearVariants removes every size, card included, so they are remade", async () => {
     const photo = await seedPhoto(await fixtureJpeg(800, 600));
     await variantFor(photo.id, "small");
     await variantFor(photo.id, "medium");
+    await variantFor(photo.id, "card");
+    expect(await rowsFor(photo.id)).toHaveLength(3);
     await clearVariants(photo.id);
     expect(await rowsFor(photo.id)).toHaveLength(0);
   });
