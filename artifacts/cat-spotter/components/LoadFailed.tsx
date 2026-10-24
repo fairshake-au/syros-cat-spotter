@@ -5,6 +5,7 @@ import { Button } from '@/components/purropolis/Button';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { fonts, fontSizes, spacing } from '@/constants/theme';
+import { decorative } from '@/lib/a11yText';
 
 /**
  * SYC-508 (couldnt-load-try-again.md §2): the one "Couldn't load" state, used
@@ -95,11 +96,7 @@ export function LoadFailed({
 
   return (
     <View style={styles.full} testID={testID}>
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        aria-hidden
-      >
+      <View {...decorative}>
         <Feather name="cloud-off" size={40} color={colors.mutedForeground} />
       </View>
       <View accessibilityLiveRegion="polite" aria-live="polite" style={styles.fullText}>
