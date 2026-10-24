@@ -4,7 +4,7 @@
  * render as themselves so these also pin the wording.
  */
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type Cat } from '@workspace/api-client-react';
 
@@ -140,6 +140,45 @@ describe('Name this cat', () => {
     h.opts.mutation.onError(refusal(status as number, code as string));
     await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(en[key as string]));
     expect(en.syrShapedName).toBe('That looks like a cat’s SYR number. Choose a name.');
+  });
+
+  it.each([
+    ['429', () => refusal(429, 'RATE_LIMITED'), 'claimRefusedLater'],
+    ['404', () => refusal(404, 'NOT_FOUND'), 'nameThisCatGone'],
+    ['EMPTY_NAME', () => refusal(400, 'EMPTY_NAME'), 'nameYourCat'],
+  ])('%s gets its own words, not "check your connection"', async (_n, make, key) => {
+    openSheet();
+    typeName('Agatha');
+    fireEvent.click(find(en.nameThisCatSave!));
+    h.opts.mutation.onError(make());
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(en[key as string]));
+    expect(screen.getByRole('alert').textContent).not.toBe(en.claimNetworkError);
+  });
+
+  it('a 404 also refreshes the cat, so the page can drop it', async () => {
+    openSheet();
+    typeName('Agatha');
+    fireEvent.click(find(en.nameThisCatSave!));
+    h.opts.mutation.onError(refusal(404, 'NOT_FOUND'));
+    await waitFor(() => expect(h.invalidate).toHaveBeenCalled());
+  });
+
+  it('after the spotter\'s own naming, a short thank-you names the cat', async () => {
+    openSheet();
+    typeName('Agatha');
+    fireEvent.click(find(en.nameThisCatSave!));
+    act(() => h.opts.mutation.onSuccess({ id: 7, name: 'Agatha', namePending: false }));
+    await waitFor(() =>
+      expect(screen.getByTestId('name-this-cat-saved').textContent).toBe('Thanks — Agatha is this cat’s name now.'),
+    );
+  });
+
+  it('the someone-else-named-it line ends with a full stop in every language', () => {
+    for (const lang of ['en', 'el', 'fr'] as const) {
+      expect(TRANSLATIONS[lang].nameThisCatJustNamed, lang).toMatch(/\.$/);
+      expect(TRANSLATIONS[lang].nameThisCatSaved, lang).toContain('{name}');
+      expect(TRANSLATIONS[lang].nameThisCatGone, lang).toBeTruthy();
+    }
   });
 
   it('Suggest names fills in ideas that can be tapped', async () => {

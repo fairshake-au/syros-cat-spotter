@@ -39,10 +39,12 @@ function NameThisCatSheet({
   cat,
   onClose,
   onAlreadyNamed,
+  onSaved,
 }: {
   cat: Cat;
   onClose: () => void;
   onAlreadyNamed: () => void;
+  onSaved: (name: string) => void;
 }) {
   const colors = useColors();
   const { t, language } = useLanguage();
@@ -76,6 +78,7 @@ function NameThisCatSheet({
             prev ? { ...prev, cat: { ...prev.cat, ...updated } } : prev,
         );
         refreshCat();
+        onSaved(updated.name);
         onClose();
       },
       onError: (err: unknown) => {
@@ -92,6 +95,21 @@ function NameThisCatSheet({
         }
         if (code === 'SYR_SHAPED_NAME') {
           setError(t('syrShapedName'));
+          return;
+        }
+        if (code === 'EMPTY_NAME') {
+          setError(t('nameYourCat'));
+          return;
+        }
+        const status = (err as { status?: number })?.status;
+        if (status === 429) {
+          setError(t('claimRefusedLater'));
+          return;
+        }
+        if (status === 404) {
+          // The cat has gone from the list: refresh so the page says so.
+          refreshCat();
+          setError(t('nameThisCatGone'));
           return;
         }
         const failure = classifyResolveError(err);
@@ -238,7 +256,19 @@ export function NameThisCatCard({ cat }: { cat: Cat }) {
   const { isOnline } = useOffline();
   const [open, setOpen] = useState(false);
   const [justNamed, setJustNamed] = useState(false);
+  const [savedName, setSavedName] = useState<string | null>(null);
 
+  if (savedName !== null) {
+    return (
+      <Text
+        accessibilityRole="alert"
+        testID="name-this-cat-saved"
+        style={[styles.body, { color: colors.foreground, marginBottom: 12 }]}
+      >
+        {t('nameThisCatSaved').split('{name}').join(savedName)}
+      </Text>
+    );
+  }
   if (justNamed) {
     return (
       <Text
@@ -273,6 +303,7 @@ export function NameThisCatCard({ cat }: { cat: Cat }) {
           cat={cat}
           onClose={() => setOpen(false)}
           onAlreadyNamed={() => setJustNamed(true)}
+          onSaved={setSavedName}
         />
       )}
     </View>
