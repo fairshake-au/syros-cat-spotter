@@ -178,7 +178,8 @@ describe("the small map's caption (SYC-602 Task 1.4)", () => {
     // Oldest first: 1 and 5 at one spot; 2, 3, 4 at another.
     const spots = [[37.4447, 24.9418], [37.4451, 24.9421], [37.4451, 24.9421], [37.4451, 24.9421], [37.4447, 24.9418]] as const;
     v.sightings = spots
-      .map(([lat, lng], i) => sighting(900 + i, 0, { lat, lng, at: new Date(Date.UTC(2026, 9, 1 + i)).toISOString() }))
+      // mixedCats: never grouped into a run (SYC-602 PR 2), so each marker lands on its own row.
+      .map(([lat, lng], i) => sighting(900 + i, 0, { lat, lng, at: new Date(Date.UTC(2026, 9, 1 + i)).toISOString(), mixedCats: true }))
       .reverse();
     const html = renderCatPage(v, "Sam", { now: NOW });
     const band = /<div class="mapband b179"[\s\S]*?<\/div>/.exec(html)![0];
@@ -216,7 +217,8 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
   it("has jump links with counts, none marked as selected", () => {
     const html = page(richCatView());
     const nav = html.slice(html.indexOf('<nav class="jump"'), html.indexOf("</nav>", html.indexOf('<nav class="jump"')));
-    expect(nav).toContain('href="#history">History (2)</a>');
+    // Every History row (SYC-602 PR 2): 21 sightings and two changes.
+    expect(nav).toContain('href="#history">History (23)</a>');
     expect(nav).toContain('href="#photos">Photos (0)</a>');
     expect(nav).toContain('href="#appearance">Coat and markings</a>');
     expect(nav).not.toContain("#issue-strip");

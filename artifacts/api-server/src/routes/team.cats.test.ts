@@ -436,8 +436,8 @@ describe("P3-3: a replaced statement stays, with what replaced it and why", () =
     const end = item.indexOf("</li>");
     const wrongItem = item.slice(0, end);
     expect(wrongItem).toContain("<del>Sterilised</del>");
-    expect(wrongItem).toContain(
-      `Replaced by <a href="#s-${ids["fix"]}">#${ids["fix"]}</a>: Not sterilised. Why: That was a different cat at the clinic`,
+    expect(wrongItem).toMatch(
+      new RegExp(`Replaced by <a href="#s-${ids["fix"]}">the change of \\d{1,2} \\w{3,4} \\d{4}</a>: Not sterilised\\. Why: That was a different cat at the clinic`),
     );
     expect(wrongItem).toContain("Susan");
   });
@@ -555,5 +555,33 @@ describe("design review fixes (PR 3)", () => {
     expect(html).not.toContain('<img src=x onerror="alert(2)">');
     expect(html).not.toContain("<b>Bold</b>");
     await markLeft(`vitest-p3-eve-${RUN}@example.com`, "cli:vitest");
+  });
+});
+
+describe("SYC-602 PR 2: History's filters (?show=)", () => {
+  const rowIds = (html: string) => [...html.matchAll(/<li class="hrow[^"]*" id="((?:sg|vv|s)-\d+)"/g)].map((m) => m[1]!);
+  const page = async (q: string) => {
+    const res = await request(app).get(`/api/team/cats/${mimi}${q}`).set("Cookie", cookie);
+    expect(res.status, q).toBe(200);
+    return res.text;
+  };
+
+  it("?show=visits draws only vet visit rows, and marks the filter", async () => {
+    const html = await page("?show=visits");
+    expect(rowIds(html).filter((id) => !id.startsWith("vv-"))).toEqual([]);
+    expect(html).toContain('<a href="?show=visits#history" aria-current="page">Vet visits 0</a>');
+    expect(html).not.toContain("<h2>Sightings");
+    expect(html).not.toContain('<h2 id="vet-visits">');
+  });
+
+  it("?show=sightings draws only the sightings, and ?show=nonsense is the same as all", async () => {
+    const sightings = rowIds(await page("?show=sightings"));
+    expect(sightings).toHaveLength(SIGHTINGS.length);
+    expect(sightings.every((id) => id.startsWith("sg-"))).toBe(true);
+    const all = rowIds(await page(""));
+    expect(rowIds(await page("?show=nonsense"))).toEqual(all);
+    expect(all.length).toBeGreaterThan(sightings.length);
+    // Other query keys keep working alongside it.
+    expect(rowIds(await page("?show=nonsense&history=all"))).toEqual(rowIds(await page("?history=all")));
   });
 });

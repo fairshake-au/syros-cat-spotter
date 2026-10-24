@@ -88,7 +88,7 @@ describe("the vet visit form", () => {
     const page = await get(`/api/team/cats/${cat.id}?done=visit`);
     expect(page.status).toBe(200);
     expect(page.text).toContain("Yes, confirmed by Syros Cats, 13 Aug 2026");
-    expect(page.text).toContain("Vet visits (1)");
+    expect(page.text).toContain(">Vet visits 1</a>");
     expect(page.text).toContain("Saved. The vet visit is below");
     expect(page.text).toContain("Sterilised</");
     expect(page.text).toContain("€60 · paid by Syros Cats");
@@ -176,7 +176,8 @@ describe("why the cost is different (Samuel, 21 Oct 2026)", () => {
     const saved = await post(`/api/team/cats/${cat.id}/vet-visit`, { ...FORM, date: "2026-08-14", costEur: "75", costReason: "Pregnant, longer surgery" });
     expect(saved.status).toBe(303);
     const page = await get(`/api/team/cats/${cat.id}`);
-    expect(page.text).toContain("€75 · paid by Syros Cats<br>Why the cost was different: Pregnant, longer surgery");
+    expect(page.text).toContain("€75 · paid by Syros Cats");
+    expect(page.text).toContain('<p class="meta">Why the cost was different: Pregnant, longer surgery</p>');
   });
 
   it("isn't for a visit that didn't sterilise, and the form says so and keeps it", async () => {
@@ -252,7 +253,11 @@ describe("Mark the visit wrong", () => {
     expect(done.status).toBe(303);
     expect(done.headers["location"]).toBe(`/api/team/cats/${cat.id}?done=visitWrong#vet-visits`);
     const page = await get(`/api/team/cats/${cat.id}`);
-    expect(page.text).toContain("Vet visits (0)");
+    // The undone visit stays in History, crossed out, with who marked it wrong (spec §3.5).
+    expect(page.text).toContain(">Vet visits 1</a>");
+    expect(page.text).toContain("<del>Vet visit: sterilised</del>");
+    expect(page.text).toContain("Marked wrong by ");
+    expect(page.text).not.toContain(`action="/api/team/vet-visits/${visit.id}/wrong"`);
     expect(page.text).not.toContain("Yes, confirmed by Syros Cats");
 
     const again = await post(`/api/team/vet-visits/${visit.id}/wrong`, { reason: "Again", confirm: "1" });
@@ -333,7 +338,7 @@ describe("who sees the money", () => {
     await post(`/api/team/cats/${cat.id}/vet-visit`, { ...FORM, costEur: "75", paidBy: "donation" });
     denied.cap = "view_vet_costs";
     const page = await get(`/api/team/cats/${cat.id}`);
-    expect(page.text).toContain("Vet visits (1)");
+    expect(page.text).toContain(">Vet visits 1</a>");
     expect(page.text).not.toContain("€");
     expect(page.text).not.toContain("paid by");
   });

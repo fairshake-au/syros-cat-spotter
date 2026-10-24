@@ -196,7 +196,8 @@ export function describeStatement(
         const side = v["side"] === "left" || v["side"] === "right" ? `, ${v["side"]} ear` : "";
         // "Looks right" on the Probably sterilised list (PR 4, Decision 6).
         if (typeof v["agreesWith"] === "number")
-          return `Agreed the ear tip is clipped${side}, in the photo of #${v["agreesWith"]}`;
+          // Never a record number on a team page (SYC-602 spec §3.5).
+          return `Agreed the ear tip is clipped${side}, in an earlier sighting's photo`;
         return `Ear tip clipped${side}`;
       }
       if (v["clipped"] === false) return EAR_TIP_NOT_CLIPPED;
@@ -230,7 +231,7 @@ export function describeStatement(
       // "Mark wrong" (SYC-2 PR 3.1): says nothing in its place.
       if (v["retracted"] === true) return "Marked wrong";
       const text = `Coat: ${coatHistoryText(readCoatValue(v))}`;
-      return typeof v["agreesWith"] === "number" ? `${text} (agrees with #${v["agreesWith"]})` : text;
+      return typeof v["agreesWith"] === "number" ? `${text} (agrees with an earlier change)` : text;
     }
     case "markings": {
       if (v["retracted"] === true) return "Marked wrong";
@@ -240,7 +241,7 @@ export function describeStatement(
         marks.length === 0
           ? "Markings: nothing special"
           : `Markings: ${marks.map((m) => MARK[m as string] ?? "unknown").join(", ")}`;
-      return typeof v["agreesWith"] === "number" ? `${text} (agrees with #${v["agreesWith"]})` : text;
+      return typeof v["agreesWith"] === "number" ? `${text} (agrees with an earlier change)` : text;
     }
     // SYC-396 PR 3.0: a vet visit, and the undo of one. PR 3.1 words the
     // visit in full on the cat page's Vet visits section.
@@ -318,6 +319,16 @@ export interface TeamStatement {
    */
   sightingId: number | null;
   /**
+   * The vet visit this entry belongs to, or null (SYC-602 PR 2). On a
+   * `vet_visit` entry it is that visit's own id (the `VisitLine.visitId`
+   * `visitsFor` gives); on the `sterilised` and `vaccinated` entries the visit
+   * wrote it is their `value.vetVisitId`. The page folds those into the
+   * visit's row. Kept on retracted entries too, and an undo's retraction
+   * rows carry the visit they retract (`vetVisitIdsOf`): an undone visit
+   * still draws its rows crossed out, with who undid it and when.
+   */
+  vetVisitId: number | null;
+  /**
    * How the team may mark it wrong (PR 4), or null. Only a standing
    * statement of a kind with a team capability: a life status, a
    * sterilisation, or a clipped ear tip ("That's not a clip").
@@ -333,6 +344,44 @@ export type StatementCorrection =
   | { kind: "colony" }
   /** A colour or markings statement: marked wrong by a retraction, from the Appearance section (SYC-2 PR 3.1). */
   | { kind: "appearance" };
+
+/** The visit an observation itself names: a visit's own id, or the link its statements carry. */
+function ownVetVisitId(o: Observation): number | null {
+  const v = o.value && typeof o.value === "object" ? (o.value as Record<string, unknown>) : null;
+  // A retraction names no visit of its own: it belongs to what it retracts.
+  if (v?.["retracted"] === true) return null;
+  if (o.kind === "vet_visit") return o.id;
+  if (o.kind === "sterilised" || o.kind === "vaccinated") {
+    const id = v?.["vetVisitId"];
+    return typeof id === "number" ? id : null;
+  }
+  return null;
+}
+
+/**
+ * The visit each observation belongs to (SYC-602 PR 2). Its own link, except
+ * that a row replacing a visit's row belongs to that visit: undoing a visit
+ * writes a retraction of each of its rows (`{ retracted: true }`, which names
+ * no visit). Followed through replacements of replacements. Only an undo
+ * can replace a visit's rows today (Decision 7: they are marked wrong with
+ * the visit), and any replacement of one is drawn on the visit's row, beside
+ * what it crossed out. A visit's "yes" that overrules a guardian's "no" (D8) keeps its own
+ * visit: the guardian's row names none.
+ */
+function vetVisitIdsOf(observations: readonly Observation[]): (o: Observation) => number | null {
+  const byId = new Map(observations.map((o) => [o.id, o]));
+  const memo = new Map<number, number | null>();
+  const find = (o: Observation, seen: Set<number>): number | null => {
+    if (memo.has(o.id)) return memo.get(o.id)!;
+    const replaced = o.supersedesId == null || seen.has(o.supersedesId) ? undefined : byId.get(o.supersedesId);
+    seen.add(o.id);
+    // Its own link first: a visit's "yes" over a guardian's "no" is its own visit's.
+    const out = ownVetVisitId(o) ?? (replaced ? find(replaced, seen) : null);
+    memo.set(o.id, out);
+    return out;
+  };
+  return (o) => find(o, new Set());
+}
 
 /** An owner's "has a home" (claiming-a-cat.md §3): the claim itself. */
 export function isOwnerHomed(o: Observation, onlyCatId?: number): boolean {
@@ -874,6 +923,7 @@ export async function teamCatView(
   for (const [oldId, moved] of crossCat.movedTo) {
     replacedBy.set(oldId, [...(replacedBy.get(oldId) ?? []), moved.statementId]);
   }
+  const vetVisitIdOf = vetVisitIdsOf(observations);
   const history: TeamStatement[] = [...observations]
     .sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
@@ -900,6 +950,7 @@ export async function teamCatView(
       movedFrom: crossCat.movedFrom.get(o.id) ?? null,
       photoUrl: urlFor(o.photoId),
       sightingId: o.sightingId ?? null,
+      vetVisitId: vetVisitIdOf(o),
       correction: correctionOf(o, replacedBy.has(o.id)),
       // Only this cat's own claim: Remove owner is scoped to it. A merged-in
       // cat's claim is ended from that cat's page.
