@@ -113,6 +113,7 @@ export type ResolveFailure =
   | { kind: 'not-nearby' }
   | { kind: 'name-taken'; cat: NameTakenCat | null }
   | { kind: 'offensive' }
+  | { kind: 'syr-shaped' }
   | { kind: 'offline' }
   | { kind: 'error' };
 
@@ -131,6 +132,8 @@ export function classifyResolveError(err: unknown): ResolveFailure {
       return { kind: 'name-taken', cat: data.cat ?? null };
     case 'OFFENSIVE_NAME':
       return { kind: 'offensive' };
+    case 'SYR_SHAPED_NAME':
+      return { kind: 'syr-shaped' };
     default:
       return { kind: 'error' };
   }

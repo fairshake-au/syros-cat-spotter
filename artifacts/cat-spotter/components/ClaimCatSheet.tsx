@@ -161,6 +161,7 @@ export function ClaimCatSheet({
     // accents, case and final sigma are folded) is a 409 too.
     if (failure.kind === 'name-taken') setError(t('nameTaken'));
     else if (failure.kind === 'offensive') setError(t('catNameRejected'));
+    else if (failure.kind === 'syr-shaped') setError(t('syrShapedName'));
     else if (status === 403) setError(t('claimNotOwner'));
     else setError(t('claimNetworkError'));
   };

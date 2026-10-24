@@ -50,6 +50,8 @@ import {
   BLANK_NAME_BODY,
   catNamed,
   isBlankName,
+  isSyrShapedName,
+  SYR_SHAPED_NAME_BODY,
   isUniqueViolation,
   nameTakenBody,
   OFFENSIVE_NAME_WORDS,
@@ -961,6 +963,11 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         error: OFFENSIVE_NAME_WORDS,
         code: "OFFENSIVE_NAME",
       });
+      return;
+    }
+    // SYC-677 D: a SYR number is not a name (as when a spotter names a cat).
+    if (isSyrShapedName(name)) {
+      res.status(400).json(SYR_SHAPED_NAME_BODY);
       return;
     }
     const taken = await catNamed(name);

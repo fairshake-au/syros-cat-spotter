@@ -200,7 +200,7 @@ export default function ReviewScreen() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ResolveResult | null>(null);
   const [showNewCat, setShowNewCat] = useState(false);
-  const [nameError, setNameError] = useState<"taken" | "offensive" | null>(
+  const [nameError, setNameError] = useState<"taken" | "offensive" | "syr" | null>(
     null,
   );
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -442,6 +442,7 @@ export default function ReviewScreen() {
           setNameError("taken");
         }
       } else if (failure.kind === "offensive") setNameError("offensive");
+      else if (failure.kind === "syr-shaped") setNameError("syr");
       else if (failure.kind === "offline") setSendMessage(noSignal);
       setBusy(false);
     }
@@ -1065,7 +1066,13 @@ export default function ReviewScreen() {
             maxLength={40}
             error={
               nameError
-                ? t(nameError === "offensive" ? "catNameRejected" : "nameTaken")
+                ? t(
+                    nameError === "offensive"
+                      ? "catNameRejected"
+                      : nameError === "syr"
+                        ? "syrShapedName"
+                        : "nameTaken",
+                  )
                 : undefined
             }
           />

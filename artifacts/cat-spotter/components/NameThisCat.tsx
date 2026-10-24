@@ -93,10 +93,6 @@ function NameThisCatSheet({
           onClose();
           return;
         }
-        if (code === 'SYR_SHAPED_NAME') {
-          setError(t('syrShapedName'));
-          return;
-        }
         if (code === 'EMPTY_NAME') {
           setError(t('nameYourCat'));
           return;
@@ -115,6 +111,7 @@ function NameThisCatSheet({
         const failure = classifyResolveError(err);
         if (failure.kind === 'name-taken') setError(t('nameTaken'));
         else if (failure.kind === 'offensive') setError(t('catNameRejected'));
+        else if (failure.kind === 'syr-shaped') setError(t('syrShapedName'));
         else setError(t('claimNetworkError'));
       },
     },

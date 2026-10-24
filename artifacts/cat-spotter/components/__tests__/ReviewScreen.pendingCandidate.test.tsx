@@ -84,3 +84,19 @@ describe('a pending cat as a look-alike card', () => {
     expect(first.getAttribute('aria-label')).toContain('No name yet');
   });
 });
+
+describe('naming a new cat with a SYR number', () => {
+  it('shows the syrShapedName words when the server refuses SYR_SHAPED_NAME', async () => {
+    const { ApiError } = await import('@workspace/api-client-react');
+    m.cats = [];
+    m.params = buildReviewParams({ sightingId: 602, isCatPhoto: true, candidates: [], photoRef: 'review-602', ...FROM });
+    m.resolveSighting.mockRejectedValue(Object.assign(new ApiError(), { data: { error: 'x', code: 'SYR_SHAPED_NAME' } }));
+    const { getByPlaceholderText, getByText, findByText, container } = render(<ReviewScreen />);
+    if (!container.textContent!.includes('Add to the cat-alogue')) {
+      fireEvent.click(getByText(/None of these/));
+    }
+    fireEvent.change(getByPlaceholderText('Name this cat…'), { target: { value: 'SYR-0042' } });
+    fireEvent.click(getByText(/Add to the cat-alogue/));
+    expect(await findByText('That looks like a cat’s SYR number. Choose a name.')).toBeTruthy();
+  });
+});
