@@ -482,6 +482,8 @@ const PROBES: Probe[] = [
   { name: "POST /restore/request", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/request").set("X-Device-Secret", s).send({ deviceId: id, email: "x@example.org" }) },
   { name: "POST /restore/peek", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/peek").set("X-Device-Secret", s).send({ deviceId: id, token: "A".repeat(43) }) },
   { name: "POST /restore/redeem", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/redeem").set("X-Device-Secret", s).send({ deviceId: id, token: "A".repeat(43), spotterDeviceId: "x" }) },
+  // SYC-664: the code box answers about the phone first, like every other route.
+  { name: "POST /restore/code", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/code").set("X-Device-Secret", s).send({ deviceId: id, code: "12345678" }) },
 ];
 
 describe("4. the old phone carrying on", () => {
