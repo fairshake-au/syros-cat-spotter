@@ -34,6 +34,10 @@ const KEYS = [
   'photoTipBody', 'photoTipBodyLine', 'photoTipLight', 'photoTipLightLine',
   'cartoonGoodLabel', 'cartoonPoorLabel', 'cartoonFaceLabel', 'cartoonBodyLabel',
 ] as const;
+// SYC-524: the location card's lines sit under the same wording guard.
+const LOCATION_CARD_KEYS = [
+  'locAskTitle', 'locAskBody', 'locAskUse', 'locAskMap', 'locOffNative', 'locOffWeb',
+] as const;
 
 describe('PhotoTips', () => {
   afterEach(cleanup);
@@ -57,7 +61,8 @@ describe('PhotoTips', () => {
 
   it('never says "snapper" or "colony carer" in any language', () => {
     for (const lang of ['en', 'el', 'fr'] as const) {
-      for (const k of KEYS) {
+      for (const k of [...KEYS, ...LOCATION_CARD_KEYS]) {
+        expect((TRANSLATIONS as any)[lang][k], `${lang}.${k}`).toBeTruthy();
         expect((TRANSLATIONS as any)[lang][k]).not.toMatch(/snapper|colony carer/i);
       }
     }

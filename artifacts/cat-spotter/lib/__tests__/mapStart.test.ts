@@ -153,6 +153,14 @@ describe('the line under the map, and the button', () => {
     expect(canCheckForMatches(null)).toBe(false);
     expect(canCheckForMatches({ status: 'ready', coords: ERMOUPOLI, origin: 'town' })).toBe(true);
     expect(canCheckForMatches({ status: 'ready', coords: SYROS_FIX, origin: 'phone' })).toBe(true);
+    // SYC-524: never while the location card (or the automatic ask) holds the
+    // view, even with a ready start: the pin is hidden then, so it can't be sent.
+    expect(canCheckForMatches({ status: 'ready', coords: ERMOUPOLI, origin: 'town' }, 'card')).toBe(false);
+    expect(canCheckForMatches({ status: 'ready', coords: SYROS_FIX, origin: 'phone' }, 'card')).toBe(false);
+    for (const ask of ['none', 'link', 'off-native', 'off-web', 'auto-ask'] as const) {
+      expect(canCheckForMatches({ status: 'ready', coords: ERMOUPOLI, origin: 'town' }, ask), ask).toBe(true);
+    }
+    expect(canCheckForMatches({ status: 'waiting' }, 'link')).toBe(false);
   });
 });
 
@@ -175,5 +183,59 @@ describe('needsHelpCoords: the place handed to "This cat needs help" (review M1)
 
   it('is nothing with no pin', () => {
     expect(needsHelpCoords(null, null, false)).toBeUndefined();
+  });
+});
+
+describe('resolveMapStart: the location ask (SYC-524)', () => {
+  it('waits while the explain-first card shows, even past the wait', () => {
+    expect(
+      resolveMapStart({ source: 'camera', phone: phone(), waitedMs: MAP_START_WAIT_MS + 1000, ask: 'card' }),
+    ).toEqual({ status: 'waiting' });
+  });
+
+  it('starts in Ermoupoli at once when location is off on the phone', () => {
+    expect(
+      resolveMapStart({ source: 'camera', phone: phone({ denied: true, loading: false }), waitedMs: 0, ask: 'off-native' }),
+    ).toEqual({ status: 'ready', coords: ERMOUPOLI, origin: 'town' });
+  });
+
+  it('starts in Ermoupoli at once when location is off in the browser', () => {
+    expect(resolveMapStart({ source: 'live', phone: phone(), waitedMs: 0, ask: 'off-web' })).toEqual({
+      status: 'ready',
+      coords: ERMOUPOLI,
+      origin: 'town',
+    });
+  });
+
+  it('starts in Ermoupoli at once for the link when there is no phone position', () => {
+    expect(resolveMapStart({ source: 'camera', phone: phone(), waitedMs: 0, ask: 'link' })).toEqual({
+      status: 'ready',
+      coords: ERMOUPOLI,
+      origin: 'town',
+    });
+  });
+
+  it('keeps the phone for the link when a position exists', () => {
+    expect(
+      resolveMapStart({ source: 'camera', phone: phone({ coords: SYROS_FIX, loading: false }), waitedMs: 0, ask: 'link' }),
+    ).toEqual({ status: 'ready', coords: SYROS_FIX, origin: 'phone' });
+  });
+
+  it('uses the phone with ask none and granted coords', () => {
+    expect(
+      resolveMapStart({ source: 'camera', phone: phone({ coords: SYROS_FIX, loading: false }), waitedMs: 0, ask: 'none' }),
+    ).toEqual({ status: 'ready', coords: SYROS_FIX, origin: 'phone' });
+  });
+
+  it('leaves auto-ask as today: waits for the position', () => {
+    expect(resolveMapStart({ source: 'camera', phone: phone(), waitedMs: 0, ask: 'auto-ask' })).toEqual({
+      status: 'waiting',
+    });
+  });
+
+  it('leaves a library photo unchanged by ask none', () => {
+    expect(resolveMapStart({ source: 'library', phone: phone(), waitedMs: 0, ask: 'none' })).toEqual({
+      status: 'waiting',
+    });
   });
 });

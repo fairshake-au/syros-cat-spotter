@@ -37,6 +37,19 @@ describe('location callers', () => {
     },
   );
 
+  // Task 5: the interim ask-on-open is gone; Spot asks only from the card,
+  // the link, or straight after a photo for a spotter who shared before.
+  it('Spot never asks from a mount effect', () => {
+    const src = read('app/(tabs)/spot.tsx');
+    expect(src).toContain('useAppLocation()');
+    expect(src).not.toMatch(/useEffect\(\(\) => \{\s*void askAndLocate\(\);/);
+    // Each effect up to its own dependency list; a mount effect's is empty.
+    const re = /useEffect\(\(\) => \{([\s\S]*?)\n\s*\}, \[([^\]]*)\]\);/g;
+    for (let m = re.exec(src); m; m = re.exec(src)) {
+      if (m[2].trim() === '') expect(m[1]).not.toMatch(/askAndLocate\(\)/);
+    }
+  });
+
   it('the report flow asks once, from a mount effect', () => {
     const src = read('app/report.tsx');
     expect(src).toMatch(/useEffect\(\(\) => \{\s*void askAndLocate\(\);/);

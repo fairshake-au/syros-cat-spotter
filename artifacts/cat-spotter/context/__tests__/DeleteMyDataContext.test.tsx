@@ -71,6 +71,7 @@ vi.mock('../IssueQueueContext', () => ({
 }));
 
 import { DeleteMyDataProvider, useDeleteMyData } from '../DeleteMyDataContext';
+import { LOCATION_CHOICE_KEY } from '@/lib/locationChoice';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <DeleteMyDataProvider>{children}</DeleteMyDataProvider>
@@ -89,6 +90,17 @@ beforeEach(() => {
 });
 
 describe('DeleteMyDataProvider', () => {
+  // SYC-524: the remembered location choice is a phone preference, so a fresh
+  // start sees the explain-first card again.
+  it('forgets the remembered location choice', async () => {
+    h.storage.set(LOCATION_CHOICE_KEY, 'map');
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    await act(async () => {
+      await result.current.deleteNow();
+    });
+    expect(h.storage.has(LOCATION_CHOICE_KEY)).toBe(false);
+  });
+
   it('deletes with the id in a header, wipes, and shows Done', async () => {
     // SYC-48 / SYC-36: the waiting card's record and the resident signals go too.
     h.storage.set('catSpotters.waitingCard.v1:dev-current', '{}');

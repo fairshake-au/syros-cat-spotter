@@ -42,8 +42,9 @@ describe('the waiting card on the New spot screen', () => {
     expect(card).toBeGreaterThan(-1);
     expect(card).toBeLessThan(map);
     expect(map).toBeLessThan(button);
-    // The same slot: the card OR the map, never both.
-    expect(source.slice(card, map)).toMatch(/\) : pickedCoords && \(/);
+    // The same slot: the card OR the map, never both. (SYC-524: the map also
+    // stays hidden while the location card shows.)
+    expect(source.slice(card, map)).toMatch(/\) : pickedCoords && (locationAsk !== 'card' && )?\(/);
   });
 
   it('settles the wait before the result screen opens', () => {
