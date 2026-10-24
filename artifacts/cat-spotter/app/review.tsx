@@ -83,7 +83,7 @@ import {
   spacing,
   lineHeights,
 } from "@/constants/theme";
-import { catDisplayName } from '@/lib/catDisplayName';
+import { catDisplayName, catNameInSentence } from '@/lib/catDisplayName';
 
 function catCode(id: number): string {
   return `SYR-${String(id).padStart(4, "0")}`;
@@ -579,7 +579,7 @@ export default function ReviewScreen() {
             {t("questionsHeading")}
           </Text>
           <SightingQuestions
-            catName={catDisplayName(result.cat, t)}
+            catName={catNameInSentence(result.cat)}
             askEarTip={result.askEarTip}
             answers={answers}
             onChange={(patch) => setAnswers((prev) => ({ ...prev, ...patch }))}
@@ -603,7 +603,7 @@ export default function ReviewScreen() {
             ? "…"
             : answersFailed
               ? t("answersSend")
-              : `${catDisplayName(result.cat, t)} →`}
+              : `${catNameInSentence(result.cat)} →`}
         </Button>
         {answersFailed ? (
           <Button variant="ghost" size="md" onPress={openCat}>
@@ -672,7 +672,7 @@ export default function ReviewScreen() {
     );
   }
   if (hintCat && !hintAnswered) {
-    const named = (key: string) => t(key).split("{name}").join(catDisplayName(hintCat, t));
+    const named = (key: string) => t(key).split("{name}").join(catNameInSentence(hintCat));
     const sayYes = async () => {
       if (!deviceId) return;
       setHintBusy(true);

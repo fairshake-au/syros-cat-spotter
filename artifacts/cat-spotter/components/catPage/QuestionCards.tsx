@@ -5,7 +5,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useOpenNeedsHelp } from '@/components/report/NeedsHelpLink';
 import { fonts, fontSizes, radii } from '@/constants/theme';
 import type { HomeAction } from '@/lib/catPageFacts';
-import { catDisplayName } from '@/lib/catDisplayName';
+import { catNameInSentence } from '@/lib/catDisplayName';
 
 function QuestionCard({
   emoji,
@@ -59,7 +59,7 @@ export function QuestionCards({
   onHome,
   homeCardRef,
 }: {
-  cat: { id: number; name: string; photoUrl: string | null };
+  cat: { id: number; name: string; namePending?: boolean; photoUrl: string | null };
   homeAction: HomeAction;
   claimDisabled: boolean;
   onHome: () => void;
@@ -67,7 +67,7 @@ export function QuestionCards({
 }) {
   const { t } = useLanguage();
   const openNeedsHelp = useOpenNeedsHelp(cat);
-  const named = (key: string) => t(key).split('{name}').join(catDisplayName(cat, t));
+  const named = (key: string) => t(key).split('{name}').join(catNameInSentence(cat));
   return (
     <View style={styles.row}>
       <QuestionCard

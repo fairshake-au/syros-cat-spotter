@@ -136,7 +136,7 @@ import {
   type AskFrom,
 } from '@/lib/locationAsk';
 import { LocationAskCard } from '@/components/spot/LocationAskCard';
-import { catDisplayName } from '@/lib/catDisplayName';
+import { catNameInSentence } from '@/lib/catDisplayName';
 
 /** A library photo that can't be used, said in a card with the library offered again. */
 type PhotoProblem =
@@ -1615,7 +1615,7 @@ export default function SpotScreen() {
             staged photo, which the hint applies to). */}
         {hintCat ? (
           <SpotHintBanner
-            catName={catDisplayName(hintCat, t)}
+            catName={catNameInSentence(hintCat)}
             photoUrl={hintCat.photoUrl}
             onStop={() => dispatchHint({ kind: 'stop' })}
           />

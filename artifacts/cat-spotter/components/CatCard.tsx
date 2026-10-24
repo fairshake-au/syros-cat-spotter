@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
 import type { Cat } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
-import { catDisplayName } from '@/lib/catDisplayName';
+import { catDisplayName, catListName } from '@/lib/catDisplayName';
 import { useLanguage } from '@/context/LanguageContext';
 import { photoSource } from '@/lib/urls';
 import colorsConst from '@/constants/colors';
@@ -25,6 +25,7 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
         : `${cat.distanceKm.toFixed(1)} ${t('kmAway')}`
       : null;
   const shownName = catDisplayName(cat, t);
+  const listName = catListName(cat, t);
   const discovererText = `${t('discoveredBy')} ${
     cat.discovererUsername ??
     cat.discovererNickname ??
@@ -38,8 +39,8 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
   // Unknown is not zero: only say spotted / not spotted when we know.
   const lead =
     typeof spotted === 'boolean'
-      ? t(spotted ? 'catCardA11ySpotted' : 'catCardA11yNotSpotted').replace('{name}', shownName)
-      : shownName;
+      ? t(spotted ? 'catCardA11ySpotted' : 'catCardA11yNotSpotted').replace('{name}', listName)
+      : listName;
   // Join with a full stop, unless a part already ends its sentence ("Nefeli. Not spotted yet.").
   const a11yLabel = [lead, hasHomeText, seenText, distanceText, discovererText]
     .filter((part): part is string => Boolean(part))
@@ -89,6 +90,15 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
         >
           {shownName}
         </Text>
+        {cat.namePending ? (
+          <Text
+            style={[styles.meta, { color: colors.mutedForeground }]}
+            numberOfLines={1}
+            testID="cat-card-number"
+          >
+            {cat.name}
+          </Text>
+        ) : null}
         <View style={styles.metaRow}>
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>
             {seenText}

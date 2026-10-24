@@ -13,7 +13,7 @@ import type { CatTab } from '@/components/catPage/CatTabBar';
 import { formatInstant, formatPublicDate } from '@/lib/catPageDates';
 import type { HomeAction } from '@/lib/catPageFacts';
 import { fonts, fontSizes, radii } from '@/constants/theme';
-import { catDisplayName } from '@/lib/catDisplayName';
+import { catNameInSentence } from '@/lib/catDisplayName';
 
 export type UpdateBanner = {
   updateType?: string | null;
@@ -66,6 +66,7 @@ export function AboutTab({
   cat: {
     id: number;
     name: string;
+    namePending?: boolean;
     photoUrl: string | null;
     lastSeenAt: string;
     description?: string | null;
@@ -95,7 +96,7 @@ export function AboutTab({
   const colors = useColors();
   const quiet = useQuietColor();
   const { t, language } = useLanguage();
-  const shownName = catDisplayName(cat, t);
+  const sentenceName = catNameInSentence(cat);
   const place = cat.description?.trim() || null;
   const whereBold = place ?? appearance;
   const whereQuiet = place ? appearance : null;
@@ -169,7 +170,7 @@ export function AboutTab({
                 <Text style={[styles.bannerLinkText, { color: colors.primary }]}>
                   {bannerTarget === 'photos'
                     ? t('catBannerSeePhotos')
-                    : t('catBannerSeeStory').split('{name}').join(shownName)}
+                    : t('catBannerSeeStory').split('{name}').join(sentenceName)}
                 </Text>
               </Pressable>
             )}
@@ -206,12 +207,12 @@ export function AboutTab({
           iconLeft={<Feather name="camera" size={18} color={colors.primaryForeground} aria-hidden />}
           onPress={onSpot}
         >
-          {t('spottedCatButton').split('{name}').join(shownName)}
+          {t('spottedCatButton').split('{name}').join(sentenceName)}
         </Button>
       ) : null}
 
       <QuestionCards
-        cat={{ id: cat.id, name: shownName, photoUrl: cat.photoUrl }}
+        cat={{ id: cat.id, name: cat.name, namePending: cat.namePending, photoUrl: cat.photoUrl }}
         homeAction={homeAction}
         claimDisabled={claimDisabled}
         onHome={onHome}
@@ -222,7 +223,7 @@ export function AboutTab({
       )}
 
       {/* SYC-117 part 2: "You spotted Agatha on 3 October. Anything to add?" */}
-      <MoreToAdd catId={cat.id} catName={shownName} />
+      <MoreToAdd catId={cat.id} catName={sentenceName} />
 
       {/* The facts card already says "Has a home"; the banner only adds the owner's name or the home's description (the owner's view). */}
       {cat.hasHome && (cat.ownerName || cat.homeDescription) && (

@@ -24,7 +24,7 @@ import { useOffline } from '@/context/OfflineContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
 import { NameThisCatCard } from '@/components/NameThisCat';
-import { catDisplayName } from '@/lib/catDisplayName';
+import { catDisplayName, catNameInSentence } from '@/lib/catDisplayName';
 import { ClaimAskSheet, type ClaimAskMode } from '@/components/ClaimAskSheet';
 import { ReportIssueSheet } from '@/components/report/ReportIssueSheet';
 import type { IssueReason } from '@/lib/issueQueue';
@@ -175,6 +175,7 @@ export default function CatDetailScreen() {
   const { cat, sightings } = data;
   // SYC-677 D: a cat nobody has named yet shows "No name yet" (its SYR number is on the naming card).
   const shownName = catDisplayName(cat, t);
+  const sentenceName = catNameInSentence(cat);
   const careTimeline = data.careTimeline;
   const isClaimed = cat.hasHome;
   // The server shows the exact spot only to the proven owner, so that is
@@ -357,7 +358,7 @@ export default function CatDetailScreen() {
             />
           )}
           {shownTab === 'story' && careTimeline !== undefined && (
-            <StoryTab catName={shownName} careTimeline={careTimeline} onReport={openReport} />
+            <StoryTab catName={sentenceName} careTimeline={careTimeline} onReport={openReport} />
           )}
           {shownTab === 'map' && <MapTab cat={cat} onReport={openReport} />}
         </View>
@@ -375,7 +376,7 @@ export default function CatDetailScreen() {
         <View style={[styles.followWrap, { top: insets.top + bannerReserve + 8 }]}>
           <FollowButton
             catId={cat.id}
-            catName={shownName}
+            catName={sentenceName}
             deviceId={follow.deviceId}
             isFollowing={follow.isFollowing}
             isOnline={isOnline}
@@ -400,7 +401,7 @@ export default function CatDetailScreen() {
       {issueSheet !== null && (
         <ReportIssueSheet
           catId={cat.id}
-          catName={shownName}
+          catName={sentenceName}
           photoUrl={issueSheet.photoUrl}
           initialReason={issueSheet.initialReason}
           onClose={() => setIssueSheet(null)}
@@ -409,7 +410,7 @@ export default function CatDetailScreen() {
       {askSheet !== null && (
         <ClaimAskSheet
           mode={askSheet}
-          catName={shownName}
+          catName={sentenceName}
           onClose={closeAskSheet}
           // SYC-574 T2.6: the same push as "I've spotted {name}", once the
           // sheet has gone (iOS won't navigate under a closing modal).

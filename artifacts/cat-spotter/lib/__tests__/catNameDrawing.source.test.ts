@@ -25,6 +25,12 @@ const ALLOWED: Record<string, Allow[]> = {
   'app/review.tsx': [
     { includes: 'nameTakenCat.name', why: 'a cat holding a taken name is never pending' },
   ],
+  'components/CatCard.tsx': [
+    { includes: '{cat.name}', why: 'the SYR number under "No name yet", shown on purpose (only for a pending cat)' },
+  ],
+  'components/catPage/AboutTab.tsx': [
+    { includes: 'name: cat.name, namePending: cat.namePending', why: 'handed on whole; QuestionCards picks the sentence name' },
+  ],
   'components/ClaimCatSheet.tsx': [
     { includes: 'setCatName(cat.namePending', why: 'rename box prefill; empty for a pending cat' },
   ],
@@ -72,6 +78,46 @@ function offenders(): string[] {
   }
   return found;
 }
+
+/**
+ * Ruling R29: "No name yet" must not land inside a sentence. A `{name}`
+ * template is filled from catNameInSentence, never from catDisplayName or a
+ * variable made from it; and every `catName={...}` prop (the components that
+ * receive a name fill sentences with it) is given catNameInSentence too. A
+ * line may be listed with a reason when the name stands alone.
+ */
+const FILL_WITH_DISPLAY_NAME = /\{name\}['"][^\n]*(?:catDisplayName|shownName|catListName)/;
+const CAT_NAME_PROP = /\bcatName=\{/;
+const SENTENCE_ALLOWED: Record<string, Array<{ includes: string; why: string }>> = {
+  'components/MoreToAdd.tsx': [
+    { includes: 'catName={catName}', why: 'passes on the sentence name it was given (AboutTab gives catNameInSentence)' },
+  ],
+};
+
+function sentenceOffenders(): string[] {
+  const found: string[] = [];
+  for (const dir of ['app', 'components']) {
+    for (const file of walk(join(ROOT, dir))) {
+      const rel = relative(ROOT, file);
+      const allowed = SENTENCE_ALLOWED[rel] ?? [];
+      readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+        const bad =
+          FILL_WITH_DISPLAY_NAME.test(line) ||
+          (CAT_NAME_PROP.test(line) && !/catNameInSentence|sentenceName/.test(line));
+        if (!bad) return;
+        if (allowed.some((x) => line.includes(x.includes))) return;
+        found.push(`${rel}:${i + 1}: ${line.trim()}`);
+      });
+    }
+  }
+  return found;
+}
+
+describe('a cat name inside a sentence (R29)', () => {
+  it('fills a {name} template only through catNameInSentence', () => {
+    expect(sentenceOffenders()).toEqual([]);
+  });
+});
 
 describe('UI code never draws a raw cat name', () => {
   it('reads .name only where the allowlist says why', () => {

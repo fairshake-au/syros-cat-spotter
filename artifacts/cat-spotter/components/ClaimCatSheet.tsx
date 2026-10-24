@@ -34,7 +34,7 @@ import { claimRefusal, isNotOwnerError, pinMovedFrom, pinTooFar } from '@/lib/cl
 import { getCurrentCoords } from '@/lib/currentPosition';
 import { LocationPicker } from '@/components/LocationPicker';
 import { Button } from '@/components/purropolis/Button';
-import { catDisplayName } from '@/lib/catDisplayName';
+import { catNameInSentence } from '@/lib/catDisplayName';
 
 type Mode = 'claim' | 'edit';
 
@@ -67,7 +67,7 @@ export function ClaimCatSheet({
   const queryClient = useQueryClient();
 
   // Wording uses the cat's name, never "he" or "she" (spec §4.1).
-  const named = (key: string) => t(key).split('{name}').join(catDisplayName(cat, t));
+  const named = (key: string) => t(key).split('{name}').join(catNameInSentence(cat));
 
   const [step, setStep] = useState<1 | 2>(1);
   const [livesOnSyros, setLivesOnSyros] = useState(false);

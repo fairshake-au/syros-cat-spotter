@@ -131,6 +131,12 @@ describe('"I\'ve spotted {name}" on the cat page', () => {
     expect(spotted()?.textContent).toBe('I’ve spotted Agatha');
   });
 
+  it('a cat nobody has named yet reads by its SYR number in the button, never "No name yet" (R29)', () => {
+    page(cat({ name: 'SYR-0042', namePending: true }));
+    expect(spotted()?.textContent).toBe('I’ve spotted SYR-0042');
+    expect(spotted()?.textContent).not.toContain('No name yet');
+  });
+
   it('shows for the owner too', () => {
     h.ownedCatIds = [7];
     page(cat({ lifeStatus: 'homed', hasHome: true }));
