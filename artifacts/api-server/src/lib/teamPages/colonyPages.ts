@@ -71,6 +71,7 @@ const DONE: Record<string, WordKey> = {
   nothingNew: "done.nothingNew",
   takenOut: "done.takenOut",
   notThere: "done.notThere",
+  batch: "done.batch",
 };
 
 /** A fixed sentence for `?done=<key>`; any other key shows nothing. */
