@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   platform: 'ios' as string,
   storage: new Map<string, string>(),
   appStateListeners: [] as ((s: string) => void)[],
+  deviceId: 'dev-a' as string | null,
   getForegroundPermissionsAsync: vi.fn(),
   requestForegroundPermissionsAsync: vi.fn(),
   getLastKnownPositionAsync: vi.fn(),
@@ -47,6 +48,10 @@ vi.mock('expo-location', () => ({
   getCurrentPositionAsync: h.getCurrentPositionAsync,
 }));
 
+vi.mock('@/context/DeviceContext', () => ({
+  useDevice: () => ({ deviceId: h.deviceId }),
+}));
+
 import { LocationProvider, useAppLocation } from '../../context/LocationContext';
 import { LOCATION_CHOICE_KEY } from '@/lib/locationChoice';
 
@@ -63,6 +68,7 @@ const settle = () => act(async () => {});
 beforeEach(() => {
   h.platform = 'ios';
   h.storage.clear();
+  h.deviceId = 'dev-a';
   h.appStateListeners.length = 0;
   h.getForegroundPermissionsAsync.mockReset().mockResolvedValue(UNDETERMINED);
   h.requestForegroundPermissionsAsync.mockReset().mockResolvedValue(GRANTED);
@@ -190,6 +196,26 @@ describe('LocationProvider (native)', () => {
     expect(h.getLastKnownPositionAsync).toHaveBeenCalledWith({ maxAge: 5 * 60 * 1000 });
     expect(result.current.coords).toEqual({ latitude: 1, longitude: 2 });
     expect(result.current.denied).toBe(false);
+  });
+
+  it('forgets the choice when the device id changes after the stored choice was cleared (Delete my data)', async () => {
+    h.storage.set(LOCATION_CHOICE_KEY, 'map');
+    const { result, rerender } = renderHook(() => useAppLocation(), { wrapper });
+    await waitFor(() => expect(result.current.choice).toBe('map'));
+    h.storage.delete(LOCATION_CHOICE_KEY);
+    h.deviceId = 'dev-b';
+    rerender();
+    await waitFor(() => expect(result.current.choice).toBeNull());
+  });
+
+  it('keeps the choice when the device id changes and the stored choice is still there (restore)', async () => {
+    h.storage.set(LOCATION_CHOICE_KEY, 'shared');
+    const { result, rerender } = renderHook(() => useAppLocation(), { wrapper });
+    await waitFor(() => expect(result.current.choice).toBe('shared'));
+    h.deviceId = 'dev-b';
+    rerender();
+    await settle();
+    expect(result.current.choice).toBe('shared');
   });
 
   it('chooseMap remembers the map choice', async () => {
