@@ -6,7 +6,12 @@ import { areaForIn, OFF_SYROS } from "../areas/namedAreas";
 // SYC-706 Task 6: badges are saved once earned, inside the spot's own
 // transaction, and each new batch queues one celebration moment.
 
-export type DbOrTx = Pick<typeof db, "execute">;
+/**
+ * The database, or a transaction on it. Everything here reads only through
+ * it, never the global `db`: inside the resolve transaction a second pool
+ * connection, taken while holding locks, can deadlock the pool.
+ */
+export type DbOrTx = Pick<typeof db, "execute" | "select">;
 
 /** Pathfinder's quiet period. */
 export const PATHFINDER_QUIET_DAYS = 30;
@@ -59,6 +64,7 @@ export async function eventBadgesForSpot(tx: DbOrTx, spot: SpotEvent): Promise<s
     left join points_ledger l on l.sighting_id = s.id
     where s.status = 'resolved'
       and s.area_key = ${areaKey}
+      and s.cat_id is distinct from ${catId}
       and coalesce(l.earned_at, s.created_at) >= ${since.toISOString()}::timestamptz
       and coalesce(l.earned_at, s.created_at) < ${at.toISOString()}::timestamptz
     limit 1
@@ -74,8 +80,9 @@ export async function eventBadgesForSpot(tx: DbOrTx, spot: SpotEvent): Promise<s
  * that area, and the area was on the list at that moment. "Known" is either
  * of:
  *  - the other cat's first confirmed spot is stamped with this area;
- *  - the other cat's position falls in this area on the list as it stands
- *    now. This catches an area the team adds where cats already lived: their
+ *  - the other cat's position falls in this area on the list as it stood at
+ *    the moment of this spot (namedAreasAt(at)). This catches an area the
+ *    team adds where cats already lived: their
  *    spots were stamped before the area existed, so the stamp alone would
  *    hand the badge to the next new cat there (spec §2: nobody gets it).
  * Cats the team registered themselves count as known. Removed (redacted)
@@ -87,7 +94,7 @@ async function isFirstCatInArea(
   areaKey: string,
   at: Date,
 ): Promise<boolean> {
-  const { areas } = await namedAreasAt(at);
+  const { areas } = await namedAreasAt(at, tx);
   const area = areas.find((a) => a.key === areaKey);
   if (!area) return false;
 

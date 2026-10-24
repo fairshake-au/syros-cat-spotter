@@ -55,8 +55,14 @@ function areaOf(after: unknown): (NamedArea & { retired: boolean }) | null {
  * microsecond. A change stamped within the same millisecond as `at` counts as
  * made by then, so a moment read back from a row includes that row.
  */
-export async function namedAreasAt(at: Date): Promise<{ version: number; areas: NamedArea[] }> {
-  const rows = await db
+export async function namedAreasAt(
+  at: Date,
+  // A caller inside a transaction passes it, so the read uses the
+  // transaction's connection rather than taking a second one from the pool
+  // while holding locks (SYC-706 review; teamCorrections.ts's #99 S1).
+  executor: Pick<typeof db, "select"> = db,
+): Promise<{ version: number; areas: NamedArea[] }> {
+  const rows = await executor
     .select({ subjectId: mappingEventsTable.subjectId, after: mappingEventsTable.after })
     .from(mappingEventsTable)
     .where(and(areaRows, sql`date_trunc('milliseconds', ${mappingEventsTable.at}) <= ${at.toISOString()}::timestamptz`))

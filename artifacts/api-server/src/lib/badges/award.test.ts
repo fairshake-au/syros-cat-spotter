@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import request from "supertest";
 import {
   db,
+  pool,
   catsTable,
   photosTable,
   sightingsTable,
@@ -331,6 +332,56 @@ describe("event badges", () => {
       await eventBadgesForSpot(db, { deviceId: device("tb"), catId: lone, isNewCat: true, areaKey: `vitest-tb-none-${++seq}`, at }),
     ).not.toContain("trailblazer");
     vi.mocked(namedAreasAt).mockReset();
+  });
+
+  it("event badges read only through the transaction, never a second pool connection", async () => {
+    await openBackfill();
+    const real = await vi.importActual<typeof import("../areas/areaHistory")>("../areas/areaHistory");
+    vi.mocked(namedAreasAt).mockImplementation(real.namedAreasAt);
+    const catId = await seedCat("OneConnection");
+    let result: string[] = [];
+    await db.transaction(async (tx) => {
+      // From here on, any read through the global db (or pool) would take a
+      // second connection while this one holds the transaction's locks.
+      const connect = vi.spyOn(pool, "connect");
+      const query = vi.spyOn(pool, "query");
+      const select = vi.spyOn(db, "select");
+      const execute = vi.spyOn(db, "execute");
+      try {
+        result = await eventBadgesForSpot(tx, {
+          deviceId: device("one-conn"), catId, isNewCat: true, areaKey: "ermoupoli", at: new Date(),
+        });
+        expect(vi.mocked(namedAreasAt)).toHaveBeenCalled();
+        expect(connect).not.toHaveBeenCalled();
+        expect(query).not.toHaveBeenCalled();
+        expect(select).not.toHaveBeenCalled();
+        expect(execute).not.toHaveBeenCalled();
+      } finally {
+        connect.mockRestore();
+        query.mockRestore();
+        select.mockRestore();
+        execute.mockRestore();
+      }
+    });
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("pathfinder ignores the cat being resolved", async () => {
+    await openBackfill();
+    const key = `vitest-pf-self-${++seq}`;
+    const catId = await seedCat("PfSelf");
+    // The cat's own spot, dated a moment before `at`.
+    const spotter = device("pf-self");
+    const sightingId = await insertResolvedSighting(spotter, catId, { areaKey: key });
+    const at = new Date();
+    const earned = new Date(at.getTime() - 1000);
+    await db.execute(sql`
+      insert into points_ledger (device_id, sighting_id, cat_id, points, athens_day, week_start, earned_at, source)
+      values (${spotter}, ${sightingId}, ${catId}, 25, ${athensDay(earned)}::date,
+              ${weekStartAthens(earned)}::date, ${earned.toISOString()}::timestamptz, 'live')`);
+    expect(
+      await eventBadgesForSpot(db, { deviceId: spotter, catId, isNewCat: true, areaKey: key, at }),
+    ).toContain("pathfinder");
   });
 
   it("event badges wait for the backfill", async () => {
