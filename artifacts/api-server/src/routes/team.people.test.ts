@@ -221,6 +221,26 @@ describe("People are short rows that open (SYC-619 §4.1)", () => {
     for (const sum of listing.match(/<summary>[\s\S]*?<\/summary>/g)!) expect(sum).not.toContain("pbtn");
     // a person fold with no open attribute is the only kind on a plain page
     expect(listing).not.toMatch(/<details class="person"[^>]*\sopen/);
+    // Between one person's closing </details> and the next person (or the end of the list)
+    // there is no button and no form: the fold's own nested details are counted off first.
+    const starts = [...listing.matchAll(/<details class="person"/g)].map((m) => m.index!);
+    expect(starts.length).toBeGreaterThan(1);
+    starts.forEach((start, i) => {
+      const nextStart = i + 1 < starts.length ? starts[i + 1]! : listing.length;
+      let depth = 0;
+      let end = -1;
+      for (const m of listing.slice(start).matchAll(/<details\b|<\/details>/g)) {
+        depth += m[0] === "</details>" ? -1 : 1;
+        if (depth === 0) {
+          end = start + m.index! + m[0].length;
+          break;
+        }
+      }
+      expect(end, `person ${i}'s fold closes`).toBeGreaterThan(start);
+      const outside = listing.slice(end, nextStart);
+      expect(outside, `person ${i}`).not.toContain("pbtn");
+      expect(outside, `person ${i}`).not.toContain("<form");
+    });
   });
 
   it("a proven Done opens that person; a bare ?done= opens nobody", async () => {
