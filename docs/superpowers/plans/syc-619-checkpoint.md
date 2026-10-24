@@ -24,3 +24,5 @@ PR2 fix wave: items 1-6 done (colonycat class, seed tied to migration, singular 
 Next: full teamPages + routes run, typecheck, then PR2 ready.
 Task 10: cards draw only what is known: coat and colony lines left out when unknown, mark always shown (d627d2cb)
 Next: remaining PR 3 tasks (Task 11 onward)
+Task 11: 360px card photo version, migration 0041, grid srcset (5c2128ad)
+Next: Task 12 onward
