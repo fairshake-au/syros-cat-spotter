@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * SYC-211 companion to LanguageUsernameStep.test.tsx: the reconcile rules
+ * SYC-211 companion to NameStep.test.tsx: the reconcile rules
  * after a late, unclear failure (approved behaviour 3), pinned separately.
  * Scaffolding copied from that file.
  *
@@ -72,14 +72,14 @@ vi.mock('@/components/purropolis', () => ({
   Tag: ({ children }: any) => <span>{children}</span>,
 }));
 
-import { LanguageUsernameStep } from '../onboarding/LanguageUsernameStep';
+import { NameStep } from '../onboarding/NameStep';
 import { resetUsernameClaimStateForTests } from '@/hooks/useUsernameClaim';
 
 const never = () => new Promise<never>(() => {});
 async function tick(ms: number) { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); }
 
 function setup() {
-  const view = render(<LanguageUsernameStep onBack={() => {}} />);
+  const view = render(<NameStep onBack={() => {}} />);
   const input = view.container.querySelector('input')!;
   const continueBtn = () =>
     view.getAllByRole('button').find((b) => /Continue|Retry|Saving/.test(b.textContent ?? '')) as HTMLButtonElement;
@@ -97,7 +97,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-describe('LanguageUsernameStep reconcile after a late failure (SYC-211 F3)', () => {
+describe('NameStep reconcile after a late failure (SYC-211 F3)', () => {
   async function claimThenLoseConnection(name: string) {
     let fail!: (e: unknown) => void;
     h.claim.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));

@@ -58,11 +58,11 @@ vi.mock('@/components/purropolis', () => ({
   Tag: ({ children }: any) => <span>{children}</span>,
 }));
 
-import { LanguageUsernameStep } from '../onboarding/LanguageUsernameStep';
+import { NameStep } from '../onboarding/NameStep';
 import { resetUsernameClaimStateForTests } from '@/hooks/useUsernameClaim';
 
 function setup() {
-  const view = render(<LanguageUsernameStep onBack={() => {}} />);
+  const view = render(<NameStep onBack={() => {}} />);
   const input = view.container.querySelector('input')!;
   // The purropolis Button mock is the only element with type="button" text.
   const mainButton = () =>
@@ -78,7 +78,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-describe('LanguageUsernameStep offline (SYC-506)', () => {
+describe('NameStep offline (SYC-506)', () => {
   it('shows names made on the phone, the offline note and "Start spotting"', () => {
     const { view, mainButton } = setup();
     expect(view.container.textContent).toContain(en.offlineNameNote);

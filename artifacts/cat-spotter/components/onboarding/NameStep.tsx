@@ -52,7 +52,7 @@ const MIN_LEN = 3;
  * chosen one on the phone (DeviceContext `heldUsername`); the app opens and
  * saves it once there's a connection (hooks/useHeldNameSaver.ts).
  */
-export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
+export function NameStep({ onBack }: { onBack: () => void }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();

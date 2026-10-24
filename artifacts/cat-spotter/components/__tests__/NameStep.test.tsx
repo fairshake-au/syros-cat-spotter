@@ -66,14 +66,14 @@ vi.mock('@/components/purropolis', () => ({
   Tag: ({ children }: any) => <span>{children}</span>,
 }));
 
-import { LanguageUsernameStep } from '../onboarding/LanguageUsernameStep';
+import { NameStep } from '../onboarding/NameStep';
 import { resetUsernameClaimStateForTests } from '@/hooks/useUsernameClaim';
 
 const never = () => new Promise<never>(() => {});
 async function tick(ms: number) { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); }
 
 function setup() {
-  const view = render(<LanguageUsernameStep onBack={() => {}} />);
+  const view = render(<NameStep onBack={() => {}} />);
   const input = view.container.querySelector('input')!;
   const continueBtn = () =>
     view.getAllByRole('button').find((b) => /Continue|Retry|Saving/.test(b.textContent ?? '')) as HTMLButtonElement;
@@ -91,7 +91,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-describe('LanguageUsernameStep (SYC-211)', () => {
+describe('NameStep (SYC-211)', () => {
   it('F1: Back stays enabled through a pending and an uncertain claim', async () => {
     h.read.mockImplementation(() => Promise.resolve({ username: null }));
     h.claim.mockImplementationOnce(never);
@@ -163,7 +163,7 @@ describe('LanguageUsernameStep (SYC-211)', () => {
     await tick(8000);
     // The real answer now arrives, 3s after the 5s deadline — not dropped.
     h.availability = { data: { available: true }, isFetching: false, isError: false };
-    await act(async () => { view.rerender(<LanguageUsernameStep onBack={() => {}} />); });
+    await act(async () => { view.rerender(<NameStep onBack={() => {}} />); });
     expect(view.container.textContent).toContain(en.landingAvailable);
   });
 

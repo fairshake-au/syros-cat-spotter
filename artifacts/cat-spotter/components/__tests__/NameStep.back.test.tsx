@@ -8,7 +8,7 @@
  * while the first request was still open, and if the first one landed last
  * the server held it while the phone showed the second.
  *
- * Scaffolding copied from LanguageUsernameStep.reconcile.test.tsx. The fake
+ * Scaffolding copied from NameStep.reconcile.test.tsx. The fake
  * server below applies each claim when it "lands", in landing order, as the
  * real one does (last write wins).
  */
@@ -58,7 +58,7 @@ vi.mock('@/components/purropolis', () => ({
   Tag: ({ children }: any) => <span>{children}</span>,
 }));
 
-import { LanguageUsernameStep } from '../onboarding/LanguageUsernameStep';
+import { NameStep } from '../onboarding/NameStep';
 import { resetUsernameClaimStateForTests } from '@/hooks/useUsernameClaim';
 
 const never = () => new Promise<never>(() => {});
@@ -85,7 +85,7 @@ function serverClaim(_deviceId: string, body: { username: string }) {
 }
 
 function mount() {
-  const view = render(<LanguageUsernameStep onBack={() => {}} />);
+  const view = render(<NameStep onBack={() => {}} />);
   const input = () => view.container.querySelector('input')!;
   const continueBtn = () =>
     view.getAllByRole('button').find((b) => /Continue|Retry|Saving/.test(b.textContent ?? '')) as HTMLButtonElement;

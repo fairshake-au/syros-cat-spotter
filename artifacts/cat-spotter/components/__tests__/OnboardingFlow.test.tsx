@@ -62,10 +62,10 @@ vi.mock('../onboarding/WelcomeStep', async () => {
   };
 });
 
-vi.mock('../onboarding/LanguageUsernameStep', async () => {
+vi.mock('../onboarding/NameStep', async () => {
   const { Text } = await import('react-native');
   return {
-    LanguageUsernameStep: ({ onBack }: { onBack: () => void }) => (
+    NameStep: ({ onBack }: { onBack: () => void }) => (
       <Text onPress={onBack}>STUB_NAME_BACK</Text>
     ),
   };
