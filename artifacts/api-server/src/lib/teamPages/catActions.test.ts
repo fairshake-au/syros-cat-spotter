@@ -50,6 +50,15 @@ describe("renderCatActions", () => {
     expect(done).not.toContain('<details class="update" open>');
   });
 
+  it("held typing longer than a note may be refills cut to 2000 characters, never half an emoji", () => {
+    const v = catView({ cat: { id: 42 } });
+    const long = draw(v, all, { kept: { formKey: "note:42", fields: { text: "a".repeat(3500) } } });
+    expect(long).toContain(`>${"a".repeat(2000)}</textarea>`);
+    expect(long).not.toContain("a".repeat(2001));
+    const split = draw(v, all, { kept: { formKey: "note:42", fields: { text: "b".repeat(1999) + "\u{1F63A}" + "tail" } } });
+    expect(split).toContain(`>${"b".repeat(1999)}</textarea>`);
+  });
+
   it("lists the forms in the spec's order and words", () => {
     const html = draw(catView({ owner: { has: true }, colony: { id: 4, name: "Vaporia steps", wasName: null } }));
     const start = html.indexOf(UPDATE);
