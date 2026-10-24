@@ -758,12 +758,12 @@ router.post(
 /**
  * C0 controls other than the line break (CR is already a line break by `lf`),
  * and the bidi overrides and isolates (U+202A to U+202E, U+2066 to U+2069) that
- * can reorder the line a note is drawn beside. Dropped, not refused. NUL stays
+ * can reorder the line a note is drawn beside. A Tab becomes one space (it must not glue words). Dropped, not refused. NUL stays
  * and is refused (noNul), as it always was.
  */
 // eslint-disable-next-line no-control-regex
-const NOTE_STRIPPED = /[\u0001-\u0009\u000B-\u001F\u202A-\u202E\u2066-\u2069]/g;
-const noteChars = (v: unknown) => (typeof v === "string" ? String(lf(v)).replace(NOTE_STRIPPED, "") : v);
+const NOTE_STRIPPED = /[\u0001-\u0008\u000B-\u001F\u202A-\u202E\u2066-\u2069]/g;
+const noteChars = (v: unknown) => (typeof v === "string" ? String(lf(v)).replace(/\t/g, " ").replace(NOTE_STRIPPED, "") : v);
 // A lone surrogate passes zod but Postgres jsonb refuses it (a 500); say 400.
 // (The ES2024 isWellFormed is not in this project's lib, so the pairs are checked by pattern.)
 const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;

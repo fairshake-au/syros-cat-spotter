@@ -200,7 +200,7 @@ describe("POST /api/team/cats/:id/note", () => {
     const catId = await newCat();
     const ok = await form(`/api/team/cats/${catId}/note`).send({ text: "a\u202Eb\u0007c\u2066d\u2069e\u001Ff\nline two\ttab" });
     expect(ok.status).toBe(303);
-    expect((await notes(catId))[0]!.value).toEqual({ text: "abcdef\nline twotab" });
+    expect((await notes(catId))[0]!.value).toEqual({ text: "abcdef\nline two tab" });
     const before = await allRows(catId);
     for (const text of ["\u202E\u2066\u0007", " \u202A \u0001 "]) {
       const res = await form(`/api/team/cats/${catId}/note`).send({ text });

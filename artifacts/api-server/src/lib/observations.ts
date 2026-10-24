@@ -1126,7 +1126,8 @@ export async function writeObservation(
       `roleAtTime "${input.roleAtTime}" may not retract a ${input.kind}`,
     );
   }
-  // A team note is team-only, so only the team takes one back.
+  // A team note is team-only, so only the team takes one back. Deliberately redundant behind
+  // ROLES_REFUSED_FOR_KIND (defence in depth); it can't be tested on its own.
   if (teamNoteRetracting && !isTeamRole(input.roleAtTime)) {
     refuse(
       "INVALID_RETRACTION",
