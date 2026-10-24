@@ -3,7 +3,7 @@
 **Status:** draft for Samuel's approval, 24 Oct 2026.
 **Ticket:** SYC-655.
 **Amends:** [team-cat-page-redesign.md](team-cat-page-redesign.md) (SYC-602), §3.3, §3.4 and §4 only. Everything else in that spec stands: the content, the words, the buttons, History, Photos, Coat and markings, Reports, and every capability gate.
-**Mockups:** https://claude.ai/artifact/1xAc8E4MF7fM6hK6G7EXAC (option B).
+**Mockups:** the three options at https://claude.ai/artifact/1xAc8E4MF7fM6hK6G7EXAC; the chosen design, with §5 applied, at https://claude.ai/artifact/464MUtBUmNmzMCriEoWquQ (source: [assets/team-cat-page-tabs/mockup.html](assets/team-cat-page-tabs/mockup.html)).
 
 ## 1. Why
 
