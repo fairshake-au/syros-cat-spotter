@@ -82,7 +82,8 @@ export function renderVetSettingsPage(o: VetSettingsPageOptions): string {
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
       "<h2>Standard sterilisation price</h2>" +
       `<p class="hbig"><strong>€${o.priceEur}</strong> per cat</p>` +
-      "<p class=\"hint\">A vet visit with Sterilised ticked starts with this price as its cost. Each visit's cost can still be changed.</p>" +
+      // The planner's estimate is back now the planner is built (SYC-619 §9.3; SYC-621).
+      "<p class=\"hint\">Each colony's trapping planner uses it for its estimate, and a vet visit with Sterilised ticked starts with it as its cost. Each visit's cost can still be changed.</p>" +
       priceForm(o) +
       '<h2 id="history">History</h2>' +
       historyList(o.history),
