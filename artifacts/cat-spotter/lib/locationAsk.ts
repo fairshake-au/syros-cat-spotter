@@ -41,3 +41,31 @@ export function locationAskView({
   if (choice === 'shared') return 'auto-ask';
   return 'card';
 }
+
+/** Where a running ask started: the card, the small link, or the automatic one. */
+export type AskFrom = 'card' | 'link' | 'auto' | null;
+
+/**
+ * What the screen actually treats as shown. While an ask from the card, or the
+ * automatic one, waits for the phone with no position yet, the view holds at
+ * 'card': no pin and no Ermoupoli start (the card stays busy; for the
+ * automatic ask the phone's box is the UI). A refusal ('off-*') or a fix ends
+ * the hold.
+ */
+export function effectiveLocationAsk({
+  raw,
+  askFrom,
+  hasCoords,
+}: {
+  raw: LocationAskView;
+  askFrom: AskFrom;
+  hasCoords: boolean;
+}): LocationAskView {
+  const holding = (askFrom === 'card' || askFrom === 'auto') && !hasCoords;
+  return holding && (raw === 'link' || raw === 'none') ? 'card' : raw;
+}
+
+/** The automatic ask runs once per photo, and only for the 'auto-ask' view. */
+export function shouldAutoAsk(raw: LocationAskView, photo: unknown, lastAskedPhoto: unknown): boolean {
+  return raw === 'auto-ask' && photo != null && photo !== lastAskedPhoto;
+}

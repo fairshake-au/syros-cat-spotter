@@ -129,7 +129,12 @@ import {
   type ReadyMapStart,
 } from '@/lib/mapStart';
 import { spokenText } from '@/lib/a11yText';
-import { locationAskView, type LocationAskView } from '@/lib/locationAsk';
+import {
+  effectiveLocationAsk,
+  locationAskView,
+  shouldAutoAsk,
+  type AskFrom,
+} from '@/lib/locationAsk';
 import { LocationAskCard } from '@/components/spot/LocationAskCard';
 
 /** A library photo that can't be used, said in a card with the library offered again. */
@@ -413,9 +418,10 @@ export default function SpotScreen() {
   // SYC-524: whether the spotter answered the location card (either button,
   // or the small link) for this photo. Reset in resetMapStart.
   const [answeredThisPhoto, setAnsweredThisPhoto] = useState(false);
-  // Where a running ask started, so its button can say "Getting your
-  // location…". A token, so a stale ask finishing can't clear a newer one.
-  const [askFrom, setAskFrom] = useState<'card' | 'link' | null>(null);
+  // Where a running ask started ('auto' = straight after the photo), so its
+  // button can say "Getting your location…" and the map holds. A token, so a
+  // stale ask finishing can't clear a newer one.
+  const [askFrom, setAskFrom] = useState<AskFrom>(null);
   const askTokenRef = React.useRef(0);
   // The photo the 'auto-ask' already asked for: once per photo, never a loop.
   const autoAskedPhotoRef = React.useRef<PickedPhoto | null>(null);
@@ -428,14 +434,15 @@ export default function SpotScreen() {
     answeredThisPhoto,
     checked,
   });
-  // While "Use where I am" from the card waits for the phone, the card stays
-  // (busy) and no pin is placed: the fix, a refusal or the timeout ends it,
-  // and "I'll put the pin on the map" stays available throughout.
-  const locationAsk: LocationAskView =
-    askFrom === 'card' && !coords && (rawLocationAsk === 'link' || rawLocationAsk === 'none')
-      ? 'card'
-      : rawLocationAsk;
-  const trackAsk = React.useCallback((from: 'card' | 'link', ask: Promise<unknown>) => {
+  // While "Use where I am" from the card (or the automatic ask) waits for the
+  // phone, the view holds at 'card' and no pin is placed: the fix, a refusal
+  // or the timeout ends it, and "I'll put the pin on the map" stays available.
+  const locationAsk = effectiveLocationAsk({
+    raw: rawLocationAsk,
+    askFrom,
+    hasCoords: !!coords,
+  });
+  const trackAsk = React.useCallback((from: Exclude<AskFrom, null>, ask: Promise<unknown>) => {
     const token = ++askTokenRef.current;
     setAskFrom(from);
     void ask.finally(() => {
@@ -443,13 +450,12 @@ export default function SpotScreen() {
     });
   }, []);
   // A spotter who shared before ('auto-ask'): straight to the phone's box,
-  // once for this photo. Answering makes the view the small link meanwhile.
+  // once for this photo. The map holds (no pin) while the phone's box is up.
   React.useEffect(() => {
-    if (!photo || rawLocationAsk !== 'auto-ask') return;
-    if (autoAskedPhotoRef.current === photo) return;
+    if (!shouldAutoAsk(rawLocationAsk, photo, autoAskedPhotoRef.current)) return;
     autoAskedPhotoRef.current = photo;
     setAnsweredThisPhoto(true);
-    trackAsk('link', askAndLocate());
+    trackAsk('auto', askAndLocate());
   }, [photo, rawLocationAsk, askAndLocate, trackAsk]);
   const onUseWhereIAm = () => {
     setAnsweredThisPhoto(true);
@@ -1707,7 +1713,9 @@ export default function SpotScreen() {
               )}
               {/* SYC-524: the explain-first card, the small link or the
                   "location is off" line, above the map. */}
+              {/* Nothing during the automatic ask: the phone's box is the UI. */}
               {!waitChoice &&
+                askFrom !== 'auto' &&
                 (locationAsk === 'card' ||
                   locationAsk === 'link' ||
                   locationAsk === 'off-native' ||
@@ -1724,7 +1732,7 @@ export default function SpotScreen() {
                   the map's place (starter-facts.md §3.1). The pin is kept. */}
               {shouldShowWaitingCard({ waiting: waitChoice !== null }) && waitChoice ? (
                 <WaitingCard choice={waitChoice} t={t} />
-              ) : pickedCoords && (
+              ) : pickedCoords && locationAsk !== 'card' && (
                 <LocationPicker
                   key={mapStartKey}
                   latitude={pickedCoords.latitude}
