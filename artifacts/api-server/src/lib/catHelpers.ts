@@ -457,8 +457,8 @@ function publicSterilised(sterilised: {
  * backfill or not. (No PR before PR 8 writes one yet, so this is a no-op in
  * practice until PR 8 ships — exactly as the plan expects.)
  */
-export async function isResolvedDeceased(catId: number): Promise<boolean> {
-  const records = await loadCatRecords([catId]);
+export async function isResolvedDeceased(catId: number, exec: DbOrTx = db): Promise<boolean> {
+  const records = await loadCatRecords([catId], exec);
   const rec = records.get(catId);
   const snapshot = resolveCat(rec?.observations ?? [], rec?.evidenceOfLife ?? null, new Date());
   return snapshot.lifeStatus === "deceased";

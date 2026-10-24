@@ -1039,7 +1039,8 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       // snapshot and the guard below sees its cat_unfollows row. Lock order:
       // this transaction holds the sighting row, then wants the cat row;
       // follow/unfollow and claim take the cat row and never a sighting row,
-      // so no cycle can form.
+      // and severPerson updates sightings first, then cats (the same order
+      // as here), so no cycle can form.
       await tx.execute(sql`select 1 from cats where id = ${cat!.id} for share`);
       await tx.execute(sql`
         insert into cat_subscriptions (device_id, cat_id)

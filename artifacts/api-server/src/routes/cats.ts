@@ -635,7 +635,7 @@ function followHandler(action: "follow" | "unfollow") {
       if (!cat) return { kind: "missing" as const };
       if (action === "unfollow" && cat.ownerDeviceId === deviceId) return { kind: "owner" as const };
       // A cat recorded as dead can't be newly followed; unfollowing still works.
-      if (action === "follow" && (await isResolvedDeceased(catId))) return { kind: "deceased" as const };
+      if (action === "follow" && (await isResolvedDeceased(catId, tx))) return { kind: "deceased" as const };
       if (action === "follow") await follow(tx, { deviceId, catId });
       else await unfollow(tx, { deviceId, catId });
       return { kind: "ok" as const, followersCount: await followersCount(catId, tx) };
