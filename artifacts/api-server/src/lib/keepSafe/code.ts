@@ -31,6 +31,19 @@ function codeMatches(row: CodeRow, code: string): boolean {
  */
 export const codeCheck = { matches: codeMatches };
 
+let codeHook: (() => Promise<void>) | null = null;
+
+/**
+ * Tests only: runs inside the transaction (after BEGIN, so `now()` is
+ * fixed), before the try is counted. The 20-at-once test holds transactions
+ * here and lets them on in an order where a row's expiry can't stop the
+ * waiting ones, so only `code_attempts < 5` can.
+ */
+export function __setCodeHookForTest(hook: (() => Promise<void>) | null): void {
+  if (process.env["NODE_ENV"] !== "test") throw new Error("test only");
+  codeHook = hook;
+}
+
 export type ExchangeResult =
   | { ok: true; handle: string; tokenLogId: string }
   | { ok: false; live: number; attempts: number[] };
@@ -43,6 +56,7 @@ export type ExchangeResult =
  */
 export async function exchangeCode(input: { callerDeviceId: string; code: string }): Promise<ExchangeResult> {
   return db.transaction(async (tx) => {
+    if (codeHook) await codeHook();
     // 1. Count a try against every live, code-bearing row of this phone (it
     //    can't tell which one the person meant), atomically, before comparing.
     const counted = await tx.execute(sql`

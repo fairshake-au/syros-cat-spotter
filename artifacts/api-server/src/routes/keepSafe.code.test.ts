@@ -24,7 +24,7 @@ import app from "../app";
 import { settleOutbox } from "../lib/mail/outbox";
 import { normaliseAddress } from "../lib/mail/fingerprint";
 import { hashToken } from "../lib/keepSafe/tokens";
-import { codeCheck } from "../lib/keepSafe/code";
+import { __setCodeHookForTest, codeCheck } from "../lib/keepSafe/code";
 import { _resetBucketForTests } from "../lib/limits";
 import { __setCodeCapForTest, __setCodePadForTest, __setRestorePadForTest } from "./keepSafe";
 import { installFakeResend, tokenFrom, type SentMail } from "../test/fakeResend";
@@ -58,6 +58,7 @@ afterEach(async () => {
   __setRestorePadForTest(null);
   __setCodePadForTest(null);
   __setCodeCapForTest(null);
+  __setCodeHookForTest(null);
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   process.env = { ...saved };
@@ -251,8 +252,35 @@ describe("POST /api/restore/code", () => {
   it("20 parallel wrong codes → code_attempts = 5 and at most 5 comparisons", async () => {
     const { phone, code } = await phoneWithCode();
     __setCodeCapForTest(100);
+    // Hold the transactions as they begin (all twenty, or as many as the
+    // pool lets in within a second), then let them on in REVERSE order, 20 ms
+    // apart. The fifth to reach the row, which kills it, then began after
+    // every transaction still waiting behind it, so its `expires_at = now()`
+    // is later than their now() and can't stop them: only the row's own
+    // `code_attempts < 5` can. (Without the reversal the guard's removal only
+    // sometimes shows; mutation probe (a), SYC-664 T3.)
+    let arrived = 0;
+    let released = false;
+    const held: (() => void)[] = [];
+    const release = () => {
+      if (released) return;
+      released = true;
+      held.reverse().forEach((go, i) => setTimeout(go, i * 20));
+    };
+    const timer = setTimeout(release, 1000);
+    __setCodeHookForTest(
+      () =>
+        new Promise<void>((go) => {
+          arrived++;
+          if (released) return go();
+          held.push(go);
+          if (held.length === 20) release();
+        }),
+    );
     const compare = vi.spyOn(codeCheck, "matches");
     const answers = await Promise.all(Array.from({ length: 20 }, (_, i) => sendCode(phone, wrongFor(code, i + 1))));
+    clearTimeout(timer);
+    expect(arrived).toBe(20);
     expect(answers.map((a) => a.status)).toEqual(Array(20).fill(401));
     const [row] = await rowsOf(phone.id);
     expect(row!.code_attempts).toBe(5);
@@ -334,6 +362,7 @@ describe("POST /api/restore/code", () => {
     try {
       expect(() => __setCodePadForTest(1)).toThrow("test only");
       expect(() => __setCodeCapForTest(1)).toThrow("test only");
+      expect(() => __setCodeHookForTest(null)).toThrow("test only");
     } finally {
       process.env["NODE_ENV"] = env;
     }
