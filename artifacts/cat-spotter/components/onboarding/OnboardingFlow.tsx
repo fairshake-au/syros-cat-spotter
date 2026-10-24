@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
 import { WelcomeStep } from './WelcomeStep';
-import { HowItWorksStep } from './HowItWorksStep';
 import { SafetyStep } from './SafetyStep';
 import { LanguageUsernameStep } from './LanguageUsernameStep';
 import { RestoreRequestScreen } from '@/components/keepSafe/RestoreRequestScreen';
 import type { OnboardingStep } from './steps';
 
 /**
- * First-run flow: Welcome (with the language switch, SYC-155) → How it works
- * (+ location permission) → Keep your distance (SYC-35) → Name. The order
- * lives in ./steps. The name step is still the LanguageUsernameStep component.
- *
- * Skip on "How it works" only skips the location prompt: it lands on the
- * keep-your-distance screen, which has no Skip, so the safety guidance is
- * never passed unseen. Back from the name step returns to it.
+ * First-run flow (SYC-524): Welcome (with the language switch, SYC-155) →
+ * Keep your distance (SYC-35) → Name. The order lives in ./steps. The name
+ * step is still the LanguageUsernameStep component. The keep-your-distance
+ * screen has no Skip, so the safety guidance is never passed unseen. Back from
+ * the name step returns to it. Onboarding no longer asks for location.
  *
  * There is no separate "onboarding complete" flag. Claiming a username, or,
  * offline, holding one on the phone (SYC-506), is the durable end of the flow
@@ -31,18 +28,12 @@ export function OnboardingFlow() {
 
   switch (step) {
     case 'welcome':
-      return <WelcomeStep onNext={() => setStep('how')} onRestore={() => setStep('restore')} />;
+      return <WelcomeStep onNext={() => setStep('safety')} onRestore={() => setStep('restore')} />;
     case 'restore':
       return <RestoreRequestScreen onBack={() => setStep('welcome')} />;
-    case 'keepSafe':
-      return null;
-    case 'how':
-      return (
-        <HowItWorksStep onNext={() => setStep('safety')} onSkip={() => setStep('safety')} />
-      );
     case 'safety':
-      return <SafetyStep onNext={() => setStep('language')} />;
-    case 'language':
+      return <SafetyStep onNext={() => setStep('name')} />;
+    case 'name':
       return <LanguageUsernameStep onBack={() => setStep('safety')} />;
   }
 }

@@ -238,7 +238,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
         >
           <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
         </Pressable>
-        <StepDots total={ONBOARDING_DOT_COUNT} active={stepIndex('language')} />
+        <StepDots total={ONBOARDING_DOT_COUNT} active={stepIndex('name')} />
         <View style={styles.topBarSpacer} />
       </View>
 

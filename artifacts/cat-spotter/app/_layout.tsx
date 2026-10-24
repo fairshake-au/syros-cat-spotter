@@ -121,7 +121,6 @@ function OnboardingGate() {
     return (
       <KeepSafeScreen
         surface={onboarding ? 'onboarding' : 'first_badge'}
-        showDots={onboarding}
         onSaved={() => setKeepSafeOffer('done')}
         onSkip={() => setKeepSafeOffer(onboarding ? 'skipped-onboarding' : 'done')}
       />
