@@ -238,11 +238,9 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
 
   describe("the reports box and section (SYC-602 Task 3.3)", () => {
     const rep = (id: string, state: string, at: string, reason = "wrong_cat") => ({ id, reason, state, at, others: 0, photo: null });
-    /** Tags removed until none are left. */
-    const stripTags = (h: string) => {
-      for (let prev = ""; prev !== h; ) [prev, h] = [h, h.replace(/<[^>]*>/g, "")];
-      return h;
-    };
+    /** The words a person reads: each tag becomes a space (so no new tag can
+     * form), then spaces are squeezed. */
+    const stripTags = (h: string) => h.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
     const box = (html: string) => /<aside class="openreports"[\s\S]*?<\/aside>/.exec(html)?.[0] ?? "";
 
     it("draws an amber box above the facts for one open report, linking to it", () => {
