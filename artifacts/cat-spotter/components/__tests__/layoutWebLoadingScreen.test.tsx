@@ -73,6 +73,7 @@ vi.mock('@/context/NotificationContext', () => ({ NotificationProvider: stubComp
 // SYC-42: the cat-report queue's provider.
 vi.mock('@/context/ReportQueueContext', () => ({ ReportQueueProvider: stubComponent('ReportQueueProvider') }));
 vi.mock('@/context/IssueQueueContext', () => ({ IssueQueueProvider: stubComponent('IssueQueueProvider') }));
+vi.mock('@/context/LocationContext', () => ({ LocationProvider: stubComponent('LocationProvider') }));
 vi.mock('@/context/AppSettingsContext', () => ({ AppSettingsProvider: stubComponent('AppSettingsProvider') }));
 vi.mock('@/context/DeleteMyDataContext', () => ({
   DeleteMyDataProvider: stubComponent('DeleteMyDataProvider'),
