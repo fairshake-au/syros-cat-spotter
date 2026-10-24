@@ -1016,12 +1016,12 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         });
       }
 
-      // Only a pending sighting resolves (review F6): two resolves sent at
-      // once used to both succeed and award points twice. The loser's
-      // transaction rolls back, a new cat included.
       // SYC-706: the place is stamped in the same update. A row already
       // stamped keeps its stamp (the trigger refuses to overwrite one).
       const place = placeFor(sighting.lat, sighting.lng);
+      // Only a pending sighting resolves (review F6): two resolves sent at
+      // once used to both succeed and award points twice. The loser's
+      // transaction rolls back, a new cat included.
       const updated = await tx
         .update(sightingsTable)
         .set({
