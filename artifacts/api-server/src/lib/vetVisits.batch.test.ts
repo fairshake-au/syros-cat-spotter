@@ -16,6 +16,16 @@ import { removeTestPerson } from "../test/removeTestPerson";
 // observations is append-only and the test database is shared, so every
 // assertion is on this run's own fresh cats, batches and photos.
 
+// `denied.cap` is refused to everyone (the vetVisits.test.ts pattern).
+const denied = vi.hoisted(() => ({ cap: null as string | null }));
+vi.mock("./capabilities", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./capabilities")>();
+  return {
+    ...real,
+    can: (...args: Parameters<typeof real.can>) => (args[1] === denied.cap ? false : real.can(...args)),
+  };
+});
+
 // The rollback proof: the Nth `vet_visit` write of a save throws, mid-transaction.
 const failOn = vi.hoisted(() => ({ visitN: 0, seen: 0 }));
 vi.mock("./commitStatement", async (importOriginal) => {
@@ -117,6 +127,7 @@ beforeAll(async () => {
 beforeEach(() => {
   failOn.visitN = 0;
   failOn.seen = 0;
+  denied.cap = null;
 });
 afterAll(async () => {
   if (cats.length) await db.delete(vetVisitPhotosTable).where(inArray(vetVisitPhotosTable.catId, cats));
@@ -313,6 +324,17 @@ describe("saveBatch", () => {
     await expect(saveBatch(STAFF, id, NOW)).rejects.toThrow("vitest: this write fails");
     expect(failOn.seen).toBe(3);
     expect(await visitRows([a.id, b.id, c.id])).toHaveLength(0);
+    expect(await keptFor(allPhotos(batch))).toHaveLength(0);
+    expect(await savedAtOf(id)).toBeNull();
+  });
+
+  it.each(["view_vet_costs", "find_cat_from_photo", "log_vet_visit"])("a person without %s is refused, and nothing is written", async (cap) => {
+    const a = await insertCat();
+    const { id, batch } = await makeBatch([{ catId: a.id }]);
+    denied.cap = cap;
+    await expect(saveBatch(STAFF, id, NOW)).rejects.toMatchObject({ code: "NOT_AUTHORISED" });
+    denied.cap = null;
+    expect(await visitRows([a.id])).toHaveLength(0);
     expect(await keptFor(allPhotos(batch))).toHaveLength(0);
     expect(await savedAtOf(id)).toBeNull();
   });

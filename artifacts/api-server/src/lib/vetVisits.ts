@@ -436,8 +436,12 @@ export async function saveBatch(
   batchId: number,
   now = new Date(),
 ): Promise<{ ok: true; visits: SavedVisit[] } | { ok: false; problems: BatchProblem[] }> {
-  if (!can(person, "log_vet_visit")) throw notAuthorised();
-  const costs = can(person, "view_vet_costs");
+  // The batch screen shows costs and searches by photo, so saving it needs both
+  // capabilities as well as log_vet_visit, before any read or write.
+  if (!can(person, "log_vet_visit") || !can(person, "view_vet_costs") || !can(person, "find_cat_from_photo")) {
+    throw notAuthorised();
+  }
+  const costs = true;
   const vaccinate = can(person, "set_vaccination");
 
   return inStatementTransaction(async (tx, news) => {
