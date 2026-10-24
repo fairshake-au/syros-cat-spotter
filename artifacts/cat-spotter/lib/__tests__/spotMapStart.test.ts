@@ -48,12 +48,12 @@ describe('the Spot screen map start', () => {
   it('passes the touch to the rule, and re-runs it when a fix, the wait or a touch arrives', () => {
     const effect = between('React.useEffect(() => {\n    if (!photo || !pickSource) return;', 'const onMapMoved = ');
     expect(effect).toMatch(
-      /nextMapStart\(\s*mapStart,\s*resolveMapStart\(\{\s*source: pickSource,\s*phone: \{ coords, denied, loading: locating \},\s*waitedMs: mapWaitedMs,\s*\}\),\s*mapTouched,\s*\)/,
+      /nextMapStart\(\s*mapStart,\s*resolveMapStart\(\{\s*source: pickSource,\s*phone: \{ coords, denied, loading: locating \},\s*waitedMs: mapWaitedMs,\s*ask: locationAsk,\s*\}\),\s*mapTouched,\s*\)/,
     );
     const deps = effect.match(/\}, \[([^\]]*)\]\);/);
     expect(deps, 'the effect has no dependency array').not.toBeNull();
     const names = deps![1].split(',').map((d) => d.trim());
-    for (const dep of ['photo', 'pickSource', 'coords', 'denied', 'locating', 'mapWaitedMs', 'mapStart', 'mapTouched']) {
+    for (const dep of ['photo', 'pickSource', 'coords', 'denied', 'locating', 'mapWaitedMs', 'mapStart', 'mapTouched', 'locationAsk']) {
       expect(names, `the effect does not re-run on ${dep}`).toContain(dep);
     }
   });
@@ -67,10 +67,12 @@ describe('the Spot screen map start', () => {
     expect(between('const retakeFirstPhoto = ', 'const clearPhoto = ')).toMatch(/resetMapStart\(\);/);
   });
 
-  it('shows the line for the start, and hides the red "location off" text once the map has one', () => {
+  // SYC-524 Task 5: the red "location off" text is gone; the location card
+  // (spotLocationAsk.test.ts) says what location is doing instead.
+  it('shows the line for the start, and no red "location off" text', () => {
     expect(source).toMatch(/\{t\(mapStartHintKey\(mapStart\)\)\}/);
     expect(source).not.toMatch(/\{t\('confirmLocationHint'\)\}/);
-    expect(source).toMatch(/\{denied && !pickedCoords && \(/);
+    expect(source).not.toMatch(/\{denied && !pickedCoords && \(/);
   });
 
   it('enables "Check for matches" only once the map has a start', () => {
