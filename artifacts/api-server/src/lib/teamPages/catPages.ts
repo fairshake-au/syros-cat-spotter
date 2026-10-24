@@ -29,6 +29,7 @@ import { rowMenu } from "./rowMenu";
 import { renderAppearanceSection } from "./appearancePage";
 import { byWhom, statementHref, type Shown } from "./catFacts";
 import { renderCatCard, type IssueStrip } from "./catCard";
+import { renderCatTabs, type CatPanel } from "./catTabs";
 
 export type { Shown };
 import { fitView, mergeSameSpot, renderMap, type MapMarker } from "./map";
@@ -261,7 +262,8 @@ function issueStrip(strip: IssueStrip | null | undefined): string {
     )
     .join("");
   return (
-    `<section id="issue-strip" class="issues"><h2>Reports (${strip.total})</h2>` +
+    // The Reports panel supplies the heading.
+    '<section id="issue-strip" class="issues">' +
     '<p class="hint">Problems the public reported with this cat\'s photos, name or page. Team only.</p>' +
     `<ul class="hplain">${items}</ul>` +
     (strip.total > strip.reports.length
@@ -369,7 +371,7 @@ function sightingsMap(v: TeamCatView, island: boolean, hrefOf: (sightingId: numb
     // Only a picture that can't be signed (no session key) is shown as "not
     // available", with the rest of the page (spec §13). Anything else is a bug.
     if (!(e instanceof Error && e.message.includes("TEAM_SESSION_KEYS"))) throw e;
-    return '<p class="hint catmap">The map isn\'t available right now. The sightings are listed below.</p>';
+    return '<p class="hint catmap">The map isn\'t available right now. The sightings are in History.</p>';
   }
   // Sightings too far apart for one picture are said, never silently dropped.
   const onMap = shown.filter((s) => pointOnView(view, BANDS[0].size, s) !== null).length;
@@ -387,7 +389,7 @@ function sightingsMap(v: TeamCatView, island: boolean, hrefOf: (sightingId: numb
       island ? `<a class="tap" href="/api/team/cats?view=map&amp;focus=${v.cat.id}">Open the map</a>` : ""
     }</p>` +
     (onMap < shown.length
-      ? `<p class="hint">${shown.length - onMap} ${shown.length - onMap === 1 ? "is" : "are"} too far from the others to fit on this map; see History below.</p>`
+      ? `<p class="hint">${shown.length - onMap} ${shown.length - onMap === 1 ? "is too far from the others to fit on this map; it is" : "are too far from the others to fit on this map; they are"} in History.</p>`
       : "") +
     "</div>"
   );
@@ -474,13 +476,6 @@ export function renderCatPage(
   });
   const smallMap = sightingsMap(v, island, drawn.sightingHref);
   const issueTotal = opts.issues?.total ?? 0;
-  const jump =
-    '<nav class="jump" aria-label="Sections of this page">' +
-    `<a href="#history">History (${historyCounts(v, visitList).all})</a>` +
-    `<a href="#photos">Photos (${v.photos.length})</a>` +
-    (issueTotal > 0 ? `<a href="#issue-strip">Reports (${issueTotal})</a>` : "") +
-    '<a href="#appearance">Coat and markings</a>' +
-    "</nav>";
 
   // After Hide or Restore, the message goes beside that photo (own keys only:
   // ?done=constructor must not reach Object.prototype).
@@ -491,8 +486,9 @@ export function renderCatPage(
   // The menu opens only when the page really came back from Hide or Restore on a photo we have.
   const landed = photoNotice !== "" && v.photos.some((p) => p.publicId === opts.photo);
   const hiddenCount = v.photos.filter((p) => p.hidden).length;
+  // The Photos panel supplies the heading; #photos stays as the anchor for the block.
   const photos =
-    `<h2 id="photos">Photos (${v.photos.length})</h2>` +
+    '<div id="photos">' +
     (hiddenCount > 0
       ? `<p class="hint">${hiddenCount} hidden from the public. The team still sees ${hiddenCount === 1 ? "it" : "them"} here.</p>`
       : "") +
@@ -507,7 +503,8 @@ export function renderCatPage(
             }
           )
           .join("") +
-        "</div>");
+        "</div>") +
+    "</div>";
 
   // One list instead of three (spec §3.5): sightings, vet visits and changes.
   const history = renderHistory(v, visitList, {
@@ -519,6 +516,20 @@ export function renderCatPage(
     now,
     island,
   });
+
+  const coat = renderAppearanceSection(v, may, opts.done, undefined, { fold: true, open: opts.openCoat === true, heading: false });
+  // Task 4 reshapes the Coat panel; for now it holds the section as it was.
+  const panels: CatPanel[] = [
+    { id: "history", tab: `History (${historyCounts(v, visitList).all})`, heading: "History", html: history },
+    { id: "photos", tab: `Photos (${v.photos.length})`, heading: `Photos (${v.photos.length})`, html: photos },
+  ];
+  if (smallMap !== "") {
+    panels.push({ id: "map", tab: "Map", heading: `Where ${cat.name} has been seen`, html: smallMap });
+  }
+  panels.push({ id: "coat", tab: "Coat and markings", heading: "Coat and markings", html: coat });
+  if (issueTotal > 0) {
+    panels.push({ id: "reports", tab: `Reports (${issueTotal})`, heading: `Reports (${issueTotal})`, html: issueStrip(opts.issues) });
+  }
 
   return renderPage({
     title: cat.name,
@@ -538,19 +549,7 @@ export function renderCatPage(
     // The card holds the <h1> (the name and its mark), so it takes the heading's place.
     heading: card,
     mainClass: "wide",
-    body:
-      // Task 3 moves the map into its tab and replaces the rest with tabs.
-      smallMap +
-      jump +
-      // Below the summary: History left, the rest in a narrower right column
-      // on a wide screen (spec §4). On a phone it is one column, in this order.
-      '<div class="catcols"><div class="catmain">' +
-      history +
-      '</div><div class="catside">' +
-      `<section>${photos}</section>` +
-      issueStrip(opts.issues) +
-      renderAppearanceSection(v, may, opts.done, undefined, { fold: true, open: opts.openCoat === true }) +
-      "</div></div>",
+    body: renderCatTabs(panels),
   });
 }
 

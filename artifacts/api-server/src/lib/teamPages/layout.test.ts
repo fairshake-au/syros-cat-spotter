@@ -539,10 +539,9 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     expect(css).not.toMatch(/\.gallery\{[^}]*auto-fill/);
   });
 
-  it("the history list in the coat fold has no stray bullet, and the side column hints that it scrolls", () => {
+  it("the history list in the coat fold has no stray bullet", () => {
     const css = sheet();
     expect(css).toMatch(/ul\.history\.coatchanges\{[^}]*list-style:none/);
-    expect(css).toMatch(/\.catside::after\{[^}]*position:sticky[^}]*linear-gradient[^}]*pointer-events:none/);
   });
 
   it("a photo's menu opens inside the screen: left-aligned under the left photo, right-aligned under the right one (SYC-602 3.3)", () => {

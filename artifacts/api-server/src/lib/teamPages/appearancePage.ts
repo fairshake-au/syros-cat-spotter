@@ -369,9 +369,9 @@ export function renderAppearanceSection(
   done?: string,
   lang?: string,
   /** Only the team cat page passes `fold: true` (SYC-602 §3.7); everyone else gets the section as it was. */
-  opts: { fold?: boolean; open?: boolean } = {},
+  opts: { fold?: boolean; open?: boolean; heading?: boolean } = {},
 ): string {
-  if (opts.fold) return renderCoatFold(v, may, done, lang, opts.open === true);
+  if (opts.fold) return renderCoatFold(v, may, done, lang, opts.open === true, opts.heading !== false);
   const a = v.appearance;
   const mayChange = may("set_appearance");
   // The resolved parts the public payload carries from SYC-398 PR A2; never
@@ -517,6 +517,7 @@ function renderCoatFold(
   done: string | undefined,
   lang: string | undefined,
   openCoat: boolean,
+  heading = true,
 ): string {
   const a = v.appearance;
   const mayChange = may("set_appearance");
@@ -546,7 +547,8 @@ function renderCoatFold(
     v.publicStatus.markings,
   );
   return (
-    "<h2>Coat and markings</h2>" +
+    // The Coat panel on the cat page supplies its own heading.
+    (heading ? "<h2>Coat and markings</h2>" : "") +
     `<details class="fold" id="appearance"${open ? " open" : ""}>` +
     `<summary><b>${esc(title)}</b>${origin ? `<span>${esc(origin)}</span>` : ""}</summary>` +
     '<div class="foldbody">' +

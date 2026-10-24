@@ -783,7 +783,8 @@ export function renderHistory(v: TeamCatView, visits: VisitLine[], opts: History
       ? `<p class="more"><a class="tap" href="${l.show === "all" ? "?history=all#history" : `?show=${l.show}&amp;history=all#history`}">Show all ${counts[l.show]}</a></p>`
       : "";
   return (
-    '<h2 id="history">History</h2>' +
+    // The History panel supplies the heading; #history stays as its anchor.
+    '<div id="history"></div>' +
     // A vet visit's notices land here (#vet-visits), outside every fold.
     `<div id="vet-visits">${inRow ? "" : opts.notice}</div>` +
     '<p class="hint">Newest first. A change marked wrong stays here, crossed out, with what replaced it.</p>' +

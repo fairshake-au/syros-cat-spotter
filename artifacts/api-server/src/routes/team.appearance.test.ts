@@ -873,7 +873,7 @@ describe("the Appearance section on the team cat page", () => {
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
     expect(res.status).toBe(200);
     const html = res.text;
-    expect(html).toContain('<h2>Coat and markings</h2><details class="fold" id="appearance"');
+    expect(html).toContain('<h2 id="h-coat">Coat and markings</h2><details class="fold" id="appearance"');
     expect(html).toContain('<p class="public">Ginger · White paws · One eye</p>');
     expect(html).toContain(`id="a-${reading.id}"`);
     // SYC-602 §3.7: where it came from in plain words; no model names.
@@ -998,7 +998,7 @@ describe("the Appearance section on the team cat page", () => {
     const reading = await machine(catId, ["ginger"]);
     denied.cap = "set_appearance";
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
-    expect(res.text).toContain('<h2>Coat and markings</h2><details class="fold" id="appearance"');
+    expect(res.text).toContain('<h2 id="h-coat">Coat and markings</h2><details class="fold" id="appearance"');
     expect(res.text).not.toContain("/appearance/confirm");
     expect(res.text).not.toContain(`/api/team/statements/${reading.id}/wrong`);
   });

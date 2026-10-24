@@ -22,7 +22,9 @@ const withPhotos = (photos = fivePhotos(), main: string | null = "/p1.jpg") =>
 const cardOf = (html: string) => {
   const at = html.indexOf('<div class="catcard');
   expect(at, "no .catcard").toBeGreaterThan(-1);
-  return html.slice(at, html.indexOf("</main>"));
+  // The card ends where the tab row begins.
+  const end = html.indexOf('<nav class="cattabs"');
+  return html.slice(at, end > -1 ? end : html.indexOf("</main>"));
 };
 const textOf = (h: string) => h.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 const report = { id: "i1", reason: "wrong_cat", state: "new", at: "2026-10-15T09:00:00Z", others: 0, photo: null };

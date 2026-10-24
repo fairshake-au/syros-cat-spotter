@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { escapeHtml } from "./escape";
 import { tr, pageLanguage, type Language } from "./strings";
 import { MAP_MARK_CSS, MARK_CSS } from "./marks";
+import { CAT_TABS_CSS } from "./catTabs";
 import { CHART_CSS } from "../reports/chartCss";
 import { WORKSPACE_PAGE } from "../teamAuth/config";
 
@@ -283,9 +284,7 @@ li.statement.routine>details[open]>summary::before,.hownote[open]>summary::befor
 .fixes details>summary.risky::before,.fixes details[open]>summary.risky::before,.fixes details.update>summary::before,.fixes details.update[open]>summary::before,.fixes details.addnote>summary::before,.fixes details.addnote[open]>summary::before{content:none}
 details.method>summary{cursor:pointer;min-height:44px;font-weight:700;color:#0b4553}
 details.invitefold>summary{display:inline-flex;width:fit-content}
-.jump{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:#f6f4ef;border-bottom:1px solid #d9d5ca;margin:24px -12px 0;padding:8px 12px;display:flex;gap:8px;overflow-x:auto;white-space:nowrap}
-.jump a{display:inline-flex;align-items:center;flex:none;min-height:44px;padding:0 16px;border-radius:999px;background:#fff;border:1px solid #d9d5ca;text-decoration:none;font-weight:600;font-size:15px;color:#1d1d1b}
-#history,#photos,#appearance,#issue-strip{scroll-margin-top:72px}
+${CAT_TABS_CSS}
 .catmap{margin:8px 0}
 .catmap .hint{margin:4px 0 0}
 .catmap .mapcap{display:flex;justify-content:space-between;gap:8px;margin:4px 0 0;font-size:14px}
@@ -360,7 +359,7 @@ li.statement.routine>details>summary{cursor:pointer;min-height:44px;display:flex
 li.statement.routine ol.history{margin:4px 0 0}
 ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;font-size:15px;overflow-wrap:anywhere}
 .gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px}
-.gallery figure{margin:0;display:flex;flex-direction:column;gap:6px;scroll-margin-top:12px}
+.gallery figure{margin:0;display:flex;flex-direction:column;gap:6px}
 .gallery img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#ece8dc}
 .gallery figure.ishidden img{opacity:.55;outline:3px solid #8c1d18;outline-offset:-3px}
 .gallery .notice{margin:0;font-size:14px}
@@ -677,14 +676,7 @@ div.catcard.noactions{grid-template-columns:200px minmax(0,1fr)}
 div.catcard>.openreports{grid-column:1/-1}
 .cardphoto img.photo.catmain,.cardphoto .nophoto{width:200px;height:200px;aspect-ratio:1}
 .catfacts{grid-template-columns:repeat(3,minmax(0,1fr))}
-.catmap .mapband.b256{display:none}
-.catmap .mapband.b164{display:block}
-.jump{margin:32px 0 0;border-radius:0}
-.catcols{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:0 28px;align-items:start}
-.catcols>div{min-width:0}
-.catside{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow-y:auto}
-/* A soft fade at the bottom edge hints there is more below; it takes no taps and at the end of the scroll it sits in its own 18px below the last item, so it never covers anything. */
-.catside::after{content:"";display:block;position:sticky;bottom:0;height:18px;background:linear-gradient(to bottom,rgba(29,29,27,0),rgba(29,29,27,.16));pointer-events:none}
+.cattabs{margin:32px 0 0;border-radius:0}
 }
 `;
 

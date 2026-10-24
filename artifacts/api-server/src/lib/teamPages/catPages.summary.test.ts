@@ -159,7 +159,7 @@ describe("the small map's caption (SYC-602 Task 1.4)", () => {
   });
 });
 
-describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
+describe("the layout, page order and tab row (SYC-602 Task 1.5, SYC-655)", () => {
   const photos = [
     { source: "main", publicId: "p1", url: "/p1.jpg", hidden: null },
     { source: "sighting", publicId: "p2", url: "/p2.jpg", hidden: null },
@@ -179,37 +179,22 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
 
   it("orders the summary for a phone", () => {
     const html = page(withPhotos(), { may, colonies: [] });
-    const marks = ['<div class="catcard', 'class="photo catmain"', 'class="catfacts kf"', 'class="publicline"', 'id="corrections"', 'class="catmap"', '<nav class="jump"'];
+    const marks = ['<div class="catcard', 'class="photo catmain"', 'class="catfacts kf"', 'class="publicline"', 'id="corrections"', '<nav class="cattabs"', 'class="catmap"'];
     const at = marks.map((m) => html.indexOf(m));
     expect(at.every((i) => i > -1), JSON.stringify(at)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
   });
 
-  it("has jump links with counts, none marked as selected", () => {
+  it("has tabs with counts, none marked as selected (the CSS draws the open one)", () => {
     const html = page(richCatView());
-    const nav = html.slice(html.indexOf('<nav class="jump"'), html.indexOf("</nav>", html.indexOf('<nav class="jump"')));
+    const nav = html.slice(html.indexOf('<nav class="cattabs"'), html.indexOf("</nav>", html.indexOf('<nav class="cattabs"')));
     // Every History row (SYC-602 PR 2): 21 sightings and two changes.
-    expect(nav).toContain('href="#history">History (23)</a>');
-    expect(nav).toContain('href="#photos">Photos (0)</a>');
-    expect(nav).toContain('href="#appearance">Coat and markings</a>');
-    expect(nav).not.toContain("#issue-strip");
+    expect(nav).toContain('href="#tab-history">History (23)</a>');
+    expect(nav).toContain('href="#tab-photos">Photos (0)</a>');
+    expect(nav).toContain('href="#tab-coat">Coat and markings</a>');
+    expect(nav).not.toContain("#tab-reports");
     expect(nav).not.toContain("aria-current");
     for (const id of ["history", "photos", "appearance"]) expect(html, id).toContain(`id="${id}"`);
-  });
-
-  it("orders the jump links like the right-hand column: History, Photos, Reports, Coat and markings", () => {
-    const issues = {
-      total: 1,
-      reports: [{ id: "i1", reason: "wrong_cat", state: "new", at: "2026-10-10T09:00:00Z", others: 0, photo: null }],
-    };
-    const html = page(richCatView(), { issues });
-    const nav = html.slice(html.indexOf('<nav class="jump"'), html.indexOf("</nav>", html.indexOf('<nav class="jump"')));
-    const at = ["#history", "#photos", "#issue-strip", "#appearance"].map((h) => nav.indexOf(`href="${h}"`));
-    expect(at.every((n) => n > -1)).toBe(true);
-    expect([...at].sort((a, b) => a - b)).toEqual(at);
-    const none = page(richCatView());
-    const n2 = none.slice(none.indexOf('<nav class="jump"'), none.indexOf("</nav>", none.indexOf('<nav class="jump"')));
-    expect(n2.indexOf("#photos")).toBeLessThan(n2.indexOf("#appearance"));
   });
 
   it("links to the reports only when there are some", () => {
@@ -218,7 +203,7 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
       reports: [{ id: "i1", reason: "wrong_cat", state: "new", at: "2026-10-10T09:00:00Z", others: 0, photo: null }],
     };
     const html = page(richCatView(), { issues });
-    expect(html).toContain('href="#issue-strip">Reports (1)</a>');
+    expect(html).toContain('href="#tab-reports">Reports (1)</a>');
     expect(html).toContain('id="issue-strip"');
   });
 
@@ -266,7 +251,7 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
       const html = page(richCatView(), { issues: { total: 1, reports: [rep("i1", "new", "2026-10-15T09:00:00Z")] } });
       const sec = html.indexOf('<section id="issue-strip"');
       expect(sec).toBeGreaterThan(html.indexOf('id="photos"'));
-      expect(html.slice(sec)).toContain("<h2>Reports (1)</h2>");
+      expect(html).toContain('<h2 id="h-reports">Reports (1)</h2>');
     });
 
     it("with only closed reports: no box, the section stays", () => {
@@ -281,16 +266,9 @@ describe("the layout, page order and jump links (SYC-602 Task 1.5)", () => {
       expect(html).not.toContain('id="issue-strip"');
     });
 
-    it("lays History left and Photos, Reports, Coat right on a wide screen", () => {
+    it("puts the Reports panel last, after Coat and markings", () => {
       const html = page(richCatView(), { issues: { total: 1, reports: [rep("i1", "new", "2026-10-15T09:00:00Z")] } });
-      const cols = html.indexOf('class="catcols"');
-      expect(cols).toBeGreaterThan(-1);
-      const side = html.indexOf('class="catside"', cols);
-      const at = (n: string) => html.indexOf(n, cols);
-      expect(at('id="history"')).toBeLessThan(side);
-      for (const id of ['id="photos"', 'id="issue-strip"', 'id="appearance"']) expect(at(id), id).toBeGreaterThan(side);
-      expect(at('id="photos"')).toBeLessThan(at('id="issue-strip"'));
-      expect(at('id="issue-strip"')).toBeLessThan(at('id="appearance"'));
+      expect(html.indexOf('id="tab-coat"')).toBeLessThan(html.indexOf('id="tab-reports"'));
     });
   });
 
@@ -322,7 +300,7 @@ describe("the photos grid (SYC-602 Task 3.1)", () => {
 
   it("heads the grid Photos (4) and calls the first Main photo, the others by date", () => {
     const html = page(four(), { may });
-    expect(html).toContain('<h2 id="photos">Photos (4)</h2>');
+    expect(html).toContain('<h2 id="h-photos">Photos (4)</h2>');
     expect(html).not.toContain("All photos");
     expect(figure(html, "p1")).toContain("Main photo");
     expect(figure(html, "p2")).toContain("18 Oct");

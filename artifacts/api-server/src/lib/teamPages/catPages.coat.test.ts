@@ -236,9 +236,10 @@ describe("the Coat and markings fold (SYC-602 Task 3.2)", () => {
     expect(f).toContain("A cat guardian&#39;s change decides this");
   });
 
-  it("points the jump link, the facts and History at the fold", () => {
+  it("points the tab, the facts and History at the fold", () => {
     const html = page();
-    expect(html).toContain('href="#appearance">Coat and markings</a>');
+    expect(html).toContain('href="#tab-coat">Coat and markings</a>');
+    expect(html).toContain('<h2 id="h-coat">Coat and markings</h2>');
     expect((html.match(/id="appearance"/g) ?? []).length).toBe(1);
   });
 
