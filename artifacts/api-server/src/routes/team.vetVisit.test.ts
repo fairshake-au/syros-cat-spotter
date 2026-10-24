@@ -398,6 +398,10 @@ describe("a visit's kept photos (SYC-677 Task 8)", () => {
     expect(mine.status).toBe(200);
     expect(mine.text).toContain("Seen by a vet on 13 August 2026");
     expect(mine.text).not.toContain(photo.publicId);
+    const json = await request(app).get(`/api/team/my/cats/${cat.id}`).set("Cookie", eleni.cookie).set("Accept", "application/json");
+    expect(json.body.cat.vetVisits).toEqual([{ date: "2026-08-13", did: ["sterilised"] }]);
+    expect(JSON.stringify(json.body.cat.vetVisits)).not.toContain("photos");
+    expect(JSON.stringify(json.body)).not.toContain(photo.publicId);
   });
 
   it("hide and restore refuse a vet photo in words and write no visibility event", async () => {
@@ -409,5 +413,14 @@ describe("a visit's kept photos (SYC-677 Task 8)", () => {
     }
     const events = await db.select().from(photoVisibilityEventsTable).where(eq(photoVisibilityEventsTable.photoId, photo.id));
     expect(events).toEqual([]);
+    for (const action of ["hide", "restore"]) {
+      const res = await request(app)
+        .post(`/api/team/photos/${photo.publicId}/${action}`)
+        .set("Cookie", staff.cookie)
+        .set("Origin", TEAM_ORIGIN)
+        .send({});
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe("TEAM_ONLY");
+    }
   });
 });

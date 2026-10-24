@@ -312,6 +312,9 @@ li.hrow .what{min-width:0}
 li.hrow .what p{margin:4px 0 0}
 li.hrow .what .notice{margin:0 0 6px}
 li.hrow .who{display:block;font-size:14px;color:#55524a}
+li.hrow .vet-photos{display:flex;flex-wrap:wrap;gap:8px}
+li.hrow .vet-photos a{display:block;width:64px;height:64px;min-height:64px;padding:0;margin:0}
+li.hrow .vet-photos img{display:block;width:64px;height:64px;object-fit:cover;border-radius:6px}
 li.hrow.vet{box-shadow:inset 4px 0 0 #0b5c6b}
 li.hrow.replaced{background:#faf9f6}
 li.hrow del{color:#6b685f}

@@ -765,7 +765,7 @@ function visitRow(r: Extract<HistoryRow, { type: "visit" }>, c: Ctx): string {
             (p) =>
               `<a href="/api/team/photos/${encodeURIComponent(p.publicId)}"><img src="/api/team/photos/${encodeURIComponent(p.publicId)}/small" alt="Photo taken at the vet" width="64" height="64" loading="lazy"></a>`,
           )
-          .join(" ") +
+          .join("") +
         "</p>"
       : "") +
     (recorded.length > 0

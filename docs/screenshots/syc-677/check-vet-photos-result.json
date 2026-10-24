@@ -1,0 +1,25 @@
+{
+  "blocked": [],
+  "pages": {
+    "vet-390": {
+      "scrollW": 390,
+      "innerW": 390,
+      "thumbs": 5,
+      "thumbSize": [
+        64,
+        64
+      ],
+      "smallText": []
+    },
+    "vet-1280": {
+      "scrollW": 1280,
+      "innerW": 1280,
+      "thumbs": 5,
+      "thumbSize": [
+        64,
+        64
+      ],
+      "smallText": []
+    }
+  }
+}
