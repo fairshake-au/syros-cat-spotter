@@ -29,6 +29,8 @@ vi.mock("./push", () => ({ sendPushNotification: sendPushNotificationMock }));
 
 import app from "../app";
 import { SEED_AREAS } from "./areas/namedAreas";
+import { severPerson } from "./severPerson";
+import { deletedMarkerKey } from "./deviceAuth";
 import { athensDay, weekStartAthens } from "./weeks";
 import {
   closeWeekIfDue,
@@ -55,6 +57,7 @@ async function cleanup() {
   await db.delete(notificationsTable).where(like(notificationsTable.deviceId, `${PREFIX}%`));
   await db.delete(pushTokensTable).where(like(pushTokensTable.deviceId, `${PREFIX}%`));
   await db.execute(sql`delete from device_credentials where device_id like ${`${PREFIX}%`}`);
+  await db.execute(sql`delete from device_credentials where device_id = ${deletedMarkerKey(dev("gone"))}`);
   await db.execute(sql`
     delete from weekly_closes
     where week_start between '2032-01-01' and '2032-12-31'
@@ -217,6 +220,46 @@ describe("closeWeekIfDue", () => {
     expect(await momentsOf("p")).toHaveLength(1);
     expect(await momentsOf("q")).toHaveLength(1);
     expect(await bellOf("p")).toHaveLength(1);
+  });
+
+  it("a winner who deletes their account while the close waits is dropped, not frozen", async () => {
+    // Week of Mon 1 Mar 2032, closed on Mon 8 Mar. "gone" tops the board, then
+    // deletes themselves in a transaction that has not committed when the
+    // close has already read the board and is waiting for their badges lock.
+    await profile("gone");
+    await profile("stay");
+    await ledger("gone", 50, athens("2032-03-02", "10:00"));
+    await ledger("stay", 25, athens("2032-03-03", "10:00"));
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const deleting = db.transaction(async (tx) => {
+      await severPerson(tx, { deviceId: dev("gone"), reason: "deleted by the person" });
+      await gate;
+    });
+
+    const closing = closeWeekIfDue(athens("2032-03-08", "09:00"));
+    // Wait until the close is queued behind the deletion's lock (a lock wait
+    // is visible in pg_locks), so it has certainly read the board already.
+    let waiting = false;
+    for (let i = 0; i < 100 && !waiting; i++) {
+      const r = await db.execute(sql`
+        select 1 from pg_locks where locktype = 'advisory' and not granted`);
+      waiting = r.rows.length > 0;
+      if (!waiting) await new Promise((r2) => setTimeout(r2, 50));
+    }
+    expect(waiting).toBe(true);
+    release();
+    await deleting;
+    expect(await closing).toBe("closed");
+
+    expect(await results("2032-03-01")).toEqual([
+      { place: 2, device_id: dev("stay"), display_name: "WClosestay", points: 25 },
+    ]);
+    expect(await badgesOf("gone")).toEqual([]);
+    expect(await momentsOf("gone")).toHaveLength(0);
+    expect(await bellOf("gone")).toHaveLength(0);
+    expect(await badgesOf("stay")).toEqual(["podium"]);
   });
 
   it("a quiet week with one spotter on 15 points still awards champion", async () => {

@@ -31,6 +31,17 @@ export async function severPerson(
   tx: Tx,
   { deviceId, reason }: { deviceId: string; reason: string },
 ): Promise<void> {
+  // 0. SYC-706: the badges lock every badge writer takes (a resolve, the
+  //    backfill, the weekly close), taken first. A close that has frozen a
+  //    winner's result either finishes before this runs (and step 6 then
+  //    blanks the name) or sees the profile gone and skips them; it can't
+  //    write a result naming a spotter deleted a moment ago. Callers hold
+  //    only device_credentials row locks by now, and no badge writer ever
+  //    waits for one of those, so the two orders can't meet in a circle.
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtext(${"badges:" + deviceId}))`,
+  );
+
   // 1. Two deletes of the same device queue up rather than interleave.
   await tx.execute(
     sql`select device_id from device_credentials where device_id = ${deviceId} for update`,

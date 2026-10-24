@@ -93,16 +93,36 @@ export async function closeWeekIfDue(now: Date = new Date()): Promise<CloseResul
 
     // Equal points share a place; within a place, whoever got there first is
     // listed first. No minimum: one spotter on 15 points is champion.
-    const placed = competitionRanks(await weekBoardRows(tx, weekStart, null), (r) =>
+    const ranked = competitionRanks(await weekBoardRows(tx, weekStart, null), (r) =>
       Number(r.points),
     ).filter((r) => r.rank <= 3);
 
     // Each winner's badges lock, as every badge writer takes it, in device
     // order so two closes or a close and a resolve can never wait on each
     // other in a circle. Taken after the claim: a resolve takes only its own.
-    for (const id of placed.map((r) => r.device_id).sort()) {
+    for (const id of ranked.map((r) => r.device_id).sort()) {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"badges:" + id}))`);
     }
+
+    // Account deletion (severPerson) takes the same lock first, so by now a
+    // winner is either deleted for good or can't be deleted until this
+    // commits. Re-read who still has a profile and drop the rest: nothing
+    // written below may name, badge or notify a spotter who just deleted
+    // themselves. Their place stays empty; the others keep theirs.
+    const stillHere =
+      ranked.length === 0
+        ? new Set<string>()
+        : new Set(
+            (
+              await tx.execute<{ device_id: string }>(sql`
+                select device_id from profiles
+                where device_id in (${sql.join(
+                  ranked.map((r) => sql`${r.device_id}`),
+                  sql`, `,
+                )})`)
+            ).rows.map((r) => r.device_id),
+          );
+    const placed = ranked.filter((r) => stillHere.has(r.device_id));
 
     for (const r of placed) {
       const points = Number(r.points);
