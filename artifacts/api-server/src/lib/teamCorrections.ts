@@ -79,6 +79,8 @@ export const SUPERSEDE_CAPABILITIES: readonly Capability[] = [
   "set_sterilisation",
   "assign_cat_to_colony",
   "set_appearance",
+  // A team note marked wrong (SYC-602 PR 4).
+  "add_team_note",
 ];
 
 /**
@@ -563,7 +565,10 @@ export async function supersedeStatement(
       throw new ObservationRefused("FROM_VET_VISIT", FROM_VET_VISIT_WORDS);
     }
 
-    const capability = capabilityFor(original.kind);
+    // A team note is taken back by whoever may write one (SYC-602 PR 4). Kept
+    // out of capabilityFor, which also gates recordTeamStatement's writes.
+    const isTeamNote = original.kind === "team_note";
+    const capability = isTeamNote ? "add_team_note" : capabilityFor(original.kind);
     if (!capability || !can(person, capability)) throw notAuthorised();
     const target = await catTarget(original.catId, tx);
 
@@ -584,9 +589,13 @@ export async function supersedeStatement(
         "A colour or markings statement is marked wrong with { retracted: true }; use Correct for a new value",
       );
     }
+    // A team note, likewise: a retraction and nothing else.
+    if (isTeamNote && !isRetractedValue(input.value)) {
+      throw new ObservationRefused("MALFORMED_VALUE", "A team note is marked wrong with { retracted: true }");
+    }
     const value = isColony
       ? await colonyAfterMarkingWrong(tx, original)
-      : isAppearance
+      : isAppearance || isTeamNote
         ? RETRACTED
         : input.value;
 
@@ -598,7 +607,7 @@ export async function supersedeStatement(
       roleAtTime: actingRole(person, capability, target),
       // Now, not the caller's date: nothing about a colony change, or a
       // retraction (which asserts nothing), is dated by the team.
-      observedAt: isColony || isAppearance ? new Date() : (input.observedAt ?? new Date()),
+      observedAt: isColony || isAppearance || isTeamNote ? new Date() : (input.observedAt ?? new Date()),
       supersedesId: original.id,
       supersedeReason: input.reason,
     }, queued);
@@ -1043,4 +1052,31 @@ export async function renameCat(
     return { kind: "taken", holder: taker ? { id: taker.id, name: taker.name } : null };
   }
   return { kind: "renamed", name: renamed };
+}
+
+// ── Add a note (SYC-602 PR 4, spec §3.2 item 3) ───────────────────────────
+
+/**
+ * A note on the cat page, for the team only: a `team_note` observation. It is
+ * not the owner's or public `note` kind, and not `add_health_note`; it never
+ * reaches a cat guardian or the public. The words are stored as given, so the
+ * route trims them and the observation writer refuses a blank or over-long
+ * one. Returns the new statement's id.
+ */
+export async function addTeamNote(
+  person: Person,
+  input: { catId: number; text: string },
+): Promise<{ statementId: number }> {
+  if (!can(person, "add_team_note")) throw notAuthorised();
+  const [cat] = await db.select({ id: catsTable.id }).from(catsTable).where(eq(catsTable.id, input.catId));
+  if (!cat) throw notFound();
+  const row = await writeObservation(db, {
+    catId: cat.id,
+    kind: "team_note",
+    value: { text: input.text },
+    accountId: person.id,
+    roleAtTime: actingRole(person, "add_team_note", await catTarget(cat.id)),
+    observedAt: new Date(),
+  });
+  return { statementId: row.id };
 }
