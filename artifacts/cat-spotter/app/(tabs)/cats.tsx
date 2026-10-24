@@ -20,6 +20,7 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useLocation } from '@/hooks/useLocation';
 import { useCatsWithCache } from '@/hooks/useCatsWithCache';
+import { LoadFailed } from '@/components/LoadFailed';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { CatCard } from '@/components/CatCard';
 import { AppMap } from '@/components/AppMap';
@@ -55,7 +56,7 @@ export default function CatalogScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { coords } = useLocation();
-  const { cats, isLoading } = useCatsWithCache(
+  const { cats, isLoading, loadFailed, retry } = useCatsWithCache(
     coords?.latitude,
     coords?.longitude,
   );
@@ -233,6 +234,12 @@ export default function CatalogScreen() {
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : loadFailed ? (
+        // SYC-508 §3.1: before every empty message and the map, none of which
+        // is true when nothing loaded.
+        <View style={{ flex: 1, paddingBottom: insets.bottom + (Platform.OS === 'web' ? 100 : 90) }}>
+          <LoadFailed size="full" onRetry={retry} testID="catalogue-load-failed" />
         </View>
       ) : showMap ? (
         // AppMap pins its marker strip to the bottom of its own box, so the box

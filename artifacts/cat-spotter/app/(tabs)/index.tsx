@@ -20,6 +20,8 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useLocation } from '@/hooks/useLocation';
 import { useCatsWithCache } from '@/hooks/useCatsWithCache';
+import { LoadFailed } from '@/components/LoadFailed';
+import { LOAD_QUERY_OPTIONS, LOAD_TIMEOUT_MS } from '@/lib/loadTiming';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CatCard } from '@/components/CatCard';
@@ -49,7 +51,7 @@ export default function HomeScreen() {
   const { deviceId, username, heldUsername } = useDevice();
   const { isOnline } = useOffline();
   const { coords } = useLocation();
-  const { cats, isLoading } = useCatsWithCache(
+  const { cats, isLoading, loadFailed, retry } = useCatsWithCache(
     coords?.latitude,
     coords?.longitude,
   );
@@ -58,7 +60,9 @@ export default function HomeScreen() {
     query: {
       enabled: !!deviceId && isOnline,
       queryKey: getGetProfileQueryKey(deviceId ?? ''),
+      ...LOAD_QUERY_OPTIONS, // SYC-508 §2.4
     },
+    request: { timeoutMs: LOAD_TIMEOUT_MS },
   });
   const profile = profileQuery.data;
   // The cats list is cached to AsyncStorage but the profile is not. Until a
@@ -201,42 +205,53 @@ export default function HomeScreen() {
 
         <OfflineBanner />
         {statsError && (
-          <Text style={[styles.statsError, { color: colors.mutedForeground }]}>
-            {t('statsUnavailable')}
-          </Text>
+          // SYC-508 §3.2: the same words, now with Try again.
+          <View style={styles.statsError}>
+            <LoadFailed
+              size="line"
+              message={t('statsUnavailable')}
+              onRetry={() => profileQuery.refetch()}
+              testID="home-stats-failed"
+            />
+          </View>
         )}
 
         {/* Stat tiles — every figure is server-derived. SYC-143: the group
             gives all three labels one size, stepped down only as far as the
             longest word (Greek "ΑΝΑΚΑΛΥΨΕΙΣ") needs to fit without breaking. */}
-        <StatTileGroup
-          style={[styles.tiles, compactTiles && styles.tilesCompact]}
-        >
-          <View style={styles.tile}>
-            <StatTile
-              value={knownSpotted ?? dash}
-              label={t('statSpotted')}
-              tone="aegean"
-              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
-            />
-          </View>
-          <View style={styles.tile}>
-            <StatTile
-              value={profile?.uniqueCatsDiscovered ?? dash}
-              label={t('statFirstFinds')}
-              tone="sun"
-              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
-            />
-          </View>
-          <View style={styles.tile}>
-            <StatTile
-              value={profile?.badges?.length ?? dash}
-              label={t('statBadges')}
-              tone="bougain"
-              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
-            />
-          </View>
-        </StatTileGroup>
+        {/* SYC-578 via SYC-508 §4.2: before the first spot the hero's own
+            line is the one friendly line, so no 0 / 0 / 0. Unknown still
+            shows dashes. */}
+        {hero !== 'firstSpot' && (
+          <StatTileGroup
+            style={[styles.tiles, compactTiles && styles.tilesCompact]}
+          >
+            <View style={styles.tile}>
+              <StatTile
+                value={knownSpotted ?? dash}
+                label={t('statSpotted')}
+                tone="aegean"
+                style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
+              />
+            </View>
+            <View style={styles.tile}>
+              <StatTile
+                value={profile?.uniqueCatsDiscovered ?? dash}
+                label={t('statFirstFinds')}
+                tone="sun"
+                style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
+              />
+            </View>
+            <View style={styles.tile}>
+              <StatTile
+                value={profile?.badges?.length ?? dash}
+                label={t('statBadges')}
+                tone="bougain"
+                style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
+              />
+            </View>
+          </StatTileGroup>
+        )}
 
         {/* Nearby to collect */}
         <View style={styles.section}>
@@ -261,6 +276,8 @@ export default function HomeScreen() {
             <View style={styles.center}>
               <ActivityIndicator color={colors.primary} />
             </View>
+          ) : loadFailed ? (
+            <LoadFailed size="line" onRetry={retry} testID="home-cats-failed" />
           ) : nearby.length === 0 ? (
             <Text style={[styles.empty, { color: colors.mutedForeground }]}>
               {t('noCats')}
@@ -366,9 +383,7 @@ const styles = StyleSheet.create({
   // StatTile carries a 120px minWidth for standalone use; three across at 375px
   // would overflow, so let them shrink here.
   statsError: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes['2xs'],
-    textAlign: 'center',
+    alignItems: 'center',
     paddingHorizontal: spacing[4],
     paddingTop: spacing[3],
   },
