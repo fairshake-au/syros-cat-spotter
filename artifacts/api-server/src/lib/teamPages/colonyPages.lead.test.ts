@@ -87,6 +87,23 @@ describe("Colonies list order (SYC-619 §7.1)", () => {
     expect(html).not.toContain("Recent changes by cat guardians");
     expect(html).toContain('id="create"');
   });
+
+  it("even when recent changes are passed, a cat guardian with no colony and no search gets no Recent changes (the searchable gate)", () => {
+    const html = colonies({
+      island: true,
+      colonies: [],
+      recentChanges: [{ kind: "colony_created", at: "2026-10-20T10:00:00.000Z", guardian: null, colony: { id: 7, name: "Harbour" } }],
+    });
+    expect(html).not.toContain("Recent changes by cat guardians");
+    expect(html).not.toContain("recent-guardian-changes");
+    // The same change is drawn once there is a colony to search.
+    const drawn = colonies({
+      island: true,
+      colonies: [{ id: 7, name: "Harbour", guardianName: null, siteCount: 0, catCount: 1 }],
+      recentChanges: [{ kind: "colony_created", at: "2026-10-20T10:00:00.000Z", guardian: null, colony: { id: 7, name: "Harbour" } }],
+    });
+    expect(drawn).toContain("Recent changes by cat guardians");
+  });
 });
 
 describe("People (SYC-577)", () => {
