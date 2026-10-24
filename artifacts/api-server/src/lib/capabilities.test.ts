@@ -335,3 +335,20 @@ describe("actingRole() (roles spec §10.4, test 23; SYC-316)", () => {
 // Typed so a renamed capability is a compile error here, not a silent pass.
 const _named: Capability[] = ["view_welfare_queue", "use_workspace", "remove_owner", "remove_photo"];
 void _named;
+
+// SYC-620: Where to trap next on Home fails closed for any viewer whose colonies
+// aren't the whole island, and says only "This figure isn't available right
+// now". Today that cannot happen: pin it, so a role added to view_welfare_queue
+// without island-wide colony visibility is caught here and not on Home.
+describe("every holder of view_welfare_queue sees the whole island (Home's Where to trap next)", () => {
+  it("resolves to ids === null for each role that holds it", async () => {
+    const { visibleColonyIds } = await import("./guardianView");
+    const roles = CATALOGUE["view_welfare_queue"].roles;
+    expect(roles.length).toBeGreaterThan(0);
+    for (const role of roles) {
+      const person = { scopes: [{ role, colonyId: null, reach: "island" }] };
+      expect(can(person, "view_welfare_queue"), role).toBe(true);
+      expect(visibleColonyIds(person).ids, role).toBeNull();
+    }
+  });
+});

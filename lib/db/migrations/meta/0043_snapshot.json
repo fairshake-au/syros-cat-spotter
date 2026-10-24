@@ -1,5 +1,5 @@
 {
-  "id": "89ec7515-16c8-4aa2-b0d8-3740e27af82e",
+  "id": "ed829d70-1966-4e69-92f5-7b298a0d3130",
   "prevId": "93db608a-db9b-4445-ac4b-28425f206c85",
   "version": "7",
   "dialect": "postgresql",
@@ -3190,6 +3190,25 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "code_hash": {
+          "name": "code_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "code_attempts": {
+          "name": "code_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "handle_hash": {
+          "name": "handle_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -3232,6 +3251,22 @@
           ],
           "isUnique": false,
           "where": "\"mail_tokens\".\"replaced_secret_hash\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "mail_tokens_handle_hash_idx": {
+          "name": "mail_tokens_handle_hash_idx",
+          "columns": [
+            {
+              "expression": "handle_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"mail_tokens\".\"handle_hash\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -4670,452 +4705,6 @@
           "value": "array_ndims(\"photo_fingerprints\".\"vector\") = 1 and cardinality(\"photo_fingerprints\".\"vector\") = 384"
         }
       },
-      "isRLSEnabled": false
-    },
-    "public.vet_batch_cats": {
-      "name": "vet_batch_cats",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "batch_id": {
-          "name": "batch_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cat_id": {
-          "name": "cat_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "new_cat": {
-          "name": "new_cat",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "confirmed": {
-          "name": "confirmed",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "did": {
-          "name": "did",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "treated_note": {
-          "name": "treated_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "cost_eur": {
-          "name": "cost_eur",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "paid_by": {
-          "name": "paid_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "also_same_day": {
-          "name": "also_same_day",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "suggestions": {
-          "name": "suggestions",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "vet_batch_cats_batch_idx": {
-          "name": "vet_batch_cats_batch_idx",
-          "columns": [
-            {
-              "expression": "batch_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "position",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "vet_batch_cats_batch_id_vet_batches_id_fk": {
-          "name": "vet_batch_cats_batch_id_vet_batches_id_fk",
-          "tableFrom": "vet_batch_cats",
-          "tableTo": "vet_batches",
-          "columnsFrom": [
-            "batch_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "vet_batch_cats_cat_id_cats_id_fk": {
-          "name": "vet_batch_cats_cat_id_cats_id_fk",
-          "tableFrom": "vet_batch_cats",
-          "tableTo": "cats",
-          "columnsFrom": [
-            "cat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "vet_batch_cats_identity_ck": {
-          "name": "vet_batch_cats_identity_ck",
-          "value": "\"vet_batch_cats\".\"cat_id\" is null or \"vet_batch_cats\".\"new_cat\" is null"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.vet_batch_photos": {
-      "name": "vet_batch_photos",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "batch_cat_id": {
-          "name": "batch_cat_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "photo_id": {
-          "name": "photo_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "vet_batch_photos_cat_idx": {
-          "name": "vet_batch_photos_cat_idx",
-          "columns": [
-            {
-              "expression": "batch_cat_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "position",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "vet_batch_photos_photo_idx": {
-          "name": "vet_batch_photos_photo_idx",
-          "columns": [
-            {
-              "expression": "photo_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "vet_batch_photos_batch_cat_id_vet_batch_cats_id_fk": {
-          "name": "vet_batch_photos_batch_cat_id_vet_batch_cats_id_fk",
-          "tableFrom": "vet_batch_photos",
-          "tableTo": "vet_batch_cats",
-          "columnsFrom": [
-            "batch_cat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "vet_batch_photos_photo_id_photos_id_fk": {
-          "name": "vet_batch_photos_photo_id_photos_id_fk",
-          "tableFrom": "vet_batch_photos",
-          "tableTo": "photos",
-          "columnsFrom": [
-            "photo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.vet_batches": {
-      "name": "vet_batches",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "saved_at": {
-          "name": "saved_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "date": {
-          "name": "date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "clinic_id": {
-          "name": "clinic_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "colony_id": {
-          "name": "colony_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "area_key": {
-          "name": "area_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "price_eur": {
-          "name": "price_eur",
-          "type": "numeric(7, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "paid_by": {
-          "name": "paid_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "vaccines": {
-          "name": "vaccines",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "vaccine_other": {
-          "name": "vaccine_other",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "vet_batches_created_by_people_id_fk": {
-          "name": "vet_batches_created_by_people_id_fk",
-          "tableFrom": "vet_batches",
-          "tableTo": "people",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "vet_batches_colony_id_colonies_id_fk": {
-          "name": "vet_batches_colony_id_colonies_id_fk",
-          "tableFrom": "vet_batches",
-          "tableTo": "colonies",
-          "columnsFrom": [
-            "colony_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "vet_batches_place_ck": {
-          "name": "vet_batches_place_ck",
-          "value": "\"vet_batches\".\"colony_id\" is null or \"vet_batches\".\"area_key\" is null"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.vet_visit_photos": {
-      "name": "vet_visit_photos",
-      "schema": "",
-      "columns": {
-        "photo_id": {
-          "name": "photo_id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "visit_id": {
-          "name": "visit_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cat_id": {
-          "name": "cat_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "vet_visit_photos_photo_id_photos_id_fk": {
-          "name": "vet_visit_photos_photo_id_photos_id_fk",
-          "tableFrom": "vet_visit_photos",
-          "tableTo": "photos",
-          "columnsFrom": [
-            "photo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "vet_visit_photos_cat_id_cats_id_fk": {
-          "name": "vet_visit_photos_cat_id_cats_id_fk",
-          "tableFrom": "vet_visit_photos",
-          "tableTo": "cats",
-          "columnsFrom": [
-            "cat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },
