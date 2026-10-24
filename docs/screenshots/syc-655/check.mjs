@@ -81,7 +81,20 @@ const measure = (hash) => {
       openFoldsAbove: folds,
     };
   }
-  return { visible, scrollY: Math.round(window.scrollY), target, selectedTabs: [...document.querySelectorAll(".cattabs a")].filter((a) => getComputedStyle(a).color === "rgb(255, 255, 255)").map((a) => a.getAttribute("href")) };
+  const SELECTED = "rgb(11, 69, 83)";
+  const info = (a) => ({ href: a.getAttribute("href"), where: a.closest(".catfacts") ? "facts" : a.matches(".photo") ? "card photo" : a.closest(".cattabs") ? "tab" : "other", background: getComputedStyle(a).backgroundColor, color: getComputedStyle(a).color, after: getComputedStyle(a, "::after").content });
+  const tabInfo = [...document.querySelectorAll(".cattabs a")].map(info);
+  const outside = [...document.querySelectorAll('a[href^="#tab-"]')].filter((a) => !a.closest(".cattabs")).map(info);
+  const isSel = (i) => i.background === SELECTED;
+  return {
+    visible, scrollY: Math.round(window.scrollY), target,
+    selectedTabs: tabInfo.filter(isSel).map((i) => i.href),
+    // The selected tab is white on dark and says ", open"; no other tab does.
+    selectedSaysOpen: tabInfo.filter(isSel).every((i) => i.color === "rgb(255, 255, 255)" && i.after.includes(", open")) && tabInfo.filter((i) => !isSel(i)).every((i) => !i.after.includes(", open")),
+    // Other links to a panel (the Last seen place, the card's photo label) are never drawn as tabs.
+    otherLinksPlain: outside.length > 0 && outside.every((i) => !isSel(i) && !i.after.includes(", open")),
+    otherLinks: outside,
+  };
 };
 
 const settle = (p) => p.waitForTimeout(400);
@@ -91,7 +104,7 @@ const verdict = (m, expected, hash) => {
   const t = m.target;
   // A target is only judged when it has an element, is not a whole panel's header-card id, and sits in the page body.
   const targetOk = !t || (t.inViewport && t.clearOfTabs);
-  return { exactlyOne: oneVisible, expected, isExpected: matches, targetOk, pass: matches && targetOk && (hash === "" || !t || t.shown) };
+  return { exactlyOne: oneVisible, expected, isExpected: matches, targetOk, pass: matches && targetOk && m.selectedSaysOpen && m.otherLinksPlain && (hash === "" || !t || t.shown) };
 };
 
 const report = { origin: "localhost (ephemeral port)", engines: {}, aborted: [] };

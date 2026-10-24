@@ -86,5 +86,5 @@ writeFileSync(`${OUT}/visits.html`, renderCatPage(v, "Maria", { ...opts, show: "
 const bare: TeamCatView = { ...v, publicStatus: { ...v.publicStatus, sterilised: { value: null, confidence: "unknown", clippedTipSightings: 0 } }, sightings: [], history: [], colony: null, photos: [], cat: { ...v.cat, mainPhotoUrl: null, name: "Nea", description: "" },
   records: { ...v.records, vaccinations: [], sterilised: { ...v.records.sterilised, value: null, confidence: "unknown", clippedTipSightings: 0, supportingStatementIds: [] } },
   appearance: { ...v.appearance, coat: { ...v.appearance.coat, value: null, parts: undefined, statements: [] } } };
-writeFileSync(`${OUT}/bare.html`, renderCatPage(bare, "Maria", { now: NOW }));
+writeFileSync(`${OUT}/bare.html`, renderCatPage(bare, "Maria", { may, island: true, now: NOW }));
 writeFileSync(`${OUT}/readonly.html`, renderCatPage(v, "Visitor", { now: NOW, visits: visits.map(({ costEur: _c, paidBy: _p, ...l }) => l), issues: null }));

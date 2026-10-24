@@ -17,6 +17,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -43,6 +61,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -68,6 +104,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -97,6 +151,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -122,6 +194,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -151,6 +241,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -176,6 +284,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -203,6 +329,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -228,6 +372,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -255,6 +417,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -280,6 +460,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -307,6 +505,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -333,6 +549,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -349,6 +583,24 @@
               "target": null,
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -376,6 +628,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -401,6 +671,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -428,6 +716,24 @@
               "selectedTabs": [
                 "#tab-map"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "map",
               "isExpected": true,
@@ -454,6 +760,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -479,6 +803,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -508,6 +850,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -533,6 +893,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -560,6 +938,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -586,6 +982,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -611,6 +1025,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -640,6 +1072,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -666,6 +1116,24 @@
               },
               "selectedTabs": [
                 "#tab-map"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "map",
@@ -694,6 +1162,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -721,6 +1207,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -747,6 +1251,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -852,6 +1374,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -878,6 +1418,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -903,6 +1461,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -932,6 +1508,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -957,6 +1551,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -986,6 +1598,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -1011,6 +1641,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -1038,6 +1686,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -1063,6 +1729,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -1090,6 +1774,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -1115,6 +1817,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -1142,6 +1862,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -1168,6 +1906,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -1184,6 +1940,24 @@
               "target": null,
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -1211,6 +1985,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -1236,6 +2028,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -1263,6 +2073,24 @@
               "selectedTabs": [
                 "#tab-map"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "map",
               "isExpected": true,
@@ -1289,6 +2117,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -1314,6 +2160,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -1343,6 +2207,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -1368,6 +2250,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -1395,6 +2295,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -1421,6 +2339,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -1446,6 +2382,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -1475,6 +2429,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -1501,6 +2473,24 @@
               },
               "selectedTabs": [
                 "#tab-map"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "map",
@@ -1529,6 +2519,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -1556,6 +2564,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -1582,6 +2608,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -1696,6 +2740,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -1722,6 +2784,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -1747,6 +2827,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -1776,6 +2874,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -1801,6 +2917,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -1830,6 +2964,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -1855,6 +3007,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -1882,6 +3052,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -1907,6 +3095,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -1934,6 +3140,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -1959,6 +3183,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -1986,6 +3228,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -2012,6 +3272,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -2028,6 +3306,24 @@
               "target": null,
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -2055,6 +3351,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -2080,6 +3394,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -2107,6 +3439,24 @@
               "selectedTabs": [
                 "#tab-map"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "map",
               "isExpected": true,
@@ -2133,6 +3483,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -2158,6 +3526,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -2187,6 +3573,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -2212,6 +3616,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -2239,6 +3661,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -2265,6 +3705,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -2290,6 +3748,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -2319,6 +3795,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -2345,6 +3839,24 @@
               },
               "selectedTabs": [
                 "#tab-map"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "map",
@@ -2373,6 +3885,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -2400,6 +3930,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -2426,6 +3974,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -2531,6 +4097,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -2557,6 +4141,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -2582,6 +4184,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -2611,6 +4231,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -2636,6 +4274,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -2665,6 +4321,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -2690,6 +4364,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -2717,6 +4409,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -2742,6 +4452,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -2769,6 +4497,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -2794,6 +4540,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -2821,6 +4585,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -2847,6 +4629,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -2863,6 +4663,24 @@
               "target": null,
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -2890,6 +4708,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -2915,6 +4751,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -2942,6 +4796,24 @@
               "selectedTabs": [
                 "#tab-map"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "map",
               "isExpected": true,
@@ -2968,6 +4840,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -2993,6 +4883,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -3022,6 +4930,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -3047,6 +4973,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -3074,6 +5018,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -3100,6 +5062,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -3125,6 +5105,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -3154,6 +5152,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -3180,6 +5196,24 @@
               },
               "selectedTabs": [
                 "#tab-map"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "map",
@@ -3208,6 +5242,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -3235,6 +5287,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -3261,6 +5331,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -3375,6 +5463,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -3401,6 +5507,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -3426,6 +5550,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -3455,6 +5597,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -3480,6 +5640,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -3509,6 +5687,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -3534,6 +5730,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -3561,6 +5775,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -3586,6 +5818,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -3613,6 +5863,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -3638,6 +5906,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -3665,6 +5951,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -3691,6 +5995,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -3707,6 +6029,24 @@
               "target": null,
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -3734,6 +6074,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -3746,12 +6104,12 @@
               "visible": [
                 "photos"
               ],
-              "scrollY": 1487,
+              "scrollY": 1488,
               "target": {
                 "id": "photos",
                 "shown": true,
-                "top": 73,
-                "bottom": 805,
+                "top": 72,
+                "bottom": 804,
                 "tabsBottom": 61,
                 "inViewport": true,
                 "clearOfTabs": true,
@@ -3759,6 +6117,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -3786,6 +6162,24 @@
               "selectedTabs": [
                 "#tab-map"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "map",
               "isExpected": true,
@@ -3812,6 +6206,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -3837,6 +6249,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -3866,6 +6296,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -3891,6 +6339,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -3918,6 +6384,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -3944,6 +6428,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -3969,6 +6471,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -3998,6 +6518,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -4024,6 +6562,24 @@
               },
               "selectedTabs": [
                 "#tab-map"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "map",
@@ -4052,6 +6608,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -4079,6 +6653,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -4105,6 +6697,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -4210,6 +6820,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -4236,6 +6864,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -4261,6 +6907,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -4290,6 +6954,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -4315,6 +6997,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -4344,6 +7044,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -4369,6 +7087,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -4396,6 +7132,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -4421,6 +7175,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -4448,6 +7220,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -4473,6 +7263,24 @@
               },
               "selectedTabs": [
                 "#tab-coat"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "coat",
@@ -4500,6 +7308,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -4526,6 +7352,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -4542,6 +7386,24 @@
               "target": null,
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -4569,6 +7431,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -4594,6 +7474,24 @@
               },
               "selectedTabs": [
                 "#tab-photos"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "photos",
@@ -4621,6 +7519,24 @@
               "selectedTabs": [
                 "#tab-map"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "map",
               "isExpected": true,
@@ -4647,6 +7563,24 @@
               "selectedTabs": [
                 "#tab-history"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "history",
               "isExpected": true,
@@ -4672,6 +7606,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -4701,6 +7653,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -4726,6 +7696,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -4753,6 +7741,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -4779,6 +7785,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -4804,6 +7828,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
@@ -4833,6 +7875,24 @@
               "selectedTabs": [
                 "#tab-photos"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "photos",
               "isExpected": true,
@@ -4859,6 +7919,24 @@
               },
               "selectedTabs": [
                 "#tab-map"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "map",
@@ -4887,6 +7965,24 @@
               "selectedTabs": [
                 "#tab-coat"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "coat",
               "isExpected": true,
@@ -4914,6 +8010,24 @@
               "selectedTabs": [
                 "#tab-reports"
               ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
+              ],
               "exactlyOne": true,
               "expected": "reports",
               "isExpected": true,
@@ -4940,6 +8054,24 @@
               },
               "selectedTabs": [
                 "#tab-history"
+              ],
+              "selectedSaysOpen": true,
+              "otherLinksPlain": true,
+              "otherLinks": [
+                {
+                  "href": "#tab-photos",
+                  "where": "card photo",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(29, 29, 27)",
+                  "after": "none"
+                },
+                {
+                  "href": "#tab-map",
+                  "where": "facts",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "color": "rgb(11, 92, 107)",
+                  "after": "none"
+                }
               ],
               "exactlyOne": true,
               "expected": "history",
