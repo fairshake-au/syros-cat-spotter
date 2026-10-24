@@ -497,7 +497,7 @@ describe('the Follow button on the page', () => {
     page({ isFollowing: true }, cat({ hasHome: false, lifeStatus: 'deceased', locationPrecision: 'exact' }));
     expect(screen.queryByTestId('follow')).toBeNull();
     cleanup();
-    page({ isFollowing: true }, cat({ hasHome: false, lifeStatus: 'inCare', locationPrecision: 'exact' }));
+    page({ isFollowing: true }, cat({ hasHome: false, lifeStatus: 'in_care', locationPrecision: 'exact' }));
     expect(screen.queryByTestId('follow')).toBeNull();
   });
   it('is absent on a cat that has died, for someone not following', () => {
