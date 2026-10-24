@@ -46,7 +46,7 @@ vi.mock('@workspace/api-client-react', () => ({
 vi.mock('@/context/LanguageContext', () => ({
   useLanguage: () => ({ language: 'en', setLanguage: vi.fn(), t: (k: string) => (en as any)[k] ?? k }),
 }));
-vi.mock('@/context/DeviceContext', () => ({ useDevice: () => ({ deviceId: 'dev-1', setUsername: h.setUsername }) }));
+vi.mock('@/context/DeviceContext', () => ({ useDevice: () => ({ deviceId: 'dev-1', setUsername: h.setUsername, setKeepSafeOffer: () => {}, identityGeneration: () => 0 }) }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: true }) }));
 vi.mock('@/hooks/useColors', () => ({
   useColors: () => ({ background: '#fff', foreground: '#000', mutedForeground: '#666', card: '#fff', border: '#ddd', primary: '#123', primaryForeground: '#fff', destructive: '#f00' }),
@@ -55,7 +55,10 @@ vi.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ t
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
 vi.mock('@/components/KeyboardAwareScrollViewCompat', async () => {
   const { View } = await import('react-native');
-  return { KeyboardAwareScrollViewCompat: ({ children }: any) => <View>{children}</View> };
+  return {
+    KeyboardAwareScrollViewCompat: ({ children }: any) => <View>{children}</View>,
+    KeyboardStickyViewCompat: ({ children }: any) => <View>{children}</View>,
+  };
 });
 // A native <button> (not react-native-web's Text) so the `disabled`
 // property is directly and reliably queryable from the DOM.
@@ -76,7 +79,7 @@ function setup() {
   const view = render(<NameStep onBack={() => {}} />);
   const input = view.container.querySelector('input')!;
   const continueBtn = () =>
-    view.getAllByRole('button').find((b) => /Continue|Retry|Saving/.test(b.textContent ?? '')) as HTMLButtonElement;
+    view.getAllByRole('button').find((b) => /Start spotting|Retry|Saving/.test(b.textContent ?? '')) as HTMLButtonElement;
   const backBtn = () => view.getByRole('button', { name: en.back }) as HTMLButtonElement;
   return { view, input, continueBtn, backBtn };
 }

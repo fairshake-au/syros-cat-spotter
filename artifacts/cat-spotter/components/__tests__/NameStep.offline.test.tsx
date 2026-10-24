@@ -39,6 +39,7 @@ vi.mock('@/context/DeviceContext', () => ({
     setUsername: h.setUsername,
     holdUsername: h.holdUsername,
     setKeepSafeOffer: h.setKeepSafeOffer,
+    identityGeneration: () => 0,
   }),
 }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: h.online }) }));
@@ -49,7 +50,10 @@ vi.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ t
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
 vi.mock('@/components/KeyboardAwareScrollViewCompat', async () => {
   const { View } = await import('react-native');
-  return { KeyboardAwareScrollViewCompat: ({ children }: any) => <View>{children}</View> };
+  return {
+    KeyboardAwareScrollViewCompat: ({ children }: any) => <View>{children}</View>,
+    KeyboardStickyViewCompat: ({ children }: any) => <View>{children}</View>,
+  };
 });
 vi.mock('@/components/purropolis', () => ({
   Button: ({ children, onPress, disabled }: any) => (
@@ -125,7 +129,8 @@ describe('NameStep offline (SYC-506)', () => {
     h.read.mockResolvedValue({ username: null });
     h.claim.mockResolvedValue({ username: 'SeaCat' });
     const { input, mainButton } = setup();
-    expect(mainButton().textContent).toBe(en.continue);
+    // SYC-524: one Start spotting button, online as offline.
+    expect(mainButton().textContent).toBe(en.startSpotting);
     fireEvent.change(input, { target: { value: 'SeaCat' } });
     await act(async () => { await vi.advanceTimersByTimeAsync(500); });
     await act(async () => { fireEvent.click(mainButton()); });
