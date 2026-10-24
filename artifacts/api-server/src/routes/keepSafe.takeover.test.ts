@@ -541,6 +541,10 @@ const PROBES: Probe[] = [
   // SYC-63: an old phone whose spotter moved can't delete the spotter who now
   // lives on the new phone; it gets device_moved like every other route.
   { name: "DELETE /me", file: "profiles.ts", call: (id, s) => request(app).delete("/api/me").set("X-Device-Id", id).set("X-Device-Secret", s) },
+  // SYC-706: celebration moments and the badges' "New" marker.
+  { name: "GET /profiles/:id/moments", file: "profiles.ts", call: (id, s) => request(app).get(`/api/profiles/${id}/moments`).set("X-Device-Secret", s) },
+  { name: "POST /profiles/:id/moments/:m/celebrated", file: "profiles.ts", call: (id, s) => request(app).post(`/api/profiles/${id}/moments/1/celebrated`).set("X-Device-Secret", s) },
+  { name: "POST /profiles/:id/badges/seen", file: "profiles.ts", call: (id, s) => request(app).post(`/api/profiles/${id}/badges/seen`).set("X-Device-Secret", s) },
   { name: "GET /notifications/:id", file: "notifications.ts", call: (id, s) => request(app).get(`/api/notifications/${id}`).set("X-Device-Secret", s) },
   { name: "POST /notifications/:id/read-all", file: "notifications.ts", call: (id, s) => request(app).post(`/api/notifications/${id}/read-all`).set("X-Device-Secret", s) },
   { name: "POST /notifications/:id/:n/read", file: "notifications.ts", call: (id, s) => request(app).post(`/api/notifications/${id}/1/read`).set("X-Device-Secret", s) },
