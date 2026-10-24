@@ -4,7 +4,7 @@ import type { Sighting } from '@workspace/api-client-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { SightingPhotos } from '@/components/SightingPhotos';
 import { ReportIssueLink } from '@/components/report/ReportIssueLink';
-import { useQuietColor } from '@/components/catPage/quietColor';
+import { useQuietColor } from '@/hooks/useQuietColor';
 import { bylineFor, spotterName } from '@/lib/photoCaption';
 import { formatPublicDate } from '@/lib/catPageDates';
 

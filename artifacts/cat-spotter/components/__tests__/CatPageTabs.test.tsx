@@ -22,6 +22,16 @@ vi.mock('react-native', async () => {
   const rn = await vi.importActual<Record<string, unknown>>('react-native-web');
   return {
     ...rn,
+    ScrollView: React.forwardRef(
+      (
+        p: { children?: React.ReactNode; onScroll?: (e: unknown) => void },
+        ref: React.Ref<unknown>,
+      ) => {
+        React.useImperativeHandle(ref, () => ({ scrollTo: h.scrollTo }));
+        h.onScroll = p.onScroll;
+        return <div>{p.children}</div>;
+      },
+    ),
     Modal: ({ visible, children }: { visible?: boolean; children?: React.ReactNode }) =>
       visible ? <div data-testid="mock-modal">{children}</div> : null,
   };
@@ -68,6 +78,8 @@ const h = vi.hoisted(() => ({
   isOnline: true,
   notifications: [] as unknown[],
   data: undefined as unknown,
+  scrollTo: vi.fn(),
+  onScroll: undefined as undefined | ((e: unknown) => void),
 }));
 vi.mock('@/context/DeviceContext', () => ({
   useDevice: () => ({ deviceId: 'dev-1', ownedCatIds: [], isReady: true, startupError: null }),
@@ -264,6 +276,21 @@ describe('the four tabs', () => {
     page();
     expect(screen.getByLabelText('Back')).toBeTruthy();
     expect(screen.queryByLabelText(en.tabCatalog!)).toBeNull();
+  });
+});
+
+describe('switching tabs while scrolled', () => {
+  const scrollTo = (y: number) => act(() => h.onScroll!({ nativeEvent: { contentOffset: { y } } }));
+
+  it('scrolls the new tab to the pinned row only when the photo has scrolled away', () => {
+    page();
+    scrollTo(100);
+    switchTab('Photos');
+    expect(h.scrollTo).not.toHaveBeenCalled();
+    scrollTo(600);
+    switchTab('Map');
+    expect(h.scrollTo).toHaveBeenCalledTimes(1);
+    expect(h.scrollTo).toHaveBeenCalledWith({ y: 250, animated: false });
   });
 });
 

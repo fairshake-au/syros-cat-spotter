@@ -91,7 +91,7 @@ In this order:
      - this phone may claim (`canClaim`): opens the claim sheet (`ClaimCatSheet`). Offline, the card is disabled and shows the existing "You need a connection to do this." line under the pair.
      - a street cat this phone can't claim yet, outside the cooldown: opens the "Does {name} live with you?" sheet in street mode, with its "Spot {name} now" button, as today's link does.
      - a homed cat, for everyone but the owner: opens that sheet in homed mode, as today's link under "Has a home" does.
-     - the owner, a cat in care, a cat that has died, or a phone in the 7-day cooldown: no card (help takes the full width).
+     - the owner, a cat in care, a cat that has died: no card; a street cat while this phone is in the 7-day cooldown: no card (help takes the full width).
    - When a sheet opened from a card closes, focus goes back to that card.
    - **Claiming stays secondary.** The card is never styled as a primary button and never bigger than the main button (`claiming-a-cat.md` §4.1). The claim sheet's own guards (spot first, cooldown, limits) are unchanged, and they are what stop accidental claims.
 6. **"You spotted {name} on {date}. Anything to add?"** (`MoreToAdd`), as today. When it has nothing to show, it takes no space. It now sits below the cards, so "{name} lives with me" is never straight under "You spotted {name}…" ([SYC-512](https://linear.app/fair-shake/issue/SYC-512)).
@@ -234,7 +234,7 @@ The emojis are not part of the strings; they're added in code so translators can
 - New checks, at least:
   - About opens first, and only the selected tab's content is rendered.
   - The cat page shows the two cards "Agatha needs help" and "Agatha lives with me" right under the spot button; the other screens still say "This cat needs help".
-  - The 🏠 card's four cases: canClaim opens the claim sheet (disabled offline with the note); street cat without canClaim opens the street sheet; homed cat (not owner) opens the homed sheet; owner / in care / died / cooldown shows no card and the help card is full width. Focus returns to the card when a sheet closes.
+  - The 🏠 card's four cases: canClaim opens the claim sheet (disabled offline with the note); street cat without canClaim opens the street sheet; homed cat (not owner) opens the homed sheet; owner / in care / died / a street cat in the cooldown shows no card and the help card is full width. Focus returns to the card when a sheet closes.
   - "Something wrong on this page?" with its flag is the last item on every tab.
   - The "I've spotted" button has its icon, and the icon is hidden from screen readers.
   - Each tab shows its own content.

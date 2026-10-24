@@ -9,33 +9,6 @@ import { Button } from '@/components/purropolis/Button';
 import { fonts, spacing } from '@/constants/theme';
 import { SHEET_MAX_WIDTH } from '@/lib/appColumn';
 
-/**
- * The quiet text link that opens the sheet (§1.1): the same style as "Report
- * an issue", a 44pt tap height, role "button", labelled with its own text.
- * `linkRef` lets the cat page hand focus back here when the sheet closes.
- */
-export const ClaimAskLink = React.forwardRef<
-  View,
-  { catName: string; onPress: () => void }
->(function ClaimAskLink({ catName, onPress }, ref) {
-  const colors = useColors();
-  const { t } = useLanguage();
-  const label = t('claimAskLink').split('{name}').join(catName);
-  return (
-    <Pressable
-      ref={ref}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      hitSlop={8}
-      style={styles.link}
-      testID="claim-ask-link"
-    >
-      <Text style={[styles.linkText, { color: colors.mutedForeground }]}>{label}</Text>
-    </Pressable>
-  );
-});
-
 export type ClaimAskMode = 'street' | 'homed';
 
 /**
@@ -151,8 +124,6 @@ export function ClaimAskSheet({
 }
 
 const styles = StyleSheet.create({
-  link: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
-  linkText: { fontFamily: fonts.body, fontSize: 13, textDecorationLine: 'underline' },
   backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: {
     width: '100%',

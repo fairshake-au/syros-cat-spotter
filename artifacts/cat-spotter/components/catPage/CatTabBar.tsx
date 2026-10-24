@@ -1,6 +1,7 @@
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
+import { useQuietColor } from '@/hooks/useQuietColor';
 import { fonts, radii } from '@/constants/theme';
 
 export type CatTab = 'about' | 'photos' | 'story' | 'map';
@@ -63,6 +64,7 @@ function Tab({
   forwardRef: (el: View | null) => void;
 }) {
   const colors = useColors();
+  const quiet = useQuietColor();
   const { size, ref } = useFittedLabelSize(item.label, tabWidth);
   const webProps = {
     id: tabId(item.key),
@@ -109,8 +111,10 @@ function Tab({
         minimumFontScale={LABEL_MIN / LABEL_MAX}
         style={[
           styles.label,
-          { fontSize: size, color: selected ? colors.foreground : colors.mutedForeground },
-          selected && { fontFamily: fonts.bodyBold },
+          // Idle labels use the page's quiet grey on the tab row (colors.muted):
+          // stone700 on stone200 is 6.14:1 in light mode (the old stone600 was
+          // 3.87:1); dark mode's stone400 on aegean800 is 5.16:1. Both pass 4.5:1.
+          { fontSize: size, color: selected ? colors.foreground : quiet },
           // No ellipsis on the web: the size above is what makes it fit.
           ({ textOverflow: 'clip' } as object),
         ]}
@@ -160,6 +164,8 @@ export function CatTabBar({
     <View
       style={[
         styles.bar,
+        // The padding above the row overlaps the photo on a phone; touches there go to the photo.
+        { pointerEvents: 'box-none' } as object,
         { paddingTop: topInset + 6 },
         stuck && { backgroundColor: colors.background, borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
       ]}
@@ -213,7 +219,9 @@ const styles = StyleSheet.create({
   tabIdle: { borderColor: 'transparent' },
   emojiWrap: { alignItems: 'center', justifyContent: 'center' },
   emoji: { fontSize: 16, lineHeight: 20 },
-  label: { fontFamily: fonts.bodySemiBold, textAlign: 'center', maxWidth: '100%' },
+  // Always bold, selected or not: the fit is measured in this weight, so choosing
+  // a tab can never make its label wider than the room it was fitted to.
+  label: { fontFamily: fonts.bodyBold, textAlign: 'center', maxWidth: '100%' },
   badge: {
     position: 'absolute',
     top: -4,

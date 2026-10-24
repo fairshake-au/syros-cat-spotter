@@ -4,7 +4,7 @@ import { AppMap } from '@/components/AppMap';
 import { ReportIssueLink } from '@/components/report/ReportIssueLink';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
-import { useQuietColor } from '@/components/catPage/quietColor';
+import { useQuietColor } from '@/hooks/useQuietColor';
 import { DEFAULT_CELL_M } from '@/lib/cellShape';
 
 /**

@@ -41,8 +41,10 @@ describe('homeActionFor (the 🏠 card)', () => {
     expect(homeActionFor({ ...street, lifeStatus: 'in_care' })).toBeNull();
     expect(homeActionFor({ ...street, lifeStatus: 'deceased' })).toBeNull();
   });
-  it('a phone in the cooldown gets no card', () =>
+  it('a street cat while this phone is in the cooldown gets no card', () =>
     expect(homeActionFor({ ...street, claimCooldown: true })).toBeNull());
+  it('a homed cat keeps its card during the cooldown (it also covers a removed owner)', () =>
+    expect(homeActionFor({ ...street, claimCooldown: true, lifeStatus: 'homed', hasHome: true })).toBe('askHomed'));
   it('a phone that may claim opens the claim sheet', () =>
     expect(homeActionFor({ ...street, canClaim: true })).toBe('claim'));
   it('a homed cat, for anyone but the owner, asks in homed mode', () =>

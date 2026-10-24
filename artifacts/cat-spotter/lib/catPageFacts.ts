@@ -61,7 +61,9 @@ export function homeActionFor(input: {
   if (input.isOwner) return null;
   if (input.lifeStatus === 'in_care' || input.lifeStatus === 'deceased') return null;
   if (input.canClaim) return 'claim';
-  if (input.claimCooldown) return null;
   if (input.hasHome) return 'askHomed';
+  // The cooldown only hides the street card ("spot it first" would be false).
+  // A homed cat keeps its card: the cooldown also covers an owner the team removed.
+  if (input.claimCooldown) return null;
   return 'askStreet';
 }

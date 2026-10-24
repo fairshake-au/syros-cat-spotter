@@ -8,7 +8,7 @@ import { MoreToAdd } from '@/components/MoreToAdd';
 import { ReportIssueLink } from '@/components/report/ReportIssueLink';
 import { Button } from '@/components/purropolis';
 import { QuestionCards } from '@/components/catPage/QuestionCards';
-import { useQuietColor } from '@/components/catPage/quietColor';
+import { useQuietColor } from '@/hooks/useQuietColor';
 import type { CatTab } from '@/components/catPage/CatTabBar';
 import { formatInstant, formatPublicDate } from '@/lib/catPageDates';
 import type { HomeAction } from '@/lib/catPageFacts';

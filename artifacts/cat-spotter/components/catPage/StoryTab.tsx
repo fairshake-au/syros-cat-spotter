@@ -4,7 +4,7 @@ import type { CareEvent } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { ReportIssueLink } from '@/components/report/ReportIssueLink';
-import { useQuietColor } from '@/components/catPage/quietColor';
+import { useQuietColor } from '@/hooks/useQuietColor';
 import { formatMonthYear } from '@/lib/catPageDates';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes } from '@/constants/theme';
@@ -40,8 +40,8 @@ export function StoryTab({
         const meta = CARE_META[event.type] ?? CARE_META.general;
         return (
           <View key={index} style={styles.careRow}>
-            <View aria-hidden style={[styles.careIcon, { backgroundColor: meta.bg }]}>
-              <Text aria-hidden style={{ fontSize: 14 }}>
+            <View aria-hidden accessibilityElementsHidden importantForAccessibility="no" style={[styles.careIcon, { backgroundColor: meta.bg }]}>
+              <Text aria-hidden accessibilityElementsHidden importantForAccessibility="no" style={{ fontSize: 14 }}>
                 {meta.icon}
               </Text>
             </View>

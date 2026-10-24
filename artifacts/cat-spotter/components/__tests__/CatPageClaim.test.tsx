@@ -31,7 +31,12 @@ vi.mock('@/components/report/NeedsHelpLink', () => ({
 }));
 vi.mock('@/lib/modalVisibility', () => ({ registerModalOpen: () => () => {} }));
 vi.mock('@/components/ClaimCatSheet', () => ({
-  ClaimCatSheet: (p: { mode: string }) => <div data-testid="sheet">{p.mode}</div>,
+  ClaimCatSheet: (p: { mode: string; onClose: () => void }) => (
+    <div data-testid="sheet">
+      {p.mode}
+      <button data-testid="sheet-close" onClick={p.onClose} />
+    </div>
+  ),
 }));
 vi.mock('@/components/purropolis', async () => {
   const { Button } = await import('@/components/purropolis/Button');
@@ -269,6 +274,20 @@ describe('the cat page and claiming (§4.1)', () => {
     expect(screen.queryByTestId('claim-ask-sheet')).toBeNull();
     await new Promise((r) => setTimeout(r, 10));
     expect(document.activeElement).toBe(card());
+  });
+
+  it('closing the claim sheet returns focus to the card', async () => {
+    page(cat(), true);
+    fireEvent.click(card()!);
+    fireEvent.click(screen.getByTestId('sheet-close'));
+    expect(screen.queryByTestId('sheet')).toBeNull();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(document.activeElement).toBe(card());
+  });
+
+  it('a homed cat keeps its card during the cooldown', () => {
+    page(cat({ hasHome: true, lifeStatus: 'homed' }), false, true);
+    expect(card()).toBeTruthy();
   });
 
   it('a cat with a home: the card opens the sheet with the "email us" text', () => {
