@@ -145,7 +145,6 @@ describe("the Areas page", () => {
   it("a centre off Syros is refused beside the longitude", async () => {
     const res = await send(team.cookie, { op: "add", name: nm("Myk"), key: k("myk"), lat: "37.45", lng: "25.33" });
     expect(res.status).toBe(400);
-    expect(res.text).toContain("That centre isn&#39;t on Syros. Check the longitude.");
     expect(res.text).toMatch(/role="alert" id="add-new-lng-err">That&#39;s off Syros\. Tap a spot on the island\./);
     expect(res.text).not.toContain("Check the longitude");
   });
