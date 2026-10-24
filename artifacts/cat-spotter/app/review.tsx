@@ -57,6 +57,7 @@ import {
 import { reviewReportHandoff } from "@/lib/reportHandoff";
 import { deleteReviewPhoto } from "@/lib/pendingPhotos";
 import { goToSpotTab } from "@/lib/goToSpotTab";
+import { useBannerAreaReserve } from "@/lib/bannerArea";
 import {
   buildReviewParams,
   parseReviewParams,
@@ -128,6 +129,7 @@ export default function ReviewScreen() {
   const { t, language } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bannerReserve = useBannerAreaReserve();
   const queryClient = useQueryClient();
   const { remove, pending, isOnline, updateReview } = useOffline();
   const { deviceId } = useDevice();
@@ -271,7 +273,7 @@ export default function ReviewScreen() {
   if (!data) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <View style={[styles.header, { paddingTop: insets.top + bannerReserve + 8 }]}>
           <IconButton
             variant="ghost"
             label={t("back")}
@@ -525,7 +527,7 @@ export default function ReviewScreen() {
         contentContainerStyle={[
           styles.successScroll,
           {
-            paddingTop: insets.top + 24,
+            paddingTop: insets.top + bannerReserve + 24,
             paddingBottom: insets.bottom + 32,
           },
         ]}
@@ -702,7 +704,7 @@ export default function ReviewScreen() {
     };
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]} testID="hint-question">
-        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <View style={[styles.header, { paddingTop: insets.top + bannerReserve + 8 }]}>
           <View style={{ width: 44 }} />
           <IconButton variant="ghost" label={t("extraPhotoClose")} onPress={close}>
             <Feather name="x" size={20} color={colors.mutedForeground} />
@@ -823,7 +825,7 @@ export default function ReviewScreen() {
           setShowNewCat(true);
         }}
         onClose={() => setShowPicker(false)}
-        insetTop={insets.top}
+        insetTop={insets.top + bannerReserve}
         insetBottom={insets.bottom}
       />
     );
@@ -833,7 +835,7 @@ export default function ReviewScreen() {
   if (nameTakenCat) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <View style={[styles.header, { paddingTop: insets.top + bannerReserve + 8 }]}>
           <IconButton
             variant="ghost"
             label={t("back")}
@@ -928,7 +930,7 @@ export default function ReviewScreen() {
                 : null;
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <View style={[styles.header, { paddingTop: insets.top + bannerReserve + 8 }]}>
           <View style={{ width: 44 }} />
           <IconButton variant="ghost" label={t("extraPhotoClose")} onPress={close}>
             <Feather name="x" size={20} color={colors.mutedForeground} />
@@ -1000,7 +1002,7 @@ export default function ReviewScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <LinearGradient
           colors={[palette.bougain500, palette.terra600]}
-          style={[styles.celebrateHero, { paddingTop: insets.top + 8 }]}
+          style={[styles.celebrateHero, { paddingTop: insets.top + bannerReserve + 8 }]}
         >
           <View style={styles.celebrateHeaderRow}>
             {data.candidates.length > 0 || checkFailed ? (
@@ -1170,7 +1172,7 @@ export default function ReviewScreen() {
   // ----- ③ Match — have we met? -----
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + bannerReserve + 8 }]}>
         <IconButton variant="ghost" label={t("tryAgain")} onPress={close}>
           <Feather
             name="chevron-left"
