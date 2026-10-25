@@ -392,6 +392,39 @@ describe("the owner's sheet: letting go (§6)", () => {
     });
   });
 
+  it('sends no name when the owner only changed the note', () => {
+    open('edit', OWNED);
+    fireEvent.change(screen.getByDisplayValue('the blue house'), { target: { value: 'the green house' } });
+    fireEvent.click(button('Save changes'));
+    expect(h.updateMutate).toHaveBeenCalledWith({
+      catId: 7,
+      data: { deviceId: 'dev-1', homeDescription: 'the green house' },
+    });
+  });
+
+  it('a cat nobody has named yet: the note saves with the name box blank, and no name is sent', () => {
+    const PENDING = { ...OWNED, name: 'SYR-0042', namePending: true } as unknown as Cat;
+    open('edit', PENDING);
+    fireEvent.change(screen.getByDisplayValue('the blue house'), { target: { value: 'the green house' } });
+    expect(disabled(button('Save changes'))).toBe(false);
+    fireEvent.click(button('Save changes'));
+    expect(h.updateMutate).toHaveBeenCalledWith({
+      catId: 7,
+      data: { deviceId: 'dev-1', homeDescription: 'the green house' },
+    });
+  });
+
+  it('a cat nobody has named yet: a name typed in the box is sent', () => {
+    const PENDING = { ...OWNED, name: 'SYR-0042', namePending: true } as unknown as Cat;
+    open('edit', PENDING);
+    fireEvent.change(screen.getAllByRole('textbox')[0]!, { target: { value: 'Mimi' } });
+    fireEvent.click(button('Save changes'));
+    expect(h.updateMutate).toHaveBeenCalledWith({
+      catId: 7,
+      data: { deviceId: 'dev-1', name: 'Mimi', homeDescription: 'the blue house' },
+    });
+  });
+
   it('an emptied note saves as empty; a blank name still cannot be saved', () => {
     open('edit', OWNED);
     fireEvent.change(screen.getByDisplayValue('the blue house'), { target: { value: '' } });

@@ -24,11 +24,11 @@ export const PAID_WORDS: Record<VetVisitValue["paidBy"], string> = {
   owner: "The owner",
 };
 
-const LISTED_VACCINES = Object.keys(VACCINE) as Exclude<Vaccine, { other: string }>[];
-const COST_MAX = 2000;
-const NOTE_MAX = 500;
-const TREATED_MAX = 200;
-const OTHER_VACCINE_MAX = 60;
+export const LISTED_VACCINES = Object.keys(VACCINE) as Exclude<Vaccine, { other: string }>[];
+export const COST_MAX = 2000;
+export const NOTE_MAX = 500;
+export const TREATED_MAX = 200;
+export const OTHER_VACCINE_MAX = 60;
 const COST_REASON_MAX = 200;
 
 /** What the form holds, as typed: every value a string, so a failed save shows it again exactly. */

@@ -19,6 +19,10 @@ export async function catNamed(name: string) {
   return cat;
 }
 
+/** The words every name check refuses with (the sightings route, and a vet batch's new cat). */
+export const NAME_TAKEN_WORDS = "Cat name already taken";
+export const OFFENSIVE_NAME_WORDS = "Cat name contains offensive language";
+
 // SYC-119 (choose-a-different-cat.md §3.1, §9): NAME_TAKEN names the cat that
 // has the name, so the phone can ask "Is this them?". Public details only:
 // the photo is the one the catalogue shows, so a main photo the team hid is
@@ -31,7 +35,7 @@ export async function nameTakenBody(
   code: "NAME_TAKEN";
   cat?: { id: number; name: string; photoUrl: PublicPhotoUrl | null };
 }> {
-  const body = { error: "Cat name already taken", code: "NAME_TAKEN" as const };
+  const body = { error: NAME_TAKEN_WORDS, code: "NAME_TAKEN" as const };
   if (!cat) return body;
   return {
     ...body,
@@ -77,3 +81,24 @@ export function nullOnUniqueViolation(err: unknown): null {
   if (isUniqueViolation(err)) return null;
   throw err;
 }
+
+/** A typed name that looks like a SYR number. */
+export const SYR_SHAPED_NAME = "That looks like a cat's SYR number. Choose a name.";
+
+/**
+ * A name that reads as a SYR number ("SYR-0042", "syr42"). Refused wherever a
+ * name is chosen: it would read as another cat's number, and could take the
+ * name a cat left for spotters needs (its stored name is its SYR number).
+ */
+export function isSyrShapedName(name: string): boolean {
+  // Folded first (case, accents), then Greek ΣΥΡ/συρ read as syr, and any
+  // run of spaces and dashes (hyphen, en dash, minus ...) between SYR and
+  // the digits is the same number.
+  const folded = foldName(name).replace(/^συρ/u, "syr");
+  return /^syr[\s\p{Pd}\u2212]*\d+$/u.test(folded);
+}
+
+export const SYR_SHAPED_NAME_BODY = {
+  error: SYR_SHAPED_NAME,
+  code: "SYR_SHAPED_NAME" as const,
+};

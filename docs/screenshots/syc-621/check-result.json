@@ -1,0 +1,36 @@
+{
+  "blocked": [],
+  "pages": {
+    "team-390": {
+      "scrollW": 390,
+      "innerW": 390,
+      "smallText": []
+    },
+    "guardian-390": {
+      "scrollW": 390,
+      "innerW": 390,
+      "smallText": []
+    },
+    "plan-390": {
+      "scrollW": 390,
+      "innerW": 390,
+      "smallText": []
+    },
+    "team-1280": {
+      "scrollW": 1280,
+      "innerW": 1280,
+      "smallText": []
+    },
+    "guardian-1280": {
+      "scrollW": 1280,
+      "innerW": 1280,
+      "smallText": []
+    },
+    "plan-1280": {
+      "scrollW": 1280,
+      "innerW": 1280,
+      "smallText": []
+    }
+  },
+  "printSmallText": []
+}

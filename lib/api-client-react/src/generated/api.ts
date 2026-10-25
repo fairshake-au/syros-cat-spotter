@@ -30,6 +30,7 @@ import type {
   CatDetail,
   CatFollow,
   CatLetGo,
+  CatNaming,
   CatOwnerUpdate,
   CatPage,
   CatUpdate,
@@ -491,6 +492,87 @@ export const useClaimCat = <TError = ErrorType<ApiErrorBody | void>,
         TContext
       > => {
       return useMutation(getClaimCatMutationOptions(options));
+    }
+
+export const getNameCatUrl = (catId: number,) => {
+
+
+
+
+  return `/api/cats/${catId}/name`
+}
+
+/**
+ * Needs the device secret (checked first, as on claim). Only a cat
+ * whose namePending is true can be named this way, and the first good
+ * name wins: two spotters naming at once get one 200 and one 409
+ * ALREADY_NAMED. The name goes through the same checks as naming a
+ * new cat: not blank (400 EMPTY_NAME), nothing offensive (400
+ * OFFENSIVE_NAME), not shaped like a SYR number (400
+ * SYR_SHAPED_NAME), and not another cat's name (409 NAME_TAKEN, with
+ * that cat). Shares the name-suggestions rate limit. Writes a `name`
+ * statement by this device.
+ * @summary A spotter names a cat Syros Cats left for spotters to name
+ */
+export const nameCat = async (catId: number,
+    catNaming: CatNaming, options?: RequestInit): Promise<Cat> => {
+
+  return customFetch<Cat>(getNameCatUrl(catId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(catNaming)
+  }
+);}
+
+
+
+
+
+export const getNameCatMutationOptions = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nameCat>>, TError,{catId: number;data: BodyType<CatNaming>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof nameCat>>, TError,{catId: number;data: BodyType<CatNaming>}, TContext> => {
+
+const mutationKey = ['nameCat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nameCat>>, {catId: number;data: BodyType<CatNaming>}> = (props) => {
+          const {catId,data} = props ?? {};
+
+          return  nameCat(catId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NameCatMutationResult = NonNullable<Awaited<ReturnType<typeof nameCat>>>
+    export type NameCatMutationBody = BodyType<CatNaming>
+    export type NameCatMutationError = ErrorType<ApiErrorBody | void>
+
+    /**
+ * @summary A spotter names a cat Syros Cats left for spotters to name
+ */
+export const useNameCat = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nameCat>>, TError,{catId: number;data: BodyType<CatNaming>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof nameCat>>,
+        TError,
+        {catId: number;data: BodyType<CatNaming>},
+        TContext
+      > => {
+      return useMutation(getNameCatMutationOptions(options));
     }
 
 export const getLetGoCatUrl = (catId: number,) => {

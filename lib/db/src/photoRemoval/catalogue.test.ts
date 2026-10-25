@@ -20,6 +20,11 @@ const PHOTO_LINKS = [
   "photo_visibility_events.photo_id", // P8: untouched
   "sighting_photos.photo_id", // P5: left in place
   "sightings.photo_id", // P4: left pointing (append-only)
+  // SYC-677: a draft batch's staged photo, and a saved visit's kept photo
+  // (add-only). Left in place: removal nulls the picture like any other
+  // photo's, and the link rows stay (remove.test.ts, "SYC-677").
+  "vet_batch_photos.photo_id",
+  "vet_visit_photos.photo_id",
   "welfare_reports.photo_id", // P7: left pointing
 ];
 
@@ -41,6 +46,10 @@ const BYTES_AND_JSON = [
   "person_events.detail",
   "photo_variants.bytes", // P2: deleted by removal
   "sighting_matches.suggested", // cat ids and scores
+  "vet_batch_cats.did", // SYC-677: what was done, e.g. ["sterilised"]; never a photo id or bytes
+  "vet_batch_cats.new_cat", // SYC-677: { name, description } of a cat not yet in the catalogue
+  "vet_batch_cats.suggestions", // SYC-677: the photo search's cat ids and scores
+  "vet_batches.vaccines", // SYC-677: vaccine names
   "welfare_report_photos.bytes", // reporters' own photos: out of scope (D3, SYC-478)
 ];
 

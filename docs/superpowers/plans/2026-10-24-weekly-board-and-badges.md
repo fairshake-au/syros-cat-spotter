@@ -43,12 +43,12 @@ The spec says the builder counts real spots that fall more than 2 km from every 
 - [ ] **Step 1:** On the production database (read-only query through the Neon connector `run_sql`; if auto mode blocks it, ask Samuel to switch to "ask" mode, per memory), count resolved, unredacted sightings whose nearest current area centre is over 2 km away. Split them into inside the island box and outside it. Use the `named_areas` rows where `retired_at is null` and the haversine formula in SQL.
 - [ ] **Step 2:** Post the counts as a comment on SYC-706, quoting the query and its run time. Do not change areas.
 
-### Task 1: Schema and migration `0044_weekly_board_and_badges`
+### Task 1: Schema and migration `0046_weekly_board_and_badges`
 
 **Files:**
 - Create: `lib/db/src/schema/badges.ts`
 - Modify: `lib/db/src/schema/sightings.ts` (two columns), `lib/db/src/schema/index.ts` (one export line)
-- Create (generated, then hand-edited rollback): `lib/db/migrations/0044_weekly_board_and_badges.sql`, `meta/0044_snapshot.json`, `meta/_journal.json`
+- Create (generated, then hand-edited rollback): `lib/db/migrations/0046_weekly_board_and_badges.sql`, `meta/0046_snapshot.json`, `meta/_journal.json`
 - Create: `artifacts/api-server/src/lib/weeks.ts`, `artifacts/api-server/src/lib/weeks.test.ts`
 
 **Interfaces (Produces):**
@@ -188,7 +188,7 @@ The spec says the builder counts real spots that fall more than 2 km from every 
 
 **Files:**
 - Create: `artifacts/api-server/src/lib/badges/backfill.ts`, `backfill.test.ts`
-- Modify: `lib/db/src/schema/badges.ts` (add `badgeBackfillRunsTable` (`badge_backfill_runs`): `version integer pk`, `startedAt`, `finishedAt`, `spotters integer`), with migration `0045_badge_backfill_runs` and a rollback
+- Modify: `lib/db/src/schema/badges.ts` (add `badgeBackfillRunsTable` (`badge_backfill_runs`): `version integer pk`, `startedAt`, `finishedAt`, `spotters integer`), with migration `0046_weekly_board_and_badges` and a rollback
 - Modify: `artifacts/api-server/src/routes/internalMail.ts` (call `runBadgeBackfillOnce()` after the round-up, inside its own try/catch, like the other sweeps)
 
 **Rules (from the spec, §3):**
@@ -247,7 +247,7 @@ The spec says the builder counts real spots that fall more than 2 km from every 
   - `queueMoment(kind "week_result", badgeIds = the badges in this result, even if already held, with place and weekPoints)` for each. The spec says to celebrate every podium week.
   - No minimum activity (Samuel).
 - `sendWeeklyPushesIfDue(now = new Date()): Promise<"not_due" | "outside_window" | "sent" | "already_sent">`. It acts only for the week that just closed, only when Athens `now` is the Monday that week closed, and only between 08:00 and 20:00. It claims `pushed_at` with `update … where pushed_at is null returning`. It sends `sendPushNotification(token, title, body, { type: "weekly_result", weekStart })` to each placed device with a token. The copy is from i18n keys `pushWeekTitle` and `pushWeekBody1`/`pushWeekBodyPlace`, in English only server-side, as the round-up does today. Check `sightingRoundUp.ts` for how it picks a language; if it's per-device, match it.
-- The bell entry is a `notifications` row. **Schema change in this task:** make `notifications.cat_update_id` nullable, and add `kind text not null default 'cat'` and `message text`, with migration `0046` and a rollback. The `GET /notifications/:deviceId` join becomes a left join, and rows with `kind 'week_result'` return `catId: null`. The message never names a place.
+- The bell entry is a `notifications` row. **Schema change in this task:** make `notifications.cat_update_id` nullable, and add `kind text not null default 'cat'` and `message text`, with migration `0047` and a rollback. The `GET /notifications/:deviceId` join becomes a left join, and rows with `kind 'week_result'` return `catId: null`. The message never names a place.
 
 - [ ] **Step 1: Failing tests** (use a fixed `now`):
   - `not due before the first eligible week`
@@ -390,7 +390,7 @@ Branch from `origin/main` after PR C merges, so the generated client has the new
 
 Order matters. Memory "migrate before republish" says to migrate production before Samuel republishes.
 
-1. Run migrations 0044–0046 on production. Check that `/api/healthz` shows the new commit only after Samuel pulls main in Replit's Git pane and republishes (memories: "Replit sync is Samuel's", "Confirm the live build before smoke").
+1. Run migrations 0046–0049 on production. Check that `/api/healthz` shows the new commit only after Samuel pulls main in Replit's Git pane and republishes (memories: "Replit sync is Samuel's", "Confirm the live build before smoke").
 2. Trigger the drain once (the worker's 2-hourly cron will also do it). Then check `badge_backfill_runs` has `finished_at`, and spot-check two real spotters' badges against their history.
 3. There's no setting to flip: the first eligible week is computed from the first live ledger row. Note in SYC-706 the Monday that will be the first close.
 4. A wake-up is needed for the first Monday close. Before reporting the launch done, set a scheduled check (scheduled task) for 10:00 Athens on that Monday that verifies a `weekly_closes` row exists and `pushed_at` is set.

@@ -67,13 +67,12 @@ describe("the Vet settings page", () => {
     expect(res.text).toContain('<h2 id="history">History</h2>');
   });
 
-  it("says what the price does without promising a planner or a delay (SYC-619 §9.3)", async () => {
+  it("says what the price does, the planner's estimate included, without promising a delay (SYC-619 §9.3; SYC-621)", async () => {
     const res = await page(team.cookie);
     expect(res.text).toContain(
-      "A vet visit with Sterilised ticked starts with this price as its cost. Each visit's cost can still be changed.",
+      "Each colony's trapping planner uses it for its estimate, and a vet visit with Sterilised ticked starts with it as its cost. Each visit's cost can still be changed.",
     );
     expect(res.text).not.toContain("within a minute");
-    expect(res.text).not.toContain("trapping planner");
   });
 
   it("a team member changes the price; the history shows the day, who, and before → after; this server uses it at once", async () => {

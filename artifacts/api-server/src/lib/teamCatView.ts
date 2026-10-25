@@ -62,6 +62,21 @@ export const teamPhotoUrl = (publicId: string) =>
 /** SYR-0012 for cat 12: the number the app and the team use (cat/[id].tsx). */
 export const syrNumber = (id: number) => `SYR-${String(id).padStart(4, "0")}`;
 
+/** What the team's pages call a cat Syros Cats left for spotters to name (SYC-677 D). */
+export const NO_NAME_YET = "No name yet";
+
+/**
+ * The name a team page draws: the cat's name, or "No name yet" while it is
+ * waiting for one (its stored name is then its SYR number, which the page
+ * draws beside it anyway).
+ */
+export const shownName = (c: { name: string; namePending: boolean }): string =>
+  c.namePending ? NO_NAME_YET : c.name;
+
+/** The cat page's heading and title: "No name yet · SYR-0123" while it waits for a name. */
+export const headingName = (c: { name: string; namePending: boolean; syr: string }): string =>
+  c.namePending ? `${NO_NAME_YET} \u00b7 ${c.syr}` : c.name;
+
 // ── Who said it ────────────────────────────────────────────────────────────
 
 export type AuthorKind =
@@ -541,6 +556,8 @@ export interface TeamCatView {
     id: number;
     syr: string;
     name: string;
+    /** SYC-677 D: left for spotters to name; `name` is then its SYR number. */
+    namePending: boolean;
     description: string;
     /** Where the cat was first recorded: exact. */
     lat: number;
@@ -1004,6 +1021,7 @@ export async function teamCatView(
       id: cat.id,
       syr: syrNumber(cat.id),
       name: cat.name,
+      namePending: cat.namePending,
       description: cat.description,
       lat: cat.lat,
       lng: cat.lng,

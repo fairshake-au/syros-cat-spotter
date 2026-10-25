@@ -218,7 +218,10 @@ describe("carry-back, end to end (test 4)", () => {
 
     const dry = await carryBack(neon, old);
     expect(dry.applied).toBe(false);
-    expect(counts(dry)).toEqual({ inserts: 2, updates: 1, deletes: 1 });
+    // SYC-677 R22a: migration 0045 seeds the team desk's unbindable credential
+    // on Neon, so it is carried back as one more insert.
+    expect(counts(dry)).toEqual({ inserts: 3, updates: 1, deletes: 1 });
+    expect(table(dry, "device_credentials").toInsert).toEqual(["syros-cats-team"]);
     expect(table(dry, "photos").toInsert).toEqual([3]);
     expect(table(dry, "sightings").toInsert).toEqual([2]);
     expect(table(dry, "cats").toUpdate).toEqual([2]);
@@ -240,6 +243,7 @@ describe("carry-back, end to end (test 4)", () => {
       // column, and recomputes nothing it needs from it.
       // SYC-63's deletion stamps live on Neon only, like the sightings ones.
       // SYC-130's home pin: also Neon only.
+      // SYC-677's "left for spotters to name" flag: Neon only too.
       {
         table: "cats",
         columns: [
@@ -248,18 +252,19 @@ describe("carry-back, end to end (test 4)", () => {
           "redaction_reason",
           "home_lat",
           "home_lng",
+          "name_pending",
         ],
       },
-      // SYC-706's place stamp (0044): Neon only too. 0044's trigger lets a
+      // SYC-706's place stamp (0046): Neon only too. 0046's trigger lets a
       // row with no stamp be stamped once later.
       {
         table: "sightings",
         columns: ["redacted_at", "redaction_reason", "area_key", "on_island"],
       },
-      // SYC-706's weekly-result bell entries (0045) and their place and
-      // points (0046): Neon only too.
+      // SYC-706's weekly-result bell entries (0047) and their place and
+      // points (0048): Neon only too.
       { table: "notifications", columns: ["kind", "message", "place", "week_points"] },
-      // SYC-706's push language (0047): Neon only too.
+      // SYC-706's push language (0049): Neon only too.
       { table: "push_tokens", columns: ["language"] },
     ]);
     expect(dry.baseline).toEqual({ status: "ok", changedTables: [] });
@@ -268,7 +273,7 @@ describe("carry-back, end to end (test 4)", () => {
 
     const applied = await carryBack(neon, old, { apply: true });
     expect(applied.applied).toBe(true);
-    expect(counts(applied)).toEqual({ inserts: 2, updates: 1, deletes: 1 });
+    expect(counts(applied)).toEqual({ inserts: 3, updates: 1, deletes: 1 });
 
     expect(await compare(neon, old, { projected: true, onto: "target" })).toEqual([]);
     for (const t of ["photos", "sightings", "cats"]) {
@@ -331,7 +336,8 @@ describe("carry-back: exact values, secrets and every table", () => {
     expect(text).not.toMatch(/push-token/);
     expect(text).not.toContain("dev-c-7a1f");
     expect(text).not.toMatch(/postgres(ql)?:\/\//);
-    expect(text).toMatch(/device_credentials: 1 insert, 1 update, 0 delete/);
+    // One insert is dev-c, the other the team desk's seeded credential (SYC-677 R22a).
+    expect(text).toMatch(/device_credentials: 2 insert, 1 update, 0 delete/);
     expect(text).toMatch(/#[0-9a-f]{12}/);
 
     const applied = await carryBack(neon, old, { apply: true });
@@ -347,6 +353,8 @@ describe("carry-back: exact values, secrets and every table", () => {
     expect(creds.rows).toEqual([
       { device_id: "dev-a", secret_hash: "SECRET-HASH-A-ROTATED-77" },
       { device_id: "dev-c-7a1f", secret_hash: "SECRET-HASH-C-0b3e" },
+      // Carried back, so the old database can't bind the team desk either (SYC-677 R22a).
+      { device_id: "syros-cats-team", secret_hash: "unbindable:syros-cats-team" },
     ]);
     // Microsecond timestamps survive (compare hashes their text form).
     expect(await compare(neon, old, { projected: true, onto: "target" })).toEqual([]);
@@ -475,7 +483,8 @@ describe("carry-back is safe to re-run", () => {
     await old.query(`drop trigger boom on device_credentials`);
     const first = await carryBack(neon, old, { apply: true });
     expect(first.applied).toBe(true);
-    expect(counts(first).inserts).toBe(3);
+    // dev-z, the team desk's seeded credential (SYC-677 R22a), and one more.
+    expect(counts(first).inserts).toBe(4);
 
     const second = await carryBack(neon, old, { apply: true });
     expect(second.applied).toBe(true);

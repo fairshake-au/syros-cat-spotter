@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { DbOrTx } from "./badges/award";
+import { TEAM_DESK_DEVICE } from "./teamDesk";
 
 /** One board row as the database hands it over, before it is made public. */
 export type BoardRow = {
@@ -40,6 +41,7 @@ export async function weekBoardRows(
         extract(epoch from max(earned_at))::float8 as tie_key
       from points_ledger
       where week_start = ${weekStart}::date and points > 0 and device_id is not null
+        and device_id <> ${TEAM_DESK_DEVICE}
       group by device_id
     ) w
     join profiles p on p.device_id = w.device_id

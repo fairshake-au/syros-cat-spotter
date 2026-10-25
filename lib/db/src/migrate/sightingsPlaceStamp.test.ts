@@ -3,7 +3,7 @@ import pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { defaultMigrationsFolder, migrateUp, readMigrations } from "./runner";
 
-// SYC-706 (migration 0044): a sighting stays append-only, but its place
+// SYC-706 (migration 0046): a sighting stays append-only, but its place
 // (area_key, on_island) may be stamped in the update that resolves it, or
 // once on its own on a row that has none yet. Never restamped, never stamped
 // alongside any other change.
@@ -56,7 +56,7 @@ async function row(id: number) {
   return r.rows[0];
 }
 
-describe("sightings: the place stamp (0044)", () => {
+describe("sightings: the place stamp (0046)", () => {
   it("accepts resolve plus stamp in one update", async () => {
     const id = await sighting();
     await c.query(

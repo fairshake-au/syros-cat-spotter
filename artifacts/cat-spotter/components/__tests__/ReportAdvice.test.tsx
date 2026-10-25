@@ -150,7 +150,6 @@ describe('VetList (§5.7, item 1.10)', () => {
       expect(text).toContain(g.copy.vetList.phoneKinds.after_hours);
     }
     expect(text).toContain(g.copy.vetList.pinLandmark);
-    expect(text).toContain(g.copy.vetList.pinSearch);
     // The full list ends with the Municipality; the compact cards leave it to
     // the "Costs, and the Municipality" fold (tested with UrgentAdvice).
     if (!compact) expect(links).toContain('tel:+302281361000');

@@ -418,6 +418,8 @@ Four moments, deliberately:
 
 Same rule, same words, in the flow and in the mail. A message that appears in only one place is a message half the people never see.
 
+**24 Oct 2026 (SYC-570): the Urgent path has its own "Call a vet now" screen straight after "How bad is it?"** (lead, cage line, the three clinics, nearest the phone first), then the email question when offered, then "Before you send" (four screens, five with the email question). Needs attention lists the vets too. The last screen still lists the vets, so "the clinics above" stays true.
+
 **A layout note that is part of the design, not decoration.** The urgent block is long because it has to be. It is shown as a short lead, then a clearly labelled expander — **"How to get a hurt cat to a vet"** — ~~open by default on first use~~ **folded by default, behind a clear, prominent button-style expander (never small print)**. *Samuel, 2 Oct 2026: the steps are folded behind a prominent button so the advice screen needs no scrolling.* The report flow is three screens (Where → How bad → Before you send), each fitting a 390×844 phone without scrolling; the capacity paragraph is always shown in full, directly above the pinned Send report button. The lead must never be the discouraging half: leading with "we may not come" turns a worried person away at the exact moment we want them to press Send. The block therefore opens with the vet route ("If this cat is badly hurt, please take it to a local vet if you can") and puts the capacity paragraph — Syros Cats is not an emergency service — **last** (Samuel, 1 Oct 2026).
 
 ### 5.3 The copy
@@ -474,7 +476,9 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 >
 > **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — **+30 22813 61000** — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.
 >
-> Sending this report will also provide Syros Cats with a report about the cat and, in some circumstances, they may take action in response. However, Syros Cats is a private sanctuary and not an emergency service, so they are unable to provide immediate rescue or collection. Their small team is currently at full capacity caring for the cats already with them.
+> Syros Cats is a small private sanctuary, not an emergency service, and its team is at full capacity, so they can't rescue or collect a cat straight away. Your report still goes to them, and in some cases they may act on it.
+
+*Samuel, 24 Oct 2026 (SYC-570): cut from three sentences to these two, same ideas. SYC-171's liability check still has to see it.*
 
 **Out-of-hours: the paragraph that named these numbers in the urgent block was removed by Samuel on 27 September 2026.** What follows is kept as the record of why it was there. SYC-68 asked who somebody calls at nine in the evening in February. The earlier answer — that there is no cover and the app should say nothing — was wrong on both halves, and the verification pass in `docs/specs/source/syros-vets-verified.md` is what corrected it. Two of the three clinics publish an out-of-hours contact: Symviosis lists **+30 697 005 5012** on its own site as the number to call outside clinic hours, and Cyclades Vets advertises 24-hour operation, 365 days a year, on **+30 6937 252802**. Those are published claims, not tested realities — nobody has rung either number at 2am to find out what happens. So the app names them and vouches for nothing, in one short paragraph placed directly under the vet list. Confirming whether they actually answer is a testing task (§5.4), not a blocker: naming a number the clinic itself publishes is better than a silence that implies there is nobody at all. Syros Cats told us there is no night cover; the clinics' own material says otherwise; the app reports the published position and leaves the reader to judge.
 
@@ -641,8 +645,8 @@ The vet list is the third clause of the urgent block, and without it that block 
 | Phone | **+30 6986 705837** (mobile) |
 | After-hours | **Nothing published, either way.** The entry says nothing about nights — it does not claim cover and it does not deny it. |
 | Coordinates | **Needs a new pin.** The old one (37.4303699, 24.9439526) was the Lazareta neighbourhood centre and is now known to be wrong. |
-| Google Maps | Interim, until re-pinned: `https://www.google.com/maps/search/?api=1&query=Dermitzaki%20vet%20Livadia%20Manna%20Syros` |
-| Apple Maps | Interim, until re-pinned: `https://maps.apple.com/?q=Dermitzaki%20Vet%20Livadia%20Manna%20Syros` |
+| Google Maps | `https://www.google.com/maps/search/?api=1&query=37.4288115,24.940307` (her own Google place pin, supplied by Samuel 24 Oct 2026, SYC-570) |
+| Apple Maps | `https://maps.apple.com/?ll=37.4288115,24.940307&q=Dermitzaki%20Vet%20Livadia` |
 
 **3. Cyclades Vets (George Maragkos) — Κτηνιατρική Κλινική Κυκλάδων**
 
@@ -674,7 +678,7 @@ Under Greek law the Municipality is ultimately responsible for the care of stree
 **What is still open on this data:**
 
 1. **Fix the three map pins to real door positions.** Everything above is landmark-anchored to a petrol station. Somebody standing outside each clinic with a phone closes this permanently, in about ten minutes. This is the top item.
-2. **Pin Dermitzaki's door.** The address is settled (Livadia, Manna); the map pin still points at Lazareta and needs replacing.
+2. ~~**Pin Dermitzaki's door.**~~ Done 24 Oct 2026 (SYC-570): her own Google Maps place pin is in the vets file.
 3. **Ask Dermitzaki whether there is any emergency contact.** Complete blank at present, in both directions.
 
 None of these blocks the block shipping. The numbers themselves are verified — every one of the six from Susan's reply checks out against the clinics' own material or two independent sources — and a landmark pin plus a working number is genuinely useful. What would not be acceptable is shipping any of it as more certain than it is, which is what the wording above is for.

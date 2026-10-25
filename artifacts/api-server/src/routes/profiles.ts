@@ -5,6 +5,7 @@ import { profilePayload, spotterCode } from "../lib/catHelpers";
 import { competitionRanks } from "../lib/ranking";
 import { type BoardRow, uniqueCatsSql, weekBoardRows } from "../lib/weekBoard";
 import { nextWeekStartInstant, weekStartAthens, weekStartInstant } from "../lib/weeks";
+import { TEAM_DESK_DEVICE } from "../lib/teamDesk";
 import { normalizeUsername, suggestUsernames } from "../lib/usernames";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import {
@@ -290,6 +291,8 @@ router.get("/leaderboard", async (_req, res) => {
       ))::float8 as tie_key
     from profiles p
     where p.points > 0
+      -- SYC-677 R22b: the team desk is nobody's phone and never on the board.
+      and p.device_id <> ${TEAM_DESK_DEVICE}
     order by p.points desc, tie_key asc, p.device_id asc
     limit 20`);
   res.json(publicBoard(rows.rows));

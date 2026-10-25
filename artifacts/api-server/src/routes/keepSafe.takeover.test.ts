@@ -557,6 +557,8 @@ const PROBES: Probe[] = [
   { name: "POST /sightings/:id/recheck", file: "sightings.ts", call: (id, s, c) => request(app).post(`/api/sightings/${c.sightingId}/recheck`).set("X-Device-Secret", s).set("X-Forwarded-For", freshIp()).send({ deviceId: id }) },
   { name: "POST /sightings/:id/answers", file: "sightings.ts", call: (id, s, c) => request(app).post(`/api/sightings/${c.sightingId}/answers`).set("X-Device-Secret", s).send({ deviceId: id }) },
   { name: "GET /profiles/:id/cats/:c/open-sightings", file: "sightings.ts", call: (id, s, c) => request(app).get(`/api/profiles/${id}/cats/${c.catId}/open-sightings`).set("X-Device-Secret", s) },
+  // SYC-677 D: a spotter naming a cat left unnamed.
+  { name: "POST /cats/:id/name", file: "cats.ts", call: (id, s, c) => request(app).post(`/api/cats/${c.catId}/name`).set("X-Device-Secret", s).set("X-Forwarded-For", freshIp()).send({ deviceId: id, name: `Kname${RUN}` }) },
   { name: "POST /cats/:id/claim", file: "cats.ts", call: (id, s, c) => request(app).post(`/api/cats/${c.catId}/claim`).set("X-Device-Secret", s).send({ deviceId: id, livesOnSyros: true, livesInMyHome: true, homePin: { lat: 37.44, lng: 24.9 } }) },
   { name: "POST /cats/:id/let-go", file: "cats.ts", call: (id, s, c) => request(app).post(`/api/cats/${c.catId}/let-go`).set("X-Device-Secret", s).send({ deviceId: id }) },
   // follow and unfollow share one handler, so one device-secret check and one probe.

@@ -1,0 +1,61 @@
+// Scratch render for the SYC-677 Task 6 browser check and screenshots (the vet visit batch page). Kept as a .txt so
+// tsc and vitest do not pick it up; copy it to artifacts/api-server/src/tmp-render.test.ts and run it with OUT=<dir>
+// to write empty.html, mixed.html and failed.html (plus img/). No network and no database are used.
+import { it } from "vitest";
+it("renders the fixture pages", () => {});
+import { mkdirSync, writeFileSync as write } from "node:fs";
+import { renderBatchPage, type BatchPage } from "./lib/teamPages/vetBatchPages";
+import type { Batch, BatchCat } from "./lib/vetBatches";
+const OUT = process.env["OUT"]!;
+mkdirSync(`${OUT}/img`, { recursive: true });
+for (let i = 0; i < 8; i++) {
+  write(`${OUT}/img/p${i}.svg`, `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="hsl(${i * 45},35%,62%)"/><circle cx="150" cy="150" r="70" fill="hsl(${i * 45},30%,40%)"/></svg>`);
+}
+const save = (name: string, html: string) =>
+  write(`${OUT}/${name}.html`, html.replace(/src="\/api\/team\/photos\/p(\d)(?:\/small)?"/g, 'src="img/p$1.svg"'));
+const NOW = new Date("2026-10-24T09:00:00Z");
+const shared = {
+  date: "2026-10-24", clinicId: "symviosis", colonyId: 4, areaKey: null, priceEur: "60.00", paidBy: "syros_cats",
+  vaccines: [], vaccineOther: "", note: "",
+};
+const blank = (id: number, position: number, photos: string[], over: Partial<BatchCat> = {}): BatchCat => ({
+  id, position, catId: null, newCat: null, confirmed: false, did: [], treatedNote: "", costEur: "", paidBy: "", note: "",
+  alsoSameDay: false, photos: photos.map((publicId, i) => ({ photoId: id * 10 + i, publicId })), suggestions: null, ...over,
+});
+const base = (cats: BatchCat[]): Batch => ({ id: 12, createdBy: "x", savedAt: null, shared, cats });
+const line = (name: string, id: number, photo: string) => ({ name, syr: `SYR-00${id}`, thumbUrl: `/api/team/photos/${photo}/small` });
+const page = (batch: Batch, extra: Partial<BatchPage> = {}): BatchPage => ({
+  batch, personName: "Maria", mayVaccinate: true, standardPriceEur: 60, now: NOW,
+  place: { kind: "colony", name: "Ermoupoli harbour" },
+  cats: new Map([[40, line("Mavros", 40, "p0")], [41, line("Lemoni", 41, "p1")], [42, line("Kanela", 42, "p2")]]),
+  scopes: { colonies: [{ id: 4, name: "Ermoupoli harbour" }, { id: 5, name: "Vaporia hill" }], areas: [{ key: "ermoupoli", name: "Ermoupoli" }, { key: "kini", name: "Kini" }] },
+  limit: "ok", ...extra,
+});
+save("empty", renderBatchPage(page(base([]))));
+const matched = blank(101, 0, ["p0", "p3"], { catId: 40, confirmed: true, did: ["sterilised"], note: "Calm in the carrier" });
+const unmatched = blank(102, 1, ["p1", "p4"], {
+  suggestions: [
+    { catId: 41, score: 0.91, band: "very_likely", reasoning: "Same notched left ear and white chest", photoPublicId: "p1" },
+    { catId: 42, score: 0.55, band: "possible", reasoning: "Similar ginger stripes", photoPublicId: "p2" },
+  ],
+});
+save("mixed", renderBatchPage(page(base([matched, unmatched]))));
+const fresh = blank(103, 2, ["p5"]);
+save("failed", renderBatchPage(page(base([matched, unmatched, fresh]), {
+  problems: [
+    { batchCatId: 102, field: "confirmed", words: "Confirm who this cat is." },
+    { batchCatId: 103, field: "confirmed", words: "Confirm who this cat is." },
+    { batchCatId: null, field: "clinicId", words: "Choose the clinic." },
+  ],
+})));
+save("saved", renderBatchPage(page(base([matched, unmatched]), { said: { key: "shared_saved", row: null } })));
+save("cat-saved", renderBatchPage(page(base([matched, unmatched]), { said: { key: "cat_saved", row: 101 } })));
+// SYC-677 Task 9: "None of these: a cat we haven't recorded" on an unmatched card, the same form back with a bad
+// name (the route's 400), and two confirmed new cats (named now, and left for spotters) ready for their answers.
+save("new-cat-form", renderBatchPage(page(base([matched, unmatched]))));
+save("new-cat-bad-name", renderBatchPage(page(base([matched, unmatched]), {
+  newCat: { row: 102, values: { naming: "now", name: "Mavros", description: "Black, white tip on the tail" }, problems: { name: "Cat name already taken" } },
+})));
+const named = blank(104, 2, ["p5", "p6"], { newCat: { name: "Piperia", description: "Tabby, notch in the right ear" }, confirmed: true, did: ["sterilised"] });
+const forSpotters = blank(105, 3, ["p7"], { newCat: { name: null, description: "" }, confirmed: true, did: ["sterilised", "treated"], treatedNote: "Ear mites" });
+save("new-cat-ready", renderBatchPage(page(base([matched, named, forSpotters]))));

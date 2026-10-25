@@ -59,6 +59,8 @@ export interface GuardianCat {
   id: number;
   syr: string;
   name: string;
+  /** SYC-677 D: left for spotters to name; `name` is then its SYR number. */
+  namePending: boolean;
   description: string;
   /** Where the cat was first recorded: exact. */
   lat: number;
@@ -126,6 +128,7 @@ export async function guardianCats(
     .select({
       id: catsTable.id,
       name: catsTable.name,
+      namePending: catsTable.namePending,
       description: catsTable.description,
       lat: catsTable.lat,
       lng: catsTable.lng,
@@ -218,6 +221,7 @@ export async function guardianCats(
       id: cat.id,
       syr: syrNumber(cat.id),
       name: cat.name,
+      namePending: cat.namePending,
       description: cat.description,
       lat: cat.lat,
       lng: cat.lng,
@@ -252,6 +256,7 @@ export const GUARDIAN_CAT_FIELDS = [
   "id",
   "syr",
   "name",
+  "namePending",
   "description",
   "lat",
   "lng",

@@ -286,6 +286,13 @@ export interface Cat {
   discovererNickname?: string | null;
   discovererUsername?: string | null;
   /**
+     * True while Syros Cats has left this cat for spotters to name.
+     * `name` is then the cat's SYR number; the app shows "No name yet"
+     * with it, and offers "Name this cat" (POST /cats/{catId}/name).
+     * Always sent; optional so a copy cached by an older app still reads.
+     */
+  namePending?: boolean;
+  /**
      * Display name of the cat's owner. Only in the owner's own view; null for everyone else (claiming-a-cat.md D9).
      * @nullable
      */
@@ -386,6 +393,19 @@ export interface CatClaim {
   homePin: CatClaimHomePin;
   /** @maxLength 200 */
   homeNote?: string;
+}
+
+/**
+ * A spotter's name for a cat left for spotters. The secret travels in X-Device-Secret.
+ */
+export interface CatNaming {
+  /** @minLength 1 */
+  deviceId: string;
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  name: string;
 }
 
 export type IssueReportRequestReason = typeof IssueReportRequestReason[keyof typeof IssueReportRequestReason];
@@ -661,6 +681,12 @@ export interface CreateSightingError {
 export interface MatchCandidate {
   catId: number;
   name: string;
+  /**
+     * True while Syros Cats has left this cat for spotters to name;
+     * `name` is then its SYR number and the app shows "No name yet".
+     * Optional so an older answer still reads.
+     */
+  namePending?: boolean;
   photoUrl: string | null;
   /** Match likelihood 0-1 */
   confidence: number;

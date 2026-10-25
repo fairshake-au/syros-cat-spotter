@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { fonts, fontSizes, radii, spacing, borderWidths } from '@/constants/theme';
+import { catListName, catNameInSentence } from '@/lib/catDisplayName';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
@@ -306,7 +307,7 @@ export default function CatalogScreen() {
                 label: shared ? t('catsInArea').replace('{n}', String(group.length)) : undefined,
                 accessibilityLabel: shared
                   ? t('areaWithCats').replace('{n}', String(group.length))
-                  : t('areaOfCat').replace('{name}', group[0]!.name),
+                  : t('areaOfCat').replace('{name}', catNameInSentence(group[0]!)),
                 onPress: () => {
                   if (shared && Platform.OS === 'web') {
                     // D4: the web strip narrows to the cats in this square.
@@ -329,7 +330,7 @@ export default function CatalogScreen() {
               id: String(cat.id),
               latitude: cat.lat,
               longitude: cat.lng,
-              title: cat.name,
+              title: catListName(cat, t),
               image: photoSource(cat.photoUrl),
               onPress: () =>
                 router.push({

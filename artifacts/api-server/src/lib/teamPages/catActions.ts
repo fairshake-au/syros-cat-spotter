@@ -167,12 +167,15 @@ export function renderCatActions(
     if (v.colony) items.push(takeOutForm(v));
   }
   if (may("rename_cat")) {
+    // SYC-677 D: a cat left for spotters to name is named, not renamed, and
+    // its field starts empty (its stored name is only its SYR number).
+    const pending = v.cat.namePending;
     items.push(
-      `${fold(rename !== undefined)}<summary>Rename the cat</summary><form method="post" action="${base}/name">` +
-        '<label class="label" for="rn-name">New name</label>' +
-        `<input class="text" id="rn-name" name="name" required maxlength="60" value="${esc(rename?.["name"] ?? v.cat.name)}" autocomplete="off" spellcheck="false">` +
+      `${fold(rename !== undefined)}<summary>${pending ? "Name this cat" : "Rename the cat"}</summary><form method="post" action="${base}/name">` +
+        `<label class="label" for="rn-name">${pending ? "Name" : "New name"}</label>` +
+        `<input class="text" id="rn-name" name="name" required maxlength="60" value="${esc(rename?.["name"] ?? (pending ? "" : v.cat.name))}" autocomplete="off" spellcheck="false">` +
         reasonInput("rn-why", undefined, rename?.["reason"]) +
-        '<button type="submit">Rename</button></form></details>',
+        `<button type="submit">${pending ? "Name this cat" : "Rename"}</button></form></details>`,
     );
   }
   if ((v.owner.has || v.owner.orphanedHome) && may("remove_owner") && may("set_life_status")) {

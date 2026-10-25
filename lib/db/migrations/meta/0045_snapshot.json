@@ -1,6 +1,6 @@
 {
-  "id": "a6dba833-0cb8-4d0b-bb2b-2b523d800aa6",
-  "prevId": "fda88006-750b-4a73-b135-f6414bee3a06",
+  "id": "4ff7a57f-92e5-4428-a305-c643d4bfa57f",
+  "prevId": "25ecd8ef-7aa5-40f2-83ae-6f415559de76",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -166,6 +166,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "name_pending": {
+          "name": "name_pending",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "owner_name": {
           "name": "owner_name",
           "type": "text",
@@ -306,18 +313,6 @@
         "redaction_reason": {
           "name": "redaction_reason",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "area_key": {
-          "name": "area_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "on_island": {
-          "name": "on_island",
-          "type": "boolean",
           "primaryKey": false,
           "notNull": false
         }
@@ -564,20 +559,7 @@
           "name": "cat_update_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'cat'"
-        },
-        "message": {
-          "name": "message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "read": {
           "name": "read",
@@ -599,12 +581,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "notifications_kind_ck": {
-          "name": "notifications_kind_ck",
-          "value": "(\"notifications\".\"kind\" = 'cat' and \"notifications\".\"cat_update_id\" is not null)\n      or (\"notifications\".\"kind\" = 'week_result' and \"notifications\".\"cat_update_id\" is null and \"notifications\".\"message\" is not null)"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.push_roundup_runs": {
@@ -4737,46 +4714,8 @@
       },
       "isRLSEnabled": false
     },
-    "public.badge_backfill_runs": {
-      "name": "badge_backfill_runs",
-      "schema": "",
-      "columns": {
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "finished_at": {
-          "name": "finished_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "spotters": {
-          "name": "spotters",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.badge_moments": {
-      "name": "badge_moments",
+    "public.vet_batch_cats": {
+      "name": "vet_batch_cats",
       "schema": "",
       "columns": {
         "id": {
@@ -4785,82 +4724,14 @@
           "primaryKey": true,
           "notNull": true
         },
-        "device_id": {
-          "name": "device_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "badge_ids": {
-          "name": "badge_ids",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "week_start": {
-          "name": "week_start",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "place": {
-          "name": "place",
+        "batch_id": {
+          "name": "batch_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
-        },
-        "week_points": {
-          "name": "week_points",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "now()"
-        },
-        "celebrated_at": {
-          "name": "celebrated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.points_ledger": {
-      "name": "points_ledger",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
           "notNull": true
         },
-        "device_id": {
-          "name": "device_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sighting_id": {
-          "name": "sighting_id",
+        "position": {
+          "name": "position",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
@@ -4869,80 +4740,82 @@
           "name": "cat_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "points": {
-          "name": "points",
-          "type": "integer",
+        "new_cat": {
+          "name": "new_cat",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "athens_day": {
-          "name": "athens_day",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "week_start": {
-          "name": "week_start",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "earned_at": {
-          "name": "earned_at",
-          "type": "timestamp with time zone",
+        "confirmed": {
+          "name": "confirmed",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": true,
-          "default": "now()"
+          "default": false
         },
-        "source": {
-          "name": "source",
+        "did": {
+          "name": "did",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "treated_note": {
+          "name": "treated_note",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "''"
+        },
+        "cost_eur": {
+          "name": "cost_eur",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "paid_by": {
+          "name": "paid_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "also_same_day": {
+          "name": "also_same_day",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "suggestions": {
+          "name": "suggestions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
-        "points_ledger_once_a_day_uq": {
-          "name": "points_ledger_once_a_day_uq",
+        "vet_batch_cats_batch_idx": {
+          "name": "vet_batch_cats_batch_idx",
           "columns": [
             {
-              "expression": "device_id",
+              "expression": "batch_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "cat_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "athens_day",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"points_ledger\".\"points\" > 0",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "points_ledger_week_device_idx": {
-          "name": "points_ledger_week_device_idx",
-          "columns": [
-            {
-              "expression": "week_start",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "device_id",
+              "expression": "position",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -4954,106 +4827,47 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "points_ledger_sighting_id_unique": {
-          "name": "points_ledger_sighting_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "sighting_id"
-          ]
+      "foreignKeys": {
+        "vet_batch_cats_batch_id_vet_batches_id_fk": {
+          "name": "vet_batch_cats_batch_id_vet_batches_id_fk",
+          "tableFrom": "vet_batch_cats",
+          "tableTo": "vet_batches",
+          "columnsFrom": [
+            "batch_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "vet_batch_cats_cat_id_cats_id_fk": {
+          "name": "vet_batch_cats_cat_id_cats_id_fk",
+          "tableFrom": "vet_batch_cats",
+          "tableTo": "cats",
+          "columnsFrom": [
+            "cat_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.spotter_badges": {
-      "name": "spotter_badges",
-      "schema": "",
-      "columns": {
-        "device_id": {
-          "name": "device_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "badge_id": {
-          "name": "badge_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "earned_at": {
-          "name": "earned_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "seen_at": {
-          "name": "seen_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "spotter_badges_device_id_badge_id_pk": {
-          "name": "spotter_badges_device_id_badge_id_pk",
-          "columns": [
-            "device_id",
-            "badge_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.weekly_closes": {
-      "name": "weekly_closes",
-      "schema": "",
-      "columns": {
-        "week_start": {
-          "name": "week_start",
-          "type": "date",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "closed_at": {
-          "name": "closed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "pushed_at": {
-          "name": "pushed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "vet_batch_cats_identity_ck": {
+          "name": "vet_batch_cats_identity_ck",
+          "value": "\"vet_batch_cats\".\"cat_id\" is null or \"vet_batch_cats\".\"new_cat\" is null"
+        }
+      },
       "isRLSEnabled": false
     },
-    "public.weekly_results": {
-      "name": "weekly_results",
+    "public.vet_batch_photos": {
+      "name": "vet_batch_photos",
       "schema": "",
       "columns": {
         "id": {
@@ -5062,61 +4876,284 @@
           "primaryKey": true,
           "notNull": true
         },
-        "week_start": {
-          "name": "week_start",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "place": {
-          "name": "place",
+        "batch_cat_id": {
+          "name": "batch_cat_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
-        "device_id": {
-          "name": "device_id",
-          "type": "text",
+        "photo_id": {
+          "name": "photo_id",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
-        "display_name": {
-          "name": "display_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "points": {
-          "name": "points",
+        "position": {
+          "name": "position",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
         }
       },
       "indexes": {
-        "weekly_results_week_device_uq": {
-          "name": "weekly_results_week_device_uq",
+        "vet_batch_photos_cat_idx": {
+          "name": "vet_batch_photos_cat_idx",
           "columns": [
             {
-              "expression": "week_start",
+              "expression": "batch_cat_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "device_id",
+              "expression": "position",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
-          "isUnique": true,
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "vet_batch_photos_photo_idx": {
+          "name": "vet_batch_photos_photo_idx",
+          "columns": [
+            {
+              "expression": "photo_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "vet_batch_photos_batch_cat_id_vet_batch_cats_id_fk": {
+          "name": "vet_batch_photos_batch_cat_id_vet_batch_cats_id_fk",
+          "tableFrom": "vet_batch_photos",
+          "tableTo": "vet_batch_cats",
+          "columnsFrom": [
+            "batch_cat_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "vet_batch_photos_photo_id_photos_id_fk": {
+          "name": "vet_batch_photos_photo_id_photos_id_fk",
+          "tableFrom": "vet_batch_photos",
+          "tableTo": "photos",
+          "columnsFrom": [
+            "photo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vet_batches": {
+      "name": "vet_batches",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "saved_at": {
+          "name": "saved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "clinic_id": {
+          "name": "clinic_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "colony_id": {
+          "name": "colony_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "area_key": {
+          "name": "area_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_eur": {
+          "name": "price_eur",
+          "type": "numeric(7, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "paid_by": {
+          "name": "paid_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "vaccines": {
+          "name": "vaccines",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "vaccine_other": {
+          "name": "vaccine_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vet_batches_created_by_people_id_fk": {
+          "name": "vet_batches_created_by_people_id_fk",
+          "tableFrom": "vet_batches",
+          "tableTo": "people",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vet_batches_colony_id_colonies_id_fk": {
+          "name": "vet_batches_colony_id_colonies_id_fk",
+          "tableFrom": "vet_batches",
+          "tableTo": "colonies",
+          "columnsFrom": [
+            "colony_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "vet_batches_place_ck": {
+          "name": "vet_batches_place_ck",
+          "value": "\"vet_batches\".\"colony_id\" is null or \"vet_batches\".\"area_key\" is null"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.vet_visit_photos": {
+      "name": "vet_visit_photos",
+      "schema": "",
+      "columns": {
+        "photo_id": {
+          "name": "photo_id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "visit_id": {
+          "name": "visit_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cat_id": {
+          "name": "cat_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vet_visit_photos_photo_id_photos_id_fk": {
+          "name": "vet_visit_photos_photo_id_photos_id_fk",
+          "tableFrom": "vet_visit_photos",
+          "tableTo": "photos",
+          "columnsFrom": [
+            "photo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vet_visit_photos_cat_id_cats_id_fk": {
+          "name": "vet_visit_photos_cat_id_cats_id_fk",
+          "tableFrom": "vet_visit_photos",
+          "tableTo": "cats",
+          "columnsFrom": [
+            "cat_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

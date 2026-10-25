@@ -24,3 +24,4 @@ export * from "./reportDownloads";
 export * from "./heldTyping";
 export * from "./photoFingerprints";
 export * from "./badges";
+export * from "./vetBatches";

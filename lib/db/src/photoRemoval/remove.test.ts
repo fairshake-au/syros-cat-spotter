@@ -137,6 +137,52 @@ describe("T1: removes the photo from every place, and leaves another untouched",
   });
 });
 
+describe("SYC-677: a vet visit's staged or kept photo is removed like any other, and its link stays", () => {
+  /** A photo hidden for privacy and tied to one cat only through a vet link. */
+  async function vetPhoto(label: string, link: "staged" | "kept") {
+    const person = await staffPerson(c, label);
+    const pic = nextPicture();
+    const p = (await c.query(`insert into photos (data) values ($1) returning id, public_id`, [pic])).rows[0];
+    const cat = (
+      await c.query(
+        `insert into cats (name, description, primary_photo_id, lat, lng, discoverer_device_id)
+         values ($1, '', 0, 37.44, 24.94, 'seed-device') returning id`,
+        [`${label} cat ${seq}`],
+      )
+    ).rows[0];
+    if (link === "staged") {
+      const b = (
+        await c.query(`insert into vet_batches (created_by, date) values ($1, '2026-10-24') returning id`, [person])
+      ).rows[0];
+      const bc = (
+        await c.query(`insert into vet_batch_cats (batch_id, position, cat_id) values ($1, 0, $2) returning id`, [
+          b.id,
+          cat.id,
+        ])
+      ).rows[0];
+      await c.query(`insert into vet_batch_photos (batch_cat_id, photo_id, position) values ($1, $2, 0)`, [bc.id, p.id]);
+    } else {
+      await c.query(`insert into vet_visit_photos (photo_id, visit_id, cat_id) values ($1, 999999, $2)`, [p.id, cat.id]);
+    }
+    await c.query(
+      `insert into photo_visibility_events (photo_id, action, author, person_id, reason) values ($1, 'hide', $2::text, $2::uuid, 'privacy')`,
+      [p.id, person],
+    );
+    return { person, pic, photoId: p.id as number, publicId: p.public_id as string };
+  }
+
+  it.each(["staged", "kept"] as const)("a %s photo", async (link) => {
+    const P = await vetPhoto(`vet-${link}`, link);
+    const r = await run(P.publicId, P.person);
+    expect(r.kind).toBe("removed");
+    if (r.kind !== "removed") return;
+    expect(r.search.verdict).toBe("GONE");
+    expect(await independentScan(P.pic, P.publicId, P.photoId)).toEqual([]);
+    const table = link === "staged" ? "vet_batch_photos" : "vet_visit_photos";
+    expect(await count(`select count(*)::int n from ${table} where photo_id = $1`, [P.photoId])).toBe(1);
+  });
+});
+
 describe("T2: skip one step and the search says NOT GONE, naming the place", () => {
   it.each([
     // The row's own picture is check 1's (the byte scan looks everywhere else).
