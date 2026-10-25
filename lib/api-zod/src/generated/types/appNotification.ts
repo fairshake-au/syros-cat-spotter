@@ -19,9 +19,9 @@ export interface AppNotification {
   updateType: AppNotificationUpdateType;
   message: string;
   /** A weekly result's place (1 to 3) so the app can word it in the spotter's language; null for cat news and for results written before this field existed. */
-  place: number | null;
+  place?: number | null;
   /** A weekly result's points that week; null as for place. */
-  weekPoints: number | null;
+  weekPoints?: number | null;
   read: boolean;
   createdAt: string;
 }

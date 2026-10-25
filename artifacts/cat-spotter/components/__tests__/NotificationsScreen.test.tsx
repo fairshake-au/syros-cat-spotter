@@ -143,4 +143,12 @@ describe('Notifications screen (SYC-508)', () => {
     render(<NotificationsScreen />);
     expect(screen.getByText('You came 2nd on Syros last week')).toBeTruthy();
   });
+
+  it('a weekly-result row with the place and points keys absent keeps its stored message', () => {
+    h.notifications = [
+      { id: 8, catId: null, catUpdateId: null, updateType: 'general', message: 'You came 2nd on Syros last week', read: true, createdAt: new Date().toISOString() },
+    ];
+    render(<NotificationsScreen />);
+    expect(screen.getByText('You came 2nd on Syros last week')).toBeTruthy();
+  });
 });

@@ -184,8 +184,6 @@ router.get("/notifications/:deviceId", async (req, res) => {
             catPhotoUrl: r.catId === null ? null : (photos.get(r.catId) ?? null),
             updateType: r.updateType,
             message: r.updateMessage,
-            place: null,
-            weekPoints: null,
             read: r.read,
             createdAt: r.createdAt.toISOString(),
           },

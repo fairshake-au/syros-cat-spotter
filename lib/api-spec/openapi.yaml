@@ -1272,8 +1272,6 @@ components:
           catPhotoUrl,
           updateType,
           message,
-          place,
-          weekPoints,
           read,
           createdAt,
         ]
