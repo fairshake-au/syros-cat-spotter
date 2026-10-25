@@ -233,4 +233,10 @@ describe('after a spot (SYC-706)', () => {
     );
     expect(document.body.textContent).not.toContain('+0');
   });
+
+  it('a cat name with $& in it shows literally in the repeat line', async () => {
+    spotWith({ pointsAwarded: 0, pointsReason: 'repeat_today', cat: { id: 7, name: 'Tom$&Jerry' } });
+    await waitFor(() => expect(document.body.innerHTML).toContain(en.matchConfirmed));
+    expect(document.body.textContent).toContain("You've already spotted Tom$&Jerry today.");
+  });
 });

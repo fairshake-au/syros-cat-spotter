@@ -180,7 +180,7 @@ export function SpottersTab({
 
       {isWeek && week.lastWeek.length > 0 && (
         <Text testID="spotters-last-week" style={[sharedStyles.body, styles.note, { color: subtle }]}>
-          {t('spottersLastWeek').replace('{names}', lastWeekNames)}
+          {t('spottersLastWeek').replace('{names}', () => lastWeekNames)}
         </Text>
       )}
     </View>
@@ -211,12 +211,12 @@ export function summaryText(
       case 'level':
         return [
           t('spottersWeekRank').replace('{rank}', rank(summary.rank)).replace('{points}', String(summary.points)),
-          t('spottersWeekLevel').replace('{name}', summary.name).replace('{points}', String(summary.points)),
+          t('spottersWeekLevel').replace('{points}', String(summary.points)).replace('{name}', () => summary.name),
         ];
       case 'behind':
         return [
           t('spottersWeekRank').replace('{rank}', rank(summary.rank)).replace('{points}', String(summary.points)),
-          t('spottersWeekPass').replace('{n}', String(summary.gap)).replace('{name}', summary.name),
+          t('spottersWeekPass').replace('{n}', String(summary.gap)).replace('{name}', () => summary.name),
         ];
       case 'outside':
         return [t('spottersWeekOutside').replace('{points}', String(summary.points)), t('profileRankOutsideBody')];
@@ -230,12 +230,12 @@ export function summaryText(
     case 'level':
       return [
         t('profileRankSummary').replace('{rank}', rank(summary.rank)).replace('{points}', String(summary.points)),
-        t('profileRankLevel').replace('{name}', summary.name).replace('{points}', String(summary.points)),
+        t('profileRankLevel').replace('{points}', String(summary.points)).replace('{name}', () => summary.name),
       ];
     case 'behind':
       return [
         t('profileRankSummary').replace('{rank}', rank(summary.rank)).replace('{points}', String(summary.points)),
-        t('profileRankPass').replace('{n}', String(summary.gap)).replace('{name}', summary.name),
+        t('profileRankPass').replace('{n}', String(summary.gap)).replace('{name}', () => summary.name),
       ];
     case 'outside':
       return [t('profileRankOutside').replace('{points}', String(summary.points)), t('profileRankOutsideBody')];
