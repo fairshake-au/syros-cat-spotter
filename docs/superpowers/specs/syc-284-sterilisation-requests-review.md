@@ -23,3 +23,30 @@ Two independent reviews of the first draft of `2026-10-24-guardian-sterilisation
 | 17 | Builder: English first, or wait for Johnny? | English may go first; each language goes live after his sign-off |
 | 18 | Builder: is the email in? | Decision A for Samuel |
 | 19 | One "built versus proposed" sentence | Rewritten as one vision |
+
+## Round 2 (25 Oct 2026): after the rewrite for anyone asking
+
+Samuel corrected the premise on 25 Oct: anyone can ask (residents, members of the public, guardians), with a photo of the cat and where it lives; the person who asked takes the cat to the vet; Syros Cats pays the clinic or pays the person back. The spec was rewritten, then reviewed again (builder check and adversarial review, both on Sonnet).
+
+| # | Finding | Where it went |
+|---|---|---|
+| 1 | A pay-back could follow a swapped or long-sterilised cat: a photo can't tell a fresh clip from an old one | Money follows a clinic's bill: pay the clinic by default; pay-backs need a listed clinic, a matching date and a bill number never paid before; a different cat needs management; 2 pay-backs a month per contact without management |
+| 2 | "One open request per cat" can't be checked when a stranger sends a photo; the duplicate message leaked that someone asked; a request from a cat page needed no photo | Checked on the cat the team picks; duplicates are joined and the second asker is thanked; a photo is always needed |
+| 3 | Public emails can't carry free text (`lib/mail/send.ts`) | Emails are fixed templates; team messages are in the app and on dashboard pages only |
+| 4 | Keeping the request after "Delete my data" contradicted the privacy policy; no retention | Contact details kept 3 months after closing; delete removes contact, notes, bill photo, exact place, unused photos; what stays is listed; `DELETE /api/me` extended |
+| 5 | App identity is weak; a lost phone strands a request; per-phone caps don't protect | Caps called courtesy limits; protections named; quote SR-214 and the team records it; restore with a code brings requests back |
+| 6 | 3 open requests is too few for a guardian trapping a colony | 5 per app; 20 for guardians and the team |
+| 7 | Approval-month budget lets cash out run above a month | Stated plainly as a limit on decisions, with the cash option set out in Decision D |
+| 8 | `saveBatch`, `vetBatches.ts` and the clean-up change, unlisted | Listed under constraints, with tests |
+| 9 | "Who Syros Cats paid" on the visit observation clashes with its closed `paidBy` set and with deletion | Payments are a row on the request; the visit keeps `paidBy` |
+| 10 | A batch needs a named area, not a point | The named area containing the place, changeable by the team |
+| 11 | Request photos vs `teamOnlyPhotoIds` | Request photos in `photos` with a link that joins the team-only rule; bill photos in a private table of their own |
+| 12 | Offline queue with several photos and expiring Turnstile tokens | Request first, photos one at a time, a fresh Turnstile check per send, as a queued report does |
+| 13 | "Syros Cats will answer by email" is untrue before the address is confirmed; phone numbers had no consent wording | New confirmation text; a consent line for phone numbers; privacy policy amendment |
+| 14 | "The person who asked never decides" can't be checked for a public request | Enforced for signed-in requests; team members ask from the dashboard |
+| 15 | No paid state; no extension; vet finds the cat already done; withdrawing after approval | To pay / Paid; extend; "already sterilised" close with a check-up fee; withdraw at any stage before sending back |
+| 16 | Needs an OK doesn't exist yet | This design builds it; site-public requests join later, each kind gated by its own capability |
+| 17 | What "the website" is | The app's browser version; catspotters.com (another repository) links to it |
+| 18 | Which clinic list | `lib/welfare-guidance/src/data/vets.json` |
+| 19 | Languages before Johnny's sign-off | Emails go in English until a language is signed off, as the report's do |
+| 20 | Wording: "A spotter" for any asker; a decline reason revealing trapping plans | "Someone"; "Syros Cats will arrange this one themselves" |
