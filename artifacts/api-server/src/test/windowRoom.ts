@@ -10,7 +10,7 @@
  * It waits only when the burst could straddle the boundary (rarely, and never
  * longer than `needMs`).
  */
-export async function waitForRoomInWindow(windowMs: number, needMs = 30_000, now: () => number = Date.now): Promise<number> {
+export async function waitForRoomInWindow(windowMs: number, needMs = 10_000, now: () => number = Date.now): Promise<number> {
   const left = windowMs - (now() % windowMs);
   if (left >= needMs) return 0;
   const waitMs = left + 50;

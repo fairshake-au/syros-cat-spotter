@@ -144,7 +144,7 @@ describe("POST /api/sightings matching hardening (data spine PR 5)", () => {
 
     // The 15-minute window is counted from the real clock; don't let the 21
     // requests straddle its turn-over (SYC-327).
-    await waitForRoomInWindow(DEVICE_MATCH_WINDOW_MS);
+    await waitForRoomInWindow(DEVICE_MATCH_WINDOW_MS, 10_000);
     for (let i = 0; i < 20; i++) {
       const res = await submit(device);
       expect(res.status).toBe(201);
