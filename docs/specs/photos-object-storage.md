@@ -13,13 +13,13 @@ Every photo a spotter takes is stored as text inside our Neon database. That is 
 
 **What nobody will notice.** A cat's photo has the same web address before and after. The app does not change. Hidden photos stay hidden. Team-only photos stay team-only. Photos still have no location tag in them. If anything changes, photos may load a little faster.
 
-**What it is worth.** Not a lot of money today, a lot of safety and tidiness later. At the planning volumes in §2 the saving is about **$17 a month at the 2027 season peak** (about $18 now stored against about $1 after) and under $2 a month today. The better reasons are the ones money doesn't show: a small database means quick backups, quick restores, quick copies for testing, and nothing slowing the records every time a photo is read.
+**What it is worth.** Not a lot of money today, a lot of safety and tidiness later. On the photo sizes actually measured (about 163 KB each, §2.2) the saving is roughly **$5 a month at the 2027 season peak**, about $17 if photos turn out as large as first planned, and **under a cent a month today**. The better reasons are the ones money doesn't show: a small database means quick backups, quick restores, quick copies for testing, and nothing slowing the records every time a photo is read.
 
 **Recommended store:** **Cloudflare R2, EU jurisdiction** (§3). It is the cheapest of the realistic options, the data is guaranteed to stay in the EU, we already hold a Cloudflare account with an API token, and it costs nothing when photos are read. One step is needed from Samuel: the current token has no R2 permission (§3.5).
 
 **The way it moves.** Eight small steps, each undoable, none needing downtime (§5). The old copy stays in the database for 30 days after the switch, so there is always a way back. The only step that is not instant is giving the space back in the database, and that one is rehearsed on a copy first.
 
-**When.** The week after launch. The spec and approval can happen now so nothing about this is decided under pressure. There are **seven decisions** for Samuel in §8; the most important are whether to do this now at all (D0), the store (D1), the safety copy (D2) and what "Delete my data" should do with a person's photos (D5).
+**When.** Earliest Monday 9 Nov, more likely Monday 16 Nov after the 15 Nov review of real launch numbers (D0). Real production figures are in (§2.2): the database is 28 MB, photos average 163 KB, so the money case is small today and the decision rests on growth and safety. There are **seven decisions** for Samuel in §8; the most important are whether to do this now at all (D0), the store (D1), the safety copy (D2) and what "Delete my data" should do with a person's photos (D5).
 
 ---
 
@@ -48,7 +48,23 @@ Three things that matter for the move:
 
 ### 2.2 How much, today
 
-> **Production figures: requested, not yet received (open item before approval).** I may not query production, so on 25 Oct I asked the publish coordinator session to run a read-only size query: row counts and bytes for `photos`, `photo_variants` and `welfare_report_photos`; counts of hidden, removed and team-only photos; smaller copies per size; growth over 7 and 30 days; and how Neon meters the storage. The request was queued behind its current work and had no answer when this was written. Until it arrives, the only live figure on record is SYC-121's from **29 Sep: about 18 MB in total and 38 photos**, a tester-stage database that is a month out of date. **Every cost in §3.2 therefore rests on the planning volumes in §2.3 alone, and D0 asks Samuel not to start step 1 until real numbers are in.** The size is not what decides the design (the rules in §4 are the same at 38 photos or 60,000), but it decides how much a rehearsal proves and how long step 7 takes.
+Read-only query on the production Neon database, run by the publish coordinator on **25 Oct 2026** (counts and sizes only; I did not query production myself):
+
+| | Rows | Size |
+|---|---|---|
+| Whole database | | **28 MB** |
+| `photos` (pictures as base64 text) | 52 | 11 MB with indexes; 11.3 million characters of text, so about **8.5 MB of actual pictures** |
+| `photo_variants` (smaller copies, raw bytes) | 86 (card 28, medium 28, small 30) | 2.9 MB; averages 30 KB, 62 KB and 7 KB |
+| `welfare_report_photos` | 0 | 192 kB, empty |
+| `map_tile_cache` (map images, raw bytes; **not a photo table**) | 250 | 2.8 MB |
+| `photo_fingerprints`, `sighting_photos`, `vet_batch_photos`, `vet_visit_photos` | | no picture bytes |
+
+- **A typical photo is about 163 KB, not the 0.5 MB planning figure.** Average 163 KB, median 75 KB, 95th percentile 514 KB, largest 609 KB (decoded). The planning figures in §2.3 assumed about three times that.
+- **None removed, none with empty data.** Newest photo 30 Sep; none in the last 7 days; 33 in the last 30 days (tester period, from 22 Jul).
+- **Not in the answer, so unchecked:** counts of hidden and team-only photos (hides live in `photo_visibility_events`, team-only in the vet-batch tables), and how Neon meters storage for this project. The restore history is 7 days (`history_retention_seconds` 604,800); that Neon bills logical size plus history inside that window is from its pricing page, not verified against this project's invoice.
+- **One store I had not listed:** `map_tile_cache` also holds raw image bytes in the database. It is not a photo and is out of scope here, but it is the same kind of cost (about 2.8 MB today) and worth a note on SYC-46.
+
+**What that means.** The corpus today is tiny: the whole database is 28 MB. At today's size the cost of photos in the database is well under a cent a month (§3.2). The design in §4 and §5 is the same at 52 photos or 60,000; whether the move is *worth doing yet* is not, and that is D0.
 
 ### 2.3 How much, later
 
@@ -90,9 +106,10 @@ Photos are read out of the store by our API and sent on to phones, so every phon
 
 **But the store's own read price is not irrelevant, and an earlier draft of this spec was wrong to say so** (found in review). Phones are only part of the reads. The matcher fetches up to ten candidate photos for every spot, and the coat reader, the fingerprint filler, the smaller-copy maker and the shadow week in §5 all read photos too. At 60,000 spots a season that could be a few hundred GB, **which I have not estimated** (it depends on cache hits and on the production figures in §2.2). R2 charges nothing for it and Neon includes 500 GB, so A and B are unaffected. S3 includes 100 GB a month and then charges per GB, and Replit App Storage charges $0.05/GiB on every download. That strengthens the case for R2.
 
-| Per month, storage only (pictures plus the 18% for smaller copies) | Now (~3.5 GB) | 2027 season peak (~41 GB) |
+| Per month, storage only, at the **planning** size of 0.5 MB per photo plus 18% for smaller copies | Now (~3.5 GB) | 2027 season peak (~41 GB) |
 |---|---|---|
 | **Today: base64 in Neon** at $0.35/GB-month, ×1.33 for the text inflation on the originals | ~$1.65 | **~$18** (plus Neon's instant-restore charge, below) |
+| *Same, at the measured ~0.2 MB per photo including smaller copies, 60,000 photos* | *under $0.01 now (28 MB)* | *~$4.90 in Neon against ~$0.03 on R2: a saving of about $5* |
 | A. R2 | ~$0 (inside the 10 GB free) | ~$0.47 |
 | B. Neon Object Storage | ~$0.08 | ~$0.95 |
 | C. S3 Frankfurt | ~$0.09 | ~$1.00 |
@@ -326,11 +343,11 @@ The **safety copy (D2)** therefore lives **at a different provider or in a diffe
 Presented in plain English with a recommendation each. I need D0–D4 to plan; D5 and D6 can follow.
 
 ### D0 — Do this at all yet?
-The approved earlier decision (`hosting-and-photo-storage.md` §4.2, DECISIONS.md Part 2e) said: decide on 15 Nov 2026 with two months of invoices, real photo volume and a dated restore test; if nobody decides, **photos stay in Postgres through the 2027 season**. On 24 Oct SYC-47 closed and said moving photos "stays with SYC-46, after launch", which settles the hosting half of that trigger. It does not settle whether the move is worth doing now. Of §4.2's inputs: the invoices and the real volume are **not yet in** (§2.2), and the dated restore is not recorded here (**unchecked**).
-- **Go: build from 9 Nov, as in §5** *(recommended)*. A spec like this one makes the work routine; it is much safer done at a few thousand photos than at 60,000, the saving arrives with the season, and the privacy rules (§4) are easier to get right with a small corpus. **Risk:** launch-month attention goes to a change that saves about $1 a month today.
-- **Wait for the 15 Nov review as planned, then decide** with the real numbers. **Risk:** the build starts about a week later.
-- **Stay in Postgres through 2027** (the original default). Costs about $18 a month at the season peak and a slower, larger database. **Risk:** the move, when it comes, is bigger and happens mid-season.
-**Recommendation: go, but let the production figures in §2.2 and the 15 Nov review confirm it before step 1 starts.**
+The approved earlier decision (`hosting-and-photo-storage.md` §4.2, DECISIONS.md Part 2e) said: decide on 15 Nov 2026 with real invoices, photo volume and a dated restore test; if nobody decides, **photos stay in Postgres through the 2027 season**. SYC-47 closed on 24 Oct and said moving photos "stays with SYC-46, after launch", which settles the hosting half. The production figures (§2.2) now settle part of the rest: **the database is 28 MB, photos average 163 KB, and the money case is small** (under a cent a month today, about $5 a month at the planned season peak, about $17 if photos were three times as large). The remaining inputs, launch-fortnight photo growth and a dated restore, are not in.
+- **Decide on 15 Nov, using the first two weeks of real launch numbers, and start the build the Monday after if they justify it** *(recommended)*. The spec is ready, so nothing is lost but a week. The case then rests on actual growth and on the safety reasons (small database, quick restores, no photo bytes in every backup and test copy), not on a saving that today is a cent. **Risk:** the build starts about a week later (16 Nov) and the space comes back in late January.
+- **Go now: build from 9 Nov.** Moving a few hundred photos is safer than moving tens of thousands. **Risk:** launch-month attention on a change that saves almost nothing yet.
+- **Stay in Postgres through 2027** (the original default). Costs about $5 a month at the season peak and a larger database. **Risk:** if growth is faster than measured, the move is bigger and happens mid-season; at 3× the measured size it is about $17 a month.
+**Recommendation: decide on 15 Nov from real launch numbers. If photos are arriving at or above the planned pace, go; if they are far below it, stay put.** (This replaces my first-draft recommendation of "go now", which rested on planning figures that production has since shown to be too large.)
 
 ### D1 — Which store?
 - **A. Cloudflare R2, EU** *(recommended)*. Cheapest (~$0.40 a month at peak), the EU guarantee is explicit and permanent, the account exists. **Risk:** no built-in way to keep old versions, so we build the safety copy ourselves; and the token needs R2 added (a 3-minute job for you).
@@ -363,9 +380,9 @@ Today it does not (§4.5). The photo has no link to the person afterwards.
 **Recommendation: keep as is, plus a plain sentence in the privacy policy and the delete screen. This is a product question more than a storage one and can follow D1–D4.**
 
 ### D6 — When?
-- **Start Monday 9 Nov, one week after launch, reclaim in January** *(recommended, if D0 is "go")*. Launch week is clear of every photo change. The expensive step lands in the low season.
+- **Start Monday 9 Nov, one week after launch, reclaim in January** *(only if D0 is "go now")*. Launch week is clear of every photo change. The expensive step lands in the low season.
 - **Wait until after the New Year.** Less to juggle. **Risk:** the photo table keeps growing, and the data is moved later and bigger.
-**Recommendation: 9 Nov.** The only hard deadline is "before the April 2027 season".
+**Recommendation: 9 Nov if D0 is "go now"; otherwise Monday 16 Nov after the 15 Nov review.** The only hard deadline is "before the April 2027 season".
 
 ### Smaller points, no decision needed unless you disagree
 - The deploy order for any migration here is the one in DEPLOYMENT.md §C: migrate first, then say "don't republish yet" until the code is ready.
