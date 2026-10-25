@@ -103,7 +103,7 @@ describe('useMapLibre', () => {
     await mountReady();
     expect(FakeMap.instances).toHaveLength(2);
     expect(protocolCalls).toHaveLength(1);
-    expect(protocolCalls[0].name).toBe('pmtiles');
+    expect(protocolCalls[0].protocol).toBe('pmtiles');
     expect(protocolCalls[0].loadFn).toBe(FakeProtocol.instances[0].tile);
   });
 

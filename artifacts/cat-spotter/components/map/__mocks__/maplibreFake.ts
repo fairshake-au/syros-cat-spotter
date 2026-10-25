@@ -51,7 +51,7 @@ const state = {
 };
 
 /** Every addProtocol call, in order. */
-export const protocolCalls: Array<{ name: string; loadFn: unknown }> = [];
+export const protocolCalls: Array<{ protocol: string; loadFn: unknown }> = [];
 
 function toLngLat(input: LngLatInput): FakeLngLat {
   if (Array.isArray(input)) return { lng: input[0], lat: input[1] };
@@ -73,25 +73,25 @@ export class FakeHandler {
   rotationEnabled = true;
   constructor(
     private readonly map: FakeMap,
-    private readonly name: string,
+    private readonly label: string,
   ) {}
   enable(): void {
-    this.map.calls.push({ method: `${this.name}.enable`, args: [] });
+    this.map.calls.push({ method: `${this.label}.enable`, args: [] });
     this.enabled = true;
   }
   disable(): void {
-    this.map.calls.push({ method: `${this.name}.disable`, args: [] });
+    this.map.calls.push({ method: `${this.label}.disable`, args: [] });
     this.enabled = false;
   }
   isEnabled(): boolean {
     return this.enabled;
   }
   enableRotation(): void {
-    this.map.calls.push({ method: `${this.name}.enableRotation`, args: [] });
+    this.map.calls.push({ method: `${this.label}.enableRotation`, args: [] });
     this.rotationEnabled = true;
   }
   disableRotation(): void {
-    this.map.calls.push({ method: `${this.name}.disableRotation`, args: [] });
+    this.map.calls.push({ method: `${this.label}.disableRotation`, args: [] });
     this.rotationEnabled = false;
   }
 }
@@ -384,11 +384,11 @@ function supported(): boolean {
 }
 
 function addProtocol(name: string, loadFn: unknown): void {
-  protocolCalls.push({ name, loadFn });
+  protocolCalls.push({ protocol: name, loadFn });
 }
 
 function removeProtocol(name: string): void {
-  const i = protocolCalls.findIndex((c) => c.name === name);
+  const i = protocolCalls.findIndex((c) => c.protocol === name);
   if (i >= 0) protocolCalls.splice(i, 1);
 }
 
