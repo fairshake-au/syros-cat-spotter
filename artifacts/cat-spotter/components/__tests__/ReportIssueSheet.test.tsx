@@ -5,7 +5,7 @@
  * English strings render as themselves through the real dictionary.
  */
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IssueReason, PendingIssue } from '@/lib/issueQueue';
 
@@ -288,6 +288,13 @@ describe('review fixes (findings 2, 7, 8)', () => {
       'We couldn’t save this report in this browser. Please try again.',
     );
     expect(screen.queryByTestId('issue-done')).toBeNull();
+    // react-native-web applies a button's disabled state in an effect after the
+    // screen updates, so right after the failure line appears the button can
+    // still count as disabled and swallow the tap (SYC-584). Wait for it.
+    await waitFor(() => {
+      const button = screen.getByTestId('issue-report-and-hide') as HTMLButtonElement;
+      expect(button.getAttribute('aria-disabled') === 'true' || button.disabled).toBe(false);
+    });
     fireEvent.click(screen.getByTestId('issue-report-and-hide'));
     await screen.findByTestId('issue-done');
     expect(h.queue.submitIssue).toHaveBeenCalledTimes(2);

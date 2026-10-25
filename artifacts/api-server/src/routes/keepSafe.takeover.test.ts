@@ -45,9 +45,11 @@ import { severKeepSafe } from "../lib/keepSafe/sever";
 import { hashSecret } from "../lib/deviceAuth";
 import { __setRestorePadForTest, SENT_IF_KNOWN } from "./keepSafe";
 import { installFakeResend, tokenFrom, type SentMail } from "../test/fakeResend";
+import { usernameSafeRun } from "../test/usernameRun";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const RUN = randomBytes(3).toString("hex");
+const NAME_RUN = usernameSafeRun(RUN);
 const P = `vitest-ks-${RUN}`;
 const ORIGIN = "https://apptest.catspotters.com";
 
@@ -133,7 +135,7 @@ function postMailPage(action: "confirm" | "forget", token: string, origin = ORIG
 }
 
 /** A spotter with a username and a confirmed keep-safe address. */
-async function keptSafe(email: string, username = `Ks${RUN}${++n}`): Promise<Phone & { username: string }> {
+async function keptSafe(email: string, username = `Ks${NAME_RUN}${++n}`): Promise<Phone & { username: string }> {
   const phone = newPhone();
   await bind(phone);
   await claim(phone, username);
@@ -416,7 +418,12 @@ describe("2. a replayed link", () => {
     const two = await keptSafe(email);
     const { phone, token } = await newPhoneWithLink(email);
     const results = await Promise.all([redeem(phone, token, one.id), redeem(phone, token, two.id)]);
-    expect(results.map((r) => r.status).sort()).toEqual([200, 401]);
+    // The loser is refused, but which way depends on timing (SYC-458): 401
+    // when it checks the link before the winner commits, 403 when its own
+    // secret check lands after the winner moved the phone.
+    const statuses = results.map((r) => r.status).sort();
+    expect(statuses[0]).toBe(200);
+    expect([401, 403]).toContain(statuses[1]);
     const moved = [await storedHash(one.id), await storedHash(two.id)].filter((h) => h === hashSecret(phone.secret));
     expect(moved).toHaveLength(1);
   });
@@ -642,7 +649,7 @@ describe("6. unconfirmed and forgotten addresses restore nothing", () => {
     const email = newAddress();
     const spotter = newPhone();
     await bind(spotter);
-    await claim(spotter, `Ksp${RUN}${++n}`);
+    await claim(spotter, `Ksp${NAME_RUN}${++n}`);
     await add(spotter, email);
     await settleOutbox();
     const before = mailTo(email).length;
@@ -793,7 +800,7 @@ describe("8. the form reveals nothing", () => {
     // The owner adds their address; the first "is this you?" arrives.
     const owner = newPhone();
     await bind(owner);
-    await claim(owner, `Own${RUN}${++n}`);
+    await claim(owner, `Own${NAME_RUN}${++n}`);
     await ageVerifyEmails();
     await add(owner, email);
     await settleOutbox();
@@ -944,7 +951,7 @@ describe("11. the target must be empty, unless the person chose to leave it (Dec
     const old = await keptSafe(email);
     const phone = newPhone();
     await bind(phone);
-    await claim(phone, `Nikos${RUN}${++n}`);
+    await claim(phone, `Nikos${NAME_RUN}${++n}`);
     const token = await askAndGetToken(phone, email);
     const r = await redeem(phone, token, old.id);
     expect(r.status).toBe(401);
@@ -956,7 +963,7 @@ describe("11. the target must be empty, unless the person chose to leave it (Dec
     const old = await keptSafe(email);
     const phone = newPhone();
     await bind(phone);
-    const nikos = `Nikos${RUN}${++n}`;
+    const nikos = `Nikos${NAME_RUN}${++n}`;
     await claim(phone, nikos);
     await db.insert(sightingsTable).values({ deviceId: phone.id, photoId: 0, lat: 37.44, lng: 24.9 });
     await db.insert(pushTokensTable).values({ deviceId: phone.id, token: "ExponentPushToken[nikos]" });
@@ -1006,7 +1013,7 @@ describe("11b. \"Delete Nikos\" (SYC-266, Samuel 10 Oct 2026)", () => {
   async function phoneWithNikos(email: string) {
     const phone = newPhone();
     await bind(phone);
-    const nikos = `Nikos${RUN}${++n}`;
+    const nikos = `Nikos${NAME_RUN}${++n}`;
     await claim(phone, nikos);
     await db.insert(sightingsTable).values({ deviceId: phone.id, photoId: 0, lat: 37.44, lng: 24.9 });
     await db.insert(pushTokensTable).values({ deviceId: phone.id, token: "ExponentPushToken[nikos]" });
@@ -1020,7 +1027,7 @@ describe("11b. \"Delete Nikos\" (SYC-266, Samuel 10 Oct 2026)", () => {
     const { token } = await newPhoneWithLink(email); // asked from a different phone
     const phone = newPhone();
     await bind(phone);
-    const nikos = `Nikos${RUN}${++n}`;
+    const nikos = `Nikos${NAME_RUN}${++n}`;
     await claim(phone, nikos);
     const r = await redeemFrom(phone, token, old.id, { abandonCurrent: true, deleteCurrent: true });
     expect(r.status).toBe(200);
@@ -1183,7 +1190,7 @@ describe("Samuel's decisions, 8 Oct 2026", () => {
     // No waiting a day: the address is already confirmed for Lili.
     const nikos = newPhone();
     await bind(nikos);
-    await claim(nikos, `Nikos${RUN}${++n}`);
+    await claim(nikos, `Nikos${NAME_RUN}${++n}`);
     expect((await add(nikos, email)).status).toBe(200);
     await settleOutbox();
     expect(verifies(email)).toHaveLength(before + 1);
