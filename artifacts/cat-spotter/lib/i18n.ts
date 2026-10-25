@@ -1371,7 +1371,7 @@ const el: Dict = {
   catSpottedOnce: 'Εντοπίστηκε μία φορά', // SYC-4: draft
   catFans: '{n} θαυμαστές', // SYC-4: draft
   catFansOne: '1 θαυμαστής', // SYC-4: draft
-  reportNeedsHelpNamed: 'Η {name} χρειάζεται βοήθεια', // SYC-4: draft
+  reportNeedsHelpNamed: 'Χρειάζεται βοήθεια: {name}', // SYC-4 draft; SYC-172: no "Η", the cat may be male or an SYR number
   reportIssueLink: 'Κάτι δεν πάει καλά σε αυτή τη σελίδα;', // SYC-4: draft
   reportIssuePhotoLink: 'Κάτι δεν πάει καλά με αυτή τη φωτογραφία;', // SYC-4: draft
   backA11y: 'Πίσω', // SYC-4: draft
@@ -1772,7 +1772,7 @@ const el: Dict = {
   reportEmailBody: 'Η Syros Cats θα δει αυτή την αναφορά. Αν αφήσεις ένα email, θα σου επιβεβαιώσουμε ότι τη λάβαμε και θα σου γράψουμε άλλη μία φορά όταν υπάρξει αποτέλεσμα. Χρησιμοποιείται μόνο για αυτή την αναφορά.',
   reportEmailYes: 'Ναι, θέλω ενημέρωση',
   reportEmailNo: 'Όχι, στείλε την ανώνυμα',
-  reportEmailPlaceholder: 'your@email.com',
+  reportEmailPlaceholder: 'onoma@email.com', // SYC-172: was the English placeholder
   reportEmailCheck: 'Πρώτα θα στείλουμε ένα μήνυμα για να ελέγξουμε ότι η διεύθυνση είναι δική σου. Τίποτε άλλο δεν θα σταλεί μέχρι να μας πεις ότι είσαι εσύ.',
   reportEmailPrivacy: 'Τι κάνουμε με αυτό',
   reportEmailInvalid: 'Αυτό δεν μοιάζει με διεύθυνση email. Η αναφορά θα σταλεί κανονικά, χωρίς αυτό.',
@@ -1791,7 +1791,7 @@ const el: Dict = {
   reportSendReport: 'Αποστολή αναφοράς',
   reportCostsHeading: 'Ποιος πληρώνει και ποιον να καλέσεις',
   // SYC-570: draft Greek, for Johnny's check (SYC-346).
-  reportCallVetTitle: 'Κάλεσε κτηνίατρο τώρα',
+  reportCallVetTitle: 'Πάρε τηλέφωνο σε κτηνίατρο τώρα', // SYC-172: same verb as the urgent block
   reportVetsClosest: 'Κτηνίατροι στη Σύρο, οι πιο κοντινοί πρώτα',
   reportClosestToYou: 'Ο πιο κοντινός σε σένα',
   reportVetDistance: 'περίπου {km} χλμ.',
@@ -2691,7 +2691,7 @@ const fr: Dict = {
   reportWhereHint: 'Déplace la carte pour que le repère soit là où se trouve le chat.',
   reportWaitingLocation: 'Recherche de ta position…',
   reportMovePin: 'Nous n’avons pas trouvé où tu es. Déplace le repère là où se trouve le chat, puis appuie sur « Suivant ».',
-  reportHowBadTitle: 'C’est grave à quel point ?',
+  reportHowBadTitle: 'Quelle est la gravité ?', // SYC-172: less spoken
   reportSeverityAttention: 'A besoin d’attention',
   reportSeverityAttentionHint: 'Maigre, boiteux, un œil irrité, ou simplement pas bien.',
   reportSeverityUrgent: 'Urgent',
@@ -2704,7 +2704,7 @@ const fr: Dict = {
   reportEmailScreenTitle: 'Ton e-mail',
   reportEmailBody: "Syros Cats verra ce signalement. Si tu laisses ton e-mail, nous te confirmerons sa réception, puis nous t'écrirons une dernière fois quand il y aura une issue. Il ne sert qu'à ce signalement.",
   reportEmailYes: 'Oui, tiens-moi au courant',
-  reportEmailNo: 'Non, envoyer anonymement',
+  reportEmailNo: 'Non, envoie-le anonymement', // SYC-172: imperative, like the Yes button
   reportEmailPlaceholder: 'ton@email.com',
   reportEmailCheck: "Nous t'enverrons d'abord un message pour vérifier que l'adresse est bien la tienne. Rien d'autre ne part tant que tu ne l'as pas confirmé.",
   reportEmailPrivacy: 'Ce que nous en faisons',
@@ -2724,11 +2724,11 @@ const fr: Dict = {
   reportSendReport: 'Envoyer le signalement',
   reportCostsHeading: 'Qui paie, et qui appeler',
   // SYC-570: draft French, for the native check (SYC-346).
-  reportCallVetTitle: 'Appelle un vétérinaire maintenant',
+  reportCallVetTitle: 'Appelle un vétérinaire', // SYC-172: 'maintenant' made the header run off at 320px
   reportVetsClosest: 'Vétérinaires de Syros, du plus proche au plus éloigné',
   reportClosestToYou: 'Le plus proche de toi',
   reportVetDistance: 'environ {km} km',
-  reportNextSend: 'Suivant : envoie ton signalement',
+  reportNextSend: 'Suivant : envoyer', // SYC-172: the longer line was cut off at 320px
   reportTakePhoto: 'Prendre une photo',
   reportFromLibrary: 'Depuis la galerie',
 
