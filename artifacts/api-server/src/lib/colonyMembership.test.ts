@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, like } from "drizzle-orm";
 import { catsTable, db, observationsTable, photosTable, pool } from "@workspace/db";
-import { catsByColony, currentColonyOf } from "./colonyMembership";
+import { catsByColony, catsInColony, currentColonyOf } from "./colonyMembership";
 
 // SYC-209 PR 2.1, "Counts": the one rule for which colony a cat is in
 // (plan Slice 2; spec §2.8). The newest active `colony` statement stands:
@@ -166,5 +166,42 @@ describe("currentColonyOf", () => {
     expect(grouped.get(A)).toContain(one);
     expect(grouped.get(B)).toContain(two);
     expect(grouped.get(A)).not.toContain(two);
+  });
+});
+
+// SYC-307: the one-colony page reads only its own colony's cats. It must give
+// exactly the cats the whole-island grouping gives for that colony.
+describe("catsInColony agrees with catsByColony", () => {
+  const C = 9_003;
+  const D = 9_004;
+
+  it("moved, marked-wrong, redacted and 'in no colony' cats come out the same", async () => {
+    const stays = await newCat();
+    const moved = await newCat();
+    const movedBack = await newCat();
+    const wrong = await newCat();
+    const redacted = await newCat();
+    const none = await newCat();
+    await said(stays, C, "2026-09-01T10:00:00Z");
+    await said(moved, C, "2026-09-01T10:00:00Z");
+    await said(moved, D, "2026-09-02T10:00:00Z");
+    await said(movedBack, D, "2026-09-01T10:00:00Z");
+    await said(movedBack, C, "2026-09-02T10:00:00Z");
+    const mistake = await said(wrong, C, "2026-09-01T10:00:00Z");
+    await said(wrong, D, "2026-09-02T10:00:00Z", { supersedesId: mistake });
+    const gone = await said(redacted, C, "2026-09-01T10:00:00Z");
+    await db
+      .update(observationsTable)
+      .set({ redactedAt: new Date(), redactionReason: "test", accountId: null, deviceId: null })
+      .where(eq(observationsTable.id, gone));
+    await said(none, C, "2026-09-01T10:00:00Z");
+    await said(none, null, "2026-09-02T10:00:00Z");
+
+    const all = await catsByColony();
+    for (const colony of [C, D]) {
+      expect((await catsInColony(colony)).sort()).toEqual([...(all.get(colony) ?? [])].sort());
+    }
+    expect((await catsInColony(C)).sort()).toEqual([stays, movedBack].sort());
+    expect((await catsInColony(D)).sort()).toEqual([moved, wrong].sort());
   });
 });

@@ -78,6 +78,11 @@ export const observationsTable = pgTable(
     index("observations_supersedes_idx")
       .on(t.supersedesId)
       .where(sql`${t.supersedesId} is not null`),
+    // "Which cats has any statement ever put in colony N" (SYC-307: the one
+    // colony page and the trapping plan read only that colony's rows).
+    index("observations_colony_idx")
+      .on(sql`(${t.value}->>'colonyId')`, t.catId)
+      .where(sql`${t.kind} = 'colony'`),
     check(
       "observations_attribution_ck",
       sql`${t.redactedAt} is not null or (${t.deviceId} is null) <> (${t.accountId} is null)`,
