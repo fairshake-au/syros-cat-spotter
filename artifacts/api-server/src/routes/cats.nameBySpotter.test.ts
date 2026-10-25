@@ -22,7 +22,9 @@ import { deleteTestSightings } from "../test/sightings";
 // cat", vet-visit-batches design). Its stored name is its SYR number until a
 // spotter names it through POST /cats/:id/name; the first good name wins.
 
-const RUN = randomBytes(3).toString("hex");
+// Letters only: a cat name can't hold 5 digits in a row (SYC-709), and a
+// hex tag sometimes does, which made this file fail at random.
+const RUN = [...randomBytes(4)].map((b) => "bcdfghjkmpqrvwxz"[b % 16]).join("");
 const PREFIX = `vitest-nameby-${RUN}-`;
 const NAME = `VtNameBy${RUN}`;
 const SECRET = "vitest-nameby-device-secret-aaaa";
@@ -421,7 +423,7 @@ describe("SYC-709: naming limits", () => {
     expect(res.body).toEqual({ error: "Names can't include web links or phone numbers.", code: "NAME_HAS_LINK" });
     expect(await nameStatements(catId)).toHaveLength(0);
 
-    const owned = await namedCat(`${NAME}Own${randomBytes(2).toString("hex")}`);
+    const owned = await namedCat(`${NAME}Own${[...randomBytes(2)].map((x) => "bcdfghjkmpqrvwxz"[x % 16]).join("")}`);
     await db.update(catsTable).set({ ownerDeviceId: device("owner") }).where(eq(catsTable.id, owned));
     const renamed = await request(app)
       .patch(`/api/cats/${owned}`)
