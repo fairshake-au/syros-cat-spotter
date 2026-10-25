@@ -1,4 +1,5 @@
 import type { HomeData, HomeNeeds, HomeToCheck, MonthFigures, Section, TrapNext } from "../dashboard/home";
+import type { MatcherStatus } from "../matcherHealth";
 import type { Headline } from "../dashboard/countedCats";
 import type { TrapColony } from "../dashboard/trapNext";
 import { wholePct } from "../dashboard/colonyFigures";
@@ -62,8 +63,24 @@ const countTile = (s: Section<number>, href: string, one: string, many: string):
     ? { html: tile(href, s.value, one, many), n: s.value }
     : { html: `<li class="hwide">${unavailable}</li>`, n: 0 };
 
+/**
+ * SYC-532: shown while the look-alike check is failing (5 or more in 15
+ * minutes). Fixed words and two numbers; no photo, cat, person or position.
+ * Only a figure that couldn't be read hides it, so it errs towards telling.
+ */
+export function matcherBanner(s: Section<MatcherStatus>): string {
+  if (!s.ok || !s.value.failing) return "";
+  const { failed, windowMinutes } = s.value;
+  return (
+    '<p class="notice down" id="matcher-down" role="status"><strong>The look-alike check is failing.</strong> ' +
+    `${esc(`${failed} photo checks failed in the last ${windowMinutes} minutes. Spotters are being told we couldn't check their photo, and some may name a cat that is already known.`)} ` +
+    '<a class="hlink" href="/api/team/new-cats-to-check">See new cats to check</a></p>'
+  );
+}
+
 function todaySection(needs: HomeNeeds, toCheck: HomeToCheck, now: Date): string {
-  const parts: string[] = [];
+  const banner = matcherBanner(needs.matcher);
+  const parts: string[] = banner ? [banner] : [];
   const tiles: string[] = [];
   let waiting = 0;
   let allRead = true;
@@ -95,16 +112,17 @@ function todaySection(needs: HomeNeeds, toCheck: HomeToCheck, now: Date): string
     countTile(needs.awaitingMatch, "/api/team/cats", "sighting to match", "sightings to match"),
     countTile(toCheck.earClips, "/api/team/likely", "ear clip to check", "ear clips to check"),
     countTile(toCheck.colour, "/api/team/colour-check", "cat for the colour check", "cats for the colour check"),
+    countTile(toCheck.newCats, "/api/team/new-cats-to-check", "new cat to check for a duplicate", "new cats to check for duplicates"),
   ];
   for (const f of figures) {
     tiles.push(f.html);
     waiting += f.n;
   }
-  allRead &&= [needs.issuesOpen, needs.awaitingMatch, toCheck.earClips, toCheck.colour].every((x) => x.ok);
+  allRead &&= [needs.issuesOpen, needs.awaitingMatch, toCheck.earClips, toCheck.colour, toCheck.newCats].every((x) => x.ok);
 
   const tileList = tiles.join("");
   if (tileList) parts.push(`<ul class="htiles">${tileList}</ul>`);
-  if (allRead && waiting === 0) parts.push(`<p class="empty" id="nothing">${esc(NOTHING_WAITING)}</p>`);
+  if (allRead && waiting === 0 && !banner) parts.push(`<p class="empty" id="nothing">${esc(NOTHING_WAITING)}</p>`);
   return `<section id="today"><h2>Today</h2>${parts.join("")}</section>`;
 }
 
