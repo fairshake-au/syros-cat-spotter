@@ -125,6 +125,26 @@ describe('BadgeCelebration', () => {
     expect(screen.getByTestId('celebration-week-line').textContent).toBe('You came 2nd last week with 140 points');
   });
 
+  it('week moment with no badge ids falls back to the podium or champion medal', () => {
+    const { unmount } = render(
+      <BadgeCelebration
+        moment={{ kind: 'week_result', badgeIds: [], place: 3, weekPoints: 90 }}
+        views={views}
+        onDone={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Podium')).toBeTruthy();
+    unmount();
+    render(
+      <BadgeCelebration
+        moment={{ kind: 'week_result', badgeIds: [], place: 1, weekPoints: 200 }}
+        views={views}
+        onDone={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Champion of the week')).toBeTruthy();
+  });
+
   it('week moment eyebrow says top three last week, not New badge', () => {
     render(
       <BadgeCelebration

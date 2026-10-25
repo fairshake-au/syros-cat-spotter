@@ -143,7 +143,11 @@ export function BadgeCelebration({
   const [index, setIndex] = useState(0);
 
   const history = moment.kind === 'history';
-  const ids = moment.badgeIds;
+  // A week result that arrives without badge ids still shows its medal.
+  const ids =
+    moment.kind === 'week_result' && moment.badgeIds.length === 0
+      ? [moment.place === 1 ? 'champion' : 'podium']
+      : moment.badgeIds;
   const total = history ? 1 : ids.length;
   const id = history ? undefined : ids[index];
 
