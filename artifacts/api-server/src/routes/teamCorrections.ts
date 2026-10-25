@@ -45,6 +45,7 @@ import { renderDiedPage } from "../lib/teamPages/diedPage";
 import { renderColourCheckPage, renderCorrectAgain } from "../lib/teamPages/appearancePage";
 import { can, type Capability, type CapabilityTarget } from "../lib/capabilities";
 import { catTarget } from "../lib/capabilityTargets";
+import { SYR_SHAPED_NAME } from "../lib/catNames";
 import { athensToday } from "../lib/athensTime";
 
 // The corrections (SYC-43 part 2 plan, PR 4): forms on the team cat page and
@@ -846,6 +847,13 @@ router.post(
           return formProblem(req, res, 400, {
             fields: ["name"],
             message: "That name isn't allowed: the app's word filter refuses it.",
+            back,
+            backLabel: "Back to the cat",
+          });
+        case "syr":
+          return formProblem(req, res, 400, {
+            fields: ["name"],
+            message: SYR_SHAPED_NAME,
             back,
             backLabel: "Back to the cat",
           });

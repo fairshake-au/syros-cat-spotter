@@ -15,6 +15,7 @@ function fake(over: Partial<TeamCat> = {}): TeamCat {
   return {
     id,
     name: `cat-${id}`,
+    namePending: false,
     syr: `SYR-${String(id).padStart(4, "0")}`,
     photoPublicId: null,
     coat: [],

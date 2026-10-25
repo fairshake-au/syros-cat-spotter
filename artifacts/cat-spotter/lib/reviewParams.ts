@@ -125,6 +125,8 @@ function safeCandidate(candidate: unknown): MatchCandidate | null {
   return {
     catId: c.catId,
     name: safeText(c.name) ?? '',
+    // SYC-677 D: a cat nobody has named yet is still "No name yet" on its card.
+    ...(c.namePending === true ? { namePending: true } : {}),
     // SYC-98 Fable review, nit 8: MatchCandidate.photoUrl is string | null
     // (a candidate cat with no real photo yet). Coercing a null photoUrl to
     // '' used to make photoSource('') request the bare API origin instead

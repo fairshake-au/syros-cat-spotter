@@ -368,6 +368,7 @@ export const fr: Record<StringKey, string> = {
   "centre.clear": "Retirer le centre",
   "centre.clearHint": "La colonie n’aura pas de centre tant que tu n’en définis pas un.",
   "colony.noPhoto": "Pas de photo",
+  "cat.noNameYet": "Pas encore de nom",
   "colony.addCats": "Ajouter des chats",
   "colony.takeOut": "Retirer de cette colonie",
   // The menu on each cat in a colony (SYC-396 PR 1.4).

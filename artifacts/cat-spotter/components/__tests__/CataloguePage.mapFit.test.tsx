@@ -87,6 +87,16 @@ const openMap = () => {
   fireEvent.click(screen.getByText('viewMap'));
 };
 
+describe('a cat nobody has named yet on the map (SYC-677 D)', () => {
+  it('the pin reads "No name yet" with its SYR number', () => {
+    h.cats = [{ ...cat(1, 'SYR-0042', 37.44, 24.94), namePending: true }, cat(2, 'Bo', 37.47, 24.99)];
+    openMap();
+    const titles = (h.last!.markers as Array<Record<string, any>>).map((m) => m.title);
+    expect(titles).toContain('noNameYet \u00b7 SYR-0042');
+    expect(titles).toContain('Bo');
+  });
+});
+
 describe('Cat-alogue map fit (SYC-573)', () => {
   it('a location fix does not remount the map', () => {
     const { rerender } = render(<CatalogScreen />);

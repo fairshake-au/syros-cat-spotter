@@ -90,6 +90,17 @@ describe('buildReviewParams', () => {
     expect(parseReviewParams(params.data)!.candidates[0].photoUrl).toBeNull();
   });
 
+  it('SYC-677 D: keeps namePending, so the card says "No name yet"', () => {
+    const params = buildReviewParams({
+      sightingId: 1,
+      isCatPhoto: true,
+      candidates: [candidate({ name: 'SYR-0042', namePending: true }), candidate({ catId: 4 })],
+    });
+    const back = parseReviewParams(params.data)!.candidates;
+    expect(back[0].namePending).toBe(true);
+    expect(back[1].namePending).toBeUndefined();
+  });
+
   it('keeps ordinary text that merely mentions data:, since only data URLs are dropped', () => {
     const reasoning = 'Same markings as the data: torn left ear, white socks.';
     const params = buildReviewParams({

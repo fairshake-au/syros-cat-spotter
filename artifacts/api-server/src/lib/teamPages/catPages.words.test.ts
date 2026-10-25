@@ -49,6 +49,7 @@ function ownedCatView(): TeamCatView {
       id: 7,
       syr: "SYR-0007",
       name: "Tiger",
+      namePending: false,
       description: "",
       lat: 37.44,
       lng: 24.94,

@@ -34,6 +34,7 @@ import { claimRefusal, isNotOwnerError, pinMovedFrom, pinTooFar } from '@/lib/cl
 import { getCurrentCoords } from '@/lib/currentPosition';
 import { LocationPicker } from '@/components/LocationPicker';
 import { Button } from '@/components/purropolis/Button';
+import { catNameInSentence } from '@/lib/catDisplayName';
 
 type Mode = 'claim' | 'edit';
 
@@ -66,7 +67,7 @@ export function ClaimCatSheet({
   const queryClient = useQueryClient();
 
   // Wording uses the cat's name, never "he" or "she" (spec §4.1).
-  const named = (key: string) => t(key).split('{name}').join(cat.name);
+  const named = (key: string) => t(key).split('{name}').join(catNameInSentence(cat));
 
   const [step, setStep] = useState<1 | 2>(1);
   const [livesOnSyros, setLivesOnSyros] = useState(false);
@@ -91,7 +92,7 @@ export function ClaimCatSheet({
       setPickerKey((k) => k + 1);
       setConfirmingLetGo(false);
       setHomeDescription(cat.homeDescription ?? '');
-      setCatName(cat.name);
+      setCatName(cat.namePending ? '' : cat.name);
       setError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -160,6 +161,7 @@ export function ClaimCatSheet({
     // accents, case and final sigma are folded) is a 409 too.
     if (failure.kind === 'name-taken') setError(t('nameTaken'));
     else if (failure.kind === 'offensive') setError(t('catNameRejected'));
+    else if (failure.kind === 'syr-shaped') setError(t('syrShapedName'));
     else if (status === 403) setError(t('claimNotOwner'));
     else setError(t('claimNetworkError'));
   };
@@ -202,8 +204,13 @@ export function ClaimCatSheet({
     !!deviceId &&
     !isPending &&
     // The note is optional (spec §4.3): an owner who claimed without one can
-    // still rename the cat, and an emptied note saves as empty.
-    !isBlankName(trimmedCatName);
+    // still rename the cat, and an emptied note saves as empty. A cat nobody
+    // has named yet starts with an empty box, and the note may still be saved
+    // with it empty (SYC-677 D).
+    (cat.namePending ? trimmedCatName === '' || !isBlankName(trimmedCatName) : !isBlankName(trimmedCatName));
+  // Only a name the owner actually changed is sent: the server reads a name
+  // as a rename, and a pending cat's stored name is its SYR number.
+  const nameChanged = cat.namePending ? trimmedCatName !== '' : trimmedCatName !== cat.name;
   const canClaimNow = !!deviceId && !isPending && isOnline;
 
   const placePin = (coords: { latitude: number; longitude: number }) => {
@@ -250,7 +257,11 @@ export function ClaimCatSheet({
     setError(null);
     update.mutate({
       catId: cat.id,
-      data: { deviceId, name: trimmedCatName, homeDescription: trimmedHome },
+      data: {
+        deviceId,
+        ...(nameChanged ? { name: trimmedCatName } : {}),
+        homeDescription: trimmedHome,
+      },
     });
   };
 

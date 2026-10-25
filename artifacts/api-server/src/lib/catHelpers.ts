@@ -119,6 +119,8 @@ export interface CatWithStats extends DerivedCatStatus {
   /** The owner tier only; null for everyone else (§5, D9). */
   homePin: { lat: number; lng: number } | null;
   discovererUsername: string | null;
+  /** SYC-677: Syros Cats left this cat for spotters to name; `name` is its SYR number. */
+  namePending: boolean;
 }
 
 /**
@@ -139,6 +141,8 @@ export const PUBLIC_VIEWER: Viewer = { tier: "public" };
 export interface CatSource {
   id: number;
   name: string;
+  /** SYC-677: left for spotters to name; the stored name is the SYR number. */
+  namePending: boolean;
   description: string;
   /** Only lib/photoVisibility.ts makes one: null when hidden (PR 6). */
   photoUrl: PublicPhotoUrl | null;
@@ -189,7 +193,9 @@ export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
   const position = exact ? { lat: cat.lat, lng: cat.lng } : blurPosition(cat.lat, cat.lng);
   const out: CatWithStats = {
     id: cat.id,
+    // While pending, the stored name is already the SYR number (SYC-677).
     name: cat.name,
+    namePending: cat.namePending,
     description: cat.description,
     photoUrl: cat.photoUrl,
     lat: position.lat,
@@ -571,6 +577,7 @@ export async function listCatsWithStats(
         {
           id: r.cat.id,
           name: r.cat.name,
+          namePending: r.cat.namePending,
           description: r.cat.description,
           photoUrl: photos.get(r.cat.id) ?? null,
           lat: r.cat.lat,

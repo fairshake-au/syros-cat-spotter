@@ -26,6 +26,7 @@ import { VetList } from './VetList';
 import { RichText } from './RichText';
 import { AttentionAdvice } from './AttentionAdvice';
 import { LitterAdvice } from './LitterAdvice';
+import { catNameInSentence } from '@/lib/catDisplayName';
 
 /**
  * "This cat needs help", as three screens (Samuel, 2 Oct 2026: no scrolling).
@@ -103,7 +104,7 @@ function AboutCatStrip({
       </View>
       <View style={styles.catText}>
         <Text style={[styles.catAbout, { color: colors.foreground }]} numberOfLines={1} testID="report-cat-about">
-          {t('reportAboutCat').replace('{name}', cat.name)}
+          {t('reportAboutCat').replace('{name}', catNameInSentence(cat))}
         </Text>
         <Pressable
           onPress={onDifferent}

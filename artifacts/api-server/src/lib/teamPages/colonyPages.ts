@@ -678,7 +678,9 @@ export function renderColonyPage(
   },
 ): string {
   const W = wordsIn(opts.lang);
-  const { w } = W;
+  const { w, t } = W;
+  // SYC-677 D: a cat left for spotters to name reads "No name yet", in her language.
+  const nameOf = (c: { name: string; namePending: boolean }) => (c.namePending ? t("cat.noNameYet") : c.name);
   const island = opts.island !== false;
   const link = mapLinks(opts);
   const now = opts.now ?? new Date();
@@ -690,10 +692,10 @@ export function renderColonyPage(
   const photoOf = (c: { id: number; photoPublicId: string | null }) =>
     photo.get(c.id) ?? (c.photoPublicId ? teamPhotoUrl(c.photoPublicId) : null);
   const planRows = (cats: ReadonlyArray<PlanCat | GuardianPlanCat>): PlanRow[] =>
-    cats.map((c) => ({ id: c.id, name: c.name, syr: c.syr, photoUrl: photoOf(c), lines: planLines(W, c, island, now) }));
+    cats.map((c) => ({ id: c.id, name: nameOf(c), syr: c.syr, photoUrl: photoOf(c), lines: planLines(W, c, island, now) }));
   const otherRows: PlanRow[] = plan.other.map((c) => ({
     id: c.id,
-    name: c.name,
+    name: nameOf(c),
     syr: c.syr,
     photoUrl: photoOf(c),
     lines: `<span class="status">${w(WHY_WORD[c.why])}</span>`,
@@ -857,7 +859,7 @@ export function renderColonyProblem(
 
 // ── Adding cats to a colony ────────────────────────────────────────────────
 
-function addCard({ w }: Words, c: CatToAdd, colonyId: number, mayAdd: boolean): string {
+function addCard({ w, t }: Words, c: CatToAdd, colonyId: number, mayAdd: boolean): string {
   const thumb = c.thumbnailUrl
     ? `<img class="thumb" src="${esc(c.thumbnailUrl)}" alt="" loading="lazy">`
     : `<span class="thumb nothumb">${w("colony.noPhoto")}</span>`;
@@ -870,7 +872,7 @@ function addCard({ w }: Words, c: CatToAdd, colonyId: number, mayAdd: boolean): 
       : w("add.noColony");
   const text =
     thumb +
-    `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span>` +
+    `<span><strong>${esc(c.namePending ? t("cat.noNameYet") : c.name)}</strong> <span class="syr">${esc(c.syr)}</span>` +
     `<span class="status">${here ? w("add.already") : where}</span></span>`;
   if (!mayAdd) return `<li><span class="catrow">${text}</span></li>`;
   return (

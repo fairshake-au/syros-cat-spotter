@@ -132,6 +132,8 @@ export interface CatToAdd {
   id: number;
   syr: string;
   name: string;
+  /** SYC-677 D: left for spotters to name; `name` is then its SYR number. */
+  namePending: boolean;
   /**
    * The team's photo route for a cat this viewer may see in full; for a cat
    * outside a cat guardian's colonies, only what the public sees (its public
@@ -164,6 +166,7 @@ export async function searchCatsToAdd(visible: Visible, rawQuery: string): Promi
     .select({
       id: catsTable.id,
       name: catsTable.name,
+      namePending: catsTable.namePending,
       primaryPhotoId: catsTable.primaryPhotoId,
       photoPublicId: photosTable.publicId,
     })
@@ -199,6 +202,7 @@ export async function searchCatsToAdd(visible: Visible, rawQuery: string): Promi
       id: r.id,
       syr: syrNumber(r.id),
       name: r.name,
+      namePending: r.namePending,
       thumbnailUrl: seen
         ? r.photoPublicId
           ? teamPhotoUrl(r.photoPublicId)

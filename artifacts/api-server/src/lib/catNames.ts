@@ -81,3 +81,24 @@ export function nullOnUniqueViolation(err: unknown): null {
   if (isUniqueViolation(err)) return null;
   throw err;
 }
+
+/** A typed name that looks like a SYR number. */
+export const SYR_SHAPED_NAME = "That looks like a cat's SYR number. Choose a name.";
+
+/**
+ * A name that reads as a SYR number ("SYR-0042", "syr42"). Refused wherever a
+ * name is chosen: it would read as another cat's number, and could take the
+ * name a cat left for spotters needs (its stored name is its SYR number).
+ */
+export function isSyrShapedName(name: string): boolean {
+  // Folded first (case, accents), then Greek ΣΥΡ/συρ read as syr, and any
+  // run of spaces and dashes (hyphen, en dash, minus ...) between SYR and
+  // the digits is the same number.
+  const folded = foldName(name).replace(/^συρ/u, "syr");
+  return /^syr[\s\p{Pd}\u2212]*\d+$/u.test(folded);
+}
+
+export const SYR_SHAPED_NAME_BODY = {
+  error: SYR_SHAPED_NAME,
+  code: "SYR_SHAPED_NAME" as const,
+};

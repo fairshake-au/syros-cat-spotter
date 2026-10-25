@@ -14,7 +14,8 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".svg": "image/svg+xml" };
 const server = createServer(async (req, res) => {
   try {
     const path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname)).replace(/^(\.\.[/\\])+/, "");
-    res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "application/octet-stream" }).end(await readFile(join(HTML_DIR, path)));
+    const body = await readFile(join(HTML_DIR, path));
+    res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "application/octet-stream" }).end(body);
   } catch {
     res.writeHead(404).end("not found");
   }

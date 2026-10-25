@@ -58,6 +58,8 @@ const HER_FIELDS = [
   "mainPhotoUrl",
   "markings",
   "name",
+  // SYC-677 D: a flag the public cat answer already carries; her page says "No name yet".
+  "namePending",
   "photoUrls",
   "sterilised",
   "syr",
