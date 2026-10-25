@@ -48,12 +48,14 @@ export function badgeViews(
     }));
 }
 
-// The badge after `id` in the same group; null for the last one in its group.
+// The first unearned badge after `id` in the same group; failing that, the
+// first unearned badge anywhere in the group; null when the group is done.
 export function nextInGroup(views: BadgeView[], id: string): BadgeView | null {
   const at = views.findIndex((v) => v.id === id);
   if (at < 0) return null;
-  const next = views[at + 1];
-  return next && next.group === views[at].group ? next : null;
+  const group = views[at].group;
+  const unearned = (v: BadgeView) => v.group === group && !v.earned && v.id !== id;
+  return views.slice(at + 1).find(unearned) ?? views.find(unearned) ?? null;
 }
 
 // First unearned badge, in catalogue order; null when all are earned.

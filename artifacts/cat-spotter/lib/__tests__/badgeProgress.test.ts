@@ -77,9 +77,33 @@ describe('nextInGroup', () => {
       row('weeks_2', 'coming_back', false, 0, 2),
     ],
   })!;
-  it('after areas_3 is areas_8; after areas_all it is null', () => {
+  it('after areas_3 is areas_8; after areas_all it wraps to areas_8', () => {
     expect(nextInGroup(views, 'areas_3')?.id).toBe('areas_8');
-    expect(nextInGroup(views, 'areas_all')).toBeNull();
+    expect(nextInGroup(views, 'areas_all')?.id).toBe('areas_8');
+  });
+  it('skips badges already earned, including event badges in the middle', () => {
+    const v = badgeViews({
+      badgeProgress: [
+        row('areas_3', 'covering', false, 1, 3),
+        row('areas_8', 'covering', true, 8, 8),
+        row('pathfinder', 'covering', true, null, null),
+        row('remote_1', 'covering', false, 0, 1),
+      ],
+    })!;
+    expect(nextInGroup(v, 'areas_3')?.id).toBe('remote_1');
+  });
+  it('wraps to the first unearned in the group, and is null when the group is done', () => {
+    const v = badgeViews({
+      badgeProgress: [
+        row('areas_3', 'covering', false, 1, 3),
+        row('areas_8', 'covering', true, 8, 8),
+      ],
+    })!;
+    expect(nextInGroup(v, 'areas_8')?.id).toBe('areas_3');
+    const done = badgeViews({
+      badgeProgress: [row('areas_3', 'covering', true, 3, 3), row('areas_8', 'covering', true, 8, 8)],
+    })!;
+    expect(nextInGroup(done, 'areas_3')).toBeNull();
   });
   it('stays inside the group', () => {
     expect(nextInGroup(views, 'weeks_2')).toBeNull();
