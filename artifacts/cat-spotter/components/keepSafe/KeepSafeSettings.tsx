@@ -8,6 +8,7 @@ import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
+import { confirmChoice } from '@/lib/notify';
 import { removeKeepSafe } from '@/lib/keepSafe';
 import { KEEP_SAFE_QUERY_ROOT, useKeepSafeState } from '@/hooks/useKeepSafeState';
 
@@ -33,6 +34,14 @@ export function KeepSafeSettings() {
 
   const remove = async () => {
     if (!deviceId || removing) return;
+    // SYC-512: one tap used to forget the email with no way back.
+    const sure = await confirmChoice({
+      title: t('keepSafeRemoveTitle'),
+      message: t('keepSafeRemoveBody'),
+      confirmLabel: t('keepSafeSettingsRemove'),
+      cancelLabel: t('cancel'),
+    });
+    if (!sure) return;
     setRemoving(true);
     try {
       await removeKeepSafe(deviceId);
