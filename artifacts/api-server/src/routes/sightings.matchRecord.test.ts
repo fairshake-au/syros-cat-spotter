@@ -48,6 +48,10 @@ vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
 
 import app from "../app";
 
+// SYC-709: a cat name can't hold a phone-number-like run of digits, so
+// names made here get a letters-only tag instead of Date.now().
+const nameTag = (): string => Date.now().toString(36).replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+
 const DEVICE = "vitest-matchrecord-device";
 const CAT_PREFIX = "VitestMatchRecordCat";
 const SECRET = "vitest-matchrecord-secret-0123456789ab";
@@ -112,7 +116,7 @@ async function seedCat(at: LatLng): Promise<number> {
   const [c] = await db
     .insert(catsTable)
     .values({
-      name: `${CAT_PREFIX}-${++seq}-${Date.now()}`,
+      name: `${CAT_PREFIX}-${++seq}-${nameTag()}`,
       description: "",
       primaryPhotoId: photoId,
       lat: at.lat,
@@ -471,11 +475,11 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
     const s2 = await submit(device, SEA);
 
     await resolve(s1.body.sightingId, device, {
-      newCatName: `${CAT_PREFIX}-New-${Date.now()}`,
+      newCatName: `${CAT_PREFIX}-New-${nameTag()}`,
       openedPicker: true,
     });
     await resolve(s2.body.sightingId, device, {
-      newCatName: `${CAT_PREFIX}-New2-${Date.now()}`,
+      newCatName: `${CAT_PREFIX}-New2-${nameTag()}`,
     });
 
     expect(await record(s1.body.sightingId)).toMatchObject({
@@ -783,12 +787,12 @@ describe("SYC-398 PR D: colour_filter_on records whether a chip was picked (coat
     expect((await resolve(s1.body.sightingId, device, { catId: a, pickedFrom: "nearby", colourFilterOn: true })).status).toBe(200);
     expect((await resolve(s2.body.sightingId, device, { catId: b, pickedFrom: "search", colourFilterOn: false })).status).toBe(200);
     await resolve(s3.body.sightingId, device, {
-      newCatName: `${CAT_PREFIX}-Filtered-${Date.now()}`,
+      newCatName: `${CAT_PREFIX}-Filtered-${nameTag()}`,
       openedPicker: true,
       colourFilterOn: true,
     });
     await resolve(s4.body.sightingId, device, {
-      newCatName: `${CAT_PREFIX}-Unfiltered-${Date.now()}`,
+      newCatName: `${CAT_PREFIX}-Unfiltered-${nameTag()}`,
       openedPicker: true,
       colourFilterOn: false,
     });

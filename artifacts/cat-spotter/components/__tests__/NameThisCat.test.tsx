@@ -75,7 +75,7 @@ function refusal(status: number, code: string) {
 }
 
 function openSheet(cat: Cat = PENDING) {
-  render(<NameThisCatCard cat={cat} />);
+  render(<NameThisCatCard cat={cat} canName />);
   fireEvent.click(find(en.nameThisCat!));
 }
 const typeName = (v: string) =>
@@ -96,7 +96,7 @@ describe('Name this cat', () => {
     render(<NameThisCatCard cat={NAMED} />);
     expect(document.body.textContent).not.toContain(en.nameThisCat);
     cleanup();
-    render(<NameThisCatCard cat={PENDING} />);
+    render(<NameThisCatCard cat={PENDING} canName />);
     expect(find(en.nameThisCat!)).toBeTruthy();
     expect(document.body.textContent).toContain('SYR-0007');
   });
@@ -133,6 +133,7 @@ describe('Name this cat', () => {
     ['OFFENSIVE_NAME', 400, 'catNameRejected'],
     ['NAME_TAKEN', 409, 'nameTaken'],
     ['SYR_SHAPED_NAME', 400, 'syrShapedName'],
+    ['NAME_HAS_LINK', 400, 'nameHasLink'],
   ])('%s shows the same words as the new-cat name step', async (code, status, key) => {
     openSheet();
     typeName('Agatha');
@@ -144,8 +145,11 @@ describe('Name this cat', () => {
 
   it.each([
     ['429', () => refusal(429, 'RATE_LIMITED'), 'claimRefusedLater'],
+    ['503', () => refusal(503, 'X'), 'claimRefusedLater'],
     ['404', () => refusal(404, 'NOT_FOUND'), 'nameThisCatGone'],
     ['EMPTY_NAME', () => refusal(400, 'EMPTY_NAME'), 'nameYourCat'],
+    ['NAME_DAILY_LIMIT', () => refusal(429, 'NAME_DAILY_LIMIT'), 'nameThisCatDailyLimit'],
+    ['NEEDS_SIGHTING', () => refusal(403, 'NEEDS_SIGHTING'), 'nameThisCatNeedsSighting'],
   ])('%s gets its own words, not "check your connection"', async (_n, make, key) => {
     openSheet();
     typeName('Agatha');
@@ -191,8 +195,41 @@ describe('Name this cat', () => {
 
   it('offline, the button explains that naming needs a connection', () => {
     h.isOnline = false;
-    render(<NameThisCatCard cat={PENDING} />);
+    render(<NameThisCatCard cat={PENDING} canName />);
     expect(document.body.textContent).toContain(en.nameThisCatNeedsConnection);
     expect(disabled(find(en.nameThisCat!))).toBe(true);
+  });
+
+  // SYC-709: only a phone that has met the cat gets the button.
+  it.each([[false], [undefined]])('canName %s: no button, and the spotter is told to spot the cat first', (canName) => {
+    render(<NameThisCatCard cat={PENDING} canName={canName} />);
+    expect(document.body.textContent).toContain('SYR-0007');
+    expect(screen.getByTestId('name-this-cat-spot-first').textContent).toBe(en.nameThisCatNeedsSighting);
+    // Not "You can give it a name" right above "Spot this cat first".
+    expect(document.body.textContent).toContain(en.nameThisCatIntroNotMet);
+    expect(document.body.textContent).not.toContain(en.nameThisCatIntro);
+    expect(() => find(en.nameThisCat!)).toThrow();
+  });
+
+  it('NEEDS_SIGHTING also refreshes the cat, so the button goes', async () => {
+    openSheet();
+    typeName('Agatha');
+    fireEvent.click(find(en.nameThisCatSave!));
+    h.opts.mutation.onError(refusal(403, 'NEEDS_SIGHTING'));
+    await waitFor(() => expect(h.invalidate).toHaveBeenCalled());
+  });
+
+  it('closing the sheet hands focus back to the Name this cat button', async () => {
+    openSheet();
+    fireEvent.click(find(en.cancel!));
+    await waitFor(() => expect(document.activeElement).toBe(find(en.nameThisCat!)));
+  });
+
+  it('the new naming words exist in every language', () => {
+    for (const lang of ['en', 'el', 'fr'] as const) {
+      for (const k of ['nameHasLink', 'nameThisCatDailyLimit', 'nameThisCatNeedsSighting', 'nameThisCatIntroNotMet']) {
+        expect(TRANSLATIONS[lang][k], `${lang} ${k}`).toMatch(/\.$/);
+      }
+    }
   });
 });

@@ -44,6 +44,10 @@ vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
 import app from "../app";
 import { markRemoved } from "../test/removalKit";
 
+// SYC-709: a cat name can't hold a phone-number-like run of digits, so
+// names made here get a letters-only tag instead of Date.now().
+const nameTag = (): string => Date.now().toString(36).replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+
 /** The person a removal names (photos_removed_ck); left in place, like removalKit says. */
 let staff: { id: string };
 
@@ -70,7 +74,7 @@ async function seedCat(at: LatLng): Promise<number> {
   const [c] = await db
     .insert(catsTable)
     .values({
-      name: `${CAT_PREFIX}-${++seq}-${Date.now()}`,
+      name: `${CAT_PREFIX}-${++seq}-${nameTag()}`,
       description: "",
       primaryPhotoId: p!.id,
       lat: at.lat,
@@ -161,7 +165,7 @@ beforeAll(async () => {
   await cleanup();
   [staff] = await db
     .insert(peopleTable)
-    .values({ email: `vitest-recheck-staff-${Date.now()}@example.test`, name: "Recheck staff" })
+    .values({ email: `vitest-recheck-staff-${nameTag()}@example.test`, name: "Recheck staff" })
     .returning({ id: peopleTable.id });
 });
 beforeEach(() => {
@@ -351,7 +355,7 @@ describe("check again", () => {
     const resolved = await request(app)
       .post(`/api/sightings/${id}/resolve`)
       .set("X-Device-Secret", SECRET)
-      .send({ deviceId: DEVICE, newCatName: `${CAT_PREFIX}-resolved-${Date.now()}` });
+      .send({ deviceId: DEVICE, newCatName: `${CAT_PREFIX}-resolved-${nameTag()}` });
     expect(resolved.status, JSON.stringify(resolved.body)).toBe(200);
     const res = await recheck(id, DEVICE);
     expect(res.status).toBe(409);
@@ -390,7 +394,7 @@ describe("check again", () => {
     const resolved = await request(app)
       .post(`/api/sightings/${id}/resolve`)
       .set("X-Device-Secret", SECRET)
-      .send({ deviceId: DEVICE, newCatName: `${CAT_PREFIX}-mid-${Date.now()}` });
+      .send({ deviceId: DEVICE, newCatName: `${CAT_PREFIX}-mid-${nameTag()}` });
     expect(resolved.status, JSON.stringify(resolved.body)).toBe(200);
     finish();
     const res = await running;

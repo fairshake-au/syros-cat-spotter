@@ -225,7 +225,7 @@ export default function ReviewScreen() {
   // The questions wait for the celebration, from the first frame.
   const questionsHidden = celebrationDue && !celebrated;
   const [showNewCat, setShowNewCat] = useState(false);
-  const [nameError, setNameError] = useState<"taken" | "offensive" | "syr" | null>(
+  const [nameError, setNameError] = useState<"taken" | "offensive" | "syr" | "link" | null>(
     null,
   );
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -469,6 +469,7 @@ export default function ReviewScreen() {
         }
       } else if (failure.kind === "offensive") setNameError("offensive");
       else if (failure.kind === "syr-shaped") setNameError("syr");
+      else if (failure.kind === "has-link") setNameError("link");
       else if (failure.kind === "offline") setSendMessage(noSignal);
       setBusy(false);
     }
@@ -1097,7 +1098,9 @@ export default function ReviewScreen() {
                       ? "catNameRejected"
                       : nameError === "syr"
                         ? "syrShapedName"
-                        : "nameTaken",
+                        : nameError === "link"
+                          ? "nameHasLink"
+                          : "nameTaken",
                   )
                 : undefined
             }
