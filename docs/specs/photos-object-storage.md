@@ -13,7 +13,7 @@ Every photo a spotter takes is stored as text inside our Neon database. That is 
 
 **What nobody will notice.** A cat's photo has the same web address before and after. The app does not change. Hidden photos stay hidden. Team-only photos stay team-only. Photos still have no location tag in them. If anything changes, photos may load a little faster.
 
-**What it is worth.** Not a lot of money today, a lot of safety and tidiness later. At the planning volumes in §2 the saving is about **$16 a month at the 2027 season peak** and under $2 a month now. The better reasons are the ones money doesn't show: a small database means quick backups, quick restores, quick copies for testing, and nothing slowing the records every time a photo is read.
+**What it is worth.** Not a lot of money today, a lot of safety and tidiness later. At the planning volumes in §2 the saving is about **$17 a month at the 2027 season peak** (about $18 now stored against about $1 after) and under $2 a month today. The better reasons are the ones money doesn't show: a small database means quick backups, quick restores, quick copies for testing, and nothing slowing the records every time a photo is read.
 
 **Recommended store:** **Cloudflare R2, EU jurisdiction** (§3). It is the cheapest of the realistic options, the data is guaranteed to stay in the EU, we already hold a Cloudflare account with an API token, and it costs nothing when photos are read. One step is needed from Samuel: the current token has no R2 permission (§3.5).
 
@@ -40,7 +40,11 @@ Three things that matter for the move:
 
 - **Team-only batch photos live in the same `photos` table as public ones** (SYC-677). What keeps them private is a lookup (`teamOnlyPhotoIds`), not the table they are in. The earlier spec said restricted photos are "separate tables"; that is true for report photos, and no longer true for vet-visit photos. In a file store, the same lookup must still be what decides, because a bucket has no such rule of its own (§4.2).
 - **Hiding a photo does not touch the bytes.** It is an add-only log (`photo_visibility_events`). "Deleting for good" (SYC-462) nulls `photos.data`, records who and why, deletes every smaller copy, and scans every column to prove the bytes are gone.
-- **Exactly nine files may read a photo's picture**, enforced by a test (`photoData.source.test.ts`): the photo route, the team report routes, the sightings matcher, the variant maker, the mail attachment, the coat reader, the spot-photo writer, the vet-batch search and the smoke check. That list is the whole job on the reading side.
+- **Nine files may read `photos.data`**, enforced by a test (`photoData.source.test.ts`): the photo route, the team report routes, the sightings matcher, the variant maker, the mail attachment, the coat reader, the spot-photo writer, the vet-batch search and the smoke check. **That test guards only `photos.data` and whole-row selects.** It does not guard `welfare_report_photos.bytes` (read in `teamReports.ts`, `mail/outbox.ts`, written in `reports.ts`), `photo_variants.bytes`, or raw SQL; those need the same guard (§5 step 1). The reading side is therefore the nine files *plus* those.
+- **Writers of picture bytes are four, not one:** `spotPhotos.ts` (spots), `vetBatches.ts:248` (staged vet photos, also inside a transaction), `reports.ts` (report photos) and `photoVariants.ts` (smaller copies). Test helpers write them directly too.
+- **Deletion has more than one path** (§4.4): `removePhoto` (SYC-462), the discard of a staged vet photo (`vetBatches.ts:339-346`, run by the daily `vet-batches-cleanup` workflow, which deletes plain rows and nulls ones that have visibility events), report photos going with their report by cascade, and the three-year report-photo retention.
+- **"No picture" currently means "removed".** About eight places treat `data IS NULL` as "this photo was removed": the photo route, the matcher's `isNotNull(data)` filters in `sightings.ts`, the variant maker and its lock, the smoke check, the vet-batch search, the mail attachment and the removal tool's own search. Once a live photo can have no `data`, every one of them would wrongly treat it as removed. This is the single easiest way to break the move and §5 step 1 is mostly about it.
+- **The old database and SYC-125's compare and carry-back read `photos.data`** (`switchover/fingerprint.ts`, `carryBack.ts`). From step 6, bucket-only photos would compare and carry back as empty pictures (§5 step 6).
 
 ### 2.2 How much, today
 
@@ -84,15 +88,19 @@ I looked at every store that plausibly fits our setup: Replit app, Neon database
 
 ### 3.2 What each costs at the planning volumes
 
-Photos read out of the store through our API, which is how they are served (§4.1), so Replit's own outbound-data charge of **$0.05 per GiB** ([Replit, from 1 Aug 2026](https://docs.replit.com/billing/aug-cloud-billing-updates)) is paid the same way under A, B and C. That makes **the store's own egress price irrelevant while we serve through the API**, and the options differ only on storage and on what they are like to live with.
+Photos are read out of the store by our API and sent on to phones, so every phone-bound byte is also billed as Replit outbound data at **$0.05 per GiB** ([Replit, from 1 Aug 2026](https://docs.replit.com/billing/aug-cloud-billing-updates)), under every option. That is the same bill as today, and the table below leaves it out.
 
-| Per month | Now (~3 GB of pictures) | 2027 season peak (~35 GB) |
+**But the store's own read price is not irrelevant, and an earlier draft of this spec was wrong to say so** (found in review). Phones are only part of the reads. The matcher fetches up to ten candidate photos for every spot, and the coat reader, the fingerprint filler, the smaller-copy maker and the shadow week in §5 all read photos too. At 60,000 spots a season that could be a few hundred GB, **which I have not estimated** (it depends on cache hits and on the production figures in §2.2). R2 charges nothing for it and Neon includes 500 GB, so A and B are unaffected. S3 includes 100 GB a month and then charges per GB, and Replit App Storage charges $0.05/GiB on every download. That strengthens the case for R2.
+
+| Per month, storage only (pictures plus the 18% for smaller copies) | Now (~3.5 GB) | 2027 season peak (~41 GB) |
 |---|---|---|
-| **Today: base64 in Neon** at $0.35/GB-month, ×1.33 for the text inflation | ~$1.40 | **~$16** (plus Neon's instant-restore charge, below) |
-| A. R2 | ~$0 (inside the 10 GB free) | ~$0.40 |
-| B. Neon Object Storage | ~$0.07 | ~$0.80 |
-| C. S3 Frankfurt | ~$0.07 | ~$0.86 |
-| D. Replit App Storage | ~$0.05 | ~$0.53 |
+| **Today: base64 in Neon** at $0.35/GB-month, ×1.33 for the text inflation on the originals | ~$1.65 | **~$18** (plus Neon's instant-restore charge, below) |
+| A. R2 | ~$0 (inside the 10 GB free) | ~$0.47 |
+| B. Neon Object Storage | ~$0.08 | ~$0.95 |
+| C. S3 Frankfurt | ~$0.09 | ~$1.00 |
+| D. Replit App Storage | ~$0.05 | ~$0.62, plus download charges |
+
+The 10 GB free allowance on R2 is per account, so a second bucket for the safety copy (§5.8) costs the full ~$0.62 at peak, not a saving on top of it.
 
 Three honest qualifiers:
 
@@ -135,8 +143,8 @@ What it costs: all photo traffic keeps going through Replit and is billed at Rep
 
 - **Enforced today** by `hiddenPhotoIds`, which already counts removed photos *and* team-only photos as hidden, so every public reader is covered with no reader of its own. The public photo route answers a hidden, removed, team-only or unknown photo with the **same** 404 and `no-store`, so the answer never says a photo exists.
 - **After the move:** unchanged. The rule runs on the database record **before** the bucket is touched. The route order is fixed: look up the row, ask `hiddenPhotoIds`, and only then fetch the object. A photo that is hidden never causes a bucket read, which also means a hidden photo cannot be detected by how long the reply takes (a timing probe in §7).
-- **The bucket knows nothing about hidden or team-only.** Object names are random and carry no meaning (§4.3). There is no `public/` and `private/` folder split to get wrong, because a split would invite someone to read the folder instead of asking the API.
-- **Report photos** (`welfare_report_photos`) keep their own team-only route behind the dashboard session. They go in a different folder of the same private bucket, used only by that route.
+- **The bucket knows nothing about hidden or team-only for cat photos.** Object names are random and carry no meaning (§4.3). There is no `public/` and `private/` folder split to get wrong, because a split would invite someone to read the folder instead of asking the API.
+- **Report photos (`welfare_report_photos`) go in their own bucket with their own token,** read only by the team report route behind the dashboard session. They are the most sensitive images we hold, and a leaked token for the cat-photo bucket must not reach them.
 - **Test:** the existing hide, restore and team-only tests run against the in-memory store *and* against a real bucket in the rehearsal (§7). New: a team-only photo and a hidden photo are each requested through the public route in both read modes and must return the same 404 as an unknown id.
 
 ### 4.3 Photos have no location tag, and nothing identifies who took them
@@ -148,15 +156,22 @@ What it costs: all photo traffic keeps going through Replit and is billed at Rep
 
 ### 4.4 Deleting a photo for good deletes its object (SYC-246, SYC-462)
 
-This is the rule that gets harder, and it needs care.
+This is the rule that gets harder, and the review found the first draft of it was not enough.
 
 - **Today:** SYC-462's `removePhoto` is one database transaction: null the bytes, record who and why, delete the smaller copies, repoint cats, then scan every column to prove the picture is gone. Either all of it happens or none of it.
-- **The problem:** a file in a bucket can't be part of a database transaction. If we delete the file first and the database step then fails, we have a record with no picture and no way back. If we delete the file after, and that fails, the photo is still on disk after the team was told it was gone.
-- **The rule after the move:** **record first, delete second, verify third.** In the same transaction that marks the photo removed, we also write a row into a new small table, `photo_object_deletions` (the key, when it was asked for, when it was confirmed gone). After the commit, the object is deleted, then asked for again to prove it returns "not found", and the row is stamped confirmed. A sweeper retries any unconfirmed row every few minutes and alerts after an hour. The team's "Delete for good" button (SYC-246) and the hand-run command use this one routine.
-- **"Removed" is not "complete" until confirmed.** The dashboard and the runbook say "removed, picture deletion confirmed" or "removed, waiting to confirm deletion", never just "removed". The public route already treats the photo as gone from the moment the row is marked.
-- **Every copy is in scope.** That means the main object, every smaller copy (small, card, medium), the safety copy if D2 creates one, and any copy in the database during the move (`data`, variant rows). The existing byte scan keeps running against the database; a new check does a "not found" probe on each object key.
-- **What we cannot reach:** Neon keeps up to 7 days of restore history, so a removed photo's bytes can exist in an old restore point for a week. That is already true today and is an honest line for the privacy policy (§8, D5 notes it).
-- **Test:** removal with the bucket failing (the row is removed, the deletion stays pending, the sweeper finishes it); removal where the database step fails (the object is **not** touched); and a removal run twice (second run changes nothing).
+- **The problem:** a file in a bucket can't be part of a database transaction. Delete the file first and a failed database step leaves a record with no picture and no way back. Delete it after and a failed delete leaves the photo on disk after the team was told it was gone.
+- **The rule after the move: record first, delete second, verify third.** In the same transaction that removes the photo, write a row to a new table, `photo_object_deletions`: every key to delete (the main object *and* the smaller copies *and* the safety copy), when it was asked for, and when each was confirmed gone. After the commit the objects are deleted, each is asked for again to prove "not found", and the row is stamped. A **sweeper** retries unconfirmed rows every few minutes and alerts after an hour. Keys are written to the row at removal time because the photo row's own `storage_key` is cleared when it is removed.
+- **Every deletion path uses that one routine,** not just `removePhoto`. There are four today and the first draft knew of one:
+  1. `removePhoto` and the coming "Delete for good" button (SYC-246);
+  2. the discard of a staged vet photo (`vetBatches.ts:339-346`, run daily by `vet-batches-cleanup`), which deletes a plain row or nulls one that has visibility events, today with no removal record at all;
+  3. a report photo going with its report by database cascade (`welfare_report_photos` → `welfare_reports`, plus SYC-478 and the three-year retention rule): a cascade can't write a deletion row, so the cascade is replaced by an explicit delete in the same module;
+  4. the 12-month shrink (SYC-81, not built), which replaces an object with a smaller one.
+  A **source test** bans `delete(photosTable)`, `delete(welfareReportPhotosTable)`, `delete(photoVariantsTable)` and setting `data` or `bytes` to null anywhere except that module, the way `photoData.source.test.ts` bans stray readers today.
+- **A removal must beat a backfill or a new upload.** Backfill and dual-write take `FOR KEY SHARE` on the photo row before they write an object and re-check `removed_at` after the write, exactly as `variantFor` and `saveFingerprint` already do. If the photo was removed in between, the writer deletes the object it just made. The same lock guards the smaller copies, so a copy being made while a removal runs does not survive it.
+- **A scheduled reconciliation, not a one-off.** Daily, a job lists every object in each bucket, finds the ones no row points at and no deletion row covers, waits 24 hours (so an in-flight upload isn't deleted), and then reports and deletes them. It also finds rows whose object is missing. Both counts are alerts. Orphans are expected at a low rate (a sighting that rolled back after its object was written); a rising count is the signal.
+- **The removal tool needs new inputs.** SYC-462's tool runs in GitHub Actions (`db-ops.yml`) with only database credentials. It reads `data` to fingerprint the picture (it would fail on a bucket-only photo) and its `GONE` verdict, and the runbook's curl check, come from the database row alone and can't see a surviving object. After the move it must: read the picture from the bucket for the fingerprint; hold the bucket credential in the `production` GitHub environment (a narrow token, §5 preface); and issue **`GONE-PENDING-OBJECT`** until every key in the deletion row is confirmed "not found", with `GONE` only after. Runbook steps 6, 7, 10 and 12 change to match. Removal is "removed, deletion confirmed" or "removed, waiting to confirm", never just "removed".
+- **What we cannot reach:** Neon keeps up to 7 days of restore history, so a removed photo's bytes can sit in an old restore point for a week. That is already true today and is a line for the privacy policy. And any **restore of a database snapshot taken before a removal brings the bytes back and un-hides the photo**; the runbook's "After any restore" step (re-run the removals) applies to every rollback in §5 that restores a snapshot.
+- **Test:** removal with the bucket failing (row removed, deletion pending, sweeper finishes it); database step failing (object untouched); a run twice (no change); removal racing a backfill and racing a smaller-copy maker (no surviving object); each of the four paths above leaves a deletion row; and the source test.
 
 ### 4.5 "Delete my data" — what actually happens to photos, and what must not change
 
