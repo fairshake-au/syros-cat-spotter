@@ -215,7 +215,8 @@ describe("history backfill", () => {
     const moments = await momentsFor(d);
     expect(moments).toHaveLength(1);
     expect(moments[0]!.kind).toBe("history");
-    expect([...moments[0]!.badge_ids].sort()).toEqual(["areas_3", "first_sighting", "weeks_2"]);
+    // first_sighting is one of the original seven: saved, never celebrated.
+    expect([...moments[0]!.badge_ids].sort()).toEqual(["areas_3", "weeks_2"]);
 
     // The place is stamped with today's areas; the week is the photo date.
     const stamped = await db.execute(sql`
@@ -292,9 +293,7 @@ describe("history backfill", () => {
     // Pathfinder: a quiet area for 30 days earns it; one spotted 7 days ago doesn't.
     expect((await storedBadges(first)).get("pathfinder")).toBe("history");
     expect((await storedBadges(second)).has("pathfinder")).toBe(false);
-    expect((await momentsFor(first))[0]!.badge_ids).toEqual(
-      expect.arrayContaining(["first_sighting", "first_discovery", "pathfinder", "trailblazer"]),
-    );
+    expect((await momentsFor(first))[0]!.badge_ids.sort()).toEqual(["pathfinder", "trailblazer"]);
   });
 
   it("a spotter with nothing earns nothing and gets no moment", async () => {
@@ -334,9 +333,40 @@ describe("history backfill", () => {
     expect(await run(prefix)).toBe("done");
 
     const moments = await momentsFor(d);
-    expect(moments.map((m) => m.kind)).toEqual(["badges", "history"]);
-    expect(moments[1]!.badge_ids).toContain("first_sighting");
-    expect(moments[1]!.badge_ids).not.toContain("five_cats");
+    // first_sighting was saved quietly, but it is an original badge: seen,
+    // and nothing else is left, so no history moment is queued.
+    expect(moments.map((m) => m.kind)).toEqual(["badges"]);
+    expect(moments[0]!.badge_ids).not.toContain("first_sighting");
+  });
+
+  it("original badges are saved as seen and not celebrated; new kinds still are", async () => {
+    const prefix = scope("legacy");
+    const d = `${prefix}a`;
+    const areas = currentAreas().slice(0, 3);
+    for (let i = 0; i < 3; i++) {
+      const at = { lat: areas[i]!.lat, lng: areas[i]!.lng };
+      await oldSpot(d, await seedCat(`Legacy${i}`, { at }), { at, createdAt: daysAgo(20 - i * 7) });
+    }
+    expect(await run(prefix)).toBe("done");
+
+    const seen = await db.execute(sql`
+      select badge_id, seen_at from spotter_badges where device_id = ${d}`);
+    const seenAt = new Map(seen.rows.map((r) => [String(r.badge_id), r.seen_at]));
+    expect(seenAt.get("first_sighting")).not.toBeNull();
+    expect(seenAt.get("areas_3")).toBeNull();
+    const moments = await momentsFor(d);
+    expect(moments).toHaveLength(1);
+    expect(moments[0]!.badge_ids).toContain("areas_3");
+    expect(moments[0]!.badge_ids).not.toContain("first_sighting");
+  });
+
+  it("a spotter with only original badges gets no history moment", async () => {
+    const prefix = scope("legacyonly");
+    const d = `${prefix}a`;
+    await oldSpot(d, await seedCat("LegacyOnly"), { createdAt: daysAgo(2) });
+    expect(await run(prefix)).toBe("done");
+    expect((await storedBadges(d)).get("first_sighting")).toBe("history");
+    expect(await momentsFor(d)).toEqual([]);
   });
 
   it("a crashed run is resumed by the next drain", async () => {

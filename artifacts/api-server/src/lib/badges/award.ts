@@ -154,6 +154,20 @@ async function isFirstCatInArea(
 }
 
 /**
+ * The seven badges that existed before SYC-706. Spotters already saw them
+ * celebrated, so a history save marks them seen and never celebrates them.
+ */
+export const LEGACY_BADGE_IDS: ReadonlySet<string> = new Set([
+  "first_sighting",
+  "first_discovery",
+  "five_cats",
+  "ten_cats",
+  "ten_discoveries",
+  "explorer",
+  "island_legend",
+]);
+
+/**
  * Saves badges as earned. A badge already held is left as it was, so the
  * returned ids are exactly the newly earned ones, even when two spots race:
  * the loser waits on the winner's row and then inserts nothing.
@@ -167,11 +181,15 @@ export async function awardBadges(
   const unique = [...new Set(ids)];
   if (unique.length === 0) return [];
   const values = sql.join(
-    unique.map((id) => sql`(${deviceId}, ${id}, ${source})`),
+    unique.map(
+      (id) =>
+        sql`(${deviceId}, ${id}, ${source},
+             ${source === "history" && LEGACY_BADGE_IDS.has(id) ? sql`now()` : sql`null::timestamptz`})`,
+    ),
     sql`, `,
   );
   const r = await tx.execute(sql`
-    insert into spotter_badges (device_id, badge_id, source)
+    insert into spotter_badges (device_id, badge_id, source, seen_at)
     values ${values}
     on conflict do nothing
     returning badge_id

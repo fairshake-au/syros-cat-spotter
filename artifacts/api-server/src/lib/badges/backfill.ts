@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { currentAreas, loadAreas } from "../areas/namedAreas";
 import { placeFor } from "../areas/placeFor";
 import { athensDay, weekStartAthens } from "../weeks";
-import { awardBadges, eventBadgesUngated, queueMoment, type DbOrTx } from "./award";
+import { awardBadges, eventBadgesUngated, LEGACY_BADGE_IDS, queueMoment, type DbOrTx } from "./award";
 import { BADGE_CATALOGUE, thresholdBadges } from "./catalogue";
 import { computeBadgeStats } from "./stats";
 
@@ -223,8 +223,10 @@ async function awardSpotter(deviceId: string): Promise<boolean> {
           select 1 from badge_moments m
           where m.device_id = ${deviceId} and b.badge_id = any(m.badge_ids)
         )`);
+    // The original seven were celebrated long ago; never again.
     const badgeIds = quiet.rows
       .map((r) => String(r.badge_id))
+      .filter((id) => !LEGACY_BADGE_IDS.has(id))
       .sort((a, b) => (catalogueOrder.get(a) ?? 999) - (catalogueOrder.get(b) ?? 999));
     if (badgeIds.length === 0) return false;
     await queueMoment(tx, { deviceId, kind: "history", badgeIds });
