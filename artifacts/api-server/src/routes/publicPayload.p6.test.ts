@@ -82,6 +82,12 @@ async function cleanup() {
   await db.delete(deviceCredentialsTable).where(like(deviceCredentialsTable.deviceId, `${PREFIX}%`));
 }
 
+/** An hour before `now`, or `now` itself when that hour crosses Athens midnight. */
+function recentSightingAt(now: Date): Date {
+  const anHourAgo = new Date(now.getTime() - 3_600_000);
+  return toPublicDay(anHourAgo) === toPublicDay(now) ? anHourAgo : now;
+}
+
 beforeAll(async () => {
   await cleanup();
   const photos = await db
@@ -125,9 +131,10 @@ beforeAll(async () => {
       lat: ORIGIN.lat,
       lng: ORIGIN.lng,
       status: "resolved",
-      // An hour ago, but never before today's UTC midnight: lastSeenAt is a UTC
-      // day, and the snapshot swaps today's date for <today> (failed 00:00–01:00 UTC).
-      createdAt: new Date(Math.max(Date.now() - 3_600_000, new Date().setUTCHours(0, 0, 1, 0))),
+      // An hour ago, unless that is still yesterday in Athens: the payload sends
+      // this as an Athens day and the snapshot swaps today's Athens day for
+      // <today> (SYC-711: failed between Athens midnight and UTC midnight).
+      createdAt: recentSightingAt(new Date()),
     },
   ]);
   const [update] = await db

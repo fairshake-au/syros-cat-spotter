@@ -442,8 +442,11 @@ describe("one site", () => {
     const html = (await get(`/api/team/sites/${s.id}`)).text;
     expect(html).toContain("37.45010%2C24.93000");
     expect(html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{5}/);
-    // (The hidden `updatedAt` stamp is a time to the microsecond, not a position.)
-    expect(html.replace(/name="updatedAt" value="[^"]*"/g, "")).not.toMatch(/\d+\.\d{6,}/);
+    // (The page's timestamps, such as the hidden `updatedAt` stamp, run to the
+    // microsecond; they are times, not positions, wherever the page prints them.
+    // SYC-367 failed here without the number being captured, so name it.)
+    const withoutTimes = html.replace(/\d{4}-\d{2}-\d{2}[T ][\d:]+\.\d+(Z|[+-]\d{2}(:\d{2})?)?/g, "");
+    expect(withoutTimes.match(/.{0,40}\d+\.\d{6,}.{0,10}/)?.[0]).toBeUndefined();
   });
 
   it("centres the small map on the site: the marker is within the central half at every width band", async () => {

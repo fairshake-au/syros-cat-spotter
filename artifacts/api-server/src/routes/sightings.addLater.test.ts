@@ -354,7 +354,9 @@ describe("GET /api/profiles/:deviceId/cats/:catId/open-sightings", () => {
     expect(item.takenAt).toBe(s.createdAt.toISOString());
     expect(item.open).toEqual({ foodAndWater: false, note: true });
     expect(item.photoUrl).toMatch(/^\/api\/photos\//);
-    const text = JSON.stringify(res.body);
+    // takenAt is an ISO timestamp, so a time like 17:18:24.912 would match the
+    // coordinate digits by chance (SYC-699): leave it out, it is checked above.
+    const text = JSON.stringify(res.body, (key, value) => (key === "takenAt" ? undefined : value));
     expect(text).not.toMatch(/"lat"|"lng"|37\.44|24\.9/);
   });
 

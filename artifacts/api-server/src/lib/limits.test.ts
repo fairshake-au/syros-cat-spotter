@@ -108,7 +108,9 @@ describe("T2-3: the stored key is not the address", () => {
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
       expect(row.key).toMatch(/^[0-9a-f]{64}$/);
-      expect(row.key).not.toContain("198");
+      // The dotted address, not "198": a random 64-hex key holds "198" by chance
+      // about 1.5% of the time (SYC-359), and hex can never hold a dot.
+      expect(row.key).not.toContain(ip);
       // Not even an unsalted hash of the address.
       expect(row.key).not.toBe(createHash("sha256").update(ip).digest("hex"));
       expect(row.key).not.toBe(createHash("sha256").update(addressKey(ip)).digest("hex"));
