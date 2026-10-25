@@ -14,6 +14,7 @@ import {
   FakeProtocol,
   lastMap,
   makeMapConstructorThrow,
+  makeProtocolSetupThrow,
   protocolCalls,
   resetMaplibreFake,
   setWebGLSupported,
@@ -31,7 +32,13 @@ vi.mock('@/lib/mapSource', async (importOriginal) => ({
   useMapVersion: () => env.version,
 }));
 
-import { _resetMapLibreLoaderForTests, useMapLibre, type UseMapLibreOptions } from '../useMapLibre.web';
+import {
+  MAPLIBRE_STYLE_ID,
+  _resetMapLibreLoaderForTests,
+  _setMapLibreImporterForTests,
+  useMapLibre,
+  type UseMapLibreOptions,
+} from '../useMapLibre.web';
 
 type Result = ReturnType<typeof useMapLibre>;
 
@@ -69,6 +76,7 @@ beforeEach(() => {
   env.version = 1;
   resetMaplibreFake();
   _resetMapLibreLoaderForTests();
+  document.getElementById(MAPLIBRE_STYLE_ID)?.remove();
 });
 afterEach(cleanup);
 
@@ -84,6 +92,7 @@ describe('useMapLibre', () => {
     expect(map.options.maxZoom).toBe(18);
     expect(map.options.pitchWithRotate).toBe(false);
     expect(map.options.interactive).toBe(true);
+    expect(map.options.attributionControl).toBe(false);
     expect(map.options.style).toEqual(buildStyle({ lang: 'en', ...mapUrls(1) }));
     expect(latest.current?.zoom).toBe(15);
     expect(latest.current?.version).toBe(1);
@@ -171,6 +180,44 @@ describe('useMapLibre', () => {
     const { latest } = mount();
     await waitFor(() => expect(latest.current?.failed).toBe('no-webgl'));
     expect(latest.current?.map).toBeNull();
+  });
+
+  it('a failed download of MapLibre reports load-failed, and a later mount retries', async () => {
+    _setMapLibreImporterForTests(() => Promise.reject(new Error('Failed to fetch dynamically imported module')));
+    const first = mount();
+    await waitFor(() => expect(first.latest.current?.failed).toBe('load-failed'));
+    expect(first.latest.current?.map).toBeNull();
+    first.unmount();
+    _resetMapLibreLoaderForTests();
+    await mountReady();
+    expect(FakeMap.instances).toHaveLength(1);
+  });
+
+  it('pmtiles protocol setup failing reports load-failed', async () => {
+    makeProtocolSetupThrow();
+    const { latest } = mount();
+    await waitFor(() => expect(latest.current?.failed).toBe('load-failed'));
+    expect(latest.current?.map).toBeNull();
+    expect(FakeMap.instances).toHaveLength(0);
+  });
+
+  it('injects the minimal MapLibre CSS once, when the first map is created', async () => {
+    expect(document.getElementById(MAPLIBRE_STYLE_ID)).toBeNull();
+    const a = await mountReady();
+    const style = document.getElementById(MAPLIBRE_STYLE_ID);
+    expect(style?.tagName).toBe('STYLE');
+    expect(style?.parentNode).toBe(document.head);
+    expect(style?.textContent).toContain('.maplibregl-canvas{position:absolute');
+    a.unmount();
+    await mountReady();
+    expect(document.querySelectorAll(`#${MAPLIBRE_STYLE_ID}`)).toHaveLength(1);
+  });
+
+  it('injects no CSS when MapLibre cannot load', async () => {
+    _setMapLibreImporterForTests(() => Promise.reject(new Error('offline')));
+    const { latest } = mount();
+    await waitFor(() => expect(latest.current?.failed).toBe('load-failed'));
+    expect(document.getElementById(MAPLIBRE_STYLE_ID)).toBeNull();
   });
 
   it('removes the map on unmount', async () => {

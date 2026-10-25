@@ -47,6 +47,7 @@ export const DEFAULT_CONTAINER_SIZE = { width: 390, height: 600 };
 const state = {
   supported: true,
   constructorError: null as Error | null,
+  protocolError: null as Error | null,
   containerSize: { ...DEFAULT_CONTAINER_SIZE },
 };
 
@@ -371,6 +372,7 @@ export class FakeProtocol {
   static instances: FakeProtocol[] = [];
   readonly tileCalls: unknown[][] = [];
   constructor() {
+    if (state.protocolError) throw state.protocolError;
     FakeProtocol.instances.push(this);
   }
   tile = (...args: unknown[]): Promise<{ data: null }> => {
@@ -412,6 +414,11 @@ export function makeMapConstructorThrow(error: Error | null = new Error('Failed 
   state.constructorError = error;
 }
 
+/** Make `new pmtiles.Protocol()` throw (protocol setup failing). null stops it. */
+export function makeProtocolSetupThrow(error: Error | null = new Error('pmtiles setup failed')): void {
+  state.protocolError = error;
+}
+
 /** Container size for maps created from now on. */
 export function setFakeContainerSize(width: number, height: number): void {
   state.containerSize = { width, height };
@@ -426,6 +433,7 @@ export function lastMap(): FakeMap | null {
 export function resetMaplibreFake(): void {
   state.supported = true;
   state.constructorError = null;
+  state.protocolError = null;
   state.containerSize = { ...DEFAULT_CONTAINER_SIZE };
   FakeMap.instances = [];
   FakeProtocol.instances = [];

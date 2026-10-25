@@ -4,7 +4,15 @@
  *
  * MapLibre and pmtiles are loaded with `await import()` inside the effect,
  * never at module top level, so a static render (or jsdom) never touches
- * WebGL and the library stays out of the first page load.
+ * WebGL and the library stays out of the first page load. MapLibre's own
+ * stylesheet is not imported (Expo would hoist it into every page's
+ * index.html); the few rules the map needs are injected when the first map
+ * is created. MapLibre's attribution control is off: the screens show
+ * "© OpenStreetMap contributors" themselves.
+ *
+ * The options are a snapshot taken when the map is created: later changes to
+ * center, zoom, interactive, rotate or keyboard are not applied. Callers move
+ * the map through `map`.
  *
  * Zoom crosses the app/MapLibre boundary only through toMapLibreZoom and
  * fromMapLibreZoom: callers pass and receive the app's zoom.
@@ -32,27 +40,60 @@ export interface UseMapLibreResult {
   /** Attach to the View the map should fill. */
   containerRef: RefObject<View | null>;
   map: MaplibreMap | null;
-  /** 'no-webgl': MapLibre can't draw here (no WebGL, or it failed to load or start). */
-  failed: 'no-webgl' | null;
+  /**
+   * 'no-webgl': MapLibre loaded but can't draw here (no WebGL; the map failed to start).
+   * 'load-failed': MapLibre or pmtiles couldn't be downloaded or set up.
+   */
+  failed: MapFailure | null;
   /** App zoom, following the map as it zooms. */
   zoom: number;
   version: number;
 }
 
+export type MapFailure = 'no-webgl' | 'load-failed';
+
 type MaplibreModule = typeof import('maplibre-gl');
 
+export const MAPLIBRE_STYLE_ID = 'maplibre-min';
+
+/**
+ * The parts of maplibre-gl.css a bare map needs: canvas placement, clipping,
+ * drag cursors and touch-action (so the map, not the page, gets the gesture).
+ * No controls, markers or popups: we draw our own. `.maplibregl-map` gets no
+ * `position`, so a caller's absolute-fill style is never overridden;
+ * react-native-web Views are already position: relative.
+ */
+export const MAPLIBRE_MIN_CSS = [
+  '.maplibregl-map{overflow:hidden;-webkit-tap-highlight-color:rgba(0,0,0,0)}',
+  '.maplibregl-canvas{position:absolute;left:0;top:0}',
+  '.maplibregl-canvas-container.maplibregl-interactive{cursor:grab;-webkit-user-select:none;user-select:none}',
+  '.maplibregl-canvas-container.maplibregl-interactive:active{cursor:grabbing}',
+  '.maplibregl-canvas-container.maplibregl-touch-zoom-rotate,.maplibregl-canvas-container.maplibregl-touch-zoom-rotate .maplibregl-canvas{touch-action:pan-x pan-y}',
+  '.maplibregl-canvas-container.maplibregl-touch-drag-pan,.maplibregl-canvas-container.maplibregl-touch-drag-pan .maplibregl-canvas{touch-action:pinch-zoom}',
+  '.maplibregl-canvas-container.maplibregl-touch-zoom-rotate.maplibregl-touch-drag-pan,.maplibregl-canvas-container.maplibregl-touch-zoom-rotate.maplibregl-touch-drag-pan .maplibregl-canvas{touch-action:none}',
+  '.maplibregl-ctrl-bottom-left,.maplibregl-ctrl-bottom-right,.maplibregl-ctrl-top-left,.maplibregl-ctrl-top-right{pointer-events:none;position:absolute;z-index:2}',
+  '.maplibregl-boxzoom{position:absolute;left:0;top:0;width:0;height:0;background:#fff;border:2px dotted #202020;opacity:.5}',
+].join('');
+
+/** Adds MAPLIBRE_MIN_CSS to the page once. */
+function injectMapLibreCss(): void {
+  if (typeof document === 'undefined' || document.getElementById(MAPLIBRE_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = MAPLIBRE_STYLE_ID;
+  style.textContent = MAPLIBRE_MIN_CSS;
+  document.head.appendChild(style);
+}
+
 let libraryPromise: Promise<MaplibreModule> | null = null;
+
+const importLibrariesDefault = () => Promise.all([import('maplibre-gl'), import('pmtiles')]);
+let importLibraries: () => Promise<[unknown, unknown]> = importLibrariesDefault;
 
 /** Loads MapLibre and pmtiles once per page, registering the pmtiles protocol once. */
 function loadMapLibre(): Promise<MaplibreModule> {
   if (!libraryPromise) {
     libraryPromise = (async () => {
-      const [maplibreImport, pmtilesImport] = await Promise.all([
-        import('maplibre-gl'),
-        import('pmtiles'),
-        // @ts-expect-error -- a CSS file has no types; Metro and vitest both load it.
-        import('maplibre-gl/dist/maplibre-gl.css'),
-      ]);
+      const [maplibreImport, pmtilesImport] = await importLibraries();
       // Bundlers disagree on whether a CommonJS/UMD module arrives as the
       // namespace itself or under `default`.
       const maplibregl = ((maplibreImport as { default?: MaplibreModule }).default ??
@@ -74,6 +115,12 @@ function loadMapLibre(): Promise<MaplibreModule> {
 /** Test-only: forget the loaded library so each test registers afresh. */
 export function _resetMapLibreLoaderForTests(): void {
   libraryPromise = null;
+  importLibraries = importLibrariesDefault;
+}
+
+/** Test-only: replace the dynamic imports, e.g. with a rejection to fake a failed download. */
+export function _setMapLibreImporterForTests(fn: () => Promise<[unknown, unknown]>): void {
+  importLibraries = fn;
 }
 
 /** Swap every label layer's text to `lang`; retries once the style has loaded if it hadn't. */
@@ -104,7 +151,7 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
 
   const containerRef = useRef<View>(null);
   const [map, setMap] = useState<MaplibreMap | null>(null);
-  const [failed, setFailed] = useState<'no-webgl' | null>(null);
+  const [failed, setFailed] = useState<MapFailure | null>(null);
   const [zoom, setZoom] = useState(opts.zoom);
 
   // The map is created once, asynchronously; it reads the newest values then.
@@ -123,7 +170,7 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
       try {
         maplibregl = await loadMapLibre();
       } catch {
-        if (!cancelled) setFailed('no-webgl');
+        if (!cancelled) setFailed('load-failed');
         return;
       }
       if (cancelled) return;
@@ -137,6 +184,7 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
       if (!container) return;
 
       const { opts: o, mapLang: lang, version: v } = latest.current;
+      injectMapLibreCss();
       let instance: MaplibreMap;
       try {
         instance = new maplibregl.Map({
@@ -148,6 +196,7 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
           maxZoom: toMapLibreZoom(MAX_ZOOM),
           pitchWithRotate: false,
           interactive: o.interactive,
+          attributionControl: false,
         });
       } catch {
         setFailed('no-webgl');
