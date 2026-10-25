@@ -2,7 +2,7 @@
 
 **Ticket:** SYC-46 (photos out of Postgres into object storage). Hosting itself is settled: SYC-47 closed on 24 Oct 2026 as "Replit for the app, Neon for the database; Supabase not adopted", with this move left to SYC-46 "after launch".
 **Relates to:** [hosting-and-photo-storage.md](./hosting-and-photo-storage.md) §6–§7 (the earlier design; this spec supersedes its §7 and keeps its §6 rules) · [report-an-issue.md](./report-an-issue.md) · [DECISIONS.md](./DECISIONS.md) · [docs/runbooks/photo-removal.md](../runbooks/photo-removal.md) (SYC-462) · SYC-246 · SYC-276 · SYC-279 · SYC-403 · SYC-81 · SYC-677 · SYC-125
-**Status:** **Draft for Samuel's approval, 25 October 2026.** Spec only. Nothing here is built, and nothing is built before launch (Saturday 31 October).
+**Status:** **Draft for Samuel's approval, 25 October 2026, reviewed by an independent adversarial pass ([review](./reviews/photos-object-storage-review.md); every finding folded in).** Spec only. Nothing here is built, and nothing is built before launch (Saturday 31 October).
 **Author's note on evidence:** every price below names its source page and the date it was read (25 Oct 2026). Anything I could not check is marked **unchecked**.
 
 ---
@@ -17,9 +17,9 @@ Every photo a spotter takes is stored as text inside our Neon database. That is 
 
 **Recommended store:** **Cloudflare R2, EU jurisdiction** (§3). It is the cheapest of the realistic options, the data is guaranteed to stay in the EU, we already hold a Cloudflare account with an API token, and it costs nothing when photos are read. One step is needed from Samuel: the current token has no R2 permission (§3.5).
 
-**The way it moves.** Seven small steps, each undoable, none needing downtime (§5). The old copy stays in the database for 30 days after the switch, so there is always a way back. The only step that is not instant is giving the space back in the database, and that one is rehearsed on a copy first.
+**The way it moves.** Eight small steps, each undoable, none needing downtime (§5). The old copy stays in the database for 30 days after the switch, so there is always a way back. The only step that is not instant is giving the space back in the database, and that one is rehearsed on a copy first.
 
-**When.** The week after launch. The spec and approval can happen now so nothing about this is decided under pressure. There are **six decisions** for Samuel in §8; the most important are the store (D1), whether to keep a second copy for safety (D2) and what "Delete my data" should do with a person's photos (D5).
+**When.** The week after launch. The spec and approval can happen now so nothing about this is decided under pressure. There are **seven decisions** for Samuel in §8; the most important are whether to do this now at all (D0), the store (D1), the safety copy (D2) and what "Delete my data" should do with a person's photos (D5).
 
 ---
 
@@ -48,9 +48,7 @@ Three things that matter for the move:
 
 ### 2.2 How much, today
 
-> **Production figures: requested, not yet received.** I may not query production, so on 25 Oct I asked the publish coordinator (`local_baf9188a…`) to run a read-only size query (row counts, bytes per table, hidden/removed/team-only counts, variants per size, growth over 7 and 30 days). §2.2 is filled in from its answer. Until then the only live figure I can cite is the one on SYC-121 from **29 Sep: about 18 MB in total, 38 photos** — a tester-stage database, and out of date by a month of testing.
-
-_(Figures go here — see CHECKPOINT note. If this paragraph is still here at approval time, the numbers were not received and every cost in §3.2 rests on the planning volumes in §2.3 alone.)_
+> **Production figures: requested, not yet received (open item before approval).** I may not query production, so on 25 Oct I asked the publish coordinator session to run a read-only size query: row counts and bytes for `photos`, `photo_variants` and `welfare_report_photos`; counts of hidden, removed and team-only photos; smaller copies per size; growth over 7 and 30 days; and how Neon meters the storage. The request was queued behind its current work and had no answer when this was written. Until it arrives, the only live figure on record is SYC-121's from **29 Sep: about 18 MB in total and 38 photos**, a tester-stage database that is a month out of date. **Every cost in §3.2 therefore rests on the planning volumes in §2.3 alone, and D0 asks Samuel not to start step 1 until real numbers are in.** The size is not what decides the design (the rules in §4 are the same at 38 photos or 60,000), but it decides how much a rehearsal proves and how long step 7 takes.
 
 ### 2.3 How much, later
 
@@ -117,7 +115,7 @@ Three honest qualifiers:
 
 ### 3.4 Recommendation
 
-**A. Cloudflare R2 with the EU jurisdiction, one private bucket for cat photos and a second one for the safety copy (§8, D2), served only through our API.** Reason in one line: it is the cheapest, the EU guarantee is explicit, it is the account we already have, and the one thing it lacks (versioning) is cheap to build around. If Samuel would rather pay about $0.45 a month more to have versioning from the provider, C is the alternative and the spec works unchanged, because the storage code is written against the S3 interface that both speak.
+**A. Cloudflare R2 with the EU jurisdiction: one private bucket for cat photos and a separate one for report photos, with a safety copy at a different provider (§5.8, D2), all served only through our API.** Reason in one line: it is the cheapest, the EU guarantee is explicit, it is the account we already have, and the one thing it lacks (versioning) is cheap to build around. If Samuel would rather pay about $0.45 a month more to have versioning from the provider, C is the alternative and the spec works unchanged, because the storage code is written against the S3 interface that both speak.
 
 ### 3.5 Checks I made on our Cloudflare account (read-only, 25 Oct 2026)
 
@@ -175,7 +173,7 @@ This is the rule that gets harder, and the review found the first draft of it wa
 
 ### 4.5 "Delete my data" — what actually happens to photos, and what must not change
 
-You asked for "Delete my data removes a person's photos". **That is not what the code does today, and it is a decision on purpose.** `severPerson.ts` (verified 25 Oct) separates the person from their records: their sightings stay "with the photo", cats they discovered credit "a spotter", and their reports stay "with the photo, as the cat's history" (decided 30 Sep, `cat-record-data-spine.md` §8). A person's photos of a cat are part of the island's record of that cat.
+The brief for this spec listed "Delete my data removes a person's photos" as a rule to preserve. **That is not what the code does today, and it is a decision on purpose.** `severPerson.ts` (verified 25 Oct) separates the person from their records: their sightings stay "with the photo", cats they discovered credit "a spotter", and their reports stay "with the photo, as the cat's history" (decided 30 Sep, `cat-record-data-spine.md` §8). A person's photos of a cat are part of the island's record of that cat.
 
 So the rule that must survive the move is the one that exists: **the photo's picture carries nothing that identifies the person (§4.3), so cutting the link to them leaves nothing in the file store to cut.** The move adds no copy of anyone's identity to the bucket and changes nothing about this flow.
 
@@ -191,8 +189,9 @@ What *is* possible, and not built: a person whose face or doorway is in a photo 
 
 ### 4.7 Smaller copies and the matcher keep working
 
-- Small, card and medium copies are regenerable from the original, so they are not backfilled one by one: after the switch their database rows are simply dropped and the next request re-makes them and stores them as objects (`photos/<uuid>/<size>.jpg`). The "do not retry a photo that cannot be decoded on every request" point from SYC-404/403 is handled in the same place.
-- The AI matcher and the coat reader currently read candidate photos straight from the database. Exactly the nine readers in §2.1 move behind one function, `loadPhotoBytes(photoId)`, with fetches in parallel and a small in-memory cache, because ported naively ten photos in series would mean ten round trips on a request a spotter is waiting for. Budget: at most +300 ms at the 95th percentile on the match request, measured, not assumed. `loadPhotoBytes(0)` stays "no photo", the existing sentinel.
+- Small, card and medium copies are regenerable from the original, so they are not backfilled one by one. After the switch their database rows are dropped and the next request re-makes them and stores them as objects named from the photo's own key (`photos/<uuid>/<size>.jpg`). They are made under the same `FOR KEY SHARE` lock as today (§4.4), and every removal lists the main key **and all three copy keys** in its deletion row, whether or not a copy exists yet. The "do not retry a photo that cannot be decoded on every request" point from SYC-404/403 is handled in the same place.
+- The AI matcher, the coat reader, the fingerprint filler and the vet-batch search currently read photos straight from the database. Everything moves behind `loadPhotoBytes(photoId)`, with fetches in parallel and a small in-memory cache, because ported naively ten candidate photos in series would mean ten round trips on a request a spotter is waiting for. **Target:** at most +300 ms at the 95th percentile on the match request. That number is carried over from the earlier spec, not measured; the rehearsal measures it (§5 step 0). `loadPhotoBytes(0)` stays "no photo", the existing sentinel, and it distinguishes **removed**, **missing** and **error** instead of returning null for all three.
+- The photo route today reads the whole picture and sends it with Express's automatic validator. A route that streams from the bucket loses that, so it sends an `ETag` made from the stored SHA-256 and answers `If-None-Match` with 304, and a test pins it (`photos.etag.test.ts` exists today).
 
 ---
 
@@ -301,7 +300,12 @@ The **safety copy (D2)** therefore lives **at a different provider or in a diffe
 6. EXIF: GPS-bearing upload comes back clean from the store, for every size and for report photos.
 7. Backfill: re-runnable, resumes, skips removed photos, refuses to mark a mismatch.
 8. Matcher parallel fetch: same results as before the change, with a latency check.
-9. Schema: the relaxed `photos_removed_ck` still forbids a removed photo that has bytes or a key.
+9. Schema: the relaxed `photos_removed_ck` still forbids a removed photo that has bytes or a key; a live photo with neither is refused.
+10. Races: a removal during a backfill, during a dual-write and during a smaller-copy maker each leave no surviving object (hooks like the existing T15 ones).
+11. Source tests: no `delete(photosTable)`, `delete(welfareReportPhotosTable)`, `delete(photoVariantsTable)` or null-ing of picture columns outside the storage module; no `data IS NULL` or `isNotNull(...data)` used as a removal test; no reader of `welfare_report_photos.bytes` or `photo_variants.bytes` outside the storage module.
+12. Every one of the four deletion paths (§4.4) writes a deletion row; the sweeper deletes both locations and the copier skips a key with a deletion row.
+13. The photo route sends an ETag from the stored checksum and answers 304 to `If-None-Match`.
+14. The removal tool: `GONE-PENDING-OBJECT` until every key is confirmed absent.
 
 **Probes against the real thing (rehearsal first, then production), each a few requests only (the port rule: no high-volume loops):**
 - the bucket's own address from outside returns "denied"; no `r2.dev` address is enabled;
@@ -319,7 +323,14 @@ The **safety copy (D2)** therefore lives **at a different provider or in a diffe
 
 ## 8. Open decisions for Samuel
 
-Presented in plain English with a recommendation each. I need D1–D4 to plan; D5 and D6 can follow.
+Presented in plain English with a recommendation each. I need D0–D4 to plan; D5 and D6 can follow.
+
+### D0 — Do this at all yet?
+The approved earlier decision (`hosting-and-photo-storage.md` §4.2, DECISIONS.md Part 2e) said: decide on 15 Nov 2026 with two months of invoices, real photo volume and a dated restore test; if nobody decides, **photos stay in Postgres through the 2027 season**. On 24 Oct SYC-47 closed and said moving photos "stays with SYC-46, after launch", which settles the hosting half of that trigger. It does not settle whether the move is worth doing now. Of §4.2's inputs: the invoices and the real volume are **not yet in** (§2.2), and the dated restore is not recorded here (**unchecked**).
+- **Go: build from 9 Nov, as in §5** *(recommended)*. A spec like this one makes the work routine; it is much safer done at a few thousand photos than at 60,000, the saving arrives with the season, and the privacy rules (§4) are easier to get right with a small corpus. **Risk:** launch-month attention goes to a change that saves about $1 a month today.
+- **Wait for the 15 Nov review as planned, then decide** with the real numbers. **Risk:** the build starts about a week later.
+- **Stay in Postgres through 2027** (the original default). Costs about $18 a month at the season peak and a slower, larger database. **Risk:** the move, when it comes, is bigger and happens mid-season.
+**Recommendation: go, but let the production figures in §2.2 and the 15 Nov review confirm it before step 1 starts.**
 
 ### D1 — Which store?
 - **A. Cloudflare R2, EU** *(recommended)*. Cheapest (~$0.40 a month at peak), the EU guarantee is explicit and permanent, the account exists. **Risk:** no built-in way to keep old versions, so we build the safety copy ourselves; and the token needs R2 added (a 3-minute job for you).
@@ -329,10 +340,10 @@ Presented in plain English with a recommendation each. I need D1–D4 to plan; D
 **Recommendation: A.** C if you would rather pay the small extra for provider-side versioning.
 
 ### D2 — A second copy for safety?
-- **Yes, a second R2 bucket, filled nightly** *(recommended)*. About +$0.40 a month at peak. Protects against a suspended account, a mistaken delete or a leaked token. **Risk:** a second copy of every photo, so each deletion must reach it too (§4.4), and the privacy policy says so.
-- **No second copy; rely on the 30-day period with the data still in Neon, then nothing.** Free. **Risk:** from step 6 the bucket is the only copy of newer photos; one bad day loses volunteers' photos for good.
-- **Provider versioning (needs S3, option C).** **Risk:** old versions are retained deliberately, which collides with "deleted for good" unless old versions are also purged.
-**Recommendation: Yes, nightly second bucket, written by a token that cannot delete, deletions propagated within 24 hours.**
+- **Yes, a nightly copy at a different provider: a small Amazon S3 Frankfurt bucket** *(recommended)*. About $1 a month at peak. Protects against a suspended Cloudflare account, a leaked token or a mistaken delete (a second Cloudflare bucket would protect against only the last). **Risk:** a second place holding every photo, so every deletion must reach it too (§4.4, §5.8), the privacy policy names a second processor, and it is one more account for the charity to own.
+- **A second R2 bucket in the same account.** About $0.62 at peak. **Risk:** it does not survive the account being suspended or a token leaking, which are the likely failures.
+- **No second copy; rely on the 30 days with `data` still in Neon, then nothing.** Free. **Risk:** from step 6 the bucket is the only copy of newer photos; one bad day loses volunteers' photos for good.
+**Recommendation: yes, S3 Frankfurt, with deletions done by the sweeper (§5.8). It must be running before step 6.**
 
 ### D3 — Serve through our API only, or put a cache/CDN in front?
 - **API only** *(recommended)*. Keeps every privacy rule in one place; costs roughly what we pay now (~$6 a month at the busiest month). **Risk:** photo traffic keeps loading our app server.
@@ -352,14 +363,14 @@ Today it does not (§4.5). The photo has no link to the person afterwards.
 **Recommendation: keep as is, plus a plain sentence in the privacy policy and the delete screen. This is a product question more than a storage one and can follow D1–D4.**
 
 ### D6 — When?
-- **Start Monday 9 Nov, one week after launch, reclaim in January** *(recommended)*. Launch week is clear of every photo change. The expensive step lands in the low season.
-- **Wait until after the New Year.** Less to juggle. **Risk:** the photo table keeps growing, and the tester-to-launch data is moved later and bigger.
-**Recommendation: 9 Nov.** The only dated hard deadline is "before the April 2027 season".
+- **Start Monday 9 Nov, one week after launch, reclaim in January** *(recommended, if D0 is "go")*. Launch week is clear of every photo change. The expensive step lands in the low season.
+- **Wait until after the New Year.** Less to juggle. **Risk:** the photo table keeps growing, and the data is moved later and bigger.
+**Recommendation: 9 Nov.** The only hard deadline is "before the April 2027 season".
 
 ### Smaller points, no decision needed unless you disagree
 - The deploy order for any migration here is the one in DEPLOYMENT.md §C: migrate first, then say "don't republish yet" until the code is ready.
 - The relationship with **SYC-81** (shrink old photos): build the storage move first; the shrink then writes a new object and deletes the old through the same routine. Doing them the other way round would shrink in the database and then copy the shrunken files, which is also fine but wastes the saving.
-- Photos for badges, naming limits and guardian sterilisation requests are not planned to add new photo storage: see §9.
+- Whether other in-flight work adds photo storage: see §9.
 
 ---
 
@@ -368,6 +379,7 @@ Today it does not (§4.5). The photo has no link to the person afterwards.
 Checked from session metadata and PR file lists, not from their specs, so treat as a starting point:
 - **"Extra badges design"** (SYC-706, [PR #342](https://github.com/fairshake-au/syros-cat-spotter/pull/342), open): touches badges, points and area history; **no photo code** in the file list.
 - **"Decide and build naming limits"** (SYC-709, SYC-714) and **"Spec: guardians request paid sterilisation"** (SYC-284), both children of the planner session and running: I did not read their work. A sterilisation request could plausibly attach a photo; **unchecked**. Anything that adds a new photo table or a new reader after approval must go through the storage module or be added to this move.
+- **Approved but not built, and another table of picture bytes:** `field_check_photos` (DECISIONS.md, field checks, "served only by a team route"). It would be a ninth place bytes live and must use the storage module from its first line.
 - **Already merged and relevant:** SYC-677 (vet-visit batches, #333–#339) put team-only photos into `photos`; SYC-403 (smaller copies for report photos) is still open and is absorbed by D4.
 - Siblings running now: **SYC-532/531** (matcher alert), **SYC-199/307** (database indexes). The indexes work touches `photos` indexes and should land before step 1's migration.
 
