@@ -752,6 +752,13 @@ const en: Dict = {
   reportBeforeSendTitle: 'Before you send',
   reportSendReport: 'Send report',
   reportCostsHeading: 'Who pays, and who to call',
+  // SYC-570 (Samuel, 24 Oct 2026): an Urgent report gets its own "Call a vet now"
+  // screen, and every report vet list shows the nearest clinic first.
+  reportCallVetTitle: 'Call a vet now',
+  reportVetsClosest: 'Vets on Syros, closest first',
+  reportClosestToYou: 'Closest to you',
+  reportVetDistance: 'about {km} km',
+  reportNextSend: 'Next: send your report',
   reportTakePhoto: 'Take photo',
   reportFromLibrary: 'From library',
 
@@ -1589,6 +1596,12 @@ const el: Dict = {
   reportBeforeSendTitle: 'Πριν τη στείλεις',
   reportSendReport: 'Αποστολή αναφοράς',
   reportCostsHeading: 'Ποιος πληρώνει και ποιον να καλέσεις',
+  // SYC-570: draft Greek, for Johnny's check (SYC-346).
+  reportCallVetTitle: 'Κάλεσε κτηνίατρο τώρα',
+  reportVetsClosest: 'Κτηνίατροι στη Σύρο, οι πιο κοντινοί πρώτα',
+  reportClosestToYou: 'Ο πιο κοντινός σε σένα',
+  reportVetDistance: 'περίπου {km} χλμ.',
+  reportNextSend: 'Επόμενο: στείλε την αναφορά',
   reportTakePhoto: 'Τράβα φωτογραφία',
   reportFromLibrary: 'Από τη συλλογή',
 
@@ -2419,6 +2432,12 @@ const fr: Dict = {
   reportBeforeSendTitle: 'Avant d’envoyer',
   reportSendReport: 'Envoyer le signalement',
   reportCostsHeading: 'Qui paie, et qui appeler',
+  // SYC-570: draft French, for the native check (SYC-346).
+  reportCallVetTitle: 'Appelle un vétérinaire maintenant',
+  reportVetsClosest: 'Vétérinaires de Syros, du plus proche au plus éloigné',
+  reportClosestToYou: 'Le plus proche de toi',
+  reportVetDistance: 'environ {km} km',
+  reportNextSend: 'Suivant : envoie ton signalement',
   reportTakePhoto: 'Prendre une photo',
   reportFromLibrary: 'Depuis la galerie',
 
