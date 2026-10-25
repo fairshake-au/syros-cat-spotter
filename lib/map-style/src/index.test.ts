@@ -105,4 +105,37 @@ describe('map style', () => {
     }
     expect(lines).toBeGreaterThan(0);
   });
+  describe('quieter look (SYC-720)', () => {
+    const MAIN = ['match', ['get', 'kind_detail'], ['primary', 'secondary', 'trunk', 'motorway'], true, false];
+
+    it('only main roads are orange; minor major-road kinds are white with a grey casing', () => {
+      const s = buildStyle(EN);
+      expect(paint(s, 'roads_major')['line-color']).toEqual(['case', MAIN, '#fcd6a4', '#ffffff']);
+      for (const id of ['roads_major_casing_early', 'roads_major_casing_late']) {
+        expect(paint(s, id)['line-color'], id).toEqual(['case', MAIN, '#c79d6a', '#c8c0b6']);
+      }
+    });
+
+    it('bridges follow the same main-road split', () => {
+      const s = buildStyle(EN);
+      expect(paint(s, 'roads_bridges_major')['line-color']).toEqual(['case', MAIN, '#fcd6a4', '#ffffff']);
+      expect(paint(s, 'roads_bridges_major_casing')['line-color']).toEqual(['case', MAIN, '#c79d6a', '#c8c0b6']);
+    });
+
+    it('footpaths are fainter and thinner at low zoom', () => {
+      const p = paint(buildStyle(EN), 'paths');
+      expect(p['line-opacity']).toEqual(['interpolate', ['linear'], ['zoom'], 13, 0.15, 15, 0.4, 16.5, 0.85]);
+      expect(p['line-width']).toEqual(['interpolate', ['linear'], ['zoom'], 13, 0.6, 16, 1, 18, 1.6]);
+    });
+
+    it('hill tops show from zoom 12', () => {
+      expect(layer(buildStyle(EN), 'peak').minzoom).toBe(12);
+    });
+
+    it.each(['en', 'el'] as const)('pois leaves beaches and peaks to our own layers (%s)', (lang) => {
+      const f = layer(buildStyle({ ...EN, lang }), 'pois').filter;
+      expect(JSON.stringify(f)).toContain('["!",["in",["get","kind"],["literal",["beach","peak"]]]]');
+      expect(f![0]).toBe('all');
+    });
+  });
 });
