@@ -5,6 +5,10 @@ import { like } from "drizzle-orm";
 
 import app from "../app";
 
+// SYC-709: a cat name can't hold a phone-number-like run of digits, so
+// names made here get a letters-only tag instead of Date.now().
+const nameTag = (): string => Date.now().toString(36).replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+
 const DEVICE = "vitest-registercat-modn-device";
 // SYC-107: these routes require the device's secret. Every device id in this
 // file binds this secret on its first request, as the app does.
@@ -45,7 +49,7 @@ describe("PATCH /api/cats/:catId rename moderation", () => {
   }
 
   it("rejects an offensive rename with 400 and code OFFENSIVE_NAME", async () => {
-    const catId = await insertCat(`Vitest Rename Cat ${Date.now()}`);
+    const catId = await insertCat(`Vitest Rename Cat ${nameTag()}`);
     const res = await request(app)
       .patch(`/api/cats/${catId}`)
       .set("X-Device-Secret", DEVICE_SECRET)
@@ -55,7 +59,7 @@ describe("PATCH /api/cats/:catId rename moderation", () => {
   });
 
   it("rejects a disguised offensive rename", async () => {
-    const catId = await insertCat(`Vitest Rename Cat ${Date.now()}`);
+    const catId = await insertCat(`Vitest Rename Cat ${nameTag()}`);
     const res = await request(app)
       .patch(`/api/cats/${catId}`)
       .set("X-Device-Secret", DEVICE_SECRET)
@@ -65,11 +69,11 @@ describe("PATCH /api/cats/:catId rename moderation", () => {
   });
 
   it("accepts a clean rename", async () => {
-    const catId = await insertCat(`Vitest Rename Cat ${Date.now()}`);
+    const catId = await insertCat(`Vitest Rename Cat ${nameTag()}`);
     const res = await request(app)
       .patch(`/api/cats/${catId}`)
       .set("X-Device-Secret", DEVICE_SECRET)
-      .send({ deviceId: DEVICE, name: `Vitest Renamed ${Date.now()}` });
+      .send({ deviceId: DEVICE, name: `Vitest Renamed ${nameTag()}` });
     expect(res.status).toBe(200);
   });
 });

@@ -35,6 +35,10 @@ import app from "../app";
 import { POINTS_CONFIRM } from "./sightings";
 import { ResolveSightingBody } from "@workspace/api-zod";
 
+// SYC-709: a cat name can't hold a phone-number-like run of digits, so
+// names made here get a letters-only tag instead of Date.now().
+const nameTag = (): string => Date.now().toString(36).replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+
 const DEVICE = "vitest-handpick-device";
 const CAT_PREFIX = "VitestHandPickCat";
 const SECRET = "vitest-handpick-secret-0123456789ab";
@@ -73,7 +77,7 @@ async function seedCat(at: LatLng): Promise<{ id: number; photoId: number }> {
   const [c] = await db
     .insert(catsTable)
     .values({
-      name: `${CAT_PREFIX}-${++seq}-${Date.now()}`,
+      name: `${CAT_PREFIX}-${++seq}-${nameTag()}`,
       description: "",
       primaryPhotoId: photoId,
       lat: at.lat,
