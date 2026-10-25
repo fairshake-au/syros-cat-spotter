@@ -145,6 +145,7 @@ describe('Name this cat', () => {
 
   it.each([
     ['429', () => refusal(429, 'RATE_LIMITED'), 'claimRefusedLater'],
+    ['503', () => refusal(503, 'X'), 'claimRefusedLater'],
     ['404', () => refusal(404, 'NOT_FOUND'), 'nameThisCatGone'],
     ['EMPTY_NAME', () => refusal(400, 'EMPTY_NAME'), 'nameYourCat'],
     ['NAME_DAILY_LIMIT', () => refusal(429, 'NAME_DAILY_LIMIT'), 'nameThisCatDailyLimit'],

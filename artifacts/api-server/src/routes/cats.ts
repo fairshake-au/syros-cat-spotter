@@ -772,7 +772,11 @@ router.post("/cats/:catId/name", noStore, aiLimiter, async (req, res) => {
   try {
     // The day count runs inside the transaction while the cat row is
     // locked: a salt cache miss there would need a second pool connection.
-    await warmSalts();
+    try {
+      await warmSalts();
+    } catch (err) {
+      throw new NameCounterFailed(err);
+    }
     outcome = await db
     .transaction(async (tx): Promise<Outcome> => {
       const locked = await tx.execute<{ id: number; name_pending: boolean; redacted_at: Date | null }>(

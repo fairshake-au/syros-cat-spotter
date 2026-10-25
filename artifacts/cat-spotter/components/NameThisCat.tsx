@@ -112,7 +112,9 @@ function NameThisCatSheet({
           return;
         }
         const status = (err as { status?: number })?.status;
-        if (status === 429) {
+        // A 503 is the server's naming count failing, not the phone's
+        // connection: "try again later", like a 429.
+        if (status === 429 || status === 503) {
           setError(t('claimRefusedLater'));
           return;
         }

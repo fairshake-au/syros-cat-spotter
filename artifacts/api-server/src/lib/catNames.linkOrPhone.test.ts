@@ -19,6 +19,9 @@ describe("hasLinkOrPhoneNumber", () => {
     "691 234 5678",
     "+30 691-234-5678",
     "691.234.5678",
+    // Zero-width spaces between the digits or before the web ending.
+    "691​234​5678",
+    "buy-stuff.​com",
     "١٢٣٤٥",
   ])("refuses %j", (name) => {
     expect(hasLinkOrPhoneNumber(name)).toBe(true);

@@ -14,7 +14,8 @@ import {
 import app from "../app";
 import { syrNumber } from "../lib/teamCatView";
 import { TEAM_DESK_DEVICE } from "../lib/teamDesk";
-import { _resetNameCatLimitForTests } from "../middlewares/rateLimit";
+import { peek } from "../lib/limits";
+import { _resetNameCatLimitForTests, NAME_CAT_WINDOW_MS } from "../middlewares/rateLimit";
 import { deleteTestSightings } from "../test/sightings";
 
 // SYC-677 D: a cat Syros Cats left for spotters to name ("Spotters naming a
@@ -368,6 +369,8 @@ describe("SYC-709: naming limits", () => {
     const [row] = await db.select().from(catsTable).where(eq(catsTable.id, cats[3]!));
     expect(row!.namePending).toBe(true);
     expect(await nameStatements(cats[3]!)).toHaveLength(0);
+    // The refused 4th rolled its own count back: the phone's day still reads 3.
+    expect((await peek("name_cat", device("a"), NAME_CAT_WINDOW_MS)).hits).toBe(3);
     // Another phone still has its own 3.
     expect((await nameIt(cats[3]!, device("b"), `${NAME}Day3b`)).status).toBe(200);
   });

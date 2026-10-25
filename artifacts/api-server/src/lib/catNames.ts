@@ -126,10 +126,13 @@ const SPACED_DIGITS_RE = /\p{Nd}(?:[ .\p{Pd}]?\p{Nd}){6}/u;
  * docs/specs/syc-709-naming-limits.md). Best effort, not a guarantee: it
  * shuts the obvious advert route on names the public types (a pending cat,
  * a new cat on a sighting, an owner's rename), never on the team's.
- * NFKC first, so fullwidth dots and letters read as plain ones.
+ * NFKC first, so fullwidth dots and letters read as plain ones, and
+ * invisible format characters are dropped.
  */
 export function hasLinkOrPhoneNumber(name: string): boolean {
-  const n = name.normalize("NFKC");
+  // Invisible format characters (zero-width spaces, joiners) come out too,
+  // so "691\u200b234\u200b5678" still reads as a phone number.
+  const n = name.normalize("NFKC").replace(/\p{Cf}/gu, "");
   return LINK_RE.test(n) || DIGITS_IN_A_ROW_RE.test(n) || SPACED_DIGITS_RE.test(n);
 }
 

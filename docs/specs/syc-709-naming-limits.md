@@ -25,7 +25,7 @@ The name is first normalised (NFKC), so fullwidth dots and letters are caught. I
 **Where it applies:** every place a member of the public types a cat's name:
 
 - naming a pending cat (`POST /cats/:catId/name`);
-- naming a new cat while posting its first sighting (`newCatName` on `POST /sightings`);
+- naming a new cat while posting its first sighting (`newCatName` on `POST /sightings/:id/resolve`);
 - an owner renaming their own cat (`PATCH /cats/:catId`). An unchanged name skips all checks, as it does now, so an existing name isn't re-judged.
 
 Not checked: the team's own naming (vet visit batches, team corrections), the app's suggested names, and profile names.
