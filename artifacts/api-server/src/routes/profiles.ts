@@ -216,13 +216,11 @@ router.patch("/profiles/:deviceId", async (req, res) => {
 // the device, so each needs its secret like the profile itself.
 
 /**
- * Verifies the device secret, then counts the call against that device's own
- * badge-route budget (never the IP's: many phones share one address). Returns
- * the device id, or null once it has answered 401/403/429/503.
+ * Called after requireDeviceAuth has verified the secret: counts the call
+ * against that device's own badge-route budget (never the IP's: many phones
+ * share one address). False once it has answered 429/503.
  */
-async function requireBadgeDevice(req: Request, res: Response): Promise<string | null> {
-  const deviceId = await requireDeviceAuth(req, res);
-  if (!deviceId) return null;
+async function withinBadgeLimit(req: Request, res: Response, deviceId: string): Promise<boolean> {
   let r;
   try {
     r = await checkBadgeMomentsDeviceLimit(deviceId);
@@ -230,7 +228,7 @@ async function requireBadgeDevice(req: Request, res: Response): Promise<string |
     req.log.error({ err: safeError(err) }, "badge moments limit counter failed");
     res.setHeader("Retry-After", "5");
     res.status(503).json({ error: "Please try again in a moment." });
-    return null;
+    return false;
   }
   if (!r.allowed) {
     const retryAfter = Math.max(1, Math.ceil((r.resetAt - Date.now()) / 1000));
@@ -239,15 +237,15 @@ async function requireBadgeDevice(req: Request, res: Response): Promise<string |
     res.set("RateLimit-Reset", String(retryAfter));
     res.set("Retry-After", String(retryAfter));
     res.status(429).json({ error: "Too many requests. Please try again later." });
-    return null;
+    return false;
   }
-  return deviceId;
+  return true;
 }
 
 /** Uncelebrated moments, oldest first, at most 10. */
 router.get("/profiles/:deviceId/moments", badgeMomentsIpGuard, async (req, res) => {
-  const deviceId = await requireBadgeDevice(req, res);
-  if (!deviceId) return;
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId || !(await withinBadgeLimit(req, res, deviceId))) return;
   const rows = await db.execute(sql`
     select id, kind, badge_ids, week_start::text as week_start, place, week_points
     from badge_moments
@@ -268,8 +266,8 @@ router.get("/profiles/:deviceId/moments", badgeMomentsIpGuard, async (req, res) 
 
 /** Marks one of this device's moments as played. Another device's id is a no-op. */
 router.post("/profiles/:deviceId/moments/:id/celebrated", badgeMomentsIpGuard, async (req, res) => {
-  const deviceId = await requireBadgeDevice(req, res);
-  if (!deviceId) return;
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId || !(await withinBadgeLimit(req, res, deviceId))) return;
   const id = Number(req.params.id);
   if (Number.isInteger(id) && id > 0 && id <= 2_147_483_647) {
     await db.execute(sql`
@@ -281,8 +279,8 @@ router.post("/profiles/:deviceId/moments/:id/celebrated", badgeMomentsIpGuard, a
 
 /** Clears the "New" marker on every badge this device has. */
 router.post("/profiles/:deviceId/badges/seen", badgeMomentsIpGuard, async (req, res) => {
-  const deviceId = await requireBadgeDevice(req, res);
-  if (!deviceId) return;
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId || !(await withinBadgeLimit(req, res, deviceId))) return;
   await db.execute(sql`
     update spotter_badges set seen_at = now()
     where device_id = ${deviceId} and seen_at is null`);
