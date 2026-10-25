@@ -1,0 +1,91 @@
+name: map-data
+# Builds our own Syros map (syros.pmtiles from OpenStreetMap, plus fonts, sprites,
+# styles) and uploads it to the cat-spotters-map R2 bucket (tiles.catspotters.com).
+# Manual only: run it when the map should be refreshed. SYC-705.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: map-data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      R2_BUCKET: cat-spotters-map
+      AWS_DEFAULT_REGION: auto
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          python -m pip install -r scripts/map-data/requirements.txt
+          pnpm install --frozen-lockfile --filter @workspace/map-style...
+
+      - name: Run the map-data tests
+        run: python -m pytest -q scripts/map-data
+
+      - name: Choose the next version number
+        id: version
+        run: |
+          # current.json holds {"version": N}; the first build has none (404) so starts at 1.
+          CURRENT=$(curl -fsS https://tiles.catspotters.com/current.json | python -c 'import json,sys; print(json.load(sys.stdin)["version"])' || echo 0)
+          echo "N=$((CURRENT + 1))" >> "$GITHUB_OUTPUT"
+
+      - name: Build the map
+        env:
+          VERSION: ${{ steps.version.outputs.N }}
+        run: scripts/map-data/build.sh out .map-work
+
+      - name: Sanity-check syros.pmtiles size (500 KB to 50 MB)
+        env:
+          N: ${{ steps.version.outputs.N }}
+        run: |
+          SIZE=$(stat -c %s "out/v$N/syros.pmtiles")
+          echo "syros.pmtiles is $SIZE bytes"
+          if [ "$SIZE" -lt 512000 ] || [ "$SIZE" -gt 52428800 ]; then
+            echo "::error::syros.pmtiles size $SIZE is outside 500 KB to 50 MB; not uploading"
+            exit 1
+          fi
+
+      - name: Upload to R2 (current.json last)
+        env:
+          N: ${{ steps.version.outputs.N }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          aws s3 cp --recursive --endpoint-url "$R2_ENDPOINT" "out/v$N" "s3://$R2_BUCKET/v$N"
+          aws s3 cp --endpoint-url "$R2_ENDPOINT" out/current.json "s3://$R2_BUCKET/current.json"
+
+      - name: Keep the build record
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-v${{ steps.version.outputs.N }}-manifest
+          path: out/v${{ steps.version.outputs.N }}/manifest.json
