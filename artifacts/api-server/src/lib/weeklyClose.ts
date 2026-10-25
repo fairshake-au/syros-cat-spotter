@@ -119,10 +119,17 @@ function nextMonday(monday: string): string {
  * more than 7 days therefore closes as soon as it is back. Resolves
  * "closed" if any week closed this call, else "already_closed", or
  * "not_due" before the first eligible week.
+ *
+ * `opts.firstWeek` (a YYYY-MM-DD Athens Monday) replaces the first eligible
+ * week. Production never passes it; tests do, so a shared database holding
+ * other tests' live ledger rows can't make them catch up on years of weeks.
  */
-export async function closeWeekIfDue(now: Date = new Date()): Promise<CloseResult> {
+export async function closeWeekIfDue(
+  now: Date = new Date(),
+  opts: { firstWeek?: string } = {},
+): Promise<CloseResult> {
   const last = previousWeekStart(now);
-  const first = await firstEligibleWeek();
+  const first = opts.firstWeek ?? (await firstEligibleWeek());
   if (first === null || last < first) return "not_due";
 
   const done = await db.execute<{ week_start: string }>(sql`
