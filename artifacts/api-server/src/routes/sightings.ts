@@ -49,8 +49,10 @@ import { selectCandidateCats } from "../lib/candidateSelection";
 import {
   BLANK_NAME_BODY,
   catNamed,
+  hasLinkOrPhoneNumber,
   isBlankName,
   isSyrShapedName,
+  NAME_HAS_LINK_BODY,
   SYR_SHAPED_NAME_BODY,
   isUniqueViolation,
   nameTakenBody,
@@ -968,6 +970,11 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     // SYC-677 D: a SYR number is not a name (as when a spotter names a cat).
     if (isSyrShapedName(name)) {
       res.status(400).json(SYR_SHAPED_NAME_BODY);
+      return;
+    }
+    // SYC-709: no web link or phone number in a name the public types.
+    if (hasLinkOrPhoneNumber(name)) {
+      res.status(400).json(NAME_HAS_LINK_BODY);
       return;
     }
     const taken = await catNamed(name);

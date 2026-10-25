@@ -79,7 +79,17 @@ export async function claimEligibility(
   if (status?.lifeStatus === "homed") return { ok: false, code: "ALREADY_HOMED" };
   if (status?.lifeStatus !== "street") return { ok: false, code: "NOT_ON_STREET" };
 
-  // Rule 2: a resolved sighting from this phone (a sighting unlinked by
+  // Rule 2: this phone has met the cat (hasMetCat, below).
+  return (await hasMetCat(exec, catId, deviceId)) ? { ok: true } : { ok: false, code: "NOT_MET" };
+}
+
+/**
+ * §3 rule 2 (D1): this phone has met the cat. Shared by claiming and by
+ * a spotter naming a cat Syros Cats left unnamed (SYC-709), so both read
+ * "met" the same way, merges and moved sightings included.
+ */
+export async function hasMetCat(exec: DbOrTx, catId: number, deviceId: string): Promise<boolean> {
+  // A resolved sighting from this phone (a sighting unlinked by
   // deletion has no device, so never matches), of this cat or of a cat merged
   // into it by a merge nothing has undone (§10.3), and either:
   // - with no match record, which only a sighting from before records were
@@ -112,7 +122,7 @@ export async function claimEligibility(
                   and (m.chosen_cat_id is null or m.chosen_cat_id = s.cat_id))
               or (m.choice in (${choices}) and m.chosen_cat_id = s.cat_id))
     ) as met`);
-  return met.rows[0]?.met === true ? { ok: true } : { ok: false, code: "NOT_MET" };
+  return met.rows[0]?.met === true;
 }
 
 function isCoordinate(p: { lat: unknown; lng: unknown }): boolean {
