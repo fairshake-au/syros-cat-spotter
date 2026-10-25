@@ -11,5 +11,14 @@ Not covered by this licence:
   are used here with permission and are not licensed to anyone else.
 - Third-party code, which keeps its own licence. That includes the patched
   dependencies in patches/, which carry their upstream licences.
-- Map pictures, which come from OpenStreetMap at runtime and are
-  © OpenStreetMap contributors under the Open Database License.
+- Map pictures and the map file. The Syros map (syros.pmtiles) is made by
+  Cat Spotters from OpenStreetMap data, with Latin-letter names added, and
+  is offered under the Open Database License (ODbL). It contains data ©
+  OpenStreetMap contributors. Map pictures drawn from OpenStreetMap at
+  runtime carry the same credit and licence.
+
+Map building blocks, each under its own licence:
+- Natural Earth (public domain), used for the base map outside Syros.
+- Protomaps basemaps, the tile schema, builder and map style (BSD 3-Clause).
+- MapLibre GL JS and MapLibre Native (BSD 3-Clause), which draw the map.
+- Noto Sans map fonts (SIL Open Font License 1.1), served as glyph files.
