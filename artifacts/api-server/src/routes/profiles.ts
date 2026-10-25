@@ -15,7 +15,7 @@ import {
   verifyDeviceSecret,
 } from "../lib/deviceAuth";
 import { DELETED_BY_THE_PERSON, severPerson } from "../lib/severPerson";
-import { deleteMeLimiter } from "../middlewares/rateLimit";
+import { badgeMomentsLimiter, deleteMeLimiter } from "../middlewares/rateLimit";
 
 const router: IRouter = Router();
 
@@ -210,7 +210,7 @@ router.patch("/profiles/:deviceId", async (req, res) => {
 // the device, so each needs its secret like the profile itself.
 
 /** Uncelebrated moments, oldest first, at most 10. */
-router.get("/profiles/:deviceId/moments", async (req, res) => {
+router.get("/profiles/:deviceId/moments", badgeMomentsLimiter, async (req, res) => {
   const deviceId = await requireDeviceAuth(req, res);
   if (!deviceId) return;
   const rows = await db.execute(sql`
@@ -232,7 +232,7 @@ router.get("/profiles/:deviceId/moments", async (req, res) => {
 });
 
 /** Marks one of this device's moments as played. Another device's id is a no-op. */
-router.post("/profiles/:deviceId/moments/:id/celebrated", async (req, res) => {
+router.post("/profiles/:deviceId/moments/:id/celebrated", badgeMomentsLimiter, async (req, res) => {
   const deviceId = await requireDeviceAuth(req, res);
   if (!deviceId) return;
   const id = Number(req.params.id);
@@ -245,7 +245,7 @@ router.post("/profiles/:deviceId/moments/:id/celebrated", async (req, res) => {
 });
 
 /** Clears the "New" marker on every badge this device has. */
-router.post("/profiles/:deviceId/badges/seen", async (req, res) => {
+router.post("/profiles/:deviceId/badges/seen", badgeMomentsLimiter, async (req, res) => {
   const deviceId = await requireDeviceAuth(req, res);
   if (!deviceId) return;
   await db.execute(sql`

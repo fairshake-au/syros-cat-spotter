@@ -95,6 +95,21 @@ export const deleteMeLimiter = sharedLimiter({
   limit: 10,
 });
 
+// SYC-706 badge routes: GET /profiles/:deviceId/moments, POST .../moments/:id/celebrated
+// and POST .../badges/seen. The app asks for moments on open and on resume
+// and marks each moment once, so a heavy day is perhaps a few dozen calls from
+// one phone; 120 per 15 minutes per address leaves room for a café or ferry
+// sharing one IP. They read and write the database for any id given, which is
+// what the cap is for. Per IP rather than per device, because the device id
+// here is unverified until the secret check, and keying on it would let a
+// caller pick a fresh bucket.
+export const badgeMomentsLimiter = sharedLimiter({
+  bucket: "badge_moments",
+  message: common.message,
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+});
+
 // Data spine PR 5 (DECISIONS.md Part 2h; docs/superpowers/plans/data-spine.md
 // §PR 5): POST /sightings' candidate matching needs BOTH limiters, for two
 // different reasons, restored after an adversarial review of PR #64 found
