@@ -89,7 +89,7 @@ describe('BadgeCelebration', () => {
     const onDone = vi.fn();
     render(<BadgeCelebration moment={{ kind: 'badges', badgeIds: ['areas_3', 'podium'] }} views={views} onDone={onDone} />);
     expect(screen.getByText('1 of 2')).toBeTruthy();
-    expect(screen.getByText('Wanderer')).toBeTruthy();
+    expect(screen.getByText('Explorer')).toBeTruthy();
     expect(screen.getByText('Next: Roamer 🗺️', { exact: false })).toBeTruthy();
     expect(screen.getByText('3 of 8')).toBeTruthy();
     fireEvent.click(screen.getByText('Lovely!'));
@@ -113,7 +113,7 @@ describe('BadgeCelebration', () => {
     const onDone = vi.fn();
     render(<BadgeCelebration moment={{ kind: 'history', badgeIds: ['areas_3', 'podium'] }} views={views} onDone={onDone} />);
     expect(screen.getByText('Your spots so far have earned you 2 new badges')).toBeTruthy();
-    expect(screen.getByText('Wanderer')).toBeTruthy();
+    expect(screen.getByText('Explorer')).toBeTruthy();
     expect(screen.queryByText(/ of 2$/)).toBeNull();
     fireEvent.click(screen.getByText('Lovely!'));
     expect(onDone).toHaveBeenCalledTimes(1);
@@ -226,7 +226,7 @@ describe('BadgeCelebration', () => {
       throw new Error('NotAllowedError');
     });
     render(<BadgeCelebration moment={{ kind: 'badges', badgeIds: ['areas_3'] }} views={views} onDone={vi.fn()} />);
-    expect(screen.getByText('Wanderer')).toBeTruthy();
+    expect(screen.getByText('Explorer')).toBeTruthy();
   });
 
   it('reduced motion renders no confetti or shine', () => {
@@ -234,6 +234,6 @@ describe('BadgeCelebration', () => {
     render(<BadgeCelebration moment={{ kind: 'badges', badgeIds: ['areas_3'] }} views={views} onDone={vi.fn()} />);
     expect(screen.queryByTestId('confetti')).toBeNull();
     expect(screen.queryByTestId('celebration-shine')).toBeNull();
-    expect(screen.getByText('Wanderer')).toBeTruthy();
+    expect(screen.getByText('Explorer')).toBeTruthy();
   });
 });

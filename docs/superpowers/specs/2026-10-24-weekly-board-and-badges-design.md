@@ -47,7 +47,7 @@ Thirteen were picked by Samuel from the full candidate list, and Samuel added tw
 | Finding cats | **Cat finder** 🐾 | Be the first to spot 25 new cats |
 | | **Master cat finder** 🐈 | Be the first to spot 50 new cats |
 | | **Hundred cats** 👑 | Be the first to spot 100 new cats |
-| Covering the island | **Wanderer** 🧭 | Spot cats in 3 different areas |
+| Covering the island | **Explorer** 🧭 | Spot cats in 3 different areas |
 | | **Roamer** 🗺️ | Spot cats in 8 different areas |
 | | **All of Syros** 🏝️ | Spot cats in every area of the island |
 | | **Pathfinder** 🔦 | Find a new cat in an area nobody has spotted a cat in for 30 days |
