@@ -243,6 +243,21 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
     expect(sighting!.status).toBe("pending");
   });
 
+  it("SYC-709: refuses a new cat name with a web link or phone number with NAME_HAS_LINK, and creates nothing", async () => {
+    const device = `${DEVICE}-linkname`;
+    const sightingId = await insertSighting(device);
+    for (const name of ["buy-stuff.com", "www.kitty", "Call 6912345678", "691 234 5678"]) {
+      const res = await request(app)
+        .post(`/api/sightings/${sightingId}/resolve`)
+        .set("X-Device-Secret", RESOLVE_SECRET)
+        .send({ deviceId: device, newCatName: name });
+      expect(res.status, name).toBe(400);
+      expect(res.body.code, name).toBe("NAME_HAS_LINK");
+    }
+    const [sighting] = await db.select().from(sightingsTable).where(eq(sightingsTable.id, sightingId));
+    expect(sighting!.status).toBe("pending");
+  });
+
   it("awards 25 points and sets the discoverer when creating a new cat", async () => {
     const device = `${DEVICE}-newcat`;
     const sightingId = await insertSighting(device);

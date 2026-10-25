@@ -411,7 +411,7 @@ describe("SYC-709: naming limits", () => {
     ["691 234 5678"],
     ["+30 691-234-5678"],
     ["buy-stuff．com"],
-  ])("refuses %j with NAME_HAS_LINK on all three public naming paths", async (bad) => {
+  ])("refuses %j with NAME_HAS_LINK when naming a pending cat and on an owner's rename", async (bad) => {
     const catId = await metPendingCat();
     const res = await nameIt(catId, device("a"), bad);
     expect(res.status).toBe(400);
