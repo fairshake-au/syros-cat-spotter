@@ -6,7 +6,7 @@ Short spec, 24 Oct 2026, revised after an independent review the same day. Samue
 
 A cat that Syros Cats added from a vet visit and left unnamed shows "No name yet" and its number. Spotters can choose its name, first come first served. Three rules now apply.
 
-1. **You name a cat you've met.** "Name this cat" appears only on a phone that has met the cat, by the same test that decides who may claim a cat: a matched sighting from this phone that it didn't mark as "not this cat". On any other phone, the card still says the cat has no name yet and adds: "Spot this cat and you can choose its name." There's no button. They get there through the page's existing "I've spotted…" button, which opens Spot with this cat as the hint. A pending cat can also turn up as a look-alike when matching any sighting.
+1. **You name a cat you've met.** "Name this cat" appears only on a phone that has met the cat, by the same test that decides who may claim a cat: a matched sighting from this phone, still on the cat the spotter chose (a sighting the team later moved here from another cat doesn't count), or one of a cat merged into this one. On any other phone, the card still says the cat has no name yet and adds: "Spot this cat and you can choose its name." There's no button. They get there through the page's existing "I've spotted…" button, which opens Spot with this cat as the hint. A pending cat can also turn up as a look-alike when matching any sighting.
 2. **Up to 3 names a day per phone.** The 4th name in one day is refused with: "You've named 3 cats today. You can name another tomorrow." A "day" runs from 02:00 to 02:00 Greek time in winter (03:00 in summer), because the count resets at midnight UTC. A refused name (taken, rude, a link) doesn't use up one of the 3. Only a name that's saved counts.
 3. **No links or phone numbers in a name.** A name that looks like a web link or contains a phone number is refused with: "Names can't include web links or phone numbers." This is a best-effort filter, not a guarantee. The team can still rename.
 
@@ -50,18 +50,16 @@ Not checked: the team's own naming (vet visit batches, team corrections), the ap
 ## Tests
 
 - **Server:** the existing naming tests give each naming phone a met sighting first, including both phones in the race test. New cases:
-  - refused without a sighting, and with only a "not this cat" sighting; allowed with a met one, and with one of a merged-in cat;
+  - refused without a sighting, with one still being matched, and with one the team moved here; allowed with a met one, and with one of a merged-in cat;
   - one phone saves 3 names on 4 pending cats, and the 4th is refused; refused attempts don't count;
   - 403 comes before 409 NAME_TAKEN for a phone that hasn't met the cat;
   - the link and number examples above, allowed and refused, on all three public paths;
-  - `canName` true and false cases;
-  - the unique-index fallback.
+  - `canName` true and false cases.
 - **The claim tests still pass unchanged** after `hasMetCat` is pulled out.
 - **App:** the button shows or hides on `canName`, each new refusal shows its message, and focus returns to the button when the sheet closes.
 
 ## Also in this PR (from the SYC-709 review list)
 
-- A test of the naming route's unique-index fallback.
 - Focus goes back to the "Name this cat" button when the sheet closes.
 
-Left for SYC-712 or later: widening the raw-name guard test, and narrowing `nullOnUniqueViolation`.
+Left for SYC-712: widening the raw-name guard test, narrowing `nullOnUniqueViolation`, and a test of the naming route's unique-index fallback. That test needs a name to appear between the route's lookup and its write, which a plain database test can't time reliably.
