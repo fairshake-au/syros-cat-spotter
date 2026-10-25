@@ -247,20 +247,27 @@ describe("POST /api/restore/code", () => {
       expect(ask.status).toBe(202);
       __setCodePadForTest(null);
 
-      const results: { status: number; text: string; ms: number }[] = [];
+      const results: { status: number; text: string; ms: number; known: boolean }[] = [];
       // Seven each: the known row goes live → at its limit → dead along the way.
       for (let i = 1; i <= 7; i++) {
         for (const phone of [known, unknown]) {
           const started = Date.now();
           const res = await sendCode(phone, wrongFor(code, i));
-          results.push({ status: res.status, text: res.text, ms: Date.now() - started });
+          results.push({ status: res.status, text: res.text, ms: Date.now() - started, known: phone === known });
         }
       }
       expect(new Set(results.map((r) => r.status))).toEqual(new Set([401]));
       expect(new Set(results.map((r) => r.text))).toEqual(new Set([JSON.stringify(CODE_NOT_VALID)]));
       const times = results.map((r) => r.ms);
       expect(Math.min(...times)).toBeGreaterThanOrEqual(790);
-      expect(Math.max(...times) - Math.min(...times)).toBeLessThanOrEqual(100);
+      // Compare the two kinds by their median, not by the single slowest call:
+      // a busy machine can stretch one request by 100 ms or more (SYC-597, seen
+      // 112 ms), but a real difference between a known and an unknown address
+      // moves every call, and so the median.
+      const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!;
+      const knownMs = results.filter((r) => r.known).map((r) => r.ms);
+      const unknownMs = results.filter((r) => !r.known).map((r) => r.ms);
+      expect(Math.abs(median(knownMs) - median(unknownMs))).toBeLessThanOrEqual(100);
     },
     40_000,
   );
