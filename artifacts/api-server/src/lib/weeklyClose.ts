@@ -141,8 +141,8 @@ export async function closeWeekIfDue(now: Date = new Date()): Promise<CloseResul
         weekPoints: points,
       });
       await tx.execute(sql`
-        insert into notifications (device_id, kind, message)
-        values (${r.device_id}, 'week_result', ${weekResultText(r.rank).body})`);
+        insert into notifications (device_id, kind, message, place, week_points)
+        values (${r.device_id}, 'week_result', ${weekResultText(r.rank).body}, ${r.rank}, ${points})`);
     }
     logger.info({ weekStart, placed: placed.length }, "weekly close: week closed");
     return "closed";

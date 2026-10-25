@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   profile: undefined as unknown,
   push: vi.fn(),
   openWeekly: vi.fn(),
+  language: 'en' as 'en' | 'el' | 'fr',
 }));
 
 vi.mock('@expo/vector-icons', () => ({ Feather: Object.assign(() => null, { glyphMap: {} }) }));
@@ -30,7 +31,15 @@ vi.mock('expo-router', () => ({
   useFocusEffect: () => {},
 }));
 vi.mock('@/lib/celebrationBus', () => ({ openWeeklyResult: h.openWeekly }));
-vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
+vi.mock('@/context/LanguageContext', async () => {
+  const { TRANSLATIONS } = await import('@/lib/i18n');
+  return {
+    useLanguage: () => ({
+      t: (k: string) => (h.language === 'en' ? k : ((TRANSLATIONS as Record<string, Record<string, string>>)[h.language]?.[k] ?? k)),
+      language: h.language,
+    }),
+  };
+});
 vi.mock('@/context/DeviceContext', () => ({ useDevice: () => ({ deviceId: 'dev-1' }) }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: true }) }));
 vi.mock('@/context/NotificationContext', () => ({
@@ -64,6 +73,7 @@ beforeEach(() => {
   h.isLoading = false;
   h.loadFailed = false;
   h.profile = undefined;
+  h.language = 'en';
 });
 afterEach(cleanup);
 
@@ -114,5 +124,23 @@ describe('Notifications screen (SYC-508)', () => {
     fireEvent.click(screen.getByRole('button', { name: /You came 2nd/ }));
     expect(h.openWeekly).toHaveBeenCalledTimes(1);
     expect(h.push).not.toHaveBeenCalled();
+  });
+
+  it('a weekly-result row is worded in the app language from its place and points', () => {
+    h.language = 'el';
+    h.notifications = [
+      { id: 6, catId: null, catUpdateId: null, updateType: 'general', message: 'You came 2nd on Syros last week', place: 2, weekPoints: 140, read: true, createdAt: new Date().toISOString() },
+    ];
+    render(<NotificationsScreen />);
+    expect(screen.getByText('Την περασμένη εβδομάδα ήρθες στη θέση 2 με 140 πόντους')).toBeTruthy();
+    expect(screen.queryByText(/You came/)).toBeNull();
+  });
+
+  it('a weekly-result row without place and points keeps its stored message', () => {
+    h.notifications = [
+      { id: 7, catId: null, catUpdateId: null, updateType: 'general', message: 'You came 2nd on Syros last week', place: null, weekPoints: null, read: true, createdAt: new Date().toISOString() },
+    ];
+    render(<NotificationsScreen />);
+    expect(screen.getByText('You came 2nd on Syros last week')).toBeTruthy();
   });
 });

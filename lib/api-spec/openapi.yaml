@@ -1185,6 +1185,17 @@ components:
           type: string
           enum: [sighting, desexed, adopted, general]
         message: { type: string }
+        place:
+          type: integer
+          nullable: true
+          description: >-
+            A weekly result's place (1 to 3) so the app can word it in the
+            spotter's language; null for cat news and for results written
+            before this field existed.
+        weekPoints:
+          type: integer
+          nullable: true
+          description: A weekly result's points that week; null as for place.
         read: { type: boolean }
         createdAt: { type: string }
       required:
@@ -1196,6 +1207,8 @@ components:
           catPhotoUrl,
           updateType,
           message,
+          place,
+          weekPoints,
           read,
           createdAt,
         ]

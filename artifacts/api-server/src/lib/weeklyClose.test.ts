@@ -375,6 +375,8 @@ describe("the bell", () => {
       catName: null,
       catPhotoUrl: null,
       message: weekResultText(1).body,
+      place: 1,
+      weekPoints: 25,
       read: false,
     });
   });

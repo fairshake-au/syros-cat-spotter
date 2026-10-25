@@ -66,6 +66,10 @@ export const notificationsTable = pgTable("notifications", {
   catUpdateId: integer("cat_update_id"),
   kind: text("kind").notNull().default("cat"),
   message: text("message"),
+  // A week_result's place (1-3) and points, so the app can say it in the
+  // spotter's language; null for cat news. The stored message stays for old builds.
+  place: integer("place"),
+  weekPoints: integer("week_points"),
   read: boolean("read").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
