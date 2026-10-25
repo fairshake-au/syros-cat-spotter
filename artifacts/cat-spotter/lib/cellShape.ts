@@ -6,7 +6,7 @@
  * (`locationCellM`). The map draws that square with softened corners, so it
  * reads as a region, not a building footprint, and never as a pin.
  */
-import { MIN_ZOOM, fromWorld, toWorld, type LatLng } from './mapTiles';
+import { MIN_ZOOM, fromWorld, toWorld, type LatLng } from './mercator';
 
 const METRES_PER_DEGREE_LAT = 111_320;
 
