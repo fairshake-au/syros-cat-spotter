@@ -27,7 +27,8 @@ for (const [w, h] of [[390, 844], [1280, 900]]) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h } });
   await ctx.route((u) => !u.href.startsWith(ORIGIN), (r) => { result.blocked.push(r.request().url()); return r.abort(); });
   const page = await ctx.newPage();
-  for (const name of ["empty", "mixed", "failed", "saved", "cat-saved"]) {
+  // NAMES (comma-separated) picks the pages to shoot; the default is Task 6's set.
+  for (const name of (process.env.NAMES ?? "empty,mixed,failed,saved,cat-saved").split(",")) {
     await page.goto(`${ORIGIN}/${name}.html`);
     // Open the folds for a second shot.
     const m = await page.evaluate(() => ({
@@ -42,5 +43,5 @@ for (const [w, h] of [[390, 844], [1280, 900]]) {
 }
 await browser.close();
 server.close();
-await writeFile(`${OUT}/check-result.json`, JSON.stringify(result, null, 2));
+await writeFile(`${OUT}/${process.env.RESULT ?? "check-result.json"}`, JSON.stringify(result, null, 2));
 console.log(JSON.stringify(result, null, 2));

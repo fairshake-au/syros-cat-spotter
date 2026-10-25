@@ -3,7 +3,14 @@ import type { CatToAdd } from "../colonyCats";
 import type { Band } from "../findFromPhoto";
 import type { Batch, BatchCat, BatchShared } from "../vetBatches";
 import { BATCH_PHOTOS_MAX } from "../vetBatches";
-import { ROUND_MAX, type BatchProblem } from "../vetVisits";
+import {
+  NEW_CAT_DESCRIPTION_MAX,
+  NEW_CAT_NAME_MAX,
+  newCatDescriptionProblem,
+  newCatNameProblem,
+  ROUND_MAX,
+  type BatchProblem,
+} from "../vetVisits";
 import { escapeHtml as esc } from "./escape";
 import { backLink } from "./backLink";
 import { renderPage } from "./layout";
@@ -235,6 +242,52 @@ export function readCard(
   return { ok: true, fields: { did, treatedNote, costEur, paidBy: v.paidBy, note, alsoSameDay: v.alsoSameDay } };
 }
 
+// ── A cat we haven't recorded (SYC-677 Task 9) ─────────────────────────────
+
+/** The "None of these" form as typed. */
+export interface NewCatValues {
+  /** "now" (Name it now) or "spotters" (Leave it for spotters); "" if neither was chosen. */
+  naming: string;
+  name: string;
+  description: string;
+}
+
+export type NewCatField = "naming" | "name" | "description";
+
+export function newCatValuesFrom(raw: unknown): NewCatValues {
+  const b = body(raw);
+  return { naming: str(b["naming"]), name: str(b["name"]), description: lf(str(b["description"])) };
+}
+
+/**
+ * Reads the "None of these" form: Name it now needs a name that passes the
+ * same checks as a spotter's (not blank, nothing offensive); Leave it for
+ * spotters stores no name, whatever the name box held. Whether another cat
+ * has the name is the route's question (it reads the database), and the
+ * save asks it again.
+ */
+export function readNewCat(
+  v: NewCatValues,
+): { ok: true; newCat: { name: string | null; description: string } } | { ok: false; problems: Partial<Record<NewCatField, string>> } {
+  const problems: Partial<Record<NewCatField, string>> = {};
+  const description = v.description.trim();
+  let name: string | null = null;
+  if (v.naming === "now") {
+    name = v.name.trim().slice(0, NEW_CAT_NAME_MAX);
+    if (name === "") problems.name = "Give the cat a name, or choose “Leave it for spotters”.";
+    else {
+      const words = newCatNameProblem(name);
+      if (words) problems.name = words;
+    }
+  } else if (v.naming !== "spotters") {
+    problems.naming = "Choose “Name it now” or “Leave it for spotters”.";
+  }
+  const descriptionWords = newCatDescriptionProblem(description);
+  if (descriptionWords) problems.description = descriptionWords;
+  if (Object.keys(problems).length > 0) return { ok: false, problems };
+  return { ok: true, newCat: { name, description } };
+}
+
 // ── The page ───────────────────────────────────────────────────────────────
 
 export interface CatLine {
@@ -262,6 +315,8 @@ export interface BatchPage {
   shared?: { values: SharedValues; problems: Partial<Record<SharedField, string>> };
   /** One card's answers as typed, with what is wrong with them, when they didn't save. */
   card?: { row: number; values: CardValues; problems: Partial<Record<CardField, string>> };
+  /** One card's "None of these" form as typed, with what is wrong with it, when it didn't save. */
+  newCat?: { row: number; values: NewCatValues; problems: Partial<Record<NewCatField, string>> };
   /** A lookup's answer, drawn at its card. */
   lookup?: { row: number; results: CatToAdd[] };
   /** `?said=` (fixed sentence) and the card (or the add box) it is about. */
@@ -423,13 +478,45 @@ function lookupResults(results: CatToAdd[], action: string): string {
   );
 }
 
+function newCatForm(p: BatchPage, c: BatchCat, action: string): string {
+  const id = (s: string) => `bc-${c.id}-new-${s}`;
+  const typed = p.newCat && p.newCat.row === c.id ? p.newCat : undefined;
+  const f: NewCatValues = typed?.values ?? {
+    naming: c.newCat ? (c.newCat.name === null ? "spotters" : "now") : "",
+    name: c.newCat?.name ?? "",
+    description: c.newCat?.description ?? "",
+  };
+  const pr = (field: NewCatField) => typed?.problems[field];
+  return (
+    `<form method="post" action="${action}/confirm" class="batchnew" novalidate>` +
+    '<input type="hidden" name="catId" value="new">' +
+    `<fieldset><legend class="label">${esc("None of these: a cat we haven't recorded")}</legend>` +
+    `<p class="hint" id="${id("hint")}">Makes a new cat record from these photos. Spotters will see it in the app straight away, with the first photo as its photo. It goes at the centre of the batch's colony or area.</p>` +
+    errLine(id("naming-err"), pr("naming")) +
+    radio("naming", id("now"), "now", "Name it now", f.naming === "now") +
+    radio("naming", id("spotters"), "spotters", "Leave it for spotters", f.naming === "spotters") +
+    "</fieldset>" +
+    `<label class="label" for="${id("name")}">Name <span class="hint">(if you name it now)</span></label>` +
+    errLine(id("name-err"), pr("name")) +
+    `<input class="text" id="${id("name")}" name="name" maxlength="${NEW_CAT_NAME_MAX}" autocomplete="off" value="${esc(f.name)}"${describedBy(id("name-err"), pr("name"))}>` +
+    `<label class="label" for="${id("description")}">Short description <span class="hint">(optional, spotters see it)</span></label>` +
+    errLine(id("description-err"), pr("description")) +
+    `<textarea id="${id("description")}" name="description" maxlength="${NEW_CAT_DESCRIPTION_MAX}"${describedBy(id("description-err"), pr("description"))}>${esc(f.description)}</textarea>` +
+    '<button type="submit" class="primary">Make a new cat record</button></form>'
+  );
+}
+
 function card(p: BatchPage, c: BatchCat, n: number): string {
   const b = p.batch;
   const action = `${batchPath(b.id)}/cats/${c.id}`;
   const line = c.catId !== null ? p.cats.get(c.catId) : undefined;
   const matched = c.catId !== null && c.confirmed;
+  // A confirmed new cat is ready for its answers, as a matched one is.
+  const ready = matched || (c.newCat !== null && c.confirmed);
   const state = c.newCat
-    ? "New cat"
+    ? c.newCat.name !== null
+      ? `New cat: ${esc(c.newCat.name)}`
+      : "New cat, left for spotters to name"
     : matched
       ? `Matched: ${catChip(line, c.catId!)}`
       : c.catId !== null
@@ -448,7 +535,7 @@ function card(p: BatchPage, c: BatchCat, n: number): string {
     .join("");
 
   let finding = "";
-  if (!matched && !c.newCat) {
+  if (!ready) {
     const find =
       p.limit === "ok"
         ? `<form method="post" action="${action}/search" class="batchfind">` +
@@ -463,11 +550,12 @@ function card(p: BatchPage, c: BatchCat, n: number): string {
       `<input class="text" id="${id("q")}" name="q" maxlength="100" autocomplete="off" placeholder="Mimi or SYR-0040">` +
       '<button type="submit" class="primary">Look up</button></form>' +
       lookupHere +
-      suggestions(p, c, action);
+      suggestions(p, c, action) +
+      newCatForm(p, c, action);
   }
 
   let answers = "";
-  if (matched) {
+  if (ready) {
     const didBoxes = BATCH_DID.filter((d) => d !== "vaccinated" || p.mayVaccinate)
       .map((d) => checkbox("did", id(`did-${d}`), d, DID_WORDS[d], f.did.includes(d)))
       .join("");
@@ -495,13 +583,16 @@ function card(p: BatchPage, c: BatchCat, n: number): string {
           "</div>"
         : "") +
       '<button type="submit" class="primary">Save this cat\'s answers</button></form>' +
-      `<form method="post" action="${action}/confirm" class="batchundo"><input type="hidden" name="catId" value="none"><button type="submit" class="tap">This isn't the right cat</button></form>`;
+      `<form method="post" action="${action}/confirm" class="batchundo"><input type="hidden" name="catId" value="none"><button type="submit" class="tap">${
+        c.newCat ? "This isn't a new cat" : "This isn't the right cat"
+      }</button></form>`;
   }
 
   return (
     `<section class="batchcat" id="bc-${c.id}" aria-labelledby="bc-${c.id}-h">` +
     `<h3 id="bc-${c.id}-h">Cat ${n}</h3>` +
     `<p class="batchstate">${state}</p>` +
+    (c.newCat && c.newCat.description !== "" ? `<p class="meta">${esc(c.newCat.description)}</p>` : "") +
     (said ? `<p class="notice" role="status">${esc(said)}</p>` : "") +
     cardProblems +
     thumbs(c, n) +
@@ -555,7 +646,7 @@ export function renderBatchPage(p: BatchPage): string {
       addSection(p) +
       '<section id="save"><h2>Save the batch\'s visits</h2>' +
       wholeBatch.map((x) => `<p class="bad" role="alert">${esc(x.words)}</p>`).join("") +
-      `<p class="hint">Each cat gets its own vet visit. Nothing is saved until every cat is matched and has something done.</p>` +
+      `<p class="hint">Each cat gets its own vet visit. Nothing is saved until every cat is matched, or made a new cat, and has something done.</p>` +
       `<p class="hint">Press “Save this cat's answers” on any card you changed first.</p>` +
       `<form method="post" action="${batchPath(b.id)}/save"><button type="submit" class="primary wide">Save the batch's visits</button></form>` +
       `<form method="post" action="${batchPath(b.id)}/abandon" class="batchabandon"><button type="submit" class="risky">Throw this batch away</button></form>` +

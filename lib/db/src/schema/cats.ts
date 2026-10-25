@@ -8,6 +8,7 @@ import {
   timestamp,
   uniqueIndex,
   check,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { foldNameSql } from "../foldSql";
 
@@ -32,6 +33,9 @@ export const catsTable = pgTable(
     // then credits "a spotter". The check below refuses an unstamped null.
     discovererDeviceId: text("discoverer_device_id"),
     ownerDeviceId: text("owner_device_id"),
+    // SYC-677: a cat Syros Cats left for spotters to name. Its stored name is
+    // its SYR number until the first good name is given, which clears this.
+    namePending: boolean("name_pending").notNull().default(false),
     ownerName: text("owner_name"),
     homeDescription: text("home_description"),
     // Where the owner says the cat lives (claiming-a-cat.md §5): seen only by

@@ -26,6 +26,7 @@ import { pr3Recorded } from "./pr3Gate";
 import { LIKELY_STERILISED_PUBLIC_LIVE } from "./likelyGate";
 import { BLUR_CELL_METRES, blurPosition, publicDistanceKm } from "./blur";
 import { catDisplayPhotos, type PublicPhotoUrl } from "./photoVisibility";
+import { isTeamDesk, TEAM_DESK_NAME } from "./teamDesk";
 
 export function haversineKm(
   lat1: number,
@@ -197,9 +198,15 @@ export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
     locationCellM: exact ? null : BLUR_CELL_METRES,
     sightingsCount: cat.sightingsCount,
     lastSeenAt: toPublicDay(cat.lastSeenAt),
-    discovererSpotterCode: spotterCode(cat.discovererDeviceId),
-    discovererNickname: cat.discovererNickname,
-    discovererUsername: cat.discovererUsername,
+    // SYC-677 R22b: a cat Syros Cats recorded is credited to "Syros Cats",
+    // with no spotter code, whatever profile row its device id might have.
+    ...(isTeamDesk(cat.discovererDeviceId)
+      ? { discovererSpotterCode: null, discovererNickname: TEAM_DESK_NAME, discovererUsername: null }
+      : {
+          discovererSpotterCode: spotterCode(cat.discovererDeviceId),
+          discovererNickname: cat.discovererNickname,
+          discovererUsername: cat.discovererUsername,
+        }),
     // claiming-a-cat.md D9: where an owned cat lives, and who its owner is,
     // are for the owner (and the team, who never use this serialiser) only.
     ownerName: exact ? cat.ownerName : null,
@@ -624,10 +631,13 @@ export async function getProfileStats(deviceId: string): Promise<ProfileStats> {
       ),
     );
 
-  const [disc] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(catsTable)
-    .where(eq(catsTable.discovererDeviceId, deviceId));
+  // SYC-677 R22b: the team desk discovers nothing in anyone's totals.
+  const [disc] = isTeamDesk(deviceId)
+    ? [{ n: 0 }]
+    : await db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(catsTable)
+        .where(eq(catsTable.discovererDeviceId, deviceId));
 
   return {
     points: profile?.points ?? 0,
