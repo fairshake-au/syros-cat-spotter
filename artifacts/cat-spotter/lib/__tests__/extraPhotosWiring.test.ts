@@ -39,19 +39,14 @@ describe('the Spot screen (spot.tsx)', () => {
     );
   });
 
-  it('(b) one setFirstPhoto, used by both the picker and the live camera', () => {
+  it('(b) one setFirstPhoto, used by the picker (camera and library)', () => {
     expect(spot).toMatch(/const setFirstPhoto = \(/);
-    const pick = between(spot, 'const pickPhoto = async', 'const captureLivePhoto = async');
-    const live = between(spot, 'const captureLivePhoto = async', 'const requestLiveCamera = async');
+    const pick = between(spot, 'const pickPhoto = async', 'const openCameraSettings = async');
     expect(pick).toMatch(/setFirstPhoto\(/);
-    expect(live).toMatch(/setFirstPhoto\(/);
     expect(pick).not.toMatch(/\bsetPhoto\(/);
-    expect(live).not.toMatch(/\bsetPhoto\(/);
   });
 
-  it('(b) camera photos now carry a fingerprint too (Task 4.5)', () => {
-    const live = between(spot, 'const captureLivePhoto = async', 'const requestLiveCamera = async');
-    expect(live).toMatch(/setFirstPhoto\(picked, \{ kind: 'unread' \}, photoFingerprint\(picked\.base64\), Date\.now\(\)\)/);
+  it('(b) camera photos carry a fingerprint too (Task 4.5)', () => {
     const setter = between(spot, 'const setFirstPhoto = (', 'const retakeFirstPhoto = ');
     expect(setter).toMatch(/photoFingerprintRef\.current = fingerprint;/);
   });

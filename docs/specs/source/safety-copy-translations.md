@@ -8,6 +8,8 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 **2 Oct 2026 (Samuel):** French uses tu throughout the app. Every French line below is now in tu; register change only, no change of meaning. All of it remains a draft for the native check (SYC-154, SYC-172).
 
+**24 Oct 2026 (Samuel, SYC-570):** `injured.capacity` is now two sentences (the same ideas, shorter): option 1 of the SYC-570 mockups. The English is Samuel's pick, to be seen by the SYC-171 liability check; the Greek and French are new drafts for the native check (SYC-346).
+
 **1 Oct 2026 (Samuel):** the urgent block no longer opens with `injured.send` (removed) and now ends with `injured.capacity` (added, from Susan's standard reply). The English is approved; the Greek and French of `injured.capacity` are drafts for the native check (SYC-172, SYC-4).
 
 **Coverage:** all three blocks are complete and were checked line by line against the canonical English in `team-access-and-welfare-queue.md` §5.3(a), (b) and (e). Nothing is abridged. `injured.afterhours` was added on 4 September 2026 after the vet verification pass found that two clinics publish out-of-hours numbers; see item 17 for the checker. **Withdrawn 28 September 2026:** Samuel cut the out-of-hours paragraph, and `injured.afterhours` is removed in all three languages.
@@ -55,7 +57,7 @@ This is the one block in the app people **act on** rather than read. Structure, 
 > **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — +30 22813 61000 — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.
 
 **`injured.capacity`**
-> Sending this report will also provide Syros Cats with a report about the cat and, in some circumstances, they may take action in response. However, Syros Cats is a private sanctuary and not an emergency service, so they are unable to provide immediate rescue or collection. Their small team is currently at full capacity caring for the cats already with them.
+> Syros Cats is a small private sanctuary, not an emergency service, and its team is at full capacity, so they can't rescue or collect a cat straight away. Your report still goes to them, and in some cases they may act on it.
 
 ### `onboarding.healthy` — Onboarding, healthy cats
 
@@ -118,7 +120,7 @@ This is the one block in the app people **act on** rather than read. Structure, 
 > **Αν η γάτα χρειάζεται φροντίδα για εβδομάδες, όχι για ώρες.** Σύμφωνα με την ελληνική νομοθεσία, η φροντίδα των αδέσποτων ζώων είναι ευθύνη του Δήμου. Ενημέρωσε τον Δήμο Σύρου-Ερμούπολης — +30 22813 61000 — και ζήτησε το γραφείο προστασίας ζώων. Μερικές φορές μπορούν να βοηθήσουν με το κόστος. Εξαρτάται από το τι χρήματα έχουν εκείνη τη στιγμή.
 
 **`injured.capacity`** — **DRAFT, awaiting native review (SYC-172, SYC-4).**
-> Αν στείλεις αυτή την αναφορά, η Syros Cats θα έχει επίσης μια αναφορά για τη γάτα και, σε ορισμένες περιπτώσεις, μπορεί να αναλάβει δράση. Ωστόσο, η Syros Cats είναι ιδιωτικό καταφύγιο και όχι υπηρεσία έκτακτης ανάγκης, οπότε δεν μπορεί να προσφέρει άμεση διάσωση ή παραλαβή. Η μικρή της ομάδα έχει αυτή τη στιγμή φτάσει στα όριά της, φροντίζοντας τις γάτες που ήδη έχει.
+> Η Syros Cats είναι ένα μικρό ιδιωτικό καταφύγιο και όχι υπηρεσία έκτακτης ανάγκης, και η ομάδα της έχει φτάσει στα όριά της, οπότε δεν μπορεί να προσφέρει άμεση διάσωση ή παραλαβή. Η αναφορά σου θα φτάσει στην ομάδα και, σε ορισμένες περιπτώσεις, μπορεί να αναλάβει δράση.
 
 ### `onboarding.healthy` — Υγιείς γάτες
 
@@ -181,7 +183,7 @@ This is the one block in the app people **act on** rather than read. Structure, 
 > **Si le chat a besoin d'être pris en charge pendant des semaines, pas des heures.** Selon la loi grecque, la prise en charge des animaux des rues incombe à la Municipalité. Préviens la Municipalité de Syros-Ermoúpoli — +30 22813 61000 — et demande le bureau de la protection animale. Ils peuvent parfois aider pour les frais. Cela dépend des fonds dont ils disposent à ce moment-là.
 
 **`injured.capacity`** — **DRAFT, awaiting native review (SYC-172, SYC-4).**
-> Envoyer ce signalement transmettra aussi à Syros Cats un signalement sur ce chat et, dans certains cas, l'association pourra intervenir. Cependant, Syros Cats est un refuge privé et non un service d'urgence : l'association ne peut donc pas assurer de sauvetage ou de prise en charge immédiats. Sa petite équipe est actuellement à pleine capacité, avec les chats dont elle s'occupe déjà.
+> Syros Cats est un petit refuge privé et non un service d'urgence, et son équipe est à pleine capacité : l'association ne peut donc pas assurer de sauvetage ou de prise en charge immédiats. Ton signalement lui parvient quand même et, dans certains cas, elle pourra intervenir.
 
 ### `onboarding.healthy` — Chats en bonne santé
 

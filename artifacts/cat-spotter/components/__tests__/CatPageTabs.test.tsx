@@ -48,7 +48,11 @@ vi.mock('expo-router', () => ({
   useLocalSearchParams: () => h.params,
   useRouter: () => ({ canGoBack: () => false, back: () => {}, replace: () => {}, push: () => {} }),
 }));
-vi.mock('@/components/AppMap', () => ({ AppMap: () => <div data-testid="app-map" /> }));
+vi.mock('@/components/AppMap', () => ({
+  AppMap: ({ interactive = true }: { interactive?: boolean }) => (
+    <div data-testid="app-map" data-interactive={String(interactive)} />
+  ),
+}));
 vi.mock('@/components/MoreToAdd', () => ({ MoreToAdd: () => null }));
 vi.mock('@/components/report/NeedsHelpLink', () => ({
   NeedsHelpLink: () => null,
@@ -221,7 +225,8 @@ describe('the four tabs', () => {
     expect(screen.queryByTestId('sighting-cover')).toBeNull();
     expect(screen.queryByTestId('app-map')).toBeNull();
     switchTab('Map');
-    expect(screen.getByTestId('app-map')).toBeTruthy();
+    // People can pan and zoom it (zoom out to see where on the island).
+    expect(screen.getByTestId('app-map').getAttribute('data-interactive')).toBe('true');
     expect(screen.getByText(en.firstSpottedAroundHere!)).toBeTruthy();
     switchTab('About');
     expect(screen.queryByTestId('app-map')).toBeNull();

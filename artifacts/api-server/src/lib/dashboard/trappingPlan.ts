@@ -7,6 +7,7 @@ import { getAppSettings } from "../appSettings";
 import { haversineKm } from "../catHelpers";
 import type { CoatColour, CoatPattern } from "../appearance";
 import { syrNumber } from "../teamCatView";
+import { areaFor } from "../areas/namedAreas";
 import { loadTeamCats, type Lives, type SterilisedMark, type TeamCat } from "../teamCatList";
 import { isStreet, toDo } from "./countedCats";
 
@@ -200,6 +201,16 @@ export async function trappingPlan(
           .where(inArray(catsTable.id, needRows));
   const found = new Map(rows.map((r) => [r.id, r]));
 
+  // A cat guardian's cats are sorted by where they were first found, never by
+  // a sighting (§10.2): "Off Syros" from a last sighting would tell her where
+  // a spotter saw the cat. The team's figures keep the sighting-based area.
+  const classed = opts.island
+    ? mine
+    : mine.map((c) => {
+        const f = found.get(c.id);
+        return f ? { ...c, areaKey: areaFor(f.lat, f.lng).key } : c;
+      });
+
   const plan = (c: TeamCat): PlanCat => {
     // The team: the last sighting (else where it was found). A guardian: where it was found only.
     const ref: Point = opts.island ? c.placedAt : (found.get(c.id) ?? c.placedAt);
@@ -210,14 +221,14 @@ export async function trappingPlan(
     };
   };
 
-  const todo = toDo(mine).map(plan);
-  const done = mine
+  const todo = toDo(classed).map(plan);
+  const done = classed
     .filter((c) => isStreet(c) && c.mark === "sterilised")
     .sort((a, b) => (b.lastSeenAt?.getTime() ?? -Infinity) - (a.lastSeenAt?.getTime() ?? -Infinity) || a.id - b.id)
     .map(plan);
   const onList = new Set([...todo, ...done].map((c) => c.id));
   const other: OtherPlanCat[] = [
-    ...mine
+    ...classed
       .filter((c) => !onList.has(c.id))
       .map((c) => ({
         id: c.id,

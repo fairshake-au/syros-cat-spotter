@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { fonts, fontSizes, radii, borderWidths } from '@/constants/theme';
 
@@ -17,6 +17,15 @@ export interface ChipProps {
   style?: StyleProp<ViewStyle>;
 }
 
+/**
+ * The pill is about 35px tall. The Pressable around it adds 5px above and
+ * below, so the tap area reaches 44pt while the chip looks the same (SYC-644).
+ * Real padding, not `hitSlop`, which the web build ignores. The negative margin
+ * gives the space back, so nothing around the chip moves. A parent that
+ * scrolls or clips needs 5px of room on each side, or it cuts the tap area.
+ */
+export const CHIP_TAP_PAD = 5;
+
 export function Chip({ label, active = false, disabled = false, onPress, style }: ChipProps) {
   const colors = useColors();
 
@@ -26,36 +35,49 @@ export function Chip({ label, active = false, disabled = false, onPress, style }
       disabled={disabled}
       accessibilityRole="button"
       accessibilityState={{ disabled, selected: active }}
-      style={({ pressed }) => [
-        styles.base,
-        {
-          backgroundColor: active ? colors.primary : colors.card,
-          borderColor: active ? 'transparent' : colors.border,
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
-        },
-        style,
-      ]}
+      style={[styles.tapArea, style]}
     >
-      <Text
-        style={[
-          styles.label,
-          { color: active ? colors.primaryForeground : colors.foreground },
-        ]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
+      {({ pressed }) => (
+        <View
+          style={[
+            styles.pill,
+            {
+              backgroundColor: active ? colors.primary : colors.card,
+              borderColor: active ? 'transparent' : colors.border,
+              opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.label,
+              { color: active ? colors.primaryForeground : colors.foreground },
+            ]}
+            numberOfLines={1}
+          >
+            {label}
+          </Text>
+        </View>
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: {
+  tapArea: {
+    paddingVertical: CHIP_TAP_PAD,
+    marginVertical: -CHIP_TAP_PAD,
+    alignSelf: 'flex-start',
+  },
+  pill: {
+    // Fills the tap area's width even when a caller centres or stretches it.
+    alignSelf: 'stretch',
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: radii.pill,
     borderWidth: borderWidths.thin,
-    alignSelf: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   label: {
     fontFamily: fonts.displaySemiBold,

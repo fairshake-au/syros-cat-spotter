@@ -174,19 +174,25 @@ export default function CatalogScreen() {
               onPress={() => setShowMap((v) => !v)}
               accessibilityRole="button"
               accessibilityLabel={showMap ? t('viewList') : t('viewMap')}
-              style={[
-                styles.toggle,
-                { borderColor: colors.border, backgroundColor: colors.card },
-              ]}
+              // The button is about 35px tall; the padding makes the tap area 44pt
+              // and the negative margin keeps the header where it was (SYC-644).
+              style={styles.toggleTapArea}
             >
-              <Feather
-                name={showMap ? 'list' : 'map'}
-                size={16}
-                color={colors.foreground}
-              />
-              <Text style={[styles.toggleText, { color: colors.foreground }]}>
-                {showMap ? t('viewList') : t('viewMap')}
-              </Text>
+              <View
+                style={[
+                  styles.toggle,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                ]}
+              >
+                <Feather
+                  name={showMap ? 'list' : 'map'}
+                  size={16}
+                  color={colors.foreground}
+                />
+                <Text style={[styles.toggleText, { color: colors.foreground }]}>
+                  {showMap ? t('viewList') : t('viewMap')}
+                </Text>
+              </View>
             </Pressable>
             <NotificationBell />
           </View>
@@ -221,6 +227,9 @@ export default function CatalogScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          // Each chip's tap area is 5px taller than the pill. The padding keeps it
+          // inside the scroll view; the negative margin gives the space back.
+          style={styles.chipScroll}
           contentContainerStyle={styles.chipRow}
         >
           {filters.map((f) => (
@@ -364,6 +373,10 @@ export default function CatalogScreen() {
   );
 }
 
+// Extra tap area above and below the 35px chips and the Map/List button, so each is
+// 44pt to tap (SYC-644). Same value as Chip's own.
+const CHIP_TAP_PAD = 5;
+
 const styles = StyleSheet.create({
   // SYC-509: 44pt tap area around a 16pt icon; the negative margins keep the row height without covering the text beside it.
   clearHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -14, marginHorizontal: -4 },
@@ -387,6 +400,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[2],
   },
+  toggleTapArea: { paddingVertical: CHIP_TAP_PAD, marginVertical: -CHIP_TAP_PAD },
   toggle: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -412,7 +426,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
   },
-  chipRow: { gap: spacing[2], paddingRight: spacing[4] },
+  chipScroll: { marginVertical: -CHIP_TAP_PAD, flexGrow: 0 },
+  chipRow: { gap: spacing[2], paddingRight: spacing[4], paddingVertical: CHIP_TAP_PAD },
   center: {
     flex: 1,
     alignItems: 'center',
