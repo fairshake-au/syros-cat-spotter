@@ -35,24 +35,54 @@ import { STREAK_TIMEZONE } from "./streak";
 export const WEEK_PUSH_FROM_HOUR = 8;
 export const WEEK_PUSH_UNTIL_HOUR = 20;
 
-// Ruling 6: the round-up has no per-device language, so neither does this.
-// English, from the spec's wording. Never an area or a place on the island.
-const PUSH_WEEK_TITLE = "Last week's top spotters";
-const ORDINAL: Record<number, string> = { 2: "2nd", 3: "3rd" };
+// The push's language is the one the phone registered with (push_tokens.language);
+// a phone that never sent one (an old build) is sent English. The bell row keeps
+// the English words for old builds; new builds word it from place and points.
+// Never an area or a place on the island.
+export type PushLanguage = "en" | "el" | "fr";
+
 const MEDAL: Record<number, string> = { 2: "🥈", 3: "🥉" };
 
-/** The push's words, which are also the bell entry's, for a place of 1–3. */
-export function weekResultText(place: number): { title: string; body: string } {
-  if (place === 1) {
-    return {
-      title: PUSH_WEEK_TITLE,
-      body: "🏆 You were the top spotter on Syros last week. You've earned Champion!",
-    };
-  }
-  return {
-    title: PUSH_WEEK_TITLE,
-    body: `${MEDAL[place] ?? "🥉"} You came ${ORDINAL[place] ?? `${place}th`} on Syros last week. You've earned Podium!`,
-  };
+// Mirrors the app's formatRank (artifacts/cat-spotter/lib/formatRank.ts): English
+// 2nd/3rd, French 2e/3e, Greek the plain number. Only places 2 and 3 are worded.
+function rankWord(language: PushLanguage, place: number): string {
+  if (language === "el") return String(place);
+  if (language === "fr") return place === 1 ? "1er" : `${place}e`;
+  return place === 2 ? "2nd" : place === 3 ? "3rd" : `${place}th`;
+}
+
+const WEEK_COPY: Record<
+  PushLanguage,
+  { title: string; top: string; placed: (medal: string, rank: string) => string }
+> = {
+  en: {
+    title: "Last week's top spotters",
+    top: "🏆 You were the top spotter on Syros last week. You've earned Champion!",
+    placed: (medal, rank) => `${medal} You came ${rank} on Syros last week. You've earned Podium!`,
+  },
+  el: {
+    title: "Οι κορυφαίοι spotters της περασμένης εβδομάδας",
+    top: "🏆 Ήσουν ο κορυφαίος spotter της Σύρου την περασμένη εβδομάδα. Κέρδισες το παράσημο Πρωταθλητής!",
+    placed: (medal, rank) =>
+      `${medal} Ήρθες στη θέση ${rank} στη Σύρο την περασμένη εβδομάδα. Κέρδισες το παράσημο Βάθρο!`,
+  },
+  fr: {
+    title: "Les meilleurs spotters de la semaine dernière",
+    top: "🏆 Tu as été le meilleur spotter de Syros la semaine dernière. Tu as gagné le badge Champion !",
+    placed: (medal, rank) =>
+      `${medal} Tu as terminé ${rank} à Syros la semaine dernière. Tu as gagné le badge Podium !`,
+  },
+};
+
+/** The push's words, which are also the bell entry's stored words (in English), for a place of 1–3. */
+export function weekResultText(
+  place: number,
+  language: string | null = "en",
+): { title: string; body: string } {
+  const copy = WEEK_COPY[language === "el" || language === "fr" ? language : "en"];
+  const lang: PushLanguage = language === "el" || language === "fr" ? language : "en";
+  if (place === 1) return { title: copy.title, body: copy.top };
+  return { title: copy.title, body: copy.placed(MEDAL[place] ?? "🥉", rankWord(lang, place)) };
 }
 
 /** The Monday that starts the week before the one containing `at`. */
@@ -183,14 +213,14 @@ export async function sendWeeklyPushesIfDue(now: Date = new Date()): Promise<Wee
 
   // The claim has committed (no transaction here), so a crash from now on
   // loses pushes rather than sending them twice.
-  const recipients = await db.execute<{ token: string; place: number }>(sql`
-    select pt.token, wr.place
+  const recipients = await db.execute<{ token: string; place: number; language: string | null }>(sql`
+    select pt.token, wr.place, pt.language
     from weekly_results wr
     join push_tokens pt on pt.device_id = wr.device_id
     where wr.week_start = ${weekStart}::date`);
   await Promise.all(
     recipients.rows.map(async (r) => {
-      const { title, body } = weekResultText(Number(r.place));
+      const { title, body } = weekResultText(Number(r.place), r.language);
       await sendPushNotification(r.token, title, body, { type: "weekly_result", weekStart });
     }),
   );

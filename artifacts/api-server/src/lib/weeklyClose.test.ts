@@ -90,10 +90,11 @@ async function ledger(suffix: string, points: number, earnedAt: Date, source = "
   });
 }
 
-async function token(suffix: string) {
+async function token(suffix: string, language: string | null = null) {
   await db.insert(pushTokensTable).values({
     deviceId: dev(suffix),
     token: `ExponentPushToken[${suffix}]`,
+    language,
   });
 }
 
@@ -331,6 +332,36 @@ describe("sendWeeklyPushesIfDue", () => {
     expect(sendPushNotificationMock).toHaveBeenCalledTimes(3);
   });
 
+  it("each device is pushed in its own language; no language means English", async () => {
+    // Week of Mon 5 Apr 2032, closed early on Mon 12 Apr.
+    for (const s of ["el1", "fr2", "old3"]) await profile(s);
+    await token("el1", "el");
+    await token("fr2", "fr");
+    await token("old3", null);
+    await ledger("el1", 75, athens("2032-04-06", "10:00"));
+    await ledger("fr2", 50, athens("2032-04-07", "10:00"));
+    await ledger("old3", 40, athens("2032-04-08", "10:00"));
+
+    expect(await closeWeekIfDue(athens("2032-04-12", "00:10"))).toBe("closed");
+    expect(await sendWeeklyPushesIfDue(athens("2032-04-12", "08:05"))).toBe("sent");
+
+    expect(pushesTo("el1")[0]!.slice(1, 3)).toEqual([weekResultText(1, "el").title, weekResultText(1, "el").body]);
+    expect(pushesTo("el1")[0]![2]).toContain("Πρωταθλητής");
+    expect(pushesTo("fr2")[0]![2]).toBe(
+      "🥈 Tu as terminé 2e à Syros la semaine dernière. Tu as gagné le badge Podium !",
+    );
+    expect(pushesTo("old3")[0]![2]).toBe(
+      "🥉 You came 3rd on Syros last week. You've earned Podium!",
+    );
+    // The bell still stores English for old builds.
+    expect((await bellOf("el1"))[0]!.message).toBe(weekResultText(1).body);
+  });
+
+  it("Greek ranks are plain numbers and French ordinals are 2e and 3e", () => {
+    expect(weekResultText(2, "el").body).toContain("στη θέση 2 ");
+    expect(weekResultText(3, "fr").body).toContain("terminé 3e ");
+  });
+
   it("a close at 21:00 Monday sends no push", async () => {
     // Week of Mon 8 Mar 2032; the server was down until Mon 15 Mar, 21:00.
     await profile("late");
@@ -384,9 +415,11 @@ describe("the bell", () => {
   it("push and bell text never contain an area name", async () => {
     const names = SEED_AREAS.map((a) => a.name);
     const texts: string[] = [];
-    for (const place of [1, 2, 3]) {
-      const { title, body } = weekResultText(place);
-      texts.push(title, body);
+    for (const language of ["en", "el", "fr", null]) {
+      for (const place of [1, 2, 3]) {
+        const { title, body } = weekResultText(place, language);
+        texts.push(title, body);
+      }
     }
     // And what a real close wrote to the bell. Week of Mon 19 Jan 2032.
     await profile("words1");
@@ -400,10 +433,10 @@ describe("the bell", () => {
       const [row] = await bellOf(s);
       texts.push(row!.message!);
     }
-    expect(texts).toHaveLength(9);
+    expect(texts).toHaveLength(4 * 3 * 2 + 3);
     for (const text of texts) {
       for (const name of names) {
-        expect(text).not.toMatch(new RegExp(`\\b${name}\\b`, "i"));
+        expect(text.toLowerCase()).not.toContain(name.toLowerCase());
       }
     }
   });
