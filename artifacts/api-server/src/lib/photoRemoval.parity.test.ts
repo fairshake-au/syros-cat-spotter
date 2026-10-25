@@ -1,10 +1,12 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { db, photosTable, pool, sightingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { catsTable, db, photosTable, pool, sightingsTable } from "@workspace/db";
 import { standInFor } from "@workspace/db/photoRemoval";
 import { catDisplayPhotoIds } from "./photoVisibility";
 import { hidePhoto, seedCat } from "../test/roleKit";
 import { markRemoved } from "../test/removalKit";
 import { signedPerson } from "../test/roleKit";
+import { cleanUpVetPhotos, keepPhoto, stagePhoto } from "../test/vetPhotoKit";
 
 // SYC-462 spec §4.2, T14: the removal's repoint (lib/db standInFor, SQL)
 // picks exactly the photo the public already sees in place of a hidden main
@@ -12,6 +14,7 @@ import { signedPerson } from "../test/roleKit";
 // of one rule, pinned together.
 
 afterAll(async () => {
+  await cleanUpVetPhotos();
   delete process.env["TEAM_SESSION_KEYS"];
   await pool.end();
 });
@@ -69,6 +72,30 @@ describe("T14: the repoint and the public stand-in agree", () => {
     await cover(cat.id, day(7), { removedBy: staff.id });
     await hidePhoto(cat.photoId);
     expect(await bothAgree(cat)).toBe(next);
+  });
+
+  it("the newest two are a vet visit's team-only photos (kept, staged): the next one (SYC-677)", async () => {
+    const cat = await seedCat(null);
+    const next = await cover(cat.id, day(4));
+    await keepPhoto(await cover(cat.id, day(8)), cat.id);
+    await stagePhoto(await cover(cat.id, day(9)), cat.id);
+    await hidePhoto(cat.photoId);
+    expect(await bothAgree(cat)).toBe(next);
+  });
+
+  it("a photo in a SAVED batch is skipped, and a kept photo that is some cat's primary is not (R8)", async () => {
+    const cat = await seedCat(null);
+    const next = await cover(cat.id, day(4));
+    await stagePhoto(await cover(cat.id, day(8)), cat.id, { saved: true });
+    await hidePhoto(cat.photoId);
+    expect(await bothAgree(cat)).toBe(next);
+    const other = await seedCat(null);
+    const exempt = await cover(other.id, day(9));
+    await keepPhoto(exempt, other.id);
+    await db.update(catsTable).set({ primaryPhotoId: exempt }).where(eq(catsTable.id, other.id));
+    await cover(other.id, day(3));
+    await hidePhoto(other.photoId);
+    expect(await bothAgree({ id: other.id, photoId: other.photoId })).toBe(exempt);
   });
 
   it("a tie on created_at: the higher id", async () => {
