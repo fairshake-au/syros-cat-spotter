@@ -372,7 +372,7 @@ describe("T5-14: issue alerts never sit in front of a welfare alert", () => {
   });
 
   it("restore links are in the first group too, and the group is the never-shed list", () => {
-    expect(NEVER_SHED_PURPOSES).toEqual(["welfare_alert", "restore_link"]);
+    expect(NEVER_SHED_PURPOSES).toEqual(["welfare_alert", "matcher_alert", "restore_link"]);
   });
 });
 
