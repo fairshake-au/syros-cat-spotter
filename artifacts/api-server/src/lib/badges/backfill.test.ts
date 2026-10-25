@@ -329,6 +329,9 @@ describe("history backfill", () => {
     expect(res.status).toBe(200);
     expect(res.body.newBadges).toEqual(["five_cats"]);
     expect((await storedBadges(d)).get("first_sighting")).toBe("history");
+    const seenRow = await db.execute(sql`
+      select seen_at from spotter_badges where device_id = ${d} and badge_id = 'first_sighting'`);
+    expect(seenRow.rows[0]!.seen_at).not.toBeNull();
 
     expect(await run(prefix)).toBe("done");
 
