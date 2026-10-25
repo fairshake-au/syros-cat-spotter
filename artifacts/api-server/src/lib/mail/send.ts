@@ -215,6 +215,7 @@ export const PURPOSE_LABEL: Record<MailPurpose, Exclude<FingerprintLabel, "ip">>
   welfare_alert: "team",
   issue_alert: "team",
   urgent_alert: "team",
+  matcher_alert: "team",
   public_verify: "news",
   report_ack: "report",
   report_outcome: "report",
