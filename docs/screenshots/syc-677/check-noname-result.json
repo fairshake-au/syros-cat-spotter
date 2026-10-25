@@ -1,0 +1,25 @@
+{
+  "blocked": [],
+  "pages": {
+    "noname-grid-390": {
+      "scrollW": 390,
+      "innerW": 390,
+      "smallText": []
+    },
+    "noname-cat-390": {
+      "scrollW": 390,
+      "innerW": 390,
+      "smallText": []
+    },
+    "noname-grid-1280": {
+      "scrollW": 1280,
+      "innerW": 1280,
+      "smallText": []
+    },
+    "noname-cat-1280": {
+      "scrollW": 1280,
+      "innerW": 1280,
+      "smallText": []
+    }
+  }
+}

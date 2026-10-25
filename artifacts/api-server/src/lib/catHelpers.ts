@@ -26,6 +26,7 @@ import { pr3Recorded } from "./pr3Gate";
 import { LIKELY_STERILISED_PUBLIC_LIVE } from "./likelyGate";
 import { BLUR_CELL_METRES, blurPosition, publicDistanceKm } from "./blur";
 import { catDisplayPhotos, type PublicPhotoUrl } from "./photoVisibility";
+import { isTeamDesk, TEAM_DESK_NAME } from "./teamDesk";
 
 export function haversineKm(
   lat1: number,
@@ -118,6 +119,8 @@ export interface CatWithStats extends DerivedCatStatus {
   /** The owner tier only; null for everyone else (§5, D9). */
   homePin: { lat: number; lng: number } | null;
   discovererUsername: string | null;
+  /** SYC-677: Syros Cats left this cat for spotters to name; `name` is its SYR number. */
+  namePending: boolean;
 }
 
 /**
@@ -138,6 +141,8 @@ export const PUBLIC_VIEWER: Viewer = { tier: "public" };
 export interface CatSource {
   id: number;
   name: string;
+  /** SYC-677: left for spotters to name; the stored name is the SYR number. */
+  namePending: boolean;
   description: string;
   /** Only lib/photoVisibility.ts makes one: null when hidden (PR 6). */
   photoUrl: PublicPhotoUrl | null;
@@ -188,7 +193,9 @@ export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
   const position = exact ? { lat: cat.lat, lng: cat.lng } : blurPosition(cat.lat, cat.lng);
   const out: CatWithStats = {
     id: cat.id,
+    // While pending, the stored name is already the SYR number (SYC-677).
     name: cat.name,
+    namePending: cat.namePending,
     description: cat.description,
     photoUrl: cat.photoUrl,
     lat: position.lat,
@@ -197,9 +204,15 @@ export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
     locationCellM: exact ? null : BLUR_CELL_METRES,
     sightingsCount: cat.sightingsCount,
     lastSeenAt: toPublicDay(cat.lastSeenAt),
-    discovererSpotterCode: spotterCode(cat.discovererDeviceId),
-    discovererNickname: cat.discovererNickname,
-    discovererUsername: cat.discovererUsername,
+    // SYC-677 R22b: a cat Syros Cats recorded is credited to "Syros Cats",
+    // with no spotter code, whatever profile row its device id might have.
+    ...(isTeamDesk(cat.discovererDeviceId)
+      ? { discovererSpotterCode: null, discovererNickname: TEAM_DESK_NAME, discovererUsername: null }
+      : {
+          discovererSpotterCode: spotterCode(cat.discovererDeviceId),
+          discovererNickname: cat.discovererNickname,
+          discovererUsername: cat.discovererUsername,
+        }),
     // claiming-a-cat.md D9: where an owned cat lives, and who its owner is,
     // are for the owner (and the team, who never use this serialiser) only.
     ownerName: exact ? cat.ownerName : null,
@@ -564,6 +577,7 @@ export async function listCatsWithStats(
         {
           id: r.cat.id,
           name: r.cat.name,
+          namePending: r.cat.namePending,
           description: r.cat.description,
           photoUrl: photos.get(r.cat.id) ?? null,
           lat: r.cat.lat,
@@ -624,10 +638,13 @@ export async function getProfileStats(deviceId: string): Promise<ProfileStats> {
       ),
     );
 
-  const [disc] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(catsTable)
-    .where(eq(catsTable.discovererDeviceId, deviceId));
+  // SYC-677 R22b: the team desk discovers nothing in anyone's totals.
+  const [disc] = isTeamDesk(deviceId)
+    ? [{ n: 0 }]
+    : await db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(catsTable)
+        .where(eq(catsTable.discovererDeviceId, deviceId));
 
   return {
     points: profile?.points ?? 0,

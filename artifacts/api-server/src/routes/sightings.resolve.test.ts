@@ -228,6 +228,21 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
     expect(sighting!.catId).toBe(catId);
   });
 
+  it("SYC-677 D: refuses a SYR-shaped new cat name with SYR_SHAPED_NAME, and creates nothing", async () => {
+    const device = `${DEVICE}-syrname`;
+    const sightingId = await insertSighting(device);
+    for (const name of ["SYR-0042", "syr 42", "SYR–0042", "ΣΥΡ-0042"]) {
+      const res = await request(app)
+        .post(`/api/sightings/${sightingId}/resolve`)
+        .set("X-Device-Secret", RESOLVE_SECRET)
+        .send({ deviceId: device, newCatName: name });
+      expect(res.status, name).toBe(400);
+      expect(res.body.code, name).toBe("SYR_SHAPED_NAME");
+    }
+    const [sighting] = await db.select().from(sightingsTable).where(eq(sightingsTable.id, sightingId));
+    expect(sighting!.status).toBe("pending");
+  });
+
   it("awards 25 points and sets the discoverer when creating a new cat", async () => {
     const device = `${DEVICE}-newcat`;
     const sightingId = await insertSighting(device);

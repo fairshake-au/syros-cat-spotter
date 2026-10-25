@@ -43,7 +43,7 @@ The GitHub backup, when it fails, makes GitHub email Samuel about a failed run, 
 2. The Worker's secrets (`wrangler secret list` in `infra/mail-drain-cron` shows the name only).
 3. GitHub, `production` environment secret (the backup workflow).
 
-It opens one thing only: asking the app to send mail that was already queued.
+It opens three paths only: asking the app to send mail that was already queued (`POST /api/internal/mail/drain`), and `POST /api/internal/coat/sweep` (SYC-161) and `POST /api/internal/vet-batches/cleanup` (SYC-677, the daily `vet-batches-cleanup.yml` caller, off until `VET_BATCH_CLEANUP_ENABLED` is `true`).
 
 ## Checking it's running
 

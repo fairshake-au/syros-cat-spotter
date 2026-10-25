@@ -42,6 +42,13 @@ export interface Cat {
   discovererNickname?: string | null;
   discovererUsername?: string | null;
   /**
+     * True while Syros Cats has left this cat for spotters to name.
+     * `name` is then the cat's SYR number; the app shows "No name yet"
+     * with it, and offers "Name this cat" (POST /cats/{catId}/name).
+     * Always sent; optional so a copy cached by an older app still reads.
+     */
+  namePending?: boolean;
+  /**
      * Display name of the cat's owner. Only in the owner's own view; null for everyone else (claiming-a-cat.md D9).
      * @nullable
      */

@@ -211,6 +211,12 @@ describe('classifyResolveError', () => {
     ).toEqual({ kind: 'offensive' });
   });
 
+  it('SYR_SHAPED_NAME is its own case', () => {
+    expect(
+      classifyResolveError(apiError(400, { error: 'x', code: 'SYR_SHAPED_NAME' })),
+    ).toEqual({ kind: 'syr-shaped' });
+  });
+
   it('test 10: a request that never reached the server is "no signal"', () => {
     expect(classifyResolveError(new TypeError('Failed to fetch'))).toEqual({
       kind: 'offline',

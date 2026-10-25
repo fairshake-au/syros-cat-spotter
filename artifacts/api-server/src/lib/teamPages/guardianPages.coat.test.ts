@@ -16,6 +16,7 @@ function cat(over: Partial<GuardianCat> = {}): GuardianCat {
     id: 7,
     syr: "SYR-0007",
     name: "Pipitsa",
+    namePending: false,
     description: "",
     lat: 37.445,
     lng: 24.942,

@@ -1,0 +1,56 @@
+{
+  "pending-cat": {
+    "innerWidth": 390,
+    "scrollWidth": 390,
+    "horizontalScroll": false,
+    "textUnder12px": []
+  },
+  "catalogue": {
+    "innerWidth": 390,
+    "scrollWidth": 390,
+    "horizontalScroll": false,
+    "textUnder12px": [
+      {
+        "text": "Home",
+        "px": 10
+      },
+      {
+        "text": "Cat-alogue",
+        "px": 10
+      },
+      {
+        "text": "Spot",
+        "px": 10
+      },
+      {
+        "text": "Help & info",
+        "px": 10
+      },
+      {
+        "text": "Profile",
+        "px": 10
+      }
+    ]
+  },
+  "name-sheet": {
+    "innerWidth": 390,
+    "scrollWidth": 390,
+    "horizontalScroll": false,
+    "textUnder12px": []
+  },
+  "name-refused": {
+    "innerWidth": 390,
+    "scrollWidth": 390,
+    "horizontalScroll": false,
+    "textUnder12px": []
+  },
+  "named": {
+    "innerWidth": 390,
+    "scrollWidth": 390,
+    "horizontalScroll": false,
+    "textUnder12px": []
+  },
+  "blockedNonLocalhostHosts": [
+    "cdn.jsdelivr.net"
+  ]
+}

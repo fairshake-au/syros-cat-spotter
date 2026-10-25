@@ -145,3 +145,25 @@ describe('SYC-578: cat card says what its numbers and badges mean', () => {
     expect(window.getComputedStyle(getByText('Agatha')).textOverflow).toBe('ellipsis');
   });
 });
+
+describe('SYC-677 D: a cat nobody has named yet', () => {
+  const PENDING = { ...CAT, name: 'SYR-0042', namePending: true };
+
+  it('shows "No name yet" with its SYR number under it', () => {
+    const { container, getByTestId } = render(<CatCard cat={PENDING} />);
+    expect(container.textContent).toContain('noNameYet');
+    expect(getByTestId('cat-card-number').textContent).toBe('SYR-0042');
+  });
+
+  it('reads the number in the label too, so two such cards differ', () => {
+    const { container } = render(<CatCard cat={PENDING} spotted />);
+    expect(container.firstElementChild!.getAttribute('aria-label')).toContain(
+      'noNameYet \u00b7 SYR-0042. Spotted by you.',
+    );
+  });
+
+  it('a named cat has no number line', () => {
+    const { queryByTestId } = render(<CatCard cat={CAT} />);
+    expect(queryByTestId('cat-card-number')).toBeNull();
+  });
+});

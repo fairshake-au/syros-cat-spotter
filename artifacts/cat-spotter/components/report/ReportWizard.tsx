@@ -22,11 +22,16 @@ import {
   type ReportFlow,
 } from '@/lib/reportFlow';
 import { UrgentAdvice } from './UrgentAdvice';
+import { VetList } from './VetList';
+import { RichText } from './RichText';
 import { AttentionAdvice } from './AttentionAdvice';
 import { LitterAdvice } from './LitterAdvice';
+import { catNameInSentence } from '@/lib/catDisplayName';
 
 /**
  * "This cat needs help", as three screens (Samuel, 2 Oct 2026: no scrolling).
+ * SYC-570 (24 Oct 2026): an Urgent report also gets "Call a vet now", its own
+ * screen right after "How bad is it?", so the numbers come first.
  *
  *   1 of 3  Where's the cat?   photo (optional) and the map pin   [Next]
  *   2 of 3  How bad is it?     severity, kittens?, what you saw   [Next]
@@ -99,7 +104,7 @@ function AboutCatStrip({
       </View>
       <View style={styles.catText}>
         <Text style={[styles.catAbout, { color: colors.foreground }]} numberOfLines={1} testID="report-cat-about">
-          {t('reportAboutCat').replace('{name}', cat.name)}
+          {t('reportAboutCat').replace('{name}', catNameInSentence(cat))}
         </Text>
         <Pressable
           onPress={onDifferent}
@@ -139,8 +144,11 @@ export function ReportWizard({
   useEffect(() => {
     if (flow.step <= 2) setWithEmail(offerEmail);
   }, [offerEmail, flow.step]);
-  const screen = screenAt(flow.step, withEmail);
-  const total = reportScreens(withEmail).length;
+  const screen = screenAt(flow.step, withEmail, flow.severity);
+  const total = reportScreens(withEmail, flow.severity).length;
+  // The phone's own position, for "closest vet first". Never the pin: someone may
+  // be reporting a cat from the other side of the island.
+  const here = gps.coords;
   const scrollRef = useRef<ScrollView>(null);
   const update = (patch: Partial<ReportFlow>) => setFlow((f) => ({ ...f, ...patch }));
 
@@ -176,9 +184,11 @@ export function ReportWizard({
       ? t('reportWhereTitle')
       : screen === 'howBad'
         ? t('reportHowBadTitle')
-        : screen === 'email'
-          ? t('reportEmailScreenTitle')
-          : t('reportBeforeSendTitle');
+        : screen === 'callVet'
+          ? t('reportCallVetTitle')
+          : screen === 'email'
+            ? t('reportEmailScreenTitle')
+            : t('reportBeforeSendTitle');
   const choose = async (fromCamera: boolean) => {
     const photo = await onChoosePhoto(fromCamera);
     if (photo) update({ photo });
@@ -190,7 +200,7 @@ export function ReportWizard({
         <IconButton variant="ghost" label={t('back')} onPress={back}>
           <Feather name="arrow-left" size={20} color={colors.foreground} />
         </IconButton>
-        <Text role="heading" style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
+        <Text role="heading" style={[styles.title, { color: colors.foreground }]} numberOfLines={2}>
           {title}
         </Text>
         <Text style={[styles.stepOf, { color: colors.mutedForeground }]} testID="report-step">
@@ -332,6 +342,19 @@ export function ReportWizard({
             </>
           )}
 
+          {screen === 'callVet' && (
+            <>
+              <RichText text={guidance.copy.urgent.intro} style={[styles.lead, { color: colors.foreground }]} />
+              <RichText text={guidance.copy.urgent.cage} style={[styles.para, { color: colors.foreground }]} />
+              <VetList
+                guidance={guidance}
+                compact
+                from={here ? { latitude: here.latitude, longitude: here.longitude } : null}
+                heading={guidance.copy.urgent.vetListHeading}
+              />
+            </>
+          )}
+
           {screen === 'email' && (
             <View style={styles.noteBlock} testID="report-email-ask">
               <Text role="heading" style={[styles.choiceTitle, { color: colors.foreground }]}>{t('reportEmailTitle')}</Text>
@@ -403,10 +426,10 @@ export function ReportWizard({
                     {guidance.copy.litter.withUrgent}
                   </Text>
                 )}
-                <UrgentAdvice guidance={guidance} />
+                <UrgentAdvice guidance={guidance} from={here} />
               </>
             ) : (
-              <AttentionAdvice guidance={guidance} />
+              <AttentionAdvice guidance={guidance} from={here} />
             ))}
         </View>
       </ScrollView>
@@ -424,7 +447,7 @@ export function ReportWizard({
               disabled={!canAdvance(flow, withEmail)}
               onPress={() => setFlow((f) => flowNext(f, withEmail))}
             >
-              {t('reportNext')}
+              {screen === 'callVet' ? t('reportNextSend') : t('reportNext')}
             </Button>
           ) : (
             <Button
@@ -456,6 +479,8 @@ const styles = StyleSheet.create({
   },
   title: { fontFamily: fonts.displayBold, fontSize: 18, flex: 1 },
   stepOf: { fontFamily: fonts.bodySemiBold, fontSize: 13 },
+  lead: { fontFamily: fonts.bodySemiBold, fontSize: 15, lineHeight: 20 },
+  para: { fontFamily: fonts.body, fontSize: 14, lineHeight: 19 },
   kittenLine: { fontFamily: fonts.bodySemiBold, fontSize: 15, lineHeight: 22 },
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: spacing[4], paddingTop: spacing[2], paddingBottom: spacing[2] },

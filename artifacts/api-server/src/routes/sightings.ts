@@ -50,8 +50,11 @@ import {
   BLANK_NAME_BODY,
   catNamed,
   isBlankName,
+  isSyrShapedName,
+  SYR_SHAPED_NAME_BODY,
   isUniqueViolation,
   nameTakenBody,
+  OFFENSIVE_NAME_WORDS,
 } from "../lib/catNames";
 import { isNearby, publishedPosition } from "@workspace/geo";
 import {
@@ -334,6 +337,7 @@ async function computeMatchCandidates(
       return {
         catId: cat.id,
         name: cat.name,
+        namePending: cat.namePending,
         photoUrl: shownPhotos.get(cat.id) ?? null,
         confidence: m.confidence,
         reasoning: m.reasoning,
@@ -747,6 +751,7 @@ async function storedAnswer(stored: {
     candidates: present.map((m) => ({
       catId: m.catId,
       name: byId.get(m.catId)!.name,
+      namePending: byId.get(m.catId)!.namePending,
       photoUrl: photos.get(m.catId) ?? null,
       confidence: m.score,
       reasoning: "",
@@ -955,9 +960,14 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     }
     if (containsOffensiveLanguage(name)) {
       res.status(400).json({
-        error: "Cat name contains offensive language",
+        error: OFFENSIVE_NAME_WORDS,
         code: "OFFENSIVE_NAME",
       });
+      return;
+    }
+    // SYC-677 D: a SYR number is not a name (as when a spotter names a cat).
+    if (isSyrShapedName(name)) {
+      res.status(400).json(SYR_SHAPED_NAME_BODY);
       return;
     }
     const taken = await catNamed(name);
@@ -1134,6 +1144,8 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     await deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }])
   ).get(cat.id)!;
   // A cat whose discoverer deleted their data has nobody to look up (SYC-63).
+  // A cat Syros Cats recorded is credited "Syros Cats" by serialiseCat itself
+  // (SYC-677 R22b), whatever this lookup finds.
   const [discoverer] =
     cat.discovererDeviceId === null
       ? []
@@ -1150,6 +1162,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       {
         id: cat.id,
         name: cat.name,
+        namePending: cat.namePending,
         description: cat.description,
         photoUrl: await catDisplayPhoto(cat),
         lat: cat.lat,

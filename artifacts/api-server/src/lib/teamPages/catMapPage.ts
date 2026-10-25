@@ -2,6 +2,7 @@ import { SYROS_OUTLINE } from "@workspace/geo";
 import { filtersToQuery } from "../teamCatFilters";
 import type { CatListFilters, CatListItem, SterilisedMark } from "../teamCatList";
 import { assetUrl } from "../teamAssets";
+import { shownName } from "../teamCatView";
 import { AREAS } from "../mapTiles/areas";
 import { latToTileY, lngToTileX, MAX_ZOOM, MIN_ZOOM, type View } from "../mapTiles/geometry";
 import { activeChips, catsAddress, filterForm, viewRow } from "./catGridPage";
@@ -119,7 +120,7 @@ export function buttonMapMarkers(cats: CatListItem[], z: number, now: Date): Map
         lng: c.placedAt.lng,
         look: c.mark,
         href: `${PATH}/${c.id}`,
-        label: `${c.name}: ${MARK_WORD[c.mark]}. ${lastSeenWords(c.lastSeenAt, now)}, ${c.place}.`,
+        label: `${shownName(c)}: ${MARK_WORD[c.mark]}. ${lastSeenWords(c.lastSeenAt, now)}, ${c.place}.`,
       });
       continue;
     }

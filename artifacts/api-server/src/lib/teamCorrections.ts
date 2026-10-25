@@ -26,7 +26,7 @@ import {
   supersedeChains,
   type RestorableKind,
 } from "./resolve";
-import { catNamed, isBlankName, isUniqueViolation } from "./catNames";
+import { catNamed, isBlankName, isSyrShapedName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
 import { TEAM_ROLES } from "./teamRoles";
 
@@ -992,6 +992,7 @@ export type RenameOutcome =
   | { kind: "unchanged" }
   | { kind: "blank" }
   | { kind: "offensive" }
+  | { kind: "syr" }
   | { kind: "taken"; holder: { id: number; name: string } | null };
 
 /**
@@ -1012,6 +1013,8 @@ export async function renameCat(
   const name = input.name.trim().slice(0, NAME_MAX);
   if (isBlankName(name)) return { kind: "blank" };
   if (containsOffensiveLanguage(name)) return { kind: "offensive" };
+  // SYC-677 D: as when a spotter names a cat, a SYR number is not a name.
+  if (isSyrShapedName(name)) return { kind: "syr" };
 
   const [cat] = await db
     .select({ id: catsTable.id, name: catsTable.name })
@@ -1029,7 +1032,8 @@ export async function renameCat(
     .transaction(async (tx) => {
       const [row] = await tx
         .update(catsTable)
-        .set({ name })
+        // SYC-677 D: naming a cat Syros Cats left for spotters ends the wait.
+        .set({ name, namePending: false })
         .where(eq(catsTable.id, cat.id))
         .returning({ name: catsTable.name, normalisedName: catsTable.normalisedName });
       await writeObservation(tx, {

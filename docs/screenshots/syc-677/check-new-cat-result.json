@@ -1,0 +1,35 @@
+{
+  "blocked": [],
+  "pages": {
+    "new-cat-form-390": {
+      "scrollW": 390,
+      "innerW": 390,
+      "smallText": []
+    },
+    "new-cat-bad-name-390": {
+      "scrollW": 390,
+      "innerW": 390,
+      "smallText": []
+    },
+    "new-cat-ready-390": {
+      "scrollW": 390,
+      "innerW": 390,
+      "smallText": []
+    },
+    "new-cat-form-1280": {
+      "scrollW": 1280,
+      "innerW": 1280,
+      "smallText": []
+    },
+    "new-cat-bad-name-1280": {
+      "scrollW": 1280,
+      "innerW": 1280,
+      "smallText": []
+    },
+    "new-cat-ready-1280": {
+      "scrollW": 1280,
+      "innerW": 1280,
+      "smallText": []
+    }
+  }
+}

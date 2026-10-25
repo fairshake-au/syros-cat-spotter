@@ -326,7 +326,7 @@ describe("colonies and feeding sites", () => {
 // exactly as foldName does.
 describe("cats_normalised_name_unique (SYC-101)", () => {
   beforeEach(async () => {
-    await c.query(`truncate cats restart identity`);
+    await c.query(`truncate cats restart identity cascade`);
   });
   const addCat = (n: string) =>
     c.query(

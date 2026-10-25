@@ -62,6 +62,8 @@ const FILTERED_MODULES = [
   "lib/teamSiteWrites.ts",
   // The Colonies list's figures and flags (SYC-396 PR 2.2).
   "lib/dashboard/colonyFigures.ts",
+  // A colony's trapping planner (SYC-396 PR 2.3; SYC-621).
+  "lib/dashboard/trappingPlan.ts",
 ];
 
 /**
@@ -117,6 +119,11 @@ const ISLAND_ONLY_MODULES: Record<string, { why: string; fns: string[]; capabili
     why: "the only writer of named_areas and its history rows (SYC-396 PR 2.4); the team's list, island-wide by design",
     fns: ["changeArea"],
     capabilities: ["edit_named_areas"],
+  },
+  "lib/vetBatches.ts": {
+    why: "vet visit batches (SYC-677): a day's draft round of cats at the vet, the team's, island-wide by design; removeStaleBatches is the server's own daily clean-up (routes/internalVetBatches.ts, the mail-drain token), not a team call",
+    fns: ["createBatch", "getBatch", "updateShared", "addCat", "updateCat", "removeCat", "abandonBatch"],
+    capabilities: ["log_vet_visit"],
   },
   "lib/vetSettings.ts": {
     why: "the standard sterilisation price and its own history rows (SYC-396 PR 3.1b): a price and who changed it, never a site or a colony",

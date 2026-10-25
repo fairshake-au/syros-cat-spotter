@@ -83,6 +83,7 @@ import {
   spacing,
   lineHeights,
 } from "@/constants/theme";
+import { catDisplayName, catNameInSentence } from '@/lib/catDisplayName';
 
 function catCode(id: number): string {
   return `SYR-${String(id).padStart(4, "0")}`;
@@ -199,7 +200,7 @@ export default function ReviewScreen() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ResolveResult | null>(null);
   const [showNewCat, setShowNewCat] = useState(false);
-  const [nameError, setNameError] = useState<"taken" | "offensive" | null>(
+  const [nameError, setNameError] = useState<"taken" | "offensive" | "syr" | null>(
     null,
   );
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -441,6 +442,7 @@ export default function ReviewScreen() {
           setNameError("taken");
         }
       } else if (failure.kind === "offensive") setNameError("offensive");
+      else if (failure.kind === "syr-shaped") setNameError("syr");
       else if (failure.kind === "offline") setSendMessage(noSignal);
       setBusy(false);
     }
@@ -540,7 +542,7 @@ export default function ReviewScreen() {
           {result.isNewCat ? t("newCatRegistered") : t("matchConfirmed")}
         </Text>
         <Text style={[styles.successCat, { color: colors.primary }]}>
-          {result.cat.name}
+          {catDisplayName(result.cat, t)}
         </Text>
         <Text
           style={[
@@ -578,7 +580,7 @@ export default function ReviewScreen() {
             {t("questionsHeading")}
           </Text>
           <SightingQuestions
-            catName={result.cat.name}
+            catName={catNameInSentence(result.cat)}
             askEarTip={result.askEarTip}
             answers={answers}
             onChange={(patch) => setAnswers((prev) => ({ ...prev, ...patch }))}
@@ -602,7 +604,7 @@ export default function ReviewScreen() {
             ? "…"
             : answersFailed
               ? t("answersSend")
-              : `${result.cat.name} →`}
+              : `${catNameInSentence(result.cat)} →`}
         </Button>
         {answersFailed ? (
           <Button variant="ghost" size="md" onPress={openCat}>
@@ -671,7 +673,7 @@ export default function ReviewScreen() {
     );
   }
   if (hintCat && !hintAnswered) {
-    const named = (key: string) => t(key).split("{name}").join(hintCat.name);
+    const named = (key: string) => t(key).split("{name}").join(catNameInSentence(hintCat));
     const sayYes = async () => {
       if (!deviceId) return;
       setHintBusy(true);
@@ -1064,7 +1066,13 @@ export default function ReviewScreen() {
             maxLength={40}
             error={
               nameError
-                ? t(nameError === "offensive" ? "catNameRejected" : "nameTaken")
+                ? t(
+                    nameError === "offensive"
+                      ? "catNameRejected"
+                      : nameError === "syr"
+                        ? "syrShapedName"
+                        : "nameTaken",
+                  )
                 : undefined
             }
           />
@@ -1252,7 +1260,7 @@ export default function ReviewScreen() {
                       ]}
                       numberOfLines={1}
                     >
-                      {c.name}
+                      {catDisplayName(c, t)}
                     </Text>
                     {/* The catalog code is deliberately absent here: when you're
                         picking between look-alikes the name and the match score
@@ -1284,7 +1292,7 @@ export default function ReviewScreen() {
                 onPress={() => confirm(c.catId)}
                 // SYC-509: every card's button reads "That's the one", so the
                 // label says which cat and how close the match is.
-                accessibilityLabel={`${t("thatsTheOne")}: ${c.name}, ${pct}% ${t("matchPill")}`}
+                accessibilityLabel={`${t("thatsTheOne")}: ${catDisplayName(c, t)}, ${pct}% ${t("matchPill")}`}
               >
                 {busy ? (
                   <ActivityIndicator

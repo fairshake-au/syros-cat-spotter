@@ -14,7 +14,7 @@ import {
   type CatListItem,
   type Lives,
 } from "../teamCatList";
-import { QUERY_MAX, teamPhotoUrl } from "../teamCatView";
+import { QUERY_MAX, shownName, teamPhotoUrl } from "../teamCatView";
 import { assetUrl } from "../teamAssets";
 import type { TieMode } from "./catPages";
 import { escapeHtml as esc } from "./escape";
@@ -270,7 +270,7 @@ function coatPhrase(c: CatListItem): string | null {
 
 function card(c: CatListItem, o: CatGridOptions): string {
   const coat = coatPhrase(c);
-  const alt = `Photo of ${c.name}${coat !== null ? `, ${coat}` : ""}`;
+  const alt = `Photo of ${shownName(c)}${coat !== null ? `, ${coat}` : ""}`;
   const photo = c.photoPublicId
     ? `<img class="cardimg" src="${esc(`${teamPhotoUrl(c.photoPublicId)}/small`)}" srcset="${esc(`${teamPhotoUrl(c.photoPublicId)}/small 160w, ${teamPhotoUrl(c.photoPublicId)}/card 360w`)}" sizes="(min-width:1000px) 200px, 45vw" alt="${esc(alt)}" loading="lazy" width="180" height="180">`
     : '<span class="cardimg nothumb">No photo</span>';
@@ -287,7 +287,7 @@ function card(c: CatListItem, o: CatGridOptions): string {
   return (
     '<li class="catcard">' +
     `<a class="catcardlink" href="${PATH}/${c.id}">${photo}` +
-    `<span class="cardname"><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
+    `<span class="cardname"><strong>${esc(shownName(c))}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
     (coat !== null ? `<span class="cardfact">${esc(coat)}</span>` : "") +
     (colonyLine !== "" ? `<span class="cardfact">${esc(colonyLine)}</span>` : "") +
     `<span class="cardfact">${markBadge(c.mark)}</span>` +

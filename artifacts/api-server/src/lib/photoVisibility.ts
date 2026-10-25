@@ -8,6 +8,7 @@ import {
   type PhotoVisibilityEvent,
 } from "@workspace/db";
 import { can } from "./capabilities";
+import { teamOnlyPhotoIds } from "./teamOnlyPhotos";
 
 // Hiding a photo from the public (SYC-43 part 2 plan, PR 6; Decision 3 and 4).
 //
@@ -52,7 +53,10 @@ async function newestEvents(
  * Which of these photos are hidden from the public: their newest event is a
  * hide, or they were removed for good (SYC-462 spec §4.5: removed implies
  * hidden, so every route that asks this treats a removed photo as hidden,
- * whatever its log says). Two batched queries.
+ * whatever its log says), or they are a vet visit's team-only photos
+ * (SYC-677, teamOnlyPhotos.ts: team-only implies hidden the same way, so
+ * every public reader, the stand-in rule and the guardian's refusal on the
+ * team photo route cover them). Three batched queries.
  */
 export async function hiddenPhotoIds(
   ids: readonly number[],
@@ -67,6 +71,7 @@ export async function hiddenPhotoIds(
       .from(photosTable)
       .where(and(inArray(photosTable.id, unique), isNotNull(photosTable.removedAt)));
     for (const r of removed) out.add(r.id);
+    for (const id of await teamOnlyPhotoIds(unique, q)) out.add(id);
   }
   return out;
 }
@@ -295,7 +300,9 @@ export type VisibilityOutcome =
   | { kind: "not_found" }
   | { kind: "not_authorised" }
   /** SYC-462: removed for good. It stays hidden and can't be restored. */
-  | { kind: "removed"; removedAt: Date };
+  | { kind: "removed"; removedAt: Date }
+  /** SYC-677: a vet visit's photo is only ever the team's; it is neither hidden nor restored. */
+  | { kind: "team_only" };
 
 const CAPABILITY = { hide: "hide_photo", restore: "restore_photo" } as const;
 
@@ -328,6 +335,7 @@ export async function setPhotoVisibility(
     if (removedAt !== null && input.action === "restore") {
       return { kind: "removed", removedAt: new Date(removedAt) } as const;
     }
+    if ((await teamOnlyPhotoIds([photoId], tx)).has(photoId)) return { kind: "team_only" } as const;
     const newest = (await newestEvents([photoId], tx)).get(photoId);
     const hiddenNow = newest?.action === "hide";
     if ((input.action === "hide") === hiddenNow) return { kind: "already" } as const;

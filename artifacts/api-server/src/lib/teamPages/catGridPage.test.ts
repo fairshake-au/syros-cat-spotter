@@ -11,6 +11,7 @@ const NOW = new Date("2026-10-15T12:00:00Z");
 const item = (over: Partial<CatListItem> = {}): CatListItem => ({
   id: 7,
   name: "Mimi <b>",
+  namePending: false,
   syr: "SYR-0007",
   photoPublicId: "ph7",
   coat: ["ginger", "white"],

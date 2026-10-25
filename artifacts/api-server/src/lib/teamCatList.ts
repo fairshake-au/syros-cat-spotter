@@ -77,6 +77,8 @@ export interface CatListFilters {
 export interface CatListItem {
   id: number;
   name: string;
+  /** SYC-677 D: Syros Cats left it for spotters to name; `name` is then its SYR number. */
+  namePending: boolean;
   syr: string;
   photoPublicId: string | null;
   coat: CoatColour[];
@@ -202,6 +204,7 @@ export async function loadTeamCats(now?: Date, opts: { asOf?: Date } = {}): Prom
       .select({
         id: catsTable.id,
         name: catsTable.name,
+        namePending: catsTable.namePending,
         lat: catsTable.lat,
         lng: catsTable.lng,
         createdAt: catsTable.createdAt,
@@ -251,6 +254,7 @@ export async function loadTeamCats(now?: Date, opts: { asOf?: Date } = {}): Prom
     return {
       id: c.id,
       name: c.name,
+      namePending: c.namePending,
       syr: syrNumber(c.id),
       photoPublicId: c.photoPublicId,
       // The resolved colours (SYC-398: the coat's colours part).

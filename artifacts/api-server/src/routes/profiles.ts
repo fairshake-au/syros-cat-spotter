@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, profilesTable, catsTable } from "@workspace/db";
 import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { profilePayload, spotterCode } from "../lib/catHelpers";
+import { TEAM_DESK_DEVICE } from "../lib/teamDesk";
 import { normalizeUsername, suggestUsernames } from "../lib/usernames";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import {
@@ -215,6 +216,8 @@ router.get("/leaderboard", async (_req, res) => {
       )`,
     })
     .from(profilesTable)
+    // SYC-677 R22b: the team desk is nobody's phone and never on the board.
+    .where(ne(profilesTable.deviceId, TEAM_DESK_DEVICE))
     .orderBy(desc(profilesTable.points))
     .limit(20);
 
