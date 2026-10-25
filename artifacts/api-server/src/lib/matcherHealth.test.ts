@@ -169,6 +169,21 @@ describe("the alert", () => {
     expect(after).toMatchObject({ state: "failed", lastError: "stale" });
   });
 
+  it("closes with a few stray failures left, once the alert is a window old", async () => {
+    await db.insert(mailOutboxTable).values({ purpose: "matcher_alert", recipientHash: "x", payload: { kind: "down" }, state: "sent", createdAt: min(20) });
+    await failures(OUTAGE_FAILURES - 1);
+    expect(await reviewMatcherHealth(NOW)).toBe("up");
+  });
+
+  it("a 'failing' email that was given up on isn't an open alert, and is retried at most hourly", async () => {
+    await db.insert(mailOutboxTable).values({ purpose: "matcher_alert", recipientHash: "x", payload: { kind: "down" }, state: "failed", createdAt: min(20) });
+    await failures(OUTAGE_FAILURES);
+    // Closed (nothing was sent), no "working again" for it, and no new one within the hour of the last.
+    expect(await reviewMatcherHealth(NOW)).toBe("none");
+    await db.update(mailOutboxTable).set({ createdAt: min(90) }).where(eq(mailOutboxTable.purpose, "matcher_alert"));
+    expect(await reviewMatcherHealth(NOW)).toBe("down");
+  });
+
   it("with no recipient set it queues nothing (the banner still shows)", async () => {
     delete process.env["MATCHER_ALERT_TO"];
     await failures(OUTAGE_FAILURES);

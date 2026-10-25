@@ -68,29 +68,33 @@ export const matcherAlertTo = () => (process.env["MATCHER_ALERT_TO"] ?? "").trim
  */
 export async function reviewMatcherHealth(now: Date = new Date()): Promise<"down" | "up" | "none"> {
   try {
-    // The usual answer is "nothing to do", and it needs no lock and no
-    // transaction: below the threshold nothing can go down, and only an open
-    // alert with a quiet window can come back up.
-    const latestRow = () =>
-      db
+    // "Open" is the newest alert email that wasn't given up on: a "failing"
+    // email that failed to send (bad address, an outage past an hour) told
+    // nobody, so it must not hide the next one, nor lead to a "working again"
+    // for something the team never heard about (review of #347).
+    const newestKept = (q: Pick<typeof db, "select">) =>
+      q
         .select({ payload: mailOutboxTable.payload, createdAt: mailOutboxTable.createdAt })
         .from(mailOutboxTable)
-        .where(eq(mailOutboxTable.purpose, "matcher_alert"))
+        .where(and(eq(mailOutboxTable.purpose, "matcher_alert"), sql`${mailOutboxTable.state} <> 'failed'`))
         .orderBy(desc(mailOutboxTable.id))
         .limit(1);
     const isOpen = (r?: { payload: unknown }) => (r?.payload as { kind?: string } | undefined)?.kind === "down";
+    const windowMs = OUTAGE_WINDOW_MINUTES * 60_000;
+    const mayClose = (r?: { createdAt: Date }) => !!r && now.getTime() - r.createdAt.getTime() >= windowMs;
+
+    // The usual answer is "nothing to do", and it needs no lock and no
+    // transaction: only a count at the threshold can open an alert, and only
+    // an open alert, a window old and under the threshold, can close.
     const failed0 = await recentFailures(now);
-    if (failed0 > 0 && failed0 < OUTAGE_FAILURES) return "none";
-    if (!isOpen((await latestRow())[0]) && failed0 < OUTAGE_FAILURES) return "none";
+    if (failed0 < OUTAGE_FAILURES) {
+      const [peek] = await newestKept(db);
+      if (!isOpen(peek) || !mayClose(peek)) return "none";
+    }
 
     const queued = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(${ALERT_LOCK})`);
-      const [latest] = await tx
-        .select({ payload: mailOutboxTable.payload, createdAt: mailOutboxTable.createdAt })
-        .from(mailOutboxTable)
-        .where(eq(mailOutboxTable.purpose, "matcher_alert"))
-        .orderBy(desc(mailOutboxTable.id))
-        .limit(1);
+      const [latest] = await newestKept(tx);
       const open = isOpen(latest);
       const failed = await recentFailures(now, tx);
       const to = matcherAlertTo();
@@ -100,6 +104,14 @@ export async function reviewMatcherHealth(now: Date = new Date()): Promise<"down
           logger.warn({ failed }, "look-alike check is failing but MATCHER_ALERT_TO is not set; no email");
           return null;
         }
+        // At most one "failing" email an hour, whatever happened to the last.
+        const recent = await tx.execute(sql`
+          select 1 from mail_outbox
+           where purpose = 'matcher_alert' and payload->>'kind' = 'down'
+             and created_at > ${new Date(now.getTime() - 3_600_000)}
+           limit 1
+        `);
+        if (recent.rows.length > 0) return null;
         const [row] = await tx
           .insert(mailOutboxTable)
           .values({
@@ -110,10 +122,10 @@ export async function reviewMatcherHealth(now: Date = new Date()): Promise<"down
           .returning({ id: mailOutboxTable.id });
         return { kind: "down" as const, id: row!.id };
       }
-      // "Working again" needs the alert to be at least a window old, so a run
-      // of successful "Check again"s (each replaces a failed row) can't close
-      // it within seconds of opening.
-      if (open && failed === 0 && latest && now.getTime() - latest.createdAt.getTime() >= OUTAGE_WINDOW_MINUTES * 60_000) {
+      // "Working again": the alert is a window old (a run of successful
+      // "Check again"s each replace a failed row, so the count alone could
+      // close it within seconds) and failures are back under the threshold.
+      if (open && failed < OUTAGE_FAILURES && mayClose(latest)) {
         const [row] = await tx
           .insert(mailOutboxTable)
           .values({ purpose: "matcher_alert", recipientHash, payload: { kind: "up" } })
