@@ -110,8 +110,23 @@ jobs:
       - name: Test lib/geo (the shared "nearby" rule)
         run: pnpm --filter @workspace/geo test
 
+      - name: Test lib/map-style (the shared map style, SYC-705)
+        run: pnpm --filter @workspace/map-style test
+
       - name: Test cat-spotter (mobile app)
         run: pnpm --filter @workspace/cat-spotter test
+
+      - name: Set up Python (map-data scripts, SYC-705)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/map-data/requirements.txt
+
+      - name: Test the map-data scripts (SYC-705)
+        run: |
+          python -m pip install -r scripts/map-data/requirements.txt
+          python -m pytest -q scripts/map-data
 
       - name: Test the mail-drain Worker (SYC-231)
         run: node --test 'infra/mail-drain-cron/test/*.test.mjs'

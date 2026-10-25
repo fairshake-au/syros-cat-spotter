@@ -224,6 +224,8 @@ It refuses, without writing anything, when:
 - the target carries `switchover.cutover_done` (it's a cut-over Neon branch, not the old database), or the source has no switchover marker, or source and target are the same database;
 - `carry-back-apply` is run without `confirm=APPLY`.
 
+Weekly-result bell entries (`notifications` rows whose `kind` is not `cat`) stay on Neon: the old database can't hold them, so they are not carried back and neither side counts them in the comparison.
+
 Re-running it is safe. A failed apply changes nothing, and a second apply after a successful one finds nothing to do. If testers write on Neon again after an apply (say, before the domain move finished), a second pass carries those back too. After each successful apply, carry-back records what it left in the old database, in a small `switchover.carry_back_done` table outside the app's own tables. It creates this only when applying, never in a dry run. Anyone else's writes to the old database are still refused.
 
 Where a cat name or username moves between rows (a rename and a new cat taking the old name, or two usernames swapped), carry-back briefly sets the unique indexes aside and rebuilds them exactly, all inside the same transaction. It doesn't do this for unique *constraints*. The baseline has none, and the old database's schema is never changed (R0).

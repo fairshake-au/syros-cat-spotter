@@ -632,8 +632,10 @@ export const ResolveSightingResponse = zod.object({
   "markings": zod.array(zod.enum(['white_paws', 'white_chest', 'white_face', 'colourpoint', 'long_fur', 'kinked_tail', 'torn_ear', 'short_tail', 'missing_eye', 'three_legs', 'odd_eyes'])).optional().describe('The cat\'s resolved markings (coat-markings-and-health.md §3.2,\n§10.4), `[]` when none are known. Only the list: never how sure,\nwho said it or how many people. Optional, as `coat`.\n')
 }),
   "pointsAwarded": zod.number(),
+  "pointsReason": zod.union([zod.literal('repeat_today'),zod.literal(null)]).nullable().describe('Why pointsAwarded is 0: \"repeat_today\" when this spotter already earned points for this cat today (Athens day). Null otherwise.'),
   "isNewCat": zod.boolean(),
-  "newBadges": zod.array(zod.string()),
+  "newBadges": zod.array(zod.string()).describe('Badges this spot earned, each reported by exactly one spot.'),
+  "momentId": zod.number().nullable().describe('The celebration moment queued for newBadges, or null when this spot earned no badge.'),
   "profile": zod.object({
   "deviceId": zod.string(),
   "spotterCode": zod.string(),
@@ -643,7 +645,16 @@ export const ResolveSightingResponse = zod.object({
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
-  "badges": zod.array(zod.string()),
+  "badges": zod.array(zod.string()).describe('Every badge this spotter has earned. Badges are never taken away.'),
+  "badgeProgress": zod.array(zod.object({
+  "id": zod.string(),
+  "group": zod.enum(['first_steps', 'coming_back', 'weekly', 'finding', 'covering']),
+  "earned": zod.boolean(),
+  "value": zod.number().nullable().describe('Progress towards the goal; null for badges earned at a moment (Pathfinder, Trailblazer).'),
+  "goal": zod.number().nullable()
+})).describe('Every badge in the catalogue, in display order, with progress.'),
+  "newBadgeIds": zod.array(zod.string()).describe('Earned badges not yet seen on the Badges tab (\"New\").'),
+  "weekPoints": zod.number().describe('Points earned this week (Monday to Monday, Europe\/Athens).'),
   "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.'),
   "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
   "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
@@ -739,7 +750,16 @@ export const GetProfileResponse = zod.object({
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
-  "badges": zod.array(zod.string()),
+  "badges": zod.array(zod.string()).describe('Every badge this spotter has earned. Badges are never taken away.'),
+  "badgeProgress": zod.array(zod.object({
+  "id": zod.string(),
+  "group": zod.enum(['first_steps', 'coming_back', 'weekly', 'finding', 'covering']),
+  "earned": zod.boolean(),
+  "value": zod.number().nullable().describe('Progress towards the goal; null for badges earned at a moment (Pathfinder, Trailblazer).'),
+  "goal": zod.number().nullable()
+})).describe('Every badge in the catalogue, in display order, with progress.'),
+  "newBadgeIds": zod.array(zod.string()).describe('Earned badges not yet seen on the Badges tab (\"New\").'),
+  "weekPoints": zod.number().describe('Points earned this week (Monday to Monday, Europe\/Athens).'),
   "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.'),
   "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
   "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
@@ -771,7 +791,16 @@ export const UpdateProfileResponse = zod.object({
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
-  "badges": zod.array(zod.string()),
+  "badges": zod.array(zod.string()).describe('Every badge this spotter has earned. Badges are never taken away.'),
+  "badgeProgress": zod.array(zod.object({
+  "id": zod.string(),
+  "group": zod.enum(['first_steps', 'coming_back', 'weekly', 'finding', 'covering']),
+  "earned": zod.boolean(),
+  "value": zod.number().nullable().describe('Progress towards the goal; null for badges earned at a moment (Pathfinder, Trailblazer).'),
+  "goal": zod.number().nullable()
+})).describe('Every badge in the catalogue, in display order, with progress.'),
+  "newBadgeIds": zod.array(zod.string()).describe('Earned badges not yet seen on the Badges tab (\"New\").'),
+  "weekPoints": zod.number().describe('Points earned this week (Monday to Monday, Europe\/Athens).'),
   "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.'),
   "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
   "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
@@ -842,6 +871,58 @@ export const ClaimUsernameResponse = zod.object({
 
 
 /**
+ * @summary Celebrations waiting to be played, oldest first, at most 10
+ */
+export const ListBadgeMomentsParams = zod.object({
+  "deviceId": zod.coerce.string()
+})
+
+export const ListBadgeMomentsHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
+export const ListBadgeMomentsResponse = zod.object({
+  "moments": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['badges', 'week_result', 'history']),
+  "badgeIds": zod.array(zod.string()),
+  "weekStart": zod.coerce.date().nullable(),
+  "place": zod.number().nullable(),
+  "weekPoints": zod.number().nullable()
+}))
+})
+
+
+/**
+ * @summary Mark one of this device's celebration moments as played
+ */
+export const MarkMomentCelebratedParams = zod.object({
+  "deviceId": zod.coerce.string(),
+  "id": zod.coerce.number()
+})
+
+export const MarkMomentCelebratedHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
+export const MarkMomentCelebratedResponse = zod.void()
+
+
+/**
+ * @summary Clear the "New" marker on every badge this device has
+ */
+export const MarkBadgesSeenParams = zod.object({
+  "deviceId": zod.coerce.string()
+})
+
+export const MarkBadgesSeenHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
+export const MarkBadgesSeenResponse = zod.void()
+
+
+/**
  * @summary List notifications for a device, newest first
  */
 export const ListNotificationsParams = zod.object({
@@ -854,15 +935,17 @@ export const ListNotificationsHeader = zod.object({
 
 export const ListNotificationsResponseItem = zod.object({
   "id": zod.number(),
-  "catId": zod.number(),
-  "catUpdateId": zod.number(),
-  "catName": zod.string(),
+  "catId": zod.number().nullable(),
+  "catUpdateId": zod.number().nullable(),
+  "catName": zod.string().nullable(),
   "catPhotoUrl": zod.string().nullable(),
   "updateType": zod.enum(['sighting', 'desexed', 'adopted', 'general']),
   "message": zod.string(),
+  "place": zod.number().nullish().describe('A weekly result\'s place (1 to 3) so the app can word it in the spotter\'s language; null for cat news and for results written before this field existed.'),
+  "weekPoints": zod.number().nullish().describe('A weekly result\'s points that week; null as for place.'),
   "read": zod.boolean(),
   "createdAt": zod.string()
-})
+}).describe('A bell entry. News about a cat has catId, catUpdateId and catName. A weekly result (a place in last week\'s top three) has no cat: those three and catPhotoUrl are null, updateType is general, and message never names an area or a place.')
 export const ListNotificationsResponse = zod.array(ListNotificationsResponseItem)
 
 
@@ -911,7 +994,8 @@ export const RegisterPushTokenHeader = zod.object({
 })
 
 export const RegisterPushTokenBody = zod.object({
-  "token": zod.string()
+  "token": zod.string(),
+  "language": zod.enum(['en', 'el', 'fr']).optional().describe('The app language, so pushes arrive in it. Old app builds send none and are sent English.')
 })
 
 export const RegisterPushTokenResponse = zod.object({
@@ -943,6 +1027,28 @@ export const GetLeaderboardResponseItem = zod.object({
   "rank": zod.number()
 })
 export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)
+
+
+/**
+ * @summary This Athens week's board and last week's frozen result
+ */
+export const GetLeaderboardWeekResponse = zod.object({
+  "weekStart": zod.string().describe('The Athens Monday this week began, as YYYY-MM-DD'),
+  "endsAt": zod.coerce.date().describe('When this week closes (next Monday 00:00 Athens)'),
+  "entries": zod.array(zod.object({
+  "spotterCode": zod.string().describe('Opaque public spotter identifier (never the raw device id)'),
+  "username": zod.string().nullish(),
+  "nickname": zod.string().nullish(),
+  "points": zod.number(),
+  "uniqueCatsDiscovered": zod.number(),
+  "rank": zod.number()
+})),
+  "lastWeek": zod.array(zod.object({
+  "place": zod.number(),
+  "name": zod.string().nullable().describe('The frozen display name, or null for \"a spotter\"'),
+  "points": zod.number()
+})).describe('Last week\'s frozen result; empty until that week has closed')
+})
 
 
 /**

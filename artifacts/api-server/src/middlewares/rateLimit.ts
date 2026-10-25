@@ -95,6 +95,58 @@ export const deleteMeLimiter = sharedLimiter({
   limit: 10,
 });
 
+// SYC-706 badge routes: GET /profiles/:deviceId/moments, POST .../moments/:id/celebrated
+// and POST .../badges/seen. The app asks for moments on open and on resume
+// and marks each moment once, so a heavy day is perhaps a few dozen calls from
+// one phone.
+//
+// Two limits, as on POST /sightings (aiLimiter, then the per-device one):
+// - A loose per-IP guard in front. The device id in the path is unverified
+//   until the secret check, so the guard is what stops an address spraying
+//   made-up ids at the database. It must stay loose: many phones share one
+//   address on Greek mobile networks and hotel wifi, and a tight IP cap would
+//   starve their celebrations.
+// - The real limit, per device (120 per 15 minutes), counted only AFTER
+//   requireDeviceAuth has verified the secret, so a phone is limited by its
+//   own use and never by its neighbours', and a caller cannot pick a fresh
+//   bucket by inventing ids. See requireBadgeDevice in routes/profiles.ts.
+export const badgeMomentsIpGuard = sharedLimiter({
+  bucket: "badge_moments_ip",
+  message: common.message,
+  windowMs: 15 * 60 * 1000,
+  limit: 1000,
+});
+
+export const BADGE_MOMENTS_DEVICE_LIMIT = 120;
+export const BADGE_MOMENTS_DEVICE_WINDOW_MS = 15 * 60 * 1000;
+const BADGE_MOMENTS_DEVICE_BUCKET = "badge_moments_device";
+declareLimit(BADGE_MOMENTS_DEVICE_BUCKET, BADGE_MOMENTS_DEVICE_LIMIT, BADGE_MOMENTS_DEVICE_WINDOW_MS);
+
+/**
+ * True if the verified `deviceId` may make another badge-route call now, and
+ * records it. The 121st call in a window returns false. Throws if the counter
+ * fails; the route fails closed (503).
+ */
+export async function checkBadgeMomentsDeviceLimit(
+  deviceId: string,
+  now: number = Date.now(),
+): Promise<{ allowed: boolean; resetAt: number }> {
+  const r = await consume(
+    BADGE_MOMENTS_DEVICE_BUCKET,
+    deviceId,
+    BADGE_MOMENTS_DEVICE_LIMIT,
+    BADGE_MOMENTS_DEVICE_WINDOW_MS,
+    undefined,
+    now,
+  );
+  return { allowed: r.allowed, resetAt: r.resetAt };
+}
+
+/** Test-only: clears every device's badge-route count. */
+export async function _resetBadgeMomentsDeviceLimitForTests(): Promise<void> {
+  await _resetBucketForTests(BADGE_MOMENTS_DEVICE_BUCKET);
+}
+
 // Data spine PR 5 (DECISIONS.md Part 2h; docs/superpowers/plans/data-spine.md
 // §PR 5): POST /sightings' candidate matching needs BOTH limiters, for two
 // different reasons, restored after an adversarial review of PR #64 found

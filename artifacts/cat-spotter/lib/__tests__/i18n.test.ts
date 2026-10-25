@@ -34,14 +34,19 @@ describe('i18n dictionaries', () => {
     }
   });
 
-  it('every badge has a label and description in every language', () => {
+  it('every badge has a name, description and meaning in every language', () => {
     for (const code of LANG_CODES) {
       const dict = TRANSLATIONS[code];
       for (const badge of BADGE_IDS) {
         expect(dict[`badge_${badge}`], `badge_${badge} in ${code}`).toBeTruthy();
         expect(dict[`badge_${badge}_desc`], `badge_${badge}_desc in ${code}`).toBeTruthy();
+        expect(dict[`badge_${badge}_means`], `badge_${badge}_means in ${code}`).toBeTruthy();
       }
     }
+  });
+
+  it('has exactly the 22 badges', () => {
+    expect(BADGE_IDS).toHaveLength(22);
   });
 
   it('no translation value is empty', () => {
