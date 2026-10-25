@@ -125,6 +125,18 @@ describe('BadgeCelebration', () => {
     expect(screen.getByTestId('celebration-week-line').textContent).toBe('You came 2nd last week with 140 points');
   });
 
+  it('week moment eyebrow says top three last week, not New badge', () => {
+    render(
+      <BadgeCelebration
+        moment={{ kind: 'week_result', badgeIds: ['podium'], place: 2, weekPoints: 140 }}
+        views={views}
+        onDone={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Top three last week')).toBeTruthy();
+    expect(screen.queryByText('New badge')).toBeNull();
+  });
+
   it('see all my badges opens the Badges tab and closes', () => {
     const onDone = vi.fn();
     render(<BadgeCelebration moment={{ kind: 'badges', badgeIds: ['areas_3'] }} views={views} onDone={onDone} />);

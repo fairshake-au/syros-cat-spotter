@@ -212,7 +212,9 @@ export function BadgeCelebration({
                   {weekLine}
                 </Text>
               )}
-              <Text style={styles.eyebrow}>{t('celebrateEyebrow')}</Text>
+              <Text style={styles.eyebrow}>
+                {t(moment.kind === 'week_result' ? 'celebrateWeekEyebrow' : 'celebrateEyebrow')}
+              </Text>
               <Medal key={id} id={id} size={116} animate={!quiet && !reduced} />
               <Text style={styles.name}>{t(`badge_${id}`)}</Text>
               <Text style={styles.means}>{t(`badge_${id}_means`)}</Text>
