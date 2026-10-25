@@ -1,4 +1,4 @@
-name: map-data
+name: Rebuild Syros map
 # Builds our own Syros map (syros.pmtiles from OpenStreetMap, plus fonts, sprites,
 # styles) and uploads it to the cat-spotters-map R2 bucket (tiles.catspotters.com).
 # Manual only: run it when the map should be refreshed. SYC-705.
@@ -74,7 +74,9 @@ jobs:
           key: map-sources-${{ env.BASEMAPS_COMMIT }}-planetiler-${{ env.PLANETILER_VERSION }}
 
       - name: Run the map-data tests
-        run: python -m pytest -q scripts/map-data
+        run: |
+          python -m pytest -q scripts/map-data
+          pnpm --filter @workspace/map-style test
 
       - name: Choose the next version number from the bucket
         id: version
@@ -146,8 +148,8 @@ jobs:
           up "*.pbf" application/x-protobuf
           up "*.json" application/json
           up "*.png" image/png
-          up "*.csv" text/csv
-          up "*.txt" text/plain
+          up "*.csv" "text/csv; charset=utf-8"
+          up "*.txt" "text/plain; charset=utf-8"
           # Anything not covered above would be silently skipped: fail if the counts differ.
           LOCAL=$(find "out/v$N" -type f | wc -l)
           aws s3api list-objects-v2 --bucket "$R2_BUCKET" --endpoint-url "$R2_ENDPOINT" \
