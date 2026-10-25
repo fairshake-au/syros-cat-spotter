@@ -919,7 +919,8 @@ export const RegisterPushTokenHeader = zod.object({
 })
 
 export const RegisterPushTokenBody = zod.object({
-  "token": zod.string()
+  "token": zod.string(),
+  "language": zod.enum(['en', 'el', 'fr']).optional().describe('The app language, so pushes arrive in it. Old app builds send none and are sent English.')
 })
 
 export const RegisterPushTokenResponse = zod.object({

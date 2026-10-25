@@ -1140,6 +1140,12 @@ components:
       type: object
       properties:
         token: { type: string }
+        language:
+          type: string
+          enum: [en, el, fr]
+          description: >-
+            The app language, so pushes arrive in it. Old app builds send
+            none and are sent English.
       required: [token]
     CreateCatUpdateRequest:
       type: object

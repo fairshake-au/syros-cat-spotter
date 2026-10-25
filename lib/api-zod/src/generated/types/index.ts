@@ -79,6 +79,7 @@ export * from './profile';
 export * from './recheckSightingRequest';
 export * from './registerPushToken200';
 export * from './registerPushTokenRequest';
+export * from './registerPushTokenRequestLanguage';
 export * from './resolveConflictBody';
 export * from './resolveResult';
 export * from './resolveResultPointsReason';

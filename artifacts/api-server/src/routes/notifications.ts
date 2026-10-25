@@ -242,10 +242,15 @@ router.put("/profile/:deviceId/push-token", async (req, res) => {
 
   await db
     .insert(pushTokensTable)
-    .values({ deviceId, token: body.token })
+    .values({ deviceId, token: body.token, language: body.language ?? null })
     .onConflictDoUpdate({
       target: pushTokensTable.deviceId,
-      set: { token: body.token, updatedAt: sql`now()` },
+      // A build that sends no language leaves the stored one alone.
+      set: {
+        token: body.token,
+        ...(body.language ? { language: body.language } : {}),
+        updatedAt: sql`now()`,
+      },
     });
 
   res.json({ ok: true });

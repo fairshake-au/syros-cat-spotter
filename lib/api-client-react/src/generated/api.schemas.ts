@@ -26,8 +26,22 @@ export interface SpotterSignals {
   firstSpotDate: string | null;
 }
 
+/**
+ * The app language, so pushes arrive in it. Old app builds send none and are sent English.
+ */
+export type RegisterPushTokenRequestLanguage = typeof RegisterPushTokenRequestLanguage[keyof typeof RegisterPushTokenRequestLanguage];
+
+
+export const RegisterPushTokenRequestLanguage = {
+  en: 'en',
+  el: 'el',
+  fr: 'fr',
+} as const;
+
 export interface RegisterPushTokenRequest {
   token: string;
+  /** The app language, so pushes arrive in it. Old app builds send none and are sent English. */
+  language?: RegisterPushTokenRequestLanguage;
 }
 
 export type CreateCatUpdateRequestUpdateType = typeof CreateCatUpdateRequestUpdateType[keyof typeof CreateCatUpdateRequestUpdateType];

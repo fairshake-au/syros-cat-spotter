@@ -259,6 +259,8 @@ describe("carry-back, end to end (test 4)", () => {
       // SYC-706's weekly-result bell entries (0045) and their place and
       // points (0046): Neon only too.
       { table: "notifications", columns: ["kind", "message", "place", "week_points"] },
+      // SYC-706's push language (0047): Neon only too.
+      { table: "push_tokens", columns: ["language"] },
     ]);
     expect(dry.baseline).toEqual({ status: "ok", changedTables: [] });
     // The dry run changed nothing.

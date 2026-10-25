@@ -85,6 +85,9 @@ export const notificationsTable = pgTable("notifications", {
 export const pushTokensTable = pgTable("push_tokens", {
   deviceId: text("device_id").primaryKey(),
   token: text("token").notNull(),
+  // The app language the phone last registered with (en, el or fr); null for
+  // old app builds, which are sent English.
+  language: text("language"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
