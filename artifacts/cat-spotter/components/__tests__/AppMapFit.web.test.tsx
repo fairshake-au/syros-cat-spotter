@@ -410,6 +410,23 @@ describe('AppMap.web taps and drags reach the map', () => {
     expect(square('A').tabIndex).toBe(0);
   });
 
+  it('a label-only square (the cat page\'s "Somewhere in here") lets drags through its label too', async () => {
+    // A disabled Pressable is box-none, which sets its children back to
+    // pointer-events: auto unless they say otherwise.
+    render(
+      <AppMap
+        {...base}
+        latitudeDelta={0.005}
+        areas={[area('a', c.latitude, c.longitude, { label: 'Somewhere in here' })]}
+      />,
+    );
+    await theMap();
+    const label = (await screen.findByText('Somewhere in here')).parentElement as HTMLElement;
+    expect(getComputedStyle(label).pointerEvents).toBe('none');
+    const fill = label.previousElementSibling as HTMLElement;
+    expect(getComputedStyle(fill).pointerEvents).toBe('none');
+  });
+
   it("a map click inside a square presses it; outside it doesn't", async () => {
     const { map, onPress } = await mountOne();
     act(() => {
