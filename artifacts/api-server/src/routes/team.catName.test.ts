@@ -14,7 +14,9 @@ import { guardianOn, newColony, putInColony, signedPerson, type Signed } from ".
 // name yet" wherever the team and a cat guardian see it, and the team's
 // existing Rename the cat form names it (clearing name_pending).
 
-const RUN = randomBytes(3).toString("hex");
+// Letters only: a cat name can't hold 5 digits in a row (SYC-709), and a
+// hex tag sometimes does, which made this file fail at random.
+const RUN = [...randomBytes(4)].map((b) => "bcdfghjkmpqrvwxz"[b % 16]).join("");
 const NAME = `VtCatName${RUN}`;
 const KEY = "vitest-catname-key-0123456789abcdef-0123456789";
 const SECRET = "vitest-catname-device-secret-aaaa";

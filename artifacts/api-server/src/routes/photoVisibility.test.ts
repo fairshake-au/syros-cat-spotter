@@ -85,7 +85,9 @@ import { setPhotoVisibility } from "../lib/photoVisibility";
 import { fanOutNotifications, insertCatUpdate } from "../lib/notificationFanout";
 import { _resetDeviceMatchLimitForTests } from "../middlewares/rateLimit";
 
-const RUN = randomBytes(3).toString("hex");
+// Letters only: a cat name can't hold 5 digits in a row (SYC-709), and a
+// hex tag sometimes does, which made this file fail at random.
+const RUN = [...randomBytes(4)].map((b) => "bcdfghjkmpqrvwxz"[b % 16]).join("");
 const PREFIX = `vt-p6-${RUN}-`;
 const SUSAN = `vitest-p6-susan-${RUN}@example.com`;
 const MARIA = `vitest-p6-maria-${RUN}@example.com`;
