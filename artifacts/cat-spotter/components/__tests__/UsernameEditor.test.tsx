@@ -21,6 +21,7 @@ const h = vi.hoisted(() => ({
   claim: vi.fn(),
   read: vi.fn(),
   setUsername: vi.fn(),
+  invalidate: vi.fn(),
   availability: { data: { available: true } as any, isFetching: false, isError: false },
 }));
 
@@ -32,9 +33,10 @@ vi.mock('@workspace/api-client-react', () => ({
   claimUsername: (...a: unknown[]) => h.claim(...a),
   getGetProfileQueryKey: (id: string) => ['profile', id],
   getGetLeaderboardQueryKey: () => ['leaderboard'],
+  getGetLeaderboardWeekQueryKey: () => ['leaderboard-week'],
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ setQueryData: vi.fn(), invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ setQueryData: vi.fn(), invalidateQueries: h.invalidate }),
 }));
 vi.mock('@/context/LanguageContext', () => ({
   useLanguage: () => ({ t: (k: string) => (en as any)[k] ?? k }),
@@ -68,11 +70,24 @@ beforeEach(() => {
   h.claim.mockReset();
   h.read.mockReset();
   h.setUsername.mockReset();
+  h.invalidate.mockReset();
   h.availability = { data: { available: true }, isFetching: false, isError: false };
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('UsernameEditor (SYC-211)', () => {
+  it('SYC-706: a rename refreshes the all-time and the weekly board', async () => {
+    h.read.mockImplementation(() => Promise.resolve({ username: null }));
+    h.claim.mockImplementationOnce(() => Promise.resolve({ username: 'SeaCat' }));
+    const { input, saveContainer } = setup();
+    fireEvent.change(input, { target: { value: 'SeaCat' } });
+    await tick(500);
+    await act(async () => { fireEvent.click(saveContainer()); });
+    await tick(10);
+    expect(h.invalidate).toHaveBeenCalledWith({ queryKey: ['leaderboard'] });
+    expect(h.invalidate).toHaveBeenCalledWith({ queryKey: ['leaderboard-week'] });
+  });
+
   it('F1: Cancel stays enabled through a pending and an uncertain claim', async () => {
     h.read.mockImplementation(() => Promise.resolve({ username: null }));
     h.claim.mockImplementationOnce(never);
