@@ -418,7 +418,12 @@ describe("2. a replayed link", () => {
     const two = await keptSafe(email);
     const { phone, token } = await newPhoneWithLink(email);
     const results = await Promise.all([redeem(phone, token, one.id), redeem(phone, token, two.id)]);
-    expect(results.map((r) => r.status).sort()).toEqual([200, 401]);
+    // The loser is refused, but which way depends on timing (SYC-458): 401
+    // when it checks the link before the winner commits, 403 when its own
+    // secret check lands after the winner moved the phone.
+    const statuses = results.map((r) => r.status).sort();
+    expect(statuses[0]).toBe(200);
+    expect([401, 403]).toContain(statuses[1]);
     const moved = [await storedHash(one.id), await storedHash(two.id)].filter((h) => h === hashSecret(phone.secret));
     expect(moved).toHaveLength(1);
   });
