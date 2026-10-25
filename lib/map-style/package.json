@@ -1,0 +1,21 @@
+{
+  "name": "@workspace/map-style",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "export": "tsx scripts/export.mjs"
+  },
+  "dependencies": {
+    "@maplibre/maplibre-gl-style-spec": "26.4.3",
+    "@protomaps/basemaps": "5.7.2"
+  },
+  "devDependencies": {
+    "tsx": "catalog:",
+    "vitest": "^4.1.11"
+  }
+}
