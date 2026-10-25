@@ -48,7 +48,8 @@ vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
 }));
 
 import app from "../app";
-import { _resetDeviceMatchLimitForTests } from "../middlewares/rateLimit";
+import { _resetDeviceMatchLimitForTests, DEVICE_MATCH_WINDOW_MS } from "../middlewares/rateLimit";
+import { waitForRoomInWindow } from "../test/windowRoom";
 
 const PREFIX = "vitest-matchharden-";
 const NAME_PREFIX = "VitestMatchHardenCat";
@@ -141,6 +142,9 @@ describe("POST /api/sightings matching hardening (data spine PR 5)", () => {
     const device = `${PREFIX}limited-device`;
     const otherDevice = `${PREFIX}other-device`;
 
+    // The 15-minute window is counted from the real clock; don't let the 21
+    // requests straddle its turn-over (SYC-327).
+    await waitForRoomInWindow(DEVICE_MATCH_WINDOW_MS, 10_000);
     for (let i = 0; i < 20; i++) {
       const res = await submit(device);
       expect(res.status).toBe(201);
