@@ -95,9 +95,9 @@ const cardIds = () =>
     .map((el) => el.getAttribute('data-testid')!.replace('card-', ''));
 
 const selected = (label: string) =>
-  // An active Chip is painted with the primary colour.
-  (screen.getByText(label).closest('[role="button"]') as HTMLElement).style.backgroundColor ===
-  'rgb(1, 2, 3)';
+  // An active Chip's pill (inside its tap area, SYC-644) is painted with the primary colour.
+  (screen.getByText(label).closest('[role="button"]')!.firstElementChild as HTMLElement).style
+    .backgroundColor === 'rgb(1, 2, 3)';
 
 const noLocks = () => {
   expect(screen.queryByText('homeSpotToUnlock')).toBeNull();
