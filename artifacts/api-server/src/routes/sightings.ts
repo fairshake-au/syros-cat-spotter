@@ -1,3 +1,4 @@
+import { reviewMatcherHealth } from "../lib/matcherHealth";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   AnswerSightingQuestionsBody,
@@ -362,6 +363,10 @@ async function computeMatchCandidates(
     noCatInAnyPhoto: matcherFailed ? null : !isCatPhoto,
     mixedCats: matcherFailed ? null : mixedCats,
   });
+
+  // SYC-532: tell the team when checks start failing, and when they recover.
+  // Never throws, and never changes the answer below.
+  await reviewMatcherHealth();
 
   // SYC-503: a failed check is never "no look-alikes". The phone reads
   // matchCheck first; isCatPhoto stays true only because nothing is known.

@@ -71,6 +71,7 @@ export const MAIL_PURPOSES = [
   "welfare_alert",
   "issue_alert",
   "urgent_alert",
+  "matcher_alert",
   "public_verify",
   "report_ack",
   "report_outcome",
@@ -86,7 +87,7 @@ export const MAIL_PURPOSES = [
 ] as const;
 
 export type MailPurpose = (typeof MAIL_PURPOSES)[number];
-export type TeamPurpose = "welfare_alert" | "issue_alert" | "urgent_alert";
+export type TeamPurpose = "welfare_alert" | "issue_alert" | "urgent_alert" | "matcher_alert";
 export type PersonPurpose = "person_invite" | "access_change_notice";
 export type PublicPurpose = Exclude<MailPurpose, TeamPurpose | PersonPurpose>;
 export type MailIdentity = "transactional" | "news";
@@ -121,6 +122,9 @@ export const PURPOSE_RULES: Record<MailPurpose, PurposeRule> = {
   // Same team rule as welfare_alert, but sheddable (see SHEDDABLE_PURPOSES).
   issue_alert: { identity: "transactional", from: REPORTS_FROM, recipient: "team", body: "team_built" },
   urgent_alert: { identity: "transactional", from: REPORTS_FROM, recipient: "team", body: "team_built" },
+  // SYC-532: "the look-alike check is failing" (and "working again"). Goes to
+  // MATCHER_ALERT_TO, not the shared welfare inbox (Samuel, 25 Oct 2026).
+  matcher_alert: { identity: "transactional", from: TRANSACTIONAL_FROM, recipient: "team", body: "team_built" },
   // email-capture.md §7.3 (the D2 amendment): public verification is news.
   public_verify: { identity: "news", from: NEWS_FROM, recipient: "unverified_public", body: "fixed_template" },
   report_ack: { identity: "transactional", from: REPORTS_FROM, recipient: "verified_public", body: "fixed_template", replyTo: SYROS_CATS },
@@ -149,6 +153,7 @@ const IDENTITY_KEY: Record<MailIdentity, string> = {
 const DEFAULT_ENABLED: readonly MailPurpose[] = [
   "welfare_alert",
   "issue_alert",
+  "matcher_alert",
   "keep_safe_verify",
   "restore_link",
   "public_verify",
@@ -160,7 +165,7 @@ const DEFAULT_ENABLED: readonly MailPurpose[] = [
 let enabledOverride: readonly MailPurpose[] | null = null;
 
 /** Never shed under the priority budget (spec §2.10). A restore link is a sign-in (review A7). */
-export const NEVER_SHED_PURPOSES: readonly MailPurpose[] = ["welfare_alert", "restore_link"];
+export const NEVER_SHED_PURPOSES: readonly MailPurpose[] = ["welfare_alert", "matcher_alert", "restore_link"];
 
 /**
  * Purposes the outbox may drop (mark failed with `shed`) when the day's
@@ -506,9 +511,10 @@ export async function sendMail(message: MailMessage, deps: SendDeps = {}): Promi
       log.error({ purpose }, "mail: refused, team mail takes no caller-chosen recipient");
       return { ok: false, reason: "recipient_not_allowed" };
     }
-    to = (process.env["WELFARE_ALERT_TO"] ?? "").trim();
+    const toVar = purpose === "matcher_alert" ? "MATCHER_ALERT_TO" : "WELFARE_ALERT_TO";
+    to = (process.env[toVar] ?? "").trim();
     if (!SINGLE_ADDRESS.test(to)) {
-      log.error({ purpose }, "mail: refused, WELFARE_ALERT_TO is not set to a single address");
+      log.error({ purpose }, `mail: refused, ${toVar} is not set to a single address`);
       return { ok: false, reason: "bad_recipient" };
     }
     const team = message as TeamMessage;
