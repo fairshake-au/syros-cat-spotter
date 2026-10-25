@@ -327,8 +327,29 @@
     {
       "idx": 46,
       "version": "7",
-      "when": 1792904338673,
-      "tag": "0050_observations_colony_index",
+      "when": 1792865828756,
+      "tag": "0046_weekly_board_and_badges",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792872882639,
+      "tag": "0047_notifications_week_result",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1792902392624,
+      "tag": "0048_notifications_week_place",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1792902501994,
+      "tag": "0049_push_tokens_language",
       "breakpoints": true
     }
   ]
