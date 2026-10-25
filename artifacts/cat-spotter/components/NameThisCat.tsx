@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
@@ -9,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  findNodeHandle,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
@@ -97,6 +99,18 @@ function NameThisCatSheet({
           setError(t('nameYourCat'));
           return;
         }
+        // SYC-709: the phone's 3 names for today are used.
+        if (code === 'NAME_DAILY_LIMIT') {
+          setError(t('nameThisCatDailyLimit'));
+          return;
+        }
+        // SYC-709: the server doesn't count this phone as having met the
+        // cat (an app that missed `canName`, or a sighting moved away).
+        if (code === 'NEEDS_SIGHTING') {
+          refreshCat();
+          setError(t('nameThisCatNeedsSighting'));
+          return;
+        }
         const status = (err as { status?: number })?.status;
         if (status === 429) {
           setError(t('claimRefusedLater'));
@@ -112,6 +126,7 @@ function NameThisCatSheet({
         if (failure.kind === 'name-taken') setError(t('nameTaken'));
         else if (failure.kind === 'offensive') setError(t('catNameRejected'));
         else if (failure.kind === 'syr-shaped') setError(t('syrShapedName'));
+        else if (failure.kind === 'has-link') setError(t('nameHasLink'));
         else setError(t('claimNetworkError'));
       },
     },
@@ -242,18 +257,38 @@ function NameThisCatSheet({
   );
 }
 
+/** Hands focus back to the button that opened the sheet (SYC-709 review). */
+function focusBack(ref: React.RefObject<View | null>) {
+  const node = ref.current;
+  if (!node) return;
+  if (Platform.OS === 'web') {
+    (node as unknown as { focus?: () => void }).focus?.();
+    return;
+  }
+  const handle = findNodeHandle(node);
+  if (handle != null) AccessibilityInfo.setAccessibilityFocus(handle);
+}
+
 /**
  * On the cat's page while the name is pending: the SYR number, a short
- * invitation and the Name this cat button. Renders nothing for a named cat,
- * except for the line that someone else named it first.
+ * invitation and, for a phone that has met the cat (`canName`, SYC-709), the
+ * Name this cat button; any other phone is told to spot the cat first.
+ * Renders nothing for a named cat, except for the line that someone else
+ * named it first.
  */
-export function NameThisCatCard({ cat }: { cat: Cat }) {
+export function NameThisCatCard({ cat, canName }: { cat: Cat; canName?: boolean }) {
   const colors = useColors();
   const { t } = useLanguage();
   const { isOnline } = useOffline();
   const [open, setOpen] = useState(false);
   const [justNamed, setJustNamed] = useState(false);
   const [savedName, setSavedName] = useState<string | null>(null);
+  const buttonRef = useRef<View>(null);
+  const close = () => {
+    setOpen(false);
+    // After the sheet has gone, so focus doesn't land inside it.
+    setTimeout(() => focusBack(buttonRef), 0);
+  };
 
   if (savedName !== null) {
     return (
@@ -287,18 +322,33 @@ export function NameThisCatCard({ cat }: { cat: Cat }) {
       <Text style={[styles.body, { color: colors.mutedForeground }]}>
         {t('nameThisCatNumber').split('{number}').join(cat.name)}
       </Text>
-      <Button variant="primary" size="lg" block disabled={!isOnline} onPress={() => setOpen(true)}>
-        {t('nameThisCat')}
-      </Button>
-      {!isOnline && (
-        <Text style={[styles.body, { color: colors.mutedForeground }]}>
-          {t('nameThisCatNeedsConnection')}
+      {canName === true ? (
+        <>
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            disabled={!isOnline}
+            onPress={() => setOpen(true)}
+            pressableRef={buttonRef}
+          >
+            {t('nameThisCat')}
+          </Button>
+          {!isOnline && (
+            <Text style={[styles.body, { color: colors.mutedForeground }]}>
+              {t('nameThisCatNeedsConnection')}
+            </Text>
+          )}
+        </>
+      ) : (
+        <Text testID="name-this-cat-spot-first" style={[styles.body, { color: colors.foreground }]}>
+          {t('nameThisCatNeedsSighting')}
         </Text>
       )}
-      {open && (
+      {open && canName === true && (
         <NameThisCatSheet
           cat={cat}
-          onClose={() => setOpen(false)}
+          onClose={close}
           onAlreadyNamed={() => setJustNamed(true)}
           onSaved={setSavedName}
         />
