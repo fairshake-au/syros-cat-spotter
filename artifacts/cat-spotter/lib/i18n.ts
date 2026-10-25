@@ -2466,11 +2466,11 @@ const fr: Dict = {
   reportSendReport: 'Envoyer le signalement',
   reportCostsHeading: 'Qui paie, et qui appeler',
   // SYC-570: draft French, for the native check (SYC-346).
-  reportCallVetTitle: 'Appelle un vétérinaire maintenant',
+  reportCallVetTitle: 'Appelle un vétérinaire', // SYC-172: 'maintenant' made the header run off at 320px
   reportVetsClosest: 'Vétérinaires de Syros, du plus proche au plus éloigné',
   reportClosestToYou: 'Le plus proche de toi',
   reportVetDistance: 'environ {km} km',
-  reportNextSend: 'Suivant : envoie ton signalement',
+  reportNextSend: 'Suivant : envoyer', // SYC-172: the longer line was cut off at 320px
   reportTakePhoto: 'Prendre une photo',
   reportFromLibrary: 'Depuis la galerie',
 
