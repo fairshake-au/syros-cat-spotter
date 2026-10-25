@@ -65,13 +65,23 @@ describe('map style', () => {
     for (const f of labelFieldsFor('el')) expect(textField(s, f.layerId)).toEqual(f.textField);
   });
 
-  it('has no tilt and turns no labels with the map', () => {
+  it('keeps point labels upright and flat, and line labels following the street', () => {
     const symbols = buildStyle(EN).layers.filter((l) => l.type === 'symbol');
     expect(symbols.length).toBeGreaterThan(5);
+    let lines = 0;
     for (const l of symbols) {
       const lay = l.layout as Record<string, unknown>;
-      expect(lay['text-pitch-alignment'], l.id).toBe('viewport');
-      expect(lay['text-rotation-alignment'], l.id).toBe('viewport');
+      const placement = lay['symbol-placement'];
+      if (placement === 'line' || placement === 'line-center') {
+        lines++;
+        expect(lay['text-rotation-alignment'], l.id).toBe('map');
+        expect(lay['text-keep-upright'], l.id).toBe(true);
+        expect(lay['text-pitch-alignment'], l.id).toBeUndefined();
+      } else {
+        expect(lay['text-pitch-alignment'], l.id).toBe('viewport');
+        expect(lay['text-rotation-alignment'], l.id).toBe('viewport');
+      }
     }
+    expect(lines).toBeGreaterThan(0);
   });
 });
