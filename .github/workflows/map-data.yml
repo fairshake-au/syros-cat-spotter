@@ -83,15 +83,15 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          # The bucket is authoritative (current.json is cached at the edge). Any listing
-          # failure fails the job. N = highest existing v<number>/ folder + 1 (1 if none).
+          # The bucket is authoritative (current.json is cached at the edge). The listing is a
+          # normal API call: an empty bucket succeeds with no prefixes (N=1) and ANY error
+          # (non-zero exit) fails the job. N = highest existing v<number>/ folder + 1.
           # A failed partial upload leaves an unreferenced folder; the next run simply
           # takes N+1. Nothing is ever overwritten or deleted.
-          # r2_list treats only "empty" (exit 1) as fine; any other aws error fails the job.
-          source scripts/map-data/r2_list.sh
-          LISTING=$(r2_list "s3://$R2_BUCKET/" --endpoint-url "$R2_ENDPOINT")
-          HIGHEST=$(printf '%s\n' "$LISTING" | sed -n 's/^ *PRE v\([0-9][0-9]*\)\/$/\1/p' | sort -n | tail -1)
-          echo "N=$(( ${HIGHEST:-0} + 1 ))" >> "$GITHUB_OUTPUT"
+          aws s3api list-objects-v2 --bucket "$R2_BUCKET" --endpoint-url "$R2_ENDPOINT" \
+            --delimiter / --output json > "$RUNNER_TEMP/versions.json"
+          NEXT=$(python scripts/map-data/r2_ls.py next-version < "$RUNNER_TEMP/versions.json")
+          echo "N=$NEXT" >> "$GITHUB_OUTPUT"
 
       - name: Build the map
         env:
@@ -129,9 +129,11 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           # Refuse to write into a version folder that already has anything in it.
-          source scripts/map-data/r2_list.sh
-          EXISTING=$(r2_list "s3://$R2_BUCKET/v$N/" --endpoint-url "$R2_ENDPOINT")
-          if [ -n "$EXISTING" ]; then
+          # Any aws error (non-zero exit) fails the step; an empty prefix is a success.
+          aws s3api list-objects-v2 --bucket "$R2_BUCKET" --endpoint-url "$R2_ENDPOINT" \
+            --prefix "v$N/" --max-keys 1 --max-items 1 --output json > "$RUNNER_TEMP/guard.json"
+          EXISTING=$(python scripts/map-data/r2_ls.py count < "$RUNNER_TEMP/guard.json")
+          if [ "$EXISTING" -ne 0 ]; then
             echo "::error::s3://$R2_BUCKET/v$N/ is not empty; refusing to overwrite"
             exit 1
           fi
@@ -148,8 +150,9 @@ jobs:
           up "*.txt" text/plain
           # Anything not covered above would be silently skipped: fail if the counts differ.
           LOCAL=$(find "out/v$N" -type f | wc -l)
-          REMOTE_LIST=$(r2_list "s3://$R2_BUCKET/v$N/" --recursive --endpoint-url "$R2_ENDPOINT")
-          REMOTE=$(printf '%s\n' "$REMOTE_LIST" | grep -c . || true)
+          aws s3api list-objects-v2 --bucket "$R2_BUCKET" --endpoint-url "$R2_ENDPOINT" \
+            --prefix "v$N/" --output json > "$RUNNER_TEMP/after.json"
+          REMOTE=$(python scripts/map-data/r2_ls.py count < "$RUNNER_TEMP/after.json")
           if [ "$LOCAL" -ne "$REMOTE" ]; then
             echo "::error::uploaded $REMOTE of $LOCAL files"
             exit 1
