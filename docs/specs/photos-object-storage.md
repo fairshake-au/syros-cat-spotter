@@ -198,65 +198,77 @@ What *is* possible, and not built: a person whose face or doorway is in a photo 
 
 ## 5. How we move them
 
-**Principles.** One step at a time. Each step can be undone by flipping a setting or running a script, and each step says how. Nothing is deleted until the step after it has run clean for 30 days. Nothing needs the app to go down. All database changes go through the normal `db-ops` migration workflow (DEPLOYMENT.md §C); `drizzle-kit push` is gone. A setting, `PHOTO_STORAGE`, takes the values `db`, `dual`, `shadow` and `object`, plus a separate `PHOTO_READ` for the read side.
+**Principles.** One step at a time. Each step can be undone and says how. Nothing is deleted until the step after it has run clean for 30 days. Nothing needs the app to go down, with one stated exception (step 7). All database changes go through the normal `db-ops` migration workflow (DEPLOYMENT.md §C), migrate first, then "don't republish yet" until the code is ready.
 
-**Before anything (Samuel, ~15 minutes):** add R2 to the Cloudflare token and accept R2 if needed (§3.5); decide D1–D6; put Cloudflare in the privacy policy as a processor (§6.1).
+**The switches, and how each one is flipped.** Two settings, both rows in `app_settings` changed by `db-ops set-setting`, **not** environment variables, so flipping one needs no republish: `photo_write` (`db`, `dual`, `object`) and `photo_read` (`db`, `shadow`, `object`). Each server re-reads settings every 60 seconds (`SETTINGS_CACHE_MS`), so a flip takes up to a minute to reach every server; the spec says "within a minute", not "next request".
+
+**Before anything (Samuel, ~15 minutes):** add R2 to the Cloudflare token (§3.5); decide D0–D6; put Cloudflare in the privacy policy as a processor (§6.1).
+
+**Credentials.** Three narrow bucket tokens, nothing wider: the **app token** (read and write the cat-photo bucket), the **report token** (read and write the report-photo bucket), and the **copy token** (§5.8). The removal tool, the backfill, the smoke check and the fingerprint-accuracy command run in GitHub Actions with database credentials only today; the ones that read or write photos get the app and report tokens in the `production` GitHub environment. **Rehearsal, development and any reset copy must never hold a production bucket token** and use their own test buckets: a database branch copies `storage_key` values and pending deletion rows, and a sweeper running on a copy with a production token could delete production objects.
 
 ### Step 0 — Rehearse on a copy
-Make a Neon branch from production, create a test EU bucket, and run steps 1–7 end to end on the branch, including the space reclaim in step 7 and the restore in step 7's rollback. **Exit:** the whole sequence has run once, the reclaim time is known, and the rollback has been run. Rollback: delete the branch and the test bucket.
+Use the existing `rehearsal` Neon branch (or a point-in-time restore to a new branch), not a child of production: Neon snapshots and restores only work on a root branch (`docs/runbooks/neon-database.md`), so a plain child branch can't run the restore this step has to prove. Create test buckets in the EU. Run steps 1–7 end to end, including the space reclaim in step 7, the `rehydrate` script and a snapshot restore **followed by the runbook's re-removal step**. **Exit:** the sequence has run once, the reclaim time and the photo latencies are measured, and each rollback below has been exercised. **Rollback:** delete the test buckets and reset the branch.
 
-### Step 1 — Prepare (invisible)
-- Migration adds, all nullable: `photos.storage_key`, `photos.bytes`, `photos.sha256`, `photos.moved_at`; the same three on `welfare_report_photos`; the new `photo_object_deletions` table; and relaxes the rule `photos_removed_ck`, which today demands `data is not null` on any live photo, so that a live photo needs *either* `data` *or* `storage_key`.
-- Code adds the storage module (an in-memory version for tests and every developer laptop; the R2 version behind `PHOTO_STORAGE`) and `loadPhotoBytes` replacing the nine direct reads. `PHOTO_STORAGE=db`, so behaviour is exactly as before.
-- **Rollback:** nothing reads the new columns yet. Revert the code; `migrate-rollback` removes them.
-- **Exit:** all existing tests pass in memory mode; `photoData.source.test.ts` now allows only the storage module to read bytes.
+### Step 1 — Prepare (invisible to users)
+One migration, then the code, with `photo_write=db` and `photo_read=db` so behaviour is exactly as before:
+- Adds, all nullable: `photos.storage_key`, `photos.size_bytes`, `photos.sha256`, `photos.moved_at`; `storage_key`, `size_bytes`, `sha256`, `moved_at` on `welfare_report_photos` and `photo_variants`; and the `photo_object_deletions` table. (**Not** `bytes`: `welfare_report_photos.bytes` and `photo_variants.bytes` already exist and hold the picture.)
+- **Drops NOT NULL** on `welfare_report_photos.bytes` and `photo_variants.bytes`, each with a check that a row has bytes **or** a key.
+- **Replaces `photos_removed_ck`** so that a live photo needs *either* `data` *or* `storage_key`, and a removed photo has neither. It is added `NOT VALID` and then validated, so the table scan doesn't hold a heavy lock (the migrate runner gives up after 5 seconds rather than queueing behind live requests).
+- **Moves every "is it removed?" decision from `data IS NULL` to `removed_at IS NOT NULL`** in all eight places listed in §2.1, with a source test that bans `data IS NULL` and `isNotNull(...data)` as a removal test. Without this, the first bucket-only photo looks removed and 404s.
+- Adds `loadPhotoBytes(photoId)` and a storage module with an in-memory version (tests and every laptop; no one needs a Cloudflare key to run the suite), moves the nine readers and the report and variant readers behind it, extends `photoData.source.test.ts` to cover `welfare_report_photos.bytes`, `photo_variants.bytes` and raw SQL, and routes all four writers and all four deletion paths (§4.4) through the storage module.
+- **Rollback:** `migrate-rollback` removes the new columns and table, after the code is reverted first (new code on the old schema 500s; DEPLOYMENT.md §C). **From step 6 onward the app cannot be rolled back to a build older than this step's**: an older build would treat every bucket-only photo as removed.
+- **Exit:** the whole existing suite passes in memory mode; the new source tests pass.
 
 ### Step 2 — Dual write
-- Every **new** photo is written to the bucket first (key chosen by us before the row exists, so a crash can't leave a row with no key and no picture), then one insert carries `data` *and* `storage_key`, `bytes` and `sha256`.
-- If the bucket is down: write `data` only, log loudly, and a retry job pushes it later. A spotter never loses a sighting because of a bad minute at the storage provider.
-- Reads are still from the database.
-- **Rollback:** set `PHOTO_STORAGE=db`. Rows with a key just carry an unused key.
+- A **new** photo is written to the bucket first, with the row locked `FOR KEY SHARE` and `removed_at` re-checked after the write (§4.4), then one insert carries `data` *and* `storage_key`, `size_bytes` and `sha256`. The key is chosen by us before the row exists, so a crash can't leave a row with neither bytes nor key. **The bucket write is done before the database transaction opens**, never inside it, so a slow bucket doesn't hold a connection; an upload whose transaction then rolls back leaves an orphan, which the daily reconciliation (§4.4) removes.
+- Bucket down: write `data` only, log loudly (never log a photo id), and a retry job pushes it later. A spotter never loses a sighting because of a bad minute at the provider.
+- Reads still come from the database. **Rollback:** `photo_write=db`.
 
 ### Step 3 — Backfill, in batches
-- A script, safe to stop and re-run at any moment: oldest first, 100 photos per batch, a pause between batches, run in the quiet hours (Athens night), through `db-ops`.
-- For each photo and each report photo: decode, compute SHA-256, write the object, **read it back** and compare, run the metadata check (§4.3), then record `storage_key`, `bytes`, `sha256`, `moved_at`. **Nothing is deleted.**
-- Hidden, removed, team-only photos are moved exactly like the rest; they are protected by the route, not by being left behind (§4.2). Removed photos have no bytes and are skipped.
-- **Rollback:** stop the script. The database copy was never touched; stray objects are listed by the reconciliation script (§7) and deleted.
+- A script, safe to stop and re-run at any moment: oldest first, 100 photos per batch, a pause between, in the Athens night, through `db-ops`.
+- Per photo and per report photo: lock `FOR KEY SHARE`, decode, compute SHA-256, write the object, **read it back and compare**, run the metadata check (§4.3), re-check `removed_at`, record `storage_key`, `size_bytes`, `sha256`, `moved_at` with a conditional update. **Nothing is deleted.** If the photo was removed meanwhile, delete the object just written.
+- Hidden, team-only and report photos are moved like the rest, protected by the route, not by being left behind (§4.2). Removed photos have no bytes and are skipped. Smaller copies are not copied (§4.7).
+- **Rollback:** stop the script. The database copy was never touched; stray objects are found by the reconciliation.
 
 ### Step 4 — Verify, before switching
-A report must show, and a human sign it off:
-- every live photo has a key; row counts and the **count by state** (public, hidden, team-only, removed) equal before and after;
+A report that a human signs off:
+- every live photo has a key; row counts, and counts by state (public, hidden, team-only, removed), are equal before and after;
 - zero checksum mismatches; zero photos with metadata;
-- a fresh random 5% re-downloaded and compared again, plus every photo over 1 MB;
-- the stored totals add up to the byte count Postgres reports for the same rows.
-
-**Rollback:** none needed, nothing has switched.
+- a fresh random 5% re-downloaded and compared, plus every photo over 1 MB;
+- stored totals match the byte count Postgres reports for the same rows.
+**Rollback:** none needed; nothing has switched.
 
 ### Step 5 — Switch reads, carefully
-1. **Shadow week** (`PHOTO_STORAGE=shadow`): every photo request is answered from the database as today, while a second read from the bucket runs in the background and is compared. Any difference is an alert. This costs a little extra compute and finds problems with zero risk to anyone.
-2. **Read from the bucket** (`PHOTO_READ=object`), falling back to `data` and logging if an object is missing. Switch for a few percent of requests first if it is easy, then all.
-- **Rollback:** set `PHOTO_READ=db`. It takes effect on the next request and needs no deploy, since `data` is still there.
+1. **Shadow week** (`photo_read=shadow`): every request is answered from the database as today while a second read from the bucket runs in the background and is compared. A difference is an alert. It costs a little compute and finds problems at no risk to anyone.
+2. **Read from the bucket** (`photo_read=object`), falling back to `data` and alerting if an object is missing. **Rollback:** `photo_read=db`, within a minute, no deploy, because `data` is still there.
 
 ### Step 6 — Switch writes
-New photos go to the bucket only (`data` left empty). Do this only after reads have been clean for 7 days.
-- **Rollback:** `PHOTO_STORAGE=dual` goes back to writing both. Photos written in the meantime exist only in the bucket, which is why this is a later step than reading.
-- From here **the bucket is the only copy of newer photos**, so the safety copy in D2 must be running before this step.
+New photos go to the bucket only. Only after reads have been clean for 7 days **and the safety copy (§5.8) is running**, because from here the bucket is the only copy of newer photos.
+- **Rollback:** `photo_write=dual`. Photos written meanwhile exist only in the bucket, which is why this is a later step than reading.
+- **Side effects to deal with first:** SYC-125's compare and carry-back read `photos.data` (`switchover/fingerprint.ts`, `carryBack.ts`) and the old database is kept 30 days after the Neon cutover; bucket-only photos would show there as empty pictures. If the old database is still around at this point, SYC-125's carry-back is told to skip pictures with a key, or the old database is retired first. The smoke check and `fingerprint-accuracy` get the app token (or read through `loadPhotoBytes`).
 
 ### Step 7 — Give the space back (the one step that is not instant)
 Only after **30 days clean** on step 6 and a Neon snapshot that has been restored once as a test:
-1. Null `photos.data` and the report and variant bytes in batches. This is a huge change, so expect Neon's restore-history charge to rise for up to 7 days (§3.2).
-2. **Nulling does not make the database smaller.** The space is only released by rewriting the table (`VACUUM FULL`), which blocks all use of that table while it runs. The rehearsal (step 0) measures how long that is. If it is under a minute or two, do it at 3 a.m. Athens with a short lock wait; the photo route would show broken pictures for that long, which is acceptable only if announced. If it is longer, build the slim table beside it and swap (rehearsed the same way). **This is the one step where "zero downtime" is not guaranteed, and the spec says so.** (`pg_repack` would avoid the lock but is probably not available on Neon: **unchecked**.)
-3. Check the bill actually moves, not just the table size: record the table size before and after and the next invoice.
-- **Rollback:** `rehydrate`, a script that copies bucket objects back into `data` for every row (built and tested in step 0 for this purpose). Slower than a flag, and exercised before it is needed.
+1. Null `photos.data` and the report and smaller-copy bytes in batches, **with `WHERE storage_key IS NOT NULL AND sha256 IS NOT NULL`**, so a row that fell back to `data` during an outage is skipped, not an abort. Expect Neon's restore-history charge to rise for up to 7 days (§3.2).
+2. **Nulling does not make the database smaller.** The space comes back only by rewriting the table. **`VACUUM FULL` is not the plan:** it takes the heaviest lock on `photos`, and everything touches `photos` (the hidden-photo check, every cat list, new sightings, the fingerprint lock, the mail drain), so the whole app would stall, and a queued request for that lock blocks every later query behind it, which can exhaust the connection pool. **The plan is a slim table built beside it** (same rows without the picture columns, kept in step during a catch-up, then swapped in a moment), rehearsed in step 0. `VACUUM FULL` is used only if the rehearsal shows it takes seconds, in a stated maintenance window with the app in maintenance mode. `pg_repack` would avoid the lock but is probably not available on Neon (**unchecked**). **This is the one step where "zero downtime" is not guaranteed.**
+3. Check the bill moves, not just the table: record sizes before and after, and the next invoice.
+- **Rollback:** `rehydrate`, a script that copies bucket objects back into `data` for every row (built and tested in step 0). Slower than a switch, and exercised before it is needed. A snapshot restore also works but brings back the `data` of photos removed since and un-hides them, so the runbook's re-removal step follows it.
 
-### Step 8 — Drop the column
-After a further 30 days: a migration removes `photos.data`, the report and variant byte columns. Its down-migration re-adds empty nullable columns; getting the pictures back after this point means `rehydrate`.
+### Step 8 — Drop the columns
+After a further 30 days, a migration removes `photos.data` and the byte columns. Dropping `data` also drops the multi-column check that ties "removed" to "no bytes", so the same migration **adds a replacement**: a removed photo has no `storage_key`, and a live one has one. The "bucket down, write `data` only" fallback from step 2 **no longer exists**, so an upload during an outage fails with the app's normal retry message; the offline queue already retries, and that is accepted. The down-migration re-adds nullable columns with the relaxed check from step 1; getting the pictures back after this point is `rehydrate`.
 
-**Calendar (proposal, subject to D6):** launch Sat 31 Oct → watch for a week with no photo changes → Mon 9 Nov onwards: steps 0–2 → dual-write live by ~13 Nov → backfill and verify the week after → shadow week → reads switch in early December → writes a week later → space reclaimed ~mid-January 2027, well before the April season. SYC-46 sits in "Phase 2b (mid-November)" in Linear; the real finish line is January.
+### 5.1 Calendar (proposal, subject to D0 and D6)
+Launch Sat 31 Oct → one week with no photo changes → **Mon 9 Nov**: step 0 and 1 → step 2 live by ~13 Nov → backfill and verify the week after → shadow week → reads switch in early December → writes a week later → space reclaimed about mid-January 2027, well before the April season. SYC-46 sits in "Phase 2b (mid-November)" in Linear; the real finish line is January.
 
 ### 5.8 Protecting the only copy
 
-After step 6 a lost bucket means lost photos. Our Cloudflare account could be suspended, a token revoked, or someone could delete the bucket by mistake. Cover it with a **safety copy** (D2): a nightly job copying new objects to a second bucket (another R2 bucket, EU jurisdiction, written by a different token that cannot delete), and propagating deletions made through §4.4 within a day so a removed photo is not left in the safety copy. Backed by turning on "delete protection" in the account where the option exists (**unchecked**).
+After step 6 a lost bucket means lost photos. The Cloudflare account could be suspended, a token leaked or revoked, or a bucket deleted by mistake. A second bucket **in the same Cloudflare account does not protect against the first two**, so the first draft was wrong to claim it did.
+
+The **safety copy (D2)** therefore lives **at a different provider or in a different account**: the natural choice is a small **Amazon S3 Frankfurt** bucket (about $1 a month at peak, §3.2), which also gives us real versioning. Details:
+- A nightly job copies new objects; it uses the **copy token**, which can read the main bucket and write the copy.
+- **Deletions are the sweeper's job, not the copier's.** The same sweeper that deletes a main object (§4.4) deletes the safety copy in the same pass, and "confirmed" means *every* location returns not-found. The copier skips any key that has a deletion row. The daily reconciliation covers the copy too. (R2 tokens, as far as I know, cannot be granted "write but not delete"; whether the S3 side can is a point to settle in the build and it does not change the design: the sweeper, not the copier, is the only thing allowed to delete.)
+- **If the copy has versioning on, old versions must also be removed on a deletion**, or "deleted for good" would not be; the sweeper deletes every version.
+- It backs a rule for the privacy policy: removed photos leave backups within a day.
 
 ---
 
