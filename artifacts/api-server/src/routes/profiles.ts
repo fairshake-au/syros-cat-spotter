@@ -246,6 +246,13 @@ async function withinBadgeLimit(req: Request, res: Response, deviceId: string): 
 router.get("/profiles/:deviceId/moments", badgeMomentsIpGuard, async (req, res) => {
   const deviceId = await requireDeviceAuth(req, res);
   if (!deviceId || !(await withinBadgeLimit(req, res, deviceId))) return;
+  // A "badges" moment older than a week is a backlog the old app's pill
+  // already showed; retire it rather than replay it. Week results and the
+  // history moment are kept however old.
+  await db.execute(sql`
+    update badge_moments set celebrated_at = now()
+    where device_id = ${deviceId} and kind = 'badges' and celebrated_at is null
+      and created_at < now() - interval '7 days'`);
   const rows = await db.execute(sql`
     select id, kind, badge_ids, week_start::text as week_start, place, week_points
     from badge_moments
