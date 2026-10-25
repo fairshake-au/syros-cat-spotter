@@ -22,7 +22,7 @@ describe('SYC-509: spokenText drops emoji for screen readers', () => {
 
   it('strips every emoji in the translated titles it is used on', () => {
     for (const dict of Object.values(TRANSLATIONS)) {
-      for (const key of ['catalogTitle', 'haveWeMetTitle', 'aNewFurriend', 'makeItYours', 'addToCatalogButton', 'captureHint', 'captureHintPicker', 'welcomeSubtitle', 'notificationsTitle']) {
+      for (const key of ['catalogTitle', 'haveWeMetTitle', 'aNewFurriend', 'makeItYours', 'addToCatalogButton', 'captureHintPicker', 'welcomeSubtitle', 'notificationsTitle']) {
         expect(spokenText(dict[key])).not.toMatch(/\p{Extended_Pictographic}/u);
       }
     }

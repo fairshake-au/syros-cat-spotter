@@ -50,8 +50,12 @@ export type Clinic = {
   address: string;
   phones: Phone[];
   coordinates: { lat: number; lng: number } | null;
-  /** "landmark": pin on the petrol station opposite (≈100 m). "search": no pin, map search links. */
-  pin: "landmark" | "search";
+  /**
+   * "landmark": pin on the petrol station opposite (≈100 m). "place": the
+   * clinic's own Google Maps place pin (SYC-570: Dr Dermitzaki, supplied by
+   * Samuel 24 Oct 2026). "search": no pin, map search links.
+   */
+  pin: "landmark" | "place" | "search";
   googleMapsUrl: string;
   appleMapsUrl: string;
 };

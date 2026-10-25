@@ -62,7 +62,7 @@ describe('photo tips wiring', () => {
     // Not inside the viewfinder's top row (it collided with the location chip at 390px).
     const topRow = spot.slice(
       spot.indexOf('<View style={styles.viewfinderTopRow}>'),
-      spot.indexOf('{cameraPanel ? ('),
+      spot.indexOf('<View style={styles.framingRect}'),
     );
     expect(topRow).not.toContain('photo-tips-link');
     // And it comes after the viewfinder's shutter controls.

@@ -67,13 +67,12 @@ describe("the Vet settings page", () => {
     expect(res.text).toContain('<h2 id="history">History</h2>');
   });
 
-  it("says what the price does without promising a planner or a delay (SYC-619 §9.3)", async () => {
+  it("says what the price does, the planner's estimate included, without promising a delay (SYC-619 §9.3; SYC-621)", async () => {
     const res = await page(team.cookie);
     expect(res.text).toContain(
-      "A vet visit with Sterilised ticked starts with this price as its cost. Each visit's cost can still be changed.",
+      "Each colony's trapping planner uses it for its estimate, and a vet visit with Sterilised ticked starts with it as its cost. Each visit's cost can still be changed.",
     );
     expect(res.text).not.toContain("within a minute");
-    expect(res.text).not.toContain("trapping planner");
   });
 
   it("a team member changes the price; the history shows the day, who, and before → after; this server uses it at once", async () => {
@@ -175,11 +174,11 @@ describe("the Vet settings page", () => {
     expect(Array.isArray(res.body.changes)).toBe(true);
   });
 
-  it("is reachable: Home links it, just under the Areas link", async () => {
-    const home = await request(app).get("/api/team/home").set("Cookie", team.cookie).set("Accept", "text/html");
-    expect(home.status).toBe(200);
-    const areas = home.text.indexOf('href="/api/team/areas"');
-    const vet = home.text.indexOf(`<a class="hlink" href="${PATH}">`);
+  it("is reachable: Settings links it, just under the Areas link (SYC-694)", async () => {
+    const settings = await request(app).get("/api/team/settings").set("Cookie", team.cookie).set("Accept", "text/html");
+    expect(settings.status).toBe(200);
+    const areas = settings.text.indexOf('href="/api/team/areas"');
+    const vet = settings.text.indexOf(`<a href="${PATH}"><span class="name">Vet settings</span>`);
     expect(areas).toBeGreaterThan(-1);
     expect(vet).toBeGreaterThan(areas);
   });

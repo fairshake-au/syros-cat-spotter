@@ -1,5 +1,5 @@
 import { escapeHtml as esc } from "./escape";
-import { backLink, HOME_PATH } from "./backLink";
+import { backLink, SETTINGS_PATH } from "./backLink";
 import { renderPage } from "./layout";
 import { FACT_WORDS } from "./appSwitchFacts";
 import { DEFAULT_DONATE_ADDRESS, EXPECTED_DONATE_HOST } from "../appSwitches";
@@ -76,9 +76,9 @@ export function renderAppSwitchesPage(o: AppSwitchesPageOptions): string {
   const shownCount = FACT_WORDS.filter((f) => !o.hidden.has(f.id)).length;
   return renderPage({
     title: "App switches",
-    active: null,
+    active: "settings",
     personName: o.personName,
-    beforeTitle: backLink(HOME_PATH, "Home"),
+    beforeTitle: backLink(SETTINGS_PATH, "Settings"),
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
       '<p class="hint">A change reaches phones within about a minute. Nothing here needs a new version of the app.</p>' +

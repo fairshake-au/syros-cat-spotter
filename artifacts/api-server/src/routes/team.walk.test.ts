@@ -256,6 +256,7 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/colonies/:id/centre": { why: "the centre map: edit_colony on that colony (SYC-517, 517-B); a colony that isn't hers, or isn't one, is the same 403" },
   "POST /api/team/colonies/:id/centre/map": { why: "zoom, pan, areas on the centre map: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
   "POST /api/team/colonies/:id/centre/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
+  "GET /api/team/colonies/:id/plan": { why: "the printable trapping plan (SYC-396 PR 2.3): print_trapping_plan, island-only, so every cat guardian gets the 403" },
   "GET /api/team/colonies/:id/cats": { why: "the Add cats search: sees some colony, then assign_cat_to_colony on the colony read from the record", except: SEEING },
   "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony on the colony the cats go into (PR 4.2); a colony that isn't hers, or isn't one, is the same 403" },
   // SYC-209 PR 4.3: "Recent changes by cat guardians" on its own. Team-only.
@@ -279,6 +280,7 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/app-switches": { why: "edit_app_switches: island-only, so every cat guardian gets the 403" },
   "POST /api/team/app-switches/donation": { why: "edit_app_switches: island-only; the walk's empty address is a 400 for the team, and changes nothing" },
   "POST /api/team/app-switches/fact": { why: "edit_app_switches: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
+  "GET /api/team/settings": { why: "Settings (SYC-694): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony on the colony it goes into, or for a take-out the one it leaves, from the record (PR 4.2); an unreadable form has no colony" },
   // SYC-209 PR 3.1, the team map. Never the door's "any colony" check. The Map page and its
   // tap stay the team's; the picture route opens to anyone who sees a colony (PR 4.1: a
@@ -759,12 +761,12 @@ describe("T2: a person who may enter but lacks the capability gets the 403, neve
   });
 });
 
-describe("§6.4 (SYC-619 §7.2): a cat guardian's own colony page shows each cat's mark and date, never a place", () => {
-  it("the mark in her words and the date only: no place label, no position, no map address", async () => {
+describe("§6.4 (SYC-619 §7.2; SYC-396 PR 2.3): a cat guardian's own colony page shows each cat's mark and date, and a place from where it was first found", () => {
+  it("the mark in her words, the date only, and never the place of a sighting, a position or a map address", async () => {
     const colony = await newColony("walk-rows");
     const seenCat = await seedCat(colony);
     const neverCat = await seedCat(colony);
-    // Sterilised (as the team says it), and seen on 3 Oct somewhere other than where it was found.
+    // Sterilised (as the team says it), and seen on 3 Oct in Kini, far from Ermoupoli, where it was found.
     await db.insert(observationsTable).values({
       catId: seenCat.id,
       kind: "sterilised",
@@ -777,8 +779,8 @@ describe("§6.4 (SYC-619 §7.2): a cat guardian's own colony page shows each cat
       catId: seenCat.id,
       deviceId: "vt-walk-rows",
       photoId: seenCat.photoId,
-      lat: 37.4402,
-      lng: 24.9381,
+      lat: 37.4436,
+      lng: 24.8889,
       status: "resolved",
       createdAt: new Date("2026-10-03T09:00:00Z"),
     });
@@ -788,28 +790,34 @@ describe("§6.4 (SYC-619 §7.2): a cat guardian's own colony page shows each cat
     const res = await request(app).get(`/api/team/colonies/${colony}`).set("Cookie", g.cookie).set("Sec-Fetch-Mode", "navigate");
     expect(res.status).toBe(200);
     const html = res.text;
-    const list = /<ul class="cats">[\s\S]*?<\/ul>/.exec(html)?.[0] ?? "";
-    const row = (id: number) => [...list.matchAll(/<li class="colonycat">[\s\S]*?<\/li>/g)].map((m) => m[0]).find((r) => r.includes(`/api/team/my/cats/${id}"`))!;
+    const lists = [...html.matchAll(/<ul class="cats">[\s\S]*?<\/ul>/g)].map((m) => m[0]).join("");
+    const row = (id: number) => [...lists.matchAll(/<li class="colonycat">[\s\S]*?<\/li>/g)].map((m) => m[0]).find((r) => r.includes(`/api/team/my/cats/${id}"`))!;
 
-    // Not known first (the planner's order), then sterilised.
-    expect(list.indexOf(`/api/team/my/cats/${neverCat.id}"`)).toBeLessThan(list.indexOf(`/api/team/my/cats/${seenCat.id}"`));
+    // To do comes first; the sterilised cat is in Done, folded, after it.
+    expect(html.indexOf(`/api/team/my/cats/${neverCat.id}"`)).toBeLessThan(html.indexOf('<details class="planfold">'));
+    expect(html.indexOf('<details class="planfold">')).toBeLessThan(html.indexOf(`/api/team/my/cats/${seenCat.id}"`));
     // The colony bar's words for the mark, and the guardian pages' date words.
     expect(row(seenCat.id)).toContain(`<span class="mark-word">${tr("en", "colonies.mark.sterilised")}</span>`);
     expect(row(seenCat.id)).toContain(tr("en", "gcat.lastSeen", { date: formatDate("en", new Date("2026-10-03T12:00:00Z")) }));
     expect(row(neverCat.id)).toContain(`<span class="mark-word">${tr("en", "colonies.mark.notKnown")}</span>`);
     // Review focus 2: never seen reads gcat.neverSeen, not the team's words.
     expect(row(neverCat.id)).toContain(tr("en", "gcat.neverSeen"));
-    expect(list).not.toContain("Never seen since first recorded");
-    expect(list).not.toMatch(/Last seen on |ago</);
-    // No place label, no position, no map company's address, anywhere on her page.
-    expect(list).not.toContain(" · ");
-    for (const where of [areaFor(37.4402, 24.9381).name, areaFor(37.445, 24.942).name]) {
-      expect(list, where).not.toContain(where);
-    }
-    expect(html).not.toMatch(/37\.44|24\.9[34]/);
+    expect(lists).not.toContain("Never seen since first recorded");
+    expect(lists).not.toMatch(/Last seen on |ago</);
+    // Her place is where the cat was first found (redesign §10.2), never where it was sighted.
+    const found = areaFor(37.445, 24.942).name;
+    const sighted = areaFor(37.4436, 24.8889).name;
+    expect(found).not.toBe(sighted);
+    expect(row(seenCat.id)).toContain(tr("en", "plan.usual", { place: found }));
+    expect(html).not.toContain(sighted);
+    // No position and no map company's address anywhere on her page (this colony has no feeding sites, so no map).
+    expect(html).not.toMatch(/37\.44|24\.9[34]|24\.88/);
     expect(html).not.toMatch(/google\.com\/maps|openstreetmap|geo:/i);
+    // No estimate and no printable plan for her (§10.2).
+    expect(html).not.toContain("×");
+    expect(html).not.toContain("/plan\"");
     // Her cats link to her own cat page, never the team's.
-    expect(list).not.toContain(`href="/api/team/cats/`);
+    expect(lists).not.toContain(`href="/api/team/cats/`);
   });
 });
 

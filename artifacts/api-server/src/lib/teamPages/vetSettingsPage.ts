@@ -1,6 +1,6 @@
 import type { PriceChange } from "../vetSettings";
 import { escapeHtml as esc } from "./escape";
-import { backLink, HOME_PATH } from "./backLink";
+import { backLink, SETTINGS_PATH } from "./backLink";
 import { renderPage } from "./layout";
 
 // The Vet settings page (SYC-396 PR 3.1b; dashboard §8.4, §10.3): the
@@ -75,14 +75,15 @@ export function renderVetSettingsPage(o: VetSettingsPageOptions): string {
   const done = o.done !== undefined ? VET_SETTINGS_DONE[o.done] : undefined;
   return renderPage({
     title: "Vet settings",
-    active: null,
+    active: "settings",
     personName: o.personName,
-    beforeTitle: backLink(HOME_PATH, "Home"),
+    beforeTitle: backLink(SETTINGS_PATH, "Settings"),
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
       "<h2>Standard sterilisation price</h2>" +
       `<p class="hbig"><strong>€${o.priceEur}</strong> per cat</p>` +
-      "<p class=\"hint\">A vet visit with Sterilised ticked starts with this price as its cost. Each visit's cost can still be changed.</p>" +
+      // The planner's estimate is back now the planner is built (SYC-619 §9.3; SYC-621).
+      "<p class=\"hint\">Each colony's trapping planner uses it for its estimate, and a vet visit with Sterilised ticked starts with it as its cost. Each visit's cost can still be changed.</p>" +
       priceForm(o) +
       '<h2 id="history">History</h2>' +
       historyList(o.history),

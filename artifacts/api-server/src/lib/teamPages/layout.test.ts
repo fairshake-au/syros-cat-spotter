@@ -28,7 +28,7 @@ const links = (html: string) =>
   ]);
 
 describe("the team's menu (spec §3.1)", () => {
-  it("names the team's jobs in the spec's order: Home · Cats · Map · Queue · Colonies · Reports", () => {
+  it("names the team's jobs in the spec's order: Home · Cats · Map · Queue · Colonies · Reports · Settings", () => {
     expect(links(page({ island: true, showPeople: false }))).toEqual([
       ["Home", "/api/team/home"],
       ["Cats", "/api/team/cats"],
@@ -36,10 +36,11 @@ describe("the team's menu (spec §3.1)", () => {
       ["Queue", "/api/team"],
       ["Colonies", "/api/team/colonies"],
       ["Reports", "/api/team/insights"],
+      ["Settings", "/api/team/settings"],
     ]);
   });
 
-  it("with People, is exactly the seven labels in order (SYC-450; Reports since PR 3.3a)", () => {
+  it("with People, is exactly the eight labels in order (SYC-450; Reports since PR 3.3a; Settings after People, SYC-694)", () => {
     expect(links(page({ island: true, showPeople: true })).map((x) => x[0])).toEqual([
       "Home",
       "Cats",
@@ -48,6 +49,7 @@ describe("the team's menu (spec §3.1)", () => {
       "Colonies",
       "Reports",
       "People",
+      "Settings",
     ]);
   });
 
@@ -67,9 +69,17 @@ describe("the team's menu (spec §3.1)", () => {
     }
   });
 
-  it("puts People last, for those who can manage people, then My page", () => {
+  it("puts People then Settings last, for those who can manage people, then My page", () => {
     const l = links(page({ island: true, showPeople: true, mine: true })).map((x) => x[0]);
-    expect(l.slice(-2)).toEqual(["People", "My page"]);
+    expect(l.slice(-3)).toEqual(["People", "Settings", "My page"]);
+  });
+
+  it("Settings is underlined on the Settings page and its three pages, alone; a guardian's menu has none (SYC-694)", () => {
+    const html = page({ active: "settings" });
+    expect(html).toContain('<a class="here" href="/api/team/settings" aria-current="page">Settings</a>');
+    expect(bar(html).inner.match(/aria-current/g)).toHaveLength(1);
+    expect(links(page({ island: false, mine: true })).map((x) => x[0])).not.toContain("Settings");
+    expect(links(page({ nav: "guardian" })).map((x) => x[0])).not.toContain("Settings");
   });
 
   it("Reports opens the Reports area at /insights (/api/team/reports is the welfare queue's), and a guardian's menu has none", () => {
@@ -86,8 +96,9 @@ describe("the team's menu (spec §3.1)", () => {
 
   it("ends with Workspace, on the sign-in site, for people who may use the workspace", () => {
     const l = links(page({ island: true, showPeople: true, mine: true, workspace: true }));
-    expect(l.slice(-3)).toEqual([
+    expect(l.slice(-4)).toEqual([
       ["People", "/api/team/people"],
+      ["Settings", "/api/team/settings"],
       ["My page", "/api/team/my"],
       ["Workspace", "https://admin.catspotters.com/workspace"],
     ]);
@@ -423,13 +434,14 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     "details.notdescribed>summary",
     "details.invitefold>summary",
     "details.method>summary",
+    "details.planfold>summary",
   ];
   const ruleFor = (css: string, tail: string) => {
     const m = new RegExp(`(^|\\n)([^{}\\n]*${tail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^{}\\n]*)\\{([^}]*)\\}`).exec(css);
     return m ? { selectors: m[2]!.split(",").map((s) => s.trim()), body: m[3]! } : null;
   };
 
-  it("the marker rule lists exactly the six summaries", () => {
+  it("the marker rule lists exactly the seven summaries", () => {
     const r = ruleFor(sheet(), "::before");
     const marker = sheet().split("\n").find((l) => l.includes('content:"▸" / ""'))!;
     expect(marker).toBeTruthy();
@@ -451,6 +463,7 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
       "details.notdescribed[open]>summary::before",
       "details.invitefold[open]>summary::before",
       "details.method[open]>summary::before",
+      "details.planfold[open]>summary::before",
     ]);
   });
 
