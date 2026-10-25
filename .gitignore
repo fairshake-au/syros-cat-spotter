@@ -53,3 +53,7 @@ design/coming-soon/live*/
 design/coming-soon/cur/
 
 .wrangler/
+
+# map build output and work dir (SYC-705)
+/out/
+/.map-work/

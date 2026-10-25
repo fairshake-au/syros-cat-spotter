@@ -5,6 +5,7 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { BadgeProgress } from './badgeProgress';
 
 export interface Profile {
   deviceId: string;
@@ -15,7 +16,14 @@ export interface Profile {
   totalSightings: number;
   uniqueCatsDiscovered: number;
   catsSpotted: number;
+  /** Every badge this spotter has earned. Badges are never taken away. */
   badges: string[];
+  /** Every badge in the catalogue, in display order, with progress. */
+  badgeProgress: BadgeProgress[];
+  /** Earned badges not yet seen on the Badges tab ("New"). */
+  newBadgeIds: string[];
+  /** Points earned this week (Monday to Monday, Europe/Athens). */
+  weekPoints: number;
   /** Ids of cats this device owns. Only returned on the device's own profile route (the deviceId path param is the credential); never exposed in public payloads. */
   ownedCatIds: number[];
   /** Consecutive days (Europe/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day. */

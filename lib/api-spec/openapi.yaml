@@ -225,13 +225,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Cat"
         "400":
-          description: Invalid request, EMPTY_NAME, OFFENSIVE_NAME or SYR_SHAPED_NAME
+          description: Invalid request, EMPTY_NAME, OFFENSIVE_NAME, SYR_SHAPED_NAME or NAME_HAS_LINK (a web link or phone number, SYC-709)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
         "403":
-          description: The device secret was refused
+          description: The device secret was refused, or NEEDS_SIGHTING (this phone hasn't met the cat, SYC-709)
           content:
             application/json:
               schema:
@@ -245,7 +245,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
         "429":
-          description: Too many requests
+          description: Too many requests, or NAME_DAILY_LIMIT (3 names per phone a UTC day, SYC-709; Retry-After says when)
           content:
             application/json:
               schema:
@@ -823,6 +823,56 @@ paths:
           description: Invalid or offensive username
         "409":
           description: Username already taken
+  /profiles/{deviceId}/moments:
+    get:
+      operationId: listBadgeMoments
+      tags: [profiles]
+      summary: Celebrations waiting to be played, oldest first, at most 10
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/DeviceSecretHeader"
+      responses:
+        "200":
+          description: Uncelebrated moments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadgeMoments"
+  /profiles/{deviceId}/moments/{id}/celebrated:
+    post:
+      operationId: markMomentCelebrated
+      tags: [profiles]
+      summary: Mark one of this device's celebration moments as played
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - $ref: "#/components/parameters/DeviceSecretHeader"
+      responses:
+        "204":
+          description: Marked (a moment that isn't this device's is left alone)
+  /profiles/{deviceId}/badges/seen:
+    post:
+      operationId: markBadgesSeen
+      tags: [profiles]
+      summary: Clear the "New" marker on every badge this device has
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/DeviceSecretHeader"
+      responses:
+        "204":
+          description: Marked seen
   /notifications/{deviceId}:
     get:
       operationId: listNotifications
@@ -953,6 +1003,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
+  /leaderboard/week:
+    get:
+      operationId: getLeaderboardWeek
+      tags: [profiles]
+      summary: This Athens week's board and last week's frozen result
+      responses:
+        "200":
+          description: The weekly board
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeekBoard"
   /campaign:
     get:
       operationId: getCampaign
@@ -1137,6 +1199,12 @@ components:
       type: object
       properties:
         token: { type: string }
+        language:
+          type: string
+          enum: [en, el, fr]
+          description: >-
+            The app language, so pushes arrive in it. Old app builds send
+            none and are sent English.
       required: [token]
     CreateCatUpdateRequest:
       type: object
@@ -1159,11 +1227,22 @@ components:
       required: [id, catId, updateType, message, createdAt]
     AppNotification:
       type: object
+      description: >-
+        A bell entry. News about a cat has catId, catUpdateId and catName. A
+        weekly result (a place in last week's top three) has no cat: those
+        three and catPhotoUrl are null, updateType is general, and message
+        never names an area or a place.
       properties:
         id: { type: integer }
-        catId: { type: integer }
-        catUpdateId: { type: integer }
-        catName: { type: string }
+        catId:
+          type: integer
+          nullable: true
+        catUpdateId:
+          type: integer
+          nullable: true
+        catName:
+          type: string
+          nullable: true
         catPhotoUrl:
           type: string
           nullable: true
@@ -1171,6 +1250,17 @@ components:
           type: string
           enum: [sighting, desexed, adopted, general]
         message: { type: string }
+        place:
+          type: integer
+          nullable: true
+          description: >-
+            A weekly result's place (1 to 3) so the app can word it in the
+            spotter's language; null for cat news and for results written
+            before this field existed.
+        weekPoints:
+          type: integer
+          nullable: true
+          description: A weekly result's points that week; null as for place.
         read: { type: boolean }
         createdAt: { type: string }
       required:
@@ -1573,6 +1663,14 @@ components:
             last 30 (claiming-a-cat.md §11). Lets the app tell the
             cooldown from "this phone hasn't met the cat". False otherwise,
             for everyone else and for every phone that hasn't proved itself.
+        canName:
+          type: boolean
+          description: |
+            SYC-709: whether this phone may name a cat Syros Cats left
+            unnamed (POST /cats/{catId}/name): the cat is waiting for a name
+            and this phone has met it (the claim's "met" rule). Absent unless
+            the phone proved its id; an app that doesn't read it shows the
+            button and the server refuses with NEEDS_SIGHTING.
       required: [cat, sightings, fansCount, careTimeline, canClaim, claimCooldown]
     Campaign:
       type: object
@@ -1811,10 +1909,24 @@ components:
         cat:
           $ref: "#/components/schemas/Cat"
         pointsAwarded: { type: integer }
+        pointsReason:
+          type: string
+          nullable: true
+          enum: [repeat_today, null]
+          description: >-
+            Why pointsAwarded is 0: "repeat_today" when this spotter already
+            earned points for this cat today (Athens day). Null otherwise.
         isNewCat: { type: boolean }
         newBadges:
           type: array
           items: { type: string }
+          description: Badges this spot earned, each reported by exactly one spot.
+        momentId:
+          type: integer
+          nullable: true
+          description: >-
+            The celebration moment queued for newBadges, or null when this
+            spot earned no badge.
         profile:
           $ref: "#/components/schemas/Profile"
         askEarTip:
@@ -1824,7 +1936,7 @@ components:
             False once this device has given any ear-tip answer for this cat
             ("clipped", "looks whole" or "can't tell"), so each spotter is
             asked once per cat (data spine plan, decision Q3 → B).
-      required: [cat, pointsAwarded, isNewCat, newBadges, profile, askEarTip]
+      required: [cat, pointsAwarded, pointsReason, isNewCat, newBadges, momentId, profile, askEarTip]
     SightingAnswersRequest:
       type: object
       properties:
@@ -1957,6 +2069,19 @@ components:
         badges:
           type: array
           items: { type: string }
+          description: Every badge this spotter has earned. Badges are never taken away.
+        badgeProgress:
+          type: array
+          description: Every badge in the catalogue, in display order, with progress.
+          items:
+            $ref: "#/components/schemas/BadgeProgress"
+        newBadgeIds:
+          type: array
+          items: { type: string }
+          description: Earned badges not yet seen on the Badges tab ("New").
+        weekPoints:
+          type: integer
+          description: Points earned this week (Monday to Monday, Europe/Athens).
         ownedCatIds:
           type: array
           items: { type: integer }
@@ -1989,11 +2114,89 @@ components:
           uniqueCatsDiscovered,
           catsSpotted,
           badges,
+          badgeProgress,
+          newBadgeIds,
+          weekPoints,
           ownedCatIds,
           currentStreakDays,
           spottedCatIds,
           totalCats,
         ]
+    BadgeProgress:
+      type: object
+      properties:
+        id: { type: string }
+        group:
+          type: string
+          enum: [first_steps, coming_back, weekly, finding, covering]
+        earned: { type: boolean }
+        value:
+          type: integer
+          nullable: true
+          description: Progress towards the goal; null for badges earned at a moment (Pathfinder, Trailblazer).
+        goal:
+          type: integer
+          nullable: true
+      required: [id, group, earned, value, goal]
+    BadgeMoment:
+      type: object
+      properties:
+        id: { type: integer }
+        kind:
+          type: string
+          enum: [badges, week_result, history]
+        badgeIds:
+          type: array
+          items: { type: string }
+        weekStart:
+          type: string
+          format: date
+          nullable: true
+        place:
+          type: integer
+          nullable: true
+        weekPoints:
+          type: integer
+          nullable: true
+      required: [id, kind, badgeIds, weekStart, place, weekPoints]
+    BadgeMoments:
+      type: object
+      properties:
+        moments:
+          type: array
+          items:
+            $ref: "#/components/schemas/BadgeMoment"
+      required: [moments]
+    LastWeekEntry:
+      type: object
+      properties:
+        place: { type: integer }
+        name:
+          type: string
+          nullable: true
+          description: The frozen display name, or null for "a spotter"
+        points: { type: integer }
+      required: [place, name, points]
+    WeekBoard:
+      type: object
+      properties:
+        weekStart:
+          type: string
+          description: The Athens Monday this week began, as YYYY-MM-DD
+        endsAt:
+          type: string
+          format: date-time
+          description: When this week closes (next Monday 00:00 Athens)
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaderboardEntry"
+        lastWeek:
+          type: array
+          description: Last week's frozen result; empty until that week has closed
+          items:
+            $ref: "#/components/schemas/LastWeekEntry"
+      required: [weekStart, endsAt, entries, lastWeek]
     LeaderboardEntry:
       type: object
       properties:

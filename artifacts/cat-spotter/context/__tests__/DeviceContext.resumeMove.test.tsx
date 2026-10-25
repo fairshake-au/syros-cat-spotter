@@ -218,15 +218,25 @@ describe('a reload mid-move (I1)', () => {
   });
 
   it('N1: retries stop once the window has passed, and the move is cleared', async () => {
-    pending(15 * 60_000 - 10);
+    // A minute inside the window, then the first (failing) try moves the clock
+    // past it. With only 10 ms to spare the first try itself could miss the
+    // window on a slow machine and never run (SYC-717).
+    pending(15 * 60_000 - 60_000);
+    const realNow = Date.now.bind(Date);
+    let skew = 0;
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => realNow() + skew);
     redeem.mockImplementation(async () => {
-      await new Promise((r) => setTimeout(r, 20));
+      skew = 120_000;
       throw offline();
     });
-    const { result } = renderHook(() => useDevice(), { wrapper });
-    await waitFor(() => expect(result.current.isReady).toBe(true));
-    expect(redeem).toHaveBeenCalledTimes(1);
-    expect(readPendingMove()).toBeNull();
+    try {
+      const { result } = renderHook(() => useDevice(), { wrapper });
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+      expect(redeem).toHaveBeenCalledTimes(1);
+      expect(readPendingMove()).toBeNull();
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   it('N2: if writing the restored identity fails, the pending move survives for the next start', async () => {

@@ -234,6 +234,13 @@ export async function redeemRestore(input: {
   if (input.deleteCurrent && !input.abandonCurrent) return { ok: false, reason: "delete_without_abandon" };
   try {
     return await db.transaction(async (tx) => {
+      // "Delete Nikos" ends in severPerson, which takes the badges lock before
+      // any credentials row lock for a device (DELETE /me does the same). Take
+      // it here, before the credentials lock below, so one phone's move and
+      // delete can never wait on each other in a circle (40P01, a 500).
+      if (input.deleteCurrent) {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"badges:" + callerDeviceId}))`);
+      }
       // Lock the calling phone's credential first: two links redeemed by one
       // phone at the same moment queue up, and the second finds it retired
       // (review of #106).
@@ -309,6 +316,10 @@ export async function redeemRestore(input: {
       `);
       if (!retired.rows.length) throw new Refused("caller_has_no_credential");
       await tx.execute(sql`delete from push_tokens where device_id = ${callerDeviceId}`);
+      // SYC-706: the retired phone's badges and points stay (nothing can read
+      // them once the credential is retired), but a waiting celebration can
+      // never be played, so it goes.
+      await tx.execute(sql`delete from badge_moments where device_id = ${callerDeviceId}`);
 
       return { ok: true as const, deviceId: spotterDeviceId, username: chosen.username };
     });

@@ -98,6 +98,10 @@ vi.mock('@/components/TurnstileHost', () => ({ TurnstileHost: stubComponent('Tur
 // SYC-3: the keep-safe step and the "moved" screen.
 vi.mock('@/components/keepSafe/KeepSafeScreen', () => ({ KeepSafeScreen: stubComponent('KeepSafeScreen') }));
 vi.mock('@/components/keepSafe/MovedScreen', () => ({ MovedScreen: stubComponent('MovedScreen') }));
+// SYC-706: the celebration provider only wraps the app; it renders no screen of its own here.
+vi.mock('@/context/CelebrationContext', () => ({
+  CelebrationProvider: ({ children }: { children?: unknown }) => (children ?? null) as never,
+}));
 vi.mock('@/components/keepSafe/FirstBadgeOffer', () => ({ FirstBadgeOffer: stubComponent('FirstBadgeOffer') }));
 
 

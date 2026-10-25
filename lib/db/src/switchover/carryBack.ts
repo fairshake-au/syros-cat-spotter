@@ -3,6 +3,7 @@ import type { ClientBase } from "pg";
 import {
   BASELINE_TABLES,
   compare,
+  projectedRowFilter,
   applyCanonicalSettings,
   fingerprint,
   quoteIdent,
@@ -216,7 +217,7 @@ async function rowKeys(
     .map((c, i) => `t.${quoteIdent(c)}::text as "k${i}"`)
     .join(", ");
   const r = await client.query<Record<string, string>>(
-    `select ${pkSelect}, md5(${rowTextExpr(columns, table)}) as "h" from ${quoteIdent(table)} t`,
+    `select ${pkSelect}, md5(${rowTextExpr(columns, table)}) as "h" from ${quoteIdent(table)} t${await projectedRowFilter(client, table, columns)}`,
   );
   const out = new Map<string, { pk: string[]; hash: string }>();
   for (const row of r.rows) {

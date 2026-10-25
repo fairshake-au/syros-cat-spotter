@@ -129,10 +129,14 @@ function expectNothingPrivate(payload: unknown) {
     }
   }
   // The seeded positions' distinctive sub-metre digits, in any text form.
-  // (Published centres keep 6 decimals, so they never carry these.)
+  // (Published centres keep 6 decimals, so they never carry these.) Eight
+  // digits, not six: GET /cats lists every test file's cats, and six digits
+  // turned up by chance in someone else's id or centre (SYC-551). A coordinate
+  // cut shorter than this is still caught as a non-centre number, above.
   for (const exact of EXACT_NUMBERS) {
-    const digits = String(exact).split(".")[1]!.slice(3, 9);
-    expect(json, `exact coordinate ${exact} leaked as text`).not.toContain(digits);
+    const digits = String(exact).split(".")[1]!.slice(2, 10);
+    const at = json.indexOf(digits);
+    expect(at, `exact coordinate ${exact} leaked as text: ...${json.slice(Math.max(0, at - 30), at + 30)}...`).toBe(-1);
   }
   expect(json).not.toContain(NOTE_TEXT);
   expect(json).not.toContain(FEEDING_NAME);

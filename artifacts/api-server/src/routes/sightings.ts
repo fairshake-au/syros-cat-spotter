@@ -24,12 +24,13 @@ import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
   isResolvedDeceased,
-  getProfileStats,
   profilePayload,
   serialiseCat,
 } from "../lib/catHelpers";
 import { blurPosition } from "../lib/blur";
-import { badgesFor } from "../lib/badges";
+import { thresholdBadges } from "../lib/badges/catalogue";
+import { computeBadgeStats } from "../lib/badges/stats";
+import { awardBadges, eventBadgesForSpot, queueMoment } from "../lib/badges/award";
 import { clampCaptureTime } from "../lib/captureTime";
 import { requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
@@ -47,11 +48,15 @@ import {
 } from "../middlewares/rateLimit";
 import { safeError } from "../lib/logger";
 import { selectCandidateCats } from "../lib/candidateSelection";
+import { awardPoints } from "../lib/pointsLedger";
+import { placeFor } from "../lib/areas/placeFor";
 import {
   BLANK_NAME_BODY,
   catNamed,
+  hasLinkOrPhoneNumber,
   isBlankName,
   isSyrShapedName,
+  NAME_HAS_LINK_BODY,
   SYR_SHAPED_NAME_BODY,
   isUniqueViolation,
   nameTakenBody,
@@ -67,8 +72,8 @@ import {
   type PublicPhotoUrl,
 } from "../lib/photoVisibility";
 
-export const POINTS_CONFIRM = 15;
-export const POINTS_NEW_CAT = 25;
+import { POINTS_CONFIRM, POINTS_NEW_CAT } from "../lib/points";
+export { POINTS_CONFIRM, POINTS_NEW_CAT };
 
 // SYC-119 (choose-a-different-cat.md §4.8): the one refusal for a pick of a
 // cat that isn't nearby. It is identical whatever the reason (too far, or no
@@ -889,9 +894,6 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   // so no device id matches it and nobody can resolve it from the app.
   const spotterId: string = sighting.deviceId;
 
-  const statsBefore = await getProfileStats(spotterId);
-  const badgesBefore = badgesFor(statsBefore);
-
   let existingCat: typeof catsTable.$inferSelect | undefined;
   let newCatName: string | undefined;
 
@@ -975,6 +977,11 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       res.status(400).json(SYR_SHAPED_NAME_BODY);
       return;
     }
+    // SYC-709: no web link or phone number in a name the public types.
+    if (hasLinkOrPhoneNumber(name)) {
+      res.status(400).json(NAME_HAS_LINK_BODY);
+      return;
+    }
     const taken = await catNamed(name);
     if (taken) {
       res.status(409).json(await nameTakenBody(taken));
@@ -991,7 +998,21 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     resolution = await db.transaction(async (tx) => {
       let cat = existingCat;
       const isNewCat = newCatName != null;
-      const pointsAwarded = isNewCat ? POINTS_NEW_CAT : POINTS_CONFIRM;
+      // SYC-706: the moment of the spot is the resolve, not the photo's
+      // capture time, for the once-a-day rule and the week it counts in.
+      const at = new Date();
+
+      // SYC-706: badges are decided inside this transaction. One spotter's
+      // resolves take turns (all of their spots, not just one cat's), so the
+      // "before" below is exact and a badge is celebrated by one spot only.
+      // Lock order: this lock, then the sighting row, then awardPoints' lock.
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${"badges:" + spotterId}))`,
+      );
+      // What the spotter had met before this spot. Badges met already were
+      // earned by older spots: saved without a celebration, so an existing
+      // spotter's first spot after launch doesn't replay their whole history.
+      const badgesBefore = thresholdBadges(await computeBadgeStats(tx, spotterId));
 
       if (newCatName != null) {
         // SYC-462 spec §6 item 4 (P9): a cover photo removed for good never
@@ -1027,28 +1048,48 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         });
       }
 
+      // SYC-706: the place is stamped in the same update. A row already
+      // stamped keeps its stamp (the trigger refuses to overwrite one).
+      const place = placeFor(sighting.lat, sighting.lng);
       // Only a pending sighting resolves (review F6): two resolves sent at
       // once used to both succeed and award points twice. The loser's
       // transaction rolls back, a new cat included.
       const updated = await tx
         .update(sightingsTable)
-        .set({ catId: cat!.id, status: "resolved" })
+        .set({
+          catId: cat!.id,
+          status: "resolved",
+          areaKey: sql`coalesce(${sightingsTable.areaKey}, ${place.areaKey})`,
+          onIsland: sql`coalesce(${sightingsTable.onIsland}, ${place.onIsland})`,
+        })
         .where(
           and(
             eq(sightingsTable.id, sightingId),
             eq(sightingsTable.status, "pending"),
           ),
         )
-        .returning({ id: sightingsTable.id });
+        .returning({ id: sightingsTable.id, areaKey: sightingsTable.areaKey });
       if (updated.length === 0) throw ALREADY_RESOLVED;
 
-      await tx
-        .insert(profilesTable)
-        .values({ deviceId: spotterId, points: pointsAwarded })
-        .onConflictDoUpdate({
-          target: profilesTable.deviceId,
-          set: { points: sql`${profilesTable.points} + ${pointsAwarded}` },
-        });
+      // SYC-706: a spotter earns for a given cat once per Athens day.
+      const award = await awardPoints(tx, {
+        deviceId: spotterId,
+        sightingId,
+        catId: cat!.id,
+        isNewCat,
+        at,
+      });
+      const pointsAwarded = award.points;
+      if (pointsAwarded > 0) {
+        await tx
+          .insert(profilesTable)
+          .values({ deviceId: spotterId, points: pointsAwarded })
+          .onConflictDoUpdate({
+            target: profilesTable.deviceId,
+            set: { points: sql`${profilesTable.points} + ${pointsAwarded}` },
+          });
+      }
+      const pointsReason = award.repeatToday ? ("repeat_today" as const) : null;
 
       // SYC-624: a phone that unfollowed this cat stays unfollowed; only a
       // fresh Follow tap (which clears its cat_unfollows row) brings it back.
@@ -1070,7 +1111,26 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         on conflict do nothing
       `);
 
-      return { cat: cat!, pointsAwarded, isNewCat };
+      // SYC-706: the badges this spot crossed, plus the moment-of-the-spot
+      // ones, saved once. awardBadges returns only rows it inserted, so a
+      // badge another spot already saved is never celebrated twice.
+      const badgesAfter = thresholdBadges(await computeBadgeStats(tx, spotterId));
+      const crossed = badgesAfter.filter((b) => !badgesBefore.includes(b));
+      const events = await eventBadgesForSpot(tx, {
+        deviceId: spotterId,
+        catId: cat!.id,
+        isNewCat,
+        areaKey: updated[0]!.areaKey,
+        at,
+      });
+      await awardBadges(tx, spotterId, badgesBefore, "history");
+      const newBadges = await awardBadges(tx, spotterId, [...crossed, ...events], "live");
+      const momentId =
+        newBadges.length > 0
+          ? await queueMoment(tx, { deviceId: spotterId, kind: "badges", badgeIds: newBadges })
+          : null;
+
+      return { cat: cat!, pointsAwarded, pointsReason, isNewCat, newBadges, momentId };
     });
   } catch (err: any) {
     if (err === ALREADY_RESOLVED) {
@@ -1085,7 +1145,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     throw err;
   }
 
-  const { cat, pointsAwarded, isNewCat } = resolution;
+  const { cat, pointsAwarded, pointsReason, isNewCat, newBadges, momentId } = resolution;
 
   // SYC-151: the server's own label for this choice (§4.6), decided from the
   // stored set and never from what the phone says. Team-only, and best
@@ -1128,7 +1188,6 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   });
 
   const profile = await profilePayload(sighting.deviceId);
-  const newBadges = profile.badges.filter((b) => !badgesBefore.includes(b));
   const askEarTip = !(await hasAnsweredEarTip(db, sighting.deviceId, cat.id));
 
   // SYC-166 slice 3 (spec test 12): last seen is the cat's newest sighting,
@@ -1187,8 +1246,10 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       PUBLIC_VIEWER,
     ),
     pointsAwarded,
+    pointsReason,
     isNewCat,
     newBadges,
+    momentId,
     profile,
     askEarTip,
   });
