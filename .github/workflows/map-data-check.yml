@@ -1,0 +1,24 @@
+name: map-data-check
+# Daily check that the self-hosted Syros map is still served at tiles.catspotters.com:
+# current.json, the PMTiles header, and one font range per font stack. SYC-705.
+#
+# A failing run fails this job. GitHub emails the repo owner on a scheduled-workflow
+# failure; that email is the alert. (No Linear ticket: that would need a Linear API
+# key secret. Flagged to Samuel in the PR.) The check itself is scripts/map-data/check_live.sh.
+# It needs no secrets.
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the live map
+        run: bash scripts/map-data/check_live.sh
