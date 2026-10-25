@@ -30,5 +30,8 @@ describe('SYC-512 confirm before throwing away', () => {
     const call = keepSafe.indexOf('await removeKeepSafe(');
     expect(ask).toBeGreaterThan(-1);
     expect(call).toBeGreaterThan(ask);
+    // Saying no must stop before the server is called.
+    expect(keepSafe).toMatch(/const sure = await confirmChoice\([\s\S]*?\);\s*if \(!sure\) return;/);
+    expect(keepSafe.indexOf('if (!sure) return;')).toBeLessThan(call);
   });
 });
