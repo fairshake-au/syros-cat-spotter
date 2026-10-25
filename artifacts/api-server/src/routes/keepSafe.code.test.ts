@@ -30,8 +30,10 @@ import { hashSecret } from "../lib/deviceAuth";
 import { _resetBucketForTests, addressKey, consume } from "../lib/limits";
 import { __setCodeCapForTest, __setCodePadForTest, __setRestorePadForTest } from "./keepSafe";
 import { installFakeResend, tokenFrom, type SentMail } from "../test/fakeResend";
+import { usernameSafeRun } from "../test/usernameRun";
 
 const RUN = randomBytes(3).toString("hex");
+const NAME_RUN = usernameSafeRun(RUN);
 const P = `vitest-kc-${RUN}`;
 const ORIGIN = "https://apptest.catspotters.com";
 const CODE_NOT_VALID = { error: "code_not_valid" };
@@ -92,7 +94,7 @@ const mailTo = (email: string) => sent.filter((m) => m.to === normaliseAddress(e
 async function keptSafe(email: string): Promise<Phone & { username: string }> {
   const phone = newPhone();
   await bind(phone);
-  const username = `Kc${RUN}${++n}`;
+  const username = `Kc${NAME_RUN}${++n}`;
   const claim = await request(app)
     .post(`/api/profiles/${phone.id}/username`)
     .set("X-Device-Secret", phone.secret)
@@ -518,7 +520,7 @@ describe("a handle at peek, redeem and replay", () => {
     const old = await keptSafe(email);
     const phone = newPhone();
     await bind(phone);
-    const nikos = `Nikos${RUN}${++n}`;
+    const nikos = `Nikos${NAME_RUN}${++n}`;
     const claim = await request(app)
       .post(`/api/profiles/${phone.id}/username`)
       .set("X-Device-Secret", phone.secret)
