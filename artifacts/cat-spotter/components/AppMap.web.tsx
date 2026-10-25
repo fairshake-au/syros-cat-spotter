@@ -21,25 +21,26 @@ export function zoomForDelta(latitudeDelta: number): number {
   return clampZoom(Math.log2(360 / latitudeDelta) - 1);
 }
 
-/** A cell's square as its north-west, north-east and south-west corners. */
-interface CellCorners {
-  nw: [number, number];
-  ne: [number, number];
-  sw: [number, number];
+/** A cell's true square: its edges as latitudes and longitudes. */
+export interface CellBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
 }
 
 /** Where a cell's square sits over the map, in pixels from the map's top-left. */
-interface CellBox {
+export interface CellBox {
   left: number;
   top: number;
   width: number;
   height: number;
-  /** Radians; non-zero only while the map is rotated. */
+  /** Radians, clockwise on screen; non-zero only while the map is rotated. */
   angle: number;
 }
 
-/** The corners of the true square, from the bounds of the drawn (rounded) cell. */
-function cellCorners(a: AppMapArea): CellCorners {
+/** The true square, from the bounds of the drawn (rounded) cell. */
+export function cellBounds(a: AppMapArea): CellBounds {
   let north = -Infinity;
   let south = Infinity;
   let east = -Infinity;
@@ -50,18 +51,18 @@ function cellCorners(a: AppMapArea): CellCorners {
     east = Math.max(east, p.longitude);
     west = Math.min(west, p.longitude);
   }
-  return { nw: [west, north], ne: [east, north], sw: [west, south] };
+  return { north, south, east, west };
 }
 
 /**
  * The square on screen, from where MapLibre draws its corners. When the map
  * is rotated the square turns with it: the box is centred on the cell and
- * rotated by the angle of its north edge.
+ * rotated (about its centre, clockwise) by the angle of its north edge.
  */
-function cellBox(map: MaplibreMap, c: CellCorners): CellBox {
-  const nw = map.project(c.nw);
-  const ne = map.project(c.ne);
-  const sw = map.project(c.sw);
+export function cellBox(map: Pick<MaplibreMap, 'project'>, b: CellBounds): CellBox {
+  const nw = map.project([b.west, b.north]);
+  const ne = map.project([b.east, b.north]);
+  const sw = map.project([b.west, b.south]);
   const width = Math.hypot(ne.x - nw.x, ne.y - nw.y);
   const height = Math.hypot(sw.x - nw.x, sw.y - nw.y);
   const angle = Math.atan2(ne.y - nw.y, ne.x - nw.x);
@@ -70,6 +71,25 @@ function cellBox(map: MaplibreMap, c: CellCorners): CellBox {
   const cx = (ne.x + sw.x) / 2;
   const cy = (ne.y + sw.y) / 2;
   return { left: cx - width / 2, top: cy - height / 2, width, height, angle };
+}
+
+/**
+ * The area under a point on the map, if a pressable one is there: the last
+ * one drawn wins, as the topmost square did when squares took taps
+ * themselves. Works in latitude and longitude, so rotation doesn't matter.
+ */
+export function pressableAreaAt(
+  areas: readonly AppMapArea[],
+  bounds: readonly CellBounds[],
+  at: { lng: number; lat: number },
+): AppMapArea | null {
+  for (let i = areas.length - 1; i >= 0; i--) {
+    const a = areas[i]!;
+    const b = bounds[i];
+    if (!a.onPress || !b) continue;
+    if (at.lat <= b.north && at.lat >= b.south && at.lng <= b.east && at.lng >= b.west) return a;
+  }
+  return null;
 }
 
 const nextFrame: (cb: () => void) => number =
@@ -83,10 +103,14 @@ const cancelFrame: (id: number) => void =
 
 /**
  * Web map, drawn by MapLibre from our own Syros map file (SYC-705). Each cat's
- * published cell is a DOM square laid over the map (so it keeps its spoken
- * label and press behaviour), placed with map.project and moved with the
- * map frame by frame. The strip of tappable cats sits along the bottom and
- * keeps working when the map itself can't draw.
+ * published cell is a DOM square laid over the map, placed with map.project
+ * and moved with the map frame by frame. The squares are pointer-transparent,
+ * so every drag, pinch and wheel reaches the map; a tap is found from the
+ * map's own 'click' (which never fires after a drag). They stay Pressables,
+ * so they keep their spoken labels, tab order and Enter/Space. The map
+ * rotates; a compass button turns it back to north, and labels stay upright.
+ * The strip of tappable cats sits along the bottom and keeps working when the
+ * map itself can't draw.
  */
 export function AppMap({
   latitude,
@@ -145,55 +169,78 @@ export function AppMap({
     map.jumpTo({ center: [fit.longitude, fit.latitude], zoom: toMapLibreZoom(fit.zoom) });
   }, [map, fitKey, size, hasAreas]);
 
-  // Each cell's square follows the map: recomputed from map.project on every
-  // move, zoom, rotation or resize, at most once per animation frame.
-  const corners = useMemo(() => areas.map(cellCorners), [areas]);
-  const [boxes, setBoxes] = useState<CellBox[]>([]);
+  const bounds = useMemo(() => areas.map(cellBounds), [areas]);
+  const boundsRef = useRef(bounds);
+  boundsRef.current = bounds;
+
+  // Squares are placed during render from map.project. The map's camera
+  // events only ask for a new render, at most once per animation frame.
+  // Keyed on the map alone, so callers' inline `areas` never re-subscribe.
+  const [, setFrame] = useState(0);
+  const [bearing, setBearing] = useState(0);
   useEffect(() => {
     if (!map) return;
-    const measure = () => setBoxes(corners.map((c) => cellBox(map, c)));
-    measure();
     let frame: number | null = null;
     const schedule = () => {
       if (frame !== null) return;
       frame = nextFrame(() => {
         frame = null;
-        measure();
+        setFrame((n) => n + 1);
       });
     };
-    const events = ['move', 'zoom', 'rotate', 'resize'] as const;
-    for (const e of events) map.on(e, schedule);
+    const onRotate = () => setBearing(map.getBearing());
+    const hit = (e: { lngLat: { lng: number; lat: number } }) =>
+      pressableAreaAt(areasRef.current, boundsRef.current, e.lngLat);
+    const onClick = (e: { lngLat: { lng: number; lat: number } }) => hit(e)?.onPress?.();
+    const onMouseMove = (e: { lngLat: { lng: number; lat: number } }) => {
+      map.getCanvas().style.cursor = hit(e) ? 'pointer' : '';
+    };
+    const camera = ['move', 'zoom', 'rotate', 'resize'] as const;
+    for (const e of camera) map.on(e, schedule);
+    map.on('rotate', onRotate);
+    map.on('click', onClick);
+    map.on('mousemove', onMouseMove);
+    onRotate();
     return () => {
-      for (const e of events) map.off(e, schedule);
+      for (const e of camera) map.off(e, schedule);
+      map.off('rotate', onRotate);
+      map.off('click', onClick);
+      map.off('mousemove', onMouseMove);
       if (frame !== null) cancelFrame(frame);
     };
-  }, [map, corners]);
+  }, [map]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
   };
 
-  const zoomButton = (name: 'plus' | 'minus', delta: number, label: string) => (
+  const controlButton = (
+    icon: React.ReactNode,
+    label: string,
+    onPress: () => void,
+  ) => (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      onPress={() => map?.easeTo({ zoom: map.getZoom() + delta })}
+      onPress={onPress}
       style={[styles.zoomBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
     >
-      <Feather name={name} size={18} color={colors.foreground} />
+      {icon}
     </Pressable>
   );
 
-  const showCells = map !== null && failed === null && boxes.length === areas.length;
+  const boxes = map !== null && failed === null ? bounds.map((b) => cellBox(map, b)) : null;
+  // MapLibre snaps back to north within a few degrees; anything else is a turned map.
+  const rotated = Math.abs(bearing) > 0.01;
 
   return (
     <View style={[styles.container, style]} onLayout={onLayout}>
       <View style={styles.surface} accessibilityLabel="map">
         {/* MapLibre owns this element's children; React puts nothing in it. */}
         <View ref={containerRef} style={StyleSheet.absoluteFill} />
-        {showCells && (
-          <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+        {boxes && (
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             {areas.map((a, i) => {
               const box = boxes[i]!;
               return (
@@ -205,20 +252,27 @@ export function AppMap({
                   accessibilityLabel={a.accessibilityLabel ?? a.label}
                   style={[
                     styles.area,
-                    {
-                      left: box.left,
-                      top: box.top,
-                      width: box.width,
-                      height: box.height,
-                      borderRadius: Math.min(box.width, box.height) * CORNER_SHARE,
-                      borderColor: colors.primary,
-                      backgroundColor: `${colors.primary}33`,
-                    },
-                    box.angle !== 0 ? { transform: [{ rotate: `${box.angle}rad` }] } : null,
+                    { left: box.left, top: box.top, width: box.width, height: box.height },
                   ]}
                 >
+                  {/* The square turns with the map; the label stays upright. */}
+                  <View
+                    pointerEvents="none"
+                    style={[
+                      styles.areaSquare,
+                      {
+                        borderRadius: Math.min(box.width, box.height) * CORNER_SHARE,
+                        borderColor: colors.primary,
+                        backgroundColor: `${colors.primary}33`,
+                      },
+                      box.angle !== 0 ? { transform: [{ rotate: `${box.angle}rad` }] } : null,
+                    ]}
+                  />
                   {a.label && box.width >= LABEL_MIN_PX ? (
-                    <View style={[styles.areaLabel, { backgroundColor: colors.card }]}>
+                    <View
+                      pointerEvents="none"
+                      style={[styles.areaLabel, { backgroundColor: colors.card }]}
+                    >
                       <Text
                         numberOfLines={1}
                         style={[styles.areaLabelText, { color: colors.cardForeground }]}
@@ -242,8 +296,25 @@ export function AppMap({
       </View>
       {interactive && failed === null && (
         <View style={styles.zoomControls}>
-          {zoomButton('plus', 1, t('mapZoomIn'))}
-          {zoomButton('minus', -1, t('mapZoomOut'))}
+          {controlButton(
+            <Feather name="plus" size={18} color={colors.foreground} />,
+            t('mapZoomIn'),
+            () => map?.easeTo({ zoom: map.getZoom() + 1 }),
+          )}
+          {controlButton(
+            <Feather name="minus" size={18} color={colors.foreground} />,
+            t('mapZoomOut'),
+            () => map?.easeTo({ zoom: map.getZoom() - 1 }),
+          )}
+          {rotated &&
+            controlButton(
+              // The arrow points at north on screen.
+              <View style={{ transform: [{ rotate: `${-bearing}deg` }] }}>
+                <Feather name="navigation-2" size={18} color={colors.foreground} />
+              </View>,
+              t('mapResetNorth'),
+              () => map?.easeTo({ bearing: 0 }),
+            )}
         </View>
       )}
       {markers.length > 0 && (
@@ -317,11 +388,11 @@ const styles = StyleSheet.create({
   failureText: { fontSize: 14, fontFamily: 'Inter_500Medium', textAlign: 'center' },
   area: {
     position: 'absolute',
-    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'visible',
   },
+  areaSquare: { ...StyleSheet.absoluteFillObject, borderWidth: 2 },
   areaLabel: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
   areaLabelText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
   zoomControls: { position: 'absolute', right: 8, top: 8, gap: 4 },

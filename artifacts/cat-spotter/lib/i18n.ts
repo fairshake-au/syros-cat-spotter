@@ -327,6 +327,7 @@ const en: Dict = {
   notificationUnread: 'Unread',
   mapZoomIn: 'Zoom in',
   mapZoomOut: 'Zoom out',
+  mapResetNorth: 'Turn the map back to north',
   // SYC-705: the website map when MapLibre can't draw or can't download.
   mapNoWebgl: 'The map can’t show in this browser.',
   mapLoadFailed: 'The map couldn’t load. Check your connection and try again.',
@@ -1207,6 +1208,7 @@ const el: Dict = {
   notificationUnread: 'Αδιάβαστη',
   mapZoomIn: 'Μεγέθυνση',
   mapZoomOut: 'Σμίκρυνση',
+  mapResetNorth: 'Γύρνα τον χάρτη ξανά προς τον βορρά',
   mapNoWebgl: 'Ο χάρτης δεν μπορεί να εμφανιστεί σε αυτόν τον browser.',
   mapLoadFailed: 'Ο χάρτης δεν φόρτωσε. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.',
   mapPickerLabel: 'Χάρτης. Με τα βελάκια μετακινείς την πινέζα. Ή πάτα ένα σημείο για να πάει εκεί η πινέζα.',
@@ -2056,6 +2058,7 @@ const fr: Dict = {
   notificationUnread: 'Non lue',
   mapZoomIn: 'Zoomer',
   mapZoomOut: 'Dézoomer',
+  mapResetNorth: 'Remets la carte face au nord',
   mapNoWebgl: 'La carte ne peut pas s’afficher dans ce navigateur.',
   mapLoadFailed: 'La carte n’a pas pu se charger. Vérifie ta connexion et réessaie.',
   mapPickerLabel: 'Carte. Utilise les flèches pour déplacer l’épingle, ou touche un endroit pour y mettre l’épingle.',

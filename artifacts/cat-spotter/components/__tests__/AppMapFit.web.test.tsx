@@ -35,13 +35,13 @@ vi.mock('@/lib/mapSource', async (importOriginal) => ({
   useMapVersion: () => 1,
 }));
 
-import { AppMap } from '../AppMap.web';
+import { AppMap, cellBounds, cellBox } from '../AppMap.web';
 import {
   MAPLIBRE_STYLE_ID,
   _resetMapLibreLoaderForTests,
   _setMapLibreImporterForTests,
 } from '../map/useMapLibre.web';
-import { fromMapLibreZoom } from '@/lib/mercator';
+import { fromMapLibreZoom, toWorld } from '@/lib/mercator';
 import { LABEL_MIN_PX } from '@/lib/cellShape';
 
 beforeAll(() => {
@@ -378,5 +378,237 @@ describe('AppMap.web when the map cannot draw', () => {
       fireEvent.click(screen.getByText('Show all'));
     });
     expect(onPress).toHaveBeenCalled();
+  });
+});
+
+describe('AppMap.web taps and drags reach the map', () => {
+  const c = { latitude: 37.44, longitude: 24.94 };
+  const dLat = 250 / 2 / METRES_PER_DEGREE_LAT;
+
+  async function mountOne(onPress = vi.fn()) {
+    // latitudeDelta 0.005 starts at app zoom 15, where the square is wide enough for its label.
+    render(
+      <AppMap
+        {...base}
+        latitudeDelta={0.005}
+        areas={[area('a', c.latitude, c.longitude, { accessibilityLabel: 'A', label: '3 cats', onPress })]}
+      />,
+    );
+    const map = await theMap();
+    await screen.findByLabelText('A');
+    return { map, onPress };
+  }
+
+  it('squares and their labels are pointer-transparent, so drags, pinches and wheel go to the map', async () => {
+    await mountOne();
+    const overlay = square('A').parentElement as HTMLElement;
+    expect(getComputedStyle(overlay).pointerEvents).toBe('none');
+    const label = screen.getByText('3 cats').parentElement as HTMLElement;
+    expect(getComputedStyle(label).pointerEvents).toBe('none');
+    // Still a focusable button for keyboards and screen readers.
+    expect(square('A').getAttribute('role')).toBe('button');
+    expect(square('A').tabIndex).toBe(0);
+  });
+
+  it("a map click inside a square presses it; outside it doesn't", async () => {
+    const { map, onPress } = await mountOne();
+    act(() => {
+      map.fire('click', { lngLat: { lng: c.longitude, lat: c.latitude + dLat * 0.9 } });
+    });
+    expect(onPress).toHaveBeenCalledTimes(1);
+    act(() => {
+      map.fire('click', { lngLat: { lng: c.longitude, lat: c.latitude + dLat * 1.2 } });
+      map.fire('click', { point: { x: 5, y: 5 } });
+    });
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('the topmost pressable square takes the click; a label-only square on top does not block it', async () => {
+    const under = vi.fn();
+    const over = vi.fn();
+    render(
+      <AppMap
+        {...base}
+        areas={[
+          area('a', c.latitude, c.longitude, { accessibilityLabel: 'A', onPress: under }),
+          area('b', c.latitude, c.longitude, { accessibilityLabel: 'B', onPress: over }),
+          area('c', c.latitude, c.longitude, { accessibilityLabel: 'C' }),
+        ]}
+      />,
+    );
+    const map = await theMap();
+    act(() => {
+      map.fire('click', { lngLat: { lng: c.longitude, lat: c.latitude } });
+    });
+    expect(over).toHaveBeenCalledTimes(1);
+    expect(under).not.toHaveBeenCalled();
+  });
+
+  it('a drag over a square never presses it', async () => {
+    const { map, onPress } = await mountOne();
+    const centre = map.project([c.longitude, c.latitude]);
+    act(() => {
+      map.fire('mousedown', { point: centre });
+      map.fire('dragstart');
+      map.panBy([40, 30]);
+      map.fire('drag');
+      map.fire('dragend');
+      map.fire('mouseup', { point: centre });
+      map.fire('touchstart', { point: centre });
+      map.fire('touchend', { point: centre });
+    });
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('shows a pointer cursor over a pressable square', async () => {
+    const { map } = await mountOne();
+    act(() => {
+      map.fire('mousemove', { lngLat: { lng: c.longitude, lat: c.latitude } });
+    });
+    expect(map.getCanvas().style.cursor).toBe('pointer');
+    act(() => {
+      map.fire('mousemove', { point: { x: 5, y: 5 } });
+    });
+    expect(map.getCanvas().style.cursor).toBe('');
+  });
+
+  it('keyboard: the square is still a native button, which the browser clicks on Enter/Space', async () => {
+    // react-native-web renders role=button as <button> and leaves Enter/Space to
+    // the browser's own click (jsdom doesn't synthesise it), so a click stands in.
+    const { onPress } = await mountOne();
+    expect(square('A').tagName).toBe('BUTTON');
+    expect((square('A') as HTMLButtonElement).disabled).toBe(false);
+    act(() => {
+      square('A').focus();
+      fireEvent.click(square('A'));
+    });
+    expect(document.activeElement).toBe(square('A'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AppMap.web rotation', () => {
+  it('a compass button appears once the map is turned, and turns it back to north', async () => {
+    render(<AppMap {...base} areas={[]} />);
+    const map = await theMap();
+    expect(screen.queryByLabelText('mapResetNorth')).toBeNull();
+    act(() => {
+      map.setBearing(30);
+    });
+    const compass = await screen.findByLabelText('mapResetNorth');
+    expect(getComputedStyle(compass).width).toBe('44px');
+    expect(getComputedStyle(compass).height).toBe('44px');
+    act(() => {
+      fireEvent.click(compass);
+    });
+    expect(map.callsTo('easeTo')).toEqual([[{ bearing: 0 }]]);
+    expect(map.getBearing()).toBe(0);
+    await waitFor(() => expect(screen.queryByLabelText('mapResetNorth')).toBeNull());
+  });
+
+  it('no compass on a non-interactive map', async () => {
+    render(<AppMap {...base} areas={[]} interactive={false} />);
+    const map = await theMap();
+    act(() => {
+      map.setBearing(45);
+    });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(screen.queryByLabelText('mapResetNorth')).toBeNull();
+  });
+
+  it('on a turned map the square turns with it and "3 cats" stays upright', async () => {
+    const c = { latitude: 37.44, longitude: 24.94 };
+    render(
+      <AppMap
+        {...base}
+        latitudeDelta={0.005}
+        areas={[area('a', c.latitude, c.longitude, { accessibilityLabel: 'A', label: '3 cats' })]}
+      />,
+    );
+    const map = await theMap();
+    act(() => {
+      map.setBearing(180);
+    });
+    await waitFor(() => {
+      const fill = square('A').firstElementChild as HTMLElement;
+      expect(fill.style.transform).toMatch(/rotate\(/);
+    });
+    const label = screen.getByText('3 cats').parentElement as HTMLElement;
+    expect(label.style.transform).toBe('');
+    // The box is centred on the cell.
+    const s = square('A').style;
+    const centre = map.project([c.longitude, c.latitude]);
+    expect(px(s.left) + px(s.width) / 2).toBeCloseTo(centre.x, 1);
+    expect(px(s.top) + px(s.height) / 2).toBeCloseTo(centre.y, 1);
+  });
+});
+
+describe('cellBox on a rotated map', () => {
+  const centre = { latitude: 37.44, longitude: 24.94 };
+  const Z = 17;
+  /** A project() that turns the map by `deg` (MapLibre bearing) about (195, 300). */
+  const rotatingProject = (deg: number) => {
+    const b = (deg * Math.PI) / 180;
+    const o = toWorld(centre, Z);
+    return {
+      project: ([lng, lat]: [number, number]) => {
+        const p = toWorld({ latitude: lat, longitude: lng }, Z);
+        const dx = p.x - o.x;
+        const dy = p.y - o.y;
+        return { x: dx * Math.cos(b) + dy * Math.sin(b) + 195, y: -dx * Math.sin(b) + dy * Math.cos(b) + 300 };
+      },
+    };
+  };
+  /** The corners of a CSS box rotated clockwise by `angle` about its centre. */
+  const boxCorners = (box: ReturnType<typeof cellBox>) => {
+    const cx = box.left + box.width / 2;
+    const cy = box.top + box.height / 2;
+    const at = (x: number, y: number) => ({
+      x: cx + x * Math.cos(box.angle) - y * Math.sin(box.angle),
+      y: cy + x * Math.sin(box.angle) + y * Math.cos(box.angle),
+    });
+    const w = box.width / 2;
+    const h = box.height / 2;
+    return { nw: at(-w, -h), ne: at(w, -h), sw: at(-w, h), se: at(w, h) };
+  };
+
+  for (const deg of [30, 180]) {
+    it(`puts the rotated box's corners on the projected corners at ${deg}°`, () => {
+      const map = rotatingProject(deg);
+      const b = cellBounds({ id: 'a', ...centre, sizeMetres: 250 });
+      const box = cellBox(map as never, b);
+      expect(box.angle).not.toBe(0);
+      const got = boxCorners(box);
+      const want = {
+        nw: map.project([b.west, b.north]),
+        ne: map.project([b.east, b.north]),
+        sw: map.project([b.west, b.south]),
+        se: map.project([b.east, b.south]),
+      };
+      for (const k of ['nw', 'ne', 'sw', 'se'] as const) {
+        expect(got[k].x).toBeCloseTo(want[k].x, 6);
+        expect(got[k].y).toBeCloseTo(want[k].y, 6);
+      }
+    });
+  }
+});
+
+describe('AppMap.web squares stay in step with their areas', () => {
+  it('new areas are placed in the same render, and inline areas never re-subscribe', async () => {
+    const mk = (lat: number) => [area('x', lat, 24.94, { accessibilityLabel: 'X' })];
+    const { rerender } = render(<AppMap {...base} areas={mk(37.44)} />);
+    const map = await theMap();
+    await screen.findByLabelText('X');
+    const subscriptions = map.callsTo('on').length;
+    rerender(<AppMap {...base} areas={mk(37.441)} />);
+    // No waiting: the moved square is already where the map draws it.
+    const dLat = 250 / 2 / METRES_PER_DEGREE_LAT;
+    const dLng = dLat / Math.cos((37.441 * Math.PI) / 180);
+    const nw = map.project([24.94 - dLng, 37.441 + dLat]);
+    expect(px(square('X').style.top)).toBeCloseTo(nw.y, 1);
+    expect(px(square('X').style.left)).toBeCloseTo(nw.x, 1);
+    rerender(<AppMap {...base} areas={mk(37.441)} />);
+    expect(map.callsTo('on').length).toBe(subscriptions);
+    expect(map.callsTo('off')).toHaveLength(0);
   });
 });
