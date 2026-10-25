@@ -244,7 +244,14 @@ export function BadgeCelebration({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: palette.aegean900 },
-  content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: spacing[5] },
+  content: {
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingHorizontal: spacing[5],
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+  },
   eyebrow: {
     color: palette.sun500,
     fontFamily: fonts.bodyBold,
@@ -332,7 +339,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing[1],
   },
-  footer: { paddingHorizontal: spacing[5], alignItems: 'center' },
+  footer: { paddingHorizontal: spacing[5], alignItems: 'center', width: '100%', maxWidth: 480, alignSelf: 'center' },
   button: {
     alignSelf: 'stretch',
     backgroundColor: palette.sun500,
