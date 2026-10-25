@@ -621,9 +621,10 @@ describe("T5-4 [spec 4]: the address hide limits (5 an hour, 15 a day), with the
 // ── T5-5 ───────────────────────────────────────────────────────────────────
 
 describe("T5-5 [spec 5]: the brake: 5 report-hides a day, Athens time, no resume", () => {
-  // Sunday 25 Oct 2026: Athens moves from EEST (UTC+3) to EET (UTC+2) at
-  // 04:00 local (01:00 UTC). That day is 25 hours long: midnight Athens is
-  // 21:00 UTC on the 24th, and the next midnight is 22:00 UTC on the 25th.
+  // Sunday 26 Oct 2025 (a past clock change, SYC-711): Athens moves from EEST
+  // (UTC+3) to EET (UTC+2) at 04:00 local (01:00 UTC). That day is 25 hours
+  // long: midnight Athens is 21:00 UTC on the 25th, and the next midnight is
+  // 22:00 UTC on the 26th.
   const at = (iso: string) => Date.parse(iso);
 
   async function hideAt(iso: string) {
@@ -637,28 +638,30 @@ describe("T5-5 [spec 5]: the brake: 5 report-hides a day, Athens time, no resume
 
   it("counts report-hides from midnight Athens, across the clock change", async () => {
     expect(REPORT_HIDES_PER_ATHENS_DAY).toBe(5);
-    // 00:10 Athens on the 25th (still summer time).
-    expect((await hideAt("2026-10-24T21:10:00Z")).res.body.hidden).toBe(true);
+    // The 2025 clock change (Sun 26 Oct 2025): a past date, so the real clock never
+    // lands on it (SYC-711: on the real 25 Oct 2026 other tests' "now" rows counted).
+    // 00:10 Athens on the 26th (still summer time).
+    expect((await hideAt("2025-10-25T21:10:00Z")).res.body.hidden).toBe(true);
     // After the clocks go back.
-    expect((await hideAt("2026-10-25T02:00:00Z")).res.body.hidden).toBe(true);
-    expect((await hideAt("2026-10-25T10:00:00Z")).res.body.hidden).toBe(true);
-    expect((await hideAt("2026-10-25T15:00:00Z")).res.body.hidden).toBe(true);
+    expect((await hideAt("2025-10-26T02:00:00Z")).res.body.hidden).toBe(true);
+    expect((await hideAt("2025-10-26T10:00:00Z")).res.body.hidden).toBe(true);
+    expect((await hideAt("2025-10-26T15:00:00Z")).res.body.hidden).toBe(true);
     // A TEAM hide that day doesn't count toward the brake.
     const teamCat = await seedCat(0);
-    await teamEvent(teamCat.main.id, "hide", new Date(at("2026-10-25T16:00:00Z")));
+    await teamEvent(teamCat.main.id, "hide", new Date(at("2025-10-26T16:00:00Z")));
     // The 5th report-hide still goes.
-    expect((await hideAt("2026-10-25T18:00:00Z")).res.body.hidden).toBe(true);
+    expect((await hideAt("2025-10-26T18:00:00Z")).res.body.hidden).toBe(true);
 
-    // 23:50 Athens on the 25th (21:50 UTC): the 6th is saved, not hidden.
+    // 23:50 Athens on the 26th (21:50 UTC): the 6th is saved, not hidden.
     // (A rolling 24 hours would no longer count the 00:10 hide, and a fixed
-    // UTC+3 day would already be the 26th: either would hide here.)
-    const sixth = await hideAt("2026-10-25T21:50:00Z");
+    // UTC+3 day would already be the 27th: either would hide here.)
+    const sixth = await hideAt("2025-10-26T21:50:00Z");
     expect(sixth.res.body.hidden).toBe(false);
     expect(await rowFor(sixth.ref)).toMatchObject({ hiddenByReport: false, hideSkipped: "brake" });
     expect(await isHidden(sixth.cat.main.id)).toBe(false);
 
-    // 00:05 Athens on the 26th (22:05 UTC on the 25th): hides again, on its own.
-    expect((await hideAt("2026-10-25T22:05:00Z")).res.body.hidden).toBe(true);
+    // 00:05 Athens on the 27th (22:05 UTC on the 26th): hides again, on its own.
+    expect((await hideAt("2025-10-26T22:05:00Z")).res.body.hidden).toBe(true);
   });
 
   it("on the database's own clock (production's path): the 6th report-hide today is braked, and a hide is stamped now (review finding 7)", async () => {

@@ -90,7 +90,9 @@ function setup(over: Partial<React.ComponentProps<typeof ReportWizard>> = {}) {
     />,
   );
   const text = () => utils.container.textContent ?? '';
-  const next = () => fireEvent.click(within(utils.getByTestId('report-footer')).getByText(T.reportNext));
+  // "Next", or "Next: send your report" on Call a vet now (SYC-570).
+  const next = () =>
+    fireEvent.click(within(utils.getByTestId('report-footer')).getByText(new RegExp(`^(${T.reportNext}|${T.reportNextSend})$`)));
   return { ...utils, onDraft, onSend, onClose, text, next };
 }
 
@@ -100,7 +102,7 @@ afterEach(() => {
 });
 
 describe('ReportWizard', () => {
-  it('runs Where (1 of 3) → How bad (2 of 3) → Before you send (3 of 3)', () => {
+  it('runs Where (1 of 3) → How bad (2 of 3) → Before you send (3 of 3) for Needs attention', () => {
     const w = setup();
     expect(w.text()).toContain(T.reportWhereTitle);
     expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1').replace('{total}', '3'));
@@ -108,10 +110,64 @@ describe('ReportWizard', () => {
     w.next();
     expect(w.text()).toContain(T.reportHowBadTitle);
     expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2').replace('{total}', '3'));
-    fireEvent.click(w.getByTestId('severity-urgent'));
+    fireEvent.click(w.getByTestId('severity-attention'));
     w.next();
     expect(w.text()).toContain(T.reportBeforeSendTitle);
     expect(w.text()).toContain(T.reportStepOf.replace('{n}', '3').replace('{total}', '3'));
+  });
+
+  it('SYC-570: Urgent runs Where → How bad → Call a vet now (3 of 4) → Before you send (4 of 4)', () => {
+    const w = setup();
+    w.next();
+    fireEvent.click(w.getByTestId('severity-urgent'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2').replace('{total}', '4'));
+    w.next();
+    expect(w.text()).toContain(T.reportCallVetTitle);
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '3').replace('{total}', '4'));
+    // Nothing between the choice and the numbers: the lead, the cage line and the three clinics.
+    const scroll = w.getByTestId('report-scroll').textContent ?? '';
+    expect(scroll).toContain(plain(g.copy.urgent.intro));
+    expect(scroll).toContain(plain(g.copy.urgent.cage));
+    for (const clinic of g.vets) for (const phone of clinic.phones) expect(scroll).toContain(phone.display);
+    // Send is the second step: the pinned button here says Next, never Send.
+    expect(within(w.getByTestId('report-footer')).queryByText(T.reportSendReport)).toBeNull();
+    w.next();
+    expect(w.text()).toContain(T.reportBeforeSendTitle);
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '4').replace('{total}', '4'));
+    fireEvent.click(w.getByLabelText(T.back));
+    expect(w.text()).toContain(T.reportCallVetTitle);
+  });
+
+  it('SYC-570: Needs attention never shows Call a vet now, but its last screen lists the vets', () => {
+    const w = setup();
+    w.next();
+    fireEvent.click(w.getByTestId('severity-attention'));
+    w.next();
+    expect(w.text()).not.toContain(T.reportCallVetTitle);
+    const scroll = w.getByTestId('report-scroll').textContent ?? '';
+    for (const clinic of g.vets) for (const phone of clinic.phones) expect(scroll).toContain(phone.display);
+  });
+
+  it('SYC-570: with the phone near Cyclades Vets that clinic is first and tagged closest, on every vet list; with no fix nothing is tagged', () => {
+    const cyclades = g.vets.find((v) => v.id === 'cyclades-vets')!.coordinates!;
+    const near = { latitude: cyclades.lat, longitude: cyclades.lng };
+    const w = setup({ gps: { coords: near, locating: false, denied: false }, initial: { ...INITIAL_FLOW, step: 2, coords: near } });
+    fireEvent.click(w.getByTestId('severity-urgent'));
+    w.next();
+    expect(w.getAllByTestId('vet-closest')).toHaveLength(1);
+    expect(w.getByTestId('vet-closest').textContent).toContain('Cyclades Vets');
+    expect(w.getByTestId('vet-closest').textContent).toContain(T.reportClosestToYou);
+    expect(w.text()).toContain(T.reportVetsClosest);
+    w.next();
+    expect(w.getByTestId('vet-closest').textContent).toContain('Cyclades Vets');
+    cleanup();
+
+    const none = setup({ gps: { coords: null, locating: false, denied: true }, initial: { ...INITIAL_FLOW, step: 2, coords: here } });
+    fireEvent.click(none.getByTestId('severity-urgent'));
+    none.next();
+    expect(none.queryByTestId('vet-closest')).toBeNull();
+    expect(none.text()).not.toContain(T.reportClosestToYou);
+    expect(none.text()).not.toContain(T.reportVetsClosest);
   });
 
   it('screen 1: Next waits for a location', () => {
@@ -158,12 +214,14 @@ describe('ReportWizard', () => {
     expect(w.text()).not.toContain(g.copy.litter.heading);
     for (const p of g.copy.litter.paragraphs) expect(w.text()).not.toContain(plain(p));
     w.next();
+    w.next();
     const scroll = w.getByTestId('report-scroll').textContent ?? '';
     expect(scroll).toContain(g.copy.litter.withUrgent);
     expect(scroll).not.toContain(g.copy.litter.heading);
     // Above the urgent advice, outside the locked block.
     expect(scroll.indexOf(g.copy.litter.withUrgent)).toBeLessThan(scroll.indexOf(plain(g.copy.urgent.intro)));
     // Back to screen 2 and switch to Needs attention: the full kittens message returns.
+    fireEvent.click(w.getByLabelText(T.back));
     fireEvent.click(w.getByLabelText(T.back));
     fireEvent.click(w.getByTestId('severity-attention'));
     expect(w.text()).toContain(g.copy.litter.heading);
@@ -176,7 +234,7 @@ describe('ReportWizard', () => {
   });
 
   it('screen 3 (urgent): lead first, folds closed, the capacity paragraph visible and last, Send pinned', () => {
-    const w = setup({ initial: { ...INITIAL_FLOW, step: 3, coords: here, severity: 'urgent' } });
+    const w = setup({ initial: { ...INITIAL_FLOW, step: 4, coords: here, severity: 'urgent' } });
     const scroll = w.getByTestId('report-scroll').textContent ?? '';
     expect(scroll).toContain(plain(g.copy.urgent.intro));
     expect(scroll).not.toContain(plain(g.copy.urgent.steps[0]!));
@@ -199,12 +257,12 @@ describe('ReportWizard', () => {
     fireEvent.change(w.getByTestId('report-note'), { target: { value: 'by the bakery' } });
     w.next();
     fireEvent.click(w.getByLabelText(T.back));
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2').replace('{total}', '3'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2').replace('{total}', '4'));
     expect(w.getByTestId('severity-urgent').getAttribute('aria-checked')).toBe('true');
     expect(w.getByTestId('litter-checkbox').getAttribute('aria-checked')).toBe('true');
     expect((w.getByTestId('report-note') as HTMLTextAreaElement).value).toBe('by the bakery');
     fireEvent.click(w.getByLabelText(T.back));
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1').replace('{total}', '3'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1').replace('{total}', '4'));
     fireEvent.click(w.getByLabelText(T.back));
     expect(w.onClose).toHaveBeenCalledTimes(1);
   });
@@ -245,10 +303,14 @@ describe('ReportWizard', () => {
 
 describe('SYC-42 Slice 3: "Shall we tell you what happens?" (email-capture.md §3.4; its own screen, Samuel 15 Oct 2026)', () => {
   const nextIn = (w: ReturnType<typeof setup>) =>
-    fireEvent.click(within(w.getByTestId('report-footer')).getByText(TRANSLATIONS[lang.current].reportNext));
+    fireEvent.click(
+      within(w.getByTestId('report-footer')).getByText(
+        new RegExp(`^(${TRANSLATIONS[lang.current].reportNext}|${TRANSLATIONS[lang.current].reportNextSend})$`),
+      ),
+    );
   const toEmailScreen = (w: ReturnType<typeof setup>) => {
     nextIn(w);
-    fireEvent.click(w.getByTestId('severity-urgent'));
+    fireEvent.click(w.getByTestId('severity-attention'));
     nextIn(w);
   };
   const stepOf = (n: number, total: number) =>
@@ -280,6 +342,22 @@ describe('SYC-42 Slice 3: "Shall we tell you what happens?" (email-capture.md §
     expect(w.text()).toContain(T.reportBeforeSendTitle);
     expect(w.text()).toContain(stepOf(3, 3));
     expect(w.queryByTestId('report-email-ask')).toBeNull();
+  });
+
+  it('SYC-570: offered and Urgent, the vets come before the email question: 3 of 5, then 4 of 5, then 5 of 5', () => {
+    const w = setup({ offerEmail: true });
+    nextIn(w);
+    fireEvent.click(w.getByTestId('severity-urgent'));
+    expect(w.text()).toContain(stepOf(2, 5));
+    nextIn(w);
+    expect(w.text()).toContain(T.reportCallVetTitle);
+    expect(w.text()).toContain(stepOf(3, 5));
+    nextIn(w);
+    expect(w.getByTestId('report-email-ask')).toBeTruthy();
+    expect(w.text()).toContain(stepOf(4, 5));
+    nextIn(w);
+    expect(w.text()).toContain(T.reportBeforeSendTitle);
+    expect(w.text()).toContain(stepOf(5, 5));
   });
 
   it('offered: Where → How bad → Shall we tell you what happens? (3 of 4) → Before you send (4 of 4); nothing on How bad', () => {
@@ -376,6 +454,7 @@ describe('SYC-504: "About {name}" on Where only', () => {
     fireEvent.click(w.getByTestId('severity-urgent'));
     w.next();
     expect(w.queryByTestId('report-cat-strip')).toBeNull();
+    w.next();
     w.next();
     expect(w.text()).toContain(T.reportBeforeSendTitle);
     expect(w.queryByTestId('report-cat-strip')).toBeNull();
