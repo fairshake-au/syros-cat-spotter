@@ -64,8 +64,8 @@ jobs:
 
       # Cache only the slow, stable downloads and the built jar. Never cache
       # greece.osm.pbf or anything made from it: the OSM data must be fresh each run.
-      - name: Cache Planetiler sources and the basemaps jar
-        uses: actions/cache@v4
+      - name: Restore Planetiler sources and the basemaps jar
+        uses: actions/cache/restore@v4
         with:
           path: |
             .map-work/planetiler/data/sources
@@ -87,7 +87,9 @@ jobs:
           # failure fails the job. N = highest existing v<number>/ folder + 1 (1 if none).
           # A failed partial upload leaves an unreferenced folder; the next run simply
           # takes N+1. Nothing is ever overwritten or deleted.
-          LISTING=$(aws s3 ls "s3://$R2_BUCKET/" --endpoint-url "$R2_ENDPOINT")
+          # r2_list treats only "empty" (exit 1) as fine; any other aws error fails the job.
+          source scripts/map-data/r2_list.sh
+          LISTING=$(r2_list "s3://$R2_BUCKET/" --endpoint-url "$R2_ENDPOINT")
           HIGHEST=$(printf '%s\n' "$LISTING" | sed -n 's/^ *PRE v\([0-9][0-9]*\)\/$/\1/p' | sort -n | tail -1)
           echo "N=$(( ${HIGHEST:-0} + 1 ))" >> "$GITHUB_OUTPUT"
 
@@ -96,6 +98,17 @@ jobs:
           VERSION: ${{ steps.version.outputs.N }}
           REFRESH: "1"   # always download a fresh Greece extract in CI
         run: scripts/map-data/build.sh out .map-work
+
+      # Save even when a later step fails, so a cold run keeps its ~2.3 GB of downloads.
+      - name: Save Planetiler sources and the basemaps jar
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .map-work/planetiler/data/sources
+            .map-work/protomaps-basemap-${{ env.BASEMAPS_COMMIT }}.jar
+            .map-work/planetiler.version
+          key: map-sources-${{ env.BASEMAPS_COMMIT }}-planetiler-${{ env.PLANETILER_VERSION }}
 
       - name: Sanity-check syros.pmtiles size (500 KB to 50 MB)
         env:
@@ -116,8 +129,9 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           # Refuse to write into a version folder that already has anything in it.
-          EXISTING=$(aws s3 ls "s3://$R2_BUCKET/v$N/" --endpoint-url "$R2_ENDPOINT" | wc -l)
-          if [ "$EXISTING" -ne 0 ]; then
+          source scripts/map-data/r2_list.sh
+          EXISTING=$(r2_list "s3://$R2_BUCKET/v$N/" --endpoint-url "$R2_ENDPOINT")
+          if [ -n "$EXISTING" ]; then
             echo "::error::s3://$R2_BUCKET/v$N/ is not empty; refusing to overwrite"
             exit 1
           fi
@@ -134,7 +148,8 @@ jobs:
           up "*.txt" text/plain
           # Anything not covered above would be silently skipped: fail if the counts differ.
           LOCAL=$(find "out/v$N" -type f | wc -l)
-          REMOTE=$(aws s3 ls "s3://$R2_BUCKET/v$N/" --recursive --endpoint-url "$R2_ENDPOINT" | wc -l)
+          REMOTE_LIST=$(r2_list "s3://$R2_BUCKET/v$N/" --recursive --endpoint-url "$R2_ENDPOINT")
+          REMOTE=$(printf '%s\n' "$REMOTE_LIST" | grep -c . || true)
           if [ "$LOCAL" -ne "$REMOTE" ]; then
             echo "::error::uploaded $REMOTE of $LOCAL files"
             exit 1
