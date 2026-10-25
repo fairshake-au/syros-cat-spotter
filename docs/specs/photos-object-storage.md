@@ -1,0 +1,348 @@
+# Moving photos out of the database — spec
+
+**Ticket:** SYC-46 (photos out of Postgres into object storage). Hosting itself is settled: SYC-47 closed on 24 Oct 2026 as "Replit for the app, Neon for the database; Supabase not adopted", with this move left to SYC-46 "after launch".
+**Relates to:** [hosting-and-photo-storage.md](./hosting-and-photo-storage.md) §6–§7 (the earlier design; this spec supersedes its §7 and keeps its §6 rules) · [report-an-issue.md](./report-an-issue.md) · [DECISIONS.md](./DECISIONS.md) · [docs/runbooks/photo-removal.md](../runbooks/photo-removal.md) (SYC-462) · SYC-246 · SYC-276 · SYC-279 · SYC-403 · SYC-81 · SYC-677 · SYC-125
+**Status:** **Draft for Samuel's approval, 25 October 2026.** Spec only. Nothing here is built, and nothing is built before launch (Saturday 31 October).
+**Author's note on evidence:** every price below names its source page and the date it was read (25 Oct 2026). Anything I could not check is marked **unchecked**.
+
+---
+
+## 1. The short version
+
+Every photo a spotter takes is stored as text inside our Neon database. That is the one cost in the app that only ever goes up, and it is the most expensive place to keep a picture. The plan is to keep the photos in a plain file store instead, and leave the database with the records only.
+
+**What nobody will notice.** A cat's photo has the same web address before and after. The app does not change. Hidden photos stay hidden. Team-only photos stay team-only. Photos still have no location tag in them. If anything changes, photos may load a little faster.
+
+**What it is worth.** Not a lot of money today, a lot of safety and tidiness later. At the planning volumes in §2 the saving is about **$16 a month at the 2027 season peak** and under $2 a month now. The better reasons are the ones money doesn't show: a small database means quick backups, quick restores, quick copies for testing, and nothing slowing the records every time a photo is read.
+
+**Recommended store:** **Cloudflare R2, EU jurisdiction** (§3). It is the cheapest of the realistic options, the data is guaranteed to stay in the EU, we already hold a Cloudflare account with an API token, and it costs nothing when photos are read. One step is needed from Samuel: the current token has no R2 permission (§3.5).
+
+**The way it moves.** Seven small steps, each undoable, none needing downtime (§5). The old copy stays in the database for 30 days after the switch, so there is always a way back. The only step that is not instant is giving the space back in the database, and that one is rehearsed on a copy first.
+
+**When.** The week after launch. The spec and approval can happen now so nothing about this is decided under pressure. There are **six decisions** for Samuel in §8; the most important are the store (D1), whether to keep a second copy for safety (D2) and what "Delete my data" should do with a person's photos (D5).
+
+---
+
+## 2. What we have today
+
+### 2.1 Where photos live
+
+Verified in the code on `main` at commit `61f53c42`:
+
+| What | Where | Held as | Who can see it |
+|---|---|---|---|
+| Every spotter and cat photo, including vet-visit batch photos (SYC-677) | `photos.data` | base64 **text** (about a third bigger than the picture) | public, unless hidden, removed or team-only |
+| Smaller copies: small (160 px), card (360 px), medium (640 px) | `photo_variants.bytes` | raw bytes | team routes only; made on first request, then kept |
+| "Cat in trouble" report photos | `welfare_report_photos.bytes` | raw bytes | team only |
+| Matching fingerprints (384 numbers per photo) | `photo_fingerprints.vector` | numbers, no picture | server only |
+
+Three things that matter for the move:
+
+- **Team-only batch photos live in the same `photos` table as public ones** (SYC-677). What keeps them private is a lookup (`teamOnlyPhotoIds`), not the table they are in. The earlier spec said restricted photos are "separate tables"; that is true for report photos, and no longer true for vet-visit photos. In a file store, the same lookup must still be what decides, because a bucket has no such rule of its own (§4.2).
+- **Hiding a photo does not touch the bytes.** It is an add-only log (`photo_visibility_events`). "Deleting for good" (SYC-462) nulls `photos.data`, records who and why, deletes every smaller copy, and scans every column to prove the bytes are gone.
+- **Exactly nine files may read a photo's picture**, enforced by a test (`photoData.source.test.ts`): the photo route, the team report routes, the sightings matcher, the variant maker, the mail attachment, the coat reader, the spot-photo writer, the vet-batch search and the smoke check. That list is the whole job on the reading side.
+
+### 2.2 How much, today
+
+> **Production figures: requested, not yet received.** I may not query production, so on 25 Oct I asked the publish coordinator (`local_baf9188a…`) to run a read-only size query (row counts, bytes per table, hidden/removed/team-only counts, variants per size, growth over 7 and 30 days). §2.2 is filled in from its answer. Until then the only live figure I can cite is the one on SYC-121 from **29 Sep: about 18 MB in total, 38 photos** — a tester-stage database, and out of date by a month of testing.
+
+_(Figures go here — see CHECKPOINT note. If this paragraph is still here at approval time, the numbers were not received and every cost in §3.2 rests on the planning volumes in §2.3 alone.)_
+
+### 2.3 How much, later
+
+The only volumes on record are the planning figures in `hosting-and-photo-storage.md` §2.1, and that spec itself says they are "asserted rather than derived" and on the generous side:
+
+| | Now → March 2027 (low season) | 2027 season (Apr–Sep) |
+|---|---|---|
+| Installs | ~400 | ~6,000 |
+| Photos | ~6,000 | ~60,000 in the season |
+| Picture bytes | ~3 GB | ~35 GB cumulative |
+| The same photos held as text in the database | ~4 GB | ~47 GB |
+
+A stored photo is at most 2048 px on the long edge as JPEG, about **0.5 MB**; the three smaller copies add roughly 0.09 MB per photo (about 18%), unverified until the query returns. Two things will shrink these numbers and neither is built yet: the 12-month shrink rule (SYC-81, §6.7 of the earlier spec) and cats with several photos each (SYC-415, SYC-163), which push them up.
+
+---
+
+## 3. Where to store them
+
+### 3.1 The four candidates
+
+I looked at every store that plausibly fits our setup: Replit app, Neon database in Frankfurt, a Cloudflare account, GDPR with Syros Cats as the controller.
+
+| | **A. Cloudflare R2, EU jurisdiction** | **B. Neon Object Storage** | **C. Amazon S3, Frankfurt** | **D. Replit App Storage** |
+|---|---|---|---|---|
+| Storage price per GB-month | **$0.015** | $0.023 | $0.0245 (first 50 TB) | $0.015 per GiB |
+| Reading photos out | **free** | 500 GB a month included per project, then $0.10/GB | first 100 GB a month free, then about $0.09/GB (the page shows Ireland; Frankfurt **unchecked**) | $0.05 per GiB, counting uploads and downloads |
+| Requests | $4.50 / million writes, $0.36 / million reads; 1M and 10M a month free | **unchecked** | $0.0054 / 1,000 writes, $0.0043 / 10,000 reads | $0.0004 and $0.005 / 1,000 (two kinds) |
+| Free allowance | 10 GB-month storage | 5 GB (free plan only) | none for storage | none |
+| Data stays in the EU? | **Yes, guaranteed**, if the bucket is created with the EU jurisdiction. Cannot be changed afterwards | Frankfurt is listed as available; "support is expanding toward all regions". The only worked example is us-east-2. **Needs confirming with a real bucket** | **Yes**, it is a region | **Unknown.** The page says it runs on Google Cloud Storage and does not say where |
+| Maturity | Established | **Beta** (one source; its own pages don't say, **unchecked**) | Established, the standard | Part of Replit |
+| Protection of the only copy | No versioning I could confirm (**unchecked**) | Versioning stored but not enforced; lifecycle rules stored but not run | Versioning, lifecycle and cross-region copy all exist | No versioning, lifecycle or retention |
+| Fits our setup | Cloudflare account exists; token needs R2 added | Same vendor and bill as the database | New vendor, new account, IAM to learn | Closest to the app, but the bucket belongs to one Replit project |
+
+**Sources, all read 25 Oct 2026:** R2 prices — [developers.cloudflare.com/r2/pricing](https://developers.cloudflare.com/r2/pricing/); R2 jurisdictions — [developers.cloudflare.com/r2/reference/data-location](https://developers.cloudflare.com/r2/reference/data-location/); Neon — [neon.com/pricing](https://neon.com/pricing) and [neon.com/docs/storage/overview](https://neon.com/docs/storage/overview); S3 — AWS's own published price list for eu-central-1, publication date 15 Oct 2026 (`pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/eu-central-1/index.json`; the S3 pricing page itself would not render); Replit — [docs.replit.com/billing/object-storage-billing](https://docs.replit.com/billing/object-storage-billing), [docs.replit.com/billing/aug-cloud-billing-updates](https://docs.replit.com/billing/aug-cloud-billing-updates), [docs.replit.com/cloud-services/storage-and-databases/object-storage](https://docs.replit.com/cloud-services/storage-and-databases/object-storage).
+
+### 3.2 What each costs at the planning volumes
+
+Photos read out of the store through our API, which is how they are served (§4.1), so Replit's own outbound-data charge of **$0.05 per GiB** ([Replit, from 1 Aug 2026](https://docs.replit.com/billing/aug-cloud-billing-updates)) is paid the same way under A, B and C. That makes **the store's own egress price irrelevant while we serve through the API**, and the options differ only on storage and on what they are like to live with.
+
+| Per month | Now (~3 GB of pictures) | 2027 season peak (~35 GB) |
+|---|---|---|
+| **Today: base64 in Neon** at $0.35/GB-month, ×1.33 for the text inflation | ~$1.40 | **~$16** (plus Neon's instant-restore charge, below) |
+| A. R2 | ~$0 (inside the 10 GB free) | ~$0.40 |
+| B. Neon Object Storage | ~$0.07 | ~$0.80 |
+| C. S3 Frankfurt | ~$0.07 | ~$0.86 |
+| D. Replit App Storage | ~$0.05 | ~$0.53 |
+
+Three honest qualifiers:
+
+1. **The price gap between "in the database" and "in a file store" is about 15–30×, not the "65×" on the ticket.** That figure predates Neon's $0.35/GB-month. Per [neon.com/pricing](https://neon.com/pricing), database storage is $0.35 against $0.023 for Neon's own file storage (15×), and against R2's $0.015 it is 23×, or 31× once the text inflation is counted.
+2. **Neon also charges $0.20/GB-month for "instant restore" history** (up to 7 days on Launch; [neon.com/pricing](https://neon.com/pricing)). I could not tell from the page how much of a 47 GB table would be counted, so I have not added it. It matters in one place: nulling out every old photo is a very large change and will briefly raise the history charge (§5, step 7).
+3. **The money is the weakest reason to do this.** At the low-volume end it is a rounding error. The reasons that hold at any volume are in §1: a small database restores and copies quickly (the 7-day restore, rehearsal branches and SYC-125's final fingerprint all get cheaper), reading a photo no longer pulls a 33%-bigger text blob through the database, and the cost can't quietly grow.
+
+### 3.3 Why not the others
+
+- **D. Replit App Storage.** The EU question is a stopper: the page does not say where the data is held, and a charity's photos with Syros Cats as controller can't sit somewhere we cannot name. It also can't use versioning, lifecycle or retention, and a bucket belongs to one Replit project, which sits badly with SYC-125 retiring the old project and with development and production sharing it. If Replit says in writing that the bucket is in the EU, D becomes a realistic fallback; until then it is out.
+- **B. Neon Object Storage.** Attractive on paper: same vendor, same bill, Frankfurt listed. Three things hold it back: it appears to be in **beta** (not stated on its own pages: **unchecked**); its public address in every example is `us-east-2`, so the Frankfurt claim needs proving with a real bucket; and **buckets are scoped to a database branch, and a new branch inherits the parent's objects**. We create branches all the time (development, rehearsal, test copies), so every test copy would inherit every production photo. That is a privacy leak by design, not a bug, and it is the deciding point against B for now.
+- **C. S3, Frankfurt.** The safest and most mature choice, and the one with real protection for the only copy (versioning, lifecycle, cross-region copy). It costs about $0.45 a month more than R2 at peak, and needs a new AWS account, billing and permissions that Claude can't currently manage with the Cloudflare token. It is the right answer if D2 (§8) comes out as "we want the provider to keep old versions for us".
+- **A. R2.** Cheapest, the EU guarantee is a setting on the bucket, and the Cloudflare account and API route already exist. Its gap is the one in the table: no object versioning I could confirm, so protecting the only copy is something we build (§5.8) rather than something we switch on.
+
+### 3.4 Recommendation
+
+**A. Cloudflare R2 with the EU jurisdiction, one private bucket for cat photos and a second one for the safety copy (§8, D2), served only through our API.** Reason in one line: it is the cheapest, the EU guarantee is explicit, it is the account we already have, and the one thing it lacks (versioning) is cheap to build around. If Samuel would rather pay about $0.45 a month more to have versioning from the provider, C is the alternative and the spec works unchanged, because the storage code is written against the S3 interface that both speak.
+
+### 3.5 Checks I made on our Cloudflare account (read-only, 25 Oct 2026)
+
+- The token at `~/.cloudflare/api-token` is **valid and active**.
+- It **cannot list R2 buckets**: Cloudflare answers "Authentication error" (code 10000). So the token has no R2 permission today, or R2 is not turned on for the account. **Unchecked which.** Either way the first step of the build is Samuel running `~/.cloudflare/store-api-token.sh` to add R2 (and, on the Cloudflare dashboard, accepting R2 if it is off — it needs a payment method on file, even though the first 10 GB is free).
+- Zone `catspotters.com` is on the **Free** plan and active. `www`, `admin` and the apex are proxied by Cloudflare; **`apptest.catspotters.com`, the API host as of today, and `team.catspotters.com` are "DNS only", not proxied**. So no Cloudflare cache or CDN sits in front of the API today, which matches what SYC-276 assumes. (I saw no `api.` record in the zone; the launch address is **unchecked**.)
+
+---
+
+## 4. Rules that must survive the move
+
+These are the promises the app makes today. Each one is listed with where it is enforced now, how that changes, and the test that pins it.
+
+### 4.1 Photos are served by our API, never straight from the bucket
+
+The bucket is **private**. There are no public links to it, no `r2.dev` address, no custom domain on it, and no signed expiring links. Every photo, public or not, is read by our API and streamed to the phone.
+
+Why this is not negotiable: *every* privacy rule below (hidden, team-only, removed) is checked by the API at the moment of the request. A bucket address that bypassed the API would bypass all of them. Signed links were also rejected earlier (DECISIONS.md F7a) because they expire exactly when a spotter is out of signal.
+
+What it costs: all photo traffic keeps going through Replit and is billed at Replit's $0.05 per GiB. At the busiest planned month (~120 GB) that is about $6, which is the same cost as today. A shared cache or CDN in front of photos is **not** part of this work, because it would break the hide rule (SYC-276 option 3 is the plan if one is ever added).
+
+### 4.2 Hidden photos are never public. Team-only photos stay team-only.
+
+- **Enforced today** by `hiddenPhotoIds`, which already counts removed photos *and* team-only photos as hidden, so every public reader is covered with no reader of its own. The public photo route answers a hidden, removed, team-only or unknown photo with the **same** 404 and `no-store`, so the answer never says a photo exists.
+- **After the move:** unchanged. The rule runs on the database record **before** the bucket is touched. The route order is fixed: look up the row, ask `hiddenPhotoIds`, and only then fetch the object. A photo that is hidden never causes a bucket read, which also means a hidden photo cannot be detected by how long the reply takes (a timing probe in §7).
+- **The bucket knows nothing about hidden or team-only.** Object names are random and carry no meaning (§4.3). There is no `public/` and `private/` folder split to get wrong, because a split would invite someone to read the folder instead of asking the API.
+- **Report photos** (`welfare_report_photos`) keep their own team-only route behind the dashboard session. They go in a different folder of the same private bucket, used only by that route.
+- **Test:** the existing hide, restore and team-only tests run against the in-memory store *and* against a real bucket in the rehearsal (§7). New: a team-only photo and a hidden photo are each requested through the public route in both read modes and must return the same 404 as an unknown id.
+
+### 4.3 Photos have no location tag, and nothing identifies who took them
+
+- **Today:** `validatePhotoBase64` re-encodes every upload with `sharp`, which drops all metadata including GPS (tests: `imageValidation.exif.test.ts`, `photoVariants.exif.test.ts`). Report photos and vet-batch photos go through the same helper.
+- **After the move:** the storage code accepts only bytes that came out of that helper (its type says so), so nothing can be stored that skipped the strip. Objects are written with **no extra metadata** beyond the content type: no original filename, no device id, no person id, no sighting id. Object names are a random UUID (`photos/<uuid>.jpg`), generated by us, and are not the public id, so neither can be derived from the other.
+- **The backfill adds a check, not just a copy:** every moved photo is read back and run through `sharp(...).metadata()`; a photo that still carries an EXIF block or GPS tags is **not** marked moved, and is listed for a decision instead. (Old photos should all be clean; this proves it.)
+- **Test:** the existing two EXIF tests, plus a new one that stores a photo with GPS in the in-memory store and in the real bucket and downloads it directly, asserting no GPS tags in what comes back.
+
+### 4.4 Deleting a photo for good deletes its object (SYC-246, SYC-462)
+
+This is the rule that gets harder, and it needs care.
+
+- **Today:** SYC-462's `removePhoto` is one database transaction: null the bytes, record who and why, delete the smaller copies, repoint cats, then scan every column to prove the picture is gone. Either all of it happens or none of it.
+- **The problem:** a file in a bucket can't be part of a database transaction. If we delete the file first and the database step then fails, we have a record with no picture and no way back. If we delete the file after, and that fails, the photo is still on disk after the team was told it was gone.
+- **The rule after the move:** **record first, delete second, verify third.** In the same transaction that marks the photo removed, we also write a row into a new small table, `photo_object_deletions` (the key, when it was asked for, when it was confirmed gone). After the commit, the object is deleted, then asked for again to prove it returns "not found", and the row is stamped confirmed. A sweeper retries any unconfirmed row every few minutes and alerts after an hour. The team's "Delete for good" button (SYC-246) and the hand-run command use this one routine.
+- **"Removed" is not "complete" until confirmed.** The dashboard and the runbook say "removed, picture deletion confirmed" or "removed, waiting to confirm deletion", never just "removed". The public route already treats the photo as gone from the moment the row is marked.
+- **Every copy is in scope.** That means the main object, every smaller copy (small, card, medium), the safety copy if D2 creates one, and any copy in the database during the move (`data`, variant rows). The existing byte scan keeps running against the database; a new check does a "not found" probe on each object key.
+- **What we cannot reach:** Neon keeps up to 7 days of restore history, so a removed photo's bytes can exist in an old restore point for a week. That is already true today and is an honest line for the privacy policy (§8, D5 notes it).
+- **Test:** removal with the bucket failing (the row is removed, the deletion stays pending, the sweeper finishes it); removal where the database step fails (the object is **not** touched); and a removal run twice (second run changes nothing).
+
+### 4.5 "Delete my data" — what actually happens to photos, and what must not change
+
+You asked for "Delete my data removes a person's photos". **That is not what the code does today, and it is a decision on purpose.** `severPerson.ts` (verified 25 Oct) separates the person from their records: their sightings stay "with the photo", cats they discovered credit "a spotter", and their reports stay "with the photo, as the cat's history" (decided 30 Sep, `cat-record-data-spine.md` §8). A person's photos of a cat are part of the island's record of that cat.
+
+So the rule that must survive the move is the one that exists: **the photo's picture carries nothing that identifies the person (§4.3), so cutting the link to them leaves nothing in the file store to cut.** The move adds no copy of anyone's identity to the bucket and changes nothing about this flow.
+
+What *is* possible, and not built: a person whose face or doorway is in a photo can already ask for removal, and since 24 Oct that request goes to Samuel through the by-hand route or SYC-246's button. Whether "Delete my data" should also offer "and remove my photos" is a real choice, listed as **D5**.
+
+### 4.6 Caches (SYC-279, SYC-276)
+
+- **Today:** public photos go out with `Cache-Control: private, max-age=31536000, immutable` (SYC-279 closed, Decision 1: shared caches never keep photos). A phone that has loaded a photo may keep it for a year. Hiding cannot recall that copy and the privacy policy is meant to say so (SYC-276, open).
+- **After the move:** identical headers, set by our route, not by the bucket. The bucket sends nothing a browser ever sees, because browsers never talk to it.
+- **Things that interact:** the 12-month shrink rule (SYC-81) writes a *new* object for a photo; the public id stays, so a phone's old cached copy is simply the larger one until it expires. Photos can be replaced under the same address, which is what `immutable` lies about; this is already true in the database today and is accepted.
+- **Not to be done as part of this:** a CDN or a custom photo domain (SYC-276 option 3). R2 makes it technically easy, which is the reason to write the ban down.
+- **Test:** the header test on the photo route runs in both read modes and asserts the exact header; a probe checks the bucket's own address from outside returns "denied".
+
+### 4.7 Smaller copies and the matcher keep working
+
+- Small, card and medium copies are regenerable from the original, so they are not backfilled one by one: after the switch their database rows are simply dropped and the next request re-makes them and stores them as objects (`photos/<uuid>/<size>.jpg`). The "do not retry a photo that cannot be decoded on every request" point from SYC-404/403 is handled in the same place.
+- The AI matcher and the coat reader currently read candidate photos straight from the database. Exactly the nine readers in §2.1 move behind one function, `loadPhotoBytes(photoId)`, with fetches in parallel and a small in-memory cache, because ported naively ten photos in series would mean ten round trips on a request a spotter is waiting for. Budget: at most +300 ms at the 95th percentile on the match request, measured, not assumed. `loadPhotoBytes(0)` stays "no photo", the existing sentinel.
+
+---
+
+## 5. How we move them
+
+**Principles.** One step at a time. Each step can be undone by flipping a setting or running a script, and each step says how. Nothing is deleted until the step after it has run clean for 30 days. Nothing needs the app to go down. All database changes go through the normal `db-ops` migration workflow (DEPLOYMENT.md §C); `drizzle-kit push` is gone. A setting, `PHOTO_STORAGE`, takes the values `db`, `dual`, `shadow` and `object`, plus a separate `PHOTO_READ` for the read side.
+
+**Before anything (Samuel, ~15 minutes):** add R2 to the Cloudflare token and accept R2 if needed (§3.5); decide D1–D6; put Cloudflare in the privacy policy as a processor (§6.1).
+
+### Step 0 — Rehearse on a copy
+Make a Neon branch from production, create a test EU bucket, and run steps 1–7 end to end on the branch, including the space reclaim in step 7 and the restore in step 7's rollback. **Exit:** the whole sequence has run once, the reclaim time is known, and the rollback has been run. Rollback: delete the branch and the test bucket.
+
+### Step 1 — Prepare (invisible)
+- Migration adds, all nullable: `photos.storage_key`, `photos.bytes`, `photos.sha256`, `photos.moved_at`; the same three on `welfare_report_photos`; the new `photo_object_deletions` table; and relaxes the rule `photos_removed_ck`, which today demands `data is not null` on any live photo, so that a live photo needs *either* `data` *or* `storage_key`.
+- Code adds the storage module (an in-memory version for tests and every developer laptop; the R2 version behind `PHOTO_STORAGE`) and `loadPhotoBytes` replacing the nine direct reads. `PHOTO_STORAGE=db`, so behaviour is exactly as before.
+- **Rollback:** nothing reads the new columns yet. Revert the code; `migrate-rollback` removes them.
+- **Exit:** all existing tests pass in memory mode; `photoData.source.test.ts` now allows only the storage module to read bytes.
+
+### Step 2 — Dual write
+- Every **new** photo is written to the bucket first (key chosen by us before the row exists, so a crash can't leave a row with no key and no picture), then one insert carries `data` *and* `storage_key`, `bytes` and `sha256`.
+- If the bucket is down: write `data` only, log loudly, and a retry job pushes it later. A spotter never loses a sighting because of a bad minute at the storage provider.
+- Reads are still from the database.
+- **Rollback:** set `PHOTO_STORAGE=db`. Rows with a key just carry an unused key.
+
+### Step 3 — Backfill, in batches
+- A script, safe to stop and re-run at any moment: oldest first, 100 photos per batch, a pause between batches, run in the quiet hours (Athens night), through `db-ops`.
+- For each photo and each report photo: decode, compute SHA-256, write the object, **read it back** and compare, run the metadata check (§4.3), then record `storage_key`, `bytes`, `sha256`, `moved_at`. **Nothing is deleted.**
+- Hidden, removed, team-only photos are moved exactly like the rest; they are protected by the route, not by being left behind (§4.2). Removed photos have no bytes and are skipped.
+- **Rollback:** stop the script. The database copy was never touched; stray objects are listed by the reconciliation script (§7) and deleted.
+
+### Step 4 — Verify, before switching
+A report must show, and a human sign it off:
+- every live photo has a key; row counts and the **count by state** (public, hidden, team-only, removed) equal before and after;
+- zero checksum mismatches; zero photos with metadata;
+- a fresh random 5% re-downloaded and compared again, plus every photo over 1 MB;
+- the stored totals add up to the byte count Postgres reports for the same rows.
+
+**Rollback:** none needed, nothing has switched.
+
+### Step 5 — Switch reads, carefully
+1. **Shadow week** (`PHOTO_STORAGE=shadow`): every photo request is answered from the database as today, while a second read from the bucket runs in the background and is compared. Any difference is an alert. This costs a little extra compute and finds problems with zero risk to anyone.
+2. **Read from the bucket** (`PHOTO_READ=object`), falling back to `data` and logging if an object is missing. Switch for a few percent of requests first if it is easy, then all.
+- **Rollback:** set `PHOTO_READ=db`. It takes effect on the next request and needs no deploy, since `data` is still there.
+
+### Step 6 — Switch writes
+New photos go to the bucket only (`data` left empty). Do this only after reads have been clean for 7 days.
+- **Rollback:** `PHOTO_STORAGE=dual` goes back to writing both. Photos written in the meantime exist only in the bucket, which is why this is a later step than reading.
+- From here **the bucket is the only copy of newer photos**, so the safety copy in D2 must be running before this step.
+
+### Step 7 — Give the space back (the one step that is not instant)
+Only after **30 days clean** on step 6 and a Neon snapshot that has been restored once as a test:
+1. Null `photos.data` and the report and variant bytes in batches. This is a huge change, so expect Neon's restore-history charge to rise for up to 7 days (§3.2).
+2. **Nulling does not make the database smaller.** The space is only released by rewriting the table (`VACUUM FULL`), which blocks all use of that table while it runs. The rehearsal (step 0) measures how long that is. If it is under a minute or two, do it at 3 a.m. Athens with a short lock wait; the photo route would show broken pictures for that long, which is acceptable only if announced. If it is longer, build the slim table beside it and swap (rehearsed the same way). **This is the one step where "zero downtime" is not guaranteed, and the spec says so.** (`pg_repack` would avoid the lock but is probably not available on Neon: **unchecked**.)
+3. Check the bill actually moves, not just the table size: record the table size before and after and the next invoice.
+- **Rollback:** `rehydrate`, a script that copies bucket objects back into `data` for every row (built and tested in step 0 for this purpose). Slower than a flag, and exercised before it is needed.
+
+### Step 8 — Drop the column
+After a further 30 days: a migration removes `photos.data`, the report and variant byte columns. Its down-migration re-adds empty nullable columns; getting the pictures back after this point means `rehydrate`.
+
+**Calendar (proposal, subject to D6):** launch Sat 31 Oct → watch for a week with no photo changes → Mon 9 Nov onwards: steps 0–2 → dual-write live by ~13 Nov → backfill and verify the week after → shadow week → reads switch in early December → writes a week later → space reclaimed ~mid-January 2027, well before the April season. SYC-46 sits in "Phase 2b (mid-November)" in Linear; the real finish line is January.
+
+### 5.8 Protecting the only copy
+
+After step 6 a lost bucket means lost photos. Our Cloudflare account could be suspended, a token revoked, or someone could delete the bucket by mistake. Cover it with a **safety copy** (D2): a nightly job copying new objects to a second bucket (another R2 bucket, EU jurisdiction, written by a different token that cannot delete), and propagating deletions made through §4.4 within a day so a removed photo is not left in the safety copy. Backed by turning on "delete protection" in the account where the option exists (**unchecked**).
+
+---
+
+## 6. What changes for people
+
+| Who | What changes |
+|---|---|
+| Spotters (tourists, locals, guardians) | **Nothing visible.** Same addresses, same pictures, same offline behaviour (the offline queue holds files on the phone and uploads through the same route). Photos should load about as fast and may be slightly faster for large cat pages: the database no longer has to read and unpack a text copy of each. This is a hope, to be measured (§7), not a promise. |
+| Syros Cats team | Nothing, except two things worth knowing: **"Delete for good" will say "deleted, waiting to confirm" for a few seconds to minutes** before it says confirmed (§4.4), and the dashboard's queue thumbnails may load a little faster once report photos have smaller copies (SYC-403). |
+| Cat guardians | Nothing. |
+| The person asking for a removal | Same promise as today, with a confirmed deletion rather than a database edit. |
+| Fair Shake (us) | A new account to look after (Cloudflare R2 plus a second bucket), a new background job (safety copy), a new sweeper, and a much smaller database. |
+
+### 6.1 Legal and policy work this needs (owned elsewhere, but it blocks step 2)
+- **Cloudflare as a processor** named in the privacy policy (`privacy-policy.md`) and in the Syros Cats ↔ Fair Shake data agreement, before any real photo goes in the bucket. We already use Cloudflare for the website, so this may already be in place: **unchecked** — the privacy-policy page I read does not name any processors.
+- The Play data-safety form and the Apple privacy labels must still match where photos are kept.
+- The line about caches (SYC-276) and the 7-day restore window (§4.4) go in the policy at the same time.
+- **Photos remain in the EU** at every step, including the rehearsal bucket and the safety copy. The jurisdiction can't be changed after a bucket exists, so each bucket is created with it, never later.
+
+---
+
+## 7. Tests and probes
+
+**Automated tests (written first, run in memory, in CI):**
+1. Storage module: put/get/delete/exists, rejects bytes that did not come from the strip helper, writes no extra metadata.
+2. Route: hidden / removed / team-only / unknown ids give the identical 404 and `no-store` in `db`, `dual`, `shadow` and `object` modes; header exactly `private, max-age=31536000, immutable`; a hidden photo never triggers a bucket read.
+3. `photoData.source.test.ts` tightened: only the storage module reads bytes.
+4. Removal (§4.4): pending → swept → confirmed; DB failure leaves the object alone; idempotent re-run; every copy listed.
+5. Write order: a crash between the bucket write and the insert leaves an orphan object, never a row without a picture; bucket down falls back to `data`.
+6. EXIF: GPS-bearing upload comes back clean from the store, for every size and for report photos.
+7. Backfill: re-runnable, resumes, skips removed photos, refuses to mark a mismatch.
+8. Matcher parallel fetch: same results as before the change, with a latency check.
+9. Schema: the relaxed `photos_removed_ck` still forbids a removed photo that has bytes or a key.
+
+**Probes against the real thing (rehearsal first, then production), each a few requests only (the port rule: no high-volume loops):**
+- the bucket's own address from outside returns "denied"; no `r2.dev` address is enabled;
+- a hidden photo and a team-only photo through the public route: same 404, and reply times indistinguishable from an unknown id (20 requests each);
+- a deleted photo's key returns "not found" on the bucket directly;
+- download one photo from the bucket by key and read its metadata: none;
+- photo list latency before and after, for a cat page and a match request;
+- the reconciliation report: objects with no row, rows with no object, both must be empty.
+
+**Failure drills (rehearsal):** revoke the token mid-backfill (backfill stops, nothing breaks); take the bucket "offline" in shadow mode (alerts, still serving from the database); run `rehydrate` on the whole rehearsal set; restore the Neon snapshot.
+
+**Things I would watch for after each step:** photo route error rate and 95th percentile; bucket reads and writes against the free tier; Neon storage and history; the pending-deletions count; and Replit outbound data.
+
+---
+
+## 8. Open decisions for Samuel
+
+Presented in plain English with a recommendation each. I need D1–D4 to plan; D5 and D6 can follow.
+
+### D1 — Which store?
+- **A. Cloudflare R2, EU** *(recommended)*. Cheapest (~$0.40 a month at peak), the EU guarantee is explicit and permanent, the account exists. **Risk:** no built-in way to keep old versions, so we build the safety copy ourselves; and the token needs R2 added (a 3-minute job for you).
+- **B. Neon Object Storage.** Same bill as the database. **Risk:** looks like a beta; Frankfurt must be proven; and test copies of the database would inherit every production photo.
+- **C. Amazon S3, Frankfurt.** The most proven, with versioning built in. **Risk:** about $0.45 a month more at peak, a new account and permissions to set up.
+- **D. Replit App Storage.** The easiest to wire in. **Risk:** nobody has said where the data is held, and no versioning.
+**Recommendation: A.** C if you would rather pay the small extra for provider-side versioning.
+
+### D2 — A second copy for safety?
+- **Yes, a second R2 bucket, filled nightly** *(recommended)*. About +$0.40 a month at peak. Protects against a suspended account, a mistaken delete or a leaked token. **Risk:** a second copy of every photo, so each deletion must reach it too (§4.4), and the privacy policy says so.
+- **No second copy; rely on the 30-day period with the data still in Neon, then nothing.** Free. **Risk:** from step 6 the bucket is the only copy of newer photos; one bad day loses volunteers' photos for good.
+- **Provider versioning (needs S3, option C).** **Risk:** old versions are retained deliberately, which collides with "deleted for good" unless old versions are also purged.
+**Recommendation: Yes, nightly second bucket, written by a token that cannot delete, deletions propagated within 24 hours.**
+
+### D3 — Serve through our API only, or put a cache/CDN in front?
+- **API only** *(recommended)*. Keeps every privacy rule in one place; costs roughly what we pay now (~$6 a month at the busiest month). **Risk:** photo traffic keeps loading our app server.
+- **Cloudflare cache in front of photos.** Faster and cheaper bandwidth. **Risk:** a hidden photo stays served from the cache until someone purges it (SYC-276), and a purge is a new thing that has to be built and probed.
+**Recommendation: API only. Revisit after the 2027 season with real numbers.**
+
+### D4 — What moves, and in what order?
+- **Everything, in one project, cat photos first** *(recommended)*: cat and sighting photos, vet-batch photos (they are in `photos`), then report photos, then the smaller copies (regenerated rather than copied). One storage module, one set of rules, one rehearsal.
+- **Cat photos only; leave report photos and copies for later.** Smaller job. **Risk:** two storage systems for photos forever, and the report photos (the most sensitive images we hold) stay in the database.
+**Recommendation: everything, cat photos first.**
+
+### D5 — Should "Delete my data" also remove a person's photos?
+Today it does not (§4.5). The photo has no link to the person afterwards.
+- **Keep as is, and tell people plainly** that photos of cats stay as the island's record but carry nothing about them; anyone in a photo can ask for it to be removed *(recommended)*. **Risk:** someone expects "delete my data" to mean "delete my photos" and is surprised.
+- **Offer "also remove my photos" as a request** that goes to the team through the SYC-246 button. **Risk:** more requests for the team; removes cat history; needs a way to find all a person's photos, which severing deliberately destroys.
+- **Always remove their photos.** **Risk:** breaks the cat records and the points history, and it reverses the 30 Sep decision.
+**Recommendation: keep as is, plus a plain sentence in the privacy policy and the delete screen. This is a product question more than a storage one and can follow D1–D4.**
+
+### D6 — When?
+- **Start Monday 9 Nov, one week after launch, reclaim in January** *(recommended)*. Launch week is clear of every photo change. The expensive step lands in the low season.
+- **Wait until after the New Year.** Less to juggle. **Risk:** the photo table keeps growing, and the tester-to-launch data is moved later and bigger.
+**Recommendation: 9 Nov.** The only dated hard deadline is "before the April 2027 season".
+
+### Smaller points, no decision needed unless you disagree
+- The deploy order for any migration here is the one in DEPLOYMENT.md §C: migrate first, then say "don't republish yet" until the code is ready.
+- The relationship with **SYC-81** (shrink old photos): build the storage move first; the shrink then writes a new object and deletes the old through the same routine. Doing them the other way round would shrink in the database and then copy the shrunken files, which is also fine but wastes the saving.
+- Photos for badges, naming limits and guardian sterilisation requests are not planned to add new photo storage: see §9.
+
+---
+
+## 9. Other work that touches photos, as of 25 Oct 2026
+
+Checked from session metadata and PR file lists, not from their specs, so treat as a starting point:
+- **"Extra badges design"** (SYC-706, [PR #342](https://github.com/fairshake-au/syros-cat-spotter/pull/342), open): touches badges, points and area history; **no photo code** in the file list.
+- **"Decide and build naming limits"** (SYC-709, SYC-714) and **"Spec: guardians request paid sterilisation"** (SYC-284), both children of the planner session and running: I did not read their work. A sterilisation request could plausibly attach a photo; **unchecked**. Anything that adds a new photo table or a new reader after approval must go through the storage module or be added to this move.
+- **Already merged and relevant:** SYC-677 (vet-visit batches, #333–#339) put team-only photos into `photos`; SYC-403 (smaller copies for report photos) is still open and is absorbed by D4.
+- Siblings running now: **SYC-532/531** (matcher alert), **SYC-199/307** (database indexes). The indexes work touches `photos` indexes and should land before step 1's migration.
+
+## 10. Not in this spec
+Direct-to-bucket uploads from the phone (rejected earlier: it changes offline retry), a photo CDN (D3), the 12-month shrink job (SYC-81), changing what photos are shown where, and any code. This document is the whole deliverable until it is approved; then, and only then, a plan.
