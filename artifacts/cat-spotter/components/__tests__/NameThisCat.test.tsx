@@ -204,6 +204,9 @@ describe('Name this cat', () => {
     render(<NameThisCatCard cat={PENDING} canName={canName} />);
     expect(document.body.textContent).toContain('SYR-0007');
     expect(screen.getByTestId('name-this-cat-spot-first').textContent).toBe(en.nameThisCatNeedsSighting);
+    // Not "You can give it a name" right above "Spot this cat first".
+    expect(document.body.textContent).toContain(en.nameThisCatIntroNotMet);
+    expect(document.body.textContent).not.toContain(en.nameThisCatIntro);
     expect(() => find(en.nameThisCat!)).toThrow();
   });
 
@@ -223,7 +226,7 @@ describe('Name this cat', () => {
 
   it('the new naming words exist in every language', () => {
     for (const lang of ['en', 'el', 'fr'] as const) {
-      for (const k of ['nameHasLink', 'nameThisCatDailyLimit', 'nameThisCatNeedsSighting']) {
+      for (const k of ['nameHasLink', 'nameThisCatDailyLimit', 'nameThisCatNeedsSighting', 'nameThisCatIntroNotMet']) {
         expect(TRANSLATIONS[lang][k], `${lang} ${k}`).toMatch(/\.$/);
       }
     }

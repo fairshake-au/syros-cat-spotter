@@ -318,7 +318,7 @@ export function NameThisCatCard({ cat, canName }: { cat: Cat; canName?: boolean 
       testID="name-this-cat"
       style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
     >
-      <Text style={[styles.body, { color: colors.foreground }]}>{t('nameThisCatIntro')}</Text>
+      <Text style={[styles.body, { color: colors.foreground }]}>{t(canName === true ? 'nameThisCatIntro' : 'nameThisCatIntroNotMet')}</Text>
       <Text style={[styles.body, { color: colors.mutedForeground }]}>
         {t('nameThisCatNumber').split('{number}').join(cat.name)}
       </Text>
