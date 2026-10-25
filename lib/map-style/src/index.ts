@@ -3,7 +3,7 @@ import {
   OVERRIDDEN_LABEL_LAYER_IDS,
   adjustedLayers,
   nameExpression,
-  placeTextFields,
+  otherNameTextFields,
   type MapLang,
 } from './adjusted';
 
@@ -36,6 +36,6 @@ export function buildStyle(opts: BuildStyleOptions): StyleSpecification {
 export function labelFieldsFor(lang: MapLang): Array<{ layerId: string; textField: ExpressionSpecification }> {
   return [
     ...OVERRIDDEN_LABEL_LAYER_IDS.map((layerId) => ({ layerId: layerId as string, textField: nameExpression(lang) })),
-    ...placeTextFields(lang),
+    ...otherNameTextFields(lang),
   ];
 }

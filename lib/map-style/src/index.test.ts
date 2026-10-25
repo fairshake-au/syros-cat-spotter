@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LayerSpecification, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import { layers as protomapsLayers, namedFlavor } from '@protomaps/basemaps';
 import { MAP_LANG, buildStyle, labelFieldsFor } from './index';
 
 const EN = { lang: 'en', pmtilesUrl: 'pmtiles://x', glyphsUrl: 'g/{fontstack}/{range}.pbf', spriteUrl: 's' } as const;
@@ -65,13 +66,33 @@ describe('map style', () => {
     for (const f of labelFieldsFor('el')) expect(textField(s, f.layerId)).toEqual(f.textField);
   });
 
+  it('leaves Protomaps own alignment on shields and one-way arrows', () => {
+    const plain = (protomapsLayers('protomaps', namedFlavor('light'), { lang: 'en' }) as LayerSpecification[]);
+    const s = buildStyle(EN);
+    for (const id of ['roads_shields', 'roads_oneway']) {
+      expect(layer(s, id).layout, id).toEqual(plain.find((l) => l.id === id)!.layout);
+    }
+  });
+
+  it.each(['en', 'el'] as const)('labelFieldsFor covers every symbol layer that reads a name (%s)', (lang) => {
+    const s = buildStyle({ ...EN, lang });
+    const fields = new Map(labelFieldsFor(lang).map((f) => [f.layerId, f.textField]));
+    const reads = /"(name|name:en|name:el|pgf:name[^"]*)"/;
+    const named = s.layers.filter((l) => l.type === 'symbol' && reads.test(JSON.stringify(textField(s, l.id))));
+    expect(named.length).toBeGreaterThan(8);
+    for (const l of named) expect(fields.get(l.id), l.id).toEqual(textField(s, l.id));
+    for (const id of ['church', 'peak', 'beach_name', 'earth_label_islands']) expect(fields.has(id), id).toBe(true);
+  });
+
   it('keeps point labels upright and flat, and line labels following the street', () => {
     const symbols = buildStyle(EN).layers.filter((l) => l.type === 'symbol');
     expect(symbols.length).toBeGreaterThan(5);
     let lines = 0;
+    const KEEP = ['roads_shields', 'roads_oneway'];
     for (const l of symbols) {
       const lay = l.layout as Record<string, unknown>;
       const placement = lay['symbol-placement'];
+      if (KEEP.includes(l.id)) continue;
       if (placement === 'line' || placement === 'line-center') {
         lines++;
         expect(lay['text-rotation-alignment'], l.id).toBe('map');

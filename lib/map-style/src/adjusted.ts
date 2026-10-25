@@ -26,7 +26,14 @@ export const PLACE_LABEL_LAYER_IDS = [
   'places_region',
   'places_locality',
   'places_country',
+  'earth_label_islands',
 ] as const;
+
+/** Our own name-bearing layers added before pois. */
+export const EXTRA_LABEL_LAYER_IDS = ['church', 'peak', 'beach_name'] as const;
+
+/** Layers that keep Protomaps' own text/icon alignment settings. */
+const KEEP_ALIGNMENT_LAYER_IDS = ['roads_shields', 'roads_oneway'];
 
 export function nameExpression(lang: MapLang): ExpressionSpecification {
   return ['coalesce', ['get', `name:${lang}`], ['get', 'name']];
@@ -94,13 +101,22 @@ const pathsLayer: LayerSpecification = {
   paint: { 'line-color': '#fa8072', 'line-width': 1.5, 'line-dasharray': [1, 2] },
 };
 
-/** The Protomaps place layers' text-field for a language (two-line towns). */
-export function placeTextFields(lang: MapLang) {
-  const all = protomapsLayers('protomaps', flavor, { lang }) as LayerSpecification[];
-  return PLACE_LABEL_LAYER_IDS.map((layerId) => {
-    const l = all.find((x) => x.id === layerId);
-    return { layerId, textField: (l?.layout as Record<string, unknown> | undefined)?.['text-field'] as ExpressionSpecification };
-  }).filter((f) => f.textField !== undefined);
+function textFieldOf(l: LayerSpecification | undefined): ExpressionSpecification | undefined {
+  return (l?.layout as Record<string, unknown> | undefined)?.['text-field'] as ExpressionSpecification | undefined;
+}
+
+/**
+ * Text-fields we keep from Protomaps for a language (two-line towns, island
+ * names) plus our own extra layers (church, peak, beach_name).
+ */
+export function otherNameTextFields(lang: MapLang) {
+  const all = [
+    ...(protomapsLayers('protomaps', flavor, { lang }) as LayerSpecification[]),
+    ...extraLayers(lang),
+  ];
+  return [...PLACE_LABEL_LAYER_IDS, ...EXTRA_LABEL_LAYER_IDS]
+    .map((layerId) => ({ layerId: layerId as string, textField: textFieldOf(all.find((x) => x.id === layerId)) }))
+    .filter((f): f is { layerId: string; textField: ExpressionSpecification } => f.textField !== undefined);
 }
 
 export function adjustedLayers(lang: MapLang): LayerSpecification[] {
@@ -116,7 +132,7 @@ export function adjustedLayers(lang: MapLang): LayerSpecification[] {
   // viewport (no tilt, no rotation); line labels keep following the street
   // (rotation 'map', kept upright) and leave pitch alignment at its default.
   return layers.map((l) => {
-    if (l.type !== 'symbol') return l;
+    if (l.type !== 'symbol' || KEEP_ALIGNMENT_LAYER_IDS.includes(l.id)) return l;
     const placement = (l.layout as Record<string, unknown> | undefined)?.['symbol-placement'];
     const isLine = placement === 'line' || placement === 'line-center';
     const extra = isLine
