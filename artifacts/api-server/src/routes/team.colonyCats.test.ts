@@ -1034,7 +1034,7 @@ describe("two people changing one cat at the same moment", () => {
 // Kept to the end of the file so later tests can reuse the helpers above.
 void coloniesTable;
 
-describe("SYC-619 §7.2 (D3): a colony's page", () => {
+describe("SYC-619 §7.2 (D3) and SYC-396 PR 2.3: a colony's page is its trapping planner", () => {
   /** A staff statement about sterilisation, as the team's own form writes it. */
   const sterilised = (catId: number, yes: boolean) =>
     db.insert(observationsTable).values({
@@ -1063,9 +1063,11 @@ describe("SYC-619 §7.2 (D3): a colony's page", () => {
     return { list, rows };
   };
 
-  it("runs summary, the change fold, Cats with Add cats, Feeding sites with its link, notes, history", async () => {
+  it("leads with the plan: To do, the estimate, Feeding sites, the print, Done, Add cats; then the colony, notes and history (SYC-396 PR 2.3)", async () => {
     const colony = await makeColony(unique("Order"));
-    await addCats(colony, [await seedCat("Order-cat")]);
+    const done = await seedCat("Order-done");
+    await sterilised(done, true);
+    await addCats(colony, [await seedCat("Order-cat"), done]);
     const html = (await get(`/api/team/colonies/${colony}`)).text;
     const at = (s: string) => {
       const i = html.indexOf(s);
@@ -1073,19 +1075,22 @@ describe("SYC-619 §7.2 (D3): a colony's page", () => {
       return i;
     };
     const order = [
-      "<dl>",
-      "<summary>Change this colony</summary>",
-      "<h2>Cats</h2>",
-      ">Add cats</a>",
+      '<h2 id="todo">To do (1)</h2>',
+      '<p class="estimate">',
       "<h2>Feeding sites</h2>",
       ">Add a feeding site to this colony</a>",
+      ">Print the plan</a>",
+      "<summary>Done: sterilised (1)</summary>",
+      ">Add cats</a>",
+      "<dl>",
+      "<summary>Change this colony</summary>",
       "<h2>Team-only notes</h2>",
       "<h2>History</h2>",
     ].map(at);
     expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
-  it("each row shows the mark and the last-seen line, no place, sorted not-done first", async () => {
+  it("each To do row shows the mark, where it's usually seen and when it was last seen, not-done first; sterilised cats are in Done", async () => {
     const colony = await makeColony(unique("Rows"));
     const not = await seedCat("Rows-not");
     const ster = await seedCat("Rows-ster");
@@ -1100,27 +1105,28 @@ describe("SYC-619 §7.2 (D3): a colony's page", () => {
 
     const html = (await get(`/api/team/colonies/${colony}`)).text;
     const { list, rows } = catsOf(html);
-    expect(rows).toHaveLength(4);
-    // The planner's order: not sterilised, not known (latest seen first, never last), sterilised.
+    expect(rows).toHaveLength(3);
+    // The planner's order: not sterilised, not known (latest seen first, never last).
     const ids = rows.map((r) => Number(/href="\/api\/team\/cats\/(\d+)"/.exec(r)![1]));
-    expect(ids).toEqual([not, known, never, ster]);
+    expect(ids).toEqual([not, known, never]);
 
     const now = new Date();
     const want = [
-      [rows[0]!, markBadge("not_sterilised"), lastSeenWords(new Date(Date.now() - 3 * 86_400_000 - 3_600_000), now)],
-      [rows[1]!, markBadge("not_known"), lastSeenWords(new Date(Date.now() - 10 * 86_400_000 - 3_600_000), now)],
-      [rows[2]!, markBadge("not_known"), lastSeenWords(null, now)],
-      [rows[3]!, markBadge("sterilised"), lastSeenWords(new Date(Date.now() - 86_400_000 - 3_600_000), now)],
+      [rows[0]!, markBadge("not_sterilised"), lastSeenWords(new Date(Date.now() - 3 * 86_400_000 - 3_600_000), now), areaFor(37.4402, 24.9381).name],
+      [rows[1]!, markBadge("not_known"), lastSeenWords(new Date(Date.now() - 10 * 86_400_000 - 3_600_000), now), areaFor(37.4402, 24.9381).name],
+      [rows[2]!, markBadge("not_known"), lastSeenWords(null, now), areaFor(37.445, 24.942).name],
     ] as const;
-    for (const [row, badge, words] of want) {
+    for (const [row, badge, words, area] of want) {
       expect(row).toContain(badge);
       expect(row).toContain(words);
+      // For the team, the place comes from the last sighting, else where it was found: words, never numbers.
+      expect(row).toContain(`Usually seen: ${area}`);
     }
-    // No place in either line: no " · place" as the grid adds, no area, no position.
-    expect(list).not.toContain(" · ");
-    expect(list).not.toContain(areaFor(37.4402, 24.9381).name);
-    expect(list).not.toContain(areaFor(37.445, 24.942).name);
     expect(list).not.toMatch(/37\.44|24\.9[34]/);
+    // The sterilised cat is folded away in Done.
+    const doneFold = /<details class="planfold"><summary>Done: sterilised \(1\)<\/summary>[\s\S]*?<\/details>\s*(?=<details class="planfold">|<p)/.exec(html)?.[0] ?? "";
+    expect(doneFold).toContain(`/api/team/cats/${ster}"`);
+    expect(doneFold).toContain(markBadge("sterilised"));
   });
 
   it("the '⋯' sits inside the cat's own row, beside its link, never inside the link", async () => {
@@ -1139,7 +1145,7 @@ describe("SYC-619 §7.2 (D3): a colony's page", () => {
     expect(row).not.toContain("<summary>More<");
   });
 
-  it("a merged-away record the colony still lists keeps its row, with no mark", async () => {
+  it("a merged-away record the colony still lists keeps its row under Not on the street, with no mark", async () => {
     const colony = await makeColony(unique("Merged"));
     const away = await seedCat("Merged-away");
     const into = await seedCat("Merged-into");
@@ -1147,11 +1153,15 @@ describe("SYC-619 §7.2 (D3): a colony's page", () => {
     await db.insert(catIdentityTable).values({ catId: away, canonicalCatId: into, reason: `${P}merge` });
     const view = await get(`/api/team/colonies/${colony}`).set("Accept", "application/json");
     expect((view.body.cats as { id: number }[]).map((c) => c.id)).toContain(away);
-    const { rows } = catsOf((await get(`/api/team/colonies/${colony}`)).text);
-    const row = rows.find((r) => r.includes(`/api/team/cats/${away}"`));
+    const html = (await get(`/api/team/colonies/${colony}`)).text;
+    expect(html).toContain("<summary>Not on the street (1)</summary>");
+    const row = [...html.matchAll(/<li class="colonycat">[\s\S]*?<\/li>/g)].map((m) => m[0]).find((r) => r.includes(`/api/team/cats/${away}"`));
     expect(row, "the merged-away cat keeps its row").toBeTruthy();
+    expect(row).toContain("Merged into another cat&#39;s record");
     expect(row).not.toContain('class="mark ');
     expect(row).not.toContain("Last seen");
     expect(row).not.toContain("Never seen");
+    // It keeps its own "Take out of this colony".
+    expect(row).toContain(`action="/api/team/cats/${away}/colony"`);
   });
 });
