@@ -206,7 +206,9 @@ export function BadgeCelebration({
                 ))}
               </View>
               <Text style={styles.name} testID="celebration-history-title">
-                {t('celebrateHistoryTitle').replace('{n}', String(ids.length))}
+                {ids.length === 1
+                  ? t('celebrateHistoryTitleOne')
+                  : t('celebrateHistoryTitle').replace('{n}', String(ids.length))}
               </Text>
             </>
           ) : id ? (

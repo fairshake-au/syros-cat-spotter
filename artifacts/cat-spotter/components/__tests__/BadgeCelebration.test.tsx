@@ -104,6 +104,11 @@ describe('BadgeCelebration', () => {
     expect(screen.getByTestId('celebration-group-done')).toBeTruthy();
   });
 
+  it('history moment with one badge says 1 new badge, not 1 new badges', () => {
+    render(<BadgeCelebration moment={{ kind: 'history', badgeIds: ['areas_3'] }} views={views} onDone={vi.fn()} />);
+    expect(screen.getByText('Your spots so far have earned you 1 new badge')).toBeTruthy();
+  });
+
   it('history moment shows one screen with all medals', () => {
     const onDone = vi.fn();
     render(<BadgeCelebration moment={{ kind: 'history', badgeIds: ['areas_3', 'podium'] }} views={views} onDone={onDone} />);
