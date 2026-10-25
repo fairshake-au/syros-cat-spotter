@@ -128,6 +128,10 @@ for lang in en el; do
       -e "s#{SPRITE_URL}#$HOST/v$VERSION/sprites/light#g" \
       "$REPO/lib/map-style/dist/style-$lang.json" > "$V_DIR/style-$lang.json"
 done
+if grep -E '\{(PMTILES|GLYPHS|SPRITE)_URL\}' "$V_DIR"/style-*.json; then
+  echo "ERROR: an unreplaced URL placeholder is left in the styles" >&2
+  exit 1
+fi
 
 # ---- 7. Manifest ---------------------------------------------------------------------------------
 echo "== 7. manifest.json"

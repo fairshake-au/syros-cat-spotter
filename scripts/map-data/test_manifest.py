@@ -55,3 +55,19 @@ def test_cli_writes_manifest_json(tmp_path):
     assert m["version"] == 3
     assert m["names_added"] == 2  # data rows in names-added.csv
     assert "manifest.json" not in m["files"]
+
+
+def test_names_added_counts_records_not_lines(tmp_path):
+    make_tree(tmp_path)
+    (tmp_path / "names-added.csv").write_text(
+        'osm_type,osm_id,kind,name,name_en_added\n'
+        'way,1,other,"Two\nLine",Two Line\n'
+        'way,2,other,Plain,Plain\n'
+    )
+    tools = tmp_path.parent / (tmp_path.name + "-tools2.json")
+    tools.write_text(json.dumps(TOOLS))
+    subprocess.run(
+        [sys.executable, str(HERE / "manifest.py"), str(tmp_path), "1", "2026-10-20", str(tools)],
+        check=True,
+    )
+    assert json.loads((tmp_path / "manifest.json").read_text())["names_added"] == 2

@@ -15,10 +15,19 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # The three R2 secrets exist only in the "production" environment.
+    environment: production
+    # A cold run downloads ~2.3 GB of polygon data (about 50 minutes); cached runs take minutes.
+    timeout-minutes: 120
     env:
       R2_BUCKET: cat-spotters-map
       AWS_DEFAULT_REGION: auto
+      # R2 does not accept the newer default AWS CLI checksum headers.
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      # Keep in step with BASEMAPS_COMMIT in scripts/map-data/build.sh (cache key only).
+      BASEMAPS_COMMIT: ca93fc06efbaff1c5f069d06edbe5de18839c1c8
+      PLANETILER_VERSION: "0.10.2"
     steps:
       - uses: actions/checkout@v4
 
@@ -44,23 +53,48 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y osmium-tool
+          # Maven is installed explicitly rather than relying on the runner image.
+          # osmium-tool is deliberately NOT pinned (Ubuntu's package); its exact version
+          # is printed below and recorded in manifest.json.
+          sudo apt-get install -y maven osmium-tool
+          osmium --version | head -1
+          mvn -version | head -1
           python -m pip install -r scripts/map-data/requirements.txt
           pnpm install --frozen-lockfile --filter @workspace/map-style...
+
+      # Cache only the slow, stable downloads and the built jar. Never cache
+      # greece.osm.pbf or anything made from it: the OSM data must be fresh each run.
+      - name: Cache Planetiler sources and the basemaps jar
+        uses: actions/cache@v4
+        with:
+          path: |
+            .map-work/planetiler/data/sources
+            .map-work/protomaps-basemap-${{ env.BASEMAPS_COMMIT }}.jar
+            .map-work/planetiler.version
+          key: map-sources-${{ env.BASEMAPS_COMMIT }}-planetiler-${{ env.PLANETILER_VERSION }}
 
       - name: Run the map-data tests
         run: python -m pytest -q scripts/map-data
 
-      - name: Choose the next version number
+      - name: Choose the next version number from the bucket
         id: version
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          # current.json holds {"version": N}; the first build has none (404) so starts at 1.
-          CURRENT=$(curl -fsS https://tiles.catspotters.com/current.json | python -c 'import json,sys; print(json.load(sys.stdin)["version"])' || echo 0)
-          echo "N=$((CURRENT + 1))" >> "$GITHUB_OUTPUT"
+          # The bucket is authoritative (current.json is cached at the edge). Any listing
+          # failure fails the job. N = highest existing v<number>/ folder + 1 (1 if none).
+          # A failed partial upload leaves an unreferenced folder; the next run simply
+          # takes N+1. Nothing is ever overwritten or deleted.
+          LISTING=$(aws s3 ls "s3://$R2_BUCKET/" --endpoint-url "$R2_ENDPOINT")
+          HIGHEST=$(printf '%s\n' "$LISTING" | sed -n 's/^ *PRE v\([0-9][0-9]*\)\/$/\1/p' | sort -n | tail -1)
+          echo "N=$(( ${HIGHEST:-0} + 1 ))" >> "$GITHUB_OUTPUT"
 
       - name: Build the map
         env:
           VERSION: ${{ steps.version.outputs.N }}
+          REFRESH: "1"   # always download a fresh Greece extract in CI
         run: scripts/map-data/build.sh out .map-work
 
       - name: Sanity-check syros.pmtiles size (500 KB to 50 MB)
@@ -81,8 +115,32 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          aws s3 cp --recursive --endpoint-url "$R2_ENDPOINT" "out/v$N" "s3://$R2_BUCKET/v$N"
-          aws s3 cp --endpoint-url "$R2_ENDPOINT" out/current.json "s3://$R2_BUCKET/current.json"
+          # Refuse to write into a version folder that already has anything in it.
+          EXISTING=$(aws s3 ls "s3://$R2_BUCKET/v$N/" --endpoint-url "$R2_ENDPOINT" | wc -l)
+          if [ "$EXISTING" -ne 0 ]; then
+            echo "::error::s3://$R2_BUCKET/v$N/ is not empty; refusing to overwrite"
+            exit 1
+          fi
+          CC="public, max-age=31536000, immutable"
+          up() { # pattern content-type
+            aws s3 cp --recursive --endpoint-url "$R2_ENDPOINT" "out/v$N" "s3://$R2_BUCKET/v$N" \
+              --exclude "*" --include "$1" --content-type "$2" --cache-control "$CC"
+          }
+          up "*.pmtiles" application/octet-stream
+          up "*.pbf" application/x-protobuf
+          up "*.json" application/json
+          up "*.png" image/png
+          up "*.csv" text/csv
+          up "*.txt" text/plain
+          # Anything not covered above would be silently skipped: fail if the counts differ.
+          LOCAL=$(find "out/v$N" -type f | wc -l)
+          REMOTE=$(aws s3 ls "s3://$R2_BUCKET/v$N/" --recursive --endpoint-url "$R2_ENDPOINT" | wc -l)
+          if [ "$LOCAL" -ne "$REMOTE" ]; then
+            echo "::error::uploaded $REMOTE of $LOCAL files"
+            exit 1
+          fi
+          aws s3 cp --endpoint-url "$R2_ENDPOINT" out/current.json "s3://$R2_BUCKET/current.json" \
+            --content-type application/json --cache-control "public, max-age=300"
 
       - name: Keep the build record
         uses: actions/upload-artifact@v4

@@ -6,6 +6,7 @@ Lists every file under OUT_DIR (except manifest.json itself) with its size and
 sha256, plus the pinned tool versions and the number of names added (data rows
 in names-added.csv).
 """
+import csv
 import datetime
 import hashlib
 import json
@@ -45,8 +46,8 @@ def build_manifest(out_dir, version, osm_extract_date, tools, names_added, built
 def count_csv_rows(path: Path) -> int:
     if not path.exists():
         return 0
-    with path.open(encoding="utf-8") as f:
-        return max(sum(1 for _ in f) - 1, 0)
+    with path.open(encoding="utf-8", newline="") as f:
+        return max(sum(1 for _ in csv.reader(f)) - 1, 0)
 
 
 def main(argv):
