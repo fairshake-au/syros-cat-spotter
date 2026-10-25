@@ -15,12 +15,16 @@ const h = vi.hoisted(() => ({
   profileError: false,
   profileLoading: false,
   leaderboard: undefined as unknown,
+  week: undefined as unknown,
+  lang: 'en' as 'en' | 'el',
   keepSafe: undefined as { status: string } | undefined,
   keepSafeOffer: null as string | null,
   username: 'sam' as string | null,
   heldUsername: null as string | null,
   nameNote: null as unknown,
   setNameNote: vi.fn(),
+  params: {} as { tab?: string },
+  setParams: vi.fn(),
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -30,11 +34,14 @@ vi.mock('@/hooks/useColors', () => ({
   useColors: () => new Proxy({}, { get: () => '#123456' }),
 }));
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
-vi.mock('expo-router', () => ({ router: { push: h.push } }));
+vi.mock('expo-router', () => ({
+  router: { push: h.push, setParams: h.setParams },
+  useLocalSearchParams: () => h.params,
+}));
 vi.mock('@/context/LanguageContext', async () => {
   const { TRANSLATIONS } = await import('@/lib/i18n');
   return {
-    useLanguage: () => ({ t: (k: string) => TRANSLATIONS.en[k] ?? k, language: 'en' }),
+    useLanguage: () => ({ t: (k: string) => TRANSLATIONS[h.lang][k] ?? k, language: h.lang }),
   };
 });
 vi.mock('@/context/DeviceContext', () => ({
@@ -75,9 +82,56 @@ vi.mock('@workspace/api-client-react', () => ({
   getGetProfileQueryKey: (id: string) => [`/api/profiles/${id}`],
   useGetLeaderboard: () => ({ data: h.leaderboard, isError: false, isLoading: false }),
   getGetLeaderboardQueryKey: () => ['/api/leaderboard'],
+  useGetLeaderboardWeek: () => ({ data: h.week, isError: false, isLoading: false }),
+  getGetLeaderboardWeekQueryKey: () => ['/api/leaderboard/week'],
+  markBadgesSeen: vi.fn(async () => {}),
 }));
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn(async () => {}) }),
+}));
+vi.mock('@/components/celebration/BadgeCelebration', () => ({ BadgeCelebration: () => null }));
 
 import ProfileScreen from '../../app/(tabs)/profile';
+
+// The server's badgeProgress, in catalogue order: [id, group, stat, goal]. Pathfinder
+// and Trailblazer are event badges (null value and goal).
+const CATALOGUE: [string, string, string | null, number | null][] = [
+  ['first_sighting', 'first_steps', 'totalSightings', 1],
+  ['first_discovery', 'first_steps', 'uniqueCatsDiscovered', 1],
+  ['five_cats', 'first_steps', 'catsSpotted', 5],
+  ['ten_cats', 'first_steps', 'catsSpotted', 10],
+  ['explorer', 'first_steps', 'totalSightings', 25],
+  ['island_legend', 'first_steps', 'points', 500],
+  ['weeks_2', 'coming_back', null, 2],
+  ['weeks_4', 'coming_back', null, 4],
+  ['weeks_8', 'coming_back', null, 8],
+  ['podium', 'weekly', null, 1],
+  ['champion', 'weekly', null, 1],
+  ['ten_discoveries', 'finding', 'uniqueCatsDiscovered', 10],
+  ['discover_25', 'finding', 'uniqueCatsDiscovered', 25],
+  ['discover_50', 'finding', 'uniqueCatsDiscovered', 50],
+  ['discover_100', 'finding', 'uniqueCatsDiscovered', 100],
+  ['areas_3', 'covering', null, 3],
+  ['areas_8', 'covering', null, 8],
+  ['areas_all', 'covering', null, 20],
+  ['pathfinder', 'covering', null, null],
+  ['trailblazer', 'covering', null, null],
+  ['remote_1', 'covering', null, 1],
+  ['remote_5', 'covering', null, 5],
+];
+
+const progressFor = (stats: Record<string, number>, earned: string[]) =>
+  CATALOGUE.map(([id, group, stat, goal]) => {
+    const isEarned = earned.includes(id);
+    const raw = stat ? stats[stat] ?? 0 : 0;
+    return {
+      id,
+      group,
+      earned: isEarned,
+      value: goal === null ? null : isEarned ? goal : Math.min(raw, goal),
+      goal,
+    };
+  });
 
 const profile = (over: Record<string, unknown> = {}) => ({
   deviceId: 'dev-1',
@@ -91,6 +145,27 @@ const profile = (over: Record<string, unknown> = {}) => ({
   spottedCatIds: [1, 2, 3, 4, 5, 6, 7],
   currentStreakDays: 3,
   totalCats: 40,
+  badgeProgress: progressFor(
+    { totalSightings: 12, uniqueCatsDiscovered: 2, catsSpotted: 7, points: 85, ...over },
+    (over.badges as string[] | undefined) ?? ['first_sighting', 'first_discovery', 'five_cats'],
+  ),
+  newBadgeIds: [],
+  weekPoints: 0,
+  ...over,
+});
+
+const weekBoard = (over: Record<string, unknown> = {}) => ({
+  weekStart: '2026-10-19',
+  endsAt: '2026-10-26T00:00:00+02:00',
+  entries: [
+    { spotterCode: 'W1', username: 'weekly_wren', points: 55, rank: 1, uniqueCatsDiscovered: 0 },
+    { spotterCode: 'ME01', username: 'harbourcat', points: 25, rank: 2, uniqueCatsDiscovered: 0 },
+  ],
+  lastWeek: [
+    { place: 1, name: 'Marco', points: 90 },
+    { place: 2, name: null, points: 60 },
+    { place: 3, name: 'Sophie', points: 40 },
+  ],
   ...over,
 });
 
@@ -105,11 +180,17 @@ beforeEach(() => {
   h.push.mockReset();
   h.refetch.mockReset();
   h.setNameNote.mockReset();
+  h.params = {};
+  h.setParams.mockReset().mockImplementation(() => {
+    h.params = {};
+  });
+  h.lang = 'en';
   h.isOnline = true;
   h.profile = profile();
   h.profileError = false;
   h.profileLoading = false;
   h.leaderboard = board;
+  h.week = weekBoard();
   h.keepSafe = { status: 'none' };
   h.keepSafeOffer = null;
   h.username = 'sam';
@@ -119,6 +200,21 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Profile tabs (SYC-628)', () => {
+  it('?tab=badges opens the Badges tab and is used up, so a second visit works too', () => {
+    h.params = { tab: 'badges' };
+    const { rerender } = render(<ProfileScreen />);
+    expect(screen.getByTestId('badge-row-first_sighting')).toBeTruthy();
+    expect(h.setParams).toHaveBeenCalledWith({ tab: undefined });
+    rerender(<ProfileScreen />); // the param is now gone
+    fireEvent.click(screen.getByTestId('profile-tab-me'));
+    expect(screen.queryByTestId('badge-row-first_sighting')).toBeNull();
+    // A later celebration's "See all my badges" sets the param again.
+    h.params = { tab: 'badges' };
+    rerender(<ProfileScreen />);
+    expect(screen.getByTestId('badge-row-first_sighting')).toBeTruthy();
+    expect(h.setParams).toHaveBeenCalledTimes(2);
+  });
+
   it('opens on Me with Home’s three counts and the first-finds caption tucked under them', () => {
     render(<ProfileScreen />);
     expect(screen.getByTestId('tile-Spotted').textContent).toBe('7');
@@ -191,7 +287,7 @@ describe('Profile tabs (SYC-628)', () => {
     expect(next.textContent).toContain('Cat Whisperer');
     expect(next.textContent).toContain('3 to go');
     fireEvent.click(screen.getByTestId('profile-badges-see-all'));
-    expect(screen.getByTestId('profile-badges-count').textContent).toBe('3 of 7 earned');
+    expect(screen.getByTestId('profile-badges-count').textContent).toBe('3 of 22 earned');
   });
 
   it('Badges tab: every badge says how to earn it; progress only for unearned ones', () => {
@@ -204,17 +300,18 @@ describe('Profile tabs (SYC-628)', () => {
     expect(screen.getByTestId('badge-row-ten_discoveries').textContent).toContain('Discover 10 new cats');
   });
 
-  it('Badges tab without a badge list (old server): no lists, a dash, not "0 of 7"', () => {
-    h.profile = profile({ badges: undefined });
+  it('Badges tab without a badge list (old server): no lists, a dash, not "0 of 22"', () => {
+    h.profile = profile({ badges: undefined, badgeProgress: undefined });
     render(<ProfileScreen />);
     fireEvent.click(screen.getByTestId('profile-tab-badges'));
-    expect(screen.getByTestId('profile-badges-unknown').textContent).toBe('— of 7 earned');
+    expect(screen.getByTestId('profile-badges-unknown').textContent).toBe('— of 22 earned');
     expect(screen.queryByTestId('badge-row-first_sighting')).toBeNull();
   });
 
   it('Spotters tab: no 0-point rows, "You" highlighted, and how far to the next spotter', () => {
     render(<ProfileScreen />);
     fireEvent.click(screen.getByTestId('profile-tab-spotters'));
+    fireEvent.click(screen.getByTestId('spotters-period-all'));
     expect(screen.queryByTestId('leader-row-Z')).toBeNull();
     expect(screen.getByTestId('leader-row-me').textContent).toContain('You');
     const summary = screen.getByTestId('profile-rank-summary').textContent;
@@ -229,6 +326,7 @@ describe('Profile tabs (SYC-628)', () => {
     ];
     render(<ProfileScreen />);
     fireEvent.click(screen.getByTestId('profile-tab-spotters'));
+    fireEvent.click(screen.getByTestId('spotters-period-all'));
     const summary = screen.getByTestId('profile-rank-summary').textContent;
     expect(summary).toContain('You’re level with vaporia_vee on 85 points.');
     expect(summary).not.toContain('0 more');
@@ -289,8 +387,103 @@ describe('Profile tabs (SYC-628)', () => {
     ];
     render(<ProfileScreen />);
     fireEvent.click(screen.getByTestId('profile-tab-spotters'));
+    fireEvent.click(screen.getByTestId('spotters-period-all'));
     const summary = screen.getByTestId('profile-rank-summary').textContent;
     expect(summary).toContain('You’re level with vaporia_vee on 85 points.');
     expect(summary).not.toContain('top of the island');
+  });
+
+  describe('weekly Spotters board (SYC-706)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+    const openSpotters = () => {
+      render(<ProfileScreen />);
+      fireEvent.click(screen.getByTestId('profile-tab-spotters'));
+    };
+
+    it('opens on This week', () => {
+      h.profile = profile({ weekPoints: 25 });
+      openSpotters();
+      expect(screen.getByTestId('spotters-period-week').getAttribute('aria-selected')).toBe('true');
+      expect(screen.getByTestId('leader-row-W1')).toBeTruthy();
+      expect(screen.queryByTestId('leader-row-A')).toBeNull();
+      const summary = screen.getByTestId('profile-rank-summary').textContent;
+      expect(summary).toContain('You’re 2nd this week · 25 pts');
+      expect(summary).toContain('30 more to pass weekly_wren.');
+    });
+
+    it('Greek week summary says "στη θέση" before the number', () => {
+      h.lang = 'el';
+      h.profile = profile({ weekPoints: 25 });
+      openSpotters();
+      expect(screen.getByTestId('profile-rank-summary').textContent).toContain(
+        'Είσαι στη θέση 2 αυτή την εβδομάδα · 25 πόντοι',
+      );
+    });
+
+    it('switching to All time shows the all-time rows', () => {
+      openSpotters();
+      fireEvent.click(screen.getByTestId('spotters-period-all'));
+      expect(screen.getByTestId('leader-row-A')).toBeTruthy();
+      expect(screen.queryByTestId('leader-row-W1')).toBeNull();
+      expect(screen.queryByTestId('spotters-last-week')).toBeNull();
+    });
+
+    it('two people on equal points both show rank 1 and the next shows 3', () => {
+      h.week = weekBoard({
+        entries: [
+          { spotterCode: 'P1', username: 'one', points: 50, rank: 1, uniqueCatsDiscovered: 0 },
+          { spotterCode: 'P2', username: 'two', points: 50, rank: 1, uniqueCatsDiscovered: 0 },
+          { spotterCode: 'P3', username: 'three', points: 20, rank: 3, uniqueCatsDiscovered: 0 },
+        ],
+      });
+      openSpotters();
+      const rank = (code: string) => screen.getByTestId(`leader-row-${code}`).textContent;
+      expect(rank('P1')).toMatch(/^1one/);
+      expect(rank('P2')).toMatch(/^1two/);
+      expect(rank('P3')).toMatch(/^3three/);
+    });
+
+    it('empty week shows the friendly line and last week’s top three', () => {
+      h.week = weekBoard({ entries: [] });
+      openSpotters();
+      expect(screen.getByTestId('spotters-week-empty').textContent).toBe(
+        'A new week has started. Spot a cat to get on the board.',
+      );
+      expect(screen.getByTestId('spotters-last-week').textContent).toBe(
+        '🏆 Last week: Marco, a spotter, Sophie',
+      );
+    });
+
+    it('countdown says 3 days on Thursday evening and 5 hours on Sunday at 19:00 Athens', () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-22T19:00:00+03:00'));
+      openSpotters();
+      expect(screen.getByTestId('spotters-countdown').textContent).toBe('New week in 3 days');
+      cleanup();
+      vi.setSystemTime(new Date('2026-10-25T19:00:00+02:00'));
+      openSpotters();
+      expect(screen.getByTestId('spotters-countdown').textContent).toBe('New week in 5 hours');
+    });
+
+    it('outside top 20 this week shows the outside summary', () => {
+      h.profile = profile({ weekPoints: 5 });
+      h.week = weekBoard({
+        entries: [{ spotterCode: 'W1', username: 'weekly_wren', points: 55, rank: 1, uniqueCatsDiscovered: 0 }],
+      });
+      openSpotters();
+      expect(screen.getByTestId('profile-rank-summary').textContent).toContain('You have 5 pts this week.');
+    });
+
+    it('offline shows the existing offline line on both tabs', () => {
+      h.isOnline = false;
+      h.week = undefined;
+      h.leaderboard = undefined;
+      openSpotters();
+      expect(screen.getByTestId('profile-spotters-offline')).toBeTruthy();
+      fireEvent.click(screen.getByTestId('spotters-period-all'));
+      expect(screen.getByTestId('profile-spotters-offline')).toBeTruthy();
+    });
   });
 });

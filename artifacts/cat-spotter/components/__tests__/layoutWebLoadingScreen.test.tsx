@@ -17,6 +17,10 @@ vi.mock('@/lib/webLoadingScreen', () => ({ hideWebLoadingScreen }));
 
 const events = vi.hoisted(() => [] as string[]);
 
+// SYC-706: the celebration provider only wraps the app here.
+vi.mock('@/context/CelebrationContext', () => ({
+  CelebrationProvider: ({ children }: { children?: unknown }) => (children ?? null) as never,
+}));
 vi.mock('@workspace/api-client-react', () => ({
   setBaseUrl: (url: string | null) => events.push(`setBaseUrl:${url}`),
   setPrelaunchKey: (key: string | null) => events.push(`setPrelaunchKey:${key}`),

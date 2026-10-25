@@ -20,6 +20,10 @@ import {
   mailTokensTable,
   emailConsentEventsTable,
   mailOutboxTable,
+  pointsLedgerTable,
+  spotterBadgesTable,
+  badgeMomentsTable,
+  weeklyResultsTable,
 } from "@workspace/db";
 import { and, eq, inArray, sql } from "drizzle-orm";
 
@@ -85,8 +89,16 @@ process.env["EMAIL_FINGERPRINT_KEY"] = randomBytes(32).toString("base64url");
 // secret, an unbound id) leave theirs queued, and the outbox drain in other
 // files (reports.test.ts) would pick them up.
 const seededFingerprints: string[] = [];
+const seededLedgerSightingIds: number[] = [];
+const seededResultIds: number[] = [];
 
 afterAll(async () => {
+  if (seededLedgerSightingIds.length) {
+    await db.delete(pointsLedgerTable).where(inArray(pointsLedgerTable.sightingId, seededLedgerSightingIds));
+  }
+  if (seededResultIds.length) {
+    await db.delete(weeklyResultsTable).where(inArray(weeklyResultsTable.id, seededResultIds));
+  }
   if (seededFingerprints.length) {
     await db.delete(mailOutboxTable).where(inArray(mailOutboxTable.recipientHash, seededFingerprints));
   }
@@ -313,8 +325,25 @@ async function seedWorld() {
     addressMask: "p•••@example.com", deviceId: P.deviceId, status: "confirmed", confirmedAt: new Date(),
   });
 
+  // SYC-706: the badge and board tables. P has a points row, a badge, a
+  // celebration waiting, and a place on a frozen week's podium.
+  const ledgerSightingId = 2_000_000_000 + Math.floor(Math.random() * 100_000_000);
+  seededLedgerSightingIds.push(ledgerSightingId);
+  await db.insert(pointsLedgerTable).values({
+    deviceId: P.deviceId, sightingId: ledgerSightingId, catId: discovered!.id,
+    points: 25, athensDay: "2001-01-03", weekStart: "2001-01-01", source: "live",
+  });
+  await db.insert(spotterBadgesTable).values({ deviceId: P.deviceId, badgeId: "weeks_2", source: "live" });
+  await db.insert(badgeMomentsTable).values({ deviceId: P.deviceId, kind: "badges", badgeIds: ["weeks_2"] });
+  const [podium] = await db
+    .insert(weeklyResultsTable)
+    .values({ weekStart: "2001-01-01", place: 1, deviceId: P.deviceId, displayName: P.nickname, points: 25 })
+    .returning();
+  seededResultIds.push(podium!.id);
+
   return {
     P,
+    podium: podium!,
     Q,
     email,
     hmac,
@@ -425,6 +454,20 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
     ]) {
       expect(await columnsHolding(needle), needle).toEqual([]);
     }
+  });
+
+  it("deleting a podium spotter keeps the frozen week", async () => {
+    const rows = await db.select().from(weeklyResultsTable).where(eq(weeklyResultsTable.id, w.podium.id));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ place: 1, points: 25, deviceId: null, displayName: null });
+    const ledger = await db
+      .select()
+      .from(pointsLedgerTable)
+      .where(inArray(pointsLedgerTable.sightingId, seededLedgerSightingIds.slice(-1)));
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]).toMatchObject({ points: 25, deviceId: null });
+    expect(await db.select().from(spotterBadgesTable).where(eq(spotterBadgesTable.deviceId, w.P.deviceId))).toEqual([]);
+    expect(await db.select().from(badgeMomentsTable).where(eq(badgeMomentsTable.deviceId, w.P.deviceId))).toEqual([]);
   });
 
   it("2. leaves the cats unchanged, the claimed one still homed with its home note", async () => {

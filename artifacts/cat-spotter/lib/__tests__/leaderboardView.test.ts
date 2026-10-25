@@ -88,3 +88,20 @@ describe('leaderboardView summary', () => {
     expect(r.summary).toEqual({ kind: 'outside', points: 4 });
   });
 });
+
+describe('leaderboardView for the week (SYC-706)', () => {
+  it('keeps shared competition ranks as the server sent them', () => {
+    const { rows } = leaderboardView(
+      [e('A', 50, 1), e('B', 50, 1), e('C', 20, 3)],
+      { spotterCode: 'C', points: 20 },
+      fb,
+    );
+    expect(rows.map((r) => r.rank)).toEqual([1, 1, 3]);
+  });
+
+  it('says outside when this week’s points are not in the list', () => {
+    expect(
+      leaderboardView([e('A', 50, 1)], { spotterCode: 'ME', points: 5 }, fb).summary,
+    ).toEqual({ kind: 'outside', points: 5 });
+  });
+});

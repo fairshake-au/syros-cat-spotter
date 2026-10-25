@@ -10,7 +10,7 @@ import {
   notificationsTable,
   pushTokensTable,
 } from "@workspace/db";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { requireDeviceAuth } from "../lib/deviceAuth";
 import { insertCatUpdate, fanOutNotifications } from "../lib/notificationFanout";
 import { writeObservation } from "../lib/observations";
@@ -111,45 +111,83 @@ router.get("/notifications/:deviceId", async (req, res) => {
   const deviceId = await requireDeviceAuth(req, res);
   if (!deviceId) return;
 
+  // SYC-706: a weekly result (kind 'week_result') has no cat, so the cat
+  // joins are left joins. A cat entry whose update or cat is gone is still
+  // left out, as the inner joins did.
   const rows = await db
     .select({
       id: notificationsTable.id,
+      kind: notificationsTable.kind,
       catUpdateId: notificationsTable.catUpdateId,
       read: notificationsTable.read,
       createdAt: notificationsTable.createdAt,
       updateType: catUpdatesTable.updateType,
-      message: catUpdatesTable.message,
+      updateMessage: catUpdatesTable.message,
+      ownMessage: notificationsTable.message,
+      place: notificationsTable.place,
+      weekPoints: notificationsTable.weekPoints,
       catId: catsTable.id,
       catName: catsTable.name,
       catPrimaryPhotoId: catsTable.primaryPhotoId,
     })
     .from(notificationsTable)
-    .innerJoin(
+    .leftJoin(
       catUpdatesTable,
       eq(notificationsTable.catUpdateId, catUpdatesTable.id),
     )
-    .innerJoin(catsTable, eq(catUpdatesTable.catId, catsTable.id))
-    .where(eq(notificationsTable.deviceId, deviceId))
+    .leftJoin(catsTable, eq(catUpdatesTable.catId, catsTable.id))
+    .where(
+      and(
+        eq(notificationsTable.deviceId, deviceId),
+        or(
+          and(eq(notificationsTable.kind, "cat"), isNotNull(catsTable.id)),
+          eq(notificationsTable.kind, "week_result"),
+        ),
+      ),
+    )
     .orderBy(desc(notificationsTable.createdAt), desc(notificationsTable.id));
 
   // Each cat's photo as the catalogue shows it, in one batch (SYC-98 Fable
   // review, finding 7: never one lookup per notification). A main photo the
   // team hid is replaced by the newest visible one, or none (PR 6).
-  const photos = await catDisplayPhotos(
-    [...new Map(rows.map((r) => [r.catId, { id: r.catId, primaryPhotoId: r.catPrimaryPhotoId }])).values()],
-  );
+  const photos = await catDisplayPhotos([
+    ...new Map(
+      rows.flatMap((r) =>
+        r.catId === null || r.catPrimaryPhotoId === null
+          ? []
+          : [[r.catId, { id: r.catId, primaryPhotoId: r.catPrimaryPhotoId }] as const],
+      ),
+    ).values(),
+  ]);
   res.json(
-    rows.map((r) => ({
-      id: r.id,
-      catId: r.catId,
-      catUpdateId: r.catUpdateId,
-      catName: r.catName,
-      catPhotoUrl: photos.get(r.catId) ?? null,
-      updateType: r.updateType,
-      message: r.message,
-      read: r.read,
-      createdAt: r.createdAt.toISOString(),
-    })),
+    rows.map((r) =>
+      r.kind === "week_result"
+        ? {
+            // No cat: the app opens the celebration, not a cat page.
+            id: r.id,
+            catId: null,
+            catUpdateId: null,
+            catName: null,
+            catPhotoUrl: null,
+            updateType: "general" as const,
+            message: r.ownMessage ?? "",
+            place: r.place,
+            weekPoints: r.weekPoints,
+            read: r.read,
+            createdAt: r.createdAt.toISOString(),
+          }
+        : {
+            id: r.id,
+            catId: r.catId,
+            catUpdateId: r.catUpdateId,
+            catName: r.catName,
+            catPhotoUrl: r.catId === null ? null : (photos.get(r.catId) ?? null),
+            updateType: r.updateType,
+            message: r.updateMessage,
+            read: r.read,
+            createdAt: r.createdAt.toISOString(),
+          },
+    ),
   );
 });
 
@@ -202,10 +240,15 @@ router.put("/profile/:deviceId/push-token", async (req, res) => {
 
   await db
     .insert(pushTokensTable)
-    .values({ deviceId, token: body.token })
+    .values({ deviceId, token: body.token, language: body.language ?? null })
     .onConflictDoUpdate({
       target: pushTokensTable.deviceId,
-      set: { token: body.token, updatedAt: sql`now()` },
+      // A build that sends no language leaves the stored one alone.
+      set: {
+        token: body.token,
+        ...(body.language ? { language: body.language } : {}),
+        updatedAt: sql`now()`,
+      },
     });
 
   res.json({ ok: true });

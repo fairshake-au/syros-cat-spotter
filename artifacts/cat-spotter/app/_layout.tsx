@@ -10,11 +10,13 @@ import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl, setPrelaunchKey } from '@workspace/api-client-react';
 import { AppearanceProvider } from '@/context/AppearanceContext';
+import { CelebrationSettingsProvider } from '@/context/CelebrationSettingsContext';
 import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { LocationProvider } from '@/context/LocationContext';
 import { AppSettingsProvider } from '@/context/AppSettingsContext';
+import { CelebrationProvider } from '@/context/CelebrationContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { ReportQueueProvider } from '@/context/ReportQueueContext';
 import { IssueQueueProvider } from '@/context/IssueQueueContext';
@@ -148,14 +150,14 @@ function OnboardingGate() {
     );
   }
   return (
-    <>
+    <CelebrationProvider>
       <OfflineTilesLoader />
       {!username && <HeldNameSaver />}
       <RootLayoutNav />
       <BannerStack />
       {/* SYC-506: only for a spotter whose name the server has saved. */}
       {keepSafeOffer === 'skipped-onboarding' && username ? <FirstBadgeOffer /> : null}
-    </>
+    </CelebrationProvider>
   );
 }
 
@@ -176,6 +178,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <AppearanceProvider>
+          <CelebrationSettingsProvider>
           <ErrorBoundary>
             <LanguageProvider>
               <DeviceProvider>
@@ -204,6 +207,7 @@ export default function RootLayout() {
               </DeviceProvider>
             </LanguageProvider>
           </ErrorBoundary>
+          </CelebrationSettingsProvider>
         </AppearanceProvider>
       </QueryClientProvider>
     </SafeAreaProvider>

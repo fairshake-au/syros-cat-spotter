@@ -31,6 +31,21 @@ export async function severPerson(
   tx: Tx,
   { deviceId, reason }: { deviceId: string; reason: string },
 ): Promise<void> {
+  // 0. SYC-706: the badges lock every badge writer takes (a resolve, the
+  //    backfill, the weekly close), taken first. A close that has frozen a
+  //    winner's result either finishes before this runs (and step 6 then
+  //    blanks the name) or sees the profile gone and skips them; it can't
+  //    write a result naming a spotter deleted a moment ago.
+  //    THE RULE: for one device, the badges lock is always taken before any
+  //    device_credentials row lock. So a caller that will end here, having
+  //    locked that device's credentials row first, must take the badges lock
+  //    before it (keepSafe/move.ts does when deleting the phone's old
+  //    spotter). Badge writers never lock a credentials row, and DELETE /me
+  //    takes no lock before this, so nothing waits in a circle.
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtext(${"badges:" + deviceId}))`,
+  );
+
   // 1. Two deletes of the same device queue up rather than interleave.
   await tx.execute(
     sql`select device_id from device_credentials where device_id = ${deviceId} for update`,
@@ -102,6 +117,20 @@ export async function severPerson(
     sql`delete from notifications where device_id = ${deviceId}`,
   );
   await tx.execute(sql`delete from push_tokens where device_id = ${deviceId}`);
+  // SYC-706: badges and waiting celebrations go. Points and frozen weekly
+  // results stay as the cats' and the week's history, but name nobody: the
+  // points keep counting, and a podium place renders as "a spotter".
+  await tx.execute(sql`delete from spotter_badges where device_id = ${deviceId}`);
+  await tx.execute(sql`delete from badge_moments where device_id = ${deviceId}`);
+  await tx.execute(
+    sql`update points_ledger set device_id = null where device_id = ${deviceId}`,
+  );
+  await tx.execute(sql`
+    update weekly_results
+       set device_id = null,
+           display_name = null
+     where device_id = ${deviceId}
+  `);
   await tx.execute(sql`delete from profiles where device_id = ${deviceId}`);
   await tx.execute(
     sql`delete from device_credentials where device_id = ${deviceId}`,

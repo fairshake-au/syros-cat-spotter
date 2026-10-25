@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { useColors } from '@/hooks/useColors';
 import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
 import { useAppearance } from '@/context/AppearanceContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useCelebrationSettings } from '@/context/CelebrationSettingsContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useBannerAreaReserve } from '@/lib/bannerArea';
@@ -30,6 +31,7 @@ export default function SettingsScreen() {
   const { t, language, setLanguage } = useLanguage();
   const { deviceId, username, heldUsername, nameNote, setNameNote } = useDevice();
   const { isOnline } = useOffline();
+  const { soundsOn, setSoundsOn } = useCelebrationSettings();
   const params = useLocalSearchParams<{ editName?: string }>();
 
   // Same query (and cache) as the Profile tab, for the current name.
@@ -163,6 +165,23 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={[sharedStyles.eyebrow, { color: subtle }]}>{t('settingsCelebrations')}</Text>
+          <View style={[styles.switchRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.switchLabel, { color: colors.foreground }]}>
+              {t('settingsCelebrationSounds')}
+            </Text>
+            <Switch
+              testID="celebration-sounds-switch"
+              value={soundsOn}
+              onValueChange={setSoundsOn}
+              accessibilityLabel={t('settingsCelebrationSounds')}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              style={styles.switchControl}
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={[sharedStyles.eyebrow, { color: subtle }]}>{t('settingsYourData')}</Text>
           {/* SYC-63: always here, whether or not an email was ever given. */}
           <Pressable
@@ -215,6 +234,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[1],
   },
   segmentText: { fontFamily: fonts.bodyBold, fontSize: fontSizes.xs, textAlign: 'center' },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingVertical: spacing[1],
+    paddingHorizontal: spacing[3],
+    minHeight: 44,
+  },
+  switchLabel: { flex: 1, fontFamily: fonts.bodyBold, fontSize: fontSizes.md },
+  // 44pt hit area around the track.
+  switchControl: { minHeight: 44, minWidth: 44 },
   deleteRow: {
     flexDirection: 'row',
     alignItems: 'center',

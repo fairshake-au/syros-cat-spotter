@@ -8,7 +8,9 @@ import {
   timestamp,
   date,
   primaryKey,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const catUpdateTypeEnum = pgEnum("cat_update_type", [
   "sighting",
@@ -52,19 +54,40 @@ export const catUpdatesTable = pgTable("cat_updates", {
     .defaultNow(),
 });
 
+/**
+ * The bell's entries. `kind 'cat'` is news about a cat (`cat_update_id` set,
+ * the words come from the cat update). `kind 'week_result'` (SYC-706) is a
+ * spotter's place in last week's top three: no cat, its words in `message`,
+ * which never names an area or a place.
+ */
 export const notificationsTable = pgTable("notifications", {
   id: serial("id").primaryKey(),
   deviceId: text("device_id").notNull(),
-  catUpdateId: integer("cat_update_id").notNull(),
+  catUpdateId: integer("cat_update_id"),
+  kind: text("kind").notNull().default("cat"),
+  message: text("message"),
+  // A week_result's place (1-3) and points, so the app can say it in the
+  // spotter's language; null for cat news. The stored message stays for old builds.
+  place: integer("place"),
+  weekPoints: integer("week_points"),
   read: boolean("read").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [
+  check(
+    "notifications_kind_ck",
+    sql`(${t.kind} = 'cat' and ${t.catUpdateId} is not null)
+      or (${t.kind} = 'week_result' and ${t.catUpdateId} is null and ${t.message} is not null)`,
+  ),
+]);
 
 export const pushTokensTable = pgTable("push_tokens", {
   deviceId: text("device_id").primaryKey(),
   token: text("token").notNull(),
+  // The app language the phone last registered with (en, el or fr); null for
+  // old app builds, which are sent English.
+  language: text("language"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

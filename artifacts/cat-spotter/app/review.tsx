@@ -19,6 +19,7 @@ import {
   RequestTimeoutError,
   answerSightingQuestions,
   getGetCatQueryKey,
+  markMomentCelebrated,
   recheckSighting,
   resolveSighting,
   suggestCatNames,
@@ -48,6 +49,9 @@ import { FeedNudge } from "@/components/FeedNudge";
 import { useAppSettings } from "@/context/AppSettingsContext";
 import { useResultNudge } from "@/hooks/useResultNudge";
 import { SightingQuestions } from "@/components/SightingQuestions";
+import { BadgeCelebration } from "@/components/celebration/BadgeCelebration";
+import { useCelebration } from "@/context/CelebrationContext";
+import { badgeViews } from "@/lib/badgeProgress";
 import {
   answersRequest,
   classifyAnswersError,
@@ -84,6 +88,9 @@ import {
   lineHeights,
 } from "@/constants/theme";
 import { catDisplayName, catNameInSentence } from '@/lib/catDisplayName';
+
+/** How long "well done" shows alone before the badge celebration opens. */
+const CELEBRATION_DELAY_MS = 1000;
 
 function catCode(id: number): string {
   return `SYR-${String(id).padStart(4, "0")}`;
@@ -199,6 +206,24 @@ export default function ReviewScreen() {
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ResolveResult | null>(null);
+  // SYC-706: the badges this spot earned play right after "well done" and
+  // before the questions. `claimMoment` keeps the app-wide queue from
+  // playing the same moment a second time.
+  const { claimMoment } = useCelebration();
+  const [celebrationDelayed, setCelebrationDelayed] = useState(false);
+  const [celebrated, setCelebrated] = useState(false);
+  const resultViews = useMemo(() => badgeViews(result?.profile), [result]);
+  const celebrationDue =
+    !!result && result.momentId != null && result.newBadges.length > 0 && !!resultViews;
+  useEffect(() => {
+    if (!celebrationDue) return;
+    // The spot (cat and points) is the first thing seen; the badge comes next.
+    const timer = setTimeout(() => setCelebrationDelayed(true), CELEBRATION_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [celebrationDue]);
+  const celebrationPlaying = celebrationDue && celebrationDelayed && !celebrated;
+  // The questions wait for the celebration, from the first frame.
+  const questionsHidden = celebrationDue && !celebrated;
   const [showNewCat, setShowNewCat] = useState(false);
   const [nameError, setNameError] = useState<"taken" | "offensive" | "syr" | null>(
     null,
@@ -307,6 +332,7 @@ export default function ReviewScreen() {
   }
 
   const finishAndInvalidate = async (res: ResolveResult) => {
+    if (res.momentId != null) claimMoment(res.momentId);
     setResult(res);
     // A resolved review's photo has done its job: a queued item's goes with
     // the item; an online submission's review-<id> photo is deleted now
@@ -552,29 +578,28 @@ export default function ReviewScreen() {
         >
           {catCode(result.cat.id)}
         </Text>
-        <Text style={[styles.points, { color: colors.foreground }]}>
-          +{result.pointsAwarded} {t("pointsAwarded")}
-        </Text>
-        {result.newBadges.map((b) => (
-          <View
-            key={b}
-            style={[styles.badgePill, { backgroundColor: colors.secondary }]}
-          >
-            <Feather
-              name="award"
-              size={16}
-              color={colors.secondaryForeground}
-            />
-            <Text
-              style={[
-                styles.badgePillText,
-                { color: colors.secondaryForeground },
-              ]}
-            >
-              {t("newBadge")} {t(`badge_${b}`)}
-            </Text>
-          </View>
-        ))}
+        {result.pointsReason === "repeat_today" ? (
+          <Text style={[styles.subtitle, { color: colors.foreground, textAlign: "center" }]}>
+            {t("pointsRepeatToday").replace("{name}", () => catNameInSentence(result.cat))}
+          </Text>
+        ) : result.pointsAwarded > 0 ? (
+          <Text style={[styles.points, { color: colors.foreground }]}>
+            +{result.pointsAwarded} {t("pointsAwarded")}
+          </Text>
+        ) : null}
+        {celebrationPlaying && resultViews ? (
+          <BadgeCelebration
+            moment={{ kind: "badges", badgeIds: result.newBadges }}
+            views={resultViews}
+            onDone={() => {
+              setCelebrated(true);
+              if (deviceId && result.momentId != null) {
+                markMomentCelebrated(deviceId, result.momentId).catch(() => {});
+              }
+            }}
+          />
+        ) : null}
+        {!questionsHidden ? (
         <View style={styles.questions}>
           <Text style={[styles.questionsHeading, { color: colors.foreground }]}>
             {t("questionsHeading")}
@@ -587,6 +612,7 @@ export default function ReviewScreen() {
             t={t}
           />
         </View>
+        ) : null}
         {answersFailed ? (
           <Text
             style={[styles.subtitle, { color: colors.destructive, textAlign: "center" }]}
@@ -1633,13 +1659,4 @@ const styles = StyleSheet.create({
   successTitle: { fontSize: 20, fontFamily: "Inter_700Bold" },
   successCat: { fontSize: 17, fontFamily: "Inter_700Bold" },
   points: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  badgePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  badgePillText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });
