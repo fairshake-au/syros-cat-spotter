@@ -10,8 +10,16 @@
  * and call resetMaplibreFake() in beforeEach.
  *
  * Camera moves (jumpTo, easeTo, panBy, setZoom, setCenter) land at once and
- * fire their events synchronously: movestart, move, moveend, plus zoomstart,
- * zoom, zoomend when the zoom changed. Nothing animates.
+ * fire their events synchronously in real jumpTo order: movestart, move,
+ * [zoomstart, zoom, zoomend], moveend (zoom ones only when the zoom changed).
+ * Nothing animates. Real easeTo/flyTo/panBy DO animate (panBy defaults to
+ * 500 ms): don't write tests that rely on the camera having moved at once
+ * after those; only jumpTo/setCenter/setZoom are synchronous for real.
+ *
+ * Style loading is modelled like real MapLibre: setLayoutProperty, addSource
+ * and addLayer throw "Style is not done loading." until the style has loaded
+ * (fire('styledata') or fire('load')), and setStyle unloads it again. A
+ * rejected call lands in `rejected`, not `calls`.
  */
 import { fromMapLibreZoom, fromWorld, toWorld, type LatLng } from '@/lib/mercator';
 
@@ -103,6 +111,8 @@ export class FakeMap {
 
   readonly options: Record<string, unknown>;
   readonly calls: FakeCall[] = [];
+  /** Calls refused because the style wasn't loaded yet. */
+  readonly rejected: FakeCall[] = [];
   readonly container: HTMLElement;
   readonly canvas: HTMLCanvasElement;
   width: number;
@@ -115,6 +125,9 @@ export class FakeMap {
   style: unknown;
   /** Layout properties set so far, by layer id then property name. */
   readonly layout: Record<string, Record<string, unknown>> = {};
+  /** Sources and layers added so far, by id. */
+  readonly sources: Record<string, unknown> = {};
+  readonly layers: Record<string, unknown> = {};
   removed = false;
   styleLoaded = false;
 
@@ -214,7 +227,7 @@ export class FakeMap {
    * `data.layerId` names that layer. 'load' also marks the style loaded.
    */
   fire(type: string, data: Record<string, unknown> = {}): this {
-    if (type === 'load' || type === 'style.load') this.styleLoaded = true;
+    if (type === 'load' || type === 'style.load' || type === 'styledata') this.styleLoaded = true;
     const event: Record<string, unknown> = { type, target: this, ...data };
     if (event.point && !event.lngLat) event.lngLat = this.unproject(event.point as PointInput);
     if (event.lngLat && !event.point) event.point = this.project(event.lngLat as LngLatInput);
@@ -268,11 +281,13 @@ export class FakeMap {
     if (typeof next.zoom === 'number') this.zoom = this.clamp(next.zoom);
     const zoomed = this.zoom !== prevZoom;
     this.fire('movestart', source);
-    if (zoomed) this.fire('zoomstart', source);
     this.fire('move', source);
-    if (zoomed) this.fire('zoom', source);
+    if (zoomed) {
+      this.fire('zoomstart', source);
+      this.fire('zoom', source);
+      this.fire('zoomend', source);
+    }
     this.fire('moveend', source);
-    if (zoomed) this.fire('zoomend', source);
   }
 
   jumpTo(opts: { center?: LngLatInput; zoom?: number }, eventData?: Record<string, unknown>): this {
@@ -316,10 +331,19 @@ export class FakeMap {
 
   // --- style ----------------------------------------------------------------
 
+  /** The new style counts as loading until a 'styledata' or 'load' is fired. */
   setStyle(style: unknown, options?: unknown): this {
     this.record('setStyle', options === undefined ? [style] : [style, options]);
     this.style = style;
+    this.styleLoaded = false;
     return this;
+  }
+
+  /** Throws like real MapLibre while the style is loading. */
+  private requireStyle(method: string, args: unknown[]): void {
+    if (this.styleLoaded) return;
+    this.rejected.push({ method, args });
+    throw new Error('Style is not done loading.');
   }
 
   getStyle(): unknown {
@@ -331,6 +355,7 @@ export class FakeMap {
   }
 
   setLayoutProperty(layerId: string, name: string, value: unknown): this {
+    this.requireStyle('setLayoutProperty', [layerId, name, value]);
     this.record('setLayoutProperty', [layerId, name, value]);
     (this.layout[layerId] ??= {})[name] = value;
     return this;
@@ -338,6 +363,29 @@ export class FakeMap {
 
   getLayoutProperty(layerId: string, name: string): unknown {
     return this.layout[layerId]?.[name];
+  }
+
+  addSource(id: string, source: unknown): this {
+    this.requireStyle('addSource', [id, source]);
+    this.record('addSource', [id, source]);
+    this.sources[id] = source;
+    return this;
+  }
+
+  getSource(id: string): unknown {
+    return this.sources[id];
+  }
+
+  addLayer(layer: { id: string }, beforeId?: string): this {
+    const args = beforeId === undefined ? [layer] : [layer, beforeId];
+    this.requireStyle('addLayer', args);
+    this.record('addLayer', args);
+    this.layers[layer.id] = layer;
+    return this;
+  }
+
+  getLayer(id: string): unknown {
+    return this.layers[id];
   }
 
   // --- DOM and lifecycle ----------------------------------------------------

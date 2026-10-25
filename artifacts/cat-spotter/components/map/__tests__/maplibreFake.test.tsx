@@ -97,6 +97,34 @@ describe('maplibreFake', () => {
     expect(clicks).toHaveLength(1);
   });
 
+  it('fires camera events in real jumpTo order', () => {
+    const map = newMap();
+    const seen: string[] = [];
+    for (const t of ['movestart', 'move', 'zoomstart', 'zoom', 'zoomend', 'moveend']) map.on(t, () => seen.push(t));
+    map.jumpTo({ zoom: 15 });
+    expect(seen).toEqual(['movestart', 'move', 'zoomstart', 'zoom', 'zoomend', 'moveend']);
+  });
+
+  it('refuses style edits until the style loads, and again after setStyle', () => {
+    const map = newMap();
+    expect(map.isStyleLoaded()).toBe(false);
+    expect(() => map.setLayoutProperty('places', 'text-field', 'x')).toThrow('Style is not done loading.');
+    expect(() => map.addSource('cats', { type: 'geojson' })).toThrow('Style is not done loading.');
+    expect(() => map.addLayer({ id: 'cats' })).toThrow('Style is not done loading.');
+    expect(map.rejected.map((c) => c.method)).toEqual(['setLayoutProperty', 'addSource', 'addLayer']);
+    expect(map.callsTo('setLayoutProperty')).toEqual([]);
+    map.fire('styledata');
+    map.addSource('cats', { type: 'geojson' });
+    map.addLayer({ id: 'cats' });
+    expect(map.getSource('cats')).toEqual({ type: 'geojson' });
+    expect(map.getLayer('cats')).toEqual({ id: 'cats' });
+    map.setStyle({ version: 8 });
+    expect(map.isStyleLoaded()).toBe(false);
+    expect(() => map.setLayoutProperty('places', 'text-field', 'x')).toThrow();
+    map.fire('load');
+    expect(() => map.setLayoutProperty('places', 'text-field', 'x')).not.toThrow();
+  });
+
   it('layer listeners run only for their layer', () => {
     const map = newMap();
     let hits = 0;
@@ -108,6 +136,7 @@ describe('maplibreFake', () => {
 
   it('records style, layout, handler and lifecycle calls', () => {
     const map = newMap();
+    map.fire('load');
     map.setLayoutProperty('places', 'text-field', ['get', 'name']);
     map.setStyle({ version: 8 });
     map.dragRotate.disable();

@@ -65,10 +65,22 @@ function mount(opts: UseMapLibreOptions = BASE) {
   };
 }
 
-async function mountReady(opts: UseMapLibreOptions = BASE) {
+/** The map exists but its style hasn't loaded yet. */
+async function mountCreated(opts: UseMapLibreOptions = BASE) {
   const m = mount(opts);
   await waitFor(() => expect(m.latest.current?.map).not.toBeNull());
   return { ...m, map: lastMap() as FakeMap };
+}
+
+/** The map exists and its style has loaded, as after MapLibre's 'load'. */
+async function mountReady(opts: UseMapLibreOptions = BASE) {
+  const m = await mountCreated(opts);
+  act(() => {
+    m.map.fire('styledata');
+    m.map.fire('load');
+  });
+  expect(m.latest.current?.styleReady).toBe(true);
+  return m;
 }
 
 beforeEach(() => {
@@ -91,6 +103,8 @@ describe('useMapLibre', () => {
     expect(map.options.minZoom).toBe(11);
     expect(map.options.maxZoom).toBe(18);
     expect(map.options.pitchWithRotate).toBe(false);
+    expect(map.options.maxPitch).toBe(0);
+    expect(map.options.touchPitch).toBe(false);
     expect(map.options.interactive).toBe(true);
     expect(map.options.attributionControl).toBe(false);
     expect(map.options.style).toEqual(buildStyle({ lang: 'en', ...mapUrls(1) }));
@@ -123,7 +137,6 @@ describe('useMapLibre', () => {
 
   it('language change calls setLayoutProperty for every labelFieldsFor layer, never setStyle', async () => {
     const { map, rerender } = await mountReady();
-    map.fire('load');
     env.language = 'el';
     act(() => rerender());
     const expected = labelFieldsFor('el').map((f) => [f.layerId, 'text-field', f.textField]);
@@ -140,31 +153,64 @@ describe('useMapLibre', () => {
     expect(map.callsTo('setStyle')).toEqual([]);
   });
 
-  it('a language change the style was not ready for is applied once it loads', async () => {
-    const { map, rerender } = await mountReady();
-    const real = map.setLayoutProperty.bind(map);
-    let ready = false;
-    map.setLayoutProperty = (...args: Parameters<FakeMap['setLayoutProperty']>) => {
-      if (!ready) throw new Error('Style is not done loading.');
-      return real(...args);
-    };
+  it('styleReady is false until the style loads', async () => {
+    const { map, latest } = await mountCreated();
+    expect(latest.current?.styleReady).toBe(false);
+    act(() => {
+      map.fire('load');
+    });
+    expect(latest.current?.styleReady).toBe(true);
+  });
+
+  it('a language change before the style loads waits for it, never touching an unloaded style', async () => {
+    const { map, rerender } = await mountCreated();
     env.language = 'el';
     act(() => rerender());
+    expect(map.rejected).toEqual([]);
     expect(map.callsTo('setLayoutProperty')).toEqual([]);
-    ready = true;
+    act(() => {
+      map.fire('styledata');
+      map.fire('load');
+    });
+    expect(map.callsTo('setLayoutProperty')).toEqual(
+      labelFieldsFor('el').map((f) => [f.layerId, 'text-field', f.textField]),
+    );
+    expect(map.rejected).toEqual([]);
+  });
+
+  it('version change swaps the style with a diff, and styleReady drops until it loads', async () => {
+    const { map, rerender, latest } = await mountReady();
+    env.version = 2;
+    act(() => rerender());
+    expect(map.callsTo('setStyle')).toEqual([[buildStyle({ lang: 'en', ...mapUrls(2) }), { diff: true }]]);
+    expect(latest.current?.version).toBe(2);
+    expect(latest.current?.styleReady).toBe(false);
+    expect(FakeMap.instances).toHaveLength(1);
+    act(() => {
+      map.fire('styledata');
+    });
+    expect(latest.current?.styleReady).toBe(true);
+  });
+
+  it('version change before the first style loads replaces it without a diff', async () => {
+    const { map, rerender } = await mountCreated();
+    env.version = 2;
+    act(() => rerender());
+    expect(map.callsTo('setStyle')).toEqual([[buildStyle({ lang: 'en', ...mapUrls(2) }), { diff: false }]]);
+  });
+
+  it('language change during a version swap waits for the new style', async () => {
+    const { map, rerender } = await mountReady();
+    env.version = 2;
+    act(() => rerender());
+    env.language = 'el';
+    act(() => rerender());
+    expect(map.rejected).toEqual([]);
     act(() => {
       map.fire('styledata');
     });
     expect(map.callsTo('setLayoutProperty')).toHaveLength(labelFieldsFor('el').length);
-  });
-
-  it('version change swaps the style with setStyle', async () => {
-    const { map, rerender, latest } = await mountReady();
-    env.version = 2;
-    act(() => rerender());
-    expect(map.callsTo('setStyle')).toEqual([[buildStyle({ lang: 'en', ...mapUrls(2) })]]);
-    expect(latest.current?.version).toBe(2);
-    expect(FakeMap.instances).toHaveLength(1);
+    expect(map.rejected).toEqual([]);
   });
 
   it('no WebGL reports failed', async () => {
@@ -233,7 +279,7 @@ describe('useMapLibre', () => {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 20));
     });
-    expect(FakeMap.instances.every((m) => m.removed)).toBe(true);
+    expect(FakeMap.instances).toHaveLength(0);
   });
 
   it('rotation and keyboard disabled when asked', async () => {

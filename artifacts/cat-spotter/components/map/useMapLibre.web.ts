@@ -14,6 +14,18 @@
  * center, zoom, interactive, rotate or keyboard are not applied. Callers move
  * the map through `map`.
  *
+ * `map` arrives before its style has loaded. MapLibre throws "Style is not
+ * done loading" from addSource/addLayer/setLayoutProperty until it has, so
+ * callers wait for `styleReady` before adding sources or layers, and add
+ * them again when it turns true after a map-version style swap.
+ *
+ * easeTo, panBy and flyTo animate in real MapLibre (panBy defaults to
+ * 500 ms): callers and tests must not assume the camera has moved
+ * synchronously after them. Only jumpTo/setCenter/setZoom land at once.
+ *
+ * Pitch is always off (maxPitch 0, touchPitch off): overlays use flat
+ * Mercator maths.
+ *
  * Zoom crosses the app/MapLibre boundary only through toMapLibreZoom and
  * fromMapLibreZoom: callers pass and receive the app's zoom.
  */
@@ -45,6 +57,11 @@ export interface UseMapLibreResult {
    * 'load-failed': MapLibre or pmtiles couldn't be downloaded or set up.
    */
   failed: MapFailure | null;
+  /**
+   * True once the style has loaded; false again while a new map version's
+   * style loads. Wait for it before addSource/addLayer/setLayoutProperty.
+   */
+  styleReady: boolean;
   /** App zoom, following the map as it zooms. */
   zoom: number;
   version: number;
@@ -123,24 +140,15 @@ export function _setMapLibreImporterForTests(fn: () => Promise<[unknown, unknown
   importLibraries = fn;
 }
 
-/** Swap every label layer's text to `lang`; retries once the style has loaded if it hadn't. */
-function applyLabelLanguage(map: MaplibreMap, lang: MapLang): void {
-  const apply = () => {
+/** Swap every label layer's text to `lang`. False if MapLibre refused (style not loaded). */
+function applyLabelLanguage(map: MaplibreMap, lang: MapLang): boolean {
+  try {
     for (const { layerId, textField } of labelFieldsFor(lang)) {
       map.setLayoutProperty(layerId, 'text-field', textField as never);
     }
-  };
-  try {
-    apply();
+    return true;
   } catch {
-    // MapLibre throws "Style is not done loading" until the style arrives.
-    map.once('styledata', () => {
-      try {
-        apply();
-      } catch {
-        // The style was replaced again; the next style is built in the right language.
-      }
-    });
+    return false;
   }
 }
 
@@ -153,6 +161,7 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
   const [map, setMap] = useState<MaplibreMap | null>(null);
   const [failed, setFailed] = useState<MapFailure | null>(null);
   const [zoom, setZoom] = useState(opts.zoom);
+  const [styleReady, setStyleReady] = useState(false);
 
   // The map is created once, asynchronously; it reads the newest values then.
   const latest = useRef({ opts, mapLang, version });
@@ -195,6 +204,8 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
           minZoom: toMapLibreZoom(MIN_ZOOM),
           maxZoom: toMapLibreZoom(MAX_ZOOM),
           pitchWithRotate: false,
+          maxPitch: 0,
+          touchPitch: false,
           interactive: o.interactive,
           attributionControl: false,
         });
@@ -217,6 +228,10 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
         instance.keyboard.disableRotation();
       }
 
+      // 'styledata' arrives once a style's JSON is in; 'load' after the first render.
+      const markReady = () => setStyleReady(true);
+      instance.on('styledata', markReady);
+      instance.on('load', markReady);
       instance.on('zoom', () => setZoom(fromMapLibreZoom(instance.getZoom())));
       setZoom(fromMapLibreZoom(instance.getZoom()));
       setMap(instance);
@@ -235,15 +250,17 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
     if (!map || styleVersion.current === version) return;
     styleVersion.current = version;
     styleLang.current = mapLang;
-    map.setStyle(buildStyle({ lang: mapLang, ...mapUrls(version) }) as never);
+    setStyleReady(false);
+    // Diffing against a style that hasn't loaded only warns and rebuilds.
+    map.setStyle(buildStyle({ lang: mapLang, ...mapUrls(version) }) as never, { diff: map.isStyleLoaded() === true });
   }, [map, version, mapLang]);
 
-  // A new language: relabel in place, never reload the style.
+  // A new language: relabel in place, never reload the style. Waits for the
+  // style, since MapLibre refuses layout changes before it has loaded.
   useEffect(() => {
-    if (!map || styleLang.current === mapLang) return;
-    styleLang.current = mapLang;
-    applyLabelLanguage(map, mapLang);
-  }, [map, mapLang]);
+    if (!map || !styleReady || styleLang.current === mapLang) return;
+    if (applyLabelLanguage(map, mapLang)) styleLang.current = mapLang;
+  }, [map, mapLang, styleReady]);
 
-  return { containerRef, map, failed, zoom, version };
+  return { containerRef, map, failed, styleReady, zoom, version };
 }
