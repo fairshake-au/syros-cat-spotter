@@ -1,5 +1,5 @@
 import { db, mailOutboxTable, photosTable, sightingMatchesTable, sightingsTable, catsTable } from "@workspace/db";
-import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lte, sql } from "drizzle-orm";
 import { logger, safeError } from "./logger";
 import { kickRow } from "./mail/outbox";
 import { hashRecipient } from "./mail/send";
@@ -39,6 +39,7 @@ export async function recentFailures(now: Date = new Date()): Promise<number> {
       and(
         eq(sightingMatchesTable.matcherFailed, true),
         gt(sightingMatchesTable.matchedAt, since(now, OUTAGE_WINDOW_MINUTES)),
+        lte(sightingMatchesTable.matchedAt, now),
       ),
     );
   return Number(row?.n ?? 0);
@@ -146,6 +147,7 @@ export async function newCatsAfterFailedCheck(now: Date = new Date()): Promise<N
         eq(sightingMatchesTable.choice, "new_cat"),
         isNull(sightingsTable.redactedAt),
         gt(sightingMatchesTable.chosenAt, new Date(now.getTime() - NEW_CATS_DAYS * 86_400_000)),
+        lte(sightingMatchesTable.chosenAt, now),
       ),
     )
     .orderBy(desc(sightingMatchesTable.chosenAt));

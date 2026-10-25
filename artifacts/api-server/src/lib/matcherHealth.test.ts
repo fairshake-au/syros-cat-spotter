@@ -4,9 +4,10 @@
  * already keeps (sighting_matches.matcher_failed); the only new state is the
  * newest matcher_alert row in the mail outbox.
  */
+import request from "supertest";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { eq, inArray } from "drizzle-orm";
-import { catsTable, db, mailOutboxTable, photosTable, sightingMatchesTable, sightingsTable } from "@workspace/db";
+import { eq, inArray, like } from "drizzle-orm";
+import { catsTable, db, profilesTable, mailOutboxTable, photosTable, sightingMatchesTable, sightingsTable } from "@workspace/db";
 import { deleteTestSightings } from "../test/sightings";
 import {
   matcherStatus,
@@ -18,7 +19,15 @@ import {
 } from "./matcherHealth";
 import { buildMatcherDown, buildMatcherUp } from "./matcherAlertEmail";
 import { claimDue } from "./mail/outbox";
+import { blurPosition } from "./blur";
+import app from "../app";
 
+const { matchCatPhoto } = vi.hoisted(() => ({ matchCatPhoto: vi.fn() }));
+vi.mock("./matching", () => ({ matchCatPhoto }));
+vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../middlewares/rateLimit")>()),
+  aiLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
 vi.mock("./mail/outbox", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./mail/outbox")>()),
   kickRow: vi.fn(),
@@ -29,7 +38,10 @@ const photoIds: number[] = [];
 const catIds: number[] = [];
 const sightingIds: number[] = [];
 let seq = 0;
-const min = (m: number) => new Date(Date.now() - m * 60_000);
+// A clock far in the future: other test files leave failed checks at real
+// time in the shared database, and rows after the window's end never count.
+const NOW = new Date(Date.now() + 400 * 86_400_000);
+const min = (m: number) => new Date(NOW.getTime() - m * 60_000);
 
 async function seedSighting(opts: { failed: boolean; at: Date; choice?: "new_cat"; cat?: boolean }) {
   const [p] = await db.insert(photosTable).values({ data: "", mime: "image/jpeg" }).returning({ id: photosTable.id });
@@ -89,30 +101,30 @@ describe("counting failures", () => {
     await failures(2, min(1));
     await seedSighting({ failed: true, at: min(OUTAGE_WINDOW_MINUTES + 5) });
     await seedSighting({ failed: false, at: min(1) });
-    expect(await recentFailures()).toBe(2);
+    expect(await recentFailures(NOW)).toBe(2);
   });
 
   it("is 'failing' at the threshold and not below it", async () => {
     await failures(OUTAGE_FAILURES - 1);
-    expect((await matcherStatus()).failing).toBe(false);
+    expect((await matcherStatus(NOW)).failing).toBe(false);
     await failures(1);
-    expect(await matcherStatus()).toEqual({ failing: true, failed: OUTAGE_FAILURES, windowMinutes: OUTAGE_WINDOW_MINUTES });
+    expect(await matcherStatus(NOW)).toEqual({ failing: true, failed: OUTAGE_FAILURES, windowMinutes: OUTAGE_WINDOW_MINUTES });
   });
 });
 
 describe("the alert", () => {
   it("sends nothing below the threshold", async () => {
     await failures(OUTAGE_FAILURES - 1);
-    expect(await reviewMatcherHealth()).toBe("none");
+    expect(await reviewMatcherHealth(NOW)).toBe("none");
     expect(await alerts()).toHaveLength(0);
   });
 
   it("queues one 'failing' email at the threshold, and not another while it stays open", async () => {
     await failures(OUTAGE_FAILURES);
-    expect(await reviewMatcherHealth()).toBe("down");
-    expect(await reviewMatcherHealth()).toBe("none");
+    expect(await reviewMatcherHealth(NOW)).toBe("down");
+    expect(await reviewMatcherHealth(NOW)).toBe("none");
     await failures(3);
-    expect(await reviewMatcherHealth()).toBe("none");
+    expect(await reviewMatcherHealth(NOW)).toBe("none");
     const rows = await alerts();
     expect(rows).toHaveLength(1);
     expect(rows[0]!.payload).toEqual({ kind: "down", failed: OUTAGE_FAILURES, windowMinutes: OUTAGE_WINDOW_MINUTES });
@@ -120,34 +132,34 @@ describe("the alert", () => {
 
   it("does not say 'working again' while failures are still in the window", async () => {
     await failures(OUTAGE_FAILURES);
-    await reviewMatcherHealth();
-    expect(await reviewMatcherHealth()).toBe("none");
+    await reviewMatcherHealth(NOW);
+    expect(await reviewMatcherHealth(NOW)).toBe("none");
     expect(await alerts()).toHaveLength(1);
   });
 
   it("queues one 'working again' email once the window is quiet, then can alert again", async () => {
     await failures(OUTAGE_FAILURES);
-    await reviewMatcherHealth();
+    await reviewMatcherHealth(NOW);
     // The failures age out of the window.
     await db.update(sightingMatchesTable).set({ matchedAt: min(OUTAGE_WINDOW_MINUTES + 5) }).where(inArray(sightingMatchesTable.sightingId, sightingIds));
-    expect(await reviewMatcherHealth()).toBe("up");
-    expect(await reviewMatcherHealth()).toBe("none");
+    expect(await reviewMatcherHealth(NOW)).toBe("up");
+    expect(await reviewMatcherHealth(NOW)).toBe("none");
     expect((await alerts()).map((r) => (r.payload as { kind: string }).kind)).toEqual(["down", "up"]);
     await failures(OUTAGE_FAILURES);
-    expect(await reviewMatcherHealth()).toBe("down");
+    expect(await reviewMatcherHealth(NOW)).toBe("down");
   });
 
   it("with no recipient set it queues nothing (the banner still shows)", async () => {
     delete process.env["MATCHER_ALERT_TO"];
     await failures(OUTAGE_FAILURES);
-    expect(await reviewMatcherHealth()).toBe("none");
+    expect(await reviewMatcherHealth(NOW)).toBe("none");
     expect(await alerts()).toHaveLength(0);
-    expect((await matcherStatus()).failing).toBe(true);
+    expect((await matcherStatus(NOW)).failing).toBe(true);
   });
 
   it("the queued rows are claimable and name no photo, cat, person or position", async () => {
     await failures(OUTAGE_FAILURES);
-    await reviewMatcherHealth();
+    await reviewMatcherHealth(NOW);
     const claimed = await claimDue(5);
     expect(claimed.map((r) => r.purpose)).toContain("matcher_alert");
     const row = (await alerts())[0]!;
@@ -164,13 +176,59 @@ describe("new cats to check (SYC-531)", () => {
     const failedNew = await seedSighting({ failed: true, at: min(10), choice: "new_cat", cat: true });
     await seedSighting({ failed: false, at: min(10), choice: "new_cat", cat: true });
     await seedSighting({ failed: true, at: min(10), cat: true });
-    const list = await newCatsAfterFailedCheck();
+    const list = await newCatsAfterFailedCheck(NOW);
     expect(list.map((c) => c.catId)).toEqual([failedNew.catId]);
     expect(list[0]!.photoUrl).toMatch(/^\/api\/team\/photos\//);
   });
 
   it("leaves out choices older than 14 days", async () => {
-    await seedSighting({ failed: true, at: new Date(Date.now() - 15 * 86_400_000), choice: "new_cat", cat: true });
-    expect(await newCatsAfterFailedCheck()).toEqual([]);
+    await seedSighting({ failed: true, at: new Date(NOW.getTime() - 15 * 86_400_000), choice: "new_cat", cat: true });
+    expect(await newCatsAfterFailedCheck(NOW)).toEqual([]);
+  });
+});
+
+// SYC-532 through the real route. In this file (not its own) so the two never
+// share the outbox at the same moment: the alert state is one newest row.
+describe("failed checks on POST /api/sightings reach the team", () => {
+  const SECRET = "vitest-matcherhealth-secret-0123456789ab";
+  const JPEG =
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
+  let n = 0;
+  const send = () => {
+    const at = blurPosition(37.2, 25.9 + ++n * 0.06);
+    return request(app)
+      .post("/api/sightings")
+      .set("X-Device-Secret", SECRET)
+      .send({
+        deviceId: `vitest-matcherhealth-route-${n}`,
+        lat: at.lat,
+        lng: at.lng,
+        photoBase64: JPEG,
+        capturedAt: new Date(Date.now() - 300_000 + n * 1000).toISOString(),
+      });
+  };
+  afterEach(async () => {
+    const rows = await db
+      .select({ id: sightingsTable.id, photoId: sightingsTable.photoId })
+      .from(sightingsTable)
+      .where(like(sightingsTable.deviceId, "vitest-matcherhealth-route-%"));
+    if (rows.length) await db.delete(sightingMatchesTable).where(inArray(sightingMatchesTable.sightingId, rows.map((r) => r.id)));
+    await deleteTestSightings(like(sightingsTable.deviceId, "vitest-matcherhealth-route-%"));
+    if (rows.length) await db.delete(photosTable).where(inArray(photosTable.id, rows.map((r) => r.photoId)));
+    await db.delete(profilesTable).where(like(profilesTable.deviceId, "vitest-matcherhealth-route-%"));
+  });
+
+  it("the fifth failure queues one email; the spotter still gets the plain 'failed' answer", async () => {
+    matchCatPhoto.mockReset();
+    matchCatPhoto.mockRejectedValue(new Error("Connection error."));
+    for (let i = 1; i < OUTAGE_FAILURES; i++) {
+      expect((await send()).body).toMatchObject({ matchCheck: "failed", canRecheck: true });
+    }
+    const fifth = await send();
+    expect(fifth.status).toBe(201);
+    expect(fifth.body).toMatchObject({ matchCheck: "failed", candidates: [] });
+    expect(await alerts()).toHaveLength(1);
+    await send();
+    expect(await alerts()).toHaveLength(1);
   });
 });
