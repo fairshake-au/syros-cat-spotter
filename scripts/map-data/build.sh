@@ -25,7 +25,7 @@ OSM_URL="${OSM_URL:-https://download.geofabrik.de/europe/greece-latest.osm.pbf}"
 BBOX="24.82,37.33,25.04,37.56"                       # SYROS_RECT +- 0.03 degrees
 BASEMAPS_COMMIT="ca93fc06efbaff1c5f069d06edbe5de18839c1c8"   # protomaps/basemaps, tiles/ project ("Protomaps Basemap v4.15.2")
 ASSETS_COMMIT="028c18f713baecad011301ff7a69acc39bcc2ae7"     # protomaps/basemaps-assets (fonts, sprites v4)
-SPRITE_SET="v4/light"
+SPRITE_SET="v4"
 FONT_STACKS=("Noto Sans Regular" "Noto Sans Medium" "Noto Sans Italic" "Noto Sans Devanagari Regular v1")
 APP_FONT_STACKS=("Noto Sans Regular" "Noto Sans Medium" "Noto Sans Italic")
 # The six glyph ranges the app bundles (Task 0.1): Latin, Latin ext, Greek, Greek ext, punctuation, box/shapes
@@ -61,13 +61,15 @@ GREECE_SHA=$(shasum -a 256 "$GREECE" | cut -d' ' -f1)
 # ---- 2. Cut Syros out -------------------------------------------------------------
 echo "== 2. osmium extract --bbox $BBOX"
 osmium extract --bbox "$BBOX" --overwrite -o "$WORK_DIR/syros.osm.pbf" "$GREECE"
-OSM_EXTRACT_DATE=$(osmium fileinfo -g header.option.osmosis_replication_timestamp "$WORK_DIR/syros.osm.pbf" || true)
-[[ -n "$OSM_EXTRACT_DATE" ]] || OSM_EXTRACT_DATE=$(osmium fileinfo -g header.option.timestamp "$WORK_DIR/syros.osm.pbf" || true)
+FILEINFO=$(osmium fileinfo "$GREECE")   # the extract drops the header timestamps; Geofabrik's file has them
+OSM_EXTRACT_DATE=$(printf '%s\n' "$FILEINFO" | sed -n 's/^ *osmosis_replication_timestamp=//p' | head -1)
+[[ -n "$OSM_EXTRACT_DATE" ]] || OSM_EXTRACT_DATE=$(printf '%s\n' "$FILEINFO" | sed -n 's/^ *timestamp=//p' | head -1)
 [[ -n "$OSM_EXTRACT_DATE" ]] || OSM_EXTRACT_DATE="unknown"
 echo "   OSM data date: $OSM_EXTRACT_DATE"
 
 # ---- 3. Add Latin-letter names ------------------------------------------------------
 echo "== 3. add_names.py"
+rm -f "$WORK_DIR/syros-named.osm.pbf"
 "$PYTHON" "$REPO/scripts/map-data/add_names.py" "$WORK_DIR/syros.osm.pbf" "$WORK_DIR/syros-named.osm.pbf" "$V_DIR/names-added.csv"
 
 # ---- 4. Protomaps basemap tiles -------------------------------------------------------
