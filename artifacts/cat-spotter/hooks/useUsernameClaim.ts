@@ -111,6 +111,19 @@ export async function runBackgroundClaim<T>(fn: () => Promise<T>): Promise<T | u
   }
 }
 
+/**
+ * SYC-529: the spotter chose "Start anyway" after a claim got no answer. The
+ * same-name lock is let go so the background save (which reads first, so it
+ * is safe even if the claim did land) can take over. A request still open is
+ * left to settle: if it lands late it saves the same name the save would.
+ */
+export function releaseUncertainClaim(): string | null {
+  const name = shared.state.uncertainName;
+  if (name === null || shared.state.pending) return null;
+  update({ uncertainName: null, claimError: null });
+  return name;
+}
+
 /** Tests only: forget every claim, as a fresh app start would. */
 export function resetUsernameClaimStateForTests() {
   shared.state = IDLE;

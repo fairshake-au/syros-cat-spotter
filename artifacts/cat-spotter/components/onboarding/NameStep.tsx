@@ -41,11 +41,13 @@ import { Button, Tag } from '@/components/purropolis';
 import { StepDots } from './StepDots';
 import { ONBOARDING_DOT_COUNT, stepIndex } from './steps';
 import { RECONCILE_WAIT_MS, withDeadline } from '@/lib/usernameClaim';
-import { useUsernameClaim } from '@/hooks/useUsernameClaim';
+import { releaseUncertainClaim, useUsernameClaim } from '@/hooks/useUsernameClaim';
 import { decorative, spokenText } from '@/lib/a11yText';
 import { useOnboardingEmail } from './useOnboardingEmail';
 
 const MIN_LEN = 3;
+/** SYC-529: how long suggestions may spin before names made on the phone replace them. */
+export const SUGGESTIONS_WAIT_MS = 4000;
 /** How much of the pinned footer sits above the keyboard: the button and its padding. */
 const FOOTER_ABOVE_KEYBOARD = 48 + spacing[2] + spacing[4];
 
@@ -65,7 +67,12 @@ const FOOTER_ABOVE_KEYBOARD = 48 + spacing[2] + spacing[4];
  * shows the keep-safe screen; (3) adds the email, if typed and not already
  * added here, and upgrades the offer to `done`, or stops on failure; (4)
  * claims the name, which opens the app. The email goes first because a saved
- * name opens the app by itself. A change of identity mid-save drops the
+ * name opens the app by itself.
+ *
+ * SYC-529: wifi with no internet behind it still reports online. When a claim
+ * gets no answer, **Start anyway, we'll save it later** hands the name to the
+ * same background save, which reads first. Suggestions that never load give
+ * way to names made on the phone after SUGGESTIONS_WAIT_MS. A change of identity mid-save drops the
  * result. Offline, the email box gives way to a note and counts as skipped.
  */
 export function NameStep({ onBack }: { onBack: () => void }) {
@@ -144,6 +151,7 @@ export function NameStep({ onBack }: { onBack: () => void }) {
   // SYC-506: offline, the phone checks the server's rules itself.
   const heldName = offline ? normalizeUsernameLocally(trimmed) : null;
   const [localSuggestions, setLocalSuggestions] = useState(() => suggestLocalUsernames(4));
+  const [suggestionsSlow, setSuggestionsSlow] = useState(false);
   const checkEnabled = isOnline && debounced.length >= MIN_LEN;
 
   const availability = useCheckUsernameAvailability(
@@ -176,6 +184,17 @@ export function NameStep({ onBack }: { onBack: () => void }) {
       staleTime: Infinity,
     },
   });
+
+  const haveSuggestions = !!suggestionsQuery.data;
+  useEffect(() => {
+    if (!isOnline || haveSuggestions) {
+      setSuggestionsSlow(false);
+      return;
+    }
+    const id = setTimeout(() => setSuggestionsSlow(true), SUGGESTIONS_WAIT_MS);
+    return () => clearTimeout(id);
+  }, [isOnline, haveSuggestions]);
+  const localNames = offline || (!haveSuggestions && (suggestionsSlow || suggestionsQuery.isError));
 
   const checking =
     longEnough && (availability.isFetching || debounced !== trimmed);
@@ -282,9 +301,18 @@ export function NameStep({ onBack }: { onBack: () => void }) {
     void claim(trimmed);
   };
 
-  const suggestions = offline ? localSuggestions : (suggestionsQuery.data?.suggestions ?? []);
+  // SYC-529: the offer is only for a claim that got no answer, never a firm "no".
+  const startAnyway = () => {
+    if (pending || saving || submitting.current) return;
+    const name = releaseUncertainClaim();
+    if (!name) return;
+    markSkipped();
+    holdUsername(name);
+  };
+
+  const suggestions = localNames ? localSuggestions : (suggestionsQuery.data?.suggestions ?? []);
   const shuffle = () => {
-    if (offline) setLocalSuggestions(suggestLocalUsernames(4));
+    if (localNames) setLocalSuggestions(suggestLocalUsernames(4));
     else void suggestionsQuery.refetch();
   };
   const tones = ['sun', 'olive', 'aegean', 'terra'] as const;
@@ -381,13 +409,13 @@ export function NameStep({ onBack }: { onBack: () => void }) {
           <View style={styles.suggestions}>
             <Pressable
               onPress={shuffle}
-              disabled={(!offline && suggestionsQuery.isFetching) || pending || !!uncertainName || saving}
+              disabled={(!localNames && suggestionsQuery.isFetching) || pending || !!uncertainName || saving}
               style={[styles.shuffle, { backgroundColor: palette.bougain500 }]}
               accessibilityRole="button"
             >
               <Text style={styles.shuffleText}>🎲 {t('landingShuffle')}</Text>
             </Pressable>
-            {!offline && suggestionsQuery.isFetching && suggestions.length === 0 ? (
+            {!localNames && suggestionsQuery.isFetching && suggestions.length === 0 ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
               suggestions.slice(0, 4).map((name, i) => (
@@ -497,6 +525,19 @@ export function NameStep({ onBack }: { onBack: () => void }) {
           { paddingBottom: insets.bottom + spacing[4], backgroundColor: colors.background },
         ]}
       >
+        {uncertainName && !pending && !offline && (
+          <Pressable
+            testID="start-anyway"
+            onPress={startAnyway}
+            disabled={saving}
+            accessibilityRole="button"
+            style={styles.startAnyway}
+          >
+            <Text style={[styles.startAnywayText, { color: colors.primary }]}>
+              {t('usernameStartAnyway')}
+            </Text>
+          </Pressable>
+        )}
         <Button
           variant="primary"
           size="lg"
@@ -566,6 +607,13 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: spacing[5],
     paddingTop: spacing[2],
+  },
+  startAnyway: { alignItems: 'center', paddingVertical: spacing[3], marginBottom: spacing[1] },
+  startAnywayText: {
+    fontFamily: fonts.bodyExtraBold,
+    fontSize: fontSizes.sm,
+    textDecorationLine: 'underline',
+    textAlign: 'center',
   },
   suggestions: {
     flexDirection: 'row',
