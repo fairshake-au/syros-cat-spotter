@@ -61,9 +61,14 @@ echo "ok: syros.pmtiles serves a PMTiles v3 header (206)"
 for stack in "${FONT_STACKS[@]}"; do
   encoded="${stack// /%20}"
   font_url="$BASE/v$VERSION/fonts/$encoded/$FONT_RANGE"
-  code="$(get "$font_url" "$TMP/font.pbf")"
+  font_file="$TMP/font-${stack// /_}.pbf"
+  rm -f "$font_file"
+  code="$(get "$font_url" "$font_file")"
   [ "$code" = "200" ] || fail "$font_url returned HTTP $code (expected 200)"
-  [ -s "$TMP/font.pbf" ] || fail "$font_url returned an empty body"
+  [ -s "$font_file" ] || fail "$font_url returned an empty body"
+  # A glyph range is a protobuf whose first field is the stack name (field 1, wire type 2 = 0x0a).
+  first_byte="$(od -An -tu1 -N1 "$font_file" | tr -d ' ')"
+  [ "$first_byte" = "10" ] || fail "$font_url is not a glyph range (first byte '$first_byte', expected 10)"
   echo "ok: font '$stack' range $FONT_RANGE (200)"
 done
 
