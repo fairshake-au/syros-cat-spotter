@@ -7,10 +7,13 @@
 # Checks, in order; the first failure stops the run with exit 1:
 #   1. current.json returns 200 and {"version": N} with N a positive integer
 #   2. v{N}/syros.pmtiles answers a ranged GET (bytes 0-126) with 206 and
-#      starts with the PMTiles v3 magic ("PMTiles" then byte 0x03)
-#   3. one font range per font stack returns 200 with a non-empty body
+#      starts with the PMTiles v3 magic ("PMTiles" then byte 0x03); the same
+#      request sends Origin: https://catspotters.com and must come back with an
+#      access-control-allow-origin header (a broken CORS rule blanks the website)
+#   3. one font range per font stack returns 200, a non-empty body, and a glyph
+#      range's first byte (0x0a, protobuf field 1)
 # Exit 0 when everything passes. The workflow (.github/workflows/map-data-check.yml)
-# runs this daily; a failure fails that job, and GitHub emails the repo owner.
+# runs this daily; a failure fails that job (who GitHub notifies: see the workflow's comment).
 set -euo pipefail
 
 BASE="${1:-https://tiles.catspotters.com}"
@@ -49,13 +52,16 @@ echo "ok: current.json points at version $VERSION"
 
 # ---- 2. syros.pmtiles header --------------------------------------------------
 PMTILES_URL="$BASE/v$VERSION/syros.pmtiles"
-code="$(get "$PMTILES_URL" "$TMP/header.bin" -r 0-126)"
+code="$(get "$PMTILES_URL" "$TMP/header.bin" -r 0-126 -H 'Origin: https://catspotters.com' -D "$TMP/header.txt")"
 [ "$code" = "206" ] || fail "$PMTILES_URL ranged GET returned HTTP $code (expected 206)"
 magic="$(head -c 7 "$TMP/header.bin")"
 [ "$magic" = "PMTiles" ] || fail "$PMTILES_URL does not start with the PMTiles magic"
 ver_byte="$(od -An -tu1 -j7 -N1 "$TMP/header.bin" | tr -d ' ')"
 [ "$ver_byte" = "3" ] || fail "$PMTILES_URL has PMTiles version byte '$ver_byte' (expected 3)"
 echo "ok: syros.pmtiles serves a PMTiles v3 header (206)"
+grep -qi '^access-control-allow-origin:' "$TMP/header.txt" \
+  || fail "$PMTILES_URL sent no access-control-allow-origin header for Origin https://catspotters.com (CORS rule broken?)"
+echo "ok: CORS header present for https://catspotters.com"
 
 # ---- 3. one font range per stack ----------------------------------------------
 for stack in "${FONT_STACKS[@]}"; do
