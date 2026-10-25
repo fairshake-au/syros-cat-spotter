@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { db, observationsTable, pool } from "@workspace/db";
+import { db, observationsTable, photoVisibilityEventsTable, pool, vetVisitPhotosTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 
 // SYC-396 PR 3.1a, Task 3.1.3 (team-dashboard-redesign.md §7.2, §8, §10.2,
@@ -25,6 +25,7 @@ import { removeTestPerson } from "../test/removeTestPerson";
 import { getAppSettings } from "../lib/appSettings";
 import { FROM_VET_VISIT_WORDS } from "../lib/teamCorrections";
 import { commitStatement } from "../lib/commitStatement";
+import { newPhoto } from "../test/vetPhotoKit";
 
 let staff: Signed;
 let eleni: Signed;
@@ -365,5 +366,62 @@ describe("who sees the money", () => {
     const json = await request(app).get(`/api/team/my/cats/${cat.id}`).set("Cookie", eleni.cookie).set("Accept", "application/json");
     expect(json.body.cat.vetVisits).toEqual([{ date: "2026-08-13", did: ["sterilised"] }]);
     expect(JSON.stringify(json.body)).not.toMatch(/costEur|paidBy|clinic|vaccin/i);
+  });
+});
+
+describe("a visit's kept photos (SYC-677 Task 8)", () => {
+  const keptIds: number[] = [];
+  afterAll(async () => {
+    for (const id of keptIds) await db.delete(vetVisitPhotosTable).where(eq(vetVisitPhotosTable.photoId, id));
+  });
+
+  async function visitWithPhoto() {
+    const cat = await seedCat(colony);
+    await post(`/api/team/cats/${cat.id}/vet-visit`, FORM);
+    const visit = await visitOf(cat.id);
+    const photo = await newPhoto();
+    await db.insert(vetVisitPhotosTable).values({ photoId: photo.id, visitId: visit.id, catId: cat.id });
+    keptIds.push(photo.id);
+    return { cat, photo };
+  }
+
+  it("shows the photo on the team's cat page, and not on the cat guardian's", async () => {
+    const { cat, photo } = await visitWithPhoto();
+    const page = await get(`/api/team/cats/${cat.id}`);
+    expect(page.text).toContain(`href="/api/team/photos/${photo.publicId}"`);
+    expect(page.text).toContain(`src="/api/team/photos/${photo.publicId}/small"`);
+    expect(page.text).toContain('alt="Photo from the vet visit on 13 Aug 2026"');
+    // A vet photo is never in the gallery, so no hide or restore form is drawn for it.
+    expect(page.text).not.toContain(`/api/team/photos/${photo.publicId}/hide`);
+    expect(page.text).not.toContain(`/api/team/photos/${photo.publicId}/restore`);
+
+    const mine = await get(`/api/team/my/cats/${cat.id}`, eleni);
+    expect(mine.status).toBe(200);
+    expect(mine.text).toContain("Seen by a vet on 13 August 2026");
+    expect(mine.text).not.toContain(photo.publicId);
+    const json = await request(app).get(`/api/team/my/cats/${cat.id}`).set("Cookie", eleni.cookie).set("Accept", "application/json");
+    expect(json.body.cat.vetVisits).toEqual([{ date: "2026-08-13", did: ["sterilised"] }]);
+    expect(JSON.stringify(json.body.cat.vetVisits)).not.toContain("photos");
+    expect(JSON.stringify(json.body)).not.toContain(photo.publicId);
+  });
+
+  it("hide and restore refuse a vet photo in words and write no visibility event", async () => {
+    const { cat, photo } = await visitWithPhoto();
+    for (const action of ["hide", "restore"]) {
+      const res = await post(`/api/team/photos/${photo.publicId}/${action}`, { cat: String(cat.id) });
+      expect(res.status).toBe(409);
+      expect(res.text).toContain("This photo is a vet-visit photo. It's only ever seen by the team.");
+    }
+    const events = await db.select().from(photoVisibilityEventsTable).where(eq(photoVisibilityEventsTable.photoId, photo.id));
+    expect(events).toEqual([]);
+    for (const action of ["hide", "restore"]) {
+      const res = await request(app)
+        .post(`/api/team/photos/${photo.publicId}/${action}`)
+        .set("Cookie", staff.cookie)
+        .set("Origin", TEAM_ORIGIN)
+        .send({});
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe("TEAM_ONLY");
+    }
   });
 });

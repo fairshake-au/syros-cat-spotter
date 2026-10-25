@@ -223,6 +223,19 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/cats/:id/vet-visit": { why: "the Log a vet visit form (SYC-396 PR 3.1a): log_vet_visit, island-only" },
   "POST /api/team/cats/:id/vet-visit": { why: "logs a vet visit (SYC-396 PR 3.1a): log_vet_visit, island-only; the walk's empty form gets a 400 and nothing is written" },
   "POST /api/team/vet-visits/:visitId/wrong": { why: "marks a vet visit wrong with everything it recorded (SYC-396 PR 3.1a): log_vet_visit, island-only; the walk's id is no visit, so the team gets a 404" },
+  // SYC-677 PR B Task 6: the vet visit batch pages. Every one needs log_vet_visit (island-only) plus view_vet_costs and find_cat_from_photo; a cat guardian gets the 403 on each. The walk's ids are no batch, so the team gets a 404 (a new batch with no place is a 303).
+  "GET /api/team/vet-batches": { why: "the unsaved batches list (SYC-677 Task 7): log_vet_visit, island-only; the team gets the page" },
+  "GET /api/team/vet-batches/new": { why: "starts a batch, from a colony or area if named, else with the place not chosen (Ruling R14): log_vet_visit, island-only; the walk names no place, so the team gets a 303 to a new batch" },
+  "GET /api/team/vet-batches/:id": { why: "the batch page: log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
+  "POST /api/team/vet-batches/:id": { why: "saves the batch's shared fields: log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
+  "POST /api/team/vet-batches/:id/cats": { why: "adds a cat from its photos (multipart): log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
+  "POST /api/team/vet-batches/:id/cats/:catRow/search": { why: "finds a batch cat from its photo: log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
+  "POST /api/team/vet-batches/:id/cats/:catRow/lookup": { why: "looks a batch cat up by name or SYR number: log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
+  "POST /api/team/vet-batches/:id/cats/:catRow/confirm": { why: "says which cat a batch entry is: log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
+  "POST /api/team/vet-batches/:id/cats/:catRow": { why: "saves one batch cat's answers: log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
+  "POST /api/team/vet-batches/:id/cats/:catRow/remove": { why: "removes a cat from a batch: log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
+  "POST /api/team/vet-batches/:id/save": { why: "saves the batch's visits: log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
+  "POST /api/team/vet-batches/:id/abandon": { why: "throws a draft batch away: log_vet_visit, island-only; the walk's id is no batch, so the team gets a 404" },
   "POST /api/team/cats/:id/sterilisation": { why: "set_sterilisation with no target, island-only" },
   "POST /api/team/cats/:id/name": { why: "rename_cat, island-only" },
   "POST /api/team/cats/:id/note": { why: "add_team_note, island-only" },
@@ -491,6 +504,11 @@ beforeEach(() => {
 afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
+  // The walk's team people each start a batch (GET /vet-batches/new, SYC-677); a batch names its author.
+  await pool.query(
+    `delete from vet_batches where created_by in (select id from people where email = any($1))`,
+    [[...Object.values(people).map((p) => p.email), ...freshMade]],
+  );
   for (const p of Object.values(people)) await removeTestPerson(p.email);
   for (const email of freshMade) await removeTestPerson(email);
   await pool.end();

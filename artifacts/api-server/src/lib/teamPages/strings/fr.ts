@@ -412,6 +412,7 @@ export const fr: Record<StringKey, string> = {
   "done.nothingNew": "Ces chats étaient déjà dans cette colonie. Rien n’a été modifié.",
   "done.takenOut": "Le chat a été retiré de cette colonie.",
   "done.notThere": "Ce chat n’est plus dans cette colonie, donc rien n’a été modifié.",
+  "done.batch": "Les visites chez le vétérinaire du lot sont enregistrées.",
 
   "problem.title": "Ça n’a pas été enregistré",
   "problem.nothingChanged": "Rien n’a été modifié.",

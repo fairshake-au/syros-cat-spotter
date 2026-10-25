@@ -449,6 +449,7 @@ export const en = {
   "done.nothingNew": "Those cats were already in this colony. Nothing was changed.",
   "done.takenOut": "The cat is out of this colony.",
   "done.notThere": "That cat isn't in this colony any more, so nothing was changed.",
+  "done.batch": "The batch's vet visits are saved.",
 
   "problem.title": "That didn't save",
   "problem.nothingChanged": "Nothing was changed.",

@@ -320,6 +320,9 @@ li.hrow .what{min-width:0}
 li.hrow .what p{margin:4px 0 0}
 li.hrow .what .notice{margin:0 0 6px}
 li.hrow .who{display:block;font-size:14px;color:#55524a}
+li.hrow .vet-photos{display:flex;flex-wrap:wrap;gap:8px}
+li.hrow .vet-photos a{display:block;width:64px;height:64px;min-height:64px;padding:0;margin:0}
+li.hrow .vet-photos img{display:block;width:64px;height:64px;object-fit:cover;border-radius:6px}
 li.hrow.vet{box-shadow:inset 4px 0 0 #0b5c6b}
 li.hrow.replaced{background:#faf9f6}
 li.hrow del{color:#6b685f}
@@ -437,6 +440,19 @@ fieldset{border:0;margin:0 0 8px;padding:0}
 legend{padding:0}
 .choice{display:flex;align-items:center;gap:10px;min-height:44px;font-size:16px}
 .choice input{width:22px;height:22px;margin:0;flex:none}
+.batchcat{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:12px 0;overflow-wrap:anywhere}
+.batchcat h3{margin:0 0 4px}
+.batchstate{font-weight:700;margin:0 0 8px}
+.thumbs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.batchcat form{margin:0 0 10px}
+.batchcat .batchremove{margin:12px 0 0}
+.batchsuggest{list-style:none;margin:0 0 8px;padding:0}
+.batchsuggest .catrow{flex-wrap:wrap}
+.batchsuggest .catrow form{margin:0 0 0 auto}
+.batchshared,#cats,#add,#save{margin:0 0 16px}
+.batchabandon{margin-top:12px}
+.batchundo button,.batchremove button,.batchabandon button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;cursor:pointer}
+.batchundo button{border:1px solid #8a877e;background:#fff;color:#1d1d1b}
 .warn{background:#fff3cd;border:1px solid #c9a227;border-radius:6px;padding:8px 10px;margin:8px 0}
 .statement details{margin-top:6px;border-top:1px dashed #c9c4b6}
 .statement summary{font-size:15px}

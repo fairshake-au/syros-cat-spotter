@@ -71,6 +71,7 @@ const DONE: Record<string, WordKey> = {
   nothingNew: "done.nothingNew",
   takenOut: "done.takenOut",
   notThere: "done.notThere",
+  batch: "done.batch",
 };
 
 /** A fixed sentence for `?done=<key>`; any other key shows nothing. */
@@ -717,6 +718,11 @@ export function renderColonyPage(
     island && opts.may("print_trapping_plan")
       ? `<p><a class="tap" href="${esc(colonyHref(v.id))}/plan">${w("plan.print")}</a></p>`
       : "";
+  // Record vet visits (SYC-677): a batch for this colony. The team's only, with the three capabilities a batch needs.
+  const batch =
+    island && opts.may("log_vet_visit") && opts.may("view_vet_costs") && opts.may("find_cat_from_photo")
+      ? `<p><a class="tap" href="/api/team/vet-batches/new?colony=${v.id}">Record vet visits</a></p>`
+      : "";
   const names = new Map(v.sites.map((s) => [s.id, s.name]));
   const sites =
     `<h2>${w("colony.sitesTitle")}</h2>` +
@@ -765,6 +771,7 @@ export function renderColonyPage(
       estimate +
       sites +
       print +
+      batch +
       done +
       (plan.toDo.length + plan.done.length + plan.other.length > 0 && mayTakeOut
         ? `<p class="hint">${w("colony.takeOutNote")}</p>`

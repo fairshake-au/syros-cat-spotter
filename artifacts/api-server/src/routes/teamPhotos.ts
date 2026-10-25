@@ -118,6 +118,24 @@ function route(action: VisibilityAction) {
                   `<p><a class="tap" href="${esc(backTo(cat, publicId, "none"))}">Back</a></p>`,
               }),
             );
+        case "team_only":
+          // SYC-677: a vet-visit photo is never public, so there is nothing to hide or restore.
+          if (!isFormPost(req)) {
+            return void res.status(409).json({ error: "Team-only photo", code: "TEAM_ONLY" });
+          }
+          return void res
+            .status(409)
+            .type("html")
+            .send(
+              renderPage({
+                title: "Team-only photo",
+                active: "cats",
+                personName: teamPerson(res).name,
+                body:
+                  "<p>This photo is a vet-visit photo. It's only ever seen by the team. Nothing was changed.</p>" +
+                  `<p><a class="tap" href="${esc(backTo(cat, publicId, "none"))}">Back</a></p>`,
+              }),
+            );
         case "changed":
           if (!isFormPost(req)) {
             return void res.status(201).json({ id: outcome.event.id, hidden: action === "hide" });

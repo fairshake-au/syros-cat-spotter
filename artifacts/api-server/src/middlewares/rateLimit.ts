@@ -418,3 +418,69 @@ export async function _resetFindLimitsForTests(): Promise<void> {
   await _resetBucketForTests(FIND_PHOTO_PERSON_BUCKET);
   await _resetBucketForTests(FIND_PHOTO_TEAM_BUCKET);
 }
+
+// Vet visit batches, photo search (SYC-677 Task 5): a round of up to 40 cats
+// is matched one photo at a time, so it has its own, larger counts, kept
+// apart from the single-photo page's 20 and 100. A name or SYR lookup is not
+// a search and is never counted here.
+export const BATCH_FIND_PERSON_LIMIT = 60;
+export const BATCH_FIND_TEAM_LIMIT = 200;
+const BATCH_FIND_PERSON_BUCKET = "batch_find_person";
+const BATCH_FIND_TEAM_BUCKET = "batch_find_team";
+const BATCH_FIND_TEAM_KEY = "team";
+declareLimit(BATCH_FIND_PERSON_BUCKET, BATCH_FIND_PERSON_LIMIT, FIND_PHOTO_WINDOW_MS, { sliding: true });
+declareLimit(BATCH_FIND_TEAM_BUCKET, BATCH_FIND_TEAM_LIMIT, FIND_PHOTO_WINDOW_MS, { sliding: true });
+
+/** As `checkFindLimits`, for a batch cat's photo search: counts one search against the 60 and 200. */
+export async function checkBatchFindLimits(personId: string, now: number = Date.now()): Promise<FindLimit> {
+  const teamNow = await peek(BATCH_FIND_TEAM_BUCKET, BATCH_FIND_TEAM_KEY, FIND_PHOTO_WINDOW_MS, undefined, now, {
+    sliding: true,
+    limit: BATCH_FIND_TEAM_LIMIT,
+  });
+  if (teamNow.hits >= BATCH_FIND_TEAM_LIMIT) return "team";
+  const mine = await consume(
+    BATCH_FIND_PERSON_BUCKET,
+    `person:${personId}`,
+    BATCH_FIND_PERSON_LIMIT,
+    FIND_PHOTO_WINDOW_MS,
+    undefined,
+    now,
+    { sliding: true },
+  );
+  if (!mine.allowed) return "person";
+  const team = await consume(
+    BATCH_FIND_TEAM_BUCKET,
+    BATCH_FIND_TEAM_KEY,
+    BATCH_FIND_TEAM_LIMIT,
+    FIND_PHOTO_WINDOW_MS,
+    undefined,
+    now,
+    { sliding: true },
+  );
+  return team.allowed ? "ok" : "team";
+}
+
+/** A person's batch-search count so far. For tests. */
+export async function batchFindPersonHits(personId: string, now: number = Date.now()): Promise<number> {
+  return (
+    await peek(BATCH_FIND_PERSON_BUCKET, `person:${personId}`, FIND_PHOTO_WINDOW_MS, undefined, now, {
+      sliding: true,
+      limit: BATCH_FIND_PERSON_LIMIT,
+    })
+  ).hits;
+}
+
+/** Whether a batch cap is already reached, without counting anything. */
+export async function batchFindLimitReached(personId: string, now: number = Date.now()): Promise<FindLimit> {
+  const opts = (limit: number) => ({ sliding: true, limit });
+  const mine = await peek(BATCH_FIND_PERSON_BUCKET, `person:${personId}`, FIND_PHOTO_WINDOW_MS, undefined, now, opts(BATCH_FIND_PERSON_LIMIT));
+  if (mine.hits >= BATCH_FIND_PERSON_LIMIT) return "person";
+  const team = await peek(BATCH_FIND_TEAM_BUCKET, BATCH_FIND_TEAM_KEY, FIND_PHOTO_WINDOW_MS, undefined, now, opts(BATCH_FIND_TEAM_LIMIT));
+  return team.hits >= BATCH_FIND_TEAM_LIMIT ? "team" : "ok";
+}
+
+/** Test-only: clears both batch-search counts. */
+export async function _resetBatchFindLimitsForTests(): Promise<void> {
+  await _resetBucketForTests(BATCH_FIND_PERSON_BUCKET);
+  await _resetBucketForTests(BATCH_FIND_TEAM_BUCKET);
+}
