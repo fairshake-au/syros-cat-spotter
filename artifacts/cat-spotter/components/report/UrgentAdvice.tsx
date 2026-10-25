@@ -7,6 +7,7 @@ import { fonts } from '@/constants/theme';
 import { Fold } from './Fold';
 import { RichText } from './RichText';
 import { MunicipalityCard, VetList } from './VetList';
+import type { LatLng } from '@/lib/vetOrder';
 
 /**
  * The "Urgent" advice, spec §5.3(b), on the "Before you send" screen. It is
@@ -15,7 +16,9 @@ import { MunicipalityCard, VetList } from './VetList';
  * Presentation (Samuel, 2 Oct 2026: the advice screen must not scroll):
  *  - the lead: the vet route, never the discouraging half (§5.2);
  *  - the cage line;
- *  - the three vets as compact tap-to-call cards with map links;
+ *  - the three vets as tap-to-call cards with map links, nearest first when
+ *    the phone's position is known (SYC-570: they also have their own screen
+ *    before this one for an Urgent report);
  *  - "How to get a hurt cat to a vet": folded, behind a prominent button;
  *  - "Costs, and the Municipality": folded, holding what the vet does, the
  *    cost, the decision at the desk and the Municipality (with its number);
@@ -27,7 +30,7 @@ import { MunicipalityCard, VetList } from './VetList';
  * how they are shown, not what they say. The cage still comes before any
  * handling: the handling paragraph is inside the how-to, after the cage line.
  */
-export function UrgentAdvice({ guidance }: { guidance: WelfareGuidance }) {
+export function UrgentAdvice({ guidance, from = null }: { guidance: WelfareGuidance; from?: LatLng | null }) {
   const colors = useColors();
   const { t } = useLanguage();
   const u = guidance.copy.urgent;
@@ -38,10 +41,7 @@ export function UrgentAdvice({ guidance }: { guidance: WelfareGuidance }) {
       <RichText text={u.intro} style={[styles.lead, { color: colors.foreground }]} />
       <RichText text={u.cage} style={para} />
 
-      <Text role="heading" style={[styles.subheading, { color: colors.foreground }]}>
-        {u.vetListHeading}
-      </Text>
-      <VetList guidance={guidance} compact />
+      <VetList guidance={guidance} compact from={from} heading={u.vetListHeading} />
 
       <Fold title={u.howToHeading} icon="info">
         {u.steps.map((step, i) => (
@@ -69,5 +69,4 @@ const styles = StyleSheet.create({
   lead: { fontFamily: fonts.bodySemiBold, fontSize: 15, lineHeight: 20 },
   para: { fontFamily: fonts.body, fontSize: 14, lineHeight: 19 },
   capacity: { fontFamily: fonts.body, fontSize: 13, lineHeight: 17 },
-  subheading: { fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 18 },
 });

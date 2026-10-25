@@ -9,7 +9,7 @@ import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKi
 import { readFileSync } from "node:fs";
 import { homeData, type HomeData, type HomeDeps, type HomeNeeds, type HomeToCheck, type Section } from "../lib/dashboard/home";
 import type { TrapColony } from "../lib/dashboard/trapNext";
-import { AREAS_LINE, NOTHING_WAITING, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
+import { NOTHING_WAITING, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
 import { firstWords } from "../lib/teamPages/noteWords";
 import type { QueueReport, WelfareQueue } from "../lib/welfareQueue";
 import { escapeHtml } from "../lib/teamPages/escape";
@@ -440,12 +440,12 @@ describe("one failing loader doesn't take Home down", () => {
   });
 });
 
-describe("the Areas link (SYC-396 PR 2.4)", () => {
-  it("sits at the foot of Home and goes to the Areas page", () => {
+describe("the settings links (SYC-694)", () => {
+  it("have left Home for the Settings tab", () => {
     const html = page(full());
-    const link = html.indexOf('<a class="hlink" href="/api/team/areas">');
-    expect(link).toBeGreaterThan(html.indexOf('id="progress"'));
-    expect(html.indexOf(AREAS_LINE)).toBeGreaterThan(-1);
+    for (const href of ["/api/team/areas", "/api/team/vet-settings", "/api/team/app-switches"]) {
+      expect(html).not.toContain(`href="${href}"`);
+    }
   });
 });
 

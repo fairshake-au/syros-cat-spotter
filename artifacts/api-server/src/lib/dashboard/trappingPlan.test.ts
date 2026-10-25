@@ -255,6 +255,21 @@ describe("where the cat is usually seen", () => {
 });
 
 describe("a guardian's plan", () => {
+  it("sorts her cats by where they were found, never by a sighting off the island", async () => {
+    const c = await newColony("plan-offsighting");
+    const away = await cat(TOWN);
+    await into(away, c);
+    // Last sighted in Athens: off Syros for the team's figures.
+    await sighted(away, daysAgo(1), { lat: 37.9838, lng: 23.7275 });
+    expect(areaFor(37.9838, 23.7275).key).toBe("off");
+    const team = (await trappingPlan(TEAM, c, { island: true }, NOW))!;
+    expect(team.other).toEqual([expect.objectContaining({ id: away, why: "off_syros" })]);
+    const hers = (await trappingPlan(guardianOf(c), c, { island: false }, NOW))!;
+    expect(ids(hers.toDo)).toEqual([away]);
+    expect(hers.other).toEqual([]);
+    expect(JSON.stringify(hers)).not.toContain("off_syros");
+  });
+
   it("carries no sighting position, place or snapshot", async () => {
     const c = await newColony("plan-serial");
     const cats = [await cat(KINI), await cat(KINI)];

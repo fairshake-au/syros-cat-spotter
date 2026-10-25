@@ -155,7 +155,11 @@ export default function CatDetailScreen() {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Text style={{ color: colors.mutedForeground }}>{t('error')}</Text>
-        <Pressable onPress={close} style={{ marginTop: 12 }}>
+        <Pressable
+          onPress={close}
+          accessibilityRole="button"
+          style={{ marginTop: 12, minHeight: 44, minWidth: 44, paddingHorizontal: 12, justifyContent: 'center' }}
+        >
           <Text style={{ color: colors.primary }}>← {t('tabCatalog')}</Text>
         </Pressable>
       </View>

@@ -20,18 +20,29 @@
  */
 import type { ReportSeverity } from './reportQueue';
 
-export type ReportStep = 1 | 2 | 3 | 4;
+export type ReportStep = 1 | 2 | 3 | 4 | 5;
 
-export type ReportScreen = 'where' | 'howBad' | 'email' | 'beforeSend';
+export type ReportScreen = 'where' | 'howBad' | 'callVet' | 'email' | 'beforeSend';
 
-/** The screens in order: with the email question (Slice 3) or without. */
-export function reportScreens(withEmail: boolean): ReportScreen[] {
-  return withEmail ? ['where', 'howBad', 'email', 'beforeSend'] : ['where', 'howBad', 'beforeSend'];
+/**
+ * The screens in order: with the email question (Slice 3) or without.
+ * SYC-570 (Samuel, 24 Oct 2026): an Urgent report gets "Call a vet now" as
+ * its own screen straight after "How bad is it?", so a phone number is the
+ * first thing a person sees for a cat in danger. Needs attention doesn't.
+ */
+export function reportScreens(withEmail: boolean, severity: ReportSeverity | null = null): ReportScreen[] {
+  return [
+    'where',
+    'howBad',
+    ...(severity === 'urgent' ? (['callVet'] as const) : []),
+    ...(withEmail ? (['email'] as const) : []),
+    'beforeSend',
+  ];
 }
 
 /** Which screen a step is. A step past the end is the last screen. */
-export function screenAt(step: ReportStep, withEmail = false): ReportScreen {
-  const screens = reportScreens(withEmail);
+export function screenAt(step: ReportStep, withEmail = false, severity: ReportSeverity | null = null): ReportScreen {
+  const screens = reportScreens(withEmail, severity);
   return screens[Math.min(step, screens.length) - 1]!;
 }
 
@@ -95,9 +106,11 @@ export function reporterEmail(flow: ReportFlow): string | null {
 }
 
 export function canAdvance(flow: ReportFlow, withEmail = false): boolean {
-  const screen = screenAt(flow.step, withEmail);
+  const screen = screenAt(flow.step, withEmail, flow.severity);
   if (screen === 'where') return flow.coords !== null && !flow.pinIsDefault;
   if (screen === 'howBad') return flow.severity !== null;
+  // The vet numbers never hold anyone up: the report is the next step.
+  if (screen === 'callVet') return true;
   // The email question never holds anyone up: "No" is the default.
   if (screen === 'email') return true;
   return false;

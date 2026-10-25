@@ -26,10 +26,10 @@ describe('the Spot screen map start', () => {
   });
 
   it('tells the resolver where the photo came from, for each way in', () => {
-    const pick = between('const pickPhoto = async', 'const captureLivePhoto = async');
+    // SYC-575: the in-app live view is gone, so the phone camera and the
+    // library are the only two ways in.
+    const pick = between('const pickPhoto = async', 'const openCameraSettings = async');
     expect(pick).toMatch(/setPickSource\(fromCamera \? 'camera' : 'library'\)/);
-    const live = between('const captureLivePhoto = async', 'const requestLiveCamera = async');
-    expect(live).toMatch(/setPickSource\('live'\)/);
   });
 
   it('remounts the map with each new start, so the map actually moves there', () => {
