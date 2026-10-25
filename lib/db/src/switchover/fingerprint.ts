@@ -102,6 +102,25 @@ export function projectedColumnExpr(table: string | undefined, column: string): 
   return `t.${quoteIdent(column)}`;
 }
 
+/**
+ * The rows a projected read (a comparison, or carry-back's diff) looks at.
+ * Notifications of a kind other than 'cat' (SYC-706's weekly-result bell
+ * entries) have no cat_update_id, which the old database cannot hold, so
+ * they are not carried back and neither side counts them. A plain
+ * fingerprint (no columns) still covers every row. Empty when the client's
+ * notifications table has no `kind` column: the old database can't hold
+ * such rows at all.
+ */
+export async function projectedRowFilter(
+  client: ClientBase,
+  table: string,
+  columns?: readonly string[],
+): Promise<string> {
+  if (!columns || table !== "notifications") return "";
+  const cols = await tableColumns(client, table);
+  return cols?.some((c) => c.name === "kind") ? ` where t."kind" = 'cat'` : "";
+}
+
 async function fingerprintTable(
   client: ClientBase,
   table: string,
@@ -109,9 +128,10 @@ async function fingerprintTable(
   columns?: readonly string[],
 ): Promise<TableFingerprint> {
   const orderBy = primaryKey.map(quoteIdent).join(", ");
+  const filter = await projectedRowFilter(client, table, columns);
   const sql = `select count(*)::bigint as rows,
        md5(coalesce(string_agg(md5(${rowTextExpr(columns, table)}), '' order by ${orderBy}), '')) as hash
-  from ${quoteIdent(table)} t`;
+  from ${quoteIdent(table)} t${filter}`;
   const r = await client.query<{ rows: string; hash: string | null }>(sql);
   const row = r.rows[0]!;
   return {

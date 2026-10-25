@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { openWeeklyResult } from '@/lib/celebrationBus';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getGetProfileQueryKey,
@@ -27,6 +28,8 @@ import { LoadFailed } from '@/components/LoadFailed';
 import { Button } from '@/components/purropolis/Button';
 import { LOAD_QUERY_OPTIONS, LOAD_TIMEOUT_MS } from '@/lib/loadTiming';
 import { notificationsEmptyKey } from '@/lib/notificationsEmpty';
+import { formatRank } from '@/lib/formatRank';
+import type { Language } from '@/lib/i18n';
 import { goToSpotTab } from '@/lib/goToSpotTab';
 import { useBannerAreaReserve } from '@/lib/bannerArea';
 
@@ -64,9 +67,24 @@ type Row =
   | { kind: 'header'; key: string; label: string }
   | { kind: 'item'; key: string; notification: AppNotification };
 
+// A weekly result is worded here, in the spotter's language, from its place and
+// points. Rows without them (older results) and cat news keep the stored words.
+function notificationText(
+  n: AppNotification,
+  t: (key: string) => string,
+  language: Language,
+): string {
+  if (n.catId == null && n.place != null && n.weekPoints != null) {
+    return t('celebrateWeekLine')
+      .replace('{place}', formatRank(language, n.place))
+      .replace('{points}', String(n.weekPoints));
+  }
+  return n.message;
+}
+
 export default function NotificationsScreen() {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bannerReserve = useBannerAreaReserve();
@@ -138,21 +156,28 @@ export default function NotificationsScreen() {
     const n = item.notification;
     const iconStyle = UPDATE_STYLE[n.updateType] ?? UPDATE_STYLE.general;
     const time = relativeTime(n.createdAt, t);
-    const rowLabel = [n.read ? null : t('notificationUnread'), n.message, time]
+    const text = notificationText(n, t, language);
+    const rowLabel = [n.read ? null : t('notificationUnread'), text, time]
       .filter(Boolean)
       .join('. ');
 
     return (
       <Pressable
-        onPress={() =>
+        onPress={() => {
+          // A weekly result has no cat: it opens its celebration while one is
+          // still queued, and otherwise the Spotters board (SYC-706).
+          if (n.catId == null) {
+            void openWeeklyResult(router);
+            return;
+          }
           router.push({
             pathname: '/cat/[id]',
             params: {
               id: String(n.catId),
               updateId: String(n.catUpdateId),
             },
-          })
-        }
+          });
+        }}
         accessibilityRole="button"
         accessibilityLabel={rowLabel}
         style={[
@@ -175,7 +200,7 @@ export default function NotificationsScreen() {
             style={[styles.message, { color: colors.foreground }]}
             numberOfLines={2}
           >
-            {n.message}
+            {text}
           </Text>
           <Text style={[styles.time, { color: colors.mutedForeground }]}>
             {time}

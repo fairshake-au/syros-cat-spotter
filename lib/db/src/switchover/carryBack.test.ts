@@ -255,7 +255,17 @@ describe("carry-back, end to end (test 4)", () => {
           "name_pending",
         ],
       },
-      { table: "sightings", columns: ["redacted_at", "redaction_reason"] },
+      // SYC-706's place stamp (0046): Neon only too. 0046's trigger lets a
+      // row with no stamp be stamped once later.
+      {
+        table: "sightings",
+        columns: ["redacted_at", "redaction_reason", "area_key", "on_island"],
+      },
+      // SYC-706's weekly-result bell entries (0047) and their place and
+      // points (0048): Neon only too.
+      { table: "notifications", columns: ["kind", "message", "place", "week_points"] },
+      // SYC-706's push language (0049): Neon only too.
+      { table: "push_tokens", columns: ["language"] },
     ]);
     expect(dry.baseline).toEqual({ status: "ok", changedTables: [] });
     // The dry run changed nothing.
@@ -585,6 +595,32 @@ describe("carry-back when a unique value moves between rows", () => {
 // Fable re-check, N1: after one successful apply, the old database differs
 // from the copy's fingerprint only by carry-back's own writes. A second
 // rollback pass must still work; third-party writes must still be refused.
+describe("carry-back leaves weekly-result bell entries on Neon (SYC-706)", () => {
+  it("a week_result notification (no cat_update_id) neither stops nor reaches the old database", async () => {
+    const { old, neon } = await scenario();
+    await neon.query(
+      `insert into notifications (device_id, kind, message)
+       values ('dev-a', 'week_result', 'You came 2nd on Syros last week.')`,
+    );
+    // A cat notification made on Neon still goes back alongside it.
+    await neon.query(
+      `insert into notifications (device_id, cat_update_id) values ('dev-b', 1)`,
+    );
+
+    const dry = await carryBack(neon, old);
+    expect(table(dry, "notifications").toInsert).toEqual([3]);
+
+    const applied = await carryBack(neon, old, { apply: true });
+    expect(applied.applied).toBe(true);
+    const rows = await old.query(`select id from notifications order by id`);
+    expect(rows.rows.map((r) => Number(r.id))).toEqual([1, 3]);
+    expect(await compare(neon, old, { projected: true, onto: "target" })).toEqual([]);
+    // Neon keeps its bell entry.
+    const kept = await neon.query(`select count(*)::int as n from notifications where kind = 'week_result'`);
+    expect(kept.rows[0].n).toBe(1);
+  });
+});
+
 describe("a second carry-back pass after a successful apply", () => {
   it("E5: testers write again on Neon after an apply, and a second pass succeeds", async () => {
     const { old, neon } = await scenario();

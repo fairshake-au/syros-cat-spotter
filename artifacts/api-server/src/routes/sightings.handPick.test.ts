@@ -325,9 +325,12 @@ describe("what a hand pick earns (spec §4.2, §8.4)", () => {
   it("test 6: a hand pick awards POINTS_CONFIRM, and its response has the same shape as a suggested match", async () => {
     const device = `${DEVICE}-points`;
     const cat = await seedCat(SQUARE);
+    // SYC-706: a cat earns once per Athens day, so the plain resolve is of
+    // a different cat; otherwise the hand pick would be a same-day repeat.
+    const other = await seedCat(SQUARE);
 
     const s1 = await insertSighting(device, SQUARE);
-    const plain = await resolve(s1, device, { catId: cat.id });
+    const plain = await resolve(s1, device, { catId: other.id });
     const s2 = await insertSighting(device, northOf(SQUARE, 1.2));
     const handPick = await resolve(s2, device, {
       catId: cat.id,

@@ -68,6 +68,7 @@ vi.mock('@/lib/pendingPhotos', () => ({ deleteReviewPhoto: vi.fn(async () => {})
 vi.mock('@/lib/recentPhotos', () => ({ linkRecentPhotoToCat: vi.fn(async () => {}) }));
 vi.mock('@/lib/reportHandoff', () => ({ reviewReportHandoff: vi.fn(() => ({})) }));
 
+vi.mock('@/components/celebration/BadgeCelebration', () => ({ BadgeCelebration: () => null }));
 import ReviewScreen from '../../app/review';
 import { buildReviewParams, parseReviewParams } from '../../lib/reviewParams';
 import { TRANSLATIONS } from '../../lib/i18n';

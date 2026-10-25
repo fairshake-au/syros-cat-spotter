@@ -7,7 +7,7 @@ import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { useOffline } from '@/context/OfflineContext';
 import { Button } from '@/components/purropolis';
-import { BADGE_ICONS, BADGE_IDS } from '@/lib/i18n';
+import { BADGE_EMOJI, BADGE_ICONS, BADGE_IDS } from '@/lib/i18n';
 import type { NameNote } from '@/context/DeviceContext';
 
 // Earned badges cycle through these, as the old grid did.
@@ -37,6 +37,7 @@ export function useSubtleText(): string {
 export function BadgeMedal({ id, earned, size = 40 }: { id: string; earned: boolean; size?: number }) {
   const colors = useColors();
   const tone = badgeTone(id);
+  const emoji = (BADGE_EMOJI as Record<string, string | undefined>)[id];
   const icon = (BADGE_ICONS[id] ?? 'award') as React.ComponentProps<typeof Feather>['name'];
   return (
     <View
@@ -48,11 +49,20 @@ export function BadgeMedal({ id, earned, size = 40 }: { id: string; earned: bool
           : { borderColor: colors.border, borderStyle: 'dashed' },
       ]}
     >
-      <Feather
-        name={icon}
-        size={Math.round(size * 0.45)}
-        color={earned ? tone.fg : colors.mutedForeground}
-      />
+      {emoji ? (
+        <Text
+          accessible={false}
+          style={{ fontSize: Math.round(size * 0.5), opacity: earned ? 1 : 0.4 }}
+        >
+          {emoji}
+        </Text>
+      ) : (
+        <Feather
+          name={icon}
+          size={Math.round(size * 0.45)}
+          color={earned ? tone.fg : colors.mutedForeground}
+        />
+      )}
     </View>
   );
 }

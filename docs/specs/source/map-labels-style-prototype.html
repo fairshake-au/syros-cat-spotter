@@ -1,0 +1,69 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Syros map: adjusted style</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
+<script src="https://unpkg.com/@protomaps/basemaps@5.7.2/dist/basemaps.js"></script>
+<style>
+body{margin:0;font:14px system-ui;display:flex;flex-direction:column;height:100vh}
+.row{flex:1;display:flex;gap:4px;min-height:0}
+.pane{flex:1;position:relative}.map{position:absolute;inset:0}
+.lbl{position:absolute;top:6px;left:6px;z-index:5;background:#fff;padding:3px 8px;border-radius:4px;box-shadow:0 1px 3px #0004;font-weight:600}
+.lbl button{margin-left:6px;font:inherit;font-weight:400;cursor:pointer}
+@media (max-width:700px){.row{flex-direction:column}}
+</style>
+<div class="row">
+ <div class="pane"><div class="lbl">Today: OpenStreetMap pictures</div><div id="a" class="map"></div></div>
+ <div class="pane"><div class="lbl">MapLibre, default style</div><div id="b" class="map"></div></div>
+ <div class="pane"><div class="lbl">MapLibre, adjusted <button id="lang">Switch to Greek</button></div><div id="c" class="map"></div></div>
+</div>
+<script>
+const proto=new pmtiles.Protocol();maplibregl.addProtocol("pmtiles",proto.tile);
+const view={center:[24.9433,37.4449],zoom:15};
+const SRC={protomaps:{type:"vector",url:"pmtiles://"+location.origin+"/planet.pmtiles",attribution:"© OpenStreetMap contributors"}};
+const BASE={version:8,glyphs:"https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf",sprite:"https://protomaps.github.io/basemaps-assets/sprites/v4/light",sources:SRC};
+const raster={version:8,sources:{osm:{type:"raster",tiles:["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],tileSize:256,maxzoom:19}},layers:[{id:"osm",type:"raster",source:"osm"}]};
+function plain(lang){return{...BASE,layers:basemaps.layers("protomaps",basemaps.namedFlavor("light"),{lang})}}
+
+// Adjusted: OpenStreetMap-like colours, coloured roads, churches, hill tops, beaches.
+function adjusted(lang){
+  const f={...basemaps.namedFlavor("light"),
+    background:"#aad3df",earth:"#f2efe9",water:"#aad3df",
+    park_a:"#c8facc",park_b:"#c8facc",wood_a:"#add19e",wood_b:"#add19e",scrub_a:"#c8d7ab",scrub_b:"#c8d7ab",
+    beach:"#fff1ba",sand:"#f5e9c6",school:"#ffffe5",hospital:"#ffffe5",pedestrian:"#dddde8",
+    buildings:"#d9d0c9",
+    minor_a:"#ffffff",minor_b:"#ffffff",minor_service:"#ffffff",other:"#f7f7f7",
+    minor_casing:"#c8c0b6",minor_service_casing:"#d4ccc2",
+    link:"#fcd6a4",major:"#fcd6a4",highway:"#f9b29c",
+    major_casing_early:"#c79d6a",major_casing_late:"#c79d6a",highway_casing_early:"#c27a63",highway_casing_late:"#c27a63",link_casing:"#c79d6a",
+    roads_label_minor:"#333333",roads_label_major:"#333333",
+    city_label:"#222222",subplace_label:"#444444"};
+  const L=basemaps.layers("protomaps",f,{lang});
+  const nameExpr=["coalesce",["get","name:"+lang],["get","name"]];
+  const extra=[
+    {id:"church",type:"symbol",source:"protomaps","source-layer":"pois",minzoom:14,
+     filter:["==",["get","kind"],"place_of_worship"],
+     layout:{"text-field":["step",["zoom"],["format","†",{"font-scale":1.6}],16,["format","†",{"font-scale":1.6},"\n",{},nameExpr,{"font-scale":0.8}]],
+       "text-font":["Noto Sans Regular"],"text-size":12,"text-allow-overlap":false},
+     paint:{"text-color":"#333","text-halo-color":"#f2efe9","text-halo-width":1.5}},
+    {id:"peak",type:"symbol",source:"protomaps","source-layer":"pois",minzoom:12,
+     filter:["==",["get","kind"],"peak"],
+     layout:{"text-field":["format","▲",{"font-scale":0.8,"text-color":"#9c6b3b"},"\n",{},nameExpr,{"font-scale":0.85},"\n",{},
+        ["case",["has","elevation"],["concat",["to-string",["get","elevation"]]," m"],""],{"font-scale":0.75}],
+       "text-font":["Noto Sans Regular"],"text-size":12},
+     paint:{"text-color":"#7a5a3a","text-halo-color":"#f2efe9","text-halo-width":1.5}},
+    {id:"beach_name",type:"symbol",source:"protomaps","source-layer":"pois",minzoom:13,
+     filter:["==",["get","kind"],"beach"],
+     layout:{"text-field":nameExpr,"text-font":["Noto Sans Italic"],"text-size":12},
+     paint:{"text-color":"#8a6d1f","text-halo-color":"#fff","text-halo-width":1.5}}];
+  const i=L.findIndex(l=>l.id==="pois");
+  L.splice(i,0,...extra);
+  return{...BASE,layers:L};
+}
+let lang="en";
+const maps=[new maplibregl.Map({container:"a",style:raster,...view}),new maplibregl.Map({container:"b",style:plain("en"),...view}),new maplibregl.Map({container:"c",style:adjusted(lang),...view})];
+let syncing=false;
+maps.forEach(m=>m.on("move",()=>{if(syncing)return;syncing=true;maps.forEach(o=>{if(o!==m)o.jumpTo({center:m.getCenter(),zoom:m.getZoom(),bearing:m.getBearing()})});syncing=false}));
+document.getElementById("lang").onclick=e=>{lang=lang==="en"?"el":"en";maps[2].setStyle(adjusted(lang));e.target.textContent=lang==="en"?"Switch to Greek":"Switch to English"};
+window.go=(lng,lat,z)=>{maps[0].jumpTo({center:[lng,lat],zoom:z});return 0};
+</script>

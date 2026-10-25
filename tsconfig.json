@@ -20,6 +20,9 @@
     },
     {
       "path": "./lib/welfare-guidance"
+    },
+    {
+      "path": "./lib/map-style"
     }
   ]
 }
