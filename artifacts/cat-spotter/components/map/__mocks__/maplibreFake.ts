@@ -20,6 +20,13 @@
  * and addLayer throw "Style is not done loading." until the style has loaded
  * (fire('styledata') or fire('load')), and setStyle unloads it again. A
  * rejected call lands in `rejected`, not `calls`.
+ *
+ * Bearing (added for SYC-705 Task 3.4, the rotating cats map): `bearing` is
+ * degrees clockwise from north of the screen's "up", as in MapLibre, kept in
+ * (-180, 180]. project/unproject honour it (a positive bearing turns the map
+ * content anticlockwise on screen), and jumpTo/easeTo/flyTo accept `bearing`.
+ * A bearing change fires rotatestart, rotate, rotateend after any zoom
+ * events and before moveend. The constructor reads `options.bearing`.
  */
 import { fromMapLibreZoom, fromWorld, toWorld, type LatLng } from '@/lib/mercator';
 
@@ -40,6 +47,7 @@ export interface FakePoint {
 
 type LngLatInput = [number, number] | { lng: number; lat: number } | { lon: number; lat: number };
 type PointInput = [number, number] | FakePoint;
+type CameraOptions = { center?: LngLatInput; zoom?: number; bearing?: number };
 type Listener = (event: Record<string, unknown>) => void;
 
 interface Registration {
@@ -70,6 +78,11 @@ function toLngLat(input: LngLatInput): FakeLngLat {
 
 function toPoint(input: PointInput): FakePoint {
   return Array.isArray(input) ? { x: input[0], y: input[1] } : { x: input.x, y: input.y };
+}
+
+function normaliseBearing(b: number): number {
+  const r = ((((b + 180) % 360) + 360) % 360) - 180;
+  return r === -180 ? 180 : r;
 }
 
 function asLatLng({ lng, lat }: FakeLngLat): LatLng {
@@ -120,6 +133,8 @@ export class FakeMap {
   center: FakeLngLat;
   /** MapLibre's own zoom (512-px world). */
   zoom: number;
+  /** Degrees clockwise from north of the screen's up, in (-180, 180]. */
+  bearing: number;
   minZoom: number;
   maxZoom: number;
   style: unknown;
@@ -152,6 +167,7 @@ export class FakeMap {
     this.minZoom = typeof options.minZoom === 'number' ? options.minZoom : 0;
     this.maxZoom = typeof options.maxZoom === 'number' ? options.maxZoom : 22;
     this.zoom = this.clamp(typeof options.zoom === 'number' ? options.zoom : 0);
+    this.bearing = normaliseBearing(typeof options.bearing === 'number' ? options.bearing : 0);
     this.style = options.style;
     this.dragRotate = new FakeHandler(this, 'dragRotate');
     this.touchZoomRotate = new FakeHandler(this, 'touchZoomRotate');
@@ -251,6 +267,10 @@ export class FakeMap {
     return { ...this.center };
   }
 
+  getBearing(): number {
+    return this.bearing;
+  }
+
   getMinZoom(): number {
     return this.minZoom;
   }
@@ -264,22 +284,37 @@ export class FakeMap {
     const z = fromMapLibreZoom(this.zoom);
     const p = toWorld(asLatLng(toLngLat(lngLat)), z);
     const c = toWorld(asLatLng(this.center), z);
-    return { x: p.x - c.x + this.width / 2, y: p.y - c.y + this.height / 2 };
+    // Turn the offset from the centre by -bearing (anticlockwise on screen, y down).
+    const b = (this.bearing * Math.PI) / 180;
+    const dx = p.x - c.x;
+    const dy = p.y - c.y;
+    return {
+      x: dx * Math.cos(b) + dy * Math.sin(b) + this.width / 2,
+      y: -dx * Math.sin(b) + dy * Math.cos(b) + this.height / 2,
+    };
   }
 
   unproject(point: PointInput): FakeLngLat {
     const { x, y } = toPoint(point);
     const z = fromMapLibreZoom(this.zoom);
     const c = toWorld(asLatLng(this.center), z);
-    const ll = fromWorld({ x: c.x + x - this.width / 2, y: c.y + y - this.height / 2 }, z);
+    const b = (this.bearing * Math.PI) / 180;
+    const sx = x - this.width / 2;
+    const sy = y - this.height / 2;
+    const dx = sx * Math.cos(b) - sy * Math.sin(b);
+    const dy = sx * Math.sin(b) + sy * Math.cos(b);
+    const ll = fromWorld({ x: c.x + dx, y: c.y + dy }, z);
     return { lng: ll.longitude, lat: ll.latitude };
   }
 
-  private moveCamera(next: { center?: LngLatInput; zoom?: number }, source: Record<string, unknown> = {}): void {
+  private moveCamera(next: CameraOptions, source: Record<string, unknown> = {}): void {
     const prevZoom = this.zoom;
+    const prevBearing = this.bearing;
     if (next.center) this.center = toLngLat(next.center);
     if (typeof next.zoom === 'number') this.zoom = this.clamp(next.zoom);
+    if (typeof next.bearing === 'number') this.bearing = normaliseBearing(next.bearing);
     const zoomed = this.zoom !== prevZoom;
+    const rotated = this.bearing !== prevBearing;
     this.fire('movestart', source);
     this.fire('move', source);
     if (zoomed) {
@@ -287,22 +322,27 @@ export class FakeMap {
       this.fire('zoom', source);
       this.fire('zoomend', source);
     }
+    if (rotated) {
+      this.fire('rotatestart', source);
+      this.fire('rotate', source);
+      this.fire('rotateend', source);
+    }
     this.fire('moveend', source);
   }
 
-  jumpTo(opts: { center?: LngLatInput; zoom?: number }, eventData?: Record<string, unknown>): this {
+  jumpTo(opts: CameraOptions, eventData?: Record<string, unknown>): this {
     this.record('jumpTo', eventData === undefined ? [opts] : [opts, eventData]);
     this.moveCamera(opts, eventData);
     return this;
   }
 
-  easeTo(opts: { center?: LngLatInput; zoom?: number; duration?: number }, eventData?: Record<string, unknown>): this {
+  easeTo(opts: CameraOptions & { duration?: number }, eventData?: Record<string, unknown>): this {
     this.record('easeTo', eventData === undefined ? [opts] : [opts, eventData]);
     this.moveCamera(opts, eventData);
     return this;
   }
 
-  flyTo(opts: { center?: LngLatInput; zoom?: number }, eventData?: Record<string, unknown>): this {
+  flyTo(opts: CameraOptions, eventData?: Record<string, unknown>): this {
     this.record('flyTo', eventData === undefined ? [opts] : [opts, eventData]);
     this.moveCamera(opts, eventData);
     return this;
@@ -320,6 +360,12 @@ export class FakeMap {
   setZoom(zoom: number): this {
     this.record('setZoom', [zoom]);
     this.moveCamera({ zoom });
+    return this;
+  }
+
+  setBearing(bearing: number): this {
+    this.record('setBearing', [bearing]);
+    this.moveCamera({ bearing });
     return this;
   }
 

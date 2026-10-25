@@ -171,4 +171,32 @@ describe('maplibreFake', () => {
     newMap();
     expect(lastMap()).toBe(FakeMap.instances[0]);
   });
+  it('honours bearing in project/unproject: at 90° east is up', () => {
+    const map = newMap({ bearing: 90 });
+    expect(map.getBearing()).toBe(90);
+    const east = map.project([SYROS.lng + 0.01, SYROS.lat]);
+    expect(east.x).toBeCloseTo(195, 6);
+    expect(east.y).toBeLessThan(300);
+    const north = map.project([SYROS.lng, SYROS.lat + 0.01]);
+    expect(north.x).toBeLessThan(195);
+    expect(north.y).toBeCloseTo(300, 6);
+    const p = { lng: 24.95, lat: 37.43 };
+    const back = map.unproject(map.project(p));
+    expect(back.lng).toBeCloseTo(p.lng, 9);
+    expect(back.lat).toBeCloseTo(p.lat, 9);
+  });
+
+  it('setBearing and easeTo({ bearing }) fire rotate events before moveend, normalised to (-180, 180]', () => {
+    const map = newMap();
+    const seen: string[] = [];
+    for (const t of ['move', 'rotatestart', 'rotate', 'rotateend', 'moveend']) map.on(t, () => seen.push(t));
+    map.setBearing(270);
+    expect(map.getBearing()).toBe(-90);
+    expect(seen).toEqual(['move', 'rotatestart', 'rotate', 'rotateend', 'moveend']);
+    seen.length = 0;
+    map.easeTo({ bearing: -180 });
+    expect(map.getBearing()).toBe(180);
+    map.easeTo({ zoom: 15 });
+    expect(seen).toEqual(['move', 'rotatestart', 'rotate', 'rotateend', 'moveend', 'move', 'moveend']);
+  });
 });
