@@ -580,7 +580,7 @@ export default function ReviewScreen() {
         </Text>
         {result.pointsReason === "repeat_today" ? (
           <Text style={[styles.subtitle, { color: colors.foreground, textAlign: "center" }]}>
-            {t("pointsRepeatToday").replace("{name}", () => result.cat.name)}
+            {t("pointsRepeatToday").replace("{name}", () => catNameInSentence(result.cat))}
           </Text>
         ) : result.pointsAwarded > 0 ? (
           <Text style={[styles.points, { color: colors.foreground }]}>
