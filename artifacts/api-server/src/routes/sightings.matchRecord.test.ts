@@ -744,11 +744,18 @@ describe("nothing about the record reaches a spotter", () => {
     });
     expect(resolved.status).toBe(200);
 
+    // GET /api/cats lists every test file's cats in the shared database, so a
+    // word or key in somebody else's row could trip the checks below (SYC-204).
+    // Keep only this test's two cats from the lists.
+    const ownCats = (body: { cats: { id: number }[] }) => ({
+      ...body,
+      cats: body.cats.filter((c) => c.id === a || c.id === low),
+    });
     const payloads = [
       sub.body,
       resolved.body,
-      (await request(app).get("/api/cats")).body,
-      (await request(app).get(`/api/cats?lat=${SEA.lat}&lng=${SEA.lng}`)).body,
+      ownCats((await request(app).get("/api/cats")).body),
+      ownCats((await request(app).get(`/api/cats?lat=${SEA.lat}&lng=${SEA.lng}`)).body),
       (await request(app).get(`/api/cats/${low}`)).body,
       (await request(app).get(`/api/cats/${a}`)).body,
       (
