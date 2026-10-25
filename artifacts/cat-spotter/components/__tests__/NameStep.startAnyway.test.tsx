@@ -136,7 +136,7 @@ describe('Start anyway (SYC-529)', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('the claim never landed: the background save sends it once, and a late first answer cannot rename the spotter', async () => {
+  it('the claim never landed: the background save sends it once, and a late answer to the released claim is ignored', async () => {
     let land!: (v: unknown) => void;
     h.read.mockImplementation(never);
     h.claim.mockImplementationOnce(() => new Promise((r) => { land = r; }));
@@ -153,9 +153,20 @@ describe('Start anyway (SYC-529)', () => {
     expect(result).toMatchObject({ kind: 'saved', username: 'FerryCat' });
     expect(send).toHaveBeenCalledTimes(1);
 
-    // The original request finally answers with the same name: same result.
+    // The released request finally answers: the screen ignores it, so the
+    // background save is the only thing that decides the name.
     await act(async () => { land({ username: 'FerryCat' }); });
-    for (const call of h.setUsername.mock.calls) expect(call[0]).toBe('FerryCat');
+    expect(h.setUsername).not.toHaveBeenCalled();
+  });
+
+  it('holds the name tidied the way the server would', async () => {
+    h.read.mockImplementation(never);
+    h.claim.mockImplementationOnce(never);
+    const s = setup();
+    await claim(s, '  Ferry   Cat ');
+    await tick(12010);
+    await act(async () => { fireEvent.click(s.startAnyway()!); });
+    expect(h.holdUsername).toHaveBeenCalledWith('Ferry Cat');
   });
 
   it('is not offered while a claim is still sending', async () => {
@@ -169,6 +180,18 @@ describe('Start anyway (SYC-529)', () => {
 });
 
 describe('suggestions that never load (SYC-529)', () => {
+  it('server names that arrive after the fallback do not swap the chips', async () => {
+    h.suggestions = { data: undefined, isFetching: true, isError: false };
+    const s = setup();
+    await tick(SUGGESTIONS_WAIT_MS + 50);
+    const before = s.view.container.textContent;
+    h.suggestions = { data: { suggestions: ['LateServerName'] }, isFetching: false, isError: false };
+    s.view.rerender(<NameStep onBack={() => {}} />);
+    await tick(50);
+    expect(s.view.container.textContent).not.toContain('LateServerName');
+    expect(before).not.toContain('LateServerName');
+  });
+
   it('spin at first, then names made on the phone appear after the wait', async () => {
     h.suggestions = { data: undefined, isFetching: true, isError: false };
     const s = setup();

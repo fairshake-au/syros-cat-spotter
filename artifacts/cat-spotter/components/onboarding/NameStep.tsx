@@ -187,14 +187,17 @@ export function NameStep({ onBack }: { onBack: () => void }) {
 
   const haveSuggestions = !!suggestionsQuery.data;
   useEffect(() => {
-    if (!isOnline || haveSuggestions) {
+    // Latched: once names made on the phone are showing, late server names
+    // wait for the next shuffle instead of swapping under the spotter.
+    if (!isOnline) {
       setSuggestionsSlow(false);
       return;
     }
+    if (haveSuggestions) return;
     const id = setTimeout(() => setSuggestionsSlow(true), SUGGESTIONS_WAIT_MS);
     return () => clearTimeout(id);
   }, [isOnline, haveSuggestions]);
-  const localNames = offline || (!haveSuggestions && (suggestionsSlow || suggestionsQuery.isError));
+  const localNames = offline || suggestionsSlow || (!haveSuggestions && suggestionsQuery.isError);
 
   const checking =
     longEnough && (availability.isFetching || debounced !== trimmed);
@@ -307,7 +310,7 @@ export function NameStep({ onBack }: { onBack: () => void }) {
     const name = releaseUncertainClaim();
     if (!name) return;
     markSkipped();
-    holdUsername(name);
+    holdUsername(normalizeUsernameLocally(name) ?? name);
   };
 
   const suggestions = localNames ? localSuggestions : (suggestionsQuery.data?.suggestions ?? []);
@@ -531,6 +534,7 @@ export function NameStep({ onBack }: { onBack: () => void }) {
             onPress={startAnyway}
             disabled={saving}
             accessibilityRole="button"
+            hitSlop={8}
             style={styles.startAnyway}
           >
             <Text style={[styles.startAnywayText, { color: colors.primary }]}>
