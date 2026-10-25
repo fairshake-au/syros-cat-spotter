@@ -60,11 +60,11 @@ async function cleanup() {
   await db.execute(sql`delete from device_credentials where device_id = ${deletedMarkerKey(dev("gone"))}`);
   await db.execute(sql`
     delete from weekly_closes
-    where week_start between '2032-01-01' and '2032-12-31'
+    where week_start between '2031-01-01' and '2032-12-31'
        or week_start between '1999-01-01' and '2000-12-31'`);
   await db.execute(sql`
     delete from weekly_results
-    where week_start between '2032-01-01' and '2032-12-31'
+    where week_start between '2031-01-01' and '2032-12-31'
        or week_start between '1999-01-01' and '2000-12-31'`);
 }
 
@@ -133,8 +133,9 @@ const pushesTo = (suffix: string) =>
 beforeEach(async () => {
   await cleanup();
   sendPushNotificationMock.mockClear();
-  // The new version went live in 2031, so every 2032 week is eligible.
-  await ledger("anchor", 0, athens("2031-11-05", "12:00"));
+  // The new version went live in late 2031, so every 2032 week is eligible
+  // (and the catch-up from the first one stays short).
+  await ledger("anchor", 0, athens("2031-12-25", "12:00"));
 });
 afterEach(cleanup);
 afterAll(async () => {
@@ -293,6 +294,46 @@ describe("closeWeekIfDue", () => {
       .from(spotterBadgesTable)
       .where(eq(spotterBadgesTable.deviceId, dev("again")));
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("catching up missed weeks", () => {
+  it("closes every missed week oldest first, and pushes only for the newest", async () => {
+    // Weeks of Mon 5 Apr and Mon 12 Apr 2032 both pass unclosed; the server
+    // is next reached on Mon 19 Apr, 09:00 Athens.
+    await profile("old");
+    await profile("new");
+    await token("old");
+    await token("new");
+    await ledger("old", 30, athens("2032-04-06", "10:00"));
+    await ledger("new", 20, athens("2032-04-13", "10:00"));
+
+    const now = athens("2032-04-19", "09:00");
+    expect(await closeWeekIfDue(now)).toBe("closed");
+
+    expect(await results("2032-04-05")).toEqual([
+      { place: 1, device_id: dev("old"), display_name: "WCloseold", points: 30 },
+    ]);
+    expect(await results("2032-04-12")).toEqual([
+      { place: 1, device_id: dev("new"), display_name: "WClosenew", points: 20 },
+    ]);
+    // Both celebrations are queued.
+    expect(await momentsOf("old")).toHaveLength(1);
+    expect(await momentsOf("new")).toHaveLength(1);
+
+    // Oldest first: the older week's result rows were written first.
+    const order = await db.execute<{ week_start: string }>(sql`
+      select to_char(week_start, 'YYYY-MM-DD') as week_start from weekly_results
+      where week_start between '2032-04-05' and '2032-04-12' order by id`);
+    expect(order.rows.map((r) => r.week_start)).toEqual(["2032-04-05", "2032-04-12"]);
+
+    // The Monday push goes for the newest week only.
+    expect(await sendWeeklyPushesIfDue(now)).toBe("sent");
+    expect(pushesTo("new")).toHaveLength(1);
+    expect(pushesTo("old")).toHaveLength(0);
+
+    // A later run has nothing left to close.
+    expect(await closeWeekIfDue(athens("2032-04-19", "10:00"))).toBe("already_closed");
   });
 });
 

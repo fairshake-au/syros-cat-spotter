@@ -105,12 +105,40 @@ export async function firstEligibleWeek(q: DbOrTx = db): Promise<string | null> 
 
 export type CloseResult = "not_due" | "already_closed" | "closed";
 
-/** Closes last week (the week before `now`'s) if nobody has yet. */
-export async function closeWeekIfDue(now: Date = new Date()): Promise<CloseResult> {
-  const weekStart = previousWeekStart(now);
-  const first = await firstEligibleWeek();
-  if (first === null || weekStart < first) return "not_due";
+/** The Monday a week after `monday` (a YYYY-MM-DD Athens Monday). */
+function nextMonday(monday: string): string {
+  const d = new Date(`${monday}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 7);
+  return d.toISOString().slice(0, 10);
+}
 
+/**
+ * Closes every week from the first eligible one up to last week (the week
+ * before `now`'s) that nobody has closed yet, oldest first, each in its own
+ * claim and transaction. A week missed because nothing reached the server for
+ * more than 7 days therefore closes as soon as it is back. Resolves
+ * "closed" if any week closed this call, else "already_closed", or
+ * "not_due" before the first eligible week.
+ */
+export async function closeWeekIfDue(now: Date = new Date()): Promise<CloseResult> {
+  const last = previousWeekStart(now);
+  const first = await firstEligibleWeek();
+  if (first === null || last < first) return "not_due";
+
+  const done = await db.execute<{ week_start: string }>(sql`
+    select to_char(week_start, 'YYYY-MM-DD') as week_start from weekly_closes
+    where week_start between ${first}::date and ${last}::date`);
+  const closedAlready = new Set(done.rows.map((r) => r.week_start));
+
+  let result: CloseResult = "already_closed";
+  for (let week = first; week <= last; week = nextMonday(week)) {
+    if (closedAlready.has(week)) continue;
+    if ((await closeOneWeek(week, now)) === "closed") result = "closed";
+  }
+  return result;
+}
+
+async function closeOneWeek(weekStart: string, now: Date): Promise<CloseResult> {
   return db.transaction(async (tx): Promise<CloseResult> => {
     // The claim. A parallel close blocks here until this one commits, then
     // inserts nothing; if this one rolls back, it claims instead.
