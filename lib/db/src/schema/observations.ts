@@ -7,7 +7,6 @@ import {
   jsonb,
   timestamp,
   index,
-  uniqueIndex,
   check,
 } from "drizzle-orm/pg-core";
 
@@ -76,10 +75,7 @@ export const observationsTable = pgTable(
     index("observations_guardian_recent_idx")
       .on(t.createdAt.desc(), t.id.desc())
       .where(sql`${t.roleAtTime} = 'guardian'`),
-    // At most one correction per statement, as a database rule (SYC-199): the
-    // supersede route's row lock is the first line, this is the last. It also
-    // serves the "is this statement superseded?" look-ups (SYC-307).
-    uniqueIndex("observations_supersedes_uq")
+    index("observations_supersedes_idx")
       .on(t.supersedesId)
       .where(sql`${t.supersedesId} is not null`),
     // "Which cats has any statement ever put in colony N" (SYC-307: the one

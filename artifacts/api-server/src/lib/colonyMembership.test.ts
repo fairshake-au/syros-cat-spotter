@@ -205,15 +205,3 @@ describe("catsInColony agrees with catsByColony", () => {
     expect((await catsInColony(D)).sort()).toEqual([moved, wrong].sort());
   });
 });
-
-// SYC-199: "at most one correction per statement" is a database rule.
-describe("observations.supersedes_id is unique", () => {
-  it("refuses a second correction of the same statement", async () => {
-    const cat = await newCat();
-    const first = await said(cat, A, "2026-09-01T10:00:00Z");
-    await said(cat, B, "2026-09-02T10:00:00Z", { supersedesId: first });
-    await expect(said(cat, A, "2026-09-03T10:00:00Z", { supersedesId: first })).rejects.toMatchObject({
-      cause: { code: "23505" },
-    });
-  });
-});

@@ -1,5 +1,5 @@
 {
-  "id": "2767ce0b-e2bc-4b2e-a6d3-12b1a8e103ec",
+  "id": "d44b55b1-6aec-4484-9a6c-2c70a69fd38a",
   "prevId": "4ff7a57f-92e5-4428-a305-c643d4bfa57f",
   "version": "7",
   "dialect": "postgresql",
@@ -973,8 +973,8 @@
           "method": "btree",
           "with": {}
         },
-        "observations_supersedes_uq": {
-          "name": "observations_supersedes_uq",
+        "observations_supersedes_idx": {
+          "name": "observations_supersedes_idx",
           "columns": [
             {
               "expression": "supersedes_id",
@@ -983,7 +983,7 @@
               "nulls": "last"
             }
           ],
-          "isUnique": true,
+          "isUnique": false,
           "where": "\"observations\".\"supersedes_id\" is not null",
           "concurrently": false,
           "method": "btree",

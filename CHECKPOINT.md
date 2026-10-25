@@ -1,4 +1,4 @@
 # SYC-199 + SYC-307 checkpoint
-Done: schema + migration 0050 (unique supersedes index replaces 0030's plain one; colony expression index), migrate:check ok.
-Next: one-colony page uses catsInColony; EXPLAIN before/after on seeded local db (db syc199); tests; prod dup check result from coordinator (local_baf9188a...); full suites; draft PR; Linear In Progress.
-Local env: ESBUILD_BINARY_PATH=<scratchpad>/package/bin/esbuild DATABASE_URL=postgres://localhost:5432/syc199
+Done: SYC-307 colony expression index (migration 0050_observations_colony_index), one-colony page uses catsInColony, pinning test, EXPLAIN captured (scratchpad before.txt/after.txt).
+SYC-199 PARKED: unique supersedes_id index breaks 3 vetVisits tests - vet visits deliberately let 2+ rows supersede one guardian "no". Parked SQL is in side-session notes. Needs Samuel's call. 0030 already has a plain partial index on supersedes_id.
+Next: full suites, prod dup query result (coordinator local_baf9188a), draft PR, rm CHECKPOINT.md before PR.
