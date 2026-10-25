@@ -225,13 +225,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Cat"
         "400":
-          description: Invalid request, EMPTY_NAME, OFFENSIVE_NAME or SYR_SHAPED_NAME
+          description: Invalid request, EMPTY_NAME, OFFENSIVE_NAME, SYR_SHAPED_NAME or NAME_HAS_LINK (a web link or phone number, SYC-709)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
         "403":
-          description: The device secret was refused
+          description: The device secret was refused, or NEEDS_SIGHTING (this phone hasn't met the cat, SYC-709)
           content:
             application/json:
               schema:
@@ -245,7 +245,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
         "429":
-          description: Too many requests
+          description: Too many requests, or NAME_DAILY_LIMIT (3 names per phone a UTC day, SYC-709; Retry-After says when)
           content:
             application/json:
               schema:
@@ -1663,6 +1663,14 @@ components:
             last 30 (claiming-a-cat.md §11). Lets the app tell the
             cooldown from "this phone hasn't met the cat". False otherwise,
             for everyone else and for every phone that hasn't proved itself.
+        canName:
+          type: boolean
+          description: |
+            SYC-709: whether this phone may name a cat Syros Cats left
+            unnamed (POST /cats/{catId}/name): the cat is waiting for a name
+            and this phone has met it (the claim's "met" rule). Absent unless
+            the phone proved its id; an app that doesn't read it shows the
+            button and the server refuses with NEEDS_SIGHTING.
       required: [cat, sightings, fansCount, careTimeline, canClaim, claimCooldown]
     Campaign:
       type: object

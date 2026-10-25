@@ -114,6 +114,7 @@ export type ResolveFailure =
   | { kind: 'name-taken'; cat: NameTakenCat | null }
   | { kind: 'offensive' }
   | { kind: 'syr-shaped' }
+  | { kind: 'has-link' }
   | { kind: 'offline' }
   | { kind: 'error' };
 
@@ -134,6 +135,9 @@ export function classifyResolveError(err: unknown): ResolveFailure {
       return { kind: 'offensive' };
     case 'SYR_SHAPED_NAME':
       return { kind: 'syr-shaped' };
+    // SYC-709: a web link or phone number in the name.
+    case 'NAME_HAS_LINK':
+      return { kind: 'has-link' };
     default:
       return { kind: 'error' };
   }

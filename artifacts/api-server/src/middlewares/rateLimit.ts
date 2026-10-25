@@ -1,5 +1,13 @@
 import rateLimit from "express-rate-limit";
-import { _resetBucketForTests, addressKey, consume, declareLimit, peek, sharedLimiter } from "../lib/limits";
+import {
+  _resetBucketForTests,
+  addressKey,
+  consume,
+  declareLimit,
+  type LimitsExecutor,
+  peek,
+  sharedLimiter,
+} from "../lib/limits";
 import { teamPerson } from "./requireTeam";
 
 // Per-IP throttles for public, unauthenticated endpoints.
@@ -258,6 +266,38 @@ export async function checkClaimLimit(
 /** Test-only: clears every device's claim count. */
 export async function _resetClaimLimitForTests(): Promise<void> {
   await _resetBucketForTests(CLAIM_BUCKET);
+}
+
+// SYC-709: a spotter naming a cat Syros Cats left unnamed. 3 saved names per
+// phone a day, so one person can't name a whole vet visit batch. A FIXED
+// day (UTC midnight, 02:00 or 03:00 in Greece), not sliding: the refusal
+// says "today", and a fixed window makes that true. Counted INSIDE the
+// naming transaction, last, so a refused or failed name rolls its count
+// back with it and two saves at once from one phone queue on the counter
+// row. Keyed on a device id only after verifyDeviceSecret. The caller must
+// warmSalts() before its transaction (lib/limits.ts). Fails closed.
+export const NAME_CAT_LIMIT = 3;
+export const NAME_CAT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const NAME_CAT_BUCKET = "name_cat";
+declareLimit(NAME_CAT_BUCKET, NAME_CAT_LIMIT, NAME_CAT_WINDOW_MS);
+
+/**
+ * Counts one saved name for `deviceId` through `tx` and says whether it is
+ * within the day's 3, with when the day's count starts again. Throws if the
+ * counter fails.
+ */
+export async function countNameCat(
+  tx: LimitsExecutor,
+  deviceId: string,
+  now: number = Date.now(),
+): Promise<{ allowed: boolean; resetAt: number }> {
+  const r = await consume(NAME_CAT_BUCKET, deviceId, NAME_CAT_LIMIT, NAME_CAT_WINDOW_MS, tx, now);
+  return { allowed: r.allowed, resetAt: r.resetAt };
+}
+
+/** Test-only: clears every phone's naming count. */
+export async function _resetNameCatLimitForTests(): Promise<void> {
+  await _resetBucketForTests(NAME_CAT_BUCKET);
 }
 
 // SYC-624: following and unfollowing a cat. A courtesy cap, not a security
