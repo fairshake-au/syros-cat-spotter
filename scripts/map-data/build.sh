@@ -81,7 +81,7 @@ if [[ ! -s "$JAR" ]]; then
   curl -fsSL --retry 3 "https://github.com/protomaps/basemaps/archive/$BASEMAPS_COMMIT.tar.gz" | tar xz -C "$SRC" --strip-components=1
   (cd "$SRC/tiles" && mvn -q -B clean package -DskipTests)
   cp "$SRC/tiles/target/protomaps-basemap-HEAD-with-deps.jar" "$JAR"
-  grep -m1 "planetiler.version" "$SRC/tiles/pom.xml" | sed 's/[^0-9.]//g' > "$WORK_DIR/planetiler.version"
+  grep -m1 'planetiler.version>' "$SRC/tiles/pom.xml" | grep -o '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*' > "$WORK_DIR/planetiler.version"
 fi
 PLANETILER_VERSION=$(cat "$WORK_DIR/planetiler.version" 2>/dev/null || echo unknown)
 
@@ -134,14 +134,14 @@ echo "== 7. manifest.json"
 src_sha() { [[ -f "$1" ]] && shasum -a 256 "$1" | cut -d' ' -f1 || echo "n/a"; }
 SRCS="$WORK_DIR/planetiler/data/sources"
 "$PYTHON" - "$WORK_DIR/tools.json" <<PYEOF
-import json, subprocess, sys, osmium
+import importlib.metadata, json, subprocess, sys
 def run(*a): return subprocess.run(a, capture_output=True, text=True).stdout.strip().splitlines()[0]
 tools = {
     "geofabrik_url": "$OSM_URL",
     "geofabrik_file_sha256": "$GREECE_SHA",
     "bbox": "$BBOX",
     "osmium_tool": run("osmium", "--version"),
-    "pyosmium": getattr(osmium, "__version__", "unknown"),
+    "pyosmium": importlib.metadata.version("osmium"),
     "java": subprocess.run(["$JAVA", "-version"], capture_output=True, text=True).stderr.splitlines()[0],
     "protomaps_basemaps_commit": "$BASEMAPS_COMMIT",
     "protomaps_basemaps_jar": "protomaps-basemap built from tiles/ at that commit (Protomaps Basemap v4.15.2)",
