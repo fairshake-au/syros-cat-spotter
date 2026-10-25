@@ -20,5 +20,15 @@ Not covered by this licence:
 Map building blocks, each under its own licence:
 - Natural Earth (public domain), used for the base map outside Syros.
 - Protomaps basemaps, the tile schema, builder and map style (BSD 3-Clause).
-- MapLibre GL JS and MapLibre Native (BSD 3-Clause), which draw the map.
+- Land cover at low zoom, inside syros.pmtiles: derived from the ESA
+  WorldCover dataset via Daylight/Overture (CC BY 4.0,
+  https://creativecommons.org/licenses/by/4.0/). Credit: "(c) ESA WorldCover
+  project 2020 / Contains modified Copernicus Sentinel data (2020) processed
+  by ESA WorldCover consortium."
+- Map symbols (sprites) are derived from tangrams/icons (MIT, Copyright (c)
+  2017 Mapzen, Linux Foundation). The licence text is published with them at
+  sprites/LICENSE.txt on tiles.catspotters.com (source:
+  scripts/map-data/sprites-LICENSE.txt).
+- MapLibre GL JS (BSD 3-Clause) and MapLibre Native (BSD 2-Clause), which draw
+  the map.
 - Noto Sans map fonts (SIL Open Font License 1.1), served as glyph files.

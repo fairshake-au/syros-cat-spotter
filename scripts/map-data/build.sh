@@ -118,6 +118,9 @@ for stack in "${APP_FONT_STACKS[@]}"; do
 done
 for f in light.json light.png "light@2x.json" "light@2x.png"; do cp "$ASSETS/sprites/$SPRITE_SET/$f" "$V_DIR/sprites/"; done
 cp "$ASSETS/fonts/OFL.txt" "$V_DIR/fonts/OFL.txt"
+# The sprites are MIT-licensed (tangrams/icons); the licence text must travel with them.
+# basemaps-assets ships no licence file in sprites/, so the text lives in this repo.
+cp "$REPO/scripts/map-data/sprites-LICENSE.txt" "$V_DIR/sprites/LICENSE.txt"
 
 # ---- 6. Shared styles -------------------------------------------------------------------------
 echo "== 6. Exporting styles"
@@ -153,6 +156,9 @@ tools = {
     "natural_earth": "natural_earth_vector.gpkg.zip (naciscdn.org, unversioned) sha256 $(src_sha "$SRCS/natural_earth_vector.gpkg.zip")",
     "water_polygons": "water-polygons-split-3857.zip (osmdata.openstreetmap.de, unversioned) sha256 $(src_sha "$SRCS/water-polygons-split-3857.zip")",
     "land_polygons": "land-polygons-split-3857.zip (osmdata.openstreetmap.de, unversioned) sha256 $(src_sha "$SRCS/land-polygons-split-3857.zip")",
+    "daylight_landcover": "daylight-landcover.gpkg (ESA WorldCover via Daylight, unversioned) sha256 $(src_sha "$SRCS/daylight-landcover.gpkg")",
+    "qrank": "qrank.csv.gz (qrank.toolforge.org, unversioned) sha256 $(src_sha "$SRCS/qrank.csv.gz")",
+    "pgf_encoding": "pgf-encoding.zip (unversioned) sha256 $(src_sha "$SRCS/pgf-encoding.zip")",
     "basemaps_assets_commit": "$ASSETS_COMMIT",
     "protomaps_basemaps_npm": json.load(open("$REPO/lib/map-style/package.json"))["dependencies"]["@protomaps/basemaps"],
 }
