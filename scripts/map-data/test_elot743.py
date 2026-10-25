@@ -61,3 +61,17 @@ def test_mixed_text_and_punctuation():
 
 def test_empty():
     assert transliterate("") == ""
+
+
+def test_micro_sign_is_read_as_greek_mu():
+    # Real OSM name: the sign U+00B5 typed where Greek mu (U+03BC) belongs.
+    assert transliterate("Σίµου Κοντιζά") == "Simou Kontiza"
+    assert transliterate("Σίµου") == "Simou"
+
+
+@pytest.mark.parametrize("zw", ["​", "‌", "‍", "﻿"])
+def test_zero_width_characters_are_dropped(zw):
+    # Real OSM name: a zero-width space leads the string.
+    assert transliterate(f"{zw}Η παραλία της Ευτυχίας") == "I paralia tis Eftychias"
+    # ...and mid-word ones must not split a digraph such as ου.
+    assert transliterate(f"Ο{zw}υ") == "Ou"

@@ -15,6 +15,11 @@ _PAIRS = {
 _VOWELS = set("αεηιουω")
 _VOICED = set("βγδζλμνρ") | _VOWELS
 _DIAERESIS = "̈"
+# Data glitches seen in OSM names: invisible characters inside or before a word, and the
+# micro sign (U+00B5) typed where Greek mu (U+03BC) belongs. Neither is a Greek letter,
+# so left alone they split words and leak into the output.
+_ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\ufeff"))
+_CLEAN = {**_ZERO_WIDTH, 0xB5: "\u03bc"}
 _RUN = re.compile("[Ͱ-Ͽἀ-῿][Ͱ-Ͽἀ-῿̀-ͯ]*")
 
 
@@ -66,4 +71,4 @@ def _run(run):
 
 def transliterate(greek: str) -> str:
     """Spell Greek text in Latin letters; non-Greek characters pass through."""
-    return _RUN.sub(lambda m: _run(m.group(0)), greek)
+    return _RUN.sub(lambda m: _run(m.group(0)), greek.translate(_CLEAN))
