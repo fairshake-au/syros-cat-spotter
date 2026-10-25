@@ -18,7 +18,7 @@ import {
   reviewMatcherHealth,
 } from "./matcherHealth";
 import { buildMatcherDown, buildMatcherUp } from "./matcherAlertEmail";
-import { claimDue } from "./mail/outbox";
+import { claimDue, drainDue } from "./mail/outbox";
 import { blurPosition } from "./blur";
 import app from "../app";
 
@@ -147,6 +147,26 @@ describe("the alert", () => {
     expect((await alerts()).map((r) => (r.payload as { kind: string }).kind)).toEqual(["down", "up"]);
     await failures(OUTAGE_FAILURES);
     expect(await reviewMatcherHealth(NOW)).toBe("down");
+  });
+
+  it("doesn't say 'working again' within 15 minutes of the alert, even with no failures counted", async () => {
+    const [down] = await db
+      .insert(mailOutboxTable)
+      .values({ purpose: "matcher_alert", recipientHash: "x", payload: { kind: "down" }, state: "sent", createdAt: min(5) })
+      .returning({ id: mailOutboxTable.id });
+    expect(await reviewMatcherHealth(NOW)).toBe("none");
+    await db.update(mailOutboxTable).set({ createdAt: min(20) }).where(eq(mailOutboxTable.id, down!.id));
+    expect(await reviewMatcherHealth(NOW)).toBe("up");
+  });
+
+  it("a queued alert older than an hour is given up, never sent late", async () => {
+    const [row] = await db
+      .insert(mailOutboxTable)
+      .values({ purpose: "matcher_alert", recipientHash: "x", payload: { kind: "down", failed: 5, windowMinutes: 15 }, createdAt: new Date(Date.now() - 2 * 3_600_000) })
+      .returning({ id: mailOutboxTable.id });
+    await drainDue(25, row!.id);
+    const [after] = await db.select().from(mailOutboxTable).where(eq(mailOutboxTable.id, row!.id));
+    expect(after).toMatchObject({ state: "failed", lastError: "stale" });
   });
 
   it("with no recipient set it queues nothing (the banner still shows)", async () => {

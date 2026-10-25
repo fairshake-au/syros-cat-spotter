@@ -657,6 +657,12 @@ async function processMatcherAlert(row: MailOutboxRow): Promise<"sent" | "retry"
     await markFailed(row, "nothing_to_send");
     return "failed";
   }
+  // A late "failing" email is worse than none, and a bad address won't mend by
+  // retrying hourly for ever (review of #347).
+  if (Date.now() - row.createdAt.getTime() > 60 * 60_000) {
+    await markFailed(row, "stale");
+    return "failed";
+  }
   const message =
     payload.kind === "down"
       ? buildMatcherDown(Number(payload.failed ?? 0), Number(payload.windowMinutes ?? 15))
@@ -667,6 +673,10 @@ async function processMatcherAlert(row: MailOutboxRow): Promise<"sent" | "retry"
     idempotencyKey: `matcher-${payload.kind}-${row.id}-${row.createdAt.getTime()}`,
   });
   if (!result.ok) {
+    if (result.reason === "bad_recipient" || result.reason === "recipient_not_allowed") {
+      await markFailed(row, result.reason);
+      return "failed";
+    }
     await markRetry(row, `${result.reason}${result.detail ? `: ${result.detail}` : ""}`);
     return "retry";
   }

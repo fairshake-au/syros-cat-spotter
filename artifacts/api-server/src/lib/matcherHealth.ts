@@ -31,8 +31,8 @@ const ALERT_LOCK = 532_001;
 const since = (now: Date, minutes: number) => new Date(now.getTime() - minutes * 60_000);
 
 /** Checks that failed in the window. */
-export async function recentFailures(now: Date = new Date()): Promise<number> {
-  const [row] = await db
+export async function recentFailures(now: Date = new Date(), q: Pick<typeof db, "select"> = db): Promise<number> {
+  const [row] = await q
     .select({ n: sql<number>`count(*)::int` })
     .from(sightingMatchesTable)
     .where(
@@ -68,16 +68,31 @@ export const matcherAlertTo = () => (process.env["MATCHER_ALERT_TO"] ?? "").trim
  */
 export async function reviewMatcherHealth(now: Date = new Date()): Promise<"down" | "up" | "none"> {
   try {
-    const queued = await db.transaction(async (tx) => {
-      await tx.execute(sql`select pg_advisory_xact_lock(${ALERT_LOCK})`);
-      const [latest] = await tx
-        .select({ payload: mailOutboxTable.payload })
+    // The usual answer is "nothing to do", and it needs no lock and no
+    // transaction: below the threshold nothing can go down, and only an open
+    // alert with a quiet window can come back up.
+    const latestRow = () =>
+      db
+        .select({ payload: mailOutboxTable.payload, createdAt: mailOutboxTable.createdAt })
         .from(mailOutboxTable)
         .where(eq(mailOutboxTable.purpose, "matcher_alert"))
         .orderBy(desc(mailOutboxTable.id))
         .limit(1);
-      const open = (latest?.payload as { kind?: string } | undefined)?.kind === "down";
-      const failed = await recentFailures(now);
+    const isOpen = (r?: { payload: unknown }) => (r?.payload as { kind?: string } | undefined)?.kind === "down";
+    const failed0 = await recentFailures(now);
+    if (failed0 > 0 && failed0 < OUTAGE_FAILURES) return "none";
+    if (!isOpen((await latestRow())[0]) && failed0 < OUTAGE_FAILURES) return "none";
+
+    const queued = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(${ALERT_LOCK})`);
+      const [latest] = await tx
+        .select({ payload: mailOutboxTable.payload, createdAt: mailOutboxTable.createdAt })
+        .from(mailOutboxTable)
+        .where(eq(mailOutboxTable.purpose, "matcher_alert"))
+        .orderBy(desc(mailOutboxTable.id))
+        .limit(1);
+      const open = isOpen(latest);
+      const failed = await recentFailures(now, tx);
       const to = matcherAlertTo();
       const recipientHash = to ? hashRecipient(to) : "unset";
       if (!open && failed >= OUTAGE_FAILURES) {
@@ -95,7 +110,10 @@ export async function reviewMatcherHealth(now: Date = new Date()): Promise<"down
           .returning({ id: mailOutboxTable.id });
         return { kind: "down" as const, id: row!.id };
       }
-      if (open && failed === 0) {
+      // "Working again" needs the alert to be at least a window old, so a run
+      // of successful "Check again"s (each replaces a failed row) can't close
+      // it within seconds of opening.
+      if (open && failed === 0 && latest && now.getTime() - latest.createdAt.getTime() >= OUTAGE_WINDOW_MINUTES * 60_000) {
         const [row] = await tx
           .insert(mailOutboxTable)
           .values({ purpose: "matcher_alert", recipientHash, payload: { kind: "up" } })
