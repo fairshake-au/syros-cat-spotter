@@ -21,3 +21,27 @@
 | 14 | Nit | A gendered Greek line; "Spots to finish" over-promises next to "kept safe until finished". | Greek line reworded; §1 now says "until they finish it (or 30 days pass)". Section title kept: it is the shortest honest name, and §5 explains what leaves the list. |
 | 15 | Nit | The tests would miss items 1, 2, 3, 5, 8, 10. | §10 tests extended for each. |
 | 16 | Nit | The claim about the dashboard was unchecked. | §8 labels it **unchecked**; the build re-checks. |
+
+---
+
+# Review 2: the option A revision (26 October 2026)
+
+**Reviewer:** a second Sonnet subagent told to refute, read-only, text only. Samuel had chosen option A (the phone keeps every unfinished spot, no expiry), which changed the design, so the spec was reviewed again. 15 findings: 2 blockers, 9 should-fix, 4 nits. All accepted.
+
+| # | Sev | Finding | How handled |
+|---|---|---|---|
+| 1 | Blocker | A sent ("review") card has no Discard (`spot.tsx:1404`); with no expiry, a spot the server will never accept (403 after "Start again", 404, 422 for a removed cat) stays for ever. | §3.3: every card gets Discard; "can't be finished any more" screen for 403, 404, 422, `RESOLVED`; tests. |
+| 2 | Blocker | "Ask Syros Cats to match it" is hidden and has no string (`sightings.ts:81`, `review.tsx:462`) yet was listed in the spec and tests. | Removed from §3.5, §5, §7, §9; noted as future. |
+| 3 | Should | `localId` on the route switches off the feeding nudge (`waitingCard.ts:272`) and drives the hint prompt. | §7: a separate `keptAtSend` marker; tests. |
+| 4 | Should | The "photo checked" banner and the Spot tab badge count review items and would nag for ever. | §7: `keptAtSend` items are left out of both; the banner opens the item that just synced. Flagged as reversible by Samuel. |
+| 5 | Should | The kill window is the whole ~35 s request, not milliseconds; writes after the answer come after several awaits. | §7 says so plainly; write straight after `submitSighting` returns. |
+| 6 | Should | The recent-photos record for a sent spot has no `localId`, so "Open that spot" finds nothing. | §3.3 and §7, §10: store `localId`; clear on discard. |
+| 7 | Should | An inline photo copy would fill the ~5 MB browser storage and block real offline saves. | §7: never inline; no copy and the old line instead; plain tile if later cleared. |
+| 8 | Should | The new write must respect the "Delete my data" pause (SYC-63). | §7 and tests. |
+| 9 | Should | The resolve `409` has no code; a name clash is also `409`. | §3.5, §10: add `code: "RESOLVED"` (one server line, so "no server change" became "one line"). |
+| 10 | Should | No expiry means stale suggestions, removed cats, and a hint prompt asked again. | §3.3 says the cost plainly; Discard and "Find the cat yourself" are always available. |
+| 11 | Should | The `review-<id>` photo is still needed for no-cat and failed-write spots. | §7: written only when no list item is written. |
+| 12 | Nit | The card shows a full locale date, not "Taken today, 14:32". | §3.3 reworded. |
+| 13 | Nit | Toast conditions. | §3.2 states them. |
+| 14 | Nit | Test list gaps, and "double tap writes one item" is wrong (a second send is a second spot). | §7 tests extended and corrected. |
+| 15 | Nit | §10 omitted files. | §10 extended. |
