@@ -162,13 +162,15 @@ export function mapPageAssets(): { styles: (string | null)[]; script: (string | 
   };
 }
 
-const pair = (p: Position): [number, number] => [p.lat, p.lng];
+/** To 5 decimal places (about a metre): no float noise in the page. */
+const r5 = (x: number) => Math.round(x * 1e5) / 1e5;
+const pair = (p: Position): [number, number] => [r5(p.lat), r5(p.lng)];
 
 /** What dashboard-pin.js needs of a marker: fixed keys, the label as text. */
 function markerData(m: MapMarker): Record<string, unknown> {
   return {
-    lat: m.lat,
-    lng: m.lng,
+    lat: r5(m.lat),
+    lng: r5(m.lng),
     label: m.label,
     ...(m.href !== undefined ? { href: m.href } : {}),
     ...(m.look !== undefined ? { look: m.look } : {}),

@@ -70,7 +70,6 @@ describe("no other team page has any script", () => {
     ["the colonies list", () => "/api/team/colonies", () => staff],
     ["a colony", () => `/api/team/colonies/${colonyId}`, () => staff],
     ["a colony's cats", () => `/api/team/colonies/${colonyId}/cats`, () => staff],
-    ["the Feeding sites page", () => "/api/team/sites", () => staff],
     ["the add-a-site page", () => "/api/team/sites/new", () => staff],
     ["the map", () => "/api/team/map", () => staff],
     ["Colour check", () => "/api/team/colour-check", () => staff],
@@ -85,6 +84,45 @@ describe("no other team page has any script", () => {
     expect(res.status).toBeLessThan(500);
     expect(res.headers["content-type"]).toMatch(/^text\/html/);
     expect(res.text).not.toMatch(/<script/i);
+  });
+});
+
+// SYC-705 Task 2b.5: a page with a MapLibre map loads exactly MapLibre's
+// stylesheet, then PMTiles, map-core.js and dashboard-pin.js, all by hashed
+// name from /api/team/assets/; the library and its worker are named on the map
+// box (data-maplibre, data-worker), never as script tags. A cat's page and a
+// colony's page load them only when they have a map (with no sightings or
+// sites they are in the list above, with no script).
+describe("a page with a MapLibre map loads its files, and nothing else", () => {
+  const CSS = /^<link rel="stylesheet" href="\/api\/team\/assets\/maplibre-gl\.[0-9a-f]{12}\.css">$/;
+  const TAGS = [
+    /^<script src="\/api\/team\/assets\/pmtiles\.[0-9a-f]{12}\.js" defer><\/script>$/,
+    /^<script src="\/api\/team\/assets\/map-core\.[0-9a-f]{12}\.js" defer><\/script>$/,
+    /^<script src="\/api\/team\/assets\/dashboard-pin\.[0-9a-f]{12}\.js" defer><\/script>$/,
+  ];
+  it.each([
+    ["the Feeding sites page", "/api/team/sites"],
+    ["the Feeding sites page, with retired sites", "/api/team/sites?retired=1"],
+  ])("%s", async (_what, path) => {
+    const res = await page(path, staff);
+    expect(res.status).toBe(200);
+    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+    expect(tags).toHaveLength(3);
+    tags.forEach((t, i) => expect(t).toMatch(TAGS[i]!));
+    expect(res.text.match(/<script\b/gi)).toHaveLength(3);
+    const links = res.text.match(/<link\b[^>]*>/gi) ?? [];
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatch(CSS);
+    const head = res.text.slice(0, res.text.indexOf("</head>"));
+    for (const t of [...tags, ...links]) expect(head).toContain(t);
+    const lib = / data-maplibre="(\/api\/team\/assets\/maplibre-gl\.[0-9a-f]{12}\.mjs)"/.exec(res.text);
+    const worker = / data-worker="(\/api\/team\/assets\/maplibre-gl-worker\.[0-9a-f]{12}\.mjs)"/.exec(res.text);
+    expect(lib).not.toBeNull();
+    expect(worker).not.toBeNull();
+    // Every file it names is served.
+    for (const src of [...[...tags, ...links].map((t) => /(?:src|href)="([^"]+)"/.exec(t)![1]!), lib![1]!, worker![1]!]) {
+      expect((await request(app).get(src)).status, src).toBe(200);
+    }
   });
 });
 

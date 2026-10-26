@@ -16,8 +16,7 @@ import app from "../app";
 import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { recordMappingEvent } from "../lib/mappingEvents";
 import { countLine } from "../lib/teamPages/sitePages";
-import { BANDS, viewAround } from "../lib/mapTiles/geometry";
-import { mintTileToken } from "../lib/mapTiles/tileToken";
+import { WIDE_CSP } from "../test/wideCsp";
 import * as teamSites from "../lib/teamSites";
 import { isOpaqueAddress } from "../test/opaqueAddress";
 import { expectMapNote } from "../test/mapNote";
@@ -46,8 +45,6 @@ const SUSAN = `vitest-sites-susan-${RUN}@example.com`;
 const MARIA = `vitest-sites-maria-${RUN}@example.com`;
 const VERA = `vitest-sites-vera-${RUN}@example.com`;
 const KEY = "vitest-sites-key-0123456789abcdef-0123456789";
-const EXPECTED_CSP =
-  "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 const MARKUP = `<img src=x onerror="alert(1)"> "q" 'x'`;
 
 let susan: string;
@@ -180,18 +177,25 @@ function expectNoPositionInAddresses(html: string) {
   }
 }
 
-const viewOf = (html: string) => {
-  const field = (name: string) => Number(new RegExp(`name="${name}" value="(-?\\d+)"`).exec(html)![1]);
-  return { z: field("vz"), x: field("vx"), y: field("vy") };
-};
+/** The page's MapLibre map data (SYC-705): what lib/teamPages/map.ts wrote into data-map. */
+interface MapData {
+  mode: string;
+  centre: [number, number];
+  zoom: number;
+  fit: [number, number][] | null;
+  markers: { lat: number; lng: number; label: string; href?: string; look?: string }[];
+}
+const mapData = (html: string): MapData => JSON.parse(decoded(/ data-map="([^"]*)"/.exec(html)![1]!));
+const r5 = (x: number) => Math.round(x * 1e5) / 1e5;
 
 describe("the Feeding sites page: what is on it", () => {
-  it("is the dashboard's page: its header, no scripts, nothing cached, the menu item highlighted", async () => {
+  it("is the dashboard's page: the wider header for its map's own scripts, nothing cached, the menu item highlighted", async () => {
     const res = await get("/api/team/sites");
     expect(res.status).toBe(200);
-    expect(res.headers["content-security-policy"]).toBe(EXPECTED_CSP);
+    // SYC-705: the map is MapLibre, our own files only (team.scriptTags.test.ts names them).
+    expect(res.headers["content-security-policy"]).toBe(WIDE_CSP);
     expect(res.headers["cache-control"]).toBe("no-store");
-    expect(res.text).not.toMatch(/<script/i);
+    for (const tag of res.text.match(/<script\b[^>]*>/gi) ?? []) expect(tag).toMatch(/^<script src="\/api\/team\/assets\/[\w.-]+" defer>$/);
     // Feeding sites left the menu (SYC-450): the page underlines its parent, Colonies.
     expect(res.text).toContain('aria-current="page">Colonies</a>');
     expect(res.text).not.toContain("Feeding sites</a>");
@@ -211,7 +215,7 @@ describe("the Feeding sites page: what is on it", () => {
     };
     const order = ["<strong>", "Recently changed", '<div class="map"', "<h2>All sites</h2>"].map(at);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(html.indexOf('class="mapband')).toBeGreaterThan(html.indexOf("Recently changed"));
+    expect(html.indexOf('class="mapnojs"')).toBeGreaterThan(html.indexOf("Recently changed"));
   });
 
   it("writes the count line the way the spec does, and the retired part only when there are any", () => {
@@ -271,13 +275,11 @@ describe("the map on the Feeding sites page", () => {
     const pub = await makeSite({ isPublic: true });
     const priv = await makeSite();
     const html = (await get("/api/team/sites")).text;
-    expect(html).toContain(`<a class="pin site-public" style="`);
-    // Every band draws the marker; read one.
-    const marker = (id: number, look: string) =>
-      new RegExp(`<a class="pin site-${look}" style="[^"]*" href="/api/team/sites/${id}" title="[^"]*">`);
-    expect(html).toMatch(marker(pub.id, "public"));
-    expect(html).toMatch(marker(priv.id, "private"));
-    // The span-style CSS for the three looks is in the page.
+    const markers = mapData(html).markers;
+    const marker = (id: number) => markers.find((m) => m.href === `/api/team/sites/${id}`);
+    expect(marker(pub.id)).toMatchObject({ look: "public", lat: r5(pub.lat), lng: r5(pub.lng), label: pub.name });
+    expect(marker(priv.id)).toMatchObject({ look: "private", lat: r5(priv.lat), lng: r5(priv.lng), label: priv.name });
+    // The CSS for the three looks is in the page (dashboard-pin.js uses the same classes).
     expect(html).toContain(".pin.site-public{background:var(--danger-fill)}");
     expect(html).toContain(".pin.site-retired{");
   });
@@ -294,75 +296,49 @@ describe("the map on the Feeding sites page", () => {
 
     const shown = (await get("/api/team/sites?retired=1")).text;
     expect(shown).toContain(`>${retired.name}</a>`);
-    expect(shown).toMatch(new RegExp(`<a class="pin site-retired" style="[^"]*" href="/api/team/sites/${retired.id}"`));
+    expect(mapData(shown).markers.find((m) => m.href === `/api/team/sites/${retired.id}`)?.look).toBe("retired");
+    expect(mapData(plain).markers.some((m) => m.href === `/api/team/sites/${retired.id}`)).toBe(false);
     expect(shown).toMatch(/name="retired" value="1" checked/);
     // A look-alike value does not tick it.
     expect((await get("/api/team/sites?retired=yes")).text).not.toContain(retired.name);
     expect((await get("/api/team/sites?retired=1&retired=0")).text).not.toContain(retired.name);
   });
 
-  it("ticking Show retired keeps the map where it was, through an opaque token", async () => {
-    const zoomed = await post("/api/team/sites/map", { vz: "12", vx: "0", vy: "0", area: "vaporia" });
-    const v = viewOf(zoomed.text);
-    const field = /<form method="get"[^>]*>\s*<input type="hidden" name="view" value="([^"]+)"/.exec(zoomed.text);
-    expect(field).not.toBeNull();
-    expect(field![1]).toMatch(/^[A-Za-z0-9_-]{59}$/);
-    const res = await get(`/api/team/sites?retired=1&view=${encodeURIComponent(field![1]!)}`);
-    expect(viewOf(res.text)).toEqual(v);
-    // A forged or garbled token falls back to the whole island.
-    expect(viewOf((await get("/api/team/sites?view=nonsense")).text).z).toBe(12);
-    expect(mintTileToken({ ...v, size: 179 })).toBe(field![1]);
+  it("Show retired carries no view: the map fits whatever sites are shown, and an old ?view= is ignored", async () => {
+    const html = (await get("/api/team/sites")).text;
+    const form = /<form method="get" action="\/api\/team\/sites" class="search">[\s\S]*?<\/form>/.exec(html)![0];
+    expect(form).not.toContain('name="view"');
+    const old = await get("/api/team/sites?view=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    expect(old.status).toBe(200);
+    expect(mapData(old.text).fit).toEqual(mapData(html).fit);
   });
 
-  it("zooms, pans and jumps to an area by POST, keeping Show retired, and writes nothing", async () => {
-    const retired = await makeSite({ retired: true });
+  it("has no zoom, pan or area buttons: POST /api/team/sites/map is gone (SYC-705), and nothing is written", async () => {
     const before = await allReads();
-    const start = viewOf((await get("/api/team/sites?retired=1")).text);
-    expect(start.z).toBe(12);
-    const moved = await post("/api/team/sites/map", {
-      vz: String(start.z),
-      vx: String(start.x),
-      vy: String(start.y),
-      go: "in",
-      retired: "1",
-    });
-    expect(moved.status).toBe(200);
-    expect(viewOf(moved.text).z).toBe(13);
-    expect(moved.text).toContain('<form method="post" action="/api/team/sites/map" class="mapmove">');
-    expect(moved.text).toContain('<input type="hidden" name="retired" value="1">');
-    expect(moved.text).toContain(`>${retired.name}</a>`);
-    const area = await post("/api/team/sites/map", { vz: "12", vx: "0", vy: "0", area: "vaporia" });
-    expect(viewOf(area.text).z).toBeGreaterThan(12);
-    expect(area.text).not.toContain(retired.name);
+    const html = (await get("/api/team/sites")).text;
+    expect(html).not.toContain('class="mapmove"');
+    expect(html).not.toContain("/api/team/sites/map");
+    const res = await post("/api/team/sites/map", { vz: "12", vx: "0", vy: "0", go: "in" });
+    expect(res.status).toBe(404);
     expect(await allReads()).toBe(before);
   });
 
-  it("answers a bad move form with the whole island and a note, not an error page", async () => {
-    const res = await post("/api/team/sites/map", { vz: "1e3", vx: "x", vy: "" });
-    expect(res.status).toBe(400);
-    expect(res.text).toContain("back at the whole island");
-    expect(res.headers["content-security-policy"]).toBe(EXPECTED_CSP);
-  });
-
-  it("has no position in any href, action or src (K13): the page, with Show retired, after a move and an area", async () => {
+  it("has no position in any href, action or src (K13): the page, and with Show retired", async () => {
     await makeSite();
-    const pages = [
-      (await get("/api/team/sites")).text,
-      (await get("/api/team/sites?retired=1")).text,
-      (await post("/api/team/sites/map", { vz: "12", vx: "2370", vy: "1600", go: "in", retired: "1" })).text,
-      (await post("/api/team/sites/map", { vz: "12", vx: "0", vy: "0", area: "vaporia" })).text,
-      (await post("/api/team/sites/map", { vz: "x", vx: "x", vy: "x" })).text,
-    ];
+    const pages = [(await get("/api/team/sites")).text, (await get("/api/team/sites?retired=1")).text];
     for (const html of pages) expectNoPositionInAddresses(html);
     // And the markers really are links to numbers.
-    expect(pages[0]).toMatch(/<a class="pin site-private"[^>]* href="\/api\/team\/sites\/\d+"/);
+    expect(mapData(pages[0]!).markers.some((m) => m.look === "private" && /^\/api\/team\/sites\/\d+$/.test(m.href ?? ""))).toBe(true);
+    for (const m of mapData(pages[1]!).markers) expect(m.href ?? "", m.label).toMatch(/^\/api\/team\/sites\/\d+$/);
   });
 
-  it("puts the island's sites in view at the opening zoom", async () => {
+  it("fits every site shown: each one's position is in the map's fit, and nothing else is", async () => {
     const s = await makeSite();
-    const v = viewOf((await get("/api/team/sites")).text);
-    expect(v).toEqual(viewAround({ lat: 37.445, lng: 24.93 }, 12));
-    expect(s.id).toBeGreaterThan(0);
+    const d = mapData((await get("/api/team/sites")).text);
+    expect(d.mode).toBe("view");
+    expect(d.fit).toContainEqual([r5(s.lat), r5(s.lng)]);
+    expect(d.fit).toHaveLength(d.markers.length);
+    expect(d.markers.map((m) => [m.lat, m.lng])).toEqual(d.fit);
   });
 });
 
@@ -405,7 +381,7 @@ describe("one site", () => {
     const res = await get(`/api/team/sites/${s.id}`);
     expect(res.status).toBe(200);
     expect(res.headers["cache-control"]).toBe("no-store");
-    expect(res.headers["content-security-policy"]).toBe(EXPECTED_CSP);
+    expect(res.headers["content-security-policy"]).toBe(WIDE_CSP);
     const html = decoded(res.text);
     const at = (needle: string) => {
       const i = html.indexOf(needle);
@@ -449,20 +425,12 @@ describe("one site", () => {
     expect(withoutTimes.match(/.{0,40}\d+\.\d{6,}.{0,10}/)?.[0]).toBeUndefined();
   });
 
-  it("centres the small map on the site: the marker is within the central half at every width band", async () => {
-    // Several spots, so a lucky alignment can't pass it.
+  it("centres the small map on the site, close enough to see the street (zoom 17)", async () => {
     for (const [lat, lng] of [[37.4447, 24.9417], [37.4731, 24.9892], [37.4012, 24.8801], [37.4999, 24.9399]] as const) {
       const [row] = await db.insert(feedingSitesTable).values({ name: unique("centre"), lat, lng }).returning({ id: feedingSitesTable.id });
-      const html = (await get(`/api/team/sites/${row!.id}`)).text;
-      for (const b of BANDS) {
-        const band = new RegExp(`<div class="mapband b${b.size}"[^>]*>(.*?)</div>`).exec(html)![0];
-        const m = /class="pin site-private" style="left:(\d+)px;top:(\d+)px"/.exec(band);
-        expect(m, `${lat},${lng} at ${b.size}`).not.toBeNull();
-        const span = 2 * b.size;
-        for (const off of [Number(m![1]), Number(m![2])]) {
-          expect(Math.abs(off - span / 2), `${lat},${lng} at ${b.size}`).toBeLessThanOrEqual(span / 4 + 1);
-        }
-      }
+      const d = mapData((await get(`/api/team/sites/${row!.id}`)).text);
+      expect(d).toMatchObject({ mode: "view", centre: [lat, lng], zoom: 17, fit: null });
+      expect(d.markers).toEqual([{ lat, lng, label: expect.any(String), look: "private" }]);
     }
   });
 
@@ -481,7 +449,7 @@ describe("one site", () => {
     const s = await makeSite({ retired: true });
     const html = (await get(`/api/team/sites/${s.id}`)).text;
     expect(html).toContain("Retired since 15 Sept 2026");
-    expect(html).toContain('class="pin site-retired"');
+    expect(mapData(html).markers.map((m) => m.look)).toEqual(["retired"]);
   });
 
   it("shows the history newest first, moves with both positions and the reason", async () => {
@@ -566,7 +534,6 @@ describe("who looked (spec §8)", () => {
     await get("/api/team/sites");
     await get("/api/team/sites?retired=1");
     await get("/api/team/sites").set("Accept", "application/json");
-    await post("/api/team/sites/map", { vz: "12", vx: "0", vy: "0", go: "in" });
     await get("/api/team/map");
     await post("/api/team/map", { vz: "12", vx: "0", vy: "0", go: "in" });
     await get(`/api/team/colonies/${colonyId}`);
@@ -595,17 +562,6 @@ describe("test 5 (part): who may see the pages and the history", () => {
       const none = await get(path, null);
       expect([none.status, none.text], path).toEqual([401, '{"error":"not_signed_in"}']);
     }
-    const move = await post("/api/team/sites/map", { vz: "12", vx: "0", vy: "0" }, vetCookie);
-    expect([move.status, move.text]).toEqual([403, '{"error":"forbidden"}']);
-    const noSession = await post("/api/team/sites/map", { vz: "12", vx: "0", vy: "0" }, null);
-    expect([noSession.status, noSession.text]).toEqual([401, '{"error":"not_signed_in"}']);
-    const elsewhere = await request(app)
-      .post("/api/team/sites/map")
-      .set("Origin", "https://evil.example")
-      .set("Cookie", cookie)
-      .type("form")
-      .send({ vz: "12", vx: "0", vy: "0" });
-    expect([elsewhere.status, elsewhere.text]).toEqual([401, '{"error":"not_signed_in"}']);
   });
 
   it("the history's positions are in no page a refused person can get", async () => {
@@ -642,8 +598,8 @@ describe("test 16: what people typed shows as text", () => {
     expect(one).toContain(`n ${MARKUP}`);
     expect(one).toContain(`d ${MARKUP}`);
     expect(one).toContain(`Reason: why ${MARKUP}`);
-    // The marker's label (a title and a screen-reader line) is escaped too.
-    expect(pages[1]).toContain(`title="${P}&lt;img`);
+    // The marker's label is data for dashboard-pin.js (it goes in by textContent), escaped in its attribute.
+    expect(mapData(pages[1]!).markers.some((m) => m.label === `${P}${MARKUP}`)).toBe(true);
   });
 
   it("a colony's name on a site row is escaped", async () => {

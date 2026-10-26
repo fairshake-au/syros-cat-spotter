@@ -260,6 +260,18 @@ describe("dashboard-pin.js: the view map's markers", () => {
     for (const src of [CORE, PIN]) expect(src).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/);
   });
 
+  it("fits again once a map hidden at start (the cat page's Map tab) gets its size", async () => {
+    const rig = await viewMap({ fit: [[37.44, 24.94], [37.45, 24.95]] });
+    const map = rig.lib.maps[0]!;
+    const fits = () => map.calls.filter((c) => c[0] === "fitBounds").length;
+    expect(fits()).toBe(1);
+    // jsdom has no layout, so the box measures 0 × 0, as a hidden panel does.
+    map.fire("resize");
+    expect(fits()).toBe(2);
+    map.fire("resize");
+    expect(fits()).toBe(2);
+  });
+
   it("draws a sterilisation mark's dot and a numbered sighting", async () => {
     const rig = await viewMap({
       markers: [

@@ -322,9 +322,36 @@ describe("P1-5: every dashboard response has the team headers", () => {
 });
 
 // SYC-396 PR 1.3.4: the one exemption, pinned exactly.
-describe("the wider header is the Cats grid's and the Find from a photo form's alone, and exactly this", () => {
-  it("the exemption names one route", () => {
-    expect([...WIDE_CSP_ROUTES]).toEqual(["GET /api/team/cats", "GET /api/team/cats/find"]);
+describe("the wider header is the named pages' alone, and exactly this", () => {
+  it("the exemption names exactly these routes", () => {
+    expect([...WIDE_CSP_ROUTES]).toEqual([
+      "GET /api/team/cats",
+      "GET /api/team/cats/find",
+      // SYC-705 Task 2b.5: the pages with a MapLibre view map.
+      "GET /api/team/sites",
+      "GET /api/team/sites/:id",
+      "GET /api/team/colonies/:id",
+      "GET /api/team/cats/:id",
+    ]);
+  });
+
+  // SYC-705 Task 2b.5: a map page's own 200 carries the wider header; its JSON
+  // answer, its not-found page and "Show on our map" (still the old picture
+  // map until Task 2b.7) keep the strict one.
+  it("the Feeding sites page and a cat's page carry the wider header; their JSON and not-found answers the strict one", async () => {
+    const sites = await request(app).get("/api/team/sites").set("Cookie", cookie).set("Accept", "text/html");
+    expect(sites.status).toBe(200);
+    expect(sites.headers["content-security-policy"]).toBe(WIDE_CSP);
+    const json = await request(app).get("/api/team/sites").set("Cookie", cookie).set("Accept", "application/json");
+    expect(json.headers["content-security-policy"]).toBe(STRICT_CSP);
+    const cat = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie).set("Accept", "text/html");
+    expect(cat.status).toBe(200);
+    expect(cat.headers["content-security-policy"]).toBe(WIDE_CSP);
+    for (const path of ["/api/team/sites/999999999", "/api/team/colonies/999999999", "/api/team/cats/999999999"]) {
+      const nf = await request(app).get(path).set("Cookie", cookie).set("Accept", "text/html");
+      expect(nf.status, path).toBe(404);
+      expect(nf.headers["content-security-policy"], path).toBe(STRICT_CSP);
+    }
   });
 
   it("the Cats grid page carries exactly the wider header", async () => {

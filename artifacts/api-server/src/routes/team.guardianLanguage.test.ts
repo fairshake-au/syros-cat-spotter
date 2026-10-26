@@ -129,17 +129,6 @@ describe("the error pages she can reach are in her language too (review F2)", ()
   const formPost = (path: string, body: Record<string, string>, cookie: string) =>
     request(app).post(path).set("Origin", TEAM_ORIGIN).set("Cookie", cookie).type("form").send(body);
 
-  it("a map move that can't be read (POST /sites/map, 400)", async () => {
-    const res = await formPost("/api/team/sites/map", { vz: "nonsense" }, eleni.cookie);
-    expect(res.status).toBe(400);
-    const text = unescape(res.text);
-    expect(text).toContain(el["sites.moveNote"]);
-    expect(text).not.toContain(en["sites.moveNote"]);
-    // The team's is in English.
-    const team = unescape((await formPost("/api/team/sites/map", { vz: "nonsense" }, staffCookie)).text);
-    expect(team).toContain(en["sites.moveNote"]);
-  });
-
   it("a site or colony that isn't there (404)", async () => {
     for (const [path, greek] of [
       ["/api/team/sites/999999999", el["site.noSuchBody"]],

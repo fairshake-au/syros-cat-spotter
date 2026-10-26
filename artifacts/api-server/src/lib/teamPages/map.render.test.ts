@@ -34,6 +34,16 @@ describe("renderMap", () => {
     expect(dataOf(renderMap({ mode: "view" }), "data-map")).toMatchObject({ lang: "en", centre: [37.445, 24.93], zoom: 12 });
   });
 
+  it("writes positions to 5 decimal places (no float noise)", () => {
+    const d = dataOf(
+      renderMap({ mode: "view", centre: { lat: 37.450100000000006, lng: 24.930000000000003 }, fit: [{ lat: 37.123456789, lng: 24.987654321 }], markers: [{ ...site, lat: 37.4444449, lng: 24.9 }] }),
+      "data-map",
+    );
+    expect(d.centre).toEqual([37.4501, 24.93]);
+    expect(d.fit).toEqual([[37.12346, 24.98765]]);
+    expect([d.markers[0].lat, d.markers[0].lng]).toEqual([37.44444, 24.9]);
+  });
+
   it("fits the given positions, and writes place mode's form", () => {
     const d = dataOf(renderMap({ mode: "view", fit: [{ lat: 37.4, lng: 24.9 }, { lat: 37.5, lng: 25 }] }), "data-map");
     expect(d.fit).toEqual([[37.4, 24.9], [37.5, 25]]);
