@@ -14,7 +14,7 @@ import {
 } from "@workspace/db";
 import { and, asc, desc, eq, inArray, isNull, notExists, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { catsByColony } from "./colonyMembership";
+import { catsByColony, catsInColony } from "./colonyMembership";
 import { colonyFilter, covers, nameLabeller, type Visible } from "./guardianView";
 import { recordMappingEvent } from "./mappingEvents";
 import { syrNumber, teamPhotoUrl } from "./teamCatView";
@@ -317,7 +317,8 @@ export async function colonyView(visible: Visible, id: number): Promise<ColonyVi
       .from(feedingSitesTable)
       .where(and(eq(feedingSitesTable.colonyId, id), isNull(feedingSitesTable.retiredAt)))
       .orderBy(asc(feedingSitesTable.name), asc(feedingSitesTable.id)),
-    catsByColony().then((m) => m.get(id) ?? []),
+    // Only this colony's cats (SYC-307), not every cat on the island.
+    catsInColony(id),
     db
       .select()
       .from(mappingEventsTable)

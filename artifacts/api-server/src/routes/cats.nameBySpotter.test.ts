@@ -22,7 +22,9 @@ import { deleteTestSightings } from "../test/sightings";
 // cat", vet-visit-batches design). Its stored name is its SYR number until a
 // spotter names it through POST /cats/:id/name; the first good name wins.
 
-const RUN = randomBytes(3).toString("hex");
+// Letters only: a cat name can't hold 5 digits in a row (SYC-709), and a
+// hex tag sometimes does, which made this file fail at random.
+const RUN = [...randomBytes(4)].map((b) => "bcdfghjkmpqrvwxz"[b % 16]).join("");
 const PREFIX = `vitest-nameby-${RUN}-`;
 const NAME = `VtNameBy${RUN}`;
 const SECRET = "vitest-nameby-device-secret-aaaa";
@@ -308,6 +310,9 @@ describe("POST /cats/:catId/name", () => {
   });
 });
 
+let ownedN = 0;
+const letters = (k: number): string => k.toString().replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+
 // SYC-709 (docs/specs/syc-709-naming-limits.md): a phone names only a cat it
 // has met, at most 3 a day, and never with a web link or phone number.
 describe("SYC-709: naming limits", () => {
@@ -421,7 +426,8 @@ describe("SYC-709: naming limits", () => {
     expect(res.body).toEqual({ error: "Names can't include web links or phone numbers.", code: "NAME_HAS_LINK" });
     expect(await nameStatements(catId)).toHaveLength(0);
 
-    const owned = await namedCat(`${NAME}Own${randomBytes(2).toString("hex")}`);
+    // A counter spelt in letters: never repeats, never 5 digits in a row.
+    const owned = await namedCat(`${NAME}Own${letters(++ownedN)}`);
     await db.update(catsTable).set({ ownerDeviceId: device("owner") }).where(eq(catsTable.id, owned));
     const renamed = await request(app)
       .patch(`/api/cats/${owned}`)

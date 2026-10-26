@@ -168,7 +168,9 @@ PYEOF
 printf '{"version": %s}\n' "$VERSION" > "$OUT_DIR/current.json"
 
 echo "== Built v$VERSION:"
-(cd "$OUT_DIR" && find "v$VERSION" -type f | sort | head -40; echo "..."; du -sh "v$VERSION" "v$VERSION/fonts" "v$VERSION/fonts-app" "v$VERSION/syros.pmtiles")
+# Count, don't list: `| head` closes the pipe early, and under pipefail the
+# upstream sort's SIGPIPE fails the whole build (first CI run, 25 Oct 2026).
+(cd "$OUT_DIR" && echo "$(find "v$VERSION" -type f | wc -l | tr -d ' ') files"; du -sh "v$VERSION" "v$VERSION/fonts" "v$VERSION/fonts-app" "v$VERSION/syros.pmtiles")
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
   echo "DRY_RUN=1: not uploading. The GitHub Action uploads v$VERSION, then current.json last."
 fi

@@ -67,7 +67,7 @@ describe('Retake photo on the New spot screen', () => {
   });
 
   it('the back arrow, which also discards the photo, waits for a save too', () => {
-    const back = between('onPress={clearPhoto}', 'name="chevron-left"');
+    const back = between('onPress={confirmStartAgain}', 'name="chevron-left"');
     expect(back).toMatch(/disabled=\{submitting\}/);
     // SYC-415 review: it discards the extras too, so it is never read as
     // "Retake photo" (the visible Retake button keeps them).
