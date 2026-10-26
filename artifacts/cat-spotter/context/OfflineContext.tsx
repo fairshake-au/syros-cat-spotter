@@ -58,6 +58,7 @@ import {
   type PendingSighting,
 } from '../lib/offlineQueue';
 import type { ExtraRole } from '@/lib/extraPhotos';
+import { addKept, keptSentItem, reviewNews, shouldKeepSent, type SentAnswer } from '@/lib/keptAtSend';
 
 export type { PendingSighting };
 export { QueueWriteError, isQueueWriteError } from '@/lib/queueStore';
@@ -79,6 +80,20 @@ export type EnqueueInput = Omit<
   photoBase64: string;
   extraPhotos?: EnqueueExtra[];
 };
+
+/** SYC-186: a spot already sent, to be kept in the list as well. */
+export interface EnqueueSentInput {
+  localId: string;
+  photoUri: string;
+  photoBase64: string;
+  lat: number;
+  lng: number;
+  /** Capture time. */
+  createdAt: string;
+  answer: SentAnswer;
+  extraPhotos?: EnqueueExtra[];
+  hintCatId?: number;
+}
 
 /**
  * SYC-415: `extraNotKept` is true when an extra photo couldn't be stored
@@ -114,6 +129,15 @@ interface OfflineContextValue {
    * on the phone: the replay builds its body field by field and never reads it.
    */
   enqueue: (item: EnqueueInput, options?: { hintCatId?: number | null }) => Promise<EnqueueResult>;
+  /**
+   * SYC-186: keep a spot that was just SENT in the list too, so leaving
+   * "Have we met?" never loses it. Resolves to whether a copy was kept: false
+   * for a photo with no cat, true once written. Throws QueueWriteError when
+   * it could not be saved (a wipe in progress, a photo that can't be stored
+   * outside the list, an unreadable queue); the caller then falls back to
+   * today's behaviour for that spot.
+   */
+  enqueueSent: (input: EnqueueSentInput) => Promise<boolean>;
   /** Throws QueueWriteError if the change could not be saved. */
   remove: (localId: string) => Promise<void>;
   /** Put a failed item back in the queue and try syncing again. */
@@ -827,6 +851,60 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     [store],
   );
 
+  const enqueueSent = useCallback(
+    async (input: EnqueueSentInput) => {
+      if (!shouldKeepSent(input.answer)) return false;
+      await store.ready;
+      // "Delete my data" has syncing paused (SYC-63): nothing new may join.
+      if (pausedRef.current) throw new QueueWriteError('failed');
+      // The photo is stored OUTSIDE the list, never inline: an inline copy
+      // that never expires would fill the browser's small list storage and
+      // block real offline saves (spec §7). No store, no copy.
+      let saved: SavePhotoResult;
+      try {
+        saved = await savePendingPhoto(input.localId, input.photoUri, input.photoBase64);
+      } catch {
+        saved = { ok: false, reason: 'failed' };
+      }
+      if (!saved.ok) throw new QueueWriteError('failed');
+      const extraRefs: ExtraRef[] = [];
+      for (const extra of input.extraPhotos ?? []) {
+        try {
+          const es = await savePendingPhoto(
+            `${input.localId}-${extra.role}`,
+            extra.photoUri,
+            extra.photoBase64,
+          );
+          if (es.ok) extraRefs.push({ role: extra.role, photoUri: es.ref });
+        } catch {
+          // The spot is kept with the photos that could be stored.
+        }
+      }
+      const item = keptSentItem({
+        localId: input.localId,
+        photoUri: saved.ref,
+        lat: input.lat,
+        lng: input.lng,
+        createdAt: input.createdAt,
+        answer: input.answer,
+        extraPhotos: extraRefs,
+        hintCatId: input.hintCatId,
+      });
+      try {
+        await store.mutate((list) => {
+          if (pausedRef.current) throw new QueueWriteError('failed');
+          return addKept(list, item);
+        }, 'user');
+      } catch (err) {
+        deletePendingPhoto(saved.ref).catch(() => {});
+        for (const ref of extraRefs) deletePendingPhoto(ref.photoUri).catch(() => {});
+        throw err;
+      }
+      return true;
+    },
+    [store],
+  );
+
   const remove = useCallback(
     async (localId: string) => {
       let removed: PendingSighting | undefined;
@@ -1031,10 +1109,9 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     setReviewPromptVisible(false);
   }, []);
 
-  const reviewReadyCount = useMemo(
-    () => pending.filter((p) => p.status === 'review').length,
-    [pending],
-  );
+  // SYC-186: a spot kept when it was sent live is not news (spec §7), so the
+  // banner and the tab badge count only spots that have just been checked.
+  const reviewReadyCount = useMemo(() => reviewNews(pending).length, [pending]);
 
   // Hide the prompt automatically once nothing is left to review.
   useEffect(() => {
@@ -1051,6 +1128,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       readOnly,
       pending,
       enqueue,
+      enqueueSent,
       remove,
       retry,
       updateReview,
@@ -1076,6 +1154,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       readOnly,
       pending,
       enqueue,
+      enqueueSent,
       remove,
       retry,
       updateReview,
