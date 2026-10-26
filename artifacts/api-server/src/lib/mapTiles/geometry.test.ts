@@ -6,7 +6,6 @@ import {
   inIsland,
   isTileAllowed,
   islandTileRange,
-  ISLAND_BOX,
   latToTileY,
   lngToTileX,
   MAX_ZOOM,
@@ -153,14 +152,6 @@ describe("the island box and the zoom range", () => {
     expect(isTileAllowed({ z: 11, x: r12.minX >> 1, y: r12.minY >> 1 })).toBe(false);
     expect(isTileAllowed({ z: 20, x: r12.minX << 8, y: r12.minY << 8 })).toBe(false);
     expect(isTileAllowed({ z: 12, x: 2330.5, y: 1587 })).toBe(false);
-  });
-
-  it("knows where the island is", () => {
-    expect(inIsland(ERMOUPOLI)).toBe(true);
-    expect(inIsland({ lat: ISLAND_BOX.maxLat + 0.001, lng: 24.94 })).toBe(false);
-    expect(inIsland({ lat: 37.44, lng: ISLAND_BOX.minLng - 0.001 })).toBe(false);
-    expect(inIsland({ lat: 37.9, lng: 23.7 })).toBe(false); // Athens
-    expect(inIsland({ lat: Number.NaN, lng: 24.94 })).toBe(false);
   });
 
   it("every quick area is on Syros, at a zoom the map shows", () => {

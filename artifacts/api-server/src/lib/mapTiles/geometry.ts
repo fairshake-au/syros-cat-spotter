@@ -3,13 +3,10 @@
 // is limited to, the picture sizes a phone or a computer is shown, and the
 // one function that turns a tap on a picture into a position.
 
-/** Syros, the app's own box (artifacts/cat-spotter/lib/offlineTiles.ts). */
-export const ISLAND_BOX = {
-  minLat: 37.36,
-  maxLat: 37.53,
-  minLng: 24.85,
-  maxLng: 25.01,
-} as const;
+// The island box and inIsland live in lib/island.ts; re-exported here until
+// the map code that imports them is deleted (SYC-705 Phase 2).
+import { ISLAND_BOX, inIsland, type Position } from "../island";
+export { ISLAND_BOX, inIsland, type Position };
 
 /**
  * Zoom 12 shows most of the island in four pictures; zoom 19 is where a
@@ -54,11 +51,6 @@ export interface Tile {
 
 /** What the map shows: the zoom and its top-left tile. */
 export type View = Tile;
-
-export interface Position {
-  lat: number;
-  lng: number;
-}
 
 const toRad = (deg: number) => (deg * Math.PI) / 180;
 const toDeg = (rad: number) => (rad * 180) / Math.PI;
@@ -106,18 +98,6 @@ export function isTileAllowed(t: Tile): boolean {
   if (t.z < MIN_ZOOM || t.z > MAX_ZOOM) return false;
   const r = islandTileRange(t.z);
   return t.x >= r.minX && t.x <= r.maxX && t.y >= r.minY && t.y <= r.maxY;
-}
-
-/** Is this position on Syros (inside the island box, edges included). */
-export function inIsland(p: Position): boolean {
-  return (
-    Number.isFinite(p.lat) &&
-    Number.isFinite(p.lng) &&
-    p.lat >= ISLAND_BOX.minLat &&
-    p.lat <= ISLAND_BOX.maxLat &&
-    p.lng >= ISLAND_BOX.minLng &&
-    p.lng <= ISLAND_BOX.maxLng
-  );
 }
 
 /**

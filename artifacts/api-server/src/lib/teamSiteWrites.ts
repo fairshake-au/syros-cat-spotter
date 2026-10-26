@@ -2,7 +2,7 @@ import { coloniesTable, db, feedingSitesTable } from "@workspace/db";
 import { and, asc, eq, sql, type AnyColumn } from "drizzle-orm";
 import { colonyFilter, type Visible } from "./guardianView";
 import { recordMappingEvent } from "./mappingEvents";
-import { inIsland } from "./mapTiles/geometry";
+import { inIsland } from "./island";
 
 // The team's Feeding sites pages, write side (SYC-209 PR 3.3; spec §2.3 to
 // §2.5, §4.5, §8, §11.2; plan K8). Every function takes the person doing it

@@ -115,8 +115,9 @@ export interface MapOptions {
   lang?: string;
 }
 
-/** Where a map opens: the middle of the island, zoom 12. */
-export const ISLAND_CENTRE: Position = { lat: 37.445, lng: 24.93 };
+/** Where a map opens: the middle of the island, zoom 12 (defined in lib/island.ts). */
+export { ISLAND_CENTRE } from "../island";
+import { ISLAND_CENTRE } from "../island";
 export const START_ZOOM = 12;
 
 export const DEFAULT_TAP_ACTION = "/api/team/map/tap";
