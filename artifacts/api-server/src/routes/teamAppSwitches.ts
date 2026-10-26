@@ -4,6 +4,7 @@ import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
 import { SwitchRefused, setDonateAddress, setFactShown, switchDonationOff, switchesNow } from "../lib/appSwitches";
 import { renderAppSwitchesPage, APP_SWITCHES_DONE, APP_SWITCHES_PATH } from "../lib/teamPages/appSwitchesPage";
+import { renderConfirmPage } from "../lib/teamPages/confirm";
 
 // The App switches page (SYC-383): the Help feed a cat button's address and
 // the starter facts' Shown / Hidden. Team-only: `edit_app_switches` is
@@ -35,6 +36,27 @@ router.get("/team/app-switches", requireTeam("edit_app_switches"), async (req: R
 router.post("/team/app-switches/donation", ...formRoute("edit_app_switches"), async (req: Request, res: Response) => {
   const turnOff = str(body(req)["do"]) === "off";
   const typed = str(body(req)["address"]);
+  // Turning off reaches every visitor, so the page asks first (SYC-738).
+  // Turning on stays one tap. The JSON route acts in one step, as before.
+  if (turnOff && str(body(req)["confirm"]) !== "1" && !wantsJson(req)) {
+    return void res.type("html").send(
+      renderConfirmPage({
+        title: "Turn the Help feed a cat button off?",
+        lines: [
+          "The Help feed a cat button disappears for every visitor within about a minute.",
+          "Visitors still see the words about feeding, with no button and no figures.",
+          "You can turn it back on here.",
+        ],
+        action: `${APP_SWITCHES_PATH}/donation`,
+        fields: { do: "off" },
+        yes: "Yes, turn the button off",
+        cancelHref: APP_SWITCHES_PATH,
+        cancelLabel: "Back to App switches",
+        personName: teamPerson(res).name,
+        active: "settings",
+      }),
+    );
+  }
   try {
     if (turnOff) await switchDonationOff();
     else await setDonateAddress(typed);

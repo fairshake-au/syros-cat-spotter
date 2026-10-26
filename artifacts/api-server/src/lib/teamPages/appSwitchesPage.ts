@@ -1,6 +1,7 @@
 import { escapeHtml as esc } from "./escape";
 import { backLink, SETTINGS_PATH } from "./backLink";
 import { renderPage } from "./layout";
+import { pageIntro, howFold, whatHappens } from "./help";
 import { FACT_WORDS } from "./appSwitchFacts";
 import { DEFAULT_DONATE_ADDRESS, EXPECTED_DONATE_HOST } from "../appSwitches";
 
@@ -81,7 +82,13 @@ export function renderAppSwitchesPage(o: AppSwitchesPageOptions): string {
     beforeTitle: backLink(SETTINGS_PATH, "Settings"),
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
-      '<p class="hint">A change reaches phones within about a minute. Nothing here needs a new version of the app.</p>' +
+      pageIntro("Two things the public app shows, which you can change without a new version of the app.") +
+      whatHappens("These switches change the public app for everyone, within about a minute. Agree a change with the team first.", { warn: true }) +
+      howFold([
+        'Help feed a cat button: while a visitor waits for a photo match, the app asks them not to feed the cats. It also shows "€1 feeds a cat for a day. €30 feeds one for a month." Those are the figures. With the button off, visitors see the words with no button and no figures.',
+        'Starter facts: short facts about street cats that the app shows while it looks for a match. Hide a fact to stop it appearing.',
+        "A change reaches phones within about a minute.",
+      ], { words: false }) +
       donationSection(o) +
       `<h2 id="facts">Starter facts</h2><p class="hint">${shownCount} of ${FACT_WORDS.length} shown. These appear while the app looks for a match.</p>` +
       "<ul>" +
