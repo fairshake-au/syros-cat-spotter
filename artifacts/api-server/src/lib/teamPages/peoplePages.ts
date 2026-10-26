@@ -1,6 +1,7 @@
 import { backLink } from "./backLink";
 import { renderPage } from "./layout";
 import { escapeHtml as esc } from "./escape";
+import { pageIntro, howFold, whatHappens } from "./help";
 import { LIVE_LANGUAGES } from "./strings";
 import { RELATIONSHIP_LABELS, type PersonView } from "../people/screen";
 import { SCOPE_RELATIONSHIPS } from "@workspace/db";
@@ -184,9 +185,10 @@ function actions(p: PersonView): string {
     `<a class="pbtn" href="${PEOPLE}/${id}/roles">Change roles and colonies</a>` +
     post(`${PEOPLE}/${id}/sign-out`, "Sign out everywhere") +
     `<details class="confirm"><summary>Mark as left</summary>` +
-    `<p>They are signed out at once, and any invitations they sent are withdrawn.</p>${warn}` +
+    `<p>They are signed out at once, and any invitations they sent are withdrawn. The other managers are told.</p>${warn}` +
     post(`${PEOPLE}/${id}/left`, "Yes, mark as left", "danger go") +
-    `</details></div>`
+    `</details></div>` +
+    whatHappens("Sign out everywhere ends their sign-in on every phone and computer. They can sign in again later and are not told. Mark as left removes their access and tells the other managers.")
   );
 }
 
@@ -312,7 +314,7 @@ export function renderPeoplePage(o: {
     `<nav class="tabs" aria-label="People tabs">` +
     `<a href="${PEOPLE}"${o.tab === "people" ? ' class="on" aria-current="page"' : ""}>People (${o.people.length})</a>` +
     `<a href="${PEOPLE}?tab=left"${o.tab === "left" ? ' class="on" aria-current="page"' : ""}>Left (${o.left.length})</a></nav>`;
-  let body = renderDone(o.done) + tabs;
+  let body = pageIntro("Everyone who can use the dashboard or the cat guardian pages. Invite adds someone by email.") + renderDone(o.done) + tabs;
   if (o.tab === "left") {
     body +=
       (o.left.length === 0
@@ -321,6 +323,16 @@ export function renderPeoplePage(o: {
           o.left.map((p) => card(p)).join(""));
   } else {
     body +=
+      howFold(
+        [
+          "Joined: they accepted the invitation and can sign in.",
+          "Invited: the invitation email has gone out. It stays open for 14 days.",
+          "Expired: the 14 days ran out before they accepted. Resend gives a fresh 14 days.",
+          "Not sent yet: the invitation is saved but the email has not gone out. It keeps trying.",
+          "Changing someone's roles or colonies emails the other managers.",
+        ],
+        { summary: "What the labels mean" },
+      ) +
       inviteForm(o.colonies) +
       `<h2>Everyone</h2>` +
       (o.people.length === 0 ? `<p class="empty">Nobody is on the list.</p>` : o.people.map((p) => card(p, p.id === o.openId)).join("")) +

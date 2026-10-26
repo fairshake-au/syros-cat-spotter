@@ -216,6 +216,14 @@ describe("People are short rows that open (SYC-619 §4.1)", () => {
     expect(summaryOf(html, m.id)).toContain('class="chip joined">Joined<');
   });
 
+  it("explains the page, the labels, and what sign out and mark as left do (SYC-739)", async () => {
+    const html = (await get("/api/team/people", susan)).text;
+    expect(html).toContain("Everyone who can use the dashboard or the cat guardian pages. Invite adds someone by email.");
+    expect(html).toContain("What the labels mean");
+    expect(html).toContain("It stays open for 14 days.");
+    expect(html).toContain("They can sign in again later and are not told.");
+  });
+
   it("no button sits outside an open fold, and none is in a summary", async () => {
     const html = (await get("/api/team/people", susan)).text;
     const listing = html.slice(html.indexOf("<h2>Everyone</h2>"), html.indexOf("Joined in the last 7 days"));
