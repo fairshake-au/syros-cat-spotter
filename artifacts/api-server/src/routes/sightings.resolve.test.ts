@@ -424,6 +424,8 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
       .set("X-Device-Secret", RESOLVE_SECRET)
       .send({ deviceId: device, catId });
     expect(second.status).toBe(409);
+    // SYC-186: the phone tells "already handled" from a name clash (also 409, NAME_TAKEN) by this code.
+    expect(second.body.code).toBe("RESOLVED");
 
     const [profile] = await db
       .select()
