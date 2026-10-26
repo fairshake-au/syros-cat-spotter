@@ -1,40 +1,51 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Image,
-  PanResponder,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type LayoutChangeEvent,
-} from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { LocationPickerProps } from './LocationPicker';
+import { Button } from '@/components/purropolis/Button';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
-import {
-  clampZoom,
-  latLngAtOffset,
-  visibleTiles,
-  type LatLng,
-} from '@/lib/mapTiles';
+import { useMapLibre } from '@/components/map/useMapLibre.web';
+import type { LatLng } from '@/lib/mercator';
 
 const START_ZOOM = 17;
-// Movement under this many pixels is a tap, not a drag.
-const TAP_SLOP = 6;
 // SYC-509: one arrow-key press moves the map this many pixels (Shift: 4x).
 const KEY_STEP = 32;
-// Tiles drawn beyond each edge, so a long drag doesn't show grey gaps before
-// the map recentres on release.
-const DRAG_MARGIN = 384;
+// Marks camera moves the picker makes for the person (a key press, a tap's
+// recentre), so their 'moveend' is reported like a drag's. MapLibre copies
+// event data onto the move's events.
+const PICKER_MOVE = 'pickerMove';
+// The browser's own limit on finding the position once allowed, and ours
+// for the whole ask (including a permission prompt nobody answers).
+const LOCATE_TIMEOUT_MS = 10_000;
+const LOCATE_GIVE_UP_MS = 15_000;
+// GeolocationPositionError.PERMISSION_DENIED.
+const PERMISSION_DENIED = 1;
+// A second tap this soon and this close is the other half of a double tap.
+const DOUBLE_TAP_MS = 500;
+const DOUBLE_TAP_PX = 10;
+// Closer than this, a centre is the same spot (the echo of our own onChange).
+const SAME_SPOT = 1e-9;
+
+function sameSpot(a: LatLng, b: LatLng): boolean {
+  return (
+    Math.abs(a.latitude - b.latitude) <= SAME_SPOT && Math.abs(a.longitude - b.longitude) <= SAME_SPOT
+  );
+}
 
 /**
  * Web pan-to-pick, matching the native picker: the pin stays in the middle
  * and the user drags the map underneath it, or taps a spot to bring it to
- * the pin. The map is drawn from OpenStreetMap tiles directly, because the
- * embedded OSM iframe this replaced could be dragged but never told us where
- * it had been dragged to — testers moved the map and the sighting was still
- * saved where they were standing.
+ * the pin (SYC-705: drawn by MapLibre from our own Syros map file).
+ *
+ * The parent hears the new centre once per move the person makes: on the
+ * 'moveend' of a drag (MapLibre puts `originalEvent` on those), of a tap's
+ * recentre, or of an arrow-key press. Never for the picker's own move when
+ * the parent changes `latitude`/`longitude`, and never for a zoom that
+ * leaves the centre where it was.
+ *
+ * Without WebGL (or if the map can't download) the person can still give a
+ * place: "Use where I am now" asks the browser for their position.
  */
 export function LocationPicker({
   latitude,
@@ -46,34 +57,23 @@ export function LocationPicker({
   const colors = useColors();
   const { t } = useLanguage();
   const resolvedPinColor = pinColor ?? colors.accent;
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  const [zoom, setZoom] = useState(START_ZOOM);
   const [center, setCenter] = useState<LatLng>({ latitude, longitude });
-  // During a drag the map follows the finger without reporting every frame;
-  // the parent hears about the new centre once, on release.
-  const [dragOffset, setDragOffset] = useState({ dx: 0, dy: 0 });
+  const [locating, setLocating] = useState(false);
+  // Why "Use where I am now" didn't work: location refused, or not found.
+  const [locProblem, setLocProblem] = useState<'off' | 'notFound' | null>(null);
 
-  // Refs for the gesture handlers, which are created once.
+  const { containerRef, map, failed } = useMapLibre({
+    center,
+    zoom: START_ZOOM,
+    interactive: true,
+    rotate: false,
+    // Our keys, not MapLibre's: see onKeyDown.
+    keyboard: false,
+  });
+
   const centerRef = useRef(center);
-  const zoomRef = useRef(zoom);
-  const surfaceRef = useRef<View>(null);
   const onChangeRef = useRef(onChange);
-  centerRef.current = center;
-  zoomRef.current = zoom;
   onChangeRef.current = onChange;
-
-  // Follow the parent if it moves the location itself (for example, a fresh
-  // GPS fix before the user has touched the map), but not the echo of our own
-  // onChange.
-  useEffect(() => {
-    const c = centerRef.current;
-    if (
-      Math.abs(c.latitude - latitude) > 1e-9 ||
-      Math.abs(c.longitude - longitude) > 1e-9
-    ) {
-      setCenter({ latitude, longitude });
-    }
-  }, [latitude, longitude]);
 
   const commit = (next: LatLng) => {
     // Update the ref now, so key repeats faster than a render still add up.
@@ -81,50 +81,88 @@ export function LocationPicker({
     setCenter(next);
     onChangeRef.current(next);
   };
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        // Keep the gesture: otherwise the page scrolls instead of the map.
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderMove: (_e, g) => setDragOffset({ dx: g.dx, dy: g.dy }),
-        onPanResponderRelease: (e, g) => {
-          setDragOffset({ dx: 0, dy: 0 });
-          const moved = Math.abs(g.dx) > TAP_SLOP || Math.abs(g.dy) > TAP_SLOP;
-          if (moved) {
-            // Dragging the map right brings what was to the left under the pin.
-            commit(latLngAtOffset(centerRef.current, zoomRef.current, -g.dx, -g.dy));
-            return;
-          }
-          // A tap: bring the tapped spot to the pin. Measured against the map
-          // surface itself, because the event's own location is relative to
-          // whichever tile image was under the finger.
-          const node = surfaceRef.current as unknown as HTMLElement | null;
-          const { pageX, pageY } = e.nativeEvent;
-          if (!node?.getBoundingClientRect) return;
-          if (typeof pageX !== 'number' || typeof pageY !== 'number') return;
-          const rect = node.getBoundingClientRect();
-          const x = pageX - window.scrollX - rect.left;
-          const y = pageY - window.scrollY - rect.top;
-          commit(
-            latLngAtOffset(
-              centerRef.current,
-              zoomRef.current,
-              x - rect.width / 2,
-              y - rect.height / 2,
-            ),
-          );
-        },
-        onPanResponderTerminate: () => setDragOffset({ dx: 0, dy: 0 }),
-      }),
-    [],
-  );
+  // True while the picker moves the map for its own reasons. Real jumpTo
+  // first stops any glide or tap ease, which fires that move's moveend (still
+  // marked as the person's) at the half-way spot; that must not be reported.
+  const selfMove = useRef(false);
+  const moveQuietly = (move: () => void) => {
+    selfMove.current = true;
+    try {
+      move();
+    } finally {
+      selfMove.current = false;
+    }
+  };
+
+  // Follow the parent if it moves the location itself (for example, a fresh
+  // GPS fix before the user has touched the map), but not the echo of our own
+  // onChange. The parent's spot wins over any move still under way.
+  useEffect(() => {
+    const next = { latitude, longitude };
+    if (sameSpot(centerRef.current, next)) return;
+    centerRef.current = next;
+    setCenter(next);
+    if (map) moveQuietly(() => map.jumpTo({ center: [longitude, latitude] }));
+  }, [map, latitude, longitude]);
+
+  useEffect(() => {
+    if (!map) return;
+    // MapLibre makes its canvas a tab stop and a region labelled "Map"; the
+    // labelled surface around it is the one tab stop and the one name.
+    // (Here, not in useMapLibre: the cats map keeps its canvas focusable for
+    // MapLibre's own keys, and a focusable element must not be aria-hidden.)
+    const canvas = map.getCanvas();
+    canvas.setAttribute('tabindex', '-1');
+    canvas.setAttribute('aria-hidden', 'true');
+    const onMoveEnd = (e: { originalEvent?: unknown; [PICKER_MOVE]?: boolean }) => {
+      if (selfMove.current) return;
+      if (!e.originalEvent && !e[PICKER_MOVE]) return;
+      const c = map.getCenter();
+      const next = { latitude: c.lat, longitude: c.lng };
+      if (sameSpot(centerRef.current, next)) return;
+      commitRef.current(next);
+    };
+    // A double tap would zoom about the tapped point and carry the pin off
+    // it; the picker has + and - and pinch instead.
+    map.doubleClickZoom.disable();
+    // Wheel and trackpad zoom would also zoom about the pointer (and trap the
+    // page's scroll); + and - and the keys remain. A pinch zooms about the
+    // pin, wherever the fingers are. Rotation stays off (enable() keeps it so).
+    map.scrollZoom.disable();
+    map.touchZoomRotate.enable({ around: 'center' });
+    // A tap: bring the tapped spot to the pin; its moveend reports it. The
+    // second tap of a double tap hits the same screen point, which by then
+    // shows a different spot (the map is moving), so it is ignored.
+    let lastTap = { x: Number.NaN, y: Number.NaN, at: -Infinity };
+    const onClick = (e: { lngLat: { lng: number; lat: number }; point: { x: number; y: number } }) => {
+      const now = Date.now();
+      const repeat =
+        now - lastTap.at < DOUBLE_TAP_MS &&
+        Math.hypot(e.point.x - lastTap.x, e.point.y - lastTap.y) < DOUBLE_TAP_PX;
+      lastTap = { x: e.point.x, y: e.point.y, at: now };
+      if (repeat) return;
+      map.easeTo({ center: e.lngLat }, { [PICKER_MOVE]: true });
+    };
+    map.on('moveend', onMoveEnd);
+    map.on('click', onClick);
+    return () => {
+      map.off('moveend', onMoveEnd);
+      map.off('click', onClick);
+    };
+  }, [map]);
+
+  // Zoom about the pin, at once, so quick presses add up.
+  const zoomBy = (delta: number) => {
+    map?.jumpTo({ zoom: map.getZoom() + delta });
+  };
 
   // SYC-509: a non-drag way to place the pin for keyboard users. Arrow keys
   // move the map under the fixed pin, as a drag would; + and - zoom.
   const onKeyDown = (e: { key: string; shiftKey?: boolean; preventDefault: () => void }) => {
+    if (!map) return;
     const step = e.shiftKey ? KEY_STEP * 4 : KEY_STEP;
     const moves: Record<string, [number, number]> = {
       ArrowUp: [0, -step],
@@ -135,28 +173,76 @@ export function LocationPicker({
     const move = moves[e.key];
     if (move) {
       e.preventDefault();
-      commit(latLngAtOffset(centerRef.current, zoomRef.current, move[0], move[1]));
+      // Not animated, so the next press starts from where this one landed.
+      map.panBy(move, { animate: false }, { [PICKER_MOVE]: true });
     } else if (e.key === '+' || e.key === '=') {
       e.preventDefault();
-      setZoom((z) => clampZoom(z + 1));
+      zoomBy(1);
     } else if (e.key === '-') {
       e.preventDefault();
-      setZoom((z) => clampZoom(z - 1));
+      zoomBy(-1);
     }
   };
 
-  const onLayout = (e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout;
-    setSize({ width, height });
+  const mounted = useRef(true);
+  // Our own backstop: a browser may never answer (an ignored or dismissed
+  // permission prompt doesn't start its timeout), and the button must not
+  // stay stuck on "Getting your location…".
+  const giveUp = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopWaiting = () => {
+    if (giveUp.current !== null) clearTimeout(giveUp.current);
+    giveUp.current = null;
   };
+  useEffect(() => {
+    // Set here too, not only in useRef: StrictMode unmounts and remounts.
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      stopWaiting();
+    };
+  }, []);
 
-  const tiles = visibleTiles(center, zoom, size.width, size.height, DRAG_MARGIN);
+  const useWhereIAm = () => {
+    setLocProblem(null);
+    const geo = typeof navigator !== 'undefined' ? navigator.geolocation : undefined;
+    if (!geo) {
+      setLocProblem('notFound');
+      return;
+    }
+    setLocating(true);
+    stopWaiting();
+    giveUp.current = setTimeout(() => {
+      giveUp.current = null;
+      if (!mounted.current) return;
+      setLocating(false);
+      setLocProblem('notFound');
+    }, LOCATE_GIVE_UP_MS);
+    geo.getCurrentPosition(
+      (pos) => {
+        if (!mounted.current) return;
+        stopWaiting();
+        setLocating(false);
+        // Even after the backstop gave up: an answer is still the person's spot.
+        setLocProblem(null);
+        commitRef.current({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      },
+      (err) => {
+        if (!mounted.current) return;
+        stopWaiting();
+        setLocating(false);
+        // Only a refusal is fixed from the address bar; unavailable or timed
+        // out just needs another go.
+        setLocProblem(err?.code === PERMISSION_DENIED ? 'off' : 'notFound');
+      },
+      { enableHighAccuracy: true, timeout: LOCATE_TIMEOUT_MS },
+    );
+  };
 
   const zoomButton = (name: 'plus' | 'minus', delta: number, label: string) => (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      onPress={() => setZoom((z) => clampZoom(z + delta))}
+      onPress={() => zoomBy(delta)}
       style={[styles.zoomBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
     >
       <Feather name={name} size={18} color={colors.foreground} />
@@ -164,42 +250,58 @@ export function LocationPicker({
   );
 
   return (
-    <View style={[styles.container, style]} onLayout={onLayout}>
-      <View
-        ref={surfaceRef}
-        style={[styles.surface, webOnly.noTouchScroll]}
-        {...panResponder.panHandlers}
-        focusable
-        // "application" lets screen readers pass the arrow keys through to the map.
-        role="application"
-        accessibilityLabel={t('mapPickerLabel')}
-        // react-native-web passes keydown through on a focusable View.
-        {...({ onKeyDown } as object)}
-      >
-        {/* Tiles ignore the pointer so the browser never starts dragging an
-            image, and every touch lands on the surface that owns the gesture. */}
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {tiles.map((t) => (
-            <Image
-              key={t.key}
-              source={{ uri: t.url }}
-              style={[
-                styles.tile,
-                { left: t.left + dragOffset.dx, top: t.top + dragOffset.dy },
-              ]}
+    <View style={[styles.container, style]}>
+      {failed === null ? (
+        <>
+          <View
+            style={styles.surface}
+            focusable
+            // "application" lets screen readers pass the arrow keys through to the map.
+            role="application"
+            accessibilityLabel={t('mapPickerLabel')}
+            // react-native-web passes keydown through on a focusable View.
+            {...({ onKeyDown } as object)}
+          >
+            {/* MapLibre owns this element's children; React puts nothing in it. */}
+            <View ref={containerRef} style={StyleSheet.absoluteFill} />
+          </View>
+          {/* Fixed centre pin; pointerEvents none so the gesture reaches the map */}
+          <View pointerEvents="none" style={styles.pinWrap} testID="location-picker-pin">
+            <Feather
+              name="map-pin"
+              size={36}
+              color={resolvedPinColor}
+              style={[styles.pin, webOnly.noPointer]}
             />
-          ))}
+          </View>
+          <View style={styles.zoomControls}>
+            {zoomButton('plus', 1, t('mapZoomIn'))}
+            {zoomButton('minus', -1, t('mapZoomOut'))}
+          </View>
+        </>
+      ) : (
+        <View style={[styles.failure, { backgroundColor: colors.card }]}>
+          <Text style={[styles.failureText, { color: colors.cardForeground }]}>
+            {t(failed === 'no-webgl' ? 'mapNoWebgl' : 'mapLoadFailed')}
+          </Text>
+          <Button
+            variant="secondary"
+            size="sm"
+            onPress={useWhereIAm}
+            disabled={locating}
+            iconLeft={<Feather name="crosshair" size={14} color={colors.secondaryForeground} />}
+          >
+            {locating ? t('locating') : t('claimUseHere')}
+          </Button>
+          {locProblem && (
+            <Text style={[styles.failureText, { color: colors.mutedForeground }]}>
+              {t(locProblem === 'off' ? 'mapLocOffWeb' : 'mapLocNotFound')}
+            </Text>
+          )}
         </View>
-      </View>
-      {/* Fixed centre pin; pointerEvents none so the gesture reaches the map */}
-      <View pointerEvents="none" style={styles.pinWrap}>
-        <Feather name="map-pin" size={36} color={resolvedPinColor} style={styles.pin} />
-      </View>
-      <View style={styles.zoomControls}>
-        {zoomButton('plus', 1, t('mapZoomIn'))}
-        {zoomButton('minus', -1, t('mapZoomOut'))}
-      </View>
+      )}
       <Text
+        pointerEvents="none"
         style={[styles.coords, { backgroundColor: colors.card, color: colors.cardForeground }]}
       >
         {center.latitude.toFixed(5)}, {center.longitude.toFixed(5)}
@@ -213,13 +315,12 @@ export function LocationPicker({
 
 // Web-only style keys that the React Native style types do not know about.
 const webOnly = {
-  noTouchScroll: { touchAction: 'none', cursor: 'grab', userSelect: 'none' } as object,
+  noPointer: { pointerEvents: 'none' } as object,
 };
 
 const styles = StyleSheet.create({
   container: { overflow: 'hidden', borderRadius: 16, backgroundColor: '#e8e4dc' },
   surface: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
-  tile: { position: 'absolute', width: 256, height: 256 },
   pinWrap: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
@@ -236,6 +337,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  failure: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 12,
+  },
+  failureText: { fontSize: 14, fontFamily: 'Inter_500Medium', textAlign: 'center' },
   coords: {
     position: 'absolute',
     left: 8,

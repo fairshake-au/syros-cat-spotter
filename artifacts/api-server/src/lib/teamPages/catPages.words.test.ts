@@ -130,7 +130,7 @@ describe("the team cat page's words (SYC-362 D3)", () => {
       "How we know",
       "History (3)",
       "Newest first. A change marked wrong stays here, crossed out, with what replaced it.",
-      "Every change is saved with your name.",
+      "Every change is saved with your name and shows in the History tab.",
       "under “Update this cat”",
       // SYC-513: the died button, and the tidied older forms.
       '<button type="submit">This cat has died</button>',

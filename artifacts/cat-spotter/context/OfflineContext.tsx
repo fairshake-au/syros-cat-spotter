@@ -58,6 +58,7 @@ import {
   type PendingSighting,
 } from '../lib/offlineQueue';
 import type { ExtraRole } from '@/lib/extraPhotos';
+import { addKept, keptSentItem, reviewNews, shouldKeepSent, type SentAnswer } from '@/lib/keptAtSend';
 
 export type { PendingSighting };
 export { QueueWriteError, isQueueWriteError } from '@/lib/queueStore';
@@ -79,6 +80,20 @@ export type EnqueueInput = Omit<
   photoBase64: string;
   extraPhotos?: EnqueueExtra[];
 };
+
+/** SYC-186: a spot already sent, to be kept in the list as well. */
+export interface EnqueueSentInput {
+  localId: string;
+  photoUri: string;
+  photoBase64: string;
+  lat: number;
+  lng: number;
+  /** Capture time. */
+  createdAt: string;
+  answer: SentAnswer;
+  extraPhotos?: EnqueueExtra[];
+  hintCatId?: number;
+}
 
 /**
  * SYC-415: `extraNotKept` is true when an extra photo couldn't be stored
@@ -114,6 +129,15 @@ interface OfflineContextValue {
    * on the phone: the replay builds its body field by field and never reads it.
    */
   enqueue: (item: EnqueueInput, options?: { hintCatId?: number | null }) => Promise<EnqueueResult>;
+  /**
+   * SYC-186: keep a spot that was just SENT in the list too, so leaving
+   * "Have we met?" never loses it. Resolves to whether a copy was kept: false
+   * for a photo with no cat, true once written. Throws QueueWriteError when
+   * it could not be saved (a wipe in progress, a photo that can't be stored
+   * outside the list, an unreadable queue); the caller then falls back to
+   * today's behaviour for that spot.
+   */
+  enqueueSent: (input: EnqueueSentInput) => Promise<boolean>;
   /** Throws QueueWriteError if the change could not be saved. */
   remove: (localId: string) => Promise<void>;
   /** Put a failed item back in the queue and try syncing again. */
@@ -369,7 +393,13 @@ function markStatus(localId: string, patch: Partial<PendingSighting>) {
     );
 }
 
-type SyncOutcome = 'synced' | 'network' | 'needs_sign_in' | 'moved' | 'done';
+type SyncOutcome =
+  | 'synced'
+  | 'network'
+  | 'needs_sign_in'
+  | 'moved'
+  | 'rate_limited'
+  | 'done';
 
 /**
  * What a failed photo save means for a sighting the user is saving now.
@@ -407,6 +437,21 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const syncInFlightRef = useRef<Promise<void> | null>(null);
   const networkStateRef = useRef<UploadNetworkState | null>(null);
   const needsSignInRef = useRef(false);
+  // SYC-196: after a 429 ("too many, try later") nothing is sent until
+  // `rateLimitedUntilRef`, and one timer brings the sync back then. The count
+  // of 429s in a row sets the backoff; any sent sighting resets it.
+  const rateLimitedUntilRef = useRef(0);
+  const rateLimitCountRef = useRef(0);
+  const rateLimitWaitMsRef = useRef(0);
+  const rateLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+      rateLimitTimerRef.current = null;
+      rateLimitedUntilRef.current = 0;
+    },
+    [],
+  );
 
   const setNeedsSignIn = useCallback((value: boolean) => {
     needsSignInRef.current = value;
@@ -526,7 +571,17 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           );
           return 'done';
         }
-        const decision = classifySyncFailure(err, item.failCount);
+        const decision = classifySyncFailure(
+          err,
+          item.failCount,
+          rateLimitCountRef.current + 1,
+        );
+        if (decision.kind === 'rate_limited') {
+          // Not a failure: the item stays queued exactly as it was.
+          rateLimitCountRef.current += 1;
+          rateLimitWaitMsRef.current = decision.waitMs;
+          return 'rate_limited';
+        }
         if (decision.kind === 'needs_sign_in') {
           // The pre-launch gate's own 401, not the device-secret check's.
           // The item is left exactly as it was — queued, no error flagged —
@@ -571,6 +626,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       // clears it — otherwise every reconnect/foreground event would hammer
       // the gate with the same doomed request.
       if (needsSignInRef.current) return;
+      // Waiting out a 429 (SYC-196); the timer brings the sync back.
+      if (Date.now() < rateLimitedUntilRef.current) return;
       // Paused while a person deletes their data (SYC-63).
       if (pausedRef.current) return;
       syncingRef.current = true;
@@ -589,7 +646,11 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
             .items()
             .filter((p) => p.status === 'queued')
             .map((p) => p.localId);
-          if (queued.length === 0) return;
+          if (queued.length === 0) {
+            // Nothing left to send: the next 429 starts from the short wait.
+            rateLimitCountRef.current = 0;
+            return;
+          }
           setSyncing(true);
           for (const localId of queued) {
             // Pausing stops the sync between items, never mid-upload.
@@ -601,7 +662,21 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
               // One item's failure never stops the others.
               outcome = 'done';
             }
-            if (outcome === 'synced') syncedAny = true;
+            if (outcome === 'synced') {
+              syncedAny = true;
+              rateLimitCountRef.current = 0;
+            }
+            if (outcome === 'rate_limited') {
+              const waitMs = rateLimitWaitMsRef.current;
+              rateLimitedUntilRef.current = Date.now() + waitMs;
+              if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+              rateLimitTimerRef.current = setTimeout(() => {
+                rateLimitTimerRef.current = null;
+                rateLimitedUntilRef.current = 0;
+                void syncNowRef.current();
+              }, waitMs);
+              break;
+            }
             if (outcome === 'network' || outcome === 'moved') break;
             if (outcome === 'needs_sign_in') {
               if (Platform.OS === 'web') {
@@ -772,6 +847,60 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         throw err;
       }
       return { extraNotKept, keptRoles: extraRefs.map((r) => r.role) };
+    },
+    [store],
+  );
+
+  const enqueueSent = useCallback(
+    async (input: EnqueueSentInput) => {
+      if (!shouldKeepSent(input.answer)) return false;
+      await store.ready;
+      // "Delete my data" has syncing paused (SYC-63): nothing new may join.
+      if (pausedRef.current) throw new QueueWriteError('failed');
+      // The photo is stored OUTSIDE the list, never inline: an inline copy
+      // that never expires would fill the browser's small list storage and
+      // block real offline saves (spec §7). No store, no copy.
+      let saved: SavePhotoResult;
+      try {
+        saved = await savePendingPhoto(input.localId, input.photoUri, input.photoBase64);
+      } catch {
+        saved = { ok: false, reason: 'failed' };
+      }
+      if (!saved.ok) throw new QueueWriteError('failed');
+      const extraRefs: ExtraRef[] = [];
+      for (const extra of input.extraPhotos ?? []) {
+        try {
+          const es = await savePendingPhoto(
+            `${input.localId}-${extra.role}`,
+            extra.photoUri,
+            extra.photoBase64,
+          );
+          if (es.ok) extraRefs.push({ role: extra.role, photoUri: es.ref });
+        } catch {
+          // The spot is kept with the photos that could be stored.
+        }
+      }
+      const item = keptSentItem({
+        localId: input.localId,
+        photoUri: saved.ref,
+        lat: input.lat,
+        lng: input.lng,
+        createdAt: input.createdAt,
+        answer: input.answer,
+        extraPhotos: extraRefs,
+        hintCatId: input.hintCatId,
+      });
+      try {
+        await store.mutate((list) => {
+          if (pausedRef.current) throw new QueueWriteError('failed');
+          return addKept(list, item);
+        }, 'user');
+      } catch (err) {
+        deletePendingPhoto(saved.ref).catch(() => {});
+        for (const ref of extraRefs) deletePendingPhoto(ref.photoUri).catch(() => {});
+        throw err;
+      }
+      return true;
     },
     [store],
   );
@@ -980,10 +1109,9 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     setReviewPromptVisible(false);
   }, []);
 
-  const reviewReadyCount = useMemo(
-    () => pending.filter((p) => p.status === 'review').length,
-    [pending],
-  );
+  // SYC-186: a spot kept when it was sent live is not news (spec §7), so the
+  // banner and the tab badge count only spots that have just been checked.
+  const reviewReadyCount = useMemo(() => reviewNews(pending).length, [pending]);
 
   // Hide the prompt automatically once nothing is left to review.
   useEffect(() => {
@@ -1000,6 +1128,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       readOnly,
       pending,
       enqueue,
+      enqueueSent,
       remove,
       retry,
       updateReview,
@@ -1025,6 +1154,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       readOnly,
       pending,
       enqueue,
+      enqueueSent,
       remove,
       retry,
       updateReview,

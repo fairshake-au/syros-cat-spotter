@@ -100,8 +100,19 @@ describe("the App switches page", () => {
     expect(await stored(URL_KEY)).toEqual(before);
   });
 
-  it("turns the button off (the app reads no link) and offers the standard address to turn it back on", async () => {
-    const res = await send(team.cookie, "donation", { do: "off" });
+  it("asks before turning the button off, and changes nothing until Yes (SYC-738)", async () => {
+    const ask = await send(team.cookie, "donation", { do: "off" });
+    expect(ask.status).toBe(200);
+    expect(ask.text).toContain("Turn the Help feed a cat button off?");
+    expect(ask.text).toContain("within a couple of minutes, the next time they open the app");
+    expect(ask.text).toContain("You can turn it back on here.");
+    expect(ask.text).toContain('name="confirm" value="1"');
+    expect(ask.text).toContain(`href="${PATH}"`);
+    expect(await stored(URL_KEY)).toBe("https://syroscats.com/donations");
+  });
+
+  it("turns the button off once confirmed (the app reads no link) and offers the standard address to turn it back on", async () => {
+    const res = await send(team.cookie, "donation", { do: "off", confirm: "1" });
     expect([res.status, res.headers["location"]]).toEqual([303, `${PATH}?done=off`]);
     expect(await stored(URL_KEY)).toBe("");
     expect((await settings()).donateUrl).toBeNull();
@@ -109,6 +120,23 @@ describe("the App switches page", () => {
     expect(after.text).toContain("<strong>Off</strong>");
     expect(after.text).toContain('value="https://syroscats.com/donations"');
     expect(after.text).toContain("Turn the button on");
+  });
+
+  it("turning the button on stays one tap, and the JSON route still acts in one step", async () => {
+    await put(URL_KEY, "");
+    const on = await send(team.cookie, "donation", { do: "on", address: "https://syroscats.com/donations" });
+    expect(on.status).toBe(303);
+    expect((await settings()).donateUrl).toBe("https://syroscats.com/donations");
+    const json = await request(app).post(`${PATH}/donation`).set("Origin", TEAM_ORIGIN).set("Cookie", team.cookie).set("Accept", "application/json").type("form").send({ do: "off" });
+    expect(json.status).toBe(200);
+    expect((await settings()).donateUrl).toBeNull();
+  });
+
+  it("explains the page in plain words", async () => {
+    const res = await page(team.cookie);
+    expect(res.text).toContain("These switches change the public app for everyone. Each phone sees a change within a couple of minutes");
+    expect(res.text).toContain("How this page works");
+    expect(res.text).toContain("€1 feeds a cat for a day");
   });
 
   it("shows and hides one fact without touching the others", async () => {

@@ -311,7 +311,7 @@ describe("the wider header is the Cats grid's and the Find from a photo form's a
     const res = await request(app).get("/api/team/cats").set("Cookie", cookie).set("Accept", "text/html");
     expect(res.status).toBe(200);
     expect(res.headers["content-security-policy"]).toBe(
-      "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+      "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
     );
     expect(res.headers["content-security-policy"]).toBe(WIDE_CSP);
   });
@@ -368,7 +368,7 @@ describe("the wider header is the Cats grid's and the Find from a photo form's a
   it("every other page keeps today's header, byte for byte", async () => {
     const res = await request(app).get("/api/team").set("Cookie", cookie);
     expect(res.headers["content-security-policy"]).toBe(
-      "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+      "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
     );
   });
 });

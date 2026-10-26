@@ -183,6 +183,24 @@ describe('the same photo twice', () => {
     expect(hit).toMatchObject({ sightingId: 12 });
   });
 
+  it('SYC-186: a sent spot kept in the list carries its card, opens it, and is freed when the card is discarded', async () => {
+    const { storage } = memoryStorage();
+    await recordRecentPhoto(
+      storage,
+      entryForOutcome('sent', SECOND, fp, { sightingId: 12, isCatPhoto: true, localId: 'K1' })!,
+      NOW,
+    );
+    const list = await loadRecentPhotos(storage, NOW);
+    const hit = findAlreadyLogged(fp, list, new Set(['K1']));
+    expect(hit).toMatchObject({ sightingId: 12, localId: 'K1' });
+    expect(alreadyLoggedDestination(hit!, [{ localId: 'K1', status: 'review' }])).toEqual({
+      kind: 'review',
+      localId: 'K1',
+    });
+    // The card was discarded: the same photo can be sent again.
+    expect(findAlreadyLogged(fp, list, new Set())).toBeNull();
+  });
+
   it('a different photo is not caught', async () => {
     const { storage } = memoryStorage();
     await recordRecentPhoto(storage, entryForOutcome('sent', SECOND, fp, { sightingId: 12, isCatPhoto: true })!, NOW);

@@ -61,6 +61,7 @@ import {
 import { reviewReportHandoff } from "@/lib/reportHandoff";
 import { deleteReviewPhoto } from "@/lib/pendingPhotos";
 import { goToSpotTab } from "@/lib/goToSpotTab";
+import { markLeftUnfinished } from "@/lib/leftUnfinished";
 import { useBannerAreaReserve } from "@/lib/bannerArea";
 import {
   buildReviewParams,
@@ -163,6 +164,7 @@ export default function ReviewScreen() {
     setHintAnswered(false);
     setHintMessage(null);
     setHintRefused(false);
+    setCantFinish(null);
   }, [sightingId]);
   const queuedItem = data?.localId
     ? pending.find((p) => p.localId === data.localId)
@@ -242,6 +244,8 @@ export default function ReviewScreen() {
   const [pickerFilterOn, setPickerFilterOn] = useState<boolean | undefined>(undefined);
   const [pickerMessage, setPickerMessage] = useState<string | null>(null);
   const [sendMessage, setSendMessage] = useState<string | null>(null);
+  // SYC-186: set when the server says this spot can never be finished from here.
+  const [cantFinish, setCantFinish] = useState<null | "handled" | "gone">(null);
   const [nameTakenCat, setNameTakenCat] = useState<NameTakenCat | null>(null);
   // Data spine PR 7: the optional questions on the reward screen.
   const [answers, setAnswers] = useState<SightingAnswers>(NO_ANSWERS);
@@ -280,6 +284,9 @@ export default function ReviewScreen() {
     deviceId,
     sightingId: data?.sightingId ?? null,
     localId: data?.localId,
+    // SYC-186: a spot kept when it was sent live is still a live send, so the
+    // feeding nudge still shows; only a spot saved for later is not.
+    keptAtSend: queuedItem?.keptAtSend,
     screen: openedOn,
   });
   const feedNudge = resultNudge.show ? (
@@ -358,6 +365,14 @@ export default function ReviewScreen() {
   // review list; one sent straight away has no entry there, so that spotter
   // is asked to keep the screen open instead (noSignalMessage).
   const noSignal = noSignalMessage({ inReviewList: queuedItem != null });
+  // SYC-186: the server says this spot can never be finished from here. With
+  // nothing expiring, the spotter must always be able to clear it.
+  const noteCantFinish = (reason: "handled" | "gone") => {
+    setBusy(false);
+    setCantFinish(reason);
+    // Finished or sent on elsewhere: nothing left to keep.
+    if (reason === "handled" && data.localId) void remove(data.localId).catch(() => {});
+  };
   const confirm = async (
     catId: number,
     pickedFrom?: PickedFrom | "name_prompt",
@@ -379,6 +394,7 @@ export default function ReviewScreen() {
     } catch (err) {
       const failure = classifyResolveError(err);
       if (failure.kind === "offline") say(noSignal);
+      else if (failure.kind === "cant-finish") noteCantFinish(failure.reason);
       else if (failure.kind === "not-nearby") say("pickerNotNearby");
       else say("error");
       setBusy(false);
@@ -471,6 +487,7 @@ export default function ReviewScreen() {
       else if (failure.kind === "syr-shaped") setNameError("syr");
       else if (failure.kind === "has-link") setNameError("link");
       else if (failure.kind === "offline") setSendMessage(noSignal);
+      else if (failure.kind === "cant-finish") noteCantFinish(failure.reason);
       setBusy(false);
     }
   };
@@ -494,6 +511,8 @@ export default function ReviewScreen() {
   };
 
   const close = () => {
+    // SYC-186: left a kept spot unfinished: the Spot tab says where it is.
+    if (queuedItem?.keptAtSend && !result) markLeftUnfinished();
     if (router.canGoBack()) router.back();
     else router.replace("/(tabs)");
   };
@@ -519,6 +538,30 @@ export default function ReviewScreen() {
       contentFit="cover"
     />
   );
+
+  // ----- SYC-186: a spot that can't be finished -----
+  if (cantFinish) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.openFailed} testID="review-cant-finish">
+          <View accessibilityLiveRegion="polite" aria-live="polite" style={styles.openFailedText}>
+            <Text style={[styles.subtitle, { color: colors.foreground, textAlign: "center" }]}>
+              {t(cantFinish === "handled" ? "unfinishedAlreadyDone" : "unfinishedCantFinish")}
+            </Text>
+          </View>
+          <Button
+            variant="primary"
+            size="lg"
+            wrapLabel
+            style={{ maxWidth: "100%" }}
+            onPress={() => (cantFinish === "gone" ? void retake() : goToSpotTab(router))}
+          >
+            {cantFinish === "gone" ? t("discard") : t("back")}
+          </Button>
+        </View>
+      </View>
+    );
+  }
 
   // ----- Success state -----
   if (result) {
@@ -720,6 +763,8 @@ export default function ReviewScreen() {
         if (failure.kind === "offline") {
           // Not a refusal: "Yes" stays, to try again with signal.
           setHintMessage(noSignal);
+        } else if (failure.kind === "cant-finish") {
+          noteCantFinish(failure.reason);
         } else {
           setHintMessage(failure.kind === "not-nearby" ? "hintNotNearby" : "hintCantAdd");
           setHintRefused(true);

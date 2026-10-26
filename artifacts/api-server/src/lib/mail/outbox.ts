@@ -23,6 +23,7 @@ import {
 } from "./send";
 import { keepSafeSendDeps, type KeepSafeMail } from "./suppression";
 import { confirmUrl, forgetUrl, restoreUrl } from "../keepSafe/links";
+import { buildMatcherDown, buildMatcherUp } from "../matcherAlertEmail";
 import { REPORTER_PURPOSES, processReporterMail } from "../welfare/reporterEmail";
 import { PERSON_OUTBOX_PURPOSES, processPersonMail } from "./personOutbox";
 
@@ -649,6 +650,40 @@ async function processIssueDigest(row: MailOutboxRow, payload: IssuePayload): Pr
   return "sent";
 }
 
+/** SYC-532: "the look-alike check is failing" and "working again". Fixed words and numbers only. */
+async function processMatcherAlert(row: MailOutboxRow): Promise<"sent" | "retry" | "failed"> {
+  const payload = (row.payload ?? {}) as { kind?: string; failed?: number; windowMinutes?: number };
+  if (payload.kind !== "down" && payload.kind !== "up") {
+    await markFailed(row, "nothing_to_send");
+    return "failed";
+  }
+  // A late "failing" email is worse than none, and a bad address won't mend by
+  // retrying hourly for ever (review of #347).
+  if (Date.now() - row.createdAt.getTime() > 60 * 60_000) {
+    await markFailed(row, "stale");
+    return "failed";
+  }
+  const message =
+    payload.kind === "down"
+      ? buildMatcherDown(Number(payload.failed ?? 0), Number(payload.windowMinutes ?? 15))
+      : buildMatcherUp();
+  const result = await sendMail({
+    purpose: "matcher_alert",
+    ...message,
+    idempotencyKey: `matcher-${payload.kind}-${row.id}-${row.createdAt.getTime()}`,
+  });
+  if (!result.ok) {
+    if (result.reason === "bad_recipient" || result.reason === "recipient_not_allowed") {
+      await markFailed(row, result.reason);
+      return "failed";
+    }
+    await markRetry(row, `${result.reason}${result.detail ? `: ${result.detail}` : ""}`);
+    return "retry";
+  }
+  await markSent(row, result.providerMessageId, payload);
+  return "sent";
+}
+
 async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "failed"> {
   try {
     if ((KEEP_SAFE_OUTBOX_PURPOSES as readonly string[]).includes(row.purpose)) {
@@ -663,6 +698,9 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
     }
     if (row.purpose === "issue_alert") {
       return await processIssueAlert(row);
+    }
+    if (row.purpose === "matcher_alert") {
+      return await processMatcherAlert(row);
     }
     if (row.purpose === "welfare_alert" && (row.payload as Payload | null)?.kind === UNCHECKED_WAITING) {
       return await processUncheckedWaiting(row);

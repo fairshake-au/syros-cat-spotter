@@ -184,6 +184,7 @@ interface Row {
  */
 const TABLE: Record<string, Row> = {
   "GET /api/team": { why: "the welfare queue: view_welfare_queue, island-only" },
+  "GET /api/team/new-cats-to-check": { why: "New cats to check (SYC-531): view_welfare_queue like Home, island-only" },
   "GET /api/team/home": { why: "Home (SYC-396 PR 2.1): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "GET /api/team/me": {
     why: "who is signed in: the dashboard door, no capability",
@@ -294,6 +295,7 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/app-switches/donation": { why: "edit_app_switches: island-only; the walk's empty address is a 400 for the team, and changes nothing" },
   "POST /api/team/app-switches/fact": { why: "edit_app_switches: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   "GET /api/team/settings": { why: "Settings (SYC-694): view_welfare_queue, island-only, so every cat guardian gets the 403" },
+  "GET /api/team/words": { why: "Words we use (SYC-739): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony on the colony it goes into, or for a take-out the one it leaves, from the record (PR 4.2); an unreadable form has no colony" },
   // SYC-209 PR 3.1, the team map. Never the door's "any colony" check. The Map page and its
   // tap stay the team's; the picture route opens to anyone who sees a colony (PR 4.1: a

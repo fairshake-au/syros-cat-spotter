@@ -1,4 +1,5 @@
 import type { HomeData, HomeNeeds, HomeToCheck, MonthFigures, Section, TrapNext } from "../dashboard/home";
+import type { MatcherStatus } from "../matcherHealth";
 import type { Headline } from "../dashboard/countedCats";
 import type { TrapColony } from "../dashboard/trapNext";
 import { wholePct } from "../dashboard/colonyFigures";
@@ -7,6 +8,7 @@ import type { QueueReport } from "../welfareQueue";
 import { placeLabel } from "../areas/placeLabel";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
+import { WORDS_PATH, pageIntro } from "./help";
 import { markBar } from "./marks";
 import { flagChip } from "./colonyPages";
 import { wordsIn } from "./words";
@@ -51,19 +53,37 @@ function reportLine(r: QueueReport, now: Date): string {
 }
 
 /** A count tile: the number and its words read as one link ("4 ear clips to check"). Only above zero. */
-const tile = (href: string, n: number, one: string, many: string) =>
+const tile = (href: string, n: number, one: string, many: string, gloss = "") =>
   n > 0
-    ? `<li><a class="htile" href="${esc(href)}"><span class="hn">${n}</span> <span>${esc(plural(n, one, many))}</span></a></li>`
+    ? `<li><a class="htile" href="${esc(href)}"><span class="hn">${n}</span> <span>${esc(plural(n, one, many))}</span></a>` +
+      (gloss ? `<span class="hint">${esc(gloss)}</span>` : "") +
+      "</li>"
     : "";
 
 /** A count tile for a figure of its own: the tile, nothing, or the "isn't available" line where it would sit. */
-const countTile = (s: Section<number>, href: string, one: string, many: string): { html: string; n: number } =>
+const countTile = (s: Section<number>, href: string, one: string, many: string, gloss = ""): { html: string; n: number } =>
   s.ok
-    ? { html: tile(href, s.value, one, many), n: s.value }
+    ? { html: tile(href, s.value, one, many, gloss), n: s.value }
     : { html: `<li class="hwide">${unavailable}</li>`, n: 0 };
 
+/**
+ * SYC-532: shown while the look-alike check is failing (5 or more in 15
+ * minutes). Fixed words and two numbers; no photo, cat, person or position.
+ * Only a figure that couldn't be read hides it, so it errs towards telling.
+ */
+export function matcherBanner(s: Section<MatcherStatus>): string {
+  if (!s.ok || !s.value.failing) return "";
+  const { failed, windowMinutes } = s.value;
+  return (
+    '<p class="notice down" id="matcher-down" role="status"><strong>The look-alike check is failing.</strong> ' +
+    `${esc(`${failed} photo checks failed in the last ${windowMinutes} minutes. Spotters are being told we couldn't check their photo, and some may name a cat that is already known.`)} ` +
+    '<a class="hlink" href="/api/team/new-cats-to-check">See new cats to check</a></p>'
+  );
+}
+
 function todaySection(needs: HomeNeeds, toCheck: HomeToCheck, now: Date): string {
-  const parts: string[] = [];
+  const banner = matcherBanner(needs.matcher);
+  const parts: string[] = banner ? [banner] : [];
   const tiles: string[] = [];
   let waiting = 0;
   let allRead = true;
@@ -85,26 +105,27 @@ function todaySection(needs: HomeNeeds, toCheck: HomeToCheck, now: Date): string
       parts.push(`<p class="notice"><a class="hlink" href="${QUEUE}#unchecked">${esc(words)}</a></p>`); // 44px tap (§12.5)
     }
     const more = n.lines.length > 0;
-    tiles.push(tile(QUEUE, n.otherOpen, more ? "more report" : "open report", more ? "more reports" : "open reports"));
+    tiles.push(tile(QUEUE, n.otherOpen, more ? "more report" : "open report", more ? "more reports" : "open reports", "Reports from the public that nobody has closed yet."));
     waiting += n.linesTotal + n.unchecked + n.otherOpen;
   }
 
   const figures = [
-    countTile(needs.issuesOpen, `${QUEUE}#issues`, "problem with a photo or name", "problems with photos or names"),
+    countTile(needs.issuesOpen, `${QUEUE}#issues`, "problem with a photo or name", "problems with photos or names", "Problems the public reported with a cat's photo, name or page."),
     // Nothing writes awaiting_team yet (plan Decision 2): the tile stays hidden until something does.
-    countTile(needs.awaitingMatch, "/api/team/cats", "sighting to match", "sightings to match"),
-    countTile(toCheck.earClips, "/api/team/likely", "ear clip to check", "ear clips to check"),
-    countTile(toCheck.colour, "/api/team/colour-check", "cat for the colour check", "cats for the colour check"),
+    countTile(needs.awaitingMatch, "/api/team/cats", "sighting to match", "sightings to match", "A spotter's sighting that is waiting for the team to match it to a cat."),
+    countTile(toCheck.earClips, "/api/team/likely", "ear clip to check", "ear clips to check", "Cats a spotter thinks have a clipped ear. Look at the photo and confirm."),
+    countTile(toCheck.colour, "/api/team/colour-check", "cat for the colour check", "cats for the colour check", "Cats whose recorded colour or markings may not match their photos."),
+    countTile(toCheck.newCats, "/api/team/new-cats-to-check", "new cat to check for a duplicate", "new cats to check for duplicates", "New cats added when the look-alike check was down. They may already be in the app."),
   ];
   for (const f of figures) {
     tiles.push(f.html);
     waiting += f.n;
   }
-  allRead &&= [needs.issuesOpen, needs.awaitingMatch, toCheck.earClips, toCheck.colour].every((x) => x.ok);
+  allRead &&= [needs.issuesOpen, needs.awaitingMatch, toCheck.earClips, toCheck.colour, toCheck.newCats].every((x) => x.ok);
 
   const tileList = tiles.join("");
   if (tileList) parts.push(`<ul class="htiles">${tileList}</ul>`);
-  if (allRead && waiting === 0) parts.push(`<p class="empty" id="nothing">${esc(NOTHING_WAITING)}</p>`);
+  if (allRead && waiting === 0 && !banner) parts.push(`<p class="empty" id="nothing">${esc(NOTHING_WAITING)}</p>`);
   return `<section id="today"><h2>Today</h2>${parts.join("")}</section>`;
 }
 
@@ -141,6 +162,9 @@ function trapSection(s: Section<TrapNext>): string {
         : '<p class="empty">No street cats in any colony yet.</p>',
     );
   } else {
+    parts.push(
+      `<p class="hint">${esc("The colonies with the most street cats still to sterilise come first.")}</p>`,
+    );
     parts.push(`<ul class="trap">${t.colonies.map((c) => trapRow(c, t.priceEur)).join("")}</ul>`);
     parts.push(
       `<p class="hint">${esc(`To do: street cats not sterilised, not known, or probably sterilised. At the standard price of ${euroText(t.priceEur)} a cat.`)}</p>`,
@@ -205,6 +229,8 @@ const BATCHES_LINE = '<p id="vet-batches-link"><a class="hlink" href="/api/team/
 
 export function renderHomePage(d: HomeData, o: { personName: string; now: Date; costs?: boolean; batches?: boolean }): string {
   const body =
+    pageIntro("Your starting point. Today lists what needs a person; tap a number to open that list.") +
+    `<p class="hint">New here? <a class="hlink" href="${WORDS_PATH}">Words we use</a> explains the terms on these pages.</p>` +
     '<div class="hgrid">' +
     todaySection(d.needs, d.toCheck, o.now) +
     `<div class="hside">${trapSection(d.trapNext)}${o.batches === true ? BATCHES_LINE : ""}${progressSection(d.headline, d.month, o.costs === true)}</div>` +

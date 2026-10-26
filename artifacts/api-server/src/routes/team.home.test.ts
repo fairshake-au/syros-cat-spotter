@@ -98,8 +98,9 @@ const needsOf = (n: FlatNeeds): HomeNeeds => ({
   reports: ok({ lines: n.lines, linesTotal: n.linesTotal, otherOpen: n.otherOpen, unchecked: n.unchecked }),
   issuesOpen: ok(n.issuesOpen),
   awaitingMatch: ok(n.awaitingMatch),
+  matcher: ok({ failing: false, failed: 0, windowMinutes: 15 }),
 });
-const checkOf = (earClips: number, colour: number): HomeToCheck => ({ earClips: ok(earClips), colour: ok(colour) });
+const checkOf = (earClips: number, colour: number): HomeToCheck => ({ earClips: ok(earClips), colour: ok(colour), newCats: ok(0) });
 
 /** A full Home, built by hand: the headline is tested here, never by reading the shared island twice. */
 function full(over: Partial<HomeData> = {}): HomeData {
@@ -227,6 +228,13 @@ describe("renderHomePage", () => {
     expect(one).toContain("<span>more report</span>");
   });
 
+  it("has an intro, a Words we use link and a gloss under each tile (SYC-739)", () => {
+    const html = page(full());
+    expect(html).toContain('<p class="intro">Your starting point.');
+    expect(html).toContain('href="/api/team/words">Words we use</a>');
+    expect(between(html, "today", "trap")).toContain('<span class="hint">Cats a spotter thinks have a clipped ear.');
+  });
+
   it("with no lines above, other reports are 'open reports', not 'more'", () => {
     const d = full({ needs: needsOf({ ...noNeeds, otherOpen: 3 }) });
     expect(page(d)).toContain('<span class="hn">3</span> <span>open reports</span>');
@@ -240,7 +248,7 @@ describe("renderHomePage", () => {
   });
 
   it("a failed check-list read never says nothing is waiting either", () => {
-    const html = page(full({ needs: needsOf(noNeeds), toCheck: { earClips: { ok: false }, colour: ok(0) } }));
+    const html = page(full({ needs: needsOf(noNeeds), toCheck: { earClips: { ok: false }, colour: ok(0), newCats: ok(0) } }));
     const today = between(html, "today", "trap");
     expect(today).toContain(UNAVAILABLE_HTML);
     expect(today).not.toContain(NOTHING_WAITING);

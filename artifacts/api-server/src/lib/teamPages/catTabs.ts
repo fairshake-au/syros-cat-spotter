@@ -53,20 +53,20 @@ const NONE_OPEN = ":not(:has(.catpanel:target,.catpanel :target))";
  * inside @supports selector(:has(a)), so a browser without :has() hides
  * nothing and shows every panel, one under another.
  */
-export const CAT_TABS_CSS = `.cattabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:#f6f4ef;border-bottom:1px solid #d9d5ca;margin:24px -12px 0;padding:8px 12px;display:flex;gap:8px;overflow-x:auto;white-space:nowrap}
-.cattabs a{display:inline-flex;align-items:center;flex:none;min-height:44px;padding:0 16px;border-radius:999px;background:#fff;border:1px solid #d9d5ca;text-decoration:none;font-weight:600;font-size:15px;color:#1d1d1b}
+export const CAT_TABS_CSS = `.cattabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--page);border-bottom:1px solid var(--line);margin:24px -12px 0;padding:8px 12px;display:flex;gap:8px;overflow-x:auto;white-space:nowrap}
+.cattabs a{display:inline-flex;align-items:center;flex:none;min-height:44px;padding:0 16px;border-radius:999px;background:var(--card);border:1px solid var(--line);text-decoration:none;font-weight:600;font-size:15px;color:var(--ink)}
 .catpanel>h2{margin-top:20px}
 #history,#photos,#appearance,#issue-strip,#map,#vet-visits,.catpanel,[id^="s-"],[id^="sg-"],[id^="p-"],[id^="vv-"],[id^="a-"]{scroll-margin-top:72px}
 @supports selector(:has(a)){
 .catpanel{display:none}
 .catpanel:target,.catpanel:has(:target){display:block}
 main${NONE_OPEN} #tab-history{display:block}
-main:has(${open("history")}) .cattabs a[href="#tab-history"],main${NONE_OPEN} .cattabs a[href="#tab-history"]{background:#0b4553;border-color:#0b4553;color:#fff}
+main:has(${open("history")}) .cattabs a[href="#tab-history"],main${NONE_OPEN} .cattabs a[href="#tab-history"]{background:var(--accent-hover);border-color:var(--accent-strong);color:var(--on-accent)}
 main:has(${open("history")}) .cattabs a[href="#tab-history"]::after,main${NONE_OPEN} .cattabs a[href="#tab-history"]::after{content:"" / ", open"}
 ${CAT_TAB_IDS.filter((id) => id !== "history")
   .map(
     (id) =>
-      `main:has(${open(id)}) .cattabs a[href="#tab-${id}"]{background:#0b4553;border-color:#0b4553;color:#fff}\n` +
+      `main:has(${open(id)}) .cattabs a[href="#tab-${id}"]{background:var(--accent-hover);border-color:var(--accent-strong);color:var(--on-accent)}\n` +
       `main:has(${open(id)}) .cattabs a[href="#tab-${id}"]::after{content:"" / ", open"}`,
   )
   .join("\n")}

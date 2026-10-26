@@ -58,6 +58,22 @@ const colonyHref = (id: number) => `/api/team/colonies/${id}`;
  */
 const mapLinks = (v: { island?: boolean }) => v.island === true;
 
+// ── In-page help (SYC-739) ─────────────────────────────────────────────────
+
+/**
+ * "What Public, Private and Retired mean": a closed fold with the help.ts
+ * markup. The words come from the catalogue because a cat guardian reads
+ * these pages too. The QR line is the team's only, and only where a site is public.
+ */
+function howSites({ w }: Words, qr: boolean): string {
+  const keys: WordKey[] = ["sites.how.private", "sites.how.public", "sites.how.retired", ...(qr ? (["sites.how.qr"] as WordKey[]) : [])];
+  return (
+    `<details class="hownote howpage"><summary>${w("sites.how.title")}</summary>` +
+    keys.map((k) => `<p class="hint">${w(k)}</p>`).join("") +
+    `</details>`
+  );
+}
+
 // ── The list page ──────────────────────────────────────────────────────────
 
 /** "31 sites: 2 public, 28 private, 1 retired" (the retired part only when there are any). */
@@ -189,6 +205,7 @@ export function renderSitesPage(opts: SiteViewer & {
       // buttons, then the list. Everything above the map has fixed line
       // heights (see .mappage in layout.ts), so the map still starts on a
       // whole pixel.
+      `<p class="intro">${w(opts.island === false ? "sites.introOwn" : "sites.intro")}</p>` +
       `<p><strong>${esc(countLine(opts.counts, opts.lang))}</strong></p>` +
       retiredForm +
       `<h2>${w("sites.recentTitle")}</h2>` +
@@ -196,6 +213,7 @@ export function renderSitesPage(opts: SiteViewer & {
       (opts.note ? `<p class="warn">${esc(opts.note)}</p>` : "") +
       map +
       `<p class="hint">${w("sites.legend")}</p>` +
+      howSites(W, opts.island !== false && opts.counts.public > 0) +
       (opts.sighting ? `<p class="hint">${w("sites.sightingLegend")}</p>` : "") +
       (mayAdd
         ? `<form method="get" action="${SITES_PATH}/new" class="addsite"><button type="submit">${w("sites.add")}</button></form>`
@@ -438,8 +456,10 @@ export function renderSitePage(opts: SiteViewer & {
       // Below the map, so nothing of variable height sits above it (see .mappage).
       (opts.kept && mayAct ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
+      `<p class="intro">${w("site.intro")}</p>` +
       retired +
       visibility +
+      howSites(W, opts.island !== false && s.isPublic) +
       `<h2>${w("site.colony")}</h2>` +
       colony +
       `<h2>${w("site.notes")}</h2>` +

@@ -15,6 +15,7 @@ import { reasonLabel } from "../issues/alertEmail";
 import { ISSUE_OUTCOME_TEXT } from "../issues/teamActions";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
+import { howFold, pageIntro, whatHappens } from "./help";
 import { placeLabel } from "../areas/placeLabel";
 import { place } from "./position";
 import { firstWords } from "./noteWords";
@@ -148,7 +149,13 @@ function actionForms(
     `<p class="now">Now: ${esc(STATE[r.state])}</p>` +
     '<p class="label">Move this report to</p>' +
     closeHint +
-    `<div class="states">${buttons}</div></form>` +
+    `<div class="states">${buttons}</div>` +
+    (r.contactLeft
+      ? whatHappens(
+          "Done and Nothing needed close the report. If the reporter left an email, you see a confirm page first. They get one email, once they have confirmed their address. If we have already emailed them, nothing more is sent.",
+        )
+      : "") +
+    "</form>" +
     // Folded away so a phone isn't mostly empty note boxes.
     `<details class="notebox"${noteOpen ? " open" : ""}><summary>${r.teamNote ? "Change the team note" : "Add a team note"}</summary>` +
     `<form method="post" action="${esc(base)}/note">` +
@@ -464,7 +471,12 @@ function issueButtons(i: IssueReport): string {
     ? button("keep-hidden", "Keep hidden (Done)", true) +
       (i.photo.removed ? "" : button("restore", "Restore the photo (Nothing needed)", true))
     : button("hide", "Hide this photo", false);
-  return `<div class="actions issueacts"><p class="label">The photo</p><div class="states">${buttons}</div></div>`;
+  const effect = i.photo.hidden
+    ? i.photo.removed
+      ? ""
+      : whatHappens("Restore the photo makes it public again for everyone and closes this report as Nothing needed.", { warn: true })
+    : whatHappens("Hide this photo hides it from the public straight away. The report stays open.", { warn: true });
+  return `<div class="actions issueacts"><p class="label">The photo</p><div class="states">${buttons}</div>${effect}</div>`;
 }
 
 /** What happened after an Issues action, by the fixed key the route sent back. */
@@ -653,6 +665,18 @@ export function drawnReportIds(queue: WelfareQueue, issues?: IssuesSection): Set
   return new Set([...queue.open, ...queue.closed, ...queue.unchecked.reports, ...issueRows].map((r) => r.id));
 }
 
+const QUEUE_INTRO =
+  "Reports from the public about cats that may need help. Open one, decide what to do, then move it on: New, Looking at it, then Done or Nothing needed.";
+
+const QUEUE_HOW = [
+  "New: nobody has looked yet. Looking at it: someone is on it. Done: it has been dealt with. Nothing needed: no action was needed, for example it was a duplicate.",
+  "A team note is private. Only the team sees it, and the person who sent the report never does.",
+  "If the person who sent the report left an email, closing it as Done or Nothing needed shows a confirm page first. They get one email, once they have confirmed their address. If we have already emailed them, nothing more is sent.",
+  "Issues are problems the public reported with a cat's photo, name or page. They are at the bottom of the page.",
+  "Unchecked, or arrived while our spam check was down, means our spam check could not be reached when the report came in. Most are real, so look before you act.",
+  "Restore the photo makes a hidden photo public again.",
+];
+
 export function renderQueuePage(
   queue: WelfareQueue,
   personName: string,
@@ -691,6 +715,8 @@ export function renderQueuePage(
     banner: mailBanner(queue.mail),
     // The Issues section comes last: never above any welfare report (§5.3).
     body:
+      pageIntro(QUEUE_INTRO) +
+      howFold(QUEUE_HOW) +
       (kept ? keptLine() : "") +
       hiddenWaitingLine(issues) +
       `<h2>Waiting for the team (${queue.open.length})</h2>${openList}${closed}${uncheckedSection(queue, now, changedId, tied, island, canTie, noted, kept, openId)}` +

@@ -255,3 +255,18 @@ describe("the Pattern filter (SYC-435; coat spec §15.2)", () => {
     expect(tabby.href).toContain("colours=black");
   });
 });
+
+describe("help on the Cats list (SYC-739)", () => {
+  it("has an intro, a sterilised key, and says hidden cats are hidden", () => {
+    const html = render();
+    expect(html).toContain("Every cat the app knows about");
+    expect(html).toContain("Probably (ear clip seen)");
+    expect(html).toContain("hidden by default");
+    expect(html).toContain("Show them");
+  });
+
+  it("the empty state with no filters says those cats are hidden", () => {
+    const html = render({ items: [], total: 0 });
+    expect(html).toContain("are hidden unless you ask for them");
+  });
+});

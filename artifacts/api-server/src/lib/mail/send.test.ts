@@ -89,6 +89,7 @@ describe("sendMail", () => {
     expect(MAIL_PURPOSES.filter((p) => isPurposeEnabled(p))).toEqual([
       "welfare_alert",
       "issue_alert",
+      "matcher_alert",
       "public_verify",
       "report_ack",
       "report_outcome",
@@ -100,7 +101,7 @@ describe("sendMail", () => {
   });
 
   it("welfare alerts and restore links are in the never-shed group (spec §2.10; SYC-3 A7); an invitation can be shed (roles spec §8.5)", () => {
-    expect(NEVER_SHED_PURPOSES).toEqual(["welfare_alert", "restore_link"]);
+    expect(NEVER_SHED_PURPOSES).toEqual(["welfare_alert", "matcher_alert", "restore_link"]);
     expect(NEVER_SHED_PURPOSES).not.toContain("person_invite");
     expect(PURPOSE_RULES.person_invite).toMatchObject({
       identity: "transactional",

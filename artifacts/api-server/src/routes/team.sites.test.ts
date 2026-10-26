@@ -47,7 +47,7 @@ const MARIA = `vitest-sites-maria-${RUN}@example.com`;
 const VERA = `vitest-sites-vera-${RUN}@example.com`;
 const KEY = "vitest-sites-key-0123456789abcdef-0123456789";
 const EXPECTED_CSP =
-  "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+  "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 const MARKUP = `<img src=x onerror="alert(1)"> "q" 'x'`;
 
 let susan: string;
@@ -278,7 +278,7 @@ describe("the map on the Feeding sites page", () => {
     expect(html).toMatch(marker(pub.id, "public"));
     expect(html).toMatch(marker(priv.id, "private"));
     // The span-style CSS for the three looks is in the page.
-    expect(html).toContain(".pin.site-public{background:#b3261e}");
+    expect(html).toContain(".pin.site-public{background:var(--danger-fill)}");
     expect(html).toContain(".pin.site-retired{");
   });
 

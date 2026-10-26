@@ -43,9 +43,9 @@ describe("lineChart", () => {
   it("2px lines; the neutral total is grey ink at 55% with open points", () => {
     const svg = twoLines();
     for (const m of svg.matchAll(/<path [^>]*>/g)) expect(m[0]).toContain('stroke-width="2" vector-effect="non-scaling-stroke"');
-    expect(svg).toContain('stroke="#0a4d59"');
-    expect(svg).toMatch(/<path [^>]*stroke="#1d1d1b"[^>]*stroke-opacity="0.55"/);
-    expect(svg).toMatch(/<circle [^>]*fill="#fff" stroke="#1d1d1b"/);
+    expect(svg).toContain('stroke="#0f4a72"');
+    expect(svg).toMatch(/<path [^>]*stroke="#1b2a38"[^>]*stroke-opacity="0.55"/);
+    expect(svg).toMatch(/<circle [^>]*fill="#fff" stroke="#1b2a38"/);
   });
 
   it("escapes a label", () => {

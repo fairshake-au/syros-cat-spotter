@@ -13,7 +13,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const DIRS = ['app', 'components', 'context', 'hooks', 'lib'];
 
 // Allowed: map tiles from tile.openstreetmap.org, not our API.
-const ALLOW = new Set(['lib/offlineTiles.ts']);
+// lib/mapSource.ts: map data host, not our API — SYC-705.
+const ALLOW = new Set(['lib/offlineTiles.ts', 'lib/mapSource.ts']);
 
 const RULES: { name: string; re: RegExp; except?: Set<string> }[] = [
   { name: 'fetch(', re: /\bfetch\s*\(/ },

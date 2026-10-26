@@ -1,3 +1,4 @@
+import { reviewMatcherHealth } from "../lib/matcherHealth";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   AnswerSightingQuestionsBody,
@@ -367,6 +368,10 @@ async function computeMatchCandidates(
     noCatInAnyPhoto: matcherFailed ? null : !isCatPhoto,
     mixedCats: matcherFailed ? null : mixedCats,
   });
+
+  // SYC-532: tell the team when checks start failing, and when they recover.
+  // Never throws, and never changes the answer below.
+  await reviewMatcherHealth();
 
   // SYC-503: a failed check is never "no look-alikes". The phone reads
   // matchCheck first; isCatPhoto stays true only because nothing is known.
@@ -871,7 +876,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     return;
   }
   if (sighting.status === "resolved") {
-    res.status(409).json({ error: "Sighting already resolved" });
+    res.status(409).json({ error: "Sighting already resolved", code: "RESOLVED" });
     return;
   }
   // Ownership check. The supplied device id must name the sighting's owner AND
@@ -1129,7 +1134,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     });
   } catch (err: any) {
     if (err === ALREADY_RESOLVED) {
-      res.status(409).json({ error: "Sighting already resolved" });
+      res.status(409).json({ error: "Sighting already resolved", code: "RESOLVED" });
       return;
     }
     // Unique-index violation from a concurrent submission of the same name.

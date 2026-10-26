@@ -29,13 +29,14 @@ export function renderDiedPage(view: TeamCatView, personName: string, opts: Died
   const happens = [
     `The public will see “No longer with us” on ${name}'s page.`,
     `Nobody will get alerts or news about ${name} any more.`,
-    `${name} can't be claimed, and spotters can't pick ${name} by hand: the cat is greyed out in the list.`,
+    `${name} can't be claimed, and spotters can't pick ${name} by hand: the cat is greyed out in the cat picker in the public app.`,
     `If someone spots ${name} after the date below, ${name} will show as alive again, and you'll see that on this page. That includes a photo taken earlier but only sent once the spotter had signal.`,
     ...(hasOwner
       ? [
           `${name}'s owner stays. They aren't told, and they'll see “No longer with us” the next time they open the page.`,
         ]
       : []),
+    `If this is a mistake, you can undo it afterwards with Mark wrong on the entry in ${name}'s History.`,
   ];
   const f = opts.fields ?? {};
   const base = `/api/team/cats/${cat.id}`;

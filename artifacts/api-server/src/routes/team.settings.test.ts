@@ -48,8 +48,10 @@ describe("the Settings page (SYC-694)", () => {
   it("makes each whole card the link, its note included (SYC-698)", async () => {
     const res = await get(PATH, team.cookie);
     expect(res.text).toContain(
-      '<a href="/api/team/areas"><span class="name">Areas</span><span class="note">The place names used in labels and filters.</span></a>',
+      '<a href="/api/team/areas"><span class="name">Areas</span><span class="note">The place names shown on cats and in the Cats list filters.</span></a>',
     );
+    expect(res.text).toContain("How the app and dashboard behave. Each page says what it changes.");
+    expect(res.text).toContain("Changes are live for everyone.");
     expect(res.text.match(/<li id="[a-z-]+-link"><a href="[^"]+"><span class="name">[^<]+<\/span><span class="note">[^<]+<\/span><\/a><\/li>/g)).toHaveLength(3);
   });
 

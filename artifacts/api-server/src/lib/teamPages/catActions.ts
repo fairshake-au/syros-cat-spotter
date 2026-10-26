@@ -2,6 +2,7 @@ import type { LifeStatusValue } from "../resolve";
 import type { Capability } from "../capabilities";
 import type { TeamCatView } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
+import { howFold, whatHappens } from "./help";
 import type { KeptFields } from "./signedOutPage";
 
 // The buttons on the team's cat page: "Log a vet visit", "Update this cat" and
@@ -133,6 +134,7 @@ export function renderCatActions(
         '<fieldset><legend class="label">The cat…</legend>' +
         lifeChoices("status", "ls", null, ["street", "homed", "in_care"]) +
         "</fieldset>" +
+        '<p class="hint">This changes what the public app says about the cat. If the cat has died, use “This cat has died” instead.</p>' +
         // Owned cat (spec §7, SYC-362 D2): no box. Saving anything but "has a
         // home" asks first, on its own page, before the owner is removed.
         ((v.owner.has || v.owner.orphanedHome) && may("remove_owner")
@@ -216,7 +218,12 @@ export function renderCatActions(
       `<textarea class="text" id="nt-text" name="text" rows="4" required maxlength="${NOTE_CHARS}">${esc(noteText)}</textarea>` +
       '<button type="submit">Save note</button></form></details>'
     : "";
-  if (items.length === 0 && !died && !note) return vet ? `<div class="fixes" id="corrections">${notice}${vet}</div>` : notice;
+  // Said once, just below the buttons, so it is read before anything is saved.
+  const changeHelp =
+    whatHappens(
+      "Everything you change here is saved with your name and shows in the History tab. To undo a mistake, use Mark wrong on that change.",
+    ) + howFold(HOW_CHANGES, { summary: "How changes work", words: false });
+  if (items.length === 0 && !died && !note) return vet ? `<div class="fixes" id="corrections">${notice}${vet}${changeHelp}</div>` : notice;
   // The list opens by itself when a form in it was filled in again, or when
   // the page comes back from one of its saves (spec 3.2, "After a save").
   const inList = opts.done !== undefined && UPDATE_DONE.has(opts.done) && items.length > 0;
@@ -232,10 +239,17 @@ export function renderCatActions(
     list +
     note +
     died +
-    // "How changes work" is at the foot of History now (spec §3.2, SYC-602 PR 2).
+    changeHelp +
     "</div>"
   );
 }
+
+/** "How changes work", under the buttons (SYC-739); History's foot has the short version. */
+const HOW_CHANGES = [
+  "Every change is saved with your name and shows in the History tab. Nothing is deleted. A change with an older date won't override a newer one.",
+  "To undo a mistake, use Mark wrong on that change in the History tab. A change to the coat or markings is undone in the Coat and markings tab.",
+  "“Set by a spotter” means a spotter's report decided the answer. “Set automatically” means the app did. “Worked out from the sightings” means nobody has recorded it, so the app is going by the photos.",
+];
 
 const NOTE_CHARS = 2000;
 
