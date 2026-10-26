@@ -565,8 +565,10 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       HELD_EMAIL_KEY,
     ]);
     await clearHeldEmail();
-    await writeSecret(secret);
+    // Id first: a kill between the two leaves a new id with the old secret,
+    // which binds on first use, never the old id with a new secret (locked out).
     await writeId(id);
+    await writeSecret(secret);
     setDeviceSecretGetter(() => secret);
     setOwnedCatIds([]);
     setKeepSafeOfferState(null);
@@ -618,8 +620,8 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     await clearHeldEmail();
     const secret = await makeDeviceSecret();
     const id = await makeDeviceId();
-    await writeSecret(secret);
     await writeId(id);
+    await writeSecret(secret);
     // The new secret is in place before anything can send the new id.
     setDeviceSecretGetter(() => secret);
     setUsernameState(null);

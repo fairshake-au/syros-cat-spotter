@@ -82,19 +82,35 @@ async function readKey(SecureStore: SecureStoreModule, key: string): Promise<{ v
   return { value: old, fromSecure: false };
 }
 
+/**
+ * One identity operation at a time. Without this a start-up read that is
+ * still moving an old AsyncStorage copy across could finish after a reset or
+ * "start again" and write the stale value over the new one.
+ */
+let queue: Promise<unknown> = Promise.resolve();
+function inOrder<T>(work: () => Promise<T>): Promise<T> {
+  const run = queue.then(work, work);
+  queue = run.catch(() => undefined);
+  return run;
+}
+
 export type StoredIdentity = {
   id: string | null;
   secret: string | null;
   /**
-   * The id was read from secure storage (not moved across just now). After a
-   * delete and reinstall the app's own storage is empty, so the saved name and
+   * The id was read from secure storage (not moved across just now). This is
+   * true on every ordinary launch after the first move, not only after a
+   * reinstall: the caller asks the server only when it has no saved name.
+   * After a delete and reinstall the app's own storage is empty, so the saved name and
    * cats are gone from the phone while the server still has them; the caller
    * asks the server for the name when it has none locally.
    */
   recoveredFromSecure: boolean;
 };
 
-export async function readIdentity(): Promise<StoredIdentity> {
+export const readIdentity = (): Promise<StoredIdentity> => inOrder(readIdentityNow);
+
+async function readIdentityNow(): Promise<StoredIdentity> {
   const SecureStore = await secureStore();
   if (!SecureStore) {
     const [id, secret] = await Promise.all([AsyncStorage.getItem(ID_KEY), AsyncStorage.getItem(SECRET_KEY)]);
@@ -107,13 +123,17 @@ export async function readIdentity(): Promise<StoredIdentity> {
 }
 
 /** The saved id alone (the 410 handler reads it). */
-export async function readStoredId(): Promise<string | null> {
+export const readStoredId = (): Promise<string | null> => inOrder(readStoredIdNow);
+
+async function readStoredIdNow(): Promise<string | null> {
   const SecureStore = await secureStore();
   if (!SecureStore) return AsyncStorage.getItem(ID_KEY);
   return (await readKey(SecureStore, ID_KEY)).value;
 }
 
-async function writeKey(key: string, value: string): Promise<void> {
+const writeKey = (key: string, value: string): Promise<void> => inOrder(() => writeKeyNow(key, value));
+
+async function writeKeyNow(key: string, value: string): Promise<void> {
   const SecureStore = await secureStore();
   if (!SecureStore) {
     await AsyncStorage.setItem(key, value);
@@ -129,7 +149,9 @@ export const writeId = (id: string) => writeKey(ID_KEY, id);
 export const writeSecret = (secret: string) => writeKey(SECRET_KEY, secret);
 
 /** Forget the id and secret everywhere they could be. */
-export async function removeIdentity(): Promise<void> {
+export const removeIdentity = (): Promise<void> => inOrder(removeIdentityNow);
+
+async function removeIdentityNow(): Promise<void> {
   await AsyncStorage.multiRemove([ID_KEY, SECRET_KEY]);
   const SecureStore = await secureStore();
   if (!SecureStore) return;

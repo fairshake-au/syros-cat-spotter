@@ -170,3 +170,27 @@ describe('identityStore without the switch, and on the web build', () => {
     expect(h.secure.size).toBe(0);
   });
 });
+
+describe('identity operations run one at a time', () => {
+  it('a start-up read still moving the old copy cannot overwrite a newer id written meanwhile', async () => {
+    process.env.EXPO_PUBLIC_SECURE_IDENTITY = 'on';
+    h.os = 'ios';
+    h.async.set('cat-spotter/device-id', OLD_ID);
+    h.async.set('cat-spotter/device-secret', OLD_SECRET);
+    const reading = readIdentity();
+    const writing = writeId('dev-newer');
+    await Promise.all([reading, writing]);
+    expect(h.secure.get('cat-spotter.device-id')).toBe('dev-newer');
+    expect(h.async.has('cat-spotter/device-id')).toBe(false);
+  });
+
+  it('a failed operation does not block the ones after it', async () => {
+    process.env.EXPO_PUBLIC_SECURE_IDENTITY = 'on';
+    h.os = 'ios';
+    h.failSecureRead = true;
+    await expect(readStoredId()).rejects.toThrow();
+    h.failSecureRead = false;
+    await writeId('dev-after');
+    expect(await readStoredId()).toBe('dev-after');
+  });
+});
