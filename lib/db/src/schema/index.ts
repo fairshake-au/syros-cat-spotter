@@ -25,3 +25,4 @@ export * from "./heldTyping";
 export * from "./photoFingerprints";
 export * from "./badges";
 export * from "./vetBatches";
+export * from "./mapData";

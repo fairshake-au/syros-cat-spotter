@@ -365,6 +365,13 @@
       "when": 1793033564065,
       "tag": "0051_feeding_site_position_approximate",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1793033586347,
+      "tag": "0052_map_data_files",
+      "breakpoints": true
     }
   ]
 }
