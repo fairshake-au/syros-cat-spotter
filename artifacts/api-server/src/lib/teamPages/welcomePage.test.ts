@@ -173,3 +173,11 @@ describe("T29d: and the text the spec requires beside them (review M5)", () => {
     expect(g).toContain(escapeHtml(CATALOGUE.en["welcome.promise1"]));
   });
 });
+
+describe("SYC-739: where she lands", () => {
+  const base = { name: "Maria", language: "en", inviterName: null, colonies: [] as string[] };
+  it("says Home for the team and her own page for a cat guardian", () => {
+    expect(renderWelcomePage({ ...base, roles: ["staff"] })).toContain("you land on the dashboard Home page.");
+    expect(renderWelcomePage({ ...base, roles: ["guardian"] })).toContain("you land on your own page for your colonies.");
+  });
+});

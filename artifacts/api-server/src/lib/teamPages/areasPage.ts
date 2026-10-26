@@ -4,6 +4,7 @@ import type { NamedArea } from "../areas/namedAreas";
 import { escapeHtml as esc } from "./escape";
 import { backLink, SETTINGS_PATH } from "./backLink";
 import { methodFold } from "./methodFold";
+import { pageIntro, whatHappens } from "./help";
 import { renderPage } from "./layout";
 import { openMapLink } from "./position";
 
@@ -100,6 +101,11 @@ const kept = (again: AreaFormAgain | undefined, op: string, key: string | undefi
 const isOpen = (again: AreaFormAgain | undefined, op: string, key?: string) =>
   again !== undefined && again.op === op && again.key === key;
 
+/** What moving a centre or retiring an area does, said before the button (SYC-739). Exported for the centre pages. */
+export const MOVE_WHAT = "Moving the centre can change which area nearby cats show under.";
+export const RETIRE_WHAT =
+  "Retiring takes this area off the list. Its places go to the nearest area that is left, or Off Syros. You can bring it back later from the list of retired areas below.";
+
 const NAME_HINT = "Area names are shown to cat guardians. Use the place's name, never a person's.";
 
 function input(
@@ -120,7 +126,7 @@ function input(
 }
 
 const CSS = `<style>
-details.arearow{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #0b5c6b;border-radius:8px;margin:8px 0;overflow-wrap:anywhere}
+details.arearow{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--accent);border-radius:10px;margin:8px 0;overflow-wrap:anywhere}
 details.arearow>summary{cursor:pointer;min-height:48px;box-sizing:border-box;padding:6px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;list-style:none}
 details.arearow>summary::-webkit-details-marker{display:none}
 details.arearow>summary strong{font-size:17px}
@@ -151,13 +157,15 @@ function areaRow(a: AreaRow, o: AreasPageOptions): string {
     problem(again, "move", k, "area") +
     problem(again, "move", k, "lat") +
     problem(again, "move", k, "lng") +
-    `<p><a class="tap" href="${AREAS_PATH}/${encodeURIComponent(k)}/centre">Move centre on a map</a></p>`;
+    `<p><a class="tap" href="${AREAS_PATH}/${encodeURIComponent(k)}/centre">Move centre on a map</a></p>` +
+    whatHappens(MOVE_WHAT);
   const retire =
     problem(again, "retire", k, "area") +
     `<form method="post" action="${AREAS_PATH}" class="inline">` +
     '<input type="hidden" name="op" value="retire">' +
     `<input type="hidden" name="key" value="${esc(k)}">` +
-    `<button type="submit" class="risky">Retire</button></form>`;
+    `<button type="submit" class="risky">Retire</button></form>` +
+    whatHappens(RETIRE_WHAT);
   return (
     `<li><details class="arearow"${isOpen(again, "rename", k) || isOpen(again, "move", k) || isOpen(again, "retire", k) ? " open" : ""}>` +
     `<summary><strong>${esc(a.name)}</strong> <span class="meta">${a.cats === 1 ? "1 cat" : `${a.cats} cats`}</span></summary>` +
@@ -267,6 +275,9 @@ export function renderAreasPage(o: AreasPageOptions): string {
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
       loose +
       CSS +
+      pageIntro(
+        "Areas are the place names shown on cats, sightings and the Cats filters, like Ermoupoli. Each place takes the name of the area whose centre is nearest.",
+      ) +
       addForm(o) +
       `<h2>The areas (${o.areas.length})</h2>` +
       `<ul class="cats">${o.areas.map((a) => areaRow(a, o)).join("")}</ul>` +

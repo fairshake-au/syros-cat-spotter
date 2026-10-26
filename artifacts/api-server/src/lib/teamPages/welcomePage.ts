@@ -78,6 +78,7 @@ export function renderWelcomePage(input: WelcomeInput, live: readonly Language[]
     `<h2>${escapeHtml(t("welcome.ask.title"))}</h2>` +
     `<ol class="promises">${PROMISE_KEYS.map((k) => `<li>${escapeHtml(t(k))}</li>`).join("")}</ol>` +
     STATEMENT_KEYS.map((k) => `<p class="statement">${escapeHtml(t(k))}</p>`).join("") +
+    `<p class="hint">${escapeHtml(t(input.roles.includes("staff") || input.roles.includes("management") ? "welcome.landing.team" : "welcome.landing.guardian"))}</p>` +
     // The two answers, finger-sized on a phone (44 px, a 16 px field so iOS
     // doesn't zoom), in the dashboard's own button styles.
     '<div class="actions join">' +

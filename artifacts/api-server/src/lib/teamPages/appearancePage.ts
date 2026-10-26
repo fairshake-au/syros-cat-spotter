@@ -651,7 +651,8 @@ export function renderColourCheckPage(
   const row = (c: ColourCheckCat, inline: boolean) => checkRow(lang, c, inline);
   const body =
     appearanceNotice(lang, done) +
-    `<p>${esc(tr(lang, "colourCheck.intro"))}</p>` +
+    `<p class="intro">${esc(tr(lang, "colourCheck.intro"))}</p>` +
+    `<p class="hint">${esc(tr(lang, "colourCheck.effect"))}</p>` +
     (check.length === 0 && notDescribed.length === 0
       ? `<p class="empty">${esc(tr(lang, "colourCheck.empty"))}</p>`
       : "") +

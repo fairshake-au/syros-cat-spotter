@@ -51,22 +51,22 @@ export interface MyPerson {
 
 const CSS = `<style>
 .about{font-size:18px;margin:8px 0 4px}
-.box{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:4px 12px 12px;margin:14px 0}
-.box.stop{border-left:6px solid #b3261e}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:4px 12px 12px;margin:14px 0}
+.box.stop{border-left:6px solid var(--danger)}
 .box h2{margin:12px 0 6px}
 .box p{margin:6px 0}
-.mine select{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;background:#fff}
+.mine select{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:10px;background:var(--card)}
 .mine label.l{display:block;font-size:14px;font-weight:700;margin:8px 0 4px}
 .mine form{margin:8px 0 0}
-.mbtn,a.mbtn{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer;display:inline-flex;align-items:center;text-decoration:none}
-.mbtn.go{background:#0b5c6b;color:#fff}
-.mbtn.danger{border-color:#b3261e;color:#8c1d18}
-.mbtn.danger.go{background:#b3261e;color:#fff}
-.okbox{background:#e3f4ea;border:1px solid #2e7d4f;border-radius:8px;padding:10px 12px;margin:12px 0}
+.mbtn,a.mbtn{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer;display:inline-flex;align-items:center;text-decoration:none}
+.mbtn.go{background:var(--accent);color:var(--on-accent)}
+.mbtn.danger{border-color:var(--danger);color:var(--danger)}
+.mbtn.danger.go{background:var(--danger-fill);color:var(--on-accent)}
+.okbox{background:var(--ok-soft);border:1px solid var(--ok);border-radius:10px;padding:10px 12px;margin:12px 0}
 .okbox p{margin:0}
-.notice{background:#fff3cd;border:1px solid #c9a227;border-radius:8px;padding:10px 12px;margin:10px 0}
+.notice{background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:10px;padding:10px 12px;margin:10px 0}
 .notice p{margin:0}
-.col{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #0b5c6b;border-radius:8px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
+.col{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--accent);border-radius:10px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
 .col strong{font-size:17px}
 .col p{margin:4px 0 0}
 .choices{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}

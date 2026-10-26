@@ -214,7 +214,7 @@ describe("cat page layout", () => {
 
   it("folds how changes work into a short note, in #192's words", () => {
     const html = renderCatPage(view(1), "Sam", { may });
-    expect(html).toMatch(/<details class="hownote"><summary>How changes work<\/summary><p class="hint">Every change is saved with your name\./);
+    expect(html).toMatch(/<details class="hownote howpage"><summary>How changes work<\/summary><p class="hint">Every change is saved with your name and shows in the History tab\./);
   });
 
   it("has no actions column when the person may not correct anything", () => {
@@ -647,12 +647,12 @@ describe("the page's one History list (SYC-602 PR 2)", () => {
     expect(html.match(/Saved\. The vet visit is below/g)).toHaveLength(1);
   });
 
-  it("has no Sightings or Vet visits sections, and How changes work sits at the foot of History", () => {
+  it("has no Sightings or Vet visits sections, and How changes work sits under the buttons (SYC-739)", () => {
     const html = renderCatPage(corrected(), "Sam", { may, now: NOW2, visits: [visitLine(297, "2026-08-13T09:00:00Z")] });
     expect(html).not.toContain("<h2>Sightings");
     expect(html).not.toContain('<h2 id="vet-visits">');
     expect(html).toContain('<h2 id="h-history">History</h2>');
-    expect(html.indexOf("How changes work")).toBeGreaterThan(html.indexOf('id="history"'));
+    expect(html.indexOf("How changes work")).toBeLessThan(html.indexOf('id="history"'));
     expect(html.match(/How changes work/g)).toHaveLength(1);
     // The History tab counts every row: 21 sightings (one carries 296), the visit and two changes.
     expect(html).toContain('href="#tab-history">History (24)</a>');
@@ -719,7 +719,7 @@ describe("the page's one History list (SYC-602 PR 2)", () => {
 describe("How changes work (final review M6)", () => {
   it("sends coat and markings changes to the Coat and markings tab, not 'the history below'", () => {
     const html = renderCatPage(richCatView(), "Sam", { now: new Date("2026-10-17T09:00:00Z"), may: () => true });
-    const note = /<details class="hownote">[\s\S]*?<\/details>/.exec(html)![0];
+    const note = /<details class="hownote howpage">[\s\S]*?<\/details>/.exec(html)![0];
     expect(note).not.toContain("history below");
     expect(note).toContain("Coat and markings tab");
     expect(note).not.toMatch(/statement/i);

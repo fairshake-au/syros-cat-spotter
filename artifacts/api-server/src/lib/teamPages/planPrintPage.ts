@@ -6,6 +6,8 @@ import { MARK_WORD } from "./marks";
 import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
 import { estimateLine } from "./colonyPages";
 import { wordsIn } from "./words";
+import { FONT_STACK, LIGHT_TOKENS, fontFaces } from "./tokens";
+import { assetUrl } from "../teamAssets";
 
 // A colony's printable trapping plan (SYC-396 PR 2.3; SYC-621; spec §9.2
 // item 4). One clean page for the round: photos, names, colours and place
@@ -19,24 +21,26 @@ import { wordsIn } from "./words";
 const printedOn = (d: Date) =>
   d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Athens" });
 
+// Always the light theme: this page is for printing (SYC-579).
 const CSS = `
+:root{${LIGHT_TOKENS}}
 *{box-sizing:border-box}
-html,body{margin:0;background:#fff;color:#1d1d1b}
-body{font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:16px;max-width:900px;margin:0 auto}
+html,body{margin:0;background:var(--card);color:var(--ink)}
+body{font:15px/1.4 ${FONT_STACK};padding:16px;max-width:900px;margin:0 auto}
 h1{font-size:22px;margin:0 0 4px}
 .sub{margin:0 0 12px;font-size:14px}
 .screen{margin:0 0 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
 .screen a,.screen button{font:inherit;min-height:44px;display:inline-flex;align-items:center}
-.screen button{padding:0 16px;border:1px solid #1d1d1b;border-radius:8px;background:#fff;cursor:pointer}
+.screen button{padding:0 16px;border:1px solid var(--ink);border-radius:10px;background:var(--card);cursor:pointer}
 ol.plan{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
-ol.plan li{display:flex;gap:10px;align-items:flex-start;border:1px solid #8a877e;border-radius:6px;padding:8px;break-inside:avoid;page-break-inside:avoid}
-ol.plan img,.nophoto{width:84px;height:84px;object-fit:cover;border-radius:4px;flex:none;background:#eeece6}
+ol.plan li{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line-strong);border-radius:6px;padding:8px;break-inside:avoid;page-break-inside:avoid}
+ol.plan img,.nophoto{width:84px;height:84px;object-fit:cover;border-radius:4px;flex:none;background:var(--sunk)}
 .nophoto{display:flex;align-items:center;justify-content:center;font-size:12px;text-align:center}
 .cat strong{font-size:16px}
 .cat span{display:block;font-size:13px}
-.tick{width:22px;height:22px;border:2px solid #1d1d1b;border-radius:3px;flex:none;margin-left:auto}
+.tick{width:22px;height:22px;border:2px solid var(--ink);border-radius:3px;flex:none;margin-left:auto}
 .empty{font-size:15px}
-footer{margin-top:16px;padding-top:8px;border-top:1px solid #8a877e;font-size:12px}
+footer{margin-top:16px;padding-top:8px;border-top:1px solid var(--line-strong);font-size:12px}
 @page{margin:12mm}
 @media print{
   body{padding:0;max-width:none;font-size:12px}
@@ -77,13 +81,17 @@ export function renderPlanPrintPage(colony: { id: number; name: string }, plan: 
     `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
     `<meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<meta name="robots" content="noindex">` +
-    `<title>${esc(title)}</title><style>${CSS}</style></head><body>` +
+    `<title>${esc(title)}</title><style>${fontFaces(assetUrl)}${CSS}</style></head><body>` +
     `<div class="screen"><a href="/api/team/colonies/${colony.id}">← ${esc(colony.name)}</a>` +
     `<span>Use your browser's Print to print this page.</span></div>` +
     `<h1>${esc(title)}</h1>` +
     `<p class="sub">To do: ${toDo.length} · already sterilised: ${plan.done.length}` +
     (plan.estimate && plan.estimate.cats > 0 ? ` · ${estimateLine(W, plan.estimate)}` : "") +
     `</p>` +
+    // Said on the paper too, so it travels with the page (SYC-739). Ear clip seen:
+    // a sighting recorded a clipped tip (trappingPlan earClipSeen).
+    `<p class="sub">Print this and take it with you. Tick each cat once it has been trapped. ` +
+    `Ear clip seen means someone saw a clipped ear, so the cat may already be sterilised.</p>` +
     list +
     `<footer>Syros Cats · printed ${esc(printedOn(now))} · for the team only</footer>` +
     `</body></html>`
