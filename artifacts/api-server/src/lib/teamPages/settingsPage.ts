@@ -20,7 +20,7 @@ export interface SettingsEntry {
 export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   { id: "areas", name: "Areas", note: "The place names shown on cats and in the Cats list filters.", href: AREAS_PATH },
   { id: "vet-settings", name: "Vet settings", note: "The standard price for sterilising one cat.", href: VET_SETTINGS_PATH },
-  { id: "app-switches", name: "App switches", note: "The public app's Help feed a cat button and the starter facts spotters see. Changes are live for everyone.", href: APP_SWITCHES_PATH },
+  { id: "app-switches", name: "App switches", note: "The public app's Help feed a cat button, the extra photo boxes on New spot, and the starter facts spotters see. Changes are live for everyone.", href: APP_SWITCHES_PATH },
 ];
 
 // The whole card is the link (SYC-698): a tap on the note opens the page too.

@@ -7,11 +7,12 @@ import { clearAppSettingsCache, getAppSettings } from "../lib/appSettings";
 import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
 
 // SYC-383: the App switches page. Team-only (edit_app_switches). The test
-// database is shared, so both stored rows are put back as they were at the end.
+// database is shared, so every stored row is put back as they were at the end.
 
 const SESSION_KEY = "vitest-app-switches-key-0123456789abcdef-0123456789";
 const URL_KEY = "feed_nudge_donate_url";
 const FACTS_KEY = "starter_facts_hidden";
+const PHOTOS_KEY = "extra_photos_on";
 const PATH = "/api/team/app-switches";
 
 let team: Signed;
@@ -36,13 +37,14 @@ beforeAll(async () => {
   process.env["TEAM_SESSION_KEYS"] = SESSION_KEY;
   team = await signedPerson("app-switches-team", ["staff"]);
   guardian = await guardianOn("app-switches-guardian", [await newColony("app-switches")]);
-  for (const k of [URL_KEY, FACTS_KEY]) original.set(k, await stored(k));
+  for (const k of [URL_KEY, FACTS_KEY, PHOTOS_KEY]) original.set(k, await stored(k));
 });
 
 beforeEach(async () => {
   process.env["TEAM_SESSION_KEYS"] = SESSION_KEY;
   await put(URL_KEY, "https://syroscats.com/donations");
   await put(FACTS_KEY, ["fact.earTip", "fact.cost"]);
+  await put(PHOTOS_KEY, false);
 });
 
 afterAll(async () => {
@@ -139,6 +141,30 @@ describe("the App switches page", () => {
     expect(res.text).toContain("€1 feeds a cat for a day");
   });
 
+  it("turns the extra photo boxes on and off in one tap; the app reads it at once", async () => {
+    const off = await page(team.cookie);
+    expect(off.text).toContain('<h2 id="extra-photos">Extra photos on New spot</h2>');
+    expect(off.text).toContain("Turn the extra photos on");
+    const on = await send(team.cookie, "extra-photos", { on: "1" });
+    expect([on.status, on.headers["location"]]).toEqual([303, `${PATH}?done=photosOn#extra-photos`]);
+    expect(await stored(PHOTOS_KEY)).toBe(true);
+    expect((await settings()).extraPhotosOn).toBe(true);
+    const shown = await page(team.cookie, "?done=photosOn");
+    expect(shown.text).toContain("The extra photo boxes are on.");
+    expect(shown.text).toContain('"Add the face" and "Add the whole body"');
+    expect(shown.text).toContain("Turn the extra photos off");
+    const back = await send(team.cookie, "extra-photos", { on: "0" });
+    expect(back.headers["location"]).toBe(`${PATH}?done=photosOff#extra-photos`);
+    expect((await settings()).extraPhotosOn).toBe(false);
+  });
+
+  it("refuses an extra photos form with no state, and writes nothing", async () => {
+    for (const body of [{}, { on: "yes" }]) {
+      expect((await send(team.cookie, "extra-photos", body)).status).toBe(400);
+    }
+    expect(await stored(PHOTOS_KEY)).toBe(false);
+  });
+
   it("shows and hides one fact without touching the others", async () => {
     const show = await send(team.cookie, "fact", { id: "fact.earTip", shown: "1" });
     expect([show.status, show.headers["location"]]).toEqual([303, `${PATH}?done=shown#fact.earTip`]);
@@ -163,18 +189,19 @@ describe("the App switches page", () => {
     expect(await stored(FACTS_KEY)).toEqual(before);
   });
 
-  it("a cat guardian gets 403 on the page and on both forms", async () => {
-    const before = [await stored(URL_KEY), await stored(FACTS_KEY)];
+  it("a cat guardian gets 403 on the page and on every form", async () => {
+    const before = [await stored(URL_KEY), await stored(FACTS_KEY), await stored(PHOTOS_KEY)];
     const g = await request(app).get(PATH).set("Cookie", guardian.cookie);
     expect([g.status, g.text]).toEqual([403, '{"error":"forbidden"}']);
     for (const [sub, body] of [
       ["donation", { do: "off" }],
       ["fact", { id: "fact.milk", shown: "0" }],
+      ["extra-photos", { on: "1" }],
     ] as const) {
       const p = await request(app).post(`${PATH}/${sub}`).set("Origin", TEAM_ORIGIN).set("Cookie", guardian.cookie).type("form").send(body);
       expect([p.status, p.text]).toEqual([403, '{"error":"forbidden"}']);
     }
-    expect([await stored(URL_KEY), await stored(FACTS_KEY)]).toEqual(before);
+    expect([await stored(URL_KEY), await stored(FACTS_KEY), await stored(PHOTOS_KEY)]).toEqual(before);
   });
 
   it("a POST from another site, or with no Origin, is refused", async () => {
@@ -191,7 +218,7 @@ describe("the App switches page", () => {
   it("answers JSON too", async () => {
     const res = await request(app).get(PATH).set("Cookie", team.cookie).set("Accept", "application/json");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ donateUrl: "https://syroscats.com/donations", hiddenFacts: ["fact.earTip", "fact.cost"] });
+    expect(res.body).toEqual({ donateUrl: "https://syroscats.com/donations", hiddenFacts: ["fact.earTip", "fact.cost"], extraPhotosOn: false });
   });
 
   it("is reachable: Settings links it", async () => {
