@@ -411,7 +411,7 @@ export function renderCoveragePage(r: CoverageReport, o: { personName: string; r
 
 // ─── Welfare patterns ───────────────────────────────────────────────────
 
-const WELFARE_PROMISE = "This shows patterns only. It never shows who sent a report or who handled it";
+const WELFARE_PROMISE = "This shows patterns only: no response times, and never who sent a report or who handled it";
 
 export const DRAFTS = "Started, not sent";
 export const CONTENT = "Problems reported with photos or names";

@@ -232,7 +232,7 @@ describe("Welfare patterns (PR 3.3b)", () => {
     expect(res.text).toContain('<li id="drafts">');
     expect(res.text).toContain('<li id="content">');
     // D6: the only mention of response times is the line saying there are none.
-    const rest = res.text.replace("This shows patterns only. It never shows who sent a report or who handled it.", "");
+    const rest = res.text.replace("This shows patterns only: no response times, and never who sent a report or who handled it.", "");
     expect(rest).not.toMatch(/response time|time open|handled by/i);
   });
 

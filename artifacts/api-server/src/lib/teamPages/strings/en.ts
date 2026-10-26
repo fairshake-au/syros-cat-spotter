@@ -153,7 +153,7 @@ export const en = {
   // markings use the shared coat.*/mark.* words below (SYC-2 PR 3.1).
   "mycol.seeCats": "See the cats",
   "gcol.intro": "Every cat in this colony.",
-  "gcat.help.sterilised": "Sterilised (confirmed) means a vet, the Syros Cats team or a cat guardian has said so. Probably sterilised means someone saw a clipped ear, which is never proof on its own.",
+  "gcat.help.sterilised": "Sterilised (confirmed) means a vet, the Syros Cats team, the cat's owner or its cat guardian has said so. Probably sterilised means someone saw a clipped ear, which is never proof on its own.",
   "gcol.none": "No cats are in this colony yet.",
   "gcol.notFound.title": "Not one of your colonies",
   "gcol.notFound.body": "That colony isn’t one of yours, or it doesn’t exist.",

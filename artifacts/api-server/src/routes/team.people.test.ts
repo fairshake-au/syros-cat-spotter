@@ -221,7 +221,7 @@ describe("People are short rows that open (SYC-619 §4.1)", () => {
     expect(html).toContain("Everyone who can use the dashboard or the cat guardian pages. Invite adds someone by email.");
     expect(html).toContain("What the labels mean");
     expect(html).toContain("It stays open for 14 days.");
-    expect(html).toContain("They can sign in again later and are not told.");
+    expect(html).toContain("They can sign in again later. They are not told, but the other managers get an email.");
   });
 
   it("no button sits outside an open fold, and none is in a summary", async () => {

@@ -188,7 +188,7 @@ function actions(p: PersonView): string {
     `<p>They are signed out at once, and any invitations they sent are withdrawn. The other managers are told.</p>${warn}` +
     post(`${PEOPLE}/${id}/left`, "Yes, mark as left", "danger go") +
     `</details></div>` +
-    whatHappens("Sign out everywhere ends their sign-in on every phone and computer. They can sign in again later and are not told. Mark as left removes their access and tells the other managers.")
+    whatHappens("Sign out everywhere ends their sign-in on every phone and computer. They can sign in again later. They are not told, but the other managers get an email. Mark as left removes their access and tells the other managers.")
   );
 }
 

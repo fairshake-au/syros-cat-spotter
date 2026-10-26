@@ -90,3 +90,16 @@ describe("in-page help (SYC-739)", () => {
     expect(all).toContain("€50–60 per cat");
   });
 });
+
+describe("the new help says things the charity's way (SYC-739 review)", () => {
+  it("never says colony carer or snapper, and never a sterilisation price other than €50–60", async () => {
+    const { en } = await import("./strings/en");
+    const dir = path.dirname(new URL(import.meta.url).pathname);
+    const sources = ["help.ts", "queuePage.ts", "homePage.ts", "catGridPage.ts", "catActions.ts", "colonyPages.ts", "areasPage.ts", "peoplePages.ts", "appSwitchesPage.ts", "reportPages.ts", "vetBatchPages.ts", "vetSettingsPage.ts", "settingsPage.ts"]
+      .map((f) => readFileSync(path.join(dir, f), "utf8"))
+      .join("\n");
+    const all = sources + JSON.stringify(en) + JSON.stringify(WORDS);
+    expect(all).not.toMatch(/colony carer|snapper/i);
+    expect(all).not.toMatch(/€\s?25\b/);
+  });
+});

@@ -101,6 +101,8 @@ const STYLES = `
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--page);color:var(--ink);font:16px/1.45 ${FONT_STACK}}
 a{color:var(--accent-text)}
+/* Form fields take the theme's card and ink, so the dark theme never shows the browser's grey boxes (SYC-579). */
+input,select,textarea{background-color:var(--card);color:var(--ink)}
 /* Skip to the page (SYC-366): off screen until a keyboard reaches it. */
 .skip{position:absolute;left:8px;top:-80px;z-index:10;display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;background:var(--card);color:var(--accent-text);border:2px solid var(--accent);border-radius:10px;font-weight:700}
 .skip:focus{top:8px}

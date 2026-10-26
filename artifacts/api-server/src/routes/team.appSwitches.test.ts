@@ -104,7 +104,7 @@ describe("the App switches page", () => {
     const ask = await send(team.cookie, "donation", { do: "off" });
     expect(ask.status).toBe(200);
     expect(ask.text).toContain("Turn the Help feed a cat button off?");
-    expect(ask.text).toContain("within about a minute");
+    expect(ask.text).toContain("within a couple of minutes, the next time they open the app");
     expect(ask.text).toContain("You can turn it back on here.");
     expect(ask.text).toContain('name="confirm" value="1"');
     expect(ask.text).toContain(`href="${PATH}"`);
@@ -134,7 +134,7 @@ describe("the App switches page", () => {
 
   it("explains the page in plain words", async () => {
     const res = await page(team.cookie);
-    expect(res.text).toContain("These switches change the public app for everyone, within about a minute.");
+    expect(res.text).toContain("These switches change the public app for everyone. Each phone sees a change within a couple of minutes");
     expect(res.text).toContain("How this page works");
     expect(res.text).toContain("€1 feeds a cat for a day");
   });

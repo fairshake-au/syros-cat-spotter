@@ -83,11 +83,11 @@ export function renderAppSwitchesPage(o: AppSwitchesPageOptions): string {
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
       pageIntro("Two things the public app shows, which you can change without a new version of the app.") +
-      whatHappens("These switches change the public app for everyone, within about a minute. Agree a change with the team first.", { warn: true }) +
+      whatHappens("These switches change the public app for everyone. Each phone sees a change within a couple of minutes, the next time the app is opened. Agree a change with the team first.", { warn: true }) +
       howFold([
         'Help feed a cat button: while a visitor waits for a photo match, the app asks them not to feed the cats. It also shows "€1 feeds a cat for a day. €30 feeds one for a month." Those are the figures. With the button off, visitors see the words with no button and no figures.',
         'Starter facts: short facts about street cats that the app shows while it looks for a match. Hide a fact to stop it appearing.',
-        "A change reaches phones within about a minute.",
+        "A change reaches each phone within a couple of minutes, the next time the app is opened.",
       ], { words: false }) +
       donationSection(o) +
       `<h2 id="facts">Starter facts</h2><p class="hint">${shownCount} of ${FACT_WORDS.length} shown. These appear while the app looks for a match.</p>` +

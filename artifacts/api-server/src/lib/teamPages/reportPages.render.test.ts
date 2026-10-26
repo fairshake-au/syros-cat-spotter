@@ -187,7 +187,7 @@ describe("Welfare patterns: counted separately without sent reports", () => {
 describe("Welfare patterns (§8.2, §8.3)", () => {
   const empty = renderWelfarePage(welfare(0), o);
   const full = renderWelfarePage(welfare(2), o);
-  const PROMISE = "This shows patterns only. It never shows who sent a report or who handled it.";
+  const PROMISE = "This shows patterns only: no response times, and never who sent a report or who handled it.";
   it("empty: leaves out the three sections; the promise stays", () => {
     for (const gone of ["Welfare reports per week", "Counted separately", "Where reports came from"]) expect(empty).not.toContain(gone);
     expect(outsideFold(empty)).toContain(PROMISE);

@@ -43,7 +43,7 @@ router.post("/team/app-switches/donation", ...formRoute("edit_app_switches"), as
       renderConfirmPage({
         title: "Turn the Help feed a cat button off?",
         lines: [
-          "The Help feed a cat button disappears for every visitor within about a minute.",
+          "The Help feed a cat button disappears for every visitor within a couple of minutes, the next time they open the app.",
           "Visitors still see the words about feeding, with no button and no figures.",
           "You can turn it back on here.",
         ],

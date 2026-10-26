@@ -211,7 +211,7 @@ async function newAreaOf(
 
 /** What a centre does, said on every step of setting one (SYC-739). */
 const AREA_CENTRE_WHAT =
-  "A place takes the name of the area whose centre is nearest, so setting this centre can relabel nearby places.";
+  "A place takes the name of the area whose centre is nearest (more than 2 km from every centre is Off Syros), so setting this centre can relabel nearby places.";
 
 function newAreaPickerPage(res: Response, status: number, a: { key: string; name: string }, view: View, note?: string): void {
   res

@@ -82,7 +82,7 @@ export const WORDS: readonly WordGroup[] = [
       {
         id: "area",
         word: "Area",
-        meaning: "A named part of the island, like Ermoupoli, used to label where a cat was seen and to filter the Cats list. A place takes the name of the area whose centre is nearest.",
+        meaning: "A named part of the island, like Ermoupoli, used to label where a cat was seen and to filter the Cats list. A place takes the name of the area whose centre is nearest. More than 2 km from every centre is Off Syros.",
       },
     ],
   },
