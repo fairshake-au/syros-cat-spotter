@@ -294,29 +294,6 @@ export function AppMap({
           </View>
         )}
       </View>
-      {interactive && failed === null && (
-        <View style={styles.zoomControls}>
-          {controlButton(
-            <Feather name="plus" size={18} color={colors.foreground} />,
-            t('mapZoomIn'),
-            () => map?.easeTo({ zoom: map.getZoom() + 1 }),
-          )}
-          {controlButton(
-            <Feather name="minus" size={18} color={colors.foreground} />,
-            t('mapZoomOut'),
-            () => map?.easeTo({ zoom: map.getZoom() - 1 }),
-          )}
-          {rotated &&
-            controlButton(
-              // The arrow points at north on screen.
-              <View style={{ transform: [{ rotate: `${-bearing}deg` }] }}>
-                <Feather name="navigation-2" size={18} color={colors.foreground} />
-              </View>,
-              t('mapResetNorth'),
-              () => map?.easeTo({ bearing: 0 }),
-            )}
-        </View>
-      )}
       {markers.length > 0 && (
         <ScrollView
           horizontal
@@ -369,6 +346,30 @@ export function AppMap({
           ))}
         </ScrollView>
       )}
+      {/* After the strip, and zIndex 1: on a short map the strip's empty area would otherwise cover the compass. */}
+      {interactive && failed === null && (
+        <View style={styles.zoomControls}>
+          {controlButton(
+            <Feather name="plus" size={18} color={colors.foreground} />,
+            t('mapZoomIn'),
+            () => map?.easeTo({ zoom: map.getZoom() + 1 }),
+          )}
+          {controlButton(
+            <Feather name="minus" size={18} color={colors.foreground} />,
+            t('mapZoomOut'),
+            () => map?.easeTo({ zoom: map.getZoom() - 1 }),
+          )}
+          {rotated &&
+            controlButton(
+              // The arrow points at north on screen.
+              <View style={{ transform: [{ rotate: `${-bearing}deg` }] }}>
+                <Feather name="navigation-2" size={18} color={colors.foreground} />
+              </View>,
+              t('mapResetNorth'),
+              () => map?.easeTo({ bearing: 0 }),
+            )}
+        </View>
+      )}
       <Text pointerEvents="none" style={styles.attribution}>
         © OpenStreetMap contributors
       </Text>
@@ -395,7 +396,7 @@ const styles = StyleSheet.create({
   areaSquare: { ...StyleSheet.absoluteFillObject, borderWidth: 2 },
   areaLabel: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
   areaLabelText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
-  zoomControls: { position: 'absolute', right: 8, top: 8, gap: 4 },
+  zoomControls: { position: 'absolute', right: 8, top: 8, gap: 4, zIndex: 1 },
   zoomBtn: {
     width: 44,
     height: 44,

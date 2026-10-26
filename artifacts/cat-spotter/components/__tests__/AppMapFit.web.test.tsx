@@ -523,6 +523,30 @@ describe('AppMap.web rotation', () => {
     await waitFor(() => expect(screen.queryByLabelText('mapResetNorth')).toBeNull());
   });
 
+  it('the controls are drawn above the cat strip, so the compass stays tappable on a short map', async () => {
+    render(
+      <AppMap
+        {...base}
+        areas={[]}
+        markers={[{ id: '1', latitude: 37.44, longitude: 24.94, title: 'Agatha' }]}
+      />,
+    );
+    const map = await theMap();
+    act(() => {
+      map.setBearing(30);
+    });
+    const compass = await screen.findByLabelText('mapResetNorth');
+    const controls = compass.parentElement as HTMLElement;
+    const chip = screen.getByText('Agatha');
+    // The strip's scroll area: the element holding the chip that is a sibling of the controls.
+    let stripEl: HTMLElement = chip;
+    while (stripEl.parentElement && stripEl.parentElement !== controls.parentElement) stripEl = stripEl.parentElement;
+    expect(stripEl).not.toBe(controls);
+    // Later in the page than the strip, and with an explicit stacking level.
+    expect(stripEl.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(getComputedStyle(controls).zIndex).toBe('1');
+  });
+
   it('no compass on a non-interactive map', async () => {
     render(<AppMap {...base} areas={[]} interactive={false} />);
     const map = await theMap();
