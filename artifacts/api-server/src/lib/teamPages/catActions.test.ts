@@ -21,7 +21,7 @@ describe("renderCatActions", () => {
     const vet = html.indexOf("Log a vet visit");
     const update = html.indexOf(UPDATE);
     const note = html.indexOf("Add a note");
-    const died = html.indexOf("This cat has died");
+    const died = html.indexOf('class="diedform"');
     expect(vet).toBeGreaterThan(-1);
     expect(update).toBeGreaterThan(vet);
     expect(note).toBeGreaterThan(html.indexOf("</details>", update));
@@ -128,12 +128,21 @@ describe("renderCatActions", () => {
     expect(html.indexOf("diedform")).toBeGreaterThan(html.indexOf("Rename the cat"));
     const dead = richCatView();
     dead.records.lifeStatus.value = "deceased";
-    expect(draw(dead)).not.toContain("This cat has died");
+    expect(draw(dead)).not.toContain('class="diedform"');
   });
 
   it("names the done keys that open the list", () => {
     expect([...UPDATE_DONE].sort()).toEqual(
       ["colony", "colonyAlready", "colonyOut", "life", "lifeOwnerKept", "ownerGone", "ownerRemoved", "ownerRemovedKept", "renamed", "sterilised", "unchanged"].sort(),
     );
+  });
+});
+
+describe("help under the buttons (SYC-739)", () => {
+  it("says what a change does and where it can be undone, with How changes work", () => {
+    const html = draw();
+    expect(html).toContain("saved with your name and shows in the History tab");
+    expect(html).toContain("<summary>How changes work</summary>");
+    expect(html).toContain("use “This cat has died” instead");
   });
 });

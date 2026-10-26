@@ -20,8 +20,9 @@ import type { TieMode } from "./catPages";
 import { escapeHtml as esc } from "./escape";
 import { backLink } from "./backLink";
 import { renderPage } from "./layout";
+import { pageIntro } from "./help";
 import { lastSeenWords, notSeenWords } from "./lastSeen";
-import { markBadge, MARK_WORD } from "./marks";
+import { markBadge, MARK_ORDER, MARK_WORD } from "./marks";
 import { timeAgo } from "./queuePage";
 import { tr, type StringKey } from "./strings";
 import { coatIsUnknown, coatWordsFor, teamPatternWord } from "./teamCoatWords";
@@ -249,6 +250,22 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
   );
 }
 
+/** The sterilised marks on the cards, in words (the same shapes as the Map's Key). */
+const KEY_WORD: Record<(typeof MARK_ORDER)[number], string> = {
+  sterilised: "Sterilised",
+  probably: "Probably (ear clip seen)",
+  not_known: "Not known yet",
+  not_sterilised: "Not sterilised",
+};
+
+function sterilisedKey(): string {
+  return (
+    '<ul class="markkey" style="display:flex;flex-wrap:wrap;gap:4px 16px;list-style:none;padding:0;margin:8px 0" aria-label="Sterilised marks on the cards">' +
+    MARK_ORDER.map((m) => `<li>${markBadge(m, KEY_WORD[m])}</li>`).join("") +
+    "</ul>"
+  );
+}
+
 function tieAction(c: CatListItem, tie: TieMode & { report: NonNullable<TieMode["report"]> }): string {
   const current = tie.report.cat?.id === c.id;
   if (current) return '<p class="hint">This report is already tied to this cat.</p>';
@@ -343,6 +360,7 @@ export function renderCatGridPage(o: CatGridOptions): string {
     // Cats exist, but the usual choice of "Lives" hides every one of them.
     results =
       '<p class="notice" role="status">No cats match these filters</p>' +
+      '<p class="hint">Cats who have died, or haven\'t been seen for a long time, are hidden unless you ask for them.</p>' +
       `<p><a class="tap" href="${esc(address({ lives: [...LIVES] }, tie))}">Also show cats who are no longer with us</a></p>`;
   } else if (o.total === 0) {
     results =
@@ -366,8 +384,15 @@ export function renderCatGridPage(o: CatGridOptions): string {
   // Grid/Map switch (so the Map link keeps the filters), the chips, the
   // count, the grid and "Show more", and nothing else. No switch while
   // choosing a cat for a report.
+  const hiddenNote =
+    '<p class="hint">Cats who have died, or haven\'t been seen for a long time, are hidden by default. ' +
+    `<a href="${esc(address({ ...o.filters, lives: [...LIVES], page: undefined }, tie))}">Show them</a></p>`;
+  const livesNow = o.filters.lives?.length ? o.filters.lives : defaultLives(Boolean(tie));
   const body =
+    (tie ? "" : pageIntro("Every cat the app knows about, with the most recently seen first. Tap a cat for its full record. Each cat's SYR number is its ID in the app.")) +
     filterForm(o) +
+    (livesNow.includes("gone") ? "" : hiddenNote) +
+    sterilisedKey() +
     `<div id="catresults">${viewRow(o, "grid")}${activeChips(o)}${results}</div>`;
   // The one page with our own script (SYC-396 PR 1.3.4). Its route sends the wider header.
   const script = assetUrl("dashboard-grid.js");
