@@ -146,6 +146,17 @@ describe('SYC-705: the web picker on MapLibre', () => {
     expect(screen.getByText('37.45000, 24.95000')).toBeTruthy();
   });
 
+  it('a camera move nobody made reports nothing', async () => {
+    const onChange = vi.fn();
+    render(<LocationPicker {...START} onChange={onChange} />);
+    const map = await theMap();
+    act(() => {
+      // No originalEvent and not the picker's own key or tap move.
+      map.setCenter(ELSEWHERE);
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('ignores the echo of its own onChange', async () => {
     let parent = { ...START };
     const onChange = vi.fn((next: typeof START) => {
