@@ -122,6 +122,8 @@ A spot finished on another tab or phone while this phone still lists it shows **
 
 The restore screens say this where the move is confirmed, in one line: **"Spots you hadn't finished stay on your old phone."** (§9). Whether the restore screens say anything about waiting spots today is **unchecked**; the line is added either way. The old phone, told `device_moved`, keeps its list but cannot send (the queue already stops on that answer).
 
+**A third case, from SYC-137 (phone builds, 26 October 2026).** On iPhone, the app's saved id and secret live in the Keychain, which an encrypted iPhone-to-iPhone backup restore can copy, so a second phone can end up with the **same** id and secret as the old one. Its saved list (`AsyncStorage` and the photo files in the app's folder) comes in the same backup, so on that phone **unfinished spots do come across**, which is the best case for option A. The two phones then hold the same card. Finish it on one and the other, when opened, gets the `409` and says "This one's already been handled" (§3.5); the spotter can discard the card. Nothing is lost or counted twice, because the server refuses a second finish. Whether a given backup includes the app's files is the phone maker's behaviour and is **unchecked**; the spec relies on neither outcome. This case needs no extra build work. (Source: the `syc-137-phone-keepsafe` session's design note, 26 October 2026; the Keychain accessibility setting is its claim, not re-checked here.)
+
 ---
 
 ## 7. How the phone keeps the copy (for the plan, after approval)
