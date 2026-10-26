@@ -373,7 +373,7 @@
   - `GET /api/team/sites/new`, `GET /api/team/sites/:id/move`, `POST /api/team/sites/pick`, `POST /api/team/sites/:id/move/pick`, `POST /api/team/sites/from-sighting`, `POST /api/team/sites/map-at-sighting`;
   - `GET /api/team/colonies/:id/centre`, `POST /api/team/colonies/:id/centre/pick`;
   - `POST /api/team/areas/new`, `POST /api/team/areas/new/pick`, `GET /api/team/areas/:key/centre`, `POST /api/team/areas/:key/centre/pick`.
-  - This is a change from the spec's "pages reached after a form is posted carry the strict header" (see "Decision for Samuel" below). Refusals and 400 re-renders stay strict, and so show the no-map path.
+  - This is a change from the spec's "pages reached after a form is posted carry the strict header" (Samuel chose this, 26 Oct 2026). Refusals and 400 re-renders stay strict, and so show the no-map path.
 - Removed routes (each also removed from `team.walk.test.ts`): `POST /api/team/sites/map`, `/sites/new/map`, `/sites/:id/move/map`, `/colonies/:id/centre/map`, `/areas/new/map`, `/areas/:key/centre/map`.
 - `map-at-sighting` renders the Feeding sites page with `centre` = the sighting, zoom 17, and the sighting marker. It stays a POST, with nothing in the address.
 
@@ -450,7 +450,7 @@
 
 ---
 
-## Decision for Samuel (one, with a recommendation)
+## Decision for Samuel: **decided 26 Oct 2026, option A** ("Yes, show the map")
 
 **Map pages reached by sending a form.** "Show on our map" from a sighting, and the "Check the spot" step when adding or moving a site, are pages the dashboard shows after a form is sent. The form route keeps the position out of the address. The spec says such pages get the strict no-script header, which means no map there.
 
@@ -510,7 +510,7 @@ Opus is used only where browser behaviour, many flows, or a privacy property mee
 - **Deliberate changes from the spec or outline:**
   - **Both additive migrations go in 2a,** so 2b needs no migration of its own before republish.
   - **The cats map's no-script path is a link to the grid,** not a grid drawn inside the map page.
-  - **POST-reached map pages get the wide header** (Samuel's decision above).
+  - **POST-reached map pages get the wide header** (Samuel chose A, 26 Oct 2026).
   - **`/team/map` becomes a redirect** to the cats map.
   - **The worker gets the wide header,** not "no header", so it is never unrestricted.
   - **The "Go to" list and the fallback area list read the team's named areas** (`currentAreas()`). The 7 hard-coded `AREAS` are retired.

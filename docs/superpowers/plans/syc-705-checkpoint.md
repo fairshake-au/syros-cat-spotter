@@ -30,8 +30,8 @@
 
 Progress log and rulings: `.superpowers/sdd/2026-10-24-syc-705-map-labels-maplibre/progress.md` (git-ignored).
 
-## Phase 2 (dashboard): plan written 26 Oct 2026, awaiting Samuel's OK
+## Phase 2 (dashboard): plan approved by Samuel 26 Oct 2026
 
 - Plan: `docs/superpowers/plans/2026-10-26-syc-705-phase-2-dashboard.md` (PRs 2a, 2b, 2c).
-- Open decision for Samuel: map pages reached by sending a form (recommend A, our map script runs there too).
+- Samuel chose A: map pages reached by sending a form run our map script too.
 - Next: on approval, Task 2a.1 (migrations 0051 + 0052) on branch `claude/syc-705-dashboard-maps-17c6b8`.
