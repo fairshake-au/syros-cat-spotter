@@ -1,7 +1,7 @@
 # Finding a spot again when you leave before choosing
 
 **Ticket:** SYC-186 (epic SYC-607). Found in the adversarial review of PR #52 (SYC-119 Slice A), 2 October 2026.
-**Status:** **Decisions made by Samuel, 26 October 2026** (§11); awaiting final approval of this revision. The first draft recommended a server-side list (option C); Samuel chose **option A, the phone keeps every unfinished spot**, with **no expiry**. This revision is written to that choice. Adversarial reviews: [`reviews/unfinished-sightings-review.md`](./reviews/unfinished-sightings-review.md) (review 1 of the first draft; review 2 of this revision, §12).
+**Status:** **Approved by Samuel, 26 October 2026** (decisions §11, including that the Spot tab badge and the "photo's been checked" banner leave out spots he walked away from). Implementation plan in §13, awaiting his approval. The first draft recommended a server-side list (option C); Samuel chose **option A, the phone keeps every unfinished spot**, with **no expiry**. This revision is written to that choice. Adversarial reviews: [`reviews/unfinished-sightings-review.md`](./reviews/unfinished-sightings-review.md) (review 1 of the first draft; review 2 of this revision, §12).
 **Owner:** Samuel
 **Builds on:** [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.5 and §6 (whose "Your sighting is saved. Finish this when you're back online" this spec makes true for everyone) · [`offline-queue-on-web.md`](./offline-queue-on-web.md) (the phone's own list and its single write path) · [`restore-with-a-code.md`](./restore-with-a-code.md) and `email-capture.md` §8 (keep-safe) · [`couldnt-load-try-again.md`](./couldnt-load-try-again.md) · SYC-153 (cancelled: sending a *choice* without signal; this spec is about finding the *spot* again) · SYC-196 / SYC-93 (the queue's retry rules).
 
@@ -210,3 +210,23 @@ The section title, badge and discard words are the existing ones, so a spotter s
 
 - **Review 1** (first draft, option C): [`reviews/unfinished-sightings-review.md`](./reviews/unfinished-sightings-review.md). Most of its server findings no longer apply to A; the ones that still do are carried into §3.3, §3.5, §5 and §6.
 - **Review 2** (this revision, a second Sonnet reviewer): in the same file, "Review 2". Two blockers (no Discard on a sent card; "Ask Syros Cats to match it" is not built) and nine should-fix findings, all folded in.
+
+## 13. Implementation plan (awaiting Samuel's approval)
+
+One stacked draft PR on top of #363's branch only after #363 is merged (or in the same PR if Samuel prefers). Each step is committed on its own, with its tests, before the next. Run the affected tests locally before pushing; `gh pr ready` once; check main's run after the merge.
+
+| # | Step | Files | Done when |
+|---|---|---|---|
+| 0 | Agree the order with `syc-196-392-fixes` (same file as step 2) and read its merged `OfflineContext.tsx` before starting | none | Its PR has landed, or its owner has said which order |
+| 1 | Server: `code: "RESOLVED"` on the already-resolved 409 | `routes/sightings.ts`, one route test | A name clash 409 and an already-resolved 409 are told apart in a test |
+| 2 | Phone: a `keptAtSend` review item, written through `store.mutate`, refused during a wipe, photos stored outside the list, no copy for `isCatPhoto: false` | `OfflineContext.tsx`, `offlineQueue.ts` (field), tests | The §7 logic tests pass |
+| 3 | Spot tab: write the item right after `submitSighting` returns; open review with the item; `review-<id>` photo only when no item | `spot.tsx` | The send path tests pass; the §2 reproduction now lists the spot |
+| 4 | Review screen: toast on leaving; "can't be finished" for 403, 404, 422-gone and `RESOLVED`; `noSignalMessage`; nudge and hint read `keptAtSend` | `review.tsx`, `catPicker.ts`, `waitingCard.ts`, `useResultNudge.ts` | The feeding nudge still shows after a live send; the new answers are covered |
+| 5 | Discard on sent cards; recent-photos record carries `localId`; banner and tab badge ignore `keptAtSend` | `spot.tsx`, `recentPhotos.ts`, `ReviewReadyBanner.tsx`, `(tabs)/_layout.tsx` | Tests in §7 pass |
+| 6 | Strings in en, el, fr; the restore screens' one line | `i18n.ts`, `restore.tsx` / `get-spots-back.tsx` | The i18n parity test passes |
+| 7 | Browser check at 390 px and desktop, signal faked off, after a reload; screenshots in the PR | none | The spot is listed in each |
+| 8 | Full api-server and cat-spotter suites; adversarial review of the PR (Sonnet, own worktree); `gh pr ready`; Samuel types "ship it" in this session to merge | none | CI green on a real run |
+
+**Model delegation.** Steps 1, 2, 3, 5, 6: Sonnet subagents (each contained, modelled on code that already exists), with the session reading every diff and re-running the named tests itself. Step 4 (the screen that earns the points): done in this session, which runs on Sonnet; no higher tier is needed because nothing here is a new design, and the assurance is the tests above plus the step 8 review. Strings: Haiku for the drafts, then the parity test and a native check of the Greek and French by Samuel. Step 8 review: a Sonnet agent in its own worktree, told to refute. Helper agents return text and never write files; this session commits.
+
+**Risks to watch.** The overlap in step 2 (hence step 0); the feeding nudge (step 4); the 5 MB browser storage if a photo ends up inline (step 2).
