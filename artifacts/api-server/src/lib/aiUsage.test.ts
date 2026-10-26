@@ -37,7 +37,7 @@ beforeEach(() => {
 describe("AI token usage lines", () => {
   it("a sighting match logs one line: the caller and the three counts, no other keys", async () => {
     reply(MATCH);
-    await matchCatPhoto("PHOTO", CAND);
+    await matchCatPhoto("PHOTO", CAND, "sighting_match");
     const lines = usageLines();
     expect(lines).toHaveLength(1);
     expect(Object.keys(lines[0]![0]).sort()).toEqual([...KEYS].sort());
@@ -70,14 +70,25 @@ describe("AI token usage lines", () => {
 
   it("a reply with no usage logs nulls, still one line", async () => {
     create.mockResolvedValueOnce({ choices: [{ message: { content: MATCH } }] });
-    await matchCatPhoto("PHOTO", CAND);
+    await matchCatPhoto("PHOTO", CAND, "sighting_match");
     expect(usageLines()[0]![0]).toEqual({ caller: "sighting_match", inputTokens: null, outputTokens: null, totalTokens: null });
   });
 
   it("never carries the photo or the cat's name or id", async () => {
     reply(MATCH);
-    await matchCatPhoto("SECRETPHOTOBYTES", CAND);
+    await matchCatPhoto("SECRETPHOTOBYTES", CAND, "sighting_match");
     const text = JSON.stringify(usageLines());
-    for (const leak of ["SECRETPHOTOBYTES", "CAND7", "Mitsos", '"7"']) expect(text).not.toContain(leak);
+    for (const leak of ["SECRETPHOTOBYTES", "CAND7", "Mitsos"]) expect(text).not.toContain(leak);
+    expect(text).not.toMatch(/\b7\b/);
+  });
+
+  it("a coat reading that finishes after our own timeout still logs its tokens", async () => {
+    create.mockImplementationOnce(
+      () => new Promise((resolve) => setTimeout(() => resolve({ choices: [{ message: { content: COAT } }], usage: USAGE }), 40)),
+    );
+    const r = await readCoatFromPhoto({ data: "AAAA", mime: "image/jpeg" }, { timeoutMs: 5 });
+    expect(r).toEqual({ kind: "failed", reason: "timeout" });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(usageLines().map((l) => l[0]["caller"])).toEqual(["coat_reading"]);
   });
 });

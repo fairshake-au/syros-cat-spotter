@@ -200,12 +200,16 @@ export async function readCoatFromPhoto(
       // one counted attempt could be three paid calls. The budgets (R6, R7)
       // are the retry policy.
       { timeout: timeoutMs, maxRetries: 0 },
-    );
+    ).then((r) => {
+      // Logged when the call finishes, even if our own timeout has already
+      // won the race: a late answer is still a paid call.
+      logAiUsage("coat_reading", r.usage);
+      return r;
+    });
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new ReadTimeout()), timeoutMs);
     });
     const response = await Promise.race([call, timeout]);
-    logAiUsage("coat_reading", response.usage);
     const answer = parseReply(response.choices[0]?.message?.content ?? "");
     if (!answer) return { kind: "failed", reason: "unparseable" };
     return { kind: "reading", ...interpretCoatAnswer(answer) };

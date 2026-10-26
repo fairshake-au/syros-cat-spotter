@@ -60,7 +60,7 @@ const roleName = (r: NewPhotoInput["role"]) =>
 export async function matchCatPhoto(
   newPhotos: NewPhotoInput[] | string,
   candidates: CandidateInput[],
-  caller: Extract<AiCaller, "sighting_match" | "find_from_photo"> = "sighting_match",
+  caller: Extract<AiCaller, "sighting_match" | "find_from_photo">,
 ): Promise<MatchOutput> {
   const photos: NewPhotoInput[] =
     typeof newPhotos === "string"

@@ -303,7 +303,7 @@ async function computeMatchCandidates(
         });
       }
     }
-    const result = await matchCatPhoto(photos, candidateInputs);
+    const result = await matchCatPhoto(photos, candidateInputs, "sighting_match");
     isCatPhoto = result.isCatPhoto;
     // `=== true`: an answer (or a test mock) in the old shape has no
     // mixedCats, which means "not mixed", never unknown.
