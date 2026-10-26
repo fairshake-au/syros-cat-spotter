@@ -116,6 +116,12 @@ export type ResolveFailure =
   | { kind: 'syr-shaped' }
   | { kind: 'has-link' }
   | { kind: 'offline' }
+  /**
+   * SYC-186: this spot can never be finished from here. `handled`: it was
+   * finished or sent on (409 RESOLVED). `gone`: not this spotter's any more
+   * (403, after "Start again") or no longer there (404).
+   */
+  | { kind: 'cant-finish'; reason: 'handled' | 'gone' }
   | { kind: 'error' };
 
 /** What went wrong when sending a choice, in the terms the review screen needs. */
@@ -125,7 +131,16 @@ export function classifyResolveError(err: unknown): ResolveFailure {
     // sighting stays in the review list and nothing is lost (spec §4.5).
     return err instanceof TypeError ? { kind: 'offline' } : { kind: 'error' };
   }
-  const data = (err.data ?? null) as { code?: string; cat?: NameTakenCat } | null;
+  const data = (err.data ?? null) as { code?: string; error?: string; cat?: NameTakenCat } | null;
+  if (data?.code === 'RESOLVED') return { kind: 'cant-finish', reason: 'handled' };
+  // Only the resolve route's own words: a 403 for a wrong device secret or a
+  // moved phone (`device_moved`), or a 404 from a proxy, is not "gone".
+  if (
+    (err.status === 403 && data?.error === 'Not your sighting') ||
+    (err.status === 404 && data?.error === 'Sighting not found')
+  ) {
+    return { kind: 'cant-finish', reason: 'gone' };
+  }
   switch (data?.code) {
     case 'NOT_NEARBY':
       return { kind: 'not-nearby' };

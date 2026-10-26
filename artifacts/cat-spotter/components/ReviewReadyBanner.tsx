@@ -1,3 +1,4 @@
+import { reviewNews } from '@/lib/keptAtSend';
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -25,7 +26,9 @@ export function ReviewReadyBanner() {
   // Don't nag while the user is already reviewing.
   if (pathname === '/review') return null;
 
-  const first = pending.find((p) => p.status === 'review');
+  // SYC-186: the spot that was just checked, not an older one kept at send.
+  const news = reviewNews(pending);
+  const first = news[news.length - 1];
   if (!first) return null;
 
   const openReview = () => {

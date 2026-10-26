@@ -15,6 +15,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { consumeLeftUnfinished } from '@/lib/leftUnfinished';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createSighting } from '@workspace/api-client-react';
@@ -177,6 +178,7 @@ export default function SpotScreen() {
     readOnly: queueReadOnly,
     pending,
     enqueue,
+    enqueueSent,
     remove,
     retry,
     replacePhoto,
@@ -280,11 +282,22 @@ export default function SpotScreen() {
   // button: a double tap must not queue a sighting twice.
   const submitOnce = React.useRef(createSingleFlight()).current;
   const [cameraActive, setCameraActive] = useState(true);
+  // SYC-186: "Saved. Find it under Spots on your phone." once, on arriving here
+  // after leaving "Have we met?" with a spot unfinished.
+  const [leftNote, setLeftNote] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
       setCameraActive(true);
-      return () => setCameraActive(false);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      if (consumeLeftUnfinished()) {
+        setLeftNote(true);
+        timer = setTimeout(() => setLeftNote(false), 8000);
+      }
+      return () => {
+        setCameraActive(false);
+        if (timer) clearTimeout(timer);
+      };
     }, []),
   );
 
@@ -817,10 +830,11 @@ export default function SpotScreen() {
   };
 
   /** SYC-512: throwing a spot away asks first; there is no undo. */
-  const confirmDiscardQueued = (localId: string) => {
+  const confirmDiscardQueued = (localId: string, alreadySent = false) => {
     void confirmChoice({
-      title: t('discardSpotTitle'),
-      message: t('discardSpotBody'),
+      // SYC-186: a spot already sent can't say "the photo won't be sent".
+      title: alreadySent ? t('unfinishedRemoveTitle') : t('discardSpotTitle'),
+      message: alreadySent ? t('unfinishedRemoveBody') : t('discardSpotBody'),
       confirmLabel: t('discard'),
       cancelLabel: t('cancel'),
     }).then((sure) => {
@@ -972,6 +986,40 @@ export default function SpotScreen() {
         const waitOutcome: WaitOutcome = waitOutcomeForSend(
           outcome.kind === 'sent' ? outcome.result : null,
         );
+        // SYC-186: a spot sent straight away is also kept in the phone's list,
+        // written first (before the steps below), so leaving "Have we met?"
+        // without choosing never loses it. If it can't be kept (no cat in the
+        // photo, a wipe in progress, no photo store, storage unreadable) the
+        // spot opens as it always did.
+        let keptInList = false;
+        if (outcome.kind === 'sent') {
+          try {
+            keptInList = await enqueueSent({
+              localId,
+              photoUri: photo.uri,
+              photoBase64: photo.base64,
+              lat: finalCoords.latitude,
+              lng: finalCoords.longitude,
+              createdAt: sightingTime,
+              answer: {
+                sightingId: outcome.result.sightingId,
+                isCatPhoto: outcome.result.isCatPhoto,
+                candidates: outcome.result.candidates,
+                matchCheck: outcome.result.matchCheck,
+                canRecheck: outcome.result.canRecheck,
+              },
+              extraPhotos: inUse.map(({ role, photo: extra }) => ({
+                role,
+                photoUri: extra.uri,
+                photoBase64: extra.base64,
+              })),
+              hintCatId: hint ?? undefined,
+            });
+          } catch {
+            keptInList = false;
+          }
+        }
+
         // Only a wait that reached a result changes the record. It is read
         // again first, so nothing written meanwhile is lost, and a record wiped
         // meanwhile ("Delete my data") isn't brought back.
@@ -1002,6 +1050,8 @@ export default function SpotScreen() {
             ? {
                 sightingId: outcome.result.sightingId,
                 isCatPhoto: outcome.result.isCatPhoto,
+                // SYC-186: names the kept card, so "Open that spot" works.
+                ...(keptInList ? { localId } : {}),
               }
             : { localId },
           rememberedExtras,
@@ -1018,11 +1068,17 @@ export default function SpotScreen() {
             // the review screen shows a placeholder. SYC-415: it is the spot's
             // cover photo, the face photo when there is one (spec §5.1).
             const cover = coverExtra(inUse) ?? photo;
-            const kept = await savePendingPhoto(
-              reviewPhotoKey(result.sightingId),
-              cover.uri,
-              cover.base64,
-            );
+            // SYC-186: a spot kept in the list opens through its item (as one
+            // saved for later does), so it needs no `review-<id>` photo.
+            const saveReviewPhoto = async () => {
+              const kept = await savePendingPhoto(
+                reviewPhotoKey(result.sightingId),
+                cover.uri,
+                cover.base64,
+              );
+              return kept.ok ? kept.ref : undefined;
+            };
+            const photoRef = keptInList ? undefined : await saveReviewPhoto();
             dispatchHint({ kind: 'sent' });
             clearPhoto();
             router.push({
@@ -1033,10 +1089,10 @@ export default function SpotScreen() {
                 candidates: result.candidates,
                 matchCheck: result.matchCheck,
                 canRecheck: result.canRecheck,
-                photoRef: kept.ok ? kept.ref : undefined,
-                // SYC-119: where the photo was taken, for "Find the cat".
-                lat: finalCoords.latitude,
-                lng: finalCoords.longitude,
+                photoRef,
+                lat: keptInList ? undefined : finalCoords.latitude, // SYC-119
+                lng: keptInList ? undefined : finalCoords.longitude,
+                localId: keptInList ? localId : undefined, // SYC-186
                 hintCatId: hint, // SYC-574
               }),
             });
@@ -1137,6 +1193,15 @@ export default function SpotScreen() {
 
   const pendingSection = pending.length > 0 && (
     <View style={{ gap: spacing[3] }}>
+      {leftNote && (
+        <Text
+          accessibilityLiveRegion="polite"
+          style={[styles.pendingDate, { color: colors.mutedForeground }]}
+          testID="left-unfinished-note"
+        >
+          {t('unfinishedSavedToast')}
+        </Text>
+      )}
       <View style={styles.pendingHeader}>
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
           {t('pendingSightings')}
@@ -1402,7 +1467,19 @@ export default function SpotScreen() {
             )}
           </View>
           {item.status === 'review' ? (
-            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+            // SYC-186: nothing expires, so every kept spot can be removed.
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
+              <Pressable
+                onPress={() => confirmDiscardQueued(item.localId, true)}
+                accessibilityRole="button"
+                accessibilityLabel={t('discard')}
+                style={styles.clearHit}
+                testID={`discard-kept-${item.localId}`}
+              >
+                <Feather name="trash-2" size={16} color={colors.mutedForeground} />
+              </Pressable>
+              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+            </View>
           ) : item.status === 'queued' ? (
             <Pressable
               onPress={() => confirmDiscardQueued(item.localId)}
