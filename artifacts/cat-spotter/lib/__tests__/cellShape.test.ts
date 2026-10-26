@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { fitRegion, groupByCell, roundedCellPolygon } from '../cellShape';
+import { toWorld } from '../mercator';
 import { parsePublicDate } from '../catStatusLines';
 
 const CENTRE = { latitude: 37.4448, longitude: 24.9425 };
@@ -81,6 +82,49 @@ describe('fitRegion', () => {
     const r = fitRegion(cells, box)!;
     expect(r.zoom).toBeGreaterThanOrEqual(12);
     expect(r.zoom).toBeLessThan(16);
+  });
+
+  // Where a cell's corners land on screen at the fitted zoom, given the fit's centre.
+  const onScreen = (
+    c: { latitude: number; longitude: number; sizeMetres: number },
+    r: { latitude: number; longitude: number; zoom: number },
+    w: number,
+    h: number,
+  ) => {
+    const dLat = c.sizeMetres / 2 / 111_320;
+    const dLng = dLat / Math.cos((c.latitude * Math.PI) / 180);
+    const o = toWorld(r, r.zoom);
+    const nw = toWorld({ latitude: c.latitude + dLat, longitude: c.longitude - dLng }, r.zoom);
+    const se = toWorld({ latitude: c.latitude - dLat, longitude: c.longitude + dLng }, r.zoom);
+    return {
+      left: nw.x - o.x + w / 2,
+      top: nw.y - o.y + h / 2,
+      right: se.x - o.x + w / 2,
+      bottom: se.y - o.y + h / 2,
+      cellPx: se.x - nw.x,
+    };
+  };
+
+  it('keeps a one-cell margin on every side of every cell', () => {
+    const cells = [cell(37.42, 24.92), cell(37.46, 24.97)];
+    const r = fitRegion(cells, box)!;
+    for (const c of cells) {
+      const p = onScreen(c, r, box.width, box.height);
+      expect(p.left).toBeGreaterThanOrEqual(p.cellPx - 1);
+      expect(p.top).toBeGreaterThanOrEqual(p.cellPx - 1);
+      expect(box.width - p.right).toBeGreaterThanOrEqual(p.cellPx - 1);
+      expect(box.height - p.bottom).toBeGreaterThanOrEqual(p.cellPx - 1);
+    }
+  });
+
+  it('holds a wide east-west spread inside a short box', () => {
+    const cells = [cell(37.44, 24.9), cell(37.44, 24.99)];
+    const r = fitRegion(cells, { width: 390, height: 200 })!;
+    for (const c of cells) {
+      const p = onScreen(c, r, 390, 200);
+      expect(p.left).toBeGreaterThanOrEqual(-1);
+      expect(p.right).toBeLessThanOrEqual(391);
+    }
   });
 
   it('uses the longitude span too: a wide east-west spread in a short box', () => {
