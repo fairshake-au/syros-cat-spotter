@@ -131,9 +131,16 @@ export function classifyResolveError(err: unknown): ResolveFailure {
     // sighting stays in the review list and nothing is lost (spec §4.5).
     return err instanceof TypeError ? { kind: 'offline' } : { kind: 'error' };
   }
-  const data = (err.data ?? null) as { code?: string; cat?: NameTakenCat } | null;
+  const data = (err.data ?? null) as { code?: string; error?: string; cat?: NameTakenCat } | null;
   if (data?.code === 'RESOLVED') return { kind: 'cant-finish', reason: 'handled' };
-  if (err.status === 403 || err.status === 404) return { kind: 'cant-finish', reason: 'gone' };
+  // Only the resolve route's own words: a 403 for a wrong device secret or a
+  // moved phone (`device_moved`), or a 404 from a proxy, is not "gone".
+  if (
+    (err.status === 403 && data?.error === 'Not your sighting') ||
+    (err.status === 404 && data?.error === 'Sighting not found')
+  ) {
+    return { kind: 'cant-finish', reason: 'gone' };
+  }
   switch (data?.code) {
     case 'NOT_NEARBY':
       return { kind: 'not-nearby' };

@@ -164,6 +164,7 @@ export default function ReviewScreen() {
     setHintAnswered(false);
     setHintMessage(null);
     setHintRefused(false);
+    setCantFinish(null);
   }, [sightingId]);
   const queuedItem = data?.localId
     ? pending.find((p) => p.localId === data.localId)

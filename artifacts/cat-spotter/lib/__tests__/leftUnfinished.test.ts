@@ -37,6 +37,11 @@ describe('SYC-186 classifyResolveError: a spot that cannot be finished', () => {
       reason: 'gone',
     });
   });
+  it('a 403 for a wrong secret or a moved phone, and a bare 404, are not "gone"', () => {
+    expect(classifyResolveError(apiError(403, { error: 'device_moved' })).kind).toBe('error');
+    expect(classifyResolveError(apiError(403, { error: 'Device secret does not match' })).kind).toBe('error');
+    expect(classifyResolveError(apiError(404, null)).kind).toBe('error');
+  });
   it('a name clash 409 is still a name clash', () => {
     expect(classifyResolveError(apiError(409, { code: 'NAME_TAKEN' })).kind).toBe('name-taken');
   });
