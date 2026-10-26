@@ -189,6 +189,15 @@ describe("the version in the address", () => {
     expect(hostCalls).toEqual([]);
   });
 
+  it("a version two behind the current one is a 404 with no host fetch", async () => {
+    for (const p of [`v${CURRENT - 2}/syros.pmtiles`, `v${CURRENT - 2}/style-en.json`]) {
+      hostCalls = [];
+      const res = await get(p, alice);
+      expect([res.status, res.headers["cache-control"]], p).toEqual([404, "no-store"]);
+      expect(hostCalls.filter((u) => !u.endsWith("/current.json")), p).toEqual([]);
+    }
+  });
+
   it("a version above the current one is a 404", async () => {
     const res = await get(`v${CURRENT + 1}/syros.pmtiles`, alice);
     expect([res.status, res.headers["cache-control"]]).toEqual([404, "no-store"]);

@@ -147,8 +147,6 @@ async function fetchAndStore(version: number, path: string, current: number, doF
     logger.warn({ version, path }, "map file failed its manifest check");
     return null;
   }
-  // Older than current - 1 is served but never kept.
-  if (version < current - 1) return bytes;
   await db
     .insert(mapDataFilesTable)
     .values({ version, path, bytes, sha256, size: bytes.length })
@@ -164,7 +162,8 @@ export async function getMapFile(version: number, path: string, src: MapSource =
   try {
     const doFetch = src.fetch ?? fetch;
     const current = await currentMapVersion(src);
-    if (version > current) return null;
+    // Only current and current - 1 are served; anything else costs no fetch.
+    if (version > current || version < current - 1) return null;
 
     if (memory && memory.version !== current) memory = null;
     if (version === current) {

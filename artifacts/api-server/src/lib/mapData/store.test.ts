@@ -115,17 +115,17 @@ describe("getMapFile", () => {
     expect(await db.select().from(mapDataFilesTable)).toHaveLength(0);
   });
 
-  it("serves an older version on request; refuses a version above current", async () => {
+  it("serves current-1 (stored); current-2 and current+1 are null with zero fetches", async () => {
     const h = stub({
       current: 3,
-      files: { 3: { [FONT]: enc("v3") }, 1: { [FONT]: enc("v1") } },
+      files: { 3: { [FONT]: enc("v3") }, 2: { [FONT]: enc("v2") }, 1: { [FONT]: enc("v1") }, 4: { [FONT]: enc("v4") } },
     });
-    expect((await getMapFile(1, FONT, h.src))?.toString()).toBe("v1");
-    // older than current-1: not stored
-    expect(await db.select().from(mapDataFilesTable)).toHaveLength(0);
+    expect((await getMapFile(2, FONT, h.src))?.toString()).toBe("v2");
+    expect(await db.select().from(mapDataFilesTable)).toHaveLength(1);
     const before = h.calls.length;
+    expect(await getMapFile(1, FONT, h.src)).toBeNull();
     expect(await getMapFile(4, FONT, h.src)).toBeNull();
-    expect(h.calls.slice(before).filter((c) => c.includes("/v4/"))).toHaveLength(0);
+    expect(h.calls.length).toBe(before);
   });
 
   it("unknown path is null without any fetch", async () => {

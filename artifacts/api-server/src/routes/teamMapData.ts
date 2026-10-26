@@ -26,6 +26,7 @@ const router: IRouter = Router();
 /** Test-only: the stub host the routes fetch from. Never set outside tests. */
 let source: MapSource = {};
 export function setMapSourceForTests(src: MapSource | undefined): void {
+  if (process.env["NODE_ENV"] !== "test") throw new Error("setMapSourceForTests is for tests only");
   source = src ?? {};
 }
 
@@ -49,6 +50,9 @@ function readVersion(raw: unknown): number | null {
   return Number(raw);
 }
 
+/** Only the current version and the one before it are served. */
+const isServed = (version: number, current: number) => version <= current && version >= current - 1;
+
 /** The whole body, never a range: Content-Length and Accept-Ranges: none, written by hand. */
 function sendWhole(res: Response, type: string, body: Buffer): void {
   res.status(200);
@@ -65,7 +69,7 @@ async function serveFile(req: Request, res: Response, path: string | null, type:
   const body = await getMapFile(version, path, source);
   if (!body) {
     // A version above the current one is a 404; any other miss is the host or the store.
-    if (version > (await currentMapVersion(source))) return notFound(res);
+    if (!isServed(version, await currentMapVersion(source))) return notFound(res);
     req.log.warn({ version, path }, "map data unavailable");
     return void res.status(503).json({ error: "Map data unavailable" });
   }
@@ -103,7 +107,7 @@ router.get("/team/map-data/v:version/style-:lang.json", ...door, async (req: Req
   const version = readVersion(req.params["version"]);
   const lang = req.params["lang"];
   if (version === null || (lang !== "en" && lang !== "el")) return notFound(res);
-  if (version > (await currentMapVersion(source))) return notFound(res);
+  if (!isServed(version, await currentMapVersion(source))) return notFound(res);
   const style = buildStyle({
     lang: lang as MapLang,
     pmtilesUrl: `pmtiles://syros-v${version}.pmtiles`,
