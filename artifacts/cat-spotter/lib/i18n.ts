@@ -331,6 +331,8 @@ const en: Dict = {
   // SYC-705: the website map when MapLibre can't draw or can't download.
   mapNoWebgl: 'The map can’t show in this browser.',
   mapLoadFailed: 'The map couldn’t load. Check your connection and try again.',
+  // SYC-705: the picker's "Use where I am now" when there is no map to move the pin on.
+  mapLocOffWeb: 'We couldn’t get your location. Allow location for this site from the address bar, then try again.',
   mapPickerLabel: 'Map. Use the arrow keys to move the pin, or tap a spot to move the pin there.',
   markAllRead: 'Mark all read',
   catUpdateBanner: 'News about this cat',
@@ -1211,6 +1213,7 @@ const el: Dict = {
   mapResetNorth: 'Γύρνα τον χάρτη ξανά προς τον βορρά',
   mapNoWebgl: 'Ο χάρτης δεν μπορεί να εμφανιστεί σε αυτόν τον browser.',
   mapLoadFailed: 'Ο χάρτης δεν φόρτωσε. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.',
+  mapLocOffWeb: 'Δεν βρήκαμε την τοποθεσία σου. Επίτρεψε την τοποθεσία για αυτόν τον ιστότοπο από τη γραμμή διευθύνσεων και δοκίμασε ξανά.',
   mapPickerLabel: 'Χάρτης. Με τα βελάκια μετακινείς την πινέζα. Ή πάτα ένα σημείο για να πάει εκεί η πινέζα.',
   markAllRead: 'Όλα ως αναγνωσμένα',
   catUpdateBanner: 'Νέα για αυτή τη γάτα',
@@ -2061,6 +2064,7 @@ const fr: Dict = {
   mapResetNorth: 'Remets la carte face au nord',
   mapNoWebgl: 'La carte ne peut pas s’afficher dans ce navigateur.',
   mapLoadFailed: 'La carte n’a pas pu se charger. Vérifie ta connexion et réessaie.',
+  mapLocOffWeb: "On n'a pas pu trouver ta position. Autorise la localisation pour ce site depuis la barre d'adresse, puis réessaie.",
   mapPickerLabel: 'Carte. Utilise les flèches pour déplacer l’épingle, ou touche un endroit pour y mettre l’épingle.',
   markAllRead: 'Tout marquer comme lu',
   catUpdateBanner: 'Des nouvelles de ce chat',
