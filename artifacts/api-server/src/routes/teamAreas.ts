@@ -15,6 +15,7 @@ import { applyMove } from "../lib/mapTiles/mapForms";
 import { viewAround, type View } from "../lib/mapTiles/geometry";
 import { renderPicker } from "../lib/teamPages/siteFormPages";
 import { renderCentreConfirm } from "../lib/teamPages/centrePages";
+import { whatHappens } from "../lib/teamPages/help";
 import { ERMOUPOLI_VIEW, readCentrePick } from "./centrePick";
 import { t } from "../lib/teamPages/words";
 import {
@@ -208,6 +209,10 @@ async function newAreaOf(
   }
 }
 
+/** What a centre does, said on every step of setting one (SYC-739). */
+const AREA_CENTRE_WHAT =
+  "A place takes the name of the area whose centre is nearest (more than 2 km from every centre is Off Syros), so setting this centre can relabel nearby places.";
+
 function newAreaPickerPage(res: Response, status: number, a: { key: string; name: string }, view: View, note?: string): void {
   res
     .status(status)
@@ -224,6 +229,7 @@ function newAreaPickerPage(res: Response, status: number, a: { key: string; name
         moveAction: `${NEW_PATH}/map`,
         carry: { name: a.name, key: a.key },
         note,
+        below: whatHappens(AREA_CENTRE_WHAT),
       }),
     );
 }
@@ -270,6 +276,7 @@ router.post("/team/areas/new/pick", ...formRoute("edit_named_areas"), async (req
       saveAction: AREAS_PATH,
       saveFields: { op: "add", name: a.name, key: a.key },
       back: { href: AREAS_PATH, label: "Back to the areas" },
+      help: AREA_CENTRE_WHAT,
     }),
   );
 });
@@ -330,6 +337,7 @@ function areaPickerPage(
         tapAction: `${base}/pick`,
         moveAction: `${base}/map`,
         note,
+        below: whatHappens(AREA_CENTRE_WHAT),
       }),
     );
 }
@@ -380,6 +388,7 @@ router.post("/team/areas/:key/centre/pick", ...formRoute("edit_named_areas"), as
       saveAction: AREAS_PATH,
       saveFields: { op: "move", key: a.key },
       back: { href: `${base}`, label: "Start again on this area's map" },
+      help: AREA_CENTRE_WHAT,
     }),
   );
 });

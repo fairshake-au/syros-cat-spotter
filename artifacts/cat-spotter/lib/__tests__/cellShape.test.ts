@@ -3,7 +3,8 @@
  * the cell"). The drawn area is the cell itself, never bigger, never a pin.
  */
 import { describe, expect, it } from 'vitest';
-import { CORNER_SHARE, cellBoxPixels, fitRegion, groupByCell, roundedCellPolygon } from '../cellShape';
+import { fitRegion, groupByCell, roundedCellPolygon } from '../cellShape';
+import { toWorld } from '../mercator';
 import { parsePublicDate } from '../catStatusLines';
 
 const CENTRE = { latitude: 37.4448, longitude: 24.9425 };
@@ -37,18 +38,6 @@ describe('roundedCellPolygon', () => {
         Math.abs(Math.abs(p.longitude - CENTRE.longitude) - halfLng) < 1e-9;
       expect(atCorner).toBe(false);
     }
-  });
-});
-
-describe('cellBoxPixels', () => {
-  it('centres the box on the cell and sizes it to the cell at that zoom', () => {
-    const box = cellBoxPixels(CENTRE, 250, CENTRE, 16, 400, 300);
-    expect(box.left + box.width / 2).toBeCloseTo(200, 6);
-    expect(box.top + box.height / 2).toBeCloseTo(150, 0);
-    // At z16 a pixel is about 2.39 m × cos(lat) ≈ 1.9 m on Syros: 250 m ≈ 131 px.
-    expect(box.width).toBeGreaterThan(120);
-    expect(box.width).toBeLessThan(140);
-    expect(box.radius).toBeCloseTo(Math.min(box.width, box.height) * CORNER_SHARE, 6);
   });
 });
 
@@ -86,24 +75,55 @@ describe('fitRegion', () => {
     expect(r.zoom).toBe(16);
     expect(r.latitude).toBeCloseTo(37.44, 6);
     expect(r.longitude).toBeCloseTo(24.94, 6);
-    // A 250 m cell is about 160 px at zoom 16, so it fits with room to spare.
-    const px = cellBoxPixels({ latitude: 37.44, longitude: 24.94 }, 250, r, r.zoom, 390, 600);
-    expect(px.width).toBeGreaterThan(100);
-    expect(px.width).toBeLessThan(390 / 2);
   });
 
-  it('zooms out to hold a spread, keeping a one-cell margin on every side', () => {
+  it('zooms out to hold a spread', () => {
     const cells = [cell(37.42, 24.92), cell(37.46, 24.97)];
     const r = fitRegion(cells, box)!;
     expect(r.zoom).toBeGreaterThanOrEqual(12);
     expect(r.zoom).toBeLessThan(16);
+  });
+
+  // Where a cell's corners land on screen at the fitted zoom, given the fit's centre.
+  const onScreen = (
+    c: { latitude: number; longitude: number; sizeMetres: number },
+    r: { latitude: number; longitude: number; zoom: number },
+    w: number,
+    h: number,
+  ) => {
+    const dLat = c.sizeMetres / 2 / 111_320;
+    const dLng = dLat / Math.cos((c.latitude * Math.PI) / 180);
+    const o = toWorld(r, r.zoom);
+    const nw = toWorld({ latitude: c.latitude + dLat, longitude: c.longitude - dLng }, r.zoom);
+    const se = toWorld({ latitude: c.latitude - dLat, longitude: c.longitude + dLng }, r.zoom);
+    return {
+      left: nw.x - o.x + w / 2,
+      top: nw.y - o.y + h / 2,
+      right: se.x - o.x + w / 2,
+      bottom: se.y - o.y + h / 2,
+      cellPx: se.x - nw.x,
+    };
+  };
+
+  it('keeps a one-cell margin on every side of every cell', () => {
+    const cells = [cell(37.42, 24.92), cell(37.46, 24.97)];
+    const r = fitRegion(cells, box)!;
     for (const c of cells) {
-      const px = cellBoxPixels(c, c.sizeMetres, r, r.zoom, box.width, box.height);
-      const cellPx = px.width;
-      expect(px.left).toBeGreaterThanOrEqual(cellPx - 1);
-      expect(px.top).toBeGreaterThanOrEqual(cellPx - 1);
-      expect(box.width - (px.left + px.width)).toBeGreaterThanOrEqual(cellPx - 1);
-      expect(box.height - (px.top + px.height)).toBeGreaterThanOrEqual(cellPx - 1);
+      const p = onScreen(c, r, box.width, box.height);
+      expect(p.left).toBeGreaterThanOrEqual(p.cellPx - 1);
+      expect(p.top).toBeGreaterThanOrEqual(p.cellPx - 1);
+      expect(box.width - p.right).toBeGreaterThanOrEqual(p.cellPx - 1);
+      expect(box.height - p.bottom).toBeGreaterThanOrEqual(p.cellPx - 1);
+    }
+  });
+
+  it('holds a wide east-west spread inside a short box', () => {
+    const cells = [cell(37.44, 24.9), cell(37.44, 24.99)];
+    const r = fitRegion(cells, { width: 390, height: 200 })!;
+    for (const c of cells) {
+      const p = onScreen(c, r, 390, 200);
+      expect(p.left).toBeGreaterThanOrEqual(-1);
+      expect(p.right).toBeLessThanOrEqual(391);
     }
   });
 
@@ -112,11 +132,6 @@ describe('fitRegion', () => {
     const wide = fitRegion(cells, { width: 390, height: 200 })!;
     const roomy = fitRegion(cells, { width: 1200, height: 200 })!;
     expect(wide.zoom).toBeLessThan(roomy.zoom);
-    for (const c of cells) {
-      const px = cellBoxPixels(c, c.sizeMetres, wide, wide.zoom, 390, 200);
-      expect(px.left).toBeGreaterThanOrEqual(-1);
-      expect(px.left + px.width).toBeLessThanOrEqual(391);
-    }
   });
 
   it('never zooms out past the floor of 12, even for an island-wide spread', () => {

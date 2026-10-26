@@ -347,7 +347,7 @@ describe("My colonies", () => {
     expect(text).not.toContain("Ended Place");
     // The shell's reading wrapper is div.readcol; the page's own .col cards are still drawn (SYC-619 §2.4).
     expect(page.text).toMatch(/<main[^>]*><div class="readcol">/);
-    expect(page.text).toContain(".col{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #0b5c6b");
+    expect(page.text).toContain(".col{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--accent)");
     expect(page.text).toContain('<div class="col"><strong>');
     expect(page.text).not.toMatch(/<div class="readcol"[^>]*><strong>/);
     // A guardian sees her own two links, and none of the team's menu.

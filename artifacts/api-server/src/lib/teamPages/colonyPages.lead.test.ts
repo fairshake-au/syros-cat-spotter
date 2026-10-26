@@ -23,9 +23,11 @@ const colonies = (o: Partial<Parameters<typeof renderColoniesPage>[0]> = {}) =>
 describe("Colonies with none yet (SYC-577)", () => {
   it("says what a colony is, then Create a colony; no search and no Recent changes yet (SYC-619 §7.1)", () => {
     const html = colonies();
-    const lead = html.indexOf(LEAD);
-    expect(lead).toBeGreaterThan(-1);
-    expect(html.indexOf("Create a colony")).toBeGreaterThan(lead);
+    // The intro says what a colony is (SYC-739); the lead only points at Create.
+    const lead = html.indexOf("Create a colony to start recording its cats.");
+    expect(html.indexOf(LEAD)).toBeGreaterThan(-1);
+    expect(lead).toBeGreaterThan(html.indexOf(LEAD));
+    expect(html.indexOf('id="create"')).toBeGreaterThan(lead);
     expect(html).not.toContain("Recent changes by cat guardians");
     expect(html).not.toContain('role="search"');
     expect(html.match(/id="create"/g)).toHaveLength(1);
@@ -45,12 +47,13 @@ describe("Colonies with none yet (SYC-577)", () => {
   });
 
   it("is left out when the team cannot create, when searching, and for a cat guardian", () => {
-    // Without Create, the empty list itself says what a colony is (SYC-522), once, with no button.
+    // Without Create, the intro still says what a colony is, once, with no button.
     const readOnly = colonies({ canCreate: false });
     expect(readOnly.split(LEAD)).toHaveLength(2);
     expect(readOnly).not.toContain("Create a colony");
-    expect(colonies({ query: "zzz" })).not.toContain(LEAD);
-    expect(colonies({ searched: true })).not.toContain(LEAD);
+    // Searching and a cat guardian's page: the lead is gone; the team's intro stays.
+    expect(colonies({ query: "zzz" })).not.toContain("Create a colony to start recording");
+    expect(colonies({ searched: true })).not.toContain("Create a colony to start recording");
     expect(colonies({ island: false })).not.toContain(LEAD);
   });
 });
@@ -125,6 +128,6 @@ describe("People (SYC-577)", () => {
 describe("This cat has died (SYC-577)", () => {
   it("is outlined in the danger colour, not the solid dark button", () => {
     const css = renderPage({ title: "x", body: "", active: null, personName: "Sam" });
-    expect(css).toMatch(/\.fixes form\.diedform button\{[^}]*background:#fff;color:#8c1d18;border:2px solid #8c1d18/);
+    expect(css).toMatch(/\.fixes form\.diedform button\{[^}]*background:var\(--card\);color:var\(--danger\);border:2px solid var\(--danger\)/);
   });
 });

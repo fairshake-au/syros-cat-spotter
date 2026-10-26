@@ -127,8 +127,7 @@ export default function CatalogScreen() {
     longitudeDelta: 0.06,
   };
 
-  // Typing refits the map only once it has settled: each refit pulls a new set
-  // of tiles from openstreetmap.org.
+  // Typing refits the MapLibre map only once it has settled, so it doesn't reload its tiles on every keystroke.
   const [settledSearch, setSettledSearch] = useState('');
   useEffect(() => {
     const id = setTimeout(() => setSettledSearch(search.trim().toLowerCase()), MAP_SEARCH_SETTLE_MS);

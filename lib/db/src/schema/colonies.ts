@@ -107,6 +107,11 @@ export const feedingSitesTable = pgTable(
     lastPublicLng: doublePrecision("last_public_lng"),
     // The last value of the "the cat guardian knows" tick box (§4.3).
     guardianAware: boolean("guardian_aware"),
+    // SYC-705: true when the point is only roughly right (a drop on the map
+    // rather than a surveyed spot), so the dashboard map can draw it as such.
+    positionApproximate: boolean("position_approximate")
+      .notNull()
+      .default(false),
     // Set when retired, cleared when brought back. Never public while set.
     retiredAt: timestamp("retired_at", { withTimezone: true }),
     retiredBy: uuid("retired_by").references(() => peopleTable.id),

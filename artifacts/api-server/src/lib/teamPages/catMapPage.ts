@@ -7,6 +7,7 @@ import { AREAS } from "../mapTiles/areas";
 import { latToTileY, lngToTileX, MAX_ZOOM, MIN_ZOOM, type View } from "../mapTiles/geometry";
 import { activeChips, catsAddress, filterForm, viewRow } from "./catGridPage";
 import { escapeHtml as esc } from "./escape";
+import { pageIntro } from "./help";
 import { renderPage } from "./layout";
 import { lastSeenWords } from "./lastSeen";
 import { renderMap, type MapMarker } from "./map";
@@ -176,13 +177,18 @@ function buttonMap(o: CatMapOptions): string {
     '<div class="mapfallback">' +
     renderMap({ view: o.view, markers, mode: "view", moveAction: CAT_MAP_MOVE_PATH, hidden }) +
     '<p class="hint">Tap a cat to open it. A circle with a number is a group of cats: zoom in to see each one.</p>' +
+    legend() +
     "</div>"
   );
 }
 
 /** The island Map page. Trusted HTML: fixed text, numbers, assetUrl() addresses and escapeHtml only. */
 export function renderCatMapPage(o: CatMapOptions): string {
+  const intro = pageIntro(
+    "Each dot is a cat, placed where it was last seen. A circle with a number is a group of cats: zoom in to split it. These places are for the team only.",
+  );
   const top =
+    intro +
     // Same order as the grid (search and Filters, then Grid/Map), so the
     // controls stay put when the person switches view (SYC-522).
     filterForm(o, true) +

@@ -106,7 +106,7 @@ export function renderCatCard(
     `<p class="syrline">${esc(cat.syr)} · on our records since ${esc(day(cat.createdAt))}</p>` +
     renderCatFacts(v, opts.now, { byId: opts.byId, shown: opts.shown, island: opts.island }) +
     (cat.description ? `<p class="desc">${esc(cat.description)}</p>` : "") +
-    `<p class="publicline">What the public sees: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>` +
+    `<p class="publicline">What the public app shows: <span class="public">${esc(publicStatusText(v.publicStatus))}</span></p>` +
     "</div>" +
     (opts.actions ? `<div class="catactions">${opts.actions}</div>` : "") +
     "</div>";

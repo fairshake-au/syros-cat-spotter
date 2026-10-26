@@ -33,7 +33,7 @@ export const FONT = Math.ceil((12 * VIEW_W) / CHART_MIN_PX);
 
 /** A total that isn't a status (§12.2): neutral ink at 55%. */
 const NEUTRAL_OPACITY = 0.55;
-const GRID = "rgba(29,29,27,.14)";
+const GRID = "rgba(27,42,56,.14)";
 
 /** Round a number to 0.1 of a unit: enough for a picture, and no long decimals in the page. */
 const r1 = (v: number) => Math.round(v * 10) / 10;

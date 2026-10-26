@@ -2,6 +2,7 @@ import { getGuidance } from "@workspace/welfare-guidance";
 import { PAID_BY, VISIT_DID, type VetVisitValue } from "../observations";
 import type { Vaccine } from "../resolve";
 import { escapeHtml as esc } from "./escape";
+import { whatHappens } from "./help";
 import { renderPage } from "./layout";
 import { VACCINE } from "./catFacts";
 import { euroText } from "../euros";
@@ -263,7 +264,8 @@ export function renderVetVisitForm(p: VisitFormPage): string {
       '<fieldset><legend class="label">Paid by</legend>' +
       err("paidBy") +
       PAID_BY.map((w) => radio("paidBy", `vv-paid-${w}`, w, PAID_WORDS[w], f.paidBy === w)).join("") +
-      "</fieldset>"
+      "</fieldset>" +
+      whatHappens("If the owner paid, the cost is not counted in Syros Cats' spend in Reports.")
     : "";
 
   const photo = cat.mainPhotoUrl
@@ -285,6 +287,9 @@ export function renderVetVisitForm(p: VisitFormPage): string {
       err("date") +
       `<input id="vv-date" name="date" type="date" required max="${today(p.now ?? new Date())}" value="${esc(f.date)}"${described("date")}>` +
       `<fieldset><legend class="label">What was done</legend>${err("did")}${didBoxes}</fieldset>` +
+      whatHappens(
+        "Ticking Sterilised records the cat as sterilised. If a cat guardian had recorded the cat as not sterilised, this visit overrules that, and undoing the visit puts it back.",
+      ) +
       vaccinePicker +
       '<label class="label" for="vv-treated">If treated: what for <span class="hint">(a few words)</span></label>' +
       err("treatedNote") +

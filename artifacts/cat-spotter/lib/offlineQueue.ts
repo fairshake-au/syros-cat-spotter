@@ -14,6 +14,14 @@ export const MAX_SYNC_ATTEMPTS = 3;
 /** Queued items older than this are flagged as stale and can never sync. */
 export const MAX_QUEUE_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
+/** SYC-196: first wait after a 429 with no `Retry-After`; doubles each time. */
+export const RATE_LIMIT_BASE_WAIT_MS = 60 * 1000;
+/** SYC-196: the longest the queue ever waits after a 429, even if told more. */
+export const RATE_LIMIT_MAX_WAIT_MS = 15 * 60 * 1000;
+const RATE_LIMIT_MIN_WAIT_MS = 1000;
+/** Up to this much is added on top, so many phones don't return together. */
+const RATE_LIMIT_JITTER = 0.2;
+
 export interface PendingSighting {
   localId: string;
   /**
@@ -74,6 +82,13 @@ export interface PendingSighting {
    * Review reads it from here by `localId`. Read it through `hintOf`.
    */
   hintCatId?: number;
+  /**
+   * SYC-186: this item was written when the spot was SENT straight away (not
+   * saved and synced later). It is a spot the spotter may have left on
+   * purpose, so it is left out of the "photo checked" banner and the tab
+   * badge, and the feeding nudge still treats it as a live send.
+   */
+  keptAtSend?: boolean;
 }
 
 /** A queued item's hint, or undefined when it has none or it isn't a cat id. */
@@ -144,10 +159,46 @@ export function markStaleItems(
   return { items: next, changed };
 }
 
+/** The seconds or HTTP-date `Retry-After` of an ApiError, in ms; else undefined. */
+function retryAfterMs(err: unknown, now: number): number | undefined {
+  const headers = (err as { headers?: unknown } | null)?.headers as
+    | { get?: (name: string) => string | null }
+    | undefined;
+  const raw = typeof headers?.get === 'function' ? headers.get('retry-after') : null;
+  if (!raw) return undefined;
+  const value = raw.trim();
+  if (/^\d+$/.test(value)) return Number(value) * 1000;
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? undefined : Math.max(0, date - now);
+}
+
+/**
+ * SYC-196: how long to leave the queue alone after a 429 ("too many, try
+ * later"). The server's `Retry-After` if it sent one, otherwise a backoff that
+ * doubles with each consecutive 429 (`consecutive` starts at 1). Always
+ * between 1 second and RATE_LIMIT_MAX_WAIT_MS, then up to 20% jitter on top
+ * (`random` is 0..1), so retries can't hammer the server or arrive together.
+ */
+export function rateLimitWaitMs(
+  err: unknown,
+  consecutive: number,
+  now: number = Date.now(),
+  random: number = Math.random(),
+): number {
+  const told = retryAfterMs(err, now);
+  const backoff = RATE_LIMIT_BASE_WAIT_MS * 2 ** Math.max(0, consecutive - 1);
+  const base = Math.min(
+    RATE_LIMIT_MAX_WAIT_MS,
+    Math.max(RATE_LIMIT_MIN_WAIT_MS, told ?? backoff),
+  );
+  return Math.round(base * (1 + RATE_LIMIT_JITTER * random));
+}
+
 export type SyncFailureDecision =
   | { kind: 'network' }
   | { kind: 'needs_sign_in' }
   | { kind: 'moved' }
+  | { kind: 'rate_limited'; waitMs: number }
   | { kind: 'server'; permanent: boolean; failCount: number };
 
 /**
@@ -182,6 +233,8 @@ function isPrelaunchGateFailure(err: unknown): boolean {
  * - The pre-launch gate's own 401 (post-cutover session keys, a queued
  *   sighting replayed with no valid gate cookie) is NOT permanent: the item
  *   stays queued untouched, and the caller pauses retrying until sign-in.
+ * - A 429 is NOT a failure: the item stays queued, uncounted, and the caller
+ *   waits `waitMs` (Retry-After, else a capped, jittered backoff).
  * - API (server) errors increment the fail count; the item is flagged as a
  *   permanent error on any other 4xx status, or once the fail count reaches
  *   MAX_SYNC_ATTEMPTS.
@@ -189,6 +242,7 @@ function isPrelaunchGateFailure(err: unknown): boolean {
 export function classifySyncFailure(
   err: unknown,
   previousFailCount: number | undefined,
+  consecutiveRateLimits = 1,
 ): SyncFailureDecision {
   const isServerError = err instanceof Error && err.name === 'ApiError';
   if (!isServerError) return { kind: 'network' };
@@ -205,6 +259,11 @@ export function classifySyncFailure(
     typeof (err as { status?: unknown }).status === 'number'
       ? (err as { status: number }).status
       : 0;
+  // SYC-196: "too many, try later" says nothing about the sighting. It stays
+  // queued, not counted as a failure, and the caller waits before trying again.
+  if (status === 429) {
+    return { kind: 'rate_limited', waitMs: rateLimitWaitMs(err, consecutiveRateLimits) };
+  }
   const permanent =
     (status >= 400 && status < 500) || failCount >= MAX_SYNC_ATTEMPTS;
   return { kind: 'server', permanent, failCount };

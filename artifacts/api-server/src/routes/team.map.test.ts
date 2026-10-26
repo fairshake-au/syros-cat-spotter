@@ -61,7 +61,7 @@ const SUSAN = `vitest-map-susan-${RUN}@example.com`;
 const VERA = `vitest-map-vera-${RUN}@example.com`;
 const KEY = "vitest-map-key-0123456789abcdef-0123456789abcdef";
 const EXPECTED_CSP =
-  "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+  "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 const ERMOUPOLI: Position = { lat: 37.4447, lng: 24.9417 };
 

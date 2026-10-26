@@ -6,7 +6,7 @@
  * (`locationCellM`). The map draws that square with softened corners, so it
  * reads as a region, not a building footprint, and never as a pin.
  */
-import { MIN_ZOOM, fromWorld, toWorld, type LatLng } from './mapTiles';
+import { MIN_ZOOM, fromWorld, toWorld, type LatLng } from './mercator';
 
 const METRES_PER_DEGREE_LAT = 111_320;
 
@@ -49,30 +49,6 @@ export function roundedCellPolygon(centre: LatLng, sideMetres: number): LatLng[]
     }
   }
   return points;
-}
-
-/** The cell's box in pixels on a tile map centred on `mapCentre` (the web map). */
-export function cellBoxPixels(
-  centre: LatLng,
-  sideMetres: number,
-  mapCentre: LatLng,
-  zoom: number,
-  width: number,
-  height: number,
-): { left: number; top: number; width: number; height: number; radius: number } {
-  const { dLat, dLng } = halfSideDegrees(centre, sideMetres);
-  const origin = toWorld(mapCentre, zoom);
-  const nw = toWorld({ latitude: centre.latitude + dLat, longitude: centre.longitude - dLng }, zoom);
-  const se = toWorld({ latitude: centre.latitude - dLat, longitude: centre.longitude + dLng }, zoom);
-  const w = se.x - nw.x;
-  const h = se.y - nw.y;
-  return {
-    left: nw.x - origin.x + width / 2,
-    top: nw.y - origin.y + height / 2,
-    width: w,
-    height: h,
-    radius: Math.min(w, h) * CORNER_SHARE,
-  };
 }
 
 /**

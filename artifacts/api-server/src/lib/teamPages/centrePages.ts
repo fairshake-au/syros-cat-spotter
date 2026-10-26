@@ -45,6 +45,8 @@ export function renderCentreConfirm(
     saveAction: string;
     saveFields?: Record<string, string>;
     back: { href: string; label: string };
+    /** One plain line saying what saving the centre changes (SYC-739), already worded. */
+    help?: string;
   } & FormViewer,
 ): string {
   const { w } = wordsIn(o.lang);
@@ -66,6 +68,7 @@ export function renderCentreConfirm(
       `<p class="hint">${w("confirm.nudge")}</p>` +
       `<p class="tapped">${esc(o.question(placeLabel(o.spot)))}${link ? ` &middot; ${openMapLink(o.spot.lat, o.spot.lng)}` : ""}</p>` +
       (o.now && o.nowInWords !== false ? `<p class="hint">${esc(o.nowLabel)}: ${esc(placeLabel(o.now))}</p>` : "") +
+      (o.help ? `<p class="what">${esc(o.help)}</p>` : "") +
       `<form method="post" action="${esc(o.saveAction)}">` +
       Object.entries(o.saveFields ?? {})
         .map(([k, v]) => hidden(k, v))

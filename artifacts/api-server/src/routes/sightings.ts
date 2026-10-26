@@ -876,7 +876,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     return;
   }
   if (sighting.status === "resolved") {
-    res.status(409).json({ error: "Sighting already resolved" });
+    res.status(409).json({ error: "Sighting already resolved", code: "RESOLVED" });
     return;
   }
   // Ownership check. The supplied device id must name the sighting's owner AND
@@ -1134,7 +1134,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     });
   } catch (err: any) {
     if (err === ALREADY_RESOLVED) {
-      res.status(409).json({ error: "Sighting already resolved" });
+      res.status(409).json({ error: "Sighting already resolved", code: "RESOLVED" });
       return;
     }
     // Unique-index violation from a concurrent submission of the same name.

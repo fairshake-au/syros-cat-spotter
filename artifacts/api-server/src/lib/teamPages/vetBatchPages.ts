@@ -15,6 +15,7 @@ import {
 import { escapeHtml as esc } from "./escape";
 import { backLink } from "./backLink";
 import { renderPage } from "./layout";
+import { pageIntro, whatHappens } from "./help";
 import { VACCINE } from "./catFacts";
 import {
   clinics,
@@ -402,7 +403,7 @@ function sharedSection(p: BatchPage): string {
     '<label class="label" for="vb-note">Note for every cat <span class="hint">(optional)</span></label>' +
     errLine("vb-note-err", pr("note")) +
     `<textarea id="vb-note" name="note" maxlength="${NOTE_MAX}"${describedBy("vb-note-err", pr("note"))}>${esc(f.note)}</textarea>` +
-    '<button type="submit" class="primary wide">Save these details</button>' +
+    '<button type="submit" class="primary wide">Save the shared details</button>' +
     '<button type="submit" name="action" value="save" class="primary wide">Save the batch\'s visits</button></form></section>'
   );
 }
@@ -636,6 +637,7 @@ export function renderBatchPage(p: BatchPage): string {
     personName: p.personName,
     beforeTitle: backLink(BASE, "Vet visit batches"),
     body:
+      pageIntro("A batch is one trip to the vet. Add each cat from its photo, say what was done, then save. Nothing is recorded until you press Save the batch's visits.") +
       placeLine(p) +
       (p.problem ? `<p class="notice" role="alert">${esc(p.problem)} Nothing was saved.</p>` : "") +
       (anyProblem ? '<p class="notice" role="alert">Some answers need a look. Nothing was saved yet.</p>' : "") +
@@ -650,7 +652,9 @@ export function renderBatchPage(p: BatchPage): string {
       wholeBatch.map((x) => `<p class="bad" role="alert">${esc(x.words)}</p>`).join("") +
       `<p class="hint">Each cat gets its own vet visit. Nothing is saved until every cat is matched, or made a new cat, and has something done.</p>` +
       `<p class="hint">Press “Save this cat's answers” on any card you changed first.</p>` +
+      whatHappens("This creates one vet visit for each cat. A cat with Sterilised ticked is recorded as sterilised. You can't change the batch afterwards.") +
       `<form method="post" action="${batchPath(b.id)}/save"><button type="submit" class="primary wide">Save the batch's visits</button></form>` +
+      whatHappens("Throwing a batch away deletes it and its cats' photos. No visits are recorded.") +
       `<form method="post" action="${batchPath(b.id)}/abandon" class="batchabandon"><button type="submit" class="risky">Throw this batch away</button></form>` +
       "</section>",
   });
@@ -714,6 +718,7 @@ export function renderBatchList(personName: string, rows: BatchListRow[]): strin
     active: "colonies",
     personName,
     body:
+      pageIntro("A batch is one trip to the vet with several cats. Start one, add each cat from its photo, then save. Nothing is recorded until you save.") +
       '<p><a class="tap" href="/api/team/vet-batches/new">Start a new batch</a></p>' +
       "<h2>Batches not saved yet</h2>" +
       (rows.length === 0

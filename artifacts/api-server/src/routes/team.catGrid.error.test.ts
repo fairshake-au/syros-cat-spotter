@@ -42,7 +42,7 @@ describe("a failure while building the grid", () => {
     expect(res.status).toBe(500);
     expect(res.headers["content-security-policy"]).toBe(STRICT_CSP);
     expect(res.headers["content-security-policy"]).toBe(
-      "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+      "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
     );
     expect(res.headers["cache-control"]).toBe("no-store");
     expect(res.headers["x-content-type-options"]).toBe("nosniff");

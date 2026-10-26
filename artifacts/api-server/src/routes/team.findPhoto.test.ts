@@ -257,8 +257,9 @@ describe("the form", () => {
   it("opens with one line and a jump link to the photo (SYC-619 §9.4)", async () => {
     const team = await teamMember("intro");
     const res = await form(team.cookie, `?colony=${colony}`);
+    expect(res.text).toContain("Use this when you have a photo of a cat and want to know whether it&#39;s already in the app.");
     expect(res.text).toContain(
-      '<p class="hint">Choose where to look, then add the photo below. <a href="#find-photo">Go to the photo</a></p>',
+      '<p class="hint">Always check the photos yourself before choosing a cat. <a href="#find-photo">Go to the photo</a></p>',
     );
     expect(res.text).not.toContain("Compare a photo, for example");
     expect(res.text).toContain('id="find-photo"');

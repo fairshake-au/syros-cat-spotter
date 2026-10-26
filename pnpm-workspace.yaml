@@ -185,6 +185,8 @@ overrides:
   postcss: "8.5.23"
   qs: "6.16.0"
   tar: "7.5.21"
+  # react-native>react-devtools-core asks for shell-quote ^1.6.1; 1.8.4-1.10.x have a critical advisory (GHSA-pqg4-j6r4-53mv).
+  shell-quote: "1.12.0"
   # transformers asks for sharp ^0.34; use the app's 0.35.5 so there is one libvips per process on Linux. Clears sharp 0.34.5's 3 high advisories.
   "@huggingface/transformers>sharp": "0.35.5"
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it

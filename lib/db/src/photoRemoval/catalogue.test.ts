@@ -38,6 +38,7 @@ const BYTES_AND_JSON = [
   "app_settings.value", // switches
   "held_typing.fields", // SYC-516: a signed-out save's named text boxes; never bytes, a photo id or an address
   "mail_outbox.payload", // kind + digest counts; never bytes or an id
+  "map_data_files.bytes", // SYC-705: map style and font files; public map data, never a photo
   "map_tile_cache.bytes", // OSM map tiles
   "mapping_events.after",
   "mapping_events.before",
