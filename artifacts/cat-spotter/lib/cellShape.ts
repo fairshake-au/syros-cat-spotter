@@ -51,30 +51,6 @@ export function roundedCellPolygon(centre: LatLng, sideMetres: number): LatLng[]
   return points;
 }
 
-/** The cell's box in pixels on a tile map centred on `mapCentre` (the web map). */
-export function cellBoxPixels(
-  centre: LatLng,
-  sideMetres: number,
-  mapCentre: LatLng,
-  zoom: number,
-  width: number,
-  height: number,
-): { left: number; top: number; width: number; height: number; radius: number } {
-  const { dLat, dLng } = halfSideDegrees(centre, sideMetres);
-  const origin = toWorld(mapCentre, zoom);
-  const nw = toWorld({ latitude: centre.latitude + dLat, longitude: centre.longitude - dLng }, zoom);
-  const se = toWorld({ latitude: centre.latitude - dLat, longitude: centre.longitude + dLng }, zoom);
-  const w = se.x - nw.x;
-  const h = se.y - nw.y;
-  return {
-    left: nw.x - origin.x + width / 2,
-    top: nw.y - origin.y + height / 2,
-    width: w,
-    height: h,
-    radius: Math.min(w, h) * CORNER_SHARE,
-  };
-}
-
 /**
  * Cats that share one published cell share one drawn area: draw each cell
  * once, keeping the cats in it in their given order.
