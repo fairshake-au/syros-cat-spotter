@@ -25,14 +25,15 @@ describe("markBadge", () => {
   it("each mark has its own shape and its own colour", () => {
     const shapes = new Set(MARKS.map((m) => /<svg[\s\S]*?<\/svg>/.exec(markBadge(m))![0]));
     expect(shapes.size).toBe(4);
-    for (const colour of ["#0a4d59", "#2f7884", "#6a949b", "#a6540a"]) expect(MARK_CSS).toContain(colour);
+    // Each colour is the mark's own theme variable (SYC-579), so the dark theme can lighten it.
+    for (const m of MARKS) expect(MARK_CSS).toContain(`.mark-${m} .mark-icon{color:var(--mark-${m})}`);
   });
 });
 
 // SYC-396 PR 2.0, Task 2.0.3: the four-part sterilisation bar (spec §4, §12.2).
 describe("markBar", () => {
   const split = { sterilised: 89, probably: 23, not_known: 18, not_sterilised: 12 };
-  const segments = (html: string) => [...html.matchAll(/<span class="markbar-seg mark-(\w+)" style="flex:0 1 ([\d.]+)%;background:(#[0-9a-f]{6})"/g)];
+  const segments = (html: string) => [...html.matchAll(/<span class="markbar-seg mark-(\w+)" style="flex:0 1 ([\d.]+)%;background:var\(--mark-(\w+)\)"/g)];
   const text = (html: string) => html.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, "");
 
   it("draws one segment per non-zero mark, in MARK_ORDER, with widths that sum to 100%", () => {
@@ -89,13 +90,12 @@ describe("markBar", () => {
     expect(html).toContain('aria-label="2 Not sterilised"');
   });
 
-  it("uses no segment colour outside MARK_COLOUR", () => {
-    const allowed = new Set(Object.values(MARK_COLOUR));
+  it("colours each segment with its own mark's variable, never another's", () => {
     const segs = segments(markBar(split));
     expect(segs).toHaveLength(4);
     for (const m of segs) {
-      expect(allowed.has(m[3]!)).toBe(true);
-      expect(m[3]).toBe(MARK_COLOUR[m[1] as keyof typeof MARK_COLOUR]);
+      expect(m[3]).toBe(m[1]);
+      expect(Object.keys(MARK_COLOUR)).toContain(m[3]);
     }
   });
 

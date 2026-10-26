@@ -228,6 +228,13 @@ describe("renderHomePage", () => {
     expect(one).toContain("<span>more report</span>");
   });
 
+  it("has an intro, a Words we use link and a gloss under each tile (SYC-739)", () => {
+    const html = page(full());
+    expect(html).toContain('<p class="intro">Your starting point.');
+    expect(html).toContain('href="/api/team/words">Words we use</a>');
+    expect(between(html, "today", "trap")).toContain('<span class="hint">Cats a spotter thinks have a clipped ear.');
+  });
+
   it("with no lines above, other reports are 'open reports', not 'more'", () => {
     const d = full({ needs: needsOf({ ...noNeeds, otherOpen: 3 }) });
     expect(page(d)).toContain('<span class="hn">3</span> <span>open reports</span>');

@@ -31,6 +31,9 @@ export const ASSET_EXTENSIONS = [".js", ".css"];
 export const VENDOR = {
   "leaflet.css": "leaflet/dist/leaflet.css",
   "leaflet.js": "leaflet/dist/leaflet.js",
+  "inter-latin.woff2": "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+  "inter-latin-ext.woff2": "@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2",
+  "inter-greek.woff2": "@fontsource-variable/inter/files/inter-greek-wght-normal.woff2",
 };
 
 const require = createRequire(import.meta.url);

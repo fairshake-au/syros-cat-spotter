@@ -61,6 +61,8 @@ describe("the Vet settings page", () => {
     const res = await page(team.cookie);
     expect(res.status).toBe(200);
     expect(res.text).toContain("<title>Vet settings");
+    expect(res.text).toContain("The usual price Syros Cats pays a vet to sterilise one cat, normally €50–60.");
+    expect(res.text).toContain("does not change visits already saved");
     expect(res.text).toContain(`<strong>€${eur}</strong> per cat`);
     expect(res.text).toContain(`<form method="post" action="${PATH}">`);
     expect(res.text).toContain(`id="price" name="eur" value="${eur}"`);

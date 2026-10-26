@@ -25,7 +25,16 @@ import { logger } from "./logger";
 // in a Map, never joined onto a folder path.
 
 /** The files pages may ask for. A new one is added here and to assets/ (or VENDOR). */
-export const ASSET_NAMES = ["dashboard-grid.js", "dashboard-map.js", "find-photo.js", "leaflet.js", "leaflet.css"] as const;
+export const ASSET_NAMES = [
+  "dashboard-grid.js",
+  "dashboard-map.js",
+  "find-photo.js",
+  "leaflet.js",
+  "leaflet.css",
+  "inter-latin.woff2",
+  "inter-latin-ext.woff2",
+  "inter-greek.woff2",
+] as const;
 
 /**
  * Files copied from a pinned npm package rather than kept in assets/
@@ -36,6 +45,11 @@ export const ASSET_NAMES = ["dashboard-grid.js", "dashboard-map.js", "find-photo
 export const VENDOR: Readonly<Record<string, string>> = {
   "leaflet.css": "leaflet/dist/leaflet.css",
   "leaflet.js": "leaflet/dist/leaflet.js",
+  // Inter, the app's typeface (SYC-579), pinned at @fontsource-variable/inter
+  // 5.2.8: one variable file per script, so every weight is one download.
+  "inter-latin.woff2": "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+  "inter-latin-ext.woff2": "@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2",
+  "inter-greek.woff2": "@fontsource-variable/inter/files/inter-greek-wght-normal.woff2",
 };
 
 /** The bytes of a vendored file, from its package. Throws if it isn't installed. */
@@ -49,6 +63,7 @@ export const ASSET_PATH = "/api/team/assets";
 const TYPES: Record<string, string> = {
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
+  ".woff2": "font/woff2",
 };
 
 /** The same rule as scripts/buildAssets.mjs: the first 12 hex digits of the SHA-256. */

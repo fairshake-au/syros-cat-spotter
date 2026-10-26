@@ -146,6 +146,8 @@ describe("renderTeamErrorPage", () => {
     expect(after).not.toContain("Please try again in a minute.");
     const open = renderTeamErrorPage("broken", { afterSave: false, lang: "en" });
     expect(open).toContain("Please try again in a minute.");
+    expect(open).toContain("If this keeps happening, email hello@catspotters.com.");
+    expect(renderTeamErrorPage("not_found", { afterSave: false, lang: "en" })).not.toContain("hello@catspotters.com");
   });
 
   it("draws Greek and French when they are live", async () => {

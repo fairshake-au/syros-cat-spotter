@@ -25,9 +25,10 @@ describe("Colonies and Feeding sites say what they are for (SYC-522)", () => {
     }
   });
 
-  it("an empty Colonies list says what a colony is", () => {
-    expect(tr("en", "colonies.emptyTeam")).toContain("A colony is a group of street cats looked after by a cat guardian");
-    expect(tr("en", "colonies.emptyTeam")).not.toMatch(/colony carer/i);
+  it("an empty Colonies list says so; what a colony is now sits in the intro above every list (SYC-739)", () => {
+    expect(tr("en", "colonies.emptyTeam")).toBe("There are no colonies yet.");
+    expect(CATALOGUE.en["colonies.intro"]).toContain("A colony is a group of street cats");
+    expect(CATALOGUE.en["colonies.intro"]).not.toMatch(/colony carer/i);
   });
 
   it("an empty Feeding sites list says what a feeding site is", () => {

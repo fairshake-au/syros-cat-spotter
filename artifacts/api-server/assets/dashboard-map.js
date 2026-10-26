@@ -141,10 +141,10 @@
     not_sterilised: "Not sterilised",
   };
   var MARK_COLOUR = {
-    sterilised: "#0a4d59",
-    probably: "#2f7884",
-    not_known: "#6a949b",
-    not_sterilised: "#a6540a",
+    sterilised: "#0f4a72",
+    probably: "#1c77c3",
+    not_known: "#2f92dc",
+    not_sterilised: "#b8552f",
   };
   var isMark = function (m) {
     return MARKS.indexOf(m) !== -1;

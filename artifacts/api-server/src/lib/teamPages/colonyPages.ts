@@ -264,6 +264,32 @@ function createForm(W: Words, island: boolean, open = false, kept?: KeptFields):
   );
 }
 
+/**
+ * "How this page works" for the Colonies list (SYC-739): what the flags and
+ * "% confirmed sterilised" mean. Same markup as help.ts's howFold, but the
+ * words come from the catalogue because a cat guardian reads this page too.
+ * Only the team gets the 300 m rule (colonyFigures `opts.island`), the
+ * colony / feeding site / area line and the link to Words we use.
+ */
+function howColonies(W: Words, island: boolean): string {
+  const { w } = W;
+  const keys: WordKey[] = [
+    "colonies.how.pct",
+    "colonies.how.growing",
+    "colonies.how.kittens",
+    ...(island ? (["colonies.how.kittensTeam"] as WordKey[]) : []),
+    "colonies.how.noGuardian",
+    "colonies.how.notVisited",
+    ...(island ? (["colonies.how.terms"] as WordKey[]) : []),
+  ];
+  return (
+    `<details class="hownote howpage"><summary>${w("colonies.how.title")}</summary>` +
+    keys.map((k) => `<p class="hint">${w(k)}</p>`).join("") +
+    (island ? `<p class="hint"><a href="/api/team/words">Words we use</a></p>` : "") +
+    `</details>`
+  );
+}
+
 export function renderColoniesPage(opts: ColonyViewer & {
   query: string;
   /** A search that cannot match anything, shown as a search with no results. */
@@ -341,6 +367,8 @@ export function renderColoniesPage(opts: ColonyViewer & {
     body:
       (opts.kept && opts.canCreate ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
+      `<p class="intro">${w(opts.island === false ? "colonies.introOwn" : "colonies.intro")}</p>` +
+      howColonies(W, opts.island !== false) +
       (leadCreate
         ? `<p>${w("colonies.lead")}</p>` + create
         : "") +
@@ -707,12 +735,13 @@ export function renderColonyPage(
     (plan.toDo.length === 0
       ? // "All sterilised" only when there are sterilised street cats to say it of (review, finding 1).
         `<p class="empty">${w(plan.done.length > 0 ? "plan.allDone" : plan.other.length > 0 ? "colonies.noStreetCats" : "colony.noCats")}</p>`
-      : `<p class="hint">${w("plan.toDoHint")}</p>` + catList(W, planRows(plan.toDo), v.id, mayTakeOut, island));
+      : `<p class="hint">${w("plan.toDoHint")}</p><p class="hint">${w("colony.help.trapping")}</p>` +
+        catList(W, planRows(plan.toDo), v.id, mayTakeOut, island));
   // A price estimate, not money spent: no view_vet_costs needed (§4.2, §9.2). Never for a cat guardian (§10.2).
   const estimate =
     island && plan.estimate && plan.estimate.cats > 0
       ? `<p class="estimate"><strong>${estimateLine(W, plan.estimate)}</strong></p>` +
-        `<p class="hint">${w("plan.estimateHint")}` +
+        `<p class="hint">${w("plan.estimateHint")} ${w("plan.estimateNote")}` +
         (opts.may("edit_vet_settings") ? ` <a href="/api/team/vet-settings">${w("plan.vetSettings")}</a>` : "") +
         `</p>`
       : "";
@@ -757,6 +786,7 @@ export function renderColonyPage(
   // to her they are just "Notes"; the team keeps "Team-only notes".
   const notes =
     `<h2>${w(island ? "colony.notes" : "colony.notesOwn")}</h2>` +
+    (island ? `<p class="hint">${w("colony.help.notes")}</p>` : "") +
     (v.notes ? `<p class="note">${esc(v.notes)}</p>` : `<p class="empty">${w("colony.noNotes")}</p>`);
   return renderPage({
     title: v.name,

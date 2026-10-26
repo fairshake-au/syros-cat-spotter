@@ -8,11 +8,11 @@
 
 /** Every dashboard answer's header: no script at all. Today's, byte for byte. */
 export const STRICT_CSP =
-  "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+  "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 /** The header for a page that loads our own script. Exactly this, nothing more. */
 export const WIDE_CSP =
-  "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+  "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 /**
  * THE EXEMPTION. The routes whose own page (a 200 HTML answer) may carry
@@ -41,7 +41,7 @@ export const WIDE_CSP_FILES: ReadonlySet<string> = new Set(["src/routes/teamCats
  * being stored. Still no script. Exactly this, nothing more.
  */
 export const PHOTO_CSP =
-  "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+  "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 /**
  * The routes whose 200 HTML answer carries PHOTO_CSP. Every other answer

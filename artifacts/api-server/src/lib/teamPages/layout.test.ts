@@ -232,7 +232,7 @@ describe("the skip link (SYC-366)", () => {
     const html = page();
     expect(html).toMatch(/\.skip\{[^}]*position:absolute/);
     expect(html).toMatch(/\.skip:focus\{[^}]*top:/);
-    expect(html).toMatch(/:focus-visible\{[^}]*outline:3px solid #0b5c6b/);
+    expect(html).toMatch(/:focus-visible\{[^}]*outline:3px solid var\(--accent\)/);
   });
 });
 
@@ -360,7 +360,7 @@ describe("phone menu (SYC-619 §2.1)", () => {
   });
 
   it("Menu looks like a button: outlined, 44px, no marker", () => {
-    expect(css(page())).toMatch(/\.menufold>summary\{[^}]*min-height:44px[^}]*border:1px solid #0b5c6b[^}]*border-radius:8px[^}]*background:#fff/);
+    expect(css(page())).toMatch(/\.menufold>summary\{[^}]*min-height:44px[^}]*border:1px solid var\(--accent\)[^}]*border-radius:10px[^}]*background:var\(--card\)/);
     expect(css(page())).toContain(".menufold>summary::-webkit-details-marker{display:none}");
   });
 
@@ -452,7 +452,7 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
 
   it("closed shows ▸ and open shows ▾, both with empty alternative text", () => {
     const css = sheet();
-    expect(css).toMatch(/::before\{content:"▸" \/ "";flex:none;width:1\.2em;color:#0b4553\}/);
+    expect(css).toMatch(/::before\{content:"▸" \/ "";flex:none;width:1\.2em;color:var\(--accent-strong\)\}/);
     const open = css.split("\n").find((l) => l.includes('content:"▾" / ""'))!;
     expect(open).toBeTruthy();
     const selectors = open.slice(0, open.indexOf("{")).split(",").map((s) => s.trim());
@@ -527,12 +527,12 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
   it("the cat page's existing marker rules are untouched", () => {
     const css = sheet();
     expect(css).toContain(
-      'li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:#0b4553}',
+      'li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:var(--accent-strong)}',
     );
   });
 
   it("the How this is worked out summary is 44px, bold and teal", () => {
-    expect(sheet()).toMatch(/details\.method>summary\{[^}]*min-height:44px[^}]*font-weight:700[^}]*color:#0b4553/);
+    expect(sheet()).toMatch(/details\.method>summary\{[^}]*min-height:44px[^}]*font-weight:700[^}]*color:var\(--accent-strong\)/);
   });
   it("a colony's cat rows have their own class: no li.catcard rule, and nothing styled colonycat touches the Cats grid", () => {
     const css = sheet();

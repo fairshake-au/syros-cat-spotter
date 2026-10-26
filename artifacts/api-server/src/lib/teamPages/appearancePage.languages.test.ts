@@ -181,5 +181,8 @@ describe("T4A: the Appearance section in Greek and French says §2's words", () 
     expect(el).toContain("Χρώμα: Πορτοκαλί · Ρίγες");
     expect(el).not.toMatch(/tabby/i);
     expect(renderColourCheckPage([cat], "Susan", undefined, "en")).toContain("Coat: Ginger tabby");
+    const en = renderColourCheckPage([cat], "Susan", undefined, "en");
+    expect(en).toContain('<p class="intro">Cats whose recorded colour or markings may not match their photos.');
+    expect(en).toContain("What you save shows on the cat&#39;s public page");
   });
 });

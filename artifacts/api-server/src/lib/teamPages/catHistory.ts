@@ -882,9 +882,7 @@ export function renderHistory(v: TeamCatView, visits: VisitLine[], opts: History
     (l.rows.length === 0
       ? `<p class="empty">${esc(EMPTY_WORDS[l.show])}</p>`
       : `<ol class="tl">${l.drawn.map((x) => drawRow(x, c)).join("")}</ol>`) +
-    more +
-    // How changes work, folded into a short note you can open (spec §3.2), in #192's words.
-    '<details class="hownote"><summary>How changes work</summary>' +
-    '<p class="hint">Every change is saved with your name. Nothing is deleted. A change with an older date won\'t override a newer one. To undo a change, use <strong>Mark wrong</strong> on it below. A change to the coat or markings is undone in the Coat and markings tab.</p></details>'
+    // "How changes work" moved up under the buttons (catActions.ts, SYC-739).
+    more
   );
 }
