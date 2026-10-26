@@ -475,3 +475,18 @@ describe("Queue: the next step, the folded row and the stripe (SYC-619 task 15, 
     }
   });
 });
+
+describe("queue page in-page help (SYC-739)", () => {
+  it("has the intro and a closed How this page works fold", () => {
+    const html = render(queue([report("a")]));
+    expect(html).toContain('<p class="intro">Reports from the public about cats that may need help.');
+    expect(html).toContain('<details class="hownote howpage"><summary>How this page works</summary>');
+  });
+
+  it("says what closing does only on a report with an email left", () => {
+    const withMail = article(render(queue([report("a", { contactLeft: true })])), "a");
+    expect(withMail).toContain('class="what"');
+    expect(withMail).toContain("They get one email, and only once they have confirmed their address.");
+    expect(article(render(queue([report("b")])), "b")).not.toContain('class="what"');
+  });
+});

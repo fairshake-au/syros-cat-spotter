@@ -37,6 +37,14 @@ describe("Ear clips to check, kept typing", () => {
     expect(html).not.toContain("only because a spotter said");
   });
 
+  it("says what a clipped ear is, even with no cats (SYC-739)", () => {
+    for (const cats of [[], [cat(1, 11)]]) {
+      const html = renderLikelyPage(cats, "Susan");
+      expect(html).toContain("A clipped ear is the tip of one ear cut flat.");
+      expect(html).toContain("Picked by hand");
+    }
+  });
+
   it("with cats, the explanation stays", () => {
     const html = renderLikelyPage([cat(1, 11)], "Susan");
     expect(html).toContain('<ul class="hintlist">');
