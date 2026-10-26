@@ -150,15 +150,17 @@ jobs:
           up "*.png" image/png
           up "*.csv" "text/csv; charset=utf-8"
           up "*.txt" "text/plain; charset=utf-8"
-          # Anything not covered above would be silently skipped: fail if the counts differ.
-          LOCAL=$(find "out/v$N" -type f | wc -l)
+          # Anything not covered above would be silently skipped: every built file must now be
+          # in the bucket, compared by name (a count misled us: R2 paging repeats keys).
+          (cd out && find "v$N" -type f) > "$RUNNER_TEMP/local.txt"
           aws s3api list-objects-v2 --bucket "$R2_BUCKET" --endpoint-url "$R2_ENDPOINT" \
             --prefix "v$N/" --output json > "$RUNNER_TEMP/after.json"
-          REMOTE=$(python scripts/map-data/r2_ls.py count < "$RUNNER_TEMP/after.json")
-          if [ "$LOCAL" -ne "$REMOTE" ]; then
-            echo "::error::uploaded $REMOTE of $LOCAL files"
+          if ! python scripts/map-data/r2_ls.py missing "$RUNNER_TEMP/local.txt" < "$RUNNER_TEMP/after.json" > "$RUNNER_TEMP/missing.txt"; then
+            echo "::error::$(wc -l < "$RUNNER_TEMP/missing.txt") built files are not in the bucket:"
+            head -20 "$RUNNER_TEMP/missing.txt"
             exit 1
           fi
+          echo "All $(wc -l < "$RUNNER_TEMP/local.txt") files are in the bucket ($(python scripts/map-data/r2_ls.py count < "$RUNNER_TEMP/after.json") distinct keys listed)."
           aws s3 cp --endpoint-url "$R2_ENDPOINT" out/current.json "s3://$R2_BUCKET/current.json" \
             --content-type application/json --cache-control "public, max-age=300"
 
