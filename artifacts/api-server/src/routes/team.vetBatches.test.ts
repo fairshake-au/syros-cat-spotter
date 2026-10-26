@@ -181,7 +181,7 @@ describe("the batch page", () => {
     const page = await get(`/api/team/vet-batches/${batch}`);
     expect(page.status).toBe(200);
     expect(page.text).toContain("For every cat in this batch");
-    expect(page.text).toContain("Save these");
+    expect(page.text).toContain("Save the shared");
     expect(page.text).toContain('<input type="file" name="photos" accept="image/*" multiple>');
     expect(page.text).toContain('enctype="multipart/form-data"');
     expect(page.text).toContain("Vet settings");
@@ -204,7 +204,7 @@ describe("the batch page", () => {
     expect(page.status).toBe(200);
     expect(page.text).toContain("not chosen");
     expect(page.text).toContain("Where the cats came from");
-    // The place is set afterwards through "Save these"; a made-up one is refused.
+    // The place is set afterwards through "Save the shared details"; a made-up one is refused.
     expect((await post(`/api/team/vet-batches/${id}`, { ...SHARED, place: `colony:${colony}` })).status).toBe(303);
     expect((await getBatch(id))!.shared.colonyId).toBe(colony);
     expect((await post(`/api/team/vet-batches/${id}`, { ...SHARED, place: "colony:999999999" })).status).toBe(400);
@@ -614,6 +614,7 @@ describe("ways in (SYC-677 Task 7)", () => {
     expect(list.text).not.toContain(`href="/api/team/vet-batches/${done}"`);
     expect(list.text).toContain('href="/api/team/vet-batches/new"');
     expect(list.text).toContain("Start a new batch");
+    expect(list.text).toContain("A batch is one trip to the vet with several cats.");
     const row = list.text.slice(list.text.indexOf(`href="/api/team/vet-batches/${open}"`));
     expect(row.slice(0, row.indexOf("</li>"))).toContain("2 cats");
     expect(list.text).toContain("started by Vt vb-staff");
