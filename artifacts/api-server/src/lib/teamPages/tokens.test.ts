@@ -9,7 +9,7 @@ import { howFold, pageIntro, renderWordsPage, whatHappens, WORDS, WORDS_PATH } f
 // SYC-579: the dashboard wears the app's look. SYC-739: in-page help.
 
 const names = (tokens: string) => tokens.split(";").map((d) => d.split(":")[0]).filter((n) => n.startsWith("--"));
-const page = () => renderPage({ title: "T", personName: "Eleni", body: "<p>x</p>" });
+const page = () => renderPage({ title: "T", active: "home", personName: "Eleni", body: "<p>x</p>" });
 
 describe("the theme (SYC-579)", () => {
   it("has the app's Aegean primary, whitewash page and ink", () => {
