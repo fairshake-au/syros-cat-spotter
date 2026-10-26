@@ -25,6 +25,8 @@ export function mapUrls(version: number): {
 }
 
 let versionPromise: Promise<number> | null = null;
+/** The version once current.json has answered, so later maps start on it. */
+let resolvedVersion: number | null = null;
 
 function loadVersion(): Promise<number> {
   if (!versionPromise) {
@@ -42,14 +44,21 @@ function loadVersion(): Promise<number> {
       } finally {
         clearTimeout(timer);
       }
-    })();
+    })().then((v) => {
+      resolvedVersion = v;
+      return v;
+    });
   }
   return versionPromise;
 }
 
-/** Fallback at once, then the current version (one fetch per page load). */
+/**
+ * The fallback at once on the first map of a page load, then the current
+ * version (one fetch per page load). Maps mounted after it has answered start
+ * on it, so they are never built on the fallback and then swapped.
+ */
 export function useMapVersion(): number {
-  const [version, setVersion] = useState(MAP_FALLBACK_VERSION);
+  const [version, setVersion] = useState(resolvedVersion ?? MAP_FALLBACK_VERSION);
   useEffect(() => {
     let live = true;
     void loadVersion().then((v) => {
@@ -65,4 +74,5 @@ export function useMapVersion(): number {
 /** Test-only: forget the shared fetch so each test starts fresh. */
 export function _resetMapVersionForTests(): void {
   versionPromise = null;
+  resolvedVersion = null;
 }

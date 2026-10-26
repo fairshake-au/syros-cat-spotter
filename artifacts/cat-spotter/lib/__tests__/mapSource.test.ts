@@ -52,6 +52,14 @@ describe('useMapVersion', () => {
     );
   });
 
+  it('once the version is known, a later mount starts on it at once', async () => {
+    fetchMock.mockResolvedValue(ok({ version: 3 }));
+    const a = renderHook(() => useMapVersion());
+    await waitFor(() => expect(a.result.current).toBe(3));
+    const b = renderHook(() => useMapVersion());
+    expect(b.result.current).toBe(3);
+  });
+
   it('reads current.json once per visit', async () => {
     fetchMock.mockResolvedValue(ok({ version: 2 }));
     const a = renderHook(() => useMapVersion());
