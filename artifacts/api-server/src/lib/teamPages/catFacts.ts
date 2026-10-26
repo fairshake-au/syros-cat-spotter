@@ -95,7 +95,11 @@ function evidenceRows<T>(r: TeamResolved<T>, o: FactsOpts, status: string): stri
     (Date.parse(r.asOf) > 0 ? dd("Since", time(r.asOf, day(r.asOf))) : "") +
     dd("Why we think so", statementRefs(r.supportingStatementIds, o.byId, o.shown)) +
     (r.conflictingStatementIds.length
-      ? dd("Says otherwise", `<div class="bad">${statementRefs(r.conflictingStatementIds, o.byId, o.shown)}</div>`)
+      ? dd(
+          "Says otherwise",
+          `<div class="bad">${statementRefs(r.conflictingStatementIds, o.byId, o.shown)}</div>` +
+            '<p class="hint">These entries disagree with the answer shown above.</p>',
+        )
       : "")
   );
 }

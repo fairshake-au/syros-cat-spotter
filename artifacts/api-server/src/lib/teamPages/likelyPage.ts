@@ -4,6 +4,7 @@ import { syrNumber } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
 import { backLink, HOME_PATH } from "./backLink";
 import { renderPage } from "./layout";
+import { pageIntro } from "./help";
 
 // The Probably sterilised list (SYC-43 part 2 plan, PR 4; spec §4.5 point 3).
 // Server-drawn, no scripts. Two buttons per cat: "Looks right" (Decision 6)
@@ -81,6 +82,9 @@ export function renderLikelyPage(
   const notice =
     (kept ? keptLine() : "") +
     (done && Object.hasOwn(DONE, done) ? `<p class="notice" role="status">${esc(DONE[done]!)}</p>` : "");
+  const clipHelp =
+    pageIntro("A clipped ear is the tip of one ear cut flat. Vets do this to show a street cat has been sterilised. A torn or bitten ear is not a clip.") +
+    '<p class="hint">Cats tagged <strong>Picked by hand</strong> were matched by the spotter choosing the cat themselves, not taking the app\'s suggestion. Check the photo really shows that cat.</p>';
   const intro =
     "<p>These cats show as <strong>Probably sterilised</strong> only because a spotter said they saw a clipped ear. Look at each photo.</p>" +
     '<ul class="hintlist">' +
@@ -98,6 +102,6 @@ export function renderLikelyPage(
     active: "likely",
     personName,
     beforeTitle: backLink(HOME_PATH, "Home"),
-    body: notice + (cats.length === 0 ? "" : intro) + body,
+    body: notice + clipHelp + (cats.length === 0 ? "" : intro) + body,
   });
 }

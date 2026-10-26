@@ -101,7 +101,7 @@ describe("the page", () => {
     const html = renderWelfarePage(report(), { personName: "Jacky", range: RANGE, canExport: true });
     expect(html).toContain('<li id="drafts"><strong>1</strong> started, not sent');
     expect(html).toContain('<li id="content"><strong>1</strong> problems reported with photos or names');
-    expect(html).toContain("No response times and nothing about who sent or handled a report.");
+    expect(html).toContain("This shows patterns only: no response times, and never who sent a report or who handled it.");
   });
 
   it("the weeks table's columns are the kinds, and each week adds up", () => {

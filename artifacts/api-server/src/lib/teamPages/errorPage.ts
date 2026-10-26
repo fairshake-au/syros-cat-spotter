@@ -65,6 +65,6 @@ export function renderTeamErrorPage(
     personName: null,
     lang,
     liveLanguages: live,
-    body: `<p>${t(line)}</p><p><a class="tap" href="${TEAM_HOME_PATH}">${t("error.home")}</a></p>`,
+    body: `<p>${t(line)}</p>${kind === "broken" ? `<p class="hint">${t("error.broken.contact")}</p>` : ""}<p><a class="tap" href="${TEAM_HOME_PATH}">${t("error.home")}</a></p>`,
   });
 }
