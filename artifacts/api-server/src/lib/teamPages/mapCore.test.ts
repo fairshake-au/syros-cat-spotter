@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ISLAND_BOX } from "../island";
 import { mapDataRoutes, mapScriptRig, makeMaplibreFake, type MapScriptRig } from "./__fixtures__/maplibreFake";
+import { renderMap } from "./map";
 
 // SYC-705 Task 2b.5: the dashboard's map scripts, run in jsdom with a fake
 // MapLibre and PMTiles (__fixtures__/maplibreFake.ts). map-core.js starts a
@@ -277,5 +278,23 @@ describe("dashboard-pin.js: the view map's markers", () => {
     rig.run("map-core.js", "dashboard-pin.js");
     await rig.settle();
     expect(rig.lib.maps).toHaveLength(1);
+  });
+
+  it("starts on renderMap's own output: the server's data and words reach the map", async () => {
+    const html = renderMap({
+      mode: "view",
+      lang: "el",
+      fit: [{ lat: 37.44, lng: 24.94 }, { lat: 37.45, lng: 24.95 }],
+      markers: [{ lat: 37.44, lng: 24.94, label: "Harbour", href: "/api/team/sites/12", look: "private" }],
+    });
+    const rig = mapScriptRig(html);
+    rig.run("map-core.js", "dashboard-pin.js");
+    await rig.settle();
+    expect(rig.lib.maps).toHaveLength(1);
+    expect(rig.fetches.map((f) => f.url)).toContain("https://team.example/api/team/map-data/v7/style-el.json");
+    expect(rig.lib.markers.map((m) => m.getElement().className)).toEqual(["pin site-private"]);
+    expect(rig.lib.maps[0]!.calls.some((c) => c[0] === "fitBounds")).toBe(true);
+    expect(rig.imports[0]).toMatch(/^\/api\/team\/assets\/maplibre-gl\.[0-9a-f]{12}\.mjs$/);
+    expect(rig.lib.workerUrl).toMatch(/^\/api\/team\/assets\/maplibre-gl-worker\.[0-9a-f]{12}\.mjs$/);
   });
 });

@@ -1,45 +1,29 @@
+import { MAP_LANG } from "@workspace/map-style";
 import { escapeHtml as esc } from "./escape";
-import {
-  BANDS,
-  clampView,
-  GRID,
-  latToTileY,
-  lngToTileX,
-  MAX_ZOOM,
-  MIN_ZOOM,
-  pan,
-  pointOnView,
-  viewAround,
-  type Position,
-  type TileSize,
-  type View,
-} from "../mapTiles/geometry";
-import { AREAS } from "../mapTiles/areas";
-import { mintTileToken } from "../mapTiles/tileToken";
 import { wordsIn } from "./words";
-import { clusterRing } from "./marks";
+import { assetUrl } from "../teamAssets";
+import { ISLAND_BOX, ISLAND_CENTRE, type Position } from "../island";
 import type { SterilisedMark } from "../teamCatList";
 
-// The team's map (SYC-209 PR 3.1; spec §3, Decision 1A; plan K4, K13). One
-// function draws it, so a better map can replace it later without touching
-// any page that uses it.
+// The team's map (SYC-209 PR 3.1; SYC-705 Phase 2). One function draws it,
+// so a page never knows how the map is made.
 //
-// No scripts: the map is one picture, 2×2 map tiles joined by our own
-// server. In `view` mode it is a plain picture and the markers are links. In
-// `place` mode it is an image button in a form, and the browser posts the
-// point that was tapped; the server turns it into a position.
+// Since SYC-705 the map is MapLibre GL JS drawing our own Syros map file, in
+// the browser: renderMap writes a box holding what the page's scripts need
+// (assets/map-core.js starts the map; dashboard-pin.js puts the markers on a
+// view map) and, until a script replaces it, a line saying the map needs
+// JavaScript. Everything else on the page (the lists, the links) works
+// without it.
 //
 // Rules this keeps, each with a test:
-// - **No position in any address** (K13). The picture is fetched by an
-//   opaque token; zoom, pan, the area buttons and every tap are POST forms whose
-//   hidden fields carry the view. No `href`, `action` or `src` holds a
-//   coordinate or a z/x/y.
-// - **Never shrunk** (K4). The map is drawn once per screen-width band, at
-//   exactly its size, and the CSS shows exactly one. Each tap form carries
-//   the size it was drawn at, so the server converts at the scale tapped.
-// - **Whole pixels.** The picture starts on a whole pixel (the tap test:
-//   WebKit misreads taps by up to 1.5 px otherwise). The page puts the map
-//   under fixed-height lines only; see `.mappage` in layout.ts.
+// - **No position in any address** (K13). Positions are data in the box's
+//   data-map attribute, never in an href, action or src. A marker links to
+//   a record's number (a site, a sighting row), never to a position.
+// - **Trusted HTML.** Fixed text, numbers, assetUrl() addresses and
+//   escapeHtml only; the JSON is escaped into its attribute.
+//
+// The old picture map (zoom and pan buttons) is buttonMap.ts, kept only
+// for the pages that place a spot until SYC-705 Task 2b.7.
 
 export interface MapMarker extends Position {
   /** Read by screen readers and shown on hover. */
@@ -61,122 +45,48 @@ export interface MapMarker extends Position {
   text?: string;
 }
 
-const LOOKS: Record<NonNullable<MapMarker["look"]>, string> = {
-  public: " site-public",
-  private: " site-private",
-  retired: " site-retired",
-  // Where a cat was seen (PR 3.4): outlined and dashed, so it never reads as a site.
-  sighting: " sighting",
-  // A cat (SYC-396 PR 1.5): its mark's dot inside a 44px tap target.
-  sterilised: " catpin",
-  probably: " catpin",
-  not_known: " catpin",
-  not_sterilised: " catpin",
-  cluster: " catpin cluster",
-  // One of a cat's own sightings on its page (SYC-396 PR 1.4): a numbered
-  // dark-ink circle. Circles mean cats; never teal, which means sterilisation.
-  seen: " seen",
-};
-
-const isMark = (look: MapMarker["look"]): look is SterilisedMark =>
-  look === "sterilised" || look === "probably" || look === "not_known" || look === "not_sterilised";
-
-/** What is drawn inside a cat's pin: its dot, or a cluster's count in its ring. Fixed text and numbers only. */
-function pinInside(m: MapMarker): string {
-  if (isMark(m.look)) return `<span class="catdot mark-${m.look}" aria-hidden="true"></span>`;
-  if (m.look === "cluster" && m.cluster) {
-    const n = Math.max(0, Math.floor(m.cluster.count));
-    return `<span class="catcluster" style="background:${clusterRing(m.cluster.split)}" aria-hidden="true"><span>${n}</span></span>`;
-  }
-  // One of a cat's own sightings on its page (SYC-396 PR 1.4): its number.
-  if (m.look === "seen" && m.text) return `<span class="pinnum" aria-hidden="true">${esc(m.text)}</span>`;
-  if (m.look === "seen" && Number.isInteger(m.n)) return `<span class="pinnum" aria-hidden="true">${m.n}</span>`;
-  return "";
-}
-
 export interface MapOptions {
-  /** What to show: a view, or a centre and zoom to build one around. */
-  view?: View;
+  /** `view`: markers to look at. `place`: pick a spot (SYC-705 Task 2b.7). */
+  mode: "view" | "place";
+  /** Where the map opens, and how close (app zoom, 12 to 19). Default: the island, zoom 12. */
   centre?: Position;
   zoom?: number;
+  /** Fit these positions in view (never closer than zoom 17), instead of `centre`. */
+  fit?: readonly Position[];
   markers?: MapMarker[];
-  mode: "view" | "place";
-  /** Place mode: where a tap posts. */
-  tapAction?: string;
-  /** Where zoom, pan and the area buttons post. */
-  moveAction?: string;
-  /** Extra hidden fields every map form carries (a page's own context). */
-  hidden?: Record<string, string>;
-  /** Leave out the zoom, pan and area buttons (a small map on a page of its own). Default true. */
-  controls?: boolean;
-  /** Seconds, for the picture tokens; tests pin it. */
-  now?: number;
-  /** The page's language (a cat guardian's own; English for the team). */
+  /** The viewer's language: picks the map's own (Greek for el, else English) and the buttons' words. */
   lang?: string;
+  /** Place mode: the form whose lat/lng inputs the pin writes. */
+  formId?: string;
+  /** Write id="map" (the "#map" anchor). Default true; false where the page has its own anchor. */
+  anchor?: boolean;
 }
 
 /** Where a map opens: the middle of the island, zoom 12 (defined in lib/island.ts). */
-export { ISLAND_CENTRE } from "../island";
-import { ISLAND_CENTRE } from "../island";
+export { ISLAND_CENTRE };
 export const START_ZOOM = 12;
 
-export const DEFAULT_TAP_ACTION = "/api/team/map/tap";
-export const DEFAULT_MOVE_ACTION = "/api/team/map";
-
-const hiddenField = (name: string, value: string) =>
-  `<input type="hidden" name="${esc(name)}" value="${esc(value)}">`;
-
-const hiddenFields = (fields: Record<string, string> | undefined) =>
-  Object.entries(fields ?? {})
-    .map(([k, v]) => hiddenField(k, v))
-    .join("");
-
 /**
- * The closest view (zoom 17 at most) that shows every point, at least a
- * marker's half-width in from the edge; the whole island when none fits.
+ * The box the map can show: Syros, padded by 0.03° (map-core.js's maxBounds,
+ * the same numbers). A position outside it can never be in view.
  */
-export function fitView(points: readonly Position[], maxZoom = 17): View {
-  if (points.length === 0) return viewAround(ISLAND_CENTRE, MIN_ZOOM);
-  const lats = points.map((p) => p.lat);
-  const lngs = points.map((p) => p.lng);
-  const centre = {
-    lat: (Math.min(...lats) + Math.max(...lats)) / 2,
-    lng: (Math.min(...lngs) + Math.max(...lngs)) / 2,
-  };
-  // Worked out at the smallest picture, where a marker takes the most room.
-  const size = BANDS[0].size;
-  const margin = 12;
-  const fits = (v: View) =>
-    points.every((p) => {
-      const at = pointOnView(v, size, p);
-      return at !== null && Math.min(at.left, at.top, GRID * size - at.left, GRID * size - at.top) >= margin;
-    });
-  const centreX = (z: number) => lngToTileX(centre.lng, z);
-  const centreY = (z: number) => latToTileY(centre.lat, z);
-  for (let z = maxZoom; z >= MIN_ZOOM; z--) {
-    const base = viewAround(centre, z);
-    // The view snaps to whole map pictures, so also try one picture over each way,
-    // and keep the fitting view whose middle is nearest the points' middle.
-    let best: View | null = null;
-    let nearest = Infinity;
-    for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
-      const v = clampView({ z, x: base.x + dx, y: base.y + dy });
-      if (!fits(v)) continue;
-      const away = Math.hypot(v.x + GRID / 2 - centreX(z), v.y + GRID / 2 - centreY(z));
-      if (away < nearest) [best, nearest] = [v, away];
-    }
-    if (best) return best;
-  }
-  // Too far apart for one picture: the widest view that shows the most of
-  // them, and the page says how many didn't fit.
-  let best = viewAround(centre, MIN_ZOOM);
-  let most = -1;
-  for (const p of [centre, ...points]) {
-    const v = viewAround(p, MIN_ZOOM);
-    const n = points.filter((q) => pointOnView(v, size, q) !== null).length;
-    if (n > most) [best, most] = [v, n];
-  }
-  return best;
+export const MAP_BOX = {
+  minLat: ISLAND_BOX.minLat - 0.03,
+  maxLat: ISLAND_BOX.maxLat + 0.03,
+  minLng: ISLAND_BOX.minLng - 0.03,
+  maxLng: ISLAND_BOX.maxLng + 0.03,
+} as const;
+
+/** Can the map show this position at all. */
+export function inMapBox(p: Position): boolean {
+  return (
+    Number.isFinite(p.lat) &&
+    Number.isFinite(p.lng) &&
+    p.lat >= MAP_BOX.minLat &&
+    p.lat <= MAP_BOX.maxLat &&
+    p.lng >= MAP_BOX.minLng &&
+    p.lng <= MAP_BOX.maxLng
+  );
 }
 
 /** A spot's grouping key: the position rounded to 5 decimal places (never printed). */
@@ -233,97 +143,74 @@ export function mergeSameSpot(markers: MapMarker[]): MapMarker[] {
   });
 }
 
-/** The view a map option set describes, kept over the island. */
-export function resolveView(opts: Pick<MapOptions, "view" | "centre" | "zoom">): View {
-  if (opts.view) return clampView(opts.view);
-  if (opts.centre) return viewAround(opts.centre, opts.zoom ?? MIN_ZOOM);
-  throw new Error("renderMap: a view or a centre is needed");
-}
-
-function band(view: View, size: number, opts: MapOptions): string {
-  const { w } = wordsIn(opts.lang);
-  const span = GRID * size;
-  // One picture per band: the view's 2×2 tiles joined by the server at
-  // exactly this size (plan K4's mosaic). No seams to tap on.
-  const token = mintTileToken({ ...view, size: size as TileSize }, opts.now);
-  const src = `/api/team/map-tiles/${token}`;
-  const picture =
-    opts.mode === "view"
-      ? `<img src="${src}" width="${span}" height="${span}" alt="${w("map.alt")}" loading="lazy">`
-      : `<form method="post" action="${esc(opts.tapAction ?? DEFAULT_TAP_ACTION)}">` +
-        hiddenField("view", token) +
-        hiddenField("size", String(size)) +
-        hiddenFields(opts.hidden) +
-        `<input type="image" src="${src}" width="${span}" height="${span}" ` +
-        `alt="${w("map.altPlace")}">` +
-        "</form>";
-  const pins = (opts.markers ?? [])
-    .map((m) => {
-      const at = pointOnView(view, size, m);
-      if (!at) return "";
-      const style = `left:${at.left}px;top:${at.top}px`;
-      const label = esc(m.label);
-      const cls =
-        "pin" + (m.look && Object.hasOwn(LOOKS, m.look) ? LOOKS[m.look] : "") + (m.look === "seen" && m.text ? " multi" : "");
-      const inside = pinInside(m);
-      return opts.mode === "view" && m.href
-        ? `<a class="${cls}" style="${style}" href="${esc(m.href)}" title="${label}">${inside}<span class="sr">${label}</span></a>`
-        : `<span class="${cls}" style="${style}" title="${label}">${inside}<span class="sr">${label}</span></span>`;
-    })
-    .join("");
-  return (
-    `<div class="mapband b${size}" style="width:${span}px;height:${span}px">` +
-    picture +
-    pins +
-    "</div>"
-  );
-}
-
-function controls(view: View, opts: MapOptions): string {
-  const { t } = wordsIn(opts.lang);
-  const button = (name: string, value: string, label: string, disabled = false) =>
-    `<button type="submit" name="${name}" value="${esc(value)}"${disabled ? " disabled" : ""}>${esc(label)}</button>`;
-  const stuck = (dx: number, dy: number) => {
-    const moved = pan(view, dx, dy);
-    return moved.x === view.x && moved.y === view.y;
-  };
-  return (
-    `<form method="post" action="${esc(opts.moveAction ?? DEFAULT_MOVE_ACTION)}" class="mapmove">` +
-    hiddenField("vz", String(view.z)) +
-    hiddenField("vx", String(view.x)) +
-    hiddenField("vy", String(view.y)) +
-    hiddenFields(opts.hidden) +
-    '<div class="zoomrow">' +
-    button("go", "in", t("map.zoomIn"), view.z >= MAX_ZOOM) +
-    button("go", "out", t("map.zoomOut"), view.z <= MIN_ZOOM) +
-    "</div>" +
-    '<div class="panrow">' +
-    button("go", "north", t("map.north"), stuck(0, -1)) +
-    button("go", "west", t("map.west"), stuck(-1, 0)) +
-    button("go", "east", t("map.east"), stuck(1, 0)) +
-    button("go", "south", t("map.south"), stuck(0, 1)) +
-    "</div>" +
-    `<p class="label">${esc(t("map.goTo"))}</p><div class="arearow">` +
-    AREAS.map((a) => button("area", a.key, a.label)).join("") +
-    "</div></form>"
-  );
+/** The credit line the map's data asks for, linking to OpenStreetMap's copyright page. */
+export function mapCredit(lang?: string): string {
+  const { w } = wordsIn(lang);
+  return `<p class="attrib"><a href="https://www.openstreetmap.org/copyright" rel="noreferrer">${w("map.attrib")}</a></p>`;
 }
 
 /**
- * The map's HTML: the pictures (one set per screen-width band), the markers,
- * the attribution the map provider requires, and the zoom, pan and area
- * buttons. Trusted HTML: fixed text, numbers, tokens and escapeHtml only.
+ * The files a page with a map loads, in order (layout.ts renderPage's
+ * `styles` and `script`): PMTiles, then map-core.js, then the view maps'
+ * dashboard-pin.js. The page's route must send the wider security header
+ * (setTeamHeaders(res, { scripts: true })) for its 200 page.
+ */
+export function mapPageAssets(): { styles: (string | null)[]; script: (string | null)[] } {
+  return {
+    styles: [assetUrl("maplibre-gl.css")],
+    script: [assetUrl("pmtiles.js"), assetUrl("map-core.js"), assetUrl("dashboard-pin.js")],
+  };
+}
+
+const pair = (p: Position): [number, number] => [p.lat, p.lng];
+
+/** What dashboard-pin.js needs of a marker: fixed keys, the label as text. */
+function markerData(m: MapMarker): Record<string, unknown> {
+  return {
+    lat: m.lat,
+    lng: m.lng,
+    label: m.label,
+    ...(m.href !== undefined ? { href: m.href } : {}),
+    ...(m.look !== undefined ? { look: m.look } : {}),
+    ...(Number.isInteger(m.n) ? { n: m.n } : {}),
+    ...(m.text !== undefined ? { text: m.text } : {}),
+    ...(m.cluster ? { count: Math.max(0, Math.floor(m.cluster.count)) } : {}),
+  };
+}
+
+/** A JSON value in a double-quoted attribute: escaped, so the page parses it as text. */
+const jsonAttr = (v: unknown) => esc(JSON.stringify(v));
+
+/**
+ * The map's HTML: the box the scripts start the map in (its data in
+ * data-map, the buttons' words in data-words, the library's and worker's
+ * addresses), holding the "needs JavaScript" line until then; and the
+ * credit line. If the library can't be served, only that line.
  */
 export function renderMap(opts: MapOptions): string {
-  const view = resolveView(opts);
-  const { w } = wordsIn(opts.lang);
+  const { t, w } = wordsIn(opts.lang);
+  const id = opts.anchor === false ? "" : ' id="map"';
+  const noMap = `<p class="mapnojs">${w("map.needsJs")}</p>`;
+  const library = assetUrl("maplibre-gl.mjs");
+  const worker = assetUrl("maplibre-gl-worker.mjs");
+  // id="map": "Show on our map" lands here (#map), as the map sits below the fold on a phone.
+  if (!library || !worker) return `<div class="nomap"${id}>${noMap}</div>`;
+  const appLang = opts.lang === "el" || opts.lang === "fr" ? opts.lang : "en";
+  const data = {
+    mode: opts.mode,
+    lang: MAP_LANG(appLang),
+    centre: pair(opts.centre ?? ISLAND_CENTRE),
+    zoom: opts.zoom ?? START_ZOOM,
+    fit: opts.fit && opts.fit.length > 0 ? opts.fit.map(pair) : null,
+    markers: (opts.markers ?? []).map(markerData),
+    ...(opts.formId !== undefined ? { formId: opts.formId } : {}),
+  };
+  const words = { zoomIn: t("map.zoomIn"), zoomOut: t("map.zoomOut"), compass: t("map.compass"), needsJs: t("map.needsJs") };
   return (
-    // id="map": "Show on our map" lands here (#map), as the map sits below the
-    // fold on a phone. One map per page.
-    `<div class="map" id="map" role="group" aria-label="${w("map.aria", { zoom: String(view.z), max: String(MAX_ZOOM) })}">` +
-    BANDS.map((b) => band(view, b.size, opts)).join("") +
+    `<div class="map"${id} data-map="${jsonAttr(data)}" data-words="${jsonAttr(words)}" ` +
+    `data-maplibre="${esc(library)}" data-worker="${esc(worker)}">` +
+    noMap +
     "</div>" +
-    `<p class="attrib">${w("map.attrib")} <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">${w("map.attribLink")}</a></p>` +
-    (opts.controls === false ? "" : controls(view, opts))
+    mapCredit(opts.lang)
   );
 }

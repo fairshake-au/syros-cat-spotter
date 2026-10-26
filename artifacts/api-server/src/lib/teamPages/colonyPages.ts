@@ -3,7 +3,7 @@ import { keptLine, type KeptFields } from "./signedOutPage";
 import { myCatPath, guardianLastSeenWords } from "./guardianPages";
 import { lastSeenWords } from "./lastSeen";
 import type { GuardianPlanCat, OtherWhy, PlanCat, TrappingPlan } from "../dashboard/trappingPlan";
-import { fitView, renderMap, type MapMarker } from "./map";
+import { mapPageAssets, renderMap, type MapMarker } from "./map";
 import { coatIsUnknown, coatWordsFor } from "./teamCoatWords";
 import { teamPhotoUrl } from "../teamCatView";
 import type { ColonyHistoryEntry, ColonyRow, ColonyView } from "../teamColonies";
@@ -642,7 +642,8 @@ function sitesMap(W: Words, plan: TrappingPlan, names: ReadonlyMap<number, strin
     href: `/api/team/sites/${s.id}`,
     look: s.publicLabel ? "public" : "private",
   }));
-  return `<div class="planmap">${renderMap({ mode: "view", view: fitView(plan.sites), markers, controls: false, lang: W.lang })}</div>`;
+  // Every site in view (SYC-705: MapLibre, fitted in the browser).
+  return `<div class="planmap">${renderMap({ mode: "view", fit: plan.sites, markers, lang: W.lang })}</div>`;
 }
 
 function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean, island: boolean, kept?: KeptFields): string {
@@ -794,6 +795,8 @@ export function renderColonyPage(
     nav: navFor(opts),
     lang: opts.lang,
     personName,
+    // The sites' small map (sitesMap) is the only script on the page.
+    ...(v.sites.length > 0 && plan.sites.length > 0 ? mapPageAssets() : {}),
     beforeTitle: backLink("/api/team/colonies", w("colony.back")),
     body:
       (opts.kept && opts.may("edit_colony") ? keptLine(opts.lang) : "") +

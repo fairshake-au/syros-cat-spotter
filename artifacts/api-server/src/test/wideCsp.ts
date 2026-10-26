@@ -27,6 +27,16 @@ export const WIDE_CSP_ROUTES: ReadonlySet<string> = new Set([
   // starts, so a double tap can't spend two of the day's searches (SYC-522).
   // Only this 200; the POST's problem forms and results keep their own headers.
   "GET /api/team/cats/find",
+  // SYC-705 Task 2b.5: pages with a MapLibre map (map-core.js, dashboard-pin.js,
+  // MapLibre's module and worker, PMTiles: all our own files, 'self').
+  // The Feeding sites list: its map of every site shown.
+  "GET /api/team/sites",
+  // One site's page: its small map.
+  "GET /api/team/sites/:id",
+  // A colony's page: its sites' small map in the trapping plan.
+  "GET /api/team/colonies/:id",
+  // A cat's page: the small map of its sightings (the Map tab).
+  "GET /api/team/cats/:id",
 ]);
 
 /**
@@ -35,6 +45,10 @@ export const WIDE_CSP_ROUTES: ReadonlySet<string> = new Set([
  */
 export const WIDE_CSP_FILES: ReadonlySet<string> = new Set([
   "src/routes/teamCats.ts",
+  // SYC-705 Task 2b.5: the Feeding sites list and a site's page (their maps).
+  "src/routes/teamSites.ts",
+  // SYC-705 Task 2b.5: a colony's page (its sites' small map).
+  "src/routes/teamColonies.ts",
   // MapLibre's worker file (SYC-705 Task 2b.4): a worker's policy is its own
   // response's, so its 200 carries WIDE_CSP (connect-src 'self') to fetch map
   // data. Only maplibre-gl-worker.<hash>.mjs; every other asset has none.

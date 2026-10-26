@@ -108,7 +108,7 @@ describe("a cat guardian reads her pages in her language; the team reads English
   it("the map's buttons and labels follow the page", async () => {
     const text = unescape((await page("/api/team/sites", eleni.cookie)).text);
     expect(text).toContain(el["map.zoomIn"]);
-    expect(text).toContain(el["map.attribLink"]);
+    expect(text).toContain(el["map.attrib"]);
     expect(text).not.toContain(">Zoom in<");
   });
 

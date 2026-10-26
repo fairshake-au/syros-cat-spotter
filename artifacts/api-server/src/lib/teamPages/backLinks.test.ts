@@ -89,7 +89,6 @@ const ROWS: [string, () => string, string, string][] = [
       renderSitePage({
         personName: "Susan",
         site: { id: 4, name: "Harbour bins", lat: 37.4, lng: 24.9, isPublic: false, madePublicAt: null, madePublicBy: null, retiredAt: null, publicLabel: null, colony: null, notes: null, directions: null, updatedAt: "0", history: [] } as never,
-        view: { z: 14, x: 1, y: 1 },
         colonies: [],
       }),
     "← Feeding sites",

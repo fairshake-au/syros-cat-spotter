@@ -86,7 +86,8 @@
           if (!m || !isFinite(m.lat) || !isFinite(m.lng)) return;
           new lib.Marker({ element: pinFor(m), anchor: "center" }).setLngLat([m.lng, m.lat]).addTo(map);
         });
-        if (fit.length > 1) {
+        if (fit.length < 2) return;
+        var place = function () {
           var minLat = Infinity;
           var maxLat = -Infinity;
           var minLng = Infinity;
@@ -104,7 +105,11 @@
             ],
             { padding: 24, maxZoom: window.CatMap.toMapLibreZoom(17), animate: false },
           );
-        }
+        };
+        place();
+        // A map in a hidden panel (the cat page's Map tab) has no size yet:
+        // fit again once it is shown and MapLibre sees its size.
+        if (!el.clientWidth || !el.clientHeight) map.once("resize", place);
       },
       function () {
         // map-core has put the page back as it was, with the no-map line.

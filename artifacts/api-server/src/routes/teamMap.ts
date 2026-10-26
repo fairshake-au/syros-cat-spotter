@@ -6,7 +6,8 @@ import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { requireSeeing } from "../middlewares/requireSeeing";
 import { formRoute } from "./teamCorrections";
 import { renderPage } from "../lib/teamPages/layout";
-import { ISLAND_CENTRE, renderMap, START_ZOOM, type MapMarker } from "../lib/teamPages/map";
+import { ISLAND_CENTRE, START_ZOOM, type MapMarker } from "../lib/teamPages/map";
+import { renderButtonMap } from "../lib/teamPages/buttonMap";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 import { place } from "../lib/teamPages/position";
 import { isIslandWide } from "../lib/guardianView";
@@ -82,7 +83,7 @@ function mapPage(
         personName: teamPerson(res).name,
         mainClass: "mappage",
         body:
-          renderMap({ view, markers, mode: "place" }) +
+          renderButtonMap({ view, markers, mode: "place" }) +
           note +
           tapped +
           '<p class="hint">Tap the map to look closer: it zooms in around the spot and marks it. ' +

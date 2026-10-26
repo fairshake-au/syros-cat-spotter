@@ -473,6 +473,17 @@ a.sublink{display:block;font-size:14px;padding-top:0}
 .tiecard .hint{margin:6px 0 0}
 .tiecard button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;width:100%}
 .map{margin:0;line-height:0}
+/* SYC-705: the MapLibre map (lib/teamPages/map.ts, assets/map-core.js). The box holds the no-map line until the script replaces it. */
+.map[data-map]{position:relative;height:min(60vh,420px);min-height:260px;line-height:normal;border:1px solid var(--line);border-radius:10px;background:var(--sunk);overflow:hidden}
+.catmap .map[data-map],.planmap .map[data-map]{height:260px;min-height:0}
+.map[data-map] .mapcanvas{position:absolute;inset:0}
+.mapnojs{margin:0;padding:12px;font-size:14px;line-height:1.4;color:var(--muted)}
+.mapctl{position:absolute;top:8px;right:8px;z-index:2;display:flex;flex-direction:column;gap:6px}
+.mapctl button{width:44px;height:44px;padding:0;font:inherit;font-size:20px;font-weight:700;line-height:1;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.mapctl button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+/* MapLibre places a marker by its centre itself: no negative margins. */
+.maplibregl-marker.pin{margin:0}
+.mapfallback.maplive{display:none}
 .mapband{display:none;position:relative;overflow:hidden;background:var(--sunk)}
 .mapband.b144{display:block}
 .mapband form{margin:0;padding:0}

@@ -10,7 +10,8 @@ import { escapeHtml as esc } from "./escape";
 import { pageIntro } from "./help";
 import { renderPage } from "./layout";
 import { lastSeenWords } from "./lastSeen";
-import { renderMap, type MapMarker } from "./map";
+import type { MapMarker } from "./map";
+import { renderButtonMap } from "./buttonMap";
 import { mapPrivacyNote } from "./mapNote";
 import { MARK_ORDER, MARK_WORD } from "./marks";
 
@@ -175,7 +176,7 @@ function buttonMap(o: CatMapOptions): string {
   if (o.focus) hidden["focus"] = String(o.focus.id);
   return (
     '<div class="mapfallback">' +
-    renderMap({ view: o.view, markers, mode: "view", moveAction: CAT_MAP_MOVE_PATH, hidden }) +
+    renderButtonMap({ view: o.view, markers, mode: "view", moveAction: CAT_MAP_MOVE_PATH, hidden }) +
     '<p class="hint">Tap a cat to open it. A circle with a number is a group of cats: zoom in to see each one.</p>' +
     legend() +
     "</div>"

@@ -12,13 +12,11 @@ import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
 import {
   clampView,
   inIsland,
-  isViewAllowed,
   MAX_ZOOM,
   viewAround,
   type Position,
   type View,
 } from "../lib/mapTiles/geometry";
-import { readTileToken } from "../lib/mapTiles/tileToken";
 import { sightingSpot } from "../lib/sightingSpot";
 import { currentColonyOf } from "../lib/colonyMembership";
 import { applyMove, readTap } from "../lib/mapTiles/mapForms";
@@ -63,7 +61,7 @@ import {
 // §2.1 to §2.5, §8, §11.2; plan K8, K13, Decision 1A).
 //
 // **Permissions (PR 4.1; spec §7.3).** The pages that only show sites (the
-// list and map, its zoom and pan, one site) let in anyone who sees some
+// list and its map, one site) let in anyone who sees some
 // colony (`requireSeeing`), and every query behind them is filtered by
 // `visibleColonyIds` in SQL: a cat guardian sees her own colonies' sites and
 // nothing else. Another colony's site answers exactly what a number that was
@@ -74,9 +72,11 @@ import {
 // capabilities against the sighting's CAT's colony, read from the record.
 // The "for any colony?" check is the sign-in door's alone.
 //
-// **No position in any address (K13).** The map's zoom, pan and area buttons
-// are POST forms with hidden fields; the "Show retired" setting is a fixed
-// key (`retired=1`), never a position. A marker links to a site's number.
+// **No position in any address (K13).** The list's and a site's map is
+// MapLibre (SYC-705; positions are page data, never in an address); the pick
+// and move pages' buttons are POST forms with hidden fields; the "Show
+// retired" setting is a fixed key (`retired=1`), never a position. A marker
+// links to a site's number.
 //
 // **Who looked (spec §8).** Opening ONE site's page writes one
 // `site_page_reads` row. The list and the map write none.
@@ -91,10 +91,11 @@ const SITE_ZOOM = 17;
 async function sitesPage(
   res: Response,
   status: number,
-  view: View,
   showRetired: boolean,
   note?: string,
   sighting?: Position,
+  /** TEMPORARY until SYC-705 Task 2b.7: map-at-sighting's old picture map. */
+  buttonMapAt?: View,
 ): Promise<void> {
   const v = pageViewer(res);
   const [counts, changes, sites] = await Promise.all([
@@ -113,10 +114,10 @@ async function sitesPage(
         counts,
         changes,
         sites,
-        view,
         showRetired,
         note,
         sighting,
+        buttonMapAt,
         mayAdd: mayAddSomewhere(res),
       }),
     );
@@ -138,39 +139,9 @@ router.get(
       ]);
       return void res.json({ counts, sites });
     }
-    // The tick box keeps the map where it was: the view comes back as an opaque token.
-    const token = typeof req.query["view"] === "string" ? readTileToken(req.query["view"]) : null;
-    const view =
-      token && isViewAllowed(token)
-        ? clampView({ z: token.z, x: token.x, y: token.y })
-        : viewAround(ISLAND_CENTRE, START_ZOOM);
-    await sitesPage(res, 200, view, showRetired);
-  },
-);
-
-/**
- * POST /api/team/sites/map: zoom, pan or jump to an area on the Feeding sites
- * page. The view and the "Show retired" setting come in hidden fields. It
- * writes nothing, and no read record.
- */
-router.post(
-  "/team/sites/map",
-  ...seeingFormRoute(),
-  async (req: Request, res: Response) => {
-    const body = (req.body ?? {}) as Record<string, unknown>;
-    const showRetired = body["retired"] === "1";
-    const view = applyMove(body);
-    if (!view) {
-      return void (await sitesPage(
-        res,
-        400,
-        viewAround(ISLAND_CENTRE, START_ZOOM),
-        showRetired,
-        // In her language: a cat guardian reaches this page too (review F2).
-        t("sites.moveNote", pageViewer(res).lang),
-      ));
-    }
-    await sitesPage(res, 200, view, showRetired);
+    // The page's MapLibre map (SYC-705): its own scripts, so the wider header.
+    setTeamHeaders(res, { scripts: true });
+    await sitesPage(res, 200, showRetired);
   },
 );
 
@@ -585,7 +556,8 @@ router.post(
     const found = await sightingFor(req, res);
     if (!found) return;
     if (!isFormPost(req)) return void res.json(found.spot);
-    await sitesPage(res, 200, viewAround(found.spot, SITE_ZOOM), false, undefined, found.spot);
+    // Still the old picture map (no script) until SYC-705 Task 2b.7.
+    await sitesPage(res, 200, false, undefined, found.spot, viewAround(found.spot, SITE_ZOOM));
   },
 );
 
@@ -929,6 +901,8 @@ router.get(
     const mayAct = can(person, "edit_feeding_site", { colonyId: site.colony?.id ?? null });
     // Back after signing in again (SYC-516 C3): "Edit details" filled in.
     const kept = mayAct ? await useHeldTyping(req, person, `site:${site.id}`) : null;
+    // The page's MapLibre map (SYC-705): its own scripts, so the wider header, for this 200 page only.
+    setTeamHeaders(res, { scripts: true });
     res.type("html").send(
       renderSitePage({
         kept: kept ?? undefined,
@@ -936,7 +910,6 @@ router.get(
         personName: v.personName,
         lang: v.lang,
         island: v.island,
-        view: viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM),
         colonies: await colonyOptions(v.visible),
         done: typeof req.query["done"] === "string" ? req.query["done"] : undefined,
         // Asked of can() against the site's own colony (SYC-209 PR 4.2): a cat

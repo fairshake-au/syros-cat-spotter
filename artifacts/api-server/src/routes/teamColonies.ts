@@ -289,21 +289,23 @@ router.get(
     const kept = can(person, "edit_colony", { colonyId: view.id })
       ? await useHeldTyping(req, person, `colony:${view.id}`)
       : null;
-    res.type("html").send(
-      renderColonyPage(view, v.personName, {
-        kept: kept ?? undefined,
-        // Asked against THIS colony, from the record (SYC-209 PR 4.2): a cat
-        // guardian edits her own colony and its cats; renaming stays island-only.
-        may: (c) => can(person, c, { colonyId: view.id }),
-        done,
-        // Her cats someone else moved elsewhere (spec Decision 14); nothing for the team.
-        movedAway: (await movedAwayNotices(person)).filter((n) => n.fromColonyId === view.id),
-        lang: v.lang,
-        island: v.island,
-        plan,
-        now,
-      }),
-    );
+    const html = renderColonyPage(view, v.personName, {
+      kept: kept ?? undefined,
+      // Asked against THIS colony, from the record (SYC-209 PR 4.2): a cat
+      // guardian edits her own colony and its cats; renaming stays island-only.
+      may: (c) => can(person, c, { colonyId: view.id }),
+      done,
+      // Her cats someone else moved elsewhere (spec Decision 14); nothing for the team.
+      movedAway: (await movedAwayNotices(person)).filter((n) => n.fromColonyId === view.id),
+      lang: v.lang,
+      island: v.island,
+      plan,
+      now,
+    });
+    // The sites' small map is MapLibre (SYC-705): its scripts need the wider
+    // header, for this 200 page only (set last, so an error answer stays strict).
+    setTeamHeaders(res, { scripts: true });
+    res.type("html").send(html);
   },
 );
 

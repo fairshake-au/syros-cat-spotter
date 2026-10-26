@@ -543,8 +543,7 @@ router.get(
     const visits = await visitsFor(view.cat.id, { costs: can(person, "view_vet_costs") });
     // Back after signing in again (SYC-516 C3): one of this page's forms filled in.
     const kept = await useHeldTypingFor(req, person, catPageFormKeys(view, (c) => can(person, c)));
-    res.type("html").send(
-      renderCatPage(view, person.name, {
+    const html = renderCatPage(view, person.name, {
         visits,
         kept: kept ?? undefined,
         may: (c) => can(person, c),
@@ -561,8 +560,11 @@ router.get(
         island: isIslandWide(person),
         // SYC-44 PR 7.1: its own check (view_welfare_queue), not this page's.
         issues: await issueStripFor(person, view.cat.id),
-      }),
-    );
+      });
+    // The sightings' small map is MapLibre (SYC-705): its scripts need the
+    // wider header, for this 200 page only (set last, so an error answer stays strict).
+    setTeamHeaders(res, { scripts: true });
+    res.type("html").send(html);
   },
 );
 

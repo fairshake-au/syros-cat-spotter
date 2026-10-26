@@ -320,7 +320,6 @@ const TABLE: Record<string, Row> = {
   },
   // SYC-209 PR 3.2 and PR 4.1, the Feeding sites pages.
   "GET /api/team/sites": { why: "the Feeding sites page, filtered: sees some colony", except: SEEING },
-  "POST /api/team/sites/map": { why: "zoom, pan, areas on the Feeding sites page, filtered: sees some colony", except: SEEING },
   "GET /api/team/sites/:id": { why: "one site, filtered in the query: sees some colony; another colony's site is 404", except: SEEING },
   // SYC-209 PR 3.3, adding, moving, retiring and changing the colony of a feeding site.
   // PR 4.2: the add pages open to anyone who may add a site to a colony they see; each

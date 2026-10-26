@@ -1,6 +1,7 @@
 import { escapeHtml as esc } from "./escape";
 import { renderPage, type NavKey } from "./layout";
-import { renderMap, type MapMarker } from "./map";
+import type { MapMarker } from "./map";
+import { renderButtonMap } from "./buttonMap";
 import { mapPrivacyNote } from "./mapNote";
 import { place, position } from "./position";
 import { SITES_PATH, stampField } from "./sitePages";
@@ -107,7 +108,7 @@ export function renderPicker(o: {
     body:
       // Fixed line heights above the map (see .mappage in layout.ts).
       `<p>${esc(o.intro)}</p>` +
-      renderMap({
+      renderButtonMap({
         lang: o.lang,
         view: o.view,
         markers: o.markers,
@@ -141,7 +142,7 @@ export const smallMap = (
   carry: Record<string, string>,
   lang?: string,
 ) =>
-  renderMap({
+  renderButtonMap({
     lang,
     view: viewAround(spot, zoom),
     markers,

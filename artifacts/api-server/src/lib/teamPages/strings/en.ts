@@ -708,8 +708,9 @@ export const en = {
   "map.east": "East →",
   "map.south": "↓ South",
   "map.goTo": "Go to",
-  "map.attrib": "Map pictures ©",
-  "map.attribLink": "OpenStreetMap contributors",
+  "map.attrib": "© OpenStreetMap contributors",
+  "map.needsJs": "The map needs JavaScript and an up-to-date browser.",
+  "map.compass": "Turn north up",
   // SYC-516 C1: the dashboard's error pages (spec 3.1).
   "error.notFound.title": "This page doesn't exist",
   "error.notFound.line": "The link may be old or mistyped.",

@@ -29,6 +29,9 @@ export const ASSET_NAMES = [
   "dashboard-grid.js",
   "dashboard-map.js",
   "find-photo.js",
+  // SYC-705 Task 2b.5: the dashboard's MapLibre maps (map-core.js starts one; dashboard-pin.js draws a view map's markers).
+  "map-core.js",
+  "dashboard-pin.js",
   "leaflet.js",
   "leaflet.css",
   "maplibre-gl.mjs",
