@@ -128,6 +128,11 @@ export function LocationPicker({
     // A double tap would zoom about the tapped point and carry the pin off
     // it; the picker has + and - and pinch instead.
     map.doubleClickZoom.disable();
+    // Wheel and trackpad zoom would also zoom about the pointer (and trap the
+    // page's scroll); + and - and the keys remain. A pinch zooms about the
+    // pin, wherever the fingers are. Rotation stays off (enable() keeps it so).
+    map.scrollZoom.disable();
+    map.touchZoomRotate.enable({ around: 'center' });
     // A tap: bring the tapped spot to the pin; its moveend reports it. The
     // second tap of a double tap hits the same screen point, which by then
     // shows a different spot (the map is moving), so it is ignored.

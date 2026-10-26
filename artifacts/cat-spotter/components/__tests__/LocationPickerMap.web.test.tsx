@@ -91,6 +91,18 @@ describe('SYC-705: the web picker on MapLibre', () => {
     expect(map.keyboard.isEnabled()).toBe(false);
   });
 
+  it('wheel zoom is off and pinch zooms about the pin, so scrolling or an off-centre pinch cannot move the spot', async () => {
+    render(<LocationPicker {...START} onChange={() => {}} />);
+    const map = await theMap();
+    // Wheel zoom would zoom about the pointer and carry the pin off its spot
+    // (and trap page scroll); the + and - buttons and keys remain.
+    expect(map.scrollZoom.isEnabled()).toBe(false);
+    expect(map.touchZoomRotate.isEnabled()).toBe(true);
+    expect(map.touchZoomRotate.enableOptions).toEqual({ around: 'center' });
+    // Rotation stays off.
+    expect(map.touchZoomRotate.rotationEnabled).toBe(false);
+  });
+
   it('a drag reports the new centre once, on release', async () => {
     const onChange = vi.fn();
     render(<LocationPicker {...START} onChange={onChange} />);

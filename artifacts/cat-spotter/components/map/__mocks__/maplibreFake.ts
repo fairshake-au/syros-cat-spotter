@@ -97,8 +97,11 @@ export class FakeHandler {
     private readonly map: FakeMap,
     private readonly label: string,
   ) {}
-  enable(): void {
-    this.map.calls.push({ method: `${this.label}.enable`, args: [] });
+  /** The options of the latest enable(options) call (MapLibre's scroll/touch zoom take `{ around: 'center' }`). */
+  enableOptions: unknown = undefined;
+  enable(options?: unknown): void {
+    this.map.calls.push({ method: `${this.label}.enable`, args: options === undefined ? [] : [options] });
+    this.enableOptions = options;
     this.enabled = true;
   }
   disable(): void {
