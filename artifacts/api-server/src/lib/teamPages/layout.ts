@@ -7,6 +7,7 @@ import { CHART_CSS } from "../reports/chartCss";
 import { WORKSPACE_PAGE } from "../teamAuth/config";
 import { SETTINGS_PATH } from "./backLink";
 import { THEME_CSS, FONT_STACK, fontFaces } from "./tokens";
+import { HELP_CSS } from "./helpCss";
 import { assetUrl } from "../teamAssets";
 
 // The one page shell for the staff dashboard (SYC-43 part 2 plan, PR 1).
@@ -650,6 +651,7 @@ ul.findlist{grid-template-columns:1fr}
 /* The island map (SYC-396 PR 1.5; spec §6, §12.4). */
 ${MAP_MARK_CSS}
 ${CHART_CSS}
+${HELP_CSS}
 .viewswitch{display:inline-flex;margin:8px 0;border:1px solid var(--accent);border-radius:10px;overflow:hidden}
 .viewswitch a{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;background:var(--card);color:var(--accent-strong);font-weight:700;text-decoration:none}
 .viewswitch a[aria-current="page"]{background:var(--accent);color:var(--on-accent)}

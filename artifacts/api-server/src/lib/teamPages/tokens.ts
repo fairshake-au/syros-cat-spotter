@@ -34,7 +34,7 @@ export const DARK_TOKENS =
   "--danger:#f2a487;--danger-fill:#b8552f;--danger-soft:#3a1d10;" +
   "--warn-line:#ffc94d;--warn-soft:#33270c;--warn-ink:#ffe0a0;" +
   "--ok:#b5c47f;--ok-soft:#20290f;--ok-ink:#cbd6a8;" +
-  "--issue:#5a6b7c;--issue-soft:#13283a;" +
+  "--issue:#5a6b7c;--issue-soft:#13283a;--trail:#1a56a6;" +
   "--mark-sterilised:#e8f4fc;--mark-probably:#66b2e8;--mark-not_known:#2f92dc;--mark-not_sterilised:#ee9070;" +
   "color-scheme:dark";
 
