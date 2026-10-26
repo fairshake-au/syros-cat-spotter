@@ -38,6 +38,8 @@ vi.mock('@/context/DeviceContext', () => ({
   }),
 }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: true }) }));
+// The offer reads the celebration queue; the celebration screen itself is not under test here.
+vi.mock('@/components/celebration/BadgeCelebration', () => ({ BadgeCelebration: () => null }));
 
 import { FirstBadgeOffer, canOfferHere } from '@/components/keepSafe/FirstBadgeOffer';
 

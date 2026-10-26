@@ -102,3 +102,41 @@ export const SYR_SHAPED_NAME_BODY = {
   error: SYR_SHAPED_NAME,
   code: "SYR_SHAPED_NAME" as const,
 };
+
+/** A typed name with a web link or a phone number in it (SYC-709). */
+export const NAME_HAS_LINK = "Names can't include web links or phone numbers.";
+
+// Web endings that end a word ("buy-stuff.com", not "Mr.Whiskers"). `.co`,
+// `.io` and `.me` are left out: they would catch names like "Mr.Co"; the
+// "dot-word then /" rule below still catches t.me/x and wa.me/x.
+const LINK_ENDINGS =
+  "com|net|org|gr|eu|fr|de|it|es|uk|ru|info|biz|app|shop|site|online|xyz|link|ly|tv|cc";
+const LINK_RE = new RegExp(
+  `:\\/\\/|www\\.|\\.(?:${LINK_ENDINGS})(?![\\p{L}\\p{N}])|\\.[\\p{L}\\p{N}]+\\/`,
+  "iu",
+);
+// Five digits in a row, or seven digits in a run where only single spaces,
+// dots or dashes come between them ("691 234 5678", "+30 691-234-5678").
+// \p{Nd} is a digit in any script.
+const DIGITS_IN_A_ROW_RE = /\p{Nd}{5}/u;
+const SPACED_DIGITS_RE = /\p{Nd}(?:[ .\p{Pd}]?\p{Nd}){6}/u;
+
+/**
+ * A name that carries a web link or a phone number (SYC-709 spec
+ * docs/specs/syc-709-naming-limits.md). Best effort, not a guarantee: it
+ * shuts the obvious advert route on names the public types (a pending cat,
+ * a new cat on a sighting, an owner's rename), never on the team's.
+ * NFKC first, so fullwidth dots and letters read as plain ones, and
+ * invisible format characters are dropped.
+ */
+export function hasLinkOrPhoneNumber(name: string): boolean {
+  // Invisible format characters (zero-width spaces, joiners) come out too,
+  // so "691\u200b234\u200b5678" still reads as a phone number.
+  const n = name.normalize("NFKC").replace(/\p{Cf}/gu, "");
+  return LINK_RE.test(n) || DIGITS_IN_A_ROW_RE.test(n) || SPACED_DIGITS_RE.test(n);
+}
+
+export const NAME_HAS_LINK_BODY = {
+  error: NAME_HAS_LINK,
+  code: "NAME_HAS_LINK" as const,
+};

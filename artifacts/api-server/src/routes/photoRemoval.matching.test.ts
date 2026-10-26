@@ -26,6 +26,10 @@ import { _resetDeviceMatchLimitForTests } from "../middlewares/rateLimit";
 import { signedPerson, type Signed } from "../test/roleKit";
 import { markRemoved } from "../test/removalKit";
 
+// SYC-709: a cat name can't hold a phone-number-like run of digits, so
+// names made here get a letters-only tag instead of Date.now().
+const nameTag = (): string => Date.now().toString(36).replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+
 // Out at sea, away from every other file's cats (as matchHardening does).
 const ORIGIN = { lat: 35.9, lng: 21.1 };
 const PREFIX = "vitest-removal-match-";
@@ -133,7 +137,7 @@ describe("T12b: a removed cover never becomes a new cat's main photo", () => {
     expect(first.status).toBe(201);
     const [spot] = await db.select().from(sightingsTable).where(eq(sightingsTable.id, first.body.sightingId));
     await markRemoved(spot!.photoId, staff.id);
-    const name = `VitestRemovalNew-${Date.now()}`;
+    const name = `VitestRemovalNew-${nameTag()}`;
     const r = await request(app)
       .post(`/api/sightings/${spot!.id}/resolve`)
       .set("X-Device-Secret", secretFor(device))

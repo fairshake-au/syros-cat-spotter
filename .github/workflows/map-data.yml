@@ -133,7 +133,7 @@ jobs:
           # Refuse to write into a version folder that already has anything in it.
           # Any aws error (non-zero exit) fails the step; an empty prefix is a success.
           aws s3api list-objects-v2 --bucket "$R2_BUCKET" --endpoint-url "$R2_ENDPOINT" \
-            --prefix "v$N/" --max-keys 1 --max-items 1 --output json > "$RUNNER_TEMP/guard.json"
+            --prefix "v$N/" --max-items 1 --output json > "$RUNNER_TEMP/guard.json"
           EXISTING=$(python scripts/map-data/r2_ls.py count < "$RUNNER_TEMP/guard.json")
           if [ "$EXISTING" -ne 0 ]; then
             echo "::error::s3://$R2_BUCKET/v$N/ is not empty; refusing to overwrite"

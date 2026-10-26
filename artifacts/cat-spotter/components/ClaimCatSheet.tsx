@@ -162,6 +162,7 @@ export function ClaimCatSheet({
     if (failure.kind === 'name-taken') setError(t('nameTaken'));
     else if (failure.kind === 'offensive') setError(t('catNameRejected'));
     else if (failure.kind === 'syr-shaped') setError(t('syrShapedName'));
+    else if (failure.kind === 'has-link') setError(t('nameHasLink'));
     else if (status === 403) setError(t('claimNotOwner'));
     else setError(t('claimNetworkError'));
   };

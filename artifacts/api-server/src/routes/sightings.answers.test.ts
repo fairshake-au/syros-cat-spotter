@@ -34,6 +34,10 @@ import app from "../app";
 import { loadCatRecords } from "../lib/observations";
 import { resolveCat } from "../lib/resolve";
 
+// SYC-709: a cat name can't hold a phone-number-like run of digits, so
+// names made here get a letters-only tag instead of Date.now().
+const nameTag = (): string => Date.now().toString(36).replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+
 const DEVICE = "vitest-answers";
 const SECRET = "vitest-answers-secret-0123456789abcd";
 const OTHER_SECRET = "vitest-answers-other-0123456789abcd";
@@ -43,7 +47,7 @@ const TINY_JPEG_B64 =
   "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 
 let seq = 0;
-const uid = () => `${Date.now()}-${++seq}`;
+const uid = () => `${nameTag()}-${++seq}`;
 
 async function insertPhoto(): Promise<number> {
   const [p] = await db

@@ -1,63 +1,130 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { BADGE_GOALS, badgeViews, earnedCount, nextBadge } from '../badgeProgress';
-import { BADGE_IDS } from '../i18n';
+import { badgeViews, earnedCount, nextBadge, nextInGroup } from '../badgeProgress';
+import { BADGE_EMOJI, BADGE_GROUPS, BADGE_IDS } from '../i18n';
 
-describe('BADGE_GOALS', () => {
-  it('matches the server thresholds in badges.ts', () => {
+type Row = { id: string; group: string; earned: boolean; value: number | null; goal: number | null };
+const row = (id: string, group: string, earned = false, value: number | null = 0, goal: number | null = 1): Row => ({
+  id,
+  group,
+  earned,
+  value,
+  goal,
+});
+
+describe('BADGE_IDS', () => {
+  it('is pinned to the ids and order in the server catalogue', () => {
     const src = readFileSync(
-      resolve(__dirname, '../../../api-server/src/lib/badges.ts'),
+      resolve(__dirname, '../../../api-server/src/lib/badges/catalogue.ts'),
       'utf8',
     );
-    for (const id of BADGE_IDS) {
-      const { stat, goal } = BADGE_GOALS[id];
-      expect(src).toContain(`id: "${id}", earned: (s) => s.${stat} >= ${goal}`);
+    const serverIds = [...src.matchAll(/id: "([a-z_0-9]+)"/g)].map((m) => m[1]);
+    expect(serverIds).toHaveLength(22);
+    expect([...BADGE_IDS].sort()).toEqual([...serverIds].sort());
+    // Same display order within each group as the server.
+    const serverGroups = [...src.matchAll(/id: "([a-z_0-9]+)", group: "([a-z_]+)"/g)];
+    for (const group of new Set(serverGroups.map((m) => m[2]))) {
+      const serverOrder = serverGroups.filter((m) => m[2] === group).map((m) => m[1]);
+      expect(BADGE_GROUPS[group as keyof typeof BADGE_GROUPS]).toEqual(serverOrder);
     }
+  });
+
+  it('has an emoji for every badge', () => {
+    for (const id of BADGE_IDS) expect(BADGE_EMOJI[id], id).toBeTruthy();
   });
 });
 
 describe('badgeViews', () => {
-  it('is null without a profile or a badge list', () => {
+  it('is null without a profile or server badge progress (old server)', () => {
     expect(badgeViews(undefined)).toBeNull();
-    expect(badgeViews({ points: 3 })).toBeNull();
-    expect(badgeViews({ badges: 'first_sighting' })).toBeNull();
+    expect(badgeViews({})).toBeNull();
+    expect(badgeViews({ badgeProgress: 'x' })).toBeNull();
   });
 
-  it('takes earned from the server list only', () => {
-    const views = badgeViews({ badges: ['first_sighting'], totalSightings: 0 })!;
-    expect(views).toHaveLength(BADGE_IDS.length);
-    expect(views.map((v) => v.id)).toEqual([...BADGE_IDS]);
-    expect(views[0].earned).toBe(true);
-    expect(views[1].earned).toBe(false);
+  it('uses server progress and never shows 9 of 10 on an earned badge', () => {
+    const views = badgeViews({
+      badgeProgress: [
+        row('ten_discoveries', 'finding', true, 10, 10),
+        row('discover_25', 'finding', false, 9, 25),
+        row('pathfinder', 'covering', false, null, null),
+      ],
+      newBadgeIds: ['ten_discoveries'],
+    })!;
+    expect(views.map((v) => v.id)).toEqual(['ten_discoveries', 'discover_25', 'pathfinder']);
+    expect(views[0]).toMatchObject({ earned: true, isNew: true, value: 10, goal: 10 });
+    expect(views[1]).toMatchObject({ earned: false, isNew: false, value: 9, goal: 25 });
+    expect(views[2]).toMatchObject({ value: null, goal: null });
   });
 
-  it('caps value at the goal and is null when the stat is missing', () => {
-    const views = badgeViews({ badges: [], catsSpotted: 7, points: 900 })!;
-    const byId = Object.fromEntries(views.map((v) => [v.id, v]));
-    expect(byId.five_cats.value).toBe(5);
-    expect(byId.ten_cats.value).toBe(7);
-    expect(byId.island_legend.value).toBe(500);
-    expect(byId.explorer.value).toBeNull();
+  it('forces value to the goal when earned, even if the server sent less', () => {
+    const [v] = badgeViews({ badgeProgress: [row('ten_discoveries', 'finding', true, 9, 10)] })!;
+    expect(v.value).toBe(10);
   });
 
-  it('ignores unknown badge ids', () => {
-    const views = badgeViews({ badges: ['mystery'] })!;
-    expect(views).toHaveLength(BADGE_IDS.length);
-    expect(earnedCount(views)).toBe(0);
+  it('ignores unknown badge ids from a newer server', () => {
+    const views = badgeViews({ badgeProgress: [row('mystery', 'finding'), row('areas_3', 'covering')] })!;
+    expect(views.map((v) => v.id)).toEqual(['areas_3']);
+  });
+});
+
+describe('nextInGroup', () => {
+  const views = badgeViews({
+    badgeProgress: [
+      row('areas_3', 'covering', true, 3, 3),
+      row('areas_8', 'covering', false, 3, 8),
+      row('areas_all', 'covering', false, 3, 20),
+      row('weeks_2', 'coming_back', false, 0, 2),
+    ],
+  })!;
+  it('after areas_3 is areas_8; after areas_all it wraps to areas_8', () => {
+    expect(nextInGroup(views, 'areas_3')?.id).toBe('areas_8');
+    expect(nextInGroup(views, 'areas_all')?.id).toBe('areas_8');
+  });
+  it('skips badges already earned, including event badges in the middle', () => {
+    const v = badgeViews({
+      badgeProgress: [
+        row('areas_3', 'covering', false, 1, 3),
+        row('areas_8', 'covering', true, 8, 8),
+        row('pathfinder', 'covering', true, null, null),
+        row('remote_1', 'covering', false, 0, 1),
+      ],
+    })!;
+    expect(nextInGroup(v, 'areas_3')?.id).toBe('remote_1');
+  });
+  it('wraps to the first unearned in the group, and is null when the group is done', () => {
+    const v = badgeViews({
+      badgeProgress: [
+        row('areas_3', 'covering', false, 1, 3),
+        row('areas_8', 'covering', true, 8, 8),
+      ],
+    })!;
+    expect(nextInGroup(v, 'areas_8')?.id).toBe('areas_3');
+    const done = badgeViews({
+      badgeProgress: [row('areas_3', 'covering', true, 3, 3), row('areas_8', 'covering', true, 8, 8)],
+    })!;
+    expect(nextInGroup(done, 'areas_3')).toBeNull();
+  });
+  it('stays inside the group', () => {
+    expect(nextInGroup(views, 'weeks_2')).toBeNull();
+    expect(nextInGroup(views, 'nope')).toBeNull();
   });
 });
 
 describe('nextBadge and earnedCount', () => {
   it('picks the first unearned badge in order', () => {
-    const views = badgeViews({ badges: ['first_sighting', 'five_cats'] })!;
+    const views = badgeViews({
+      badgeProgress: [row('first_discovery', 'first_steps'), row('five_cats', 'first_steps')],
+    })!;
     expect(nextBadge(views)?.id).toBe('first_discovery');
-    expect(earnedCount(views)).toBe(2);
+    expect(earnedCount(views)).toBe(0);
   });
 
   it('is null when every badge is earned', () => {
-    const views = badgeViews({ badges: [...BADGE_IDS] })!;
+    const views = badgeViews({
+      badgeProgress: [row('first_sighting', 'first_steps', true, 1, 1)],
+    })!;
     expect(nextBadge(views)).toBeNull();
-    expect(earnedCount(views)).toBe(BADGE_IDS.length);
+    expect(earnedCount(views)).toBe(1);
   });
 });

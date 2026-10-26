@@ -78,6 +78,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
+    "expo-audio": "~1.1.1",
     "expo-file-system": "~19.0.23",
     "expo-notifications": "~0.32.17",
     "react-native-webview": "13.15.0"

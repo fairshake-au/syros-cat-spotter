@@ -25,6 +25,8 @@ import {
 import { router } from 'expo-router';
 import { getCat } from '@workspace/api-client-react';
 import { useDevice } from './DeviceContext';
+import { useLanguage } from './LanguageContext';
+import { openWeeklyResult } from '@/lib/celebrationBus';
 
 /**
  * Navigate to the cat referenced by a tapped push notification, or fall
@@ -37,6 +39,11 @@ async function handleNotificationResponse(
   const data = response.notification.request.content.data as
     | Record<string, unknown>
     | undefined;
+  // SYC-706: a weekly result has no cat. Open its celebration, or the board.
+  if (data?.type === 'weekly_result') {
+    await openWeeklyResult(router);
+    return;
+  }
   const catId = Number(data?.catId);
   const catUpdateId = Number(data?.catUpdateId);
   if (Number.isFinite(catId) && catId > 0) {
@@ -108,6 +115,13 @@ export function NotificationProvider({
 
   const registerToken = useRegisterPushToken();
 
+  // The push token this phone registered, kept so a language change can tell
+  // the server (the Monday weekly push is worded in the app language).
+  const { language } = useLanguage();
+  const languageRef = useRef(language);
+  languageRef.current = language;
+  const tokenRef = useRef<string | null>(null);
+
   // Request push permission and sync the Expo push token on startup.
   useEffect(() => {
     if (!deviceId || registeredRef.current || Platform.OS === 'web') return;
@@ -134,7 +148,11 @@ export function NotificationProvider({
           projectId ? { projectId } : undefined,
         );
         if (token?.data) {
-          registerToken.mutate({ deviceId, data: { token: token.data } });
+          tokenRef.current = token.data;
+          registerToken.mutate({
+            deviceId,
+            data: { token: token.data, language: languageRef.current },
+          });
         }
       } catch (err) {
         // Push is optional (e.g. simulators, Expo Go limits) — inbox still works.
@@ -143,6 +161,16 @@ export function NotificationProvider({
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
+
+  // Tell the server when the language changes, but only once a token exists.
+  const sentLanguageRef = useRef(language);
+  useEffect(() => {
+    if (language === sentLanguageRef.current) return;
+    sentLanguageRef.current = language;
+    if (!deviceId || !tokenRef.current) return;
+    registerToken.mutate({ deviceId, data: { token: tokenRef.current, language } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   // Deep-link when the user taps a push notification: foreground/background
   // taps arrive via the listener; a cold-start tap is retrieved once.

@@ -5,7 +5,10 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { RegisterPushTokenRequestLanguage } from './registerPushTokenRequestLanguage';
 
 export interface RegisterPushTokenRequest {
   token: string;
+  /** The app language, so pushes arrive in it. Old app builds send none and are sent English. */
+  language?: RegisterPushTokenRequestLanguage;
 }

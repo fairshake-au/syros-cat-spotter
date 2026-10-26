@@ -1,17 +1,30 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { randomBytes } from "node:crypto";
-import { and, eq, inArray, like } from "drizzle-orm";
-import { db, pool, catsTable, deviceCredentialsTable, observationsTable } from "@workspace/db";
+import { and, eq, inArray, like, sql } from "drizzle-orm";
+import {
+  db,
+  pool,
+  catsTable,
+  deviceCredentialsTable,
+  observationsTable,
+  sightingMatchesTable,
+  sightingsTable,
+} from "@workspace/db";
 import app from "../app";
 import { syrNumber } from "../lib/teamCatView";
 import { TEAM_DESK_DEVICE } from "../lib/teamDesk";
+import { peek } from "../lib/limits";
+import { _resetNameCatLimitForTests, NAME_CAT_WINDOW_MS } from "../middlewares/rateLimit";
+import { deleteTestSightings } from "../test/sightings";
 
 // SYC-677 D: a cat Syros Cats left for spotters to name ("Spotters naming a
 // cat", vet-visit-batches design). Its stored name is its SYR number until a
 // spotter names it through POST /cats/:id/name; the first good name wins.
 
-const RUN = randomBytes(3).toString("hex");
+// Letters only: a cat name can't hold 5 digits in a row (SYC-709), and a
+// hex tag sometimes does, which made this file fail at random.
+const RUN = [...randomBytes(4)].map((b) => "bcdfghjkmpqrvwxz"[b % 16]).join("");
 const PREFIX = `vitest-nameby-${RUN}-`;
 const NAME = `VtNameBy${RUN}`;
 const SECRET = "vitest-nameby-device-secret-aaaa";
@@ -41,6 +54,33 @@ async function pendingCat(): Promise<number> {
   return c!.id;
 }
 
+/**
+ * SYC-709: a phone may only name a cat it has met (the claim's rule): a
+ * resolved sighting of the cat, matched by confirming the suggestion. With
+ * `movedTo`, the match record says the spotter chose another cat and the
+ * team later moved the sighting here, which doesn't count.
+ */
+async function met(catId: number, deviceId: string, opts: { movedTo?: number; status?: "resolved" | "pending" } = {}) {
+  const [s] = await db
+    .insert(sightingsTable)
+    .values({ catId, deviceId, photoId: 0, lat: 37.445, lng: 24.942, status: opts.status ?? "resolved" })
+    .returning({ id: sightingsTable.id });
+  await db.insert(sightingMatchesTable).values({
+    sightingId: s!.id,
+    choice: "suggested",
+    chosenCatId: opts.movedTo ?? catId,
+    chosenAt: new Date(),
+    suggestedRank: 1,
+  });
+}
+
+/** A pending cat that phones a and b (and any others named) have met. */
+async function metPendingCat(devices: string[] = ["a", "b"]): Promise<number> {
+  const catId = await pendingCat();
+  for (const d of devices) await met(catId, device(d));
+  return catId;
+}
+
 async function namedCat(name: string): Promise<number> {
   const [c] = await db
     .insert(catsTable)
@@ -66,6 +106,7 @@ async function nameStatements(catId: number) {
 }
 
 async function cleanup() {
+  await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
   if (madeCats.length) {
     // Observations are append-only; deleting the cat takes its own with it.
     await db.delete(catsTable).where(inArray(catsTable.id, madeCats));
@@ -78,6 +119,10 @@ beforeAll(async () => {
   for (const d of ["a", "b", "c", "owner"]) {
     await request(app).get(`/api/profiles/${device(d)}`).set("X-Device-Secret", SECRET);
   }
+});
+// Phone a names a cat in most tests; the 3-a-day count gets its own tests.
+beforeEach(async () => {
+  await _resetNameCatLimitForTests();
 });
 afterAll(async () => {
   await cleanup();
@@ -106,7 +151,7 @@ describe("POST /cats/:catId/name", () => {
   });
 
   it("names a pending cat once, with a name statement by this device; a second naming is 409 ALREADY_NAMED", async () => {
-    const catId = await pendingCat();
+    const catId = await metPendingCat();
     const first = await nameIt(catId, device("a"), `${NAME}Mimi`);
     expect(first.status).toBe(200);
     expect(first.headers["cache-control"]).toBe("private, no-store");
@@ -129,7 +174,7 @@ describe("POST /cats/:catId/name", () => {
   });
 
   it("two namings at once: exactly one 200 and one 409 ALREADY_NAMED", async () => {
-    const catId = await pendingCat();
+    const catId = await metPendingCat();
     const [r1, r2] = await Promise.all([
       nameIt(catId, device("a"), `${NAME}RaceA`),
       nameIt(catId, device("b"), `${NAME}RaceB`),
@@ -170,7 +215,7 @@ describe("POST /cats/:catId/name", () => {
 
   it("refuses a name another cat has with NAME_TAKEN, naming that cat", async () => {
     const holder = await namedCat(`${NAME}Taken`);
-    const catId = await pendingCat();
+    const catId = await metPendingCat();
     const res = await nameIt(catId, device("a"), `${NAME.toLowerCase()}taken`);
     expect(res.status).toBe(409);
     expect(res.body.code).toBe("NAME_TAKEN");
@@ -231,7 +276,7 @@ describe("POST /cats/:catId/name", () => {
   });
 
   it("an owner renaming a pending cat clears namePending, so no spotter can overwrite it", async () => {
-    const catId = await pendingCat();
+    const catId = await metPendingCat();
     await db.update(catsTable).set({ ownerDeviceId: device("owner") }).where(eq(catsTable.id, catId));
     const renamed = await request(app)
       .patch(`/api/cats/${catId}`)
@@ -262,5 +307,152 @@ describe("POST /cats/:catId/name", () => {
     expect(row!.name).toBe(before!.name);
     expect(row!.homeDescription).toBe("Green door");
     expect(await nameStatements(catId)).toHaveLength(0);
+  });
+});
+
+let ownedN = 0;
+const letters = (k: number): string => k.toString().replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+
+// SYC-709 (docs/specs/syc-709-naming-limits.md): a phone names only a cat it
+// has met, at most 3 a day, and never with a web link or phone number.
+describe("SYC-709: naming limits", () => {
+  const detail = (catId: number, d: string) =>
+    request(app).get(`/api/cats/${catId}`).set("X-Device-Id", device(d)).set("X-Device-Secret", SECRET);
+
+  it("a phone that hasn't met the cat is 403 NEEDS_SIGHTING, and nothing is written", async () => {
+    const catId = await pendingCat();
+    const res = await nameIt(catId, device("c"), `${NAME}Stranger`);
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("NEEDS_SIGHTING");
+    const [row] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+    expect(row!.namePending).toBe(true);
+    expect(await nameStatements(catId)).toHaveLength(0);
+  });
+
+  it("a sighting still being matched, or one the team moved here from another cat, doesn't count as met", async () => {
+    const other = await namedCat(`${NAME}Elsewhere`);
+    const catId = await pendingCat();
+    await met(catId, device("c"), { status: "pending" });
+    await met(catId, device("c"), { movedTo: other });
+    const res = await nameIt(catId, device("c"), `${NAME}NotMet`);
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("NEEDS_SIGHTING");
+  });
+
+  it("a sighting of a cat merged into this one counts as met", async () => {
+    const catId = await pendingCat();
+    const merged = await namedCat(`${NAME}MergedIn`);
+    await met(merged, device("c"));
+    await db.execute(sql`insert into cat_identity (cat_id, canonical_cat_id) values (${merged}, ${catId})`);
+    const res = await nameIt(catId, device("c"), `${NAME}ViaMerge`);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+  });
+
+  it("a phone that hasn't met the cat can't learn which names are taken: 403 comes before NAME_TAKEN", async () => {
+    await namedCat(`${NAME}Probe`);
+    const catId = await pendingCat();
+    const res = await nameIt(catId, device("c"), `${NAME}Probe`);
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("NEEDS_SIGHTING");
+    expect(res.body.cat).toBeUndefined();
+  });
+
+  it("3 saved names a day per phone: the 4th is 429 NAME_DAILY_LIMIT with Retry-After, and rolls back", async () => {
+    const cats = [await metPendingCat(), await metPendingCat(), await metPendingCat(), await metPendingCat()];
+    for (const [i, catId] of cats.slice(0, 3).entries()) {
+      const ok = await nameIt(catId, device("a"), `${NAME}Day${i}`);
+      expect(ok.status, JSON.stringify(ok.body)).toBe(200);
+    }
+    const fourth = await nameIt(cats[3]!, device("a"), `${NAME}Day3`);
+    expect(fourth.status).toBe(429);
+    expect(fourth.body).toEqual({
+      error: "You've named 3 cats today. You can name another tomorrow.",
+      code: "NAME_DAILY_LIMIT",
+    });
+    expect(Number(fourth.headers["retry-after"])).toBeGreaterThan(0);
+    expect(Number(fourth.headers["retry-after"])).toBeLessThanOrEqual(24 * 60 * 60);
+    const [row] = await db.select().from(catsTable).where(eq(catsTable.id, cats[3]!));
+    expect(row!.namePending).toBe(true);
+    expect(await nameStatements(cats[3]!)).toHaveLength(0);
+    // The refused 4th rolled its own count back: the phone's day still reads 3.
+    expect((await peek("name_cat", device("a"), NAME_CAT_WINDOW_MS)).hits).toBe(3);
+    // Another phone still has its own 3.
+    expect((await nameIt(cats[3]!, device("b"), `${NAME}Day3b`)).status).toBe(200);
+  });
+
+  it("refused names don't use up the day's 3", async () => {
+    const holder = `${NAME}Held`;
+    await namedCat(holder);
+    const cats = [await metPendingCat(), await metPendingCat(), await metPendingCat()];
+    // Taken, offensive, a link, a phone that hasn't met the cat: none counts.
+    expect((await nameIt(cats[0]!, device("a"), holder)).status).toBe(409);
+    expect((await nameIt(cats[0]!, device("a"), "putain cat")).status).toBe(400);
+    expect((await nameIt(cats[0]!, device("a"), "buy-stuff.com")).status).toBe(400);
+    const stranger = await pendingCat();
+    expect((await nameIt(stranger, device("a"), `${NAME}Nope`)).status).toBe(403);
+    for (const [i, catId] of cats.entries()) {
+      expect((await nameIt(catId, device("a"), `${NAME}Kept${i}`)).status).toBe(200);
+    }
+  });
+
+  it("two names at once from one phone with one left today: exactly one saves", async () => {
+    const cats = [await metPendingCat(), await metPendingCat(), await metPendingCat(), await metPendingCat()];
+    for (const [i, catId] of cats.slice(0, 2).entries()) {
+      expect((await nameIt(catId, device("a"), `${NAME}Par${i}`)).status).toBe(200);
+    }
+    const [r1, r2] = await Promise.all([
+      nameIt(cats[2]!, device("a"), `${NAME}ParX`),
+      nameIt(cats[3]!, device("a"), `${NAME}ParY`),
+    ]);
+    expect([r1.status, r2.status].sort()).toEqual([200, 429]);
+    const rows = await db.select().from(catsTable).where(inArray(catsTable.id, [cats[2]!, cats[3]!]));
+    expect(rows.filter((r) => !r.namePending)).toHaveLength(1);
+  });
+
+  it.each([
+    ["buy-stuff.com"],
+    ["BUY.COM"],
+    ["www.example"],
+    ["http://x"],
+    ["t.me/kitty"],
+    ["Call 6912345678"],
+    ["691 234 5678"],
+    ["+30 691-234-5678"],
+    ["buy-stuff．com"],
+  ])("refuses %j with NAME_HAS_LINK when naming a pending cat and on an owner's rename", async (bad) => {
+    const catId = await metPendingCat();
+    const res = await nameIt(catId, device("a"), bad);
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Names can't include web links or phone numbers.", code: "NAME_HAS_LINK" });
+    expect(await nameStatements(catId)).toHaveLength(0);
+
+    // A counter spelt in letters: never repeats, never 5 digits in a row.
+    const owned = await namedCat(`${NAME}Own${letters(++ownedN)}`);
+    await db.update(catsTable).set({ ownerDeviceId: device("owner") }).where(eq(catsTable.id, owned));
+    const renamed = await request(app)
+      .patch(`/api/cats/${owned}`)
+      .set("X-Device-Secret", SECRET)
+      .send({ deviceId: device("owner"), name: bad });
+    expect(renamed.status).toBe(400);
+    expect(renamed.body.code).toBe("NAME_HAS_LINK");
+  });
+
+  it.each([["Mr.Whiskers"], ["Dr. Who"], ["Agent 007"], ["Kitty 2026"], ["No. 5"], ["Μαύρη"], ["Minou"]])(
+    "accepts %j",
+    async (good) => {
+      const catId = await metPendingCat();
+      const res = await nameIt(catId, device("a"), `${good} ${randomBytes(2).toString("hex").replace(/\d/g, "x")}`);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+    },
+  );
+
+  it("canName: true for a proven phone that met the pending cat; false otherwise; absent unproven", async () => {
+    const catId = await metPendingCat(["a"]);
+    expect((await detail(catId, "a")).body.canName).toBe(true);
+    expect((await detail(catId, "c")).body.canName).toBe(false);
+    expect((await request(app).get(`/api/cats/${catId}`)).body.canName).toBeUndefined();
+    const named = await namedCat(`${NAME}CanNameNamed`);
+    await met(named, device("a"));
+    expect((await detail(named, "a")).body.canName).toBe(false);
   });
 });
