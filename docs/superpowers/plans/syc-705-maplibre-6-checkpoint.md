@@ -8,8 +8,15 @@ critical, affects <=6.4.0), so no deploy can publish.
 2. pnpm override shell-quote -> 1.12.0 (GHSA-pqg4-j6r4-53mv, via react-native>react-devtools-core).
    `pnpm audit --audit-level critical`: 0 critical (4 low, 11 moderate, 8 high remain, none in maplibre).
 
+3. Code adaptations (committed): scripts/copy-maplibre-worker.js copies the worker to
+   public/maplibre/maplibre-gl-worker-<version>.mjs (git-ignored) in `dev` and `build:web`;
+   lib/maplibreWorker.ts gives the URL; useMapLibre.web.ts calls setWorkerUrl(url(getVersion()))
+   before the first Map; dropped the v5-only supported() check (v6 constructor throws
+   GPUInitializationError -> 'no-webgl'). Fake reshaped to v6 (named exports only,
+   setWorkerUrl/getVersion/GPUInitializationError). Map tests 41/41.
+
 ## Next
-3. Code adaptations: v6 is ESM-only; worker located via import.meta.url, which Metro
+3b. (was) Code adaptations: v6 is ESM-only; worker located via import.meta.url, which Metro
    (babel-preset-expo unstable_transformImportMeta) maps to the bundle URL, so the worker
    must be served ourselves and pointed at with setWorkerUrl(). Worker file is an ES module
    (`export{.. as default}`) -> module worker.

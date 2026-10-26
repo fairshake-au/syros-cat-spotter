@@ -4,14 +4,14 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "dev": "EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN pnpm exec expo start --localhost --port $PORT",
+    "dev": "node scripts/copy-maplibre-worker.js && EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN pnpm exec expo start --localhost --port $PORT",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "pnpm run typecheck:form-controls && tsc -p tsconfig.json --noEmit",
     "typecheck:form-controls": "tsc -p tsconfig.form-controls.json --noEmit",
     "test": "vitest run",
     "test:zones": "TZ=Pacific/Auckland vitest run lib/__tests__/catPageDates.test.ts && TZ=America/Los_Angeles vitest run lib/__tests__/catPageDates.test.ts",
-    "build:web": "node scripts/check-web-env.js before && expo export --platform web --output-dir dist && node scripts/check-web-env.js after && node scripts/precompress-web.js",
+    "build:web": "node scripts/check-web-env.js before && node scripts/copy-maplibre-worker.js && expo export --platform web --output-dir dist && node scripts/check-web-env.js after && node scripts/precompress-web.js",
     "serve:web": "node server/serve-web.js"
   },
   "devDependencies": {

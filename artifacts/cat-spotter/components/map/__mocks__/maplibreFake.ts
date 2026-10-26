@@ -21,6 +21,12 @@
  * (fire('styledata') or fire('load')), and setStyle unloads it again. A
  * rejected call lands in `rejected`, not `calls`.
  *
+ * Module shape follows maplibre-gl 6: named exports only (no default), no
+ * `supported()`; without WebGL2 the Map constructor throws
+ * GPUInitializationError. setWorkerUrl/getVersion are recorded in
+ * `workerUrlCalls` so tests can check the worker is pointed at before the
+ * first map is made.
+ *
  * Bearing (added for SYC-705 Task 3.4, the rotating cats map): `bearing` is
  * degrees clockwise from north of the screen's "up", as in MapLibre, kept in
  * (-180, 180]. project/unproject honour it (a positive bearing turns the map
@@ -60,12 +66,18 @@ interface Registration {
 /** Container size every new map takes, until setFakeContainerSize changes it. */
 export const DEFAULT_CONTAINER_SIZE = { width: 390, height: 600 };
 
+/** The version getVersion() reports. */
+export const FAKE_MAPLIBRE_VERSION = '6.0.0-fake';
+
 const state = {
-  supported: true,
+  webgl2: true,
   constructorError: null as Error | null,
   protocolError: null as Error | null,
   containerSize: { ...DEFAULT_CONTAINER_SIZE },
 };
+
+/** Every setWorkerUrl call, in order, with how many maps existed at the time. */
+export const workerUrlCalls: Array<{ url: string; mapsBefore: number }> = [];
 
 /** Every addProtocol call, in order. */
 export const protocolCalls: Array<{ protocol: string; loadFn: unknown }> = [];
@@ -160,6 +172,7 @@ export class FakeMap {
   private registrations: Registration[] = [];
 
   constructor(options: Record<string, unknown>) {
+    if (!state.webgl2) throw new GPUInitializationError('WebGL2 is not supported');
     if (state.constructorError) throw state.constructorError;
     this.options = options;
     this.container = options.container as HTMLElement;
@@ -478,8 +491,20 @@ export class FakeProtocol {
   };
 }
 
-function supported(): boolean {
-  return state.supported;
+/** As maplibre-gl 6 exports it: what `new Map()` throws without WebGL2. */
+export class GPUInitializationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GPUInitializationError';
+  }
+}
+
+function setWorkerUrl(url: string): void {
+  workerUrlCalls.push({ url, mapsBefore: FakeMap.instances.length });
+}
+
+function getVersion(): string {
+  return FAKE_MAPLIBRE_VERSION;
 }
 
 function addProtocol(name: string, loadFn: unknown): void {
@@ -491,19 +516,24 @@ function removeProtocol(name: string): void {
   if (i >= 0) protocolCalls.splice(i, 1);
 }
 
-const maplibreApi = { Map: FakeMap, supported, addProtocol, removeProtocol };
-
-/** What `import('maplibre-gl')` resolves to: named exports plus a default. */
-export const maplibreModule = { ...maplibreApi, default: maplibreApi };
+/** What `import('maplibre-gl')` resolves to: named exports only, as in maplibre-gl 6. */
+export const maplibreModule = {
+  Map: FakeMap,
+  GPUInitializationError,
+  addProtocol,
+  removeProtocol,
+  setWorkerUrl,
+  getVersion,
+};
 
 /** What `import('pmtiles')` resolves to. */
 export const pmtilesModule = { Protocol: FakeProtocol, default: { Protocol: FakeProtocol } };
 
 // --- test controls -----------------------------------------------------------
 
-/** Make `supported()` answer false (or true again). */
+/** Without WebGL2 (false), `new Map()` throws GPUInitializationError, as maplibre-gl 6 does. */
 export function setWebGLSupported(value: boolean): void {
-  state.supported = value;
+  state.webgl2 = value;
 }
 
 /** Make `new Map()` throw, as real MapLibre does without WebGL. null stops it. */
@@ -526,13 +556,14 @@ export function lastMap(): FakeMap | null {
   return FakeMap.instances[FakeMap.instances.length - 1] ?? null;
 }
 
-/** Back to defaults: WebGL supported, no throwing, 390×600, no instances or protocol calls. */
+/** Back to defaults: WebGL2 supported, no throwing, 390×600, no instances, protocol or worker calls. */
 export function resetMaplibreFake(): void {
-  state.supported = true;
+  state.webgl2 = true;
   state.constructorError = null;
   state.protocolError = null;
   state.containerSize = { ...DEFAULT_CONTAINER_SIZE };
   FakeMap.instances = [];
   FakeProtocol.instances = [];
   protocolCalls.length = 0;
+  workerUrlCalls.length = 0;
 }

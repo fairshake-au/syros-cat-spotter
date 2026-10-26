@@ -39,3 +39,6 @@ yarn-error.*
 .vercel
 
 .env
+
+# SYC-705: copied from node_modules by scripts/copy-maplibre-worker.js
+public/maplibre/
