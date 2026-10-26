@@ -162,6 +162,13 @@ In the menu choose **production → Google Service Account → Manage your Googl
 | **D2** (keep the app id `com.syroscatspotters.app`) | Nothing changes | Change `ios.bundleIdentifier` and `android.package` in `app.json` **before step 4**. After the first store upload the id can never change. The map key's restriction (§3, item 5) uses the same id. The Expo project name (`slug: syroscatspotters`) should stay as it is either way, even if the app is renamed (SYC-34): it's internal and tied to the project id |
 | **SYC-306** (the launch address) | Claude changes `EXPO_PUBLIC_DOMAIN` in `eas.json` and the next builds use it | Builds already in testers' hands keep talking to `apptest.catspotters.com`, so that address must keep working until everyone has updated (SYC-191 already guards the sign-in Worker for the same reason) |
 
+## "Keep my spots safe" switches (SYC-137)
+
+Both are **off** until SYC-596 has checked them on a real TestFlight and Play build. Set them as plain `EXPO_PUBLIC_` values (they are not secret), one per build:
+
+- `EXPO_PUBLIC_SECURE_IDENTITY=on` on the **phone builds** (in `eas.json` `env`, or `eas env:set`): the device id and secret live in the iPhone Keychain / Android secure storage, and an iPhone keeps its spotter after the app is deleted and reinstalled. **One-way:** once a build with this on has run, never ship a build with it off, or those phones will make a new spotter.
+- `EXPO_PUBLIC_OPEN_IN_APP=on` on the **website build**: the restore page, in a phone's browser, shows "Open in Cat Spotters" (opens `syroscatspotters://restore?t=…`). Turn it on only once the store apps are installable.
+
 ## Choices still open
 
 These are on SYC-323 for Samuel, each with a recommendation:

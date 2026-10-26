@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import {
   type RestoreSpotter,
 } from '@/lib/keepSafe';
 import { isInAppBrowser } from '@/lib/inAppBrowser';
+import { openInAppUrl, shouldOfferOpenInApp } from '@/lib/openInApp';
 import { clearPendingMove, clearWaiting, notePendingMove, readPendingMove, setMovingHandle } from '@/lib/restoreWaiting';
 import { exclusiveMove } from '@/lib/pendingMove';
 
@@ -74,6 +75,9 @@ export function RestoreChooser({
   const { isOnline, pauseSync, resumeSync } = useOffline();
   const token = useRef<string | null>(secret || null);
   token.current = secret || null;
+  // SYC-137: on the website, in a phone's browser, offer to hand the link to the app.
+  const offerOpenInApp =
+    !fromCode && shouldOfferOpenInApp(secret || null, typeof navigator !== 'undefined' ? navigator.userAgent : '');
   const [state, setState] = useState<State>({ kind: 'checking' });
   const [currentSpots, setCurrentSpots] = useState(0);
   // SYC-266: what happens to the spotter being left. Neither is preselected.
@@ -340,6 +344,18 @@ export function RestoreChooser({
         {t('restoreAskTitle')}
       </Text>
 
+      {offerOpenInApp && state.kind !== 'checking' && state.kind !== 'moving' && state.kind !== 'offline' && state.kind !== 'not-valid' && state.kind !== 'failed' && state.kind !== 'already-here' ? (
+        <Button
+          testID="restore-open-in-app"
+          variant="secondary"
+          size="lg"
+          block
+          onPress={() => token.current && void Linking.openURL(openInAppUrl(token.current))}
+        >
+          {t('restoreOpenInApp')}
+        </Button>
+      ) : null}
+
       {state.kind === 'checking' || state.kind === 'moving' ? (
         <View style={styles.row}>
           <ActivityIndicator color={colors.primary} />
@@ -436,23 +452,36 @@ export function RestoreChooser({
                   : t('restoreDifferentYesYou')}
               </Button>
             </View>
-            <View style={styles.pairItem}>
-              <Button
-                variant="secondary"
-                size="lg"
-                block
-                onPress={async () => {
-                  if (await copyLink()) setState({ kind: 'copied', peek: state.peek });
-                }}
-              >
-                {t('restoreDifferentNo')}
-              </Button>
-            </View>
-            <View style={styles.pairItem}>
-              <Button variant="secondary" size="lg" block onPress={() => setState({ kind: 'use-icon', peek: state.peek })}>
-                {t('restoreUseIcon')}
-              </Button>
-            </View>
+            {Platform.OS === 'web' ? (
+              <>
+                <View style={styles.pairItem}>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    block
+                    onPress={async () => {
+                      if (await copyLink()) setState({ kind: 'copied', peek: state.peek });
+                    }}
+                  >
+                    {t('restoreDifferentNo')}
+                  </Button>
+                </View>
+                <View style={styles.pairItem}>
+                  <Button variant="secondary" size="lg" block onPress={() => setState({ kind: 'use-icon', peek: state.peek })}>
+                    {t('restoreUseIcon')}
+                  </Button>
+                </View>
+              </>
+            ) : (
+              // SYC-137: opened in the app from the website's "Open in Cat
+              // Spotters". Copying a link or finding an icon make no sense
+              // here, so "no" simply leaves with nothing moved.
+              <View style={styles.pairItem}>
+                <Button testID="restore-not-now" variant="secondary" size="lg" block onPress={() => router.replace('/')}>
+                  {t('restoreDifferentNotNow')}
+                </Button>
+              </View>
+            )}
           </View>
           {copyFailed ? (
             <Text testID="restore-copy-failed" style={[styles.text, { color: colors.foreground }]}>
