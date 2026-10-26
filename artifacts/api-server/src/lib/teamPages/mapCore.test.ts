@@ -62,10 +62,12 @@ describe("map-core.js: where it fetches from", () => {
       expect(ALLOWED.has(f.url), f.url).toBe(true);
       expect(rangeHeaders(f.init), f.url).toEqual([]);
     }
-    expect(rig.fetches.map((f) => f.url)).toEqual([
+    // The version first; then the file and the style (asked for together).
+    expect(rig.fetches[0]!.url).toBe("https://team.example/api/team/map-data/current");
+    expect(rig.fetches.map((f) => f.url).sort()).toEqual([
       "https://team.example/api/team/map-data/current",
-      "https://team.example/api/team/map-data/v7/syros.pmtiles",
       "https://team.example/api/team/map-data/v7/style-el.json",
+      "https://team.example/api/team/map-data/v7/syros.pmtiles",
     ]);
     // The library and worker come from the map box's own attributes; the worker is set before the first map.
     expect(rig.imports).toEqual(["/api/team/assets/maplibre-gl.0123456789ab.mjs"]);
