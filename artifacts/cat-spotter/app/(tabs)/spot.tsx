@@ -816,6 +816,29 @@ export default function SpotScreen() {
     change().catch(() => notify(t('error')));
   };
 
+  /** SYC-512: throwing a spot away asks first; there is no undo. */
+  const confirmDiscardQueued = (localId: string) => {
+    void confirmChoice({
+      title: t('discardSpotTitle'),
+      message: t('discardSpotBody'),
+      confirmLabel: t('discard'),
+      cancelLabel: t('cancel'),
+    }).then((sure) => {
+      if (sure) changeQueue(() => remove(localId));
+    });
+  };
+
+  /** SYC-512: the back arrow on the details screen drops the photo, pin and extras. */
+  const confirmStartAgain = async () => {
+    const sure = await confirmChoice({
+      title: t('startAgainTitle'),
+      message: t('startAgainBody'),
+      confirmLabel: t('startAgain'),
+      cancelLabel: t('cancel'),
+    });
+    if (sure) clearPhoto();
+  };
+
   React.useEffect(() => {
     const sub = AppState.addEventListener?.('change', (s) => {
       const w = waitRef.current;
@@ -1358,7 +1381,7 @@ export default function SpotScreen() {
                   </Pressable>
                 )}
                 <Pressable
-                  onPress={() => changeQueue(() => remove(item.localId))}
+                  onPress={() => confirmDiscardQueued(item.localId)}
                   style={[styles.errorBtn, { backgroundColor: colors.destructive }]}
                 >
                   <Feather
@@ -1382,7 +1405,7 @@ export default function SpotScreen() {
             <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
           ) : item.status === 'queued' ? (
             <Pressable
-              onPress={() => changeQueue(() => remove(item.localId))}
+              onPress={() => confirmDiscardQueued(item.localId)}
               accessibilityRole="button"
               accessibilityLabel={t('discard')}
               style={styles.clearHit}
@@ -1401,7 +1424,7 @@ export default function SpotScreen() {
         {photo ? (
           <View style={styles.detailsHeaderRow}>
             <Pressable
-              onPress={clearPhoto}
+              onPress={confirmStartAgain}
               disabled={submitting}
               hitSlop={8}
               accessibilityRole="button"
