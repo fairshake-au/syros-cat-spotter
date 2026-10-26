@@ -1,0 +1,202 @@
+<title>Starter Facts Source Check</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,700&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column of decision cards, phone first. Verdict colour carries the state. */
+:root {
+  --bg: #f3f6f7;
+  --card: #ffffff;
+  --fg: #16262c;
+  --muted: #55686f;
+  --line: #d5dee1;
+  --accent: #0f5c6e;
+  --ok: #1d6b45;
+  --ok-bg: #e3f2ea;
+  --warn: #8a5a00;
+  --warn-bg: #fbf0d6;
+  --flag: #9a2f2f;
+  --flag-bg: #f9e3e1;
+  --old-bg: #f4e9e8;
+  --new-bg: #e5f1ee;
+  --display: "Newsreader", Georgia, serif;
+  --body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1a1e; --card: #172429; --fg: #e6eef0; --muted: #9db0b6; --line: #2b3d44;
+    --accent: #6cc3d6; --ok: #7fd1a4; --ok-bg: #173226; --warn: #f0c36a; --warn-bg: #3a2e12;
+    --flag: #f2a09a; --flag-bg: #3b1d1b; --old-bg: #2d1f20; --new-bg: #173028; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1a1e; --card: #172429; --fg: #e6eef0; --muted: #9db0b6; --line: #2b3d44;
+  --accent: #6cc3d6; --ok: #7fd1a4; --ok-bg: #173226; --warn: #f0c36a; --warn-bg: #3a2e12;
+  --flag: #f2a09a; --flag-bg: #3b1d1b; --old-bg: #2d1f20; --new-bg: #173028; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; margin: 0;
+  padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+h1 { font-family: var(--display); font-size: 30px; line-height: 1.15; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-size: 21px; margin: 12px 0 0; text-wrap: balance; }
+p { margin: 0; }
+.lede { color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.stat b { font-family: var(--display); font-size: 28px; display: block; line-height: 1; }
+.stat span { font-size: 13px; color: var(--muted); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.head h3 { font-family: var(--display); font-size: 18px; margin: 0; }
+.pill { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.pill.ok { color: var(--ok); background: var(--ok-bg); }
+.pill.warn { color: var(--warn); background: var(--warn-bg); }
+.pill.flag { color: var(--flag); background: var(--flag-bg); }
+.cmp { display: grid; gap: 8px; }
+.line { border-radius: 8px; padding: 10px 12px; font-size: 15px; }
+.line small { display: block; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.old { background: var(--old-bg); }
+.new { background: var(--new-bg); }
+.why { font-size: 15px; }
+.rec { font-size: 15px; border-top: 1px solid var(--line); padding-top: 10px; }
+.rec b { color: var(--accent); }
+details { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+details p { margin-top: 8px; font-size: 15px; }
+details p small { display: block; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.src { font-size: 13px; color: var(--muted); }
+a { color: var(--accent); overflow-wrap: anywhere; }
+.compact { display: grid; gap: 8px; }
+.compact .row { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 15px; }
+.compact .row b { font-family: var(--display); }
+</style>
+
+<main>
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <h1>Starter facts: source check</h1>
+    <p class="lede">SYC-349. I opened and read a real source for every fact that was marked "unchecked". Nothing in the app has changed. These are proposals for you to approve.</p>
+    <div class="stats">
+      <div class="stat"><b>7</b><span>fine as they are</span></div>
+      <div class="stat"><b>5</b><span>reword</span></div>
+      <div class="stat"><b>0</b><span>drop</span></div>
+    </div>
+    <p class="lede">Read on 24 October 2026. I also re-checked the facts that were already marked checked. That turned up one thing to ask Syros Cats about, the price (fact 6).</p>
+  </header>
+
+  <h2>Five rewordings, needing your yes</h2>
+  <p class="lede">My recommendation is to approve all five. Each one only brings the fact in line with what the source says. Greek and French drafts are under each.</p>
+
+  <section class="card">
+    <div class="head"><h3>Fact 8 · Leftovers aren't cat food</h3><span class="pill warn">Reword</span></div>
+    <div class="cmp">
+      <div class="line old"><small>Now</small>Onions, garlic and chocolate are poisonous to cats. Cooked bones, cured meat and salty leftovers can hurt them too. Leftovers aren't cat food.</div>
+      <div class="line new"><small>Proposed</small>Onions, garlic and chocolate are poisonous to cats. Cooked bones can splinter, and salty scraps can make them ill. Leftovers aren't cat food.</div>
+    </div>
+    <p class="why"><b>Why:</b> the vet sources back onion, garlic, chocolate, sharp cooked bones and too much salt. None of them says cured meat is a problem for cats, so it comes out.</p>
+    <details><summary>Greek and French drafts</summary>
+      <p><small>Greek</small>Το κρεμμύδι, το σκόρδο και η σοκολάτα είναι δηλητηριώδη για τις γάτες. Τα μαγειρεμένα κόκαλα μπορεί να σπάσουν και τα αλμυρά αποφάγια να τις αρρωστήσουν. Τα αποφάγια δεν είναι τροφή για γάτες.</p>
+      <p><small>French</small>L’oignon, l’ail et le chocolat sont toxiques pour les chats. Les os cuits peuvent se briser en éclats, et les restes salés peuvent rendre malade. Les restes ne sont pas de la nourriture pour chats.</p>
+    </details>
+    <p class="rec"><b>Recommend: approve.</b> <b>Needs Syros Cats:</b> yes. This fact is already on their sign-off list, so they should see the new words.</p>
+    <p class="src">Sources: <a href="https://merckvetmanual.com/toxicology/food-hazards/allium-spp-toxicosis-in-animals">Merck Vet Manual (onion, garlic)</a> · <a href="https://www.cats.org.uk/help-and-advice/diet/cats-and-human-foods">Cats Protection</a> · <a href="https://icatcare.org/articles/cats-and-foreign-bodies">International Cat Care (bones)</a> · <a href="https://www.aspca.org/pet-care/animal-poison-control/people-foods-avoid-feeding-your-pets">ASPCA (chocolate, salt)</a>. The Merck chocolate page doesn't mention cats, so I didn't use it for chocolate.</p>
+  </section>
+
+  <section class="card">
+    <div class="head"><h3>Fact 15 · The slow blink</h3><span class="pill warn">Reword</span></div>
+    <div class="cmp">
+      <div class="line old"><small>Now</small>Try a slow blink, from a distance. A 2020 study found cats often slow-blink back, and seem more at ease with people who do it.</div>
+      <div class="line new"><small>Proposed</small>Try a slow blink, from a distance. In a 2020 study, cats were more likely to slow-blink back at someone who slow-blinked first, and to come up to them.</div>
+    </div>
+    <p class="why"><b>Why:</b> the paper found more slow-blinking back and more approaching. It never measured whether cats were "at ease". It was also small (18 cats in each test), so the new wording sticks to what happened.</p>
+    <details><summary>Greek and French drafts</summary>
+      <p><small>Greek</small>Δοκίμασε ένα αργό ανοιγοκλείσιμο των ματιών, από απόσταση. Σε μια μελέτη του 2020, οι γάτες ανταπέδιδαν πιο συχνά το αργό ανοιγοκλείσιμο και πλησίαζαν πιο εύκολα όποιον το είχε κάνει πρώτος.</p>
+      <p><small>French</small>Essaie un clignement lent des yeux, de loin. Dans une étude de 2020, les chats répondaient plus souvent par un clignement lent, et s’approchaient plus volontiers de celui qui l’avait fait en premier.</p>
+    </details>
+    <p class="rec"><b>Recommend: approve.</b> <b>Needs Syros Cats:</b> no. Johnny gets the new Greek and French.</p>
+    <p class="src">Source: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7536207/">Humphrey et al. 2020, Scientific Reports</a> (read through the free PubMed Central copy).</p>
+  </section>
+
+  <section class="card">
+    <div class="head"><h3>Fact 17 · Not every purr is happy</h3><span class="pill warn">Reword</span></div>
+    <div class="cmp">
+      <div class="line old"><small>Now</small>Cats purr when they're content, but also when they're stressed, hurt or giving birth. A purr can be a cat calming itself down.</div>
+      <div class="line new"><small>Proposed</small>Cats purr when they're content, but also when they're stressed or hurt. A purr can be a cat calming itself down.</div>
+    </div>
+    <p class="why"><b>Why:</b> three sources back stress, pain and self-soothing. None of them mentions giving birth, so that part goes.</p>
+    <details><summary>Greek and French drafts</summary>
+      <p><small>Greek</small>Οι γάτες γουργουρίζουν όταν είναι ευχαριστημένες, αλλά και όταν έχουν άγχος ή πονάνε. Το γουργούρισμα μπορεί να είναι ο τρόπος τους να ηρεμούν.</p>
+      <p><small>French</small>Les chats ronronnent quand ils sont contents, mais aussi quand ils sont stressés ou blessés. Ronronner peut être une façon de se calmer.</p>
+    </details>
+    <p class="rec"><b>Recommend: approve.</b> <b>Needs Syros Cats:</b> no.</p>
+    <p class="src">Sources: <a href="https://www.scientificamerican.com/article/why-do-cats-purr/">Scientific American</a> · <a href="https://www.cats.org.uk/cats-blog/why-does-my-cat-purr">Cats Protection</a> · <a href="https://icatcare.org/articles/why-do-cats">International Cat Care</a>.</p>
+  </section>
+
+  <section class="card">
+    <div class="head"><h3>Fact 18 · Kittens' eyes open blue</h3><span class="pill warn">Reword</span></div>
+    <div class="cmp">
+      <div class="line old"><small>Now</small>Kittens' eyes open blue. Their real colour comes through over the first few months, so a blue-eyed kitten may grow up green or gold.</div>
+      <div class="line new"><small>Proposed</small>Kittens' eyes open blue. Their real colour comes through in the weeks that follow, so a blue-eyed kitten may grow up green or gold.</div>
+    </div>
+    <p class="why"><b>Why:</b> Cats Protection says the colour starts to change at about five weeks and is the adult colour by seven. "A few months" runs later than that. The new wording gives no exact age, so it can't be wrong.</p>
+    <details><summary>Greek and French drafts</summary>
+      <p><small>Greek</small>Τα μάτια των γατακιών ανοίγουν γαλάζια. Το πραγματικό τους χρώμα φαίνεται μέσα στις επόμενες εβδομάδες, οπότε ένα γατάκι με γαλάζια μάτια μπορεί να μεγαλώσει με πράσινα ή χρυσά.</p>
+      <p><small>French</small>Les yeux des chatons s’ouvrent bleus. Leur vraie couleur apparaît dans les semaines qui suivent : un chaton aux yeux bleus peut grandir avec des yeux verts ou dorés.</p>
+    </details>
+    <p class="rec"><b>Recommend: approve.</b> <b>Needs Syros Cats:</b> no.</p>
+    <p class="src">Sources: <a href="https://www.cats.org.uk/help-and-advice/pregnancy-and-kitten-care/kitten-ageing-chart">Cats Protection ageing chart</a> · <a href="https://www.cats.org.uk/cats-blog/why-do-cats-have-different-coloured-eyes">Cats Protection on eye colour</a>.</p>
+  </section>
+
+  <section class="card">
+    <div class="head"><h3>Fact 2 · How fast it adds up</h3><span class="pill warn">Small tweak</span></div>
+    <div class="cmp">
+      <div class="line old"><small>Now</small>One unsterilised female can have two or three litters a year, and her daughters can be pregnant themselves from as young as four months.</div>
+      <div class="line new"><small>Proposed</small>One unsterilised female can have up to three litters a year, and her daughters can be pregnant themselves from as young as four months.</div>
+    </div>
+    <p class="why"><b>Why:</b> both sources say "up to three litters". Neither says two is normal. The four months is right.</p>
+    <details><summary>Greek and French drafts</summary>
+      <p><small>Greek</small>Μία μη στειρωμένη θηλυκή γάτα μπορεί να κάνει έως και τρεις γέννες τον χρόνο, και οι κόρες της μπορούν να μείνουν έγκυες ήδη από τεσσάρων μηνών.</p>
+      <p><small>French</small>Une femelle non stérilisée peut avoir jusqu’à trois portées par an, et ses filles peuvent elles-mêmes attendre des petits dès l’âge de quatre mois.</p>
+    </details>
+    <p class="rec"><b>Recommend: approve.</b> It's a small change and the only one I'd call optional. <b>Needs Syros Cats:</b> no.</p>
+    <p class="src">Sources: <a href="https://icatcare.org/articles/neutering-your-cat">International Cat Care</a> · <a href="https://www.cats.org.uk/help-and-advice/caring-for-your-cat/neutering-and-vaccinations/neutering-your-cat">Cats Protection</a>. Agriculture Victoria's fact sheet wouldn't open (it returned an access-denied error), so I didn't use it.</p>
+  </section>
+
+  <h2>Things to ask Syros Cats</h2>
+  <section class="card">
+    <div class="head"><h3>Fact 6 · What it costs</h3><span class="pill flag">Flag, not changed</span></div>
+    <p class="why">The fact says <b>€50–60</b>, which is the figure from the 1 September meeting. Syros Cats' own public vet-care page says neutering costs <b>€35 to 50</b> per cat. I haven't touched the fact. When you ask them about SYC-592, ask which figure is right now, and whether the web page is out of date.</p>
+    <p class="src">Source: <a href="https://syroscats.com/vet-care/">Syros Cats, veterinary care</a>, read 24 October.</p>
+  </section>
+  <section class="card">
+    <div class="head"><h3>Fact 4 · Back home afterwards</h3><span class="pill flag">Ask about "exactly"</span></div>
+    <p class="why">The fact says cats go back to <b>exactly</b> where they were found. Syros Cats' TNR diary says cats are kept overnight and released the next day. It doesn't say each one goes back to the exact spot. If they hesitate, "back to where they were found" is safer. The fact is already on their sign-off list.</p>
+    <p class="src">Source: <a href="https://syroscats.com/trap-neuter-release-a-tnr-diary/">Syros Cats TNR diary</a>.</p>
+  </section>
+  <section class="card">
+    <div class="head"><h3>Fact 1 · The left ear</h3><span class="pill flag">Ask</span></div>
+    <p class="why">"On Syros it's usually the left ear" rests only on the 1 September meeting. Alley Cat Allies uses the left ear but doesn't call it universal, and no Syros Cats page names an ear. It's already on their sign-off list. Keep it there.</p>
+  </section>
+
+  <h2>Fine as they are (7)</h2>
+  <div class="compact">
+    <div class="row"><b>3 · Sterilisation and disease.</b> Cornell: FIV spreads mainly through bites, intact roaming males are most at risk, and there's no evidence it infects people.</div>
+    <div class="row"><b>7 · Milk.</b> Cats Protection and the Merck Vet Manual: lactase drops after weaning, so many adult cats get an upset stomach. Water is what they need.</div>
+    <div class="row"><b>10 · A hiss means space.</b> International Cat Care: hissing is a warning that comes from fear or stress, and doesn't make a cat "aggressive".</div>
+    <div class="row"><b>11 · Admire, don't pick up.</b> International Cat Care says let the cat make first contact. The US health agency CDC says avoid scratches and bites, especially from strays.</div>
+    <div class="row"><b>13 · Tortoiseshells.</b> Merck Vet Manual: the colour gene sits on the X chromosome, so almost all are female.</div>
+    <div class="row"><b>16 · Tail up.</b> International Cat Care: an upright tail is a friendly sign, a tucked tail means fear, and raised fur means keep away.</div>
+    <div class="row"><b>19 · Related females.</b> A 2004 review and International Cat Care both describe colonies built around related females who share kitten care.</div>
+  </div>
+
+  <h2>The facts already marked checked</h2>
+  <p class="lede">Facts 5, 9, 12 and 14 hold up. Fact 14 (white cats with blue eyes) matches Cornell's 65 to 85 percent. A 2023 study of 72 purebred white cats found 16.7 percent deaf. I didn't open it and it's a small sample, so "many" still stands.</p>
+
+  <h2>Fallback, and what happens next</h2>
+  <ul>
+    <li>Any fact Syros Cats are unsure about at launch can be hidden on the new app switches page (SYC-383). No release needed.</li>
+    <li>Only fact 8's new words need Syros Cats. Facts 1, 3, 4, 5, 9, 12 and 19 stay on their sign-off list as they are.</li>
+    <li>When you approve, I put the new English, Greek and French into the app's facts copy and add the Greek and French strings to Johnny's pack (SYC-346). I'll agree the order with the report-flow session first, since it's editing the same copy files.</li>
+    <li>The full evidence, with every link, is in section 12 of the starter-facts spec in the draft PR.</li>
+  </ul>
+</main>
