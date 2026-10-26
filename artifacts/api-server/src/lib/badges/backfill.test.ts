@@ -28,7 +28,7 @@ vi.mock("../areas/areaHistory", async (importOriginal) => {
 import app from "../../app";
 import { namedAreasAt } from "../areas/areaHistory";
 import { currentAreas, loadAreas } from "../areas/namedAreas";
-import { athensDay, weekStartAthens } from "../weeks";
+import { athensDay, weekStartAthens, weekStartInstant } from "../weeks";
 import { runBadgeBackfillOnce, type BackfillStatus } from "./backfill";
 
 // SYC-706 Task 7: on launch, existing spotters get the badges their past
@@ -56,6 +56,21 @@ const scope = (tag: string) => `${DEVICE}-${tag}-${++seq}-`;
 
 const DAY = 86_400_000;
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY);
+
+// Weeks run Monday 00:00 Athens, so "2 days ago" is last week on a Monday or
+// Tuesday. Tests that care which week a spot lands in place it with these.
+/** A moment `agoMs` ago, held inside the current Athens week and never in the future. */
+const thisWeekAgo = (agoMs: number) => {
+  const now = Date.now();
+  const start = weekStartInstant(weekStartAthens(new Date(now))).getTime();
+  return new Date(Math.max(start, now - agoMs));
+};
+/** Midday Wednesday of the previous Athens week, whatever today is. */
+const lastWeek = () => {
+  const thisMonday = weekStartInstant(weekStartAthens(new Date()));
+  const prevMonday = weekStartAthens(new Date(thisMonday.getTime() - 3_600_000));
+  return new Date(weekStartInstant(prevMonday).getTime() + 2.5 * DAY);
+};
 
 async function insertPhoto(): Promise<number> {
   const [p] = await db.insert(photosTable).values({ data: TINY_JPEG_B64, mime: "image/jpeg" }).returning();
@@ -248,8 +263,8 @@ describe("history backfill", () => {
   it("history ledger rows have 0 points so this week's board is empty for them", async () => {
     const prefix = scope("board");
     const d = `${prefix}a`;
-    await oldSpot(d, await seedCat("Board1"), { createdAt: new Date(Date.now() - 60_000) });
-    await oldSpot(d, await seedCat("Board2"), { createdAt: new Date(Date.now() - 30_000) });
+    await oldSpot(d, await seedCat("Board1"), { createdAt: thisWeekAgo(60_000) });
+    await oldSpot(d, await seedCat("Board2"), { createdAt: thisWeekAgo(30_000) });
     expect(await run(prefix)).toBe("done");
 
     const ledger = await ledgerFor(d);
@@ -316,30 +331,39 @@ describe("history backfill", () => {
     expect((await momentsFor(done)).map((m) => m.kind)).toEqual(["badges"]);
   });
 
-  it("history moment includes badges saved quietly by a resolve before the backfill", async () => {
-    const prefix = scope("quiet");
-    const d = `${prefix}a`;
-    for (let i = 0; i < 4; i++) await oldSpot(d, await seedCat(`Quiet${i}`), { createdAt: daysAgo(2) });
-    // A spot after launch, before the backfill: first_sighting is saved as
-    // history with no moment, five_cats is celebrated live.
-    const res = await request(app)
-      .post(`/api/sightings/${await pendingSpot(d)}/resolve`)
-      .set("X-Device-Secret", SECRET)
-      .send({ deviceId: d, catId: await seedCat("QuietFifth") });
-    expect(res.status).toBe(200);
-    expect(res.body.newBadges).toEqual(["five_cats"]);
-    expect((await storedBadges(d)).get("first_sighting")).toBe("history");
-    const seenRow = await db.execute(sql`
-      select seen_at from spotter_badges where device_id = ${d} and badge_id = 'first_sighting'`);
-    expect(seenRow.rows[0]!.seen_at).not.toBeNull();
+  // first_sighting, saved quietly by a resolve before the backfill, is never
+  // celebrated. Whether a history moment is queued at all depends on whether
+  // the old spots share the live spot's week (weeks_2 "Back again").
+  describe.each([
+    { label: "old spots in the same week as the live spot: no history moment", sameWeek: true, kinds: ["badges"] },
+    { label: "old spots in an earlier week: history moment for weeks_2 only", sameWeek: false, kinds: ["badges", "history"] },
+  ])("history moment includes badges saved quietly by a resolve before the backfill ($label)", ({ sameWeek, kinds }) => {
+    it("never celebrates first_sighting", async () => {
+      const prefix = scope("quiet");
+      const d = `${prefix}a`;
+      const oldAt = sameWeek ? thisWeekAgo(60_000) : lastWeek();
+      for (let i = 0; i < 4; i++) await oldSpot(d, await seedCat(`Quiet${i}`), { createdAt: oldAt });
+      // A spot after launch, before the backfill: first_sighting is saved as
+      // history with no moment, five_cats is celebrated live.
+      const res = await request(app)
+        .post(`/api/sightings/${await pendingSpot(d)}/resolve`)
+        .set("X-Device-Secret", SECRET)
+        .send({ deviceId: d, catId: await seedCat("QuietFifth") });
+      expect(res.status).toBe(200);
+      expect(res.body.newBadges).toEqual(["five_cats"]);
+      expect((await storedBadges(d)).get("first_sighting")).toBe("history");
+      const seenRow = await db.execute(sql`
+        select seen_at from spotter_badges where device_id = ${d} and badge_id = 'first_sighting'`);
+      expect(seenRow.rows[0]!.seen_at).not.toBeNull();
 
-    expect(await run(prefix)).toBe("done");
+      expect(await run(prefix)).toBe("done");
 
-    const moments = await momentsFor(d);
-    // first_sighting was saved quietly, but it is an original badge: seen,
-    // and nothing else is left, so no history moment is queued.
-    expect(moments.map((m) => m.kind)).toEqual(["badges"]);
-    expect(moments[0]!.badge_ids).not.toContain("first_sighting");
+      const moments = await momentsFor(d);
+      expect(moments.map((m) => m.kind)).toEqual(kinds);
+      // first_sighting is an original badge: seen, never in any moment.
+      for (const m of moments) expect(m.badge_ids).not.toContain("first_sighting");
+      if (!sameWeek) expect(moments.find((m) => m.kind === "history")!.badge_ids).toEqual(["weeks_2"]);
+    });
   });
 
   it("original badges are saved as seen and not celebrated; new kinds still are", async () => {
