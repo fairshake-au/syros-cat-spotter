@@ -15,6 +15,10 @@ const KEY_STEP = 32;
 // recentre), so their 'moveend' is reported like a drag's. MapLibre copies
 // event data onto the move's events.
 const PICKER_MOVE = 'pickerMove';
+// The browser's own limit on finding the position once allowed, and ours
+// for the whole ask (including a permission prompt nobody answers).
+const LOCATE_TIMEOUT_MS = 10_000;
+const LOCATE_GIVE_UP_MS = 15_000;
 // GeolocationPositionError.PERMISSION_DENIED.
 const PERMISSION_DENIED = 1;
 // A second tap this soon and this close is the other half of a double tap.
@@ -171,9 +175,18 @@ export function LocationPicker({
   };
 
   const mounted = useRef(true);
+  // Our own backstop: a browser may never answer (an ignored or dismissed
+  // permission prompt doesn't start its timeout), and the button must not
+  // stay stuck on "Getting your location…".
+  const giveUp = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopWaiting = () => {
+    if (giveUp.current !== null) clearTimeout(giveUp.current);
+    giveUp.current = null;
+  };
   useEffect(
     () => () => {
       mounted.current = false;
+      stopWaiting();
     },
     [],
   );
@@ -186,20 +199,31 @@ export function LocationPicker({
       return;
     }
     setLocating(true);
+    stopWaiting();
+    giveUp.current = setTimeout(() => {
+      giveUp.current = null;
+      if (!mounted.current) return;
+      setLocating(false);
+      setLocProblem('notFound');
+    }, LOCATE_GIVE_UP_MS);
     geo.getCurrentPosition(
       (pos) => {
         if (!mounted.current) return;
+        stopWaiting();
         setLocating(false);
+        // Even after the backstop gave up: an answer is still the person's spot.
+        setLocProblem(null);
         commitRef.current({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
       },
       (err) => {
         if (!mounted.current) return;
+        stopWaiting();
         setLocating(false);
         // Only a refusal is fixed from the address bar; unavailable or timed
         // out just needs another go.
         setLocProblem(err?.code === PERMISSION_DENIED ? 'off' : 'notFound');
       },
-      { enableHighAccuracy: true, timeout: 10000 },
+      { enableHighAccuracy: true, timeout: LOCATE_TIMEOUT_MS },
     );
   };
 

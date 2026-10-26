@@ -292,6 +292,60 @@ describe('SYC-705: no WebGL keeps the picker usable', () => {
     expect(screen.getByRole('button', { name: 't:claimUseHere' }).getAttribute('aria-disabled')).not.toBe('true');
   });
 
+  it('the browser never answers: after 15 s the button comes back to try again', async () => {
+    setWebGLSupported(false);
+    // An ignored permission prompt: neither callback ever runs.
+    const ask = stubGeolocation(() => {});
+    const onChange = vi.fn();
+    render(<LocationPicker {...START} onChange={onChange} />);
+    const button = await screen.findByRole('button', { name: 't:claimUseHere' });
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(button);
+      expect(screen.getByRole('button', { name: 't:locating' })).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(14_999);
+      });
+      expect(screen.queryByRole('button', { name: 't:claimUseHere' })).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(screen.getByText('t:mapLocNotFound')).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 't:claimUseHere' }));
+      expect(ask).toHaveBeenCalledTimes(2);
+      // The browser's own timeout is asked for too.
+      expect(ask.mock.calls[0]![2]).toMatchObject({ timeout: 10000 });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('a late answer after the backstop gave up still places the pin', async () => {
+    setWebGLSupported(false);
+    let answer: PositionCallback = () => {};
+    stubGeolocation((ok) => {
+      answer = ok;
+    });
+    const onChange = vi.fn();
+    render(<LocationPicker {...START} onChange={onChange} />);
+    const button = await screen.findByRole('button', { name: 't:claimUseHere' });
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(button);
+      act(() => {
+        vi.advanceTimersByTime(15_000);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    act(() => {
+      answer({ coords: { latitude: 37.441, longitude: 24.946 } } as GeolocationPosition);
+    });
+    expect(onChange).toHaveBeenCalledWith({ latitude: 37.441, longitude: 24.946 });
+    expect(screen.queryByText('t:mapLocNotFound')).toBeNull();
+  });
+
   it('no geolocation in the browser: says so, reports nothing', async () => {
     setWebGLSupported(false);
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: undefined });
