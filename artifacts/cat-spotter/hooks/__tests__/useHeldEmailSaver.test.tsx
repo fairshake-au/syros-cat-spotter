@@ -73,7 +73,7 @@ describe('useHeldEmailSaver (SYC-715)', () => {
     const deps = fakeServer();
     await start(deps);
     await waitFor(() => expect(heldEmailNow()).toBeNull());
-    expect(deps.read).toHaveBeenCalledWith('dev-1');
+    expect(deps.read).toHaveBeenCalledWith('dev-1', { timeoutMs: HELD_EMAIL_TIMEOUT_MS });
     expect(deps.add).toHaveBeenCalledWith(
       'dev-1',
       { email: 'sea@example.com', language: 'el', surface: 'onboarding' },
@@ -133,6 +133,58 @@ describe('useHeldEmailSaver (SYC-715)', () => {
     expect(heldEmailNow()).toBeNull();
     expect(h.setKeepSafeOffer).not.toHaveBeenCalled();
     await act(async () => { await vi.advanceTimersByTimeAsync(HELD_EMAIL_RETRY_MS[0] * 3); });
+    expect(add).toHaveBeenCalledTimes(1);
+  });
+
+  it('any definite refusal (403) drops the address, not just invalid_email, so the offer is not blocked for ever', async () => {
+    vi.useFakeTimers();
+    const add = vi.fn().mockRejectedValue(new (ApiError as any)(403, { error: 'forbidden' }));
+    await start(fakeServer({ add }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    expect(heldEmailNow()).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(HELD_EMAIL_RETRY_MS[0] * 3); });
+    expect(add).toHaveBeenCalledTimes(1);
+  });
+
+  it('a 429 is not a refusal: the email is kept and retried', async () => {
+    vi.useFakeTimers();
+    const add = vi.fn().mockRejectedValue(new (ApiError as any)(429, {}));
+    await start(fakeServer({ add }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    expect(heldEmailNow()).toBe('sea@example.com');
+    await act(async () => { await vi.advanceTimersByTimeAsync(HELD_EMAIL_RETRY_MS[0] + 10); });
+    expect(add).toHaveBeenCalledTimes(2);
+  });
+
+  it('a stalled read: the read is asked to time out, and an error from it retries later', async () => {
+    vi.useFakeTimers();
+    const read = vi.fn()
+      .mockRejectedValueOnce(new Error('RequestTimeoutError'))
+      .mockResolvedValue({ status: 'none' });
+    const deps = fakeServer({ read });
+    await start(deps);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    expect(read).toHaveBeenCalledWith('dev-1', { timeoutMs: HELD_EMAIL_TIMEOUT_MS });
+    expect(deps.add).not.toHaveBeenCalled();
+    expect(heldEmailNow()).toBe('sea@example.com');
+    await act(async () => { await vi.advanceTimersByTimeAsync(HELD_EMAIL_RETRY_MS[0] + 10); });
+    expect(deps.add).toHaveBeenCalledTimes(1);
+    expect(heldEmailNow()).toBeNull();
+  });
+
+  it('a connection that flaps while a request is out does not start a second add', async () => {
+    let release!: (v: { status: 'pending'; addressMask: string }) => void;
+    const add = vi.fn(() => new Promise<{ status: 'pending'; addressMask: string }>((res) => { release = res; }));
+    const hook = await start(fakeServer({ add }));
+    await waitFor(() => expect(add).toHaveBeenCalledTimes(1));
+    h.online = false;
+    hook.rerender();
+    h.online = true;
+    hook.rerender();
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(add).toHaveBeenCalledTimes(1);
+    await act(async () => { release({ status: 'pending', addressMask: 's***@example.com' }); });
+    await waitFor(() => expect(heldEmailNow()).toBeNull());
     expect(add).toHaveBeenCalledTimes(1);
   });
 

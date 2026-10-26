@@ -437,6 +437,24 @@ describe('NameStep: "Don\'t lose your spots" on the name screen (SYC-524)', () =
     expect(s.view.container.textContent).not.toContain(en.keepSafeSaveFailed);
   });
 
+  it('SYC-715: an address held by an earlier tap is forgotten once the box is emptied', async () => {
+    h.add.mockRejectedValue(new TypeError('Network request failed'));
+    h.claim.mockRejectedValueOnce({ status: 409 }).mockResolvedValue({ username: 'OtherCat' });
+    const s = setup();
+    await tick(0);
+    await s.typeName('SeaCat');
+    s.typeEmail('sea@example.com');
+    await s.tap();
+    expect(heldEmailNow()).toBe('sea@example.com');
+    expect(h.setUsername).not.toHaveBeenCalled();
+
+    await s.typeName('OtherCat');
+    s.typeEmail('');
+    await s.tap();
+    expect(heldEmailNow()).toBeNull();
+    expect(h.setUsername).toHaveBeenCalledWith('OtherCat');
+  });
+
   it('SYC-715: a server answer (503 not_configured) is not held: the error shows and nothing is claimed', async () => {
     h.add.mockRejectedValue(new (ApiError as any)(503, { error: 'not_configured' }));
     const s = setup();

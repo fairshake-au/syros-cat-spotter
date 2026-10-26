@@ -199,8 +199,8 @@ async function persistRestoredIdentity(restoredId: string, restoredName: string 
   if (restoredName) await AsyncStorage.setItem(USERNAME_KEY, restoredName);
   else await AsyncStorage.removeItem(USERNAME_KEY);
   // SYC-506: a name held offline was never saved; the restored one replaces it.
-  await AsyncStorage.multiRemove([HELD_USERNAME_KEY, NAME_NOTE_KEY]);
-  // SYC-715: likewise an email held for the old spotter.
+  await AsyncStorage.multiRemove([HELD_USERNAME_KEY, NAME_NOTE_KEY, HELD_EMAIL_KEY]);
+  // SYC-715: likewise an email held for the old spotter (memory too).
   await clearHeldEmail();
   // The server's list of owned cats replaces this phone's (hydrated below).
   await AsyncStorage.removeItem(OWNED_CATS_KEY);
@@ -538,6 +538,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       NAME_NOTE_KEY,
       OWNED_CATS_KEY,
       KEEP_SAFE_OFFER_KEY,
+      HELD_EMAIL_KEY,
     ]);
     await clearHeldEmail();
     await AsyncStorage.setItem(SECRET_KEY, secret);
