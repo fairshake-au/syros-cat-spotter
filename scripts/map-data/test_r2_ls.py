@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import r2_ls
 from r2_ls import key_count, next_version
 
 HERE = Path(__file__).parent
@@ -65,3 +66,30 @@ def test_cli_next_version_prints_number():
 
 def test_cli_bad_input_exits_nonzero():
     assert run_cli("next-version", "oops").returncode != 0
+
+
+# Second upload run (26 Oct 2026): R2 + AWS CLI pagination listed some keys twice
+# (1053 entries for 801 files), so a plain count failed a complete upload.
+def test_key_count_ignores_duplicate_pages():
+    body = json.dumps({"Contents": [{"Key": "v1/a"}, {"Key": "v1/b"}, {"Key": "v1/a"}]})
+    assert r2_ls.key_count(body) == 2
+
+
+def test_missing_lists_local_files_not_in_bucket():
+    body = json.dumps({"Contents": [{"Key": "v1/fonts/Noto Sans Regular/0-255.pbf"}, {"Key": "v1/style-en.json"}]})
+    local = ["v1/style-en.json", "v1/fonts/Noto Sans Regular/0-255.pbf", "v1/syros.pmtiles"]
+    assert r2_ls.missing(local, body) == ["v1/syros.pmtiles"]
+
+
+def test_missing_decodes_url_encoded_keys():
+    body = json.dumps({"Contents": [{"Key": "v1/fonts/Noto%20Sans%20Regular/0-255.pbf"}]})
+    assert r2_ls.missing(["v1/fonts/Noto Sans Regular/0-255.pbf"], body) == []
+
+
+def test_missing_cli_exits_nonzero_when_something_is_missing(tmp_path):
+    local = tmp_path / "local.txt"
+    local.write_text("v1/a\nv1/b\n")
+    body = json.dumps({"Contents": [{"Key": "v1/a"}]})
+    r = subprocess.run([sys.executable, str(HERE / "r2_ls.py"), "missing", str(local)],
+                       input=body, capture_output=True, text=True)
+    assert r.returncode != 0 and "v1/b" in r.stdout
