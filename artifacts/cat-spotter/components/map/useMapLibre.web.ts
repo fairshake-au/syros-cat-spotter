@@ -10,6 +10,11 @@
  * is created. MapLibre's attribution control is off: the screens show
  * "© OpenStreetMap contributors" themselves.
  *
+ * maplibre-gl 6 is ES-module only and runs its tile work in a module worker
+ * loaded from its own file. Inside a Metro bundle it can't find that file
+ * (it looks beside `import.meta.url`), so the loader points it at the copy
+ * the site serves (lib/maplibreWorker.ts, scripts/copy-maplibre-worker.js).
+ *
  * The options are a snapshot taken when the map is created: later changes to
  * center, zoom, interactive, rotate or keyboard are not applied. Callers move
  * the map through `map`.
@@ -38,6 +43,7 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 import { MAP_LANG, buildStyle, labelFieldsFor, type MapLang } from '@workspace/map-style';
 import { useLanguage } from '@/context/LanguageContext';
 import { mapUrls, useMapVersion } from '@/lib/mapSource';
+import { maplibreWorkerUrl } from '@/lib/maplibreWorker';
 import { MAX_ZOOM, MIN_ZOOM, toMapLibreZoom, type LatLng } from '@/lib/mercator';
 
 export type { MaplibreMap };
@@ -56,7 +62,7 @@ export interface UseMapLibreResult {
   containerRef: RefObject<View | null>;
   map: MaplibreMap | null;
   /**
-   * 'no-webgl': MapLibre loaded but can't draw here (no WebGL; the map failed to start).
+   * 'no-webgl': MapLibre loaded but can't draw here (no WebGL2; the map failed to start).
    * 'load-failed': MapLibre or pmtiles couldn't be downloaded or set up.
    */
   failed: MapFailure | null;
@@ -107,15 +113,20 @@ let libraryPromise: Promise<MaplibreModule> | null = null;
 const importLibrariesDefault = () => Promise.all([import('maplibre-gl'), import('pmtiles')]);
 let importLibraries: () => Promise<[unknown, unknown]> = importLibrariesDefault;
 
-/** Loads MapLibre and pmtiles once per page, registering the pmtiles protocol once. */
+/**
+ * Loads MapLibre and pmtiles once per page: points MapLibre at its worker and
+ * registers the pmtiles protocol, once.
+ */
 function loadMapLibre(): Promise<MaplibreModule> {
   if (!libraryPromise) {
     libraryPromise = (async () => {
       const [maplibreImport, pmtilesImport] = await importLibraries();
-      // Bundlers disagree on whether a CommonJS/UMD module arrives as the
-      // namespace itself or under `default`.
-      const maplibregl = ((maplibreImport as { default?: MaplibreModule }).default ??
-        maplibreImport) as MaplibreModule;
+      // maplibre-gl 6 has no default export, so this is normally the
+      // namespace itself; fall back to `default` only if a bundler wrapped it.
+      const ns = maplibreImport as Partial<MaplibreModule> & { default?: MaplibreModule };
+      const maplibregl = (typeof ns.setWorkerUrl === 'function' ? ns : ns.default) as MaplibreModule;
+      // Before any Map exists: the first Map starts the workers.
+      maplibregl.setWorkerUrl(maplibreWorkerUrl(maplibregl.getVersion()));
       const pm = pmtilesImport as typeof import('pmtiles') & { default?: typeof import('pmtiles') };
       const Protocol = pm.Protocol ?? pm.default?.Protocol;
       const protocol = new Protocol();
@@ -183,11 +194,6 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
         return;
       }
       if (cancelled) return;
-      const supported = (maplibregl as { supported?: () => boolean }).supported;
-      if (supported && !supported()) {
-        setFailed('no-webgl');
-        return;
-      }
       // react-native-web hands back the DOM element as the View's ref.
       const container = containerRef.current as unknown as HTMLElement | null;
       if (!container) return;
@@ -210,6 +216,7 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
           attributionControl: false,
         });
       } catch {
+        // maplibre-gl 6 throws GPUInitializationError here without WebGL2.
         setFailed('no-webgl');
         return;
       }

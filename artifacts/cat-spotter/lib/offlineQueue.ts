@@ -82,6 +82,13 @@ export interface PendingSighting {
    * Review reads it from here by `localId`. Read it through `hintOf`.
    */
   hintCatId?: number;
+  /**
+   * SYC-186: this item was written when the spot was SENT straight away (not
+   * saved and synced later). It is a spot the spotter may have left on
+   * purpose, so it is left out of the "photo checked" banner and the tab
+   * badge, and the feeding nudge still treats it as a live send.
+   */
+  keptAtSend?: boolean;
 }
 
 /** A queued item's hint, or undefined when it has none or it isn't a cat id. */

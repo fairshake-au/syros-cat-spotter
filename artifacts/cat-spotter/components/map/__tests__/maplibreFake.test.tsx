@@ -18,7 +18,7 @@ import {
 const SYROS = { lng: 24.94, lat: 37.44 };
 
 function newMap(extra: Record<string, unknown> = {}): FakeMap {
-  return new maplibreModule.default.Map({
+  return new maplibreModule.Map({
     container: document.createElement('div'),
     center: [SYROS.lng, SYROS.lat],
     zoom: 14,
@@ -160,14 +160,15 @@ describe('maplibreFake', () => {
     expect(map.getContainer()).toBe(map.options.container);
   });
 
-  it('test controls: supported() and a throwing constructor', () => {
-    expect(maplibreModule.default.supported()).toBe(true);
+  it('test controls: no WebGL2 and a throwing constructor', () => {
+    expect('default' in maplibreModule).toBe(false);
     setWebGLSupported(false);
-    expect(maplibreModule.supported()).toBe(false);
+    expect(() => newMap()).toThrow(maplibreModule.GPUInitializationError);
+    expect(FakeMap.instances).toHaveLength(0);
+    resetMaplibreFake();
     makeMapConstructorThrow();
     expect(() => newMap()).toThrow(/WebGL/);
     resetMaplibreFake();
-    expect(maplibreModule.supported()).toBe(true);
     newMap();
     expect(lastMap()).toBe(FakeMap.instances[0]);
   });
