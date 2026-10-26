@@ -251,6 +251,8 @@ describe('SYC-705: no WebGL keeps the picker usable', () => {
     const onChange = vi.fn();
     render(<LocationPicker {...START} onChange={onChange} />);
     expect(await screen.findByText('t:mapNoWebgl')).toBeTruthy();
+    // Drawn on the theme's card colour, not the map's beige, so it reads in dark mode too.
+    expect(getComputedStyle(screen.getByText('t:mapNoWebgl').parentElement as HTMLElement).backgroundColor).toBe('rgb(18, 52, 86)');
     expect(FakeMap.instances).toHaveLength(0);
     // No map to zoom.
     expect(screen.queryByRole('button', { name: 't:mapZoomIn' })).toBeNull();

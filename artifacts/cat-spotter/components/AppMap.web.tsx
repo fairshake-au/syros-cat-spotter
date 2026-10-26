@@ -287,8 +287,8 @@ export function AppMap({
           </View>
         )}
         {failed !== null && (
-          <View style={styles.failure}>
-            <Text style={[styles.failureText, { color: colors.foreground }]}>
+          <View style={[styles.failure, { backgroundColor: colors.card }]}>
+            <Text style={[styles.failureText, { color: colors.cardForeground }]}>
               {t(failed === 'no-webgl' ? 'mapNoWebgl' : 'mapLoadFailed')}
             </Text>
           </View>

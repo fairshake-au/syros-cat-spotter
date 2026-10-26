@@ -349,6 +349,8 @@ describe('AppMap.web when the map cannot draw', () => {
     );
     expect(await screen.findByText('mapNoWebgl')).toBeTruthy();
     expect(FakeMap.instances).toHaveLength(0);
+    // Drawn on the theme's card colour, not the map's beige, so it reads in dark mode too.
+    expect(getComputedStyle(screen.getByText('mapNoWebgl').parentElement as HTMLElement).backgroundColor).toBe('rgb(18, 52, 86)');
     // No map, so no zoom buttons and no squares floating over nothing.
     expect(screen.queryByLabelText('mapZoomIn')).toBeNull();
     expect(screen.queryByLabelText('A')).toBeNull();
