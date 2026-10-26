@@ -45,14 +45,14 @@ const FILES: Record<string, Buffer> = {
 };
 
 let hostCalls: string[] = [];
-let hostDown = false;
+let filesDown = false;
 function stubFetch(): typeof fetch {
   return (async (input: string | URL | Request) => {
     const url = String(input);
     hostCalls.push(url);
-    if (hostDown) throw new Error("offline");
     const u = new URL(url);
     if (u.pathname === "/current.json") return Response.json({ version: CURRENT });
+    if (filesDown) throw new Error("offline");
     const m = u.pathname.match(/^\/v(\d+)\/(.+)$/);
     if (!m) return new Response("no", { status: 404 });
     const path = decodeURIComponent(m[2]!);
@@ -81,7 +81,7 @@ beforeEach(async () => {
   process.env["TEAM_SESSION_KEYS"] = KEY;
   spies.logLines.length = 0;
   hostCalls = [];
-  hostDown = false;
+  filesDown = false;
   _resetMapDataForTests();
   await db.delete(mapDataFilesTable);
   setMapSourceForTests({ fetch: stubFetch() });
@@ -194,11 +194,13 @@ describe("the version in the address", () => {
     expect([res.status, res.headers["cache-control"]]).toEqual([404, "no-store"]);
   });
 
-  it("a map host that is down is a 503 with no-store, and the log names only the version and path", async () => {
-    hostDown = true;
-    const res = await get(`v${CURRENT}/syros.pmtiles`, alice);
+  it("a file the host will not give is a 503 with no-store, and the warning names only the version and path", async () => {
+    filesDown = true;
+    const res = await get(`v${CURRENT}/syros.pmtiles`, alice).set("Range", "bytes=5-9");
     expect([res.status, res.headers["cache-control"]]).toEqual([503, "no-store"]);
     expect(JSON.parse((res.body as Buffer).toString())).toEqual({ error: "Map data unavailable" });
+    const warn = spies.logLines.map((l) => JSON.parse(l)).find((l) => l.msg === "map data unavailable");
+    expect(warn).toMatchObject({ version: CURRENT, path: "syros.pmtiles" });
   });
 });
 
