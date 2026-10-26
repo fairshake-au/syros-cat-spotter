@@ -2,7 +2,7 @@
 
 **Ticket:** SYC-46 (photos out of Postgres into object storage). Hosting itself is settled: SYC-47 closed on 24 Oct 2026 as "Replit for the app, Neon for the database; Supabase not adopted", with this move left to SYC-46 "after launch".
 **Relates to:** [hosting-and-photo-storage.md](./hosting-and-photo-storage.md) §6–§7 (the earlier design; this spec supersedes its §7 and keeps its §6 rules) · [report-an-issue.md](./report-an-issue.md) · [DECISIONS.md](./DECISIONS.md) · [docs/runbooks/photo-removal.md](../runbooks/photo-removal.md) (SYC-462) · SYC-246 · SYC-276 · SYC-279 · SYC-403 · SYC-81 · SYC-677 · SYC-125
-**Status:** **Draft for Samuel's approval, 25 October 2026, reviewed by an independent adversarial pass ([review](./reviews/photos-object-storage-review.md); every finding folded in).** Spec only. Nothing here is built, and nothing is built before launch (Saturday 31 October).
+**Status:** **Approved by Samuel, 26 October 2026** ("approved, decide on 15 Nov"). Decided so far: **D0** (decide on 15 Nov from real launch numbers; nothing is built before then) and **D2** (no safety copy). D1, D3, D4, D5 and D6 stand as recommended in §8 and are confirmed or changed at the 15 Nov decision; Samuel has not answered them individually. Drafted 25 October 2026, reviewed by an independent adversarial pass ([review](./reviews/photos-object-storage-review.md); every finding folded in).** Spec only. Nothing here is built, and nothing is built before launch (Saturday 31 October).
 **Author's note on evidence:** every price below names its source page and the date it was read (25 Oct 2026). Anything I could not check is marked **unchecked**.
 
 ---
@@ -342,7 +342,7 @@ Launch Sat 31 Oct → one week with no photo changes → **Mon 9 Nov**: step 0 a
 
 Presented in plain English with a recommendation each. I need D0–D4 to plan; D5 and D6 can follow.
 
-### D0 — Do this at all yet?
+### D0 — Do this at all yet? **Decided (Samuel, 26 Oct 2026): decide on 15 Nov**
 The approved earlier decision (`hosting-and-photo-storage.md` §4.2, DECISIONS.md Part 2e) said: decide on 15 Nov 2026 with real invoices, photo volume and a dated restore test; if nobody decides, **photos stay in Postgres through the 2027 season**. SYC-47 closed on 24 Oct and said moving photos "stays with SYC-46, after launch", which settles the hosting half. The production figures (§2.2) now settle part of the rest: **the database is 28 MB, photos average 163 KB, and the money case is small** (under a cent a month today, about $5 a month at the planned season peak, about $17 if photos were three times as large). The remaining inputs, launch-fortnight photo growth and a dated restore, are not in.
 - **Decide on 15 Nov, using the first two weeks of real launch numbers, and start the build the Monday after if they justify it** *(recommended)*. The spec is ready, so nothing is lost but a week. The case then rests on actual growth and on the safety reasons (small database, quick restores, no photo bytes in every backup and test copy), not on a saving that today is a cent. **Risk:** the build starts about a week later (16 Nov) and the space comes back in late January.
 - **Go now: build from 9 Nov.** Moving a few hundred photos is safer than moving tens of thousands. **Risk:** launch-month attention on a change that saves almost nothing yet.
