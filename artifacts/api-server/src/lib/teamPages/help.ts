@@ -50,7 +50,8 @@ export interface WordGroup {
 
 /**
  * The words the dashboard uses, each defined once. Every meaning here was
- * checked against the code it describes (26 Oct 2026); change it when the
+ * checked against the code it describes (26 Oct 2026; who can confirm
+ * sterilisation is authorityLevel in lib/resolve.ts); change it when the
  * rule changes.
  */
 export const WORDS: readonly WordGroup[] = [
@@ -101,14 +102,14 @@ export const WORDS: readonly WordGroup[] = [
   {
     heading: "Sterilisation",
     words: [
-      { id: "sterilised", word: "Sterilised", meaning: "Syros Cats or a vet knows the cat is sterilised." },
+      { id: "sterilised", word: "Sterilised", meaning: "Confirmed by a vet, the Syros Cats team, the cat's owner or its cat guardian." },
       {
         id: "probably",
         word: "Probably sterilised",
-        meaning: "Someone has seen a clipped ear, but Syros Cats or a vet hasn't confirmed it. A clipped ear is never proof on its own.",
+        meaning: "Someone has seen a clipped ear, but nobody who knows the cat has confirmed it. A clipped ear is never proof on its own.",
       },
       { id: "notknown", word: "Not known yet", meaning: "Nobody has been able to tell whether the cat is sterilised." },
-      { id: "notsterilised", word: "Not sterilised", meaning: "The cat is recorded as not sterilised." },
+      { id: "notsterilised", word: "Not sterilised", meaning: "A vet, the Syros Cats team, the cat's owner or its cat guardian has said the cat is not sterilised." },
       {
         id: "clip",
         word: "Clipped ear",
