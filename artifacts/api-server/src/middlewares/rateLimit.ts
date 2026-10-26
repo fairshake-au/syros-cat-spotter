@@ -419,6 +419,22 @@ export const mapSquareTokensLimiter = sharedLimiter({
   key: (_req, res) => `person:${teamPerson(res).id}`,
 });
 
+// The dashboard map's own files, GET /api/team/map-data/** (SYC-705 Phase 2,
+// Task 2b.3): the map file, fonts, symbols and style, served from here so a
+// browser never asks a map company for them. A cold page load is about 25
+// requests and the browser keeps every file for a year, so 600 per PERSON per
+// 10 minutes is far beyond a real visit. Counted per person, in Postgres.
+export const MAP_DATA_BUCKET = "map_data";
+export const MAP_DATA_LIMIT = 600;
+export const MAP_DATA_WINDOW_MS = 10 * 60 * 1000;
+export const mapDataLimiter = sharedLimiter({
+  bucket: MAP_DATA_BUCKET,
+  message: { error: "Too many map requests. Please try again in a few minutes." },
+  windowMs: MAP_DATA_WINDOW_MS,
+  limit: MAP_DATA_LIMIT,
+  key: (_req, res) => `person:${teamPerson(res).id}`,
+});
+
 // Find from a photo (SYC-396 PR 2.5; dashboard spec §5.2): each search makes
 // up to 4 paid AI calls, so searches are capped at 20 a day for each team
 // member and 100 a day across the team. Counted per signed-in PERSON, never

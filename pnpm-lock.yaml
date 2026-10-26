@@ -224,6 +224,9 @@ importers:
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../../lib/integrations-openai-ai-server
+      '@workspace/map-style':
+        specifier: workspace:*
+        version: link:../../lib/map-style
       '@workspace/welfare-guidance':
         specifier: workspace:*
         version: link:../../lib/welfare-guidance
