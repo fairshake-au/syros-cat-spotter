@@ -6,6 +6,9 @@ import {
   extrasOf,
   hintOf,
   markStaleItems,
+  rateLimitWaitMs,
+  RATE_LIMIT_BASE_WAIT_MS,
+  RATE_LIMIT_MAX_WAIT_MS,
   resetForRetry,
   MAX_QUEUE_AGE_MS,
   MAX_SYNC_ATTEMPTS,
@@ -137,7 +140,7 @@ describe('classifySyncFailure', () => {
   });
 
   it('every other 4xx keeps today\'s handling, even at 401 status codes from other routes', () => {
-    expect(classifySyncFailure(apiError(429, GATE_BODY), 0)).toEqual({
+    expect(classifySyncFailure(apiError(409, GATE_BODY), 0)).toEqual({
       // Right-shaped body but wrong status: not the gate's 401.
       kind: 'server',
       permanent: true,
@@ -323,5 +326,54 @@ describe('SYC-574: hintOf, a queued item\'s hint', () => {
   });
   it('ignores a missing item', () => {
     expect(hintOf(undefined)).toBeUndefined();
+  });
+});
+
+function rateLimited(retryAfter?: string): Error {
+  const err = apiError(429);
+  if (retryAfter !== undefined) {
+    (err as unknown as { headers: Headers }).headers = new Headers({
+      'retry-after': retryAfter,
+    });
+  }
+  return err;
+}
+
+describe('SYC-196: a 429 is "try later", not a failure', () => {
+  it('is rate_limited, never a permanent or counted server failure', () => {
+    expect(classifySyncFailure(rateLimited(), 2).kind).toBe('rate_limited');
+  });
+
+  it('waits the Retry-After seconds the server sent (plus up to 20% jitter)', () => {
+    expect(rateLimitWaitMs(rateLimited('30'), 1, 0, 0)).toBe(30_000);
+    expect(rateLimitWaitMs(rateLimited('30'), 1, 0, 1)).toBe(36_000);
+  });
+
+  it('reads an HTTP-date Retry-After', () => {
+    const now = Date.parse('2026-10-26T10:00:00Z');
+    const err = rateLimited('Mon, 26 Oct 2026 10:02:00 GMT');
+    expect(rateLimitWaitMs(err, 1, now, 0)).toBe(120_000);
+  });
+
+  it('ignores a Retry-After it cannot read and backs off instead', () => {
+    expect(rateLimitWaitMs(rateLimited('soon'), 1, 0, 0)).toBe(RATE_LIMIT_BASE_WAIT_MS);
+  });
+
+  it('backs off, doubling with each 429 in a row, when there is no Retry-After', () => {
+    const waits = [1, 2, 3].map((n) => rateLimitWaitMs(rateLimited(), n, 0, 0));
+    expect(waits).toEqual([60_000, 120_000, 240_000]);
+  });
+
+  it('never waits longer than the cap, even if told to (and never under a second)', () => {
+    expect(rateLimitWaitMs(rateLimited('86400'), 1, 0, 0)).toBe(RATE_LIMIT_MAX_WAIT_MS);
+    expect(rateLimitWaitMs(rateLimited(), 30, 0, 0)).toBe(RATE_LIMIT_MAX_WAIT_MS);
+    expect(rateLimitWaitMs(rateLimited('0'), 1, 0, 0)).toBe(1000);
+    expect(rateLimitWaitMs(rateLimited(), 30, 0, 1)).toBeLessThanOrEqual(
+      RATE_LIMIT_MAX_WAIT_MS * 1.2,
+    );
+  });
+
+  it('other 4xx answers are still permanent', () => {
+    expect(classifySyncFailure(apiError(400), 0)).toMatchObject({ permanent: true });
   });
 });
