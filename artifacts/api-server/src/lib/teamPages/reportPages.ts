@@ -325,7 +325,7 @@ export function renderHealthPage(
           [
             "Kittens reported: a litter report was sent in the last 60 days for a cat in this colony, or (for the team) within 300 m of one of its feeding sites.",
             "Growing: at least 3 new cats joined this colony in the last 90 days, and more than in the 90 days before.",
-            "Not visited lately: none of its street cats has been seen in the last 30 days.",
+            "Not visited lately: the colony has street cats, but none has been seen in the last 30 days.",
             "No cat guardian: no cat guardian is recorded for the colony.",
           ],
           { summary: "What the flags mean" },

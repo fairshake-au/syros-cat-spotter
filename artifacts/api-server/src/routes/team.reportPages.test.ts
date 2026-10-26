@@ -142,7 +142,7 @@ describe("Colony health", () => {
     const res = await get("/api/team/insights/health?range=3months");
     expect(res.status).toBe(200);
     expect(res.text).toContain("What the flags mean");
-    expect(res.text).toContain("Not visited lately: none of its street cats has been seen in the last 30 days.");
+    expect(res.text).toContain("Not visited lately: the colony has street cats, but none has been seen in the last 30 days.");
     expect(headers(res.text)).toEqual([
       "Colony",
       "Cats now",

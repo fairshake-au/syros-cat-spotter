@@ -152,7 +152,7 @@ function actionForms(
     `<div class="states">${buttons}</div>` +
     (r.contactLeft
       ? whatHappens(
-          "Done and Nothing needed close the report. If we can email the reporter, you see a confirm page first and they get one email. If we have already emailed them, or their address doesn't work, nothing more is sent.",
+          "Done and Nothing needed close the report. If the reporter left an email, you see a confirm page first. They get one email, once they have confirmed their address. If we have already emailed them, nothing more is sent.",
         )
       : "") +
     "</form>" +
@@ -671,7 +671,7 @@ const QUEUE_INTRO =
 const QUEUE_HOW = [
   "New: nobody has looked yet. Looking at it: someone is on it. Done: it has been dealt with. Nothing needed: no action was needed, for example it was a duplicate.",
   "A team note is private. Only the team sees it, and the person who sent the report never does.",
-  "If we can email the person who sent the report, closing it as Done or Nothing needed sends them one email, after a confirm page. If we have already emailed them, or their address doesn't work, nothing more is sent.",
+  "If the person who sent the report left an email, closing it as Done or Nothing needed shows a confirm page first. They get one email, once they have confirmed their address. If we have already emailed them, nothing more is sent.",
   "Issues are problems the public reported with a cat's photo, name or page. They are at the bottom of the page.",
   "Unchecked, or arrived while our spam check was down, means our spam check could not be reached when the report came in. Most are real, so look before you act.",
   "Restore the photo makes a hidden photo public again.",

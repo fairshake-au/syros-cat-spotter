@@ -102,7 +102,7 @@ export const WORDS: readonly WordGroup[] = [
   {
     heading: "Sterilisation",
     words: [
-      { id: "sterilised", word: "Sterilised", meaning: "Confirmed by a vet, the Syros Cats team, the cat's owner or its cat guardian." },
+      { id: "sterilised", word: "Sterilised", meaning: "Confirmed by a vet, the Syros Cats team (including its older records), the cat's owner or its cat guardian." },
       {
         id: "probably",
         word: "Probably sterilised",

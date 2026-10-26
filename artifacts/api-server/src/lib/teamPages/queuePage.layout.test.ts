@@ -486,8 +486,8 @@ describe("queue page in-page help (SYC-739)", () => {
   it("says what closing does only on a report with an email left", () => {
     const withMail = article(render(queue([report("a", { contactLeft: true })])), "a");
     expect(withMail).toContain('class="what"');
-    expect(withMail).toContain("If we can email the reporter, you see a confirm page first and they get one email.");
-    expect(withMail).toContain("If we have already emailed them, or their address doesn&#39;t work, nothing more is sent.");
+    expect(withMail).toContain("If the reporter left an email, you see a confirm page first. They get one email, once they have confirmed their address.");
+    expect(withMail).toContain("If we have already emailed them, nothing more is sent.");
     expect(article(render(queue([report("b")])), "b")).not.toContain('class="what"');
   });
 });
