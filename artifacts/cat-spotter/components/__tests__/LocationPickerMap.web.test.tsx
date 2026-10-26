@@ -133,6 +133,26 @@ describe('SYC-705: the web picker on MapLibre', () => {
     expect(onChange).toHaveBeenCalledWith({ latitude: ELSEWHERE.lat, longitude: ELSEWHERE.lng });
   });
 
+  it('a double tap lands the pin on the tapped spot, reported once, with no zoom', async () => {
+    const onChange = vi.fn();
+    render(<LocationPicker {...START} onChange={onChange} />);
+    const map = await theMap();
+    // MapLibre's double-click zoom would zoom about the tap and move the pin off it.
+    expect(map.doubleClickZoom.isEnabled()).toBe(false);
+    const zoomBefore = map.getZoom();
+    const tapped = map.unproject([300, 200]);
+    act(() => {
+      map.fire('click', { point: { x: 300, y: 200 }, ...userEvent() });
+      // The second tap of the pair hits the same screen point, which by now
+      // shows a different spot because the map has moved.
+      map.fire('click', { point: { x: 300, y: 200 }, ...userEvent() });
+    });
+    expect(map.callsTo('easeTo')).toHaveLength(1);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith({ latitude: tapped.lat, longitude: tapped.lng });
+    expect(map.getZoom()).toBe(zoomBefore);
+  });
+
   it('props recentre does not call onChange', async () => {
     const onChange = vi.fn();
     const { rerender } = render(<LocationPicker {...START} onChange={onChange} />);

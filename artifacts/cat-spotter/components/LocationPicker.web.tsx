@@ -15,6 +15,9 @@ const KEY_STEP = 32;
 // recentre), so their 'moveend' is reported like a drag's. MapLibre copies
 // event data onto the move's events.
 const PICKER_MOVE = 'pickerMove';
+// A second tap this soon and this close is the other half of a double tap.
+const DOUBLE_TAP_MS = 500;
+const DOUBLE_TAP_PX = 10;
 // Closer than this, a centre is the same spot (the echo of our own onChange).
 const SAME_SPOT = 1e-9;
 
@@ -110,8 +113,20 @@ export function LocationPicker({
       if (sameSpot(centerRef.current, next)) return;
       commitRef.current(next);
     };
-    // A tap: bring the tapped spot to the pin; its moveend reports it.
-    const onClick = (e: { lngLat: { lng: number; lat: number } }) => {
+    // A double tap would zoom about the tapped point and carry the pin off
+    // it; the picker has + and - and pinch instead.
+    map.doubleClickZoom.disable();
+    // A tap: bring the tapped spot to the pin; its moveend reports it. The
+    // second tap of a double tap hits the same screen point, which by then
+    // shows a different spot (the map is moving), so it is ignored.
+    let lastTap = { x: Number.NaN, y: Number.NaN, at: -Infinity };
+    const onClick = (e: { lngLat: { lng: number; lat: number }; point: { x: number; y: number } }) => {
+      const now = Date.now();
+      const repeat =
+        now - lastTap.at < DOUBLE_TAP_MS &&
+        Math.hypot(e.point.x - lastTap.x, e.point.y - lastTap.y) < DOUBLE_TAP_PX;
+      lastTap = { x: e.point.x, y: e.point.y, at: now };
+      if (repeat) return;
       map.easeTo({ center: e.lngLat }, { [PICKER_MOVE]: true });
     };
     map.on('moveend', onMoveEnd);
