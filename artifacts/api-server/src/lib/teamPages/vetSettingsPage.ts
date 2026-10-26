@@ -2,6 +2,7 @@ import type { PriceChange } from "../vetSettings";
 import { escapeHtml as esc } from "./escape";
 import { backLink, SETTINGS_PATH } from "./backLink";
 import { renderPage } from "./layout";
+import { pageIntro } from "./help";
 
 // The Vet settings page (SYC-396 PR 3.1b; dashboard §8.4, §10.3): the
 // standard sterilisation price, a form to change it, and the history of every
@@ -80,6 +81,7 @@ export function renderVetSettingsPage(o: VetSettingsPageOptions): string {
     beforeTitle: backLink(SETTINGS_PATH, "Settings"),
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
+      pageIntro("The usual price Syros Cats pays a vet to sterilise one cat, normally €50–60. Changing it does not change visits already saved.") +
       "<h2>Standard sterilisation price</h2>" +
       `<p class="hbig"><strong>€${o.priceEur}</strong> per cat</p>` +
       // The planner's estimate is back now the planner is built (SYC-619 §9.3; SYC-621).

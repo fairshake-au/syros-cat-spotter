@@ -1,5 +1,6 @@
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
+import { pageIntro } from "./help";
 import { AREAS_PATH } from "./areasPage";
 import { VET_SETTINGS_PATH } from "./vetSettingsPage";
 import { APP_SWITCHES_PATH } from "./appSwitchesPage";
@@ -17,9 +18,9 @@ export interface SettingsEntry {
 }
 
 export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
-  { id: "areas", name: "Areas", note: "The place names used in labels and filters.", href: AREAS_PATH },
-  { id: "vet-settings", name: "Vet settings", note: "The standard sterilisation price.", href: VET_SETTINGS_PATH },
-  { id: "app-switches", name: "App switches", note: "The feed button and the starter facts.", href: APP_SWITCHES_PATH },
+  { id: "areas", name: "Areas", note: "The place names shown on cats and in the Cats list filters.", href: AREAS_PATH },
+  { id: "vet-settings", name: "Vet settings", note: "The standard price for sterilising one cat.", href: VET_SETTINGS_PATH },
+  { id: "app-switches", name: "App switches", note: "The public app's Help feed a cat button and the starter facts spotters see. Changes are live for everyone.", href: APP_SWITCHES_PATH },
 ];
 
 // The whole card is the link (SYC-698): a tap on the note opens the page too.
@@ -39,6 +40,7 @@ export function renderSettingsPage(o: { personName: string; entries?: readonly S
     personName: o.personName,
     body:
       CSS +
+      pageIntro("How the app and dashboard behave. Each page says what it changes.") +
       '<ul class="settings">' +
       entries
         .map((e) => `<li id="${esc(e.id)}-link"><a href="${esc(e.href)}"><span class="name">${esc(e.name)}</span><span class="note">${esc(e.note)}</span></a></li>`)
