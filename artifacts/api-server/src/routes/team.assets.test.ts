@@ -3,9 +3,11 @@ import request from "supertest";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { pool } from "@workspace/db";
 import app from "../app";
+import { WIDE_CSP } from "../test/wideCsp";
 import { ASSET_NAMES, assetUrl, hashedName, loadAssets, VENDOR, vendorBytes } from "../lib/teamAssets";
 
 // SYC-396 PR 1.3.4: GET /api/team/assets/:file serves the dashboard's own
@@ -69,6 +71,52 @@ describe("a file in the manifest", () => {
     expect(css.headers["content-type"]).toBe("text/css; charset=utf-8");
     expect(css.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
     expect(css.text).toContain(".leaflet-pane");
+  });
+
+  // SYC-705 Task 2b.4: the dashboard's map library, MapLibre GL JS, and PMTiles.
+  it("MapLibre is the pinned 6.15.0 and pmtiles the pinned 4.3.2, served from here under the right types", async () => {
+    const pkgVersion = (pkg: string) =>
+      (JSON.parse(readFileSync(path.join(path.dirname(createRequire(import.meta.url).resolve(`${pkg}/package.json`)), "package.json"), "utf8")) as { version: string }).version;
+    expect(pkgVersion("maplibre-gl")).toBe("6.15.0");
+    expect(pkgVersion("pmtiles")).toBe("4.3.2");
+    const pins = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")) as { devDependencies: Record<string, string> };
+    expect(pins.devDependencies["maplibre-gl"]).toBe("6.15.0");
+    expect(pins.devDependencies["pmtiles"]).toBe("4.3.2");
+    const want: [string, string][] = [
+      ["maplibre-gl.mjs", "text/javascript; charset=utf-8"],
+      ["maplibre-gl-worker.mjs", "text/javascript; charset=utf-8"],
+      ["maplibre-gl.css", "text/css; charset=utf-8"],
+      ["pmtiles.js", "text/javascript; charset=utf-8"],
+    ];
+    for (const [name, type] of want) {
+      const url = assetUrl(name as never);
+      const stem = name.slice(0, name.lastIndexOf("."));
+      expect(url, name).toMatch(new RegExp(`^/api/team/assets/${stem.replace(/\./g, "\\.")}\\.[0-9a-f]{12}${path.extname(name)}$`));
+      const res = await request(app).get(url!);
+      expect(res.status, name).toBe(200);
+      expect(res.headers["content-type"], name).toBe(type);
+      expect(res.headers["cache-control"], name).toBe("public, max-age=31536000, immutable");
+      expect(res.headers["x-content-type-options"], name).toBe("nosniff");
+      expect(res.headers["set-cookie"], name).toBeUndefined();
+      expect(res.body instanceof Buffer ? res.body.equals(vendorBytes(name)) : res.text === vendorBytes(name).toString("utf8"), name).toBe(true);
+    }
+    expect(vendorBytes("maplibre-gl.mjs").toString("utf8")).toContain("6.15.0");
+    expect(vendorBytes("maplibre-gl.css").toString("utf8")).toContain(".maplibregl-map");
+    expect(vendorBytes("pmtiles.js").toString("utf8")).toContain("pmtiles");
+  });
+
+  it("the worker is served with WIDE_CSP; every other asset as before (no policy of its own)", async () => {
+    const worker = await request(app).get(assetUrl("maplibre-gl-worker.mjs" as never)!);
+    expect(worker.headers["content-security-policy"]).toBe(WIDE_CSP);
+    expect(worker.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+    expect(worker.headers["cross-origin-resource-policy"]).toBe("same-origin");
+    for (const name of ASSET_NAMES.filter((n) => n !== "maplibre-gl-worker.mjs")) {
+      const res = await request(app).get(assetUrl(name)!);
+      expect(res.headers["content-security-policy"], name).toBeUndefined();
+    }
+    const missing = await request(app).get("/api/team/assets/maplibre-gl-worker.000000000000.mjs");
+    expect(missing.status).toBe(404);
+    expect(missing.headers["content-security-policy"]).toBeUndefined();
   });
 });
 

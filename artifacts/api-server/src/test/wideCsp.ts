@@ -33,7 +33,13 @@ export const WIDE_CSP_ROUTES: ReadonlySet<string> = new Set([
  * The source files allowed to write `setTeamHeaders(…, { scripts: … })`.
  * Each holds a route in WIDE_CSP_ROUTES.
  */
-export const WIDE_CSP_FILES: ReadonlySet<string> = new Set(["src/routes/teamCats.ts"]);
+export const WIDE_CSP_FILES: ReadonlySet<string> = new Set([
+  "src/routes/teamCats.ts",
+  // MapLibre's worker file (SYC-705 Task 2b.4): a worker's policy is its own
+  // response's, so its 200 carries WIDE_CSP (connect-src 'self') to fetch map
+  // data. Only maplibre-gl-worker.<hash>.mjs; every other asset has none.
+  "src/routes/teamAssets.ts",
+]);
 
 /**
  * Find from a photo's results (SYC-491, option 2): the strict header plus
