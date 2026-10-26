@@ -110,8 +110,13 @@ export function LocationPicker({
 
   useEffect(() => {
     if (!map) return;
-    // MapLibre makes its canvas a tab stop; the labelled surface is the one.
-    map.getCanvas().setAttribute('tabindex', '-1');
+    // MapLibre makes its canvas a tab stop and a region labelled "Map"; the
+    // labelled surface around it is the one tab stop and the one name.
+    // (Here, not in useMapLibre: the cats map keeps its canvas focusable for
+    // MapLibre's own keys, and a focusable element must not be aria-hidden.)
+    const canvas = map.getCanvas();
+    canvas.setAttribute('tabindex', '-1');
+    canvas.setAttribute('aria-hidden', 'true');
     const onMoveEnd = (e: { originalEvent?: unknown; [PICKER_MOVE]?: boolean }) => {
       if (selfMove.current) return;
       if (!e.originalEvent && !e[PICKER_MOVE]) return;

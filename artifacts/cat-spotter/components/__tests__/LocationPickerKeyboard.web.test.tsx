@@ -64,6 +64,8 @@ describe('SYC-509: keyboard alternative to dragging the web map', () => {
     expect(map.keyboard.isEnabled()).toBe(false);
     // MapLibre's canvas would be a second, unlabelled tab stop.
     expect(map.getCanvas().getAttribute('tabindex')).toBe('-1');
+    // Nor a second "Map" for screen readers inside our labelled surface.
+    expect(map.getCanvas().getAttribute('aria-hidden')).toBe('true');
   });
 
   it('adds up quick repeated key presses before a re-render', async () => {
