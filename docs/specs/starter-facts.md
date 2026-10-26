@@ -121,9 +121,9 @@ These are drafts. Greek and French go to Johnny (SYC-283) on Thursday 22 October
 - **FR** Le haut tout plat de l’oreille sur cette photo, c’est un bout coupé : le signe qu’une chatte est stérilisée. Le vétérinaire le coupe pendant qu’elle dort. À Syros, c’est généralement l’oreille gauche.
 
 **Fact 2 · How fast it adds up** · *core*
-- **EN** One unsterilised female can have two or three litters a year, and her daughters can be pregnant themselves from as young as four months.
-- **EL** Μία μη στειρωμένη θηλυκή γάτα μπορεί να κάνει δύο ή τρεις γέννες τον χρόνο, και οι κόρες της μπορούν να μείνουν έγκυες ήδη από τεσσάρων μηνών.
-- **FR** Une femelle non stérilisée peut avoir deux ou trois portées par an, et ses filles peuvent elles-mêmes attendre des petits dès l’âge de quatre mois.
+- **EN** One unsterilised female can have up to three litters a year, and her daughters can be pregnant themselves from as young as four months.
+- **EL** Μία μη στειρωμένη θηλυκή γάτα μπορεί να κάνει έως και τρεις γέννες τον χρόνο, και οι κόρες της μπορούν να μείνουν έγκυες ήδη από τεσσάρων μηνών.
+- **FR** Une femelle non stérilisée peut avoir jusqu’à trois portées par an, et ses filles peuvent elles-mêmes attendre des petits dès l’âge de quatre mois.
 
 **Fact 3 · Sterilisation and disease** · *core* · *sign-off* · the 1 September meeting's addition
 - **EN** Sterilised cats fight and roam less, so they're less likely to catch or pass on diseases spread by bites, like FIV, which doesn't affect people.
@@ -131,9 +131,9 @@ These are drafts. Greek and French go to Johnny (SYC-283) on Thursday 22 October
 - **FR** Les chats stérilisés se battent et errent moins : ils risquent moins d’attraper ou de transmettre des maladies qui passent par les morsures, comme le FIV, qui ne touche pas les humains.
 
 **Fact 4 · Back home afterwards** · *core* · *sign-off*
-- **EN** After sterilisation, most street cats go back to exactly where they were found: their own patch, their own colony, the people who feed them.
-- **EL** Μετά τη στείρωση, οι περισσότερες γάτες του δρόμου επιστρέφουν ακριβώς εκεί που βρέθηκαν: στη γειτονιά τους, στην αποικία τους, στους ανθρώπους που τις ταΐζουν.
-- **FR** Après leur stérilisation, la plupart des chats des rues retournent exactement là où on les a trouvés : leur coin, leur colonie, les gens qui les nourrissent.
+- **EN** After sterilisation, most street cats go back to where they were found: their own patch, their own colony, the people who feed them.
+- **EL** Μετά τη στείρωση, οι περισσότερες γάτες του δρόμου επιστρέφουν εκεί που βρέθηκαν: στη γειτονιά τους, στην αποικία τους, στους ανθρώπους που τις ταΐζουν.
+- **FR** Après leur stérilisation, la plupart des chats des rues retournent là où on les a trouvés : leur coin, leur colonie, les gens qui les nourrissent.
 
 **Fact 5 · Why taking cats away doesn't work** · *sign-off*
 - **EN** Take cats away from a place with food and shelter, and new cats often move in. Sterilising them instead aims for a settled colony that stops growing.
@@ -155,9 +155,9 @@ These are drafts. Greek and French go to Johnny (SYC-283) on Thursday 22 October
 - **FR** La plupart des chats adultes digèrent mal le lait : une soucoupe de lait leur donne souvent mal au ventre. Ce qu’il leur faut, c’est de l’eau fraîche.
 
 **Fact 8 · Leftovers aren't cat food** · *core* · *sign-off*
-- **EN** Onions, garlic and chocolate are poisonous to cats. Cooked bones, cured meat and salty leftovers can hurt them too. Leftovers aren't cat food.
-- **EL** Το κρεμμύδι, το σκόρδο και η σοκολάτα είναι δηλητηριώδη για τις γάτες. Τα μαγειρεμένα κόκαλα, τα αλλαντικά και τα αλμυρά αποφάγια μπορούν επίσης να τις βλάψουν. Τα αποφάγια δεν είναι τροφή για γάτες.
-- **FR** L’oignon, l’ail et le chocolat sont toxiques pour les chats. Les os cuits, la charcuterie et les restes salés peuvent aussi leur faire du mal. Les restes ne sont pas de la nourriture pour chats.
+- **EN** Onions, garlic and chocolate are poisonous to cats. Cooked bones can splinter, and salty scraps can make them ill. Leftovers aren't cat food.
+- **EL** Το κρεμμύδι, το σκόρδο και η σοκολάτα είναι δηλητηριώδη για τις γάτες. Τα μαγειρεμένα κόκαλα μπορεί να σπάσουν και τα αλμυρά αποφάγια να τις αρρωστήσουν. Τα αποφάγια δεν είναι τροφή για γάτες.
+- **FR** L’oignon, l’ail et le chocolat sont toxiques pour les chats. Les os cuits peuvent se briser en éclats, et les restes salés peuvent rendre malade. Les restes ne sont pas de la nourriture pour chats.
 
 **Fact 9 · Water at a feeding spot** · *sign-off*
 - **EN** See a dry water bowl at a feeding spot? Topping it up helps, especially in summer. Food is best left to the people who feed the cats regularly.
@@ -196,9 +196,9 @@ The fact names no button, because the spotter reads it during the wait, when "Th
 - **FR** Beaucoup de chats tout blancs aux deux yeux bleus naissent sourds. S’il ne se retourne pas quand tu approches, il ne t’a peut-être pas entendu : reste là où il peut te voir.
 
 **Fact 15 · The slow blink**
-- **EN** Try a slow blink, from a distance. A 2020 study found cats often slow-blink back, and seem more at ease with people who do it.
-- **EL** Δοκίμασε ένα αργό ανοιγοκλείσιμο των ματιών, από απόσταση. Μια μελέτη του 2020 βρήκε ότι οι γάτες συχνά το ανταποδίδουν και φαίνονται πιο άνετες με όποιον το κάνει.
-- **FR** Essaie un clignement lent des yeux, de loin. Une étude de 2020 a montré que les chats y répondent souvent, et semblent plus à l’aise avec ceux qui le font.
+- **EN** Try a slow blink, from a distance. In a 2020 study, cats were more likely to slow-blink back at someone who slow-blinked first, and to come up to them.
+- **EL** Δοκίμασε ένα αργό ανοιγοκλείσιμο των ματιών, από απόσταση. Σε μια μελέτη του 2020, οι γάτες ανταπέδιδαν πιο συχνά το αργό ανοιγοκλείσιμο και πλησίαζαν πιο εύκολα όποιον το είχε κάνει πρώτος.
+- **FR** Essaie un clignement lent des yeux, de loin. Dans une étude de 2020, les chats répondaient plus souvent par un clignement lent, et s’approchaient plus volontiers de celui qui l’avait fait en premier.
 
 **Fact 16 · Tail up**
 - **EN** A tail held straight up is a cat's friendly hello. A tail tucked low, or fur standing on end, means give it room.
@@ -206,14 +206,14 @@ The fact names no button, because the spotter reads it during the wait, when "Th
 - **FR** Une queue dressée bien droite, c’est le bonjour amical d’un chat. Une queue basse, ou des poils hérissés, veulent dire : laisse-lui de l’espace.
 
 **Fact 17 · Not every purr is happy**
-- **EN** Cats purr when they're content, but also when they're stressed, hurt or giving birth. A purr can be a cat calming itself down.
-- **EL** Οι γάτες γουργουρίζουν όταν είναι ευχαριστημένες, αλλά και όταν έχουν άγχος, πονάνε ή γεννάνε. Το γουργούρισμα μπορεί να είναι ο τρόπος τους να ηρεμούν.
-- **FR** Les chats ronronnent quand ils sont contents, mais aussi quand ils sont stressés, blessés ou en train de mettre bas. Ronronner peut être une façon de se calmer.
+- **EN** Cats purr when they're content, but also when they're stressed or hurt. A purr can be a cat calming itself down.
+- **EL** Οι γάτες γουργουρίζουν όταν είναι ευχαριστημένες, αλλά και όταν έχουν άγχος ή πονάνε. Το γουργούρισμα μπορεί να είναι ο τρόπος τους να ηρεμούν.
+- **FR** Les chats ronronnent quand ils sont contents, mais aussi quand ils sont stressés ou blessés. Ronronner peut être une façon de se calmer.
 
 **Fact 18 · Kittens' eyes open blue**
-- **EN** Kittens' eyes open blue. Their real colour comes through over the first few months, so a blue-eyed kitten may grow up green or gold.
-- **EL** Τα μάτια των γατακιών ανοίγουν γαλάζια. Το πραγματικό τους χρώμα φαίνεται μέσα στους πρώτους μήνες, οπότε ένα γατάκι με γαλάζια μάτια μπορεί να μεγαλώσει με πράσινα ή χρυσά.
-- **FR** Les yeux des chatons s’ouvrent bleus. Leur vraie couleur apparaît au cours des premiers mois : un chaton aux yeux bleus peut grandir avec des yeux verts ou dorés.
+- **EN** Kittens' eyes open blue. Their real colour comes through in the weeks that follow, so a blue-eyed kitten may grow up green or gold.
+- **EL** Τα μάτια των γατακιών ανοίγουν γαλάζια. Το πραγματικό τους χρώμα φαίνεται μέσα στις επόμενες εβδομάδες, οπότε ένα γατάκι με γαλάζια μάτια μπορεί να μεγαλώσει με πράσινα ή χρυσά.
+- **FR** Les yeux des chatons s’ouvrent bleus. Leur vraie couleur apparaît dans les semaines qui suivent : un chaton aux yeux bleus peut grandir avec des yeux verts ou dorés.
 
 ### Life in a colony (strand 2)
 
@@ -398,7 +398,7 @@ An independent adversarial review (Sonnet, 15 October 2026) read this spec and `
 
 The app shows no citations. These are for Samuel, Syros Cats and Johnny. First researched 15 October 2026; **every row below was re-opened and read on 24 October 2026 (SYC-349)**, including the rows that were already marked opened. "Opened" means the page itself was fetched and read; the page text came back through a fetch-and-summarise tool, so the paraphrases below are of that text. No fact rests on a search listing any more. Where a page wouldn't open, it says so.
 
-**Verdicts: 12 facts that were "unchecked" are now read.** 7 supported as they stand · 5 partly supported, so reworded (2, 8, 15, 17, 18) · **0 dropped**. Rewordings are *proposals*: they change nothing in the app until Samuel approves them (§12.2). The re-check of the facts already marked opened found nothing that needs dropping and one flag on fact 6 (§12.3).
+**Verdicts: 12 facts that were "unchecked" are now read.** 7 supported as they stand · 5 partly supported, so reworded (2, 8, 15, 17, 18) · **0 dropped**. **Samuel approved all five rewordings on 26 Oct 2026 and they are applied in §4 and the app** (§12.2). He also confirmed fact 1 (left ear) and fact 6 (€50–60) as correct, and approved fact 4 as "back to where they were found" (applied; the word "exactly" is gone). The re-check of the facts already marked opened found nothing that needs dropping and one flag on fact 6 (§12.3).
 
 ### 12.1 Fact by fact
 
@@ -424,9 +424,11 @@ The app shows no citations. These are for Samuel, Syros Cats and Johnny. First r
 
 Facts 12, 14 and 20 were already checked; their re-check is in §12.3.
 
-### 12.2 Proposed rewordings (not in the app; need Samuel's approval)
+### 12.2 Rewordings (approved by Samuel 26 Oct 2026; applied)
 
-Word counts are English; each is under the 35-word limit (§3.3). Greek and French are drafts for Johnny (SYC-346).
+The Greek and French fact 8 below were shortened by a few words when applied, because the first drafts broke the 35-word limit test. The text in §4 is the final wording.
+
+Greek and French are drafts for Johnny (SYC-346). Fact 4 also changed: "exactly where" became "where" in all three languages.
 
 **Fact 2 · How fast it adds up** (small tweak: sources say "up to three")
 - **EN** One unsterilised female can have up to three litters a year, and her daughters can be pregnant themselves from as young as four months.
@@ -435,8 +437,8 @@ Word counts are English; each is under the 35-word limit (§3.3). Greek and Fren
 
 **Fact 8 · Leftovers aren't cat food** (cured meat and "cooked bones can hurt" replaced by what the sources say; already a sign-off fact, so Syros Cats see the new words)
 - **EN** Onions, garlic and chocolate are poisonous to cats. Cooked bones can splinter, and salty scraps can make them ill. Leftovers aren't cat food.
-- **EL** Το κρεμμύδι, το σκόρδο και η σοκολάτα είναι δηλητηριώδη για τις γάτες. Τα μαγειρεμένα κόκαλα μπορούν να σπάσουν σε αιχμηρά κομμάτια και τα αλμυρά αποφάγια μπορούν να τις αρρωστήσουν. Τα αποφάγια δεν είναι τροφή για γάτες.
-- **FR** L’oignon, l’ail et le chocolat sont toxiques pour les chats. Les os cuits peuvent se briser en éclats, et les restes salés peuvent les rendre malades. Les restes ne sont pas de la nourriture pour chats.
+- **EL** Το κρεμμύδι, το σκόρδο και η σοκολάτα είναι δηλητηριώδη για τις γάτες. Τα μαγειρεμένα κόκαλα μπορεί να σπάσουν και τα αλμυρά αποφάγια να τις αρρωστήσουν. Τα αποφάγια δεν είναι τροφή για γάτες.
+- **FR** L’oignon, l’ail et le chocolat sont toxiques pour les chats. Les os cuits peuvent se briser en éclats, et les restes salés peuvent rendre malade. Les restes ne sont pas de la nourriture pour chats.
 
 **Fact 15 · The slow blink** (the study showed more slow-blinking back and more approaching, not "more at ease")
 - **EN** Try a slow blink, from a distance. In a 2020 study, cats were more likely to slow-blink back at someone who slow-blinked first, and to come up to them.
