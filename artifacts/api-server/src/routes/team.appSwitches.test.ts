@@ -145,17 +145,19 @@ describe("the App switches page", () => {
     const off = await page(team.cookie);
     expect(off.text).toContain('<h2 id="extra-photos">Extra photos on New spot</h2>');
     expect(off.text).toContain("Turn the extra photos on");
+    // Warm this server's cache first: the switch must clear it, not the test.
+    expect((await settings()).extraPhotosOn).toBe(false);
     const on = await send(team.cookie, "extra-photos", { on: "1" });
     expect([on.status, on.headers["location"]]).toEqual([303, `${PATH}?done=photosOn#extra-photos`]);
     expect(await stored(PHOTOS_KEY)).toBe(true);
-    expect((await settings()).extraPhotosOn).toBe(true);
+    expect((await getAppSettings()).extraPhotosOn).toBe(true);
     const shown = await page(team.cookie, "?done=photosOn");
     expect(shown.text).toContain("The extra photo boxes are on.");
     expect(shown.text).toContain('"Add the face" and "Add the whole body"');
     expect(shown.text).toContain("Turn the extra photos off");
     const back = await send(team.cookie, "extra-photos", { on: "0" });
     expect(back.headers["location"]).toBe(`${PATH}?done=photosOff#extra-photos`);
-    expect((await settings()).extraPhotosOn).toBe(false);
+    expect((await getAppSettings()).extraPhotosOn).toBe(false);
   });
 
   it("refuses an extra photos form with no state, and writes nothing", async () => {
