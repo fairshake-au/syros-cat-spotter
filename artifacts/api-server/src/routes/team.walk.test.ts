@@ -184,6 +184,7 @@ interface Row {
  */
 const TABLE: Record<string, Row> = {
   "GET /api/team": { why: "the welfare queue: view_welfare_queue, island-only" },
+  "GET /api/team/new-cats-to-check": { why: "New cats to check (SYC-531): view_welfare_queue like Home, island-only" },
   "GET /api/team/home": { why: "Home (SYC-396 PR 2.1): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "GET /api/team/me": {
     why: "who is signed in: the dashboard door, no capability",
