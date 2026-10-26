@@ -15,6 +15,8 @@ const KEY_STEP = 32;
 // recentre), so their 'moveend' is reported like a drag's. MapLibre copies
 // event data onto the move's events.
 const PICKER_MOVE = 'pickerMove';
+// GeolocationPositionError.PERMISSION_DENIED.
+const PERMISSION_DENIED = 1;
 // A second tap this soon and this close is the other half of a double tap.
 const DOUBLE_TAP_MS = 500;
 const DOUBLE_TAP_PX = 10;
@@ -53,7 +55,8 @@ export function LocationPicker({
   const resolvedPinColor = pinColor ?? colors.accent;
   const [center, setCenter] = useState<LatLng>({ latitude, longitude });
   const [locating, setLocating] = useState(false);
-  const [locOff, setLocOff] = useState(false);
+  // Why "Use where I am now" didn't work: location refused, or not found.
+  const [locProblem, setLocProblem] = useState<'off' | 'notFound' | null>(null);
 
   const { containerRef, map, failed } = useMapLibre({
     center,
@@ -176,10 +179,10 @@ export function LocationPicker({
   );
 
   const useWhereIAm = () => {
-    setLocOff(false);
+    setLocProblem(null);
     const geo = typeof navigator !== 'undefined' ? navigator.geolocation : undefined;
     if (!geo) {
-      setLocOff(true);
+      setLocProblem('notFound');
       return;
     }
     setLocating(true);
@@ -189,10 +192,12 @@ export function LocationPicker({
         setLocating(false);
         commitRef.current({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
       },
-      () => {
+      (err) => {
         if (!mounted.current) return;
         setLocating(false);
-        setLocOff(true);
+        // Only a refusal is fixed from the address bar; unavailable or timed
+        // out just needs another go.
+        setLocProblem(err?.code === PERMISSION_DENIED ? 'off' : 'notFound');
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
@@ -253,9 +258,9 @@ export function LocationPicker({
           >
             {locating ? t('locating') : t('claimUseHere')}
           </Button>
-          {locOff && (
+          {locProblem && (
             <Text style={[styles.failureText, { color: colors.mutedForeground }]}>
-              {t('mapLocOffWeb')}
+              {t(locProblem === 'off' ? 'mapLocOffWeb' : 'mapLocNotFound')}
             </Text>
           )}
         </View>

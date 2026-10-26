@@ -276,13 +276,30 @@ describe('SYC-705: no WebGL keeps the picker usable', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['position unavailable', 2],
+    ['timed out', 3],
+  ])('location %s: a plain "couldn\'t find you", no address-bar advice', async (_name, code) => {
+    setWebGLSupported(false);
+    stubGeolocation((_ok, fail) => fail({ code, message: 'nope' } as GeolocationPositionError));
+    const onChange = vi.fn();
+    render(<LocationPicker {...START} onChange={onChange} />);
+    fireEvent.click(await screen.findByRole('button', { name: 't:claimUseHere' }));
+    expect(await screen.findByText('t:mapLocNotFound')).toBeTruthy();
+    expect(screen.queryByText('t:mapLocOffWeb')).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+    // The button is back, to try again.
+    expect(screen.getByRole('button', { name: 't:claimUseHere' }).getAttribute('aria-disabled')).not.toBe('true');
+  });
+
   it('no geolocation in the browser: says so, reports nothing', async () => {
     setWebGLSupported(false);
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: undefined });
     const onChange = vi.fn();
     render(<LocationPicker {...START} onChange={onChange} />);
     fireEvent.click(await screen.findByRole('button', { name: 't:claimUseHere' }));
-    expect(await screen.findByText('t:mapLocOffWeb')).toBeTruthy();
+    expect(await screen.findByText('t:mapLocNotFound')).toBeTruthy();
+    expect(screen.queryByText('t:mapLocOffWeb')).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
   });
 });
