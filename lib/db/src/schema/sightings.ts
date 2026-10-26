@@ -5,6 +5,7 @@ import {
   serial,
   integer,
   doublePrecision,
+  boolean,
   timestamp,
   index,
   check,
@@ -33,6 +34,10 @@ export const sightingsTable = pgTable(
     // record that it happened, and deviceId is cleared in the same statement.
     redactedAt: timestamp("redacted_at", { withTimezone: true }),
     redactionReason: text("redaction_reason"),
+    // Where the spot is, stamped when it resolves. Null = not yet stamped;
+    // 'off' = in no named area. onIsland is whether it is on Syros at all.
+    areaKey: text("area_key"),
+    onIsland: boolean("on_island"),
   },
   (t) => [
     // Deletion finds a person's sightings synchronously, while they wait.

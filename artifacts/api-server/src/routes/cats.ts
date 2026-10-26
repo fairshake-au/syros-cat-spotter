@@ -36,7 +36,14 @@ import {
 import { notifyCatFollowers } from "../lib/notifications";
 import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl, removedPhotoIds } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
-import { aiLimiter, checkClaimLimit, checkFollowLimit, followAddressLimiter, followBurstLimiter } from "../middlewares/rateLimit";
+import {
+  aiLimiter,
+  checkClaimLimit,
+  checkFollowLimit,
+  countNameCat,
+  followAddressLimiter,
+  followBurstLimiter,
+} from "../middlewares/rateLimit";
 import { follow, followersCount, isFollowing, unfollow } from "../lib/following";
 import { safeError } from "../lib/logger";
 import { containsOffensiveLanguage } from "../lib/moderation";
@@ -45,6 +52,7 @@ import { WITHDRAWN, writeObservation } from "../lib/observations";
 import {
   claimEligibility,
   clearOwner,
+  hasMetCat,
   letGoWithinDays,
   newestActiveOwnerHomed,
   pinWithinReach,
@@ -57,13 +65,16 @@ import { isTeamDesk, TEAM_DESK_NAME } from "../lib/teamDesk";
 import {
   BLANK_NAME_BODY,
   catNamed,
+  hasLinkOrPhoneNumber,
   isBlankName,
   isSyrShapedName,
+  NAME_HAS_LINK_BODY,
   nameTakenBody,
   nullOnUniqueViolation,
   OFFENSIVE_NAME_WORDS,
   SYR_SHAPED_NAME_BODY,
 } from "../lib/catNames";
+import { warmSalts } from "../lib/limits";
 
 const router: IRouter = Router();
 
@@ -106,16 +117,28 @@ async function inClaimCooldown(catId: number, deviceId: string): Promise<boolean
 async function detailViewer(
   req: Request,
   cat: Cat,
-): Promise<{ viewer: Viewer; canClaim: boolean; claimCooldown: boolean; isFollowing: boolean | undefined }> {
+): Promise<{
+  viewer: Viewer;
+  canClaim: boolean;
+  claimCooldown: boolean;
+  isFollowing: boolean | undefined;
+  canName: boolean | undefined;
+}> {
   const header = req.headers["x-device-id"];
   const deviceId = typeof header === "string" ? header : "";
   const proven = deviceId !== "" && (await deviceSecretMatches(req, deviceId));
   // SYC-624: `isFollowing` is the phone's own fact, so it is only said to a
   // phone that proved its id; `undefined` leaves it out of the JSON.
-  if (!proven) return { viewer: PUBLIC_VIEWER, canClaim: false, claimCooldown: false, isFollowing: undefined };
+  // SYC-709: `canName` is this phone's own fact too: the cat waits for a
+  // spotter's name and this phone has met it, by the claim's rule
+  // (hasMetCat). Only asked for a pending cat, so other cat pages pay nothing.
+  if (!proven) {
+    return { viewer: PUBLIC_VIEWER, canClaim: false, claimCooldown: false, isFollowing: undefined, canName: undefined };
+  }
+  const canName = cat.namePending ? await hasMetCat(db, cat.id, deviceId) : false;
   if (cat.ownerDeviceId === deviceId) {
     // An owner always follows the cat.
-    return { viewer: { tier: "owner", deviceId }, canClaim: false, claimCooldown: false, isFollowing: true };
+    return { viewer: { tier: "owner", deviceId }, canClaim: false, claimCooldown: false, isFollowing: true, canName };
   }
   // claiming-a-cat.md §4.1, §11: "may claim" comes from the same function
   // the claim uses, and only for a phone that has proved it is that device.
@@ -131,7 +154,7 @@ async function detailViewer(
     cat.ownerDeviceId === null &&
     (await claimEligibility(db, { catId: cat.id, deviceId })).ok === true &&
     !claimCooldown;
-  return { viewer: PUBLIC_VIEWER, canClaim, claimCooldown, isFollowing: await isFollowing(deviceId, cat.id) };
+  return { viewer: PUBLIC_VIEWER, canClaim, claimCooldown, isFollowing: await isFollowing(deviceId, cat.id), canName };
 }
 
 /**
@@ -278,7 +301,7 @@ router.get("/cats/:catId", async (req, res) => {
     lookupDiscoverer(cat.discovererDeviceId),
   ]);
 
-  const { viewer, canClaim, claimCooldown, isFollowing: following } = await detailViewer(req, cat);
+  const { viewer, canClaim, claimCooldown, isFollowing: following, canName } = await detailViewer(req, cat);
   const catBody = await catPayload(
     cat,
     sightings.length,
@@ -338,6 +361,8 @@ router.get("/cats/:catId", async (req, res) => {
     ),
     canClaim,
     claimCooldown,
+    // Left out of the JSON for a phone that hasn't proved its id.
+    ...(canName === undefined ? {} : { canName }),
   });
 });
 
@@ -672,16 +697,36 @@ const noStore: RequestHandler = (_req, res, next) => {
 router.post("/cats/:catId/follow", noStore, followBurstLimiter, followAddressLimiter, followHandler("follow"));
 router.post("/cats/:catId/unfollow", noStore, followBurstLimiter, followAddressLimiter, followHandler("unfollow"));
 
+/** SYC-709: English fallbacks; the app shows its own words for each code. */
+const NAME_DAILY_LIMIT_TEXT = "You've named 3 cats today. You can name another tomorrow.";
+const NEEDS_SIGHTING_TEXT = "Spot this cat and you can choose its name.";
+
+/** Thrown inside the naming transaction to roll it back (SYC-709). */
+class NameDailyLimit extends Error {
+  constructor(readonly resetAt: number) {
+    super("NAME_DAILY_LIMIT");
+  }
+}
+class NameCounterFailed extends Error {
+  constructor(readonly inner: unknown) {
+    super("naming limit counter failed");
+  }
+}
+
 /**
  * SYC-677 D ("Spotters naming a cat", vet-visit-batches design): any spotter
  * may name a cat Syros Cats left for spotters (`name_pending`), and the first
  * good name wins. In this order:
  * 1. the device secret, before anything about the cat (as on claim);
- * 2. the name on its own: not blank, nothing offensive, not a SYR number;
+ * 2. the name on its own: not blank, nothing offensive, not a SYR number,
+ *    no web link or phone number (SYC-709);
  * 3. in one transaction, the cat row locked: no such cat (or a redacted one)
- *    is 404, a cat with a name is 409 ALREADY_NAMED, another cat with this
- *    name is 409 NAME_TAKEN; then the name, `name_pending` cleared, and a
- *    `name` statement by this device.
+ *    is 404, a cat with a name is 409 ALREADY_NAMED, a phone that hasn't met
+ *    the cat is 403 NEEDS_SIGHTING (SYC-709; before the name lookup, so it
+ *    can't probe which names are taken), another cat with this name is 409
+ *    NAME_TAKEN; then the name, `name_pending` cleared, a `name` statement by
+ *    this device, and last the phone's day count (3, SYC-709): over it, the
+ *    whole save rolls back and the answer is 429 NAME_DAILY_LIMIT.
  * The lock is what stops two spotters naming at once from both winning: the
  * second waits, then reads the cleared flag. Shares the name-suggestions
  * limiter (one budget per address for the naming flow). No points (design:
@@ -714,12 +759,25 @@ router.post("/cats/:catId/name", noStore, aiLimiter, async (req, res) => {
     res.status(400).json(SYR_SHAPED_NAME_BODY);
     return;
   }
+  if (hasLinkOrPhoneNumber(name)) {
+    res.status(400).json(NAME_HAS_LINK_BODY);
+    return;
+  }
 
   type Outcome =
     | { ok: true }
-    | { ok: false; why: "NOT_FOUND" | "ALREADY_NAMED" }
+    | { ok: false; why: "NOT_FOUND" | "ALREADY_NAMED" | "NEEDS_SIGHTING" }
     | { ok: false; why: "NAME_TAKEN"; holderId: number };
-  const outcome: Outcome | null = await db
+  let outcome: Outcome | null;
+  try {
+    // The day count runs inside the transaction while the cat row is
+    // locked: a salt cache miss there would need a second pool connection.
+    try {
+      await warmSalts();
+    } catch (err) {
+      throw new NameCounterFailed(err);
+    }
+    outcome = await db
     .transaction(async (tx): Promise<Outcome> => {
       const locked = await tx.execute<{ id: number; name_pending: boolean; redacted_at: Date | null }>(
         sql`select id, name_pending, redacted_at from cats where id = ${catId} for update`,
@@ -727,6 +785,7 @@ router.post("/cats/:catId/name", noStore, aiLimiter, async (req, res) => {
       const cat = locked.rows[0];
       if (!cat || cat.redacted_at !== null) return { ok: false, why: "NOT_FOUND" };
       if (!cat.name_pending) return { ok: false, why: "ALREADY_NAMED" };
+      if (!(await hasMetCat(tx, catId, deviceId))) return { ok: false, why: "NEEDS_SIGHTING" };
       const [holder] = await tx
         .select({ id: catsTable.id })
         .from(catsTable)
@@ -747,10 +806,35 @@ router.post("/cats/:catId/name", noStore, aiLimiter, async (req, res) => {
         authorityScope: "none",
         observedAt: new Date(),
       });
+      // Last, so only a saved name counts; over the 3, this throw undoes
+      // the save and the count together.
+      let day: { allowed: boolean; resetAt: number };
+      try {
+        day = await countNameCat(tx, deviceId);
+      } catch (err) {
+        throw new NameCounterFailed(err);
+      }
+      if (!day.allowed) throw new NameDailyLimit(day.resetAt);
       return { ok: true };
     })
-    // Another cat took the name between the check and the write.
+    // Another cat took the name between the check and the write. Anything
+    // else (the two errors above included) is thrown on.
     .catch(nullOnUniqueViolation);
+  } catch (err) {
+    if (err instanceof NameDailyLimit) {
+      res.setHeader("Retry-After", String(Math.max(1, Math.ceil((err.resetAt - Date.now()) / 1000))));
+      res.status(429).json({ error: NAME_DAILY_LIMIT_TEXT, code: "NAME_DAILY_LIMIT" });
+      return;
+    }
+    if (err instanceof NameCounterFailed) {
+      // A limit that cannot count fails closed (SYC-105).
+      req.log.error({ err: safeError(err.inner) }, "naming limit counter failed");
+      res.setHeader("Retry-After", "5");
+      res.status(503).json({ error: "Please try again in a moment." });
+      return;
+    }
+    throw err;
+  }
 
   if (outcome === null) {
     res.status(409).json(await nameTakenBody(await catNamed(name)));
@@ -761,6 +845,8 @@ router.post("/cats/:catId/name", noStore, aiLimiter, async (req, res) => {
       res.status(404).json({ error: "Not found" });
     } else if (outcome.why === "ALREADY_NAMED") {
       res.status(409).json({ error: "This cat already has a name", code: "ALREADY_NAMED" });
+    } else if (outcome.why === "NEEDS_SIGHTING") {
+      res.status(403).json({ error: NEEDS_SIGHTING_TEXT, code: "NEEDS_SIGHTING" });
     } else {
       res.status(409).json(await nameTakenBody(await catNamed(name)));
     }
@@ -824,6 +910,11 @@ router.patch("/cats/:catId", async (req, res) => {
     // SYC-677 D: as when a spotter names a cat, a SYR number is not a name.
     if (isSyrShapedName(newName)) {
       res.status(400).json(SYR_SHAPED_NAME_BODY);
+      return;
+    }
+    // SYC-709: no web link or phone number in a name the public types.
+    if (hasLinkOrPhoneNumber(newName)) {
+      res.status(400).json(NAME_HAS_LINK_BODY);
       return;
     }
     // SYC-101: one cat per folded name. Another cat holding it is refused,

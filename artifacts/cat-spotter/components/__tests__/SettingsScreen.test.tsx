@@ -4,7 +4,7 @@
  * to be on Profile is here, and "Change it" from Profile opens the name editor.
  */
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
@@ -17,6 +17,8 @@ const h = vi.hoisted(() => ({
   heldUsername: null as string | null,
   setLanguage: vi.fn(),
   setAppearance: vi.fn(),
+  getItem: vi.fn(),
+  setItem: vi.fn(async () => {}),
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -57,6 +59,9 @@ vi.mock('@/context/DeviceContext', () => ({
     setNameNote: vi.fn(),
   }),
 }));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: { getItem: h.getItem, setItem: h.setItem },
+}));
 vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: h.isOnline }) }));
 vi.mock('@/lib/bannerArea', () => ({ useBannerAreaReserve: () => 0 }));
 vi.mock('@/components/OfflineBanner', () => ({ OfflineBanner: () => null }));
@@ -78,6 +83,14 @@ vi.mock('@workspace/api-client-react', () => ({
 }));
 
 import SettingsScreen from '../../app/settings';
+import { CelebrationSettingsProvider } from '@/context/CelebrationSettingsContext';
+
+const renderSettings = () =>
+  render(
+    <CelebrationSettingsProvider>
+      <SettingsScreen />
+    </CelebrationSettingsProvider>,
+  );
 
 beforeEach(() => {
   h.push.mockReset();
@@ -89,12 +102,24 @@ beforeEach(() => {
   h.params = {};
   h.isOnline = true;
   h.heldUsername = null;
+  h.getItem.mockReset().mockResolvedValue(null);
+  h.setItem.mockReset().mockResolvedValue(undefined);
 });
 afterEach(cleanup);
 
 describe('Settings screen (SYC-628)', () => {
+  it('sounds switch defaults on and persists off', async () => {
+    renderSettings();
+    expect(screen.getByText('Celebrations')).toBeTruthy();
+    const sw = screen.getByRole('switch', { name: 'Celebration sounds' }) as HTMLInputElement;
+    expect(sw.checked).toBe(true);
+    fireEvent.click(sw);
+    await waitFor(() => expect(h.setItem).toHaveBeenCalledWith('cat-spotter/celebration-sounds', 'false'));
+    expect((screen.getByRole('switch', { name: 'Celebration sounds' }) as HTMLInputElement).checked).toBe(false);
+  });
+
   it('has the name, Keep my spots safe, language, appearance and Delete my data', () => {
-    render(<SettingsScreen />);
+    renderSettings();
     expect(screen.getByText('Settings')).toBeTruthy();
     expect(screen.getByTestId('username-editor')).toBeTruthy();
     expect(screen.getByTestId('keep-safe-settings')).toBeTruthy();
@@ -107,7 +132,7 @@ describe('Settings screen (SYC-628)', () => {
   });
 
   it('language and appearance buttons say which is selected (SYC-509)', () => {
-    render(<SettingsScreen />);
+    renderSettings();
     expect(screen.getByTestId('language-en').getAttribute('aria-checked')).toBe('true');
     expect(screen.getByTestId('language-el').getAttribute('aria-checked')).toBe('false');
     expect(screen.getByTestId('appearance-system').getAttribute('aria-checked')).toBe('true');
@@ -115,29 +140,29 @@ describe('Settings screen (SYC-628)', () => {
 
   it('the name editor waits while a name held offline is unsaved, as before', () => {
     h.heldUsername = 'held';
-    render(<SettingsScreen />);
+    renderSettings();
     expect(screen.queryByTestId('username-editor')).toBeNull();
   });
 
   it('opened from "Change it" on Profile: asks the name editor to open', () => {
     h.params = { editName: '1' };
-    render(<SettingsScreen />);
+    renderSettings();
     expect(screen.getByTestId('username-editor').getAttribute('data-edit-request')).toBe('1');
   });
 
   it('opened normally: the name editor stays closed', () => {
-    render(<SettingsScreen />);
+    renderSettings();
     expect(screen.getByTestId('username-editor').getAttribute('data-edit-request')).toBe('0');
   });
 
   it('back goes back, or to Profile when there is nowhere to go back to', () => {
-    render(<SettingsScreen />);
+    renderSettings();
     fireEvent.click(screen.getByTestId('settings-back'));
     expect(h.back).toHaveBeenCalled();
     cleanup();
 
     h.canGoBack = false;
-    render(<SettingsScreen />);
+    renderSettings();
     fireEvent.click(screen.getByTestId('settings-back'));
     expect(h.replace).toHaveBeenCalledWith('/(tabs)/profile');
   });

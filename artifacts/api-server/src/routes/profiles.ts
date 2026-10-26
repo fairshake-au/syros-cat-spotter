@@ -1,7 +1,10 @@
-import { Router, type IRouter } from "express";
-import { db, profilesTable, catsTable } from "@workspace/db";
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { Router, type IRouter, type Request, type Response } from "express";
+import { db, profilesTable } from "@workspace/db";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { profilePayload, spotterCode } from "../lib/catHelpers";
+import { competitionRanks } from "../lib/ranking";
+import { type BoardRow, uniqueCatsSql, weekBoardRows } from "../lib/weekBoard";
+import { nextWeekStartInstant, weekStartAthens, weekStartInstant } from "../lib/weeks";
 import { TEAM_DESK_DEVICE } from "../lib/teamDesk";
 import { normalizeUsername, suggestUsernames } from "../lib/usernames";
 import { containsOffensiveLanguage } from "../lib/moderation";
@@ -11,8 +14,14 @@ import {
   requireDeviceAuth,
   verifyDeviceSecret,
 } from "../lib/deviceAuth";
+import { safeError } from "../lib/logger";
 import { DELETED_BY_THE_PERSON, severPerson } from "../lib/severPerson";
-import { deleteMeLimiter } from "../middlewares/rateLimit";
+import {
+  badgeMomentsIpGuard,
+  BADGE_MOMENTS_DEVICE_LIMIT,
+  checkBadgeMomentsDeviceLimit,
+  deleteMeLimiter,
+} from "../middlewares/rateLimit";
 
 const router: IRouter = Router();
 
@@ -203,32 +212,159 @@ router.patch("/profiles/:deviceId", async (req, res) => {
   res.json(await profilePayload(deviceId));
 });
 
-router.get("/leaderboard", async (_req, res) => {
-  const rows = await db
-    .select({
-      deviceId: profilesTable.deviceId,
-      username: profilesTable.username,
-      nickname: profilesTable.nickname,
-      points: profilesTable.points,
-      uniqueCatsDiscovered: sql<number>`(
-        select count(*)::int from ${catsTable}
-        where ${catsTable.discovererDeviceId} = ${profilesTable.deviceId}
-      )`,
-    })
-    .from(profilesTable)
-    // SYC-677 R22b: the team desk is nobody's phone and never on the board.
-    .where(ne(profilesTable.deviceId, TEAM_DESK_DEVICE))
-    .orderBy(desc(profilesTable.points))
-    .limit(20);
+// SYC-706: celebration moments and the "New" marker on badges. Private to
+// the device, so each needs its secret like the profile itself.
 
-  // Never expose raw device ids publicly — they are the profile credential.
-  res.json(
-    rows.map(({ deviceId, ...r }, i) => ({
-      ...r,
-      spotterCode: spotterCode(deviceId),
-      rank: i + 1,
+/**
+ * Called after requireDeviceAuth has verified the secret: counts the call
+ * against that device's own badge-route budget (never the IP's: many phones
+ * share one address). False once it has answered 429/503.
+ */
+async function withinBadgeLimit(req: Request, res: Response, deviceId: string): Promise<boolean> {
+  let r;
+  try {
+    r = await checkBadgeMomentsDeviceLimit(deviceId);
+  } catch (err) {
+    req.log.error({ err: safeError(err) }, "badge moments limit counter failed");
+    res.setHeader("Retry-After", "5");
+    res.status(503).json({ error: "Please try again in a moment." });
+    return false;
+  }
+  if (!r.allowed) {
+    const retryAfter = Math.max(1, Math.ceil((r.resetAt - Date.now()) / 1000));
+    res.set("RateLimit-Limit", String(BADGE_MOMENTS_DEVICE_LIMIT));
+    res.set("RateLimit-Remaining", "0");
+    res.set("RateLimit-Reset", String(retryAfter));
+    res.set("Retry-After", String(retryAfter));
+    res.status(429).json({ error: "Too many requests. Please try again later." });
+    return false;
+  }
+  return true;
+}
+
+/** Uncelebrated moments, oldest first, at most 10. */
+router.get("/profiles/:deviceId/moments", badgeMomentsIpGuard, async (req, res) => {
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId || !(await withinBadgeLimit(req, res, deviceId))) return;
+  // A "badges" moment older than a week is a backlog the old app's pill
+  // already showed; retire it rather than replay it. Week results and the
+  // history moment are kept however old.
+  await db.execute(sql`
+    update badge_moments set celebrated_at = now()
+    where device_id = ${deviceId} and kind = 'badges' and celebrated_at is null
+      and created_at < now() - interval '7 days'`);
+  const rows = await db.execute(sql`
+    select id, kind, badge_ids, week_start::text as week_start, place, week_points
+    from badge_moments
+    where device_id = ${deviceId} and celebrated_at is null
+    order by id
+    limit 10`);
+  res.json({
+    moments: rows.rows.map((r) => ({
+      id: Number(r.id),
+      kind: String(r.kind),
+      badgeIds: (r.badge_ids as string[]) ?? [],
+      weekStart: (r.week_start as string | null) ?? null,
+      place: r.place == null ? null : Number(r.place),
+      weekPoints: r.week_points == null ? null : Number(r.week_points),
     })),
+  });
+});
+
+/** Marks one of this device's moments as played. Another device's id is a no-op. */
+router.post("/profiles/:deviceId/moments/:id/celebrated", badgeMomentsIpGuard, async (req, res) => {
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId || !(await withinBadgeLimit(req, res, deviceId))) return;
+  const id = Number(req.params.id);
+  if (Number.isInteger(id) && id > 0 && id <= 2_147_483_647) {
+    await db.execute(sql`
+      update badge_moments set celebrated_at = now()
+      where id = ${id} and device_id = ${deviceId} and celebrated_at is null`);
+  }
+  res.status(204).end();
+});
+
+/** Clears the "New" marker on every badge this device has. */
+router.post("/profiles/:deviceId/badges/seen", badgeMomentsIpGuard, async (req, res) => {
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId || !(await withinBadgeLimit(req, res, deviceId))) return;
+  await db.execute(sql`
+    update spotter_badges set seen_at = now()
+    where device_id = ${deviceId} and seen_at is null`);
+  res.status(204).end();
+});
+
+/**
+ * Turns database rows into the public shape. The device id is only used for
+ * the opaque spotterCode (it is the profile credential, never exposed).
+ * Equal points share a place; within them, whoever got there first leads and
+ * the spotterCode settles anything still level.
+ */
+function publicBoard(rows: BoardRow[]) {
+  const items = rows.map((r) => ({
+    spotterCode: spotterCode(r.device_id),
+    username: r.username,
+    nickname: r.nickname,
+    points: Number(r.points),
+    uniqueCatsDiscovered: Number(r.unique_cats),
+    tie: r.tie_key == null ? Number.POSITIVE_INFINITY : Number(r.tie_key),
+  }));
+  items.sort(
+    (a, b) =>
+      b.points - a.points ||
+      a.tie - b.tie ||
+      (a.spotterCode < b.spotterCode ? -1 : a.spotterCode > b.spotterCode ? 1 : 0),
   );
+  return competitionRanks(items, (r) => r.points).map(({ tie: _tie, ...r }) => r);
+}
+
+router.get("/leaderboard", async (_req, res) => {
+  // Zero-point spotters are dropped in SQL so they can't fill the top 20.
+  // Ties: whoever last scored earliest, then whoever joined first.
+  const rows = await db.execute<BoardRow>(sql`
+    select p.device_id, p.username, p.nickname, p.points,
+      ${uniqueCatsSql} as unique_cats,
+      extract(epoch from coalesce(
+        (select max(l.earned_at) from points_ledger l
+          where l.device_id = p.device_id and l.points > 0),
+        p.created_at
+      ))::float8 as tie_key
+    from profiles p
+    where p.points > 0
+      -- SYC-677 R22b: the team desk is nobody's phone and never on the board.
+      and p.device_id <> ${TEAM_DESK_DEVICE}
+    order by p.points desc, tie_key asc, p.device_id asc
+    limit 20`);
+  res.json(publicBoard(rows.rows));
+});
+
+router.get("/leaderboard/week", async (_req, res) => {
+  const now = new Date();
+  const weekStart = weekStartAthens(now);
+  const endsAt = nextWeekStartInstant(now).toISOString();
+  const previousWeek = weekStartAthens(
+    new Date(weekStartInstant(weekStart).getTime() - 1),
+  );
+
+  // The same rows and order the weekly close freezes (lib/weekBoard.ts).
+  const rows = await weekBoardRows(db, weekStart, 20);
+
+  const last = await db.execute<{ place: number; display_name: string | null; points: number }>(sql`
+    select place, display_name, points from weekly_results
+    where week_start = ${previousWeek}::date
+    order by place, id
+    limit 20`);
+
+  res.json({
+    weekStart,
+    endsAt,
+    entries: publicBoard(rows),
+    lastWeek: last.rows.map((r) => ({
+      place: Number(r.place),
+      name: r.display_name ?? null,
+      points: Number(r.points),
+    })),
+  });
 });
 
 export default router;

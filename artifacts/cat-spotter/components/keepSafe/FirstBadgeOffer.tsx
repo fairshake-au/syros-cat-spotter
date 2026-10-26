@@ -3,6 +3,7 @@ import { router, usePathname } from 'expo-router';
 import { getGetProfileQueryKey, useGetProfile } from '@workspace/api-client-react';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
+import { useCelebration } from '@/context/CelebrationContext';
 
 /**
  * Where the one-time offer may open: screens where the spotter is resting,
@@ -27,6 +28,8 @@ export function FirstBadgeOffer() {
   const { deviceId, keepSafeOffer, setKeepSafeOffer } = useDevice();
   const { isOnline } = useOffline();
   const pathname = usePathname();
+  // The offer opens after a celebration closes, never over it.
+  const { pending: celebrating } = useCelebration();
   const offered = useRef(false);
   const waiting = keepSafeOffer === 'skipped-onboarding';
   const profile = useGetProfile(deviceId ?? '', {
@@ -39,13 +42,13 @@ export function FirstBadgeOffer() {
   const hasBadge = Array.isArray(badges) && badges.length > 0;
 
   useEffect(() => {
-    if (!waiting || !hasBadge || offered.current || !canOfferHere(pathname)) return;
+    if (!waiting || !hasBadge || offered.current || !canOfferHere(pathname) || celebrating) return;
     offered.current = true;
     // Offered counts as asked: leaving the screen any way (Skip, Save, the
     // back gesture) never brings it back.
     setKeepSafeOffer('done');
     router.push({ pathname: '/keep-safe', params: { surface: 'first_badge' } });
-  }, [waiting, hasBadge, pathname, setKeepSafeOffer]);
+  }, [waiting, hasBadge, pathname, celebrating, setKeepSafeOffer]);
 
   return null;
 }

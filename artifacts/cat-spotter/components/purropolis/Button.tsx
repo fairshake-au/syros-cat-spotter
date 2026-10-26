@@ -28,6 +28,8 @@ export interface ButtonProps {
    * an ellipsis. Off by default, so every other button looks as it did.
    */
   wrapLabel?: boolean;
+  /** The pressable itself, so a sheet can hand focus back to it on close (SYC-709). */
+  pressableRef?: React.Ref<View>;
 }
 
 const sizeConfig: Record<ButtonSize, { fontSize: number; paddingVertical: number; paddingHorizontal: number; minHeight: number }> = {
@@ -50,6 +52,7 @@ export function Button({
   accessibilityLabel,
   testID,
   wrapLabel = false,
+  pressableRef,
 }: ButtonProps) {
   const colors = useColors();
   const sz = sizeConfig[size];
@@ -70,6 +73,7 @@ export function Button({
 
   return (
     <Pressable
+      ref={pressableRef}
       onPress={disabled || busy ? undefined : onPress}
       disabled={disabled || busy}
       accessibilityRole="button"

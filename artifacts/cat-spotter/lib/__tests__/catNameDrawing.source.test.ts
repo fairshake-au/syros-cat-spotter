@@ -46,6 +46,7 @@ const ALLOWED: Record<string, Allow[]> = {
   ],
   'components/profile/SpottersTab.tsx': [
     { includes: 'row.name', why: 'a spotter (person), not a cat' },
+    { includes: 'w.name', why: "a spotter (person) in last week's results, not a cat" },
     { includes: 'summary.name', why: 'a rank level name, not a cat' },
   ],
   'components/report/VetList.tsx': [

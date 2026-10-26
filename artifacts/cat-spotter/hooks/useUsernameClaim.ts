@@ -43,6 +43,8 @@ const shared = {
   inFlight: false,
   /** Open requests per normalised name. */
   open: new Map<string, number>(),
+  /** SYC-529: the spotter chose Start anyway; a late answer to the released claim is ignored. */
+  released: false,
   /** Names whose last open request ended confirming they were not saved. */
   confirmedNotSaved: new Set<string>(),
   listeners: new Set<() => void>(),
@@ -111,10 +113,25 @@ export async function runBackgroundClaim<T>(fn: () => Promise<T>): Promise<T | u
   }
 }
 
+/**
+ * SYC-529: the spotter chose "Start anyway" after a claim got no answer. The
+ * same-name lock is let go so the background save (which reads first, so it
+ * is safe even if the claim did land) can take over. A request still open is
+ * left to settle: if it lands late it saves the same name the save would.
+ */
+export function releaseUncertainClaim(): string | null {
+  const name = shared.state.uncertainName;
+  if (name === null || shared.state.pending) return null;
+  shared.released = true;
+  update({ uncertainName: null, claimError: null });
+  return name;
+}
+
 /** Tests only: forget every claim, as a fresh app start would. */
 export function resetUsernameClaimStateForTests() {
   shared.state = IDLE;
   shared.inFlight = false;
+  shared.released = false;
   shared.open.clear();
   shared.confirmedNotSaved.clear();
 }
@@ -162,7 +179,7 @@ export function useUsernameClaim({
   const setClaimError = useCallback((message: string | null) => update({ claimError: message }), []);
 
   const handleClaimed = useCallback((username: string) => {
-    if (finished.current) return;
+    if (finished.current || shared.released) return;
     if (finishOnClaim) finished.current = true;
     update({ uncertainName: null, claimError: null, rejectedKey: null });
     onClaimedRef.current(username);
@@ -188,6 +205,7 @@ export function useUsernameClaim({
   const submit = useCallback(async (typedName: string) => {
     if (!deviceId || shared.inFlight || finished.current) return;
     shared.inFlight = true;
+    shared.released = false;
     started.current = true;
     const name = shared.state.uncertainName ?? typedName;
     const key = usernameKey(name);

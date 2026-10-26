@@ -37,4 +37,12 @@ export interface CatDetail {
      * for everyone else and for every phone that hasn't proved itself.
      */
   claimCooldown: boolean;
+  /**
+     * SYC-709: whether this phone may name a cat Syros Cats left
+     * unnamed (POST /cats/{catId}/name): the cat is waiting for a name
+     * and this phone has met it (the claim's "met" rule). Absent unless
+     * the phone proved its id; an app that doesn't read it shows the
+     * button and the server refuses with NEEDS_SIGHTING.
+     */
+  canName?: boolean;
 }

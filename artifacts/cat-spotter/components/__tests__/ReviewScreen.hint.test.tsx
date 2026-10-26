@@ -70,6 +70,7 @@ vi.mock('@workspace/api-client-react', () => ({
   },
   getGetCatQueryKey: (id: number) => [`/api/cats/${id}`],
 }));
+vi.mock('@/components/celebration/BadgeCelebration', () => ({ BadgeCelebration: () => null }));
 vi.mock('@/hooks/useColors', () => ({ useColors: () => new Proxy({}, { get: () => '#123456' }) }));
 vi.mock('@/context/LanguageContext', async () => {
   const { TRANSLATIONS } = await import('../../lib/i18n');

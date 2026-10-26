@@ -1,6 +1,8 @@
 /**
  * SYC-166 slice 4: where Syros is, for the app. Pure, with no imports, so the
- * server's own on-Syros check (SYC-249) can copy it unchanged.
+ * server's own on-Syros check can copy it unchanged. That copy now exists in
+ * artifacts/api-server/src/lib/areas/placeFor.ts, and its test pins the
+ * rectangle and margin to this file, so change them in both.
  */
 
 /**

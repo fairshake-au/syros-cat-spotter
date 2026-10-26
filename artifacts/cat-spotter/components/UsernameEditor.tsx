@@ -15,6 +15,7 @@ import {
   checkUsernameAvailability,
   getGetProfileQueryKey,
   getGetLeaderboardQueryKey,
+  getGetLeaderboardWeekQueryKey,
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
@@ -93,6 +94,7 @@ export function UsernameEditor({
     queryClient.setQueryData(key, (old: object | undefined) => withUpdatedUsername(old, name));
     queryClient.invalidateQueries({ queryKey: key });
     queryClient.invalidateQueries({ queryKey: getGetLeaderboardQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetLeaderboardWeekQueryKey() });
     setEditing(false);
     setDraft('');
     setSaved(true);

@@ -327,7 +327,7 @@ export default function CatDetailScreen() {
           aria-labelledby={tabId(shownTab)}
           style={styles.panel}
         >
-          {shownTab === 'about' && <NameThisCatCard cat={cat} />}
+          {shownTab === 'about' && <NameThisCatCard cat={cat} canName={data.canName} />}
           {shownTab === 'about' && (
             <AboutTab
               cat={cat}

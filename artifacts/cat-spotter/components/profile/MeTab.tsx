@@ -133,7 +133,7 @@ export function MeTab({
                 <Text style={[sharedStyles.eyebrow, { color: subtle }]}>{t('profileNextBadge')}</Text>
                 <Text style={[styles.nextName, { color: colors.foreground }]}>{t(`badge_${next.id}`)}</Text>
                 <Text style={[sharedStyles.body, { color: subtle }]}>
-                  {next.value === null
+                  {next.value === null || next.goal === null
                     ? t(`badge_${next.id}_desc`)
                     : `${t(`badge_${next.id}_desc`)} · ${
                         next.goal - next.value > 0
@@ -144,7 +144,7 @@ export function MeTab({
                               .replace('{total}', String(next.goal))
                       }`}
                 </Text>
-                {next.value !== null && <ProgressBar value={next.value} max={next.goal} />}
+                {next.value !== null && next.goal !== null && <ProgressBar value={next.value} max={next.goal} />}
               </View>
             </View>
           ) : (
