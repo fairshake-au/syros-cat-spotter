@@ -28,6 +28,8 @@ import {
 import { DeleteMyDataDone } from '@/components/DeleteMyDataDone';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { HeldNameSaver } from '@/hooks/useHeldNameSaver';
+import { HeldEmailSaver } from '@/hooks/useHeldEmailSaver';
+import { useHeldEmail } from '@/lib/heldEmail';
 import { AppColumn } from '@/components/AppColumn';
 import { StartupErrorScreen } from '@/components/StartupErrorScreen';
 import { BannerStack } from '@/components/BannerStack';
@@ -88,6 +90,8 @@ function RootLayoutNav() {
  */
 function OnboardingGate() {
   const { isReady, username, heldUsername, startupError, moved, keepSafeOffer, setKeepSafeOffer } = useDevice();
+  // SYC-715: an email typed when the server gave no answer, waiting to be saved.
+  const heldEmail = useHeldEmail();
   // SYC-155: the first screen waits for the stored language, so a phone that
   // chose Greek or French never flashes English first.
   const { isLanguageReady } = useLanguage();
@@ -153,10 +157,11 @@ function OnboardingGate() {
     <CelebrationProvider>
       <OfflineTilesLoader />
       {!username && <HeldNameSaver />}
+      {heldEmail && <HeldEmailSaver />}
       <RootLayoutNav />
       <BannerStack />
       {/* SYC-506: only for a spotter whose name the server has saved. */}
-      {keepSafeOffer === 'skipped-onboarding' && username ? <FirstBadgeOffer /> : null}
+      {keepSafeOffer === 'skipped-onboarding' && username && !heldEmail ? <FirstBadgeOffer /> : null}
     </CelebrationProvider>
   );
 }

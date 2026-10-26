@@ -20,12 +20,15 @@ export type ProfileTab = 'me' | 'badges' | 'spotters';
 export function ProfileHeader({
   name,
   nameNotSaved,
+  emailNotSaved = false,
   rankLine,
   tab,
   onTab,
 }: {
   name: string;
   nameNotSaved: boolean;
+  /** SYC-715: an email typed when the server gave no answer, still waiting to be saved. */
+  emailNotSaved?: boolean;
   rankLine: string | null;
   tab: ProfileTab;
   onTab: (tab: ProfileTab) => void;
@@ -77,6 +80,14 @@ export function ProfileHeader({
           <Text style={[styles.settingsText, { color: onPrimary }]}>{t('profileSettingsButton')}</Text>
         </Pressable>
       </View>
+
+      {/* Full width, under the avatar row: this line is long, and beside the
+          Settings button it would squeeze the name (SYC-715, checked at 320px). */}
+      {emailNotSaved && (
+        <Text testID="profile-email-not-saved" style={[styles.sub, { color: onPrimary }]}>
+          {t('emailNotSavedYet')}
+        </Text>
+      )}
 
       <View accessibilityRole="tablist" style={styles.tabs}>
         {tabs.map((item) => {

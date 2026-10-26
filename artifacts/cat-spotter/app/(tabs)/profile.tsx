@@ -16,6 +16,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useKeepSafeState } from '@/hooks/useKeepSafeState';
+import { useHeldEmail } from '@/lib/heldEmail';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { Button } from '@/components/purropolis';
 import { ProfileHeader, type ProfileTab } from '@/components/profile/ProfileHeader';
@@ -80,6 +81,7 @@ export default function ProfileScreen() {
     },
   });
   const keepSafe = useKeepSafeState();
+  const heldEmail = useHeldEmail();
 
   const profile = profileQuery.data;
   const loading = isOnline && profileQuery.isLoading && profile === undefined;
@@ -142,6 +144,7 @@ export default function ProfileScreen() {
           name={name}
           // Only when the name on show is the one held offline (review #9).
           nameNotSaved={!username && !!heldUsername && name === heldUsername}
+          emailNotSaved={!!heldEmail}
           rankLine={rankLine}
           tab={tab}
           onTab={setTab}

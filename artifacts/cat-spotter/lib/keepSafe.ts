@@ -29,10 +29,12 @@ export type RestorePeek = {
   alreadyHere: { username: string | null } | null;
 };
 
-export function getKeepSafe(deviceId: string): Promise<KeepSafeState> {
+/** `options.timeoutMs` (SYC-715): for the background save, which must not hang on a stalled read. */
+export function getKeepSafe(deviceId: string, options?: { timeoutMs?: number }): Promise<KeepSafeState> {
   return customFetch<KeepSafeState>(`/api/keep-safe/${encodeURIComponent(deviceId)}`, {
     method: 'GET',
     responseType: 'json',
+    ...(options?.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
   });
 }
 

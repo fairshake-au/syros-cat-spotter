@@ -44,6 +44,7 @@ import { RECONCILE_WAIT_MS, withDeadline } from '@/lib/usernameClaim';
 import { releaseUncertainClaim, useUsernameClaim } from '@/hooks/useUsernameClaim';
 import { decorative, spokenText } from '@/lib/a11yText';
 import { useOnboardingEmail } from './useOnboardingEmail';
+import { clearHeldEmail, holdEmail } from '@/lib/heldEmail';
 
 const MIN_LEN = 3;
 /** SYC-529: how long suggestions may spin before names made on the phone replace them. */
@@ -289,6 +290,13 @@ export function NameStep({ onBack }: { onBack: () => void }) {
     } finally {
       submitting.current = false;
     }
+    // SYC-715: no server answer for the email. Keep it on the phone for the
+    // background save and carry on to the name; the offer was already written
+    // as skipped, and the save upgrades it to done.
+    if (emailResult === 'unreachable') void holdEmail(email.trim());
+    // An address held by an earlier tap is no longer wanted: the box was
+    // emptied (no email asked for), or the address was added after all.
+    else if (emailResult === 'none' || emailResult === 'saved') void clearHeldEmail();
     if (
       emailResult === 'invalid' ||
       emailResult === 'failed' ||
