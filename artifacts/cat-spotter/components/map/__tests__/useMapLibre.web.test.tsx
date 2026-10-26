@@ -15,10 +15,13 @@ import {
   lastMap,
   makeMapConstructorThrow,
   makeProtocolSetupThrow,
+  FAKE_MAPLIBRE_VERSION,
   protocolCalls,
   resetMaplibreFake,
   setWebGLSupported,
+  workerUrlCalls,
 } from '../__mocks__/maplibreFake';
+import { maplibreWorkerUrl } from '@/lib/maplibreWorker';
 
 const env = vi.hoisted(() => ({ language: 'en' as 'en' | 'el' | 'fr', version: 1 }));
 
@@ -129,7 +132,14 @@ describe('useMapLibre', () => {
     expect(protocolCalls[0].loadFn).toBe(FakeProtocol.instances[0].tile);
   });
 
-  it('passes interactive through', async () => {
+  it('points MapLibre at the served worker once, before the first map', async () => {
+    const a = await mountReady();
+    a.unmount();
+    await mountReady();
+    expect(workerUrlCalls).toEqual([{ url: maplibreWorkerUrl(FAKE_MAPLIBRE_VERSION), mapsBefore: 0 }]);
+  });
+
+    it('passes interactive through', async () => {
     const { map } = await mountReady({ ...BASE, interactive: false });
     expect(map.options.interactive).toBe(false);
   });
@@ -212,7 +222,7 @@ describe('useMapLibre', () => {
     expect(map.rejected).toEqual([]);
   });
 
-  it('no WebGL reports failed', async () => {
+  it('no WebGL2 (maplibre-gl 6 throws GPUInitializationError) reports failed', async () => {
     setWebGLSupported(false);
     const { latest } = mount();
     await waitFor(() => expect(latest.current?.failed).toBe('no-webgl'));
