@@ -60,11 +60,11 @@ async function cleanup() {
   await db.execute(sql`delete from device_credentials where device_id = ${deletedMarkerKey(dev("gone"))}`);
   await db.execute(sql`
     delete from weekly_closes
-    where week_start between '2031-01-01' and '2032-12-31'
+    where week_start between '2030-01-01' and '2032-12-31'
        or week_start between '1999-01-01' and '2000-12-31'`);
   await db.execute(sql`
     delete from weekly_results
-    where week_start between '2031-01-01' and '2032-12-31'
+    where week_start between '2030-01-01' and '2032-12-31'
        or week_start between '1999-01-01' and '2000-12-31'`);
 }
 
@@ -133,8 +133,8 @@ const pushesTo = (suffix: string) =>
 beforeEach(async () => {
   await cleanup();
   sendPushNotificationMock.mockClear();
-  // The new version went live in late 2031, so every 2032 week is eligible
-  // (and the catch-up from the first one stays short).
+  // Every close below names its own firstWeek, so rows other test files leave
+  // in the shared database can't pull it into a catch-up over their weeks.
   await ledger("anchor", 0, athens("2031-12-25", "12:00"));
 });
 afterEach(cleanup);
@@ -146,6 +146,8 @@ afterAll(async () => {
 describe("closeWeekIfDue", () => {
   it("not due before the first eligible week", async () => {
     // A history row long before is ignored: only the first live row counts.
+    // (This test names no firstWeek; its rows are dated before any other
+    // file's, so the earliest live row in the database is always its own.)
     await ledger("hist", 0, athens("1999-06-02", "12:00"), "history");
     // The first live row is in the week of Mon 3 Jan 2000, so the first week
     // to close is the full week after: Mon 10 Jan 2000.
@@ -177,7 +179,7 @@ describe("closeWeekIfDue", () => {
     await ledger("e", 0, athens("2032-02-04", "10:00"), "history");
     await ledger("e", 100, athens("2032-02-09", "00:30"));
 
-    expect(await closeWeekIfDue(athens("2032-02-09", "09:00"))).toBe("closed");
+    expect(await closeWeekIfDue(athens("2032-02-09", "09:00"), { firstWeek: "2032-02-02" })).toBe("closed");
 
     expect(await results("2032-02-02")).toEqual([
       { place: 1, device_id: dev("a"), display_name: "WClosea", points: 50 },
@@ -202,7 +204,7 @@ describe("closeWeekIfDue", () => {
     expect(await bellOf("e")).toHaveLength(0);
 
     // Running again changes nothing.
-    expect(await closeWeekIfDue(athens("2032-02-09", "10:00"))).toBe("already_closed");
+    expect(await closeWeekIfDue(athens("2032-02-09", "10:00"), { firstWeek: "2032-02-02" })).toBe("already_closed");
     expect(await results("2032-02-02")).toHaveLength(4);
     expect(await momentsOf("a")).toHaveLength(1);
     expect(await bellOf("a")).toHaveLength(1);
@@ -214,14 +216,24 @@ describe("closeWeekIfDue", () => {
     await profile("q");
     await ledger("p", 25, athens("2032-02-10", "10:00"));
     await ledger("q", 15, athens("2032-02-11", "10:00"));
+    // A live row from years earlier, as other test files leave in the shared
+    // database: the closes below must not walk back to it.
+    await ledger("early", 5, athens("2030-06-05", "10:00"));
 
     const now = athens("2032-02-16", "09:00");
-    const outcomes = await Promise.all([closeWeekIfDue(now), closeWeekIfDue(now)]);
+    const outcomes = await Promise.all([
+      closeWeekIfDue(now, { firstWeek: "2032-02-09" }),
+      closeWeekIfDue(now, { firstWeek: "2032-02-09" }),
+    ]);
     expect(outcomes.sort()).toEqual(["already_closed", "closed"]);
     expect(await results("2032-02-09")).toHaveLength(2);
     expect(await momentsOf("p")).toHaveLength(1);
     expect(await momentsOf("q")).toHaveLength(1);
     expect(await bellOf("p")).toHaveLength(1);
+    const walkedBack = await db.execute(sql`
+      select 1 from weekly_closes where week_start < '2032-02-09'
+        and week_start between '2030-01-01' and '2032-12-31'`);
+    expect(walkedBack.rows).toHaveLength(0);
   });
 
   it("a winner who deletes their account while the close waits is dropped, not frozen", async () => {
@@ -240,7 +252,7 @@ describe("closeWeekIfDue", () => {
       await gate;
     });
 
-    const closing = closeWeekIfDue(athens("2032-03-08", "09:00"));
+    const closing = closeWeekIfDue(athens("2032-03-08", "09:00"), { firstWeek: "2032-03-01" });
     // Wait until the close is queued behind the deletion's lock (a lock wait
     // is visible in pg_locks), so it has certainly read the board already.
     let waiting = false;
@@ -269,7 +281,7 @@ describe("closeWeekIfDue", () => {
     await profile("solo");
     await ledger("solo", 15, athens("2032-02-18", "10:00"));
 
-    expect(await closeWeekIfDue(athens("2032-02-23", "09:00"))).toBe("closed");
+    expect(await closeWeekIfDue(athens("2032-02-23", "09:00"), { firstWeek: "2032-02-16" })).toBe("closed");
     expect(await results("2032-02-16")).toEqual([
       { place: 1, device_id: dev("solo"), display_name: "WClosesolo", points: 15 },
     ]);
@@ -284,7 +296,7 @@ describe("closeWeekIfDue", () => {
     await ledger("top", 50, athens("2032-02-24", "10:00"));
     await ledger("again", 25, athens("2032-02-25", "10:00"));
 
-    expect(await closeWeekIfDue(athens("2032-03-01", "09:00"))).toBe("closed");
+    expect(await closeWeekIfDue(athens("2032-03-01", "09:00"), { firstWeek: "2032-02-23" })).toBe("closed");
     const moments = await momentsOf("again");
     expect(moments).toHaveLength(1);
     expect(moments[0]).toMatchObject({ badgeIds: ["podium"], place: 2, weekPoints: 25 });
@@ -309,7 +321,7 @@ describe("catching up missed weeks", () => {
     await ledger("new", 20, athens("2032-04-13", "10:00"));
 
     const now = athens("2032-04-19", "09:00");
-    expect(await closeWeekIfDue(now)).toBe("closed");
+    expect(await closeWeekIfDue(now, { firstWeek: "2032-04-05" })).toBe("closed");
 
     expect(await results("2032-04-05")).toEqual([
       { place: 1, device_id: dev("old"), display_name: "WCloseold", points: 30 },
@@ -333,7 +345,7 @@ describe("catching up missed weeks", () => {
     expect(pushesTo("old")).toHaveLength(0);
 
     // A later run has nothing left to close.
-    expect(await closeWeekIfDue(athens("2032-04-19", "10:00"))).toBe("already_closed");
+    expect(await closeWeekIfDue(athens("2032-04-19", "10:00"), { firstWeek: "2032-04-05" })).toBe("already_closed");
   });
 });
 
@@ -352,7 +364,7 @@ describe("sendWeeklyPushesIfDue", () => {
     await ledger("bronze", 40, athens("2032-03-04", "10:00"));
     await ledger("silent", 40, athens("2032-03-05", "10:00"));
 
-    expect(await closeWeekIfDue(athens("2032-03-08", "00:10"))).toBe("closed");
+    expect(await closeWeekIfDue(athens("2032-03-08", "00:10"), { firstWeek: "2032-03-01" })).toBe("closed");
     expect(await sendWeeklyPushesIfDue(athens("2032-03-08", "00:10"))).toBe("outside_window");
     expect(await sendWeeklyPushesIfDue(athens("2032-03-08", "07:55"))).toBe("outside_window");
     expect(sendPushNotificationMock).not.toHaveBeenCalled();
@@ -383,7 +395,7 @@ describe("sendWeeklyPushesIfDue", () => {
     await ledger("fr2", 50, athens("2032-04-07", "10:00"));
     await ledger("old3", 40, athens("2032-04-08", "10:00"));
 
-    expect(await closeWeekIfDue(athens("2032-04-12", "00:10"))).toBe("closed");
+    expect(await closeWeekIfDue(athens("2032-04-12", "00:10"), { firstWeek: "2032-04-05" })).toBe("closed");
     expect(await sendWeeklyPushesIfDue(athens("2032-04-12", "08:05"))).toBe("sent");
 
     expect(pushesTo("el1")[0]!.slice(1, 3)).toEqual([weekResultText(1, "el").title, weekResultText(1, "el").body]);
@@ -409,7 +421,7 @@ describe("sendWeeklyPushesIfDue", () => {
     await token("late");
     await ledger("late", 25, athens("2032-03-09", "10:00"));
 
-    expect(await closeWeekIfDue(athens("2032-03-15", "21:00"))).toBe("closed");
+    expect(await closeWeekIfDue(athens("2032-03-15", "21:00"), { firstWeek: "2032-03-08" })).toBe("closed");
     expect(await sendWeeklyPushesIfDue(athens("2032-03-15", "21:00"))).toBe("outside_window");
     expect(sendPushNotificationMock).not.toHaveBeenCalled();
     // The celebration and the bell entry are still there.
@@ -423,7 +435,7 @@ describe("sendWeeklyPushesIfDue", () => {
     await token("tue");
     await ledger("tue", 25, athens("2032-03-16", "10:00"));
 
-    expect(await closeWeekIfDue(athens("2032-03-23", "10:00"))).toBe("closed");
+    expect(await closeWeekIfDue(athens("2032-03-23", "10:00"), { firstWeek: "2032-03-15" })).toBe("closed");
     expect(await sendWeeklyPushesIfDue(athens("2032-03-23", "10:00"))).toBe("not_due");
     expect(sendPushNotificationMock).not.toHaveBeenCalled();
   });
@@ -434,7 +446,7 @@ describe("the bell", () => {
     // Week of Mon 26 Jan 2032, closed on Mon 2 Feb.
     await profile("bell");
     await ledger("bell", 25, athens("2032-01-27", "10:00"));
-    expect(await closeWeekIfDue(athens("2032-02-02", "09:00"))).toBe("closed");
+    expect(await closeWeekIfDue(athens("2032-02-02", "09:00"), { firstWeek: "2032-01-26" })).toBe("closed");
 
     const res = await request(app)
       .get(`/api/notifications/${dev("bell")}`)
@@ -469,7 +481,7 @@ describe("the bell", () => {
     await ledger("words1", 50, athens("2032-01-20", "10:00"));
     await ledger("words2", 40, athens("2032-01-20", "10:00"));
     await ledger("words3", 25, athens("2032-01-20", "10:00"));
-    expect(await closeWeekIfDue(athens("2032-01-26", "09:00"))).toBe("closed");
+    expect(await closeWeekIfDue(athens("2032-01-26", "09:00"), { firstWeek: "2032-01-19" })).toBe("closed");
     for (const s of ["words1", "words2", "words3"]) {
       const [row] = await bellOf(s);
       texts.push(row!.message!);
