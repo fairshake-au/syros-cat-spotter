@@ -5,6 +5,7 @@ import { db, observationsTable, pool, sightingsTable } from "@workspace/db";
 import { areaFor } from "../lib/areas/namedAreas";
 import { formatDate, tr } from "../lib/teamPages/strings";
 import app from "../app";
+import { setMapSourceForTests } from "./teamMapData";
 import router from "./index";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
@@ -304,6 +305,13 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/map": { why: "zoom, pan, areas on the team's map page: view_exact_location with no target" },
   "POST /api/team/map/tap": { why: "a tap on the team's map page: view_exact_location with no target" },
   "GET /api/team/map-tiles/:tile": { why: "a map picture: sees some colony (PR 4.1); the walk's token is unreadable, so 404", except: SEEING },
+  // SYC-705 Phase 2 (2b.3), the dashboard's own map files: anyone who sees a colony; the island's
+  // map only. The walk's version is too high for any of them, so each answers a no-store 404.
+  "GET /api/team/map-data/current": { why: "the map's version: sees some colony (SYC-705 2b.3)", except: SEEING },
+  "GET /api/team/map-data/v:version/syros.pmtiles": { why: "the whole map file: sees some colony; the walk's version is above the current one, so 404", except: SEEING },
+  "GET /api/team/map-data/v:version/fonts/:stack/:range.pbf": { why: "a font range: sees some colony; the walk's stack is no stack, so 404 with nothing fetched", except: SEEING },
+  "GET /api/team/map-data/v:version/sprites/:file": { why: "the map's symbols: sees some colony; the walk's file is no file, so 404 with nothing fetched", except: SEEING },
+  "GET /api/team/map-data/v:version/style-:lang.json": { why: "the map's style: sees some colony; the walk's lang is no lang, so 404", except: SEEING },
   // SYC-396 PR 1.5, the island map's squares: team-only (the Map is the team's in phase 1).
   "POST /api/team/map-squares": { why: "tokens for the island map's squares: view_exact_location with no target, so island-only" },
   "GET /api/team/map-square/:token": {
@@ -461,6 +469,8 @@ const people = {} as Record<Kind, Signed>;
 let catInA: SeededCat & { colonyId: number; otherColony: number };
 
 beforeAll(async () => {
+  // SYC-705 2b.3: the map-data routes ask the map host through the store; here it is unreachable.
+  setMapSourceForTests({ fetch: (async () => { throw new Error("offline"); }) as typeof fetch });
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   const colonyA = await newColony("walk-A");
@@ -504,6 +514,7 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
+  setMapSourceForTests(undefined);
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   // The walk's team people each start a batch (GET /vet-batches/new, SYC-677); a batch names its author.

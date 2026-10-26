@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { addPerson, pool } from "@workspace/db";
 import app from "../app";
+import { setMapSourceForTests } from "./teamMapData";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
 import {
   clearWelfareTables,
@@ -27,6 +28,8 @@ let reportPhotoId: string;
 let catId: number;
 
 beforeAll(async () => {
+  // SYC-705 2b.3: the map-data routes ask the map host through the store; here it is unreachable.
+  setMapSourceForTests({ fetch: (async () => { throw new Error("offline"); }) as typeof fetch });
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   await removeTestPerson(EMAIL);
@@ -59,6 +62,7 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
+  setMapSourceForTests(undefined);
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   await clearWelfareTables();
@@ -208,6 +212,22 @@ const RESPONSES: [string, () => request.Test, string?][] = [
         .set("Cookie", cookie)
         .send({ z: 14, xMin: 0, xMax: 1, yMin: 0, yMax: 1 }),
     "POST /api/team/map-squares",
+  ],
+  // SYC-705 2b.3: the dashboard's own map files are JSON or bytes, so the strict header.
+  [
+    "the map's version",
+    () => request(app).get("/api/team/map-data/current").set("Cookie", cookie),
+    "GET /api/team/map-data/current",
+  ],
+  [
+    "a map file of a version that does not exist",
+    () => request(app).get("/api/team/map-data/v999999999/syros.pmtiles").set("Cookie", cookie),
+    "GET /api/team/map-data/v:version/syros.pmtiles",
+  ],
+  [
+    "a map symbol that is not one",
+    () => request(app).get("/api/team/map-data/v1/sprites/nope.json").set("Cookie", cookie),
+    "GET /api/team/map-data/v:version/sprites/:file",
   ],
   [
     "the island Map (the Cats page as a map)",
