@@ -1,5 +1,6 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { foldName } from "@workspace/db/fold";
+import { logAiUsage } from "./aiUsage";
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
@@ -45,6 +46,7 @@ export async function suggestCatNames(
     ],
   });
 
+  logAiUsage("name_suggestion", response.usage);
   const raw = response.choices[0]?.message?.content ?? "";
   const jsonText = raw.replace(/```json|```/g, "").trim();
   const start = jsonText.indexOf("{");

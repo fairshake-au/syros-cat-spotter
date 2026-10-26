@@ -1,6 +1,7 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { COAT_COLOURS, COAT_PATTERNS, orderColours, type CoatColour, type CoatParts, type CoatPattern } from "../appearance";
 import { VISION_MODEL } from "../visionModel";
+import { logAiUsage } from "../aiUsage";
 
 /**
  * The colour reader (SYC-161 plan, PR 1; rule R5). Looks at ONE photo of one
@@ -204,6 +205,7 @@ export async function readCoatFromPhoto(
       timer = setTimeout(() => reject(new ReadTimeout()), timeoutMs);
     });
     const response = await Promise.race([call, timeout]);
+    logAiUsage("coat_reading", response.usage);
     const answer = parseReply(response.choices[0]?.message?.content ?? "");
     if (!answer) return { kind: "failed", reason: "unparseable" };
     return { kind: "reading", ...interpretCoatAnswer(answer) };
