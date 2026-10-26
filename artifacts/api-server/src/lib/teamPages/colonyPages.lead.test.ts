@@ -125,6 +125,6 @@ describe("People (SYC-577)", () => {
 describe("This cat has died (SYC-577)", () => {
   it("is outlined in the danger colour, not the solid dark button", () => {
     const css = renderPage({ title: "x", body: "", active: null, personName: "Sam" });
-    expect(css).toMatch(/\.fixes form\.diedform button\{[^}]*background:#fff;color:#8c1d18;border:2px solid #8c1d18/);
+    expect(css).toMatch(/\.fixes form\.diedform button\{[^}]*background:var\(--card\);color:var\(--danger\);border:2px solid var\(--danger\)/);
   });
 });

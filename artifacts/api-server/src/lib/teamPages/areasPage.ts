@@ -120,7 +120,7 @@ function input(
 }
 
 const CSS = `<style>
-details.arearow{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #0b5c6b;border-radius:8px;margin:8px 0;overflow-wrap:anywhere}
+details.arearow{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--accent);border-radius:10px;margin:8px 0;overflow-wrap:anywhere}
 details.arearow>summary{cursor:pointer;min-height:48px;box-sizing:border-box;padding:6px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;list-style:none}
 details.arearow>summary::-webkit-details-marker{display:none}
 details.arearow>summary strong{font-size:17px}

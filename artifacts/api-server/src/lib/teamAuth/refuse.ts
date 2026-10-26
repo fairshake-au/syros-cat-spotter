@@ -30,7 +30,7 @@ export const NOT_SIGNED_IN_PAGE =
  * all. It must stay byte-for-byte as it is (team.headers.test.ts).
  */
 export const TEAM_CSP =
-  "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+  "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 /**
  * The wider header for the few pages that run our own script (SYC-396 plan
@@ -41,7 +41,7 @@ export const TEAM_CSP =
  * (teamAuth/refuse.source.test.ts) fails any other file that does.
  */
 export const TEAM_CSP_WITH_SCRIPTS =
-  "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+  "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 /**
  * Find from a photo's results (SYC-396 PR 2.5; SYC-491, Samuel's option 2):
@@ -50,7 +50,7 @@ export const TEAM_CSP_WITH_SCRIPTS =
  * Only that one answer asks for it (test/wideCsp.ts PHOTO_CSP_ROUTES).
  */
 export const TEAM_CSP_WITH_UPLOADED_PHOTO =
-  "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+  "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 /**
  * Headers for every dashboard response: never cached, never framed.

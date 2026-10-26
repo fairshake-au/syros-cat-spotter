@@ -26,10 +26,10 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
 const CSS =
   "<style>.settings{list-style:none;margin:0;padding:0}" +
   ".settings li{margin:0 0 12px}" +
-  ".settings a{display:block;min-height:44px;background:#fff;border:1px solid #d9d5ca;border-radius:12px;padding:12px 16px;text-decoration:none;color:#1d1d1b}" +
-  ".settings a:hover{border-color:#0b5c6b}" +
-  ".settings .name{display:block;font-weight:700;font-size:18px;color:#0b5c6b;text-decoration:underline}" +
-  ".settings .note{display:block;margin-top:4px;font-size:14px;color:#55524a}</style>";
+  ".settings a{display:block;min-height:44px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;text-decoration:none;color:var(--ink)}" +
+  ".settings a:hover{border-color:var(--accent)}" +
+  ".settings .name{display:block;font-weight:700;font-size:18px;color:var(--accent-text);text-decoration:underline}" +
+  ".settings .note{display:block;margin-top:4px;font-size:14px;color:var(--muted)}</style>";
 
 export function renderSettingsPage(o: { personName: string; entries?: readonly SettingsEntry[] }): string {
   const entries = o.entries ?? SETTINGS_ENTRIES;

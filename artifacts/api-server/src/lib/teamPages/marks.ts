@@ -28,11 +28,14 @@ export const MARK_BAR_WORD: Record<SterilisedMark, string> = {
 };
 
 /** The spec's colours for each mark (§12.2). */
+// In the app's Aegean (SYC-579). These fixed values are for things drawn on
+// light paper: the maps and the report charts. Page text and badges use
+// var(--mark-*) from tokens.ts instead, which has a dark-theme shade too.
 export const MARK_COLOUR: Record<SterilisedMark, string> = {
-  sterilised: "#0a4d59",
-  probably: "#2f7884",
-  not_known: "#6a949b",
-  not_sterilised: "#a6540a",
+  sterilised: "#0f4a72",
+  probably: "#1c77c3",
+  not_known: "#2f92dc",
+  not_sterilised: "#b8552f",
 };
 
 // 16px shapes: a filled circle, a half-filled circle, an empty ring, and a ring
@@ -147,7 +150,7 @@ export function markBar(
   }
   const widths = hundredths(parts.map((p) => p.n), total);
   const segs = parts
-    .map((p, i) => `<span class="markbar-seg mark-${p.m}" style="flex:0 1 ${widths[i]! / 100}%;background:${MARK_COLOUR[p.m]}"></span>`)
+    .map((p, i) => `<span class="markbar-seg mark-${p.m}" style="flex:0 1 ${widths[i]! / 100}%;background:var(--mark-${p.m})"></span>`)
     .join("");
   // The legend repeats the bar's label in sight, so screen readers hear it once.
   const legend = parts
@@ -168,30 +171,30 @@ export function markBar(
  * are squares in dark ink, never circles and never teal: filled when public,
  * outlined when private, dashed grey when retired.
  */
-const RING = "box-shadow:0 0 0 2px #fff,0 0 0 3px #1d1d1b";
+const RING = "box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--ink)";
 export const MAP_MARK_CSS =
-  ".catdot{display:block;box-sizing:border-box;width:16px;height:16px;border-radius:50%;border:2px solid;background:#fff;" + RING + "}" +
+  ".catdot{display:block;box-sizing:border-box;width:16px;height:16px;border-radius:50%;border:2px solid;background:var(--card);" + RING + "}" +
   `.catdot.mark-sterilised{border-color:${MARK_COLOUR.sterilised};background:${MARK_COLOUR.sterilised}}` +
   `.catdot.mark-probably{border-color:${MARK_COLOUR.probably};background:linear-gradient(90deg,${MARK_COLOUR.probably} 50%,#fff 50%)}` +
   `.catdot.mark-not_known{border-color:${MARK_COLOUR.not_known}}` +
-  `.catdot.mark-not_sterilised{border-color:${MARK_COLOUR.not_sterilised};background:linear-gradient(135deg,#fff 42%,${MARK_COLOUR.not_sterilised} 42%,${MARK_COLOUR.not_sterilised} 58%,#fff 58%)}` +
+  `.catdot.mark-not_sterilised{border-color:${MARK_COLOUR.not_sterilised};background:linear-gradient(135deg,var(--card) 42%,${MARK_COLOUR.not_sterilised} 42%,${MARK_COLOUR.not_sterilised} 58%,#fff 58%)}` +
   ".catcluster{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:36px;height:36px;border-radius:50%;padding:5px;" + RING + "}" +
-  ".catcluster>span{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:#fff;color:#1d1d1b;font:700 13px/1 system-ui,sans-serif}" +
-  ".sitesq{display:block;box-sizing:border-box;width:14px;height:14px;border:2px solid #1d1d1b;background:#1d1d1b;box-shadow:0 0 0 2px #fff}" +
-  ".sitesq.site-private{background:#fff}" +
-  ".sitesq.site-retired{border:2px dashed #6b685f;background:#e8e4d8}";
+  ".catcluster>span{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:var(--card);color:var(--ink);font:700 13px/1 Inter,system-ui,sans-serif}" +
+  ".sitesq{display:block;box-sizing:border-box;width:14px;height:14px;border:2px solid var(--ink);background:var(--ink);box-shadow:0 0 0 2px var(--card)}" +
+  ".sitesq.site-private{background:var(--card)}" +
+  ".sitesq.site-retired{border:2px dashed var(--line-strong);background:var(--sunk)}";
 
 /** The styles for the badges; included in the page shell's stylesheet. */
 export const MARK_CSS =
-  ".mark{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:700;color:#1d1d1b}" +
+  ".mark{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:700;color:var(--ink)}" +
   ".mark-icon{flex:none}" +
   (Object.keys(MARK_COLOUR) as SterilisedMark[])
-    .map((m) => `.mark-${m} .mark-icon{color:${MARK_COLOUR[m]}}`)
+    .map((m) => `.mark-${m} .mark-icon{color:var(--mark-${m})}`)
     .join("") +
   // The four-part bar: 2px gaps, rounded ends; an empty outline when there are no street cats.
   ".markbar{margin:8px 0}" +
-  ".markbar-track{display:flex;gap:2px;height:16px;border-radius:8px;overflow:hidden}" +
+  ".markbar-track{display:flex;gap:2px;height:16px;border-radius:10px;overflow:hidden}" +
   ".markbar-seg{display:block;min-width:2px}" +
-  ".markbar-empty{border:2px solid rgba(29,29,27,.55);box-sizing:border-box}" +
-  ".markbar-legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:6px 0 0;font-size:14px;color:#1d1d1b}" +
-  ".markbar-sep{color:rgba(29,29,27,.55)}";
+  ".markbar-empty{border:2px solid var(--line-strong);box-sizing:border-box}" +
+  ".markbar-legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:6px 0 0;font-size:14px;color:var(--ink)}" +
+  ".markbar-sep{color:var(--muted)}";

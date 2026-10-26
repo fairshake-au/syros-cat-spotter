@@ -328,8 +328,8 @@ export function renderHealthPage(
 
 // ─── Coverage and spotting ──────────────────────────────────────────────
 
-/** A total that isn't a status (§12.2): neutral ink #1d1d1b at 55%. */
-const NEUTRAL_TOTAL = "rgba(29,29,27,0.55)";
+/** A total that isn't a status (§12.2): neutral ink #1b2a38 at 55%. */
+const NEUTRAL_TOTAL = "rgba(27,42,56,0.55)";
 
 export const NO_SPOTTER = "Sightings from spotters who have since deleted their account count as sightings, but not as spotters";
 

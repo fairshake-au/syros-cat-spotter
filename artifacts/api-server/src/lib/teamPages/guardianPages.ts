@@ -38,26 +38,26 @@ export interface GuardianViewer {
 
 const CSS = `<style>
 .gcats{list-style:none;padding:0;margin:12px 0}
-.gcat{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px;margin:10px 0;overflow-wrap:anywhere}
+.gcat{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin:10px 0;overflow-wrap:anywhere}
 .gcat img.thumb{width:72px;height:72px;object-fit:cover;border-radius:6px;flex:none}
-.gcat .nothumb{width:72px;height:72px;border-radius:6px;background:#ece9e1;flex:none}
+.gcat .nothumb{width:72px;height:72px;border-radius:6px;background:var(--sunk);flex:none}
 .gcat a.name{font-size:17px;font-weight:700}
 .gcat p,.gfacts p{margin:3px 0}
-.muted{color:#5b5950;font-size:14px}
-.gmain{display:block;max-width:100%;width:420px;border-radius:8px;margin:8px 0}
+.muted{color:var(--ink-2);font-size:14px}
+.gmain{display:block;max-width:100%;width:420px;border-radius:10px;margin:8px 0}
 .gphotos{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 .gphotos img{width:104px;height:104px;object-fit:cover;border-radius:6px}
-.gfacts{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:12px 0;overflow-wrap:anywhere}
-.notice{background:#fff3cd;border:1px solid #c9a227;border-radius:8px;padding:10px 12px;margin:10px 0}
+.gfacts{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:12px 0;overflow-wrap:anywhere}
+.notice{background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:10px;padding:10px 12px;margin:10px 0}
 .notice p{margin:0}
-.gsay{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:12px 0}
+.gsay{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:12px 0}
 .gsay h3{font-size:16px;margin:12px 0 6px}
 .gsay form{margin:6px 0 12px}
 .gsay .row{display:flex;flex-wrap:wrap;gap:8px}
 .gsay button{min-height:44px;padding:8px 14px;font-size:16px}
 .gsay label.choice{display:flex;align-items:center;gap:8px;min-height:44px}
 .gsay input.text{width:100%;max-width:420px;min-height:40px;font-size:16px;box-sizing:border-box}
-.saved{background:#e6f2e6;border:1px solid #6a9a6a;border-radius:8px;padding:10px 12px;margin:10px 0}
+.saved{background:var(--ok-soft);border:1px solid var(--ok);border-radius:10px;padding:10px 12px;margin:10px 0}
 </style>`;
 
 type Say = (key: StringKey, vars?: Record<string, string>) => string;

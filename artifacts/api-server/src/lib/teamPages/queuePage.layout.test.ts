@@ -315,7 +315,7 @@ describe("Queue: the next step, the folded row and the stripe (SYC-619 task 15, 
 
   it("the filled button only exists in CSS scoped to the Queue's own cards", () => {
     const c = css(render(queue([report("a")])));
-    expect(c).toMatch(/article\.report \.actions button\.go\{[^}]*background:#0b5c6b/);
+    expect(c).toMatch(/article\.report \.actions button\.go\{[^}]*background:var\(--accent\)/);
   });
 
   it("a report with no photo has no tile; its body says No photo", () => {
@@ -337,23 +337,23 @@ describe("Queue: the next step, the folded row and the stripe (SYC-619 task 15, 
     expect(c).toContain("-webkit-line-clamp:2");
     expect(c).toContain("article.report details[open] .said1{display:none}");
     // The base rule, which Colour check and Ear clips share, is untouched.
-    expect(c).toContain(".said1{display:block;margin:0;color:#3b3930;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}");
+    expect(c).toContain(".said1{display:block;margin:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}");
   });
 
   it("an open non-urgent card has the light border; urgent, issue and closed keep their colours", () => {
     const c = css(render(queue([report("a")])));
-    expect(c).toMatch(/article\.report:not\(\.urgent\):not\(\.issue\):not\(\.closed\):not\(\.likely\)\{border-left-color:#d9d5ca\}/);
-    expect(c).toContain(".report.urgent{border-left-color:#b3261e}");
-    expect(c).toContain(".report.issue{border-left-color:#2f5d9e}");
-    expect(c).toContain(".report.closed{border-left-color:#8a877e;background:#faf9f6}");
+    expect(c).toMatch(/article\.report:not\(\.urgent\):not\(\.issue\):not\(\.closed\):not\(\.likely\)\{border-left-color:var\(--line\)\}/);
+    expect(c).toContain(".report.urgent{border-left-color:var(--danger)}");
+    expect(c).toContain(".report.issue{border-left-color:var(--issue)}");
+    expect(c).toContain(".report.closed{border-left-color:var(--line-strong);background:var(--card-quiet)}");
   });
 
   it("Colour check and Ear clips cards render with today's CSS: the shared rules are unchanged and every new rule is scoped to article.report", () => {
     const c = css(render(queue([report("a")])));
-    expect(c).toContain(".report{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #a36b00;border-radius:8px;padding:12px;margin:10px 0;overflow-wrap:anywhere}");
-    expect(c).toContain(".hthumb.nothumb{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#55524a;text-align:center}");
+    expect(c).toContain(".report{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--warn-line);border-radius:10px;padding:12px;margin:10px 0;overflow-wrap:anywhere}");
+    expect(c).toContain(".hthumb.nothumb{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);text-align:center}");
     expect(c).toContain(".states{display:grid;grid-template-columns:1fr 1fr;gap:8px}");
-    expect(c).toContain(".actions button.here{background:#eee9da;border-color:#c9c4b6;color:#3b3930;font-weight:700;cursor:default}");
+    expect(c).toContain(".actions button.here{background:var(--sunk);border-color:var(--line);color:var(--ink-2);font-weight:700;cursor:default}");
     const block = /\/\* SYC-619 §6: Queue cards only \*\/\n([\s\S]*?)\/\* end SYC-619 §6 \*\//.exec(c)![1]!;
     const rules = block.split("\n").filter(Boolean);
     expect(rules.length).toBeGreaterThan(3);
