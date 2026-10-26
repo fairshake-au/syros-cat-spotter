@@ -31,4 +31,6 @@ Map building blocks, each under its own licence:
   scripts/map-data/sprites-LICENSE.txt).
 - MapLibre GL JS (BSD 3-Clause) and MapLibre Native (BSD 2-Clause), which draw
   the map.
+- PMTiles JavaScript library, pmtiles 4.3 (BSD 3-Clause, by Brandon Liu /
+  Protomaps), which reads the map file in the browser.
 - Noto Sans map fonts (SIL Open Font License 1.1), served as glyph files.

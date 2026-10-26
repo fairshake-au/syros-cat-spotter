@@ -93,6 +93,8 @@ A spot saved for later is sent by the queue when signal returns. The queue store
 - **Showing the team which new cats were named after a failed check**, as likely duplicates. The record already holds it; surfacing it belongs with SYC-59.
 - **An outage alert** to the team when checks start failing. Logs already say so; noticing them is separate work.
 
+**Both built 25 Oct 2026 (SYC-532, SYC-531).** Samuel chose: a red notice on dashboard Home plus one email to him only (`MATCHER_ALERT_TO`), at 5 failed checks in 15 minutes. One "failing" email per outage, one "working again" email once 15 minutes pass with no failure and a check works. Failures are counted from the existing `sighting_matches.matcher_failed` rows, so there is no new table. The list is Home's "new cats to check" tile (`/api/team/new-cats-to-check`): cats named "new" after a failed check in the last 14 days, each linking to its cat page. Joining duplicates, nearby-cat photos beside each, and a "checked" mark belong to SYC-59. Find from a photo's failures are not counted (they aren't stored).
+
 ## 7. Tests
 
 Server: a failed check answers `matchCheck: "failed"` with no candidates, on a fresh send and on a dedupe repeat; the photo-gone repeat answers `"failed"` with `canRecheck: false`; a working one answers `"done"`; the timeout is applied and a timeout isn't retried; "check again" works for the owner, refuses others (403), refuses a resolved sighting (409 RESOLVED) and a second one in flight (409 CHECK_RUNNING), returns the stored answer for a check that worked without running anything, counts against the limit (429), uses the stored location, and replaces the record.

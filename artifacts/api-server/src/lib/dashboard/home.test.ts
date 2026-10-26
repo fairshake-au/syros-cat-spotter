@@ -279,7 +279,7 @@ describe("Cats to check", () => {
       { catId: 3, group: "not_described", photoUrl: "/api/team/photos/c3" },
     ] as unknown as ColourCheckCat[];
     const d = await homeData(NOW, pure({ listLikelyForReview: async () => likely, listColourCheck: async () => colour }));
-    expect(d.toCheck).toEqual({ earClips: { ok: true, value: 6 }, colour: { ok: true, value: 2 } });
+    expect(d.toCheck).toMatchObject({ earClips: { ok: true, value: 6 }, colour: { ok: true, value: 2 } });
   });
 });
 

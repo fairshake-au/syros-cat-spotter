@@ -106,11 +106,17 @@ describe("mail-drain workflow step", () => {
     expect(r.status).toBe(0);
   });
 
-  it("nit: a base_url on any other host is refused before the token is sent", () => {
+  it("nit: a base_url on any other host, or with '@', is refused before the token is sent", () => {
     for (const url of [
       "https://evil.example.com",
       "https://apptest.catspotters.com.evil.example.com",
       "https://apptest.catspotters.com@evil.example.com",
+      // SYC-392: user-info after a colon passed the old host check.
+      "https://apptest.catspotters.com:pw@evil.example.com",
+      "https://apptest.catspotters.com:@evil.example.com",
+      "http://localhost:x@evil.example.com",
+      "http://localhost:80@evil.example.com",
+      "https://apptest.catspotters.com/x@y",
       "http://apptest.catspotters.com",
     ]) {
       const r = drain(url, [200]);

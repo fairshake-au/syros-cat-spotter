@@ -13,6 +13,7 @@ import { colonyFigures } from "./colonyFigures";
 import { rankTrapNext, type TrapColony } from "./trapNext";
 import { standardPriceNow } from "../vetSettings";
 import { standingRows } from "../resolve";
+import { matcherStatus, newCatsAfterFailedCheck, type MatcherStatus } from "../matcherHealth";
 import type { VetVisitValue } from "../observations";
 
 // The figures behind Home (SYC-396 spec §4; plan PR 2.1, Task 2.1.1).
@@ -62,12 +63,16 @@ export interface HomeNeeds {
   issuesOpen: Section<number>;
   /** Sightings held for the team to match ("Ask Syros Cats to match it"). 0 until something writes it. */
   awaitingMatch: Section<number>;
+  /** SYC-532: whether the look-alike check is failing now (the banner). */
+  matcher: Section<MatcherStatus>;
 }
 
 /** The two check lists' counts (§4.1 tiles). Their photos stay on their own pages. Each is its own section. */
 export interface HomeToCheck {
   earClips: Section<number>;
   colour: Section<number>;
+  /** SYC-531: new cats named after a failed check, to compare with their neighbours. */
+  newCats: Section<number>;
 }
 
 /** Where to trap next (§4.2). */
@@ -183,6 +188,8 @@ export interface HomeDeps {
   countAwaitingMatch: typeof countAwaitingMatch;
   listLikelyForReview: typeof listLikelyForReview;
   listColourCheck: typeof listColourCheck;
+  matcherStatus: typeof matcherStatus;
+  newCatsAfterFailedCheck: typeof newCatsAfterFailedCheck;
   loadTeamCats: typeof loadTeamCats;
   monthFigures: typeof monthFigures;
   allColonyChoices: typeof allColonyChoices;
@@ -196,6 +203,8 @@ const DEFAULT_DEPS: HomeDeps = {
   countAwaitingMatch,
   listLikelyForReview,
   listColourCheck,
+  matcherStatus,
+  newCatsAfterFailedCheck,
   loadTeamCats,
   monthFigures,
   allColonyChoices,
@@ -236,7 +245,7 @@ export async function homeData(
   const catsOnce = d.loadTeamCats(now);
   catsOnce.catch(() => undefined); // read below inside each section's own try
 
-  const [reports, issuesOpen, awaitingMatch, earClips, colour, trapNext, head, month] = await Promise.all([
+  const [reports, issuesOpen, awaitingMatch, matcher, earClips, colour, newCats, trapNext, head, month] = await Promise.all([
     section(async (): Promise<HomeReports> => {
       // Home no longer shows unfinished reports (SYC-519): skip reading them.
       const queue = await d.listWelfareQueue({ drafts: false });
@@ -250,8 +259,10 @@ export async function homeData(
     }),
     section(() => d.countOpenIssues()),
     section(() => d.countAwaitingMatch()),
+    section(() => d.matcherStatus(now)),
     section(async () => (await d.listLikelyForReview(now)).length),
     section(async () => (await d.listColourCheck(now)).filter((c) => c.group === "check").length),
+    section(async () => (await d.newCatsAfterFailedCheck(now)).length),
     section(async (): Promise<TrapNext> => {
       // Island-wide only: the 300 m kittens rule (island: true) reads exact
       // welfare positions, which only the island-wide team may see.
@@ -283,8 +294,8 @@ export async function homeData(
   ]);
 
   return {
-    needs: { reports, issuesOpen, awaitingMatch },
-    toCheck: { earClips, colour },
+    needs: { reports, issuesOpen, awaitingMatch, matcher },
+    toCheck: { earClips, colour, newCats },
     trapNext,
     headline: head,
     month,

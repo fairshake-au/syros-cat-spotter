@@ -12,7 +12,7 @@ import { SETTINGS_PATH } from "./backLink";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "reports" | "sites" | "likely" | "colour" | "people" | "settings" | "myPage" | "myColonies" | "workspace";
+export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "reports" | "sites" | "likely" | "colour" | "newcats" | "people" | "settings" | "myPage" | "myColonies" | "workspace";
 
 interface NavItem {
   key: NavKey;
@@ -44,7 +44,7 @@ const NAV: NavItem[] = [
  * the two work lists sit under Home, Feeding sites under Colonies. A cat
  * guardian's own menu still has Feeding sites, so it's mapped for the team only.
  */
-const TEAM_PARENT: Partial<Record<NavKey, NavKey>> = { likely: "home", colour: "home", sites: "colonies" };
+const TEAM_PARENT: Partial<Record<NavKey, NavKey>> = { likely: "home", colour: "home", newcats: "home", sites: "colonies" };
 
 /** The People link: only for people who hold `manage_people` (SYC-53 PR 1.2). */
 const PEOPLE_NAV: NavItem = { key: "people", label: "People", href: "/api/team/people" };
@@ -196,6 +196,7 @@ dd{margin:0}
 .note{white-space:pre-wrap}
 .bad{color:#8c1d18;font-weight:700}
 .notice{background:#fff3cd;border:1px solid #c9a227;border-radius:6px;padding:8px 10px;margin:0 0 8px;font-weight:700}
+.notice.down{background:#fde8e8;border-color:#b42318;color:#7a1810}
 .notice form.undo{display:block;margin:6px 0 0}
 .notice form.undo button{font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
 .gallery .notice form.undo button{width:100%}
