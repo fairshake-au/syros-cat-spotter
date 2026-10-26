@@ -74,15 +74,28 @@ export function LocationPicker({
   const commitRef = useRef(commit);
   commitRef.current = commit;
 
+  // True while the picker moves the map for its own reasons. Real jumpTo
+  // first stops any glide or tap ease, which fires that move's moveend (still
+  // marked as the person's) at the half-way spot; that must not be reported.
+  const selfMove = useRef(false);
+  const moveQuietly = (move: () => void) => {
+    selfMove.current = true;
+    try {
+      move();
+    } finally {
+      selfMove.current = false;
+    }
+  };
+
   // Follow the parent if it moves the location itself (for example, a fresh
   // GPS fix before the user has touched the map), but not the echo of our own
-  // onChange. jumpTo carries no originalEvent, so it isn't reported back.
+  // onChange. The parent's spot wins over any move still under way.
   useEffect(() => {
     const next = { latitude, longitude };
     if (sameSpot(centerRef.current, next)) return;
     centerRef.current = next;
     setCenter(next);
-    map?.jumpTo({ center: [longitude, latitude] });
+    if (map) moveQuietly(() => map.jumpTo({ center: [longitude, latitude] }));
   }, [map, latitude, longitude]);
 
   useEffect(() => {
@@ -90,6 +103,7 @@ export function LocationPicker({
     // MapLibre makes its canvas a tab stop; the labelled surface is the one.
     map.getCanvas().setAttribute('tabindex', '-1');
     const onMoveEnd = (e: { originalEvent?: unknown; [PICKER_MOVE]?: boolean }) => {
+      if (selfMove.current) return;
       if (!e.originalEvent && !e[PICKER_MOVE]) return;
       const c = map.getCenter();
       const next = { latitude: c.lat, longitude: c.lng };

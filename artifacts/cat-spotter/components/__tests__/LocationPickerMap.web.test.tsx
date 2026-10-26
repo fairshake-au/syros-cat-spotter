@@ -146,6 +146,28 @@ describe('SYC-705: the web picker on MapLibre', () => {
     expect(screen.getByText('37.45000, 24.95000')).toBeTruthy();
   });
 
+  it("a parent recentre during a glide or a tap's ease: the parent's spot wins, nothing is reported", async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<LocationPicker {...START} onChange={onChange} />);
+    const map = await theMap();
+    // A glide is half-way: the camera is between spots, its moveend still due.
+    const HALFWAY = { lng: 24.946, lat: 37.447 };
+    map.center = { ...HALFWAY };
+    // Real jumpTo stops the glide first, which fires the glide's own moveend
+    // (still carrying originalEvent) at the half-way spot. The fake's moves are
+    // instant, so model that here.
+    const realJumpTo = map.jumpTo.bind(map);
+    map.jumpTo = ((opts: Parameters<FakeMap['jumpTo']>[0], data?: Record<string, unknown>) => {
+      map.fire('moveend', userEvent());
+      return realJumpTo(opts, data);
+    }) as FakeMap['jumpTo'];
+    // A late GPS fix from the parent.
+    rerender(<LocationPicker latitude={ELSEWHERE.lat} longitude={ELSEWHERE.lng} onChange={onChange} />);
+    expect(map.getCenter()).toEqual(ELSEWHERE);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByText('37.45000, 24.95000')).toBeTruthy();
+  });
+
   it('a camera move nobody made reports nothing', async () => {
     const onChange = vi.fn();
     render(<LocationPicker {...START} onChange={onChange} />);
