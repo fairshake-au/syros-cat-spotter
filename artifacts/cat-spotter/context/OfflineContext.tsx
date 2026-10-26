@@ -369,7 +369,13 @@ function markStatus(localId: string, patch: Partial<PendingSighting>) {
     );
 }
 
-type SyncOutcome = 'synced' | 'network' | 'needs_sign_in' | 'moved' | 'done';
+type SyncOutcome =
+  | 'synced'
+  | 'network'
+  | 'needs_sign_in'
+  | 'moved'
+  | 'rate_limited'
+  | 'done';
 
 /**
  * What a failed photo save means for a sighting the user is saving now.
@@ -407,6 +413,19 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const syncInFlightRef = useRef<Promise<void> | null>(null);
   const networkStateRef = useRef<UploadNetworkState | null>(null);
   const needsSignInRef = useRef(false);
+  // SYC-196: after a 429 ("too many, try later") nothing is sent until
+  // `rateLimitedUntilRef`, and one timer brings the sync back then. The count
+  // of 429s in a row sets the backoff; any sent sighting resets it.
+  const rateLimitedUntilRef = useRef(0);
+  const rateLimitCountRef = useRef(0);
+  const rateLimitWaitMsRef = useRef(0);
+  const rateLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+    },
+    [],
+  );
 
   const setNeedsSignIn = useCallback((value: boolean) => {
     needsSignInRef.current = value;
@@ -526,7 +545,17 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           );
           return 'done';
         }
-        const decision = classifySyncFailure(err, item.failCount);
+        const decision = classifySyncFailure(
+          err,
+          item.failCount,
+          rateLimitCountRef.current + 1,
+        );
+        if (decision.kind === 'rate_limited') {
+          // Not a failure: the item stays queued exactly as it was.
+          rateLimitCountRef.current += 1;
+          rateLimitWaitMsRef.current = decision.waitMs;
+          return 'rate_limited';
+        }
         if (decision.kind === 'needs_sign_in') {
           // The pre-launch gate's own 401, not the device-secret check's.
           // The item is left exactly as it was — queued, no error flagged —
@@ -571,6 +600,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       // clears it — otherwise every reconnect/foreground event would hammer
       // the gate with the same doomed request.
       if (needsSignInRef.current) return;
+      // Waiting out a 429 (SYC-196); the timer brings the sync back.
+      if (Date.now() < rateLimitedUntilRef.current) return;
       // Paused while a person deletes their data (SYC-63).
       if (pausedRef.current) return;
       syncingRef.current = true;
@@ -601,7 +632,21 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
               // One item's failure never stops the others.
               outcome = 'done';
             }
-            if (outcome === 'synced') syncedAny = true;
+            if (outcome === 'synced') {
+              syncedAny = true;
+              rateLimitCountRef.current = 0;
+            }
+            if (outcome === 'rate_limited') {
+              const waitMs = rateLimitWaitMsRef.current;
+              rateLimitedUntilRef.current = Date.now() + waitMs;
+              if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+              rateLimitTimerRef.current = setTimeout(() => {
+                rateLimitTimerRef.current = null;
+                rateLimitedUntilRef.current = 0;
+                void syncNowRef.current();
+              }, waitMs);
+              break;
+            }
             if (outcome === 'network' || outcome === 'moved') break;
             if (outcome === 'needs_sign_in') {
               if (Platform.OS === 'web') {
