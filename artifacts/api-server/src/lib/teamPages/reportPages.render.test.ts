@@ -77,6 +77,9 @@ describe("the Reports index (§8.1)", () => {
   const html = renderReportsList({ personName: "Test", vetCosts: true });
   const card = (h: string, key: string) => new RegExp(`<li class="card reportcard" id="report-${key}">([\\s\\S]*?)</li>`).exec(h)![1]!;
 
+  it("says in plain words what Reports is for (SYC-739)", () => {
+    expect(html).toContain("How the work is going. Pick a report, then choose the dates at the top. Nothing here changes any records.");
+  });
   it("has no intro line", () => {
     expect(html).not.toContain("worked out from the records when you open it");
   });
@@ -184,7 +187,7 @@ describe("Welfare patterns: counted separately without sent reports", () => {
 describe("Welfare patterns (§8.2, §8.3)", () => {
   const empty = renderWelfarePage(welfare(0), o);
   const full = renderWelfarePage(welfare(2), o);
-  const PROMISE = "No response times and nothing about who sent or handled a report.";
+  const PROMISE = "This shows patterns only. It never shows who sent a report or who handled it.";
   it("empty: leaves out the three sections; the promise stays", () => {
     for (const gone of ["Welfare reports per week", "Counted separately", "Where reports came from"]) expect(empty).not.toContain(gone);
     expect(outsideFold(empty)).toContain(PROMISE);
@@ -193,7 +196,7 @@ describe("Welfare patterns (§8.2, §8.3)", () => {
   it("full: the sections are back and the promise is visible", () => {
     for (const here of ["Welfare reports per week", "Counted separately", "Where reports came from"]) expect(full).toContain(here);
     expect(outsideFold(full)).toContain(PROMISE);
-    expect(foldOf(full)).not.toContain("No response times");
+    expect(foldOf(full)).not.toContain("This shows patterns only");
   });
   it("the two rules are in the fold", () => {
     expect(foldOf(full)).toContain("Each report is in one kind only: a report with kittens is Litter, however urgent.");
@@ -235,7 +238,7 @@ describe("Vet visits and costs (§8.2, §8.3)", () => {
     for (const s of ["counted once, under its main purpose", "counts its whole cost", "never at a vet visit", "Counted by the date", "An undone visit"]) expect(out).not.toContain(s);
   });
   it("what the main figure is stays visible", () => {
-    expect(outsideFold(full)).toContain("Spend is Syros Cats' money and donations given for a cat. Owner-paid visits are listed, but never added into spend.");
+    expect(outsideFold(full)).toContain("Spend is what Syros Cats paid, plus donations given for a cat. Visits an owner paid for are listed but not counted.");
     expect(foldOf(full)).not.toContain("Owner-paid");
   });
 });

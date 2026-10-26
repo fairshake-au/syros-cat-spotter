@@ -17,6 +17,7 @@ import { dayWords, rangeQuery, type Range, type RangeKey } from "../reports/rang
 import { escapeHtml as esc } from "./escape";
 import { backLink } from "./backLink";
 import { renderPage } from "./layout";
+import { pageIntro, howFold } from "./help";
 import { markBar } from "./marks";
 import { foldLine, methodFold } from "./methodFold";
 
@@ -86,7 +87,7 @@ export function renderReportsList(o: { personName: string; vetCosts: boolean }):
     title: "Reports",
     active: "reports",
     personName: o.personName,
-    body: `<ul class="reportlist">${cards}</ul>`,
+    body: pageIntro("How the work is going. Pick a report, then choose the dates at the top. Nothing here changes any records.") + `<ul class="reportlist">${cards}</ul>`,
   });
 }
 
@@ -320,6 +321,15 @@ export function renderHealthPage(
         ? `<p class="empty" id="nothing">No colonies yet. Colonies are set up on the <a href="/api/team/colonies">Colonies page</a>.</p>`
         : nothing(path)
       : '<p class="hint">Figures at the end of the range. Change over 90 days compares with the records as they stood 90 days before. Tap a column to sort by it.</p>' +
+        howFold(
+          [
+            "Kittens reported: a litter report was sent in the last 60 days for a cat in this colony, or (for the team) within 300 m of one of its feeding sites.",
+            "Growing: at least 3 new cats joined this colony in the last 90 days, and more than in the 90 days before.",
+            "Not visited lately: none of its street cats has been seen in the last 30 days.",
+            "No cat guardian: no cat guardian is recorded for the colony.",
+          ],
+          { summary: "What the flags mean" },
+        ) +
         tableHtml({ ...table, headers }) +
         (o.canExport ? download("health", o.range, "Download this table as a spreadsheet (CSV)", `&amp;sort=${o.sort}&amp;dir=${o.dir}`) : "")) +
     methodNote(o.range, r.workedOutAt, r.areasVersion, []);
@@ -401,7 +411,7 @@ export function renderCoveragePage(r: CoverageReport, o: { personName: string; r
 
 // ─── Welfare patterns ───────────────────────────────────────────────────
 
-const WELFARE_PROMISE = "No response times and nothing about who sent or handled a report";
+const WELFARE_PROMISE = "This shows patterns only. It never shows who sent a report or who handled it";
 
 export const DRAFTS = "Started, not sent";
 export const CONTENT = "Problems reported with photos or names";
@@ -484,7 +494,7 @@ export function renderWelfarePage(r: WelfarePatterns, o: { personName: string; r
 
 // ─── Vet visits and costs ───────────────────────────────────────────────
 
-export const OWNER_PAID = "Owner-paid visits are listed, but never added into spend";
+export const OWNER_PAID = "Visits an owner paid for are listed but not counted";
 
 const VET_MONTH_COLUMNS: TableColumn[] = [
   { key: "month", label: "Month" },
@@ -573,7 +583,7 @@ export function renderVetPage(r: VetCostsReport, o: { personName: string; range:
     '<section id="spend"><h2>Visits and spend per month</h2>' +
     `<p class="hbig"><strong>${visits}</strong> vet ${visits === 1 ? "visit" : "visits"}, ` +
     `<strong>${esc(euroText(spend))}</strong> spent by Syros Cats</p>` +
-    `<p class="hint">Spend is Syros Cats' money and donations given for a cat. ${esc(OWNER_PAID)}.</p>` +
+    `<p class="hint">Spend is what Syros Cats paid, plus donations given for a cat. ${esc(OWNER_PAID)}.</p>` +
     (visits === 0
       ? ""
       : '<div class="chartbox">' +

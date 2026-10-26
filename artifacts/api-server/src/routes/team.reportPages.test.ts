@@ -141,6 +141,8 @@ describe("Colony health", () => {
   it("is one table, every column a sort link with no position in it", async () => {
     const res = await get("/api/team/insights/health?range=3months");
     expect(res.status).toBe(200);
+    expect(res.text).toContain("What the flags mean");
+    expect(res.text).toContain("Not visited lately: none of its street cats has been seen in the last 30 days.");
     expect(headers(res.text)).toEqual([
       "Colony",
       "Cats now",
@@ -230,7 +232,7 @@ describe("Welfare patterns (PR 3.3b)", () => {
     expect(res.text).toContain('<li id="drafts">');
     expect(res.text).toContain('<li id="content">');
     // D6: the only mention of response times is the line saying there are none.
-    const rest = res.text.replace("No response times and nothing about who sent or handled a report.", "");
+    const rest = res.text.replace("This shows patterns only. It never shows who sent a report or who handled it.", "");
     expect(rest).not.toMatch(/response time|time open|handled by/i);
   });
 
@@ -280,7 +282,7 @@ describe("Vet visits and costs (PR 3.3c)", () => {
     expect(res.text).toContain('id="per-sterilisation"');
     expect(res.text).toContain('id="no-cost"');
     expect(res.text).toContain("Counted by the date of the visit.");
-    expect(res.text).toContain("Owner-paid visits are listed, but never added into spend.");
+    expect(res.text).toContain("Visits an owner paid for are listed but not counted.");
     const captions = [...res.text.matchAll(/<table class="rtable"><caption>([^<]*)<\/caption>/g)].map((m) => m[1]);
     expect(captions).toEqual(["Visits and Syros Cats&#39; spend per month", "Syros Cats&#39; spend by what was done", "Every visit, newest first"]);
     expect(headers(res.text, 2)).toEqual(["Cat", "Date", "Clinic", "What was done", "Cost (€)", "Paid by"]);
