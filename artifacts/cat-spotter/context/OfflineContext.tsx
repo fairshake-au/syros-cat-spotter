@@ -423,6 +423,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   useEffect(
     () => () => {
       if (rateLimitTimerRef.current) clearTimeout(rateLimitTimerRef.current);
+      rateLimitTimerRef.current = null;
+      rateLimitedUntilRef.current = 0;
     },
     [],
   );
@@ -620,7 +622,11 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
             .items()
             .filter((p) => p.status === 'queued')
             .map((p) => p.localId);
-          if (queued.length === 0) return;
+          if (queued.length === 0) {
+            // Nothing left to send: the next 429 starts from the short wait.
+            rateLimitCountRef.current = 0;
+            return;
+          }
           setSyncing(true);
           for (const localId of queued) {
             // Pausing stops the sync between items, never mid-upload.
