@@ -493,10 +493,7 @@ export class FakeProtocol {
 
 /** As maplibre-gl 6 exports it: what `new Map()` throws without WebGL2. */
 export class GPUInitializationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'GPUInitializationError';
-  }
+  override name = 'GPUInitializationError';
 }
 
 function setWorkerUrl(url: string): void {
