@@ -183,13 +183,14 @@ export function LocationPicker({
     if (giveUp.current !== null) clearTimeout(giveUp.current);
     giveUp.current = null;
   };
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Set here too, not only in useRef: StrictMode unmounts and remounts.
+    mounted.current = true;
+    return () => {
       mounted.current = false;
       stopWaiting();
-    },
-    [],
-  );
+    };
+  }, []);
 
   const useWhereIAm = () => {
     setLocProblem(null);

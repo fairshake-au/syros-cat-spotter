@@ -251,6 +251,23 @@ describe('SYC-705: no WebGL keeps the picker usable', () => {
     expect(screen.getByText('© OpenStreetMap contributors')).toBeTruthy();
   });
 
+  it('Use where I am now still works under StrictMode (mount, unmount, mount)', async () => {
+    setWebGLSupported(false);
+    stubGeolocation((ok) =>
+      ok({ coords: { latitude: 37.441, longitude: 24.946 } } as GeolocationPosition),
+    );
+    const onChange = vi.fn();
+    render(
+      <React.StrictMode>
+        <LocationPicker {...START} onChange={onChange} />
+      </React.StrictMode>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 't:claimUseHere' }));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({ latitude: 37.441, longitude: 24.946 }),
+    );
+  });
+
   it('a map that fails to start also offers Use where I am now', async () => {
     makeMapConstructorThrow();
     render(<LocationPicker {...START} onChange={() => {}} />);
