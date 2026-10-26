@@ -1,16 +1,14 @@
 /**
- * Web Mercator arithmetic for the web location picker, which draws
- * OpenStreetMap tiles itself so it can know where the map has been dragged
- * (an embedded OSM iframe cannot report that across the frame boundary).
+ * Web Mercator arithmetic shared by the maps.
  *
  * "World" coordinates are pixels on the whole map at a given zoom: the world
  * is TILE_SIZE * 2^zoom pixels square, with (0, 0) at the north-west corner.
+ * Zoom here is the app's own scale (256-px world); see toMapLibreZoom.
  */
 
 export const TILE_SIZE = 256;
 export const MIN_ZOOM = 12;
 export const MAX_ZOOM = 19;
-const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 // Beyond this latitude Web Mercator is undefined; the map simply stops.
 const MAX_LAT = 85.05112878;
 
@@ -22,13 +20,6 @@ export interface LatLng {
 export interface Point {
   x: number;
   y: number;
-}
-
-export interface PlacedTile {
-  key: string;
-  url: string;
-  left: number;
-  top: number;
 }
 
 function worldSize(zoom: number): number {
@@ -78,39 +69,14 @@ export function latLngAtOffset(
 }
 
 /**
- * Every tile needed to cover a width x height view centred on `center`, plus
- * `margin` pixels on each side. The picker only recentres when a drag ends,
- * so the margin is what a drag reveals before then instead of grey gaps.
+ * MapLibre counts zoom against a 512-px world, the app against a 256-px one,
+ * so MapLibre's zoom is the app's minus 1. This pair is the ONLY place the two
+ * scales meet: convert here, never with an inline "- 1" elsewhere.
  */
-export function visibleTiles(
-  center: LatLng,
-  zoom: number,
-  width: number,
-  height: number,
-  margin = 0,
-): PlacedTile[] {
-  if (width <= 0 || height <= 0) return [];
-  const c = toWorld(center, zoom);
-  const originX = c.x - width / 2;
-  const originY = c.y - height / 2;
-  const count = 2 ** zoom;
-  const firstX = Math.floor((originX - margin) / TILE_SIZE);
-  const lastX = Math.floor((originX + width + margin) / TILE_SIZE);
-  const firstY = Math.max(0, Math.floor((originY - margin) / TILE_SIZE));
-  const lastY = Math.min(count - 1, Math.floor((originY + height + margin) / TILE_SIZE));
-  const tiles: PlacedTile[] = [];
-  for (let ty = firstY; ty <= lastY; ty++) {
-    for (let tx = firstX; tx <= lastX; tx++) {
-      const wrappedX = ((tx % count) + count) % count;
-      tiles.push({
-        key: `${zoom}/${tx}/${ty}`,
-        url: TILE_URL.replace('{z}', String(zoom))
-          .replace('{x}', String(wrappedX))
-          .replace('{y}', String(ty)),
-        left: tx * TILE_SIZE - originX,
-        top: ty * TILE_SIZE - originY,
-      });
-    }
-  }
-  return tiles;
+export function toMapLibreZoom(appZoom: number): number {
+  return appZoom - 1;
+}
+
+export function fromMapLibreZoom(mapLibreZoom: number): number {
+  return mapLibreZoom + 1;
 }

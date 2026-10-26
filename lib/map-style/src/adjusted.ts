@@ -98,7 +98,26 @@ const pathsLayer: LayerSpecification = {
     ['==', ['get', 'kind'], 'path'],
     ['==', ['get', 'kind_detail'], 'track']],
   layout: { 'line-cap': 'butt', 'line-join': 'round' },
-  paint: { 'line-color': '#fa8072', 'line-width': 1.5, 'line-dasharray': [1, 2] },
+  // Fainter and thinner when zoomed out so footpaths don't crowd the streets (SYC-720).
+  paint: {
+    'line-color': '#fa8072',
+    'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.6, 16, 1, 18, 1.6],
+    'line-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0.15, 15, 0.4, 16.5, 0.85],
+    'line-dasharray': [1, 2],
+  },
+};
+
+// Only real main roads are orange; other "major road" kinds stay white (SYC-720).
+const MAIN_ROAD: ExpressionSpecification =
+  ['match', ['get', 'kind_detail'], ['primary', 'secondary', 'trunk', 'motorway'], true, false];
+const MAIN_FILL: ExpressionSpecification = ['case', MAIN_ROAD, '#fcd6a4', '#ffffff'];
+const MAIN_CASING: ExpressionSpecification = ['case', MAIN_ROAD, '#c79d6a', '#c8c0b6'];
+const QUIET_LINE_COLORS: Record<string, ExpressionSpecification> = {
+  roads_major: MAIN_FILL,
+  roads_bridges_major: MAIN_FILL,
+  roads_major_casing_early: MAIN_CASING,
+  roads_major_casing_late: MAIN_CASING,
+  roads_bridges_major_casing: MAIN_CASING,
 };
 
 function textFieldOf(l: LayerSpecification | undefined): ExpressionSpecification | undefined {
@@ -121,6 +140,17 @@ export function otherNameTextFields(lang: MapLang) {
 
 export function adjustedLayers(lang: MapLang): LayerSpecification[] {
   const layers = (protomapsLayers('protomaps', flavor, { lang }) as LayerSpecification[]).map((l) => {
+    const quiet = QUIET_LINE_COLORS[l.id];
+    if (quiet) return { ...l, paint: { ...l.paint, 'line-color': quiet } } as LayerSpecification;
+    if (l.id === 'pois') {
+      // Beaches and peaks are labelled by our own beach_name / peak layers only.
+      const notOurs: ExpressionSpecification = ['!', ['in', ['get', 'kind'], ['literal', ['beach', 'peak']]]];
+      return {
+        ...l,
+        filter: ['all', (l as { filter?: unknown }).filter, notOurs],
+        layout: { ...l.layout, 'text-field': nameExpression(lang) },
+      } as LayerSpecification;
+    }
     if (!(OVERRIDDEN_LABEL_LAYER_IDS as readonly string[]).includes(l.id)) return l;
     return { ...l, layout: { ...l.layout, 'text-field': nameExpression(lang) } } as LayerSpecification;
   });
