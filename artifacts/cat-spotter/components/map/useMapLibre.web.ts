@@ -27,7 +27,10 @@
  * Mercator maths.
  *
  * Zoom crosses the app/MapLibre boundary only through toMapLibreZoom and
- * fromMapLibreZoom: callers pass and receive the app's zoom.
+ * fromMapLibreZoom: callers pass the app's zoom, and convert what they read
+ * from `map.getZoom()`. The hook keeps no zoom state of its own (it would
+ * re-render the whole map on every zoom frame); callers that need the live
+ * zoom listen to the map's own events.
  */
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { View } from 'react-native';
@@ -35,7 +38,7 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 import { MAP_LANG, buildStyle, labelFieldsFor, type MapLang } from '@workspace/map-style';
 import { useLanguage } from '@/context/LanguageContext';
 import { mapUrls, useMapVersion } from '@/lib/mapSource';
-import { MAX_ZOOM, MIN_ZOOM, fromMapLibreZoom, toMapLibreZoom, type LatLng } from '@/lib/mercator';
+import { MAX_ZOOM, MIN_ZOOM, toMapLibreZoom, type LatLng } from '@/lib/mercator';
 
 export type { MaplibreMap };
 
@@ -62,8 +65,6 @@ export interface UseMapLibreResult {
    * style loads. Wait for it before addSource/addLayer/setLayoutProperty.
    */
   styleReady: boolean;
-  /** App zoom, following the map as it zooms. */
-  zoom: number;
   version: number;
 }
 
@@ -160,7 +161,6 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
   const containerRef = useRef<View>(null);
   const [map, setMap] = useState<MaplibreMap | null>(null);
   const [failed, setFailed] = useState<MapFailure | null>(null);
-  const [zoom, setZoom] = useState(opts.zoom);
   const [styleReady, setStyleReady] = useState(false);
 
   // The map is created once, asynchronously; it reads the newest values then.
@@ -232,8 +232,6 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
       const markReady = () => setStyleReady(true);
       instance.on('styledata', markReady);
       instance.on('load', markReady);
-      instance.on('zoom', () => setZoom(fromMapLibreZoom(instance.getZoom())));
-      setZoom(fromMapLibreZoom(instance.getZoom()));
       setMap(instance);
     })();
 
@@ -262,5 +260,5 @@ export function useMapLibre(opts: UseMapLibreOptions): UseMapLibreResult {
     if (applyLabelLanguage(map, mapLang)) styleLang.current = mapLang;
   }, [map, mapLang, styleReady]);
 
-  return { containerRef, map, failed, styleReady, zoom, version };
+  return { containerRef, map, failed, styleReady, version };
 }

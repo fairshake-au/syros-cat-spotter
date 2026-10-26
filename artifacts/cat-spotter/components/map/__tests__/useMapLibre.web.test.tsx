@@ -108,7 +108,6 @@ describe('useMapLibre', () => {
     expect(map.options.interactive).toBe(true);
     expect(map.options.attributionControl).toBe(false);
     expect(map.options.style).toEqual(buildStyle({ lang: 'en', ...mapUrls(1) }));
-    expect(latest.current?.zoom).toBe(15);
     expect(latest.current?.version).toBe(1);
     expect(latest.current?.failed).toBeNull();
   });
@@ -305,11 +304,21 @@ describe('useMapLibre', () => {
     expect(map.keyboard.rotationEnabled).toBe(false);
   });
 
-  it('reports the app zoom as the map zooms', async () => {
-    const { map, latest } = await mountReady();
+  it('does not re-render the host on every zoom frame', async () => {
+    const renders = vi.fn();
+    const latest: { current: Result | null } = { current: null };
+    render(<Harness opts={BASE} onResult={(r) => { latest.current = r; renders(); }} />);
+    await waitFor(() => expect(latest.current?.map).not.toBeNull());
+    const map = lastMap() as FakeMap;
+    act(() => {
+      map.fire('styledata');
+      map.fire('load');
+    });
+    const before = renders.mock.calls.length;
     act(() => {
       map.jumpTo({ zoom: 16.5 });
+      map.jumpTo({ zoom: 16.6 });
     });
-    expect(latest.current?.zoom).toBe(17.5);
+    expect(renders.mock.calls.length).toBe(before);
   });
 });
