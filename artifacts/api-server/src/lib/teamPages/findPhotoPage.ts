@@ -8,6 +8,7 @@ import { escapeHtml as esc } from "./escape";
 import { assetUrl } from "../teamAssets";
 import { backLink } from "./backLink";
 import { renderPage } from "./layout";
+import { pageIntro } from "./help";
 import { lastSeenWords } from "./lastSeen";
 import { markBadge } from "./marks";
 import { timeAgo } from "./queuePage";
@@ -247,6 +248,9 @@ function noSuchReport(personName: string): string {
   });
 }
 
+const FIND_INTRO =
+  "Use this when you have a photo of a cat and want to know whether it's already in the app. Choose where it was taken, then add the photo.";
+
 export function renderFindForm(o: FindFormOptions): string {
   if (o.tie && !o.tie.report) return noSuchReport(o.personName);
   return renderPage({
@@ -261,7 +265,8 @@ export function renderFindForm(o: FindFormOptions): string {
         ? `<p class="notice" role="alert">${esc(o.problem.words)} <a href="${o.problem.field === "place" ? "#find-area" : "#find-photo"}">Go to it</a></p>`
         : "") +
       tieIntro(o.tie, o.now) +
-      '<p class="hint">Choose where to look, then add the photo below. <a href="#find-photo">Go to the photo</a></p>' +
+      pageIntro(FIND_INTRO) +
+      '<p class="hint">Always check the photos yourself before choosing a cat. <a href="#find-photo">Go to the photo</a></p>' +
       whereForm(o) +
       (o.problem?.field === "place" ? "" : countLine(o.narrowing, o.filters, o.colonies)) +
       photoForm(o),
