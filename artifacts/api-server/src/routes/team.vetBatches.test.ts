@@ -401,9 +401,11 @@ describe("no lost input between the forms (Ruling R18)", () => {
     const batch = await newBatch();
     const page = (await get(`/api/team/vet-batches/${batch}`)).text;
     const shared = page.slice(page.indexOf('id="shared"'), page.indexOf('id="cats"'));
-    expect(shared).toContain("Save these details");
+    expect(shared).toContain("Save the shared details");
     expect(shared).toMatch(/name="action" value="save"[^>]*>Save the batch's visits/);
     expect(page).toContain("Press “Save this cat's answers” on any card you changed first.");
+    expect(page).toContain("A batch is one trip to the vet.");
+    expect(page).toContain("This creates one vet visit for each cat.");
   });
 
   it("picking a clinic and pressing the shared form's Save the batch's visits saves the clinic and the batch", async () => {
@@ -438,7 +440,7 @@ describe("no lost input between the forms (Ruling R18)", () => {
     expect(visits).toHaveLength(0);
   });
 
-  it("a plain 'Save these details' does not save the batch, and says Saved. at the shared fields", async () => {
+  it("a plain 'Save the shared details' does not save the batch, and says Saved. at the shared fields", async () => {
     const { batch } = await readyBatch();
     const res = await post(`/api/team/vet-batches/${batch}`, SHARED);
     expect(res.status).toBe(303);
