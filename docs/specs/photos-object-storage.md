@@ -19,7 +19,7 @@ Every photo a spotter takes is stored as text inside our Neon database. That is 
 
 **The way it moves.** Eight small steps, each undoable, none needing downtime (§5). The old copy stays in the database for 30 days after the switch, so there is always a way back. The only step that is not instant is giving the space back in the database, and that one is rehearsed on a copy first.
 
-**When.** Earliest Monday 9 Nov, more likely Monday 16 Nov after the 15 Nov review of real launch numbers (D0). Real production figures are in (§2.2): the database is 28 MB, photos average 163 KB, so the money case is small today and the decision rests on growth and safety. There are **seven decisions** for Samuel in §8; the most important are whether to do this now at all (D0), the store (D1), the safety copy (D2) and what "Delete my data" should do with a person's photos (D5).
+**When.** Earliest Monday 9 Nov, more likely Monday 16 Nov after the 15 Nov review of real launch numbers (D0). Real production figures are in (§2.2): the database is 28 MB, photos average 163 KB, so the money case is small today and the decision rests on growth and safety. There are **seven decisions** in §8, one already made (D2, no safety copy); the most important are whether to do this now at all (D0), the store (D1) and what "Delete my data" should do with a person's photos (D5).
 
 ---
 
@@ -115,7 +115,7 @@ Photos are read out of the store by our API and sent on to phones, so every phon
 | C. S3 Frankfurt | ~$0.09 | ~$1.00 |
 | D. Replit App Storage | ~$0.05 | ~$0.62, plus download charges |
 
-The 10 GB free allowance on R2 is per account, so a second bucket for the safety copy (§5.8) costs the full ~$0.62 at peak, not a saving on top of it.
+The 10 GB free allowance on R2 is per account, so the separate bucket for report photos uses part of it.
 
 Three honest qualifiers:
 
@@ -127,12 +127,12 @@ Three honest qualifiers:
 
 - **D. Replit App Storage.** The EU question is a stopper: the page does not say where the data is held, and a charity's photos with Syros Cats as controller can't sit somewhere we cannot name. It also can't use versioning, lifecycle or retention, and a bucket belongs to one Replit project, which sits badly with SYC-125 retiring the old project and with development and production sharing it. If Replit says in writing that the bucket is in the EU, D becomes a realistic fallback; until then it is out.
 - **B. Neon Object Storage.** Attractive on paper: same vendor, same bill, Frankfurt listed. Three things hold it back: it appears to be in **beta** (not stated on its own pages: **unchecked**); its public address in every example is `us-east-2`, so the Frankfurt claim needs proving with a real bucket; and **buckets are scoped to a database branch, and a new branch inherits the parent's objects**. We create branches all the time (development, rehearsal, test copies), so every test copy would inherit every production photo. That is a privacy leak by design, not a bug, and it is the deciding point against B for now.
-- **C. S3, Frankfurt.** The safest and most mature choice, and the one with real protection for the only copy (versioning, lifecycle, cross-region copy). It costs about $0.45 a month more than R2 at peak, and needs a new AWS account, billing and permissions that Claude can't currently manage with the Cloudflare token. It is the right answer if D2 (§8) comes out as "we want the provider to keep old versions for us".
-- **A. R2.** Cheapest, the EU guarantee is a setting on the bucket, and the Cloudflare account and API route already exist. Its gap is the one in the table: no object versioning I could confirm, so protecting the only copy is something we build (§5.8) rather than something we switch on.
+- **C. S3, Frankfurt.** The safest and most mature choice, with versioning, lifecycle and cross-region copy available. It costs about $0.45 a month more than R2 at peak, and needs a new AWS account, billing and permissions that Claude can't currently manage with the Cloudflare token. Worth reconsidering only if the decision on a safety copy (D2) is reopened.
+- **A. R2.** Cheapest, the EU guarantee is a setting on the bucket, and the Cloudflare account and API route already exist. Its gap is that I could confirm no object versioning, which matters only if we want a recovery net; D2 (Samuel, 26 Oct) decided not to build one (§5.8).
 
 ### 3.4 Recommendation
 
-**A. Cloudflare R2 with the EU jurisdiction: one private bucket for cat photos and a separate one for report photos, with a safety copy at a different provider (§5.8, D2), all served only through our API.** Reason in one line: it is the cheapest, the EU guarantee is explicit, it is the account we already have, and the one thing it lacks (versioning) is cheap to build around. If Samuel would rather pay about $0.45 a month more to have versioning from the provider, C is the alternative and the spec works unchanged, because the storage code is written against the S3 interface that both speak.
+**A. Cloudflare R2 with the EU jurisdiction: one private bucket for cat photos and a separate one for report photos, with no second copy of the photos (D2, §5.8), all served only through our API.** Reason in one line: it is the cheapest, the EU guarantee is explicit, it is the account we already have, and the one thing it lacks (versioning) does not matter without a safety copy. If the safety-copy decision is ever reopened, C is the alternative and the spec works unchanged, because the storage code is written against the S3 interface that both speak.
 
 ### 3.5 Checks I made on our Cloudflare account (read-only, 25 Oct 2026)
 
@@ -175,7 +175,7 @@ This is the rule that gets harder, and the review found the first draft of it wa
 
 - **Today:** SYC-462's `removePhoto` is one database transaction: null the bytes, record who and why, delete the smaller copies, repoint cats, then scan every column to prove the picture is gone. Either all of it happens or none of it.
 - **The problem:** a file in a bucket can't be part of a database transaction. Delete the file first and a failed database step leaves a record with no picture and no way back. Delete it after and a failed delete leaves the photo on disk after the team was told it was gone.
-- **The rule after the move: record first, delete second, verify third.** In the same transaction that removes the photo, write a row to a new table, `photo_object_deletions`: every key to delete (the main object *and* the smaller copies *and* the safety copy), when it was asked for, and when each was confirmed gone. After the commit the objects are deleted, each is asked for again to prove "not found", and the row is stamped. A **sweeper** retries unconfirmed rows every few minutes and alerts after an hour. Keys are written to the row at removal time because the photo row's own `storage_key` is cleared when it is removed.
+- **The rule after the move: record first, delete second, verify third.** In the same transaction that removes the photo, write a row to a new table, `photo_object_deletions`: every key to delete (the main object *and* the smaller copies), when it was asked for, and when each was confirmed gone. After the commit the objects are deleted, each is asked for again to prove "not found", and the row is stamped. A **sweeper** retries unconfirmed rows every few minutes and alerts after an hour. Keys are written to the row at removal time because the photo row's own `storage_key` is cleared when it is removed.
 - **Every deletion path uses that one routine,** not just `removePhoto`. There are four today and the first draft knew of one:
   1. `removePhoto` and the coming "Delete for good" button (SYC-246);
   2. the discard of a staged vet photo (`vetBatches.ts:339-346`, run daily by `vet-batches-cleanup`), which deletes a plain row or nulls one that has visibility events, today with no removal record at all;
@@ -220,7 +220,7 @@ What *is* possible, and not built: a person whose face or doorway is in a photo 
 
 **Before anything (Samuel, ~15 minutes):** add R2 to the Cloudflare token (§3.5); decide D0–D6; put Cloudflare in the privacy policy as a processor (§6.1).
 
-**Credentials.** Three narrow bucket tokens, nothing wider: the **app token** (read and write the cat-photo bucket), the **report token** (read and write the report-photo bucket), and the **copy token** (§5.8). The removal tool, the backfill, the smoke check and the fingerprint-accuracy command run in GitHub Actions with database credentials only today; the ones that read or write photos get the app and report tokens in the `production` GitHub environment. **Rehearsal, development and any reset copy must never hold a production bucket token** and use their own test buckets: a database branch copies `storage_key` values and pending deletion rows, and a sweeper running on a copy with a production token could delete production objects.
+**Credentials.** Two narrow bucket tokens, nothing wider: the **app token** (read and write the cat-photo bucket) and the **report token** (read and write the report-photo bucket). The removal tool, the backfill, the smoke check and the fingerprint-accuracy command run in GitHub Actions with database credentials only today; the ones that read or write photos get the app and report tokens in the `production` GitHub environment. **Rehearsal, development and any reset copy must never hold a production bucket token** and use their own test buckets: a database branch copies `storage_key` values and pending deletion rows, and a sweeper running on a copy with a production token could delete production objects.
 
 ### Step 0 — Rehearse on a copy
 Use the existing `rehearsal` Neon branch (or a point-in-time restore to a new branch), not a child of production: Neon snapshots and restores only work on a root branch (`docs/runbooks/neon-database.md`), so a plain child branch can't run the restore this step has to prove. Create test buckets in the EU. Run steps 1–7 end to end, including the space reclaim in step 7, the `rehydrate` script and a snapshot restore **followed by the runbook's re-removal step**. **Exit:** the sequence has run once, the reclaim time and the photo latencies are measured, and each rollback below has been exercised. **Rollback:** delete the test buckets and reset the branch.
@@ -259,7 +259,7 @@ A report that a human signs off:
 2. **Read from the bucket** (`photo_read=object`), falling back to `data` and alerting if an object is missing. **Rollback:** `photo_read=db`, within a minute, no deploy, because `data` is still there.
 
 ### Step 6 — Switch writes
-New photos go to the bucket only. Only after reads have been clean for 7 days **and the safety copy (§5.8) is running**, because from here the bucket is the only copy of newer photos.
+New photos go to the bucket only. Only after reads have been clean for 7 days. From here the bucket is the only copy of newer photos, an accepted risk (§5.8, D2).
 - **Rollback:** `photo_write=dual`. Photos written meanwhile exist only in the bucket, which is why this is a later step than reading.
 - **Side effects to deal with first:** SYC-125's compare and carry-back read `photos.data` (`switchover/fingerprint.ts`, `carryBack.ts`) and the old database is kept 30 days after the Neon cutover; bucket-only photos would show there as empty pictures. If the old database is still around at this point, SYC-125's carry-back is told to skip pictures with a key, or the old database is retired first. The smoke check and `fingerprint-accuracy` get the app token (or read through `loadPhotoBytes`).
 
@@ -276,15 +276,15 @@ After a further 30 days, a migration removes `photos.data` and the byte columns.
 ### 5.1 Calendar (proposal, subject to D0 and D6)
 Launch Sat 31 Oct → one week with no photo changes → **Mon 9 Nov**: step 0 and 1 → step 2 live by ~13 Nov → backfill and verify the week after → shadow week → reads switch in early December → writes a week later → space reclaimed about mid-January 2027, well before the April season. SYC-46 sits in "Phase 2b (mid-November)" in Linear; the real finish line is January.
 
-### 5.8 Protecting the only copy
+### 5.8 The only copy: an accepted risk
 
-After step 6 a lost bucket means lost photos. The Cloudflare account could be suspended, a token leaked or revoked, or a bucket deleted by mistake. A second bucket **in the same Cloudflare account does not protect against the first two**, so the first draft was wrong to claim it did.
+**Decided by Samuel, 26 Oct 2026 (D2): no safety copy.** After step 6 the bucket is the only copy of newer photos. What that means, so nobody rediscovers it later:
 
-The **safety copy (D2)** therefore lives **at a different provider or in a different account**: the natural choice is a small **Amazon S3 Frankfurt** bucket (about $1 a month at peak, §3.2), which also gives us real versioning. Details:
-- A nightly job copies new objects; it uses the **copy token**, which can read the main bucket and write the copy.
-- **Deletions are the sweeper's job, not the copier's.** The same sweeper that deletes a main object (§4.4) deletes the safety copy in the same pass, and "confirmed" means *every* location returns not-found. The copier skips any key that has a deletion row. The daily reconciliation covers the copy too. (R2 tokens, as far as I know, cannot be granted "write but not delete"; whether the S3 side can is a point to settle in the build and it does not change the design: the sweeper, not the copier, is the only thing allowed to delete.)
-- **If the copy has versioning on, old versions must also be removed on a deletion**, or "deleted for good" would not be; the sweeper deletes every version.
-- It backs a rule for the privacy policy: removed photos leave backups within a day.
+- **Not protected against:** the Cloudflare account being suspended or lost, a leaked or misused key deleting objects, or someone deleting the bucket by mistake. Any of these loses the newer pictures for good. The sightings, cats, points and records would remain, with placeholders where pictures were.
+- **Why accepted:** we have no off-site photo copy today either (Neon's 7-day restore history is the only protection), the likelihood is low, and a copy brings its own costs: a second company holding every photo, deletions that must reach it, and another account to run. The risk of a copy holding a photo that was meant to be gone was weighed against the risk of losing one, and Samuel chose to carry the second.
+- **Cheap protection that stays:** the 30 days with `data` still in the database before step 7 (§5); narrow, separate tokens for cat photos and report photos (§5 credentials); the reconciliation job, which notices objects or rows going missing; and the Neon snapshot taken before step 7.
+- **Revisit when:** photo volume or value grows far past the planning figures, or Syros Cats asks for a recovery guarantee. The upgrade path is a periodic offline export or a nightly copy at a second provider; the sweeper design in §4.4 already makes either safe for deletions.
+- **Privacy policy:** because there is no second copy, a removed photo is gone from storage as soon as the deletion is confirmed (§4.4), apart from Neon's 7-day restore history.
 
 ---
 
@@ -296,13 +296,13 @@ The **safety copy (D2)** therefore lives **at a different provider or in a diffe
 | Syros Cats team | Nothing, except two things worth knowing: **"Delete for good" will say "deleted, waiting to confirm" for a few seconds to minutes** before it says confirmed (§4.4), and the dashboard's queue thumbnails may load a little faster once report photos have smaller copies (SYC-403). |
 | Cat guardians | Nothing. |
 | The person asking for a removal | Same promise as today, with a confirmed deletion rather than a database edit. |
-| Fair Shake (us) | A new account to look after (Cloudflare R2 plus a second bucket), a new background job (safety copy), a new sweeper, and a much smaller database. |
+| Fair Shake (us) | A new account to look after (Cloudflare R2, two buckets), a new sweeper and reconciliation job, and a much smaller database. |
 
 ### 6.1 Legal and policy work this needs (owned elsewhere, but it blocks step 2)
 - **Cloudflare as a processor** named in the privacy policy (`privacy-policy.md`) and in the Syros Cats ↔ Fair Shake data agreement, before any real photo goes in the bucket. We already use Cloudflare for the website, so this may already be in place: **unchecked** — the privacy-policy page I read does not name any processors.
 - The Play data-safety form and the Apple privacy labels must still match where photos are kept.
 - The line about caches (SYC-276) and the 7-day restore window (§4.4) go in the policy at the same time.
-- **Photos remain in the EU** at every step, including the rehearsal bucket and the safety copy. The jurisdiction can't be changed after a bucket exists, so each bucket is created with it, never later.
+- **Photos remain in the EU** at every step, including the rehearsal bucket. The jurisdiction can't be changed after a bucket exists, so each bucket is created with it, never later.
 
 ---
 
@@ -320,7 +320,7 @@ The **safety copy (D2)** therefore lives **at a different provider or in a diffe
 9. Schema: the relaxed `photos_removed_ck` still forbids a removed photo that has bytes or a key; a live photo with neither is refused.
 10. Races: a removal during a backfill, during a dual-write and during a smaller-copy maker each leave no surviving object (hooks like the existing T15 ones).
 11. Source tests: no `delete(photosTable)`, `delete(welfareReportPhotosTable)`, `delete(photoVariantsTable)` or null-ing of picture columns outside the storage module; no `data IS NULL` or `isNotNull(...data)` used as a removal test; no reader of `welfare_report_photos.bytes` or `photo_variants.bytes` outside the storage module.
-12. Every one of the four deletion paths (§4.4) writes a deletion row; the sweeper deletes both locations and the copier skips a key with a deletion row.
+12. Every one of the four deletion paths (§4.4) writes a deletion row; the sweeper deletes the main object and every smaller copy.
 13. The photo route sends an ETag from the stored checksum and answers 304 to `If-None-Match`.
 14. The removal tool: `GONE-PENDING-OBJECT` until every key is confirmed absent.
 
@@ -350,17 +350,14 @@ The approved earlier decision (`hosting-and-photo-storage.md` §4.2, DECISIONS.m
 **Recommendation: decide on 15 Nov from real launch numbers. If photos are arriving at or above the planned pace, go; if they are far below it, stay put.** (This replaces my first-draft recommendation of "go now", which rested on planning figures that production has since shown to be too large.)
 
 ### D1 — Which store?
-- **A. Cloudflare R2, EU** *(recommended)*. Cheapest (~$0.40 a month at peak), the EU guarantee is explicit and permanent, the account exists. **Risk:** no built-in way to keep old versions, so we build the safety copy ourselves; and the token needs R2 added (a 3-minute job for you).
+- **A. Cloudflare R2, EU** *(recommended)*. Cheapest (~$0.40 a month at peak), the EU guarantee is explicit and permanent, the account exists. **Risk:** no built-in way to keep old versions, which only matters if we want a recovery net, and D2 says we don't; the token needs R2 added (a 3-minute job for you).
 - **B. Neon Object Storage.** Same bill as the database. **Risk:** looks like a beta; Frankfurt must be proven; and test copies of the database would inherit every production photo.
 - **C. Amazon S3, Frankfurt.** The most proven, with versioning built in. **Risk:** about $0.45 a month more at peak, a new account and permissions to set up.
 - **D. Replit App Storage.** The easiest to wire in. **Risk:** nobody has said where the data is held, and no versioning.
 **Recommendation: A.** C if you would rather pay the small extra for provider-side versioning.
 
-### D2 — A second copy for safety?
-- **Yes, a nightly copy at a different provider: a small Amazon S3 Frankfurt bucket** *(recommended)*. About $1 a month at peak. Protects against a suspended Cloudflare account, a leaked token or a mistaken delete (a second Cloudflare bucket would protect against only the last). **Risk:** a second place holding every photo, so every deletion must reach it too (§4.4, §5.8), the privacy policy names a second processor, and it is one more account for the charity to own.
-- **A second R2 bucket in the same account.** About $0.62 at peak. **Risk:** it does not survive the account being suspended or a token leaking, which are the likely failures.
-- **No second copy; rely on the 30 days with `data` still in Neon, then nothing.** Free. **Risk:** from step 6 the bucket is the only copy of newer photos; one bad day loses volunteers' photos for good.
-**Recommendation: yes, S3 Frankfurt, with deletions done by the sweeper (§5.8). It must be running before step 6.**
+### D2 — A second copy for safety? **Decided: no (Samuel, 26 Oct 2026)**
+Samuel's call, after the risks were laid out (§5.8): "safety copy not needed in light of the risks that you've flagged". The options were a nightly copy at Amazon S3 Frankfurt (~$1 a month at peak), a periodic offline export, a second Cloudflare bucket, or nothing. **Chosen: nothing.** The accepted risk is in §5.8: losing the Cloudflare account, a leaked key or a mistaken delete would lose newer photos for good. It can be reopened later; the upgrade path is recorded there.
 
 ### D3 — Serve through our API only, or put a cache/CDN in front?
 - **API only** *(recommended)*. Keeps every privacy rule in one place; costs roughly what we pay now (~$6 a month at the busiest month). **Risk:** photo traffic keeps loading our app server.
