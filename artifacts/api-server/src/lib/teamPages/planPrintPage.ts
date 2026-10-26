@@ -88,6 +88,10 @@ export function renderPlanPrintPage(colony: { id: number; name: string }, plan: 
     `<p class="sub">To do: ${toDo.length} · already sterilised: ${plan.done.length}` +
     (plan.estimate && plan.estimate.cats > 0 ? ` · ${estimateLine(W, plan.estimate)}` : "") +
     `</p>` +
+    // Said on the paper too, so it travels with the page (SYC-739). Ear clip seen:
+    // a sighting recorded a clipped tip (trappingPlan earClipSeen).
+    `<p class="sub">Print this and take it with you. Tick each cat once it has been trapped. ` +
+    `Ear clip seen means someone saw a clipped ear, so the cat may already be sterilised.</p>` +
     list +
     `<footer>Syros Cats · printed ${esc(printedOn(now))} · for the team only</footer>` +
     `</body></html>`

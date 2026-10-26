@@ -571,6 +571,7 @@ router.post(
         tapAction: `${base}/centre/pick`,
         saveAction: base,
         back: { href: `${base}/centre`, label: t("centre.again", v.lang) },
+        help: t("colony.centreNote", v.lang),
       }),
     );
   },
