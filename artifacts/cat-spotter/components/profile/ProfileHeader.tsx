@@ -65,11 +65,6 @@ export function ProfileHeader({
           {nameNotSaved && (
             <Text style={[styles.sub, { color: onPrimary }]}>{t('nameNotSavedYet')}</Text>
           )}
-          {emailNotSaved && (
-            <Text testID="profile-email-not-saved" style={[styles.sub, { color: onPrimary }]}>
-              {t('emailNotSavedYet')}
-            </Text>
-          )}
           <Text testID="profile-rank-line" style={[styles.sub, { color: onPrimary }]} numberOfLines={2}>
             {rankLine ? `${t('profileRole')} · ${rankLine}` : t('profileRole')}
           </Text>
@@ -85,6 +80,14 @@ export function ProfileHeader({
           <Text style={[styles.settingsText, { color: onPrimary }]}>{t('profileSettingsButton')}</Text>
         </Pressable>
       </View>
+
+      {/* Full width, under the avatar row: this line is long, and beside the
+          Settings button it would squeeze the name (SYC-715, checked at 320px). */}
+      {emailNotSaved && (
+        <Text testID="profile-email-not-saved" style={[styles.sub, { color: onPrimary }]}>
+          {t('emailNotSavedYet')}
+        </Text>
+      )}
 
       <View accessibilityRole="tablist" style={styles.tabs}>
         {tabs.map((item) => {
