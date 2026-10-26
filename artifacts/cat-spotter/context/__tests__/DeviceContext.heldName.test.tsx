@@ -22,6 +22,7 @@ vi.mock('@workspace/api-client-react', () => ({
 }));
 
 import { DeviceProvider, IDENTITY_KEYS, useDevice } from '@/context/DeviceContext';
+import { heldEmailNow, holdEmail } from '@/lib/heldEmail';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <DeviceProvider>{children}</DeviceProvider>
@@ -102,5 +103,21 @@ describe('held name (SYC-506)', () => {
     await act(() => result.current.resetIdentity());
     expect(result.current.heldUsername).toBeNull();
     expect(store.has('cat-spotter/held-username')).toBe(false);
+  });
+
+  it('SYC-715: restore, start again and delete-my-data all forget a held email', async () => {
+    expect(IDENTITY_KEYS).toContain('cat-spotter/held-email');
+    const { result } = await ready();
+    for (const change of [
+      () => result.current.adoptRestoredIdentity('dev-restored', 'Restored'),
+      () => result.current.startAgain(),
+      () => result.current.resetIdentity(),
+    ]) {
+      await holdEmail('sea@example.com');
+      expect(heldEmailNow()).toBe('sea@example.com');
+      await act(async () => { await change(); });
+      expect(heldEmailNow()).toBeNull();
+      expect(store.has('cat-spotter/held-email')).toBe(false);
+    }
   });
 });
