@@ -94,7 +94,7 @@ export async function currentMapVersion(src: MapSource = {}): Promise<number> {
     currentCache = { version: v, expires: now + CURRENT_TTL_MS };
     return v;
   } catch (err) {
-    logger.warn({ err: err instanceof Error ? err.message : "failed" }, "map current.json unavailable");
+    logger.warn({ reason: err instanceof Error ? err.message : "failed" }, "map current.json unavailable");
     let v = MAP_FALLBACK_VERSION;
     try {
       v = (await newestStoredVersion()) ?? MAP_FALLBACK_VERSION;
@@ -186,7 +186,7 @@ export async function getMapFile(version: number, path: string, src: MapSource =
     if (!p) {
       p = fetchAndStore(version, path, current, doFetch)
         .catch((err) => {
-          logger.warn({ version, path, err: err instanceof Error ? err.message : "failed" }, "map file unavailable");
+          logger.warn({ version, path, reason: err instanceof Error ? err.message : "failed" }, "map file unavailable");
           return null;
         })
         .finally(() => inflight.delete(key));
@@ -196,7 +196,7 @@ export async function getMapFile(version: number, path: string, src: MapSource =
     if (bytes && version === current) remember(current, path, bytes);
     return bytes;
   } catch (err) {
-    logger.warn({ version, path, err: err instanceof Error ? err.message : "failed" }, "map file lookup failed");
+    logger.warn({ version, path, reason: err instanceof Error ? err.message : "failed" }, "map file lookup failed");
     return null;
   }
 }
