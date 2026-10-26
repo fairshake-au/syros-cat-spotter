@@ -205,6 +205,7 @@ export function renderGuardianColonyPage(
         "</ul>";
   const body =
     `<p>${esc(t("gcol.intro"))}</p>` +
+    `<p class="muted">${esc(t("gcat.help.sterilised"))}</p>` +
     list +
     sitesBlock(input.sites ?? [], t) +
     `<p><a class="tap" href="${MY_COLONIES_PATH}">${esc(t("gcat.back"))}</a></p>`;
@@ -248,6 +249,7 @@ function sayBlock(cat: GuardianCat, mine: MyStatements, t: Say): string {
   const life =
     `<form method="post" action="${base}/life-status">` +
     `<h3 id="gl-title">${esc(t("gcat.say.lifeTitle"))}</h3>` +
+    `<p class="muted">${esc(t("gcat.say.lifeHelp"))}</p>` +
     `<fieldset aria-labelledby="gl-title">${choices}</fieldset>` +
     `<label class="label" for="gl-why">${esc(t("gcat.say.reason"))}</label>` +
     '<input class="text" id="gl-why" name="reason" required maxlength="200" autocomplete="off">' +
@@ -315,6 +317,7 @@ export function renderGuardianCatPage(
       ? `<p><a href="${myColonyPath(cat.colony.id)}">${esc(t("gcat.colony", { name: cat.colony.name }))}</a></p>`
       : "") +
     `<p>${esc(sterilisedWords(cat.sterilised, t))}</p>` +
+    `<p class="muted">${esc(t("gcat.help.sterilised"))}</p>` +
     (cat.lifeStatus ? `<p>${esc(t(`gcat.life.${cat.lifeStatus}` as StringKey))}</p>` : "") +
     `<p>${esc(guardianLastSeenWords(cat.lastSeen, lang, t, live))}</p>` +
     vetVisitLines(cat, lang, t, live) +
