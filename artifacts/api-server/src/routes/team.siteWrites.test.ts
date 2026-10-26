@@ -992,7 +992,8 @@ describe("the pages", () => {
     }
     expect([...html.matchAll(/name="updatedAt"/g)].length).toBe(3);
     expectNoPositionInAddresses(html);
-    expect(html).not.toMatch(/<script/i);
+    // SYC-705: a map page loads our own map files only (team.scriptTags.test.ts names them).
+    for (const tag of html.match(/<script\b[^>]*>/gi) ?? []) expect(tag).toMatch(/^<script src="\/api\/team\/assets\/[\w.-]+" defer>$/);
   });
 
   it("the banner for ?done= shows only fixed sentences", async () => {
@@ -1033,7 +1034,8 @@ describe("the pages", () => {
     ];
     for (const html of pages) {
       expectNoPositionInAddresses(html);
-      expect(html).not.toMatch(/<script/i);
+      // SYC-705: a map page loads our own map files only (team.scriptTags.test.ts names them).
+      for (const tag of html.match(/<script\b[^>]*>/gi) ?? []) expect(tag).toMatch(/^<script src="\/api\/team\/assets\/[\w.-]+" defer>$/);
     }
     // The positions are in hidden fields, which is the one place they travel.
     expect(pages[3]).toMatch(/name="lat" value="37\.\d+"/);

@@ -438,14 +438,11 @@ describe("'Show on our map'", () => {
     expect({ sites: await totalSites(), events: await totalSiteEvents() }).toEqual(before);
   });
 
-  it("zoom, pan and the area buttons keep working from this page", async () => {
+  it("draws no zoom, pan or area buttons: POST /api/team/sites/map is gone (SYC-705; MapLibre here in Task 2b.7)", async () => {
     const res = await post("/api/team/sites/map-at-sighting", { sightingId: String(sightingA) });
-    const form = moveForm(res.text);
-    expect(form.action).toBe("/api/team/sites/map");
-    const moved = await post(form.action, { ...form.fields, go: "in" });
-    expect(moved.status).toBe(200);
-    expect(Number(hiddenIn(moved.text, "vz"))).toBe(Number(form.fields["vz"]) + 1);
-    expectNoPositionInAddresses(moved.text);
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain('class="mapmove"');
+    expect(res.text).not.toContain('action="/api/team/sites/map"');
   });
 
   it("an unknown sighting, or one outside the island, is a 400 that names no position", async () => {

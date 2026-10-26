@@ -518,7 +518,7 @@ describe("the Map page", () => {
     // Feeding sites left the menu with Home (SYC-396 PR 2.1, SYC-450).
     expect(res.text).not.toContain("Feeding sites</a>");
     expect(res.text).toContain('href="/api/team/home">Home</a>');
-    expect(res.text).toContain("© <a href=\"https://www.openstreetmap.org/copyright\"");
+    expect(res.text).toContain('<p class="attrib"><a href="https://www.openstreetmap.org/copyright" rel="noreferrer">© OpenStreetMap contributors</a></p>');
     expect(res.text).toContain("OpenStreetMap contributors");
     expect(res.text).toContain('<main id="main" tabindex="-1" class="mappage">');
     expect(viewOf(res.text).z).toBe(12);
