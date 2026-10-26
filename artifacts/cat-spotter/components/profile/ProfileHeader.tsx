@@ -20,12 +20,15 @@ export type ProfileTab = 'me' | 'badges' | 'spotters';
 export function ProfileHeader({
   name,
   nameNotSaved,
+  emailNotSaved = false,
   rankLine,
   tab,
   onTab,
 }: {
   name: string;
   nameNotSaved: boolean;
+  /** SYC-715: an email typed when the server gave no answer, still waiting to be saved. */
+  emailNotSaved?: boolean;
   rankLine: string | null;
   tab: ProfileTab;
   onTab: (tab: ProfileTab) => void;
@@ -61,6 +64,11 @@ export function ProfileHeader({
           </Text>
           {nameNotSaved && (
             <Text style={[styles.sub, { color: onPrimary }]}>{t('nameNotSavedYet')}</Text>
+          )}
+          {emailNotSaved && (
+            <Text testID="profile-email-not-saved" style={[styles.sub, { color: onPrimary }]}>
+              {t('emailNotSavedYet')}
+            </Text>
           )}
           <Text testID="profile-rank-line" style={[styles.sub, { color: onPrimary }]} numberOfLines={2}>
             {rankLine ? `${t('profileRole')} · ${rankLine}` : t('profileRole')}

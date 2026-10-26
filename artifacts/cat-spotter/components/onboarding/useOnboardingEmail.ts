@@ -3,7 +3,15 @@ import { useDevice } from '@/context/DeviceContext';
 import type { Language } from '@/lib/i18n';
 import { addKeepSafe, isInvalidEmail, looksLikeEmail } from '@/lib/keepSafe';
 
-export type OnboardingEmailResult = 'none' | 'saved' | 'failed' | 'invalid' | 'stale' | 'busy';
+export type OnboardingEmailResult =
+  | 'none'
+  | 'saved'
+  | 'failed'
+  /** SYC-715: the request got no server answer (network error or timeout); the screen holds the address and goes on. */
+  | 'unreachable'
+  | 'invalid'
+  | 'stale'
+  | 'busy';
 /** The i18n key of the line shown under the email box. */
 export type OnboardingEmailError = 'keepSafeInvalidEmail' | 'keepSafeSaveFailed';
 
@@ -51,7 +59,9 @@ export function resetOnboardingEmailForTests() {
  * - otherwise `beforeSend` runs first (the screen writes the offer there),
  *   then: `'none'` for an empty box; `'saved'` when the address is added, or
  *   was already added on this screen; `'failed'` when it didn't save
- *   (including the test site's `not_configured`); `'stale'` when the phone's
+ *   (including the test site's `not_configured`); `'unreachable'` when the
+ *   request got no server answer at all (SYC-715; no error line, the caller
+ *   holds the address); `'stale'` when the phone's
  *   identity changed while the request was out ("Delete my data", "Get your
  *   spots back", a restore link), in which case the result is ignored.
  *
@@ -133,6 +143,11 @@ export function useOnboardingEmail({
         setError('keepSafeInvalidEmail');
         return 'invalid';
       }
+      // SYC-715: no HTTP status means no server answer (wifi with no internet
+      // behind it): hold the address for the background save instead of
+      // stopping the spotter here. A server answer of any kind is still
+      // "That didn't save".
+      if (typeof (err as { status?: unknown } | null)?.status !== 'number') return 'unreachable';
       setError('keepSafeSaveFailed');
       return 'failed';
     } finally {

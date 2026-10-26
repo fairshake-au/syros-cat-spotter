@@ -22,6 +22,7 @@ import {
   writeKeepSafeOffer,
   type KeepSafeOffer,
 } from '@/lib/keepSafe';
+import { clearHeldEmail, HELD_EMAIL_KEY } from '@/lib/heldEmail';
 
 const STORAGE_KEY = 'cat-spotter/device-id';
 const SECRET_KEY = 'cat-spotter/device-secret';
@@ -53,6 +54,8 @@ export const IDENTITY_KEYS = [
   SECRET_KEY,
   USERNAME_KEY,
   HELD_USERNAME_KEY,
+  // SYC-715: an email typed when the server gave no answer, until it is saved.
+  HELD_EMAIL_KEY,
   NAME_NOTE_KEY,
   OWNED_CATS_KEY,
   OWNERSHIP_SNAPSHOT_KEY,
@@ -197,6 +200,8 @@ async function persistRestoredIdentity(restoredId: string, restoredName: string 
   else await AsyncStorage.removeItem(USERNAME_KEY);
   // SYC-506: a name held offline was never saved; the restored one replaces it.
   await AsyncStorage.multiRemove([HELD_USERNAME_KEY, NAME_NOTE_KEY]);
+  // SYC-715: likewise an email held for the old spotter.
+  await clearHeldEmail();
   // The server's list of owned cats replaces this phone's (hydrated below).
   await AsyncStorage.removeItem(OWNED_CATS_KEY);
   // The restored spotter is already kept safe.
@@ -534,6 +539,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       OWNED_CATS_KEY,
       KEEP_SAFE_OFFER_KEY,
     ]);
+    await clearHeldEmail();
     await AsyncStorage.setItem(SECRET_KEY, secret);
     await AsyncStorage.setItem(STORAGE_KEY, id);
     setDeviceSecretGetter(() => secret);
@@ -583,6 +589,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     // fresh identity anyway. If it dies before, the old id gets 410 and the
     // wipe runs again (plan §6.4).
     await AsyncStorage.multiRemove([...IDENTITY_KEYS, KEEP_SAFE_OFFER_KEY]);
+    await clearHeldEmail();
     const secret = await makeDeviceSecret();
     const id = await makeDeviceId();
     await AsyncStorage.setItem(SECRET_KEY, secret);
