@@ -17,7 +17,8 @@ const WORDS = {
   zoomIn: "Zoom in",
   zoomOut: "Zoom out",
   compass: "Turn north up",
-  needsJs: "The map needs JavaScript and an up-to-date browser.",
+  needsJs: "The map needs a newer browser with JavaScript on.",
+  loading: "Loading the map…",
 };
 
 const attr = (v: unknown) => JSON.stringify(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -195,6 +196,86 @@ describe("map-core.js: when the map starts", () => {
     other.run("map-core.js");
     const m2 = await other.window.CatMap.start(other.document.querySelector(".map"), {});
     expect(m2.dragRotate.isEnabled()).toBe(true);
+  });
+});
+
+describe("map-core.js: while the map loads", () => {
+  it("shows Loading the map… while the file downloads", async () => {
+    let arrive!: (a: { status: number; body: string }) => void;
+    const routes = {
+      ...mapDataRoutes(),
+      "/api/team/map-data/v7/syros.pmtiles": () => new Promise<{ status: number; body: string }>((r) => (arrive = r)),
+    };
+    const rig = mapScriptRig(mapHtml({}, FALLBACK), { routes });
+    rig.run("map-core.js", "dashboard-pin.js");
+    await rig.settle();
+    const box = rig.document.querySelector(".map");
+    expect(box.querySelector(".mapnojs").textContent).toBe("Loading the map…");
+    expect(box.getAttribute("aria-busy")).toBe("true");
+    expect(rig.document.querySelector(".mapfallback").classList.contains("maplive")).toBe(false);
+    expect(rig.lib.maps).toHaveLength(0);
+    arrive({ status: 200, body: "PMTILES-BYTES" });
+    await rig.settle();
+    expect(box.querySelector(".mapnojs")).toBeNull();
+    expect(box.hasAttribute("aria-busy")).toBe(false);
+    expect(rig.document.querySelector(".mapfallback").classList.contains("maplive")).toBe(true);
+  });
+
+  it("stalled download falls back to needsJs after the timeout", async () => {
+    const routes = { ...mapDataRoutes(), "/api/team/map-data/v7/syros.pmtiles": () => new Promise<never>(() => {}) };
+    const rig = mapScriptRig(mapHtml({}, FALLBACK), { routes, fakeTimers: true });
+    rig.run("map-core.js", "dashboard-pin.js");
+    await rig.settle();
+    expect(rig.document.querySelector(".mapnojs").textContent).toBe("Loading the map…");
+    expect(rig.timers.map((t) => t.ms)).toContain(45000);
+    rig.runTimers(45000);
+    await rig.settle();
+    const box = rig.document.querySelector(".map");
+    expect(box.querySelector(".mapnojs").textContent).toBe(WORDS.needsJs);
+    expect(box.hasAttribute("aria-busy")).toBe(false);
+    expect(box.children).toHaveLength(1);
+    expect(rig.document.querySelector(".mapfallback").classList.contains("maplive")).toBe(false);
+    expect(rig.lib.maps).toHaveLength(0);
+  });
+
+  it("keeps the loading line until the map's first load, and only then marks the page live", async () => {
+    const rig = await viewMap({}, { lib: makeMaplibreFake({ autoLoad: false }) });
+    const map = rig.lib.maps[0]!;
+    expect(rig.document.querySelector(".mapnojs").textContent).toBe("Loading the map…");
+    expect(rig.document.querySelector(".mapfallback").classList.contains("maplive")).toBe(false);
+    map.fire("load");
+    await rig.settle();
+    expect(rig.document.querySelector(".mapnojs")).toBeNull();
+    expect(rig.document.querySelector(".mapfallback").classList.contains("maplive")).toBe(true);
+    // A tile error after load is not the page's business: the map stays.
+    map.fire("error", { error: new Error("one tile") });
+    await rig.settle();
+    expect(map.removed).toBe(false);
+  });
+
+  it("an error before the first load is no map: needsJs, the fallbacks still visible, the map removed", async () => {
+    const rig = await viewMap({}, { lib: makeMaplibreFake({ autoLoad: false }) });
+    const map = rig.lib.maps[0]!;
+    map.fire("error", { error: new Error("glyphs 404") });
+    await rig.settle();
+    const box = rig.document.querySelector(".map");
+    expect(box.querySelector(".mapnojs").textContent).toBe(WORDS.needsJs);
+    expect(box.children).toHaveLength(1);
+    expect(box.hasAttribute("aria-busy")).toBe(false);
+    expect(rig.document.querySelector(".mapfallback").classList.contains("maplive")).toBe(false);
+    expect(map.removed).toBe(true);
+    expect(rig.lib.markers).toHaveLength(0);
+  });
+
+  it("a map that never draws falls back to needsJs after its own timeout", async () => {
+    const rig = mapScriptRig(mapHtml({}, FALLBACK), { lib: makeMaplibreFake({ autoLoad: false }), fakeTimers: true });
+    rig.run("map-core.js", "dashboard-pin.js");
+    await rig.settle();
+    expect(rig.lib.maps).toHaveLength(1);
+    rig.runTimers(30000);
+    await rig.settle();
+    expect(rig.document.querySelector(".mapnojs").textContent).toBe(WORDS.needsJs);
+    expect(rig.lib.maps[0]!.removed).toBe(true);
   });
 });
 

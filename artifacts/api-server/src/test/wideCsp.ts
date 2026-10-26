@@ -33,9 +33,9 @@ export const WIDE_CSP_ROUTES: ReadonlySet<string> = new Set([
   "GET /api/team/sites",
   // One site's page: its small map.
   "GET /api/team/sites/:id",
-  // A colony's page: its sites' small map in the trapping plan.
+  // A colony's page: its sites' small map in the trapping plan (only when it has sites; see MAP_ONLY_ROUTES).
   "GET /api/team/colonies/:id",
-  // A cat's page: the small map of its sightings (the Map tab).
+  // A cat's page: the small map of its sightings, the Map tab (only when it has sightings).
   "GET /api/team/cats/:id",
 ]);
 
@@ -73,13 +73,24 @@ export const PHOTO_CSP_ROUTES: ReadonlySet<string> = new Set([
   "POST /api/team/cats/find",
 ]);
 
+/**
+ * Routes in WIDE_CSP_ROUTES whose page has the wider header only when it
+ * actually draws its map (SYC-705 2b.5 review): a cat with no sightings, a
+ * colony with no sites, has no map, no script and the strict header.
+ */
+export const MAP_ONLY_ROUTES: ReadonlySet<string> = new Set(["GET /api/team/colonies/:id", "GET /api/team/cats/:id"]);
+
+/** Does this page load our map's scripts (map-core.js)? */
+const loadsMap = (text: string | undefined) => /<script src="\/api\/team\/assets\/map-core\.[0-9a-f]{12}\.js"/.test(text ?? "");
+
 /** The header an answer must carry: WIDE_CSP or PHOTO_CSP only for an exempt route's own page. */
 export function expectedCsp(
   route: string | undefined,
-  res: { status: number; headers: Record<string, unknown> },
+  res: { status: number; headers: Record<string, unknown>; text?: string },
 ): string {
   const html = /^text\/html\b/.test(String(res.headers["content-type"] ?? ""));
   const own = route !== undefined && res.status === 200 && html;
+  if (own && MAP_ONLY_ROUTES.has(route)) return loadsMap(res.text) ? WIDE_CSP : STRICT_CSP;
   if (own && WIDE_CSP_ROUTES.has(route)) return WIDE_CSP;
   if (own && PHOTO_CSP_ROUTES.has(route)) return PHOTO_CSP;
   return STRICT_CSP;

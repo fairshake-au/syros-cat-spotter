@@ -154,7 +154,14 @@ export interface FakeLib {
   getWorkerUrl(): string | null;
 }
 
-export function makeMaplibreFake(opts: { throwOnMap?: boolean; size?: { width: number; height: number } } = {}): FakeLib {
+export function makeMaplibreFake(
+  opts: {
+    throwOnMap?: boolean;
+    size?: { width: number; height: number };
+    /** Fire "load" on each new map once the code that made it has run (default true); false: the test fires it. */
+    autoLoad?: boolean;
+  } = {},
+): FakeLib {
   const lib = {
     maps: [] as FakeMap[],
     markers: [] as FakeMarker[],
@@ -311,6 +318,8 @@ export function makeMaplibreFake(opts: { throwOnMap?: boolean; size?: { width: n
     const sources: Record<string, unknown> = {};
     const layers: Record<string, unknown> = {};
     lib.maps.push(m);
+    // As MapLibre does once the style and first tiles are in: after the caller's own code has run.
+    if (opts.autoLoad !== false) void Promise.resolve().then(() => !m.removed && m.fire("load"));
   }
 
   function FakeMarkerCtor(this: FakeMarker, options: any = {}) {
@@ -403,7 +412,7 @@ export interface FetchCall {
 }
 
 /** The map-data routes, answered as the server does for `version`. */
-export function mapDataRoutes(version = 7): Record<string, () => FakeAnswer> {
+export function mapDataRoutes(version = 7): Record<string, () => FakeAnswer | Promise<FakeAnswer>> {
   const style = (lang: string) => ({
     version: 8,
     glyphs: `/api/team/map-data/v${version}/fonts/{fontstack}/{range}.pbf`,
@@ -467,6 +476,13 @@ export function makeCachesFake(w: any): FakeCaches {
   return c;
 }
 
+export interface FakeTimer {
+  fn: () => void;
+  ms: number;
+  cleared: boolean;
+  ran: boolean;
+}
+
 export interface MapScriptRig {
   window: any;
   document: any;
@@ -476,9 +492,13 @@ export interface MapScriptRig {
   /** Every fetch the scripts made, in order, with their absolute URL. */
   fetches: FetchCall[];
   /** The routes the fake fetch answers; tests may change them. Path → answer. */
-  routes: Record<string, () => FakeAnswer>;
+  routes: Record<string, () => FakeAnswer | Promise<FakeAnswer>>;
   /** The URLs the test import hook was asked for. */
   imports: string[];
+  /** With `fakeTimers`: every timer the page set, in order. */
+  timers: FakeTimer[];
+  /** With `fakeTimers`: run each pending timer of at least `atLeastMs`. */
+  runTimers(atLeastMs: number): void;
   /** Run assets/<file> in the page, in order (as the page's deferred script tags would). */
   run(...files: string[]): void;
   /** Let every pending promise and timer settle. */
@@ -505,7 +525,9 @@ export function mapScriptRig(
     pmtiles?: boolean;
     fetch?: boolean;
     importFails?: boolean;
-    routes?: Record<string, () => FakeAnswer>;
+    routes?: Record<string, () => FakeAnswer | Promise<FakeAnswer>>;
+    /** Replace the page's setTimeout/clearTimeout with recorded ones the test runs (rig.timers). */
+    fakeTimers?: boolean;
   } = {},
 ): MapScriptRig {
   const dom = new JSDOM(`<!doctype html><html><body>${body}</body></html>`, {
@@ -525,7 +547,7 @@ export function mapScriptRig(
       fetches.push({ url, init });
       const u = new w.URL(url);
       const route = u.origin === w.location.origin && u.search === "" ? routes[u.pathname] : undefined;
-      return makeResponse(w, url, route ? route() : { status: 404, body: "not found" });
+      return makeResponse(w, url, route ? await route() : { status: 404, body: "not found" });
     };
   } else {
     delete w.fetch;
@@ -533,6 +555,13 @@ export function mapScriptRig(
   const caches = opts.caches === false ? null : (opts.cachesFake ?? makeCachesFake(w));
   if (caches) w.caches = caches;
   else delete w.caches;
+  const timers: FakeTimer[] = [];
+  if (opts.fakeTimers) {
+    w.setTimeout = (fn: () => void, ms: number) => timers.push({ fn, ms, cleared: false, ran: false });
+    w.clearTimeout = (id: number) => {
+      if (timers[id - 1]) timers[id - 1]!.cleared = true;
+    };
+  }
   w.__catMapImport = (url: string) => {
     imports.push(url);
     return opts.importFails ? Promise.reject(new TypeError("import failed")) : Promise.resolve(lib);
@@ -546,6 +575,15 @@ export function mapScriptRig(
     fetches,
     routes,
     imports,
+    timers,
+    runTimers(atLeastMs: number) {
+      for (const t of timers) {
+        if (!t.cleared && !t.ran && t.ms >= atLeastMs) {
+          t.ran = true;
+          t.fn();
+        }
+      }
+    },
     run(...files: string[]) {
       for (const f of files) w.eval(readFileSync(join(ASSETS, f), "utf8"));
     },

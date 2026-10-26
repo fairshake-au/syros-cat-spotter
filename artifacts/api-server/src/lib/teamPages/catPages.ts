@@ -367,8 +367,11 @@ export const MAP_SIGHTINGS = 30;
  * island can't be in view, however the map is fitted. Those are left off the
  * map, and counted. Every other sighting is in view.
  */
+/** Does the cat page draw the sightings map (and so load the map's scripts, under the wider header)? */
+export const hasSightingsMap = (v: Pick<TeamCatView, "sightings">): boolean => v.sightings.length > 0;
+
 function sightingsMap(v: TeamCatView, island: boolean, hrefOf: (sightingId: number) => string): string {
-  if (v.sightings.length === 0) return "";
+  if (!hasSightingsMap(v)) return "";
   const shown = v.sightings.slice(0, MAP_SIGHTINGS).reverse();
   const numbered = shown.map((s, i) => ({ s, n: i + 1 }));
   const onMap = numbered.filter(({ s }) => inMapBox(s));
@@ -566,7 +569,7 @@ export function renderCatPage(
     heading: card,
     mainClass: "wide",
     // The sightings' small map (SYC-705, MapLibre) is the page's only script.
-    ...(smallMap !== "" ? mapPageAssets() : {}),
+    ...(hasSightingsMap(v) ? mapPageAssets() : {}),
     body: renderCatTabs(panels),
   });
 }

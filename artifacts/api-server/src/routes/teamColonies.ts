@@ -22,6 +22,7 @@ import {
   colonySortOf,
   renderAddCatsPage,
   renderColoniesPage,
+  hasSitesMap,
   renderColonyPage,
   renderColonyProblem,
   renderNameTaken,
@@ -303,8 +304,9 @@ router.get(
       now,
     });
     // The sites' small map is MapLibre (SYC-705): its scripts need the wider
-    // header, for this 200 page only (set last, so an error answer stays strict).
-    setTeamHeaders(res, { scripts: true });
+    // header, for this 200 page only and only when it has the map (set last,
+    // so an error answer stays strict).
+    if (hasSitesMap(view, plan)) setTeamHeaders(res, { scripts: true });
     res.type("html").send(html);
   },
 );

@@ -53,12 +53,14 @@ describe("renderMap", () => {
 
   it("holds the needs-JavaScript line, the buttons' words, and the library's and worker's own addresses", () => {
     const html = renderMap({ mode: "view" });
-    expect(html).toContain(`<p class="mapnojs">${en["map.needsJs"]}</p>`);
+    expect(html).toContain('<p class="mapnojs">The map needs a newer browser with JavaScript on.</p>');
+    expect(en["map.needsJs"]).toBe("The map needs a newer browser with JavaScript on.");
     expect(dataOf(html, "data-words")).toEqual({
       zoomIn: en["map.zoomIn"],
       zoomOut: en["map.zoomOut"],
       compass: en["map.compass"],
       needsJs: en["map.needsJs"],
+      loading: "Loading the map…",
     });
     expect(html).toContain(` data-maplibre="${assetUrl("maplibre-gl.mjs")}"`);
     expect(html).toContain(` data-worker="${assetUrl("maplibre-gl-worker.mjs")}"`);
@@ -84,6 +86,12 @@ describe("renderMap", () => {
         markers: [site, { lat: 37.4412, lng: 24.9421, label: "Sighting 1", href: "#sg-3", look: "seen", n: 1 }],
       }) + renderMap({ mode: "place", formId: "pick", centre: { lat: 37.4412, lng: 24.9421 }, zoom: 17 });
     const values = [...html.matchAll(/\s(href|action|src)="([^"]*)"/g)].map((m) => m[2]!);
+    // The markers' links too: dashboard-pin.js makes them hrefs.
+    const inData = [...html.matchAll(/ data-map="([^"]*)"/g)].flatMap((m) =>
+      (JSON.parse(unescape(m[1]!)).markers as { href?: string }[]).flatMap((k) => (k.href === undefined ? [] : [k.href])),
+    );
+    expect(inData).toEqual(["/api/team/sites/12", "#sg-3"]);
+    values.push(...inData);
     expect(values.length).toBeGreaterThan(0);
     for (const v of values) {
       if (isOpaqueAddress(v)) continue;

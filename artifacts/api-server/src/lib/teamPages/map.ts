@@ -207,7 +207,13 @@ export function renderMap(opts: MapOptions): string {
     markers: (opts.markers ?? []).map(markerData),
     ...(opts.formId !== undefined ? { formId: opts.formId } : {}),
   };
-  const words = { zoomIn: t("map.zoomIn"), zoomOut: t("map.zoomOut"), compass: t("map.compass"), needsJs: t("map.needsJs") };
+  const words = {
+    zoomIn: t("map.zoomIn"),
+    zoomOut: t("map.zoomOut"),
+    compass: t("map.compass"),
+    needsJs: t("map.needsJs"),
+    loading: t("map.loading"),
+  };
   return (
     `<div class="map"${id} data-map="${jsonAttr(data)}" data-words="${jsonAttr(words)}" ` +
     `data-maplibre="${esc(library)}" data-worker="${esc(worker)}">` +

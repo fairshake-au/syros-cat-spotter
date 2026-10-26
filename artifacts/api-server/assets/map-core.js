@@ -30,6 +30,11 @@
   var PAD = 0.03;
   var CENTRE = [37.445, 24.93];
   var START_ZOOM = 12;
+  // How long the whole map file may take to arrive, and then the map to draw
+  // itself, before the box says the map can't be shown (a stalled download
+  // must not leave "Loading the map…" up for good).
+  var FILE_TIMEOUT_MS = 45000;
+  var LOAD_TIMEOUT_MS = 30000;
 
   /** App zoom (12-19, the old picture maps' numbers) to MapLibre's (512 px tiles). */
   function toMapLibreZoom(z) {
@@ -206,6 +211,36 @@
     return box;
   }
 
+  /** `p`, or a failure after `ms` (window.setTimeout, so tests can drive it). */
+  function deadline(p, ms, what) {
+    return new Promise(function (resolve, reject) {
+      var timer = window.setTimeout(function () {
+        reject(fail(what + " took too long"));
+      }, ms);
+      p.then(
+        function (v) {
+          window.clearTimeout(timer);
+          resolve(v);
+        },
+        function (e) {
+          window.clearTimeout(timer);
+          reject(e);
+        },
+      );
+    });
+  }
+
+  /** The box's one line (.mapnojs), made if it is missing. */
+  function lineOf(el) {
+    var line = el.querySelector(".mapnojs");
+    if (!line) {
+      line = document.createElement("p");
+      line.className = "mapnojs";
+      el.appendChild(line);
+    }
+    return line;
+  }
+
   /** The page as it was, with the "needs JavaScript" line in the box. */
   function showNoMap(el, words) {
     var kids = Array.prototype.slice.call(el.children);
@@ -220,6 +255,7 @@
       el.appendChild(line);
     }
     if (words.needsJs) line.textContent = words.needsJs;
+    el.removeAttribute("aria-busy");
   }
 
   function lngLat(p) {
@@ -231,6 +267,9 @@
     var words = readJson(el, "data-words") || {};
     var canvas = null;
     var made = null;
+    // Until the map has drawn itself: "Loading the map…", not the no-map line.
+    if (words.loading) lineOf(el).textContent = words.loading;
+    el.setAttribute("aria-busy", "true");
     return Promise.resolve()
       .then(function () {
         if (typeof window.fetch !== "function") throw fail("no fetch");
@@ -257,7 +296,7 @@
       .then(function (cur) {
         var version = cur && cur.version;
         if (typeof version !== "number" || !isFinite(version) || version < 1 || Math.floor(version) !== version) throw fail("version");
-        return Promise.all([archive(version), style(version, opts.lang)]);
+        return Promise.all([deadline(archive(version), FILE_TIMEOUT_MS, "map file"), style(version, opts.lang)]);
       })
       .then(function (got) {
         canvas = document.createElement("div");
@@ -289,14 +328,36 @@
           made.touchZoomRotate.disableRotation();
           if (made.keyboard && typeof made.keyboard.disableRotation === "function") made.keyboard.disableRotation();
         }
-        el.appendChild(controls(made, words, rotate));
-        var line = el.querySelector(".mapnojs");
-        if (line) el.removeChild(line);
-        Array.prototype.forEach.call(document.querySelectorAll(".mapfallback"), function (f) {
-          f.classList.add("maplive");
+        // Only a map that has drawn itself counts: an error before its first
+        // "load" (the style, a font or symbol, a tile, a lost WebGL context)
+        // is no map, so the page goes back as it was.
+        var map = made;
+        return deadline(
+          new Promise(function (resolve, reject) {
+            var onError = function (ev) {
+              map.off("load", onLoad);
+              reject(fail("map error before load" + (ev && ev.error ? ": " + ev.error : "")));
+            };
+            var onLoad = function () {
+              map.off("error", onError);
+              resolve();
+            };
+            map.once("load", onLoad);
+            map.once("error", onError);
+          }),
+          LOAD_TIMEOUT_MS,
+          "map drawing",
+        ).then(function () {
+          el.appendChild(controls(map, words, rotate));
+          var line = el.querySelector(".mapnojs");
+          if (line) el.removeChild(line);
+          el.removeAttribute("aria-busy");
+          Array.prototype.forEach.call(document.querySelectorAll(".mapfallback"), function (f) {
+            f.classList.add("maplive");
+          });
+          el.classList.add("maplive");
+          return map;
         });
-        el.classList.add("maplive");
-        return made;
       })
       .catch(function (e) {
         if (made) {

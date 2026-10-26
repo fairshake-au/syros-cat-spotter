@@ -25,7 +25,7 @@ import type { TieMode } from "../lib/teamPages/catPages";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
 import { allColonyChoices } from "../lib/colonyCats";
-import { cameFromCats, catPageFormKeys, renderCatPage, renderNoSuchCat, withoutTeamNotes } from "../lib/teamPages/catPages";
+import { cameFromCats, catPageFormKeys, hasSightingsMap, renderCatPage, renderNoSuchCat, withoutTeamNotes } from "../lib/teamPages/catPages";
 import { historyShowOf } from "../lib/teamPages/catHistory";
 import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
 import { parseCatFilters } from "../lib/teamCatFilters";
@@ -562,8 +562,9 @@ router.get(
         issues: await issueStripFor(person, view.cat.id),
       });
     // The sightings' small map is MapLibre (SYC-705): its scripts need the
-    // wider header, for this 200 page only (set last, so an error answer stays strict).
-    setTeamHeaders(res, { scripts: true });
+    // wider header, for this 200 page only and only when it has the map (set
+    // last, so an error answer stays strict).
+    if (hasSightingsMap(view)) setTeamHeaders(res, { scripts: true });
     res.type("html").send(html);
   },
 );

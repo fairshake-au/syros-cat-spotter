@@ -633,6 +633,10 @@ export function estimateLine({ w }: Words, e: NonNullable<TrappingPlan["estimate
 }
 
 /** The colony's feeding sites on a small map, as squares (§12), with no controls. */
+/** Does the colony page draw its sites' map (and so load the map's scripts, under the wider header)? */
+export const hasSitesMap = (v: Pick<ColonyView, "sites">, plan: Pick<TrappingPlan, "sites">): boolean =>
+  v.sites.length > 0 && plan.sites.length > 0;
+
 function sitesMap(W: Words, plan: TrappingPlan, names: ReadonlyMap<number, string>): string {
   if (plan.sites.length === 0) return "";
   const markers: MapMarker[] = plan.sites.map((s) => ({
@@ -796,7 +800,7 @@ export function renderColonyPage(
     lang: opts.lang,
     personName,
     // The sites' small map (sitesMap) is the only script on the page.
-    ...(v.sites.length > 0 && plan.sites.length > 0 ? mapPageAssets() : {}),
+    ...(hasSitesMap(v, plan) ? mapPageAssets() : {}),
     beforeTitle: backLink("/api/team/colonies", w("colony.back")),
     body:
       (opts.kept && opts.may("edit_colony") ? keptLine(opts.lang) : "") +

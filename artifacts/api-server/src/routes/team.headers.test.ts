@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { addPerson, pool } from "@workspace/db";
+import { addPerson, db, feedingSitesTable, photosTable, pool, sightingsTable } from "@workspace/db";
 import app from "../app";
 import { setMapSourceForTests } from "./teamMapData";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
@@ -335,18 +335,45 @@ describe("the wider header is the named pages' alone, and exactly this", () => {
     ]);
   });
 
+  // SYC-705 2b.5 review: a cat's or colony's page loads the map, and gets the
+  // wider header, only when it draws a map (sightings; sites).
+  it("a cat's page and a colony's page are wide only when they draw a map", async () => {
+    const page = (path: string) => request(app).get(path).set("Cookie", cookie).set("Accept", "text/html");
+    const scriptsOf = (html: string) => html.match(/<script\b/gi)?.length ?? 0;
+    // No sightings, no sites: no map, no script, the strict header.
+    const bareCol = await newColony("headers-bare");
+    const bareCat = (await seedCat(bareCol)).id;
+    for (const path of [`/api/team/cats/${bareCat}`, `/api/team/colonies/${bareCol}`]) {
+      const res = await page(path);
+      expect(res.status, path).toBe(200);
+      expect(res.headers["content-security-policy"], path).toBe(STRICT_CSP);
+      expect(scriptsOf(res.text), path).toBe(0);
+      expect(res.text, path).not.toContain('class="map"');
+    }
+    // With a sighting, and with a site: the map, its scripts, the wider header.
+    const mapCol = await newColony("headers-map");
+    const mapCat = (await seedCat(mapCol)).id;
+    const [photo] = await db.insert(photosTable).values({ data: "AAAA", mime: "image/jpeg" }).returning();
+    await db.insert(sightingsTable).values({ deviceId: "vt-headers-device", photoId: photo!.id, catId: mapCat, lat: 37.44, lng: 24.94, status: "resolved" });
+    await db.insert(feedingSitesTable).values({ name: "vt-headers site", lat: 37.445, lng: 24.94, colonyId: mapCol });
+    for (const path of [`/api/team/cats/${mapCat}`, `/api/team/colonies/${mapCol}`]) {
+      const res = await page(path);
+      expect(res.status, path).toBe(200);
+      expect(res.headers["content-security-policy"], path).toBe(WIDE_CSP);
+      expect(scriptsOf(res.text), path).toBe(3);
+      expect(res.text, path).toContain(' data-map="');
+    }
+  });
+
   // SYC-705 Task 2b.5: a map page's own 200 carries the wider header; its JSON
   // answer, its not-found page and "Show on our map" (still the old picture
   // map until Task 2b.7) keep the strict one.
-  it("the Feeding sites page and a cat's page carry the wider header; their JSON and not-found answers the strict one", async () => {
+  it("the Feeding sites page carries the wider header; its JSON and the map pages' not-found answers the strict one", async () => {
     const sites = await request(app).get("/api/team/sites").set("Cookie", cookie).set("Accept", "text/html");
     expect(sites.status).toBe(200);
     expect(sites.headers["content-security-policy"]).toBe(WIDE_CSP);
     const json = await request(app).get("/api/team/sites").set("Cookie", cookie).set("Accept", "application/json");
     expect(json.headers["content-security-policy"]).toBe(STRICT_CSP);
-    const cat = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie).set("Accept", "text/html");
-    expect(cat.status).toBe(200);
-    expect(cat.headers["content-security-policy"]).toBe(WIDE_CSP);
     for (const path of ["/api/team/sites/999999999", "/api/team/colonies/999999999", "/api/team/cats/999999999"]) {
       const nf = await request(app).get(path).set("Cookie", cookie).set("Accept", "text/html");
       expect(nf.status, path).toBe(404);

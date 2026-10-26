@@ -709,7 +709,8 @@ export const en = {
   "map.south": "↓ South",
   "map.goTo": "Go to",
   "map.attrib": "© OpenStreetMap contributors",
-  "map.needsJs": "The map needs JavaScript and an up-to-date browser.",
+  "map.needsJs": "The map needs a newer browser with JavaScript on.",
+  "map.loading": "Loading the map…",
   "map.compass": "Turn north up",
   // SYC-516 C1: the dashboard's error pages (spec 3.1).
   "error.notFound.title": "This page doesn't exist",
