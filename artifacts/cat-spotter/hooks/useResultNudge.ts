@@ -34,6 +34,8 @@ export function useResultNudge(input: {
   deviceId: string | null;
   sightingId: number | null;
   localId?: string;
+  /** SYC-186: the item was kept when sent live, so it is not "a spot saved for later". */
+  keptAtSend?: boolean;
   screen: ResultScreen;
 }): { show: ResultNudge; dismiss: () => void; help: () => void } {
   const { settings, signals } = useAppSettings();
@@ -53,7 +55,9 @@ export function useResultNudge(input: {
     // (expo-router pushes it), so a changed sighting here is never decided.
     if (decided.current || !deviceId || sightingId === null) return;
     decided.current = true;
-    const { localId, screen, settings: s, signals: g } = latest.current;
+    const { localId: itemId, keptAtSend, screen, settings: s, signals: g } = latest.current;
+    // A spot kept at send is a live send: only one saved for later never shows the nudge.
+    const localId = keptAtSend ? undefined : itemId;
     void (async () => {
       const record = await loadExistingWaitingRecord(AsyncStorage, deviceId);
       if (!record) return;

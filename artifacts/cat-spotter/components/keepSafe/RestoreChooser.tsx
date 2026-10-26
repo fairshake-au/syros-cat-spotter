@@ -363,6 +363,10 @@ export function RestoreChooser({
           {state.spotters.length > 1 ? (
             <Text style={[styles.text, { color: colors.foreground }]}>{t('restorePagePick')}</Text>
           ) : null}
+          {/* SYC-186: unfinished spots live on the old phone, not on the new one. */}
+          <Text style={[styles.text, { color: colors.mutedForeground }]} testID="restore-unfinished-note">
+            {t('restoreUnfinishedNote')}
+          </Text>
           {state.spotters.map((s) => (
             <Button
               key={s.choice}

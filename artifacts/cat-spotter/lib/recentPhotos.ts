@@ -230,6 +230,9 @@ export function entryForOutcome(
   if (kind === 'sent') {
     const entry: RecentPhoto = { capturedAtMs };
     if (info.sightingId !== undefined) entry.sightingId = info.sightingId;
+    // SYC-186: a sent spot also kept in the list names its card, so "Open that
+    // spot" works and a discarded card frees the photo to be sent again.
+    if (info.localId !== undefined) entry.localId = info.localId;
     if (info.isCatPhoto !== false) {
       if (fingerprint) entry.fingerprint = fingerprint;
       if (extras.length > 0) entry.extraFingerprints = extras;
@@ -264,7 +267,11 @@ export function findAlreadyLogged(
     ) {
       continue;
     }
-    if (e.sightingId !== undefined || e.catId !== undefined) return e;
+    if (e.catId !== undefined) return e;
+    // SYC-186: a sent spot kept in the list is logged only while its card
+    // is. Discarding the card lets the same photo be sent again. An older
+    // sent entry, with no card of its own, still counts.
+    if (e.sightingId !== undefined && e.localId === undefined) return e;
     if (e.localId !== undefined && pendingLocalIds.has(e.localId)) return e;
   }
   return null;

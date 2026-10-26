@@ -6,3 +6,4 @@ Spec drafted: docs/specs/unfinished-sightings.md (recommend option C: server lis
 Next: Sonnet adversarial review -> docs/specs/reviews/unfinished-sightings-review.md, fold in, draft PR, artifact, AskUserQuestion D1-D4. STOP before building.
 Review done and folded in (spec + docs/specs/reviews/unfinished-sightings-review.md). Next: push branch, open DRAFT PR, comment on SYC-186, artifact, AskUserQuestion D1-D4. STOP before building.
 BUILD STARTED 26 Oct after Samuel approved plan §13. Steps: 1 server RESOLVED code; 2 keptAtSend item write; 3 spot.tsx; 4 review.tsx; 5 discard/banner/recent; 6 strings; 7 browser check; 8 suites+review. Done so far: (update below)
+Step1 done (RESOLVED code), step2 done (lib/keptAtSend + enqueueSent + banner count). Next: step3 spot.tsx wiring.
