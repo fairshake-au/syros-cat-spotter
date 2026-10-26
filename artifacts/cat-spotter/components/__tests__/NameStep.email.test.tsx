@@ -112,6 +112,7 @@ import { ApiError } from '@workspace/api-client-react';
 import { NameStep } from '../onboarding/NameStep';
 import { resetUsernameClaimStateForTests } from '@/hooks/useUsernameClaim';
 import { ONBOARDING_EMAIL_TIMEOUT_MS, resetOnboardingEmailForTests } from '../onboarding/useOnboardingEmail';
+import { heldEmailNow, resetHeldEmailForTests } from '@/lib/heldEmail';
 
 const never = () => new Promise<never>(() => {});
 async function tick(ms: number) { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); }
@@ -147,6 +148,7 @@ function setup() {
 beforeEach(() => {
   resetUsernameClaimStateForTests();
   resetOnboardingEmailForTests();
+  resetHeldEmailForTests();
   vi.useFakeTimers();
   for (const fn of [h.claim, h.read, h.add, h.setUsername, h.holdUsername, h.setKeepSafeOffer]) fn.mockReset();
   h.read.mockImplementation(() => Promise.resolve({ username: null }));
@@ -212,8 +214,8 @@ describe('NameStep: "Don\'t lose your spots" on the name screen (SYC-524)', () =
     expect(h.offerWhenNamed).toEqual(['done']);
   });
 
-  it('email fails: no claim, the error shows, a second tap retries; emptying the box then claims as skipped', async () => {
-    h.add.mockRejectedValue(new TypeError('Network request failed'));
+  it('email fails with a server answer: no claim, the error shows, a second tap retries; emptying the box then claims as skipped', async () => {
+    h.add.mockRejectedValue(new (ApiError as any)(500, {}));
     h.claim.mockResolvedValue({ username: 'SeaCat' });
     const s = setup();
     await tick(0);
@@ -398,7 +400,7 @@ describe('NameStep: "Don\'t lose your spots" on the name screen (SYC-524)', () =
     fireEvent.click(back);
     expect(onBack).not.toHaveBeenCalled();
 
-    await act(async () => { pendingAdd.reject(new TypeError('Network request failed')); });
+    await act(async () => { pendingAdd.reject(new (ApiError as any)(500, {})); });
     await tick(10);
     expect(back.getAttribute('aria-disabled')).not.toBe('true');
     fireEvent.click(back);
@@ -417,7 +419,45 @@ describe('NameStep: "Don\'t lose your spots" on the name screen (SYC-524)', () =
     expect(h.add).toHaveBeenCalledTimes(1);
   });
 
-  it('a hung email request times out: the error shows and Start spotting and Back work again (review I1)', async () => {
+  it('SYC-715: an email that gets no answer is held on the phone and the name is claimed anyway', async () => {
+    h.add.mockRejectedValue(new TypeError('Network request failed'));
+    h.claim.mockResolvedValue({ username: 'SeaCat' });
+    const s = setup();
+    await tick(0);
+    await s.typeName('SeaCat');
+    s.typeEmail('  sea@example.com ');
+    await s.tap();
+    expect(h.add).toHaveBeenCalledTimes(1);
+    expect(heldEmailNow()).toBe('sea@example.com');
+    expect(h.claim).toHaveBeenCalledTimes(1);
+    expect(h.setUsername).toHaveBeenCalledWith('SeaCat');
+    // The offer stays skipped; the background save upgrades it to done.
+    expect(h.offer).toBe('skipped-onboarding');
+    expect(h.setKeepSafeOffer).not.toHaveBeenCalledWith('done');
+    expect(s.view.container.textContent).not.toContain(en.keepSafeSaveFailed);
+  });
+
+  it('SYC-715: a server answer (503 not_configured) is not held: the error shows and nothing is claimed', async () => {
+    h.add.mockRejectedValue(new (ApiError as any)(503, { error: 'not_configured' }));
+    const s = setup();
+    await tick(0);
+    await s.typeName('SeaCat');
+    s.typeEmail('sea@example.com');
+    await s.tap();
+    expect(heldEmailNow()).toBeNull();
+    expect(h.claim).not.toHaveBeenCalled();
+  });
+
+  it('SYC-715: no email typed, nothing is held', async () => {
+    h.claim.mockResolvedValue({ username: 'SeaCat' });
+    const s = setup();
+    await tick(0);
+    await s.typeName('SeaCat');
+    await s.tap();
+    expect(heldEmailNow()).toBeNull();
+  });
+
+  it('a hung email request times out: it is held and the name goes on, and Back still works (review I1, SYC-715)', async () => {
     // Behaves like the client: never answers, then fails when its timeoutMs runs out.
     h.add.mockImplementation((_id: unknown, _input: unknown, options?: { timeoutMs?: number }) =>
       new Promise((_res, reject) => {
@@ -437,18 +477,11 @@ describe('NameStep: "Don\'t lose your spots" on the name screen (SYC-524)', () =
     const back = view.getByRole('button', { name: en.back });
     expect(back.getAttribute('aria-disabled')).toBe('true');
 
-    await tick(ONBOARDING_EMAIL_TIMEOUT_MS + 10);
-    expect(view.container.textContent).toContain(en.keepSafeSaveFailed);
-    expect(back.getAttribute('aria-disabled')).not.toBe('true');
-    expect(start().disabled).toBe(false);
-    expect(h.claim).not.toHaveBeenCalled();
-
-    // Start spotting works again: a retry resends.
-    h.add.mockResolvedValueOnce({ status: 'pending', addressMask: 's***@example.com' });
     h.claim.mockResolvedValue({ username: 'SeaCat' });
-    await act(async () => { fireEvent.click(start()); });
-    await tick(10);
-    expect(h.add).toHaveBeenCalledTimes(2);
+    await tick(ONBOARDING_EMAIL_TIMEOUT_MS + 10);
+    expect(heldEmailNow()).toBe('sea@example.com');
+    expect(back.getAttribute('aria-disabled')).not.toBe('true');
+    expect(h.claim).toHaveBeenCalledTimes(1);
     expect(h.setUsername).toHaveBeenCalledWith('SeaCat');
     fireEvent.click(back);
     expect(onBack).toHaveBeenCalledTimes(1);
@@ -485,7 +518,7 @@ describe('NameStep: "Don\'t lose your spots" on the name screen (SYC-524)', () =
   it('late reconcile: with the email failed and the screen open, a recovered name finds the offer already skipped-onboarding', async () => {
     const recovered = deferred<{ username: string | null }>();
     h.read.mockImplementation(() => recovered.promise);
-    h.add.mockRejectedValue(new TypeError('Network request failed'));
+    h.add.mockRejectedValue(new (ApiError as any)(500, {}));
     const s = setup();
     await tick(0);
     await s.typeName('SeaCat');

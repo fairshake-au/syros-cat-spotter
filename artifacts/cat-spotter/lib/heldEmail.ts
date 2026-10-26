@@ -58,6 +58,11 @@ export async function clearHeldEmail(): Promise<void> {
   }
 }
 
+/** The address waiting to be saved, right now (not from a render), or null. */
+export function heldEmailNow(): string | null {
+  return current;
+}
+
 /** The address waiting to be saved, or null. */
 export function useHeldEmail(): string | null {
   useEffect(() => { void loadHeldEmail(); }, []);
