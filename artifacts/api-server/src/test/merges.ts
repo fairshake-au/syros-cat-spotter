@@ -57,11 +57,11 @@ export async function identityRowPastTheGuard(
  * of the merged-away cat, each filed under the survivor. No statements are
  * copied. `createdAt` dates the merge and its moves.
  */
-export async function recordedMerge(mergedId: number, survivorId: number, createdAt?: Date): Promise<number> {
+export async function recordedMerge(mergedId: number, survivorId: number, createdAt?: Date, by = "vitest-merger"): Promise<number> {
   return db.transaction(async (tx) => {
     const [merge] = await tx
       .insert(catIdentityTable)
-      .values({ catId: mergedId, canonicalCatId: survivorId, reason: "vitest merge", byAccountId: "vitest-merger", roleAtTime: "staff", survivorChosen: "default", ...(createdAt ? { createdAt } : {}) })
+      .values({ catId: mergedId, canonicalCatId: survivorId, reason: "vitest merge", byAccountId: by, roleAtTime: "staff", survivorChosen: "default", ...(createdAt ? { createdAt } : {}) })
       .returning({ id: catIdentityTable.id });
     await tx.execute(sql`select set_config('app.cat_merge_id', ${String(merge!.id)}, true)`);
     const batchId = randomUUID();
@@ -78,7 +78,7 @@ export async function recordedMerge(mergedId: number, survivorId: number, create
         batchId,
         reason: "merged",
         source: "merge",
-        movedByAccountId: "vitest-merger",
+        movedByAccountId: by,
         roleAtTime: "staff",
         ...(createdAt ? { createdAt } : {}),
       });

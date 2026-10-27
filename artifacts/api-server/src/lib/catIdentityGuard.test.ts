@@ -22,6 +22,8 @@ import { REPO_ROOT, sourceFiles, withoutComments } from "../test/sourceScan";
 const ALLOWLIST: Record<string, string> = {
   "artifacts/api-server/src/lib/catIdentity.ts": "the one reader of merges (canonicalCatOf, catsMergedAway, catsFeeding)",
   "lib/db/src/schema/observations.ts": "the table's definition (catIdentityTable)",
+  "artifacts/api-server/src/lib/severPerson.ts":
+    "severTeamMember: redaction only (clears who merged, spec §9.11); never reads merges",
 };
 
 const TERMS = [/\bcat_identity\b/, /\bcatIdentityTable\b/];
