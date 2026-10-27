@@ -345,6 +345,21 @@ describe("dashboard-pin.js: the view map's markers", () => {
     for (const src of [CORE, PIN]) expect(src).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/);
   });
 
+  // A sighting off the cat page's default History list links to the full
+  // list (catHistory.ts sightingHref); that pin must stay a link.
+  it("a sighting pin linking to the full history stays a link; other query strings don't", async () => {
+    const rig = await viewMap({
+      markers: [
+        { lat: 37.44, lng: 24.94, label: "Seen long ago", href: "?history=all#sg-7", look: "seen", n: 7 },
+        { lat: 37.45, lng: 24.95, label: "Odd", href: "?history=all&lat=37.4#sg-7", look: "seen", n: 8 },
+        { lat: 37.46, lng: 24.93, label: "Odd too", href: "?show=x#sg-7", look: "seen", n: 9 },
+      ],
+    });
+    const els = rig.lib.markers.map((m) => m.getElement());
+    expect(els.map((e) => e.tagName)).toEqual(["A", "SPAN", "SPAN"]);
+    expect(els[0].getAttribute("href")).toBe("?history=all#sg-7");
+  });
+
   it("fits again once a map hidden at start (the cat page's Map tab) gets its size", async () => {
     const rig = await viewMap({ fit: [[37.44, 24.94], [37.45, 24.95]] });
     const map = rig.lib.maps[0]!;

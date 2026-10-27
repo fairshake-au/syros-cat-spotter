@@ -44,7 +44,12 @@
   var MARKS = { sterilised: 1, probably: 1, not_known: 1, not_sterilised: 1 };
 
   function ownLink(href) {
-    return typeof href === "string" && (/^\/api\/team\//.test(href) || /^#[\w-]+$/.test(href));
+    // Our own pages, a row on this page, or a row on this page's full history
+    // (catHistory.ts: a sighting off the default list). Never a position.
+    return (
+      typeof href === "string" &&
+      (/^\/api\/team\//.test(href) || /^#[\w-]+$/.test(href) || /^\?history=all#[\w-]+$/.test(href))
+    );
   }
 
   function span(cls, text) {
