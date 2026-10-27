@@ -590,6 +590,7 @@ export const fr: Record<StringKey, string> = {
   "act.colonyButton": "Changer la colonie",
   "act.colonyPublic": "Si ce point est public, changer sa colonie le rend de nouveau privé.",
 
+  "site.approximate": "Position approximative : placée en choisissant un quartier. Déplacez-la sur la carte dès que possible.",
   "site.back": "Points de nourrissage",
   "site.colony": "Colonie",
   "site.noColony": "Pas encore de colonie.",

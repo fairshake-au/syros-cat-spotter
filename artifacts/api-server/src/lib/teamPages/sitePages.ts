@@ -472,6 +472,7 @@ export function renderSitePage(opts: SiteViewer & {
             })
           : position(s.lat, s.lng, { link: false })
       }</p>` +
+      (s.approximate ? `<p class="notice">${w("site.approximate")}</p>` : "") +
       `<h2>${w("site.historyTitle")}</h2>` +
       historyList(W, s.history, mapLinks(opts)) +
       (mayAct

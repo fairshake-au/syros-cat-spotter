@@ -201,6 +201,8 @@ export interface SiteView {
   colony: { id: number; name: string } | null;
   notes: string | null;
   directions: string | null;
+  /** Placed by choosing an area, not on the map (SYC-705 Task 2b.7). */
+  approximate: boolean;
   /** The exact database value of `updated_at`, as text to the microsecond (every write compares against it). */
   updatedAt: string;
   /** Newest first. */
@@ -221,6 +223,7 @@ export async function siteView(visible: Visible, id: number): Promise<SiteView |
       publicLabel: feedingSitesTable.publicLabel,
       notes: feedingSitesTable.notes,
       directions: feedingSitesTable.directions,
+      approximate: feedingSitesTable.positionApproximate,
       // The stamp text (UTC, to the microsecond, fixed layout) (PR 3.3's writes compare it in SQL).
       stamp: stampText(feedingSitesTable.updatedAt),
       colonyId: coloniesTable.id,
@@ -263,6 +266,7 @@ export async function siteView(visible: Visible, id: number): Promise<SiteView |
     colony: site.colonyId !== null ? { id: site.colonyId, name: site.colonyName! } : null,
     notes: site.notes,
     directions: site.directions,
+    approximate: site.approximate,
     updatedAt: site.stamp,
     history: events.map((e) => ({
       id: e.id,

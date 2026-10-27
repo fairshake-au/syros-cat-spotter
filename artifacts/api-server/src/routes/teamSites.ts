@@ -256,6 +256,8 @@ const AddForm = z.object({
   notes: optionalText(SITE_NOTES_MAX).optional(),
   lat: latField,
   lng: lngField,
+  /** Only after a pick by area (SYC-705 Task 2b.7): the spot is that area's centre. */
+  approximate: z.literal("1").optional(),
 });
 export const EditForm = z.object({
   updatedAt: stampField,
@@ -263,7 +265,13 @@ export const EditForm = z.object({
   directions: optionalText(SITE_DIRECTIONS_MAX).optional(),
   notes: optionalText(SITE_NOTES_MAX).optional(),
 });
-const MoveForm = z.object({ updatedAt: stampField, lat: latField, lng: lngField, reason: reasonField });
+const MoveForm = z.object({
+  updatedAt: stampField,
+  lat: latField,
+  lng: lngField,
+  reason: reasonField,
+  approximate: z.literal("1").optional(),
+});
 const ReasonForm = z.object({ updatedAt: stampField, reason: reasonField });
 /** Retire: Yes on the "Are you sure?" page sends `confirm=1` (SYC-395 D1). */
 const RetireForm = ReasonForm.extend({ confirm: z.literal("1").optional() });
@@ -573,10 +581,12 @@ router.post(
         return badForm(req, res, ["colonyId"], back);
       }
     }
+    const { approximate, ...fields } = parsed.data;
     const out = await addSite(teamPerson(res).id, {
-      ...parsed.data,
-      directions: parsed.data.directions ?? null,
-      notes: parsed.data.notes ?? null,
+      ...fields,
+      directions: fields.directions ?? null,
+      notes: fields.notes ?? null,
+      positionApproximate: approximate === "1",
     });
     switch (out.kind) {
       case "no_colony":
@@ -854,8 +864,8 @@ router.post(
     const back = { href: `${SITES_PATH}/${id}/move`, label: t("sproblem.backToMove", pageViewer(res).lang) };
     const parsed = MoveForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, fieldsOf(parsed.error), back);
-    const { updatedAt, lat, lng, reason } = parsed.data;
-    const out = await moveSite(teamPerson(res).id, id, updatedAt, { lat, lng }, reason);
+    const { updatedAt, lat, lng, reason, approximate } = parsed.data;
+    const out = await moveSite(teamPerson(res).id, id, updatedAt, { lat, lng }, reason, approximate === "1");
     answer(req, res, id, back, out, { saved: "moved", madePrivate: "movedPrivate" });
   },
 );

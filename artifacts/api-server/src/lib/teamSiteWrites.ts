@@ -51,6 +51,7 @@ interface Locked {
   notes: string | null;
   directions: string | null;
   retiredAt: Date | null;
+  positionApproximate: boolean;
 }
 
 type Gate = { kind: "ok"; site: Locked } | { kind: "missing" } | { kind: "stale" };
@@ -72,6 +73,7 @@ async function lockFresh(tx: Tx, id: number, seen: string): Promise<Gate> {
       notes: feedingSitesTable.notes,
       directions: feedingSitesTable.directions,
       retiredAt: feedingSitesTable.retiredAt,
+      positionApproximate: feedingSitesTable.positionApproximate,
     })
     .from(feedingSitesTable)
     .where(
@@ -145,6 +147,8 @@ export interface NewSite {
   notes: string | null;
   lat: number;
   lng: number;
+  /** Placed by choosing an area (its centre), not on the map (SYC-705 Task 2b.7). Default: exact. */
+  positionApproximate?: boolean;
 }
 
 /**
@@ -169,6 +173,7 @@ export async function addSite(
         lng: input.lng,
         notes: input.notes,
         directions: input.directions,
+        positionApproximate: input.positionApproximate ?? false,
         isPublic: false,
       })
       .returning({ id: feedingSitesTable.id });
@@ -244,13 +249,19 @@ export async function editSite(
 
 // ── Move ───────────────────────────────────────────────────────────────────
 
-/** Moves a site (with the reason) and, if it was public, makes it private (spec §4.5). */
+/**
+ * Moves a site (with the reason) and, if it was public, makes it private
+ * (spec §4.5). `positionApproximate` says the new spot is an area's centre
+ * (SYC-705 Task 2b.7); a move by the map's pin or typed numbers clears it,
+ * even to the same spot (then nothing else changes and no event is written).
+ */
 export async function moveSite(
   personId: string,
   id: number,
   seen: string,
   to: { lat: number; lng: number },
   reason: string,
+  positionApproximate = false,
 ): Promise<
   Failure | { kind: "outside" } | { kind: "unchanged" } | { kind: "saved"; madePrivate: boolean }
 > {
@@ -259,10 +270,14 @@ export async function moveSite(
     const gate = await lockFresh(tx, id, seen);
     if (gate.kind !== "ok") return gate;
     const s = gate.site;
-    if (s.lat === to.lat && s.lng === to.lng) return { kind: "unchanged" as const };
+    if (s.lat === to.lat && s.lng === to.lng) {
+      if (s.positionApproximate === positionApproximate) return { kind: "unchanged" as const };
+      await tx.update(feedingSitesTable).set({ positionApproximate }).where(eq(feedingSitesTable.id, id));
+      return { kind: "saved" as const, madePrivate: false };
+    }
     await tx
       .update(feedingSitesTable)
-      .set({ lat: to.lat, lng: to.lng })
+      .set({ lat: to.lat, lng: to.lng, positionApproximate })
       .where(eq(feedingSitesTable.id, id));
     await recordMappingEvent(tx, {
       subjectKind: "site",

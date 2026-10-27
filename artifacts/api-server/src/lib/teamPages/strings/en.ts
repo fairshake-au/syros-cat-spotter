@@ -628,6 +628,7 @@ export const en = {
   "act.colonyButton": "Change the colony",
   "act.colonyPublic": "If this site is public, changing its colony makes it private again.",
 
+  "site.approximate": "Position approximate: placed by choosing an area. Move it on the map when you can.",
   "site.back": "Feeding sites",
   "site.colony": "Colony",
   "site.noColony": "No colony yet.",

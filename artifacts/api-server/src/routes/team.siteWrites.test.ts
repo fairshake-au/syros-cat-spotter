@@ -570,6 +570,46 @@ describe("edit details", () => {
   });
 });
 
+// ── Approximate positions (SYC-705 Task 2b.7) ─────────────────────────────
+
+describe("a position placed by area is marked approximate", () => {
+  const APPROX = "Position approximate: placed by choosing an area. Move it on the map when you can.";
+
+  it("area pick sets position_approximate: the save form's approximate=1 is stored, and the site page says so", async () => {
+    const res = await post("/api/team/sites", { lat: "37.4436", lng: "24.8889", name: unique("byarea"), approximate: "1" });
+    expect(res.status).toBe(303);
+    const id = Number(/\/sites\/(\d+)\?done=created$/.exec(res.headers["location"] as string)![1]);
+    expect((await siteRow(id)).positionApproximate).toBe(true);
+    expect((await get(`/api/team/sites/${id}`)).text).toContain(APPROX);
+  });
+
+  it("typed coordinates clear it: a save with no approximate field is exact, and its page has no note", async () => {
+    const res = await post("/api/team/sites", { lat: "37.4436", lng: "24.8889", name: unique("typed") });
+    const id = Number(/\/sites\/(\d+)\?done=created$/.exec(res.headers["location"] as string)![1]);
+    expect((await siteRow(id)).positionApproximate).toBe(false);
+    expect((await get(`/api/team/sites/${id}`)).text).not.toContain("Position approximate");
+  });
+
+  it("anything but approximate=1 is refused, never read as approximate", async () => {
+    const res = await post("/api/team/sites", { lat: "37.4436", lng: "24.8889", name: unique("odd"), approximate: "yes" });
+    expect(res.status).toBe(400);
+  });
+
+  it("a move by area sets it; a move by pin or typed position clears it, even to the same spot", async () => {
+    const s = await makeSite();
+    const byArea = await post(`/api/team/sites/${s.id}/move`, { updatedAt: await stampOf(s.id), lat: "37.4436", lng: "24.8889", reason: "by area", approximate: "1" });
+    expect(byArea.status).toBe(303);
+    expect((await siteRow(s.id)).positionApproximate).toBe(true);
+    const pinned = await post(`/api/team/sites/${s.id}/move`, { updatedAt: await stampOf(s.id), lat: "37.4436", lng: "24.8889", reason: "pinned it" });
+    expect(pinned.status).toBe(303);
+    expect(pinned.headers["location"]).toBe(`/api/team/sites/${s.id}?done=moved`);
+    expect((await siteRow(s.id)).positionApproximate).toBe(false);
+    const again = await post(`/api/team/sites/${s.id}/move`, { updatedAt: await stampOf(s.id), lat: "37.4501", lng: "24.9501", reason: "typed" });
+    expect(again.status).toBe(303);
+    expect((await siteRow(s.id)).positionApproximate).toBe(false);
+  });
+});
+
 // ── Moving ─────────────────────────────────────────────────────────────────
 
 describe("move", () => {
