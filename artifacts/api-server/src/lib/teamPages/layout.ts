@@ -626,6 +626,8 @@ a.findentrylink:hover{background:var(--accent-soft)}
 .findstep{margin:16px 0 0;padding-top:8px;border-top:1px solid var(--line)}
 #find-photo{scroll-margin-top:6em}
 input.filein{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 0;margin:0 0 8px}
+/* SYC-492: the report's own photo, above its "Use the report's photo" button. */
+img.reportphoto{display:block;max-width:100%;height:auto;border-radius:8px;margin:0 0 8px}
 ul.findlist{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-columns:1fr;gap:12px}
 .findcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:start;overflow-wrap:anywhere}
 .findimg{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:6px;background:var(--sunk)}

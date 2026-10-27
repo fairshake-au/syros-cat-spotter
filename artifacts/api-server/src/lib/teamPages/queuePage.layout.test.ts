@@ -6,7 +6,9 @@ import type { LikelyCat } from "../likelyReview";
 import { renderColourCheckPage } from "./appearancePage";
 import { renderLikelyPage } from "./likelyPage";
 import { placeLabel } from "../areas/placeLabel";
-import { nextStep, renderQueuePage } from "./queuePage";
+import { findFromReportLink, nextStep, renderQueuePage } from "./queuePage";
+import { areaFor } from "../areas/namedAreas";
+import { CATALOGUE } from "../capabilities";
 
 // Pure render tests for the welfare queue's phone/desktop layout (SYC-219).
 
@@ -489,5 +491,59 @@ describe("queue page in-page help (SYC-739)", () => {
     expect(withMail).toContain("If the reporter left an email, you see a confirm page first. They get one email, once they have confirmed their address.");
     expect(withMail).toContain("If we have already emailed them, nothing more is sent.");
     expect(article(render(queue([report("b")])), "b")).not.toContain('class="what"');
+  });
+});
+
+describe("SYC-492: Find this cat from the report's photo", () => {
+  const PHOTO = { status: "attached" as const, url: "/api/team/report-photos/p1" };
+  const tieable = (q: WelfareQueue) => renderQueuePage(q, "Maria", NOW, undefined, undefined, true, undefined, true);
+  const link = (html: string) => /<a class="tap sublink" href="([^"]*)">Find this cat from the report's photo<\/a>/.exec(html)?.[1];
+
+  it("links to Find from a photo with the report as tie and its area by key, never its position", () => {
+    const r = report("a", { photo: PHOTO });
+    const href = link(article(tieable(queue([r])), "a"))!;
+    const key = areaFor(r.lat, r.lng).key;
+    expect(key).not.toBe("off");
+    expect(href).toBe(`/api/team/cats/find?area=${encodeURIComponent(key)}&amp;tie=a`);
+    expect(href).not.toMatch(/37\.44|24\.94|lat|lng/);
+  });
+
+  it("is on every Which cat state: not tied, tied, and sent from a cat's page", () => {
+    const html = tieable(
+      queue([
+        report("a", { photo: PHOTO }),
+        report("b", { photo: PHOTO, cat: { id: 7, name: "Ginger" } }),
+        report("c", { photo: PHOTO, suggestedCat: { id: 8, name: "Smudge", photoUrl: null } }),
+      ]),
+    );
+    for (const id of ["a", "b", "c"]) expect(link(article(html, id))).toContain(`tie=${id}`);
+  });
+
+  it("is not offered without a photo, still uploading or not received", () => {
+    const html = tieable(
+      queue([
+        report("a"),
+        report("b", { photo: { status: "pending", url: null } }),
+        report("c", { photo: { status: "failed", url: null } }),
+      ]),
+    );
+    for (const id of ["a", "b", "c"]) expect(article(html, id)).not.toContain("Find this cat from the report");
+  });
+
+  it("is not offered to someone who may not tie a report", () => {
+    expect(render(queue([report("a", { photo: PHOTO })]))).not.toContain("Find this cat from the report");
+  });
+
+  it("carries no area off Syros", () => {
+    const html = tieable(queue([report("a", { photo: PHOTO, lat: 51.5, lng: -0.12 })]));
+    expect(link(article(html, "a"))).toBe("/api/team/cats/find?tie=a");
+  });
+
+  it("escapes the report id in the address", () => {
+    expect(findFromReportLink({ id: 'x"&y', lat: 37.44, lng: 24.94, photo: PHOTO }, true)).toContain("tie=x%22%26y");
+  });
+
+  it("is gated on change_report_state, which must keep the same roles as the find page's find_cat_from_photo", () => {
+    expect(CATALOGUE.find_cat_from_photo).toEqual(CATALOGUE.change_report_state);
   });
 });

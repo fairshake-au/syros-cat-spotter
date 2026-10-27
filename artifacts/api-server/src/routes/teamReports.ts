@@ -3,7 +3,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, photosTable, welfareReportPhotosTable, welfareReportsTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { getQueueReport, listWelfareQueue } from "../lib/welfareQueue";
+import { getQueueReport, listWelfareQueue, REPORT_PHOTO_TYPES } from "../lib/welfareQueue";
 import { getIssueReport, listIssues } from "../lib/issues/queue";
 import {
   hideFromIssue,
@@ -141,7 +141,8 @@ router.get(
       })
       .from(welfareReportPhotosTable)
       .where(eq(welfareReportPhotosTable.publicId, publicId));
-    if (!photo || !IMAGE_TYPES.has(photo.mime)) return notFound(res);
+    // The same types Find from a photo will send (reportPhotoForFind, SYC-492).
+    if (!photo || !REPORT_PHOTO_TYPES.has(photo.mime)) return notFound(res);
     res.setHeader("Content-Type", photo.mime);
     res.send(photo.bytes);
   },
