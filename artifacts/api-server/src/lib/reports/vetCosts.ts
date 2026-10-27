@@ -1,5 +1,6 @@
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { inArray, or, sql } from "drizzle-orm";
+import { liveCats } from "../catIdentity";
 import type { VetVisitValue } from "../observations";
 import { standingRows, type Vaccine } from "../resolve";
 import { TEAM_ROLES } from "../teamRoles";
@@ -194,7 +195,7 @@ export async function vetCostsReport(range: Range, now: Date): Promise<VetCostsR
     );
   const catIds = [...new Set(rows.filter((r) => r.kind === "vet_visit").map((r) => r.catId))];
   const cats = catIds.length
-    ? await db.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(inArray(catsTable.id, catIds))
+    ? await liveCats({ id: catsTable.id, name: catsTable.name }, { where: inArray(catsTable.id, catIds) })
     : [];
   const names = new Map(cats.map((c) => [c.id, c.name]));
   return { ...vetCostsFrom(rows, names, range), workedOutAt: now, ms: Date.now() - started };

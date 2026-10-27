@@ -14,6 +14,7 @@ import {
 } from "@workspace/db";
 import { and, asc, desc, eq, inArray, isNull, notExists, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { liveCats } from "./catIdentity";
 import { catsByColony, catsInColony } from "./colonyMembership";
 import { colonyFilter, covers, nameLabeller, type Visible } from "./guardianView";
 import { recordMappingEvent } from "./mappingEvents";
@@ -208,10 +209,7 @@ async function catHistoryEntries(visible: Visible, colonyId: number): Promise<Co
     );
 
   const [cats, label] = await Promise.all([
-    db
-      .select({ id: catsTable.id, name: catsTable.name })
-      .from(catsTable)
-      .where(inArray(catsTable.id, catIds)),
+    liveCats({ id: catsTable.id, name: catsTable.name }, { where: inArray(catsTable.id, catIds) }),
     nameLabeller(
       visible,
       rows.map((r) => (r.accountId && isPersonId(r.accountId) ? r.accountId : null)),
@@ -333,15 +331,15 @@ export async function colonyView(visible: Visible, id: number): Promise<ColonyVi
     catIds.length === 0
       ? []
       : (
-          await db
-            .select({
+          await liveCats(
+            {
               id: catsTable.id,
               name: catsTable.name,
               photoPublicId: photosTable.publicId,
-            })
-            .from(catsTable)
+            },
+            { where: inArray(catsTable.id, catIds) },
+          )
             .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
-            .where(inArray(catsTable.id, catIds))
             .orderBy(asc(catsTable.name), asc(catsTable.id))
         ).map((c) => ({
           id: c.id,

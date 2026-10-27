@@ -2,6 +2,7 @@ import { catsTable, db, observationsTable } from "@workspace/db";
 import { and, desc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { CapabilityHolder } from "./capabilities";
+import { liveCats } from "./catIdentity";
 import { visibleColonyIds } from "./guardianView";
 
 // "Mimi has moved to another colony" (SYC-209 PR 4.2; feeding-sites spec
@@ -112,10 +113,7 @@ export async function movedAwayNotices(
 
   const names = new Map(
     (
-      await db
-        .select({ id: catsTable.id, name: catsTable.name })
-        .from(catsTable)
-        .where(inArray(catsTable.id, found.map((f) => f.catId)))
+      await liveCats({ id: catsTable.id, name: catsTable.name }, { where: inArray(catsTable.id, found.map((f) => f.catId)) })
     ).map((c) => [c.id, c.name]),
   );
   return found

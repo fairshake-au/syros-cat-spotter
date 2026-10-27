@@ -15,6 +15,7 @@ import {
   type SightingPhotoRole,
 } from "@workspace/db";
 import { and, asc, desc, eq, inArray, isNull, notInArray } from "drizzle-orm";
+import { liveCats } from "./catIdentity";
 import { currentColonyOf } from "./colonyMembership";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
@@ -1279,15 +1280,14 @@ export async function searchTeamCats(rawQuery: string): Promise<TeamCatSearchRes
   const syr = SYR_RE.exec(q);
   const syrId = syr ? Number(syr[1]) : null;
 
-  const all = await db
-    .select({
-      id: catsTable.id,
-      name: catsTable.name,
-      ownerDeviceId: catsTable.ownerDeviceId,
-      photoPublicId: photosTable.publicId,
-    })
-    .from(catsTable)
-    .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId));
+  // A merged-away cat is not a cat of her own in the search ("also known as"
+  // is PR 4.1).
+  const all = await liveCats({
+    id: catsTable.id,
+    name: catsTable.name,
+    ownerDeviceId: catsTable.ownerDeviceId,
+    photoPublicId: photosTable.publicId,
+  }).leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId));
 
   const rank = (c: (typeof all)[number]): number => {
     if (c.id === syrId) return 0;

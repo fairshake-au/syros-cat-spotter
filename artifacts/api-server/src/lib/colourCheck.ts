@@ -1,5 +1,6 @@
 import { inArray } from "drizzle-orm";
 import { catsTable, db, photosTable } from "@workspace/db";
+import { liveCats } from "./catIdentity";
 import { loadCatRecords, type CoatColour, type CoatPattern, type Mark } from "./observations";
 import {
   appearanceAuthorityLevel,
@@ -90,14 +91,12 @@ export const REASON_ORDER: readonly ColourCheckReason[] = [
  * A fixed number of queries whatever the catalogue's size.
  */
 export async function listColourCheck(now = new Date()): Promise<ColourCheckCat[]> {
-  const cats = await db
-    .select({
-      id: catsTable.id,
-      name: catsTable.name,
-      createdAt: catsTable.createdAt,
-      primaryPhotoId: catsTable.primaryPhotoId,
-    })
-    .from(catsTable);
+  const cats = await liveCats({
+    id: catsTable.id,
+    name: catsTable.name,
+    createdAt: catsTable.createdAt,
+    primaryPhotoId: catsTable.primaryPhotoId,
+  });
   if (cats.length === 0) return [];
 
   const records = await loadCatRecords(cats.map((c) => c.id));

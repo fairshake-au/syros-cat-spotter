@@ -1,5 +1,6 @@
 import { db, mailOutboxTable, photosTable, sightingMatchesTable, sightingsTable, catsTable } from "@workspace/db";
 import { and, desc, eq, gt, inArray, isNull, lte, sql } from "drizzle-orm";
+import { liveCats } from "./catIdentity";
 import { logger, safeError } from "./logger";
 import { kickRow } from "./mail/outbox";
 import { hashRecipient } from "./mail/send";
@@ -160,26 +161,27 @@ export interface NewCatToCheck {
  * Newest first, the last {@link NEW_CATS_DAYS} days.
  */
 export async function newCatsAfterFailedCheck(now: Date = new Date()): Promise<NewCatToCheck[]> {
-  const rows = await db
-    .select({
+  // A cat merged into another is no longer a new cat to check (spec §9.3).
+  const rows = await liveCats(
+    {
       catId: sightingsTable.catId,
       photoId: sightingsTable.photoId,
       at: sightingMatchesTable.chosenAt,
       name: catsTable.name,
       namePending: catsTable.namePending,
-    })
-    .from(sightingMatchesTable)
-    .innerJoin(sightingsTable, eq(sightingsTable.id, sightingMatchesTable.sightingId))
-    .innerJoin(catsTable, eq(catsTable.id, sightingsTable.catId))
-    .where(
-      and(
+    },
+    {
+      where: and(
         eq(sightingMatchesTable.matcherFailed, true),
         eq(sightingMatchesTable.choice, "new_cat"),
         isNull(sightingsTable.redactedAt),
         gt(sightingMatchesTable.chosenAt, new Date(now.getTime() - NEW_CATS_DAYS * 86_400_000)),
         lte(sightingMatchesTable.chosenAt, now),
       ),
-    )
+    },
+  )
+    .innerJoin(sightingsTable, eq(sightingsTable.catId, catsTable.id))
+    .innerJoin(sightingMatchesTable, eq(sightingMatchesTable.sightingId, sightingsTable.id))
     .orderBy(desc(sightingMatchesTable.chosenAt));
   const photoIds = rows.map((r) => r.photoId);
   const photos = photoIds.length

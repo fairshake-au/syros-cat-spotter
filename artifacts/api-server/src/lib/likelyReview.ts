@@ -6,6 +6,7 @@ import {
   photosTable,
   sightingMatchesTable,
 } from "@workspace/db";
+import { canonicalCatOf, liveCats } from "./catIdentity";
 import { loadCatRecords } from "./observations";
 import { resolveCat } from "./resolve";
 import { newestActiveClip } from "./teamCorrections";
@@ -59,11 +60,16 @@ export interface LikelyCat {
  * of queries whatever the catalogue's size.
  */
 export async function listLikelyForReview(now = new Date()): Promise<LikelyCat[]> {
-  const earTipCats = await db
-    .selectDistinct({ id: catsTable.id, name: catsTable.name })
+  const earTipOn = await db
+    .selectDistinct({ catId: observationsTable.catId })
     .from(observationsTable)
-    .innerJoin(catsTable, eq(catsTable.id, observationsTable.catId))
     .where(eq(observationsTable.kind, "ear_tip"));
+  // A cat merged into another shows once, as the cat she now is (a loop or a
+  // chain too deep keeps her own id).
+  const canonical = await canonicalCatOf(earTipOn.map((r) => r.catId));
+  const earTipIds = [...new Set(earTipOn.map((r) => canonical.get(r.catId) ?? r.catId))];
+  if (earTipIds.length === 0) return [];
+  const earTipCats = await liveCats({ id: catsTable.id, name: catsTable.name }, { where: inArray(catsTable.id, earTipIds) });
   if (earTipCats.length === 0) return [];
 
   const records = await loadCatRecords(earTipCats.map((c) => c.id));
