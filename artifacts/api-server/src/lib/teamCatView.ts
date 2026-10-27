@@ -31,6 +31,7 @@ import {
   resolveMarkings,
   resolveSterilised,
   resolveVaccinated,
+  isElsewhere,
   standingAboveTeam,
   standingAppearanceRows,
   supersedeChains,
@@ -848,7 +849,11 @@ export async function teamCatView(
       .orderBy(desc(sightingsTable.createdAt), desc(sightingsTable.id)),
   ]);
   const rec = records.get(cat.id);
-  const observations = rec?.observations ?? [];
+  // The resolvers read every row, `elsewhere` ones included (a statement a
+  // move copied to another cat takes the original down here). The page
+  // lists only this cat's own rows; crossCatLinks says where one went.
+  const all = rec?.observations ?? [];
+  const observations = all.filter((o) => !isElsewhere(o));
   const evidence = rec?.evidenceOfLife ?? null;
 
   // SYC-415: every photo of these sightings, with its role, and the matcher's
@@ -910,16 +915,16 @@ export async function teamCatView(
   };
 
   const replacedIds = new Set(
-    observations.map((o) => o.supersedesId).filter((id): id is number => id != null),
+    all.map((o) => o.supersedesId).filter((id): id is number => id != null),
   );
   const orphanedHome =
     cat.ownerDeviceId === null &&
     observations.some((o) => isOwnerHomed(o, cat.id) && !replacedIds.has(o.id));
-  const life = resolveLifeStatus(observations, evidence, now);
-  const sterilised = resolveSterilised(observations, []);
-  const coat = resolveCoatParts(observations, appearanceAuthorityLevel);
-  const markings = resolveMarkings(observations, now, appearanceAuthorityLevel);
-  const handPick = handPickDisagrees(observations, coat, await handPickedAmong(observations));
+  const life = resolveLifeStatus(all, evidence, now);
+  const sterilised = resolveSterilised(all, []);
+  const coat = resolveCoatParts(all, appearanceAuthorityLevel);
+  const markings = resolveMarkings(all, now, appearanceAuthorityLevel);
+  const handPick = handPickDisagrees(all, coat, await handPickedAmong(observations));
 
   // The colony: which one stands is lib/colonyMembership.ts's rule alone;
   // here it is only given a name. The statement that put the cat there says

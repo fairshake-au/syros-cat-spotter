@@ -1,0 +1,117 @@
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { db, observationsTable, pool } from "@workspace/db";
+
+vi.mock("@workspace/integrations-openai-ai-server", () => ({
+  openai: { chat: { completions: { create: vi.fn() } } },
+}));
+
+import { daysAgo, moveKit } from "../test/moveKit";
+import { moveSighting } from "../test/moves";
+import { loadCatRecords } from "./observations";
+import { resolveCat } from "./resolve";
+
+// SYC-150 PR 3.1 (which-cat-is-which.md §5.8, §9.5; C11): what each cat
+// works out after a move, read the way every screen reads it
+// (loadCatRecords, then the resolver).
+
+const kit = moveKit("VitestMoveRecord");
+beforeAll(kit.cleanup);
+afterAll(async () => {
+  await kit.cleanup();
+  await pool.end();
+});
+
+const T = {
+  agathaSeen: daysAgo(20),
+  mimiSeen: daysAgo(10),
+  moved: daysAgo(3),
+};
+const NOW = new Date();
+
+/** What a cat's page and lists show, minus row ids. */
+async function view(catId: number) {
+  const r = (await loadCatRecords([catId])).get(catId)!;
+  const s = resolveCat(r.observations, r.evidenceOfLife, NOW);
+  return {
+    sterilised: s.sterilised,
+    lifeStatus: s.lifeStatus,
+    lifeStatusConfidence: s.lifeStatusConfidence,
+    presumedDeceased: s.presumedDeceased,
+    notSeenSince: s.notSeenSince,
+    evidence: r.evidenceOfLife,
+  };
+}
+
+/**
+ * Two cats as the spotters filed them: Mimi with her own sighting (the
+ * spotter couldn't tell her ear tip), Agatha with hers, and a sighting `s`
+ * (a clipped ear, food out, a note) filed under `firstCat`.
+ */
+async function world(firstCat: "mimi" | "agatha") {
+  const mimi = await kit.cat();
+  const agatha = await kit.cat();
+  const other = await kit.sighting(mimi, kit.device(), T.mimiSeen);
+  await kit.answer(other, "ear_tip", { clipped: "cant_tell" });
+  await kit.sighting(agatha, kit.device(), T.agathaSeen);
+  const s = await kit.sighting(firstCat === "mimi" ? mimi : agatha, kit.device(), T.moved);
+  await kit.answer(s, "ear_tip", { clipped: true, side: "left" });
+  await kit.answer(s, "food_and_water", { present: true });
+  await kit.answer(s, "note", { text: "On the harbour wall" });
+  return { mimi, agatha, s };
+}
+
+describe("spec test 2: after a move, each cat is as if the sighting had always been where it is now", () => {
+  it("the old cat equals a cat that never had it; the new cat equals one it was matched to first", async () => {
+    const moved = await world("mimi");
+    const before = await view(moved.mimi);
+    expect(before.sterilised.confidence, "the clipped answer made Mimi Likely").toBe("likely");
+    await moveSighting(moved.s.id, moved.agatha);
+
+    const control = await world("agatha");
+    // The control's Mimi never had the sighting at all.
+    const neverHad = await (async () => {
+      const mimi = await kit.cat();
+      const other = await kit.sighting(mimi, kit.device(), T.mimiSeen);
+      await kit.answer(other, "ear_tip", { clipped: "cant_tell" });
+      return view(mimi);
+    })();
+
+    expect(await view(moved.mimi)).toEqual(neverHad);
+    expect(await view(moved.agatha)).toEqual(await view(control.agatha));
+    expect((await view(moved.agatha)).sterilised.confidence).toBe("likely");
+  });
+});
+
+describe("C11: a welfare report re-tied the old way (no move record) still stops counting for the old cat", () => {
+  it("retires Mimi's report when a row on Agatha replaces it", async () => {
+    const mimi = await kit.cat();
+    const agatha = await kit.cat();
+    const reportedAt = daysAgo(1);
+    const [report] = await db
+      .insert(observationsTable)
+      .values({
+        catId: mimi,
+        kind: "welfare_report",
+        value: { severity: "attention", isLitter: false, reportId: 1 },
+        accountId: "vitest-move-record-staff",
+        roleAtTime: "staff",
+        observedAt: reportedAt,
+      })
+      .returning();
+    expect((await view(mimi)).evidence).toMatchObject({ source: "welfare_report", at: reportedAt });
+
+    await db.insert(observationsTable).values({
+      catId: agatha,
+      kind: "welfare_report",
+      value: { severity: "attention", isLitter: false, reportId: 1 },
+      accountId: "vitest-move-record-staff",
+      roleAtTime: "staff",
+      observedAt: reportedAt,
+      supersedesId: report!.id,
+      supersedeReason: "re-tied",
+    });
+    expect((await view(mimi)).evidence?.source).toBe("created");
+    const r = (await loadCatRecords([mimi])).get(mimi)!;
+    expect(r.observations.filter((o) => o.elsewhere).map((o) => o.catId)).toEqual([agatha]);
+  });
+});

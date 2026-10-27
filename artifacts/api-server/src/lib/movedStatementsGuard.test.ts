@@ -25,6 +25,7 @@ import { REPO_ROOT, sourceFiles, withoutComments } from "../test/sourceScan";
 /** File (from the repo root, with "/") -> why it may name the column. */
 const ALLOWLIST: Record<string, string> = {
   "artifacts/api-server/src/lib/movedStatements.ts": "the one writer (writeMovedObservation)",
+  "artifacts/api-server/src/lib/observations.ts": "reads only: loadCatRecords lists a moved statement as `elsewhere`",
   "lib/db/src/schema/observations.ts": "the column's definition",
 };
 

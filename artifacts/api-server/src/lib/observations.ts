@@ -8,7 +8,7 @@
  * exists — goes through `writeObservation`. Nothing else may `insert` into
  * `observationsTable` outside a migration's backfill.
  */
-import { and, eq, inArray, lte, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
   db,
@@ -1282,8 +1282,20 @@ export async function writeObservation(
   return row!;
 }
 
+/**
+ * A statement as `loadCatRecords` lists it for one cat. `elsewhere` marks a
+ * row on another cat that replaces one of this cat's rows: a statement a
+ * move copied onto the cat its sighting went to (it carries
+ * `sighting_move_id`), or a welfare report re-tied to another cat
+ * (which-cat-is-which.md §9.5; C11). It is listed so the ordinary
+ * supersession rules (`isActive`, `supersedeChains`) take the row it replaces
+ * down here; no resolver counts it (`isElsewhere`), and a History can say
+ * "now on Agatha".
+ */
+export type CatObservation = Observation & { elsewhere?: true };
+
 export interface CatRecords {
-  observations: Observation[];
+  observations: CatObservation[];
   evidenceOfLife: EvidenceOfLife | null;
   /**
    * Only with `loadCatRecords(…, { withHistory: true })`: what
@@ -1460,30 +1472,27 @@ export async function loadCatRecords(
       ),
     );
 
-  // A welfare_report that has been replaced by a row on ANY cat (re-tying a
-  // report to a different cat writes the new row on the new cat, pointing
-  // back at the old one; SYC-43 part 2, PR 5) no longer says the old cat was
-  // alive. The replacing row is not among obsRows when it lives on another
-  // cat, so this reads it across cats: one more query, the same count
-  // whatever the number of cats.
+  // The rows that replace one of these cats' rows from wherever they live
+  // (which-cat-is-which.md §9.5; C11): a statement a move copied onto the
+  // cat its sighting went to (it carries `sighting_move_id`), and any row
+  // replacing a welfare_report (re-tying a report to a different cat writes
+  // the new row on the new cat, pointing back at the old one; SYC-43 part 2,
+  // PR 5, which has no move record). A replacer on a cat outside a cat's
+  // group is listed for it as `elsewhere`, so the row it replaces stops
+  // counting there. One more query, the same count whatever the number of
+  // cats.
   const replacer = alias(observationsTable, "replacer");
-  const replacedWelfareRows = await exec
-    .select({ id: observationsTable.id, at: replacer.createdAt })
+  const crossRows = await exec
+    .select({ row: replacer, replacedId: observationsTable.id })
     .from(observationsTable)
     .innerJoin(replacer, eq(replacer.supersedesId, observationsTable.id))
     .where(
       and(
-        eq(observationsTable.kind, "welfare_report"),
         observationCatIn(feeding.values()),
+        or(isNotNull(replacer.sightingMoveId), eq(observationsTable.kind, "welfare_report")),
         asOf ? lte(replacer.createdAt, asOf) : undefined,
       ),
     );
-  const welfareReplacedAt = new Map<number, Date>();
-  for (const r of replacedWelfareRows) {
-    const was = welfareReplacedAt.get(r.id);
-    if (!was || r.at.getTime() < was.getTime()) welfareReplacedAt.set(r.id, r.at);
-  }
-  const replacedWelfare = new Set(welfareReplacedAt.keys());
 
   const sightingWhere = and(
     inArray(sightingsTable.catId, allCatIds),
@@ -1533,12 +1542,30 @@ export async function loadCatRecords(
 
     const feedingIds = idsForCanonical.get(canonicalId) ?? [canonicalId];
     const f = feeding.get(canonicalId);
-    const observations = feedingIds.flatMap((id) => obsByCatId.get(id) ?? []).filter((o) => (f ? f.counts(o) : true));
+    const own = feedingIds.flatMap((id) => obsByCatId.get(id) ?? []).filter((o) => (f ? f.counts(o) : true));
+    const ownIds = new Set(own.map((o) => o.id));
+    const elsewhere: CatObservation[] = [];
+    for (const c of crossRows) {
+      if (!ownIds.has(c.replacedId) || ownIds.has(c.row.id)) continue;
+      if (elsewhere.some((e) => e.id === c.row.id)) continue;
+      elsewhere.push({ ...c.row, elsewhere: true });
+    }
+    const observations: CatObservation[] = [...own, ...elsewhere];
+    // A welfare_report replaced by any row, here or elsewhere, no longer
+    // says the cat was alive, from when the first replacing row was entered.
+    const welfareReplacedAt = new Map<number, Date>();
+    const ownWelfare = new Set(own.filter((o) => o.kind === "welfare_report").map((o) => o.id));
+    for (const o of observations) {
+      if (o.supersedesId == null || !ownWelfare.has(o.supersedesId)) continue;
+      const was = welfareReplacedAt.get(o.supersedesId);
+      if (!was || o.createdAt.getTime() < was.getTime()) welfareReplacedAt.set(o.supersedesId, o.createdAt);
+    }
+    const replacedWelfare = new Set(welfareReplacedAt.keys());
     const lastSightingAt = newestOf(feedingIds.flatMap((id) => sightingsByCatId.get(id) ?? []));
     const createdAt = earliestOf(
       feedingIds.map((id) => createdAtByCatId.get(id)).filter((d): d is Date => d != null),
     );
-    const evidenceOfLife = evidenceOfLifeOf(observations, replacedWelfare, lastSightingAt, createdAt);
+    const evidenceOfLife = evidenceOfLifeOf(own, replacedWelfare, lastSightingAt, createdAt);
 
     const records: CatRecords = { observations, evidenceOfLife };
     if (opts.withHistory && ownCreatedAt) {

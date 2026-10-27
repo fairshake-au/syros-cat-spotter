@@ -18,6 +18,7 @@ import { isOwnerHomed } from "./teamCatView";
 import { orderColours, partsToValue, type CoatPattern } from "./appearance";
 import {
   appearanceAuthorityLevel,
+  isElsewhere,
   resolveCoatParts,
   resolveLifeStatus,
   resolveMarkings,
@@ -978,7 +979,7 @@ export function newestActiveClip(observations: readonly Observation[]): Observat
   );
   let newest: Observation | null = null;
   for (const o of observations) {
-    if (o.kind !== "ear_tip" || replaced.has(o.id)) continue;
+    if (o.kind !== "ear_tip" || replaced.has(o.id) || isElsewhere(o)) continue;
     const v = o.value as { clipped?: unknown; agreesWith?: unknown } | null;
     if (v?.clipped !== true) continue;
     // An agreement with an answer that has since been replaced (the spotter

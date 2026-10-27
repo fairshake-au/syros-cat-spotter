@@ -8,7 +8,7 @@ import {
 } from "@workspace/db";
 import { canonicalCatOf, liveCats } from "./catIdentity";
 import { loadCatRecords } from "./observations";
-import { resolveCat } from "./resolve";
+import { isElsewhere, resolveCat } from "./resolve";
 import { newestActiveClip } from "./teamCorrections";
 import { TEAM_ROLES } from "./teamRoles";
 
@@ -116,7 +116,7 @@ export async function listLikelyForReview(now = new Date()): Promise<LikelyCat[]
     );
     const evidence = record.observations
       .filter((o) => {
-        if (o.kind !== "ear_tip" || replaced.has(o.id)) return false;
+        if (o.kind !== "ear_tip" || replaced.has(o.id) || isElsewhere(o)) return false;
         const v = o.value as { clipped?: unknown };
         return v?.clipped === true && o.photoId != null;
       })
