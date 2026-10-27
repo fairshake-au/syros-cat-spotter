@@ -129,3 +129,24 @@ describe("hasMetCat after moving away and back (review R4)", () => {
     expect(await hasMetCat(db, fresh, someone, "name")).toBe(false);
   });
 });
+
+describe("a legacy sighting moved away and back counts as met again (review R4; Samuel, 27 Oct 2026)", () => {
+  it("no match record: met Mimi, not after the move, and again once filed back under Mimi", async () => {
+    const c = await matched(null, null, false);
+    expect(await hasMetCat(db, c.mimi, c.spotter, "claim")).toBe(true);
+    await moveSighting(c.s.id, c.agatha);
+    expect(await hasMetCat(db, c.agatha, c.spotter, "claim")).toBe(false);
+    expect(await hasMetCat(db, c.mimi, c.spotter, "claim")).toBe(false);
+    await moveSighting(c.s.id, c.mimi);
+    expect(await hasMetCat(db, c.mimi, c.spotter, "claim")).toBe(true);
+    expect(await hasMetCat(db, c.agatha, c.spotter, "claim")).toBe(false);
+  });
+
+  it("moved on to a third cat instead, it doesn't count there", async () => {
+    const c = await matched(null, null, false);
+    const dora = await kit.cat();
+    await moveSighting(c.s.id, c.agatha);
+    await moveSighting(c.s.id, dora);
+    expect(await hasMetCat(db, dora, c.spotter, "claim")).toBe(false);
+  });
+});

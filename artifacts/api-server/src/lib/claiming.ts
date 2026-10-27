@@ -113,7 +113,10 @@ export async function hasMetCat(exec: DbOrTx, catId: number, deviceId: string, p
   //   whose choice wasn't recorded and names no cat (the label is written
   //   after the resolve, best effort; it counts like `unlabelled`, Samuel,
   //   14 Oct 2026): unless the team moved it here. Only a merge's moves
-  //   (`merged`, `merge_undone`) count like its first filing;
+  //   (`merged`, `merge_undone`) count like its first filing, and a
+  //   sighting the team moved away and back counts again once its newest
+  //   move files it under the cat it started on (Samuel's decision, 27 Oct
+  //   2026, review R4), as a hand-picked one does;
   // - with a match record whose choice wasn't recorded, naming this cat; or
   // - with a match record whose choice is one of MET_MATCH_CHOICES, naming
   //   this cat: a sighting the team later moved doesn't count for its new
@@ -134,9 +137,14 @@ export async function hasMetCat(exec: DbOrTx, catId: number, deviceId: string, p
          and s.status = 'resolved'
          and s.cat_id in (${same})
          and (((m.sighting_id is null or (m.choice is null and m.chosen_cat_id is null))
-               and not exists (select 1 from sighting_moves mv
-                                where mv.sighting_id = s.id
-                                  and mv.reason not in ('merged', 'merge_undone')))
+               and (not exists (select 1 from sighting_moves mv
+                                 where mv.sighting_id = s.id
+                                   and mv.reason not in ('merged', 'merge_undone'))
+                    -- Filed back under the cat it started on (Samuel, 27 Oct 2026).
+                    or (select back.to_cat_id from sighting_moves back
+                         where back.sighting_id = s.id order by back.id desc limit 1)
+                       = (select began.from_cat_id from sighting_moves began
+                           where began.sighting_id = s.id order by began.id asc limit 1)))
               or (m.choice is null and m.chosen_cat_id in (${same}))
               or (m.choice in (${choices}) and m.chosen_cat_id in (${same})))
     ) or (${purpose} = 'name'
