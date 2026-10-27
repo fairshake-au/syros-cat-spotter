@@ -4666,7 +4666,7 @@
         },
         "cat_news_changes_reason_ck": {
           "name": "cat_news_changes_reason_ck",
-          "value": "\"cat_news_changes\".\"silenced_reason\" IS NULL OR \"cat_news_changes\".\"silenced_reason\" IN ('import', 'legacy', 'old_news', 'first_seen', 'deceased', 'bulk')"
+          "value": "\"cat_news_changes\".\"silenced_reason\" IS NULL OR \"cat_news_changes\".\"silenced_reason\" IN ('import', 'legacy', 'old_news', 'first_seen', 'deceased', 'bulk', 'moved', 'merged')"
         }
       },
       "isRLSEnabled": false
