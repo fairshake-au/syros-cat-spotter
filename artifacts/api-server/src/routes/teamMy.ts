@@ -36,7 +36,7 @@ import {
 } from "../lib/teamPages/guardianPages";
 import { can, holdsStartRow } from "../lib/capabilities";
 import { catTargetWithCanonical } from "../lib/capabilityTargets";
-import { canonicalCatOf } from "../lib/catIdentity";
+import { catsMergedAway } from "../lib/catIdentity";
 import { catsInColony } from "../lib/colonyMembership";
 import { guardianCats, guardianCatView } from "../lib/guardianCatView";
 import { publicCatView } from "../lib/publicCat";
@@ -125,10 +125,12 @@ router.get("/team/my/colonies/:id", requireTeam(), async (req: Request, res: Res
   if (!colony) return notFound();
 
   // The cats in it now (the one membership rule), leaving out any cat merged
-  // into another: that cat now lives on as the one it was merged into.
+  // into another: that cat now lives on as the one it was merged into. The
+  // same rule as the team's cat list (catsMergedAway), so a cat in a merge
+  // loop (bad data) stays listed rather than vanishing.
   const inColony = await catsInColony(colonyId);
-  const canonical = await canonicalCatOf(inColony);
-  const ids = inColony.filter((id) => canonical.get(id) === id);
+  const away = await catsMergedAway(inColony);
+  const ids = inColony.filter((id) => !away.has(id));
   const cats = (await guardianCats(ids, new Map(ids.map((id) => [id, colonyId])))).sort(
     (a, b) => a.name.localeCompare(b.name, "el") || a.id - b.id,
   );
