@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { db, observationsTable, pool } from "@workspace/db";
+import { db, observationsTable, pointsLedgerTable, pool, profilesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: { chat: { completions: { create: vi.fn() } } },
@@ -10,6 +11,7 @@ import { moveSighting } from "../test/moves";
 import { recordedMerge, recordedUndo } from "../test/merges";
 import { loadCatRecords, resolveAt } from "./observations";
 import { resolveCat } from "./resolve";
+import { getProfileStats, spottedCatIds } from "./catHelpers";
 
 // SYC-150 PR 3.1 (which-cat-is-which.md §5.8, §9.5; C11): what each cat
 // works out after a move, read the way every screen reads it
@@ -151,6 +153,28 @@ describe("spec test 27: as of a moment before a move or a merge, the record as i
     expect(during.viaAsOf).toEqual(merged);
     expect(during.viaHistory).toEqual(during.snapshot);
     expect(await view(w.agatha)).toEqual(agathaBefore);
+  });
+});
+
+describe("spec test 7: points are unchanged; the collection and stamps show the new cat", () => {
+  it("the spotter keeps their points, and has spotted Agatha, not Mimi", async () => {
+    const mimi = await kit.cat();
+    const agatha = await kit.cat();
+    const spotter = kit.device();
+    const s = await kit.sighting(mimi, spotter, daysAgo(2));
+    await db.insert(profilesTable).values({ deviceId: spotter, points: 15 });
+    await db.insert(pointsLedgerTable).values({ deviceId: spotter, sightingId: s.id, catId: mimi, points: 15, athensDay: "2026-10-25", weekStart: "2026-10-19", source: "live" });
+    const ledger = () => db.select().from(pointsLedgerTable).where(eq(pointsLedgerTable.deviceId, spotter));
+    const ledgerBefore = await ledger();
+    const statsBefore = await getProfileStats(spotter);
+    expect(await spottedCatIds(spotter)).toEqual([mimi]);
+
+    await moveSighting(s.id, agatha);
+
+    expect(await ledger()).toEqual(ledgerBefore);
+    expect(await getProfileStats(spotter)).toEqual(statsBefore);
+    expect(statsBefore).toMatchObject({ points: 15, totalSightings: 1, catsSpotted: 1 });
+    expect(await spottedCatIds(spotter)).toEqual([agatha]);
   });
 });
 
