@@ -143,6 +143,8 @@ export interface Feeding {
    * counts for Dora from the 5th). The cat itself isn't listed.
    */
   since: ReadonlyMap<number, Date>;
+  /** How many merges away each merged-in cat is (1 = merged straight into this cat). */
+  hops: ReadonlyMap<number, number>;
   /** Whether a statement on `catId` of `kind` counts for this cat (`excludeKinds`). */
   counts(row: { catId: number; kind: string }): boolean;
 }
@@ -167,7 +169,7 @@ export async function catsFeeding(
   // Walk the standing merges backwards from each cat asked about. Each cat
   // has at most one standing row, so a cat found here passes through the
   // target on its one way forward.
-  const r = await q.execute<{ target: number; cat: number; since: Date | string }>(sql`
+  const r = await q.execute<{ target: number; cat: number; since: Date | string; depth: number }>(sql`
     with recursive standing as (${standing(opts.asOf)}),
     back (target, at, depth, path, since) as (
       select t, t, 0, array[t], null::timestamptz
@@ -179,11 +181,11 @@ export async function catsFeeding(
        where b.depth < ${MAX_MERGE_HOPS}
          and not (m.cat_id = any (b.path))
     )
-    select target, at as cat, since from back where depth > 0`);
+    select target, at as cat, since, depth from back where depth > 0`);
 
   // Only a cat whose whole chain ends at a real cat feeds anything: a cat
   // whose chain loops, or runs too deep, keeps its records to itself.
-  const found = r.rows.map((row) => ({ target: Number(row.target), cat: Number(row.cat), since: new Date(row.since) }));
+  const found = r.rows.map((row) => ({ target: Number(row.target), cat: Number(row.cat), since: new Date(row.since), depth: Number(row.depth) }));
   const canonical = await canonicalCatOf(
     found.map((f) => f.cat),
     opts,
@@ -193,11 +195,17 @@ export async function catsFeeding(
   const excluded = new Set(opts.excludeKinds ?? []);
   for (const id of ids) {
     const since = new Map<number, Date>();
-    for (const f of found) if (f.target === id && canonical.get(f.cat) != null) since.set(f.cat, f.since);
+    const hops = new Map<number, number>();
+    for (const f of found) {
+      if (f.target !== id || canonical.get(f.cat) == null) continue;
+      since.set(f.cat, f.since);
+      hops.set(f.cat, f.depth);
+    }
     out.set(id, {
       catId: id,
       ids: [id, ...since.keys()],
       since,
+      hops,
       counts: (row) => row.catId === id || (since.has(row.catId) && !excluded.has(row.kind)),
     });
   }

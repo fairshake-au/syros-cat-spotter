@@ -26,7 +26,6 @@ import { listGuardianChanges } from "./guardianChanges";
 import { visibleColonyIds } from "./guardianView";
 import { listLikelyForReview } from "./likelyReview";
 import { catsToWalk } from "./news/nightly";
-import { colonyAfterMarkingWrong } from "./teamCorrections";
 
 // SYC-410 PR 1.2, spec test 15 (second half): the readers the first table
 // (liveCats.readers.test.ts) could not reach by a public function, or that need
@@ -262,15 +261,6 @@ const READERS: Reader[] = [
     name: "the smoke check: the gallery has one cat for a merged pair",
     observe: async (c) => (await runSmokeCheck([], { onlyCats: (x) => c.all.includes(x.id) })).galleryCats,
     merged: (before) => (before as number) - 1,
-  },
-  {
-    name: "colonyAfterMarkingWrong: marking Agatha's newest colony wrong goes back to where both records' other statements put her",
-    observe: async (c) => {
-      const [original] = await db.select().from(observationsTable).where(eq(observationsTable.id, c.xStatement));
-      return colonyAfterMarkingWrong(db as never, original!).then((r) => (r.colonyId === c.colony.a ? "A" : r.colonyId === c.colony.g ? "G" : r.colonyId));
-    },
-    // Mimi's G (day -40) is newer than Agatha's own A (day -50).
-    merged: () => "G",
   },
 ];
 

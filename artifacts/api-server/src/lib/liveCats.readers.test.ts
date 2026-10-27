@@ -305,10 +305,10 @@ const READERS: Reader[] = [
     merged: (_, c) => [c.rosa.id],
   },
   {
-    name: "movedAwayNotices: a move is read off the combined history of the cat she is now",
+    name: "movedAwayNotices: a merge is never a move, and a merged-in cat's moves are not the cat she is now's",
     observe: async (c) =>
       (await movedAwayNotices({ id: "vitest-live-cats-guardian", scopes: [{ role: "guardian", colonyId: c.colony.m }] })).map((n) => n.catId),
-    merged: (_, c) => [c.agatha.id],
+    merged: () => [],
   },
   {
     name: "visitsFor and its photos: a merged-in cat's visits and kept photos are the cat she is now's",

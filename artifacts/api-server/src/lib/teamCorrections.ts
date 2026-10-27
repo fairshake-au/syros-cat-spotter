@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, notExists, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, notExists, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { actingRole, can, type Capability } from "./capabilities";
@@ -27,6 +27,7 @@ import {
   type RestorableKind,
 } from "./resolve";
 import { canonicalCatOf, catsFeeding, observationCatIn } from "./catIdentity";
+import { pickColonyRow } from "./colonyMembership";
 import { catNamed, isBlankName, isSyrShapedName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
 import { TEAM_ROLES } from "./teamRoles";
@@ -104,8 +105,14 @@ export async function colonyAfterMarkingWrong(tx: Tx, original: Observation): Pr
   // what her page shows.
   const now = (await canonicalCatOf([original.catId], {}, tx)).get(original.catId) ?? original.catId;
   const feeding = (await catsFeeding([now], {}, tx)).get(now)!;
-  const [next] = await tx
-    .select({ value: observationsTable.value })
+  // Each record's newest other statement; colonyMembership's one rule picks.
+  const candidates = await tx
+    .selectDistinctOn([observationsTable.catId], {
+      id: observationsTable.id,
+      catId: observationsTable.catId,
+      observedAt: observationsTable.observedAt,
+      value: observationsTable.value,
+    })
     .from(observationsTable)
     .where(
       and(
@@ -130,8 +137,8 @@ export async function colonyAfterMarkingWrong(tx: Tx, original: Observation): Pr
         ),
       ),
     )
-    .orderBy(desc(observationsTable.observedAt), desc(observationsTable.id))
-    .limit(1);
+    .orderBy(asc(observationsTable.catId), desc(observationsTable.observedAt), desc(observationsTable.id));
+  const next = pickColonyRow(feeding, new Map(candidates.map((r) => [r.catId, r])));
   const colonyId = (next?.value as { colonyId?: unknown } | undefined)?.colonyId;
   return { colonyId: typeof colonyId === "number" ? colonyId : null };
 }

@@ -1,7 +1,7 @@
 import { catsTable, db, observationsTable } from "@workspace/db";
 import { and, asc, desc, eq, isNull, lte, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { canonicalCatOf, catsFeeding, liveCats, observationCatIn } from "./catIdentity";
+import { canonicalCatOf, catsFeeding, liveCats, observationCatIn, type Feeding } from "./catIdentity";
 
 // "Which colony is a cat in" (SYC-209 plan, Slice 2; spec §2.8, data spine
 // §10.2). **This is the one place the rule lives.** The colony counts, the
@@ -12,6 +12,36 @@ import { canonicalCatOf, catsFeeding, liveCats, observationCatIn } from "./catId
 // wrong (superseded) and the ones that were redacted; the newest by
 // `observedAt` stands, and two with the same time go to the higher id. If the
 // one that stands says `colonyId: null` ("in no colony"), the cat is in none.
+
+/**
+ * Which of the records feeding a cat decides her colony, given each record's
+ * own newest standing colony statement: the nearest record that has one (her
+ * own; else the cats merged straight into her; else those merged into them),
+ * and among records the same distance away, the newest statement (observedAt,
+ * then id). "Mimi is in Ano Syros and Agatha in Vaporia: after merging she'll
+ * show as Vaporia" (spec 4.1). Every reader of a merged cat's colony uses this,
+ * so they cannot disagree.
+ */
+export function pickColonyRow<T extends { id: number; catId: number; observedAt: Date }>(
+  f: Feeding,
+  newestByCat: ReadonlyMap<number, T>,
+): T | undefined {
+  let best: T | undefined;
+  let bestHops = Infinity;
+  for (const [catId, r] of newestByCat) {
+    const hops = catId === f.catId ? 0 : f.hops.get(catId);
+    if (hops === undefined) continue;
+    const newer =
+      best !== undefined &&
+      (r.observedAt.getTime() > best.observedAt.getTime() ||
+        (r.observedAt.getTime() === best.observedAt.getTime() && r.id > best.id));
+    if (hops < bestHops || (hops === bestHops && newer)) {
+      best = r;
+      bestHops = hops;
+    }
+  }
+  return best;
+}
 
 /**
  * The colony each cat is in now. A cat in no colony (never said, or "in no
@@ -79,25 +109,13 @@ export async function currentColonyOf(
       desc(observationsTable.id),
     );
 
-  // The cat's own newest standing statement decides if she has one ("Mimi is
-  // in Ano Syros and Agatha in Vaporia: after merging she'll show as Vaporia",
-  // spec §4.1); if only a cat merged into her has said, the newest of those
-  // (the same order as above: observedAt, then id).
+  // One rule everywhere (pickColonyRow): the nearest record with a statement.
+  const byCat = new Map(rows.map((r) => [r.catId, r]));
   const newest = new Map<number, (typeof rows)[number]>();
   for (const id of targets) {
     const f = feeding.get(id);
-    if (!f) continue;
-    const own = rows.find((r) => r.catId === id);
-    if (own) {
-      newest.set(id, own);
-      continue;
-    }
-    for (const r of rows) {
-      if (!f.counts({ catId: r.catId, kind: "colony" })) continue;
-      const was = newest.get(id);
-      const later = was && r.observedAt.getTime() - was.observedAt.getTime();
-      if (!was || later! > 0 || (later === 0 && r.id > was.id)) newest.set(id, r);
-    }
+    const row = f && pickColonyRow(f, byCat);
+    if (row) newest.set(id, row);
   }
   for (const [id, r] of newest) {
     const colonyId = (r.value as { colonyId?: unknown } | null)?.colonyId;

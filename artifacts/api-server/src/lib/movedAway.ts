@@ -87,11 +87,16 @@ export async function movedAwayNotices(
     .where(and(standing, observationCatIn(feeding.values())))
     .orderBy(desc(observationsTable.observedAt), desc(observationsTable.id));
 
-  // Newest first, per cat she is now, over every record that counts for her.
+  // A move is an event in one cat's own history, newest first. A cat merged
+  // into another puts her statements in the other's colony (colonyMembership's
+  // rule: the cat she is now keeps her own), but a merge is never a move, so
+  // her statements make no move for the cat she is now.
   const byCat = new Map<number, typeof rows>();
-  for (const [target, f] of feeding) {
-    const own = rows.filter((r) => f.counts({ catId: r.catId, kind: "colony" }));
-    if (own.length > 0) byCat.set(target, own);
+  for (const r of rows) {
+    if (!feeding.has(r.catId)) continue;
+    const list = byCat.get(r.catId);
+    if (list) list.push(r);
+    else byCat.set(r.catId, [r]);
   }
 
   const colonyOf = (v: unknown): number | null => {
