@@ -8,13 +8,14 @@ import {
   peopleTable,
   photosTable,
   sightingMatchesTable,
+  sightingMovesTable,
   sightingPhotosTable,
   sightingsTable,
   observationsTable,
   type Observation,
   type SightingPhotoRole,
 } from "@workspace/db";
-import { and, asc, desc, eq, inArray, isNull, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
 import { liveCats } from "./catIdentity";
 import { currentColonyOf } from "./colonyMembership";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
@@ -553,6 +554,44 @@ export interface TeamAppearance {
   guardianDisagrees: boolean;
 }
 
+/**
+ * A move of a sighting to or from this cat by the team (which-cat-is-which.md
+ * §5.7; the cat page's History, SYC-150 PR 3.3). The moves a merge made are
+ * PR 4.2's rows, so only the move screen's are here.
+ */
+export interface TeamSightingMove {
+  /** The move row. */
+  id: number;
+  sightingId: number;
+  /** "in": the sighting came to this cat. "out": it left. */
+  direction: "in" | "out";
+  /** The cat on the other side: where it came from ("in") or went ("out"). */
+  otherCat: TeamCatRef;
+  at: string;
+  /** The reason in words: "Different markings". */
+  reason: string;
+  /** What the person added to the reason ("Other…" says what here). */
+  reasonText: string | null;
+  /** Who moved it; null once their details were deleted. */
+  by: { name: string; left: boolean } | null;
+  /** The move that started this cat ("It's a new cat"). */
+  madeNewCat: boolean;
+  /** The sighting's newest move: the one "Move back" undoes. */
+  latest: boolean;
+  /**
+   * "out" only: the sighting as it was on this cat (it is no longer in
+   * `sightings`). Null for "in", whose sighting is in `sightings`.
+   */
+  sighting: { id: number; lat: number; lng: number; at: string; photoUrl: string | null } | null;
+}
+
+export const MOVE_REASON_WORDS: Record<string, string> = {
+  different_markings: "Different markings",
+  two_cats: "Two cats in the photo",
+  wrong_pick: "Wrong cat picked",
+  other: "Other",
+};
+
 export interface TeamCatView {
   cat: {
     id: number;
@@ -623,6 +662,8 @@ export interface TeamCatView {
     /** SYC-415 spec §4.5: the matcher judged the spot's photos may show more than one cat. */
     mixedCats: boolean;
   }[];
+  /** The team's moves of sightings to or from this cat, newest first (SYC-150 PR 3.3). */
+  moves: TeamSightingMove[];
   /**
    * Every photo of the cat, once each: main, then each sighting's photos (its
    * cover, then its extras in the order taken), then statements.
@@ -820,6 +861,78 @@ async function colonyNameLookup(colonyIds: readonly number[]) {
 const colonyWords = (l: { name: string | null; wasName: string | null }) =>
   l.name === null ? null : l.wasName ? `“${l.name}” (was “${l.wasName}”)` : `“${l.name}”`;
 
+/**
+ * The team's moves of sightings to or from this cat, newest first (not the
+ * moves a merge made). `latest` marks a sighting's newest move, the only one
+ * "Move back" applies to.
+ */
+async function sightingMovesOf(catId: number): Promise<TeamSightingMove[]> {
+  const rows = await db
+    .select()
+    .from(sightingMovesTable)
+    .where(and(isNull(sightingMovesTable.mergeId), or(eq(sightingMovesTable.toCatId, catId), eq(sightingMovesTable.fromCatId, catId))))
+    .orderBy(desc(sightingMovesTable.id));
+  if (rows.length === 0) return [];
+  const sightingIds = [...new Set(rows.map((r) => r.sightingId))];
+  const otherIds = [...new Set(rows.map((r) => (r.toCatId === catId ? r.fromCatId : r.toCatId)))];
+  const outIds = [...new Set(rows.filter((r) => r.fromCatId === catId).map((r) => r.sightingId))];
+  const moverIds = [...new Set(rows.map((r) => r.movedByAccountId).filter((a): a is string => a !== null && isPersonId(a)))];
+  const [newest, others, was, movers] = await Promise.all([
+    db
+      .select({ sightingId: sightingMovesTable.sightingId, id: sightingMovesTable.id })
+      .from(sightingMovesTable)
+      .where(inArray(sightingMovesTable.sightingId, sightingIds))
+      .orderBy(asc(sightingMovesTable.id)),
+    db.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(inArray(catsTable.id, otherIds)),
+    outIds.length === 0
+      ? Promise.resolve([] as { id: number; lat: number; lng: number; createdAt: Date; publicId: string | null }[])
+      : db
+          .select({
+            id: sightingsTable.id,
+            lat: sightingsTable.lat,
+            lng: sightingsTable.lng,
+            createdAt: sightingsTable.createdAt,
+            publicId: photosTable.publicId,
+          })
+          .from(sightingsTable)
+          .leftJoin(photosTable, and(eq(photosTable.id, sightingsTable.photoId), isNull(photosTable.removedAt)))
+          .where(inArray(sightingsTable.id, outIds)),
+    moverIds.length === 0
+      ? Promise.resolve([] as { id: string; name: string; leftAt: Date | null }[])
+      : // Read the list directly, as peopleNames does: a person who has left is still named.
+        db
+          .select({ id: peopleTable.id, name: peopleTable.name, leftAt: peopleTable.leftAt })
+          .from(peopleTable)
+          .where(inArray(peopleTable.id, moverIds)),
+  ]);
+  const newestOf = new Map<number, number>();
+  for (const n of newest) newestOf.set(n.sightingId, n.id);
+  const nameOf = new Map(others.map((c) => [c.id, c.name]));
+  const wasOf = new Map(was.map((s) => [s.id, s]));
+  const personOf = new Map(movers.map((p) => [p.id, { name: p.name, left: p.leftAt !== null }]));
+  return rows.map((r) => {
+    const inbound = r.toCatId === catId;
+    const otherId = inbound ? r.fromCatId : r.toCatId;
+    const before = inbound ? undefined : wasOf.get(r.sightingId);
+    const person = r.movedByAccountId ? personOf.get(r.movedByAccountId) : undefined;
+    return {
+      id: r.id,
+      sightingId: r.sightingId,
+      direction: inbound ? "in" : "out",
+      otherCat: { id: otherId, syr: syrNumber(otherId), name: nameOf.get(otherId) ?? syrNumber(otherId) },
+      at: r.createdAt.toISOString(),
+      reason: MOVE_REASON_WORDS[r.reason] ?? r.reason,
+      reasonText: r.reasonText,
+      by: r.redactedAt !== null || !person ? null : person,
+      madeNewCat: r.madeNewCat,
+      latest: newestOf.get(r.sightingId) === r.id,
+      sighting: before
+        ? { id: before.id, lat: before.lat, lng: before.lng, at: before.createdAt.toISOString(), photoUrl: before.publicId ? teamPhotoUrl(before.publicId) : null }
+        : null,
+    } satisfies TeamSightingMove;
+  });
+}
+
 /** The team's view of one cat, or null if there is no such cat. */
 export async function teamCatView(
   catId: number,
@@ -903,11 +1016,12 @@ export async function teamCatView(
         .filter((p): p is number => p != null),
     ]),
   ];
-  const [people, photoIds, crossCat, hidden] = await Promise.all([
+  const [people, photoIds, crossCat, hidden, moves] = await Promise.all([
     peopleNames(observations),
     photoPublicIds(galleryIds),
     crossCatLinks(observations),
     hiddenLabels(galleryIds),
+    sightingMovesOf(cat.id),
   ]);
   const urlFor = (photoId: number | null) => {
     const publicId = photoId == null ? undefined : photoIds.get(photoId)?.publicId;
@@ -1088,6 +1202,7 @@ export async function teamCatView(
       })),
       mixedCats: mixedCatsOf.has(s.id),
     })),
+    moves,
     photos,
     history,
     recentGuardianMark: (() => {

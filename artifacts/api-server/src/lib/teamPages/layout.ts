@@ -326,6 +326,28 @@ li.hrow .what{min-width:0}
 li.hrow .what p{margin:4px 0 0}
 li.hrow .what .notice{margin:0 0 6px}
 li.hrow .who{display:block;font-size:14px;color:var(--muted)}
+li.hrow label.tick{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin-top:4px;font-size:14px;color:var(--muted)}
+li.hrow label.tick input{width:22px;height:22px;margin:0}
+li.hrow.moved{background:var(--card-quiet)}
+li.hrow .moveline{font-size:14px}
+ul.movelist,ul.moveresults{list-style:none;margin:0 0 12px;padding:0}
+ul.movelist li{margin:0 0 8px}
+ul.moveresults li{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+ul.moveresults li:first-child{border-top:0}
+ul.moveresults img{width:56px;height:56px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+ul.moveresults .rname{min-width:0;overflow-wrap:anywhere}
+ul.moveresults .rname .meta{display:block}
+ul.moveresults a.choose{display:inline-flex;align-items:center;min-height:44px;padding:0 12px}
+form.movesearch{margin:0 0 12px}
+form.movesearch button{margin-top:0}
+form.moveform fieldset.why,form.moveform fieldset.mainphoto{margin:0 0 12px}
+form.moveform .pickgrid{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
+form.moveform label.pick{display:flex;flex-direction:column;align-items:center;gap:4px}
+form.moveform label.pick img{width:72px;height:72px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+form.moveform .whatmoves{background:var(--card-quiet);border:1px solid var(--line);border-radius:10px;padding:4px 12px;margin:0 0 12px}
+form.moveform .whatmoves h2{font-size:16px;margin:8px 0 4px}
+form.movebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+form.movebar .hint{flex:1 0 100%;margin:0}
 li.hrow .vet-photos{display:flex;flex-wrap:wrap;gap:8px}
 li.hrow .vet-photos a{display:block;width:64px;height:64px;min-height:64px;padding:0;margin:0}
 li.hrow .vet-photos img{display:block;width:64px;height:64px;object-fit:cover;border-radius:6px}

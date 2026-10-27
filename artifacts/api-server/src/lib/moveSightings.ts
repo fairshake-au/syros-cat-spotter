@@ -378,7 +378,7 @@ async function nameTaken(name: string): Promise<MoveRefused> {
 }
 
 /** Every photo of these spots: each cover photo and its face and body photos (SYC-415). */
-async function photosOfSightings(tx: DbOrTx, sightingIds: readonly number[]): Promise<Set<number>> {
+export async function photosOfSightings(tx: DbOrTx, sightingIds: readonly number[]): Promise<Set<number>> {
   const covers = await tx.select({ id: sightingsTable.photoId }).from(sightingsTable).where(inArray(sightingsTable.id, [...sightingIds]));
   const extras = await tx
     .select({ id: sightingPhotosTable.photoId })

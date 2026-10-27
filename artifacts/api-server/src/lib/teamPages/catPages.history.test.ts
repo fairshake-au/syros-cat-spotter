@@ -94,6 +94,7 @@ function view(
     sightings: [],
     photos: [],
     history: opts.history ?? history(n),
+    moves: [],
     recentGuardianMark: null,
   };
 }

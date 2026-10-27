@@ -95,6 +95,7 @@ export const bareCatView = (): TeamCatView => ({
   sightings: [],
   photos: [],
   history: [],
+  moves: [],
   recentGuardianMark: null,
 });
 

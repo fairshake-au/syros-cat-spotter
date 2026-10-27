@@ -70,6 +70,13 @@ export interface IssueReport {
   /** Accepted while Cloudflare's check was unreachable (§9.5). */
   unchecked: boolean;
   group: IssueGroup;
+  /**
+   * A "That's a different cat" report about a photo that is a spot of the cat
+   * it names: the spots to move (which-cat-is-which.md §5.1 way 3; SYC-150
+   * PR 3.3). Null for any other report, a closed one, or a photo that isn't a
+   * resolved spot of that cat.
+   */
+  moveFrom: { catId: number; sightingIds: number[] } | null;
 }
 
 export interface IssuesSection {
@@ -121,6 +128,8 @@ type Row = {
   noted_by_name: string | null;
   noted_by_left_at: Date | string | null;
   others: number;
+  move_cat_id: number | null;
+  move_sightings: number[] | null;
 };
 
 /**
@@ -148,7 +157,17 @@ async function issueRows(extra: SQL, tail: SQL): Promise<Row[]> {
                and o.reason = r.reason
                and case when r.photo_id is not null then o.photo_id = r.photo_id
                         else o.photo_id is null and o.cat_id = r.cat_id end
-           ) as others
+           ) as others,
+           coalesce(r.cat_id, r.reporter_cat_id) as move_cat_id,
+           (select array_agg(s.id order by s.id)
+              from sightings s
+             where r.reason = 'wrong_cat'
+               and r.photo_id is not null
+               and s.status = 'resolved'
+               and s.cat_id = coalesce(r.cat_id, r.reporter_cat_id)
+               and (s.photo_id = r.photo_id
+                    or exists (select 1 from sighting_photos sp where sp.sighting_id = s.id and sp.photo_id = r.photo_id))
+           ) as move_sightings
       from welfare_reports r
       left join cats c on c.id = r.cat_id
       left join photos p on p.id = r.photo_id
@@ -195,6 +214,10 @@ function toIssue(r: Row): IssueReport {
     others: Number(r.others),
     unchecked: r.token_checked === false,
     group: groupOf(r),
+    moveFrom:
+      (r.state === "new" || r.state === "looking") && r.move_cat_id !== null && r.move_sightings && r.move_sightings.length > 0
+        ? { catId: r.move_cat_id, sightingIds: r.move_sightings.map(Number) }
+        : null,
   };
 }
 
