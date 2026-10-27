@@ -92,3 +92,29 @@ describe("C10 / §9.9: hasMetCat compares canonical cats and leaves out the team
     expect(await hasMetCat(db, e.agatha, e.spotter, "name")).toBe(false);
   });
 });
+
+// Folded in from the independent review of #380 (R4). Its "legacy sighting
+// moved away and back" case waits on Samuel's decision (PR body).
+describe("hasMetCat after moving away and back (review R4)", () => {
+  it("a hand-picked sighting moved away meets neither cat; moved back, Mimi again", async () => {
+    const c = await matched("suggested", "mimi");
+    await moveSighting(c.s.id, c.agatha);
+    for (const p of ["name", "claim"] as const) {
+      expect(await hasMetCat(db, c.agatha, c.spotter, p)).toBe(false);
+      expect(await hasMetCat(db, c.mimi, c.spotter, p)).toBe(false);
+    }
+    await moveSighting(c.s.id, c.mimi);
+    expect(await hasMetCat(db, c.mimi, c.spotter, "claim")).toBe(true);
+  });
+
+  it("a sighting moved onto a cat 'Let spotters name it' made gives its own spotter no naming right", async () => {
+    const c = await matched("suggested", "mimi");
+    const fresh = await kit.cat();
+    await moveSighting(c.s.id, fresh, { madeNewCat: true, letSpottersName: true });
+    const someone = kit.device();
+    const other = await kit.sighting(c.agatha, someone);
+    await moveSighting(other.id, fresh);
+    expect(await hasMetCat(db, fresh, c.spotter, "name")).toBe(true);
+    expect(await hasMetCat(db, fresh, someone, "name")).toBe(false);
+  });
+});

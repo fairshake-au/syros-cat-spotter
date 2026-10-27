@@ -211,3 +211,34 @@ describe("C11: a welfare report re-tied the old way (no move record) still stops
     expect(r.observations.filter((o) => o.elsewhere).map((o) => o.catId)).toEqual([agatha]);
   });
 });
+
+// Folded in from the independent review of #380 (R5).
+describe("spec test 27: resolveAt agrees with loadCatRecords({ asOf }) at a move and inside an undone merge (review R5)", () => {
+  const agree = async (ids: number[], at: Date) => {
+    for (const id of ids) {
+      const asOf = (await loadCatRecords([id], db, { asOf: at })).get(id)!;
+      const h = (await loadCatRecords([id], db, { withHistory: true })).get(id)!;
+      expect(resolveAt(h, at, NOW), `cat ${id}`).toEqual(resolveCat(asOf.observations, asOf.evidenceOfLife, NOW));
+    }
+  };
+
+  it("just after the move, for both cats", async () => {
+    const w = await world("mimi");
+    const moved = await moveSighting(w.s.id, w.agatha);
+    // A JS date keeps milliseconds, the database microseconds.
+    const at = new Date(moved.copied[0]!.createdAt.getTime() + 1);
+    await agree([w.mimi, w.agatha], at);
+    const ag = (await loadCatRecords([w.agatha], db, { asOf: at })).get(w.agatha)!;
+    expect(resolveCat(ag.observations, ag.evidenceOfLife, NOW).sterilised.confidence).toBe("likely");
+  });
+
+  it("a sighting moved inside a merge window undone since", async () => {
+    const w = await world("mimi");
+    const dora = await kit.cat();
+    const mergeId = await recordedMerge(w.agatha, dora);
+    await moveSighting(w.s.id, dora);
+    const inside = await moment();
+    await recordedUndo(mergeId);
+    await agree([w.mimi, w.agatha, dora], inside);
+  });
+});

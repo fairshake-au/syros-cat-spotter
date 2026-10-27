@@ -19,7 +19,7 @@ import {
   type SuggestedMatch,
   type PICKED_FROM,
 } from "@workspace/db";
-import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, not, sql } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, not, sql, type SQL } from "drizzle-orm";
 import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
@@ -199,6 +199,7 @@ export async function earTipStateFor(
         eq(observationsTable.deviceId, deviceId),
         eq(observationsTable.kind, "ear_tip"),
         not(replacedByMove(observationsTable.id)),
+        sightingStillHere(feeding),
       ),
     );
   const [sterilised] = await tx
@@ -238,19 +239,36 @@ export async function hasAnsweredEarTip(
 ): Promise<boolean> {
   // As earTipStateFor: through the cat this one now is, leaving out answers
   // a move took to another cat.
+  const feeding = await feedingOfCanonical(tx, catId);
   const [row] = await tx
     .select({ id: observationsTable.id })
     .from(observationsTable)
     .where(
       and(
-        observationCatIn(await feedingOfCanonical(tx, catId)),
+        observationCatIn(feeding),
         eq(observationsTable.deviceId, deviceId),
         eq(observationsTable.kind, "ear_tip"),
         not(replacedByMove(observationsTable.id)),
+        sightingStillHere(feeding),
       ),
     )
     .limit(1);
   return row != null;
+}
+
+/**
+ * SQL: the answer is about this cat's own sightings. An answer on a sighting
+ * now filed under a cat outside this group went with its sighting
+ * (which-cat-is-which.md §9.5), and so did every earlier answer of the same
+ * spotter on it, even one only their own change replaced (review of #380,
+ * R1). An answer with no sighting stays.
+ */
+function sightingStillHere(feeding: readonly Feeding[]): SQL {
+  const ids = [...new Set(feeding.flatMap((f) => f.ids))];
+  return sql`(${observationsTable.sightingId} is null or exists (
+    select 1 from sightings here
+     where here.id = ${observationsTable.sightingId}
+       and here.cat_id in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})))`;
 }
 
 /** The cats whose statements count for the cat `catId` now is (itself if it's in a merge loop). */

@@ -169,3 +169,70 @@ describe("writeObservation's same-cat checks compare canonical cats", () => {
     await expect(write(agatha)).resolves.toMatchObject({ catId: agatha, supersedesId: row!.id });
   });
 });
+
+// Folded in from the independent review of #380 (R1, R2, R6).
+
+const sterilisedOf = async (catId: number) => {
+  const r = (await loadCatRecords([catId])).get(catId)!;
+  return resolveCat(r.observations, r.evidenceOfLife, new Date()).sterilised;
+};
+
+describe("a spotter who changed their answer, then the sighting moved (review R1; spec tests 2, 5)", () => {
+  it("the old cat is as if it never had the sighting: open, never answered", async () => {
+    const c = await scene();
+    // The spotter changes their mind, as the answers route writes it.
+    await writeObservation(db, {
+      catId: c.mimi,
+      kind: "ear_tip",
+      value: { clipped: false },
+      deviceId: c.spotter,
+      roleAtTime: "public",
+      authorityScope: "none",
+      provenance: "volunteered",
+      sightingId: c.s.id,
+      photoId: c.s.photoId,
+      observedAt: c.s.createdAt,
+      supersedesId: c.ear.id,
+      supersedeReason: "changed by the spotter",
+    });
+    await moveSighting(c.s.id, c.agatha);
+    expect(await earTipStateFor(db, c.spotter, c.mimi)).toEqual({ state: "open" });
+    expect(await hasAnsweredEarTip(db, c.spotter, c.mimi)).toBe(false);
+    expect(await earTipStateFor(db, c.spotter, c.agatha)).toMatchObject({ state: "answered", current: { answer: "looks_whole" } });
+  });
+});
+
+describe("move, then move back (review R2)", () => {
+  it("each cat is as it was before; the spotter's answer is current on Mimi again", async () => {
+    const c = await scene();
+    const mimiBefore = await sterilisedOf(c.mimi);
+    const agathaBefore = await sterilisedOf(c.agatha);
+    await moveSighting(c.s.id, c.agatha);
+    const back = await moveSighting(c.s.id, c.mimi);
+    const copy = back.copied.find((o) => o.kind === "ear_tip")!;
+    expect(await sterilisedOf(c.mimi)).toEqual(mimiBefore);
+    expect(await sterilisedOf(c.agatha)).toEqual(agathaBefore);
+    expect(await earTipStateFor(db, c.spotter, c.mimi)).toMatchObject({ state: "answered", current: { id: copy.id } });
+    expect(await earTipStateFor(db, c.spotter, c.agatha)).toEqual({ state: "open" });
+    const likely = await listLikelyForReview();
+    expect(likely.find((l) => l.catId === c.agatha)).toBeUndefined();
+    expect(likely.find((l) => l.catId === c.mimi)?.evidence.map((e) => e.observationId)).toEqual([copy.id]);
+  });
+});
+
+describe("an agreement, then the photo moves back (review R6)", () => {
+  it("the agreement on Agatha's copy doesn't carry over: Mimi is back on the Likely list", async () => {
+    const c = await scene();
+    const there = await moveSighting(c.s.id, c.agatha);
+    const copy = there.copied.find((o) => o.kind === "ear_tip")!;
+    expect(await agreeWithClip(STAFF, copy.id)).not.toBe("already");
+    expect((await listLikelyForReview()).find((l) => l.catId === c.agatha)).toBeUndefined();
+    const back = await moveSighting(c.s.id, c.mimi);
+    const again = back.copied.find((o) => o.kind === "ear_tip")!;
+    expect((await sterilisedOf(c.mimi)).confidence).toBe("likely");
+    expect((await sterilisedOf(c.agatha)).confidence).toBe("unknown");
+    const likely = await listLikelyForReview();
+    expect(likely.find((l) => l.catId === c.mimi)?.evidence.map((e) => e.observationId)).toEqual([again.id]);
+    expect(likely.find((l) => l.catId === c.agatha)).toBeUndefined();
+  });
+});
