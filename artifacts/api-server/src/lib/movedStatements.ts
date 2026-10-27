@@ -32,10 +32,13 @@ import type { DbOrTx } from "./observations";
  * The old cat stops counting a copied row because `loadCatRecords` lists the
  * copy among its rows as `elsewhere` (it replaces one of them).
  *
- * Locks: the spotter's badges lock and credentials row first (the order a
- * deletion takes them, §9.7), then the rows. So a deletion of the spotter
- * either finishes first, and the copy carries no device, or waits for the
- * move, and then clears the copy too (spec test 6).
+ * Locks: the caller takes the spotter's badges lock (and credentials row)
+ * before anything else in its transaction, before it touches the sighting,
+ * as deletion does (§9.7 lock 1; `lockSpotterFirst`). Taken any later, a
+ * move and a deletion could each hold what the other waits for. This
+ * refuses to run without it (review of #380, finding 5). So a deletion of
+ * the spotter either finishes first, and the copy carries no device, or
+ * waits for the move, and then clears the copy too (spec test 6).
  *
  * Must run in the transaction that wrote the move row and set
  * `app.sighting_move_id` to it: the observations trigger refuses the rows
@@ -152,17 +155,47 @@ export async function writeMovedObservation(tx: DbOrTx, moveId: number): Promise
 }
 
 /**
- * The spotter's phone, read under its badges lock and credentials row (the
- * order deletion takes them, so nothing waits in a circle). Read again after
- * the lock: a deletion that got there first has cleared it. Null for a
- * sighting with nobody on it.
+ * The spotter's phone, which must already be under its badges lock in this
+ * transaction (the caller took it first, `lockSpotterFirst`); refused
+ * otherwise. Null for a sighting with nobody on it, which needs no lock.
  */
 async function lockSpotter(tx: DbOrTx, move: SightingMove): Promise<string | null> {
-  const before = await deviceOf(tx, move.sightingId);
+  const device = await deviceOf(tx, move.sightingId);
+  if (device === null) return null;
+  if (!(await holdsBadgesLock(tx, device))) {
+    throw new MoveStatementsRefused("take the spotter's badges lock before the move (lockSpotterFirst)");
+  }
+  return device;
+}
+
+/**
+ * §9.7 lock 1, for a move's caller to run first in its transaction, before
+ * it touches the sighting: the spotter's badges lock, then their credentials
+ * row, the order deletion takes them. Returns the sighting's device as it
+ * stands under the lock (null once a deletion that got there first cleared
+ * it).
+ */
+export async function lockSpotterFirst(tx: DbOrTx, sightingId: number): Promise<string | null> {
+  const before = await deviceOf(tx, sightingId);
   if (before === null) return null;
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"badges:" + before}))`);
   await tx.execute(sql`select device_id from device_credentials where device_id = ${before} for share`);
-  return deviceOf(tx, move.sightingId);
+  return deviceOf(tx, sightingId);
+}
+
+/** Does this transaction hold the device's badges lock? (pg_locks splits the 64-bit key into two halves.) */
+async function holdsBadgesLock(tx: DbOrTx, device: string): Promise<boolean> {
+  const r = await tx.execute<{ held: boolean }>(sql`
+    select exists (
+      select 1 from pg_locks l, (select hashtext(${"badges:" + device})::bigint as k) key
+       where l.locktype = 'advisory'
+         and l.pid = pg_backend_pid()
+         and l.granted
+         and l.objsubid = 1
+         and l.classid::bigint = ((key.k >> 32) & 4294967295)
+         and l.objid::bigint = (key.k & 4294967295)
+    ) as held`);
+  return r.rows[0]?.held === true;
 }
 
 async function deviceOf(tx: DbOrTx, sightingId: number): Promise<string | null> {

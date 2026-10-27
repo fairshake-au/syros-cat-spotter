@@ -8,7 +8,7 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
 
 import { moveKit } from "../test/moveKit";
 import { moveSighting } from "../test/moves";
-import { writeMovedObservation } from "./movedStatements";
+import { lockSpotterFirst, writeMovedObservation } from "./movedStatements";
 import { agreeWithClip } from "./teamCorrections";
 
 // SYC-150 PR 3.1 (which-cat-is-which.md §5.7, §9.5): what a move writes about
@@ -145,6 +145,23 @@ describe("writeMovedObservation's own refusals", () => {
         await writeMovedObservation(tx, m!.id);
       }),
     ).rejects.toThrow(/copy no statements/);
+  });
+
+  it("refuses unless the caller took the spotter's badges lock first (review of #380, finding 5)", async () => {
+    const c = await scene();
+    const attempt = (lockFirst: boolean) =>
+      db.transaction(async (tx) => {
+        if (lockFirst) await lockSpotterFirst(tx, c.s.id);
+        const [m] = await tx
+          .insert(sightingMovesTable)
+          .values({ sightingId: c.s.id, fromCatId: c.mimi, toCatId: c.agatha, batchId: crypto.randomUUID(), reason: "wrong_pick", source: "cat_page", movedByAccountId: "vitest", roleAtTime: "staff" })
+          .returning();
+        await tx.execute(sql`select set_config('app.sighting_move_id', ${String(m!.id)}, true)`);
+        await tx.execute(sql`update sightings set cat_id = ${c.agatha} where id = ${c.s.id}`);
+        return writeMovedObservation(tx, m!.id);
+      });
+    await expect(attempt(false)).rejects.toThrow(/badges lock/);
+    await expect(attempt(true)).resolves.toMatchObject({ copied: expect.any(Array) });
   });
 
   it("the database refuses a copy outside the move's own transaction", async () => {
