@@ -729,12 +729,13 @@ describe("statements a move writes (§9.4, §9.5)", () => {
     client: pg.Client,
     catId: number,
     sightingId: number,
-    extra: { moveId?: number; redacted?: boolean } = {},
+    extra: { moveId?: number; redacted?: boolean; supersedes?: number } = {},
   ) {
     return client.query(
       `insert into observations
-         (cat_id, kind, value, device_id, sighting_id, observed_at, sighting_move_id, redacted_at, redaction_reason)
-       values ($1, 'ear_tip', '{"earTip": true}', $2, $3, now(), $4, $5, $6)`,
+         (cat_id, kind, value, device_id, sighting_id, observed_at, sighting_move_id, redacted_at, redaction_reason,
+          supersedes_id, supersede_reason)
+       values ($1, 'ear_tip', '{"earTip": true}', $2, $3, now(), $4, $5, $6, $7, $8)`,
       [
         catId,
         extra.redacted ? null : "dev-a",
@@ -742,22 +743,37 @@ describe("statements a move writes (§9.4, §9.5)", () => {
         extra.moveId ?? null,
         extra.redacted ? new Date() : null,
         extra.redacted ? "deleted" : null,
+        extra.supersedes ?? null,
+        extra.supersedes ? "moved" : null,
       ],
     );
   }
 
-  it("accepts a statement naming the current move, attributed or already redacted", async () => {
+  /** The spotter's own answer on the sighting, before any move. */
+  async function original(catId: number, sightingId: number): Promise<number> {
+    const r = await one<{ id: number }>(
+      c,
+      `insert into observations (cat_id, kind, value, device_id, sighting_id, observed_at)
+       values ($1, 'ear_tip', '{"earTip": true}', 'dev-a', $2, now()) returning id`,
+      [catId, sightingId],
+    );
+    return r.id;
+  }
+
+  it("accepts a copy on the new cat and a withdrawal on the row's own cat, attributed or redacted", async () => {
     const a = await cat();
     const b = await cat();
     const s = await resolved(a);
+    const orig = await original(a, s);
     await inTx(c, async () => {
       const id = await moveRow(c, s, a, b);
       await setMove(c, id);
       await recat(c, s, b);
-      await statement(c, b, s, { moveId: id });
-      await statement(c, b, s, { moveId: id, redacted: true });
+      await statement(c, b, s, { moveId: id, supersedes: orig });
+      await statement(c, b, s, { moveId: id, redacted: true, supersedes: orig });
+      await statement(c, a, s, { moveId: id, redacted: true, supersedes: orig });
     });
-    expect((await c.query(`select 1 from observations where sighting_id = $1`, [s])).rowCount).toBe(2);
+    expect((await c.query(`select 1 from observations where sighting_id = $1`, [s])).rowCount).toBe(4);
   });
 
   it("refuses one with no setting, an older move, or another sighting's move", async () => {
@@ -765,30 +781,66 @@ describe("statements a move writes (§9.4, §9.5)", () => {
     const b = await cat();
     const s = await resolved(a);
     const other = await resolved(a);
+    const orig = await original(a, s);
     const old = await inTx(c, () => moveRow(c, s, a, b));
-    await expect(statement(c, b, s, { moveId: old })).rejects.toThrow(/naming a move/);
+    await expect(statement(c, b, s, { moveId: old, supersedes: orig })).rejects.toThrow(/naming a move/);
     await expect(
       inTx(c, async () => {
         await setMove(c, old);
-        await statement(c, b, s, { moveId: old });
+        await statement(c, b, s, { moveId: old, supersedes: orig });
       }),
     ).rejects.toThrow(/naming a move/);
     await expect(
       inTx(c, async () => {
         const id = await moveRow(c, other, a, b);
         await setMove(c, id);
-        await statement(c, b, s, { moveId: id });
+        await statement(c, b, s, { moveId: id, supersedes: orig });
       }),
     ).rejects.toThrow(/naming a move/);
     // A fresh move of this sighting, but not named by the setting.
     await expect(
       inTx(c, async () => {
         const id = await moveRow(c, s, a, b);
-        await statement(c, b, s, { moveId: id });
+        await statement(c, b, s, { moveId: id, supersedes: orig });
       }),
     ).rejects.toThrow(/naming a move/);
     // Arriving redacted still needs a move.
     await expect(statement(c, b, s, { redacted: true })).rejects.toThrow(/already redacted/);
+  });
+
+  it("refuses a moved statement that replaces nothing, another sighting's row, or sits on a third cat (review L4)", async () => {
+    const a = await cat();
+    const b = await cat();
+    const bystander = await cat();
+    const s = await resolved(a);
+    const orig = await original(a, s);
+    // An ordinary statement on an unrelated cat, with no sighting.
+    const unrelated = (
+      await one<{ id: number }>(
+        c,
+        `insert into observations (cat_id, kind, value, device_id, observed_at)
+         values ($1, 'note', '{"text": "fine"}', 'dev-z', now()) returning id`,
+        [bystander],
+      )
+    ).id;
+    const inMove = (fn: (moveId: number) => Promise<unknown>) =>
+      inTx(c, async () => {
+        const id = await moveRow(c, s, a, b);
+        await setMove(c, id);
+        await recat(c, s, b);
+        await fn(id);
+      });
+    // Superseding the unrelated row, on the bystander (the reviewer's A5).
+    await expect(inMove((id) => statement(c, bystander, s, { moveId: id, redacted: true, supersedes: unrelated }))).rejects.toThrow(
+      /moved statement/,
+    );
+    // Replacing nothing.
+    await expect(inMove((id) => statement(c, b, s, { moveId: id }))).rejects.toThrow(/moved statement/);
+    // Replacing the sighting's own row, but put on a third cat.
+    await expect(inMove((id) => statement(c, bystander, s, { moveId: id, supersedes: orig }))).rejects.toThrow(
+      /moved statement/,
+    );
+    expect((await sightingRow(s)).cat_id).toBe(a);
   });
 
   it("still allows an ordinary statement and its redaction, and refuses setting a move id later", async () => {
