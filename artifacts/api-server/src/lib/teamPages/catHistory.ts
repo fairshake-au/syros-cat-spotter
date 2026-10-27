@@ -619,7 +619,7 @@ function changeLink(id: number, c: ExtrasCtx): string {
 }
 
 /** What follows an entry's words: why, what it corrects, its photo, what replaced it, where it went. */
-export function entryExtras(s: TeamStatement, c: ExtrasCtx, skipWhy = false): string {
+export function entryExtras(s: TeamStatement, c: ExtrasCtx, skipWhy = false, quietMove = false): string {
   const replacements = s.replacedBy
     .map((id) => c.byId.get(id))
     .filter((r): r is TeamStatement => r !== undefined)
@@ -630,20 +630,23 @@ export function entryExtras(s: TeamStatement, c: ExtrasCtx, skipWhy = false): st
         ` <span class="meta">(${esc(byWhom(r))}, ${timeTag(r.createdAt, fullWhen(r.createdAt))})</span></p>`,
     )
     .join("");
-  const moved = s.movedTo
+  // `quietMove`: the row above already says where the sighting went or came from (PR 3.3's move line).
+  const moved = s.movedTo && !quietMove
     ? `<p class="replacement">Moved to <a href="${esc(catHref(s.movedTo.cat.id))}">${esc(s.movedTo.cat.name)}</a> ` +
       `<span class="syr">${esc(s.movedTo.cat.syr)}</span>` +
       (s.movedTo.reason ? `. Why: ${esc(s.movedTo.reason)}` : "") +
       ` <span class="meta">(${timeTag(s.movedTo.at, fullWhen(s.movedTo.at))})</span></p>`
     : "";
-  const corrects = s.movedFrom
+  const corrects = s.movedFrom && quietMove
+    ? ""
+    : s.movedFrom
     ? `<p class="meta">Moved here from <a href="${esc(catHref(s.movedFrom.cat.id))}">${esc(s.movedFrom.cat.name)}</a> ` +
       `<span class="syr">${esc(s.movedFrom.cat.syr)}</span></p>`
     : s.replaces != null
       ? `<p class="meta">Corrects ${changeLink(s.replaces, c)}</p>`
       : "";
   return (
-    (s.reason && !skipWhy ? `<p class="why">Why: ${esc(s.reason)}</p>` : "") +
+    (s.reason && !skipWhy && !(quietMove && s.reason === "moved") ? `<p class="why">Why: ${esc(s.reason)}</p>` : "") +
     corrects +
     (s.photoUrl ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}">See the photo</a></p>` : "") +
     replacements +
@@ -761,7 +764,7 @@ function sightingRow(r: SightingRow, c: Ctx): string {
     // Every sighting comes from a spotter's phone (sightings_attribution_ck).
     `<span class="who">${esc(who.length > 0 ? who.join(", ") : "A spotter")}${recordedLate}</span>` +
     (c.cameFrom.has(s.id) ? cameHereLine(c.cameFrom.get(s.id)!) : "") +
-    r.entries.map((e) => entryExtras(e, c)).join("") +
+    r.entries.map((e) => entryExtras(e, c, false, c.cameFrom.has(s.id))).join("") +
     thumb +
     // Tick to move several at once; the buttons are in the bar above the list.
     (c.may("move_sighting")
@@ -814,7 +817,7 @@ function movedRow(r: Extract<HistoryRow, { type: "moved" }>, c: Ctx): string {
     `<p class="meta moveline">${m.madeNewCat ? "Started a new cat. Moved" : "Moved"} to ` +
     `<a href="${esc(catHref(m.otherCat.id))}">${esc(m.otherCat.name)}</a> <span class="syr">${esc(m.otherCat.syr)}</span> ` +
     `by ${esc(moverWords(m))} on ${timeTag(m.at, fullDay(m.at))}. Why: ${esc(moveWhy(m))}.</p>` +
-    r.entries.map((e) => entryExtras(e, c)).join("") +
+    r.entries.map((e) => entryExtras(e, c, false, true)).join("") +
     thumb +
     "</div>" +
     dots(`the sighting on ${seen}, moved to ${m.otherCat.name}`, back, ids.some((id) => c.targets.has(id))) +

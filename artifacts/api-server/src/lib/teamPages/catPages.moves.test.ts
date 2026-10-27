@@ -125,6 +125,37 @@ describe("the cat it left", () => {
   });
 });
 
+describe("the copied answers say nothing more about the move than its row does", () => {
+  it("on the cat it joined: one “Moved here from”, and no “Why: moved” for the copies", () => {
+    const copy = statement(501, {
+      kind: "ear_tip",
+      said: "Ear tip clipped, left ear",
+      sightingId: 41,
+      author: { kind: "spotter", label: "a spotter" },
+      reason: "moved",
+      replaces: 500,
+      movedFrom: { statementId: 500, cat: { id: 7, syr: "SYR-0007", name: "Mimi" } },
+    });
+    const html = renderCatPage(catView({ ...agatha([move()]), history: [copy] }), "Sam", { may });
+    expect(html.match(/Moved here from/g)).toHaveLength(1);
+    expect(html).not.toContain("Why: moved");
+  });
+
+  it("on the cat it left: one “Moved to”, however many answers went with it", () => {
+    const gone = (id: number) =>
+      statement(id, {
+        kind: "ear_tip",
+        said: "Ear tip clipped, left ear",
+        sightingId: 41,
+        author: { kind: "spotter", label: "a spotter" },
+        replacedBy: [id + 100],
+        movedTo: { statementId: id + 100, cat: { id: 9, syr: "SYR-0009", name: "Agatha" }, reason: "moved", at: "2026-10-26T10:00:00Z" },
+      });
+    const html = renderCatPage(catView({ ...mimi([out()]), history: [gone(500), gone(501)] }), "Sam", { may });
+    expect(html.match(/Moved to <a/g)).toHaveLength(1);
+  });
+});
+
 describe("the ⋯ menu, the tick boxes and the bar", () => {
   it("each sighting's menu has “Move to a different cat…” and “Move to a new cat”", () => {
     const html = renderCatPage(agatha([]), "Sam", { may });
