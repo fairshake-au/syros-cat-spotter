@@ -155,6 +155,32 @@ describe("canonicalCatOf and catsFeeding", () => {
     expect(await feeding(newer)).toEqual(sorted(newer, twice));
   });
 
+  it("review A1: two merges of one cat, the newer undone: the older, overridden merge stays dead", async () => {
+    const mimi = await cat();
+    const agatha = await cat();
+    const dora = await cat();
+    await merge(mimi, agatha, day(2));
+    const newer = await merge(mimi, dora, day(4));
+    await undo(newer, mimi, day(6));
+    expect(await canonical(mimi, day(5))).toBe(dora);
+    expect(await canonical(mimi)).toBe(mimi);
+    expect(await feeding(agatha)).toEqual([agatha]);
+    expect(await feeding(dora)).toEqual([dora]);
+    expect(await catsMergedAway([mimi])).toEqual(new Set());
+  });
+
+  it("two merges of one cat, the OLDER undone: the newer one still stands", async () => {
+    const mimi = await cat();
+    const agatha = await cat();
+    const dora = await cat();
+    const older = await merge(mimi, agatha, day(2));
+    await merge(mimi, dora, day(4));
+    await undo(older, mimi, day(6));
+    expect(await canonical(mimi)).toBe(dora);
+    expect(await feeding(dora)).toEqual(sorted(dora, mimi));
+    expect(await feeding(agatha)).toEqual([agatha]);
+  });
+
   it("asOf: the merges as they stood then, an undo counting only once entered", async () => {
     const mimi = await cat();
     const agatha = await cat();

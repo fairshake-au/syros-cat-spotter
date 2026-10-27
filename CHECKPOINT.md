@@ -13,3 +13,7 @@ Next:
 
 
 6. Full suite green (6200 passed), typecheck 0/0/0 (proved can fail). Next: 7. Draft PR.
+
+Review fold-in (coordinator, after #375 opened):
+- R1 done: standing() = newest merge row per cat decides; undone -> alone (A1, A10, undo-older test).
+Next: R2 same-cat undo, R3 resolveAt (it.fails route), R4 teamMy catsMergedAway, R5 string-aware stripper, R6 probes+suite, R7 PR body.

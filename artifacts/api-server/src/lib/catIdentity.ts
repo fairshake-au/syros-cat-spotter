@@ -12,9 +12,10 @@ import { sql, type SQL } from "drizzle-orm";
  * other query on the table.
  *
  * The rules, in one place:
- * - A merge row counts until a row supersedes it (an undo). The undo itself
- *   (a cat's row naming itself) is never a merge.
- * - Where several rows still stand for one cat (bad data), the newest counts.
+ * - A cat's newest merge row decides. It counts until a row supersedes it
+ *   (an undo); then the cat stands alone, and an older merge it overrode
+ *   (bad data: two merges of one cat with no undo between) stays overridden.
+ *   The undo itself (a cat's row naming itself) is never a merge.
  * - Chains are followed: Mimi → Agatha → Dora makes Mimi count for Dora.
  * - At most {@link MAX_MERGE_HOPS} hops. A chain that loops, or runs deeper
  *   than any real one could, has no canonical cat (null), and its cats feed
@@ -36,19 +37,26 @@ export interface MergeReadOptions {
   asOf?: Date;
 }
 
-/** The merges still standing (as of `asOf`): one row per merged-away cat, the newest. */
+/**
+ * The merges still standing (as of `asOf`): at most one row per merged-away
+ * cat. Each cat's newest merge row decides (newest by `created_at`, then
+ * `id`); if an undo supersedes it, the cat stands alone. An older merge it
+ * overrode never comes back to life (review of #375, finding 1), and undoing
+ * the older one leaves the newer standing.
+ */
 function standing(asOf: Date | undefined): SQL {
   const at = asOf ?? null;
   return sql`
-    select distinct on (ci.cat_id) ci.cat_id, ci.canonical_cat_id, ci.created_at
-      from cat_identity ci
-     where ci.canonical_cat_id <> ci.cat_id
-       and (${at}::timestamptz is null or ci.created_at <= ${at}::timestamptz)
-       and not exists (
-         select 1 from cat_identity u
-          where u.supersedes_id = ci.id
-            and (${at}::timestamptz is null or u.created_at <= ${at}::timestamptz))
-     order by ci.cat_id, ci.created_at desc, ci.id desc`;
+    select newest.cat_id, newest.canonical_cat_id, newest.created_at from (
+      select distinct on (ci.cat_id) ci.id, ci.cat_id, ci.canonical_cat_id, ci.created_at
+        from cat_identity ci
+       where ci.canonical_cat_id <> ci.cat_id
+         and (${at}::timestamptz is null or ci.created_at <= ${at}::timestamptz)
+       order by ci.cat_id, ci.created_at desc, ci.id desc) newest
+     where not exists (
+       select 1 from cat_identity u
+        where u.supersedes_id = newest.id
+          and (${at}::timestamptz is null or u.created_at <= ${at}::timestamptz))`;
 }
 
 const idArray = (ids: readonly number[]): SQL => sql`${`{${ids.join(",")}}`}::int[]`;

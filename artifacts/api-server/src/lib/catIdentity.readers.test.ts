@@ -159,6 +159,16 @@ const CASES: Case[] = [
     expected: (c) => ({ survivor: c.dora, fedByMimi: [c.agatha, c.dora], away: [c.mimi, c.agatha], mimiColony: COLONY.dora }),
   },
   {
+    // Review of #375, A1/A10: bad data, two merges of Mimi with no undo
+    // between; undoing the newer must not bring the older back.
+    name: "two merges of Mimi (Agatha, then Dora), the newer undone",
+    build: async (c) => {
+      await merge(c.mimi, c.agatha);
+      await undo(await merge(c.mimi, c.dora), c.mimi);
+    },
+    expected: () => ({ survivor: null, fedByMimi: [], away: [], mimiColony: COLONY.mimi }),
+  },
+  {
     name: "a loop: Mimi → Agatha → Mimi",
     build: async (c) => {
       await merge(c.mimi, c.agatha);
