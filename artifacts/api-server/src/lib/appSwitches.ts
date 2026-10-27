@@ -3,7 +3,8 @@ import { inArray, sql } from "drizzle-orm";
 import { clearAppSettingsCache, settingsFromRows } from "./appSettings";
 
 // The App switches page (SYC-383; match-wait Decision 1 = B): the donation
-// button's address and the starter facts' Shown / Hidden, changed by the team
+// button's address, the extra photo boxes' On / Off (SYC-415's switch) and the
+// starter facts' Shown / Hidden, changed by the team
 // instead of with `db-ops set-setting`. Reads and writes the same
 // `app_settings` rows the app's reader uses, so a value written here is read
 // by lib/appSettings.ts exactly as one written by db-ops. Samuel chose no
@@ -14,6 +15,7 @@ import { clearAppSettingsCache, settingsFromRows } from "./appSettings";
 
 const URL_KEY = "feed_nudge_donate_url";
 const FACTS_KEY = "starter_facts_hidden";
+const EXTRA_PHOTOS_KEY = "extra_photos_on";
 const KNOWN = new Set<string>(STARTER_FACT_IDS);
 
 /** The address the page offers when the button is off and none is stored. */
@@ -50,13 +52,13 @@ export function donateAddressProblem(raw: string): { url: string } | { problem: 
 }
 
 /** What the page shows, read past the cache; throws if the database can't be read. */
-export async function switchesNow(): Promise<{ donateUrl: string | null; hidden: Set<string> }> {
+export async function switchesNow(): Promise<{ donateUrl: string | null; hidden: Set<string>; extraPhotosOn: boolean }> {
   const rows = await db
     .select({ key: appSettingsTable.key, value: appSettingsTable.value })
     .from(appSettingsTable)
-    .where(inArray(appSettingsTable.key, [URL_KEY, FACTS_KEY]));
+    .where(inArray(appSettingsTable.key, [URL_KEY, FACTS_KEY, EXTRA_PHOTOS_KEY]));
   const s = settingsFromRows(rows);
-  return { donateUrl: s.donateUrl, hidden: new Set(s.hiddenFacts) };
+  return { donateUrl: s.donateUrl, hidden: new Set(s.hiddenFacts), extraPhotosOn: s.extraPhotosOn };
 }
 
 async function put(tx: Pick<typeof db, "insert">, key: string, value: unknown) {
@@ -78,6 +80,12 @@ export async function setDonateAddress(raw: string): Promise<string> {
 /** Turns the button and its figures off. The app's reader reads "" as off. */
 export async function switchDonationOff(): Promise<void> {
   await db.transaction((tx) => put(tx, URL_KEY, ""));
+  clearAppSettingsCache();
+}
+
+/** Shows or hides the extra photo boxes on the New spot screen. */
+export async function setExtraPhotos(on: boolean): Promise<void> {
+  await db.transaction((tx) => put(tx, EXTRA_PHOTOS_KEY, on));
   clearAppSettingsCache();
 }
 

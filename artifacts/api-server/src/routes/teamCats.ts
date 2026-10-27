@@ -2,7 +2,7 @@ import { isIslandWide, visibleColonyIds } from "../lib/guardianView";
 import { useHeldTypingFor } from "../lib/teamAuth/heldTyping";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { searchTeamCats, teamCatView, teamPhotoUrl } from "../lib/teamCatView";
-import { getQueueReport } from "../lib/welfareQueue";
+import { getQueueReport, reportPhotoForFind } from "../lib/welfareQueue";
 import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import multer from "multer";
@@ -17,6 +17,7 @@ import {
   renderFindForm,
   renderFindProblem,
   renderFindResults,
+  NO_REPORT_PHOTO_WORDS,
   STALE_PLACE_WORDS,
   TOO_BIG_WORDS,
   type FindFormOptions,
@@ -367,13 +368,32 @@ router.post(
         .type("html")
         .send(await findFormHtml(person, filters, tie, { problem: { field: "place", words: STALE_PLACE_WORDS } }));
     }
-    const file = req.file;
-    if (!file || file.size === 0) {
-      req.log.info({ outcome: "no_photo" }, "find from a photo");
-      return void res
-        .status(400)
-        .type("html")
-        .send(await findFormHtml(person, filters, tie, { problem: { field: "photo", words: "Choose or take a photo first." } }));
+    // SYC-492: "Use the report's photo". Read here on the server, under the
+    // Queue's own rule (reportPhotoForFind), so a photo the team can't see is
+    // never sent. Only with a report to tie, and for someone who may see the
+    // Queue. The upload, if one came too, is ignored.
+    let photo: Buffer;
+    if (body["source"] === "report") {
+      const fromReport =
+        tie?.report && can(person, "view_welfare_queue") ? await reportPhotoForFind(tie.publicId) : null;
+      if (!fromReport) {
+        req.log.info({ outcome: "no_report_photo" }, "find from a photo");
+        return void res
+          .status(400)
+          .type("html")
+          .send(await findFormHtml(person, filters, tie, { problem: { field: "photo", words: NO_REPORT_PHOTO_WORDS } }));
+      }
+      photo = fromReport;
+    } else {
+      const file = req.file;
+      if (!file || file.size === 0) {
+        req.log.info({ outcome: "no_photo" }, "find from a photo");
+        return void res
+          .status(400)
+          .type("html")
+          .send(await findFormHtml(person, filters, tie, { problem: { field: "photo", words: "Choose or take a photo first." } }));
+      }
+      photo = file.buffer;
     }
 
     // A free early look at the caps: someone already over theirs isn't kept
@@ -387,7 +407,7 @@ router.post(
     const started = Date.now();
     const now = new Date();
     let capped: "person" | "team" | null = null;
-    const out = await findFromPhoto(file.buffer, filters, now, {
+    const out = await findFromPhoto(photo, filters, now, {
       gate: async () => {
         let r: Awaited<ReturnType<typeof checkFindLimits>>;
         try {

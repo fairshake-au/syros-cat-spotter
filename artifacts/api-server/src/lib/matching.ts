@@ -1,6 +1,7 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { VISION_MODEL } from "./visionModel";
 import { logger } from "./logger";
+import { logAiUsage, type AiCaller } from "./aiUsage";
 
 /**
  * SYC-503 D3 (Samuel, 21 Oct 2026): each try at the look-alike check is cut
@@ -59,6 +60,7 @@ const roleName = (r: NewPhotoInput["role"]) =>
 export async function matchCatPhoto(
   newPhotos: NewPhotoInput[] | string,
   candidates: CandidateInput[],
+  caller: Extract<AiCaller, "sighting_match" | "find_from_photo">,
 ): Promise<MatchOutput> {
   const photos: NewPhotoInput[] =
     typeof newPhotos === "string"
@@ -124,6 +126,7 @@ export async function matchCatPhoto(
     throw err;
   }
   logger.info({ durationMs: Date.now() - started, attempts }, "look-alike check answered");
+  logAiUsage(caller, response.usage);
 
   const raw = response.choices[0]?.message?.content ?? "";
   const jsonText = raw.replace(/```json|```/g, "").trim();

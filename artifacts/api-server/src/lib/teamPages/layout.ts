@@ -561,8 +561,9 @@ a.hrow.urgent{border-left:6px solid var(--danger)}
 ul.htiles{list-style:none;margin:12px 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 @media (min-width:560px){ul.htiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
 ul.htiles li.hwide{grid-column:1/-1}
-ul.htiles li{display:flex}
-ul.htiles li>a.htile{flex:1}
+ul.htiles li{display:flex;flex-direction:column;gap:4px;min-width:0}
+ul.htiles li>a.htile{width:100%;box-sizing:border-box}
+ul.htiles li .hint{margin:0;font-size:13px;line-height:1.3;color:var(--muted)}
 li.trow .cflag{align-self:flex-start}
 a.htile{display:flex;flex-direction:column;gap:2px;min-height:44px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--accent-text);font-size:14px;overflow-wrap:anywhere}
 a.htile:hover{border-color:var(--accent)}
@@ -627,6 +628,8 @@ a.findentrylink:hover{background:var(--accent-soft)}
 .findstep{margin:16px 0 0;padding-top:8px;border-top:1px solid var(--line)}
 #find-photo{scroll-margin-top:6em}
 input.filein{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 0;margin:0 0 8px}
+/* SYC-492: the report's own photo, above its "Use the report's photo" button. */
+img.reportphoto{display:block;max-width:100%;height:auto;border-radius:8px;margin:0 0 8px}
 ul.findlist{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-columns:1fr;gap:12px}
 .findcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:start;overflow-wrap:anywhere}
 .findimg{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:6px;background:var(--sunk)}

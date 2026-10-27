@@ -1,6 +1,7 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { COAT_COLOURS, COAT_PATTERNS, orderColours, type CoatColour, type CoatParts, type CoatPattern } from "../appearance";
 import { VISION_MODEL } from "../visionModel";
+import { logAiUsage } from "../aiUsage";
 
 /**
  * The colour reader (SYC-161 plan, PR 1; rule R5). Looks at ONE photo of one
@@ -199,7 +200,12 @@ export async function readCoatFromPhoto(
       // one counted attempt could be three paid calls. The budgets (R6, R7)
       // are the retry policy.
       { timeout: timeoutMs, maxRetries: 0 },
-    );
+    ).then((r) => {
+      // Logged when the call finishes, even if our own timeout has already
+      // won the race: a late answer is still a paid call.
+      logAiUsage("coat_reading", r.usage);
+      return r;
+    });
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new ReadTimeout()), timeoutMs);
     });
