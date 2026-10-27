@@ -1,9 +1,9 @@
 # Editing, adding and deleting starter facts
 
-**Status:** Draft for Samuel's approval, 26 October 2026. Adversarial review pending.
+**Status:** Draft for Samuel's approval, 26 October 2026. An independent adversarial review (Sonnet, 26 October) found 2 blockers, 7 major and 9 minor issues. All are folded in below; how each was handled is in §11.
 **Owner:** Samuel
 **Ticket:** SYC-754. Builds on the App switches page (SYC-383) and the starter facts (SYC-48, [`starter-facts.md`](./starter-facts.md)).
-**Decisions already made** (Samuel, 26 October 2026): see §8.
+**Decisions already made** (Samuel, 26 October 2026): see §9. **Still open:** three questions in §8.
 
 ---
 
@@ -15,7 +15,7 @@ The App switches page lets the team **show or hide** each of the twenty starter 
 - **Add** a new fact.
 - **Delete** a fact.
 
-A change reaches phones the same way a Show/Hide does now: within a couple of minutes, the next time the app is opened. No new version of the app is needed.
+A change reaches a phone the next time the app is opened or comes back on screen, once the server's short cache has passed: usually within two minutes (§4.2). No new version of the app is needed, except for phones still on an older version (§3.2).
 
 To make that possible, the facts' words move from inside the app to the server. Phones download them along with the switches they already download, and keep a copy.
 
@@ -32,25 +32,26 @@ A small note under a fact says which languages it has, for example *"English and
 **Edit** opens a short page with three boxes: **English** (must be filled), **Greek** and **French** (both optional). Each box is pre-filled with the current words. Under each box is a count: *"28 of 35 words"*.
 
 - **Save** puts the new words in the app straight away (Decision 3).
-- A fact can't be saved with more than **35 words** in any language, or with an empty English box. The page says which box is the problem and keeps what was typed.
-- If someone else saved that fact while you had it open, your save is refused: *"Someone changed this fact while you were editing. Here it is now; make your change again."* Nobody's words are lost without them seeing.
+- A fact can't be saved if any box breaks the checks in §5. The page says which box is the problem and keeps what was typed.
+- **Someone else's change in the meantime.** If the fact was edited, shown, hidden or deleted by someone else while you had it open, your save is refused, and you see the fact as it is now: *"Someone changed this fact while you were editing. Here it is now; make your change again."* If it was deleted: *"Someone deleted this fact while you were editing. Your words weren't saved."* with what you typed shown, so it can be copied into **Add a fact**.
 - **The ear-tip fact keeps its photo** whatever its words say. The edit page for it shows the photo and says *"The app shows this photo above the words."*
+- **On one of the twenty original facts,** a line beside **Save** says: *"Phones not yet updated keep showing the old words. If the old words are wrong, hide the fact for now."* (§3.2).
 
-If the English is changed and Greek or French is left as it was, the page warns before saving: *"You changed the English. Check the Greek and French still say the same thing, or empty them so readers see the new English."* This is a warning, not a block (§7, open question A).
+**When the English changes but a translation doesn't.** If the English you're saving differs from the stored English, and the Greek or French you're saving is the same as the stored Greek or French (and not empty), the page asks before saving: *"You changed the English. Check the Greek and French still say the same thing, or empty them so readers see the new English."* with **Save anyway** and **Go back**. A language with no words yet doesn't trigger it. See open question A (§8).
 
 ### 2.2 Add
 
-At the bottom of the list, **Add a fact** opens the same three-box page, empty. A new fact is **shown straight away** and goes to the end of the list. It's included in each phone's next round of facts (§4.3).
+At the bottom of the list, **Add a fact** opens the same three-box page, empty. A new fact goes to the end of the list on the page, and is **shown straight away** (Decision 3; but see open question C, §8). Pressing **Add** twice by mistake adds it once: the form carries a one-time code, and a second post with the same code shows the fact that was added.
 
 ### 2.3 Delete
 
 **Delete** opens a page that shows the fact's words and asks *"Delete this fact? This can't be undone. To stop it appearing for now, hide it instead."* with **Delete it** and **Keep it**.
 
-Deleting is permanent: there's no change history (Samuel, 24 October 2026, for this page). Any fact can be deleted, including the ear-tip fact and the milk fact (Decision 2). Deleting the ear-tip fact also removes its photo from the app's facts, and it can't be put back from this page, because the page doesn't take photos.
+Deleting is permanent: there's no change history (Samuel, 24 October 2026, for this page). Any fact can be deleted, including the ear-tip fact and the milk fact (Decision 2). Deleting the ear-tip fact removes its photo from the waiting card on updated phones, and it can't be put back from this page, because the page doesn't take photos. (A brand-new phone that hasn't heard from the server yet still has it, §3.1.)
 
 ### 2.4 Who can do this
 
-Anyone who can open the App switches page today, and nobody else (Decision 3). There is no second check before a change goes live. The page's existing warning stays: *"These switches change the public app for everyone… Agree a change with the team first."*
+Anyone who can open the App switches page today (the `edit_app_switches` permission), and nobody else (Decision 3). There is no second check before a change goes live. The page's existing warning stays: *"These switches change the public app for everyone… Agree a change with the team first."*
 
 ---
 
@@ -58,17 +59,18 @@ Anyone who can open the App switches page today, and nobody else (Decision 3). T
 
 Nothing changes in how the waiting card works (`starter-facts.md` §3). One fact per wait, while a sighting is being sent, never delaying the result.
 
-- **In their language** if the fact has it. **In English** if it doesn't (Decision 1). The card itself ("While we look…") stays in their language.
-- **Edited words** appear from the next wait after their phone has heard from the server.
+- **In their language** if the fact has it. **In English** if it doesn't (Decision 1). The card's heading ("While we look…") stays in their language.
+- **Edited words** appear from the next wait after the phone has downloaded them.
 - **A deleted fact** stops appearing, like a hidden one.
-- **A new fact** joins the facts the phone hasn't shown yet in this round.
+- **A new fact** is slotted into the rest of this round at a random place, so it comes up before the round ends.
 
-### 3.1 With no signal, and before the phone has ever heard from the server
+### 3.1 Where the words come from at the moment of a wait
 
-The card only appears while a sighting is being sent, so the phone has signal at that moment. It still uses **its saved copy** of the facts, not a fresh download, so the card never waits on one.
+The card **never downloads anything**. It uses the copy the phone already has. The phone refreshes that copy when the app opens, when it comes back on screen, and when signal returns, as it does for the switches today. So the card works the same whatever the signal is doing during the send.
 
-- **A phone that has heard from the server at least once** uses the facts from its last download, including the words.
-- **A brand-new phone that hasn't heard from the server yet** uses the twenty original facts built into the app, in all three languages, with nothing hidden. This is today's rule for switches that haven't loaded (`starter-facts.md` §9). So for one wait or two on a new phone, a fact the team has edited may appear in its old words, and a deleted one may appear.
+- **A phone that has downloaded the facts at least once** uses its last download, words included.
+- **A brand-new phone that has never heard from the server** uses the twenty original facts built into the app, in all three languages, with nothing hidden, the ear-tip photo included. This is today's rule for switches that haven't loaded (`starter-facts.md` §9). So on a brand-new phone with no connection yet, a fact the team has edited may appear in its old words, and a hidden or deleted one may appear.
+- **If a download goes wrong** (the server couldn't read its facts), the phone keeps the copy it had (§4.2).
 
 ### 3.2 Phones still on an older version of the app
 
@@ -76,7 +78,7 @@ A phone on an older version keeps using the words built into it. On those phones
 
 - **Show/Hide still works**, as now.
 - **A deleted original fact disappears**: the server tells older phones it's hidden.
-- **Edited words don't appear**: they see the original words. If an edit corrects something wrong, the team should hide that fact until most phones are updated. The page says this beside **Save** on an original fact: *"Phones not yet updated keep showing the old words. If the old words are wrong, hide the fact for now."*
+- **Edited words don't appear**: they see the original words. The edit page says so (§2.1).
 - **New facts don't appear.**
 
 This lasts until people update the app.
@@ -91,54 +93,76 @@ A new table, `starter_facts`, one row per fact:
 
 | Column | What it holds |
 |---|---|
-| `id` | The fact's name. The originals keep theirs (`fact.earTip` …). New ones get `fact.c` plus a letters-only tag, made by the server. |
-| `en`, `el`, `fr` | The words. `en` must be filled; `el` and `fr` may be empty (null). |
-| `shown` | True or false. Replaces the `starter_facts_hidden` list. |
+| `id` | The fact's name. The originals keep theirs (`fact.earTip` …). New ones get `fact.new.` plus 8 random letters (letters only, per the project's test-name rule), made by the server; on the rare clash it tries again. The `fact.new.` start means a new id can never match an original. |
+| `en`, `el`, `fr` | The words. `en` must be filled; `el` and `fr` are null when empty (never `""`). |
+| `shown` | True or false. |
 | `position` | Its place in the list on the page. New facts go last. |
 | `photo` | True only for the ear-tip fact. Can't be set from the page. |
-| `updated_at` | When it last changed. Used to refuse a save over someone else's change (§2.1). |
+| `version` | A whole number that goes up by one on every change to the row (edit, show, hide). The edit page carries it, and a save whose number doesn't match is refused (§2.1). |
 
-A migration fills the table with the twenty originals, words copied from the app's `i18n.ts`, with `shown` set from the current hidden list. After that, the hidden list in `app_settings` is no longer written by the page. It stays readable for one release so a rollback is safe (§6).
+**The migration** (`0053`) creates the table and fills it with the twenty originals:
+- Words are copied from the app's `i18n.ts`. A test checks every seeded row against `TRANSLATIONS.en/el/fr['fact.*']`, character for character.
+- `shown` comes from the current `starter_facts_hidden` row. **If there's no row, or it's the wrong shape, it uses the same default the server uses today: the nine facts awaiting Syros Cats' yes are hidden** (`SIGN_OFF_FACT_IDS`).
+- It has a rollback block, per `lib/db/migrations/README.md`. The Drizzle schema and snapshot are updated with it.
 
-The **strand**, **core** and **sign-off** labels on the originals (used in planning, not shown anywhere) stay in the app's code for the twenty originals. New facts don't have them. Teaching in full (SYC-61) can add them later if it needs them.
+**The old hidden list stays in step** for as long as older phones exist. Every Show, Hide and Delete, in the same transaction, also rewrites `app_settings.starter_facts_hidden` as *the original twenty minus the ones that exist and are shown*. That means:
+- older phones see deletes as hides (§3.2);
+- the server can be rolled back to the previous version at any time, and still serves the right Show/Hide state (edits and new facts just stop appearing);
+- a Show or Hide made on the old server between the migration and the publish isn't lost: the new server's first start re-copies `shown` from the old list if the old list changed after the migration ran (it compares the row's `updated_at` with the migration time). In practice this window is a few minutes (§6).
+
+Show, Hide, Edit, Add and Delete all take the same lock the page uses today (`app_switches.starter_facts`), so two people's changes never cross.
+
+The **strand**, **core** and **sign-off** labels on the originals (used in planning, not shown anywhere) stay in the app's code for the twenty originals. New facts don't have them. Teaching in full (SYC-61) can add them later.
 
 ### 4.2 What the server sends
 
-The app-settings answer the phones already download (`GET /api/app-settings`) gains one field:
+The answer phones already download (`GET /api/app-settings`) gains one optional field:
 
-- `facts`: the facts that are **shown**, in list order, each with `id`, `en`, `el`, `fr` (missing when empty) and `photo`.
+- **`facts`**: the facts that are **shown**, in list order, each with `id`, `en`, `el` and `fr` (missing when empty), and `photo`.
+- **When the server can't read its facts, it leaves `facts` out**, and never sends an empty list by mistake. A phone treats a missing `facts` as *keep what I have*, and `facts: []` as *nothing is shown*. Tests cover both, including for a phone that only has an older saved copy.
+- **`hiddenFacts` stays**, worked out as in §4.1, for older phones. Newer phones ignore it when `facts` is there.
+- The API description (`lib/api-spec/openapi.yaml`) adds `facts` as optional, and the generated types are rebuilt.
 
-It keeps `hiddenFacts`, for older phones (§3.2): every original fact that's hidden **or deleted**. Newer phones ignore it when `facts` is there.
+Timing, stated plainly: each server keeps the answer for up to 60 seconds, and the answer itself may be reused for 60 seconds (`Cache-Control: max-age=60`). A save clears the cache only on the server that took it; with more than one server running, the others catch up within 60 seconds. So a change is visible within about two minutes, at the phone's next refresh (§3.1).
 
-The answer is cached for a short time as now (`SETTINGS_CACHE_MS`), and each save on the page clears this server's cache, as Show/Hide does.
+Twenty facts in three languages is about 12 KB, a small addition to a download the phone already makes.
 
-Twenty facts in three languages is about 12 KB, a small addition to a download the phone already makes when the app opens.
+The team page's JSON view of the switches (`GET /api/team/app-switches` with JSON) gains the same `facts` list, with hidden facts included and marked.
 
 ### 4.3 What the phone does
 
-- It saves `facts` with the switches it already keeps (`catSpotters.appSettings.v1` becomes `.v2`; a saved `.v1` copy is read as "words as built in, these hidden").
-- The waiting card picks from the saved facts instead of the built-in list. The fixed start stays: the ear-tip fact on the second wait and the milk fact on the third, **if they still exist and are shown**. Otherwise straight into the shuffle.
-- The phone's record of what it has shown (`waitingCard` record) holds fact names. Names that no longer exist are dropped when it's read. A new fact not in this round's order is added to the end of it, so it comes up before the round ends.
-- A fact whose words changed but whose name didn't counts as already seen if it was seen. Edits don't make a fact come round again early.
-- If the server sends no facts at all (all deleted or all hidden), the card shows only "While we look…", as when every fact is hidden now.
-- Words from the server are shown as plain text, never as links or formatting.
+- **Saving the download.** The phone keeps its saved switches under the same key (`catSpotters.appSettings.v1`) with a new optional `facts` field, as was done for the extra-photos switch. A saved copy with no `facts` means *the built-in words, with these hidden* (today's behaviour). Nothing already saved is lost.
+- **Picking a fact.** The list the waiting card picks from (`visibleFacts`) becomes the saved facts, not the built-in list. The fixed start keeps keying on the names `fact.earTip` and `fact.milk`: second and third wait, **if they still exist and are shown**; otherwise straight into the shuffle.
+- **The photo follows the `photo` flag** sent with the fact, not the fact's name. Built-in facts keep their flag from `starterFacts.ts`.
+- **Language.** The card shows the words for the app's language; if that's missing (null or empty), the English. An empty string from anywhere is treated as missing.
+- **The phone's record of what it has shown** (`catSpotters.waitingCard.v1`) holds fact names. As now, names that no longer exist are dropped from this round's order and new ones are slotted in at random places (`withRepairedOrder`). The seen lists (`seenFacts`, `everSeen`) are also trimmed to names that still exist each time the record is saved, so they don't grow forever.
+- **An edited fact keeps its name**, so if it was seen it stays seen. Edits don't make a fact come round again early.
+- **Nothing shown** (all deleted or all hidden): the card shows only "While we look…", as when every fact is hidden today.
+- **Words are shown as plain text** by the app's text component, which can't show links or formatting. Nothing is stripped; it simply can't render.
 
 ### 4.4 The page
 
-The page stays server-made HTML, like the rest of the team pages, with forms posting to new routes under `/api/team/app-switches/`: `fact/edit`, `fact/add`, `fact/delete`. All need `edit_app_switches`, as the Show/Hide route does now. Each is added to the team-pages walk test's list with its reason. Every save happens in one database transaction, and Show/Hide moves to the new `shown` column.
+The page stays server-made HTML like the other team pages, with forms posting to new routes under `/api/team/app-switches/`: `fact/edit`, `fact/add`, `fact/delete` (plus the existing `fact` for Show/Hide). All need `edit_app_switches`. Each is added to the team-pages walk test's list with its reason. Every save is one database transaction under the lock in §4.1.
 
-The English copy of the facts on the server (`appSwitchFacts.ts`), and the test that checks it matches the app, are removed: the table is now where the words come from.
+Everything typed is escaped where it appears on the page, inside text boxes and in attributes alike, using the page's existing escaping.
+
+The English copy of the facts on the server (`appSwitchFacts.ts`) and its matching test are removed; the table is where the words come from now.
+
+`db-ops set-setting starter_facts_hidden` is **refused** from now on, with *"Facts are changed on the App switches page now."* Its entry in `.github/workflows/db-ops.yml` is removed.
 
 ---
 
 ## 5. Checks on what's typed
 
+The same rules on the page and in the app, from **one shared copy** of the word-counting code (in `lib/db`, next to the facts' other shared rules). The app's copy in `starterFacts.ts` is replaced by it, and a test runs both against the same examples: « ? » with non-breaking spaces, l’oignon, “Can’t tell”, a number, a dash on its own, a trailing non-breaking space.
+
 | Check | Why | What the page says |
 |---|---|---|
-| English isn't empty | Every reader can see something | *"Write the fact in English. Greek and French are optional."* |
-| 35 words or fewer, in each language, counted the way the app counts them (`starter-facts.md` §3.3) | The wait is short | *"The Greek is 41 words. Facts must be 35 words or fewer so people can read them during the wait."* |
-| No more than 400 characters in any box | Keeps a pasted paragraph out | *"That's too long for a fact."* |
-| Spaces at the start and end are trimmed; a box with only spaces counts as empty | — | — |
+| English isn't empty | Every reader sees something | *"Write the fact in English. Greek and French are optional."* |
+| 35 words or fewer in each box, counted as `starter-facts.md` §3.3 says | The wait is short | *"The Greek is 41 words. Facts must be 35 words or fewer so people can read them during the wait."* |
+| No more than 400 characters in a box (characters, not bytes, so Greek isn't penalised) | Keeps a pasted paragraph out; the longest original is 207 | *"That's too long for a fact."* |
+| Spaces at the start and end trimmed; line breaks turned into spaces; invisible control characters removed | A fact is one line on the card | — |
+| A box with only spaces counts as empty | — | — |
 
 There's no limit on how many facts there can be.
 
@@ -146,28 +170,44 @@ There's no limit on how many facts there can be.
 
 ## 6. Rolling it out
 
-1. **Server first.** The migration creates and fills the table. The server starts sending `facts` and keeps `hiddenFacts`. Older phones notice nothing.
-2. **App update.** The new app reads `facts`. Until it's installed, phones behave as in §3.2.
-3. **Later, once nearly every phone is updated:** stop sending `hiddenFacts` and drop the old `app_settings` row. That's a separate ticket, filed when this is merged.
-
-The migration goes to production **before** the new server code is published, so the new code never runs without its table.
+1. **Migration to production first**, before the new server code is published (project rule: migrate before republish). The old server keeps running on the old list, which stays correct.
+2. **Publish the new server.** On start, it re-copies Show/Hide from the old list if that changed after the migration (§4.1). It starts sending `facts`, and keeps `hiddenFacts` in step.
+3. **App update.** New phones read `facts`. Until people update, phones behave as in §3.2.
+4. **Later:** stop sending `hiddenFacts` and drop the old row, once older versions have mostly gone. There's no record today of which app version phones run, so this needs one first. A follow-up ticket is filed when this merges: *count app versions in the app-settings request, then retire `hiddenFacts` below a set share.*
 
 ---
 
-## 7. Open questions for Samuel
+## 7. Tests that change
+
+Named here so the plan doesn't miss them:
+- `routes/appSettings.test.ts`: the exact key list (now with `facts`), and the `hiddenFacts` values (now worked out from the table).
+- `routes/team.appSwitches.test.ts`: writes through the table, not the old row; new cases for edit, add, delete, version clash, deleted-while-editing, double add.
+- `lib/appSettings.test.ts` (server): defaults and the "can't read facts" case.
+- `teamPages/appSwitchFacts.test.ts`: removed with the file.
+- App: `waitingCard.test.ts` (facts from saved settings, not the built-in list), `WaitingCard.test.tsx` (words by language with English fallback, photo by flag), `appSettings.test.ts` (missing vs empty `facts`, older saved copy).
+- New: seeded rows match `i18n.ts`; shared word count gives the same answers on both sides; `hiddenFacts` equals originals minus shown-and-existing.
+- Migration: `lib/db` runner test, as for every migration.
+
+---
+
+## 8. Open questions for Samuel
 
 **A. When the English is edited, what happens to the Greek and French?**
-- *Warn, keep them (recommended).* The page warns, as in §2.1. Benefit: a typo fix in English doesn't wipe good translations. Risk: someone ignores the warning and Greek readers see the old meaning.
+- *Ask before saving (recommended).* The page asks, as in §2.1. Benefit: a typo fix in English doesn't wipe good translations, and nobody changes the meaning without being reminded. Risk: someone presses "Save anyway" without checking, and Greek readers see the old meaning.
 - *Clear them automatically.* Greek and French readers see the new English until someone translates again. Benefit: nobody ever sees an out-of-date translation. Risk: every English typo fix loses two translations.
-- *Ask with a tick box.* "The Greek and French still say the same" must be ticked to keep them. Benefit: a deliberate choice each time. Risk: one more step, and people tick without reading.
+- *Do nothing.* Benefit: simplest. Risk: translations drift from the English without anyone noticing.
 
 **B. Should the team be able to change the order of the list?**
-- *No, new facts go last (recommended).* The order only matters on the page: phones shuffle anyway, apart from ear-tip and milk at the start.
+- *No, new facts go last (recommended).* The order only matters on the page: phones shuffle, apart from ear-tip and milk at the start.
 - *Yes, with Move up / Move down.* More to build, for little difference to spotters.
+
+**C. Should a new fact go live straight away, or start hidden?** (Raised by the review.) Nine of the originals were held back until Syros Cats said yes, because the app speaks in their name. Decision 3 says saves go live straight away.
+- *Live straight away, as decided (recommended if the people with this permission are Syros Cats' own team).* Benefit: one step. Risk: a wrong or badly worded fact goes to every spotter at once, with the charity's name on it.
+- *New facts start hidden; edits go live.* Someone presses **Show it** when it's been read. Benefit: a built-in pause for a second look at brand-new words. Risk: one more tap, and a fact can be forgotten in the hidden state.
 
 ---
 
-## 8. Decisions already made
+## 9. Decisions already made
 
 Samuel, 26 October 2026, asked one at a time with a recommendation each (SYC-754):
 
@@ -177,10 +217,28 @@ Samuel, 26 October 2026, asked one at a time with a recommendation each (SYC-754
 
 ---
 
-## 9. Not included
+## 10. Not included
 
 - Adding or changing a fact's **photo**.
 - A **change history** or undo.
 - **Translating** for the team. The page doesn't suggest Greek or French.
 - Facts shown **anywhere else** in the app.
-- Anything about the **feeding nudge** or the donation button, which stay as they are.
+- The **feeding nudge** and the donation button, which stay as they are.
+- Counting which **app versions** are in use (follow-up, §6 step 4).
+
+---
+
+## 11. How the review was handled
+
+| Finding | What changed |
+|---|---|
+| B1 Show/Hide lost between migration and publish; rollback serves a stale list | Old list kept in step on every change; re-copy on first start (§4.1, §6) |
+| B2 a server read failure could blank every phone's facts | Missing `facts` = keep; `[]` = none; server omits the field on failure (§4.2) |
+| M1 missing hidden row would show the nine unapproved facts; new/edited facts skip Syros Cats' yes | Migration uses today's default (§4.1); open question C (§8) |
+| M2 timestamp clash check unreliable; delete-while-editing and double Add undefined | Whole-number `version`; both cases defined; one-time code on Add; same lock for all (§2.1, §2.2, §4.1) |
+| M3 "added to the end" was wrong; seen lists grow; `visibleFacts` uses built-in list | Random slot, as the code does; seen lists trimmed; `visibleFacts` from saved facts (§3, §4.3) |
+| M4 photo tied to the name in several places; English fallback on empty strings | Photo follows the flag; fixed start by name; empty = missing (§4.3) |
+| M5 two word counts could disagree | One shared copy and shared examples (§5) |
+| M6 API description and generated types; tests that break | `facts` optional in openapi + regenerate (§4.2); §7 |
+| M7 db-ops would silently write a list nothing reads | db-ops refuses that key (§4.4) |
+| Minor: overclaimed signal; timing; storage key bump; id clashes; escaping; deleted = hidden for old phones; ear-tip on new phones; warning rule; migration mechanics; retiring `hiddenFacts` needs a version count | §3.1; §1, §4.2; keep `.v1` (§4.3); `fact.new.` + 8 letters (§4.1); §4.4, §5; §4.1; §2.3; §2.1; §4.1; §6 step 4 |
