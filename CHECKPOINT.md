@@ -20,4 +20,5 @@ Review fold-in (coordinator, after #375 opened):
 - R3 done (it.fails route): resolveAt comment corrected; reviewer attack file kept, A11 it.fails naming PR 3.1.
 - R4 done: teamMy colony page uses catsMergedAway; loop cats listed (guardianCats test).
 - R5 done: guard stripper is string/template aware; evasion-shape test.
-Next: R6 probes+suite, R7 PR body.
+- R6 done: probes a,b,c,s red as expected and restored; full suite 6220 passed + 1 expected fail; typecheck 0/0/0 (fixed A10 type error).
+Next: R7 PR body.

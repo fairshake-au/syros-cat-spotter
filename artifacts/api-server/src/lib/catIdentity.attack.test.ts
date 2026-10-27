@@ -215,7 +215,8 @@ describe("attack: undone merges", () => {
     await undo(m2, mimi, day(6));
     const listed = new Set((await loadTeamCats()).map((t) => t.id));
     expect(listed.has(mimi)).toBe(true);
-    expect((await claimEligibility(db, { catId: mimi, deviceId: "vitest-attack-none" })).code).not.toBe("NOT_ON_STREET");
+    // Past the merged-away refusal: refused only because this phone never met her.
+    expect(await claimEligibility(db, { catId: mimi, deviceId: "vitest-attack-none" })).toEqual({ ok: false, code: "NOT_MET" });
   });
 
   // Known gap, fixed in PR 3.1 (spec §9.10): records loaded with withHistory
