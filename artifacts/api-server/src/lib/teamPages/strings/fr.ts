@@ -677,6 +677,7 @@ export const fr: Record<StringKey, string> = {
   "map.needsJs": "La carte a besoin d’un navigateur plus récent avec JavaScript activé.",
   "map.catsAsGrid": "Voir ces chats en grille",
   "map.goToArea": "Aller à un quartier",
+  "map.place": "Carte : faites-la glisser jusqu’à ce que l’épingle soit sur l’endroit. Les flèches du clavier la déplacent aussi.",
   "map.loading": "Chargement de la carte…",
   "map.compass": "Remettre le nord en haut",
   "error.notFound.title": "Cette page n’existe pas",

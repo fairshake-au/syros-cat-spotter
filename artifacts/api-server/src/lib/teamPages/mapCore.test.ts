@@ -370,7 +370,7 @@ describe("dashboard-pin.js: the view map's markers", () => {
     expect(els[1].querySelector(".pinnum").textContent).toBe("3");
   });
 
-  it("starts every view map on the page, and leaves place-mode maps to their own script", async () => {
+  it("starts every view map on the page; a place map with no form of its own is left alone", async () => {
     const rig = mapScriptRig(mapHtml({}) + mapHtml({ mode: "place" }).replace('id="map"', 'id="other"'));
     rig.run("map-core.js", "dashboard-pin.js");
     await rig.settle();
@@ -395,3 +395,113 @@ describe("dashboard-pin.js: the view map's markers", () => {
     expect(rig.lib.workerUrl).toMatch(/^\/api\/team\/assets\/maplibre-gl-worker\.[0-9a-f]{12}\.mjs$/);
   });
 });
+
+// SYC-705 Task 2b.7: place mode. A fixed pin in the middle; the person drags
+// the MAP under it. The pin's spot goes into the page's form, never an address.
+describe("dashboard-pin.js: placing a spot (drag the map under the pin)", () => {
+  const PLACE_WORDS = { ...WORDS, place: "Map: drag it until the pin is on the spot. The arrow keys move it too." };
+
+  function placePage(o: { centre?: [number, number]; lat?: string; lng?: string; approximate?: boolean } = {}): string {
+    const data = { mode: "place", lang: "en", centre: o.centre ?? [37.4447, 24.9417], zoom: 16, fit: null, markers: [], formId: "pickform" };
+    return (
+      `<form id="pickform" method="post" action="/api/team/sites/pick">` +
+      `<div class="map" id="map" data-map="${attr(data)}" data-words="${attr(PLACE_WORDS)}" ` +
+      `data-maplibre="/api/team/assets/maplibre-gl.0123456789ab.mjs" data-worker="/api/team/assets/maplibre-gl-worker.0123456789ab.mjs">` +
+      `<p class="mapnojs">${WORDS.needsJs}</p></div>` +
+      `<input type="hidden" name="lat" value="${o.lat ?? ""}"><input type="hidden" name="lng" value="${o.lng ?? ""}">` +
+      (o.approximate ? `<input type="hidden" name="approximate" value="1">` : "") +
+      `<button type="submit" class="usespot" data-mapon hidden>Use this spot</button></form>` +
+      FALLBACK
+    );
+  }
+
+  async function placeRig(html: string, opts: Parameters<typeof mapScriptRig>[1] = {}) {
+    const rig = mapScriptRig(html, opts);
+    rig.run("map-core.js", "dashboard-pin.js");
+    await rig.settle();
+    const d = rig.document;
+    const val = (n: string) => (d.querySelector(`input[name="${n}"]`) as any)?.value as string | undefined;
+    return { rig, d, val, map: rig.lib.maps[0]! };
+  }
+
+  it("pin writes lat/lng to the form on moveend, rounded to 6 decimals; Use this spot revealed only after start", async () => {
+    // Before the scripts run, the button is hidden: no map, no pin to use.
+    const before = mapScriptRig(placePage());
+    expect((before.document.querySelector(".usespot") as any).hidden).toBe(true);
+
+    const { d, val, map } = await placeRig(placePage());
+    expect((d.querySelector(".usespot") as any).hidden).toBe(false);
+    // Opens where the page says, with the pin's spot already in the form.
+    expect(map.getCenter()).toEqual({ lng: 24.9417, lat: 37.4447 });
+    expect([val("lat"), val("lng")]).toEqual(["37.4447", "24.9417"]);
+    // The person drags the map: on moveend the new middle is written, to 6 places.
+    map.jumpTo({ center: [24.93123456789, 37.45198765432] });
+    map.fire("moveend");
+    expect([val("lat"), val("lng")]).toEqual(["37.451988", "24.931235"]);
+    // A fixed pin sits in the middle of the box, hidden from screen readers.
+    const pin = d.querySelector(".map .placepin")!;
+    expect(pin.getAttribute("aria-hidden")).toBe("true");
+    // Nothing went into the page's address.
+    expect(rigUrl(d)).toBe("https://team.example/api/team/sites");
+  });
+
+  it("rotation is off, and the map can be reached and named from the keyboard", async () => {
+    const { map } = await placeRig(placePage());
+    expect(map.dragRotate.isEnabled()).toBe(false);
+    expect(map.touchZoomRotate.rotation).toBe(false);
+    expect(map.keyboard.rotation).toBe(false);
+    // MapLibre's keyboard handler pans with the arrows; it must stay on.
+    expect(map.keyboard.isEnabled()).toBe(true);
+    const canvas = map.getCanvas();
+    expect(canvas.getAttribute("tabindex")).toBe("0");
+    expect(canvas.getAttribute("aria-label")).toBe(PLACE_WORDS.place);
+  });
+
+  it("a confirm page's exact spot is kept until the person moves the map", async () => {
+    const { val, map } = await placeRig(placePage({ centre: [37.44471, 24.94172], lat: "37.444712345", lng: "24.941723456" }));
+    expect([val("lat"), val("lng")]).toEqual(["37.444712345", "24.941723456"]);
+    // A moveend with no move (a resize) changes nothing.
+    map.fire("moveend");
+    expect([val("lat"), val("lng")]).toEqual(["37.444712345", "24.941723456"]);
+    map.jumpTo({ center: [24.9420, 37.4450] });
+    map.fire("moveend");
+    expect([val("lat"), val("lng")]).toEqual(["37.445", "24.942"]);
+    // Back to the start: still written (the last spot never sticks).
+    map.jumpTo({ center: [24.94172, 37.44471] });
+    map.fire("moveend");
+    expect([val("lat"), val("lng")]).toEqual(["37.44471", "24.94172"]);
+  });
+
+  it("moving the map after an area pick drops approximate: the spot is the pin's now", async () => {
+    const { d, map } = await placeRig(placePage({ centre: [37.4436, 24.8889], lat: "37.4436", lng: "24.8889", approximate: true }));
+    map.fire("moveend");
+    expect(d.querySelector('input[name="approximate"]')).not.toBeNull();
+    map.jumpTo({ center: [24.8895, 37.4440] });
+    map.fire("moveend");
+    expect(d.querySelector('input[name="approximate"]')).toBeNull();
+  });
+
+  it("no map (WebGL refused): the button stays hidden, the fallback stays, the form is untouched", async () => {
+    const { d, val } = await placeRig(placePage(), { lib: makeMaplibreFake({ throwOnMap: true }) });
+    expect((d.querySelector(".usespot") as any).hidden).toBe(true);
+    expect(d.querySelector(".mapfallback")!.classList.contains("maplive")).toBe(false);
+    expect([val("lat"), val("lng")]).toEqual(["", ""]);
+    expect(d.querySelector(".placepin")).toBeNull();
+  });
+
+  it("starts on renderMap's own place output", async () => {
+    const html =
+      `<form id="f1">` +
+      renderMap({ mode: "place", lang: "en", formId: "f1", centre: { lat: 37.4447, lng: 24.9417 }, zoom: 17 }) +
+      `<input type="hidden" name="lat" value=""><input type="hidden" name="lng" value=""><button data-mapon hidden>Use</button></form>`;
+    const { d, val, map } = await placeRig(html);
+    expect(map.getZoom()).toBe(16);
+    expect([val("lat"), val("lng")]).toEqual(["37.4447", "24.9417"]);
+    expect((d.querySelector("button[data-mapon]") as any).hidden).toBe(false);
+    expect(map.getCanvas().getAttribute("aria-label")).toMatch(/drag/i);
+  });
+});
+
+function rigUrl(d: any): string {
+  return d.defaultView.location.href;
+}

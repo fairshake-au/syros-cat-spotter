@@ -3,8 +3,15 @@
 //
 // Plain ES2019, no build step. It reads each view map's data-map (written by
 // the server's renderMap, lib/teamPages/map.ts), starts it with
-// CatMap.start and puts one MapLibre marker per marker on it. Place mode
-// (picking a spot) is not this file's.
+// CatMap.start and puts one MapLibre marker per marker on it.
+//
+// Place mode (SYC-705 Task 2b.7): a fixed pin in the middle of the box; the
+// person drags the MAP under it (or pans it with the arrow keys). On every
+// moveend the map's middle, to 6 decimal places, goes into the hidden
+// lat/lng inputs of the page's form (data-map's formId); never an address.
+// The form's "Use this spot" button ([data-mapon]) stays hidden until the map
+// has started. Once the person has moved the map, a spot that was an area's
+// centre is the pin's now, so the form's `approximate` field is dropped.
 //
 // Rules this keeps:
 // - **Never builds HTML from strings.** Every label goes in by textContent.
@@ -72,8 +79,66 @@
     return p && p.length === 2 && isFinite(p[0]) && isFinite(p[1]);
   }
 
+  /** To 6 decimal places (about 10 cm): what the form sends. */
+  function round6(x) {
+    return Math.round(x * 1e6) / 1e6;
+  }
+
+  function place(el, data) {
+    var form = typeof data.formId === "string" ? document.getElementById(data.formId) : null;
+    if (!form) return;
+    var lat = form.querySelector('input[name="lat"]');
+    var lng = form.querySelector('input[name="lng"]');
+    if (!lat || !lng) return;
+    var start = valid(data.centre) ? [Number(data.centre[0]), Number(data.centre[1])] : null;
+    var words = window.CatMap.readJson(el, "data-words") || {};
+    window.CatMap.start(el, { lang: data.lang, centre: start, zoom: data.zoom, rotate: false }).then(
+      function (map) {
+        var pin = span("placepin");
+        pin.setAttribute("aria-hidden", "true");
+        el.appendChild(pin);
+        // MapLibre's canvas takes the keyboard (the arrows pan the map, so the pin's spot).
+        var canvas = typeof map.getCanvas === "function" ? map.getCanvas() : null;
+        if (canvas) {
+          canvas.setAttribute("tabindex", "0");
+          if (words.place) canvas.setAttribute("aria-label", String(words.place));
+        }
+        var moved = false;
+        var write = function () {
+          var c = map.getCenter();
+          var la = round6(c.lat);
+          var ln = round6(c.lng);
+          var atStart = start && Math.abs(la - start[0]) < 1e-6 && Math.abs(ln - start[1]) < 1e-6;
+          if (!moved && atStart) {
+            // Not moved yet: an exact spot the page already holds stays as it is.
+            if (lat.value === "" && lng.value === "") {
+              lat.value = String(la);
+              lng.value = String(ln);
+            }
+            return;
+          }
+          moved = true;
+          lat.value = String(la);
+          lng.value = String(ln);
+          Array.prototype.forEach.call(form.querySelectorAll('input[name="approximate"]'), function (a) {
+            a.parentNode.removeChild(a);
+          });
+        };
+        write();
+        map.on("moveend", write);
+        Array.prototype.forEach.call(form.querySelectorAll("[data-mapon]"), function (b) {
+          b.hidden = false;
+        });
+      },
+      function () {
+        // No map: the page's area list and typed numbers are there instead.
+      },
+    );
+  }
+
   function show(el) {
     var data = window.CatMap.readJson(el, "data-map");
+    if (data && data.mode === "place") return place(el, data);
     if (!data || data.mode !== "view") return;
     var fit = Array.isArray(data.fit) ? data.fit.filter(valid) : [];
     // One position: no box to fit, so open there at the closest fitting zoom.

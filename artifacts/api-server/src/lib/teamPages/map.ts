@@ -222,6 +222,8 @@ export function renderMap(opts: MapOptions): string {
     compass: t("map.compass"),
     needsJs: t("map.needsJs"),
     loading: t("map.loading"),
+    // Place mode: the map's own name for screen readers (SYC-705 Task 2b.7).
+    ...(opts.mode === "place" ? { place: t("map.place") } : {}),
   };
   const label = opts.label !== undefined ? ` role="region" aria-label="${esc(opts.label)}"` : "";
   const extra = Object.entries(opts.data ?? {})

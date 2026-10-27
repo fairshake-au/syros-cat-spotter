@@ -112,6 +112,8 @@ export interface FakeMap {
   /** Test helper: run the handlers for `name`. */
   fire(name: string, ev?: any): void;
   getContainer(): any;
+  /** As MapLibre: a focusable canvas in the container (made on first ask). */
+  getCanvas(): any;
   getZoom(): number;
   getCenter(): LngLat;
   getBearing(): number;
@@ -239,6 +241,18 @@ export function makeMaplibreFake(
         for (const h of [...(handlers[name] ?? [])]) h({ type: name, target: m, ...ev });
       },
       getContainer: () => options.container,
+      getCanvas() {
+        const box = options.container;
+        let c = box?.querySelector?.("canvas");
+        if (!c && box?.ownerDocument) {
+          // MapLibre's own canvas: focusable, labelled "Map" until a page says otherwise.
+          c = box.ownerDocument.createElement("canvas");
+          c.setAttribute("tabindex", "0");
+          c.setAttribute("aria-label", "Map");
+          box.appendChild(c);
+        }
+        return c;
+      },
       getZoom: () => m.zoom,
       getCenter: () => ({ ...m.centre }),
       getBearing: () => m.bearing,
