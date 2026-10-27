@@ -379,6 +379,33 @@ describe("spec test 10: the photo that started a cat (D6)", () => {
     expect(own.body.code).toBe("ALREADY_ITS_OWN_CAT");
   });
 
+  it("a team correction about the moving photo goes with it, so it doesn't count as something left (review of #386, R4)", async () => {
+    const mimi = await kit.cat();
+    const agatha = await kit.cat();
+    const only = await kit.sighting(mimi, kit.device());
+    const ear = await kit.answer(only, "ear_tip", { clipped: true, side: "left" });
+    // The team marked the spotter's "clipped" wrong: a row with no sighting id.
+    await db.insert(observationsTable).values({
+      catId: mimi,
+      kind: "ear_tip",
+      value: { clipped: false },
+      accountId: staff.id,
+      roleAtTime: "staff",
+      authorityScope: "island",
+      photoId: only.photoId,
+      observedAt: only.createdAt,
+      supersedesId: ear.id,
+      supersedeReason: "The photo shows no clip",
+    });
+    const res = await move({ sightingIds: [only.id], expectedCatId: mimi, toCatId: agatha, reason: "wrong_pick", source: "cat_page" });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("MERGE_INSTEAD");
+    // Rolled back whole: the sighting, its statements and no move row.
+    expect((await sightingRow(only.id)).catId).toBe(mimi);
+    expect(await db.select().from(sightingMovesTable).where(eq(sightingMovesTable.sightingId, only.id))).toEqual([]);
+    expect(await db.select().from(observationsTable).where(eq(observationsTable.catId, agatha))).toEqual([]);
+  });
+
   it("something anyone recorded about the cat (a team note) means she isn't empty: the move goes ahead", async () => {
     const mimi = await kit.cat();
     const agatha = await kit.cat();

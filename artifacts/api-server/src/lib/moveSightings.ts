@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   catsTable,
   db,
@@ -218,25 +218,8 @@ export async function moveSightingsIn(tx: Tx, person: Person, input: MoveInput):
   // 5. The statements carrying those sightings' ids.
   await tx.execute(sql`select id from observations where sighting_id in (${idList(sightingIds)}) order by id for update`);
 
-  // §5.3 (D1): moving everything the cat has means the two are one cat.
   const movedPhotos = await photosOfSightings(tx, sightingIds);
-  if (await nothingLeft(tx, from, sightingIds)) {
-    if (toBefore === null) throw new MoveRefused("ALREADY_ITS_OWN_CAT", MOVE_WORDS.alreadyItsOwnCat(from.name));
-    const [to] = await tx.select({ name: catsTable.name }).from(catsTable).where(eq(catsTable.id, toBefore));
-    throw new MoveRefused("MERGE_INSTEAD", MOVE_WORDS.mergeInstead(from.name, to!.name), {
-      cat: { id: toBefore, name: to!.name },
-    });
-  }
-
-  // The old cat's main photo is moving: the team member chooses its next one
-  // (§5.2), never the app.
   const mainMoves = from.primaryPhotoId > 0 && movedPhotos.has(from.primaryPhotoId);
-  if (mainMoves) {
-    if (input.newMainPhotoId === undefined) throw new MoveRefused("MAIN_PHOTO_NEEDED", MOVE_WORDS.mainPhotoNeeded(from.name));
-    if (input.newMainPhotoId !== 0 && !(await isPhotoStaying(tx, fromCatId, sightingIds, input.newMainPhotoId))) {
-      throw new MoveRefused("MAIN_PHOTO_NEEDED", MOVE_WORDS.notAPhotoOf(from.name));
-    }
-  }
 
   // Oldest first: on "It's a new cat" the oldest starts it (§5.5).
   const ordered = [...sightings].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id - b.id);
@@ -290,6 +273,28 @@ export async function moveSightingsIn(tx: Tx, person: Person, input: MoveInput):
     await tx.update(sightingsTable).set({ catId: toCatId }).where(eq(sightingsTable.id, s.id));
     await writeMovedObservation(tx, move!.id);
     moves.push({ sightingId: s.id, moveId: move!.id });
+  }
+
+  // §5.3 (D1): moving everything the cat has means the two are one cat.
+  // Asked once the statements have moved, of what still stands on the old
+  // cat: a team answer about the moving photo (no sighting id of its own)
+  // has gone with it (review of #386, R4). A refusal here rolls the whole
+  // move back.
+  if (await nothingLeft(tx, fromCatId)) {
+    if (toBefore === null) throw new MoveRefused("ALREADY_ITS_OWN_CAT", MOVE_WORDS.alreadyItsOwnCat(from.name));
+    const [to] = await tx.select({ name: catsTable.name }).from(catsTable).where(eq(catsTable.id, toBefore));
+    throw new MoveRefused("MERGE_INSTEAD", MOVE_WORDS.mergeInstead(from.name, to!.name), {
+      cat: { id: toBefore, name: to!.name },
+    });
+  }
+
+  // The old cat's main photo is moving: the team member chooses its next one
+  // (§5.2), never the app.
+  if (mainMoves) {
+    if (input.newMainPhotoId === undefined) throw new MoveRefused("MAIN_PHOTO_NEEDED", MOVE_WORDS.mainPhotoNeeded(from.name));
+    if (input.newMainPhotoId !== 0 && !(await isPhotoStaying(tx, fromCatId, input.newMainPhotoId))) {
+      throw new MoveRefused("MAIN_PHOTO_NEEDED", MOVE_WORDS.notAPhotoOf(from.name));
+    }
   }
 
   // The old cat (§9.7 move step 6).
@@ -364,25 +369,21 @@ async function photosOfSightings(tx: DbOrTx, sightingIds: readonly number[]): Pr
 }
 
 /**
- * "Nothing left" (§9.7 move step 1): once these sightings go, the cat would
- * have no other sighting, vet visit, vet-visit photo, welfare report or
- * statement, apart from its name and the machine's colour reading of its
- * photo. Statements about a sighting go with it, or were withdrawn when it
- * went (they are not the cat's own). Read over every cat merged into it.
+ * "Nothing left" (§9.7 move step 1), asked after the moves: the cat has no
+ * resolved sighting, vet-visit photo or welfare report, and no statement
+ * still standing apart from its name and the machine's colour readings.
+ * Statements carrying a sighting id are about that sighting (they went with
+ * it, or were withdrawn when it went). Read over every cat merged into it.
  */
-async function nothingLeft(
-  tx: DbOrTx,
-  from: { id: number },
-  sightingIds: readonly number[],
-): Promise<boolean> {
+async function nothingLeft(tx: DbOrTx, fromCatId: number): Promise<boolean> {
   const [otherSighting] = await tx
     .select({ id: sightingsTable.id })
     .from(sightingsTable)
-    .where(and(eq(sightingsTable.catId, from.id), eq(sightingsTable.status, "resolved"), notInArray(sightingsTable.id, [...sightingIds])))
+    .where(and(eq(sightingsTable.catId, fromCatId), eq(sightingsTable.status, "resolved")))
     .limit(1);
   if (otherSighting) return false;
-  const feeding = await catsFeeding([from.id], {}, tx);
-  const feedingIds = feeding.get(from.id)?.ids ?? [from.id];
+  const feeding = await catsFeeding([fromCatId], {}, tx);
+  const feedingIds = feeding.get(fromCatId)?.ids ?? [fromCatId];
   const [statement] = await tx
     .select({ id: observationsTable.id })
     .from(observationsTable)
@@ -392,6 +393,7 @@ async function nothingLeft(
         isNull(observationsTable.sightingId),
         sql`${observationsTable.kind} <> 'name'`,
         sql`not (${observationsTable.kind} = 'coat' and ${observationsTable.provenance} = 'machine')`,
+        sql`not exists (select 1 from observations later where later.supersedes_id = ${observationsTable.id})`,
       ),
     )
     .limit(1);
@@ -412,8 +414,8 @@ async function nothingLeft(
   return !report;
 }
 
-/** A photo of one of the cat's resolved sightings that stays with it, not deleted for good. */
-async function isPhotoStaying(tx: DbOrTx, catId: number, movingIds: readonly number[], photoId: number): Promise<boolean> {
+/** A photo of one of the cat's resolved sightings (after the moves: one staying with it), not deleted for good. */
+async function isPhotoStaying(tx: DbOrTx, catId: number, photoId: number): Promise<boolean> {
   const r = await tx.execute<{ ok: boolean }>(sql`
     select exists (
       select 1
@@ -422,7 +424,6 @@ async function isPhotoStaying(tx: DbOrTx, catId: number, movingIds: readonly num
         join photos p on p.id = ${photoId} and p.removed_at is null
        where s.cat_id = ${catId}
          and s.status = 'resolved'
-         and s.id not in (${idList(movingIds)})
          and (s.photo_id = ${photoId} or sp.photo_id = ${photoId})
     ) as ok`);
   return r.rows[0]?.ok === true;
