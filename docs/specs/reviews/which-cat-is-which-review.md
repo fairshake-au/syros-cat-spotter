@@ -1,4 +1,4 @@
-# Review notes: `move-a-sighting.md` (SYC-150)
+# Review notes: `which-cat-is-which.md` (SYC-150)
 
 ## Where the ticket was out of date
 

@@ -1,6 +1,6 @@
 # Moving a sighting to the right cat
 
-**Status:** Draft for Samuel's approval, 26 October 2026. Adversarially reviewed (Sonnet critic, 26 October 2026: 1 blocker, 12 major and 9 minor findings), all folded in. The review and what changed are in [`reviews/move-a-sighting-review.md`](./reviews/move-a-sighting-review.md).
+**Status:** Draft for Samuel's approval, 26 October 2026. Adversarially reviewed (Sonnet critic, 26 October 2026: 1 blocker, 12 major and 9 minor findings), all folded in. The review and what changed are in [`reviews/which-cat-is-which-review.md`](./reviews/move-a-sighting-review.md).
 **Linear:** SYC-150 (High), with SYC-418 folded in. The "Matched by hand" list that reuses these buttons is SYC-152.
 **Amends:**
 - [`cat-record-data-spine.md`](./cat-record-data-spine.md): adds §10.10 and changes one sentence in §10.9.
