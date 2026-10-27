@@ -778,6 +778,68 @@ describe("points for finding a duplicate (C4, §9.8)", () => {
   });
 });
 
+// Review of #377 (M2): txid is the inserting transaction's, whatever is sent.
+describe("txid can't be stamped ahead (review M2)", () => {
+  it("overwrites a txid sent on insert, on sighting_moves and cat_identity", async () => {
+    const a = await cat();
+    const b = await cat();
+    const s = await resolved(a);
+    const survivor = await cat();
+    const away = await cat();
+    await inTx(c, async () => {
+      const now = (await one<{ t: string }>(c, `select txid_current()::text as t`)).t;
+      const m = await one<{ txid: string }>(
+        c,
+        `insert into sighting_moves
+           (sighting_id, from_cat_id, to_cat_id, batch_id, reason, source, moved_by_account_id, role_at_time, txid)
+         values ($1, $2, $3, gen_random_uuid(), 'wrong_pick', 'cat_page', 'acct-team', 'staff', $4::bigint + 5)
+         returning txid::text`,
+        [s, a, b, now],
+      );
+      expect(m.txid).toBe(now);
+      const ci = await one<{ txid: string }>(
+        c,
+        `insert into cat_identity (cat_id, canonical_cat_id, by_account_id, txid)
+         values ($1, $2, 'acct-team', $3::bigint + 5) returning txid::text`,
+        [away, survivor, now],
+      );
+      expect(ci.txid).toBe(now);
+    });
+  });
+
+  it("refuses a move row written earlier with a later transaction's txid", async () => {
+    const a = await cat();
+    const b = await cat();
+    const s = await resolved(a);
+    const now = BigInt((await one<{ t: string }>(c, `select txid_current()::text as t`)).t);
+    const asked = new Map<string, number>();
+    await inTx(c, async () => {
+      for (let i = 1n; i <= 50n; i++) {
+        const t = (now + i).toString();
+        const r = await one<{ id: number }>(
+          c,
+          `insert into sighting_moves
+             (sighting_id, from_cat_id, to_cat_id, batch_id, reason, source, moved_by_account_id, role_at_time, txid)
+           values ($1, $2, $3, gen_random_uuid(), 'wrong_pick', 'cat_page', 'acct-team', 'staff', $4::bigint)
+           returning id`,
+          [s, a, b, t],
+        );
+        asked.set(t, r.id);
+      }
+    });
+    await expect(
+      inTx(c, async () => {
+        const t = (await one<{ t: string }>(c, `select txid_current()::text as t`)).t;
+        const id = asked.get(t);
+        expect(id, `txid ${t} was not asked for; widen the range`).toBeDefined();
+        await setMove(c, id!);
+        await recat(c, s, b);
+      }),
+    ).rejects.toThrow(APPEND_ONLY);
+    expect((await sightingRow(s)).cat_id).toBe(a);
+  });
+});
+
 // Review of #377 (M1): the guards read their tables through a pinned
 // search_path, so a temporary table of the same name can't stand in.
 describe("a temporary table can't shadow a guard's lookup (review M1)", () => {

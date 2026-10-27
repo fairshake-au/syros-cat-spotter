@@ -447,7 +447,20 @@ CREATE TRIGGER "duplicate_decisions_no_truncate" BEFORE TRUNCATE ON "duplicate_d
 CREATE TRIGGER "new_cat_checks_add_only" BEFORE UPDATE OR DELETE ON "new_cat_checks"
   FOR EACH ROW EXECUTE FUNCTION "add_only_but_redaction"('by_account_id');--> statement-breakpoint
 CREATE TRIGGER "new_cat_checks_no_truncate" BEFORE TRUNCATE ON "new_cat_checks"
-  FOR EACH STATEMENT EXECUTE FUNCTION "append_only_no_truncate"();
+  FOR EACH STATEMENT EXECUTE FUNCTION "append_only_no_truncate"();--> statement-breakpoint
+-- txid is always the inserting transaction's, whatever the writer sends, so a
+-- row can't be stamped ahead for a later transaction (review of #377, M2).
+-- The add-only guards already refuse changing it afterwards.
+CREATE FUNCTION "stamp_txid"() RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+BEGIN
+  NEW.txid := txid_current();
+  RETURN NEW;
+END
+$$;--> statement-breakpoint
+CREATE TRIGGER "sighting_moves_stamp_txid" BEFORE INSERT ON "sighting_moves"
+  FOR EACH ROW EXECUTE FUNCTION "stamp_txid"();--> statement-breakpoint
+CREATE TRIGGER "cat_identity_stamp_txid" BEFORE INSERT ON "cat_identity"
+  FOR EACH ROW EXECUTE FUNCTION "stamp_txid"();
 
 -- rollback-begin
 -- -- SYC-150 PR 2.1. Roll the app back first: code that writes moves, merges or duplicates needs all of this.
@@ -465,6 +478,9 @@ CREATE TRIGGER "new_cat_checks_no_truncate" BEFORE TRUNCATE ON "new_cat_checks"
 -- $$;
 -- CREATE TRIGGER "cat_identity_append_only" BEFORE UPDATE OR DELETE ON "cat_identity"
 --   FOR EACH ROW EXECUTE FUNCTION "cat_identity_append_only"();
+-- DROP TRIGGER "cat_identity_stamp_txid" ON "cat_identity";
+-- DROP TRIGGER "sighting_moves_stamp_txid" ON "sighting_moves";
+-- DROP FUNCTION "stamp_txid"();
 -- DROP TRIGGER "cat_identity_supersedes_own_cat" ON "cat_identity";
 -- DROP FUNCTION "cat_identity_supersedes_own_cat"();
 -- DROP TRIGGER "cat_identity_no_sighting_left" ON "cat_identity";
