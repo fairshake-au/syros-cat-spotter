@@ -265,13 +265,21 @@ export async function listGuardianChanges(
 
   // Each cat asked about, by kind: her rows and those of every cat feeding her.
   const rowsByCatKind = new Map<string, Observation[]>();
+  const sameKindByCat = new Map<number, Observation[]>();
+  for (const o of sameKindRows) {
+    const list = sameKindByCat.get(o.catId);
+    if (list) list.push(o);
+    else sameKindByCat.set(o.catId, [o]);
+  }
   for (const [target, f] of feeding) {
-    for (const o of sameKindRows) {
-      if (!f.counts(o)) continue;
-      const key = `${target}:${o.kind}`;
-      const list = rowsByCatKind.get(key) ?? [];
-      list.push(o);
-      rowsByCatKind.set(key, list);
+    for (const feeder of f.ids) {
+      for (const o of sameKindByCat.get(feeder) ?? []) {
+        if (!f.counts(o)) continue;
+        const key = `${target}:${o.kind}`;
+        const list = rowsByCatKind.get(key) ?? [];
+        list.push(o);
+        rowsByCatKind.set(key, list);
+      }
     }
   }
   // What no longer stands. For the kinds a vet visit writes, by the

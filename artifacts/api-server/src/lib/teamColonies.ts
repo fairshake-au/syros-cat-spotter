@@ -209,9 +209,21 @@ async function catHistoryEntries(visible: Visible, colonyId: number): Promise<Co
     .where(and(standing, observationCatIn(feeding.values())))
     .orderBy(asc(observationsTable.observedAt), asc(observationsTable.id));
   // Each statement, filed under the cat it now counts for, cat by cat.
-  const rows = catIds.flatMap((target) =>
-    raw.filter((r) => feeding.get(target)!.counts({ catId: r.catId, kind: "colony" })).map((r) => ({ ...r, catId: target })),
-  );
+  const order = new Map(raw.map((r, i) => [r, i]));
+  const rawByCat = new Map<number, typeof raw>();
+  for (const r of raw) {
+    const list = rawByCat.get(r.catId);
+    if (list) list.push(r);
+    else rawByCat.set(r.catId, [r]);
+  }
+  const rows = catIds.flatMap((target) => {
+    const f = feeding.get(target)!;
+    return f.ids
+      .flatMap((feeder) => rawByCat.get(feeder) ?? [])
+      .filter((r) => f.counts({ catId: r.catId, kind: "colony" }))
+      .sort((a, b) => order.get(a)! - order.get(b)!)
+      .map((r) => ({ ...r, catId: target }));
+  });
 
   const [cats, label] = await Promise.all([
     liveCats({ id: catsTable.id, name: catsTable.name }, { where: inArray(catsTable.id, catIds) }),

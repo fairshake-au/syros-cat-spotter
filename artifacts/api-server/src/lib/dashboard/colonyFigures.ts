@@ -146,12 +146,12 @@ async function firstColonyOf(catIds: readonly number[]): Promise<Map<number, num
       ),
     )
     .orderBy(asc(observationsTable.catId), asc(observationsTable.observedAt), asc(observationsTable.id));
+  const byCat = new Map(rows.map((r) => [r.catId, r]));
   const earliest = new Map<number, (typeof rows)[number]>();
   for (const id of catIds) {
-    const f = feeding.get(id);
-    if (!f) continue;
-    for (const r of rows) {
-      if (!f.counts({ catId: r.catId, kind: "colony" })) continue;
+    for (const feeder of feeding.get(id)?.ids ?? []) {
+      const r = byCat.get(feeder);
+      if (!r) continue;
       const was = earliest.get(id);
       const earlier = was && was.observedAt.getTime() - r.observedAt.getTime();
       if (!was || earlier! > 0 || (earlier === 0 && r.id < was.id)) earliest.set(id, r);
