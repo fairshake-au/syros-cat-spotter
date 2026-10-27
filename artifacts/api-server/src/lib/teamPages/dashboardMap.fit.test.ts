@@ -63,7 +63,7 @@ describe("the island map fits to the cats once (SYC-573)", () => {
 
   it("does not fit after the map's own + button", async () => {
     const t = await catMapRig();
-    (t.document.querySelector(".mapctl button") as HTMLButtonElement).click();
+    t.document.querySelector(".mapctl button").click();
     await t.answer(0, [posCat(1, 37.44, 24.94)]);
     expect(fits(t.map())).toHaveLength(0);
   });

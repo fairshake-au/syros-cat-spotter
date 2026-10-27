@@ -785,12 +785,12 @@ export interface PageOptions {
    * never anything a request supplied. The page's route must also send the
    * wider security header (setTeamHeaders(res, { scripts: true })), or the
    * browser refuses it; and every page must still work without it. A list
-   * runs in its order (the island map: Leaflet, then dashboard-map.js); a
+   * runs in its order (the island map: PMTiles, map-core.js, then dashboard-map.js); a
    * null in it (a file that couldn't be read) is left out.
    */
   script?: string | null | (string | null)[];
   /**
-   * Our own stylesheets for this page (the island map's leaflet.css), from
+   * Our own stylesheets for this page (a map page's maplibre-gl.css), from
    * assetUrl() only, under the same wider header. Nulls are left out.
    */
   styles?: (string | null)[];

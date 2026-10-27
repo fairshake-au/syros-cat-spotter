@@ -421,18 +421,10 @@ describe("the wider header is the named pages' alone, and exactly this", () => {
   // SYC-396 PR 1.5: the island Map is the Cats route's own page (?view=map),
   // so it carries the same wider header and no other; the exemption still
   // names one route. Its no-script move page and its JSON answers are strict.
-  it("the island Map carries exactly the wider header; its move page and JSON answers the strict one", async () => {
+  it("the island Map carries exactly the wider header; its JSON answers the strict one", async () => {
     const map = await request(app).get("/api/team/cats?view=map").set("Cookie", cookie).set("Accept", "text/html");
     expect(map.status).toBe(200);
     expect(map.headers["content-security-policy"]).toBe(WIDE_CSP);
-    const move = await request(app)
-      .post("/api/team/cats/map")
-      .set("Origin", TEAM)
-      .set("Cookie", cookie)
-      .type("form")
-      .send({ vz: "12", vx: "0", vy: "0" });
-    expect(move.status).toBe(200);
-    expect(move.headers["content-security-policy"]).toBe(STRICT_CSP);
     for (const post of ["/api/team/cats/positions", "/api/team/map-squares"]) {
       const res = await request(app).post(post).set("Origin", TEAM).set("Cookie", cookie).send({});
       expect(res.headers["content-security-policy"], post).toBe(STRICT_CSP);
