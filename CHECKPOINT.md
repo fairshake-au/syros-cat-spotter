@@ -46,3 +46,14 @@ Nothing; orchestrator review.
 - M1 750dd0b9e search_path pinned; M2 6bf2b0fa4 stamp_txid; L1 0ffa13880; L2 25ca79578; L3 f8894c093; L4 fbfe89b24.
 - Reviewer's 12 attack tests all pass on fbfe89b24 (were 9 red).
 - Next: probes R1..R6, full suites, typecheck, PR body.
+
+| Probe | Mutation | Went red |
+|---|---|---|
+| R1 (M1) | unpin search_path on every function | all 4 temp-table shadow tests |
+| R2 (M2) | stamp_txid sets nothing | overwrites a txid sent on insert; refuses a move row written earlier with a later txid (forge accepted) |
+| R3a (L1) | allow a self row with no supersedes | refuses a row naming its own cat that supersedes nothing |
+| R3b (L1) | undo branch: drop from = superseded merge's survivor | refuses an undo moving a sighting not on the undone merge's survivor |
+| R4 (L2) | allow a merge row to supersede | refuses a merge row that supersedes another merge |
+| R5 (L3) | plain move: drop merge_id IS NULL | refuses a move row carrying an old merge's id through the plain setting |
+| R6 (L4) | drop sighting and cat checks on moved statements | refuses a moved statement that replaces nothing, another sighting's row, or sits on a third cat |
+| R6b (L4) | drop only the cat check | same test (third-cat case) |
