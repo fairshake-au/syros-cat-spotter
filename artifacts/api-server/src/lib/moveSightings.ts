@@ -14,6 +14,7 @@ import {
   type Observation,
 } from "@workspace/db";
 import { actingRole, can, type CapabilityHolder } from "./capabilities";
+import { catTarget } from "./capabilityTargets";
 import { canonicalCatOf, catsFeeding, observationCatIn } from "./catIdentity";
 import { BLANK_NAME_BODY, catNamed, isUniqueViolation, NAME_TAKEN_WORDS, OFFENSIVE_NAME_WORDS } from "./catNames";
 import { lockSpottersFirst, writeMovedObservation } from "./movedStatements";
@@ -159,7 +160,10 @@ export async function moveSightings(person: Person, input: MoveInput): Promise<M
 export async function moveSightingsIn(tx: Tx, person: Person, input: MoveInput): Promise<MoveDone> {
   if (!can(person, "move_sighting")) throw new MoveRefused("NOT_AUTHORISED", "Not authorised");
   const sightingIds = [...new Set(input.sightingIds)].sort((a, b) => a - b);
-  const role = actingRole(person, "move_sighting");
+  // The role written on the move is the one that holds move_sighting where
+  // the sightings are filed (island-wide today, so any team role's).
+  const target = await catTarget(input.expectedCatId, tx);
+  const role = actingRole(person, "move_sighting", target);
 
   // A new cat's typed name: the checks a cat's first name always gets
   // (vetVisits.ts, the resolve route's words), before any lock.
