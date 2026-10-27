@@ -165,6 +165,8 @@ describe("map-core.js: when the map starts", () => {
     const d = rig.document;
     expect(d.querySelector(".mapnojs")).toBeNull();
     expect(d.querySelector(".mapfallback")!.classList.contains("maplive")).toBe(true);
+    // A live map keeps its height: never marked as holding no map.
+    expect(d.querySelector(".map")!.classList.contains("nomap")).toBe(false);
     const buttons = [...d.querySelectorAll(".map button")] as any[];
     expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual(["Zoom in", "Zoom out", "Turn north up"]);
     expect(buttons.every((b) => b.getAttribute("type") === "button")).toBe(true);
@@ -295,6 +297,8 @@ describe("map-core.js: map failure shows needsJs and keeps the fallback", () => 
     const d = rig.document;
     expect(d.querySelector(".mapnojs")!.textContent).toBe(WORDS.needsJs);
     expect(d.querySelector(".mapfallback")!.classList.contains("maplive")).toBe(false);
+    // Marked as holding no map, so the page's CSS collapses the box round its line.
+    expect(d.querySelector(".map")!.classList.contains("nomap")).toBe(true);
     // Nothing of a half-made map is left in the box.
     expect(d.querySelector(".map")!.children).toHaveLength(1);
     expect(d.querySelectorAll(".map button")).toHaveLength(0);

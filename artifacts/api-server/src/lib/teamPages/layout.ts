@@ -477,7 +477,6 @@ a.sublink{display:block;font-size:14px;padding-top:0}
 .map[data-map]{position:relative;height:min(60vh,420px);min-height:260px;line-height:normal;border:1px solid var(--line);border-radius:10px;background:var(--sunk);overflow:hidden}
 .catmap .map[data-map],.planmap .map[data-map]{height:260px;min-height:0}
 .map[data-map] .mapcanvas{position:absolute;inset:0}
-.map[data-map]:not(.maplive):not([aria-busy]),#island-map:not(.maplive):not([aria-busy]){height:auto;min-height:0}
 .mapnojs{margin:0;padding:12px;font-size:14px;line-height:1.4;color:var(--muted)}
 .mapctl{position:absolute;top:8px;right:8px;z-index:2;display:flex;flex-direction:column;gap:6px}
 .mapctl button{width:44px;height:44px;padding:0;font:inherit;font-size:20px;font-weight:700;line-height:1;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15)}
@@ -675,6 +674,8 @@ ${HELP_CSS}
 .mapwrap{position:relative;margin:8px 0}
 #island-map{height:min(70vh,640px);min-height:320px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);line-height:normal}
 #island-map.tilesfailed{background:var(--accent-soft)}
+@media (scripting:none){.map[data-map],#island-map{height:auto;min-height:0}}
+.map[data-map].nomap,#island-map.nomap{height:auto;min-height:0}
 .maplegend{position:absolute;top:8px;right:8px;z-index:1050;max-width:min(60%,240px);background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:10px;padding:2px 10px;font-size:13px;line-height:1.3}
 .maplegend>summary{cursor:pointer;font-weight:700;min-height:36px;display:flex;align-items:center}
 .maplegend ul{list-style:none;margin:2px 0 6px;padding:0}

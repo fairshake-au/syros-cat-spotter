@@ -256,6 +256,8 @@
     }
     if (words.needsJs) line.textContent = words.needsJs;
     el.removeAttribute("aria-busy");
+    // The box holds no map: the page's CSS shrinks it round its one line.
+    el.classList.add("nomap");
   }
 
   function lngLat(p) {

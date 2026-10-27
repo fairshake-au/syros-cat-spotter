@@ -94,16 +94,19 @@ describe("map can't start", () => {
     expect(gridLink(t).getAttribute("href")).toBe("/api/team/cats?colours=ginger&sterilised=not_known&lastSeen=month");
   });
 
-  it("a box with no map collapses round its one line; loading and live keep the map's height", async () => {
+  it("a box collapses round its one line only on a positive signal: no scripting, or map-core's nomap", async () => {
     const { renderCatMapPage } = await import("./catMapPage");
     const css = renderCatMapPage({ personName: "T", filters: {}, colonies: [], cats: [], catCount: 0, sites: [], focus: null, now: new Date() });
-    // map-core marks loading with aria-busy and a live map with .maplive; anything else holds no map.
-    expect(css).toContain(".map[data-map]:not(.maplive):not([aria-busy]),#island-map:not(.maplive):not([aria-busy]){height:auto;min-height:0}");
-    const t = await catMapRig({ lib: makeMaplibreFake({ throwOnMap: true }) });
-    const el = box(t);
-    expect(el.matches(".map[data-map]:not(.maplive):not([aria-busy])")).toBe(true);
+    expect(css).toContain("@media (scripting:none){.map[data-map],#island-map{height:auto;min-height:0}}");
+    expect(css).toContain(".map[data-map].nomap,#island-map.nomap{height:auto;min-height:0}");
+    // Full height by default: no rule collapses a box merely for lacking .maplive or aria-busy (no shift on load).
+    expect(css).not.toMatch(/:not\(\.maplive\)|:not\(\[aria-busy\]\)/);
+    // After the island map's own height rule, so they win at equal specificity.
+    expect(css.indexOf("#island-map.nomap")).toBeGreaterThan(css.indexOf("#island-map{height:"));
+    const failed = await catMapRig({ lib: makeMaplibreFake({ throwOnMap: true }) });
+    expect(box(failed).classList.contains("nomap")).toBe(true);
     const live = await catMapRig();
-    expect(box(live).matches("#island-map:not(.maplive):not([aria-busy])")).toBe(false);
+    expect(box(live).classList.contains("nomap")).toBe(false);
   });
 
   it("with no script at all, the page already says the map needs JavaScript and links to the grid", async () => {
