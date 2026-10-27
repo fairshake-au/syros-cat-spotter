@@ -128,6 +128,11 @@ ALTER TABLE "points_ledger" ADD CONSTRAINT "points_ledger_award_ck" CHECK (("poi
 -- that id has txid = txid_current() and matches. txid_current() is the whole
 -- transaction's id, the same inside a savepoint; xmin is not used.
 --
+-- Every function this migration defines or replaces runs with
+-- search_path = public, pg_temp (pg_temp last), so a temporary table named
+-- sighting_moves, cat_identity or sightings can't stand in for the real one
+-- in a guard's lookup (review of #377, M1).
+--
 -- True when the sighting's cat may change from from_cat to to_cat now:
 --   a move:  app.sighting_move_id names a move row of this transaction, for
 --            this sighting and these two cats;
@@ -137,7 +142,7 @@ ALTER TABLE "points_ledger" ADD CONSTRAINT "points_ledger_award_ck" CHECK (("poi
 --            cat's sightings to the survivor; its undo (a row naming the cat
 --            itself) moves them back to the merged-away cat.
 CREATE FUNCTION "sighting_move_is_current"(p_sighting integer, p_from integer, p_to integer)
-RETURNS boolean LANGUAGE plpgsql AS $$
+RETURNS boolean LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 DECLARE
   move_setting text := current_setting('app.sighting_move_id', true);
   merge_setting text := current_setting('app.cat_merge_id', true);
@@ -180,7 +185,7 @@ END
 $$;--> statement-breakpoint
 -- A sighting stays append-only. 0046's branches are kept word for word; one
 -- is added: a recorded move of a resolved sighting's cat.
-CREATE OR REPLACE FUNCTION "sightings_append_only"() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION "sightings_append_only"() RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 DECLARE
   -- What a status move may change, and what redaction may change. Every
   -- other column must stay byte-for-byte what it was (compared as text).
@@ -270,7 +275,7 @@ $$;--> statement-breakpoint
 -- a move or a new row. The cat row is taken FOR SHARE first, so a merge of
 -- that cat being committed (its deferred check holds the cat FOR UPDATE) is
 -- waited for and then seen.
-CREATE FUNCTION "sightings_not_under_merged_away"() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION "sightings_not_under_merged_away"() RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 BEGIN
   IF NEW.cat_id IS NULL
      OR (TG_OP = 'UPDATE' AND NEW.cat_id IS NOT DISTINCT FROM OLD.cat_id) THEN
@@ -294,7 +299,7 @@ CREATE TRIGGER "sightings_not_under_merged_away" BEFORE INSERT OR UPDATE OF "cat
 -- a resolved sighting names the merged-away cat. The merge moves every one to
 -- the survivor in its own transaction. The cat row is taken FOR UPDATE, so a
 -- resolve of that cat still in flight commits first and is seen here.
-CREATE FUNCTION "cat_identity_no_sighting_left"() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION "cat_identity_no_sighting_left"() RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 BEGIN
   IF NEW.canonical_cat_id = NEW.cat_id
      OR EXISTS (SELECT 1 FROM "cat_identity" u WHERE u.supersedes_id = NEW.id) THEN
@@ -319,7 +324,7 @@ CREATE CONSTRAINT TRIGGER "cat_identity_no_sighting_left" AFTER INSERT ON "cat_i
 -- move's id, and may arrive already redacted (a deleted spotter's copied
 -- answer), only with that move named by app.sighting_move_id, recorded in
 -- this transaction, for the statement's own sighting.
-CREATE OR REPLACE FUNCTION "observations_append_only"() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION "observations_append_only"() RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 DECLARE
   -- The only columns redaction may touch. Every other column must stay
   -- byte-for-byte what it was (compared as text, so even a jsonb value's
@@ -380,7 +385,7 @@ $$;--> statement-breakpoint
 -- the column naming a person (the trigger's argument) and stamps
 -- redacted_at, nothing else. Running deletion again is safe; the stamp
 -- never changes.
-CREATE FUNCTION "add_only_but_redaction"() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION "add_only_but_redaction"() RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 DECLARE
   person text;
   exempt text[];
@@ -416,7 +421,7 @@ CREATE TRIGGER "cat_identity_append_only" BEFORE UPDATE OR DELETE ON "cat_identi
 -- Otherwise an undo row on Agatha naming Mimi's merge would undo Mimi's
 -- merge, since readers treat any superseded merge as undone; and an undo of
 -- an undo (a row naming its own cat) isn't a merge to undo.
-CREATE FUNCTION "cat_identity_supersedes_own_cat"() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION "cat_identity_supersedes_own_cat"() RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 BEGIN
   IF NEW.supersedes_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM "cat_identity" m

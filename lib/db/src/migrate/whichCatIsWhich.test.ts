@@ -13,12 +13,19 @@ import { defaultMigrationsFolder, migrateUp, readMigrations } from "./runner";
 const baseUrl = process.env.DATABASE_URL;
 if (!baseUrl) throw new Error("DATABASE_URL must be set to run these tests");
 
-const url = (db: string) => {
+const url = (db: string, user?: string) => {
   const u = new URL(baseUrl);
   u.pathname = `/${db}`;
+  if (user) {
+    u.username = user;
+    u.password = "";
+  }
   return u.toString();
 };
-const name = `which_cat_test_${crypto.randomBytes(4).toString("hex")}`;
+const tag = crypto.randomBytes(4).toString("hex");
+const name = `which_cat_test_${tag}`;
+// A login role that owns nothing, for the temp-table shadow as the app would be.
+const appRole = `which_cat_app_${tag}`;
 const admin = new pg.Client({ connectionString: url("postgres") });
 let c: pg.Client;
 // A second connection, for the resolve that races a merge (16a).
@@ -38,6 +45,7 @@ afterAll(async () => {
   await c.end();
   await c2.end();
   await admin.query(`drop database if exists "${name}"`);
+  await admin.query(`drop role if exists "${appRole}"`);
   await admin.end();
 });
 
@@ -767,6 +775,100 @@ describe("points for finding a duplicate (C4, §9.8)", () => {
     await expect(ledger("dev-bad", null, 7, null)).rejects.toThrow(/points_ledger_award_ck/);
     await expect(ledger("dev-bad", 900_010, 7, [6, 7])).rejects.toThrow(/points_ledger_award_ck/);
     await expect(ledger("dev-bad", null, 7, [7, 6])).rejects.toThrow(/points_ledger_award_ck/);
+  });
+});
+
+// Review of #377 (M1): the guards read their tables through a pinned
+// search_path, so a temporary table of the same name can't stand in.
+describe("a temporary table can't shadow a guard's lookup (review M1)", () => {
+  it("refuses a cat change backed only by a temp sighting_moves row", async () => {
+    const a = await cat();
+    const b = await cat();
+    const s = await resolved(a);
+    await expect(
+      inTx(c, async () => {
+        await c.query(
+          `create temp table sighting_moves (id int, txid bigint, sighting_id int,
+             from_cat_id int, to_cat_id int, merge_id int, reason text) on commit drop`,
+        );
+        await c.query(
+          `insert into sighting_moves values (999999, txid_current(), $1, $2, $3, null, 'wrong_pick')`,
+          [s, a, b],
+        );
+        await setMove(c, 999999);
+        await recat(c, s, b);
+      }),
+    ).rejects.toThrow(APPEND_ONLY);
+    expect((await sightingRow(s)).cat_id).toBe(a);
+  });
+
+  it("refuses filing under a merged-away cat when a temp cat_identity hides the merge", async () => {
+    const survivor = await cat();
+    const away = await cat();
+    await merge(away, survivor);
+    const p = await sighting();
+    await expect(
+      inTx(c, async () => {
+        await c.query(
+          `create temp table cat_identity (id int, cat_id int, canonical_cat_id int, supersedes_id int) on commit drop`,
+        );
+        await c.query(`update sightings set cat_id = $1, status = 'resolved' where id = $2`, [away, p]);
+      }),
+    ).rejects.toThrow(/merged into another/);
+    expect((await sightingRow(p)).cat_id).toBeNull();
+  });
+
+  it("refuses at commit a merge leaving sightings when a temp sightings table hides them", async () => {
+    const survivor = await cat();
+    const away = await cat();
+    await resolved(away);
+    // A fresh connection, as a pool hands out: no cached plan names the real table.
+    const fresh = new pg.Client({ connectionString: url(name) });
+    await fresh.connect();
+    try {
+      await expect(
+        inTx(fresh, async () => {
+          await mergeRow(fresh, away, survivor);
+          await fresh.query(`create temp table sightings (cat_id int, status text) on commit drop`);
+        }),
+      ).rejects.toThrow(/still has resolved sightings/);
+    } finally {
+      await fresh.end();
+    }
+  });
+
+  it("refuses the shadow for a role that owns none of the tables", async () => {
+    await admin.query(`create role "${appRole}" login`);
+    await c.query(`grant all on schema public to "${appRole}"`);
+    await c.query(`grant all on all tables in schema public to "${appRole}"`);
+    await c.query(`grant all on all sequences in schema public to "${appRole}"`);
+    const app = new pg.Client({ connectionString: url(name, appRole) });
+    await app.connect();
+    try {
+      const a = await cat();
+      const b = await cat();
+      const s = await resolved(a);
+      await expect(
+        inTx(app, async () => {
+          await app.query(
+            `create temp table sighting_moves (id int, txid bigint, sighting_id int,
+               from_cat_id int, to_cat_id int, merge_id int, reason text) on commit drop`,
+          );
+          await app.query(
+            `insert into sighting_moves values (999998, txid_current(), $1, $2, $3, null, 'wrong_pick')`,
+            [s, a, b],
+          );
+          await setMove(app, 999998);
+          await recat(app, s, b);
+        }),
+      ).rejects.toThrow(APPEND_ONLY);
+      expect((await sightingRow(s)).cat_id).toBe(a);
+    } finally {
+      await app.end();
+      await c.query(`revoke all on all tables in schema public from "${appRole}"`);
+      await c.query(`revoke all on all sequences in schema public from "${appRole}"`);
+      await c.query(`revoke all on schema public from "${appRole}"`);
+    }
   });
 });
 
