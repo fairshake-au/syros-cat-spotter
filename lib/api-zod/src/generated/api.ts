@@ -712,7 +712,7 @@ export const GetMyOpenSightingsResponse = zod.object({
   "foodAndWater": zod.boolean(),
   "note": zod.boolean()
 }),
-  "filedByTeam": zod.boolean().optional().describe('The Syros Cats team filed this spot under the cat the page is\nfor (a move from the dashboard, which-cat-is-which.md §5.9, D4).\nThe app says \"Syros Cats filed this under {cat}\" beside it. Absent\nfrom an older server, which means no.\n')
+  "filedByTeam": zod.boolean().optional().describe('The Syros Cats team filed this spot under the cat the page is\nfor (a move from the dashboard, which-cat-is-which.md §5.9, D4).\nThe app says \"Syros Cats filed this under {cat}\" beside it. Only\never `true`: absent for a spot nobody moved, and from an older\nserver, which means no.\n')
 }))
 })
 

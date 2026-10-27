@@ -1608,10 +1608,12 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
           hidden,
         ),
         open: { foodAndWater: !kinds.has("food_and_water"), note: !kinds.has("note") },
-        filedByTeam: newestMove.get(r.id)?.toCatId === catId && newestMove.get(r.id)?.mergeId === null,
+        // Only ever `true`, and absent otherwise: the payload of a spot nobody
+        // moved is byte for byte what it was (publicPayload.p6.test.ts).
+        ...(newestMove.get(r.id)?.toCatId === catId && newestMove.get(r.id)?.mergeId === null ? { filedByTeam: true as const } : {}),
       };
     })
-    .filter((s) => s.open.foodAndWater || s.open.note || ear.state !== "checked" || s.filedByTeam);
+    .filter((s) => s.open.foodAndWater || s.open.note || ear.state !== "checked" || s.filedByTeam === true);
 
   res.json({
     earTip:

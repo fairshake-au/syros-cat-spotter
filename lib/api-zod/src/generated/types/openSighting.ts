@@ -15,8 +15,9 @@ export interface OpenSighting {
   /**
      * The Syros Cats team filed this spot under the cat the page is
      * for (a move from the dashboard, which-cat-is-which.md §5.9, D4).
-     * The app says "Syros Cats filed this under {cat}" beside it. Absent
-     * from an older server, which means no.
+     * The app says "Syros Cats filed this under {cat}" beside it. Only
+     * ever `true`: absent for a spot nobody moved, and from an older
+     * server, which means no.
      */
   filedByTeam?: boolean;
 }

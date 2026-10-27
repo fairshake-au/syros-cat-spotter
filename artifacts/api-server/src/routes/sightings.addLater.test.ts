@@ -448,7 +448,8 @@ describe("open-sightings: a spot the team filed under this cat (SYC-150 PR 3.3, 
     expect(res.status).toBe(200);
     const byId = new Map<number, Item>((res.body.sightings as Item[]).map((x) => [x.sightingId, x]));
     expect(byId.get(spot.id)?.filedByTeam).toBe(true);
-    expect(byId.get(own.id)?.filedByTeam).toBe(false);
+    // Absent, not false: the payload of a spot nobody moved is what it always was.
+    expect(byId.get(own.id)).not.toHaveProperty("filedByTeam");
     // Who moved it and why never leave the server.
     expect(JSON.stringify(res.body)).not.toMatch(/vitest-addlater-mover|wrong_pick|movedBy|reason/);
   });
