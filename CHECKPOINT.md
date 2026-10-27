@@ -21,4 +21,4 @@ Review fold-in (coordinator, after #375 opened):
 - R4 done: teamMy colony page uses catsMergedAway; loop cats listed (guardianCats test).
 - R5 done: guard stripper is string/template aware; evasion-shape test.
 - R6 done: probes a,b,c,s red as expected and restored; full suite 6220 passed + 1 expected fail; typecheck 0/0/0 (fixed A10 type error).
-Next: R7 PR body.
+- R7 done: PR body has Review outcome. Next: orchestrator marks ready (delete CHECKPOINT.md first).
