@@ -59,20 +59,6 @@ describe("a file in the manifest", () => {
     for (const name of ASSET_NAMES) expect(assetUrl(name), name).not.toBeNull();
   });
 
-  // SYC-396 PR 1.5: the island map's library, from our own server only.
-  it("Leaflet is the pinned 1.9.4, served from here as JavaScript and as CSS", async () => {
-    const js = await request(app).get(assetUrl("leaflet.js")!);
-    expect(js.status).toBe(200);
-    expect(js.headers["content-type"]).toBe("text/javascript; charset=utf-8");
-    expect(js.text).toContain('version="1.9.4"');
-    expect(js.text).toBe(vendorBytes("leaflet.js").toString("utf8"));
-    const css = await request(app).get(assetUrl("leaflet.css")!);
-    expect(css.status).toBe(200);
-    expect(css.headers["content-type"]).toBe("text/css; charset=utf-8");
-    expect(css.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
-    expect(css.text).toContain(".leaflet-pane");
-  });
-
   // SYC-705 Task 2b.4: the dashboard's map library, MapLibre GL JS, and PMTiles.
   it("MapLibre is the pinned 6.15.0 and pmtiles the pinned 4.3.2, served from here under the right types", async () => {
     const pkgVersion = (pkg: string) =>
@@ -190,8 +176,8 @@ describe("the production build and the in-memory names agree", () => {
       expect(hashed).toBe(hashedName(name, bytes));
       expect(fromBuild.files.get(hashed)!.bytes.equals(bytes)).toBe(true);
     }
-    // SYC-396 PR 1.5: every name a page may ask for is built, and Leaflet comes
-    // from the pinned package, never a hand-kept copy in assets/.
+    // SYC-396 PR 1.5: every name a page may ask for is built, and vendored
+    // files come from the pinned package, never a hand-kept copy in assets/.
     expect(Object.keys(manifest).sort()).toEqual([...ASSET_NAMES].sort());
     for (const name of Object.keys(VENDOR)) expect(existsSync(path.join(SOURCE, name)), name).toBe(false);
   });

@@ -32,8 +32,6 @@ export const ASSET_NAMES = [
   // SYC-705 Task 2b.5: the dashboard's MapLibre maps (map-core.js starts one; dashboard-pin.js draws a view map's markers).
   "map-core.js",
   "dashboard-pin.js",
-  "leaflet.js",
-  "leaflet.css",
   "maplibre-gl.mjs",
   "maplibre-gl-worker.mjs",
   "maplibre-gl.css",
@@ -45,13 +43,11 @@ export const ASSET_NAMES = [
 
 /**
  * Files copied from a pinned npm package rather than kept in assets/
- * (SYC-396 PR 1.5): Leaflet 1.9.4, the island map's library. The same list
+ * (SYC-705): MapLibre GL JS, PMTiles and the Inter font. The same list
  * is in scripts/buildAssets.mjs, which copies them into dist/assets/ for
  * production; running from source they are read from node_modules here.
  */
 export const VENDOR: Readonly<Record<string, string>> = {
-  "leaflet.css": "leaflet/dist/leaflet.css",
-  "leaflet.js": "leaflet/dist/leaflet.js",
   // SYC-705 Task 2b.4: the dashboard's maps, MapLibre GL JS 6.15.0 (an ES
   // module; its worker is started from the same folder) and PMTiles 4.3.2 (a
   // classic script that defines the global `pmtiles`).

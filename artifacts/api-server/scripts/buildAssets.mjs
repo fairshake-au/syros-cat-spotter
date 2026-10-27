@@ -11,9 +11,9 @@
 // memory when there is no dist/ (tests, and running from source).
 // teamAssets.test.ts runs this script and checks the two agree.
 //
-// Vendored files (SYC-396 PR 1.5): Leaflet 1.9.4, the island map's library,
-// is copied the same way from the pinned npm package (api-server's
-// devDependency), never from another website. VENDOR names each one; the
+// Vendored files (SYC-705): MapLibre GL JS, PMTiles and the Inter font are
+// copied the same way from the pinned npm packages (api-server's
+// devDependencies), never from another website. VENDOR names each one; the
 // same list is in src/lib/teamAssets.ts.
 //
 // Run by build.mjs, or on its own: node scripts/buildAssets.mjs <src> <out>.
@@ -29,8 +29,6 @@ export const ASSET_EXTENSIONS = [".js", ".mjs", ".css"];
 
 /** Files copied from npm packages: the served name to the package file. */
 export const VENDOR = {
-  "leaflet.css": "leaflet/dist/leaflet.css",
-  "leaflet.js": "leaflet/dist/leaflet.js",
   // SYC-705 Task 2b.4: the dashboard's maps, MapLibre GL JS 6.15.0 (an ES
   // module; MapLibre starts its worker from the same folder) and PMTiles 4.3.2
   // (a classic script that defines the global `pmtiles`).
