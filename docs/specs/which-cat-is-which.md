@@ -1,6 +1,6 @@
 # Which cat is which: moving photos and merging duplicates
 
-**Status:** Draft for Samuel's approval, 26 October 2026.
+**Status:** Draft for Samuel's approval, 26 October 2026. All eleven decisions (§7) were made by Samuel on 26 October.
 - The first draft covered moving photos only. It was adversarially reviewed (Sonnet critic: 1 blocker, 12 major, 9 minor findings) and every finding was folded in.
 - On 26 October Samuel decided that the "only photo on a cat" case should be designed together with merging, and then that **all of SYC-59** belongs here. This draft adds spotting duplicates and merging. A second adversarial review (Sonnet critic: 2 blockers, 8 major, 11 minor) is folded in.
 - Review notes: [`reviews/which-cat-is-which-review.md`](./reviews/which-cat-is-which-review.md).
@@ -40,7 +40,7 @@ This spec gives Syros Cats one set of tools for both, on the dashboard:
 | **Merge** | Makes two records of one cat into one. |
 | **Undo** | Any of the above can be undone. Nothing is ever deleted. |
 
-**It also gives everyone ways to spot a duplicate:** a spotter asked "Are these the same cat?", a quiet check whenever a new cat is added, a nightly look-alike sweep, "This might be the same cat as…" on any cat's page, the matching game's "same cat" votes, and the team's own eye. They all feed one team list, **Possible duplicates**. **Nothing is merged without a person on the team confirming it**, because wrongly joining two different cats would be worse than the duplicate was.
+**It also gives everyone ways to spot a duplicate:** a spotter asked "Are these the same cat?", a quiet check whenever a new cat is added, a nightly look-alike sweep, the matching game's "same cat" votes, and the team's own eye. They all feed one team list, **Possible duplicates**. **Nothing is merged without a person on the team confirming it**, because wrongly joining two different cats would be worse than the duplicate was.
 
 **Nobody loses by being honest.** Spotters keep their points and their discovery credit whenever a photo is moved or two cats are merged. Whoever first reported a duplicate earns points once the team confirms it.
 
@@ -50,7 +50,7 @@ This spec gives Syros Cats one set of tools for both, on the dashboard:
 
 | Who | What they can do |
 |---|---|
-| **Spotters** (in the app) | Answer "Are these the same cat?" after a spot. Tap "This might be the same cat as…" on a cat's page. Play the matching game. |
+| **Spotters** (in the app) | Answer "Are these the same cat?" after a spot. Play the matching game. |
 | **The Syros Cats team** (on the dashboard; staff and management) | Move, make a new cat (or split a record into two), merge, undo. Work through Possible duplicates. |
 | **Cat guardians and vets** | Nothing new in this version (decision D5). A guardian can still report a duplicate from the app like any spotter. |
 
@@ -58,9 +58,9 @@ This spec gives Syros Cats one set of tools for both, on the dashboard:
 
 ## 3. Spotting a duplicate
 
-### 3.1 Six ways in
+### 3.1 Five ways in
 
-All six feed **Possible duplicates** (§3.3). None of them changes a cat.
+All five feed **Possible duplicates** (§3.3). None of them changes a cat.
 
 1. **"Are these the same cat?"** (decision D8). A spotter confirms a suggested match for Agatha, and the photo check also suggested Mimi, scoring nearly as high. After the usual questions, the reward screen asks one more, optional: Agatha's and Mimi's main photos side by side, *"These two look alike. Are they the same cat?"*, with **Same cat** · **Different cats** · **Not sure**. The spotter has just seen the cat, and the question shows their own photo above the two.
    - It's asked at most once per spot.
@@ -70,12 +70,8 @@ All six feed **Possible duplicates** (§3.3). None of them changes a cat.
    - the photo check had suggested an existing cat and the spotter still chose "New cat";
    - the photo check failed, so nothing was compared. Those cats are also on "New cats to check" (SYC-531).
 3. **A nightly look-alike sweep** (decision D11). Each night the app compares the main photos of cats within 1.5 km of each other, using the photo fingerprints behind "Find from a photo". Pairs that look very alike join the list, at most 10 new pairs a night, closest look-alikes first. It's an on/off switch on the App switches page. It stays **off until it has been tested** against pairs the team has already decided, because fingerprints compare whole photos, and two cats at the same feeding spot share a background.
-4. **"This might be the same cat as…"** on any cat's page in the app (decision D9). It opens the nearby cats list with search, the same screen as "Find the cat yourself" (`choose-a-different-cat.md` §3.2). The spotter picks the other cat, checks the two side by side, and taps **"Report it"**. They're told *"Thanks. Syros Cats will take a look."*
-   - It only offers cats near this one, as hand picks do.
-   - Each phone can send at most 5 reports a day, and each internet address at most 20.
-   - The report is never shown publicly, and the reply is the same whether or not the team has already looked at that pair.
-5. **The matching game.** A *"Players think Mikis and Ermis are one cat"* row (`matching-game.md` §7.2) is on the list.
-6. **The team's own eye.** Any team cat page has **"Same cat as…"**, which goes straight to the merge screen (§4).
+4. **The matching game.** A *"Players think Mikis and Ermis are one cat"* row (`matching-game.md` §7.2) is on the list.
+5. **The team's own eye.** Any team cat page has **"Same cat as…"**, which goes straight to the merge screen (§4).
 
 ### 3.2 How sure we are
 
@@ -105,7 +101,7 @@ The list sits on the dashboard in the "fixing what is wrong" area, below the wel
 
 ### 3.4 Points for finding a duplicate
 
-**When the team merges a pair, each phone that reported it before the merge earns 10 points** (decision D10). That covers people who reported it through "Are these the same cat?" (answering Same) or through "This might be the same cat as…". Each phone earns once per pair of cats, ever, however many times it reported the pair and even if the merge is undone and made again. Only phones that count as a person (§3.2) earn.
+**When the team merges a pair, each phone that reported it before the merge earns 10 points** (decision D10). That means people who answered **Same cat** to "Are these the same cat?". Each phone earns once per pair of cats, ever, however many times it reported the pair and even if the merge is undone and made again. Only phones that count as a person (§3.2) earn.
 
 - The points are counted the moment the merge is saved.
 - The spotter sees an in-app line: *"You spotted that Mimi and Agatha are the same cat. Syros Cats agreed. +10 points."*
@@ -294,21 +290,21 @@ A spot can hold a first photo, a face photo and a body photo (SYC-415), all mean
 
 ## 7. Decisions for Samuel
 
-Each goes to Samuel one at a time, in plain English, before approval. The recommendation is what the sections above describe.
+All answered by Samuel on 26 October 2026, one at a time. The sections above describe the answers.
 
 | # | Question | Recommendation |
 |---|---|---|
 | D1 | The photo would leave a cat with nothing: what then? | **Answered 26 Oct: design it with merging.** The move screen offers the merge (§5.3). |
 | D2 | One photo out of a spot? | **Answered 26 Oct: don't move single photos; hide a stray one.** A spot always moves whole (§5.6). |
-| D3 | "It's a new cat": who names it? | The team types a name, or lets the spotter who found it name it |
-| D4 | Telling people (the spotter whose photo moved, followers of a merged cat) | A quiet in-app line, no push |
-| D5 | Who can move and merge? | The team (staff and management) only |
-| D6 | The photo that started a cat moves: name, credit and map spot? | Name and credit stay; the map spot moves to the earliest remaining sighting |
-| D7 | Which record stays in a merge, and whose name? | The earlier record and its name, unless its name is still pending; the team can switch, but a cat with an owner always stays |
-| D8 | Ask spotters "Are these the same cat?" after a spot? | Yes, at most once per spot, only when two suggested cats look alike |
-| D9 | "This might be the same cat as…" on cat pages for everyone? | Yes, nearby cats only, 5 a day per phone, reports seen by the team only; only established phones count towards *Likely* |
-| D10 | Points for reporting a duplicate the team confirms? | 10 points to each established phone that reported it before the merge, once per pair ever; kept if the merge is undone |
-| D11 | A nightly look-alike sweep? | Build it, behind a switch that stays off until tested on decided pairs; at most 10 new pairs a night |
+| D3 | "It's a new cat": who names it? | **Answered 26 Oct, as recommended:** The team types a name, or lets the spotter who found it name it |
+| D4 | Telling people (the spotter whose photo moved, followers of a merged cat) | **Answered 26 Oct, as recommended:** A quiet in-app line, no push |
+| D5 | Who can move and merge? | **Answered 26 Oct, as recommended:** The team (staff and management) only |
+| D6 | The photo that started a cat moves: name, credit and map spot? | **Answered 26 Oct, as recommended:** Name and credit stay; the map spot moves to the earliest remaining sighting |
+| D7 | Which record stays in a merge, and whose name? | **Answered 26 Oct, as recommended:** The earlier record and its name, unless its name is still pending; the team can switch, but a cat with an owner always stays |
+| D8 | Ask spotters "Are these the same cat?" after a spot? | **Answered 26 Oct, as recommended:** Yes, at most once per spot, only when two suggested cats look alike |
+| D9 | "This might be the same cat as…" on cat pages for everyone? | **Answered 26 Oct: no.** Spotters report duplicates only through "Are these the same cat?" (§3.1). |
+| D10 | Points for reporting a duplicate the team confirms? | **Answered 26 Oct, as recommended:** 10 points to each established phone that reported it before the merge, once per pair ever; kept if the merge is undone |
+| D11 | A nightly look-alike sweep? | **Answered 26 Oct, as recommended:** Build it, behind a switch that stays off until tested on decided pairs; at most 10 new pairs a night |
 
 ---
 
@@ -451,7 +447,7 @@ export const duplicateReportsTable = pgTable("duplicate_reports", {
   id: serial("id").primaryKey(),
   catLow: integer("cat_low").notNull(),          // canonical ids at the time, low < high
   catHigh: integer("cat_high").notNull(),
-  source: text("source").notNull(),              // spotter_question | cat_page | new_cat_check | sweep | game | team
+  source: text("source").notNull(),              // spotter_question | new_cat_check | sweep | game | team
   says: text("says").notNull(),                  // same | different | not_sure
   deviceId: text("device_id"),                   // spotter sources; null once redacted
   sightingId: integer("sighting_id"),            // spotter_question, new_cat_check
@@ -481,7 +477,6 @@ export const duplicateDecisionsTable = pgTable("duplicate_decisions", {
   - The photo check's near-tie (below) only decides whether to **ask**. Two look-alikes scoring close is exactly what two different cats produce, so it's never evidence on its own.
   - *Possible* = anything else open.
 - **"Are these the same cat?"** is offered in the resolve response (`duplicateQuestion: { catId, otherCatId }`) when both cats are in the sighting's stored suggestions at or above 0.4, within 0.15 of each other, neither is deceased, and the pair has no decision. One answer per sighting, sent with the other answers (`POST /sightings/:id/answers`, `duplicate: "same" | "different" | "not_sure"`).
-- **"This might be the same cat as…":** `POST /cats/:id/duplicate-report { otherCatId }`. The other cat must be in the reporting phone's nearby set for this cat (§3.1 point 4). The limits are 5 a day per device and 20 per address (`lib/limits.ts`). The response is the same `202` whatever the pair's state, so the route never reveals a team decision.
 - **New cat check:** at resolve with `new_cat`, a `new_cat_check` report is written for each stored suggestion at or above 0.4 that the spotter passed over (`sighting_matches.suggested`). A cat added with `matcher_failed` is on "New cats to check" instead. No fingerprint is needed at this point.
 - **Nightly sweep:** behind the app switch `duplicate_sweep`, off by default. It compares pairs of live cats whose map squares are within 1.5 km, by main-photo fingerprint, skipping cats with no fingerprint. It writes `sweep` reports for the 10 highest-scoring pairs above `SWEEP_THRESHOLD` that have no decision (or qualify under the reopen rule) and no `sweep` report in the last 90 days.
 - **The threshold is calibrated, not guessed.** Fingerprints are whole-photo comparisons, checked so far only for "the right cat is in the top 20", and backgrounds sway them. Before the switch is turned on, `SWEEP_THRESHOLD` is set from pairs the team has decided (merged or "different"). The acceptance test: on those pairs, at least 3 in 4 of the sweep's top 10 would have been "same cat".
@@ -538,7 +533,7 @@ A merge locks every sighting of the merged-away cat. The answers route re-reads 
 3. For every resolved sighting filed under the merged-away cat, insert a move row (`reason = 'merged'`, `merge_id`) and change its `cat_id`. No statements are copied.
 4. Copy follows: insert `cat_subscriptions (device, survivor)` for each follower of the merged-away cat, `ON CONFLICT DO NOTHING`, skipping devices in `cat_unfollows` for the survivor and `deleted:` devices. Copy unfollows the same way. Record each row actually inserted in `merge_follow_changes (merge_id, device_id, kind: "follow" | "unfollow", row_created_at)`. That table is in the deletion sweep (§9.11).
 5. Owners are never copied (§4.1).
-6. Write a `duplicate_decisions` row `merged`. Award 10 points to each counting phone with a `same` report from `spotter_question` or `cat_page` on this pair dated before the merge, once per device per pair ever, as `points_ledger` rows with `source = 'duplicate'` (§9.8).
+6. Write a `duplicate_decisions` row `merged`. Award 10 points to each counting phone with a `same` report from `spotter_question` on this pair dated before the merge, once per device per pair ever, as `points_ledger` rows with `source = 'duplicate'` (§9.8).
 7. Reset both cats' news baselines without sending anything.
 8. Write the in-app lines (D4, D10).
 
@@ -609,7 +604,7 @@ The nightly check marks a change `silenced` (reason `moved` or `merged`) when th
 **Spotting duplicates**
 
 23. "Are these the same cat?" is offered only under §9.6's rule, at most once per sighting, and never for a decided pair.
-24. The "This might be the same cat as…" limit and the nearby rule. Reports are never in a public payload.
+24. Duplicate reports and decisions are never in a public payload.
 25. The ladder: one "Are these the same cat?" answer stays *Possible*. New phones never make *Likely*. A "different" decision is reopened only by the rule in §9.6.
 26. The sweep does nothing while its switch is off, writes at most 10 pairs, skips decided pairs and cats with no fingerprint, and never writes about a merged-away cat. The calibration acceptance test runs before it is switched on.
 27. "As of" a date before a move or merge shows the record as it stood then.
