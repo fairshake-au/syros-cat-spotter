@@ -1,6 +1,6 @@
 # Which cat is which: moving photos and merging duplicates
 
-**Status:** Draft for Samuel's approval, 26 October 2026. All eleven decisions (§7) were made by Samuel on 26 October.
+**Status:** **Approved by Samuel, 26 October 2026** ("approved, write the plan"). All eleven decisions (§7) were made by Samuel the same day.
 - The first draft covered moving photos only. It was adversarially reviewed (Sonnet critic: 1 blocker, 12 major, 9 minor findings) and every finding was folded in.
 - On 26 October Samuel decided that the "only photo on a cat" case should be designed together with merging, and then that **all of SYC-59** belongs here. This draft adds spotting duplicates and merging. A second adversarial review (Sonnet critic: 2 blockers, 8 major, 11 minor) is folded in.
 - Review notes: [`reviews/which-cat-is-which-review.md`](./reviews/which-cat-is-which-review.md).
