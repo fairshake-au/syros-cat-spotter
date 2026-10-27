@@ -136,6 +136,7 @@ export function renderPicker(o: {
       `<p class="hint" data-mapon hidden>${w("pick.dragHint")}</p>` +
       renderMap({ mode: "place", lang: o.lang, formId: PICK_FORM_ID, centre: o.centre, zoom: o.zoom, markers: o.markers }) +
       `<input type="hidden" name="lat" value=""><input type="hidden" name="lng" value="">` +
+      offIsland(PICK_FORM_ID, o.lang) +
       `<div class="actions"><button type="submit" class="save" data-mapon hidden>${w("map.useSpot")}</button></div>` +
       `</form>`
     : "";
@@ -180,6 +181,7 @@ export function confirmMap(o: {
   return (
     renderMap({ mode: "place", lang: o.lang, formId: DETAILS_FORM_ID, centre: o.spot, zoom: o.zoom, markers: o.markers }) +
     `<p class="hint" data-mapon hidden>${w("confirm.drag")}</p>` +
+    offIsland(DETAILS_FORM_ID, o.lang) +
     hidden("lat", String(o.spot.lat)) +
     hidden("lng", String(o.spot.lng)) +
     (o.approximate ? hidden("approximate", "1") : "")
@@ -197,12 +199,30 @@ export interface AddCarry {
   notes: string;
 }
 
+/**
+ * The picked spot in words, wrapped so the place map's script can hide it once
+ * the pin is dragged (the words, and their Open map link, would be the old
+ * spot), and the line it shows then. Trusted HTML; `inner` is trusted HTML.
+ */
+export function spotWords(inner: string, lang?: string, formId = DETAILS_FORM_ID): string {
+  const { w } = wordsIn(lang);
+  return (
+    `<div data-spotwords="${formId}">${inner}</div>` +
+    `<p class="hint" data-spotmoved="${formId}" hidden>${w("map.moved")}</p>`
+  );
+}
+
+/** The line a place form shows while its pin is off Syros (its Save is off then). */
+const offIsland = (formId: string, lang?: string) =>
+  `<p class="warn" data-offisland="${formId}" hidden>${wordsIn(lang).w("map.offIsland")}</p>`;
+
 /** The picked spot, said in words: where it is, and that an area's centre is rough. Trusted HTML. */
 function spotLine(o: { spot: Position; approximate: boolean; island?: boolean; lang?: string }, label: "confirm.spot" | "move.new"): string {
   const { w } = wordsIn(o.lang);
-  return (
+  return spotWords(
     `<p class="tapped">${w(label)}: <strong>${spotText(o.spot, o.island === true)}</strong></p>` +
-    (o.approximate ? `<p class="notice">${w("pick.areaHint")}</p>` : "")
+      (o.approximate ? `<p class="notice">${w("pick.areaHint")}</p>` : ""),
+    o.lang,
   );
 }
 

@@ -482,7 +482,7 @@ export const en = {
   "problem.pickCats": "Tick at least one cat, and no more than 100.",
   "problem.noSuchCat": "One of those cats doesn't exist.",
   "problem.backToAdd": "Back to adding cats",
-  "problem.centre": "Tap the map to set the centre, or leave it empty.",
+  "problem.centre": "Move the map so the pin sits on the colony's centre on Syros, then save. Or leave it empty.",
 
   "taken.title": "That name is taken",
   "taken.before": "Another colony is already called",
@@ -714,6 +714,9 @@ export const en = {
   "pick.areaLabel": "The area",
   "pick.areaHint": "This uses the middle of the area, so the position is only roughly right. Move it on the map when you can.",
   "pick.useArea": "Use this area’s centre",
+  "map.moved": "The pin shows the spot you'll save.",
+  "map.offIsland": "Move the pin onto Syros.",
+  "centre.approximate": "This is the middle of the area, so the centre is only roughly right. Move it on the map when you can.",
   "map.loading": "Loading the map…",
   "map.compass": "Turn north up",
   // SYC-516 C1: the dashboard's error pages (spec 3.1).

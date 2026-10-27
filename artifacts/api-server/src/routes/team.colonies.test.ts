@@ -28,6 +28,8 @@ import { recordMappingEvent } from "../lib/mappingEvents";
 import { currentColonyOf } from "../lib/colonyMembership";
 import { deleteTestSightings } from "../test/sightings";
 import { guardianOn, newColony } from "../test/roleKit";
+import { isOpaqueAddress } from "../test/opaqueAddress";
+import { isOpenMapLink } from "../test/openMapLink";
 
 // SYC-209 PR 2.1: the Colonies pages. Spec tests 14 (colony names), 11 (part:
 // one history row per change, in the same transaction), 16 (escaping) and 12
@@ -1103,6 +1105,33 @@ describe("the colony's centre by map (517-B)", () => {
     return { spot, body: { lat: String(spot.lat), lng: String(spot.lng) } };
   };
   const mapDataIn = (html: string) => JSON.parse(decoded(/data-map="([^"]*)"/.exec(html)![1]!));
+  /** K13: no href, action or src (nor a map marker's link) holds a position. */
+  const expectNoPositionInAddresses = (html: string) => {
+    const values = [...html.matchAll(/\s(href|action|src)="([^"]*)"/g)].map((m) => m[2]!);
+    for (const m of html.matchAll(/data-map="([^"]*)"/g)) {
+      for (const mk of (JSON.parse(decoded(m[1]!)).markers ?? []) as Array<{ href?: string }>) if (mk.href !== undefined) values.push(mk.href);
+    }
+    expect(values.length).toBeGreaterThan(0);
+    for (const v of values) {
+      if (isOpaqueAddress(v) || isOpenMapLink(v)) continue;
+      expect(v, v).not.toMatch(/\d+\.\d+/);
+      expect(v, v).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy|area)=/i);
+    }
+  };
+
+  it("no position in any address: the picker, its no-map path, an area pick, a pin pick and a refusal", async () => {
+    const id = await makeColony(unique("cm-k13"));
+    await post(`/api/team/colonies/${id}`, { lat: "37.4447", lng: "24.9417" });
+    const pages = [
+      await get(`/api/team/colonies/${id}/centre`),
+      await post(`/api/team/colonies/${id}/centre/pick`, { area: "kini" }),
+      await post(`/api/team/colonies/${id}/centre/pick`, { lat: "37.444712", lng: "24.941734" }),
+      await post(`/api/team/colonies/${id}/centre/pick`, { lat: "38.5", lng: "26.0" }),
+      await post(`/api/team/colonies/${id}/centre/pick`, { area: "atlantis" }),
+    ];
+    expect(pages.map((p) => p.status)).toEqual([200, 200, 200, 400, 400]);
+    for (const p of pages) expectNoPositionInAddresses(p.text);
+  });
   const hidden = (html: string, name: string) =>
     decoded(new RegExp(`name="${name}" value="([^"]*)"`).exec(html)![1]!);
 
@@ -1137,6 +1166,10 @@ describe("the colony's centre by map (517-B)", () => {
     expect(res.text).toMatch(/Set the centre here, in Kini\?/);
     expect(Number(hidden(res.text, "lat"))).toBe(37.4436);
     expect(res.text).not.toContain('name="approximate"');
+    // Said on the page, though: the middle of an area is only roughly right.
+    expect(res.text).toContain("This is the middle of the area, so the centre is only roughly right.");
+    const pinned = await post(`/api/team/colonies/${id}/centre/pick`, { lat: "37.444712", lng: "24.941734" });
+    expect(pinned.text).not.toContain("only roughly right");
     const unknown = await post(`/api/team/colonies/${id}/centre/pick`, { area: "atlantis" });
     expect(unknown.status).toBe(400);
     expect(unknown.text).not.toMatch(/<script/i);

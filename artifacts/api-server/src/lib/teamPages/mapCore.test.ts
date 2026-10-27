@@ -399,18 +399,29 @@ describe("dashboard-pin.js: the view map's markers", () => {
 // SYC-705 Task 2b.7: place mode. A fixed pin in the middle; the person drags
 // the MAP under it. The pin's spot goes into the page's form, never an address.
 describe("dashboard-pin.js: placing a spot (drag the map under the pin)", () => {
-  const PLACE_WORDS = { ...WORDS, place: "Map: drag it until the pin is on the spot. The arrow keys move it too." };
+  const PLACE_WORDS = {
+    ...WORDS,
+    place: "Map: drag it until the pin is on the spot. The arrow keys move it too.",
+    moved: "The pin shows the spot you'll save.",
+    offIsland: "Move the pin onto Syros.",
+  };
+  const BOX = { minLat: ISLAND_BOX.minLat, maxLat: ISLAND_BOX.maxLat, minLng: ISLAND_BOX.minLng, maxLng: ISLAND_BOX.maxLng };
 
   function placePage(o: { centre?: [number, number]; lat?: string; lng?: string; approximate?: boolean } = {}): string {
-    const data = { mode: "place", lang: "en", centre: o.centre ?? [37.4447, 24.9417], zoom: 16, fit: null, markers: [], formId: "pickform" };
+    const data = { mode: "place", lang: "en", centre: o.centre ?? [37.4447, 24.9417], zoom: 16, fit: null, markers: [], formId: "pickform", island: BOX };
     return (
+      // As a confirm page: the spot in words with its Open map link, and the two lines the script reveals.
+      `<p class="tapped" data-spotwords="pickform">The spot: <strong>Kini &middot; <a href="https://maps.example/?q=1">Open map</a></strong></p>` +
+      `<p class="hint" data-spotmoved="pickform" hidden>${PLACE_WORDS.moved}</p>` +
       `<form id="pickform" method="post" action="/api/team/sites/pick">` +
+      `<p class="warn" data-offisland="pickform" hidden>${PLACE_WORDS.offIsland}</p>` +
       `<div class="map" id="map" data-map="${attr(data)}" data-words="${attr(PLACE_WORDS)}" ` +
       `data-maplibre="/api/team/assets/maplibre-gl.0123456789ab.mjs" data-worker="/api/team/assets/maplibre-gl-worker.0123456789ab.mjs">` +
       `<p class="mapnojs">${WORDS.needsJs}</p></div>` +
       `<input type="hidden" name="lat" value="${o.lat ?? ""}"><input type="hidden" name="lng" value="${o.lng ?? ""}">` +
       (o.approximate ? `<input type="hidden" name="approximate" value="1">` : "") +
-      `<button type="submit" class="usespot" data-mapon hidden>Use this spot</button></form>` +
+      `<button type="submit" class="usespot" data-mapon hidden>Use this spot</button>` +
+      `<button type="submit" class="save">Save the site</button></form>` +
       FALLBACK
     );
   }
@@ -479,6 +490,41 @@ describe("dashboard-pin.js: placing a spot (drag the map under the pin)", () => 
     map.jumpTo({ center: [24.8895, 37.4440] });
     map.fire("moveend");
     expect(d.querySelector('input[name="approximate"]')).toBeNull();
+  });
+
+  it("after a real move the spot in words (and its Open map) is hidden and 'The pin shows the spot you'll save.' shown; no move changes nothing", async () => {
+    const { d, map } = await placeRig(placePage({ centre: [37.4436, 24.8889], lat: "37.4436", lng: "24.8889" }));
+    const words = d.querySelector("[data-spotwords]") as any;
+    const moved = d.querySelector("[data-spotmoved]") as any;
+    expect([words.hidden, moved.hidden]).toEqual([false, true]);
+    // A moveend with no move (a resize), and our own jump back to the start: nothing changes.
+    map.fire("moveend");
+    map.jumpTo({ center: [24.8889, 37.4436] });
+    map.fire("moveend");
+    expect([words.hidden, moved.hidden]).toEqual([false, true]);
+    // The person drags it 300 m: the words (and the link in them) go, the line comes.
+    map.jumpTo({ center: [24.8889, 37.4463] });
+    map.fire("moveend");
+    expect([words.hidden, moved.hidden]).toEqual([true, false]);
+    expect(moved.textContent).toBe(PLACE_WORDS.moved);
+  });
+
+  it("off the island box Save is turned off with 'Move the pin onto Syros.', and back on when the pin is back", async () => {
+    const { d, map } = await placeRig(placePage({ centre: [37.4436, 24.8889], lat: "37.4436", lng: "24.8889" }));
+    const off = d.querySelector("[data-offisland]") as any;
+    const buttons = [...d.querySelectorAll('#pickform button[type="submit"]')] as any[];
+    expect(off.hidden).toBe(true);
+    expect(buttons.map((b) => b.disabled)).toEqual([false, false]);
+    // Into the sea west of Syros (inside the map's margin, outside the island box).
+    map.jumpTo({ center: [ISLAND_BOX.minLng - 0.01, 37.4436] });
+    map.fire("moveend");
+    expect(off.hidden).toBe(false);
+    expect(off.textContent).toBe(PLACE_WORDS.offIsland);
+    expect(buttons.map((b) => b.disabled)).toEqual([true, true]);
+    map.jumpTo({ center: [24.8895, 37.444] });
+    map.fire("moveend");
+    expect(off.hidden).toBe(true);
+    expect(buttons.map((b) => b.disabled)).toEqual([false, false]);
   });
 
   it("no map (WebGL refused): the button stays hidden, the fallback stays, the form is untouched", async () => {

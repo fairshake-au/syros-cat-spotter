@@ -11,7 +11,13 @@
 // lat/lng inputs of the page's form (data-map's formId); never an address.
 // The form's "Use this spot" button ([data-mapon]) stays hidden until the map
 // has started. Once the person has moved the map, a spot that was an area's
-// centre is the pin's now, so the form's `approximate` field is dropped.
+// centre is the pin's now, so the form's `approximate` field is dropped, and
+// the spot said in words on the page ([data-spotwords], with its Open map
+// link) is hidden for "The pin shows the spot you'll save."
+// ([data-spotmoved]): the words were the old spot. While the pin is off the
+// island box (data-map's `island`) the form's submit buttons are off and
+// "Move the pin onto Syros." shows ([data-offisland]): the server would
+// refuse that spot.
 //
 // Rules this keeps:
 // - **Never builds HTML from strings.** Every label goes in by textContent.
@@ -109,12 +115,33 @@
           canvas.setAttribute("tabindex", "0");
           if (words.place) canvas.setAttribute("aria-label", String(words.place));
         }
+        var marked = function (attr) {
+          return Array.prototype.filter.call(document.querySelectorAll("[" + attr + "]"), function (n) {
+            return n.getAttribute(attr) === data.formId;
+          });
+        };
+        var box = data.island;
+        var onIsland = function (la, ln) {
+          if (!box || !isFinite(box.minLat)) return true;
+          return la >= box.minLat && la <= box.maxLat && ln >= box.minLng && ln <= box.maxLng;
+        };
+        var check = function (la, ln) {
+          var on = onIsland(la, ln);
+          marked("data-offisland").forEach(function (n) {
+            if (words.offIsland) n.textContent = String(words.offIsland);
+            n.hidden = on;
+          });
+          Array.prototype.forEach.call(form.querySelectorAll('button[type="submit"]'), function (b) {
+            b.disabled = !on;
+          });
+        };
         var moved = false;
         var write = function () {
           var c = map.getCenter();
           var la = round6(c.lat);
           var ln = round6(c.lng);
           var atStart = start && Math.abs(la - start[0]) < 1e-6 && Math.abs(ln - start[1]) < 1e-6;
+          check(la, ln);
           if (!moved && atStart) {
             // Not moved yet: an exact spot the page already holds stays as it is.
             if (lat.value === "" && lng.value === "") {
@@ -122,6 +149,15 @@
               lng.value = String(ln);
             }
             return;
+          }
+          if (!moved) {
+            marked("data-spotwords").forEach(function (n) {
+              n.hidden = true;
+            });
+            marked("data-spotmoved").forEach(function (n) {
+              if (words.moved) n.textContent = String(words.moved);
+              n.hidden = false;
+            });
           }
           moved = true;
           lat.value = String(la);

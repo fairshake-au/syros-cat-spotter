@@ -445,7 +445,7 @@ export const fr: Record<StringKey, string> = {
   "problem.pickCats": "Coche au moins un chat, et pas plus de 100.",
   "problem.noSuchCat": "L’un de ces chats n’existe pas.",
   "problem.backToAdd": "Retour à l’ajout de chats",
-  "problem.centre": "Touche la carte pour définir le centre, ou laisse-le vide.",
+  "problem.centre": "Déplacez la carte pour que l’épingle soit sur le centre de la colonie, sur Syros, puis enregistrez. Ou laissez-le vide.",
 
   "taken.title": "Ce nom est déjà pris",
   "taken.before": "Une autre colonie s’appelle déjà",
@@ -676,6 +676,9 @@ export const fr: Record<StringKey, string> = {
   "pick.areaLabel": "Le quartier",
   "pick.areaHint": "Cela utilise le centre du quartier, donc la position n’est qu’approximative. Déplacez-la sur la carte dès que possible.",
   "pick.useArea": "Utiliser le centre de ce quartier",
+  "map.moved": "L’épingle montre l’endroit qui sera enregistré.",
+  "map.offIsland": "Déplacez l’épingle sur Syros.",
+  "centre.approximate": "C’est le centre du quartier, donc le centre n’est qu’approximatif. Déplacez-le sur la carte dès que possible.",
   "map.loading": "Chargement de la carte…",
   "map.compass": "Remettre le nord en haut",
   "error.notFound.title": "Cette page n’existe pas",

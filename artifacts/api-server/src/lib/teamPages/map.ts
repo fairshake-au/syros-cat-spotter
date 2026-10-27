@@ -215,6 +215,8 @@ export function renderMap(opts: MapOptions): string {
     fit: opts.fit && opts.fit.length > 0 ? opts.fit.map(pair) : null,
     markers: (opts.markers ?? []).map(markerData),
     ...(opts.formId !== undefined ? { formId: opts.formId } : {}),
+    // Place mode: where a spot may be saved (the server's inIsland box).
+    ...(opts.mode === "place" ? { island: { ...ISLAND_BOX } } : {}),
   };
   const words = {
     zoomIn: t("map.zoomIn"),
@@ -223,7 +225,7 @@ export function renderMap(opts: MapOptions): string {
     needsJs: t("map.needsJs"),
     loading: t("map.loading"),
     // Place mode: the map's own name for screen readers (SYC-705 Task 2b.7).
-    ...(opts.mode === "place" ? { place: t("map.place") } : {}),
+    ...(opts.mode === "place" ? { place: t("map.place"), moved: t("map.moved"), offIsland: t("map.offIsland") } : {}),
   };
   const label = opts.label !== undefined ? ` role="region" aria-label="${esc(opts.label)}"` : "";
   const extra = Object.entries(opts.data ?? {})

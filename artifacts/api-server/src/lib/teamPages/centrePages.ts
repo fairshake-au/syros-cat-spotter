@@ -3,7 +3,7 @@ import { escapeHtml as esc } from "./escape";
 import { renderPage, type NavKey } from "./layout";
 import type { MapMarker } from "./map";
 import { openMapLink } from "./position";
-import { confirmMap, DETAILS_FORM_ID, type FormViewer } from "./siteFormPages";
+import { confirmMap, DETAILS_FORM_ID, spotWords, type FormViewer } from "./siteFormPages";
 import { mapPageAssets } from "./map";
 import { wordsIn } from "./words";
 import type { Position } from "../mapTiles/geometry";
@@ -40,6 +40,8 @@ export function renderCentreConfirm(
     nowInWords?: boolean;
     nowLabel: string;
     newLabel: string;
+    /** Picked from the list of areas (its middle): say it is only roughly right. */
+    approximate?: boolean;
     /** The existing route that saves it, and the fields it wants besides lat and lng. */
     saveAction: string;
     saveFields?: Record<string, string>;
@@ -63,7 +65,11 @@ export function renderCentreConfirm(
     ...mapPageAssets(),
     beforeTitle: `<p class="back"><a href="${esc(o.back.href)}">${esc(o.back.label)}</a></p>`,
     body:
-      `<p class="tapped">${esc(o.question(placeLabel(o.spot)))}${link ? ` &middot; ${openMapLink(o.spot.lat, o.spot.lng)}` : ""}</p>` +
+      spotWords(
+        `<p class="tapped">${esc(o.question(placeLabel(o.spot)))}${link ? ` &middot; ${openMapLink(o.spot.lat, o.spot.lng)}` : ""}</p>` +
+          (o.approximate ? `<p class="notice">${w("centre.approximate")}</p>` : ""),
+        o.lang,
+      ) +
       (o.now && o.nowInWords !== false ? `<p class="hint">${esc(o.nowLabel)}: ${esc(placeLabel(o.now))}</p>` : "") +
       (o.help ? `<p class="what">${esc(o.help)}</p>` : "") +
       `<form method="post" action="${esc(o.saveAction)}" id="${DETAILS_FORM_ID}">` +

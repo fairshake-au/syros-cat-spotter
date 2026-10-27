@@ -560,6 +560,7 @@ router.post(
         saveLabel: t("centre.save", v.lang),
         spot: picked.spot,
         zoom: picked.approximate ? 15 : CENTRE_ZOOM,
+        approximate: picked.approximate,
         now: c.centre,
         nowLabel: t("centre.now", v.lang),
         newLabel: t("centre.new", v.lang),

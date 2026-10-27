@@ -163,6 +163,9 @@ const totalSiteEvents = async () =>
 /** The stamp a page shows, as a browser would send it back. */
 const stampIn = (html: string) => decoded(/name="updatedAt" value="([^"]*)"/.exec(html)![1]!);
 const hiddenIn = (html: string, name: string) => decoded(new RegExp(`name="${name}" value="([^"]*)"`).exec(html)![1]!);
+/** Every hidden field in a piece of HTML, as a browser would send it. */
+const hiddenFields = (html: string) =>
+  Object.fromEntries([...html.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)"/g)].map((m) => [m[1]!, decoded(m[2]!)]));
 
 const ATTR = /\s(href|action|src)="([^"]*)"/g;
 
@@ -292,6 +295,11 @@ describe("adding a site: the map and the pick", () => {
     // The small place map is inside that form; the spot in words for the team, with Open map.
     expect(mapDataIn(form)).toMatchObject({ mode: "place", formId: "detailsform" });
     expect(res.text).toContain(`The spot: <strong>${placeLabel({ lat: 37.444712, lng: 24.941734 })} &middot; <a `);
+    // The words (and Open map) sit where the script can hide them once the pin is dragged; the lines it shows are there, hidden.
+    expect(res.text).toMatch(/<div data-spotwords="detailsform"><p class="tapped">The spot: [\s\S]*?Open map[\s\S]*?<\/div>/);
+    expect(res.text).toContain(`<p class="hint" data-spotmoved="detailsform" hidden>The pin shows the spot you&#39;ll save.</p>`);
+    expect(form).toContain(`<p class="warn" data-offisland="detailsform" hidden>Move the pin onto Syros.</p>`);
+    expect(mapDataIn(form).island).toEqual({ minLat: 37.36, maxLat: 37.53, minLng: 24.85, maxLng: 25.01 });
     expect(res.text).toContain("A new site is always private");
     // No tap any more: no nudge, no check details.
     expect(res.text).not.toContain('name="nudge"');
@@ -628,6 +636,25 @@ describe("a position placed by area is marked approximate", () => {
     expect((await get(`/api/team/sites/${id}`)).text).not.toContain("Position approximate");
   });
 
+  it("typed coordinates clear it after an area pick: the typed pick's Check the spot has no approximate, and its save is exact", async () => {
+    const byArea = (await post("/api/team/sites/pick", { area: "kini" })).text;
+    expect(hiddenIn(formById(byArea, "detailsform")!, "approximate")).toBe("1");
+    // "Start again", then the typed numbers: the save form sent is the one the typed pick drew.
+    const typed = (await post("/api/team/sites/pick", { lat: "37.4436", lng: "24.8889" })).text;
+    const form = formById(typed, "detailsform")!;
+    expect(form).not.toContain('name="approximate"');
+    const name = unique("typedafterarea");
+    const res = await post("/api/team/sites", { ...hiddenFields(form), name, colonyId: "", directions: "", notes: "" });
+    expect(res.status).toBe(303);
+    const id = Number(/\/sites\/(\d+)\?done=created$/.exec(res.headers["location"] as string)![1]);
+    expect(await siteRow(id)).toMatchObject({ lat: 37.4436, lng: 24.8889, positionApproximate: false });
+    // And the area pick's own form, sent as drawn, is approximate: the same spot, the other answer.
+    const areaName = unique("areaasdrawn");
+    const res2 = await post("/api/team/sites", { ...hiddenFields(formById(byArea, "detailsform")!), name: areaName, colonyId: "", directions: "", notes: "" });
+    const id2 = Number(/\/sites\/(\d+)\?done=created$/.exec(res2.headers["location"] as string)![1]);
+    expect(await siteRow(id2)).toMatchObject({ lat: 37.4436, lng: 24.8889, positionApproximate: true });
+  });
+
   it("anything but approximate=1 is refused, never read as approximate", async () => {
     const res = await post("/api/team/sites", { lat: "37.4436", lng: "24.8889", name: unique("odd"), approximate: "yes" });
     expect(res.status).toBe(400);
@@ -642,6 +669,14 @@ describe("a position placed by area is marked approximate", () => {
     expect(pinned.status).toBe(303);
     expect(pinned.headers["location"]).toBe(`/api/team/sites/${s.id}?done=moved`);
     expect((await siteRow(s.id)).positionApproximate).toBe(false);
+    // Only the mark changed, and the history still says so: a move from = to, with the reason (ruling, 26 Oct 2026).
+    const last = (await eventsOf(s.id)).at(-1)!;
+    expect(last).toMatchObject({ kind: "moved", personId: susan, before: { lat: 37.4436, lng: 24.8889 }, after: { lat: 37.4436, lng: 24.8889 }, note: "pinned it" });
+    expect(await kindsOf(s.id)).toEqual(["moved", "moved"]);
+    // The same again, with nothing to change: unchanged, no event.
+    const same = await post(`/api/team/sites/${s.id}/move`, { updatedAt: await stampOf(s.id), lat: "37.4436", lng: "24.8889", reason: "again" });
+    expect(same.headers["location"]).toBe(`/api/team/sites/${s.id}?done=unchanged`);
+    expect(await kindsOf(s.id)).toEqual(["moved", "moved"]);
     const again = await post(`/api/team/sites/${s.id}/move`, { updatedAt: await stampOf(s.id), lat: "37.4501", lng: "24.9501", reason: "typed" });
     expect(again.status).toBe(303);
     expect((await siteRow(s.id)).positionApproximate).toBe(false);

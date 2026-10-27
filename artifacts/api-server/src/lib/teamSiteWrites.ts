@@ -253,7 +253,7 @@ export async function editSite(
  * Moves a site (with the reason) and, if it was public, makes it private
  * (spec §4.5). `positionApproximate` says the new spot is an area's centre
  * (SYC-705 Task 2b.7); a move by the map's pin or typed numbers clears it,
- * even to the same spot (then nothing else changes and no event is written).
+ * even to the same spot (then only the mark changes, with its "moved" event).
  */
 export async function moveSite(
   personId: string,
@@ -272,7 +272,19 @@ export async function moveSite(
     const s = gate.site;
     if (s.lat === to.lat && s.lng === to.lng) {
       if (s.positionApproximate === positionApproximate) return { kind: "unchanged" as const };
+      // Only the "approximate" mark changes (an area's centre confirmed on the
+      // map, or the other way): still a move in the history, from = to, with
+      // the reason given (ruling, 26 Oct 2026). Its visibility is left alone.
       await tx.update(feedingSitesTable).set({ positionApproximate }).where(eq(feedingSitesTable.id, id));
+      await recordMappingEvent(tx, {
+        subjectKind: "site",
+        subjectId: id,
+        kind: "moved",
+        personId,
+        before: { lat: s.lat, lng: s.lng },
+        after: { lat: to.lat, lng: to.lng },
+        note: reason,
+      });
       return { kind: "saved" as const, madePrivate: false };
     }
     await tx
