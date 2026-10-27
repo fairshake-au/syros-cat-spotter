@@ -46,6 +46,7 @@ import { matchCatPhoto, type CandidateInput } from "../lib/matching";
 import { DIMENSIONS, fingerprintOf } from "../lib/fingerprint/model";
 import { __fillClock } from "../lib/fingerprint";
 import { FIND_SHORTLIST_K } from "../lib/findFromPhoto";
+import { reportPhotoForFind } from "../lib/welfareQueue";
 import { TEAM_ORIGIN, clearWelfareTables, seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import {
   _resetFindLimitsForTests,
@@ -999,11 +1000,13 @@ describe("SYC-492: Use the report's photo", () => {
     const odd = await seedReport({ photo: { mime: "image/svg+xml", bytes } });
     // An issue report ("Report an issue"), never a welfare one.
     const issue = await seedReport({ kind: "content", photo: { mime: "image/jpeg", bytes } });
-    for (const r of [failed, pending, odd, issue]) {
+    for (const r of [failed, pending, odd]) {
       const res = await search(team.cookie, { colony: String(colony), tie: r.publicId, source: "report" }, null);
-      expect(res.status, r.publicId).toBeGreaterThanOrEqual(400);
-      if (res.status === 400) expect(res.text).toContain("This report has no photo to use.");
+      expect(res.status, r.publicId).toBe(400);
+      expect(res.text).toContain("This report has no photo to use.");
     }
+    // An issue isn't a welfare report, so it isn't found to tie at all.
+    expect((await search(team.cookie, { colony: String(colony), tie: issue.publicId, source: "report" }, null)).status).toBe(404);
     // A draft: no such report at all.
     const draft = await seedReport({ isDraft: true, photo: { mime: "image/jpeg", bytes } });
     const res = await search(team.cookie, { colony: String(colony), tie: draft.publicId, source: "report" }, null);
@@ -1023,5 +1026,20 @@ describe("SYC-492: Use the report's photo", () => {
     const res = await search(guardian.cookie, { colony: String(colony), tie: report.publicId, source: "report" }, null);
     expect(res.status).toBe(403);
     expect(matchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("SYC-492: reportPhotoForFind, read directly", () => {
+  it("gives a sent welfare report's photo, and nothing for a draft, an issue or one not marked attached", async () => {
+    const bytes = await jpeg("#ff0000");
+    const ok = await seedReport({ photo: { mime: "image/jpeg", bytes } });
+    expect((await reportPhotoForFind(ok.publicId))?.equals(bytes)).toBe(true);
+    const draft = await seedReport({ isDraft: true, photo: { mime: "image/jpeg", bytes } });
+    const issue = await seedReport({ kind: "content", photo: { mime: "image/jpeg", bytes } });
+    const failed = await seedReport({ photo: { mime: "image/jpeg", bytes } });
+    await db.update(welfareReportsTable).set({ photoState: "failed" }).where(eq(welfareReportsTable.publicId, failed.publicId));
+    const odd = await seedReport({ photo: { mime: "image/gif", bytes } });
+    for (const r of [draft, issue, failed, odd]) expect(await reportPhotoForFind(r.publicId), r.publicId).toBeNull();
+    expect(await reportPhotoForFind("no-such-report")).toBeNull();
   });
 });
