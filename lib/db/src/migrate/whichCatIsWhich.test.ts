@@ -463,6 +463,16 @@ describe("a recorded merge (spec test 1, §9.2)", () => {
     expect((await sightingRow(s)).cat_id).toBe(victim);
   });
 
+  it("refuses a merge row that supersedes another merge (review L2)", async () => {
+    const a = await cat();
+    const b = await cat();
+    const d = await cat();
+    await resolved(a);
+    const m1 = await merge(a, b);
+    await expect(inTx(c, () => mergeRow(c, a, d, m1))).rejects.toThrow(/only an undo supersedes/);
+    expect((await c.query(`select 1 from cat_identity where supersedes_id = $1`, [m1])).rowCount).toBe(0);
+  });
+
   it("refuses an undo moving a sighting that isn't on the undone merge's survivor (review L1)", async () => {
     const survivor = await cat();
     const mimi = await cat();

@@ -440,6 +440,12 @@ BEGIN
   IF NEW.canonical_cat_id = NEW.cat_id AND NEW.supersedes_id IS NULL THEN
     RAISE EXCEPTION 'cat_identity: a row naming its own cat is an undo, and must supersede a merge (cat %)', NEW.cat_id;
   END IF;
+  -- Only an undo supersedes (review of #377, L2). A merge row superseding a
+  -- merge would re-point the cat and leave its sightings on the old
+  -- survivor; to merge elsewhere, undo first, then merge.
+  IF NEW.canonical_cat_id <> NEW.cat_id AND NEW.supersedes_id IS NOT NULL THEN
+    RAISE EXCEPTION 'cat_identity: only an undo supersedes a row; a merge supersedes nothing (cat %, supersedes %)', NEW.cat_id, NEW.supersedes_id;
+  END IF;
   RETURN NEW;
 END
 $$;--> statement-breakpoint
