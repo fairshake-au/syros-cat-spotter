@@ -47,7 +47,7 @@ describe("the Cats grid has exactly one script: ours", () => {
   ])("%s", async (_what, path) => {
     const res = await page(path, staff);
     expect(res.status).toBe(200);
-    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi) ?? [];
     expect(tags).toHaveLength(1);
     expect(tags[0]).toMatch(OUR_SCRIPT);
     expect(res.text.match(/<script\b/gi)).toHaveLength(1);
@@ -107,7 +107,7 @@ describe("a page with a MapLibre map loads its files, and nothing else", () => {
   ])("%s", async (_what, path) => {
     const res = await page(path, staff);
     expect(res.status).toBe(200);
-    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi) ?? [];
     expect(tags).toHaveLength(3);
     tags.forEach((t, i) => expect(t).toMatch(TAGS[i]!));
     expect(res.text.match(/<script\b/gi)).toHaveLength(3);
@@ -146,7 +146,7 @@ describe("the island Map loads the MapLibre files and our map script, and nothin
   ] as [string, string | (() => string)][])("%s", async (_what, p) => {
     const res = await page(typeof p === "string" ? p : p(), staff);
     expect(res.status).toBe(200);
-    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi) ?? [];
     expect(tags).toHaveLength(3);
     tags.forEach((t, i) => expect(t).toMatch(TAGS[i]!));
     expect(res.text.match(/<script\b/gi)).toHaveLength(3);

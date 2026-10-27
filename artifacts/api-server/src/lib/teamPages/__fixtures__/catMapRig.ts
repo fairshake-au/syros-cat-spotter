@@ -1,3 +1,4 @@
+import { JSDOM } from "jsdom";
 import { renderCatMapPage, type CatMapOptions } from "../catMapPage";
 import { makeMaplibreFake, mapScriptRig, type FakeAnswer, type FakeLib, type FakeMap, type FetchCall, type MapScriptRig } from "./maplibreFake";
 
@@ -53,8 +54,11 @@ export function catMapBody(o: Partial<CatMapOptions> = {}): string {
     now: new Date("2026-10-26T10:00:00Z"),
     ...o,
   });
-  const body = /<body[^>]*>([\s\S]*)<\/body>/.exec(html)![1]!;
-  return body.replace(/<script\b[\s\S]*?<\/script>/gi, "");
+  // Parsed, not cut with a regex: the scripts come out as elements, whatever
+  // spacing their end tags have.
+  const body = new JSDOM(html).window.document.body;
+  body.querySelectorAll("script").forEach((s: { remove(): void }) => s.remove());
+  return body.innerHTML;
 }
 
 export async function catMapRig(

@@ -77,7 +77,7 @@ describe("a file in the manifest", () => {
     for (const [name, type] of want) {
       const url = assetUrl(name as never);
       const stem = name.slice(0, name.lastIndexOf("."));
-      expect(url, name).toMatch(new RegExp(`^/api/team/assets/${stem.replace(/\./g, "\\.")}\\.[0-9a-f]{12}${path.extname(name)}$`));
+      expect(url, name).toMatch(new RegExp(`^/api/team/assets/${stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.[0-9a-f]{12}${path.extname(name)}$`));
       const res = await request(app).get(url!);
       expect(res.status, name).toBe(200);
       expect(res.headers["content-type"], name).toBe(type);
