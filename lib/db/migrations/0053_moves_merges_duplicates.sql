@@ -353,14 +353,20 @@ BEGIN
       ) THEN
         RAISE EXCEPTION 'observations: a row naming a move needs that move, recorded in this transaction (move %)', NEW.sighting_move_id;
       END IF;
-      -- It replaces a row of the moved sighting (§9.5): a copy sits on the
-      -- cat the sighting moved to, a withdrawal on the replaced row's own
-      -- cat (review of #377, L4).
+      -- It replaces a row of the moved sighting (§9.5), or the team's answer
+      -- that marked one wrong: a copy sits on the cat the sighting moved to,
+      -- a withdrawal on the replaced row's own cat (review of #377, L4).
       IF NOT EXISTS (
         SELECT 1 FROM "sighting_moves" m
           JOIN "observations" o ON o.id = NEW.supersedes_id
          WHERE m.id = NEW.sighting_move_id
-           AND o.sighting_id = m.sighting_id
+           AND (o.sighting_id = m.sighting_id
+                -- Or the team's answer that marked such a row wrong, which
+                -- has no sighting of its own (Samuel, 27 Oct 2026: a move
+                -- takes the team's answer with it). One hop only.
+                OR EXISTS (SELECT 1 FROM "observations" p
+                            WHERE p.id = o.supersedes_id
+                              AND p.sighting_id = m.sighting_id))
            AND NEW.cat_id IN (m.to_cat_id, o.cat_id)
       ) THEN
         RAISE EXCEPTION 'observations: a moved statement replaces a row of the moved sighting, on that row''s cat or the cat it moved to (move %)', NEW.sighting_move_id;
