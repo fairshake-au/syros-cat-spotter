@@ -17,7 +17,7 @@ import {
 import { getGuidance } from "@workspace/welfare-guidance";
 import { actingRole, can } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
-import { catsFeeding, observationCatIn } from "./catIdentity";
+import { canonicalCatOf, catsFeeding, observationCatIn } from "./catIdentity";
 import { commitStatement, inStatementTransaction, type PendingNews, type Tx } from "./commitStatement";
 import { loadCatRecords, ObservationRefused, writeObservation, type VetVisitValue } from "./observations";
 import { areaByKey } from "./areas/namedAreas";
@@ -615,6 +615,10 @@ export async function saveBatch(
           : [],
       );
       const nameOf = (catId: number) => names.get(catId) ?? `Cat ${catId}`;
+      // A line on a cat merged into another is a line on the cat she is now
+      // (SYC-410): the duplicate and same-day checks compare these.
+      const canonical = await canonicalCatOf(known, {}, tx);
+      const nowCat = (id: number) => canonical.get(id) ?? id;
       // New cats' names, folded, by the first entry (1-based) that gave each.
       const newNames = new Map<string, number>();
 
@@ -653,7 +657,7 @@ export async function saveBatch(
           add(entry.id, "confirmed", "Confirm who this cat is.");
           fine = false;
         } else {
-          const others = batch.cats.flatMap((c, j) => (c.catId === entry.catId && !c.newCat ? [j + 1] : []));
+          const others = batch.cats.flatMap((c, j) => (c.catId !== null && nowCat(c.catId) === nowCat(entry.catId!) && !c.newCat ? [j + 1] : []));
           if (others.length > 1) {
             add(entry.id, "catId", `${nameOf(entry.catId)} is in this batch twice: entries ${others.join(" and ")}.`);
             fine = false;
@@ -729,7 +733,7 @@ export async function saveBatch(
       for (const id of [...known].sort((a, b) => a - b)) await lockCat(tx, id);
 
       // A visit on a cat merged into this one that day is a visit to the same animal.
-      const feeding = await catsFeeding(known, {}, tx);
+      const feeding = await catsFeeding(known.map(nowCat), {}, tx);
       const earlier = known.length
         ? await tx
             .select()
@@ -739,7 +743,7 @@ export async function saveBatch(
       for (const { entry, catId } of ready) {
         if (entry.alsoSameDay || catId === null) continue;
         const sameDay = standingRows(
-          earlier.filter((o) => feeding.get(catId)?.counts(o) ?? o.catId === catId),
+          earlier.filter((o) => feeding.get(nowCat(catId))?.counts(o) ?? o.catId === catId),
           "vet_visit",
         ).some((o) => !o.redactedAt && athensToday(o.observedAt) === shared.date);
         if (sameDay) add(entry.id, "alsoSameDay", `${nameOf(catId)} already has a vet visit on ${shortDay(shared.date)}.`);

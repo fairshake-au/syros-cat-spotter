@@ -109,3 +109,42 @@ describe("saveBatch's same-day check, with a merge", () => {
     expect(result.ok).toBe(true);
   });
 });
+
+/** A batch with one line on each of Mimi and Agatha, merged or not, and the save's answer. */
+async function saveBothLines(merged: boolean) {
+  const mimi = await insertCat("Mimi");
+  const agatha = await insertCat("Agatha");
+  if (merged) {
+    await db.insert(catIdentityTable).values({ catId: mimi.id, canonicalCatId: agatha.id, reason: "vitest batch merge" });
+  }
+  const id = await createBatch(person, {}, NOW);
+  batches.push(id);
+  const b = await getBatch(id);
+  await updateShared(id, { ...b!.shared, clinicId: CLINIC });
+  const rows: number[] = [];
+  for (const [i, cat] of [agatha, mimi].entries()) {
+    const added = await addCat(id, [await jpeg(i + 5)]);
+    if (!added.ok) throw new Error(`addCat: ${added.reason}`);
+    rows.push(added.batchCatId);
+    await updateCat(added.batchCatId, { catId: cat.id, confirmed: true, did: ["sterilised"], alsoSameDay: false });
+  }
+  for (const c of (await getBatch(id))!.cats) photos.push(...c.photos.map((p) => p.photoId));
+  return { result: await saveBatch(STAFF, id, NOW), agatha, mimi, rows };
+}
+
+describe("saveBatch's 'is in this batch twice' check, with a merge", () => {
+  it("lets a line on each of two cats that aren't merged save", async () => {
+    expect((await saveBothLines(false)).result.ok).toBe(true);
+  });
+
+  it("refuses a Mimi line and an Agatha line once Mimi is merged into Agatha, naming each line's cat", async () => {
+    const { result, agatha, mimi, rows } = await saveBothLines(true);
+    expect(result).toEqual({
+      ok: false,
+      problems: [
+        { batchCatId: rows[0], field: "catId", words: `${agatha.name} is in this batch twice: entries 1 and 2.` },
+        { batchCatId: rows[1], field: "catId", words: `${mimi.name} is in this batch twice: entries 1 and 2.` },
+      ],
+    });
+  });
+});
