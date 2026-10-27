@@ -407,6 +407,28 @@ describe("a recorded merge (spec test 1, §9.2)", () => {
     expect((await sightingRow(s)).cat_id).toBe(survivor);
   });
 
+  it("refuses a fresh merge row whose move row was written earlier (its id reserved ahead)", async () => {
+    const survivor = await cat();
+    const away = await cat();
+    const s = await resolved(away);
+    const reserved = await inTx(c, async () => {
+      const r = await one<{ id: string }>(c, `select nextval(pg_get_serial_sequence('cat_identity', 'id')) as id`);
+      await moveRow(c, s, away, survivor, { mergeId: Number(r.id) });
+      return Number(r.id);
+    });
+    await expect(
+      inTx(c, async () => {
+        await c.query(
+          `insert into cat_identity (id, cat_id, canonical_cat_id, by_account_id) values ($1, $2, $3, 'acct-team')`,
+          [reserved, away, survivor],
+        );
+        await setMerge(c, reserved);
+        await recat(c, s, survivor);
+      }),
+    ).rejects.toThrow(APPEND_ONLY);
+    expect((await sightingRow(s)).cat_id).toBe(away);
+  });
+
   it("refuses a merge whose sighting has no move row, or a move row for other cats", async () => {
     const survivor = await cat();
     const away = await cat();
@@ -650,6 +672,13 @@ describe("statements a move writes (§9.4, §9.5)", () => {
       inTx(c, async () => {
         const id = await moveRow(c, other, a, b);
         await setMove(c, id);
+        await statement(c, b, s, { moveId: id });
+      }),
+    ).rejects.toThrow(/naming a move/);
+    // A fresh move of this sighting, but not named by the setting.
+    await expect(
+      inTx(c, async () => {
+        const id = await moveRow(c, s, a, b);
         await statement(c, b, s, { moveId: id });
       }),
     ).rejects.toThrow(/naming a move/);
