@@ -11,6 +11,7 @@ import {
   index,
   check,
 } from "drizzle-orm/pg-core";
+import { ISLAND_ROLES } from "./people";
 
 const sqlList = (values: readonly string[]) =>
   sql.raw(values.map((v) => `'${v}'`).join(", "));
@@ -28,8 +29,12 @@ export const MOVE_REASONS = [
 /** Which screen the move came from. */
 export const MOVE_SOURCES = ["cat_page", "matched_by_hand", "report", "game", "merge", "undo"] as const;
 
-/** The mover's role when moving. Never looked up at read time. */
-export const MOVE_ROLES = ["staff", "management"] as const;
+/**
+ * The mover's role when moving (§9.1: staff | management), never looked up
+ * at read time. These are the island-wide roles, so the list is people.ts's
+ * (the one list of team roles rule, SYC-53).
+ */
+const MOVE_ROLES = ISLAND_ROLES;
 
 /**
  * One row per sighting moved from one cat to another (which-cat-is-which.md
