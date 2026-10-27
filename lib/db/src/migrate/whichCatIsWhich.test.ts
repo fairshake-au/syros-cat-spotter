@@ -542,6 +542,10 @@ describe("moves, merges and duplicates are add-only: redaction is the one update
     await expect(
       c.query(`update sighting_moves set moved_by_account_id = 'acct-other' where id = $1`, [id]),
     ).rejects.toThrow(ADD_ONLY);
+    // A "redaction" that names someone else instead of clearing the mover.
+    await expect(
+      c.query(`update sighting_moves set moved_by_account_id = 'acct-other', redacted_at = now() where id = $1`, [id]),
+    ).rejects.toThrow(ADD_ONLY);
     await expect(
       c.query(`update sighting_moves set moved_by_account_id = null, redacted_at = now(), txid = 1 where id = $1`, [id]),
     ).rejects.toThrow(ADD_ONLY);
