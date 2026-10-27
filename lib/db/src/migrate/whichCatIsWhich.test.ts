@@ -839,6 +839,54 @@ describe("statements a move writes (§9.4, §9.5)", () => {
     expect((await sightingRow(s)).cat_id).toBe(a);
   });
 
+  /** A team answer marking `wrongId` wrong: no sighting of its own. */
+  async function markWrong(catId: number, wrongId: number): Promise<number> {
+    const r = await one<{ id: number }>(
+      c,
+      `insert into observations (cat_id, kind, value, account_id, role_at_time, observed_at, supersedes_id, supersede_reason)
+       values ($1, 'ear_tip', '{"retracted": true}', 'acct-team', 'staff', now(), $2, 'marked_wrong') returning id`,
+      [catId, wrongId],
+    );
+    return r.id;
+  }
+
+  it("moves the team's answer that marked the spotter's wrong: withdrawn on its cat, copied to the new cat", async () => {
+    const a = await cat();
+    const b = await cat();
+    const s = await resolved(a);
+    const orig = await original(a, s);
+    const team = await markWrong(a, orig);
+    await inTx(c, async () => {
+      const id = await moveRow(c, s, a, b);
+      await setMove(c, id);
+      await recat(c, s, b);
+      await statement(c, a, s, { moveId: id, redacted: true, supersedes: team });
+      await statement(c, b, s, { moveId: id, supersedes: team });
+    });
+    expect((await c.query(`select 1 from observations where supersedes_id = $1`, [team])).rowCount).toBe(2);
+  });
+
+  it("refuses a row two hops from the moved sighting, or one hop from an unrelated row", async () => {
+    const a = await cat();
+    const b = await cat();
+    const s = await resolved(a);
+    const orig = await original(a, s);
+    const team = await markWrong(a, orig);
+    const twoHops = await markWrong(a, team);
+    const unrelatedOrig = await original(a, await resolved(a));
+    const unrelatedTeam = await markWrong(a, unrelatedOrig);
+    const inMove = (supersedes: number) =>
+      inTx(c, async () => {
+        const id = await moveRow(c, s, a, b);
+        await setMove(c, id);
+        await recat(c, s, b);
+        await statement(c, a, s, { moveId: id, redacted: true, supersedes });
+      });
+    await expect(inMove(twoHops)).rejects.toThrow(/moved statement/);
+    await expect(inMove(unrelatedTeam)).rejects.toThrow(/moved statement/);
+    expect((await sightingRow(s)).cat_id).toBe(a);
+  });
+
   it("still allows an ordinary statement and its redaction, and refuses setting a move id later", async () => {
     const a = await cat();
     const s = await resolved(a);
