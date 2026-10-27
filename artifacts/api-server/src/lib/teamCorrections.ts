@@ -26,6 +26,7 @@ import {
   supersedeChains,
   type RestorableKind,
 } from "./resolve";
+import { canonicalCatOf, catsFeeding, observationCatIn } from "./catIdentity";
 import { catNamed, isBlankName, isSyrShapedName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
 import { TEAM_ROLES } from "./teamRoles";
@@ -98,12 +99,17 @@ export const SUPERSEDE_CAPABILITIES: readonly Capability[] = [
  */
 async function colonyAfterMarkingWrong(tx: Tx, original: Observation): Promise<{ colonyId: number | null }> {
   const replacer = alias(observationsTable, "replacer");
+  // "The other statements" are those of every record that counts for the cat
+  // she is now (SYC-410, spec §4.2), so the colony she goes back to matches
+  // what her page shows.
+  const now = (await canonicalCatOf([original.catId], {}, tx)).get(original.catId) ?? original.catId;
+  const feeding = (await catsFeeding([now], {}, tx)).get(now)!;
   const [next] = await tx
     .select({ value: observationsTable.value })
     .from(observationsTable)
     .where(
       and(
-        eq(observationsTable.catId, original.catId),
+        observationCatIn([feeding]),
         eq(observationsTable.kind, "colony"),
         isNull(observationsTable.redactedAt),
         // Only ORIGINAL statements say where the cat goes back to. A row that

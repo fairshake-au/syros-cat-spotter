@@ -1,6 +1,7 @@
-import { db, observationsTable } from "@workspace/db";
-import { and, asc, desc, eq, inArray, isNull, lte, notExists, sql } from "drizzle-orm";
+import { catsTable, db, observationsTable } from "@workspace/db";
+import { and, asc, desc, eq, isNull, lte, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { canonicalCatOf, catsFeeding, liveCats, observationCatIn } from "./catIdentity";
 
 // "Which colony is a cat in" (SYC-209 plan, Slice 2; spec §2.8, data spine
 // §10.2). **This is the one place the rule lives.** The colony counts, the
@@ -20,7 +21,7 @@ import { alias } from "drizzle-orm/pg-core";
 export async function currentColonyOf(
   catIds?: readonly number[],
   /** A transaction to read through, so a caller inside one doesn't take a second connection. */
-  q: Pick<typeof db, "select" | "selectDistinctOn"> = db,
+  q: Pick<typeof db, "select" | "selectDistinctOn" | "execute"> = db,
   /**
    * `asOf` (SYC-396 PR 3.0, Decision 10): the colonies as they stood then.
    * Only colony rows, and rows marking them wrong, entered by then
@@ -33,11 +34,23 @@ export async function currentColonyOf(
   if (catIds && catIds.length === 0) return out;
   const asOf = opts.asOf;
 
+  // A cat's colony is read over every record that counts for her (SYC-410,
+  // spec §4.2): a cat merged into another has her colony statements counted
+  // with the cat she is now. The whole island asks for the cats that are not
+  // merged away.
+  const targets = catIds
+    ? [...new Set(catIds)]
+    : (await liveCats({ id: catsTable.id }, { asOf }, q)).map((c) => c.id);
+  if (targets.length === 0) return out;
+  const feeding = await catsFeeding(targets, { asOf }, q);
+
   // A statement is superseded when some other row points back at it.
   const replacer = alias(observationsTable, "replacer");
   const rows = await q
     .selectDistinctOn([observationsTable.catId], {
+      id: observationsTable.id,
       catId: observationsTable.catId,
+      observedAt: observationsTable.observedAt,
       value: observationsTable.value,
     })
     .from(observationsTable)
@@ -57,7 +70,7 @@ export async function currentColonyOf(
               ),
             ),
         ),
-        catIds ? inArray(observationsTable.catId, [...catIds]) : undefined,
+        observationCatIn(feeding.values()),
       ),
     )
     .orderBy(
@@ -66,9 +79,29 @@ export async function currentColonyOf(
       desc(observationsTable.id),
     );
 
-  for (const r of rows) {
+  // The cat's own newest standing statement decides if she has one ("Mimi is
+  // in Ano Syros and Agatha in Vaporia: after merging she'll show as Vaporia",
+  // spec §4.1); if only a cat merged into her has said, the newest of those
+  // (the same order as above: observedAt, then id).
+  const newest = new Map<number, (typeof rows)[number]>();
+  for (const id of targets) {
+    const f = feeding.get(id);
+    if (!f) continue;
+    const own = rows.find((r) => r.catId === id);
+    if (own) {
+      newest.set(id, own);
+      continue;
+    }
+    for (const r of rows) {
+      if (!f.counts({ catId: r.catId, kind: "colony" })) continue;
+      const was = newest.get(id);
+      const later = was && r.observedAt.getTime() - was.observedAt.getTime();
+      if (!was || later! > 0 || (later === 0 && r.id > was.id)) newest.set(id, r);
+    }
+  }
+  for (const [id, r] of newest) {
     const colonyId = (r.value as { colonyId?: unknown } | null)?.colonyId;
-    if (typeof colonyId === "number") out.set(r.catId, colonyId);
+    if (typeof colonyId === "number") out.set(id, colonyId);
   }
   return out;
 }
@@ -76,7 +109,9 @@ export async function currentColonyOf(
 /**
  * The cats in ONE colony now (SYC-53 PR 2.1), without reading the whole
  * island: the cats any statement has ever put in this colony are the only
- * candidates, and the one rule above decides which of them are in it now.
+ * candidates, and the one rule above decides which of them are in it now. A
+ * candidate merged into another is the cat she is now, so the colony lists
+ * that cat once (SYC-410).
  */
 export async function catsInColony(colonyId: number): Promise<number[]> {
   const candidates = await db
@@ -89,7 +124,9 @@ export async function catsInColony(colonyId: number): Promise<number[]> {
       ),
     );
   if (candidates.length === 0) return [];
-  const now = await currentColonyOf(candidates.map((c) => c.catId));
+  const canonical = await canonicalCatOf(candidates.map((c) => c.catId));
+  const survivors = [...new Set(candidates.map((c) => canonical.get(c.catId) ?? c.catId))];
+  const now = await currentColonyOf(survivors);
   return [...now].filter(([, c]) => c === colonyId).map(([catId]) => catId);
 }
 

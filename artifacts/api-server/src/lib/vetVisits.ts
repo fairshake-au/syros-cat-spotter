@@ -17,6 +17,7 @@ import {
 import { getGuidance } from "@workspace/welfare-guidance";
 import { actingRole, can } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
+import { catsFeeding, observationCatIn } from "./catIdentity";
 import { commitStatement, inStatementTransaction, type PendingNews, type Tx } from "./commitStatement";
 import { loadCatRecords, ObservationRefused, writeObservation, type VetVisitValue } from "./observations";
 import { areaByKey } from "./areas/namedAreas";
@@ -351,10 +352,15 @@ export async function undoVetVisit(
  * can print them by accident (§8.4: the team only, `view_vet_costs`).
  */
 export async function visitsFor(catId: number, opts: { costs: boolean }): Promise<VisitLine[]> {
-  const rows = await db
-    .select()
-    .from(observationsTable)
-    .where(and(eq(observationsTable.catId, catId), eq(observationsTable.kind, "vet_visit")));
+  // The visits of every record that counts for this cat, and their photos
+  // (SYC-410, spec §4.2: a merged-in cat's vet visits and photos are hers now).
+  const feeding = (await catsFeeding([catId], {})).get(catId)!;
+  const rows = (
+    await db
+      .select()
+      .from(observationsTable)
+      .where(and(observationCatIn([feeding]), eq(observationsTable.kind, "vet_visit")))
+  ).filter((o) => feeding.counts(o));
   const standing = standingRows(rows, "vet_visit")
     .filter((o) => !o.redactedAt)
     .sort((a, b) => b.observedAt.getTime() - a.observedAt.getTime() || b.id - a.id);
@@ -378,7 +384,7 @@ export async function visitsFor(catId: number, opts: { costs: boolean }): Promis
       .where(
         and(
           inArray(vetVisitPhotosTable.visitId, standing.map((o) => o.id)),
-          eq(vetVisitPhotosTable.catId, catId),
+          inArray(vetVisitPhotosTable.catId, feeding.ids),
           isNull(photosTable.removedAt),
         ),
       )
@@ -722,16 +728,18 @@ export async function saveBatch(
       // Locked before the same-day check, so a visit saved elsewhere meanwhile can't slip past it.
       for (const id of [...known].sort((a, b) => a - b)) await lockCat(tx, id);
 
+      // A visit on a cat merged into this one that day is a visit to the same animal.
+      const feeding = await catsFeeding(known, {}, tx);
       const earlier = known.length
         ? await tx
             .select()
             .from(observationsTable)
-            .where(and(inArray(observationsTable.catId, known), eq(observationsTable.kind, "vet_visit")))
+            .where(and(observationCatIn(feeding.values()), eq(observationsTable.kind, "vet_visit")))
         : [];
       for (const { entry, catId } of ready) {
         if (entry.alsoSameDay || catId === null) continue;
         const sameDay = standingRows(
-          earlier.filter((o) => o.catId === catId),
+          earlier.filter((o) => feeding.get(catId)?.counts(o) ?? o.catId === catId),
           "vet_visit",
         ).some((o) => !o.redactedAt && athensToday(o.observedAt) === shared.date);
         if (sameDay) add(entry.id, "alsoSameDay", `${nameOf(catId)} already has a vet visit on ${shortDay(shared.date)}.`);

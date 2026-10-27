@@ -1,6 +1,6 @@
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { inArray, or, sql } from "drizzle-orm";
-import { liveCats } from "../catIdentity";
+import { canonicalCatOf, liveCats } from "../catIdentity";
 import type { VetVisitValue } from "../observations";
 import { standingRows, type Vaccine } from "../resolve";
 import { TEAM_ROLES } from "../teamRoles";
@@ -179,20 +179,26 @@ export function vetCostsFrom(
 
 export async function vetCostsReport(range: Range, now: Date): Promise<VetCostsReport> {
   const started = Date.now();
-  const o = observationsTable;
   const KINDS = ["sterilised", "vet_visit"];
   // Every row of the two kinds, with its undos and corrections (they are the
   // same kinds), and any row of another kind that points at one, so the
   // restore rule can say which stand.
-  const rows = await db
+  const all = await db
     .select()
-    .from(o)
+    .from(observationsTable)
     .where(
       or(
-        inArray(o.kind, KINDS),
-        sql`${o.supersedesId} in (select id from observations where kind in ('sterilised', 'vet_visit'))`,
+        inArray(observationsTable.kind, KINDS),
+        sql`${observationsTable.supersedesId} in (select id from observations where kind in ('sterilised', 'vet_visit'))`,
       ),
     );
+  // Each visit is listed and counted under the cat it now counts for (SYC-410,
+  // spec §4.2): a row on a cat merged into another is filed under that cat,
+  // and a merged-in cat's coat and markings stay her own (none are read here).
+  const canonical = await canonicalCatOf(all.map((r) => r.catId));
+  const rows = all
+    .filter((r) => r.kind !== "coat" && r.kind !== "markings")
+    .map((r) => ({ ...r, catId: canonical.get(r.catId) ?? r.catId }));
   const catIds = [...new Set(rows.filter((r) => r.kind === "vet_visit").map((r) => r.catId))];
   const cats = catIds.length
     ? await liveCats({ id: catsTable.id, name: catsTable.name }, { where: inArray(catsTable.id, catIds) })

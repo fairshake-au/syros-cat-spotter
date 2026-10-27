@@ -2,7 +2,7 @@ import { catsTable, db, observationsTable } from "@workspace/db";
 import { and, desc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { CapabilityHolder } from "./capabilities";
-import { liveCats } from "./catIdentity";
+import { canonicalCatOf, catsFeeding, liveCats, observationCatIn } from "./catIdentity";
 import { visibleColonyIds } from "./guardianView";
 
 // "Mimi has moved to another colony" (SYC-209 PR 4.2; feeding-sites spec
@@ -70,6 +70,12 @@ export async function movedAwayNotices(
     );
   if (candidates.length === 0) return [];
 
+  // A move is read off the combined colony history of the cat she is now
+  // (SYC-410, spec §4.2): a candidate merged into another is that cat.
+  const canonical = await canonicalCatOf(candidates.map((c) => c.catId));
+  const survivors = [...new Set(candidates.map((c) => canonical.get(c.catId) ?? c.catId))];
+  const feeding = await catsFeeding(survivors);
+
   const rows = await db
     .select({
       catId: observationsTable.catId,
@@ -78,18 +84,14 @@ export async function movedAwayNotices(
       observedAt: observationsTable.observedAt,
     })
     .from(observationsTable)
-    .where(and(standing, inArray(observationsTable.catId, candidates.map((c) => c.catId))))
-    .orderBy(
-      observationsTable.catId,
-      desc(observationsTable.observedAt),
-      desc(observationsTable.id),
-    );
+    .where(and(standing, observationCatIn(feeding.values())))
+    .orderBy(desc(observationsTable.observedAt), desc(observationsTable.id));
 
+  // Newest first, per cat she is now, over every record that counts for her.
   const byCat = new Map<number, typeof rows>();
-  for (const r of rows) {
-    const list = byCat.get(r.catId);
-    if (list) list.push(r);
-    else byCat.set(r.catId, [r]);
+  for (const [target, f] of feeding) {
+    const own = rows.filter((r) => f.counts({ catId: r.catId, kind: "colony" }));
+    if (own.length > 0) byCat.set(target, own);
   }
 
   const colonyOf = (v: unknown): number | null => {

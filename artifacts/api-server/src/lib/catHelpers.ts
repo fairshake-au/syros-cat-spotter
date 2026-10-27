@@ -16,7 +16,7 @@ import {
   streakFromDays,
   todayInStreakTimezone,
 } from "./streak";
-import { liveCats } from "./catIdentity";
+import { catsFeeding, liveCats } from "./catIdentity";
 import { loadCatRecords, type DbOrTx } from "./observations";
 import { resolveCat, type Confidence, type LifeStatusValue } from "./resolve";
 import {
@@ -371,16 +371,20 @@ export async function deriveCatStatuses(
     // Legacy fallback (plan, PR 4): hasHome from owner_device_id, the
     // sterilised line from the legacy `desexed` cat_updates row. One
     // batched query for every id in the page, never one per cat (§2.3).
+    // A cat merged into another counts for her (SYC-410).
+    const feeding = await catsFeeding(catIds, {}, exec);
+    const fed = [...new Set([...feeding.values()].flatMap((f) => f.ids))];
     const desexedRows = await exec
       .select({ catId: catUpdatesTable.catId })
       .from(catUpdatesTable)
       .where(
         and(
-          inArray(catUpdatesTable.catId, catIds),
+          inArray(catUpdatesTable.catId, fed),
           eq(catUpdatesTable.updateType, "desexed"),
         ),
       );
-    const desexedCatIds = new Set(desexedRows.map((r) => r.catId));
+    const desexedOn = new Set(desexedRows.map((r) => r.catId));
+    const desexedCatIds = new Set(catIds.filter((id) => feeding.get(id)!.ids.some((f) => desexedOn.has(f))));
 
     for (const cat of cats) {
       const hasHome = cat.ownerDeviceId !== null;

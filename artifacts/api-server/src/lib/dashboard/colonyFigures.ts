@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import { and, asc, eq, gt, inArray, isNotNull, isNull, lte, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { canonicalCatOf, catsFeeding, observationCatIn } from "../catIdentity";
 import { loadTeamCats, type TeamCat } from "../teamCatList";
 import { colonyFilter, covers, type Visible } from "../guardianView";
 import { isActive, isStreet, splitOf, type Split } from "./countedCats";
@@ -122,9 +123,14 @@ async function firstColonyOf(catIds: readonly number[]): Promise<Map<number, num
   const out = new Map<number, number>();
   if (catIds.length === 0) return out;
   const replacer = alias(observationsTable, "replacer");
+  // The earliest over every record that counts for each cat (SYC-410, spec
+  // §4.2): a cat merged in was first recorded where she was first recorded.
+  const feeding = await catsFeeding(catIds);
   const rows = await db
     .selectDistinctOn([observationsTable.catId], {
+      id: observationsTable.id,
       catId: observationsTable.catId,
+      observedAt: observationsTable.observedAt,
       value: observationsTable.value,
     })
     .from(observationsTable)
@@ -132,7 +138,7 @@ async function firstColonyOf(catIds: readonly number[]): Promise<Map<number, num
       and(
         eq(observationsTable.kind, "colony"),
         isNull(observationsTable.redactedAt),
-        inArray(observationsTable.catId, [...catIds]),
+        observationCatIn(feeding.values()),
         sql`jsonb_typeof(${observationsTable.value}->'colonyId') = 'number'`,
         notExists(
           db.select({ one: sql`1` }).from(replacer).where(eq(replacer.supersedesId, observationsTable.id)),
@@ -140,9 +146,20 @@ async function firstColonyOf(catIds: readonly number[]): Promise<Map<number, num
       ),
     )
     .orderBy(asc(observationsTable.catId), asc(observationsTable.observedAt), asc(observationsTable.id));
-  for (const r of rows) {
+  const earliest = new Map<number, (typeof rows)[number]>();
+  for (const id of catIds) {
+    const f = feeding.get(id);
+    if (!f) continue;
+    for (const r of rows) {
+      if (!f.counts({ catId: r.catId, kind: "colony" })) continue;
+      const was = earliest.get(id);
+      const earlier = was && was.observedAt.getTime() - r.observedAt.getTime();
+      if (!was || earlier! > 0 || (earlier === 0 && r.id < was.id)) earliest.set(id, r);
+    }
+  }
+  for (const [id, r] of earliest) {
     const colonyId = (r.value as { colonyId?: unknown } | null)?.colonyId;
-    if (typeof colonyId === "number") out.set(r.catId, colonyId);
+    if (typeof colonyId === "number") out.set(id, colonyId);
   }
   return out;
 }
@@ -188,9 +205,11 @@ async function kittensTiedToCats(cats: readonly TeamCat[], now: Date): Promise<S
     .from(welfareReportsTable)
     .where(and(countedLitter(now), isNotNull(welfareReportsTable.catId)));
   const colonyOf = new Map(cats.map((c) => [c.id, c.colonyId]));
+  // A report tied to a cat merged into another counts for the cat she is now.
+  const canonical = await canonicalCatOf(rows.flatMap((r) => (r.catId === null ? [] : [r.catId])));
   const out = new Set<number>();
   for (const r of rows) {
-    const colonyId = r.catId === null ? null : colonyOf.get(r.catId);
+    const colonyId = r.catId === null ? null : colonyOf.get(canonical.get(r.catId) ?? r.catId);
     if (typeof colonyId === "number") out.add(colonyId);
   }
   return out;
