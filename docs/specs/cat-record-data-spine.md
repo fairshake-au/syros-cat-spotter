@@ -2,7 +2,7 @@
 
 **Status:** **Approved by Samuel, 28 September 2026**, with his review edits incorporated. Revised after adversarial review and Samuel's decisions of 3 September 2026 (`docs/specs/DECISIONS.md`). §10.9 (match records, SYC-151) approved by Samuel, 4 October 2026.
 **Owner:** Samuel
-**Covers:** SYC-40 (life status and presumed-deceased), SYC-41 (blurred public locations), the deletion mechanism (F3), the status-change feed the email spec reads (F4), the team-only match record behind hand picks (SYC-151, §10.9), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
+**Covers:** SYC-150 (moving a sighting, §10.10, amended 26 October 2026) · SYC-40 (life status and presumed-deceased), SYC-41 (blurred public locations), the deletion mechanism (F3), the status-change feed the email spec reads (F4), the team-only match record behind hand picks (SYC-151, §10.9), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
 **Related:** [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 and §2.4 · [`docs/SPEC.md`](../SPEC.md) · [`docs/superpowers/specs/2026-07-28-cat-health-record-design.md`](../superpowers/specs/2026-07-28-cat-health-record-design.md) · [`docs/specs/team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) · [`docs/specs/email-capture.md`](./email-capture.md) · [`docs/specs/hosting-and-photo-storage.md`](./hosting-and-photo-storage.md)
 
 **What this document owns**, per the ownership table in `DECISIONS.md`: the cat record model, observations and how status is worked out; presumed-deceased; location blurring, the nearest-cat oracle and feeding-site privacy; records import and matching; the team-only match record behind hand picks; and the deletion mechanism. Other specs reference this behaviour rather than restating it. In particular, `team-access-and-welfare-queue.md` independently described a status-column-plus-audit-log record model — the exact design §2 rejects by name. **That description is struck; this document owns the record.** Sign-in, roles, the dashboard, the welfare queue and the safety copy are that document's, and are referenced here, never redefined.
@@ -1109,7 +1109,7 @@ export const sightingMatchesTable = pgTable("sighting_matches", {
 
 1. **When the match runs** (`POST /sightings`), the compared and suggested sets are stored. If the same photo is sent again (the dedupe path in `offline-queue-on-web.md`), they are overwritten, because the phone shows the latest response. This never happens once the sighting is resolved or sent to the team.
 2. **When the spotter chooses**, the label is written: at `POST /sightings/{id}/resolve` for a cat or a new cat, or at the "Ask Syros Cats to match it" request for `sent_to_team`. The write happens only if no choice is recorded yet, so a retried or racing request can't relabel it. A resolve writes its label after its transaction commits.
-3. **When the team acts.** On a photo sent to the team, matching it or making it a new cat fills the team columns. If step 2's write was lost, the same write also records `choice = sent_to_team`, with `aliveClaim` left null because it can no longer be known. On a hand pick, or an existing-cat choice recorded as `unlabelled`, "Looks right", "Different cat…", "It's a new cat" or "Hide this photo" fills them. The write happens only if `teamAt` is still null, so two people acting at once can't both record a step. Anything the team changes after that is a move statement (`choose-a-different-cat.md` §8.2) or a report, never an edit to this row.
+3. **When the team acts.** On a photo sent to the team, matching it or making it a new cat fills the team columns. If step 2's write was lost, the same write also records `choice = sent_to_team`, with `aliveClaim` left null because it can no longer be known. On a hand pick, or an existing-cat choice recorded as `unlabelled`, "Looks right", "Different cat…", "It's a new cat" or "Hide this photo" fills them. The write happens only if `teamAt` is still null, so two people acting at once can't both record a step. Anything the team changes after that is a move (§10.10, `move-a-sighting.md`) or a report, never an edit to this row. A move from any screen fills the team step if it is still empty (`move-a-sighting.md` §4.6).
 
 Every write is best effort. If a write fails, it is logged, and the spotter's sighting, points and response still go ahead. **Readers treat a resolved sighting with no recorded choice as `unlabelled`**, the same as a choice with no stored set. Those sightings appear in "Matched by hand" like any `unlabelled` pick, and a team step on one records `choice = unlabelled` with it. The record is incomplete there, never wrong.
 
@@ -1128,6 +1128,17 @@ Deleting a person:
 - the ids in `suggested`
 
 Readers resolve them through `cat_identity` (§10.3), as for everything else, so a later merge never rewrites a match record.
+
+
+### 10.10 Moving a sighting to another cat (amended 26 October 2026, SYC-150)
+
+`move-a-sighting.md` owns moving a sighting and its photos; this section records what it changes here.
+
+- **A move is a statement:** an add-only `sighting_moves` row (who, when, from, to, why). A sighting's `cat_id` may change after it is resolved, but only in the same transaction as that row; the sightings guard refuses any other change. The move rows are the history of where a sighting was filed.
+- **Statements made from the sighting follow it.** The spotter's own rows (`ear_tip`, `food_and_water`, `note`, and any later kind written with a `sightingId`) are restated on the new cat, keeping the spotter as author, role, provenance, photo, sighting and `observedAt`, superseding the old row, with `sighting_move_id` set. A team, guardian or vet row carrying that sighting's id is retracted on the old cat and not restated.
+- **A row replaced by a row on any cat stops counting on its own cat.** This widens the welfare re-tie rule in `loadCatRecords` to every kind.
+- **One photo can be split out of a spot** as its own resolved sighting on the right cat, with the same spotter, place and time, no points, and the same `photos.id`.
+- **Changes caused by a move are corrections, never news** (§9.3).
 
 ---
 
