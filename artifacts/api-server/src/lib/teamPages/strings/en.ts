@@ -518,7 +518,6 @@ export const en = {
   "map.whyTitle": "Why does the map work like this?",
   "map.whyBody":
     "Our server fetches the map pictures, so your browser never tells a map company where you are looking.",
-  "sites.moveNote": "That didn't work, so the map is back at the whole island.",
 
   // Entry points (SYC-209 PR 3.4): from a cat's sighting, and from a colony.
   "sighting.makeSite": "Make a feeding site here",
@@ -563,8 +562,6 @@ export const en = {
   "sproblem.area": "That area isn't on our list. Choose one from the list.",
   "sproblem.colony": "That colony doesn't exist.",
   "sproblem.stamp": "That page was out of date. Open the site again and try again.",
-  "sproblem.tapUnreadable": "That tap didn't work. Please tap the map again.",
-  "sproblem.tapNoPoint": "That tap didn't work. Please tap the map itself.",
   "sproblem.nothingSaved": "Nothing was saved.",
   "sproblem.backToSites": "Back to the feeding sites",
   "sproblem.backToAdd": "Back to adding a site",
@@ -582,8 +579,6 @@ export const en = {
 
   "confirm.title": "Check the spot",
   "confirm.spot": "The spot",
-  "confirm.tappedIn": "You tapped a spot in",
-  "confirm.legend": "The marker is the spot you picked.",
   "confirm.name": "Name of the site",
   "confirm.nameHint": "Use the place, not a person's name, like “Vaporia steps” or “Kini harbour”. Cat guardians change; the place doesn't.",
   "confirm.colony": "Colony (optional)",
@@ -596,8 +591,6 @@ export const en = {
   "confirm.save": "Save the site",
   "confirm.again": "Start again on the full map",
   "confirm.drag": "Not quite right? Drag the small map to move the pin. What you have typed stays.",
-  "confirm.nudge": "Not quite right? Tap the small map to move the pin. Place the pin first, then fill in the details.",
-  "confirm.checkTap": "Details for checking the tap",
 
   "move.title": "Move",
   "move.intro": "Move the map until the pin is where the site really is. You'll check the new spot and say why on the next page, and nothing is saved until you press Save.",

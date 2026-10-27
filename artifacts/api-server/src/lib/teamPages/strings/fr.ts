@@ -481,7 +481,6 @@ export const fr: Record<StringKey, string> = {
   "map.whyTitle": "Pourquoi la carte fonctionne-t-elle ainsi ?",
   "map.whyBody":
     "Notre serveur récupère les images de la carte, donc ton navigateur ne dit jamais à une entreprise de cartographie où tu regardes.",
-  "sites.moveNote": "Ça n’a pas marché, donc la carte est revenue sur toute l’île.",
 
   "sighting.makeSite": "Créer un point de nourrissage ici",
   "sighting.showOnMap": "Afficher sur notre carte",
@@ -524,8 +523,6 @@ export const fr: Record<StringKey, string> = {
   "sproblem.area": "Ce quartier n’est pas dans notre liste. Choisissez-en un dans la liste.",
   "sproblem.colony": "Cette colonie n’existe pas.",
   "sproblem.stamp": "Cette page n’était plus à jour. Ouvre de nouveau le point et réessaie.",
-  "sproblem.tapUnreadable": "Ce toucher n’a pas fonctionné. Touche à nouveau la carte.",
-  "sproblem.tapNoPoint": "Ce toucher n’a pas fonctionné. Touche la carte elle-même.",
   "sproblem.nothingSaved": "Rien n’a été enregistré.",
   "sproblem.backToSites": "Retour aux points de nourrissage",
   "sproblem.backToAdd": "Retour à l’ajout d’un point",
@@ -543,8 +540,6 @@ export const fr: Record<StringKey, string> = {
 
   "confirm.title": "Vérifie l’endroit",
   "confirm.spot": "L’endroit",
-  "confirm.tappedIn": "Tu as touché un point dans le secteur",
-  "confirm.legend": "Le repère est l’endroit que tu as choisi.",
   "confirm.name": "Nom du point",
   "confirm.nameHint": "Indiquez le lieu, pas le nom d’une personne, comme « Escaliers de Vaporia » ou « Port de Kini ». Les gardiens de chats changent ; le lieu reste.",
   "confirm.colony": "Colonie (facultatif)",
@@ -557,9 +552,6 @@ export const fr: Record<StringKey, string> = {
   "confirm.save": "Enregistrer le point",
   "confirm.again": "Recommencer sur la carte complète",
   "confirm.drag": "Pas tout à fait ça ? Faites glisser la petite carte pour déplacer l’épingle. Ce que vous avez tapé reste.",
-  "confirm.nudge":
-    "Pas tout à fait juste ? Touche la petite carte pour déplacer l’épingle. Place d’abord l’épingle, puis remplis les détails.",
-  "confirm.checkTap": "Détails pour vérifier le toucher",
 
   "move.title": "Déplacer",
   "move.intro": "Déplacez la carte jusqu’à ce que l’épingle soit là où se trouve vraiment le point. Vous vérifierez le nouvel endroit et direz pourquoi à la page suivante, et rien n’est enregistré avant que vous appuyiez sur Enregistrer.",
