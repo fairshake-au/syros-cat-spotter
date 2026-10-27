@@ -484,6 +484,11 @@ a.sublink{display:block;font-size:14px;padding-top:0}
 /* MapLibre places a marker by its centre itself: no negative margins. */
 .maplibregl-marker.pin{margin:0}
 .mapfallback.maplive{display:none}
+/* SYC-705 Task 2b.7: a place map's fixed pin, its tip on the middle of the box; the person drags the map under it. */
+.map[data-map] .placepin{position:absolute;left:50%;top:50%;width:28px;height:28px;margin:-34px 0 0 -14px;z-index:2;pointer-events:none;box-sizing:border-box;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--accent);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+[data-mapon][hidden]{display:none}
+.pickform .actions{margin:8px 0}
+.areapick select{margin-bottom:8px}
 .mapband{display:none;position:relative;overflow:hidden;background:var(--sunk)}
 .mapband.b144{display:block}
 .mapband form{margin:0;padding:0}
@@ -674,8 +679,8 @@ ${HELP_CSS}
 .mapwrap{position:relative;margin:8px 0}
 #island-map{height:min(70vh,640px);min-height:320px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);line-height:normal}
 #island-map.tilesfailed{background:var(--accent-soft)}
-@media (scripting:none){.map[data-map],#island-map{height:auto;min-height:0}}
-.map[data-map].nomap,#island-map.nomap{height:auto;min-height:0}
+@media (scripting:none){.map[data-map],.catmap .map[data-map],.planmap .map[data-map],#island-map{height:auto;min-height:0}}
+.map[data-map].nomap,.catmap .map[data-map].nomap,.planmap .map[data-map].nomap,#island-map.nomap{height:auto;min-height:0}
 .maplegend{position:absolute;top:8px;right:8px;z-index:1050;max-width:min(60%,240px);background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:10px;padding:2px 10px;font-size:13px;line-height:1.3}
 .maplegend>summary{cursor:pointer;font-weight:700;min-height:36px;display:flex;align-items:center}
 .maplegend ul{list-style:none;margin:2px 0 6px;padding:0}

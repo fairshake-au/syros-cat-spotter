@@ -97,8 +97,8 @@ describe("map can't start", () => {
   it("a box collapses round its one line only on a positive signal: no scripting, or map-core's nomap", async () => {
     const { renderCatMapPage } = await import("./catMapPage");
     const css = renderCatMapPage({ personName: "T", filters: {}, colonies: [], cats: [], catCount: 0, sites: [], focus: null, now: new Date() });
-    expect(css).toContain("@media (scripting:none){.map[data-map],#island-map{height:auto;min-height:0}}");
-    expect(css).toContain(".map[data-map].nomap,#island-map.nomap{height:auto;min-height:0}");
+    expect(css).toContain("@media (scripting:none){.map[data-map],.catmap .map[data-map],.planmap .map[data-map],#island-map{height:auto;min-height:0}}");
+    expect(css).toContain(".map[data-map].nomap,.catmap .map[data-map].nomap,.planmap .map[data-map].nomap,#island-map.nomap{height:auto;min-height:0}");
     // Full height by default: no rule collapses a box merely for lacking .maplive or aria-busy (no shift on load).
     expect(css).not.toMatch(/:not\(\.maplive\)|:not\(\[aria-busy\]\)/);
     // After the island map's own height rule, so they win at equal specificity.
