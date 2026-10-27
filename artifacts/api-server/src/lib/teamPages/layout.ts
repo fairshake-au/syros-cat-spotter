@@ -507,6 +507,7 @@ span.pin{pointer-events:none}
 details.planfold{margin:12px 0}
 details.planfold>summary{min-height:44px;cursor:pointer;font-weight:600}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.attrib{margin:4px 0 8px;font-size:12px;color:var(--muted)}
 .mapmove{margin:8px 0 0}
 .mapmove .arearow{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
 .mapmove button{font:inherit;font-size:15px;min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}

@@ -112,6 +112,15 @@ describe("request log redaction (SYC-109)", () => {
     }
   });
 
+  it("an old map square address logs as /api/team/map-square/[redacted], with nothing of its token (SYC-705 2b.8)", async () => {
+    const token = "Qm9nU1FVQVJFLXRva2VuLXNoYXBlZC1zdHJpbmc";
+    await request(app).get(`/api/team/map-square/${token}`);
+    const completed = spies.logLines.filter((l) => l.includes('"request completed"'));
+    expect(completed).toHaveLength(1);
+    expect(completed[0]).toContain('"/api/team/map-square/[redacted]"');
+    for (const line of spies.logLines) expect(line).not.toContain(token.slice(0, 12));
+  });
+
   it("a malformed old map picture address logs neither its path nor an error message (SYC-209 PR 3.1)", async () => {
     await request(app).get("/api/team/map-tiles/17%zz");
     expect(spies.logLines.length).toBeGreaterThan(0);

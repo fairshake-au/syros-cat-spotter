@@ -403,6 +403,10 @@ describe("one left edge at every width (SYC-619 §2.4)", () => {
     expect(styles(page())).not.toMatch(/\.readcol\{[^}]*margin/);
   });
 
+  it("keeps the .attrib rule the map credit (mapCredit) relies on", () => {
+    expect(styles(page())).toContain(".attrib{margin:4px 0 8px;font-size:12px;color:var(--muted)}");
+  });
+
   it("wide pages have no .readcol", () => {
     expect(inner(page({ mainClass: "wide" }))).not.toContain('class="readcol"');
   });

@@ -251,14 +251,13 @@ function post(path: string, body: Record<string, string>, cookie: string, mode: 
   return mode === "json" ? t.set("Accept", "application/json").send(body) : t.type("form").send(body);
 }
 
-const moveBody = { vz: "12", vx: "2320", vy: "1580", go: "in" };
 
 /** Every page variant a cat guardian can open (spec §7.3's table), each as a request. */
 const guardianPages = (): { label: string; send: (cookie: string, mode: Mode) => request.Test }[] => [
   { label: "Feeding sites", send: (c, m) => get("/api/team/sites", c, m) },
   { label: "Feeding sites, Show retired", send: (c, m) => get("/api/team/sites?retired=1", c, m) },
-  { label: "Feeding sites, zoomed", send: (c, m) => post("/api/team/sites/map", moveBody, c, m) },
-  { label: "Feeding sites, an area", send: (c, m) => post("/api/team/sites/map", { ...moveBody, go: "", area: "kini" }, c, m) },
+  { label: "the Cats map view", send: (c, m) => get("/api/team/cats?view=map", c, m) },
+  { label: "the old map address", send: (c, m) => get("/api/team/map", c, m) },
   { label: "her site", send: (c, m) => get(`/api/team/sites/${s1}`, c, m) },
   { label: "the site that joined her colony", send: (c, m) => get(`/api/team/sites/${sJ}`, c, m) },
   { label: "her retired site", send: (c, m) => get(`/api/team/sites/${s1r}`, c, m) },
@@ -286,7 +285,7 @@ function expectNoPositionInAddresses(where: string, html: string, location?: str
   const values = [...html.matchAll(ATTR)].map((m) => m[2]!);
   if (location) values.push(location);
   for (const v of values) {
-    if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
+    if (isOpaqueAddress(v)) continue; // a photo uuid (SYC-425)
     expect(v, `${where}: ${v}`).not.toMatch(/\d+\.\d+/);
     expect(v, `${where}: ${v}`).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, `${where}: ${v}`).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy)=/i);

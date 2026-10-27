@@ -427,6 +427,12 @@ describe("the wider header is the named pages' alone, and exactly this", () => {
     }
   });
 
+  it("the old /api/team/map address sends a team caller on to the Cats map view (SYC-705 2b.8)", async () => {
+    const res = await request(app).get("/api/team/map").set("Cookie", cookie).set("Accept", "text/html");
+    expect(res.status).toBe(303);
+    expect(res.headers["location"]).toBe("/api/team/cats?view=map");
+  });
+
   it("every other page keeps today's header, byte for byte", async () => {
     const res = await request(app).get("/api/team").set("Cookie", cookie);
     expect(res.headers["content-security-policy"]).toBe(
