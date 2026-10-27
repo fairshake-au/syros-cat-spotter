@@ -12,6 +12,8 @@
 
 **One deviation from the spec:** §5 puts the shared word count "in `lib/db`". The app can't import `@workspace/db` (it's server-only), so it goes in a new small package, `@workspace/fact-words`, that both sides import. Same intent: one copy.
 
+**Before Task 1:** sync this branch with main (`sync_with_base_branch`) once PR #370 has merged. #370 adds an "Extra photos on New spot" switch to the same page: `switchesNow()` also returns `extraPhotosOn`, `AppSwitchesPageOptions` has a required `extraPhotosOn: boolean`, there's a new `POST /team/app-switches/extra-photos` with its `team.walk.test.ts` row, the intro says "Three things", and the GET JSON includes `extraPhotosOn`. Keep all of it.
+
 **Two PRs, both opened as drafts (`gh pr create --draft`):**
 - **PR 1, server (Tasks 1–6).** Safe alone: older phones see no change. Its migration goes to production **before** Samuel republishes (memory: migrate before republish).
 - **PR 2, app (Tasks 7–9).** Stacked on PR 1; stays a draft until PR 1 merges.
@@ -117,7 +119,7 @@ Rollback block, every line prefixed `-- ` (notes inside use `-- --`, memory `rol
 
 **Files:**
 - Create: `artifacts/api-server/src/lib/starterFacts.ts`, `starterFacts.test.ts`
-- Modify: `artifacts/api-server/src/lib/appSwitches.ts` (delete `setFactShown`, `FACTS_KEY`, `KNOWN`; `switchesNow` returns only `donateUrl`), server startup file (call `syncShownFromLegacy()` once after DB is reachable; find where other startup jobs run, e.g. `src/index.ts`).
+- Modify: `artifacts/api-server/src/lib/appSwitches.ts` (delete `setFactShown`, `FACTS_KEY`, `KNOWN`; `switchesNow` drops `hidden` and keeps `donateUrl` and `extraPhotosOn` from #370), server startup file (call `syncShownFromLegacy()` once after DB is reachable; find where other startup jobs run, e.g. `src/index.ts`).
 
 **Interfaces — Produces:**
 ```ts
@@ -173,7 +175,7 @@ Rules:
 **Files:**
 - Modify: `artifacts/api-server/src/lib/teamPages/appSwitchesPage.ts` (list from `StoredFact[]`; per row: Show/Hide form, **Edit** link `GET /api/team/app-switches/fact/edit?id=…`, **Delete** link `GET …/fact/delete?id=…`; language note; **Add a fact** link at the end; `hint` count uses the rows). `APP_SWITCHES_DONE` gains `edited: "That fact is saved. Phones get it the next time the app is opened."`, `added: "The new fact is in the app."`, `deleted: "That fact is deleted."`.
 - Create: `artifacts/api-server/src/lib/teamPages/factEditPage.ts` with `renderFactEditPage(o)`, `renderFactDeletePage(o)`, `renderEnglishChangedPage(o)`.
-- Modify: `routes/teamAppSwitches.ts` — routes below; GET JSON adds `facts: StoredFact[]`, drops nothing.
+- Modify: `routes/teamAppSwitches.ts` — routes below; GET JSON adds `facts: StoredFact[]`, keeps `donateUrl` and `extraPhotosOn` (#370), and keeps `hiddenFacts` (now from `legacyHiddenList`).
 - Delete: `teamPages/appSwitchFacts.ts`, `appSwitchFacts.test.ts`.
 - Test: `routes/team.appSwitches.test.ts`, `routes/team.walk.test.ts` (new entries with reasons, like the existing three).
 
