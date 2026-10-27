@@ -1305,7 +1305,8 @@ export interface CatHistory {
    * (`catsFeeding`'s `since`: the newest merge on its way here). Only merges
    * standing when the records were loaded: a merge undone since then is not
    * here, so `resolveAt` inside its window leaves it out, where
-   * `loadCatRecords(…, { asOf })` would fold it in (spec §9.10, PR 3.1).
+   * `loadCatRecords(…, { asOf })` folds it in, as spec §9.10 requires. A known
+   * gap, fixed in PR 3.1 (see {@link resolveAt}).
    */
   mergedAt: ReadonlyMap<number, Date>;
   /** `created_at` of each cat that feeds this one (itself and the merged ones). */
@@ -1566,8 +1567,14 @@ export async function loadCatRecords(
  * had not been created yet. Pure: a report with many points loads the
  * island once and calls this per point.
  *
- * `resolveAt(records, T, now)` is exactly `loadCatRecords(…, { asOf: T })`
- * then `resolveCat(…, now)`, as long as `records` was loaded at or after T.
+ * `resolveAt(records, T, now)` equals `loadCatRecords(…, { asOf: T })` then
+ * `resolveCat(…, now)`, as long as `records` was loaded at or after T, with
+ * one known exception: a merge undone between T and the load. `records`
+ * only knows the merges standing when it was loaded, so inside an undone
+ * merge's window the merged-in cat is left out here, where `asOf` folds it
+ * in (spec §9.10 says it should be folded in). Not reachable today: no
+ * merge exists (SYC-59). PR 3.1 builds the merge and move timeline that
+ * fixes it (catIdentity.attack.test.ts A11, marked `it.fails` until then).
  */
 export function resolveAt(records: CatRecords, at: Date, now: Date): CatSnapshot | null {
   const h = records.history;
