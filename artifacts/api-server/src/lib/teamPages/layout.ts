@@ -489,13 +489,6 @@ a.sublink{display:block;font-size:14px;padding-top:0}
 [data-mapon][hidden]{display:none}
 .pickform .actions{margin:8px 0}
 .areapick select{margin-bottom:8px}
-.mapband{display:none;position:relative;overflow:hidden;background:var(--sunk)}
-.mapband.b144{display:block}
-.mapband form{margin:0;padding:0}
-.mapband img,.mapband input[type=image]{display:block;margin:0;padding:0;border:0;max-width:none;cursor:crosshair}
-.mapband img{cursor:default}
-.checkdetails{margin:0 0 8px;font-size:14px}
-.checkdetails summary{cursor:pointer;color:var(--muted)}
 .pin{position:absolute;display:block;width:22px;height:22px;margin:-11px 0 0 -11px;border:3px solid var(--danger);border-radius:50%;background:rgba(255,255,255,.45);box-shadow:0 0 0 2px var(--card)}
 span.pin{pointer-events:none}
 .pin.site-public{background:var(--danger-fill)}
@@ -514,12 +507,10 @@ span.pin{pointer-events:none}
 details.planfold{margin:12px 0}
 details.planfold>summary{min-height:44px;cursor:pointer;font-weight:600}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.attrib{margin:4px 0 8px;font-size:12px;color:var(--muted)}
 .mapmove{margin:8px 0 0}
-.mapmove .zoomrow,.mapmove .panrow,.mapmove .arearow{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
+.mapmove .arearow{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
 .mapmove button{font:inherit;font-size:15px;min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
-.mapmove .zoomrow button{background:var(--accent);color:var(--on-accent)}
-.mapmove button:disabled,.mapmove .zoomrow button:disabled{background:transparent;border-style:dashed;color:var(--muted);cursor:not-allowed}
+.mapmove button:disabled{background:transparent;border-style:dashed;color:var(--muted);cursor:not-allowed}
 .mapmove .label{margin:8px 0 6px}
 .mapmove>summary{display:flex;align-items:center;min-height:44px;cursor:pointer;font-weight:700}
 form.addsite{margin:12px 0 0}
@@ -543,13 +534,6 @@ form.sureform button{font:inherit;font-size:16px;font-weight:700;min-height:48px
 /* A link that opens another page of actions looks like the action cards. */
 a.cardlink{display:flex;align-items:center;min-height:46px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 12px;font-weight:700;color:var(--accent-strong);text-decoration:none}
 a.cardlink:hover{border-color:var(--accent)}
-main.mappage{line-height:22px}
-main.mappage h1{line-height:28px}
-@supports (margin-left:round(down,10.5px,1px)){main.mappage{margin-left:max(0px,round(down,(100% - 1120px) / 2,1px));margin-right:0}}
-@media (min-width:360px){.mapband.b144{display:none}.mapband.b164{display:block}}
-@media (min-width:375px){.mapband.b164{display:none}.mapband.b171{display:block}}
-@media (min-width:390px){.mapband.b171{display:none}.mapband.b179{display:block}}
-@media (min-width:600px){.mapband.b179{display:none}.mapband.b256{display:block}}
 /* SYC-2 PR 3.1: the Appearance section's chip pickers and the Colour check list. */
 .chips{display:grid;grid-template-columns:1fr;gap:0 12px}
 .appfix form{margin:8px 0 0}
@@ -775,12 +759,10 @@ export interface PageOptions {
   /** Trusted HTML: built only from fixed text and escapeHtml. */
   body: string;
   /**
-   * A class on <main>. `mappage`: everything above the map has a whole-pixel
-   * height and the page sits on a whole pixel, so the map does too (SYC-209
-   * PR 3.1; see lib/teamPages/map.ts). `wide`: no 736px reading column
+   * A class on <main>. `wide`: no 736px reading column
    * (`.readcol`), for a page laid out to use the whole 1120px frame.
    */
-  mainClass?: "mappage" | "wide";
+  mainClass?: "wide";
   /** Show the People link (default: whatever requireTeam set for this request). */
   showPeople?: boolean;
   /** The team (holds an island row) gets the team's menu (default: whatever requireTeam set; true without it). */
