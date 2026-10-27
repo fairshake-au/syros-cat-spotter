@@ -191,6 +191,9 @@ export async function severTeamMember(
     ["cat_identity", "by_account_id"],
     ["duplicate_decisions", "by_account_id"],
     ["new_cat_checks", "by_account_id"],
+    // The match record's team step (a move fills it): who goes, what the
+    // team did stays (its CHECK allows no one only once redacted).
+    ["sighting_matches", "team_by_account_id"],
   ] as const) {
     await tx.execute(sql`
       update ${sql.identifier(table)}

@@ -32,6 +32,7 @@ import { catsOfPhoto, photoTargets } from "../lib/capabilityTargets";
 import { hasMetCat } from "../lib/claiming";
 import { applyHideRules, prepareHide } from "../lib/issues/hide";
 import { MOVE_WORDS } from "../lib/moveSightings";
+import { DELETED_BY_THE_PERSON, severTeamMember } from "../lib/severPerson";
 
 // SYC-150 PR 3.2 (which-cat-is-which.md §5, §9.7 move, D6): the team's
 // "move this sighting to the right cat", through the route. Spec tests 8–12,
@@ -177,7 +178,7 @@ describe("a move (§9.7 move steps 3–8)", () => {
     expect((await sightingRow(d.s.id)).catId).toBe(d.mimi);
   });
 
-  it("fills the match record's team step once, after the commit (step 8)", async () => {
+  it("fills the match record's team step once, in the move's transaction (step 8)", async () => {
     const c = await twoCats();
     await db.insert(sightingMatchesTable).values({ sightingId: c.s.id, choice: "hand_pick", chosenCatId: c.mimi, chosenAt: daysAgo(3) });
     expect((await move({ sightingIds: [c.s.id], expectedCatId: c.mimi, toCatId: c.agatha, reason: "wrong_pick", source: "matched_by_hand" })).status).toBe(200);
@@ -501,5 +502,24 @@ describe("spec test 12: moving several sightings to a new cat (a split, §5.5)",
     const kiki = await catRow(res.body.toCatId);
     expect(kiki.discovererDeviceId).toBeNull();
     expect(kiki.redactedAt).not.toBeNull();
+  });
+});
+
+describe("deleting the team member who moved (§9.11; review of #386, R2)", () => {
+  it("the match record's team step, written with the move, keeps what the team did and names nobody", async () => {
+    const mover = await signedPerson(`gone${tag()}`, ["staff"]);
+    const c = await twoCats();
+    await db.insert(sightingMatchesTable).values({ sightingId: c.s.id, choice: "hand_pick", chosenCatId: c.mimi, chosenAt: daysAgo(3) });
+    const res = await move({ sightingIds: [c.s.id], expectedCatId: c.mimi, toCatId: c.agatha, reason: "wrong_pick", source: "matched_by_hand" }, mover.cookie);
+    expect(res.status).toBe(200);
+    const [m] = await db.select().from(sightingMatchesTable).where(eq(sightingMatchesTable.sightingId, c.s.id));
+    expect(m!.teamByAccountId).toBe(mover.id);
+    await db.transaction((tx) => severTeamMember(tx, { accountId: mover.id, reason: DELETED_BY_THE_PERSON }));
+    const [after] = await db.select().from(sightingMatchesTable).where(eq(sightingMatchesTable.sightingId, c.s.id));
+    expect(after).toMatchObject({ teamByAccountId: null, teamAction: "different_cat", teamCatId: c.agatha });
+    expect(after!.redactedAt).not.toBeNull();
+    const left = await pool.query("select 1 from sighting_moves where moved_by_account_id = $1 union all select 1 from sighting_matches where team_by_account_id = $1", [mover.id]);
+    expect(left.rowCount).toBe(0);
+    await markLeft(mover.email, "cli:vitest");
   });
 });

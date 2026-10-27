@@ -24,7 +24,6 @@ import { TEAM_DESK_DEVICE } from "./teamDesk";
 import { syrNumber } from "./teamCatView";
 import { NEW_CAT_NAME_MAX, newCatNameProblem } from "./vetVisits";
 import { moveReportStateIn } from "./welfareActions";
-import { logger } from "./logger";
 import { kickRow } from "./mail/outbox";
 
 /**
@@ -49,7 +48,7 @@ import { kickRow } from "./mail/outbox";
  * cat if asked; for each sighting, oldest first, a move row (one batch id),
  * the setting, the sighting's cat and its statements (`writeMovedObservation`);
  * the old cat's main photo and map spot; follows; the report; the news
- * baselines. After the commit, best effort, the match record's team step.
+ * baselines; the match records' team step, in the same transaction.
  *
  * A refusal ({@link MoveRefused}) is thrown inside the transaction, so it
  * rolls back whatever was written.
@@ -149,7 +148,6 @@ export async function moveSightings(person: Person, input: MoveInput): Promise<M
     throw err;
   }
   if (done.queued !== null) kickRow(done.queued);
-  await fillTeamStep(person, done);
   return { ok: true, ...done };
 }
 
@@ -327,6 +325,9 @@ export async function moveSightingsIn(tx: Tx, person: Person, input: MoveInput):
 
   // The "That's a different cat" report the move came from closes as done.
   const queued = input.source === "report" ? await closeReport(tx, person, input.reportId) : null;
+
+  // The match records' team step (§9.7 move step 8).
+  await fillTeamStep(tx, person, { madeNewCat, toCatId, moves });
 
   // A move is a correction, never news (§9.12).
   await rebaselineNews([fromCatId, toCatId], tx);
@@ -541,26 +542,26 @@ async function closeReport(tx: Tx, person: Person, publicId: string | undefined)
 }
 
 /**
- * The match record's team step (§9.7 move step 8), after the commit and best
- * effort: written once, if still empty, on sightings that have a record.
+ * The match record's team step (§9.7 move step 8): written once, if still
+ * empty, on sightings that have a record. Inside the move's transaction
+ * (the spec allows after the commit, best effort): so a deletion of the
+ * team member can't land between the move and this write and leave their
+ * id behind, and two moves can't fill it in the wrong order (review of
+ * #386, R2).
  */
-async function fillTeamStep(person: Person, done: MoveDone): Promise<void> {
-  try {
-    await db
-      .update(sightingMatchesTable)
-      .set({
-        teamAction: done.madeNewCat ? "new_cat" : "different_cat",
-        teamCatId: done.toCatId,
-        teamByAccountId: person.id,
-        teamAt: new Date(),
-      })
-      .where(
-        and(
-          inArray(sightingMatchesTable.sightingId, done.moves.map((m) => m.sightingId)),
-          isNull(sightingMatchesTable.teamAction),
-        ),
-      );
-  } catch (err) {
-    logger.error({ err, batchId: done.batchId }, "Could not fill the match records' team step");
-  }
+async function fillTeamStep(tx: DbOrTx, person: Person, done: Pick<MoveDone, "madeNewCat" | "toCatId" | "moves">): Promise<void> {
+  await tx
+    .update(sightingMatchesTable)
+    .set({
+      teamAction: done.madeNewCat ? "new_cat" : "different_cat",
+      teamCatId: done.toCatId,
+      teamByAccountId: person.id,
+      teamAt: new Date(),
+    })
+    .where(
+      and(
+        inArray(sightingMatchesTable.sightingId, done.moves.map((m) => m.sightingId)),
+        isNull(sightingMatchesTable.teamAction),
+      ),
+    );
 }
