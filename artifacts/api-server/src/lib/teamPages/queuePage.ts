@@ -17,6 +17,8 @@ import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { howFold, pageIntro, whatHappens } from "./help";
 import { placeLabel } from "../areas/placeLabel";
+import { areaFor } from "../areas/namedAreas";
+import { findAddress } from "./findPhotoPage";
 import { place } from "./position";
 import { firstWords } from "./noteWords";
 
@@ -197,8 +199,24 @@ const TIED_TEXT: Record<string, string> = {
  *   not tied, no suggestion        -> as before
  * The suggestion is never applied by itself: the tie writes history.
  */
+/**
+ * SYC-492: "Find this cat from the report's photo", into Find from a photo
+ * with the report carried as `tie`, so each result offers "This is the cat".
+ * The report's area goes by its key, never its position (spec §10.4); off
+ * Syros there's no area to carry, and findAddress drops a key it doesn't know.
+ * Only with a photo to search from, and only for those who may tie: the find
+ * page's own capability, find_cat_from_photo, has the same roles (pinned by
+ * a test).
+ */
+export function findFromReportLink(r: Pick<QueueReport, "id" | "lat" | "lng" | "photo">, canTie: boolean): string {
+  if (!canTie || !r.photo.url) return "";
+  const href = findAddress({ area: areaFor(r.lat, r.lng).key }, r.id);
+  return `<a class="tap sublink" href="${esc(href)}">Find this cat from the report's photo</a>`;
+}
+
 function catRow(r: QueueReport, canTie: boolean): string {
   const search = `/api/team/cats?tie=${encodeURIComponent(r.id)}`;
+  const find = findFromReportLink(r, canTie);
   const sg = r.suggestedCat;
   const sentFrom = (c: NonNullable<QueueReport["suggestedCat"]>) =>
     `Sent from <a class="catlink" href="/api/team/cats/${c.id}">${esc(c.name)}</a>'s page`;
@@ -208,6 +226,7 @@ function catRow(r: QueueReport, canTie: boolean): string {
       "Which cat",
       `<a class="tap catlink" href="/api/team/cats/${r.cat.id}">${esc(r.cat.name)}</a>` +
         `<a class="tap sublink" href="${esc(search)}">Wrong cat? Choose another</a>` +
+        find +
         (different ? `<p class="muted">${sentFrom(sg)}</p>` : ""),
     );
   }
@@ -230,12 +249,13 @@ function catRow(r: QueueReport, canTie: boolean): string {
       `<p class="muted">${sentFrom(sg)}</p>` +
         (thumbs ? `<div class="compare">${thumbs}</div>` : "") +
         yes +
-        `<a class="tap sublink" href="${esc(search)}">Choose another cat</a>`,
+        `<a class="tap sublink" href="${esc(search)}">Choose another cat</a>` +
+        find,
     );
   }
   return row(
     "Which cat",
-    `<a class="tap" href="${esc(search)}">Match to a known cat</a>`,
+    `<a class="tap" href="${esc(search)}">Match to a known cat</a>` + find,
   );
 }
 
