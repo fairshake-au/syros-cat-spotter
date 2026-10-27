@@ -1,4 +1,4 @@
-# Review notes: `which-cat-is-which.md` (SYC-150)
+# Review notes: `which-cat-is-which.md` (SYC-150, SYC-59)
 
 ## Where the ticket was out of date
 
@@ -16,7 +16,9 @@ Checked against `main` at `9af0532`, 26 October 2026.
 | (not mentioned) | Points are a running total plus a points record per sighting. The collection, stamps and cat counts are worked out from sightings, so they follow a move with no extra work. |
 | (not mentioned) | The nightly news check only watches and sends nothing yet. A move's "silenced" rule still has to be there before it ever sends. |
 
-## Adversarial review (Sonnet critic, 26 October 2026)
+## First adversarial review: moving only (Sonnet critic, 26 October 2026)
+
+Section numbers below refer to that draft. Moving is now §5 and §9.
 
 The full report is in the session notes folder (`syc-150-review.md`). It found 1 blocker, 12 major and 9 minor issues. All are folded in:
 

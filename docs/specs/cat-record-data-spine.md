@@ -2,7 +2,7 @@
 
 **Status:** **Approved by Samuel, 28 September 2026**, with his review edits incorporated. Revised after adversarial review and Samuel's decisions of 3 September 2026 (`docs/specs/DECISIONS.md`). §10.9 (match records, SYC-151) approved by Samuel, 4 October 2026.
 **Owner:** Samuel
-**Covers:** SYC-150 (moving a sighting, §10.10, amended 26 October 2026) · SYC-40 (life status and presumed-deceased), SYC-41 (blurred public locations), the deletion mechanism (F3), the status-change feed the email spec reads (F4), the team-only match record behind hand picks (SYC-151, §10.9), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
+**Covers:** SYC-150 and SYC-59 (moving a sighting and merging cats, §10.10, amended 26 October 2026) · SYC-40 (life status and presumed-deceased), SYC-41 (blurred public locations), the deletion mechanism (F3), the status-change feed the email spec reads (F4), the team-only match record behind hand picks (SYC-151, §10.9), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
 **Related:** [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 and §2.4 · [`docs/SPEC.md`](../SPEC.md) · [`docs/superpowers/specs/2026-07-28-cat-health-record-design.md`](../superpowers/specs/2026-07-28-cat-health-record-design.md) · [`docs/specs/team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) · [`docs/specs/email-capture.md`](./email-capture.md) · [`docs/specs/hosting-and-photo-storage.md`](./hosting-and-photo-storage.md)
 
 **What this document owns**, per the ownership table in `DECISIONS.md`: the cat record model, observations and how status is worked out; presumed-deceased; location blurring, the nearest-cat oracle and feeding-site privacy; records import and matching; the team-only match record behind hand picks; and the deletion mechanism. Other specs reference this behaviour rather than restating it. In particular, `team-access-and-welfare-queue.md` independently described a status-column-plus-audit-log record model — the exact design §2 rejects by name. **That description is struck; this document owns the record.** Sign-in, roles, the dashboard, the welfare queue and the safety copy are that document's, and are referenced here, never redefined.
@@ -780,7 +780,7 @@ export const catIdentityTable = pgTable("cat_identity", {
 });
 ```
 
-The resolver reads through this table, so a merge is a row and an unmerge is another row. Duplicate merge itself is still deferred, but the table lands now: it is the only version of merge that is reversible, and merge was pulled forward as a user-facing workflow precisely because it must be.
+The resolver reads through this table, so a merge is a row and an unmerge is another row. Duplicate merging is specified in `which-cat-is-which.md` §4 and §9.2–9.3 (SYC-59, amended 26 October 2026): a merge files the merged-away cat's sightings under the survivor as recorded moves, and this table makes everything else about it count for the survivor. The table landed early: it is the only version of merge that is reversible, and merge was pulled forward as a user-facing workflow precisely because it must be.
 
 **NFC normalisation on write**, in the app and the importer alike, plus a migration-level test asserting what `cats_name_lower_unique` actually does with `Μιμή` (NFC), `Μιμή` (NFD) and `ΜΙΜΗ` under this database's collation. Whatever the answer, it is written down — the "unique by construction" argument in `records-import.md` §2.4 is only as strong as the collation underneath it, and nobody has checked.
 
@@ -1130,9 +1130,11 @@ Deleting a person:
 Readers resolve them through `cat_identity` (§10.3), as for everything else, so a later merge never rewrites a match record.
 
 
-### 10.10 Moving a sighting to another cat (amended 26 October 2026, SYC-150)
+### 10.10 Moving a sighting, and merging cats (amended 26 October 2026, SYC-150 and SYC-59)
 
-`which-cat-is-which.md` owns moving a sighting and its photos; this section records what it changes here.
+`which-cat-is-which.md` owns moving a sighting and its photos, spotting duplicates, and merging; this section records what it changes here.
+
+- **One reader of merges.** Every reader of `cat_identity` goes through one function that follows chains, ignores an undone merge and honours `asOf` (SYC-410). A merge also files the merged-away cat's sightings under the survivor as recorded moves (copying no statements), so everything that reads a sighting's cat follows the merge without reading `cat_identity`.
 
 - **A move is a statement:** an add-only `sighting_moves` row (who, when, from, to, why). A sighting's `cat_id` may change after it is resolved, but only in the transaction that wrote that row, proven by a transaction-local setting; the sightings guard refuses any other change. The move rows are the history of where a sighting was filed, and "as of" reads use them (`which-cat-is-which.md` §7.7).
 - **Statements made from the sighting follow it.** The spotter's own rows (`ear_tip`, `food_and_water`, `note`, and any later kind written with a `sightingId`) are restated on the new cat, keeping the spotter as author, role, provenance, photo, sighting and `observedAt`, superseding the old row, with `sighting_move_id` set. A team, guardian or vet row carrying that sighting's id is retracted on the old cat (the retraction keeps the sighting's id and the row's `observedAt`, so it is never evidence of life) and not restated.
