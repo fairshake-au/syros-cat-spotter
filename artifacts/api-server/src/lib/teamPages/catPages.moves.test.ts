@@ -92,11 +92,12 @@ describe("the cat it joined", () => {
 });
 
 describe("the cat it left", () => {
-  it("keeps a row of where it went, dated when it was seen, under Sightings and not Changes", () => {
+  it("keeps a row of where it went, dated when it was seen, under Changes and notes; Sightings counts only those filed under her now", () => {
     const v = mimi([out()]);
-    expect(historyRows(v, [], "sightings").map((r) => r.type)).toEqual(["sighting", "moved"]);
-    expect(historyCounts(v, []).sightings).toBe(2);
-    expect(historyRows(v, [], "changes")).toEqual([]);
+    expect(historyRows(v, [], "all").map((r) => r.type)).toEqual(["sighting", "moved"]);
+    expect(historyRows(v, [], "sightings").map((r) => r.type)).toEqual(["sighting"]);
+    expect(historyRows(v, [], "changes").map((r) => r.type)).toEqual(["moved"]);
+    expect(historyCounts(v, [])).toMatchObject({ all: 2, sightings: 1, changes: 1 });
   });
 
   it("says where it went, who moved it and why, with a link to that cat", () => {
@@ -153,6 +154,21 @@ describe("the copied answers say nothing more about the move than its row does",
       });
     const html = renderCatPage(catView({ ...mimi([out()]), history: [gone(500), gone(501)] }), "Sam", { may });
     expect(html.match(/Moved to <a/g)).toHaveLength(1);
+  });
+});
+
+describe("“See the photo” once per photo", () => {
+  const entry = (id: number, extra = {}) =>
+    statement(id, { kind: "note", said: `Said ${id}`, sightingId: 41, photoUrl: "/api/team/photos/p41", author: { kind: "spotter", label: "a spotter" }, ...extra });
+
+  it("on the cat it joined, however many answers the sighting has", () => {
+    const html = renderCatPage(catView({ ...agatha([move()]), history: [entry(1), entry(2), entry(3)] }), "Sam", { may });
+    expect(html.match(/See the photo/g)).toHaveLength(1);
+  });
+
+  it("on the cat it left", () => {
+    const html = renderCatPage(catView({ ...mimi([out()]), history: [entry(1), entry(2), entry(3)] }), "Sam", { may });
+    expect(html.match(/See the photo/g)).toHaveLength(1);
   });
 });
 

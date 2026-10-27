@@ -348,6 +348,8 @@ form.moveform .whatmoves{background:var(--card-quiet);border:1px solid var(--lin
 form.moveform .whatmoves h2{font-size:16px;margin:8px 0 4px}
 form.movebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
 form.movebar .hint{flex:1 0 100%;margin:0}
+form.movebar button,form.movesearch button{font:inherit;font-size:15px;min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
+form.moveform .whatmoves p,form.moveform .warn,.notice,ul.movelist .meta,p.chosen,a.catlink{overflow-wrap:anywhere}
 li.hrow .vet-photos{display:flex;flex-wrap:wrap;gap:8px}
 li.hrow .vet-photos a{display:block;width:64px;height:64px;min-height:64px;padding:0;margin:0}
 li.hrow .vet-photos img{display:block;width:64px;height:64px;object-fit:cover;border-radius:6px}

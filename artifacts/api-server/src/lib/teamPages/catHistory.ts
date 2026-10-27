@@ -182,9 +182,11 @@ function flatRows(v: TeamCatView, visits: readonly VisitLine[]): FlatRow[] {
 
 const SHOWS: Record<HistoryShow, (r: FlatRow) => boolean> = {
   all: () => true,
-  sightings: (r) => r.type === "sighting" || r.type === "moved",
+  sightings: (r) => r.type === "sighting",
   visits: (r) => r.type === "visit",
-  changes: (r) => r.type === "entry",
+  // A sighting moved away is a record of a change, not a sighting of this cat now: so "Sightings N" counts only
+  // the sightings filed under her (SYC-150 PR 3.3), and the moved row is under Changes and notes.
+  changes: (r) => r.type === "entry" || r.type === "moved",
 };
 
 /**
@@ -619,7 +621,7 @@ function changeLink(id: number, c: ExtrasCtx): string {
 }
 
 /** What follows an entry's words: why, what it corrects, its photo, what replaced it, where it went. */
-export function entryExtras(s: TeamStatement, c: ExtrasCtx, skipWhy = false, quietMove = false): string {
+export function entryExtras(s: TeamStatement, c: ExtrasCtx, skipWhy = false, quietMove = false, showPhoto = true): string {
   const replacements = s.replacedBy
     .map((id) => c.byId.get(id))
     .filter((r): r is TeamStatement => r !== undefined)
@@ -648,13 +650,28 @@ export function entryExtras(s: TeamStatement, c: ExtrasCtx, skipWhy = false, qui
   return (
     (s.reason && !skipWhy && !(quietMove && s.reason === "moved") ? `<p class="why">Why: ${esc(s.reason)}</p>` : "") +
     corrects +
-    (s.photoUrl ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}">See the photo</a></p>` : "") +
+    (s.photoUrl && showPhoto ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}">See the photo</a></p>` : "") +
     replacements +
     moved +
     (s.ownerClaim
       ? '<p class="hint">This is the owner\'s own claim. To end this claim, use Remove owner under “Update this cat”.</p>'
       : "")
   );
+}
+
+/**
+ * The extras of a sighting's entries, with "See the photo" once per photo: the
+ * entries of one sighting all carry its photo (SYC-150 PR 3.3).
+ */
+function sightingExtras(entries: readonly TeamStatement[], c: ExtrasCtx, quietMove: boolean): string {
+  const seen = new Set<string>();
+  return entries
+    .map((e) => {
+      const first = e.photoUrl !== null && !seen.has(e.photoUrl);
+      if (e.photoUrl !== null) seen.add(e.photoUrl);
+      return entryExtras(e, c, false, quietMove, first);
+    })
+    .join("");
 }
 
 const keptFor = (s: TeamStatement, c: Ctx) => (c.kept?.formKey === `wrong:${s.id}` ? c.kept.fields : undefined);
@@ -764,7 +781,7 @@ function sightingRow(r: SightingRow, c: Ctx): string {
     // Every sighting comes from a spotter's phone (sightings_attribution_ck).
     `<span class="who">${esc(who.length > 0 ? who.join(", ") : "A spotter")}${recordedLate}</span>` +
     (c.cameFrom.has(s.id) ? cameHereLine(c.cameFrom.get(s.id)!) : "") +
-    r.entries.map((e) => entryExtras(e, c, false, c.cameFrom.has(s.id))).join("") +
+    sightingExtras(r.entries, c, c.cameFrom.has(s.id)) +
     thumb +
     // Tick to move several at once; the buttons are in the bar above the list.
     (c.may("move_sighting")
@@ -817,7 +834,7 @@ function movedRow(r: Extract<HistoryRow, { type: "moved" }>, c: Ctx): string {
     `<p class="meta moveline">${m.madeNewCat ? "Started a new cat. Moved" : "Moved"} to ` +
     `<a href="${esc(catHref(m.otherCat.id))}">${esc(m.otherCat.name)}</a> <span class="syr">${esc(m.otherCat.syr)}</span> ` +
     `by ${esc(moverWords(m))} on ${timeTag(m.at, fullDay(m.at))}. Why: ${esc(moveWhy(m))}.</p>` +
-    r.entries.map((e) => entryExtras(e, c, false, true)).join("") +
+    sightingExtras(r.entries, c, true) +
     thumb +
     "</div>" +
     dots(`the sighting on ${seen}, moved to ${m.otherCat.name}`, back, ids.some((id) => c.targets.has(id))) +
