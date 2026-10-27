@@ -2,6 +2,7 @@ import { catsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { haversineKm } from "@workspace/geo";
 import { blurPosition } from "./blur";
+import { canonicalCatOf, catsFeeding } from "./catIdentity";
 import { deriveCatStatuses } from "./catHelpers";
 import { pr3Recorded } from "./pr3Gate";
 import type { DbOrTx } from "./observations";
@@ -56,15 +57,11 @@ export async function claimEligibility(
   // A cat merged into another (§10.3) isn't a cat of its own any more: a
   // homed written on it would fold into the cat it was merged into, leaving
   // that cat homed with nobody linked, so nobody could claim it. The claim
-  // belongs on the cat it was merged into. Only a merge nothing has undone.
-  const mergedAway = await exec.execute<{ merged: boolean }>(sql`
-    select exists (
-      select 1 from cat_identity ci
-       where ci.cat_id = ${catId}
-         and ci.canonical_cat_id <> ${catId}
-         and not exists (select 1 from cat_identity u where u.supersedes_id = ci.id)
-    ) as merged`);
-  if (mergedAway.rows[0]?.merged !== false) return { ok: false, code: "NOT_ON_STREET" };
+  // belongs on the cat it was merged into. Only a merge nothing has undone,
+  // through chains; a cat in a merge loop has no canonical cat and fails
+  // closed (lib/catIdentity.ts, the one reader of merges).
+  const canonical = (await canonicalCatOf([catId], {}, exec)).get(catId);
+  if (canonical !== catId) return { ok: false, code: "NOT_ON_STREET" };
 
   // Fail closed (critic HIGH-2): until the PR 3 backfill is recorded, and
   // whenever the gate can't be read, deriveCatStatuses falls back to the
@@ -91,7 +88,8 @@ export async function claimEligibility(
 export async function hasMetCat(exec: DbOrTx, catId: number, deviceId: string): Promise<boolean> {
   // A resolved sighting from this phone (a sighting unlinked by
   // deletion has no device, so never matches), of this cat or of a cat merged
-  // into it by a merge nothing has undone (§10.3), and either:
+  // into it by a merge nothing has undone, through chains (§10.3;
+  // `catsFeeding`, lib/catIdentity.ts), and either:
   // - with no match record, which only a sighting from before records were
   //   kept has (it is `unlabelled`; nothing backfilled them); or
   // - with a match record whose choice wasn't recorded (the label is written
@@ -105,6 +103,7 @@ export async function hasMetCat(exec: DbOrTx, catId: number, deviceId: string): 
     MET_MATCH_CHOICES.map((c) => sql`${c}`),
     sql`, `,
   );
+  const feeding = (await catsFeeding([catId], {}, exec)).get(catId)?.ids ?? [catId];
   const met = await exec.execute<{ met: boolean }>(sql`
     select exists (
       select 1
@@ -112,11 +111,10 @@ export async function hasMetCat(exec: DbOrTx, catId: number, deviceId: string): 
         left join sighting_matches m on m.sighting_id = s.id
        where s.device_id = ${deviceId}
          and s.status = 'resolved'
-         and (s.cat_id = ${catId}
-              or s.cat_id in (
-                select ci.cat_id from cat_identity ci
-                 where ci.canonical_cat_id = ${catId}
-                   and not exists (select 1 from cat_identity u where u.supersedes_id = ci.id)))
+         and s.cat_id in (${sql.join(
+           feeding.map((id) => sql`${id}`),
+           sql`, `,
+         )})
          and (m.sighting_id is null
               or (m.choice is null
                   and (m.chosen_cat_id is null or m.chosen_cat_id = s.cat_id))
