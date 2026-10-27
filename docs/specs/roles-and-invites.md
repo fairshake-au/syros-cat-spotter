@@ -309,11 +309,14 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `rename_cat` | Change a cat's name | Island-only | ✓ | ✓ | — |
 | `hide_photo` · `restore_photo` | Take a photo down, put it back | Island-only | ✓ | ✓ | — |
 | `remove_photo` | Remove a hidden photo's bytes for good under `hosting-and-photo-storage.md` §6.5: one write, recorded who, when and why, irreversible. Only on a photo that is already hidden for a privacy reason (someone reported it as showing a person or a private place, or the team ticked "for privacy" when hiding it); asks for a typed confirmation | Island-only | ✓ | ✓ | — |
+| `move_sighting` | Move a sighting to the right cat (which-cat-is-which.md §5) | Island-only | ✓ | ✓ | — |
+| `merge_cats` | Merge two records of the same cat, and undo a merge (which-cat-is-which.md §4) | Island-only | ✓ | ✓ | — |
 
 **Deciding, and running the list of people**
 
 | Capability | What it lets you do | Kind | Team | Management | Guardian |
 |---|---|---|---|---|---|
+| `review_duplicates` | Work through the Possible duplicates list (which-cat-is-which.md §3.3) | Island-only | ✓ | ✓ | — |
 | `settle_confirmation` | Approve or decline a guardian's site-public request in "Needs an OK" (§7). That is now the only kind of item in the queue, so the name is kept for the one job it does (it can be renamed `settle_site_public_request` when the code is written; the catalogue test pins whichever is used) | Island-only | ✓ | ✓ | — |
 | `manage_people` | Invite, place, remove, re-admit, sign out everywhere, and **forget a former guardian or team member** (SYC-208; the "Forget this guardian" button on the colony page, SYC-256). One management member is enough for every access change, including adding or removing team or management members (§8.3) | Island-only | — | ✓ | — |
 | `action_deletion_request` | Delete a person's details on a data request | Island-only | — | ✓ | — |
