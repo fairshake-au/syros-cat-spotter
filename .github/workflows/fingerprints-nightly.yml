@@ -48,6 +48,14 @@ jobs:
           fi
           # The token only ever goes to the app: a manual run's base_url must
           # be the production host or localhost.
+          # No user-info: "https://apptest.catspotters.com:pw@evil.example.com"
+          # would pass the host check below but send the token to evil.example.com.
+          case "${BASE_URL}" in
+            *@*)
+              echo "::error::base_url must not contain '@'"
+              exit 1
+              ;;
+          esac
           rest="${BASE_URL#*://}"
           scheme="${BASE_URL%%://*}"
           host="${rest%%/*}"

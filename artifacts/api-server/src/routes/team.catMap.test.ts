@@ -7,15 +7,17 @@ import { assetUrl } from "../lib/teamAssets";
 import { isOpaqueAddress } from "../test/opaqueAddress";
 import { expectMapNote } from "../test/mapNote";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
+import { currentAreas } from "../lib/areas/namedAreas";
 import { removeTestPerson } from "../test/removeTestPerson";
 import { deleteTestSightings } from "../test/sightings";
 import { guardianOn, newColony, RUN, seedCat, signedPerson, type SeededCat, type Signed } from "../test/roleKit";
 
-// SYC-396 PR 1.5 (spec §6, §10.4, §12.2, §12.4, §13; plan Task 1.5.3): the
-// island Map, GET /api/team/cats?view=map. A draggable map for the script,
-// the button map with the cats on it for no script, the legend, the layers,
-// the Grid/Map switch, and a cat's trail with ?focus=. No position in any
-// address; team-only.
+// SYC-396 PR 1.5 (spec §6, §10.4, §12.2, §12.4, §13; plan Task 1.5.3); SYC-705
+// Task 2b.6: the island Map, GET /api/team/cats?view=map. The MapLibre map's
+// box for the scripts, and for no script (or no map) the "needs JavaScript"
+// line and a link to the same cats as the grid; the legend, the layers, the
+// Go to areas, the Grid/Map switch, and a cat's trail with ?focus=. No
+// position in any address; team-only.
 
 const KEY = "vitest-catmap-key-0123456789abcdef-0123456789ab";
 const DEVICE = `vt-catmap-${RUN}`;
@@ -72,40 +74,59 @@ const addresses = (html: string) => [...html.matchAll(/\b(?:href|src|action)="([
 
 /** The JSON in one data- attribute of #island-map. */
 function data(html: string, name: string): unknown {
-  const m = new RegExp(`<div id="island-map"[^>]*\\sdata-${name}="([^"]*)"`).exec(html);
+  const m = new RegExp(`<div class="map" id="island-map"[^>]*\\sdata-${name}="([^"]*)"`).exec(html);
   if (!m) return undefined;
   const raw = m[1]!.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
   return JSON.parse(raw);
 }
 
 describe("the island Map page", () => {
-  it("holds the draggable map's box, and the button map with the cats on it inside <noscript>", async () => {
+  it("holds the map's box for the scripts, saying the map needs JavaScript until it starts", async () => {
     const res = await page(`/api/team/cats?view=map&colony=${colony}`);
     expect(res.status).toBe(200);
-    expect(res.text).toContain('<div id="island-map"');
-    const noscript = /<noscript>([\s\S]*?)<\/noscript>/.exec(res.text);
-    expect(noscript).not.toBeNull();
-    const fallback = noscript![1]!;
-    expect(fallback).toContain('class="mapfallback"');
-    expect(fallback).toContain('<div class="map" id="map"');
-    // The cat as a marker, with its mark's dot, linking to its page.
-    expect(fallback).toContain(`href="/api/team/cats/${cat.id}"`);
-    expect(fallback).toMatch(/class="pin catpin"[^>]*>.*?<span class="catdot mark-not_known"/);
-    // Its zoom, pan and Go to buttons post back to the Cats map, not the tap-check page.
-    expect(fallback).toContain('action="/api/team/cats/map"');
-    expect(fallback).not.toContain('action="/api/team/map"');
-    // The scripted part stays hidden until the script shows it.
-    expect(res.text).toContain('<div id="mapscripted" hidden>');
+    const box = /<div class="map" id="island-map"[^>]*>([\s\S]*?)<\/div>/.exec(res.text);
+    expect(box).not.toBeNull();
+    expect(box![0]).toContain('role="region" aria-label="Map of Syros with the cats on it"');
+    expect(box![0]).toMatch(/ data-maplibre="\/api\/team\/assets\/maplibre-gl\.[0-9a-f]{12}\.mjs"/);
+    expect(box![0]).toMatch(/ data-worker="\/api\/team\/assets\/maplibre-gl-worker\.[0-9a-f]{12}\.mjs"/);
+    expect(box![1]).toBe('<p class="mapnojs">The map needs a newer browser with JavaScript on.</p>');
+    const words = data(res.text, "words") as Record<string, string>;
+    expect(words).toMatchObject({ loading: "Loading the map…", needsJs: "The map needs a newer browser with JavaScript on." });
+    expect(data(res.text, "map")).toMatchObject({ mode: "view", lang: "en", zoom: 12, markers: [] });
+    // No button map any more, in <noscript> or anywhere.
+    expect(res.text).not.toContain("<noscript");
+    expect(res.text).not.toContain("/api/team/cats/map");
+    // The layers and Go to stay hidden until the script shows them.
+    expect(res.text).toContain('<fieldset class="maplayers" id="maplayers" hidden>');
+    expect(res.text).toContain('<details class="mapmove" id="mapmove" hidden><summary>Go to an area</summary>');
+  });
+
+  it("no script or no map: links to the same cats as the grid, with the filters and never a position", async () => {
+    const q = `colours=ginger&sterilised=not_known&colony=${colony}`;
+    const res = await page(`/api/team/cats?${q}&view=map&focus=${cat.id}`);
+    const link = /<p class="mapfallback" id="mapgrid"><a class="tap" id="map-gridlink" href="([^"]+)">Show these cats as a grid<\/a><\/p>/.exec(res.text);
+    expect(link).not.toBeNull();
+    const href = link![1]!.replace(/&amp;/g, "&");
+    // The same address as the Grid switch.
+    const grid = /<a id="view-grid" href="([^"]+)"/.exec(res.text)![1]!.replace(/&amp;/g, "&");
+    expect(href).toBe(grid);
+    expect(href).toBe(`/api/team/cats?colours=ginger&colony=${colony}&sterilised=not_known`);
+  });
+
+  it("has a Go to button per named area, by key, with its position only in the page data", async () => {
+    const res = await page("/api/team/cats?view=map");
+    const keys = [...res.text.matchAll(/<button type="button" data-area="([^"]+)">([^<]+)<\/button>/g)].map((m) => [m[1], m[2]]);
+    expect(keys).toEqual(currentAreas().map((a) => [a.key, a.name]));
+    expect(data(res.text, "areas")).toEqual(currentAreas().map((a) => ({ key: a.key, name: a.name, lat: a.lat, lng: a.lng })));
   });
 
   it("says the map is only for the team where it can be seen, and keeps the reason behind a link (22 Oct 2026)", async () => {
     expectMapNote((await page(`/api/team/cats?view=map&colony=${colony}`)).text);
   });
 
-  it("the no-script cats map carries the same note", async () => {
-    // Without a script the page is the same HTML; the note sits outside <noscript> and the script's box.
+  it("the note sits outside the map's box, so it shows with no script or no map too", async () => {
     const html = (await page(`/api/team/cats?view=map&colony=${colony}`)).text;
-    expect(html.indexOf("This map is only for the team.")).toBeGreaterThan(html.indexOf("</noscript>"));
+    expect(html.indexOf("This map is only for the team.")).toBeGreaterThan(html.indexOf('id="map-gridlink"'));
   });
 
   it("is titled Map and keeps Grid/Map after the search and Filters, as the grid does (SYC-522)", async () => {
@@ -132,9 +153,9 @@ describe("the island Map page", () => {
   it("loads only our own files, by assetUrl()", async () => {
     const res = await page("/api/team/cats?view=map");
     const srcs = [...res.text.matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
-    expect(srcs).toEqual([assetUrl("leaflet.js"), assetUrl("dashboard-map.js")]);
+    expect(srcs).toEqual([assetUrl("pmtiles.js"), assetUrl("map-core.js"), assetUrl("dashboard-map.js")]);
     const css = [...res.text.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((m) => m[1]);
-    expect(css).toEqual([assetUrl("leaflet.css")]);
+    expect(css).toEqual([assetUrl("maplibre-gl.css")]);
   });
 
   it("has the legend: the four marks with their words, and the square feeding-site key", async () => {
@@ -190,9 +211,6 @@ describe("the island Map page", () => {
       [37.4436, 24.8889, false],
       [37.4447, 24.9417, false],
     ]);
-    // On the button map too, as numbered markers with their dates.
-    expect(res.text).toMatch(/title="1\. First recorded /);
-    expect(res.text).toMatch(/title="3\. Seen /);
     // No focus: no trail.
     expect(data((await page("/api/team/cats?view=map")).text, "focus")).toBeUndefined();
     // A focus that isn't a number is no focus.
@@ -210,7 +228,7 @@ describe("the island Map page", () => {
     const all = addresses(res.text);
     expect(all.length).toBeGreaterThan(10);
     for (const a of all) {
-      // A photo uuid or a picture token this server signed is opaque by
+      // A photo uuid is opaque by
       // design, and may hold a digit run by chance (SYC-425).
       if (isOpaqueAddress(a)) continue;
       expect(a, a).not.toMatch(/37\.\d|24\.\d|\d+[/-]\d+[/-]\d+/);
@@ -223,48 +241,25 @@ describe("the island Map page", () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain("No cats match these filters");
     expect(res.text).toMatch(/<a class="tap" id="mapclear" href="\/api\/team\/cats\?view=map">Clear filters<\/a>/);
-    expect(res.text).toContain('<div id="island-map"');
+    expect(res.text).toContain('<div class="map" id="island-map"');
   });
 
   it("is the team's only: a cat guardian gets the 403, nobody signed in the 401", async () => {
     const g = await page("/api/team/cats?view=map", guardian);
     expect(g.status).toBe(403);
-    expect(g.text).not.toContain('<div id="island-map"');
+    expect(g.text).not.toContain('id="island-map"');
     expect((await page("/api/team/cats?view=map", null)).status).toBe(401);
   });
 });
 
-describe("the button map's moves, with no script (POST /api/team/cats/map)", () => {
-  const move = (body: Record<string, string>, who: Signed | null = staff) => {
-    const t = request(app).post("/api/team/cats/map").set("Origin", TEAM_ORIGIN).type("form");
-    return (who ? t.set("Cookie", who.cookie) : t).send(body);
-  };
-
-  it("zooms in and keeps the filters, with the button map in the open and no script", async () => {
-    const res = await move({ vz: "12", vx: "0", vy: "0", go: "in", filters: `colony=${colony}` });
-    expect(res.status).toBe(200);
-    expect(res.text).not.toContain("<noscript>");
-    expect(res.text).toContain('class="mapfallback"');
-    expect(res.text).toMatch(/name="vz" value="13"/);
-    // The filters ride along, in a hidden field, not the address.
-    expect(res.text).toContain(`name="filters" value="colony=${colony}"`);
-    expect(res.text).toMatch(/<option value="\d+" selected>/);
-  });
-
-  it("Go to an area works", async () => {
-    const res = await move({ vz: "12", vx: "0", vy: "0", area: "kini" });
-    expect(res.status).toBe(200);
-    expect(res.text).toMatch(/name="vz" value="15"/);
-  });
-
-  it("an unreadable move is a 400 back at the whole island, saying so", async () => {
-    const res = await move({ vz: "x" });
-    expect(res.status).toBe(400);
-    expect(res.text).toContain("That didn&#39;t work, so the map is back at the whole island.");
-  });
-
-  it("is the team's only", async () => {
-    expect((await move({ vz: "12", vx: "0", vy: "0" }, guardian)).status).toBe(403);
-    expect((await move({ vz: "12", vx: "0", vy: "0" }, null)).status).toBe(401);
+describe("the button map's moves are gone (SYC-705 Task 2b.6)", () => {
+  it("POST /api/team/cats/map is no route", async () => {
+    const res = await request(app)
+      .post("/api/team/cats/map")
+      .set("Origin", TEAM_ORIGIN)
+      .set("Cookie", staff.cookie)
+      .type("form")
+      .send({ vz: "12", vx: "0", vy: "0", go: "in" });
+    expect(res.status).toBe(404);
   });
 });

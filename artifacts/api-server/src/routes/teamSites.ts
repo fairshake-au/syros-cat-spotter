@@ -9,19 +9,10 @@ import { can, type CapabilityTarget } from "../lib/capabilities";
 import { formRoute } from "./teamCorrections";
 import { useHeldTyping } from "../lib/teamAuth/heldTyping";
 import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
-import {
-  clampView,
-  inIsland,
-  isViewAllowed,
-  MAX_ZOOM,
-  viewAround,
-  type Position,
-  type View,
-} from "../lib/mapTiles/geometry";
-import { readTileToken } from "../lib/mapTiles/tileToken";
+import { inIsland, type Position } from "../lib/island";
 import { sightingSpot } from "../lib/sightingSpot";
+import { areaByKey } from "../lib/areas/namedAreas";
 import { currentColonyOf } from "../lib/colonyMembership";
-import { applyMove, readTap } from "../lib/mapTiles/mapForms";
 import {
   listSites,
   recentSiteChanges,
@@ -32,7 +23,6 @@ import {
 import { renderNoSuchSite, renderSitePage, renderSitesPage, SITES_PATH } from "../lib/teamPages/sitePages";
 import type { Visible } from "../lib/guardianView";
 import {
-  CONFIRM_ZOOM,
   NEW_PATH,
   PICK_PATH,
   renderAddConfirm,
@@ -63,7 +53,7 @@ import {
 // §2.1 to §2.5, §8, §11.2; plan K8, K13, Decision 1A).
 //
 // **Permissions (PR 4.1; spec §7.3).** The pages that only show sites (the
-// list and map, its zoom and pan, one site) let in anyone who sees some
+// list and its map, one site) let in anyone who sees some
 // colony (`requireSeeing`), and every query behind them is filtered by
 // `visibleColonyIds` in SQL: a cat guardian sees her own colonies' sites and
 // nothing else. Another colony's site answers exactly what a number that was
@@ -74,9 +64,11 @@ import {
 // capabilities against the sighting's CAT's colony, read from the record.
 // The "for any colony?" check is the sign-in door's alone.
 //
-// **No position in any address (K13).** The map's zoom, pan and area buttons
-// are POST forms with hidden fields; the "Show retired" setting is a fixed
-// key (`retired=1`), never a position. A marker links to a site's number.
+// **No position in any address (K13).** Every map here is MapLibre (SYC-705;
+// positions are page data, never in an address); a place page's pin, area
+// list and typed numbers are POST forms, the pin's spot in hidden fields; the "Show
+// retired" setting is a fixed key (`retired=1`), never a position. A marker
+// links to a site's number.
 //
 // **Who looked (spec §8).** Opening ONE site's page writes one
 // `site_page_reads` row. The list and the map write none.
@@ -91,7 +83,6 @@ const SITE_ZOOM = 17;
 async function sitesPage(
   res: Response,
   status: number,
-  view: View,
   showRetired: boolean,
   note?: string,
   sighting?: Position,
@@ -102,6 +93,8 @@ async function sitesPage(
     recentSiteChanges(v.visible),
     listSites(v.visible, { includeRetired: showRetired }),
   ]);
+  // The MapLibre map's own scripts: the wider header, only now the page is built.
+  if (status === 200) setTeamHeaders(res, { scripts: true });
   res
     .status(status)
     .type("html")
@@ -113,7 +106,6 @@ async function sitesPage(
         counts,
         changes,
         sites,
-        view,
         showRetired,
         note,
         sighting,
@@ -138,39 +130,8 @@ router.get(
       ]);
       return void res.json({ counts, sites });
     }
-    // The tick box keeps the map where it was: the view comes back as an opaque token.
-    const token = typeof req.query["view"] === "string" ? readTileToken(req.query["view"]) : null;
-    const view =
-      token && isViewAllowed(token)
-        ? clampView({ z: token.z, x: token.x, y: token.y })
-        : viewAround(ISLAND_CENTRE, START_ZOOM);
-    await sitesPage(res, 200, view, showRetired);
-  },
-);
-
-/**
- * POST /api/team/sites/map: zoom, pan or jump to an area on the Feeding sites
- * page. The view and the "Show retired" setting come in hidden fields. It
- * writes nothing, and no read record.
- */
-router.post(
-  "/team/sites/map",
-  ...seeingFormRoute(),
-  async (req: Request, res: Response) => {
-    const body = (req.body ?? {}) as Record<string, unknown>;
-    const showRetired = body["retired"] === "1";
-    const view = applyMove(body);
-    if (!view) {
-      return void (await sitesPage(
-        res,
-        400,
-        viewAround(ISLAND_CENTRE, START_ZOOM),
-        showRetired,
-        // In her language: a cat guardian reaches this page too (review F2).
-        t("sites.moveNote", pageViewer(res).lang),
-      ));
-    }
-    await sitesPage(res, 200, view, showRetired);
+    // The page's MapLibre map (SYC-705): sitesPage sets the wider header once the page is built.
+    await sitesPage(res, 200, showRetired);
   },
 );
 
@@ -284,6 +245,8 @@ const AddForm = z.object({
   notes: optionalText(SITE_NOTES_MAX).optional(),
   lat: latField,
   lng: lngField,
+  /** Only after a pick by area (SYC-705 Task 2b.7): the spot is that area's centre. */
+  approximate: z.literal("1").optional(),
 });
 export const EditForm = z.object({
   updatedAt: stampField,
@@ -291,7 +254,13 @@ export const EditForm = z.object({
   directions: optionalText(SITE_DIRECTIONS_MAX).optional(),
   notes: optionalText(SITE_NOTES_MAX).optional(),
 });
-const MoveForm = z.object({ updatedAt: stampField, lat: latField, lng: lngField, reason: reasonField });
+const MoveForm = z.object({
+  updatedAt: stampField,
+  lat: latField,
+  lng: lngField,
+  reason: reasonField,
+  approximate: z.literal("1").optional(),
+});
 const ReasonForm = z.object({ updatedAt: stampField, reason: reasonField });
 /** Retire: Yes on the "Are you sure?" page sends `confirm=1` (SYC-395 D1). */
 const RetireForm = ReasonForm.extend({ confirm: z.literal("1").optional() });
@@ -300,7 +269,7 @@ const StampOnly = z.object({ updatedAt: stampField });
 const TypedForm = z.object({ lat: latField, lng: lngField });
 
 /**
- * What the previous step held, carried through a nudge tap in hidden fields.
+ * What the picker carried in hidden fields (the colony an add page was opened for).
  * Lenient: anything unreadable becomes empty, never an error.
  */
 const carried = (max: number) => z.preprocess(lf, z.string().max(max).refine(noNul)).catch("");
@@ -337,11 +306,13 @@ async function knownColony(
 function newPickerPage(
   res: Response,
   status: number,
-  view: View,
   note?: string,
   colony?: { id: number; name: string } | null,
 ): void {
   const v = pageViewer(res);
+  // The map's own scripts, so the wider header: for the 200 page only. A
+  // refusal re-render (400) keeps the strict header and shows the no-map path.
+  if (status === 200) setTeamHeaders(res, { scripts: true });
   res
     .status(status)
     .type("html")
@@ -351,14 +322,15 @@ function newPickerPage(
         lang: v.lang,
         island: v.island,
         title: t("new.title", v.lang),
-        intro: colony
-          ? `${t("new.intro", v.lang)} ${t("new.introColony", v.lang)} “${colony.name}”.`
-          : t("new.intro", v.lang),
+        intro: t("new.intro", v.lang),
+        lead: colony ? `${t("new.introColony", v.lang)} “${colony.name}”.` : undefined,
         carry: colony ? { colonyId: String(colony.id) } : undefined,
         back: { href: SITES_PATH, label: t("site.backToSites", v.lang) },
-        view,
-        tapAction: PICK_PATH,
-        moveAction: `${NEW_PATH}/map`,
+        centre: ISLAND_CENTRE,
+        zoom: START_ZOOM,
+        pickAction: PICK_PATH,
+        areas: true,
+        map: status === 200,
         note,
         legend: t("new.private", v.lang),
       }),
@@ -397,74 +369,42 @@ router.get(
   async (req: Request, res: Response) => {
     setTeamHeaders(res);
     const colony = await knownColony(pageViewer(res).visible, req.query["colony"]);
-    newPickerPage(res, 200, viewAround(ISLAND_CENTRE, START_ZOOM), undefined, colony);
+    newPickerPage(res, 200, undefined, colony);
   },
 );
 
-/** POST /api/team/sites/new/map: zoom, pan and the area buttons on the add page. */
-router.post(
-  "/team/sites/new/map",
-  ...addForm,
-  async (req: Request, res: Response) => {
-    const colony = await knownColony(
-      pageViewer(res).visible,
-      (req.body as Record<string, unknown> | undefined)?.["colonyId"],
-    );
-    const view = applyMove(req.body);
-    if (!view) {
-      return void newPickerPage(res, 400, viewAround(ISLAND_CENTRE, START_ZOOM), t("sites.moveNote", pageViewer(res).lang), colony);
-    }
-    newPickerPage(res, 200, view, undefined, colony);
-  },
-);
-
-/** What a tap or typed position turned into. */
+/** What a place page's form turned into: the map's pin, typed numbers, or an area (SYC-705 Task 2b.7). */
 export type Picked =
-  | { ok: true; spot: Position; zoom: number; checkNote?: string }
-  | { ok: false; status: 400; view: View; note: string; fields: string[] };
+  | { ok: true; spot: Position; approximate: boolean }
+  | { ok: false; status: 400; note: string; fields: string[] };
 
-/** Reads the picker's form: a tap on the map, or typed coordinates. Never parses the tap itself. */
-export function readPick(body: Record<string, unknown>, lang?: string): Picked {
-  if (Object.hasOwn(body, "lat") || Object.hasOwn(body, "lng")) {
-    const typed = typedSpot(body);
-    const here = viewAround(ISLAND_CENTRE, START_ZOOM);
-    if (!typed.success) {
-      return { ok: false, status: 400, view: here, note: t("sproblem.position", lang), fields: fieldsOf(typed.error) };
-    }
-    const spot = { lat: typed.data.lat, lng: typed.data.lng };
-    if (!inIsland(spot)) {
-      return { ok: false, status: 400, view: here, note: t("sproblem.outside", lang), fields: ["lat", "lng"] };
-    }
-    return { ok: true, spot, zoom: CONFIRM_ZOOM };
+/** Is this field sent, and not empty? */
+const sent = (v: unknown) => v !== undefined && !(typeof v === "string" && v.trim() === "");
+
+/**
+ * Reads a place page's form. A non-empty `lat` or `lng` (the map's pin, or
+ * typed numbers) wins and is exact; otherwise an `area` key (the no-map
+ * list), when allowed, gives that area's centre, marked approximate. A spot
+ * outside Syros, an unknown area and anything else are refused.
+ */
+export function readPick(
+  body: Record<string, unknown>,
+  lang?: string,
+  opts: { allowArea?: boolean } = {},
+): Picked {
+  const allowArea = opts.allowArea !== false;
+  if (allowArea && Object.hasOwn(body, "area") && !sent(body["lat"]) && !sent(body["lng"])) {
+    const area = areaByKey(body["area"]);
+    if (!area) return { ok: false, status: 400, note: t("sproblem.area", lang), fields: ["area"] };
+    return { ok: true, spot: { lat: area.lat, lng: area.lng }, approximate: true };
   }
-  const tap = readTap(body);
-  if (!tap.ok && tap.reason === "unreadable") {
-    return {
-      ok: false,
-      status: 400,
-      view: viewAround(ISLAND_CENTRE, START_ZOOM),
-      note: t("sproblem.tapUnreadable", lang),
-      fields: ["view"],
-    };
+  const typed = typedSpot(body);
+  if (!typed.success) {
+    return { ok: false, status: 400, note: t("sproblem.position", lang), fields: fieldsOf(typed.error) };
   }
-  if (!tap.ok) {
-    return {
-      ok: false,
-      status: 400,
-      view: clampView(tap.picture),
-      note: tap.reason === "outside" ? t("sproblem.outside", lang) : t("sproblem.tapNoPoint", lang),
-      fields: ["x", "y"],
-    };
-  }
-  return {
-    ok: true,
-    spot: tap.spot,
-    // A re-tap on the confirmation's small map (`nudge`) keeps its zoom; the
-    // first tap on the full map zooms in two steps around the spot.
-    zoom: body["nudge"] === "1" ? tap.picture.z : Math.min(tap.picture.z + 2, MAX_ZOOM),
-    // The same "Details for checking the tap" as the Map page (SYC-287's real-phone check).
-    checkNote: `Point ${tap.point.x}, ${tap.point.y} on a ${tap.picture.size * 2} px map picture.`,
-  };
+  const spot = { lat: typed.data.lat, lng: typed.data.lng };
+  if (!inIsland(spot)) return { ok: false, status: 400, note: t("sproblem.outside", lang), fields: ["lat", "lng"] };
+  return { ok: true, spot, approximate: false };
 }
 
 /**
@@ -484,21 +424,22 @@ router.post(
         pageViewer(res).visible,
         (req.body as Record<string, unknown> | undefined)?.["colonyId"],
       );
-      return void newPickerPage(res, picked.status, picked.view, picked.note, colony);
+      return void newPickerPage(res, picked.status, picked.note, colony);
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
-    res.type("html").send(
-      renderAddConfirm({
-        personName: teamPerson(res).name,
-        lang: pageViewer(res).lang,
-        spot: picked.spot,
-        zoom: picked.zoom,
-        colonies: await colonyOptions(pageViewer(res).visible),
-        checkNote: picked.checkNote,
-        carry: AddCarryForm.parse(req.body ?? {}),
-        island: pageViewer(res).island,
-      }),
-    );
+    // "Check the spot" carries its small map (Samuel, 26 Oct 2026): the wider header for this 200.
+    // Built first, then the wider header: an error answer keeps the strict one.
+    const html = renderAddConfirm({
+      personName: teamPerson(res).name,
+      lang: pageViewer(res).lang,
+      spot: picked.spot,
+      approximate: picked.approximate,
+      colonies: await colonyOptions(pageViewer(res).visible),
+      carry: AddCarryForm.parse(req.body ?? {}),
+      island: pageViewer(res).island,
+    });
+    setTeamHeaders(res, { scripts: true });
+    res.type("html").send(html);
   },
 );
 
@@ -559,17 +500,19 @@ router.post(
     const inNow = (await currentColonyOf([found.catId])).get(found.catId);
     const colonyId = covers(v.visible, inNow) ? inNow : undefined;
     if (!isFormPost(req)) return void res.json({ ...found.spot, colonyId: colonyId ?? null });
-    res.type("html").send(
-      renderAddConfirm({
-        personName: v.personName,
-        lang: v.lang,
-        island: v.island,
-        spot: found.spot,
-        zoom: CONFIRM_ZOOM,
-        colonies: await colonyOptions(v.visible),
-        carry: { name: "", colonyId: colonyId === undefined ? "" : String(colonyId), directions: "", notes: "" },
-      }),
-    );
+    // The same "Check the spot" page, with its small map: the wider header for this 200.
+    // Built first, then the wider header: an error answer keeps the strict one.
+    const html = renderAddConfirm({
+      personName: v.personName,
+      lang: v.lang,
+      island: v.island,
+      spot: found.spot,
+      approximate: false,
+      colonies: await colonyOptions(v.visible),
+      carry: { name: "", colonyId: colonyId === undefined ? "" : String(colonyId), directions: "", notes: "" },
+    });
+    setTeamHeaders(res, { scripts: true });
+    res.type("html").send(html);
   },
 );
 
@@ -585,7 +528,8 @@ router.post(
     const found = await sightingFor(req, res);
     if (!found) return;
     if (!isFormPost(req)) return void res.json(found.spot);
-    await sitesPage(res, 200, viewAround(found.spot, SITE_ZOOM), false, undefined, found.spot);
+    // The Feeding sites page's MapLibre map, opened on the sighting (Samuel, 26 Oct 2026): sitesPage sets the wider header.
+    await sitesPage(res, 200, false, undefined, found.spot);
   },
 );
 
@@ -616,10 +560,12 @@ router.post(
         return badForm(req, res, ["colonyId"], back);
       }
     }
+    const { approximate, ...fields } = parsed.data;
     const out = await addSite(teamPerson(res).id, {
-      ...parsed.data,
-      directions: parsed.data.directions ?? null,
-      notes: parsed.data.notes ?? null,
+      ...fields,
+      directions: fields.directions ?? null,
+      notes: fields.notes ?? null,
+      positionApproximate: approximate === "1",
     });
     switch (out.kind) {
       case "no_colony":
@@ -781,11 +727,12 @@ function movePickerPage(
   status: number,
   site: MovingSite,
   stamp: string,
-  view: View,
   note?: string,
 ): void {
   const v = pageViewer(res);
   const base = sitePath(site.id);
+  // As the add page: the wider header for the 200 page with its map only.
+  if (status === 200) setTeamHeaders(res, { scripts: true });
   res
     .status(status)
     .type("html")
@@ -797,11 +744,13 @@ function movePickerPage(
         title: `${t("move.title", v.lang)} ${site.name}`,
         intro: t("move.intro", v.lang),
         back: { href: base, label: t("sproblem.backToSite", v.lang) },
-        view,
+        centre: { lat: site.lat, lng: site.lng },
+        zoom: SITE_ZOOM,
         markers: [{ lat: site.lat, lng: site.lng, label: t("move.now", v.lang), look: "retired" }],
-        tapAction: `${base}/move/pick`,
-        moveAction: `${base}/move/map`,
+        pickAction: `${base}/move/pick`,
         carry: { updatedAt: stamp },
+        areas: true,
+        map: status === 200,
         note,
         legend: t("move.legend", v.lang),
       }),
@@ -817,34 +766,7 @@ router.get(
     const id = siteIdOf(req);
     const site = id === null ? null : await siteForMove(pageViewer(res).visible, id);
     if (!site) return notFound(req, res);
-    movePickerPage(res, 200, site, site.stamp, viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM));
-  },
-);
-
-/** POST /api/team/sites/:id/move/map: zoom, pan and the area buttons on the move page. */
-router.post(
-  "/team/sites/:id/move/map",
-  ...formRoute("edit_feeding_site", { target: thisSite }),
-  async (req: Request, res: Response) => {
-    const id = siteIdOf(req);
-    const site = id === null ? null : await siteForMove(pageViewer(res).visible, id);
-    if (id === null || !site) return notFound(req, res);
-    const stamp = StampOnly.safeParse(req.body ?? {});
-    if (!stamp.success) {
-      return badForm(req, res, ["updatedAt"], { href: sitePath(id), label: t("sproblem.backToSite", pageViewer(res).lang) });
-    }
-    const view = applyMove(req.body);
-    if (!view) {
-      return void movePickerPage(
-        res,
-        400,
-        site,
-        stamp.data.updatedAt,
-        viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM),
-        t("sites.moveNote", pageViewer(res).lang),
-      );
-    }
-    movePickerPage(res, 200, site, stamp.data.updatedAt, view);
+    movePickerPage(res, 200, site, site.stamp);
   },
 );
 
@@ -868,26 +790,22 @@ router.post(
     const picked = readPick(body, pageViewer(res).lang);
     if (!picked.ok) {
       if (!isFormPost(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
-      // Back on the site's own map, not the whole island.
-      const view =
-        picked.view.z === START_ZOOM
-          ? viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM)
-          : picked.view;
-      return void movePickerPage(res, picked.status, site, stamp.data.updatedAt, view, picked.note);
+      return void movePickerPage(res, picked.status, site, stamp.data.updatedAt, picked.note);
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
-    res.type("html").send(
-      renderMoveConfirm({
-        personName: teamPerson(res).name,
-        site: { ...site, stamp: stamp.data.updatedAt },
-        spot: picked.spot,
-        zoom: picked.zoom,
-        checkNote: picked.checkNote,
-        reason: MoveCarryForm.parse(body).reason,
-        island: pageViewer(res).island,
-        lang: pageViewer(res).lang,
-      }),
-    );
+    // The move's "Check the spot", with its small map: the wider header for this 200.
+    // Built first, then the wider header: an error answer keeps the strict one.
+    const html = renderMoveConfirm({
+      personName: teamPerson(res).name,
+      site: { ...site, stamp: stamp.data.updatedAt },
+      spot: picked.spot,
+      approximate: picked.approximate,
+      reason: MoveCarryForm.parse(body).reason,
+      island: pageViewer(res).island,
+      lang: pageViewer(res).lang,
+    });
+    setTeamHeaders(res, { scripts: true });
+    res.type("html").send(html);
   },
 );
 
@@ -901,8 +819,8 @@ router.post(
     const back = { href: `${SITES_PATH}/${id}/move`, label: t("sproblem.backToMove", pageViewer(res).lang) };
     const parsed = MoveForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, fieldsOf(parsed.error), back);
-    const { updatedAt, lat, lng, reason } = parsed.data;
-    const out = await moveSite(teamPerson(res).id, id, updatedAt, { lat, lng }, reason);
+    const { updatedAt, lat, lng, reason, approximate } = parsed.data;
+    const out = await moveSite(teamPerson(res).id, id, updatedAt, { lat, lng }, reason, approximate === "1");
     answer(req, res, id, back, out, { saved: "moved", madePrivate: "movedPrivate" });
   },
 );
@@ -929,22 +847,23 @@ router.get(
     const mayAct = can(person, "edit_feeding_site", { colonyId: site.colony?.id ?? null });
     // Back after signing in again (SYC-516 C3): "Edit details" filled in.
     const kept = mayAct ? await useHeldTyping(req, person, `site:${site.id}`) : null;
-    res.type("html").send(
-      renderSitePage({
-        kept: kept ?? undefined,
-        site,
-        personName: v.personName,
-        lang: v.lang,
-        island: v.island,
-        view: viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM),
-        colonies: await colonyOptions(v.visible),
-        done: typeof req.query["done"] === "string" ? req.query["done"] : undefined,
-        // Asked of can() against the site's own colony (SYC-209 PR 4.2): a cat
-        // guardian edits, moves and retires her own sites, never "Change colony".
-        mayAct,
-        mayReassign: can(person, "reassign_feeding_site"),
-      }),
-    );
+    // The page's MapLibre map (SYC-705): its own scripts, so the wider header, for this 200 page only.
+    // Built first, then the wider header: an error answer keeps the strict one.
+    const html = renderSitePage({
+      kept: kept ?? undefined,
+      site,
+      personName: v.personName,
+      lang: v.lang,
+      island: v.island,
+      colonies: await colonyOptions(v.visible),
+      done: typeof req.query["done"] === "string" ? req.query["done"] : undefined,
+      // Asked of can() against the site's own colony (SYC-209 PR 4.2): a cat
+      // guardian edits, moves and retires her own sites, never "Change colony".
+      mayAct,
+      mayReassign: can(person, "reassign_feeding_site"),
+    });
+    setTeamHeaders(res, { scripts: true });
+    res.type("html").send(html);
   },
 );
 

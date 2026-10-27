@@ -19,14 +19,9 @@ vi.mock("./lib/logger", async (importOriginal) => {
   return { ...actual, logger };
 });
 
-import { addPerson, db, mapTileCacheTable, pool } from "@workspace/db";
-import sharp from "sharp";
-import { sessionCookieFor } from "./lib/teamAuth/__fixtures__/queueKit";
-import { removeTestPerson } from "./test/removeTestPerson";
+import { pool } from "@workspace/db";
 import app from "./app";
 import { redactRequestUrl, safeError } from "./lib/logger";
-import { mintTileToken } from "./lib/mapTiles/tileToken";
-import { _resetTileBackoffForTests } from "./lib/mapTiles/tileCache";
 
 const DEVICE = "vitest-logredact-0f3c9a7e2b";
 
@@ -96,13 +91,14 @@ describe("request log redaction (SYC-109)", () => {
     }
   });
 
-  it("a real map picture request logs as /api/team/map-tiles/:tile, with nothing of its token (SYC-209 PR 3.1)", async () => {
+  it("a real map picture request logs as /api/team/map-tiles/:tile, with nothing of its token (SYC-209 PR 3.1; SYC-705 2b.8)", async () => {
     process.env["TEAM_SESSION_KEYS"] = "vitest-logredact-key-0123456789abcdef-0123456789";
     try {
-      const token = mintTileToken({ z: 17, x: 74230, y: 50478, size: 179 });
-      // No session: refused by the real route, and still logged.
-      const res = await request(app).get(`/api/team/map-tiles/${token}`);
-      expect(res.status).toBe(401);
+      // A token-shaped string, written by hand: the picture route is gone (SYC-705 2b.8), but
+      // tabs open across the republish may still ask for old picture addresses.
+      const token = "Qm9nT0tFTi0xNy03NDIzMC01MDQ3OC0xNzktQUJDREVGR0g";
+      // Whatever answers (no route now), it is still logged redacted.
+      await request(app).get(`/api/team/map-tiles/${token}`);
       const completed = spies.logLines.filter((l) => l.includes('"request completed"'));
       expect(completed).toHaveLength(1);
       expect(completed[0]).toContain('"/api/team/map-tiles/:tile"');
@@ -116,44 +112,22 @@ describe("request log redaction (SYC-109)", () => {
     }
   });
 
-  it("a signed-in map picture request logs no z/x/y, served or failing (SYC-209 PR 3.1)", async () => {
-    process.env["TEAM_SESSION_KEYS"] = "vitest-logredact-key-0123456789abcdef-0123456789";
-    const email = `vitest-logredact-tiles-${Date.now()}@example.com`;
-    const person = await addPerson({ email, name: "Tilly", addedBy: "cli:vitest" });
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    try {
-      const cookie = sessionCookieFor(person.id);
-      // Ermoupoli at zoom 19: numbers long enough to spot anywhere in a line.
-      const tile = { z: 19, x: 298467, y: 203255, size: 179 as const };
-      for (const failing of [true, false]) {
-        spies.logLines.length = 0;
-        _resetTileBackoffForTests(); // the failing round backs off; the next must fetch
-        fetchSpy.mockImplementation(async () =>
-          failing
-            ? new Response("no", { status: 500 })
-            : new Response(await sharp({ create: { width: 256, height: 256, channels: 3, background: "#ccc" } }).png().toBuffer(), { status: 200 }),
-        );
-        const res = await request(app).get(`/api/team/map-tiles/${mintTileToken(tile)}`).set("Cookie", cookie);
-        expect(res.status).toBe(failing ? 503 : 200);
-        expect(spies.logLines.length).toBeGreaterThan(0);
-        for (const line of spies.logLines) expect(line).not.toMatch(/298467|203255/);
-      }
-    } finally {
-      fetchSpy.mockRestore();
-      await db.delete(mapTileCacheTable);
-      await removeTestPerson(email);
-      delete process.env["TEAM_SESSION_KEYS"];
-    }
+  it("an old map square address logs as /api/team/map-square/[redacted], with nothing of its token (SYC-705 2b.8)", async () => {
+    const token = "Qm9nU1FVQVJFLXRva2VuLXNoYXBlZC1zdHJpbmc";
+    await request(app).get(`/api/team/map-square/${token}`);
+    const completed = spies.logLines.filter((l) => l.includes('"request completed"'));
+    expect(completed).toHaveLength(1);
+    expect(completed[0]).toContain('"/api/team/map-square/[redacted]"');
+    for (const line of spies.logLines) expect(line).not.toContain(token.slice(0, 12));
   });
 
-  it("a malformed map picture request through the real route logs neither its path nor its error message (SYC-209 PR 3.1)", async () => {
+  it("a malformed old map picture address logs neither its path nor an error message (SYC-209 PR 3.1)", async () => {
     await request(app).get("/api/team/map-tiles/17%zz");
     expect(spies.logLines.length).toBeGreaterThan(0);
     const completed = spies.logLines.filter((l) => l.includes('"request completed"') || l.includes('"request errored"'));
     expect(completed.length).toBeGreaterThan(0);
     expect(completed.every((l) => l.includes('"/api/team/map-tiles/:tile"'))).toBe(true);
-    // The decode error reached the error handler, and was logged by type only.
-    expect(spies.logLines.some((l) => l.includes("URIError"))).toBe(true);
+    // (No route decodes it now, so no decode error; app.ts still logs errors by type only.)
     for (const line of spies.logLines) {
       expect(line).not.toContain("17%zz");
       expect(line).not.toContain("%zz");

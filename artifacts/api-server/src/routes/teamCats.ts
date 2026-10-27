@@ -26,16 +26,13 @@ import type { TieMode } from "../lib/teamPages/catPages";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
 import { allColonyChoices } from "../lib/colonyCats";
-import { cameFromCats, catPageFormKeys, renderCatPage, renderNoSuchCat, withoutTeamNotes } from "../lib/teamPages/catPages";
+import { cameFromCats, catPageFormKeys, hasSightingsMap, renderCatPage, renderNoSuchCat, withoutTeamNotes } from "../lib/teamPages/catPages";
 import { historyShowOf } from "../lib/teamPages/catHistory";
 import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
 import { parseCatFilters } from "../lib/teamCatFilters";
 import { allTeamCats, catTrail, LIVES, listTeamCats, type CatListFilters } from "../lib/teamCatList";
 import { formRoute } from "./teamCorrections";
 import { renderCatMapPage } from "../lib/teamPages/catMapPage";
-import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
-import { viewAround, type View } from "../lib/mapTiles/geometry";
-import { applyMove } from "../lib/mapTiles/mapForms";
 import { listSites } from "../lib/teamSites";
 import { lastSeenWords } from "../lib/teamPages/lastSeen";
 import { ObservationRefused } from "../lib/observations";
@@ -59,6 +56,20 @@ const router: IRouter = Router();
 const wantsJson = (req: Request) => req.accepts(["html", "json"]) === "json";
 
 const TIE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * GET /api/team/map: the old picture map's address. It is now the Cats page's
+ * map view (SYC-705 2b.8); a link or bookmark to it lands there. Same door as
+ * before, so a signed-out or non-team request is refused as it was.
+ */
+router.get(
+  "/team/map",
+  requireTeam("view_exact_location"),
+  (_req: Request, res: Response) => {
+    setTeamHeaders(res);
+    res.redirect(303, "/api/team/cats?view=map");
+  },
+);
 
 /**
  * GET /api/team/cats: every cat as a filterable photo grid (SYC-396 PR 1.3).
@@ -94,10 +105,7 @@ router.get(
     if (!tie && req.query["view"] === "map") {
       const focusRaw = req.query["focus"];
       const focusId = typeof focusRaw === "string" && CAT_ID_RE.test(focusRaw) ? Number(focusRaw) : undefined;
-      const html = await catMapHtml(person, withoutDefaultLives(parseCatFilters(req.query)), {
-        focusId,
-        scripted: true,
-      });
+      const html = await catMapHtml(person, withoutDefaultLives(parseCatFilters(req.query)), focusId);
       // As for the grid: the wider header only once the page is built. The
       // map is the Cats route's own page, so WIDE_CSP_ROUTES needs no new name.
       setTeamHeaders(res, { scripts: true });
@@ -130,21 +138,15 @@ router.get(
 );
 
 /** The island Map page for this person and these filters (SYC-396 PR 1.5). */
-async function catMapHtml(
-  person: ReturnType<typeof teamPerson>,
-  filters: CatListFilters,
-  opts: { focusId?: number; scripted: boolean; view?: View; note?: string },
-): Promise<string> {
+async function catMapHtml(person: ReturnType<typeof teamPerson>, filters: CatListFilters, focusId?: number): Promise<string> {
   const now = new Date();
   const visible = visibleColonyIds(person);
   const [{ cats, catCount }, sites, colonies, focus] = await Promise.all([
     allTeamCats(filters, now),
     listSites(visible, { includeRetired: false }),
     allColonyChoices(visible),
-    opts.focusId !== undefined ? catTrail(opts.focusId) : Promise.resolve(null),
+    focusId !== undefined ? catTrail(focusId) : Promise.resolve(null),
   ]);
-  const last = focus?.points.at(-1);
-  const view = opts.view ?? (last ? viewAround(last, FOCUS_ZOOM) : viewAround(ISLAND_CENTRE, START_ZOOM));
   return renderCatMapPage({
     personName: person.name,
     filters,
@@ -153,53 +155,9 @@ async function catMapHtml(
     catCount,
     sites: sites.map((s) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng, look: s.isPublic ? "public" : "private" })),
     focus,
-    view,
     now,
-    scripted: opts.scripted,
-    note: opts.note,
   });
 }
-
-/** The button map opens this close on a focused cat's last spot. */
-const FOCUS_ZOOM = 16;
-
-/** A query string from a hidden field, as the object parseCatFilters reads (repeats become lists). */
-function queryObject(qs: unknown): Record<string, string | string[]> {
-  const out: Record<string, string | string[]> = {};
-  if (typeof qs !== "string" || qs.length > 2000) return out;
-  for (const [k, v] of new URLSearchParams(qs)) {
-    const had = out[k];
-    out[k] = had === undefined ? v : Array.isArray(had) ? [...had, v] : [had, v];
-  }
-  return out;
-}
-
-/**
- * POST /api/team/cats/map: the zoom, pan and "Go to" buttons of the island
- * Map's button map, for a browser with no script (SYC-396 PR 1.5; spec §6.3).
- * The view and the filters come in hidden fields, never the address. Draws
- * the Map page with the button map in the open and no script at all, so it
- * keeps the strict security header (formRoute sets it).
- */
-router.post(
-  "/team/cats/map",
-  ...formRoute("view_exact_location"),
-  async (req: Request, res: Response) => {
-    const person = teamPerson(res);
-    const body = typeof req.body === "object" && req.body !== null ? (req.body as Record<string, unknown>) : {};
-    const filters = withoutDefaultLives(parseCatFilters(queryObject(body["filters"])));
-    const focusRaw = body["focus"];
-    const focusId = typeof focusRaw === "string" && CAT_ID_RE.test(focusRaw) ? Number(focusRaw) : undefined;
-    const view = applyMove(body);
-    const html = await catMapHtml(person, filters, {
-      focusId,
-      scripted: false,
-      view: view ?? viewAround(ISLAND_CENTRE, START_ZOOM),
-      note: view ? undefined : "That didn't work, so the map is back at the whole island.",
-    });
-    res.status(view ? 200 : 400).type("html").send(html);
-  },
-);
 
 /**
  * POST /api/team/cats/positions: every cat the filters match, at the place it
@@ -563,8 +521,7 @@ router.get(
     const visits = await visitsFor(view.cat.id, { costs: can(person, "view_vet_costs") });
     // Back after signing in again (SYC-516 C3): one of this page's forms filled in.
     const kept = await useHeldTypingFor(req, person, catPageFormKeys(view, (c) => can(person, c)));
-    res.type("html").send(
-      renderCatPage(view, person.name, {
+    const html = renderCatPage(view, person.name, {
         visits,
         kept: kept ?? undefined,
         may: (c) => can(person, c),
@@ -581,8 +538,12 @@ router.get(
         island: isIslandWide(person),
         // SYC-44 PR 7.1: its own check (view_welfare_queue), not this page's.
         issues: await issueStripFor(person, view.cat.id),
-      }),
-    );
+      });
+    // The sightings' small map is MapLibre (SYC-705): its scripts need the
+    // wider header, for this 200 page only and only when it has the map (set
+    // last, so an error answer stays strict).
+    if (hasSightingsMap(view)) setTeamHeaders(res, { scripts: true });
+    res.type("html").send(html);
   },
 );
 

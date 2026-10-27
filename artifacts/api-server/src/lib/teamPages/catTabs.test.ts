@@ -226,8 +226,8 @@ describe("the tab CSS", () => {
     expect(css()).toMatch(/\.cattabs a\{[^}]*min-height:44px/);
   });
 
-  it("lets the map keep its largest picture on a wide screen", () => {
-    expect(css()).not.toContain(".catmap .mapband.b256{display:none}");
+  it("carries no picture-map band rules (SYC-705 2b.8)", () => {
+    expect(css()).not.toContain(".mapband");
   });
 });
 

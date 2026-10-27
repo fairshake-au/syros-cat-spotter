@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { catView } from "./__fixtures__/catView";
-import { viewAround } from "../mapTiles/geometry";
 import { renderCatMapPage } from "./catMapPage";
 import { renderDiedPage } from "./diedPage";
 import { blankVisitForm, renderVetVisitForm } from "./vetVisitForm";
@@ -24,9 +23,7 @@ describe("help on the Map, Cat has died and Log a vet visit", () => {
       catCount: 0,
       sites: [],
       focus: null,
-      view: viewAround({ lat: 37.44, lng: 24.94 }, 12),
       now: new Date("2026-10-15T12:00:00Z"),
-      scripted: false,
     });
     expect(html).toContain("Each dot is a cat, placed where it was last seen.");
     expect(html).toContain("zoom in to split it");
