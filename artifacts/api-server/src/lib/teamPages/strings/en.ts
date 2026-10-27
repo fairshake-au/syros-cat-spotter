@@ -560,6 +560,7 @@ export const en = {
   "sproblem.reason": "Say why, in a few words.",
   "sproblem.position": "Tap the map to set the position, or type it as two numbers, like 37.44470 and 24.94170, on Syros.",
   "sproblem.outside": "That spot is outside Syros, so it can't be picked.",
+  "sproblem.area": "That area isn't on our list. Choose one from the list.",
   "sproblem.colony": "That colony doesn't exist.",
   "sproblem.stamp": "That page was out of date. Open the site again and try again.",
   "sproblem.tapUnreadable": "That tap didn't work. Please tap the map again.",

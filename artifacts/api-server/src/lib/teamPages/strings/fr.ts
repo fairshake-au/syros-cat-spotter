@@ -521,6 +521,7 @@ export const fr: Record<StringKey, string> = {
   "sproblem.reason": "Dis pourquoi, en quelques mots.",
   "sproblem.position": "Touche la carte pour définir la position, ou tape-la sous forme de deux nombres, comme 37.44470 et 24.94170, sur Syros.",
   "sproblem.outside": "Cet endroit est en dehors de Syros, il ne peut donc pas être choisi.",
+  "sproblem.area": "Ce quartier n’est pas dans notre liste. Choisissez-en un dans la liste.",
   "sproblem.colony": "Cette colonie n’existe pas.",
   "sproblem.stamp": "Cette page n’était plus à jour. Ouvre de nouveau le point et réessaie.",
   "sproblem.tapUnreadable": "Ce toucher n’a pas fonctionné. Touche à nouveau la carte.",

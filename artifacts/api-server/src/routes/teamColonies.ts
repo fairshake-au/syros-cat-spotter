@@ -551,10 +551,10 @@ router.post(
     const c = await centreColony(req, res);
     if (!c) return;
     const v = pageViewer(res);
-    const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, v.lang, startView(c), { requireArea: true });
+    const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, v.lang, { requireArea: true, allowArea: true });
     if (!picked.ok) {
       if (!isFormPost(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
-      return void centrePickerPage(res, picked.status, c, picked.view, picked.note);
+      return void centrePickerPage(res, picked.status, c, startView(c), picked.note);
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
     const base = centreBase(c.id);
@@ -568,7 +568,7 @@ router.post(
         question: (place) => t("centre.confirm", v.lang, { place }),
         saveLabel: t("centre.save", v.lang),
         spot: picked.spot,
-        zoom: picked.zoom,
+        zoom: CENTRE_ZOOM,
         now: c.centre,
         nowLabel: t("centre.now", v.lang),
         newLabel: t("centre.new", v.lang),

@@ -18,6 +18,7 @@ import {
   type View,
 } from "../lib/mapTiles/geometry";
 import { sightingSpot } from "../lib/sightingSpot";
+import { areaByKey } from "../lib/areas/namedAreas";
 import { currentColonyOf } from "../lib/colonyMembership";
 import { applyMove, readTap } from "../lib/mapTiles/mapForms";
 import {
@@ -389,53 +390,38 @@ router.post(
   },
 );
 
-/** What a tap or typed position turned into. */
+/** What a place page's form turned into: the map's pin, typed numbers, or an area (SYC-705 Task 2b.7). */
 export type Picked =
-  | { ok: true; spot: Position; zoom: number; checkNote?: string }
-  | { ok: false; status: 400; view: View; note: string; fields: string[] };
+  | { ok: true; spot: Position; approximate: boolean }
+  | { ok: false; status: 400; note: string; fields: string[] };
 
-/** Reads the picker's form: a tap on the map, or typed coordinates. Never parses the tap itself. */
-export function readPick(body: Record<string, unknown>, lang?: string): Picked {
-  if (Object.hasOwn(body, "lat") || Object.hasOwn(body, "lng")) {
-    const typed = typedSpot(body);
-    const here = viewAround(ISLAND_CENTRE, START_ZOOM);
-    if (!typed.success) {
-      return { ok: false, status: 400, view: here, note: t("sproblem.position", lang), fields: fieldsOf(typed.error) };
-    }
-    const spot = { lat: typed.data.lat, lng: typed.data.lng };
-    if (!inIsland(spot)) {
-      return { ok: false, status: 400, view: here, note: t("sproblem.outside", lang), fields: ["lat", "lng"] };
-    }
-    return { ok: true, spot, zoom: CONFIRM_ZOOM };
+/** Is this field sent, and not empty? */
+const sent = (v: unknown) => v !== undefined && !(typeof v === "string" && v.trim() === "");
+
+/**
+ * Reads a place page's form. A non-empty `lat` or `lng` (the map's pin, or
+ * typed numbers) wins and is exact; otherwise an `area` key (the no-map
+ * list), when allowed, gives that area's centre, marked approximate. A spot
+ * outside Syros, an unknown area and anything else are refused.
+ */
+export function readPick(
+  body: Record<string, unknown>,
+  lang?: string,
+  opts: { allowArea?: boolean } = {},
+): Picked {
+  const allowArea = opts.allowArea !== false;
+  if (allowArea && Object.hasOwn(body, "area") && !sent(body["lat"]) && !sent(body["lng"])) {
+    const area = areaByKey(body["area"]);
+    if (!area) return { ok: false, status: 400, note: t("sproblem.area", lang), fields: ["area"] };
+    return { ok: true, spot: { lat: area.lat, lng: area.lng }, approximate: true };
   }
-  const tap = readTap(body);
-  if (!tap.ok && tap.reason === "unreadable") {
-    return {
-      ok: false,
-      status: 400,
-      view: viewAround(ISLAND_CENTRE, START_ZOOM),
-      note: t("sproblem.tapUnreadable", lang),
-      fields: ["view"],
-    };
+  const typed = typedSpot(body);
+  if (!typed.success) {
+    return { ok: false, status: 400, note: t("sproblem.position", lang), fields: fieldsOf(typed.error) };
   }
-  if (!tap.ok) {
-    return {
-      ok: false,
-      status: 400,
-      view: clampView(tap.picture),
-      note: tap.reason === "outside" ? t("sproblem.outside", lang) : t("sproblem.tapNoPoint", lang),
-      fields: ["x", "y"],
-    };
-  }
-  return {
-    ok: true,
-    spot: tap.spot,
-    // A re-tap on the confirmation's small map (`nudge`) keeps its zoom; the
-    // first tap on the full map zooms in two steps around the spot.
-    zoom: body["nudge"] === "1" ? tap.picture.z : Math.min(tap.picture.z + 2, MAX_ZOOM),
-    // The same "Details for checking the tap" as the Map page (SYC-287's real-phone check).
-    checkNote: `Point ${tap.point.x}, ${tap.point.y} on a ${tap.picture.size * 2} px map picture.`,
-  };
+  const spot = { lat: typed.data.lat, lng: typed.data.lng };
+  if (!inIsland(spot)) return { ok: false, status: 400, note: t("sproblem.outside", lang), fields: ["lat", "lng"] };
+  return { ok: true, spot, approximate: false };
 }
 
 /**
@@ -455,7 +441,7 @@ router.post(
         pageViewer(res).visible,
         (req.body as Record<string, unknown> | undefined)?.["colonyId"],
       );
-      return void newPickerPage(res, picked.status, picked.view, picked.note, colony);
+      return void newPickerPage(res, picked.status, viewAround(ISLAND_CENTRE, START_ZOOM), picked.note, colony);
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
     res.type("html").send(
@@ -463,9 +449,8 @@ router.post(
         personName: teamPerson(res).name,
         lang: pageViewer(res).lang,
         spot: picked.spot,
-        zoom: picked.zoom,
+        zoom: CONFIRM_ZOOM,
         colonies: await colonyOptions(pageViewer(res).visible),
-        checkNote: picked.checkNote,
         carry: AddCarryForm.parse(req.body ?? {}),
         island: pageViewer(res).island,
       }),
@@ -841,10 +826,7 @@ router.post(
     if (!picked.ok) {
       if (!isFormPost(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
       // Back on the site's own map, not the whole island.
-      const view =
-        picked.view.z === START_ZOOM
-          ? viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM)
-          : picked.view;
+      const view = viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM);
       return void movePickerPage(res, picked.status, site, stamp.data.updatedAt, view, picked.note);
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
@@ -853,8 +835,7 @@ router.post(
         personName: teamPerson(res).name,
         site: { ...site, stamp: stamp.data.updatedAt },
         spot: picked.spot,
-        zoom: picked.zoom,
-        checkNote: picked.checkNote,
+        zoom: CONFIRM_ZOOM,
         reason: MoveCarryForm.parse(body).reason,
         island: pageViewer(res).island,
         lang: pageViewer(res).lang,

@@ -16,7 +16,7 @@ import { viewAround, type View } from "../lib/mapTiles/geometry";
 import { renderPicker } from "../lib/teamPages/siteFormPages";
 import { renderCentreConfirm } from "../lib/teamPages/centrePages";
 import { whatHappens } from "../lib/teamPages/help";
-import { ERMOUPOLI_VIEW, readCentrePick } from "./centrePick";
+import { CENTRE_ZOOM, ERMOUPOLI_VIEW, readCentrePick } from "./centrePick";
 import { t } from "../lib/teamPages/words";
 import {
   AREAS_DONE,
@@ -251,12 +251,10 @@ router.post("/team/areas/new/pick", ...formRoute("edit_named_areas"), async (req
   const a = await newAreaOf(req, res);
   if (!a) return;
   const person = teamPerson(res);
-  const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, undefined, ERMOUPOLI_VIEW, {
-    requireArea: false,
-  });
+  const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, undefined, { requireArea: false, allowArea: false });
   if (!picked.ok) {
     if (wantsJson(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
-    return void newAreaPickerPage(res, picked.status, a, picked.view, picked.note);
+    return void newAreaPickerPage(res, picked.status, a, ERMOUPOLI_VIEW, picked.note);
   }
   if (wantsJson(req)) return void res.json(picked.spot);
   res.type("html").send(
@@ -268,7 +266,7 @@ router.post("/team/areas/new/pick", ...formRoute("edit_named_areas"), async (req
       question: () => `Make this the centre of ${a.name}?`,
       saveLabel: "Add the area",
       spot: picked.spot,
-      zoom: picked.zoom,
+      zoom: CENTRE_ZOOM,
       nowLabel: "",
       newLabel: `The centre of ${a.name}`,
       tapAction: `${NEW_PATH}/pick`,
@@ -361,12 +359,10 @@ router.post("/team/areas/:key/centre/pick", ...formRoute("edit_named_areas"), as
   const a = await areaOf(req);
   if (!a) return noSuchArea(res);
   const person = teamPerson(res);
-  const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, undefined, centreAreaStart(a), {
-    requireArea: false,
-  });
+  const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, undefined, { requireArea: false, allowArea: false });
   if (!picked.ok) {
     if (wantsJson(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
-    return void areaPickerPage(res, picked.status, a, picked.view, picked.note);
+    return void areaPickerPage(res, picked.status, a, centreAreaStart(a), picked.note);
   }
   if (wantsJson(req)) return void res.json(picked.spot);
   const base = `${AREAS_PATH}/${a.key}/centre`;
@@ -379,7 +375,7 @@ router.post("/team/areas/:key/centre/pick", ...formRoute("edit_named_areas"), as
       question: () => `Move the centre of ${a.name} here?`,
       saveLabel: "Move the centre here",
       spot: picked.spot,
-      zoom: picked.zoom,
+      zoom: CENTRE_ZOOM,
       now: a,
       nowInWords: false,
       nowLabel: "The centre now",
