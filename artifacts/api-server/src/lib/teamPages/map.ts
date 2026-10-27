@@ -60,6 +60,15 @@ export interface MapOptions {
   formId?: string;
   /** Write id="map" (the "#map" anchor). Default true; false where the page has its own anchor. */
   anchor?: boolean;
+  /** The box's id instead of "map" (the island cats map's "island-map"). */
+  id?: string;
+  /** The box as a labelled region, for screen readers. */
+  label?: string;
+  /**
+   * More JSON for a page's own script, each as data-<name> (the island cats
+   * map's sites, areas and focused cat). Names are fixed lowercase words.
+   */
+  data?: Record<string, unknown>;
 }
 
 /** Where a map opens: the middle of the island, zoom 12 (defined in lib/island.ts). */
@@ -191,7 +200,7 @@ const jsonAttr = (v: unknown) => esc(JSON.stringify(v));
  */
 export function renderMap(opts: MapOptions): string {
   const { t, w } = wordsIn(opts.lang);
-  const id = opts.anchor === false ? "" : ' id="map"';
+  const id = opts.id !== undefined ? ` id="${esc(opts.id)}"` : opts.anchor === false ? "" : ' id="map"';
   const noMap = `<p class="mapnojs">${w("map.needsJs")}</p>`;
   const library = assetUrl("maplibre-gl.mjs");
   const worker = assetUrl("maplibre-gl-worker.mjs");
@@ -214,8 +223,13 @@ export function renderMap(opts: MapOptions): string {
     needsJs: t("map.needsJs"),
     loading: t("map.loading"),
   };
+  const label = opts.label !== undefined ? ` role="region" aria-label="${esc(opts.label)}"` : "";
+  const extra = Object.entries(opts.data ?? {})
+    .filter(([name, v]) => /^[a-z]+$/.test(name) && v !== undefined)
+    .map(([name, v]) => ` data-${name}="${jsonAttr(v)}"`)
+    .join("");
   return (
-    `<div class="map"${id} data-map="${jsonAttr(data)}" data-words="${jsonAttr(words)}" ` +
+    `<div class="map"${id}${label} data-map="${jsonAttr(data)}" data-words="${jsonAttr(words)}"${extra} ` +
     `data-maplibre="${esc(library)}" data-worker="${esc(worker)}">` +
     noMap +
     "</div>" +

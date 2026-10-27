@@ -673,6 +673,7 @@ export const fr: Record<StringKey, string> = {
   "map.goTo": "Aller à",
   "map.attrib": "© OpenStreetMap contributors",
   "map.needsJs": "La carte a besoin d’un navigateur plus récent avec JavaScript activé.",
+  "map.catsAsGrid": "Voir ces chats en grille",
   "map.loading": "Chargement de la carte…",
   "map.compass": "Remettre le nord en haut",
   "error.notFound.title": "Cette page n’existe pas",

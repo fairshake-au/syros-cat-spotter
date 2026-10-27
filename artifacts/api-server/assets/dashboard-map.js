@@ -1,20 +1,21 @@
-// The island Map: every cat on one draggable map (SYC-396 PR 1.5; spec §6).
+// The island Map: every cat on one draggable map (SYC-396 PR 1.5; spec §6;
+// SYC-705 Phase 2).
 //
-// Plain ES2019, no build step. It runs on Leaflet 1.9.4 (leaflet.js, loaded
-// just before this file), both served from our own server. The page works
-// without either: the button map is in <noscript>, and if Leaflet is missing
-// or anything here throws while starting, this puts that button map back.
+// Plain ES2019, no build step. It runs after map-core.js, which starts
+// MapLibre GL JS on our own Syros map file (window.CatMap.start) and owns the
+// map's loading line, its +/− buttons, and the "needs JavaScript" line when
+// the map can't start. This file puts the cats, the feeding sites and a
+// focused cat's trail on it. Without it, or when the map can't start, the
+// page says so and links to the same cats as the grid.
 //
 // Rules this keeps:
-// - **No position in any address.** Map pictures come by token: the squares
-//   in view are asked for in a signed-in POST (square numbers in the body),
-//   and each square is then fetched as /api/team/map-square/<token>. Cats come
-//   from a signed-in POST with the filters in the body. The page's address
-//   only ever gets the filter form's own fields (history.replaceState).
+// - **No position in any address.** Cats come from a signed-in POST with the
+//   filters in the body. The page's address only ever gets the filter form's
+//   own fields (history.replaceState). The map file is map-core's to fetch.
 // - **Never builds HTML from strings.** Every name, place and word goes in by
 //   textContent; elements are made with createElement.
 // - **Never prints a position.** The card gives the place in words; positions
-//   are only handed to Leaflet to place a marker.
+//   are only handed to MapLibre to place a marker.
 (function () {
   "use strict";
 
@@ -93,44 +94,28 @@
       });
     }
   }
-  if (window.__dashboardMapTest === true) window.__dashboardMapInternals = { mergeClose: mergeClose };
+
+  /** The point the cats' grouping grid is measured from (Syros's north-west corner), so a pan never regroups. */
+  var GRID_ORIGIN = [24.85, 37.53];
+  if (window.__dashboardMapTest === true) window.__dashboardMapInternals = { mergeClose: mergeClose, gridOrigin: GRID_ORIGIN };
 
   var mapEl = document.getElementById("island-map");
-  var shell = document.getElementById("mapscripted");
   var form = document.getElementById("catfilters");
-  if (!mapEl || !shell || !form) return;
-
-  /** Put the button map back (from <noscript>) and leave the page as it would be with no script. */
-  function fallBack() {
-    try {
-      shell.hidden = true;
-      var ns = document.querySelector("noscript");
-      if (!ns || document.querySelector(".mapfallback")) return;
-      // With scripting on, a browser keeps <noscript> as raw, still-escaped
-      // text, which is the only time re-reading it is safe. If it was parsed
-      // as markup (children, already decoded), leave it alone.
-      if (ns.children.length > 0) return;
-      var doc = new DOMParser().parseFromString(ns.textContent || "", "text/html");
-      var fb = doc.querySelector(".mapfallback");
-      if (fb) ns.parentNode.insertBefore(document.importNode(fb, true), ns);
-    } catch (e) {
-      // Nothing more to try: the filters and the grid still work.
-    }
-  }
-
+  if (!mapEl || !form) return;
   if (
-    !window.L ||
+    !window.CatMap ||
     typeof window.fetch !== "function" ||
     typeof window.AbortController !== "function" ||
     typeof window.URLSearchParams !== "function" ||
     typeof window.FormData !== "function" ||
     !window.JSON
   ) {
-    fallBack();
+    // map-core.js, if it ran, has already put the no-map line in the box; the
+    // grid link under it still works.
     return;
   }
 
-  var L = window.L;
+  var CatMap = window.CatMap;
 
   /** The four marks, in legend order, and their words and colours (spec §12.2). */
   var MARKS = ["sterilised", "probably", "not_known", "not_sterilised"];
@@ -150,32 +135,13 @@
     return MARKS.indexOf(m) !== -1;
   };
 
-  /** Syros, the island box the map stays over (lib/mapTiles/geometry.ts ISLAND_BOX). */
-  var ISLAND = L.latLngBounds([37.36, 24.85], [37.53, 25.01]);
-  var ROAM = ISLAND.pad(0.35);
-
-  // A plain outline of the island, drawn only when map pictures fail (spec
-  // §6.3). Rough on purpose: enough to show where the cats are on Syros.
-  var OUTLINE = [
-    [37.515, 24.925], [37.5, 24.945], [37.48, 24.965], [37.462, 24.96], [37.448, 24.95],
-    [37.437, 24.948], [37.42, 24.965], [37.405, 24.962], [37.393, 24.95], [37.38, 24.925],
-    [37.373, 24.905], [37.378, 24.885], [37.392, 24.872], [37.41, 24.868], [37.425, 24.871],
-    [37.44, 24.888], [37.455, 24.893], [37.47, 24.898], [37.49, 24.905], [37.508, 24.91],
-  ];
-
-  /** Squares in one token request (routes/teamMap.ts MAX_SQUARES_PER_CALL). */
-  var MAX_SQUARES = 64;
-  /** Cats closer than this many screen pixels are drawn as one group. */
+  /** Cats closer than this many screen pixels are drawn as one group (a marker is 44px). */
   var CELL = 44;
-
-  function readData(name, fallback) {
-    try {
-      var raw = mapEl.getAttribute("data-" + name);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch (e) {
-      return fallback;
-    }
-  }
+  /** The closest app zoom a fit may go to (SYC-573), and the padding round it. */
+  var FIT_MAX_ZOOM = 17;
+  var FIT_PADDING = 40;
+  /** A "Go to" area opens at this app zoom. */
+  var AREA_ZOOM = 15;
 
   function make(tag, cls, text) {
     var el = document.createElement(tag);
@@ -201,12 +167,38 @@
       });
   }
 
+  /** [[minLng, minLat], [maxLng, maxLat]] round these points ({ lat, lng }). */
+  function boundsOf(points) {
+    var minLat = Infinity;
+    var maxLat = -Infinity;
+    var minLng = Infinity;
+    var maxLng = -Infinity;
+    points.forEach(function (p) {
+      minLat = Math.min(minLat, p.lat);
+      maxLat = Math.max(maxLat, p.lat);
+      minLng = Math.min(minLng, p.lng);
+      maxLng = Math.max(maxLng, p.lng);
+    });
+    return [
+      [minLng, minLat],
+      [maxLng, maxLat],
+    ];
+  }
+
+  // ── The map, and whose moves are whose ────────────────────────────────────
+
+  var data = CatMap.readJson(mapEl, "data-map") || {};
+  var map = null;
+  /** "starting" until map-core answers, then "live" or "failed". */
+  var mapState = "starting";
+
   // Moves this script makes itself, so a `movestart` can tell them from the
   // person dragging, zooming or pressing "Go to" (SYC-573: the first answer
   // fits the map to the cats only if the person hasn't moved it).
   var programmatic = 0;
   var userMoved = false;
   var fittedOrSkipped = false;
+  var fitPending = false;
 
   /** Run a map move of our own, so it isn't mistaken for the person's. */
   function ownMove(fn) {
@@ -226,264 +218,20 @@
     return !alreadyDone && count > 0 && !hasFocus && !moved;
   }
 
-  var map;
-  try {
-    shell.hidden = false;
-    map = L.map(mapEl, {
-      minZoom: Number(mapEl.getAttribute("data-minzoom")) || 12,
-      maxZoom: Number(mapEl.getAttribute("data-maxzoom")) || 19,
-      maxBounds: ROAM,
-      maxBoundsViscosity: 0.9,
-      zoomControl: false,
-      attributionControl: false,
-      keyboard: true,
-    });
-    L.control.zoom({ position: "bottomright" }).addTo(map);
-    programmatic++;
-    try {
-      map.fitBounds(ISLAND);
-    } finally {
-      programmatic--;
-    }
-  } catch (e) {
-    fallBack();
-    return;
+  // The box is busy while the map starts (map-core's "Loading the map…") and,
+  // once it is up, while the cats are being asked for. A map that can't start
+  // is never busy.
+  var controller = null;
+  function syncBusy() {
+    if (mapState === "starting" || (mapState === "live" && controller)) mapEl.setAttribute("aria-busy", "true");
+    else mapEl.removeAttribute("aria-busy");
   }
-
-  // ── Map pictures, by token ────────────────────────────────────────────────
-
-  var note = document.getElementById("mapnote");
-  var loaded = 0;
-  var failed = 0;
-  var outline = null;
-
-  // While the pictures load (spec §5.4): a light outline of Syros in a pane
-  // below the picture pane (200), which the pictures cover as they arrive,
-  // and a "Loading the map…" line at the top. Both are the script's own, so a
-  // page whose script never runs shows neither. The points come from the page
-  // (data-outline, one source: lib/geo syrosOutline.ts); missing or invalid,
-  // there is just no outline.
-  var loadingLine = null;
-  function loadingDone() {
-    if (loadingLine && loadingLine.parentNode) loadingLine.parentNode.removeChild(loadingLine);
-    loadingLine = null;
-  }
-  try {
-    var loadingPoints = JSON.parse(mapEl.getAttribute("data-outline"));
-    var okPoints =
-      Array.isArray(loadingPoints) &&
-      loadingPoints.length >= 3 &&
-      loadingPoints.every(function (pt) {
-        return Array.isArray(pt) && pt.length === 2 && isFinite(pt[0]) && isFinite(pt[1]);
-      });
-    if (okPoints) {
-      map.createPane("outlineBelow").style.zIndex = "150";
-      L.polygon(loadingPoints, {
-        pane: "outlineBelow",
-        stroke: true,
-        weight: 1,
-        color: "#b8b3a6",
-        fillColor: "#e3dfd3",
-        fillOpacity: 1,
-        interactive: false,
-      }).addTo(map);
-    }
-  } catch (e) {
-    // No loading outline; the pictures and the cats are unaffected.
-  }
-  if (mapEl.parentNode) {
-    loadingLine = make("p", "maploading", "Loading the map\u2026");
-    loadingLine.id = "maploading";
-    loadingLine.setAttribute("role", "status");
-    mapEl.parentNode.insertBefore(loadingLine, mapEl.nextSibling);
-  }
-
-  // Squares asked for and squares that have finished (loaded, failed for good,
-  // or blank because they are off the island). Spec §5.4: the loading line goes
-  // only with the first picture's onload or the failure note. So it can't stay
-  // forever, once every square asked for has finished with nothing loaded, a
-  // failure (even under 3) shows the note, and no failure at all (all off the
-  // island) just removes the line.
-  var requested = 0;
-  var settled = 0;
-  function settledOne() {
-    settled++;
-    if (settled >= requested && loaded === 0) {
-      if (failed > 0) tilesFailing(true);
-      else loadingDone();
-    }
-  }
-
-  function tilesFailing(force) {
-    if (!note) return;
-    if ((force || failed >= 3) && failed > loaded) {
-      loadingDone();
-      note.hidden = false;
-      mapEl.classList.add("tilesfailed");
-      if (!outline) {
-        outline = L.polygon(OUTLINE, {
-          color: "#8a877e",
-          weight: 1,
-          fillColor: "#cfcac0",
-          fillOpacity: 1,
-          interactive: false,
-        }).addTo(map);
-        outline.bringToBack();
-      }
-    } else if (loaded > failed + 3) {
-      note.hidden = true;
-      mapEl.classList.remove("tilesfailed");
-      if (outline) {
-        map.removeLayer(outline);
-        outline = null;
-      }
-    }
-  }
-
-  // "z/x/y" -> { t: token, at: when it was handed out }. A token works for at
-  // least a day; one older than TOKEN_KEEP_MS is asked for again, so a map
-  // left open overnight doesn't spend the person's squares on dead tokens.
-  var TOKEN_KEEP_MS = 23 * 60 * 60 * 1000;
-  var tokens = {};
-  var waiting = {}; // z -> [{ coords, img, done, retried }]
-  var flushTimer = 0;
-
-  function freshToken(key) {
-    var kept = Object.prototype.hasOwnProperty.call(tokens, key) ? tokens[key] : null;
-    if (!kept) return null;
-    if (Date.now() - kept.at > TOKEN_KEEP_MS) {
-      delete tokens[key];
-      return null;
-    }
-    return kept.t;
-  }
-
-  function wait(entry) {
-    (waiting[entry.coords.z] = waiting[entry.coords.z] || []).push(entry);
-    if (!flushTimer) flushTimer = window.setTimeout(flush, 0);
-  }
-
-  function show(entry, token) {
-    var img = entry.img;
-    if (!token) {
-      entry.done(null, img); // off the island: a blank square
-      settledOne();
-      return;
-    }
-    img.onload = function () {
-      loaded++;
-      loadingDone();
-      tilesFailing();
-      entry.done(null, img);
-      settled++;
-    };
-    img.onerror = function () {
-      // The token may have died (a server key change, say): forget it and
-      // ask for a new one, once. A second failure is a real one.
-      delete tokens[entry.coords.z + "/" + entry.coords.x + "/" + entry.coords.y];
-      if (!entry.retried) {
-        entry.retried = true;
-        img.onload = img.onerror = null;
-        wait(entry);
-        return;
-      }
-      failed++;
-      tilesFailing();
-      entry.done(new Error("map picture"), img);
-      settledOne();
-    };
-    img.src = "/api/team/map-square/" + token;
-  }
-
-  function ask(z, xMin, xMax, yMin, yMax, entries) {
-    postJson("/api/team/map-squares", { z: z, xMin: xMin, xMax: xMax, yMin: yMin, yMax: yMax })
-      .then(function (answer) {
-        var got = (answer && answer.tokens) || {};
-        entries.forEach(function (e) {
-          var key = z + "/" + e.coords.x + "/" + e.coords.y;
-          var t = typeof got[key] === "string" && /^[A-Za-z0-9_-]{59}$/.test(got[key]) ? got[key] : "";
-          if (t) tokens[key] = { t: t, at: Date.now() };
-          show(e, t);
-        });
-      })
-      .catch(function () {
-        entries.forEach(function (e) {
-          failed++;
-        });
-        tilesFailing();
-        entries.forEach(function (e) {
-          e.done(new Error("map picture"), e.img);
-          settledOne();
-        });
-      });
-  }
-
-  /** Ask for every square waiting, in as few requests as the 64-square cap allows. */
-  function flush() {
-    flushTimer = 0;
-    var all = waiting;
-    waiting = {};
-    Object.keys(all).forEach(function (zs) {
-      var z = Number(zs);
-      var entries = all[zs];
-      var xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
-      entries.forEach(function (e) {
-        xMin = Math.min(xMin, e.coords.x);
-        xMax = Math.max(xMax, e.coords.x);
-        yMin = Math.min(yMin, e.coords.y);
-        yMax = Math.max(yMax, e.coords.y);
-      });
-      var width = xMax - xMin + 1;
-      var colsPer = Math.min(width, MAX_SQUARES);
-      var rowsPer = Math.max(1, Math.floor(MAX_SQUARES / colsPer));
-      for (var y0 = yMin; y0 <= yMax; y0 += rowsPer) {
-        for (var x0 = xMin; x0 <= xMax; x0 += colsPer) {
-          var y1 = Math.min(yMax, y0 + rowsPer - 1);
-          var x1 = Math.min(xMax, x0 + colsPer - 1);
-          var mine = entries.filter(function (e) {
-            return e.coords.x >= x0 && e.coords.x <= x1 && e.coords.y >= y0 && e.coords.y <= y1;
-          });
-          if (mine.length) ask(z, x0, x1, y0, y1, mine);
-        }
-      }
-    });
-  }
-
-  var TokenSquares = L.GridLayer.extend({
-    createTile: function (coords, done) {
-      var img = document.createElement("img");
-      img.alt = "";
-      img.setAttribute("role", "presentation");
-      img.decoding = "async";
-      var key = coords.z + "/" + coords.x + "/" + coords.y;
-      var entry = { coords: coords, img: img, done: done, retried: false };
-      requested++;
-      var kept = freshToken(key);
-      if (kept) {
-        window.setTimeout(function () {
-          show(entry, kept);
-        }, 0);
-        return img;
-      }
-      wait(entry);
-      return img;
-    },
-  });
-
-  new TokenSquares({
-    tileSize: 256,
-    bounds: ISLAND,
-    minZoom: map.getMinZoom(),
-    maxZoom: map.getMaxZoom(),
-    updateWhenIdle: true,
-    keepBuffer: 1,
-  }).addTo(map);
 
   // ── The card (a sheet on a phone) ─────────────────────────────────────────
 
   var sheet = document.getElementById("catsheet");
   var lastFocus = null;
-  var focus = readData("focus", null);
+  var focus = CatMap.readJson(mapEl, "data-focus");
   var colonySelect = document.getElementById("f-colony");
 
   function colonyName(id) {
@@ -610,16 +358,35 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") closeSheet();
   });
-  map.on("click", closeSheet);
+
+  // ── Markers ───────────────────────────────────────────────────────────────
+
+  /** A tappable 44px marker: a button holding `inner`, named by `label`. */
+  function pinButton(inner, label, onTap) {
+    var b = make("button", "catpinicon");
+    b.type = "button";
+    b.title = label;
+    b.setAttribute("aria-label", label);
+    b.appendChild(inner);
+    b.addEventListener("click", function (e) {
+      // Not the map's own click, which closes the card.
+      e.stopPropagation();
+      onTap();
+    });
+    return b;
+  }
+
+  /** A MapLibre marker for `el` at { lat, lng }, on the map. */
+  function place(el, at) {
+    var lib = CatMap.lib();
+    return new lib.Marker({ element: el, anchor: "center" }).setLngLat([at.lng, at.lat]).addTo(map);
+  }
 
   // ── Cats, grouped when close together ─────────────────────────────────────
 
   var cats = [];
-  var catsLayer = L.layerGroup().addTo(map);
-
-  function iconFor(el, size) {
-    return L.divIcon({ className: "catpinicon", html: el, iconSize: [size, size] });
-  }
+  var catMarkers = [];
+  var catsOn = true;
 
   function ring(group) {
     var counts = {};
@@ -639,58 +406,58 @@
 
   function catMarker(cat) {
     var dot = make("span", "catdot mark-" + cat.mark);
-    var m = L.marker([cat.lat, cat.lng], {
-      icon: iconFor(dot, 44),
-      title: cat.name + ": " + MARK_WORD[cat.mark],
-      keyboard: true,
-      riseOnHover: true,
-    });
-    m.on("click", function (e) {
-      L.DomEvent.stopPropagation(e);
-      openCat(cat);
-    });
-    return m;
+    dot.setAttribute("aria-hidden", "true");
+    return place(
+      pinButton(dot, cat.name + ": " + MARK_WORD[cat.mark], function () {
+        openCat(cat);
+      }),
+      cat,
+    );
   }
 
   function groupMarker(group) {
-    var lat = 0, lng = 0;
+    var sumLat = 0;
+    var sumLng = 0;
     group.forEach(function (c) {
-      lat += c.lat;
-      lng += c.lng;
+      sumLat += c.lat;
+      sumLng += c.lng;
     });
-    var at = L.latLng(lat / group.length, lng / group.length);
+    var at = { lat: sumLat / group.length, lng: sumLng / group.length };
     var outer = make("span", "catcluster");
+    outer.setAttribute("aria-hidden", "true");
     outer.style.background = ring(group);
     outer.appendChild(make("span", "", String(group.length)));
-    var m = L.marker(at, {
-      icon: iconFor(outer, 44),
-      title: group.length + " cats here. Zoom in to see each one.",
-      keyboard: true,
-    });
-    m.on("click", function (e) {
-      L.DomEvent.stopPropagation(e);
-      if (map.getZoom() >= map.getMaxZoom()) openGroup(group);
-      else map.setView(at, Math.min(map.getZoom() + 2, map.getMaxZoom()));
-    });
-    return m;
+    return place(
+      pinButton(outer, group.length + " cats here. Zoom in to see each one.", function () {
+        if (map.getZoom() >= map.getMaxZoom()) openGroup(group);
+        else map.easeTo({ center: [at.lng, at.lat], zoom: Math.min(map.getZoom() + 2, map.getMaxZoom()) });
+      }),
+      at,
+    );
   }
 
   /** Our own grouping: cats in the same CELL-pixel square at this zoom are one group, then groups closer than CELL are merged. */
   function drawCats() {
-    catsLayer.clearLayers();
-    var z = map.getZoom();
+    catMarkers.forEach(function (m) {
+      m.remove();
+    });
+    catMarkers = [];
+    if (!map || !catsOn) return;
+    var origin = map.project(GRID_ORIGIN);
     var cells = {};
     var order = [];
     cats.forEach(function (c) {
-      var p = map.project([c.lat, c.lng], z);
-      var key = Math.floor(p.x / CELL) + ":" + Math.floor(p.y / CELL);
+      var p = map.project([c.lng, c.lat]);
+      var x = p.x - origin.x;
+      var y = p.y - origin.y;
+      var key = Math.floor(x / CELL) + ":" + Math.floor(y / CELL);
       if (!cells[key]) {
         cells[key] = { x: 0, y: 0, cats: [] };
         order.push(key);
       }
       var cell = cells[key];
-      cell.x += p.x;
-      cell.y += p.y;
+      cell.x += x;
+      cell.y += y;
       cell.cats.push(c);
     });
     var markers = order.map(function (key) {
@@ -700,13 +467,9 @@
     // Cats either side of a grid line can land in two bubbles that nearly touch.
     mergeClose(markers, CELL).forEach(function (m) {
       var group = m.cats;
-      catsLayer.addLayer(group.length === 1 ? catMarker(group[0]) : groupMarker(group));
+      catMarkers.push(group.length === 1 ? catMarker(group[0]) : groupMarker(group));
     });
   }
-  map.on("zoomend", drawCats);
-  map.on("movestart", function () {
-    if (programmatic === 0) userMoved = true;
-  });
 
   /** A cat as the server sent it, or null if anything about it is odd. */
   function cleanCat(c) {
@@ -726,14 +489,39 @@
     };
   }
 
+  var focusOpened = false;
+
+  /** Put what has arrived on the map, once both the map and the cats are here. */
+  function render() {
+    if (!map) return;
+    if (fitPending) {
+      fitPending = false;
+      if (shouldFitToCats(cats.length, !!focus, userMoved, false)) {
+        ownMove(function () {
+          map.fitBounds(boundsOf(cats), { padding: FIT_PADDING, maxZoom: CatMap.toMapLibreZoom(FIT_MAX_ZOOM) });
+        });
+      }
+    }
+    drawCats();
+    if (focus && !focusOpened) {
+      var c = cats.filter(function (x) {
+        return x.id === focus.id;
+      })[0];
+      if (c) {
+        focusOpened = true;
+        openCat(c);
+      }
+    }
+  }
+
   // ── Filters: the form's own fields, sent in the body ──────────────────────
 
   var path = new URL(form.action, window.location.href).pathname;
   var count = document.getElementById("mapcount");
   var gridLink = document.getElementById("view-grid");
   var mapLink = document.getElementById("view-map");
+  var asGridLink = document.getElementById("map-gridlink");
   var findLink = document.querySelector(".viewrow .findentrylink");
-  var controller = null;
   var typing = 0;
 
   /** The form's choices as an address query (with view=map), leaving out empty boxes. */
@@ -788,7 +576,6 @@
   // The filters the server drew the page (and its count line) for. Any answer
   // for other filters rewrites the count, whichever request it was.
   var asDrawn = query();
-  var focusOpened = false;
   var countRewritten = false;
 
   function loadCats() {
@@ -796,41 +583,23 @@
     var mine = new AbortController();
     controller = mine;
     var asked = query();
-    mapEl.setAttribute("aria-busy", "true");
+    syncBusy();
     postJson("/api/team/cats/positions", filterBody(), mine.signal)
       .then(function (answer) {
-        if (controller !== mine) return;
+        if (controller !== mine || mapState === "failed") return;
         var list = answer && Array.isArray(answer.cats) ? answer.cats : [];
         cats = list.map(cleanCat).filter(Boolean);
         // The first answer only: open on the cats, not the whole island. Never
-        // again, so a filter change or typing doesn't jump the map and pull a
-        // new set of map pictures.
-        var firstAnswer = !fittedOrSkipped;
-        fittedOrSkipped = true;
-        if (shouldFitToCats(cats.length, !!focus, userMoved, !firstAnswer)) {
-          var catBounds = L.latLngBounds(
-            cats.map(function (c) {
-              return [c.lat, c.lng];
-            }),
-          );
-          ownMove(function () {
-            map.fitBounds(catBounds.pad(0.15), { maxZoom: 16 });
-          });
+        // again, so a filter change or typing doesn't jump the map.
+        if (!fittedOrSkipped) {
+          fittedOrSkipped = true;
+          fitPending = true;
         }
-        drawCats();
+        render();
         // Once rewritten, always rewritten (back to the drawn filters included).
         if (asked !== asDrawn || countRewritten) {
           countRewritten = true;
           setCount(cats.length);
-        }
-        if (focus && !focusOpened) {
-          var c = cats.filter(function (x) {
-            return x.id === focus.id;
-          })[0];
-          if (c) {
-            focusOpened = true;
-            openCat(c);
-          }
         }
       })
       .catch(function () {
@@ -839,7 +608,7 @@
       .then(function () {
         if (controller === mine) {
           controller = null;
-          mapEl.removeAttribute("aria-busy");
+          syncBusy();
         }
       });
   }
@@ -854,6 +623,7 @@
       })
       .join("&");
     if (gridLink) gridLink.href = path + (gridQs ? "?" + gridQs : "");
+    if (asGridLink) asGridLink.href = path + (gridQs ? "?" + gridQs : "");
     if (mapLink) mapLink.href = path + (qs ? "?" + qs : "");
     // The photo link carries only the form's colours, area and colony (the
     // server's findAddress), never the rest and never a position.
@@ -874,10 +644,15 @@
     if (window.history && typeof window.history.replaceState === "function") {
       window.history.replaceState(window.history.state, "", path + (qs ? "?" + qs : ""));
     }
-    loadCats();
+    // With no map, the form sends itself as it would with no script.
+    if (mapState !== "failed") loadCats();
   }
 
-  form.addEventListener("change", applyFilters);
+  form.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t && (t.id === "layer-cats" || t.id === "layer-sites")) return; // not a filter
+    applyFilters();
+  });
   form.addEventListener("input", function (event) {
     var t = event.target;
     if (t && t.tagName === "INPUT" && (t.type === "search" || t.type === "text")) {
@@ -886,74 +661,94 @@
     }
   });
   form.addEventListener("submit", function (event) {
+    if (mapState === "failed") return;
     event.preventDefault();
     applyFilters();
   });
 
-  // ── Layers: cats on, feeding sites off ────────────────────────────────────
+  // ── Once the map is up ────────────────────────────────────────────────────
 
-  var sitesLayer = L.layerGroup();
-  readData("sites", []).forEach(function (s) {
-    if (!s || typeof s.lat !== "number" || typeof s.lng !== "number" || typeof s.name !== "string") return;
-    var look = s.look === "public" ? "public" : "private";
-    var sq = make("span", "sitesq site-" + look);
-    var m = L.marker([s.lat, s.lng], {
-      icon: iconFor(sq, 44),
-      title: s.name + (look === "public" ? ", public feeding site" : ", private feeding site"),
-      keyboard: true,
-    });
-    m.on("click", function (e) {
-      L.DomEvent.stopPropagation(e);
-      openSite({ id: s.id, name: s.name, look: look });
-    });
-    sitesLayer.addLayer(m);
-  });
+  var siteMarkers = [];
 
-  function layerBox(id, layer) {
+  function showSites(on) {
+    siteMarkers.forEach(function (m) {
+      m.remove();
+    });
+    siteMarkers = [];
+    if (!on || !map) return;
+    var sites = CatMap.readJson(mapEl, "data-sites");
+    (Array.isArray(sites) ? sites : []).forEach(function (s) {
+      if (!s || typeof s.lat !== "number" || typeof s.lng !== "number" || typeof s.name !== "string") return;
+      var look = s.look === "public" ? "public" : "private";
+      var sq = make("span", "sitesq site-" + look);
+      sq.setAttribute("aria-hidden", "true");
+      siteMarkers.push(
+        place(
+          pinButton(sq, s.name + (look === "public" ? ", public feeding site" : ", private feeding site"), function () {
+            openSite({ id: s.id, name: s.name, look: look });
+          }),
+          s,
+        ),
+      );
+    });
+  }
+
+  function layerBox(id, sync) {
     var box = document.getElementById(id);
     if (!box) return;
-    var sync = function () {
-      if (box.checked) layer.addTo(map);
-      else map.removeLayer(layer);
-    };
     box.addEventListener("change", function (e) {
       e.stopPropagation(); // not a filter: the cats aren't asked for again
-      sync();
+      sync(box.checked);
     });
-    sync();
+    sync(box.checked);
   }
-  layerBox("layer-cats", catsLayer);
-  layerBox("layer-sites", sitesLayer);
 
-  // ── "Go to" an area ───────────────────────────────────────────────────────
-
-  var areas = readData("areas", []);
-  var goto = document.getElementById("mapgoto");
-  if (goto) {
-    goto.addEventListener("click", function (e) {
+  function goTo() {
+    var areas = CatMap.readJson(mapEl, "data-areas");
+    var row = document.getElementById("mapgoto");
+    if (!row || !Array.isArray(areas)) return;
+    row.addEventListener("click", function (e) {
       var key = e.target && e.target.getAttribute ? e.target.getAttribute("data-area") : null;
       if (!key) return;
       areas.forEach(function (a) {
         if (a && a.key === key && typeof a.lat === "number" && typeof a.lng === "number") {
           userMoved = true;
-          map.setView([a.lat, a.lng], Math.min(Number(a.zoom) || 15, map.getMaxZoom()));
+          map.easeTo({ center: [a.lng, a.lat], zoom: CatMap.toMapLibreZoom(AREA_ZOOM) });
         }
       });
     });
   }
 
-  // ── "Where else it's been seen": numbered dots in time order ─────────────
-
-  if (focus && Array.isArray(focus.points) && focus.points.length) {
+  /** "Where else it's been seen": numbered dots in time order, joined by a dashed line. */
+  function trail() {
+    if (!focus || !Array.isArray(focus.points) || !focus.points.length) return;
     var pts = focus.points.filter(function (p) {
-      return p && typeof p.lat === "number" && typeof p.lng === "number";
+      return p && typeof p.lat === "number" && typeof p.lng === "number" && isFinite(p.lat) && isFinite(p.lng);
     });
-    var line = L.polyline(
-      pts.map(function (p) {
-        return [p.lat, p.lng];
-      }),
-      { color: "#1a56a6", weight: 2, dashArray: "4 4", interactive: false },
-    ).addTo(map);
+    if (!pts.length) return;
+    try {
+      map.addSource("cattrail", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: pts.map(function (p) {
+              return [p.lng, p.lat];
+            }),
+          },
+        },
+      });
+      map.addLayer({
+        id: "cattrail",
+        type: "line",
+        source: "cattrail",
+        paint: { "line-color": "#1a56a6", "line-width": 2, "line-dasharray": [2, 2] },
+      });
+    } catch (e) {
+      // The numbered dots still show the trail.
+    }
     pts.forEach(function (p, i) {
       var n = make("span", "trailpt", String(i + 1));
       var when = "";
@@ -967,22 +762,47 @@
       } catch (e) {
         when = "";
       }
-      L.marker([p.lat, p.lng], {
-        icon: L.divIcon({ className: "catpinicon", html: n, iconSize: [30, 30] }),
-        title: i + 1 + ". " + (p.first ? "First recorded" : "Seen") + (when ? " " + when : ""),
-        keyboard: false,
-        interactive: false,
-      }).addTo(map);
+      n.title = i + 1 + ". " + (p.first ? "First recorded" : "Seen") + (when ? " " + when : "");
+      place(n, p);
     });
     ownMove(function () {
-      if (pts.length > 1) map.fitBounds(line.getBounds().pad(0.3), { maxZoom: 17 });
-      else map.setView([pts[0].lat, pts[0].lng], 16);
+      if (pts.length > 1) map.fitBounds(boundsOf(pts), { padding: FIT_PADDING, maxZoom: CatMap.toMapLibreZoom(FIT_MAX_ZOOM) });
+      else map.jumpTo({ center: [pts[0].lng, pts[0].lat], zoom: CatMap.toMapLibreZoom(16) });
     });
+  }
+
+  function live(m) {
+    map = m;
+    mapState = "live";
+    ["maplayers", "mapmove"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.hidden = false;
+    });
+    map.on("movestart", function () {
+      if (programmatic === 0) userMoved = true;
+    });
+    map.on("zoomend", drawCats);
+    map.on("click", closeSheet);
+    trail();
+    layerBox("layer-cats", function (on) {
+      catsOn = on;
+      drawCats();
+    });
+    layerBox("layer-sites", showSites);
+    goTo();
+    render();
+    syncBusy();
   }
 
   // A phone starts with the key folded, so it doesn't sit over the cats.
   var legendBox = document.getElementById("maplegend");
   if (legendBox && window.matchMedia && window.matchMedia("(max-width: 699px)").matches) legendBox.open = false;
 
+  // The cats are asked for while the map file downloads; they go on the map once it is up.
   loadCats();
+  CatMap.start(mapEl, { lang: data.lang, centre: data.centre, zoom: data.zoom, rotate: false }).then(live, function () {
+    // map-core has put the no-map line in the box and left the grid link showing.
+    mapState = "failed";
+    syncBusy();
+  });
 })();

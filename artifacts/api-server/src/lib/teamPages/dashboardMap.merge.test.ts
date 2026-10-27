@@ -1,22 +1,13 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { JSDOM } from "jsdom";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { catMapRig, posCat, type CatMapRig } from "./__fixtures__/catMapRig";
 
 // SYC-619 Task 14 (spec §5.5): the map's own grid puts cats either side of a
 // grid line into two bubbles that nearly touch. After bucketing, any bubbles
 // closer than one cell (44px) are merged, repeatedly, into one at the cats'
-// average point.
-
-const SRC = readFileSync(join(__dirname, "../../../assets/dashboard-map.js"), "utf8");
-
-function chain(): any {
-  return new Proxy(function () {}, {
-    get: (_t, p) => (p === "then" ? undefined : p === Symbol.toPrimitive ? () => 0 : chain()),
-    apply: () => chain(),
-    construct: () => chain(),
-  });
-}
+// average point. SYC-705: on MapLibre, positions become screen pixels with
+// map.project, measured from a fixed point (gridOrigin) so a pan never
+// regroups; the tests place cats at chosen pixels through the fake's own
+// projection.
 
 interface Cat {
   id: number;
@@ -30,84 +21,29 @@ interface Mk {
   y: number;
   cats: Cat[];
 }
-interface StubMarker {
-  at: any;
-  opts: any;
-  handlers: Record<string, (e: unknown) => void>;
-}
 
 const cat = (id: number, x: number, y: number): Cat => ({ id, name: "Cat " + id, mark: "sterilised", lat: y, lng: x });
 
-/** The script in jsdom with a Leaflet stub where a cat's lng/lat ARE its screen x/y. */
-function setUp(cats: Cat[] = [], zoom = 19) {
-  const dom = new JSDOM(
-    "<!doctype html><html><body>" +
-      '<form id="catfilters" action="/api/team/cats"></form><div id="mapcount"></div>' +
-      '<div id="mapscripted"><div id="island-map" data-areas="[]"></div></div>' +
-      '<div id="catsheet" hidden></div></body></html>',
-    { url: "https://team.example/api/team/cats?view=map", runScripts: "outside-only" },
-  );
-  const w = dom.window as any;
-  w.__dashboardMapTest = true;
+/** The page at app zoom `appZoom`, the person having moved it (so no fit), with these cats placed at grid pixels (x, y). */
+async function drawnAt(px: [number, number][], appZoom: number): Promise<{ t: CatMapRig; drawn: any[] }> {
+  const t = await catMapRig({ page: {}, before: (r) => ((r.window as any).__dashboardMapTest = true) });
+  const m = t.map();
+  m.jumpTo({ zoom: appZoom - 1 }); // the person zooms (a move of theirs, so no fit)
+  // Pixels measured from the script's own grid origin, as drawCats does.
+  const origin = (t.window as any).__dashboardMapInternals.gridOrigin as [number, number];
+  const o = m.project(origin);
+  const cats = px.map(([x, y], i) => {
+    const ll = m.unproject([o.x + x, o.y + y]);
+    return posCat(i + 1, ll.lat, ll.lng);
+  });
+  await t.answer(0, cats);
+  return { t, drawn: t.markers("catdot").concat(t.markers("catcluster")) };
+}
 
-  const groups: Array<{ layers: StubMarker[] }> = [];
-  const map = new Proxy(
-    {
-      getZoom: () => zoom,
-      getMinZoom: () => 12,
-      getMaxZoom: () => 19,
-      project: (ll: number[]) => ({ x: ll[1], y: ll[0] }),
-      setView: () => {},
-    } as Record<string, unknown>,
-    { get: (t, p: string) => (p in t ? t[p] : chain()) },
-  );
-  w.L = new Proxy(
-    {
-      map: () => map,
-      layerGroup: () => {
-        const g = { layers: [] as StubMarker[] };
-        groups.push(g);
-        const stub: any = {
-          addTo: () => stub,
-          addLayer: (m: StubMarker) => g.layers.push(m),
-          clearLayers: () => {
-            g.layers = [];
-          },
-        };
-        return new Proxy(stub, { get: (t, p: string) => (p in t ? t[p] : chain()) });
-      },
-      latLng: (lat: number, lng: number) => ({ lat, lng }),
-      divIcon: (o: unknown) => o,
-      marker: (at: any, opts: any) => {
-        const m: any = { at, opts, handlers: {} as Record<string, (e: unknown) => void> };
-        m.on = (ev: string, fn: (e: unknown) => void) => {
-          m.handlers[ev] = fn;
-          return m;
-        };
-        return new Proxy(m, { get: (t, p: string) => (p in t ? t[p] : chain()) });
-      },
-    } as Record<string, unknown>,
-    { get: (t, p: string) => (p in t ? t[p] : chain()) },
-  );
-  w.fetch = (url: string) => {
-    if (!url.includes("/cats/positions")) return new Promise(() => {});
-    return Promise.resolve({
-      ok: true,
-      redirected: false,
-      headers: { get: () => "application/json" },
-      json: async () => ({ cats }),
-    });
-  };
-  w.eval(SRC);
-  return {
-    w,
-    mergeClose: w.__dashboardMapInternals?.mergeClose as (m: Mk[], px: number) => Mk[],
-    /** The markers the real drawCats put on the cats layer (the first layer group). */
-    drawn: async () => {
-      await new Promise((r) => setTimeout(r, 10));
-      return groups[0]!.layers;
-    },
-  };
+/** The script's mergeClose, from a page run with the test flag. */
+async function internals(): Promise<{ mergeClose: (m: Mk[], px: number) => Mk[] }> {
+  const t = await catMapRig({ before: (r) => ((r.window as any).__dashboardMapTest = true) });
+  return (t.window as any).__dashboardMapInternals;
 }
 
 const mk = (x: number, y: number, n = 1): Mk => ({
@@ -117,17 +53,14 @@ const mk = (x: number, y: number, n = 1): Mk => ({
 });
 
 describe("mergeClose", () => {
-  const { mergeClose } = setUp();
+  let mergeClose: (m: Mk[], px: number) => Mk[];
+  beforeAll(async () => {
+    mergeClose = (await internals()).mergeClose;
+  });
 
-  it("is reachable only when the test flag is set", () => {
-    const dom = new JSDOM(
-      '<form id="catfilters"></form><div id="mapscripted"><div id="island-map"></div></div>',
-      { runScripts: "outside-only" },
-    );
-    (dom.window as any).L = chain();
-    (dom.window as any).fetch = () => new Promise(() => {});
-    dom.window.eval(SRC);
-    expect((dom.window as any).__dashboardMapInternals).toBeUndefined();
+  it("is reachable only when the test flag is set", async () => {
+    const t = await catMapRig();
+    expect((t.window as any).__dashboardMapInternals).toBeUndefined();
     expect(typeof mergeClose).toBe("function");
   });
 
@@ -189,25 +122,52 @@ describe("mergeClose", () => {
 describe("the real drawCats", () => {
   it("draws one bubble for two cats either side of a grid line (fails without the merge pass)", async () => {
     // x = 40 and x = 70 sit in cells 0 and 1 (CELL = 44) yet are 30px apart.
-    const t = setUp([cat(1, 40, 10), cat(2, 70, 10)], 15);
-    const drawn = await t.drawn();
+    const { drawn } = await drawnAt([[40, 10], [70, 10]], 15);
     expect(drawn).toHaveLength(1);
-    expect(drawn[0]!.opts.title).toContain("2 cats here");
+    expect(drawn[0]!.getAttribute("aria-label")).toContain("2 cats here");
   });
 
   it("keeps cats 50px apart as two markers", async () => {
-    const t = setUp([cat(1, 10, 10), cat(2, 60, 10)], 15);
-    expect(await t.drawn()).toHaveLength(2);
+    const { drawn } = await drawnAt([[10, 10], [60, 10]], 15);
+    expect(drawn).toHaveLength(2);
+  });
+
+  it("SYC-342: cats a few hundred metres apart are one group at the island view, and split when zoomed in", async () => {
+    const t = await catMapRig();
+    await t.answer(0, [posCat(1, 37.4447, 24.9417), posCat(2, 37.4460, 24.9440), posCat(3, 37.4430, 24.9400)]);
+    // The person zooms out to the island, then back in close.
+    t.map().jumpTo({ zoom: 11 });
+    t.map().fire("zoomend");
+    expect(t.markers("catcluster")).toHaveLength(1);
+    expect(t.markers("catdot")).toHaveLength(0);
+    t.map().jumpTo({ zoom: 17 });
+    t.map().fire("zoomend");
+    expect(t.markers("catdot")).toHaveLength(3);
+    expect(t.markers("catcluster")).toHaveLength(0);
+  });
+
+  it("each marker is a 44px tap target named by its cat, not a position", async () => {
+    const { drawn } = await drawnAt([[10, 10]], 15);
+    expect(drawn[0]!.tagName).toBe("BUTTON");
+    expect(drawn[0]!.className).toBe("catpinicon");
+    expect(drawn[0]!.getAttribute("aria-label")).toBe("Cat ba: Sterilised");
+  });
+
+  it("tapping a group zooms in on it, and doesn't count as an opened card", async () => {
+    const { t, drawn } = await drawnAt([[40, 10], [70, 10]], 15);
+    drawn[0]!.click();
+    const eases = t.map().calls.filter((c) => c[0] === "easeTo");
+    expect(eases).toHaveLength(1);
+    expect(eases[0]![1].zoom).toBe(16); // MapLibre 14 + 2
+    expect(t.document.getElementById("catsheet").hidden).toBe(true);
   });
 
   it("review focus 5: 30 cats at one point at the closest zoom are one group whose tap lists all 30", async () => {
-    const cats = Array.from({ length: 30 }, (_, i) => cat(i + 1, 500, 500));
-    const t = setUp(cats, 19);
-    const drawn = await t.drawn();
+    const { t, drawn } = await drawnAt(Array.from({ length: 30 }, () => [500, 500] as [number, number]), 19);
     expect(drawn).toHaveLength(1);
-    expect(drawn[0]!.opts.title).toContain("30 cats here");
-    drawn[0]!.handlers.click!({});
-    const sheet = t.w.document.getElementById("catsheet");
+    expect(drawn[0]!.getAttribute("aria-label")).toContain("30 cats here");
+    drawn[0]!.click();
+    const sheet = t.document.getElementById("catsheet");
     expect(sheet.hidden).toBe(false);
     expect(sheet.querySelector(".sheetname").textContent).toBe("30 cats here");
     expect(sheet.querySelectorAll("ul.cats li")).toHaveLength(30);

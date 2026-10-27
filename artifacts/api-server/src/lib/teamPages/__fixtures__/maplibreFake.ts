@@ -160,6 +160,12 @@ export function makeMaplibreFake(
     size?: { width: number; height: number };
     /** Fire "load" on each new map once the code that made it has run (default true); false: the test fires it. */
     autoLoad?: boolean;
+    /**
+     * Fire MapLibre's camera events from jumpTo/easeTo/flyTo/zoomIn/zoomOut/
+     * fitBounds, as the real one does: movestart (and zoomstart) at once, in
+     * the call, then move/zoom and moveend/zoomend. Default false.
+     */
+    moveEvents?: boolean;
   } = {},
 ): FakeLib {
   const lib = {
@@ -191,10 +197,21 @@ export function makeMaplibreFake(
     for (const h of ["dragRotate", "touchZoomRotate", "keyboard", "dragPan", "scrollZoom", "doubleClickZoom", "boxZoom", "touchPitch"] as const)
       (m as any)[h] = handler();
     const rec = (name: string, args: any[]) => m.calls.push([name, ...args]);
-    const camera = (o: any) => {
+    const setCamera = (o: any) => {
       if (o.center) m.centre = toLngLat(o.center);
       if (typeof o.zoom === "number") m.zoom = Math.min(options.maxZoom ?? 22, Math.max(options.minZoom ?? 0, o.zoom));
       if (typeof o.bearing === "number") m.bearing = o.bearing;
+    };
+    const camera = (o: any) => {
+      if (!opts.moveEvents) return setCamera(o);
+      const zoomed = typeof o.zoom === "number";
+      m.fire("movestart");
+      if (zoomed) m.fire("zoomstart");
+      setCamera(o);
+      m.fire("move");
+      if (zoomed) m.fire("zoom");
+      m.fire("moveend");
+      if (zoomed) m.fire("zoomend");
     };
     Object.assign(m, {
       on(name: string, fn: Handler) {
@@ -277,11 +294,13 @@ export function makeMaplibreFake(
         const dx = Math.max(1e-12, worldX(ne.lng, 0) - worldX(sw.lng, 0));
         const dy = Math.max(1e-12, worldY(sw.lat, 0) - worldY(ne.lat, 0));
         const z = Math.log2(Math.min(w / dx, h / dy));
-        m.centre = {
-          lng: lngOf((worldX(sw.lng, 0) + worldX(ne.lng, 0)) / 2, 0),
-          lat: latOf((worldY(sw.lat, 0) + worldY(ne.lat, 0)) / 2, 0),
-        };
-        camera({ zoom: Math.min(z, typeof o.maxZoom === "number" ? o.maxZoom : Infinity) });
+        camera({
+          center: {
+            lng: lngOf((worldX(sw.lng, 0) + worldX(ne.lng, 0)) / 2, 0),
+            lat: latOf((worldY(sw.lat, 0) + worldY(ne.lat, 0)) / 2, 0),
+          },
+          zoom: Math.min(z, typeof o.maxZoom === "number" ? o.maxZoom : Infinity),
+        });
         return m;
       },
       resetNorth() {
@@ -434,7 +453,8 @@ function makeResponse(w: any, url: string, a: FakeAnswer): any {
     ok: a.status >= 200 && a.status < 300,
     status: a.status,
     url,
-    headers: { get: () => null },
+    // A JSON body answers as application/json (the cats' positions route checks it).
+    headers: { get: (name: string) => (/^content-type$/i.test(name) && typeof a.body !== "string" ? "application/json; charset=utf-8" : null) },
     json: async () => JSON.parse(text),
     text: async () => text,
     blob: async () => new w.Blob([text]),
