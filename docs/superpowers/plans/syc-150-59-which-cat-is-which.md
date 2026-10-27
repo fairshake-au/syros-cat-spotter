@@ -1,6 +1,6 @@
 # SYC-150 and SYC-59: Which cat is which (implementation plan)
 
-**Status:** Draft for Samuel's approval, 27 October 2026. Reviewed by an independent Sonnet critic: 9 major and 4 minor findings, all folded in (see "Review outcome" at the end).
+**Status:** **Approved by Samuel, 27 October 2026** ("approved, both as recommended"): the work stays on SYC-150, SYC-59 and SYC-410 with no sub-issues, and the build starts the week of 3 November with Slices 1 and 2 in parallel. Reviewed by an independent Sonnet critic: 9 major and 4 minor findings, all folded in (see "Review outcome" at the end).
 
 **Linear:**
 - SYC-150 (move a sighting, High; SYC-418 folded in)

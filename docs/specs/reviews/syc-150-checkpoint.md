@@ -14,6 +14,7 @@ Session worktree: `built-switched-off-features-255ea4`, branch `claude/syc-150-m
 - Fold in the second review; re-render the artifact (https://claude.ai/artifact/45ocXzt9XAvY4zswn3SEg1, same scratchpad file path).
 - DONE: D3–D8, D10, D11 as recommended; D9 = No (no cat-page report button). Recorded in spec §7 and on SYC-150.
 - Spec APPROVED by Samuel 26 Oct ("approved, write the plan").
-- Plan drafted and reviewed (Sonnet: 9 major, 4 minor, all folded in). Next: render and ask Samuel to approve.
+- Plan drafted and reviewed (Sonnet: 9 major, 4 minor, all folded in). PLAN APPROVED by Samuel 27 Oct ("approved, both as recommended"): no sub-issues; start week of 3 Nov, Slices 1 and 2 in parallel.
+- Remaining: merge docs PR #373 when Samuel says; build per the plan.
 - After approval: implementation plan with model delegation; stop for approval.
 - Linear follow-ups to file after decisions: guardians moving/merging (if D5 = team only); SYC-410 and SYC-531 to be noted as folded in.
