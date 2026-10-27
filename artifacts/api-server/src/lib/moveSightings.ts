@@ -151,6 +151,8 @@ export async function moveSightings(person: Person, input: MoveInput): Promise<M
   } catch (err) {
     if (err instanceof MoveRefused) return { ok: false, refused: err };
     // Two new cats given one name at once: the loser is told, as at resolve.
+    // isUniqueViolation matches only cats_normalised_name_unique (catNames.ts);
+    // any other unique error is thrown on as the error it is.
     if (isUniqueViolation(err) && input.newCat?.name) {
       return { ok: false, refused: await nameTaken(input.newCat.name.trim()) };
     }
