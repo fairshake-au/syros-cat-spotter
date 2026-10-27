@@ -8,12 +8,13 @@
  * exists — goes through `writeObservation`. Nothing else may `insert` into
  * `observationsTable` outside a migration's backfill.
  */
-import { and, eq, inArray, isNotNull, lte, or, sql, type SQL, type SQLWrapper } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, lte, or, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
   db,
   catsTable,
   observationsTable,
+  sightingMovesTable,
   sightingsTable,
   type Observation,
 } from "@workspace/db";
@@ -31,7 +32,7 @@ import {
   type Vaccine,
 } from "./resolve";
 import { TEAM_ROLES, isTeamRole } from "./teamRoles";
-import { canonicalCatOf, catsFeeding, observationCatIn } from "./catIdentity";
+import { canonicalCatOf, catsFeeding, feedingAt, mergeTimeline, observationCatIn, type MergeEvent } from "./catIdentity";
 
 /**
  * Phase-1 observation vocabulary (§10.1), plus `coat` (Part 2i, resolved as
@@ -1330,28 +1331,55 @@ export interface CatRecords {
 }
 
 /**
- * The dated ingredients of a cat's evidence of life (SYC-396 PR 3.0, Task
- * 3.0.3), so a report loads the island once and asks {@link resolveAt} for
- * each point instead of loading it again per point.
+ * The dated ingredients of a cat's records (SYC-396 PR 3.0, Task 3.0.3;
+ * which-cat-is-which.md §9.10), so a report loads the island once and asks
+ * {@link resolveAt} for each point instead of loading it again per point.
+ *
+ * It holds everything that was ever part of this cat, not only what is now:
+ * every merge row that ever joined a cat to it (a merge undone since
+ * included), the statements of every cat that ever fed it, and every
+ * sighting ever filed under one of them with the moves that took it there
+ * or away. `resolveAt` then works out, for its moment, which cats fed this
+ * one and where each sighting was filed.
  */
 export interface CatHistory {
+  /** The cat asked about. */
+  catId: number;
   /** The cat's own `created_at`. */
   createdAt: Date;
-  /**
-   * Every cat merged into this one, with when it started counting for it
-   * (`catsFeeding`'s `since`: the newest merge on its way here). Only merges
-   * standing when the records were loaded: a merge undone since then is not
-   * here, so `resolveAt` inside its window leaves it out, where
-   * `loadCatRecords(…, { asOf })` folds it in, as spec §9.10 requires. A known
-   * gap, fixed in PR 3.1 (see {@link resolveAt}).
-   */
-  mergedAt: ReadonlyMap<number, Date>;
-  /** `created_at` of each cat that feeds this one (itself and the merged ones). */
+  /** Every merge row that could ever have joined a cat to this one (lib/catIdentity.ts `mergeTimeline`). */
+  merges: readonly MergeEvent[];
+  /** `created_at` of every cat that ever fed this one (itself included). */
   feedingCreatedAt: ReadonlyMap<number, Date>;
-  /** Every resolved sighting of a feeding cat: which cat, and when it was entered. */
-  sightings: readonly { catId: number; at: Date }[];
-  /** Each `welfare_report` replaced by a row on any cat, with when the first replacing row was entered. */
-  welfareReplacedAt: ReadonlyMap<number, Date>;
+  /** Every statement of a cat that ever fed this one. */
+  rows: readonly Observation[];
+  /** Rows on any cat that replace one of `rows` and carry a move's id or replace a welfare report (`elsewhere` candidates). */
+  replacers: readonly Observation[];
+  /** Every resolved sighting ever filed under a cat that fed this one, with its moves, oldest first. */
+  sightings: readonly SightingTrail[];
+}
+
+/** A sighting, and the cats it was filed under over time (§9.10). */
+export interface SightingTrail {
+  id: number;
+  /** When it was entered. */
+  at: Date;
+  /** The cat it is filed under now. */
+  catId: number;
+  /** Its moves, oldest first. */
+  moves: readonly { at: Date; from: number; to: number }[];
+}
+
+/**
+ * The cat a sighting was filed under at `at` (spec §9.10): the `to` of its
+ * newest move entered by then; with none, the cat it was first filed under
+ * (its first move's `from`), else the cat it is under now.
+ */
+export function sightingCatAt(s: SightingTrail, at: Date): number {
+  const t = at.getTime();
+  let cat: number | null = null;
+  for (const m of s.moves) if (m.at.getTime() <= t) cat = m.to;
+  return cat ?? s.moves[0]?.from ?? s.catId;
 }
 
 /** `loadCatRecords`'s options (SYC-396 PR 3.0, Decision 10). */
@@ -1431,6 +1459,38 @@ const earliestOf = (dates: Iterable<Date>): Date | null => {
   return earliest;
 };
 
+/** A merged-in cat's statements of these kinds stay its own (spec §4.2). */
+const OWN_LOOK_KINDS: readonly string[] = ["coat", "markings"];
+
+/**
+ * A cat's own rows, plus the `elsewhere` rows among `replacers`: rows on
+ * another cat that replace one of them (which-cat-is-which.md §9.5; C11).
+ * And the welfare reports replaced by any row, here or elsewhere, from when
+ * the first replacing row was entered: such a report no longer says the cat
+ * was alive. The one rule, shared by `loadCatRecords` and `resolveAt`.
+ */
+function withElsewhere(
+  own: readonly Observation[],
+  replacers: Iterable<Observation>,
+): { observations: CatObservation[]; replacedWelfare: Set<number> } {
+  const ownIds = new Set(own.map((o) => o.id));
+  const elsewhere: CatObservation[] = [];
+  const listed = new Set<number>();
+  for (const r of replacers) {
+    if (r.supersedesId == null || !ownIds.has(r.supersedesId) || ownIds.has(r.id) || listed.has(r.id)) continue;
+    listed.add(r.id);
+    elsewhere.push({ ...r, elsewhere: true });
+  }
+  const observations: CatObservation[] = [...own, ...elsewhere];
+  const ownWelfare = new Set(own.filter((o) => o.kind === "welfare_report").map((o) => o.id));
+  const replacedWelfare = new Set<number>();
+  for (const o of observations) if (o.supersedesId != null && ownWelfare.has(o.supersedesId)) replacedWelfare.add(o.supersedesId);
+  return { observations, replacedWelfare };
+}
+
+/** Every moment a merge or an undo was entered: between two of these, which cats feed which stays the same. */
+const mergeMoments = (events: readonly MergeEvent[]) => [...new Set(events.map((e) => e.createdAt.getTime()))].map((t) => new Date(t));
+
 /**
  * The batched loader every reader uses (§2.3: never one query per cat).
  * Issues a fixed number of queries whatever `catIds.length` is:
@@ -1438,14 +1498,18 @@ const earliestOf = (dates: Iterable<Date>): Date | null => {
  * 1. The merges, through `catsFeeding` (lib/catIdentity.ts, two queries):
  *    a cat's observations may have been written against an id that has
  *    since been folded into the one being asked for, directly or through a
- *    chain. A merge since undone feeds nothing. Empty today (no merge
- *    exists, SYC-59).
+ *    chain. A merge since undone feeds nothing. With `withHistory`, also
+ *    every merge row that ever joined them (`mergeTimeline`, one query), so
+ *    the cats that fed one in the past are loaded too.
  * 2. Every observation for every id that feeds any requested cat, in one
  *    `IN (...)`.
- * 3. The welfare reports replaced by a row on any cat.
+ * 3. The rows on any cat that replace one of those and carry a move's id or
+ *    replace a welfare report: the `elsewhere` rows (spec §9.5; C11).
  * 4. The newest *resolved* sighting for each of those ids, in one grouped
  *    query — needed for `lastSightingAt`, which isn't itself an
- *    observation (with `withHistory`, every resolved sighting's date).
+ *    observation. Looking back (`asOf` or `withHistory`), every resolved
+ *    sighting ever filed under one of them instead, and their moves (two
+ *    queries), so each counts where it was filed at the time (§9.10).
  * 5. Each cat's `created_at`, for §3.4's last-resort fallback.
  *
  * The plan describes this as "one batched query for the observations ...
@@ -1472,30 +1536,30 @@ export async function loadCatRecords(
   const uniqueIds = [...new Set(catIds)];
   if (uniqueIds.length === 0) return result;
   const asOf = opts.asOf;
+  const datedSightings = asOf != null || opts.withHistory === true;
 
   // Every cat merged into each one, through chains, as of `asOf`: the one
   // reader of merges (SYC-410). An undone merge feeds nothing. A merged-in
   // cat's coat and markings stay its own: the staying record keeps its own
   // look (spec §4.2).
-  const feeding = await catsFeeding(uniqueIds, { asOf, excludeKinds: ["coat", "markings"] }, exec);
-  const idsForCanonical = new Map<number, number[]>();
-  const mergedAtByCanonical = new Map<number, ReadonlyMap<number, Date>>();
+  const feeding = await catsFeeding(uniqueIds, { asOf, excludeKinds: OWN_LOOK_KINDS }, exec);
+  // Looking back over time: every merge row that ever joined these cats, and
+  // so every cat that ever fed one of them (spec §9.10).
+  const timeline = opts.withHistory ? await mergeTimeline(uniqueIds, { asOf }, exec) : [];
+  const moments = mergeMoments(timeline);
+  const everFed = new Map<number, Set<number>>();
   for (const id of uniqueIds) {
-    const f = feeding.get(id);
-    idsForCanonical.set(id, f?.ids ?? [id]);
-    mergedAtByCanonical.set(id, f?.since ?? new Map());
+    const ids = new Set(feeding.get(id)?.ids ?? [id]);
+    for (const t of moments) for (const c of feedingAt(timeline, id, t).keys()) ids.add(c);
+    everFed.set(id, ids);
   }
-  const allCatIds = [...new Set([...idsForCanonical.values()].flat())];
+  const allCatIds = [...new Set([...everFed.values()].flatMap((s) => [...s]))];
+  const everyCat = [{ ids: allCatIds }];
 
   const obsRows = await exec
     .select()
     .from(observationsTable)
-    .where(
-      and(
-        observationCatIn(feeding.values()),
-        asOf ? lte(observationsTable.createdAt, asOf) : undefined,
-      ),
-    );
+    .where(and(observationCatIn(everyCat), asOf ? lte(observationsTable.createdAt, asOf) : undefined));
 
   // The rows that replace one of these cats' rows from wherever they live
   // (which-cat-is-which.md §9.5; C11): a statement a move copied onto the
@@ -1507,39 +1571,71 @@ export async function loadCatRecords(
   // counting there. One more query, the same count whatever the number of
   // cats.
   const replacer = alias(observationsTable, "replacer");
-  const crossRows = await exec
-    .select({ row: replacer, replacedId: observationsTable.id })
-    .from(observationsTable)
-    .innerJoin(replacer, eq(replacer.supersedesId, observationsTable.id))
-    .where(
-      and(
-        observationCatIn(feeding.values()),
-        or(isNotNull(replacer.sightingMoveId), eq(observationsTable.kind, "welfare_report")),
-        asOf ? lte(replacer.createdAt, asOf) : undefined,
-      ),
-    );
+  const replacers = (
+    await exec
+      .select({ row: replacer })
+      .from(observationsTable)
+      .innerJoin(replacer, eq(replacer.supersedesId, observationsTable.id))
+      .where(
+        and(
+          observationCatIn(everyCat),
+          or(isNotNull(replacer.sightingMoveId), eq(observationsTable.kind, "welfare_report")),
+          asOf ? lte(replacer.createdAt, asOf) : undefined,
+        ),
+      )
+  ).map((r) => r.row);
 
-  const sightingWhere = and(
-    inArray(sightingsTable.catId, allCatIds),
-    eq(sightingsTable.status, "resolved"),
-    asOf ? lte(sightingsTable.createdAt, asOf) : undefined,
-  );
-  // With history, every resolved sighting's date; otherwise the newest per cat.
-  const sightingRows: { catId: number | null; at: Date }[] = opts.withHistory
-    ? await exec
-        .select({ catId: sightingsTable.catId, at: sightingsTable.createdAt })
-        .from(sightingsTable)
-        .where(sightingWhere)
-    : (
-        await exec
-          .select({
-            catId: sightingsTable.catId,
-            newest: sql<string>`max(${sightingsTable.createdAt})`,
-          })
-          .from(sightingsTable)
-          .where(sightingWhere)
-          .groupBy(sightingsTable.catId)
-      ).flatMap((s) => (s.newest ? [{ catId: s.catId, at: new Date(s.newest) }] : []));
+  // Sightings. Now: the newest resolved one per cat. Looking back: every
+  // resolved one ever filed under one of these cats, and its moves, so each
+  // counts for the cat it was filed under at the time (§9.10).
+  const trails: SightingTrail[] = [];
+  const newestByCatId = new Map<number, Date>();
+  if (datedSightings) {
+    const movedHereOrAway = exec
+      .select({ id: sightingMovesTable.sightingId })
+      .from(sightingMovesTable)
+      .where(or(inArray(sightingMovesTable.fromCatId, allCatIds), inArray(sightingMovesTable.toCatId, allCatIds)));
+    const rows = await exec
+      .select({ id: sightingsTable.id, catId: sightingsTable.catId, at: sightingsTable.createdAt })
+      .from(sightingsTable)
+      .where(
+        and(
+          eq(sightingsTable.status, "resolved"),
+          or(inArray(sightingsTable.catId, allCatIds), inArray(sightingsTable.id, movedHereOrAway)),
+          asOf ? lte(sightingsTable.createdAt, asOf) : undefined,
+        ),
+      );
+    const moves =
+      rows.length === 0
+        ? []
+        : await exec
+            .select({
+              sightingId: sightingMovesTable.sightingId,
+              at: sightingMovesTable.createdAt,
+              from: sightingMovesTable.fromCatId,
+              to: sightingMovesTable.toCatId,
+            })
+            .from(sightingMovesTable)
+            // Every move, even one made after `asOf`: a sighting moved since
+            // was filed under its first move's `from` then.
+            .where(inArray(sightingMovesTable.sightingId, rows.map((r) => r.id)))
+            .orderBy(asc(sightingMovesTable.createdAt), asc(sightingMovesTable.id));
+    const movesOf = new Map<number, { at: Date; from: number; to: number }[]>();
+    for (const m of moves) movesOf.set(m.sightingId, [...(movesOf.get(m.sightingId) ?? []), { at: m.at, from: m.from, to: m.to }]);
+    for (const r of rows) {
+      if (r.catId == null) continue;
+      trails.push({ id: r.id, at: r.at, catId: r.catId, moves: movesOf.get(r.id) ?? [] });
+    }
+  } else {
+    const rows = await exec
+      .select({ catId: sightingsTable.catId, newest: sql<string>`max(${sightingsTable.createdAt})` })
+      .from(sightingsTable)
+      .where(and(inArray(sightingsTable.catId, allCatIds), eq(sightingsTable.status, "resolved")))
+      .groupBy(sightingsTable.catId);
+    for (const r of rows) if (r.catId != null && r.newest) newestByCatId.set(r.catId, new Date(r.newest));
+  }
+  /** Where a sighting was filed at `asOf`, or now. */
+  const filedUnder = (s: SightingTrail) => (asOf ? sightingCatAt(s, asOf) : s.catId);
 
   const catRows = await exec
     .select({ id: catsTable.id, createdAt: catsTable.createdAt })
@@ -1552,11 +1648,6 @@ export async function loadCatRecords(
     list.push(o);
     obsByCatId.set(o.catId, list);
   }
-  const sightingsByCatId = new Map<number, Date[]>();
-  for (const s of sightingRows) {
-    if (s.catId == null) continue;
-    sightingsByCatId.set(s.catId, [...(sightingsByCatId.get(s.catId) ?? []), s.at]);
-  }
   const createdAtByCatId = new Map<number, Date>();
   for (const c of catRows) createdAtByCatId.set(c.id, c.createdAt);
 
@@ -1565,28 +1656,14 @@ export async function loadCatRecords(
     // Not created yet at `asOf`: not a cat then.
     if (asOf && ownCreatedAt && ownCreatedAt.getTime() > asOf.getTime()) continue;
 
-    const feedingIds = idsForCanonical.get(canonicalId) ?? [canonicalId];
     const f = feeding.get(canonicalId);
+    const feedingIds = f?.ids ?? [canonicalId];
+    const group = new Set(feedingIds);
     const own = feedingIds.flatMap((id) => obsByCatId.get(id) ?? []).filter((o) => (f ? f.counts(o) : true));
-    const ownIds = new Set(own.map((o) => o.id));
-    const elsewhere: CatObservation[] = [];
-    for (const c of crossRows) {
-      if (!ownIds.has(c.replacedId) || ownIds.has(c.row.id)) continue;
-      if (elsewhere.some((e) => e.id === c.row.id)) continue;
-      elsewhere.push({ ...c.row, elsewhere: true });
-    }
-    const observations: CatObservation[] = [...own, ...elsewhere];
-    // A welfare_report replaced by any row, here or elsewhere, no longer
-    // says the cat was alive, from when the first replacing row was entered.
-    const welfareReplacedAt = new Map<number, Date>();
-    const ownWelfare = new Set(own.filter((o) => o.kind === "welfare_report").map((o) => o.id));
-    for (const o of observations) {
-      if (o.supersedesId == null || !ownWelfare.has(o.supersedesId)) continue;
-      const was = welfareReplacedAt.get(o.supersedesId);
-      if (!was || o.createdAt.getTime() < was.getTime()) welfareReplacedAt.set(o.supersedesId, o.createdAt);
-    }
-    const replacedWelfare = new Set(welfareReplacedAt.keys());
-    const lastSightingAt = newestOf(feedingIds.flatMap((id) => sightingsByCatId.get(id) ?? []));
+    const { observations, replacedWelfare } = withElsewhere(own, replacers);
+    const lastSightingAt = datedSightings
+      ? newestOf(trails.filter((s) => group.has(filedUnder(s))).map((s) => s.at))
+      : newestOf(feedingIds.flatMap((id) => newestByCatId.get(id) ?? []));
     const createdAt = earliestOf(
       feedingIds.map((id) => createdAtByCatId.get(id)).filter((d): d is Date => d != null),
     );
@@ -1594,18 +1671,22 @@ export async function loadCatRecords(
 
     const records: CatRecords = { observations, evidenceOfLife };
     if (opts.withHistory && ownCreatedAt) {
+      const ever = everFed.get(canonicalId) ?? new Set([canonicalId]);
+      const rows = [...ever].flatMap((id) => obsByCatId.get(id) ?? []);
+      const rowIds = new Set(rows.map((o) => o.id));
       const feedingCreatedAt = new Map<number, Date>();
-      for (const id of feedingIds) {
+      for (const id of ever) {
         const at = createdAtByCatId.get(id);
         if (at) feedingCreatedAt.set(id, at);
       }
-      const welfareIds = new Set(observations.filter((o) => o.kind === "welfare_report").map((o) => o.id));
       records.history = {
+        catId: canonicalId,
         createdAt: ownCreatedAt,
-        mergedAt: mergedAtByCanonical.get(canonicalId) ?? new Map(),
+        merges: timeline,
         feedingCreatedAt,
-        sightings: feedingIds.flatMap((id) => (sightingsByCatId.get(id) ?? []).map((at) => ({ catId: id, at }))),
-        welfareReplacedAt: new Map([...welfareReplacedAt].filter(([id]) => welfareIds.has(id))),
+        rows,
+        replacers: replacers.filter((r) => r.supersedesId != null && rowIds.has(r.supersedesId)),
+        sightings: trails.filter((s) => ever.has(s.catId) || s.moves.some((m) => ever.has(m.from) || ever.has(m.to))),
       };
     }
     result.set(canonicalId, records);
@@ -1615,36 +1696,39 @@ export async function loadCatRecords(
 }
 
 /**
- * One cat as it stood at `at` (SYC-396 PR 3.0, Task 3.0.3; Decision 10),
- * from records loaded once with `withHistory`: only what had been entered by
- * then (`createdAt <= at`) — rows, the rows that replaced them, sightings,
- * merges — and resolved as `resolveCat` would at `now`. Null when the cat
- * had not been created yet. Pure: a report with many points loads the
- * island once and calls this per point.
+ * One cat as it stood at `at` (SYC-396 PR 3.0, Task 3.0.3; Decision 10;
+ * which-cat-is-which.md §9.10), from records loaded once with `withHistory`:
+ * only what had been entered by then (`createdAt <= at`) — rows, the rows
+ * that replaced them, sightings, merges and moves — and resolved as
+ * `resolveCat` would at `now`. The cats that fed it then come from the merge
+ * timeline (a merge undone since still counts inside its window), and each
+ * sighting counts for the cat it was filed under then. Null when the cat had
+ * not been created yet. Pure: a report with many points loads the island
+ * once and calls this per point.
  *
  * `resolveAt(records, T, now)` equals `loadCatRecords(…, { asOf: T })` then
- * `resolveCat(…, now)`, as long as `records` was loaded at or after T, with
- * one known exception: a merge undone between T and the load. `records`
- * only knows the merges standing when it was loaded, so inside an undone
- * merge's window the merged-in cat is left out here, where `asOf` folds it
- * in (spec §9.10 says it should be folded in). Not reachable today: no
- * merge exists (SYC-59). PR 3.1 builds the merge and move timeline that
- * fixes it (catIdentity.attack.test.ts A11, marked `it.fails` until then).
+ * `resolveCat(…, now)`, for records loaded at or after T
+ * (catIdentity.attack.test.ts A11, asOf.test.ts).
  */
 export function resolveAt(records: CatRecords, at: Date, now: Date): CatSnapshot | null {
   const h = records.history;
   if (!h) throw new Error("resolveAt needs records loaded with { withHistory: true }");
   const t = at.getTime();
   if (h.createdAt.getTime() > t) return null;
-  const merged = (catId: number) => {
-    const m = h.mergedAt.get(catId);
-    return m === undefined || m.getTime() <= t;
-  };
-  const observations = records.observations.filter((o) => o.createdAt.getTime() <= t && merged(o.catId));
-  const replaced = new Set([...h.welfareReplacedAt].filter(([, d]) => d.getTime() <= t).map(([id]) => id));
-  const lastSightingAt = newestOf(
-    h.sightings.filter((s) => s.at.getTime() <= t && merged(s.catId)).map((s) => s.at),
+  const since = feedingAt(h.merges, h.catId, at);
+  const inGroup = (catId: number) => catId === h.catId || since.has(catId);
+  const own = h.rows.filter(
+    (o) =>
+      o.createdAt.getTime() <= t &&
+      (o.catId === h.catId || (since.has(o.catId) && !OWN_LOOK_KINDS.includes(o.kind))),
   );
-  const createdAt = earliestOf([...h.feedingCreatedAt].filter(([id]) => merged(id)).map(([, d]) => d));
-  return resolveCat(observations, evidenceOfLifeOf(observations, replaced, lastSightingAt, createdAt), now);
+  const { observations, replacedWelfare } = withElsewhere(
+    own,
+    h.replacers.filter((r) => r.createdAt.getTime() <= t),
+  );
+  const lastSightingAt = newestOf(
+    h.sightings.filter((s) => s.at.getTime() <= t && inGroup(sightingCatAt(s, at))).map((s) => s.at),
+  );
+  const createdAt = earliestOf([...h.feedingCreatedAt].filter(([id]) => inGroup(id)).map(([, d]) => d));
+  return resolveCat(observations, evidenceOfLifeOf(own, replacedWelfare, lastSightingAt, createdAt), now);
 }

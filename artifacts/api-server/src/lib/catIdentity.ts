@@ -212,6 +212,115 @@ export async function catsFeeding(
   return out;
 }
 
+/** One `cat_identity` row, as the dated timeline needs it. */
+export interface MergeEvent {
+  id: number;
+  catId: number;
+  canonicalCatId: number;
+  supersedesId: number | null;
+  createdAt: Date;
+}
+
+/**
+ * Every `cat_identity` row that could ever have joined these cats to
+ * another (which-cat-is-which.md §9.10): the rows of every cat linked to
+ * them by any row, merge or undo, standing or not, through chains. Entered
+ * by `asOf`, when given. One query whatever the number of cats. Read with
+ * {@link feedingAt}, which answers {@link catsFeeding}'s question at any
+ * moment, so a report loads the island once and looks back at many dates.
+ */
+export async function mergeTimeline(
+  catIds: readonly number[],
+  opts: MergeReadOptions = {},
+  q: Exec = db,
+): Promise<MergeEvent[]> {
+  const ids = cleanIds(catIds);
+  if (ids.length === 0) return [];
+  const at = opts.asOf ?? null;
+  const r = await q.execute<{ id: number; cat_id: number; canonical_cat_id: number; supersedes_id: number | null; created_at: Date | string }>(sql`
+    with recursive linked (cat) as (
+      select s from unnest(${idArray(ids)}) as s
+      union
+      select case when ci.cat_id = l.cat then ci.canonical_cat_id else ci.cat_id end
+        from cat_identity ci
+        join linked l on ci.cat_id = l.cat or ci.canonical_cat_id = l.cat
+       where (${at}::timestamptz is null or ci.created_at <= ${at}::timestamptz)
+    )
+    select ci.id, ci.cat_id, ci.canonical_cat_id, ci.supersedes_id, ci.created_at
+      from cat_identity ci
+     where ci.cat_id in (select cat from linked)
+       and (${at}::timestamptz is null or ci.created_at <= ${at}::timestamptz)`);
+  return r.rows.map((row) => ({
+    id: Number(row.id),
+    catId: Number(row.cat_id),
+    canonicalCatId: Number(row.canonical_cat_id),
+    supersedesId: row.supersedes_id === null ? null : Number(row.supersedes_id),
+    createdAt: new Date(row.created_at),
+  }));
+}
+
+/**
+ * The merges standing at `at`, from a timeline: {@link standing}'s rule in
+ * TypeScript (each cat's newest merge row entered by then decides, unless an
+ * undo on the same cat entered by then supersedes it).
+ */
+function standingAt(events: readonly MergeEvent[], at: Date): Map<number, MergeEvent> {
+  const t = at.getTime();
+  const newest = new Map<number, MergeEvent>();
+  for (const e of events) {
+    if (e.canonicalCatId === e.catId || e.createdAt.getTime() > t) continue;
+    const was = newest.get(e.catId);
+    if (
+      !was ||
+      e.createdAt.getTime() > was.createdAt.getTime() ||
+      (e.createdAt.getTime() === was.createdAt.getTime() && e.id > was.id)
+    ) {
+      newest.set(e.catId, e);
+    }
+  }
+  for (const [cat, m] of [...newest]) {
+    if (events.some((u) => u.supersedesId === m.id && u.catId === m.catId && u.createdAt.getTime() <= t)) newest.delete(cat);
+  }
+  return newest;
+}
+
+/** {@link canonicalCatOf}'s walk over standing merges: null for a loop or a chain too deep. */
+function canonicalIn(standingMerges: ReadonlyMap<number, MergeEvent>, start: number): number | null {
+  const path = [start];
+  let at = start;
+  for (let depth = 0; depth < MAX_MERGE_HOPS; depth++) {
+    const m = standingMerges.get(at);
+    if (!m || path.includes(m.canonicalCatId)) break;
+    at = m.canonicalCatId;
+    path.push(at);
+  }
+  return standingMerges.has(at) ? null : at;
+}
+
+/**
+ * What {@link catsFeeding} answers for `target` as of `at`, from a timeline
+ * ({@link mergeTimeline}) instead of the database: each cat merged into it
+ * then, through chains, with when it started counting. Pure. A test holds it
+ * to `catsFeeding({ asOf })` (catIdentity.timeline.test.ts).
+ */
+export function feedingAt(events: readonly MergeEvent[], target: number, at: Date): Map<number, Date> {
+  const standingMerges = standingAt(events, at);
+  const into = new Map<number, MergeEvent[]>();
+  for (const m of standingMerges.values()) into.set(m.canonicalCatId, [...(into.get(m.canonicalCatId) ?? []), m]);
+  const out = new Map<number, Date>();
+  const walk = (cat: number, depth: number, path: number[], since: Date | null) => {
+    if (depth >= MAX_MERGE_HOPS) return;
+    for (const m of into.get(cat) ?? []) {
+      if (path.includes(m.catId)) continue;
+      const s = since && since.getTime() > m.createdAt.getTime() ? since : m.createdAt;
+      if (canonicalIn(standingMerges, m.catId) !== null) out.set(m.catId, s);
+      walk(m.catId, depth + 1, [...path, m.catId], s);
+    }
+  };
+  walk(target, 0, [target], null);
+  return out;
+}
+
 /**
  * SQL that is true when `catId` names a cat that is not merged away (as of
  * `asOf`): the same answer as {@link catsMergedAway} for every id (the same
@@ -267,7 +376,7 @@ export function liveCats<F extends SelectedFields>(
  * raw-SQL reader passes its own column (`sql.raw("w.cat_id")`). An empty set
  * matches nothing. Keep only the rows whose feeding `counts(row)`.
  */
-export function observationCatIn(feedings: Iterable<Feeding>, col: SQLWrapper = observationsTable.catId): SQL {
+export function observationCatIn(feedings: Iterable<Pick<Feeding, "ids">>, col: SQLWrapper = observationsTable.catId): SQL {
   const ids = new Set<number>();
   for (const f of feedings) for (const id of f.ids) ids.add(id);
   if (ids.size === 0) return sql`false`;

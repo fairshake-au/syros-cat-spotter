@@ -7,7 +7,8 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
 
 import { daysAgo, moveKit } from "../test/moveKit";
 import { moveSighting } from "../test/moves";
-import { loadCatRecords } from "./observations";
+import { recordedMerge, recordedUndo } from "../test/merges";
+import { loadCatRecords, resolveAt } from "./observations";
 import { resolveCat } from "./resolve";
 
 // SYC-150 PR 3.1 (which-cat-is-which.md §5.8, §9.5; C11): what each cat
@@ -79,6 +80,77 @@ describe("spec test 2: after a move, each cat is as if the sighting had always b
     expect(await view(moved.mimi)).toEqual(neverHad);
     expect(await view(moved.agatha)).toEqual(await view(control.agatha));
     expect((await view(moved.agatha)).sterilised.confidence).toBe("likely");
+  });
+});
+
+/**
+ * A moment strictly between what came before and what comes after: the
+ * database keeps microseconds and a JavaScript date only milliseconds, so a
+ * row written in the same millisecond could otherwise land on either side.
+ */
+async function moment(): Promise<Date> {
+  await new Promise((r) => setTimeout(r, 5));
+  const at = new Date();
+  await new Promise((r) => setTimeout(r, 5));
+  return at;
+}
+
+/** What `view` shows, read as the record stood at `asOf`, both ways: loaded as of then, and from the history. */
+async function viewAsOf(catId: number, asOf: Date) {
+  const r = (await loadCatRecords([catId], db, { asOf })).get(catId)!;
+  const s = resolveCat(r.observations, r.evidenceOfLife, NOW);
+  const viaAsOf = {
+    sterilised: s.sterilised,
+    lifeStatus: s.lifeStatus,
+    lifeStatusConfidence: s.lifeStatusConfidence,
+    presumedDeceased: s.presumedDeceased,
+    notSeenSince: s.notSeenSince,
+    evidence: r.evidenceOfLife,
+  };
+  const history = (await loadCatRecords([catId], db, { withHistory: true })).get(catId)!;
+  return { viaAsOf, snapshot: s, viaHistory: resolveAt(history, asOf, NOW) };
+}
+
+describe("spec test 27: as of a moment before a move or a merge, the record as it stood then", () => {
+  it("a move", async () => {
+    const w = await world("mimi");
+    const mimiBefore = await view(w.mimi);
+    const agathaBefore = await view(w.agatha);
+    const before = await moment();
+    await moveSighting(w.s.id, w.agatha);
+    expect(await view(w.mimi)).not.toEqual(mimiBefore);
+
+    for (const [id, was] of [[w.mimi, mimiBefore], [w.agatha, agathaBefore]] as const) {
+      const then = await viewAsOf(id, before);
+      expect(then.viaAsOf).toEqual(was);
+      expect(then.viaHistory).toEqual(then.snapshot);
+    }
+    // And after it, the history agrees with the record now.
+    const after = await moment();
+    for (const id of [w.mimi, w.agatha]) {
+      const now = await viewAsOf(id, after);
+      expect(now.viaAsOf).toEqual(await view(id));
+      expect(now.viaHistory).toEqual(now.snapshot);
+    }
+  });
+
+  it("a merge, and inside the window of a merge undone since", async () => {
+    const w = await world("mimi");
+    const agathaBefore = await view(w.agatha);
+    const beforeMerge = await moment();
+    const mergeId = await recordedMerge(w.mimi, w.agatha);
+    const merged = await view(w.agatha);
+    expect(merged.evidence?.lastSightingAt).toEqual(T.moved);
+    const inside = await moment();
+    await recordedUndo(mergeId);
+
+    const then = await viewAsOf(w.agatha, beforeMerge);
+    expect(then.viaAsOf).toEqual(agathaBefore);
+    expect(then.viaHistory).toEqual(then.snapshot);
+    const during = await viewAsOf(w.agatha, inside);
+    expect(during.viaAsOf).toEqual(merged);
+    expect(during.viaHistory).toEqual(during.snapshot);
+    expect(await view(w.agatha)).toEqual(agathaBefore);
   });
 });
 

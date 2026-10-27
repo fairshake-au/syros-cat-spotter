@@ -15,7 +15,7 @@ import { loadTeamCats } from "./teamCatList";
 
 // Adversarial review of PR #375 (SYC-410): try to make an undone merge count.
 // Each test states what the spec says should happen; a red test is a finding.
-// Kept as regression tests. A11 is `it.fails` until PR 3.1 (spec §9.10).
+// Kept as regression tests. A11 passes since PR 3.1 built the dated timeline (spec §9.10).
 
 const NAME_PREFIX = "VitestIdentityAttack";
 const LETTERS = "bcdfghjkmpqrvwxz";
@@ -223,10 +223,11 @@ describe("attack: undone merges", () => {
     expect(await claimEligibility(db, { catId: mimi, deviceId: "vitest-attack-none" })).toEqual({ ok: false, code: "NOT_MET" });
   });
 
-  // Known gap, fixed in PR 3.1 (spec §9.10): records loaded with withHistory
-  // know only the merges standing at load time, so resolveAt can't see a
-  // merge undone since. Flip to `it` when PR 3.1's merge timeline lands.
-  it.fails("A11 resolveAt agrees with loadCatRecords({ asOf }) inside an undone merge's window (spec §9.10)", async () => {
+  // Was a known gap until PR 3.1 (spec §9.10): records loaded with
+  // withHistory knew only the merges standing at load time, so resolveAt
+  // couldn't see a merge undone since. The history now carries the dated
+  // merge timeline (lib/catIdentity.ts mergeTimeline, feedingAt).
+  it("A11 resolveAt agrees with loadCatRecords({ asOf }) inside an undone merge's window (spec §9.10)", async () => {
     // The CatHistory contract: resolveAt(records, T, now) is
     // loadCatRecords(…, { asOf: T }) then resolveCat, for records loaded at
     // or after T.
