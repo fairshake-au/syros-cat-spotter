@@ -373,13 +373,13 @@ export async function deriveCatStatuses(
     // batched query for every id in the page, never one per cat (§2.3).
     // A cat merged into another counts for her (SYC-410).
     const feeding = await catsFeeding(catIds, {}, exec);
-    const fed = [...new Set([...feeding.values()].flatMap((f) => f.ids))];
+    const feedingIds = [...new Set([...feeding.values()].flatMap((f) => f.ids))];
     const desexedRows = await exec
       .select({ catId: catUpdatesTable.catId })
       .from(catUpdatesTable)
       .where(
         and(
-          inArray(catUpdatesTable.catId, fed),
+          inArray(catUpdatesTable.catId, feedingIds),
           eq(catUpdatesTable.updateType, "desexed"),
         ),
       );
