@@ -41,3 +41,8 @@ Also done: suite fixes (ISLAND_ROLES, dataSpine wording, unfollowSticks wait fil
 
 ## Next
 Nothing; orchestrator review.
+
+## Review of #377 (Opus) folded in
+- M1 750dd0b9e search_path pinned; M2 6bf2b0fa4 stamp_txid; L1 0ffa13880; L2 25ca79578; L3 f8894c093; L4 fbfe89b24.
+- Reviewer's 12 attack tests all pass on fbfe89b24 (were 9 red).
+- Next: probes R1..R6, full suites, typecheck, PR body.
