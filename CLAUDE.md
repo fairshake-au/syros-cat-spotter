@@ -15,6 +15,13 @@ Added 2026-08-29 from retro: each of these was corrected by Samuel at least once
 
 ## Working rules
 
+Added 27 Oct 2026 from the project retrospective (Samuel chose each one):
+
+- **Ask Syros Cats before the spec, not after the build.** When a feature depends on how Syros Cats work (trapping, vet visits, funding requests, records, feeding), first write 3–5 plain questions for Samuel to send Jacky or Susan. The spec waits for their answers, which go into the Syros Cats fact sheet (SYC ticket "Syros Cats fact sheet"). Every such spec quotes it. Rework from guessing: the trapping round form, the sterilisation-request premise, records import, coat colours.
+- **Post-launch hold, 1–14 Nov 2026:** fixes, small polish and the follow-up tidy only. No new features unless Samuel says so for that feature. What gets built next is judged against the launch success measures.
+- **At most 5 builder sessions at once.** Shared areas have one owner at a time: the app's word files (`lib/i18n.ts`, `strings/*.ts`), dashboard layout (`teamPages/layout.ts`), and database migrations. The /next coordinator queues the rest and hands out migration numbers. A session never picks its own migration number.
+- **Main requires the "Test and build" check** (branch protection since 27 Oct 2026, admins included). A skipped run on a draft does not count; mark ready and wait for a real pass.
+
 - Verify any generated PDF/document renders correctly (margins, backgrounds) BEFORE handing over — Samuel caught a white-border bug that should have been caught in preview.
 - Standard pipeline applies (spec → adversarial review → approval → plan → implement).
 - **Open every PR as a draft** (`gh pr create --draft`); CI skips drafts (16 Oct 2026, to save Actions minutes). Run the affected tests locally before pushing, fold in review fixes while it's a draft, then `gh pr ready` once — that runs CI. A skipped check (left over from the draft) is not a pass: wait for a run that succeeded. If CI fails after ready, `gh pr ready --undo`, fix it as a draft, and mark it ready again. A stacked PR stays a draft until the PR below it merges, so rebasing a stack doesn't re-run every PR in it.
