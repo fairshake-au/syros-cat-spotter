@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { TeamCatView, TeamStatement } from "../teamCatView";
 import { HISTORY_SHOWN, renderCatPage } from "./catPages";
 import { renderPage } from "./layout";
@@ -450,18 +450,6 @@ describe("renderPage chrome (SYC-219)", () => {
 // ── The small map of the cat's sightings (spec §7.1, plan Task 1.4.2) ───────
 
 describe("the small sightings map", () => {
-  // A throwaway key, only so the map pictures' tokens can be signed here.
-  const KEY = "vitest-catmap-key-0123456789abcdef-0123456789";
-  let saved: string | undefined;
-  beforeAll(() => {
-    saved = process.env["TEAM_SESSION_KEYS"];
-    process.env["TEAM_SESSION_KEYS"] = KEY;
-  });
-  afterAll(() => {
-    if (saved === undefined) delete process.env["TEAM_SESSION_KEYS"];
-    else process.env["TEAM_SESSION_KEYS"] = saved;
-  });
-
   /** `n` sightings round Ermoupoli's harbour, newest first. */
   const sightings = (n: number) =>
     Array.from({ length: n }, (_, i) => ({
@@ -481,13 +469,20 @@ describe("the small sightings map", () => {
     return renderCatPage(v, "Sam", { now: NOW });
   };
 
-  /** The markers drawn in one picture band (the page draws one band per screen width). */
-  const pins = (html: string) => {
-    const band = /<div class="mapband b179"[\s\S]*?<\/div>/.exec(html)![0];
-    return [...band.matchAll(/<a class="pin seen" style="[^"]*" href="(?:\?history=all)?#(?:sg|run)-(\d+)" title="([^"]*)"><span class="pinnum" aria-hidden="true">(\d+)<\/span>/g)].map(
-      (m) => ({ id: Number(m[1]), title: m[2]!, n: Number(m[3]) }),
-    );
+  /** The small map's data (SYC-705: MapLibre; data-map is what dashboard-pin.js draws). */
+  const mapOf = (html: string) => {
+    const box = /<div class="catmap"><div class="map" data-map="([^"]*)"/.exec(html);
+    expect(box, "the small map's box").not.toBeNull();
+    return JSON.parse(box![1]!.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"));
   };
+  /** Its markers: each one's row id, label and number. */
+  const pins = (html: string) =>
+    (mapOf(html).markers as { href: string; label: string; n: number; look: string }[]).map((m) => {
+      expect(m.look).toBe("seen");
+      const id = /^(?:\?history=all)?#(?:sg|run)-(\d+)$/.exec(m.href);
+      expect(id, m.href).not.toBeNull();
+      return { id: Number(id![1]), title: m.label, n: m.n };
+    });
 
   it("numbers every sighting in time order, 1 the oldest, each linking to its row", () => {
     const html = withSightings(4);
@@ -501,14 +496,21 @@ describe("the small sightings map", () => {
     for (const p of pins(html)) expect(html).toContain(`<li class="hrow sighting" id="sg-${p.id}">`);
   });
 
-  it("is the server-joined map picture: no script, and no position in any address", () => {
+  it("is the MapLibre map, fitted to the sightings: no inline script, and no position in any address", () => {
     const html = withSightings(4);
     const map = /<div class="catmap">[\s\S]*?<\/div><p class="attrib">/.exec(html)![0];
     expect(map).not.toContain("<script");
-    expect(map).toMatch(/<img src="\/api\/team\/map-tiles\/[^"]+"/);
+    expect(map).toContain('<p class="mapnojs">');
+    // The panel holds the #map anchor; the map box has no id of its own.
+    expect(map).not.toContain('id="map"');
+    const d = mapOf(html);
+    expect(d.mode).toBe("view");
+    expect(d.fit).toHaveLength(4);
     for (const m of map.matchAll(/(?:href|src|action)="([^"]*)"/g)) expect(m[1]).not.toMatch(/\d+\.\d{3}/);
     // No zoom, pan or area buttons on the small map.
     expect(html).not.toContain('class="mapmove"');
+    // Its files load in the head (map.ts mapPageAssets).
+    expect(html).toMatch(/<script src="\/api\/team\/assets\/dashboard-pin\.[0-9a-f]{12}\.js" defer>/);
   });
 
   it("links to the full island Map focused on this cat, by its number only (PR 1.5)", () => {
@@ -527,18 +529,16 @@ describe("the small sightings map", () => {
     expect(html).toContain("Newest 30 of 34");
   });
 
-  it("sightings at both ends of Syros: every one is on the map, or the page says how many aren't (review finding 3)", () => {
+  it("sightings at both ends of Syros: both are on the map, fitted, and nothing is said missing (review finding 3)", () => {
     const v = view(0);
     v.sightings = [
       { id: 2, lat: 37.51, lng: 24.9, at: "2026-10-10T08:00:00Z", photoUrl: null, extraPhotos: [], mixedCats: false },
       { id: 1, lat: 37.37, lng: 24.92, at: "2026-10-01T08:00:00Z", photoUrl: null, extraPhotos: [], mixedCats: false },
     ];
     const html = renderCatPage(v, "Sam", { now: NOW });
-    const drawn = pins(html).length;
-    if (drawn < 2) expect(html).toContain(`${2 - drawn} ${2 - drawn === 1 ? "is" : "are"} too far from the others`);
-    else expect(html).not.toContain("too far from the others");
-    // Too far apart for one picture at the widest zoom: one is drawn, and the other is said.
-    expect(drawn).toBe(1);
+    expect(pins(html)).toHaveLength(2);
+    expect(mapOf(html).fit).toEqual([[37.37, 24.92], [37.51, 24.9]]);
+    expect(html).not.toContain("off Syros");
   });
 
   it("a sighting off Syros is said, never silently dropped", () => {
@@ -548,23 +548,14 @@ describe("the small sightings map", () => {
       { id: 1, lat: 33.45, lng: -112.07, at: "2026-10-01T08:00:00Z", photoUrl: null, extraPhotos: [], mixedCats: false },
     ];
     const html = renderCatPage(v, "Sam", { now: NOW });
-    expect(pins(html).length).toBeLessThan(2);
-    expect(html).toContain("1 is too far from the others to fit on this map; it is in History.");
+    // The map shows Syros only (map.ts MAP_BOX): the one off it is left off, and said.
+    expect(pins(html)).toEqual([{ id: 2, title: expect.stringMatching(/^Sighting 2, /), n: 2 }]);
+    expect(mapOf(html).fit).toEqual([[37.44, 24.94]]);
+    expect(html).toContain("1 was seen off Syros, so it isn't on this map; it is in History.");
   });
 
   it("has no map with no sightings", () => {
     expect(renderCatPage(view(0), "Sam", { now: NOW })).not.toMatch(/class="[^"]*catmap/);
-  });
-
-  it("says the map isn't available, and draws the rest of the page, when the picture can't be signed", () => {
-    delete process.env["TEAM_SESSION_KEYS"];
-    try {
-      const html = withSightings(2);
-      expect(html).toContain("The map isn't available right now. The sightings are in History.");
-      expect(html).toContain('<li class="hrow sighting" id="sg-1002">');
-    } finally {
-      process.env["TEAM_SESSION_KEYS"] = KEY;
-    }
   });
 });
 
@@ -659,20 +650,10 @@ describe("the page's one History list (SYC-602 PR 2)", () => {
   });
 
   describe("each map marker lands on something open", () => {
-    const KEY = "vitest-catmap-key-0123456789abcdef-0123456789";
-    let saved: string | undefined;
-    beforeAll(() => {
-      saved = process.env["TEAM_SESSION_KEYS"];
-      process.env["TEAM_SESSION_KEYS"] = KEY;
-    });
-    afterAll(() => {
-      if (saved === undefined) delete process.env["TEAM_SESSION_KEYS"];
-      else process.env["TEAM_SESSION_KEYS"] = saved;
-    });
-    /** Marker hrefs by sighting, from the picture's first band. */
+    /** Marker hrefs by sighting, from the small map's data (SYC-705: dashboard-pin.js draws them). */
     const markers = (html: string) => {
-      const band = /<div class="mapband b179"[\s\S]*?<\/div>/.exec(html)![0];
-      return [...band.matchAll(/<a class="pin seen[^"]*"[^>]*href="([^"]*)"/g)].map((m) => m[1]!.replace(/&amp;/g, "&"));
+      const box = /<div class="catmap"><div class="map" data-map="([^"]*)"/.exec(html)![1]!;
+      return (JSON.parse(box.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")).markers as { href: string }[]).map((m) => m.href);
     };
     /** Sightings 903 (a clipped ear: its own row) and 902, 901 (routine: one run). */
     const cat = () => {

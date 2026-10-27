@@ -34,8 +34,7 @@ import { renderCatCard, type IssueStrip } from "./catCard";
 import { renderCatTabs, type CatPanel } from "./catTabs";
 
 export type { Shown };
-import { fitView, mergeSameSpot, renderMap, type MapMarker } from "./map";
-import { BANDS, pointOnView } from "../mapTiles/geometry";
+import { inMapBox, mapPageAssets, mergeSameSpot, renderMap, type MapMarker } from "./map";
 import { LIFE, renderCatActions } from "./catActions";
 export { LIFE };
 import { placeLabel } from "../areas/placeLabel";
@@ -358,38 +357,39 @@ function galleryItem(
 export const MAP_SIGHTINGS = 30;
 
 /**
- * The cat's sightings on the same composed map picture as the rest of the
- * dashboard, numbered in time order (1 is the oldest shown), one marker per
- * spot, linking to the newest sighting there. No script; no position in any address.
+ * The cat's sightings on the dashboard's map (MapLibre since SYC-705),
+ * numbered in time order (1 is the oldest shown), one marker per spot,
+ * linking to the newest sighting there; the map fits them all. No position
+ * in any address.
+ *
+ * "N not on this map": the map can only show Syros and a little sea round it
+ * (map.ts MAP_BOX, map-core.js's maxBounds), so a sighting recorded off the
+ * island can't be in view, however the map is fitted. Those are left off the
+ * map, and counted. Every other sighting is in view.
  */
+/** Does the cat page draw the sightings map (and so load the map's scripts, under the wider header)? */
+export const hasSightingsMap = (v: Pick<TeamCatView, "sightings">): boolean => v.sightings.length > 0;
+
 function sightingsMap(v: TeamCatView, island: boolean, hrefOf: (sightingId: number) => string): string {
-  if (v.sightings.length === 0) return "";
+  if (!hasSightingsMap(v)) return "";
   const shown = v.sightings.slice(0, MAP_SIGHTINGS).reverse();
+  const numbered = shown.map((s, i) => ({ s, n: i + 1 }));
+  const onMap = numbered.filter(({ s }) => inMapBox(s));
   const markers: MapMarker[] = mergeSameSpot(
-    shown.map((s, i) => ({
+    onMap.map(({ s, n }) => ({
       lat: s.lat,
       lng: s.lng,
-      n: i + 1,
+      n,
       look: "seen",
-      label: `Sighting ${i + 1}, ${when(s.at)}`,
+      label: `Sighting ${n}, ${when(s.at)}`,
       // Its row in History, the run line holding it, or the full list (historyShown).
       href: hrefOf(s.id),
     })),
   );
   const more = v.sightings.length > shown.length;
-  const view = fitView(shown);
-  let map: string;
-  try {
-    // The Map panel supplies the #map anchor before its heading, so the map keeps no id of its own.
-    map = renderMap({ mode: "view", view, markers, controls: false }).replace(' id="map"', "");
-  } catch (e) {
-    // Only a picture that can't be signed (no session key) is shown as "not
-    // available", with the rest of the page (spec §13). Anything else is a bug.
-    if (!(e instanceof Error && e.message.includes("TEAM_SESSION_KEYS"))) throw e;
-    return '<p class="hint catmap">The map isn\'t available right now. The sightings are in History.</p>';
-  }
-  // Sightings too far apart for one picture are said, never silently dropped.
-  const onMap = shown.filter((s) => pointOnView(view, BANDS[0].size, s) !== null).length;
+  // The Map panel supplies the #map anchor before its heading, so the map keeps no id of its own.
+  const map = renderMap({ mode: "view", fit: onMap.map(({ s }) => s), markers, anchor: false });
+  const off = shown.length - onMap.length;
   // The caption (spec §3.3): where the cat was last seen, in the same words as
   // the Last seen fact, and how many of the sightings the map shows.
   const place = esc(placeLabel(v.sightings[0]!));
@@ -403,8 +403,8 @@ function sightingsMap(v: TeamCatView, island: boolean, hrefOf: (sightingId: numb
     `<p class="mapcap"><span>${caption}</span>${
       island ? `<a class="tap" href="/api/team/cats?view=map&amp;focus=${v.cat.id}">Open the map</a>` : ""
     }</p>` +
-    (onMap < shown.length
-      ? `<p class="hint">${shown.length - onMap} ${shown.length - onMap === 1 ? "is too far from the others to fit on this map; it is" : "are too far from the others to fit on this map; they are"} in History.</p>`
+    (off > 0
+      ? `<p class="hint">${off} ${off === 1 ? "was seen off Syros, so it isn't on this map; it is" : "were seen off Syros, so they aren't on this map; they are"} in History.</p>`
       : "") +
     "</div>"
   );
@@ -568,6 +568,8 @@ export function renderCatPage(
     // The card holds the <h1> (the name and its mark), so it takes the heading's place.
     heading: card,
     mainClass: "wide",
+    // The sightings' small map (SYC-705, MapLibre) is the page's only script.
+    ...(hasSightingsMap(v) ? mapPageAssets() : {}),
     body: renderCatTabs(panels),
   });
 }

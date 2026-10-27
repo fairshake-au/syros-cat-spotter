@@ -10,7 +10,7 @@ export function expectMapNote(html: string): void {
   expect(outsideDetails).toContain('<p class="hint">This map is only for the team.</p>');
   expect(outsideDetails).not.toContain("never tells a map company");
   expect(html).toMatch(
-    /<details class="hownote"><summary>Why does the map work like this\?<\/summary><p class="hint">Our server fetches the map pictures, so your browser never tells a map company where you are looking\.<\/p><\/details>/,
+    /<details class="hownote"><summary>Why does the map work like this\?<\/summary><p class="hint">Your browser downloads the whole Syros map from our own server, so no map company and no request ever learns which part of the island you are looking at\.<\/p><\/details>/,
   );
   // The note is not repeated, and the old one-paragraph version is gone.
   expect(html.match(/This map is only for the team\./g)).toHaveLength(1);
