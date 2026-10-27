@@ -73,6 +73,7 @@ const ALLOWLIST: Record<string, readonly string[]> = {
   "artifacts/api-server/src/lib/catNames.ts": ["catNamed: name taken; a merged-away cat's name stays taken (spec 4.2)"],
   "artifacts/api-server/src/lib/claiming.ts": [
     "claimEligibility: one cat by id; a merged-away cat is already refused through canonicalCatOf",
+    "hasMetCat: the canonical cat's name_pending, one cat by id (D3's naming exception)",
   ],
   "artifacts/api-server/src/lib/colonyCats.ts": ["placeCats: lock by id before a write"],
   "artifacts/api-server/src/lib/commitStatement.ts": ["commitStatement: lock by id before a write"],

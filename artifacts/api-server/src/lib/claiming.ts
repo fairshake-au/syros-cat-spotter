@@ -123,8 +123,8 @@ export async function hasMetCat(exec: DbOrTx, catId: number, deviceId: string, p
   // `name` adds one more (D3): after "It's a new cat" with "Let spotters
   // name it", the spotter whose photo started the cat may name it. The
   // sighting's newest move made the cat, let spotters name it, and filed it
-  // where it still is. Callers ask about naming only while the name is
-  // pending (routes/cats.ts).
+  // where it still is. Only while the cat's name is pending, read here
+  // rather than left to the callers (review of #380, finding 4).
   const met = await exec.execute<{ met: boolean }>(sql`
     select exists (
       select 1
@@ -139,7 +139,9 @@ export async function hasMetCat(exec: DbOrTx, catId: number, deviceId: string, p
                                   and mv.reason not in ('merged', 'merge_undone')))
               or (m.choice is null and m.chosen_cat_id in (${same}))
               or (m.choice in (${choices}) and m.chosen_cat_id in (${same})))
-    ) or (${purpose} = 'name' and exists (
+    ) or (${purpose} = 'name'
+      and exists (select 1 from cats named where named.id = ${canonical} and named.name_pending)
+      and exists (
       select 1
         from sightings s
         join lateral (select mv.made_new_cat, mv.let_spotters_name, mv.to_cat_id

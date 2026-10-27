@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { db, pool, sightingMatchesTable } from "@workspace/db";
+import { catsTable, db, pool, sightingMatchesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: { chat: { completions: { create: vi.fn() } } },
@@ -14,6 +15,13 @@ import { hasMetCat } from "./claiming";
 // for naming and claiming, after moves and merges.
 
 const kit = moveKit("VitestMoveMet");
+
+/** A cat made by "It's a new cat" with "Let spotters name it": it shows its SYR number until named. */
+async function pendingCat(): Promise<number> {
+  const id = await kit.cat();
+  await db.update(catsTable).set({ namePending: true }).where(eq(catsTable.id, id));
+  return id;
+}
 beforeAll(kit.cleanup);
 afterAll(async () => {
   await kit.cleanup();
@@ -73,20 +81,23 @@ describe("C10 / §9.9: hasMetCat compares canonical cats and leaves out the team
 
   it("D3: after 'It's a new cat' with 'Let spotters name it', the spotter may name it but not claim it", async () => {
     const c = await matched("suggested", "mimi");
-    const made = await kit.cat();
+    const made = await pendingCat();
     await moveSighting(c.s.id, made, { madeNewCat: true, letSpottersName: true });
     expect(await hasMetCat(db, made, c.spotter, "name")).toBe(true);
     expect(await hasMetCat(db, made, c.spotter, "claim")).toBe(false);
+    // Once it has a name, the exception is over.
+    await db.update(catsTable).set({ namePending: false }).where(eq(catsTable.id, made));
+    expect(await hasMetCat(db, made, c.spotter, "name")).toBe(false);
 
     // Without the tick, nobody may.
     const d = await matched("suggested", "mimi");
-    const madeQuietly = await kit.cat();
+    const madeQuietly = await pendingCat();
     await moveSighting(d.s.id, madeQuietly, { madeNewCat: true });
     expect(await hasMetCat(db, madeQuietly, d.spotter, "name")).toBe(false);
 
     // Moved on again since: the newest move decides.
     const e = await matched("suggested", "mimi");
-    const first = await kit.cat();
+    const first = await pendingCat();
     await moveSighting(e.s.id, first, { madeNewCat: true, letSpottersName: true });
     await moveSighting(e.s.id, e.agatha);
     expect(await hasMetCat(db, e.agatha, e.spotter, "name")).toBe(false);
@@ -109,7 +120,7 @@ describe("hasMetCat after moving away and back (review R4)", () => {
 
   it("a sighting moved onto a cat 'Let spotters name it' made gives its own spotter no naming right", async () => {
     const c = await matched("suggested", "mimi");
-    const fresh = await kit.cat();
+    const fresh = await pendingCat();
     await moveSighting(c.s.id, fresh, { madeNewCat: true, letSpottersName: true });
     const someone = kit.device();
     const other = await kit.sighting(c.agatha, someone);
