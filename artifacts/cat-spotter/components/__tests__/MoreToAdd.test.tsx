@@ -130,6 +130,19 @@ describe('MoreToAdd', () => {
     expect(Array.from(document.querySelectorAll('[role="button"], button')).some((e) => e.textContent?.trim() === en.moreToAddButton)).toBe(false);
   });
 
+  it('a moved spot past the 30 days shows the line, with no button and no question, even if the ear tip is open', () => {
+    state.data = {
+      earTip: { state: 'open' },
+      sightings: [
+        { sightingId: 41, takenAt: '2026-08-03T09:00:00.000Z', photoUrl: null, open: { foodAndWater: false, note: false }, filedByTeam: true, windowOver: true },
+      ],
+    };
+    const { container } = renderCard();
+    expect(container.querySelector('[data-testid="filed-by-team"]')).not.toBeNull();
+    expect(container.textContent).not.toContain(en.moreToAddAsk);
+    expect(Array.from(document.querySelectorAll('[role="button"], button')).some((e) => e.textContent?.trim() === en.moreToAddButton)).toBe(false);
+  });
+
   it('shows nothing when nothing is open', () => {
     state.data = { earTip: { state: 'checked' }, sightings: [] };
     const { container } = renderCard();

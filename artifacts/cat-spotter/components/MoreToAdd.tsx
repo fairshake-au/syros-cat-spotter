@@ -47,7 +47,8 @@ export function MoreToAdd({ catId, catName }: { catId: number; catName: string }
 
   // A spot the team moved here may have nothing left to add: it is listed for
   // its "filed under" line (SYC-150 PR 3.3), with no button.
-  const canAdd = (s: OpenSighting) => s.open.foodAndWater || s.open.note || data.earTip.state !== 'checked';
+  const canAdd = (s: OpenSighting) =>
+    s.windowOver !== true && (s.open.foodAndWater || s.open.note || data.earTip.state !== 'checked');
   const anyToAdd = data.sightings.some(canAdd);
 
   return (

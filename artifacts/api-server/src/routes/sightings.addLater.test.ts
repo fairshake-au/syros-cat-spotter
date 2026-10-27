@@ -463,6 +463,31 @@ describe("open-sightings: a spot the team filed under this cat (SYC-150 PR 3.3, 
     expect(item?.filedByTeam).toBe(true);
   });
 
+  it("outlives the 30 days: listed with the line, nothing to add; an old spot nobody moved stays out", async () => {
+    const mimi = await seedCat();
+    const agatha = await seedCat();
+    const device = `${DEVICE}-${uid()}`;
+    await sightingOf(mimi, `${DEVICE}-${uid()}`, 60);
+    const old = await sightingOf(mimi, device, 45);
+    const plain = await sightingOf(agatha, device, 50);
+    expect((await moveTo(mimi, agatha, old.id)).ok).toBe(true);
+    const items = (await openSightings(agatha, device)).body.sightings as (Item & { windowOver?: boolean; open: { foodAndWater: boolean; note: boolean } })[];
+    const item = items.find((x) => x.sightingId === old.id);
+    expect(item).toMatchObject({ filedByTeam: true, windowOver: true, open: { foodAndWater: false, note: false } });
+    expect(items.some((x) => x.sightingId === plain.id)).toBe(false);
+  });
+
+  it("says nothing once the spot is back on the cat the spotter first filed it under", async () => {
+    const { mimi, agatha, device, spot } = await setUp();
+    await sightingOf(agatha, `${DEVICE}-${uid()}`, 8);
+    expect((await moveTo(mimi, agatha, spot.id)).ok).toBe(true);
+    expect((await moveTo(agatha, mimi, spot.id)).ok).toBe(true);
+    const onMimi = (await openSightings(mimi, device)).body.sightings as Item[];
+    const item = onMimi.find((x) => x.sightingId === spot.id);
+    expect(item).toBeDefined();
+    expect(item).not.toHaveProperty("filedByTeam");
+  });
+
   it("is off once it has moved on again, and the old cat's page doesn't carry it", async () => {
     const { mimi, agatha, device, spot } = await setUp();
     const third = await seedCat();

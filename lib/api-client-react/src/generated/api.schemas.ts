@@ -970,6 +970,12 @@ export interface OpenSighting {
      * server, which means no.
      */
   filedByTeam?: boolean;
+  /**
+     * The 30 days for adding details are over, so there is nothing to
+     * add; the spot is listed only for the "filed under" line. Only
+     * ever `true`, absent otherwise.
+     */
+  windowOver?: boolean;
 }
 
 export interface MyOpenSightings {

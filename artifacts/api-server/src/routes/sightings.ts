@@ -20,7 +20,7 @@ import {
   type SuggestedMatch,
   type PICKED_FROM,
 } from "@workspace/db";
-import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, not, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, not, or, sql, type SQL } from "drizzle-orm";
 import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
@@ -1542,6 +1542,14 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
     return;
   }
 
+  const windowStart = new Date(Date.now() - ANSWER_WINDOW_MS);
+  // A spot the team moved onto this cat is listed whatever its age (the line
+  // "next time they open it", which-cat-is-which.md §5.9, D4); the add-details
+  // window still decides whether there is anything to add.
+  const movedHere = db
+    .select({ id: sightingMovesTable.sightingId })
+    .from(sightingMovesTable)
+    .where(and(eq(sightingMovesTable.toCatId, catId), isNull(sightingMovesTable.mergeId)));
   const recent = await db
     .select({
       id: sightingsTable.id,
@@ -1556,7 +1564,7 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
         eq(sightingsTable.deviceId, deviceId),
         eq(sightingsTable.catId, catId),
         eq(sightingsTable.status, "resolved"),
-        gte(sightingsTable.createdAt, new Date(Date.now() - ANSWER_WINDOW_MS)),
+        or(gte(sightingsTable.createdAt, windowStart), inArray(sightingsTable.id, movedHere)),
       ),
     )
     .orderBy(desc(sightingsTable.createdAt));
@@ -1584,22 +1592,32 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
   // cat (not a merge's), so a later move away or a merge takes the line off.
   // Who moved it and why never leave the server.
   const newestMove = new Map<number, { toCatId: number; mergeId: number | null }>();
+  // Where each spot was first filed by its spotter: a spot back there says nothing.
+  const firstFrom = new Map<number, number>();
   if (recent.length > 0) {
     const moves = await db
       .select({
         sightingId: sightingMovesTable.sightingId,
+        fromCatId: sightingMovesTable.fromCatId,
         toCatId: sightingMovesTable.toCatId,
         mergeId: sightingMovesTable.mergeId,
       })
       .from(sightingMovesTable)
       .where(inArray(sightingMovesTable.sightingId, recent.map((r) => r.id)))
       .orderBy(asc(sightingMovesTable.id));
-    for (const m of moves) newestMove.set(m.sightingId, m);
+    for (const m of moves) {
+      newestMove.set(m.sightingId, m);
+      if (!firstFrom.has(m.sightingId)) firstFrom.set(m.sightingId, m.fromCatId);
+    }
   }
 
   const sightings = recent
     .map((r) => {
       const kinds = new Set(answered.filter((a) => a.sightingId === r.id).map((a) => a.kind));
+      const newest = newestMove.get(r.id);
+      // The team filed it here, and it isn't back where the spotter first filed it.
+      const filed = newest?.toCatId === catId && newest.mergeId === null && firstFrom.get(r.id) !== catId;
+      const windowOver = r.createdAt < windowStart;
       return {
         sightingId: r.id,
         takenAt: r.createdAt.toISOString(),
@@ -1607,13 +1625,20 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
           r.photoId != null && r.publicId != null ? { id: r.photoId, publicId: r.publicId } : null,
           hidden,
         ),
-        open: { foodAndWater: !kinds.has("food_and_water"), note: !kinds.has("note") },
+        open: windowOver
+          ? { foodAndWater: false, note: false }
+          : { foodAndWater: !kinds.has("food_and_water"), note: !kinds.has("note") },
         // Only ever `true`, and absent otherwise: the payload of a spot nobody
         // moved is byte for byte what it was (publicPayload.p6.test.ts).
-        ...(newestMove.get(r.id)?.toCatId === catId && newestMove.get(r.id)?.mergeId === null ? { filedByTeam: true as const } : {}),
+        ...(filed ? { filedByTeam: true as const } : {}),
+        // Over the add-details window: nothing to add, whatever the ear-tip state.
+        ...(windowOver ? { windowOver: true as const } : {}),
       };
     })
-    .filter((s) => s.open.foodAndWater || s.open.note || ear.state !== "checked" || s.filedByTeam === true);
+    .filter(
+      (s) =>
+        s.filedByTeam === true || (s.windowOver !== true && (s.open.foodAndWater || s.open.note || ear.state !== "checked")),
+    );
 
   res.json({
     earTip:

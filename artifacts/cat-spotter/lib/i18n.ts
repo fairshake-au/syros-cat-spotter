@@ -2677,7 +2677,7 @@ const fr: Dict = {
   moreToAddAsk: 'Quelque chose à ajouter ?',
   moreToAddButton: 'Dis-nous-en plus',
   // Draft for Johnny's checking pack (SYC-150 PR 3.3, SYC-283).
-  filedByTeam: 'Syros Cats ont classé cette photo sous {name}',
+  filedByTeam: 'Syros Cats ont classé cette observation sous {name}',
   moreToAddSheetTitle: 'Ton observation du {date}',
   earTipYouSaid: 'Tu as répondu : {answer}',
   earTipChange: 'Changer ma réponse',
