@@ -290,10 +290,11 @@ const TABLE: Record<string, Row> = {
   // SYC-396 PR 3.1b: the Vet settings page and its one form route. Team-only.
   "GET /api/team/vet-settings": { why: "edit_vet_settings: island-only, so every cat guardian gets the 403" },
   "POST /api/team/vet-settings": { why: "edit_vet_settings: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
-  // SYC-383: the App switches page and its two form routes. Team-only.
+  // SYC-383: the App switches page and its three form routes. Team-only.
   "GET /api/team/app-switches": { why: "edit_app_switches: island-only, so every cat guardian gets the 403" },
   "POST /api/team/app-switches/donation": { why: "edit_app_switches: island-only; the walk's empty address is a 400 for the team, and changes nothing" },
   "POST /api/team/app-switches/fact": { why: "edit_app_switches: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
+  "POST /api/team/app-switches/extra-photos": { why: "edit_app_switches: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   "GET /api/team/settings": { why: "Settings (SYC-694): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "GET /api/team/words": { why: "Words we use (SYC-739): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony on the colony it goes into, or for a take-out the one it leaves, from the record (PR 4.2); an unreadable form has no colony" },

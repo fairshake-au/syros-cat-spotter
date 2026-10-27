@@ -5,8 +5,9 @@ import { pageIntro, howFold, whatHappens } from "./help";
 import { FACT_WORDS } from "./appSwitchFacts";
 import { DEFAULT_DONATE_ADDRESS, EXPECTED_DONATE_HOST } from "../appSwitches";
 
-// The App switches page (SYC-383): the "Help feed a cat" button and the
-// starter facts, which the team can switch without a new app. Team-only
+// The App switches page (SYC-383): the "Help feed a cat" button, the extra
+// photo boxes on New spot (SYC-415) and the starter facts, which the team can
+// switch without a new app. Team-only
 // (`edit_app_switches`). No history: Samuel chose that on 24 Oct 2026.
 
 export const APP_SWITCHES_PATH = "/api/team/app-switches";
@@ -14,6 +15,8 @@ export const APP_SWITCHES_PATH = "/api/team/app-switches";
 export const APP_SWITCHES_DONE: Record<string, string> = {
   on: "The button is on, at the address below.",
   off: "The button is off. Visitors see the words without a button.",
+  photosOn: "The extra photo boxes are on.",
+  photosOff: "The extra photo boxes are off.",
   shown: "That fact is now shown in the app.",
   hidden: "That fact is now hidden in the app.",
 };
@@ -24,6 +27,8 @@ export interface AppSwitchesPageOptions {
   donateUrl: string | null;
   /** Fact ids that are hidden now. */
   hidden: ReadonlySet<string>;
+  /** Whether the New spot screen shows the extra photo boxes. */
+  extraPhotosOn: boolean;
   /** The address form sent back with a problem: what was typed, and why. */
   again?: { typed: string; message: string };
   /** A change that just went through. */
@@ -62,6 +67,20 @@ function donationSection(o: AppSwitchesPageOptions): string {
   );
 }
 
+function extraPhotosSection(on: boolean): string {
+  return (
+    '<h2 id="extra-photos">Extra photos on New spot</h2>' +
+    `<p class="hbig"><strong>${on ? "On" : "Off"}</strong></p>` +
+    (on
+      ? '<p class="hint">After the first photo, spotters see two more boxes: "Add the face" and "Add the whole body". Both are optional.</p>'
+      : '<p class="hint">Spotters send one photo per spot. Extra photos already sent still show on the cat\'s page.</p>') +
+    `<form method="post" action="${APP_SWITCHES_PATH}/extra-photos">` +
+    `<input type="hidden" name="on" value="${on ? "0" : "1"}">` +
+    `<button type="submit" class="${on ? "secondary" : "primary"}">${on ? "Turn the extra photos off" : "Turn the extra photos on"}</button>` +
+    "</form>"
+  );
+}
+
 function factRow(id: string, text: string, n: number, hidden: boolean): string {
   return (
     `<li id="${esc(id)}"><p><strong>${n}.</strong> ${esc(text)}</p>` +
@@ -82,14 +101,16 @@ export function renderAppSwitchesPage(o: AppSwitchesPageOptions): string {
     beforeTitle: backLink(SETTINGS_PATH, "Settings"),
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
-      pageIntro("Two things the public app shows, which you can change without a new version of the app.") +
+      pageIntro("Three things the public app shows, which you can change without a new version of the app.") +
       whatHappens("These switches change the public app for everyone. Each phone sees a change within a couple of minutes, the next time the app is opened. Agree a change with the team first.", { warn: true }) +
       howFold([
         'Help feed a cat button: while a visitor waits for a photo match, the app asks them not to feed the cats. It also shows "€1 feeds a cat for a day. €30 feeds one for a month." Those are the figures. With the button off, visitors see the words with no button and no figures.',
+        'Extra photos: when someone spots a cat, the app can ask for a photo of its face and one of its whole body as well as the first photo. They help the team tell look-alike cats apart. Turning this off hides the two boxes; anyone halfway through a spot loses the extra photos they hadn\'t sent yet.',
         'Starter facts: short facts about street cats that the app shows while it looks for a match. Hide a fact to stop it appearing.',
         "A change reaches each phone within a couple of minutes, the next time the app is opened.",
       ], { words: false }) +
       donationSection(o) +
+      extraPhotosSection(o.extraPhotosOn) +
       `<h2 id="facts">Starter facts</h2><p class="hint">${shownCount} of ${FACT_WORDS.length} shown. These appear while the app looks for a match.</p>` +
       "<ul>" +
       FACT_WORDS.map((f, i) => factRow(f.id, f.text, i + 1, o.hidden.has(f.id))).join("") +
